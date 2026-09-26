@@ -11,6 +11,7 @@ import {
     DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
     PNL_ONLY_STOP_RULE_KINDS,
+    PolicySizing,
     resolveTradeRisk,
     type RungSizing,
     shouldStopDay,
@@ -622,7 +623,12 @@ export function computeEvalStateValue(
         );
     }
 
-    const dayPolicy = computedDayPolicy(computeRisk, slots, stopRule);
+    const dayPolicy = computedDayPolicy(
+        computeRisk,
+        slots,
+        stopRule,
+        PolicySizing.ContractCapped,
+    );
 
     return {
         dayPolicy,

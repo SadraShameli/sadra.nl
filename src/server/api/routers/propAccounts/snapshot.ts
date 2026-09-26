@@ -1,16 +1,22 @@
-import { TRPCError } from '@trpc/server';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
 import {
     AccountEventKind,
     AccountStage,
+    accountStageLabel,
     accountStageOn,
     type AccountStageStarts,
+    checkSnapshotEntry,
     compareText,
+    fundedSince,
+    type LedgerAccount,
     type MissingSnapshotField,
     missingSnapshotFields,
+    NO_RECORDED_STAGE_STARTS,
+    PortfolioLedger,
+    snapshotEntryIssueMessage,
     snapshotFieldRules,
 } from '~/lib/prop-accounts';
 import {
@@ -20,9 +26,12 @@ import {
     type PropDatabase,
     PropQuotaGuard,
 } from '~/lib/prop-accounts/server';
+import { type Plan } from '~/lib/prop-calculator';
+import { type SnapshotPlausibilityIssue } from '~/lib/prop-calculator/advisor';
 import {
     okOutputSchema,
     propAccountSnapshotOutputSchema,
+    PropMutationRejection,
     PropQuota,
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
@@ -41,36 +50,33 @@ import {
 
 import {
     propMutationProcedure,
+    PropMutationRejectionError,
     propProcedure,
     PropRouterBucket,
     resolvedPlanOrThrow,
     returnedRowOrThrow,
 } from './mutationGuard';
 
+interface ImplausibleEntry {
+    readonly issues: readonly SnapshotPlausibilityIssue[];
+    readonly staged: StagedSnapshot;
+}
+
 interface SnapshotGap {
     readonly missing: readonly string[];
-    readonly snapshot: SnapshotInput;
-    readonly stage: AccountStage;
+    readonly staged: StagedSnapshot;
 }
 
 type SnapshotInput = z.output<typeof snapshotCreateSchema>;
 
-type StageEvent = Pick<
-    typeof propAccountEvent.$inferSelect,
-    'accountId' | 'kind' | 'occurredOn'
->;
+interface StagedSnapshot {
+    readonly account: OwnedAccount;
+    readonly plan: Plan;
+    readonly snapshot: SnapshotInput;
+    readonly stage: AccountStage;
+}
 
 const mutation = propMutationProcedure(PropRouterBucket.Snapshot);
-
-const STAGE_START_EVENTS = [
-    AccountEventKind.EvalPassed,
-    AccountEventKind.MovedLive,
-] as const;
-
-const NOTHING_RECORDED: AccountStageStarts = {
-    evalPassedOn: null,
-    movedLiveOn: null,
-};
 
 function accountLabelOf(
     accounts: ReadonlyMap<string, OwnedAccount>,
@@ -110,61 +116,79 @@ async function assertNotStored(
         storedKeys.has(snapshotKey(snapshot.accountId, snapshot.asOf)),
     );
     if (duplicate === undefined) return;
-    throw new TRPCError({
-        code: 'CONFLICT',
-        message: `A snapshot for "${accountLabelOf(accounts, duplicate)}" on ${duplicate.asOf} is already stored; remove it first or use another date`,
-    });
+    throw new PropMutationRejectionError(
+        PropMutationRejection.DuplicateSnapshot,
+        `A snapshot for "${accountLabelOf(accounts, duplicate)}" on ${duplicate.asOf} is already stored; remove it first or use another date`,
+    );
 }
 
-function assertRequiredFields(
-    input: readonly SnapshotInput[],
-    accounts: ReadonlyMap<string, OwnedAccount>,
-    stageStarts: ReadonlyMap<string, AccountStageStarts>,
-): void {
-    const gaps: SnapshotGap[] = [];
-    for (const snapshot of input) {
-        const account = accounts.get(snapshot.accountId);
-        if (account === undefined) continue;
-        const plan = resolvedPlanOrThrow(account);
-        const stage = accountStageOn(
-            account,
-            plan,
-            stageStarts.get(account.id) ?? NOTHING_RECORDED,
-            snapshot.asOf,
+function assertPlausible(staged: readonly StagedSnapshot[]): void {
+    const implausible = staged.flatMap((entry): ImplausibleEntry[] => {
+        const { blocking } = checkSnapshotEntry(
+            entry.plan,
+            entry.stage,
+            entry.account,
+            entry.snapshot,
         );
+        return blocking.length === 0
+            ? []
+            : [{ issues: blocking, staged: entry }];
+    });
+    const [first] = implausible;
+    if (first === undefined) return;
+    const { account, snapshot, stage } = first.staged;
+    const others =
+        implausible.length > 1
+            ? ` (and ${String(implausible.length - 1)} more implausible snapshots)`
+            : '';
+    throw new PropMutationRejectionError(
+        PropMutationRejection.ImplausibleSnapshot,
+        `The snapshot for "${account.label}" on ${snapshot.asOf} does not fit the account in the ${accountStageLabel(stage)} stage: ${first.issues.map(snapshotEntryIssueMessage).join(' ')}${others}`,
+    );
+}
+
+function assertRequiredFields(staged: readonly StagedSnapshot[]): void {
+    const gaps = staged.flatMap((entry): SnapshotGap[] => {
         const missing = missingFieldLabels(
             missingSnapshotFields(
-                snapshotFieldRules(plan, stage),
-                (field) => snapshot[field] !== null,
+                snapshotFieldRules(entry.plan, entry.stage),
+                (field) => entry.snapshot[field] !== null,
             ),
         );
-        if (missing.length > 0) gaps.push({ missing, snapshot, stage });
-    }
+        return missing.length > 0 ? [{ missing, staged: entry }] : [];
+    });
     const [first] = gaps;
     if (first === undefined) return;
+    const { account, snapshot, stage } = first.staged;
     const others =
         gaps.length > 1
             ? ` (and ${String(gaps.length - 1)} more snapshots with missing fields)`
             : '';
-    throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: `The snapshot for "${accountLabelOf(accounts, first.snapshot)}" on ${first.snapshot.asOf} needs what its plan requires in the ${first.stage} stage: ${first.missing.join('; ')}${others}`,
-    });
+    throw new PropMutationRejectionError(
+        PropMutationRejection.MissingSnapshotField,
+        `The snapshot for "${account.label}" on ${snapshot.asOf} needs what its plan requires in the ${accountStageLabel(stage)} stage: ${first.missing.join('; ')}${others}`,
+    );
 }
 
-function earliestEventOn(
-    events: readonly StageEvent[],
-    accountId: string,
-    kind: AccountEventKind,
-): null | string {
-    return (
-        events
-            .filter(
-                (event) => event.accountId === accountId && event.kind === kind,
-            )
-            .map((event) => event.occurredOn)
-            .toSorted(compareText)[0] ?? null
-    );
+async function assertStorable(
+    database: PropDatabase,
+    userId: string,
+    input: readonly SnapshotInput[],
+    accounts: ReadonlyMap<string, OwnedAccount>,
+): Promise<void> {
+    const staged = await stagedSnapshots(database, userId, input, accounts);
+    assertRequiredFields(staged);
+    assertPlausible(staged);
+}
+
+function ledgerStageStarts(entry: LedgerAccount): AccountStageStarts {
+    return {
+        evalPassedOn: fundedSince(entry)?.on ?? null,
+        movedLiveOn:
+            entry.transitions.find(
+                (transition) => transition.to.stage === AccountStage.Live,
+            )?.on ?? null,
+    };
 }
 
 async function loadStageStarts(
@@ -181,34 +205,32 @@ async function loadStageStarts(
     const events = await database
         .select({
             accountId: propAccountEvent.accountId,
+            createdAt: propAccountEvent.createdAt,
+            id: propAccountEvent.id,
             kind: propAccountEvent.kind,
             occurredOn: propAccountEvent.occurredOn,
+            userId: propAccountEvent.userId,
         })
         .from(propAccountEvent)
         .where(
             and(
                 eq(propAccountEvent.userId, userId),
                 inArray(propAccountEvent.accountId, stagedIds),
-                inArray(propAccountEvent.kind, STAGE_START_EVENTS),
+                ne(propAccountEvent.kind, AccountEventKind.Edited),
             ),
         )
         .orderBy(asc(propAccountEvent.occurredOn))
         .limit(PROP_QUOTA_LIMITS[PropQuota.Events]);
+    const ledger = PortfolioLedger.fromRows(userId, {
+        accounts: staged,
+        events,
+        fees: [],
+        payouts: [],
+    });
     return new Map(
-        staged.map((account) => [
-            account.id,
-            {
-                evalPassedOn: earliestEventOn(
-                    events,
-                    account.id,
-                    AccountEventKind.EvalPassed,
-                ),
-                movedLiveOn: earliestEventOn(
-                    events,
-                    account.id,
-                    AccountEventKind.MovedLive,
-                ),
-            },
+        ledger.accounts.map((entry) => [
+            entry.row.id,
+            ledgerStageStarts(entry),
         ]),
     );
 }
@@ -233,6 +255,27 @@ function snapshotKey(accountId: string, asOf: string): string {
     return `${accountId} ${asOf}`;
 }
 
+async function stagedSnapshots(
+    database: PropDatabase,
+    userId: string,
+    input: readonly SnapshotInput[],
+    accounts: ReadonlyMap<string, OwnedAccount>,
+): Promise<readonly StagedSnapshot[]> {
+    const stageStarts = await loadStageStarts(database, userId, accounts);
+    return input.flatMap((snapshot): StagedSnapshot[] => {
+        const account = accounts.get(snapshot.accountId);
+        if (account === undefined) return [];
+        const plan = resolvedPlanOrThrow(account);
+        const stage = accountStageOn(
+            account,
+            plan,
+            stageStarts.get(account.id) ?? NO_RECORDED_STAGE_STARTS,
+            snapshot.asOf,
+        );
+        return [{ account, plan, snapshot, stage }];
+    });
+}
+
 export const propSnapshotRouter = createTRPCRouter({
     bulkCreate: mutation
         .input(snapshotBulkCreateSchema)
@@ -244,11 +287,7 @@ export const propSnapshotRouter = createTRPCRouter({
                 const accounts = await repo.loadOwnedAccountsOrThrow(
                     input.map((snapshot) => snapshot.accountId),
                 );
-                assertRequiredFields(
-                    input,
-                    accounts,
-                    await loadStageStarts(tx, ctx.userId, accounts),
-                );
+                await assertStorable(tx, ctx.userId, input, accounts);
                 await assertNotStored(tx, ctx.userId, input, accounts);
                 await quotas.assertWithin(PropQuota.Snapshots, input.length);
                 return tx
@@ -270,7 +309,15 @@ export const propSnapshotRouter = createTRPCRouter({
             ctx.db.transaction(async (tx) => {
                 const quotas = await PropQuotaGuard.acquire(tx, ctx.userId);
                 const repo = new PropAccountRepo(tx, ctx.userId);
-                await repo.loadOwnedAccountOrThrow(input.accountId);
+                const account = await repo.loadOwnedAccountOrThrow(
+                    input.accountId,
+                );
+                await assertStorable(
+                    tx,
+                    ctx.userId,
+                    [input],
+                    new Map([[account.id, account]]),
+                );
                 await quotas.assertWithin(PropQuota.Snapshots, 1);
                 const [row] = await tx
                     .insert(propAccountSnapshot)

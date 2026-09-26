@@ -9,6 +9,7 @@ import {
     fraction,
     type Plan,
     type PlanId,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -46,6 +47,7 @@ function fourLosingRungs(): DayPolicy {
     return {
         ladder: [400, 400, 400, 400],
         maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
         stopRule: { kind: DayStopRuleKind.None },
     };
 }

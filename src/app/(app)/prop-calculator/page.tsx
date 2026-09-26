@@ -2,6 +2,8 @@ import { type Metadata } from 'next';
 
 import { cn } from '~/lib/utilities';
 
+import { HubAccountsTeaser } from './_components/hub/HubAccountsTeaser';
+import { HubRecentTools } from './_components/hub/HubRecentTools';
 import { HubLegacySectionRedirect } from './_components/HubLegacySectionRedirect';
 import { HubToolCards } from './_components/HubToolCards';
 import { buildHubMetadata } from './_components/pageMetadata';
@@ -27,7 +29,9 @@ export default function PropertyCalculatorPage() {
                 </p>
             </header>
 
+            <HubRecentTools />
             <HubToolCards />
+            <HubAccountsTeaser />
         </main>
     );
 }

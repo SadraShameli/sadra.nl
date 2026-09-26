@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { type KeyValueStorage } from '~/app/(app)/prop-calculator/_components/browserStorage';
 import {
     accountScenarioRecords,
     clearAccountScenarios,
     errorMessage,
-    type FlagStorage,
     importLocalScenarios,
     isScenarioImportDone,
     markScenarioImportDone,
@@ -22,7 +22,9 @@ import {
     validateAccountScenario,
 } from '~/app/(app)/prop-calculator/_components/savedScenarioSync';
 import { type SavedScenarioRecord } from '~/app/(app)/prop-calculator/_components/urlState';
+import { PROP_QUOTA_LIMITS } from '~/lib/prop-accounts/server';
 import {
+    MAX_SAVED_SCENARIOS,
     PropLimitRejection,
     PropQuota,
     type PropRejection,
@@ -32,9 +34,13 @@ import {
     MAX_SCENARIO_QUERY_LENGTH,
 } from '~/lib/schemas/propAccounts';
 
-const LOCAL_SCENARIOS_KEY = 'propCalc.scenarios.v1';
+vi.mock('~/environment', () => ({ environment: { NODE_ENV: 'test' } }));
+vi.mock('~/server/db', () => ({ db: {} }));
 
-class MemoryStorage implements FlagStorage {
+const LOCAL_SCENARIOS_KEY = 'propCalc.scenarios.v1';
+const SERVER_SCENARIO_CAP = PROP_QUOTA_LIMITS[PropQuota.Scenarios];
+
+class MemoryStorage implements KeyValueStorage {
     readonly values = new Map<string, string>();
 
     getItem(key: string): null | string {
@@ -46,7 +52,7 @@ class MemoryStorage implements FlagStorage {
     }
 }
 
-const throwingStorage: FlagStorage = {
+const throwingStorage: KeyValueStorage = {
     getItem() {
         throw new Error('SecurityError');
     },
@@ -58,6 +64,18 @@ const throwingStorage: FlagStorage = {
 function importAll() {
     return vi.fn((scenarios: ScenarioImport[]) =>
         Promise.resolve({ imported: scenarios, skippedNames: [] }),
+    );
+}
+
+function importWithinServerCap() {
+    return vi.fn((scenarios: ScenarioImport[]) =>
+        scenarios.length > SERVER_SCENARIO_CAP
+            ? Promise.reject(
+                  trpcError('Too big: expected array to have <=100 items', {
+                      code: 'BAD_REQUEST',
+                  }),
+              )
+            : Promise.resolve({ imported: scenarios, skippedNames: [] }),
     );
 }
 
@@ -74,6 +92,15 @@ function quotaRejection(quota: PropQuota, limit = 100): PropRejection {
         record: null,
         recordId: null,
     };
+}
+
+function scenarioRecords(count: number, prefix = 'Scenario') {
+    return Array.from({ length: count }, (_, index) =>
+        local(
+            `${prefix} ${String(index + 1)}`,
+            `firm=${prefix.toLowerCase()}${String(index + 1)}`,
+        ),
+    );
 }
 
 function storageWithLocalScenarios(records: SavedScenarioRecord[]) {
@@ -554,6 +581,89 @@ describe('importLocalScenarios', () => {
         expect(isScenarioImportDone('user-1', storage)).toBe(false);
     });
 
+    it('never sends more scenarios than the account can hold and keeps the rest in this browser', async () => {
+        const storage = new MemoryStorage();
+        const importMany = importWithinServerCap();
+        const many = scenarioRecords(SERVER_SCENARIO_CAP + 1);
+        const outcome = await importLocalScenarios({
+            importMany,
+            local: many,
+            server: [],
+            storage,
+            userId: 'user-1',
+        });
+        expect(importMany.mock.calls.map(([batch]) => batch.length)).toEqual([
+            SERVER_SCENARIO_CAP,
+        ]);
+        expect(outcome).toEqual({
+            imported: SERVER_SCENARIO_CAP,
+            skipped: [
+                {
+                    name: many.at(-1)?.name,
+                    reason: ScenarioSkipReason.AccountLimit,
+                },
+            ],
+            status: ScenarioImportStatus.Imported,
+        });
+        expect(isScenarioImportDone('user-1', storage)).toBe(true);
+    });
+
+    it('sends only what fits next to the scenarios already saved to the account', async () => {
+        const storage = new MemoryStorage();
+        const importMany = importWithinServerCap();
+        const server = scenarioRecords(SERVER_SCENARIO_CAP - 1, 'Kept').map(
+            (record) => stored(record.name, record.params),
+        );
+        const outcome = await importLocalScenarios({
+            importMany,
+            local: [...records, local('Lucid', 'firm=lucid')],
+            server,
+            storage,
+            userId: 'user-1',
+        });
+        expect(importMany.mock.calls).toEqual([
+            [[{ name: 'Apex', query: 'firm=apex' }]],
+        ]);
+        expect(outcome).toEqual({
+            imported: 1,
+            skipped: [
+                { name: 'Topstep', reason: ScenarioSkipReason.AccountLimit },
+                { name: 'Lucid', reason: ScenarioSkipReason.AccountLimit },
+            ],
+            status: ScenarioImportStatus.Imported,
+        });
+        expect(isScenarioImportDone('user-1', storage)).toBe(true);
+    });
+
+    it('calls nothing and keeps every scenario in this browser when the account is already full', async () => {
+        const storage = new MemoryStorage();
+        const importMany = importWithinServerCap();
+        const server = scenarioRecords(SERVER_SCENARIO_CAP, 'Kept').map(
+            (record) => stored(record.name, record.params),
+        );
+        const outcome = await importLocalScenarios({
+            importMany,
+            local: records,
+            server,
+            storage,
+            userId: 'user-1',
+        });
+        expect(importMany).not.toHaveBeenCalled();
+        expect(outcome).toEqual({
+            imported: 0,
+            skipped: [
+                { name: 'Apex', reason: ScenarioSkipReason.AccountLimit },
+                { name: 'Topstep', reason: ScenarioSkipReason.AccountLimit },
+            ],
+            status: ScenarioImportStatus.Imported,
+        });
+        expect(isScenarioImportDone('user-1', storage)).toBe(true);
+    });
+
+    it('caps the import at the same saved scenario limit the server enforces', () => {
+        expect(MAX_SAVED_SCENARIOS).toBe(SERVER_SCENARIO_CAP);
+    });
+
     it('never throws with a throwing storage', async () => {
         const outcome = await importLocalScenarios({
             importMany: importAll(),
@@ -839,5 +949,29 @@ describe('validateAccountScenario', () => {
     it('rejects a name with invisible characters', () => {
         const result = validateAccountScenario('Apex​', 'firm=apex');
         expect(result.ok).toBe(false);
+    });
+});
+
+describe('one saved scenario limit', () => {
+    afterEach(() => {
+        vi.doUnmock('~/lib/schemas/propAccountOutputs');
+        vi.resetModules();
+    });
+
+    it('derives the server scenario quota from the saved scenario limit the client caps its import at', async () => {
+        const changedLimit = MAX_SAVED_SCENARIOS + 7;
+        vi.resetModules();
+        vi.doMock(
+            '~/lib/schemas/propAccountOutputs',
+            async (importOriginal) => ({
+                ...(await importOriginal<object>()),
+                MAX_SAVED_SCENARIOS: changedLimit,
+            }),
+        );
+
+        const { PROP_QUOTA_LIMITS: reloadedLimits } =
+            await import('~/lib/prop-accounts/server');
+
+        expect(reloadedLimits[PropQuota.Scenarios]).toBe(changedLimit);
     });
 });

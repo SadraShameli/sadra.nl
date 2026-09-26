@@ -8,6 +8,7 @@ import {
     dollars,
     fraction,
     type Plan,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -198,6 +199,7 @@ describe.each(ALL_PLANS)(
                         dayPolicy: {
                             ladder: [2000, 2000, 2000, 2000],
                             maxLossesPerDay: null,
+                            sizing: PolicySizing.ContractCapped,
                             stopRule: { kind: DayStopRuleKind.None },
                         },
                         idleDayProbability: 1,
@@ -224,6 +226,7 @@ describe.each(ALL_PLANS)(
                         dayPolicy: {
                             ladder: [1],
                             maxLossesPerDay: null,
+                            sizing: PolicySizing.ContractCapped,
                             stopRule: { kind: DayStopRuleKind.None },
                         },
                         idleDayProbability: 0,
@@ -255,6 +258,7 @@ describe.each(ALL_PLANS)(
         const idleDayPolicy: DayPolicy = {
             ladder: [2000, 2000, 2000, 2000],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
         };
 
@@ -381,6 +385,7 @@ describe.each(ALL_PLANS)(
                 const ladder: DayPolicy = {
                     ladder: [200, 300, 400, 100],
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: { kind: DayStopRuleKind.DayGreen },
                 };
                 const first = simulate(

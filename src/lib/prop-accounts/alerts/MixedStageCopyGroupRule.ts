@@ -1,9 +1,14 @@
-import { AccountStage } from '../core';
+import { AccountStage, accountStageBreakdown } from '../core';
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
 import { type AlertContext, isActive } from './AlertContext';
 import { AlertKind } from './AlertKind';
 import { AlertRule } from './AlertRule';
 import { AlertSeverity } from './AlertSeverity';
+
+export interface StageCount {
+    readonly count: number;
+    readonly stage: AccountStage;
+}
 
 export class MixedStageCopyGroupRule extends AlertRule {
     readonly kind = AlertKind.MixedStageCopyGroup;
@@ -15,18 +20,9 @@ export class MixedStageCopyGroupRule extends AlertRule {
                     isActive(monitored) &&
                     monitored.account.copyGroupId === group.id,
             );
-            const stageCounts = Object.values(AccountStage)
-                .map((stage) => ({
-                    count: members.filter(
-                        (monitored) => monitored.account.stage === stage,
-                    ).length,
-                    stage,
-                }))
-                .filter(({ count }) => count > 0);
-            if (stageCounts.length <= 1) return [];
-            const breakdown = stageCounts
-                .map(({ count, stage }) => `${count} ${stage}`)
-                .join(', ');
+            const stages = members.map((monitored) => monitored.account.stage);
+            if (!hasMixedStages(stages)) return [];
+            const breakdown = accountStageBreakdown(stageCountsOf(stages));
             return [
                 {
                     disclosures: [],
@@ -45,4 +41,19 @@ export class MixedStageCopyGroupRule extends AlertRule {
             ];
         });
     }
+}
+
+export function hasMixedStages(stages: readonly AccountStage[]): boolean {
+    return stageCountsOf(stages).length > 1;
+}
+
+export function stageCountsOf(
+    stages: readonly AccountStage[],
+): readonly StageCount[] {
+    return Object.values(AccountStage)
+        .map((stage) => ({
+            count: stages.filter((candidate) => candidate === stage).length,
+            stage,
+        }))
+        .filter(({ count }) => count > 0);
 }

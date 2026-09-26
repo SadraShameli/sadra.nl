@@ -4,6 +4,7 @@ import {
     type InstrumentSymbol,
     type LadderGridConfig,
     type LadderScore,
+    PolicySizing,
     type RungSizing,
 } from '~/lib/prop-calculator';
 
@@ -70,6 +71,7 @@ export function applyPolicy(
     return {
         ladder: [...row.ladder],
         maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
         stopRule: slot.inputs.stopRule,
     };
 }

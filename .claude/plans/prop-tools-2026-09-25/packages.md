@@ -280,6 +280,134 @@ Standing rules for every package:
 - **Files owned:** `src/lib/site/legacyCalculatorLinks.ts`, `src/app/(app)/prop-calculator/_components/{legacyFragmentScroll.ts, calculatorUrlSync.ts, useCalculator.ts (the legacy mount step only)}`, and the tests (`legacyCalculatorLinks.test.ts`, `legacyFragmentScroll.test.ts`, `calculatorUrlSync.test.ts`, `toolPages.test.ts` line ~509 only).
 - **Steps** (RED first): export `legacySectionTarget(hash)` returning `{ fragment, route }` with no current-page filter; `legacySectionRoute(hash, currentPathname)` becomes that plus the same-page check; `hubLegacyTarget`, `legacyFragmentTarget` (or the mount step directly) and the tests that used `legacySectionRoute(hash, '')` as a stand-in all use it; the whole `tests/unit/app/prop-calculator` folder and `tests/unit/lib/site` stay green; `bun run typecheck`, `bunx eslint <owned files>`.
 
+## PT-11g: base simulation errors reach the pages, the web uses the engine's placed-risk helper, the cash-flow timeline honours stop points (PT-11f leftovers)
+
+- **Lane / wave:** W / W5e (after audit WP39d and PT-41, which also edits `SimulatorView.tsx`)  **Size:** small  **Depends on:** PT-11f, audit WP39d, PT-41
+- **Items:** F-24, T33 (review leftovers of wf_5e775779-4ac)
+- **Decision (orchestrator, consistent with audit T33):** the cash-flow timeline passes the instrument and stop points to `simulatePortfolioTimeline`, so it places funded risk in whole contracts and refuses the same inputs the simulator refuses.
+- **Files owned:** `src/app/(app)/prop-calculator/_components/{CalculatorProvider.tsx (the base result context only), placedFundedRisk.ts, simulationFailure.ts, useCashFlowSimulation.ts, CashFlowPanel.tsx (the refusal display only)}`, `(tools)/{simulator/SimulatorView.tsx, analysis/AnalysisView.tsx}` (the error display only), and the tests (`toolPages.test.ts` guard update, the provider DOM test, the cash-flow tests).
+- **Steps** (RED first): (1) The provider passes `error` through `useBaseResult()` (typed `BaseSimulationRun`); the simulator and analysis pages show the engine's exact text for any base-simulation error; a DOM test through the real provider injects a non-sizing `simulate` throw; update the `toolPages.test.ts` literal guard for `useBaseResult()`. (2) `placedFundedRisk.ts` delegates to the engine's `placedFundedRisk`/`fundedStartContractLimit` (audit WP39d) and its local copy goes; `simulationFailure.ts` strips `SIM_INPUTS_REFUSAL_PREFIX`. (3) The cash-flow timeline receives the instrument and stop points and shows the refusal like the other panels (NQ at 10 points and $150 refused; $200 one contract). (4) The prop-calculator app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+
+**Added from PT-41b:** `accounts/_components/AccountPlanPicker.tsx` (`selectPlan` only) calls the exported `keepOfferedOptIns(plan, optIns)` instead of its inline copy of the offered-opt-in filter; add that file to the owned list.
+
+**Also from the PT-41b re-review:** the remaining bare `'firm'` key checks (`parameters.has('firm')` in `urlState.ts` and `new URLSearchParams(search).has('firm')` in `src/lib/site/legacyCalculatorLinks.ts`) use `CalculatorUrlParameter.Firm`; any storage type still declared locally uses `KeyValueStorage` from `browserStorage.ts`. Add those files (key checks only) to the owned list.
+
+## PT-05h: typed snapshot rejections, one scenario quota constant (PT-05g leftovers)
+
+- **Lane / wave:** 0 / W5f  **Size:** tiny  **Depends on:** PT-05g
+- **Items:** F-46, F-64
+- **Files owned:** `src/server/api/routers/propAccounts/{mutationGuard.ts (fromRejection only), snapshot.ts}`, `src/lib/schemas/propAccountOutputs.ts` (two enum members and the quota constant), `src/lib/prop-accounts/server/PropAccountQuotas.ts` (the scenario quota only), `tests/unit/server/propAccounts/snapshot.test.ts`, `tests/unit/app/prop-calculator/savedScenarioSync.test.ts`.
+- **Steps** (RED first): (1) `PropMutationRejection.MissingSnapshotField` (BAD_REQUEST) and `DuplicateSnapshot` (CONFLICT) in the enum and in `fromRejection`'s exhaustive switch; `assertRequiredFields` and `assertNotStored` throw `PropMutationRejectionError`; the tests assert `shape.data.propRejection.reason` with the current codes and messages. (2) `PROP_QUOTA_LIMITS[PropQuota.Scenarios]` uses `MAX_SAVED_SCENARIOS` so the server quota, the importMany cap and the client cap share one constant. (3) Every `tests/unit/server/**` file and the saved-scenario tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+
+## PT-41b: recent tools recorded, prefilled opt-ins applied, shared URL keys and storage helpers (PT-41 leftovers)
+
+- **Lane / wave:** W / W6b (next to audit WP39d; PT-11g follows both)  **Size:** small  **Depends on:** PT-41
+- **Items:** F-32, F-33 (review leftovers of wf_df60227d-7b9)
+- **Files owned:** `src/app/(app)/prop-calculator/(tools)/layout.tsx`, `src/app/(app)/prop-calculator/accounts/_components/{AccountForm.tsx (AccountCreator's initial selection only), accountPlanOptions.ts (initialPlanSelection only), accountPrefill.ts}`, `src/app/(app)/prop-calculator/accounts/new/page.tsx`, `src/app/(app)/prop-calculator/_components/{urlState.ts (the parameter keys only), browserStorage.ts, savedScenarioSync.ts (the storage accessor only), lastToolQuery.ts (the storage accessor only)}`, `src/lib/schemas/url.ts` (the shared keys, if they move there), `src/app/(app)/prop-calculator/accounts/ledger/LedgerView.tsx` (the gross-only note only), and the tests (a layout test, `accountPrefill.test.ts`, the storage tests).
+- **Steps** (RED first): (1) F-32: the tools layout mounts `RecentToolRecorder` inside the provider, so a tool visit is recorded and the hub's "Recently used" appears; a test asserts the mount. (2) F-33: `AccountCreator` and `initialPlanSelection` take the prefilled opt-ins and seed the selection with them (never silently `NO_PLAN_OPT_INS`); the new-account page passes them; delete `prefillOptInNotice` and its tests; assert a taken opt-in carries through. (3) One shared enum for the calculator URL parameter keys (`firm`, `plan`, `qr`, `ew`) and the taken flag, used by `urlState.ts` and `accountPrefill.ts`. (4) `LedgerView` uses `GrossOnlyPayoutsNote`; `savedScenarioSync.ts` and `lastToolQuery.ts` use the accessors in `browserStorage.ts` (add `sessionStorageOrNull` there). (5) The prop-calculator app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+
+## PT-11h: URL keys in a leaf module the proxy can import, one page failure rule (PT-11g leftovers)
+
+- **Lane / wave:** W / W5g  **Size:** tiny  **Depends on:** PT-11g
+- **Items:** F-24, F-33 (review leftovers of wf_ef57fe3d-4da)
+- **Files owned:** `src/lib/schemas/url.ts` (re-export only), a new leaf module `src/lib/schemas/calculatorUrlParameter.ts` (no imports), `src/lib/site/legacyCalculatorLinks.ts` (the key check only), `src/app/(app)/prop-calculator/_components/{useCalculator.ts (the firm key check only), simulationFailure.ts}`, `(tools)/{simulator/SimulatorView.tsx, analysis/AnalysisView.tsx}` (the failure rule only), and the tests (`legacyCalculatorLinks.test.ts` including its proxy-weight guard, the page failure tests).
+- **Steps** (RED first): (1) `CalculatorUrlParameter` and `UrlFlag` move into the leaf module and are re-exported from `url.ts`; `legacyCalculatorLinks.ts` and `useCalculator.ts` use `CalculatorUrlParameter.Firm`; the existing guard proves the proxy still reaches no `src/lib/prop-calculator` module. (2) One exported page failure rule (for example `currentBaseFailure(simInputs, run)` in `simulationFailure.ts`) replaces the copied expression in SimulatorView and AnalysisView; pin it. (3) The prop-calculator app tests and `tests/unit/lib/site` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+
+## PT-11i: remove the simulationFailure / useBaseSimulation import cycle (PT-11h leftover)
+
+- **Lane / wave:** W / W5h  **Size:** tiny  **Depends on:** PT-11h
+- **Items:** F-24
+- **Files owned:** `src/app/(app)/prop-calculator/_components/{simulationFailure.ts, useBaseSimulation.ts}` and any importer of `baseSimulationFailure` or `BASE_SIMULATION_FAILED` (the import line only), and their tests.
+- **Steps:** move `baseSimulationFailure` and `BASE_SIMULATION_FAILED` into `simulationFailure.ts` next to `currentBaseFailure`; `simulationFailure.ts` imports only types from `./useBaseSimulation` (`import type`), so the only runtime edge left is `useBaseSimulation.ts` -> `simulationFailure.ts`; add a small guard test that `simulationFailure.ts` has no value import from `./useBaseSimulation`; the prop-calculator app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+
+## PT-43d: the accounts nav links only to pages that exist (deploy safety)
+
+- **Lane / wave:** W / EJ0a  **Size:** tiny  **Depends on:** PT-43b
+- **Items:** F-8, F-20 (deploy safety)
+- **Files owned:** `src/app/(app)/prop-calculator/accounts/_components/accountsNavItems.ts`, `tests/unit/app/prop-calculator/accounts/accountsNavItems.test.ts`, and a shared filesystem helper next to `tests/unit/app/prop-calculator/toolPageFiles.ts` if needed.
+- **Steps** (RED first): `ACCOUNTS_NAV_ITEMS` links Weekly review, Copy groups and Next slot, which 404 today. Give each nav item an availability flag (like the tool catalog's `hasPage`) and link only items whose `page.tsx` exists; a filesystem-derived test (reusing the `toolPageFiles.ts` helper) proves every linked accounts route has a page and every accounts page has a nav item decision; later packages flip the flag when they add the page. Run the accounts and prop-calculator app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+
+## PT-05i: the scenario rate-limit test passes in any file order (isolate: false leak)
+
+- **Lane / wave:** 0 / EJ0a  **Size:** tiny  **Depends on:** PT-05h
+- **Items:** F-69 (test reliability)
+- **Files owned:** `tests/unit/server/propAccounts/scenario.test.ts`, `tests/unit/app/prop-calculator/savedScenarioSync.test.ts` and `tests/unit/cli/prop/live.test.ts` (their module-reset blocks only), and any other test file that calls `vi.resetModules()` with `vi.doMock` (grep), plus `tests/unit/server/propAccounts/*` test helpers if the fix belongs there.
+- **Steps:** the full suite (275 files, `isolate: false`) failed 'removeAll counts the rate limit in the scenario bucket and deletes nothing once it is hit' (the rate-limit spy was never called) while the file passes alone and with the server folder. Find the leak (a `vi.resetModules()` plus `vi.doMock` in another file can make the router re-import an unmocked rate-limit module in the shared worker), reproduce it deterministically (run the suspected files together in one worker, for example with `--pool=threads --poolOptions.threads.singleThread` or the file order the full run used), then fix it at the source: tests that reset modules restore the registry they found, and the scenario test asserts through the mocked module it actually uses. Prove it by running the reproduction and the whole `tests/unit/server` and `tests/unit/app/prop-calculator` folders together (0 failures). No production code change unless the leak is real there.
+
+## PT-11j: idle-day probability survives a share link; small EJ0a-1 leftovers
+
+- **Lane / wave:** W / EJ0a-2  **Size:** small  **Depends on:** PT-25a, PT-21a, PT-43d
+- **Items:** F-5 (URL state), F-66, F-8 (review leftovers of wf_c60dfd29-09a)
+- **Files owned:** `src/app/(app)/prop-calculator/_components/urlState.ts` (the idle key only), `src/lib/schemas/url.ts` (the idle key only), `tests/unit/app/prop-calculator/urlState.test.ts`, `tests/unit/app/prop-calculator/toolPageFiles.ts` and `appPageFiles.ts`, `src/app/(app)/prop-calculator/accounts/rulebook/RulebookView.tsx` (the read-error path only), `src/app/(app)/prop-calculator/accounts/_components/OverviewView.tsx` (the rulebook link only), and their tests.
+- **Steps** (RED first): (1) BUG: `encodeState` writes the idle-day probability as `idp` while `decodeState` reads `idle` (`url.ts` `CALCULATOR_SCALAR_BOUNDS.idle`), so a shared or reloaded link loses it; a RED round-trip test, then one key through `CalculatorUrlParameter` (add the member), and old links with the other key still decode (pin both). (2) `toolPageFiles.ts` uses the shared `hasPageFile` from `appPageFiles.ts` (one page lookup). (3) `RulebookView`: when `rulebook.get` fails with an invalid stored rulebook, offer "reset to the defaults" (the existing `rulebook.reset`) and "overwrite with a new rulebook" instead of only an alert; the overview links to the rulebook page again for that case. (4) The prop-calculator app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+
+## PT-49b: the account form checks the live start again, the account router rejects an out-of-range live start, one import path for entry text (PT-49 and PT-23a leftovers)
+
+- **Lane / wave:** J / EJ0c  **Size:** small  **Depends on:** PT-49, PT-23a (both done in EJ0a-2 + EJ0b, wf_292f410b-fc1)
+- **Items:** F-57, F-140 (entry), review leftovers of wf_292f410b-fc1
+- **Files owned:** `src/app/(app)/prop-calculator/accounts/_components/AccountForm.tsx`, `src/app/(app)/prop-calculator/accounts/_components/snapshotPlausibilityIssues.ts`, `src/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules.ts` (the re-export block only), `src/app/(app)/prop-calculator/accounts/_components/accountPlanOptions.ts` (imports only), `src/app/(app)/prop-calculator/accounts/rulebook/rulebookFormValues.ts` (imports only), `src/server/api/routers/propAccounts/account.ts` (create, update, importMany live-start check only), and their tests. Read only: `accounts/_components/detail/formParsing.ts` (import from it where it is; do not move it, PT-11k edits `AccountDetailView.tsx` in the same wave), `~/lib/prop-accounts` (`liveStartEntryIssues`, `checkSnapshotEntry`).
+- **Reviewers:** code, typescript, react, security (router input validation and userId scoping)
+- **Steps** (RED first):
+  1. RED, the regression the PT-49 re-review found (MEDIUM, AccountForm.tsx ~1041): the initial-snapshot plausibility context passes `liveStartBalanceCents: null`, so for live plans whose drawdown locks at a profit level (MFFU Rapid Live, FundedNext Live, Lucid Live) the advisor's `CushionAboveDrawdown` check is skipped on the client while the server's `assertPlausible` runs it: the account saves and the snapshot is then rejected ("The account was saved, but its snapshot was not"). Test with a live lock-trigger plan: a documented live start S, balance and highest EOD S+500, a dashboard floor more than the drawdown amount below the balance; the form must block before any mutation. GREEN: pass the parsed live start again (as `liveStartCentsOf(accountStage, ...)` did), and leave out `SnapshotInputField.LiveStartBalance` issues when placing snapshot issues, because the account field already shows that issue (one place, in `snapshotPlausibilityIssues` or the field map). A test pins that the live-start issue shows once.
+  2. RED, server: `account.create`, `account.update` and `account.importMany` accept a live start outside the plan's range today (only the client form checks it). Call `liveStartEntryIssues(plan, stage, account)` from `~/lib/prop-accounts` and reject with the existing typed rejection (`data.propRejection`, the same shape the snapshot router uses) and a readable message; importMany reports the row index. Tests through the router harness, including another user's id never being read.
+  3. DRY: `AccountForm.tsx` drops its private `nullIfBlank` and its inline "forward every schema issue via `context.addIssue`" loop and imports `nullIfBlank` and `parsedOrIssues` from `accounts/_components/detail/formParsing.ts`.
+  4. DRY: `accountPlanOptions.ts` and `rulebookFormValues.ts` import `EntryTextKind`, `parseCountText` and `parseMoneyText` from `~/lib/prop-accounts`; delete the re-export block in `snapshotFieldRules.ts`.
+  5. Run the accounts app tests and `tests/unit/server/propAccounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** form and server agree on every live-start and snapshot plausibility case (a form-accepted save is never half-rejected); an out-of-range live start cannot be stored through any router path; one definition of each form helper and one import path for the entry-text parsers.
+
+## PT-26c: one copy-group stage predicate and one "active account" predicate (PT-26a leftovers)
+
+- **Lane / wave:** J / EJ0c  **Size:** small  **Depends on:** PT-26a (done in EJ0a-2 + EJ0b)
+- **Items:** F-67, PD-30, review leftovers of wf_292f410b-fc1
+- **Files owned:** `src/server/api/routers/propAccounts/mutationGuard.ts` (`assertCopyGroupAcceptsStages` only), `src/lib/prop-accounts/metrics/PortfolioLedger.ts` (`isActiveAccount` signature only), `src/lib/prop-accounts/alerts/AlertContext.ts` or the file that defines `createAlertContext` (the active predicate only), `src/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows.ts`, `src/app/(app)/prop-calculator/accounts/copy-groups/CopyGroupsView.tsx` (the eval clause only), and their tests (`tests/unit/app/prop-calculator/accounts/CopyGroupsView.dom.test.tsx`, the copy-group router tests, the ledger and alert tests).
+- **Reviewers:** code, typescript, react, trader rules (the stage-mixing advice), security (router)
+- **Steps** (RED first):
+  1. `assertCopyGroupAcceptsStages` calls the shared `hasMixedStages` / `stageCountsOf` from `~/lib/prop-accounts` instead of its own `new Set(stages).size > 1`, and builds its message from stage labels (Evaluation, Funded, Live) naming the conflicting stage, not raw enum values. Membership rule: keep today's server rule (every member counts, the stricter reading the page now describes), with a server test pinning it; this is a behaviour-preserving DRY change. Whether inactive or archived members should count is user question Q44 (default: they count).
+  2. One "active" predicate: narrow `PortfolioLedger.isActiveAccount` to `Pick<PropAccountRow, 'archivedAt' | 'status'>` (backward compatible for FundingTotals and HubAccountsTeaser); `copyGroupRows.ts` deletes its private `isActiveMember` and uses it; the alert context uses the same predicate instead of its separate archived filter plus `isActive`. Tests pin that all three callers agree on archived, busted, closed and suspended accounts.
+  3. LOW: the eval over-risk clause in the mixed-stage warning names the right account type (only when Eval and Funded are both present, or worded "a funded or live account").
+  4. LOW test gap: the DOM harness's held mode reports `isPending: true` until release, and a test asserts Escape keeps the delete dialog open and Cancel and Delete are disabled while the delete is pending.
+  5. Run the copy-group, ledger, alert and router tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** one definition of the PD-30 stage check and one of "active account" in the codebase; server behaviour unchanged and pinned; the warning names the right stages.
+
+## PT-11k: one invalid-stored-record predicate, the overview's alert and ledger helpers shared with the detail page (PT-11j and PT-23a leftovers)
+
+- **Lane / wave:** W / EJ0c  **Size:** small  **Depends on:** PT-11j, PT-23a, PT-21a (done)
+- **Items:** F-66, F-60, review leftovers of wf_292f410b-fc1
+- **Files owned:** `src/lib/schemas/propAccountOutputs.ts` (a new `isInvalidStoredRecord` only), `src/app/(app)/prop-calculator/accounts/rulebook/RulebookView.tsx` (delete the exported `isInvalidStoredRulebook`, use the shared predicate), `src/app/(app)/prop-calculator/accounts/_components/overview/OverviewView.tsx` (the import only), `src/app/(app)/prop-calculator/accounts/_components/overview/overviewModel.ts` (export the alert mapper or an `alertsFor` helper, and one ledger-or-date-failure helper), `src/app/(app)/prop-calculator/accounts/_components/detail/accountAlerts.ts`, `src/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView.tsx` (the measured-lag path only), `src/lib/schemas/propAccounts.ts` (one exported helper saying which event kinds need a note), `src/app/(app)/prop-calculator/accounts/_components/detail/eventOptions.ts`, and their tests.
+- **Reviewers:** code, typescript, react
+- **Steps** (RED first):
+  1. Add `isInvalidStoredRecord(error: unknown, record: PropRecord): boolean` next to `propRejectionOf`, with tests (each record kind, a plain error, malformed data). `RulebookView.tsx` and `OverviewView.tsx` import it as `isInvalidStoredRecord(error, PropRecord.Rulebook)`; delete `isInvalidStoredRulebook`, so the overview no longer imports the rulebook route's client module. A guard test: no file under `accounts/_components/overview/` imports from `accounts/rulebook/`.
+  2. `overviewModel.ts` exports the alert mapper (or `alertsFor(section, today, predicate)`); `accountAlerts.ts` filters the account's alerts once and maps them, with no second evaluator pass and no key matching. Pin that the detail page's alerts equal the overview's alerts for that account on the existing fixtures.
+  3. `overviewModel.ts` exports one helper for the `IsoDateError` catch (`ledgerOrDateFailure(compute)` returning the result or a readable message); `readyLedger` and `AccountDetailView`'s measured lag both use it.
+  4. `schemas/propAccounts.ts` exports which event kinds need a note (derived from the schema, not a literal list); `eventOptions.ts` uses it instead of hard-coding `BustReversed`.
+  5. `accountListFilters.ts` `unresolvablePlanAlerts` (no importer in src, only tests): leave it for PT-21b, its owner, and note it in the handoff table; not this package's file.
+  6. Run the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** one invalid-stored-record predicate; the overview route does not import the rulebook route; one alert mapping and one ledger failure path shared by overview and detail; note-requiring event kinds come from the schema.
+
+## PT-49c: stage labels in the shared library, one live-start guard for every write and the CSV preview (PT-49b and PT-26c leftovers)
+
+- **Lane / wave:** J / EJ0d  **Size:** small  **Depends on:** PT-49b, PT-26c, PT-11k (done in EJ0c, wf_837cf3b1-e8e)
+- **Items:** F-57, F-64 (preview), F-67, F-140 (entry), PD-30, review leftovers of wf_837cf3b1-e8e
+- **Files owned:** `src/lib/prop-accounts/core/AccountStage.ts` (the stage label map moves here), `src/lib/prop-accounts/core/index.ts`, `src/app/(app)/prop-calculator/accounts/_components/accountPlanOptions.ts` (the label map leaves; no re-export), every app file that imports `STAGE_LABEL` or `accountStageLabel` from it (`AccountsTable.tsx`, `detail/AccountDetailView.tsx`, `copyGroups/copyGroupRows.ts`, `AccountForm.tsx`: the import line only), `src/lib/prop-accounts/alerts/MixedStageCopyGroupRule.ts` (the breakdown text only), `src/server/api/routers/propAccounts/mutationGuard.ts` (`assertCopyGroupAcceptsStages` message; the moved `assertLiveStartsDocumented`), `src/server/api/routers/propAccounts/account.ts` (import the moved guard only), `src/server/api/routers/propAccounts/event.ts` (the Live transition check only), `src/lib/prop-accounts/csv/AccountCsv.ts` (`previewAccountCsv` only), `src/app/(app)/prop-calculator/accounts/copy-groups/CopyGroupsView.tsx` (the sizing-risk clause only), and their tests (`tests/unit/server/propAccounts/copyGroup.test.ts`, `account.test.ts`, `event.test.ts`, the AccountCsv and MixedStageCopyGroupRule tests, `CopyGroupsView.dom.test.tsx`). Not `src/app/(app)/accounting/**` (its `STAGE_LABEL` is a different concept).
+- **Reviewers:** code, typescript, react, security (router guards), trader rules (the sizing-risk wording)
+- **Steps** (RED first):
+  1. Move the stage label map (`STAGE_LABEL` and `accountStageLabel`: Evaluation, Funded, Live) into `~/lib/prop-accounts/core/AccountStage.ts`, export it through the core barrel, and point every importer at `~/lib/prop-accounts` (no re-export from the app file, per the PT-49 review on re-export blocks).
+  2. RED: `assertCopyGroupAcceptsStages` names stages by label ("would mix Evaluation and Funded accounts ..."), not raw enum values; update the expected strings in `copyGroup.test.ts` and the `mixedMessage` fixture in `CopyGroupsView.dom.test.tsx`. `MixedStageCopyGroupRule`'s breakdown prints labels too ("1 Evaluation, 1 Funded").
+  3. Move `assertLiveStartsDocumented` from `account.ts` into `mutationGuard.ts` (one copy). RED in `event.test.ts`: recording an event that moves a stored account to Live with an out-of-range live start stored before PT-49b is rejected with `PropMutationRejection.ImplausibleSnapshot` and writes nothing; reads stay scoped to the user.
+  4. RED in the AccountCsv tests: `previewAccountCsv` runs `liveStartEntryIssues(plan, AccountStage.Live, row)` for every row with a non-null live start and reports it on that row's `rowNumber`, so the preview marks the row the server rejects instead of showing the batch as ready.
+  5. LOW, trader rules: the mixed-stage advice in `CopyGroupsView.tsx` states a fixed direction ("over-risks" or "under-sizes") that the skill's sizing table does not always support (live sizing is a percent of cushion; a funded size can be above or below it). Word it by what is true in every case (each stage has its own sizing rule, so one size copied across stages is wrong for at least one of them), with a DOM test.
+  6. Record in the handoff table: none needed if every step lands. Run the owned tests plus `tests/unit/app/prop-calculator/accounts`, `tests/unit/server/propAccounts` and `tests/unit/lib/prop-accounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** one stage label map in the library; every user-facing stage name is a label; one live-start guard used by account and event writes; the CSV preview never shows as ready a row the server rejects; the mixed-stage advice is true for every stage pair.
+
+## PT-49d: every stage name shown to the user is a label (PT-49c leftover)
+
+- **Lane / wave:** J / EJ0e  **Size:** small  **Depends on:** PT-49c (done in EJ0d, wf_35ef9a28-b83)
+- **Items:** F-140, F-63 (alerts), review leftover of wf_35ef9a28-b83
+- **Files owned:** `src/lib/prop-accounts/alerts/StaleSnapshotRule.ts` (the two messages only), `src/server/api/routers/propAccounts/snapshot.ts` (the two rejection messages only), `src/lib/prop-accounts/core/AccountStage.ts` and `src/lib/prop-accounts/core/index.ts` and `src/lib/prop-accounts/index.ts` (the `STAGE_LABEL` export only), and their tests (`tests/unit/lib/prop-accounts/alerts/StaleSnapshotRule.test.ts` or the file that pins these messages, `tests/unit/server/propAccounts/snapshot.test.ts`, `tests/unit/lib/prop-accounts/core/AccountStage.test.ts`).
+- **Reviewers:** code, typescript, security (router messages)
+- **Steps** (RED first): (1) RED: `StaleSnapshotRule` messages say "this Evaluation account" (via `accountStageLabel`), not "this eval account"; the snapshot router's two rejections say "in the Funded stage", not "in the funded stage". Update the pinned expectations. (2) A grep guard test: no user-facing template in `src/lib/prop-accounts` or `src/server/api/routers/propAccounts` interpolates a raw `AccountStage` value (read the files and match `${stage}` or `.stage}` inside template literals that are not wrapped by `accountStageLabel`). (3) `STAGE_LABEL` has no reader outside `AccountStage.ts`: make it module-private and drop it from both barrels (tests use `accountStageLabel`), so knip stays clean. (4) Run the owned tests plus `tests/unit/lib/prop-accounts` and `tests/unit/server/propAccounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** every stage name a user reads is Evaluation, Funded or Live; no unused stage-label export.
+
 ## PT-02: RouteSubnav accessibility and prefix match
 
 - **Lane / wave:** 0 / 1  **Size:** small  **Depends on:** none  **Status:** implemented (wave 1a)
@@ -800,906 +928,1805 @@ Standing rules for every package:
 
 - Tools and accounts link both ways without URL/state drift.
 
+## Compressed lane E and J schedule (2026-09-26 readiness pass)
+
+This section replaces the old serial order (E1 to E7, then J1 to J5 after "lane E complete": 12 waves after G2). A read-only readiness pass re-checked every remaining lane E and lane J package against today's tree. The per-package sections below carry the corrected paths, APIs, owned files, dependencies and RED-first steps; this section is the schedule built from those true dependencies and file sets.
+
+Result: 2 waves that can start now (before G2, inside the audit's quiet windows) and 8 waves after G2, then PT-50. Packages that own disjoint files and do not depend on each other share a wave even across the old E and J boundaries.
+
+**Rules applied**
+
+- One owner per shared barrel or shared file per wave (table below). A package that needs a barrel line in a wave it does not own uses a sub-barrel or leaves the line to that wave's owner, as its section says.
+- PD-42 per wave: no package changes an enum, union or interface another package in the same wave switches over, maps, constructs or renders. The only additive changes that cross a wave are named in the wave notes.
+- G2 gates every engine, CLI and audit-fingerprinted file: the audit's wave-26 post-fix rerun (wf_8345221b-0fb) has finished driving the CLI and the read-only repo-wide check is recorded. Waves EJ0a and EJ0b touch no such file and only respect the quiet window (U21: never between RED and GREEN while an audit check runs).
+- PT-35 (firm files) runs only after its read-only step 0 re-fetch is recorded, the user has answered Q14 to Q16, and the audit tracker shows no in-flight Lucid, N-40 or N-53 row. It sits in EJ1 if those gates are met by then, otherwise in EJ3; nothing else moves.
+- The CLI is driven by one long job at a time. In EJ5 PT-32's re-measure runs first (short), then PT-30a's gate run; both append one row to `engine-results.md`, in that order.
+- Worker files live in `src/app/(app)/prop-calculator/_workers/` (the ladder worker's pattern), never in `accounts/_workers/`.
+
+**Package splits introduced by this pass** (each half has its own section entry under its parent package):
+
+- PT-12a core payout gates and request policy; PT-12b advisor inputs (can run before G2); PT-12c reconstruction, readiness, adapter.
+- PT-21a ledger overview (now); PT-21b engine cards and worker.
+- PT-23a detail page and ledgers (now); PT-23b state, live rules, performance cards.
+- PT-25a position size (now); PT-25b funded optimizer.
+- PT-26a copy groups page (now); PT-26b group sizing and exposure lib.
+- PT-30a DP lib and gate run; PT-30b table, migration, repo, router; PT-30c CLI `advise --dp --store`; PT-30d web row.
+- PT-31a rules browser and describe library; PT-31b live tool; PT-31c payout planner.
+- PT-47a request size and retained cushion in the DP; PT-47b payout request policy in the DP.
+- PT-48a spec, engine-policy type, `ruleContextAt`, eval closure; PT-48b payout policy, start, timeline adapter.
+- PT-14 stays whole: its two halves share simulator files and both halves' dependencies land in EJ1. PT-44 moves to EJ1 and PT-14 adds the `fromStateExpectedCash` estimate.
+
+**Waves**
+
+| Wave | Starts after | Packages | Why they can run together |
+|---|---|---|---|
+| EJ0a | now (quiet window) | PT-21a, PT-23a, PT-25a, PT-26a, PT-12b, PT-35 step 0 (read-only), optional PT-16 lib half (Q6), optional PT-43d (accounts-nav guard) | Lane W web files, new advisor input files and read-only research; no engine, CLI or firm file. Disjoint sets. Order inside the wave: PT-21a lands `propRejectionOf` (its step 2) GREEN before PT-23a and PT-26a implement their rejection display. |
+| EJ0b | EJ0a (may overlap EJ1 in time) | PT-49 | Needs PT-12b's `SnapshotPlausibility`. Web, prop-accounts csv/core and the snapshot router only; disjoint from EJ1. |
+| EJ1 | G2 | PT-12a, PT-15, PT-16, PT-18, PT-44, PT-47a, PT-48a, PT-31a, PT-35 (if its gates are met) | Each depends on G2 only (PT-48a also on PT-03, done). Files are disjoint: PT-12a takes the core barrel and FundedPayoutCycle; PT-47a takes FundedStateValue (PT-12a leaves its seeding swap to PT-47b); PT-44 takes the simulator and root barrels; PT-31a publishes `describe` as a sub-barrel and takes `shared.ts`; PT-35 uses the `core/accountPolicy` sub-barrel. |
+| EJ2 | EJ1 | PT-12c, PT-13, PT-14, PT-31b, PT-45 | PT-12c needs PT-12a and PT-12b; PT-14 needs PT-12a (policy, seed factory), PT-15 (start validator, from-state cost) and PT-44 (shared simulator files); PT-31b needs PT-12a and PT-12b; PT-45 needs PT-31a's structural serializer; PT-13 needs G2 only and waited only for the core barrel. Disjoint files. |
+| EJ3 | EJ2 | PT-46, PT-48b, PT-47b, PT-35 (fallback) | PT-46 needs PT-12c; PT-48b and PT-47b need PT-14. Disjoint files (PT-48b stays inside `advisor/policy/`). |
+| EJ4 | EJ3 | PT-19, PT-22 | PT-19 needs every earlier lib package; PT-22 needs PT-12c and PT-46 (and PT-35's plan field for EvalDayCapRule). Their prop-accounts files are disjoint (PT-19: staleness, ReplacementStats, advice adapter; PT-22: metrics, alerts context and rules). |
+| EJ5 | EJ4 | PT-32, PT-36, PT-23b, PT-25b, PT-30a | All need PT-19 (PT-36 and PT-23b also PT-22). PT-36 does not edit `DifferenceReasons.ts` (PT-19 wrote every member's text), so PT-32 owns it. PT-36 edits only `detail/EventsSection.tsx` and a new helper in `detail/`; PT-23b edits the other detail files. CLI slot: PT-32 then PT-30a. |
+| EJ6 | EJ5 | PT-24, PT-34, PT-21b, PT-26b, PT-31c, PT-27 | PT-24, PT-34, PT-21b and PT-31c need PT-32; PT-34 also PT-36; PT-26b and PT-27 need PT-19 but waited for a free advisor barrel (PT-26b) and a free `schemas/propAccounts.ts` (PT-27). Disjoint files. |
+| EJ7 | EJ6 | PT-33, PT-30b, PT-38, PT-42 | PT-33 needs PT-21b's worker and PT-26b's Exposure; PT-38 reuses PT-21b's protocol read-only; PT-42 needs PT-26b and PT-14; PT-30b needs PT-30a and waited for the advisor barrel and the router index (PT-27 in EJ6). |
+| EJ8 | EJ7 | PT-37, PT-30c, PT-30d | PT-37 needs PT-33's projection card and worker; PT-30c needs PT-24 and PT-30b; PT-30d needs PT-34 and PT-30b. Disjoint files. |
+| Final | EJ8 | PT-50 | Needs everything. |
+
+Critical path: G2, PT-12a, PT-12c, PT-46, PT-19, PT-32, PT-21b, PT-33, PT-37, PT-50. PT-30's gate run is the longest single job and starts in EJ5, three waves before its web row needs it.
+
+**Owner of each shared file per wave**
+
+| Shared file | EJ0a | EJ0b | EJ1 | EJ2 | EJ3 | EJ4 | EJ5 | EJ6 | EJ7 | EJ8 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `src/lib/prop-calculator/core/index.ts` | none | none | PT-12a | PT-13 (also adds `export * from './accountPolicy'` if PT-35 landed in EJ1) | PT-35 if it lands here, else none | none | PT-30a (gap-kind leaf) | none | none | none |
+| `core/accountPolicy/index.ts` (new sub-barrel) | none | none | PT-35 if here | none | PT-35 if here | none | none | none | none | none |
+| `src/lib/prop-calculator/advisor/index.ts` | PT-12b | none | PT-48a | PT-12c | PT-46 | PT-19 | PT-32 | PT-26b | PT-30b | PT-37 |
+| `advisor/policy/index.ts` | none | none | PT-48a | none | PT-48b | none (PT-19 re-exports it from `advisor/index.ts`) | none | none | none | none |
+| `simulator/index.ts` | none | none | PT-44 | PT-14 | none | none | none | none | PT-42 | none |
+| `src/lib/prop-calculator/index.ts` (root) | none | none | PT-44 | PT-14 | none | none | none | none | PT-42 (optional) | none |
+| `optimize/index.ts` (new) | PT-16 if Q6 yes | none | PT-16 | none | none | none | none | none | none | none |
+| `describe/index.ts` (new) | none | none | PT-31a | PT-45 | none | none | none | none | none | none |
+| `src/lib/prop-accounts/index.ts` | none | none | none | PT-12c | none | none | none | none | PT-38 | none |
+| `prop-accounts/core/index.ts` | PT-23a | PT-49 | none | none | none | PT-22 | PT-36 | none | none | none |
+| `prop-accounts/metrics/index.ts` | none | none | none | none | none | PT-22 | PT-36 | PT-26b | none | none |
+| `prop-accounts/alerts/index.ts` | PT-26a | none | none | PT-45 | none | PT-22 | PT-36 | none | none | none |
+| `prop-accounts/advice/index.ts` | none | none | none | PT-12c | none | PT-19 | PT-36 | none | none | none |
+| `prop-accounts/csv/index.ts` | none | PT-49 | none | none | none | none | none | none | none | none |
+| `prop-accounts/server/index.ts` | none | none | none | none | none | none | none | none | PT-30b | none |
+| `src/lib/schemas/propAccountOutputs.ts` | PT-21a | PT-49 (if server enforcement) | none | PT-45 | none | PT-19 | none | none | PT-30b | none |
+| `src/lib/schemas/propAccounts.ts` | none | none | none | none | none | PT-19 | PT-36 | PT-27 | none | none |
+| `src/server/api/routers/propAccounts/index.ts`, `userScoping.test.ts`, `propRouterHarness.ts` | none | PT-49 (if server enforcement) | none | PT-45 (harness, outputs) | none | PT-19 | PT-36 (event only) | PT-27 | PT-30b | none |
+| `toolCatalog.ts`, `src/lib/site/routes.ts` | PT-25a | none | PT-31a | PT-31b | none | none | PT-25b | PT-31c | none | none |
+| `_components/ComputationId.ts` | none | none | none | PT-31b | none | none | PT-25b | none | none | none |
+| `src/cli/commands/prop/shared.ts` | none | none | PT-31a | none | PT-47b | none | PT-32 (only if the shared policy flag needs a change) | PT-24 | none | none |
+| `src/cli/commands/prop/optimize/funded/command.ts` | none | none | PT-16 | none | none | none | PT-32 (policy flag) | none | none | none |
+| overview files (`OverviewView.tsx`, `overviewModel.ts`) | PT-21a | none | none | none | none | none | PT-36 | PT-21b | PT-33 | PT-37 |
+| `_workers/overviewWorker*.ts` | none | none | none | none | none | none | none | PT-21b | PT-33 | PT-37 |
+| `accounts/[id]/page.tsx` | PT-23a | none | none | none | none | none | none | PT-34 | none | none |
+| `accounts/_components/detail/**` | PT-23a | none | none | none | none | none | PT-23b (cards, AccountDetailView, PlanRulesSummary) and PT-36 (EventsSection, liveExclusivityPreview) | none | none | PT-37 |
+| copy-groups view | PT-26a | none | none | none | none | none | none | PT-26b | PT-42 | none |
+| `core/FundedStateValue.ts` | none | none | PT-47a | none | PT-47b | none | PT-30a | none | none | none |
+| `simulator/day.ts` | none | none | none | PT-13 | none | none | none | none | PT-42 | none |
+| `core/Plan.ts` | none | none | PT-35 if here | PT-12c (only if `resolvedDailyLossLimit` is needed) | PT-35 if here | none | none | none | none | none |
+| `firms/lucid/LucidTrading.ts` | none | none | PT-35 if here | PT-13 | PT-35 if here | none | none | none | none | none |
+| `advisor/DifferenceReasons.ts` | none | none | none | none | none | PT-19 | PT-32 | none | none | none |
+| `advisorImportGraph.test.ts` | none | none | none | none | none | PT-19 (creates) | PT-30a | none | none | none |
+| `.claude/skills/prop-firm-trading/references/engine-results.md` | none | none | none | none | none | none | PT-32 then PT-30a (in that order) | none | none | none |
+
+**Constraints the orchestrator checks at each wave start**
+
+- EJ0a: PT-21a's `propRejectionOf` GREEN before PT-23a/PT-26a implement their rejection display.
+- EJ1: G2 recorded; no audit CLI job running. PT-35 only if its gates hold; if it runs here, PT-13 adds the accountPolicy barrel line in EJ2.
+- EJ2: PT-13's `day.ts` refactor is a pure refactor with pins; PT-12c's round-trip tests run after PT-13 is GREEN or against the pinned engine only.
+- EJ5: CLI slot order PT-32 (step 8) then PT-30a (gate run); EJ6 CLI users (PT-24 pins and real runs) wait for a pause between gate plans.
+- Every wave: typecheck against the recorded baseline, importer greps, and the "every lane E package to audit tracker" fingerprint handoff for engine files edited after G2.
+
+**Cross-package handoffs this pass created or re-routed**
+
+- PT-07 eval access window: the Plan field and firm data go to PT-35; the EvalDayCapRule consumer goes to PT-22.
+- PT-12 tracker seeding swap in `FundedStateValue.ts` goes to PT-47b.
+- PT-12a exports a post-payout threshold helper and a LivePlan-capable `effectivePayoutRequest` for PT-46.
+- PT-12c and PT-46 declare the firm-wide "paid payouts since the firm's last live account" input for PT-36.
+- PT-13 adds `contractsAtStop` and re-points PT-25a's `positionSizeModel.ts` to it (DRY on the second copy).
+- PT-15 puts the eval start validator in `core/EvalStartState.ts` so PT-14 reuses it.
+- PT-16 lifts the row cells, sizing notes and sort description too, so the CLI and PT-25b share one text source.
+- PT-19 declares the Provenance fields PT-45 fills, the sourced ceiling list PT-36 fills, text for every DifferenceReason member (so PT-36 never edits that file), and exports one pure EnginePolicy-to-SimInputs function with its cache-key fragment for PT-25b and PT-21b.
+- PT-22 adds events and `lastTradedOn` to `AlertInputs` for PT-36.
+- PT-23a structures the event-record form so PT-36's MovedLive preview slots in.
+- PT-31a owns the structural `serializePlanRules` and moves `stableJson` to `src/lib/stableJson.ts`; PT-45 reuses both.
+- PT-47a exports `FundedGridConfig` and `EvalGridConfig` for PT-30.
+- PT-48b owns `documentedPolicyTimelineInputs` for PT-33.
+- If PT-19 did not narrow the decision `source`, PT-27 (owner of `schemas/propAccounts.ts` in EJ6) does it, not PT-34.
+
+**Open user questions (new in this pass)**
+
+Cross-cutting, tied to open audit questions (answering once settles every listed package):
+
+- Q1 (audit U17): rank funded results by credit-inclusive monthly net (one capped horizon request, T32) or credit-free `expectedMonthlyRealizedNet`? Affects PT-16, PT-19, PT-21b, PT-25b, PT-30a (gate metric), PT-32, PT-38. Default: rankings stay credit-inclusive (CLI parity) with the credit-free figure always shown beside; the overview headline shows credit-free (it is compared with realized cash) with credit-inclusive labeled; the DP gate must pass on both.
+- Q2 (audit U18): documented-policy engine runs have no instrument or stop, so they run unsized (no whole-contract rounding, no contract cap). Add a rulebook default instrument and typical stop, or keep them unsized and labeled optimistic? Also: when one micro exceeds the affordable room, take one micro or skip? Affects PT-19, PT-21b, PT-26b, PT-38, PT-42. Default: unsized and labeled; percent candidates left out without a stop (CLI parity).
+- Q3 (audit U19 plus U22): Hard Rule 2 as "a capped $500 request, FullRequestOnly, leaving at least $2,000" or "request everything above $2,000"; and which monthly figure picks the engine payout-size optimum. Affects PT-19, PT-32, PT-21b, PT-38. Default: the capped-request reading; optimum ranked credit-inclusive with a "credit sensitive" mark when the two orders disagree.
+- Q4: under FullRequestOnly, is the end-of-horizon credit still T32's one capped request, or $0 unless the full request fits? Affects PT-12a, PT-14, PT-47b, PT-32. Default: unchanged T32 credit, pinned and disclosed.
+- Q5: when a profit-share cap (TopStep, Alpha and FundedNext Flex 50% of profit, `payoutProfitShare`) is below the request under FullRequestOnly, wait until the full request fits, or take the capped amount as the full request? Affects PT-12a, PT-14, PT-46. Default: wait.
+- Q6: may PT-16's lib-only half (new `optimize/*` files and tests, imported by nothing yet) run before G2? Default: no, wait for G2, unless approved.
+
+Per package:
+
+- Q7 (PT-13, PT-25a): the exact-risk stop from `minStopPoints` can be off-tick ($455 on 2 NQ = 11.375 pts). Show (a) the exact stop, (b) the stop rounded down to the tick with its dollar risk, or (c) both? Default (b) with the exact figure as a note.
+- Q8 (PT-13): if CME's Micro E-mini S&P 500 page refuses an automated fetch, may a pasted copy (URL and date cited) count as the live source for MES? Otherwise MES blocks.
+- Q9 (PT-15): for plans with no firm eval-day cap, count a mid-eval ladder's `--eval-days` horizon from the attempt start (default, conservative) or from today?
+- Q10 (PT-12c): TopStep live reserve on reconstruction: $0 (default, conservative), the builder's $40,000, or a new "cumulative XFA balance at transition" account field?
+- Q11 (PT-14): the from-state objective: window W, future fees only, T32 credit when alive at W, refill after a bust at the fresh rate, reported credit-inclusive and credit-free. Keep this definition?
+- Q12 (PT-46): MFF Pro MoveToLockedFloor: measure the retained cushion from the post-payout $50,100 floor (engine) or the higher of the two floors?
+- Q13 (PT-46, PT-12a): TopStep ReleaseFloor: fix the funded engine (TopStep numbers move for a retained cushion between $0 and $2,000, new pins) or keep the engine and correct only the advice path? Default: keep the engine; the advice path is correct.
+- Q14 (PT-35): conflicting live triggers (Tradeify, MFF Pro, MFF Builder, Alpha, Lucid Pro/Direct, FundedNext Flex): cap at the lowest stated count marked Conflict (changes only Tradeify today, to 3), or treat conflicts as not checked?
+- Q15 (PT-35): fix MFF Rapid 50K's missing 7-calendar-day inactivity closure in the plan (after a same-day re-fetch), or park it with the audit's firm-data steps?
+- Q16 (PT-35): count the 2026-09-23 Apex Live FAQ paste as verified for exclusivity and the discretionary trigger, or keep Apex unverified?
+- Q17 (PT-48): what should the documented eval rule trade once the target is reached but days or consistency are unmet? Default (a) the smallest placeable risk, disclosed.
+- Q18 (PT-48): apply personal caps in simulated documented numbers, or rulebook only? Default rulebook only, disclosed.
+- Q19 (PT-22): cushion board units per stage (funded in documented dollar risk, eval as a share of the eval drawdown, live against the live retained cushion). OK?
+- Q20 (PT-22): thresholds with no rulebook field (consistency near breach, lifetime dollar cap near, tier change): accept the proposed defaults or add rulebook fields?
+- Q21 (PT-22, PT-36): one inactivity rule: (a) PT-22 on PT-35's verified policy, (b) calendar days vs the engine limit with a disclosure (default; PT-36 then skips verified firms), or (c) move to PT-36?
+- Q22 (PT-22): fire PayoutEligible only when the documented rule allows the payout (default), or also as Info when only the firm's gates pass?
+- Q23 (PT-12c, PT-22): deduct only Requested payouts dated after the snapshot's asOf, to avoid a double deduction? Default yes, disclosed.
+- Q24 (PT-32): the personal payout override "safe band": within 2 combined SE of the optimum's monthly net and no worse bust rate by more than 2 combined SE (default), or a fixed bust-rate ceiling?
+- Q25 (PT-24): reuse the existing `--retain-cushion` and `--request-size` flag names in `prop advise` (default), or the spec's `--retained-cushion` and `--payout-size`?
+- Q26 (PT-21a): realized funded survival over decided accounts only, or all funded with open ones as survivors (today, disclosed; default)?
+- Q27 (PT-26b): does the trade copier place the same contract count on every account (1:1) or a per-account multiplier?
+- Q28 (PT-49): also reject implausible snapshots on the server (default yes)?
+- Q29 (PT-49): hard block for impossible states and an override only for the "far from account size" heuristic (default), or hard block always?
+- Q30 (PT-25b): funded optimizer policy: calculator values when set, else the rulebook's, never the plan default, always FullRequestOnly, labeled (default); or the rulebook always wins?
+- Q31 (PT-45): add `@noble/hashes` for a synchronous browser sha256, or keep zero new dependencies with a server-computed `planRulesChanged` flag (default)?
+- Q32 (PT-45): firms with open paste-blocked items: show the last full verification date with open items listed (default), or "partially verified" without a date?
+- Q33 (PT-36): should a verified count trigger that the firm calls a discretionary benchmark still block the payout (default yes, quote shown) or only warn?
+- Q34 (PT-36): conduct alerts on app-visible patterns with app-chosen thresholds labeled "firm publishes no threshold" (default: same-day multi-bust, re-buy within 7 days at a rolling-flagged firm), or a standing quote only?
+- Q35 (PT-36): the margin below MFF Rapid's $10,000 single-session trigger for the daily-card ceiling. Default $50.
+- Q36 (PT-36): do household members hold accounts at these firms that should be entered? Default: disclose, never count.
+- Q37 (PT-42): include eval-stage copy groups in v1 (needs an extracted eval day step) or funded only (default)?
+- Q38 (PT-30a): the per-plan gate: DP empirical monthly net at least the best flat at a matched retained cushion (same trials and seed, converged solve; default), or ahead by more than 2 SE?
+- Q39 (PT-30a): does one passing gate row validate the plan's eval rows too, or do eval rows need a separate check against the documented ladder?
+- Q40 (PT-30a): CPU-hour budget and plan priority for the gate re-run, and may it run beside other CLI jobs?
+- Q41 (audit U14, PT-30a): keep the exact best-day grid and skip consistency plans that exceed the budget, with a reason, until U14 is answered?
+- Q42 (U3, PT-30b, PT-50): generate and inspect the new DP-advice migration only, or also apply it and 0007?
+- Q43 (PT-50): run the full Vitest suite (about 13 minutes) once at the end, or keep to per-folder runs?
+- Q44 (PT-26c, PD-30): the one-stage copy-group check on the server counts every member, including busted, closed, suspended and archived ones (default, today's behaviour), while alerts and group sizing count only active members. Should the server count only active, non-archived members too? The mixed-stage alert still catches a member that becomes active again.
+
+Blocking: Q8 blocks MES (PT-13 step 5) only; Q14 to Q16 gate PT-35; Q40 bounds PT-30a's gate run. Every other question has a stated default the package implements and discloses.
+
 ## PT-13: trade risk at a state, contracts at a stop, MES
 
-- **Lane / wave:** E / E1  **Size:** medium  **Depends on:** G2
+- **Lane / wave:** E / EJ2 in the compressed schedule (was E1; moved one wave because PT-12a owns `core/index.ts` in EJ1)  **Size:** medium  **Depends on:** G2 (and the audit tracker showing no in-flight Lucid firm-data row before `LucidTrading.ts` is edited)
 - **Items:** F-111, F-112, F-113
 - **Files owned:**
   - new `src/lib/prop-calculator/core/TradeRiskResolution.ts`
-  - changed `simulator/day.ts`, `simulator/livePhase.ts`, `core/PositionSizing.ts`, `core/Instruments.ts`, `core/index.ts` (only package in E1 touching it)
-  - tests `tests/unit/lib/prop-calculator/core/{TradeRiskResolution,PositionSizingContracts,Instruments}.test.ts`
+  - changed `simulator/day.ts`, `simulator/livePhase.ts`, `core/PositionSizing.ts` (`contractsAtStop`), `core/Instruments.ts` (MES), `core/index.ts` (EJ2 owner; also adds `export * from './accountPolicy'` if PT-35 landed in EJ1)
+  - changed `src/lib/prop-calculator/firms/lucid/LucidTrading.ts` (the one instrument-list note sentence near line 207 only)
+  - changed `src/app/(app)/prop-calculator/_components/positionSize/positionSizeModel.ts` (re-pointed to `contractsAtStop`; PT-25a's pins unchanged)
+  - tests: new `tests/unit/lib/prop-calculator/core/{TradeRiskResolution,PositionSizingContracts}.test.ts`; extended `core/Instruments.test.ts` (exists); `core/TradingFirmNotes.test.ts` (the Lucid live instrument assertion only)
 - **Reviewers:** code-reviewer, typescript-reviewer
+
+**Readiness pass 2026-09-26**
+
+- Stale in the old spec: `resolveRiskAt` returning a bare number with no sizing input. After T33, `day.ts` sizes through a private `sizeTrade(TradeSizingOptions)` that switches on `PolicySizing` (ContractCapped: `resolveTradeRisk(capRiskToContractLimit(...), affordable, rungSizing)`; WholeContracts: `placeWholeContractTrade(...)`) and returns `SizedTrade {risk, rewardRisk}`; under WholeContracts the loss can be below `rewardRisk`. `resolveRiskAt` therefore takes a required `sizing: PolicySizing` and returns `SizedTrade` plus `affordable` and `maxContracts`.
+- Two exported functions over the same primitives, in one module: `resolveRiskAt` (Plan, AccountState, phase) and `resolveLiveRiskAt` (LivePlan, LiveAccountState, whole contracts with CapToCushion). Move `sizeTrade`, `unsizedTrade` and `TradeSizingOptions` out of `day.ts` into the new module; `unsizedLiveTrade` in `livePhase.ts` becomes `resolveTradeRisk(intended, room, RungSizing.CapToCushion)`.
+- No new stop helper (F-112, A4): the exact-risk stop is `minStopPoints(risk, contracts, pointValue)` (`ContractLimits.ts:83`; argument order risk, contracts, point value). No `stopForExactRisk` or `exactStopPointsForRisk`.
+- The contracts-for-risk function already exists: `wholeContractCount(risk, positionSizing)` (cent tolerance). `contractsAtStop` reuses it with `oneContractRisk`, takes a `PositionSizingConfig` plus `maxContracts`, and may return 0 (it is not `placedFundedRiskAt`, which places at least one contract).
+- `Instruments.test.ts` already exists (NQ, ES, MNQ specs and `minStopPoints(450, 3, 20) = 7.5`); extend it. Adding MES breaks `TradingFirmNotes.test.ts:842-855` (`Object.values(InstrumentSymbol)` equals [ES, MNQ, NQ]; the Lucid live note says "ES, MNQ and NQ only"), so the note sentence and that assertion are owned here. Perfectionist sorting puts MES between ES and MNQ in the enum and the record; `ALL_INSTRUMENTS` (UI order NQ, MNQ, ES) gets MES appended.
+- Already done elsewhere: the PT-01 to PT-13 `CENTS_PER_DOLLAR` handoff (done by WP28/WP34; `UsdCents.ts` and `Rulebook.ts` import it; mark the handoff row done). Every whole-contract primitive exists (`placeWholeContractTrade`, `PolicySizing`, `policySizingOf`, `SizedTrade`, `wholeContractRisk`, `wholeContractCount`, `isBelowOneContract`, `oneContractRisk`, `contractLimitAt`, `capRiskToContractLimit`, `placedFundedRiskAt`, `fundedStartContractLimit`, `simInputsSizingIssue`). The live chain exists (`resolveLiveTradeRisk`, `capRiskToRemainingDailyLoss`, `LivePlan.cushionPercentFor/dailyLossLimitFor/maxContractsFor`). PT-03 already builds the documented rules on these; PT-13 does not touch `advisor/`.
+- Audit decisions: T33 (`resolveRiskAt` must not re-derive or default the sizing; `day.ts` passes `dayPolicy.sizing`; later callers pass `policySizingOf(phase)`; refusal logic stays in `dayPolicyValidation.ts`). PD-25/A4: no new stop helper; the ContractCapped dollar cap stays engine-only. T32 and T34 do not touch these files; `horizonCredit.test.ts` stays a guard because it runs through `runDay`.
+- DRY with PT-25a: PT-25a (EJ0a) builds the position-size model from `wholeContractCount` and `oneContractRisk` directly. PT-13 adds `contractsAtStop` to core and re-points `positionSizeModel.ts` to it with PT-25a's tests unchanged.
+- Handoffs folded in or emitted: (a) to PT-48: a 0 from `computeRisk` is not nullish, so it never falls back to the ladder; `risk <= 0` then `break` ends the day, the same in the live loop. (b) To PT-12c, PT-19, PT-25b: the `resolveRiskAt`/`resolveLiveRiskAt` result shape and `contractsAtStop` with `minStopPoints` for the exact stop. (c) To PT-12c: if reconstruction needs the resolved DLL, add `Plan.resolvedDailyLossLimit(state, phase)` and route `affordableRisk` and `isDayLockedOut` through it (PT-12c owns `Plan.ts` in EJ2 for that). (d) Follow-up note for PT-50: `LadderSearch.ts:328-343` and `EvalStateValue.ts:200-216` compose the same eval chain inline; decide after EJ2 whether they call `resolveRiskAt`. (e) Audit tracker: fingerprints change for `day.ts`, `livePhase.ts`, `PositionSizing.ts`, `Instruments.ts`, `core/index.ts`, `LucidTrading.ts` (N-68/N-5 note) and `TradingFirmNotes.test.ts`. (f) For lane W/J: MES appears in the four web instrument selects, `instr=MES` URL parsing and the CLI `--instrument` options with no code change there. The PT-07 eval-access-window handoff is not PT-13's (it goes to PT-35 and PT-22).
+- Open user questions: Q7 (tick rounding of the exact stop), Q8 (pasted CME page for MES).
 
 **Steps (RED first)**
 
-1. Capture pins (PD-31). Re-read `day.ts` risk chain (including how a 0 from `computeRisk` is handled, recorded for PT-48), `livePhase.ts` risk chain, `DayPolicy.ts`, `PositionSizing.ts`, `ContractLimits.ts` (`minStopPoints` at 83), `LiveSizing.ts`.
-2. RED `TradeRiskResolution.test.ts`: `resolveRiskAt({plan, phase, state, intendedRisk, positionSizing, rungSizing, commission})` equals the inline chain on a table (cushion-capped, DLL-capped, contract-capped with an instrument and stop, skip-if-unaffordable); the live variant matches `livePhase`.
-3. RED `PositionSizingContracts.test.ts`: grep first for an existing contracts-for-risk function and reuse it; otherwise add `contractsAtStop(risk, instrument, stopPoints)` returning contracts (floored) and leftover dollars, plus `stopForExactRisk(risk, instrument, contracts)` (the entry-offset lever); `minStopPoints(450, NQ, 3)` gives 7.5 (reused, not duplicated); the contract cap is applied.
-4. Fetch the CME Micro E-mini S&P 500 spec page live; record multiplier and tick with URL and date in the test title. RED: `INSTRUMENTS[MES]` exists and counts as micro.
-5. Implement; `day.ts` and `livePhase.ts` call `resolveRiskAt` (pure refactor); export from `core/index.ts`.
-6. GREEN; guards: simulator, `engineCharacterization`, `rngDrawCount`, `combinatorialCoverage` and live tests equal to the pins; typecheck, eslint, importer greps.
+1. Pre-flight, read-only: confirm G2 is recorded and no audit CLI job is running; re-check the audit tracker for in-flight Lucid firm-data rows (stop if any). Re-read `simulator/day.ts` (`resolveDayPolicy`, the `runDay` risk block, `sizeTrade`, `unsizedTrade`, `TradeSizingOptions`, the non-finite `TypeError` text), `simulator/livePhase.ts` (`runLiveDay` risk block, `unsizedLiveTrade`), `core/DayPolicy.ts`, `core/PositionSizing.ts`, `ContractLimits.ts:83`, `core/LiveSizing.ts`, `LivePlan`, `Plan.affordableRisk`, `core/PlacedFundedRisk.ts`, and PT-25a's `positionSizeModel.ts`. Record the PT-48 note from handoff (a).
+2. Capture pins (PD-31) from the working tree, running only these files from the repo root with `bunx vitest run <files>`: `engineCharacterization`, `rngDrawCount`, `combinatorialCoverage`, `simulator.test`, `engineUniversalInvariants`, `declaredPolicySizing`, `percentCushionSizing`, `horizonCredit`, `dailyLossLimitLockout`, `simulator/{day,livePhase,dayPolicyValidation}.test`, `core/{DayPolicy,PositionSizing,LiveSizing,LivePlan,Instruments,TradingFirmNotes,FundedStateValueWholeContracts}.test`, `liveFirmRegistry`, `firms/**/*Live.test`, `tests/unit/cli/prop/live.test`, and PT-25a's `positionSizeModel.test`. Record all green. Write literal `SizedTrade` values for step 3 as today's inline chain computes them. Add typed stubs so the typecheck stays at baseline.
+3. RED `TradeRiskResolution.test.ts` (literal pinned values, no copy of the old chain):
+   - `resolveRiskAt({commission, intendedRisk, phase, plan, positionSizing, rungSizing, sizing, state})` returns `{risk, rewardRisk, affordable, maxContracts}`.
+   - Unsized rows (`positionSizing` null): cushion-capped; DLL-capped (a DLL plan after an intraday loss); SkipIfUnaffordable gives 0; zero or negative room gives 0.
+   - ContractCapped (eval) rows: the dollar cap at the eval contract limit for NQ and MNQ, then the cushion or DLL cap.
+   - WholeContracts (funded) rows: rounded down to whole contracts; room below one contract under CapToCushion gives risk = room and rewardRisk = one contract; SkipIfUnaffordable with room below the placed risk gives 0/0; the funded tier cap from `contractLimitAt(..., plan.tierProfitContext(state))`.
+   - `affordable` equals `plan.affordableRisk(state, phase, commission)`; `maxContracts` equals the `day.ts` value.
+   - `resolveLiveRiskAt({commission, plan, positionSizing, state})` equals `runLiveDay`'s chain: pre-lock and post-lock cushion percent, a live DLL cap, whole contracts at `plan.maxContractsFor`, the unsized path, cushion <= 0 gives 0.
+4. RED `PositionSizingContracts.test.ts`:
+   - `contractsAtStop(risk, positionSizing, maxContracts)` returns `{contracts, leftover, placedRisk, isCapped}` built on `wholeContractCount` and `oneContractRisk`.
+   - $450 at 8 NQ points gives 2 contracts and $130 left over; $450 at 7.5 gives 3 and $0 (cent tolerance); the cap binds at 3 with the flag; below one contract gives 0 and the whole risk left over.
+   - The entry-offset stop is `minStopPoints(risk, contracts, pointValue)`: 450 on 2 NQ = 11.25; `minStopPoints(450, 3, 20) = 7.5`; a grep proves no `stopForExactRisk` or `exactStopPointsForRisk` exists.
+   - Tick rounding only as the user answers Q7 (default: round down to the tick, exact figure as a note).
+5. Fetch CME's Micro E-mini S&P 500 contract-spec page live (or the user-pasted copy if Q8 allows it). RED in the existing `Instruments.test.ts`: `INSTRUMENTS[InstrumentSymbol.MES]` has pointValue 5, tickSize 0.25, tickValue 1.25 and isMicro true, with URL and fetch date in the test title; `ALL_INSTRUMENTS` ends with MES; the tick-consistency loop covers it. In `TradingFirmNotes.test.ts` the Lucid live assertion becomes [ES, MES, MNQ, NQ] and the note text "its instruments are ES, MES, MNQ and NQ only" (still no COMEX instrument).
+6. Implement:
+   - `core/TradeRiskResolution.ts`: moved `sizeTrade`, `unsizedTrade` and the options type; `resolveRiskAt` and `resolveLiveRiskAt` over the existing primitives.
+   - `day.ts`: `runDay` calls `resolveRiskAt(... sizing: dayPolicy.sizing)` and keeps the non-finite `TypeError` and the `risk <= 0` break exactly.
+   - `livePhase.ts`: `runLiveDay` calls `resolveLiveRiskAt`; `unsizedLiveTrade` is deleted.
+   - `PositionSizing.ts`: `contractsAtStop`. `positionSizeModel.ts` calls it (no second contracts computation left in the app).
+   - `Instruments.ts`: MES sorted between ES and MNQ; `ALL_INSTRUMENTS` appended.
+   - `LucidTrading.ts`: the one sentence.
+   - `core/index.ts`: export `resolveRiskAt`, `resolveLiveRiskAt`, their input and result types, `contractsAtStop` and its result type (plus the accountPolicy line when PT-35 landed in EJ1).
+   - House style: no comments; core-internal relative imports as today; no RNG draws added.
+7. GREEN: the step 3 to 5 files pass; every step 2 guard equals its pin (listed files only, never the full suite, never `bun run lint`/`check` while another package is between RED and GREEN); `bun run typecheck`; `bunx eslint` on the changed files; importer grep (callers use the barrels; no `stopForExactRisk`; no second `CENTS_PER_DOLLAR`). Record the fingerprint handoff for the audit tracker and the PT-48, PT-12c, PT-19, PT-25b handoffs for the integrator.
 
 **Regression tests**
 
-- The 3 files; guards: simulator characterization and live tests
+- `TradeRiskResolution.test.ts`, `PositionSizingContracts.test.ts`, extended `Instruments.test.ts` and `TradingFirmNotes.test.ts`; guards: the step 2 list, including `positionSizeModel.test.ts`
 
 **Acceptance**
 
-- One risk-resolution function serves the simulator, live and the advisor; no duplicate stop helper; MES from a live source.
+- One module with two exported risk-resolution functions (simulator and live) over the same primitives, returning `SizedTrade` under the declared `PolicySizing`; one contracts-at-stop function used by the core and the position-size tool; no new stop helper; MES from a live CME source; every guard equals its pin.
 
 ## PT-15: ladder scoring from a start state
 
-- **Lane / wave:** E / E1  **Size:** medium  **Depends on:** G2
+- **Lane / wave:** E / EJ1  **Size:** medium  **Depends on:** G2 only
 - **Items:** F-114
-- **Files owned:** `src/lib/prop-calculator/core/LadderSearch.ts`, new `tests/unit/lib/prop-calculator/core/LadderSearchStartState.test.ts`
+- **Files owned:**
+  - `src/lib/prop-calculator/core/LadderSearch.ts`
+  - `src/lib/prop-calculator/core/Replacement.ts` (additive: `replacementEconomicsFromState` and its input type; existing exports unchanged)
+  - new `src/lib/prop-calculator/core/EvalStartState.ts` (the eval start-state validator, imported relatively; PT-14 reuses it)
+  - new `tests/unit/lib/prop-calculator/core/{LadderSearchStartState,ReplacementFromState}.test.ts` (the latter imports `~/lib/prop-calculator/core/Replacement` directly, which has test precedent)
+  - no `core/index.ts` change (PT-12a owns it in EJ1)
 - **Reviewers:** code-reviewer, typescript-reviewer
+
+**Readiness pass 2026-09-26**
+
+- Day-cap basis corrected: the cap counts sessions, not traded days. `closeTradingDay` bumps `elapsedDays` on every eval session (idle ones too) and `tradingDays` only on traded days; `evalPhase.ts:54` and `EvalStateValue.ts` use the same basis. The current attempt's cap is `plan.evalDayCap(maxDays) - startState.elapsedDays`. `AccountState.elapsedDays` is optional, so a missing value is refused.
+- "startState = initialState equals the pins" cannot hold together with "sunk fees excluded" and independent current-attempt RNG streams. Bit-exact identity is required only for the omitted-startState path; for `startState = plan.initialState()` the current-attempt figures agree with fresh within 3 SE and the cost equals fresh cost minus the sunk initial eval fee and first month, within SE.
+- Pricing the remaining subscription needs the renewal-chain residue math private to `Replacement.ts` (`expectedBilledMonths`, `residueDistribution`, `convolveResidues`, `failureSumResidues`, `rebuyChainSubscription`); a reset keeps the same subscription running (`Replacement.test.ts:217`). Writing it in `LadderSearch.ts` would duplicate D1/T27 billing, so `Replacement.ts` is owned with an additive helper.
+- The web worker calls `scoreLadder(ladder, config, ladderTrialStreams(seed))` directly (`_workers/ladderWorker.ts:58-61`), so the signature stays; `startState` is a `LadderScoreConfig` field and the fresh stats move to a new `LadderScore.freshAttempt` field.
+- Line references are still right (`scoreLadder` :415, `evalDayCap` :433, `replacementEconomics` :562 and :573, `initialState` in `runLadderAttempt` :671). PD-34's SE range has drifted to about 541-627. `LadderScoreConfig.seedOffset` (:76) is dead and must not be used; its removal is a PT-50 note.
+- Already done elsewhere: nothing of F-114 exists (no `startState` in src). WP10/WP15 built the eval-day cap, D1 cost via `replacementEconomics` with `attemptDays` (T27, N-60), common random numbers via `ladderTrialStreams`/`deriveSubSeed`, SEs via `stats.ts`, trade-granular intraday trailing and `evalContractLimit` caps. T29 holds (a cap-out is a failed attempt). T33: the ladder passes `PolicySizing.ContractCapped` (`LadderSearch.ts:495`); `policySizingOf(Eval)` is ContractCapped. `CENTS_PER_DOLLAR` is exported from `core/lib/units.ts`, but `LadderSearch.ts:85` still has `const CENTS = 100`.
+- Audit decisions: T33 (the ladder never switches to WholeContracts; a from-state attempt uses the same `enumerateDay`/`capRiskToContractLimit` chain). T29 (an out-of-days current attempt is a failure followed by fresh retries at the retry fee). T27/N-60/D1 (renewal chain continues across a reset with its residue offset by elapsed plus current-attempt days; rebuy chain bills from each account's own first month; the current attempt's started month is sunk). T32, T34, `placedFundedRisk`, `simInputsSizingIssue` and `wholeContractRisk` are funded-only; PT-15 does not import them.
+- Handoffs emitted: (a) PT-19 (F-120): pass `config.startState`; pick LadderSearchFromState by `startState.elapsedDays > 0` (idle sessions consume the cap), label `costPerFunded` as "remaining cost to funded, sunk fees excluded", read fresh stats from `freshAttempt`. (b) PT-12c (F-107): reconstructed eval states set `elapsedDays` (sessions since the attempt start, idle included), `todayPnL` 0 and `startingBalance = accountSize`. (c) PT-14: reuse `replacementEconomicsFromState` and `EvalStartState` (relative imports; no barrel line needed). (d) PT-34 or the ladder lab: the worker request carries a serializable `startState` into `LadderScoreConfig`. (e) Audit tracker: `LadderSearch.ts`, `Replacement.ts` and the new `EvalStartState.ts` edited after G2. (f) PT-50 note: `enumerateDay`'s inline risk chain vs `resolveRiskAt`, the dead `seedOffset`, and the stale T27 "ceil on mean attempt days" sentence.
+- Open user question: Q9 (horizon for plans with no firm eval-day cap).
 
 **Steps (RED first)**
 
-1. Capture pins (PD-31) for a seeded config. Re-read `scoreLadder`, `replacementEconomics` use, the day cap (`plan.evalDayCap(maxDays)`).
-2. RED:
-   - omitting `startState` equals the pins; `startState = plan.initialState()` equals the pins;
-   - from a state near the target: the current-attempt pass probability rises and its expected days fall;
-   - retries after a failed current attempt are priced with the fresh-start score (cost per funded = current attempt outcome plus fresh retries; sunk fees excluded);
-   - the day cap for the current attempt is `evalDayCap - elapsed trading days`;
-   - a busted, passed or past-cap start throws naming the reason.
-3. Implement the optional `startState` with the two-part scoring. No barrel change.
-4. GREEN; guards: every `LadderSearch*` test; typecheck, eslint.
+1. Pins and re-read (PD-31, after G2, from the working tree). Seeded fresh `scoreLadder` pins go into `LadderSearchStartState.test.ts`: MFF Rapid EOD 50K and Apex Intraday 50K (21-session cap), ladder [400, 600, 800, 200], winrate 0.5, rr 2, DayGreen stop, CapToCushion, 500 trials, seed 42; record every `LadderScore` field exactly, plus `runLadderSearch` bySpeed, byCost and frontier on a 1-slot grid; note the `rngDrawCount` ladder pin (2090 draws). Re-read `scoreLadder` (:415), `runLadderAttempt` (:661), `distributionFor` (:455), the costing block (:560-627), `Replacement.ts` (`replacementEconomics`, `expectedBilledMonths`, the chains), `TradingDayLedger.closeTradingDay`, `Plan.isBust/isPassed/evalDayCap`, and `_workers/ladderWorker.ts`. Add typed stubs: `LadderScoreConfig.startState?: AccountState`; `LadderScore.freshAttempt?: {passRate; passRateStandardError; meanDaysOnPass; meanDaysOnFail}`; `replacementEconomicsFromState` and `evalStartStateIssue` throwing "not implemented".
+2. RED `ReplacementFromState.test.ts`:
+   - Inputs: the current attempt's `{passRate, attemptDays (remaining sessions on pass and fail), elapsedDays}` plus the fresh `ReplacementInputs` for retries.
+   - Cost = activation once + the current account's subscription months beyond those already started (sunk) + (1 - pc) x (retries at retryFee / P + the continuing chain subscription). Days = pc x currentPass + (1 - pc) x (currentFail + fresh days per funded). `attemptsPerFundedAccount = 1 + (1 - pc) / P`.
+   - Hand-computed cases: a no-subscription plan; a renewal-chain plan where the chain continues across the reset with its residue offset by elapsed plus current-fail days; a rebuy plan where each re-bought account bills from its own first month (N-60).
+   - pc = 1 needs no retries and bills only activation plus the remaining months. P = 0 with pc < 1 is Infinity. Invalid probabilities throw, like `replacementEconomics`.
+3. RED `LadderSearchStartState.test.ts`, with states built by replaying fixed trade sequences through the barrel's `applyTrade`/`closeTradingDay`/`recordBestDay`/`resetForNewDay` from `plan.initialState()` (never hand-assembled), firm plans via `findFirm(...).findPlan`:
+   - (a) Omitting `startState` equals the step 1 pins bit-exactly (`scoreLadder` and `runLadderSearch`).
+   - (b) `startState = plan.initialState()`: current-attempt pass rate and mean days within 3 SE of fresh; `freshAttempt` equals the pinned fresh stats exactly; `costPerFunded` within SE of fresh cost minus the sunk initial eval fee and first month.
+   - (c) From a state near the target: current pass probability above fresh, expected days below.
+   - (d) Retries are priced from `freshAttempt` through `replacementEconomicsFromState`; cost and days equal the helper applied to the reported estimates; sunk fees excluded.
+   - (e) The current cap is `plan.evalDayCap(maxDays) - elapsedDays`: Apex Intraday with 15 sessions elapsed (some idle) gives at most 6 remaining sessions; a timeout is a failure and is retried (T29).
+   - (f) `costPerFundedStandardError` and `expectedDaysToFundedStandardError` are propagated over the six estimates (current pc and days, fresh P and days), finite and positive.
+   - (g) Unscorable (Infinity) only when pc < 1 and fresh P < `LADDER_EVAL_PASS_FLOOR`.
+   - (h) `runLadderSearch` with `startState` ranks on the from-state values (a case where bySpeed differs from fresh).
+   - (i) Current-attempt trial k draws from `trialRng(sims + k)`: fresh draws unchanged; ladders share streams (CRN).
+   - (j) Throws naming the reason for a start that is busted (`plan.isBust` Eval), passed (`plan.isPassed`), past the cap (`elapsedDays >= evalDayCap`), missing `elapsedDays`, `elapsedDays < tradingDays`, `todayPnL != 0`, or `startingBalance != plan.accountSize`. These checks live in `EvalStartState.ts` (`evalStartStateIssue(plan, state, maxDays): null | string`) so PT-14 reuses them.
+   - (k) PolicySizing stays ContractCapped (T33 does not apply to eval).
+4. Implement:
+   - `Replacement.ts`: `replacementEconomicsFromState`, sharing `expectedBilledMonths` and the residue helpers (factor out a residue-offset variant; no copy). Existing exports unchanged.
+   - `EvalStartState.ts`: the validator.
+   - `LadderSearch.ts`: replace `const CENTS = 100` with `CENTS_PER_DOLLAR` from `./lib/units`; validate `startState` once per `scoreLadder` call; `runLadderAttempt` takes a start state and a remaining cap; with `startState`, run `sims` extra current-attempt trials from a clone on `trialRng(sims + k)` reusing the `distributionFor` cache; the top-level pass rate, SE and mean days describe the current attempt, cost and days (with SEs) come from the from-state economics, and the fresh stats go into `freshAttempt`. The omitted path runs exactly as today.
+   - No barrel, worker or CLI change.
+5. GREEN: `bunx vitest run` from the repo root on the 2 new files plus the guards `tests/unit/lib/prop-calculator/core/{LadderGrid,LadderIgnoredInputs,LadderSearchContractLimits,LadderSearchCost,LadderSearchEvalDayCap,LadderSearchIntradayTrailing,LadderSearchNoise,Replacement,RenewalCycleObjective}.test.ts`, `tests/unit/lib/prop-calculator/{ladderSearch,rngDrawCount}.test.ts`, `tests/unit/cli/prop/ladder.test.ts`, `tests/unit/app/prop-calculator/{ladderIgnoredInputs,ladderResultSlot,ladderUnscorable,ladderLabRestore}.test.ts`, all equal to their pins. `bun run typecheck` against the baseline; `bunx eslint` on the owned files (no `--fix`); prettier on owned files only; importer grep for `replacementEconomicsFromState` and `evalStartStateIssue`. No full suite, no repo-wide check.
+6. Record the audit-tracker fingerprint handoff and handoffs (a) to (f) for the integrator.
 
 **Regression tests**
 
-- `LadderSearchStartState.test.ts`; guards: `LadderSearch*`
+- `LadderSearchStartState.test.ts`, `ReplacementFromState.test.ts`; guards: the step 5 list
 
 **Acceptance**
 
-- Mid-eval ladders are ranked on the right economics; the default path is unchanged.
+- Mid-eval ladders are ranked on the remaining cost and days to funded, with the current attempt scored from the state, retries at fresh-start scores with the subscription chain carried over, and the cap reduced by elapsed sessions. The default path is bit-identical to the pins. Invalid starts fail loud from one shared validator. One cents constant and no duplicated billing math.
 
 ## PT-16: funded candidates in lib
 
-- **Lane / wave:** E / E1  **Size:** medium  **Depends on:** G2
+- **Lane / wave:** E / EJ1 (the lib-only half may run in EJ0a if the user answers Q6 yes; the CLI rewire always waits for G2)  **Size:** medium  **Depends on:** G2 (for the CLI edit and the CLI before/after check)
 - **Items:** F-115
 - **Files owned:**
-  - new `src/lib/prop-calculator/optimize/{FundedCandidate.ts, FundedCandidateSweep.ts, index.ts}`
+  - new `src/lib/prop-calculator/optimize/{FundedCandidate.ts, FundedCandidateSweep.ts, FundedCandidateText.ts, index.ts}` (sub-barrel imported as `~/lib/prop-calculator/optimize`, like `advisor`; the root and core barrels are not touched)
   - changed `src/cli/commands/prop/optimize/funded/command.ts`
-  - tests `tests/unit/lib/prop-calculator/optimize/FundedCandidateSweep.test.ts`; guard `tests/unit/cli/prop/optimizeFunded.test.ts`
+  - new `tests/unit/lib/prop-calculator/optimize/{FundedCandidate,FundedCandidateSweep}.test.ts`
+  - guard `tests/unit/cli/prop/optimizeFunded.test.ts` (only the import lines for `FundedSortKey`, `survivorCount` and any lifted row helper move to `~/lib/prop-calculator/optimize`; every assertion unchanged)
 - **Reviewers:** code-reviewer, typescript-reviewer
+
+**Readiness pass 2026-09-26**
+
+- Line references moved: in `optimize/funded/command.ts` (427 lines) the sort is at 139-150 (stable `Array.sort`, descending on `expectedNet` for Cycle and on `expectedMonthlyNet` for Monthly, no tie-break), `survivorCount` at 268-273, `fundedRowCells` at 196-210, `readFundedCandidates` at 227-254 plus helpers at 275-427.
+- The builder is no longer option-to-list. Since T33/WP39-WP40 it takes `(arguments_, stopRule, positionSizing)`; flats below one contract are filtered out and reported; percent defaults (5, 7.5, 10, 15) appear only with a stop; an explicit `--percent` without a stop throws; a ladder rung below one contract throws; labels carry placed whole contracts ("flat $150 (7 MNQ = $140)"); the ladder `fundedDayPolicy` carries `sizing: policySizingOf(Funded)`. Defaults therefore have two cases: no stop gives the 6 flat rows; a stop gives placed flats then 4 percent rows.
+- String parsing and flag-worded errors stay in the CLI (`readNumberList`, `readLadder`, the "--percent ... needs --stop-points" family, all pinned in `optimizeFunded.test.ts`). The lib takes parsed numbers and returns typed refusal data; the CLI maps each refusal kind to today's exact text.
+- The row now has 7 columns: policy, per-cycle net, horizon credit (T32), monthly net, monthly ex-credit (`expectedMonthlyRealizedNet`, WP40), bust when funded, survivors.
+- The old smoke command is invalid (`--firm apex` resolves 2 plans); use `--firm mffu --variant rapid-eod` with a fixed seed.
+- PT-25 handoff folded in: lift the whole surface the web needs, not only candidates and sort: the row cells (all 7 columns, formatted with `~/lib/format`), the sizing notes and the below-one-contract clause, and the sort description (it only uses `SIM_DEFAULTS.rebuyLagDays` and `TRADING_DAYS_PER_MONTH`, both lib). The CLI keeps `TablePrinter`, `ui`, the spinner text (`fundedSweepProgress`, `fundedSweepSummary`) and flag parsing.
+- Already done elsewhere: no `optimize/` lib exists and no web code copies the candidate logic. Every whole-contract helper exists in core (`placedFundedRiskAt`, `formatOneContractRisk`, `formatWholeCentDollars`, `resolvePositionSizing`, `isBelowOneContract`, `wholeContractRisk`, `policySizingOf`, `PolicySizing`, `ladderRungsSchema`, `ladderRungSchema`); `simInputsSizingIssue` and `SIM_INPUTS_REFUSAL_PREFIX` come through the root barrel. WP40 added the horizon credit and ex-credit columns; WP39d made the CLI filters agree with `simInputsSizingIssue` (parity test exists). The CLI already applies policy inputs through `TradingInputs.toSimInputs`; building the `EnginePolicy` stays PT-19's.
+- Audit decisions: T33/U18 (keep the whole-contract rules exactly; labels from `placedFundedRiskAt(dollar, positionSizing)` without the plan; never reuse the plan-capped web `describePlacedFundedRisk`; the lib is the single place to change if U18 is answered differently). T32/U17 (Monthly ranks on credit-inclusive `expectedMonthlyNet`; lift as is; no ex-credit sort key until the user answers Q1). PD-21/G2 (the CLI file waits for G2). No cent math of its own.
+- Reuse: `../core` (`placedFundedRiskAt`, `formatOneContractRisk`, `formatWholeCentDollars`, `policySizingOf`, `TradingPhase`, `fraction`, `DayStopRule`, `PositionSizingConfig`, `ladderRungsSchema`, `ladderRungSchema`); `../simulator` (`simulate`, `simInputsSizingIssue` as the single sizing check, `SimInputs`, `SimOutputs`); `~/lib/format`. DRY: the "below one <SYM> contract's risk at a <N> point stop (<amount>)" clause is built twice today (`flatBelowOneContractNote`, `ladderCandidate`); make it one lib helper. `fundedSizingNotes` stops re-parsing flats and reads the build result. Defaults and item schemas move into lib constants (`DEFAULT_FUNDED_FLAT_CANDIDATES`, `DEFAULT_FUNDED_PERCENT_CANDIDATES`, the positive and max-100 item schemas); the CLI's `--flat` default and `--percent` help derive from them.
+- Handoffs emitted: to PT-19 and PT-25b: call `buildFundedCandidates`, `sortFundedResults`, `runFundedCandidateSweep`, `survivorCount`, `fundedRowCells` and `fundedSortDescription` by these names, pass a base `SimInputs` that already carries the `EnginePolicy`, render typed refusals and never throw (PT-11f precedent). Candidates and overrides are structured-cloneable (no closure; branded fraction number; string labels), so a worker can build them itself. To PT-24: import the lifted row helpers from lib. Audit tracker: `command.ts` and the new `optimize/*` files edited after G2.
+- Open user questions: Q6 (lib half before G2), Q1 (U17 default ranking).
 
 **Steps (RED first)**
 
-1. Re-read the post-audit `optimize/funded/command.ts`: candidate builder, the sort (lines near 118-129) and the survivors column (near 109-154). Record the exact current ordering rule.
-2. RED: `buildFundedCandidates(options)` returns the CLI's candidates in the CLI's order for its defaults; `sortFundedResults(results, sort)` reproduces the CLI sort exactly (no added tie-break, no noise filter); the survivors value per row equals the CLI column's.
-3. Implement by moving the logic; the CLI imports from `~/lib/prop-calculator/optimize`.
-4. GREEN; `optimizeFunded.test.ts` unchanged; one small run `bun run cli prop optimize funded --firm apex --trials 200` before and after, outputs identical (record both); typecheck, eslint, importer greps.
+1. Pins (PD-31), after G2 or in a quiet window. Capture CLI stdout (not the stderr spinner) for Run A `bun run cli prop optimize funded --firm mffu --variant rapid-eod --trials 200 --seed 42` and Run B (the same plus `--instrument MNQ --stop-points 10 --funded-ladder 400,600 --sort cycle`), and one refusal each: `--percent 10` with no stop; `--flat 150 --percent '' --stop-points 10`; `--funded-ladder 150,400 --stop-points 10`. Store them in the scratchpad. Re-read `command.ts` (sort 139-150, candidates 227-254 and 275-427, `fundedSizingNotes` 311-330, `survivorCount` 268-273, `fundedRowCells` 196-210, `sortDescription`), `PlacedFundedRisk.ts`, `PositionSizing.ts`, `DayPolicy.ts`, `dayPolicyValidation.ts`. Confirm no audit tracker item is in flight on `command.ts`.
+2. RED `FundedCandidate.test.ts` against typed stubs (PD-22). `buildFundedCandidates(options)` with options `flat: readonly number[]` (default `DEFAULT_FUNDED_FLAT_CANDIDATES`), `percent?: readonly number[]` (undefined means the defaults; an explicit list is distinguished), `fundedLadder: readonly number[] | null`, `stopRule: DayStopRule`, `positionSizing: PositionSizingConfig | null`, validated by an exported zod schema reusing `ladderRungsSchema` and the item schemas. Result: a typed union, built `{candidates: FundedCandidate[] (label plus `overrides: Partial<SimInputs>`), flatsBelowOneContract: number[]}` or refused `{kind: FundedCandidateRefusal.NoCandidates | PercentNeedsStop | LadderRungBelowOneContract, ...data}`. Cases, each equal to today's CLI:
+   - defaults with no stop give the 6 plain flat labels;
+   - defaults at MNQ/10 give "flat $150 (7 MNQ = $140)" and so on, then "5% cushion", "7.5% cushion", "10% cushion", "15% cushion";
+   - flat, percent and ladder order at MNQ/10, with the ladder override `{ladder, maxLossesPerDay: null, sizing: PolicySizing.WholeContracts, stopRule}` and `fundedCushionPercent: undefined, fundedRiskPerTrade: undefined`;
+   - flats at NQ/10: 150 left out and listed, 250 gives "(1 NQ = $200)";
+   - ES/1.1: the $55 rung accepted and $54.99 refused, the one-contract amount rounded up in whole cents (the $50.01 and $24.61 cases);
+   - percent overrides use `fraction(pct / 100)`;
+   - explicit percent with no stop is PercentNeedsStop; default percent with no stop is silently empty;
+   - empty families give NoCandidates;
+   - a parity grid: a flat is placed exactly when `simInputsSizingIssue` accepts it;
+   - the shared clause helper: "below one NQ contract's risk at a 10 point stop ($200)".
+3. RED `FundedCandidateSweep.test.ts`:
+   - `FundedSortKey` (Cycle, Monthly) and ordered `FUNDED_SORT_KEYS` [Monthly, Cycle];
+   - `sortFundedResults(rows, sort)` returns a sorted copy (`toSorted`) without mutating; Cycle descending on `expectedNet`, Monthly descending on `expectedMonthlyNet` (credit included, T32); ties keep input order;
+   - `runFundedCandidateSweep(base, candidates, sort)` equals `candidates.map(c => ({candidate: c, out: simulate({...base, ...c.overrides})}))` sorted by the same rule, for a fixed seed;
+   - `survivorCount(out, trials)` equals `Math.round(fundedSurvivalProbability * trials)`;
+   - `fundedRowCells(row, trials)` equals today's 7 CLI cells; `fundedSortDescription(sort)` equals today's text;
+   - a 250/250/250/250 ladder at NQ/10 gives `SimOutputs` strictly equal to flat $250 (T33 footing).
+4. Implement by moving, not re-deriving: `FundedCandidate.ts` (schema, defaults, builder, refusal union), `FundedCandidateText.ts` (the clause, row cells, sort description), `FundedCandidateSweep.ts` (`FundedSortKey`, `FUNDED_SORT_KEYS`, row type, `sortFundedResults`, `runFundedCandidateSweep`, `survivorCount`), `optimize/index.ts`. Imports only `../core`, `../simulator` and `~/lib/format`; no `~/cli`, no `node:`, no `FundedStateValue`. No comments; enums, not string literals.
+5. Rewire the CLI (after G2): `readFundedCandidates` keeps its signature, parses strings with `readNumberList`/`readLadder` using the lib item schemas, calls `buildFundedCandidates` and maps each refusal kind to today's exact text including flag names; `--flat` default and `--percent` help derive from the lib constants; `fundedSizingNotes` reads `flatsBelowOneContract`; `run()` calls `runFundedCandidateSweep` and the lifted row helpers, keeping spinner, heading, notes and table order. Delete the CLI's `Candidate`, `ScoredCandidate`, `SORT_KEYS`, local `FundedSortKey`, `survivorCount`, `fundedRowCells`, `sortDescription` and the duplicated helpers. In `optimizeFunded.test.ts` change only the imports.
+6. GREEN from the repo root: `bunx vitest run tests/unit/lib/prop-calculator/optimize tests/unit/cli/prop/optimizeFunded.test.ts tests/unit/lib/prop-calculator/declaredPolicySizing.test.ts tests/unit/lib/prop-calculator/horizonCredit.test.ts`; `bun run typecheck`; `bunx eslint` on the owned files; importer greps (no `~/cli` import under `src/lib`; every new export has an importer). Re-run the step 1 commands after G2 and diff stdout byte for byte against the pins, recording both. Record the audit-tracker handoff.
 
 **Regression tests**
 
-- `FundedCandidateSweep.test.ts`, `optimizeFunded.test.ts`
+- `FundedCandidate.test.ts`, `FundedCandidateSweep.test.ts`; guards: `optimizeFunded.test.ts`, `declaredPolicySizing.test.ts`, `horizonCredit.test.ts`
 
 **Acceptance**
 
-- One candidate implementation shared by the CLI and the web; CLI output unchanged.
+- One candidate, sort, survivors, row-cell and note implementation in `~/lib/prop-calculator/optimize`, shared by the CLI and later PT-19 and PT-25b; CLI stdout and error text identical to the pins; every T33 whole-contract rule preserved through the reused core helpers; the lib never throws flag-worded errors.
 
 ## PT-18: eval DP reachability query
 
-- **Lane / wave:** E / E1  **Size:** small  **Depends on:** G2
+- **Lane / wave:** E / EJ1  **Size:** small  **Depends on:** G2 only
 - **Items:** F-116
-- **Files owned:** `src/lib/prop-calculator/core/EvalStateValue.ts`, new `tests/unit/lib/prop-calculator/core/EvalStateValueReachability.test.ts`
-- **Reviewers:** code-reviewer, typescript-reviewer
+- **Files owned:**
+  - `src/lib/prop-calculator/core/EvalStateValue.ts`
+  - new `tests/unit/lib/prop-calculator/core/EvalStateValueReachability.test.ts`
+  - new `tests/unit/lib/prop-calculator/evalStateValueToy.ts` (shared toy fixtures `baseBuilderPlan`, `toyPlan`, `toyDpConfig`)
+  - `tests/unit/lib/prop-calculator/core/EvalStateValue.test.ts` (import-only change to the shared fixture; no assertion edits)
+  - no `core/index.ts` edit (`type EvalStateValueResult` is already exported at `core/index.ts:87`)
+- **Reviewers:** code-reviewer, typescript-reviewer, plus the engine characterization check
+
+**Readiness pass 2026-09-26**
+
+- Reachability must use the `policy` map, not `memo`: `memo` also stores timeout values for `day >= dayCap` keys, while `policy` holds only keys that were solved (`dayCloseValue` 540-575).
+- The query can only live inside the `computeEvalStateValue` closure (`outerKey`, `bucketOuterState`, `policy`, `cushionBucketIndex` are local). It becomes a new required field on `EvalStateValueResult` (53-57); nothing outside constructs that interface literally (`AverageRewardSolver.ts:173` and `optimize/dp/command.ts:362-423` only read it).
+- Unspecified before: a trade index outside `[0, slots)` (today `computeRisk` returns 0 through `?? 0`, lines 619-622) and the silent `state.elapsedDays ?? 0` default at line 595 (the mis-mapped day index PD-16 warns PT-30 about). The query throws on a missing `elapsedDays` or a bad index, and returns 0 for a spent slot on a solved key.
+- "Reached" means solved on the cushion grid by backward induction (`solveDayGrid` calls `onDayComplete` for every bucket), not path-reachable. Null only for a pass-region profit (short-circuited before any key) or a day index at or past `plan.evalDayCap(maxEvalDays)` (capped by `maxEvalTradingDays`, Plan.ts:965-969). A solved state whose optimum is to sit out returns 0, not null.
+- Already done elsewhere: nothing of PT-18 exists (only `reachedStateCount`). The audit already shaped the file (WP17 DLL-headroom cap and `candidateRisksByBudget`, WP17d/WP23 peak ratchet, WP17b `terminalValueAtFail`, WP21b error text, N-15(a) tracked tier context, the explicit `PolicySizing.ContractCapped` argument); keep all byte-identical.
+- Audit decisions: no conflict with T32, T33 or T34. The query returns the DP's contract-capped dollar risk; converting it to contracts is PT-13's `contractsAtStop` or PT-30's job. G2 applies because `EvalStateValue.ts` feeds `prop optimize dp`.
+- Reuse: the closure helpers `outerKey`, `bucketOuterState`, `cushionBucketIndex`, the `policy` map and the `dayCap` local; factor one private `keyOf(state)` helper out of `computeRisk` so the key derivation exists once. Move the toy fixtures to one shared file following `tests/unit/lib/prop-calculator/{dayRunOptions,scriptedRng,perTrialRowsTotal}.ts`.
+- Handoffs emitted: audit tracker (`EvalStateValue.ts` edited after G2; WP17 family and N-9 fingerprints). Wave log for PT-30: null only for unsolved keys, 0 for a solved sit-out, throw on a missing `elapsedDays` or bad index; "reached" means solved on the bucketed grid; PT-30 supplies the explicit session-to-day mapping and maps null to `DpStateUnreached`.
 
 **Steps (RED first)**
 
-1. Re-read the post-WP24 `EvalStateValue.ts` (memo reachability, `computeRisk`, the day index from `state.elapsedDays`, the tracked tier context).
-2. RED on a small config: `riskAtReachedState(state, tradeIndex): number | null` returns `computeRisk`'s value for `plan.initialState()` and `null` for an unreached key (a profit bucket above the target, or a day index past the horizon); `computeRisk` unchanged for both.
-3. Implement without changing `computeRisk`.
-4. GREEN; guards: every `EvalStateValue*` test; typecheck, eslint.
+1. Pre-flight: confirm G2 is recorded and no audit CLI job (engine-results rerun, `optimize dp`) is running. Re-read `EvalStateValue.ts` in full: `EvalStateValueResult` (53-57), `dayCap = plan.evalDayCap(config.maxEvalDays)` (103), `memo` vs `policy` (153-154), `outerKey` (164-185), `bucketOuterState` (252-287), the `dayCloseValue` timeout branch (writes `memo`, not `policy`, 543-547), `computeRisk` (594-624) with its `elapsedDays ?? 0` default and `?? 0` fallbacks, and `computedDayPolicy(..., PolicySizing.ContractCapped)` (626-631).
+2. Pins (PD-31) from the working tree: `computeRisk` outputs on toyPlan(250), 2-day cap, maxAction 100, for `plan.initialState()` at trade 0; day 1 after a day-0 win (cushion 100, thresholdOffset 100); day 1 after a day-0 loss (cushion 50); a pass-region state (balance 1,300); `elapsedDays` 2. Also `initialValue` and `reachedStateCount`. Write them as literal pins in the new test file.
+3. DRY fixture: move `baseBuilderPlan`, `toyPlan` and `toyDpConfig` to `evalStateValueToy.ts` with no logic change; import from both test files; `bunx vitest run tests/unit/lib/prop-calculator/core/EvalStateValue.test.ts` stays fully green.
+4. Typed stub (PD-22): `readonly riskAtReachedState: (state: AccountState, tradeIndexToday: number) => null | number` on `EvalStateValueResult`, returning a closure that throws "not implemented"; typecheck at baseline.
+5. RED `EvalStateValueReachability.test.ts` (runtime failures only):
+   - a. `riskAtReachedState(plan.initialState(), 0)` equals `dayPolicy.computeRisk(plan.initialState(), 0)` (50 on toyPlan(250)).
+   - b. The day-1 win and loss states return what `computeRisk` returns; the loss state returns 0, not null.
+   - c. A pass-region profit returns null.
+   - d. `elapsedDays` equal to the horizon returns null; a plan whose `maxEvalTradingDays` is below `maxEvalDays` returns null at `plan.evalDayCap(maxEvalDays)`.
+   - e. A state without `elapsedDays` throws with a message naming the missing day index (no em dash).
+   - f. A negative or non-integer trade index throws; an index at or above `tradesPerDay` on a solved key returns 0, matching `computeRisk`.
+   - g. `computeRisk` for every step 2 state equals the pins; `initialValue` and `reachedStateCount` equal the pins.
+   - h. `result.dayPolicy.sizing` is still `PolicySizing.ContractCapped`.
+6. Implement inside the closure: one private helper deriving `{day, key}` via `bucketOuterState(state, balance - threshold - todayPnL)` and `outerKey`; `computeRisk` keeps its defaults through it; `riskAtReachedState` validates `elapsedDays` and the index, returns null when `policy.get(key)` is undefined, otherwise `policyTables[tradeIndex]?.[cushionBucketIndex(balance - threshold)] ?? 0`. No comments, no barrel edit, no `dayPolicy` change.
+7. GREEN from the repo root, only: `bunx vitest run tests/unit/lib/prop-calculator/core/EvalStateValueReachability.test.ts tests/unit/lib/prop-calculator/core/EvalStateValue.test.ts tests/unit/lib/prop-calculator/core/AverageRewardSolver.test.ts tests/unit/lib/prop-calculator/declaredPolicySizing.test.ts tests/unit/lib/prop-calculator/core/DayPolicy.test.ts tests/unit/lib/prop-calculator/firms/tradeify/TradeifyScalingDllDp.test.ts`; `bun run typecheck`; `bunx eslint` on the four owned files; grep shows the fixture imported by both tests. Optional, only with no other CLI job running: `bun run cli prop optimize dp --firm topstep --eval-days 20 --funded-days 60 --trials 200` before and after, identical.
+8. Handoffs: audit tracker (fingerprints) and the PT-30 wave-log note.
 
 **Regression tests**
 
-- `EvalStateValueReachability.test.ts`
+- `EvalStateValueReachability.test.ts`; guards: the step 7 list
 
 **Acceptance**
 
-- Unreached eval states are detectable; no silent $0 advice.
+- States the eval DP never solved are detectable as null, separate from a solved 0; `computeRisk`, `initialValue`, `reachedStateCount` and the ContractCapped sizing equal the working-tree pins; the toy fixtures exist once.
 
 ## PT-12: reconstruction, plausibility, payout gates and request policy, live applicability
 
-- **Lane / wave:** E / E2 (after G2)  **Size:** large  **Depends on:** G2, PT-01, PT-03, PT-04 (item i), PT-13
+- **Lane / wave:** E, split in three: PT-12b in EJ0a (before G2, quiet window only), PT-12a in EJ1, PT-12c in EJ2  **Size:** large overall (a medium, b small, c large)
+- **Depends on:** PT-12a: G2. PT-12b: PT-01, PT-03, PT-04 item (i) (all done) and the audit's quiet window; no engine file. PT-12c: PT-12a, PT-12b. The old dependency on PT-13 was only `core/index.ts` ownership and is dropped (PT-12 uses no PT-13 code).
 - **Items:** F-106 to F-110, F-138, F-140 (validator), F-149 (core), F-151
 - **Files owned:**
-  - new `src/lib/prop-calculator/core/{PayoutGate.ts, PayoutRequestPolicy.ts}`; changed `core/FundedPayoutCycle.ts` (public `evaluatePayout`; `tryPayout` reuses it; `payoutRequestPolicy` option in `resolveWithdrawal`); changed `core/index.ts` (only package in E2 touching it: exports `PayoutGate`, `PayoutRequestPolicy`, `effectivePayoutRequest`)
-  - new `src/lib/prop-calculator/advisor/{AccountSnapshotInput.ts, SnapshotPlausibility.ts, AssumptionKind.ts, Assumption.ts, ReconstructedAccount.ts, AccountReconstruction.ts, CalendarGateProgress.ts, PayoutBlockReason.ts, PayoutReadiness.ts, LivePlanApplicability.ts}`, changed `advisor/index.ts`
-  - new `src/lib/prop-accounts/advice/{SnapshotAdapter.ts, index.ts}`
-  - tests `tests/unit/lib/prop-calculator/advisor/{AccountReconstruction,ReconstructionRoundTrip,SnapshotPlausibility,CalendarGateProgress,PayoutReadiness,LivePlanApplicability}.test.ts`, `tests/unit/lib/prop-calculator/core/{FundedPayoutCycleEvaluate,PayoutRequestPolicy}.test.ts`, `tests/unit/lib/prop-accounts/advice/SnapshotAdapter.test.ts`
-- **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer
+  - PT-12a (core): new `src/lib/prop-calculator/core/{PayoutGate.ts, PayoutRequestPolicy.ts, PostPayoutThreshold.ts}`, new `core/lib/isoDate.ts`; changed `core/FundedPayoutCycle.ts` (`evaluatePayout`, `tryPayout` reuses it, discriminated `perRequestCeiling` result, `payoutRequestPolicy` on `FundedPayoutOptions`, `FundedCycleSeed` and `restoreFundedCycleTracker`; `closeoutCredit` behaviour unchanged), `core/LivePlan.ts` (its private `floorAfterWithdrawal` uses the shared post-payout threshold helper; behaviour identical), `core/lib/units.ts` (optional `ceilToWholeCents`), `core/index.ts` (EJ1 owner), `src/lib/prop-accounts/core/IsoDate.ts` (re-exports the moved helpers), `src/app/(app)/prop-calculator/accounts/_components/accountPlanOptions.ts` (W4 DRY: `minimumPayoutRequest`); tests `tests/unit/lib/prop-calculator/core/{FundedPayoutCycleEvaluate,PayoutRequestPolicy,RestoreFundedCycleTracker,PostPayoutThreshold}.test.ts`. Not `FundedStateValue.ts`: the DP's tracker-seeding swap goes to PT-47b.
+  - PT-12b (advisor inputs): new `src/lib/prop-calculator/advisor/{AccountSnapshotInput.ts, SnapshotInputField.ts, SnapshotPlausibility.ts, DashboardBalanceConvention.ts, AssumptionKind.ts, Assumption.ts, LivePlanApplicability.ts}`, changed `advisor/index.ts` (EJ0a owner), changed `src/lib/prop-accounts/core/DashboardBalanceConvention.ts` (becomes a re-export of the advisor enum); tests `tests/unit/lib/prop-calculator/advisor/{SnapshotPlausibility,LivePlanApplicability}.test.ts`.
+  - PT-12c (reconstruction): new `advisor/{ReconstructedAccount.ts, AccountReconstruction.ts, CalendarGateProgress.ts, PayoutBlockReason.ts, PayoutReadiness.ts}`, changed `advisor/index.ts` (EJ2 owner); new `src/lib/prop-accounts/advice/{SnapshotAdapter.ts, index.ts}`, changed `src/lib/prop-accounts/index.ts` (`export * from './advice'`); optional `core/Plan.ts` (`resolvedDailyLossLimit`, only if reconstruction needs it; PT-13 handoff c); tests `tests/unit/lib/prop-calculator/advisor/{AccountReconstruction,ReconstructionRoundTrip,CalendarGateProgress,PayoutReadiness}.test.ts`, `tests/unit/lib/prop-accounts/advice/SnapshotAdapter.test.ts`, `tests/unit/lib/prop-accounts/barrel.test.ts` (advice added to the re-export and duplicate-name checks).
+- **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer, plus the engine characterization check (PT-12a)
 
-**Steps (RED first)**
+**Readiness pass 2026-09-26**
 
-1. Capture pins (PD-31) for `tryPayout` on a scenario table and for the funded engine characterization. Re-read `AccountState.ts`, `DrawdownStrategy.ts` (all subclasses, `forceLock`, `prospectiveLockThreshold`), `Plan.ts` (`initialState`, `beginFundedPhase`, `affordableRisk`, `payoutBalanceFloor`, `isAccountConcluded`, `minPayoutRequest`, `payoutRequestCap`, `withMaxLifetimePayouts`, the DLL and contract-limit accessors near 681-698 and 730-735; confirm names), `FundedPayoutCycle.ts` (fields, `cumulativePayout` accumulating `traderReceives` near 152, `recordSessionClose`, `tryPayout` and every null branch, `resolveWithdrawal` near 388-436 and the ladder `minRequestAmount`, `withdrawableNow`, calendar gate code near 98-104 and 325-330), `DayPolicy.ts` `FundedCycleSnapshot` (including WP24's `fundedResetsUsed`), `LiveAccountState.ts`, `LivePlan.ts` (`ReserveLivePlan` state near 57-81), `TopStepLive.ts:140`, `computeTopStepLiveStartingBalance`, `firms/index.ts` `LIVE_PLAN_BUILDERS`, and PT-04's item (i).
-2. RED `FundedPayoutCycleEvaluate.test.ts`: one row per null-returning branch of `tryPayout` (consistency, day gate, min profit, dollar cap, early-withdrawal branch, ladder exhaustion, min request, deny-if-unaffordable) plus `AccountConcluded` (lifetime count) and eligible; `evaluatePayout` returns the matching `PayoutGate` or eligible plus amount; tracker and state deep-equal before and after; `tryPayout` equals the pins.
-3. RED `PayoutRequestPolicy.test.ts`:
-   - `effectivePayoutRequest(plan, 500)` is 500 on a plan with a $125 minimum and the plan minimum on MFF Pro ($1,000), Tradeify Lightning ($1,000), AlphaFutures Advanced ($1,000) and FundedNext Legacy ($800) (values re-read from the plan files and cited; the ladder `minRequestAmount` wins over `minPayoutRequest` where present);
-   - under `UpToRequest` (default) every existing tracker path equals the pins;
-   - under `FullRequestOnly` with request 500: $400 available pays nothing (null with `PayoutGate.BelowFullRequest`), $600 available pays 500; on a ladder plan whose step amount is $300, the step amount counts as the full amount and is paid;
-   - the options bag stays serializable.
-4. RED `SnapshotPlausibility.test.ts`: a nominal-convention balance of 2,400 on a 50K account and a zero-based balance of 52,400 both fail with the likely convention error; a pre-lock trailing cushion above the plan drawdown fails; a highest EOD below the balance fails; plausible states pass; each failure has a field key usable by forms and CSV previews.
-5. RED `CalendarGateProgress.test.ts`: MFF Pro-style calendar gates computed from `first_funded_trade_on` and `last_payout_on` dates, not the 5/7 approximation; missing dates yield an assumption.
-6. RED `LivePlanApplicability.test.ts`: every registry plan with a live stage maps to a builder with `verified` per PT-04 (i) or to `NotModeled`; MFF plans other than those PT-04 confirms move into the Rapid live program map to the firm builder with `LiveModelApproximation`; TopStep maps to its builder with the reserve-state approximation flag; E8/FTMO are `NotModeled`.
-7. RED `AccountReconstruction.test.ts`:
-   - Apex EOD funded (52,400 balance, 53,000 highest EOD, 0 payouts): threshold via `onDayClose`, lock per the plan;
-   - MFF Pro with payouts 1: floor from `MoveToLockedFloor`;
-   - LockAtPlanFloor with floor-at-last-payout given: uses it; without: conservative order (higher floor) with a disclosed `PeakOrderAssumed` assumption;
-   - intraday-trailing without intraday peak or dashboard floor throws `IntradayPeakRequired`;
-   - dashboard floor above the derived floor: cushion uses it, `DashboardFloorMismatch`;
-   - ZeroBased shifts balances by `accountSize`;
-   - an open Requested payout is deducted and noted (`PayoutPending` context);
-   - `fundedResetsUsed: 1` seeds the tracker's `cycleSnapshot().fundedResetsUsed`;
-   - cumulative payout is the trader-received net;
-   - missing extras give `Assumption`s with kind and direction;
-   - live on E8/FTMO gives `LiveNotModeled` with the cushion from the dashboard floor; live on an MFF plan without a verified mapping gives `LiveModelApproximation`; TopStep live uses the live start balance and disclosed reserve defaults with `LiveModelApproximation`.
-8. RED `ReconstructionRoundTrip.test.ts`: for every `DrawdownStrategy` subclass used by a registry plan (EOD, intraday, static, lock variants), a funded run that uses a funded reset, and every (plan, builder) pair `LivePlanApplicability` marks as modeled and verified (TopStep reserve state excluded), run seeded engine days (confirm the exported stepping API), capture inputs at several days, rebuild, and assert the full `AccountState`, the tracker `cycleSnapshot` (including `fundedResetsUsed`), threshold, lock, cushion, and the resolved DLL and contract limit equal the engine's.
-9. RED `PayoutReadiness.test.ts`: readiness equals `evaluatePayout` at the effective request plus profit or qualifying days to unlock; `PayoutBlockReason` wraps each `PayoutGate` as `{kind: Gate, gate}`; `PayoutPending` blocks; the `WouldTriggerLive` member exists and is never returned without trigger data.
-10. RED `SnapshotAdapter.test.ts`: DB row (cents) plus the account's events and payouts to `AccountSnapshotInput` (Dollars) exactly; nulls absent; `fundedResetsUsed` counts FundedReset events since the last Purchased; `cumulativePayout` is the snapshot value when present, else the sum of Paid payouts' `net_cents` (gross with a `GrossOnlyPayouts` assumption where net is missing); `liveStartBalance` from the account row.
-11. Implement: `PayoutGate` and `PayoutRequestPolicy` in core (core never imports advisor); `evaluatePayout` extracted from `tryPayout`; the `payoutRequestPolicy` option in `resolveWithdrawal` with `UpToRequest` as default; peak replay through `DrawdownStrategy` methods; tracker seeded through public fields and `restoreCalendarDayGateProgress` using `CalendarGateProgress`; `PayoutBlockReason` with every member declared (PD-42); `AssumptionKind` with every member declared (including `LiveModelApproximation`, `GrossOnlyPayouts`, `RebuyLagAssumed`, `FundedResetsFromEvents`).
-12. GREEN; guards: every `FundedPayoutCycle*`, `engineCharacterization`, `rngDrawCount` test equal to the pins; typecheck, eslint, importer greps.
+- `resolveWithdrawal` no longer exists. Today's code in `FundedPayoutCycle.ts`: `earlyWithdrawalDebit` 79, `hasMetDayGate` 104, `requestLimits` 127, `settle` 144 (`cumulativePayout += traderReceives` 182), `closeoutCredit` 192, `cycleSnapshot` 212, `dayGateProgress` 222, `restoreCalendarDayGateProgress` 244, `withdrawableNow` 253, `tryPayout` 275-330 (min-request check 325-326), `ladderStepLookup` 383, `perRequestCeiling` 426. The policy option belongs on `FundedPayoutOptions`. Plan: `affordableRisk` 621, `beginFundedPhase` 637, `dailyLossLimitFor` 653, `initialState` 724, `dailyLossLimitContext` 731, `isAccountConcluded` 812, `payoutBalanceFloor` 927, `resolvedPayoutCap` 955, `withMaxLifetimePayouts` 987. The DLL is `resolveDailyLossLimit(plan.dailyLossLimitFor(phase), plan.dailyLossLimitContext(state))`; the contract limit is `contractLimitAt(plan.contractLimits, phase, isMicro, plan.tierProfitContext(state))`. `ReserveLivePlan` is at `LivePlan.ts:462`; `TopStepLive.ts:140` is now the LFA-progress guard.
+- `tryPayout` null branches are eight: lifetime dollar cap, funded consistency, day gate, pool profit below the minimum with no early withdrawal, `withdrawable <= 0`, ladder exhausted, deny-if-unaffordable step, below the minimum request. The lifetime payout count is checked only by `Plan.isAccountConcluded`. `perRequestCeiling` returns one null for two gates, so it becomes a discriminated result.
+- FundedNext Legacy's minimum is $250 (`FundedNext.ts:311`); the $800 plan is FundedNext FNL:003 Instant (`FNL003_MIN_REQUEST`). Plans above $500: MFF Pro $1,000, Tradeify Lightning $1,000 (ladder), AlphaFutures Advanced $1,000, FundedNext FNL:003 $800. No registry plan has a $300 ladder step (use `withOverrides`).
+- Live mapping per PT-04 item (i) (firm-policy-recheck.md 954-978): MFF Pro and Builder are NotModeled (only Rapid and Rapid EOD map to `buildMffuRapidLivePlan`); FundedNext Legacy and FNL:003 NotModeled, Flex conflicted (verified false); Lucid Maxx NotModeled, Lucid Daily uses `LIVE_TRANSITION_PLAN_BUILDERS`; TopStep ProAccount NotModeled; Alpha maps to the 80% Live Program; `buildTptLiveDevelopmentPlan` only on explicit placement. The builder type covers both builder shapes.
+- TopStep live: `buildTopStepLivePlan(cushionPercent, cumulativeXfaBalance)` takes the cumulative XFA balance; at 50K the start is always $10,000, so the stored start cannot recover the reserve; the builder defaults to a $40,000 reserve; LFA progress is hidden state. Reconstruction starts from `plan.initialState()` of the builder and discloses both defaults (Q10).
+- The advisor may not import prop-accounts, so the ISO-date helpers move to core (PT-01d handoff, folded here), `SnapshotInputField` is an advisor enum mapped exhaustively to `SnapshotField` by the adapter, and `DashboardBalanceConvention` moves to the advisor and is re-exported by prop-accounts.
+- Cumulative qualifying days are not stored (only since the last payout), but `resolvedPayoutCap` reads them (FundedNext Legacy's 30-day milestone): default to the since-last-payout count with `CumulativeQualifyingDaysAssumed`.
+- The funded DP seeds trackers from public fields (`FundedStateValue.ts:1214-1288, 1413`), so `FundedStateValue*.test.ts` and `horizonCredit.test.ts` are guards.
+- Already done elsewhere: `PropAccountRepo.listEventsForAccount` (whole history, userId-scoped, fails loud past 5,000; accepted), `listPayouts`, `listSnapshotsForAccount`; `paidPayoutCash` and `sumUsdCents`; `accountStageOn`, `impliedEvalPassOn`; every DB field PT-12 reads; `SnapshotFieldRules.PeakRequirements`; WP24/WP27b `fundedResetsUsed`, `newFundedCycleTrackerAfterReset`, `fundedResetsBeforeFirstPayout`, `canTakeFundedReset`; `restoreCalendarDayGateProgress`, `dayGateProgress`, `cycleSnapshot`; `CENTS_PER_DOLLAR`, `CENT_ROUNDING_TOLERANCE_IN_CENTS`, `isAtOrBelowWithinCentTolerance`, `CALENDAR_DAYS_PER_WEEK`; PT-04 item (i); `SizingStage` as the stage enum.
+- Audit decisions: T32 (`closeoutCredit` shares `requestLimits`/`perRequestCeiling` but keeps its exact semantics: no policy, no min-request or FullRequestOnly gate; pinned by `horizonCredit.test.ts`; Q4). T33 (round-trip runs build policies with `policySizingOf(phase)`; funded runs with position sizing are WholeContracts; the contract limit is a count only, PD-25). N-69/WP28 (cent-tolerant comparisons; no local cents constant). WP24/WP27b (`fundedResetsUsed` stays readonly; seeded only through `newFundedCycleTrackerAfterReset`). T34: no conflict.
+- Requests folded in from PT-46: (a) one exported post-payout threshold helper (exhaustive over `PayoutFloorEffect`, ReleaseFloor mapped to the release target) used by `settle` and `LivePlan`; `withdrawableNow`'s private `payoutReferenceThreshold` stays as pinned unless the user approves the engine fix (Q13); (b) `effectivePayoutRequest` accepts a `LivePlan` (or a `Pick` of `minPayoutRequest` plus an optional ladder); (c) `PayoutReadiness` reports "profit to unlock" only where it has a closed form (static floor, no share cap) and returns null with a basis otherwise, leaving the trailing-floor and share-cap replay to PT-46; (d) optional `ceilToWholeCents` in `core/lib/units.ts`.
+- Requests folded in from PT-36: the payout readiness input and PT-46's payout context declare a firm-wide "paid payouts since the firm's last live account" field (number or null), so PT-36 only changes behaviour (PD-42).
+- Request folded in from PT-49: `SnapshotPlausibility` exposes a draft-level entry `snapshotDraftIssues(plan, stage, dashboardConvention, accountSize, fields)` with the advisor `SnapshotInputField` key, so the form and CSV preview call it without events or payouts.
+- Handoffs folded in: W4 to lane E (one `minimumPayoutRequest(plan)` in `core/PayoutRequestPolicy.ts`, replacing `FundedPayoutCycle.ts:325-326` and `accountPlanOptions.ts:320-321`); PT-05 and PT-01b to PT-12 (closed by `listEventsForAccount`; count only `FundedReset`, never `BustReversed`); PT-04 to PT-12 (item (i) table exactly, Apex resting on the user paste, FundedNext Flex verified false, MFF Rapid EOD's disputed 4/40 vs 3/30 limit noted); WP24 to PT-12 (seed through `newFundedCycleTrackerAfterReset`, assert `cycleSnapshot().fundedResetsUsed`); PT-01d (isoDate move); PT-15 (b) (reconstructed eval states set `elapsedDays`, `todayPnL` 0, `startingBalance = accountSize`); PT-13 (c) (optional `Plan.resolvedDailyLossLimit`).
+- Handoffs emitted: to PT-14, PT-46, PT-47b, PT-19: `PayoutGate`, `PayoutRequestPolicy`, `effectivePayoutRequest`, `minimumPayoutRequest`, `PayoutBlockReason` (all members), `AssumptionKind` (all members), `LivePlanApplicability`, and `FundedCycleSeed`/`restoreFundedCycleTracker` (PT-14 reuses the seed for `SimInputs.start`; PT-47b swaps the DP's hand seeding to it). Integrator note: PT-46 and PT-19's old "FundedNext Legacy ($800)" examples are stale; use FNL:003.
+- Open user questions: Q4 (credit under FullRequestOnly), Q5 (share caps), Q10 (TopStep live reserve), Q13 (ReleaseFloor engine fix), Q23 (Requested payout predating the snapshot).
+
+**Steps (RED first; every new module first lands as a typed stub that throws "not implemented"; tests run with `bunx vitest run <files>` from the repo root, never the full suite)**
+
+PT-12b (EJ0a, before G2):
+
+1. Re-read `prop-accounts/core/{DashboardBalanceConvention,AccountStage}.ts`, `prop-accounts/snapshots/SnapshotFieldRules.ts`, `firms/index.ts` (`LIVE_PLAN_BUILDERS`, `LIVE_TRANSITION_PLAN_BUILDERS`), `LucidLive.ts`, `TptLive.ts`, `AlphaFuturesLive.ts`, `TopStepLive.ts` (builder 221), firm-policy-recheck.md 954-1289, `computeTopStepLiveStartingBalance`.
+2. RED `SnapshotPlausibility.test.ts`. `AccountSnapshotInput` (Zod, Dollars, stage as `SizingStage`, the moved `DashboardBalanceConvention`, ISO dates, optional extras: highest EOD and intraday, dashboard floor, floor and balance at last payout, `cumulativePayout`, `cycleBestDayProfit`, `evalBestDayProfit`, `payoutsTaken`, `qualifyingDaysSinceLastPayout`, `tradingDays`, `firstFundedTradeOn`, `lastPayoutOn`, `fundedOn`, `purchasedOn`, `fundedResetsUsed`, `liveStartBalance`, `pendingPayouts`). Cases: a nominal 2,400 and a zero-based 52,400 on a 50K account both fail with the convention hint; a pre-lock trailing cushion above the drawdown fails; a highest EOD below the balance by more than a cent fails; `fundedResetsUsed` above `fundedResetsBeforeFirstPayout(plan)` (or above 0 without `fundedReset`) fails; a TopStep live start other than `computeTopStepLiveStartingBalance` fails; plausible states pass; each failure carries a `SnapshotInputField` key. The same checks run through `snapshotDraftIssues(...)` for a draft.
+3. RED `LivePlanApplicability.test.ts`: a per-firm table typed over each variant enum (TPT keyed by size), entries `{builder, verified, note}`, `{transitionBuilder, verified}` or NotModeled, per PT-04 item (i): Apex EOD and Intraday `buildApexLivePlan` verified (user paste); TPT 50K `buildTptLivePlan` (Development only on explicit placement); Tradeify Growth, Lightning, SelectDaily, SelectFlex `buildTradeifyLivePlan`; FundedNext RapidPro, RapidProDllAddOn, RapidDaily FundedNext builder, Flex verified false, Legacy and Fnl003 NotModeled; Lucid Pro, ProNoDll, Flex, FlexDll, Direct `buildLucidLivePlan`, Daily variants the transition builder (the transition payout is past cash), Maxx NotModeled; MFF Rapid and RapidEod `buildMffuRapidLivePlan` (disputed limit noted), Pro and Builder NotModeled; TopStep's 8 XFA variants `buildTopStepLivePlan` with the reserve and LFA approximation flag, ProAccount NotModeled; Alpha Zero, Standard, Advanced `buildAlphaFuturesLivePlan`; E8 and FTMO NotModeled. Every registry plan has an entry.
+4. Implement `AccountSnapshotInput`, `SnapshotInputField`, the moved `DashboardBalanceConvention` (prop-accounts re-exports it), `AssumptionKind` with every member declared up front (PeakOrderAssumed, DashboardFloorMismatch, CalendarAnchorMissing, CumulativeQualifyingDaysAssumed, LiveNotModeled, LiveModelApproximation, TopStepLiveReserveDefaulted, GrossOnlyPayouts, RebuyLagAssumed, FundedResetsFromEvents, LiveTriggersNotChecked, NoHolidayCalendar, ContractCapInstrumentAssumed, PendingPayoutDeducted, and one SizingRule member wrapping `SizingAssumption`), `Assumption`, `SnapshotPlausibility`, `LivePlanApplicability`; export from `advisor/index.ts`.
+5. GREEN: the 2 new files plus the advisor suite and `tests/unit/lib/prop-accounts` (barrel test green, no duplicate names); typecheck at baseline; `bunx eslint` on owned files.
+
+PT-12a (EJ1, after G2):
+
+6. Pins (PD-31) from the working tree: `tryPayout` on a scenario table covering every branch; `closeoutCredit` on the `horizonCredit.test.ts` cases; the funded DP values of `FundedStateValue.test.ts`, `FundedStateValueQualifiedReset.test.ts`, `FundedStateValueMffuProRules.test.ts` (guards only; PT-12a does not edit that file); green state of `engineCharacterization` and `rngDrawCount`. Re-read `FundedPayoutCycle.ts`, `Plan.ts`, `DrawdownStrategy.ts`, `DayPolicy.ts` (`FundedCycleSnapshot`), `LivePlan.ts` (`floorAfterWithdrawal`), `prop-accounts/core/{IsoDate,PaidPayout}.ts`, `accountPlanOptions.ts`.
+7. RED `FundedPayoutCycleEvaluate.test.ts`: `evaluatePayout(options)` returns `{kind: Eligible, debited, traderReceives, isEarlyWithdrawal}` or `{kind: Blocked, gate: PayoutGate}` with one row per gate: LifetimeDollarCapReached, AccountConcluded (`withMaxLifetimePayouts(1)` after one payout), FundedConsistency, DayGateNotMet (both `PayoutDayGateBasis` members), BelowMinPayoutProfit, EarlyWithdrawalBelowFloor, EarlyWithdrawalBelowMinimum, NothingWithdrawable, LadderExhausted, LadderStepUnaffordable, BelowMinRequest, BelowFullRequest. Each row asserts tracker and state deep-equal before and after, and `tryPayout` equals the pins; the eligible branch covers the early withdrawal. Gate precedence is fixed by the test (AccountConcluded and LifetimeDollarCapReached first); a new null from `tryPayout` is allowed only for post-conclusion states the pins prove unreachable.
+8. RED `PayoutRequestPolicy.test.ts`:
+   - `minimumPayoutRequest(plan)` is `plan.payoutLadder?.minRequestAmount ?? plan.minPayoutRequest`; on a `withOverrides` plan where they differ, the ladder wins.
+   - `effectivePayoutRequest(plan, 500)` is 500 on TopStep ($125 minimum) and on FundedNext Legacy ($250); the plan minimum on MFF Pro ($1,000), Tradeify Lightning ($1,000 ladder), AlphaFutures Advanced ($1,000) and FundedNext FNL:003 ($800); every value read from the plan file and cited in the test title. It also accepts a `LivePlan`.
+   - Under `UpToRequest` (default when omitted) every tracker path equals the pins. Under `FullRequestOnly` with 500: $400 available gives Blocked BelowFullRequest; $600 pays exactly 500; a `withOverrides` ladder with a $300 step pays the step; a per-request `requestCap` below the request is the full amount; profit-dependent caps (`balanceShareCap`, `payoutProfitShare`, pool limit) do not lower the full amount (the policy waits, Q5 default); comparisons use `isAtOrBelowWithinCentTolerance`; FullRequestOnly with an undefined `payoutRequestSize` throws a typed error.
+   - `closeoutCredit` ignores the policy and equals the `horizonCredit.test.ts` pins (T32, Q4 default).
+   - The policy is a string enum, so options stay serializable.
+9. RED `RestoreFundedCycleTracker.test.ts`: `restoreFundedCycleTracker(state, seed: FundedCycleSeed)` with seed fields `payoutsIssued`, `cumulativePayout`, `lastPayoutBalance`, `qualifyingDaysAtLastPayout`, `cycleBestDayProfit`, `calendarDayGateProgress`, `fundedResetsUsed`; uses `newFundedCycleTrackerAfterReset` when `fundedResetsUsed >= 1`, else `newFundedCycleTracker`; `cycleSnapshot(plan, state)` echoes the seed; negative or non-integer counts fail loud. The seed is plain data (structuredClone round-trips).
+10. RED `PostPayoutThreshold.test.ts`: the helper is exhaustive over `PayoutFloorEffect`; ReleaseFloor maps to the release target (`accountSize`); `settle` and `LivePlan.withdrawableAmount` produce the same values as the pins through it; `withdrawableNow` is unchanged (Q13 default).
+11. RED isoDate move: the pure helpers (at least `dayNumberOf`, `isoDaysBetween`, `weekdaysInRange` and their weekday dependencies) live in `core/lib/isoDate.ts`, exported through `core/index.ts`; `prop-accounts/core/IsoDate.ts` re-exports them; `tests/unit/lib/prop-accounts/core/IsoDate.test.ts` and the prop-accounts barrel test stay green with no duplicate name.
+12. Implement: `PayoutGate`, `PayoutRequestPolicy` (`minimumPayoutRequest`, `effectivePayoutRequest`), the post-payout threshold helper, `evaluatePayout` extracted from `tryPayout` (which calls it then `settle`), the discriminated `perRequestCeiling`, the `payoutRequestPolicy` option defaulting to `UpToRequest`, `restoreFundedCycleTracker`, the isoDate move, `LivePlan` on the shared helper, both minimum-request copies replaced. Core never imports advisor. Barrel: `core/index.ts` exports all of these.
+13. GREEN: the 4 new files; guards `FundedPayoutCycle.test.ts`, `FundedPayoutCycleProfitFloorDefault.test.ts`, `FundedCycleSessionClock.test.ts`, `MinPayoutRequestDefault.test.ts`, `AccountConclusion.test.ts`, `FundedPhaseReset.test.ts`, `LivePlan*.test.ts`, the four `FundedStateValue*` files, `horizonCredit`, `payoutContinuity`, `payoutCount`, `engineCharacterization`, `rngDrawCount`, `simulator/{fundedPhase,fundedReset}.test.ts`, `prop-accounts/core/IsoDate.test.ts`, the prop-accounts barrel test, `accounts/accountPlanOptions.test.ts`; typecheck at baseline; `bunx eslint` on owned files; importer greps. Record `FundedPayoutCycle.ts`, `LivePlan.ts`, `core/index.ts`, `core/lib/isoDate.ts`, `core/lib/units.ts` for the audit tracker.
+
+PT-12c (EJ2):
+
+14. RED `CalendarGateProgress.test.ts`: MFF Pro calendar gates from `firstFundedTradeOn` (first payout) and `lastPayoutOn` (later cycles) with `isoDaysBetween`, not the 5/7 approximation; output real calendar days elapsed and required, `isMet`, and the tracker progress to restore (first payout anchor = progress - 1, so a met gate restores `sessionDaysForCalendarDays(required) + 1`; later cycles anchor = progress); `evaluatePayout` on the restored tracker agrees with `isMet` at the boundary day for a first and a later cycle; a missing anchor gives zero progress plus `CalendarAnchorMissing` (Conservative).
+15. RED `AccountReconstruction.test.ts`: `AccountReconstruction.rebuild(input, plan)` returns a `ReconstructedAccount` (plan with opt-ins and phase; full `AccountState`; the tracker from `restoreFundedCycleTracker`, or the live state from the applicable builder's `initialState()`; floor, lock, cushion; DLL via `resolveDailyLossLimit`; contract limit as a count via `contractLimitAt`; `Assumption[]`; warnings). Cases: Apex EOD funded (52,400, highest EOD 53,000, 0 payouts) replays the threshold via `onDayClose`; MFF Pro with 1 payout uses `MoveToLockedFloor`; LockAtPlanFloor with and without the floor at last payout (the latter: higher floor plus `PeakOrderAssumed`); intraday-trailing without peak or dashboard floor throws `IntradayPeakRequired`; a dashboard floor above the derived floor is used with a `DashboardFloorMismatch` warning (cent tolerance); ZeroBased shifts by `accountSize`; an open Requested payout dated after the snapshot is deducted with `PendingPayoutDeducted` (Q23 default); `fundedResetsUsed: 1` seeds `cycleSnapshot().fundedResetsUsed`; `cumulativePayout` is trader-received net; cumulative qualifying days default to the since-last-payout count with `CumulativeQualifyingDaysAssumed`; eval states set `elapsedDays`, `todayPnL` 0 and `startingBalance` (PT-15 handoff); live on E8, FTMO, MFF Pro or FundedNext Legacy gives `LiveNotModeled` with the cushion from the dashboard floor; FundedNext Flex gives `LiveModelApproximation`; TopStep live starts from `buildTopStepLivePlan(...).initialState()` with the reserve (Q10 default $0) and LFA defaults disclosed.
+16. RED `ReconstructionRoundTrip.test.ts`: every `DrawdownStrategy` subclass used by a registry plan (EOD, intraday, static, each lock variant, each `PayoutFloorEffect`), a funded run that takes a funded reset (Alpha with the opt-in), and every modeled and verified (plan, builder) pair except TopStep. Seeded days through `runDay`/`stepFundedDay`/`runLiveDay` with `resolveDayPolicy` or `flatDayPolicy(..., policySizingOf(phase))` (WholeContracts for funded runs with position sizing); rebuild at several days and assert full `AccountState`, `cycleSnapshot` (including `fundedResetsUsed`), threshold, lock, cushion, resolved DLL and contract limit equal the engine's. Run after PT-13's day.ts refactor is GREEN in the same wave, or against the pinned engine.
+17. RED `PayoutReadiness.test.ts`: readiness equals `evaluatePayout` at `effectivePayoutRequest` under FullRequestOnly with the balance net of pending payouts, plus profit (null with a basis where no closed form exists, request (c)) or calendar or qualifying days still needed; `PayoutBlockReason` is `{kind: Gate, gate}` for every `PayoutGate` member (exhaustive Record test), `{kind: PayoutPending}`, and `{kind: WouldTriggerLive, trigger}` declared but never returned without trigger data; the input declares the firm-wide paid-payouts-since-last-live field (PT-36); readiness is non-mutating.
+18. RED `SnapshotAdapter.test.ts`: account row plus snapshot row (cents), `listEventsForAccount` rows and payouts map exactly to `AccountSnapshotInput` (Dollars via `usdCentsToDollars`): nulls absent; stage via `accountStageOn`; `fundedResetsUsed` counts only `FundedReset` events; `cumulativePayout` is the snapshot value, else `sumUsdCents` of `paidPayoutCash` over Paid payouts with `GrossOnlyPayouts` when any is gross-only; `payoutsTaken` the snapshot value, else the Paid count; `pendingPayouts` sums Requested gross; `liveStartBalance` from the account; every `SnapshotInputField` maps to exactly one `SnapshotField` (exhaustive Record). Pure: row types only, no DB, no `server-only`.
+19. Implement the advisor modules (peak replay only through `DrawdownStrategy` methods, the tracker only through the factory, `PayoutBlockReason` with every member declared, PD-42), the adapter, `Plan.resolvedDailyLossLimit` if needed (with `affordableRisk` and `isDayLockedOut` routed through it, pins unchanged), and the barrels (`advisor/index.ts`, `prop-accounts/advice/index.ts`, `prop-accounts/index.ts`, barrel test extended).
+20. GREEN: the 5 new files plus the advisor suite, `tests/unit/lib/prop-accounts`, and the PT-12a guards; typecheck at baseline; `bunx eslint` on owned files; importer greps (every new module has an importer outside tests; barrels count). Record `Plan.ts` for the audit tracker if edited.
 
 **Regression tests**
 
-- The 9 files; guards: FundedPayoutCycle tests, engine characterization pins
+- PT-12a: `FundedPayoutCycleEvaluate`, `PayoutRequestPolicy`, `RestoreFundedCycleTracker`, `PostPayoutThreshold`; PT-12b: `SnapshotPlausibility`, `LivePlanApplicability`; PT-12c: `CalendarGateProgress`, `AccountReconstruction`, `ReconstructionRoundTrip`, `PayoutReadiness`, `SnapshotAdapter`; guards as listed in steps 5, 13 and 20
 
 **Acceptance**
 
-- A real account's full state rebuilds through the plan's own classes and round-trips for every drawdown kind and every verified live pair; impossible inputs fail loud; readiness is non-mutating with a reason for every gate; the engine can wait for the full effective request; the layering is core to advisor only.
+- A real account's full state rebuilds through the plan's own classes and round-trips for every drawdown kind, every payout floor effect, a funded reset and every verified live pair. Impossible inputs fail loud with a field key, for drafts too. Readiness is non-mutating, with a typed reason for every gate. The engine can wait for the full effective request while `closeoutCredit` (T32) and every default path equal the pins. One minimum-request helper, one post-payout threshold helper and one tracker restore exist repo-wide. Layering is core to advisor to prop-accounts only.
 
 ## PT-14: simulate from a given state; payout request policy in SimInputs
 
-- **Lane / wave:** E / E3  **Size:** large  **Depends on:** PT-12, PT-13
+- **Lane / wave:** E / EJ2 (kept whole: its start half and payout-policy half share the simulator files, and both halves' dependencies land in EJ1)  **Size:** large  **Depends on:** PT-12a (policy, `effectivePayoutRequest`, seed factory), PT-15 (`EvalStartState`, `replacementEconomicsFromState`), PT-44 (shared simulator files, `SimEstimates`). Not PT-13 (no symbol used, no shared file).
 - **Items:** F-117, F-149 (sim)
 - **Files owned:**
-  - changed `src/lib/prop-calculator/simulator/{types.ts, evalPhase.ts, fundedPhase.ts, trial.ts, engine.ts, index.ts}` (plus `validation.ts` if the guard lives there)
-  - changed `src/app/(app)/prop-calculator/_components/simInputsCacheKey.ts` and its test
-  - new `tests/unit/lib/prop-calculator/simulator/{SimulateFromState,SimulatePayoutRequestPolicy}.test.ts`
+  - changed `src/lib/prop-calculator/simulator/{types.ts, evalPhase.ts, fundedPhase.ts, trial.ts, engine.ts, index.ts}` (EJ2 owner of `simulator/index.ts`), new `simulator/simStartValidation.ts`
+  - changed `src/lib/prop-calculator/index.ts` (root barrel, EJ2 owner: the from-state entry and types)
+  - changed `src/lib/prop-calculator/portfolioTimeline/{types.ts, accountTimeline.ts, portfolio.ts, fundedCycle.ts}` (optional `payoutRequestPolicy`)
+  - changed `core/FeeSchedule.ts` only if PT-15's `replacementEconomicsFromState` does not already cover the from-state eval cost
+  - changed `src/app/(app)/prop-calculator/_components/simInputsCacheKey.ts` and `_components/ladderResultSlot.ts` (one line: omit the funded-only policy key, like `PayoutRequestSize`)
+  - tests: new `tests/unit/lib/prop-calculator/simulator/{SimulateFromState,SimulatePayoutRequestPolicy}.test.ts`, new `simulator/toyPlans.ts` (shared helper extracted from `fundedPhase.test.ts`), `simulator/fundedPhase.test.ts` (import only), `tests/unit/app/prop-calculator/simInputsCacheKey.test.ts`
 - **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer
 
-**Steps (RED first)**
+**Readiness pass 2026-09-26**
 
-1. Capture pins (PD-31). Re-read `fundedPhase.ts` (tracker creation near 87, reset handling near 115-127 including WP24's carry of `fundedResets.length` into the fresh tracker, `beginFundedPhase` at 207, outputs near 247-251), `FundedCycleSnapshot.fundedResetsUsed` (`DayPolicy.ts`), and the `expectedMonthlyNet` definition.
-2. RED `SimulateFromState`:
-   - no `start`: outputs equal the pins; `start = {phase: Eval, state: plan.initialState()}` equals the pins;
-   - a funded start with a seeded state is not reset by `beginFundedPhase` (the seeded threshold survives the first day);
-   - a tracker seed with `payoutsIssued: 2` on a count-tiered split plan pays the next payout at the next tier;
-   - `fundedResetsUsed: 1` on a plan allowing one funded reset is not offered another, and the seeded tracker's `cycleSnapshot().fundedResetsUsed` is 1;
-   - a busted or concluded start throws;
-   - `fromStateExpectedCash` (new, separately named) counts cash from the start state to bust, conclusion or horizon, plus the continuation value of the refilled slot at the fresh steady-state rate; `expectedMonthlyNet` is unchanged and not reported for from-state runs;
-   - `simInputsCacheKey` differs when `start` differs.
-3. RED `SimulatePayoutRequestPolicy`: omitting `payoutRequestPolicy` equals the pins; `FullRequestOnly` with `payoutRequestSize` 500 on TopStep never records a payout below $500 across trials; `simInputsCacheKey` differs when the policy differs.
-4. Implement `SimInputs.start` as a discriminated union and `SimInputs.payoutRequestPolicy` (optional, default `UpToRequest`) passed to the tracker; the seed bypasses `beginFundedPhase`; `runFundedDays` accepts a seeded tracker and resets-used count; the engine validates the start.
-5. GREEN; guards: simulator suite, `engineCharacterization`, `rngDrawCount`, `portfolioTimeline`; typecheck, eslint, importer greps.
+- Line anchors in `fundedPhase.ts`: tracker at L85; reset branch L111-132 (WP24 opens the fresh tracker with `newFundedCycleTrackerAfterReset(state, fundedResets.length)` at L126-129); `runFundedHorizon` calls `beginFundedPhase` at L208; T32 `closeoutCredit` L239-247; outputs L249-262. `cycleSnapshot` now takes `(plan, state)`.
+- `expectedMonthlyNet` includes the T32 credit ((expectedNet + expectedHorizonCredit) x 21 / slot days, `engine.ts` 206-213); `expectedMonthlyRealizedNet` is the credit-free twin (WP40). The from-state objective reports both.
+- Engine refusals live in `simulator/dayPolicyValidation.ts` (Zod, `SIM_INPUTS_REFUSAL_PREFIX`, stripped by the web's `describeSimulationFailure`); `simulator/validation.ts` holds only integer asserts. Start refusals use the same prefix, in a new `simStartValidation.ts`.
+- No registry plan allows exactly one funded reset (only Alpha: Qualified Reset, `maxPerAccount` 2, opt-in). Tests use the extracted toy with a `fundedReset` override.
+- `SimOutputs.expectedGrossPayout` and the payout sink carry trader-received money, not debited gross, and TopStep has a 50% balance-share cap plus request caps; the FullRequestOnly TopStep test follows the Q5 answer and observes payouts through a recording `PayoutSink`.
+- `runFundedDays` builds its own tracker and gates resets on `fundedResets.length`; `portfolioTimeline/fundedCycle.ts:97` also calls it, so every new option is optional with today's default. A funded start has no `EvalAttemptResult`, so it needs a from-state funded entry that skips `beginFundedPhase`.
+- `SimOutputs.expectedMonthlyNet` and `expectedMonthlyRealizedNet` are required and read everywhere, so from-state runs get their own `simulateFromState(FromStateSimInputs): FromStateSimOutputs`; `simulate` and `SimOutputs` stay unchanged.
+- A policy default cannot go in `SIM_DEFAULTS` (`satisfies Partial<Record<keyof SimInputs, number>>`); use PT-12a's default constant. `simInputsCacheKey.test.ts` types `base` and `changed` as `Required<SimInputs>`, so new fields go into both.
+- The eval start follows PT-15's rules exactly: the remaining cap is `plan.evalDayCap(maxEvalDays) - state.elapsedDays` (sessions, not traded days; the old "`- tradingDays`" is wrong), validated by PT-15's `evalStartStateIssue`; sunk fees excluded.
+- The payout policy is threaded into the portfolio timeline too (PD-26: every engine run), which also covers PT-33's request.
+- Already done elsewhere: WP24 `fundedResetsUsed` on the snapshot and the tracker; tracker seeding precedent (PT-12a's `restoreFundedCycleTracker` now replaces it); T32 `closeoutCredit` and pins; WP40 realized monthly; refusal plumbing and the web refusal display (PT-11f to PT-11i); start predicates on Plan; `SimInputsKeyField` covers PayoutRequestSize, MinRetainedCushion, FundedReset, EarlyWithdrawal; `LADDER_KEY_OMITTED_FIELDS`. PT-44 (EJ1) already added `SimOutputs.estimates`; PT-14 adds the from-state estimates.
+- Audit decisions: T32/U17 (credit under FullRequestOnly unchanged by default, Q4; report credit-inclusive and credit-free from-state figures, Q1). T33 (a funded start goes through `resolveDayPolicy`, `assertNoFundedDayPolicyConflict` and `assertSimInputsSized` unchanged; no second placement path; `fundedStartContractLimit` assumes a fresh start, a PT-19/PT-37 concern). T31 (reset gating uses `seed.fundedResetsUsed` plus resets taken in the run; a seed with payouts can never reset; only resets bought in the run add fees). T29 (a current-attempt timeout is a failure retried fresh). PD-40 (FullRequestOnly without a request size, or below `minimumPayoutRequest`, is refused with the prefix). T34: no conflict.
+- Handoffs folded in: WP24 (the seeded count reaches `cycleSnapshot(plan, state)` from the first seeded day; RED with the N-34 recording pattern); PT-12 to PT-14 (policy enum, default, `effectivePayoutRequest`, the tracker option, `FundedCycleSeed`/`restoreFundedCycleTracker`; no local copy); PT-15 (validator and from-state cost); PT-44 (add `estimates.fromStateExpectedCash` and its credit-free twin to `FromStateSimOutputs`); PT-33 (payout policy through the timeline). `simInputsCacheKey.ts` is on the G1 fingerprint list: record the edit.
+- Handoffs emitted: to PT-32, PT-42, PT-47b, PT-48b, PT-37: `simulateFromState`, `FromStateSimInputs`, the `SimStart` union keyed by `TradingPhase`, the objective names `fromStateExpectedCash` and `fromStateExpectedRealizedCash`, `SimInputs.payoutRequestPolicy`, and `runFundedDays`'s optional seed options. PT-19/PT-37: placed risk and contract limit at a seeded state are theirs.
+- Open user questions: Q11 (from-state objective), Q4 (credit under FullRequestOnly), Q5 (TopStep share cap).
+
+**Steps (RED first; typed stubs per PD-22)**
+
+1. Pins (PD-31) from the working tree: `simulate` and `simulatePortfolio` on a funded flat case, an Alpha Zero case with `takesFundedReset`, and a TopStep case; `simulatePortfolioTimeline` on one plan; the `rngDrawCount` counts. Re-read `fundedPhase.ts`, `trial.ts`, `evalPhase.ts` (L31 `initialState`, the cap loop), `engine.ts` (206-213), PT-12a's `FundedPayoutCycle.ts` API, `dayPolicyValidation.ts`, PT-15's `EvalStartState.ts` and `replacementEconomicsFromState`, `portfolioTimeline/*`. Confirm `core/index.ts` exports `PayoutRequestPolicy`, `effectivePayoutRequest`, `restoreFundedCycleTracker`.
+2. Stubs: `type SimStart = {phase: TradingPhase.Eval; state: AccountState} | {phase: TradingPhase.Funded; state: AccountState; seed: FundedCycleSeed}`; `interface FromStateSimInputs extends SimInputs {start: SimStart}`; `FromStateSimOutputs` (the trial-level fields shared with `SimOutputs`, plus `fromStateExpectedCash`, `fromStateExpectedRealizedCash` and their estimates; no monthly-net fields); `simulateFromState`; `simStartIssue(plan, start, maxEvalDays): null | string` with a Zod schema; optional `SimInputs.payoutRequestPolicy`; `SimInputsKeyField.Start = 'start'` and `PayoutRequestPolicy = 'payoutPolicy'`. Export from `simulator/index.ts` and the root barrel.
+3. RED `SimulateFromState.test.ts`:
+   - (a) `simulate` without start equals the pins; `simulateFromState` with `{phase: Eval, state: plan.initialState()}` gives shared trial fields deep-equal to the `simulate` pins for the same seed, with the same RNG draw count.
+   - (b) A funded seeded state (balance 52,400, threshold 50,400, payoutsIssued 0) is not reset by `beginFundedPhase`; the first recorded `computedDayPolicy` call sees the seeded balance and threshold.
+   - (c) Alpha Futures (70/80/90 by payout number, T24) with seed payoutsIssued 2 pays its next payout at 80%: recorded `traderReceives` equals `plan.payoutFromProfit(debit, 2)`.
+   - (d) Resets on the extracted toy (`maxPerAccount` 2): seed `fundedResetsUsed` 1 on a daily-busting run records [1, 2] and buys one reset; seed 2 records [2], buys none and busts; seed payoutsIssued 1 never resets; `cycleSnapshot(plan, state).fundedResetsUsed` equals the seed.
+   - (e) Refusals with `SIM_INPUTS_REFUSAL_PREFIX` naming the reason: busted, concluded, inactivity-closed, eval start already passed or at or past the cap (via `evalStartStateIssue`), eval start on an instant-funded plan (PD-29), seed resets above the policy maximum or above 0 without `fundedReset`, non-integer or negative counts.
+   - (f) The caller's state and seed are not mutated; every trial clones the start.
+   - (g) Eval start: the current cap is `evalDayCap - state.elapsedDays`; a timeout is a failed attempt retried fresh (T29); sunk fees excluded and future fees included via `replacementEconomicsFromState` where it applies.
+   - (h) The objective per Q11's default: `fromStateExpectedCash` = mean over trials of net cash inside W + T32 credit when alive at W + (W - T) x fresh `expectedMonthlyNet` / `TRADING_DAYS_PER_MONTH` after a bust or conclusion at T; the realized twin uses no credit and `expectedMonthlyRealizedNet`; both checked against a hand computation on a scripted-RNG toy; `expectTypeOf` shows `FromStateSimOutputs` has no `expectedMonthlyNet`; both carry estimates (PT-44 rule).
+   - (i) T33: a funded start with `fundedCushionPercent` and no `stopPoints` is refused as `simulate` refuses it; with `stopPoints`, risk is placed in whole contracts at the seeded cushion.
+4. RED `SimulatePayoutRequestPolicy.test.ts`:
+   - (a) Omitted or `UpToRequest` equals the pins for `simulate`, `simulatePortfolio` and `simulatePortfolioTimeline`.
+   - (b) FullRequestOnly, request 500, on a plan without share caps: every payout k's recorded `traderReceives` equals `plan.payoutFromProfit(500, k)` (recording `PayoutSink`, never gross-named outputs).
+   - (c) TopStep per Q5 (default: waits until the 50% cap reaches $500).
+   - (d) Refusals with the prefix: FullRequestOnly without `payoutRequestSize`; a request below `minimumPayoutRequest(plan)`.
+   - (e) `closeoutCredit` under FullRequestOnly per Q4 (default equal to UpToRequest), pinned.
+   - (f) `simulateFromState` honours the policy.
+5. RED cache key: add `payoutRequestPolicy` to `base` and `changed` so the existing `it.each` covers `simInputsCacheKey` and `portfolioCacheKey`; the key differs for eval vs funded start, a different state field, a different seed field; an omitted policy keys equal to explicit `UpToRequest` (PT-12a's default constant); `ladderInputsKey` ignores the policy.
+6. Implement: `fundedPhase.ts` splits `runFundedHorizon` into a from-state core (state, stats, equity curve, optional seed) with `runFundedHorizon` calling `beginFundedPhase` then delegating; `runFundedDays` gains optional `initialTracker` (built by `restoreFundedCycleTracker`) and `priorFundedResetsUsed` (default 0) used in `canTakeFundedReset` and `newFundedCycleTrackerAfterReset`, plus optional `payoutRequestPolicy` passed to `tryPayout` and `closeoutCredit`; `evalPhase.ts` takes an optional first-attempt state and remaining cap; `trial.ts` skips eval for a funded start; `engine.ts` adds `simulateFromState` sharing `simulate`'s loop and aggregation, runs one fresh `simulate` for the continuation rate, validates the start first, and threads the policy through `simulate` and `simulatePortfolio`; the timeline files thread the optional policy; cache-key fields; barrels. No comments; enums.
+7. GREEN: every test in `tests/unit/lib/prop-calculator/simulator/`, `simulator.test.ts`, `engineCharacterization`, `rngDrawCount`, `horizonCredit`, `fundedPhaseOverrides`, `percentCushionSizing`, `portfolioTimeline.test.ts` and `portfolioTimeline/`, `alphaFuturesPayoutSplit`, `topstep`, and `tests/unit/app/prop-calculator` (cache key, `ladderResultSlot`, `calculatorProviderState`, `currentBaseFailure`) equal to the pins, run as listed files from the repo root; `bun run typecheck` against the baseline; `bunx eslint` on touched files; importer greps (`simulateFromState`, `simStartIssue` have a non-test importer or a named consumer, PT-32 or PT-37). Record every engine file edited for the audit tracker.
 
 **Regression tests**
 
-- `SimulateFromState.test.ts`, `SimulatePayoutRequestPolicy.test.ts`, the cache-key test; guards: simulator suite
+- `SimulateFromState.test.ts`, `SimulatePayoutRequestPolicy.test.ts`, the extended cache-key test; guards as in step 7
 
 **Acceptance**
 
-- The engine projects from an account's state with a defined objective and can run the documented payout policy; default paths unchanged.
+- The engine projects from an eval or funded state, not reset by `beginFundedPhase`, with seeded payout count, cumulative payout, day-gate progress and funded resets honoured, and fails loud on impossible starts using the shared validators. A separately named, typed from-state objective exists (credit-inclusive and credit-free, with estimates), and the fresh monthly net is not reported for from-state runs. FullRequestOnly runs in `simulate`, `simulatePortfolio`, the portfolio timeline and `simulateFromState`. Every default path equals the pins, and the cache key covers start and policy.
 
 ## PT-46: documented payout rule on the post-payout floor
 
-- **Lane / wave:** E / E3  **Size:** medium  **Depends on:** PT-03, PT-12
+- **Lane / wave:** E / EJ3  **Size:** medium  **Depends on:** PT-12a (`evaluatePayout`, `effectivePayoutRequest` with LivePlan support, the post-payout threshold helper, `PayoutGate`, `PayoutRequestPolicy`), PT-12c (`PayoutReadiness`, `PayoutBlockReason`, `ReconstructedAccount`, `CalendarGateProgress`), PT-03 (done). PT-13 is not needed.
 - **Items:** F-105
-- **Files owned:** new `src/lib/prop-calculator/advisor/PayoutRequestRule.ts`, changed `advisor/index.ts` (only package in E3 touching it), `advisor/createDocumentedRule.ts`, tests `tests/unit/lib/prop-calculator/advisor/PayoutRequestRule.test.ts`
+- **Files owned:**
+  - new `src/lib/prop-calculator/advisor/{PayoutRequestRule.ts, PayoutRequestDecision.ts}` (the decision union, `PayoutRequestNotice`, `RetainedCushionBasis`, `PayoutWaitBasis`, the context interface and its strict schema)
+  - changed `advisor/DocumentedRule.ts` (extract the generic abstract rulebook-rule base only; the sizing API unchanged)
+  - changed `advisor/index.ts` (EJ3 owner)
+  - tests: new `tests/unit/lib/prop-calculator/advisor/PayoutRequestRule.test.ts`; changed `advisorSharedDefinitions.test.ts` (the retained cushion is resolved in exactly one function)
+  - not `createDocumentedRule.ts` (it switches on `SizingStage`, which is also the stored account stage; a payout rule has no stage key)
 - **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer
+
+**Readiness pass 2026-09-26**
+
+- PayoutRequestRule cannot literally be a `DocumentedRule` subclass: `DocumentedRule<TContext extends RuleContext>` exposes `nextTrade`/`size` returning `DocumentedSizing` with abstract `plannedRisk`/`sizeWithin`, and `RuleContext` is a Zod union on `stage`. Extract a generic abstract base (for example `RulebookRule<TContext>`) keeping the protected `(rulebook, schema)` constructor; both extend it.
+- `prospectiveLockThreshold(state, effect: PayoutLockEffect)` refuses ReleaseFloor by type. The funded engine's private `payoutReferenceThreshold` returns `state.threshold` for ReleaseFloor while `settle` releases the floor to `accountSize`, so `withdrawableNow` overstates TopStep's withdrawable when 0 < retained cushion < $2,000 (balance 51,200, threshold 49,200, cushion $1,000: engine $600, correct $200). The live side (`LivePlan.floorAfterWithdrawal`) was right; PT-12a now shares one helper. The advice path uses the helper; the engine stays pinned unless Q13 says otherwise.
+- The engine already uses the prospective lock threshold, `payoutBalanceFloor` (buffer) and `minRetainedCushion` in `withdrawableNow` (R1-51); only ReleaseFloor and the early-withdrawal branch are off. PT-46 reuses PT-12a's `evaluatePayout` and never recomputes that room.
+- Examples corrected: the plans with a minimum above $500 are MFF Pro $1,000, Tradeify Lightning $1,000 (ladder), AlphaFutures Advanced $1,000 and FundedNext FNL:003 $800 (not FundedNext Legacy, which is $250). The old $2,500-drawdown example matches no registry plan: use `withOverrides` on a named plan.
+- `FirmMinimumAboveRequest` and `RetainedCushionBasis` as DifferenceReasons are PT-19's (EJ4); PT-46 declares its own `PayoutRequestNotice` enum and PT-19 maps it.
+- The day gate and the minimum payout profit are Wait states; consistency, PayoutPending, AccountConcluded, ladder exhaustion and the lifetime caps are NotEligible. "Wait: $X more profit" has no closed form on trailing pre-lock plans or with share caps, so the shortfall is found by replaying the plan's `DrawdownStrategy` on a copy; some accounts never unlock the request (trailing without a lock where cushion + request exceeds the drawdown): Unreachable.
+- MFF Pro's one-time early withdrawal (T30) goes through `earlyWithdrawalDebit` with no retained cushion or buffer; the rule still enforces the cushion.
+- Live D4 is `LivePlan.defaultRetainedCushion()` (0 for DLL-shaped live plans, throws for a trailing live drawdown with no lock); the live room is `LivePlan.withdrawableAmount`. `DocumentedRule` never re-parses the rulebook, so the rule applies `HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS` itself.
+- Already done elsewhere: WP28/WP37b units exports; R1-51/T12 `MoveToLockedFloor`, `moveToLock`, `prospectiveLockThreshold`; T32 `closeoutCredit` (not a readiness check); PT-03's abstract `DocumentedRule`, `RuleSource.PayoutSize` and `HardRule2`, `Rulebook.payout`, `HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS`; PT-01/PT-20 `PersonalRules.payoutRequestOverrideCents` and `retainedCushionCents`; PT-40b `documentedRuleLabel`, `rulebookDeviation`; `LivePlan.withdrawableAmount` and `defaultRetainedCushion`.
+- Audit decisions: T32 (never use `closeoutCredit` for "allowed"; go through `evaluatePayout`). T30 (enforce the cushion above $50,100 even when the engine's early branch would pay). A ReleaseFloor engine fix changes TopStep numbers and needs user sign-off and new pins (Q13); PT-46 stays engine-free. T33/T34: no conflict. D4/T7 consistent.
+- Handoffs folded in: PT-03 to PT-46 (own payout context via the extracted base; `DocumentedRule`'s API and its test subclass unchanged); PT-12 to PT-46; W4 (use `effectivePayoutRequest`; never repeat the minimum rule; the web copy in `accountPlanOptions.ts` is already replaced by PT-12a); PT-36 (the payout context declares the firm-wide paid-payouts-since-last-live field).
+- Handoffs emitted: to PT-22, PT-19, PT-31c, PT-36: the fully declared `PayoutRequestDecision` union, `ruleCappedWithdrawable` (never above `balance - postPayoutFloor - retainedCushion` or the engine caps), and the exported retained-cushion-for-stage function with its basis (PT-22's near-floor rule reuses it). PT-19 maps `PayoutRequestNotice.FirmMinimumAboveRequest` and `RetainedCushionBasis` to its `DifferenceReason` members.
+- Open user questions: Q12 (MFF Pro floor basis), Q13 (ReleaseFloor engine fix), Q5 (share caps below the request).
 
 **Steps (RED first)**
 
-1. RED, from reconstructed accounts (PT-12):
-   - a trailing pre-lock LockAtPlanFloor account (drawdown $2,500, balance = peak 52,400, threshold 49,900): the static check passes but the post-payout floor 50,100 leaves $1,800, so $500 is not allowed; the answer is "wait: $200 more profit";
-   - MFF Pro `MoveToLockedFloor` and TopStep `ReleaseFloor` cases computed against `prospectiveLockThreshold` plus `payoutBalanceFloor` and `payoutBuffer`;
-   - a case per remaining `PayoutFloorEffect` member;
-   - a `payoutBuffer` plan;
-   - the 4 plans whose minimum exceeds $500 (MFF Pro, Tradeify Lightning, AlphaFutures Advanced, FundedNext Legacy): the rule evaluates the plan minimum as the request, says "firm minimum $M is above your $500" (`FirmMinimumAboveRequest`), applies the retained-cushion check to the larger amount, and answers "wait" rather than "not eligible" while the balance is short;
-   - a firm gate failing (day gate, consistency, PayoutPending) gives "not eligible: <reason>" with no amount;
-   - retained cushion is `max(rulebook, $2,000)` unless `allowBelowHardRule2`; live uses max(rulebook, D4);
-   - no path returns a request smaller than the effective request.
-2. Implement on `evaluatePayout`, `effectivePayoutRequest` and the plan's floor logic; no re-derived floor arithmetic.
-3. GREEN, typecheck, eslint, importer greps.
+0. Preconditions (stop if any fails): PT-12a and PT-12c are GREEN with `evaluatePayout`, `effectivePayoutRequest` (LivePlan-capable), `PayoutRequestPolicy.FullRequestOnly`, `PayoutGate`, `PayoutBlockReason`, `PayoutReadiness`, `ReconstructedAccount` and the post-payout threshold helper; the answers or defaults for Q5, Q12 and Q13 are recorded. Re-read `DocumentedRule.ts`, `RuleContext.ts`, `Rulebook.ts`, `FundedPayoutCycle.ts` (`withdrawableNow`, `closeoutCredit`, the early branch), `DrawdownStrategy.ts:75`, `Plan.ts` (`payoutBalanceFloor`, `isAccountConcluded`), `LivePlan.ts`, and the four minimums in the plan files. Add typed stubs.
+1. RED `PayoutRequestRule.test.ts`, every case built from a PT-12c reconstructed account on a named registry plan (`withOverrides` only where none fits, named in the title):
+   - a. LockAtPlanFloor, trailing, pre-lock, post-payout floor above the current one: the current-floor check passes but only $1,800 would remain, so Wait with the whole-cent shortfall found by replaying the plan's `DrawdownStrategy` on a copy (the floor trails and may lock); allowed at exactly that profit, refused one cent below.
+   - b. MoveToLockedFloor on MFF Pro (post-payout floor $50,100, request raised to $1,000), measured per Q12.
+   - c. ReleaseFloor on TopStep against breakeven after the payout: with `allowBelowHardRule2` and a $1,000 cushion at 51,200 / 49,200 the rule-capped withdrawable is $200, not the engine's $600; with the default $2,000 before the lock, Wait.
+   - d. `PayoutFloorEffect.None` on a registry plan; and a case where no profit ever unlocks the request: Unreachable, never an endless Wait.
+   - e. A `payoutBuffer` plan (Apex, or Lucid Pro/Daily): the buffer binds above threshold + cushion.
+   - f. The four plans above $500 (MFF Pro $1,000, Tradeify Lightning $1,000 ladder, AlphaFutures Advanced $1,000, FundedNext FNL:003 $800), values cited from the plan files: the request is the plan minimum with `PayoutRequestNotice.FirmMinimumAboveRequest` (minimum and requested amount); the cushion check uses the larger amount; while short, Wait, never NotEligible.
+   - g. Firm gates: the day gate gives Wait in qualifying or calendar days via `PayoutWaitBasis` (MFF Pro through `CalendarGateProgress`); `minPayoutProfit` gives Wait in dollars; share caps give Wait with the profit needed for the full request (Q5 default); consistency, PayoutPending, AccountConcluded and LadderExhausted give NotEligible with the `PayoutBlockReason` and no amount.
+   - h. MFF Pro with the early withdrawal on (T30): the cushion above $50,100 is still enforced.
+   - i. Retained cushion and basis: funded max(rulebook, $2,000) unless `allowBelowHardRule2` (including a hand-built rulebook below $2,000 without the flag); a personal retained cushion only tightens (PD-37); a personal request override replaces the rulebook size but never goes below the plan minimum (PD-40); live max(rulebook, `LivePlan.defaultRetainedCushion()`) with basis LiveOneDrawdown when D4 is larger; a trailing live plan without a lock gives Unreachable, not a throw; the live room from `LivePlan.withdrawableAmount`.
+   - j. Invariants over every case: no decision requests less than the effective request; `ruleCappedWithdrawable` never above `balance - postPayoutFloor - retainedCushion` nor the engine caps (`isAtOrBelowWithinCentTolerance`); state and tracker deep-equal before and after; `closeoutCredit` never called (spy); the strict context schema rejects extra keys and a negative balance; sources include PayoutSize and HardRule2, plus LiveSizing for live; the firm-wide payout-count field is accepted and unused (PT-36 adds behaviour).
+   - k. `advisorSharedDefinitions.test.ts`: the retained cushion is resolved in exactly one exported function, in `PayoutRequestRule.ts`.
+2. Implement: extract `RulebookRule<TContext>` in `DocumentedRule.ts` (DocumentedRule extends it unchanged); `PayoutRequestRule extends RulebookRule<PayoutRuleContext>` with a public constructor, not added to `createDocumentedRule`; `PayoutRuleContext` has `stage: SizingStage.Funded | SizingStage.Live` and every input computed by PT-12 and the plan (readiness, balance, the post-payout floor via the core helper and `plan.payoutBalanceFloor`, the engine room, the effective request with its minimum, personal cushion and override, live D4, the firm-wide count); rulebook cents converted once with `CENTS_PER_DOLLAR`; `PayoutRequestDecision.ts` declares the full union (Request, Wait, NotEligible, Unreachable) up front (PD-42); export everything from `advisor/index.ts`.
+3. GREEN: `bunx vitest run` on `PayoutRequestRule.test.ts`, `advisorSharedDefinitions.test.ts`, `SizingInvariant.test.ts`, the other advisor tests, and the `FundedPayoutCycle*`, `PayoutFloorEffect` and `LivePlan` guards (unchanged); typecheck at baseline; `bunx eslint` on touched files; importer greps for `DocumentedRule` and `advisor/index`. No full suite, no CLI.
 
 **Regression tests**
 
-- `PayoutRequestRule.test.ts`
+- `PayoutRequestRule.test.ts`, `advisorSharedDefinitions.test.ts`; guards: the advisor suite, `FundedPayoutCycle*`, `PayoutFloorEffect`, `LivePlan`
 
 **Acceptance**
 
-- The documented payout never leaves less than the retained cushion after the floor moves, never bypasses a firm gate, and works on plans whose minimum exceeds $500.
+- The documented payout never leaves less than the resolved retained cushion above the post-payout floor, for every `PayoutFloorEffect` (ReleaseFloor included), and never goes around a firm gate. It asks for the plan minimum when that is above $500, and answers Wait (dollars or days) or Unreachable instead of ever suggesting a smaller request.
 
 ## PT-35: firm account-policy model from verified data
 
-- **Lane / wave:** E / E3  **Size:** large  **Depends on:** PT-04, G2
-- **Items:** F-91 to F-94, F-97 (model), F-153 (data)
+- **Lane / wave:** E. Step 0 (read-only) in EJ0a, now. The code steps in EJ1 if the gates below hold by then, otherwise EJ3; never EJ2 (PT-13 edits `LucidTrading.ts` and owns `core/index.ts` there).  **Size:** large
+- **Depends on:** G2; PT-04 (done, with the R3 follow-up); step 0 recorded; user answers to Q14, Q15 and Q16; the audit tracker showing N-40, N-53 and the parked or paste-blocked firm-data rows not in flight. No code dependency on PT-12, PT-13 or PT-14.
+- **Items:** F-91 to F-94, F-97 (model), F-153 (data), plus the PT-07 handoff (eval access window as a Plan field)
 - **Files owned:**
-  - new `src/lib/prop-calculator/core/{FirmAccountPolicy.ts, AccountCapPolicy.ts, LiveTransitionTrigger.ts, LiveExclusivityPolicy.ts, InactivityPolicy.ts, ConductPattern.ts}`
-  - changed `core/TradingFirm.ts` (`accountPolicy` with a per-plan default), `core/index.ts` (only package in E3 touching it)
-  - changed the firm files of verified firms only
-  - tests `tests/unit/lib/prop-calculator/core/FirmAccountPolicy.test.ts`, `tests/unit/lib/prop-calculator/firms/firmAccountPolicies.test.ts`
-- **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer
+  - new `src/lib/prop-calculator/core/accountPolicy/{FirmPolicySource.ts, FirmAccountPolicy.ts, AccountCapPolicy.ts, LiveTransitionTrigger.ts, LiveExclusivityPolicy.ts, InactivityPolicy.ts, ConductPattern.ts, index.ts}` (sub-barrel; the one line `export * from './accountPolicy'` in `core/index.ts` is PT-35's own edit when it runs in EJ3, or PT-13's in EJ2 when PT-35 ran in EJ1)
+  - changed `core/TradingFirm.ts` (a concrete, overridable `accountPolicy`; `maxFundedAccounts` unchanged)
+  - changed `core/Plan.ts` (the eval access window field, PT-07 handoff) and the Apex firm file only if the user paste (Q16) covers the access window
+  - new `src/lib/prop-calculator/firms/{tradeify/TradeifyAccountPolicy.ts, fundednext/FundedNextAccountPolicy.ts, lucid/LucidAccountPolicy.ts, mffu/MffuAccountPolicy.ts, topstep/TopStepAccountPolicy.ts, ftmo-futures/FtmoFuturesAccountPolicy.ts, alphafutures/AlphaFuturesAccountPolicy.ts, tpt/TptAccountPolicy.ts}` (and `apex/ApexAccountPolicy.ts` only on the Q16 paste answer)
+  - changed, import plus one override line only (no plan, note or constant change): `Tradeify.ts`, `FundedNext.ts`, `LucidTrading.ts`, `MyFundedFutures.ts` (plus the Rapid inactivity value and note only if Q15 says fix), `TopStep.ts`, `FtmoFutures.ts`, `AlphaFutures.ts`, `TakeProfitTrader.ts` (`ApexTraderFunding.ts` only on the paste answer; `E8Futures.ts` not touched)
+  - tests: new `tests/unit/lib/prop-calculator/core/FirmAccountPolicy.test.ts`, `tests/unit/lib/prop-calculator/firms/firmAccountPolicies.test.ts`
+  - plan file: a "PT-35 encode table" section appended to `.claude/plans/prop-tools-2026-09-25/firm-policy-recheck.md` by step 0
+- **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer (Hard Rules 2 and 7), plus a characterization check that no engine number moved
+
+**Readiness pass 2026-09-26**
+
+- The two-class model is too thin for PT-04's data: sub-caps inside a pool (MFF Rapid EOD 3 and Builder 1 inside MFF's 5), plans outside the pool (FundedNext FNL:003, own cap 3), a pool that shrinks on a condition (MFF to 3 with a 100K/150K held; Alpha to 3 with an Advanced Qualified), live accounts counted in a pool (TPT PRO+), eval caps and purchase throttles (Lucid 10 per household, MFF 10 evals, FundedNext $750K allocation and 10 per month, TPT 10 Test activations per 30 days, Tradeify 15 evals per month).
+- Verification is per component, not per firm: status (Confirmed, Conflict, NotFound, NeedsPaste), source kind (LiveFetch, UserPaste), quote, URL and fetch date; a conflict keeps both quotes.
+- Cooldowns need a small hierarchy (MFF 21 days; Lucid 2 weeks, Maxx from the last live close; FundedNext new structure 2 weeks, reckless 4+; Tradeify up to 4 weeks; Alpha 3 months reduced by time live; TopStep and TPT by new evaluation; FundedNext Legacy none stated).
+- Count triggers move almost no engine number today: Lucid Flex 5 equals its own `maxLifetimePayouts`; FundedNext Rapid's 15 counts across the journey; every other count trigger is a Conflict (Tradeify 3 per account and 10 total, MFF Pro, MFF Builder, Alpha, Lucid Pro/Direct, FundedNext Flex). Q14 decides.
+- Single-day triggers (MFF Rapid and Rapid EOD $10,000, excess forfeited; Lucid Daily $8,000) and cumulative-dollar triggers (FundedNext Legacy $100,000; MFF Pro $100,000, already `maxLifetimePayoutDollars`) are data for PT-19 and PT-36 and never become a lifetime count cap.
+- `Plan.withMaxLifetimePayouts` (Plan.ts:987) caps at exactly N and forces `capsAtLastStep: true`, so the override is emitted only when the trigger is strictly below the count at which the plan already concludes.
+- Tradeify's needs-paste rows can be researched live via intercom.help/tradeify; R3 row 1041 confirms (c); R3 added Tradeify conflicts (d) and (e). U17's MFF Rapid EOD question is resolved (a sub-cap inside the pool); U17's evidence file `open-questions.md` does not exist.
+- Inactivity reads the count from `plan.maxConsecutiveIdleDaysFor(phase)` (no second `INACTIVITY_CLOSURE_DAYS`); the policy adds the basis, minimum qualifying amount, outcome and source, and flags a verified count that differs from the plan's. PT-04 found MFF Rapid 50K missing its 7-calendar-day closure (Q15).
+- Apex has no live-verified field; (b) and (c) rest on the 2026-09-23 user paste; `MAX_FUNDED_ACCOUNTS=20` is unverified (Q16).
+- Per-firm data files plus a one-line override keep plans, notes and constants byte-identical (audit-fingerprinted firm files and note pins).
+- Already done elsewhere: PT-04 and R3 source data (firm-policy-recheck.md, 1289 lines, with verbatim TopStep FTP Slowdown, Corrective Path and RTP text and FTMO's Inconsistent Position Sizing text); PT-07's AlertKind members (ConductPattern, LiveExclusivity, LiveTriggerNear, PooledCapReached, CooldownActive, CalendarInactivity); PT-06's `PlanCapUsage` with `pooledCapsModeled: false`; PT-01's `findPlanBySerial`; the CLI's `maxLifetimePayoutsOverride`; `CALENDAR_DAYS_PER_WEEK`, `SESSION_DAYS_PER_CALENDAR_WEEK`, units exports; a Concluded account already gets horizon credit 0. Firm notes already disclose part of the data; PT-35 does not edit them.
+- Audit decisions: no conflict with T33, T34. T32 interplay: a count cap concludes the account with credit 0, correct for Tradeify but understating MFF Rapid, Lucid Daily and TopStep, so never emit a count cap for single-day or discretionary triggers (note for PT-19). FundedNext DTP and TopStep RTP are sizing consequences stored as ConductPattern data only. Every edited firm file and `TradingFirm.ts` goes to the audit tracker.
+- Handoffs folded in: PT-04 to PT-35 and PT-36; every lane E package to audit tracker; PT-01 to audit tracker (`TradingFirm.ts`); PT-07 (the eval access window in calendar days as a Plan field, needing the Apex help center, which returned 403; the consumer `EvalDayCapRule` moves to PT-22).
+- Handoffs emitted: PT-19 and PT-36 (serializable `lifetimePayoutCapOverride(plan)` resolution Capped, PlanAlreadyConcludes, NoCountTrigger, NotChecked; conduct patterns with quote and `ConductCategory`; single-day and cumulative triggers for F-154); PT-45 (reuse `FirmPolicySource`/`PolicyVerification` dates instead of a second table); audit tracker or user (MFF Rapid inactivity); PT-38 and PT-36 (eval caps and throttles as data with no consumer until next-slot); PT-22 (the Plan field for `EvalDayCapRule`).
+- Open user questions: Q14, Q15, Q16 (gating).
 
 **Steps (RED first)**
 
-1. Re-check the audit tracker's firm-data rows, including the parked paste-blocked steps and 403-blocked T4 rows excluded from G2; stop if one is in flight for a firm this package would edit.
-2. RED `FirmAccountPolicy` (class hierarchy): `PerPlanCapPolicy` equals `maxFundedAccounts`; `SharedPoolPolicy` counts across plans (and household where verified); trigger classes (payout count per account and total, single-day profit, cumulative payouts, discretionary with no threshold) report distance, and a count trigger exposes `lifetimePayoutCap(plan)` for `EnginePolicy`; `LiveExclusivityPolicy` (sim closed or frozen, purchases blocked, cooldown days after a live bust); `InactivityPolicy` (calendar vs trading days, min $); `ConductPattern` carries the firm's quote, URL and fetch date.
-3. RED `firmAccountPolicies`: each verified value equals PT-04's quote (URL and date in the test title); unverified firms keep `PerPlanCapPolicy`, no triggers, `verified: false`.
-4. Implement; existing `maxFundedAccounts` consumers unchanged.
-5. GREEN; guards: every firm test and engine characterization equal to the pins; typecheck, eslint, importer greps.
+0. Read-only, now (EJ0a). Per the firm-data rule, re-fetch from each firm's own live pages every value PT-35 will encode: (a) caps, pools, throttles; (b) live triggers; (c) exclusivity and cooldown; (d) inactivity; (e) conduct; for every plan in `ALL_FIRMS`. Re-research Tradeify's needs-paste rows ((a) eval cap, (f), (g), and confirm (c) from R3 row 1041) through intercom.help/tradeify. A second agent re-verifies any value whose page changed since 2026-09-25. Append a "PT-35 encode table" to firm-policy-recheck.md: one row per value with status, source kind, verbatim quote (with [dash] for em dashes), URL and fetch date. No code change.
+1. Start (after G2 and the gates). Confirm N-40, N-53 and the parked firm-data steps are not in flight and `git status` shows `TradingFirm.ts` and the firm files unchanged; stop on overlap. Apply the Q14 to Q16 answers. Capture PD-31 pins by running only: `engineCharacterization.test.ts`, `core/TradingFirmNotes.test.ts`, `core/TradingFirmFindPlanBySerial.test.ts`, `liveFirmRegistry.test.ts`, `core/Plan.test.ts`, `core/PlanUniversalInvariants.test.ts`, `firms/*/*Notes.test.ts`, `tests/unit/lib/prop-accounts/metrics/PlanCapUsage.test.ts`, `tests/unit/app/prop-calculator/{calculatorReducer,urlState}.test.ts`.
+2. RED `FirmAccountPolicy.test.ts` (typed stubs keep the typecheck at baseline):
+   - `FirmPolicySource`: `PolicyVerification {Confirmed, Conflict, NotFound, NeedsPaste}`, `PolicySourceKind {LiveFetch, UserPaste}`; Confirmed or Conflict requires a quote, an https URL and an ISO fetch date; Conflict carries both sides.
+   - `AccountCapPolicy`: `PerPlanCapPolicy` equals `plan.maxFundedAccounts` for every registry plan; `SharedPoolPolicy` holds the pool size, members, a household flag, nested sub-caps and excluded plans with their own cap; pure `headroom(countsBySerial)` gives each plan's free slots as the smaller of sub-cap and pool room (MFF: 3 Rapid EOD plus 2 Rapid gives 0 everywhere; 3 Rapid EOD plus 1 Pro gives 0 for Rapid EOD and 1 for Pro); an excluded plan never consumes pool room; the reduction rule is inert without a trigger plan; `EvalAccountCap` and `PurchaseThrottle {count, calendarWindowDays}` are plain data.
+   - `LiveTransitionTrigger` (`LiveTriggerKind`; subclasses PayoutCountPerAccount, PayoutCountTotal, SingleDayProfit {amount, automatic, excessForfeited}, CumulativeAmount, Discretionary): `distance(progress)` never below 0, null for Discretionary.
+   - `lifetimePayoutCapOverride(plan)` returns plain serializable data: `{Capped, cap}` only from a PayoutCountPerAccount strictly below the plan's own conclusion count; PlanAlreadyConcludes at or above it; NoCountTrigger for discretionary, single-day or cumulative only; NotChecked for NeedsPaste, NotFound, and Conflict unless Q14 chose the lowest count. With Capped, `plan.withMaxLifetimePayouts(cap).isAccountConcluded(cap)` is true and `(cap - 1)` false; never above the plan's own count.
+   - `LiveExclusivityPolicy`: `SimAccountEffect {Closed, Dormant, UpgradedAccountOnHold, Unknown}`, `EvalPurchaseEffect {Blocked, ActivationBlocked, Allowed, Unknown}`, household flag, `LiveBustCooldown` hierarchy (FixedCooldown, UpToCooldown, TimeLiveReducedCooldown, ReturnByNewEvaluation, UnknownCooldown) with `isActive(daysSinceBust, daysLive)` pinned per subclass (Alpha: 1 day live about 3 months; 2 months live 1 month).
+   - `InactivityPolicy`: `InactivityBasis {CalendarDays, TradingDays, CalendarWeek(week start)}`, minimum qualifying amount (Dollars or any trade), `InactivityOutcome {Closure, DiscretionaryClosure}`; the count comes from `plan.maxConsecutiveIdleDaysFor(phase)`; a differing verified count raises a typed mismatch flag; the week basis uses `CALENDAR_DAYS_PER_WEEK`.
+   - `ConductPattern`: `ConductCategory` enum (MaxSizeMostTrades, InconsistentSizing, AccountRolling, RapidRebuys, ExcessivePurchases, NewsSizing, Microscalping, ScalingCircumvention), consequence text, a `FirmPolicySource`; predicates `concernsAggressiveSizing` and `concernsRebuys` for PT-19.
+   - `FirmAccountPolicy` composes `capPolicyFor`, `liveTriggersFor`, `liveExclusivityFor`, `inactivityFor(plan, phase)`, `conductPatterns`, `lifetimePayoutCapOverride`; the unverified default gives PerPlanCapPolicy, NotChecked triggers, Unknown exclusivity and cooldown, the plan's own inactivity count with an unverified basis, and no conduct.
+3. RED TradingFirm default: a test double with no override gets the unverified default; `maxFundedAccounts(plan)` unchanged for every plan (pins); `accountPolicy` is concrete and overridable (PD-42).
+4. RED `firmAccountPolicies.test.ts`: one `it` per encoded value, with status, URL and fetch date from the step 0 table in the title, asserting the value and that the quote equals the table's. Per firm (values as re-verified in step 0): Tradeify (pool 5 per individual and household; 3 per account and 10 total per Q14; Closed, purchases Blocked household-wide, cooldown up to 4 weeks; CalendarWeek discretionary with the Elite 30-day conflict; conduct 6.5 as Conflict and the 10-second rule; eval throttle 15 per month), FundedNext (pool 5, FNL:003 excluded with 3, 10 per month, $750K allocation; Rapid total 15, Legacy cumulative $100,000, Flex Conflict, FNL:003 NotFound; new structure Closed with 14 days, Legacy Closed with purchases Blocked; 30 calendar days, any trade; rolling, flipping, DTP), Lucid (pool 5 funded per household, 10 eval plus funded; Flex 5 PlanAlreadyConcludes, Daily $8,000 automatic, Pro/Direct Conflict; Closed household-wide, 14 days, Maxx from last live close; 30 calendar days, $1 net; scaling circumvention and Maxx full-port), MFF (pool 5 with the inert reduction, Rapid EOD sub-cap 3, Builder sub-cap 1, 10 evals; Rapid and Rapid EOD $10,000 automatic with excess forfeited, Pro Conflict, Builder PlanAlreadyConcludes with Conflict recorded, discretionary for all; Dormant with purchases Blocked, 21 days for Rapid and Builder, Pro NotFound; 7 calendar days with the Rapid mismatch flag unless Q15 fixes it; Terms consistent sizing and Pro's Consistent Trading Policy), TopStep (XFA pool 5; Discretionary; XFAs Closed, Combines Allowed, XFA activation blocked, ReturnByNewEvaluation; XFA 30 days discretionary; FTP Slowdown, Corrective Path and RTP exact text), FTMO (pool 3 across Growth and Pro; Discretionary; purchases Blocked, sim effect Unknown; 30 calendar days; Inconsistent Position Sizing full text, rolling, order cool-down), Alpha (pool 5 per user and household, reduction to 3 with an Advanced as Conflict; triggers Conflict; Closed at the call to live, TimeLiveReducedCooldown; 10 trading days, outcome not stated; rolling, stacking, max leverage), TPT (pool 5 across PRO and PRO+ with live counted, Tests uncapped, 10 activations per 30 days; Discretionary; UpgradedAccountOnHold with the others Conflict, ReturnByNewEvaluation; CalendarWeek Sunday to Friday, one round trip; Sustainable Trading Policy), Apex (per Q16) and E8 (unverified default; its Zero 5-payout closure is not a live trigger). Registry-wide: every plan resolves every component without throwing; no number without a source; every NeedsPaste or NotFound component explicit; no em dash in source text; the override never above the plan's own count.
+5. Implement the seven core files and the sub-barrel, `TradingFirm.accountPolicy`, the per-firm data files and the one-line overrides, the Plan field from the PT-07 handoff (with the Apex value only if Q16 covers it), and the `core/index.ts` line when PT-35 owns it (EJ3). No consumer changes. No comments; enums for every fixed set.
+6. GREEN: the step 1 guards equal their pins; `bun run typecheck` at baseline; `bunx eslint` on every touched file (no `--fix`) and the formatter on owned files only; importer greps; `bunx knip` reported (new exports unused until PT-19, PT-22 and PT-36; expected and recorded). Record the handoffs listed above.
 
 **Regression tests**
 
-- The 2 files plus guards
+- `FirmAccountPolicy.test.ts`, `firmAccountPolicies.test.ts`; guards: the step 1 list
 
 **Acceptance**
 
-- Firm-level policies exist only from verified data; unverified firms are explicit; verified count triggers can cap engine payouts.
+- Every firm's caps, pools, triggers, exclusivity, cooldowns, inactivity and conduct are typed data with a source and verification status per component; the lifetime cap override never loosens a plan's own cap; no plan, note, constant or engine number moved except the approved MFF Rapid fix.
 
 ## PT-47: DP payout policy and retained cushion in the solver
 
-- **Lane / wave:** E / E4  **Size:** medium  **Depends on:** PT-12, PT-14
+- **Lane / wave:** E, split: PT-47a in EJ1 (request size and retained cushion), PT-47b in EJ3 (payout request policy, the DP's tracker-seeding swap)  **Size:** medium  **Depends on:** PT-47a: G2 only. PT-47b: PT-12a (`PayoutRequestPolicy`, the tracker option, `effectivePayoutRequest`, `restoreFundedCycleTracker`), PT-14 (`SimInputs.payoutRequestPolicy`).
 - **Items:** F-150
 - **Files owned:**
-  - changed `src/lib/prop-calculator/core/FundedStateValue.ts` (the `tryPayout` call near 1180, `FundedStateValueConfig`, `SerializableFundedConfig` and the worker config it serializes), `core/AverageRewardSolver.ts` (`FundedGridConfig`), `src/cli/commands/prop/optimize/dp/command.ts` (flags, `fundedGrid`, `empiricalSimInputs`)
-  - tests `tests/unit/lib/prop-calculator/core/FundedStateValuePayoutPolicy.test.ts`; guards `tests/unit/cli/prop/optimizeDp.test.ts`, every `FundedStateValue*` test
+  - `src/lib/prop-calculator/core/FundedStateValue.ts` (a: `payoutRequestSize` on the config and context, the three payout-shaped calls, `isBaselineAlwaysTheFloor`; b: `payoutRequestPolicy`, and the tracker seeding at ~1214-1229 switched to `restoreFundedCycleTracker`)
+  - `src/lib/prop-calculator/core/AverageRewardSolver.ts` (the `FundedGridConfig` Pick; export `FundedGridConfig` and `EvalGridConfig` for PT-30)
+  - `src/cli/commands/prop/optimize/dp/command.ts` (flags, inputs, a pure exported solver-config builder, `empiricalSimInputs`)
+  - `src/cli/commands/prop/shared.ts` (PT-47b only: a shared `payoutRequestPolicyArgument` enum flag, and the corrected `--retain-cushion` description)
+  - tests: new `tests/unit/lib/prop-calculator/core/FundedStateValuePayoutPolicy.test.ts`; changed `tests/unit/cli/prop/optimizeDp.test.ts`; guards (read-only unless re-pinned with reason): `core/FundedStateValue*.test.ts` (8 files), `core/AverageRewardSolver.test.ts`, `tests/unit/cli/prop/{fundedResetFlag,earlyWithdrawalFlag}.test.ts`, `horizonCredit.test.ts`
 - **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer
+
+**Readiness pass 2026-09-26**
+
+- Line anchors: the DP's only `tryPayout` call is at `FundedStateValue.ts:1232`. Two more payout-shaped calls must change with it: `tracker.closeoutCredit` for the horizon credit at ~1283 and `freshStartHorizonCreditOf` at ~1407 (used at ~754).
+- `minRetainedCushion` is already threaded (config line 91, `plan.resolveRetainedCushion` at 506, `FundedGridConfig` Picks it at 63-79); `optimize dp` just never passes a `fundedGrid` or sets it on `empiricalSimInputs`. Only `payoutRequestSize` and `payoutRequestPolicy` are new solver fields.
+- `SerializableFundedConfig` spreads every setting (`toSerializableConfig` 2490), so new fields reach the workers without code; the obligation is a pooled-equals-single-threaded test.
+- Flag names: the CLI already has `--retain-cushion` (tradingArguments, default "0", clamped up to `plan.defaultRetainedCushion()`, $0 on TopStep and FTMO overrides) and `--request-size` (commonSimArguments). Reuse both; no `--retained-cushion` or `--payout-size`. `--retain-cushion 0` resolves to the plan floor, so passing it equals today's path.
+- The PT-12 handoff named `resolveWithdrawal`; PT-47 consumes whatever option PT-12a puts on `FundedPayoutOptions` and `WithdrawableNowOptions`.
+- `SimInputs.payoutRequestPolicy` comes from PT-14 (EJ2).
+- Already done elsewhere: the cushion config fields; worker serialization; the shared flags; the simulator already passes `payoutRequestSize` and the resolved cushion to `tryPayout` and `closeoutCredit`; T34 (default `--iterations 12`, pinned; new `run()` tests pass a small `--iterations` and restore `process.exitCode` like the N-64 test); the DP policy already uses `PolicySizing.WholeContracts`.
+- Audit decisions: T32 (the request size also caps `closeoutCredit` and the fresh-start credit; all three calls get the same size and policy, or DP and simulate disagree on every horizon solve). N-72 correctness hole: `isBaselineAlwaysTheFloor` (642-645) collapses the post-payout baseline grid when `!plan.canLeaveBalanceAbovePayoutFloor() && ...`; `canLeaveBalanceAbovePayoutFloor` looks only at plan caps, so with a request size on an uncapped plan it reads a balance above the floor as the floor (optimistic); it must also require `payoutRequestSize === undefined`. T33: keep `optimize dp` free of position sizing; no sizing flags here. PD-40: `optimize dp` keeps UpToRequest and the plan-default cushion without flags (pins equal); the $2,000 Hard Rule 2 floor is PT-30's advice default.
+- Handoffs folded in: PT-12 to PT-47 (the CLI passes `effectivePayoutRequest(plan, requested)` whenever a request size is given; without it a FullRequestOnly request below MFF Pro's $1,000 or FNL:003's $800 would never pay); PT-14 to PT-47 (`SimInputs.payoutRequestPolicy` in `empiricalSimInputs`); WP24 (re-read `resetLayerContext` at ~1796; new context fields carry into every reset layer, tested); PT-12a's `restoreFundedCycleTracker` replaces the DP's hand seeding (PT-47b; pins must stay equal, else revert and hand to PT-50); PT-30 (export `FundedGridConfig` and `EvalGridConfig`); every lane E package to the audit tracker (`FundedStateValue.ts`, `AverageRewardSolver.ts`, `optimize/dp/command.ts`, `shared.ts`, all with staged audit-era edits: re-read at start).
+- Handoffs emitted: PT-30 (the DP honours request size, policy and retained cushion, so `config_key` may include them; if only PT-47a has landed, PT-30's fallback shrinks to the policy half). The shared `--retain-cushion` description ("floored at the plan's own full funded-drawdown amount") is wrong for TopStep and FTMO; PT-47b fixes the wording once in `shared.ts`.
 
 **Steps (RED first)**
 
-1. Capture pins (PD-31) for the DP characterization and a small toy solve. Re-read post-WP24 `FundedStateValue.ts` (the reset-layer policy, `tryPayout` with `payoutRequestSize: undefined` near 1180, `SerializableFundedConfig`, the worker entry), `AverageRewardSolver.ts:63-80` (`FundedGridConfig` picks `minRetainedCushion` but `optimize dp` passes no `fundedGrid`), `optimize/dp/command.ts` (`empiricalSimInputs`, existing flags in `shared.ts`: confirm whether `--retained-cushion` and `--payout-size` exist).
-2. RED `FundedStateValuePayoutPolicy`:
-   - omitting the new fields equals the pins (policy value and sampled `computeRisk`);
-   - on a toy plan, `payoutRequestSize: 500` with `FullRequestOnly` changes the solved policy or value relative to the default (the max-withdrawal behaviour), and a simulate replay of the solved policy under the same payout policy agrees with the DP value within the existing tolerance;
-   - `minRetainedCushion: 2000` changes the solve for a plan whose own default is $0 (TopStep);
-   - the serialized worker config carries all three fields and round-trips.
-3. RED `optimizeDp.test.ts` (extended): the command passes `fundedGrid.minRetainedCushion`, `payoutRequestSize` and `payoutRequestPolicy` from its flags to the solver, and `empiricalSimInputs` uses the same retained cushion and payout policy as the solve.
-4. Implement: thread `payoutRequestSize`, `payoutRequestPolicy` and `minRetainedCushion` through `FundedStateValueConfig`, `FundedGridConfig` and `SerializableFundedConfig` into the `tryPayout` call; add the CLI flags only if absent (reuse `shared.ts` readers).
-5. GREEN; guards: every `FundedStateValue*` test and `optimizeDp.test.ts` equal to the pins for defaults; one small `bun run cli prop optimize dp` run on a coarse config with and without the new flags (record both and the runtime); typecheck, eslint, importer greps.
+PT-47a (EJ1):
+
+1. Pins and re-read (PD-31): DP characterization pins (initialValue, sweepCount, sampled `computeRisk`) for FTMO Futures Growth 50K at the `cycleBaselineFineRangeMultiple` test config, for `payoutRequestCapToyPlan`, and for a coarse TopStep solve (the ES contract-tier config). Re-read `FundedStateValue.ts` (config 75-101, context ~298-315, `buildFundedSolveContext` cushion 506, `isBaselineAlwaysTheFloor` 642-645, baseline grid bounds 651-668, payout block 1232-1290, `freshStartHorizonCreditOf` 1407-1418 and its call at 754, `resetLayerContext` 1796, `toSerializableConfig` 2490, `computeRisk` baseline index ~2998), `AverageRewardSolver.ts` (63-79, 145-155), `optimize/dp/command.ts`, the two shared flags.
+2. RED `FundedStateValuePayoutPolicy.test.ts` (request size):
+   - Omitting `payoutRequestSize` equals the pins exactly.
+   - Baseline tracking: on `payoutRequestCapToyPlan` with `payoutRequestCap` removed, `payoutRequestSize: dollars(150)` gives initialValue 250 to 10 places (the capped toy's 150 then 100), and a `simulate()` replay at winrate 1 with the same size gives `expectedGrossPayout` 250; the default gives a different value. Fails today (the grid collapses).
+   - Horizon credit (T32): on `multiPayoutToyPlan` with `meanHorizonDays`, a request size below the withdrawable lowers the DP value, and a `simulate()` replay (same horizon, size and seed) agrees within the existing tolerance including `expectedHorizonCredit`; the fresh-start credit equals `newFundedCycleTracker(fresh).closeoutCredit` with the same size, asserted through the solved value.
+   - `computeRisk` fed a `FundedCycleSnapshot` with `lastPayoutBalance` above the floor reads the matching baseline level.
+   - Worker parity: an opted-in registry plan solved with a request size on a `FundedWorkerSession` equals the single-threaded solve.
+3. RED retained cushion: on the coarse TopStep config, `minRetainedCushion: 2000` changes initialValue, and the resolved cushion equals max(2000, plan floor); `minRetainedCushion: 0` equals the default pin.
+4. RED `optimizeDp.test.ts`: `dpArguments` contains `retain-cushion` and `request-size` (the shared definitions) and `readDpInputs` parses them (request-size > 0, retain-cushion >= 0; the flag-bounds table extended); a pure exported `dpSolverConfig(inputs, objective)` returns `fundedGrid.minRetainedCushion` and `fundedGrid.payoutRequestSize` (undefined without `--request-size`); `empiricalSimInputs` carries the same two; one `run()` test (small plan, `--eval-days 2 --funded-days 2 --iterations 1 --trials 10`, exit code restored) asserts through the spies that solver and simulate received the same cushion and request size.
+5. Implement: `payoutRequestSize?: Dollars` on the config and the Pick; resolved values on the context; pass it to `tryPayout` (~1232), the `closeoutCredit` (~1283) and `freshStartHorizonCreditOf` (~1407/754); `isBaselineAlwaysTheFloor` also requires `payoutRequestSize === undefined`; export `FundedGridConfig` and `EvalGridConfig`; in `optimize dp` spread the two shared flags, extend the inputs, pass `fundedGrid: {minRetainedCushion, payoutRequestSize}` and the same fields to `empiricalSimInputs`; print one muted line naming the cushion and request size used.
+6. GREEN: every guard listed above, run one file at a time from the repo root; defaults equal the pins; typecheck; read-only eslint on owned files. Optional, only in a quiet CLI window: one small `bun run cli prop optimize dp` on a coarse eligible plan with and without `--request-size 500 --retain-cushion 2000`, recording outputs and runtimes.
+
+PT-47b (EJ3):
+
+7. Re-read PT-12a's API (the policy members and default, the option on `FundedPayoutOptions` and `WithdrawableNowOptions`, how `closeoutCredit` treats FullRequestOnly, `effectivePayoutRequest`, `restoreFundedCycleTracker`) and PT-14's `SimInputs.payoutRequestPolicy`. Re-capture the PT-47a pins.
+8. RED (extend the test file):
+   - Omitting `payoutRequestPolicy` equals the pins (UpToRequest default).
+   - Withdrawable below the request (500 against 300, plan minimum 0): FullRequestOnly waits where UpToRequest pays, changing initialValue or `computeRisk`; a `simulate()` replay with the same size and `FullRequestOnly` agrees within tolerance, credit included.
+   - Worker parity with the policy set.
+   - The DP's tracker seeding through `restoreFundedCycleTracker` leaves every `FundedStateValue*` pin equal (else revert that call site and hand the DRY to PT-50).
+   - `optimizeDp.test.ts`: a shared enum flag (default up-to-request, options `Object.values(PayoutRequestPolicy)`, the `unaffordable` pattern) flows to `fundedGrid.payoutRequestPolicy` and `empiricalSimInputs.payoutRequestPolicy`; with `--request-size`, solver and simulate receive `effectivePayoutRequest(plan, requested)` (MFF Pro 50K with 500 receives the plan minimum, cited from the plan file).
+9. Implement: `payoutRequestPolicy?: PayoutRequestPolicy` on the config, the Pick and the context, passed to all three tracker calls; the seeding swap; `payoutRequestPolicyArgument` in `shared.ts` and spread into `dpArguments`; `effectivePayoutRequest` applied in the builder; the corrected `--retain-cushion` description. Imports through the `~/lib/prop-calculator` barrel.
+10. GREEN as in step 6 plus `FundedPayoutCycle*.test.ts` and PT-14's `SimulatePayoutRequestPolicy.test.ts`. Record the engine and CLI files for the audit tracker and the PT-30 handoff.
 
 **Regression tests**
 
-- `FundedStateValuePayoutPolicy.test.ts`; guards: `FundedStateValue*`, `optimizeDp.test.ts`
+- `FundedStateValuePayoutPolicy.test.ts`, extended `optimizeDp.test.ts`; guards as listed
 
 **Acceptance**
 
-- The funded DP solves under the user's payout request, payout policy and retained cushion when given, and exactly as today otherwise; the empirical check runs under the same policy.
+- The funded DP solves under the given payout request (effective per PD-40), payout policy and retained cushion, including the T32 horizon credit and the post-payout baseline, and exactly as today otherwise. `optimize dp`'s empirical run uses the same three settings. The DP seeds trackers through the one shared restore factory.
 
 ## PT-48: documented policy spec and simulation inputs
 
-- **Lane / wave:** E / E4  **Size:** medium  **Depends on:** PT-03, PT-12, PT-13, PT-14
+- **Lane / wave:** E, split: PT-48a in EJ1 (engine-policy data type, spec schema, `ruleContextAt`, eval closure, declared funded flat policy), PT-48b in EJ3 (payout request policy, `start` pass-through, the timeline adapter, the `resolveRiskAt` invariant test)  **Size:** medium
+- **Depends on:** PT-48a: G2, PT-03 (done). PT-48b: PT-48a, PT-12a (`PayoutRequestPolicy.FullRequestOnly`, `effectivePayoutRequest`), PT-14 (`SimInputs.payoutRequestPolicy`, serializable `SimInputs.start`, the policy through the portfolio timeline), PT-13 (`resolveRiskAt` for the invariant test; re-confirm `day.ts` still breaks on `risk <= 0`).
 - **Items:** F-148
 - **Files owned:**
-  - new `src/lib/prop-calculator/advisor/policy/{DocumentedPolicySpec.ts, documentedPolicySimInputs.ts, index.ts}` (own barrel; PT-19 re-exports it from `advisor/index.ts`)
-  - changed `src/lib/prop-calculator/core/DayPolicy.ts` only if step 1 shows it is needed (then also the exhaustive `DayStopRuleKind` switches it breaks, listed by grep in the package report; any lane W file among them is handed off, not edited)
-  - tests `tests/unit/lib/prop-calculator/advisor/policy/{DocumentedPolicySpec,documentedPolicySimInputs}.test.ts`
-- **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer
+  - new `src/lib/prop-calculator/advisor/policy/{EnginePolicy.ts, DocumentedPolicySpec.ts, documentedPolicySimInputs.ts, DocumentedDayRisk.ts, documentedPolicyTimelineInputs.ts (PT-48b), index.ts}` (the serializable engine-policy type and schema live here; PT-19 keeps only the builder, `EnginePolicyBuilder.ts`)
+  - changed `advisor/RuleContext.ts` (the shared `ruleContextAt` builder) and `advisor/index.ts` (EJ1 owner, PT-48a only; PT-19 re-exports `./policy` in EJ4)
+  - tests: new `tests/unit/lib/prop-calculator/advisor/policy/{DocumentedPolicySpec,documentedPolicySimInputs,DocumentedDayRisk,documentedPolicyTimelineInputs}.test.ts`, new `tests/unit/lib/prop-calculator/advisor/RuleContextAt.test.ts`
+  - not owned: `core/DayPolicy.ts` and the `DayStopRuleKind` switches (not needed); never `src/cli/commands/prop/shared.ts`
+- **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer (Hard Rules 2 to 6, post-target eval behaviour, T33 placement vs the headline)
+
+**Readiness pass 2026-09-26**
+
+- `EnginePolicy` was a PT-19 file, but PT-19 depends on PT-48. PT-48a declares the serializable data type and Zod schema in full (PD-42) in `advisor/policy/EnginePolicy.ts`; PT-19 owns only the builder.
+- The plan key stays out of the spec: `PlanKey` and its schemas live in `prop-accounts`, which `prop-calculator` never imports. Worker messages carry `{planKey, spec}`; the worker resolves the plan then calls `toSimInputs(plan, spec)`; an optional `planSerial` guard asserts `serializePlanId(plan.id) === spec.planSerial`.
+- No `stage` field: `simulate` always runs eval then funded (instant-funded plans skip eval); live cannot be expressed in `SimInputs`. PT-48b passes PT-14's `start` through.
+- No `DayPolicy.ts` change: `runDay` breaks on `risk <= 0`, a 0 resolves to risk 0 under every sizing path, and `resetForNewDay` runs before the loop, so the closure captures day-start state at trade index 0 (the intraday-trailing threshold cannot be recovered mid-day).
+- Inside the closure use `DocumentedRule.nextTrade(dayStartContext, progress)` only; calling `resolveRiskAt` there would apply the affordable and contract caps twice (runDay applies them after `computeRisk`). `resolveRiskAt` belongs in the PD-33 invariant test.
+- The portfolio timeline honours only declared `evalDayPolicy` and `fundedDayPolicy` (no `fundedRiskPerTrade`, `fundedRrRatio`, `intradayPathStepsPerR`, `rebuyLagDays`), so `toSimInputs` declares both policies; the funded one is `flatDayPolicy(risk, tradesPerDay, stopRule, policySizingOf(Funded))`, identical to what `resolveDayPolicy` builds from `fundedRiskPerTrade`.
+- The daily cap is `rulebook.eval.maxRiskDailyCapMultiple` times the first max risk (EvalMaxRiskRule); tests read the multiple from the rulebook.
+- `EnginePolicy` holds only engine-side inputs; winrate, rr, the funded day policy and ladder fractions stay in the rulebook (one source).
+- The engine resolves `plan.resolveRetainedCushion(requested)` = max(requested, override or funded drawdown), usually the full funded drawdown, not $2,000 (TopStep $0 override and FTMO $2,000 differ); labels show the resolved value.
+- Already done elsewhere: PT-03's `createDocumentedRule`, `nextTrade` (all caps, PD-33 assert), `RuleContext` schemas, `dayProgressSchema`, `SizingStage`, `fundedStopRuleToDayStopRule`, `rulebookSchema`, `DEFAULT_RULEBOOK`; WP28/WP34 cents exports; T33 sizing in the engine (`policySizingOf`, `placeWholeContractTrade`, `assertDeclaredSizingMatchesPhase`, `simInputsSizingIssue`, which skips the below-one-contract check when a funded policy is declared); `SimOutputs.expectedMonthlyRealizedNet`; `Plan.withMaxLifetimePayouts` (applied only for a non-null override).
+- Audit decisions: T33 (acceptance restated: each simulated trade's intended risk equals the documented rung, placement follows T33; NQ at 10 pt places 1 contract at $200 for a $250 rule, MNQ 12 micros at $240; instrument and stop are optional engine assumptions, PD-25). T33 refusal bypass: with a declared funded policy `toSimInputs` runs `simInputsSizingIssue({riskPerTrade: fundedRisk, instrument, stopPoints})` itself and throws with the prefix. Declared policies use `policySizingOf(phase)`, never a hard-coded member. T32: the effective request also caps the horizon credit; consumers say which monthly figure they show. T34: n/a.
+- Handoffs folded in: PT-03 to PT-19 (the one shared `ruleContextAt(plan, stage, dayStartState, caps)` builder is created here and exported; PT-19 reuses it); PT-14 to PT-48 (`start`, policy; PT-48b); PT-12 (`effectivePayoutRequest` only); PT-01 to PT-03 (stop rule via `fundedStopRuleToDayStopRule`; cents once with `CENTS_PER_DOLLAR`); PT-13 (a) (a 0 from `computeRisk` ends the day); PT-33 (PT-48b owns `documentedPolicyTimelineInputs`); every lane E package to audit tracker (PT-48 edits no engine file: recorded as none).
+- Handoffs emitted: PT-19 (`ruleContextAt`, `EnginePolicy` type ownership, rename its file to `EnginePolicyBuilder.ts`); PT-33 (the timeline adapter and its typed list of unhonoured fields); PT-21b, PT-33, PT-38 (label the engine-resolved retained cushion; say which monthly figure under T32).
+- Open user questions: Q17 (eval after target), Q18 (personal caps in simulations).
 
 **Steps (RED first)**
 
-1. Capture pins (PD-31) for `simulate` on the funded flat case. Re-read `DayPolicy.ts` (`computedDayPolicy`, `ComputeRisk`, `shouldStopDay`), `day.ts` (what a 0 from `computeRisk` does: ends the day or skips the slot; recorded by PT-13), `AccountState` (whether day-start balance and threshold are recoverable, for example `balance - todayPnL`), `resolveRiskAt`, the PT-03 rules and `SimInputs` after PT-14.
-2. RED `DocumentedPolicySpec`: the spec (rulebook parameters, plan key, stage, `EnginePolicy`) is JSON-serializable and survives `structuredClone` deep-equal; a Zod schema validates it; no function-valued field exists.
-3. RED `documentedPolicySimInputs`:
-   - funded flat rule: `simulate(toSimInputs(plan, spec))` deep-equals `simulate` with `fundedRiskPerTrade` 250, `fundedRrRatio` 2 and the same trades per day, seed, retained cushion and payout fields (proving the funded rule is expressible without a closure where it is flat);
-   - eval general-derivation ladder, MFF fractions and max-risk: the built `computeRisk` at trade index 0 of a day-start state equals the PT-03 rule's first rung or risk for the same context; at trade index k after k losses it equals the rule's rung k (cumulative DLL, consistency and remaining-target caps applied);
-   - max-risk: once the day's PnL reaches 2 x the day-start risk the day ends (via `computeRisk` returning 0 if step 1 shows that ends the day; otherwise via a new day-start-relative stop kind with pins for every existing kind);
-   - the SimInputs carry `minRetainedCushion`, the effective payout request, `payoutRequestPolicy: FullRequestOnly`, the lifetime cap override (applied through `plan.withMaxLifetimePayouts`), `intradayPathStepsPerR`, winrate, rr and `rebuyLagDays` from the spec's `EnginePolicy`;
-   - PD-33 invariant holds for every rung the closure returns on a seeded run.
-4. Implement `DocumentedPolicySpec` and the pure `toSimInputs(plan, spec)`, reusing `createDocumentedRule` and `resolveRiskAt` inside the closure (no re-derived sizing).
-5. GREEN; guards: simulator suite equal to the pins, the PT-03 rule tests; typecheck, eslint, importer greps.
+PT-48a (EJ1):
+
+1. Pins and re-read (PD-31): `simulate` outputs for (i) an instant-funded plan with `fundedRiskPerTrade` 250, `fundedRrRatio` 2, `fundedTradesPerDay` 4, fixed seed, with and without NQ and MNQ at 10 points; (ii) an Apex EOD 50K flat-eval guard. Re-read `day.ts` (`computeRisk` before sizing, the `risk <= 0` break, `resetForNewDay`), `TradingDayLedger.applyTrade`, `dayPolicyValidation.ts`, `portfolioTimeline/types.ts`, `Plan.resolveRetainedCushion`, `Plan.withMaxLifetimePayouts`. Record the evidence that `DayPolicy.ts` needs no change. Typed stubs.
+2. RED `DocumentedPolicySpec.test.ts`: `EnginePolicy` declares every engine-side field up front except the payout policy (added by PT-48b): requested payout in dollars and an optional personal override; retained cushion request; `lifetimePayoutCapOverride` (number or null) with its basis; optional `intradayPathStepsPerR`; `rebuyLagDays` with its basis; `fundedHorizonDays`; `commissionPerRoundTrip`; optional `instrument` and `stopPoints`. No winrate, rr, funded day policy or ladder fractions. The spec is `{rulebook (rulebookSchema), enginePolicy, run: {seed, trials, maxEvalDays, maxAttempts?}, planSerial?}`; JSON-serializable, `structuredClone` deep-equals it, a walk finds no function. The strict schema accepts DEFAULT_RULEBOOK specs and rejects cents in dollar fields, a negative lag, `stopPoints` without an instrument and unknown keys.
+3. RED `RuleContextAt.test.ts`: `ruleContextAt(plan, stage, state, caps)`: cushion = balance - threshold; `dayStartDllRoom` from `resolveDailyLossLimit(plan.dailyLossLimitFor(phase), plan.dailyLossLimitContext(state))` or null; `contractLimit` via `contractLimitAt` when an instrument is given; eval `remainingProfitToTarget = profitTarget - plan.accountProfit(state)` and `consistencyDailyCap = share x profitTarget`; `personalDll` null (Q18 default); parses with the stage schema. Table: Apex EOD eval at $2,000 cushion, an MFF eval with consistency, a DLL plan, funded at start.
+4. RED `DocumentedDayRisk.test.ts`: the closure wraps `createDocumentedRule(stage, rulebook).nextTrade(dayStartContext, progress)`; a WeakMap day memo keyed by the `AccountState` object, reset at trade index 0 with `ruleContextAt`; progress from the `todayPnL` delta (gross = delta + commission; a win if gross > 0, else runningLoss += -gross), so `dayProgressSchema` never throws with commission; returns the rung risk on Trade and 0 on Stop. Cases: general-derivation ladder at $2,000 (trade 0 = 400, after k losses the k-th rung of [400, 600, 900, 100]); MFF fractions [400, 600, 800, 200]; max-risk ($2,000 cushion, $3,000 to target, rr 2: trade 0 = 1,500; after a win capped at (ceiling - dayPnL) / rr; 0 once dayPnL reaches the multiple times the first risk); cumulative DLL and remaining-target caps as in PT-03's tables; two interleaved states do not share a memo; an idle day then a trading day resets; commission 4.5 does not throw; post-target behaviour per Q17 (default: the smallest placeable risk, disclosed).
+5. RED `documentedPolicySimInputs.test.ts` (without the payout policy and start):
+   - Funded flat: `fundedDayPolicy` deep-equals `flatDayPolicy(riskCents / CENTS_PER_DOLLAR, funded.tradesPerDayMax, fundedStopRuleToDayStopRule(funded.stopRule), policySizingOf(Funded))`; `fundedRrRatio = takeProfitCents / riskCents`; no `fundedRiskPerTrade`, `fundedTradesPerDay` or `fundedCushionPercent`. On an instant-funded plan `simulate(toSimInputs(...))` deep-equals the step 1 pin, with and without NQ and MNQ at 10 points.
+   - Refusal: $150 at NQ 10 points throws with the `SIM_INPUTS_REFUSAL_PREFIX` text from `simInputsSizingIssue`.
+   - Eval: `evalDayPolicy = computedDayPolicy(closure, strategy.tradesPerDayMax, {kind: None}, policySizingOf(Eval))`; `computeRisk` at a day-start state equals the rule's first rung.
+   - Money fields: commission from `EnginePolicy`; `minRetainedCushion` = rulebook cents / `CENTS_PER_DOLLAR`, and the engine-resolved value is asserted on a plan whose floor is its drawdown; `payoutRequestSize` = override or `requestCents / CENTS_PER_DOLLAR` (the effective request arrives in PT-48b).
+   - Lifetime cap only for a non-null override; with null the plan is the same instance.
+   - Pass-through: path steps, rebuy lag, horizon, winrate, rr, `RungSizing.CapToCushion`, instrument, stop, seed, trials, `maxEvalDays`, `maxAttempts`; `riskPerTrade` and `tradesPerDay` set to the funded values.
+   - A `planSerial` mismatch throws.
+6. Implement PT-48a: the four modules, `ruleContextAt` and its export, `policy/index.ts`. No `~/lib/prop-accounts` import, no core or simulator change, no local cents constant.
+7. GREEN: the new files; guards `tests/unit/lib/prop-calculator/advisor/*.test.ts`, `simulator/{day,dayPolicyValidation}.test.ts`, `declaredPolicySizing`, `percentCushionSizing`, `engineCharacterization`, `rngDrawCount` equal to the pins; typecheck; `bunx eslint` on owned files.
+
+PT-48b (EJ3):
+
+8. Re-read PT-12a's `PayoutRequestPolicy` and `effectivePayoutRequest`, PT-14's `SimInputs.payoutRequestPolicy`, `SimInputs.start` and the timeline threading, PT-13's `resolveRiskAt`; re-confirm the `risk <= 0` break after PT-13's refactor.
+9. RED additions: `EnginePolicy.payoutRequestPolicy`; `toSimInputs` sets `payoutRequestSize = effectivePayoutRequest(plan, override ?? requestCents / CENTS_PER_DOLLAR)` ($1,000 on MFF Pro) and `payoutRequestPolicy: FullRequestOnly`; the spec carries an optional serializable `start` passed through unchanged and surviving `structuredClone`. RED `documentedPolicyTimelineInputs.test.ts`: `documentedPolicyTimelineInputs(plan, spec, accounts)` returns `PortfolioTimelineInputs` whose eval and funded policies give the same `computeRisk` values as `toSimInputs` at trade 0 and after k losses; retained cushion, effective request, policy and lifetime cap from the spec (TopStep carries 2,000); a typed list of the `EnginePolicy` fields the timeline cannot honour (funded rr different from strategy rr, path steps, rebuy lag); `simulatePortfolioTimeline` runs on it without error. RED PD-33 invariant: on a seeded 200-trial Apex EOD eval plus funded run, every closure return is at most the day-start affordable risk after the running loss via `resolveRiskAt`, the running loss never exceeds min(cushion, day-start DLL room), `assertTradeInvariant` never throws; record the runtime against a flat-eval run (over about 5x slower: memoize the all-loss sizing per day and use `nextTrade` only after a win).
+10. Implement PT-48b in the policy files and `policy/index.ts`.
+11. GREEN as in step 7 plus `portfolioTimeline` tests and PT-14's policy test. Record in the wave log: no engine file edited; the handoffs to PT-19, PT-33, PT-21b and PT-38.
 
 **Regression tests**
 
-- The 2 files; guards: simulator suite, PT-03 rule tests
+- `DocumentedPolicySpec`, `RuleContextAt`, `DocumentedDayRisk`, `documentedPolicySimInputs`, `documentedPolicyTimelineInputs`; guards as listed
 
 **Acceptance**
 
-- Any worker can simulate the user's documented rule from serializable data, and the result matches the headline rule trade by trade.
+- Any worker can build `SimInputs` and `PortfolioTimelineInputs` for the documented rule from serializable data. The intended risk of every simulated trade equals the documented rung for that day's state and progress, placed per T33, and the same declared policies drive `simulate` and the timeline.
 
 ## PT-22: state metrics and state alerts
 
-- **Lane / wave:** E / E4  **Size:** medium  **Depends on:** PT-06, PT-07, PT-12, PT-13, PT-46
-- **Items:** F-80 to F-82, F-84, F-138
+- **Lane / wave:** E / EJ4 (with PT-19)  **Size:** medium  **Depends on:** PT-12c (reconstruction, `SnapshotAdapter`, `PayoutReadiness`, `PayoutBlockReason`, the DashboardFloorMismatch warning), PT-12a (`effectivePayoutRequest`), PT-46 (`PayoutRequestRule` and the exported retained-cushion-for-stage function), PT-06 and PT-07 (done), PT-35 (the eval access window Plan field for `EvalDayCapRule`, and the verified `InactivityPolicy` only if Q21 picks option a). PT-13 only transitively.
+- **Items:** F-80 to F-82, F-84, F-138, plus the PT-07 handoff (EvalDayCapRule consumer)
 - **Files owned:**
-  - new `src/lib/prop-accounts/metrics/{CushionBoard.ts, PayoutReadinessBoard.ts, PerformanceSinceSnapshot.ts, ConsistencyStatus.ts}`, changed `metrics/index.ts`
-  - new `src/lib/prop-accounts/alerts/{NearFloorRule.ts, TierChangeRule.ts, ConsistencyNearBreachRule.ts, PayoutEligibleRule.ts, LifetimeDollarCapRule.ts, DashboardFloorMismatchRule.ts, IdleSessionLimitRule.ts}`, changed `alerts/AlertEvaluator.ts`, `alerts/AlertContext.ts`, `alerts/index.ts`
-  - tests for each
+  - new `src/lib/prop-accounts/metrics/{AccountStates.ts, CushionBoard.ts, PayoutReadinessBoard.ts, PerformanceSinceSnapshot.ts, ConsistencyStatus.ts}`, changed `metrics/index.ts` (EJ4 owner)
+  - new `src/lib/prop-accounts/core/SnapshotOrder.ts` (one `compareSnapshots` plus latest-two selection), changed `core/index.ts` (EJ4 owner)
+  - new `src/lib/prop-accounts/alerts/{NearFloorRule.ts, TierChangeRule.ts, ConsistencyNearBreachRule.ts, PayoutEligibleRule.ts, LifetimeDollarCapRule.ts, DashboardFloorMismatchRule.ts, IdleSessionLimitRule.ts}` (the last dropped if Q21 picks option c)
+  - changed `alerts/{AlertContext.ts (required `accountStates`, `previousSnapshot` on MonitoredAccount, events and `lastTradedOn` for PT-36, SnapshotOrder), AlertEvaluator.ts, AlertKind.ts (TierChange label only), AccountAlert.ts (only if a disclosure member is added), EvalDayCapRule.ts (the PT-07 handoff), index.ts (EJ4 owner)}`
+  - tests: new `tests/unit/lib/prop-accounts/metrics/{AccountStates,CushionBoard,PayoutReadinessBoard,PerformanceSinceSnapshot,ConsistencyStatus}.test.ts`, `core/SnapshotOrder.test.ts`, `alerts/{NearFloorRule,TierChangeRule,ConsistencyNearBreachRule,PayoutEligibleRule,LifetimeDollarCapRule,DashboardFloorMismatchRule,IdleSessionLimitRule}.test.ts`; changed `alerts/alertFixtures.ts`, `AlertEvaluator.test.ts`, `AlertContext.test.ts`, `EvalDayCapRule.test.ts`; guard `tests/unit/lib/prop-accounts/barrel.test.ts`
+  - cross-lane one-line edit: `src/app/(app)/prop-calculator/accounts/_components/accountListFilters.ts` (`accountStates: []` in `unresolvablePlanAlerts`, PT-06c precedent)
+  - not `core/ConsistencyRule.ts` (PT-19 owns the max-day-profit method in the same wave)
 - **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer
+
+**Readiness pass 2026-09-26**
+
+- The idle limit is per phase (`Plan.maxConsecutiveIdleDaysFor(phase)`, with `evalMaxConsecutiveIdleDays` null on TPT and FTMO) and counts sessions while firms count calendar days; PT-04 found data gaps (MFF Rapid missing its 7-day rule; Apex and TopStep evals wrongly limited). PT-36 builds a verified `CalendarInactivityRule`; Q21 settles the overlap (default b, and PT-36 makes this rule skip verified firms).
+- All seven F-84 `AlertKind` members already exist (PT-07); the TierChange label reads "Payout tier change" and must become "DLL or contract tier change".
+- `AlertContext` cannot feed state rules today (`AlertSnapshotRow` picks only a few fields; no personal rules, convention, live start, funded dates; no events; no previous snapshot). Widening `AlertAccountRow` would break `unresolvablePlanAlerts`, whose rows lack those columns: states come in through a new required `accountStates` input computed by `AccountStates`, and the list page passes `[]`.
+- The readiness board aggregates PT-12c and PT-46 outputs; it never re-derives gates, floors or the pending deduction. The DashboardFloorMismatch alert only surfaces PT-12c's warning.
+- "Distance in suggested-risk units" is meaningful only for funded (eval rung 1 is 20% of cushion, always 5 units; live is always 1/pct). Q19 sets per-stage units.
+- Rulebook `AlertThresholds` holds only `evalDaysRemainingWarning`, `evalNearFloorDrawdownFraction`, `fundedNearFloorRiskMultiple`; the other thresholds use Q20's defaults.
+- Lane W stand-ins to replace later (PT-21b handoff): `cushionOf` (balance minus dashboard floor), `readiness: null`, and a duplicated snapshot ordering without an id tie-break in `accountListFilters.ts`.
+- Already done elsewhere: PT-07 (framework, `guardedEvaluate`, `TradingSessionCalendar`, labels); PT-01/PT-01d (U16 thresholds, `paidPayoutCash`, `isPaidOnOrBefore`); `CENTS_PER_DOLLAR` via `usdCentsFromDollars`/`usdCentsToDollars`; PT-05e/PT-06c (read issues honoured, `findStoredFirm`); PT-06 `PortfolioLedger` grouping; PT-12c and PT-46 provide everything F-138 needs.
+- Audit decisions: T32 (never `closeoutCredit` for readiness; net after split via `plan.payoutFromProfit(debited, payoutsIssued)`). T33 (no stop in snapshots, PD-25: the funded threshold uses documented dollar risk, min(rulebook funded risk, personal max risk), labeled as such; `placedFundedRiskAt` only if a stop is ever supplied). T34 n/a. WP28 (integer cents; convert once; cent-tolerant comparisons).
+- Handoffs folded in: PT-07 (EvalDayCapRule consumer of PT-35's Plan field); PT-36 (events and `lastTradedOn` in `AlertInputs`, `MonitoredAccount` and `AlertSnapshotRow`, so PT-36 need not touch `AlertContext.ts`); PT-46 (reuse its retained-cushion-for-stage function).
+- Handoffs emitted: PT-21b (replace `cushionOf` and `readiness: null` with the boards, use `SnapshotOrder`, decide whether the hub alert count uses all `DEFAULT_ALERT_RULES`); PT-36 (the inactivity decision); PT-23b (`PerformanceSinceSnapshot`, `ConsistencyStatus`).
+- Open user questions: Q19, Q20, Q21, Q22, Q23.
 
 **Steps (RED first)**
 
-1. RED, from reconstructed accounts:
-   - cushion board (floor, cushion, distance in suggested-risk units, near-floor rank);
-   - readiness board per `evaluatePayout` at the effective request, with the rule-capped withdrawable (PT-46) as the primary figure and PayoutPending;
-   - performance since the previous snapshot; consistency status vs `plan.fundedConsistencyRule(payoutsIssued)` or the eval rule, "not evaluated" without a best day;
-   - near floor per stage (U16): funded cushion < 2 x funded risk, eval cushion < 25% of the eval drawdown, live cushion < live retained cushion; each fires at its threshold for its stage and not below;
-   - tier change, consistency near breach, payout eligible, lifetime dollar cap near (on trader-received net), dashboard floor mismatch, idle sessions vs `plan.maxConsecutiveIdleDays`.
-2. Implement.
-3. GREEN, typecheck, eslint, importer greps.
+Preconditions: PT-12c, PT-46 and PT-35 GREEN; typecheck baseline recorded; re-read the PT-12c and PT-46 exports (ReconstructedAccount fields, readiness and decision shapes, the retained-cushion function) and PT-35's Plan field. If a named field is missing, stop and hand it back; do not recompute it in prop-accounts.
+
+1. Typed stubs (PD-22) for every new module; add the required `accountStates` field, events and `lastTradedOn` to `AlertInputs`, `previousSnapshot` to `MonitoredAccount`; update `alertFixtures.contextOf` and `unresolvablePlanAlerts` with explicit `[]`; typecheck at baseline.
+2. RED `SnapshotOrder.test.ts` (asOf, then createdAt, then id; `latestTwo` ignores undated rows) and `AlertContext.test.ts` (`previousSnapshot`; `latestSnapshot` unchanged; events and `lastTradedOn` passed through).
+3. RED `AccountStates.test.ts`: from `PortfolioLedger` rows plus snapshots; userId-foreign snapshots ignored; latest and previous rebuild through `SnapshotAdapter` and `AccountReconstruction`; plausibility failures and `IntradayPeakRequired` become a typed not-reconstructed outcome with the reason, never a throw; unresolvable plans or corrupt opt-ins skipped with the read issue; archived accounts excluded; ZeroBased normalization by the reconstruction only.
+4. RED `CushionBoard.test.ts` (Q19 default units): per active account floor, cushion (cents), snapshot date and a per-stage ratio (funded: cushion / documented dollar risk; eval: cushion / eval drawdown; live: cushion vs PT-46's live retained cushion with its basis); ranked by nearness to floor; not-reconstructed accounts listed separately; values through `usdCentsFromDollars` only.
+5. RED `PayoutReadinessBoard.test.ts`: eligible or the `PayoutBlockReason` from PT-12c (every kind, PayoutPending included); primary figure PT-46's allowed request at the effective request (never above balance - post-payout floor - retained cushion) with its wait text; net after split via `payoutFromProfit`; MFF Pro and one other above-$500 plan show FirmMinimumAboveRequest; a personal override through `effectivePayoutRequest`; a guard that `closeoutCredit` is never used (a case where it is above 0 but the day gate blocks: not eligible).
+6. RED `PerformanceSinceSnapshot.test.ts` (normalized balance change plus gross debits of payouts paid in between; FundedReset or stage change gives "not comparable"; profit per trading day null when missing) and `ConsistencyStatus.test.ts` (funded `plan.fundedConsistencyRule(payoutsIssued)` against the tracker's cycle best day and profit, perpetual case; eval `plan.evalConsistencyRule()` with eval best day and the DoubleTarget effect "target doubles"; "not evaluated" without a best day; "no rule" without a rule). Uses `ConsistencyRule`'s existing methods plus PT-19's new max-day-profit method if needed (same wave: coordinate by stub).
+7. RED per rule (reconstructed fixtures; Active accounts and Resolved plans only; bad data through `guardedEvaluate`):
+   - NearFloorRule: funded fires below `fundedNearFloorRiskMultiple` x documented funded risk; eval below `evalNearFloorDrawdownFraction` x eval drawdown; live below the live retained cushion; an at-threshold no-fire case per stage; reuses CushionBoard's ratio.
+   - TierChangeRule: Info when the resolved DLL or the mini or micro contract limit differs between previous and latest (TopStep live tier case); silent without a previous snapshot.
+   - ConsistencyNearBreachRule (Q20 default): Critical when already violated with "$X more cycle profit needed"; Warning when one documented winning day would break it.
+   - PayoutEligibleRule (Q22 default): Info only when PT-46 allows the effective request; silent on PayoutPending or any gate; `LiveTriggersNotChecked` where PT-35 has no verified triggers.
+   - LifetimeDollarCapRule: `plan.maxLifetimePayoutDollars` vs the tracker's trader-received `cumulativePayout` (GrossUsedForMissingNet disclosure when from gross); Warning within one effective request's net, Critical at the cap; the MFF Pro $100,000 case re-read from the plan file.
+   - DashboardFloorMismatchRule: surfaces PT-12c's warning with both floors.
+   - IdleSessionLimitRule (Q21 default b): calendar days from `lastTradedOn` to today vs `maxConsecutiveIdleDaysFor(phase)` with an engine-approximation disclosure, Warning at limit minus 2, Critical at the limit, silent when null.
+   - EvalDayCapRule: uses PT-35's eval access window field (calendar days) where present.
+   - `AlertEvaluator.test.ts`: DEFAULT_KINDS gains the seven kinds.
+8. RED `alertKindLabel(TierChange)` reads "DLL or contract tier change".
+9. Implement: pure functions and one `AccountAlertRule` subclass per file; barrels (`metrics/index.ts`, `core/index.ts`, `alerts/index.ts`); the barrel test stays free of duplicate names.
+10. GREEN: `bunx vitest run tests/unit/lib/prop-accounts` from the repo root (not the full suite); typecheck at baseline; `bunx eslint` on touched files (no `--fix`); formatter on owned files; importer greps (barrel counts; "barrel only until PT-21b" recorded); knip as weak evidence.
+11. Record the PT-21b, PT-36 and PT-23b handoffs through the integrator.
 
 **Regression tests**
 
-- The listed files
+- The new metrics, core and alert test files; guards: the prop-accounts suite and barrel test
 
 **Acceptance**
 
-- State-based numbers and alerts are tested pure functions; the near-floor alert can fire for every stage.
+- Cushion, readiness, performance and consistency boards and the seven state alerts come from one per-account reconstruction, never re-derive engine logic, never use the horizon credit for readiness, and keep money in integer cents.
 
 ## PT-44: simulate standard errors
 
-- **Lane / wave:** E / E4  **Size:** medium  **Depends on:** PT-14
+- **Lane / wave:** E / EJ1 (moved from E4: no EJ1 package touches its files, and PT-14 now adds the from-state estimate)  **Size:** medium  **Depends on:** G2 only
 - **Items:** F-143
-- **Files owned:** changed `src/lib/prop-calculator/simulator/{engine.ts, types.ts, index.ts}` (only package in E4 touching them; the `SimOutputs` change is additive and named in the wave log per PD-42), new `tests/unit/lib/prop-calculator/simulator/SimulateEstimates.test.ts`
+- **Files owned:**
+  - `src/lib/prop-calculator/simulator/{engine.ts, types.ts, index.ts}` (EJ1 owner of `simulator/index.ts`)
+  - `src/lib/prop-calculator/index.ts` (root barrel, EJ1 owner: the `SimEstimates` type re-export)
+  - `src/lib/prop-calculator/stats.ts` (new `ratioEstimate`)
+  - `src/lib/prop-accounts/metrics/RealizedNetPerSlot.ts` (`pooledEstimate` reuses `ratioEstimate`, behaviour unchanged)
+  - tests: new `tests/unit/lib/prop-calculator/simulator/SimulateEstimates.test.ts`, changed `tests/unit/lib/prop-calculator/stats.test.ts`
 - **Reviewers:** code-reviewer, typescript-reviewer
+
+**Readiness pass 2026-09-26**
+
+- The only reason for the old PT-14 dependency was `fromStateExpectedCash`; PT-14 (EJ2) now adds that estimate itself, so PT-44 depends on G2 only.
+- `expectedMonthlyNet` and `expectedMonthlyRealizedNet` are ratios of two per-trial means from the same trials (`monthlyNetPerSlot(sum(net [+ credit]) / trials, (dayElapsedSum + rebuyLagDays x attemptsSum) / trials)`), strongly correlated; `propagatedStandardError` assumes independence. Use the linearized ratio estimator (residual z = y - R d, SE = sqrt(var(z) / n) / mean(d)), which `pooledEstimate` in `RealizedNetPerSlot.ts:176-200` already computes inline: extract it once.
+- "Expected payouts" is three fields: `expectedGrossPayout` (all trials, times copy accounts m), `expectedPayoutCount` (all trials, not times m), `expectedPayoutPerFundedAccount` (conditional on reaching funded, not times m).
+- Missing from the old list: `expectedMonthlyRealizedNet`, `expectedHorizonCredit`, `expectedNet` (the Cycle sort key), `fundedSurvivalProbability` (survivors), `evalPassProbability`. PT-32 and PT-25b need all of them.
+- Copy accounts: m-scaled fields get value x m and SE x m; unscaled fields keep unscaled estimates.
+- `rngDrawCount.test.ts` cannot inject an RNG into `simulate`; the proof of no added draws is byte-identical existing outputs including `finalBalances`, `daysToPassValues`, `sampleEquityCurves`.
+- `simulator/index.ts` carries staged T33 audit hunks; re-read and keep them. Line refs: `SimOutputs` at `types.ts:280-338`; LadderSearch's SE block at 538-627.
+- Already done elsewhere: `Estimate`, `binomialStandardError`, `meanStandardError`, `propagatedStandardError`; the ratio math inline in `pooledEstimate`; T32/WP40 split credit fields and per-trial `horizonCredit`; every `SimOutputs` test fixture spreads a real `simulate()` result, so the required `estimates` field compiles without fixture edits.
+- Audit decisions: T32 (average the per-trial capped `r.horizonCredit`); T33 (refusals happen before any trial, so no estimates on that path); T34 n/a; U17 open, so both monthly figures get estimates; `engine.ts` is santa-fingerprinted (R1-1 to R1-4): record the edit.
+- PD-42 wave note: `SimOutputs.estimates` is additive and required; PT-16 in the same wave only spreads `simulate()` results, so nothing breaks.
+- Handoffs emitted: to PT-14 (add `estimates.fromStateExpectedCash` and its realized twin with the same rules); to PT-19, PT-25b, PT-32 (field names and the WithinNoise rule: difference within 2 x sqrt(SE_a^2 + SE_b^2) for independent seeds, or say the runs share a seed); audit tracker (engine, barrel and stats files plus `RealizedNetPerSlot.ts`).
 
 **Steps (RED first)**
 
-1. Capture pins (PD-31). Re-read how `engine.ts` aggregates trials into `expectedMonthlyNet`, `fundedBustProbability` and the payout metrics; confirm whether per-trial values exist or the metric is a ratio of aggregates.
-2. RED: `SimOutputs.estimates` holds `Estimate`s (`stats.ts:1`) for expectedMonthlyNet, fundedBustProbability, expected payouts and `fromStateExpectedCash`; binomial metrics use `binomialStandardError`, means `meanStandardError`, ratio metrics `propagatedStandardError`; every existing output field equals the pins; the RNG draw count is unchanged.
-3. Implement without changing any existing field.
-4. GREEN; guards: simulator suite, `rngDrawCount`; typecheck, eslint, importer greps.
+1. Pins (PD-31) from the working tree. Re-read `engine.ts` `simulate` (aggregation loop and the m scaling), `types.ts`, `simulator/index.ts`, `RealizedNetPerSlot.ts` `pooledEstimate`, `stats.ts`. Confirm which outputs are plain means (expectedNet, expectedHorizonCredit, expectedGrossPayout, expectedPayoutCount, expectedFundedResets), binomial proportions (fundedBust, fundedSurvival, evalPass), conditional means (expectedPayoutPerFundedAccount), and ratios (the two monthly nets over d = daysElapsed + rebuyLagDays x attemptsUsed).
+2. Typed stubs: `ratioEstimate(numerators, denominators): Estimate` in `stats.ts`; `interface SimEstimates` in `types.ts` with Estimate fields evalPassProbability, expectedGrossPayout, expectedHorizonCredit, expectedMonthlyNet, expectedMonthlyRealizedNet, expectedNet, expectedPayoutCount, expectedPayoutPerFundedAccount, fundedBustProbability, fundedSurvivalProbability; `estimates: SimEstimates` on `SimOutputs`; exports from `simulator/index.ts` and the root barrel; `engine.ts` fills it from a throwing stub.
+3. RED `stats.test.ts` `ratioEstimate`: a hand-computed 4-pair table (value sum(y)/sum(d), SE sqrt(sum((y - R d)^2)/(n - 1)/n) / mean(d)); n = 1 gives SE 0; n = 0 behaviour pinned (throw, or value 0 and SE 0); mismatched lengths throw; proportional y = k d gives SE 0 where `propagatedStandardError` would not.
+4. RED `SimulateEstimates.test.ts` on 2 or 3 `engineCharacterization` cases (Apex EOD, MFFU Rapid EOD, TopStep XFA): (a) every `estimates.k.value` strictly equals `out.k`; (b) the three probabilities use `binomialStandardError(p, trials)`; (c) with copy accounts 3 and the same seed, m-scaled estimates have value and SE exactly 3x, unscaled ones are equal; (d) calibration over 20 seeds at 400 trials: the sample SD of expectedMonthlyNet, expectedNet and fundedBustProbability across seeds lies within [0.6, 1.6] x the mean reported SE; (e) every existing field, arrays included, equals the pins; (f) SEs finite and >= 0; trials = 1 gives SE 0.
+5. Implement: `ratioEstimate`; in `engine.ts` accumulate squared sums in the existing loop or a second pass over the retained `trialResults` (no RNG calls); means via `meanStandardError`, the conditional mean over reached-funded trials, probabilities via `binomialStandardError`, monthly nets via `ratioEstimate` scaled by `TRADING_DAYS_PER_MONTH` (the factor `monthlyNetPerSlot` applies) and by m where applicable; no existing field changes; `pooledEstimate` calls `ratioEstimate`, keeping its `MIN_MONTHS_FOR_SE` null SE and `roundCents`. `simulatePortfolio`/`MultiAccountResult` and `LiveOutputs` are out of scope (say so).
+6. GREEN from the repo root, targeted files only: `tests/unit/lib/prop-calculator/simulator/`, `engineCharacterization`, `rngDrawCount`, `combinatorialCoverage`, `tests/unit/lib/prop-accounts/metrics/RealizedNetPerSlot.test.ts`, `tests/unit/cli/prop/{sim,compare,optimizeFunded,optimizeDp,simCostPerFunded}.test.ts`, `tests/unit/app/prop-calculator/computationCache.test.ts`; typecheck at baseline; `bunx eslint` on owned files; importer greps (`ratioEstimate` used by `engine.ts` and `RealizedNetPerSlot.ts`; `SimEstimates` re-exported by both barrels). Record the audit fingerprint handoff and the handoffs above.
 
 **Regression tests**
 
-- `SimulateEstimates.test.ts`; guards: simulator suite
+- `SimulateEstimates.test.ts`, `stats.test.ts`; guards as in step 6
 
 **Acceptance**
 
-- Simulate-based sources can report standard errors and `WithinNoise` honestly.
+- Every metric the CLI funded optimizer, the advisor and the engine sources print or rank by carries a standard error; the monthly-net SEs account for the numerator and denominator covariance; one ratio-SE helper serves the engine and the ledger metrics; existing outputs are byte-identical to the pins.
 
 ## PT-19: SizingAdvisor hierarchy
 
-- **Lane / wave:** E / E5  **Size:** large  **Depends on:** PT-03, PT-12, PT-13, PT-14, PT-15, PT-16, PT-35, PT-46, PT-48
+- **Lane / wave:** E / EJ4 (with PT-22)  **Size:** large  **Depends on:** PT-03 (done), PT-12a, PT-12b, PT-12c, PT-13, PT-14, PT-15, PT-16, PT-35, PT-45 (Provenance values), PT-46, PT-48a and PT-48b. PT-44 is not needed (simulate-source WithinNoise is PT-32's). If PT-22 adds a `ConsistencyRule` method first it is reused; in EJ4 PT-19 owns `core/ConsistencyRule.ts`.
 - **Items:** F-62 (apply), F-76 (policy default), F-89, F-93 (rows), F-118 to F-121, F-124 to F-129, F-141, F-142, F-145 (assumption), F-146, F-147, F-153, F-154, F-156
 - **Files owned:**
-  - new `src/lib/prop-calculator/advisor/{SizingObjective.ts, AdviceSource.ts, StartBasis.ts, RiskCaps.ts, EnginePolicy.ts, EngineOptimumRequest.ts, EngineOptimum.ts, EngineOptimumRunner.ts, DifferenceReason.ts, DifferenceReasons.ts, Provenance.ts, AdviceStaleness.ts, DailyPlanCard.ts, PayoutAdvice.ts, Advice.ts, LedgerRecordedLadders.ts, SizingAdvisor.ts, EvalSizingAdvisor.ts, FundedSizingAdvisor.ts, LiveSizingAdvisor.ts, createSizingAdvisor.ts}`, changed `advisor/index.ts` (re-exports `./policy`)
-  - tests `tests/unit/lib/prop-calculator/advisor/{EvalSizingAdvisor,FundedSizingAdvisor,LiveSizingAdvisor,EngineOptimumRunner,EnginePolicy,DifferenceReasons,DailyPlanCard,PayoutAdvice,AdviceStaleness,LedgerRecordedLadders,advisorImportGraph}.test.ts`
+  - new `src/lib/prop-calculator/advisor/{SizingObjective.ts, AdviceSource.ts, StartBasis.ts, PersonalCaps.ts, RiskCaps.ts, EnginePolicyBuilder.ts, EngineOptimumRequest.ts, EngineOptimum.ts, EngineOptimumRunner.ts, DifferenceReason.ts, DifferenceReasons.ts, AdviceProvenance.ts, AdviceStaleness.ts, DailyPlanCard.ts, PayoutAdvice.ts, Advice.ts, LedgerRecordedLadders.ts, RebuyLag.ts, SizingAdvisor.ts, EvalSizingAdvisor.ts, FundedSizingAdvisor.ts, LiveSizingAdvisor.ts, createSizingAdvisor.ts}` (the engine-policy data type is PT-48a's `advisor/policy/EnginePolicy.ts`; this package owns only the builder; `AdviceProvenance.ts` replaces the spec's `Provenance.ts`, and PT-45 follows the name)
+  - changed `advisor/index.ts` (EJ4 owner; re-exports `./policy` and the new surface), `advisor/RuleContext.ts` (personal caps, funded and live ceiling, placeable minimum), `advisor/DocumentedSizing.ts` (`SizingConstraint.CeilingCap`), `advisor/DocumentedRule.ts` (personal risk cap and the placeable-minimum stop), `advisor/FundedFixedRiskRule.ts` and `advisor/LiveCushionPercentRule.ts` (ceiling from context), `advisor/EvalLadderRule.ts` (WP37b integer-cent step comparison), `advisor/SizingInvariant.ts` (only if the new caps are not already enforced)
+  - changed `src/lib/prop-calculator/core/ConsistencyRule.ts` (a max-day-profit-before-violation method for F-146)
+  - changed `src/lib/prop-accounts/alerts/{TradingSessionCalendar.ts, StaleSnapshotRule.ts}` (share one staleness rule), `src/lib/prop-accounts/metrics/ReplacementStats.ts` (`RebuyLagBasis` from advisor), new `src/lib/prop-accounts/advice/AdvisorInputsAdapter.ts`, changed `advice/index.ts` (EJ4 owner)
+  - changed `src/server/db/schemas/prop.ts` (`source` `.$type<AdviceSource>()`, import type, no migration), `src/lib/schemas/propAccounts.ts` (`decisionCreateSchema.source` as `z.enum(AdviceSource)`), `src/lib/schemas/propAccountOutputs.ts` (source override), `src/server/api/routers/propAccounts/decision.ts` (optional stage check)
+  - tests: new `tests/unit/lib/prop-calculator/advisor/{EvalSizingAdvisor,FundedSizingAdvisor,LiveSizingAdvisor,EngineOptimumRunner,EnginePolicyBuilder,DifferenceReasons,DailyPlanCard,PayoutAdvice,AdviceStaleness,LedgerRecordedLadders,advisorImportGraph}.test.ts`; extended `{FundedFixedRiskRule,LiveCushionPercentRule,EvalLadderRule,SizingInvariant}.test.ts`, `core/ConsistencyRule*.test.ts`, the StaleSnapshotRule test, `tests/unit/server/propAccounts/{decision,outputTypes}.test.ts`, new `tests/unit/lib/prop-accounts/advice/AdvisorInputsAdapter.test.ts`; new shared helper `tests/unit/importSpecifiers.ts` adopted by `tests/unit/lib/appImportBoundary.test.ts`, `tests/unit/lib/site/legacyCalculatorLinks.test.ts` and `tests/unit/app/prop-calculator/currentBaseFailure.test.ts`
+  - not `core/lib/isoDate.ts` or `prop-accounts/core/IsoDate.ts` (PT-12a moved the weekday helpers)
 - **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer
 
-**Steps (RED first)**
+**Readiness pass 2026-09-26**
 
-1. RED `EnginePolicy`: built from the rulebook, the plan, PT-35 policy data and an optional measured rebuy lag, it always carries:
-   - retained cushion (>= $2,000 unless overridden);
-   - the effective payout request with `FullRequestOnly` (MFF Pro, Tradeify Lightning, AlphaFutures Advanced and FundedNext Legacy get their minimum, with `FirmMinimumAboveRequest`);
-   - `lifetimePayoutCapOverride` from a verified count trigger, or none plus an optimistic `LiveTriggersNotChecked`;
-   - `intradayPathStepsPerR` 10 for intraday-trailing plans (none otherwise);
-   - the documented funded day policy (risk, TP multiple, trades per day, stop rule), winrate and rr;
-   - `rebuyLagDays` = the measured lag when n > 0, else 0 with an optimistic `AssumedInputs` (`RebuyLagAssumed`);
-   - horizon, commission, ladder fractions and the plan serial and opt-ins;
-   - its cache key changes when any field changes;
-   - a TopStep request carries retained cushion 2,000 (never the plan's $0 default), and the runner's reported withdrawable never exceeds `balance - postPayoutFloor - 2000`.
-2. RED `EvalSizingAdvisor` (reconstructed Apex EOD eval at $2,000 cushion): `documented()` equals the PT-03 general-derivation ladder by default, the MFF fractions and max-risk when selected; `caps()` from `resolveRiskAt` plus personal caps (a personal DLL of $300 caps the running loss and adds `PersonalCap`); requests are LadderSearchFresh when trading days = 0 and LadderSearchFromState otherwise, bounded (<= 2,000 ladders); `createSizingAdvisor(Eval, instantFundedPlan)` throws a typed error; every documented sizing passes `assertSizingInvariant`.
-3. RED `FundedSizingAdvisor`: documented $250/$500 with cumulative DLL; FundedSweepFresh request with the full `EnginePolicy`; `assemble` applies the winner to the current cushion and adds `FreshStartApproximation`; `AggressiveOptimumChurn` is added only when PT-35 has a verified `ConductPattern` for the firm, with its quote, and on sweep rows the same way; no invented re-buy threshold exists; no `WithinNoise` for simulate sources until PT-44 fields exist (PD-34); a personal payout override yields an override with a warning, never below the plan minimum, not a cap; `PayoutPolicyDiffers` is added to any optimum whose payout policy differs from the headline's.
-4. RED `LiveSizingAdvisor`: live percent via the plan's applicable `LivePlan` (PD-41); `LiveModelApproximation` where the builder is firm-level only; live retained cushion max(rulebook, D4) with `RetainedCushionBasis` when D4 is larger; E8/FTMO documented only with `LiveNotModeled`; a Suspended account yields no sizing.
-5. RED `AdviceStaleness`: eval advice from a snapshot dated 2 sessions ago gives `StaleAdvice` with no rung amounts; funded advice stale after 7 days; the headline carries the snapshot date.
-6. RED `EngineOptimumRunner`: deterministic per seed (ladder via `runLadderSearch`, sweep via `buildFundedCandidates` plus `simulate` with the policy applied, including `plan.withMaxLifetimePayouts` and `payoutRequestPolicy`); same request, same output.
-7. RED `DifferenceReasons` (PD-32): sentinel inputs (for example 1234.56, 7.25) appear in the text and no other digits do; custom-rule headline label when `rulebookDeviation` is non-empty; the enum declares every member listed in PLAN.md "Reasons" (PD-42) and each has text.
-8. RED `DailyPlanCard`: rungs with TP and running loss, daily cap, stop conditions, one trade per window; with a ceiling input, every rung is capped at `(ceiling - running PnL) / rr` after the documented and DLL caps (`CeilingCap`), and the card shows "stop for today" once that cap falls below the placeable minimum; a funded consistency plan case (ceiling from `plan.fundedConsistencyRule(payoutsIssued)`, cycle profit and best day) and a synthetic single-day-trigger ceiling case; no field or text suggests an early exit; a `LiveTriggersNotChecked` assumption is present; the ceiling and trigger fields PT-36 fills are declared here.
-9. RED `PayoutAdvice`: the PT-46 documented request at the effective request, the rule-capped engine withdrawable, caps, net after split (`payoutFromProfit`), the non-monotonic payout-size warning, `LiveTriggersNotChecked`.
-10. RED `LedgerRecordedLadders`: a typed table read at implementation time from the ledger (`2026-09-22-full-sweep.md` and its index), citing file and row per plan; rows the ledger index marks stale carry `stale: true`; the source appears as `AdviceSource.LedgerRecordedLadder` with objective and start basis "fresh eval (historical)".
-11. RED `advisorImportGraph.test.ts`: walk imports from `advisor/index.ts` (static parse of `import` and `export ... from` specifiers, resolving `./` and `~/`); `FundedStateValue.ts`, `AverageRewardSolver.ts` and any `node:` specifier are never reached; `advisor/dp` is not re-exported; `advisor/policy` is.
-12. Implement: base class owns the flow; subclasses supply rule, caps and requests; `createSizingAdvisor` switches exhaustively on stage with plan facts; the runner is pure and serializable; requests carry `DocumentedPolicySpec` where the documented rule is simulated.
-13. GREEN, typecheck, eslint, importer greps.
+- Every declared dependency is still todo today; nothing here is implementable before EJ4.
+- LedgerRecordedLadders source: `2026-09-22-full-sweep.md` is marked STALE. The current eval-ladder source is `engine-results/2026-09-26-post-audit-rerun.md`, "Result 1: eval ladders (Stage A)" (line 66), column "Fastest, new"; staleness comes from the Runs table Status cell in `engine-results.md`; the run is on an uncommitted tree, so provenance cites the file plus its content hash.
+- The import-graph walker must resolve `../` and directory-to-`index.ts` (advisor imports `../core`), or it never walks into core. Today `core/index.ts` does not export `FundedStateValue`, `AverageRewardSolver` or `FundedDpModelGaps`, so the test is expected GREEN; it includes a planted-reach fixture.
+- WithinNoise: PT-19 emits it only for LadderSearch sources (their SE fields exist); simulate sources are PT-32's with PT-44 estimates.
+- DailyPlanCard ceiling: the cap `(ceiling - dayPnL) / rr` already exists in `resolveNextTrade`, but `profitCeiling` returns null for Funded and Live and those rules hard-code `NoProfitCeiling`. The ceiling enters through `RuleContext` (PT-03 files, now owned), with a new `SizingConstraint.CeilingCap`. The placeable minimum (one micro at the entered stop via `oneContractRisk`, else $1) needs a new context field; today the chain stops at `ONE_CENT`.
+- Personal caps (PD-37) have no path into the chain: `RuleContext` carries only `personalDll`. `PersonalCaps` (Dollars) comes from an adapter in `prop-accounts/advice`.
+- Retained cushion: `Plan.resolveRetainedCushion(requested)` returns max(requested, default); the policy records requested and effective. `LivePlan.resolveRetainedCushion` does not take the max and `defaultRetainedCushion()` throws on a trailing live drawdown with no lock: the advisor computes max(rulebook, D4) itself and maps the throw to a typed reason.
+- Post-T33: the policy carries position sizing (instrument, stop) and eval `rungSizing`; flat funded risk is floored to whole contracts and refused below one contract; percent candidates need a stop.
+- The CLI candidate set and columns changed (PT-16 lifted them); `EngineOptimum` carries `expectedMonthlyNet`, `expectedMonthlyRealizedNet`, `expectedHorizonCredit`, survivors and left-out notes.
+- Staleness logic exists in `StaleSnapshotRule.ts` (eval and live: before the last session; funded: older than `rulebook.review.fundedStaleDays`); share one pure rule.
+- PayoutAdvice's engine withdrawable reuses `FundedCycleTracker.withdrawableNow` and `closeoutCredit` (T32).
+- The plan-rule fingerprint now exists (PT-45, EJ2); `AdviceProvenance` fills it and the firm-data date from PT-45's exports.
+- Missing reasons added (PD-42): WholeContractPlacement, EngineInputsRefused, CandidatesLeftOut, HorizonCreditOneRequest, NoCushion, and `DpNotValidated` with a typed cause including SolveCapReached (T34/N-73). The integrator adds these to PLAN.md "Reasons".
+- Examples corrected: plans above $500 are MFF Pro, Tradeify Lightning, AlphaFutures Advanced and FundedNext FNL:003 ($800), not Legacy.
+- Already done elsewhere: PT-03's rule hierarchy and invariants; PT-40b's `documentedRuleLabel(rulebookDeviation(...))`; PT-01b's `RuleSource` anchors; WP28/WP34/WP37b units; WP39 to WP39d whole-contract sizing and refusals; WP40 credit fields; WP41 (T34); PT-06 `rebuyLagDefault`; PT-07 staleness semantics; PT-01/PT-05 decision table and router; LadderScore SEs, `runLadderSearch`, `maxGridSize`; `resolveLiveTradeRisk`, `LIVE_PLAN_BUILDERS`; PT-48a `ruleContextAt` and `EnginePolicy` type; PT-16 lifted optimizer; PT-12's reconstruction, `AssumptionKind` (extended here only for missing `SizingAssumption` mappings).
+- Audit decisions: T33 (the policy carries position sizing; the runner pre-checks every candidate and the documented funded policy with `simInputsSizingIssue` and returns a typed refusal row; engine rows show placed risk via `placedFundedRiskAt` with instrument and stop as assumptions; every built `DayPolicy` uses `policySizingOf(phase)`; the sweep base holds only the documented eval policy, never a funded policy or `fundedCushionPercent`, so `assertNoFundedDayPolicyConflict` passes). T32/U17 (rank by credit-inclusive monthly net by default, carry the ex-credit figure and `HorizonCreditOneRequest`). PayoutAdvice uses `withdrawableNow` and `closeoutCredit` with `plan.resolveRetainedCushion(rulebook cushion)`. T34/N-73 (DP rows can carry SolveCapReached).
+- Handoffs folded in: PT-05 and PT-01 (narrow `source` to `z.enum(AdviceSource)`, `.$type<AdviceSource>()` by import type, every value at most 32 characters, including a `Documented` member for the headline; optional stage check on `decision.create`); WP37b (integer-cent step comparison in `EvalLadderRule`); PT-03 (stage RuleContexts via PT-48a's `ruleContextAt`; exhaustive Record maps from `SizingConstraint`, `DayStopReason`, `SizingAssumption`); PT-01b; PT-12; PT-48 (the builder only, `EnginePolicyBuilder.ts`; re-export `./policy`); PT-35 (verified count triggers, conduct patterns with quotes); PT-25 (export one pure `applyEnginePolicy(plan, policy, base): SimInputs` and an `enginePolicyKey(policy)` fragment including the lifetime cap override, used by `EngineOptimumRunner`, PT-25b and PT-21b); PT-32 (optional instrument and stop in the policy); PT-36 (declare the DailyPlanCard ceiling as a list of sourced ceilings, Consistency or LiveTrigger, taking the minimum; keep an optimistic disclosure on engine numbers for verified triggers the engine cannot enforce: single-day, cumulative, discretionary; write text for every DifferenceReason member including WouldTriggerLive and the live-trigger CeilingCap so PT-36 never edits `DifferenceReasons.ts`); PT-45 (declare `AdviceProvenance.planRulesFingerprint` and `firmData` and the AdviceStaleness plan-rules-mismatch input, filled from PT-45's exports); PT-15 (a) (LadderSearchFromState by `elapsedDays > 0`, cost labelled "remaining cost to funded, sunk fees excluded", fresh stats from `freshAttempt`).
+- Handoffs emitted: PT-24, PT-26b, PT-27, PT-32, PT-34 (the `EngineOptimumRequest` protocol and `Advice` shape; every DifferenceReason member declared); PT-25b and PT-21b (`applyEnginePolicy`, `enginePolicyKey`).
+- Open user questions: Q1 (U17), Q2 (U18), Q3 (U19).
+
+**Steps (RED first; preconditions: every dependency GREEN; re-read the advisor, core barrel, `DayPolicy.ts`, `PlacedFundedRisk.ts`, `PositionSizing.ts`, `dayPolicyValidation.ts`, `day.ts`, `FundedPayoutCycle.ts`, `Plan.ts`, `LivePlan.ts`, the optimize barrel, PT-12's `AssumptionKind`, PT-48's policy barrel, PT-45's exports, the prop-accounts staleness, ReplacementStats and PersonalRules files, and the `engine-results.md` Runs table; typed stubs per PD-22; `bunx vitest run <files>` from the repo root)**
+
+0. Types first (PD-42), declared in full: `AdviceSource` (Documented, LadderSearchFresh, LadderSearchFromState, LedgerRecordedLadder, FundedSweepFresh, FundedSweepFromState, PayoutSizeSweep, DpAtState; each at most 32 characters); `SizingObjective`; `StartBasis`; `DifferenceReason` with every PLAN.md "Reasons" member plus the audit-driven ones above; `AssumptionKind` members for every `SizingAssumption` if missing; `SizingConstraint.CeilingCap`; `Advice`; `EngineOptimum` (both monthly figures, horizon credit, survivors, nullable SEs); `DailyPlanCard` (the sourced ceiling list PT-36 fills); `AdviceProvenance` (fingerprint and firm-data date).
+1. RED `EnginePolicyBuilder.test.ts`: from rulebook, plan, PT-35 policy, an optional measured rebuy lag and optional position sizing, the built `EnginePolicy` (PT-48 type) carries: `minRetainedCushion` from the rulebook (>= $2,000 unless `allowBelowHardRule2`) and the effective value `plan.resolveRetainedCushion(requested)` (TopStep: 2,000, never $0; a larger default recorded); the effective payout request via `effectivePayoutRequest` with FullRequestOnly (MFF Pro, Tradeify Lightning, AlphaFutures Advanced, FundedNext FNL:003 get their minimum with FirmMinimumAboveRequest; values from the plan files); `lifetimePayoutCapOverride` from a verified count trigger, else null plus optimistic `LiveTriggersNotChecked`; `intradayPathStepsPerR` 10 on intraday-trailing plans only; `positionSizing` or null (null adds the unsized and percent-left-out assumption, Q2); eval `rungSizing`; `rebuyLagDays` Measured when samples > 0, else 0 with `RebuyLagAssumed`; horizon, commission (SIM_DEFAULTS when absent, disclosed), plan serial and opt-ins; the fingerprint from PT-45. Serializable (Zod, structuredClone); `enginePolicyKey` is a canonical serialization of the parsed policy and changes when any field changes; `applyEnginePolicy(plan, policy, base)` sets cushion, effective request, FullRequestOnly, `withMaxLifetimePayouts`, path steps and rebuy lag. A TopStep request's reported withdrawable never exceeds `balance - postPayoutFloor - 2000`.
+2. RED shared rule-chain changes (pins first, PD-31): `RuleContext` gains nullable personal caps (max risk, max trades, daily profit cap), a funded and live ceiling, and a placeable minimum; `profitCeiling(context)` returns the ceiling for Funded and Live; `resolveNextTrade` caps at the personal risk (PersonalCap) and stops with NoLossRoom below the placeable minimum; the ceiling cap reports `CeilingCap`; FundedFixedRiskRule and LiveCushionPercentRule drop `NoProfitCeiling` only when a ceiling exists; the invariants still hold; every existing rule test stays green with the new fields null. WP37b: `EvalLadderRule` compares the capped room to the step in integer cents (a RED case one cent under a step).
+3. RED `EvalSizingAdvisor` (reconstructed Apex EOD eval at $2,000): `documented()` equals the general-derivation ladder by default, MFF fractions and max-risk when selected; `caps()` from `resolveRiskAt` plus personal caps (personal DLL $300 caps the running loss with PersonalCap; personal max risk caps each rung); requests LadderSearchFresh at `elapsedDays` 0 and LadderSearchFromState otherwise, `maxGridSize` <= 2,000, carrying the policy, position sizing and rung sizing; `createSizingAdvisor(Eval, instant-funded plan)` throws a typed error; every documented sizing passes `assertSizingInvariant`.
+4. RED `FundedSizingAdvisor`: documented $250/$500 with cumulative DLL; with a stop, placed risk from `placedFundedRiskAt` beside the documented $250 (WholeContractPlacement, `isCapped` at the funded limit), and a documented risk below one contract gives EngineInputsRefused from `simInputsSizingIssue` with no engine row; the FundedSweepFresh request carries the policy, the base holds only the documented eval policy, candidates come from `buildFundedCandidates` in CLI order with left-out ones as CandidatesLeftOut; `assemble` applies the winner to the current cushion with FreshStartApproximation, carries both monthly figures and the horizon credit, adds HorizonCreditOneRequest; AggressiveOptimumChurn only with a PT-35 verified conduct pattern and its quote; no invented re-buy threshold; WithinNoise only for LadderSearch sources; a personal payout override is an override with a warning, never below the plan minimum; PayoutPolicyDiffers where the payout policy differs from the headline's.
+5. RED `LiveSizingAdvisor`: live percent via `LivePlanApplicability` (PD-41) and `resolveLiveTradeRisk`; LiveModelApproximation where firm-level only; live cushion max(rulebook, D4) with RetainedCushionBasis when D4 is larger; a trailing live drawdown with no lock maps to a typed reason; E8 and FTMO documented only with LiveNotModeled; a Suspended account yields no sizing.
+6. RED `AdviceStaleness`: one pure rule shared with `StaleSnapshotRule` (whose tests stay green): eval and live advice from a snapshot 2 sessions old gives StaleAdvice with no rung amounts; funded stale after `rulebook.review.fundedStaleDays`; a plan-rules fingerprint mismatch (PT-45) marks advice stale; the headline carries the snapshot date; the no-holiday disclosure stays.
+7. RED `EngineOptimumRunner`: pure and deterministic per seed (ladder via `runLadderSearch` with position and rung sizing; sweep via `buildFundedCandidates`, `applyEnginePolicy` and `simulate`; every `DayPolicy` with `policySizingOf(phase)`); ranking equals `sortFundedResults(results, Monthly)`; a refused candidate is a typed row; same request, same output; request and result round-trip through `structuredClone`.
+8. RED `DifferenceReasons` (PD-32): sentinel inputs (1234.56, 7.25) appear and no other digits; the custom-rule headline uses `documentedRuleLabel(rulebookDeviation(rulebook))`; exhaustive Record maps from `SizingConstraint`, `DayStopReason`, `SizingAssumption`; every member has text built from typed fields only (WouldTriggerLive and the live-trigger CeilingCap included).
+9. RED `DailyPlanCard` via `rule.nextTrade(context, day)`: rungs with TP and running loss, daily cap, stop conditions, Hard Rule 6 one trade per window; with ceilings every rung capped at (min ceiling - running PnL) / rr after the documented and DLL caps (CeilingCap) and "stop for today" below the placeable minimum; a funded consistency case whose ceiling comes from the new `ConsistencyRule` max-day-profit method on `plan.fundedConsistencyRule(payoutsIssued)` (with its own boundary tests for Exclusive and Inclusive); a personal daily profit cap case; a synthetic single-day-trigger ceiling; no early-exit text; LiveTriggersNotChecked present.
+10. RED `PayoutAdvice`: PT-46's documented request at the effective request; the engine withdrawable from `withdrawableNow` and `closeoutCredit` at the reconstructed state with the effective cushion (never above balance - post-payout floor - cushion); caps; net after split via `plan.payoutFromProfit(amount, payoutsIssued)`; the non-monotonic payout-size warning; LiveTriggersNotChecked.
+11. RED `LedgerRecordedLadders`: a typed table read at implementation time from the current run named in `engine-results.md` (today `2026-09-26-post-audit-rerun.md`, Result 1, "Fastest, new"), one row per plan citing file, section and row, with pass rate, days and $/acct; rows marked stale (or superseded) carry `stale: true`; instant-funded plans have no row; objective bySpeed and start basis "fresh eval (historical)"; provenance cites the content hash.
+12. RED `advisorImportGraph.test.ts` with the shared `tests/unit/importSpecifiers.ts` parser (the three adopting tests keep their assertions): walk from `advisor/index.ts` resolving `./`, `../`, `~/` and directory imports; `FundedStateValue.ts`, `AverageRewardSolver.ts`, `FundedDpModelGaps.ts` and any `node:` specifier are never reached; `advisor/dp` is not re-exported; `advisor/policy` is; a planted-reach fixture is flagged.
+13. RED decision boundary: `decisionCreateSchema` rejects a source outside `AdviceSource`; the output schema parses it as `z.enum(AdviceSource)`; the column is `.$type<AdviceSource>()` via import type (no migration; outputTypes assignability passes); optionally `decision.create` rejects a stage that differs from the stored stage with a typed `data.propRejection` and a userId-scoped read.
+14. RED `AdvisorInputsAdapter`: `PersonalRules` cents to `PersonalCaps` Dollars exactly (absent fields null); the payout override passed as an override; `rebuyLagDefault` mapped to the policy's lag input with `RebuyLagBasis` imported from advisor (ReplacementStats re-points to it).
+15. Implement: the `SizingAdvisor` base owns the flow (documented, caps, optimumRequests, assemble); subclasses supply rule, context, caps and requests; `createSizingAdvisor` switches exhaustively on `SizingStage`; the runner is pure and serializable; requests carry `DocumentedPolicySpec` where the documented rule is simulated; `advisor/index.ts` re-exports `./policy` and the new surface; no advisor file imports prop-accounts or `~/app`.
+16. GREEN: the new and extended tests; guards: every advisor test, StaleSnapshotRule and alert tests, decision and outputTypes router tests, the adopting import tests, ConsistencyRule tests; typecheck at baseline; `bunx eslint` on owned files; formatter on owned files; importer greps; list `core/ConsistencyRule.ts` for the audit tracker.
 
 **Regression tests**
 
-- The 11 advisor test files
+- The 11 new advisor test files plus the extended rule, consistency, staleness, decision, output and adapter tests
 
 **Acceptance**
 
-- Every stage yields an `Advice` with the documented headline first, engine optima computed under the full `EnginePolicy`, typed reasons, ceiling-capped daily rungs, assumptions, staleness and provenance; the barrel is browser-safe.
+- Every stage yields an `Advice` with the documented headline first, engine optima computed under the full `EnginePolicy` (placed in whole contracts when a stop is known, refused candidates named), typed reasons, ceiling-capped daily rungs, assumptions, staleness (including a plan-rules change) and provenance; the barrel is browser-safe; the decision source is typed.
 
 ## PT-32: from-state engine sources with SEs, payout-size optimum
 
-- **Lane / wave:** E / E6  **Size:** medium  **Depends on:** PT-14, PT-19, PT-44
+- **Lane / wave:** E / EJ5 (with PT-36, PT-23b, PT-25b, PT-30a)  **Size:** medium  **Depends on:** PT-12a/c, PT-14, PT-16, PT-19, PT-44, PT-48b; the audit ledger file `2026-09-26-post-fix-rerun.md` written (for the step 8 citation; otherwise PT-32 re-runs the E_req rows itself)
 - **Items:** F-62 (payout warning), F-88 (lib), F-122, F-123, F-152 (lib, re-measure)
 - **Files owned:**
   - new `src/lib/prop-calculator/advisor/{FundedFromStateSweep.ts, PayoutSizeSweep.ts, NextPayoutProjection.ts, PayoutPolicySensitivity.ts}`
-  - changed `advisor/EngineOptimumRequest.ts`, `advisor/EngineOptimumRunner.ts`, `advisor/FundedSizingAdvisor.ts`, `advisor/DifferenceReasons.ts`, `advisor/index.ts`
-  - appended rows in `.claude/skills/prop-firm-trading/references/engine-results/` (the ledger file the "$500 req" column lives in, per its own row format)
-  - tests `tests/unit/lib/prop-calculator/advisor/{FundedFromStateSweep,PayoutSizeSweep,NextPayoutProjection,PayoutPolicySensitivity}.test.ts`
+  - changed `advisor/{EngineOptimumRequest.ts, EngineOptimumRunner.ts, FundedSizingAdvisor.ts, DifferenceReasons.ts}` (created by PT-19) and `advisor/index.ts` (EJ5 owner)
+  - changed `src/cli/commands/prop/optimize/funded/command.ts` (spread PT-47b's shared `payoutRequestPolicyArgument` into its arguments and pass the policy into the base `SimInputs`, default up-to-request, so the CLI can measure FullRequestOnly and PT-30a's flat baseline can match the DP's policy; output unchanged without the flag, PT-16's pins); `src/cli/commands/prop/shared.ts` only if that shared argument needs a change
+  - tests: new `tests/unit/lib/prop-calculator/advisor/{FundedFromStateSweep,PayoutSizeSweep,NextPayoutProjection,PayoutPolicySensitivity}.test.ts`; extended `EngineOptimumRunner`, `FundedSizingAdvisor`, `DifferenceReasons` tests; `advisorImportGraph.test.ts` run as a guard only (PT-30a extends it in this wave)
+  - new `.claude/skills/prop-firm-trading/references/engine-results/<date>-payout-size-remeasure.md` plus one Runs row in `engine-results.md`, only for rows the post-fix rerun does not cover (the FullRequestOnly column, or stale rows); never edit an existing run file. PT-32 writes its row before PT-30a writes its gate row.
 - **Reviewers:** code-reviewer, typescript-reviewer, trader-rules reviewer
+
+**Readiness pass 2026-09-26**
+
+- Nothing PT-32 changes exists until PT-19 lands.
+- Re-measure source: the 09-22 file is STALE; its successor `2026-09-26-post-audit-rerun.md` Result 6 (290-350) marks the `$500 req` column uncitable (pre-T32); the audit's follow-up rerun (wf_8345221b-0fb) finished E_req on the final engine and writes `2026-09-26-post-fix-rerun.md`. Ledger rule: never edit an old run file; add a new run file plus a Runs row.
+- "Rank by monthly net" is ambiguous after T32: the horizon credit is one request capped by the swept size, so a small-size sweep ranked on credit-inclusive monthly net is biased against small, ratcheting sizes, and ranked credit-free it ignores the hoarded balance. Show both plus the bust rate and mark "credit sensitive"; the objective is one named constant set by Q3.
+- The CLI re-measure runs UpToRequest (the CLI default, PD-40); FullRequestOnly needs the shared policy flag, which PT-47b adds to `shared.ts` in EJ3 for `optimize dp`; PT-32 wires the same flag into `optimize funded` (no scripts).
+- The safe band for the personal payout override warning is undefined: Q24.
+- PT-44 (EJ1) now provides estimates for `expectedMonthlyRealizedNet` and `expectedHorizonCredit`.
+- T33: sweeps with `stopPoints` place whole contracts; refused candidates and sizes are left out with a typed reason, never crash; placed risk labelled through `placedFundedRisk`.
+- Tracker seeding goes only through PT-14's seeded options and PT-12a's factory; PT-32 never constructs a tracker.
+- F-88 (expected days and P(bust before first payout) with SEs) needs per-trial stepping through `runFundedDays` plus a `PayoutSink`, not `simulate`.
+- Already done elsewhere: Stage E re-run post-T32 in the audit follow-up; WP40 credit-free monthly and printed credit; N-72/T32/WP39/WP40 bounded the payout-size interaction; `stats.ts` SE helpers; whole-contract placement and refusal exports; U17 and U19 already open in the audit (U22 merges into Q3).
+- Audit decisions: T32 and U17 (both monthly columns; objective constant); T32 plus PD-40 (whatever PT-14 pinned for the credit under FullRequestOnly, Q4); T33/U18 (refusals typed; percent needs a stop; PD-25); U19 (merged into Q3); T31/D2 (a surviving funded reset is not a bust; report breach and account-lost separately with the reset fee); T34 n/a; WP28 (engine Dollars; any cents only via `UsdCents` helpers).
+- Handoffs folded in: PT-14 to PT-32 (start, policy, seed, objective names); PT-19 to PT-32 (add FundedSweepFromState, PayoutSizeSweep and NextPayoutProjection request members; DifferenceReason members already declared); PT-32 to PT-21b and PT-38 (per-plan payout-size optimum and `PayoutPolicySensitivity`); PT-31c (reuse `PAYOUT_SIZE_SWEEP_GRID` and the `effectivePayoutRequest` dedupe); PT-24 (`--json` includes the PT-32 sources; `--payout-size` reuses the shared reader); PT-36 does not edit `DifferenceReasons.ts` in this wave.
+- Open user questions: Q3 (objective and Hard Rule 2 reading), Q24 (safe band), Q4 (credit under FullRequestOnly).
 
 **Steps (RED first)**
 
-1. RED:
-   - a from-state sweep ranks by `fromStateExpectedCash` with SEs; from the fresh state its ranking equals the fresh sweep's by the same objective;
-   - from a state near a payout the start basis is FromState and `FreshStartApproximation` is gone;
-   - `WithinNoise` appears for simulate sources when the difference is within 2 SE (PT-44 estimates);
-   - the payout-size sweep ranks sizes (each passed through `effectivePayoutRequest`, `FullRequestOnly`) by monthly net and bust rate with SEs, under the rulebook retained cushion; a personal payout override outside the safe band carries the sweep's warning; the sweep's optimum is exposed per plan as the "engine payout-size optimum";
-   - `PayoutPolicySensitivity`: given per-plan monthly net under the documented policy and under the payout-size optimum, it returns both numbers per plan and marks a plan "payout-policy sensitive" when its rank differs between the two orders;
-   - the next payout projection gives expected days and P(bust first) with SEs.
-2. Implement via `SimInputs.start` and `EnginePolicy`; extend the request union here, before PT-24 and PT-34 consume it.
-3. Re-measure (CLI only, `bun run cli prop ...`, no scripts importing internals): for the plans in the ledger's sensitivity table (2026-09-22 full sweep, lines 224-262), re-run the "$500 req" column on the post-G2 engine and append the rows with the engine commit in the ledger's format; record the command lines and runtimes. These feed U22.
-4. GREEN, typecheck, eslint, importer greps.
+0. Pre-flight (read-only): re-read post-G2 `simulator/types.ts`, `engine.ts`, `fundedPhase.ts` (PT-14's start, policy, seeded `runFundedDays`; PT-44's estimates), `core/FundedPayoutCycle.ts` (`closeoutCredit` per policy; `effectivePayoutRequest`), `core/PlacedFundedRisk.ts`, `dayPolicyValidation.ts`, the optimize barrel, PT-19's policy builder, request, runner, source, reasons and funded advisor, PT-48's `toSimInputs`. Record the exact names PT-14 and PT-19 chose. Capture pins (PD-31) for PT-19's FundedSweepFresh runner output and FundedSizingAdvisor `assemble`. Check the audit tracker for in-flight simulator or FundedPayoutCycle WPs (stop if any) and for the U17/U19 answers; check whether the post-fix rerun file exists and what its E_req rows cover.
+1. Typed stubs: the four modules; the new request members and runner cases throwing "not implemented" so the exhaustive switch compiles; `PAYOUT_SIZE_SWEEP_GRID` (for example 500, 750, 1000, 1500, 2000, 3000, 6000, citing SKILL.md PAYOUT SIZING bands); one named objective constant (Q3 default); barrel exports.
+2. RED `FundedFromStateSweep.test.ts`: candidates from `buildFundedCandidates` in CLI order; each `SimInputs` built via `applyEnginePolicy` with `start` from a `ReconstructedAccount` and FullRequestOnly; ranked by PT-14's `fromStateExpectedCash` with its estimate; from a fresh funded start the order equals the fresh sweep's by the same objective; near a payout the start basis is FromState and FreshStartApproximation is absent; with `stopPoints` flat rows carry `placedFundedRisk` labels, a below-one-contract flat and every percent row without a stop are left out with a typed reason and nothing throws; WithinNoise exactly when |difference| <= 2 x sqrt(seA^2 + seB^2) and never without an estimate; deterministic per seed.
+3. RED `PayoutSizeSweep.test.ts`: every grid size through `effectivePayoutRequest`, deduped after raising (MFF Pro, Tradeify Lightning, AlphaFutures Advanced and FundedNext FNL:003 have no row below their minimum; FirmMinimumAboveRequest noted); every run FullRequestOnly with the rulebook retained cushion (TopStep carries $2,000), built through PT-48 `toSimInputs` with only the payout size varied; each row reports both monthly figures, the horizon credit and the funded bust rate with PT-44 SEs; credit-sensitive when the two ranks differ; the optimum picked by the named constant and exposed per plan; fresh and from-state variants; a personal override outside the Q24 band returns the warning with both numbers, inside none; the override never below the minimum and never a cap; sentinel inputs appear verbatim (PD-32).
+4. RED `PayoutPolicySensitivity.test.ts`: per plan the documented-policy and optimum monthly nets (each with SE) and labels (trials, start basis, retained cushion, payout policy, lifetime cap basis); "payout-policy sensitive" when the plan's rank differs between the two orders; deterministic ties; a plan with no optimum (all sizes refused) reported, not dropped.
+5. RED `NextPayoutProjection.test.ts`: per-trial stepping through `runFundedDays` with PT-14's seeded options and a `PayoutSink` (no `simulate`); expected session days to the first payout among paying trials (calendar conversion via `sessionDaysForCalendarDays` and the calendar constants) with `meanStandardError`; P(account lost before first payout) with `binomialStandardError` following T31/D2, plus P(breach before first payout) and the expected reset fee separately; an already-eligible account projects 0 days; a busted or concluded start throws (PT-14 validation); deterministic.
+6. RED extensions: the runner dispatches the three new members deterministically and serializably; `FundedSizingAdvisor.optimumRequests()` adds FundedSweepFromState once `elapsedDays` or trading days > 0 and a PayoutSizeSweep request; `assemble` attaches PayoutPolicyDiffers and the override warning; `DifferenceReasons` emits WithinNoise for the new sources only with SEs; `advisorImportGraph` still green; step 0 pins unchanged.
+7. Implement to GREEN: `SimInputs` only via `toSimInputs` and `applyEnginePolicy`, candidates only via PT-16; pre-filter through `simInputsSizingIssue`, then catch any remaining refusal by its prefix into a typed reason; no hand-built tracker or DayPolicy; no new comparator or monthly formula.
+8. Wire the policy flag into `optimize funded` (RED in `optimizeFunded.test.ts`: the flag parses, defaults to up-to-request with stdout equal to PT-16's pins, and `full-request` reaches the base `SimInputs`). Re-measure for Q3 (CLI only, `bun run cli prop ...`, no scripts, in the EJ5 CLI slot before PT-30a's gate run): cite the post-fix rerun's E_req rows first, re-running only rows the ledger staleness check marks stale; run the same Stage E plan list at the documented policy (`--payout-policy full-request`); record every row in a new run file in the ledger's section format (inputs, stages with exact commands, both monthly columns and survivors, adjustments, verification with the engine hash, runtimes, artifacts) plus one Runs row.
+9. Wave checks: typecheck at baseline; `bunx eslint` on every touched file; formatter on owned files; `bunx vitest run` on the 4 new tests, the extended advisor tests, `tests/unit/lib/prop-calculator/simulator` and the CLI shared test if touched; importer greps; the audit-tracker handoff for any engine or CLI file edited.
 
 **Regression tests**
 
-- The 4 files
+- The 4 new files; guards: PT-19's runner, funded advisor, reasons and import-graph tests; the simulator suite; `optimizeFunded.test.ts`; the CLI shared-reader test if `shared.ts` changed
 
 **Acceptance**
 
-- Funded optima and payout projections come from the account's state with honest noise bands; the payout-policy sensitivity is computable per plan; the $500 column is re-measured for U22.
+- Funded optima and payout projections come from the account's state with honest SE bands; the payout-size optimum shows credit-inclusive and credit-free monthly net plus the bust rate and marks credit and policy sensitivity; engine-refused candidates are named, never crashed; payout-policy sensitivity is computable per plan; the re-measure is recorded in a new ledger run file.
 
 ## PT-24: CLI `prop advise`
 
-- **Lane / wave:** E / E7  **Size:** medium  **Depends on:** PT-19, PT-32
+- **Lane / wave:** E / EJ6 (with PT-34, PT-21b, PT-26b, PT-31c, PT-27); the flag reader alone could run earlier as a PT-24a in its own file once PT-12b and PT-12c exist, if the integrator wants it  **Size:** medium  **Depends on:** PT-19, PT-32, PT-12b/c (imported directly), PT-16 (lifted row helpers)
 - **Items:** F-133
-- **Files owned:** new `src/cli/commands/prop/advise/command.ts`, changed `src/cli/commands/prop/group.ts`, new `tests/unit/cli/prop/advise.test.ts`
+- **Files owned:**
+  - new `src/cli/commands/prop/advise/command.ts` (exports `adviseArguments`, `readAdviseInputs`, `adviceReportLines`, `adviceJson` and the default command, so PT-30c adds flags without restructuring)
+  - changed `src/cli/commands/prop/group.ts` (the lazy `advise` subcommand)
+  - changed `src/cli/commands/prop/shared.ts` (EJ6 owner; move-only: `placedFundedRiskNote` and `placedCapNote` from `sim/command.ts`)
+  - changed `src/cli/commands/prop/sim/command.ts` (imports the moved helpers only)
+  - new `tests/unit/cli/prop/advise.test.ts`; guards (unchanged): `tests/unit/cli/prop/{sim,optimizeFunded,shared,fundedResetFlag,earlyWithdrawalFlag}.test.ts`
 - **Reviewers:** code-reviewer, typescript-reviewer
+
+**Readiness pass 2026-09-26**
+
+- Cannot start before G2, PT-19 and PT-32; advisor/ today holds only PT-03's rules.
+- `--eval-mode` is two enums in `advisor/Rulebook.ts`: `EvalSizingMode {Ladder, MaxRisk}` and `LadderFractionSource {GeneralDerivation, MffRapidEodSearch}`: `--eval-mode` plus `--ladder-fractions`, options from `Object.values`, defaults from `DEFAULT_RULEBOOK`.
+- Flag names clash with existing tested flags: `--retain-cushion` (TradingArguments) and `--request-size` (commonSimArguments). Default: reuse them (Q25). In `advise` these two and `--rebuy-lag-days` have no citty default, so an omitted value gives the rulebook value (`HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR`, `DEFAULT_RULEBOOK.payout.requestCents / CENTS_PER_DOLLAR`) or 0 with RebuyLagAssumed; a given value is a personal override (PD-37, never below the plan minimum). `readRebuyLagDays` is reused.
+- Missing inputs the reconstruction reads: `--eval-best-day`, `--last-traded-date`, `--first-funded-trade-date`; and `--allow-below-hard-rule-2` (PD-38/U19; `rulebookSchema` refuses a cushion below $2,000 otherwise).
+- Required-flag rules come from the lib (`snapshotFieldRules(plan, stage)` plus `missingSnapshotFields`), through an exhaustive `Record<SnapshotField, flag>`; they also require `--highest-eod` on EOD, static and intraday plans and `--payouts` on funded and live, and hide funded-only flags on eval.
+- The recorded run needs `--variant eod` (Apex resolves 2 plans).
+- No prop command has `--json` today; ora and every `ui.*` write to stdout, so `--json` turns the spinner off and prints only the JSON.
+- The survivors, row-cell and monthly-description helpers come from PT-16's lib; nothing moves out of `optimize/funded/command.ts`.
+- Already done elsewhere: PT-01/PT-03 rulebook model and enums; PT-40b headline label; PT-05g/PT-05h snapshot rules; PT-01/PT-01d `AccountStage`, `DashboardBalanceConvention` (now the advisor enum re-exported), `validateStageForPlan`, `describeLifecycleRejection`, `offeredPlanOptIns`, `describePlanOptIn`, `planOptInField`, `isAccountDate`, `todayIsoDate`; WP39/T33 placement and refusal exports and `placedFundedRiskNote`; T32 credit fields and the funded optimizer's columns; the shared CLI readers.
+- Audit decisions: T33 (with `--stop-points` and `--instrument` every engine row places whole contracts; a refused source shows its `simInputsSizingIssue` text without the prefix; the stop is also "today's stop" for the headline: print `minStopPointsAtCap` and flag it only when above the stop; never convert the contract cap to dollars). `DayPolicy.sizing` required: `advise` builds no DayPolicy itself. T32 (fresh-sweep rows label monthly net as including one capped horizon request and show monthly ex-credit and survivors with the lifted sort description text; from-state rows use `fromStateExpectedCash`). The EnginePolicy line shows `plan.resolveRetainedCushion(requested)`. T34 n/a (`--dp` is PT-30c).
+- Handoffs folded in: PT-19 to PT-24 (the request union including PT-32's members; `--json` emits exactly the Advice shape); PT-01b (print `RuleSource` as is); PD-40/PD-27 via PT-12a and PT-46 (effective request only from `effectivePayoutRequest`; "wait: $X more profit (or N qualifying days)"); PD-26 (print the full EnginePolicy); PD-5 (an unoffered opt-in is rejected by name); PD-28/U16 (stale eval or live advice prints "enter today's balance" and no rung amounts); U4 defaults from the rulebook; PT-30c extends this command; every lane E package to audit tracker (`group.ts`, `shared.ts`, `sim/command.ts`); the prop-firm-trading skill update needs the final flag names.
+- Duplication flagged for PT-50: the placed-cap sentence "capped at the funded contract limit at the start tier" exists in `sim/command.ts` and the web `placedFundedRisk.ts`.
+- Open user question: Q25 (flag names).
 
 **Steps (RED first)**
 
-1. RED with citty `parseArgs`:
-   - flags: `planArguments`, opt-in flags (offered only), `--stage`, `--balance`, `--highest-eod`, `--highest-intraday`, `--payouts`, `--trading-days`, `--qualifying-days`, `--last-payout-balance`, `--last-payout-date`, `--floor-at-last-payout`, `--cycle-best-day`, `--cumulative-payout` (trader-received net), `--funded-resets-used`, `--live-start-balance`, `--dashboard-floor`, `--dashboard-convention`, `--snapshot-date`, `--retained-cushion` (default 2000), `--payout-size` (default 500; raised to the plan minimum with a printed notice), `--eval-mode` (ladder, ladder-mff, max-risk), `--rebuy-lag-days`, plus winrate, rr, tpd, commission, trials, seed;
-   - missing `--balance` fails naming the flag; intraday plan without `--highest-intraday` or `--dashboard-floor` fails; `--stage eval` on an instant-funded plan fails; an implausible balance fails with the convention hint;
-   - output: documented headline before the engine table, then reasons, assumptions, provenance; `--json` emits the final `Advice` shape including the PT-32 sources.
-2. Implement with `shared.ts` readers, `planResolver`, `TablePrinter`. DB-free.
-3. GREEN; one real run `bun run cli prop advise --firm apex --stage funded --balance 52400 --highest-eod 53000 --payouts 0 --trading-days 12 --trials 300` recorded; typecheck, eslint, importer greps.
+0. Preconditions: G2 and PT-12, PT-14, PT-16, PT-19, PT-32 (and PT-35, PT-44, PT-46, PT-48) GREEN; re-read `advisor/index.ts` for the final names; stop if any is missing. Pins (PD-31): record `bun run cli prop sim --firm apex --variant eod --trials 200` and `bun run cli prop optimize funded --firm apex --variant eod --trials 200` before moving any helper. Typed stubs for `readAdviseInputs`, `adviceReportLines`, `adviceJson` (PD-22).
+1. RED `advise.test.ts` (citty `parseArgs` against the exported `adviseArguments`):
+   - a. Reader: `planArguments`, `monteCarloArguments` (winrate, rr, seed, trials, instrument, stop-points), `tpd`, `commissionArgument`, the funded-reset and early-withdrawal flags; `--stage` from `Object.values(SizingStage)`; dollar flags `--balance`, `--highest-eod`, `--highest-intraday`, `--dashboard-floor`, `--last-payout-balance`, `--floor-at-last-payout`, `--cycle-best-day`, `--eval-best-day`, `--cumulative-payout` (trader-received net), `--live-start-balance`; counts `--payouts`, `--trading-days`, `--qualifying-days`, `--funded-resets-used`; dates via `isAccountDate` (`--last-payout-date`, `--last-traded-date`, `--first-funded-trade-date`, `--snapshot-date` default `todayIsoDate(new Date())`, disclosed); `--dashboard-convention` (default Nominal); `--eval-mode` and `--ladder-fractions` (rulebook defaults); cushion, request size and rebuy lag with no citty default as above; `--allow-below-hard-rule-2`; rulebook overrides validated by `rulebookSchema` (1500 without the flag fails with the Hard Rule 2 message; max-risk with rr above the cap multiple fails with the Hard Rule 4 message). Output: an `AccountSnapshotInput` (dollars) plus rulebook and options.
+   - b. Failures naming the flag: required flags from the lib rules (no `--balance`; Apex intraday without `--highest-intraday` and `--dashboard-floor` names both; Apex EOD without `--highest-eod`); a hidden flag for the stage (`--cycle-best-day` with eval); eval on an instant-funded plan (from the plan files) via `describeLifecycleRejection(validateStageForPlan(...))`; an unoffered opt-in via `describePlanOptIn`; nominal 2400 and zero-based 52400 on 50K each fail with the `SnapshotPlausibility` hint mapped to the flag; an invalid date.
+   - c. `adviceReportLines(advice)`: headline (label, snapshot date, rungs with TP and running loss, daily cap, stop conditions, `minStopPointsAtCap` flagged only above `--stop-points`), payout advice (effective request, the "firm minimum $M is above your $R" reason, "wait: $X more profit"), engine table (fresh rows: monthly net with the one-request credit, monthly ex-credit, bust when funded, survivors, SE; from-state rows labelled `fromStateExpectedCash`; placed whole-contract risk with a stop; refused sources with the stripped text), reasons, assumptions, provenance; the EnginePolicy line shows the resolved cushion (TopStep 2000, not 0); stale eval advice prints "enter today's balance" with no amounts; reason text contains only sentinel-input numbers (PD-32).
+   - d. `adviceJson(advice)` round-trips `JSON.parse` to the Advice shape including PT-32 sources; with `--json` nothing but the JSON reaches stdout.
+2. Implement: move `placedFundedRiskNote` and `placedCapNote` into `shared.ts` (imports only in `sim/command.ts`); take the row, survivors and sort-description helpers from `~/lib/prop-calculator/optimize`; `advise/command.ts` resolves one plan, reads inputs, calls `createSizingAdvisor(stage, plan, ...)` and renders; DB-free, no `~/app`, no `advisor/dp`, no server module; register in `group.ts`; errors via `ui.fail` with `process.exitCode = 1`.
+3. GREEN: `bunx vitest run tests/unit/cli/prop/advise.test.ts` plus the guards; re-run the two pinned commands (identical); record `bun run cli prop advise --firm apex --variant eod --stage funded --balance 52400 --highest-eod 53000 --payouts 0 --trading-days 12 --trials 300`, the same with `--instrument MNQ --stop-points 40`, and one `--json` run piped to `jq .` (not while PT-30a's gate run drives the CLI); typecheck at baseline; `bunx eslint` on touched files; importer greps. Hand the edited CLI files to the audit tracker.
 
 **Regression tests**
 
-- `advise.test.ts`
+- `advise.test.ts`; guards: `sim`, `optimizeFunded`, `shared`, `fundedResetFlag`, `earlyWithdrawalFlag`
 
 **Acceptance**
 
-- The CLI gives the same `Advice` as the web from flags.
+- From flags, the CLI gives the same Advice the web will: documented headline first, engine rows in whole contracts when a stop is given, T32-labelled monthly numbers, typed reasons, assumptions and provenance, and clean `--json`.
 
 ## PT-21: overview dashboard
 
-- **Lane / wave:** J / J1  **Size:** large  **Depends on:** lane E complete, PT-20
+- **Lane / wave:** J, split: PT-21a in EJ0a (now, quiet window; lane W files only), PT-21b in EJ6  **Size:** large overall
+- **Depends on:** PT-21a: PT-20, PT-06c, PT-05e, PT-05h, PT-41b (all done) and the U21 quiet window; no G2 (no engine, CLI or `src/lib/prop-calculator` file; the CLI never imports prop-accounts or `~/app`). PT-21b: PT-22 (boards, state alerts), PT-48 (spec, `toSimInputs`), PT-19 (`applyEnginePolicy`, `enginePolicyKey`), PT-32 (payout-size sweep, sensitivity), PT-44 (SEs).
 - **Items:** F-70 to F-85 (UI), F-99, F-142 (worker), F-152 (overview)
 - **Files owned:**
-  - changed `accounts/page.tsx`
-  - new `accounts/_components/overview/{OverviewView.tsx, KpiRow.tsx, AlertsCenter.tsx, CushionBoardCard.tsx, ReadinessBoardCard.tsx, CapUsageCard.tsx, FunnelCard.tsx, DiversificationCard.tsx, CostCard.tsx, RealizedVsModeledCard.tsx, ReplacementCard.tsx, StatementCard.tsx, TimelineCard.tsx, ExpectedNetCard.tsx, usePortfolioData.ts, overviewModel.ts}`
-  - new `accounts/_workers/{overviewWorker.ts, overviewWorkerMessages.ts}`
-  - tests `tests/unit/app/prop-calculator/accounts/{overviewModel,overviewWorkerMessages}.test.ts`
+  - PT-21a: `src/app/(app)/prop-calculator/accounts/page.tsx` (prefetches `account.list`, `snapshot.latestForAll`, `copyGroup.list`, `rulebook.get`, `payout.list`, `fee.list`, `event.list`; renders `OverviewView`); new `accounts/_components/overview/{OverviewView.tsx, KpiRow.tsx, AlertsCenter.tsx, CapUsageCard.tsx, FunnelCard.tsx, DiversificationCard.tsx, CostCard.tsx, RealizedOutcomesCard.tsx, ReplacementCard.tsx, StatementCard.tsx, TimelineCard.tsx, usePortfolioData.ts, overviewModel.ts}`; `_components/hub/HubAccountsTeaser.tsx` and `accounts/ledger/LedgerView.tsx` (one shared `LEDGER_LIST_INPUT` and the teaser alert count only); `src/lib/schemas/propAccountOutputs.ts` (a `propRejectionOf(error)` reader only; EJ0a owner); `_components/savedScenarioSync.ts` (switch to it only); tests `tests/unit/app/prop-calculator/accounts/{overviewModel.test.ts, OverviewView.dom.test.tsx}`; guards `HubAccountsTeaser.dom.test.tsx`, `savedScenarioSync.test.ts`
+  - PT-21b: new `overview/{CushionBoardCard.tsx, ReadinessBoardCard.tsx, ExpectedNetCard.tsx, useOverviewWorker.ts}`; changed `RealizedOutcomesCard.tsx`, `CostCard.tsx`, `overviewModel.ts`, `OverviewView.tsx`; new `src/app/(app)/prop-calculator/_workers/{overviewWorker.ts, overviewWorkerMessages.ts}` (the ladder worker's folder, not `accounts/_workers/`); tests `tests/unit/app/prop-calculator/accounts/{overviewWorkerMessages.test.ts, overviewModel.test.ts}`
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer
+
+**Readiness pass 2026-09-26**
+
+- "Lane E complete" was too broad: only the expected-net worker, the cushion and readiness boards, the state alerts, and the modeled halves of realized-vs-modeled and cost need lane E. Every ledger card can be built now from the PT-06/PT-07 lib.
+- `createAlertContext` also needs `copyGroups` and `rulebook`; `accounts/page.tsx` today prefetches only `account.list`, `snapshot.latestForAll`, `copyGroup.list`.
+- `accounts/page.tsx` is the accounts list; the overview keeps `AccountsTable` as its accounts section.
+- `costAnalytics(ledger, modeled)` needs a modeled map from simulated pass rates: PT-21a passes an empty map with "modeled comparison pending"; PT-21b fills it from the worker.
+- The PT-05b PRECONDITION_FAILED handoff is mostly superseded (tolerant reads with `readIssues`); `InvalidStoredRecord` still comes from `readStored` for other records, so the overview maps it.
+- A happy-dom project exists for `*.dom.test.tsx` (PT-11b); models stay in `.ts` helpers.
+- `SimOutputs` has credit-inclusive `expectedMonthlyNet` and credit-free `expectedMonthlyRealizedNet` (Q1 decides the headline; default credit-free with credit-inclusive labeled).
+- `EnginePolicy`, `DocumentedPolicySpec`, `toSimInputs`, `PayoutPolicySensitivity` do not exist until EJ3 to EJ5.
+- DRY found: `LEDGER_LIST_INPUT = {}` is declared twice (`HubAccountsTeaser.tsx:49`, `LedgerView.tsx:91`); export one constant from `usePortfolioData.ts`. `scenarioQuotaLimit` in `savedScenarioSync.ts` privately parses rejections; one shared `propRejectionOf` replaces it. The hub teaser's "Alerts" count uses only `unresolvablePlanAlerts`; after the overview runs the full evaluator it counts the same alerts through one `portfolioAlerts(inputs)` helper (or is relabeled "Plan issues"; integrator's pick).
+- Already done elsewhere: PT-06/PT-06b/PT-06c metrics (`fundingTotals`, `spendAndPayouts`, `summarizeCash`, `portfolioRoi`, `costAnalytics`, `stageFunnel`, `diversification`, `replacementStats`, `rebuyLagDefault`, `planCapUsage`, `realizedOutcomes`, `monthlyStatement`, `ledgerTimeline`, `realizedNetPerSlot`, `PortfolioLedger.fromRows`); PT-07 alerts and labels; PT-41b hub teaser; PT-10 `useWorkerTask`; `CENTS_PER_DOLLAR` via `usdCentsToDollars`; `DailyProfitCap` and `hardProfitCeiling`.
+- Audit decisions (PT-21b): T32/WP40 and U17 (say which basis each figure shows; compare realized net per slot with the credit-free figure); T33/U18 (the rulebook has no instrument or stop: requests either carry them in the policy or disclose "fractional, contract-capped"; pre-check with `simInputsSizingIssue` and report refusals through `simulationFailure.ts`, never throw from the worker); `DayPolicy.sizing` required (no hand-built DayPolicy; `toSimInputs` only). T34 n/a.
+- Handoffs folded in: PT-05 (timeline mismatch and rejected events; readable rejections); PT-05b (InvalidStoredRecord with `recordId`: remove or archive); PT-01d (daily profit cap by `DailyProfitCap.kind` or `hardProfitCeiling()`; alerts through `alertKindLabel`; `InvalidStoredDate`, `pendingFeeAttribution`, `undatedPaidPayouts`); PT-06 (null SE as n/a; pending acquisition spend and eval accounts next to realized cost per funded; `openFundedAccounts` beside `fundedSurvival`; pooled realized net per slot as the headline with n and slot months); PT-05 (`event.list` bounded to 3 years and 5,000 rows, disclosed); PT-48 and PT-32 (PT-21b); PT-22 (replace `cushionOf` and `readiness: null` in `accountListFilters.ts` with the boards and use `SnapshotOrder`: PT-21b owns `accountListFilters.ts` for that).
+- Open user questions: Q26 (funded survival basis), Q1 (headline basis), Q2 (instrument and stop).
 
 **Steps (RED first)**
 
-1. RED `overviewModel`: the KPI row order is spend, payouts received, net, realized net per slot per month (with n and SE), expected monthly net, ROI, then total funding; cards from PT-06 and PT-22 outputs with empty states and unresolved counts; readiness shows the rule-capped withdrawable at the effective request first; the expected-net card shows two numbers per plan (documented policy, engine payout-size optimum) with the "payout-policy sensitive" mark from `PayoutPolicySensitivity`, and labels for trials, start basis, retained cushion, payout policy and lifetime cap basis.
-2. RED `overviewWorkerMessages`: requests carry a `DocumentedPolicySpec` (no closures) plus the full `EnginePolicy` key; stable; accounts on the same plan and policy dedupe; a TopStep request carries the rulebook retained cushion; an MFF Pro request carries the $1,000 effective request; the payout-size optimum request is keyed separately.
-3. Implement: the worker calls `toSimInputs` and runs `simulate` per distinct spec (fresh start) and the payout-size sweep per plan, via `useWorkerTask`; realized-vs-modeled pairs PT-06 with the worker; each card has an `<h2>`.
-4. Trace: data from `account.list`, `snapshot.latestForAll`, `payout.list`, `fee.list` and `event.list` (one bounded query, no per-account fan-out); server prefetch hydrates; only pure aggregation on the main thread.
-5. GREEN, typecheck, eslint, importer greps.
+PT-21a (EJ0a):
+
+1. RED `overviewModel.test.ts` on typed stubs: `buildOverview(inputs)` over `PortfolioLedger.fromRows(userId, {accounts, events, fees, payouts})` returns the KPI row in order: spend, payouts received, net, realized net per slot per month (`realizedNetPerSlot(ledger, asOf).pooled`, with n, slot months, SE "n/a" when null), ROI (`portfolioRoi`, "n/a" at zero spend), total nominal funding (labeled information only); the expected-net slot is a typed "pending engine" placeholder. Cards: cap usage (pooled-caps disclosure), funnel, diversification, cost (`costAnalytics(ledger, new Map())` with pending acquisition spend, pending eval accounts and pending fee attribution; modeled column "pending"), realized outcomes (`openFundedAccounts` disclosure per Q26 default), replacement (`replacementStats`, `rebuyLagDefault`), monthly statement and timeline, `undatedPaidPayouts`, the timeline-mismatch and rejected-event warnings, unresolved and read-issue counts, empty states. Alerts: `new AlertEvaluator(DEFAULT_ALERT_RULES).evaluate(createAlertContext({accounts, copyGroups, payouts, rulebook, snapshots, today}))`, sorted by `compareAlerts`, labeled by `alertKindLabel`, InvalidStoredDate shown. Pin one fixture from `tests/unit/lib/prop-accounts/metrics/ledgerFixtures.ts`.
+2. RED `propRejectionOf(error)` in `propAccountOutputs.ts` (the parsed rejection or null); `savedScenarioSync` keeps its quota behaviour. Land this GREEN first in the wave (PT-23a and PT-26a import it).
+3. RED `OverviewView.dom.test.tsx`: one h1, an h2 per card (sections with `aria-labelledby`), a readable message plus remove or archive actions for an InvalidStoredRecord rejection with `recordId`, `AccountsTable` as the accounts section.
+4. Implement: `usePortfolioData.ts` runs one query per procedure (`account.list(ACCOUNT_LIST_INPUT)`, `snapshot.latestForAll`, `copyGroup.list`, `rulebook.get`, `payout.list(LEDGER_LIST_INPUT)`, `fee.list(LEDGER_LIST_INPUT)`, `event.list` with the default bounded range), no per-account fan-out; `page.tsx` prefetches the same inputs in `HydrateClient` with `dynamic = 'force-dynamic'`; aggregation only in `useMemo`; one exported `LEDGER_LIST_INPUT` used by the teaser and the ledger; the teaser alert count uses the shared helper (or the relabel).
+5. GREEN: the new tests, `tests/unit/app/prop-calculator` and `tests/unit/lib/prop-accounts`; typecheck at baseline; `bunx eslint <owned files>`; importer greps.
+
+PT-21b (EJ6):
+
+6. Capture the PT-21a `overviewModel` pins.
+7. RED `overviewWorkerMessages.test.ts`: each request carries a `DocumentedPolicySpec` (no closures; survives `structuredClone`) plus `enginePolicyKey`; same plan and policy dedupe to one request; a TopStep request carries 2,000 (never $0); an MFF Pro request carries the $1,000 effective request with FullRequestOnly; the payout-size optimum request is keyed separately; instrument and stop (or the declared fractional basis, Q2) are in the key; any policy field change changes the key.
+8. RED `overviewModel` (extended): the cushion and readiness boards from PT-22 (rule-capped withdrawable at the effective request first; PayoutPending shown); the expected-net card shows two numbers per plan (documented policy, payout-size optimum) with the "payout-policy sensitive" mark, labels for trials, start basis (fresh), retained cushion (engine-resolved), payout policy and lifetime cap basis (LiveTriggersNotChecked as optimistic), the credit basis per Q1, SEs from PT-44; realized-vs-modeled pairs `realizedOutcomes` with the worker's pass rate and survival; the cost card's modeled column from `replacementEconomics`; a refused request listed by name with the engine text; the accounts list's `cushionOf` and `readiness: null` replaced by the boards and `SnapshotOrder` (PT-22 handoff).
+9. Implement `_workers/overviewWorker.ts` (per distinct spec: `toSimInputs`, `simInputsSizingIssue`, `simulate` fresh start, the PT-32 payout-size sweep; cached per request key) and `useOverviewWorker` via `useWorkerTask`.
+10. GREEN: the helper tests, `tests/unit/app/prop-calculator`; typecheck; eslint; importer greps; knip reported.
 
 **Regression tests**
 
-- The 2 helper tests
+- `overviewModel.test.ts`, `OverviewView.dom.test.tsx`, `overviewWorkerMessages.test.ts`; guards: `HubAccountsTeaser.dom.test.tsx`, `savedScenarioSync.test.ts`, the prop-calculator app suite
 
 **Acceptance**
 
-- The overview leads with cash reality and shows every metric F-70 to F-85 and F-99 with labeled assumptions, and shows where the payout policy changes the answer.
+- The overview shows every ledger card now from the existing metrics, with alerts from the full evaluator and readable rejections; after PT-21b it adds the boards and engine cards computed off the main thread under the full EnginePolicy, with every basis labeled.
 
 ## PT-23: account detail and ledgers UI, fee prefill
 
-- **Lane / wave:** J / J1  **Size:** large  **Depends on:** lane E complete, PT-20
+- **Lane / wave:** J, split: PT-23a in EJ0a (now), PT-23b in EJ5  **Size:** large overall
+- **Depends on:** PT-23a: PT-20, PT-05h, PT-28, PT-41b (done) and the U21 quiet window; no G2 (feePreview is not moved into `src/lib/prop-calculator`). In EJ0a PT-21a owns `propAccountOutputs.ts` and lands `propRejectionOf` first; PT-23a only imports it. PT-23b: PT-12c (reconstruction, live applicability), PT-22 (performance, consistency), PT-31a (describe library).
 - **Items:** F-60, F-61, F-68 (UI), F-82 (UI), F-89 (UI), F-140 (detail)
 - **Files owned:**
-  - new `accounts/[id]/page.tsx`, `accounts/_components/detail/{AccountDetailView.tsx, PlanRulesSummary.tsx, StateCard.tsx, SnapshotHistoryChart.tsx, snapshotSeries.ts, PayoutsSection.tsx, FeesSection.tsx, EventsSection.tsx, LiveRulesCard.tsx}`
-  - moved `_components/feePreview.ts` to `src/lib/prop-calculator/fees/{FeePreview.ts, index.ts}`, imports updated in `_components/TradingInputs.tsx`, `_components/PortfolioPanel.tsx`, `_components/retryDescription.ts`
-  - moved test to `tests/unit/lib/prop-calculator/fees/FeePreview.test.ts`; new `tests/unit/app/prop-calculator/accounts/snapshotSeries.test.ts`
+  - PT-23a: new `src/app/(app)/prop-calculator/accounts/[id]/page.tsx`; new `accounts/_components/detail/{AccountDetailView.tsx, PlanRulesSummary.tsx, SnapshotHistoryChart.tsx, snapshotSeries.ts, PayoutsSection.tsx, FeesSection.tsx, EventsSection.tsx, eventOptions.ts, accountIdParameter.ts}`; changed `accounts/[id]/edit/page.tsx` (shared id parsing only); changed `accounts/_components/AccountsTable.tsx` (labels link to the detail page only); new `src/lib/prop-accounts/core/FeePrefill.ts`, changed `prop-accounts/core/index.ts` (EJ0a owner, one export); tests `tests/unit/app/prop-calculator/accounts/{snapshotSeries.test.ts, eventOptions.test.ts, AccountDetailView.dom.test.tsx}`, `tests/unit/lib/prop-accounts/core/FeePrefill.test.ts`; guards `tests/unit/app/prop-calculator/feePreview.test.ts` (unchanged), `tests/unit/lib/prop-accounts/barrel.test.ts`
+  - PT-23b: new `detail/{StateCard.tsx, LiveRulesCard.tsx, PerformanceCard.tsx, detailState.ts}`; changed `AccountDetailView.tsx` and `PlanRulesSummary.tsx` (the describe library); tests `tests/unit/app/prop-calculator/accounts/detailState.test.ts`, the extended DOM test. Not `EventsSection.tsx` (PT-36 edits it in the same wave).
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer
+
+**Readiness pass 2026-09-26**
+
+- Moving `feePreview` into `src/lib/prop-calculator/fees` is dropped: it imports app-local `couponDiscounts.ts`, would touch audit-fingerprinted `TradingInputs.tsx` and `PortfolioPanel.tsx`, and the account fee prefill needs cents per `FeeKind` from the engine's fee functions (`initialEvalFee`, `activationFee`, `monthlySubscriptionFee`, `resetFee`, `rebuyFee`, the funded-reset fee), not the display strings. `feePreview.ts` and its test stay; tell the audit tracker `TradingInputs.tsx` and `PortfolioPanel.tsx` are untouched (the old handoff row is moot).
+- The detail route exists but nothing links to it (AccountsTable links only to edit). The edit page's id parsing (z.uuid, lower-case, session redirect, prefetch, force-dynamic) becomes one helper.
+- StateCard, LiveRulesCard and the F-82 performance card need PT-12c and PT-22; the rest does not.
+- The rules summary uses today's `PlanStatsBadges`, `dailyLossLimitLabel` and `consistencyBadge` in PT-23a, then PT-31a's describe library in PT-23b.
+- DOM tests run under happy-dom.
+- Already done elsewhere: every procedure (`account.get`, `snapshot.listForAccount`/`remove`, `payout.list/create/update/remove`, `fee.list/create/update/remove`, `event.listForAccount`/`record`, `decision.listForAccount`); `applyLifecycleEvent`, `describeLifecycleRejection`, `validateStageForPlan`, `eventRecordSchema` (no Edited or Purchased; BustReversed needs a note); `replacementStats`; `GrossOnlyPayoutsNote`, `formatUsdCents`, `usdCentsToDollars`, `parseMoneyText`, `DeleteAccountDialog`, `AlertDialog`, `Chart`.
+- Audit decisions: none in PT-23a. PT-23b's live rules card shows the live contract cap as limits only (PD-25); live sizing comes from PT-19 and PT-34.
+- Handoffs folded in: F-140 detail (plausibility failures, PT-23b); PT-05b (InvalidStoredRecord: message plus remove, or archive for an account); PT-01 via PT-20 (opt-in labels via `describePlanOptIn`); PT-36 (structure the event-record form as `eventOptions.ts` plus one `EventsSection.tsx` component with a slot for a pre-submit preview, so PT-36's MovedLive preview and confirm step drops in without touching `AccountDetailView.tsx`); PT-45 (the detail page renders the account's alerts, so PlanRulesChanged shows as a banner with no detail change later).
 
 **Steps (RED first)**
 
-1. RED `snapshotSeries`: sorted by date with event markers; cents to dollars exactly.
-2. RED `FeePreview` (moved): existing assertions unchanged; plus a prefill helper per `FeeKind` (Refund prefilled as zero).
-3. Implement the detail page: plan rules summary, reconstructed state with assumptions and `SnapshotPlausibility` errors for the latest snapshot, snapshot chart, payouts/fees/events with forms and AlertDialog deletes (event forms only offer lifecycle-valid transitions), "replaces account" link, live rules for live accounts with `LiveModelApproximation` where applicable.
-4. GREEN; guards: tests importing TradingInputs and PortfolioPanel helpers; typecheck, eslint, importer greps ("no importer left" for the old `feePreview` path).
+PT-23a (EJ0a):
+
+1. RED `snapshotSeries.test.ts`: `snapshotSeries(snapshots, events)` sorts by asOf, createdAt, id (the `latestForAll` order); cents to dollars exactly via `usdCentsToDollars`; event markers (kind, date, label) on their dates; drops nothing; empty in, empty out.
+2. RED `FeePrefill.test.ts`: `feePrefillCents(plan, kind)` returns UsdCents for EvalPurchase (`initialEvalFee`, list price), Activation, Subscription (monthly), Reset, Rebuy, FundedReset (null when `plan.fundedReset === null`), Refund 0 and Other null; values read from two plan files and cited; `feePreview.test.ts` stays green and unchanged.
+3. RED `eventOptions.test.ts`: the offered kinds are exactly those `applyLifecycleEvent` accepts for the stored account, never Edited or Purchased; BustReversed needs a note; an instant-funded plan never offers EvalPassed; the options module exposes a pre-submit hook shape PT-36 fills later (typed, unused now).
+4. RED `AccountDetailView.dom.test.tsx`: one h1 (the label), h2 sections (rules summary, snapshot history, payouts, fees, events, replacement chain, alerts); deletes through AlertDialog with focus returned; the fee form prefills from `feePrefillCents` on kind change; a "replaces account" link with the measured lag from `replacementStats` when n > 0; GrossOnlyPayoutsNote for payouts without net; an InvalidStoredRecord rejection (via `propRejectionOf`) shows a readable message and a remove action.
+5. Implement: `[id]/page.tsx` (shared parsing via `accountIdParameter.ts`, session redirect to `loginRedirectFor(accounts.detail(id))`, prefetch `account.get`, `snapshot.listForAccount`, `payout.list({accountId})`, `fee.list({accountId})`, `event.listForAccount`, `account.list(ACCOUNT_LIST_INPUT)`, force-dynamic, noindex via the layout); forms with react-hook-form and zodResolver on the existing schemas; mutations invalidate `propAccounts`; AccountsTable labels link to the detail page.
+6. GREEN: new tests, `tests/unit/app/prop-calculator`, `tests/unit/lib/prop-accounts`; typecheck; eslint on owned files; importer greps.
+
+PT-23b (EJ5):
+
+7. RED `detailState.test.ts` and the extended DOM test: StateCard shows floor, lock, cushion, assumptions and the snapshot date from `AccountReconstruction.rebuild(SnapshotAdapter(...), plan)` and lists `SnapshotPlausibility` failures with the convention hint; an intraday plan without a peak shows the `IntradayPeakRequired` message instead of numbers; LiveRulesCard shows the applicable LivePlan rules, `LiveModelApproximation` where firm-level only, "no live stage modeled" for E8, FTMO and NotModeled plans, the contract cap as a limit only; PerformanceCard uses PT-22's `PerformanceSinceSnapshot` and `ConsistencyStatus` ("not evaluated" without a best day).
+8. Implement; PlanRulesSummary switches to `~/lib/prop-calculator/describe`.
+9. GREEN as in step 6.
 
 **Regression tests**
 
-- `snapshotSeries.test.ts`, `FeePreview.test.ts`
+- `snapshotSeries`, `eventOptions`, `FeePrefill`, `AccountDetailView.dom`, `detailState`; guards: `feePreview.test.ts`, the prop-accounts barrel test
 
 **Acceptance**
 
-- Account detail shows state, history and editable ledgers; `feePreview` has one home in lib.
+- A detail page per account with ledgers, lifecycle-valid events, fee prefill from the engine's fee functions and a snapshot chart now; state, live rules and performance cards once the reconstruction exists; every rejection readable.
+
+**Added before EJ0a-2 (PT-23a, from the PT-21a review):** `AccountsTable.tsx` stops showing its own `unresolvablePlanAlerts` ('Read-only account') that repeat the overview alerts center's 'Unresolvable plan' alert for the same account (keep the row's read-only marker), and on an `account.list` refetch error with cached data it keeps the table and shows the error beside it instead of replacing the table. Add `AccountsTable.tsx` to PT-23a's owned files for this and for the detail link.
 
 ## PT-26: copy groups page, exposure, group sizing
 
-- **Lane / wave:** J / J1  **Size:** medium  **Depends on:** lane E complete, PT-20
+- **Lane / wave:** J, split: PT-26a in EJ0a (now), PT-26b in EJ6  **Size:** medium overall
+- **Depends on:** PT-26a: PT-05, PT-20 (done) and the U21 quiet window; imports PT-21a's `propRejectionOf` (landed first in the wave). PT-26b: PT-12c, PT-13, PT-19 (it waits until EJ6 only because PT-32 owns `advisor/index.ts` and PT-36 owns `prop-accounts/metrics/index.ts` in EJ5).
 - **Items:** F-67, F-86 (lib), F-130
 - **Files owned:**
-  - new `accounts/copy-groups/{page.tsx, CopyGroupsView.tsx}`
-  - new `src/lib/prop-accounts/metrics/Exposure.ts`, changed `metrics/index.ts`
-  - new `src/lib/prop-calculator/advisor/CopyGroupSizing.ts`, changed `advisor/index.ts`
-  - tests `tests/unit/lib/prop-accounts/metrics/Exposure.test.ts`, `tests/unit/lib/prop-calculator/advisor/CopyGroupSizing.test.ts`
-- **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer, trader-rules reviewer
+  - PT-26a: new `src/app/(app)/prop-calculator/accounts/copy-groups/{page.tsx, CopyGroupsView.tsx}`, new `accounts/_components/copyGroups/copyGroupRows.ts`; changed `src/lib/prop-accounts/alerts/MixedStageCopyGroupRule.ts` (exports the stage-grouping predicate it already uses) and `alerts/index.ts` (EJ0a owner); tests `tests/unit/app/prop-calculator/accounts/{copyGroupRows.test.ts, CopyGroupsView.dom.test.tsx}`; guards `accountsNavItems.test.ts`, the MixedStageCopyGroupRule test
+  - PT-26b: new `src/lib/prop-accounts/metrics/Exposure.ts`, changed `metrics/index.ts` (EJ6 owner); new `src/lib/prop-calculator/advisor/CopyGroupSizing.ts`, changed `advisor/index.ts` (EJ6 owner); changed `CopyGroupsView.tsx` (sizing and exposure sections); tests `tests/unit/lib/prop-accounts/metrics/Exposure.test.ts`, `tests/unit/lib/prop-calculator/advisor/CopyGroupSizing.test.ts`
+- **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer, trader-rules reviewer (PT-26b)
+
+**Readiness pass 2026-09-26**
+
+- The copy-groups page needs only PT-05 procedures and can be built now; `accounts/copy-groups` is linked from `ACCOUNTS_NAV_ITEMS` and 404s today.
+- Group sizing needs each member's RuleContext: reuse PT-48a's `ruleContextAt` and PT-19's documented sizing, never a second builder.
+- Mixed-stage rejection exists twice (the router's `PropMutationRejection.MixedStageCopyGroup` and `MixedStageCopyGroupRule`); the page and `CopyGroupSizing` reuse one predicate (the advisor cannot import prop-accounts, so `CopyGroupSizing` takes stages as input and returns its own typed rejection with the same rule).
+- DOM tests run under happy-dom.
+- Already done elsewhere: `copyGroup.list/create/update/remove/assign` with ownership and mixed-stage checks; `account.list` carries `copyGroupId`; the form's copy-group selector; `MixedStageCopyGroupRule` in `DEFAULT_ALERT_RULES`; PT-03's rules and invariants.
+- Audit decisions (PT-26b): T33 (copiers replicate contract counts; the minimum flat funded risk can fall below one contract and members' caps differ; with an instrument and stop, report placed contracts per member and for the group via `placedFundedRiskAt`, `wholeContractCount`, `isBelowOneContract`, `fundedStartContractLimit`/`contractLimitAt`, and name a below-one-contract group as refused; the documented dollar rungs never convert a contract cap into dollars, PD-25). Exposure is labeled documented dollars or placed risk, never mixed in one sum. T32 and T34 n/a.
+- Handoffs folded in: PT-19 to PT-26 (per-member documented sizing and RuleContext); PD-30 (eval groups rung by rung with each member's cumulative DLL; funded groups at the minimum flat risk; divergence warning). Downstream: PT-33 and PT-42 consume `Exposure` and `CopyGroupSizing`.
+- Open user questions: Q27 (copier 1:1 or multiplier), Q2 (assumed instrument and stop).
 
 **Steps (RED first)**
 
-1. RED `CopyGroupSizing`: a mixed-stage group gives a typed rejection; an eval group keeps a ladder (or max-risk plan), each rung the minimum over members with each member's cumulative DLL applied, never collapsing to a funded size; a funded group takes the minimum flat risk; members whose own documented size differs get a divergence warning; the group sizing passes `assertSizingInvariant` for every member.
-2. RED `Exposure`: per account the first-trade risk and the maximum daily loss (sum of rungs capped by DLL, or trades per day x risk capped by DLL); a copy group counts as one correlated bet (worst case = the sum of members' maximum daily losses); share of total cushion at risk; eval ladder fixture shows the full-ladder day.
-3. Implement the page with CRUD and assign (PT-05 procedures).
-4. GREEN, typecheck, eslint, importer greps.
+PT-26a (EJ0a):
+
+1. RED `copyGroupRows.test.ts`: `copyGroupRows(groups, accounts)` lists each group with active members, their stages and firms; flags a group spanning more than one stage using the predicate exported from `MixedStageCopyGroupRule.ts` (its own test unchanged); lists unassigned active accounts; excludes archived accounts.
+2. RED `CopyGroupsView.dom.test.tsx`: one h1 and an h2 per group; create and rename validate the name with the `~/lib/schemas/propAccounts` limits; delete through AlertDialog with focus returned; assigning an account of a different stage shows the server's MixedStageCopyGroup message readably via `propRejectionOf`; an empty state.
+3. Implement the page (session guard like the other accounts pages, prefetch `copyGroup.list` and `account.list`, force-dynamic) with CRUD and assign through `copyGroup.*`; mutations invalidate `propAccounts`.
+4. GREEN: new tests, `tests/unit/app/prop-calculator/accounts`, the alerts tests; typecheck; eslint on owned files; importer greps.
+
+PT-26b (EJ6):
+
+5. RED `CopyGroupSizing.test.ts`: a mixed-stage group gives a typed rejection; an eval group keeps a ladder (or max-risk plan) whose rung k is the minimum over members of each member's rung k from PT-19's documented sizing with each member's cumulative DLL, never collapsing to a funded size; a funded group takes the minimum flat risk; a member whose own size differs gets a divergence warning naming it and the difference; the group sizing passes `assertSizingInvariant` for every member's RuleContext; with an instrument and stop the group also reports whole contracts per member and for the group and a typed below-one-contract refusal (per Q27's copier model); the contract cap never becomes dollars in the documented rungs.
+6. RED `Exposure.test.ts`: per account the first-trade risk and the maximum daily loss (sum of rungs capped by the DLL, or trades per day x risk capped by the DLL); a copy group as one correlated bet (worst case the sum of members' maximum daily losses); share of total cushion at risk; an eval ladder fixture shows the full-ladder day; the basis (documented dollars or placed contracts) is a typed field.
+7. Implement both in lib (barrels updated), then the sizing and exposure sections in `CopyGroupsView`.
+8. GREEN: the 2 lib tests plus the PT-26a tests; trader-rules review against Hard Rules 1 to 8; typecheck, eslint, importer greps.
 
 **Regression tests**
 
-- The 2 test files
+- `copyGroupRows`, `CopyGroupsView.dom`, `CopyGroupSizing`, `Exposure`; guards: `accountsNavItems`, MixedStageCopyGroupRule tests
 
 **Acceptance**
 
-- Groups are sized safely per member and stage; exposure reflects the worst day, not the first trade.
+- Copy groups can be managed now with readable mixed-stage rejections; after PT-26b each group gets one PD-30 sizing that respects every member's rules and contract limits, and exposure counts a group as one correlated bet.
 
 ## PT-31: public tools: live, rules browser, payout planner
 
-- **Lane / wave:** J / J1  **Size:** large  **Depends on:** lane E complete, PT-11
+- **Lane / wave:** J, split: PT-31a in EJ1, PT-31b in EJ2, PT-31c in EJ6  **Size:** large overall
+- **Depends on:** PT-31a: G2 (it edits `src/cli`, which the audit rerun drives) and PT-11 (done); no E1 package edits `shared.ts` while it runs. PT-31b: PT-12a (`effectivePayoutRequest`), PT-12b (`LivePlanApplicability`). PT-31c: PT-12, PT-46, PT-32 (`PayoutSizeSweep`), PT-44 (SEs), PT-19 (`EnginePolicy`).
 - **Items:** F-2, F-19, F-28, F-29, F-30, F-155
 - **Files owned:**
-  - new `(tools)/live/{page.tsx, LiveView.tsx}`, `(tools)/rules/{page.tsx, RulesView.tsx}`, `(tools)/payout-planner/{page.tsx, PayoutPlannerView.tsx}`
-  - new `src/lib/prop-calculator/describe/{PlanRuleDescriptions.ts, index.ts}`
-  - changed `src/cli/commands/prop/plans/command.ts`, `_components/dailyLossLimitLabel.ts`, `_components/consistencyBadge.ts`, `_components/toolCatalog.ts`
-  - new `_components/payoutPlanner/{payoutPlannerModel.ts, payoutPlannerUrlState.ts}`
-  - tests `tests/unit/lib/prop-calculator/describe/PlanRuleDescriptions.test.ts`, `tests/unit/app/prop-calculator/{payoutPlannerModel,payoutPlannerUrlState}.test.ts`; guards: the `plans` CLI test, label and badge tests
+  - PT-31a: new `src/lib/prop-calculator/describe/{PlanRuleDescriptions.ts, PlanRulesSerialization.ts, index.ts}` (a sub-barrel imported as `~/lib/prop-calculator/describe`, like `advisor` and `optimize`; the root barrel is not touched, since PT-44 owns it in EJ1); new `src/lib/stableJson.ts` (moved from the account router) and changed `src/server/api/routers/propAccounts/account.ts` (import line only); changed `src/cli/commands/prop/plans/command.ts`, `src/cli/commands/prop/shared.ts` (EJ1 owner; the describe helpers move out), `src/cli/commands/prop/ladder/command.ts` (import line only); changed `_components/{dailyLossLimitLabel.ts, consistencyBadge.ts}` (share descriptors, strings unchanged) and `_components/toolCatalog.ts` (Rules `hasPage` only); new `(tools)/rules/{page.tsx, RulesView.tsx}`; changed `src/lib/site/routes.ts` (`indexableRoutes`: rules); tests `tests/unit/lib/prop-calculator/describe/{PlanRuleDescriptions,PlanRulesSerialization}.test.ts`, `tests/unit/lib/stableJson.test.ts`; guards `tests/unit/cli/prop/{plans,shared,ladder}.test.ts`, `tests/unit/app/prop-calculator/{dailyLossLimitLabel,consistencyBadge,toolAvailability,toolCatalog}.test.ts`, `tests/unit/lib/site/routes.test.ts`, the account router tests
+  - PT-31b: new `(tools)/live/{page.tsx, LiveView.tsx}`, `_components/live/liveToolModel.ts`; changed `_components/ComputationId.ts` (Live member and result type), `toolCatalog.ts` (Live `hasPage`), `src/lib/site/routes.ts` (live); tests `tests/unit/app/prop-calculator/{liveToolModel.test.ts, LiveView.dom.test.tsx}`
+  - PT-31c: new `(tools)/payout-planner/{page.tsx, PayoutPlannerView.tsx}`, `_components/payoutPlanner/{payoutPlannerModel.ts, payoutPlannerUrlState.ts}`, `src/lib/schemas/payoutPlannerUrlParameter.ts` (leaf module), `_workers/{payoutSweepWorker.ts, payoutSweepWorkerMessages.ts}`; changed `toolCatalog.ts` (PayoutPlanner `hasPage`), `src/lib/site/routes.ts`; tests `tests/unit/app/prop-calculator/{payoutPlannerModel,payoutPlannerUrlState,payoutSweepWorkerMessages}.test.ts`
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer
+
+**Readiness pass 2026-09-26**
+
+- Catalog work is mostly done: `ToolId.Live`, `Rules`, `PayoutPlanner` and `ToolUrlCodec.PayoutPlanner` exist with PD-43 flags and `hasPage: false`; each part flips `hasPage` and adds its route to `indexableRoutes` (the `toolAvailability` guard requires both). `ToolPageHeading` takes `ownQuery`; `CalculatorToolbar`/`shareLinkForQuery` exist.
+- The describe move is bigger than listed: `planRuleLines` depends on `shared.ts` helpers (`describeDll`, `describeShare`, `describeFundedContracts`, `ContractUnit`, `planVariant`), also used by `ladder/command.ts` and `shared.test.ts`; `planHeadline` prints CLI flags and stays in the CLI; the guard is `plans.test.ts`.
+- The web label helpers already render the lib `describeDailyLossLimit` descriptor; share descriptors, keep each renderer's strings.
+- `serializePlanRules` must serialize structured rule values (canonical JSON of the plan's rule fields, excluding notes and labels), not display text, or PT-45's fingerprint flips on wording edits. PT-31a owns it (reversing the PT-31 to PT-45 handoff so PT-45 can run in EJ2) and moves `stableJson` into `src/lib/stableJson.ts` (one canonical JSON; PT-30's `DpConfigKey` reuses it later).
+- The live page needs a `ComputationId.Live` member and the refused-input path (`simulationFailure.ts`). `LivePlanApplicability` comes from PT-12b; `simulateLiveAccount` throws below the plan minimum, so pass the effective request.
+- The payout planner reuses PT-12 (reconstruction, `PayoutReadiness`, `effectivePayoutRequest`), PT-46 (`PayoutRequestRule`), PT-32's `PayoutSizeSweep` and `PAYOUT_SIZE_SWEEP_GRID`, PT-44 SEs, PT-19's policy; it runs in a worker (PD-17). Its inputs are a snapshot entry point: they pass `SnapshotPlausibility` (F-140).
+- `src/cli/**` is lane E: PT-31a waits for G2.
+- DOM tests run under happy-dom.
+- Already done elsewhere: PT-10 catalog, heading, section, metadata, inputs form, debounced computation; PT-43/PT-43b availability wiring; PT-11f/PT-11g refusal display and placed-risk delegation; engine `describeDailyLossLimit`, `describePayoutDayGate`, `PLAN_AVAILABILITY_LABEL`, `LIVE_PLAN_BUILDERS`, `simulateLiveAccount` (whole contracts live, WP39b); `DEFAULT_RULEBOOK`.
+- Audit decisions: T33 (the live tool passes instrument and stop; say so; refusals through `simulationFailure.ts`). PD-26 with D4 (live cushion max(rulebook, one live drawdown), never `resolveRetainedCushion(undefined)`; request via `effectivePayoutRequest`). T32 (the planner's sweep states its credit basis, like PT-21b). T34 n/a.
+- Handoffs folded in: PT-10 to PT-31; PT-31 to PT-45 reversed (PT-31a owns the structural serializer; PT-45 adds the fingerprint beside it); PT-32 (reuse the grid and dedupe); PT-25 ordering (PT-25a in EJ0a and PT-25b in EJ5 edit the catalog in other waves).
 
 **Steps (RED first)**
 
-1. RED `PlanRuleDescriptions`: for every plan, descriptions equal today's `prop plans` output lines (characterization captured before the move); `serializePlanRules(plan)` is stable and deterministic; web label helpers return their current strings.
-2. RED `payoutPlannerModel`: readiness (PT-12), the rule-capped withdrawable at the effective request (PT-46) as primary, net after split, the blocking gate text, a size sweep using the rulebook retained cushion; `DEFAULT_RULEBOOK` when no session. RED `payoutPlannerUrlState`: encode and decode round-trip every planner input; unknown or out-of-range values are dropped.
-3. Implement: move the CLI describe helpers into lib; the CLI and web helpers call them; the live page uses `simulateLiveAccount` for plans the `LivePlanApplicability` table maps to a builder, with `LiveModelApproximation` shown where the mapping is firm-level; each page has `ToolPageHeading` and metadata; catalog entries added with PD-43 flags (live: calculator inputs and sharing; rules: no sharing; payout planner: own codec); the rulebook query runs only with a session.
-4. GREEN; `bun run cli prop plans` identical before and after (record both); typecheck, eslint, importer greps.
+PT-31a (EJ1):
+
+1. Characterize first (PD-31): record `bun run cli prop plans` for all plans to the scratchpad and pin it in `PlanRuleDescriptions.test.ts`; pin today's `dailyLossLimitLabel` and `describeConsistencyBadge` strings for every plan; pin `stableJson` outputs used by the account router.
+2. RED on typed stubs: `describePlanRules(plan)` returns structured segments (drawdown, DLL, consistency, contracts, fees, payout split, gates, buffer, caps, ladder, profit share) whose CLI rendering equals the pinned `planRuleLines` output line for line for every registry plan; `serializePlanRules(plan)` is canonical structural JSON via `stableJson`, deterministic across runs and key order, changes when a rule value or opt-in (`withPlanOptIns`) changes and not when notes or labels change; the web helpers return their pinned strings; `stableJson` keeps its behaviour after the move.
+3. Implement: move the private describe helpers of `plans/command.ts` plus `describeDll`, `describeShare`, `describeFundedContracts` and `ContractUnit` from `shared.ts` into `~/lib/prop-calculator/describe` (planHeadline and planVariant stay); the CLI and `ladder/command.ts` import from there; the web helpers keep their output; move `stableJson`; add the Rules page (`ToolPageHeading`, no toolbar since stateless, one `ToolSection` per firm with h2, plans as definition lists, availability labels as the CLI prints them); flip `hasPage`; add the route to `indexableRoutes`.
+4. GREEN: `bun run cli prop plans` identical before and after (diff recorded); the guards; typecheck; eslint on owned files; importer greps (no moved name left in `shared.ts` or `plans/command.ts`); knip reported.
+
+PT-31b (EJ2):
+
+5. RED `liveToolModel.test.ts`: for every registry plan the builder from `LivePlanApplicability` (verified; `LiveModelApproximation` where firm-level; "no live stage modeled" for E8, FTMO and NotModeled); `LiveSimInputs` carry instrument and stop from the calculator, `retainedCushion = max(rulebook retained cushion, one full live drawdown)` (DEFAULT_RULEBOOK when anonymous), `payoutRequestSize = effectivePayoutRequest(...)`, and the calculator's winrate, rr, trades per day and seed; the cache key changes with each.
+6. RED `LiveView.dom.test.tsx`: h1 plus toolbar, inputs summary and edit dialog, a Skeleton while pending, the approximation or "not modeled" notice, a refused or failed input through `SimulationFailureNotice`.
+7. Implement: `ComputationId.Live` with its result type, `simulateLiveAccount` through `useDebouncedComputation`, the rulebook query only with a session, `hasPage`, the route, `buildToolMetadata(ToolId.Live)`.
+8. GREEN: new tests, `tests/unit/app/prop-calculator` (`toolAvailability`, `toolCatalog`, `computationCache` guards); typecheck; eslint; importer greps.
+
+PT-31c (EJ6):
+
+9. RED `payoutPlannerUrlState.test.ts`: its own parameter enum in the leaf module; encode and decode round-trip plan, stage, balance, peak, payouts taken, qualifying days, last payout date, floor at last payout and request size; invalid values dropped; keys never collide with `CalculatorUrlParameter`.
+10. RED `payoutPlannerModel.test.ts`: inputs through `SnapshotPlausibility` (both convention mis-entries rejected with the hint); readiness from `PayoutReadiness` at `effectivePayoutRequest` (the blocking gate text; PayoutPending not applicable anonymously); the primary number is PT-46's rule-capped withdrawable; net after split via `payoutFromProfit`; "wait: $X / N days"; MFF Pro's $1,000 minimum message; DEFAULT_RULEBOOK without a session.
+11. RED `payoutSweepWorkerMessages.test.ts`: the request is PT-32's `PayoutSizeSweep` request over `PAYOUT_SIZE_SWEEP_GRID` with the full EnginePolicy (retained cushion, FullRequestOnly, lifetime cap override or LiveTriggersNotChecked), serializable, keyed by `enginePolicyKey`.
+12. Implement the page (`ToolPageHeading` with `ownQuery`), the worker via `useWorkerTask`, the sweep table with SEs and the credit basis labeled per T32; `hasPage`; the route.
+13. GREEN: the 3 tests plus guards; typecheck; eslint; importer greps.
 
 **Regression tests**
 
-- The 3 new tests plus guards
+- PT-31a: `PlanRuleDescriptions`, `PlanRulesSerialization`, `stableJson`; PT-31b: `liveToolModel`, `LiveView.dom`; PT-31c: `payoutPlannerModel`, `payoutPlannerUrlState`, `payoutSweepWorkerMessages`; guards as listed
 
 **Acceptance**
 
-- Three new public tools; one plan-description library for the CLI, the web and the fingerprint; each tool shares only what it uses.
+- One describe library serves the CLI, the web and the plan-rule fingerprint (with CLI output unchanged); the live tool runs the applicable live model under the documented cushion and effective request; the payout planner answers readiness and sweeps sizes off the main thread under the full EnginePolicy.
 
 ## PT-49: plausibility at entry: form, field rules, CSV preview
 
-- **Lane / wave:** J / J1  **Size:** small  **Depends on:** lane E complete, PT-20, PT-28
+- **Lane / wave:** J / EJ0b (before G2; after PT-12b in EJ0a; may overlap EJ1 in time)  **Size:** small  **Depends on:** PT-12b (`SnapshotPlausibility` with the draft-level entry and `SnapshotInputField`), PT-20, PT-28, PT-05g, PT-05h (done), and the U21 quiet window. The parser DRY (step 0) has no dependency.
 - **Items:** F-57 (plausibility), F-64 (preview), F-140 (entry)
 - **Files owned:**
-  - changed `accounts/_components/{AccountForm.tsx, SnapshotFields.tsx, snapshotFieldRules.ts}`, `accounts/import/ImportView.tsx`, `src/lib/prop-accounts/csv/SnapshotCsv.ts`
-  - new `accounts/_components/snapshotPlausibilityIssues.ts`
-  - tests `tests/unit/app/prop-calculator/accounts/snapshotPlausibilityIssues.test.ts`, extended `snapshotFieldRules.test.ts`, extended `tests/unit/lib/prop-accounts/csv/SnapshotCsv.test.ts`
+  - changed `src/app/(app)/prop-calculator/accounts/_components/{AccountForm.tsx (validateSnapshot and the plan and convention inputs only), snapshotFieldRules.ts, SnapshotFields.tsx (only if a form-level issue banner is needed)}`; new `accounts/_components/snapshotPlausibilityIssues.ts`
+  - changed `accounts/import/ImportView.tsx` (preview inputs and alert copy)
+  - changed `src/lib/prop-accounts/csv/{SnapshotCsv.ts, CsvParse.ts}` (the money and count readers use the shared parsers), `csv/index.ts` (EJ0b owner) if exports change
+  - new `src/lib/prop-accounts/core/EntryText.ts` (moved `parseMoneyText`/`parseCountText`), changed `prop-accounts/core/index.ts` (EJ0b owner)
+  - if server enforcement (Q28, default yes): `src/server/api/routers/propAccounts/{snapshot.ts (an assertPlausible step), mutationGuard.ts (fromRejection case)}` and `src/lib/schemas/propAccountOutputs.ts` (EJ0b owner: one `PropMutationRejection.ImplausibleSnapshot` member; PD-42: nothing else in the wave switches over it)
+  - tests: new `tests/unit/app/prop-calculator/accounts/snapshotPlausibilityIssues.test.ts`, extended `snapshotFieldRules.test.ts` and `AccountCreator.dom.test.tsx`; extended `tests/unit/lib/prop-accounts/csv/SnapshotCsv.test.ts`, guard `CsvParse.test.ts`; new `tests/unit/lib/prop-accounts/core/EntryText.test.ts`; `tests/unit/server/propAccounts/snapshot.test.ts` (if server enforcement)
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer, security-reviewer
+
+**Readiness pass 2026-09-26**
+
+- The initial snapshot is not part of `accountFormSchema`; `AccountForm` validates it in `useAccountFormSubmit.validateSnapshot` through `parseSnapshotForm(snapshotValues, snapshotRules)` with `initialSnapshotRules(plan, {fundedOn, purchasedOn, stage}, asOf)`. Plausibility belongs there (plan, stage on asOf, the form's `dashboardConvention` and `accountSize`), on create only.
+- The snapshot rules already live in `~/lib/prop-accounts/snapshots` (PT-05g); the app file keeps only text parsing. `SnapshotFields.tsx` already renders per-field issues accessibly.
+- CSV: `CsvIssueKind.Plausibility` exists and any row issue blocks the whole commit (so "excluded until fixed" means the import is blocked).
+- `SnapshotCsvAccount` picks only `archivedAt`, `id`, `label`; the preview needs firmId, planSerial, optIns, accountSize, dashboardConvention, stage, purchasedOn, fundedOn (all in `account.list`, which ImportView already passes).
+- ImportView's alert says plan-specific checks are "not applied here yet"; the copy changes to what is actually checked.
+- The PT-01b duplicate-row handoff is done. The pending "shared parsers" move is folded in: the form's `parseMoneyText` accepts `$52,400.00`, while `CsvRowReader.money` calls `parseUsdCents` raw and rejects it; COUNT_PATTERN and its message are duplicated.
+- `SnapshotPlausibility` keys failures by the advisor's `SnapshotInputField`; PT-49 owns the exhaustive map to `SnapshotField` and `SnapshotCsvColumn`, and calls PT-12b's draft-level `snapshotDraftIssues(...)` (a new account has no events or payouts).
+- Nothing on the server checks plausibility today (only `assertRequiredFields` and `assertNotStored`); client-only wiring cannot meet "no convention-mixed snapshot can be stored" (Q28).
+- DOM tests run under happy-dom.
+- Already done elsewhere: PT-05g/PT-05h lib rules, server required-field and duplicate checks with typed rejections, `accountStageOn`; PT-28's `appendCsvIssues`, `CsvIssueKind.Plausibility`, batch duplicates, stored-latest clash, all-or-nothing commit; PT-20/PT-41b accessible field issues and the `dashboardConvention` field.
+- Audit decisions: none (T32 to T34 do not touch snapshot entry; the convention hint follows PD-15).
+- Handoffs folded in: PT-20 to PT-49 (`AccountForm.tsx`, `SnapshotFields.tsx`, `snapshotFieldRules.ts`); PT-28 to PT-49 (the preview and the shared parsers); PT-49 to PT-12b (the draft-level entry, already folded into PT-12b); optional: the preview also applies `missingSnapshotFields(snapshotFieldRules(plan, stage))` with `accountStageOn` and stage starts from `event.list`, or `NO_RECORDED_STAGE_STARTS` with the difference disclosed (a clash with an older stored snapshot is still caught only by the server's DuplicateSnapshot).
+- Open user questions: Q28 (server enforcement), Q29 (hard block vs override).
 
 **Steps (RED first)**
 
-1. RED `snapshotPlausibilityIssues`: maps `SnapshotPlausibility` failures to per-field form issues; a nominal-convention 2,400 on a 50K account and a zero-based 52,400 each give the convention message on the balance field; plausible input gives none.
-2. RED `snapshotFieldRules` (extended): plausibility issues are merged with the schema checks and block submit.
-3. RED `SnapshotCsv` (extended): a CSV row with either mis-entry direction appears in the preview with a row-numbered plausibility issue and is excluded from commit until fixed.
-4. Implement the wiring in AccountForm (resolver-level refine using the resolved plan), SnapshotFields and the import preview.
-5. GREEN, typecheck, eslint, importer greps.
+0. RED `EntryText.test.ts`: one `parseMoneyText`/`parseCountText` in `~/lib/prop-accounts/core` accepts `$52,400.00`, `52400`, `52,400.5` and `-12.34`, rejects `1.234` and `abc` with the current messages; `CsvRowReader.money`/`count` and the app `snapshotFieldRules.ts` use them (app exports re-pointed; no duplicate MONEY_PATTERN or COUNT_PATTERN left, grep recorded). Guards `CsvParse.test.ts`, `SnapshotCsv.test.ts`, `snapshotFieldRules.test.ts`; a quoted `"$52,400"` CSV cell is now accepted as in the form.
+1. RED `snapshotPlausibilityIssues.test.ts` (typed stub first): maps each failure's `SnapshotInputField` through an exhaustive `Record` to `SnapshotField` and `SnapshotCsvColumn`; nominal 2,400 on a 50K account and zero-based 52,400 each give the convention message on the balance field; a highest EOD below the balance flags that field; plausible input gives none.
+2. RED `snapshotFieldRules` (extended): `validateSnapshotDraft(values, rules, plausibilityContext)` (or an extra argument to `parseSnapshotForm`) merges plausibility with parse and schema issues and returns Invalid, blocking submit.
+3. RED `AccountCreator.dom.test.tsx` (extended): with stage, convention and account size chosen, 2,400 on a nominal 50K account shows the convention message on the balance input (`aria-invalid`) and the create mutation is not called; switching to $0-based clears it.
+4. RED `SnapshotCsv` (extended): `previewSnapshotCsv(text, accounts, stored)` with the widened accounts: either mis-entry direction gives a row-numbered `CsvIssueKind.Plausibility` issue on the balance column and `csvCommitPayload` is null until fixed; an unresolvable plan gives a cell issue, not a crash; optionally the per-stage required-field check.
+5. If Q28 is yes: RED `snapshot.test.ts`: create and bulkCreate reject an implausible snapshot with `PropMutationRejection.ImplausibleSnapshot` (BAD_REQUEST) through `data.propRejection`, naming the account label and date; queries stay userId-scoped; plausible snapshots unchanged. Per Q29 default, impossible states are a hard block and only the "far from account size" heuristic allows an explicit override.
+6. Implement: `validateSnapshot` passes the resolved plan, `form.watch('dashboardConvention')`, `form.watch('accountSize')` and the stage on asOf (from `initialSnapshotRules`' stage logic, exported once); ImportView passes the widened accounts and updates its alert copy; the server step mirrors `assertRequiredFields`.
+7. GREEN: the listed tests, `tests/unit/app/prop-calculator/accounts`, `tests/unit/lib/prop-accounts`, `tests/unit/server/propAccounts` if touched; typecheck at baseline; `bunx eslint <owned files>`; importer greps.
 
 **Regression tests**
 
-- The 3 files
+- `EntryText`, `snapshotPlausibilityIssues`, extended `snapshotFieldRules`, `AccountCreator.dom`, `SnapshotCsv`, and `snapshot.test.ts` if server enforcement; guard `CsvParse.test.ts`
 
 **Acceptance**
 
-- No convention-mixed snapshot can be stored from the form or the CSV import; F-140's entry part is delivered here (the weekly review part in PT-27).
+- The account form, the CSV preview and (by default) the server refuse convention-mixed and impossible snapshots with a field-level message; one money and count parser serves the form and the CSV reader.
 
 ## PT-25: public tools: position size, funded optimizer
 
-- **Lane / wave:** J / J2  **Size:** medium  **Depends on:** PT-31, PT-13, PT-16, PT-44
+- **Lane / wave:** J, split: PT-25a (position size) in EJ0a (now), PT-25b (funded optimizer) in EJ5  **Size:** medium overall
+- **Depends on:** PT-25a: nothing functional (every helper exists; MES appears later through `ALL_INSTRUMENTS` once PT-13 lands; PT-13 then re-points the model to `contractsAtStop`), plus the U21 quiet window; it owns `toolCatalog.ts`, `routes.ts` and `toolPages.test.ts` in EJ0a. PT-25b: PT-16 (lifted candidates, sorts, row cells and notes), PT-14 (`payoutRequestPolicy` in `SimInputs` and the cache key), PT-19 (`applyEnginePolicy`, `enginePolicyKey`; brings PT-35's lifetime cap data), PT-44 (estimates). PT-31 was only a file-ordering dependency; its parts edit the catalog in EJ1, EJ2 and EJ6.
 - **Items:** F-2, F-19, F-26, F-27, F-142, F-155
 - **Files owned:**
-  - new `(tools)/position-size/{page.tsx, PositionSizeView.tsx}`, `(tools)/funded-optimizer/{page.tsx, FundedOptimizerView.tsx}`
-  - new `_components/positionSize/{positionSizeModel.ts, positionSizeUrlState.ts}`, `_components/fundedOptimizer/fundedOptimizerModel.ts`
-  - new `_workers/{fundedSweepWorker.ts, fundedSweepWorkerMessages.ts}`
-  - changed `_components/toolCatalog.ts`
-  - tests `tests/unit/app/prop-calculator/{positionSizeModel,positionSizeUrlState,fundedOptimizerModel,fundedSweepWorkerMessages}.test.ts`
+  - PT-25a: new `(tools)/position-size/{page.tsx, PositionSizeView.tsx}`, `_components/positionSize/{positionSizeModel.ts, positionSizeUrlState.ts}`; changed `_components/toolCatalog.ts` (`hasPage` only) and `src/lib/site/routes.ts` (`indexableRoutes` only); tests `tests/unit/app/prop-calculator/{positionSizeModel,positionSizeUrlState}.test.ts`, extended `toolPages.test.ts`
+  - PT-25b: new `(tools)/funded-optimizer/{page.tsx, FundedOptimizerView.tsx}`, `_components/fundedOptimizer/{fundedOptimizerModel.ts, useFundedSweep.ts}`, `_workers/{fundedSweepWorker.ts, fundedSweepWorkerMessages.ts}`; changed `toolCatalog.ts`, `routes.ts`, `_components/ComputationId.ts` (FundedOptimizer member), `toolPages.test.ts`; tests `tests/unit/app/prop-calculator/{fundedOptimizerModel,fundedSweepWorkerMessages}.test.ts`. The conditional lib and CLI edits are gone: PT-16 lifts the whole surface.
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer
+
+**Readiness pass 2026-09-26**
+
+- The catalog entries exist (`ToolId.PositionSize` own-codec, `ToolId.FundedOptimizer` calculator tool, flags pinned); only `hasPage` flips, together with `indexableRoutes` (PT-43b guards require both).
+- `useWorkerTask` and `workerTaskState` exist with no production caller yet; the protocol is `WorkerTaskRequest<TRequest>` in and `WorkerTaskMessage` (Progress, Done, Failed with runId) out.
+- No `stopForExactRisk` or new contracts helper: contracts are `wholeContractCount(risk, sizing)`, leftover follows from `oneContractRisk`, and the exact-risk stop is `minStopPoints(risk, contracts, pointValue)` (real call shape `minStopPoints(450, 3, 20)`). PT-13 later adds `contractsAtStop` on the same primitives and re-points this model to it (tests unchanged).
+- Phase and tier caps: `contractLimitAt(limits, phase, isMicro, TierProfitContext)`, `contractLimitTierBreakpoints`, `fundedStartContractLimit`, `placedFundedRiskAt`.
+- The CLI's columns changed after the audit (per-cycle net, horizon credit, monthly net, monthly ex-credit, bust when funded, survivors) and candidates depend on stop points (T33); PT-16 now lifts all of it, including notes and the sort description.
+- The web's `buildSimInputs` maps a null retained cushion to undefined, so the engine falls back to $0 on TopStep; forbidden here (PD-26, F-142).
+- `simInputsCacheKey` keys the plan by `plan.id`, so a lifetime cap override must be in the key's extra fields: use PT-19's `enginePolicyKey`.
+- Every tools page decodes its query into calculator state (PD-8 a): the position-size codec keys must be disjoint from every key `encodeState` writes.
+- Already done elsewhere: PT-10 catalog, routes, heading with `ownQuery`, toolbar, metadata, section, inputs dialog, worker hook, cache; PT-43b availability; PT-41b recent tools; T33/WP39/WP40 plus PT-11f/PT-11g placement, refusal and failure display; WP40/T32 credit fields.
+- Audit decisions: T33 (never present a funded dollar risk below one contract as tradable nor fractional funded contracts; funded placement equals `placedFundedRiskAt`; eval is ContractCapped; show each phase's behaviour; the optimizer reproduces the CLI's percent, flat and ladder handling). T32/U17 (default sort is credit-inclusive monthly net as in the CLI; show the credit and ex-credit columns; a U17 change goes through the shared lib sort). PD-26 (the cushion is never the plan default).
+- Handoffs folded in: PT-10 (consume as is); PT-43b (flip `hasPage` and add the route in the same change); PT-16 (lift the whole surface; done in PT-16's section); PT-44 (estimates for every optimizer column; done in PT-44's section); PT-13 (no `stopForExactRisk`; `contractsAtStop` on the same primitives, with the re-point); PT-19 (`applyEnginePolicy` and `enginePolicyKey`; done in PT-19's section).
+- Open user questions: Q7 (exact stop tick rounding; the model already rounds down by default), Q30 (optimizer policy source), Q1 (U17).
 
 **Steps (RED first)**
 
-1. RED `positionSizeModel`: contracts at today's stop, leftover dollars, the entry-offset stop for an exact risk, `minStopPoints` at the plan cap for the chosen phase and tier (PT-13 functions only); $450 on 3 NQ gives 7.5 points; MES available. RED `positionSizeUrlState`: round-trip of risk, instrument, stop, plan and phase; invalid values dropped.
-2. RED `fundedOptimizerModel`: rows equal `sortFundedResults` for a seed and policy, in the CLI's order, with the survivors column and SEs from PT-44.
-3. RED `fundedSweepWorkerMessages`: the request carries the full `EnginePolicy` (`DEFAULT_RULEBOOK` for anonymous users); the cache key changes with retained cushion, effective payout request, payout policy and lifetime cap override.
-4. Implement pages, catalog entries (position size: own codec; funded optimizer: calculator inputs and sharing), the worker via `useWorkerTask`, bounded trials; the rulebook query only with a session.
-5. GREEN, typecheck, eslint, importer greps.
+PT-25a (EJ0a):
+
+1. Re-read `toolCatalog.ts`, `ToolPageHeading.tsx`, `CalculatorToolbar.tsx`, `shareLink.ts`, `urlState.ts` (every key `encodeState` writes), `src/lib/schemas/calculatorUrlParameter.ts`, `PositionSizing.ts`, `ContractLimits.ts`, `PlacedFundedRisk.ts`, `Instruments.ts`, `Plan.tierProfitContext`, `toolAvailability.test.ts`, `routes.test.ts`, `toolPages.test.ts`.
+2. Typed stubs: `positionSizeFor(input): PositionSizeResult`, `encodePositionSize`, `decodePositionSize`.
+3. RED `positionSizeModel.test.ts`: contracts = `wholeContractCount(risk, sizing)`, leftover = risk - contracts x `oneContractRisk` in whole cents; the exact-risk stop is `minStopPoints(risk, contracts, pointValue)` rounded down to the tick (Q7 default) with the risk at that stop never above the entered risk ($450 on 3 NQ gives 7.5 exactly; $475 at 7.5 on NQ gives 3 contracts, $25 leftover, and a 7.75 stop risking $465), the exact figure shown as a note; below one contract gives 0 plus the `formatOneContractRisk` text, and in the funded phase it says the engine refuses this risk (the `simInputsSizingIssue` outcome), in eval it follows ContractCapped; the phase and tier cap from `contractLimitAt(...)` with tiers from `contractLimitTierBreakpoints`, contracts capped and flagged, the minimum stop at the cap `minStopPoints(risk, cap, pointValue)`, no cap without limits; funded start tier equals `placedFundedRiskAt(risk, sizing, plan)`; every `ALL_INSTRUMENTS` entry offered; no output converts a contract cap into a dollar suggestion (PD-25).
+4. RED `positionSizeUrlState.test.ts`: round trip of risk, instrument, stop, plan (serial via `findPlanBySerial`), phase and tier; each invalid value dropped on its own; every key disjoint from `encodeState(default)` and `CalculatorUrlParameter`.
+5. RED `toolPages.test.ts` guards: the page exports `buildToolMetadata(ToolId.PositionSize)`, renders no `<main>`, starts with `ToolPageHeading` (PositionSize, `ownQuery`).
+6. Implement `page.tsx` and the client view (state from `decodePositionSize`, shared through `ownQuery = encodePositionSize(state)`); `hasPage: true`; the route in `indexableRoutes`.
+7. GREEN: the new tests, `tests/unit/app/prop-calculator`, `tests/unit/lib/site`; typecheck; eslint on owned files; importer greps.
+
+PT-25b (EJ5):
+
+8. Re-read `~/lib/prop-calculator/optimize` (PT-16), PT-19's `applyEnginePolicy` and `enginePolicyKey`, `simInputsCacheKey` after PT-14, `SimOutputs.estimates`, `useWorkerTask`, `ladderWorker.ts` (how it rebuilds its plan).
+9. Typed stubs: `fundedOptimizerRequest(state, rulebook)`, `fundedOptimizerRows(results, sort, trials)`, the request type, `fundedSweepCacheKey`, the worker.
+10. RED `fundedOptimizerModel.test.ts` (fixed seed, trials and policy): rows equal the lifted sort over `simulate` per lifted candidate in CLI order and labels; columns from the lifted `fundedRowCells` (per-cycle net, horizon credit, monthly net, monthly ex-credit, bust when funded, survivors), each with an SE from `estimates`; both `FundedSortKey` values; without stop points the percent rows are absent with the lifted note; below-one-contract flats absent with the lifted note.
+11. RED `fundedSweepWorkerMessages.test.ts`: structuredClone-safe (plan serial and opt-ins, no `Plan`); carries the full EnginePolicy (DEFAULT_RULEBOOK when signed out); with calculator `retainedCushion` null a TopStep request carries 2,000, never $0 (Q30 default: calculator values when set, else the rulebook's); the effective request with FullRequestOnly; the key changes with cushion, effective request, policy, lifetime cap override, path steps, rebuy lag, instrument, stop, trials and seed; trials clamped to a stated maximum.
+12. Implement: the worker rebuilds the plan (`findPlanBySerial`, `withPlanOptIns`) and builds `SimInputs` through `applyEnginePolicy`, posting Progress per candidate then Done or Failed; `useFundedSweep` wraps `useWorkerTask` and caches under `ComputationId.FundedOptimizer`; the view (heading with toolbar, inputs summary and dialog, a `ToolSection` with h2, a policy-basis label, refusals via `describeSimulationFailure`/`SimulationFailureNotice`); the rulebook query only with a session; `hasPage`, the route; `toolPages.test.ts` guards (worker referenced only from `useFundedSweep`, not loaded by the layout).
+13. GREEN as in step 7 plus the optimize lib tests and `tests/unit/cli/prop/optimizeFunded.test.ts`.
 
 **Regression tests**
 
-- The 4 helper tests
+- `positionSizeModel`, `positionSizeUrlState`, `fundedOptimizerModel`, `fundedSweepWorkerMessages`; guards: `toolPages`, `toolAvailability`, `toolCatalog`, `routes`
 
 **Acceptance**
 
-- Two public tools reuse the lib; the optimizer matches the CLI under the same policy; position size shares its own inputs.
+- The position-size tool shows whole contracts, leftover, the tick-aligned exact stop and the phase and tier cap now; the funded optimizer reproduces the CLI's candidates, columns and sort off the main thread under the full EnginePolicy, with SEs and refusals named.
 
 ## PT-27: weekly review
 
-- **Lane / wave:** J / J2  **Size:** medium  **Depends on:** PT-19, PT-23, PT-49
+- **Lane / wave:** J / EJ6 (it waits one wave only because PT-36 owns `src/lib/schemas/propAccounts.ts` in EJ5)  **Size:** medium  **Depends on:** PT-12c (`SnapshotAdapter`, `AccountReconstruction`), PT-12b (`SnapshotPlausibility`), PT-19 (`createSizingAdvisor(...).documented()`, `AdviceStaleness`, `AdviceSource` with the `Documented` member, the narrowed decision source), PT-49 (`snapshotPlausibilityIssues`). Not PT-23.
 - **Items:** F-63, F-140 (review)
-- **Files owned:** new `accounts/review/{page.tsx, WeeklyReviewView.tsx, weeklyReviewModel.ts}`, `tests/unit/app/prop-calculator/accounts/weeklyReviewModel.test.ts`
-- **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer
+- **Files owned:**
+  - new `src/app/(app)/prop-calculator/accounts/review/{page.tsx, WeeklyReviewView.tsx, weeklyReviewModel.ts}`
+  - new `src/server/api/routers/propAccounts/{review.ts, snapshotGuards.ts}`; changed `propAccounts/index.ts` (EJ6 owner: register review), `propAccounts/decision.ts` (`latestForAll`), `propAccounts/snapshot.ts` (extract `assertRequiredFields` and `assertNotStored`)
+  - changed `src/lib/prop-accounts/server/PropAccountRepo.ts` (`latestDecisions`, userId-scoped)
+  - changed `src/lib/schemas/propAccounts.ts` (EJ6 owner: `weeklyReviewSubmitSchema`; also the decision `source` narrowing if PT-19 missed it)
+  - tests: new `tests/unit/app/prop-calculator/accounts/weeklyReviewModel.test.ts`, `tests/unit/server/propAccounts/review.test.ts`; changed `decision.test.ts` (`latestForAll`), `userScoping.test.ts` (`VALID_INPUTS` for the new procedures), `outputTypes.test.ts`, `propRouterHarness.ts`; guard `snapshot.test.ts` (behaviour unchanged)
+- **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer, security-reviewer, database-reviewer
+
+**Readiness pass 2026-09-26**
+
+- The old payload (`snapshot.bulkCreate`, then `decision.create` per size) is unsafe: `decision.create` needs the snapshot id, so it takes two round trips and is not atomic, and each `decision.create` is rate-limited (60 per minute), so a review of over about 60 accounts (up to 200 allowed) would fail part-way. One transactional `review.submit` writes snapshots and decisions together.
+- There is no `decision.latestForAll`; per-account `listForAccount` would fan out. PT-27 adds one userId-scoped query.
+- `decisionCreateSchema.source` is still free text; PT-19 narrows it and declares a `Documented` member (PD-42). If PT-19 missed it, PT-27 does it here.
+- Snapshot rules live in `~/lib/prop-accounts/snapshots`; the server's `assertRequiredFields` and `assertNotStored` are private and are extracted into `snapshotGuards.ts`, not copied.
+- The subnav already lists Weekly review (PT-20), the layout does the session guard, and account pages render their own `<main>` with prefetch plus `HydrateClient`. Rows with `readIssues` are read-only and excluded with the reason.
+- Already done elsewhere: PT-05/PT-05f/PT-05g/PT-05h (bulkCreate with ownership, per-plan required fields, duplicate rejections, quotas); PT-01 (`SnapshotSource.WeeklyReview`; the composite snapshot FK on decisions); PT-07 (`WeeklyReviewDueRule`, `latestWeekdayOnOrBefore`); PT-20 (route and nav item); UsdCents helpers.
+- Audit decisions: T33 (a funded documented size is a dollar risk, never converted to contracts without a stop, PD-25; if a stop entry is offered, placed size via `placedFundedRiskAt`, below one contract shown as refused, never accepted).
+- Handoffs folded in: PT-19 to PT-27 (only `documented()` and staleness); C9 (plausibility blocks the row); PT-20 (nav done); PT-05 and PT-01 to PT-19 (narrowing, with PT-27 as fallback owner).
 
 **Steps (RED first)**
 
-1. RED `weeklyReviewModel`: one row per active, non-suspended account, prefilled from the last snapshot; new entries go through `SnapshotPlausibility` (both mis-entry directions block the row with the convention message) and then give the documented size (sync); diff vs last week; validation matches the PT-01 schema; the submit payload is `snapshot.bulkCreate` plus `decision.create` per accepted size, each with its snapshot id, and excludes blocked rows.
-2. Implement.
-3. GREEN, typecheck, eslint, importer greps.
+1. Re-read `snapshot.ts`, `decision.ts`, `mutationGuard.ts`, `propAccounts.ts` schemas, the lib and app snapshot field rules, PT-12's plausibility, adapter and reconstruction, PT-19's advisor, staleness and source, PT-49's issue mapping, `WeeklyReviewDueRule`, `TradingSessionCalendar`, `accounts/page.tsx` (prefetch pattern), UsdCents.
+2. Typed stubs: `reviewRows`, `reviewRowState`, `reviewSubmitPayload`, `weeklyReviewSubmitSchema`, `review.submit`, `decision.latestForAll`.
+3. RED `weeklyReviewModel.test.ts`: one row per Active, unarchived account without `readIssues` (corrupt rows listed separately read-only with the reason; Suspended, Busted, Concluded, Closed excluded); default asOf `latestWeekdayOnOrBefore(today, rulebook.review.weekday)`; rows prefilled from `snapshot.latestForAll`; required fields from `missingSnapshotFields` for the plan and stage; nominal 2,400 on 50K and zero-based 52,400 each block the row with the convention message from `snapshotPlausibilityIssues`; a plausible row gets `createSizingAdvisor(stage, plan).documented()` in cents via `usdCentsFromDollars` (no eval advice on an instant-funded plan; StaleAdvice gives no amounts and no decision); the diff is against the last accepted size from `decision.latestForAll`, else the documented size at the previous snapshot; the payload is one submit with the unblocked rows' snapshots (source WeeklyReview) and a decision only for accepted rows (headline, accepted risk and positive rungs in cents, at most `MAX_ACCEPTED_RUNGS`, stage, `decidedOn = asOf`, `AdviceSource.Documented`).
+4. RED `review.test.ts` (fake DB): `submit` inserts every snapshot and decision in one transaction, each decision's `snapshotId` the snapshot inserted for the same account and date; every account ownership-checked; a stored duplicate gives DuplicateSnapshot and writes nothing; a missing field gives MissingSnapshotField; the schema rejects a decision for an account without a snapshot in the batch; snapshot and decision quotas checked; one rate-limit call; `assertUserScopedWhere` on every statement. RED `decision.test.ts`: `latestForAll` returns at most one row per account, userId-scoped. `snapshot.test.ts` stays green after the extraction.
+5. Implement: `snapshotGuards.ts` used by `bulkCreate` and `submit`; `review.ts` registered; `latestDecisions`; `page.tsx` (layout session guard; prefetch `account.list`, `snapshot.latestForAll`, `decision.latestForAll`, `rulebook.get`; `HydrateClient`; own `<main>` and `<h1>`); `WeeklyReviewView.tsx` with the logic in the model.
+6. GREEN: new and changed tests plus `tests/unit/app/prop-calculator/accounts` and `tests/unit/server/propAccounts`; typecheck; eslint on owned files; importer greps.
 
 **Regression tests**
 
-- `weeklyReviewModel.test.ts`
+- `weeklyReviewModel`, `review`, extended `decision`, `userScoping`, `outputTypes`; guard `snapshot.test.ts`
 
 **Acceptance**
 
-- The Monday routine updates every account in one submit, refuses implausible rows, and logs accepted sizes.
+- One weekly pass records every active account's snapshot and accepted documented size atomically, blocks implausible or incomplete rows, shows the change from last week, and never fans out per account.
 
 ## PT-33: overview: exposure, fresh projection
 
-- **Lane / wave:** J / J2  **Size:** medium  **Depends on:** PT-21, PT-26, PT-48
+- **Lane / wave:** J / EJ7 (with PT-30b, PT-38, PT-42)  **Size:** medium  **Depends on:** PT-21b (creates the overview worker PT-33 extends), PT-26b (Exposure), PT-48b (`DocumentedPolicySpec`, closure builder, `documentedPolicyTimelineInputs`), PT-19 (EnginePolicy and documented sizing), PT-14 (payout policy threaded through the timeline). PT-23, PT-31 and PT-49 are not needed.
 - **Items:** F-86 (UI), F-87 (fresh)
-- **Files owned:** `accounts/_components/overview/**` (new `ExposureCard.tsx`, `ProjectionCard.tsx`, changed `OverviewView.tsx`, `overviewModel.ts`), `accounts/_workers/{overviewWorker.ts, overviewWorkerMessages.ts}`, their tests
+- **Files owned:**
+  - new `src/app/(app)/prop-calculator/accounts/_components/overview/{ExposureCard.tsx, ProjectionCard.tsx}`; changed `overview/{OverviewView.tsx, overviewModel.ts}` (EJ7 owner)
+  - changed `src/app/(app)/prop-calculator/_workers/{overviewWorker.ts, overviewWorkerMessages.ts}` (a projection request kind; EJ7 owner)
+  - tests: extended `tests/unit/app/prop-calculator/accounts/{overviewModel,overviewWorkerMessages}.test.ts`
+  - no `advisor/policy` file: PT-48b owns the timeline adapter
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer
+
+**Readiness pass 2026-09-26**
+
+- Every file it extends is created by PT-21a/PT-21b; `Exposure.ts` by PT-26b.
+- The timeline takes `PortfolioTimelineInputs` (not `SimInputs`) from the subpath `~/lib/prop-calculator/portfolioTimeline`; PT-48b's `documentedPolicyTimelineInputs` builds them from the spec and lists the EnginePolicy fields the timeline cannot honour (funded rr different from strategy rr, path steps, rebuy lag). PT-14 threads `payoutRequestPolicy` through the timeline, so PayoutPolicyDiffers is not needed.
+- The timeline refuses sizing issues itself with a `runAccountTimeline:` message that `describeSimulationFailure` does not strip: pre-validate with `simInputsSizingIssue` as `useCashFlowSimulation` does.
+- The timeline caps trades per day (`effectiveCashFlowTradesPerDay`, `CASH_FLOW_MAX_TRADES_PER_DAY`); use and disclose the same cap.
+- `charts/CashFlowBandChartView.tsx` already draws a band from a `PortfolioTimelineResult`.
+- Worker files live in `_workers/`, not `accounts/_workers/`.
+- Already done elsewhere: PT-11g (timeline takes instrument and stop and refuses what the simulator refuses; pre-validation and keying on the cash-flow page); PT-17 (band and breakeven charts); PT-26b (Exposure).
+- Audit decisions: T32 (the timeline books no end-of-horizon credit, while expected monthly net includes one capped request: the card says so). T33 (with a stop the documented funded risk is placed in whole contracts, possibly below $250 or refused; without a stop the risk runs as dollars, disclosed; refusals via `simInputsSizingIssue`). PD-26 (always the EnginePolicy cushion).
+- Handoffs folded in: PT-48 to PT-33 (spec only; the worker builds closures); PT-48b owns the adapter; PT-14 threads the policy; PT-26 (Exposure shape consumed as is).
 
 **Steps (RED first)**
 
-1. RED: the overview model gains first-trade risk and maximum daily loss per account and group, and a projection request keyed per plan and `DocumentedPolicySpec` (a fresh-start `simulatePortfolioTimeline` band under the documented rule, labeled).
-2. Implement (the worker builds inputs with `toSimInputs`).
-3. GREEN, typecheck, eslint, importer greps.
+1. Re-read PT-21b's overview model, view, data hook and worker; PT-26b's `Exposure.ts`; PT-48b's `advisor/policy` (the adapter); `portfolioTimeline/{types,accountTimeline,portfolio}.ts` (N = min(accounts, `plan.maxFundedAccounts`)); PT-14's timeline policy threading; `useCashFlowSimulation.ts`; `CashFlowBandChartView.tsx`.
+2. RED `overviewModel` (extended): exposure rows from Exposure per account and per copy group (first-trade risk, maximum daily loss, share of cushion at risk, the group as one correlated bet); accounts with read issues or an unresolvable plan listed as not computed; one projection request per distinct plan serial, opt-ins and `enginePolicyKey`, with accounts = active accounts on that plan; each projection labelled (fresh start from a new purchase, trials, retained cushion, payout request and policy, lifetime cap basis, trades-per-day cap, fields not honoured, no end-of-horizon credit unlike expected monthly net).
+3. RED `overviewWorkerMessages` (extended): the projection request carries only the spec, keyed by the full policy key, deduped per plan and policy; a sizing refusal is found before the run via `simInputsSizingIssue` and returned as a typed failure with the engine text; the trades-per-day cap equals `effectiveCashFlowTradesPerDay`.
+4. Implement: in the worker, rebuild the plan from its serial, build inputs through `documentedPolicyTimelineInputs` and run `simulatePortfolioTimeline`; `ExposureCard` and `ProjectionCard` (each with an h2) reuse `CashFlowBandChartView` and `SimulationFailureNotice`; logic in `overviewModel.ts`.
+5. GREEN: the changed tests plus `tests/unit/app/prop-calculator/accounts`; typecheck; eslint on owned files; importer greps.
 
 **Regression tests**
 
-- The updated overview tests
+- Extended `overviewModel` and `overviewWorkerMessages`; guards: the accounts app suite
 
 **Acceptance**
 
-- The overview shows exposure and a labeled forward projection under the documented rule.
+- The overview shows exposure per account and per copy group and a fresh-start P10 to P90 projection per plan under the documented policy, labelled with every assumption and never confused with expected monthly net.
 
 ## PT-45: plan-rule fingerprint and firm-data provenance
 
-- **Lane / wave:** J / J2  **Size:** medium  **Depends on:** PT-31, PT-05
+- **Lane / wave:** J / EJ2 (moved from J2; after PT-31a's structural serializer in EJ1)  **Size:** medium  **Depends on:** PT-05 (done), PT-31a (`serializePlanRules`, `stableJson`). It does not wait for PT-19: PT-19 (EJ4) declares the Provenance fields and wires PT-45's functions.
 - **Items:** F-98, F-126 (fields)
 - **Files owned:**
-  - new `src/lib/prop-calculator/describe/{PlanRulesFingerprint.ts, FirmDataProvenance.ts}`, changed `describe/index.ts`
-  - changed `src/server/api/routers/propAccounts/account.ts` (stamp on create), new `src/lib/prop-accounts/alerts/PlanRulesChangedRule.ts`, changed `alerts/AlertEvaluator.ts`, `alerts/index.ts`
-  - changed `src/lib/prop-calculator/advisor/Provenance.ts`
-  - tests `tests/unit/lib/prop-calculator/describe/{PlanRulesFingerprint,FirmDataProvenance}.test.ts`, `tests/unit/lib/prop-accounts/alerts/PlanRulesChangedRule.test.ts`, `tests/unit/server/propAccounts/accountFingerprint.test.ts`
+  - new `src/lib/prop-calculator/describe/{PlanRulesFingerprint.ts, FirmDataProvenance.ts}`, changed `describe/index.ts` (EJ2 owner)
+  - changed `src/server/api/routers/propAccounts/account.ts` (stamp in `insertAccounts`, restamp or backfill in `update`)
+  - changed `src/lib/prop-accounts/server/PropAccountRepo.ts` and `src/lib/schemas/propAccountOutputs.ts` (EJ2 owner: a server-computed `planRulesChanged` on list and get rows, under the Q31 default)
+  - new `src/lib/prop-accounts/alerts/PlanRulesChangedRule.ts`; changed `alerts/{AlertContext.ts, AlertEvaluator.ts, index.ts}` (EJ2 owner)
+  - tests: new `tests/unit/lib/prop-calculator/describe/{PlanRulesFingerprint,FirmDataProvenance}.test.ts`, `tests/unit/lib/prop-accounts/alerts/PlanRulesChangedRule.test.ts`, `tests/unit/server/propAccounts/accountFingerprint.test.ts`; updated `AlertEvaluator.test.ts`, `alertFixtures.ts`, `outputTypes.test.ts`, `propRouterHarness.ts`; guard `tests/unit/lib/prop-accounts/barrel.test.ts`
+  - not `advisor/AdviceProvenance.ts` (PT-19 declares the fields and fills them from PT-45's exports)
 - **Reviewers:** code-reviewer, typescript-reviewer, security-reviewer
+
+**Readiness pass 2026-09-26**
+
+- The `plan_rules_fingerprint` column exists (varchar(64), nullable, migration 0007); no migration. It is in `propAccountOutputSchema` and seeded null by the harness.
+- `AlertKind.PlanRulesChanged` and its label exist (PT-07); only the rule and its registration are missing. `AlertAccountRow` must gain the field.
+- Stamping: `create` and `importMany` share `insertAccounts`; an update that changes the plan key (firmId, planSerial, optIns, accountSize) restamps with an Edited change; `update` returns the stored row unchanged when nothing changed, so a null backfill happens only with a real edit.
+- Hashing: sha256 here is async Web Crypto; the alert runs synchronously in the browser. Default (Q31): the server computes the fingerprint and ships `planRulesChanged` on list and get rows, memoised per plan key.
+- The serializer is structural (PT-31a, EJ1); PT-45 reuses it and `stableJson`.
+- `AdviceProvenance` is PT-19's (EJ4, after PT-45), which now declares `planRulesFingerprint` and `firmData` and the staleness input for a mismatch. The detail banner comes free: PT-23a renders the account's alerts.
+- Already done elsewhere: the column (PT-01/PT-01c/PT-01d; 0007 applied or not per U3); the AlertKind; PT-05's Edited-event machinery and scoped router; `stableJson` (moved by PT-31a).
+- Audit decisions: no T32 to T34 conflict. Fingerprints stamped now are the baseline for rules the audit just changed; an account created before a later firm-data change (the parked Apex and Lucid paste-blocked steps, N-40, N-53) will correctly alert then. The provenance table lists those open items rather than claiming full verification (Q32).
+- Reuse: `stableJson`, `serializePlanRules`, `withPlanOptIns`, `offeredPlanOptIns`, `resolvedPlanOrThrow`, `resolvePlanKey`, `AccountAlertRule`, the fixtures, `assertUserScopedWhere`, `FirmId`/`ALL_FIRMS` for an exhaustive record, `repo.recordEdits`; PT-35's `FirmPolicySource` dates where PT-35 has landed (EJ1), else the audit tracker and `.claude/prop-firms/*/SOURCES.md`.
+- Handoffs folded in: PT-31 to PT-45 (reversed: PT-31a owns the serializer); T12 (DP advice stale on a fingerprint mismatch: PT-30 stamps and compares with `planRulesFingerprint`); PT-19 (Provenance fields and staleness input); PT-23 (banner via alerts); PT-35 (reuse `FirmPolicySource` dates); F-126 (firm-data date via `firmDataProvenance(firmId)`).
+- Open user questions: Q31 (hashing), Q32 (partially verified display).
 
 **Steps (RED first)**
 
-1. RED `PlanRulesFingerprint`: sha256 of `serializePlanRules(plan)` with opt-ins; stable across runs; changes when any described rule changes (a test plan with a changed DLL).
-2. RED `FirmDataProvenance`: a typed table `FirmId` to `{verifiedOn, source}` populated from the audit tracker's completed firm verification dates (read at implementation time and cited); firms without an entry give `unverified`.
-3. RED `PlanRulesChangedRule`: fires when an account's stored fingerprint differs from the current one; null fingerprints (accounts created before PT-45) are backfilled on the next update with an `Edited` event and do not alert.
-4. RED `accountFingerprint`: `account.create` stores the fingerprint; the query stays userId-scoped.
-5. Implement; `Provenance` gains fingerprint and firm-data date fields (declared as optional in PT-19, filled here; no member added to a type another J2 package consumes).
-6. GREEN, typecheck, eslint, importer greps.
+1. Re-read `Plan.ts` rule fields, PT-31a's `serializePlanRules`, `account.ts` (`insertAccounts`, `update`, `EDITABLE_FIELDS`), `PropAccountRepo` (`readAccount`, `listAccounts`, `loadPlanTolerantAccountOrThrow`), `propAccountOutputs.ts`, `AlertContext.ts`, `AlertKind.ts`, `AlertEvaluator.ts`, `UnresolvablePlanRule.ts`, the column; for dates, the audit tracker's T4 and docs rows, `SOURCES.md`, and PT-35's policy sources if landed.
+2. Typed stubs: `planRulesFingerprint(plan): Promise<string>`, `firmDataProvenance(firmId)`, `PlanRulesChangedRule`.
+3. RED `PlanRulesFingerprint.test.ts`: 64 lowercase hex characters (sha256) over `serializePlanRules`; changes when the DLL changes on a test plan and when opt-ins change; not when only notes or labels change; the same from Node and `globalThis.crypto.subtle`.
+4. RED `FirmDataProvenance.test.ts`: an exhaustive `Record<FirmId, ...>`, each `{verifiedOn, source (cited path), openItems}` or Unverified (Q32 default: last full verification date with open items), values read at implementation time and cited.
+5. RED `PlanRulesChangedRule.test.ts`: Warning naming the account when `planRulesChanged` is true; silent when false, when the stored value is null (pre-PT-45 account), and for rows with read issues or an unresolvable plan; added to `DEFAULT_ALERT_RULES` (AlertEvaluator test updated).
+6. RED `accountFingerprint.test.ts` (fake DB): `create` and `importMany` store the fingerprint for the resolved plan with its opt-ins; a plan-key update restamps with an Edited change; any real edit on a null fingerprint backfills with an Edited change from null; a no-change update returns the stored row with no event; list and get rows carry `planRulesChanged` (null when unresolvable or unstamped), memoised per plan key; `assertUserScopedWhere` on every statement.
+7. Implement: stamp in `insertAccounts` and `update` (async fingerprint inside the transaction); the output field; the `AlertAccountRow` field and the rule.
+8. GREEN: the 4 new tests plus `tests/unit/lib/prop-accounts`, `tests/unit/server/propAccounts`, `tests/unit/app/prop-calculator/accounts`; typecheck; eslint on owned files; importer greps. No migration.
 
 **Regression tests**
 
-- The 4 files
+- `PlanRulesFingerprint`, `FirmDataProvenance`, `PlanRulesChangedRule`, `accountFingerprint`; guards: the prop-accounts and router suites
 
 **Acceptance**
 
-- Rule changes after purchase are visible, and every advice shows when its firm data was last verified.
+- Every account records the structural fingerprint of its plan's rules at purchase; a later rule change raises an alert and (through PT-19) marks advice stale; each firm's data date and open items are available for provenance.
 
 ## PT-36: firm-policy features
 
-- **Lane / wave:** J / J3 (runs alone)  **Size:** medium  **Depends on:** PT-35, PT-21, PT-22, PT-19, PT-33, PT-45
+- **Lane / wave:** J / EJ5 (was J3 alone; its only reason to wait for PT-33 was file order, and PT-21b, PT-33 and PT-37 now edit the overview files after it)  **Size:** medium
+- **Depends on:** G2, PT-04 (done), PT-35 (hard: `FirmAccountPolicy` and verified data), PT-12c (`PayoutBlockReason.WouldTriggerLive`, `PayoutReadiness`, `advice/SnapshotAdapter`), PT-46 (`PayoutRequestRule`), PT-19 (DailyPlanCard sourced ceilings, DifferenceReasons text, EnginePolicy), PT-22 (`AlertContext` with events and `lastTradedOn`, `IdleSessionLimitRule`, metrics and alerts barrels), PT-21a (overview files), PT-23a (the event-record form), PT-45 (last writer of `AlertEvaluator.ts` before PT-22).
 - **Items:** F-91 to F-94, F-97, F-145 (checks), F-154 (trigger ceiling)
 - **Files owned:**
-  - new `src/lib/prop-accounts/metrics/{PooledCapUsage.ts, LiveTransitionProximity.ts}`, changed `metrics/index.ts`
-  - new `src/lib/prop-accounts/alerts/{LiveTriggerNearRule.ts, PooledCapReachedRule.ts, ConductPatternRule.ts, CalendarInactivityRule.ts, LiveExclusivityRule.ts, CooldownActiveRule.ts}`, changed `alerts/AlertEvaluator.ts`, `alerts/index.ts`
-  - changed `src/lib/prop-calculator/advisor/{PayoutRequestRule.ts, DailyPlanCard.ts, PayoutReadiness.ts, DifferenceReasons.ts}` (behaviour only: every enum member and field they use was declared in PT-12 and PT-19, PD-42)
-  - new `src/lib/prop-accounts/core/LiveExclusivityEffects.ts`, changed `core/index.ts`
-  - new `accounts/_components/overview/{PooledCapCard.tsx, LiveProximityCard.tsx}`, changed `overview/OverviewView.tsx`, `overview/overviewModel.ts`
-  - their tests
-- **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer, trader-rules reviewer
+  - new `src/lib/prop-accounts/metrics/{PooledCapUsage.ts, LiveTransitionProximity.ts}`; changed `metrics/PlanCapUsage.ts` (`pooledCapsModeled` becomes the verified-pool flag; the used-slot count exported), `metrics/index.ts` (EJ5 owner)
+  - new `src/lib/prop-accounts/alerts/{LiveTriggerNearRule.ts, PooledCapReachedRule.ts, ConductPatternRule.ts, CalendarInactivityRule.ts, LiveExclusivityRule.ts, CooldownActiveRule.ts}`; changed `alerts/{AlertEvaluator.ts, index.ts (EJ5 owner), LifetimePayoutCountRule.ts (shared payouts-taken helper), IdleSessionLimitRule.ts (skip firms with a verified calendar policy)}`; `AlertContext.ts` only if PT-22 did not add events and `lastTradedOn`
+  - new `src/lib/prop-accounts/core/LiveExclusivityEffects.ts`, changed `core/index.ts` (EJ5 owner)
+  - new `src/lib/prop-accounts/advice/FirmPayoutCount.ts`, changed `advice/index.ts` (EJ5 owner)
+  - changed `src/lib/prop-calculator/advisor/{PayoutRequestRule.ts, PayoutReadiness.ts, DailyPlanCard.ts}` (behaviour only; types unchanged). Not `DifferenceReasons.ts` (PT-32 owns it in EJ5; PT-19 wrote the text).
+  - changed `src/server/api/routers/propAccounts/event.ts` (confirmed exclusivity effects in the same transaction) and `src/lib/schemas/propAccounts.ts` (EJ5 owner: `eventRecordSchema` optional bounded `confirmedExclusivityAccountIds`, MovedLive only)
+  - new `accounts/_components/overview/{PooledCapCard.tsx, LiveProximityCard.tsx}`; changed `overview/{OverviewView.tsx, overviewModel.ts, CapUsageCard.tsx, usePortfolioData.ts (only if AlertInputs changes)}` (EJ5 owner)
+  - changed `accounts/_components/detail/EventsSection.tsx` and new `detail/liveExclusivityPreview.ts` (the MovedLive preview and confirm; PT-23b owns the other detail files in EJ5)
+  - tests: new `tests/unit/lib/prop-accounts/metrics/{PooledCapUsage,LiveTransitionProximity}.test.ts`, updated `PlanCapUsage.test.ts`; new `alerts/{LiveTriggerNearRule,PooledCapReachedRule,ConductPatternRule,CalendarInactivityRule,LiveExclusivityRule,CooldownActiveRule}.test.ts`, updated `AlertEvaluator.test.ts`; new `core/LiveExclusivityEffects.test.ts`; new `tests/unit/lib/prop-calculator/advisor/{PayoutReadinessLiveTrigger,DailyPlanCardLiveTrigger}.test.ts`; new `tests/unit/server/propAccounts/eventExclusivity.test.ts`; `tests/unit/app/prop-calculator/accounts/{overviewModel,liveExclusivityPreview}.test.ts`
+- **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer, security-reviewer and database-reviewer (the router transaction), trader-rules reviewer (Hard Rules 1, 2, 6 and 7)
 
-**Steps (RED first)**
+**Readiness pass 2026-09-26**
 
-1. RED, per verified policy:
-   - pooled usage across plans (and household where verified);
-   - live proximity: payouts to the count trigger per account and in total;
-   - `PayoutRequestRule` returns `WouldTriggerLive`: a 3rd Tradeify payout on one account (or the 10th total) is blocked with that reason, using PT-04's verified numbers;
-   - `DailyPlanCard` receives the ceiling below a verified single-day trigger (MFF case with PT-04's value) and caps every rung at `(ceiling - running PnL) / rr`, showing "stop for today" below the placeable minimum;
-   - `LiveExclusivityEffects`: MovedLive on one account returns same-firm (and verified household) sim accounts to flag or suspend per the firm's rule; the router applies them through `event.record` in the same transaction only after the user confirms;
-   - cooldown active after a live bust blocks next-slot for that firm;
-   - conduct and calendar inactivity rules;
-   - unverified firms show "unverified", never a number; `LiveTriggersNotChecked` stays for them (marked optimistic on engine numbers).
-2. Implement, including the two overview policy cards.
-3. GREEN, typecheck, eslint, importer greps; typecheck confirms no type other than behaviour changed in the advisor files.
+- Not implementable today: none of its engine or advisor inputs exist yet.
+- The firm-wide trigger ("10 approved payouts since the last live account") needs a payout count across the firm's accounts since the last MovedLive; PT-12c and PT-46 now declare that input (PD-42) and `advice/FirmPayoutCount.ts` computes it.
+- MovedLive effects on sibling accounts need owned files: `event.record` handles one account with a quota of 1 and `eventRecordSchema` takes only accountId, kind, note, occurredOn. The event form is PT-23a's `EventsSection.tsx`, structured for this slot.
+- F-77's disclosure is the literal `pooledCapsModeled: false` in `PlanCapUsage.ts` (asserted in its test); owned now, with `CapUsageCard.tsx`.
+- `AlertContext` lacked events and `lastTradedOn`; PT-22 adds them (handoff).
+- "Cooldown blocks next-slot" is PT-38's; PT-36 exports `purchaseBlockedFirms(ledger, today)` and pooled free slots.
+- Single-day triggers have no intraday data (snapshots are end-of-day); the actionable place is the DailyPlanCard ceiling.
+- Verified firms keep an optimistic live-trigger disclosure on engine numbers for triggers the engine cannot enforce (MFF Rapid single-day, cumulative, discretionary); only count triggers are enforced via `lifetimePayoutCapOverride`.
+- No firm publishes a numeric conduct threshold (Tradeify 6.5, MFF Terms 12.4 and Pro CTP, TopStep RTP/FTP, FTMO, Alpha, TPT; Apex and E8 paste-blocked): Q34.
+- Household rules can only be disclosed (Q36).
+- PT-04 values to cite (re-verified by PT-35's step 0): Tradeify agreement 5.2 (3 on one account or 10 total, "internal benchmarks"); MFF Rapid 50K $10,000 single day (article 13134718, 2026-09-08), Rapid EOD the same; MFF Rapid and Builder 21-day cooldown (Pro not found); MFF sims and evals dormant while live, inactivity suspended for them; MFF pool 5 (3 with a 100K/150K), Rapid EOD sub-cap 3, Builder 1, 10 evals; Tradeify pool 5 per individual and household, Elite Live blocks every other account and purchase; inactivity MFF 7 calendar days (live exempt), Tradeify one trade per calendar week (discretionary); open conflicts MFF Pro 3 consecutive and MFF Builder 5th payout vs "$100k".
+- PT-22's `IdleSessionLimitRule` and PT-36's `CalendarInactivityRule` would both fire: Q21 default (PT-22's rule skips firms with a verified calendar policy).
+- Already done elsewhere: PT-07 AlertKind members and labels; PT-06 per-plan cap usage; PT-01/PT-01b/PT-01c lifecycle (MovedLive, Suspended, Resumed, Busted); PT-05/PT-05b/PT-05f event write path (quota guard, row lock, date ordering, rejections); `last_traded_on` end to end; `LifetimePayoutCountRule` pattern; WP28/WP34 cents; T33 placement exports.
+- Audit decisions: T33 (the ceiling-capped rung rounds DOWN to whole contracts at the stop via `wholeContractCount` x `oneContractRisk`; "stop for today" when `isBelowOneContract`; never `wholeContractRisk` on the capped amount, never the engine's one-micro minimum). T32 (WouldTriggerLive uses exactly PT-35's `lifetimePayoutCap(plan)` semantics). T33 engine rows keep the optimistic disclosure. `DayPolicy.sizing` is set in any fixture. T34, `simInputsSizingIssue`, `expectedMonthlyRealizedNet`: n/a.
+- Handoffs folded in: PT-04 and PT-35 (cite firm-policy-recheck.md and the encode table; open conflicts stay unverified unless PT-35 resolved them); PT-35 (count triggers via `lifetimePayoutCap(plan)`); PT-01b (lock each sibling row); PT-05 (fake DB WHERE assertions); PT-01d/PT-06 (labels via `alertKindLabel`); PT-12c/PT-46 (firm-wide count input); PT-19 (sourced ceilings and text); PT-22 (AlertContext fields); PT-23a (event form slot).
+- Handoffs emitted: PT-38 (`purchaseBlockedFirms`, pooled free slots, cap-scope-unverified firms); PT-37 (mounts only; never edits PooledCapCard or LiveProximityCard).
+- Open user questions: Q33 (block or warn), Q34 (conduct patterns), Q35 (single-day margin), Q36 (household), Q21 (inactivity rule).
+
+**Steps (RED first; before starting confirm every dependency is GREEN and the declared inputs exist; if the firm-wide count input or the sourced ceiling list is missing, stop and raise it, do not change the type)**
+
+0. Typed stubs for every new module and function (`PooledCapUsage`, `LiveTransitionProximity`, the six rules, `LiveExclusivityEffects`, `FirmPayoutCount`, `liveExclusivityPreview`, the schema field); typecheck at baseline (PD-22).
+1. RED metrics: (a) `PooledCapUsage` on `PortfolioLedger` with PT-35's `SharedPoolPolicy`: MFF 4 Rapid 50K plus 1 Pro 50K gives 5/5 and 0 free everywhere; MFF 3 Rapid EOD gives 0 free Rapid EOD and 2 free pool slots; a Builder at 1/1; Tradeify 5 across Growth, Lightning and Select gives 0; free slots = min(per-plan, pool headroom); Suspended counts as used; firms without a verified pool fall back per plan and are listed "cap scope unverified"; household rules only as a disclosure; `pooledCapsModeled` true only when every listed firm's pool is verified (update `PlanCapUsage.test.ts`). (b) `LiveTransitionProximity`: per account, paid payouts vs the verified per-account count via `lifetimePayoutCap(plan)` and the shared payouts-taken helper; per firm, paid payouts since that firm's latest MovedLive (or all time) vs the total count (Tradeify 10); unverified or conflicted firms "unverified", never a number; single-day triggers as a static fact with the quote.
+2. RED alerts (all subjects scoped to the user's rows): LiveTriggerNearRule (Warning when the next payout reaches the count, per account or firm total via `AlertSubjectKind.Portfolio`; Critical when reached; never for unverified firms; shares the count helper with `LifetimePayoutCountRule`, whose tests stay green); PooledCapReachedRule (used >= cap, not below, Portfolio subject); LiveExclusivityRule (Active Live plus Active sim or eval at MFF gives "dormant while live"; Tradeify "may not hold any other account", flag only; TPT none); CooldownActiveRule (a Busted event on a Live-stage MFF Rapid or Builder account alerts until busted date + 21 calendar days, then an Info "cooldown over"; nothing for MFF Pro); CalendarInactivityRule (MFF from `lastTradedOn`: warns before and is Critical at 7 calendar days, skipped for dormant and live accounts; Tradeify one trade per calendar week, discretionary; missing `lastTradedOn` gives a disclosed "not checked"; `IdleSessionLimitRule` skips firms with a verified calendar policy); ConductPatternRule (only verified patterns, with quote and "firm publishes no threshold"; Q34 default patterns: same-firm multi-bust on one date; re-buy within 7 days of a bust at a rolling-flagged firm); AlertEvaluator includes all six (ordering, no duplicates).
+3. RED `LiveExclusivityEffects` (pure): a MovedLive on A returns same-firm Active accounts other than A with Suspend (MFF) or Flag (Tradeify), nothing for TPT or unverified firms; household disclosure only; `purchaseBlockedFirms(ledger, today)` returns firms with an Active Live account whose policy blocks purchases, plus firms inside an active cooldown, each with a reason.
+4. RED router (`eventExclusivity.test.ts`, fake DB): `event.record` with MovedLive and `confirmedExclusivityAccountIds` ownership-checks and row-locks each id (`loadOwnedAccountOrThrow(id, true)`), requires each in the Suspend set, applies Suspended through `applyLifecycleEvent` with `assertInOrder`, inserts one Suspended event per sibling (server-built detail naming the live account), calls `quotas.assertWithin(PropQuota.Events, 1 + n)`; userId in every WHERE; an id outside the set, another user's or not Active rejects the whole transaction with a typed rejection; the field is rejected for other kinds; omitting it keeps today's behaviour; bounded array length.
+5. RED advisor behaviour (types unchanged): (a) PayoutReadiness and PayoutRequestRule: a Tradeify account with 2 paid returns `{kind: WouldTriggerLive, trigger}` for the 3rd, as does a firm total at 9 with the 10th pending (firm count from `FirmPayoutCount`); the limit from `lifetimePayoutCap(plan)`; per Q33 default the rule answers "not eligible: would trigger live" with the quote, never a smaller request; unverified firms keep LiveTriggersNotChecked. (b) DailyPlanCard on MFF Rapid 50K: the LiveTrigger ceiling is $10,000 minus the Q35 margin, the card takes the minimum with any consistency ceiling, each rung capped at (ceiling - running PnL) / rr after the documented and DLL caps (CeilingCap), rounded down to whole contracts at an entered stop, "stop for today" when below one contract (text via `formatOneContractRisk`) or below $1 with no stop, never rounded up to one micro (a test where one MNQ exceeds the room gives stop for today); no early-exit text; the invariant holds. (c) DifferenceReasons text for WouldTriggerLive and the live-trigger CeilingCap uses typed numeric fields only (sentinel test on PT-19's text; no edit to that file). (d) The live-trigger assumption is dropped from payout advice and the daily card only for verified firms; engine-number rows for a firm with an unenforced verified trigger keep the optimistic disclosure.
+6. RED UI helpers: `overviewModel` gains pooled-cap rows (verified pools, cap-scope-unverified list, household disclosure) and live-proximity rows ("unverified", never a number); `CapUsageCard`'s disclosure follows `pooledCapsModeled`; `liveExclusivityPreview` lists siblings and effects for a MovedLive and the confirm payload equals the Suspend ids only.
+7. Implement: metrics, rules, effects, the firm payout count, router and schema, advisor behaviour, `PooledCapCard` and `LiveProximityCard` (h2 each, labels via `alertKindLabel` and `formatUsdCents`) mounted in `OverviewView`, the MovedLive preview in `EventsSection`. No comments; barrels updated; the prop-accounts barrel test green with no duplicate names.
+8. GREEN: `bunx vitest run` on every new or changed test plus `tests/unit/lib/prop-accounts`, `tests/unit/lib/prop-calculator/advisor`, `tests/unit/server/propAccounts`, `tests/unit/app/prop-calculator/accounts` (not the full suite); typecheck confirming no advisor type changed; `bunx eslint` on touched files; formatter on owned files; importer greps. Record the PT-38 and PT-37 handoffs.
 
 **Regression tests**
 
-- The new tests
+- The new metrics, alert, core, advisor, router and UI helper tests; guards: `PlanCapUsage`, `LifetimePayoutCountRule`, `AlertEvaluator`, the advisor suite
 
 **Acceptance**
 
-- Firm caps, live triggers, exclusivity, cooldowns and conduct risks appear only where verified, and advice never walks the user into a live trigger unannounced or sizes a trade whose win would cross it.
+- Pooled caps, live-transition proximity, exclusivity, cooldowns, calendar inactivity and conduct patterns show from verified firm data only, with unverified data labeled; the payout that would trigger live is blocked (or warned per Q33) with the firm's quote; single-day triggers cap the daily plan in whole contracts; confirmed MovedLive effects on sibling accounts are applied atomically and user-scoped.
 
 ## PT-34: advice UI, worker, decision log, Kelly exclusion
 
-- **Lane / wave:** J / J4  **Size:** large  **Depends on:** PT-19, PT-23, PT-32, PT-36, PT-45
+- **Lane / wave:** J / EJ6 (was J4)  **Size:** large  **Depends on:** PT-19, PT-32, PT-36, PT-45, PT-23a (creates `accounts/[id]/page.tsx`), PT-12c and PT-48 (reconstruction, adapter, spec; through PT-19). PT-21 is no longer needed (workers live in `_workers/`).
 - **Items:** F-125 to F-128, F-131, F-132, F-135
 - **Files owned:**
-  - changed `accounts/[id]/page.tsx`
-  - new `accounts/_components/advice/{AdvicePanel.tsx, HeadlineCard.tsx, OptimaTable.tsx, ReasonsList.tsx, AssumptionsList.tsx, ProvenanceLine.tsx, DailyPlanCardView.tsx, PayoutAdviceCard.tsx, DecisionLog.tsx, adviceViewModel.ts}`
-  - new `accounts/_workers/{advisorWorker.ts, advisorWorkerMessages.ts}`
-  - tests `tests/unit/app/prop-calculator/accounts/{adviceViewModel,advisorWorkerMessages}.test.ts`
+  - changed `src/app/(app)/prop-calculator/accounts/[id]/page.tsx` (mounts the advice panel only; EJ6 owner; `accounts/_components/detail/**` is not touched)
+  - new `accounts/_components/advice/{AdvicePanel.tsx, HeadlineCard.tsx, OptimaTable.tsx, ReasonsList.tsx, AssumptionsList.tsx, ProvenanceLine.tsx, DailyPlanCardView.tsx, PayoutAdviceCard.tsx, DecisionLog.tsx, adviceViewModel.ts, useAccountAdvice.ts}`
+  - new `src/app/(app)/prop-calculator/_workers/{advisorWorker.ts, advisorWorkerMessages.ts}`
+  - tests: new `tests/unit/app/prop-calculator/accounts/{adviceViewModel,advisorWorkerMessages}.test.ts`, `AdvicePanel.dom.test.tsx`; guard `tests/unit/app/prop-calculator/kellySizing.test.ts` (unchanged)
+  - not `src/lib/schemas/propAccounts.ts`: if PT-19 did not narrow the decision source, PT-27 (EJ6 owner of that file) does it
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer, trader-rules reviewer
+
+**Readiness pass 2026-09-26**
+
+- Not ready until EJ6; `accounts/[id]/page.tsx` comes from PT-23a.
+- Reason text is PT-19's `DifferenceReasons` (PD-32 keeps text in the lib); the view model orders and groups it. A `PayoutBlockReason` text table is added in the view model only if PT-12c, PT-19 and PT-46 ship none (check first).
+- The invariant APIs are `assertSizingInvariant(sizing, context)` and `assertTradeInvariant(trade, terms, context, day)`; the test builds the RuleContext (via `ruleContextAt`).
+- The headline label is `documentedRuleLabel(rulebookDeviation(...))`.
+- A happy-dom DOM project exists; loading, accept, record-actual and stale, error and not-modeled states get a DOM test.
+- The "placeable minimum" is one contract's risk at the stop (`oneContractRisk`), via core helpers and PT-19's DailyPlanCard; no hand-rolled micro or $1 rule in the view.
+- Monthly net ranks by the credit-inclusive figure (one capped request, T32) with `expectedMonthlyRealizedNet` beside it; the web `kpiDescriptions.ts:27` wording ("plus the withdrawable balance credited") is stale against T32 and must not be reused (fixed by audit WP43 on 2026-09-26; PT-50 only confirms it).
+- `acceptedRungsCents` requires positive cents (max 20), so a $0 "stop for today" rung is not logged as a rung.
+- Already done elsewhere: the decision router (`create`, `listForAccount`, `recordActual`, userId-scoped); `useWorkerTask` and `workerTaskState`; the ladder worker precedent; `simulationFailure.ts`; the headline label and daily-cap types in the advisor barrel; `kellySizing.ts` used only by StrategyAnalysis; the web `placedFundedRisk.ts`.
+- Audit decisions: T32 (label monthly net as including one capped end-of-horizon request, show the credit-free figure; ranking per Q1); T33 (funded rungs show placed whole-contract risk with instrument and stop beside the documented dollars; "stop for today" at one contract's risk; refused candidates listed as "left out" via `partitionBySizing`); PD-25 vs T33 (engine rows state their sizing basis per Q2).
+- Handoffs folded in: PT-19 to PT-34 (the request union with PT-32's members; the Advice shape); PT-05/PT-01 to PT-19 (verify the source narrowing; "Accept size" sends the stored stage); PT-01d (daily profit cap by `DailyProfitCap.kind` or `hardProfitCeiling()`); PT-03 to PT-19 (render PT-19's mappings, never re-map); PT-01b (RuleSource anchors); U17 and U18 outcomes.
 
 **Steps (RED first)**
 
-1. RED `adviceViewModel`:
-   - the headline first, with the snapshot date and the documented or custom label;
-   - stale advice shows "enter today's balance" and no amounts;
-   - optima sorted by source with SEs where present, including the LedgerRecordedLadder row with its stale mark;
-   - reasons from enum-keyed text covering every `DifferenceReason` and `PayoutBlockReason` member (exhaustive `Record`); assumptions marked conservative or optimistic; provenance with fingerprint and firm-data date;
-   - the daily plan card shows ceiling-capped rungs and "stop for today", never an early-exit instruction;
-   - every rung shown passes `assertSizingInvariant` (F-135) and no Kelly row exists.
-2. RED `advisorWorkerMessages`: exhaustive over the full request union (including PT-32 members); requests carry `DocumentedPolicySpec`s, never closures; cached per request key; fresh-start requests dedupe across accounts on the same plan and policy.
-3. Implement the panel: "accept size" calls `decision.create` with the snapshot id; "record actual" calls `decision.recordActual`; adherence shown. StrategyAnalysis and `kellySizing.ts` are untouched.
-4. GREEN, typecheck, eslint, importer greps.
+0. Readiness check (record in the wave log): PT-19, PT-23a, PT-32, PT-36, PT-45 GREEN; confirm names of the request members after PT-32, `Advice`, the `DifferenceReasons` API, `AdviceProvenance` fields, `PayoutBlockReason` text, `AccountReconstruction.rebuild`, `SnapshotAdapter`, and whether PT-19 narrowed the decision source. Reuse the detail page's queries (tRPC cache). Typed stubs.
+1. RED `adviceViewModel.test.ts`: headline first with the snapshot date and label; stale advice (PT-19 `AdviceStaleness`, a plan-rules mismatch included) shows "enter today's balance" and no amounts; optima by source with SEs, the LedgerRecordedLadder row with its stale mark; funded sweep rows labeled "incl. one capped end-of-horizon request credit" with `expectedMonthlyRealizedNet` beside; refused candidates as "left out" with the refusal text via `partitionBySizing`/`describeSimulationFailure`; reasons and assumptions from the lib text (conservative or optimistic direction), and every `DifferenceReason` and `PayoutBlockReason` member reaches a non-empty line (exhaustive over the enums) without a second text table; provenance with fingerprint and firm-data date; the daily card shows ceiling-capped rungs and "stop for today" below `oneContractRisk` (or one cent without an instrument and stop), never an early exit; with instrument and stop the placed risk from `placedFundedRiskAt` beside the documented dollars; the daily cap by `DailyProfitCap.kind`; every documented sizing passes `assertSizingInvariant(sizing, context)` and every daily-card step `assertTradeInvariant`; no Kelly row or field.
+2. RED `advisorWorkerMessages.test.ts`: request and response enums exhaustive over the full request union; requests carry `AccountSnapshotInput`, `DocumentedPolicySpec` and the EnginePolicy, never closures or instances (structuredClone); cached per full key (`enginePolicyKey`); fresh-start requests dedupe across accounts on the same plan and policy; a refusal (message with `SIM_INPUTS_REFUSAL_PREFIX`) becomes a typed Failed response.
+3. RED `AdvicePanel.dom.test.tsx`: loading, error, stale and "not modeled" states; "Accept size" calls `decision.create` with the snapshot id, the stored stage, the `AdviceSource` value and cents via `usdCentsFromDollars` (a $0 stop rung excluded); "Record actual" calls `decision.recordActual` and adherence shows.
+4. Implement: the worker delegates to `EngineOptimumRunner` (no engine logic in the worker file), run through `useWorkerTask` via `new URL('../_workers/advisorWorker.ts', import.meta.url)` (path relative to the hook's folder); the panel mounted in `[id]/page.tsx` only; StrategyAnalysis and `kellySizing.ts` untouched.
+5. GREEN: `bunx vitest run` on the 3 new files, `kellySizing.test.ts`, `tests/unit/app/prop-calculator/accounts`; typecheck; eslint on owned files; importer greps (the worker has a `new URL` importer; every advice component an importer outside tests); knip per PD-22.
 
 **Regression tests**
 
-- The 2 new tests; guard: `kellySizing.test.ts` unchanged
+- `adviceViewModel`, `advisorWorkerMessages`, `AdvicePanel.dom`; guard `kellySizing.test.ts`
 
 **Acceptance**
 
-- Each account shows the documented rule first, engine optima alongside with reasons, assumptions and provenance, and logs accepted sizes; no rung breaks the sizing invariant.
+- Each account shows its documented headline first, engine optima off the main thread with labelled bases and refusals, typed reasons and assumptions, provenance, a ceiling-capped daily card and payout advice, and logs accepted sizes and actual adherence; Kelly never appears in advice.
 
 ## PT-37: from-state projections, live-transition preview, simulate-this-account
 
-- **Lane / wave:** J / J4  **Size:** medium  **Depends on:** PT-32, PT-33, PT-36
+- **Lane / wave:** J / EJ8 (with PT-30c and PT-30d; the last wave before PT-50)  **Size:** medium  **Depends on:** PT-23a (detail files), PT-32 (`NextPayoutProjection`, from-state sweep), PT-33 (projection card and worker kind), PT-36 (its cards, mounted only), PT-12b/c (`LivePlanApplicability`, reconstruction), PT-48 (`toSimInputs`), PT-14 (`SimInputs.start`), PT-21b (overview worker)
 - **Items:** F-33 (simulate this account), F-87 (from state), F-88 (UI), F-90
 - **Files owned:**
-  - `accounts/_components/overview/**` (except the PT-36 policy cards, which it only mounts), `accounts/_components/detail/**`
-  - `accounts/_workers/{overviewWorker.ts, overviewWorkerMessages.ts}`
+  - `src/app/(app)/prop-calculator/accounts/_components/overview/**` except `PooledCapCard.tsx` and `LiveProximityCard.tsx` (changed `OverviewView.tsx`, `overviewModel.ts`, `ProjectionCard.tsx`; new `NextPayoutCard.tsx`; EJ8 owner)
+  - `accounts/_components/detail/**` (changed `AccountDetailView.tsx`; new `LiveTransitionPreviewCard.tsx`, `NextPayoutSection.tsx`, `SimulateAccountLink.tsx`; EJ8 owner)
+  - `src/app/(app)/prop-calculator/_workers/{overviewWorker.ts, overviewWorkerMessages.ts}` (EJ8 owner)
   - new `accounts/_components/calculatorLinkForAccount.ts`
-  - tests `tests/unit/app/prop-calculator/accounts/calculatorLinkForAccount.test.ts`, updated overview tests
+  - new `src/lib/prop-calculator/advisor/LiveTransitionPreview.ts`, changed `advisor/index.ts` (EJ8 owner)
+  - tests: new `tests/unit/app/prop-calculator/accounts/calculatorLinkForAccount.test.ts`, updated `overviewModel.test.ts`, `overviewWorkerMessages.test.ts`, new `tests/unit/lib/prop-calculator/advisor/LiveTransitionPreview.test.ts`; guards `urlState.test.ts`, `shareLink.test.ts`, `accountPrefill.test.ts`, `openInSimulator.dom.test.tsx`
+  - never `accounts/[id]/page.tsx` (PT-34's)
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer
+
+**Readiness pass 2026-09-26**
+
+- PT-23 was a missing dependency (it creates `detail/**` and `[id]/page.tsx`); PT-23a is done by EJ0a.
+- F-33 is partly done: PT-41 shipped "Save as account" (`accountPrefill.ts`) and "Open in simulator" (`useOpenInSimulator.tsx`, `openInSimulatorActions`). PT-37 adds only "simulate this account"; PLAN's F-33 status is the orchestrator's to update.
+- The simulator link must fit `CalculatorState`: one `riskDollars` shared by eval flat and funded; the eval documented ladder only as a static `dp` ladder (URL schema forces ContractCapped); `ds` for the funded stop; `rc`, `pr`, and `instr`/`sp` only as a pair; a max-risk eval cannot be encoded (ladder approximation flag). Built through `defaultCalculatorState`, `calculatorReducer`, `openInSimulatorActions` and `encodeState`, never hand-written keys. Labelled fresh start.
+- F-87 from state: `simulatePortfolioTimeline` cannot start from a state (and PT-14 adds `start` only to `simulate`), so from-state projections are point estimates from `simulateFromState` and PT-32's `NextPayoutProjection`; no from-state timeline band (recorded in the wave log).
+- Live transition preview: TopStep's live start via `buildTopStepLivePlan`/`computeTopStepLiveStartingBalance`, inert at 50K (always $10,000, said so); Lucid via the transition builder with sim profit above the buffer capped at `LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP`; plan-to-builder through `LivePlanApplicability` (PD-41); the "profit above buffer" logic lives in the lib module, not a component.
+- DOM tests run under happy-dom.
+- Already done elsewhere: PT-41 prefill and open-in-simulator; PT-41b URL keys in a leaf module; PT-10/PT-11h lazy reducer init and share links; the engine's live-transition exports.
+- Audit decisions: T32 (credit-inclusive and credit-free figures separate, labelled per Q1); T33 (`instr`/`sp` only as a pair; without them the simulator runs the funded flat risk unsized, said on the link; worker requests pass `simInputsSizingIssue` first); PD-26 (`rc` always from the rulebook, never null: TopStep 2000).
+- Handoffs folded in: PT-48 (spec plus `start` built in the worker); PT-32 (next-payout projection and from-state sweep with SEs); PT-36 (mount only); PT-34 (disjoint files).
 
 **Steps (RED first)**
 
-1. RED `calculatorLinkForAccount`: account plus rulebook give a boundary simulator URL whose query `decodeState` round-trips to the same firm, plan, opt-ins, winrate, rr, risk, retained cushion and effective payout size.
-2. RED: projection and next-payout view models use from-state requests (with `DocumentedPolicySpec`) with the start basis and SEs labeled.
-3. Implement the live-transition preview (TopStep, Lucid) on detail; others "not modeled".
-4. GREEN, typecheck, eslint, importer greps.
+0. Readiness check: PT-23a, PT-32, PT-33, PT-36 GREEN; re-read `overviewModel.ts`, `overviewWorkerMessages.ts`, `AccountDetailView.tsx`, PT-32's `NextPayoutProjection`, PT-12's applicability and reconstruction, PT-48's `toSimInputs`, PT-14's `simulateFromState`, and the TopStep and Lucid builder signatures. Record the from-state decision. Typed stubs.
+1. RED `calculatorLinkForAccount.test.ts`: account plus rulebook give `routes.propCalculator.simulator + '?' + encodeState(state)` built from `defaultCalculatorState()` through `calculatorReducer` with `openInSimulatorActions(firm, plan, optIns)` and the policy actions; `decodeState` round-trips firm, plan, opt-ins (`qr`/`ew`), winrate, rr and trades per day from `rulebook.strategy`, `riskDollars` = funded risk for a funded account, `ds` = `fundedStopRuleToDayStopRule` of the funded stop, `dp` = the documented eval ladder at the fresh-start cushion (ContractCapped) for an eval account, `rc` = the rulebook retained cushion (TopStep 2000), `pr` = `effectivePayoutRequest` (MFF Pro 1000), `instr`/`sp` only when both known; a max-risk eval account gets the "not representable, ladder approximation" flag; the label says fresh start.
+2. RED `LiveTransitionPreview.test.ts`: only plans that `LivePlanApplicability` maps to a transition-capable modeled builder get a preview; TopStep's live start from the builder with the 50K note; Lucid's transition credit = min(sim profit above the buffer, the cap) from the reconstructed state; every other plan "not modeled"; `LiveModelApproximation` where firm-level.
+3. RED overview and detail models: projection and next-payout requests are from-state (`AccountSnapshotInput` plus spec plus policy, no closures or instances), keyed per account state and full policy; start basis, trials and SEs labelled; credit-inclusive and credit-free separate; a refused sizing is a typed error row; fresh-start (PT-33) and from-state bands never merged.
+4. Implement: the worker rebuilds the account, calls `toSimInputs` plus `start` and delegates to `simulateFromState` and `EngineOptimumRunner`; mount the preview card and "simulate this account" on `detail/**`, the next-payout card on the overview and detail; mount PT-36's cards without editing them; do not touch `[id]/page.tsx`.
+5. GREEN: the listed tests plus `tests/unit/app/prop-calculator`; typecheck; eslint on owned files; importer greps.
 
 **Regression tests**
 
-- The listed files
+- `calculatorLinkForAccount`, `LiveTransitionPreview`, updated `overviewModel` and `overviewWorkerMessages`; guards as listed
 
 **Acceptance**
 
-- Projections start from the real state under the documented rule; each account links into the simulator with its own policy.
+- Each account can be opened in the simulator with its plan and documented policy (fresh start, labelled), projected from its current state with SEs, and previewed at the live transition where a model exists.
 
 ## PT-38: next-slot allocation
 
-- **Lane / wave:** J / J4  **Size:** medium  **Depends on:** PT-36, PT-32, PT-48
+- **Lane / wave:** J / EJ7 (with PT-33, PT-30b, PT-42)  **Size:** medium  **Depends on:** PT-36 (`purchaseBlockedFirms`, `PooledCapUsage`), PT-32 (payout-size optimum, `PayoutPolicySensitivity`), PT-48 (spec, `toSimInputs`), PT-19 (EnginePolicy), PT-35 (through PT-36), PT-21b (its worker protocol, reused read-only; PT-33 owns those files in EJ7)
 - **Items:** F-96, F-152 (next slot)
 - **Files owned:**
-  - new `accounts/next-slot/{page.tsx, NextSlotView.tsx}`
-  - new `src/lib/prop-accounts/planning/{NextSlotAllocation.ts, index.ts}`
-  - new `accounts/_workers/{nextSlotWorker.ts, nextSlotWorkerMessages.ts}`
-  - tests `tests/unit/lib/prop-accounts/planning/NextSlotAllocation.test.ts`, `tests/unit/app/prop-calculator/accounts/nextSlotWorkerMessages.test.ts`
+  - new `src/app/(app)/prop-calculator/accounts/next-slot/{page.tsx, NextSlotView.tsx}`
+  - new `src/lib/prop-accounts/planning/{NextSlotAllocation.ts, index.ts}`, changed `src/lib/prop-accounts/index.ts` (EJ7 owner)
+  - new `src/app/(app)/prop-calculator/_workers/{nextSlotWorker.ts, nextSlotWorkerMessages.ts}` only if the overview worker protocol cannot serve all-plan requests without a new request kind (PT-33 owns that protocol in EJ7, so PT-38 may only import it); the thin worker calls the same lib path, never a second engine path
+  - tests: new `tests/unit/lib/prop-accounts/planning/NextSlotAllocation.test.ts`, the requests test (`nextSlotWorkerMessages.test.ts` or against the reused protocol); guard `tests/unit/app/prop-calculator/accounts/accountsNavItems.test.ts`
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer, trader-rules reviewer
+
+**Readiness pass 2026-09-26**
+
+- FundedNext Legacy's minimum is $250; the plans above the $500 request are MFF Pro $1,000, Tradeify Lightning $1,000 (ladder), AlphaFutures Advanced $1,000 and FundedNext FNL:003 Instant $800. The test derives the set from `effectivePayoutRequest(plan, 500) > 500` over the rankable plans and pins today's four with file citations.
+- `planCapUsage` returns rows only for held plans (`pooledCapsModeled` flips in PT-36); free slots = `firm.maxFundedAccounts(plan)` minus used, reusing `planCapUsage` rows and PT-36's `PooledCapUsage`; no second counter.
+- `rankablePlans(plans, shouldIncludeCallUp)` exists (call-up-only: one Lucid and one TopStep variant).
+- The overview worker already computes documented-policy monthly net per spec and the payout-size optimum per plan; reuse it (read-only) or a thin worker on the same lib path.
+- The planning module is re-exported from `src/lib/prop-accounts/index.ts` (barrel rule).
+- The ranking key has two figures after T32 (Q1).
+- Already done elsewhere: PT-20's route and nav item (the page is missing, so the nav 404s today); PT-06 `planCapUsage`; core `rankablePlans`, `isPurchasable`, `maxFundedAccounts`, `withMaxLifetimePayouts`.
+- Audit decisions: T32 (show both monthly figures; a rank flip between them is marked); T33/U18 (the documented $250 funded policy runs unsized unless an instrument and stop are in the policy, labelled optimistic; a refused spec is "not rankable: <refusal>"); PD-26 (rulebook retained cushion, effective request with FullRequestOnly, verified lifetime cap override).
+- Handoffs folded in: PT-32 (the second number); PT-48 (specs only); PT-20 (removes the 404); PT-36 (blocked firms, pooled slots); U17.
+- Open user questions: Q1, Q2.
 
 **Steps (RED first)**
 
-1. RED `NextSlotAllocation`:
-   - rank `rankablePlans` (call-up-only excluded) by expected monthly net per slot under the documented policy (`DocumentedPolicySpec`), and show the engine payout-size optimum as a second number with "payout-policy sensitive" marks (`PayoutPolicySensitivity`);
-   - MFF Pro, Tradeify Lightning, AlphaFutures Advanced and FundedNext Legacy are simulated at their minimum request (never "never pays");
-   - engine runs carry the verified lifetime cap override; firms whose live trigger is unverified are listed under "live trigger unverified", not ranked;
-   - plans with zero verified free slots (per-plan and pooled) excluded with a reason; firms under live exclusivity or an active cooldown excluded; firms with unverified cap scope listed separately as "cap scope unverified", not ranked.
-2. RED `nextSlotWorkerMessages`: specs only, keyed by plan and full policy.
-3. Implement.
-4. GREEN, typecheck, eslint, importer greps.
+0. Readiness check: PT-19, PT-21b, PT-32, PT-35, PT-36, PT-48 GREEN; re-read `effectivePayoutRequest`, `PayoutPolicySensitivity`, `PooledCapUsage`, `purchaseBlockedFirms`, the verified flags, the overview worker protocol; decide reuse vs thin worker and record it; re-read each firm file's minimum request (no memory). Typed stubs.
+1. RED `NextSlotAllocation.test.ts`: candidates `rankablePlans(allPlans, false)` (call-up-only excluded); rank by expected monthly net per slot under the documented policy (`DocumentedPolicySpec` via `toSimInputs`) with the payout-size optimum as a second number and "payout-policy sensitive" marks; both monthly figures shown, rank key per Q1; every plan with `effectivePayoutRequest(plan, 500) > 500` simulated at its minimum with FirmMinimumAboveRequest, never "never pays" (today's four pinned with citations); runs carry the rulebook cushion (TopStep 2000), FullRequestOnly and the verified cap override; firms with unverified live triggers listed "live trigger unverified", not ranked; free slots from `maxFundedAccounts` minus used and PT-36's pooled headroom; zero-slot plans, firms under live exclusivity or an active cooldown (`purchaseBlockedFirms`) excluded with a reason; "cap scope unverified" firms listed, not ranked; a spec refused by `simInputsSizingIssue` listed "not rankable" with the text; each row states the sizing basis.
+2. RED worker requests: specs only (structuredClone), keyed by plan and `enginePolicyKey`, deduped with the overview's keys when the protocol is reused.
+3. Implement `planning/NextSlotAllocation.ts` (pure) and its barrel; re-export from `src/lib/prop-accounts/index.ts`; the page and view (the accounts layout's sign-in guard; h2 sections).
+4. GREEN: new tests plus `accountsNavItems.test.ts` and `tests/unit/lib/prop-accounts`; typecheck; eslint on owned files; importer greps.
 
 **Regression tests**
 
-- The 2 files
+- `NextSlotAllocation`, the requests test; guard `accountsNavItems`
 
 **Acceptance**
 
-- A ranked "buy next" list that never recommends a purchase the firm would refuse or freeze, and shows when the answer depends on the payout policy.
+- The next-slot page ranks every purchasable plan with free slots by modeled monthly net under the documented policy, shows the payout-size optimum beside it, and excludes blocked, capped, cooling-down or unverified firms with a named reason.
 
 ## PT-42: cross-plan copy-group simulation
 
-- **Lane / wave:** J / J4  **Size:** large  **Depends on:** PT-14, PT-26
+- **Lane / wave:** J / EJ7 (with PT-33, PT-30b, PT-38)  **Size:** large  **Depends on:** PT-14 (`SimInputs.start`, seeded trackers, validation), PT-26b (`CopyGroupSizing`, copy-groups view), PT-48 (`toSimInputs`), PT-19 (EnginePolicy), PT-12 (reconstruction)
 - **Items:** F-136
 - **Files owned:**
-  - new `src/lib/prop-calculator/simulator/CopyGroupSimulation.ts`, changed `simulator/index.ts`
-  - `accounts/copy-groups/**`
-  - new `accounts/_workers/{copyGroupWorker.ts, copyGroupWorkerMessages.ts}`
-  - tests `tests/unit/lib/prop-calculator/simulator/CopyGroupSimulation.test.ts`
+  - new `src/lib/prop-calculator/simulator/CopyGroupSimulation.ts`, changed `simulator/index.ts` (EJ7 owner)
+  - changed `simulator/{day.ts, types.ts, fundedPhase.ts}` for an optional per-trade outcome RNG (default path byte-identical, pinned); `simulator/evalPhase.ts` only if eval groups are in scope (Q37)
+  - optional: `src/lib/prop-calculator/index.ts` (EJ7 owner) root re-export, or import via `~/lib/prop-calculator/simulator`
+  - changed `src/app/(app)/prop-calculator/accounts/copy-groups/**` (a simulation card; `CopyGroupsView.tsx` changed, new `CopyGroupSimulationCard.tsx`; EJ7 owner)
+  - new `src/app/(app)/prop-calculator/_workers/{copyGroupWorker.ts, copyGroupWorkerMessages.ts}`
+  - tests: new `tests/unit/lib/prop-calculator/simulator/CopyGroupSimulation.test.ts`, `tests/unit/app/prop-calculator/accounts/copyGroupWorkerMessages.test.ts`; guards `rngDrawCount`, `engineCharacterization`, `horizonCredit`, `declaredPolicySizing`, `percentCushionSizing`, `simulator/*.test.ts`
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer
+
+**Readiness pass 2026-09-26**
+
+- The stepping API is exported (`stepFundedDay`, `runFundedDays`, `FundedDayStepOptions`, `FundedStage`, `PayoutTotals`, `runDay`); the seeded tracker is PT-14's.
+- A shared outcome stream cannot come from handing members one RNG: `runDay` draws once for the idle day and per trade one draw or, on path-walk plans, a win draw plus peak draws, so members on different plans drift after their first differing trade. The engine needs an injectable per-trade outcome RNG (in `day.ts` and `types.ts`, now owned; PT-13 finished its `day.ts` refactor in EJ2).
+- "A group of one equals `simulate` for the same seed" cannot hold (`simulate` uses one sequential `mulberry32(seed)`): a group of one equals a `stepFundedDay` run on the same outcome stream, and matches `simulateFromState` within 3 SE.
+- Eval-stage groups need an extracted, pinned `stepEvalDay` (no exported per-day eval step with pass detection); Q37 decides (default funded only).
+- Members trade PT-26b's group-sized risk (PD-30/F-130), each placed within its own plan's contract limit, not "each with its own risk".
+- `simulatePortfolio` with `CorrelationMode.Copy` covers same-plan fresh copies only.
+- SEs from `stats.ts` directly; PT-44 is not required.
+- Workers live in `_workers/`.
+- Already done elsewhere: the stepping exports; T33 placement in the engine; `scriptedRng.ts`; `MixedStageCopyGroupRule` and the copy-group router.
+- Audit decisions: T33 (each member via `toSimInputs` then `resolveDayPolicy`, WholeContracts for funded with the declared sizing asserted, its own contract limit; a refused member is a typed per-member rejection with the prefix stripped, never a thrown worker error). T32 (a survivor's end-of-horizon value is `closeoutCredit`'s one capped request, reported separately). PD-26 (each member's EnginePolicy).
+- Handoffs folded in: PT-14 to PT-42 (start, policy, seed shape, objective; reuse PT-14's start validation); PT-26b (page and sizing); PD-30 (mixed-stage groups rejected with the same typed reason as the router and alert); audit tracker (engine files edited).
+- Open user question: Q37.
 
 **Steps (RED first)**
 
-1. RED:
-   - one shared trade-outcome stream per day drives N same-stage accounts on different plans, each from its reconstructed state with its own risk, rules and policy;
-   - a mixed-stage group is rejected;
-   - a group of one equals a single-account `simulate` from that state for the same seed;
-   - two identical accounts bust the same day in every trial;
-   - outputs: P(all bust the same day), expected group payouts, time to first bust, with SEs.
-2. Implement, reusing the exported funded day stepping API (confirm after G2).
-3. GREEN; guards: simulator tests; typecheck, eslint, importer greps.
+0. Readiness check: PT-12, PT-14, PT-19, PT-26b, PT-48 GREEN; re-read `day.ts` (idle draw, per-trade draws, path walk), `fundedPhase.ts` (`stepFundedDay`, the seeded options), `evalPhase.ts`, `CopyGroupSizing`, `toSimInputs`. Pins (PD-31) for `rngDrawCount`, `engineCharacterization` and the day, funded and eval simulator tests. Record the Q37 answer. Typed stubs.
+1. RED engine seam (in `CopyGroupSimulation.test.ts` plus guards): `DayRunOptions` and `FundedDayStepOptions` gain an optional per-trade outcome source (for example `tradeRng(tradeIndex): Rng`); absent, every output and the draw count equal the pins; present, trade k's draws (win and any path-walk draws) come only from `tradeRng(k)`, so two members consume identical win draws for trade k regardless of plan.
+2. RED `CopyGroupSimulation.test.ts`: one shared outcome stream per (trial, day, trade index) from `deriveSubSeed`, plus one shared idle draw per day, drives same-stage members on different plans, each from its reconstructed state (PT-14 start with a seeded tracker), trading PT-26b's group-sized risk placed through its own `toSimInputs` then `resolveDayPolicy` with its own EnginePolicy; a mixed-stage group gives the PD-30 typed reason; a refused member a typed per-member rejection; two identical members bust on the same day in every trial; a group of one equals a `stepFundedDay` run on the same stream and matches `simulateFromState` within 3 SE on bust probability and payout count; outputs with SEs: P(all bust the same day), P(any bust), expected realized group payouts, time to first bust, and the end-of-horizon credit reported separately; if Q37 includes eval, an extracted `stepEvalDay` keeps `runEvalAttempt` equal to its pins and eval groups report passes.
+3. RED `copyGroupWorkerMessages.test.ts`: requests carry the members' `AccountSnapshotInput`s, specs, policies and the group sizing (structuredClone, no closures); cached per full key; a refusal is a typed Failed response.
+4. Implement the seam, `CopyGroupSimulation.ts`, the simulator barrel export (and the root one or the subpath import), the worker via `useWorkerTask`, the card on the copy-groups page.
+5. GREEN: guards equal the pins; typecheck; eslint on owned files; importer greps; record the engine files for the audit tracker.
 
 **Regression tests**
 
-- `CopyGroupSimulation.test.ts`
+- `CopyGroupSimulation`, `copyGroupWorkerMessages`; guards as listed
 
 **Acceptance**
 
-- Correlated copy-traded groups across plans are simulated from their real states.
+- A copy group on different plans is simulated from each member's real state on one shared stream of trade outcomes, with each member's own rules, contract limits and policy, reporting joint-bust risk and group payouts with SEs; the single-account engine is unchanged.
 
 ## PT-30: DP advice (CLI solve and store, gate re-run, web row)
 
-- **Lane / wave:** J / J5  **Size:** large  **Depends on:** PT-18, PT-24, PT-34, PT-45, PT-47
+- **Lane / wave:** J, split in four: PT-30a (DP lib and gate run) in EJ5, PT-30b (table, migration, repo, router; exports `DpAdviceRow` from `advisor/index.ts`) in EJ7, PT-30c (CLI `advise --dp --store`) and PT-30d (web row) in EJ8  **Size:** large overall
+- **Depends on:** PT-30a: G2 (the wave-26 post-fix rerun done and the repo-wide check recorded), PT-47a and PT-47b, PT-18, PT-19, PT-12c, PT-45, PT-35 (verified conduct patterns for AggressiveOptimumChurn). PT-30b: PT-30a, PT-45 (and waits for the advisor barrel and router index to be free: PT-26b and PT-27 hold them in EJ6). PT-30c: PT-24, PT-30a, PT-30b. PT-30d: PT-34, PT-30b.
 - **Items:** F-134, F-142, F-147
 - **Files owned:**
-  - changed `src/server/db/schemas/prop.ts` (`prop_dp_advice`), `src/server/db/index.ts`, generated `drizzle/0008_*`
-  - changed `src/cli/commands/prop/advise/command.ts`
-  - new `src/lib/prop-accounts/server/DpAdviceRepo.ts`, changed `src/lib/prop-accounts/server/index.ts`
-  - new `src/server/api/routers/propAccounts/dpAdvice.ts`, changed `routers/propAccounts/index.ts`
-  - new `src/lib/prop-calculator/advisor/dp/{DpAdviceSource.ts, DpConfigKey.ts, DpValidationGate.ts, DpValidatedPlans.ts, index.ts}` (Node-only, not re-exported by `advisor/index.ts`)
-  - new `src/lib/prop-calculator/advisor/DpAdviceRow.ts` (browser-safe row type and staleness), changed `advisor/index.ts`
-  - changed `src/lib/prop-calculator/core/FundedStateValue.ts` (state-fit report only)
-  - changed `accounts/_components/advice/{OptimaTable.tsx, adviceViewModel.ts}`
-  - appended ledger rows under `.claude/skills/prop-firm-trading/references/engine-results/` (gate runs)
-  - tests `tests/unit/lib/prop-calculator/advisor/dp/{DpAdviceSource,DpConfigKey,DpValidationGate}.test.ts`, `tests/unit/lib/prop-calculator/core/FundedStateValueStateFit.test.ts`, `tests/unit/server/propAccounts/dpAdvice.test.ts`, `tests/unit/cli/prop/adviseDp.test.ts`, extended `advisorImportGraph.test.ts`
-- **Reviewers:** code-reviewer, typescript-reviewer, security-reviewer, database-reviewer, trader-rules reviewer
+  - PT-30a: new `src/lib/prop-calculator/advisor/dp/{DpAdviceSource.ts, DpConfigKey.ts, DpValidationGate.ts, DpValidatedPlans.ts, index.ts}` (Node-only, never re-exported); new `advisor/DpAdviceRow.ts` (browser-safe row type, `DpAdviceGap` enum, `DP_ADVICE_SOLVER_VERSION`, staleness; exported from the advisor barrel by PT-30b); new `core/FundedDpModelGapKind.ts` (leaf) with `core/FundedDpModelGaps.ts` re-importing it and `core/index.ts` exporting it (EJ5 owner); changed `core/FundedStateValue.ts` (an exported grid-bounds and state-fit helper only); `core/AverageRewardSolver.ts` only if PT-47a did not export the grid config types; new `.claude/skills/prop-firm-trading/references/engine-results/<date>-dp-gate.md` and one row in `engine-results.md` (after PT-32's row in EJ5); tests `tests/unit/lib/prop-calculator/advisor/dp/{DpAdviceSource,DpConfigKey,DpValidationGate}.test.ts`, `advisor/DpAdviceRow.test.ts`, `core/FundedStateValueStateFit.test.ts`, extended `advisor/advisorImportGraph.test.ts` (EJ5 owner)
+  - PT-30b: `src/server/db/schemas/prop.ts` (the `propDpAdvice` table and row type only); generated `drizzle/<next index after 0007>_*.sql`, `drizzle/meta/<next>_snapshot.json`, `drizzle/meta/_journal.json` (via `bun run db:generate`, never hand-edited); `src/lib/schemas/propAccountOutputs.ts` (EJ7 owner: `PropRecord.DpAdvice`, optional `PropQuota.DpAdvice`, `propDpAdviceOutputSchema`); `src/lib/prop-accounts/server/PropAccountQuotas.ts` (only if a quota is added); new `prop-accounts/server/DpAdviceRepo.ts`, changed `prop-accounts/server/index.ts` (EJ7 owner); new `src/server/api/routers/propAccounts/dpAdvice.ts`, changed `propAccounts/index.ts` (EJ7 owner); changed `advisor/index.ts` (EJ7 owner: `DpAdviceRow` exports); tests `tests/unit/server/propAccounts/dpAdvice.test.ts`, extended `userScoping.test.ts`, `outputTypes.test.ts`, `propRouterHarness.ts`
+  - PT-30c: `src/cli/commands/prop/advise/command.ts` (the `--dp` and `--store` flags, or a sibling `advise/dp.ts` called from it); test `tests/unit/cli/prop/adviseDp.test.ts`
+  - PT-30d: `src/app/(app)/prop-calculator/accounts/_components/advice/{OptimaTable.tsx, adviceViewModel.ts, AdvicePanel.tsx}` (the `dpAdvice.listForAccount` query and DP rows); extended `tests/unit/app/prop-calculator/accounts/adviceViewModel.test.ts`
+  - not `src/server/db/index.ts` (it spreads `...propSchema`, so the new table is picked up)
+- **Reviewers:** code-reviewer, typescript-reviewer, security-reviewer (the CLI DB write path, `--user-email`), database-reviewer (migration, FKs, indexes), trader-rules reviewer (every DP row's disclosure against Hard Rules 1 to 8), plus a characterization check against the step 1 pins
 
-**Steps (RED first)**
+**Readiness pass 2026-09-26**
 
-1. Capture pins (PD-31). Re-read post-WP24 `FundedStateValue.ts` (reset-layer policy, PT-47's payout fields), `EvalStateValue.ts` (`terminalValueAtPass`, `cushionStepDollars`), `AverageRewardSolver.ts`, `optimize/dp/command.ts` (objectives, flags, `empiricalSimInputs`), the audit's U14 outcome, the ledger and its index, and the validation files under `.claude/skills/prop-firm-trading/references/engine-results/` (note: the 2026-09-23 validation-2 file does not qualify, PD-16 step 6). Record which eval objectives exist and whether PT-47 landed.
-2. RED `FundedStateValueStateFit`: states above the cushion cap, the pre-lock offset cap and the payout regime cap are reported saturated; in-range states are not; solver values equal the pins.
-3. RED `DpConfigKey`: sha256 over every honored solve parameter (plan serial, opt-ins, fingerprint, winrate, rr, tpd, commission, grid, rebuy lag, funded-days hazard, eval days, fees and discounts, day-stop rule, cushion-step multiple, retained cushion, and the effective payout request and policy only when PT-47 landed); changing any one changes the key; when PT-47 is absent, changing the payout size does not change the key.
-4. RED `DpAdviceSource`:
-   - eligibility via `isFundedDpEligible`/`isEvalDpEligible` with the reason;
-   - toy config samples at trade indexes 0..tpd-1 along the all-loss path and cushion +/- 1, 2 documented rungs equal `computeRisk`;
-   - the solve receives `fundedGrid.minRetainedCushion` from the rulebook (and the payout fields after PT-47);
-   - eval: elapsed sessions mapped explicitly; past the horizon or unreached gives `DpStateUnreached`; a drawdown not a multiple of `cushionStepDollars` gives an informational `DpGridMisaligned` only; eval rows appear only for plans with a ledger-recorded eval-DP validation under the cash objective, otherwise `DpNotValidated` and no eval rows; a pass-probability objective gives `DpObjectiveMismatch` and no eval rows;
-   - funded `computeRisk` throw for an unreachable level becomes a typed reason;
-   - without PT-47: every funded row carries the `PayoutSizeNotModeled` gap and `DpPayoutPolicyMismatch` ("DP assumes maximum withdrawal");
-   - verified conduct patterns (PT-35) add `AggressiveOptimumChurn` with the quote;
-   - `DP_ADVICE_SOLVER_VERSION` pinned with a toy-solve value; failure message instructs the bump.
-5. RED `DpValidationGate`: `validated` is true only when a ledger row exists that was produced after G2, records its engine commit, used the same retained cushion for the DP and the flat baseline, and shows DP >= the best flat policy by the gate's margin; otherwise false with the gate result named (for example "0.99x best flat"); `DpValidatedPlans` is built from those rows (file name, row, date cited).
-6. RED CLI `adviseDp`:
-   - `--dp` prints DP rows after the documented headline, with "not validated" and the gate result where applicable;
-   - the solver call carries `fundedGrid.minRetainedCushion` equal to the rulebook value (asserted);
-   - `--store` requires `--account` and `--user-email`; resolves the user id by email; loads the account with `and(id, userId)`; reads the latest snapshot for account and user; inserts one row with that userId, eligibility, gaps and `validation_ref`; a foreign account id fails;
-   - one solve serves several accounts with the same config key;
-   - `--max-plans` and `--time-budget-min` bound `--all`; completed plans are written as they finish and skipped on rerun;
-   - the runtime is printed.
-7. RED router `dpAdvice`: userId-scoped reads (`assertUserScopedWhere`); stale when a newer snapshot exists, the solver version differs, or the fingerprint differs.
-8. Extend `advisorImportGraph.test.ts`: `advisor/dp` is reachable only from `src/cli/**` (grep of importers).
-9. Implement. `bun run db:generate`; inspect (only the new table, FK after its target); do not migrate (U3).
-10. Gate re-run (CLI only): for each funded-DP-eligible plan within the run budget, run `bun run cli prop optimize dp` with the matched retained cushion (and PT-47's payout policy) plus its empirical flat comparison, and append one ledger row per plan with the engine commit, config and gate result. Record commands and runtimes.
-11. GREEN; one real small `prop advise --dp` on an eligible plan at a coarse config (record runtime); typecheck, eslint, importer greps.
+- The migration is the next free index after 0007 (`0007_careless_miss_america.sql`, still unapplied, U3); only PT-30b generates one in this schedule.
+- `tryPayout` is at `FundedStateValue.ts:1232` and `closeoutCredit` at ~1284; PT-47a threads the request size into both and the fresh-start credit, and exports `FundedGridConfig` and `EvalGridConfig` (they were module-local). `optimize dp` gains `--retain-cushion` and `--request-size` (reused shared names; never `--retained-cushion` or `--payout-size`) and, after PT-47b, the shared policy flag.
+- `DpObjectiveMismatch` is reachable only from historical ledger verdicts: the only CLI DP is the average-reward solve, whose eval phase already uses the cash objective (`terminalValueAtPass = fundedResult.initialValue - activationCost`).
+- The gate: D11 in the ledger is a two-plan aggregate (DP >= best flat on at least 1 of 2, never below 0.8x) and cannot label one plan; it compares credit-inclusive monthly net only. The per-plan rule is Q38; the metric Q1 (default: both must pass).
+- A gate re-run writes a new run file and index row (never edits an old one); `validation_ref` cites them.
+- No existing DP row qualifies: the 2026-09-23 validation files; the 2026-09-26 post-audit rows (8 iterations, exit 1, "not established"); the wave-26 post-fix rows (at 12 iterations but at the plan's own retained cushion, $0 on TopStep, against a $2,000 flat baseline, because `optimize dp` had no cushion flag until PT-47a). Step 1 records why each does not qualify.
+- Funded `computeRisk(state, tradeIndex, fundedCycle)` picks the payout regime from `payoutsIssued`, the reset layer from `fundedResetsUsed` (WP24) and the baseline from `lastPayoutBalance`, and throws on bad counts (WP27c) or unreachable levels: samples need the rebuilt snapshot (`tracker.cycleSnapshot(plan, state)` from PT-12c's reconstruction).
+- Since T33/WP39d the funded DP's sizing is WholeContracts; with position sizing it values candidates in whole contracts via `placeWholeContractTrade`: store and display the placed risk, not the raw action.
+- The funded DP throws for any stop rule other than None, so the documented stop rule cannot enter the solve: every funded row gets `DpDayStopRuleNotModeled` and the stop rule is not keyed.
+- The config key must cover every honoured parameter (position sizing, rung sizing, action step and max multiples, `cycleBestDayBucketCount`, `payoutRegimeCap`, `maxPreLockOffsetMultiple`, `maxCushionMultiple`, tolerances and iteration limits, `maxSolves`, copy accounts, discounts, opt-ins, a lifetime cap override applied via `withMaxLifetimePayouts`), built from one typed `DpSolveConfig` that also builds the solver call; hashed with PT-45's sha256 helper over PT-31a's `stableJson`.
+- Samples are integer cents (PD-3) via `usdCentsToDollars`/`usdCentsFromDollars`.
+- The browser-safe row cannot import gap kinds from `FundedDpModelGaps.ts` (it reaches `node:os` through `FundedStateValue.ts`): the enum moves to a leaf module exported by the core barrel.
+- The web files are PT-34's (EJ6); the query runs in PT-34's `AdvicePanel.tsx`.
+- Router boundary files were missing from the old list (outputs, quotas, scoping, output types, harness); `assertUserScopedWhere` is in `tests/unit/server/fakeDatabase.ts:60`. `advisorImportGraph.test.ts` is PT-19's (EJ4); PT-30a extends it.
+- Already done elsewhere: WP28/WP37b cents exports; WP24/WP27/WP27c reset-layer policy and fail-loud counts; WP31 worker determinism; T34 default 12 iterations and exit 1 on solve-cap-reached or unconverged levels; WP39d whole-contract DP; WP40/T32 credit fields; PT-05 router, repo, output, FK and fake-DB patterns; PT-05g's `appImportBoundary.test.ts`.
+- Audit decisions: T33 (with an instrument and stop from the account or rulebook, pass `positionSizing` into both grids, key it, compute placed risk via `placeWholeContractTrade` and the tier contract limit; the empirical sim carries the same instrument and stop, checked by `simInputsSizingIssue`; without a stop the DP solves in continuous dollars with a typed `ContinuousRiskAssumed` assumption; PD-25 still forbids converting a contract cap to dollars). T32 (both monthly figures in the gate and the ledger row; U17 open). T34/U20 (`validated` needs a converged solve: `RateSearchStatus.Converged`, 0 unconverged levels, exit 0, iterations >= 12). PD-26 vs the funded DP (stop rule not modeled, disclosed). Audit U14 (consistency plans: keep the exact default grid, key `cycleBestDayBucketCount`, attach `fundedConsistencyGridNote`, and let the budget skip them with a reason, Q41).
+- Handoffs folded in: PT-47 to PT-30 (the DP honours request size, policy and cushion; key them; if PT-47b were missing, the PD-16 fallback: PayoutSizeNotModeled and DpPayoutPolicyMismatch on every funded row; both PT-47 halves land before EJ5 in this schedule); C2 and C17 (assert `fundedGrid.minRetainedCushion` equals the rulebook value; `validated` only from a fresh gate row at a matched cushion); PT-47a (grid config exports); the gap-kind leaf (PT-30a owns it; audit tracker handoff); PT-19 (extend its import-graph test); PT-18 (null means `DpStateUnreached`; explicit session-to-day mapping); PT-45 (fingerprint staleness, T12).
+- Open user questions: Q38 to Q42, Q1.
+
+**Steps (RED first; no comments, no em dashes, `~/` imports, typed stubs first (PD-22), Vitest from the repo root; never `bun run dev/build/lint/check`; never scripts importing prop-calculator internals: drive only `bun run cli prop ...`)**
+
+PT-30a (EJ5):
+
+1. Pins and re-read (PD-31): every `FundedStateValue*`, `AverageRewardSolver`, `EvalStateValue` and `optimizeDp` test on a toy config. Re-read `FundedStateValue.ts` (`tryPayout` ~1232, `closeoutCredit` ~1284, `computeRisk` reset layer and regime, `assertFundedCycleSnapshotCounts`, the unreachable-level throw, `computeCandidateTrades` with `placeWholeContractTrade`, the stop-rule None restriction), `AverageRewardSolver.ts` (the exported grid configs), `EvalStateValue.ts` (`riskAtReachedState`, `cushionStepDollars` 100), `optimize/dp/command.ts` (PT-47's flags and `empiricalSimInputs`), the shared flag names, and every DP row in the ledger index; record why each existing DP row does not qualify; record the U14, U17 and U20 status.
+2. Gap enum leaf: add `core/FundedDpModelGapKind.ts` (`FundedDpModelGapKind`, `FundedDpModelGap`), re-imported by `FundedDpModelGaps.ts` and exported by `core/index.ts`; guard `FundedDpModelGaps.test.ts` unchanged; extend `advisorImportGraph.test.ts`: `advisor/DpAdviceRow.ts` never reaches `FundedStateValue.ts`, `AverageRewardSolver.ts`, `FundedDpModelGaps.ts` or `node:`; `advisor/dp` is not re-exported and is imported only from `src/cli/**` (grep).
+3. RED `FundedStateValueStateFit.test.ts`: a pure exported helper derives grid bounds from config and plan (cushion cap `maxCushionMultiple x drawdown`, pre-lock offset cap, `payoutRegimeCap` via `defaultPayoutRegimeCap`); states above a cap are saturated, in-range states not; solver values and sampled `computeRisk` equal the pins.
+4. RED `DpConfigKey.test.ts`: sha256 over `stableJson` of one typed `DpSolveConfig` that also builds the solver call (`AverageRewardConfig` minus workers, plus the renewal objective inputs); keyed: plan serial, opt-ins, plan-rule fingerprint, winrate, rr, trades per day, commission, every passed `FundedGridConfig` and `EvalGridConfig` field (position sizing, rung sizing, bucket count, cushion steps, regime cap), `maxSolves`, the rate tolerance, copy accounts, discounts, rebuy lag, horizon, `maxEvalDays`, the retained cushion, a lifetime cap override, the effective request and policy; a type-level test that every grid config key is keyed or in an explicit not-result-affecting list; any keyed change changes the key; the funded stop rule is not keyed.
+5. RED `DpAdviceSource.test.ts`: eligibility via `isFundedDpEligible` and `isEvalDpEligible` with the `optimize dp` reason text reused (instant-funded plans have no eval rows); funded samples at trade indexes 0..tpd-1 on the all-loss path and at cushion +/- 1 and 2 documented rungs equal `computeRisk(state, i, tracker.cycleSnapshot(plan, state))` from PT-12c's reconstruction (regime and reset layer included); with position sizing each sample also stores the placed risk via `placeWholeContractTrade` with the tier limit, both in integer cents, else `ContinuousRiskAssumed`; the solve receives `minRetainedCushion` from `rulebook.payout.retainedCushionCents` via `usdCentsToDollars` (never `resolveRetainedCushion(undefined)`), plus the effective request and FullRequestOnly; the documented funded stop rule is not passed and every funded row gets `DpDayStopRuleNotModeled`; eval maps elapsed sessions explicitly to the day index, and `riskAtReachedState` null or a day past the cap gives `DpStateUnreached`; a drawdown not a multiple of `cushionStepDollars` gives an informational `DpGridMisaligned`; eval rows only for plans in `DpValidatedPlans` (Q39), else `DpNotValidated` and no eval rows; a historical pass-probability verdict gives `DpObjectiveMismatch`; funded `computeRisk` throws become typed reasons; gaps from `fundedDpModelGaps` plus saturation plus the consistency-grid note; verified conduct patterns add AggressiveOptimumChurn with the quote; `DP_ADVICE_SOLVER_VERSION` pinned with a toy-solve value (the failure message says to bump it).
+6. RED `DpValidationGate.test.ts` and `DpValidatedPlans`: a typed table read from the ledger; `validated` only when a row is dated after G2 with its engine commit or content hash, the solve converged (Converged, 0 unconverged levels, exit 0, iterations >= 12), DP and flat baseline used the same retained cushion, payout policy, instrument and stop, and the DP's empirical monthly net passes the Q38 rule on the Q1 metric (default: at least the best flat on both credit-inclusive and credit-free); otherwise false with the named result ("0.99x best flat", "solve-cap-reached"); citations give file, row and date.
+7. RED `DpAdviceRow.test.ts`: the browser-safe row type (gaps typed by the leaf enum) and staleness (a newer snapshot, a different `solver_version`, or a different plan-rule fingerprint).
+8. Implement the lib modules.
+9. Gate re-run (CLI only, in the EJ5 CLI slot after PT-32's re-measure, within the Q40 budget): per funded-DP-eligible plan in priority order, `bun run cli prop optimize dp --firm <f> --variant <v> --eval-days 15 --funded-days 252 --rebuy-lag-days 0 --trials 20000 --seed 42 --retain-cushion <rulebook> --request-size <effective> --payout-policy full-request` at the default `--iterations 12` (raised if exit 1), then the Stage V flat baseline `bun run cli prop optimize funded ... --retain-cushion <same>` with the same trials, seed and horizons; bounded by `--max-plans`/time budget (consistency plans may be skipped with a reason, Q41); record commands, runtimes, exit codes and both monthly figures in a new `engine-results/<date>-dp-gate.md` plus one index row. Refresh `DpValidatedPlans` from it.
+10. GREEN: the new tests plus every `FundedStateValue*`, `EvalStateValue*`, `AverageRewardSolver`, `FundedDpModelGaps`, `optimizeDp` and `appImportBoundary` test; typecheck; eslint on owned files; importer greps; hand `FundedStateValue.ts`, `FundedDpModelGaps.ts`, the leaf, `core/index.ts` (and `AverageRewardSolver.ts` if touched) to the audit tracker.
+
+PT-30b (EJ7):
+
+11. RED `dpAdvice.test.ts`: `listForAccount({id})` and `latestForAll` on `propProcedure` with Zod input and output (`propDpAdviceOutputSchema` via `createSelectSchema`, jsonb parsed by defaulting readers); every select passes `assertUserScopedWhere`; the account ownership-checked via `loadOwnedAccountOrThrow`; bounded lists; staleness via step 7 with the current fingerprint computed server-side; `userScoping.test.ts` `VALID_INPUTS`, `outputTypes.test.ts` (assignable to `$inferSelect`) and the harness extended.
+12. Implement: `prop_dp_advice` with the composite FK `(account_id, user_id)` to `prop_account` (cascade) and the snapshot FK `(snapshot_id, account_id, user_id)` to `prop_account_snapshot` (NO ACTION, like `prop_sizing_decision_snapshot_fk`); `.$type<>` via import type only (PD-24); samples in integer cents; CHECKs on `runtime_ms >= 0` and the varchar lengths; index `(user_id, account_id, solved_at)` and a unique idempotency index on (user, account, snapshot, config_key, solver_version); the repo, router and `DpAdviceRow` barrel exports; `bun run db:generate`, inspect the SQL (only `sadranl_prop_dp_advice` DDL, every FK after its target); do not migrate (Q42).
+13. GREEN: `tests/unit/server/propAccounts`, the advisor import-graph test; typecheck; eslint; importer greps.
+
+PT-30c (EJ8):
+
+14. RED `adviseDp.test.ts` (citty `parseArgs`, fake DB): `--dp` prints DP rows after the documented headline with "not validated" and the gate result where applicable; the solver call carries `fundedGrid.minRetainedCushion` equal to the rulebook value (asserted); `--store` requires `--account` and `--user-email`, resolves the user id by email from `user`, loads the account with `and(eq(id), eq(userId))` via `PropAccountRepo`, reads the latest snapshot for that account and user, checks `loadOwnedSnapshotOrThrow`, inserts one row with that userId, eligibility, gaps and `validation_ref`, never logs a secret; a foreign account id fails; one solve serves several accounts with the same key; `--max-plans` and `--time-budget-min` bound `--all`; rows written as plans finish; a rerun skips existing rows; the runtime printed.
+15. Implement in `advise/command.ts` (or `advise/dp.ts`); GREEN: the test plus PT-24's guard; one real small `bun run cli prop advise --dp` on an eligible plan at a coarse config with its runtime recorded (not while another job drives the CLI).
+
+PT-30d (EJ8):
+
+16. RED `adviceViewModel.test.ts` (extended): a DP row shows eligibility, gaps, saturation, placed vs intended risk with instrument and stop as assumptions, "not validated" with the gate result, and a stale flag; text only from typed fields (PD-32).
+17. Implement in `OptimaTable.tsx`, `adviceViewModel.ts` and `AdvicePanel.tsx` (the `dpAdvice.listForAccount` query); GREEN: the accounts app suite; typecheck; eslint; importer greps.
 
 **Regression tests**
 
-- The 7 files; guards: `FundedStateValue*` tests equal to the pins
+- `DpAdviceSource`, `DpConfigKey`, `DpValidationGate`, `DpAdviceRow`, `FundedStateValueStateFit`, `dpAdvice`, `adviseDp`, extended `advisorImportGraph`, `userScoping`, `outputTypes` and `adviceViewModel`; guards as listed
 
 **Acceptance**
 
-- DP-optimal risk at the exact state is available via the CLI and, when stored, in the web with eligibility, gaps, saturation, a validation status backed by a fresh matched gate run, and staleness shown; no Node-only code reaches the browser; the DP's payout policy is either honored or disclosed on every row.
+- DP advice is computed only by the CLI, keyed by every honoured parameter, stored per user and snapshot with scoped reads, shown on the web with its gaps and placed risk, and marked validated only by a fresh, converged, matched-cushion gate row recorded in the ledger.
 
 ## PT-50: final integration, review sweep, docs, per-item verification
 
-- **Lane / wave:** final  **Size:** large  **Depends on:** all
+- **Lane / wave:** final (after EJ8)  **Size:** large  **Depends on:** every PT package and follow-up at implemented or blocked with a reason (PT-12 to PT-16, PT-18, PT-19, PT-21 to PT-27, PT-30 to PT-38, PT-42, PT-44 to PT-49 and every split half); G2 and the audit's FINAL-REPORT.md (so the open questions match); no audit package or CLI rerun in flight while PT-50 runs repo-wide eslint or knip (U21)
 - **Items:** all F items (verification)
-- **Files owned:** fix-ups only, listed in the report; `.claude/skills/prop-firm-trading/SKILL.md` (doc-updater on Sonnet); this folder's `PLAN.md` statuses
-- **Reviewers:** security-reviewer (all routers, proxy, CLI DB path, callbackUrl), database-reviewer (migrations 0007 and 0008, all queries), trader-rules reviewer (every advice path against Hard Rules 1-8), code-reviewer, typescript-reviewer, react-reviewer
+- **Files owned:**
+  - fix-ups only, each listed in the report
+  - `src/app/(app)/accounting/_components/AccountingSubnav.tsx`, `src/app/(app)/trade-checklist/_components/TradeChecklistSubnav.tsx`, `src/app/(app)/lifting/_components/LiftingSubnav.tsx` (`ariaLabel`, the PT-02 handoff)
+  - `src/app/(app)/prop-calculator/accounts/_components/accountsNavItems.ts` and `tests/unit/app/prop-calculator/accounts/accountsNavItems.test.ts` (the accounts-nav availability guard, unless the optional PT-43d in EJ0a already did it)
+  - `.claude/skills/prop-firm-trading/SKILL.md` (ecc:doc-updater on Sonnet 5, no em dashes)
+  - `.claude/plans/prop-tools-2026-09-25/PLAN.md` (statuses, wave log, "After all packages")
+- **Reviewers:** security-reviewer (all routers, proxy, the CLI DB path, callbackUrl), database-reviewer (migrations 0007 and PT-30b's, all queries), trader-rules reviewer (every advice path against Hard Rules 1 to 8), code-reviewer, typescript-reviewer, react-reviewer
 
-**Steps**
+**Readiness pass 2026-09-26**
 
-1. `bun run typecheck` against the baseline, `bunx eslint` on every file changed by any PT package, importer greps for every new and deleted module, `bunx knip` (reported with the PD-22 caveat), `bunx vitest run` on every PT test file plus `tests/unit/app/prop-calculator`, `tests/unit/server`, `tests/unit/lib/prop-calculator` (full suite only if the user asks). Report exact counts.
-2. Verify every `accountsNavItems` and `toolCatalog` target page exists; every tool page has one `<main>` (from the layout), one `<h1>` followed by the toolbar where `sharesState`, and `<h2>` sections; exactly one subnav item is current on every route.
-3. Security sweep: every procedure `protectedProcedure` with input and output schemas; every select, update and delete passes the WHERE assertion (including `event.list`); quotas and rate limits present; no secret logged; CSV limits; callbackUrl rejects backslash forms.
-4. Money sweep: grep every engine request construction for `EnginePolicy`; no path calls `resolveRetainedCushion(undefined)` from advisor code; every engine request uses `effectivePayoutRequest` and `FullRequestOnly` or carries `PayoutPolicyDiffers`; every simulated "documented rule" number goes through `toSimInputs`; no advice view model or documented sizing breaks `assertSizingInvariant`.
-5. Per-item verification: two independent reviewers per F item confirm acceptance (tests seen RED then GREEN for behaviour items, UI traced). Mismatches are reopened.
-6. Update the skill for the new tools, `prop advise` and the general-derivation default (no em dashes). Update PLAN.md statuses and the wave log.
-7. Report to the user: open U items (U22 with PT-32's re-measure, U23), the UI paths to check in their dev server, the migrations to apply.
+- Vitest has two projects since PT-11b: `unit` (`tests/unit/**/*.test.ts`, node) and `dom` (`tests/unit/**/*.dom.test.tsx`, happy-dom); folder runs include both and report counts per project.
+- The tool catalog half of step 2 is test-enforced (`hasPage` plus `toolAvailability.test.ts`); PT-50 confirms every entry is `hasPage: true` or has a recorded reason. `ACCOUNTS_NAV_ITEMS` has no such guard and links Weekly review, Copy groups and Next slot, which 404 today; an availability guard reusing `toolPageFiles.ts`'s helper closes it (recommended now as the optional PT-43d in EJ0a).
+- Prop routers use the wrappers in `routers/propAccounts/mutationGuard.ts` (`propProcedure`, `propMutationProcedure(bucket)`, `propRateLimitedProcedure`) on top of `protectedProcedure`; `userScoping.test.ts` enumerates procedures through `VALID_INPUTS`.
+- Migrations: `0007_careless_miss_america.sql` (unapplied) plus PT-30b's; migrations 0001 to 0005 do not replay on an empty database (pre-existing, for the report).
+- Open items now include U22, U23, U24, U25, this pass's Q1 to Q43, and the audit's U14, U16, U17, U18, U19 and U20 where they change numbers these tools show; U19 bears on the $500 default (PD-40/U8).
+- RED cannot be observed again after the fact: verifiers cite each wave's RED evidence (run ids in the wave log), else show the test failing against the reverted hunk in a throwaway git worktree, never the main tree.
+- The money sweep now includes T32, T33, WP28 and WP39d checks.
+- Already done elsewhere: PT-43b catalog availability; PT-10/PT-02 current-item tests and subnav labels; PT-05g import boundary and PT-05e `readCallbackUrl`; PT-05f/PT-05h bucketed rate limiter and one scenario quota; the PT-01 to PT-13 cents handoff; PT-11g/WP39d engine placed risk and refusals; lane 0 and W F items at "implemented" (PT-50 flips them to done after verification).
+- Audit decisions: T33 (every engine request and `SimInputs` declares sizing through `policySizingOf(phase)`; requests with instrument and stop pass `simInputsSizingIssue` or go through `resolveDayPolicy`; placed risk only via `placedFundedRisk`, `placedFundedRiskAt` or `placeWholeContractTrade`; refusal text starts with `SIM_INPUTS_REFUSAL_PREFIX` and is never rebuilt; no documented rule converts a contract cap to dollars). T32/U17 (every monthly-net figure shows or names credit-free vs credit-inclusive). T34/U20 (any DP figure or `validated` flag from a converged gate row; the skill never cites the 2026-09-26 DP rows or the validation-2 verdict). WP28/WP37b (no local cents constant or tolerance).
+- Handoffs folded in: PT-02 (subnav `ariaLabel`s); PT-20 (accounts-nav availability); wave 1c (the 0001 to 0005 replay note); PT-30 (gate questions and migration); PT-34 (the stale `kpiDescriptions.ts:27` T32 wording; taken over by audit WP43 on 2026-09-26, so PT-34 only confirms it); PT-24 (the duplicated placed-cap sentence); PT-13 and PT-15 (the inline eval risk chains in `LadderSearch.ts` and `EvalStateValue.ts` vs `resolveRiskAt`; the dead `seedOffset`; the stale T27 sentence).
+- Open user questions: Q42 (migrations), Q43 (full suite).
+
+**Steps (steps 2 to 5 are read-only and run as separate reviewers in parallel after step 1; step 5 is sharded by part with two independent reviewers per shard; fix-ups are gathered and applied in one pass, then the affected checks run again; never `bun run dev/build/lint/check/verify` or `format:write`; no browser tools; Vitest from the repo root)**
+
+1. Checks with exact counts: `bun run typecheck` against the baseline; `bunx eslint <every file changed by any PT package>` (no `--fix`), the formatter on PT-50's fix-up files only; importer greps for every new and deleted module; `bunx knip` with the PD-22 caveat; `bunx vitest run` on every PT test file plus `tests/unit/app/prop-calculator` (unit and dom projects), `tests/unit/server`, `tests/unit/lib/prop-calculator`, `tests/unit/lib/prop-accounts`, `tests/unit/cli/prop`, `tests/unit/lib/appImportBoundary.test.ts`, counts per project; the full suite only per Q43.
+2. Pages and navigation: RED an accounts-nav availability test reusing `toolPageFiles.ts`'s helper (every `ACCOUNTS_NAV_ITEMS` href has a `page.tsx`), then GREEN (skip if PT-43d did it); every `TOOL_CATALOG` entry `hasPage: true` or a recorded reason; by trace, one `<main>`, one `<h1>` followed by the toolbar where `sharesState`, `<h2>` sections, exactly one current subnav item per route; RED a small test that the three other subnavs render a labelled `<nav>`, then pass `ariaLabel`.
+3. Security sweep: every `propAccountsRouter` procedure on the three wrappers with `.input()` and `.output()`; `VALID_INPUTS` covers every procedure (including `dpAdvice`, `review`, `edge`) and `outputTypes.test.ts` every table; every select, update and delete (including in `tx` and `event.list`) passes the WHERE assertion; quotas and rate limits per PD-36; PT-30c's `--store` resolves the userId by email and scopes by `and(id, userId)`; no secret logged; CSV limits; `readCallbackUrl` rejects backslash and protocol-relative forms; `appImportBoundary.test.ts` green.
+4. Money sweep: EnginePolicy present in every engine request (advisor, workers, CLI advise, web tools); no advisor call of `resolveRetainedCushion(undefined)`; every request uses `effectivePayoutRequest` and FullRequestOnly or carries PayoutPolicyDiffers; every simulated documented-rule number via `toSimInputs`; no view model or documented sizing breaks `assertSizingInvariant`; the T33, T32, cents and DP checks above.
+5. Per-item verification: two independent reviewers per F item confirm the acceptance, citing the wave run's RED evidence or a throwaway-worktree revert; UI traced from code; mismatches reopened with a named follow-up package.
+6. Docs and tracker: SKILL.md for the new tools, `prop advise` (with `--dp` if PT-30 landed) and the general-derivation default, via ecc:doc-updater on Sonnet 5, no em dashes; replace SKILL.md's "validation run is stale" only if PT-30a recorded a validated gate row; PLAN.md statuses, wave log and "After all packages".
+7. Report to the user: exact counts, confirmed vs not verified; the migrations to apply (0007 plus PT-30b's; 0001 to 0005 do not replay on an empty DB); the manual UI checklist; the open questions (U22, U23, U24, U25, the unanswered Q items, and the audit's U14, U16, U17, U18, U19, U20 where they change numbers these tools show).
 
 **Acceptance**
 
-- Every F item is `done` or `blocked` with a reason; the checks are reported exactly; the user has the open questions and the manual UI checklist.
+- Every F item is done or blocked with a reason; the checks are reported exactly per Vitest project; the user has the open questions, the migrations and the manual UI checklist.

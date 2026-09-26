@@ -13,6 +13,7 @@ import {
     percent,
     type Plan,
     type PlanId,
+    PolicySizing,
     RetryKind,
     retryPath,
     RoiBasis,
@@ -99,6 +100,7 @@ function planFor(id: PlanId): Plan {
 const APEX_LADDER_POLICY: DayPolicy = {
     ladder: [600],
     maxLossesPerDay: null,
+    sizing: PolicySizing.ContractCapped,
     stopRule: { kind: DayStopRuleKind.DayGreen },
 };
 
@@ -256,7 +258,12 @@ describe('R1-3: expectedFirstPayoutDay averages every paid trial, busted later o
 });
 
 describe('N-17: the first payout day is counted from the start of the first eval attempt', () => {
-    const policy = flatDayPolicy(150, 1, { kind: DayStopRuleKind.None });
+    const policy = flatDayPolicy(
+        150,
+        1,
+        { kind: DayStopRuleKind.None },
+        PolicySizing.ContractCapped,
+    );
     const losingDaysToBust = 14;
     const winningDraw = 0.1;
     const losingDraw = 0.9;
@@ -308,6 +315,7 @@ describe('R1-4: expectancyR divides by the realized average risk', () => {
             evalDayPolicy: {
                 ladder: [400, 600],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             fundedHorizonDays: 60,

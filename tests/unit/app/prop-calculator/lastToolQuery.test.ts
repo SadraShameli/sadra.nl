@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { type KeyValueStorage } from '~/app/(app)/prop-calculator/_components/browserStorage';
 import {
-    type QueryStorage,
     readLastToolQuery,
     writeLastToolQuery,
 } from '~/app/(app)/prop-calculator/_components/lastToolQuery';
 
-class MemoryStorage implements QueryStorage {
+class MemoryStorage implements KeyValueStorage {
     readonly values = new Map<string, string>();
 
     getItem(key: string): null | string {
@@ -18,7 +18,7 @@ class MemoryStorage implements QueryStorage {
     }
 }
 
-const throwingStorage: QueryStorage = {
+const throwingStorage: KeyValueStorage = {
     getItem() {
         throw new Error('SecurityError');
     },

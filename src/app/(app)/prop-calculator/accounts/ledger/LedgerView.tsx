@@ -26,9 +26,7 @@ import {
 } from '~/components/ui/Table';
 import {
     compareText,
-    FeeKind,
     formatUsdCents,
-    PayoutStatus,
     summarizeCash,
     todayIsoDate,
 } from '~/lib/prop-accounts';
@@ -53,6 +51,12 @@ import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import { ACCOUNT_LIST_INPUT } from '../_components/accountListFilters';
+import { GrossOnlyPayoutsNote } from '../_components/GrossOnlyPayoutsNote';
+import {
+    feeKindLabel,
+    LEDGER_LIST_INPUT,
+    payoutStatusLabel,
+} from '../_components/overview/overviewModel';
 
 const ALL = 'all';
 const CSV_MIME_TYPE = 'text/csv;charset=utf-8';
@@ -68,26 +72,6 @@ const ENTRY_FILTER_LABEL: Readonly<Record<LedgerEntryFilter, string>> = {
     [LedgerEntryFilter.Fees]: 'Fees only',
     [LedgerEntryFilter.Payouts]: 'Payouts only',
 };
-
-const FEE_KIND_LABEL: Readonly<Record<FeeKind, string>> = {
-    [FeeKind.Activation]: 'Activation fee',
-    [FeeKind.EvalPurchase]: 'Evaluation purchase',
-    [FeeKind.FundedReset]: 'Funded reset',
-    [FeeKind.Other]: 'Other fee',
-    [FeeKind.Rebuy]: 'Rebuy',
-    [FeeKind.Refund]: 'Refund',
-    [FeeKind.Reset]: 'Reset',
-    [FeeKind.Subscription]: 'Subscription',
-};
-
-const PAYOUT_STATUS_LABEL: Readonly<Record<PayoutStatus, string>> = {
-    [PayoutStatus.Cancelled]: 'Payout cancelled',
-    [PayoutStatus.Denied]: 'Payout denied',
-    [PayoutStatus.Paid]: 'Payout paid',
-    [PayoutStatus.Requested]: 'Payout requested',
-};
-
-const LEDGER_LIST_INPUT = {};
 
 const ENTRY_FILTERS: ReadonlyMap<string, LedgerEntryFilter> = new Map(
     Object.values(LedgerEntryFilter).map((member) => [member, member]),
@@ -221,10 +205,10 @@ function accountFilterOptions(
 function describeEntry(entry: LedgerEntry): string {
     switch (entry.kind) {
         case LedgerEntryKind.Fee: {
-            return FEE_KIND_LABEL[entry.fee.kind];
+            return feeKindLabel(entry.fee.kind);
         }
         case LedgerEntryKind.Payout: {
-            return PAYOUT_STATUS_LABEL[entry.payout.status];
+            return payoutStatusLabel(entry.payout.status);
         }
     }
 }
@@ -480,15 +464,7 @@ function LedgerTotals({ entries }: { entries: readonly LedgerEntry[] }) {
                     </dd>
                 </div>
             </dl>
-            {cash.grossOnlyPayouts > 0 && (
-                <p className="text-xs text-amber-400">
-                    {cash.grossOnlyPayouts} paid{' '}
-                    {cash.grossOnlyPayouts === 1
-                        ? 'payout has'
-                        : 'payouts have'}{' '}
-                    no net amount, so the gross amount is counted as received.
-                </p>
-            )}
+            <GrossOnlyPayoutsNote count={cash.grossOnlyPayouts} />
         </div>
     );
 }

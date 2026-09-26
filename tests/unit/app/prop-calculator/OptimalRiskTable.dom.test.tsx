@@ -14,19 +14,21 @@ import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/
 import OptimalRiskTable from '~/app/(app)/prop-calculator/_components/OptimalRiskTable';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalculator';
-import { type DayPolicy, DayStopRuleKind } from '~/lib/prop-calculator';
+import {
+    type DayPolicy,
+    DayStopRuleKind,
+    PolicySizing,
+} from '~/lib/prop-calculator';
 
 interface TableHarness {
     setEvalDayPolicy: Mock<(policy: DayPolicy | null) => void>;
     state: CalculatorState | null;
 }
 
-const harness = vi.hoisted(
-    (): TableHarness => ({
-        setEvalDayPolicy: vi.fn(),
-        state: null,
-    }),
-);
+const harness = vi.hoisted((): TableHarness => ({
+    setEvalDayPolicy: vi.fn(),
+    state: null,
+}));
 
 vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
     useCalculatorActions: () => ({
@@ -38,7 +40,11 @@ vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
 vi.mock(
     '~/app/(app)/prop-calculator/_components/useDebouncedSimulation',
     () => ({
-        useDebouncedComputation: () => ({ pending: false, result: [] }),
+        useDebouncedComputation: () => ({
+            error: null,
+            pending: false,
+            result: [],
+        }),
     }),
 );
 
@@ -48,6 +54,7 @@ const NOT_USED_LEAD =
 const LADDER: DayPolicy = {
     ladder: [250, 500],
     maxLossesPerDay: 2,
+    sizing: PolicySizing.ContractCapped,
     stopRule: { kind: DayStopRuleKind.FirstWin },
 };
 

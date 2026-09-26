@@ -4,8 +4,10 @@ import {
     type CouponDiscounts,
     type DayPolicy,
     type DayStopRule,
+    type InstrumentSymbol,
     type Plan,
     type RungSizing,
+    simInputsSizingIssue,
 } from '~/lib/prop-calculator';
 import {
     DEFAULT_DAY_BUDGET,
@@ -24,6 +26,7 @@ export interface CashFlowSimulationArguments {
     dayStop?: DayStopRule;
     discounts?: CouponDiscounts;
     evalDayPolicy?: DayPolicy;
+    instrument?: InstrumentSymbol;
     maxEvalDays: number;
     minRetainedCushion?: number;
     payoutRequestSize?: number;
@@ -32,6 +35,7 @@ export interface CashFlowSimulationArguments {
     rrRatio: number;
     rungSizing?: RungSizing;
     seed: number;
+    stopPoints?: number;
     tradesPerDay: number;
     trials: number;
     winrate: number;
@@ -77,6 +81,7 @@ export function useCashFlowSimulation(
         dayStop,
         discounts,
         evalDayPolicy,
+        instrument,
         maxEvalDays,
         minRetainedCushion,
         payoutRequestSize,
@@ -85,6 +90,7 @@ export function useCashFlowSimulation(
         rrRatio,
         rungSizing,
         seed,
+        stopPoints,
         tradesPerDay,
         trials,
         winrate,
@@ -107,6 +113,7 @@ export function useCashFlowSimulation(
                 dayStop,
                 discounts,
                 evalDayPolicy,
+                instrument,
                 maxEvalDays,
                 minRetainedCushion,
                 payoutRequestSize,
@@ -115,11 +122,13 @@ export function useCashFlowSimulation(
                 rrRatio,
                 rungSizing,
                 seed,
+                stopPoints,
                 tradesPerDay: effectiveTradesPerDay,
                 trials,
                 winrate,
             }),
         null,
+        simInputsSizingIssue({ instrument, riskPerTrade, stopPoints }),
     );
 
     return {

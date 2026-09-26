@@ -1,6 +1,8 @@
 'use client';
 
+import { UserPlus } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 
 import { CalculatorInputsForm } from '~/app/(app)/prop-calculator/_components/CalculatorInputsForm';
 import {
@@ -15,12 +17,14 @@ import {
     PanelSkeletonSize,
 } from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
 import PercentileBar from '~/app/(app)/prop-calculator/_components/PercentileBar';
+import { currentBaseFailure } from '~/app/(app)/prop-calculator/_components/simulationFailure';
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
+import { accountPrefillHref } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
+import { Button } from '~/components/ui/Button';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
-import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
 
 const ResultsPanel = dynamic(
@@ -34,11 +38,15 @@ const ChartPanel = dynamic(
 );
 
 export function SimulatorView() {
-    const { simInputs, state } = useCalculatorInputs();
-    const { isPending, result } = useBaseResult();
-    const refusal = simInputsSizingIssue(simInputs);
-    const refusalNotice =
-        refusal === null ? null : <SimulationFailureNotice message={refusal} />;
+    const { planOptIns, simInputs, state } = useCalculatorInputs();
+    const { error, isPending, result } = useBaseResult();
+    const failure = currentBaseFailure(simInputs, {
+        error,
+        isPending,
+        result,
+    });
+    const failureNotice =
+        failure === null ? null : <SimulationFailureNotice message={failure} />;
     const { chartType, pinned } = useLabSlots();
     const actions = useCalculatorActions();
 
@@ -53,7 +61,7 @@ export function SimulatorView() {
                 >
                     <CalculatorInputsForm
                         aside={
-                            refusalNotice ??
+                            failureNotice ??
                             (result === null ? (
                                 <PanelSkeleton size={PanelSkeletonSize.Aside} />
                             ) : (
@@ -68,6 +76,24 @@ export function SimulatorView() {
                             ))
                         }
                     />
+                    <Button
+                        asChild
+                        className="self-end"
+                        size="sm"
+                        variant="outline"
+                    >
+                        <Link
+                            href={accountPrefillHref(
+                                state.firm.id,
+                                state.plan,
+                                planOptIns,
+                            )}
+                            prefetch={false}
+                        >
+                            <UserPlus aria-hidden />
+                            Save as account
+                        </Link>
+                    </Button>
                 </ToolSection>
 
                 <ToolSection
@@ -75,7 +101,7 @@ export function SimulatorView() {
                     id={LegacySection.Charts}
                     title="Charts"
                 >
-                    {refusalNotice ??
+                    {failureNotice ??
                         (result === null ? (
                             <>
                                 <div className="grid gap-3 md:grid-cols-2">

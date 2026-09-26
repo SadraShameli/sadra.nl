@@ -14,6 +14,7 @@ import {
     maxContractsAt,
     PayoutFloorEffect,
     type Plan,
+    PolicySizing,
     RungSizing,
     TierBasis,
     tierContextFromProfits,
@@ -537,6 +538,7 @@ describe('idle days are simulable in FTMO Futures Evaluation (no closure rule, b
                     dayPolicy: {
                         ladder: [500],
                         maxLossesPerDay: null,
+                        sizing: PolicySizing.ContractCapped,
                         stopRule: { kind: DayStopRuleKind.None },
                     },
                     idleDayProbability: 1,

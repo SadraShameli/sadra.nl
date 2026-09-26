@@ -36,6 +36,7 @@ import {
     ledgerListSchema,
     payoutCreateSchema,
     payoutUpdateSchema,
+    requiresEventNote,
     scenarioSaveSchema,
     snapshotBulkCreateSchema,
     snapshotCreateSchema,
@@ -1063,6 +1064,26 @@ describe('event schemas', () => {
         expect(parsed.data?.note).toBe(
             'Support reversed the bust: data feed outage',
         );
+    });
+
+    it('says a kind needs a note exactly where the record schema rejects it without one', () => {
+        for (const kind of Object.values(AccountEventKind)) {
+            const isAcceptedWithNote = isAccepted(eventRecordSchema, {
+                ...VALID_EVENT,
+                kind,
+                note: 'firm confirmed',
+            });
+            const isAcceptedWithoutNote = isAccepted(eventRecordSchema, {
+                ...VALID_EVENT,
+                kind,
+                note: null,
+            });
+            expect(requiresEventNote(kind), kind).toBe(
+                isAcceptedWithNote && !isAcceptedWithoutNote,
+            );
+        }
+        expect(requiresEventNote(AccountEventKind.BustReversed)).toBe(true);
+        expect(requiresEventNote(AccountEventKind.Busted)).toBe(false);
     });
 
     it('rejects an unknown kind', () => {

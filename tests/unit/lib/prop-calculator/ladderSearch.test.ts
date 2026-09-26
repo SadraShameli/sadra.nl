@@ -14,6 +14,7 @@ import {
     FtmoFuturesVariant,
     ladderFrontier,
     MffuVariant,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -104,6 +105,7 @@ describe('enumerateDay', () => {
             dayPolicy: {
                 ladder: [400, 600, 800, 200],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.DayGreen },
             },
             rrRatio: 2,
@@ -131,6 +133,7 @@ describe('enumerateDay', () => {
                 dayPolicy: {
                     ladder,
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: { kind: DayStopRuleKind.DayGreen },
                 },
                 rrRatio: 2,
@@ -151,6 +154,7 @@ describe('enumerateDay', () => {
             dayPolicy: {
                 ladder: [400, 600, 900, 1400],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.DayGreen },
             },
             rrRatio: 2,
@@ -169,6 +173,7 @@ describe('enumerateDay', () => {
             dayPolicy: {
                 ladder: [400, 900],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             rrRatio: 2,
@@ -181,6 +186,7 @@ describe('enumerateDay', () => {
             dayPolicy: {
                 ladder: [400, 900],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             rrRatio: 2,
@@ -199,6 +205,7 @@ describe('enumerateDay', () => {
             dayPolicy: {
                 ladder: [1000],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             rrRatio: 2,
@@ -218,6 +225,7 @@ describe('enumerateDay', () => {
             dayPolicy: {
                 ladder: [400, 600],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             rrRatio: 2,
@@ -257,6 +265,7 @@ describe('scoreLadder charges commission as the simulator does', () => {
             evalDayPolicy: {
                 ladder,
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.DayGreen },
             },
             fundedHorizonDays: 1,
@@ -360,6 +369,7 @@ describe(
                     evalDayPolicy: {
                         ladder,
                         maxLossesPerDay: null,
+                        sizing: PolicySizing.ContractCapped,
                         stopRule: { kind: DayStopRuleKind.DayGreen },
                     },
                     fundedHorizonDays: 1,
@@ -441,6 +451,7 @@ describe('cushion cap invariant', () => {
                 dayPolicy: {
                     ladder: [400, 600, 900, 1400],
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: { kind: DayStopRuleKind.DayGreen },
                 },
                 phase: TradingPhase.Eval,
@@ -463,9 +474,14 @@ describe('cushion cap invariant', () => {
         const stats = freshStats(state.startingBalance);
         runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(999_999, 1, {
-                kind: DayStopRuleKind.None,
-            }),
+            dayPolicy: flatDayPolicy(
+                999_999,
+                1,
+                {
+                    kind: DayStopRuleKind.None,
+                },
+                PolicySizing.ContractCapped,
+            ),
             phase: TradingPhase.Eval,
             plan,
             positionSizing: null,
@@ -610,6 +626,7 @@ describe('runLadderSearch', () => {
 const aggressiveLadder = {
     ladder: [400, 600, 800, 200],
     maxLossesPerDay: null,
+    sizing: PolicySizing.ContractCapped,
     stopRule: { kind: DayStopRuleKind.DayGreen as const },
 };
 

@@ -295,7 +295,9 @@ export function hasUnreversedFundedBust(account: LedgerAccount): boolean {
     );
 }
 
-export function isActiveAccount(row: LedgerAccountRow): boolean {
+export function isActiveAccount(
+    row: Pick<PropAccountRow, 'archivedAt' | 'status'>,
+): boolean {
     return row.status === AccountStatus.Active && row.archivedAt === null;
 }
 

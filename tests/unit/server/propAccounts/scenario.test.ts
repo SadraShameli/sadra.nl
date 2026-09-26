@@ -63,7 +63,9 @@ function importResponder(
     const base = tableResponder({}, { [TABLES.scenario]: storedCount });
     return (query: IssuedQuery) => {
         if (writeTable(query) === TABLES.scenario) return [...inserted];
-        return readTable(query) === TABLES.scenario && !isCount(query) ? [...stored] : base(query);
+        return readTable(query) === TABLES.scenario && !isCount(query)
+            ? [...stored]
+            : base(query);
     };
 }
 
@@ -207,10 +209,7 @@ describe('propAccounts.scenario', () => {
         ]);
         expect(namesOf(result.imported)).toEqual(['New']);
 
-        const over = callerFor(
-            SIGNED_IN,
-            importResponder([], [], limit - 1),
-        );
+        const over = callerFor(SIGNED_IN, importResponder([], [], limit - 1));
         const shape = errorShapeOf(
             await rejectionOf(
                 over.caller.scenario.importMany([

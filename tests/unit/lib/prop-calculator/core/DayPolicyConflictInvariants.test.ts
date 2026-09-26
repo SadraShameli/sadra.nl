@@ -6,6 +6,7 @@ import {
     FirmId,
     fraction,
     MffuVariant,
+    PolicySizing,
 } from '~/lib/prop-calculator/core';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { findFirm } from '~/lib/prop-calculator/firms';
@@ -45,6 +46,7 @@ function rapidEodPlan() {
 const someLadder: DayPolicy = {
     ladder: [400, 600, 800, 200],
     maxLossesPerDay: null,
+    sizing: PolicySizing.ContractCapped,
     stopRule: { kind: DayStopRuleKind.None },
 };
 

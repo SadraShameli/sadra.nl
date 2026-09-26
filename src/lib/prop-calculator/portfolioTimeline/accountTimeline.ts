@@ -1,13 +1,17 @@
 import { type DatedCharge } from '../core/DatedCharge';
 import {
+    type DayPolicy,
+    type DayStopRule,
     DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
     flatDayPolicy,
-    PolicySizing,
+    policySizingOf,
 } from '../core/DayPolicy';
 import { dollars, fraction } from '../core/lib/units';
 import { resolvePositionSizing } from '../core/PositionSizing';
+import { TradingPhase } from '../core/TradingPhase';
 import {
+    assertDeclaredSizingMatchesPhase,
     assertPositiveSafeInteger,
     SIM_DEFAULTS,
     simInputsSizingIssue,
@@ -78,22 +82,12 @@ export function runAccountTimeline(
         throw new Error(`runAccountTimeline: ${sizingIssue}`);
     }
     const stopRule = inputs.dayStop ?? { kind: DayStopRuleKind.None };
-    const evalDayPolicy =
-        inputs.evalDayPolicy ??
-        flatDayPolicy(
-            inputs.riskPerTrade,
-            inputs.tradesPerDay,
-            stopRule,
-            PolicySizing.ContractCapped,
-        );
-    const fundedDayPolicy =
-        inputs.fundedDayPolicy ??
-        flatDayPolicy(
-            inputs.riskPerTrade,
-            inputs.tradesPerDay,
-            stopRule,
-            PolicySizing.WholeContracts,
-        );
+    const evalDayPolicy = phaseDayPolicy(inputs, TradingPhase.Eval, stopRule);
+    const fundedDayPolicy = phaseDayPolicy(
+        inputs,
+        TradingPhase.Funded,
+        stopRule,
+    );
 
     assertPositiveSafeInteger(dayBudget, 'dayBudget');
     assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
@@ -183,4 +177,36 @@ export function runAccountTimeline(
     }
 
     return { cumulativeNet, cumulativePayout, cumulativeSpend };
+}
+
+function declaredDayPolicy(
+    inputs: AccountTimelineInputs,
+    phase: TradingPhase,
+): DayPolicy | undefined {
+    switch (phase) {
+        case TradingPhase.Eval: {
+            return inputs.evalDayPolicy;
+        }
+        case TradingPhase.Funded: {
+            return inputs.fundedDayPolicy;
+        }
+    }
+}
+
+function phaseDayPolicy(
+    inputs: AccountTimelineInputs,
+    phase: TradingPhase,
+    stopRule: DayStopRule,
+): DayPolicy {
+    const declared = declaredDayPolicy(inputs, phase);
+    if (declared === undefined) {
+        return flatDayPolicy(
+            inputs.riskPerTrade,
+            inputs.tradesPerDay,
+            stopRule,
+            policySizingOf(phase),
+        );
+    }
+    assertDeclaredSizingMatchesPhase(inputs, declared, phase);
+    return declared;
 }

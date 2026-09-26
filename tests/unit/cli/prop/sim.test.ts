@@ -1,6 +1,7 @@
 import { parseArgs } from 'citty';
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
+import optimizeFunded from '~/cli/commands/prop/optimize/funded/command';
 import {
     pathGranularityComparisonArgument,
     planArguments,
@@ -8,7 +9,7 @@ import {
     tradingArguments,
     TradingInputs,
 } from '~/cli/commands/prop/shared';
-import {
+import simCommand, {
     GRANULARITY_TABLE_COLUMNS,
     granularityComparison,
     granularityTableRow,
@@ -24,13 +25,27 @@ import {
 } from '~/lib/format';
 import {
     ApexVariant,
+    DailyLossLimitBreachEffect,
     FirmId,
+    InstrumentSymbol,
+    oneContractRisk,
+    placedFundedRisk,
+    placeWholeContractTrade,
     type Plan,
+    PolicySizing,
+    type PositionSizingConfig,
+    resolveAffordableRoomWithin,
+    resolvePositionSizing,
     RoiBasis,
+    resolveDailyLossRoom,
+    RungSizing,
     type SimOutputs,
     simulate,
+    type SizedTrade,
 } from '~/lib/prop-calculator';
 import { findFirm } from '~/lib/prop-calculator/firms';
+
+import { flagsNamedButNotAccepted } from './helpFlags';
 
 function apexEodPlan(): Plan {
     const plan = findFirm(FirmId.Apex)?.findPlan({
@@ -62,6 +77,10 @@ function parseSimInputs(argv: string[]): TradingInputs {
     return TradingInputs.parse(
         parseArgs<typeof simArguments>(argv, simArguments),
     );
+}
+
+function riskLineFor(argv: string[]): string {
+    return simHeaderLines(parseSimInputs(argv), apexEodPlan())[0];
 }
 
 function rowValue(out: SimOutputs, label: string): string | undefined {
@@ -173,7 +192,7 @@ describe('sim header (R1-23 and D2)', () => {
             '--max-attempts',
             '3',
         ]);
-        const [riskLine, runLine] = simHeaderLines(inputs);
+        const [riskLine, runLine] = simHeaderLines(inputs, apexEodPlan());
         expect(riskLine).toContain('stop after-target:$500');
         expect(runLine).toContain('max attempts 3');
     });
@@ -185,10 +204,270 @@ describe('sim header (R1-23 and D2)', () => {
             '--stop',
             'after-k-losses:2',
         ]);
-        const [riskLine] = simHeaderLines(inputs);
+        const [riskLine] = simHeaderLines(inputs, apexEodPlan());
         expect(riskLine).toContain('ladder [400, 600]');
         expect(riskLine).toContain('stop after-k-losses:2');
     });
+});
+
+describe('sim header places funded risk through the engine placedFundedRisk (WP39d)', () => {
+    it('shows a funded risk simulate refuses as 0 contracts placed, never one contract rounded up', () => {
+        expect(
+            riskLineFor([
+                '--risk',
+                '150',
+                '--instrument',
+                'NQ',
+                '--stop-points',
+                '10',
+            ]),
+        ).toContain('funded flat $150 (placed $0: 0 NQ at 10 pt)');
+    });
+
+    it('shows the same contracts and risk the engine helper places', () => {
+        const argv = [
+            '--risk',
+            '450',
+            '--instrument',
+            'NQ',
+            '--stop-points',
+            '10',
+        ];
+        const placed = placedFundedRisk(parseSimInputs(argv), apexEodPlan());
+        expect(placed).toMatchObject({ contracts: 2, risk: 400 });
+        expect(riskLineFor(argv)).toContain(
+            'funded flat $450 (placed $400: 2 NQ at 10 pt)',
+        );
+    });
+
+    it('places $55 as one ES contract at a 1.1 point stop, printed in whole cents', () => {
+        expect(
+            riskLineFor([
+                '--risk',
+                '55',
+                '--instrument',
+                'ES',
+                '--stop-points',
+                '1.1',
+            ]),
+        ).toContain('funded flat $55 (placed $55: 1 ES at 1.1 pt)');
+    });
+});
+
+describe('sim --ladder builds a contract-capped eval policy (T33, U18)', () => {
+    it('states ContractCapped on the eval ladder policy it builds', () => {
+        const policy = parseSimInputs(['--ladder', '400,600']).toDayPolicy();
+        expect(policy?.sizing).toBe(PolicySizing.ContractCapped);
+    });
+});
+
+describe('sim --stop-points help (T33, WP40)', () => {
+    const help = simArguments['stop-points'].description;
+
+    it('names funded and live flat risk, ladder rungs and percent of cushion as placed in whole contracts, with eval risk only capped (WP40, WP43d)', () => {
+        expect(help).toContain(
+            'eval risk is capped at the eval contract limit, and funded and live risk (flat risk, ladder rungs and percent of cushion) is placed in whole contracts, at most the contract limit.',
+        );
+        expect(help).toContain(
+            'a funded flat risk or ladder rung below one contract is refused',
+        );
+    });
+
+    it('says percent risk takes at least one contract and drops the old whole-contract-row wording (WP39e, WP43b)', () => {
+        expect(help).toContain('percent risk takes at least one contract.');
+        expect(help).not.toContain('on any whole-contract row');
+    });
+
+    it('states the room rule in its general form: skip below one contract when a lockout daily loss limit is tighter, one busting contract otherwise, no trade without room (N-74, T33, WP43c, WP43d)', () => {
+        expect(help).toContain(
+            'When the room left for a whole-contract trade is below one contract, the trade is skipped and the day ends if a daily loss limit that only locks the day is the tighter limit (its room is below the drawdown cushion); otherwise one contract is still taken and its loss, capped at the room, busts the account, unless unaffordable trades are set to be skipped. When no room is left at all, no trade is placed and the day ends.',
+        );
+        expect(help).not.toContain(
+            'is not placed, and the day ends, when a lockout daily loss limit leaves less room than one contract.',
+        );
+    });
+
+    it('names no flag prop sim lacks (WP43d)', async () => {
+        expect(await flagsNamedButNotAccepted(simCommand)).toStrictEqual([]);
+    });
+
+    it('names no flag optimize funded lacks (WP43d)', async () => {
+        expect(await flagsNamedButNotAccepted(optimizeFunded)).toStrictEqual(
+            [],
+        );
+    });
+
+    it('is the same help text on prop sim and optimize funded, so the room sentence has to hold for both (WP43b)', async () => {
+        const resolvable = optimizeFunded.args;
+        if (!resolvable) throw new Error('optimize funded command has no args');
+        const resolved = await (typeof resolvable === 'function'
+            ? resolvable()
+            : resolvable);
+        expect(resolved['stop-points']).toStrictEqual(
+            simArguments['stop-points'],
+        );
+    });
+});
+
+describe('sim --unaffordable help (N-74, WP43d)', () => {
+    it('says what each RungSizing value does, including the skip that ends the day', () => {
+        const help = simArguments.unaffordable.description;
+        expect(help).toContain(
+            `${RungSizing.CapToCushion} cuts it to the room (a whole-contract trade keeps the whole contracts that fit; --stop-points says when one contract is still taken if none fits)`,
+        );
+        expect(help).toContain(
+            `${RungSizing.SkipIfUnaffordable} skips the trade and ends the day, so a whole-contract trade whose one contract does not fit the room is skipped too`,
+        );
+    });
+
+    it('names each value through the RungSizing enum, so a renamed value cannot drift out of the help (WP43c)', async () => {
+        const renamedCap = 'renamedCapValue';
+        const renamedSkip = 'renamedSkipValue';
+        vi.resetModules();
+        vi.doMock('~/lib/prop-calculator', async (importOriginal) => ({
+            ...(await importOriginal<object>()),
+            RungSizing: {
+                CapToCushion: renamedCap,
+                SkipIfUnaffordable: renamedSkip,
+            },
+        }));
+        try {
+            const shared = await import('~/cli/commands/prop/shared');
+            const help = shared.tradingArguments.unaffordable.description;
+            expect(help).toContain(`${renamedCap} cuts it to the room`);
+            expect(help).toContain(
+                `${renamedSkip} skips the trade and ends the day`,
+            );
+            expect(help).not.toContain(RungSizing.CapToCushion);
+            expect(help).not.toContain(RungSizing.SkipIfUnaffordable);
+        } finally {
+            vi.doUnmock('~/lib/prop-calculator');
+            vi.resetModules();
+        }
+    });
+});
+
+function nqTwentyPointSizing(): PositionSizingConfig {
+    const sizing = resolvePositionSizing(InstrumentSymbol.NQ, 20);
+    if (sizing === null) throw new Error('NQ sizing missing');
+    return sizing;
+}
+
+describe('the --stop-points room sentence matches the engine (N-74, T33, WP43c)', () => {
+    const positionSizing = nqTwentyPointSizing();
+    const oneContract = oneContractRisk(positionSizing);
+    const halfContract = oneContract / 2;
+
+    function tradeAt(
+        cushion: number,
+        dailyLossLimit: null | number,
+        breach: DailyLossLimitBreachEffect,
+        rungSizing: RungSizing,
+    ): SizedTrade {
+        const { kind, room } = resolveAffordableRoomWithin(
+            cushion,
+            resolveDailyLossRoom(dailyLossLimit, 0, 0),
+            breach,
+        );
+        return placeWholeContractTrade({
+            intendedRisk: 3 * oneContract,
+            maxContracts: null,
+            positionSizing,
+            room,
+            roomKind: kind,
+            rungSizing,
+        });
+    }
+
+    it('places nothing when a lockout daily loss room below one contract is tighter than the drawdown cushion', () => {
+        expect(
+            tradeAt(
+                5 * oneContract,
+                halfContract,
+                DailyLossLimitBreachEffect.Lockout,
+                RungSizing.CapToCushion,
+            ),
+        ).toEqual({ rewardRisk: 0, risk: 0 });
+    });
+
+    it('places nothing when the drawdown cushion is a cent above a lockout daily loss room below one contract', () => {
+        expect(
+            tradeAt(
+                halfContract + 0.01,
+                halfContract,
+                DailyLossLimitBreachEffect.Lockout,
+                RungSizing.CapToCushion,
+            ),
+        ).toEqual({ rewardRisk: 0, risk: 0 });
+    });
+
+    it.each([
+        [
+            'a drawdown cushion below the lockout room',
+            halfContract,
+            5 * oneContract,
+            DailyLossLimitBreachEffect.Lockout,
+        ],
+        [
+            'a drawdown cushion equal to the lockout room',
+            halfContract,
+            halfContract,
+            DailyLossLimitBreachEffect.Lockout,
+        ],
+        [
+            'a drawdown cushion above the lockout room only by float rounding',
+            halfContract + 1e-9,
+            halfContract,
+            DailyLossLimitBreachEffect.Lockout,
+        ],
+        [
+            'no daily loss limit',
+            halfContract,
+            null,
+            DailyLossLimitBreachEffect.Lockout,
+        ],
+        [
+            'a tighter terminating daily loss room',
+            5 * oneContract,
+            halfContract,
+            DailyLossLimitBreachEffect.Terminate,
+        ],
+    ])(
+        'takes one contract with its loss capped at the room under %s',
+        (_label, cushion, dailyLossLimit, breach) => {
+            expect(
+                tradeAt(
+                    cushion,
+                    dailyLossLimit,
+                    breach,
+                    RungSizing.CapToCushion,
+                ),
+            ).toEqual({ rewardRisk: oneContract, risk: halfContract });
+        },
+    );
+
+    it('skips the one contract under --unaffordable skipIfUnaffordable', () => {
+        expect(
+            tradeAt(
+                halfContract,
+                5 * oneContract,
+                DailyLossLimitBreachEffect.Lockout,
+                RungSizing.SkipIfUnaffordable,
+            ),
+        ).toEqual({ rewardRisk: 0, risk: 0 });
+    });
+
+    it.each([
+        DailyLossLimitBreachEffect.Lockout,
+        DailyLossLimitBreachEffect.Terminate,
+    ])(
+        'places no trade when the %s daily loss limit has no room left at all',
+        (breach) => {
+            expect(
+                tradeAt(5 * oneContract, 0, breach, RungSizing.CapToCushion),
+            ).toEqual({ rewardRisk: 0, risk: 0 });
+        },
+    );
 });
 
 describe('sim granularity comparison (TG-7, R1-26)', () => {

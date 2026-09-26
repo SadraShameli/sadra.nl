@@ -7,6 +7,7 @@ import {
     FirmId,
     fraction,
     MffuVariant,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -29,6 +30,7 @@ function freshStats(startingBalance: number) {
 const losingDayPolicy: DayPolicy = {
     ladder: [500],
     maxLossesPerDay: null,
+    sizing: PolicySizing.ContractCapped,
     stopRule: { kind: DayStopRuleKind.None },
 };
 

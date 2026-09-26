@@ -3,6 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     AccountEventKind,
     AccountStage,
+    type AccountStatus,
+    DashboardBalanceConvention,
+    fundedSince,
+    type LedgerAccountRow,
+    type LedgerEventRow,
+    PortfolioLedger,
     readAccountEventDetail,
     SnapshotSource,
 } from '~/lib/prop-accounts';
@@ -12,6 +18,11 @@ import {
     type Plan,
     TradingPhase,
 } from '~/lib/prop-calculator';
+import {
+    LiveApplicabilityKind,
+    livePlanApplicability,
+} from '~/lib/prop-calculator/advisor';
+import { PropMutationRejection } from '~/lib/schemas/propAccountOutputs';
 
 import {
     assertUserScopedWhere,
@@ -30,6 +41,7 @@ import {
     IDS,
     insertsInto,
     isCount,
+    mutationRejection,
     planKeyFields,
     propWrites,
     type RegistryEntry,
@@ -57,11 +69,35 @@ type Caller = ReturnType<typeof callerFor>['caller'];
 const ORDER_NEWEST_FIRST =
     /order by (?:"\w+"\.)?"as_of" desc, (?:"\w+"\.)?"created_at" desc, (?:"\w+"\.)?"id" desc/;
 
+interface DocumentedLiveStartEntry {
+    readonly entry: RegistryEntry;
+    readonly highestStart: number;
+}
+
 async function bulkCreateRejection(
     caller: Caller,
     batch: Parameters<Caller['snapshot']['bulkCreate']>[0],
 ) {
     return errorShapeOf(await rejectionOf(caller.snapshot.bulkCreate(batch)));
+}
+
+function documentedLiveStartEntry(): DocumentedLiveStartEntry {
+    for (const firm of ALL_FIRMS) {
+        for (const plan of firm.plans) {
+            const applicability = livePlanApplicability(plan.id);
+            if (
+                plan.isInstantFunded ||
+                applicability.kind !== LiveApplicabilityKind.Builder
+            ) {
+                continue;
+            }
+            const range = applicability.documentedStart?.(plan.accountSize);
+            if (range !== undefined) {
+                return { entry: { firm, plan }, highestStart: range.highest };
+            }
+        }
+    }
+    throw new Error('no plan with a documented live start');
 }
 
 function entryWithEvalDrawdown(kind: DrawdownKind): RegistryEntry {
@@ -74,6 +110,36 @@ function entryWithEvalDrawdown(kind: DrawdownKind): RegistryEntry {
         if (plan !== undefined) return { firm, plan };
     }
     throw new Error(`no eval plan with a ${kind} drawdown`);
+}
+
+function ledgerAccountRowOf(row: FakeRow): LedgerAccountRow {
+    return {
+        accountSize: Number(row.account_size),
+        archivedAt: null,
+        firmId: textOf(row.firm_id),
+        fundedOn: row.funded_on === null ? null : textOf(row.funded_on),
+        id: textOf(row.id),
+        label: textOf(row.label),
+        optIns: {},
+        planSerial: textOf(row.plan_serial),
+        purchasedOn: textOf(row.purchased_on),
+        readIssues: [],
+        replacesAccountId: null,
+        stage: row.stage as AccountStage,
+        status: row.status as AccountStatus,
+        userId: textOf(row.user_id),
+    };
+}
+
+function ledgerEventRowOf(row: FakeRow): LedgerEventRow {
+    return {
+        accountId: textOf(row.account_id),
+        createdAt: row.created_at as Date,
+        id: textOf(row.id),
+        kind: row.kind as AccountEventKind,
+        occurredOn: textOf(row.occurred_on),
+        userId: textOf(row.user_id),
+    };
 }
 
 function planAccountRow(entry: RegistryEntry, overrides: FakeRow = {}) {
@@ -95,12 +161,17 @@ function snapshotInput(
         accountId,
         asOf,
         balanceCents: 5_050_000,
-        dashboardFloorCents: 4_800_000,
+        dashboardFloorCents: 4_900_000,
         highestEodBalanceCents: 5_100_000,
         source: SnapshotSource.WeeklyReview,
         tradingDays: 4,
         ...overrides,
     };
+}
+
+function textOf(value: unknown): string {
+    if (typeof value !== 'string') throw new Error('expected a text column');
+    return value;
 }
 
 const EOD_ENTRY = entryWithEvalDrawdown(DrawdownKind.EodTrailing);
@@ -227,6 +298,9 @@ describe('propAccounts.snapshot', () => {
         );
         const shape = errorShapeOf(error);
         expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.MissingSnapshotField),
+        );
         expect(shape.message).toContain('"Eval one"');
         expect(shape.message).toContain('2026-09-21');
         expect(shape.message).toContain('Trading days');
@@ -318,12 +392,9 @@ describe('propAccounts.snapshot', () => {
         );
         assertUserScopedWhere(lookup, USER_ID);
         expect(lookup.params).toEqual(
-            expect.arrayContaining([
-                IDS.account,
-                AccountEventKind.EvalPassed,
-                AccountEventKind.MovedLive,
-            ]),
+            expect.arrayContaining([IDS.account, AccountEventKind.Edited]),
         );
+        expect(lookup.text).toMatch(/"kind" <> \$\d+/);
     });
 
     it('bulkCreate keeps the current stage rules when the start of that stage is unknown', async () => {
@@ -396,7 +467,7 @@ describe('propAccounts.snapshot', () => {
             snapshotInput(IDS.account, '2026-09-09'),
         ]);
         expect(shape.data.code).toBe('BAD_REQUEST');
-        expect(shape.message).toContain('funded stage');
+        expect(shape.message).toContain('in the Funded stage');
         expect(shape.message).toContain('Payouts taken');
         expect(propWrites(queries)).toHaveLength(0);
     });
@@ -431,9 +502,154 @@ describe('propAccounts.snapshot', () => {
             snapshotInput(IDS.account, '2026-09-12'),
         ]);
         expect(shape.data.code).toBe('BAD_REQUEST');
-        expect(shape.message).toContain('live stage');
+        expect(shape.message).toContain('in the Live stage');
         expect(shape.message).toContain('Payouts taken');
         expect(propWrites(liveMissing.queries)).toHaveLength(0);
+    });
+
+    it('bulkCreate dates the eval-leaving day by the pass the ledger replays, not an earlier pass the ledger rejects', async () => {
+        const account = planAccountRow(EOD_ENTRY, {
+            stage: AccountStage.Funded,
+        });
+        const events = [
+            eventRow(),
+            eventRow({
+                id: 'event-bust',
+                kind: AccountEventKind.Busted,
+                occurred_on: '2026-09-02',
+            }),
+            eventRow({
+                id: 'event-rejected-pass',
+                kind: AccountEventKind.EvalPassed,
+                occurred_on: '2026-09-03',
+            }),
+            eventRow({
+                id: 'event-reversal',
+                kind: AccountEventKind.BustReversed,
+                occurred_on: '2026-09-04',
+            }),
+            eventRow({
+                id: 'event-pass',
+                kind: AccountEventKind.EvalPassed,
+                occurred_on: '2026-09-08',
+            }),
+        ];
+        const responder = tableResponder({
+            [TABLES.account]: [account],
+            [TABLES.event]: events,
+        });
+        const ledgerAccount = defined(
+            PortfolioLedger.fromRows(USER_ID, {
+                accounts: [ledgerAccountRowOf(account)],
+                events: events.map(ledgerEventRowOf),
+                fees: [],
+                payouts: [],
+            }).accounts[0],
+        );
+        expect(fundedSince(ledgerAccount)?.on).toBe('2026-09-08');
+        expect(ledgerAccount.rejectedEvents).toBe(1);
+
+        const evalEra = callerFor(SIGNED_IN, responder);
+        await evalEra.caller.snapshot.bulkCreate([
+            snapshotInput(IDS.account, '2026-09-05'),
+        ]);
+        expect(insertsInto(evalEra.queries, TABLES.snapshot)).toHaveLength(1);
+
+        const fundedEra = callerFor(SIGNED_IN, responder);
+        const shape = await bulkCreateRejection(fundedEra.caller, [
+            snapshotInput(IDS.account, '2026-09-08'),
+        ]);
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.message).toContain('in the Funded stage');
+        expect(shape.message).toContain('Payouts taken');
+        expect(propWrites(fundedEra.queries)).toHaveLength(0);
+    });
+
+    it('bulkCreate follows the ledger dates for a live account with no recorded move live, which the ledger flags as not matching the account', async () => {
+        const account = planAccountRow(EOD_ENTRY, {
+            funded_on: '2026-09-10',
+            stage: AccountStage.Live,
+        });
+        const events = [eventRow()];
+        const ledgerAccount = defined(
+            PortfolioLedger.fromRows(USER_ID, {
+                accounts: [ledgerAccountRowOf(account)],
+                events: events.map(ledgerEventRowOf),
+                fees: [],
+                payouts: [],
+            }).accounts[0],
+        );
+        expect(fundedSince(ledgerAccount)?.on).toBe('2026-09-10');
+        expect(
+            ledgerAccount.transitions.some(
+                (transition) => transition.to.stage === AccountStage.Live,
+            ),
+        ).toBe(false);
+        expect(ledgerAccount.timelineMatchesRow).toBe(false);
+
+        const responder = tableResponder({
+            [TABLES.account]: [account],
+            [TABLES.event]: events,
+        });
+        const evalEra = callerFor(SIGNED_IN, responder);
+        await evalEra.caller.snapshot.bulkCreate([
+            snapshotInput(IDS.account, '2026-09-09'),
+        ]);
+        expect(insertsInto(evalEra.queries, TABLES.snapshot)).toHaveLength(1);
+
+        const liveEra = callerFor(SIGNED_IN, responder);
+        const shape = await bulkCreateRejection(liveEra.caller, [
+            snapshotInput(IDS.account, '2026-09-10'),
+        ]);
+        expect(shape.message).toContain('in the Live stage');
+    });
+
+    it('create rejects a snapshot missing a field its plan requires on that date and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    planAccountRow(EOD_ENTRY, {
+                        funded_on: '2026-09-10',
+                        stage: AccountStage.Funded,
+                    }),
+                ],
+            }),
+        );
+        const input = {
+            ...snapshotInput(IDS.account, '2026-09-21'),
+            source: SnapshotSource.Manual,
+        };
+        const shape = errorShapeOf(
+            await rejectionOf(caller.snapshot.create(input)),
+        );
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.MissingSnapshotField),
+        );
+        expect(shape.message).toContain('"Eval one"');
+        expect(shape.message).toContain('in the Funded stage');
+        expect(shape.message).toContain('Payouts taken');
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('create checks a backdated snapshot of a funded account against the eval rules, as the form does', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    planAccountRow(EOD_ENTRY, {
+                        funded_on: '2026-09-10',
+                        stage: AccountStage.Funded,
+                    }),
+                ],
+            }),
+        );
+        await caller.snapshot.create({
+            ...snapshotInput(IDS.account, '2026-09-05'),
+            source: SnapshotSource.Manual,
+        });
+        expect(insertsInto(queries, TABLES.snapshot)).toHaveLength(1);
     });
 
     it('bulkCreate on an intraday trailing plan needs the dashboard floor or the highest intraday balance', async () => {
@@ -447,12 +663,15 @@ describe('propAccounts.snapshot', () => {
             }),
         ]);
         expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.MissingSnapshotField),
+        );
         expect(shape.message).toContain('Highest intraday balance');
         expect(shape.message).toContain('Drawdown floor on the dashboard');
         expect(propWrites(missing.queries)).toHaveLength(0);
 
         for (const alternative of [
-            { dashboardFloorCents: 4_800_000 },
+            { dashboardFloorCents: 4_900_000 },
             {
                 dashboardFloorCents: null,
                 highestIntradayBalanceCents: 5_150_000,
@@ -504,6 +723,9 @@ describe('propAccounts.snapshot', () => {
             snapshotInput(IDS.account, '2026-09-21'),
         ]);
         expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.DuplicateSnapshot),
+        );
         expect(shape.message).toContain('"Eval one"');
         expect(shape.message).toContain('2026-09-21');
         expect(shape.message).toContain('already stored');
@@ -539,6 +761,185 @@ describe('propAccounts.snapshot', () => {
             snapshotInput(IDS.account, '2026-09-21'),
         ]);
         expect(insertsInto(queries, TABLES.snapshot)).toHaveLength(1);
+    });
+
+    it('create rejects a nominal 2,400 on the account as implausible, naming the account, date and likely convention, and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.account]: [planAccountRow(EOD_ENTRY)] }),
+        );
+        const input = {
+            ...snapshotInput(IDS.account, '2026-09-21', {
+                balanceCents: 240_000,
+                dashboardFloorCents: null,
+                highestEodBalanceCents: 240_000,
+            }),
+            source: SnapshotSource.Manual,
+        };
+        const shape = errorShapeOf(
+            await rejectionOf(caller.snapshot.create(input)),
+        );
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ImplausibleSnapshot),
+        );
+        expect(shape.message).toContain('"Eval one"');
+        expect(shape.message).toContain('2026-09-21');
+        expect(shape.message).toContain(
+            'set the dashboard convention to $0-based',
+        );
+        expect(shape.message).toContain(
+            'does not fit the account in the Evaluation stage',
+        );
+        expect(shape.message).not.toContain(String.fromCodePoint(0x20_14));
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('bulkCreate rejects a nominal-looking balance on a $0-based account and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    planAccountRow(EOD_ENTRY),
+                    planAccountRow(EOD_ENTRY, {
+                        dashboard_convention:
+                            DashboardBalanceConvention.ZeroBased,
+                        id: IDS.otherAccount,
+                        label: 'Zero one',
+                    }),
+                ],
+            }),
+        );
+        const shape = await bulkCreateRejection(caller, [
+            snapshotInput(IDS.account, '2026-09-21'),
+            snapshotInput(IDS.otherAccount, '2026-09-22', {
+                balanceCents: 5_240_000,
+                dashboardFloorCents: null,
+                highestEodBalanceCents: 5_240_000,
+            }),
+        ]);
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ImplausibleSnapshot),
+        );
+        expect(shape.message).toContain('"Zero one"');
+        expect(shape.message).toContain('2026-09-22');
+        expect(shape.message).toContain(
+            'set the dashboard convention to nominal',
+        );
+        expect(shape.message).not.toContain('"Eval one"');
+        expect(propWrites(queries)).toHaveLength(0);
+        const load = defined(
+            queries.find(
+                (query) =>
+                    readTable(query) === TABLES.account && !isCount(query),
+            ),
+        );
+        assertUserScopedWhere(load, USER_ID);
+    });
+
+    it('bulkCreate rejects a highest end-of-day balance below the balance as impossible', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.account]: [planAccountRow(EOD_ENTRY)] }),
+        );
+        const shape = await bulkCreateRejection(caller, [
+            snapshotInput(IDS.account, '2026-09-21', {
+                balanceCents: 5_080_000,
+                highestEodBalanceCents: 5_050_000,
+            }),
+        ]);
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ImplausibleSnapshot),
+        );
+        expect(shape.message).toContain('highest end-of-day balance');
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('create and bulkCreate store an eval balance above the plausible ceiling, which only warns', async () => {
+        const { plan } = EOD_ENTRY;
+        const ceiling =
+            plan.accountSize +
+            plan.profitTarget +
+            plan.drawdownFor(TradingPhase.Eval).amount;
+        const aboveCeilingCents = Math.round((ceiling + 200) * 100);
+        const responder = tableResponder({
+            [TABLES.account]: [planAccountRow(EOD_ENTRY)],
+        });
+        const passDay = {
+            balanceCents: aboveCeilingCents,
+            dashboardFloorCents: null,
+            highestEodBalanceCents: aboveCeilingCents,
+        };
+        const single = callerFor(SIGNED_IN, responder);
+        await single.caller.snapshot.create({
+            ...snapshotInput(IDS.account, '2026-09-21', passDay),
+            source: SnapshotSource.Manual,
+        });
+        expect(insertsInto(single.queries, TABLES.snapshot)).toHaveLength(1);
+
+        const bulk = callerFor(SIGNED_IN, responder);
+        await bulk.caller.snapshot.bulkCreate([
+            snapshotInput(IDS.account, '2026-09-21', passDay),
+        ]);
+        expect(insertsInto(bulk.queries, TABLES.snapshot)).toHaveLength(1);
+    });
+
+    it('bulkCreate rejects a live snapshot while the live start balance of the account is outside the documented range, and says to edit the account', async () => {
+        const { entry, highestStart } = documentedLiveStartEntry();
+        const outsideStartCents = Math.round((highestStart + 10_000) * 100);
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    planAccountRow(entry, {
+                        funded_on: '2026-09-10',
+                        live_start_balance_cents: outsideStartCents,
+                        stage: AccountStage.Live,
+                    }),
+                ],
+                [TABLES.event]: [eventRow()],
+            }),
+        );
+        const shape = await bulkCreateRejection(caller, [
+            snapshotInput(IDS.account, '2026-09-12', {
+                payoutsTaken: 0,
+            }),
+        ]);
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ImplausibleSnapshot),
+        );
+        expect(shape.message).toContain('live account');
+        expect(shape.message).toContain('edit the account to fix it');
+        expect(shape.message).not.toContain(String.fromCodePoint(0x20_14));
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('create and bulkCreate store the same snapshot once it is entered $0-based on a $0-based account', async () => {
+        const responder = tableResponder({
+            [TABLES.account]: [
+                planAccountRow(EOD_ENTRY, {
+                    dashboard_convention: DashboardBalanceConvention.ZeroBased,
+                }),
+            ],
+        });
+        const zeroBased = {
+            balanceCents: 240_000,
+            dashboardFloorCents: null,
+            highestEodBalanceCents: 240_000,
+        };
+        const single = callerFor(SIGNED_IN, responder);
+        await single.caller.snapshot.create({
+            ...snapshotInput(IDS.account, '2026-09-21', zeroBased),
+            source: SnapshotSource.Manual,
+        });
+        expect(insertsInto(single.queries, TABLES.snapshot)).toHaveLength(1);
+
+        const bulk = callerFor(SIGNED_IN, responder);
+        await bulk.caller.snapshot.bulkCreate([
+            snapshotInput(IDS.account, '2026-09-21', zeroBased),
+        ]);
+        expect(insertsInto(bulk.queries, TABLES.snapshot)).toHaveLength(1);
     });
 
     it('create keeps allowing a same-day manual snapshot next to a stored one', async () => {

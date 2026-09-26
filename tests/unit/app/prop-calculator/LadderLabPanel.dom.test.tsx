@@ -34,6 +34,7 @@ import {
     InstrumentSymbol,
     type LadderScore,
     type Plan,
+    PolicySizing,
     RungSizing,
     type SimInputs,
 } from '~/lib/prop-calculator';
@@ -239,6 +240,7 @@ describe('LadderLabPanel', () => {
         render(baseInputs, {
             ladder: score.ladder,
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
         });
 
@@ -317,6 +319,7 @@ describe('LadderLabPanel', () => {
         expect(onApply).toHaveBeenCalledExactlyOnceWith({
             ladder: [200, 300, 400],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: scoredInputs.stopRule,
         });
         expect(harness.setRungSizing).toHaveBeenCalledExactlyOnceWith(
@@ -349,6 +352,7 @@ describe('LadderLabPanel', () => {
         render(baseInputsWith(calculatorRungSizing), {
             ladder: score.ladder,
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: scoredInputs.stopRule,
         });
 

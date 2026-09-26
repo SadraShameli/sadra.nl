@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     ContractLimitKind,
     contracts,
+    DailyLossLimitKind,
     dollars,
     fraction,
     INSTRUMENTS,
@@ -38,6 +39,8 @@ import {
     runLiveHorizon,
     simulateLiveAccount,
 } from '~/lib/prop-calculator/simulator';
+
+import { scriptedRng } from '../scriptedRng';
 
 const alwaysLoses: Rng = () => 0.999;
 const alwaysWins: Rng = () => 0;
@@ -2060,5 +2063,59 @@ describe('runLiveDay places live percent-of-cushion risk in whole contracts like
             winrate: fraction(0),
         });
         expect(state.balance).toBe(-150);
+    });
+});
+
+function lockoutDllLiveDay(state: LiveAccountState, draws: readonly number[]) {
+    return runLiveDay({
+        commission: dollars(0),
+        idleDayProbability: 0,
+        plan: lockoutDllLivePlan(),
+        positionSizing: {
+            instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+            stopPoints: points(20),
+        },
+        rng: scriptedRng(draws),
+        rrRatio: 2,
+        state,
+        tradesPerDay: 2,
+        winrate: fraction(0.5),
+    });
+}
+
+function lockoutDllLivePlan(): LivePlan {
+    return new LivePlan({
+        cushionPercent: { postLock: fraction(0.05), preLock: fraction(0.05) },
+        label: 'Lockout DLL Live',
+        liveDailyLossLimit: {
+            amount: dollars(500),
+            kind: DailyLossLimitKind.Flat,
+        },
+        liveDrawdown: new StaticDrawdown({ amount: dollars(10_000) }),
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(1) },
+        ],
+    });
+}
+
+describe('runLiveDay skips a whole-contract trade whose live lockout DLL room is below one contract (N-74, U21)', () => {
+    it('ends the day after one $400 NQ loss: the $100 left under the $500 live limit cannot fit one $400 NQ, so the would-be win never trades', () => {
+        const state = lockoutDllLivePlan().initialState();
+        const result = lockoutDllLiveDay(state, [0.99, 0.01]);
+        expect(state.todayPnL).toBe(-400);
+        expect(result.busted).toBe(false);
+    });
+
+    it('keeps T33 when the room is the drawdown cushion: $100 above liquidation under a $500 limit takes one NQ, the loss stops at $100 and the win pays on the full contract', () => {
+        const losing = lockoutDllLivePlan().initialState();
+        losing.balance = losing.threshold + 100;
+        const lost = lockoutDllLiveDay(losing, [0.99]);
+        expect(losing.todayPnL).toBe(-100);
+        expect(lost.busted).toBe(true);
+
+        const winning = lockoutDllLivePlan().initialState();
+        winning.balance = winning.threshold + 100;
+        lockoutDllLiveDay(winning, [0.01, 0.99]);
+        expect(winning.todayPnL).toBe(800 - 400);
     });
 });

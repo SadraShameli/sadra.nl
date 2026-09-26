@@ -14,7 +14,7 @@ import {
 import { type LiveAccountState } from '../core/LiveAccountState';
 import { type LivePlan } from '../core/LivePlan';
 import {
-    capRiskToRemainingDailyLoss,
+    resolveLiveAffordableRoom,
     resolveLiveTradeRisk,
 } from '../core/LiveSizing';
 import {
@@ -160,7 +160,7 @@ export function runLiveDay(options: LiveDayRunOptions): {
             const cushion = state.balance - state.threshold;
             const cushionPercent = plan.cushionPercentFor(state);
             const intendedRisk = resolveLiveTradeRisk(cushion, cushionPercent);
-            const room = capRiskToRemainingDailyLoss(
+            const { kind: roomKind, room } = resolveLiveAffordableRoom(
                 cushion,
                 plan.dailyLossLimitFor(state),
                 state.todayPnL,
@@ -177,6 +177,7 @@ export function runLiveDay(options: LiveDayRunOptions): {
                           ),
                           positionSizing,
                           room,
+                          roomKind,
                           rungSizing: RungSizing.CapToCushion,
                       });
             if (risk <= 0) break;

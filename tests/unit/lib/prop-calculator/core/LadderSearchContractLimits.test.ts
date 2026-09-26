@@ -16,6 +16,7 @@ import {
     ladderTrialStreams,
     type Plan,
     points,
+    PolicySizing,
     type PositionSizingConfig,
     RungSizing,
     scoreLadder,
@@ -83,6 +84,7 @@ function simulatedAttempts(
             dayPolicy: {
                 ladder,
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.DayGreen },
             },
             maxEvalDays: 150,
@@ -120,6 +122,7 @@ function singleRungDay(
         dayPolicy: {
             ladder: [500],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
         },
         dayStart: createInitialState(50_000, 48_000),

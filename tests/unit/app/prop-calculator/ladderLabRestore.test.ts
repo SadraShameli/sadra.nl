@@ -38,6 +38,7 @@ import {
     type LadderScore,
     percent,
     type Plan,
+    PolicySizing,
     RungSizing,
     SIM_DEFAULTS,
     type SimInputs,
@@ -345,6 +346,7 @@ describe('ladderRowAction', () => {
     const otherPolicy: DayPolicy = {
         ladder: [100, 100],
         maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
         stopRule: { kind: DayStopRuleKind.None },
     };
 
@@ -357,6 +359,7 @@ describe('ladderRowAction', () => {
                 policy: {
                     ladder: [200, 300, 400],
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
                 },
                 rungSizing: RungSizing.SkipIfUnaffordable,
@@ -400,6 +403,7 @@ describe('ladderRowAction', () => {
         const active: DayPolicy = {
             ladder: [200, 300, 400],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
         };
         for (const current of [
@@ -423,6 +427,7 @@ describe('ladderRowAction', () => {
             {
                 ladder: [200, 300, 400],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.DayGreen },
             },
         ],
@@ -431,6 +436,7 @@ describe('ladderRowAction', () => {
             {
                 ladder: [200, 300, 400],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { k: 3, kind: DayStopRuleKind.AfterKLosses },
             },
         ],
@@ -439,6 +445,7 @@ describe('ladderRowAction', () => {
             {
                 ladder: [200, 300, 400],
                 maxLossesPerDay: 3,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
             },
         ],
@@ -448,6 +455,7 @@ describe('ladderRowAction', () => {
                 computeRisk: () => 100,
                 ladder: [200, 300, 400],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
             },
         ],
@@ -467,6 +475,7 @@ describe('ladderRowAction', () => {
                 policy: {
                     ladder: [200, 300, 400],
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
                 },
                 rungSizing: RungSizing.SkipIfUnaffordable,
@@ -479,6 +488,7 @@ describe('ladderRowAction', () => {
         const active: DayPolicy = {
             ladder: [200, 300, 400],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
         };
         expect(
@@ -500,6 +510,7 @@ describe('ladderRowAction', () => {
         const active: DayPolicy = {
             ladder: [200, 300, 400],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
         };
         expect(
@@ -517,6 +528,7 @@ describe('ladderRowAction', () => {
         const active: DayPolicy = {
             ladder: [200, 300, 400],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.DayGreen },
         };
         expect(
@@ -547,6 +559,7 @@ describe('isActiveLadderRow', () => {
     const applied: DayPolicy = {
         ladder: [200, 300, 400],
         maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
         stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
     };
 
@@ -626,6 +639,7 @@ describe('isActiveLadderRow', () => {
                 {
                     ladder: [200, 300, 400],
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: reordered,
                 },
                 scoredSizing,
@@ -645,6 +659,7 @@ describe('isActiveLadderRow', () => {
         const active: DayPolicy = {
             ladder: [200, 300, 400],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { dollars: 500, kind: DayStopRuleKind.AfterTarget },
         };
         expect(isActiveLadderRow(view, score, active, scoredSizing)).toBe(true);

@@ -353,7 +353,7 @@ describe('buildAccountListRows with read issues', () => {
         }
     });
 
-    it('titles the banner and the row popover of a read-only account from one helper', () => {
+    it('titles the row popover of a read-only account from the shared helper', () => {
         expect(readOnlyAlertTitle('Papa')).toBe('Read-only account: Papa');
         const table = readFileSync(
             path.join(
@@ -363,7 +363,7 @@ describe('buildAccountListRows with read issues', () => {
             'utf8',
         );
         expect(table).not.toContain('Read-only account:');
-        expect(table.match(/readOnlyAlertTitle\(/g)).toHaveLength(2);
+        expect(table.match(/readOnlyAlertTitle\(/g)).toHaveLength(1);
     });
 
     it('filters a row with a removed firm id by firm without narrowing it to a modeled firm', () => {

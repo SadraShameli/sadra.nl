@@ -28,6 +28,7 @@ import {
     FirmId,
     MffuVariant,
     type Plan,
+    PolicySizing,
     type SimOutputs,
     simulate,
     TopStepVariant,
@@ -586,6 +587,7 @@ describe('optimize dp prices the empirical cross-check like the DP (N-62)', () =
     const policy: DayPolicy = {
         ladder: [200],
         maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
         stopRule: { kind: DayStopRuleKind.None },
     };
 
@@ -943,7 +945,7 @@ describe('optimize dp funded solve keeps the WP17c shared day skeleton and day-c
         ]).withOverrides({});
         expect(findRegistryPlanId(plan)).toBeNull();
         const dayCloses = vi.spyOn(plan, 'recordDayClosePeak');
-        const riskLists = vi.spyOn(plan, 'affordableRisk');
+        const riskLists = vi.spyOn(plan, 'affordableRoom');
 
         const result = computeFundedStateValue({
             actionStepMultiple: 1,

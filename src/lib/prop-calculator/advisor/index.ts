@@ -1,4 +1,23 @@
+export {
+    type AccountSnapshotInput,
+    accountSnapshotInputSchema,
+} from './AccountSnapshotInput';
+export {
+    type Assumption,
+    AssumptionBias,
+    assumptionSchema,
+    type InputAssumption,
+    inputAssumption,
+    type InputAssumptionKind,
+    type SizingRuleAssumption,
+    sizingRuleAssumption,
+} from './Assumption';
+export { AssumptionKind } from './AssumptionKind';
 export { createDocumentedRule } from './createDocumentedRule';
+export {
+    DashboardBalanceConvention,
+    nominalBalanceOf,
+} from './DashboardBalanceConvention';
 export { DocumentedRule } from './DocumentedRule';
 export {
     type CappedAmount,
@@ -20,6 +39,20 @@ export { EvalLadderRule } from './EvalLadderRule';
 export { EvalMaxRiskRule } from './EvalMaxRiskRule';
 export { FundedFixedRiskRule } from './FundedFixedRiskRule';
 export { LiveCushionPercentRule } from './LiveCushionPercentRule';
+export {
+    type DocumentedLiveStart,
+    isLiveModelApproximation,
+    LiveApplicabilityKind,
+    LiveApplicabilityNote,
+    type LiveNotModeled,
+    LiveNotModeledReason,
+    type LivePlanApplicability,
+    livePlanApplicability,
+    type LiveStartRange,
+    LiveStateApproximation,
+    type ModeledLiveBuilder,
+    type ModeledLiveTransition,
+} from './LivePlanApplicability';
 export {
     type AlertThresholds,
     DEFAULT_RULEBOOK,
@@ -64,3 +97,14 @@ export {
     SizingInvariantError,
 } from './SizingInvariant';
 export { SizingStage } from './SizingStage';
+export { SnapshotInputField } from './SnapshotInputField';
+export {
+    assertPlausibleSnapshot,
+    ImplausibleSnapshotError,
+    type SnapshotDraftFields,
+    snapshotDraftIssues,
+    snapshotInputIssues,
+    SnapshotIssueSeverity,
+    type SnapshotPlausibilityIssue,
+    SnapshotPlausibilityIssueKind,
+} from './SnapshotPlausibility';

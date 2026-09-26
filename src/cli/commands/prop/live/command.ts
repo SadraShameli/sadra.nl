@@ -16,7 +16,11 @@ import {
     TablePrinter,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
-import { formatCurrency, formatPercent } from '~/lib/format';
+import {
+    formatConjunctionList,
+    formatCurrency,
+    formatPercent,
+} from '~/lib/format';
 import {
     dollars,
     findLivePlanBuilder,
@@ -109,11 +113,6 @@ export const liveArguments = {
 } satisfies ArgsDef;
 
 const DRAIN_TO_FLOOR = 'all';
-
-const ONE_OFF_LIST = new Intl.ListFormat('en-GB', {
-    style: 'long',
-    type: 'conjunction',
-});
 
 const liveWithdrawalSchema = z.union([
     z.string().trim().toLowerCase().pipe(z.literal(DRAIN_TO_FLOOR)),
@@ -337,7 +336,7 @@ function describeWithdrawalsAtHorizon(
         .map(([, name]) => name);
     return included.length === 0
         ? 'withdrawals at horizon'
-        : `withdrawals at horizon, incl. ${ONE_OFF_LIST.format(included)}`;
+        : `withdrawals at horizon, incl. ${formatConjunctionList(included)}`;
 }
 
 export default defineCommand({

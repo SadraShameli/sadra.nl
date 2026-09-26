@@ -59,6 +59,7 @@ export default function CashFlowPanel({
         dayStop,
         discounts,
         evalDayPolicy,
+        instrument,
         maxEvalDays,
         minRetainedCushion,
         payoutRequestSize,
@@ -67,6 +68,7 @@ export default function CashFlowPanel({
         rrRatio,
         rungSizing,
         seed,
+        stopPoints,
         tradesPerDay,
         winrate,
     } = baseInputs;
@@ -96,6 +98,7 @@ export default function CashFlowPanel({
         dayStop,
         discounts,
         evalDayPolicy,
+        instrument,
         maxEvalDays,
         minRetainedCushion,
         payoutRequestSize,
@@ -104,6 +107,7 @@ export default function CashFlowPanel({
         rrRatio,
         rungSizing,
         seed,
+        stopPoints,
         tradesPerDay,
         trials,
         winrate,
@@ -229,60 +233,62 @@ export default function CashFlowPanel({
                     </p>
                 )}
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-                    <StatCard
-                        label="Median final net"
-                        sub={`through ${horizon.label}`}
-                        value={formatCompactCurrency(finalNet50)}
-                        valueClassName={
-                            finalNet50 >= 0
-                                ? 'text-emerald-400'
-                                : 'text-rose-400'
-                        }
-                    />
-                    <StatCard
-                        label="P10 final net"
-                        sub="10th percentile outcome"
-                        value={formatCompactCurrency(finalNet10)}
-                    />
-                    <StatCard
-                        label="P90 final net"
-                        sub="90th percentile outcome"
-                        value={formatCompactCurrency(finalNet90)}
-                    />
-                    <StatCard
-                        label="Median break-even"
-                        sub="month net turns positive"
-                        value={
-                            medianBreakEvenMonth === null
-                                ? NOT_APPLICABLE
-                                : `${medianBreakEvenMonth.toFixed(1)}mo`
-                        }
-                        valueClassName={
-                            medianBreakEvenMonth === null
-                                ? 'text-muted-foreground'
-                                : 'text-emerald-400'
-                        }
-                    />
-                    <StatCard
-                        label="P(ever break-even)"
-                        sub="within the horizon"
-                        value={formatPercent(pEverBreakEven)}
-                        valueClassName={
-                            pEverBreakEven >= 0.5
-                                ? 'text-emerald-400'
-                                : 'text-amber-400'
-                        }
-                    />
-                    <StatCard
-                        label="ROI on spend"
-                        sub="median final net ÷ median spend"
-                        value={roiOnSpend.text}
-                        valueClassName={
-                            KPI_ACCENT_TEXT_CLASS[roiOnSpend.accent]
-                        }
-                    />
-                </div>
+                {error === null ? (
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+                        <StatCard
+                            label="Median final net"
+                            sub={`through ${horizon.label}`}
+                            value={formatCompactCurrency(finalNet50)}
+                            valueClassName={
+                                finalNet50 >= 0
+                                    ? 'text-emerald-400'
+                                    : 'text-rose-400'
+                            }
+                        />
+                        <StatCard
+                            label="P10 final net"
+                            sub="10th percentile outcome"
+                            value={formatCompactCurrency(finalNet10)}
+                        />
+                        <StatCard
+                            label="P90 final net"
+                            sub="90th percentile outcome"
+                            value={formatCompactCurrency(finalNet90)}
+                        />
+                        <StatCard
+                            label="Median break-even"
+                            sub="month net turns positive"
+                            value={
+                                medianBreakEvenMonth === null
+                                    ? NOT_APPLICABLE
+                                    : `${medianBreakEvenMonth.toFixed(1)}mo`
+                            }
+                            valueClassName={
+                                medianBreakEvenMonth === null
+                                    ? 'text-muted-foreground'
+                                    : 'text-emerald-400'
+                            }
+                        />
+                        <StatCard
+                            label="P(ever break-even)"
+                            sub="within the horizon"
+                            value={formatPercent(pEverBreakEven)}
+                            valueClassName={
+                                pEverBreakEven >= 0.5
+                                    ? 'text-emerald-400'
+                                    : 'text-amber-400'
+                            }
+                        />
+                        <StatCard
+                            label="ROI on spend"
+                            sub="median final net ÷ median spend"
+                            value={roiOnSpend.text}
+                            valueClassName={
+                                KPI_ACCENT_TEXT_CLASS[roiOnSpend.accent]
+                            }
+                        />
+                    </div>
+                ) : null}
 
                 {result ? (
                     <>

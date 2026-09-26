@@ -23,7 +23,7 @@ import {
     type LadderSlotEvent,
 } from './ladderResultSlot';
 import { type CalculatorState, ChartType } from './types';
-import { type BaseSimulation, useBaseSimulation } from './useBaseSimulation';
+import { type BaseSimulationRun, useBaseSimulation } from './useBaseSimulation';
 import {
     type CalculatorActions,
     type PinnedScenario,
@@ -63,7 +63,7 @@ interface CalculatorProviderProperties {
 }
 
 const CalculatorInputsContext = createContext<CalculatorInputs | null>(null);
-const BaseResultContext = createContext<BaseSimulation | null>(null);
+const BaseResultContext = createContext<BaseSimulationRun | null>(null);
 const LabSlotsContext = createContext<CalculatorLabSlots | null>(null);
 const CalculatorActionsContext =
     createContext<CalculatorProviderActions | null>(null);
@@ -120,10 +120,10 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
         [debouncedQuery, planOptIns, simInputs, state],
     );
 
-    const { isPending, result } = base;
-    const baseResult = useMemo<BaseSimulation>(
-        () => ({ isPending, result }),
-        [isPending, result],
+    const { error, isPending, result } = base;
+    const baseResult = useMemo<BaseSimulationRun>(
+        () => ({ error, isPending, result }),
+        [error, isPending, result],
     );
 
     const labSlots = useMemo<CalculatorLabSlots>(
@@ -146,7 +146,7 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
     );
 }
 
-export function useBaseResult(): BaseSimulation {
+export function useBaseResult(): BaseSimulationRun {
     const { registerBaseResultConsumer } = useCalculatorActions();
     useEffect(() => registerBaseResultConsumer(), [registerBaseResultConsumer]);
     return required(useContext(BaseResultContext), 'useBaseResult');

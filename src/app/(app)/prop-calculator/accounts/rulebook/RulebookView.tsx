@@ -56,6 +56,10 @@ import {
     type RulebookParameters,
     RuleSource,
 } from '~/lib/prop-calculator/advisor';
+import {
+    isInvalidStoredRecord,
+    PropRecord,
+} from '~/lib/schemas/propAccountOutputs';
 import { profileTabs, routes, withQuery } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -177,20 +181,34 @@ export function RulebookView({
     tradingPlan: TradingPlanSource;
 }) {
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    if (rulebookQuery.isPending) return <Skeleton className="h-96 w-full" />;
-    if (rulebookQuery.isError) {
+    const [isOverwriting, setIsOverwriting] = useState(false);
+    if (rulebookQuery.data !== undefined) {
+        if (isOverwriting) setIsOverwriting(false);
         return (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>The rulebook could not be loaded</AlertTitle>
-                <AlertDescription>
-                    {rulebookQuery.error.message}
-                </AlertDescription>
-            </Alert>
+            <RulebookForm
+                stored={rulebookQuery.data}
+                tradingPlan={tradingPlan}
+            />
         );
     }
+    if (
+        isOverwriting &&
+        (rulebookQuery.isPending ||
+            isInvalidStoredRecord(rulebookQuery.error, PropRecord.Rulebook))
+    ) {
+        return <OverwriteRulebook tradingPlan={tradingPlan} />;
+    }
+    if (rulebookQuery.isPending) return <Skeleton className="h-96 w-full" />;
+    if (!isInvalidStoredRecord(rulebookQuery.error, PropRecord.Rulebook)) {
+        return <RulebookLoadError message={rulebookQuery.error.message} />;
+    }
     return (
-        <RulebookForm stored={rulebookQuery.data} tradingPlan={tradingPlan} />
+        <InvalidRulebookRepair
+            message={rulebookQuery.error.message}
+            onOverwrite={() => {
+                setIsOverwriting(true);
+            }}
+        />
     );
 }
 
@@ -563,12 +581,62 @@ function ImportPreview({
     );
 }
 
+function InvalidRulebookRepair({
+    message,
+    onOverwrite,
+}: {
+    message: string;
+    onOverwrite: () => void;
+}) {
+    const rulebookReset = useRulebookReset();
+    return (
+        <div className="flex flex-col gap-4">
+            <RulebookLoadError message={message} />
+            <div className="flex flex-wrap items-center gap-2">
+                <ResetRulebookDialog
+                    disabled={rulebookReset.isPending}
+                    onConfirm={() => {
+                        void rulebookReset.reset();
+                    }}
+                />
+                <Button
+                    disabled={rulebookReset.isPending}
+                    onClick={onOverwrite}
+                    type="button"
+                >
+                    Overwrite with a new rulebook
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 function LiveCard({ control }: { control: Control<RulebookFormValues> }) {
     return (
         <SectionCard title="Live sizing">
             <TextField control={control} name="live.cushionPercent.preLock" />
             <TextField control={control} name="live.cushionPercent.postLock" />
         </SectionCard>
+    );
+}
+
+function OverwriteRulebook({
+    tradingPlan,
+}: {
+    tradingPlan: TradingPlanSource;
+}) {
+    return (
+        <div className="flex flex-col gap-6">
+            <Alert variant="warning">
+                <TriangleAlert />
+                <AlertTitle>Starting from the skill defaults</AlertTitle>
+                <AlertDescription>
+                    Your stored rulebook could not be read. Saving replaces your
+                    stored rulebook with this one.
+                </AlertDescription>
+            </Alert>
+            <RulebookForm stored={DEFAULT_RULEBOOK} tradingPlan={tradingPlan} />
+        </div>
     );
 }
 
@@ -618,6 +686,40 @@ function PayoutCard({ control }: { control: Control<RulebookFormValues> }) {
                 </Alert>
             )}
         </SectionCard>
+    );
+}
+
+function ResetRulebookDialog({
+    disabled,
+    onConfirm,
+}: {
+    disabled: boolean;
+    onConfirm: () => void;
+}) {
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button disabled={disabled} type="button" variant="outline">
+                    Reset to skill defaults
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Reset the rulebook?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This deletes your saved rulebook. Every value goes back
+                        to the skill defaults, so the rulebook no longer differs
+                        from the skill.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={onConfirm}>
+                        Reset
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     );
 }
 
@@ -681,7 +783,7 @@ function RulebookForm({
 }) {
     const utilities = api.useUtils();
     const upsert = api.propAccounts.rulebook.upsert.useMutation();
-    const resetRulebook = api.propAccounts.rulebook.reset.useMutation();
+    const rulebookReset = useRulebookReset();
     const form = useForm<RulebookFormValues>({
         defaultValues: rulebookToFormValues(stored),
         resolver: zodResolver(rulebookFormSchema, undefined, { raw: true }),
@@ -689,7 +791,7 @@ function RulebookForm({
     const values = useWatch({ control: form.control });
     const current = rulebookFormSchema.safeParse(values);
     const parsed = current.success ? current.data : null;
-    const isSaving = upsert.isPending || resetRulebook.isPending;
+    const isSaving = upsert.isPending || rulebookReset.isPending;
 
     const onSubmit = form.handleSubmit(
         async (raw) => {
@@ -714,15 +816,9 @@ function RulebookForm({
     );
 
     const resetToDefaults = async () => {
-        try {
-            await resetRulebook.mutateAsync();
+        await rulebookReset.reset(() => {
             form.reset(rulebookToFormValues(DEFAULT_RULEBOOK));
-            toast.success('Rulebook reset to the skill defaults');
-        } catch (error) {
-            toast.error(errorMessage(error));
-        } finally {
-            await utilities.propAccounts.invalidate();
-        }
+        });
     };
 
     const applyImport = (imported: TradingPlanImport) => {
@@ -774,43 +870,25 @@ function RulebookForm({
                     >
                         Discard changes
                     </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button
-                                disabled={isSaving}
-                                type="button"
-                                variant="outline"
-                            >
-                                Reset to skill defaults
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Reset the rulebook?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This deletes your saved rulebook. Every
-                                    value goes back to the skill defaults, so
-                                    the rulebook no longer differs from the
-                                    skill.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() => {
-                                        void resetToDefaults();
-                                    }}
-                                >
-                                    Reset
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <ResetRulebookDialog
+                        disabled={isSaving}
+                        onConfirm={() => {
+                            void resetToDefaults();
+                        }}
+                    />
                 </div>
             </form>
         </Form>
+    );
+}
+
+function RulebookLoadError({ message }: { message: string }) {
+    return (
+        <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertTitle>The rulebook could not be loaded</AlertTitle>
+            <AlertDescription>{message}</AlertDescription>
+        </Alert>
     );
 }
 
@@ -898,4 +976,21 @@ function TextField({
             }}
         />
     );
+}
+
+function useRulebookReset() {
+    const utilities = api.useUtils();
+    const resetRulebook = api.propAccounts.rulebook.reset.useMutation();
+    const reset = async (onReset?: () => void) => {
+        try {
+            await resetRulebook.mutateAsync();
+            onReset?.();
+            toast.success('Rulebook reset to the skill defaults');
+        } catch (error) {
+            toast.error(errorMessage(error));
+        } finally {
+            await utilities.propAccounts.invalidate();
+        }
+    };
+    return { isPending: resetRulebook.isPending, reset };
 }

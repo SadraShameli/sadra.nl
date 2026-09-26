@@ -1,4 +1,4 @@
-import { formatPercent } from '~/lib/format';
+import { formatConjunctionList, formatPercent } from '~/lib/format';
 import {
     LADDER_IGNORED_INPUT_REASONS,
     LadderIgnoredInput,
@@ -16,18 +16,15 @@ type LadderIgnoredInputs = Pick<
     'idleDayProbability' | 'maxAttempts' | 'rebuyLagDays'
 >;
 
-const LIST = new Intl.ListFormat('en-GB', {
-    style: 'long',
-    type: 'conjunction',
-});
-
 export function describeLadderIgnoredInputs(
     inputs: LadderIgnoredInputs,
 ): null | string {
     const ignored = ignoredInputs(inputs);
     if (ignored.length === 0) return null;
-    const settings = LIST.format(ignored.map((input) => input.setting));
-    const reasons = LIST.format(
+    const settings = formatConjunctionList(
+        ignored.map((input) => input.setting),
+    );
+    const reasons = formatConjunctionList(
         ignored.map(({ input }) => `it ${LADDER_IGNORED_INPUT_REASONS[input]}`),
     );
     const pronoun = ignored.length === 1 ? 'it' : 'them';

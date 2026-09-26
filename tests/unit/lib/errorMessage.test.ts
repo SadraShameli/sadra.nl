@@ -42,8 +42,11 @@ describe('errorMessage', () => {
         );
     });
 
-    it.each(FORMER_COPIES)('is the only copy: %s defines none of its own', (file) => {
-        const source = readFileSync(path.join(REPO_ROOT, file), 'utf8');
-        expect(source).not.toMatch(/function errorMessage\s*\(/);
-    });
+    it.each(FORMER_COPIES)(
+        'is the only copy: %s defines none of its own',
+        (file) => {
+            const source = readFileSync(path.join(REPO_ROOT, file), 'utf8');
+            expect(source).not.toMatch(/function errorMessage\s*\(/);
+        },
+    );
 });

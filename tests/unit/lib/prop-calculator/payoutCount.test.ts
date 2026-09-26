@@ -8,6 +8,7 @@ import {
     fraction,
     MffuVariant,
     type Plan,
+    PolicySizing,
     RungSizing,
 } from '~/lib/prop-calculator/core';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
@@ -50,7 +51,12 @@ function runOverHorizon(fundedHorizonDays: number, plan: Plan) {
 describe('expectedPayoutCount', () => {
     it('matches PayoutTotals.count from a directly-run funded horizon, for an always-winning single trial', () => {
         const plan = rapidPlan();
-        const dayPolicy = flatDayPolicy(250, 1, { kind: DayStopRuleKind.None });
+        const dayPolicy = flatDayPolicy(
+            250,
+            1,
+            { kind: DayStopRuleKind.None },
+            PolicySizing.ContractCapped,
+        );
 
         const rng = mulberry32(1);
         const retry = runEvalWithRetries({

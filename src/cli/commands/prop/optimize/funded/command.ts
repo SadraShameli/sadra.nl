@@ -12,22 +12,33 @@ import {
     TradingInputs,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
-import { formatCurrency, formatPercent } from '~/lib/format';
 import {
+    formatConjunctionList,
+    formatCurrency,
+    formatPercent,
+} from '~/lib/format';
+import {
+    ContractLimitKind,
     type DayStopRule,
+    formatOneContractRisk,
+    formatWholeCentDollars,
     fraction,
-    oneContractRisk,
-    PolicySizing,
+    FUNDED_START_TIER_CONTRACT_LIMIT,
+    fundedContractLimit,
+    type PlacedFundedRisk,
+    placedFundedRiskAt,
+    type Plan,
+    policySizingOf,
     type PositionSizingConfig,
     resolvePositionSizing,
     SIM_DEFAULTS,
     type SimInputs,
+    simInputsSizingIssue,
     type SimOutputs,
     simulate,
     TRADING_DAYS_PER_MONTH,
-    wholeContractRisk,
+    TradingPhase,
 } from '~/lib/prop-calculator';
-import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 
 export enum FundedSortKey {
     Cycle = 'cycle',
@@ -52,12 +63,7 @@ type CandidateSizingOverrides = Pick<
 
 interface FlatCandidates {
     belowOneContract: number[];
-    placed: Candidate[];
-}
-
-interface PlacedRisk {
-    contracts: number;
-    risk: number;
+    placed: number[];
 }
 
 interface ScoredCandidate {
@@ -122,6 +128,7 @@ export default defineCommand({
                 context.args,
                 inputs.dayStop,
                 positionSizing,
+                plan,
             );
 
             spinner = ui
@@ -158,6 +165,7 @@ export default defineCommand({
             for (const note of fundedSizingNotes(
                 context.args,
                 positionSizing,
+                plan,
             )) {
                 ui.note(note);
             }
@@ -231,6 +239,7 @@ export function readFundedCandidates(
     arguments_: FundedCandidateArguments,
     stopRule: DayStopRule,
     positionSizing: null | PositionSizingConfig = null,
+    plan?: Plan,
 ): Candidate[] {
     const fundedLadder = readLadder(
         arguments_['funded-ladder'],
@@ -238,10 +247,13 @@ export function readFundedCandidates(
     );
     const flat = readFlatCandidates(arguments_, positionSizing);
     const candidates = [
-        ...flat.placed,
+        ...flat.placed.map((dollar): Candidate => ({
+            label: flatLabel(dollar, positionSizing, plan),
+            overrides: flatOverrides(dollar),
+        })),
         ...readPercentCandidates(arguments_, positionSizing),
         ...(fundedLadder
-            ? [ladderCandidate(fundedLadder, stopRule, positionSizing)]
+            ? [ladderCandidate(fundedLadder, stopRule, positionSizing, plan)]
             : []),
     ];
     if (candidates.length === 0) {
@@ -263,7 +275,7 @@ export function sortDescription(sort: FundedSortKey, base: SimInputs): string {
         }
         case FundedSortKey.Monthly: {
             const rebuyLagDays = base.rebuyLagDays ?? SIM_DEFAULTS.rebuyLagDays;
-            return `  ranked by steady-state expected net per month for one account slot: monthly net = (per-cycle net + horizon credit) x ${TRADING_DAYS_PER_MONTH} / slot days, where slot days are the expected days per run (slot refilled after every failed eval, funded bust or ${base.fundedHorizonDays}-day horizon end, plus ${rebuyLagDays} rebuy-lag-days of empty slot time per new eval attempt); the horizon credit is one more payout request for an account still open at the horizon, its withdrawable balance capped by the payout profit pool (cycle profit since the last payout on cycle-pool plans) when there is no payout ladder, the ladder step, request size, profit share and request caps, and 0 once a lifetime payout cap is reached or the payout ladder is exhausted; monthly ex-credit = per-cycle net x ${TRADING_DAYS_PER_MONTH} / slot days, leaving the horizon credit out\n`;
+            return `  ranked by steady-state expected net per month for one account slot: monthly net = (per-cycle net + horizon credit) x ${TRADING_DAYS_PER_MONTH} / slot days, where slot days are the expected days per run (slot refilled after every failed eval, funded bust or ${base.fundedHorizonDays}-day horizon end, plus ${rebuyLagDays} rebuy-lag-days of empty slot time per new eval attempt); the horizon credit is one more payout request for an account still open at the horizon, net of the split and the payout method fee: its withdrawable balance capped by the ladder step, request size, profit share and request caps, and capped by the payout profit pool (cycle profit since the last payout on cycle-pool plans) only when there is no payout ladder and no payout profit share; a payout ladder that denies an unaffordable step credits 0 when the step is above what the account could withdraw (its withdrawable balance, or its profit share if lower), and the credit is 0 once a lifetime payout cap is reached or the payout ladder is exhausted; the credit ignores the payout day and qualifying-day gate, the consistency rule, the minimum payout profit and the minimum request, since continued trading would clear them; monthly ex-credit = per-cycle net x ${TRADING_DAYS_PER_MONTH} / slot days, leaving the horizon credit out\n`;
         }
     }
 }
@@ -287,22 +299,45 @@ function candidateSizingIssue(
     });
 }
 
+function collapsedFlatNotes(
+    dollars: readonly number[],
+    positionSizing: PositionSizingConfig,
+    plan: Plan,
+): string[] {
+    if (hasTieredFundedContractLimit(plan, positionSizing)) return [];
+    const groups = Map.groupBy(dollars, (dollar) =>
+        placementText(
+            [placedFundedRiskAt(dollar, positionSizing, plan)],
+            positionSizing,
+        ),
+    );
+    return [...groups]
+        .filter(([, group]) => group.length > 1)
+        .map(
+            ([placement, group]) =>
+                `flat ${formatConjunctionList(group.map((dollar) => formatWholeCentDollars(dollar)))} place the same ${placement}, so their rows are one policy`,
+        );
+}
+
 function flatBelowOneContractNote(
     belowOneContract: readonly number[],
     positionSizing: null | PositionSizingConfig,
 ): null | string {
     if (positionSizing === null || belowOneContract.length === 0) return null;
-    const dollars = belowOneContract.map((dollar) => `$${dollar}`).join(', ');
-    return `flat ${dollars} left out: below one ${positionSizing.instrument.symbol} contract's risk at a ${positionSizing.stopPoints} point stop ($${oneContractRisk(positionSizing)}), and funded flat risk is rounded down to whole contracts, never up`;
+    const dollars = belowOneContract
+        .map((dollar) => formatWholeCentDollars(dollar))
+        .join(', ');
+    return `flat ${dollars} left out: below one ${positionSizing.instrument.symbol} contract's risk at a ${positionSizing.stopPoints} point stop (${formatOneContractRisk(positionSizing)}), and funded flat risk is rounded down to whole contracts, never up`;
 }
 
 function flatLabel(
     dollar: number,
     positionSizing: null | PositionSizingConfig,
+    plan: Plan | undefined,
 ): string {
-    if (positionSizing === null) return `flat $${dollar}`;
-    const placed = placedRisk(dollar, positionSizing);
-    return `flat $${dollar} (${placed.contracts} ${positionSizing.instrument.symbol} = $${placed.risk})`;
+    return positionSizing === null
+        ? `flat $${dollar}`
+        : `flat $${dollar} (${placementLabel([dollar], positionSizing, plan)})`;
 }
 
 function flatOverrides(dollar: number): CandidateSizingOverrides {
@@ -312,6 +347,7 @@ function flatOverrides(dollar: number): CandidateSizingOverrides {
 function fundedSizingNotes(
     arguments_: FundedCandidateArguments,
     positionSizing: null | PositionSizingConfig,
+    plan: Plan,
 ): string[] {
     if (positionSizing === null) {
         return arguments_.percent === undefined
@@ -320,39 +356,49 @@ function fundedSizingNotes(
               ]
             : [];
     }
+    const flat = readFlatCandidates(arguments_, positionSizing);
     const belowOneContract = flatBelowOneContractNote(
-        readFlatCandidates(arguments_, positionSizing).belowOneContract,
+        flat.belowOneContract,
         positionSizing,
     );
     return [
         ...(belowOneContract === null ? [] : [belowOneContract]),
-        `flat, percent and ladder rows are placed in whole ${positionSizing.instrument.symbol} contracts at a ${positionSizing.stopPoints} point stop; a flat or ladder label shows the placed risk before the funded contract limit and the affordable room cut it further`,
+        `flat, percent and ladder rows are placed in whole ${positionSizing.instrument.symbol} contracts at a ${positionSizing.stopPoints} point stop; a flat or ladder label shows the placement at ${FUNDED_START_TIER_CONTRACT_LIMIT} (a tiered plan can place more later), and the affordable room can cut it further`,
+        ...collapsedFlatNotes(flat.placed, positionSizing, plan),
     ];
+}
+
+function hasTieredFundedContractLimit(
+    plan: Plan,
+    positionSizing: PositionSizingConfig,
+): boolean {
+    return (
+        fundedContractLimit(
+            plan.contractLimits,
+            positionSizing.instrument.isMicro,
+        )?.kind === ContractLimitKind.Tiered
+    );
 }
 
 function ladderCandidate(
     ladder: readonly number[],
     stopRule: DayStopRule,
     positionSizing: null | PositionSizingConfig,
+    plan: Plan | undefined,
 ): Candidate {
     const rungs = ladder.join('/');
     const overrides = {
         fundedCushionPercent: undefined,
+        fundedDayPolicy: {
+            ladder,
+            maxLossesPerDay: null,
+            sizing: policySizingOf(TradingPhase.Funded),
+            stopRule,
+        },
         fundedRiskPerTrade: undefined,
-    } satisfies CandidateSizingOverrides;
+    } satisfies Partial<SimInputs>;
     if (positionSizing === null) {
-        return {
-            label: `ladder ${rungs}`,
-            overrides: {
-                ...overrides,
-                fundedDayPolicy: {
-                    ladder,
-                    maxLossesPerDay: null,
-                    sizing: PolicySizing.ContractCapped,
-                    stopRule,
-                },
-            },
-        };
+        return { label: `ladder ${rungs}`, overrides };
     }
     const belowOneContract = ladder.filter(
         (rung) =>
@@ -360,33 +406,37 @@ function ladderCandidate(
     );
     if (belowOneContract.length > 0) {
         throw new Error(
-            `Invalid --funded-ladder "${ladder.join(',')}": ${belowOneContract.map((rung) => `$${rung}`).join(', ')} below one ${positionSizing.instrument.symbol} contract's risk at a ${positionSizing.stopPoints} point stop ($${oneContractRisk(positionSizing)}), and funded ladder rungs are rounded down to whole contracts, never up. Raise the rung, or use a micro instrument or a tighter stop.`,
+            `Invalid --funded-ladder "${ladder.join(',')}": ${belowOneContract.map((rung) => formatWholeCentDollars(rung)).join(', ')} below one ${positionSizing.instrument.symbol} contract's risk at a ${positionSizing.stopPoints} point stop (${formatOneContractRisk(positionSizing)}), and funded ladder rungs are rounded down to whole contracts, never up. Raise the rung, or use a micro instrument or a tighter stop.`,
         );
     }
-    const placed = ladder.map((rung) => placedRisk(rung, positionSizing));
     return {
-        label: `ladder ${rungs} (${placed.map((rung) => rung.contracts).join('/')} ${positionSizing.instrument.symbol} = ${placed.map((rung) => `$${rung.risk}`).join('/')})`,
-        overrides: {
-            ...overrides,
-            fundedDayPolicy: {
-                ladder,
-                maxLossesPerDay: null,
-                sizing: PolicySizing.WholeContracts,
-                stopRule,
-            },
-        },
+        label: `ladder ${rungs} (${placementLabel(ladder, positionSizing, plan)})`,
+        overrides,
     };
 }
 
-function placedRisk(
-    dollar: number,
+function placementLabel(
+    dollars: readonly number[],
     positionSizing: PositionSizingConfig,
-): PlacedRisk {
-    const risk = wholeContractRisk(dollar, positionSizing, null);
-    return {
-        contracts: Math.round(risk / oneContractRisk(positionSizing)),
-        risk,
-    };
+    plan: Plan | undefined,
+): string {
+    const uncapped = dollars.map((dollar) =>
+        placedFundedRiskAt(dollar, positionSizing),
+    );
+    const placed = dollars.map((dollar) =>
+        placedFundedRiskAt(dollar, positionSizing, plan),
+    );
+    const capped = placed.some((placement) => placement.isCapped)
+        ? `, capped at ${placementText(placed, positionSizing)} by ${FUNDED_START_TIER_CONTRACT_LIMIT}`
+        : '';
+    return `${placementText(uncapped, positionSizing)}${capped}`;
+}
+
+function placementText(
+    placed: readonly PlacedFundedRisk[],
+    positionSizing: PositionSizingConfig,
+): string {
+    return `${placed.map((placement) => placement.contracts).join('/')} ${positionSizing.instrument.symbol} = ${placed.map((placement) => formatWholeCentDollars(placement.risk)).join('/')}`;
 }
 
 function readCandidateFamily(
@@ -414,10 +464,7 @@ function readFlatCandidates(
         candidateSizingIssue(flatOverrides(dollar), positionSizing) === null;
     return {
         belowOneContract: dollars.filter((dollar) => !isPlaced(dollar)),
-        placed: dollars.filter(isPlaced).map((dollar): Candidate => ({
-            label: flatLabel(dollar, positionSizing),
-            overrides: flatOverrides(dollar),
-        })),
+        placed: dollars.filter(isPlaced),
     };
 }
 

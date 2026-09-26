@@ -10,10 +10,14 @@ import {
     vi,
 } from 'vitest';
 
+import { AnalysisView } from '~/app/(app)/prop-calculator/(tools)/analysis/AnalysisView';
+import { SimulatorView } from '~/app/(app)/prop-calculator/(tools)/simulator/SimulatorView';
 import { CalculatorProvider } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import { PropCalculatorSubnav } from '~/app/(app)/prop-calculator/_components/PropCalculatorSubnav';
 import { LINKED_TOOL_CATALOG } from '~/app/(app)/prop-calculator/_components/toolCatalog';
+import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalculator';
+import { SIM_INPUTS_REFUSAL_PREFIX, simulate } from '~/lib/prop-calculator';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
 import { routes } from '~/lib/site/routes';
 
@@ -30,8 +34,40 @@ vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
+vi.mock(import('~/lib/prop-calculator'), async (importOriginal) => {
+    const actual = await importOriginal();
+    return { ...actual, simulate: vi.fn(actual.simulate) };
+});
+
+vi.mock('next/dynamic', () => ({ default: () => renderNothing }));
+
+vi.mock('~/app/(app)/prop-calculator/_components/ToolPageHeading', () => ({
+    ToolPageHeading: renderNothing,
+}));
+
+vi.mock('~/app/(app)/prop-calculator/_components/InputsSummary', () => ({
+    InputsSummary: renderNothing,
+}));
+
+vi.mock('~/app/(app)/prop-calculator/_components/CalculatorInputsForm', () => ({
+    CalculatorInputsForm: ({ aside }: { aside: ReactNode }) => aside,
+}));
+
 const TIMEOUT_MS = 5000;
 const TARGET = LegacySection.TailRisk;
+const NOTICE = '.app-prop-calculator__simulation-failure';
+const ENGINE_FAILURES = [
+    [
+        'a plain engine error',
+        'simulate: trials must be a positive safe integer',
+        'simulate: trials must be a positive safe integer',
+    ],
+    [
+        'a non-sizing engine input refusal',
+        `${SIM_INPUTS_REFUSAL_PREFIX}winrate must be between 0 and 1`,
+        'winrate must be between 0 and 1',
+    ],
+] as const;
 
 type ScrollSpy = Mock<(options?: boolean | ScrollIntoViewOptions) => void>;
 
@@ -42,10 +78,20 @@ function mountMain(...children: HTMLElement[]): HTMLElement {
     return main;
 }
 
+function notices(): string[] {
+    return [...document.querySelectorAll(NOTICE)].map(
+        (node) => node.textContent,
+    );
+}
+
 function pendingPanel(): HTMLElement {
     const skeleton = document.createElement('div');
     skeleton.className = 'h-96 animate-pulse';
     return skeleton;
+}
+
+function renderNothing(): null {
+    return null;
 }
 
 async function settle(ms = 0) {
@@ -97,6 +143,47 @@ describe('CalculatorProvider mount', () => {
         vi.useRealTimers();
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
+        vi.mocked(simulate).mockReset();
+    });
+
+    it.each(ENGINE_FAILURES)(
+        'the simulator page shows the exact text of %s thrown by the base simulation (PT-11g)',
+        async (_, thrown, shown) => {
+            vi.mocked(simulate).mockImplementation(() => {
+                throw new Error(thrown);
+            });
+            visit(routes.propCalculator.simulator);
+            render(<SimulatorView />);
+            await settle(SIM_DEBOUNCE_MS + 1);
+            await settle(SIM_DEBOUNCE_MS + 1);
+            expect(simulate).toHaveBeenCalled();
+            expect(notices()).toEqual([shown, shown]);
+            expect(document.querySelector('.animate-pulse')).toBeNull();
+        },
+    );
+
+    it.each(ENGINE_FAILURES)(
+        'the analysis page shows the exact text of %s in every base result section (PT-11g)',
+        async (_, thrown, shown) => {
+            vi.mocked(simulate).mockImplementation(() => {
+                throw new Error(thrown);
+            });
+            visit(routes.propCalculator.analysis);
+            render(<AnalysisView />);
+            await settle(SIM_DEBOUNCE_MS + 1);
+            await settle(SIM_DEBOUNCE_MS + 1);
+            expect(simulate).toHaveBeenCalled();
+            expect(notices()).toEqual([shown, shown, shown, shown]);
+        },
+    );
+
+    it('the simulator page shows no failure once the base simulation succeeds (PT-11g)', async () => {
+        visit(routes.propCalculator.simulator);
+        render(<SimulatorView />);
+        await settle(SIM_DEBOUNCE_MS + 1);
+        await settle(SIM_DEBOUNCE_MS + 1);
+        expect(simulate).toHaveBeenCalled();
+        expect(notices()).toEqual([]);
     });
 
     it('sends a legacy section hash to its tool page and scrolls there once the section mounts', async () => {

@@ -22,15 +22,34 @@ export {
     type PlanLifecycleFacts,
     validateStageForPlan,
 } from './AccountLifecycle';
-export { AccountStage } from './AccountStage';
+export {
+    AccountStage,
+    accountStageBreakdown,
+    accountStageLabel,
+} from './AccountStage';
 export {
     accountStageOn,
     type AccountStageStarts,
+    NO_RECORDED_STAGE_STARTS,
     type StagedAccount,
 } from './AccountStageOnDate';
 export { AccountStatus } from './AccountStatus';
 export { DashboardBalanceConvention } from './DashboardBalanceConvention';
+export {
+    COUNT_ENTRY_MESSAGE,
+    type CountText,
+    EntryTextKind,
+    MONEY_ENTRY_MESSAGE,
+    type MoneyText,
+    parseCountText,
+    parseMoneyText,
+} from './EntryText';
 export { FeeKind } from './FeeKind';
+export {
+    feePrefillCents,
+    feePrefillDefaultKind,
+    type FeePrefillPlan,
+} from './FeePrefill';
 export {
     addCalendarYears,
     addIsoDays,
@@ -97,6 +116,16 @@ export {
     type StoredFirmId,
     UnresolvedPlanReason,
 } from './PlanKey';
+export {
+    checkSnapshotEntry,
+    liveStartEntryIssues,
+    type SnapshotEntryAccount,
+    type SnapshotEntryCheck,
+    snapshotEntryIssueMessage,
+    snapshotEntryIssues,
+    type SnapshotEntryValues,
+    splitSnapshotEntryIssues,
+} from './SnapshotEntryPlausibility';
 export { SnapshotSource } from './SnapshotSource';
 export {
     CentsDisplay,

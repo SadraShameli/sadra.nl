@@ -13,6 +13,7 @@ import {
     FundedResetEligibility,
     percent,
     type Plan,
+    PolicySizing,
     RungSizing,
     simulate,
 } from '~/lib/prop-calculator';
@@ -80,7 +81,12 @@ function resetToy(overrides: Parameters<Plan['withOverrides']>[0] = {}): Plan {
     });
 }
 
-const POLICY = flatDayPolicy(1000, 1, { kind: DayStopRuleKind.None });
+const POLICY = flatDayPolicy(
+    1000,
+    1,
+    { kind: DayStopRuleKind.None },
+    PolicySizing.ContractCapped,
+);
 
 function runSim(
     plan: Plan,

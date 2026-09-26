@@ -16,6 +16,7 @@ import {
     fraction,
     newFundedCycleTracker,
     type Plan,
+    PolicySizing,
     RungSizing,
     simulate,
 } from '~/lib/prop-calculator';
@@ -159,9 +160,14 @@ describe('N-45 through the simulator: an Alpha Standard trial pays no request af
     const fundedDays = firstCycle.length + netLosingCycle.length;
 
     function runTrial(plan: Plan) {
-        const policy = flatDayPolicy(400, 1, {
-            kind: DayStopRuleKind.None,
-        });
+        const policy = flatDayPolicy(
+            400,
+            1,
+            {
+                kind: DayStopRuleKind.None,
+            },
+            PolicySizing.ContractCapped,
+        );
         return simulateTrial({
             commission: dollars(0),
             discounts: undefined,
@@ -369,7 +375,12 @@ describe('N-45 aggregate explanation: under a lifetime payout cap the loss-exemp
     });
     const W = 0.1;
     const L = 0.9;
-    const policy = flatDayPolicy(25, 1, { kind: DayStopRuleKind.None });
+    const policy = flatDayPolicy(
+        25,
+        1,
+        { kind: DayStopRuleKind.None },
+        PolicySizing.ContractCapped,
+    );
 
     function runToy(plan: Plan) {
         return simulateTrial({

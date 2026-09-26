@@ -35,6 +35,7 @@ import {
     PLAN_AVAILABILITY_LABEL,
     PlanAvailability,
     type PlanOptIns,
+    PolicySizing,
     rankablePlans,
     RungSizing,
     type SimInputs,
@@ -377,6 +378,7 @@ export class TradingInputs {
             ? {
                   ladder: this.ladder,
                   maxLossesPerDay: null,
+                  sizing: PolicySizing.ContractCapped,
                   stopRule: this.dayStop,
               }
             : undefined;
@@ -438,8 +440,7 @@ export const monteCarloArguments = {
     rr: { default: '2', description: 'Reward to risk ratio', type: 'string' },
     seed: { default: '42', description: 'RNG seed', type: 'string' },
     'stop-points': {
-        description:
-            'Stop distance in points - enables contract-limit enforcement (caps risk to what --instrument allows) and places funded flat and percent-of-cushion risk in whole contracts, at most the funded contract limit. Flat risk is rounded down, and a funded flat risk below one contract is refused; percent risk takes at least one contract. Required for --percent in optimize funded. Omit to leave risk uncapped',
+        description: `Stop distance in points - enables contract-limit enforcement (caps risk to what --instrument allows) and places funded flat risk, funded ladder rows (optimize funded --funded-ladder) and percent-of-cushion risk in whole contracts, at most the funded contract limit. Flat risk and ladder rungs are rounded down, and a funded flat risk or ladder rung below one contract is refused; percent risk takes at least one contract. When the room left for a funded whole-contract trade (flat, funded ladder or percent) is below one contract, the trade is not placed and the day ends if a lockout daily loss limit is the tighter limit (its room is below the drawdown cushion); otherwise (no daily loss limit, a terminating one, or a drawdown cushion at or below the daily loss room) one contract is still taken and its loss, capped at the room, busts the account, unless --unaffordable ${RungSizing.SkipIfUnaffordable} skips the trade and ends the day. Required for --percent in optimize funded. Omit to leave risk uncapped`,
         type: 'string',
     },
     trials: {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    formatConjunctionList,
     formatCurrency,
     formatDays,
     formatFiniteCurrency,
@@ -91,5 +92,19 @@ describe('formatGateCurrency (R-8: one whole-dollars-or-cents gate formatter)', 
         expect(formatGateCurrency(1500.25, { compact: true })).toBe(
             '$1,500.25',
         );
+    });
+});
+
+describe('formatConjunctionList (WP39f: one list formatter for the CLI and the web)', () => {
+    it.each([
+        [[], ''],
+        [['$150'], '$150'],
+        [['$150', '$1,000'], '$150 and $1,000'],
+        [
+            ['transition credit', 'capital returned', 'liquidation payout'],
+            'transition credit, capital returned and liquidation payout',
+        ],
+    ] as const)('joins %j as %j with no Oxford comma', (items, expected) => {
+        expect(formatConjunctionList(items)).toBe(expected);
     });
 });

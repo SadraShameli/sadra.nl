@@ -11,6 +11,7 @@ import {
     MffuVariant,
     type Plan,
     type PlanId,
+    PolicySizing,
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
@@ -54,7 +55,12 @@ const apexEod50k = planFor({
 });
 
 function runCard(plan: Plan): CardResult {
-    const dayPolicy = flatDayPolicy(500, 1, { kind: DayStopRuleKind.None });
+    const dayPolicy = flatDayPolicy(
+        500,
+        1,
+        { kind: DayStopRuleKind.None },
+        PolicySizing.ContractCapped,
+    );
     return runEvalToFundedCycle({
         cardDayBudget: 60,
         commission: dollars(0),

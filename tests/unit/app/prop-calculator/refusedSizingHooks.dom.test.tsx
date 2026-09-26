@@ -6,6 +6,7 @@ import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/
 import { ComputationCache } from '~/app/(app)/prop-calculator/_components/computationCache';
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
 import { type Cell } from '~/app/(app)/prop-calculator/_components/SensitivityHeatmap';
+import { baseSimulationFailure } from '~/app/(app)/prop-calculator/_components/simulationFailure';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 import {
     type BaseSimulationRun,
@@ -128,6 +129,34 @@ describe('the web never runs a simulation the engine refuses (PT-11f)', () => {
             expect(latest?.error).toBe('winrate must be below 1');
             expect(latest?.result).toBeNull();
             expect(latest?.isPending).toBe(false);
+        });
+
+        it('gives the views a failure message for a non-sizing engine error, and none while pending or after a result', () => {
+            const inputs = buildSimInputs(stateWith({ winrate: 0.42 }));
+            expect(
+                baseSimulationFailure(inputs, {
+                    isPending: true,
+                    result: null,
+                }),
+            ).toBeNull();
+            vi.mocked(simulate).mockImplementationOnce(() => {
+                throw new Error('groups must be 1');
+            });
+            render(inputs);
+            if (latest === null) throw new Error('no hook result');
+            expect(baseSimulationFailure(inputs, latest)).toBe(
+                'The simulation could not run for these inputs, so there is no result to show. Change an input to run it again.',
+            );
+            const settled = buildSimInputs(stateWith({ winrate: 0.43 }));
+            render(settled);
+            expect(baseSimulationFailure(settled, latest)).toBeNull();
+            const refused = refusedInputs();
+            expect(
+                baseSimulationFailure(refused, {
+                    isPending: true,
+                    result: null,
+                }),
+            ).toBe(simInputsSizingIssue(refused));
         });
 
         it('leaves the default inputs (stop points off) unaffected', () => {

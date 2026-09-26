@@ -13,12 +13,14 @@ import {
 import {
     CALCULATOR_SCALAR_BOUNDS,
     calculatorScalarFieldsSchema,
+    CalculatorUrlParameter,
     dayPolicySchema,
     dayStopRuleSchema,
     labScenarioSchema,
     portfolioEntrySchema,
     type SavedScenarioRecord as SavedScenarioRecordSchema,
     savedScenarioRecordSchema,
+    UrlFlag,
 } from '~/lib/schemas/url';
 
 import type { CalculatorState, LabScenario, PortfolioEntry } from './types';
@@ -62,6 +64,10 @@ function parseInstrumentSymbol(raw: null | string): InstrumentSymbol | null {
     return INSTRUMENT_SYMBOLS.find((symbol) => symbol === raw) ?? null;
 }
 
+function urlFlag(isOn: boolean): UrlFlag {
+    return isOn ? UrlFlag.On : UrlFlag.Off;
+}
+
 const labScenarioArraySchema = z.array(labScenarioSchema);
 const portfolioEntryArraySchema = z.array(portfolioEntrySchema);
 const savedScenarioArraySchema = z.array(savedScenarioRecordSchema);
@@ -71,17 +77,21 @@ export function decodeState(
     firms: readonly TradingFirm[],
     fallback: CalculatorState,
 ): CalculatorState {
-    const firmId = parameters.get('firm');
-    const planSerial = parameters.get('plan');
+    const firmId = parameters.get(CalculatorUrlParameter.Firm);
+    const planSerial = parameters.get(CalculatorUrlParameter.Plan);
     const parsedFirmId = firmId ? parseFirmId(firmId) : undefined;
     const firm = parsedFirmId
         ? firms.find((f) => f.id === parsedFirmId)
         : undefined;
     const plan = firm && planSerial ? firm.findPlanBySerial(planSerial) : null;
 
-    const scalarFields = calculatorScalarFieldsSchema.parse(
-        Object.fromEntries(parameters),
-    );
+    const scalarFields = calculatorScalarFieldsSchema.parse({
+        ...Object.fromEntries(parameters),
+        [CalculatorUrlParameter.IdleDayProbability]:
+            parameters.get(CalculatorUrlParameter.IdleDayProbability) ??
+            parameters.get(CalculatorUrlParameter.LegacyIdleDayProbability) ??
+            undefined,
+    });
     const sizingMode =
         parameters.get('mode') === SizingMode.Percent
             ? SizingMode.Percent
@@ -202,7 +212,7 @@ export function decodeState(
         idleDayProbability: scalarFields.idle,
         instrument,
         labScenarios,
-        linkActivationDiscount: parameters.get('linkAct') === '1',
+        linkActivationDiscount: parameters.get('linkAct') === UrlFlag.On,
         maxAttempts: scalarFields.attempts,
         maxEvalDays: scalarFields.maxDays,
         monthlySubscriptionDiscountPercent: scalarFields.msub,
@@ -218,8 +228,11 @@ export function decodeState(
         seed: scalarFields.seed,
         sizingMode,
         stopPoints,
-        takesFundedReset: parameters.get('qr') === '1',
-        takesOneTimeEarlyWithdrawal: parameters.get('ew') === '1',
+        takesFundedReset:
+            parameters.get(CalculatorUrlParameter.FundedReset) === UrlFlag.On,
+        takesOneTimeEarlyWithdrawal:
+            parameters.get(CalculatorUrlParameter.EarlyWithdrawal) ===
+            UrlFlag.On,
         tradesPerDay: scalarFields.tpd,
         trials: scalarFields.trials,
         winrate: scalarFields.wr,
@@ -228,8 +241,8 @@ export function decodeState(
 
 export function encodeState(state: CalculatorState): URLSearchParams {
     const p = new URLSearchParams();
-    p.set('firm', state.firm.id);
-    p.set('plan', serializePlanId(state.plan.id));
+    p.set(CalculatorUrlParameter.Firm, state.firm.id);
+    p.set(CalculatorUrlParameter.Plan, serializePlanId(state.plan.id));
     p.set('wr', state.winrate.toFixed(3));
     p.set('rr', state.rrRatio.toFixed(2));
     p.set('tpd', String(state.tradesPerDay));
@@ -240,7 +253,7 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     p.set('trials', String(state.trials));
     p.set('eval', String(state.evalDiscountPercent));
     p.set('act', String(state.activationDiscountPercent));
-    p.set('linkAct', state.linkActivationDiscount ? '1' : '0');
+    p.set('linkAct', urlFlag(state.linkActivationDiscount));
     p.set('msub', String(state.monthlySubscriptionDiscountPercent));
     p.set('rstd', String(state.resetDiscountPercent));
     p.set('comm', String(state.commissionPerRoundTrip));
@@ -248,10 +261,16 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     p.set('copy', String(state.copyAccounts));
     p.set('maxDays', String(state.maxEvalDays));
     p.set('fundedDays', String(state.fundedHorizonDays));
-    p.set('idp', state.idleDayProbability.toFixed(3));
+    p.set(
+        CalculatorUrlParameter.IdleDayProbability,
+        state.idleDayProbability.toFixed(3),
+    );
     p.set('rung', state.rungSizing);
-    p.set('ew', state.takesOneTimeEarlyWithdrawal ? '1' : '0');
-    p.set('qr', state.takesFundedReset ? '1' : '0');
+    p.set(
+        CalculatorUrlParameter.EarlyWithdrawal,
+        urlFlag(state.takesOneTimeEarlyWithdrawal),
+    );
+    p.set(CalculatorUrlParameter.FundedReset, urlFlag(state.takesFundedReset));
     if (state.instrument !== null && state.stopPoints !== null) {
         p.set('instr', state.instrument);
         p.set('sp', String(state.stopPoints));

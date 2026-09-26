@@ -10,6 +10,7 @@ import {
     MffuVariant,
     type Plan,
     type PlanId,
+    PolicySizing,
     RungSizing,
     scoreLadder,
 } from '~/lib/prop-calculator/core';
@@ -59,7 +60,12 @@ const lucidPro = planFor({
     variant: LucidVariant.Pro,
 });
 
-const DAY_POLICY = flatDayPolicy(400, 2, { kind: DayStopRuleKind.None });
+const DAY_POLICY = flatDayPolicy(
+    400,
+    2,
+    { kind: DayStopRuleKind.None },
+    PolicySizing.ContractCapped,
+);
 
 const EVAL_OPTIONS = {
     commission: dollars(0),

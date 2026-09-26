@@ -19,16 +19,12 @@ import {
     formatPercent,
 } from '~/lib/format';
 import {
-    type ContractCount,
-    contractLimitAt,
-    oneContractRisk,
+    formatWholeCentDollars,
+    FUNDED_START_TIER_CONTRACT_LIMIT,
+    placedFundedRisk,
     type Plan,
-    type PositionSizingConfig,
-    resolvePositionSizing,
     type SimOutputs,
     simulate,
-    TradingPhase,
-    wholeContractRisk,
 } from '~/lib/prop-calculator';
 
 export interface GranularityRow {
@@ -150,7 +146,7 @@ export function simHeaderLines(
         ? `ladder [${inputs.ladder.join(', ')}]`
         : `flat $${inputs.riskPerTrade} x${inputs.tradesPerDay}/day`;
     return [
-        `  eval risk ${evalRisk} stop ${describeStopRule(inputs.dayStop)} | funded flat $${fundedRisk}${placedFundedRisk(inputs, fundedRisk, plan)} x${fundedTpd}/day 1:${fundedRr}`,
+        `  eval risk ${evalRisk} stop ${describeStopRule(inputs.dayStop)} | funded flat $${fundedRisk}${placedFundedRiskNote(inputs, plan)} x${fundedTpd}/day 1:${fundedRr}`,
         `  ${(inputs.winrate * 100).toFixed(0)}% WR | eval 1:${inputs.rrRatio} | max attempts ${inputs.maxAttempts} | seed ${inputs.seed} | ${inputs.fundedHorizonDays} funded days`,
     ];
 }
@@ -202,54 +198,17 @@ export function simSummaryRows(out: SimOutputs): readonly SummaryRow[] {
     ];
 }
 
-function formatPlacedDollars(amount: number): string {
-    const cents = Math.round(amount * 100);
-    return formatCurrency(cents / 100, cents % 100 === 0 ? 0 : 2);
-}
-
-function fundedStartContractLimit(
-    plan: Plan,
-    positionSizing: PositionSizingConfig,
-): ContractCount | null {
-    const state = plan.initialState();
-    plan.beginFundedPhase(state);
-    return contractLimitAt(
-        plan.contractLimits,
-        TradingPhase.Funded,
-        positionSizing.instrument.isMicro,
-        plan.tierProfitContext(state),
-    );
-}
-
-function placedCapNote(
-    plan: Plan | undefined,
-    placed: number,
-    uncapped: number,
-): string {
+function placedCapNote(plan: Plan | undefined, isCapped: boolean): string {
     if (plan === undefined) return ', before any contract limit';
-    return placed < uncapped
-        ? ', capped at the funded contract limit at the start tier'
-        : '';
+    return isCapped ? `, capped at ${FUNDED_START_TIER_CONTRACT_LIMIT}` : '';
 }
 
-function placedFundedRisk(
+function placedFundedRiskNote(
     inputs: TradingInputs,
-    fundedRisk: number,
     plan: Plan | undefined,
 ): string {
-    const positionSizing = resolvePositionSizing(
-        inputs.instrument,
-        inputs.stopPoints,
-    );
-    if (positionSizing === null) return '';
-    const uncapped = wholeContractRisk(fundedRisk, positionSizing, null);
-    const placed = wholeContractRisk(
-        fundedRisk,
-        positionSizing,
-        plan === undefined
-            ? null
-            : fundedStartContractLimit(plan, positionSizing),
-    );
-    const contractCount = Math.round(placed / oneContractRisk(positionSizing));
-    return ` (placed ${formatPlacedDollars(placed)}: ${contractCount} ${positionSizing.instrument.symbol} at ${positionSizing.stopPoints} pt${placedCapNote(plan, placed, uncapped)})`;
+    const placed = placedFundedRisk(inputs, plan);
+    if (placed === null) return '';
+    const { instrument, stopPoints } = placed.positionSizing;
+    return ` (placed ${formatWholeCentDollars(placed.risk)}: ${placed.contracts} ${instrument.symbol} at ${stopPoints} pt${placedCapNote(plan, placed.isCapped)})`;
 }

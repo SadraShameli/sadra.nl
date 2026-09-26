@@ -1,3 +1,4 @@
+import { CalculatorUrlParameter } from '~/lib/schemas/calculatorUrlParameter';
 import { routes } from '~/lib/site/routes';
 
 export enum LegacySection {
@@ -53,7 +54,7 @@ export function legacyQueryRedirect(
 ): null | string {
     if (
         pathname !== routes.propCalculator.index ||
-        !new URLSearchParams(search).has('firm')
+        !new URLSearchParams(search).has(CalculatorUrlParameter.Firm)
     ) {
         return null;
     }

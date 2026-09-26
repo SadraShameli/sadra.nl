@@ -28,6 +28,7 @@ import {
     type LadderScore,
     percent,
     type Plan,
+    PolicySizing,
     RungSizing,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
@@ -293,6 +294,7 @@ describe('ladder result slot', () => {
         expect(policy).toEqual({
             ladder: [200, 300, 400, 100],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
         });
         expect(policy.ladder).not.toBe(score.ladder);

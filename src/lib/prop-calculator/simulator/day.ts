@@ -1,5 +1,6 @@
 import { resetForNewDay } from '../core/AccountState';
 import {
+    type AffordableRoom,
     computedDayPolicy,
     type DayPolicy,
     DayStopRuleKind,
@@ -27,6 +28,7 @@ import {
 import { applyTrade, closeTradingDay } from '../core/TradingDayLedger';
 import { TradingPhase } from '../core/TradingPhase';
 import {
+    assertDeclaredSizingMatchesPhase,
     assertNoFundedDayPolicyConflict,
     assertSimInputsSized,
 } from './dayPolicyValidation';
@@ -36,7 +38,7 @@ import { type DayRunOptions, type SimInputs } from './types';
 const MAX_INTRADAY_PATH_STEPS = 100_000;
 
 interface TradeSizingOptions {
-    affordable: number;
+    affordable: AffordableRoom;
     intendedRisk: number;
     maxContracts: ContractCount | null;
     positionSizing: PositionSizingConfig;
@@ -56,14 +58,15 @@ export function resolveDayPolicy(
         phase === TradingPhase.Eval
             ? inputs.evalDayPolicy
             : inputs.fundedDayPolicy;
-    if (declared) return declared;
+    const sizing = policySizingOf(phase);
+    if (declared) {
+        assertDeclaredSizingMatchesPhase(inputs, declared, phase);
+        return declared;
+    }
     const isFunded = phase === TradingPhase.Funded;
     const tradesPerDay = isFunded
         ? (inputs.fundedTradesPerDay ?? inputs.tradesPerDay)
         : inputs.tradesPerDay;
-    const sizing = isFunded
-        ? PolicySizing.WholeContracts
-        : PolicySizing.ContractCapped;
     const stopRule = inputs.dayStop ?? { kind: DayStopRuleKind.None };
     if (isFunded && inputs.fundedCushionPercent !== undefined) {
         const cushionPercent = inputs.fundedCushionPercent;
@@ -132,13 +135,13 @@ export function runDay(options: DayRunOptions): {
                 dayPolicy.computeRisk?.(state, index, fundedCycle) ??
                 dayPolicy.ladder[index] ??
                 0;
-            const affordable = plan.affordableRisk(state, phase, commission);
+            const affordable = plan.affordableRoom(state, phase, commission);
             const { rewardRisk, risk } =
                 positionSizing === null
                     ? unsizedTrade(
                           resolveTradeRisk(
                               intendedRisk,
-                              affordable,
+                              affordable.room,
                               rungSizing,
                           ),
                       )
@@ -153,7 +156,7 @@ export function runDay(options: DayRunOptions): {
                           ),
                           positionSizing,
                           rungSizing,
-                          sizing: policySizingOf(dayPolicy),
+                          sizing: dayPolicy.sizing,
                       });
             if (!Number.isFinite(risk)) {
                 throw new TypeError(
@@ -234,7 +237,7 @@ function sizeTrade(options: TradeSizingOptions): SizedTrade {
                         positionSizing,
                         maxContracts,
                     ),
-                    affordable,
+                    affordable.room,
                     rungSizing,
                 ),
             );
@@ -244,7 +247,8 @@ function sizeTrade(options: TradeSizingOptions): SizedTrade {
                 intendedRisk,
                 maxContracts,
                 positionSizing,
-                room: affordable,
+                room: affordable.room,
+                roomKind: affordable.kind,
                 rungSizing,
             });
         }

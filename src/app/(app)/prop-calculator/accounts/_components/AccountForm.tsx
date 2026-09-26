@@ -36,17 +36,20 @@ import { Textarea } from '~/components/ui/Textarea';
 import { errorMessage } from '~/lib/errorMessage';
 import {
     AccountStage,
+    accountStageLabel,
     DashboardBalanceConvention,
+    EntryTextKind,
+    liveStartEntryIssues,
+    parseMoneyText,
     PlanKeyResolutionKind,
     planOptInsSchema,
     resolvePlanKey,
-    type SnapshotField,
+    SnapshotField,
     type SnapshotFieldRule,
-    snapshotFieldRules,
     todayIsoDate,
     type UsdCents,
 } from '~/lib/prop-accounts';
-import { FirmId, type Plan } from '~/lib/prop-calculator';
+import { FirmId, type Plan, type PlanOptIns } from '~/lib/prop-calculator';
 import { accountCreateSchema } from '~/lib/schemas/propAccounts';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -60,7 +63,6 @@ import {
 } from './accountListFilters';
 import {
     type AccountPlanSelection,
-    accountStageLabel,
     type AccountStageOption,
     accountStageOptions,
     EMPTY_PERSONAL_RULES_TEXT,
@@ -78,19 +80,24 @@ import {
 import { AccountPlanPicker } from './AccountPlanPicker';
 import { ArchiveAccountButton } from './AccountsTable';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
+import { nullIfBlank, parsedOrIssues } from './detail/formParsing';
 import { PersonalRulesFields } from './PersonalRulesFields';
 import {
     emptySnapshotFormValues,
-    EntryTextKind,
-    parseMoneyText,
-    parseSnapshotForm,
+    initialSnapshotRules,
+    initialSnapshotStage,
     parseTagsText,
     type SnapshotDraft,
+    snapshotDraftWarnings,
+    type SnapshotDraftWarnings,
     type SnapshotFieldIssue,
+    type SnapshotFormResult,
     SnapshotFormResultKind,
     type SnapshotFormValues,
+    validateSnapshotDraft,
 } from './snapshotFieldRules';
 import { SnapshotFields } from './SnapshotFields';
+import { type SnapshotPlausibilityContext } from './snapshotPlausibilityIssues';
 
 type AccountDraft = z.output<typeof accountCreateSchema>;
 
@@ -101,6 +108,11 @@ type StoredAccount = RouterOutputs['propAccounts']['account']['get'];
 const NONE = 'none';
 
 const FIX_FIELDS_MESSAGE = 'Fix the highlighted fields before saving';
+
+const NO_SNAPSHOT_WARNINGS: SnapshotDraftWarnings = {
+    fieldWarnings: [],
+    formWarnings: [],
+};
 
 const PLAN_FIELDS = [
     'firmId',
@@ -198,14 +210,15 @@ const accountFormSchema = z
             stage: values.stage,
             tags: tags.tags,
         });
-        if (parsed.success) return parsed.data;
-        for (const issue of parsed.error.issues) {
-            context.addIssue({
-                code: 'custom',
-                message: issue.message,
-                path: [...issue.path],
-            });
-        }
+        const liveStartMessage = parsed.success
+            ? liveStartPlausibilityMessage(parsed.data)
+            : null;
+        if (liveStartMessage === null) return parsedOrIssues(parsed, context);
+        context.addIssue({
+            code: 'custom',
+            message: liveStartMessage,
+            path: ['liveStartBalanceCents'],
+        });
         return z.NEVER;
     });
 
@@ -215,20 +228,29 @@ interface AccountFormSubmit {
     readonly onSubmit: (event: BaseSyntheticEvent) => void;
     readonly setIncludeSnapshot: (isIncluded: boolean) => void;
     readonly setSnapshotValue: (field: SnapshotField, value: string) => void;
+    readonly snapshotFormIssues: readonly string[];
     readonly snapshotIssues: readonly SnapshotFieldIssue[];
+    readonly snapshotRules: null | readonly SnapshotFieldRule[];
     readonly snapshotValues: SnapshotFormValues;
+    readonly snapshotWarnings: SnapshotDraftWarnings;
 }
 
 type AccountFormValues = z.input<typeof accountFormSchema>;
 
 export function AccountCreator({
     initialFirm,
+    initialOptIns,
     initialPlan,
 }: {
     initialFirm: null | string;
+    initialOptIns: PlanOptIns;
     initialPlan: null | string;
 }) {
-    const selection = initialPlanSelection(initialFirm, initialPlan);
+    const selection = initialPlanSelection(
+        initialFirm,
+        initialPlan,
+        initialOptIns,
+    );
     const plan = planOf(selection);
     const [stage] = plan === null ? [] : accountStageOptions(plan);
     return (
@@ -312,11 +334,8 @@ function AccountForm({
         optIns: form.watch('optIns'),
         planSerial: form.watch('planSerial'),
     };
-    const stage = form.watch('stage');
     const personalRulesText = form.watch('personalRules');
     const plan = planOf(selection);
-    const snapshotRules =
-        plan === null ? null : snapshotFieldRules(plan, stage);
     const payoutNotice =
         plan === null
             ? null
@@ -334,7 +353,7 @@ function AccountForm({
     const otherAccounts = (accountsQuery.data ?? []).filter(
         (account) => account.id !== stored?.id,
     );
-    const submit = useAccountFormSubmit({ form, snapshotRules, stored });
+    const submit = useAccountFormSubmit({ form, plan, stored });
 
     return (
         <Form {...form}>
@@ -375,12 +394,7 @@ function AccountForm({
                     </CardContent>
                 </Card>
 
-                {isCreate && (
-                    <InitialSnapshotCard
-                        rules={snapshotRules}
-                        submit={submit}
-                    />
-                )}
+                {isCreate && <InitialSnapshotCard submit={submit} />}
 
                 <div className="flex flex-wrap items-center gap-2">
                     <Button disabled={submit.isSaving} type="submit">
@@ -632,13 +646,7 @@ function DetailsCard({
     );
 }
 
-function InitialSnapshotCard({
-    rules,
-    submit,
-}: {
-    rules: null | readonly SnapshotFieldRule[];
-    submit: AccountFormSubmit;
-}) {
+function InitialSnapshotCard({ submit }: { submit: AccountFormSubmit }) {
     return (
         <Card>
             <CardHeader>
@@ -655,11 +663,14 @@ function InitialSnapshotCard({
                         Enter today&rsquo;s balance now
                     </Label>
                 </div>
-                {submit.includeSnapshot && rules !== null && (
+                {submit.includeSnapshot && submit.snapshotRules !== null && (
                     <SnapshotFields
+                        fieldWarnings={submit.snapshotWarnings.fieldWarnings}
+                        formIssues={submit.snapshotFormIssues}
+                        formWarnings={submit.snapshotWarnings.formWarnings}
                         issues={submit.snapshotIssues}
                         onChange={submit.setSnapshotValue}
-                        rules={rules}
+                        rules={submit.snapshotRules}
                         values={submit.snapshotValues}
                     />
                 )}
@@ -694,8 +705,20 @@ function LiveStartBalanceField({
     );
 }
 
-function nullIfBlank(text: string): null | string {
-    return text.trim() === '' ? null : text;
+function liveStartCentsOf(stage: AccountStage, text: string): null | UsdCents {
+    if (!isLiveStartBalanceShown(stage)) return null;
+    const parsed = parseMoneyText(text);
+    return parsed.kind === EntryTextKind.Valid ? parsed.cents : null;
+}
+
+function liveStartPlausibilityMessage(draft: AccountDraft): null | string {
+    if (draft.liveStartBalanceCents === null) return null;
+    const plan = planOf(draft);
+    if (plan === null) return null;
+    const issues = liveStartEntryIssues(plan, AccountStage.Live, draft);
+    return issues.length === 0
+        ? null
+        : issues.map((issue) => issue.message).join(' ');
 }
 
 function nullIfNone(value: string): null | string {
@@ -975,11 +998,11 @@ function toUpdateInput(draft: AccountDraft, id: string) {
 
 function useAccountFormSubmit({
     form,
-    snapshotRules,
+    plan,
     stored,
 }: {
     form: AccountFormApi;
-    snapshotRules: null | readonly SnapshotFieldRule[];
+    plan: null | Plan;
     stored: null | StoredAccount;
 }): AccountFormSubmit {
     const router = useRouter();
@@ -991,20 +1014,66 @@ function useAccountFormSubmit({
     const [snapshotValues, setSnapshotValues] = useState<SnapshotFormValues>(
         () => emptySnapshotFormValues(todayIsoDate(new Date())),
     );
-    const [snapshotIssues, setSnapshotIssues] = useState<
-        readonly SnapshotFieldIssue[]
-    >([]);
+    const [isSnapshotChecked, setIsSnapshotChecked] = useState(false);
+    const accountStage = form.watch('stage');
+    const snapshotAccount = {
+        fundedOn: form.watch('fundedOn'),
+        purchasedOn: form.watch('purchasedOn'),
+        stage: accountStage,
+    };
+    const asOf = snapshotValues[SnapshotField.AsOf];
+    const snapshotRules =
+        plan === null
+            ? null
+            : initialSnapshotRules(plan, snapshotAccount, asOf);
+    const plausibility: null | SnapshotPlausibilityContext =
+        plan === null
+            ? null
+            : {
+                  account: {
+                      accountSize: form.watch('accountSize'),
+                      dashboardConvention: form.watch('dashboardConvention'),
+                      liveStartBalanceCents: liveStartCentsOf(
+                          accountStage,
+                          form.watch('liveStartBalanceCents'),
+                      ),
+                  },
+                  plan,
+                  stage: initialSnapshotStage(plan, snapshotAccount, asOf),
+              };
+    const isSnapshotEntered = stored === null && includeSnapshot;
+
+    const checkSnapshot = (): null | SnapshotFormResult =>
+        snapshotRules === null || plausibility === null
+            ? null
+            : validateSnapshotDraft(
+                  snapshotValues,
+                  snapshotRules,
+                  plausibility,
+              );
+
+    const shownResult =
+        isSnapshotChecked && isSnapshotEntered ? checkSnapshot() : null;
+    const snapshotWarnings =
+        !isSnapshotEntered || snapshotRules === null || plausibility === null
+            ? NO_SNAPSHOT_WARNINGS
+            : snapshotDraftWarnings(
+                  snapshotValues,
+                  snapshotRules,
+                  plausibility,
+              );
+    const shownInvalid =
+        shownResult?.kind === SnapshotFormResultKind.Invalid
+            ? shownResult
+            : null;
 
     const validateSnapshot = (): null | SnapshotDraft | undefined => {
-        if (stored !== null || !includeSnapshot) return null;
-        if (snapshotRules === null) return undefined;
-        const result = parseSnapshotForm(snapshotValues, snapshotRules);
-        if (result.kind === SnapshotFormResultKind.Invalid) {
-            setSnapshotIssues(result.issues);
-            return undefined;
-        }
-        setSnapshotIssues([]);
-        return result.snapshot;
+        if (!isSnapshotEntered) return null;
+        setIsSnapshotChecked(true);
+        const result = checkSnapshot();
+        return result?.kind === SnapshotFormResultKind.Valid
+            ? result.snapshot
+            : undefined;
     };
 
     const saveInitialSnapshot = async (
@@ -1070,7 +1139,10 @@ function useAccountFormSubmit({
         setSnapshotValue: (field, value) => {
             setSnapshotValues((current) => ({ ...current, [field]: value }));
         },
-        snapshotIssues,
+        snapshotFormIssues: shownInvalid?.formIssues ?? [],
+        snapshotIssues: shownInvalid?.issues ?? [],
+        snapshotRules,
         snapshotValues,
+        snapshotWarnings,
     };
 }

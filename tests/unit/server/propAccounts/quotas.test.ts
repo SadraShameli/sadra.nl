@@ -76,7 +76,7 @@ function snapshotInput(accountId: string) {
         accountId,
         asOf: '2026-09-21',
         balanceCents: 5_050_000,
-        dashboardFloorCents: 4_800_000,
+        dashboardFloorCents: 4_900_000,
         highestEodBalanceCents: 5_100_000,
         source: SnapshotSource.Manual,
         tradingDays: 4,

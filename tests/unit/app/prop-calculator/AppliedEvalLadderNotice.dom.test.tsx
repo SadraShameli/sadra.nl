@@ -25,6 +25,7 @@ import {
     type DayPolicy,
     DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
+    PolicySizing,
     RungSizing,
 } from '~/lib/prop-calculator';
 
@@ -59,6 +60,7 @@ const NOT_USED_LEAD =
 const LADDER: DayPolicy = {
     ladder: [250, 500],
     maxLossesPerDay: 2,
+    sizing: PolicySizing.ContractCapped,
     stopRule: { kind: DayStopRuleKind.FirstWin },
 };
 

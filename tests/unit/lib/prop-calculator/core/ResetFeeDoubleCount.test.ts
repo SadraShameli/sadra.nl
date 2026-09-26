@@ -6,6 +6,7 @@ import {
     flatDayPolicy,
     fraction,
     percent,
+    PolicySizing,
     RungSizing,
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
@@ -30,9 +31,14 @@ function standardStandardPlan() {
     return plan;
 }
 
-const BUST_THEN_PASS_POLICY = flatDayPolicy(150, 1, {
-    kind: DayStopRuleKind.None,
-});
+const BUST_THEN_PASS_POLICY = flatDayPolicy(
+    150,
+    1,
+    {
+        kind: DayStopRuleKind.None,
+    },
+    PolicySizing.ContractCapped,
+);
 
 const LOSING_DAYS_TO_BUST = 14;
 const WINNING_DAYS_TO_PASS = 10;

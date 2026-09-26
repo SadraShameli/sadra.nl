@@ -1,4 +1,1 @@
-export enum DashboardBalanceConvention {
-    Nominal = 'nominal',
-    ZeroBased = 'zero-based',
-}
+export { DashboardBalanceConvention } from '~/lib/prop-calculator/advisor';

@@ -118,7 +118,7 @@ function toyInputs(overrides: Partial<SimInputs> = {}): SimInputs {
     };
 }
 
-describe('horizon credit: a surviving funded account is credited its withdrawable balance at the horizon', () => {
+describe('horizon credit: a surviving funded account is credited one payout request at the horizon, capped like a real request (no cap binds on the toy plan, so it credits the whole withdrawable balance)', () => {
     it('equals the hand-derived withdrawable balance at horizon end', () => {
         const out = simulate(toyInputs());
         expect(out.expectedHorizonCredit).toBe(EXPECTED_CREDIT);

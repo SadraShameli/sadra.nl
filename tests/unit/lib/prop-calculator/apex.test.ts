@@ -12,6 +12,7 @@ import {
     fraction,
     maxContractsAt,
     percent,
+    PolicySizing,
     resolveDailyLossLimit,
     RetryKind,
     RungSizing,
@@ -97,7 +98,12 @@ describe('Apex qualifying-day threshold', () => {
 
         runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(200, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                200,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
             phase: TradingPhase.Eval,
             plan: plan50kEodQualifying,
             positionSizing: null,
@@ -113,7 +119,12 @@ describe('Apex qualifying-day threshold', () => {
 
         runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(300, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                300,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
             phase: TradingPhase.Eval,
             plan: plan50kEodQualifying,
             positionSizing: null,
@@ -181,7 +192,12 @@ describe('Apex Intraday daily-loss-limit: lockout behavior differs by phase', ()
         const evalStats = freshStats(evalState.startingBalance);
         const evalResult = runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                1500,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
             phase: TradingPhase.Eval,
             plan: plan50kIntraday,
             positionSizing: null,
@@ -198,7 +214,12 @@ describe('Apex Intraday daily-loss-limit: lockout behavior differs by phase', ()
         const fundedStats = freshStats(fundedState.startingBalance);
         const fundedResult = runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                1500,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
             fundedCycle: freshFundedCycle(plan50kIntraday, fundedState),
             phase: TradingPhase.Funded,
             plan: plan50kIntraday,
@@ -370,7 +391,12 @@ describe('Apex funded inactivity closure', () => {
         const stats = freshStats(state.startingBalance);
         const dayOptions = {
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(500, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                500,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
             fundedCycle: freshFundedCycle(plan, state),
             idleDayProbability: 1,
             phase: TradingPhase.Funded,

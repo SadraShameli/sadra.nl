@@ -16,6 +16,7 @@ import {
     ladderTrialStreams,
     MffuVariant,
     type Plan,
+    PolicySizing,
     RungSizing,
     scoreLadder,
 } from '~/lib/prop-calculator/core';
@@ -90,6 +91,7 @@ function simEvalPassRate(plan: Plan, ladder: readonly number[]): number {
         evalDayPolicy: {
             ladder,
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
         },
         fundedHorizonDays: 1,
@@ -116,6 +118,7 @@ function twoRungDay(drawdown: DrawdownStrategy): readonly DayOutcome[] {
         dayPolicy: {
             ladder: [1500, 2500],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
         },
         dayStart: createInitialState(50_000, 48_000),

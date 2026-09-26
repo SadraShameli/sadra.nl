@@ -120,6 +120,25 @@ const LOADING_TEXT = 'Loading saved scenarios...';
 const LOCAL_HEADING = 'Saved';
 const ACCOUNT_HEADING = 'Saved to your account';
 
+function buttonNamed(
+    text: string,
+    scope: ParentNode = document.body,
+): HTMLButtonElement {
+    const button = [...scope.querySelectorAll('button')].find(
+        (candidate) => candidate.textContent === text,
+    );
+    if (button === undefined) throw new Error(`no ${text} button`);
+    return button;
+}
+
+function dialogOf(): HTMLElement {
+    const dialog = document.body.querySelector<HTMLElement>(
+        '[role="alertdialog"]',
+    );
+    if (dialog === null) throw new Error('no confirmation dialog');
+    return dialog;
+}
+
 async function flush() {
     await act(async () => {
         await Promise.resolve();
@@ -376,15 +395,49 @@ describe('SavedScenarios session stores', () => {
             data: { user: { id: 'user-1' } },
         };
         await openPanel();
-        const clearAll = [...document.body.querySelectorAll('button')].find(
-            (button) => button.textContent === 'Clear all',
-        );
-        if (clearAll === undefined) throw new Error('no clear all button');
         act(() => {
-            clearAll.click();
+            buttonNamed('Clear all').click();
+        });
+        await flush();
+        expect(scenarioApi.removeAll).not.toHaveBeenCalled();
+        const dialog = document.body.querySelector('[role="alertdialog"]');
+        expect(dialog?.textContent).toContain(
+            'every scenario saved to your account',
+        );
+        expect(dialog?.textContent).toContain('another device');
+        act(() => {
+            buttonNamed('Clear all', dialogOf()).click();
         });
         await flush();
         expect(scenarioApi.removeAll).toHaveBeenCalledTimes(1);
+        expect(scenarioApi.remove).not.toHaveBeenCalled();
+    });
+
+    it('keeps every account scenario when Clear all is cancelled', async () => {
+        scenarioApi.listRows = [
+            {
+                id: 'scenario-1',
+                name: 'Apex',
+                query: 'firm=apex',
+                updatedAt: new Date('2026-09-20T00:00:00Z'),
+                userId: 'user-1',
+            },
+        ];
+        harness.store.session = {
+            ...harness.store.session,
+            data: { user: { id: 'user-1' } },
+        };
+        await openPanel();
+        act(() => {
+            buttonNamed('Clear all').click();
+        });
+        await flush();
+        act(() => {
+            buttonNamed('Cancel', dialogOf()).click();
+        });
+        await flush();
+        expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
+        expect(scenarioApi.removeAll).not.toHaveBeenCalled();
         expect(scenarioApi.remove).not.toHaveBeenCalled();
     });
 });

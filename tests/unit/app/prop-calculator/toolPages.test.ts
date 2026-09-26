@@ -20,7 +20,7 @@ import {
     LegacySection,
     legacySectionTarget,
 } from '~/lib/site/legacyCalculatorLinks';
-import { routes } from '~/lib/site/routes';
+import { indexableRoutes, routes } from '~/lib/site/routes';
 
 const CALCULATOR_ROOT = path.join(
     process.cwd(),
@@ -727,7 +727,7 @@ describe.each(PAGES)('the $folder tool page', (spec) => {
         );
         if (!spec.hidesPendingResult) return;
         expect(view).toContain(
-            'const { isPending, result } = useBaseResult();',
+            'const { error, isPending, result } = useBaseResult();',
         );
         expect(view).not.toMatch(/result === null \?/);
     });
@@ -775,6 +775,75 @@ describe('every legacy section of the eight tool pages', () => {
         expect(all.toSorted(byText)).toEqual(
             Object.values(LegacySection).toSorted(byText),
         );
+    });
+});
+
+describe('the position-size tool page (PT-25a)', () => {
+    const folder = 'position-size';
+    const view = () => readSource('(tools)', folder, 'PositionSizeView.tsx');
+    const viewFile = path.join(
+        CALCULATOR_ROOT,
+        '(tools)',
+        folder,
+        'PositionSizeView.tsx',
+    );
+
+    it('exports metadata from buildToolMetadata for ToolId.PositionSize and renders its view', () => {
+        const page = readSource('(tools)', folder, 'page.tsx');
+        expect(page).toContain(
+            'export const metadata: Metadata = buildToolMetadata(ToolId.PositionSize);',
+        );
+        expect(page).toContain('<PositionSizeView />');
+    });
+
+    it('renders no <main>: the tools layout owns the landmark', () => {
+        expect(readSource('(tools)', folder, 'page.tsx')).not.toMatch(
+            /<main[\s>]/,
+        );
+        expect(view()).not.toMatch(/<main[\s>]/);
+    });
+
+    it('starts with ToolPageHeading for position size, sharing its own query', () => {
+        const source = view();
+        expect(firstJsxTagAfterReturn(source)).toBe('ToolPageHeading');
+        const heading = normalizedProps(
+            jsxAttributes(source, 'ToolPageHeading')[0] ?? '',
+        );
+        expect(heading).toContain('toolId={ToolId.PositionSize}');
+        expect(heading).toMatch(
+            /ownQuery=\{encodePositionSize\(\w+(?:,[^)]*)?\)\}/,
+        );
+        expect(source).not.toMatch(/<h1[\s>]/);
+    });
+
+    it('decodes its initial state from the query with its own codec', () => {
+        const source = view();
+        expect(source).toContain('decodePositionSize(');
+        expect(source).toContain('useSearchParams()');
+    });
+
+    it('uses its own inputs, never the calculator inputs or the base result', () => {
+        const source = view();
+        expect(source).not.toContain('useCalculatorInputs');
+        expect(source).not.toContain('useBaseResult');
+        expect(
+            importClosure([TOOLS_LAYOUT_PATH, viewFile], true),
+        ).not.toContain(LADDER_SEARCH_PATH);
+    });
+
+    it('wraps each section in a <section aria-labelledby> with an <h2>', () => {
+        const source = view();
+        const sections = jsxAttributes(source, 'section');
+        expect(sections.length).toBeGreaterThan(0);
+        for (const attributes of sections) {
+            expect(attributes).toMatch(/aria-labelledby=/);
+        }
+        expect(source.match(/<h2[\s>]/g)).toHaveLength(sections.length);
+    });
+
+    it('is linked from the catalog and listed for crawlers', () => {
+        expect(toolCatalogEntry(ToolId.PositionSize).hasPage).toBe(true);
+        expect(indexableRoutes).toContain(routes.propCalculator.positionSize);
     });
 });
 

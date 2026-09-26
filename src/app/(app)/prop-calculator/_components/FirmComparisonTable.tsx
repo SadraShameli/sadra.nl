@@ -33,6 +33,10 @@ import { bestExpectedMonthlyNet, scoreByExpectedMonthlyNet } from './scoring';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { useDebouncedComputation } from './useDebouncedSimulation';
+import {
+    openInSimulatorColumn,
+    useOpenInSimulator,
+} from './useOpenInSimulator';
 
 const DEBOUNCE_MS = 700;
 const MAX_TRIALS = 500;
@@ -93,6 +97,8 @@ export default function FirmComparisonTable({
         [],
         simInputsSizingIssue(baseInputs),
     );
+
+    const openInSimulator = useOpenInSimulator(planOptIns);
 
     const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
@@ -181,8 +187,11 @@ export default function FirmComparisonTable({
                 header: 'Score',
                 id: 'score',
             },
+            openInSimulatorColumn<Row>((row) =>
+                openInSimulator(row.firm, row.plan),
+            ),
         ],
-        [],
+        [openInSimulator],
     );
 
     return (

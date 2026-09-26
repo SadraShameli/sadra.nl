@@ -7,6 +7,17 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import {
     Form,
@@ -58,10 +69,21 @@ type SavedScenarioFormValues = z.infer<typeof savedScenarioFormSchema>;
 
 const LOADING_SCENARIOS_TEXT = 'Loading saved scenarios...';
 
+const CLEAR_ALL_TEXT = 'Clear all';
+
+const CLEAR_ACCOUNT_SCENARIOS_WARNING =
+    'This permanently removes every scenario saved to your account, including any saved from another device that are not listed here yet.';
+
 const scenarioImportRuns = new ScenarioImportRuns();
 
 const subscribeToImportRuns = (listener: () => void) =>
     scenarioImportRuns.subscribe(listener);
+
+interface ClearAllButtonProperties {
+    busy: boolean;
+    confirmation: null | string;
+    onClearAll: () => void;
+}
 
 interface SavedScenariosProperties {
     firms: readonly TradingFirm[];
@@ -71,6 +93,7 @@ interface SavedScenariosProperties {
 
 interface ScenarioPanelProperties<TRecord extends SavedScenarioRecord> {
     busy: boolean;
+    clearAllConfirmation: null | string;
     heading: string;
     loadError: null | string;
     onClearAll: () => void;
@@ -247,6 +270,7 @@ function AccountScenarios({
                 isRemoving ||
                 isClearing
             }
+            clearAllConfirmation={CLEAR_ACCOUNT_SCENARIOS_WARNING}
             heading="Saved to your account"
             loadError={
                 listQuery.isError
@@ -260,6 +284,47 @@ function AccountScenarios({
             onSave={handleSave}
             scenarios={scenarios}
         />
+    );
+}
+
+function ClearAllButton({
+    busy,
+    confirmation,
+    onClearAll,
+}: ClearAllButtonProperties) {
+    const button = (
+        <Button
+            className="h-auto px-1 py-0 text-xs text-muted-foreground hover:text-destructive"
+            disabled={busy}
+            onClick={confirmation === null ? onClearAll : undefined}
+            size="sm"
+            type="button"
+            variant="ghost"
+        >
+            {CLEAR_ALL_TEXT}
+        </Button>
+    );
+    if (confirmation === null) return button;
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>{button}</AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>
+                        Clear all saved scenarios?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {confirmation}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={onClearAll}>
+                        {CLEAR_ALL_TEXT}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     );
 }
 
@@ -311,6 +376,7 @@ function LocalScenarios({ onLoad, state }: ScenarioStoreProperties) {
     return (
         <ScenarioPanel
             busy={false}
+            clearAllConfirmation={null}
             heading="Saved"
             loadError={null}
             onClearAll={handleClearAll}
@@ -334,6 +400,7 @@ function scenarioListStatus(
 
 function ScenarioPanel<TRecord extends SavedScenarioRecord>({
     busy,
+    clearAllConfirmation,
     heading,
     loadError,
     onClearAll,
@@ -398,16 +465,11 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
                         {heading}
                     </span>
                     {scenarios !== null && scenarios.length > 0 && (
-                        <Button
-                            className="h-auto px-1 py-0 text-xs text-muted-foreground hover:text-destructive"
-                            disabled={busy}
-                            onClick={onClearAll}
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                        >
-                            Clear all
-                        </Button>
+                        <ClearAllButton
+                            busy={busy}
+                            confirmation={clearAllConfirmation}
+                            onClearAll={onClearAll}
+                        />
                     )}
                 </div>
                 {status === null && scenarios !== null ? (

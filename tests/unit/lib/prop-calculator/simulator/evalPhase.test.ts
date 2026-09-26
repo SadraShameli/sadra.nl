@@ -9,6 +9,7 @@ import {
     fraction,
     MffuVariant,
     type Plan,
+    PolicySizing,
     RetryKind,
     RungSizing,
     StaticDrawdown,
@@ -122,9 +123,14 @@ describe('runEvalWithRetries retries a timed-out eval attempt like a bust (T29, 
 function retryOptions(plan: Plan, maxEvalDays: number) {
     return {
         commission: dollars(0),
-        dayPolicy: flatDayPolicy(RISK_PER_TRADE, 1, {
-            kind: DayStopRuleKind.None,
-        }),
+        dayPolicy: flatDayPolicy(
+            RISK_PER_TRADE,
+            1,
+            {
+                kind: DayStopRuleKind.None,
+            },
+            PolicySizing.ContractCapped,
+        ),
         maxEvalDays,
         plan,
         positionSizing: null,

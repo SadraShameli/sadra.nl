@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
     AccountEventKind,
@@ -27,6 +27,7 @@ import {
     TransitionProvenance,
 } from '~/lib/prop-accounts/metrics';
 import { NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
+import { type PropAccountRow } from '~/server/db/schemas/prop';
 
 import {
     account,
@@ -191,6 +192,20 @@ describe('cash helpers', () => {
         expect(roundCents(-2.5)).toBe(-3);
         expect(Object.is(roundCents(-0.4), 0)).toBe(true);
         expect(roundCents(1234.49)).toBe(1234);
+    });
+
+    it('reads only the archived date and the status, so every caller can share it', () => {
+        expectTypeOf(isActiveAccount)
+            .parameter(0)
+            .toEqualTypeOf<Pick<PropAccountRow, 'archivedAt' | 'status'>>();
+        const active: Pick<PropAccountRow, 'archivedAt' | 'status'> = {
+            archivedAt: null,
+            status: AccountStatus.Active,
+        };
+        expect(isActiveAccount(active)).toBe(true);
+        expect(isActiveAccount({ ...active, archivedAt: new Date() })).toBe(
+            false,
+        );
     });
 
     it('treats only an Active, non-archived account as active', () => {

@@ -3,6 +3,7 @@ import { type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
 import 'server-only';
 
 import {
+    MAX_SAVED_SCENARIOS,
     PropLimitRejection,
     PropQuota,
     type PropRejection,
@@ -28,7 +29,7 @@ export const PROP_QUOTA_LIMITS: Readonly<Record<PropQuota, number>> = {
     [PropQuota.Events]: 50_000,
     [PropQuota.Fees]: 5000,
     [PropQuota.Payouts]: 5000,
-    [PropQuota.Scenarios]: 100,
+    [PropQuota.Scenarios]: MAX_SAVED_SCENARIOS,
     [PropQuota.Snapshots]: 20_000,
 };
 

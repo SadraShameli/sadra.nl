@@ -8,11 +8,11 @@ import {
 } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { InputsSummary } from '~/app/(app)/prop-calculator/_components/InputsSummary';
 import { PanelSkeleton } from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
+import { currentBaseFailure } from '~/app/(app)/prop-calculator/_components/simulationFailure';
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
-import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
 
 const StrategyAnalysis = dynamic(
@@ -43,10 +43,14 @@ const RuleStressTestPanel = dynamic(
 
 export function AnalysisView() {
     const { simInputs } = useCalculatorInputs();
-    const { isPending, result } = useBaseResult();
-    const refusal = simInputsSizingIssue(simInputs);
-    const refusalNotice =
-        refusal === null ? null : <SimulationFailureNotice message={refusal} />;
+    const { error, isPending, result } = useBaseResult();
+    const failure = currentBaseFailure(simInputs, {
+        error,
+        isPending,
+        result,
+    });
+    const failureNotice =
+        failure === null ? null : <SimulationFailureNotice message={failure} />;
 
     return (
         <>
@@ -55,7 +59,7 @@ export function AnalysisView() {
                 <InputsSummary />
 
                 <ToolSection id={LegacySection.Strategy} title="Strategy">
-                    {refusalNotice ??
+                    {failureNotice ??
                         (result === null || isPending ? (
                             <PanelSkeleton />
                         ) : (
@@ -67,7 +71,7 @@ export function AnalysisView() {
                 </ToolSection>
 
                 <ToolSection id={LegacySection.TailRisk} title="Tail risk">
-                    {refusalNotice ??
+                    {failureNotice ??
                         (result === null || isPending ? (
                             <PanelSkeleton />
                         ) : (
@@ -79,7 +83,7 @@ export function AnalysisView() {
                     id={LegacySection.Drawdown}
                     title="Drawdown duration"
                 >
-                    {refusalNotice ??
+                    {failureNotice ??
                         (result === null || isPending ? (
                             <PanelSkeleton />
                         ) : (
@@ -88,7 +92,7 @@ export function AnalysisView() {
                 </ToolSection>
 
                 <ToolSection id={LegacySection.Resilience} title="Resilience">
-                    {refusalNotice ??
+                    {failureNotice ??
                         (result === null || isPending ? (
                             <PanelSkeleton />
                         ) : (

@@ -1,16 +1,10 @@
-import { existsSync, readdirSync } from 'node:fs';
-import path from 'node:path';
+import { readdirSync } from 'node:fs';
 
 import { routes } from '~/lib/site/routes';
 
-const TOOLS_ROOT = path.join(
-    process.cwd(),
-    'src',
-    'app',
-    '(app)',
-    'prop-calculator',
-    '(tools)',
-);
+import { hasPageFile, propCalculatorAppDir } from './appPageFiles';
+
+const TOOLS_ROOT = propCalculatorAppDir('(tools)');
 const TOOL_ROUTE_PREFIX = `${routes.propCalculator.index}/`;
 
 export function basePath(href: string): string {
@@ -20,16 +14,16 @@ export function basePath(href: string): string {
 export function hasToolPage(route: string): boolean {
     return (
         route.startsWith(TOOL_ROUTE_PREFIX) &&
-        hasPageFile(route.slice(TOOL_ROUTE_PREFIX.length))
+        hasToolPageFile(route.slice(TOOL_ROUTE_PREFIX.length))
     );
 }
 
 export function toolPageRoutes(): string[] {
     return readdirSync(TOOLS_ROOT, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory() && hasPageFile(entry.name))
+        .filter((entry) => entry.isDirectory() && hasToolPageFile(entry.name))
         .map((entry) => `${TOOL_ROUTE_PREFIX}${entry.name}`);
 }
 
-function hasPageFile(segment: string): boolean {
-    return existsSync(path.join(TOOLS_ROOT, segment, 'page.tsx'));
+function hasToolPageFile(segment: string): boolean {
+    return hasPageFile(TOOLS_ROOT, segment);
 }

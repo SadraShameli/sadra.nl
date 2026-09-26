@@ -7,6 +7,7 @@ import {
     FirmId,
     flatDayPolicy,
     LucidVariant,
+    PolicySizing,
     TradeifyVariant,
 } from '~/lib/prop-calculator/core';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
@@ -84,7 +85,12 @@ describe('runEvalAttempt skips the eval loop entirely for an isInstantFunded pla
         const totals = new TradeTotals();
         const result = runEvalAttempt({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(250, 4),
+            dayPolicy: flatDayPolicy(
+                250,
+                4,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             maxEvalDays: 150,
             plan,
             positionSizing: null,
@@ -107,7 +113,12 @@ describe('runEvalAttempt skips the eval loop entirely for an isInstantFunded pla
         const totals = new TradeTotals();
         const result = runEvalAttempt({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(2000, 4),
+            dayPolicy: flatDayPolicy(
+                2000,
+                4,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             maxEvalDays: 150,
             plan,
             positionSizing: null,

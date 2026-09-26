@@ -34,6 +34,7 @@ import {
     resolvedPlanOrThrow,
 } from '~/server/api/routers/propAccounts/mutationGuard';
 
+import { documentedLiveStartEntry } from '../../lib/prop-accounts/liveStartFixtures';
 import {
     assertUserScopedWhere,
     createFakeDatabase,
@@ -104,6 +105,30 @@ function instantKeyColumns(): FakeRow {
         firm_id: key.firmId,
         plan_serial: key.planSerial,
     };
+}
+
+const DOCUMENTED_LIVE = documentedLiveStartEntry();
+const DOCUMENTED_LIVE_START_CENTS = Math.round(
+    DOCUMENTED_LIVE.lowestStart * 100,
+);
+const UNDOCUMENTED_LIVE_START_CENTS = Math.round(
+    (DOCUMENTED_LIVE.highestStart + 10_000) * 100,
+);
+
+function fundedOnDocumentedLivePlan(
+    liveStartBalanceCents: number,
+    stage: AccountStage = AccountStage.Funded,
+): FakeRow {
+    const key = planKeyFields(DOCUMENTED_LIVE);
+    return accountRow({
+        account_size: key.accountSize,
+        firm_id: key.firmId,
+        funded_on: '2026-09-01',
+        label: 'Stored before the check',
+        live_start_balance_cents: liveStartBalanceCents,
+        plan_serial: key.planSerial,
+        stage,
+    });
 }
 
 const captureErrorMock = vi.mocked(captureError);
@@ -315,6 +340,84 @@ describe('propAccounts.event.record', () => {
             TransactionStep.Begin,
             TransactionStep.Commit,
         ]);
+    });
+
+    it('rejects moving an account live with a stored live start outside the documented range, writes nothing and reads only the owner rows', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            fundedResponder({
+                account: fundedOnDocumentedLivePlan(
+                    UNDOCUMENTED_LIVE_START_CENTS,
+                ),
+            }),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(
+                caller.event.record({
+                    accountId: IDS.account,
+                    kind: AccountEventKind.MovedLive,
+                    occurredOn: '2026-09-21',
+                }),
+            ),
+        );
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ImplausibleSnapshot),
+        );
+        expect(shape.message).toContain('"Stored before the check"');
+        expect(shape.message).toContain('A live account after');
+        expect(propWrites(queries)).toHaveLength(0);
+        const reads = queries.filter((query) => readTable(query) !== null);
+        expect(reads.length).toBeGreaterThan(0);
+        for (const query of reads) assertUserScopedWhere(query, USER_ID);
+    });
+
+    it('moves an account live with a stored live start inside the documented range', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            fundedResponder({
+                account: fundedOnDocumentedLivePlan(
+                    DOCUMENTED_LIVE_START_CENTS,
+                ),
+            }),
+        );
+        await caller.event.record({
+            accountId: IDS.account,
+            kind: AccountEventKind.MovedLive,
+            occurredOn: '2026-09-21',
+        });
+        const [update] = updatesOf(queries, TABLES.account);
+        expect(update?.params).toEqual(
+            expect.arrayContaining([AccountStage.Live]),
+        );
+        expect(insertsInto(queries, TABLES.event)).toHaveLength(1);
+    });
+
+    it('records a bust on an account already Live with a live start stored before the range check', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            fundedResponder({
+                account: fundedOnDocumentedLivePlan(
+                    UNDOCUMENTED_LIVE_START_CENTS,
+                    AccountStage.Live,
+                ),
+            }),
+        );
+        await caller.event.record({
+            accountId: IDS.account,
+            kind: AccountEventKind.Busted,
+            occurredOn: '2026-09-21',
+        });
+        const [update] = updatesOf(queries, TABLES.account);
+        assertUserScopedWhere(defined(update), USER_ID);
+        expect(update?.params).toEqual(
+            expect.arrayContaining([AccountStatus.Busted]),
+        );
+        const [insert] = insertsInto(queries, TABLES.event);
+        expect(insertedColumnValues(defined(insert), 'kind')).toEqual([
+            AccountEventKind.Busted,
+        ]);
+        expect(insertsInto(queries, TABLES.event)).toHaveLength(1);
     });
 
     it('rejects an event dated before the purchase date and writes nothing', async () => {

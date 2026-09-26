@@ -2,12 +2,14 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
     type AccountState,
+    AffordableRoomKind,
     ApexVariant,
     capRiskToRemainingDailyLoss,
     computedDayPolicy,
     computeEvalStateValue,
     type ComputeRisk,
     contracts,
+    DailyLossLimitBreachEffect,
     DailyLossLimitKind,
     type DayPolicy,
     DayStopRuleKind,
@@ -26,6 +28,7 @@ import {
     policySizingOf,
     type PositionSizingConfig,
     resolveAffordableRisk,
+    resolveAffordableRoom,
     resolveFundedTradeRisk,
     resolvePositionSizing,
     RungSizing,
@@ -76,7 +79,12 @@ describe('resolveFundedTradeRisk', () => {
 
 describe('computedDayPolicy', () => {
     it('builds a policy whose ladder length matches maxTrades but whose sizing comes from computeRisk, not the ladder values', () => {
-        const policy = computedDayPolicy(() => 999, 3);
+        const policy = computedDayPolicy(
+            () => 999,
+            3,
+            undefined,
+            PolicySizing.ContractCapped,
+        );
 
         expect(policy.ladder).toHaveLength(3);
         expect(policy.ladder.every((rung) => rung === 0)).toBe(true);
@@ -97,6 +105,7 @@ describe('computedDayPolicy', () => {
                 ),
             1,
             { kind: DayStopRuleKind.None },
+            PolicySizing.ContractCapped,
         );
 
         runDay({
@@ -128,6 +137,7 @@ describe('runDay when computeRisk is unset', () => {
         const dayPolicy: DayPolicy = {
             ladder: [300],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
         };
         expect(dayPolicy.computeRisk).toBeUndefined();
@@ -246,7 +256,12 @@ describe('runDay keeps a losing trade and its commission inside the daily loss l
             runDay(
                 dayRunOptionsFor(phase, {
                     commission: dollars(5),
-                    dayPolicy: flatDayPolicy(1000, 1),
+                    dayPolicy: flatDayPolicy(
+                        1000,
+                        1,
+                        undefined,
+                        PolicySizing.ContractCapped,
+                    ),
                     plan,
                     positionSizing: null,
                     rng: alwaysLoses,
@@ -441,10 +456,15 @@ describe('ComputeRisk takes the funded cycle as one named snapshot', () => {
         const received: (FundedCycleSnapshot | undefined)[] = [];
         runDay({
             commission: dollars(0),
-            dayPolicy: computedDayPolicy((_state, _index, snapshot) => {
-                received.push(snapshot);
-                return 100;
-            }, 2),
+            dayPolicy: computedDayPolicy(
+                (_state, _index, snapshot) => {
+                    received.push(snapshot);
+                    return 100;
+                },
+                2,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             fundedCycle,
             phase: TradingPhase.Funded,
             plan: apexEod,
@@ -461,38 +481,33 @@ describe('ComputeRisk takes the funded cycle as one named snapshot', () => {
 });
 
 describe('every day policy builder states how its risk is placed (T33, R4, R9)', () => {
-    it('builds a flat and a computed policy as ContractCapped unless WholeContracts is asked for, and says so on the policy', () => {
-        expect(flatDayPolicy(250, 2).sizing).toBe(PolicySizing.ContractCapped);
-        expect(computedDayPolicy(() => 250, 2).sizing).toBe(
-            PolicySizing.ContractCapped,
-        );
-        expect(
-            flatDayPolicy(250, 2, undefined, PolicySizing.WholeContracts)
-                .sizing,
-        ).toBe(PolicySizing.WholeContracts);
-        expect(
-            computedDayPolicy(
-                () => 250,
-                2,
-                undefined,
-                PolicySizing.WholeContracts,
-            ).sizing,
-        ).toBe(PolicySizing.WholeContracts);
+    it.each([PolicySizing.ContractCapped, PolicySizing.WholeContracts])(
+        'builds a flat and a computed policy with the %s sizing it is given, and says so on the policy',
+        (sizing) => {
+            expect(flatDayPolicy(250, 2, undefined, sizing).sizing).toBe(
+                sizing,
+            );
+            expect(
+                computedDayPolicy(() => 250, 2, undefined, sizing).sizing,
+            ).toBe(sizing);
+        },
+    );
+
+    it('requires the sizing on every policy and every builder, so a missed call site fails typecheck (N-71)', () => {
+        expectTypeOf<DayPolicy['sizing']>().toEqualTypeOf<PolicySizing>();
+        expectTypeOf(flatDayPolicy).parameter(3).toEqualTypeOf<PolicySizing>();
+        expectTypeOf(computedDayPolicy)
+            .parameter(3)
+            .toEqualTypeOf<PolicySizing>();
     });
 
-    it('reads a declared policy with no sizing field as ContractCapped, the only sizing a declared ladder has ever had', () => {
-        const declared: DayPolicy = {
-            ladder: [300, 600],
-            maxLossesPerDay: null,
-            stopRule: { kind: DayStopRuleKind.None },
-        };
-        expect(policySizingOf(declared)).toBe(PolicySizing.ContractCapped);
-        expect(
-            policySizingOf({
-                ...declared,
-                sizing: PolicySizing.WholeContracts,
-            }),
-        ).toBe(PolicySizing.WholeContracts);
+    it('places funded risk in whole contracts and eval risk contract-capped (T33, U18)', () => {
+        expect(policySizingOf(TradingPhase.Funded)).toBe(
+            PolicySizing.WholeContracts,
+        );
+        expect(policySizingOf(TradingPhase.Eval)).toBe(
+            PolicySizing.ContractCapped,
+        );
     });
 });
 
@@ -510,6 +525,7 @@ describe('placeWholeContractTrade is the one whole-contract placement rule the f
                 maxContracts: null,
                 positionSizing: mnqAtTenPoints(),
                 room: 1000,
+                roomKind: AffordableRoomKind.BustsAccount,
                 rungSizing: RungSizing.CapToCushion,
             }),
         ).toEqual({ rewardRisk: 240, risk: 240 });
@@ -522,6 +538,7 @@ describe('placeWholeContractTrade is the one whole-contract placement rule the f
                 maxContracts: null,
                 positionSizing: mnqAtTenPoints(),
                 room: 10,
+                roomKind: AffordableRoomKind.BustsAccount,
                 rungSizing: RungSizing.CapToCushion,
             }),
         ).toEqual({ rewardRisk: 20, risk: 10 });
@@ -534,6 +551,7 @@ describe('placeWholeContractTrade is the one whole-contract placement rule the f
                 maxContracts: null,
                 positionSizing: mnqAtTenPoints(),
                 room: 150,
+                roomKind: AffordableRoomKind.BustsAccount,
                 rungSizing: RungSizing.CapToCushion,
             }),
         ).toEqual({ rewardRisk: 140, risk: 140 });
@@ -544,6 +562,7 @@ describe('placeWholeContractTrade is the one whole-contract placement rule the f
             intendedRisk: 1000,
             positionSizing: mnqAtTenPoints(),
             room: 5000,
+            roomKind: AffordableRoomKind.BustsAccount,
             rungSizing: RungSizing.CapToCushion,
         };
         expect(
@@ -562,6 +581,7 @@ describe('placeWholeContractTrade is the one whole-contract placement rule the f
             intendedRisk: 250,
             maxContracts: null,
             positionSizing: mnqAtTenPoints(),
+            roomKind: AffordableRoomKind.BustsAccount,
             rungSizing: RungSizing.SkipIfUnaffordable,
         };
         expect(placeWholeContractTrade({ ...base, room: 239 })).toEqual({
@@ -578,6 +598,7 @@ describe('placeWholeContractTrade is the one whole-contract placement rule the f
         const base = {
             maxContracts: null,
             positionSizing: mnqAtTenPoints(),
+            roomKind: AffordableRoomKind.BustsAccount,
             rungSizing: RungSizing.CapToCushion,
         };
         for (const [intendedRisk, room] of [
@@ -589,5 +610,261 @@ describe('placeWholeContractTrade is the one whole-contract placement rule the f
                 placeWholeContractTrade({ ...base, intendedRisk, room }),
             ).toEqual({ rewardRisk: 0, risk: 0 });
         }
+    });
+});
+
+describe('resolveAffordableRoom names what the affordable room ends when a trade loses all of it (N-74, U21)', () => {
+    it('is a day-locking room when a lockout daily loss limit is tighter than the cushion', () => {
+        expect(
+            resolveAffordableRoom(
+                2000,
+                1000,
+                -800,
+                0,
+                DailyLossLimitBreachEffect.Lockout,
+            ),
+        ).toStrictEqual({ kind: AffordableRoomKind.LocksDay, room: 200 });
+    });
+
+    it('is an account-busting room when the same daily loss limit terminates the account', () => {
+        expect(
+            resolveAffordableRoom(
+                2000,
+                1000,
+                -800,
+                0,
+                DailyLossLimitBreachEffect.Terminate,
+            ),
+        ).toStrictEqual({ kind: AffordableRoomKind.BustsAccount, room: 200 });
+    });
+
+    it('is an account-busting room when the cushion is tighter than the lockout daily loss room', () => {
+        expect(
+            resolveAffordableRoom(
+                150,
+                1000,
+                -800,
+                0,
+                DailyLossLimitBreachEffect.Lockout,
+            ),
+        ).toStrictEqual({ kind: AffordableRoomKind.BustsAccount, room: 150 });
+    });
+
+    it('is the whole cushion, busting the account, when there is no daily loss limit', () => {
+        expect(
+            resolveAffordableRoom(
+                2000,
+                null,
+                -800,
+                5,
+                DailyLossLimitBreachEffect.Lockout,
+            ),
+        ).toStrictEqual({ kind: AffordableRoomKind.BustsAccount, room: 2000 });
+    });
+
+    it('treats a daily loss room that ties the cushion within the cent tolerance as account-busting', () => {
+        expect(
+            resolveAffordableRoom(
+                200,
+                1000,
+                -800,
+                0,
+                DailyLossLimitBreachEffect.Lockout,
+            ).kind,
+        ).toBe(AffordableRoomKind.BustsAccount);
+        expect(
+            resolveAffordableRoom(
+                200 + 1e-9,
+                1000,
+                -800,
+                0,
+                DailyLossLimitBreachEffect.Lockout,
+            ).kind,
+        ).toBe(AffordableRoomKind.BustsAccount);
+        expect(
+            resolveAffordableRoom(
+                200.02,
+                1000,
+                -800,
+                0,
+                DailyLossLimitBreachEffect.Lockout,
+            ).kind,
+        ).toBe(AffordableRoomKind.LocksDay);
+    });
+
+    it('carries the same room resolveAffordableRisk returns, whatever the breach effect', () => {
+        for (const [cushion, dailyLossLimit, todayPnL, commission] of [
+            [2000, null, -300, 5],
+            [2000, 1000, -300, 5],
+            [500, 1000, 0, 0],
+            [2000, 1000, -999.995, 0],
+            [2000, 1000, -1200, 0],
+        ] as const) {
+            for (const breach of [
+                DailyLossLimitBreachEffect.Lockout,
+                DailyLossLimitBreachEffect.Terminate,
+            ]) {
+                expect(
+                    resolveAffordableRoom(
+                        cushion,
+                        dailyLossLimit,
+                        todayPnL,
+                        commission,
+                        breach,
+                    ).room,
+                ).toBe(
+                    resolveAffordableRisk(
+                        cushion,
+                        dailyLossLimit,
+                        todayPnL,
+                        commission,
+                    ),
+                );
+            }
+        }
+    });
+});
+
+function sizingAt(
+    symbol: InstrumentSymbol,
+    stopPoints: number,
+): PositionSizingConfig {
+    const positionSizing = resolvePositionSizing(symbol, stopPoints);
+    if (positionSizing === null) throw new Error('sizing did not resolve');
+    return positionSizing;
+}
+
+describe('placeWholeContractTrade skips a trade whose day-locking room is below one contract (N-74, U21)', () => {
+    const nqAtTwenty = sizingAt(InstrumentSymbol.NQ, 20);
+    const base = {
+        intendedRisk: 800,
+        maxContracts: null,
+        positionSizing: nqAtTwenty,
+        rungSizing: RungSizing.CapToCushion,
+    };
+
+    it('places nothing when a lockout daily loss room of $200 is below one $400 NQ contract', () => {
+        expect(
+            placeWholeContractTrade({
+                ...base,
+                room: 200,
+                roomKind: AffordableRoomKind.LocksDay,
+            }),
+        ).toStrictEqual({ rewardRisk: 0, risk: 0 });
+    });
+
+    it('keeps one contract, the loss capped at the room, when the $200 room busts the account (T33)', () => {
+        expect(
+            placeWholeContractTrade({
+                ...base,
+                room: 200,
+                roomKind: AffordableRoomKind.BustsAccount,
+            }),
+        ).toStrictEqual({ rewardRisk: 400, risk: 200 });
+    });
+
+    it('floors a day-locking room between whole contracts to whole contracts as before', () => {
+        expect(
+            placeWholeContractTrade({
+                ...base,
+                room: 600,
+                roomKind: AffordableRoomKind.LocksDay,
+            }),
+        ).toStrictEqual({ rewardRisk: 400, risk: 400 });
+        expect(
+            placeWholeContractTrade({
+                ...base,
+                room: 1000,
+                roomKind: AffordableRoomKind.LocksDay,
+            }),
+        ).toStrictEqual({ rewardRisk: 800, risk: 800 });
+    });
+
+    it('places one contract when a day-locking room covers exactly one contract within the cent tolerance', () => {
+        expect(
+            placeWholeContractTrade({
+                ...base,
+                room: 400 - 1e-9,
+                roomKind: AffordableRoomKind.LocksDay,
+            }).risk,
+        ).toBeCloseTo(400, 6);
+    });
+
+    it('leaves every SkipIfUnaffordable placement unchanged by the room kind', () => {
+        for (const room of [-5, 0, 200, 399.99, 400, 600, 800, 1000]) {
+            const skipping = {
+                ...base,
+                room,
+                rungSizing: RungSizing.SkipIfUnaffordable,
+            };
+            expect(
+                placeWholeContractTrade({
+                    ...skipping,
+                    roomKind: AffordableRoomKind.LocksDay,
+                }),
+            ).toStrictEqual(
+                placeWholeContractTrade({
+                    ...skipping,
+                    roomKind: AffordableRoomKind.BustsAccount,
+                }),
+            );
+        }
+    });
+
+    it('never pays a win on more risk than the loss can take unless the room busts the account', () => {
+        const sizings = [
+            InstrumentSymbol.NQ,
+            InstrumentSymbol.MNQ,
+            InstrumentSymbol.ES,
+        ].flatMap((symbol) =>
+            [1.1, 5, 12.3, 20, 40].map((stop) => sizingAt(symbol, stop)),
+        );
+        let bustBoundOptions = 0;
+        for (const positionSizing of sizings) {
+            for (const intendedRisk of [0, 50, 200, 400, 800, 1500]) {
+                for (const room of [
+                    -5, 0, 0.5, 10, 150, 200, 399.99, 400, 600, 1000, 5000,
+                ]) {
+                    for (const maxContracts of [
+                        null,
+                        contracts(0),
+                        contracts(1),
+                        contracts(3),
+                    ]) {
+                        for (const rungSizing of [
+                            RungSizing.CapToCushion,
+                            RungSizing.SkipIfUnaffordable,
+                        ]) {
+                            for (const roomKind of [
+                                AffordableRoomKind.BustsAccount,
+                                AffordableRoomKind.LocksDay,
+                            ]) {
+                                const { rewardRisk, risk } =
+                                    placeWholeContractTrade({
+                                        intendedRisk,
+                                        maxContracts,
+                                        positionSizing,
+                                        room,
+                                        roomKind,
+                                        rungSizing,
+                                    });
+                                if (rewardRisk <= risk) continue;
+                                expect({
+                                    intendedRisk,
+                                    maxContracts,
+                                    room,
+                                    roomKind,
+                                    rungSizing,
+                                }).toMatchObject({
+                                    roomKind: AffordableRoomKind.BustsAccount,
+                                });
+                                bustBoundOptions += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        expect(bustBoundOptions).toBeGreaterThan(0);
     });
 });

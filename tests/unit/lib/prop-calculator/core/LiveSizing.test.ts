@@ -1,11 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
+    AffordableRoomKind,
     capRiskToRemainingDailyLoss,
+    DailyLossLimitBreachEffect,
+    type DailyLossRoom,
     floorToWholeCents,
     fraction,
     ONE_CENT,
     resolveAffordableRisk,
+    resolveAffordableRoom,
+    resolveAffordableRoomWithin,
+    resolveDailyLossRoom,
+    resolveLiveAffordableRoom,
     resolveLiveTradeRisk,
 } from '~/lib/prop-calculator/core';
 
@@ -85,6 +92,136 @@ describe('capRiskToRemainingDailyLoss (R-3: no trade loses more than the remaini
             );
         }
     });
+});
+
+describe('resolveLiveAffordableRoom resolves the live room once, never below zero once the daily loss room is gone (WP39f)', () => {
+    it.each([
+        {
+            args: [2000, null, -300, 5],
+            expected: { kind: AffordableRoomKind.BustsAccount, room: 2000 },
+            name: 'no daily loss limit: the whole cushion, which busts',
+        },
+        {
+            args: [-50, null, 0, 0],
+            expected: { kind: AffordableRoomKind.BustsAccount, room: -50 },
+            name: 'no daily loss limit and an underwater cushion: the cushion as is',
+        },
+        {
+            args: [2000, 1000, -300, 5],
+            expected: { kind: AffordableRoomKind.LocksDay, room: 695 },
+            name: 'a daily loss room net of commission below the cushion locks the day',
+        },
+        {
+            args: [500, 1000, 0, 0],
+            expected: { kind: AffordableRoomKind.BustsAccount, room: 500 },
+            name: 'a cushion below the daily loss room busts',
+        },
+        {
+            args: [2000, 1000, -1200, 0],
+            expected: { kind: AffordableRoomKind.LocksDay, room: 0 },
+            name: 'a day already $200 past the limit: zero room, not -$200',
+        },
+        {
+            args: [-50, 1000, -1000, 0],
+            expected: { kind: AffordableRoomKind.BustsAccount, room: 0 },
+            name: 'a spent daily loss room with an underwater cushion: zero room',
+        },
+        {
+            args: [-50, 1000, -300, 0],
+            expected: { kind: AffordableRoomKind.BustsAccount, room: -50 },
+            name: 'an underwater cushion with daily loss room left: the cushion as is',
+        },
+        {
+            args: [2000, 500, -499.995, 0],
+            expected: { kind: AffordableRoomKind.LocksDay, room: 0 },
+            name: 'under one cent of daily loss room left: zero room',
+        },
+        {
+            args: [695 + 1e-9, 1000, -300, 5],
+            expected: { kind: AffordableRoomKind.BustsAccount, room: 695 },
+            name: 'a cushion level with the daily loss room within the cent tolerance busts',
+        },
+    ] as const)('$name', ({ args, expected }) => {
+        const [cushion, limit, todayPnL, commission] = args;
+        expect(
+            resolveLiveAffordableRoom(cushion, limit, todayPnL, commission),
+        ).toStrictEqual(expected);
+    });
+
+    it('carries the room capRiskToRemainingDailyLoss allows for the whole cushion', () => {
+        for (const [cushion, limit, todayPnL, commission] of [
+            [2000, 1000, -300, 5],
+            [2000, 1000, -1200, 0],
+            [-50, 1000, -1000, 0],
+            [-50, 1000, -300, 0],
+            [3050, null, -1900, 30],
+        ] as const) {
+            expect(
+                resolveLiveAffordableRoom(cushion, limit, todayPnL, commission)
+                    .room,
+            ).toBe(
+                capRiskToRemainingDailyLoss(
+                    cushion,
+                    limit,
+                    todayPnL,
+                    commission,
+                ),
+            );
+        }
+    });
+});
+
+describe('resolveAffordableRoomWithin only takes a daily loss room resolveDailyLossRoom made, from the core barrel (WP39f)', () => {
+    it('brands the daily loss room so a raw number cannot skip the cent tolerance clamp', () => {
+        expectTypeOf(resolveDailyLossRoom).returns.toEqualTypeOf<DailyLossRoom>();
+        expectTypeOf(resolveAffordableRoomWithin)
+            .parameter(1)
+            .toEqualTypeOf<DailyLossRoom>();
+        expectTypeOf<number>().not.toExtend<DailyLossRoom>();
+    });
+
+    it.each([
+        [null, -300, 5, Infinity],
+        [1000, -300, 5, 695],
+        [500, -499.995, 0, 0],
+        [1000, -1200, 0, -200],
+    ] as const)(
+        'resolves limit %s, today %s, commission %s to a daily loss room of %s',
+        (limit, todayPnL, commission, expected) => {
+            expect(resolveDailyLossRoom(limit, todayPnL, commission)).toBe(
+                expected,
+            );
+        },
+    );
+
+    it.each([
+        [2000, 1000, -300, 5],
+        [500, 1000, 0, 0],
+        [2000, 500, -499.995, 0],
+        [695 + 1e-9, 1000, -300, 5],
+        [2000, null, -300, 5],
+    ] as const)(
+        'matches resolveAffordableRoom for cushion %s, limit %s, today %s, commission %s under either breach effect',
+        (cushion, limit, todayPnL, commission) => {
+            for (const breach of Object.values(DailyLossLimitBreachEffect)) {
+                expect(
+                    resolveAffordableRoomWithin(
+                        cushion,
+                        resolveDailyLossRoom(limit, todayPnL, commission),
+                        breach,
+                    ),
+                ).toStrictEqual(
+                    resolveAffordableRoom(
+                        cushion,
+                        limit,
+                        todayPnL,
+                        commission,
+                        breach,
+                    ),
+                );
+            }
+        },
+    );
 });
 
 describe('ONE_CENT lives with the branded unit helpers (WP18g)', () => {

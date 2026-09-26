@@ -1,4 +1,4 @@
-import { AccountStage } from '../core';
+import { AccountStage, accountStageLabel } from '../core';
 import { type AccountAlert } from './AccountAlert';
 import {
     type AlertContext,
@@ -24,7 +24,7 @@ export class StaleSnapshotRule extends AccountAlertRule {
             return this.alertFor(
                 monitored,
                 AlertSeverity.Warning,
-                `No balance snapshot recorded yet for this ${stage} account; enter its current balance`,
+                `No balance snapshot recorded yet for this ${accountStageLabel(stage)} account; enter its current balance`,
             );
         }
         switch (stage) {
@@ -38,7 +38,7 @@ export class StaleSnapshotRule extends AccountAlertRule {
                     : this.alertFor(
                           monitored,
                           AlertSeverity.Warning,
-                          `Snapshot from ${snapshot.asOf} predates the last trading session ${session.date}; enter today's balance before sizing this ${stage} account`,
+                          `Snapshot from ${snapshot.asOf} predates the last trading session ${session.date}; enter today's balance before sizing this ${accountStageLabel(stage)} account`,
                           [session.disclosure],
                       );
             }

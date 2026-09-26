@@ -6,15 +6,19 @@ import {
     contractLimitAt,
     ContractLimitKind,
     type ContractLimits,
+    contractLimitTierBreakpoints,
     contracts,
     DayStopRuleKind,
     dollars,
     evalContractLimit,
     fraction,
+    fundedContractLimit,
     INSTRUMENTS,
     InstrumentSymbol,
+    maxContractsAt,
     type Plan,
     points,
+    PolicySizing,
     RungSizing,
     TierBasis,
     tierContextFromProfits,
@@ -24,6 +28,7 @@ import {
     capRiskToContractLimit,
     type PositionSizingConfig,
     resolvePositionSizing,
+    wholeContractCount,
 } from '~/lib/prop-calculator/core/PositionSizing';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { runDay } from '~/lib/prop-calculator/simulator/day';
@@ -114,6 +119,7 @@ function runFundedDays(options: {
             dayPolicy: {
                 ladder: Array.from({ length: TRADES_PER_DAY }, () => RUNG_RISK),
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             fundedCycle: freshFundedCycle(plan, state),
@@ -141,6 +147,7 @@ function runSingleTradeDay(
         dayPolicy: {
             ladder: [RUNG_RISK],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
         },
         fundedCycle: freshFundedCycle(plan, state),
@@ -261,6 +268,160 @@ describe('wholeContractRisk', () => {
         };
         expect(core.wholeContractRisk(150, degenerate, contracts(4))).toBe(150);
     });
+
+    it('places 3 micros for $73.80 at an MNQ 12.3 point stop, where 73.8 / 24.6 is 2.9999999999999996 in floating point (N-71, T33)', () => {
+        const sizing: PositionSizingConfig = {
+            instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+            stopPoints: points(12.3),
+        };
+        expect(core.wholeContractRisk(73.8, sizing, null)).toBe(73.8);
+    });
+
+    it('never places more than the intended risk when 3 x 24.6 comes out as 73.80000000000001 in floating point (N-71)', () => {
+        const sizing: PositionSizingConfig = {
+            instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+            stopPoints: points(12.3),
+        };
+        expect(3 * core.oneContractRisk(sizing)).toBeGreaterThan(73.8);
+        expect(core.wholeContractRisk(73.8, sizing, null)).toBeLessThanOrEqual(
+            73.8,
+        );
+    });
+
+    it('places 3 MNQ under SkipIfUnaffordable when the room is exactly 3 contracts at a 12.3 point stop, instead of skipping on a float overshoot (N-71)', () => {
+        const sizing: PositionSizingConfig = {
+            instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+            stopPoints: points(12.3),
+        };
+        expect(
+            core.placeWholeContractTrade({
+                intendedRisk: 73.8,
+                maxContracts: null,
+                positionSizing: sizing,
+                room: 73.8,
+                roomKind: core.AffordableRoomKind.BustsAccount,
+                rungSizing: RungSizing.SkipIfUnaffordable,
+            }),
+        ).toStrictEqual({ rewardRisk: 73.8, risk: 73.8 });
+    });
+
+    it('places one MNQ at a 12.3 point stop when a day-locking room is one contract up to float drift, and nothing when it is a cent short (N-74)', () => {
+        const sizing: PositionSizingConfig = {
+            instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+            stopPoints: points(12.3),
+        };
+        const oneMicro = core.oneContractRisk(sizing);
+        const lockingTrade = (room: number) =>
+            core.placeWholeContractTrade({
+                intendedRisk: 73.8,
+                maxContracts: null,
+                positionSizing: sizing,
+                room,
+                roomKind: core.AffordableRoomKind.LocksDay,
+                rungSizing: RungSizing.CapToCushion,
+            });
+        expect(lockingTrade(oneMicro - 1e-9).risk).toBeCloseTo(oneMicro, 6);
+        expect(lockingTrade(oneMicro - 0.01)).toStrictEqual({
+            rewardRisk: 0,
+            risk: 0,
+        });
+        expect(
+            core.placeWholeContractTrade({
+                intendedRisk: 73.8,
+                maxContracts: null,
+                positionSizing: sizing,
+                room: oneMicro - 0.01,
+                roomKind: core.AffordableRoomKind.BustsAccount,
+                rungSizing: RungSizing.CapToCushion,
+            }),
+        ).toStrictEqual({ rewardRisk: oneMicro, risk: oneMicro - 0.01 });
+    });
+
+    it('counts one ES contract for $55 at a 1.1 point stop, where one contract is $55.00000000000001 in floating point, and none for $54.99 (N-71)', () => {
+        const sizing: PositionSizingConfig = {
+            instrument: INSTRUMENTS[InstrumentSymbol.ES],
+            stopPoints: points(1.1),
+        };
+        expect(core.oneContractRisk(sizing)).toBeGreaterThan(55);
+        expect(wholeContractCount(55, sizing)).toBe(1);
+        expect(wholeContractCount(54.99, sizing)).toBe(0);
+        expect(core.wholeContractRisk(55, sizing, null)).toBe(55);
+    });
+
+    it.each([0, -5])(
+        'counts no contracts for an intended risk of %d',
+        (intended) => {
+            expect(wholeContractCount(intended, MNQ)).toBe(0);
+        },
+    );
+
+    const NEAR_EXACT_CASES = [
+        InstrumentSymbol.MNQ,
+        InstrumentSymbol.NQ,
+        InstrumentSymbol.ES,
+    ].flatMap((symbol) =>
+        [12.3, 12.25, 10.1, 7.75, 3.3, 0.7].flatMap((stop) =>
+            Array.from({ length: 12 }, (_, index) => ({
+                count: index + 1,
+                stop,
+                symbol,
+            })),
+        ),
+    );
+
+    it.each(NEAR_EXACT_CASES)(
+        'places exactly $count $symbol at a $stop point stop when the intended risk is that many contracts in whole cents',
+        ({ count, stop, symbol }) => {
+            const sizing: PositionSizingConfig = {
+                instrument: INSTRUMENTS[symbol],
+                stopPoints: points(stop),
+            };
+            const perContract = core.oneContractRisk(sizing);
+            const intended = Number((count * perContract).toFixed(2));
+            const placed = core.wholeContractRisk(intended, sizing, null);
+            expect(placed).toBe(Math.min(count * perContract, intended));
+            expect(placed).toBeLessThanOrEqual(intended);
+            expect(wholeContractCount(intended, sizing)).toBe(count);
+        },
+    );
+
+    it.each(NEAR_EXACT_CASES.filter(({ count }) => count > 1))(
+        'places $count - 1 $symbol at a $stop point stop when the intended risk is one cent short of $count contracts',
+        ({ count, stop, symbol }) => {
+            const sizing: PositionSizingConfig = {
+                instrument: INSTRUMENTS[symbol],
+                stopPoints: points(stop),
+            };
+            const perContract = core.oneContractRisk(sizing);
+            const intended = Number((count * perContract - 0.01).toFixed(2));
+            expect(core.wholeContractRisk(intended, sizing, null)).toBe(
+                (count - 1) * perContract,
+            );
+        },
+    );
+
+    it.each([
+        { count: 49, cushion: 2800, percent: 0.35, stop: 10 },
+        { count: 10, cushion: 700, percent: 0.35, stop: 12.25 },
+        { count: 3, cushion: 738, percent: 0.1, stop: 12.3 },
+    ])(
+        'places $count micros for $percent of a $cushion cushion at an MNQ $stop point stop, an exact multiple the percent reaches one float step short of',
+        ({ count, cushion, percent, stop }) => {
+            const sizing: PositionSizingConfig = {
+                instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+                stopPoints: points(stop),
+            };
+            const perContract = core.oneContractRisk(sizing);
+            const intended = core.resolveFundedTradeRisk(
+                cushion,
+                fraction(percent),
+            );
+            const placed = core.wholeContractRisk(intended, sizing, null);
+            expect(placed).toBe(Math.min(count * perContract, intended));
+            expect(placed).toBeLessThanOrEqual(intended);
+            expect(wholeContractCount(intended, sizing)).toBe(count);
+        },
+    );
 });
 
 describe('evalContractLimit', () => {
@@ -307,6 +468,74 @@ describe('evalContractLimit', () => {
     it('is the only eval sizing entry point: the barrel no longer offers resolveContractLimit, whose phase argument let a funded trade reach a runtime throw', () => {
         expect(Object.keys(core)).toContain('evalContractLimit');
         expect(Object.keys(core)).not.toContain('resolveContractLimit');
+    });
+});
+
+describe('fundedContractLimit', () => {
+    const MIXED_FUNDED_LIMITS: ContractLimits = {
+        evalMicros: contracts(70),
+        evalMinis: contracts(7),
+        fundedMicros: {
+            kind: ContractLimitKind.Flat,
+            maxContracts: contracts(5),
+        },
+        fundedMinis: {
+            kind: ContractLimitKind.Tiered,
+            tiers: SCALING_TIERS,
+        },
+    };
+
+    it('returns null when the plan has no contract limits', () => {
+        expect(fundedContractLimit(null, false)).toBeNull();
+        expect(fundedContractLimit(null, true)).toBeNull();
+    });
+
+    it('selects the funded mini limit for a mini instrument and the funded micro limit for a micro instrument', () => {
+        expect(fundedContractLimit(MIXED_FUNDED_LIMITS, false)).toBe(
+            MIXED_FUNDED_LIMITS.fundedMinis,
+        );
+        expect(fundedContractLimit(MIXED_FUNDED_LIMITS, true)).toBe(
+            MIXED_FUNDED_LIMITS.fundedMicros,
+        );
+    });
+
+    it('returns null for a contract class with no funded limit', () => {
+        expect(fundedContractLimit(FROZEN_TIER_LIMITS, true)).toBeNull();
+        expect(fundedContractLimit(FROZEN_TIER_LIMITS, false)).toBe(
+            FROZEN_TIER_LIMITS.fundedMinis,
+        );
+    });
+
+    it('is the selection contractLimitAt and Plan.fundedContractTierBreakpoints use in the funded phase', () => {
+        const plan = fundedTieredPlan(MIXED_FUNDED_LIMITS);
+        for (const isMicro of [false, true]) {
+            const selected = fundedContractLimit(MIXED_FUNDED_LIMITS, isMicro);
+            for (const context of [
+                tierContextFromProfits(0),
+                tierContextFromProfits(300, 300, 300),
+            ]) {
+                expect(
+                    contractLimitAt(
+                        MIXED_FUNDED_LIMITS,
+                        TradingPhase.Funded,
+                        isMicro,
+                        context,
+                    ),
+                ).toBe(maxContractsAt(selected, context));
+            }
+            expect(
+                plan.fundedContractTierBreakpoints(
+                    TierBasis.LiveProfit,
+                    isMicro,
+                ),
+            ).toEqual(
+                contractLimitTierBreakpoints(selected, TierBasis.LiveProfit),
+            );
+        }
+    });
+
+    it('is exported from the core barrel', () => {
+        expect(Object.keys(core)).toContain('fundedContractLimit');
     });
 });
 
@@ -371,6 +600,7 @@ describe('runDay: position sizing actually caps a trade in the simulated day loo
             dayPolicy: {
                 ladder: [2000],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             fundedCycle: freshFundedCycle(plan, state),
@@ -403,6 +633,7 @@ describe('runDay: position sizing actually caps a trade in the simulated day loo
             dayPolicy: {
                 ladder: [1000],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             fundedCycle: freshFundedCycle(plan, state),

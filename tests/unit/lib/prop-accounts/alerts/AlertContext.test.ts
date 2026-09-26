@@ -1,9 +1,11 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { type AlertAccountRow } from '~/lib/prop-accounts/alerts';
+import { isActive } from '~/lib/prop-accounts/alerts/AlertContext';
 import {
     type AccountReadIssue,
     AccountReadIssueKind,
+    AccountStatus,
     PlanKeyResolutionKind,
     type StoredFirmId,
     UnresolvedPlanReason,
@@ -72,6 +74,36 @@ describe('createAlertContext', () => {
         expect(context.accounts.map((entry) => entry.account.id)).toEqual([
             kept.id,
         ]);
+    });
+
+    it('never counts an archived account as active, even one handed to a rule directly', () => {
+        const [monitored] = contextOf({
+            accounts: [accountFor(ANY_EVAL_PLAN)],
+        }).accounts;
+        if (monitored === undefined) throw new Error('expected one account');
+        expect(isActive(monitored)).toBe(true);
+        expect(
+            isActive({
+                ...monitored,
+                account: {
+                    ...monitored.account,
+                    archivedAt: new Date('2026-09-01T00:00:00Z'),
+                },
+            }),
+        ).toBe(false);
+        for (const status of [
+            AccountStatus.Busted,
+            AccountStatus.Closed,
+            AccountStatus.Concluded,
+            AccountStatus.Suspended,
+        ]) {
+            expect(
+                isActive({
+                    ...monitored,
+                    account: { ...monitored.account, status },
+                }),
+            ).toBe(false);
+        }
     });
 
     it('resolves the plan and never throws for an unresolvable one', () => {

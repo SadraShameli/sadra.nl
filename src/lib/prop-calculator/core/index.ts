@@ -45,9 +45,12 @@ export {
 } from './DailyLossLimit';
 export { type DatedCharge } from './DatedCharge';
 export {
+    type AffordableRoom,
+    AffordableRoomKind,
     canonicaliseLadder,
     computedDayPolicy,
     type ComputeRisk,
+    type DailyLossRoom,
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
@@ -63,6 +66,9 @@ export {
     PolicySizing,
     policySizingOf,
     resolveAffordableRisk,
+    resolveAffordableRoom,
+    resolveAffordableRoomWithin,
+    resolveDailyLossRoom,
     resolveFundedTradeRisk,
     resolveTradeRisk,
     RungSizing,
@@ -213,6 +219,7 @@ export {
 } from './LivePlan';
 export {
     capRiskToRemainingDailyLoss,
+    resolveLiveAffordableRoom,
     resolveLiveTradeRisk,
 } from './LiveSizing';
 export { PayoutBuffer } from './PayoutBuffer';
@@ -240,6 +247,16 @@ export {
     walkPayoutTiers,
 } from './PayoutTiers';
 export { PeakRatchet } from './PeakRatchet';
+export {
+    formatOneContractRisk,
+    formatWholeCentDollars,
+    FUNDED_START_TIER_CONTRACT_LIMIT,
+    fundedStartContractLimit,
+    type PlacedFundedRisk,
+    placedFundedRisk,
+    placedFundedRiskAt,
+    type PlacedFundedRiskInputs,
+} from './PlacedFundedRisk';
 export {
     type BasketDiscount,
     type BasketPositionDiscount,
@@ -270,9 +287,12 @@ export {
     capRiskToContractLimit,
     contractLimitAt,
     evalContractLimit,
+    fundedContractLimit,
+    isBelowOneContract,
     oneContractRisk,
     type PositionSizingConfig,
     resolvePositionSizing,
+    wholeContractCount,
     wholeContractRisk,
 } from './PositionSizing';
 export {

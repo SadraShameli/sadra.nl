@@ -1,9 +1,13 @@
 import { formatCompactCurrency, formatCurrency } from '~/lib/format';
 import {
     AccountStage,
+    accountStageLabel,
     describePlanOptIn,
+    EntryTextKind,
     formatUsdCents,
     offeredPlanOptIns,
+    parseCountText,
+    parseMoneyText,
     type PersonalRules,
     personalRulesSchema,
     type PlanOptIn,
@@ -24,12 +28,6 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 
-import {
-    EntryTextKind,
-    parseCountText,
-    parseMoneyText,
-} from './snapshotFieldRules';
-
 export { formatUsdCents, usdCentsToText } from '~/lib/prop-accounts';
 
 export enum AccountPlanTag {
@@ -46,12 +44,6 @@ const CENTS_FRACTION_DIGITS = 2;
 const PLAN_TAG_LABEL: Readonly<Record<AccountPlanTag, string>> = {
     [AccountPlanTag.CallUpOnly]: 'call-up only',
     [AccountPlanTag.InstantFunded]: 'instant funded',
-};
-
-const STAGE_LABEL: Readonly<Record<AccountStage, string>> = {
-    [AccountStage.Eval]: 'Evaluation',
-    [AccountStage.Funded]: 'Funded',
-    [AccountStage.Live]: 'Live',
 };
 
 export interface AccountFirmOption {
@@ -231,10 +223,6 @@ export function accountSizeOptions(
         });
 }
 
-export function accountStageLabel(stage: AccountStage): string {
-    return STAGE_LABEL[stage];
-}
-
 export function accountStageOptions(plan: Plan): readonly AccountStageOption[] {
     return Object.values(AccountStage)
         .filter((stage) => validateStageForPlan(stage, plan) === null)
@@ -244,27 +232,41 @@ export function accountStageOptions(plan: Plan): readonly AccountStageOption[] {
 export function initialPlanSelection(
     firmParameter: null | string | undefined,
     planParameter: null | string | undefined,
+    prefilledOptIns: PlanOptIns,
 ): AccountPlanSelection {
     const firm =
         ALL_FIRMS.find((candidate) => candidate.id === firmParameter) ??
         ALL_FIRMS[0];
-    const plan =
-        (planParameter === null || planParameter === undefined
+    const requestedPlan =
+        planParameter === null || planParameter === undefined
             ? null
-            : firm?.findPlanBySerial(planParameter)) ?? firm?.plans[0];
+            : (firm?.findPlanBySerial(planParameter) ?? null);
+    const plan = requestedPlan ?? firm?.plans[0];
     if (firm === undefined || plan === undefined) {
         throw new Error('No prop firm plan is modeled');
     }
     return {
         accountSize: plan.id.accountSize,
         firmId: firm.id,
-        optIns: NO_PLAN_OPT_INS,
+        optIns:
+            requestedPlan === null
+                ? NO_PLAN_OPT_INS
+                : keepOfferedOptIns(requestedPlan, prefilledOptIns),
         planSerial: serializePlanId(plan.id),
     };
 }
 
 export function isLiveStartBalanceShown(stage: AccountStage): boolean {
     return stage === AccountStage.Live;
+}
+
+export function keepOfferedOptIns(plan: Plan, optIns: PlanOptIns): PlanOptIns {
+    return offeredPlanOptIns(plan)
+        .map((optIn) => planOptInField(optIn))
+        .reduce<PlanOptIns>(
+            (offered, field) => ({ ...offered, [field]: optIns[field] }),
+            NO_PLAN_OPT_INS,
+        );
 }
 
 export function parsePersonalRulesText(

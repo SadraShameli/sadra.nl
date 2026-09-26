@@ -166,7 +166,7 @@ const TOOL_DEFINITIONS = {
         {
             blurb: 'Contracts for a dollar risk at a stop, the leftover dollars, the stop that lands the risk exactly and the plan contract cap.',
             group: ToolGroup.Size,
-            hasPage: false,
+            hasPage: true,
             icon: Crosshair,
             label: 'Position size',
             route: routes.propCalculator.positionSize,

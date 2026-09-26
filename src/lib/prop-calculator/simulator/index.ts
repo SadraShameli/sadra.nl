@@ -1,7 +1,10 @@
 export { resolveDayPolicy, runDay } from './day';
 export {
+    assertDeclaredSizingMatchesPhase,
     assertNoFundedDayPolicyConflict,
+    type DeclaredSizingInputs,
     type FundedDayPolicyConflictInputs,
+    SIM_INPUTS_REFUSAL_PREFIX,
     type SimInputsSizingInputs,
     simInputsSizingIssue,
 } from './dayPolicyValidation';

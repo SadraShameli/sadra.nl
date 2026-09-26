@@ -11,6 +11,7 @@ import {
     FundedResetEligibility,
     MffuVariant,
     type Plan,
+    PolicySizing,
 } from '~/lib/prop-calculator/core';
 import { type FundedPayoutOptions } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { findFirm } from '~/lib/prop-calculator/firms';
@@ -65,6 +66,8 @@ describe('the funded day loop hands the day policy the balance left after the la
                 return 100;
             },
             1,
+            undefined,
+            PolicySizing.ContractCapped,
         );
 
         const out = simulate({
@@ -135,6 +138,8 @@ describe('the funded day loop hands the day policy how many funded resets were u
                 return 100;
             },
             1,
+            undefined,
+            PolicySizing.ContractCapped,
         );
 
         const out = simulate({

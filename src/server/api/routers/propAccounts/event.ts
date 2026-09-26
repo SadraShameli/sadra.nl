@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import {
     type AccountEventChange,
+    AccountStage,
     applyLifecycleEvent,
     compareText,
     describeLifecycleRejection,
@@ -30,6 +31,7 @@ import { createTRPCRouter } from '~/server/api/trpc';
 import { propAccount, propAccountEvent } from '~/server/db/schemas/prop';
 
 import {
+    assertLiveStartsDocumented,
     impliedPassBound,
     propMutationProcedure,
     PropMutationRejectionError,
@@ -80,6 +82,14 @@ export const propEventRouter = createTRPCRouter({
                         }),
                         outcome.reason,
                     );
+                }
+                if (
+                    outcome.state.stage === AccountStage.Live &&
+                    stored.stage !== AccountStage.Live
+                ) {
+                    assertLiveStartsDocumented([
+                        { account: stored, label: stored.label, plan },
+                    ]);
                 }
                 assertInOrder(
                     stored,

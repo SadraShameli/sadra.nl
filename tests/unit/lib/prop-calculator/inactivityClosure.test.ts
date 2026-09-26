@@ -7,6 +7,7 @@ import {
     FirmId,
     fraction,
     MffuVariant,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -87,6 +88,7 @@ describe('runDay: opt-in idle-day closure', () => {
             dayPolicy: {
                 ladder: [500],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             idleDayProbability: 1,
@@ -127,6 +129,7 @@ describe('runDay: opt-in idle-day closure', () => {
                     dayPolicy: {
                         ladder: [2000, 2000, 2000, 2000],
                         maxLossesPerDay: null,
+                        sizing: PolicySizing.ContractCapped,
                         stopRule: { kind: DayStopRuleKind.None },
                     },
                     idleDayProbability,
@@ -169,6 +172,7 @@ describe('runDay: opt-in idle-day closure', () => {
                     dayPolicy: {
                         ladder: [2000],
                         maxLossesPerDay: null,
+                        sizing: PolicySizing.ContractCapped,
                         stopRule: { kind: DayStopRuleKind.None },
                     },
                     idleDayProbability: 1,
@@ -200,6 +204,7 @@ describe('runDay: opt-in idle-day closure', () => {
             dayPolicy: {
                 ladder: [500],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             idleDayProbability: 1,
@@ -233,6 +238,7 @@ describe('runDay: opt-in idle-day closure', () => {
             dayPolicy: {
                 ladder: [500],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             idleDayProbability: 1,
@@ -277,6 +283,7 @@ describe('runDay: opt-in idle-day closure', () => {
                 dayPolicy: {
                     ladder: [500],
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: { kind: DayStopRuleKind.None },
                 },
                 idleDayProbability: 0,

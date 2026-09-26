@@ -23,6 +23,7 @@ import {
     type TradingFirm,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
+import { CalculatorUrlParameter } from '~/lib/schemas/url';
 import { legacySectionTarget } from '~/lib/site/legacyCalculatorLinks';
 
 import {
@@ -317,7 +318,7 @@ export function createCalculatorActions(
 export function initialStateFromSearch(search: string): CalculatorState {
     const parameters = new URLSearchParams(search);
     const defaults = defaultCalculatorState();
-    if (!parameters.has('firm')) return defaults;
+    if (!parameters.has(CalculatorUrlParameter.Firm)) return defaults;
     try {
         return decodeState(parameters, ALL_FIRMS, defaults);
     } catch {

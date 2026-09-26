@@ -45,6 +45,8 @@ import {
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
+import { flagsNamedButNotAccepted } from './helpFlags';
+
 function apexEodPlan(): Plan {
     const plan = new ApexTraderFunding().findPlan({
         accountSize: 50_000,
@@ -678,5 +680,11 @@ describe('ladderTableRow shows each estimate with its standard error', () => {
         expect(ladderTableRow(ladderScore(), null, 20).at(-1)).toBe(
             NOT_APPLICABLE,
         );
+    });
+});
+
+describe('prop ladder --help names only flags prop ladder accepts (WP43d)', () => {
+    it('names no flag prop ladder lacks, such as --percent or --funded-ladder', async () => {
+        expect(await flagsNamedButNotAccepted(ladder)).toStrictEqual([]);
     });
 });

@@ -21,7 +21,7 @@ import {
     resolveDailyLossLimit,
     type TrackedDailyLossLimitContext,
 } from './DailyLossLimit';
-import { resolveAffordableRisk } from './DayPolicy';
+import { type AffordableRoom, resolveAffordableRoom } from './DayPolicy';
 import { type DrawdownStrategy } from './DrawdownStrategy';
 import {
     type CouponDiscounts,
@@ -67,6 +67,7 @@ import {
 import { PeakRatchet } from './PeakRatchet';
 import { PlanAvailability } from './PlanAvailability';
 import { type PlanId } from './PlanId';
+import { fundedContractLimit } from './PositionSizing';
 import {
     TierBasis,
     tierBreakpoints,
@@ -623,7 +624,15 @@ export abstract class Plan {
         phase: TradingPhase,
         commission: number,
     ): number {
-        return resolveAffordableRisk(
+        return this.affordableRoom(state, phase, commission).room;
+    }
+
+    affordableRoom(
+        state: AccountState,
+        phase: TradingPhase,
+        commission: number,
+    ): AffordableRoom {
+        return resolveAffordableRoom(
             state.balance - state.threshold,
             resolveDailyLossLimit(
                 this.dailyLossLimitFor(phase),
@@ -631,6 +640,7 @@ export abstract class Plan {
             ),
             state.todayPnL,
             commission,
+            this.dailyLossLimitBreachFor(phase),
         );
     }
 
@@ -740,9 +750,7 @@ export abstract class Plan {
         isMicro: boolean,
     ): readonly number[] {
         return contractLimitTierBreakpoints(
-            (isMicro
-                ? this.contractLimits?.fundedMicros
-                : this.contractLimits?.fundedMinis) ?? null,
+            fundedContractLimit(this.contractLimits, isMicro),
             basis,
         );
     }

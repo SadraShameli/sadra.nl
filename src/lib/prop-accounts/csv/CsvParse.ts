@@ -2,12 +2,14 @@ import Papa from 'papaparse';
 import { type z } from 'zod';
 
 import {
+    EntryTextKind,
     INT4_MAX,
     INT4_MIN,
     isAccountDate,
     MAX_ACCOUNT_DATE_YEAR,
     MIN_ACCOUNT_DATE_YEAR,
-    parseUsdCents,
+    parseCountText,
+    parseMoneyText,
     usdCents,
     type UsdCents,
     usdCentsToText,
@@ -107,7 +109,6 @@ type HeaderResult<Column extends string> =
 const BYTES_PER_KILOBYTE = 1024;
 const GUESSED_DELIMITERS = [',', '\t'];
 const LIST_SEPARATOR = ',';
-const COUNT_PATTERN = /^\d+$/;
 const TRUE_WORDS: ReadonlySet<string> = new Set(['1', 'true', 'y', 'yes']);
 const FALSE_WORDS: ReadonlySet<string> = new Set(['0', 'false', 'n', 'no']);
 const EMPTY_HEADER_NAME = '(empty)';
@@ -122,7 +123,7 @@ const QUOTE_MESSAGE: Readonly<
 const COUNT_MESSAGE = 'must be a whole number of 0 or more';
 const DATE_MESSAGE = `must be a real date written as YYYY-MM-DD, in the years ${MIN_ACCOUNT_DATE_YEAR} to ${MAX_ACCOUNT_DATE_YEAR}`;
 const FLAG_MESSAGE = 'must be yes or no';
-const MONEY_MESSAGE = `must be a dollar amount like 1234.56, without a $ sign or thousands separators, from ${usdCentsToText(usdCents(INT4_MIN))} to ${usdCentsToText(usdCents(INT4_MAX))}`;
+const MONEY_MESSAGE = `must be a dollar amount like 1234.56 with at most 2 decimals, from ${usdCentsToText(usdCents(INT4_MIN))} to ${usdCentsToText(usdCents(INT4_MAX))}`;
 const REQUIRED_MESSAGE = 'is required';
 
 const UTF8 = new TextEncoder();
@@ -198,10 +199,8 @@ export class CsvRowReader<Column extends string> {
     count(column: Column): number | undefined {
         const cell = this.cell(column);
         if (cell === undefined) return undefined;
-        const value = Number(cell);
-        if (COUNT_PATTERN.test(cell) && Number.isSafeInteger(value)) {
-            return value;
-        }
+        const parsed = parseCountText(cell);
+        if (parsed.kind === EntryTextKind.Valid) return parsed.count;
         this.addIssue(column, CsvIssueKind.Cell, COUNT_MESSAGE);
         return undefined;
     }
@@ -243,12 +242,10 @@ export class CsvRowReader<Column extends string> {
     money(column: Column): undefined | UsdCents {
         const cell = this.cell(column);
         if (cell === undefined) return undefined;
-        try {
-            return parseUsdCents(cell);
-        } catch {
-            this.addIssue(column, CsvIssueKind.Cell, MONEY_MESSAGE);
-            return undefined;
-        }
+        const parsed = parseMoneyText(cell);
+        if (parsed.kind === EntryTextKind.Valid) return parsed.cents;
+        this.addIssue(column, CsvIssueKind.Cell, MONEY_MESSAGE);
+        return undefined;
     }
 
     text(column: Column): string | undefined {

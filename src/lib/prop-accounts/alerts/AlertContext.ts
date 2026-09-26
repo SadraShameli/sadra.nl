@@ -9,7 +9,6 @@ import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
 
 import {
     type AccountReadIssue,
-    AccountStatus,
     compareText,
     isAccountDate,
     isPaidOnOrBefore,
@@ -18,6 +17,7 @@ import {
     resolvePlanKey,
     type StoredFirmId,
 } from '../core';
+import { isActiveAccount } from '../metrics';
 import { TradingSessionCalendar } from './TradingSessionCalendar';
 
 export enum StoredDateField {
@@ -121,7 +121,7 @@ export function createAlertContext(inputs: AlertInputs): AlertContext {
 }
 
 export function isActive(monitored: MonitoredAccount): boolean {
-    return monitored.account.status === AccountStatus.Active;
+    return isActiveAccount(monitored.account);
 }
 
 export function paidPayoutsThrough(

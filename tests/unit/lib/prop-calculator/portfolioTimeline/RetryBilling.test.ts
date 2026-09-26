@@ -10,6 +10,7 @@ import {
     fraction,
     MffuVariant,
     type Plan,
+    PolicySizing,
     RetryKind,
     RungSizing,
     StaticDrawdown,
@@ -55,9 +56,14 @@ function runCard(
     cardDayBudget: number,
     maxFundedDays = cardDayBudget,
 ) {
-    const policy = flatDayPolicy(RISK_PER_TRADE, 1, {
-        kind: DayStopRuleKind.None,
-    });
+    const policy = flatDayPolicy(
+        RISK_PER_TRADE,
+        1,
+        {
+            kind: DayStopRuleKind.None,
+        },
+        PolicySizing.ContractCapped,
+    );
     return runEvalToFundedCycle({
         cardDayBudget,
         commission: dollars(0),

@@ -13,6 +13,7 @@ import {
     flatDayPolicy,
     fraction,
     type Plan,
+    PolicySizing,
     resolveDailyLossLimit,
     RungSizing,
     TierBasis,
@@ -203,7 +204,12 @@ describe.each(VARIANTS)(
             const result = runFundedDay(
                 plan,
                 state,
-                flatDayPolicy(600, 4, { kind: DayStopRuleKind.None }),
+                flatDayPolicy(
+                    600,
+                    4,
+                    { kind: DayStopRuleKind.None },
+                    PolicySizing.ContractCapped,
+                ),
                 scriptedRng([0.99, 0.99, 0.99, 0.99]),
             );
             expect(result.busted).toBe(false);
@@ -223,6 +229,7 @@ describe.each(VARIANTS)(
                 {
                     ladder: [150, 2000],
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: { kind: DayStopRuleKind.None },
                 },
                 scriptedRng([0, 0.99]),

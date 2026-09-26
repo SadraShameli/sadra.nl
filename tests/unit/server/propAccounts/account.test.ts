@@ -30,6 +30,7 @@ import { MAX_IMPORT_ROWS } from '~/lib/schemas/propAccounts';
 import { deviceRouter } from '~/server/api/routers/iot/device';
 import { createCallerFactory } from '~/server/api/trpc';
 
+import { documentedLiveStartEntry } from '../../lib/prop-accounts/liveStartFixtures';
 import {
     assertUserScopedWhere,
     createFakeDatabase,
@@ -1201,5 +1202,225 @@ describe('the tRPC error formatter', () => {
         );
         expect(shape.data.code).toBe('NOT_FOUND');
         expect(Object.keys(shape.data)).not.toContain('propRejection');
+    });
+});
+
+describe('propAccounts.account live start range', () => {
+    const live = documentedLiveStartEntry();
+    const liveKey = planKeyFields(live);
+    const outOfRangeCents = Math.round((live.highestStart + 10_000) * 100);
+    const inRangeCents = Math.round(live.lowestStart * 100);
+
+    function liveCreateInput(overrides: Record<string, unknown> = {}) {
+        return accountCreateInput({
+            ...liveKey,
+            fundedOn: '2026-09-01',
+            label: 'Live one',
+            liveStartBalanceCents: outOfRangeCents,
+            stage: AccountStage.Live,
+            ...overrides,
+        });
+    }
+
+    function liveStoredResponder(): Responder {
+        return tableResponder({
+            [TABLES.account]: [
+                accountRow({
+                    account_size: liveKey.accountSize,
+                    firm_id: liveKey.firmId,
+                    funded_on: '2026-09-01',
+                    label: 'Live one',
+                    live_start_balance_cents: inRangeCents,
+                    plan_serial: liveKey.planSerial,
+                    stage: AccountStage.Live,
+                }),
+            ],
+        });
+    }
+
+    it('create rejects a live start outside the documented range with a typed rejection, reading nothing', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        const error = await rejectionOf(
+            caller.account.create(
+                liveCreateInput({ replacesAccountId: IDS.otherAccount }),
+            ),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ImplausibleSnapshot),
+        );
+        expect(shape.message).toContain('"Live one"');
+        expect(shape.message).toContain('A live account after');
+        expect(shape.message).not.toContain(String.fromCodePoint(0x20_14));
+        expect(queries).toHaveLength(0);
+    });
+
+    it('create stores a live start inside the documented range', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.account.create(
+            liveCreateInput({ liveStartBalanceCents: inRangeCents }),
+        );
+        const [accountInsert] = insertsInto(queries, TABLES.account);
+        expect(
+            insertedColumnValues(
+                defined(accountInsert),
+                'live_start_balance_cents',
+            ),
+        ).toEqual([inRangeCents]);
+    });
+
+    it('create rejects a live start outside the documented range before the live stage too, reading nothing', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        const error = await rejectionOf(
+            caller.account.create(
+                liveCreateInput({ stage: AccountStage.Funded }),
+            ),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ImplausibleSnapshot),
+        );
+        expect(shape.message).toContain('A live account after');
+        expect(queries).toHaveLength(0);
+    });
+
+    it('create stores a live start inside the documented range before the live stage', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.account.create(
+            liveCreateInput({
+                liveStartBalanceCents: inRangeCents,
+                stage: AccountStage.Funded,
+            }),
+        );
+        expect(insertsInto(queries, TABLES.account)).toHaveLength(1);
+    });
+
+    it('create stores an account without a live start before the live stage', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.account.create(
+            liveCreateInput({
+                liveStartBalanceCents: null,
+                stage: AccountStage.Funded,
+            }),
+        );
+        expect(insertsInto(queries, TABLES.account)).toHaveLength(1);
+    });
+
+    it('update rejects a live start outside the documented range on a funded account, so a later move live cannot carry it, and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    accountRow({
+                        account_size: liveKey.accountSize,
+                        firm_id: liveKey.firmId,
+                        funded_on: '2026-09-01',
+                        label: 'Funded one',
+                        plan_serial: liveKey.planSerial,
+                        stage: AccountStage.Funded,
+                    }),
+                ],
+            }),
+        );
+        const error = await rejectionOf(
+            caller.account.update(
+                accountUpdateInput({
+                    ...liveKey,
+                    fundedOn: '2026-09-01',
+                    label: 'Funded one',
+                    liveStartBalanceCents: outOfRangeCents,
+                }),
+            ),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ImplausibleSnapshot),
+        );
+        expect(shape.message).toContain('"Funded one"');
+        expect(propWrites(queries)).toHaveLength(0);
+        const reads = queries.filter((query) => readTable(query) !== null);
+        for (const query of reads) assertUserScopedWhere(query, USER_ID);
+    });
+
+    it('update rejects a live start outside the documented range on a live account, writes nothing and reads only the owner rows', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, liveStoredResponder());
+        const error = await rejectionOf(
+            caller.account.update(
+                accountUpdateInput({
+                    ...liveKey,
+                    fundedOn: '2026-09-01',
+                    label: 'Live one',
+                    liveStartBalanceCents: outOfRangeCents,
+                }),
+            ),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ImplausibleSnapshot),
+        );
+        expect(shape.message).toContain('"Live one"');
+        expect(shape.message).toContain('A live account after');
+        expect(propWrites(queries)).toHaveLength(0);
+        const reads = queries.filter((query) => readTable(query) !== null);
+        expect(reads.length).toBeGreaterThan(0);
+        for (const query of reads) assertUserScopedWhere(query, USER_ID);
+    });
+
+    it('update keeps accepting a live start inside the documented range', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, liveStoredResponder());
+        await caller.account.update(
+            accountUpdateInput({
+                ...liveKey,
+                fundedOn: '2026-09-01',
+                label: 'Live renamed',
+                liveStartBalanceCents: inRangeCents,
+            }),
+        );
+        expect(updatesOf(queries, TABLES.account)).toHaveLength(1);
+    });
+
+    it('importMany names the account with the live start outside the documented range by its label and reads nothing', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        const error = await rejectionOf(
+            caller.account.importMany([
+                liveCreateInput({
+                    label: 'Live fine',
+                    liveStartBalanceCents: inRangeCents,
+                }),
+                liveCreateInput({
+                    label: 'Live off',
+                    replacesAccountId: IDS.otherAccount,
+                }),
+            ]),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ImplausibleSnapshot),
+        );
+        expect(shape.message).toContain('Account "Live off"');
+        expect(shape.message).not.toContain('Row ');
+        expect(shape.message).not.toContain('"Live fine"');
+        expect(queries).toHaveLength(0);
+    });
+
+    it('importMany rejects a funded row whose live start is outside the documented range', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        const error = await rejectionOf(
+            caller.account.importMany([
+                liveCreateInput({
+                    label: 'Funded off',
+                    stage: AccountStage.Funded,
+                }),
+            ]),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.message).toContain('Account "Funded off"');
+        expect(queries).toHaveLength(0);
     });
 });

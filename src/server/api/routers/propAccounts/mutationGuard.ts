@@ -2,17 +2,22 @@ import { TRPCError } from '@trpc/server';
 import 'server-only';
 import { type z } from 'zod';
 
+import { formatConjunctionList } from '~/lib/format';
 import { isWithinRateLimit } from '~/lib/observability/rate-limit';
 import {
     AccountEventKind,
-    type AccountStage,
-    compareText,
+    AccountStage,
+    accountStageLabel,
     describeUnresolvedPlan,
+    hasMixedStages,
     impliedEvalPassOn,
     type LifecycleRejection,
+    liveStartEntryIssues,
     type PlanKeyInput,
     PlanKeyResolutionKind,
     resolvePlanKey,
+    type SnapshotEntryAccount,
+    stageCountsOf,
 } from '~/lib/prop-accounts';
 import {
     type OwnedAccount,
@@ -52,6 +57,12 @@ enum PostgresErrorCode {
     ForeignKeyViolation = '23503',
     StringTooLong = '22001',
     UniqueViolation = '23505',
+}
+
+export interface LiveStartEntry {
+    readonly account: SnapshotEntryAccount;
+    readonly label: string;
+    readonly plan: Plan;
 }
 
 interface DatabaseErrorFields {
@@ -113,18 +124,50 @@ export async function assertCopyGroupAcceptsStages(
 ): Promise<void> {
     const group = await repo.loadOwnedCopyGroupOrThrow(copyGroupId);
     const members = await repo.listAccountRefsIn(copyGroupId);
-    const stages = new Set([
-        ...members
-            .filter((member) => member.id !== movingAccountId)
-            .map((member) => member.stage),
-        ...joiningStages,
-    ]);
-    if (stages.size > 1) {
-        throw new PropMutationRejectionError(
-            PropMutationRejection.MixedStageCopyGroup,
-            `Copy group "${group.name}" would mix ${[...stages].toSorted(compareText).join(' and ')} accounts; the members of a group must share one stage`,
+    const memberStages = members
+        .filter((member) => member.id !== movingAccountId)
+        .map((member) => member.stage);
+    const stages = [...memberStages, ...joiningStages];
+    if (!hasMixedStages(stages)) return;
+    const stageNamesOf = (listed: readonly AccountStage[]) =>
+        formatConjunctionList(
+            stageCountsOf(listed).map(({ stage }) => accountStageLabel(stage)),
         );
-    }
+    const joining =
+        joiningStages.length === 1
+            ? `the account joining is ${stageNamesOf(joiningStages)}`
+            : `the accounts joining are ${stageNamesOf(joiningStages)}`;
+    const conflict =
+        memberStages.length === 0
+            ? joining
+            : `it already has ${stageNamesOf(memberStages)} members and ${joining}`;
+    throw new PropMutationRejectionError(
+        PropMutationRejection.MixedStageCopyGroup,
+        `Copy group "${group.name}" would mix ${stageNamesOf(stages)} accounts: ${conflict}. The members of a group must share one stage, inactive and archived members included.`,
+    );
+}
+
+export function assertLiveStartsDocumented(
+    entries: readonly LiveStartEntry[],
+): void {
+    const implausible = entries.flatMap((entry) => {
+        const issues = liveStartEntryIssues(
+            entry.plan,
+            AccountStage.Live,
+            entry.account,
+        );
+        return issues.length === 0 ? [] : [{ entry, issues }];
+    });
+    const [first] = implausible;
+    if (first === undefined) return;
+    const others =
+        implausible.length > 1
+            ? ` (and ${String(implausible.length - 1)} more with a live start outside the documented range)`
+            : '';
+    throw new PropMutationRejectionError(
+        PropMutationRejection.ImplausibleSnapshot,
+        `Account "${first.entry.label}" has a live start balance its plan does not document: ${first.issues.map((issue) => issue.message).join(' ')}${others}`,
+    );
 }
 
 export async function impliedPassBound(
@@ -253,6 +296,7 @@ function fromDatabaseError(
 function fromRejection(error: PropMutationRejectionError): TRPCError {
     switch (error.reason) {
         case PropMutationRejection.DuplicateImportLabel:
+        case PropMutationRejection.DuplicateSnapshot:
         case PropMutationRejection.MixedStageCopyGroup: {
             return new TRPCError({
                 cause: error,
@@ -260,7 +304,9 @@ function fromRejection(error: PropMutationRejectionError): TRPCError {
                 message: error.message,
             });
         }
+        case PropMutationRejection.ImplausibleSnapshot:
         case PropMutationRejection.LifecycleTransition:
+        case PropMutationRejection.MissingSnapshotField:
         case PropMutationRejection.OutOfOrderEvent:
         case PropMutationRejection.StageNotOfferedByPlan:
         case PropMutationRejection.UnresolvablePlan: {

@@ -40,7 +40,9 @@ import { propAccount, propAccountEvent } from '~/server/db/schemas/prop';
 
 import {
     assertCopyGroupAcceptsStages,
+    assertLiveStartsDocumented,
     impliedPassBound,
+    type LiveStartEntry,
     propMutationProcedure,
     PropMutationRejectionError,
     propProcedure,
@@ -132,15 +134,16 @@ export const propAccountRouter = createTRPCRouter({
     create: mutation
         .input(accountCreateSchema)
         .output(propAccountOutputSchema)
-        .mutation(({ ctx, input }) =>
-            ctx.db.transaction(async (tx) => {
+        .mutation(({ ctx, input }) => {
+            assertLiveStartsDocumented([createdLiveStartEntry(input)]);
+            return ctx.db.transaction(async (tx) => {
                 const quotas = await PropQuotaGuard.acquire(tx, ctx.userId);
                 const [created] = await insertAccounts(tx, ctx.userId, quotas, [
                     input,
                 ]);
                 return returnedRowOrThrow(created, PropRecord.Account);
-            }),
-        ),
+            });
+        }),
 
     get: propProcedure
         .input(accountIdSchema)
@@ -157,6 +160,7 @@ export const propAccountRouter = createTRPCRouter({
         .output(z.array(propAccountOutputSchema))
         .mutation(({ ctx, input }) => {
             assertDistinctLabels(input);
+            assertLiveStartsDocumented(input.map(createdLiveStartEntry));
             return ctx.db.transaction(async (tx) =>
                 insertAccounts(
                     tx,
@@ -270,6 +274,13 @@ export const propAccountRouter = createTRPCRouter({
                     true,
                 );
                 const plan = assertStageStillOffered(stored, input);
+                assertLiveStartsDocumented([
+                    {
+                        account: input,
+                        label: input.label,
+                        plan,
+                    },
+                ]);
                 if (
                     input.replacesAccountId !== null &&
                     input.replacesAccountId !== stored.replacesAccountId
@@ -423,6 +434,14 @@ function changeValue(value: unknown): AccountEventChangeValue {
         typeof value === 'string'
         ? value
         : stableJson(value);
+}
+
+function createdLiveStartEntry(row: AccountCreateInput): LiveStartEntry {
+    return {
+        account: row,
+        label: row.label,
+        plan: resolvedPlanOrThrow({ ...row, readIssues: [] }),
+    };
 }
 
 function editableValues(input: EditableFields): EditableValues {

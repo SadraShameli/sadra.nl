@@ -30,6 +30,8 @@ import {
 } from '~/lib/prop-calculator';
 import { findFirm } from '~/lib/prop-calculator/firms';
 
+import { flagsNamedButNotAccepted } from './helpFlags';
+
 function rapidEodPlan(): Plan {
     const plan = findFirm(FirmId.Mffu)?.findPlan({
         accountSize: 50_000,
@@ -472,3 +474,9 @@ async function compareArguments(): Promise<ArgsDef> {
         typeof resolvable === 'function' ? resolvable() : resolvable;
     return resolved instanceof Promise ? await resolved : resolved;
 }
+
+describe('prop compare --help names only flags prop compare accepts (WP43d)', () => {
+    it('names no flag prop compare lacks, such as --percent or --funded-ladder', async () => {
+        expect(await flagsNamedButNotAccepted(compare)).toStrictEqual([]);
+    });
+});

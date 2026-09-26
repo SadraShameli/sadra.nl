@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    AffordableRoomKind,
     ContractLimitKind,
     contracts,
     createInitialState,
@@ -11,6 +12,7 @@ import {
     fraction,
     MffuVariant,
     newFundedCycleTracker,
+    ONE_CENT,
     PayoutCapScheduleKind,
     PayoutCountTieredPayoutCap,
     PayoutFloorEffect,
@@ -750,6 +752,90 @@ describe('Plan.affordableRisk', () => {
         expect(
             plan.affordableRisk(stateWith(3100, 0), TradingPhase.Funded, 0),
         ).toBe(900);
+    });
+});
+
+describe('Plan.affordableRoom names what losing the whole room ends, per phase (N-74, U21)', () => {
+    const rapidEod = registeredPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.RapidEod,
+    });
+    const flatThousand = {
+        amount: dollars(1000),
+        kind: DailyLossLimitKind.Flat,
+    } as const;
+    const lockoutFundedTerminatingEval = rapidEod.withOverrides({
+        evalDailyLossLimit: flatThousand,
+        evalDailyLossLimitBreach: DailyLossLimitBreachEffect.Terminate,
+        fundedDailyLossLimit: flatThousand,
+        fundedDailyLossLimitBreach: DailyLossLimitBreachEffect.Lockout,
+    });
+    const noDailyLossLimit = rapidEod.withOverrides({
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
+    });
+
+    it('locks the funded day when the lockout room of $700 is below the $2,000 cushion', () => {
+        expect(
+            lockoutFundedTerminatingEval.affordableRoom(
+                stateWith(2000, -300),
+                TradingPhase.Funded,
+                0,
+            ),
+        ).toStrictEqual({ kind: AffordableRoomKind.LocksDay, room: 700 });
+    });
+
+    it('busts the account on the same state in the eval phase, whose daily loss limit terminates', () => {
+        expect(
+            lockoutFundedTerminatingEval.affordableRoom(
+                stateWith(2000, -300),
+                TradingPhase.Eval,
+                0,
+            ),
+        ).toStrictEqual({ kind: AffordableRoomKind.BustsAccount, room: 700 });
+    });
+
+    it('busts the account with the whole cushion in either phase when there is no daily loss limit', () => {
+        for (const phase of [TradingPhase.Eval, TradingPhase.Funded]) {
+            expect(
+                noDailyLossLimit.affordableRoom(
+                    stateWith(2000, -300),
+                    phase,
+                    5,
+                ),
+            ).toStrictEqual({
+                kind: AffordableRoomKind.BustsAccount,
+                room: 2000,
+            });
+        }
+    });
+
+    it('busts the account when the $500 cushion is below the lockout room, so the drawdown binds first', () => {
+        expect(
+            lockoutFundedTerminatingEval.affordableRoom(
+                stateWith(500, 0),
+                TradingPhase.Funded,
+                0,
+            ),
+        ).toStrictEqual({ kind: AffordableRoomKind.BustsAccount, room: 500 });
+    });
+
+    it('counts a cushion level with the lockout room net of commission within the cent tolerance as busting the account', () => {
+        expect(
+            lockoutFundedTerminatingEval.affordableRoom(
+                stateWith(695 + 1e-9, -300),
+                TradingPhase.Funded,
+                5,
+            ).kind,
+        ).toBe(AffordableRoomKind.BustsAccount);
+        expect(
+            lockoutFundedTerminatingEval.affordableRoom(
+                stateWith(695 + ONE_CENT, -300),
+                TradingPhase.Funded,
+                5,
+            ),
+        ).toStrictEqual({ kind: AffordableRoomKind.LocksDay, room: 695 });
     });
 });
 

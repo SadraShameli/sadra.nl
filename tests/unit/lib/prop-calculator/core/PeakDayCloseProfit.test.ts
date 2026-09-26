@@ -8,6 +8,7 @@ import {
     flatDayPolicy,
     fraction,
     LucidVariant,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -42,6 +43,7 @@ function unevenPolicy(ladder: readonly number[]): DayPolicy {
     return {
         ladder,
         maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
         stopRule: { kind: DayStopRuleKind.None },
     };
 }
@@ -64,7 +66,12 @@ describe('peak day-close profit', () => {
 
         runDay({
             ...base,
-            dayPolicy: flatDayPolicy(1000, 1),
+            dayPolicy: flatDayPolicy(
+                1000,
+                1,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             rng: scriptedRng([0]),
             winrate: fraction(1),
         });
@@ -73,7 +80,12 @@ describe('peak day-close profit', () => {
 
         runDay({
             ...base,
-            dayPolicy: flatDayPolicy(500, 1),
+            dayPolicy: flatDayPolicy(
+                500,
+                1,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             rng: scriptedRng([0.99]),
             winrate: fraction(0),
         });
@@ -122,7 +134,12 @@ describe('peak day-close profit', () => {
 
         runDay({
             ...base,
-            dayPolicy: flatDayPolicy(2500, 1),
+            dayPolicy: flatDayPolicy(
+                2500,
+                1,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             rng: scriptedRng([0]),
         });
         expect(state.balance).toBe(51_200);
@@ -131,7 +148,12 @@ describe('peak day-close profit', () => {
 
         runDay({
             ...base,
-            dayPolicy: flatDayPolicy(2500, 1),
+            dayPolicy: flatDayPolicy(
+                2500,
+                1,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             rng: scriptedRng([0]),
         });
         expect(state.balance).toBe(52_400);

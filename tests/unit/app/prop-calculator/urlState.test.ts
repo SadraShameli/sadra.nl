@@ -20,6 +20,7 @@ import {
     RungSizing,
 } from '~/lib/prop-calculator';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
+import { CalculatorUrlParameter } from '~/lib/schemas/url';
 
 function apexEod() {
     const firm = ALL_FIRMS.find((f) => f.id === FirmId.Apex);
@@ -456,5 +457,89 @@ describe('rungSizing round-trip through the URL (H4)', () => {
         const state = decodeState(parameters, ALL_FIRMS, fallbackState());
 
         expect(state.rungSizing).toBe(RungSizing.CapToCushion);
+    });
+});
+
+describe('idleDayProbability round-trip through the URL (PT-11j)', () => {
+    it('survives a share link: encode then decode keeps the idle-day probability', () => {
+        const state: CalculatorState = {
+            ...fallbackState(),
+            idleDayProbability: 0.25,
+        };
+
+        const decoded = decodeState(
+            encodeState(state),
+            ALL_FIRMS,
+            fallbackState(),
+        );
+
+        expect(decoded.idleDayProbability).toBe(0.25);
+    });
+
+    it('writes the idle-day probability under the CalculatorUrlParameter key only', () => {
+        const parameters = encodeState({
+            ...fallbackState(),
+            idleDayProbability: 0.1,
+        });
+
+        expect(
+            parameters.get(CalculatorUrlParameter.IdleDayProbability),
+        ).toBe('0.100');
+        expect(
+            parameters.has(CalculatorUrlParameter.LegacyIdleDayProbability),
+        ).toBe(false);
+    });
+
+    it('still decodes an old link that carries the legacy idp key', () => {
+        const { firm, plan } = apexEod();
+        const parameters = new URLSearchParams({
+            firm: firm.id,
+            idp: '0.300',
+            plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
+        });
+
+        const state = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(state.idleDayProbability).toBe(0.3);
+    });
+
+    it('decodes a link that carries the idle key', () => {
+        const { firm, plan } = apexEod();
+        const parameters = new URLSearchParams({
+            firm: firm.id,
+            idle: '0.4',
+            plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
+        });
+
+        const state = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(state.idleDayProbability).toBe(0.4);
+    });
+
+    it('prefers the idle key when a link carries both keys', () => {
+        const { firm, plan } = apexEod();
+        const parameters = new URLSearchParams({
+            firm: firm.id,
+            idle: '0.2',
+            idp: '0.7',
+            plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
+        });
+
+        const state = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(state.idleDayProbability).toBe(0.2);
+    });
+
+    it('falls back to the schema default on an out-of-range legacy idp value', () => {
+        const { firm, plan } = apexEod();
+        const parameters = new URLSearchParams({
+            firm: firm.id,
+            idp: '5',
+            plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
+        });
+
+        const state = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(state.idleDayProbability).toBe(0);
     });
 });

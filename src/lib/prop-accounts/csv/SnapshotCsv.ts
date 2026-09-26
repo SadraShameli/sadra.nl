@@ -5,7 +5,21 @@ import type {
     PropAccountSnapshotRow,
 } from '~/server/db/schemas/prop';
 
-import { SnapshotSource } from '~/lib/prop-accounts/core';
+import {
+    accountStageOn,
+    checkSnapshotEntry,
+    describeUnresolvedPlan,
+    NO_RECORDED_STAGE_STARTS,
+    type PlanKeyInput,
+    PlanKeyResolutionKind,
+    resolvePlanKey,
+    snapshotEntryIssueMessage,
+    SnapshotSource,
+} from '~/lib/prop-accounts/core';
+import {
+    SnapshotInputField,
+    type SnapshotPlausibilityIssue,
+} from '~/lib/prop-calculator/advisor';
 import {
     MAX_BULK_SNAPSHOTS,
     snapshotBulkCreateSchema,
@@ -43,10 +57,21 @@ export enum SnapshotCsvColumn {
     TradingDays = 'tradingDays',
 }
 
-export type SnapshotCsvAccount = Pick<
-    PropAccountRow,
-    'archivedAt' | 'id' | 'label'
->;
+export type SnapshotCsvAccount = Pick<PlanKeyInput, 'optIns' | 'readIssues'> &
+    Pick<
+        PropAccountRow,
+        | 'accountSize'
+        | 'archivedAt'
+        | 'dashboardConvention'
+        | 'firmId'
+        | 'fundedOn'
+        | 'id'
+        | 'label'
+        | 'liveStartBalanceCents'
+        | 'planSerial'
+        | 'purchasedOn'
+        | 'stage'
+    >;
 
 export type SnapshotCsvPreview = CsvPreview<
     SnapshotCsvColumn,
@@ -59,6 +84,11 @@ export type SnapshotCsvStored = Pick<
 >;
 
 export type SnapshotImportRow = z.output<typeof snapshotCreateSchema>;
+
+interface RowPlausibility {
+    readonly blocking: readonly CsvIssue[];
+    readonly warnings: readonly CsvIssue[];
+}
 
 type SnapshotValueColumn = Exclude<
     SnapshotCsvColumn,
@@ -87,6 +117,41 @@ export const SNAPSHOT_CSV_COLUMNS: readonly SnapshotCsvColumn[] = [
     SnapshotCsvColumn.EvalBestDayProfit,
     SnapshotCsvColumn.LastTradedOn,
 ];
+
+const UNRESOLVED_PLAN_MESSAGE =
+    'the plan cannot be resolved, so the balances cannot be checked';
+
+const PLAUSIBILITY_COLUMNS: Readonly<
+    Record<SnapshotInputField, SnapshotCsvColumn>
+> = {
+    [SnapshotInputField.AsOf]: SnapshotCsvColumn.AsOf,
+    [SnapshotInputField.Balance]: SnapshotCsvColumn.Balance,
+    [SnapshotInputField.BalanceAtLastPayout]:
+        SnapshotCsvColumn.BalanceAtLastPayout,
+    [SnapshotInputField.CumulativePayout]: SnapshotCsvColumn.CumulativePayout,
+    [SnapshotInputField.CycleBestDayProfit]:
+        SnapshotCsvColumn.CycleBestDayProfit,
+    [SnapshotInputField.DashboardConvention]: SnapshotCsvColumn.Account,
+    [SnapshotInputField.DashboardFloor]: SnapshotCsvColumn.DashboardFloor,
+    [SnapshotInputField.EvalBestDayProfit]: SnapshotCsvColumn.EvalBestDayProfit,
+    [SnapshotInputField.FirstFundedTradeOn]: SnapshotCsvColumn.Account,
+    [SnapshotInputField.FloorAtLastPayout]: SnapshotCsvColumn.FloorAtLastPayout,
+    [SnapshotInputField.FundedOn]: SnapshotCsvColumn.Account,
+    [SnapshotInputField.FundedResetsUsed]: SnapshotCsvColumn.Account,
+    [SnapshotInputField.HighestEodBalance]: SnapshotCsvColumn.HighestEodBalance,
+    [SnapshotInputField.HighestIntradayBalance]:
+        SnapshotCsvColumn.HighestIntradayBalance,
+    [SnapshotInputField.LastPayoutOn]: SnapshotCsvColumn.LastPayoutOn,
+    [SnapshotInputField.LastTradedOn]: SnapshotCsvColumn.LastTradedOn,
+    [SnapshotInputField.LiveStartBalance]: SnapshotCsvColumn.Account,
+    [SnapshotInputField.PayoutsTaken]: SnapshotCsvColumn.PayoutsTaken,
+    [SnapshotInputField.PendingPayouts]: SnapshotCsvColumn.Account,
+    [SnapshotInputField.PurchasedOn]: SnapshotCsvColumn.Account,
+    [SnapshotInputField.QualifyingDaysSinceLastPayout]:
+        SnapshotCsvColumn.QualifyingDaysSinceLastPayout,
+    [SnapshotInputField.Stage]: SnapshotCsvColumn.Account,
+    [SnapshotInputField.TradingDays]: SnapshotCsvColumn.TradingDays,
+};
 
 const STORED_SNAPSHOT_MESSAGE =
     'a snapshot for this account and date is already stored; remove it first or use another date';
@@ -126,10 +191,9 @@ export function previewSnapshotCsv(
     accounts: readonly SnapshotCsvAccount[],
     stored: readonly SnapshotCsvStored[],
 ): SnapshotCsvPreview {
+    const active = activeAccounts(accounts);
     const activeIds = new Map(
-        accounts
-            .filter((account) => account.archivedAt === null)
-            .map((account) => [account.label, account.id] as const),
+        active.map((account) => [account.label, account.id] as const),
     );
     const preview = buildCsvPreview(
         parseCsvTable(
@@ -144,7 +208,29 @@ export function previewSnapshotCsv(
         REQUIRED_SNAPSHOT_CSV_COLUMNS,
     );
     const withBatch = appendCsvIssues(preview, batchIssues(preview));
-    return appendCsvIssues(withBatch, storedSnapshotIssues(withBatch, stored));
+    const withStored = appendCsvIssues(
+        withBatch,
+        storedSnapshotIssues(withBatch, stored),
+    );
+    return appendCsvIssues(
+        withStored,
+        rowsPlausibility(preview, active).flatMap((row) => row.blocking),
+    );
+}
+
+export function snapshotCsvWarnings(
+    preview: SnapshotCsvPreview,
+    accounts: readonly SnapshotCsvAccount[],
+): readonly CsvIssue[] {
+    return rowsPlausibility(preview, activeAccounts(accounts)).flatMap(
+        (row) => row.warnings,
+    );
+}
+
+function activeAccounts(
+    accounts: readonly SnapshotCsvAccount[],
+): readonly SnapshotCsvAccount[] {
+    return accounts.filter((account) => account.archivedAt === null);
 }
 
 function batchIssues(preview: SnapshotCsvPreview): readonly CsvIssue[] {
@@ -179,6 +265,18 @@ function columnOfField(
 ): null | SnapshotCsvColumn {
     const match = SCHEMA_PATH_COLUMNS.find(([, path]) => path[0] === field);
     return match === undefined ? null : match[0];
+}
+
+function plausibilityCsvIssue(
+    rowNumber: number,
+    issue: SnapshotPlausibilityIssue,
+): CsvIssue {
+    return {
+        column: PLAUSIBILITY_COLUMNS[issue.field],
+        kind: CsvIssueKind.Plausibility,
+        message: snapshotEntryIssueMessage(issue),
+        rowNumber,
+    };
 }
 
 function readAccountId(
@@ -256,6 +354,66 @@ function readSnapshotRow(
     if (parsed.success) return parsed.data;
     reader.addSchemaIssues(parsed.error.issues, SCHEMA_PATH_COLUMNS);
     return undefined;
+}
+
+function rowPlausibility(
+    rowNumber: number,
+    account: SnapshotCsvAccount,
+    snapshot: SnapshotImportRow,
+): RowPlausibility {
+    const resolution = resolvePlanKey(account);
+    if (resolution.kind === PlanKeyResolutionKind.Unresolved) {
+        return {
+            blocking: [
+                {
+                    column: SnapshotCsvColumn.Account,
+                    kind: CsvIssueKind.Cell,
+                    message: `${UNRESOLVED_PLAN_MESSAGE}: ${describeUnresolvedPlan(account, resolution.reason)}`,
+                    rowNumber,
+                },
+            ],
+            warnings: [],
+        };
+    }
+    const { plan } = resolution;
+    const stage = accountStageOn(
+        account,
+        plan,
+        NO_RECORDED_STAGE_STARTS,
+        snapshot.asOf,
+    );
+    const { blocking, warnings } = checkSnapshotEntry(
+        plan,
+        stage,
+        account,
+        snapshot,
+    );
+    return {
+        blocking: blocking.map((issue) =>
+            plausibilityCsvIssue(rowNumber, issue),
+        ),
+        warnings: warnings.map((issue) =>
+            plausibilityCsvIssue(rowNumber, issue),
+        ),
+    };
+}
+
+function rowsPlausibility(
+    preview: SnapshotCsvPreview,
+    accounts: readonly SnapshotCsvAccount[],
+): readonly RowPlausibility[] {
+    if (preview.kind === CsvTableKind.Failed) return [];
+    const byId = new Map(
+        accounts.map((account) => [account.id, account] as const),
+    );
+    return preview.rows.flatMap((row) => {
+        const { rowNumber, value } = row;
+        if (value === null) return [];
+        const account = byId.get(value.accountId);
+        return account === undefined
+            ? []
+            : [rowPlausibility(rowNumber, account, value)];
+    });
 }
 
 function snapshotKey(accountId: string, asOf: string): string {

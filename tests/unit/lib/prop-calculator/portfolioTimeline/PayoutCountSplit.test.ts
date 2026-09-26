@@ -9,6 +9,7 @@ import {
     flatDayPolicy,
     fraction,
     type Plan,
+    PolicySizing,
 } from '~/lib/prop-calculator/core';
 import { AlphaFutures } from '~/lib/prop-calculator/firms/alphafutures/AlphaFutures';
 import { runEvalToFundedCycle } from '~/lib/prop-calculator/portfolioTimeline';
@@ -17,7 +18,12 @@ import { type Rng } from '~/lib/prop-calculator/rng';
 const alwaysWinRng: Rng = () => 0;
 
 function payoutAmounts(plan: Plan): number[] {
-    const dayPolicy = flatDayPolicy(250, 1, { kind: DayStopRuleKind.None });
+    const dayPolicy = flatDayPolicy(
+        250,
+        1,
+        { kind: DayStopRuleKind.None },
+        PolicySizing.ContractCapped,
+    );
     return runEvalToFundedCycle({
         cardDayBudget: 60,
         commission: dollars(0),

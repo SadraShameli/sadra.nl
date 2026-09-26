@@ -286,14 +286,18 @@ describe('CsvRowReader', () => {
     });
 
     it.each([
-        '$250',
-        '1,000',
-        '12.345',
-        'abc',
-        '1e3',
-        '21474836.48',
-        '-21474836.49',
-    ])(
+        ['$250', 25_000],
+        ['1,000', 100_000],
+        ['$52,400.00', 5_240_000],
+        ['-$12.34', -1234],
+    ])('reads the money cell "%s" as the account form does', (text, cents) => {
+        const reader = readerFor({ [Column.Amount]: text });
+
+        expect(reader.money(Column.Amount)).toBe(cents);
+        expect(reader.issues).toEqual([]);
+    });
+
+    it.each(['12.345', 'abc', '1e3', '21474836.48', '-21474836.49'])(
         'rejects the money cell "%s" with a cell issue naming the format and the storable range',
         (text) => {
             const reader = readerFor({ [Column.Amount]: text });
@@ -304,7 +308,7 @@ describe('CsvRowReader', () => {
                     column: Column.Amount,
                     kind: CsvIssueKind.Cell,
                     message:
-                        'must be a dollar amount like 1234.56, without a $ sign or thousands separators, from -21474836.48 to 21474836.47',
+                        'must be a dollar amount like 1234.56 with at most 2 decimals, from -21474836.48 to 21474836.47',
                     rowNumber: 7,
                 },
             ]);

@@ -27,7 +27,12 @@ export { AlertSeverity, alertSeverityRank } from './AlertSeverity';
 export { EvalDayCapRule } from './EvalDayCapRule';
 export { InvalidStoredDateRule } from './InvalidStoredDateRule';
 export { LifetimePayoutCountRule } from './LifetimePayoutCountRule';
-export { MixedStageCopyGroupRule } from './MixedStageCopyGroupRule';
+export {
+    hasMixedStages,
+    MixedStageCopyGroupRule,
+    type StageCount,
+    stageCountsOf,
+} from './MixedStageCopyGroupRule';
 export { PayoutCountMismatchRule } from './PayoutCountMismatchRule';
 export { PayoutDollarMismatchRule } from './PayoutDollarMismatchRule';
 export { StaleSnapshotRule } from './StaleSnapshotRule';

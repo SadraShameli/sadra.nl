@@ -5,9 +5,12 @@ import type { PropAccountRow } from '~/server/db/schemas/prop';
 import {
     AccountStage,
     DashboardBalanceConvention,
+    liveStartEntryIssues,
     type PersonalRules,
+    PlanKeyResolutionKind,
     PlanOptIn,
     planOptInField,
+    resolvePlanKey,
     type UsdCents,
 } from '~/lib/prop-accounts/core';
 import { FirmId, type PlanOptIns } from '~/lib/prop-calculator';
@@ -143,7 +146,10 @@ export function previewAccountCsv(
         readAccountRow,
         REQUIRED_ACCOUNT_CSV_COLUMNS,
     );
-    return appendCsvIssues(preview, labelIssues(preview, existing));
+    return appendCsvIssues(preview, [
+        ...labelIssues(preview, existing),
+        ...liveStartIssues(preview),
+    ]);
 }
 
 function labelIssues(
@@ -177,6 +183,25 @@ function labelIssues(
         });
     }
     return issues;
+}
+
+function liveStartIssues(preview: AccountCsvPreview): readonly CsvIssue[] {
+    if (preview.kind === CsvTableKind.Failed) return [];
+    return preview.rows.flatMap(({ rowNumber, value }) => {
+        if (value === null) return [];
+        const resolution = resolvePlanKey({ ...value, readIssues: [] });
+        if (resolution.kind === PlanKeyResolutionKind.Unresolved) return [];
+        return liveStartEntryIssues(
+            resolution.plan,
+            AccountStage.Live,
+            value,
+        ).map((issue) => ({
+            column: AccountCsvColumn.LiveStartBalance,
+            kind: CsvIssueKind.Plausibility,
+            message: issue.message,
+            rowNumber,
+        }));
+    });
 }
 
 function readAccountRow(

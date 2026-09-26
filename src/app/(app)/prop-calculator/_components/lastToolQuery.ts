@@ -1,9 +1,12 @@
-export type QueryStorage = Pick<Storage, 'getItem' | 'setItem'>;
+import {
+    type KeyValueStorage,
+    sessionStorageOrNull,
+} from '~/app/(app)/prop-calculator/_components/browserStorage';
 
 const LAST_TOOL_QUERY_KEY = 'propCalc.lastToolQuery.v1';
 
 export function readLastToolQuery(
-    storage: null | QueryStorage = sessionStorageOrNull(),
+    storage: KeyValueStorage | null = sessionStorageOrNull(),
 ): null | string {
     if (storage === null) return null;
     try {
@@ -16,7 +19,7 @@ export function readLastToolQuery(
 
 export function writeLastToolQuery(
     query: string,
-    storage: null | QueryStorage = sessionStorageOrNull(),
+    storage: KeyValueStorage | null = sessionStorageOrNull(),
 ): void {
     if (storage === null) return;
     try {
@@ -29,12 +32,4 @@ export function writeLastToolQuery(
 function normalizedQuery(raw: string): null | string {
     const query = new URLSearchParams(raw).toString();
     return query === '' ? null : query;
-}
-
-function sessionStorageOrNull(): null | QueryStorage {
-    try {
-        return typeof window === 'undefined' ? null : window.sessionStorage;
-    } catch {
-        return null;
-    }
 }

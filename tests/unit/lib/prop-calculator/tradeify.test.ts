@@ -16,6 +16,7 @@ import {
     newFundedCycleTracker,
     type Plan,
     points,
+    PolicySizing,
     resetForNewDay,
     resolveDailyLossLimit,
     RungSizing,
@@ -164,6 +165,7 @@ function runSelectFundedDay(
         dayPolicy: {
             ladder: options.ladder,
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
         },
         fundedCycle: freshFundedCycle(plan, state),

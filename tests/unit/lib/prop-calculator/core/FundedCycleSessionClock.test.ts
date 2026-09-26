@@ -10,6 +10,7 @@ import {
     MffuVariant,
     newFundedCycleTracker,
     type Plan,
+    PolicySizing,
 } from '~/lib/prop-calculator/core';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
@@ -48,7 +49,12 @@ function simulatedPayouts(idleDayProbability: number, seed: number) {
     const result = runFundedDays({
         commission: dollars(0),
         dayOffsetBase: 0,
-        dayPolicy: flatDayPolicy(250, 1, { kind: DayStopRuleKind.None }),
+        dayPolicy: flatDayPolicy(
+            250,
+            1,
+            { kind: DayStopRuleKind.None },
+            PolicySizing.ContractCapped,
+        ),
         discounts: undefined,
         equityCurve: null,
         idleDayProbability,

@@ -38,6 +38,8 @@ import {
 import * as firms from '~/lib/prop-calculator/firms';
 import { buildLucidDailyLivePlan } from '~/lib/prop-calculator/firms';
 
+import { flagsNamedButNotAccepted } from './helpFlags';
+
 const TOPSTEP_CUSHION = {
     postLock: fraction(0.05),
     preLock: fraction(0.05),
@@ -990,5 +992,11 @@ describe('prop live --transition-profit help is built when the arguments are res
         ).toThrow(
             '--transition-profit help: Lucid has no live transition plan builder',
         );
+    });
+});
+
+describe('prop live --help names only flags prop live accepts (WP43d)', () => {
+    it('names no flag prop live lacks, such as --unaffordable, --percent or --funded-ladder', async () => {
+        expect(await flagsNamedButNotAccepted(liveCommand)).toStrictEqual([]);
     });
 });

@@ -7,6 +7,7 @@ import {
     FirmId,
     flatDayPolicy,
     fraction,
+    PolicySizing,
     RungSizing,
     TradeifyVariant,
 } from '~/lib/prop-calculator/core';
@@ -36,7 +37,12 @@ function apexWithFees(oneTimeEval: number, reset: number) {
 
 describe('N-12: the cash-flow timeline prices eval retries on the D1 cheaper path', () => {
     it('re-buys instead of paying a reset that costs more than a fresh eval', () => {
-        const policy = flatDayPolicy(3000, 1, { kind: DayStopRuleKind.None });
+        const policy = flatDayPolicy(
+            3000,
+            1,
+            { kind: DayStopRuleKind.None },
+            PolicySizing.ContractCapped,
+        );
         const card = runEvalToFundedCycle({
             cardDayBudget: 30,
             commission: dollars(0),

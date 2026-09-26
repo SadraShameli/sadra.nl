@@ -14,6 +14,11 @@ export interface StagedAccount {
     readonly stage: AccountStage;
 }
 
+export const NO_RECORDED_STAGE_STARTS: AccountStageStarts = {
+    evalPassedOn: null,
+    movedLiveOn: null,
+};
+
 export function accountStageOn(
     account: StagedAccount,
     facts: Pick<PlanLifecycleFacts, 'isInstantFunded'>,

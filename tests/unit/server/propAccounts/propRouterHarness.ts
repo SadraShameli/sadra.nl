@@ -32,6 +32,7 @@ import {
     readTable,
     writeTable,
 } from '../fakeDatabase';
+import './resetModulesAfterFile';
 
 export interface RegistryEntry {
     readonly firm: TradingFirm;

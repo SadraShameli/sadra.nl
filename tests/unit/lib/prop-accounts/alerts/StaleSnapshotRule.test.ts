@@ -7,7 +7,11 @@ import {
     AlertSubjectKind,
     StaleSnapshotRule,
 } from '~/lib/prop-accounts/alerts';
-import { AccountStage, AccountStatus } from '~/lib/prop-accounts/core';
+import {
+    AccountStage,
+    accountStageLabel,
+    AccountStatus,
+} from '~/lib/prop-accounts/core';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
 import {
@@ -66,6 +70,10 @@ describe('StaleSnapshotRule', () => {
             });
             expect(alert?.message).toContain(MONDAY);
             expect(alert?.message).toContain(TUESDAY);
+            expect(alert?.message).toContain(
+                `before sizing this ${accountStageLabel(stage)} account`,
+            );
+            expect(alert?.message).not.toContain(`this ${stage} account`);
             expect(alert?.disclosures).toEqual([
                 AlertDisclosure.NoHolidayCalendar,
             ]);
@@ -107,8 +115,23 @@ describe('StaleSnapshotRule', () => {
             const { alerts } = alertsFor(stage, null);
             expect(alerts).toHaveLength(1);
             expect(alerts[0]?.message).toContain('No balance snapshot');
+            expect(alerts[0]?.message).toContain(
+                `for this ${accountStageLabel(stage)} account`,
+            );
         },
     );
+
+    it('names the stage by its label, never by the raw stage value', () => {
+        expect(alertsFor(AccountStage.Eval, null).alerts[0]?.message).toBe(
+            'No balance snapshot recorded yet for this Evaluation account; enter its current balance',
+        );
+        const stale = alertsFor(AccountStage.Eval, MONDAY).alerts[0]?.message;
+        expect(stale).toContain('this Evaluation account');
+        expect(stale).not.toContain('this eval account');
+        expect(
+            alertsFor(AccountStage.Live, MONDAY).alerts[0]?.message,
+        ).toContain('before sizing this Live account');
+    });
 
     it('ignores accounts that are not active', () => {
         const account = accountFor(ANY_EVAL_PLAN, {

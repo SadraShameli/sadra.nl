@@ -8,6 +8,7 @@ import {
     ladderTrialStreams,
     MffuVariant,
     type Plan,
+    PolicySizing,
     RungSizing,
     scoreLadder,
 } from '~/lib/prop-calculator/core';
@@ -91,6 +92,7 @@ describe('scoreLadder stops eval attempts at the plan eval-day cap', () => {
             evalDayPolicy: {
                 ladder: [200],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.DayGreen },
             },
             fundedHorizonDays: 1,

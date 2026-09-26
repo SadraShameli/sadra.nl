@@ -38,7 +38,7 @@ import {
 } from '~/lib/prop-calculator/simulator';
 
 interface ProviderHarness {
-    base: { isPending: boolean; result: null };
+    base: { error: null | string; isPending: boolean; result: null };
     inputs: {
         debouncedQuery: string;
         firms: typeof ALL_FIRMS;
@@ -111,6 +111,18 @@ const NO_OPT_INS: PlanOptIns = {
     takesOneTimeEarlyWithdrawal: false,
 };
 const NOTICE = '.app-prop-calculator__simulation-failure';
+const PENDING_BASE: ProviderHarness['base'] = {
+    error: null,
+    isPending: true,
+    result: null,
+};
+const FAILED_BASE: ProviderHarness['base'] = {
+    error: null,
+    isPending: false,
+    result: null,
+};
+const BASE_FAILURE_TEXT =
+    'The simulation could not run for these inputs, so there is no result to show. Change an input to run it again.';
 
 function currentProvider(): ProviderHarness {
     if (harness.current === null) throw new Error('no provider state');
@@ -121,9 +133,12 @@ function hintText(container: HTMLElement): string {
     return container.querySelector('#position-sizing-hint')?.textContent ?? '';
 }
 
-function provide(state: CalculatorState) {
+function provide(
+    state: CalculatorState,
+    base: ProviderHarness['base'] = PENDING_BASE,
+) {
     harness.current = {
-        base: { isPending: false, result: null },
+        base,
         inputs: {
             debouncedQuery: '',
             firms: ALL_FIRMS,
@@ -283,6 +298,53 @@ describe('refused sizing in the web panels (PT-11f)', () => {
             expect(notices()).toEqual([]);
             expect(container.querySelector('.animate-pulse')).not.toBeNull();
         });
+
+        it('the simulator page shows a failure message, not a skeleton, when a run for the current inputs gave no result', () => {
+            provide(stateWith({}), FAILED_BASE);
+            render(<SimulatorView />);
+            expect(notices()).toEqual([BASE_FAILURE_TEXT, BASE_FAILURE_TEXT]);
+            expect(container.querySelector('.animate-pulse')).toBeNull();
+        });
+
+        it('the analysis page shows a failure message in every base result section when a run gave no result', () => {
+            provide(stateWith({}), FAILED_BASE);
+            render(<AnalysisView />);
+            expect(notices()).toEqual([
+                BASE_FAILURE_TEXT,
+                BASE_FAILURE_TEXT,
+                BASE_FAILURE_TEXT,
+                BASE_FAILURE_TEXT,
+            ]);
+        });
+
+        it('the simulator page shows the skeleton, not the last run error, while newer inputs are pending (PT-11g)', () => {
+            provide(stateWith({}), {
+                error: 'simulate: an error from the previous inputs',
+                isPending: true,
+                result: null,
+            });
+            render(<SimulatorView />);
+            expect(notices()).toEqual([]);
+            expect(container.querySelector('.animate-pulse')).not.toBeNull();
+        });
+
+        it('the analysis page shows the engine error of the current run in every base result section (PT-11g)', () => {
+            const message = 'simulate: trials must be a positive safe integer';
+            provide(stateWith({}), {
+                error: message,
+                isPending: false,
+                result: null,
+            });
+            render(<AnalysisView />);
+            expect(notices()).toEqual([message, message, message, message]);
+        });
+
+        it('the analysis page still shows the skeleton while the default inputs are pending', () => {
+            provide(stateWith({}));
+            render(<AnalysisView />);
+            expect(notices()).toEqual([]);
+            expect(container.querySelector('.animate-pulse')).not.toBeNull();
+        });
     });
 
     describe('the debounced panels', () => {
@@ -390,6 +452,44 @@ describe('refused sizing in the web panels (PT-11f)', () => {
             ]);
         });
 
+        it('PortfolioPanel counts only the simulated rows in its account totals', () => {
+            const state = stateWith({ riskDollars: 150 });
+            provide(state);
+            const [apex] = state.portfolio;
+            if (apex === undefined) throw new Error('default portfolio row');
+            const portfolio: PortfolioEntry[] = [
+                { ...apex, count: 2, id: 'accepted-a' },
+                { ...apex, count: 1, id: 'accepted-b' },
+                {
+                    ...apex,
+                    count: 3,
+                    id: 'refused-row',
+                    instrument: InstrumentSymbol.NQ,
+                    stopPoints: 10,
+                },
+            ];
+            render(
+                <PortfolioPanel
+                    baseInputs={buildSimInputs(state)}
+                    currentFirm={state.firm}
+                    currentPlan={state.plan}
+                    firms={ALL_FIRMS}
+                    onPortfolioChange={vi.fn()}
+                    planOptIns={NO_OPT_INS}
+                    portfolio={portfolio}
+                />,
+            );
+            expect(simulate).toHaveBeenCalledTimes(2);
+            const accountsCard = [...container.querySelectorAll('p')]
+                .find((node) => node.textContent === 'Total accounts')
+                ?.closest('.px-3');
+            expect(accountsCard?.querySelector('.font-mono')?.textContent).toBe(
+                '3',
+            );
+            expect(container.textContent).toContain('Total (3 accounts)');
+            expect(container.textContent).not.toContain('Total (6 accounts)');
+        });
+
         it('StrategyLabPanel skips a refused scenario, says why, and simulates the others', () => {
             const state = stateWith({});
             provide(state);
@@ -464,6 +564,66 @@ describe('refused sizing in the web panels (PT-11f)', () => {
             expect(notices()).toEqual([
                 'runAccountTimeline: dayBudget must be positive',
             ]);
+        });
+
+        it('CashFlowPanel runs no timeline and shows the refusal for NQ at a 10 point stop and $150 (PT-11g)', () => {
+            const state = refusedState();
+            provide(state);
+            const inputs = buildSimInputs(state);
+            render(
+                <CashFlowPanel
+                    baseInputs={inputs}
+                    firmDisplayName={state.firm.displayName}
+                    maxAccounts={5}
+                />,
+            );
+            expect(simulatePortfolioTimeline).not.toHaveBeenCalled();
+            expect(notices()).toEqual([requiredIssue(inputs)]);
+            expect(container.textContent).not.toContain('Computing cash flow');
+            expect(container.textContent).not.toContain('Median final net');
+            expect(container.textContent).not.toContain('P(ever break-even)');
+        });
+
+        it('CashFlowPanel places one NQ contract at a 10 point stop and $200 (PT-11g)', () => {
+            const state = stateWith({
+                instrument: InstrumentSymbol.NQ,
+                riskDollars: 200,
+                stopPoints: 10,
+            });
+            provide(state);
+            render(
+                <CashFlowPanel
+                    baseInputs={buildSimInputs(state)}
+                    firmDisplayName={state.firm.displayName}
+                    maxAccounts={5}
+                />,
+            );
+            expect(simulatePortfolioTimeline).toHaveBeenCalledTimes(1);
+            expect(
+                vi.mocked(simulatePortfolioTimeline).mock.calls[0]?.[0],
+            ).toMatchObject({
+                instrument: InstrumentSymbol.NQ,
+                riskPerTrade: 200,
+                stopPoints: 10,
+            });
+            expect(notices()).toEqual([]);
+        });
+
+        it('CashFlowPanel keeps the default inputs (stop points off) free of position sizing (PT-11g)', () => {
+            const state = stateWith({});
+            provide(state);
+            render(
+                <CashFlowPanel
+                    baseInputs={buildSimInputs(state)}
+                    firmDisplayName={state.firm.displayName}
+                    maxAccounts={5}
+                />,
+            );
+            expect(simulatePortfolioTimeline).toHaveBeenCalledTimes(1);
+            const [timelineInputs] =
+                vi.mocked(simulatePortfolioTimeline).mock.calls[0] ?? [];
+            expect(timelineInputs?.stopPoints).toBeUndefined();
+            expect(notices()).toEqual([]);
         });
     });
 });

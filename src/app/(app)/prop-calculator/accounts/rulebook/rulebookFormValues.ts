@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { formatUsdCents, usdCents, usdCentsToText } from '~/lib/prop-accounts';
+import {
+    EntryTextKind,
+    formatUsdCents,
+    parseMoneyText,
+    usdCents,
+    usdCentsToText,
+} from '~/lib/prop-accounts';
 import { DayStopRuleKind } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
@@ -14,11 +20,6 @@ import {
     rulebookSchema,
     RuleSource,
 } from '~/lib/prop-calculator/advisor';
-
-import {
-    EntryTextKind,
-    parseMoneyText,
-} from '../_components/snapshotFieldRules';
 
 export enum FieldKind {
     Count = 'count',

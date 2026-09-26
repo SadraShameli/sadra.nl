@@ -7,6 +7,7 @@ import {
     FirmId,
     flatDayPolicy,
     fraction,
+    PolicySizing,
     RungSizing,
     TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator/core';
@@ -273,9 +274,14 @@ describe('N-13: the portfolio timeline fails loud on a trial count, day budget, 
     it.each(invalidCounts)(
         'runEvalToFundedCycle rejects maxEvalDays %s instead of clamping it',
         (maxEvalDays) => {
-            const policy = flatDayPolicy(300, 3, {
-                kind: DayStopRuleKind.None,
-            });
+            const policy = flatDayPolicy(
+                300,
+                3,
+                {
+                    kind: DayStopRuleKind.None,
+                },
+                PolicySizing.ContractCapped,
+            );
             expect(() =>
                 runEvalToFundedCycle({
                     cardDayBudget: 0,

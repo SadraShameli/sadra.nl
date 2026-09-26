@@ -37,10 +37,10 @@ import {
 } from '~/components/ui/Table';
 import {
     AccountStage,
+    accountStageLabel,
     AccountStatus,
     findStoredFirm,
     PlanKeyResolutionKind,
-    todayIsoDate,
 } from '~/lib/prop-accounts';
 import { findFirm, FirmId } from '~/lib/prop-calculator';
 import { routes } from '~/lib/site/routes';
@@ -55,7 +55,6 @@ import {
     AccountSortKey,
     accountStatusLabel,
     accountTagOptions,
-    alertSubjectView,
     buildAccountListRows,
     DEFAULT_ACCOUNT_LIST_FILTERS,
     DEFAULT_ACCOUNT_LIST_SORT,
@@ -63,9 +62,8 @@ import {
     readOnlyAlertTitle,
     sortAccountRows,
     SortDirection,
-    unresolvablePlanAlerts,
 } from './accountListFilters';
-import { accountStageLabel, formatUsdCents } from './accountPlanOptions';
+import { formatUsdCents } from './accountPlanOptions';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
 
 const ALL = 'all';
@@ -120,13 +118,6 @@ export function AccountsTable() {
         () => sortAccountRows(filterAccountRows(rows, filters), sort),
         [rows, filters, sort],
     );
-    const alerts = useMemo(
-        () =>
-            accounts === undefined
-                ? []
-                : unresolvablePlanAlerts(accounts, todayIsoDate(new Date())),
-        [accounts],
-    );
     const groupNames = useMemo(
         () =>
             new Map(
@@ -138,7 +129,7 @@ export function AccountsTable() {
     if (accountsQuery.isPending) {
         return <Skeleton className="h-64 w-full" />;
     }
-    if (accountsQuery.isError) {
+    if (accounts === undefined) {
         return (
             <Alert variant="destructive">
                 <TriangleAlert />
@@ -149,7 +140,7 @@ export function AccountsTable() {
             </Alert>
         );
     }
-    if (accountsQuery.data.length === 0) {
+    if (accounts.length === 0) {
         return (
             <EmptyState
                 action={
@@ -183,7 +174,7 @@ export function AccountsTable() {
             label: accountStatusLabel(status),
             value: status,
         })),
-        tags: accountTagOptions(accountsQuery.data).map((tag) => ({
+        tags: accountTagOptions(accounts).map((tag) => ({
             label: tag,
             value: tag,
         })),
@@ -197,18 +188,16 @@ export function AccountsTable() {
             <h2 className="sr-only" id="prop-accounts-list-heading">
                 Accounts
             </h2>
-            {alerts.map((alert) => {
-                const subject = alertSubjectView(alert);
-                return (
-                    <Alert key={subject.key} variant="warning">
-                        <TriangleAlert />
-                        <AlertTitle>
-                            {readOnlyAlertTitle(subject.label)}
-                        </AlertTitle>
-                        <AlertDescription>{alert.message}</AlertDescription>
-                    </Alert>
-                );
-            })}
+            {accountsQuery.isError && (
+                <Alert variant="warning">
+                    <TriangleAlert />
+                    <AlertTitle>The accounts could not be refreshed</AlertTitle>
+                    <AlertDescription>
+                        {accountsQuery.error.message} The table shows the last
+                        loaded accounts.
+                    </AlertDescription>
+                </Alert>
+            )}
             {snapshotsQuery.isError && (
                 <Alert variant="warning">
                     <TriangleAlert />
@@ -480,7 +469,12 @@ function AccountRow({
     return (
         <TableRow className={cn(isArchived && 'opacity-60')}>
             <TableCell className="align-top">
-                <div className="font-medium">{account.label}</div>
+                <Link
+                    className="font-medium underline-offset-4 hover:underline"
+                    href={routes.propCalculator.accounts.detail(account.id)}
+                >
+                    {account.label}
+                </Link>
                 {account.tags.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
                         {account.tags.map((tag) => (

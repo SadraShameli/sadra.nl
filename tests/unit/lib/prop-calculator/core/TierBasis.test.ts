@@ -15,6 +15,7 @@ import {
     PeakRatchet,
     type Plan,
     points,
+    PolicySizing,
     resolveDailyLossLimit,
     RungSizing,
     selectTier,
@@ -502,7 +503,12 @@ describe('the intraday peak is a required part of the tier context (N-15 follow-
 
         runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(1000, 1),
+            dayPolicy: flatDayPolicy(
+                1000,
+                1,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             fundedCycle: freshFundedCycle(plan, state),
             phase: TradingPhase.Funded,
             plan,

@@ -147,13 +147,13 @@ export default function PortfolioPanel({
             (s, { entry, out }) => s + out.accountSize * entry.count,
             0,
         );
-        const totalAccounts = portfolio.reduce(
-            (s, entry) => s + entry.count,
+        const totalAccounts = simmed.reduce(
+            (s, { entry }) => s + entry.count,
             0,
         );
         const roi = annualisedRoiOnCost(monthlyNet, totalCost);
         return { monthlyNet, roi, totalAccounts, totalCost, totalFunding };
-    }, [simmed, portfolio]);
+    }, [simmed]);
 
     function addEntry() {
         onPortfolioChange([
@@ -278,7 +278,7 @@ export default function PortfolioPanel({
                             />
                             <SummaryCard
                                 info={{
-                                    body: "Sum of account counts across all portfolio rows. Each row's count represents how many parallel funded accounts of that firm/plan you are running.",
+                                    body: "Sum of account counts across the simulated portfolio rows, the same rows as the net and cost totals: a row that is not simulated is not counted. Each row's count represents how many parallel funded accounts of that firm/plan you are running.",
                                     title: 'Total accounts',
                                 }}
                                 label="Total accounts"

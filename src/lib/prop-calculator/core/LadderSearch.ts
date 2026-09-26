@@ -13,6 +13,7 @@ import { DailyLossLimitKind, resolveDailyLossLimit } from './DailyLossLimit';
 import {
     canonicaliseLadder,
     type DayPolicy,
+    PolicySizing,
     resolveAffordableRisk,
     resolveTradeRisk,
     type RungSizing,
@@ -488,7 +489,12 @@ export function scoreLadder(
             commission,
             contractLimit,
             dailyLossLimit,
-            dayPolicy: { ladder, maxLossesPerDay: null, stopRule },
+            dayPolicy: {
+                ladder,
+                maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
+                stopRule,
+            },
             dayStart: {
                 ...state,
                 balance,

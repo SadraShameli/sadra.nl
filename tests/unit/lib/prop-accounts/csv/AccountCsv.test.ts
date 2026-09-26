@@ -5,6 +5,8 @@ import {
     DashboardBalanceConvention,
     describeLifecycleRejection,
     LifecycleRejection,
+    liveStartEntryIssues,
+    usdCents,
 } from '~/lib/prop-accounts';
 import {
     AccountCsvColumn,
@@ -24,6 +26,8 @@ import {
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
+
+import { documentedLiveStartEntry } from '../liveStartFixtures';
 
 interface RegistryEntry {
     readonly firm: TradingFirm;
@@ -250,7 +254,7 @@ describe('previewAccountCsv', () => {
             csv(
                 row(EVAL_PLAN, {
                     [AccountCsvColumn.Firm]: 'nofirm',
-                    [AccountCsvColumn.MaxRiskPerTrade]: '$250',
+                    [AccountCsvColumn.MaxRiskPerTrade]: '250.125',
                     [AccountCsvColumn.Stage]: 'challenge',
                 }),
             ),
@@ -307,6 +311,65 @@ describe('previewAccountCsv', () => {
                 rowNumber: 2,
             },
         ]);
+    });
+
+    it('flags a live start outside the documented range on its own row, whatever the stage, as the server does', () => {
+        const live = documentedLiveStartEntry();
+        const inRange = live.lowestStart.toFixed(2);
+        const outOfRange = (live.highestStart + 10_000).toFixed(2);
+        const outOfRangeCents = usdCents(
+            Math.round((live.highestStart + 10_000) * 100),
+        );
+        const preview = previewAccountCsv(
+            csv(
+                row(live, {
+                    [AccountCsvColumn.FundedOn]: '2026-09-10',
+                    [AccountCsvColumn.Label]: 'Live fine',
+                    [AccountCsvColumn.LiveStartBalance]: inRange,
+                    [AccountCsvColumn.Stage]: AccountStage.Live,
+                }),
+                row(live, {
+                    [AccountCsvColumn.FundedOn]: '2026-09-10',
+                    [AccountCsvColumn.Label]: 'Live off',
+                    [AccountCsvColumn.LiveStartBalance]: outOfRange,
+                    [AccountCsvColumn.Stage]: AccountStage.Live,
+                }),
+                row(live, {
+                    [AccountCsvColumn.FundedOn]: '2026-09-10',
+                    [AccountCsvColumn.Label]: 'Funded off',
+                    [AccountCsvColumn.LiveStartBalance]: outOfRange,
+                    [AccountCsvColumn.Stage]: AccountStage.Funded,
+                }),
+                row(live, {
+                    [AccountCsvColumn.FundedOn]: '2026-09-10',
+                    [AccountCsvColumn.Label]: 'Funded no start',
+                    [AccountCsvColumn.Stage]: AccountStage.Funded,
+                }),
+            ),
+            [],
+        );
+        const [expected] = liveStartEntryIssues(live.plan, AccountStage.Live, {
+            accountSize: live.plan.id.accountSize,
+            dashboardConvention: DashboardBalanceConvention.Nominal,
+            liveStartBalanceCents: outOfRangeCents,
+        });
+
+        expect(expected?.message).toContain('A live account after');
+        expect(issuesOf(preview)).toEqual(
+            [3, 4].map((rowNumber) => ({
+                column: AccountCsvColumn.LiveStartBalance,
+                kind: CsvIssueKind.Plausibility,
+                message: expected?.message,
+                rowNumber,
+            })),
+        );
+        expect(csvCommitPayload(preview)).toBeNull();
+        if (preview.kind !== CsvTableKind.Parsed) {
+            throw new Error('expected a parsed preview');
+        }
+        expect(
+            preview.rows.map((previewRow) => previewRow.value !== null),
+        ).toEqual([true, false, false, true]);
     });
 
     it('fails the whole file on a missing required column or more than 200 rows', () => {

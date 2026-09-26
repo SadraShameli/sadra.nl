@@ -98,7 +98,12 @@ function drawsForOneTrade(
     runDay(
         dayRunOptionsFor(phase, {
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(250, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                250,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
             intradayPathStepsPerR,
             plan,
             positionSizing: null,
@@ -185,16 +190,10 @@ describe('runDay places risk by the policy sizing field, not by a hidden marker 
                 flatDayPolicy(250, 1, undefined, PolicySizing.WholeContracts),
             ),
         ).toBe(-240);
-        expect(fundedLossWith(flatDayPolicy(250, 1))).toBe(-250);
-    });
-
-    it('treats a declared policy with no sizing field as ContractCapped', () => {
         expect(
-            fundedLossWith({
-                ladder: [250],
-                maxLossesPerDay: null,
-                stopRule: { kind: DayStopRuleKind.None },
-            }),
+            fundedLossWith(
+                flatDayPolicy(250, 1, undefined, PolicySizing.ContractCapped),
+            ),
         ).toBe(-250);
     });
 
@@ -228,23 +227,40 @@ describe('resolveDayPolicy sets the sizing of every policy it builds (T33, U18)'
         );
     });
 
-    it('returns a declared policy exactly as declared, so a declared ladder keeps its own sizing', () => {
-        const declared: DayPolicy = {
+    it('returns a declared policy exactly as declared when its sizing matches its phase, and refuses one that does not under position sizing (T33, U18)', () => {
+        const evalDeclared: DayPolicy = {
             ladder: [250, 500],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
+        };
+        const fundedDeclared: DayPolicy = {
+            ...evalDeclared,
+            sizing: PolicySizing.WholeContracts,
         };
         expect(
             resolveDayPolicy(
-                sizingInputs({ evalDayPolicy: declared }),
+                sizingInputs({ evalDayPolicy: evalDeclared }),
                 TradingPhase.Eval,
             ),
-        ).toBe(declared);
+        ).toBe(evalDeclared);
         expect(
             resolveDayPolicy(
-                sizingInputs({ fundedDayPolicy: declared }),
+                sizingInputs({ fundedDayPolicy: fundedDeclared }),
                 TradingPhase.Funded,
             ),
-        ).toBe(declared);
+        ).toBe(fundedDeclared);
+        expect(() =>
+            resolveDayPolicy(
+                sizingInputs({ evalDayPolicy: fundedDeclared }),
+                TradingPhase.Eval,
+            ),
+        ).toThrow(/evalDayPolicy\.sizing is wholeContracts/);
+        expect(() =>
+            resolveDayPolicy(
+                sizingInputs({ fundedDayPolicy: evalDeclared }),
+                TradingPhase.Funded,
+            ),
+        ).toThrow(/fundedDayPolicy\.sizing is contractCapped/);
     });
 });

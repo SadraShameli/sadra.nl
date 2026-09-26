@@ -2,6 +2,11 @@ export type DeltaKind = 'currency' | 'days' | 'number' | 'percent' | 'r';
 
 export const NOT_APPLICABLE = 'n/a';
 
+const CONJUNCTION_LIST = new Intl.ListFormat('en-GB', {
+    style: 'long',
+    type: 'conjunction',
+});
+
 export function formatCompactCurrency(n: number): string {
     const abs = Math.abs(n);
     const sign = n < 0 ? '-' : '';
@@ -11,6 +16,10 @@ export function formatCompactCurrency(n: number): string {
     return abs >= 1000
         ? `${sign}$${(abs / 1000).toFixed(abs % 1000 === 0 ? 0 : 1)}K`
         : formatCurrency(n);
+}
+
+export function formatConjunctionList(items: readonly string[]): string {
+    return CONJUNCTION_LIST.format(items);
 }
 
 export function formatCurrency(n: number, fractionDigits = 0): string {

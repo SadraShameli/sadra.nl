@@ -15,6 +15,7 @@ import {
     LucidVariant,
     newFundedCycleTracker,
     type Plan,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -206,11 +207,11 @@ describe('percent-of-cushion sizing places whole contracts (T33, N-71)', () => {
             pnl: number;
             risk: number;
         }[] = [];
-        const affordableRisk = plan.affordableRisk.bind(plan);
-        vi.spyOn(plan, 'affordableRisk').mockImplementation(
+        const affordableRoom = plan.affordableRoom.bind(plan);
+        vi.spyOn(plan, 'affordableRoom').mockImplementation(
             (state, phase, commission) => {
-                const room = affordableRisk(state, phase, commission);
-                affordable.push(room);
+                const room = affordableRoom(state, phase, commission);
+                affordable.push(room.room);
                 return room;
             },
         );
@@ -398,11 +399,11 @@ describe('the portfolio timeline places funded flat risk in whole contracts like
             [TradingPhase.Funded]: new Set<number>(),
         };
         let tradePhase: TradingPhase | undefined;
-        const affordableRisk = plan.affordableRisk.bind(plan);
-        vi.spyOn(plan, 'affordableRisk').mockImplementation(
+        const affordableRoom = plan.affordableRoom.bind(plan);
+        vi.spyOn(plan, 'affordableRoom').mockImplementation(
             (state, phase, commission) => {
                 tradePhase = phase;
-                return affordableRisk(state, phase, commission);
+                return affordableRoom(state, phase, commission);
             },
         );
         const drawdowns = new Set(
@@ -494,6 +495,7 @@ describe('simInputsSizingIssue is the one sizing check simulate and its callers 
                     fundedDayPolicy: {
                         ladder: [12.5],
                         maxLossesPerDay: null,
+                        sizing: PolicySizing.ContractCapped,
                         stopRule: { kind: DayStopRuleKind.None },
                     },
                 }),

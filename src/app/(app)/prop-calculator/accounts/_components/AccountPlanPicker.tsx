@@ -25,6 +25,7 @@ import {
     accountPlanOptions,
     type AccountPlanSelection,
     accountSizeOptions,
+    keepOfferedOptIns,
     planTagLabel,
 } from './accountPlanOptions';
 
@@ -57,20 +58,10 @@ export function AccountPlanPicker({
         : {};
 
     const selectPlan = (next: Plan, firmId: FirmId) => {
-        const offered = new Set(
-            accountOptInOptions(next).map((option) => option.field),
-        );
         onChange({
             accountSize: next.id.accountSize,
             firmId,
-            optIns: {
-                takesFundedReset:
-                    offered.has('takesFundedReset') &&
-                    value.optIns.takesFundedReset,
-                takesOneTimeEarlyWithdrawal:
-                    offered.has('takesOneTimeEarlyWithdrawal') &&
-                    value.optIns.takesOneTimeEarlyWithdrawal,
-            },
+            optIns: keepOfferedOptIns(next, value.optIns),
             planSerial: serializePlanId(next.id),
         });
     };

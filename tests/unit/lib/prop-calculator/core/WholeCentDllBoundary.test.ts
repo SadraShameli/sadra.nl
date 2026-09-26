@@ -20,6 +20,7 @@ import {
     LivePlan,
     ONE_CENT,
     type Plan,
+    PolicySizing,
     resolveAffordableRisk,
     RungSizing,
     TradingPhase,
@@ -108,6 +109,7 @@ function runScriptedDay(options: {
         dayPolicy: {
             ladder: options.ladder,
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
         },
         idleDayProbability: 0,

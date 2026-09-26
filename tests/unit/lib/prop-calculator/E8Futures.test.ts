@@ -15,6 +15,7 @@ import {
     maxContractsAt,
     PayoutFloorEffect,
     points,
+    PolicySizing,
     RungSizing,
     serializePlanId,
     tierContextFromProfits,
@@ -53,7 +54,12 @@ function signatureEvalMnqLossBalance(risk: number): number {
     );
     runDay({
         commission: dollars(0),
-        dayPolicy: flatDayPolicy(risk, 1),
+        dayPolicy: flatDayPolicy(
+            risk,
+            1,
+            undefined,
+            PolicySizing.ContractCapped,
+        ),
         phase: TradingPhase.Eval,
         plan,
         positionSizing: {

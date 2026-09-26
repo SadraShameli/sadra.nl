@@ -1,15 +1,11 @@
 import { type Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
-import { z } from 'zod';
 
-import { getServerSession } from '~/lib/auth/server';
-import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
 import { AccountEditor } from '../../_components/AccountForm';
-import { ACCOUNT_LIST_INPUT } from '../../_components/accountListFilters';
+import { openAccountPage } from '../../_components/detail/accountIdParameter';
 
 export const metadata: Metadata = {
     description: 'Edit a prop firm account.',
@@ -18,23 +14,15 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-const accountIdParameterSchema = z.uuid();
-
 export default async function EditPropAccountPage({
     params,
 }: {
     params: Promise<{ id: string }>;
 }) {
-    const { id: rawId } = await params;
-    const parsedId = accountIdParameterSchema.safeParse(rawId);
-    if (!parsedId.success) notFound();
-    const id = parsedId.data.toLowerCase();
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.edit(id)));
-    }
-    void api.propAccounts.account.get.prefetch({ id });
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
+    const { id } = await openAccountPage(
+        params,
+        routes.propCalculator.accounts.edit,
+    );
     void api.propAccounts.copyGroup.list.prefetch();
     return (
         <HydrateClient>

@@ -88,7 +88,10 @@ export const propScenarioRouter = createTRPCRouter({
                         })),
                     )
                     .onConflictDoNothing({
-                        target: [propSavedScenario.userId, propSavedScenario.name],
+                        target: [
+                            propSavedScenario.userId,
+                            propSavedScenario.name,
+                        ],
                     })
                     .returning();
                 const importedNames = new Set(imported.map((row) => row.name));

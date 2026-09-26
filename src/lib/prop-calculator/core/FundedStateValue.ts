@@ -19,14 +19,19 @@ import {
     hasPeakShareDependency,
 } from './DailyLossLimit';
 import {
+    type AffordableRoom,
+    type AffordableRoomKind,
     computedDayPolicy,
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
     type FundedCycleSnapshot,
+    placeWholeContractTrade,
+    PolicySizing,
     resolveTradeRisk,
     type RungSizing,
+    type SizedTrade,
 } from './DayPolicy';
 import { isDrawdownDpEligible } from './EvalStateValue';
 import { type CouponDiscounts } from './FeeSchedule';
@@ -53,11 +58,7 @@ import { type PeakRatchet } from './PeakRatchet';
 import { type Plan } from './Plan';
 import { type PlanId } from './PlanId';
 import { NO_PLAN_OPT_INS, type PlanOptIns, withPlanOptIns } from './PlanOptIns';
-import {
-    capRiskToContractLimit,
-    contractLimitAt,
-    type PositionSizingConfig,
-} from './PositionSizing';
+import { contractLimitAt, type PositionSizingConfig } from './PositionSizing';
 import { TierBasis } from './TierBasis';
 import { TradingPhase } from './TradingPhase';
 
@@ -66,6 +67,18 @@ export enum SweepVerdict {
     Converged = 'converged',
     Extrapolate = 'extrapolate',
 }
+
+export interface CandidateTradeContext {
+    readonly actionGrid: readonly number[];
+    readonly candidateTradesCache: CandidateTradesCache;
+    readonly positionSizing: null | PositionSizingConfig;
+    readonly rungSizing: RungSizing;
+}
+
+export type CandidateTradesCache = Map<
+    AffordableRoomKind,
+    Map<number, Map<number, readonly SizedTrade[]>>
+>;
 
 export interface FundedCycleBaselineRounding {
     readonly coarseFromDollars: number;
@@ -188,8 +201,8 @@ interface FundedDaySkeleton {
     readonly lockoutIds: Map<string, number>;
     readonly lockouts: FundedLockout[];
     readonly reachCount: number;
-    readonly risksByIndex: (readonly number[] | undefined)[];
     readonly rows: (FundedSkeletonRow | undefined)[];
+    readonly tradesByIndex: (readonly SizedTrade[] | undefined)[];
     readonly workingBucketCount: number;
 }
 
@@ -278,7 +291,7 @@ interface FundedSolveContext {
     readonly actionGrid: readonly number[];
     breachValueBeforeFirstPayout: number;
     readonly bustTerminalValue: number;
-    readonly candidateRisksCache: Map<number, Map<number, number[]>>;
+    readonly candidateTradesCache: CandidateTradesCache;
     readonly commission: Dollars;
     readonly cushionStepDollars: number;
     readonly cycleBaselineGrid: FundedCycleBaselineGrid;
@@ -377,6 +390,63 @@ const firmsRegistryCache: {
     module: null | typeof FirmsModule;
     warmPromise: null | Promise<Error | null>;
 } = { module: null, warmPromise: null };
+
+export function candidateTrades(
+    context: CandidateTradeContext,
+    affordable: AffordableRoom,
+    contractLimit: ContractCount | null,
+): readonly SizedTrade[] {
+    let byRoom = context.candidateTradesCache.get(affordable.kind);
+    if (byRoom === undefined) {
+        byRoom = new Map();
+        context.candidateTradesCache.set(affordable.kind, byRoom);
+    }
+    let byContractLimit = byRoom.get(affordable.room);
+    if (byContractLimit === undefined) {
+        byContractLimit = new Map();
+        byRoom.set(affordable.room, byContractLimit);
+    }
+    const contractLimitKey = contractLimit ?? -1;
+    const cached = byContractLimit.get(contractLimitKey);
+    if (cached !== undefined) return cached;
+    const computed = computeCandidateTrades(context, affordable, contractLimit);
+    byContractLimit.set(contractLimitKey, computed);
+    return computed;
+}
+
+export function computeCandidateTrades(
+    context: Omit<CandidateTradeContext, 'candidateTradesCache'>,
+    affordable: AffordableRoom,
+    contractLimit: ContractCount | null,
+): SizedTrade[] {
+    const { positionSizing, rungSizing } = context;
+    const maxAction = Math.max(0, ...context.actionGrid);
+    const tradesByRisk = new Map<number, SizedTrade>();
+    const addTrade = (trade: SizedTrade): void => {
+        const risk = Math.max(0, trade.risk);
+        if (!tradesByRisk.has(risk)) {
+            tradesByRisk.set(risk, { rewardRisk: trade.rewardRisk, risk });
+        }
+    };
+    for (const action of context.actionGrid) {
+        if (positionSizing === null) {
+            const risk = resolveTradeRisk(action, affordable.room, rungSizing);
+            addTrade({ rewardRisk: risk, risk });
+            continue;
+        }
+        const trade = placeWholeContractTrade({
+            intendedRisk: action,
+            maxContracts: contractLimit,
+            positionSizing,
+            room: affordable.room,
+            roomKind: affordable.kind,
+            rungSizing,
+        });
+        if (trade.rewardRisk <= maxAction) addTrade(trade);
+    }
+    addTrade({ rewardRisk: 0, risk: 0 });
+    return tradesByRisk.values().toArray();
+}
 
 export function defaultPayoutRegimeCap(plan: Plan): number {
     return Math.max(
@@ -739,7 +809,7 @@ function buildFundedSolveContext(
         actionGrid,
         breachValueBeforeFirstPayout: bustTerminalValue,
         bustTerminalValue,
-        candidateRisksCache: new Map(),
+        candidateTradesCache: new Map(),
         commission,
         cushionStepDollars,
         cycleBaselineGrid,
@@ -903,24 +973,6 @@ function cachedIdleClose(
     return outcome;
 }
 
-function candidateRisks(
-    context: FundedSolveContext,
-    riskBudget: number,
-    contractLimit: ContractCount | null,
-): number[] {
-    let byContractLimit = context.candidateRisksCache.get(riskBudget);
-    if (byContractLimit === undefined) {
-        byContractLimit = new Map();
-        context.candidateRisksCache.set(riskBudget, byContractLimit);
-    }
-    const contractLimitKey = contractLimit ?? -1;
-    const cached = byContractLimit.get(contractLimitKey);
-    if (cached !== undefined) return cached;
-    const computed = computeCandidateRisks(context, riskBudget, contractLimit);
-    byContractLimit.set(contractLimitKey, computed);
-    return computed;
-}
-
 function canWithdrawWhileUnlocked(
     plan: Plan,
     retainedCushion: number,
@@ -968,25 +1020,6 @@ function clearSolveCaches(context: FundedSolveContext): void {
     context.daySkeletons.closeCellCount = 0;
     context.idleCloses.cells = null;
     context.idleCloses.levelKey = null;
-}
-
-function computeCandidateRisks(
-    context: FundedSolveContext,
-    riskBudget: number,
-    contractLimit: ContractCount | null,
-): number[] {
-    const { positionSizing } = context;
-    const risks = new Set<number>();
-    for (const action of context.actionGrid) {
-        const capped =
-            positionSizing === null
-                ? action
-                : capRiskToContractLimit(action, positionSizing, contractLimit);
-        const risk = resolveTradeRisk(capped, riskBudget, context.rungSizing);
-        risks.add(Math.max(0, risk));
-    }
-    risks.add(0);
-    return [...risks];
 }
 
 function continuationKey(
@@ -1357,8 +1390,8 @@ function daySkeletonFor(
         lockoutIds: new Map(),
         lockouts: [],
         reachCount: reachCountAt(context, dayStart),
-        risksByIndex: [],
         rows: [],
+        tradesByIndex: [],
         workingBucketCount,
     };
     cache.skeletons.set(skeletonKey, skeleton);
@@ -1968,39 +2001,6 @@ function scopedStopValue(scope: FundedDaySolveScope, cell: number): number {
     return value;
 }
 
-function skeletonRisks(
-    context: FundedSolveContext,
-    skeleton: FundedDaySkeleton,
-    dayStart: FundedDayStart,
-    index: number,
-): readonly number[] {
-    const cached = skeleton.risksByIndex[index];
-    if (cached !== undefined) return cached;
-    const { plan, positionSizing } = context;
-    const cushionNow = index * context.cushionStepDollars;
-    const state = buildState(
-        context,
-        dayStart,
-        dayStart.thresholdDollars + cushionNow,
-        todayPnLOf(context, dayStart, cushionNow),
-        0,
-    );
-    const risks = candidateRisks(
-        context,
-        plan.affordableRisk(state, TradingPhase.Funded, context.commission),
-        positionSizing === null
-            ? null
-            : contractLimitAt(
-                  plan.contractLimits,
-                  TradingPhase.Funded,
-                  positionSizing.instrument.isMicro,
-                  plan.tierProfitContext(state),
-              ),
-    );
-    skeleton.risksByIndex[index] = risks;
-    return risks;
-}
-
 function skeletonRow(
     context: FundedSolveContext,
     skeleton: FundedDaySkeleton,
@@ -2012,12 +2012,13 @@ function skeletonRow(
     const cached = skeleton.rows[cell];
     if (cached !== undefined) return cached;
     const cushionNow = index * context.cushionStepDollars;
-    const risks = skeletonRisks(context, skeleton, dayStart, index);
-    const wins = new Int32Array(risks.length);
-    const losses = new Int32Array(risks.length);
-    for (const [riskIndex, risk] of risks.entries()) {
+    const trades = skeletonTrades(context, skeleton, dayStart, index);
+    const risks = trades.map((trade) => trade.risk);
+    const wins = new Int32Array(trades.length);
+    const losses = new Int32Array(trades.length);
+    for (const [riskIndex, { rewardRisk, risk }] of trades.entries()) {
         if (risk <= 0) continue;
-        const pnlWin = context.rrRatio * risk - context.commission;
+        const pnlWin = context.rrRatio * rewardRisk - context.commission;
         wins[riskIndex] = tradeOutcome(
             context,
             skeleton,
@@ -2037,6 +2038,39 @@ function skeletonRow(
     const row: FundedSkeletonRow = { losses, risks, wins };
     skeleton.rows[cell] = row;
     return row;
+}
+
+function skeletonTrades(
+    context: FundedSolveContext,
+    skeleton: FundedDaySkeleton,
+    dayStart: FundedDayStart,
+    index: number,
+): readonly SizedTrade[] {
+    const cached = skeleton.tradesByIndex[index];
+    if (cached !== undefined) return cached;
+    const { plan, positionSizing } = context;
+    const cushionNow = index * context.cushionStepDollars;
+    const state = buildState(
+        context,
+        dayStart,
+        dayStart.thresholdDollars + cushionNow,
+        todayPnLOf(context, dayStart, cushionNow),
+        0,
+    );
+    const trades = candidateTrades(
+        context,
+        plan.affordableRoom(state, TradingPhase.Funded, context.commission),
+        positionSizing === null
+            ? null
+            : contractLimitAt(
+                  plan.contractLimits,
+                  TradingPhase.Funded,
+                  positionSizing.instrument.isMicro,
+                  plan.tierProfitContext(state),
+              ),
+    );
+    skeleton.tradesByIndex[index] = trades;
+    return trades;
 }
 
 function solveDayTreeOnce(
@@ -3105,6 +3139,7 @@ export function computeFundedStateValue(
         computeRisk,
         mainContext.slots,
         stopRule,
+        PolicySizing.WholeContracts,
     );
 
     return {

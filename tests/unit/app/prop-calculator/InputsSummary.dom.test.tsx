@@ -24,6 +24,7 @@ import {
     type DayStopRule,
     DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
+    PolicySizing,
     RungSizing,
 } from '~/lib/prop-calculator';
 
@@ -54,6 +55,7 @@ vi.mock('~/app/(app)/prop-calculator/_components/EditInputsDialog', () => ({
 const LADDER: DayPolicy = {
     ladder: [200, 300, 400],
     maxLossesPerDay: null,
+    sizing: PolicySizing.ContractCapped,
     stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
 };
 

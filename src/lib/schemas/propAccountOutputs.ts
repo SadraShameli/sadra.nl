@@ -39,7 +39,10 @@ export enum PropLimitRejection {
 
 export enum PropMutationRejection {
     DuplicateImportLabel = 'duplicate-import-label',
+    DuplicateSnapshot = 'duplicate-snapshot',
+    ImplausibleSnapshot = 'implausible-snapshot',
     LifecycleTransition = 'lifecycle-transition',
+    MissingSnapshotField = 'missing-snapshot-field',
     MixedStageCopyGroup = 'mixed-stage-copy-group',
     OutOfOrderEvent = 'out-of-order-event',
     StageNotOfferedByPlan = 'stage-not-offered-by-plan',
@@ -73,6 +76,8 @@ export enum PropStoredRecordRejection {
     InvalidStoredRecord = 'invalid-stored-record',
 }
 
+export const MAX_SAVED_SCENARIOS = 100;
+
 export const STORED_DATA_OWNER_REPAIR =
     'Ask the site owner to repair the stored data, which loses nothing';
 
@@ -95,6 +100,17 @@ export interface PropRejectionSource {
     readonly propRejection: PropRejection;
 }
 
+export function isInvalidStoredRecord(
+    error: unknown,
+    record: PropRecord,
+): boolean {
+    const rejection = propRejectionOf(error);
+    return (
+        rejection?.reason === PropStoredRecordRejection.InvalidStoredRecord &&
+        rejection.record === record
+    );
+}
+
 export function isPropRejectionSource(
     cause: unknown,
 ): cause is PropRejectionSource {
@@ -103,6 +119,16 @@ export function isPropRejectionSource(
         propRejectionSchema.safeParse(Reflect.get(cause, 'propRejection'))
             .success
     );
+}
+
+export function propRejectionOf(error: unknown): null | PropRejection {
+    if (!(error instanceof Error)) return null;
+    const data: unknown = Reflect.get(error, 'data');
+    if (typeof data !== 'object' || data === null) return null;
+    const rejection = propRejectionSchema.safeParse(
+        Reflect.get(data, 'propRejection'),
+    );
+    return rejection.success ? rejection.data : null;
 }
 
 const nullableCents = usdCentsSchema.nullable();

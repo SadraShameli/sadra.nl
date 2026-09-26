@@ -4,10 +4,16 @@ import {
     CorrelationMode,
     InstrumentSymbol,
     ladderRungsSchema,
+    PolicySizing,
     stopLossCountSchema,
     stopTargetDollarsSchema,
 } from '~/lib/prop-calculator';
 import { DayStopRuleKind } from '~/lib/prop-calculator/core';
+
+export {
+    CalculatorUrlParameter,
+    UrlFlag,
+} from '~/lib/schemas/calculatorUrlParameter';
 
 export const PROFILE_TAB_VALUES = [
     'account',
@@ -78,6 +84,9 @@ export const dayStopRuleSchema = z.discriminatedUnion('kind', [
 export const dayPolicySchema = z.object({
     ladder: ladderRungsSchema,
     maxLossesPerDay: stopLossCountSchema.nullable(),
+    sizing: z
+        .literal(PolicySizing.ContractCapped)
+        .catch(PolicySizing.ContractCapped),
     stopRule: dayStopRuleSchema,
 });
 

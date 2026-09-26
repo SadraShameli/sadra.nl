@@ -56,8 +56,7 @@ describe('MixedStageCopyGroupRule', () => {
             name: GROUP.name,
         });
         expect(alerts[0]?.message).toContain('Main copy');
-        expect(alerts[0]?.message).toContain('1 eval');
-        expect(alerts[0]?.message).toContain('2 funded');
+        expect(alerts[0]?.message).toContain('(1 Evaluation, 2 Funded)');
     });
 
     it('ignores inactive and archived members', () => {

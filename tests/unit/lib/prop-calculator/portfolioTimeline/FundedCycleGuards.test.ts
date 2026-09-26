@@ -8,6 +8,7 @@ import {
     fraction,
     MffuVariant,
     type Plan,
+    PolicySizing,
     RungSizing,
 } from '~/lib/prop-calculator/core';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
@@ -28,7 +29,12 @@ function rapidEod(): Plan {
 }
 
 function runCard(maxFundedDays: number): CardResult {
-    const policy = flatDayPolicy(250, 1, { kind: DayStopRuleKind.None });
+    const policy = flatDayPolicy(
+        250,
+        1,
+        { kind: DayStopRuleKind.None },
+        PolicySizing.ContractCapped,
+    );
     return runEvalToFundedCycle({
         cardDayBudget: 60,
         commission: dollars(0),

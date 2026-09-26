@@ -1,8 +1,19 @@
 import { z } from 'zod';
 
+import { type DayPolicy, policySizingOf } from '../core/DayPolicy';
 import { InstrumentSymbol } from '../core/Instruments';
-import { oneContractRisk, resolvePositionSizing } from '../core/PositionSizing';
+import {
+    formatOneContractRisk,
+    formatWholeCentDollars,
+} from '../core/PlacedFundedRisk';
+import {
+    isBelowOneContract,
+    resolvePositionSizing,
+} from '../core/PositionSizing';
+import { TradingPhase } from '../core/TradingPhase';
 import { type SimInputs } from './types';
+
+export type DeclaredSizingInputs = Pick<SimInputs, 'instrument' | 'stopPoints'>;
 
 export type FundedDayPolicyConflictInputs = Pick<
     SimInputs,
@@ -21,6 +32,8 @@ export type SimInputsSizingInputs = Pick<
     | 'riskPerTrade'
     | 'stopPoints'
 >;
+
+export const SIM_INPUTS_REFUSAL_PREFIX = 'Invalid SimInputs: ';
 
 const simInputsSizingSchema = z
     .object({
@@ -55,14 +68,13 @@ const simInputsSizingSchema = z
                 ? 'riskPerTrade'
                 : 'fundedRiskPerTrade';
         const risk = value.fundedRiskPerTrade ?? value.riskPerTrade;
-        const contractRisk = oneContractRisk(positionSizing);
-        if (risk > 0 && risk < contractRisk) {
-            context.addIssue({
-                code: 'custom',
-                message: `${field} $${risk} is below one ${positionSizing.instrument.symbol} contract's risk at a ${positionSizing.stopPoints} point stop ($${contractRisk}): funded flat risk is placed in whole contracts and rounded down, so it would never trade, and rounding it up would risk more than asked. Raise it to at least $${contractRisk}, or use a micro instrument or a tighter stop.`,
-                path: [field],
-            });
-        }
+        if (!isBelowOneContract(risk, positionSizing)) return;
+        const contractRisk = formatOneContractRisk(positionSizing);
+        context.addIssue({
+            code: 'custom',
+            message: `${field} ${formatWholeCentDollars(risk)} is below one ${positionSizing.instrument.symbol} contract's risk at a ${positionSizing.stopPoints} point stop (${contractRisk}): funded flat risk is placed in whole contracts and rounded down, so it would never trade, and rounding it up would risk more than asked. Raise it to at least ${contractRisk}, or use a micro instrument or a tighter stop.`,
+            path: [field],
+        });
     });
 
 const fundedDayPolicyConflictSchema = z
@@ -113,6 +125,23 @@ const fundedDayPolicyConflictSchema = z
         }
     });
 
+export function assertDeclaredSizingMatchesPhase(
+    inputs: DeclaredSizingInputs,
+    declared: DayPolicy,
+    phase: TradingPhase,
+): void {
+    const sizing = policySizingOf(phase);
+    if (
+        declared.sizing === sizing ||
+        resolvePositionSizing(inputs.instrument, inputs.stopPoints) === null
+    ) {
+        return;
+    }
+    throw new Error(
+        `${SIM_INPUTS_REFUSAL_PREFIX}${declaredPolicyField(phase)}.sizing is ${declared.sizing}, but ${phaseArticle(phase)} ${phase} policy with position sizing (instrument and stopPoints) is placed as ${sizing}. Declare sizing ${sizing}, so simulate and the portfolio timeline place it the same way.`,
+    );
+}
+
 export function assertNoFundedDayPolicyConflict(
     inputs: FundedDayPolicyConflictInputs,
 ): void {
@@ -122,7 +151,7 @@ export function assertNoFundedDayPolicyConflict(
 
 export function assertSimInputsSized(inputs: SimInputsSizingInputs): void {
     const issue = simInputsSizingIssue(inputs);
-    if (issue !== null) throw new Error(`Invalid SimInputs: ${issue}`);
+    if (issue !== null) throw new Error(`${SIM_INPUTS_REFUSAL_PREFIX}${issue}`);
 }
 
 export function simInputsSizingIssue(
@@ -132,10 +161,32 @@ export function simInputsSizingIssue(
     return result.success ? null : issueText(result.error);
 }
 
+function declaredPolicyField(phase: TradingPhase): string {
+    switch (phase) {
+        case TradingPhase.Eval: {
+            return 'evalDayPolicy';
+        }
+        case TradingPhase.Funded: {
+            return 'fundedDayPolicy';
+        }
+    }
+}
+
 function issueText(error: z.ZodError): string {
     return error.issues.map((issue) => issue.message).join(' ');
 }
 
+function phaseArticle(phase: TradingPhase): string {
+    switch (phase) {
+        case TradingPhase.Eval: {
+            return 'an';
+        }
+        case TradingPhase.Funded: {
+            return 'a';
+        }
+    }
+}
+
 function throwInvalidSimInputs(error: z.ZodError): never {
-    throw new Error(`Invalid SimInputs: ${issueText(error)}`);
+    throw new Error(`${SIM_INPUTS_REFUSAL_PREFIX}${issueText(error)}`);
 }

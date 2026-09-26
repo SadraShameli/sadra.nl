@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { formatConjunctionList } from '~/lib/format';
 import { AccountStage } from '~/lib/prop-accounts';
 import { PropMutationRejection } from '~/lib/schemas/propAccountOutputs';
 
@@ -11,6 +12,7 @@ import {
     transactionSteps,
 } from '../fakeDatabase';
 import {
+    accountCreateInput,
     accountRow,
     callerFor,
     defined,
@@ -228,5 +230,124 @@ describe('propAccounts.copyGroup', () => {
             TransactionStep.Begin,
             TransactionStep.Commit,
         ]);
+    });
+});
+
+describe('propAccounts copy-group stage check (PD-30)', () => {
+    const FUNDED_MEMBER = {
+        copy_group_id: IDS.copyGroup,
+        id: IDS.otherAccount,
+        stage: AccountStage.Funded,
+    };
+
+    async function assignRejection(member: Record<string, unknown>) {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [accountRow(), accountRow(member)],
+            }),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(
+                caller.copyGroup.assign({
+                    accountId: IDS.account,
+                    copyGroupId: IDS.copyGroup,
+                }),
+            ),
+        );
+        return { queries, shape };
+    }
+
+    it('says which stage the group already has and which stage is joining', async () => {
+        const { shape } = await assignRejection(FUNDED_MEMBER);
+        expect(shape.message).toBe(
+            'Copy group "Group one" would mix Evaluation and Funded accounts: it already has Funded members and the account joining is Evaluation. The members of a group must share one stage, inactive and archived members included.',
+        );
+    });
+
+    it('counts an archived member of another stage, as today (Q44 default)', async () => {
+        const { queries, shape } = await assignRejection({
+            ...FUNDED_MEMBER,
+            archived_at: new Date('2026-09-01T00:00:00Z'),
+        });
+        expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.MixedStageCopyGroup),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('reads every member of the group: the member query filters on user and group only, never on archived_at or status (Q44 default)', async () => {
+        const { queries } = await assignRejection(FUNDED_MEMBER);
+        const memberReads = queries.filter(
+            (query) =>
+                readTable(query) === TABLES.account &&
+                query.text.includes('"copy_group_id" = $'),
+        );
+        expect(memberReads).toHaveLength(1);
+        const memberRead = defined(memberReads[0]);
+        assertUserScopedWhere(memberRead, USER_ID);
+        expect(memberRead.text.slice(memberRead.text.indexOf(' where '))).toBe(
+            ` where ("${TABLES.account}"."user_id" = $1 and "${TABLES.account}"."copy_group_id" = $2) limit $3`,
+        );
+        expect(memberRead.params.slice(0, 2)).toEqual([USER_ID, IDS.copyGroup]);
+    });
+
+    it('names every stage when imported rows would mix stages in an empty group', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.account]: [] }),
+        );
+        const rows = [
+            accountCreateInput({ copyGroupId: IDS.copyGroup, label: 'One' }),
+            accountCreateInput({
+                copyGroupId: IDS.copyGroup,
+                fundedOn: '2026-09-10',
+                label: 'Two',
+                stage: AccountStage.Funded,
+            }),
+        ];
+        const shape = errorShapeOf(
+            await rejectionOf(caller.account.importMany(rows)),
+        );
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.MixedStageCopyGroup),
+        );
+        expect(shape.message).toBe(
+            'Copy group "Group one" would mix Evaluation and Funded accounts: the accounts joining are Evaluation and Funded. The members of a group must share one stage, inactive and archived members included.',
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('lists three stages with the shared list format', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.account]: [] }),
+        );
+        const rows = [
+            accountCreateInput({ copyGroupId: IDS.copyGroup, label: 'One' }),
+            accountCreateInput({
+                copyGroupId: IDS.copyGroup,
+                fundedOn: '2026-09-10',
+                label: 'Two',
+                stage: AccountStage.Funded,
+            }),
+            accountCreateInput({
+                copyGroupId: IDS.copyGroup,
+                fundedOn: '2026-09-10',
+                label: 'Three',
+                stage: AccountStage.Live,
+            }),
+        ];
+        const shape = errorShapeOf(
+            await rejectionOf(caller.account.importMany(rows)),
+        );
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.MixedStageCopyGroup),
+        );
+        expect(shape.message).toBe(
+            `Copy group "Group one" would mix ${formatConjunctionList(['Evaluation', 'Funded', 'Live'])} accounts: the accounts joining are Evaluation, Funded and Live. The members of a group must share one stage, inactive and archived members included.`,
+        );
+        expect(propWrites(queries)).toHaveLength(0);
     });
 });

@@ -432,6 +432,13 @@ export const feeUpdateSchema = z.strictObject({
 
 export const ledgerListSchema = z.object({ accountId: idSchema.optional() });
 
+const EVENT_NOTE_REQUIREMENT: Readonly<
+    Partial<Record<AccountEventKind, string>>
+> = {
+    [AccountEventKind.BustReversed]:
+        'a bust reversal needs a note saying why the firm reversed it',
+};
+
 export const eventRecordSchema = z
     .strictObject({
         accountId: idSchema,
@@ -440,18 +447,22 @@ export const eventRecordSchema = z
         occurredOn: accountDateSchema,
     })
     .superRefine((event, context) => {
+        const requirement = EVENT_NOTE_REQUIREMENT[event.kind];
         if (
-            event.kind === AccountEventKind.BustReversed &&
+            requirement !== undefined &&
             (event.note === null || event.note.trim() === '')
         ) {
             context.addIssue({
                 code: 'custom',
-                message:
-                    'a bust reversal needs a note saying why the firm reversed it',
+                message: requirement,
                 path: ['note'],
             });
         }
     });
+
+export function requiresEventNote(kind: AccountEventKind): boolean {
+    return EVENT_NOTE_REQUIREMENT[kind] !== undefined;
+}
 
 export const eventListSchema = z
     .object({

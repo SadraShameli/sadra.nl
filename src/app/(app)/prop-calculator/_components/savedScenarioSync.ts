@@ -1,10 +1,15 @@
 import type { PropSavedScenarioRow } from '~/server/db/schemas/prop';
 
+import {
+    type KeyValueStorage,
+    localStorageOrNull,
+} from '~/app/(app)/prop-calculator/_components/browserStorage';
 import { errorMessage } from '~/lib/errorMessage';
 import {
+    MAX_SAVED_SCENARIOS,
     PropLimitRejection,
     PropQuota,
-    propRejectionSchema,
+    propRejectionOf,
 } from '~/lib/schemas/propAccountOutputs';
 import {
     MAX_SCENARIO_NAME_LENGTH,
@@ -45,8 +50,6 @@ export interface AccountScenarioRecord extends SavedScenarioRecord {
 export type AccountScenarioValidation =
     { error: string; ok: false } | { ok: true; scenario: ScenarioImport };
 
-export type FlagStorage = Pick<Storage, 'getItem' | 'setItem'>;
-
 export interface ScenarioImport {
     name: string;
     query: string;
@@ -76,7 +79,7 @@ export interface ScenarioImportRequest {
     importMany: (scenarios: ScenarioImport[]) => Promise<ScenarioImportResult>;
     local: readonly SavedScenarioRecord[];
     server: readonly Pick<StoredScenario, 'name' | 'query'>[];
-    storage?: FlagStorage | null;
+    storage?: KeyValueStorage | null;
     userId: null | string;
 }
 
@@ -221,7 +224,7 @@ export async function importLocalScenarios(
 
 export function isScenarioImportDone(
     userId: string,
-    storage: FlagStorage | null = localStorageOrNull(),
+    storage: KeyValueStorage | null = localStorageOrNull(),
 ): boolean {
     if (storage === null) return false;
     try {
@@ -233,7 +236,7 @@ export function isScenarioImportDone(
 
 export function markScenarioImportDone(
     userId: string,
-    storage: FlagStorage | null = localStorageOrNull(),
+    storage: KeyValueStorage | null = localStorageOrNull(),
 ): void {
     if (storage === null) return;
     try {
@@ -378,27 +381,7 @@ function importedSentence(imported: number): null | string {
     return `Imported ${String(imported)} ${noun} from this browser to your account.`;
 }
 
-function importFlagKey(userId: string): string {
-    return `${IMPORT_FLAG_KEY_PREFIX}${userId}`;
-}
-
-function importSkipReason(
-    record: SavedScenarioRecord,
-): null | ScenarioSkipReason {
-    if (record.params.length > MAX_SCENARIO_QUERY_LENGTH) {
-        return ScenarioSkipReason.QueryTooLong;
-    }
-    if (!scenarioSaveSchema.shape.query.safeParse(record.params).success) {
-        return ScenarioSkipReason.InvalidQuery;
-    }
-    return scenarioSaveSchema.shape.name.safeParse(
-        candidateName(record.name, 1),
-    ).success
-        ? null
-        : ScenarioSkipReason.InvalidName;
-}
-
-async function importWithinQuota(
+async function importFitting(
     importMany: ScenarioImportRequest['importMany'],
     imports: readonly ScenarioImport[],
     storedCount: number,
@@ -428,17 +411,46 @@ async function importWithinQuota(
     }
 }
 
+function importFlagKey(userId: string): string {
+    return `${IMPORT_FLAG_KEY_PREFIX}${userId}`;
+}
+
+function importSkipReason(
+    record: SavedScenarioRecord,
+): null | ScenarioSkipReason {
+    if (record.params.length > MAX_SCENARIO_QUERY_LENGTH) {
+        return ScenarioSkipReason.QueryTooLong;
+    }
+    if (!scenarioSaveSchema.shape.query.safeParse(record.params).success) {
+        return ScenarioSkipReason.InvalidQuery;
+    }
+    return scenarioSaveSchema.shape.name.safeParse(
+        candidateName(record.name, 1),
+    ).success
+        ? null
+        : ScenarioSkipReason.InvalidName;
+}
+
+async function importWithinQuota(
+    importMany: ScenarioImportRequest['importMany'],
+    imports: readonly ScenarioImport[],
+    storedCount: number,
+): Promise<ScenarioImportBatch> {
+    const fitting = imports.slice(
+        0,
+        Math.max(0, MAX_SAVED_SCENARIOS - storedCount),
+    );
+    const overflow = overLimit(imports.slice(fitting.length));
+    const batch = await importFitting(importMany, fitting, storedCount);
+    return {
+        imported: batch.imported,
+        skipped: [...batch.skipped, ...overflow],
+    };
+}
+
 function joinSentences(sentences: readonly (null | string)[]): null | string {
     const present = sentences.filter((sentence) => sentence !== null);
     return present.length === 0 ? null : present.join(' ');
-}
-
-function localStorageOrNull(): FlagStorage | null {
-    try {
-        return typeof window === 'undefined' ? null : window.localStorage;
-    } catch {
-        return null;
-    }
 }
 
 function overLimit(imports: readonly ScenarioImport[]): ScenarioImportSkip[] {
@@ -449,16 +461,10 @@ function overLimit(imports: readonly ScenarioImport[]): ScenarioImportSkip[] {
 }
 
 function scenarioQuotaLimit(error: unknown): null | number {
-    if (!(error instanceof Error)) return null;
-    const data: unknown = Reflect.get(error, 'data');
-    if (typeof data !== 'object' || data === null) return null;
-    const rejection = propRejectionSchema.safeParse(
-        Reflect.get(data, 'propRejection'),
-    );
-    return rejection.success &&
-        rejection.data.reason === PropLimitRejection.QuotaExceeded &&
-        rejection.data.quota === PropQuota.Scenarios
-        ? (rejection.data.limit ?? 0)
+    const rejection = propRejectionOf(error);
+    return rejection?.reason === PropLimitRejection.QuotaExceeded &&
+        rejection.quota === PropQuota.Scenarios
+        ? (rejection.limit ?? 0)
         : null;
 }
 

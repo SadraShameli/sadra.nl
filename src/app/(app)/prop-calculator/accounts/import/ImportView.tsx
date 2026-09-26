@@ -40,6 +40,7 @@ import {
     SNAPSHOT_CSV_COLUMNS,
     type SnapshotCsvAccount,
     SnapshotCsvColumn,
+    snapshotCsvWarnings,
 } from '~/lib/prop-accounts/csv';
 import { ALL_FIRMS, FirmId } from '~/lib/prop-calculator';
 import { MAX_IMPORT_ROWS } from '~/lib/schemas/propAccounts';
@@ -77,6 +78,7 @@ interface ImportPanelProperties<Column extends string, Value> {
     readonly required: readonly Column[];
     readonly shownColumns: readonly Column[];
     readonly text: string;
+    readonly warnings: readonly CsvIssue[];
 }
 
 interface ImportText {
@@ -96,13 +98,15 @@ interface PlanReferenceRow {
 }
 
 const ACCOUNT_NOUN: ImportNoun = { plural: 'accounts', singular: 'account' };
+const NO_CSV_WARNINGS: readonly CsvIssue[] = [];
 const SNAPSHOT_NOUN: ImportNoun = {
     plural: 'snapshots',
     singular: 'snapshot',
 };
 
 const DATE_HINT = 'Date written as YYYY-MM-DD.';
-const MONEY_HINT = 'Dollars like 1234.56, without a $ sign or separators.';
+const MONEY_HINT =
+    'Dollars like 1234.56; a $ sign is fine, and an amount with thousands separators needs quotes.';
 const PERSONAL_CAP_HINT =
     'Optional personal cap in dollars, tighter than the plan.';
 
@@ -269,6 +273,7 @@ function AccountImport({
                 required={REQUIRED_ACCOUNT_CSV_COLUMNS}
                 shownColumns={ACCOUNT_SHOWN_COLUMNS}
                 text={text}
+                warnings={NO_CSV_WARNINGS}
             />
             <PlanReference />
         </div>
@@ -328,6 +333,7 @@ function CsvImportPanel<Column extends string, Value>({
     required,
     shownColumns,
     text,
+    warnings,
 }: ImportPanelProperties<Column, Value>) {
     const baseId = useId();
     const textId = `${baseId}-text`;
@@ -445,6 +451,7 @@ function CsvImportPanel<Column extends string, Value>({
                     issueCount={issues.length}
                     preview={preview}
                     shownColumns={shownColumns}
+                    warnings={warnings}
                 />
             )}
             {commitError !== null && (
@@ -556,14 +563,17 @@ function PreviewTable<Column extends string, Value>({
     issueCount,
     preview,
     shownColumns,
+    warnings,
 }: {
     issueCount: number;
     preview: Extract<CsvPreview<Column, Value>, { kind: CsvTableKind.Parsed }>;
     shownColumns: readonly Column[];
+    warnings: readonly CsvIssue[];
 }) {
     const rowsWithIssues = preview.rows.filter(
         (row) => row.issues.length > 0,
     ).length;
+    const warningsByRow = Map.groupBy(warnings, (warning) => warning.rowNumber);
     return (
         <div className="flex flex-col gap-3">
             <p
@@ -577,6 +587,8 @@ function PreviewTable<Column extends string, Value>({
                 {rowsWithIssues === 0
                     ? 'every row is ready to import.'
                     : `${rowsWithIssues} with ${issueCount === 1 ? 'an issue' : `${issueCount} issues`} in total.`}
+                {warningsByRow.size > 0 &&
+                    ` ${warningsByRow.size} ready ${warningsByRow.size === 1 ? 'row has a warning' : 'rows have warnings'} worth checking before you import.`}
             </p>
             <Table>
                 <TableHeader>
@@ -606,10 +618,19 @@ function PreviewTable<Column extends string, Value>({
                             ))}
                             <TableCell className="align-top">
                                 {row.issues.length === 0 ? (
-                                    <span className="flex items-center gap-1 text-emerald-400">
-                                        <CircleCheck className="size-4" />
-                                        Ready
-                                    </span>
+                                    <div className="flex flex-col gap-1">
+                                        <span className="flex items-center gap-1 text-emerald-400">
+                                            <CircleCheck className="size-4" />
+                                            Ready
+                                        </span>
+                                        <RowWarnings
+                                            warnings={
+                                                warningsByRow.get(
+                                                    row.rowNumber,
+                                                ) ?? NO_CSV_WARNINGS
+                                            }
+                                        />
+                                    </div>
                                 ) : (
                                     <ul className="flex flex-col gap-1 text-amber-400">
                                         {row.issues.map((issue, index) => (
@@ -625,6 +646,17 @@ function PreviewTable<Column extends string, Value>({
                 </TableBody>
             </Table>
         </div>
+    );
+}
+
+function RowWarnings({ warnings }: { warnings: readonly CsvIssue[] }) {
+    if (warnings.length === 0) return null;
+    return (
+        <ul className="flex flex-col gap-1 text-amber-400">
+            {warnings.map((warning, index) => (
+                <li key={index}>Check {describeIssue(warning)}</li>
+            ))}
+        </ul>
     );
 }
 
@@ -652,6 +684,13 @@ function SnapshotImport({
                 : previewSnapshotCsv(deferredText, accounts, stored),
         [deferredText, accounts, stored],
     );
+    const warnings = useMemo(
+        () =>
+            preview === null
+                ? NO_CSV_WARNINGS
+                : snapshotCsvWarnings(preview, accounts),
+        [preview, accounts],
+    );
 
     if (stored === undefined) {
         return storedQuery.isError ? (
@@ -675,16 +714,21 @@ function SnapshotImport({
         <div className="flex flex-col gap-4">
             <Alert variant="warning">
                 <TriangleAlert />
-                <AlertTitle>Format and range checks only</AlertTitle>
+                <AlertTitle>What the preview checks</AlertTitle>
                 <AlertDescription>
-                    Imported snapshots are checked for format, ranges,
-                    duplicates within the file and a clash with the latest
-                    stored snapshot of each account. A clash with an older
-                    stored snapshot is not caught yet. The plan-specific
-                    required fields and the balance plausibility checks of the
-                    account form are not applied here yet either, so include the
-                    highest end-of-day balance, trading days and payouts taken
-                    wherever your plan needs them.
+                    Each row is checked for format, ranges, duplicates within
+                    the file, a clash with the latest stored snapshot of its
+                    account, and whether its balances fit the plan, stage and
+                    dashboard convention of the account, as the account form
+                    checks them. A balance far above the account size is only a
+                    warning and does not stop the import. The preview takes the
+                    stage on each date from the purchase and funded dates only,
+                    while the import itself uses the recorded lifecycle events,
+                    so near a recorded pass or move live the two can disagree:
+                    the preview can refuse a row the import would accept, or the
+                    reverse. The import also checks the fields each plan needs
+                    in that stage and a clash with an older stored snapshot, and
+                    saves nothing if one row fails.
                 </AlertDescription>
             </Alert>
             <CsvImportPanel
@@ -707,6 +751,7 @@ function SnapshotImport({
                 required={REQUIRED_SNAPSHOT_CSV_COLUMNS}
                 shownColumns={SNAPSHOT_SHOWN_COLUMNS}
                 text={text}
+                warnings={warnings}
             />
         </div>
     );

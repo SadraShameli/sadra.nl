@@ -20,6 +20,7 @@ import {
     MffuVariant,
     type Plan,
     points,
+    PolicySizing,
     TierBasis,
 } from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
@@ -304,6 +305,7 @@ describe(
                 const staticLadderPolicy: DayPolicy = {
                     ladder: [400, 600, 800, 200],
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule,
                 };
 

@@ -58,5 +58,6 @@ export {
     SnapshotCsvColumn,
     type SnapshotCsvPreview,
     type SnapshotCsvStored,
+    snapshotCsvWarnings,
     type SnapshotImportRow,
 } from './SnapshotCsv';

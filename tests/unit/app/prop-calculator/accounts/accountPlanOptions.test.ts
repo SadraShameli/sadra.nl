@@ -6,7 +6,6 @@ import {
     accountPlanOptions,
     AccountPlanTag,
     accountSizeOptions,
-    accountStageLabel,
     accountStageOptions,
     DISPLAYED_ACCOUNT_SIZES,
     EMPTY_PERSONAL_RULES_TEXT,
@@ -19,6 +18,7 @@ import {
     planTagLabel,
     usdCentsToText,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
+import * as accountPlanOptionsModule from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
 import {
     AccountStage,
     compareText,
@@ -36,6 +36,7 @@ import {
     NO_PLAN_OPT_INS,
     type Plan,
     PlanAvailability,
+    type PlanOptIns,
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
@@ -54,6 +55,11 @@ function findFirmPlan(isMatch: (plan: Plan) => boolean): FirmPlan {
     if (found === undefined) throw new Error('no plan matches the predicate');
     return found;
 }
+
+const BOTH_OPT_INS: PlanOptIns = {
+    takesFundedReset: true,
+    takesOneTimeEarlyWithdrawal: true,
+};
 
 function variantOf(plan: Plan): string {
     return 'variant' in plan.id ? plan.id.variant : '';
@@ -255,13 +261,14 @@ describe('accountStageOptions', () => {
     });
 });
 
-describe('accountStageLabel', () => {
-    it('labels every stage', () => {
-        expect(
-            Object.values(AccountStage).map((stage) =>
-                accountStageLabel(stage),
-            ),
-        ).toEqual(['Evaluation', 'Funded', 'Live']);
+describe('stage labels', () => {
+    it('come from the library, not a copy or re-export in this module', () => {
+        expect(Object.keys(accountPlanOptionsModule)).not.toContain(
+            'accountStageLabel',
+        );
+        expect(Object.keys(accountPlanOptionsModule)).not.toContain(
+            'STAGE_LABEL',
+        );
     });
 });
 
@@ -279,16 +286,24 @@ describe('initialPlanSelection', () => {
             optIns: NO_PLAN_OPT_INS,
             planSerial: serializePlanId(firstPlan.id),
         };
-        expect(initialPlanSelection(undefined, undefined)).toEqual(expected);
-        expect(initialPlanSelection(null, null)).toEqual(expected);
-        expect(initialPlanSelection('not-a-firm', 'x')).toEqual(expected);
+        expect(
+            initialPlanSelection(undefined, undefined, NO_PLAN_OPT_INS),
+        ).toEqual(expected);
+        expect(initialPlanSelection(null, null, NO_PLAN_OPT_INS)).toEqual(
+            expected,
+        );
+        expect(
+            initialPlanSelection('not-a-firm', 'x', NO_PLAN_OPT_INS),
+        ).toEqual(expected);
     });
 
     it('takes the first plan of a known firm without a plan', () => {
         const topStep = ALL_FIRMS.find((firm) => firm.id === FirmId.TopStep);
         const [plan] = topStep?.plans ?? [];
         if (plan === undefined) throw new Error('TopStep has no plan');
-        expect(initialPlanSelection(FirmId.TopStep, undefined)).toEqual({
+        expect(
+            initialPlanSelection(FirmId.TopStep, undefined, NO_PLAN_OPT_INS),
+        ).toEqual({
             accountSize: plan.id.accountSize,
             firmId: FirmId.TopStep,
             optIns: NO_PLAN_OPT_INS,
@@ -299,7 +314,11 @@ describe('initialPlanSelection', () => {
     it('takes a plan that belongs to the firm', () => {
         for (const { firm, plan } of ALL_FIRM_PLANS) {
             expect(
-                initialPlanSelection(firm.id, serializePlanId(plan.id)),
+                initialPlanSelection(
+                    firm.id,
+                    serializePlanId(plan.id),
+                    NO_PLAN_OPT_INS,
+                ),
             ).toEqual({
                 accountSize: plan.id.accountSize,
                 firmId: firm.id,
@@ -318,12 +337,68 @@ describe('initialPlanSelection', () => {
             throw new Error('missing plans');
         }
         expect(
-            initialPlanSelection(FirmId.Apex, serializePlanId(topStepPlan.id))
-                .planSerial,
+            initialPlanSelection(
+                FirmId.Apex,
+                serializePlanId(topStepPlan.id),
+                NO_PLAN_OPT_INS,
+            ).planSerial,
         ).toBe(serializePlanId(apexPlan.id));
         expect(
-            initialPlanSelection(FirmId.Apex, 'apex-50000-retired').planSerial,
+            initialPlanSelection(
+                FirmId.Apex,
+                'apex-50000-retired',
+                NO_PLAN_OPT_INS,
+            ).planSerial,
         ).toBe(serializePlanId(apexPlan.id));
+    });
+
+    it('seeds the selection with the prefilled opt-ins the plan offers', () => {
+        for (const { firm, plan } of ALL_FIRM_PLANS) {
+            const offered = new Set(offeredPlanOptIns(plan));
+            expect(
+                initialPlanSelection(
+                    firm.id,
+                    serializePlanId(plan.id),
+                    BOTH_OPT_INS,
+                ).optIns,
+            ).toEqual({
+                takesFundedReset: offered.has(PlanOptIn.FundedReset),
+                takesOneTimeEarlyWithdrawal: offered.has(
+                    PlanOptIn.OneTimeEarlyWithdrawal,
+                ),
+            });
+        }
+    });
+
+    it('keeps a taken funded reset and leaves an untaken opt-in off', () => {
+        const { firm, plan } = findFirmPlan((p) => p.fundedReset !== null);
+        expect(
+            initialPlanSelection(firm.id, serializePlanId(plan.id), {
+                takesFundedReset: true,
+                takesOneTimeEarlyWithdrawal: false,
+            }),
+        ).toEqual({
+            accountSize: plan.id.accountSize,
+            firmId: firm.id,
+            optIns: {
+                takesFundedReset: true,
+                takesOneTimeEarlyWithdrawal: false,
+            },
+            planSerial: serializePlanId(plan.id),
+        });
+    });
+
+    it('drops the prefilled opt-ins when the plan falls back to a default', () => {
+        const { firm } = findFirmPlan((p) => p.fundedReset !== null);
+        expect(
+            initialPlanSelection(firm.id, 'nope', BOTH_OPT_INS).optIns,
+        ).toEqual(NO_PLAN_OPT_INS);
+        expect(
+            initialPlanSelection(firm.id, null, BOTH_OPT_INS).optIns,
+        ).toEqual(NO_PLAN_OPT_INS);
+        expect(
+            initialPlanSelection('not-a-firm', 'x', BOTH_OPT_INS).optIns,
+        ).toEqual(NO_PLAN_OPT_INS);
     });
 });
 
