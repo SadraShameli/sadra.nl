@@ -588,8 +588,11 @@ export function perRequestCeiling(
 }
 
 export function requiredDayGateDays(
-    plan: Plan,
-    tracker: FundedCycleTracker,
+    plan: Pick<
+        Plan,
+        'minDaysAfterPassForPayout' | 'minDaysAfterPassForPayoutPerCycle'
+    >,
+    tracker: Pick<FundedCycleTracker, 'payoutsIssued'>,
 ): number {
     return tracker.payoutsIssued === 0
         ? plan.minDaysAfterPassForPayout

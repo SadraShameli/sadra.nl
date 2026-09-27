@@ -11,9 +11,9 @@ import {
     type AccountReadIssue,
     accountShapeProblem,
     AccountTracking,
-    compareText,
     isAccountDate,
     isPaidOnOrBefore,
+    latestTwoSnapshots,
     type ModeledAccountRow,
     paidPayoutCash,
     PayoutStatus,
@@ -26,7 +26,11 @@ import {
     type TrackedAccountRow,
     type UsdCents,
 } from '../core';
-import { isActiveAccount } from '../metrics';
+import {
+    type AccountStateEntry,
+    type AccountStateResult,
+    isActiveAccount,
+} from '../metrics';
 import { AlertDisclosure } from './AccountAlert';
 import { TradingSessionCalendar } from './TradingSessionCalendar';
 
@@ -69,8 +73,11 @@ export interface AlertContext {
 
 export type AlertCopyGroupRow = Pick<PropCopyGroupRow, 'id' | 'name'>;
 
+export const NO_ACCOUNT_STATES: readonly AccountStateEntry[] = [];
+
 export interface AlertInputs {
     readonly accounts: readonly AlertAccountRow[];
+    readonly accountStates: readonly AccountStateEntry[];
     readonly copyGroups: readonly AlertCopyGroupRow[];
     readonly payouts: readonly AlertPayoutRow[];
     readonly rulebook: RulebookParameters;
@@ -95,6 +102,7 @@ export type AlertSnapshotRow = Pick<
     | 'createdAt'
     | 'cumulativePayoutCents'
     | 'id'
+    | 'lastTradedOn'
     | 'payoutsTaken'
     | 'tradingDays'
 >;
@@ -111,11 +119,13 @@ export type ModeledMonitoredAccount = MonitoredAccount & {
 
 export interface MonitoredAccount {
     readonly account: TrackedAccountRow<AlertAccountRow>;
+    readonly accountState: AccountStateResult | null;
     readonly invalidDates: readonly InvalidStoredDate[];
     readonly latestSnapshot: AlertSnapshotRow | null;
     readonly payouts: readonly AlertPayoutRow[];
     readonly plan: PlanKeyResolution;
     readonly planKey: null | PlanKeyInput;
+    readonly previousSnapshot: AlertSnapshotRow | null;
     readonly undatedPayouts: readonly AlertPayoutRow[];
 }
 
@@ -137,11 +147,15 @@ export function createAlertContext(inputs: AlertInputs): AlertContext {
         (snapshot) => snapshot.accountId,
     );
     const payouts = Map.groupBy(inputs.payouts, (payout) => payout.accountId);
+    const accountStates = new Map(
+        inputs.accountStates.map((entry) => [entry.accountId, entry.state]),
+    );
     const monitorRow = (account: AlertAccountRow): MonitoredAccount =>
         monitor(
             account,
             snapshots.get(account.id) ?? [],
             payouts.get(account.id) ?? [],
+            accountStates.get(account.id) ?? null,
         );
     const archived = inputs.accounts.filter(
         (account) => account.archivedAt !== null,
@@ -218,17 +232,6 @@ export function requestedLedgerTotal(
     );
 }
 
-function compareSnapshots(
-    left: AlertSnapshotRow,
-    right: AlertSnapshotRow,
-): number {
-    return (
-        compareText(left.asOf, right.asOf) ||
-        left.createdAt.getTime() - right.createdAt.getTime() ||
-        compareText(left.id, right.id)
-    );
-}
-
 function invalidDate(
     field: StoredDateField,
     value: null | string,
@@ -247,18 +250,6 @@ function isReadable(account: AlertAccountRow): boolean {
     return accountShapeProblem(account) === null;
 }
 
-function latestOf(
-    snapshots: readonly AlertSnapshotRow[],
-): AlertSnapshotRow | null {
-    let latest: AlertSnapshotRow | null = null;
-    for (const snapshot of snapshots) {
-        if (latest === null || compareSnapshots(snapshot, latest) > 0) {
-            latest = snapshot;
-        }
-    }
-    return latest;
-}
-
 function ledgerTotalOf(cash: readonly LedgerCash[]): PayoutLedgerTotal {
     return {
         cents: sumUsdCents(cash.map((entry) => entry.cents)),
@@ -275,19 +266,19 @@ function monitor(
     stored: AlertAccountRow,
     snapshots: readonly AlertSnapshotRow[],
     payouts: readonly AlertPayoutRow[],
+    accountState: AccountStateResult | null,
 ): MonitoredAccount {
     const account = trackedAccountOf(stored);
     const planKey =
         account.tracking === AccountTracking.Modeled
             ? toPlanKey(account)
             : null;
-    const datedSnapshots = snapshots.filter((snapshot) =>
-        isAccountDate(snapshot.asOf),
-    );
+    const { latest, previous } = latestTwoSnapshots(snapshots);
     const isDated = (payout: AlertPayoutRow): boolean =>
         invalidPayoutDates(payout).length === 0;
     return {
         account,
+        accountState,
         invalidDates: [
             ...invalidDate(StoredDateField.PurchasedOn, account.purchasedOn),
             ...snapshots.flatMap((snapshot) =>
@@ -295,13 +286,14 @@ function monitor(
             ),
             ...payouts.flatMap(invalidPayoutDates),
         ],
-        latestSnapshot: latestOf(datedSnapshots),
+        latestSnapshot: latest,
         payouts: payouts.filter(isDated),
         plan:
             planKey === null
                 ? { kind: PlanKeyResolutionKind.LedgerOnly }
                 : resolvePlanKey(planKey),
         planKey,
+        previousSnapshot: previous,
         undatedPayouts: payouts.filter((payout) => !isDated(payout)),
     };
 }

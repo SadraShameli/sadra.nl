@@ -115,6 +115,47 @@ describe('both options together', () => {
     );
 });
 
+describe('ConsistencyRule.maxDayProfitBeforeViolation caps a day at the worst-case new-best-day share (F-146)', () => {
+    it('returns the exact break-even amount on an exclusive boundary, still not violated at that amount', () => {
+        const rule = new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.4),
+        );
+        const ceiling = rule.maxDayProfitBeforeViolation(1500);
+        expect(ceiling).toBeCloseTo(1000, 9);
+        expect(rule.isViolated(ceiling, 1500 + ceiling)).toBe(false);
+        expect(rule.isViolated(ceiling + 1, 1500 + ceiling + 1)).toBe(true);
+    });
+
+    it('returns one cent below the break-even amount on an inclusive boundary, since equality already violates', () => {
+        const rule = ruleWith(ConsistencyBoundary.Inclusive);
+        const ceiling = rule.maxDayProfitBeforeViolation(1500);
+        expect(ceiling).toBeCloseTo(999.99, 9);
+        expect(rule.isViolated(ceiling, 1500 + ceiling)).toBe(false);
+        expect(rule.isViolated(1000, 2500)).toBe(true);
+    });
+
+    it('scales with the prior cycle profit and the plan share', () => {
+        const rule = new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5));
+        expect(rule.maxDayProfitBeforeViolation(2000)).toBeCloseTo(2000, 9);
+        expect(rule.maxDayProfitBeforeViolation(0)).toBeCloseTo(0, 9);
+    });
+
+    it('is zero when there is no prior cycle profit to share against', () => {
+        const rule = new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.4),
+        );
+        expect(rule.maxDayProfitBeforeViolation(0)).toBeCloseTo(0, 9);
+    });
+
+    it('is unbounded when the share is 100% or more, since the rule can never be violated', () => {
+        const rule = new ConsistencyRule(ConsistencyScope.Funded, fraction(1));
+        expect(rule.maxDayProfitBeforeViolation(1500)).toBe(Infinity);
+        expect(rule.isViolated(1e9, 1e9 + 1000)).toBe(false);
+    });
+});
+
 describe('ConsistencyRule.shareLabel shows the boundary and the net-losing cycle rule from the rule itself', () => {
     it.each([
         {
@@ -145,6 +186,19 @@ describe('ConsistencyRule.shareLabel shows the boundary and the net-losing cycle
             );
         },
     );
+
+    it('adds a DoubleTarget qualifier describing the raised goal on violation', () => {
+        const rule = new ConsistencyRule(
+            ConsistencyScope.Eval,
+            fraction(0.5),
+            ConsistencyBasis.Cycle,
+            ConsistencyViolationEffect.DoubleTarget,
+            ConsistencyBoundary.Inclusive,
+        );
+        expect(rule.shareLabel()).toBe(
+            '50% (inclusive, raises the goal above 2x the best day on violation)',
+        );
+    });
 
     it.each([
         { expected: '30%', share: 0.3 },

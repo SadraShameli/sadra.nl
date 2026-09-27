@@ -8,6 +8,7 @@ import {
 } from '~/components/ui/Table';
 
 import { type CostCardModel } from './overviewModel';
+import { SampleBadge } from './SampleBadge';
 
 export function CostCard({ model }: { readonly model: CostCardModel }) {
     return (
@@ -111,7 +112,12 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                                         {row.acquisitionSpend}
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums">
-                                        {row.fundedAccounts}
+                                        <span className="inline-flex items-center gap-1.5">
+                                            {row.fundedAccounts}
+                                            <SampleBadge
+                                                level={row.fundedSampleLevel}
+                                            />
+                                        </span>
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums">
                                         {row.costPerFunded}
@@ -158,7 +164,12 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                                         {row.accountSize}
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums">
-                                        {row.attempts}
+                                        <span className="inline-flex items-center gap-1.5">
+                                            {row.attempts}
+                                            <SampleBadge
+                                                level={row.attemptsSampleLevel}
+                                            />
+                                        </span>
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums">
                                         {row.costPerAttempt}
@@ -197,7 +208,12 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                                 <TableRow key={row.key}>
                                     <TableCell>{row.firm}</TableCell>
                                     <TableCell className="text-right tabular-nums">
-                                        {row.attempts}
+                                        <span className="inline-flex items-center gap-1.5">
+                                            {row.attempts}
+                                            <SampleBadge
+                                                level={row.attemptsSampleLevel}
+                                            />
+                                        </span>
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums">
                                         {row.costPerAttempt}

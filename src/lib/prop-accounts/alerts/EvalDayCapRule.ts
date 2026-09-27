@@ -1,5 +1,7 @@
+import { isoDaysBetween } from '~/lib/prop-calculator';
+
 import { AccountStage, PlanKeyResolutionKind } from '../core';
-import { type AccountAlert } from './AccountAlert';
+import { type AccountAlert, type AlertDisclosure } from './AccountAlert';
 import {
     type AlertContext,
     isActive,
@@ -10,6 +12,12 @@ import { AlertKind } from './AlertKind';
 import { AccountAlertRule } from './AlertRule';
 import { AlertSeverity } from './AlertSeverity';
 import { TradingSessionCalendar } from './TradingSessionCalendar';
+
+interface CapProgress {
+    readonly disclosures: readonly AlertDisclosure[];
+    readonly messageFor: (severity: AlertSeverity) => string;
+    readonly remaining: number;
+}
 
 export class EvalDayCapRule extends AccountAlertRule {
     readonly kind = AlertKind.EvalDayCapNear;
@@ -26,33 +34,91 @@ export class EvalDayCapRule extends AccountAlertRule {
         ) {
             return null;
         }
-        const maxDays = monitored.plan.plan.maxEvalTradingDays;
-        if (maxDays === null) return null;
-        const purchasedOn = monitored.account.purchasedOn;
-        const sessions = TradingSessionCalendar.sessionsBetween(
-            purchasedOn,
-            context.today,
+        const plan = monitored.plan.plan;
+        const candidates: CapProgress[] = [];
+        if (plan.maxEvalTradingDays !== null) {
+            candidates.push(
+                tradingDayProgress(
+                    monitored,
+                    context,
+                    plan.maxEvalTradingDays,
+                ),
+            );
+        }
+        if (plan.evalAccessWindowDays !== null) {
+            candidates.push(
+                calendarWindowProgress(
+                    monitored,
+                    context,
+                    plan.evalAccessWindowDays,
+                ),
+            );
+        }
+        if (candidates.length === 0) return null;
+        const binding = candidates.reduce((tightest, candidate) =>
+            candidate.remaining < tightest.remaining ? candidate : tightest,
         );
-        const traded = monitored.latestSnapshot?.tradingDays ?? null;
-        const used = Math.max(sessions, traded ?? 0);
-        const tradedText = traded === null ? 'none recorded' : String(traded);
-        const basis = `${sessions} sessions since the purchase on ${purchasedOn}, traded days ${tradedText}`;
-        const remaining = maxDays - used;
-        if (remaining <= 0) {
+        if (binding.remaining <= 0) {
             return this.alertFor(
                 monitored,
                 AlertSeverity.Critical,
-                `Eval day cap reached: ${used} of ${maxDays} trading days used (${basis})`,
-                [TradingSessionCalendar.disclosure],
+                binding.messageFor(AlertSeverity.Critical),
+                binding.disclosures,
             );
         }
-        return remaining > context.rulebook.alerts.evalDaysRemainingWarning
+        return binding.remaining > context.rulebook.alerts.evalDaysRemainingWarning
             ? null
             : this.alertFor(
                   monitored,
                   AlertSeverity.Warning,
-                  `${remaining} eval trading days left of ${maxDays} (${used} used: ${basis})`,
-                  [TradingSessionCalendar.disclosure],
+                  binding.messageFor(AlertSeverity.Warning),
+                  binding.disclosures,
               );
     }
+}
+
+function calendarWindowProgress(
+    monitored: MonitoredAccount,
+    context: AlertContext,
+    windowDays: number,
+): CapProgress {
+    const purchasedOn = monitored.account.purchasedOn;
+    const elapsed = Math.max(
+        0,
+        isoDaysBetween(purchasedOn, context.today),
+    );
+    const remaining = windowDays - elapsed;
+    return {
+        disclosures: [],
+        messageFor: (severity) =>
+            severity === AlertSeverity.Critical
+                ? `Eval access window reached: ${elapsed} of ${windowDays} calendar days used since the purchase on ${purchasedOn}`
+                : `${remaining} eval access days left of ${windowDays} calendar days since the purchase on ${purchasedOn}`,
+        remaining,
+    };
+}
+
+function tradingDayProgress(
+    monitored: MonitoredAccount,
+    context: AlertContext,
+    maxDays: number,
+): CapProgress {
+    const purchasedOn = monitored.account.purchasedOn;
+    const sessions = TradingSessionCalendar.sessionsBetween(
+        purchasedOn,
+        context.today,
+    );
+    const traded = monitored.latestSnapshot?.tradingDays ?? null;
+    const used = Math.max(sessions, traded ?? 0);
+    const tradedText = traded === null ? 'none recorded' : String(traded);
+    const basis = `${sessions} sessions since the purchase on ${purchasedOn}, traded days ${tradedText}`;
+    const remaining = maxDays - used;
+    return {
+        disclosures: [TradingSessionCalendar.disclosure],
+        messageFor: (severity) =>
+            severity === AlertSeverity.Critical
+                ? `Eval day cap reached: ${used} of ${maxDays} trading days used (${basis})`
+                : `${remaining} eval trading days left of ${maxDays} (${used} used: ${basis})`,
+        remaining,
+    };
 }

@@ -11,7 +11,11 @@ import {
     fundedStopRuleToDayStopRule,
     type RulebookParameters,
 } from './Rulebook';
-import { type FundedRuleContext, fundedRuleContextSchema } from './RuleContext';
+import {
+    type FundedRuleContext,
+    fundedRuleContextSchema,
+    profitCeiling,
+} from './RuleContext';
 import { RuleSource } from './RuleSource';
 
 export class FundedFixedRiskRule extends FlatRiskRule<FundedRuleContext> {
@@ -26,14 +30,15 @@ export class FundedFixedRiskRule extends FlatRiskRule<FundedRuleContext> {
         };
     }
 
-    protected terms(): SizingTerms {
+    protected terms(context: FundedRuleContext): SizingTerms {
         const { funded } = this.rulebook;
         const stopRule = fundedStopRuleToDayStopRule(funded.stopRule);
+        const ceiling = profitCeiling(context);
         return {
-            assumptions: [
-                ...SHARED_ASSUMPTIONS,
-                SizingAssumption.NoProfitCeiling,
-            ],
+            assumptions:
+                ceiling === null
+                    ? [...SHARED_ASSUMPTIONS, SizingAssumption.NoProfitCeiling]
+                    : SHARED_ASSUMPTIONS,
             dailyProfitCap:
                 stopRule.kind === DayStopRuleKind.AfterTarget
                     ? {
@@ -42,7 +47,7 @@ export class FundedFixedRiskRule extends FlatRiskRule<FundedRuleContext> {
                       }
                     : null,
             maxTrades: funded.tradesPerDayMax,
-            profitCeiling: null,
+            profitCeiling: ceiling,
             provenance: SizingProvenance.FundedFixedRisk,
             rewardMultiple: funded.takeProfitCents / funded.riskCents,
             sources: [RuleSource.HardRule5, RuleSource.HisNumbers],

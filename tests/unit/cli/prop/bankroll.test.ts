@@ -16,7 +16,7 @@ import projectCommand, {
     projectArguments,
 } from '~/cli/commands/prop/bankroll/project';
 import riskCommand, { riskArguments, riskRows } from '~/cli/commands/prop/bankroll/risk';
-import { TradingInputs } from '~/cli/commands/prop/shared';
+import { edgePlausibilityNote, TradingInputs } from '~/cli/commands/prop/shared';
 import {
     findFirm,
     FirmId,
@@ -243,30 +243,52 @@ describe('toBankrollTimelineInputs refuses an eval ladder loud instead of silent
         ).not.toThrow();
     });
 
-    it('throws when --funded-risk differs from --risk, instead of silently applying eval risk to the funded phase', () => {
+});
+
+describe('toBankrollTimelineInputs applies funded-phase flat parameter overrides instead of refusing them (PT-55b)', () => {
+    it('applies --funded-risk, --funded-rr and --funded-tpd to the funded phase', () => {
         const inputs = TradingInputs.parse(
             parseArgs<typeof projectArguments>(
-                [...SMALL_SIM, '--risk', '500', '--funded-risk', '250'],
+                [
+                    ...SMALL_SIM,
+                    '--risk',
+                    '500',
+                    '--rr',
+                    '2',
+                    '--tpd',
+                    '1',
+                    '--funded-risk',
+                    '250',
+                    '--funded-rr',
+                    '3',
+                    '--funded-tpd',
+                    '2',
+                ],
                 projectArguments,
             ),
         );
         const plan = rapidEodPlan();
-        expect(() =>
-            toBankrollTimelineInputs(
-                inputs,
-                plan,
-                {
-                    maxConcurrentAccounts: null,
-                    monthlyBudget: null,
-                    payoutLagDays: 0,
-                    reinvestFraction: fraction(1),
-                    roundBudget: null,
-                    startingBankroll: 5000 as never,
-                },
-                60,
-                30,
-            ),
-        ).toThrow(/funded-risk/i);
+        const result = toBankrollTimelineInputs(
+            inputs,
+            plan,
+            {
+                maxConcurrentAccounts: null,
+                monthlyBudget: null,
+                payoutLagDays: 0,
+                reinvestFraction: fraction(1),
+                roundBudget: null,
+                startingBankroll: 5000 as never,
+            },
+            60,
+            30,
+        );
+
+        expect(result.fundedRiskPerTrade).toBe(250);
+        expect(result.fundedRrRatio).toBe(3);
+        expect(result.fundedTradesPerDay).toBe(2);
+        expect(result.riskPerTrade).toBe(500);
+        expect(result.rrRatio).toBe(2);
+        expect(result.tradesPerDay).toBe(1);
     });
 
     it('does not throw when --funded-risk equals --risk', () => {
@@ -331,6 +353,35 @@ describe('prop bankroll project', () => {
             }),
         ).toContain('n/a');
     });
+
+    it('prints the edge plausibility note the way prop sim does, with a funded-phase override given (PT-55c)', async () => {
+        const stdout = await capturedRun(
+            projectCommand,
+            parseArgs<typeof projectArguments>(
+                [
+                    ...SMALL_SIM,
+                    '--start',
+                    '5000',
+                    '--horizon-days',
+                    '40',
+                    '--trials',
+                    '30',
+                    '--winrate',
+                    '0.7',
+                    '--rr',
+                    '1',
+                    '--funded-risk',
+                    '1000',
+                ],
+                projectArguments,
+            ),
+            SMALL_SIM,
+        );
+        expect(stdout).toContain(
+            edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ??
+                'missing note',
+        );
+    });
 });
 
 describe('prop bankroll compare', () => {
@@ -370,6 +421,62 @@ describe('prop bankroll compare', () => {
         expect(stdout).toContain('deterministic illustration, not a forecast');
         expect(stdout).toContain('5@60');
         expect(stdout).toContain('3@30');
+    });
+
+    it('prints the edge plausibility note the way prop sim does, with a funded-phase override given (PT-55c)', async () => {
+        const stdout = await capturedRun(
+            compareCommand,
+            parseArgs<typeof compareArguments>(
+                [
+                    ...SMALL_SIM,
+                    '--start',
+                    '5000',
+                    '--horizon-days',
+                    '40',
+                    '--winrate',
+                    '0.7',
+                    '--rr',
+                    '1',
+                    '--funded-risk',
+                    '1000',
+                ],
+                compareArguments,
+            ),
+            SMALL_SIM,
+        );
+        expect(stdout).toContain(
+            edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ??
+                'missing note',
+        );
+    });
+
+    it('does not print the edge plausibility note for --multiples, since that closed-form illustration never uses winrate/rr (PT-55c)', async () => {
+        const stdout = await capturedRun(
+            compareCommand,
+            parseArgs<typeof compareArguments>(
+                [
+                    ...SMALL_SIM,
+                    '--start',
+                    '5000',
+                    '--horizon-days',
+                    '60',
+                    '--multiples',
+                    '5@60,3@30',
+                    '--winrate',
+                    '0.7',
+                    '--rr',
+                    '1',
+                    '--funded-risk',
+                    '1000',
+                ],
+                compareArguments,
+            ),
+            SMALL_SIM,
+        );
+        expect(stdout).not.toContain(
+            edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ??
+                'missing note',
+        );
     });
 });
 

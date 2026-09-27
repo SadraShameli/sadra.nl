@@ -56,6 +56,9 @@ export interface BankrollPolicy {
 export interface BankrollTimelineInputs
     extends Omit<PortfolioTimelineInputs, 'accounts'> {
     bankroll: BankrollPolicy;
+    fundedRiskPerTrade?: number;
+    fundedRrRatio?: number;
+    fundedTradesPerDay?: number;
 }
 
 export interface BankrollTimelineResult {
@@ -94,6 +97,7 @@ export interface EvalToFundedCycleOptions {
     discounts: CouponDiscounts | undefined;
     evalDayPolicy: DayPolicy;
     fundedDayPolicy: DayPolicy;
+    fundedRrRatio?: number;
     idleDayProbability?: number;
     maxEvalDays: number;
     maxFundedDays: number;
@@ -102,6 +106,7 @@ export interface EvalToFundedCycleOptions {
     payoutRequestSize: Dollars | undefined;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
+    retryAffordabilityCheck?: (fee: number, dayOffset: number) => boolean;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;

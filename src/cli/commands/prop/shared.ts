@@ -14,6 +14,8 @@ import {
     describeFundedResetTerms,
     type Dollars,
     dollars,
+    EdgeModelKind,
+    type EdgeModelSpec,
     findFirm,
     FirmId,
     fraction,
@@ -48,8 +50,7 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import { MAX_INTRADAY_PATH_STEPS_PER_R } from '~/lib/prop-calculator/advisor/policy';
 import {
-    edgePlausibility,
-    PlausibilityLevel,
+    edgePlausibilityNoteText,
     type PlausibilityThresholds,
 } from '~/lib/prop-calculator/economics';
 
@@ -78,6 +79,11 @@ export interface CouponDiscountPercents {
 export interface EdgeInputs {
     readonly rrRatio: number;
     readonly winrate: Fraction0to1;
+}
+
+export interface EdgeModelArguments {
+    'edge-anchor-rr'?: string;
+    'edge-model': string;
 }
 
 export interface ScreenTime {
@@ -640,6 +646,20 @@ export function toCouponDiscounts(
         : undefined;
 }
 
+export const edgeModelArguments = {
+    'edge-anchor-rr': {
+        description:
+            'Reward-to-risk ratio the drift edge model is fitted to (default: --rr). The win rate it derives there always equals --winrate; only --edge-model drift uses this',
+        type: 'string',
+    },
+    'edge-model': {
+        default: EdgeModelKind.Fixed,
+        description: `How the win rate used to rank --rr-candidates is derived: ${EdgeModelKind.Fixed} (default) keeps --winrate fixed at every rr and cannot rank take-profit multiples; ${EdgeModelKind.Drift} fits a Brownian-motion-with-drift model to --winrate at --edge-anchor-rr and derives a different win rate at each candidate rr, labelled a what-if that differs from your fixed 1:2 -- never used by the headline, the rulebook or advice`,
+        options: Object.values(EdgeModelKind),
+        type: 'enum',
+    },
+} satisfies ArgsDef;
+
 export const evalPolicyArguments = {
     'eval-days': {
         default: '150',
@@ -762,28 +782,11 @@ export const screenTimeArguments = {
     },
 } satisfies ArgsDef;
 
-const PLAUSIBILITY_LEVEL_TEXT: Readonly<Record<PlausibilityLevel, string>> = {
-    [PlausibilityLevel.Implausible]: 'implausible edge',
-    [PlausibilityLevel.NoEdge]: 'no edge',
-    [PlausibilityLevel.Strong]: 'strong edge',
-    [PlausibilityLevel.Typical]: 'typical edge',
-};
-
-const QV20_EXPECTANCY_DISCLOSURE =
-    'while QV-20 is open: this check uses +0.20R from 40% at 1:2, the trading skill computes +0.26R from the same inputs';
-
 export function edgePlausibilityNote(
     inputs: EdgeInputs,
     thresholds: PlausibilityThresholds = DEFAULT_RULEBOOK.plausibility,
 ): null | string {
-    const result = edgePlausibility({ ...inputs, thresholds });
-    if (result.value === null || result.value.level === PlausibilityLevel.Typical) {
-        return null;
-    }
-    const { expectancyR, level } = result.value;
-    const sign = expectancyR >= 0 ? '+' : '-';
-    const winratePercent = (inputs.winrate * 100).toFixed(0);
-    return `${PLAUSIBILITY_LEVEL_TEXT[level]}: ${sign}${Math.abs(expectancyR).toFixed(2)}R per trade at ${winratePercent}% and 1:${inputs.rrRatio} (typical up to +${thresholds.typicalMaxExpectancyR.toFixed(2)}R, strong up to +${thresholds.strongMaxExpectancyR.toFixed(2)}R); ${QV20_EXPECTANCY_DISCLOSURE}`;
+    return edgePlausibilityNoteText(inputs, thresholds);
 }
 
 export function printEdgePlausibilityNotes(
@@ -823,6 +826,29 @@ export function readBankrollInputs(
         bankroll: readBankroll(arguments_.bankroll),
         lossThreshold: readLossThreshold(arguments_['loss-threshold']),
     };
+}
+
+export function readEdgeModelSpec(
+    arguments_: EdgeModelArguments,
+    inputs: EdgeInputs,
+): EdgeModelSpec {
+    const kind = z.enum(EdgeModelKind).parse(arguments_['edge-model']);
+    switch (kind) {
+        case EdgeModelKind.Drift: {
+            const anchorRr = arguments_['edge-anchor-rr'];
+            return {
+                anchorRrRatio:
+                    anchorRr === undefined
+                        ? inputs.rrRatio
+                        : readPositiveNumber(anchorRr, 'edge-anchor-rr'),
+                anchorWinrate: inputs.winrate,
+                kind: EdgeModelKind.Drift,
+            };
+        }
+        case EdgeModelKind.Fixed: {
+            return { kind: EdgeModelKind.Fixed, winrate: inputs.winrate };
+        }
+    }
 }
 
 export function readHoursPerDay(raw: string | undefined): null | number {

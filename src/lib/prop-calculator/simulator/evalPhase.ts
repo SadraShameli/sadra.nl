@@ -97,7 +97,9 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
 }
 
 export function runEvalWithRetries(
-    options: EvalWithRetriesOptions,
+    options: EvalWithRetriesOptions & {
+        retryAffordabilityCheck?: (fee: number, dayOffset: number) => boolean;
+    },
 ): EvalWithRetriesResult {
     const {
         commission,
@@ -110,6 +112,7 @@ export function runEvalWithRetries(
         maxTotalEvalDays,
         plan,
         positionSizing,
+        retryAffordabilityCheck,
         rng,
         rrRatio,
         rungSizing,
@@ -170,9 +173,14 @@ export function runEvalWithRetries(
             (attempt.days > 0 && daysElapsed < maxTotalEvalDays);
         if (isWithinAttemptCap && isWithinDayBudget) {
             const fee = plan.retryFee(discounts);
-            resetFeesPaid += fee;
-            retryCharges.push({ dayOffset: daysElapsed, fee });
-            continue;
+            const isAffordable =
+                retryAffordabilityCheck === undefined ||
+                retryAffordabilityCheck(fee, daysElapsed);
+            if (isAffordable) {
+                resetFeesPaid += fee;
+                retryCharges.push({ dayOffset: daysElapsed, fee });
+                continue;
+            }
         }
 
         return {

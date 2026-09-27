@@ -1910,3 +1910,35 @@ describe('conclusionGate delegates entirely to plan.conclusionGate, dropping the
         });
     });
 });
+
+describe('requiredDayGateDays (PT-46c: one day-gate count, callable without a full tracker)', () => {
+    it('accepts a plain payoutsIssued count instead of a FundedCycleTracker instance', () => {
+        const target = plan(MffuVariant.RapidEod).withOverrides({
+            minDaysAfterPassForPayout: 14,
+            minDaysAfterPassForPayoutPerCycle: 5,
+        });
+
+        expect(core.requiredDayGateDays(target, { payoutsIssued: 0 })).toBe(
+            14,
+        );
+        expect(core.requiredDayGateDays(target, { payoutsIssued: 1 })).toBe(
+            5,
+        );
+        expect(core.requiredDayGateDays(target, { payoutsIssued: 3 })).toBe(
+            5,
+        );
+    });
+
+    it('still accepts a full FundedCycleTracker instance', () => {
+        const target = plan(MffuVariant.RapidEod).withOverrides({
+            minDaysAfterPassForPayout: 14,
+            minDaysAfterPassForPayoutPerCycle: 5,
+        });
+        const state = fundedState(0, 50_100);
+        const tracker = newFundedCycleTracker(state);
+
+        expect(core.requiredDayGateDays(target, tracker)).toBe(14);
+        tracker.payoutsIssued = 1;
+        expect(core.requiredDayGateDays(target, tracker)).toBe(5);
+    });
+});

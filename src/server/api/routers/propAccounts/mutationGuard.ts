@@ -209,11 +209,8 @@ export async function assertExternalFirmOwned(
         );
         return;
     }
-    const firms = await repo.listExternalFirms();
-    const owned = new Set(firms.map((firm) => firm.id));
-    if (ids.every((id) => owned.has(id))) return;
-    throw new PropMutationRejectionError(
-        PropMutationRejection.ReferenceNotOwned,
+    await ownedReferenceOrThrow(
+        () => repo.loadOwnedExternalFirmsOrThrow(ids),
         EXTERNAL_FIRM_NOT_OWNED,
     );
 }

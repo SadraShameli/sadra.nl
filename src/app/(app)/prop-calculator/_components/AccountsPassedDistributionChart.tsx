@@ -15,6 +15,7 @@ import { cn } from '~/lib/utilities';
 import { type BarShapeProperties } from './charts/types';
 
 interface Properties {
+    caption?: string;
     distribution: number[];
     halfThreshold?: boolean;
 }
@@ -23,7 +24,10 @@ const chartConfig: ChartConfig = {
     p: { color: 'hsl(217 91% 60%)', label: 'Probability' },
 };
 
+const DEFAULT_CAPTION = '# accounts passed';
+
 export default function AccountsPassedDistributionChart({
+    caption = DEFAULT_CAPTION,
     distribution,
     halfThreshold = true,
 }: Properties) {
@@ -52,7 +56,7 @@ export default function AccountsPassedDistributionChart({
                             fontSize: 10,
                             offset: 6,
                             position: 'bottom',
-                            value: '# accounts passed',
+                            value: caption,
                         }}
                         tickLine={false}
                         tickMargin={4}

@@ -6,6 +6,7 @@ import {
     DayStopRuleKind,
     dollars,
     InstrumentSymbol,
+    ONE_CENT,
 } from '~/lib/prop-calculator';
 import {
     DailyProfitCapKind,
@@ -16,6 +17,7 @@ import {
     FundedFixedRiskRule,
     type FundedRuleContext,
     NextTradeKind,
+    NO_PERSONAL_CAPS,
     type RulebookParameters,
     RuleSource,
     SizingAssumption,
@@ -44,11 +46,14 @@ function fundedContext(
     overrides: Partial<FundedRuleContext> = {},
 ): FundedRuleContext {
     return {
+        ceiling: null,
         contractLimit: null,
         cushion: dollars(3000),
         dayStartDllRoom: null,
         instrument: null,
+        personalCaps: NO_PERSONAL_CAPS,
         personalDll: null,
+        placeableMinimum: ONE_CENT,
         stage: SizingStage.Funded,
         ...overrides,
     };
@@ -243,6 +248,126 @@ describe('FundedFixedRiskRule, the next trade', () => {
             cappedBy: [SizingConstraint.DailyLossCap],
             kind: NextTradeKind.Stop,
             reason: DayStopReason.NoLossRoom,
+        });
+    });
+});
+
+describe('FundedFixedRiskRule, personal caps and ceilings (PT-19 step 2, F-62, F-154)', () => {
+    it('drops NoProfitCeiling and reports the ceiling as CeilingCap once a ceiling is set', () => {
+        const sizing = funded.size(fundedContext({ ceiling: dollars(300) }));
+
+        expect(sizing.assumptions).not.toContain(
+            SizingAssumption.NoProfitCeiling,
+        );
+        expect(sizing.profitCeiling).toEqual({
+            amount: 300,
+            constraint: SizingConstraint.CeilingCap,
+        });
+        expect(sizing.rungs[0]).toMatchObject({
+            cappedBy: [SizingConstraint.CeilingCap],
+            risk: 150,
+            takeProfit: 300,
+        });
+        expect(sizing.constraints).toContain(SizingConstraint.CeilingCap);
+    });
+
+    it('keeps NoProfitCeiling and a null profitCeiling with no ceiling set (nothing moves)', () => {
+        const sizing = funded.size(fundedContext());
+
+        expect(sizing.assumptions).toContain(SizingAssumption.NoProfitCeiling);
+        expect(sizing.profitCeiling).toBeNull();
+    });
+
+    it('caps the next trade at a personal max risk per trade', () => {
+        const context = fundedContext({
+            personalCaps: {
+                dailyProfitCap: null,
+                maxRiskPerTrade: dollars(100),
+                maxTradesPerDay: null,
+            },
+        });
+
+        expect(funded.nextTrade(context, day(0, 0, 0, 0))).toEqual({
+            kind: NextTradeKind.Trade,
+            rung: {
+                cappedBy: [SizingConstraint.PersonalCap],
+                risk: 100,
+                runningLossAfter: 100,
+                runningLossBefore: 0,
+                takeProfit: 200,
+            },
+        });
+    });
+
+    it('stops at a personal max trades per day tighter than the rulebook', () => {
+        const context = fundedContext({
+            personalCaps: {
+                dailyProfitCap: null,
+                maxRiskPerTrade: null,
+                maxTradesPerDay: 2,
+            },
+        });
+
+        expect(funded.nextTrade(context, day(0, 250, 1, 1))).toEqual({
+            cappedBy: [],
+            kind: NextTradeKind.Stop,
+            reason: DayStopReason.MaxTrades,
+        });
+    });
+
+    it('tightens the ceiling with a personal daily profit cap, tagged PersonalCap', () => {
+        const context = fundedContext({
+            personalCaps: {
+                dailyProfitCap: dollars(300),
+                maxRiskPerTrade: null,
+                maxTradesPerDay: null,
+            },
+        });
+
+        expect(funded.nextTrade(context, day(0, 0, 0, 0))).toEqual({
+            kind: NextTradeKind.Trade,
+            rung: {
+                cappedBy: [SizingConstraint.PersonalCap],
+                risk: 150,
+                runningLossAfter: 150,
+                runningLossBefore: 0,
+                takeProfit: 300,
+            },
+        });
+    });
+
+    it('stops with NoLossRoom below a custom placeable minimum, where the default ONE_CENT would still trade', () => {
+        const tinyCushion = fundedContext({ cushion: dollars(0.5) });
+        const withDefaultMinimum = funded.nextTrade(
+            tinyCushion,
+            day(0, 0, 0, 0),
+        );
+        expect(withDefaultMinimum).toMatchObject({
+            kind: NextTradeKind.Trade,
+            rung: { risk: 0.5 },
+        });
+
+        const withCustomMinimum = funded.nextTrade(
+            { ...tinyCushion, placeableMinimum: dollars(1) },
+            day(0, 0, 0, 0),
+        );
+        expect(withCustomMinimum).toEqual({
+            cappedBy: [SizingConstraint.CushionCap],
+            kind: NextTradeKind.Stop,
+            reason: DayStopReason.NoLossRoom,
+        });
+    });
+
+    it('reports CeilingReached, not NoLossRoom, when the ceiling room falls below a custom placeable minimum', () => {
+        const context = fundedContext({
+            ceiling: dollars(0.5),
+            placeableMinimum: dollars(1),
+        });
+
+        expect(funded.nextTrade(context, day(0, 0, 0, 0))).toEqual({
+            cappedBy: [SizingConstraint.CeilingCap],
+            kind: NextTradeKind.Stop,
+            reason: DayStopReason.CeilingReached,
         });
     });
 });

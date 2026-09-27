@@ -1,7 +1,7 @@
 'use client';
 
 import { Layers } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -27,6 +27,13 @@ import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
 import { ComputationId } from './ComputationId';
+import {
+    noPayoutColumn,
+    parseAccountsPerSession,
+    parsePositiveNumber,
+    screenHourColumn,
+    ScreenHourInputs,
+} from './FirmComparisonTable';
 import { panelDescriptions } from './kpiDescriptions';
 import { ptddColor } from './metricColors';
 import { bestExpectedMonthlyNet, scoreByExpectedMonthlyNet } from './scoring';
@@ -98,6 +105,16 @@ export default function PlanComparisonTable({
     );
 
     const openInSimulator = useOpenInSimulator(planOptIns);
+
+    const [hoursPerDayInput, setHoursPerDayInput] = useState('');
+    const [accountsPerSessionInput, setAccountsPerSessionInput] =
+        useState('');
+    const hoursPerDay = parsePositiveNumber(hoursPerDayInput);
+    const accountsPerSession = parseAccountsPerSession(
+        accountsPerSessionInput,
+    );
+    const hasScreenHourInputs =
+        hoursPerDay !== null && accountsPerSession !== null;
 
     const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
@@ -183,11 +200,22 @@ export default function PlanComparisonTable({
                 header: 'Score',
                 id: 'score',
             },
+            noPayoutColumn<Row>(),
+            ...(hasScreenHourInputs && hoursPerDay && accountsPerSession
+                ? [screenHourColumn<Row>(hoursPerDay, accountsPerSession)]
+                : []),
             openInSimulatorColumn<Row>((row) =>
                 openInSimulator(firm, row.plan),
             ),
         ],
-        [activePlan, firm, openInSimulator],
+        [
+            accountsPerSession,
+            activePlan,
+            firm,
+            hasScreenHourInputs,
+            hoursPerDay,
+            openInSimulator,
+        ],
     );
 
     return (
@@ -209,6 +237,13 @@ export default function PlanComparisonTable({
                         : `${rows.length} plan${rows.length === 1 ? '' : 's'}`}
                 </span>
             </div>
+            <ScreenHourInputs
+                accountsPerSessionInput={accountsPerSessionInput}
+                hoursPerDayInput={hoursPerDayInput}
+                idPrefix="plan-comparison"
+                onAccountsPerSessionChange={setAccountsPerSessionInput}
+                onHoursPerDayChange={setHoursPerDayInput}
+            />
             {error === null ? (
                 <DataTable<Row>
                     className="app-prop-calculator__plan-comparison-table text-xs tabular-nums"

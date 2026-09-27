@@ -1,6 +1,6 @@
+import { didCalendarWeekCloseForInactivity } from '../core';
 import { resetForNewDay } from '../core/AccountState';
 import { TRADING_DAYS_PER_YEAR } from '../core/constants';
-import { didCalendarWeekCloseForInactivity } from '../core/InactivityRule';
 import {
     dollars,
     type Dollars,

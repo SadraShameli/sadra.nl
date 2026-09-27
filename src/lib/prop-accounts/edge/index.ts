@@ -14,5 +14,6 @@ export {
     edgeSummary,
     edgeSummarySchema,
     MAX_EDGE_TRADES,
+    type MeasuredRewardToRisk,
     MIN_EXPECTED_WINS_AND_LOSSES,
 } from './EdgeSummary';

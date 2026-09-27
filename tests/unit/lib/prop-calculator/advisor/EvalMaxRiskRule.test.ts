@@ -6,6 +6,7 @@ import {
     DayStopRuleKind,
     dollars,
     InstrumentSymbol,
+    ONE_CENT,
 } from '~/lib/prop-calculator';
 import {
     DailyProfitCapKind,
@@ -17,6 +18,7 @@ import {
     type EvalRuleContext,
     EvalSizingMode,
     NextTradeKind,
+    NO_PERSONAL_CAPS,
     type RulebookParameters,
     RuleSource,
     SizingConstraint,
@@ -58,12 +60,15 @@ function evalContext(
     overrides: Partial<EvalRuleContext> = {},
 ): EvalRuleContext {
     return {
+        ceiling: null,
         consistencyDailyCap: null,
         contractLimit: null,
         cushion: dollars(2000),
         dayStartDllRoom: null,
         instrument: null,
+        personalCaps: NO_PERSONAL_CAPS,
         personalDll: null,
+        placeableMinimum: ONE_CENT,
         remainingProfitToTarget: FAR_TARGET,
         stage: SizingStage.Eval,
         ...overrides,

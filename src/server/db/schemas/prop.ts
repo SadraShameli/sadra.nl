@@ -38,7 +38,10 @@ import type {
     ViolationSource,
 } from '~/lib/prop-accounts';
 import type { PlanOptIns } from '~/lib/prop-calculator';
-import type { RulebookParameters } from '~/lib/prop-calculator/advisor';
+import type {
+    AdviceSource,
+    RulebookParameters,
+} from '~/lib/prop-calculator/advisor';
 import type { MAX_ACCEPTED_RUNGS } from '~/lib/schemas/propAccounts';
 
 import { user } from './auth';
@@ -545,7 +548,9 @@ export const propSizingDecision = createTable(
         id: uuid('id').primaryKey().defaultRandom(),
         note: text('note'),
         snapshotId: uuid('snapshot_id'),
-        source: varchar('source', { length: ENUM_LENGTH }).notNull(),
+        source: varchar('source', { length: ENUM_LENGTH })
+            .$type<AdviceSource>()
+            .notNull(),
         stage: varchar('stage', { length: ENUM_LENGTH })
             .$type<AccountStage>()
             .notNull(),

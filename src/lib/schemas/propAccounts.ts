@@ -33,6 +33,7 @@ import {
     validateStageForPlan,
 } from '~/lib/prop-accounts';
 import { FirmId, NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
+import { AdviceSource } from '~/lib/prop-calculator/advisor';
 
 export const MAX_ACCOUNT_LABEL_LENGTH = 64;
 export const MAX_ACCOUNT_TAGS = 20;
@@ -47,8 +48,6 @@ export const MAX_ACCEPTED_RUNGS = 20;
 export const MAX_SCENARIO_NAME_LENGTH = 64;
 export const MAX_SCENARIO_QUERY_LENGTH = 8192;
 export const MAX_EVENT_LIST_YEARS = 3;
-
-const MAX_ADVICE_SOURCE_LENGTH = 32;
 
 const CONTROL_CHARACTER = /\p{Cc}/u;
 const NOTE_LINE_CONTROL = /^[\t\n\r]$/u;
@@ -648,7 +647,7 @@ export const decisionCreateSchema = z.object({
     headlineRiskCents: nonNegativeUsdCentsSchema,
     note: ledgerNoteSchema.nullable().default(null),
     snapshotId: idSchema.nullable(),
-    source: singleLineTextSchema(MAX_ADVICE_SOURCE_LENGTH),
+    source: z.enum(AdviceSource),
     stage: z.enum(AccountStage),
 });
 

@@ -19,6 +19,7 @@ import {
     minimumAttemptsForNoPayout,
     minimumBudgetForLossTarget,
     noPayoutProbability,
+    noPayoutProbabilityFromDistribution,
 } from '~/lib/prop-calculator/economics';
 import { findFirm } from '~/lib/prop-calculator/firms';
 import { simulate } from '~/lib/prop-calculator/simulator';
@@ -93,6 +94,23 @@ describe('noPayoutProbability (secondary row, VD-26)', () => {
         expect(noPayoutProbability(fraction(0.1), 2.5).reason).toBe(
             EconomicsReason.InvalidInput,
         );
+    });
+});
+
+describe('noPayoutProbabilityFromDistribution (PT-61d, F-V25)', () => {
+    it('reads the share of no-payout trials from index 0', () => {
+        expect(noPayoutProbabilityFromDistribution([0.42, 0.3, 0.28])).toBe(
+            0.42,
+        );
+    });
+
+    it('is null when no trial ever reached funded', () => {
+        expect(noPayoutProbabilityFromDistribution([])).toBeNull();
+    });
+
+    it('is the single definition the CLI and web P(no payout) columns share', () => {
+        expect(noPayoutProbabilityFromDistribution([1])).toBe(1);
+        expect(noPayoutProbabilityFromDistribution([0])).toBe(0);
     });
 });
 

@@ -32,6 +32,14 @@ export function FunnelCard({ model }: { readonly model: FunnelCardModel }) {
                             <TableHead className="text-right">
                                 Moved live
                             </TableHead>
+                            <TableHead className="text-right">
+                                Payout rate
+                            </TableHead>
+                            <TableHead className="text-right">Fees</TableHead>
+                            <TableHead className="text-right">
+                                Net payouts
+                            </TableHead>
+                            <TableHead className="text-right">Net</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -53,6 +61,18 @@ export function FunnelCard({ model }: { readonly model: FunnelCardModel }) {
                                 <TableCell className="text-right tabular-nums">
                                     {row.movedLive}
                                 </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {row.payoutRate}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {row.fees}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {row.netPayouts}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {row.net}
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -63,6 +83,14 @@ export function FunnelCard({ model }: { readonly model: FunnelCardModel }) {
                     {model.unresolvedNote}
                 </p>
             )}
+            <p className="text-xs text-muted-foreground">
+                {model.biggestWeakness}
+            </p>
+            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
+                {model.disclosures.map((disclosure) => (
+                    <li key={disclosure}>{disclosure}</li>
+                ))}
+            </ul>
         </div>
     );
 }

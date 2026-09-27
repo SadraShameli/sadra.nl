@@ -2,6 +2,7 @@ import {
     isoDaysBetween,
     PayoutDayGateBasis,
     type Plan,
+    requiredDayGateDays,
     sessionDaysForCalendarDays,
 } from '../core';
 
@@ -51,11 +52,7 @@ export function calendarGateProgress(
             restoreProgress: 0,
         };
     }
-    const calendarDaysRequired =
-        payoutsIssued === 0
-            ? plan.minDaysAfterPassForPayout
-            : (plan.minDaysAfterPassForPayoutPerCycle ??
-              plan.minDaysAfterPassForPayout);
+    const calendarDaysRequired = requiredDayGateDays(plan, { payoutsIssued });
     const calendarDaysElapsed = Math.max(0, isoDaysBetween(anchorOn, asOf));
     const sessionDays = sessionDaysForCalendarDays(calendarDaysElapsed);
     return {

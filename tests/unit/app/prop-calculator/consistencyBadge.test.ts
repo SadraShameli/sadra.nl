@@ -147,7 +147,7 @@ describe('describeConsistencyBadge for every registry plan (PT-31a pin)', () => 
             "topstep $50K · Standard path · Consistency XFA · DLL": "Eval 55% · Funded 40%",
             "topstep $50K · Standard path · Standard XFA": "Eval 55%",
             "topstep $50K · Standard path · Standard XFA · DLL": "Eval 55%",
-            "tpt $50K · Test → PRO": "Eval 50%",
+            "tpt $50K · Test → PRO": "Eval 50% (inclusive, raises the goal above 2x the best day on violation)",
             "tradeify $50K · Growth": "Funded 35%",
             "tradeify $50K · Lightning Funded": "Funded 20%",
             "tradeify $50K · Select Daily": "Eval 40%",

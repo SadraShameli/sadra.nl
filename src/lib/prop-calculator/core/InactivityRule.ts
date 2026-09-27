@@ -7,6 +7,16 @@ export interface CalendarWeekTrackedState {
     calendarWeekSessionsTraded?: number;
 }
 
+export function advanceCalendarWeekForInactivity(
+    state: CalendarWeekTrackedState,
+    isTraded: boolean,
+): void {
+    state.calendarWeekSessionsTraded =
+        (state.calendarWeekSessionsTraded ?? 0) + (isTraded ? 1 : 0);
+    state.calendarWeekSessionsElapsed =
+        (state.calendarWeekSessionsElapsed ?? 0) + 1;
+}
+
 export function assertValidCalendarWeekInactivityRule(
     rule: CalendarWeekInactivityRule,
     label: string,
@@ -27,14 +37,37 @@ export function didCalendarWeekCloseForInactivity(
     isTraded: boolean,
 ): boolean {
     if (rule === null) return false;
-    const sessionsTraded =
-        (state.calendarWeekSessionsTraded ?? 0) + (isTraded ? 1 : 0);
-    const sessionsElapsed = (state.calendarWeekSessionsElapsed ?? 0) + 1;
-    state.calendarWeekSessionsTraded = sessionsTraded;
-    state.calendarWeekSessionsElapsed = sessionsElapsed;
-    if (sessionsElapsed < rule.sessionsPerWeek) return false;
-    const isWeekEmpty = sessionsTraded === 0;
+    advanceCalendarWeekForInactivity(state, isTraded);
+    if (!isCalendarWeekComplete(rule, state)) return false;
+    const wasWeekEmpty = isCalendarWeekClosedEmpty(rule, state);
+    resetCalendarWeek(state);
+    return wasWeekEmpty;
+}
+
+export function isCalendarWeekClosedEmpty(
+    rule: CalendarWeekInactivityRule,
+    state: CalendarWeekTrackedState,
+): boolean {
+    return (
+        isCalendarWeekComplete(rule, state) &&
+        !didCalendarWeekTradeAnySession(state)
+    );
+}
+
+function didCalendarWeekTradeAnySession(
+    state: CalendarWeekTrackedState,
+): boolean {
+    return (state.calendarWeekSessionsTraded ?? 0) > 0;
+}
+
+function isCalendarWeekComplete(
+    rule: CalendarWeekInactivityRule,
+    state: CalendarWeekTrackedState,
+): boolean {
+    return (state.calendarWeekSessionsElapsed ?? 0) >= rule.sessionsPerWeek;
+}
+
+function resetCalendarWeek(state: CalendarWeekTrackedState): void {
     state.calendarWeekSessionsElapsed = 0;
     state.calendarWeekSessionsTraded = 0;
-    return isWeekEmpty;
 }

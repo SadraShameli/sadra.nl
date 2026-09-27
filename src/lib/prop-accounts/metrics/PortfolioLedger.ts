@@ -1,8 +1,12 @@
 import type {
     PropAccountEventRow,
     PropAccountRow,
+    PropBankrollTransferRow,
     PropFeeRow,
+    PropFirmEngagementRow,
+    PropFirmStatementRow,
     PropPayoutRow,
+    PropRoundRow,
 } from '~/server/db/schemas/prop';
 
 import {
@@ -16,12 +20,16 @@ import {
     compareText,
     FeeKind,
     findStoredFirm,
+    type FirmColumns,
+    type FirmKey,
+    firmKeyOf,
     impliedEvalPassOn,
     type LedgerOnlyAccountRow,
     LifecycleOutcomeKind,
     type ModeledAccountRow,
     PlanKeyResolutionKind,
     resolvePlanKey,
+    type StoredFirmId,
     trackedAccountOf,
     type UnresolvedPlanReason,
     usdCents,
@@ -60,7 +68,8 @@ export interface FundedSince {
 
 export type LedgerAccount = LedgerOnlyLedgerAccount | ModeledLedgerAccount;
 
-export type LedgerAccountRow = Pick<
+export type LedgerAccountRow = Partial<Pick<PropAccountRow, 'roundId'>> &
+    Pick<
     PropAccountRow,
     | 'accountSize'
     | 'archivedAt'
@@ -79,7 +88,9 @@ export type LedgerAccountRow = Pick<
     | 'status'
     | 'tracking'
     | 'userId'
-> & { readonly readIssues: readonly AccountReadIssue[] };
+> & {
+        readonly readIssues: readonly AccountReadIssue[];
+    };
 
 export type LedgerEventRow = Pick<
     PropAccountEventRow,
@@ -89,6 +100,29 @@ export type LedgerEventRow = Pick<
 export type LedgerFeeRow = Pick<
     PropFeeRow,
     'accountId' | 'amountCents' | 'id' | 'kind' | 'paidOn' | 'userId'
+>;
+
+export type LedgerFirmEngagementRow = Pick<
+    PropFirmEngagementRow,
+    | 'externalFirmId'
+    | 'firmId'
+    | 'id'
+    | 'reason'
+    | 'sentLiveOn'
+    | 'sinceOn'
+    | 'status'
+    | 'userId'
+>;
+
+export type LedgerFirmStatementRow = Pick<
+    PropFirmStatementRow,
+    | 'asOf'
+    | 'basis'
+    | 'externalFirmId'
+    | 'firmId'
+    | 'id'
+    | 'reportedPayoutCents'
+    | 'userId'
 >;
 
 export interface LedgerOnlyLedgerAccount extends LedgerAccountEntries {
@@ -116,6 +150,24 @@ export interface LedgerPlan {
     readonly planSerial: string;
 }
 
+export type LedgerRoundRow = Pick<
+    PropRoundRow,
+    | 'budgetCents'
+    | 'closedOn'
+    | 'externalFirmId'
+    | 'firmId'
+    | 'id'
+    | 'label'
+    | 'openedOn'
+    | 'status'
+    | 'userId'
+>;
+
+export type LedgerTransferRow = Pick<
+    PropBankrollTransferRow,
+    'amountCents' | 'id' | 'kind' | 'occurredOn' | 'userId'
+>;
+
 export interface LifecycleTransition {
     readonly from: AccountLifecycleState | null;
     readonly kind: AccountEventKind;
@@ -139,7 +191,11 @@ export interface PortfolioLedgerRows {
     readonly accounts: readonly LedgerAccountRow[];
     readonly events: readonly LedgerEventRow[];
     readonly fees: readonly LedgerFeeRow[];
+    readonly firmEngagements?: readonly LedgerFirmEngagementRow[];
+    readonly firmStatements?: readonly LedgerFirmStatementRow[];
     readonly payouts: readonly LedgerPayoutRow[];
+    readonly rounds?: readonly LedgerRoundRow[];
+    readonly transfers?: readonly LedgerTransferRow[];
 }
 
 export interface SampledEstimate {
@@ -169,6 +225,39 @@ export const AVERAGE_DAYS_PER_MONTH = 365.25 / 12;
 
 const MIN_SAMPLES_FOR_SE = 2;
 
+const STUDENT_T_CRITICAL_95: Readonly<Record<number, number>> = {
+    1: 12.706,
+    2: 4.303,
+    3: 3.182,
+    4: 2.776,
+    5: 2.571,
+    6: 2.447,
+    7: 2.365,
+    8: 2.306,
+    9: 2.262,
+    10: 2.228,
+    11: 2.201,
+    12: 2.179,
+    13: 2.16,
+    14: 2.145,
+    15: 2.131,
+    16: 2.12,
+    17: 2.11,
+    18: 2.101,
+    19: 2.093,
+    20: 2.086,
+    21: 2.08,
+    22: 2.074,
+    23: 2.069,
+    24: 2.064,
+    25: 2.06,
+    26: 2.056,
+    27: 2.052,
+    28: 2.048,
+    29: 2.045,
+    30: 2.042,
+};
+
 interface GroupedRows<Row> {
     readonly byAccount: ReadonlyMap<string, readonly Row[]>;
     readonly unmatched: number;
@@ -195,6 +284,10 @@ export class PortfolioLedger {
 
     private readonly byId: ReadonlyMap<string, LedgerAccount>;
     readonly accounts: readonly LedgerAccount[];
+    readonly firmEngagements: readonly LedgerFirmEngagementRow[];
+    readonly firmStatements: readonly LedgerFirmStatementRow[];
+    readonly rounds: readonly LedgerRoundRow[];
+    readonly transfers: readonly LedgerTransferRow[];
     readonly unmatched: UnmatchedRows;
     readonly userId: string;
 
@@ -215,6 +308,18 @@ export class PortfolioLedger {
         );
         this.byId = new Map(
             this.accounts.map((entry) => [entry.row.id, entry]),
+        );
+        this.rounds = (rows.rounds ?? []).filter(
+            (row) => row.userId === userId,
+        );
+        this.transfers = (rows.transfers ?? []).filter(
+            (row) => row.userId === userId,
+        );
+        this.firmEngagements = (rows.firmEngagements ?? []).filter(
+            (row) => row.userId === userId,
+        );
+        this.firmStatements = (rows.firmStatements ?? []).filter(
+            (row) => row.userId === userId,
         );
         this.unmatched = {
             accounts: rows.accounts.length - owned.length,
@@ -268,6 +373,12 @@ export class PortfolioLedger {
             );
     }
 
+    membersOfRound(roundId: string): readonly LedgerAccount[] {
+        return this.accounts.filter(
+            (entry) => accountRoundId(entry) === roundId,
+        );
+    }
+
     replacedAccountOf(account: LedgerAccount): LedgerAccount | null {
         const replacedId = account.row.replacesAccountId;
         if (replacedId === null) return null;
@@ -277,6 +388,10 @@ export class PortfolioLedger {
             ? replaced
             : null;
     }
+}
+
+export function accountRoundId(account: LedgerAccount): null | string {
+    return account.row.roundId ?? null;
 }
 
 export function evalAttemptTally(account: LedgerAccount): EvalAttemptTally {
@@ -301,6 +416,21 @@ export function finalState(
     account: LedgerAccount,
 ): AccountLifecycleState | null {
     return account.transitions.at(-1)?.to ?? null;
+}
+
+export function firmColumnsOf(row: {
+    readonly externalFirmId: null | string;
+    readonly firmId: null | StoredFirmId;
+}): FirmColumns {
+    if (row.firmId !== null) {
+        return { externalFirmId: null, firmId: row.firmId };
+    }
+    if (row.externalFirmId === null) {
+        throw new RangeError(
+            'a firm row must set exactly one of firmId or externalFirmId',
+        );
+    }
+    return { externalFirmId: row.externalFirmId, firmId: null };
 }
 
 export function fundedSince(account: LedgerAccount): FundedSince | null {
@@ -358,6 +488,15 @@ export function roundCents(value: number): UsdCents {
     return usdCents(rounded === 0 ? 0 : rounded);
 }
 
+export function roundFirmKeyOf(round: {
+    readonly externalFirmId: null | string;
+    readonly firmId: null | StoredFirmId;
+}): FirmKey | null {
+    return round.firmId === null && round.externalFirmId === null
+        ? null
+        : firmKeyOf(firmColumnsOf(round));
+}
+
 export function sampledMean(values: readonly number[]): null | SampledEstimate {
     const n = values.length;
     if (n === 0) return null;
@@ -370,13 +509,15 @@ export function sampledMean(values: readonly number[]): null | SampledEstimate {
     const value = sum / n;
     const standardError =
         n < MIN_SAMPLES_FOR_SE ? null : meanStandardError(sum, squaredSum, n);
+    const criticalValue =
+        standardError === null ? null : studentTCriticalValue(n - 1);
     return {
         interval:
-            standardError === null
+            standardError === null || criticalValue === null
                 ? null
                 : {
-                      lower: value - NINETY_FIVE_PERCENT_Z * standardError,
-                      upper: value + NINETY_FIVE_PERCENT_Z * standardError,
+                      lower: value - criticalValue * standardError,
+                      upper: value + criticalValue * standardError,
                   },
         n,
         standardError,
@@ -404,6 +545,18 @@ export function signedFeeCents(fee: LedgerFeeRow): UsdCents {
     return fee.kind === FeeKind.Refund
         ? usdCents(0 - fee.amountCents)
         : fee.amountCents;
+}
+
+export function studentTCriticalValue(degreesOfFreedom: number): number {
+    if (!Number.isSafeInteger(degreesOfFreedom) || degreesOfFreedom < 1) {
+        throw new RangeError(
+            `degrees of freedom must be a whole number >= 1, got ${degreesOfFreedom}`,
+        );
+    }
+    const tabulated = STUDENT_T_CRITICAL_95[degreesOfFreedom];
+    if (tabulated !== undefined) return tabulated;
+    const z = NINETY_FIVE_PERCENT_Z;
+    return z + (z ** 3 + z) / (4 * degreesOfFreedom);
 }
 
 function buildAccount(

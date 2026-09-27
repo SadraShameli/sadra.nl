@@ -31,6 +31,7 @@ import {
     usdCentsSchema,
     ViolationSource,
 } from '~/lib/prop-accounts';
+import { AdviceSource } from '~/lib/prop-calculator/advisor';
 import {
     propAccount,
     propAccountEvent,
@@ -268,6 +269,7 @@ export const propSizingDecisionOutputSchema = createSelectSchema(
         acceptedRungsCents: z.array(positiveUsdCentsSchema),
         actualRiskCents: nullableNonNegativeCents,
         headlineRiskCents: nonNegativeUsdCentsSchema,
+        source: z.enum(AdviceSource),
         stage: z.enum(AccountStage),
     },
 );

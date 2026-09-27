@@ -21,7 +21,9 @@ import {
     FRIDAY,
     ledgerOnlyAccountFor,
     MONDAY,
+    SATURDAY,
     snapshotFor,
+    SUNDAY,
     TUESDAY,
     WEDNESDAY,
 } from './alertFixtures';
@@ -84,6 +86,16 @@ describe('StaleSnapshotRule', () => {
     it('skips the weekend: a Friday eval snapshot is fresh on Monday', () => {
         expect(alertsFor(AccountStage.Eval, FRIDAY, MONDAY).alerts).toEqual([]);
     });
+
+    it.each([AccountStage.Eval, AccountStage.Live])(
+        'a weekend-dated %s snapshot fires once a session has elapsed since the preceding Friday',
+        (stage) => {
+            expect(alertsFor(stage, SATURDAY, MONDAY).alerts).toEqual([]);
+            expect(alertsFor(stage, SUNDAY, MONDAY).alerts).toEqual([]);
+            expect(alertsFor(stage, SATURDAY, TUESDAY).alerts).toHaveLength(1);
+            expect(alertsFor(stage, SUNDAY, TUESDAY).alerts).toHaveLength(1);
+        },
+    );
 
     it('a funded snapshot is stale only after the rulebook stale days', () => {
         expect(alertsFor(AccountStage.Funded, MONDAY).alerts).toEqual([]);

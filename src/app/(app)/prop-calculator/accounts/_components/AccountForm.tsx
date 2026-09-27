@@ -79,7 +79,9 @@ import {
     readOnlyAccountNotice,
 } from './accountListFilters';
 import {
+    AccountPlanIntent,
     AccountPlanMode,
+    accountPlanOptions,
     type AccountPlanSelection,
     type AccountStageOption,
     accountStageOptions,
@@ -876,11 +878,13 @@ function ledgerOnlyIssues(
 function LedgerOnlyPlanFields({
     externalFirms,
     form,
+    intent,
     onCreateExternalFirm,
     selection,
 }: {
     externalFirms: readonly ExternalFirmName[];
     form: AccountFormApi;
+    intent: AccountPlanIntent;
     onCreateExternalFirm: CreateExternalFirm | null;
     selection: AccountPlanSelection;
 }) {
@@ -929,10 +933,18 @@ function LedgerOnlyPlanFields({
                     form.setValue('ledgerFirmId', next.firmId);
                     form.setValue('ledgerExternalFirmId', '');
                     const listed = parseFirmId(next.firmId);
-                    const [first] =
-                        listed === undefined
+                    const listedFirm =
+                        listed === undefined ? undefined : findFirm(listed);
+                    const [firstOption] =
+                        listedFirm === undefined
                             ? []
-                            : (findFirm(listed)?.plans ?? []);
+                            : accountPlanOptions(listedFirm, intent);
+                    const first =
+                        firstOption === undefined
+                            ? undefined
+                            : (listedFirm?.findPlanBySerial(
+                                  firstOption.planSerial,
+                              ) ?? undefined);
                     if (listed !== undefined && first !== undefined) {
                         fill({
                             accountSize: first.id.accountSize,
@@ -949,6 +961,7 @@ function LedgerOnlyPlanFields({
                 listedFirmId === selection.firmId && (
                     <AccountPlanPicker
                         errors={[]}
+                        intent={intent}
                         mode={AccountPlanMode.LedgerOnly}
                         onChange={fill}
                         value={selection}
@@ -1142,6 +1155,10 @@ function PlanCard({
     const errors = form.formState.errors;
     const stage = form.watch('stage');
     const isLedgerOnly = form.watch('tracking') === AccountTracking.LedgerOnly;
+    const intent =
+        stored === null
+            ? AccountPlanIntent.NewPurchase
+            : AccountPlanIntent.ExistingAccount;
     const planErrors = [
         errors.firmId?.message,
         errors.planSerial?.message,
@@ -1199,12 +1216,14 @@ function PlanCard({
                     <LedgerOnlyPlanFields
                         externalFirms={externalFirms}
                         form={form}
+                        intent={intent}
                         onCreateExternalFirm={onCreateExternalFirm}
                         selection={selection}
                     />
                 ) : (
                     <AccountPlanPicker
                         errors={planErrors}
+                        intent={intent}
                         onChange={setSelection}
                         value={selection}
                     />

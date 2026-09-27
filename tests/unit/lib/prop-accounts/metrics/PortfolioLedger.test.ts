@@ -5,9 +5,12 @@ import {
     AccountReadIssueKind,
     AccountStage,
     AccountStatus,
+    BankrollTransferKind,
     FeeKind,
+    FirmEngagementStatus,
     paidPayoutCash,
     PayoutStatus,
+    RoundStatus,
     UnresolvedPlanReason,
 } from '~/lib/prop-accounts/core';
 import {
@@ -36,6 +39,7 @@ import {
     EVAL_PLAN,
     event,
     fee,
+    firmEngagement,
     FUNDED_RESET_PLAN,
     INSTANT_PLAN,
     ledger,
@@ -43,6 +47,8 @@ import {
     payout,
     type PlanEntry,
     purchased,
+    round,
+    transfer,
 } from './ledgerFixtures';
 
 type Step = readonly [AccountEventKind, string];
@@ -258,6 +264,32 @@ describe('PortfolioLedger.fromRows', () => {
             fees: 1,
             payouts: 1,
         });
+    });
+
+    it('scopes rounds, transfers and firm engagements to the ledger owner', () => {
+        const portfolio = ledger({
+            firmEngagements: [
+                firmEngagement('firm-a', '2026-01-01', FirmEngagementStatus.Active),
+                firmEngagement('firm-a', '2026-01-01', FirmEngagementStatus.Active, {
+                    userId: OTHER_USER_ID,
+                }),
+            ],
+            rounds: [
+                round(EVAL_PLAN, 'Round 1', '2026-01-01', RoundStatus.Open),
+                round(EVAL_PLAN, 'Round 1', '2026-01-01', RoundStatus.Open, {
+                    userId: OTHER_USER_ID,
+                }),
+            ],
+            transfers: [
+                transfer(BankrollTransferKind.Deposit, 100_000, '2026-01-01'),
+                transfer(BankrollTransferKind.Deposit, 100_000, '2026-01-01', {
+                    userId: OTHER_USER_ID,
+                }),
+            ],
+        });
+        expect(portfolio.rounds).toHaveLength(1);
+        expect(portfolio.transfers).toHaveLength(1);
+        expect(portfolio.firmEngagements).toHaveLength(1);
     });
 
     it('resolves the plan and keeps unresolvable accounts apart with the reason', () => {
@@ -816,16 +848,43 @@ describe('sampledRate', () => {
 });
 
 describe('sampledMean', () => {
-    it('attaches value plus or minus 1.96 SE when n >= 2', () => {
-        const estimate = sampledMean([10, 20, 30]);
+    it('widens the interval with a Student t critical value at n = 2, not a fixed 1.96', () => {
+        const estimate = sampledMean([10, 30]);
         const se = estimate?.standardError ?? 0;
         expect(estimate?.interval?.lower).toBeCloseTo(
-            (estimate?.value ?? 0) - 1.959964 * se,
-            6,
+            (estimate?.value ?? 0) - 12.706 * se,
+            2,
         );
         expect(estimate?.interval?.upper).toBeCloseTo(
+            (estimate?.value ?? 0) + 12.706 * se,
+            2,
+        );
+    });
+
+    it('uses the Student t critical value for df = 4 at n = 5', () => {
+        const estimate = sampledMean([10, 12, 14, 16, 18]);
+        const se = estimate?.standardError ?? 0;
+        expect(estimate?.interval?.lower).toBeCloseTo(
+            (estimate?.value ?? 0) - 2.776 * se,
+            2,
+        );
+        expect(estimate?.interval?.upper).toBeCloseTo(
+            (estimate?.value ?? 0) + 2.776 * se,
+            2,
+        );
+    });
+
+    it('is close to but still above the fixed 1.96 z-value at n = 30', () => {
+        const values = Array.from({ length: 30 }, (_, index) => index + 1);
+        const estimate = sampledMean(values);
+        const se = estimate?.standardError ?? 0;
+        expect(estimate?.interval?.upper).toBeCloseTo(
+            (estimate?.value ?? 0) + 2.045 * se,
+            2,
+        );
+        expect(estimate?.interval?.upper).not.toBeCloseTo(
             (estimate?.value ?? 0) + 1.959964 * se,
-            6,
+            2,
         );
     });
 

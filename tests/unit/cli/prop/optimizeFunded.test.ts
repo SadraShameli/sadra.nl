@@ -8,19 +8,25 @@ import optimizeFunded, {
     type FundedCandidateArguments,
     fundedSweepProgress,
     fundedSweepSummary,
+    printTakeProfitWhatIf,
     readFundedCandidates,
+    readTakeProfitWhatIfRequest,
+    TakeProfitWhatIfError,
+    type TakeProfitWhatIfRequest,
 } from '~/cli/commands/prop/optimize/funded/command';
 import {
     edgePlausibilityNote,
     planResolver,
     readNumberList,
     singlePathGranularityArgument,
+    TradingInputs,
 } from '~/cli/commands/prop/shared';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_FIRMS,
     ApexVariant,
     DayStopRuleKind,
+    EdgeModelKind,
     findFirm,
     FirmId,
     fraction,
@@ -40,6 +46,7 @@ import {
     TRADING_DAYS_PER_MONTH,
     TradingPhase,
 } from '~/lib/prop-calculator';
+import { TAKE_PROFIT_WHAT_IF_LABEL } from '~/lib/prop-calculator/economics';
 import {
     fundedRowCells,
     FundedSortKey,
@@ -1053,6 +1060,41 @@ function capturedCapRun(
     ]);
 }
 
+async function capturedPrint(
+    request: TakeProfitWhatIfRequest,
+): Promise<string> {
+    const written: string[] = [];
+    const write = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+            written.push(String(chunk));
+            return true;
+        });
+    try {
+        const plan = mffPlan(MffuVariant.RapidEod);
+        const arguments_ = await resolveArguments();
+        const inputs = TradingInputs.parse(
+            parseArgs(SMALL_RUN, arguments_) as never,
+        );
+        printTakeProfitWhatIf(
+            plan,
+            inputs.toSimInputs(plan),
+            FundedSortKey.Monthly,
+            request,
+        );
+    } finally {
+        write.mockRestore();
+    }
+    return written.join('');
+}
+
+async function inputsAt(argv: string[]): Promise<TradingInputs> {
+    const arguments_ = await resolveArguments();
+    return TradingInputs.parse(
+        parseArgs([...SMALL_RUN, ...argv], arguments_) as never,
+    );
+}
+
 function mffPlan(variant: MffuVariant): Plan {
     return planResolver.resolveOne({ firm: FirmId.Mffu, variant });
 }
@@ -1233,5 +1275,162 @@ describe('optimize funded prints the plausibility note (PT-54 step 4, F-V22)', (
     it('stays silent at the typical 40% at 1:2', async () => {
         const { stdout } = await capturedRun(SMALL_RUN);
         expect(stdout).not.toMatch(/\b(?:implausible|no|strong|typical) edge\b/);
+    });
+});
+
+describe('optimize funded --rr-candidates (PT-64a, F-V23)', () => {
+    it('declares --rr-candidates, --edge-model (default fixed) and --edge-anchor-rr', async () => {
+        const arguments_ = await resolveArguments();
+        expect(arguments_['rr-candidates']).toBeDefined();
+        expect(arguments_['edge-model']?.default).toBe(EdgeModelKind.Fixed);
+        expect(arguments_['edge-anchor-rr']).toBeDefined();
+    });
+});
+
+describe('readTakeProfitWhatIfRequest (PT-64a, F-V23)', () => {
+    it('returns null when --rr-candidates is not given', async () => {
+        expect(
+            readTakeProfitWhatIfRequest(
+                { 'edge-model': EdgeModelKind.Fixed },
+                await inputsAt([]),
+            ),
+        ).toBeNull();
+    });
+
+    it('builds a drift spec anchored at --edge-anchor-rr (default the calculator rr) and the candidate list', async () => {
+        const request = readTakeProfitWhatIfRequest(
+            {
+                'edge-anchor-rr': '2',
+                'edge-model': EdgeModelKind.Drift,
+                'rr-candidates': '1,1.5,2,3',
+            },
+            await inputsAt([]),
+        );
+        expect(request).toStrictEqual({
+            edgeSpec: {
+                anchorRrRatio: 2,
+                anchorWinrate: fraction(0.4),
+                kind: EdgeModelKind.Drift,
+            },
+            rrCandidates: [1, 1.5, 2, 3],
+        });
+    });
+
+    it('rejects --rr-candidates with the default fixed edge model (a fixed win rate cannot rank take-profit multiples)', async () => {
+        const inputs = await inputsAt([]);
+        expect(() =>
+            readTakeProfitWhatIfRequest(
+                { 'edge-model': EdgeModelKind.Fixed, 'rr-candidates': '1,2' },
+                inputs,
+            ),
+        ).toThrow(TakeProfitWhatIfError);
+        expect(() =>
+            readTakeProfitWhatIfRequest(
+                { 'edge-model': EdgeModelKind.Fixed, 'rr-candidates': '1,2' },
+                inputs,
+            ),
+        ).toThrow(/a fixed win rate cannot rank take-profit multiples/);
+    });
+
+    it('rejects --rr-candidates when --funded-rr differs from --rr (blocked until QV-4, PT-64b)', async () => {
+        const inputs = await inputsAt(['--funded-rr', '3']);
+        expect(() =>
+            readTakeProfitWhatIfRequest(
+                { 'edge-model': EdgeModelKind.Drift, 'rr-candidates': '1,2' },
+                inputs,
+            ),
+        ).toThrow(TakeProfitWhatIfError);
+        expect(() =>
+            readTakeProfitWhatIfRequest(
+                { 'edge-model': EdgeModelKind.Drift, 'rr-candidates': '1,2' },
+                inputs,
+            ),
+        ).toThrow(/not modeled until QV-4 is answered \(PT-64b\)/);
+    });
+
+    it('allows --funded-rr equal to --rr alongside --rr-candidates', async () => {
+        const inputs = await inputsAt(['--funded-rr', '2']);
+        expect(() =>
+            readTakeProfitWhatIfRequest(
+                { 'edge-model': EdgeModelKind.Drift, 'rr-candidates': '1,2' },
+                inputs,
+            ),
+        ).not.toThrow();
+    });
+});
+
+describe('printTakeProfitWhatIf and the full CLI run (PT-64a, F-V23, video figures)', () => {
+
+    it('labels the table a what-if that differs from the fixed 1:2 and prints every candidate rr', async () => {
+        const stdout = await capturedPrint({
+            edgeSpec: {
+                anchorRrRatio: 2,
+                anchorWinrate: fraction(0.4),
+                kind: EdgeModelKind.Drift,
+            },
+            rrCandidates: [1, 2, 3],
+        });
+        expect(stdout).toContain(TAKE_PROFIT_WHAT_IF_LABEL);
+        expect(stdout).toContain('1:1');
+        expect(stdout).toContain('1:2');
+        expect(stdout).toContain('1:3');
+    });
+
+    it('derives 54.9% at 1:1 and 32.7% at 1:3 from a drift model fitted to 40% at 1:2 (the video point)', async () => {
+        const stdout = await capturedPrint({
+            edgeSpec: {
+                anchorRrRatio: 2,
+                anchorWinrate: fraction(0.4),
+                kind: EdgeModelKind.Drift,
+            },
+            rrCandidates: [1, 2, 3],
+        });
+        expect(stdout).toContain('54.9%');
+        expect(stdout).toContain('40.0%');
+        expect(stdout).toContain('32.7%');
+    });
+
+    it('the full CLI run prints the ranked rows under --edge-model drift --edge-anchor-rr 2 --rr-candidates 1,1.5,2,3', async () => {
+        const { exitCode, stdout } = await capturedRun([
+            ...SMALL_RUN,
+            '--edge-model',
+            'drift',
+            '--edge-anchor-rr',
+            '2',
+            '--rr-candidates',
+            '1,1.5,2,3',
+        ]);
+        expect(exitCode).toBeUndefined();
+        expect(stdout).toContain(TAKE_PROFIT_WHAT_IF_LABEL);
+        expect(stdout).toContain('1:1');
+        expect(stdout).toContain('1:1.5');
+        expect(stdout).toContain('1:2');
+        expect(stdout).toContain('1:3');
+    });
+
+    it('the full CLI run fails loud with the typed message under --edge-model fixed --rr-candidates (several rr)', async () => {
+        const { exitCode, stderr } = await capturedRun([
+            ...SMALL_RUN,
+            '--rr-candidates',
+            '1,2',
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain(
+            'a fixed win rate cannot rank take-profit multiples',
+        );
+    });
+
+    it('the full CLI run fails loud with the QV-4 message when --funded-rr differs from --rr', async () => {
+        const { exitCode, stderr } = await capturedRun([
+            ...SMALL_RUN,
+            '--edge-model',
+            'drift',
+            '--funded-rr',
+            '3',
+            '--rr-candidates',
+            '1,2',
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain('not modeled until QV-4 is answered (PT-64b)');
     });
 });

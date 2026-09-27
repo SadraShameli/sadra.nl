@@ -17,6 +17,7 @@ import {
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
+import { AdviceSource } from '~/lib/prop-calculator/advisor';
 import {
     accountCreateSchema,
     accountDateSchema,
@@ -1316,20 +1317,6 @@ describe('free text rejects invisible and control characters', () => {
                     query: 'firm=mffu',
                 }),
         ],
-        [
-            'decision source',
-            (text) =>
-                isAccepted(decisionCreateSchema, {
-                    acceptedRiskCents: 25_000,
-                    acceptedRungsCents: [25_000],
-                    accountId: ACCOUNT_ID,
-                    decidedOn: '2026-09-21',
-                    headlineRiskCents: 25_000,
-                    snapshotId: null,
-                    source: text,
-                    stage: AccountStage.Funded,
-                }),
-        ],
     ];
 
     const NOTE_FIELDS: [string, (text: string) => boolean][] = [
@@ -1680,6 +1667,21 @@ describe('decision schemas', () => {
             isAccepted(decisionCreateSchema, {
                 ...VALID_DECISION,
                 snapshotId: 'x',
+            }),
+        ).toBe(false);
+    });
+
+    it('accepts only a known AdviceSource member, at most 32 characters', () => {
+        for (const source of Object.values(AdviceSource)) {
+            expect(source.length).toBeLessThanOrEqual(32);
+            expect(
+                isAccepted(decisionCreateSchema, { ...VALID_DECISION, source }),
+            ).toBe(true);
+        }
+        expect(
+            isAccepted(decisionCreateSchema, {
+                ...VALID_DECISION,
+                source: 'not-a-source',
             }),
         ).toBe(false);
     });

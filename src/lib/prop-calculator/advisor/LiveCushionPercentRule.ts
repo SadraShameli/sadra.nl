@@ -13,7 +13,11 @@ import {
     type SizingTerms,
 } from './DocumentedSizing';
 import { type RulebookParameters } from './Rulebook';
-import { type LiveRuleContext, liveRuleContextSchema } from './RuleContext';
+import {
+    type LiveRuleContext,
+    liveRuleContextSchema,
+    profitCeiling,
+} from './RuleContext';
 import { RuleSource } from './RuleSource';
 
 export class LiveCushionPercentRule extends FlatRiskRule<LiveRuleContext> {
@@ -44,16 +48,23 @@ export class LiveCushionPercentRule extends FlatRiskRule<LiveRuleContext> {
         };
     }
 
-    protected terms(): SizingTerms {
+    protected terms(context: LiveRuleContext): SizingTerms {
+        const ceiling = profitCeiling(context);
         return {
-            assumptions: [
-                ...SHARED_ASSUMPTIONS,
-                SizingAssumption.LiveDayPolicyUndocumented,
-                SizingAssumption.NoProfitCeiling,
-            ],
+            assumptions:
+                ceiling === null
+                    ? [
+                          ...SHARED_ASSUMPTIONS,
+                          SizingAssumption.LiveDayPolicyUndocumented,
+                          SizingAssumption.NoProfitCeiling,
+                      ]
+                    : [
+                          ...SHARED_ASSUMPTIONS,
+                          SizingAssumption.LiveDayPolicyUndocumented,
+                      ],
             dailyProfitCap: null,
             maxTrades: this.rulebook.strategy.tradesPerDayMax,
-            profitCeiling: null,
+            profitCeiling: ceiling,
             provenance: SizingProvenance.LiveCushionPercent,
             rewardMultiple: this.rulebook.strategy.rr,
             sources: [RuleSource.LiveSizing, RuleSource.HisNumbers],

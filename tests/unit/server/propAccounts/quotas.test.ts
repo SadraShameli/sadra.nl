@@ -15,6 +15,7 @@ import {
     PropQuotaExceededError,
     PropQuotaGuard,
 } from '~/lib/prop-accounts/server';
+import { AdviceSource } from '~/lib/prop-calculator/advisor';
 import {
     PropLimitRejection,
     PropMutationRejection,
@@ -162,7 +163,7 @@ const QUOTA_CASES: readonly QuotaCase[] = [
                 decidedOn: '2026-09-21',
                 headlineRiskCents: 40_000,
                 snapshotId: null,
-                source: 'documented',
+                source: AdviceSource.Documented,
                 stage: AccountStage.Eval,
             }),
         name: 'the next decision past the decision cap',

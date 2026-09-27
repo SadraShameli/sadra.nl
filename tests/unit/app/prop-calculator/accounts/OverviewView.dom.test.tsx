@@ -110,8 +110,12 @@ const CARD_HEADINGS = [
     'Costs',
     'Firm returns',
     'Realized outcomes',
+    'Payout sizes',
+    'Payouts per funded account',
+    'Your attempt economics',
     'Replacement',
     'Monthly statement',
+    'Attempt throughput',
     'Repeatability',
     'Timeline',
 ];
@@ -232,6 +236,12 @@ describe('OverviewView', () => {
         return container.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
     }
 
+    function sectionNamed(title: string): HTMLElement | undefined {
+        return labelledSections().find(
+            (section) => headingOf(section)?.textContent === title,
+        );
+    }
+
     beforeEach(() => {
         vi.useFakeTimers({
             now: new Date(`${TODAY}T12:00:00Z`),
@@ -313,6 +323,88 @@ describe('OverviewView', () => {
             (section) => headingOf(section)?.textContent === 'Repeatability',
         );
         expect(repeatabilitySection?.textContent).not.toBe('');
+    });
+
+    it('toggles the statement between cash by month and by purchase cohort (F-V4, F-V12)', () => {
+        const alpha = overviewAccount('alpha', {
+            fundedOn: '2026-09-05',
+            purchasedOn: '2026-06-01',
+            stage: AccountStage.Funded,
+        });
+        answerEverything([alpha]);
+        const paidPayout: LedgerPayoutRow = {
+            accountId: alpha.id,
+            approvedOn: null,
+            grossCents: usdCents(30_000),
+            id: 'payout-alpha',
+            netCents: usdCents(30_000),
+            paidOn: '2026-09-10',
+            requestedOn: '2026-09-05',
+            status: PayoutStatus.Paid,
+            userId: USER_ID,
+        };
+        harness.queries.set('payout.list', answer([paidPayout]));
+        render();
+        const statement = sectionNamed('Monthly statement');
+        expect(statement?.textContent).toContain('2026-06');
+        const cohortButton = [
+            ...(statement?.querySelectorAll('button') ?? []),
+        ].find((button) => button.textContent === 'By purchase cohort');
+        if (cohortButton === undefined) {
+            throw new Error('no purchase cohort toggle button');
+        }
+        act(() => {
+            cohortButton.click();
+        });
+        expect(statement?.textContent).toContain('In progress');
+        expect(statement?.textContent).toContain('2026-06');
+    });
+
+    it('shows an attempts-per-month card (F-V7)', () => {
+        const alpha = overviewAccount('alpha', { purchasedOn: '2026-06-01' });
+        answerEverything([alpha]);
+        render();
+        const section = sectionNamed('Attempt throughput');
+        expect(section?.textContent).toContain('2026-06');
+        expect(section?.textContent).toContain(firm.displayName);
+    });
+
+    it('shows real content on the payout sizes, funded payouts and attempt economics cards once a payout is paid (F-V8, F-V9)', () => {
+        const alpha = overviewAccount('alpha', {
+            fundedOn: '2026-09-05',
+            purchasedOn: '2026-06-01',
+            stage: AccountStage.Funded,
+        });
+        answerEverything([alpha]);
+        const paidPayout: LedgerPayoutRow = {
+            accountId: alpha.id,
+            approvedOn: null,
+            grossCents: usdCents(30_000),
+            id: 'payout-alpha',
+            netCents: usdCents(30_000),
+            paidOn: '2026-09-10',
+            requestedOn: '2026-09-05',
+            status: PayoutStatus.Paid,
+            userId: USER_ID,
+        };
+        harness.queries.set('payout.list', answer([paidPayout]));
+        render();
+        const payoutSizes = sectionNamed('Payout sizes');
+        expect(payoutSizes?.textContent).not.toContain('No paid payout yet.');
+        expect(payoutSizes?.textContent).toContain('Mean');
+        const fundedPayouts = sectionNamed('Payouts per funded account');
+        expect(fundedPayouts?.textContent).not.toContain(
+            'No funded account yet.',
+        );
+        expect(fundedPayouts?.textContent).toContain(firm.displayName);
+        const attemptEconomics = sectionNamed('Your attempt economics');
+        expect(attemptEconomics?.textContent).not.toContain(
+            'No account with a modeled plan yet.',
+        );
+        expect(attemptEconomics?.textContent).toContain(firm.displayName);
+        expect(attemptEconomics?.textContent).toContain(
+            'Realized EV per attempt: ignores time.',
+        );
     });
 
     it('shows one readable error and no table error or skeleton when the accounts cannot be loaded', () => {

@@ -36,14 +36,19 @@ export class StaleSnapshotRule extends AccountAlertRule {
                 const session = TradingSessionCalendar.lastSessionBefore(
                     context.today,
                 );
-                return snapshot.asOf >= session.date
-                    ? null
-                    : this.alertFor(
+                return TradingSessionCalendar.isStale(
+                    stage,
+                    snapshot.asOf,
+                    context.today,
+                    context.rulebook.review.fundedStaleDays,
+                )
+                    ? this.alertFor(
                           monitored,
                           AlertSeverity.Warning,
                           `Snapshot from ${snapshot.asOf} predates the last trading session ${session.date}; enter today's balance before sizing this ${accountStageLabel(stage)} account`,
                           [session.disclosure],
-                      );
+                      )
+                    : null;
             }
             case AccountStage.Funded: {
                 const age = TradingSessionCalendar.daysBetween(
@@ -51,13 +56,18 @@ export class StaleSnapshotRule extends AccountAlertRule {
                     context.today,
                 );
                 const staleDays = context.rulebook.review.fundedStaleDays;
-                return age <= staleDays
-                    ? null
-                    : this.alertFor(
+                return TradingSessionCalendar.isStale(
+                    stage,
+                    snapshot.asOf,
+                    context.today,
+                    staleDays,
+                )
+                    ? this.alertFor(
                           monitored,
                           AlertSeverity.Warning,
                           `Funded snapshot from ${snapshot.asOf} is ${age} days old (stale after ${staleDays} days); enter this week's balance`,
-                      );
+                      )
+                    : null;
             }
         }
     }

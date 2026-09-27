@@ -18,12 +18,17 @@ import { useDebouncedComputation } from './useDebouncedSimulation';
 
 enum SensitivityMetric {
     EvalPass = 'eval-pass',
+    EvPerAttempt = 'ev-per-attempt',
     FundedSurvival = 'funded-survive',
     MonthlyNet = 'net',
 }
 
+const EV_PER_ATTEMPT_DESCRIPTION =
+    'Expected value per attempt (pass probability x funded value over the funded horizon, minus attempt cost) across the same winrate x reward-to-risk grid, labelled per attempt: it ignores how long an attempt takes and is not the ranking objective. Pairs with the monthly net heatmap to spot where a small per-attempt edge still compounds into a strong monthly result.';
+
 export interface Cell {
     evalPass: number;
+    evPerAttempt: number;
     fundedSurvival: number;
     monthlyNet: number;
     rr: number;
@@ -110,6 +115,16 @@ export default function SensitivityHeatmap({
                 pending={pending}
                 title="Monthly net sensitivity"
             />
+            <HeatmapCard
+                cells={cells}
+                currentRR={currentRR}
+                currentWinrate={currentWinrate}
+                description={EV_PER_ATTEMPT_DESCRIPTION}
+                legend="red = losing $, green = profit; per attempt"
+                metric={SensitivityMetric.EvPerAttempt}
+                pending={pending}
+                title="EV per attempt sensitivity"
+            />
         </div>
     );
 }
@@ -129,6 +144,9 @@ function cellClassName(
         case SensitivityMetric.EvalPass: {
             return colorForPass(cell.evalPass);
         }
+        case SensitivityMetric.EvPerAttempt: {
+            return colorForNet(cell.evPerAttempt, maxAbs);
+        }
         case SensitivityMetric.FundedSurvival: {
             return colorForPass(cell.fundedSurvival);
         }
@@ -142,6 +160,9 @@ function cellDisplay(cell: Cell, metric: SensitivityMetric): string {
     switch (metric) {
         case SensitivityMetric.EvalPass: {
             return formatPercent(cell.evalPass, 0);
+        }
+        case SensitivityMetric.EvPerAttempt: {
+            return formatCompactCurrency(cell.evPerAttempt);
         }
         case SensitivityMetric.FundedSurvival: {
             return formatPercent(cell.fundedSurvival, 0);
@@ -214,10 +235,19 @@ function HeatmapCells({
     metric,
 }: HeatmapCellsProperties) {
     const maxAbs = useMemo(() => {
-        if (metric !== SensitivityMetric.MonthlyNet) return 0;
+        if (
+            metric !== SensitivityMetric.MonthlyNet &&
+            metric !== SensitivityMetric.EvPerAttempt
+        ) {
+            return 0;
+        }
+        const valueOf =
+            metric === SensitivityMetric.MonthlyNet
+                ? (c: Cell) => c.monthlyNet
+                : (c: Cell) => c.evPerAttempt;
         let m = 0;
         for (const c of cells) {
-            const abs = Math.abs(c.monthlyNet);
+            const abs = Math.abs(valueOf(c));
             if (abs > m) m = abs;
         }
         return m;
@@ -262,7 +292,7 @@ function HeatmapCells({
                         : '';
                     const display = cell ? cellDisplay(cell, metric) : '';
                     const tooltip = cell
-                        ? `winrate ${formatPercent(row.original.winrate, 0)} · RR ${rr}:1\neval pass ${formatPercent(cell.evalPass)}\nfunded survive ${formatPercent(cell.fundedSurvival)}\nmonthly net $${cell.monthlyNet.toFixed(0)}`
+                        ? `winrate ${formatPercent(row.original.winrate, 0)} · RR ${rr}:1\neval pass ${formatPercent(cell.evalPass)}\nfunded survive ${formatPercent(cell.fundedSurvival)}\nmonthly net $${cell.monthlyNet.toFixed(0)}\nEV per attempt $${cell.evPerAttempt.toFixed(0)}`
                         : '';
                     return (
                         <span
@@ -331,6 +361,7 @@ function useSensitivityGrid(baseInputs: SimInputs): {
                     });
                     out.push({
                         evalPass: result.evalPassProbability,
+                        evPerAttempt: result.expectedNetPerAttempt,
                         fundedSurvival: result.fundedSurvivalProbability,
                         monthlyNet: result.expectedMonthlyNet,
                         rr,

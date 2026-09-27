@@ -12,6 +12,8 @@ import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalcu
 import { InstrumentSymbol, simulate } from '~/lib/prop-calculator';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 
+import { importSpecifiersOf } from '../../importSpecifiers';
+
 const BASE_FAILURE_TEXT =
     'The simulation could not run for these inputs, so there is no result to show. Change an input to run it again.';
 const COMPONENTS_ROOT = path.join(
@@ -37,13 +39,6 @@ const PAGE_VIEWS = [
 
 function acceptedInputs() {
     return buildSimInputs(stateWith({}));
-}
-
-function importsOf(source: string): { clause: string; specifier: string }[] {
-    return source
-        .matchAll(/^import\s+([\s\S]*?)\s+from\s+'([^']+)';/gm)
-        .map(([, clause = '', specifier = '']) => ({ clause, specifier }))
-        .toArray();
 }
 
 function refusedInputs() {
@@ -168,7 +163,7 @@ describe('simulationFailure.ts and useBaseSimulation.ts form no import cycle (PT
     });
 
     it('imports only types from useBaseSimulation, so no runtime edge points back', () => {
-        const edges = importsOf(source).filter(({ specifier }) =>
+        const edges = importSpecifiersOf(source).filter(({ specifier }) =>
             specifier.endsWith('/useBaseSimulation'),
         );
         expect(edges.length).toBeGreaterThan(0);

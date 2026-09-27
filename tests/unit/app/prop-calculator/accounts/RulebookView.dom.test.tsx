@@ -663,6 +663,32 @@ describe('RulebookView v2 sections', () => {
         );
     });
 
+    it('shows no plausibility note for the default 40% winrate at 1:2, a typical edge', () => {
+        expect(itemOf('Win rate').textContent).not.toContain('edge:');
+        const note = container.querySelector('[role="status"]');
+        expect(note).not.toBeNull();
+        expect(note?.textContent).toBe('');
+    });
+
+    it('flags an implausible edge live as the strategy fields change, naming the level and both entered inputs', () => {
+        typeInto(inputLabelled('Win rate'), '90');
+        const note = container.querySelector('[role="status"]');
+        expect(note).not.toBeNull();
+        expect(note?.textContent).toContain('Implausible edge');
+        expect(note?.textContent).toContain('90%');
+        expect(note?.textContent).toContain('1:2.00');
+    });
+
+    it('follows a live-edited plausibility threshold, not just the strategy fields', () => {
+        expect(container.querySelector('[role="status"]')?.textContent).toBe(
+            '',
+        );
+        typeInto(inputLabelled('Typical edge up to'), '0.1');
+        const note = container.querySelector('[role="status"]');
+        expect(note).not.toBeNull();
+        expect(note?.textContent).toContain('typical up to +0.10R');
+    });
+
     it("leaves the loss-risk and sample thresholds empty, naming the video author's values only as help text", () => {
         expect(inputLabelled('Loss-risk threshold').value).toBe('');
         expect(inputLabelled('Eval attempts before').value).toBe('');

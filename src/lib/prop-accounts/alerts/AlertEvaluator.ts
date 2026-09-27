@@ -6,32 +6,46 @@ import {
 import { type AlertContext } from './AlertContext';
 import { type AlertRule } from './AlertRule';
 import { alertSeverityRank } from './AlertSeverity';
+import { ConsistencyNearBreachRule } from './ConsistencyNearBreachRule';
+import { DashboardFloorMismatchRule } from './DashboardFloorMismatchRule';
 import { EvalDayCapRule } from './EvalDayCapRule';
+import { IdleSessionLimitRule } from './IdleSessionLimitRule';
 import { InvalidStoredDateRule } from './InvalidStoredDateRule';
 import { LifetimeDollarCapRule } from './LifetimeDollarCapRule';
 import { LifetimePayoutCountRule } from './LifetimePayoutCountRule';
 import { MixedStageCopyGroupRule } from './MixedStageCopyGroupRule';
+import { NearFloorRule } from './NearFloorRule';
 import { PayoutCountMismatchRule } from './PayoutCountMismatchRule';
 import { PayoutDollarMismatchRule } from './PayoutDollarMismatchRule';
+import { PayoutEligibleRule } from './PayoutEligibleRule';
+import { PayoutReadyWithdrawableDropRule } from './PayoutReadyWithdrawableDropRule';
 import { PlanRulesChangedRule } from './PlanRulesChangedRule';
 import { StaleSnapshotRule } from './StaleSnapshotRule';
 import { SubscriptionRenewalDueRule } from './SubscriptionRenewalDueRule';
+import { TierChangeRule } from './TierChangeRule';
 import { UnresolvablePlanRule } from './UnresolvablePlanRule';
 import { WeeklyReviewDueRule } from './WeeklyReviewDueRule';
 
 export const DEFAULT_ALERT_RULES: readonly AlertRule[] = [
     new InvalidStoredDateRule(),
+    new ConsistencyNearBreachRule(),
+    new DashboardFloorMismatchRule(),
     new StaleSnapshotRule(),
     new WeeklyReviewDueRule(),
     new EvalDayCapRule(),
+    new IdleSessionLimitRule(),
     new LifetimePayoutCountRule(),
     new LifetimeDollarCapRule(),
     new UnresolvablePlanRule(),
     new PayoutCountMismatchRule(),
     new PayoutDollarMismatchRule(),
+    new PayoutEligibleRule(),
+    new PayoutReadyWithdrawableDropRule(),
     new MixedStageCopyGroupRule(),
+    new NearFloorRule(),
     new SubscriptionRenewalDueRule(),
     new PlanRulesChangedRule(),
+    new TierChangeRule(),
 ];
 
 const SORT_LOCALE = 'en';

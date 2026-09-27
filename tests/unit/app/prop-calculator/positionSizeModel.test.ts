@@ -15,6 +15,8 @@ import {
     positionSizePhases,
     type PositionSizeResult,
     positionSizeStatusText,
+    siblingInstrumentSeverityText,
+    siblingInstrumentText,
 } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
 import { formatGateCurrency } from '~/lib/format';
 import {
@@ -28,9 +30,11 @@ import {
     INSTRUMENTS,
     InstrumentSymbol,
     minStopPoints,
+    MismatchSeverity,
     oneContractRisk,
     placedFundedRiskAt,
     type Plan,
+    retryFee as planRetryFee,
     points,
     type Points,
     resolvePositionSizing,
@@ -38,6 +42,8 @@ import {
     TradingPhase,
     wholeContractCount,
 } from '~/lib/prop-calculator';
+import { RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
+import { feeEquivalentTradeRisk } from '~/lib/prop-calculator/economics';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 
 const ALL_PLANS: readonly Plan[] = ALL_FIRMS.flatMap((firm) => firm.plans);
@@ -83,9 +89,11 @@ function input({
         instrument: InstrumentSymbol.NQ,
         phase: TradingPhase.Eval,
         plan: DEFAULT_PLAN,
+        retryFee: dollars(planRetryFee(DEFAULT_PLAN.fees)),
         risk: dollars(risk),
         stopPoints: points(stopPoints),
         tierProfit: tierProfit === null ? null : dollars(tierProfit),
+        unit: RiskDisplayUnit.AccountDollars,
         ...overrides,
     };
 }
@@ -703,6 +711,115 @@ describe('positionSizeStatusText: one live summary sentence', () => {
         ).toBe(
             'No whole NQ contract fits: one contract risks $150, and the funded simulation refuses this risk.',
         );
+    });
+});
+
+describe('positionSizeFor: fee-equivalent risk and the eval bust line (F-V16)', () => {
+    it('sizes the fee-equivalent risk from feeEquivalentTradeRisk, matching the shared helper exactly', () => {
+        const fee = planRetryFee(DEFAULT_PLAN.fees);
+        const values = input({ retryFee: dollars(fee), risk: 450 });
+        const result = positionSizeFor(values);
+        const expected = feeEquivalentTradeRisk({
+            evalDrawdown: DEFAULT_PLAN.drawdown.amount,
+            retryFee: dollars(fee),
+            risk: dollars(450),
+        }).value;
+        expect(expected).not.toBeNull();
+        expect(result.feeEquivalentRisk).toBeCloseTo(expected ?? 0, 9);
+    });
+
+    it('is null in the funded phase, an eval-only heuristic', () => {
+        const values = input({ phase: TradingPhase.Funded, risk: 450 });
+        expect(positionSizeFor(values).feeEquivalentRisk).toBeNull();
+    });
+
+    it('shows an at-risk-if-busted line in eval, labelled a fresh-eval approximation and never a sum of paid fees', () => {
+        const fee = planRetryFee(DEFAULT_PLAN.fees);
+        const values = input({ retryFee: dollars(fee) });
+        const text = positionSizeFor(values).atRiskIfBustedText;
+        expect(text).not.toBeNull();
+        expect(text).toContain('At risk if busted');
+        expect(text).toContain(formatGateCurrency(dollars(fee)));
+        expect(text).toContain('fresh eval');
+        expect(text).not.toContain('—');
+    });
+
+    it('shows no at-risk-if-busted line in the funded phase', () => {
+        const values = input({ phase: TradingPhase.Funded });
+        expect(positionSizeFor(values).atRiskIfBustedText).toBeNull();
+    });
+
+    it('renders the entered risk through the chosen display unit', () => {
+        const fee = planRetryFee(DEFAULT_PLAN.fees);
+        const dollarsValues = input({ retryFee: dollars(fee), risk: 450 });
+        expect(positionSizeFor(dollarsValues).riskDisplay.text).toBe(
+            formatGateCurrency(dollars(450)),
+        );
+        const feeValues = input({
+            retryFee: dollars(fee),
+            risk: 450,
+            unit: RiskDisplayUnit.FeeEquivalent,
+        });
+        const result = positionSizeFor(feeValues);
+        expect(result.riskDisplay.text).not.toBe(
+            positionSizeFor(dollarsValues).riskDisplay.text,
+        );
+        expect(result.riskDisplay.label).toBe('Fee equivalent');
+    });
+});
+
+describe('positionSizeFor: sibling instrument mismatch (F-V31)', () => {
+    it('flags no mismatch when the sibling risks less than what was placed', () => {
+        const values = input({ instrument: InstrumentSymbol.NQ, risk: 450 });
+        const result = positionSizeFor(values);
+        expect(result.siblingInstrument.severity).toBe(MismatchSeverity.None);
+        expect(siblingInstrumentSeverityText(result)).toBeNull();
+        expect(siblingInstrumentText(result)).toContain('MNQ');
+    });
+
+    it('flags a mismatch that exceeds the planned risk but stays inside the eval cushion', () => {
+        const values = input({
+            instrument: InstrumentSymbol.MNQ,
+            risk: 150,
+            stopPoints: 7.5,
+        });
+        const result = positionSizeFor(values);
+        expect(result.contracts).toBe(10);
+        expect(result.siblingInstrument.siblingRisk).toBe(1500);
+        expect(DEFAULT_PLAN.drawdown.amount).toBeGreaterThanOrEqual(1500);
+        expect(result.siblingInstrument.severity).toBe(
+            MismatchSeverity.ExceedsPlannedRisk,
+        );
+        expect(siblingInstrumentSeverityText(result)).toContain(
+            'more than you intended',
+        );
+        expect(siblingInstrumentText(result)).toContain('NQ');
+    });
+
+    it('flags the more severe room-breaching mismatch once the eval contract cap is hit', () => {
+        const values = input({
+            instrument: InstrumentSymbol.MNQ,
+            risk: 2000,
+            stopPoints: 10,
+        });
+        const result = positionSizeFor(values);
+        expect(result.siblingInstrument.siblingRisk).toBeGreaterThan(
+            DEFAULT_PLAN.drawdown.amount,
+        );
+        expect(result.siblingInstrument.severity).toBe(
+            MismatchSeverity.ExceedsRoom,
+        );
+        const severityText = siblingInstrumentSeverityText(result);
+        expect(severityText).toContain('risk of ruin');
+        expect(severityText).toContain("plan's full drawdown budget");
+        expect(severityText).toContain("not today's remaining cushion");
+    });
+
+    it('shows no sibling line for an instrument with no modeled sibling', () => {
+        const values = input({ instrument: InstrumentSymbol.ES, risk: 450 });
+        const result = positionSizeFor(values);
+        expect(result.siblingInstrument.sibling).toBeNull();
+        expect(siblingInstrumentText(result)).toBeNull();
     });
 });
 

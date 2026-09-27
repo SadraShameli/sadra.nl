@@ -7,6 +7,19 @@ export {
     type AccountSnapshotInput,
     accountSnapshotInputSchema,
 } from './AccountSnapshotInput';
+export { AdviceSource } from './AdviceSource';
+export {
+    ADVICE_STALE_SESSION_THRESHOLD,
+    type AdviceStaleness,
+    adviceStaleness,
+    type AdviceStalenessInput,
+    AdviceStalenessReason,
+    type FreshAdviceStaleness,
+    isSnapshotStale,
+    type PlanRulesFingerprintCheck,
+    sessionsSinceSnapshot,
+    type StaleAdviceStaleness,
+} from './AdviceStaleness';
 export {
     type Assumption,
     AssumptionBias,
@@ -30,6 +43,18 @@ export {
     DashboardBalanceConvention,
     nominalBalanceOf,
 } from './DashboardBalanceConvention';
+export {
+    DifferenceReason,
+    type DifferenceReasonDetail,
+    DpNotValidatedCause,
+} from './DifferenceReason';
+export {
+    DAY_STOP_REASON_TEXT,
+    differenceReasonHeadline,
+    differenceReasonText,
+    SIZING_ASSUMPTION_TEXT,
+    SIZING_CONSTRAINT_TEXT,
+} from './DifferenceReasons';
 export { DocumentedRule, RulebookRule } from './DocumentedRule';
 export {
     type CappedAmount,
@@ -47,9 +72,56 @@ export {
     SizingProvenance,
     type SizingTerms,
 } from './DocumentedSizing';
+export {
+    type EngineOptimum,
+    type EngineOptimumPlacedRow,
+    type EngineOptimumRefusal,
+    EngineOptimumRefusalKind,
+    type EngineOptimumRefusedRow,
+    type EngineOptimumRow,
+    EngineOptimumRowKind,
+    type FundedSweepNoCandidatesResult,
+    type FundedSweepOptimumFoundResult,
+    type FundedSweepOptimumResult,
+    FundedSweepOptimumResultKind,
+} from './EngineOptimum';
+export {
+    type EngineLadderScoreConfig,
+    type EngineOptimumRequest,
+    type FundedSweepFreshRequest,
+    type LadderSearchRequest,
+    type LadderSearchRequestSource,
+} from './EngineOptimumRequest';
+export {
+    type EngineOptimumRunnerResult,
+    type FundedSweepEngineOptimumResult,
+    type LadderEngineOptimumResult,
+    runEngineOptimum,
+} from './EngineOptimumRunner';
+export {
+    applyEnginePolicy,
+    buildEnginePolicy,
+    type EnginePolicyBuild,
+    type EnginePolicyBuilderInput,
+    enginePolicyKey,
+    type EnginePolicyPositionSizing,
+    INTRADAY_TRAILING_PATH_STEPS_PER_R,
+    type MeasuredRebuyLag,
+} from './EnginePolicyBuilder';
 export { EvalLadderRule } from './EvalLadderRule';
 export { EvalMaxRiskRule } from './EvalMaxRiskRule';
 export { FundedFixedRiskRule } from './FundedFixedRiskRule';
+export {
+    LEDGER_CONTENT_HASH,
+    LEDGER_FILE,
+    LEDGER_RECORDED_LADDERS,
+    LEDGER_SECTION,
+    type LedgerLadderPlanKey,
+    type LedgerLadderProvenance,
+    type LedgerLadderRow,
+    LedgerLadderSelection,
+    ledgerRecordedLadderFor,
+} from './LedgerRecordedLadders';
 export { LiveCushionPercentRule } from './LiveCushionPercentRule';
 export {
     type DocumentedLiveStart,
@@ -108,11 +180,18 @@ export {
     ruleCappedWithdrawable,
 } from './PayoutRequestRule';
 export {
+    NO_PERSONAL_CAPS,
+    type PersonalCaps,
+    personalCapsSchema,
+} from './PersonalCaps';
+export * from './policy';
+export {
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     type ReconstructedLiveAccount,
     ReconstructedLiveKind,
 } from './ReconstructedAccount';
+export { type RiskCaps, riskCaps } from './RiskCaps';
 export { RiskDisplayUnit } from './RiskDisplayUnit';
 export {
     type AlertThresholds,
@@ -143,6 +222,7 @@ export {
 } from './Rulebook';
 export { documentedRuleLabel, rulebookDeviation } from './RulebookDeviation';
 export {
+    dailyLossRoom,
     type DayProgress,
     dayProgressSchema,
     type EvalRuleContext,
@@ -151,11 +231,14 @@ export {
     fundedRuleContextSchema,
     type LiveRuleContext,
     liveRuleContextSchema,
+    lossBudget,
     type PlanPhaseStage,
+    profitCeiling,
     type RuleContext,
     ruleContextAt,
     type RuleContextCaps,
     ruleContextSchema,
+    tighterOf,
 } from './RuleContext';
 export { RuleSource } from './RuleSource';
 export {
@@ -164,6 +247,7 @@ export {
     SizingInvariantBreach,
     SizingInvariantError,
 } from './SizingInvariant';
+export { SizingObjective, sizingObjectiveText } from './SizingObjective';
 export { SizingStage } from './SizingStage';
 export { SnapshotInputField } from './SnapshotInputField';
 export {
@@ -176,3 +260,4 @@ export {
     type SnapshotPlausibilityIssue,
     SnapshotPlausibilityIssueKind,
 } from './SnapshotPlausibility';
+export { StartBasis } from './StartBasis';

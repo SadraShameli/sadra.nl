@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -9,6 +9,8 @@ import {
     legacySectionTarget,
 } from '~/lib/site/legacyCalculatorLinks';
 import { routes } from '~/lib/site/routes';
+
+import { moduleGraphFrom } from '../../importSpecifiers';
 
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
 const LEGACY_LINKS_PATH = path.join(
@@ -24,45 +26,9 @@ const URL_PARAMETER_LEAF_PATH = path.join(
     'schemas',
     'calculatorUrlParameter.ts',
 );
-const MODULE_SPECIFIER =
-    /(?:^|[\s;])(?:import|export)\b[^;]*?\bfrom\s+['"]([^'"]+)['"]|^\s*import\s+['"]([^'"]+)['"]/gm;
-const SOURCE_CANDIDATES = ['.ts', '.tsx', '/index.ts', '/index.tsx'];
-
-function localDependencies(file: string): string[] {
-    return readFileSync(file, 'utf8')
-        .matchAll(MODULE_SPECIFIER)
-        .map((match) => resolveLocal(file, match[1] ?? match[2] ?? ''))
-        .filter((resolved) => resolved !== null)
-        .toArray();
-}
 
 function moduleGraph(entry: string): string[] {
-    const seen = new Set<string>([entry]);
-    const queue = [entry];
-    for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
-        for (const dependency of localDependencies(file)) {
-            if (seen.has(dependency)) continue;
-            seen.add(dependency);
-            queue.push(dependency);
-        }
-    }
-    return [...seen];
-}
-
-function resolveLocal(file: string, specifier: string): null | string {
-    const base = specifier.startsWith('~/')
-        ? path.join(SOURCE_ROOT, specifier.slice(2))
-        : specifier.startsWith('.')
-          ? path.resolve(path.dirname(file), specifier)
-          : null;
-    if (base === null) return null;
-    const candidate = SOURCE_CANDIDATES.map(
-        (suffix) => `${base}${suffix}`,
-    ).find((option) => existsSync(option));
-    if (candidate === undefined) {
-        throw new Error(`Unresolved import ${specifier} in ${file}`);
-    }
-    return candidate;
+    return [...moduleGraphFrom(entry, SOURCE_ROOT).files];
 }
 
 describe('the proxy weight of legacyCalculatorLinks', () => {

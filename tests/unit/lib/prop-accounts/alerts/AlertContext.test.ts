@@ -29,6 +29,11 @@ import {
     UnresolvedPlanReason,
     usdCents,
 } from '~/lib/prop-accounts/core';
+import {
+    type AccountStateEntry,
+    AccountStateKind,
+    AccountStateUnavailableKind,
+} from '~/lib/prop-accounts/metrics';
 import { type FirmId, NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
 import { type PropAccountRow } from '~/server/db/schemas/prop';
 
@@ -71,6 +76,66 @@ describe('createAlertContext', () => {
             contextOf({ accounts: [account], snapshots: [tieLow, tieHigh] })
                 .accounts[0]?.latestSnapshot,
         ).toBe(tieHigh);
+    });
+
+    it('exposes the previous snapshot by the same ordering, next to the unchanged latest', () => {
+        const account = accountFor(ANY_EVAL_PLAN);
+        const oldest = snapshotFor(account, { asOf: MONDAY });
+        const middle = snapshotFor(account, { asOf: TUESDAY });
+        const newest = snapshotFor(account, {
+            asOf: '2026-09-24',
+        });
+        const context = contextOf({
+            accounts: [account],
+            snapshots: [newest, oldest, middle],
+        });
+        expect(context.accounts[0]?.latestSnapshot).toBe(newest);
+        expect(context.accounts[0]?.previousSnapshot).toBe(middle);
+    });
+
+    it('has no previous snapshot with zero or one dated snapshot', () => {
+        const account = accountFor(ANY_EVAL_PLAN);
+        expect(
+            contextOf({ accounts: [account] }).accounts[0]?.previousSnapshot,
+        ).toBeNull();
+        const only = snapshotFor(account);
+        expect(
+            contextOf({ accounts: [account], snapshots: [only] }).accounts[0]
+                ?.previousSnapshot,
+        ).toBeNull();
+    });
+
+    it('passes lastTradedOn through onto the snapshot row', () => {
+        const account = accountFor(ANY_EVAL_PLAN);
+        const context = contextOf({
+            accounts: [account],
+            snapshots: [snapshotFor(account, { lastTradedOn: MONDAY })],
+        });
+        expect(context.accounts[0]?.latestSnapshot?.lastTradedOn).toBe(MONDAY);
+    });
+
+    it('defaults a monitored account\'s state to null when no entry names its id', () => {
+        const account = accountFor(ANY_EVAL_PLAN);
+        const context = contextOf({ accounts: [account] });
+        expect(context.accounts[0]?.accountState).toBeNull();
+    });
+
+    it('attaches the account state entry matching the account id, never another account\'s', () => {
+        const first = accountFor(ANY_EVAL_PLAN);
+        const second = accountFor(ANY_EVAL_PLAN);
+        const secondState: AccountStateEntry = {
+            accountId: second.id,
+            state: {
+                kind: AccountStateKind.Unavailable,
+                reason: { kind: AccountStateUnavailableKind.NoSnapshot },
+            },
+        };
+        const context = contextOf({
+            accounts: [first, second],
+            accountStates: [secondState],
+        });
+        expect(context.accounts[0]?.accountState).toBeNull();
+        expect(context.accounts[1]?.accountState).toEqual(secondState.state);
     });
 
     it('attaches only the account own payouts and snapshots', () => {

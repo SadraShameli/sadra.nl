@@ -1,4 +1,8 @@
 export {
+    advisorInputsFrom,
+    type AdvisorPersonalInputs,
+} from './AdvisorInputsAdapter';
+export {
     AdviceUnavailableReason,
     SNAPSHOT_FIELD_TO_INPUT_FIELD,
     type SnapshotAccountRow,

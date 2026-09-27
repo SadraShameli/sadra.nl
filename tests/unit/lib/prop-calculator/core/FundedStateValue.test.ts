@@ -1436,7 +1436,16 @@ describe('cycleBestDayProfit DP state dimension', () => {
             'pin from [200, 0, 0, 0] to [200, 200, 200, 200]: its $2,500 ' +
             'cushion sits half a $200 step above a cell, and the policy is ' +
             'now read by valuing each trade at the exact cushion instead ' +
-            "of reading the $2,400 cell's action",
+            "of reading the $2,400 cell's action. N-86 (WP54) moved " +
+            'initialValue from 29518.719515665114 to 29608.362636674246 ' +
+            '(reachedStateCount and every policy pin unchanged): this ' +
+            'plan locks its funded drawdown threshold at a fixed dollar ' +
+            'amount independent of the cushion grid, so a day-close that ' +
+            'crosses the lock trigger used to land on an off-grid cushion ' +
+            'and floor-round it down; continuationKey now interpolates ' +
+            'that day-close cushion the same way WP45 already interpolated ' +
+            'within-day trade outcomes, so the true (uniformly higher) ' +
+            'value shows up instead of the floored one',
         () => {
             const plan = rapidEodPlan();
             expect(plan.fundedConsistencyRule()).toBeNull();
@@ -1452,7 +1461,7 @@ describe('cycleBestDayProfit DP state dimension', () => {
                 winrate: 0.4,
             });
 
-            expect(result.initialValue).toBeCloseTo(29_518.719515665114, 6);
+            expect(result.initialValue).toBeCloseTo(29_608.362636674246, 6);
             expect(result.reachedStateCount).toBe(10_752);
 
             const state = plan.initialState();
@@ -2055,7 +2064,7 @@ describe('computeFundedStateValue enforces the Apex PA Level daily loss limit on
 });
 
 describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baseline is gridded (T11)', () => {
-    it('FTMO Futures Growth 50K converges at fine range multiples 0, 1 and 6 and keeps its pinned values, which are not monotone in the multiple: a finer grid never rounds the baseline higher (FundedCycleBaselineGrid.test), yet multiple 0 is worth about $20 more than multiple 1, a gap that stays the same at the fixed point. Re-pinned for T32 (the end-of-horizon credit is one capped request, not the whole balance above the floor): each is within its stated error bound of the fixed point the solver reaches at tolerance 0.0001 (14,434.82, 14,415.15 and 15,074.60); the same runs with only the pre-T32 whole-balance credit restored reproduce the WP17e pins 15,348.41, 15,312.21 and 15,801.07 exactly, so the credit is the only move', async () => {
+    it('FTMO Futures Growth 50K converges at fine range multiples 0, 1 and 6 and keeps its pinned values, which are not monotone in the multiple: a finer grid never rounds the baseline higher (FundedCycleBaselineGrid.test), yet multiple 0 is worth about $20 more than multiple 1, a gap that stays the same at the fixed point. Re-pinned for T32 (the end-of-horizon credit is one capped request, not the whole balance above the floor): each is within its stated error bound of the fixed point the solver reaches at tolerance 0.0001 (14,434.82, 14,415.15 and 15,074.60); the same runs with only the pre-T32 whole-balance credit restored reproduce the WP17e pins 15,348.41, 15,312.21 and 15,801.07 exactly, so the credit is the only move. Re-pinned again for N-86 (WP54, continuationKey interpolates the day-close cushion): all three moved by a few cents to a few thousandths of a cent (14,434.573089830497 to 14,434.573004711958; 14,414.82874384173 to 14,414.892599117371; 15,074.421238294104 to 15,074.424104151796), the fixed points and reachedStateCount unchanged. FTMO Growth keeps a thick $2,000 retained cushion so this fix mostly matters far away from it (TopStep), but its own drawdown lock still snaps to a fixed dollar threshold independent of the cushion grid, so a tiny off-grid landing at the lock transition existed here too, just far smaller than TopStep’s', async () => {
         const [coarse, landed, exact] = [
             await ftmoGrowthCoarse(0),
             await ftmoGrowthCoarse(1),
@@ -2064,9 +2073,9 @@ describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baselin
         for (const result of [coarse, landed, exact]) {
             expect(result.unconvergedLevelCount).toBe(0);
         }
-        expect(coarse.initialValue).toBeCloseTo(14_434.573089830497, 6);
-        expect(landed.initialValue).toBeCloseTo(14_414.82874384173, 6);
-        expect(exact.initialValue).toBeCloseTo(15_074.421238294104, 6);
+        expect(coarse.initialValue).toBeCloseTo(14_434.573004711958, 6);
+        expect(landed.initialValue).toBeCloseTo(14_414.892599117371, 6);
+        expect(exact.initialValue).toBeCloseTo(15_074.424104151796, 6);
         for (const [result, fixedPoint] of [
             [coarse, 14_434.8181546761],
             [landed, 14_415.146182514178],

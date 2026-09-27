@@ -137,6 +137,10 @@ export {
 } from './PaidPayout';
 export { PayoutStatus } from './PayoutStatus';
 export {
+    isWithinPayoutTolerance,
+    PAYOUT_TOLERANCE_CENTS,
+} from './PayoutTolerance';
+export {
     MAX_PERSONAL_TRADES_PER_DAY,
     type PersonalRules,
     personalRulesSchema,
@@ -188,6 +192,12 @@ export {
     type SnapshotEntryValues,
     splitSnapshotEntryIssues,
 } from './SnapshotEntryPlausibility';
+export {
+    compareSnapshots,
+    type LatestTwoSnapshots,
+    latestTwoSnapshots,
+    type OrderedSnapshot,
+} from './SnapshotOrder';
 export { SnapshotSource } from './SnapshotSource';
 export {
     type UpgradeChange,

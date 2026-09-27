@@ -2,12 +2,12 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { importSpecifiersOf } from '../importSpecifiers';
+
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
 const APP_ROOT = path.join(SOURCE_ROOT, 'app');
 const GUARDED_DIRECTORIES = ['server', 'lib'] as const;
 const SOURCE_FILE = /\.tsx?$/;
-const MODULE_SPECIFIER =
-    /(?:^|[\s;])(?:import|export)\b[^;]*?\bfrom\s+['"]([^'"]+)['"]|\bimport\(\s*['"]([^'"]+)['"]\s*\)|^\s*import\s+['"]([^'"]+)['"]/gm;
 
 const PRE_EXISTING_APP_IMPORTS: ReadonlyMap<string, readonly string[]> =
     new Map([
@@ -19,11 +19,9 @@ const PRE_EXISTING_APP_IMPORTS: ReadonlyMap<string, readonly string[]> =
 
 function importsIntoApp(file: string): string[] {
     const source = readFileSync(file, 'utf8');
-    return source
-        .matchAll(MODULE_SPECIFIER)
-        .map((match) => match[1] ?? match[2] ?? match[3] ?? '')
-        .filter((specifier) => isAppSpecifier(file, specifier))
-        .toArray();
+    return importSpecifiersOf(source)
+        .map(({ specifier }) => specifier)
+        .filter((specifier) => isAppSpecifier(file, specifier));
 }
 
 function isAppSpecifier(file: string, specifier: string): boolean {

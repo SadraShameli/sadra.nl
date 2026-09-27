@@ -3,8 +3,10 @@ import { defineCommand } from 'citty';
 import {
     planArguments,
     planResolver,
+    printEdgePlausibilityNotes,
     TablePrinter,
     tradingArguments,
+    tradingEdgeNotes,
     TradingInputs,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
@@ -70,6 +72,14 @@ export default defineCommand({
                 }
                 return;
             }
+
+            printEdgePlausibilityNotes(
+                tradingEdgeNotes({
+                    fundedRrRatio: inputs.fundedRrRatio,
+                    rrRatio: inputs.rrRatio,
+                    winrate: inputs.winrate,
+                }),
+            );
 
             const isWhatIf = compare.risks !== null;
             const risks = compare.risks ?? [inputs.riskPerTrade];

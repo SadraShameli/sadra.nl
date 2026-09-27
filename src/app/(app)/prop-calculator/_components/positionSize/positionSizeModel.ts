@@ -15,16 +15,23 @@ import {
     type InstrumentSpec,
     type InstrumentSymbol,
     minStopPoints,
+    MismatchSeverity,
     type Plan,
     points,
     type Points,
     type PositionSizingConfig,
+    siblingInstrumentRisk,
+    type SiblingInstrumentRiskResult,
     simInputsSizingIssue,
     TierBasis,
     type TierProfitContext,
     type TradingFirm,
     TradingPhase,
 } from '~/lib/prop-calculator';
+import { type RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
+import { feeEquivalentTradeRisk } from '~/lib/prop-calculator/economics';
+
+import { formatRiskDisplay, type RiskDisplayFormatted } from '../riskDisplay';
 
 export enum PositionSizeOutcome {
     BelowOneContractEval = 'below-one-contract-eval',
@@ -54,15 +61,19 @@ export interface PositionSizeInput {
     instrument: InstrumentSymbol;
     phase: TradingPhase;
     plan: Plan;
+    retryFee: Dollars;
     risk: Dollars;
     stopPoints: Points;
     tierProfit: Dollars | null;
+    unit: RiskDisplayUnit;
 }
 
 export interface PositionSizeResult {
+    atRiskIfBustedText: null | string;
     cap: ContractCount | null;
     contracts: ContractCount;
     exactRiskStop: ExactRiskStop | null;
+    feeEquivalentRisk: Dollars | null;
     fittingContracts: ContractCount;
     leftover: Dollars | null;
     minStopAtCap: null | Points;
@@ -72,6 +83,8 @@ export interface PositionSizeResult {
     placedRisk: Dollars | null;
     positionSizing: PositionSizingConfig;
     refusal: null | string;
+    riskDisplay: RiskDisplayFormatted;
+    siblingInstrument: SiblingInstrumentRiskResult;
 }
 
 const POINTS_DISPLAY_DECIMALS = 4;
@@ -129,10 +142,19 @@ export function positionSizeFor(input: PositionSizeInput): PositionSizeResult {
     );
     const exactRiskStop = exactRiskStopFor(risk, placedContracts, instrument);
     const outcome = outcomeOf(fittingContracts, isCapped, phase);
+    const feeEquivalentRisk = feeEquivalentRiskFor(input);
+    const siblingInstrument = siblingInstrumentRisk({
+        contracts: placedContracts,
+        instrument,
+        room: input.plan.drawdownFor(phase).amount,
+        stopPoints: input.stopPoints,
+    });
     return {
+        atRiskIfBustedText: atRiskIfBustedTextFor(input),
         cap,
         contracts: placedContracts,
         exactRiskStop,
+        feeEquivalentRisk,
         fittingContracts,
         leftover: isCapped ? null : dollars(sized.leftover),
         minStopAtCap,
@@ -159,6 +181,12 @@ export function positionSizeFor(input: PositionSizeInput): PositionSizeResult {
                       stopPoints: input.stopPoints,
                   })
                 : null,
+        riskDisplay: formatRiskDisplay(input.unit, {
+            accountDollars: risk,
+            evAtStake: null,
+            feeEquivalent: feeEquivalentRisk,
+        }),
+        siblingInstrument,
     };
 }
 
@@ -197,6 +225,41 @@ export function positionSizeStatusText(
             return `${result.contracts} ${symbol}${leftover}${stopText}.`;
         }
     }
+}
+
+export function siblingInstrumentSeverityText(
+    result: PositionSizeResult,
+): null | string {
+    switch (result.siblingInstrument.severity) {
+        case MismatchSeverity.ExceedsPlannedRisk: {
+            return 'That risks more than you intended on this trade.';
+        }
+        case MismatchSeverity.ExceedsRoom: {
+            return "That would exceed your plan's full drawdown budget, not today's remaining cushion or daily loss limit: a real risk of ruin from one fat-fingered symbol.";
+        }
+        case MismatchSeverity.None: {
+            return null;
+        }
+    }
+}
+
+export function siblingInstrumentText(
+    result: PositionSizeResult,
+): null | string {
+    const { sibling, siblingRisk } = result.siblingInstrument;
+    return sibling === null || siblingRisk === null
+        ? null
+        : `The same ${result.contracts} on ${sibling.symbol} would risk ${formatGateCurrency(dollars(siblingRisk))}.`;
+}
+
+function atRiskIfBustedTextFor(input: PositionSizeInput): null | string {
+    if (input.phase !== TradingPhase.Eval) return null;
+    const formatted = formatRiskDisplay(input.unit, {
+        accountDollars: input.retryFee,
+        evAtStake: null,
+        feeEquivalent: input.retryFee,
+    });
+    return `At risk if busted: ${formatted.text} (${formatted.label.toLowerCase()}), assuming a fresh eval; a fee already paid is never added on top.`;
 }
 
 function belowOneContractNotes(
@@ -281,6 +344,15 @@ function exactStopNotes(
     return [
         `The exact stop for ${formatGateCurrency(risk)} on ${placedContracts} ${instrument.symbol} is ${formatPoints(exactRiskStop.exactPoints)} points, off the ${formatPoints(instrument.tickSize)} point tick: rounded down to ${formatPoints(exactRiskStop.tickPoints)} points it risks ${formatGateCurrency(exactRiskStop.riskAtTickStop)}, never more than you entered.`,
     ];
+}
+
+function feeEquivalentRiskFor(input: PositionSizeInput): Dollars | null {
+    if (input.phase !== TradingPhase.Eval) return null;
+    return feeEquivalentTradeRisk({
+        evalDrawdown: input.plan.drawdown.amount,
+        retryFee: input.retryFee,
+        risk: input.risk,
+    }).value;
 }
 
 function outcomeOf(

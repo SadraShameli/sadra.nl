@@ -3,17 +3,26 @@ import {
     AccountStage,
     AccountStatus,
     AccountTracking,
+    type BankrollTransferKind,
     type FeeKind,
+    type FirmEngagementStatus,
     PayoutStatus,
+    type ReportedPayoutBasis,
+    type RoundStatus,
     usdCents,
 } from '~/lib/prop-accounts/core';
 import {
     type LedgerAccountRow,
     type LedgerEventRow,
     type LedgerFeeRow,
+    type LedgerFirmEngagementRow,
+    type LedgerFirmStatementRow,
     type LedgerPayoutRow,
+    type LedgerRoundRow,
+    type LedgerTransferRow,
     PortfolioLedger,
     type PortfolioLedgerRows,
+    studentTCriticalValue,
 } from '~/lib/prop-accounts/metrics';
 import {
     ALL_FIRMS,
@@ -21,7 +30,6 @@ import {
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
-import { NINETY_FIVE_PERCENT_Z } from '~/lib/prop-calculator/stats';
 
 const USER_ID = 'user-a';
 export const OTHER_USER_ID = 'user-b';
@@ -83,6 +91,7 @@ export function account(
         purchasedOn: '2026-09-01',
         readIssues: [],
         replacesAccountId: null,
+        roundId: null,
         stage: entry.plan.isInstantFunded
             ? AccountStage.Funded
             : AccountStage.Eval,
@@ -128,25 +137,68 @@ export function fee(
     };
 }
 
+export function firmEngagement(
+    externalFirmId: string,
+    sinceOn: string,
+    status: FirmEngagementStatus,
+    overrides: Partial<LedgerFirmEngagementRow> = {},
+): LedgerFirmEngagementRow {
+    return {
+        externalFirmId,
+        firmId: null,
+        id: nextId('firm-engagement'),
+        reason: null,
+        sentLiveOn: null,
+        sinceOn,
+        status,
+        userId: USER_ID,
+        ...overrides,
+    };
+}
+
+export function firmStatement(
+    externalFirmId: string,
+    asOf: string,
+    basis: ReportedPayoutBasis,
+    reportedPayoutCents: number,
+    overrides: Partial<LedgerFirmStatementRow> = {},
+): LedgerFirmStatementRow {
+    return {
+        asOf,
+        basis,
+        externalFirmId,
+        firmId: null,
+        id: nextId('firm-statement'),
+        reportedPayoutCents: usdCents(reportedPayoutCents),
+        userId: USER_ID,
+        ...overrides,
+    };
+}
+
 export function ledger(rows: Partial<PortfolioLedgerRows>): PortfolioLedger {
     return PortfolioLedger.fromRows(USER_ID, {
         accounts: rows.accounts ?? [],
         events: rows.events ?? [],
         fees: rows.fees ?? [],
+        firmEngagements: rows.firmEngagements ?? [],
+        firmStatements: rows.firmStatements ?? [],
         payouts: rows.payouts ?? [],
+        rounds: rows.rounds ?? [],
+        transfers: rows.transfers ?? [],
     });
 }
 
 export function meanInterval(
     value: number,
     standardError: null | number,
+    n: number,
 ): null | { readonly lower: number; readonly upper: number } {
-    return standardError === null
-        ? null
-        : {
-              lower: value - NINETY_FIVE_PERCENT_Z * standardError,
-              upper: value + NINETY_FIVE_PERCENT_Z * standardError,
-          };
+    if (standardError === null) return null;
+    const criticalValue = studentTCriticalValue(n - 1);
+    return {
+        lower: value - criticalValue * standardError,
+        upper: value + criticalValue * standardError,
+    };
 }
 
 export function payout(
@@ -178,6 +230,43 @@ export function payout(
 
 export function purchased(owner: LedgerAccountRow): LedgerEventRow {
     return event(owner, AccountEventKind.Purchased, owner.purchasedOn);
+}
+
+export function round(
+    entry: PlanEntry,
+    label: string,
+    openedOn: string,
+    status: RoundStatus,
+    overrides: Partial<LedgerRoundRow> = {},
+): LedgerRoundRow {
+    return {
+        budgetCents: null,
+        closedOn: null,
+        externalFirmId: null,
+        firmId: entry.firm.id,
+        id: nextId('round'),
+        label,
+        openedOn,
+        status,
+        userId: USER_ID,
+        ...overrides,
+    };
+}
+
+export function transfer(
+    kind: BankrollTransferKind,
+    amountCents: number,
+    occurredOn: string,
+    overrides: Partial<LedgerTransferRow> = {},
+): LedgerTransferRow {
+    return {
+        amountCents: usdCents(amountCents),
+        id: nextId('transfer'),
+        kind,
+        occurredOn,
+        userId: USER_ID,
+        ...overrides,
+    };
 }
 
 function nextId(prefix: string): string {

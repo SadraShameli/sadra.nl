@@ -2,21 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import { FirmKeyKind } from '~/lib/prop-accounts/core';
 import { payoutLag } from '~/lib/prop-accounts/metrics';
+import { meanStandardError } from '~/lib/prop-calculator/stats';
+
 import {
-    meanStandardError,
-    NINETY_FIVE_PERCENT_Z,
-} from '~/lib/prop-calculator/stats';
-
-import { account, EVAL_PLAN, ledger, payout, purchased } from './ledgerFixtures';
-
-function meanInterval(value: number, standardError: null | number) {
-    return standardError === null
-        ? null
-        : {
-              lower: value - NINETY_FIVE_PERCENT_Z * standardError,
-              upper: value + NINETY_FIVE_PERCENT_Z * standardError,
-          };
-}
+    account,
+    EVAL_PLAN,
+    ledger,
+    meanInterval,
+    payout,
+    purchased,
+} from './ledgerFixtures';
 
 describe('payoutLag', () => {
     it('gives request-to-approval and request-to-paid days per firm, with n and the mean SE', () => {
@@ -45,13 +40,13 @@ describe('payoutLag', () => {
         const approvalSe = meanStandardError(4, 8, 2);
         const paidSe = meanStandardError(20, 200, 2);
         expect(firm?.requestToApproval).toEqual({
-            interval: meanInterval(2, approvalSe),
+            interval: meanInterval(2, approvalSe, 2),
             n: 2,
             standardError: approvalSe,
             value: 2,
         });
         expect(firm?.requestToPaid).toEqual({
-            interval: meanInterval(10, paidSe),
+            interval: meanInterval(10, paidSe, 2),
             n: 2,
             standardError: paidSe,
             value: 10,

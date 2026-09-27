@@ -38,6 +38,7 @@ import {
     FirmId,
     fraction,
     InstrumentSymbol,
+    LifetimeCapScope,
     oneContractRisk,
     placedFundedRisk,
     placeWholeContractTrade,
@@ -56,6 +57,10 @@ import {
 import { findFirm } from '~/lib/prop-calculator/firms';
 import { runLiveDay } from '~/lib/prop-calculator/simulator';
 
+import {
+    mffProLifetimeCapFixture,
+    WINNING_TRADER,
+} from '../../lib/prop-calculator/fixtures/mffProLifetimeCapFixture';
 import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
 
 function apexEodPlan(): Plan {
@@ -112,6 +117,30 @@ describe('sim summary rows (D2)', () => {
 
     it("never prints the ambiguous 'pass rate' label", () => {
         expect(rows.map(([label]) => label)).not.toContain('pass rate');
+    });
+});
+
+describe("sim's 'gross payout' row never prints above the pooled per-user cap on 3 copied MFF Pro accounts (F-110, PT-12m)", () => {
+    const { cap: CAP, plan: mffPro } = mffProLifetimeCapFixture();
+
+    it('prints a gross payout at or below $100,000 for a winning trader on 3 copies', () => {
+        const out = simulate({ ...WINNING_TRADER, plan: mffPro });
+        expect(out.expectedGrossPayout).toBeLessThanOrEqual(CAP);
+        expect(rowValue(out, 'gross payout')).toBe(
+            formatCurrency(out.expectedGrossPayout),
+        );
+        expect(rowValue(out, 'gross payout')).not.toBe(formatCurrency(CAP + 1));
+    });
+
+    it('leaves a per-account-scope plan unaffected, so this row is not silently capped for every plan', () => {
+        const perAccountPlan = mffPro.withOverrides({
+            lifetimeDollarCapScope: LifetimeCapScope.PerAccount,
+        });
+        const out = simulate({ ...WINNING_TRADER, plan: perAccountPlan });
+        expect(out.expectedGrossPayout).toBeGreaterThan(CAP);
+        expect(rowValue(out, 'gross payout')).toBe(
+            formatCurrency(out.expectedGrossPayout),
+        );
     });
 });
 

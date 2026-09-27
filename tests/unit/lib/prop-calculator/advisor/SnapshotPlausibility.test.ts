@@ -176,6 +176,8 @@ const EXPECTED_ASSUMPTION_KINDS = [
     'NoHolidayCalendar',
     'PeakOrderAssumed',
     'PendingPayoutDeducted',
+    'PercentCandidatesLeftOut',
+    'PositionSizingUnspecified',
     'RebuyLagAssumed',
     'SizingRule',
     'TopStepLfaProgressDefaulted',

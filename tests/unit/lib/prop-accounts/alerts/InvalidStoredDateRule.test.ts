@@ -161,7 +161,8 @@ describe('alertKindLabel', () => {
         ]);
         for (const [kind, label] of labels) {
             expect(label, kind).not.toBe(kind);
-            expect(label, kind).toMatch(/^[A-Z][a-z]/);
+            expect(label, kind).toMatch(/^[A-Z]/);
+            expect(label, kind).not.toBe(String(label).toUpperCase());
             expect(label, kind).not.toContain('—');
         }
         expect(new Set(labels.map(([, label]) => label)).size).toBe(

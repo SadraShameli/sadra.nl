@@ -28,9 +28,9 @@ export function RepeatabilityCard({
                     stats={model.perSlot}
                 />
             </div>
-            {model.perSlotTargetCaveat !== null && (
+            {model.perSlotTargetNote !== null && (
                 <p className="text-xs text-muted-foreground">
-                    {model.perSlotTargetCaveat}
+                    {model.perSlotTargetNote}
                 </p>
             )}
         </div>

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FirmReturnsCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/FirmReturnsCard';
 import { type FirmReturnsCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { SampleLevel } from '~/lib/prop-accounts';
 
 type FirmReturnRow = FirmReturnsCardModel['rows'][number];
 
@@ -12,8 +13,10 @@ function row(overrides: Partial<FirmReturnRow> & Pick<FirmReturnRow, 'firm' | 'k
         accounts: '1',
         accountsWithPayout: '0',
         attempts: '1',
+        attemptsSampleLevel: null,
         firstPayoutOn: 'n/a',
         fundedAccounts: '0',
+        fundedSampleLevel: null,
         lastPayoutOn: 'n/a',
         net: '$0.00',
         payouts: '$0.00',
@@ -69,5 +72,26 @@ describe('FirmReturnsCard', () => {
             'Real zero firm',
             'Zero spend firm',
         ]);
+    });
+
+    it('shows a sample-level badge next to the attempts and funded counts once a threshold is set', () => {
+        const model: FirmReturnsCardModel = {
+            rows: [
+                row({
+                    attempts: '2',
+                    attemptsSampleLevel: SampleLevel.Low,
+                    firm: 'Thin sample firm',
+                    fundedAccounts: '1',
+                    fundedSampleLevel: SampleLevel.Adequate,
+                    key: 'thin',
+                    multiple: '1.00x',
+                }),
+            ],
+        };
+        act(() => {
+            root.render(<FirmReturnsCard model={model} />);
+        });
+        expect(container.textContent).toContain('Low sample');
+        expect(container.textContent).toContain('Adequate sample');
     });
 });

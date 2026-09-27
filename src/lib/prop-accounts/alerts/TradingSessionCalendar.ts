@@ -1,4 +1,8 @@
-import { ReviewWeekday } from '~/lib/prop-calculator/advisor';
+import {
+    isSnapshotStale,
+    ReviewWeekday,
+    type SizingStage,
+} from '~/lib/prop-calculator/advisor';
 
 import {
     addIsoDays,
@@ -48,6 +52,12 @@ export const TradingSessionCalendar = {
     addDays: addIsoDays,
     daysBetween: isoDaysBetween,
     disclosure: AlertDisclosure.NoHolidayCalendar,
+    isStale: (
+        stage: SizingStage,
+        asOf: string,
+        today: string,
+        fundedStaleDays: number,
+    ): boolean => isSnapshotStale(stage, asOf, today, fundedStaleDays),
     lastSessionBefore: (today: string): SessionDate => {
         let day = dayNumberOf(today) - 1;
         while (isWeekendDay(day)) day -= 1;

@@ -2,9 +2,12 @@ import { defineCommand } from 'citty';
 import { z } from 'zod';
 
 import {
+    type EdgeModelArguments,
+    edgeModelArguments,
     planArguments,
     planResolver,
     printEdgePlausibilityNotes,
+    readEdgeModelSpec,
     readLadder,
     readNumberList,
     singlePathGranularityArgument,
@@ -14,13 +17,25 @@ import {
     TradingInputs,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type DayStopRule,
+    edgeModelFromSpec,
+    EdgeModelKind,
+    type EdgeModelSpec,
     type Plan,
     type PositionSizingConfig,
     resolvePositionSizing,
+    type SimInputs,
+    simulate,
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator';
+import {
+    TAKE_PROFIT_WHAT_IF_LABEL,
+    takeProfitCandidateInputs,
+    takeProfitRows,
+    type TakeProfitWhatIfRow,
+} from '~/lib/prop-calculator/economics';
 import {
     buildFundedCandidates,
     type BuiltFundedCandidates,
@@ -40,6 +55,7 @@ import {
     FundedSortKey,
     ladderRungsBelowOneContractText,
     runFundedCandidateSweep,
+    sortFundedResults,
 } from '~/lib/prop-calculator/optimize';
 
 export interface FundedCandidateArguments {
@@ -47,6 +63,17 @@ export interface FundedCandidateArguments {
     'funded-ladder'?: string;
     percent?: string;
 }
+
+export interface TakeProfitWhatIfArguments extends EdgeModelArguments {
+    'rr-candidates'?: string;
+}
+
+export interface TakeProfitWhatIfRequest {
+    readonly edgeSpec: EdgeModelSpec;
+    readonly rrCandidates: number[];
+}
+
+export class TakeProfitWhatIfError extends Error {}
 
 const DEFAULT_PERCENT_CANDIDATES = DEFAULT_FUNDED_PERCENT_CANDIDATES.join(',');
 
@@ -57,6 +84,7 @@ export default defineCommand({
         ...planArguments,
         ...tradingArguments,
         ...singlePathGranularityArgument,
+        ...edgeModelArguments,
         flat: {
             default: DEFAULT_FUNDED_FLAT_CANDIDATES.join(','),
             description:
@@ -70,6 +98,11 @@ export default defineCommand({
         },
         percent: {
             description: `Comma-separated percent-of-cushion funded-phase candidates, placed in whole contracts at --stop-points (required for --percent). Default ${DEFAULT_PERCENT_CANDIDATES} when --stop-points is given, none otherwise. Pass '' to skip percent candidates.`,
+            type: 'string',
+        },
+        'rr-candidates': {
+            description:
+                'Comma-separated reward-to-risk ratios to rank as a take-profit what-if instead of the flat/percent/ladder sweep above: for each rr, --edge-model drift derives its own win rate from --winrate fitted at --edge-anchor-rr (default --rr) and simulates that rr in both the eval and funded phases (fundedRrRatio = rr, so no second win rate is needed), labelled a what-if that differs from your fixed 1:2. Requires --edge-model drift (a fixed win rate cannot rank take-profit multiples) and needs --funded-rr to equal --rr, if given at all (a different funded rr with its own win rate is not modeled until QV-4 is answered)',
             type: 'string',
         },
         sort: {
@@ -98,6 +131,14 @@ export default defineCommand({
             );
             const base = inputs.toSimInputs(plan);
             const sort = z.enum(FundedSortKey).parse(context.args.sort);
+            const takeProfitRequest = readTakeProfitWhatIfRequest(
+                context.args,
+                inputs,
+            );
+            if (takeProfitRequest !== null) {
+                printTakeProfitWhatIf(plan, base, sort, takeProfitRequest);
+                return;
+            }
             const positionSizing = resolvePositionSizing(
                 base.instrument,
                 base.stopPoints,
@@ -182,6 +223,44 @@ export function fundedSweepSummary(
     return `${planLabel}: ${policyCount} funded policies`;
 }
 
+export function printTakeProfitWhatIf(
+    plan: Plan,
+    base: SimInputs,
+    sort: FundedSortKey,
+    request: TakeProfitWhatIfRequest,
+): void {
+    const edge = edgeModelFromSpec(request.edgeSpec);
+    const candidateInputs = takeProfitCandidateInputs(
+        base,
+        edge,
+        request.rrCandidates,
+    );
+    const outputs = candidateInputs.map((candidateInput) =>
+        simulate(candidateInput),
+    );
+    const rows = sortFundedResults(
+        takeProfitRows(candidateInputs, outputs),
+        sort,
+    );
+
+    ui.heading(plan.label);
+    ui.warn(TAKE_PROFIT_WHAT_IF_LABEL);
+    ui.muted(fundedSortDescription(sort, base));
+
+    const table = new TablePrinter([
+        { align: 'left', label: 'take-profit (rr)', width: 17 },
+        { label: 'derived win rate', width: 17 },
+        { label: 'pass per attempt', width: 17 },
+        { label: 'days to pass', width: 13 },
+        { label: 'per-cycle net', width: 14 },
+        { label: 'monthly net', width: 13 },
+    ]);
+    table.printHeader();
+    for (const row of rows) {
+        table.printRow(takeProfitRowCells(row));
+    }
+}
+
 export function readFundedCandidates(
     arguments_: FundedCandidateArguments,
     stopRule: DayStopRule,
@@ -194,6 +273,35 @@ export function readFundedCandidates(
         positionSizing,
         plan ?? null,
     ).candidates;
+}
+
+export function readTakeProfitWhatIfRequest(
+    arguments_: TakeProfitWhatIfArguments,
+    inputs: TradingInputs,
+): null | TakeProfitWhatIfRequest {
+    const raw = arguments_['rr-candidates'];
+    if (raw === undefined) return null;
+    if (
+        inputs.fundedRrRatio !== undefined &&
+        inputs.fundedRrRatio !== inputs.rrRatio
+    ) {
+        throw new TakeProfitWhatIfError(
+            'a different funded rr with its own win rate is not modeled until QV-4 is answered (PT-64b)',
+        );
+    }
+    const edgeSpec = readEdgeModelSpec(arguments_, inputs);
+    if (edgeSpec.kind === EdgeModelKind.Fixed) {
+        throw new TakeProfitWhatIfError(
+            'a fixed win rate cannot rank take-profit multiples: pass --edge-model drift',
+        );
+    }
+    const rrCandidates = readNumberList(
+        raw,
+        'rr-candidates',
+        z.number().positive(),
+        'a reward-to-risk ratio > 0',
+    );
+    return { edgeSpec, rrCandidates };
 }
 
 function fundedCandidateRefusalMessage(
@@ -295,4 +403,15 @@ function readFundedCandidateBuild(
             );
         }
     }
+}
+
+function takeProfitRowCells(row: TakeProfitWhatIfRow): string[] {
+    return [
+        `1:${row.rrRatio}`,
+        formatPercent(row.winrate),
+        formatPercent(row.out.attemptPassProbability),
+        row.out.daysToPassP50.toFixed(1),
+        formatCurrency(row.out.expectedNet),
+        formatCurrency(row.out.expectedMonthlyNet),
+    ];
 }

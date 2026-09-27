@@ -76,6 +76,32 @@ function sourceFilesUnder(directory: string): string[] {
         .map((entry) => path.join(entry.parentPath, entry.name));
 }
 
+describe('kpiDescriptions renames riskOfRuin to bustBeforePassing (F-V13, PT-61)', () => {
+    it('has no riskOfRuin key', () => {
+        expect(
+            Object.hasOwn(kpiDescriptions, 'riskOfRuin'),
+        ).toBe(false);
+    });
+
+    it('keeps the exact wording under bustBeforePassing', () => {
+        expect(kpiDescriptions.bustBeforePassing).toBe(
+            'Probability of busting the drawdown rule before hitting the profit target. Same number as bust% but framed as the risk you take on.',
+        );
+    });
+});
+
+describe('kpiDescriptions gains texts for the new attempt-economics KPIs (F-V9, PT-61)', () => {
+    it.each([
+        'evPerAttempt',
+        'breakevenPassRate',
+        'rewardToRisk',
+        'payoutsPerFundedAccount',
+        'payoutProbabilityGivenFunded',
+    ] as const)('has a non-empty description for %s', (key) => {
+        expect(kpiDescriptions[key].length).toBeGreaterThan(0);
+    });
+});
+
 describe('kpiDescriptions and panelDescriptions (WP21b: no em dashes in writing)', () => {
     it('no KPI or panel description contains an em dash', () => {
         const withEmDash = [
@@ -207,6 +233,18 @@ describe('monthlyNet tooltip matches the engine for every plan and form input (T
         expect(run.tracker.lastPayoutBalance).toBe(fundedStartBalance);
         expect(run.tracker.payoutsIssued).toBe(0);
     });
+});
+
+describe('P(no payout) is documented on both comparison panels (PT-61d, F-V25)', () => {
+    const definition =
+        'P(no payout) = share of trials that reached funded and took no payout within the funded horizon';
+
+    it.each(['firmComparison', 'planComparison'] as const)(
+        '%s states the P(no payout) definition',
+        (key) => {
+            expect(panelDescriptions[key]).toContain(definition);
+        },
+    );
 });
 
 describe('the cost and cash-flow tooltips name no re-buy firm by hand (N-84, WP52b)', () => {

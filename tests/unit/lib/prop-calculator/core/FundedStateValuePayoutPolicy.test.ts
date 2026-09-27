@@ -318,23 +318,23 @@ describe('FundedStateValue without a payout request size keeps its pins (PT-47a,
         ).toBe(100);
     });
 
-    it('coarse TopStep: initialValue, sweep count and sampled risks', () => {
+    it('coarse TopStep: initialValue, sweep count and sampled risks. Re-pinned for N-86 (WP54): initialValue moved from 5081.6891952778915 to 5081.88878430116 and sweepCount from 332 to 358 (both risk pins unchanged) because TopStep locks its funded drawdown at a fixed dollar threshold, and continuationKey now interpolates the day-close cushion at that lock transition instead of floor-rounding it down', () => {
         const plan = topStepPlan();
         const result = computeFundedStateValue(topStepCoarseConfig(plan));
-        expect(result.initialValue).toBeCloseTo(5081.6891952778915, 6);
-        expect(result.sweepCount).toBe(332);
+        expect(result.initialValue).toBeCloseTo(5081.88878430116, 6);
+        expect(result.sweepCount).toBe(358);
         expect(result.dayPolicy.computeRisk?.(fundedStart(plan), 0)).toBe(1000);
         expect(
             result.dayPolicy.computeRisk?.(lockedStateAt(52_000, 50_000), 0),
         ).toBe(1000);
     }, 120_000);
 
-    it('FTMO Futures Growth 50K at fine range multiple 1: initialValue, sweep count and sampled risks', async () => {
+    it('FTMO Futures Growth 50K at fine range multiple 1: initialValue, sweep count and sampled risks. Re-pinned for N-86 (WP54): initialValue moved from 14_414.82874384173 to 14_414.892599117371 and sweepCount from 366 to 387 (both risk pins unchanged), the same tiny day-close cushion interpolation move pinned in FundedStateValue.test.ts’s T11 "landed" case', async () => {
         const plan = await ftmoGrowthPlan();
         const result = computeFundedStateValue(ftmoGrowthConfig(plan));
         expect(result.unconvergedLevelCount).toBe(0);
-        expect(result.initialValue).toBeCloseTo(14_414.82874384173, 6);
-        expect(result.sweepCount).toBe(366);
+        expect(result.initialValue).toBeCloseTo(14_414.892599117371, 6);
+        expect(result.sweepCount).toBe(387);
         expect(result.dayPolicy.computeRisk?.(fundedStart(plan), 0)).toBe(500);
         expect(result.dayPolicy.computeRisk?.(fundedStart(plan), 1)).toBe(0);
     }, 600_000);
@@ -549,10 +549,10 @@ describe('FundedStateValue retained cushion on the coarse TopStep config (PT-47a
             minRetainedCushion: 2000,
         });
         expect(result.initialValue).toBeCloseTo(5072.586527996037, 6);
-        expect(result.initialValue).not.toBeCloseTo(5081.6891952778915, 2);
+        expect(result.initialValue).not.toBeCloseTo(5081.88878430116, 2);
     }, 120_000);
 
-    it('equals the default pin at a requested cushion of 0, which resolves to the plan floor', () => {
+    it('equals the default pin at a requested cushion of 0, which resolves to the plan floor. Re-pinned for N-86 (WP54): moved with the coarse TopStep default pin above, from 5081.6891952778915 to 5081.88878430116', () => {
         const plan = topStepPlan();
         expect(plan.resolveRetainedCushion(0)).toBe(
             plan.resolveRetainedCushion(undefined),
@@ -561,7 +561,7 @@ describe('FundedStateValue retained cushion on the coarse TopStep config (PT-47a
             ...topStepCoarseConfig(plan),
             minRetainedCushion: 0,
         });
-        expect(result.initialValue).toBeCloseTo(5081.6891952778915, 6);
+        expect(result.initialValue).toBeCloseTo(5081.88878430116, 6);
     }, 120_000);
 });
 

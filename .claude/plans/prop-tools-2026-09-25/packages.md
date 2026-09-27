@@ -830,6 +830,11 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 
 - The simulator keeps expected monthly net as its first KPI and shows EV per attempt beside it with the full attempt economics, payouts per funded account and edge leverage; the position size page shows fee-equivalent risk and the wrong-instrument risk; "risk of ruin" no longer means bust before passing; implausible edges are flagged.
 
+
+#### Added 2026-09-27 to PT-61 (EJ4-b)
+
+- `accounts/edge/EdgeView.tsx`: its local `NO_SAMPLE_THRESHOLDS` duplicates `DEFAULT_RULEBOOK.samples`; read the rulebook default instead (PT-56c review MEDIUM).
+
 ## PT-62: bankroll tool page and cash-flow extensions
 
 - **Lane / wave:** W / EJ4 (owner of `toolCatalog.ts`, `routes.ts`, `CashFlowPanel.tsx`, the rounds view and the new tools worker in EJ4)  **Size:** large  **Depends on:** PT-55, PT-53, PT-58a (`bankroll.summary`, rounds page), PT-58b (scale gate, same wave: PT-58b's step 3 lands GREEN before PT-62's step 4), PT-60
@@ -1429,6 +1434,7 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 - **Files owned:** the overview files (`OverviewView.tsx`, `overviewModel.ts`, `StatementCard.tsx`, new `overview/{PurchaseCohortsView.tsx, AttemptThroughputCard.tsx}`), `src/lib/prop-accounts/metrics/Repeatability.ts` (a per-slot target), `accounts/ledger/LedgerView.tsx` (only the item the PT-57b report names), and tests.
 - **Steps** (RED first, DOM tests): (1) the statement card's "Cash by month" and "By purchase cohort" toggle: per purchase month spend, payouts, the realized multiple with its interval and n, and the in-progress count, from `purchaseCohorts` and `pooledEndedCohortMultiple`; (2) an attempts-per-month card from `AttemptThroughput`; (3) `repeatability` takes a per-slot target (the portfolio target divided by active slots, or a second parameter) so the per-slot share at target is not measured against the whole-portfolio target. Run the accounts app tests and `tests/unit/lib/prop-accounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
 - **Acceptance:** every PT-57 figure the design places on a page is shown, with its sample.
+- **Added 2026-09-27 (PT-56c leftovers, same overview files):** (1) `metrics/CostAnalytics.ts` and `metrics/FirmReturns.ts` expose their rate-like figures (cost per attempt, net per account, multiple) as `SampledEstimate`, and the cost and firm returns cards show the 95% interval text next to the badge (the replacement card waits for PT-19, which owns `ReplacementStats.ts` in EJ4); (2) `PayoutSizeStats` percentiles say they are sample quantiles with n and no mean interval; (3) thread snapshot balances through `usePortfolioData.ts` and the ledger load so the payout sizes card's low-balance flag runs; (4) wire the funnel's dollars per stage and the `FunnelDiagnostic` biggest-weakness ranking into the funnel card. `EdgeView.tsx` belongs to PT-61 in EJ4-b (its duplicated `NO_SAMPLE_THRESHOLDS` goes there).
 
 ## PT-71e: a plan the firm no longer sells cannot be chosen for a new account (PT-71b leftover)
 
@@ -1469,6 +1475,181 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 - **Files owned:** `advisor/policy/index.ts` (re-export `buildDocumentedDayPolicies`, `DocumentedDayPolicies`, `resolveDocumentedRetainedCushion`), `core/AccountState.ts` (one exported `accountStateSchema`), `advisor/policy/DocumentedPolicySpec.ts` and `advisor/PayoutRequestRule.ts` (use it), `core/index.ts` (the export), and tests.
 - **Steps:** a guard test finds one account state schema; existing DocumentedPolicySpec and PayoutRequestRule tests stay green (including the missing `todayPnL` and wrong-typed `consecutiveIdleDays` refusals). Run the advisor and core tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
 - **Acceptance:** one schema; the policy barrel exports its public surface.
+- **Added 2026-09-27 (PT-46b leftover):** also fold `advisor/CalendarGateProgress.ts`'s duplicate day-gate required-days ternary into `requiredDayGateDays` (owned here for that change only). Runs after audit WP48b (which owns `core/index.ts` in wave 46c).
+
+## PT-56b: the rest of PT-56 (payout sizes, funded payout distribution, realized attempt economics, funnel diagnostic, sample badges on the pages)
+
+- **Lane / wave:** W / EJ3-e  **Size:** large  **Depends on:** PT-56 (done: `SampleAdequacy`, `IndependentSamples`, intervals on every sampled estimate, `realizedPayoutRates`, funnel dollars per firm, `PayoutTiming`)
+- **Items:** F-V8, F-V9, F-V10, F-V11 (the unbuilt halves), review leftovers of wf_80a9c4c9-dbe
+- **Files owned:** as "## PT-56:" lists (new `metrics/{PayoutSizeStats, FundedPayoutDistribution, RealizedAttemptEconomics, FunnelDiagnostic}.ts`, `metrics/index.ts`, `prop-accounts/core/index.ts`, `metrics/PortfolioLedger.ts` (the interval), the overview files, new `overview/{PayoutSizesCard, FundedPayoutsCard, AttemptEconomicsCard, SampleBadge}.tsx`, `accounts/edge/EdgeView.tsx`), plus `tests/unit/lib/prop-accounts/metrics/PayoutLag.test.ts` (use the shared `meanInterval` test helper) and the consumers of `sampledMean` if the interval changes (`metrics/FirmReturns.ts`, `metrics/PayoutLag.ts`).
+- **Steps:** follow "## PT-56:" for every step not yet done (payout size stats with the breakdowns, the funded payout distribution and realized funded value, realized attempt economics through the economics library's `attemptEconomics`, the funnel diagnostic, `sampleAdequacy` levels attached to every rate, and step 11's UI: badges, the payout sizes, funded payouts and attempt economics cards, the funnel and realized outcomes cards, the edge page trades badge). RED first for each. Also: (1) `sampledMean`'s 95% interval uses a Student t critical value for small n (n = 2 gives about 12.7 x SE), not a fixed 1.96, with a test at n = 2, 5 and 30; update its consumers; (2) the disclosed majority-vote rule for copy groups with divergent outcomes stays pinned and is stated in the UI help text. Run `tests/unit/lib/prop-accounts` and the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** every PT-56 number is on the page with n, its interval and its sample level.
+
+## PT-71f: the account form passes the new-purchase intent (PT-71e leftover)
+
+- **Lane / wave:** W / EJ3-e  **Size:** small  **Depends on:** PT-71e (done: `AccountPlanIntent`, `accountPlanOptions(firm, intent)`, the picker prop)
+- **Items:** F-V30, review leftover of wf_80a9c4c9-dbe
+- **Files owned:** `accounts/_components/AccountForm.tsx` (both `AccountPlanPicker` calls: PlanCard near line 1206 and the ledger-only external-firm flow near line 950), and tests.
+- **Steps** (RED first, DOM test): creating an account through the real form does not offer FNL:003 (or any Discontinued plan); editing an existing FNL:003 account keeps it selectable; the ledger-only flow follows the same intent. Run the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the live form never offers a discontinued plan as a new purchase.
+
+## PT-46c: the calendar gate uses the one day-gate count (PT-48c leftover)
+
+- **Lane / wave:** E / EJ3-g  **Size:** small  **Depends on:** PT-46b, PT-48c (done)
+- **Items:** F-105, review leftover of wf_479df758-d21
+- **Files owned:** `src/lib/prop-calculator/core/FundedPayoutCycle.ts` (`requiredDayGateDays` takes `Pick<FundedCycleTracker, 'payoutsIssued'>`, backward compatible), `advisor/CalendarGateProgress.ts` (calls it instead of its own ternary), and tests.
+- **Steps:** pure refactor with pins: the FundedPayoutCycle, CalendarGateProgress, PayoutReadiness, AccountReconstruction and engineCharacterization tests stay green with no number moved; a guard test finds no second copy of the per-cycle day-gate ternary. Record the fingerprint handoff for `FundedPayoutCycle.ts`. Run those tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** one implementation of the required day-gate count.
+
+## PT-35a: the firm account policy framework with the unverified default (PT-35 split, no firm data)
+
+- **Lane / wave:** E / EJ4-a  **Size:** medium  **Depends on:** G2 (met), PT-35 step 0 (done). Not Q14, Q15 or Q16: this half encodes no firm value, so it does not wait for them. PT-35b (the per-firm data files and overrides) stays gated on Q14 to Q16 and a same-day re-fetch.
+- **Items:** the PT-35 core (F-91 to F-94, F-97 types), so PT-19 and PT-22 can build on it
+- **Files owned:** new `src/lib/prop-calculator/core/accountPolicy/{FirmPolicySource.ts, FirmAccountPolicy.ts, AccountCapPolicy.ts, LiveTransitionTrigger.ts, LiveExclusivityPolicy.ts, InactivityPolicy.ts, ConductPattern.ts, index.ts}`, `core/index.ts` (the one line `export * from './accountPolicy'`), `core/TradingFirm.ts` (a concrete, overridable `accountPolicy` returning the unverified default), `core/Plan.ts` (the eval access window field from the PT-07 handoff, null by default, no firm value), and tests (new `tests/unit/lib/prop-calculator/core/accountPolicy/*.test.ts`). No firm file, no firm note, no engine number.
+- **Steps:** follow "## PT-35:" steps 2 and 3 (the seven core files, the sub-barrel, `TradingFirm.accountPolicy`, the unverified default: PerPlanCapPolicy, NotChecked triggers, Unknown exclusivity and cooldown, the plan's own inactivity count (`maxConsecutiveIdleDaysFor`, and for plans with a calendar-week rule `calendarWeekInactivityFor`) with an unverified basis, no conduct; `lifetimePayoutCapOverride` returns NotChecked for every firm until PT-35b). RED first. Pins: engineCharacterization, TradingFirmNotes, Plan and PlanUniversalInvariants unchanged (no plan changes behaviour). Record the fingerprint handoff for `TradingFirm.ts`, `Plan.ts`, `core/index.ts`. Run those tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** every firm has an account policy that says it is unverified; PT-35b can fill it firm by firm without touching the core.
+
+## PT-35b: the verified per-firm account policies (PT-35 split, gated)
+
+- **Lane / wave:** E / after Q14 to Q16  **Size:** large  **Depends on:** PT-35a, the user's answers to Q14, Q15 and Q16, a same-day re-fetch of every firm page the step 0 table cites, and the audit tracker showing no in-flight Lucid, N-40 or N-53 row.
+- **Steps:** "## PT-35:" steps 1, 4 and 5 (the per-firm data files and the one-line overrides, the E8 citation fixes and TPT's new rule named in the step 0 handoff), with every value re-verified on the day.
+
+## PT-56c: the PT-56 cards and badges on the pages (PT-56b leftovers)
+
+- **Lane / wave:** W / EJ4-a  **Size:** large  **Depends on:** PT-56b (done: every PT-56 library, the Student t interval, `SampleBadge`, the outcomes card badge)
+- **Items:** F-V8, F-V9, F-V10, F-V11 (UI), review leftovers of wf_1f2426c7-d2e
+- **Files owned:** the overview files (`OverviewView.tsx`, `overviewModel.ts`, `KpiRow.tsx`, `FunnelCard.tsx`, `CostCard.tsx`, `ReplacementCard.tsx`, `FirmReturnsCard.tsx`, `RealizedOutcomesCard.tsx`), new `overview/{PayoutSizesCard, FundedPayoutsCard, AttemptEconomicsCard}.tsx`, `accounts/edge/EdgeView.tsx`, `src/lib/prop-accounts/metrics/{RealizedOutcomes.ts, FundedPayoutDistribution.ts, RealizedAttemptEconomics.ts}` (one shared horizon-matured ended-cohort predicate, exported, used by all three), `tests/unit/lib/prop-accounts/metrics/PayoutTiming.test.ts` (the intermittent interval flake: find the cause, fix it), and tests.
+- **Steps** (RED first, DOM tests): the three new cards, the sample badges and 95% interval text on the funnel, cost, replacement, firm returns and realized outcomes cards and the edge page trades badge, the average payout KPI (never ahead of net and monthly figures, VD-28), per "## PT-56:" step 11; the shared cohort predicate (a guard test finds one copy); the PayoutTiming flake reproduced and fixed. `marginAboveBreakevenOf` keeps today's rule (the pass-rate interval gates the breakeven comparison) and says so in its help text (Q50). Run `tests/unit/lib/prop-accounts` and the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** every PT-56 number is on a page with n, its interval and its sample level.
+
+## PT-55c: bankroll funded flags carry the plausibility note; funded resets check cash (PT-55b leftovers)
+
+- **Lane / wave:** E / EJ4-a  **Size:** small  **Depends on:** PT-55b (done)
+- **Items:** F-V13, F-V14, review leftovers of wf_1f2426c7-d2e
+- **Files owned:** `src/cli/commands/prop/bankroll/{project.ts, compare.ts}` (call `tradingEdgeNotes` / `printEdgePlausibilityNotes` whenever a funded-phase risk, rr or trades per day is given and differs from the eval value), `src/lib/prop-calculator/simulator/fundedPhase.ts` and `portfolioTimeline/bankrollTimeline.ts` (the same per-day affordability callback PT-55b gave eval retries, applied to funded-reset charges), and tests.
+- **Steps** (RED first): (1) `prop bankroll project --funded-risk 1000 ...` prints the edge plausibility note the way `prop sim` does; (2) a funded reset the bankroll cannot afford ends the card instead of being charged into negative cash. Pins: `simulatePortfolioTimeline`, engineCharacterization and rngDrawCount unchanged where no bankroll callback is given. Record the fingerprint handoff. Run the bankroll, portfolioTimeline and CLI bankroll tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the bankroll path discloses a funded edge assumption and never charges a reset it cannot pay.
+
+## PT-71g: the upgrade-to-modeled form passes the new-purchase intent (PT-71f leftover)
+
+- **Lane / wave:** W / EJ4-a  **Size:** small  **Depends on:** PT-71f (done)
+- **Files owned:** `accounts/_components/detail/AccountDetailView.tsx` (the UpgradeToModeled `AccountPlanPicker` call), and tests.
+- **Steps** (RED first, DOM test): upgrading a ledger-only account to a modeled plan does not offer FNL:003 or any Discontinued plan. Run the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** no form offers a discontinued plan as a new purchase.
+
+## PT-12m: reader-level tests for the pooled per-user cap (PT-12l leftover)
+
+- **Lane / wave:** E / EJ4-a  **Size:** small  **Depends on:** PT-12l, PT-55b (done)
+- **Files owned:** tests only: `tests/unit/app/prop-calculator/ResultsPanel.dom.test.tsx`, the Planner (`PortfolioPanel`) test, `tests/unit/cli/prop/{sim, compare}.test.ts`.
+- **Steps:** each surface, given MFF Pro with 3 copied accounts and a winning trader, never shows combined payouts above $100,000; a PerAccount plan is unaffected. If a surface fails, report it (do not change source). Run those tests (0 failures), `bunx eslint <owned files>`.
+- **Acceptance:** the pooled cap is pinned where the user reads it.
+
+## PT-71h: upgrading an account you already hold offers its real plan (PT-71g correction)
+
+- **Lane / wave:** W / EJ4-b  **Size:** small  **Depends on:** PT-71g (done)
+- **Why:** PT-71g passed `AccountPlanIntent.NewPurchase` to the upgrade-to-modeled picker, following this tracker's spec. That spec was wrong: an upgrade maps an account the user already holds (for example an FNL:003 bought before FundedNext stopped selling it) onto its plan, so the plan must stay selectable, tagged "no longer sold", exactly like recording an existing account.
+- **Files owned:** `accounts/_components/detail/AccountDetailView.tsx` (the UpgradeToModeled picker passes `AccountPlanIntent.ExistingAccount`), `accounts/_components/accountPlanOptions.ts` (`upgradePlanSelection` takes the intent and follows the same availability rule as the picker), and tests (reverse PT-71g's DOM test).
+- **Steps** (RED first, DOM tests): upgrading a ledger-only FundedNext account at $50K offers FNL:003 tagged "no longer sold" and can save it; the new-account form still does not offer it; the size-matched initial selection follows the intent. Run the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** an account you hold can always be mapped to its plan; only new purchases hide discontinued plans.
+
+## PT-19b: engine policy builder and difference reasons (PT-19 steps 0, 1 and 8)
+
+- **Lane / wave:** E / EJ4-c  **Size:** medium  **Depends on:** PT-19 slice (EJ4-b), PT-35a, PT-48b
+- **Files owned:** new `advisor/{EnginePolicyBuilder.ts, DifferenceReasons.ts}`, `advisor/DifferenceReason.ts` (the typed payload per member, PD-32), `advisor/AssumptionKind.ts` (the SizingAssumption members, PD-42: add, never rename), `advisor/index.ts` (your export lines), and their tests.
+- **Steps:** "## PT-19:" step 0 (the rest of the types, declared in full), step 1 (`EnginePolicyBuilder`, `applyEnginePolicy`, `enginePolicyKey`) and step 8 (`DifferenceReasons`: sentinel test, text only from typed fields, the custom-rule headline). Every PT-19 sub-package follows the matching numbered steps of "## PT-19:" exactly (its readiness pass, handoffs and the Addendum to PT-19 apply), RED first. Already landed in EJ4-b (PT-19 slice): `ConsistencyRule.maxDayProfitBeforeViolation`, the advisor import-graph guard with `tests/unit/importSpecifiers.ts`, `advisor/index.ts` re-exporting `./policy`, and the bare `AdviceSource`, `StartBasis`, `SizingObjective`, `DifferenceReason` enums and `SizingConstraint.CeilingCap`. Sub-packages running in the same wave may each append their own export lines to `advisor/index.ts`: re-read it right before editing and change only your own lines.
+- **Acceptance:** the policy builder and every difference reason exist with their tests; later sub-packages consume them without changing them.
+
+## PT-19c: the shared rule chain learns personal caps and ceilings (PT-19 step 2)
+
+- **Lane / wave:** E / EJ4-c  **Size:** medium  **Depends on:** PT-19 slice (EJ4-b)
+- **Files owned:** new `advisor/{PersonalCaps.ts, RiskCaps.ts}`, `advisor/{RuleContext.ts, SizingInvariant.ts, FundedFixedRiskRule.ts, LiveCushionPercentRule.ts, EvalLadderRule.ts, DocumentedRule.ts, DocumentedSizing.ts}`, `advisor/index.ts` (your export lines), and their tests (pins first, PD-31).
+- **Steps:** "## PT-19:" step 2 in full (nullable personal caps, the funded and live ceiling, the placeable minimum, `profitCeiling(context)`, `SizingConstraint.CeilingCap` applied, every existing rule test green with pins unchanged where no cap is set). Every PT-19 sub-package follows the matching numbered steps of "## PT-19:" exactly (its readiness pass, handoffs and the Addendum to PT-19 apply), RED first. Already landed in EJ4-b (PT-19 slice): `ConsistencyRule.maxDayProfitBeforeViolation`, the advisor import-graph guard with `tests/unit/importSpecifiers.ts`, `advisor/index.ts` re-exporting `./policy`, and the bare `AdviceSource`, `StartBasis`, `SizingObjective`, `DifferenceReason` enums and `SizingConstraint.CeilingCap`. Sub-packages running in the same wave may each append their own export lines to `advisor/index.ts`: re-read it right before editing and change only your own lines.
+- **Acceptance:** every documented rule respects personal caps and ceilings, and nothing moves when none is set.
+
+## PT-19d: the advice boundary: staleness, decisions, inputs adapter, recorded ladders (PT-19 steps 6, 11, 12 adoption, 13, 14)
+
+- **Lane / wave:** E / EJ4-c  **Size:** medium  **Depends on:** PT-19 slice (EJ4-b)
+- **Files owned:** new `advisor/{AdviceStaleness.ts, LedgerRecordedLadders.ts}`, `src/lib/prop-accounts/alerts/{TradingSessionCalendar.ts, StaleSnapshotRule.ts}` (one shared staleness rule), `src/lib/prop-accounts/metrics/ReplacementStats.ts` (`RebuyLagBasis` from advisor), new `src/lib/prop-accounts/advice/AdvisorInputsAdapter.ts`, `advice/index.ts`, `src/server/db/schemas/prop.ts` (`source` `.$type<AdviceSource>()`, import type, no migration), `src/lib/schemas/{propAccounts.ts, propAccountOutputs.ts}`, `src/server/api/routers/propAccounts/decision.ts`, the three import-boundary tests that adopt `tests/unit/importSpecifiers.ts` (`appImportBoundary.test.ts`, `legacyCalculatorLinks.test.ts`, `currentBaseFailure.test.ts`, assertions unchanged), `advisor/index.ts` (your export lines), and tests.
+- **Steps:** "## PT-19:" steps 6, 11, 12 (the adoption half), 13 and 14. No migration: if drizzle-kit would generate one for `.$type<>()`, stop and report. Every PT-19 sub-package follows the matching numbered steps of "## PT-19:" exactly (its readiness pass, handoffs and the Addendum to PT-19 apply), RED first. Already landed in EJ4-b (PT-19 slice): `ConsistencyRule.maxDayProfitBeforeViolation`, the advisor import-graph guard with `tests/unit/importSpecifiers.ts`, `advisor/index.ts` re-exporting `./policy`, and the bare `AdviceSource`, `StartBasis`, `SizingObjective`, `DifferenceReason` enums and `SizingConstraint.CeilingCap`. Sub-packages running in the same wave may each append their own export lines to `advisor/index.ts`: re-read it right before editing and change only your own lines.
+- **Acceptance:** one staleness rule; the decision boundary only accepts known sources; the adapter maps personal rules exactly.
+
+## PT-19e: the engine optimum runner (PT-19 step 7)
+
+- **Lane / wave:** E / EJ4-d  **Size:** medium  **Depends on:** PT-19b
+- **Files owned:** new `advisor/{EngineOptimumRequest.ts, EngineOptimum.ts, EngineOptimumRunner.ts}`, `advisor/index.ts` (your export lines), and tests.
+- **Steps:** "## PT-19:" step 7 in full (pure and deterministic per seed; ladder via `runLadderSearch`, sweep via `buildFundedCandidates`, `applyEnginePolicy` and `simulate`; policy sizing on every `DayPolicy`). Every PT-19 sub-package follows the matching numbered steps of "## PT-19:" exactly (its readiness pass, handoffs and the Addendum to PT-19 apply), RED first. Already landed in EJ4-b (PT-19 slice): `ConsistencyRule.maxDayProfitBeforeViolation`, the advisor import-graph guard with `tests/unit/importSpecifiers.ts`, `advisor/index.ts` re-exporting `./policy`, and the bare `AdviceSource`, `StartBasis`, `SizingObjective`, `DifferenceReason` enums and `SizingConstraint.CeilingCap`. Sub-packages running in the same wave may each append their own export lines to `advisor/index.ts`: re-read it right before editing and change only your own lines.
+- **Acceptance:** one runner answers every optimum request deterministically.
+
+## PT-19f: the sizing advisors, the daily plan card and payout advice (PT-19 steps 3, 4, 5, 9, 10, 15, 16)
+
+- **Lane / wave:** E / EJ4-e  **Size:** large  **Depends on:** PT-19b, PT-19c, PT-19d, PT-19e
+- **Files owned:** new `advisor/{SizingAdvisor.ts, EvalSizingAdvisor.ts, FundedSizingAdvisor.ts, LiveSizingAdvisor.ts, createSizingAdvisor.ts, Advice.ts, AdviceProvenance.ts, DailyPlanCard.ts, PayoutAdvice.ts, RebuyLag.ts}`, `advisor/index.ts`, and tests.
+- **Steps:** "## PT-19:" steps 3, 4, 5, 9, 10, 15 and 16. Every PT-19 sub-package follows the matching numbered steps of "## PT-19:" exactly (its readiness pass, handoffs and the Addendum to PT-19 apply), RED first. Already landed in EJ4-b (PT-19 slice): `ConsistencyRule.maxDayProfitBeforeViolation`, the advisor import-graph guard with `tests/unit/importSpecifiers.ts`, `advisor/index.ts` re-exporting `./policy`, and the bare `AdviceSource`, `StartBasis`, `SizingObjective`, `DifferenceReason` enums and `SizingConstraint.CeilingCap`. Sub-packages running in the same wave may each append their own export lines to `advisor/index.ts`: re-read it right before editing and change only your own lines. If the whole scope cannot be finished and verified, finish the advisors (3 to 5 and 15) first and report the rest as partial.
+- **Acceptance:** each stage has an advisor with documented, caps, optimum requests and an assembled advice; the daily plan card and payout advice follow the documented rule first.
+
+## PT-22b: the per-account state rebuild behind the boards (PT-22 remainder, part 1)
+
+- **Lane / wave:** W / EJ4-c  **Size:** medium  **Depends on:** PT-22 slice (EJ4-b: `SnapshotOrder`, previous snapshot on `AlertContext`, `EvalDayCapRule`, `IdleSessionLimitRule`), PT-12c, PT-12k, PT-19 slice (`maxDayProfitBeforeViolation`)
+- **Files owned:** new `src/lib/prop-accounts/metrics/{AccountStates.ts, PerformanceSinceSnapshot.ts, ConsistencyStatus.ts}`, `metrics/index.ts`, `alerts/AlertContext.ts` (the required `accountStates`), and tests.
+- **Steps:** "## PT-22:" steps for `AccountStates` (every monitored modeled account reconstructed once through `SnapshotAdapter` and `AccountReconstruction`, ledger-only accounts skipped with a reason), `PerformanceSinceSnapshot` and `ConsistencyStatus` (using `maxDayProfitBeforeViolation`). RED first. Run `tests/unit/lib/prop-accounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** one reconstruction per account feeds every board and alert.
+
+## PT-22c: cushion and payout readiness boards and the remaining state alerts (PT-22 remainder, part 2)
+
+- **Lane / wave:** W / EJ4-d  **Size:** medium  **Depends on:** PT-22b
+- **Files owned:** new `metrics/{CushionBoard.ts, PayoutReadinessBoard.ts}`, new `alerts/{NearFloorRule.ts, ConsistencyNearBreachRule.ts, PayoutEligibleRule.ts, DashboardFloorMismatchRule.ts}`, `alerts/{TierChangeRule.ts (detection), AlertEvaluator.ts, index.ts}`, the PayoutReadyWithdrawableDrop alert (video addendum F-V19), and tests.
+- **Steps:** the remaining "## PT-22:" steps (F-80, F-81, F-82, F-84 rules, F-138 surfaced on the readiness board, the F-V19 addendum). RED first. Run `tests/unit/lib/prop-accounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** every PT-22 board and alert exists and reads the shared account states.
+- **Added 2026-09-27 (orchestrator):** PT-22b made `AlertInputs.accountStates` required; today every caller passes the shared `NO_ACCOUNT_STATES` (the overview, the account list's unresolvable-plan alerts, the hub teaser). Compute the real states with `accountStatesOf(...)` once per load and pass them from the overview (`overviewModel.ts` `portfolioAlerts`) and the hub teaser (`HubAccountsTeaser.tsx`), with a DOM test that a near-floor account shows its alert on both; the account list keeps `NO_ACCOUNT_STATES` (it only checks unresolvable plans). `metrics/index.ts` is shared with PT-58a1 in this wave: re-read before editing and change only your lines.
+
+## PT-61b: distributions, EV per attempt on the heatmap, edge leverage, time value (PT-61 remainder, part 1)
+
+- **Lane / wave:** W / EJ4-c  **Size:** medium  **Depends on:** PT-61 slice (EJ4-b: the `bustBeforePassing` rename, `riskDisplay` formatter, the attempt economics card and EV per attempt KPI)
+- **Files owned:** `_components/{AccountsPassedDistributionChart.tsx (a caption prop, then the payouts per funded account distribution), SensitivityHeatmap.tsx (SensitivityMetric.EvPerAttempt), StrategyAnalysis.tsx (edge leverage, net R to pass), FirmComparisonTable.tsx, PlanComparisonTable.tsx ($ per screen hour with the hours-per-day and accounts-per-session inputs)}`, `ResultsPanel.tsx` (placing the distribution only), and tests.
+- **Steps:** "## PT-61:" steps for F-V8, F-V9 (the rest) and F-V25. RED first (DOM tests). Run the prop-calculator app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** the public tools show the payout distribution, EV per attempt on the heatmap, edge leverage and dollars per screen hour.
+
+## PT-61c: plausibility notes, the measured-edge link, sibling instruments and risk units on the position size page (PT-61 remainder, part 2)
+
+- **Lane / wave:** W / EJ4-c  **Size:** medium  **Depends on:** PT-61 slice (EJ4-b), PT-13 addendum
+- **Files owned:** `_components/TradingInputs.tsx` (plausibility note), `accounts/rulebook/RulebookView.tsx` (plausibility note on the strategy fields), `accounts/edge/EdgeView.tsx` (the "try my measured edge in the calculator" link through the share-URL codec; never writes the rulebook, F-95; read `DEFAULT_RULEBOOK.samples` instead of the local `NO_SAMPLE_THRESHOLDS`), `_components/positionSize/{positionSizeModel.ts, positionSizeUrlState.ts}` and `(tools)/position-size/PositionSizeView.tsx` (fee-equivalent risk, the sibling-instrument line and severity, the unit toggle in the URL, the eval "at risk if busted" line), and tests.
+- **Steps:** "## PT-61:" steps for F-V16 (the rest), F-V22 and F-V31. RED first (DOM tests). Run the prop-calculator and accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** the plausibility note appears wherever an edge is entered, and the position size page shows the sibling instrument and the risk units.
+
+## PT-57d: snapshot balances and funnel dollars on the overview (PT-57c leftovers)
+
+- **Lane / wave:** W / EJ4-c  **Size:** small  **Depends on:** PT-57c (done)
+- **Files owned:** `accounts/_components/overview/{overviewModel.ts, FunnelCard.tsx, PayoutSizesCard.tsx}`, the portfolio data hook and ledger load (`usePortfolioData.ts` and its ledger load module), and tests.
+- **Steps** (RED first): (1) thread the latest snapshot balance per account through the ledger load so the payout sizes card's low-balance flag runs; (2) the funnel card shows dollars per stage and the `FunnelDiagnostic` biggest-weakness line. Decided, not to build: an interval on cost per attempt and on the multiple (no defensible per-item sample today; the card keeps the sample badge). Run the accounts app tests and `tests/unit/lib/prop-accounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the low-balance flag and the funnel dollars are live.
+
+## PT-58a1: the bankroll library, firm reconciliation and the payout tolerance (PT-58a split, part 1)
+
+- **Lane / wave:** W / EJ4-d  **Size:** medium  **Depends on:** as "## PT-58a:" (all done)
+- **Files owned:** the library half of "## PT-58a:" only: new `src/lib/prop-accounts/bankroll/{Bankroll.ts, MoneyWeightedReturn.ts, RoundReturns.ts, RoundCycle.ts, RoundBudget.ts, RoundSuggestions.ts, RealizedLossRisk.ts, index.ts}`, new `metrics/FirmReconciliation.ts`, `metrics/PortfolioLedger.ts` (transfers, rounds, engagements and statements in the ledger input), `metrics/index.ts` (your export lines; PT-22c appends its own in the same wave, re-read before editing), new `core/PayoutTolerance.ts` and `core/index.ts`, and their tests (`tests/unit/lib/prop-accounts/bankroll/*`, `FirmReconciliation.test.ts`).
+- **Steps:** the "## PT-58a:" steps for the bankroll library, reconciliation and the tolerance (confirm PT-56b's `perAttemptNetCents` per-attempt cash split is what the realized loss-risk bootstrap needs, or state the adjustment). RED first. Not the alerts, routers, CSV or pages (PT-58a2, PT-58a3). Run `tests/unit/lib/prop-accounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** every bankroll, round and reconciliation number exists as a tested pure function.
+
+## PT-58a2: bankroll alerts, round budget on the server, CSV round column (PT-58a split, part 2)
+
+- **Lane / wave:** W / EJ4-e  **Size:** medium  **Depends on:** PT-58a1, PT-22c (owns `alerts/**` in EJ4-d)
+- **Files owned:** the alert, router, schema and CSV half of "## PT-58a:": `alerts/{AlertKind.ts, AlertContext.ts, AlertEvaluator.ts, PayoutDollarMismatchRule.ts, index.ts}`, new `alerts/{RoundBudgetReachedRule.ts, BankrollLossRiskAboveThresholdRule.ts, FirmPayoutTotalMismatchRule.ts}`, routers `account.ts`, `round.ts`, `bankroll.ts`, `src/lib/schemas/{propAccounts.ts, propAccountOutputs.ts}`, `csv/{AccountCsv.ts, index.ts}`, `userScoping.test.ts`, and tests.
+- **Steps:** the matching "## PT-58a:" steps. RED first. Run `tests/unit/lib/prop-accounts`, `tests/unit/server/propAccounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** the round budget is enforced on the server with a typed override; the three alerts fire.
+
+## PT-58a3: bankroll card, ledger deposits and reconciliation, rounds page (PT-58a split, part 3)
+
+- **Lane / wave:** W / EJ4-e  **Size:** medium  **Depends on:** PT-58a1, PT-58a2 (routers)
+- **Files owned:** the web half of "## PT-58a:": overview `OverviewView.tsx`, `overviewModel.ts`, `usePortfolioData.ts`, new `overview/BankrollCard.tsx`; `accounts/ledger/LedgerView.tsx`; new `accounts/rounds/{page.tsx, RoundsView.tsx, roundsModel.ts}`; `accounts/_components/{accountsNavItems.ts, AccountForm.tsx (round picker)}`; `detail/EventsSection.tsx` (the MovedLive suggestion); and tests.
+- **Steps:** the matching "## PT-58a:" steps. RED first (DOM tests). Run the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** the bankroll, rounds and reconciliation are usable from the pages.
+
+## PT-61d: one plausibility note, validated time inputs, P(no payout), a measured reward to risk (PT-61b and PT-61c leftovers)
+
+- **Lane / wave:** W / EJ4-d  **Size:** small  **Depends on:** PT-61b, PT-61c (done)
+- **Files owned:** a new non-component module for the plausibility note text (for example `~/lib/prop-calculator/economics/EdgePlausibilityText.ts`, exported through the economics barrel) used by `src/cli/commands/prop/shared.ts` (`edgePlausibilityNote`), `_components/TradingInputs.tsx` and `accounts/rulebook/RulebookView.tsx`; `_components/{FirmComparisonTable.tsx, PlanComparisonTable.tsx}` (accounts per session must be a whole number of at least 1, hours positive; a P(no payout) column from the run); `src/lib/prop-accounts/edge/EdgeSummary.ts` (an observed reward to risk from the journal's average win and loss, and `EdgeView`'s measured-edge link carries it instead of the rulebook value when enough trades exist); and tests.
+- **Steps** (RED first): one plausibility wording for CLI and web (a guard finds no second copy); the time-value inputs reject 0.5 accounts per session; P(no payout) appears on both tables; the measured-edge link uses the measured reward to risk with its n. Run the prop-calculator app, accounts edge and CLI tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** one wording everywhere; every input on the time tables is valid; the measured edge is measured.
 
 ## PT-52d: one ledger-only rule set and one set of ownership checks on the server (PT-51b and PT-52b leftovers)
 

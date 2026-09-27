@@ -66,6 +66,7 @@ export function SimulatorView() {
                                 <PanelSkeleton size={PanelSkeletonSize.Aside} />
                             ) : (
                                 <ResultsPanel
+                                    fundedHorizonDays={state.fundedHorizonDays}
                                     isPending={isPending}
                                     onPin={() => actions.pinScenario(result)}
                                     onUnpin={actions.unpinScenario}

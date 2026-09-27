@@ -229,6 +229,79 @@ describe('edgeSummary', () => {
     });
 });
 
+describe('measuredRewardToRisk (PT-61d, F-V22)', () => {
+    it('is null before 5 wins and 5 losses each', () => {
+        expect(
+            edgeSummary(journal(4, 10), DEFAULT_RULEBOOK.strategy)
+                .measuredRewardToRisk,
+        ).toBeNull();
+        expect(
+            edgeSummary(journal(10, 4), DEFAULT_RULEBOOK.strategy)
+                .measuredRewardToRisk,
+        ).toBeNull();
+    });
+
+    it('is null when the journal has no losses or no wins at all', () => {
+        expect(
+            edgeSummary(journal(20, 0), DEFAULT_RULEBOOK.strategy)
+                .measuredRewardToRisk,
+        ).toBeNull();
+        expect(
+            edgeSummary(journal(0, 20), DEFAULT_RULEBOOK.strategy)
+                .measuredRewardToRisk,
+        ).toBeNull();
+    });
+
+    it('measures the average win over the average loss once both sides have at least 5', () => {
+        const summary = edgeSummary(
+            journal(40, 60, 2),
+            DEFAULT_RULEBOOK.strategy,
+        );
+        expect(summary.measuredRewardToRisk).toStrictEqual({
+            sampleSize: 100,
+            value: 2,
+        });
+    });
+
+    it('is unaffected by the rulebook assumption, unlike rewardToRisk', () => {
+        const rows = journal(10, 10, 3);
+        const summary = edgeSummary(rows, {
+            ...DEFAULT_RULEBOOK.strategy,
+            rr: 1.5,
+        });
+        expect(summary.rewardToRisk).toBe(1.5);
+        expect(summary.measuredRewardToRisk).toStrictEqual({
+            sampleSize: 20,
+            value: 3,
+        });
+    });
+
+    it('ignores breakeven and unresolved rows on both sides', () => {
+        const rows = [
+            ...journal(5, 5, 2),
+            trade('breakeven', 0),
+            trade(null, null),
+            trade('open', 5),
+        ];
+        const summary = edgeSummary(rows, DEFAULT_RULEBOOK.strategy);
+        expect(summary.measuredRewardToRisk).toStrictEqual({
+            sampleSize: 10,
+            value: 2,
+        });
+    });
+
+    it('round-trips through the output schema alongside a null value', () => {
+        const withValue = edgeSummary(journal(5, 5), DEFAULT_RULEBOOK.strategy);
+        expect(edgeSummarySchema.parse(withValue)).toEqual(withValue);
+        const withoutValue = edgeSummary(
+            journal(2, 2),
+            DEFAULT_RULEBOOK.strategy,
+        );
+        expect(withoutValue.measuredRewardToRisk).toBeNull();
+        expect(edgeSummarySchema.parse(withoutValue)).toEqual(withoutValue);
+    });
+});
+
 describe('checkEdgeRange', () => {
     it('accepts an open, a one-sided and an ordered range', () => {
         for (const range of [

@@ -34,11 +34,14 @@ import {
     E8FuturesVariant,
     effectivePayoutRequest,
     FirmId,
+    InstrumentSymbol,
     MffuVariant,
     minimumPayoutRequest,
     PayoutRequestPolicy,
     type Plan,
     PolicySizing,
+    type PositionSizingConfig,
+    resolvePositionSizing,
     type SimOutputs,
     simulate,
     TopStepVariant,
@@ -67,6 +70,7 @@ import { FtmoFutures } from '~/lib/prop-calculator/firms/ftmo-futures/FtmoFuture
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
+import { TakeProfitTrader } from '~/lib/prop-calculator/firms/tpt/TakeProfitTrader';
 
 vi.mock(
     import('~/lib/prop-calculator/core/AverageRewardSolver'),
@@ -162,6 +166,15 @@ function topStepNoFeeStandardPlan(): Plan {
         variant: TopStepVariant.NoFeeStandard,
     });
     if (!plan) throw new Error('TopStep no-fee-standard 50K plan not found');
+    return plan;
+}
+
+function tptProPlan(): Plan {
+    const plan = new TakeProfitTrader().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Tpt,
+    });
+    if (!plan) throw new Error('TPT 50K plan not found');
     return plan;
 }
 
@@ -306,6 +319,26 @@ describe('fundedDpModelGapWarning', () => {
         expect(warning).toContain('payout #10');
         expect(warning).toContain('regime cap of 6');
         expect(warning).toContain('saturate');
+    });
+
+    it('warns that TPT PRO closes its funded phase for an empty calendar week, which this exact DP does not model (N-86, WP48b leftover)', () => {
+        const warning = fundedDpModelGapWarning(tptProPlan());
+        expect(warning).not.toBeNull();
+        expect(warning).toContain('calendar week');
+        expect(warning).toContain('does not model');
+    });
+
+    it('returns null for TopStep no-fee-standard, whose funded phase has no calendar-week inactivity rule either', () => {
+        expect(fundedDpModelGapWarning(topStepNoFeeStandardPlan())).toBeNull();
+    });
+
+    it("prints TPT PRO's own plan label exactly once on the calendar-week gap line, not twice (N-87 leftover, WP55)", () => {
+        const plan = tptProPlan();
+        const warning = fundedDpModelGapWarning(plan);
+        expect(warning).not.toBeNull();
+        const labelOccurrences =
+            warning === null ? 0 : warning.split(plan.label).length - 1;
+        expect(labelOccurrences).toBe(1);
     });
 });
 
@@ -531,15 +564,57 @@ describe('optimize dp flag bounds', () => {
         ['eval-discount', '101', /--eval-discount/],
         ['request-size', '0', /--request-size must be a number > 0/],
         ['retain-cushion', '-1', /--retain-cushion must be a number >= 0/],
+        [
+            'action-step-multiple',
+            '0',
+            /--action-step-multiple must be a number > 0/,
+        ],
+        [
+            'cushion-step-multiple',
+            '-1',
+            /--cushion-step-multiple must be a number > 0/,
+        ],
+        [
+            'max-action-multiple',
+            '0',
+            /--max-action-multiple must be a number > 0/,
+        ],
+        [
+            'max-cushion-multiple',
+            '-1',
+            /--max-cushion-multiple must be a number > 0/,
+        ],
     ])('rejects --%s %s, naming the flag', (flag, value, message) => {
         expect(() => parseDpInputs([`--${flag}=${value}`])).toThrow(message);
     });
 
+    it('parses the grid-multiple flags (N-86 ablation flags), left undefined by default', () => {
+        expect(parseDpInputs([]).actionStepMultiple).toBeUndefined();
+        expect(parseDpInputs([]).cushionStepMultiple).toBeUndefined();
+        expect(parseDpInputs([]).maxActionMultiple).toBeUndefined();
+        expect(parseDpInputs([]).maxCushionMultiple).toBeUndefined();
+        const inputs = parseDpInputs([
+            '--action-step-multiple=0.25',
+            '--cushion-step-multiple=0.5',
+            '--max-action-multiple=2',
+            '--max-cushion-multiple=3',
+        ]);
+        expect(inputs.actionStepMultiple).toBe(0.25);
+        expect(inputs.cushionStepMultiple).toBe(0.5);
+        expect(inputs.maxActionMultiple).toBe(2);
+        expect(inputs.maxCushionMultiple).toBe(3);
+    });
+
     it('reads the defaults', () => {
         expect(parseDpInputs([])).toStrictEqual({
+            actionStepMultiple: undefined,
             copyAccounts: 1,
+            cushionStepMultiple: undefined,
             discounts: undefined,
             fundedHorizonDays: 252,
+            instrument: InstrumentSymbol.NQ,
+            maxActionMultiple: undefined,
+            maxCushionMultiple: undefined,
             maxEvalDays: 40,
             maxSolves: 12,
             minRetainedCushion: 0,
@@ -548,6 +623,7 @@ describe('optimize dp flag bounds', () => {
             rebuyLagDays: 0,
             rrRatio: 2,
             seed: 42,
+            stopPoints: undefined,
             trials: 4000,
             winrate: 0.4,
         });
@@ -673,6 +749,16 @@ describe('optimize dp takes the shared --retain-cushion and --request-size flags
         );
     });
 
+    it('names the effective (plan-minimum-raised) request size, not the raw --request-size, when the request is below the plan minimum', () => {
+        const plan = mffProPlan();
+        expect(minimumPayoutRequest(plan)).toBe(1000);
+        const inputs = parseDpInputs(['--request-size=500']);
+        expect(inputs.payoutRequestSize).toBe(500);
+        const line = dpPayoutSettingsLine(plan, inputs);
+        expect(line).toContain('payout request $1,000');
+        expect(line).not.toContain('payout request $500');
+    });
+
     it('run() hands the solver and simulate() the same cushion and request size, and prints the settings line', async () => {
         const argv = [
             '--firm',
@@ -717,6 +803,154 @@ describe('optimize dp takes the shared --retain-cushion and --request-size flags
     }, 600_000);
 });
 
+describe('optimize dp exposes the funded and eval grid settings as flags for fast ablations (N-86)', () => {
+    it('leaves both grids at their internal defaults without the flags', () => {
+        const inputs = parseDpInputs([]);
+        const config = dpSolverConfig(
+            inputs,
+            renewalObjective(inputs, topStepNoFeeStandardPlan()),
+        );
+        expect(config.fundedGrid?.actionStepMultiple).toBeUndefined();
+        expect(config.fundedGrid?.cushionStepMultiple).toBeUndefined();
+        expect(config.fundedGrid?.maxActionMultiple).toBeUndefined();
+        expect(config.fundedGrid?.maxCushionMultiple).toBeUndefined();
+        expect(config.evalGrid?.actionStepDollars).toBeUndefined();
+        expect(config.evalGrid?.cushionStepDollars).toBeUndefined();
+        expect(config.evalGrid?.maxActionDollars).toBeUndefined();
+    });
+
+    it('hands the raw multiples straight to the funded grid of the solver config', () => {
+        const inputs = parseDpInputs([
+            '--action-step-multiple=0.25',
+            '--cushion-step-multiple=0.5',
+            '--max-action-multiple=2',
+            '--max-cushion-multiple=3',
+        ]);
+        const config = dpSolverConfig(
+            inputs,
+            renewalObjective(inputs, topStepNoFeeStandardPlan()),
+        );
+        expect(config.fundedGrid?.actionStepMultiple).toBe(0.25);
+        expect(config.fundedGrid?.cushionStepMultiple).toBe(0.5);
+        expect(config.fundedGrid?.maxActionMultiple).toBe(2);
+        expect(config.fundedGrid?.maxCushionMultiple).toBe(3);
+    });
+
+    it("converts the same multiples to dollars for the eval grid, off the plan's own eval drawdown amount", () => {
+        const plan = topStepNoFeeStandardPlan();
+        const inputs = parseDpInputs([
+            '--action-step-multiple=0.25',
+            '--cushion-step-multiple=0.5',
+            '--max-action-multiple=2',
+        ]);
+        const evalDrawdownAmount = plan.drawdownFor(TradingPhase.Eval).amount;
+        const config = dpSolverConfig(inputs, renewalObjective(inputs, plan));
+        expect(config.evalGrid?.actionStepDollars).toBe(
+            0.25 * evalDrawdownAmount,
+        );
+        expect(config.evalGrid?.cushionStepDollars).toBe(
+            0.5 * evalDrawdownAmount,
+        );
+        expect(config.evalGrid?.maxActionDollars).toBe(
+            2 * evalDrawdownAmount,
+        );
+    });
+});
+
+describe('optimize dp wires --stop-points and --instrument into whole-contract sizing (N-78)', () => {
+    const policy: DayPolicy = {
+        ladder: [200],
+        maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
+        stopRule: { kind: DayStopRuleKind.None },
+    };
+
+    it('reuses the shared flag definitions', () => {
+        expect(dpArguments.instrument).toBe(commonSimArguments.instrument);
+        expect(dpArguments['stop-points']).toBe(
+            commonSimArguments['stop-points'],
+        );
+    });
+
+    it('defaults --instrument to NQ and leaves --stop-points unset', () => {
+        const inputs = parseDpInputs([]);
+        expect(inputs.instrument).toBe(InstrumentSymbol.NQ);
+        expect(inputs.stopPoints).toBeUndefined();
+    });
+
+    it('reads both flags', () => {
+        const inputs = parseDpInputs(['--stop-points=2', '--instrument=ES']);
+        expect(inputs.instrument).toBe(InstrumentSymbol.ES);
+        expect(inputs.stopPoints).toBe(2);
+    });
+
+    it('hands the resolved whole-contract sizing to both the eval and the funded grid of the solver config, matching resolvePositionSizing', () => {
+        const inputs = parseDpInputs(['--stop-points=2', '--instrument=ES']);
+        const expected = resolvePositionSizing(InstrumentSymbol.ES, 2);
+        expect(expected).not.toBeNull();
+
+        const config = dpSolverConfig(
+            inputs,
+            renewalObjective(inputs, topStepNoFeeStandardPlan()),
+        );
+        expect(config.evalGrid?.positionSizing).toStrictEqual(expected);
+        expect(config.fundedGrid?.positionSizing).toStrictEqual(expected);
+    });
+
+    it('leaves both grids unsized without --stop-points, even though --instrument defaults to NQ', () => {
+        const inputs = parseDpInputs([]);
+        const config = dpSolverConfig(
+            inputs,
+            renewalObjective(inputs, topStepNoFeeStandardPlan()),
+        );
+        expect(config.evalGrid?.positionSizing).toBeNull();
+        expect(config.fundedGrid?.positionSizing ?? null).toBeNull();
+    });
+
+    it('carries the raw instrument and stop-points through to the empirical simulate() inputs, unresolved (simulate() resolves its own positionSizing)', () => {
+        const inputs = parseDpInputs(['--stop-points=2', '--instrument=ES']);
+        const simInputs = empiricalSimInputs(
+            inputs,
+            topStepNoFeeStandardPlan(),
+            { evalDayPolicy: policy, fundedDayPolicy: policy },
+        );
+        expect(simInputs.instrument).toBe(InstrumentSymbol.ES);
+        expect(simInputs.stopPoints).toBe(2);
+    });
+
+    it('runs the DP end to end with sized contract-limit grids instead of ignoring the flags', async () => {
+        const argv = [
+            '--firm',
+            'topstep',
+            '--variant',
+            'no-fee-standard',
+            '--stop-points',
+            '2',
+            '--instrument',
+            'ES',
+            '--eval-days',
+            '2',
+            '--funded-days',
+            '2',
+            '--iterations',
+            '1',
+            '--trials',
+            '10',
+        ];
+        vi.mocked(solveAverageRewardPolicy).mockClear();
+
+        await capturedRun(argv);
+
+        const expected = resolvePositionSizing(InstrumentSymbol.ES, 2);
+        const solverGrids: (null | PositionSizingConfig)[] = vi
+            .mocked(solveAverageRewardPolicy)
+            .mock.calls.map(
+                ([config]) => config.fundedGrid?.positionSizing ?? null,
+            );
+        expect(solverGrids).toStrictEqual([expected]);
+    }, 600_000);
+});
+
 describe('optimize dp takes the shared --payout-policy flag into the solve and the empirical run (PT-47b, F-150)', () => {
     const policy: DayPolicy = {
         ladder: [200],
@@ -732,9 +966,9 @@ describe('optimize dp takes the shared --payout-policy flag into the solve and t
         expect(payoutRequestPolicyArgument['payout-policy'].default).toBe(
             PayoutRequestPolicy.UpToRequest,
         );
-        expect(payoutRequestPolicyArgument['payout-policy'].options).toStrictEqual(
-            Object.values(PayoutRequestPolicy),
-        );
+        expect(
+            payoutRequestPolicyArgument['payout-policy'].options,
+        ).toStrictEqual(Object.values(PayoutRequestPolicy));
     });
 
     it('reads the flag into the inputs, defaulting without it', () => {

@@ -20,6 +20,9 @@ import {
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import AccountsPassedDistributionChart from './AccountsPassedDistributionChart';
+import AttemptEconomicsCard from './economics/AttemptEconomicsCard';
+import { attemptEconomicsCardModel } from './economics/attemptEconomicsModel';
 import { describeFirstPayoutGate } from './firstPayoutGate';
 import {
     KPI_ACCENT_TEXT_CLASS,
@@ -50,6 +53,7 @@ interface KpiProperties {
 }
 
 interface ResultsPanelProperties {
+    fundedHorizonDays?: number;
     isPending: boolean;
     onPin: () => void;
     onUnpin: () => void;
@@ -59,6 +63,7 @@ interface ResultsPanelProperties {
 }
 
 export default function ResultsPanel({
+    fundedHorizonDays,
     isPending,
     onPin,
     onUnpin,
@@ -66,6 +71,10 @@ export default function ResultsPanel({
     plan,
     result,
 }: ResultsPanelProperties) {
+    const attemptEconomics =
+        fundedHorizonDays === undefined
+            ? null
+            : attemptEconomicsCardModel(result, fundedHorizonDays);
     const dEvalPass = pinned
         ? formatDelta(
               result.evalPassProbability,
@@ -302,6 +311,37 @@ export default function ResultsPanel({
                         sub={`payout ${formatCurrency(result.expectedGrossPayout)} avg`}
                         value={formatCurrency(result.expectedMonthlyNet)}
                     />
+                    {attemptEconomics && (
+                        <Kpi
+                            accent={signAccent(
+                                attemptEconomics.economics
+                                    ?.expectedNetPerAttempt.value ?? null,
+                            )}
+                            info={{
+                                body: (
+                                    <>
+                                        <p>{kpiDescriptions.evPerAttempt}</p>
+                                        {attemptEconomics.formula && (
+                                            <p className="mt-2 font-mono text-xs">
+                                                {attemptEconomics.formula}
+                                            </p>
+                                        )}
+                                    </>
+                                ),
+                                title: 'EV per attempt',
+                            }}
+                            label="EV per attempt"
+                            sub="per attempt, ignores time; not the ranking objective"
+                            value={
+                                attemptEconomics.economics
+                                    ? formatCurrency(
+                                          attemptEconomics.economics
+                                              .expectedNetPerAttempt.value,
+                                      )
+                                    : NOT_APPLICABLE
+                            }
+                        />
+                    )}
                 </div>
             </div>
 
@@ -340,11 +380,11 @@ export default function ResultsPanel({
                                 : KpiAccent.Neutral
                         }
                         info={{
-                            body: <p>{kpiDescriptions.riskOfRuin}</p>,
-                            title: 'Risk of ruin',
+                            body: <p>{kpiDescriptions.bustBeforePassing}</p>,
+                            title: 'Bust before passing',
                         }}
-                        label="Risk of ruin"
-                        sub="bust before passing"
+                        label="Bust before passing"
+                        sub="same number as bust%"
                         value={formatPercent(result.bustProbability)}
                     />
                     <Kpi
@@ -417,6 +457,23 @@ export default function ResultsPanel({
                     />
                 </div>
             </div>
+
+            {attemptEconomics && (
+                <AttemptEconomicsCard model={attemptEconomics} />
+            )}
+
+            {result.fundedPayoutCountDistribution.length > 0 && (
+                <div>
+                    <Eyebrow as="h3" className="mb-2">
+                        Payouts per funded account
+                    </Eyebrow>
+                    <AccountsPassedDistributionChart
+                        caption="# payouts per funded account"
+                        distribution={result.fundedPayoutCountDistribution}
+                        halfThreshold={false}
+                    />
+                </div>
+            )}
 
             {isShowCycleEconomics && (
                 <div>

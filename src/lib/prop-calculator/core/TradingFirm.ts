@@ -1,3 +1,7 @@
+import {
+    type FirmAccountPolicy,
+    UnverifiedFirmAccountPolicy,
+} from './accountPolicy';
 import { type FirmId } from './FirmId';
 import { Plan, type PlanInit } from './Plan';
 import { arePlanIdsEqual, type PlanId, serializePlanId } from './PlanId';
@@ -5,6 +9,7 @@ import { arePlanIdsEqual, type PlanId, serializePlanId } from './PlanId';
 class ConcretePlan extends Plan {}
 
 export abstract class TradingFirm {
+    readonly accountPolicy: FirmAccountPolicy = new UnverifiedFirmAccountPolicy();
     abstract readonly displayName: string;
     abstract readonly id: FirmId;
     abstract readonly plans: readonly Plan[];

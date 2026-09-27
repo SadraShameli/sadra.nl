@@ -6,6 +6,7 @@ import {
     dollars,
     FirmId,
     fraction,
+    FundedResetEligibility,
     initialEvalFee,
     MffuVariant,
     type Plan,
@@ -51,6 +52,20 @@ function basePolicy(overrides: Partial<BankrollPolicy> = {}): BankrollPolicy {
         startingBankroll: dollars(ATTEMPT_COST),
         ...overrides,
     };
+}
+
+function fundedResetToyPlan(): Plan {
+    return oneDayCyclePlan({ winrate: 0 }).withOverrides({
+        fundedDrawdown: new StaticDrawdown({ amount: dollars(500) }),
+        fundedReset: {
+            eligibility: FundedResetEligibility.NoPayoutEverRequested,
+            fee: dollars(80),
+            label: 'Toy Reset',
+            maxPerAccount: 1,
+            windowCalendarDays: 30,
+        },
+        takesFundedReset: true,
+    });
 }
 
 function oneDayCyclePlan(options: {
@@ -101,6 +116,44 @@ function rapidEod50k(): Plan {
     });
     if (!plan) throw new Error('MFF Rapid EOD 50K plan not found');
     return plan;
+}
+
+function retryableEvalPlan(): Plan {
+    const base = findFirm(FirmId.Mffu)?.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.RapidEod,
+    });
+    if (!base) throw new Error('MFF Rapid EOD 50K plan not found');
+    return base.withOverrides({
+        accountSize: dollars(10_000),
+        consistency: null,
+        contractLimits: undefined,
+        drawdown: new StaticDrawdown({ amount: dollars(1000) }),
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fees: {
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(100),
+            reset: dollars(40),
+        },
+        fundedConsistency: { kind: 'set', rule: null },
+        fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fundedDrawdown: new StaticDrawdown({ amount: dollars(1000) }),
+        isInstantFunded: false,
+        maxFundedAccounts: 1000,
+        maxLifetimePayouts: 1,
+        minDaysAfterPassForPayout: 0,
+        minPayoutProfit: dollars(1),
+        minPayoutRequest: dollars(0),
+        minTradingDays: 0,
+        payoutBalanceShareCap: undefined,
+        payoutRequestCap: undefined,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(1) },
+        ],
+        profitTarget: dollars(1_000_000),
+    });
 }
 
 describe('simulateBankrollTimeline (PT-55)', () => {
@@ -244,6 +297,64 @@ describe('simulateBankrollTimeline (PT-55)', () => {
         expect(out.payoutP50.at(-1)).toBeGreaterThan(0);
     });
 
+    it('honours fundedRiskPerTrade instead of mirroring the eval risk in the funded phase', () => {
+        const plan = rapidEod50k();
+        const sharedInputs = {
+            dayBudget: 40,
+            maxEvalDays: 30,
+            payoutRequestSize: dollars(5000),
+            plan,
+            riskPerTrade: 300,
+            rrRatio: 2,
+            seed: 1,
+            tradesPerDay: 3,
+            trials: 10,
+            winrate: 1,
+        };
+        const baseline = simulateBankrollTimeline({
+            bankroll: basePolicy({ startingBankroll: dollars(100_000) }),
+            ...sharedInputs,
+        });
+        const sameAsEval = simulateBankrollTimeline({
+            bankroll: basePolicy({ startingBankroll: dollars(100_000) }),
+            fundedRiskPerTrade: 300,
+            fundedRrRatio: 2,
+            fundedTradesPerDay: 3,
+            ...sharedInputs,
+        });
+        const overridden = simulateBankrollTimeline({
+            bankroll: basePolicy({ startingBankroll: dollars(100_000) }),
+            fundedRiskPerTrade: 3000,
+            ...sharedInputs,
+        });
+
+        expect(sameAsEval).toStrictEqual(baseline);
+        expect(overridden.payoutP50).not.toEqual(baseline.payoutP50);
+    });
+
+    it('an unaffordable retry stops a card before its outcome is drawn, instead of inflating the eval-cost smoothing window with attempts the round budget could never pay for', () => {
+        const bankroll = basePolicy({
+            maxConcurrentAccounts: 1,
+            roundBudget: dollars(100),
+            startingBankroll: dollars(100_000),
+        });
+        const out = simulateBankrollTimeline(
+            baseInputs({
+                bankroll,
+                dayBudget: 20,
+                maxEvalDays: 60,
+                plan: retryableEvalPlan(),
+                riskPerTrade: 600,
+                rrRatio: 2,
+                tradesPerDay: 1,
+                winrate: 0,
+            }),
+        );
+
+        expect(out.cumulativeSpendP50.at(-1)).toBeCloseTo(90, 6);
+        expect(out.cumulativeSpendP50.at(-1)).toBeLessThan(100);
+    });
+
     it('a round budget of exactly one attempt cost is never exceeded even when a card retries multiple times', () => {
         const plan = rapidEod50k();
         const attemptCost =
@@ -268,5 +379,70 @@ describe('simulateBankrollTimeline (PT-55)', () => {
         expect(out.cumulativeSpendP50.at(-1)).toBeLessThanOrEqual(
             attemptCost + 1e-6,
         );
+    });
+
+    it('with capacity 2, a card retry only counts the round budget already reserved for a sibling card bought the same day, not just its own committed retries', () => {
+        const bankroll = basePolicy({
+            maxConcurrentAccounts: 2,
+            roundBudget: dollars(210),
+            startingBankroll: dollars(100_000),
+        });
+        const out = simulateBankrollTimeline(
+            baseInputs({
+                bankroll,
+                dayBudget: 30,
+                maxEvalDays: 60,
+                plan: retryableEvalPlan(),
+                riskPerTrade: 600,
+                rrRatio: 2,
+                tradesPerDay: 1,
+                winrate: 0,
+            }),
+        );
+        expect(out.cardsBoughtP50).toBe(2);
+        expect(out.cumulativeSpendP50.at(-1)).toBeCloseTo(610 / 3, 6);
+    });
+
+    it('a funded reset the bankroll cannot afford ends the card instead of being charged into negative cash (PT-55c)', () => {
+        const bankroll = basePolicy({
+            maxConcurrentAccounts: 1,
+            startingBankroll: dollars(220),
+        });
+        const out = simulateBankrollTimeline(
+            baseInputs({
+                bankroll,
+                dayBudget: 15,
+                plan: fundedResetToyPlan(),
+                riskPerTrade: 200,
+                rrRatio: 2,
+                tradesPerDay: 1,
+                winrate: 0,
+            }),
+        );
+
+        for (const cash of out.cashP50) {
+            expect(cash).toBeGreaterThanOrEqual(0);
+        }
+        expect(out.cashP50.at(-1)).toBeCloseTo(70, 6);
+        expect(out.cumulativeSpendP50.at(-1)).toBeCloseTo(150, 6);
+    });
+
+    it('the same toy spends attemptCost plus the reset fee once the bankroll can afford it', () => {
+        const bankroll = basePolicy({
+            maxConcurrentAccounts: 1,
+            startingBankroll: dollars(100_000),
+        });
+        const out = simulateBankrollTimeline(
+            baseInputs({
+                bankroll,
+                dayBudget: 15,
+                plan: fundedResetToyPlan(),
+                riskPerTrade: 200,
+                rrRatio: 2,
+                tradesPerDay: 1,
+                winrate: 0,
+            }),
+        );
+        expect(out.cumulativeSpendP50.at(-1)).toBeGreaterThan(230);
     });
 });

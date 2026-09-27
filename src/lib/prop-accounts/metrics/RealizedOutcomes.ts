@@ -11,6 +11,7 @@ import {
 } from '~/lib/prop-accounts/core';
 import { type FirmId } from '~/lib/prop-calculator';
 
+import { isHorizonMaturedCohort } from './FundedPayoutDistribution';
 import { type CopyGroupKey, independentSamples } from './IndependentSamples';
 import {
     evalAttemptTally,
@@ -117,11 +118,7 @@ function cohortOutcomeOf(
     if (hasPaidWithinHorizon(entry, funded.on, horizonDays)) {
         return CohortOutcomeKind.Success;
     }
-    const status = finalState(entry)?.status;
-    if (status !== undefined && isEndedStatus(status)) {
-        return CohortOutcomeKind.Failure;
-    }
-    return isoDaysBetween(funded.on, asOfDate) >= horizonDays
+    return isHorizonMaturedCohort(entry, funded.on, asOfDate, horizonDays)
         ? CohortOutcomeKind.Failure
         : CohortOutcomeKind.Open;
 }

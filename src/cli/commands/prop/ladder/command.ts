@@ -1,5 +1,7 @@
 import { type ArgsDef, defineCommand, parseArgs } from 'citty';
 
+import type { KnownUnsupportedFlag } from '~/cli/unknownFlagGuard';
+
 import {
     describeStopRule,
     edgePlausibilityNote,
@@ -82,30 +84,65 @@ type UnsupportedLadderFlag = Exclude<
 
 const LADDER_WORK_WARNING = 500_000_000;
 
+interface UnsupportedLadderFlagInfo {
+    readonly reason: LadderIgnoredInput;
+    readonly takesValue: boolean;
+}
+
 const UNSUPPORTED_LADDER_FLAGS: Readonly<
-    Record<UnsupportedLadderFlag, LadderIgnoredInput>
+    Record<UnsupportedLadderFlag, UnsupportedLadderFlagInfo>
 > = {
-    'early-withdrawal': LadderIgnoredInput.FundedPhase,
-    'funded-days': LadderIgnoredInput.FundedPhase,
-    'funded-reset': LadderIgnoredInput.FundedPhase,
-    'funded-risk': LadderIgnoredInput.FundedPhase,
-    'funded-rr': LadderIgnoredInput.FundedPhase,
-    'funded-tpd': LadderIgnoredInput.FundedPhase,
-    'idle-day-probability': LadderIgnoredInput.IdleDays,
-    ladder: LadderIgnoredInput.OwnLadder,
-    'max-attempts': LadderIgnoredInput.MaxAttempts,
-    'max-lifetime-payouts': LadderIgnoredInput.FundedPhase,
-    'path-granularity': LadderIgnoredInput.PathGranularity,
-    'rebuy-lag-days': LadderIgnoredInput.RebuyLag,
-    'request-size': LadderIgnoredInput.FundedPhase,
-    'retain-cushion': LadderIgnoredInput.FundedPhase,
-    risk: LadderIgnoredInput.OwnLadder,
-    tpd: LadderIgnoredInput.OwnLadder,
+    'early-withdrawal': {
+        reason: LadderIgnoredInput.FundedPhase,
+        takesValue: false,
+    },
+    'funded-days': { reason: LadderIgnoredInput.FundedPhase, takesValue: true },
+    'funded-reset': {
+        reason: LadderIgnoredInput.FundedPhase,
+        takesValue: false,
+    },
+    'funded-risk': { reason: LadderIgnoredInput.FundedPhase, takesValue: true },
+    'funded-rr': { reason: LadderIgnoredInput.FundedPhase, takesValue: true },
+    'funded-tpd': { reason: LadderIgnoredInput.FundedPhase, takesValue: true },
+    'idle-day-probability': {
+        reason: LadderIgnoredInput.IdleDays,
+        takesValue: true,
+    },
+    ladder: { reason: LadderIgnoredInput.OwnLadder, takesValue: true },
+    'max-attempts': {
+        reason: LadderIgnoredInput.MaxAttempts,
+        takesValue: true,
+    },
+    'max-lifetime-payouts': {
+        reason: LadderIgnoredInput.FundedPhase,
+        takesValue: true,
+    },
+    'path-granularity': {
+        reason: LadderIgnoredInput.PathGranularity,
+        takesValue: true,
+    },
+    'rebuy-lag-days': { reason: LadderIgnoredInput.RebuyLag, takesValue: true },
+    'request-size': {
+        reason: LadderIgnoredInput.FundedPhase,
+        takesValue: true,
+    },
+    'retain-cushion': {
+        reason: LadderIgnoredInput.FundedPhase,
+        takesValue: true,
+    },
+    risk: { reason: LadderIgnoredInput.OwnLadder, takesValue: true },
+    tpd: { reason: LadderIgnoredInput.OwnLadder, takesValue: true },
 };
 
 const UNSUPPORTED_LADDER_FLAG_NAMES = Object.keys(
     UNSUPPORTED_LADDER_FLAGS,
 ) as UnsupportedLadderFlag[];
+
+const UNSUPPORTED_LADDER_FLAG_SPECS: readonly KnownUnsupportedFlag[] =
+    UNSUPPORTED_LADDER_FLAG_NAMES.map((name) => ({
+        name,
+        takesValue: UNSUPPORTED_LADDER_FLAGS[name].takesValue,
+    }));
 
 const LADDER_TABLE_COLUMNS: readonly TableColumn[] = [
     { align: 'left', label: 'ladder', width: 26 },
@@ -181,6 +218,14 @@ export const ladderArguments = {
         type: 'string',
     },
 } as const satisfies ArgsDef;
+
+function unsupportedLadderFlagReason(flag: UnsupportedLadderFlag): string {
+    const reason =
+        LADDER_IGNORED_INPUT_REASONS[UNSUPPORTED_LADDER_FLAGS[flag].reason];
+    return `--${flag} is not supported by prop ladder: the ladder search ${reason}, so drop the flag or use prop sim`;
+}
+
+export const ladderCommandArguments = ladderArguments;
 
 export function buildLadderSearchOptions(
     plan: Plan,
@@ -325,10 +370,11 @@ export function readLadderGrid(
 }
 
 export default defineCommand({
-    args: ladderArguments,
+    args: ladderCommandArguments,
     meta: {
         description:
             'Grid-search the optimal within-day risk ladder for one plan (--firm, --variant).',
+        knownUnsupportedFlags: UNSUPPORTED_LADDER_FLAG_SPECS,
         name: 'ladder',
     },
     run(context) {
@@ -412,11 +458,7 @@ function assertSupportedLadderFlags(
     Partial<Record<UnsupportedLadderFlag, undefined>> {
     for (const flag of UNSUPPORTED_LADDER_FLAG_NAMES) {
         if (arguments_[flag] !== undefined) {
-            const reason =
-                LADDER_IGNORED_INPUT_REASONS[UNSUPPORTED_LADDER_FLAGS[flag]];
-            throw new TypeError(
-                `--${flag} is not supported by prop ladder: the ladder search ${reason}, so drop the flag or use prop sim`,
-            );
+            throw new TypeError(unsupportedLadderFlagReason(flag));
         }
     }
 }

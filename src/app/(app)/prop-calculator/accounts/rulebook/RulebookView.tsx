@@ -44,7 +44,7 @@ import { Skeleton } from '~/components/ui/Skeleton';
 import { Switch } from '~/components/ui/Switch';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatUsdCents, usdCents } from '~/lib/prop-accounts';
-import { DayStopRuleKind, FirmId } from '~/lib/prop-calculator';
+import { DayStopRuleKind, FirmId, fraction } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
     documentedRuleLabel,
@@ -57,6 +57,7 @@ import {
     type RulebookParameters,
     RuleSource,
 } from '~/lib/prop-calculator/advisor';
+import { edgePlausibilityNoteText } from '~/lib/prop-calculator/economics';
 import {
     isInvalidStoredRecord,
     PropRecord,
@@ -72,6 +73,7 @@ import {
     type HazardFieldName,
     hazardFieldName,
     hazardFieldSpec,
+    parseText,
     rulebookFormSchema,
     type RulebookFormValues,
     rulebookToFormValues,
@@ -925,6 +927,37 @@ function ReviewCard({ control }: { control: Control<RulebookFormValues> }) {
     );
 }
 
+function rulebookEdgePlausibilityNote(
+    winrateText: string,
+    rrText: string,
+    typicalText: string,
+    strongText: string,
+): null | string {
+    const winrateParsed = parseText(FieldKind.Percent, winrateText);
+    const rrParsed = parseText(FieldKind.Decimal, rrText);
+    const typicalParsed = parseText(FieldKind.Decimal, typicalText);
+    const strongParsed = parseText(FieldKind.Decimal, strongText);
+    if (
+        !winrateParsed.ok ||
+        !rrParsed.ok ||
+        !typicalParsed.ok ||
+        !strongParsed.ok ||
+        typeof winrateParsed.value !== 'number' ||
+        typeof rrParsed.value !== 'number' ||
+        typeof typicalParsed.value !== 'number' ||
+        typeof strongParsed.value !== 'number'
+    ) {
+        return null;
+    }
+    return edgePlausibilityNoteText(
+        { rrRatio: rrParsed.value, winrate: fraction(winrateParsed.value) },
+        {
+            strongMaxExpectancyR: strongParsed.value,
+            typicalMaxExpectancyR: typicalParsed.value,
+        },
+    );
+}
+
 function RulebookForm({
     stored,
     tradingPlan,
@@ -1145,11 +1178,30 @@ function SpecField({
 }
 
 function StrategyCard({ control }: { control: Control<RulebookFormValues> }) {
+    const winrateText = useWatch({ control, name: 'strategy.winrate' });
+    const rrText = useWatch({ control, name: 'strategy.rr' });
+    const typicalText = useWatch({
+        control,
+        name: 'plausibility.typicalMaxExpectancyR',
+    });
+    const strongText = useWatch({
+        control,
+        name: 'plausibility.strongMaxExpectancyR',
+    });
+    const note = rulebookEdgePlausibilityNote(
+        winrateText,
+        rrText,
+        typicalText,
+        strongText,
+    );
     return (
         <SectionCard title="Strategy">
             <TextField control={control} name="strategy.winrate" />
             <TextField control={control} name="strategy.rr" />
             <TextField control={control} name="strategy.tradesPerDayMax" />
+            <p className="text-xs text-amber-400" role="status">
+                {note ?? ''}
+            </p>
         </SectionCard>
     );
 }

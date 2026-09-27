@@ -1,4 +1,9 @@
-import { type Fraction0to1 } from './lib/units';
+import {
+    dollars,
+    type Dollars,
+    type Fraction0to1,
+    ONE_CENT,
+} from './lib/units';
 
 export enum ConsistencyBasis {
     Cycle = 'cycle',
@@ -67,11 +72,33 @@ export class ConsistencyRule {
             ...(this.nonPositiveProfit === ConsistencyNonPositiveProfit.Violates
                 ? ['fails on a net-losing cycle']
                 : []),
+            ...(this.violationEffect === ConsistencyViolationEffect.DoubleTarget
+                ? ['raises the goal above 2x the best day on violation']
+                : []),
         ];
         const share = ConsistencyRule.formatShare(this.maxBestDayShare);
         return qualifiers.length === 0
             ? share
             : `${share} (${qualifiers.join(', ')})`;
+    }
+
+    maxDayProfitBeforeViolation(priorCycleProfit: number): Dollars {
+        if (this.maxBestDayShare >= 1) {
+            return dollars(Infinity);
+        }
+        if (priorCycleProfit <= 0) {
+            return dollars(0);
+        }
+        const share = this.maxBestDayShare;
+        const breakEven = (share * priorCycleProfit) / (1 - share);
+        switch (this.boundary) {
+            case ConsistencyBoundary.Exclusive: {
+                return dollars(breakEven);
+            }
+            case ConsistencyBoundary.Inclusive: {
+                return dollars(Math.max(0, breakEven - ONE_CENT));
+            }
+        }
     }
 
     isViolated(bestDayProfit: number, totalProfit: number): boolean {

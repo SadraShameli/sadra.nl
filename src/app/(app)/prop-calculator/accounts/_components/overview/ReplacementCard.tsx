@@ -8,6 +8,7 @@ import {
 } from '~/components/ui/Table';
 
 import { type ReplacementCardModel } from './overviewModel';
+import { SampleBadge } from './SampleBadge';
 
 export function ReplacementCard({
     model,
@@ -41,7 +42,10 @@ export function ReplacementCard({
                     <TableRow key={row.key}>
                         <TableCell>{row.plan}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                            {row.attempts}
+                            <span className="inline-flex items-center gap-1.5">
+                                {row.attempts}
+                                <SampleBadge level={row.attemptsSampleLevel} />
+                            </span>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                             {row.attemptsPerFunded}

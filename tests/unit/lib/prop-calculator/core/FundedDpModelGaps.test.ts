@@ -10,6 +10,7 @@ import {
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
 import {
+    type FundedDpModelGap,
     FundedDpModelGapKind,
     fundedDpModelGaps,
 } from '~/lib/prop-calculator/core/FundedDpModelGaps';
@@ -19,6 +20,7 @@ import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFu
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
+import { TakeProfitTrader } from '~/lib/prop-calculator/firms/tpt/TakeProfitTrader';
 
 function apexEodPlan(): Plan {
     const plan = new ApexTraderFunding().findPlan({
@@ -77,6 +79,15 @@ function topStepNoFeeStandardPlan(): Plan {
         variant: TopStepVariant.NoFeeStandard,
     });
     if (!plan) throw new Error('TopStep no-fee-standard 50K plan not found');
+    return plan;
+}
+
+function tptProPlan(): Plan {
+    const plan = new TakeProfitTrader().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Tpt,
+    });
+    if (!plan) throw new Error('TPT PRO 50K plan not found');
     return plan;
 }
 
@@ -196,5 +207,24 @@ describe('fundedDpModelGaps', () => {
         });
 
         expect(fundedDpModelGaps(plan)).toStrictEqual([]);
+    });
+
+    it("does not repeat TPT PRO's own plan label inside the calendar-week gap message, since fundedDpModelGapWarning already prefixes every joined gap message with the label once (N-87 leftover, WP55)", () => {
+        const plan = tptProPlan();
+        const calendarWeekGap = fundedDpModelGaps(plan).find(
+            (
+                gap,
+            ): gap is Extract<
+                FundedDpModelGap,
+                { kind: FundedDpModelGapKind.CalendarWeekInactivityIgnored }
+            > => gap.kind === FundedDpModelGapKind.CalendarWeekInactivityIgnored,
+        );
+        if (calendarWeekGap === undefined) {
+            throw new Error('expected a calendar-week gap for TPT PRO');
+        }
+        expect(calendarWeekGap.message.startsWith(plan.label)).toBe(false);
+        expect(calendarWeekGap.message).toContain(
+            'closes its funded phase for an empty',
+        );
     });
 });

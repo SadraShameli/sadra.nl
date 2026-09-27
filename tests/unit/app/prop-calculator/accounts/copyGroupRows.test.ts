@@ -15,6 +15,7 @@ import {
     compareText,
     createAlertContext,
     isActiveAccount,
+    NO_ACCOUNT_STATES,
 } from '~/lib/prop-accounts';
 import { hasMixedStages, stageCountsOf } from '~/lib/prop-accounts/alerts';
 import { isActive } from '~/lib/prop-accounts/alerts/AlertContext';
@@ -153,6 +154,7 @@ describe('the one active-account predicate', () => {
                     tracking: AccountTracking.Modeled,
                 },
             ],
+            accountStates: NO_ACCOUNT_STATES,
             copyGroups: [],
             payouts: [],
             rulebook: DEFAULT_RULEBOOK,

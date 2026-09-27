@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
     type AccountState,
+    accountStateSchema,
     CENTS_PER_DOLLAR,
     fundedCycleSeedSchema,
     TradingPhase,
@@ -36,22 +37,6 @@ const runSchema = z.strictObject({
     seed: z.number().int(),
     trials: z.number().int().positive(),
 }) satisfies z.ZodType<DocumentedPolicyRun>;
-
-const accountStateSchema = z.looseObject({
-    balance: z.number(),
-    bestDayProfit: z.number(),
-    consecutiveIdleDays: z.number(),
-    elapsedDays: z.number().optional(),
-    intradayHighProfit: z.number(),
-    peakDayCloseProfit: z.number(),
-    peakIntradayProfit: z.number(),
-    qualifyingDays: z.number(),
-    startingBalance: z.number(),
-    threshold: z.number(),
-    thresholdLocked: z.boolean(),
-    todayPnL: z.number(),
-    tradingDays: z.number(),
-}) satisfies z.ZodType<AccountState>;
 
 function isAccountStateShaped(value: unknown): value is AccountState {
     return accountStateSchema.safeParse(value).success;

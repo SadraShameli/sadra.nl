@@ -4,6 +4,7 @@ import { type AlertSeverity } from './AlertSeverity';
 export enum AlertDisclosure {
     GrossUsedForMissingNet = 'gross-used-for-missing-net',
     NoHolidayCalendar = 'no-holiday-calendar',
+    SessionLimitApproximatedAsCalendarDays = 'session-limit-approximated-as-calendar-days',
     ThirtyDayBillingCycle = 'thirty-day-billing-cycle',
 }
 

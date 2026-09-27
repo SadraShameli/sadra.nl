@@ -6,6 +6,7 @@ import {
     DayStopRuleKind,
     dollars,
     InstrumentSymbol,
+    ONE_CENT,
 } from '~/lib/prop-calculator';
 import {
     DailyProfitCapKind,
@@ -18,6 +19,7 @@ import {
     EvalSizingMode,
     LadderFractionSource,
     NextTradeKind,
+    NO_PERSONAL_CAPS,
     type RulebookParameters,
     RuleSource,
     SizingAssumption,
@@ -61,12 +63,15 @@ function evalContext(
     overrides: Partial<EvalRuleContext> = {},
 ): EvalRuleContext {
     return {
+        ceiling: null,
         consistencyDailyCap: null,
         contractLimit: null,
         cushion: dollars(2000),
         dayStartDllRoom: null,
         instrument: null,
+        personalCaps: NO_PERSONAL_CAPS,
         personalDll: null,
+        placeableMinimum: ONE_CENT,
         remainingProfitToTarget: FAR_TARGET,
         stage: SizingStage.Eval,
         ...overrides,
@@ -388,6 +393,95 @@ describe('EvalLadderRule, the next trade on a mixed path', () => {
     });
 });
 
+describe('EvalLadderRule, personal caps on the next trade (PT-19 step 2, F-62)', () => {
+    it('caps the next trade at a personal max risk per trade', () => {
+        const context = evalContext({
+            personalCaps: {
+                dailyProfitCap: null,
+                maxRiskPerTrade: dollars(50),
+                maxTradesPerDay: null,
+            },
+        });
+
+        expect(general.nextTrade(context, day(0, 0, 0, 0))).toEqual({
+            kind: NextTradeKind.Trade,
+            rung: {
+                cappedBy: [SizingConstraint.PersonalCap],
+                risk: 50,
+                runningLossAfter: 50,
+                runningLossBefore: 0,
+                takeProfit: 100,
+            },
+        });
+    });
+
+    it('stops at a personal max trades per day tighter than the rulebook', () => {
+        const context = evalContext({
+            personalCaps: {
+                dailyProfitCap: null,
+                maxRiskPerTrade: null,
+                maxTradesPerDay: 2,
+            },
+        });
+
+        expect(general.nextTrade(context, day(200, 400, 1, 1))).toEqual({
+            cappedBy: [],
+            kind: NextTradeKind.Stop,
+            reason: DayStopReason.MaxTrades,
+        });
+    });
+
+    it('tightens the ceiling with a personal daily profit cap, tagged PersonalCap', () => {
+        const context = evalContext({
+            personalCaps: {
+                dailyProfitCap: dollars(300),
+                maxRiskPerTrade: null,
+                maxTradesPerDay: null,
+            },
+        });
+
+        expect(general.nextTrade(context, day(0, 0, 0, 0))).toEqual({
+            kind: NextTradeKind.Trade,
+            rung: {
+                cappedBy: [SizingConstraint.PersonalCap],
+                risk: 150,
+                runningLossAfter: 150,
+                runningLossBefore: 0,
+                takeProfit: 300,
+            },
+        });
+    });
+
+    it('does not reflect personal caps in the documented ladder table, unlike Funded/Live (PT-19f followup, known asymmetry)', () => {
+        const context = evalContext({
+            personalCaps: {
+                dailyProfitCap: null,
+                maxRiskPerTrade: dollars(50),
+                maxTradesPerDay: null,
+            },
+        });
+
+        const sizing = general.size(context);
+
+        expect(risks(sizing)).toEqual([400, 600, 900, 100]);
+        expect(
+            sizing.rungs.some((rung) =>
+                rung.cappedBy.includes(SizingConstraint.PersonalCap),
+            ),
+        ).toBe(false);
+        expect(general.nextTrade(context, day(0, 0, 0, 0))).toEqual({
+            kind: NextTradeKind.Trade,
+            rung: {
+                cappedBy: [SizingConstraint.PersonalCap],
+                risk: 50,
+                runningLossAfter: 50,
+                runningLossBefore: 0,
+                takeProfit: 100,
+            },
+        });
+    });
+});
+
 describe('EvalLadderRule floors to the rounding step in whole cents, not with a cents epsilon read as a step fraction (N-69)', () => {
     it('floors a profit-ceiling room four thousandths of a cent under $100 to the $50 step, never up to $100', () => {
         const sizing = general.size(
@@ -437,6 +531,38 @@ describe('EvalLadderRule floors to the rounding step in whole cents, not with a 
         );
 
         expect(sizing.rungs[0]?.risk).toBe(100);
+    });
+});
+
+describe('EvalLadderRule, the ceiling-room step comparison is in integer cents (WP37b)', () => {
+    it('rounds a ceiling room a float hair under a whole $2,000 step to the $2,000 step, not down to $1,999.99', () => {
+        const rule = new EvalLadderRule(
+            withEval({ roundingStepCents: 200_000 }),
+        );
+
+        const sizing = rule.size(
+            evalContext({
+                cushion: dollars(100_000),
+                remainingProfitToTarget: dollars(3999.9999999999995),
+            }),
+        );
+
+        expect(sizing.rungs[0]?.risk).toBe(2000);
+    });
+
+    it('leaves a ceiling room one whole cent under a step unrounded, never stepped up (pin, not the bug)', () => {
+        const rule = new EvalLadderRule(
+            withEval({ roundingStepCents: 200_000 }),
+        );
+
+        const sizing = rule.size(
+            evalContext({
+                cushion: dollars(100_000),
+                remainingProfitToTarget: dollars(3999.98),
+            }),
+        );
+
+        expect(sizing.rungs[0]?.risk).toBe(1999.99);
     });
 });
 

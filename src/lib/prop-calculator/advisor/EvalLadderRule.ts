@@ -171,7 +171,7 @@ export class EvalLadderRule extends DocumentedRule<EvalRuleContext> {
                     cappedBy.push(ceiling.constraint);
                     const capped = Math.max(0, ceilingRoom);
                     risk =
-                        !isFinal && capped >= step
+                        !isFinal && isAtOrBelowWithinCentTolerance(step, capped)
                             ? floorToStep(capped, stepCents)
                             : capped;
                 }

@@ -20,12 +20,18 @@ import {
     type DayStopRule,
     describeFundedReset,
     evalContractLimit,
+    fraction,
     INSTRUMENTS,
     type InstrumentSymbol,
     type Plan,
     points,
     type RungSizing,
 } from '~/lib/prop-calculator';
+import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    edgePlausibilityNoteText,
+    type PlausibilityThresholds,
+} from '~/lib/prop-calculator/economics';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
@@ -114,6 +120,17 @@ interface TradingInputsProperties {
     winrate: number;
 }
 
+export function tradingEdgePlausibilityNote(
+    winrate: number,
+    rrRatio: number,
+    thresholds: PlausibilityThresholds = DEFAULT_RULEBOOK.plausibility,
+): null | string {
+    return edgePlausibilityNoteText(
+        { rrRatio, winrate: fraction(winrate) },
+        thresholds,
+    );
+}
+
 export default function TradingInputs({
     activationDiscountPercent,
     commissionPerRoundTrip,
@@ -174,6 +191,7 @@ export default function TradingInputs({
 }: TradingInputsProperties) {
     const accountSize = plan.accountSize;
     const bounds = tradingInputBounds();
+    const plausibilityNote = tradingEdgePlausibilityNote(winrate, rrRatio);
     const earlyWithdrawal = plan.oneTimeEarlyWithdrawal;
     const fundedReset = plan.fundedReset;
     const purchaseDiscounts = purchaseCouponDiscounts(
@@ -545,6 +563,9 @@ export default function TradingInputs({
                     step={0.1}
                     value={[rrRatio]}
                 />
+                <p className="mt-2 text-xs text-amber-400" role="status">
+                    {plausibilityNote ?? ''}
+                </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

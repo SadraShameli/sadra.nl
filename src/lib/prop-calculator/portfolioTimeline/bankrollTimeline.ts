@@ -36,6 +36,7 @@ import {
     simInputsSizingIssue,
 } from '../simulator';
 import { percentile } from '../stats';
+import { CardChargeCursor } from './DatedChargeCursor';
 import { runEvalToFundedCycle } from './fundedCycle';
 import {
     type BankrollPolicy,
@@ -54,6 +55,7 @@ interface CardPurchaseContext {
     effectiveCapacity: number;
     evalDayPolicy: DayPolicy;
     fundedDayPolicy: DayPolicy;
+    fundedRrRatio: number;
     idleDayProbability: number | undefined;
     maxEvalDays: number;
     payoutRequestPolicy: PayoutRequestPolicy | undefined;
@@ -68,11 +70,11 @@ interface CardPurchaseContext {
 
 interface OpenCard {
     card: CardResult;
+    chargeCursor: CardChargeCursor;
     ended: boolean;
     paidSoFar: number;
     payoutCursor: number;
     purchaseDay: number;
-    spreadEvalCost: number;
 }
 
 interface PendingCredit {
@@ -103,6 +105,7 @@ export function simulateBankrollTimeline(
         commissionPerRoundTrip = SIM_DEFAULTS.commissionPerRoundTrip,
         dayBudget = DEFAULT_DAY_BUDGET,
         discounts,
+        fundedRrRatio: fundedRrRatioInput,
         idleDayProbability,
         instrument,
         maxEvalDays,
@@ -146,6 +149,7 @@ export function simulateBankrollTimeline(
     const requestSize =
         payoutRequestSize === undefined ? undefined : dollars(payoutRequestSize);
     const winrate = fraction(winrateInput);
+    const fundedRrRatio = fundedRrRatioInput ?? rrRatio;
     const stopRule: DayStopRule = inputs.dayStop ?? { kind: DayStopRuleKind.None };
     const evalDayPolicy = resolvePhaseDayPolicy(
         inputs,
@@ -244,6 +248,7 @@ export function simulateBankrollTimeline(
                 effectiveCapacity,
                 evalDayPolicy,
                 fundedDayPolicy,
+                fundedRrRatio,
                 idleDayProbability,
                 maxEvalDays,
                 payoutRequestPolicy,
@@ -342,7 +347,7 @@ function applyOpenCardCharges(
     const localDay = day - openCard.purchaseDay;
     if (localDay < 1) return;
     const { card } = openCard;
-    const dueThrough = cumulativeDueThrough(openCard, localDay);
+    const dueThrough = openCard.chargeCursor.paidThrough(localDay);
     const incremental = dueThrough - openCard.paidSoFar;
     if (incremental > 0) {
         const isOverMonthlyBudget =
@@ -403,22 +408,6 @@ function canAffordAnotherCard(
     );
 }
 
-function cumulativeDueThrough(openCard: OpenCard, localDay: number): number {
-    const { card, spreadEvalCost } = openCard;
-    const evalRetryPaidThrough = card.evalRetryCharges
-        .filter((charge) => charge.dayOffset <= localDay)
-        .reduce((sum, charge) => sum + charge.fee, 0);
-    const fundedResetPaidThrough = card.fundedResetCharges
-        .filter((charge) => charge.dayOffset <= localDay)
-        .reduce((sum, charge) => sum + charge.fee, 0);
-    const spreadPortion =
-        card.evalDays > 0
-            ? (spreadEvalCost * Math.min(localDay, card.evalDays)) /
-              card.evalDays
-            : spreadEvalCost;
-    return evalRetryPaidThrough + fundedResetPaidThrough + spreadPortion;
-}
-
 function declaredPhaseDayPolicy(
     inputs: BankrollTimelineInputs,
     phase: TradingPhase,
@@ -458,6 +447,7 @@ function purchaseCards(
             discounts: context.discounts,
             evalDayPolicy: context.evalDayPolicy,
             fundedDayPolicy: context.fundedDayPolicy,
+            fundedRrRatio: context.fundedRrRatio,
             idleDayProbability: context.idleDayProbability,
             maxEvalDays: context.maxEvalDays,
             maxFundedDays: remaining,
@@ -466,6 +456,13 @@ function purchaseCards(
             payoutRequestSize: context.requestSize,
             plan: context.plan,
             positionSizing: context.positionSizing,
+            retryAffordabilityCheck: retryAffordabilityCheckFor(
+                state,
+                context,
+                reserved,
+                reservedMonth,
+                reservedSpend,
+            ),
             rng,
             rrRatio: context.rrRatio,
             rungSizing: context.rungSizing,
@@ -477,11 +474,16 @@ function purchaseCards(
         );
         state.open.push({
             card,
+            chargeCursor: new CardChargeCursor({
+                evalDays: card.evalDays,
+                evalRetryCharges: card.evalRetryCharges,
+                fundedResetCharges: card.fundedResetCharges,
+                spreadEvalCost: card.evalCost - evalRetrySpendTotal,
+            }),
             ended: false,
             paidSoFar: 0,
             payoutCursor: 0,
             purchaseDay: day,
-            spreadEvalCost: card.evalCost - evalRetrySpendTotal,
         });
         state.firstPurchaseDay ??= day;
         state.cardsBought += 1;
@@ -498,13 +500,46 @@ function resolvePhaseDayPolicy(
 ): DayPolicy {
     const declared = declaredPhaseDayPolicy(inputs, phase);
     if (declared === undefined) {
+        const isFunded = phase === TradingPhase.Funded;
+        const riskPerTrade = isFunded
+            ? (inputs.fundedRiskPerTrade ?? inputs.riskPerTrade)
+            : inputs.riskPerTrade;
+        const tradesPerDay = isFunded
+            ? (inputs.fundedTradesPerDay ?? inputs.tradesPerDay)
+            : inputs.tradesPerDay;
         return flatDayPolicy(
-            inputs.riskPerTrade,
-            inputs.tradesPerDay,
+            riskPerTrade,
+            tradesPerDay,
             stopRule,
             policySizingOf(phase),
         );
     }
     assertDeclaredSizingMatchesPhase(inputs, declared, phase);
     return declared;
+}
+
+function retryAffordabilityCheckFor(
+    state: TrialState,
+    context: CardPurchaseContext,
+    reservedAtPurchase: number,
+    reservedMonthAtPurchase: number,
+    reservedSpendAtPurchase: number,
+): (fee: number) => boolean {
+    let committed = 0;
+    return (fee: number): boolean => {
+        const { bankroll } = context;
+        const hasCash =
+            state.cash >= reservedAtPurchase + committed + fee;
+        const hasMonthlyRoom =
+            bankroll.monthlyBudget === null ||
+            state.monthSpent + reservedMonthAtPurchase + committed + fee <=
+                bankroll.monthlyBudget;
+        const hasRoundRoom =
+            bankroll.roundBudget === null ||
+            state.cumulativeSpend + reservedSpendAtPurchase + committed + fee <=
+                bankroll.roundBudget;
+        if (!hasCash || !hasMonthlyRoom || !hasRoundRoom) return false;
+        committed += fee;
+        return true;
+    };
 }

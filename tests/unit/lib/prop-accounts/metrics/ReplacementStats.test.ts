@@ -10,6 +10,7 @@ import {
     rebuyLagDefault,
     replacementStats,
 } from '~/lib/prop-accounts/metrics';
+import { RebuyLagBasis as AdvisorRebuyLagBasis } from '~/lib/prop-calculator/advisor';
 import { meanStandardError } from '~/lib/prop-calculator/stats';
 
 import {
@@ -82,7 +83,7 @@ describe('replacementStats', () => {
         expect(plan?.lagSamples).toBe(2);
         const lagSe = meanStandardError(2, 4, 2);
         expect(plan?.lagSessions).toEqual({
-            interval: meanInterval(1, lagSe),
+            interval: meanInterval(1, lagSe, 2),
             n: 2,
             standardError: lagSe,
             value: 1,
@@ -179,7 +180,7 @@ describe('replacementStats', () => {
             }),
         );
         expect(stats.perPlan[0]?.lagSessions).toEqual({
-            interval: meanInterval(9, 0),
+            interval: meanInterval(9, 0, 2),
             n: 2,
             standardError: 0,
             value: 9,
@@ -195,6 +196,12 @@ describe('replacementStats', () => {
         );
         expect(stats.perPlan).toEqual([]);
         expect(stats.unresolvedAccounts).toBe(1);
+    });
+});
+
+describe('RebuyLagBasis', () => {
+    it('is the one enum re-exported from the advisor policy, not a duplicate copy', () => {
+        expect(RebuyLagBasis).toBe(AdvisorRebuyLagBasis);
     });
 });
 

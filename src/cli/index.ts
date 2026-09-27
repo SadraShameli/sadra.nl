@@ -1,5 +1,8 @@
 import { defineCommand, runMain } from 'citty';
 
+import { ui } from '~/cli/ui';
+import { findUnknownFlag, unknownFlagMessage } from '~/cli/unknownFlagGuard';
+
 const main = defineCommand({
     meta: {
         description: 'CLI',
@@ -22,4 +25,11 @@ const main = defineCommand({
     },
 });
 
-await runMain(main);
+const rawArgs = process.argv.slice(2);
+const unknownFlag = await findUnknownFlag(rawArgs, main, 'cli');
+if (unknownFlag === null) {
+    await runMain(main);
+} else {
+    ui.fail(unknownFlagMessage(unknownFlag));
+    process.exitCode = 1;
+}

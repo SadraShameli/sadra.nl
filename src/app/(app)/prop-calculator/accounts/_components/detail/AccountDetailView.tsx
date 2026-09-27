@@ -57,6 +57,7 @@ import {
     readOnlyAccountNotice,
 } from '../accountListFilters';
 import {
+    AccountPlanIntent,
     type AccountPlanSelection,
     upgradePlanSelection,
 } from '../accountPlanOptions';
@@ -839,7 +840,11 @@ function UpgradeToModeled({
     const utilities = api.useUtils();
     const upgrade = api.propAccounts.account.upgradeToModeled.useMutation();
     const [selection, setSelection] = useState<AccountPlanSelection>(() =>
-        upgradePlanSelection(account.firmId, account.accountSize),
+        upgradePlanSelection(
+            account.firmId,
+            account.accountSize,
+            AccountPlanIntent.ExistingAccount,
+        ),
     );
     const [isConfirmed, setConfirmed] = useState(false);
     const changes = upgradeChanges(account, selection).map(
@@ -877,6 +882,7 @@ function UpgradeToModeled({
             </p>
             <AccountPlanPicker
                 errors={[]}
+                intent={AccountPlanIntent.ExistingAccount}
                 onChange={(next) => {
                     setSelection(next);
                     setConfirmed(false);

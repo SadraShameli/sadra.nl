@@ -217,6 +217,7 @@ describe('the web never runs a simulation the engine refuses (PT-11f)', () => {
         function cells(...winrates: number[]): Cell[] {
             return winrates.map((winrate) => ({
                 evalPass: 0.5,
+                evPerAttempt: 20,
                 fundedSurvival: 0.5,
                 monthlyNet: 100,
                 rr: 2,

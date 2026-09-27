@@ -20,6 +20,7 @@ import {
     firmKeyLabel,
     firmKeyOf,
     type LedgerOnlyPlanKey,
+    NO_ACCOUNT_STATES,
     type PlanKeyInput,
     type PlanKeyResolution,
     PlanKeyResolutionKind,
@@ -326,6 +327,7 @@ export function unresolvablePlanAlerts(
     return UNRESOLVABLE_PLAN_EVALUATOR.evaluate(
         createAlertContext({
             accounts,
+            accountStates: NO_ACCOUNT_STATES,
             copyGroups: [],
             payouts: [],
             rulebook: DEFAULT_RULEBOOK,

@@ -396,7 +396,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
     'tpt/': [
         'target $3,000 | eval drawdown $2,000 eod-trailing, locks at +$2,000 to breakeven | min days 3',
         'funded drawdown $2,000 intraday-trailing, locks at +$2,000 to breakeven',
-        'eval DLL none | funded DLL none | consistency eval 50% (inclusive) | funded none',
+        'eval DLL none | funded DLL none | consistency eval 50% (inclusive, raises the goal above 2x the best day on violation) | funded none',
         'contracts 6 mini / 60 micro | funded 6 mini / 60 micro',
         'fees eval $0 | activation $130 | monthly $170 | reset $99',
         'payout split 80% | first $2,000 | min request $0 | day gate 0 qualifying days | any day counts',

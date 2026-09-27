@@ -317,6 +317,88 @@ describe('PropAccountRepo video record reads', () => {
     });
 });
 
+describe('PropAccountRepo batched external firm ownership', () => {
+    const SECOND_EXTERNAL_FIRM_ID = 'b2222222-2222-4222-8222-222222222223';
+
+    it('loadOwnedExternalFirmsOrThrow reads every owned firm keyed by id in one query naming exactly those ids and the user id', async () => {
+        const ids = [VIDEO_IDS.externalFirm, SECOND_EXTERNAL_FIRM_ID];
+        const { plain, statements } = await runScoped(
+            (repo) => repo.loadOwnedExternalFirmsOrThrow(ids),
+            rowsFor({
+                [VIDEO_TABLES.externalFirm]: ids.map((id) =>
+                    externalFirmRow({ id }),
+                ),
+            }),
+        );
+        const owned = plain as ReadonlyMap<string, FakeRow>;
+        expect(owned.keys().toArray()).toEqual(ids);
+        expect(statements).toHaveLength(2);
+        for (const statement of statements) {
+            expect(readTable(statement)).toBe(VIDEO_TABLES.externalFirm);
+            expect(statement.text).toContain(' in (');
+            expect(statement.params).toEqual(
+                expect.arrayContaining([...ids, USER_ID]),
+            );
+        }
+    });
+
+    it('loadOwnedExternalFirmsOrThrow throws when any requested id is not owned', async () => {
+        const ids = [VIDEO_IDS.externalFirm, SECOND_EXTERNAL_FIRM_ID];
+        const { database } = createFakeDatabase(
+            rowsFor({
+                [VIDEO_TABLES.externalFirm]: [
+                    externalFirmRow({ id: VIDEO_IDS.externalFirm }),
+                ],
+            }),
+        );
+        await expect(
+            new PropAccountRepo(database, USER_ID).loadOwnedExternalFirmsOrThrow(
+                ids,
+            ),
+        ).rejects.toThrow(new PropRecordNotFoundError(PropRecord.ExternalFirm));
+    });
+
+    it('loadOwnedExternalFirmsOrThrow reads nothing for an empty id list', async () => {
+        const { database, queries } = createFakeDatabase(() => []);
+        const owned = await new PropAccountRepo(
+            database,
+            USER_ID,
+        ).loadOwnedExternalFirmsOrThrow([]);
+        expect(owned.size).toBe(0);
+        expect(queries).toHaveLength(0);
+    });
+});
+
+describe('PropAccountRepo earliest violation', () => {
+    it('earliestViolationOn reads the earliest occurredOn with one bounded, ascending, user-scoped query', async () => {
+        const violations = [
+            violationRow({ occurred_on: '2026-09-10' }),
+            violationRow({ occurred_on: '2026-09-20' }),
+        ];
+        const { plain, statements } = await runScoped(
+            (repo) => repo.earliestViolationOn(VIDEO_IDS.account),
+            rowsFor({ [VIDEO_TABLES.violation]: violations }),
+        );
+        expect(plain).toBe('2026-09-10');
+        for (const statement of statements) {
+            expect(readTable(statement)).toBe(VIDEO_TABLES.violation);
+            expect(statement.text).toMatch(
+                /order by (?:"\w+"\.)?"occurred_on" asc limit \$\d+$/,
+            );
+            expect(statement.params).toContain(VIDEO_IDS.account);
+            expect(limitParameter(statement)).toBe(1);
+        }
+    });
+
+    it('earliestViolationOn returns null when the account has no recorded violation', async () => {
+        const { plain } = await runScoped(
+            (repo) => repo.earliestViolationOn(VIDEO_IDS.account),
+            rowsFor({ [VIDEO_TABLES.violation]: [] }),
+        );
+        expect(plain).toBeNull();
+    });
+});
+
 describe('PropAccountRepo reference checks', () => {
     it('finds a round in use only through an account of the caller', async () => {
         const inUse = await runScoped(

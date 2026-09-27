@@ -16,16 +16,21 @@ import {
     positionSizePhases,
     type PositionSizeResult,
     positionSizeStatusText,
+    siblingInstrumentSeverityText,
+    siblingInstrumentText,
 } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
 import {
     decodePositionSize,
     encodePositionSize,
     parsePositionSizeInstrument,
     parsePositionSizePhase,
+    parsePositionSizeRetryFee,
     parsePositionSizeRisk,
     parsePositionSizeStop,
+    parsePositionSizeUnit,
     PositionSizeUrlParameter,
 } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
+import { formatRiskDisplay } from '~/app/(app)/prop-calculator/_components/riskDisplay';
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
@@ -38,7 +43,13 @@ import {
     SelectValue,
 } from '~/components/ui/Select';
 import { formatGateCurrency, NOT_APPLICABLE } from '~/lib/format';
-import { ALL_FIRMS, dollars, TradingPhase } from '~/lib/prop-calculator';
+import {
+    ALL_FIRMS,
+    dollars,
+    serializePlanId,
+    TradingPhase,
+} from '~/lib/prop-calculator';
+import { RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 
 const START_TIER = 'start';
@@ -77,9 +88,16 @@ export function PositionSizeView() {
     const result = useMemo(() => positionSizeFor(state), [state]);
     const isInputValid = invalidFields.size === 0;
     const change: PositionSizeChange = (patch) => {
-        setState((current) =>
-            normalizePositionSizeInput({ ...current, ...patch }),
-        );
+        setState((current) => {
+            const withPlanRetryFee: Partial<PositionSizeInput> =
+                patch.plan !== undefined && patch.retryFee === undefined
+                    ? { ...patch, retryFee: dollars(patch.plan.retryFee()) }
+                    : patch;
+            return normalizePositionSizeInput({
+                ...current,
+                ...withPlanRetryFee,
+            });
+        });
     };
     const changeValidity: FieldValidityChange = (field, isValid) => {
         setInvalidFields((current) => {
@@ -345,6 +363,47 @@ function PositionSizeInputs({
                     </div>
                 )}
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+                {state.phase === TradingPhase.Eval ? (
+                    <NumberField
+                        field={PositionSizeUrlParameter.RetryFee}
+                        id="position-size-retry-fee"
+                        invalidText="Enter a retry fee of $0 or more."
+                        key={serializePlanId(state.plan.id)}
+                        label="Retry fee ($)"
+                        onValid={(retryFee) => {
+                            onChange({ retryFee });
+                        }}
+                        onValidityChange={onValidityChange}
+                        parse={parsePositionSizeRetryFee}
+                        step={1}
+                        value={state.retryFee}
+                    />
+                ) : null}
+                <div className="flex flex-col gap-1">
+                    <label className={LABEL_CLASS} htmlFor="position-size-unit">
+                        Risk shown as
+                    </label>
+                    <Select
+                        onValueChange={(value) => {
+                            const unit = parsePositionSizeUnit(value);
+                            if (unit !== null) onChange({ unit });
+                        }}
+                        value={state.unit}
+                    >
+                        <SelectTrigger id="position-size-unit">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {Object.values(RiskDisplayUnit).map((unit) => (
+                                <SelectItem key={unit} value={unit}>
+                                    {riskDisplayUnitLabel(unit)}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
         </div>
     );
 }
@@ -405,9 +464,25 @@ function PositionSizeSummary({
                             : `${result.cap} ${symbol}`
                     }
                 />
+                <StatCard
+                    label="Risk, shown as"
+                    sub={result.riskDisplay.label}
+                    value={result.riskDisplay.text}
+                />
             </div>
             {result.refusal === null ? null : (
                 <p className="text-sm text-amber-400">{result.refusal}</p>
+            )}
+            {result.atRiskIfBustedText === null ? null : (
+                <p className="text-sm text-muted-foreground">
+                    {result.atRiskIfBustedText}
+                </p>
+            )}
+            {siblingInstrumentText(result) === null ? null : (
+                <p className="text-sm text-muted-foreground">
+                    {siblingInstrumentText(result)}{' '}
+                    {siblingInstrumentSeverityText(result)}
+                </p>
             )}
             {result.notes.map((note) => (
                 <p className="text-sm text-muted-foreground" key={note}>
@@ -433,4 +508,12 @@ function PositionSizeUnavailable() {
             <p className="text-sm text-amber-400">{FIX_FIELD_TEXT}</p>
         </div>
     );
+}
+
+function riskDisplayUnitLabel(unit: RiskDisplayUnit): string {
+    return formatRiskDisplay(unit, {
+        accountDollars: 0,
+        evAtStake: 0,
+        feeEquivalent: 0,
+    }).label;
 }

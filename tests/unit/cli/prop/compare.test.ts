@@ -31,6 +31,7 @@ import {
     FirmId,
     fraction,
     FundedNextVariant,
+    LifetimeCapScope,
     LucidVariant,
     MffuVariant,
     type Plan,
@@ -41,6 +42,10 @@ import {
 } from '~/lib/prop-calculator';
 import { findFirm } from '~/lib/prop-calculator/firms';
 
+import {
+    mffProLifetimeCapFixture,
+    WINNING_TRADER,
+} from '../../lib/prop-calculator/fixtures/mffProLifetimeCapFixture';
 import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
 
 function rapidEodPlan(): Plan {
@@ -400,6 +405,28 @@ describe('compare column basis at --copy-accounts (R1-2 review)', () => {
         expect(describeColumnBasis(5)).toBe(
             'spend, payout and monthly total all 5 copies; eval pass, survive, days, $/funded, bustF and P(no payout) are per account',
         );
+    });
+});
+
+describe("compare's 'payout' cell never prints above the pooled per-user cap on 3 copied MFF Pro accounts (F-110, PT-12m)", () => {
+    const { cap: CAP, plan: mffPro } = mffProLifetimeCapFixture();
+
+    it('prints a payout at or below $100,000 for a winning trader on 3 copies', () => {
+        const out = simulate({ ...WINNING_TRADER, plan: mffPro });
+        expect(out.expectedGrossPayout).toBeLessThanOrEqual(CAP);
+        const cells = compareRowCells(out);
+        expect(cells[5]).toBe(formatCurrency(out.expectedGrossPayout));
+        expect(cells[5]).not.toBe(formatCurrency(CAP + 1));
+    });
+
+    it('leaves a per-account-scope plan unaffected, so this cell is not silently capped for every plan', () => {
+        const perAccountPlan = mffPro.withOverrides({
+            lifetimeDollarCapScope: LifetimeCapScope.PerAccount,
+        });
+        const out = simulate({ ...WINNING_TRADER, plan: perAccountPlan });
+        expect(out.expectedGrossPayout).toBeGreaterThan(CAP);
+        const cells = compareRowCells(out);
+        expect(cells[5]).toBe(formatCurrency(out.expectedGrossPayout));
     });
 });
 

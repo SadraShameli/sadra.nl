@@ -42,6 +42,7 @@ import {
     cohortOutcome,
     ECONOMICS_REASON_TEXT,
     EconomicsReason,
+    empiricalPayingStatsOf,
     evalPace,
     expectancyPerTradeR,
     LossSampleUnit,
@@ -199,11 +200,6 @@ const NO_EVAL_INSTANT_FUNDED = 'n/a (instant funded: no eval)';
 const WALK_LABEL = 'P(pass) and expected trades (random-walk approximation)';
 const EV_PER_ATTEMPT_LABEL =
     'EV per attempt (ignores time; not the ranking objective)';
-
-interface EmpiricalPayingStats {
-    readonly pAttemptPays: Fraction0to1;
-    readonly valuePerPayingAttempt: Dollars;
-}
 
 export function simBankrollRows(
     out: SimOutputs,
@@ -400,21 +396,6 @@ function bankrollAffordabilityRows(
                   ),
         ],
     ];
-}
-
-function empiricalPayingStatsOf(
-    netValues: readonly number[],
-    attemptCost: number,
-): EmpiricalPayingStats {
-    const paying = netValues.filter((value) => value > 0);
-    return {
-        pAttemptPays: fraction(
-            netValues.length === 0 ? 0 : paying.length / netValues.length,
-        ),
-        valuePerPayingAttempt: dollars(
-            paying.length === 0 ? 0 : meanOf(paying) + attemptCost,
-        ),
-    };
 }
 
 function evalPaceRows(

@@ -4,8 +4,11 @@ export {
     DocumentedPolicyDisclosure,
 } from './DocumentedDayRisk';
 export {
+    buildDocumentedDayPolicies,
+    type DocumentedDayPolicies,
     resolveDocumentedPayoutRequestSize,
     resolveDocumentedPlan,
+    resolveDocumentedRetainedCushion,
     toSimInputs,
 } from './documentedPolicySimInputs';
 export {

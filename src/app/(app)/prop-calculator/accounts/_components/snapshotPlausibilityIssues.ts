@@ -42,6 +42,7 @@ export const SNAPSHOT_FORM_FIELDS: Readonly<
     [SnapshotInputField.CycleBestDayProfit]: SnapshotField.CycleBestDayProfit,
     [SnapshotInputField.DashboardConvention]: null,
     [SnapshotInputField.DashboardFloor]: SnapshotField.DashboardFloor,
+    [SnapshotInputField.ElapsedDaysSinceAttemptStart]: null,
     [SnapshotInputField.EvalBestDayProfit]: SnapshotField.EvalBestDayProfit,
     [SnapshotInputField.FirstFundedTradeOn]: null,
     [SnapshotInputField.FloorAtLastPayout]: SnapshotField.FloorAtLastPayout,

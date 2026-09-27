@@ -12,11 +12,18 @@ import {
     INSTRUMENTS,
     InstrumentSymbol,
     isAtOrBelowWithinCentTolerance,
+    ONE_CENT,
     type Plan,
     resolveDailyLossLimit,
     TradingPhase,
 } from '../core';
 import { type CappedAmount, SizingConstraint } from './DocumentedSizing';
+import {
+    NO_PERSONAL_CAPS,
+    type PersonalCaps,
+    personalCapsSchema,
+    positiveDollarsSchema,
+} from './PersonalCaps';
 import { liveFractionSchema } from './Rulebook';
 import { SizingStage } from './SizingStage';
 
@@ -48,32 +55,37 @@ export type PlanPhaseStage = SizingStage.Eval | SizingStage.Funded;
 export type RuleContext = EvalRuleContext | FundedRuleContext | LiveRuleContext;
 
 export interface RuleContextCaps {
+    readonly ceiling?: Dollars | null;
     readonly instrument: InstrumentSymbol | null;
+    readonly personalCaps?: PersonalCaps;
     readonly personalDll: Dollars | null;
+    readonly placeableMinimum?: Dollars;
 }
 
 interface SharedRuleContext {
+    readonly ceiling: Dollars | null;
     readonly contractLimit: ContractCount | null;
     readonly cushion: Dollars;
     readonly dayStartDllRoom: Dollars | null;
     readonly instrument: InstrumentSymbol | null;
+    readonly personalCaps: PersonalCaps;
     readonly personalDll: Dollars | null;
+    readonly placeableMinimum: Dollars;
 }
 
 const nonNegativeDollarsSchema = dollarsSchema.refine((amount) => amount >= 0, {
     message: 'must be zero or more',
 });
 
-const positiveDollarsSchema = dollarsSchema.refine((amount) => amount > 0, {
-    message: 'must be more than zero',
-});
-
 const sharedRuleContextShape = {
+    ceiling: dollarsSchema.nullable(),
     contractLimit: contractCountSchema.nullable(),
     cushion: dollarsSchema,
     dayStartDllRoom: dollarsSchema.nullable(),
     instrument: z.enum(InstrumentSymbol).nullable(),
+    personalCaps: personalCapsSchema,
     personalDll: positiveDollarsSchema.nullable(),
+    placeableMinimum: positiveDollarsSchema,
 };
 
 export const evalRuleContextSchema = z.strictObject({
@@ -149,7 +161,12 @@ export function profitCeiling(context: RuleContext): CappedAmount | null {
         }
         case SizingStage.Funded:
         case SizingStage.Live: {
-            return null;
+            return context.ceiling === null
+                ? null
+                : {
+                      amount: context.ceiling,
+                      constraint: SizingConstraint.CeilingCap,
+                  };
         }
     }
 }
@@ -184,6 +201,7 @@ export function ruleContextAt(
         plan.dailyLossLimitContext(state),
     );
     const shared: SharedRuleContext = {
+        ceiling: caps.ceiling ?? null,
         contractLimit:
             caps.instrument === null
                 ? null
@@ -196,7 +214,9 @@ export function ruleContextAt(
         cushion: dollars(state.balance - state.threshold),
         dayStartDllRoom: dllRoom === null ? null : dollars(dllRoom),
         instrument: caps.instrument,
+        personalCaps: caps.personalCaps ?? NO_PERSONAL_CAPS,
         personalDll: caps.personalDll,
+        placeableMinimum: caps.placeableMinimum ?? ONE_CENT,
     };
     switch (stage) {
         case SizingStage.Eval: {

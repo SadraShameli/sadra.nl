@@ -19,10 +19,13 @@ import { api } from '~/trpc/react';
 
 import { AccountsTable } from '../AccountsTable';
 import { AlertsCenter } from './AlertsCenter';
+import { AttemptEconomicsCard } from './AttemptEconomicsCard';
+import { AttemptThroughputCard } from './AttemptThroughputCard';
 import { CapUsageCard } from './CapUsageCard';
 import { CostCard } from './CostCard';
 import { DiversificationCard } from './DiversificationCard';
 import { FirmReturnsCard } from './FirmReturnsCard';
+import { FundedPayoutsCard } from './FundedPayoutsCard';
 import { FunnelCard } from './FunnelCard';
 import { KpiRow } from './KpiRow';
 import {
@@ -35,6 +38,7 @@ import {
     type PortfolioLoadIssue,
     PortfolioSource,
 } from './overviewModel';
+import { PayoutSizesCard } from './PayoutSizesCard';
 import { RealizedOutcomesCard } from './RealizedOutcomesCard';
 import { RepeatabilityCard } from './RepeatabilityCard';
 import { ReplacementCard } from './ReplacementCard';
@@ -138,11 +142,26 @@ function LedgerSections({ cards }: { readonly cards: OverviewLedgerCards }) {
             <OverviewSection id="outcomes" title="Realized outcomes">
                 <RealizedOutcomesCard model={cards.outcomes} />
             </OverviewSection>
+            <OverviewSection id="payout-sizes" title="Payout sizes">
+                <PayoutSizesCard model={cards.payoutSizes} />
+            </OverviewSection>
+            <OverviewSection id="funded-payouts" title="Payouts per funded account">
+                <FundedPayoutsCard model={cards.fundedPayouts} />
+            </OverviewSection>
+            <OverviewSection id="attempt-economics" title="Your attempt economics">
+                <AttemptEconomicsCard model={cards.attemptEconomics} />
+            </OverviewSection>
             <OverviewSection id="replacement" title="Replacement">
                 <ReplacementCard model={cards.replacement} />
             </OverviewSection>
             <OverviewSection id="statement" title="Monthly statement">
                 <StatementCard model={cards.statement} />
+            </OverviewSection>
+            <OverviewSection
+                id="attempt-throughput"
+                title="Attempt throughput"
+            >
+                <AttemptThroughputCard model={cards.attemptThroughput} />
             </OverviewSection>
             <OverviewSection id="repeatability" title="Repeatability">
                 <RepeatabilityCard model={cards.repeatability} />

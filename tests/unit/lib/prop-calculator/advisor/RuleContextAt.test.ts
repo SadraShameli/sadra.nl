@@ -7,13 +7,17 @@ import {
     FirmId,
     InstrumentSymbol,
     MffuVariant,
+    ONE_CENT,
     type Plan,
     type PlanId,
 } from '~/lib/prop-calculator';
 import {
     evalRuleContextSchema,
     fundedRuleContextSchema,
+    NO_PERSONAL_CAPS,
+    profitCeiling,
     ruleContextAt,
+    SizingConstraint,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
@@ -57,12 +61,15 @@ describe('ruleContextAt (PT-48a, the one shared RuleContext builder)', () => {
         );
 
         expect(context).toEqual({
+            ceiling: null,
             consistencyDailyCap: null,
             contractLimit: null,
             cushion: 2000,
             dayStartDllRoom: 1000,
             instrument: null,
+            personalCaps: NO_PERSONAL_CAPS,
             personalDll: null,
+            placeableMinimum: ONE_CENT,
             remainingProfitToTarget: 3000,
             stage: SizingStage.Eval,
         });
@@ -116,11 +123,14 @@ describe('ruleContextAt (PT-48a, the one shared RuleContext builder)', () => {
         );
 
         expect(context).toEqual({
+            ceiling: null,
             contractLimit: null,
             cushion: 2000,
             dayStartDllRoom: 1000,
             instrument: null,
+            personalCaps: NO_PERSONAL_CAPS,
             personalDll: null,
+            placeableMinimum: ONE_CENT,
             stage: SizingStage.Funded,
         });
         expect(fundedRuleContextSchema.parse(context)).toEqual(context);
@@ -156,6 +166,45 @@ describe('ruleContextAt (PT-48a, the one shared RuleContext builder)', () => {
         expect(context.personalDll).toBe(600);
     });
 
+    it('defaults the new PT-19 step-2 fields to null, no caps and one cent (nothing moves when none is set)', () => {
+        const context = ruleContextAt(
+            apexEod,
+            SizingStage.Funded,
+            (() => {
+                const state = apexEod.initialState();
+                apexEod.beginFundedPhase(state);
+                return state;
+            })(),
+            NO_CAPS,
+        );
+
+        expect(context.ceiling).toBeNull();
+        expect(context.personalCaps).toEqual(NO_PERSONAL_CAPS);
+        expect(context.placeableMinimum).toBe(ONE_CENT);
+    });
+
+    it('threads a funded ceiling, personal caps and a placeable minimum through', () => {
+        const state = apexEod.initialState();
+        apexEod.beginFundedPhase(state);
+        const personalCaps = {
+            dailyProfitCap: dollars(400),
+            maxRiskPerTrade: dollars(150),
+            maxTradesPerDay: 2,
+        };
+        const context = ruleContextAt(apexEod, SizingStage.Funded, state, {
+            ceiling: dollars(900),
+            instrument: null,
+            personalCaps,
+            personalDll: null,
+            placeableMinimum: dollars(5),
+        });
+
+        expect(context.ceiling).toBe(900);
+        expect(context.personalCaps).toEqual(personalCaps);
+        expect(context.placeableMinimum).toBe(5);
+        expect(fundedRuleContextSchema.parse(context)).toEqual(context);
+    });
+
     it('goes negative on remaining profit once the eval profit is past the target', () => {
         const state = stateAt(apexEod, 53_500, 51_500);
         const context = ruleContextAt(
@@ -167,5 +216,59 @@ describe('ruleContextAt (PT-48a, the one shared RuleContext builder)', () => {
 
         expect(context.remainingProfitToTarget).toBe(-500);
         expect(evalRuleContextSchema.parse(context)).toEqual(context);
+    });
+});
+
+describe('profitCeiling on Funded and Live (F-154, PT-19 step 2)', () => {
+    it('returns null for Funded and Live when no ceiling is set (nothing moves)', () => {
+        const funded = ruleContextAt(
+            apexEod,
+            SizingStage.Funded,
+            (() => {
+                const state = apexEod.initialState();
+                apexEod.beginFundedPhase(state);
+                return state;
+            })(),
+            NO_CAPS,
+        );
+
+        expect(profitCeiling(funded)).toBeNull();
+    });
+
+    it('reports the funded ceiling as a CeilingCap-tagged CappedAmount', () => {
+        const state = apexEod.initialState();
+        apexEod.beginFundedPhase(state);
+        const funded = ruleContextAt(apexEod, SizingStage.Funded, state, {
+            ceiling: dollars(700),
+            instrument: null,
+            personalDll: null,
+        });
+
+        expect(profitCeiling(funded)).toEqual({
+            amount: 700,
+            constraint: SizingConstraint.CeilingCap,
+        });
+    });
+
+    it('reports the live ceiling as a CeilingCap-tagged CappedAmount', () => {
+        const live = {
+            ceiling: dollars(300),
+            contractLimit: null,
+            cushion: dollars(4000),
+            dayStartDllRoom: null,
+            instrument: null,
+            liveCushionPercent: null,
+            personalCaps: NO_PERSONAL_CAPS,
+            personalDll: null,
+            placeableMinimum: ONE_CENT,
+            stage: SizingStage.Live as const,
+            thresholdLocked: false,
+        };
+
+        expect(profitCeiling(live)).toEqual({
+            amount: 300,
+            constraint: SizingConstraint.CeilingCap,
+        });
+        expect(profitCeiling({ ...live, ceiling: null })).toBeNull();
     });
 });

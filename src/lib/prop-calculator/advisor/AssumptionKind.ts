@@ -14,6 +14,8 @@ export enum AssumptionKind {
     NoHolidayCalendar = 'no-holiday-calendar',
     PeakOrderAssumed = 'peak-order-assumed',
     PendingPayoutDeducted = 'pending-payout-deducted',
+    PercentCandidatesLeftOut = 'percent-candidates-left-out',
+    PositionSizingUnspecified = 'position-sizing-unspecified',
     RebuyLagAssumed = 'rebuy-lag-assumed',
     SizingRule = 'sizing-rule',
     TopStepLfaProgressDefaulted = 'topstep-lfa-progress-defaulted',

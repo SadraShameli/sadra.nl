@@ -4,6 +4,7 @@ import {
     type AccountAlert,
     AlertEvaluator,
     AlertKind,
+    alertKindLabel,
     AlertRule,
     AlertSeverity,
     alertSeverityRank,
@@ -61,19 +62,34 @@ function alertOf(
 }
 
 const DEFAULT_KINDS = [
+    AlertKind.ConsistencyNearBreach,
+    AlertKind.DashboardFloorMismatch,
     AlertKind.EvalDayCapNear,
+    AlertKind.IdleSessionLimit,
     AlertKind.InvalidStoredDate,
     AlertKind.LifetimeDollarCapNear,
     AlertKind.LifetimePayoutCountNear,
     AlertKind.MixedStageCopyGroup,
+    AlertKind.NearFloor,
     AlertKind.PayoutCountMismatch,
     AlertKind.PayoutDollarMismatch,
+    AlertKind.PayoutEligible,
+    AlertKind.PayoutReadyWithdrawableDrop,
     AlertKind.PlanRulesChanged,
     AlertKind.StaleSnapshot,
     AlertKind.SubscriptionRenewalDue,
+    AlertKind.TierChange,
     AlertKind.UnresolvablePlan,
     AlertKind.WeeklyReviewDue,
 ];
+
+describe('alertKindLabel', () => {
+    it('labels a tier change as a DLL or contract tier change, not just a payout tier', () => {
+        expect(alertKindLabel(AlertKind.TierChange)).toBe(
+            'DLL or contract tier change',
+        );
+    });
+});
 
 describe('alertSeverityRank', () => {
     it('ranks critical before warning before info', () => {

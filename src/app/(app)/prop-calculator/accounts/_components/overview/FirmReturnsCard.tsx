@@ -14,6 +14,7 @@ import { NOT_APPLICABLE } from '~/lib/format';
 import { compareText } from '~/lib/prop-accounts';
 
 import { type FirmReturnsCardModel } from './overviewModel';
+import { SampleBadge } from './SampleBadge';
 
 type FirmReturnRow = FirmReturnsCardModel['rows'][number];
 
@@ -132,10 +133,16 @@ export function FirmReturnsCard({
                             {row.multiple}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                            {row.attempts}
+                            <span className="inline-flex items-center gap-1.5">
+                                {row.attempts}
+                                <SampleBadge level={row.attemptsSampleLevel} />
+                            </span>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                            {row.fundedAccounts}
+                            <span className="inline-flex items-center gap-1.5">
+                                {row.fundedAccounts}
+                                <SampleBadge level={row.fundedSampleLevel} />
+                            </span>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                             {row.accountsWithPayout}

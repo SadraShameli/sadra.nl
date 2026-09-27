@@ -117,6 +117,7 @@ export interface PlanInit {
     consistency: ConsistencyRule | null;
     contractLimits?: ContractLimits;
     drawdown: DrawdownStrategy;
+    evalAccessWindowDays?: null | number;
     evalDailyLossLimit: DailyLossLimitConfig;
     evalDailyLossLimitBreach?: DailyLossLimitBreachEffect;
     evalMaxConsecutiveIdleDays?: null | number;
@@ -188,6 +189,8 @@ export abstract class Plan {
     readonly contractLimits: ContractLimits | null;
 
     readonly drawdown: DrawdownStrategy;
+
+    readonly evalAccessWindowDays: null | number;
 
     readonly evalDailyLossLimit: DailyLossLimitConfig;
 
@@ -326,6 +329,18 @@ export abstract class Plan {
         }
 
         this.drawdown = init.drawdown;
+        this.evalAccessWindowDays = init.evalAccessWindowDays ?? null;
+
+        if (
+            this.evalAccessWindowDays !== null &&
+            (!Number.isSafeInteger(this.evalAccessWindowDays) ||
+                this.evalAccessWindowDays <= 0)
+        ) {
+            throw new Error(
+                `${init.label}: evalAccessWindowDays must be a positive integer or omitted, got ${this.evalAccessWindowDays}`,
+            );
+        }
+
         this.evalDailyLossLimit = init.evalDailyLossLimit;
         this.evalDailyLossLimitBreach =
             init.evalDailyLossLimitBreach ?? DailyLossLimitBreachEffect.Lockout;

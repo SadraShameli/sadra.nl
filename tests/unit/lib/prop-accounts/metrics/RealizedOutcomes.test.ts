@@ -73,7 +73,7 @@ describe('realizedOutcomes', () => {
         );
         const se = meanStandardError(14, 100, 2);
         expect(plan?.sessionsToFunded).toEqual({
-            interval: meanInterval(7, se),
+            interval: meanInterval(7, se, 2),
             n: 2,
             standardError: se,
             value: 7,

@@ -5,10 +5,16 @@ export const kpiDescriptions = {
         "Mean trading days needed to reach the target across passing trials. Doesn't include eval failures.",
     breakEven:
         "Funded-account profit needed to recoup all eval/activation/reset spending. Below this you're net negative.",
+    breakevenPassRate:
+        'Attempt cost divided by funded value: the pass rate at which an attempt breaks even. Below it EV per attempt is negative, above it positive.',
+    bustBeforePassing:
+        'Probability of busting the drawdown rule before hitting the profit target. Same number as bust% but framed as the risk you take on.',
     daysToPass:
         'Distribution of trading days needed to hit the profit target across passing trials. Tighter = consistent timing, wider = some trials grind for many days.',
     evalPass:
         'Share of simulated trials that reached the profit target and passed the evaluation without busting the drawdown or daily-loss limit or running out of allowed eval days, whether or not the funded account later busted.',
+    evPerAttempt:
+        'Expected value of one attempt: pass probability × funded value over the funded horizon, minus attempt cost (all fees per attempt, activation on pass included). Credit-free net per trial divided by attempts per trial. Ignores how long an attempt takes, so it is not the ranking objective; expected monthly net is.',
     expectancy:
         'Expected profit per trade. Positive = your system has a statistical edge. = winrate × avgWin − lossRate × avgLoss.',
     expectedAttempts:
@@ -26,12 +32,16 @@ export const kpiDescriptions = {
     maxLosingStreak:
         "Longest run of consecutive losing trades observed in simulations. P95 = worst-case streak you'll see in 1 of 20 evaluation attempts.",
     monthlyNet: `Expected $ profit per month after all fees, averaged across every trial, whether it passed, busted or timed out, plus a horizon credit: one more payout request for each account still open at the funded horizon end, net of the split and the payout method fee, and capped like a real request by the payout ladder step, request size, profit share and request caps, and by the plan's payout profit pool (the profit made since funding, a funded reset or the last payout, or the whole account profit on plans that pay from account profit) only on plans with no payout ladder and no profit share. The credit is $0 when those caps leave nothing to request (for example an emptied payout profit pool, or, on a plan whose ladder denies an unaffordable step, a step above what the account could withdraw: its withdrawable balance, or its profit share if lower), once a lifetime payout cap is reached or once the payout ladder is exhausted; the payout day, qualifying-day, consistency, minimum profit and minimum request gates are not applied to the credit, since continued trading would clear them. = (avg net + avg horizon credit) per account × ${TRADING_DAYS_PER_MONTH} ÷ avg trial duration in trading days, from the first eval day to the trial's end, times the number of copy-traded accounts when the form sets more than one.`,
+    payoutProbabilityGivenFunded:
+        'Share of funded accounts in the run that receive at least one payout, conditional on having reached funded. Differs from funded survive: an account can survive the funded horizon without ever qualifying for a payout.',
+    payoutsPerFundedAccount:
+        'Mean number of payouts per funded account over the funded horizon, counting accounts that never paid as zero. Divided by P(payout | funded) gives payouts per paid funded account: how many times a paying account gets paid.',
     profitFactor:
         'Total winnings divided by total losses across all trades. > 1.5 is healthy, < 1.0 is losing money.',
+    rewardToRisk:
+        'Reward-to-risk ratio per trade: the dollars won on an average winning trade divided by the dollars lost on an average losing trade. Alongside win rate, sets expectancy per trade in R-multiples.',
     risk5Losses:
         'Share of trials where your strategy produced at least one streak of 5 losing trades in a row. High % means streaks will happen, so make sure your account size can survive them.',
-    riskOfRuin:
-        'Probability of busting the drawdown rule before hitting the profit target. Same number as bust% but framed as the risk you take on.',
     roiOnCost:
         'Net profit divided by total fees paid, expressed as a percentage. = (avg net ÷ avg total cost) × 100. The dollar return on your fee outlay. Shows n/a when the total cost is $0, since a return on no outlay has no ratio.',
     totalCost:
@@ -56,13 +66,13 @@ export const panelDescriptions = {
     'final-balance-hist':
         'Distribution of final account balances across all trials. A bimodal shape (two humps) means many trials either bust or pass cleanly. Reference lines show starting balance and target.',
     firmComparison:
-        'Runs the simulator across all firms at the closest plan size to your current selection, using your current trading inputs. Sorted by monthly net. Active firm highlighted; ★ rating relative to best.',
+        'Runs the simulator across all firms at the closest plan size to your current selection, using your current trading inputs. Sorted by monthly net. Active firm highlighted; ★ rating relative to best. P(no payout) = share of trials that reached funded and took no payout within the funded horizon.',
     optimalRiskSweep:
         'Runs the simulator at 10 different risk-per-trade levels (0.25% to 5%) holding all your other inputs constant. The current risk row is highlighted, and the row with the best monthly net is marked with a star.',
     'pass-rate':
         'Cumulative share of trials that have hit the profit target by each day. Steepens early when most passes happen quickly; flattens late when the eval is dragging on. The asymptote = total eval pass probability.',
     planComparison:
-        'Compares every plan offered by the selected firm at your current trading inputs. PT:DD is the profit-target-to-drawdown ratio: a lower value means you need less profit relative to your downside risk to pass the evaluation. Green ≤ 1.0×, amber 1.5–2.0×, red > 2.0×. Exp. spend is the total expected outlay across all eval attempts (including resets) until you get funded. Use the table to find the account size with the most favourable challenge structure for your edge.',
+        'Compares every plan offered by the selected firm at your current trading inputs. PT:DD is the profit-target-to-drawdown ratio: a lower value means you need less profit relative to your downside risk to pass the evaluation. Green ≤ 1.0×, amber 1.5–2.0×, red > 2.0×. Exp. spend is the total expected outlay across all eval attempts (including resets) until you get funded. P(no payout) = share of trials that reached funded and took no payout within the funded horizon. Use the table to find the account size with the most favourable challenge structure for your edge.',
     portfolio:
         "Build a basket of accounts across any mix of firms and plans. Each row simulates your current trading inputs against that firm's rules. Combined totals show your aggregate expected monthly income, total eval spend, and portfolio ROI: the same view as copy-trading but across different firms.",
     resilience:

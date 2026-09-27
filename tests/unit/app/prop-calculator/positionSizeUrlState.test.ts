@@ -13,8 +13,10 @@ import {
     encodePositionSize,
     parsePositionSizeInstrument,
     parsePositionSizePhase,
+    parsePositionSizeRetryFee,
     parsePositionSizeRisk,
     parsePositionSizeStop,
+    parsePositionSizeUnit,
     PositionSizeUrlParameter,
 } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
@@ -32,6 +34,7 @@ import {
     serializePlanId,
     TradingPhase,
 } from '~/lib/prop-calculator';
+import { RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 import { CalculatorUrlParameter } from '~/lib/schemas/calculatorUrlParameter';
 import { calculatorScalarFieldsSchema } from '~/lib/schemas/url';
 
@@ -88,9 +91,11 @@ function tieredState(): PositionSizeInput {
         instrument: InstrumentSymbol.MNQ,
         phase: TradingPhase.Funded,
         plan: TIERED_PLAN,
+        retryFee: dollars(TIERED_PLAN.retryFee()),
         risk: dollars(333.5),
         stopPoints: points(12.25),
         tierProfit: second,
+        unit: RiskDisplayUnit.FeeEquivalent,
     };
 }
 
@@ -264,6 +269,55 @@ describe('decodePositionSize drops each invalid value on its own', () => {
         const query = new URLSearchParams(encodePositionSize(base));
         expect(decodePositionSize(query, []).plan).toBe(defaults.plan);
     });
+
+    it.each(['abc', '-5', 'Infinity', 'NaN', '', '1e400'])(
+        'drops the retry fee %j',
+        (raw) => {
+            expect(
+                decodedWith(base, PositionSizeUrlParameter.RetryFee, raw),
+            ).toEqual({ ...base, retryFee: defaults.retryFee });
+        },
+    );
+
+    it('accepts a retry fee of exactly $0', () => {
+        expect(
+            decodedWith(base, PositionSizeUrlParameter.RetryFee, '0').retryFee,
+        ).toBe(0);
+    });
+
+    it.each(['bogus', ''])('drops the unit %j', (raw) => {
+        expect(
+            decodedWith(base, PositionSizeUrlParameter.Unit, raw),
+        ).toEqual({ ...base, unit: defaults.unit });
+    });
+});
+
+describe('the retry fee and the display unit (F-V16)', () => {
+    it('round-trips a custom retry fee and unit', () => {
+        const state = {
+            ...tieredState(),
+            retryFee: dollars(777),
+            unit: RiskDisplayUnit.EvAtStake,
+        };
+        expect(roundTrip(state)).toEqual(state);
+    });
+
+    it('prefills the retry fee from the resolved plan when the URL carries no retry fee (old links decode unchanged)', () => {
+        const parameters = new URLSearchParams(
+            encodePositionSize(tieredState()),
+        );
+        parameters.delete(PositionSizeUrlParameter.RetryFee);
+        parameters.delete(PositionSizeUrlParameter.Unit);
+        const decoded = decodePositionSize(parameters);
+        expect(decoded.retryFee).toBe(TIERED_PLAN.retryFee());
+        expect(decoded.unit).toBe(RiskDisplayUnit.AccountDollars);
+    });
+
+    it('prefills the retry fee from the default plan when neither the plan nor the retry fee is given', () => {
+        const decoded = decodePositionSize(new URLSearchParams());
+        expect(decoded.retryFee).toBe(defaultPositionSize().plan.retryFee());
+        expect(decoded.unit).toBe(RiskDisplayUnit.AccountDollars);
+    });
 });
 
 describe('the position-size query keys (PD-8 a)', () => {
@@ -324,6 +378,27 @@ describe('position-size codec units', () => {
         expectTypeOf(
             parsePositionSizeStop,
         ).returns.toEqualTypeOf<null | Points>();
+        expectTypeOf(
+            parsePositionSizeRetryFee,
+        ).returns.toEqualTypeOf<Dollars | null>();
+    });
+});
+
+describe('parsePositionSizeRetryFee and parsePositionSizeUnit (the form fields)', () => {
+    it('accepts $0 or more and gives null otherwise', () => {
+        expect(parsePositionSizeRetryFee('590')).toBe(590);
+        expect(parsePositionSizeRetryFee('0')).toBe(0);
+        for (const raw of ['', 'abc', '-1', 'Infinity', 'NaN']) {
+            expect(parsePositionSizeRetryFee(raw)).toBeNull();
+        }
+    });
+
+    it('accepts every RiskDisplayUnit member and gives null otherwise', () => {
+        for (const unit of Object.values(RiskDisplayUnit)) {
+            expect(parsePositionSizeUnit(unit)).toBe(unit);
+        }
+        expect(parsePositionSizeUnit('bogus')).toBeNull();
+        expect(parsePositionSizeUnit('')).toBeNull();
     });
 });
 

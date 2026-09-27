@@ -14,6 +14,7 @@ import {
     type TradingFirm,
     TradingPhase,
 } from '~/lib/prop-calculator';
+import { RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 
 import {
@@ -26,9 +27,11 @@ export enum PositionSizeUrlParameter {
     Instrument = 'psi',
     Phase = 'psph',
     Plan = 'psp',
+    RetryFee = 'psf',
     Risk = 'psr',
     Stop = 'pss',
     Tier = 'pst',
+    Unit = 'psu',
 }
 
 const DEFAULT_RISK = dollars(450);
@@ -41,6 +44,12 @@ const riskSchema = finiteNumberSchema
     .pipe(z.number().max(MAX_RISK))
     .transform(floorToWholeCents)
     .pipe(z.number().positive())
+    .transform(dollars);
+
+const retryFeeSchema = finiteNumberSchema
+    .pipe(z.number().max(MAX_RISK))
+    .transform(floorToWholeCents)
+    .pipe(z.number().nonnegative())
     .transform(dollars);
 
 const stopSchema = finiteNumberSchema
@@ -56,6 +65,7 @@ const tierProfitSchema = finiteNumberSchema.transform(dollars);
 
 const instrumentSchema = z.enum(InstrumentSymbol);
 const phaseSchema = z.enum(TradingPhase);
+const riskUnitSchema = z.enum(RiskDisplayUnit);
 
 export function decodePositionSize(
     parameters: URLSearchParams,
@@ -65,6 +75,8 @@ export function decodePositionSize(
     const plan =
         planOf(parameters.get(PositionSizeUrlParameter.Plan), firms) ??
         fallback.plan;
+    const retryFeeFallback =
+        plan === fallback.plan ? fallback.retryFee : dollars(plan.retryFee());
     return normalizePositionSizeInput({
         instrument: parsed(
             instrumentSchema,
@@ -77,6 +89,11 @@ export function decodePositionSize(
             firstPhase(plan),
         ),
         plan,
+        retryFee: parsed(
+            retryFeeSchema,
+            parameters.get(PositionSizeUrlParameter.RetryFee),
+            retryFeeFallback,
+        ),
         risk: parsed(
             riskSchema,
             parameters.get(PositionSizeUrlParameter.Risk),
@@ -92,6 +109,11 @@ export function decodePositionSize(
             parameters.get(PositionSizeUrlParameter.Tier),
             null,
         ),
+        unit: parsed(
+            riskUnitSchema,
+            parameters.get(PositionSizeUrlParameter.Unit),
+            fallback.unit,
+        ),
     });
 }
 
@@ -101,9 +123,11 @@ export function defaultPositionSize(): PositionSizeInput {
         instrument: InstrumentSymbol.NQ,
         phase: firstPhase(plan),
         plan,
+        retryFee: dollars(plan.retryFee()),
         risk: DEFAULT_RISK,
         stopPoints: DEFAULT_STOP_POINTS,
         tierProfit: null,
+        unit: RiskDisplayUnit.AccountDollars,
     };
 }
 
@@ -120,6 +144,11 @@ export function encodePositionSize(
         serializePlanId(state.plan.id),
     );
     parameters.set(PositionSizeUrlParameter.Phase, state.phase);
+    parameters.set(
+        PositionSizeUrlParameter.RetryFee,
+        String(state.retryFee),
+    );
+    parameters.set(PositionSizeUrlParameter.Unit, state.unit);
     if (state.tierProfit !== null) {
         parameters.set(PositionSizeUrlParameter.Tier, String(state.tierProfit));
     }
@@ -137,12 +166,20 @@ export function parsePositionSizePhase(raw: string): null | TradingPhase {
     return parsed(phaseSchema, raw, null);
 }
 
+export function parsePositionSizeRetryFee(raw: string): Dollars | null {
+    return parsed(retryFeeSchema, raw, null);
+}
+
 export function parsePositionSizeRisk(raw: string): Dollars | null {
     return parsed(riskSchema, raw, null);
 }
 
 export function parsePositionSizeStop(raw: string): null | Points {
     return parsed(stopSchema, raw, null);
+}
+
+export function parsePositionSizeUnit(raw: string): null | RiskDisplayUnit {
+    return parsed(riskUnitSchema, raw, null);
 }
 
 function firstPhase(plan: Plan): TradingPhase {

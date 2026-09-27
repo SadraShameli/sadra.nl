@@ -327,24 +327,15 @@ export function toBankrollTimelineInputs(
             'prop bankroll does not support --ladder: it prices flat eval risk only. Omit --ladder or price the ladder with prop sim instead.',
         );
     }
-    if (
-        (inputs.fundedRiskPerTrade !== undefined &&
-            inputs.fundedRiskPerTrade !== inputs.riskPerTrade) ||
-        (inputs.fundedRrRatio !== undefined &&
-            inputs.fundedRrRatio !== inputs.rrRatio) ||
-        (inputs.fundedTradesPerDay !== undefined &&
-            inputs.fundedTradesPerDay !== inputs.tradesPerDay)
-    ) {
-        throw new Error(
-            'prop bankroll does not support --funded-risk, --funded-rr or --funded-tpd different from the eval-phase value: it prices the same flat risk for both phases. Omit them or price the difference with prop sim instead.',
-        );
-    }
     return {
         bankroll,
         commissionPerRoundTrip: inputs.commissionPerRoundTrip,
         dayBudget: horizonDays,
         dayStop: inputs.dayStop,
         discounts: inputs.toCouponDiscounts(),
+        fundedRiskPerTrade: inputs.fundedRiskPerTrade,
+        fundedRrRatio: inputs.fundedRrRatio,
+        fundedTradesPerDay: inputs.fundedTradesPerDay,
         idleDayProbability: inputs.idleDayProbability,
         instrument: inputs.instrument,
         maxEvalDays: inputs.maxEvalDays,

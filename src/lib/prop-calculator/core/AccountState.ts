@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export interface AccountState {
     balance: number;
     bestDayProfit: number;
@@ -15,6 +17,24 @@ export interface AccountState {
     todayPnL: number;
     tradingDays: number;
 }
+
+export const accountStateSchema = z.looseObject({
+    balance: z.number().nonnegative(),
+    bestDayProfit: z.number(),
+    calendarWeekSessionsElapsed: z.number().optional(),
+    calendarWeekSessionsTraded: z.number().optional(),
+    consecutiveIdleDays: z.number(),
+    elapsedDays: z.number().optional(),
+    intradayHighProfit: z.number(),
+    peakDayCloseProfit: z.number(),
+    peakIntradayProfit: z.number(),
+    qualifyingDays: z.number(),
+    startingBalance: z.number(),
+    threshold: z.number(),
+    thresholdLocked: z.boolean(),
+    todayPnL: z.number(),
+    tradingDays: z.number(),
+}) satisfies z.ZodType<AccountState>;
 
 export function createInitialState(
     startingBalance: number,

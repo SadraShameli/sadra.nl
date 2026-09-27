@@ -8,7 +8,6 @@ import {
     INSTRUMENTS,
     isAtOrBelowWithinCentTolerance,
     minStopPoints,
-    ONE_CENT,
     points,
     type Points,
     shouldStopDay,
@@ -31,6 +30,7 @@ import {
     type DayProgress,
     dayProgressSchema,
     type RuleContext,
+    tighterOf,
 } from './RuleContext';
 import { assertSizingInvariant, assertTradeInvariant } from './SizingInvariant';
 
@@ -231,18 +231,26 @@ export function resolveNextTrade(
     day: DayProgress,
     planned: null | PlannedRisk,
 ): NextTrade {
-    if (day.wins + day.losses >= terms.maxTrades) {
+    const maxTrades =
+        context.personalCaps.maxTradesPerDay === null
+            ? terms.maxTrades
+            : Math.min(terms.maxTrades, context.personalCaps.maxTradesPerDay);
+    if (day.wins + day.losses >= maxTrades) {
         return stopFor(DayStopReason.MaxTrades, []);
     }
     if (shouldStopDay(terms.stopRule, day.wins > 0, day.losses, day.dayPnL)) {
         return stopFor(DayStopReason.StopRule, []);
     }
-    const ceiling = terms.profitCeiling;
+    const ceiling = tighterOf(
+        terms.profitCeiling,
+        context.personalCaps.dailyProfitCap,
+        SizingConstraint.PersonalCap,
+    );
     const ceilingRoom =
         ceiling === null
             ? Infinity
             : (ceiling.amount - day.dayPnL) / terms.rewardMultiple;
-    if (ceiling !== null && ceilingRoom < ONE_CENT) {
+    if (ceiling !== null && ceilingRoom < context.placeableMinimum) {
         return stopFor(DayStopReason.CeilingReached, [ceiling.constraint]);
     }
     const runningLoss: number = day.runningLoss;
@@ -253,6 +261,12 @@ export function resolveNextTrade(
         cappedBy.add(constraint);
         risk = Math.max(0, limit);
     };
+    if (context.personalCaps.maxRiskPerTrade !== null) {
+        capAt(
+            context.personalCaps.maxRiskPerTrade,
+            SizingConstraint.PersonalCap,
+        );
+    }
     capAt(context.cushion - runningLoss, SizingConstraint.CushionCap);
     const room = dailyLossRoom(context);
     if (room !== null) {
@@ -268,7 +282,7 @@ export function resolveNextTrade(
     }
     if (ceiling !== null) capAt(ceilingRoom, ceiling.constraint);
     const placed = floorToWholeCents(risk);
-    if (placed < ONE_CENT) {
+    if (placed < context.placeableMinimum) {
         return stopFor(DayStopReason.NoLossRoom, [...cappedBy]);
     }
     if (planned === null) return stopFor(DayStopReason.LadderExhausted, []);

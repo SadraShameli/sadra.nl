@@ -13,13 +13,16 @@ import {
     NOT_APPLICABLE,
 } from '~/lib/format';
 import {
+    dollars,
     resolveCopyAccounts,
     type SimInputs,
     type SimOutputs,
 } from '~/lib/prop-calculator';
+import { requiredR } from '~/lib/prop-calculator/economics';
 import { standardDeviation } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
+import { attemptEconomicsCardModel } from './economics/attemptEconomicsModel';
 import {
     averageTradeSize,
     type KellyIndex,
@@ -72,6 +75,23 @@ export default function StrategyAnalysis({
             zScore,
         };
     }, [winrate, rrRatio, result.tradesPerSuccessfulAttempt]);
+
+    const edgeLeverage = useMemo(() => {
+        const model = attemptEconomicsCardModel(result, fundedHorizonDays);
+        return model.economics === null || model.economics.attemptCost <= 0
+            ? null
+            : model.economics.expectedNetPerAttempt.value /
+                  model.economics.attemptCost;
+    }, [result, fundedHorizonDays]);
+
+    const netRToPass = useMemo(() => {
+        if (plan.isInstantFunded) return null;
+        const required = requiredR(
+            dollars(result.profitTarget),
+            dollars(baseInputs.riskPerTrade),
+        );
+        return required.value;
+    }, [plan.isInstantFunded, result.profitTarget, baseInputs.riskPerTrade]);
 
     const ratios = useMemo(() => {
         const {
@@ -443,6 +463,35 @@ export default function StrategyAnalysis({
                                     edge.edgeMargin > 0
                                         ? 'text-emerald-400'
                                         : 'text-rose-400'
+                                }
+                            />
+                            <Metric
+                                label="Edge leverage"
+                                sub="EV per attempt / attempt cost"
+                                value={
+                                    edgeLeverage === null
+                                        ? NOT_APPLICABLE
+                                        : `${edgeLeverage.toFixed(2)}×`
+                                }
+                                valueClass={
+                                    edgeLeverage === null
+                                        ? 'text-muted-foreground'
+                                        : edgeLeverage > 0
+                                          ? 'text-emerald-400'
+                                          : 'text-rose-400'
+                                }
+                            />
+                            <Metric
+                                label="Net R to pass"
+                                value={
+                                    netRToPass === null
+                                        ? NOT_APPLICABLE
+                                        : `${netRToPass.toFixed(1)}R`
+                                }
+                                valueClass={
+                                    netRToPass === null
+                                        ? 'text-muted-foreground'
+                                        : undefined
                                 }
                             />
                         </div>

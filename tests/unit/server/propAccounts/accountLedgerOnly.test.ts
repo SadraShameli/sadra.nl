@@ -427,6 +427,51 @@ describe('propAccounts.account with ledger-only accounts', () => {
         expect(firmReads).toHaveLength(1);
     });
 
+    it('refuses account.importMany rows at two distinct external firms when only one is owned, in one query naming exactly those ids and the user id', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            ledgerOnlyResponder(ledgerOnlyRow(), {
+                [VIDEO_TABLES.externalFirm]: [
+                    externalFirmRow({ id: EXTERNAL_FIRM_ID }),
+                ],
+            }),
+        );
+        const rows = [
+            ledgerOnlyInput({
+                externalFirmId: EXTERNAL_FIRM_ID,
+                firmId: null,
+                label: 'Ledger one',
+            }),
+            ledgerOnlyInput({
+                externalFirmId: SECOND_EXTERNAL_FIRM_ID,
+                firmId: null,
+                label: 'Ledger two',
+            }),
+        ];
+        const shape = errorShapeOf(
+            await rejectionOf(caller.account.importMany(rows)),
+        );
+        expect(shape.data.code).toBe('NOT_FOUND');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ReferenceNotOwned),
+        );
+        const firmReads = queries.filter(
+            (query) => readTable(query) === VIDEO_TABLES.externalFirm,
+        );
+        expect(firmReads).toHaveLength(1);
+        const [firmRead] = firmReads;
+        expect(firmRead?.text).toContain(' in (');
+        assertUserScopedWhere(defined(firmRead), USER_ID);
+        expect(firmRead?.params).toEqual(
+            expect.arrayContaining([
+                EXTERNAL_FIRM_ID,
+                SECOND_EXTERNAL_FIRM_ID,
+                USER_ID,
+            ]),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
     it.each([
         {
             call: (caller: RouterCaller) =>

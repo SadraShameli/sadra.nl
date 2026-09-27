@@ -38,7 +38,7 @@ const TOY_GRID = {
 const COARSE_BEST_DAY_STEP = 200;
 const TOY_LOCKED_CUSHION_STEPS = 12;
 const TOY_CUSHION_STEP = 50;
-const BUILDER_COARSE_FIXED_POINT = 11_614.285006093134;
+const BUILDER_COARSE_FIXED_POINT = 12_040.484358923788;
 
 function consistencyToyPlan(maxBestDayShare: number): Plan {
     const base = new MyFundedFutures().findPlan({
@@ -221,7 +221,7 @@ describe('computeFundedStateValue with a funded consistency rule agrees with a r
 });
 
 describe('computeFundedStateValue pins a real plan with a funded consistency rule (N-65 review)', () => {
-    it('values MFF Builder 50K (50 percent best-day rule) at the coarse probe grid at $11,614.25 over 226,800 states, within its stated error bound of the fixed point $11,614.29 the solver reaches at tolerance 0.0001. Re-pinned for T32: the end-of-horizon credit is one request under the payout ladder step, not the whole balance above the floor; with only the pre-T32 credit restored the same run reproduces the WP17e pin $14,039.06 and fixed point $14,039.08 exactly, so the credit is the only move', async () => {
+    it('values MFF Builder 50K (50 percent best-day rule) at the coarse probe grid at $11,614.25 over 226,800 states, within its stated error bound of the fixed point $11,614.29 the solver reaches at tolerance 0.0001. Re-pinned for T32: the end-of-horizon credit is one request under the payout ladder step, not the whole balance above the floor; with only the pre-T32 credit restored the same run reproduces the WP17e pin $14,039.06 and fixed point $14,039.08 exactly, so the credit is the only move. Re-pinned again for N-86 (WP54, continuationKey interpolates the day-close cushion): $11,614.25 moved to $12,040.46 and its tolerance-0.0001 fixed point moved from $11,614.29 to $12,040.48 (reachedStateCount and unconvergedLevelCount unchanged), an upward move consistent with the fix removing a downward floor-rounding bias at Builder’s drawdown lock', async () => {
         const plan = await registryMffBuilder50k();
         const result = computeFundedStateValue({
             actionStepMultiple: 0.25,
@@ -238,7 +238,7 @@ describe('computeFundedStateValue pins a real plan with a funded consistency rul
         });
         expect(result.unconvergedLevelCount).toBe(0);
         expect(result.reachedStateCount).toBe(226_800);
-        expect(result.initialValue).toBeCloseTo(11_614.254872499707, 6);
+        expect(result.initialValue).toBeCloseTo(12_040.458422262556, 6);
         expect(
             Math.abs(result.initialValue - BUILDER_COARSE_FIXED_POINT),
         ).toBeLessThanOrEqual(result.valueErrorBound);

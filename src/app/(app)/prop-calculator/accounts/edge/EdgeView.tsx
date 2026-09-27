@@ -4,6 +4,9 @@ import { NotebookPen, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
+import { SampleBadge } from '~/app/(app)/prop-calculator/accounts/_components/overview/SampleBadge';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge, type BadgeProperties } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -22,6 +25,8 @@ import { formatPercent, formatR } from '~/lib/format';
 import {
     MAX_ACCOUNT_DATE_YEAR,
     MIN_ACCOUNT_DATE_YEAR,
+    sampleAdequacy,
+    SampleKind,
 } from '~/lib/prop-accounts';
 import {
     checkEdgeRange,
@@ -32,8 +37,13 @@ import {
     MAX_EDGE_TRADES,
     MIN_EXPECTED_WINS_AND_LOSSES,
 } from '~/lib/prop-accounts/edge';
+import {
+    DEFAULT_RULEBOOK,
+    type SampleThresholds,
+} from '~/lib/prop-calculator/advisor';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
+
 
 type EdgeReport = RouterOutputs['propAccounts']['edge']['summary'];
 
@@ -64,6 +74,9 @@ export function EdgeView() {
     const summaryQuery = api.propAccounts.edge.summary.useQuery(range, {
         enabled: rangeCheck.isValid,
     });
+    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
+    const sampleThresholds =
+        rulebookQuery.data?.samples ?? DEFAULT_RULEBOOK.samples;
 
     return (
         <section
@@ -129,7 +142,10 @@ export function EdgeView() {
                 </Alert>
             )}
             {summaryQuery.isSuccess && (
-                <EdgeResult report={summaryQuery.data} />
+                <EdgeResult
+                    report={summaryQuery.data}
+                    sampleThresholds={sampleThresholds}
+                />
             )}
         </section>
     );
@@ -237,8 +253,19 @@ function edgeRange(from: string, to: string): EdgeRange {
     };
 }
 
-function EdgeResult({ report }: { readonly report: EdgeReport }) {
+function EdgeResult({
+    report,
+    sampleThresholds,
+}: {
+    readonly report: EdgeReport;
+    readonly sampleThresholds: SampleThresholds;
+}) {
     const { summary, truncated } = report;
+    const sampleLevel = sampleAdequacy(
+        SampleKind.Trades,
+        summary.sampleSize,
+        sampleThresholds,
+    );
     const truncationNotice = truncated && (
         <Alert variant="warning">
             <TriangleAlert />
@@ -272,14 +299,18 @@ function EdgeResult({ report }: { readonly report: EdgeReport }) {
     return (
         <div className="flex flex-col gap-4">
             {truncationNotice}
-            <p className="text-sm text-muted-foreground">
-                Based on{' '}
-                <span className="font-semibold text-foreground tabular-nums">
-                    n = {summary.sampleSize}
-                </span>{' '}
-                journal {summary.sampleSize === 1 ? 'trade' : 'trades'} with a
-                recorded result; breakevens count as trades that did not win.
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <p>
+                    Based on{' '}
+                    <span className="font-semibold text-foreground tabular-nums">
+                        n = {summary.sampleSize}
+                    </span>{' '}
+                    journal {summary.sampleSize === 1 ? 'trade' : 'trades'}{' '}
+                    with a recorded result; breakevens count as trades that
+                    did not win.
+                </p>
+                <SampleBadge level={sampleLevel} />
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
                 <EdgeMetricCard
                     description="Share of counted trades that were wins."
@@ -296,6 +327,37 @@ function EdgeResult({ report }: { readonly report: EdgeReport }) {
                     title="Expectancy"
                 />
             </div>
+            {summary.winRate.observed === null ? null : (
+                <div className="flex flex-col gap-1">
+                    <Button asChild className="self-start" variant="outline">
+                        <Link
+                            href={measuredEdgeCalculatorHref(
+                                summary.winRate.observed,
+                                summary.rewardToRisk,
+                            )}
+                        >
+                            Try my measured win rate in the calculator
+                        </Link>
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                        Carries over your measured win rate. The 1:
+                        {summary.rewardToRisk} reward:risk is still the
+                        rulebook's assumption, not measured from your trades.
+                    </p>
+                </div>
+            )}
         </div>
     );
+}
+
+function measuredEdgeCalculatorHref(
+    winrate: number,
+    rewardToRisk: number,
+): string {
+    const query = encodeState({
+        ...defaultCalculatorState(),
+        rrRatio: rewardToRisk,
+        winrate,
+    }).toString();
+    return `${routes.propCalculator.index}?${query}`;
 }

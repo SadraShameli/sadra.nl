@@ -365,11 +365,12 @@ export function planTagLabel(tag: AccountPlanTag): string {
 export function upgradePlanSelection(
     firmParameter: null | string,
     accountSize: number,
+    intent: AccountPlanIntent = AccountPlanIntent.ExistingAccount,
 ): AccountPlanSelection {
     const fallback = initialPlanSelection(firmParameter, null, NO_PLAN_OPT_INS);
-    const sized = findFirm(fallback.firmId)?.plans.find(
-        (plan) => plan.id.accountSize === accountSize,
-    );
+    const sized = findFirm(fallback.firmId)
+        ?.plans.filter((plan) => isOfferedForIntent(plan, intent))
+        .find((plan) => plan.id.accountSize === accountSize);
     return sized === undefined
         ? fallback
         : {
@@ -381,10 +382,14 @@ export function upgradePlanSelection(
 }
 
 function isOfferedForIntent(plan: Plan, intent: AccountPlanIntent): boolean {
-    return (
-        intent === AccountPlanIntent.ExistingAccount ||
-        plan.availability !== PlanAvailability.Discontinued
-    );
+    switch (intent) {
+        case AccountPlanIntent.ExistingAccount: {
+            return true;
+        }
+        case AccountPlanIntent.NewPurchase: {
+            return plan.availability !== PlanAvailability.Discontinued;
+        }
+    }
 }
 
 function optionalMoneyText(cents: undefined | UsdCents): string {

@@ -4,7 +4,7 @@ import {
     AlertDisclosure,
     TradingSessionCalendar,
 } from '~/lib/prop-accounts/alerts';
-import { ReviewWeekday } from '~/lib/prop-calculator/advisor';
+import { ReviewWeekday, SizingStage } from '~/lib/prop-calculator/advisor';
 
 import {
     FRIDAY,
@@ -103,6 +103,55 @@ describe('TradingSessionCalendar day arithmetic', () => {
         expect(
             TradingSessionCalendar.latestWeekdayOnOrBefore(WEDNESDAY, weekday),
         ).toBe(expected);
+    });
+
+    it.each([SizingStage.Eval, SizingStage.Live])(
+        'delegates the %s staleness check to the shared advisor rule (session count)',
+        (stage) => {
+            expect(
+                TradingSessionCalendar.isStale(stage, TUESDAY, WEDNESDAY, 7),
+            ).toBe(false);
+            expect(
+                TradingSessionCalendar.isStale(stage, MONDAY, WEDNESDAY, 7),
+            ).toBe(true);
+        },
+    );
+
+    it.each([SizingStage.Eval, SizingStage.Live])(
+        'anchors a weekend-dated %s snapshot on the preceding Friday session, not the weekend day',
+        (stage) => {
+            expect(
+                TradingSessionCalendar.isStale(stage, SATURDAY, MONDAY, 7),
+            ).toBe(false);
+            expect(
+                TradingSessionCalendar.isStale(stage, SUNDAY, MONDAY, 7),
+            ).toBe(false);
+            expect(
+                TradingSessionCalendar.isStale(stage, SATURDAY, TUESDAY, 7),
+            ).toBe(true);
+            expect(
+                TradingSessionCalendar.isStale(stage, SUNDAY, TUESDAY, 7),
+            ).toBe(true);
+        },
+    );
+
+    it('delegates the funded staleness check to the shared advisor rule (calendar days)', () => {
+        expect(
+            TradingSessionCalendar.isStale(
+                SizingStage.Funded,
+                '2026-09-16',
+                '2026-09-23',
+                7,
+            ),
+        ).toBe(false);
+        expect(
+            TradingSessionCalendar.isStale(
+                SizingStage.Funded,
+                '2026-09-15',
+                '2026-09-23',
+                7,
+            ),
+        ).toBe(true);
     });
 
     it('finds the latest review weekday on or before a date', () => {

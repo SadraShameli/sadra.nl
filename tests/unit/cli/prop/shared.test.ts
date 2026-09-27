@@ -5,13 +5,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import ladderCommand, {
-    ladderArguments,
+    ladderCommandArguments,
 } from '~/cli/commands/prop/ladder/command';
 import optimizeDp, { dpArguments } from '~/cli/commands/prop/optimize/dp/command';
 import {
     bankrollArguments,
     copyAccountsArgument,
     describeStopRule,
+    type EdgeModelArguments,
+    edgeModelArguments,
     edgePlausibilityNote,
     formatDaysToPass,
     hasEvalPass,
@@ -21,6 +23,7 @@ import {
     readAccountsPerSession,
     readBankroll,
     readBankrollInputs,
+    readEdgeModelSpec,
     readFraction,
     readGranularityList,
     readHoursPerDay,
@@ -59,6 +62,7 @@ import {
     DayStopRuleKind,
     dollars,
     E8FuturesVariant,
+    EdgeModelKind,
     findFirm,
     FirmId,
     fraction,
@@ -910,15 +914,15 @@ describe('edgePlausibilityNote (PT-54, F-V22)', () => {
             rrRatio: 1,
             winrate: fraction(0.7),
         });
-        expect(note).toContain('implausible edge');
-        expect(note).toContain('+0.40R per trade at 70% and 1:1');
+        expect(note).toContain('Implausible edge');
+        expect(note).toContain('+0.40R per trade at 70% and 1:1.00');
         expect(note).toContain('typical up to +0.30R, strong up to +0.35R');
     });
 
     it('flags 50% at 1:1.64 (+0.32R) as strong', () => {
         expect(
             edgePlausibilityNote({ rrRatio: 1.64, winrate: fraction(0.5) }),
-        ).toContain('strong edge');
+        ).toContain('Strong edge');
     });
 
     it('flags a negative expectancy as no edge', () => {
@@ -926,8 +930,8 @@ describe('edgePlausibilityNote (PT-54, F-V22)', () => {
             rrRatio: 2,
             winrate: fraction(0.3),
         });
-        expect(note).toContain('no edge');
-        expect(note).toContain('-0.10R per trade at 30% and 1:2');
+        expect(note).toContain('No edge');
+        expect(note).toContain('-0.10R per trade at 30% and 1:2.00');
     });
 
     it('names both expectancy sources while the authoritative one is open (QV-20)', () => {
@@ -946,7 +950,7 @@ describe('edgePlausibilityNote (PT-54, F-V22)', () => {
                 { rrRatio: 2, winrate: fraction(0.4) },
                 { strongMaxExpectancyR: 0.25, typicalMaxExpectancyR: 0.15 },
             ),
-        ).toContain('strong edge');
+        ).toContain('Strong edge');
         expect(DEFAULT_RULEBOOK.plausibility).toStrictEqual({
             strongMaxExpectancyR: 0.35,
             typicalMaxExpectancyR: 0.3,
@@ -1030,7 +1034,7 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
         ];
         const stdout = await capturedStdout(async () => {
             await ladderCommand.run?.({
-                args: parseArgs<typeof ladderArguments>(argv, ladderArguments),
+                args: parseArgs<typeof ladderCommandArguments>(argv, ladderCommandArguments),
                 cmd: ladderCommand,
                 rawArgs: argv,
             });
@@ -1058,7 +1062,7 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
         ];
         const stdout = await capturedStdout(async () => {
             await ladderCommand.run?.({
-                args: parseArgs<typeof ladderArguments>(argv, ladderArguments),
+                args: parseArgs<typeof ladderCommandArguments>(argv, ladderCommandArguments),
                 cmd: ladderCommand,
                 rawArgs: argv,
             });
@@ -1089,5 +1093,69 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
         });
         expect(implausibleNote).not.toBe('');
         expect(stdout).toContain(implausibleNote);
+    });
+});
+
+describe('edgeModelArguments (PT-64a, F-V23)', () => {
+    it('defaults --edge-model to fixed', () => {
+        const parsed = parseArgs([], edgeModelArguments);
+        expect(parsed['edge-model']).toBe(EdgeModelKind.Fixed);
+    });
+
+    it('only accepts fixed and drift for --edge-model', () => {
+        const argument = edgeModelArguments['edge-model'];
+        expect(argument.options).toStrictEqual(Object.values(EdgeModelKind));
+        expect(() =>
+            parseArgs(['--edge-model', 'random-walk'], edgeModelArguments),
+        ).toThrow();
+    });
+
+    it('leaves --edge-anchor-rr undefined when not given', () => {
+        const parsed = parseArgs([], edgeModelArguments);
+        expect(parsed['edge-anchor-rr']).toBeUndefined();
+    });
+});
+
+describe('readEdgeModelSpec (PT-64a, F-V23)', () => {
+    const inputs = { rrRatio: 2, winrate: fraction(0.4) };
+
+    it('builds a fixed spec at the stated winrate, ignoring --edge-anchor-rr', () => {
+        const arguments_: EdgeModelArguments = {
+            'edge-anchor-rr': '3',
+            'edge-model': EdgeModelKind.Fixed,
+        };
+        expect(readEdgeModelSpec(arguments_, inputs)).toStrictEqual({
+            kind: EdgeModelKind.Fixed,
+            winrate: fraction(0.4),
+        });
+    });
+
+    it('builds a drift spec anchored at --rr when --edge-anchor-rr is omitted', () => {
+        const arguments_: EdgeModelArguments = { 'edge-model': EdgeModelKind.Drift };
+        expect(readEdgeModelSpec(arguments_, inputs)).toStrictEqual({
+            anchorRrRatio: 2,
+            anchorWinrate: fraction(0.4),
+            kind: EdgeModelKind.Drift,
+        });
+    });
+
+    it('builds a drift spec anchored at --edge-anchor-rr when given', () => {
+        const arguments_: EdgeModelArguments = {
+            'edge-anchor-rr': '3',
+            'edge-model': EdgeModelKind.Drift,
+        };
+        expect(readEdgeModelSpec(arguments_, inputs)).toStrictEqual({
+            anchorRrRatio: 3,
+            anchorWinrate: fraction(0.4),
+            kind: EdgeModelKind.Drift,
+        });
+    });
+
+    it('rejects a non-numeric --edge-anchor-rr', () => {
+        const arguments_: EdgeModelArguments = {
+            'edge-anchor-rr': 'nope',
+            'edge-model': EdgeModelKind.Drift,
+        };
+        expect(() => readEdgeModelSpec(arguments_, inputs)).toThrow();
     });
 });

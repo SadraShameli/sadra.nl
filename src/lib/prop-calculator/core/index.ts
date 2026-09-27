@@ -1,5 +1,7 @@
+export * from './accountPolicy';
 export {
     type AccountState,
+    accountStateSchema,
     createInitialState,
     resetForNewDay,
 } from './AccountState';
@@ -87,6 +89,16 @@ export {
     IntradayTrailingDrawdown,
     StaticDrawdown,
 } from './DrawdownStrategy';
+export { DriftEdge, DriftEdgeFitError } from './DriftEdge';
+export { EdgeModel } from './EdgeModel';
+export {
+    type DriftEdgeModelSpec,
+    edgeModelFromSpec,
+    EdgeModelKind,
+    type EdgeModelSpec,
+    edgeModelSpecSchema,
+    type FixedEdgeModelSpec,
+} from './EdgeModelSpec';
 export {
     evalStartStateIssue,
     remainingEvalSessions,
@@ -121,6 +133,7 @@ export {
     totalFees,
 } from './FeeSchedule';
 export { FirmId, parseFirmId } from './FirmId';
+export { FixedWinRateEdge } from './FixedWinRateEdge';
 export {
     describePayoutDayGate,
     type EligiblePayout,
@@ -156,6 +169,11 @@ export {
     fundedResetsBeforeFirstPayout,
     withFundedResetTaken,
 } from './FundedReset';
+export {
+    assertValidCalendarWeekInactivityRule,
+    type CalendarWeekInactivityRule,
+    didCalendarWeekCloseForInactivity,
+} from './InactivityRule';
 export {
     ALL_INSTRUMENTS,
     INSTRUMENTS,
@@ -416,6 +434,11 @@ export {
     type TradeRiskOptions,
     type TradeRiskResult,
 } from './TradeRiskResolution';
-export { applyTrade, closeTradingDay, recordBestDay } from './TradingDayLedger';
+export {
+    applyTrade,
+    closeTradingDay,
+    recordBestDay,
+    type TradingDayCloseResult,
+} from './TradingDayLedger';
 export { TradingFirm } from './TradingFirm';
 export { TradingPhase } from './TradingPhase';

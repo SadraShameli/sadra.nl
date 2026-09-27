@@ -8,6 +8,7 @@ import {
     dollars,
     fraction,
     InstrumentSymbol,
+    ONE_CENT,
     type Points,
 } from '~/lib/prop-calculator';
 import {
@@ -34,6 +35,7 @@ import {
     type LiveRuleContext,
     type NextTrade,
     NextTradeKind,
+    NO_PERSONAL_CAPS,
     type RulebookParameters,
     type RuleContext,
     SizingInvariantBreach,
@@ -81,12 +83,15 @@ function evalContext(
     overrides: Partial<EvalRuleContext> = {},
 ): EvalRuleContext {
     return {
+        ceiling: null,
         consistencyDailyCap: null,
         contractLimit: null,
         cushion: dollars(2000),
         dayStartDllRoom: null,
         instrument: null,
+        personalCaps: NO_PERSONAL_CAPS,
         personalDll: null,
+        placeableMinimum: ONE_CENT,
         remainingProfitToTarget: dollars(1_000_000),
         stage: SizingStage.Eval,
         ...overrides,
@@ -97,11 +102,14 @@ function fundedContext(
     overrides: Partial<FundedRuleContext> = {},
 ): FundedRuleContext {
     return {
+        ceiling: null,
         contractLimit: null,
         cushion: dollars(2000),
         dayStartDllRoom: null,
         instrument: null,
+        personalCaps: NO_PERSONAL_CAPS,
         personalDll: null,
+        placeableMinimum: ONE_CENT,
         stage: SizingStage.Funded,
         ...overrides,
     };
@@ -234,22 +242,28 @@ function liveCases(): SweepCase[] {
 
 function lossSides(): Pick<
     RuleContext,
+    | 'ceiling'
     | 'contractLimit'
     | 'cushion'
     | 'dayStartDllRoom'
     | 'instrument'
+    | 'personalCaps'
     | 'personalDll'
+    | 'placeableMinimum'
 >[] {
     const sides = [];
     for (const cushion of CUSHIONS) {
         for (const dll of DLL_ROOMS) {
             for (const personal of PERSONAL_DLLS) {
                 sides.push({
+                    ceiling: null,
                     contractLimit: contracts(3),
                     cushion: dollars(cushion),
                     dayStartDllRoom: nullableDollars(dll),
                     instrument: InstrumentSymbol.NQ,
+                    personalCaps: NO_PERSONAL_CAPS,
                     personalDll: nullableDollars(personal),
+                    placeableMinimum: ONE_CENT,
                 });
             }
         }

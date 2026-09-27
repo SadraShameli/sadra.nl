@@ -40,9 +40,15 @@ export interface EdgeRangeCheck {
 
 export interface EdgeSummary {
     readonly expectancyR: EdgeMetric;
+    readonly measuredRewardToRisk: MeasuredRewardToRisk | null;
     readonly rewardToRisk: number;
     readonly sampleSize: number;
     readonly winRate: EdgeMetric;
+}
+
+export interface MeasuredRewardToRisk {
+    readonly sampleSize: number;
+    readonly value: number;
 }
 
 const edgeMetricSchema = z.object({
@@ -51,6 +57,11 @@ const edgeMetricSchema = z.object({
     observed: z.number().nullable(),
     standardError: z.number().nonnegative().nullable(),
 }) satisfies z.ZodType<EdgeMetric>;
+
+const measuredRewardToRiskSchema = z.object({
+    sampleSize: z.number().int().positive(),
+    value: z.number().positive(),
+}) satisfies z.ZodType<MeasuredRewardToRisk>;
 
 export const edgeRangeSchema = z
     .object({
@@ -72,6 +83,7 @@ export const ALL_JOURNAL_DAYS: EdgeRange = {};
 
 export const edgeSummarySchema = z.object({
     expectancyR: edgeMetricSchema,
+    measuredRewardToRisk: measuredRewardToRiskSchema.nullable(),
     rewardToRisk: z.number().positive(),
     sampleSize: z.number().int().nonnegative(),
     winRate: edgeMetricSchema,
@@ -113,6 +125,7 @@ export function edgeSummary(
             n,
             isSampleEnough,
         ),
+        measuredRewardToRisk: measuredRewardToRiskOf(rows),
         rewardToRisk: rr,
         sampleSize: n,
         winRate: edgeMetric(
@@ -123,6 +136,20 @@ export function edgeSummary(
             isSampleEnough,
         ),
     };
+}
+
+function countedOutcomeR(
+    rows: readonly LightAssessment[],
+    outcome: string,
+): number[] {
+    return rows
+        .filter(
+            (row): row is LightAssessment & { outcomeR: number } =>
+                row.outcome === outcome &&
+                row.outcomeR !== null &&
+                Number.isFinite(row.outcomeR),
+        )
+        .map((row) => row.outcomeR);
 }
 
 function driftOf(
@@ -166,4 +193,28 @@ function isEdgeRangeOrdered(
     to: string | undefined,
 ): boolean {
     return from === undefined || to === undefined || from <= to;
+}
+
+function mean(values: readonly number[]): number {
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function measuredRewardToRiskOf(
+    rows: readonly LightAssessment[],
+): MeasuredRewardToRisk | null {
+    const wins = countedOutcomeR(rows, 'win');
+    const losses = countedOutcomeR(rows, 'loss');
+    if (
+        wins.length < MIN_EXPECTED_WINS_AND_LOSSES ||
+        losses.length < MIN_EXPECTED_WINS_AND_LOSSES
+    ) {
+        return null;
+    }
+    const averageWin = mean(wins);
+    const averageLoss = mean(losses);
+    if (!(averageWin > 0) || !(averageLoss < 0)) return null;
+    return {
+        sampleSize: wins.length + losses.length,
+        value: averageWin / Math.abs(averageLoss),
+    };
 }

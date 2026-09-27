@@ -53,6 +53,12 @@ export {
     type PlausibilityThresholds,
 } from './EdgePlausibility';
 export {
+    type EdgePlausibilityNoteInputs,
+    edgePlausibilityNoteText,
+    PLAUSIBILITY_LEVEL_TEXT,
+    QV20_EXPECTANCY_DISCLOSURE,
+} from './EdgePlausibilityText';
+export {
     evalPace,
     type EvalPace,
     type EvalPaceInputs,
@@ -92,7 +98,14 @@ export {
     minimumAttemptsForNoPayout,
     minimumBudgetForLossTarget,
     noPayoutProbability,
+    noPayoutProbabilityFromDistribution,
 } from './LossRisk';
+export {
+    TAKE_PROFIT_WHAT_IF_LABEL,
+    takeProfitCandidateInputs,
+    takeProfitRows,
+    type TakeProfitWhatIfRow,
+} from './TakeProfitWhatIf';
 export { netPerScreenHour, type ScreenHourInputs } from './TimeEfficiency';
 export {
     MAX_WALK_CELLS,

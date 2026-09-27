@@ -349,23 +349,30 @@ export function computeEvalStateValue(
 
         const {
             bestDay: bestDayNext,
-            cushion: cushionNext,
             idleDays: idleDaysNext,
             peakBand: peakBandNext,
             thresholdOffset: thresholdOffsetNext,
             tradingDays: tradingDaysNext,
         } = bucketOuterState(state, state.balance - state.threshold);
 
-        return dayCloseValue({
-            bestDay: bestDayNext,
-            cushion: cushionNext,
-            day: day + 1,
-            idleDays: idleDaysNext,
-            isLocked: state.thresholdLocked,
-            peakBand: peakBandNext,
-            thresholdOffset: thresholdOffsetNext,
-            tradingDays: tradingDaysNext,
-        });
+        const cushionSplit = splitOntoCushionGrid(
+            clampRange(state.balance - state.threshold, maxTrackedProfitLike),
+            cushionStepDollars,
+            cushionBucketCount,
+        );
+
+        return valueOnCushionGrid(cushionSplit, (index) =>
+            dayCloseValue({
+                bestDay: bestDayNext,
+                cushion: index * cushionStepDollars,
+                day: day + 1,
+                idleDays: idleDaysNext,
+                isLocked: state.thresholdLocked,
+                peakBand: peakBandNext,
+                thresholdOffset: thresholdOffsetNext,
+                tradingDays: tradingDaysNext,
+            }),
+        );
     }
 
     function continuationValue(

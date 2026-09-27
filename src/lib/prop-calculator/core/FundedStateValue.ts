@@ -148,9 +148,9 @@ export interface SweepToConvergenceOptions {
     readonly sweep: () => number;
 }
 
-const DEFAULT_ACTION_STEP_MULTIPLE = 0.05;
-const DEFAULT_MAX_ACTION_MULTIPLE = 1;
-const DEFAULT_CUSHION_STEP_MULTIPLE = 0.1;
+export const DEFAULT_ACTION_STEP_MULTIPLE = 0.05;
+export const DEFAULT_MAX_ACTION_MULTIPLE = 1;
+export const DEFAULT_CUSHION_STEP_MULTIPLE = 0.1;
 export const DEFAULT_MAX_CUSHION_MULTIPLE = 6;
 const DEFAULT_MAX_PRE_LOCK_OFFSET_MULTIPLE = 3;
 const DEFAULT_PAYOUT_REGIME_CAP = 6;
@@ -185,15 +185,28 @@ enum FundedWorkerMessageKind {
     Solve = 'solve',
 }
 
+interface FundedContinuationSplit {
+    readonly lowerKey: number;
+    readonly offsetUpperKey: number;
+    readonly offsetUpperWeight: number;
+    readonly upperWeight: number;
+}
+
 interface FundedDayCloseCells {
     readonly cash: Float64Array;
     readonly credit: Float64Array;
     readonly keys: Int32Array;
+    readonly offsetUpperKeys: Int32Array;
+    readonly offsetUpperWeights: Float64Array;
+    readonly weights: Float64Array;
 }
 
 interface FundedDayCloseOutcome {
     readonly cash: number;
     readonly continuationKey: number;
+    readonly continuationOffsetUpperKey: number;
+    readonly continuationOffsetUpperWeight: number;
+    readonly continuationUpperWeight: number;
     readonly horizonCredit: number;
 }
 
@@ -487,6 +500,13 @@ export function findRegistryPlanId(plan: Plan): null | PlanId {
         : null;
 }
 
+export function fundedCalendarWeekInactivityDpGap(plan: Plan): null | string {
+    const rule = plan.calendarWeekInactivityFor(TradingPhase.Funded);
+    return rule === null
+        ? null
+        : `${plan.label} closes its funded phase for an empty ${rule.sessionsPerWeek}-session calendar week, which this exact DP does not model (it tracks only Plan.maxConsecutiveIdleDays as a rolling idle-day count): a nonzero idle-day probability closes zero accounts here for inactivity`;
+}
+
 export function sweepToConvergence(options: SweepToConvergenceOptions): number {
     const {
         extrapolate,
@@ -556,6 +576,9 @@ function breachOutcome(
         ? {
               cash: 0,
               continuationKey: BREACH_BEFORE_FIRST_PAYOUT_KEY,
+              continuationOffsetUpperKey: BREACH_BEFORE_FIRST_PAYOUT_KEY,
+              continuationOffsetUpperWeight: 0,
+              continuationUpperWeight: 0,
               horizonCredit: 0,
           }
         : terminalOutcome(context.bustTerminalValue);
@@ -971,6 +994,9 @@ function cachedCellValue(
             context,
             outcome.cash,
             outcome.continuationKey,
+            outcome.continuationUpperWeight,
+            outcome.continuationOffsetUpperKey,
+            outcome.continuationOffsetUpperWeight,
             outcome.horizonCredit,
         );
     }
@@ -980,12 +1006,18 @@ function cachedCellValue(
         cells.cash[cell] = outcome.cash;
         cells.credit[cell] = outcome.horizonCredit;
         cells.keys[cell] = outcome.continuationKey;
+        cells.offsetUpperKeys[cell] = outcome.continuationOffsetUpperKey;
+        cells.offsetUpperWeights[cell] = outcome.continuationOffsetUpperWeight;
+        cells.weights[cell] = outcome.continuationUpperWeight;
         continuationKeyValue = outcome.continuationKey;
     }
     return dayCloseValue(
         context,
         cells.cash[cell] ?? 0,
         continuationKeyValue,
+        cells.weights[cell] ?? 0,
+        cells.offsetUpperKeys[cell] ?? 0,
+        cells.offsetUpperWeights[cell] ?? 0,
         cells.credit[cell] ?? 0,
     );
 }
@@ -1001,6 +1033,10 @@ function cachedIdleClose(
         return {
             cash: cells.cash[offset] ?? 0,
             continuationKey: cachedKey,
+            continuationOffsetUpperKey: cells.offsetUpperKeys[offset] ?? 0,
+            continuationOffsetUpperWeight:
+                cells.offsetUpperWeights[offset] ?? 0,
+            continuationUpperWeight: cells.weights[offset] ?? 0,
             horizonCredit: cells.credit[offset] ?? 0,
         };
     }
@@ -1008,6 +1044,9 @@ function cachedIdleClose(
     cells.cash[offset] = outcome.cash;
     cells.credit[offset] = outcome.horizonCredit;
     cells.keys[offset] = outcome.continuationKey;
+    cells.offsetUpperKeys[offset] = outcome.continuationOffsetUpperKey;
+    cells.offsetUpperWeights[offset] = outcome.continuationOffsetUpperWeight;
+    cells.weights[offset] = outcome.continuationUpperWeight;
     return outcome;
 }
 
@@ -1065,26 +1104,54 @@ function continuationKey(
     state: AccountState,
     regime: number,
     pair: FundedPair,
-): number {
+): FundedContinuationSplit {
     const cushion = state.balance - state.threshold;
-    return state.thresholdLocked
-        ? lockedKey(
-              context,
-              regime,
-              pair,
-              bucketIndex(context, cushion, context.lockedCushionBucketCount),
-          )
-        : unlockedKey(
-              context,
-              bucketIndex(
-                  context,
-                  state.threshold - context.initialThreshold,
-                  context.offsetBucketCount,
-              ),
-              regime,
-              pair,
-              bucketIndex(context, cushion, context.unlockedCushionBucketCount),
-          );
+    if (state.thresholdLocked) {
+        const split = splitOntoCushionGrid(
+            cushion,
+            context.cushionStepDollars,
+            context.lockedCushionBucketCount,
+        );
+        const key = lockedKey(context, regime, pair, split.lowerIndex);
+        return {
+            lowerKey: key,
+            offsetUpperKey: key,
+            offsetUpperWeight: 0,
+            upperWeight: split.upperWeight,
+        };
+    }
+    const cushionSplit = splitOntoCushionGrid(
+        cushion,
+        context.cushionStepDollars,
+        context.unlockedCushionBucketCount,
+    );
+    const offsetSplit = splitOntoCushionGrid(
+        state.threshold - context.initialThreshold,
+        context.cushionStepDollars,
+        context.offsetBucketCount,
+    );
+    const lowerKey = unlockedKey(
+        context,
+        offsetSplit.lowerIndex,
+        regime,
+        pair,
+        cushionSplit.lowerIndex,
+    );
+    return {
+        lowerKey,
+        offsetUpperKey:
+            offsetSplit.upperWeight === 0
+                ? lowerKey
+                : unlockedKey(
+                      context,
+                      offsetSplit.lowerIndex + 1,
+                      regime,
+                      pair,
+                      cushionSplit.lowerIndex,
+                  ),
+        offsetUpperWeight: offsetSplit.upperWeight,
+        upperWeight: cushionSplit.upperWeight,
+    };
 }
 
 function continuedValue(
@@ -1338,7 +1405,10 @@ function dayCloseOutcome(
     });
     return {
         cash: receivedCash,
-        continuationKey: nextKey,
+        continuationKey: nextKey.lowerKey,
+        continuationOffsetUpperKey: nextKey.offsetUpperKey,
+        continuationOffsetUpperWeight: nextKey.offsetUpperWeight,
+        continuationUpperWeight: nextKey.upperWeight,
         horizonCredit:
             context.horizonHazard === 0
                 ? 0
@@ -1377,6 +1447,9 @@ function dayCloseValue(
     context: FundedSolveContext,
     cash: number,
     continuationKeyValue: number,
+    continuationUpperWeight: number,
+    continuationOffsetUpperKey: number,
+    continuationOffsetUpperWeight: number,
     horizonCredit: number,
 ): number {
     switch (continuationKeyValue) {
@@ -1387,12 +1460,26 @@ function dayCloseValue(
             return cash;
         }
         default: {
-            return continuedValue(
-                context,
-                cash,
-                context.readValue(continuationKeyValue),
-                horizonCredit,
+            const lowerOffsetValue = valueOnCushionGrid(
+                {
+                    lowerIndex: continuationKeyValue,
+                    upperWeight: continuationUpperWeight,
+                },
+                (key) => context.readValue(key),
             );
+            const continuation =
+                continuationOffsetUpperWeight === 0
+                    ? lowerOffsetValue
+                    : (1 - continuationOffsetUpperWeight) * lowerOffsetValue +
+                      continuationOffsetUpperWeight *
+                          valueOnCushionGrid(
+                              {
+                                  lowerIndex: continuationOffsetUpperKey,
+                                  upperWeight: continuationUpperWeight,
+                              },
+                              (key) => context.readValue(key),
+                          );
+            return continuedValue(context, cash, continuation, horizonCredit);
         }
     }
 }
@@ -1715,6 +1802,9 @@ function newDayCloseCells(cellCount: number): FundedDayCloseCells {
         cash: new Float64Array(cellCount),
         credit: new Float64Array(cellCount),
         keys: new Int32Array(cellCount).fill(UNCOMPUTED_CONTINUATION_KEY),
+        offsetUpperKeys: new Int32Array(cellCount),
+        offsetUpperWeights: new Float64Array(cellCount),
+        weights: new Float64Array(cellCount),
     };
 }
 
@@ -1747,6 +1837,9 @@ function outcomeDayCloseValue(
         scope.context,
         outcome.cash,
         outcome.continuationKey,
+        outcome.continuationUpperWeight,
+        outcome.continuationOffsetUpperKey,
+        outcome.continuationOffsetUpperWeight,
         outcome.horizonCredit,
     );
 }
@@ -2548,10 +2641,15 @@ function solveIdleGroup(
             const tradeValue = tradeValues[index] ?? -Infinity;
             const isTerminal =
                 outcome.continuationKey === TERMINAL_CONTINUATION_KEY;
-            const continuationOffset = outcome.continuationKey - levelKey;
+            const isStayingInThisLevel =
+                outcome.continuationOffsetUpperWeight === 0;
+            const lowerOffset = outcome.continuationKey - levelKey;
+            const upperWeight = outcome.continuationUpperWeight;
             if (
                 !isTerminal &&
-                continuationOffset === ownOffset &&
+                isStayingInThisLevel &&
+                upperWeight === 0 &&
+                lowerOffset === ownOffset &&
                 horizonHazard > 0
             ) {
                 results[ownOffset] = Math.max(
@@ -2563,27 +2661,39 @@ function solveIdleGroup(
                 );
                 continue;
             }
+            const idleGroupShape: IdleGroupShape = {
+                cushionBucketCount,
+                groupCount,
+                groupIndex,
+                idleKeyRadix: context.idleKeyRadix,
+            };
+            const isOffsetReady = (offset: number): boolean =>
+                offset >= 0 &&
+                offset < stateCount &&
+                isSolvedEarlierInGroup(offset, ownOffset, idleGroupShape);
+            const upperOffset = lowerOffset + 1;
             const isSolvedThisSweep =
                 !isTerminal &&
-                continuationOffset >= 0 &&
-                continuationOffset < stateCount &&
-                isSolvedEarlierInGroup(continuationOffset, ownOffset, {
-                    cushionBucketCount,
-                    groupCount,
-                    groupIndex,
-                    idleKeyRadix: context.idleKeyRadix,
-                });
+                isStayingInThisLevel &&
+                isOffsetReady(lowerOffset) &&
+                (upperWeight === 0 || isOffsetReady(upperOffset));
             const idleValue = isSolvedThisSweep
                 ? continuedValue(
                       context,
                       outcome.cash,
-                      results[continuationOffset] ?? 0,
+                      valueOnCushionGrid(
+                          { lowerIndex: lowerOffset, upperWeight },
+                          (offset) => results[offset] ?? 0,
+                      ),
                       outcome.horizonCredit,
                   )
                 : dayCloseValue(
                       context,
                       outcome.cash,
                       outcome.continuationKey,
+                      outcome.continuationUpperWeight,
+                      outcome.continuationOffsetUpperKey,
+                      outcome.continuationOffsetUpperWeight,
                       outcome.horizonCredit,
                   );
             results[ownOffset] = Math.max(tradeValue, idleValue) - dayCost;
@@ -2637,6 +2747,9 @@ function terminalOutcome(cash: number): FundedDayCloseOutcome {
     return {
         cash,
         continuationKey: TERMINAL_CONTINUATION_KEY,
+        continuationOffsetUpperKey: TERMINAL_CONTINUATION_KEY,
+        continuationOffsetUpperWeight: 0,
+        continuationUpperWeight: 0,
         horizonCredit: 0,
     };
 }

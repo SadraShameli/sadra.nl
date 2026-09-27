@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { AccountStage } from '~/lib/prop-accounts';
+import { AdviceSource } from '~/lib/prop-calculator/advisor';
 import { PropMutationRejection } from '~/lib/schemas/propAccountOutputs';
 
 import {
@@ -43,7 +44,7 @@ const DECISION = {
     decidedOn: '2026-09-21',
     headlineRiskCents: 40_000,
     snapshotId: IDS.snapshot,
-    source: 'documented',
+    source: AdviceSource.Documented,
     stage: AccountStage.Eval,
 };
 

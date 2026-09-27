@@ -1,9 +1,13 @@
-import { defaultPayoutRegimeCap } from './FundedStateValue';
+import {
+    defaultPayoutRegimeCap,
+    fundedCalendarWeekInactivityDpGap,
+} from './FundedStateValue';
 import { type Dollars } from './lib/units';
 import { PayoutCountTieredPayoutCap } from './PayoutCap';
 import { type Plan } from './Plan';
 
 export enum FundedDpModelGapKind {
+    CalendarWeekInactivityIgnored = 'calendar-week-inactivity-ignored',
     LifetimeDollarCapIgnored = 'lifetime-dollar-cap-ignored',
     PayoutCountTierBeyondRegimeCap = 'payout-count-tier-beyond-regime-cap',
     PayoutTriggeredLockPreLockOffsetSaturates = 'payout-triggered-lock-pre-lock-offset-saturates',
@@ -16,6 +20,10 @@ export type FundedDpModelGap =
           readonly payoutRegimeCap: number;
       }
     | {
+          readonly kind: FundedDpModelGapKind.CalendarWeekInactivityIgnored;
+          readonly message: string;
+      }
+    | {
           readonly kind: FundedDpModelGapKind.LifetimeDollarCapIgnored;
           readonly maxLifetimePayoutDollars: Dollars;
       }
@@ -25,6 +33,13 @@ export type FundedDpModelGap =
 
 export function fundedDpModelGaps(plan: Plan): FundedDpModelGap[] {
     const gaps: FundedDpModelGap[] = [];
+    const calendarWeekGap = fundedCalendarWeekInactivityDpGap(plan);
+    if (calendarWeekGap !== null) {
+        gaps.push({
+            kind: FundedDpModelGapKind.CalendarWeekInactivityIgnored,
+            message: withoutLeadingPlanLabel(plan, calendarWeekGap),
+        });
+    }
     if (plan.maxLifetimePayoutDollars !== null) {
         gaps.push({
             kind: FundedDpModelGapKind.LifetimeDollarCapIgnored,
@@ -49,4 +64,11 @@ export function fundedDpModelGaps(plan: Plan): FundedDpModelGap[] {
         });
     }
     return gaps;
+}
+
+function withoutLeadingPlanLabel(plan: Plan, message: string): string {
+    const planLabelPrefix = `${plan.label} `;
+    return message.startsWith(planLabelPrefix)
+        ? message.slice(planLabelPrefix.length)
+        : message;
 }

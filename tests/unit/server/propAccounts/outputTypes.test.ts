@@ -216,7 +216,7 @@ const CASES: readonly OutputCase[] = [
         table: propCopyGroup,
     },
     {
-        enumColumns: ['stage'],
+        enumColumns: ['source', 'stage'],
         jsonbColumns: [],
         name: 'sizing decision',
         row: decisionRow(),

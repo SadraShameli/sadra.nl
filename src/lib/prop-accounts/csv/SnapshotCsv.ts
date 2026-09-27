@@ -142,6 +142,7 @@ const PLAUSIBILITY_COLUMNS: Readonly<
         SnapshotCsvColumn.CycleBestDayProfit,
     [SnapshotInputField.DashboardConvention]: SnapshotCsvColumn.Account,
     [SnapshotInputField.DashboardFloor]: SnapshotCsvColumn.DashboardFloor,
+    [SnapshotInputField.ElapsedDaysSinceAttemptStart]: SnapshotCsvColumn.Account,
     [SnapshotInputField.EvalBestDayProfit]: SnapshotCsvColumn.EvalBestDayProfit,
     [SnapshotInputField.FirstFundedTradeOn]: SnapshotCsvColumn.Account,
     [SnapshotInputField.FloorAtLastPayout]: SnapshotCsvColumn.FloorAtLastPayout,

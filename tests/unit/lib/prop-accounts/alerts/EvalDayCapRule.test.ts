@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    type AlertContext,
     AlertDisclosure,
     AlertKind,
     AlertSeverity,
+    createAlertContext,
     EvalDayCapRule,
 } from '~/lib/prop-accounts/alerts';
-import { AccountStage } from '~/lib/prop-accounts/core';
+import { AccountStage, PlanKeyResolutionKind } from '~/lib/prop-accounts/core';
+import { type Plan } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
 import {
@@ -149,5 +152,102 @@ describe('EvalDayCapRule', () => {
         expect(
             alertsAt(1000, { entry: UNCAPPED, purchasedOn: '2020-01-01' }),
         ).toEqual([]);
+    });
+
+    describe('the PT-35 eval access window (calendar days)', () => {
+        const WINDOW_DAYS = 10;
+
+        function alertsWithPlan(
+            plan: Plan,
+            options: {
+                purchasedOn: string;
+                today: string;
+                tradingDays?: null | number;
+            },
+        ) {
+            const account = accountFor(UNCAPPED, {
+                purchasedOn: options.purchasedOn,
+                stage: AccountStage.Eval,
+            });
+            const context: AlertContext = createAlertContext({
+                accounts: [account],
+                accountStates: [],
+                copyGroups: [],
+                payouts: [],
+                rulebook: DEFAULT_RULEBOOK,
+                snapshots: [
+                    snapshotFor(account, {
+                        tradingDays: options.tradingDays ?? 0,
+                    }),
+                ],
+                today: options.today,
+            });
+            const resolved: AlertContext = {
+                ...context,
+                accounts: context.accounts.map((monitored) => ({
+                    ...monitored,
+                    plan: { kind: PlanKeyResolutionKind.Resolved, plan },
+                })),
+            };
+            return rule.evaluate(resolved);
+        }
+
+        const withWindow = UNCAPPED.plan.withOverrides({
+            evalAccessWindowDays: WINDOW_DAYS,
+        });
+
+        it('is silent while more than the warning days remain in the window', () => {
+            expect(
+                alertsWithPlan(withWindow, {
+                    purchasedOn: '2026-09-01',
+                    today: '2026-09-03',
+                }),
+            ).toEqual([]);
+        });
+
+        it('warns from the calendar window when it binds tighter than the trading-day cap', () => {
+            const alerts = alertsWithPlan(withWindow, {
+                purchasedOn: '2026-09-01',
+                today: '2026-09-06',
+            });
+            expect(alerts).toHaveLength(1);
+            expect(alerts[0]?.severity).toBe(AlertSeverity.Warning);
+            expect(alerts[0]?.message).toContain('eval access days left');
+            expect(alerts[0]?.message).toContain(
+                `${WINDOW_DAYS} calendar days`,
+            );
+        });
+
+        it('is critical once the calendar window is used up', () => {
+            const alerts = alertsWithPlan(withWindow, {
+                purchasedOn: '2026-09-01',
+                today: '2026-09-11',
+            });
+            expect(alerts).toHaveLength(1);
+            expect(alerts[0]?.severity).toBe(AlertSeverity.Critical);
+            expect(alerts[0]?.message).toContain('Eval access window reached');
+        });
+
+        it('is silent for a plan with no eval access window', () => {
+            expect(
+                alertsWithPlan(UNCAPPED.plan, {
+                    purchasedOn: '2026-09-01',
+                    today: '2026-09-11',
+                }),
+            ).toEqual([]);
+        });
+
+        it('binds on the trading-day cap instead when it is tighter than the calendar window', () => {
+            const bothCapped = CAPPED.plan.withOverrides({
+                evalAccessWindowDays: 365,
+            });
+            const alerts = alertsWithPlan(bothCapped, {
+                purchasedOn: '2020-01-01',
+                today: '2020-01-01',
+                tradingDays: MAX_DAYS,
+            });
+            expect(alerts[0]?.severity).toBe(AlertSeverity.Critical);
+            expect(alerts[0]?.message).toContain(`${MAX_DAYS} of ${MAX_DAYS}`);
+        });
     });
 });

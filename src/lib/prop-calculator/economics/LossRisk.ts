@@ -194,3 +194,9 @@ export function noPayoutProbability(
         ? missingQuantity(EconomicsReason.InvalidInput, disclosures)
         : quantityOf(fraction((1 - pAttemptPays) ** attempts), disclosures);
 }
+
+export function noPayoutProbabilityFromDistribution(
+    distribution: readonly number[],
+): null | number {
+    return distribution.length === 0 ? null : (distribution[0] ?? null);
+}

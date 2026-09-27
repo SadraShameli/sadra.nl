@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
@@ -48,11 +48,7 @@ import {
 } from '~/lib/schemas/propAccounts';
 import { stableJson } from '~/lib/stableJson';
 import { createTRPCRouter } from '~/server/api/trpc';
-import {
-    propAccount,
-    propAccountEvent,
-    propRuleViolation,
-} from '~/server/db/schemas/prop';
+import { propAccount, propAccountEvent } from '~/server/db/schemas/prop';
 
 import {
     assertCopyGroupAcceptsStages,
@@ -368,11 +364,7 @@ export const propAccountRouter = createTRPCRouter({
                     );
                     assertPurchaseBefore(
                         input.purchasedOn,
-                        await earliestViolationOn(
-                            tx,
-                            ctx.userId,
-                            stored.id,
-                        ),
+                        await repo.earliestViolationOn(stored.id),
                         PurchaseBound.RuleViolation,
                     );
                 }
@@ -666,25 +658,6 @@ function createdLiveStartEntries(
               ]
             : [],
     );
-}
-
-async function earliestViolationOn(
-    tx: PropDatabase,
-    userId: string,
-    accountId: string,
-): Promise<null | string> {
-    const [row] = await tx
-        .select({ occurredOn: propRuleViolation.occurredOn })
-        .from(propRuleViolation)
-        .where(
-            and(
-                eq(propRuleViolation.userId, userId),
-                eq(propRuleViolation.accountId, accountId),
-            ),
-        )
-        .orderBy(asc(propRuleViolation.occurredOn))
-        .limit(1);
-    return row?.occurredOn ?? null;
 }
 
 function editableValues(input: AccountInput): EditableValues {

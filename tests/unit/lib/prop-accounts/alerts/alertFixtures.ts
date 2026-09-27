@@ -81,6 +81,7 @@ export function alertsOf(
 export function contextOf(inputs: Partial<AlertInputs>): AlertContext {
     return createAlertContext({
         accounts: [],
+        accountStates: [],
         copyGroups: [],
         payouts: [],
         rulebook: DEFAULT_RULEBOOK,
@@ -130,6 +131,7 @@ export function snapshotFor(
         payoutsTaken: null,
         tradingDays: null,
         ...overrides,
+        lastTradedOn: overrides.lastTradedOn ?? null,
     };
 }
 

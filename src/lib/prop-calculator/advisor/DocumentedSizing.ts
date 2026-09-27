@@ -30,6 +30,7 @@ export enum SizingAssumption {
 }
 
 export enum SizingConstraint {
+    CeilingCap = 'ceiling-cap',
     ConsistencyCap = 'consistency-cap',
     CushionCap = 'cushion-cap',
     DailyLossCap = 'daily-loss-cap',

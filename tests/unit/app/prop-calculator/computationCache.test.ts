@@ -44,6 +44,7 @@ const stressRows: ScenarioRow[] = [
 ];
 const cell: Cell = {
     evalPass: 0.5,
+    evPerAttempt: 30,
     fundedSurvival: 0.4,
     monthlyNet: 120,
     rr: 2,

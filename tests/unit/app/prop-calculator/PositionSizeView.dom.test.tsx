@@ -18,7 +18,54 @@ vi.mock('~/app/(app)/prop-calculator/_components/ToolPageHeading', () => ({
     ),
 }));
 
+vi.mock('~/app/(app)/prop-calculator/_components/FirmPlanPicker', () => ({
+    default: ({
+        firms,
+        onPlanChange,
+        plan,
+    }: {
+        firms: readonly { plans: readonly { retryFee: () => number }[] }[];
+        onPlanChange: (plan: { retryFee: () => number }) => void;
+        plan: { retryFee: () => number };
+    }) => {
+        const other = firms
+            .flatMap((firm) => firm.plans)
+            .find((candidate) => candidate.retryFee() !== plan.retryFee());
+        return (
+            <button
+                data-testid="switch-plan"
+                onClick={() => other !== undefined && onPlanChange(other)}
+                type="button"
+            >
+                switch-plan
+            </button>
+        );
+    },
+}));
+
 const FIX_TEXT = 'Fix the highlighted field to see the position.';
+
+function statCardLabelSpan(
+    scope: ParentNode,
+    label: string,
+): Element | undefined {
+    return [...scope.querySelectorAll('span')].find(
+        (candidate) => candidate.textContent === label,
+    );
+}
+
+function statCardSub(scope: ParentNode, label: string): string {
+    return (
+        statCardLabelSpan(scope, label)?.nextElementSibling
+            ?.nextElementSibling?.textContent ?? ''
+    );
+}
+
+function statCardValue(scope: ParentNode, label: string): string {
+    return (
+        statCardLabelSpan(scope, label)?.nextElementSibling?.textContent ?? ''
+    );
+}
 
 function typeInto(input: HTMLInputElement, text: string) {
     act(() => {
@@ -118,6 +165,157 @@ describe('PositionSizeView', () => {
         expect(container.querySelectorAll('[role="status"]')).toHaveLength(1);
         expect(status()).toBe(
             '3 NQ, $25 left over; the stop for the exact risk is 7.75 points, risking $465.',
+        );
+    });
+
+    it('shows the retry fee field and an at-risk-if-busted line in the eval phase', () => {
+        const retryFeeField = field('position-size-retry-fee');
+        expect(retryFeeField.value).not.toBe('');
+        expect(positionSection().textContent).toContain(
+            'At risk if busted',
+        );
+        typeInto(retryFeeField, '600');
+        expect(positionSection().textContent).toContain('$600');
+        expect(ownQuery().get(PositionSizeUrlParameter.RetryFee)).toBe('600');
+    });
+
+    it('resyncs the displayed retry fee after switching plans', () => {
+        const before = field('position-size-retry-fee').value;
+        act(() => {
+            container
+                .querySelector('[data-testid="switch-plan"]')
+                ?.dispatchEvent(
+                    new MouseEvent('click', { bubbles: true }),
+                );
+        });
+        const after = field('position-size-retry-fee').value;
+        expect(after).not.toBe('');
+        expect(after).not.toBe(before);
+        expect(after).toBe(ownQuery().get(PositionSizeUrlParameter.RetryFee));
+    });
+});
+
+describe('PositionSizeView in the funded phase', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    function positionSection(): HTMLElement {
+        const section = container.querySelector(
+            'section[aria-labelledby="position-size-result-heading"]',
+        );
+        if (!(section instanceof HTMLElement)) {
+            throw new TypeError('no position section');
+        }
+        return section;
+    }
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.query = `${PositionSizeUrlParameter.Phase}=funded&${PositionSizeUrlParameter.Risk}=475&${PositionSizeUrlParameter.Stop}=7.5`;
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+        act(() => {
+            root.render(<PositionSizeView />);
+        });
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        document.body.replaceChildren();
+        vi.unstubAllGlobals();
+    });
+
+    it('hides the retry fee field and the at-risk-if-busted line, the fee-equivalent heuristic is eval-only', () => {
+        expect(container.querySelector('#position-size-retry-fee')).toBeNull();
+        expect(positionSection().textContent).not.toContain(
+            'At risk if busted',
+        );
+    });
+});
+
+describe('PositionSizeView sibling instrument mismatch', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    function positionSection(): HTMLElement {
+        const section = container.querySelector(
+            'section[aria-labelledby="position-size-result-heading"]',
+        );
+        if (!(section instanceof HTMLElement)) {
+            throw new TypeError('no position section');
+        }
+        return section;
+    }
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.query = `${PositionSizeUrlParameter.Instrument}=MNQ&${PositionSizeUrlParameter.Risk}=150&${PositionSizeUrlParameter.Stop}=7.5`;
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+        act(() => {
+            root.render(<PositionSizeView />);
+        });
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        document.body.replaceChildren();
+        vi.unstubAllGlobals();
+    });
+
+    it('names the sibling instrument, its risk and the mismatch severity', () => {
+        const text = positionSection().textContent;
+        expect(text).toContain('NQ');
+        expect(text).toContain('$1,500');
+        expect(text).toContain('more than you intended');
+    });
+});
+
+describe('PositionSizeView risk display unit', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    function positionSection(): HTMLElement {
+        const section = container.querySelector(
+            'section[aria-labelledby="position-size-result-heading"]',
+        );
+        if (!(section instanceof HTMLElement)) {
+            throw new TypeError('no position section');
+        }
+        return section;
+    }
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.query = `${PositionSizeUrlParameter.Risk}=450&${PositionSizeUrlParameter.Stop}=7.5&${PositionSizeUrlParameter.Unit}=fee-equivalent`;
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+        act(() => {
+            root.render(<PositionSizeView />);
+        });
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        document.body.replaceChildren();
+        vi.unstubAllGlobals();
+    });
+
+    it('shows the risk in the fee-equivalent unit chosen through the URL', () => {
+        expect(statCardValue(positionSection(), 'Risk, shown as')).not.toBe(
+            '$450',
+        );
+        expect(statCardSub(positionSection(), 'Risk, shown as')).toBe(
+            'Fee equivalent',
         );
     });
 });

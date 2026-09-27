@@ -4,6 +4,7 @@ import {
     weekdaysInRange,
 } from '~/lib/prop-accounts/core';
 import { type FirmId } from '~/lib/prop-calculator';
+import { RebuyLagBasis } from '~/lib/prop-calculator/advisor';
 
 import { attemptsOf } from './Attempts';
 import {
@@ -15,10 +16,7 @@ import {
     sampledMean,
 } from './PortfolioLedger';
 
-export enum RebuyLagBasis {
-    AssumedZero = 'assumed-zero',
-    Measured = 'measured',
-}
+export { RebuyLagBasis } from '~/lib/prop-calculator/advisor';
 
 export interface PlanReplacementStats {
     readonly attempts: number;

@@ -3,6 +3,7 @@ import type { ArgsDef } from 'citty';
 import { parseArgs, renderUsage } from 'citty';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import propGroup from '~/cli/commands/prop/group';
 import ladder, {
     buildLadderSearchOptions,
     describeEvalWindow,
@@ -12,6 +13,7 @@ import ladder, {
     LADDER_RANKINGS,
     LADDER_TABLE_LABELS,
     ladderArguments,
+    ladderCommandArguments,
     ladderTableRow,
     ladderWorkWarning,
     readLadderGrid,
@@ -23,6 +25,7 @@ import {
     tradingArguments,
     type TradingArguments,
 } from '~/cli/commands/prop/shared';
+import { findUnknownFlag } from '~/cli/unknownFlagGuard';
 import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     ApexVariant,
@@ -482,13 +485,6 @@ describe('prop ladder --help agrees with the parser (WP15 handoff)', () => {
         }
     });
 
-    it('does not advertise any flag it rejects', async () => {
-        const usage = await renderUsage(ladder);
-        for (const flag of DROPPED_FLAGS) {
-            expect(isAdvertised(usage, flag), flag).toBe(false);
-        }
-    });
-
     it('advertises every flag it declares', async () => {
         const usage = await renderUsage(ladder);
         for (const flag of LADDER_FLAGS) {
@@ -517,6 +513,51 @@ describe('prop ladder --help agrees with the parser (WP15 handoff)', () => {
         expect(() =>
             buildLadderSearchOptions(apexEodPlan(), parseGrid(defaults)),
         ).not.toThrow();
+    });
+});
+
+describe('prop ladder --help lists only what works (WP46c, N-78 follow-up)', () => {
+    it('never advertises a flag it rejects as a working option', async () => {
+        const usage = await renderUsage(ladder);
+        for (const flag of DROPPED_FLAGS) {
+            expect(isAdvertised(usage, flag), flag).toBe(false);
+        }
+    });
+
+    it.each(DROPPED_FLAGS)(
+        'does not declare --%s as a CLI argument, so --help never lists it',
+        (flag) => {
+            expect(Object.keys(ladderCommandArguments)).not.toContain(flag);
+        },
+    );
+
+    it('does not let an unsupported flag pick up a default value nobody passed', () => {
+        const parsed = parseArgs<typeof ladderCommandArguments>(
+            [],
+            ladderCommandArguments,
+        );
+        expect(() =>
+            buildLadderSearchOptions(apexEodPlan(), parsed),
+        ).not.toThrow();
+    });
+
+    it('lets the shared unknown-flag guard still treat --retain-cushion as known, through the command meta instead of a declared arg', async () => {
+        const issue = await findUnknownFlag(
+            ['ladder', '--retain-cushion', '2000'],
+            propGroup,
+            'cli prop',
+        );
+        expect(issue).toBeNull();
+    });
+
+    it('still lets the shared unknown-flag guard reject a truly unknown flag on prop ladder', async () => {
+        const issue = await findUnknownFlag(
+            ['ladder', '--totally-bogus-flag'],
+            propGroup,
+            'cli prop',
+        );
+        expect(issue?.commandPath).toBe('cli prop ladder');
+        expect(issue?.flag).toBe('--totally-bogus-flag');
     });
 });
 

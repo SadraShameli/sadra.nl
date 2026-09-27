@@ -4,20 +4,34 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HubAccountsTeaser } from '~/app/(app)/prop-calculator/_components/hub/HubAccountsTeaser';
 import { type AccountListAccount } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
-import { portfolioAlerts } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import {
+    accountStatesForRows,
+    type OverviewSnapshotRow,
+    portfolioAlerts,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import {
     AccountStage,
     AccountStatus,
     AccountTracking,
+    AlertKind,
+    DashboardBalanceConvention,
     FeeKind,
     formatUsdCents,
     type LedgerAccountRow,
     type LedgerFeeRow,
     type LedgerPayoutRow,
+    NO_ACCOUNT_STATES,
     PayoutStatus,
     usdCents,
 } from '~/lib/prop-accounts';
-import { ALL_FIRMS, serializePlanId } from '~/lib/prop-calculator';
+import {
+    ALL_FIRMS,
+    CENTS_PER_DOLLAR,
+    findFirm,
+    FirmId,
+    MffuVariant,
+    serializePlanId,
+} from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -91,6 +105,7 @@ vi.mock('~/trpc/react', () => ({
         propAccounts: {
             account: { list: harness.query('account.list') },
             copyGroup: { list: harness.query('copyGroup.list') },
+            event: { list: harness.query('event.list') },
             fee: { list: harness.query('fee.list') },
             payout: { list: harness.query('payout.list') },
             rulebook: { get: harness.query('rulebook.get') },
@@ -119,6 +134,18 @@ function firstModeledPlan() {
         throw new Error('no modeled plan');
     }
     return { firm: first, plan: firstPlan };
+}
+
+function mffProPlan() {
+    const firm = findFirm(FirmId.Mffu);
+    if (firm === undefined) throw new Error('MFF firm missing');
+    const plan = firm.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.Pro,
+    });
+    if (!plan) throw new Error('MFF Pro plan missing');
+    return plan;
 }
 
 function paidPayout(
@@ -295,6 +322,7 @@ describe('HubAccountsTeaser', () => {
             render();
             const listed = portfolioAlerts({
                 accounts: ACCOUNTS,
+                accountStates: NO_ACCOUNT_STATES,
                 copyGroups: [],
                 payouts: PAYOUTS,
                 rulebook: DEFAULT_RULEBOOK,
@@ -303,6 +331,81 @@ describe('HubAccountsTeaser', () => {
             }).length;
             expect(listed).toBeGreaterThan(1);
             expect(statValue('Alerts')).toBe(String(listed));
+        });
+
+        it('counts one more alert once a near-floor account state is reconstructed from real events and snapshots', () => {
+            const plan = mffProPlan();
+            const documentedRisk =
+                DEFAULT_RULEBOOK.funded.riskCents / CENTS_PER_DOLLAR;
+            const drawdownAmount = plan.fundedDrawdown.amount;
+            const peak = plan.accountSize + 10_000;
+            const threshold = peak - drawdownAmount;
+            const nearFloorBalance = threshold + documentedRisk * 0.5;
+            const nearFloorAccount = {
+                ...teaserAccount('near-floor', {
+                    accountSize: plan.accountSize,
+                    firmId: plan.id.firm,
+                    fundedOn: '2026-08-01',
+                    planSerial: serializePlanId(plan.id),
+                    purchasedOn: '2026-07-01',
+                    stage: AccountStage.Funded,
+                }),
+                dashboardConvention: DashboardBalanceConvention.Nominal,
+                firstFundedTradeOn: '2026-08-01',
+                liveStartBalanceCents: null,
+            } as unknown as ReturnType<typeof teaserAccount>;
+            const nearFloorSnapshot = {
+                accountId: 'near-floor',
+                asOf: TODAY,
+                balanceAtLastPayoutCents: null,
+                balanceCents: usdCents(Math.round(nearFloorBalance * 100)),
+                createdAt: new Date('2026-09-25T00:00:00Z'),
+                cumulativePayoutCents: null,
+                cycleBestDayProfitCents: null,
+                dashboardFloorCents: null,
+                evalBestDayProfitCents: null,
+                floorAtLastPayoutCents: null,
+                highestEodBalanceCents: usdCents(Math.round(peak * 100)),
+                highestIntradayBalanceCents: null,
+                id: 'snapshot-near-floor',
+                lastPayoutOn: null,
+                lastTradedOn: null,
+                payoutsTaken: null,
+                qualifyingDaysSinceLastPayout: null,
+                tradingDays: 5,
+                userId: USER_ID,
+            } as unknown as OverviewSnapshotRow;
+
+            const accountsWithNearFloor = [...ACCOUNTS, nearFloorAccount];
+            harness.queries.set('account.list', answer(accountsWithNearFloor));
+            harness.queries.set('event.list', answer([]));
+            harness.queries.set(
+                'snapshot.latestForAll',
+                answer([nearFloorSnapshot]),
+            );
+            render();
+
+            const accountStates = accountStatesForRows(
+                USER_ID,
+                TODAY,
+                accountsWithNearFloor,
+                [],
+                PAYOUTS,
+                [nearFloorSnapshot],
+            );
+            const alerts = portfolioAlerts({
+                accounts: accountsWithNearFloor,
+                accountStates,
+                copyGroups: [],
+                payouts: PAYOUTS,
+                rulebook: DEFAULT_RULEBOOK,
+                snapshots: [nearFloorSnapshot],
+                today: TODAY,
+            });
+            expect(alerts.some((alert) => alert.kind === AlertKind.NearFloor)).toBe(
+                true,
+            );
+            expect(statValue('Alerts')).toBe(String(alerts.length));
         });
 
         it('waits for the alert inputs before showing totals', () => {
@@ -327,6 +430,20 @@ describe('HubAccountsTeaser', () => {
             );
             expect(container.textContent).not.toContain(
                 'Your account totals could not be loaded',
+            );
+        });
+
+        it('marks the alert count unavailable, not silently undercounted, when events fail to load', () => {
+            harness.queries.set('event.list', {
+                data: undefined,
+                error: { message: 'Your events could not be loaded: x' },
+                isError: true,
+            });
+            render();
+            expect(statValue('Spend')).toBe(formatUsdCents(usdCents(20_000)));
+            expect(statValue('Alerts')).toBe('n/a');
+            expect(container.textContent).toContain(
+                'The alert count could not be checked: Your events could not be loaded: x',
             );
         });
 

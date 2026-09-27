@@ -9,6 +9,7 @@ import {
     EVAL_PLAN,
     event,
     ledger,
+    meanInterval,
     payout,
     purchased,
 } from './ledgerFixtures';
@@ -81,10 +82,7 @@ describe('payoutTiming', () => {
         );
         const se = meanStandardError(30, 500, 2);
         expect(plan?.toFirstPayout).toEqual({
-            interval: {
-                lower: 15 - 1.959964 * se,
-                upper: 15 + 1.959964 * se,
-            },
+            interval: meanInterval(15, se, 2),
             n: 2,
             standardError: se,
             value: 15,

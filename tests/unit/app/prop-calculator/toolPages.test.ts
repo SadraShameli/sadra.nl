@@ -279,7 +279,7 @@ const PINNED_PANEL_PROPS: Readonly<Record<string, readonly string[]>> = {
     ],
     ResiliencePanel: ['baseInputs={simInputs}result={result}'],
     ResultsPanel: [
-        'isPending={isPending}onPin={()=>pinScenario(result)}onUnpin={unpinScenario}pinned={pinned?.result??null}plan={state.plan}result={result}',
+        'fundedHorizonDays={state.fundedHorizonDays}isPending={isPending}onPin={()=>pinScenario(result)}onUnpin={unpinScenario}pinned={pinned?.result??null}plan={state.plan}result={result}',
     ],
     RuleStressTestPanel: ['baseInputs={simInputs}'],
     SensitivityHeatmap: [

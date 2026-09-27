@@ -1,4 +1,3 @@
-import { type DatedCharge } from '../core/DatedCharge';
 import {
     type DayPolicy,
     type DayStopRule,
@@ -17,6 +16,7 @@ import {
     SIM_DEFAULTS,
     simInputsSizingIssue,
 } from '../simulator';
+import { CardChargeCursor } from './DatedChargeCursor';
 import { runEvalToFundedCycle } from './fundedCycle';
 import {
     type AccountTimelineInputs,
@@ -28,25 +28,6 @@ const MAX_CARDS_PER_TIMELINE = 2000;
 
 export interface SharedPayoutBudget {
     remaining: number;
-}
-
-class DatedChargeCursor {
-    private index = 0;
-    private paid = 0;
-
-    constructor(private readonly charges: readonly DatedCharge[]) {}
-
-    paidThrough(day: number): number {
-        for (
-            let charge = this.charges[this.index];
-            charge !== undefined && charge.dayOffset <= day;
-            charge = this.charges[this.index]
-        ) {
-            this.paid += charge.fee;
-            this.index += 1;
-        }
-        return this.paid;
-    }
 }
 
 export function runAccountTimeline(
@@ -145,9 +126,12 @@ export function runAccountTimeline(
             (sum, charge) => sum + charge.fee,
             0,
         );
-        const spreadEvalCost = card.evalCost - evalRetrySpendTotal;
-        const evalRetries = new DatedChargeCursor(card.evalRetryCharges);
-        const fundedResets = new DatedChargeCursor(card.fundedResetCharges);
+        const cardCharges = new CardChargeCursor({
+            evalDays: card.evalDays,
+            evalRetryCharges: card.evalRetryCharges,
+            fundedResetCharges: card.fundedResetCharges,
+            spreadEvalCost: card.evalCost - evalRetrySpendTotal,
+        });
         let payoutIndex = 0;
 
         for (
@@ -155,14 +139,7 @@ export function runAccountTimeline(
             d <= card.totalDays && cardStart + d <= dayBudget;
             d++
         ) {
-            spendSoFar =
-                spendBeforeCard +
-                evalRetries.paidThrough(d) +
-                fundedResets.paidThrough(d) +
-                (card.evalDays > 0
-                    ? (spreadEvalCost * Math.min(d, card.evalDays)) /
-                      card.evalDays
-                    : spreadEvalCost);
+            spendSoFar = spendBeforeCard + cardCharges.paidThrough(d);
             while (
                 payoutIndex < card.payouts.length &&
                 card.payouts[payoutIndex]?.dayOffset === d

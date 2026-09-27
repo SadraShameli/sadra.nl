@@ -35,14 +35,18 @@ import {
     type Fraction0to1,
     fundedResetDpModelSentence,
     fundedResetsBeforeFirstPayout,
+    type InstrumentSymbol,
     isEvalDpEligible,
     type PayoutRequestPolicy,
     type Plan,
+    type PositionSizingConfig,
     RenewalCycleObjective,
+    resolvePositionSizing,
     type SimInputs,
     type SimOutputs,
     simulate,
     TRADING_DAYS_PER_YEAR,
+    TradingPhase,
 } from '~/lib/prop-calculator';
 import {
     type AverageRewardConfig,
@@ -55,6 +59,9 @@ import {
     fundedDpModelGaps,
 } from '~/lib/prop-calculator/core/FundedDpModelGaps';
 import {
+    DEFAULT_ACTION_STEP_MULTIPLE,
+    DEFAULT_CUSHION_STEP_MULTIPLE,
+    DEFAULT_MAX_ACTION_MULTIPLE,
     DEFAULT_MAX_CUSHION_MULTIPLE,
     type FundedStateValueResult,
     isFundedDpEligible,
@@ -69,13 +76,19 @@ export interface DpArguments
             TradingArguments,
             | 'early-withdrawal'
             | 'funded-reset'
+            | 'instrument'
             | 'request-size'
             | 'retain-cushion'
+            | 'stop-points'
         > {
+    'action-step-multiple'?: string;
     'copy-accounts': string;
+    'cushion-step-multiple'?: string;
     'eval-days': string;
     'funded-days': string;
     iterations: string;
+    'max-action-multiple'?: string;
+    'max-cushion-multiple'?: string;
     'payout-policy': PayoutRequestPolicy;
     'rebuy-lag-days': string;
     rr: string;
@@ -85,9 +98,14 @@ export interface DpArguments
 }
 
 export interface DpInputs {
+    actionStepMultiple: number | undefined;
     copyAccounts: number;
+    cushionStepMultiple: number | undefined;
     discounts: CouponDiscounts | undefined;
     fundedHorizonDays: number;
+    instrument: InstrumentSymbol | undefined;
+    maxActionMultiple: number | undefined;
+    maxCushionMultiple: number | undefined;
     maxEvalDays: number;
     maxSolves: number;
     minRetainedCushion: number;
@@ -96,6 +114,7 @@ export interface DpInputs {
     rebuyLagDays: number;
     rrRatio: number;
     seed: number;
+    stopPoints: number | undefined;
     trials: number;
     winrate: Fraction0to1;
 }
@@ -117,10 +136,11 @@ export function bundleRenewalNote(
 }
 
 export function dpPayoutSettingsLine(plan: Plan, inputs: DpInputs): string {
+    const resolvedRequestSize = resolvedPayoutRequestSize(inputs, plan);
     const request =
-        inputs.payoutRequestSize === undefined
+        resolvedRequestSize === undefined
             ? 'the whole withdrawable amount'
-            : formatCurrency(inputs.payoutRequestSize);
+            : formatCurrency(resolvedRequestSize);
     return `payouts in the DP and the empirical run: retained cushion ${formatCurrency(plan.resolveRetainedCushion(inputs.minRetainedCushion))} (the larger of --retain-cushion ${formatCurrency(inputs.minRetainedCushion)} and the plan floor ${formatCurrency(plan.defaultRetainedCushion())}), payout request ${request}`;
 }
 
@@ -128,14 +148,30 @@ export function dpSolverConfig(
     inputs: DpInputs,
     objective: RenewalCycleObjective,
 ): AverageRewardConfig {
+    const positionSizing = resolvedPositionSizing(inputs);
+    const evalDrawdownAmount =
+        objective.plan.drawdownFor(TradingPhase.Eval).amount;
+    const evalDollarsAt = (multiple: number | undefined): number | undefined =>
+        multiple === undefined ? undefined : multiple * evalDrawdownAmount;
     return {
+        evalGrid: {
+            actionStepDollars: evalDollarsAt(inputs.actionStepMultiple),
+            cushionStepDollars: evalDollarsAt(inputs.cushionStepMultiple),
+            maxActionDollars: evalDollarsAt(inputs.maxActionMultiple),
+            positionSizing,
+        },
         fundedGrid: {
+            actionStepMultiple: inputs.actionStepMultiple,
+            cushionStepMultiple: inputs.cushionStepMultiple,
+            maxActionMultiple: inputs.maxActionMultiple,
+            maxCushionMultiple: inputs.maxCushionMultiple,
             minRetainedCushion: inputs.minRetainedCushion,
             payoutRequestPolicy: inputs.payoutRequestPolicy,
             payoutRequestSize: resolvedPayoutRequestSize(
                 inputs,
                 objective.plan,
             ),
+            positionSizing,
         },
         maxSolves: inputs.maxSolves,
         objective,
@@ -155,6 +191,7 @@ export function empiricalSimInputs(
         evalDayPolicy: policies.evalDayPolicy,
         fundedDayPolicy: policies.fundedDayPolicy,
         fundedHorizonDays: inputs.fundedHorizonDays,
+        instrument: inputs.instrument,
         maxAttempts: EMPIRICAL_MAX_ATTEMPTS,
         maxEvalDays: inputs.maxEvalDays,
         minRetainedCushion: inputs.minRetainedCushion,
@@ -165,6 +202,7 @@ export function empiricalSimInputs(
         riskPerTrade: 1,
         rrRatio: inputs.rrRatio,
         seed: inputs.seed,
+        stopPoints: inputs.stopPoints,
         tradesPerDay: 1,
         trials: inputs.trials,
         winrate: inputs.winrate,
@@ -230,15 +268,33 @@ export function fundedValueIterationLine(
 
 export function readDpInputs(arguments_: DpArguments): DpInputs {
     const requestSize = arguments_['request-size'];
+    const stopPoints = arguments_['stop-points'];
     return {
+        actionStepMultiple: readOptionalPositiveNumber(
+            arguments_['action-step-multiple'],
+            'action-step-multiple',
+        ),
         copyAccounts: readPositiveInteger(
             arguments_['copy-accounts'],
             'copy-accounts',
+        ),
+        cushionStepMultiple: readOptionalPositiveNumber(
+            arguments_['cushion-step-multiple'],
+            'cushion-step-multiple',
         ),
         discounts: toCouponDiscounts(readCouponDiscountPercents(arguments_)),
         fundedHorizonDays: readPositiveInteger(
             arguments_['funded-days'],
             'funded-days',
+        ),
+        instrument: arguments_.instrument,
+        maxActionMultiple: readOptionalPositiveNumber(
+            arguments_['max-action-multiple'],
+            'max-action-multiple',
+        ),
+        maxCushionMultiple: readOptionalPositiveNumber(
+            arguments_['max-cushion-multiple'],
+            'max-cushion-multiple',
         ),
         maxEvalDays: readPositiveInteger(arguments_['eval-days'], 'eval-days'),
         maxSolves: readPositiveInteger(arguments_.iterations, 'iterations'),
@@ -254,6 +310,10 @@ export function readDpInputs(arguments_: DpArguments): DpInputs {
         rebuyLagDays: readRebuyLagDays(arguments_['rebuy-lag-days']),
         rrRatio: readPositiveNumber(arguments_.rr, 'rr'),
         seed: readInteger(arguments_.seed, 'seed'),
+        stopPoints:
+            stopPoints === undefined
+                ? undefined
+                : readPositiveNumber(stopPoints, 'stop-points'),
         trials: readPositiveInteger(arguments_.trials, 'trials'),
         winrate: readFraction(arguments_.winrate, 'winrate'),
     };
@@ -289,6 +349,9 @@ export function resolveDpPlan(
 
 function describeFundedDpModelGap(gap: FundedDpModelGap): string {
     switch (gap.kind) {
+        case FundedDpModelGapKind.CalendarWeekInactivityIgnored: {
+            return gap.message;
+        }
         case FundedDpModelGapKind.LifetimeDollarCapIgnored: {
             return `has a lifetime payout-dollar cap of ${formatCurrency(gap.maxLifetimePayoutDollars)} (maxLifetimePayoutDollars) that this DP ignores entirely: it never restores FundedCycleTracker.cumulativePayout from any state, so it is optimistic about payouts past that total`;
         }
@@ -301,6 +364,13 @@ function describeFundedDpModelGap(gap: FundedDpModelGap): string {
     }
 }
 
+function readOptionalPositiveNumber(
+    raw: string | undefined,
+    name: string,
+): number | undefined {
+    return raw === undefined ? undefined : readPositiveNumber(raw, name);
+}
+
 function resolvedPayoutRequestSize(
     inputs: DpInputs,
     plan: Plan,
@@ -308,6 +378,10 @@ function resolvedPayoutRequestSize(
     return inputs.payoutRequestSize === undefined
         ? undefined
         : effectivePayoutRequest(plan, inputs.payoutRequestSize);
+}
+
+function resolvedPositionSizing(inputs: DpInputs): null | PositionSizingConfig {
+    return resolvePositionSizing(inputs.instrument, inputs.stopPoints);
 }
 
 function sampleRisks(dayPolicy: DayPolicy, state: AccountState): number[] {
@@ -321,6 +395,14 @@ export const dpArguments = {
     ...planArguments,
     ...couponDiscountArguments,
     ...copyAccountsArgument,
+    'action-step-multiple': {
+        description: `Funded and eval DP action-step grid size, as a multiple of the plan's own drawdown amount (default ${DEFAULT_ACTION_STEP_MULTIPLE}). Coarsen this with --max-action-multiple for a fast ablation solve (N-86): a full-precision TopStep-style solve can take well over an hour, a coarse one takes minutes.`,
+        type: 'string',
+    },
+    'cushion-step-multiple': {
+        description: `Funded and eval DP cushion-step grid size, as a multiple of the plan's own drawdown amount (default ${DEFAULT_CUSHION_STEP_MULTIPLE}). The funded DP interpolates between adjacent cushion cells at every day close, so coarsening this trades precision for solve time rather than introducing the old floor-rounding bias (N-86).`,
+        type: 'string',
+    },
     'early-withdrawal': tradingArguments['early-withdrawal'],
     'eval-days': {
         default: '40',
@@ -335,10 +417,19 @@ export const dpArguments = {
         type: 'string',
     },
     'funded-reset': tradingArguments['funded-reset'],
+    instrument: commonSimArguments.instrument,
     iterations: {
         default: '12',
         description:
             'Max rate-search solves (each is one eval plus one funded solve). Stops early once the average-reward rate converges.',
+        type: 'string',
+    },
+    'max-action-multiple': {
+        description: `Funded and eval DP max action size, as a multiple of the plan's own drawdown amount (default ${DEFAULT_MAX_ACTION_MULTIPLE}).`,
+        type: 'string',
+    },
+    'max-cushion-multiple': {
+        description: `Funded DP cushion grid top, as a multiple of the plan's own drawdown amount (default ${DEFAULT_MAX_CUSHION_MULTIPLE}).`,
         type: 'string',
     },
     ...payoutRequestPolicyArgument,
@@ -355,6 +446,7 @@ export const dpArguments = {
         description: 'RNG seed for the empirical validation run',
         type: 'string',
     },
+    'stop-points': commonSimArguments['stop-points'],
     trials: {
         default: '4000',
         description: 'Monte Carlo trials for the empirical validation run',

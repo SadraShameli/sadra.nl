@@ -11,7 +11,10 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
 import {
+    accountStatesForRows,
+    EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
+    type OverviewSnapshotRow,
     portfolioAlerts,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Button } from '~/components/ui/Button';
@@ -20,12 +23,15 @@ import { Skeleton } from '~/components/ui/Skeleton';
 import { useSession } from '~/lib/auth/client';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
+    type AccountStateEntry,
     type AlertInputs,
     formatUsdCents,
     isActiveAccount,
     type LedgerAccountRow,
+    type LedgerEventRow,
     type LedgerFeeRow,
     type LedgerPayoutRow,
+    NO_ACCOUNT_STATES,
     summarizeCash,
     todayIsoDate,
     type UsdCents,
@@ -75,8 +81,21 @@ export function HubAccountsTeaser() {
     return session.data?.user.id === undefined ? (
         <SignInCallToAction />
     ) : (
-        <SignedInTeaser />
+        <SignedInTeaser userId={session.data.user.id} />
     );
+}
+
+function accountStatesOrNone(
+    userId: string,
+    today: string,
+    accounts: HubAccountsInputs['accounts'],
+    events: readonly LedgerEventRow[] | undefined,
+    payouts: readonly LedgerPayoutRow[],
+    snapshots: readonly OverviewSnapshotRow[],
+): readonly AccountStateEntry[] {
+    return events === undefined
+        ? NO_ACCOUNT_STATES
+        : accountStatesForRows(userId, today, accounts, events, payouts, snapshots);
 }
 
 function hubAccountsSummary(inputs: HubAccountsInputs): HubAccountsSummary {
@@ -96,9 +115,10 @@ function hubAccountsSummary(inputs: HubAccountsInputs): HubAccountsSummary {
     };
 }
 
-function SignedInTeaser() {
+function SignedInTeaser({ userId }: { readonly userId: string }) {
     const accountsQuery =
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
+    const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
     const feesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
     const payoutsQuery =
         api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
@@ -110,12 +130,13 @@ function SignedInTeaser() {
         (query) => query.isError,
     );
     const alertFailure =
-        [copyGroupsQuery, rulebookQuery, snapshotsQuery].find(
+        [eventsQuery, copyGroupsQuery, rulebookQuery, snapshotsQuery].find(
             (query) => query.isError,
         )?.error ?? null;
     const isAlertCountUnavailable = alertFailure !== null;
 
     const accounts = accountsQuery.data;
+    const events = eventsQuery.data;
     const fees = feesQuery.data;
     const payouts = payoutsQuery.data;
     const copyGroups = copyGroupsQuery.data;
@@ -137,30 +158,44 @@ function SignedInTeaser() {
                 payouts,
             });
         }
-        return copyGroups === undefined ||
+        if (
+            copyGroups === undefined ||
             rulebook === undefined ||
             snapshots === undefined
-            ? null
-            : hubAccountsSummary({
-                  accounts,
-                  alerts: {
-                      accounts,
-                      copyGroups,
-                      payouts,
-                      rulebook,
-                      snapshots,
-                      today: todayIsoDate(new Date()),
-                  },
-                  fees,
-                  payouts,
-              });
+        ) {
+            return null;
+        }
+        const today = todayIsoDate(new Date());
+        return hubAccountsSummary({
+            accounts,
+            alerts: {
+                accounts,
+                accountStates: accountStatesOrNone(
+                    userId,
+                    today,
+                    accounts,
+                    events,
+                    payouts,
+                    snapshots,
+                ),
+                copyGroups,
+                payouts,
+                rulebook,
+                snapshots,
+                today,
+            },
+            fees,
+            payouts,
+        });
     }, [
         accounts,
         isAlertCountUnavailable,
         copyGroups,
+        events,
         fees,
         payouts,
         rulebook,
+        userId,
         snapshots,
     ]);
 

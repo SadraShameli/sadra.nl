@@ -7,14 +7,17 @@ import {
     DayStopRuleKind,
     dollars,
     fraction,
+    ONE_CENT,
     resolveLiveTradeRisk,
 } from '~/lib/prop-calculator';
 import {
+    DayStopReason,
     DEFAULT_RULEBOOK,
     type DocumentedSizing,
     LiveCushionPercentRule,
     type LiveRuleContext,
     NextTradeKind,
+    NO_PERSONAL_CAPS,
     RuleSource,
     SizingAssumption,
     SizingConstraint,
@@ -29,12 +32,15 @@ function liveContext(
     overrides: Partial<LiveRuleContext> = {},
 ): LiveRuleContext {
     return {
+        ceiling: null,
         contractLimit: null,
         cushion: dollars(4000),
         dayStartDllRoom: null,
         instrument: null,
         liveCushionPercent: null,
+        personalCaps: NO_PERSONAL_CAPS,
         personalDll: null,
+        placeableMinimum: ONE_CENT,
         stage: SizingStage.Live,
         thresholdLocked: false,
         ...overrides,
@@ -163,5 +169,150 @@ describe('LiveCushionPercentRule (live account, not replaceable)', () => {
 
             expect(() => live.size(withCeiling)).toThrow(ZodError);
         }
+    });
+});
+
+describe('LiveCushionPercentRule, personal caps and ceilings (PT-19 step 2, F-62, F-154)', () => {
+    it('drops NoProfitCeiling and reports the ceiling as CeilingCap once a ceiling is set', () => {
+        const sizing = live.size(liveContext({ ceiling: dollars(60) }));
+
+        expect(sizing.assumptions).not.toContain(
+            SizingAssumption.NoProfitCeiling,
+        );
+        expect(sizing.assumptions).toContain(
+            SizingAssumption.LiveDayPolicyUndocumented,
+        );
+        expect(sizing.profitCeiling).toEqual({
+            amount: 60,
+            constraint: SizingConstraint.CeilingCap,
+        });
+        expect(sizing.rungs[0]).toMatchObject({
+            cappedBy: [SizingConstraint.CeilingCap],
+            risk: 30,
+            takeProfit: 60,
+        });
+    });
+
+    it('caps the next trade at a personal max risk per trade', () => {
+        const context = liveContext({
+            personalCaps: {
+                dailyProfitCap: null,
+                maxRiskPerTrade: dollars(50),
+                maxTradesPerDay: null,
+            },
+        });
+
+        expect(
+            live.nextTrade(context, {
+                dayPnL: dollars(0),
+                losses: 0,
+                runningLoss: dollars(0),
+                wins: 0,
+            }),
+        ).toEqual({
+            kind: NextTradeKind.Trade,
+            rung: {
+                cappedBy: [SizingConstraint.PersonalCap],
+                risk: 50,
+                runningLossAfter: 50,
+                runningLossBefore: 0,
+                takeProfit: 100,
+            },
+        });
+    });
+
+    it('stops at a personal max trades per day tighter than the rulebook', () => {
+        const context = liveContext({
+            personalCaps: {
+                dailyProfitCap: null,
+                maxRiskPerTrade: null,
+                maxTradesPerDay: 2,
+            },
+        });
+
+        expect(
+            live.nextTrade(context, {
+                dayPnL: dollars(0),
+                losses: 1,
+                runningLoss: dollars(200),
+                wins: 1,
+            }),
+        ).toEqual({
+            cappedBy: [],
+            kind: NextTradeKind.Stop,
+            reason: DayStopReason.MaxTrades,
+        });
+    });
+
+    it('tightens the ceiling with a personal daily profit cap, tagged PersonalCap', () => {
+        const context = liveContext({
+            personalCaps: {
+                dailyProfitCap: dollars(100),
+                maxRiskPerTrade: null,
+                maxTradesPerDay: null,
+            },
+        });
+
+        expect(
+            live.nextTrade(context, {
+                dayPnL: dollars(0),
+                losses: 0,
+                runningLoss: dollars(0),
+                wins: 0,
+            }),
+        ).toEqual({
+            kind: NextTradeKind.Trade,
+            rung: {
+                cappedBy: [SizingConstraint.PersonalCap],
+                risk: 50,
+                runningLossAfter: 50,
+                runningLossBefore: 0,
+                takeProfit: 100,
+            },
+        });
+    });
+
+    it('stops with NoLossRoom below a custom placeable minimum, where the default ONE_CENT would still trade', () => {
+        const tinyCushion = liveContext({ cushion: dollars(0.5) });
+        const day = {
+            dayPnL: dollars(0),
+            losses: 0,
+            runningLoss: dollars(0),
+            wins: 0,
+        };
+
+        expect(live.nextTrade(tinyCushion, day)).toMatchObject({
+            kind: NextTradeKind.Trade,
+            rung: { risk: 0.02 },
+        });
+        expect(
+            live.nextTrade(
+                { ...tinyCushion, placeableMinimum: dollars(1) },
+                day,
+            ),
+        ).toEqual({
+            cappedBy: [],
+            kind: NextTradeKind.Stop,
+            reason: DayStopReason.NoLossRoom,
+        });
+    });
+
+    it('reports CeilingReached, not NoLossRoom, when the ceiling room falls below a custom placeable minimum', () => {
+        const context = liveContext({
+            ceiling: dollars(0.5),
+            placeableMinimum: dollars(1),
+        });
+        const day = {
+            dayPnL: dollars(0),
+            losses: 0,
+            runningLoss: dollars(0),
+            wins: 0,
+        };
+
+        expect(live.nextTrade(context, day)).toEqual({
+            cappedBy: [SizingConstraint.CeilingCap],
+            kind: NextTradeKind.Stop,
+            reason: DayStopReason.CeilingReached,
+        });
     });
 });

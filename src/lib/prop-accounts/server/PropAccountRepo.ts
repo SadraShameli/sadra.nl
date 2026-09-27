@@ -198,6 +198,21 @@ export class PropAccountRepo {
         return row?.occurredOn ?? null;
     }
 
+    async earliestViolationOn(accountId: string): Promise<null | string> {
+        const [row] = await this.database
+            .select({ occurredOn: propRuleViolation.occurredOn })
+            .from(propRuleViolation)
+            .where(
+                and(
+                    eq(propRuleViolation.userId, this.userId),
+                    eq(propRuleViolation.accountId, accountId),
+                ),
+            )
+            .orderBy(asc(propRuleViolation.occurredOn))
+            .limit(1);
+        return row?.occurredOn ?? null;
+    }
+
     async hasEventOfKind(
         accountId: string,
         kind: AccountEventKind,
@@ -803,6 +818,28 @@ export class PropAccountRepo {
             throw new PropRecordNotFoundError(PropRecord.ExternalFirm);
         }
         return row;
+    }
+
+    async loadOwnedExternalFirmsOrThrow(
+        ids: readonly string[],
+    ): Promise<ReadonlyMap<string, PropExternalFirmRow>> {
+        const distinct = [...new Set(ids)];
+        if (distinct.length === 0) return new Map();
+        const rows = await this.database
+            .select()
+            .from(propExternalFirm)
+            .where(
+                and(
+                    inArray(propExternalFirm.id, distinct),
+                    eq(propExternalFirm.userId, this.userId),
+                ),
+            )
+            .limit(distinct.length);
+        const owned = new Map(rows.map((row) => [row.id, row] as const));
+        if (distinct.some((id) => !owned.has(id))) {
+            throw new PropRecordNotFoundError(PropRecord.ExternalFirm);
+        }
+        return owned;
     }
 
     async loadOwnedFeeOrThrow(id: string): Promise<PropFeeRow> {
