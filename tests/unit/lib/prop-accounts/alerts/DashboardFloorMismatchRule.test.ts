@@ -47,11 +47,11 @@ describe('DashboardFloorMismatchRule', () => {
         expect(alerts[0]?.message).toContain(
             "above the engine's own calculated floor",
         );
-        expect(alerts[0]?.message).not.toContain(
-            'below',
-        );
+        expect(alerts[0]?.message).not.toContain('below');
         expect(alerts[0]?.message).not.toContain('the engine floor is used');
-        expect(alerts[0]?.message).toContain('is used as the more conservative one');
+        expect(alerts[0]?.message).toContain(
+            'is used as the more conservative one',
+        );
     });
 
     it('is silent without the reconstruction warning', () => {

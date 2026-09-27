@@ -78,6 +78,7 @@ vi.mock('~/trpc/react', () => ({
                 create: { useMutation: harness.mutation },
                 list: { useQuery: () => harness.query([]) },
             },
+            round: { list: { useQuery: () => harness.query([]) } },
             snapshot: { create: { useMutation: harness.mutation } },
         },
         useUtils: () => ({

@@ -34,3 +34,10 @@ export {
     type RoundSuggestionCandidate,
     roundSuggestions,
 } from './RoundSuggestions';
+export {
+    type ScaleGate,
+    type ScaleGateInputs,
+    scaleGateOf,
+    ScaleGateStatus,
+    ScaleGateUnmetCondition,
+} from './ScaleGate';

@@ -402,9 +402,9 @@ describe('HubAccountsTeaser', () => {
                 snapshots: [nearFloorSnapshot],
                 today: TODAY,
             });
-            expect(alerts.some((alert) => alert.kind === AlertKind.NearFloor)).toBe(
-                true,
-            );
+            expect(
+                alerts.some((alert) => alert.kind === AlertKind.NearFloor),
+            ).toBe(true);
             expect(statValue('Alerts')).toBe(String(alerts.length));
         });
 

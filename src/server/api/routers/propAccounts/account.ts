@@ -66,6 +66,11 @@ import {
     resolvedPlanOrThrow,
     returnedRowOrThrow,
 } from './mutationGuard';
+import {
+    assertRoundAcceptsMembership,
+    assertRoundWithinBudget,
+    loadOpenOwnedRoundOrThrow,
+} from './round';
 import { assertStoredSnapshotsFit } from './snapshot';
 
 enum PurchaseBound {
@@ -100,6 +105,7 @@ const EDITABLE_FIELDS = [
     'planSerial',
     'purchasedOn',
     'replacesAccountId',
+    'roundId',
     'tags',
     'tracking',
 ] as const satisfies readonly (keyof AccountRow & keyof OwnedAccount)[];
@@ -354,6 +360,13 @@ export const propAccountRouter = createTRPCRouter({
                     );
                 }
                 await assertExternalFirmOwned(repo, externalFirmIdsOf([input]));
+                if (input.roundId !== stored.roundId) {
+                    await assertRoundAcceptsMembership(
+                        repo,
+                        input.roundId,
+                        input.overrideRoundBudget,
+                    );
+                }
                 const isPurchaseMoved =
                     input.purchasedOn !== stored.purchasedOn;
                 if (isPurchaseMoved) {
@@ -673,6 +686,7 @@ function editableValues(input: AccountInput): EditableValues {
         personalRules: input.personalRules,
         purchasedOn: input.purchasedOn,
         replacesAccountId: input.replacesAccountId,
+        roundId: input.roundId,
         tags: input.tags,
     };
     switch (input.tracking) {
@@ -728,6 +742,18 @@ async function insertAccounts(
             row.replacesAccountId === null ? [] : [row.replacesAccountId],
         ),
     );
+    const roundIds = new Set(
+        rows.flatMap((row) => (row.roundId === null ? [] : [row.roundId])),
+    );
+    for (const roundId of roundIds) {
+        const round = await loadOpenOwnedRoundOrThrow(repo, roundId);
+        const hasEveryRowOverride = rows
+            .filter((row) => row.roundId === roundId)
+            .every((row) => row.overrideRoundBudget);
+        if (!hasEveryRowOverride) {
+            await assertRoundWithinBudget(repo, round);
+        }
+    }
     const groupIds = new Set(
         rows.flatMap((row) =>
             row.copyGroupId === null ? [] : [row.copyGroupId],
@@ -817,6 +843,7 @@ function upgradedValues(upgraded: OwnedAccount): EditableValues {
         planSerial: upgraded.planSerial,
         purchasedOn: upgraded.purchasedOn,
         replacesAccountId: upgraded.replacesAccountId,
+        roundId: upgraded.roundId,
         tags: upgraded.tags,
         tracking: upgraded.tracking,
     };

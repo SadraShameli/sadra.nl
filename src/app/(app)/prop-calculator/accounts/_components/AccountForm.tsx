@@ -49,6 +49,7 @@ import {
     PlanKeyResolutionKind,
     planOptInsSchema,
     resolvePlanKey,
+    RoundStatus,
     SnapshotField,
     type SnapshotFieldRule,
     todayIsoDate,
@@ -202,6 +203,7 @@ const accountFormSchema = z
         planSerial: z.string(),
         purchasedOn: z.string(),
         replacesAccountId: z.string(),
+        roundId: z.string(),
         stage: z.enum(AccountStage),
         tags: z.string(),
         tracking: z.enum(AccountTracking),
@@ -279,6 +281,7 @@ const accountFormSchema = z
             personalRules: personalRules.rules,
             purchasedOn: values.purchasedOn,
             replacesAccountId: nullIfNone(values.replacesAccountId),
+            roundId: nullIfNone(values.roundId),
             stage: values.stage,
             tags: tags.tags,
         });
@@ -369,6 +372,7 @@ export function AccountCreator({
                     planLabel: '',
                     purchasedOn: todayIsoDate(new Date()),
                     replacesAccountId: NONE,
+                    roundId: NONE,
                     stage: stage?.stage ?? AccountStage.Funded,
                     tags: '',
                     tracking: AccountTracking.Modeled,
@@ -463,6 +467,7 @@ function AccountForm({
     const accountsQuery =
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
     const groupsQuery = api.propAccounts.copyGroup.list.useQuery();
+    const roundsQuery = api.propAccounts.round.list.useQuery();
     const form = useForm<AccountFormValues>({
         defaultValues: defaults,
         resolver: zodResolver(accountFormSchema, undefined, { raw: true }),
@@ -518,6 +523,7 @@ function AccountForm({
                     groups={groupsQuery.data ?? []}
                     isLedgerOnly={isLedgerOnly}
                     otherAccounts={otherAccounts}
+                    rounds={roundsQuery.data ?? []}
                 />
 
                 <Card>
@@ -629,11 +635,17 @@ function DetailsCard({
     groups,
     isLedgerOnly,
     otherAccounts,
+    rounds,
 }: {
     control: Control<AccountFormValues>;
     groups: readonly { readonly id: string; readonly name: string }[];
     isLedgerOnly: boolean;
     otherAccounts: readonly { readonly id: string; readonly label: string }[];
+    rounds: readonly {
+        readonly id: string;
+        readonly label: string;
+        readonly status: RoundStatus;
+    }[];
 }) {
     return (
         <Card>
@@ -726,6 +738,47 @@ function DetailsCard({
                         )}
                     />
                 )}
+                <FormField
+                    control={control}
+                    name="roundId"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Round</FormLabel>
+                            <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                            >
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value={NONE}>
+                                        None (not in a round)
+                                    </SelectItem>
+                                    {rounds.map((round) => (
+                                        <SelectItem
+                                            key={round.id}
+                                            value={round.id}
+                                        >
+                                            {round.label}
+                                            {round.status ===
+                                                RoundStatus.Closed &&
+                                                ' (closed)'}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormDescription>
+                                Groups this account&apos;s spend and payouts
+                                against a round budget. Only your own open
+                                rounds accept new members.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
                 <FormField
                     control={control}
                     name="replacesAccountId"
@@ -1442,6 +1495,7 @@ function storedDetailDefaults(
         personalRules: personalRulesToText(account.personalRules),
         purchasedOn: account.purchasedOn,
         replacesAccountId: account.replacesAccountId ?? NONE,
+        roundId: account.roundId ?? NONE,
         stage: account.stage,
         tags: account.tags.join(', '),
     };
@@ -1478,9 +1532,11 @@ function toUpdateInput(draft: AccountDraft, id: string) {
         label: draft.label,
         liveStartBalanceCents: draft.liveStartBalanceCents,
         notes: draft.notes,
+        overrideRoundBudget: draft.overrideRoundBudget,
         personalRules: draft.personalRules,
         purchasedOn: draft.purchasedOn,
         replacesAccountId: draft.replacesAccountId,
+        roundId: draft.roundId,
         tags: draft.tags,
     };
     switch (draft.tracking) {

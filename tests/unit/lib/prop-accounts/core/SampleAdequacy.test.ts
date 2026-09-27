@@ -76,4 +76,24 @@ describe('sampleAdequacy', () => {
             SampleLevel.None,
         );
     });
+
+    it('reads EndedAccounts against the funded-accounts threshold, since ended accounts are a subset of ever-funded accounts', () => {
+        expect(
+            sampleAdequacy(
+                SampleKind.EndedAccounts,
+                3,
+                thresholds({ minFundedAccounts: 5 }),
+            ),
+        ).toBe(SampleLevel.Low);
+        expect(
+            sampleAdequacy(
+                SampleKind.EndedAccounts,
+                5,
+                thresholds({ minFundedAccounts: 5 }),
+            ),
+        ).toBe(SampleLevel.Adequate);
+        expect(
+            sampleAdequacy(SampleKind.EndedAccounts, 3, thresholds()),
+        ).toBe(null);
+    });
 });

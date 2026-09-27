@@ -63,15 +63,17 @@ function retainedCushionOf(
     context: AlertContext,
     account: ReconstructedFundedOrEvalAccount,
 ): number {
-    return account.fundedTracker === null ? 0 : retainedCushionForStage(
-        context.rulebook,
-        fundedPayoutRuleContextOf(
-            account.plan,
-            account.state,
-            account.fundedTracker,
-            null,
-        ),
-    ).amount;
+    return account.fundedTracker === null
+        ? 0
+        : retainedCushionForStage(
+              context.rulebook,
+              fundedPayoutRuleContextOf(
+                  account.plan,
+                  account.state,
+                  account.fundedTracker,
+                  null,
+              ),
+          ).amount;
 }
 
 function wasPayoutEligible(

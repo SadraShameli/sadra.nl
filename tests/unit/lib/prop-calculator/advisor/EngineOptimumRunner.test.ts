@@ -8,19 +8,28 @@ import {
     EngineOptimumRefusalKind,
     EngineOptimumRowKind,
     type EngineOptimumRunnerResult,
+    fundedCycleSeedFromTracker,
+    type FundedFromStateSweepRequest,
     FundedSweepOptimumResultKind,
     type LadderSearchRequestSource,
+    type NextPayoutProjectionRequest,
+    type PayoutSizeSweepRequest,
     runEngineOptimum,
+    runFundedFromStateSweep,
+    runNextPayoutProjection,
+    runPayoutSizeSweep,
 } from '~/lib/prop-calculator/advisor';
 import {
     DayStopRuleKind,
     FirmId,
     InstrumentSymbol,
     MffuVariant,
+    newFundedCycleTracker,
     type Plan,
     type PositionSizingConfig,
     resolvePositionSizing,
     RungSizing,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { runLadderSearch } from '~/lib/prop-calculator/core/LadderSearch';
 import { findFirm } from '~/lib/prop-calculator/firms';
@@ -31,7 +40,11 @@ import {
     sortFundedResults,
     survivorCount,
 } from '~/lib/prop-calculator/optimize';
-import { type SimInputs, simulate } from '~/lib/prop-calculator/simulator';
+import {
+    type FundedSimStart,
+    type SimInputs,
+    simulate,
+} from '~/lib/prop-calculator/simulator';
 
 const LADDER_SOURCES: readonly LadderSearchRequestSource[] = [
     AdviceSource.LadderSearchFresh,
@@ -472,5 +485,125 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
             );
             expect(structuredClone(result)).toStrictEqual(result);
         });
+    });
+});
+
+function fundedSimStartAt(plan: Plan): FundedSimStart {
+    const state = plan.initialState();
+    plan.beginFundedPhase(state);
+    const tracker = newFundedCycleTracker(state);
+    return {
+        phase: TradingPhase.Funded,
+        seed: fundedCycleSeedFromTracker(plan, state, tracker),
+        state,
+    };
+}
+
+describe('runEngineOptimum dispatches PT-32 sources (PT-32 step 6)', () => {
+    it('dispatches FundedSweepFromState to runFundedFromStateSweep, matching a direct call', () => {
+        const plan = rapidEodPlan();
+        const policy = policyFor(plan);
+        const start = fundedSimStartAt(plan);
+        const request: FundedFromStateSweepRequest = {
+            base: baseSimInputs({ trials: 15 }),
+            candidates: {
+                flat: [150, 250],
+                fundedLadder: null,
+                positionSizing: null,
+                stopRule,
+            },
+            policy,
+            source: AdviceSource.FundedSweepFromState,
+            start,
+        };
+
+        const result = runEngineOptimum(plan, request);
+        if (!('sweep' in result) || result.source !== AdviceSource.FundedSweepFromState) {
+            throw new Error('expected a from-state sweep result');
+        }
+        expect(result.sweep).toStrictEqual(runFundedFromStateSweep(plan, request));
+    });
+
+    it('dispatches PayoutSizeSweep to runPayoutSizeSweep, matching a direct call', () => {
+        const plan = rapidEodPlan();
+        const policy = policyFor(plan);
+        const request: PayoutSizeSweepRequest = {
+            source: AdviceSource.PayoutSizeSweep,
+            spec: {
+                enginePolicy: policy,
+                rulebook: DEFAULT_RULEBOOK,
+                run: { maxEvalDays: 40, seed: 42, trials: 15 },
+            },
+        };
+
+        const result = runEngineOptimum(plan, request);
+        if (!('sweep' in result) || result.source !== AdviceSource.PayoutSizeSweep) {
+            throw new Error('expected a payout-size sweep result');
+        }
+        expect(result.sweep).toStrictEqual(runPayoutSizeSweep(plan, request));
+    });
+
+    it('dispatches NextPayoutProjection to runNextPayoutProjection, matching a direct call', () => {
+        const plan = rapidEodPlan();
+        const policy = policyFor(plan);
+        const start = fundedSimStartAt(plan);
+        const request: NextPayoutProjectionRequest = {
+            base: baseSimInputs({ fundedHorizonDays: 10, trials: 15 }),
+            policy,
+            source: AdviceSource.NextPayoutProjection,
+            start,
+        };
+
+        const result = runEngineOptimum(plan, request);
+        if (!('projection' in result)) {
+            throw new Error('expected a projection result');
+        }
+        expect(result.projection).toStrictEqual(
+            runNextPayoutProjection(plan, request),
+        );
+    });
+
+    it('every PT-32 request and result round-trips through structuredClone unchanged', () => {
+        const plan = rapidEodPlan();
+        const policy = policyFor(plan);
+        const start = fundedSimStartAt(plan);
+        const requests: (
+            | FundedFromStateSweepRequest
+            | NextPayoutProjectionRequest
+            | PayoutSizeSweepRequest
+        )[] = [
+            {
+                base: baseSimInputs({ trials: 10 }),
+                candidates: {
+                    flat: [150],
+                    fundedLadder: null,
+                    positionSizing: null,
+                    stopRule,
+                },
+                policy,
+                source: AdviceSource.FundedSweepFromState,
+                start,
+            },
+            {
+                source: AdviceSource.PayoutSizeSweep,
+                spec: {
+                    enginePolicy: policy,
+                    rulebook: DEFAULT_RULEBOOK,
+                    run: { maxEvalDays: 40, seed: 42, trials: 10 },
+                },
+            },
+            {
+                base: baseSimInputs({ fundedHorizonDays: 10, trials: 10 }),
+                policy,
+                source: AdviceSource.NextPayoutProjection,
+                start,
+            },
+        ];
+
+        for (const request of requests) {
+            expect(structuredClone(request)).toStrictEqual(request);
+            const result = runEngineOptimum(plan, request);
+            expect(structuredClone(result)).toStrictEqual(result);
+        }
     });
 });

@@ -21,6 +21,7 @@ import { AccountsTable } from '../AccountsTable';
 import { AlertsCenter } from './AlertsCenter';
 import { AttemptEconomicsCard } from './AttemptEconomicsCard';
 import { AttemptThroughputCard } from './AttemptThroughputCard';
+import { BankrollCard } from './BankrollCard';
 import { CapUsageCard } from './CapUsageCard';
 import { CostCard } from './CostCard';
 import { DiversificationCard } from './DiversificationCard';
@@ -271,6 +272,9 @@ function OverviewSections({ model }: { readonly model: OverviewModel }) {
                 <>
                     <OverviewSection id="kpis" title="Key figures">
                         <KpiRow kpis={ledger.kpis} />
+                    </OverviewSection>
+                    <OverviewSection id="bankroll" title="Bankroll">
+                        <BankrollCard model={ledger.bankroll} />
                     </OverviewSection>
                     <AlertsSection alerts={model.alerts} />
                     <OverviewSection id="notes" title="Data notes">

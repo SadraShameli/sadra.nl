@@ -62,9 +62,11 @@ function alertOf(
 }
 
 const DEFAULT_KINDS = [
+    AlertKind.BankrollLossRiskAboveThreshold,
     AlertKind.ConsistencyNearBreach,
     AlertKind.DashboardFloorMismatch,
     AlertKind.EvalDayCapNear,
+    AlertKind.FirmPayoutTotalMismatch,
     AlertKind.IdleSessionLimit,
     AlertKind.InvalidStoredDate,
     AlertKind.LifetimeDollarCapNear,
@@ -76,6 +78,7 @@ const DEFAULT_KINDS = [
     AlertKind.PayoutEligible,
     AlertKind.PayoutReadyWithdrawableDrop,
     AlertKind.PlanRulesChanged,
+    AlertKind.RoundBudgetReached,
     AlertKind.StaleSnapshot,
     AlertKind.SubscriptionRenewalDue,
     AlertKind.TierChange,

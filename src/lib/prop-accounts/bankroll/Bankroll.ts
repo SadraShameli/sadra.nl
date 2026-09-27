@@ -1,5 +1,7 @@
 import {
     BankrollTransferKind,
+    sampleAdequacy,
+    SampleKind,
     type SampleLevel,
 } from '~/lib/prop-accounts/core';
 import {
@@ -83,7 +85,7 @@ export function bankrollOf(
 export function scaleAtMeasuredMultiple(
     cohortMultiple: CohortMultiple | null,
     candidateMonthlyBudgetCents: null | number,
-    _sampleThresholds: SampleThresholds,
+    sampleThresholds: SampleThresholds,
 ): ScaleAtMultiple {
     if (cohortMultiple?.value == null) {
         return {
@@ -106,6 +108,10 @@ export function scaleAtMeasuredMultiple(
         projectedMonthlyCents: Math.round(
             candidateMonthlyBudgetCents * cohortMultiple.value,
         ),
-        sampleLevel: null,
+        sampleLevel: sampleAdequacy(
+            SampleKind.EndedAccounts,
+            cohortMultiple.n,
+            sampleThresholds,
+        ),
     };
 }

@@ -1,9 +1,13 @@
-import { type ContractCount, type Dollars } from '../core';
+import { type ContractCount, contracts, type Dollars } from '../core';
 import { type PersonalCaps } from './PersonalCaps';
 
 export interface RiskCaps extends PersonalCaps {
     readonly affordable: Dollars;
     readonly maxContracts: ContractCount | null;
+}
+
+export function contractLimitOf(limit: null | number): ContractCount | null {
+    return limit === null ? null : contracts(limit);
 }
 
 export function riskCaps(

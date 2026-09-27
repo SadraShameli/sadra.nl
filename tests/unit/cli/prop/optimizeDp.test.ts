@@ -51,6 +51,7 @@ import {
     DayStopRuleKind,
     FtmoFuturesVariant,
     FundedNextVariant,
+    PayoutFloorEffect,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import {
@@ -64,6 +65,7 @@ import {
     warmFirmsRegistryCache,
 } from '~/lib/prop-calculator/core/FundedStateValue';
 import { PayoutCountTieredPayoutCap } from '~/lib/prop-calculator/core/PayoutCap';
+import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
 import { FtmoFutures } from '~/lib/prop-calculator/firms/ftmo-futures/FtmoFutures';
@@ -268,8 +270,10 @@ describe('fundedDpModelGapWarning', () => {
         expect(fundedDpModelGapWarning(mffBuilderPlan())).toBeNull();
     });
 
-    it('returns null for TopStep no-fee-standard: it has no count-keyed payout rule at all', () => {
-        expect(fundedDpModelGapWarning(topStepNoFeeStandardPlan())).toBeNull();
+    it('is not null for TopStep no-fee-standard: it has no count-keyed payout rule, but it does carry the ReleaseFloor disclosure (N-86, WP57)', () => {
+        const warning = fundedDpModelGapWarning(topStepNoFeeStandardPlan());
+        expect(warning).not.toBeNull();
+        expect(warning).toContain('N-86');
     });
 
     it('warns about MFF Pro’s $100,000 lifetime payout-dollar cap and says this DP ignores it (optimistic)', () => {
@@ -328,8 +332,10 @@ describe('fundedDpModelGapWarning', () => {
         expect(warning).toContain('does not model');
     });
 
-    it('returns null for TopStep no-fee-standard, whose funded phase has no calendar-week inactivity rule either', () => {
-        expect(fundedDpModelGapWarning(topStepNoFeeStandardPlan())).toBeNull();
+    it('names no calendar week for TopStep no-fee-standard, whose funded phase has no calendar-week inactivity rule (it still carries the unrelated ReleaseFloor disclosure, N-86 WP57)', () => {
+        const warning = fundedDpModelGapWarning(topStepNoFeeStandardPlan());
+        expect(warning).not.toBeNull();
+        expect(warning).not.toContain('calendar week');
     });
 
     it("prints TPT PRO's own plan label exactly once on the calendar-week gap line, not twice (N-87 leftover, WP55)", () => {
@@ -340,6 +346,74 @@ describe('fundedDpModelGapWarning', () => {
             warning === null ? 0 : warning.split(plan.label).length - 1;
         expect(labelOccurrences).toBe(1);
     });
+});
+
+describe('fundedDpModelGapWarning discloses the unvalidated ReleaseFloor policy (N-86, WP57)', () => {
+    it('names the audit item and points at the optimize funded flat comparison, for TopStep no-fee-standard', () => {
+        const plan = topStepNoFeeStandardPlan();
+        const warning = fundedDpModelGapWarning(plan);
+        expect(warning).not.toBeNull();
+        expect(warning).toContain('N-86');
+        expect(warning).toContain('optimize funded');
+        expect(warning).toContain('ReleaseFloor');
+        expect(warning).not.toContain('\u{2014}');
+    });
+
+    it('prints the plan label exactly once on that warning', () => {
+        const plan = topStepNoFeeStandardPlan();
+        const warning = fundedDpModelGapWarning(plan);
+        const labelOccurrences =
+            warning === null ? 0 : warning.split(plan.label).length - 1;
+        expect(labelOccurrences).toBe(1);
+    });
+
+    it('says nothing for FTMO Growth, whose funded payout floor effect is not ReleaseFloor', () => {
+        const plan = new FtmoFutures().findPlan({
+            accountSize: 50_000,
+            firm: FirmId.FtmoFutures,
+            variant: FtmoFuturesVariant.Growth,
+        });
+        if (!plan) throw new Error('FTMO Growth 50K plan not found');
+        expect(fundedDpModelGapWarning(plan)).toBeNull();
+    });
+
+    it('says nothing for every non-ReleaseFloor plan across every firm', () => {
+        for (const firm of ALL_FIRMS) {
+            for (const plan of firm.plans) {
+                if (plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor)
+                    continue;
+                expect(
+                    fundedDpModelGapWarning(plan) ?? '',
+                    plan.label,
+                ).not.toContain('N-86');
+            }
+        }
+    });
+
+    it("run() prints the disclosure once for TopStep no-fee-standard, with the plan's own label once", async () => {
+        const argv = [
+            '--firm',
+            'topstep',
+            '--variant',
+            'no-fee-standard',
+            '--eval-days',
+            '2',
+            '--funded-days',
+            '2',
+            '--iterations',
+            '1',
+            '--trials',
+            '10',
+        ];
+        const { stdout } = await capturedRun(argv);
+        const plan = topStepNoFeeStandardPlan();
+
+        expect(stdout).toContain('N-86');
+        expect(stdout.split('ReleaseFloor').length - 1).toBe(1);
+        const warning = fundedDpModelGapWarning(plan);
+        expect(warning).not.toBeNull();
+        expect(stdout.split(warning ?? '').length - 1).toBe(1);
+    }, 600_000);
 });
 
 async function resolveArguments(): Promise<ArgsDef> {

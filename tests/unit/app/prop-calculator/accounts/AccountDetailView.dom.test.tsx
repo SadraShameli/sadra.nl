@@ -3,7 +3,10 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
-import { type EventPreviewer } from '~/app/(app)/prop-calculator/accounts/_components/detail/eventOptions';
+import {
+    type EventPreviewer,
+    NO_EVENT_PREVIEW,
+} from '~/app/(app)/prop-calculator/accounts/_components/detail/eventOptions';
 import { EventsSection } from '~/app/(app)/prop-calculator/accounts/_components/detail/EventsSection';
 import {
     AccountEventKind,
@@ -13,6 +16,8 @@ import {
     DashboardBalanceConvention,
     FeeKind,
     feePrefillCents,
+    FirmEngagementReason,
+    FirmEngagementStatus,
     formatUsdCents,
     PayoutStatus,
     SnapshotSource,
@@ -24,6 +29,7 @@ import {
     ApexVariant,
     findFirm,
     FirmId,
+    FtmoFuturesVariant,
     type Plan,
     serializePlanId,
 } from '~/lib/prop-calculator';
@@ -138,6 +144,9 @@ vi.mock('~/trpc/react', () => ({
                 remove: harness.mutation('fee.remove'),
                 update: harness.mutation('fee.update'),
             },
+            firmEngagement: {
+                set: harness.mutation('firmEngagement.set'),
+            },
             payout: {
                 create: harness.mutation('payout.create'),
                 list: harness.query('payout.list'),
@@ -180,6 +189,7 @@ const PLAIN_PREVIEW: EventPreviewer = () => ({
 
 const SECTION_HEADINGS = [
     'Plan rules',
+    'Account state',
     'Alerts',
     'Snapshot history',
     'Payouts',
@@ -397,7 +407,12 @@ function rejectionError(message: string, rejection: PropRejection): Error {
     });
 }
 
-function snapshot(id: string, asOf: string, balanceCents: number) {
+function snapshot(
+    id: string,
+    asOf: string,
+    balanceCents: number,
+    overrides: Record<string, unknown> = {},
+) {
     return {
         accountId: BRAVO_ID,
         asOf,
@@ -420,6 +435,7 @@ function snapshot(id: string, asOf: string, balanceCents: number) {
         tradingDays: null,
         updatedAt: new Date(`${asOf}T12:00:00Z`),
         userId: USER_ID,
+        ...overrides,
     };
 }
 
@@ -865,6 +881,78 @@ describe('AccountDetailView', () => {
         expect(rules.textContent).toContain('Drawdown');
     });
 
+    it('shows the peak-required message in the account state when no EOD peak was entered on an EOD-trailing plan', () => {
+        answerEverything();
+        render();
+        const state = sectionTitled('Account state');
+        expect(state.textContent).toContain(
+            'An EOD-trailing drawdown needs the highest EOD balance to reconstruct the threshold',
+        );
+    });
+
+    it('reconstructs the floor, lock and cushion once the highest EOD balance is entered', () => {
+        answerEverything({
+            'snapshot.listForAccount': answer([
+                snapshot('s2', '2026-09-20', 5_100_000, {
+                    highestEodBalanceCents: 5_200_000,
+                }),
+                snapshot('s1', '2026-09-01', 5_000_000, {
+                    highestEodBalanceCents: 5_050_000,
+                }),
+            ]),
+        });
+        render();
+        const state = sectionTitled('Account state');
+        expect(state.textContent).toContain('Floor');
+        expect(state.textContent).toContain('Cushion');
+        expect(state.textContent).not.toContain('unavailable');
+    });
+
+    it('shows no live stage modeled for a live-stage account on a plan with no live program', () => {
+        const noLiveFirmPlan = findFirm(FirmId.FtmoFutures)?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.FtmoFutures,
+            variant: FtmoFuturesVariant.Growth,
+        });
+        if (noLiveFirmPlan === undefined) throw new Error('no FTMO plan');
+        const live = account(CHARLIE_ID, 'Charlie', {
+            firmId: FirmId.FtmoFutures,
+            planSerial: serializePlanId(noLiveFirmPlan.id),
+            stage: AccountStage.Live,
+        });
+        answerEverything({
+            'account.get': answer(live),
+            'account.list': answer([ALPHA, BRAVO, live]),
+            'event.listForAccount': answer([]),
+            'fee.list': answer([]),
+            'payout.list': answer([]),
+            'snapshot.listForAccount': answer([]),
+        });
+        render(CHARLIE_ID);
+        const state = sectionTitled('Account state');
+        expect(state.textContent).toContain('No live stage is modeled');
+    });
+
+    it('shows a destructive alert in the account state when the balances query fails, instead of an indefinite loading skeleton', () => {
+        answerEverything({
+            'snapshot.listForAccount': {
+                data: undefined,
+                error: new Error('Failed to fetch'),
+                isError: true,
+                isPending: false,
+            },
+        });
+        render();
+        const state = sectionTitled('Account state');
+        expect(state.textContent).toContain(
+            'The balances could not be loaded',
+        );
+        expect(state.textContent).toContain('Failed to fetch');
+        expect(
+            state.querySelector('[aria-label="Loading the account state"]'),
+        ).toBeNull();
+    });
+
     it('shows the read-only notice and no event form for an account whose plan cannot be resolved', () => {
         const broken = { ...BRAVO, planSerial: 'no-such-plan' };
         answerEverything({
@@ -1210,5 +1298,74 @@ describe('AccountDetailView', () => {
         expect(container.querySelector('[role="checkbox"]')).toBeNull();
         await submit(container, 'Record event');
         expect(harness.mutateAsyncOf('event.record')).toHaveBeenCalledTimes(1);
+    });
+
+    it('suggests marking the firm sent live after a MovedLive event, and applies it through firmEngagement.set', async () => {
+        harness.queries.set('account.get', answer(BRAVO));
+        act(() => {
+            root.render(
+                <EventsSection
+                    accountId={BRAVO_ID}
+                    onFailure={vi.fn()}
+                    plan={PLAN}
+                    preview={NO_EVENT_PREVIEW}
+                    query={{ data: [], error: null }}
+                    state={{
+                        stage: AccountStage.Funded,
+                        status: AccountStatus.Active,
+                    }}
+                    tracking={AccountTracking.Modeled}
+                />,
+            );
+        });
+        await pickOption(inputLabelled(container, 'Event'), 'Moved live');
+        await submit(container, 'Record event');
+        expect(harness.mutateAsyncOf('event.record')).toHaveBeenCalledWith({
+            accountId: BRAVO_ID,
+            kind: AccountEventKind.MovedLive,
+            note: null,
+            occurredOn: TODAY,
+        });
+        expect(container.textContent).toContain(
+            'Mark Apex Trader Funding as sent live?',
+        );
+
+        await submit(container, 'Mark Apex Trader Funding sent live');
+        expect(harness.mutateOf('firmEngagement.set')).toHaveBeenCalledWith({
+            externalFirmId: null,
+            firmId: FirmId.Apex,
+            note: null,
+            reason: FirmEngagementReason.SentLive,
+            sentLiveOn: TODAY,
+            sinceOn: TODAY,
+            status: FirmEngagementStatus.Retired,
+        });
+    });
+
+    it('dismisses the MovedLive suggestion without calling firmEngagement.set', async () => {
+        harness.queries.set('account.get', answer(BRAVO));
+        act(() => {
+            root.render(
+                <EventsSection
+                    accountId={BRAVO_ID}
+                    onFailure={vi.fn()}
+                    plan={PLAN}
+                    preview={NO_EVENT_PREVIEW}
+                    query={{ data: [], error: null }}
+                    state={{
+                        stage: AccountStage.Funded,
+                        status: AccountStatus.Active,
+                    }}
+                    tracking={AccountTracking.Modeled}
+                />,
+            );
+        });
+        await pickOption(inputLabelled(container, 'Event'), 'Moved live');
+        await submit(container, 'Record event');
+        await submit(container, 'Not now');
+        expect(harness.mutateOf('firmEngagement.set')).not.toHaveBeenCalled();
+        expect(container.textContent).not.toContain(
+            'Mark Apex Trader Funding as sent live?',
+        );
     });
 });

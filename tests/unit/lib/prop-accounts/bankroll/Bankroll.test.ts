@@ -109,12 +109,21 @@ describe('scaleAtMeasuredMultiple', () => {
         });
     });
 
-    it('never labels the sample with a kind it does not measure', () => {
+    it('is null with no sample threshold set for ended accounts', () => {
+        const result = scaleAtMeasuredMultiple(
+            { interval: { lower: 0.5, upper: 2 }, n: 3, value: 1.5 },
+            400_000,
+            THRESHOLDS,
+        );
+        expect(result).toMatchObject({ sampleLevel: null });
+    });
+
+    it('labels the sample level against the funded-accounts threshold, since ended accounts are a subset of ever-funded accounts', () => {
         const result = scaleAtMeasuredMultiple(
             { interval: { lower: 0.5, upper: 2 }, n: 3, value: 1.5 },
             400_000,
             { ...THRESHOLDS, minFundedAccounts: 5 },
         );
-        expect(result).toMatchObject({ sampleLevel: null });
+        expect(result).toMatchObject({ sampleLevel: 'low' });
     });
 });

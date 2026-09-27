@@ -122,7 +122,7 @@ const TOOL_DEFINITIONS = {
     [ToolId.FundedOptimizer]: calculatorTool({
         blurb: 'Ranks the funded-stage candidates of the CLI funded optimizer under your retained cushion and payout request, in the CLI order and columns.',
         group: ToolGroup.Plan,
-        hasPage: false,
+        hasPage: true,
         icon: Target,
         label: 'Funded optimizer',
         route: routes.propCalculator.fundedOptimizer,

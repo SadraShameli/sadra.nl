@@ -206,9 +206,11 @@ const accountDetailsShape = {
     label: accountLabelSchema,
     liveStartBalanceCents: nonNegativeUsdCentsSchema.nullable(),
     notes: accountNotesSchema.nullable(),
+    overrideRoundBudget: z.boolean().default(false),
     personalRules: personalRulesSchema,
     purchasedOn: accountDateSchema,
     replacesAccountId: idSchema.nullable(),
+    roundId: idSchema.nullable().default(null),
     tags: accountTagsSchema,
 };
 
@@ -738,11 +740,11 @@ export const roundCreateSchema = z
         firmId: roundEditableShape.firmId.default(null),
         notes: roundEditableShape.notes.default(null),
     })
-    .superRefine(refineAtMostOneFirm);
+    .superRefine(refineExactlyOneFirm);
 
 export const roundUpdateSchema = z
     .strictObject({ ...roundEditableShape, id: idSchema })
-    .superRefine(refineAtMostOneFirm);
+    .superRefine(refineExactlyOneFirm);
 
 export const roundCloseSchema = z.object({
     closedOn: accountDateSchema,

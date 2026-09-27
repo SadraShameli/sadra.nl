@@ -62,6 +62,7 @@ import {
     type LedgerFeeRow,
     type LedgerPayoutRow,
     ledgerTimeline,
+    type LedgerTransferRow,
     MARGIN_ABOVE_BREAKEVEN_HELP_TEXT,
     type MonthlyStatement,
     monthlyStatement,
@@ -82,6 +83,7 @@ import {
     type PlanAttemptEconomics,
     planCapUsage,
     type PlanCapUsage,
+    pooledEndedCohortMultiple,
     PortfolioLedger,
     portfolioRoi,
     purchaseCohorts,
@@ -107,8 +109,15 @@ import {
     type UsdCents,
     usdCents,
 } from '~/lib/prop-accounts';
+import {
+    bankrollOf,
+    scaleAtMeasuredMultiple,
+    type ScaleAtMultiple,
+    ScaleAtMultipleReason,
+} from '~/lib/prop-accounts/bankroll';
 import { CENTS_PER_DOLLAR, ROI_BASIS_LABEL } from '~/lib/prop-calculator';
 import {
+    type BankrollParameters,
     type RulebookParameters,
     type SampleThresholds,
 } from '~/lib/prop-calculator/advisor';
@@ -167,6 +176,7 @@ export enum PortfolioSource {
     Payouts = 'payouts',
     Rulebook = 'rulebook',
     Snapshots = 'snapshots',
+    Transfers = 'transfers',
 }
 
 export interface AttemptEconomicsCardModel {
@@ -180,6 +190,15 @@ export interface AttemptThroughputCardModel {
     readonly meanPerMonth: string;
     readonly months: readonly AttemptThroughputMonthRow[];
     readonly perFirm: readonly FirmAttemptThroughputRow[];
+}
+
+export interface BankrollCardModel {
+    readonly availableCents: string;
+    readonly depositsCents: string;
+    readonly grownFromCents: string;
+    readonly moneyWeightedReturn: string;
+    readonly scale: ScaleAtMultipleModel;
+    readonly withdrawalsCents: string;
 }
 
 export interface CapUsageCardModel {
@@ -272,6 +291,7 @@ export type OverviewLedger =
 export interface OverviewLedgerCards {
     readonly attemptEconomics: AttemptEconomicsCardModel;
     readonly attemptThroughput: AttemptThroughputCardModel;
+    readonly bankroll: BankrollCardModel;
     readonly capUsage: CapUsageCardModel;
     readonly cost: CostCardModel;
     readonly diversification: DiversificationCardModel;
@@ -322,6 +342,7 @@ export interface PayoutSizesCardModel {
 export interface PortfolioLoad {
     readonly accounts: SectionLoad<readonly OverviewAccountRow[]>;
     readonly alerts: SectionLoad<AlertRows>;
+    readonly bankrollParameters: BankrollParameters;
     readonly failures: readonly PortfolioLoadIssue[];
     readonly ledger: SectionLoad<LedgerRows>;
     readonly retainedCushionCents: null | UsdCents;
@@ -348,6 +369,7 @@ export interface PortfolioRows {
     readonly [PortfolioSource.Payouts]: readonly OverviewPayoutRow[];
     readonly [PortfolioSource.Rulebook]: RulebookParameters;
     readonly [PortfolioSource.Snapshots]: readonly OverviewSnapshotRow[];
+    readonly [PortfolioSource.Transfers]: readonly LedgerTransferRow[];
 }
 
 export interface PurchaseCohortRow {
@@ -370,6 +392,18 @@ export interface RepeatabilityCardModel {
 export interface ReplacementCardModel {
     readonly rows: readonly ReplacementRow[];
 }
+
+export type ScaleAtMultipleModel =
+    | {
+          readonly intervalLower: string;
+          readonly intervalUpper: string;
+          readonly kind: 'available';
+          readonly multiple: string;
+          readonly n: number;
+          readonly projectedMonthlyCents: string;
+          readonly sampleLevel: null | SampleLevel;
+      }
+    | { readonly kind: 'unavailable'; readonly reason: string };
 
 export interface StatementCardModel {
     readonly caveat: string;
@@ -670,6 +704,7 @@ const SOURCE_LABEL: Readonly<Record<PortfolioSource, string>> = {
     [PortfolioSource.Payouts]: 'payouts',
     [PortfolioSource.Rulebook]: 'rulebook',
     [PortfolioSource.Snapshots]: 'latest balances',
+    [PortfolioSource.Transfers]: 'bankroll deposits and withdrawals',
 };
 
 const PENDING_FEE_ATTRIBUTION_TEXT: Readonly<
@@ -713,7 +748,6 @@ const SENTENCE_END = /[.!?]$/u;
 
 const PORTFOLIO_EVALUATOR = new AlertEvaluator(DEFAULT_ALERT_RULES);
 
-
 const ALERT_SOURCES = [
     PortfolioSource.Accounts,
     PortfolioSource.CopyGroups,
@@ -728,6 +762,7 @@ const LEDGER_SOURCES = [
     PortfolioSource.Fees,
     PortfolioSource.Payouts,
     PortfolioSource.Snapshots,
+    PortfolioSource.Transfers,
 ] as const;
 
 type AlertRows = Pick<PortfolioRows, (typeof ALERT_SOURCES)[number]>;
@@ -830,9 +865,8 @@ export function alertsFor(
             const { accounts, copyGroups, payouts, rulebook, snapshots } =
                 section.rows;
             return {
-                accountStatesCaveat: accountStatesCaveatFor(
-                    accountStatesSource,
-                ),
+                accountStatesCaveat:
+                    accountStatesCaveatFor(accountStatesSource),
                 alerts: portfolioAlerts({
                     accounts,
                     accountStates,
@@ -875,6 +909,7 @@ export function buildOverview({
             load.statementTargets,
             load.sampleThresholds,
             load.retainedCushionCents,
+            load.bankrollParameters,
         ),
     };
 }
@@ -910,6 +945,7 @@ export function portfolioLoad(queries: PortfolioQueries): PortfolioLoad {
     return {
         accounts: accountsLoad(queries),
         alerts: alertsLoad(queries),
+        bankrollParameters: bankrollParametersOf(queries),
         failures: sources
             .filter((source) => isFailed(queries[source]))
             .map((source) => ({
@@ -1145,12 +1181,79 @@ function attemptThroughputMonthRows(
     }));
 }
 
+function bankrollCard(
+    ledger: PortfolioLedger,
+    today: string,
+    sampleThresholds: SampleThresholds,
+    bankrollParameters: BankrollParameters,
+): BankrollCardModel {
+    const bankroll = bankrollOf(ledger, today);
+    const scale = scaleAtMeasuredMultiple(
+        pooledEndedCohortMultiple(ledger),
+        candidateMonthlyBudgetCentsOf(
+            ledger,
+            today,
+            bankrollParameters.dailyAccountCapacity,
+        ),
+        sampleThresholds,
+    );
+    return {
+        availableCents: formatUsdCents(usdCents(bankroll.availableCents)),
+        depositsCents: formatUsdCents(usdCents(bankroll.depositsCents)),
+        grownFromCents: formatUsdCents(usdCents(bankroll.grownFromCents)),
+        moneyWeightedReturn:
+            bankroll.moneyWeightedReturn === null
+                ? NOT_APPLICABLE
+                : formatPercent(bankroll.moneyWeightedReturn),
+        scale: scaleAtMultipleModel(scale),
+        withdrawalsCents: formatUsdCents(usdCents(bankroll.withdrawalsCents)),
+    };
+}
+
+function bankrollParametersOf(queries: PortfolioQueries): BankrollParameters {
+    const rulebook = queries[PortfolioSource.Rulebook].data;
+    return (
+        rulebook?.bankroll ?? {
+            accountsPerSession: null,
+            dailyAccountCapacity: null,
+            defaultRoundBudgetCents: null,
+            lossRiskThreshold: null,
+            objectiveSwitchCents: null,
+            roundGapDays: 14,
+            sessionHoursPerDay: null,
+        }
+    );
+}
+
 function biggestWeaknessLine(diagnostic: FunnelDiagnostic): string {
     if (diagnostic.reason === FunnelDiagnosticReason.ModeledFiguresMissing) {
         return FUNNEL_DIAGNOSTIC_PENDING_TEXT;
     }
     const worst = diagnostic.stages[0];
-    return worst === undefined ? FUNNEL_DIAGNOSTIC_PENDING_TEXT : `Biggest weakness vs the engine: ${FUNNEL_STAGE_LABEL[worst.stage]} (${formatUsdCents(roundCents(worst.dollarChangePerAttempt))} per attempt, ${formatUsdCents(roundCents(worst.dollarChangePerMonth))} per month).`;
+    return worst === undefined
+        ? FUNNEL_DIAGNOSTIC_PENDING_TEXT
+        : `Biggest weakness vs the engine: ${FUNNEL_STAGE_LABEL[worst.stage]} (${formatUsdCents(roundCents(worst.dollarChangePerAttempt))} per attempt, ${formatUsdCents(roundCents(worst.dollarChangePerMonth))} per month).`;
+}
+
+function candidateMonthlyBudgetCentsOf(
+    ledger: PortfolioLedger,
+    today: string,
+    dailyAccountCapacity: null | number,
+): null | number {
+    if (dailyAccountCapacity === null || dailyAccountCapacity <= 0) {
+        return null;
+    }
+    const economics = realizedAttemptEconomics(
+        ledger,
+        today,
+        DEFAULT_REALIZED_HORIZON_DAYS,
+    );
+    const costs = economics.perPlan
+        .map((row) => row.attemptCost)
+        .filter((cost): cost is number => cost !== null && cost > 0);
+    return costs.length === 0
+        ? null
+        : Math.round(dailyAccountCapacity * Math.min(...costs));
 }
 
 function capNote(used: number, cap: number, suspended: number): null | string {
@@ -1395,7 +1498,8 @@ function formatSampledRate(
         estimate.interval === null
             ? ''
             : ` (95% CI ${formatPercent(estimate.interval.lower)} to ${formatPercent(estimate.interval.upper)}, n = ${String(estimate.n)})`;
-    const nText = estimate.interval === null ? ` (n = ${String(estimate.n)})` : '';
+    const nText =
+        estimate.interval === null ? ` (n = ${String(estimate.n)})` : '';
     const level = sampleAdequacy(kind, estimate.n, thresholds);
     const levelText = level === null ? '' : `, ${SAMPLE_LEVEL_LABEL[level]}`;
     return `${formatPercent(estimate.value)}${ciText}${nText}${levelText}`;
@@ -1456,8 +1560,7 @@ function funnelCard(
             const payoutRate =
                 payoutRates.perFirm.find(
                     (candidate) =>
-                        firmKeyId(candidate.firmKey) ===
-                        firmKeyId(row.firmKey),
+                        firmKeyId(candidate.firmKey) === firmKeyId(row.firmKey),
                 )?.payoutRate ?? null;
             return {
                 fees: formatUsdCents(row.feesCents),
@@ -1637,6 +1740,7 @@ function ledgerCards(
     sampleThresholds: SampleThresholds,
     snapshots: readonly OverviewSnapshotRow[],
     retainedCushionCents: null | UsdCents,
+    bankrollParameters: BankrollParameters,
 ): OverviewLedgerCards {
     const names = planNames(ledger);
     const statement = monthlyStatement(ledger, today, statementTargets);
@@ -1649,6 +1753,12 @@ function ledgerCards(
             sampleThresholds,
         ),
         attemptThroughput: attemptThroughputCard(ledger, firms, today),
+        bankroll: bankrollCard(
+            ledger,
+            today,
+            sampleThresholds,
+            bankrollParameters,
+        ),
         capUsage: capUsageCard(planCapUsage(ledger), names),
         cost: costCard(ledger, names, firms, sampleThresholds),
         diversification: diversificationCard(ledger, firms),
@@ -1686,14 +1796,16 @@ function ledgerLoad(queries: PortfolioQueries): SectionLoad<LedgerRows> {
     const fees = queries[PortfolioSource.Fees].data;
     const payouts = queries[PortfolioSource.Payouts].data;
     const snapshots = queries[PortfolioSource.Snapshots].data;
+    const transfers = queries[PortfolioSource.Transfers].data;
     return accounts === undefined ||
         events === undefined ||
         fees === undefined ||
         payouts === undefined ||
-        snapshots === undefined
+        snapshots === undefined ||
+        transfers === undefined
         ? loadGap(queries, LEDGER_SOURCES)
         : {
-              rows: { accounts, events, fees, payouts, snapshots },
+              rows: { accounts, events, fees, payouts, snapshots, transfers },
               status: OverviewSectionStatus.Ready,
           };
 }
@@ -1895,6 +2007,7 @@ function overviewLedger(
     statementTargets: MonthlyStatementTargets,
     sampleThresholds: SampleThresholds,
     retainedCushionCents: null | UsdCents,
+    bankrollParameters: BankrollParameters,
 ): OverviewLedger {
     switch (section.status) {
         case OverviewSectionStatus.Failed: {
@@ -1915,6 +2028,7 @@ function overviewLedger(
                 statementTargets,
                 sampleThresholds,
                 retainedCushionCents,
+                bankrollParameters,
             );
         }
     }
@@ -1992,7 +2106,9 @@ function payoutSizesCard(
     );
     const hasCushion = retainedCushionCents !== null && snapshots.length > 0;
     return {
-        byAccountSize: stats.byAccountSize.map((row) => payoutSizeGroupRow(row)),
+        byAccountSize: stats.byAccountSize.map((row) =>
+            payoutSizeGroupRow(row),
+        ),
         byFirm: stats.byFirm.map((row) => payoutSizeFirmRow(row, firms)),
         byStage: stats.byStage.map((row) => payoutSizeStageRow(row)),
         count: stats.count,
@@ -2014,10 +2130,7 @@ function payoutSizeSnapshotOptions(
     if (retainedCushionCents === null) {
         return { bucketWidthCents: DEFAULT_PAYOUT_HISTOGRAM_BUCKET_CENTS };
     }
-    const byAccount = Map.groupBy(
-        snapshots,
-        (snapshot) => snapshot.accountId,
-    );
+    const byAccount = Map.groupBy(snapshots, (snapshot) => snapshot.accountId);
     return {
         bucketWidthCents: DEFAULT_PAYOUT_HISTOGRAM_BUCKET_CENTS,
         latestBalanceOnOrBefore: (accountId, asOf) =>
@@ -2059,6 +2172,7 @@ function readyLedger(
     statementTargets: MonthlyStatementTargets,
     sampleThresholds: SampleThresholds,
     retainedCushionCents: null | UsdCents,
+    bankrollParameters: BankrollParameters,
 ): OverviewLedger {
     const computed = ledgerOrDateFailure(() =>
         ledgerCards(
@@ -2069,6 +2183,7 @@ function readyLedger(
             sampleThresholds,
             rows.snapshots,
             retainedCushionCents,
+            bankrollParameters,
         ),
     );
     switch (computed.kind) {
@@ -2089,7 +2204,9 @@ const PER_SLOT_TARGET_NOTE =
 
 function formatCohortMultiple(cohort: CohortMultiple | null): string {
     if (cohort === null) return NOT_APPLICABLE;
-    return cohort.value === null ? `${NOT_APPLICABLE}, n = ${String(cohort.n)}` : `${formatMultiple(cohort.value)} (P10-P90 ${cohort.interval.lower.toFixed(2)}x to ${cohort.interval.upper.toFixed(2)}x), n = ${String(cohort.n)}`;
+    return cohort.value === null
+        ? `${NOT_APPLICABLE}, n = ${String(cohort.n)}`
+        : `${formatMultiple(cohort.value)} (P10-P90 ${cohort.interval.lower.toFixed(2)}x to ${cohort.interval.upper.toFixed(2)}x), n = ${String(cohort.n)}`;
 }
 
 function purchaseCohortRows(
@@ -2192,6 +2309,37 @@ function sampleThresholdsOf(queries: PortfolioQueries): SampleThresholds {
     );
 }
 
+function scaleAtMultipleModel(scale: ScaleAtMultiple): ScaleAtMultipleModel {
+    if (scale.kind === 'unavailable') {
+        return {
+            kind: 'unavailable',
+            reason: scaleAtMultipleReasonLabel(scale.reason),
+        };
+    }
+    return {
+        intervalLower: formatMultiple(scale.interval.lower),
+        intervalUpper: formatMultiple(scale.interval.upper),
+        kind: 'available',
+        multiple: formatMultiple(scale.multiple),
+        n: scale.n,
+        projectedMonthlyCents: formatUsdCents(
+            usdCents(scale.projectedMonthlyCents),
+        ),
+        sampleLevel: scale.sampleLevel,
+    };
+}
+
+function scaleAtMultipleReasonLabel(reason: ScaleAtMultipleReason): string {
+    switch (reason) {
+        case ScaleAtMultipleReason.CapacityNotSet: {
+            return 'Set your daily account capacity in the rulebook to see a candidate monthly budget.';
+        }
+        case ScaleAtMultipleReason.NoEndedAccounts: {
+            return 'No account has ended yet, so there is no measured multiple to scale.';
+        }
+    }
+}
+
 function shareRow(share: FirmShare, firms: FirmNames): FirmShareRow {
     return {
         amount: formatUsdCents(share.cents),
@@ -2258,7 +2406,8 @@ function statementTargetsOf(
     return rulebook === undefined
         ? { monthlyPayoutTargetCents: null, targetMonthlyMultiple: null }
         : {
-              monthlyPayoutTargetCents: rulebook.review.monthlyPayoutTargetCents,
+              monthlyPayoutTargetCents:
+                  rulebook.review.monthlyPayoutTargetCents,
               targetMonthlyMultiple: rulebook.review.targetMonthlyMultiple,
           };
 }

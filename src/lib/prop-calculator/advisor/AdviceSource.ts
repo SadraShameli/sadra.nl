@@ -6,5 +6,6 @@ export enum AdviceSource {
     LadderSearchFresh = 'ladder-search-fresh',
     LadderSearchFromState = 'ladder-search-from-state',
     LedgerRecordedLadder = 'ledger-recorded-ladder',
+    NextPayoutProjection = 'next-payout-projection',
     PayoutSizeSweep = 'payout-size-sweep',
 }

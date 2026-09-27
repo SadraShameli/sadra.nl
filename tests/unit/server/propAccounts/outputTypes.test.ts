@@ -687,15 +687,18 @@ describe('propAccounts video record input schemas', () => {
         ).toBe(false);
     });
 
-    it('opens a round with at most one firm and an optional positive budget', () => {
+    it('opens a round with exactly one firm and an optional positive budget', () => {
         const valid = { label: 'September round', openedOn: '2026-09-01' };
-        expect(roundCreateSchema.parse(valid)).toEqual({
+        expect(
+            roundCreateSchema.parse({ ...valid, firmId: FirmId.Mffu }),
+        ).toEqual({
             ...valid,
             budgetCents: null,
             externalFirmId: null,
-            firmId: null,
+            firmId: FirmId.Mffu,
             notes: null,
         });
+        expect(isAccepted(roundCreateSchema, valid)).toBe(false);
         expect(
             isAccepted(roundCreateSchema, { ...valid, firmId: FirmId.Mffu }),
         ).toBe(true);
@@ -717,7 +720,11 @@ describe('propAccounts video record input schemas', () => {
         ).toBe(false);
         for (const budgetCents of [0, -100, 10.5]) {
             expect(
-                isAccepted(roundCreateSchema, { ...valid, budgetCents }),
+                isAccepted(roundCreateSchema, {
+                    ...valid,
+                    budgetCents,
+                    firmId: FirmId.Mffu,
+                }),
                 String(budgetCents),
             ).toBe(false);
         }
@@ -732,6 +739,16 @@ describe('propAccounts video record input schemas', () => {
             }),
         ).toBe(true);
         expect(isAccepted(roundUpdateSchema, { ...valid, id: ID })).toBe(false);
+        expect(
+            isAccepted(roundUpdateSchema, {
+                ...valid,
+                budgetCents: null,
+                externalFirmId: null,
+                firmId: null,
+                id: ID,
+                notes: null,
+            }),
+        ).toBe(false);
     });
 
     it('closes a round on a real date and assigns an account to a round or none, with the budget override off by default', () => {

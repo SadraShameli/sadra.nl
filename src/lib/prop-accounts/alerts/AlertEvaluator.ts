@@ -6,9 +6,11 @@ import {
 import { type AlertContext } from './AlertContext';
 import { type AlertRule } from './AlertRule';
 import { alertSeverityRank } from './AlertSeverity';
+import { BankrollLossRiskAboveThresholdRule } from './BankrollLossRiskAboveThresholdRule';
 import { ConsistencyNearBreachRule } from './ConsistencyNearBreachRule';
 import { DashboardFloorMismatchRule } from './DashboardFloorMismatchRule';
 import { EvalDayCapRule } from './EvalDayCapRule';
+import { FirmPayoutTotalMismatchRule } from './FirmPayoutTotalMismatchRule';
 import { IdleSessionLimitRule } from './IdleSessionLimitRule';
 import { InvalidStoredDateRule } from './InvalidStoredDateRule';
 import { LifetimeDollarCapRule } from './LifetimeDollarCapRule';
@@ -20,6 +22,7 @@ import { PayoutDollarMismatchRule } from './PayoutDollarMismatchRule';
 import { PayoutEligibleRule } from './PayoutEligibleRule';
 import { PayoutReadyWithdrawableDropRule } from './PayoutReadyWithdrawableDropRule';
 import { PlanRulesChangedRule } from './PlanRulesChangedRule';
+import { RoundBudgetReachedRule } from './RoundBudgetReachedRule';
 import { StaleSnapshotRule } from './StaleSnapshotRule';
 import { SubscriptionRenewalDueRule } from './SubscriptionRenewalDueRule';
 import { TierChangeRule } from './TierChangeRule';
@@ -46,6 +49,9 @@ export const DEFAULT_ALERT_RULES: readonly AlertRule[] = [
     new SubscriptionRenewalDueRule(),
     new PlanRulesChangedRule(),
     new TierChangeRule(),
+    new RoundBudgetReachedRule(),
+    new BankrollLossRiskAboveThresholdRule(),
+    new FirmPayoutTotalMismatchRule(),
 ];
 
 const SORT_LOCALE = 'en';

@@ -42,12 +42,13 @@ const REGISTRY: readonly RegistryEntry[] = ALL_FIRMS.flatMap((firm) =>
 );
 
 const HEADER =
-    'label,firm,plan,accountSize,stage,purchasedOn,fundedOn,fundedReset,dashboardConvention,tags,maxRiskPerTrade,liveStartBalance,notes';
+    'label,firm,plan,accountSize,stage,purchasedOn,fundedOn,fundedReset,dashboardConvention,tags,maxRiskPerTrade,liveStartBalance,notes,round';
 
 const LEDGER_HEADER = 'label,firm,plan,accountSize,stage,purchasedOn,tracking';
 
 const EXTERNAL_FIRM_ID = '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b';
 const OTHER_EXTERNAL_FIRM_ID = '5d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6';
+const ROUND_ID = 'e5555555-5555-4555-8555-555555555555';
 
 function csv(...rows: string[]): string {
     return [HEADER, ...rows].join('\r\n');
@@ -136,10 +137,12 @@ describe('previewAccountCsv', () => {
                     takesFundedReset: true,
                     takesOneTimeEarlyWithdrawal: false,
                 },
+                overrideRoundBudget: false,
                 personalRules: { maxRiskPerTradeCents: 25_000 },
                 planSerial: serializePlanId(RESET_PLAN.plan.id),
                 purchasedOn: '2026-09-01',
                 replacesAccountId: null,
+                roundId: null,
                 stage: AccountStage.Funded,
                 tags: ['copy', 'apex'],
                 tracking: AccountTracking.Modeled,
@@ -170,10 +173,12 @@ describe('previewAccountCsv', () => {
                 liveStartBalanceCents: null,
                 notes: null,
                 optIns: NO_PLAN_OPT_INS,
+                overrideRoundBudget: false,
                 personalRules: {},
                 planLabel: 'Rapid 150K',
                 purchasedOn: '2026-09-01',
                 replacesAccountId: null,
+                roundId: null,
                 stage: AccountStage.Funded,
                 tags: [],
                 tracking: AccountTracking.LedgerOnly,
@@ -228,6 +233,65 @@ describe('previewAccountCsv', () => {
                 3,
                 AccountCsvColumn.FundedReset,
                 'opt-ins apply to modeled plans only; leave it empty on a ledger-only row',
+            ],
+        ]);
+        expect(csvCommitPayload(preview)).toBeNull();
+    });
+
+    it('resolves a round label to the caller own round, scoped to the rounds passed in', () => {
+        const preview = previewAccountCsv(
+            csv(row(EVAL_PLAN, { [AccountCsvColumn.Round]: 'September round' })),
+            [],
+            [],
+            [{ id: ROUND_ID, label: 'September round' }],
+        );
+        expect(issuesOf(preview)).toEqual([]);
+        expect(csvCommitPayload(preview)?.[0]).toMatchObject({
+            roundId: ROUND_ID,
+        });
+    });
+
+    it('leaves roundId null when the round column is empty', () => {
+        const preview = previewAccountCsv(csv(row(EVAL_PLAN)), []);
+        expect(issuesOf(preview)).toEqual([]);
+        expect(csvCommitPayload(preview)?.[0]).toMatchObject({ roundId: null });
+    });
+
+    it('flags a round label that is none of the caller own rounds', () => {
+        const preview = previewAccountCsv(
+            csv(row(EVAL_PLAN, { [AccountCsvColumn.Round]: 'Nonexistent' })),
+            [],
+            [],
+            [{ id: ROUND_ID, label: 'September round' }],
+        );
+        expect(
+            issuesOf(preview).map((issue) => [issue.column, issue.message]),
+        ).toEqual([
+            [
+                AccountCsvColumn.Round,
+                'none of your rounds is named "Nonexistent"; add the round first',
+            ],
+        ]);
+        expect(csvCommitPayload(preview)).toBeNull();
+    });
+
+    it('flags a round label matching more than one of the caller own rounds case-insensitively', () => {
+        const OTHER_ROUND_ID = 'e6666666-6666-4666-8666-666666666666';
+        const preview = previewAccountCsv(
+            csv(row(EVAL_PLAN, { [AccountCsvColumn.Round]: 'September round' })),
+            [],
+            [],
+            [
+                { id: ROUND_ID, label: 'September round' },
+                { id: OTHER_ROUND_ID, label: 'september round' },
+            ],
+        );
+        expect(
+            issuesOf(preview).map((issue) => [issue.column, issue.message]),
+        ).toEqual([
+            [
+                AccountCsvColumn.Round,
+                'more than one of your rounds is named "September round" (case-insensitively); rename one of them before importing',
             ],
         ]);
         expect(csvCommitPayload(preview)).toBeNull();

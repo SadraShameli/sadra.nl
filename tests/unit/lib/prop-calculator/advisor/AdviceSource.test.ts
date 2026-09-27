@@ -13,6 +13,7 @@ describe('AdviceSource (F-124, PD-42 type declaration)', () => {
                 'ladder-search-fresh',
                 'ladder-search-from-state',
                 'ledger-recorded-ladder',
+                'next-payout-projection',
                 'payout-size-sweep',
             ]),
         );

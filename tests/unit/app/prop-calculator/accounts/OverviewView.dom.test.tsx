@@ -78,6 +78,7 @@ vi.mock('~/trpc/react', () => ({
                 remove: harness.mutation(),
                 unarchive: harness.mutation(),
             },
+            bankroll: { list: harness.query('bankroll.list') },
             copyGroup: { list: harness.query('copyGroup.list') },
             event: { list: harness.query('event.list') },
             externalFirm: { list: harness.query('externalFirm.list') },
@@ -102,6 +103,7 @@ const { firm, plan } = firstEvalPlan();
 
 const CARD_HEADINGS = [
     'Key figures',
+    'Bankroll',
     'Alerts',
     'Data notes',
     'Plan cap usage',
@@ -142,6 +144,7 @@ function answerEverything(accounts: readonly OverviewAccount[]) {
         userId: USER_ID,
     }));
     harness.queries.set('account.list', answer(accounts));
+    harness.queries.set('bankroll.list', answer([]));
     harness.queries.set('copyGroup.list', answer([]));
     harness.queries.set('event.list', answer(events));
     harness.queries.set('fee.list', answer(fees));

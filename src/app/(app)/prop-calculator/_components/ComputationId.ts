@@ -1,6 +1,7 @@
 import type { LiveOutputs, SimOutputs } from '~/lib/prop-calculator';
 import type { PortfolioTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
 
+import type { FundedSweepResult } from '../_workers/fundedSweepWorkerMessages';
 import type { Row as FirmComparisonRow } from './FirmComparisonTable';
 import type { Row as OptimalRiskRow } from './OptimalRiskTable';
 import type { Row as PlanComparisonRow } from './PlanComparisonTable';
@@ -13,6 +14,7 @@ export enum ComputationId {
     BaseSimulation = 'base-simulation',
     CashFlow = 'cash-flow',
     FirmComparison = 'firm-comparison',
+    FundedOptimizer = 'funded-optimizer',
     Live = 'live',
     OptimalRisk = 'optimal-risk',
     PlanComparison = 'plan-comparison',
@@ -26,6 +28,7 @@ export interface ComputationResultMap {
     [ComputationId.BaseSimulation]: SimOutputs;
     [ComputationId.CashFlow]: null | PortfolioTimelineResult;
     [ComputationId.FirmComparison]: FirmComparisonRow[];
+    [ComputationId.FundedOptimizer]: FundedSweepResult;
     [ComputationId.Live]: LiveOutputs | null;
     [ComputationId.OptimalRisk]: OptimalRiskRow[];
     [ComputationId.PlanComparison]: PlanComparisonRow[];

@@ -5,7 +5,9 @@ import {
     dollars,
     E8FuturesVariant,
     FirmId,
+    FtmoFuturesVariant,
     MffuVariant,
+    PayoutFloorEffect,
     type Plan,
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
@@ -18,6 +20,7 @@ import { PayoutCountTieredPayoutCap } from '~/lib/prop-calculator/core/PayoutCap
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
+import { FtmoFutures } from '~/lib/prop-calculator/firms/ftmo-futures/FtmoFutures';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { TakeProfitTrader } from '~/lib/prop-calculator/firms/tpt/TakeProfitTrader';
@@ -108,8 +111,10 @@ describe('fundedDpModelGaps', () => {
         expect(fundedDpModelGaps(mffBuilderPlan())).toStrictEqual([]);
     });
 
-    it('is empty for TopStep no-fee-standard 50K: it has no maxLifetimePayoutDollars, no payoutLadder and no PayoutCountTieredPayoutCap', () => {
-        expect(fundedDpModelGaps(topStepNoFeeStandardPlan())).toStrictEqual([]);
+    it('flags TopStep no-fee-standard 50K with only the ReleaseFloor gap: it has no maxLifetimePayoutDollars, no payoutLadder and no PayoutCountTieredPayoutCap (N-86, WP57)', () => {
+        expect(fundedDpModelGaps(topStepNoFeeStandardPlan())).toStrictEqual([
+            { kind: FundedDpModelGapKind.PayoutFloorReleaseUnvalidated },
+        ]);
     });
 
     it('flags MFF Pro 50K for its $100,000 maxLifetimePayoutDollars (the DP never restores FundedCycleTracker.cumulativePayout from any state, so it always ignores this cap) and for its payout-triggered lock, whose unbounded pre-lock trailing saturates the DP offset grid', () => {
@@ -174,7 +179,13 @@ describe('fundedDpModelGaps', () => {
             payoutRequestCap: undefined,
         });
 
-        expect(fundedDpModelGaps(plan)).toStrictEqual([
+        expect(
+            fundedDpModelGaps(plan).filter(
+                (gap) =>
+                    gap.kind ===
+                    FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap,
+            ),
+        ).toStrictEqual([
             {
                 fromPayoutIndex: 9,
                 kind: FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap,
@@ -206,7 +217,13 @@ describe('fundedDpModelGaps', () => {
             payoutRequestCap: undefined,
         });
 
-        expect(fundedDpModelGaps(plan)).toStrictEqual([]);
+        expect(
+            fundedDpModelGaps(plan).filter(
+                (gap) =>
+                    gap.kind ===
+                    FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap,
+            ),
+        ).toStrictEqual([]);
     });
 
     it("does not repeat TPT PRO's own plan label inside the calendar-week gap message, since fundedDpModelGapWarning already prefixes every joined gap message with the label once (N-87 leftover, WP55)", () => {
@@ -226,5 +243,49 @@ describe('fundedDpModelGaps', () => {
         expect(calendarWeekGap.message).toContain(
             'closes its funded phase for an empty',
         );
+    });
+});
+
+describe('fundedDpModelGaps flags PayoutFloorEffect.ReleaseFloor plans as unvalidated (N-86, WP57)', () => {
+    it('flags exactly the plans whose funded payout floor effect is ReleaseFloor, across every firm', () => {
+        for (const firm of ALL_FIRMS) {
+            for (const plan of firm.plans) {
+                const hasGap = fundedDpModelGaps(plan).some(
+                    (gap) =>
+                        gap.kind ===
+                        FundedDpModelGapKind.PayoutFloorReleaseUnvalidated,
+                );
+                expect(hasGap, plan.label).toBe(
+                    plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor,
+                );
+            }
+        }
+    });
+
+    it('flags every TopStep plan built off the XFA payout floor, today the only ReleaseFloor plans in the registry', () => {
+        const flagged = ALL_FIRMS.flatMap((firm) => firm.plans).filter(
+            (plan) =>
+                plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor,
+        );
+        expect(flagged.length).toBeGreaterThan(0);
+        for (const plan of flagged) {
+            expect(plan.id.firm).toBe(FirmId.TopStep);
+        }
+    });
+
+    it('does not flag FTMO Growth, which is unaffected by the D11-r3 gap that stayed open on TopStep after three prior fixes (WP45, WP54, WP56)', () => {
+        const plan = new FtmoFutures().findPlan({
+            accountSize: 50_000,
+            firm: FirmId.FtmoFutures,
+            variant: FtmoFuturesVariant.Growth,
+        });
+        if (!plan) throw new Error('FTMO Growth 50K plan not found');
+        expect(
+            fundedDpModelGaps(plan).some(
+                (gap) =>
+                    gap.kind ===
+                    FundedDpModelGapKind.PayoutFloorReleaseUnvalidated,
+            ),
+        ).toBe(false);
     });
 });

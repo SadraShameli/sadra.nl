@@ -142,6 +142,8 @@ const ACCOUNT_COLUMN_HINTS: Readonly<Record<AccountCsvColumn, string>> = {
     [AccountCsvColumn.PurchasedOn]: DATE_HINT,
     [AccountCsvColumn.RetainedCushion]:
         'Optional personal retained cushion in dollars.',
+    [AccountCsvColumn.Round]:
+        'The label of one of your open rounds; leave empty for none.',
     [AccountCsvColumn.Stage]: `${Object.values(AccountStage).join(', ')}.`,
     [AccountCsvColumn.Tags]:
         'Comma separated; wrap the cell in quotes when it holds a comma.',

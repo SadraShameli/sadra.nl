@@ -23,10 +23,30 @@ import {
     type LadderSearchRequestSource,
 } from './EngineOptimumRequest';
 import { applyEnginePolicy } from './EnginePolicyBuilder';
+import {
+    type FundedFromStateSweepResult,
+    runFundedFromStateSweep,
+} from './FundedFromStateSweep';
+import {
+    type NextPayoutProjection,
+    runNextPayoutProjection,
+} from './NextPayoutProjection';
+import {
+    type PayoutSizeSweepResult,
+    runPayoutSizeSweep,
+} from './PayoutSizeSweep';
 
 export type EngineOptimumRunnerResult =
+    | FundedFromStateEngineOptimumResult
     | FundedSweepEngineOptimumResult
-    | LadderEngineOptimumResult;
+    | LadderEngineOptimumResult
+    | NextPayoutProjectionEngineOptimumResult
+    | PayoutSizeSweepEngineOptimumResult;
+
+export interface FundedFromStateEngineOptimumResult {
+    readonly source: AdviceSource.FundedSweepFromState;
+    readonly sweep: FundedFromStateSweepResult;
+}
 
 export interface FundedSweepEngineOptimumResult {
     readonly source: AdviceSource.FundedSweepFresh;
@@ -36,6 +56,16 @@ export interface FundedSweepEngineOptimumResult {
 export interface LadderEngineOptimumResult {
     readonly ladder: LadderSearchResult;
     readonly source: LadderSearchRequestSource;
+}
+
+export interface NextPayoutProjectionEngineOptimumResult {
+    readonly projection: NextPayoutProjection;
+    readonly source: AdviceSource.NextPayoutProjection;
+}
+
+export interface PayoutSizeSweepEngineOptimumResult {
+    readonly source: AdviceSource.PayoutSizeSweep;
+    readonly sweep: PayoutSizeSweepResult;
 }
 
 export function runEngineOptimum(
@@ -49,6 +79,12 @@ export function runEngineOptimum(
                 sweep: runFundedSweepOptimum(plan, request),
             };
         }
+        case AdviceSource.FundedSweepFromState: {
+            return {
+                source: request.source,
+                sweep: runFundedFromStateSweep(plan, request),
+            };
+        }
         case AdviceSource.LadderSearchFresh:
         case AdviceSource.LadderSearchFromState: {
             return {
@@ -60,6 +96,18 @@ export function runEngineOptimum(
                     topN: request.topN,
                 }),
                 source: request.source,
+            };
+        }
+        case AdviceSource.NextPayoutProjection: {
+            return {
+                projection: runNextPayoutProjection(plan, request),
+                source: request.source,
+            };
+        }
+        case AdviceSource.PayoutSizeSweep: {
+            return {
+                source: request.source,
+                sweep: runPayoutSizeSweep(plan, request),
             };
         }
     }

@@ -70,12 +70,14 @@ function payoutRuleContextOf(
             return null;
         }
         case TradingPhase.Funded: {
-            return account.fundedTracker === null ? null : fundedPayoutRuleContextOf(
-                account.plan,
-                account.state,
-                account.fundedTracker,
-                null,
-            );
+            return account.fundedTracker === null
+                ? null
+                : fundedPayoutRuleContextOf(
+                      account.plan,
+                      account.state,
+                      account.fundedTracker,
+                      null,
+                  );
         }
     }
 }

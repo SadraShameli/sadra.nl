@@ -38,6 +38,7 @@ import {
     AlertKind,
     alertKindLabel,
     AlertSubjectKind,
+    BankrollTransferKind,
     createAlertContext,
     DashboardBalanceConvention,
     DEFAULT_ALERT_RULES,
@@ -78,6 +79,7 @@ import {
     payout,
     type PlanEntry,
     purchased,
+    transfer,
 } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
 
 const EVAL_FIRM_KEY = firmKeyId({
@@ -138,6 +140,7 @@ function answered(rows: PortfolioRows): PortfolioQueries {
         [PortfolioSource.Payouts]: { data: rows.payouts, error: null },
         [PortfolioSource.Rulebook]: { data: rows.rulebook, error: null },
         [PortfolioSource.Snapshots]: { data: rows.snapshots, error: null },
+        [PortfolioSource.Transfers]: { data: rows.transfers, error: null },
     };
 }
 
@@ -349,6 +352,7 @@ function rowsOf(rows: Partial<PortfolioRows>): PortfolioRows {
         [PortfolioSource.Payouts]: rows.payouts ?? [],
         [PortfolioSource.Rulebook]: rows.rulebook ?? DEFAULT_RULEBOOK,
         [PortfolioSource.Snapshots]: rows.snapshots ?? [],
+        [PortfolioSource.Transfers]: rows.transfers ?? [],
     };
 }
 
@@ -808,18 +812,18 @@ describe('buildOverview cards', () => {
         expect(withThresholds.outcomes.rows[0]?.fundedSurvival).toBe(
             '100.0% (95% CI 20.7% to 100.0%, n = 1), adequate sample',
         );
-        expect(withThresholds.cost.byFirmAttemptCost[0]?.attemptsSampleLevel).toBe(
-            SampleLevel.Low,
-        );
+        expect(
+            withThresholds.cost.byFirmAttemptCost[0]?.attemptsSampleLevel,
+        ).toBe(SampleLevel.Low);
         expect(withThresholds.cost.byAccountSize[0]?.attemptsSampleLevel).toBe(
             SampleLevel.Low,
         );
         expect(withThresholds.cost.perPlan[0]?.fundedSampleLevel).toBe(
             SampleLevel.Adequate,
         );
-        expect(
-            withThresholds.replacement.rows[0]?.attemptsSampleLevel,
-        ).toBe(SampleLevel.Low);
+        expect(withThresholds.replacement.rows[0]?.attemptsSampleLevel).toBe(
+            SampleLevel.Low,
+        );
         expect(withThresholds.firmReturns.rows[0]?.attemptsSampleLevel).toBe(
             SampleLevel.Low,
         );
@@ -1265,12 +1269,9 @@ describe('buildOverview cards', () => {
                 purchased(bravoTwo),
             ],
         });
-        expect(cards.attemptThroughput.months.map((month) => month.month)).toEqual([
-            '2026-06',
-            '2026-07',
-            '2026-08',
-            '2026-09',
-        ]);
+        expect(
+            cards.attemptThroughput.months.map((month) => month.month),
+        ).toEqual(['2026-06', '2026-07', '2026-08', '2026-09']);
         const alphaRow = cards.attemptThroughput.perFirm.find(
             (row) => row.key === EVAL_FIRM_KEY,
         );
@@ -1279,6 +1280,81 @@ describe('buildOverview cards', () => {
         );
         expect(alphaRow?.meanPerMonth).toBe('1.00');
         expect(bravoRow?.meanPerMonth).toBe('0.67');
+    });
+});
+
+describe('buildOverview bankroll card (F-V3)', () => {
+    it('computes available bankroll, deposits, withdrawals and money-weighted return from transfers and cash flow', () => {
+        const alpha = account(EVAL_PLAN, {
+            label: 'Alpha',
+            purchasedOn: '2026-06-01',
+        });
+        const cards = cardsOf({
+            accounts: [alpha].map(overviewAccount),
+            events: [purchased(alpha)],
+            fees: [fee(alpha, FeeKind.EvalPurchase, 15_000, '2026-06-01')],
+            transfers: [
+                transfer(
+                    BankrollTransferKind.Deposit,
+                    100_000,
+                    '2026-05-01',
+                ),
+                transfer(
+                    BankrollTransferKind.Withdrawal,
+                    10_000,
+                    '2026-08-01',
+                ),
+            ],
+        });
+        expect(cards.bankroll.depositsCents).toBe(cents(100_000));
+        expect(cards.bankroll.withdrawalsCents).toBe(cents(10_000));
+        expect(cards.bankroll.grownFromCents).toBe(cents(100_000));
+        expect(cards.bankroll.availableCents).toBe(cents(75_000));
+    });
+
+    it('hides the scale-at-multiple line with NoEndedAccounts when no account has ended', () => {
+        const alpha = account(EVAL_PLAN, {
+            label: 'Alpha',
+            purchasedOn: '2026-06-01',
+        });
+        const cards = cardsOf({
+            accounts: [alpha].map(overviewAccount),
+            events: [purchased(alpha)],
+            rulebook: {
+                ...DEFAULT_RULEBOOK,
+                bankroll: { ...DEFAULT_RULEBOOK.bankroll, dailyAccountCapacity: 3 },
+            },
+        });
+        expect(cards.bankroll.scale).toEqual({
+            kind: 'unavailable',
+            reason: 'No account has ended yet, so there is no measured multiple to scale.',
+        });
+    });
+
+    it('hides the scale-at-multiple line with CapacityNotSet when an account has ended but no capacity is set', () => {
+        const cards = readyCards(buildOverview(pinnedFixture()).ledger);
+        expect(cards.bankroll.scale).toEqual({
+            kind: 'unavailable',
+            reason:
+                'Set your daily account capacity in the rulebook to see a candidate monthly budget.',
+        });
+    });
+
+    it('shows the scale at the measured multiple once an account has ended and capacity is set', () => {
+        const rows = pinnedRows();
+        const cards = cardsOf({
+            ...rows,
+            rulebook: {
+                ...DEFAULT_RULEBOOK,
+                bankroll: { ...DEFAULT_RULEBOOK.bankroll, dailyAccountCapacity: 3 },
+            },
+        });
+        const scale = cards.bankroll.scale;
+        if (scale.kind !== 'available') {
+            throw new Error('expected the scale-at-multiple line to be available');
+        }
+        expect(scale.n).toBe(1);
+        expect(scale.sampleLevel).toBeNull();
     });
 });
 
@@ -1408,10 +1484,12 @@ describe('buildOverview payout sizes, funded payouts and attempt economics cards
                     paidOn: '2026-09-10',
                 }),
             ],
-            snapshots: [snapshotRow(owner, {
-                balanceCents: usdCents(150_000),
-                dashboardFloorCents: usdCents(50_000),
-            })],
+            snapshots: [
+                snapshotRow(owner, {
+                    balanceCents: usdCents(150_000),
+                    dashboardFloorCents: usdCents(50_000),
+                }),
+            ],
         });
         expect(cards.payoutSizes.lowBalanceCount).toBe(1);
         expect(cards.payoutSizes.disclosures).toContain(
@@ -1791,9 +1869,10 @@ describe('buildOverview alerts', () => {
     it('counts the same alerts through portfolioAlerts', () => {
         const rows = pinnedRows();
         const model = buildOverview(inputs(rows));
-        expect(portfolioAlerts({ ...rows, accountStates: [], today: TODAY }).length).toBe(
-            readyAlerts(model.alerts).length,
-        );
+        expect(
+            portfolioAlerts({ ...rows, accountStates: [], today: TODAY })
+                .length,
+        ).toBe(readyAlerts(model.alerts).length);
     });
 
     it('labels every alert disclosure in words', () => {
@@ -1881,11 +1960,12 @@ describe('alertsFor', () => {
                 (alert) => alert.subject.kind === AlertSubjectKind.Account,
             ),
         );
-        const expected = portfolioAlerts({ ...rows, accountStates: [], today: TODAY }).flatMap(
-            (alert, index) =>
-                alert.subject.kind === AlertSubjectKind.Account
-                    ? [all[index]]
-                    : [],
+        const expected = portfolioAlerts({
+            ...rows,
+            accountStates: [],
+            today: TODAY,
+        }).flatMap((alert, index) =>
+            alert.subject.kind === AlertSubjectKind.Account ? [all[index]] : [],
         );
         expect(accountOnly.length).toBeGreaterThan(0);
         expect(accountOnly.length).toBeLessThan(all.length);
@@ -1968,7 +2048,9 @@ describe('accountStatesFromLoad', () => {
         ).toBe(true);
 
         const load = portfolioLoad(answered(rowsOf(rows)));
-        const withoutStates = readyAlerts(alertsFor(load.alerts, TODAY, () => true));
+        const withoutStates = readyAlerts(
+            alertsFor(load.alerts, TODAY, () => true),
+        );
         expect(
             withoutStates.some((alert) => alert.kindLabel === nearFloorLabel),
         ).toBe(false);
@@ -2066,7 +2148,11 @@ describe('accountAlerts', () => {
 
     it('covers alerts on single accounts, on a copy group and on the whole portfolio in the fixture', () => {
         const rows = alertRichRows();
-        const alerts = portfolioAlerts({ ...rows, accountStates: [], today: TODAY });
+        const alerts = portfolioAlerts({
+            ...rows,
+            accountStates: [],
+            today: TODAY,
+        });
         const kinds = new Set(alerts.map((alert) => alert.subject.kind));
         expect(kinds).toContain(AlertSubjectKind.Account);
         expect(kinds).toContain(AlertSubjectKind.CopyGroup);

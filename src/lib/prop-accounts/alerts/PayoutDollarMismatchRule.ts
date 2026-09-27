@@ -1,4 +1,4 @@
-import { CentsDisplay, formatUsdCents } from '../core';
+import { CentsDisplay, formatUsdCents, isWithinPayoutTolerance } from '../core';
 import { type AccountAlert } from './AccountAlert';
 import {
     grossDisclosureOf,
@@ -9,8 +9,6 @@ import {
 import { AlertKind } from './AlertKind';
 import { AccountAlertRule } from './AlertRule';
 import { AlertSeverity } from './AlertSeverity';
-
-const TOLERANCE_CENTS = 100;
 
 export class PayoutDollarMismatchRule extends AccountAlertRule {
     readonly kind = AlertKind.PayoutDollarMismatch;
@@ -23,8 +21,7 @@ export class PayoutDollarMismatchRule extends AccountAlertRule {
         const ledger = paidLedgerTotal(
             paidPayoutsThrough(monitored, snapshot.asOf),
         );
-        return Math.abs(snapshot.cumulativePayoutCents - ledger.cents) <=
-            TOLERANCE_CENTS
+        return isWithinPayoutTolerance(snapshot.cumulativePayoutCents - ledger.cents)
             ? null
             : this.alertFor(
                   monitored,

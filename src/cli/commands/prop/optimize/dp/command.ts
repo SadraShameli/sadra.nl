@@ -358,6 +358,9 @@ function describeFundedDpModelGap(gap: FundedDpModelGap): string {
         case FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap: {
             return `has a payout-count-tiered payout cap tier starting at payout #${gap.fromPayoutIndex + 1}, beyond this DP's payout-count regime cap of ${gap.payoutRegimeCap}, and payout counts past the cap saturate at the cap bucket inside it, so that tier is not modeled exactly`;
         }
+        case FundedDpModelGapKind.PayoutFloorReleaseUnvalidated: {
+            return "resets its funded drawdown floor to breakeven on every payout (PayoutFloorEffect.ReleaseFloor), and this DP's policy did not match its own simulation on TopStep plans (audit N-86): size positions by the documented rule instead, and compare against the best flat row from optimize funded";
+        }
         case FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates: {
             return `locks its funded drawdown only on the first payout (no profit trigger), so its floor can trail without bound before that payout while this DP's pre-lock offset grid stops at a fixed multiple of the drawdown. Offsets past it saturate at the top bucket, so the DP understates the balance (and the first payout) in those rare high-profit states before the first payout, making it slightly pessimistic`;
         }

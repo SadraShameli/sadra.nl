@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
     type EdgeModelArguments,
     edgeModelArguments,
+    payoutRequestPolicyArgument,
     planArguments,
     planResolver,
     printEdgePlausibilityNotes,
@@ -23,6 +24,7 @@ import {
     edgeModelFromSpec,
     EdgeModelKind,
     type EdgeModelSpec,
+    PayoutRequestPolicy,
     type Plan,
     type PositionSizingConfig,
     resolvePositionSizing,
@@ -85,6 +87,7 @@ export default defineCommand({
         ...tradingArguments,
         ...singlePathGranularityArgument,
         ...edgeModelArguments,
+        ...payoutRequestPolicyArgument,
         flat: {
             default: DEFAULT_FUNDED_FLAT_CANDIDATES.join(','),
             description:
@@ -129,7 +132,12 @@ export default defineCommand({
                     winrate: inputs.winrate,
                 }),
             );
-            const base = inputs.toSimInputs(plan);
+            const base: SimInputs = {
+                ...inputs.toSimInputs(plan),
+                payoutRequestPolicy: z
+                    .enum(PayoutRequestPolicy)
+                    .parse(context.args['payout-policy']),
+            };
             const sort = z.enum(FundedSortKey).parse(context.args.sort);
             const takeProfitRequest = readTakeProfitWhatIfRequest(
                 context.args,

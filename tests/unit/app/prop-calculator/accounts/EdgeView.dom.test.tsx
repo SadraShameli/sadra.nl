@@ -200,4 +200,83 @@ describe('EdgeView', () => {
         );
         expect(link?.tagName).toBe('A');
     });
+
+    it('carries the measured reward to risk into the calculator link and says so, once enough trades exist (PT-61e, F-V22)', () => {
+        harness.queries.set(
+            'edge.summary',
+            answer({
+                summary: {
+                    ...edgeSummary(20),
+                    measuredRewardToRisk: { sampleSize: 14, value: 1.85 },
+                },
+                truncated: false,
+            }),
+        );
+        render();
+        const link = [...container.querySelectorAll('a')].find(
+            (candidate) =>
+                candidate.textContent ===
+                'Try my measured win rate in the calculator',
+        );
+        expect(link).toBeDefined();
+        const href = link?.getAttribute('href') ?? '';
+        const query = new URLSearchParams(href.split('?', 2)[1]);
+        expect(query.get('rr')).toBe('1.85');
+        expect(container.textContent).toContain('measured 1:1.85');
+        expect(container.textContent).toContain('n = 14');
+    });
+
+    it('falls back to the rulebook reward:risk when the measured ratio would be silently clamped by the calculator (PT-61e, F-V22)', () => {
+        harness.queries.set(
+            'edge.summary',
+            answer({
+                summary: {
+                    ...edgeSummary(20),
+                    measuredRewardToRisk: { sampleSize: 14, value: 15 },
+                },
+                truncated: false,
+            }),
+        );
+        render();
+        const link = [...container.querySelectorAll('a')].find(
+            (candidate) =>
+                candidate.textContent ===
+                'Try my measured win rate in the calculator',
+        );
+        expect(link).toBeDefined();
+        const href = link?.getAttribute('href') ?? '';
+        const query = new URLSearchParams(href.split('?', 2)[1]);
+        expect(query.get('rr')).toBe('2.00');
+        expect(container.textContent).not.toContain('measured 1:15');
+        expect(container.textContent).toContain(
+            'not measured from your trades',
+        );
+    });
+
+    it("falls back to the rulebook reward:risk with a label when too few trades to measure it (PT-61e, F-V22)", () => {
+        harness.queries.set(
+            'edge.summary',
+            answer({
+                summary: {
+                    ...edgeSummary(3),
+                    measuredRewardToRisk: null,
+                },
+                truncated: false,
+            }),
+        );
+        render();
+        const link = [...container.querySelectorAll('a')].find(
+            (candidate) =>
+                candidate.textContent ===
+                'Try my measured win rate in the calculator',
+        );
+        expect(link).toBeDefined();
+        const href = link?.getAttribute('href') ?? '';
+        const query = new URLSearchParams(href.split('?', 2)[1]);
+        expect(query.get('rr')).toBe('2.00');
+        expect(container.textContent).not.toContain('measured 1:');
+        expect(container.textContent).toContain(
+            "not measured from your trades",
+        );
+    });
 });

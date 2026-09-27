@@ -34,6 +34,7 @@ export function accountAlerts({
         ...queries,
         [PortfolioSource.Events]: LEDGER_ONLY_SOURCE,
         [PortfolioSource.Fees]: LEDGER_ONLY_SOURCE,
+        [PortfolioSource.Transfers]: LEDGER_ONLY_SOURCE,
     });
     return alertsFor(load.alerts, today, (alert) =>
         isAboutAccount(alert, accountId),

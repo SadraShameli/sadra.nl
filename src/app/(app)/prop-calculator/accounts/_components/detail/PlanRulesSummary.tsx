@@ -1,5 +1,3 @@
-import { describeConsistencyBadge } from '~/app/(app)/prop-calculator/_components/consistencyBadge';
-import { dailyLossLimitLabel } from '~/app/(app)/prop-calculator/_components/dailyLossLimitLabel';
 import PlanStatsBadges from '~/app/(app)/prop-calculator/_components/PlanStatsBadges';
 import { formatCurrency } from '~/lib/format';
 import {
@@ -8,6 +6,10 @@ import {
     planOptInField,
 } from '~/lib/prop-accounts';
 import { type Plan, type PlanOptIns } from '~/lib/prop-calculator';
+import {
+    describePlanRules,
+    PLAN_RULE_SEGMENT_LABEL,
+} from '~/lib/prop-calculator/describe';
 
 import { LEDGER_ONLY_STATUS_NOTE } from '../accountPlanOptions';
 
@@ -65,27 +67,19 @@ export function PlanRulesSummary({
     const takenOptIns = offeredPlanOptIns(plan).filter(
         (optIn) => optIns[planOptInField(optIn)],
     );
-    const evaluationRows: readonly SummaryRow[] = plan.isInstantFunded
-        ? []
-        : [
-              ['Profit target', formatCurrency(plan.profitTarget)],
-              ['Evaluation drawdown', formatCurrency(plan.drawdown.amount)],
-              [
-                  'Evaluation daily loss limit',
-                  dailyLossLimitLabel(plan.evalDailyLossLimit) ?? NO_LIMIT,
-              ],
-              ['Minimum evaluation trading days', String(plan.minTradingDays)],
-          ];
+    const ruleRows: readonly SummaryRow[] = describePlanRules(plan).flatMap(
+        (line) =>
+            line.map(
+                (segment): SummaryRow => [
+                    PLAN_RULE_SEGMENT_LABEL[segment.kind],
+                    segment.value,
+                ],
+            ),
+    );
     const rows: readonly SummaryRow[] = [
         ['Plan', `${firmName} ${plan.label}`],
         ['Account size', formatCurrency(plan.accountSize)],
-        ...evaluationRows,
-        ['Funded drawdown', formatCurrency(plan.fundedDrawdown.amount)],
-        [
-            'Funded daily loss limit',
-            dailyLossLimitLabel(plan.fundedDailyLossLimit) ?? NO_LIMIT,
-        ],
-        ['Consistency', describeConsistencyBadge(plan) ?? NO_LIMIT],
+        ...ruleRows,
         [
             'Rule options taken',
             takenOptIns.length === 0

@@ -4,12 +4,14 @@ import {
 } from './FundedStateValue';
 import { type Dollars } from './lib/units';
 import { PayoutCountTieredPayoutCap } from './PayoutCap';
+import { PayoutFloorEffect } from './PayoutFloorEffect';
 import { type Plan } from './Plan';
 
 export enum FundedDpModelGapKind {
     CalendarWeekInactivityIgnored = 'calendar-week-inactivity-ignored',
     LifetimeDollarCapIgnored = 'lifetime-dollar-cap-ignored',
     PayoutCountTierBeyondRegimeCap = 'payout-count-tier-beyond-regime-cap',
+    PayoutFloorReleaseUnvalidated = 'payout-floor-release-unvalidated',
     PayoutTriggeredLockPreLockOffsetSaturates = 'payout-triggered-lock-pre-lock-offset-saturates',
 }
 
@@ -26,6 +28,9 @@ export type FundedDpModelGap =
     | {
           readonly kind: FundedDpModelGapKind.LifetimeDollarCapIgnored;
           readonly maxLifetimePayoutDollars: Dollars;
+      }
+    | {
+          readonly kind: FundedDpModelGapKind.PayoutFloorReleaseUnvalidated;
       }
     | {
           readonly kind: FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates;
@@ -61,6 +66,11 @@ export function fundedDpModelGaps(plan: Plan): FundedDpModelGap[] {
     if (plan.fundedDrawdown.lock?.atProfit === null) {
         gaps.push({
             kind: FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
+        });
+    }
+    if (plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor) {
+        gaps.push({
+            kind: FundedDpModelGapKind.PayoutFloorReleaseUnvalidated,
         });
     }
     return gaps;

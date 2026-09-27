@@ -158,6 +158,22 @@ describe('propAccounts.bankroll', () => {
         expect(propWrites(queries)).toHaveLength(2);
     });
 
+    it('summary computes the caller bankroll from their own scoped accounts, fees, payouts and transfers', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        const summary = await caller.bankroll.summary();
+        expect(summary).toMatchObject({
+            availableCents: 528_500,
+            depositsCents: 500_000,
+            grownFromCents: 500_000,
+            withdrawalsCents: 0,
+        });
+        const reads = queries.filter((query) => !isCount(query));
+        expect(reads.length).toBeGreaterThan(0);
+        for (const read of reads) {
+            assertUserScopedWhere(read, USER_ID);
+        }
+    });
+
     it('update and remove of another user transfer throw NOT_FOUND and write nothing', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,

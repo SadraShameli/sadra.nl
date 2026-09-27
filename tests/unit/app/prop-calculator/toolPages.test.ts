@@ -47,6 +47,13 @@ const LADDER_SEARCH_TYPES_PATH = path.join(
     'ladderSearchTypes.ts',
 );
 const LADDER_WORKER_REFERENCE = /new URL\(\s*'[^']*_workers\/ladderWorker\.ts'/;
+const FUNDED_SWEEP_WORKER_REFERENCE =
+    /new URL\(\s*'[^']*_workers\/fundedSweepWorker\.ts'/;
+const USE_FUNDED_SWEEP_PATH = path.join(
+    COMPONENTS_ROOT,
+    'fundedOptimizer',
+    'useFundedSweep.ts',
+);
 const NOTICE_COMPONENT = 'AppliedEvalLadderNotice';
 const NOTICE_PATH = path.join(COMPONENTS_ROOT, `${NOTICE_COMPONENT}.tsx`);
 const NOTICE_LEAD = 'Eval ladder applied from the ladder lab';
@@ -844,6 +851,79 @@ describe('the position-size tool page (PT-25a)', () => {
     it('is linked from the catalog and listed for crawlers', () => {
         expect(toolCatalogEntry(ToolId.PositionSize).hasPage).toBe(true);
         expect(indexableRoutes).toContain(routes.propCalculator.positionSize);
+    });
+});
+
+describe('the funded-optimizer tool page (PT-25b)', () => {
+    const folder = 'funded-optimizer';
+    const view = () => readSource('(tools)', folder, 'FundedOptimizerView.tsx');
+
+    it('exports metadata from buildToolMetadata for ToolId.FundedOptimizer and renders its view', () => {
+        const page = readSource('(tools)', folder, 'page.tsx');
+        expect(page).toContain(
+            'export const metadata: Metadata = buildToolMetadata(ToolId.FundedOptimizer);',
+        );
+        expect(page).toContain('<FundedOptimizerView />');
+    });
+
+    it('renders no <main>: the tools layout owns the landmark', () => {
+        expect(readSource('(tools)', folder, 'page.tsx')).not.toMatch(
+            /<main[\s>]/,
+        );
+        expect(view()).not.toMatch(/<main[\s>]/);
+    });
+
+    it('starts with ToolPageHeading for the funded optimizer, sharing the calculator inputs', () => {
+        const source = view();
+        expect(firstJsxTagAfterReturn(source)).toBe('ToolPageHeading');
+        const heading = normalizedProps(
+            jsxAttributes(source, 'ToolPageHeading')[0] ?? '',
+        );
+        expect(heading).toContain('toolId={ToolId.FundedOptimizer}');
+        expect(source).not.toMatch(/<h1[\s>]/);
+    });
+
+    it('shows the shared inputs summary and runs the sweep off the main thread', () => {
+        const source = view();
+        expect(source).toContain('useCalculatorInputs');
+        expect(source).toContain('<InputsSummary');
+        expect(source).toContain('useFundedSweep(');
+    });
+
+    it('wraps its result in a <section aria-labelledby> with an <h2>', () => {
+        const source = view();
+        const sections = jsxAttributes(source, 'section');
+        expect(sections.length).toBeGreaterThan(0);
+        for (const attributes of sections) {
+            expect(attributes).toMatch(/aria-labelledby=/);
+        }
+        expect(source.match(/<h2[\s>]/g)).toHaveLength(sections.length);
+    });
+
+    it('is linked from the catalog and listed for crawlers', () => {
+        expect(toolCatalogEntry(ToolId.FundedOptimizer).hasPage).toBe(true);
+        expect(indexableRoutes).toContain(
+            routes.propCalculator.fundedOptimizer,
+        );
+    });
+});
+
+describe('the funded sweep worker (PT-25b)', () => {
+    it('is referenced only from the funded sweep hook', () => {
+        const referencing = calculatorFiles()
+            .filter((file) =>
+                FUNDED_SWEEP_WORKER_REFERENCE.test(readFileSync(file, 'utf8')),
+            )
+            .map((file) => path.relative(CALCULATOR_ROOT, file));
+        expect(referencing).toEqual([
+            path.relative(CALCULATOR_ROOT, USE_FUNDED_SWEEP_PATH),
+        ]);
+    });
+
+    it('is loaded by the tools layout only through the funded-optimizer page', () => {
+        expect(importClosure([TOOLS_LAYOUT_PATH], false)).not.toContain(
+            USE_FUNDED_SWEEP_PATH,
+        );
     });
 });
 

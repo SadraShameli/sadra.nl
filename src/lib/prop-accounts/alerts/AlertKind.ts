@@ -1,10 +1,12 @@
 export enum AlertKind {
+    BankrollLossRiskAboveThreshold = 'bankroll-loss-risk-above-threshold',
     CalendarInactivity = 'calendar-inactivity',
     ConductPattern = 'conduct-pattern',
     ConsistencyNearBreach = 'consistency-near-breach',
     CooldownActive = 'cooldown-active',
     DashboardFloorMismatch = 'dashboard-floor-mismatch',
     EvalDayCapNear = 'eval-day-cap-near',
+    FirmPayoutTotalMismatch = 'firm-payout-total-mismatch',
     IdleSessionLimit = 'idle-session-limit',
     InvalidStoredDate = 'invalid-stored-date',
     LifetimeDollarCapNear = 'lifetime-dollar-cap-near',
@@ -19,6 +21,7 @@ export enum AlertKind {
     PayoutReadyWithdrawableDrop = 'payout-ready-withdrawable-drop',
     PlanRulesChanged = 'plan-rules-changed',
     PooledCapReached = 'pooled-cap-reached',
+    RoundBudgetReached = 'round-budget-reached',
     StaleSnapshot = 'stale-snapshot',
     SubscriptionRenewalDue = 'subscription-renewal-due',
     TierChange = 'tier-change',
@@ -27,12 +30,14 @@ export enum AlertKind {
 }
 
 const ALERT_KIND_LABELS: Readonly<Record<AlertKind, string>> = {
+    [AlertKind.BankrollLossRiskAboveThreshold]: 'Bankroll loss risk above threshold',
     [AlertKind.CalendarInactivity]: 'Calendar inactivity',
     [AlertKind.ConductPattern]: 'Conduct pattern',
     [AlertKind.ConsistencyNearBreach]: 'Consistency near breach',
     [AlertKind.CooldownActive]: 'Cooldown active',
     [AlertKind.DashboardFloorMismatch]: 'Dashboard floor mismatch',
     [AlertKind.EvalDayCapNear]: 'Eval day cap',
+    [AlertKind.FirmPayoutTotalMismatch]: 'Firm payout total mismatch',
     [AlertKind.IdleSessionLimit]: 'Idle session limit',
     [AlertKind.InvalidStoredDate]: 'Invalid stored date',
     [AlertKind.LifetimeDollarCapNear]: 'Lifetime payout dollar cap',
@@ -47,6 +52,7 @@ const ALERT_KIND_LABELS: Readonly<Record<AlertKind, string>> = {
     [AlertKind.PayoutReadyWithdrawableDrop]: 'Payout-ready withdrawable drop',
     [AlertKind.PlanRulesChanged]: 'Plan rules changed',
     [AlertKind.PooledCapReached]: 'Pooled account cap reached',
+    [AlertKind.RoundBudgetReached]: 'Round budget reached',
     [AlertKind.StaleSnapshot]: 'Stale snapshot',
     [AlertKind.SubscriptionRenewalDue]: 'Subscription renewal due',
     [AlertKind.TierChange]: 'DLL or contract tier change',

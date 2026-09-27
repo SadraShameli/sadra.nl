@@ -22,23 +22,29 @@ import {
 } from '~/components/ui/Table';
 import { errorMessage } from '~/lib/errorMessage';
 import {
+    AccountStage,
     accountStageLabel,
     AccountTracking,
     type ExternalFirmName,
     formatUsdCents,
+    isModeledAccount,
+    latestTwoSnapshots,
     LEDGER_ONLY_LIFECYCLE_FACTS,
+    type ModeledAccountRow,
     PlanKeyResolutionKind,
     PortfolioLedger,
     RebuyLagBasis,
     rebuyLagDefault,
     replacementStats,
     resolvePlanKey,
+    type SnapshotAccountRow,
     todayIsoDate,
     trackedAccountOf,
     type TrackedAccountRow,
     upgradeChanges,
     upgradeChangeText,
 } from '~/lib/prop-accounts';
+import { type Plan } from '~/lib/prop-calculator';
 import {
     PropRecord,
     type PropRejection,
@@ -80,13 +86,24 @@ import {
     ListQueryStatus,
     RemoveRecordDialog,
 } from './DetailParts';
+import {
+    liveAccountOf,
+    liveRulesCardOf,
+    performanceCardOf,
+    previousReconstructionOf,
+    StateCardKind,
+    stateCardOf,
+} from './detailState';
 import { EventsSection } from './EventsSection';
 import { FeesSection } from './FeesSection';
 import { LedgerOnlySnapshotForm } from './LedgerOnlySnapshotForm';
+import { LiveRulesCard } from './LiveRulesCard';
 import { PayoutsSection } from './PayoutsSection';
+import { PerformanceCard } from './PerformanceCard';
 import { LedgerOnlyPlanSummary, PlanRulesSummary } from './PlanRulesSummary';
 import { SnapshotHistoryChart } from './SnapshotHistoryChart';
 import { snapshotSeries } from './snapshotSeries';
+import { StateCard } from './StateCard';
 
 enum LagLineKind {
     Failed = 'failed',
@@ -101,6 +118,8 @@ interface LagLine {
 }
 
 type ListedAccount = RouterOutputs['propAccounts']['account']['list'][number];
+
+type PayoutRow = RouterOutputs['propAccounts']['payout']['list'][number];
 
 interface ReplacementView {
     readonly lag: LagLine | null;
@@ -166,6 +185,7 @@ export function AccountDetailView({
         accountQuery.data === undefined
             ? undefined
             : trackedAccountOf(accountQuery.data);
+    const today = todayIsoDate(new Date());
     const alerts = useMemo<OverviewAlerts>(
         () =>
             accountAlerts({
@@ -192,7 +212,7 @@ export function AccountDetailView({
                         error: latestSnapshotsQuery.error,
                     },
                 },
-                today: todayIsoDate(new Date()),
+                today,
             }),
         [
             accountsQuery.data,
@@ -206,6 +226,7 @@ export function AccountDetailView({
             latestSnapshotsQuery.error,
             rulebookQuery.data,
             rulebookQuery.error,
+            today,
         ],
     );
 
@@ -309,6 +330,18 @@ export function AccountDetailView({
                     />
                 )}
             </DetailSection>
+            {plan !== null && isModeledAccount(account) && (
+                <DetailSection id="state" title="Account state">
+                    <AccountStateSection
+                        account={account}
+                        eventsQuery={eventsQuery}
+                        payoutsQuery={payoutsQuery}
+                        plan={plan}
+                        snapshotsQuery={snapshotsQuery}
+                        today={today}
+                    />
+                </DetailSection>
+            )}
             <DetailSection id="alerts" title="Alerts">
                 <AccountAlerts alerts={alerts} />
             </DetailSection>
@@ -453,6 +486,115 @@ function AccountHeader({
                 />
             </div>
         </header>
+    );
+}
+
+function AccountStateQueryErrors({
+    eventsQuery,
+    payoutsQuery,
+    snapshotsQuery,
+}: {
+    readonly eventsQuery: ListQuery<AccountEventRow>;
+    readonly payoutsQuery: ListQuery<PayoutRow>;
+    readonly snapshotsQuery: ListQuery<SnapshotRow>;
+}) {
+    return (
+        <div className="flex flex-col gap-4">
+            <ListQueryStatus query={eventsQuery} subject="account events" />
+            <ListQueryStatus query={payoutsQuery} subject="payouts" />
+            <ListQueryStatus query={snapshotsQuery} subject="balances" />
+        </div>
+    );
+}
+
+function AccountStateSection({
+    account,
+    eventsQuery,
+    payoutsQuery,
+    plan,
+    snapshotsQuery,
+    today,
+}: {
+    readonly account: ModeledAccountRow<SnapshotAccountRow>;
+    readonly eventsQuery: ListQuery<AccountEventRow>;
+    readonly payoutsQuery: ListQuery<PayoutRow>;
+    readonly plan: Plan;
+    readonly snapshotsQuery: ListQuery<SnapshotRow>;
+    readonly today: string;
+}) {
+    const events = eventsQuery.data;
+    const payouts = payoutsQuery.data;
+    const snapshots = snapshotsQuery.data;
+    const view = useMemo(() => {
+        if (
+            events === undefined ||
+            payouts === undefined ||
+            snapshots === undefined
+        ) {
+            return null;
+        }
+        const { latest, previous } = latestTwoSnapshots(snapshots);
+        const state = stateCardOf(plan, account, latest, events, payouts, today);
+        const previousReconstruction = previousReconstructionOf(
+            plan,
+            account,
+            previous,
+            events,
+            payouts,
+            today,
+        );
+        const liveRules = liveRulesCardOf(plan, liveAccountOf(state));
+        const performance =
+            state.kind === StateCardKind.Ready
+                ? performanceCardOf(
+                      { account: state.account, asOf: state.asOf, input: state.input },
+                      previousReconstruction,
+                      events,
+                      payouts,
+                  )
+                : null;
+        return { liveRules, performance, state };
+    }, [account, events, payouts, plan, snapshots, today]);
+
+    const hasQueryError =
+        eventsQuery.error !== null ||
+        payoutsQuery.error !== null ||
+        snapshotsQuery.error !== null;
+    const queryErrors = hasQueryError && (
+        <AccountStateQueryErrors
+            eventsQuery={eventsQuery}
+            payoutsQuery={payoutsQuery}
+            snapshotsQuery={snapshotsQuery}
+        />
+    );
+
+    if (view === null) {
+        return (
+            queryErrors || (
+                <div aria-busy="true" aria-label="Loading the account state">
+                    <Skeleton className="h-24 w-full" />
+                </div>
+            )
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-6">
+            {queryErrors}
+            <StateCard view={view.state} />
+            {view.performance !== null && (
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium">Performance</h3>
+                    <PerformanceCard view={view.performance} />
+                </div>
+            )}
+            {account.stage === AccountStage.Live && (
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium">Live rules</h3>
+                    <LiveRulesCard view={view.liveRules} />
+                </div>
+            )}
+        </div>
     );
 }
 

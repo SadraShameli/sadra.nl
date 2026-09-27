@@ -1,6 +1,6 @@
 import { type z } from 'zod';
 
-import type { PropAccountRow } from '~/server/db/schemas/prop';
+import type { PropAccountRow, PropRoundRow } from '~/server/db/schemas/prop';
 
 import {
     AccountStage,
@@ -53,6 +53,7 @@ export enum AccountCsvColumn {
     Plan = 'plan',
     PurchasedOn = 'purchasedOn',
     RetainedCushion = 'retainedCushion',
+    Round = 'round',
     Stage = 'stage',
     Tags = 'tags',
     Tracking = 'tracking',
@@ -63,6 +64,8 @@ export type AccountCsvPreview = CsvPreview<AccountCsvColumn, AccountImportRow>;
 export type AccountImportRow = z.output<typeof accountCreateSchema>;
 
 export type ExistingAccountLabel = Pick<PropAccountRow, 'archivedAt' | 'label'>;
+
+export type ExistingRoundLabel = Pick<PropRoundRow, 'id' | 'label'>;
 
 type PersonalMoneyRule = Exclude<keyof PersonalRules, 'maxTradesPerDay'>;
 
@@ -107,6 +110,7 @@ export const ACCOUNT_CSV_COLUMNS: readonly AccountCsvColumn[] = [
     AccountCsvColumn.Notes,
     AccountCsvColumn.MaxTradesPerDay,
     ...PERSONAL_MONEY_RULES.map((rule) => PERSONAL_MONEY_COLUMNS[rule]),
+    AccountCsvColumn.Round,
 ];
 
 const SCHEMA_PATH_COLUMNS: SchemaPathColumns<AccountCsvColumn> = [
@@ -124,6 +128,7 @@ const SCHEMA_PATH_COLUMNS: SchemaPathColumns<AccountCsvColumn> = [
     [AccountCsvColumn.Plan, ['planSerial']],
     [AccountCsvColumn.Plan, ['planLabel']],
     [AccountCsvColumn.PurchasedOn, ['purchasedOn']],
+    [AccountCsvColumn.Round, ['roundId']],
     [AccountCsvColumn.Stage, ['stage']],
     [AccountCsvColumn.Tags, ['tags']],
     [AccountCsvColumn.Tracking, ['tracking']],
@@ -141,6 +146,7 @@ export function previewAccountCsv(
     text: string,
     existing: readonly ExistingAccountLabel[],
     externalFirms: readonly ExternalFirmName[] = [],
+    rounds: readonly ExistingRoundLabel[] = [],
 ): AccountCsvPreview {
     const preview = buildCsvPreview(
         parseCsvTable(
@@ -151,7 +157,7 @@ export function previewAccountCsv(
             },
             MAX_IMPORT_ROWS,
         ),
-        (reader) => readAccountRow(reader, externalFirms),
+        (reader) => readAccountRow(reader, externalFirms, rounds),
         REQUIRED_ACCOUNT_CSV_COLUMNS,
     );
     return appendCsvIssues(preview, [
@@ -227,6 +233,7 @@ function liveStartIssues(preview: AccountCsvPreview): readonly CsvIssue[] {
 function readAccountRow(
     reader: CsvRowReader<AccountCsvColumn>,
     externalFirms: readonly ExternalFirmName[],
+    rounds: readonly ExistingRoundLabel[],
 ): AccountImportRow | undefined {
     const tracking =
         reader.choice(AccountCsvColumn.Tracking, AccountTracking) ??
@@ -261,6 +268,7 @@ function readAccountRow(
     const tags = reader.list(AccountCsvColumn.Tags);
     const notes = reader.text(AccountCsvColumn.Notes);
     const personalRules = readPersonalRules(reader);
+    const roundId = readRound(reader, rounds);
     const candidate = {
         ...plan,
         accountSize,
@@ -273,6 +281,7 @@ function readAccountRow(
         notes,
         personalRules,
         purchasedOn,
+        roundId,
         stage,
         tags,
         tracking,
@@ -329,4 +338,32 @@ function readPersonalRules(
         if (cents !== undefined) rules[rule] = cents;
     }
     return rules;
+}
+
+function readRound(
+    reader: CsvRowReader<AccountCsvColumn>,
+    rounds: readonly ExistingRoundLabel[],
+): string | undefined {
+    const label = reader.text(AccountCsvColumn.Round);
+    if (label === undefined) return undefined;
+    const lowered = label.toLowerCase();
+    const matches = rounds.filter(
+        (round) => round.label.toLowerCase() === lowered,
+    );
+    if (matches.length > 1) {
+        reader.addIssue(
+            AccountCsvColumn.Round,
+            CsvIssueKind.Cell,
+            `more than one of your rounds is named "${label}" (case-insensitively); rename one of them before importing`,
+        );
+        return undefined;
+    }
+    const [match] = matches;
+    if (match !== undefined) return match.id;
+    reader.addIssue(
+        AccountCsvColumn.Round,
+        CsvIssueKind.Cell,
+        `none of your rounds is named "${label}"; add the round first`,
+    );
+    return undefined;
 }

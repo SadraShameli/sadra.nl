@@ -5,6 +5,10 @@ import type {
     PropPayoutRow,
 } from '~/server/db/schemas/prop';
 
+import {
+    type RealizedLossRisk,
+    type RoundBudgetStatus,
+} from '~/lib/prop-accounts/bankroll';
 import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
 
 import {
@@ -21,6 +25,7 @@ import {
     type PlanKeyResolution,
     PlanKeyResolutionKind,
     resolvePlanKey,
+    type RoundStatus,
     sumUsdCents,
     trackedAccountOf,
     type TrackedAccountRow,
@@ -29,6 +34,7 @@ import {
 import {
     type AccountStateEntry,
     type AccountStateResult,
+    type FirmReconciliationEntry,
     isActiveAccount,
 } from '../metrics';
 import { AlertDisclosure } from './AccountAlert';
@@ -66,6 +72,9 @@ export interface AlertContext {
     readonly accounts: readonly MonitoredAccount[];
     readonly archivedAccounts: readonly MonitoredAccount[];
     readonly copyGroups: readonly AlertCopyGroupRow[];
+    readonly firmReconciliation: readonly FirmReconciliationEntry[];
+    readonly realizedLossRisk: null | RealizedLossRisk;
+    readonly rounds: readonly AlertRoundRow[];
     readonly rulebook: RulebookParameters;
     readonly today: string;
     readonly unreadableArchivedAccounts: readonly AlertAccountRow[];
@@ -73,13 +82,26 @@ export interface AlertContext {
 
 export type AlertCopyGroupRow = Pick<PropCopyGroupRow, 'id' | 'name'>;
 
+export interface AlertRoundRow {
+    readonly budget: RoundBudgetStatus;
+    readonly id: string;
+    readonly label: string;
+    readonly status: RoundStatus;
+}
+
 export const NO_ACCOUNT_STATES: readonly AccountStateEntry[] = [];
+export const NO_FIRM_RECONCILIATION: readonly FirmReconciliationEntry[] = [];
+export const NO_REALIZED_LOSS_RISK: null | RealizedLossRisk = null;
+export const NO_ROUNDS: readonly AlertRoundRow[] = [];
 
 export interface AlertInputs {
     readonly accounts: readonly AlertAccountRow[];
     readonly accountStates: readonly AccountStateEntry[];
     readonly copyGroups: readonly AlertCopyGroupRow[];
+    readonly firmReconciliation?: readonly FirmReconciliationEntry[];
     readonly payouts: readonly AlertPayoutRow[];
+    readonly realizedLossRisk?: null | RealizedLossRisk;
+    readonly rounds?: readonly AlertRoundRow[];
     readonly rulebook: RulebookParameters;
     readonly snapshots: readonly AlertSnapshotRow[];
     readonly today: string;
@@ -166,6 +188,9 @@ export function createAlertContext(inputs: AlertInputs): AlertContext {
             .map(monitorRow),
         archivedAccounts: archived.filter(isReadable).map(monitorRow),
         copyGroups: inputs.copyGroups,
+        firmReconciliation: inputs.firmReconciliation ?? NO_FIRM_RECONCILIATION,
+        realizedLossRisk: inputs.realizedLossRisk ?? NO_REALIZED_LOSS_RISK,
+        rounds: inputs.rounds ?? NO_ROUNDS,
         rulebook: inputs.rulebook,
         today,
         unreadableArchivedAccounts: archived.filter(

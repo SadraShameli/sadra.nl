@@ -35,12 +35,14 @@ import {
     type EdgeMetric,
     type EdgeRange,
     MAX_EDGE_TRADES,
+    type MeasuredRewardToRisk,
     MIN_EXPECTED_WINS_AND_LOSSES,
 } from '~/lib/prop-accounts/edge';
 import {
     DEFAULT_RULEBOOK,
     type SampleThresholds,
 } from '~/lib/prop-calculator/advisor';
+import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -261,6 +263,10 @@ function EdgeResult({
     readonly sampleThresholds: SampleThresholds;
 }) {
     const { summary, truncated } = report;
+    const measuredRewardToRisk = measuredRewardToRiskWithinCalculatorBounds(
+        summary.measuredRewardToRisk,
+    );
+    const edgeRewardToRisk = measuredRewardToRisk?.value ?? summary.rewardToRisk;
     const sampleLevel = sampleAdequacy(
         SampleKind.Trades,
         summary.sampleSize,
@@ -320,7 +326,7 @@ function EdgeResult({
                     title="Win rate"
                 />
                 <EdgeMetricCard
-                    description={`Average R per counted trade; the rulebook's 1:${summary.rewardToRisk} at its win rate sets the assumption.`}
+                    description={expectancyDescription(summary.rewardToRisk)}
                     format={(value) => formatR(value)}
                     formatError={(value) => `${value.toFixed(2)}R`}
                     metric={summary.expectancyR}
@@ -333,21 +339,26 @@ function EdgeResult({
                         <Link
                             href={measuredEdgeCalculatorHref(
                                 summary.winRate.observed,
-                                summary.rewardToRisk,
+                                edgeRewardToRisk,
                             )}
                         >
                             Try my measured win rate in the calculator
                         </Link>
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                        Carries over your measured win rate. The 1:
-                        {summary.rewardToRisk} reward:risk is still the
-                        rulebook's assumption, not measured from your trades.
+                        {measuredEdgeCaption(
+                            summary.rewardToRisk,
+                            measuredRewardToRisk,
+                        )}
                     </p>
                 </div>
             )}
         </div>
     );
+}
+
+function expectancyDescription(rewardToRisk: number): string {
+    return `Average R per counted trade; the rulebook's 1:${rewardToRisk} at its win rate sets the assumption.`;
 }
 
 function measuredEdgeCalculatorHref(
@@ -360,4 +371,23 @@ function measuredEdgeCalculatorHref(
         winrate,
     }).toString();
     return `${routes.propCalculator.index}?${query}`;
+}
+
+function measuredEdgeCaption(
+    rewardToRisk: number,
+    measuredRewardToRisk: MeasuredRewardToRisk | null,
+): string {
+    return measuredRewardToRisk === null
+        ? `Carries over your measured win rate. The 1:${rewardToRisk} reward:risk is still the rulebook's assumption, not measured from your trades.`
+        : `Carries over your measured win rate and your measured 1:${measuredRewardToRisk.value.toFixed(2)} reward:risk from n = ${measuredRewardToRisk.sampleSize} wins and losses.`;
+}
+
+function measuredRewardToRiskWithinCalculatorBounds(
+    measuredRewardToRisk: MeasuredRewardToRisk | null,
+): MeasuredRewardToRisk | null {
+    if (measuredRewardToRisk === null) return null;
+    const { max, min } = CALCULATOR_SCALAR_BOUNDS.rr;
+    return measuredRewardToRisk.value >= min && measuredRewardToRisk.value <= max
+        ? measuredRewardToRisk
+        : null;
 }

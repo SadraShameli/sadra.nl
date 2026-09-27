@@ -863,6 +863,11 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 
 - A public bankroll page answers "how likely am I to end a batch down or run out of cash, how much do I need for my own threshold, how a reinvesting budget behaves with bands and payout lag, what a batch risks and which lever helps", with the user's own bankroll and rates when signed in, closed forms only as labelled illustrations and no video figure as a default; a closed round gets a repeat-or-scale comparison; all heavy work runs in the tools worker.
 
+
+#### Added 2026-09-27 to PT-62
+
+- Add `routes.propCalculator.accounts.firms` in `src/lib/site/routes.ts` (PT-58b built `accounts/firms/{page.tsx, FirmsView.tsx}` and the nav item and waits on this route).
+
 ## PT-63: objective selector, split vs concentrate, ladder lab contracts
 
 - **Lane / wave:** E / EJ7 (owner in EJ7 of `shared.ts`, `advisor/policy/index.ts`, `compare/command.ts`, `urlState.ts` and `calculatorReducer.ts`)  **Size:** large  **Depends on:** PT-19 with its addendum (`SizingObjective` members, `applyEnginePolicy`), PT-74 (`chooseObjective`, `objectiveApplicability`), PT-16 (lifted funded helpers), PT-13 (`contractsAtStop`), PT-44 addendum, PT-53, PT-55, PT-60, PT-62 (tools worker)
@@ -1636,6 +1641,7 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 - **Files owned:** the alert, router, schema and CSV half of "## PT-58a:": `alerts/{AlertKind.ts, AlertContext.ts, AlertEvaluator.ts, PayoutDollarMismatchRule.ts, index.ts}`, new `alerts/{RoundBudgetReachedRule.ts, BankrollLossRiskAboveThresholdRule.ts, FirmPayoutTotalMismatchRule.ts}`, routers `account.ts`, `round.ts`, `bankroll.ts`, `src/lib/schemas/{propAccounts.ts, propAccountOutputs.ts}`, `csv/{AccountCsv.ts, index.ts}`, `userScoping.test.ts`, and tests.
 - **Steps:** the matching "## PT-58a:" steps. RED first. Run `tests/unit/lib/prop-accounts`, `tests/unit/server/propAccounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
 - **Acceptance:** the round budget is enforced on the server with a typed override; the three alerts fire.
+- **Added 2026-09-27 (PT-58a1 leftovers):** `PayoutDollarMismatchRule.ts` uses `core/PayoutTolerance.ts` (drop its local 100-cent constant; a guard finds one); `core/SampleAdequacy.ts` gains a `SampleKind` member for ended accounts behind the purchase-cohort multiple and `Bankroll.scaleAtMeasuredMultiple` uses it (owned here for that change); `roundCreateSchema` and `roundUpdateSchema` require exactly one firm (`refineExactlyOneFirm`), with a router test that a round with neither firm is refused.
 
 ## PT-58a3: bankroll card, ledger deposits and reconciliation, rounds page (PT-58a split, part 3)
 
@@ -1650,6 +1656,34 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 - **Files owned:** a new non-component module for the plausibility note text (for example `~/lib/prop-calculator/economics/EdgePlausibilityText.ts`, exported through the economics barrel) used by `src/cli/commands/prop/shared.ts` (`edgePlausibilityNote`), `_components/TradingInputs.tsx` and `accounts/rulebook/RulebookView.tsx`; `_components/{FirmComparisonTable.tsx, PlanComparisonTable.tsx}` (accounts per session must be a whole number of at least 1, hours positive; a P(no payout) column from the run); `src/lib/prop-accounts/edge/EdgeSummary.ts` (an observed reward to risk from the journal's average win and loss, and `EdgeView`'s measured-edge link carries it instead of the rulebook value when enough trades exist); and tests.
 - **Steps** (RED first): one plausibility wording for CLI and web (a guard finds no second copy); the time-value inputs reject 0.5 accounts per session; P(no payout) appears on both tables; the measured-edge link uses the measured reward to risk with its n. Run the prop-calculator app, accounts edge and CLI tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
 - **Acceptance:** one wording everywhere; every input on the time tables is valid; the measured edge is measured.
+
+## PT-61e: the measured reward to risk on the edge page; one P(no payout) helper in the CLI (PT-61d leftovers)
+
+- **Lane / wave:** W / EJ4-e  **Size:** small  **Depends on:** PT-61d (done: `EdgeSummary.measuredRewardToRisk`, `noPayoutProbabilityFromDistribution`)
+- **Files owned:** `accounts/edge/EdgeView.tsx` (the measured-edge link and the expectancy caption use `summary.measuredRewardToRisk` with its n, falling back to the rulebook value with a label when too few trades), `src/cli/commands/prop/compare/command.ts` (`formatNoPayoutProbability` calls `noPayoutProbabilityFromDistribution`), and tests.
+- **Steps** (RED first): the edge page's link carries the measured reward to risk when enough trades exist and says so; `prop compare` prints the same P(no payout) as the web tables for the same run (one helper; a guard finds no second copy). Run the accounts edge, prop-calculator app and CLI compare tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** one P(no payout) definition; the measured edge is measured end to end.
+
+## PT-22d: account-state alert leftovers (PT-22c review)
+
+- **Lane / wave:** W / EJ5  **Size:** medium  **Depends on:** PT-22c (done), PT-58a2 (owns `alerts/**` in EJ4-e), PT-58a3 (owns the overview files in EJ4-f)
+- **Files owned:** `advisor/PayoutRequestRule.ts` (export `firmMinimumNotice`) and `src/lib/prop-accounts/metrics/PayoutReadinessBoard.ts` (call it), `advisor/AccountReconstruction.ts` (carry the engine-computed dashboard floor on the DashboardFloorMismatch assumption, the raw pending payouts, the personal max risk into the reconstruction, and the micro contract limit instead of a hard-coded `isMicro = false`), `alerts/{DashboardFloorMismatchRule.ts, PayoutEligibleRule.ts, TierChangeRule.ts, AccountAlert.ts (AlertDisclosure.LiveTriggersNotChecked)}`, `overview/{overviewModel.ts (widen the account and snapshot rows so the `as unknown as` casts go), OverviewView.tsx (show `accountStatesCaveat`)}`, and tests.
+- **Steps** (RED first for each): the dashboard floor alert names the engine floor and the entered floor; the readiness board shows PayoutPending with the raw pending amount; the near-floor board uses the personal max risk when set; the tier change rule follows micro limits; the live-trigger caveat is a disclosure; the overview shows the account-states caveat; no casts remain. Run `tests/unit/lib/prop-accounts`, the advisor tests and the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** every account-state alert says exactly what it measured.
+
+## PT-19g: the advisor reasons that need later data (PT-19f leftovers)
+
+- **Lane / wave:** E / after PT-32 and PT-35b  **Size:** small  **Depends on:** PT-19f (done), PT-32 (from-state funded sweep, WithinNoise for simulate sources), PT-35b (verified conduct patterns), PT-74 (Suspended gating)
+- **Files owned:** `advisor/{EvalSizingAdvisor.ts, FundedSizingAdvisor.ts, LiveSizingAdvisor.ts, PayoutAdvice.ts}` and tests.
+- **Steps** (RED first): WithinNoise on the eval ladder result (the documented-versus-optimum comparison PT-32 defines for simulate sources, applied to the ladder's SEs); AggressiveOptimumChurn from PT-35b's verified conduct patterns; PayoutPolicyDiffers when the engine request policy differs from the documented one; the funded advisor's from-state sweep through PT-32's `FundedSweepFromState`; Suspended gating on the live advisor via PT-74; the payout-size warning only if PT-32 or the design names a concrete non-monotonic case (otherwise record that none exists). Run the advisor tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** every difference reason the advisors can emit is emitted when its condition holds.
+
+## PT-58c: round edits recorded, one ended-accounts sample threshold, round hints (PT-58a2 leftovers)
+
+- **Lane / wave:** W / EJ5  **Size:** small  **Depends on:** PT-58a2 (done)
+- **Files owned:** `src/server/api/routers/propAccounts/round.ts` (`round.assign` writes through `repo.recordEdits` like `account.update`, so a round move is in the account history), `advisor/Rulebook.ts` (a `minEndedAccounts` sample threshold) and `src/lib/prop-accounts/core/SampleAdequacy.ts` (use it for `SampleKind.EndedAccounts`), and tests.
+- **Steps** (RED first): assigning an account to a round records an Edited event with the old and new round; the ended-accounts sample level reads its own threshold (default stated in help text). Run `tests/unit/server/propAccounts`, `tests/unit/lib/prop-accounts`, the rulebook tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** round moves are auditable; each sample kind has its own threshold.
 
 ## PT-52d: one ledger-only rule set and one set of ownership checks on the server (PT-51b and PT-52b leftovers)
 

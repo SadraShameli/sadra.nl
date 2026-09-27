@@ -23,6 +23,8 @@ import {
     defined,
     deletesFrom,
     errorShapeOf,
+    feeRow,
+    IDS,
     insertsInto,
     isCount,
     mutationRejection,
@@ -60,6 +62,93 @@ const ROUND_UPDATE = {
 };
 
 describe('propAccounts.round', () => {
+    it('assign moves the caller account into an open round scoped by user, when it fits the budget', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.fee]: [feeRow({ amount_cents: 16_500 })] }),
+        );
+        await caller.round.assign({ accountId: IDS.account, roundId: VIDEO_IDS.round });
+        const [update] = updatesOf(queries, TABLES.account);
+        assertUserScopedWhere(defined(update), USER_ID);
+        expect(update?.text).toMatch(/"round_id" = \$\d+/);
+        expect(update?.params).toContain(VIDEO_IDS.round);
+    });
+
+    it('assign refuses a closed round and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [VIDEO_TABLES.round]: [
+                    roundRow({ status: RoundStatus.Closed }),
+                ],
+            }),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(
+                caller.round.assign({ accountId: IDS.account, roundId: VIDEO_IDS.round }),
+            ),
+        );
+        expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.RoundClosed),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('assign refuses a round whose budget is already spent, unless overridden', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 150_000 })],
+            }),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(
+                caller.round.assign({ accountId: IDS.account, roundId: VIDEO_IDS.round }),
+            ),
+        );
+        expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.RoundBudgetExceeded),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+        const { caller: overrideCaller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 150_000 })],
+            }),
+        );
+        await expect(
+            overrideCaller.round.assign({
+                accountId: IDS.account,
+                overrideRoundBudget: true,
+                roundId: VIDEO_IDS.round,
+            }),
+        ).resolves.toMatchObject({ id: IDS.account });
+    });
+
+    it('assign unassigns an account from its round without a budget check', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.round.assign({ accountId: IDS.account, roundId: null });
+        const [update] = updatesOf(queries, TABLES.account);
+        expect(update?.text).toMatch(/"round_id" = /);
+        const roundReads = queries.filter(
+            (query) => readTable(query) === VIDEO_TABLES.round,
+        );
+        expect(roundReads).toHaveLength(0);
+    });
+
+    it('assign of a foreign round throws NOT_FOUND and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [VIDEO_TABLES.round]: [] }),
+        );
+        await expect(
+            caller.round.assign({ accountId: IDS.account, roundId: VIDEO_IDS.round }),
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
     it('create opens the round for the session user after the quota check, in one transaction', async () => {
         const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
         await caller.round.create({
@@ -85,6 +174,20 @@ describe('propAccounts.round', () => {
             TransactionStep.Begin,
             TransactionStep.Commit,
         ]);
+    });
+
+    it('create and update with neither a listed nor an own firm are refused before touching the database', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await expect(
+            caller.round.create({
+                label: 'No firm round',
+                openedOn: '2026-09-01',
+            }),
+        ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+        await expect(
+            caller.round.update({ ...ROUND_UPDATE, firmId: null }),
+        ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+        expect(queries).toHaveLength(0);
     });
 
     it('create at one of the caller own firms reads that firm scoped by user', async () => {
@@ -141,6 +244,7 @@ describe('propAccounts.round', () => {
         const shape = errorShapeOf(
             await rejectionOf(
                 caller.round.create({
+                    firmId: FirmId.Mffu,
                     label: 'One more',
                     openedOn: '2026-09-01',
                 }),

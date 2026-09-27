@@ -34,7 +34,10 @@ import {
     simulate,
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator';
-import { netPerScreenHour } from '~/lib/prop-calculator/economics';
+import {
+    netPerScreenHour,
+    noPayoutProbabilityFromDistribution,
+} from '~/lib/prop-calculator/economics';
 
 export enum CompareSortKey {
     Cost = 'cost',
@@ -297,10 +300,10 @@ function ascending(a: number, b: number): number {
 function formatNoPayoutProbability(
     out: Pick<SimOutputs, 'fundedPayoutCountDistribution'>,
 ): string {
-    const distribution = out.fundedPayoutCountDistribution;
-    return distribution.length === 0
-        ? NOT_APPLICABLE
-        : formatPercent(distribution[0] ?? 0);
+    const value = noPayoutProbabilityFromDistribution(
+        out.fundedPayoutCountDistribution,
+    );
+    return value === null ? NOT_APPLICABLE : formatPercent(value);
 }
 
 function formatScreenHour(

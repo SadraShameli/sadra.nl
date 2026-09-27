@@ -2,10 +2,23 @@ import { and, eq } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
-import { compareText, RoundStatus } from '~/lib/prop-accounts';
-import { PropAccountRepo, PropQuotaGuard } from '~/lib/prop-accounts/server';
+import {
+    CentsDisplay,
+    compareText,
+    formatUsdCents,
+    RoundStatus,
+    usdCents,
+} from '~/lib/prop-accounts';
+import { willExceedRoundBudget } from '~/lib/prop-accounts/bankroll';
+import { signedFeeCents } from '~/lib/prop-accounts/metrics';
+import {
+    PropAccountRepo,
+    PropQuotaGuard,
+    readAccount,
+} from '~/lib/prop-accounts/server';
 import {
     okOutputSchema,
+    propAccountOutputSchema,
     PropMutationRejection,
     PropQuota,
     PropRecord,
@@ -13,15 +26,17 @@ import {
 } from '~/lib/schemas/propAccountOutputs';
 import {
     entityIdSchema,
+    roundAssignSchema,
     roundCloseSchema,
     roundCreateSchema,
     roundUpdateSchema,
 } from '~/lib/schemas/propAccounts';
 import { createTRPCRouter } from '~/server/api/trpc';
-import { propRound, type PropRoundRow } from '~/server/db/schemas/prop';
+import { propAccount, propRound, type PropRoundRow } from '~/server/db/schemas/prop';
 
 import {
     assertExternalFirmOwned,
+    ownedReferenceOrThrow,
     propMutationProcedure,
     PropMutationRejectionError,
     propProcedure,
@@ -30,8 +45,33 @@ import {
 } from './mutationGuard';
 
 const mutation = propMutationProcedure(PropRouterBucket.Round);
+const ROUND_NOT_OWNED = 'The round you picked is not one of your rounds';
 
 export const propRoundRouter = createTRPCRouter({
+    assign: mutation
+        .input(roundAssignSchema)
+        .output(propAccountOutputSchema)
+        .mutation(({ ctx, input }) =>
+            ctx.db.transaction(async (tx) => {
+                const repo = new PropAccountRepo(tx, ctx.userId);
+                const stored = await repo.loadOwnedAccountOrThrow(
+                    input.accountId,
+                    true,
+                );
+                await assertRoundAcceptsMembership(
+                    repo,
+                    input.roundId,
+                    input.overrideRoundBudget,
+                );
+                const [row] = await tx
+                    .update(propAccount)
+                    .set({ roundId: input.roundId, updatedAt: new Date() })
+                    .where(ownedAccount(stored.id, ctx.userId))
+                    .returning();
+                return readAccount(returnedRowOrThrow(row, PropRecord.Account));
+            }),
+        ),
+
     close: mutation
         .input(roundCloseSchema)
         .output(propRoundOutputSchema)
@@ -140,6 +180,47 @@ export const propRoundRouter = createTRPCRouter({
         ),
 });
 
+export async function assertRoundAcceptsMembership(
+    repo: PropAccountRepo,
+    roundId: null | string,
+    shouldOverrideRoundBudget: boolean,
+): Promise<void> {
+    if (roundId === null) return;
+    const round = await loadOpenOwnedRoundOrThrow(repo, roundId);
+    if (shouldOverrideRoundBudget) return;
+    await assertRoundWithinBudget(repo, round);
+}
+
+export async function assertRoundWithinBudget(
+    repo: PropAccountRepo,
+    round: Pick<PropRoundRow, 'budgetCents' | 'id' | 'label'>,
+): Promise<void> {
+    const spentCents = await roundSpentCents(repo, round.id);
+    if (willExceedRoundBudget(round.budgetCents, spentCents, 0)) {
+        throw new PropMutationRejectionError(
+            PropMutationRejection.RoundBudgetExceeded,
+            `Round "${round.label}" has already spent ${formatUsdCents(usdCents(spentCents), CentsDisplay.Always)} of its ${formatUsdCents(usdCents(round.budgetCents ?? 0), CentsDisplay.Always)} budget; set overrideRoundBudget to add another account anyway`,
+        );
+    }
+}
+
+export async function loadOpenOwnedRoundOrThrow(
+    repo: PropAccountRepo,
+    roundId: string,
+): Promise<PropRoundRow> {
+    const round = await ownedReferenceOrThrow(
+        () => repo.loadOwnedRoundOrThrow(roundId, true),
+        ROUND_NOT_OWNED,
+    );
+    if (round.status !== RoundStatus.Open) {
+        throw new PropMutationRejectionError(
+            PropMutationRejection.RoundClosed,
+            `Round "${round.label}" is closed; open a new round or pick another`,
+        );
+    }
+    return round;
+}
+
 function assertClosesAfterOpening(
     round: Pick<PropRoundRow, 'label'>,
     openedOn: string,
@@ -152,6 +233,24 @@ function assertClosesAfterOpening(
     );
 }
 
+function ownedAccount(id: string, userId: string) {
+    return and(eq(propAccount.id, id), eq(propAccount.userId, userId));
+}
+
 function ownedRound(id: string, userId: string) {
     return and(eq(propRound.id, id), eq(propRound.userId, userId));
+}
+
+async function roundSpentCents(
+    repo: PropAccountRepo,
+    roundId: string,
+): Promise<number> {
+    const members = await repo.listAccountRefsInRound(roundId);
+    if (members.length === 0) return 0;
+    const fees = await Promise.all(
+        members.map((member) => repo.listFees(member.id)),
+    );
+    return fees
+        .flat()
+        .reduce((sum, fee) => sum + signedFeeCents(fee), 0);
 }

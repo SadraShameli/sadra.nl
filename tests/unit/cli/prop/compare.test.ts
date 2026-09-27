@@ -1,6 +1,8 @@
 import type { ArgsDef } from 'citty';
 
 import { parseArgs } from 'citty';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import compare, {
@@ -40,6 +42,7 @@ import {
     TopStepVariant,
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator';
+import { noPayoutProbabilityFromDistribution } from '~/lib/prop-calculator/economics';
 import { findFirm } from '~/lib/prop-calculator/firms';
 
 import {
@@ -47,6 +50,8 @@ import {
     WINNING_TRADER,
 } from '../../lib/prop-calculator/fixtures/mffProLifetimeCapFixture';
 import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
+
+const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 
 function rapidEodPlan(): Plan {
     const plan = findFirm(FirmId.Mffu)?.findPlan({
@@ -770,5 +775,29 @@ describe('prop compare run (PT-54)', () => {
             edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ??
                 'missing note',
         );
+    });
+});
+
+describe('P(no payout) is one definition, shared by the web tables (PT-61e, F-V25)', () => {
+    it('prints exactly noPayoutProbabilityFromDistribution for the run, not a re-derived value', () => {
+        const distribution = [0.12, 0.5, 0.38];
+        const cells = compareRowCells(
+            row('x', { fundedPayoutCountDistribution: distribution }).out,
+        );
+        const expected = noPayoutProbabilityFromDistribution(distribution);
+        expect(expected).not.toBeNull();
+        expect(cells[8]).toBe(formatPercent(expected ?? 0));
+    });
+
+    it('calls the shared engine helper instead of re-deriving the value from the distribution array', () => {
+        const source = readFileSync(
+            path.join(
+                REPO_ROOT,
+                'src/cli/commands/prop/compare/command.ts',
+            ),
+            'utf8',
+        );
+        expect(source).toContain('noPayoutProbabilityFromDistribution');
+        expect(source).not.toMatch(/distribution\[0\]/);
     });
 });

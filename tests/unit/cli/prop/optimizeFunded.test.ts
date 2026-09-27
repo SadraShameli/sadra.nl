@@ -16,6 +16,7 @@ import optimizeFunded, {
 } from '~/cli/commands/prop/optimize/funded/command';
 import {
     edgePlausibilityNote,
+    payoutRequestPolicyArgument,
     planResolver,
     readNumberList,
     singlePathGranularityArgument,
@@ -1432,5 +1433,54 @@ describe('printTakeProfitWhatIf and the full CLI run (PT-64a, F-V23, video figur
         ]);
         expect(exitCode).toBe(1);
         expect(stderr).toContain('not modeled until QV-4 is answered (PT-64b)');
+    });
+});
+
+describe('optimize funded --payout-policy (PT-32 step 8)', () => {
+    it('declares --payout-policy via the shared argument, defaulting to up-to-request', async () => {
+        const arguments_ = await resolveArguments();
+        expect(arguments_['payout-policy']).toStrictEqual(
+            payoutRequestPolicyArgument['payout-policy'],
+        );
+    });
+
+    it('leaves stdout unchanged when the flag is omitted versus given explicitly as up-to-request (PT-16 pins)', async () => {
+        const withoutFlag = await capturedRun([...SMALL_RUN, '--flat', '200']);
+        const withFlag = await capturedRun([
+            ...SMALL_RUN,
+            '--flat',
+            '200',
+            '--payout-policy',
+            'up-to-request',
+        ]);
+        expect(withoutFlag.exitCode).toBeUndefined();
+        expect(withFlag.stdout).toBe(withoutFlag.stdout);
+    });
+
+    it('--payout-policy full-request reaches the base SimInputs, failing loud without --request-size', async () => {
+        const result = await capturedRun([
+            ...SMALL_RUN,
+            '--flat',
+            '200',
+            '--payout-policy',
+            'full-request-only',
+        ]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain(
+            'payoutRequestPolicy is FullRequestOnly, but payoutRequestSize is undefined',
+        );
+    });
+
+    it('--payout-policy full-request with --request-size runs cleanly', async () => {
+        const result = await capturedRun([
+            ...SMALL_RUN,
+            '--flat',
+            '200',
+            '--payout-policy',
+            'full-request-only',
+            '--request-size',
+            '500',
+        ]);
+        expect(result.exitCode).toBeUndefined();
     });
 });

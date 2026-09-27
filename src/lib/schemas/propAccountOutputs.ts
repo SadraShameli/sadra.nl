@@ -285,6 +285,14 @@ export const propBankrollTransferOutputSchema = createSelectSchema(
     },
 );
 
+export const propBankrollSummaryOutputSchema = z.object({
+    availableCents: usdCentsSchema,
+    depositsCents: nonNegativeUsdCentsSchema,
+    grownFromCents: nonNegativeUsdCentsSchema,
+    moneyWeightedReturn: z.number().nullable(),
+    withdrawalsCents: nonNegativeUsdCentsSchema,
+});
+
 export const propExternalFirmOutputSchema =
     createSelectSchema(propExternalFirm);
 

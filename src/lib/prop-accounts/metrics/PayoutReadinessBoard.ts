@@ -81,8 +81,7 @@ export interface PayoutReadinessNotApplicableRow {
 }
 
 export type PayoutReadinessRow =
-    | PayoutReadinessBlockedRow
-    | PayoutReadinessEligibleRow;
+    PayoutReadinessBlockedRow | PayoutReadinessEligibleRow;
 
 export function fundedPayoutRuleContextOf(
     plan: Plan,
@@ -128,7 +127,9 @@ export function payoutReadinessBoardOf(
         if (reconstructed.kind !== TradingPhase.Funded) {
             notApplicable.push({
                 accountId: entry.accountId,
-                notApplicable: { kind: PayoutReadinessNotApplicableKind.NotFunded },
+                notApplicable: {
+                    kind: PayoutReadinessNotApplicableKind.NotFunded,
+                },
             });
             continue;
         }

@@ -33,9 +33,15 @@ import {
     AccountEventKind,
     type AccountLifecycleState,
     AccountTracking,
+    type ExternalFirmName,
+    FirmEngagementReason,
+    FirmEngagementStatus,
+    firmKeyLabel,
+    firmKeyOf,
     type PlanLifecycleFacts,
     todayIsoDate,
 } from '~/lib/prop-accounts';
+import { type FirmId, parseFirmId } from '~/lib/prop-calculator';
 import { eventRecordSchema } from '~/lib/schemas/propAccounts';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -49,6 +55,10 @@ import {
     NO_EVENT_PREVIEW,
 } from './eventOptions';
 import { nullIfBlank, parsedOrIssues } from './formParsing';
+
+type EngagementFirmColumns =
+    | { readonly externalFirmId: null; readonly firmId: FirmId }
+    | { readonly externalFirmId: string; readonly firmId: null };
 
 type EventRow =
     RouterOutputs['propAccounts']['event']['listForAccount'][number];
@@ -84,6 +94,12 @@ export function EventsSection({
     const options = plan === null ? [] : eventOptions(plan, state);
     const [first] = options;
     const rows = query.data;
+    const accountQuery = api.propAccounts.account.get.useQuery({
+        id: accountId,
+    });
+    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
+    const firmColumns = firmColumnsOf(accountQuery.data);
+    const externalFirms = externalFirmsQuery.data ?? [];
     return (
         <>
             <ListQueryStatus query={query} subject="account events" />
@@ -141,6 +157,8 @@ export function EventsSection({
             {first !== undefined && (
                 <EventForm
                     accountId={accountId}
+                    externalFirms={externalFirms}
+                    firmColumns={firmColumns}
                     first={first}
                     key={options.map((option) => option.kind).join(',')}
                     onFailure={onFailure}
@@ -154,12 +172,16 @@ export function EventsSection({
 
 function EventForm({
     accountId,
+    externalFirms,
+    firmColumns,
     first,
     onFailure,
     options,
     preview,
 }: {
     readonly accountId: string;
+    readonly externalFirms: readonly ExternalFirmName[];
+    readonly firmColumns: EngagementFirmColumns | null;
     readonly first: EventOption;
     readonly onFailure: (error: unknown) => void;
     readonly options: readonly EventOption[];
@@ -182,6 +204,7 @@ function EventForm({
     const shown = draft.success ? preview(draft.data) : null;
     const shownKey = shown === null ? null : previewKey(shown);
     const [confirmedKey, setConfirmedKey] = useState<null | string>(null);
+    const [movedLiveOn, setMovedLiveOn] = useState<null | string>(null);
     const confirmId = useId();
     const isConfirmed = shownKey !== null && confirmedKey === shownKey;
     const isAwaitingConfirmation =
@@ -196,6 +219,11 @@ function EventForm({
                 `${accountEventKindLabel(parsed.data.kind)} recorded`,
             );
             setConfirmedKey(null);
+            setMovedLiveOn(
+                parsed.data.kind === AccountEventKind.MovedLive
+                    ? parsed.data.occurredOn
+                    : null,
+            );
             form.reset({
                 kind: first.kind,
                 note: '',
@@ -330,6 +358,16 @@ function EventForm({
                     </Button>
                 </div>
             </form>
+            {movedLiveOn !== null && firmColumns !== null && (
+                <MovedLiveSuggestion
+                    externalFirms={externalFirms}
+                    firmColumns={firmColumns}
+                    onDismiss={() => {
+                        setMovedLiveOn(null);
+                    }}
+                    sentLiveOn={movedLiveOn}
+                />
+            )}
         </Form>
     );
 }
@@ -344,6 +382,95 @@ function eventFormSchema(accountId: string) {
         });
         return parsedOrIssues(parsed, context);
     });
+}
+
+function firmColumnsOf(data: unknown): EngagementFirmColumns | null {
+    if (
+        typeof data !== 'object' ||
+        data === null ||
+        !('firmId' in data) ||
+        !('externalFirmId' in data)
+    ) {
+        return null;
+    }
+    const { externalFirmId, firmId } = data;
+    if (typeof firmId === 'string' && externalFirmId === null) {
+        const parsed = parseFirmId(firmId);
+        return parsed === undefined
+            ? null
+            : { externalFirmId: null, firmId: parsed };
+    }
+    return typeof externalFirmId === 'string' && firmId === null
+        ? { externalFirmId, firmId: null }
+        : null;
+}
+
+function MovedLiveSuggestion({
+    externalFirms,
+    firmColumns,
+    onDismiss,
+    sentLiveOn,
+}: {
+    readonly externalFirms: readonly ExternalFirmName[];
+    readonly firmColumns: EngagementFirmColumns;
+    readonly onDismiss: () => void;
+    readonly sentLiveOn: string;
+}) {
+    const utilities = api.useUtils();
+    const firmLabel = firmKeyLabel(firmKeyOf(firmColumns), externalFirms);
+    const engagementMutation = api.propAccounts.firmEngagement.set.useMutation(
+        {
+            onError: (error) => {
+                toast.error(error.message);
+            },
+            onSuccess: () => {
+                toast.success(`${firmLabel} marked sent live`);
+                onDismiss();
+                return utilities.propAccounts.invalidate();
+            },
+        },
+    );
+
+    return (
+        <Alert className="mt-4">
+            <Info />
+            <AlertTitle>Mark {firmLabel} as sent live?</AlertTitle>
+            <AlertDescription>
+                <p>
+                    This account just moved live at {firmLabel}. Recording the
+                    firm as &quot;Retired: sent live&quot; flags any other
+                    account you still simulate there.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                    <Button
+                        disabled={engagementMutation.isPending}
+                        onClick={() => {
+                            engagementMutation.mutate({
+                                ...firmColumns,
+                                note: null,
+                                reason: FirmEngagementReason.SentLive,
+                                sentLiveOn,
+                                sinceOn: sentLiveOn,
+                                status: FirmEngagementStatus.Retired,
+                            });
+                        }}
+                        size="sm"
+                        type="button"
+                    >
+                        Mark {firmLabel} sent live
+                    </Button>
+                    <Button
+                        onClick={onDismiss}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                    >
+                        Not now
+                    </Button>
+                </div>
+            </AlertDescription>
+        </Alert>
+    );
 }
 
 function previewKey(preview: EventPreview): string {

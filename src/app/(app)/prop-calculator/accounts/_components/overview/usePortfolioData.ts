@@ -26,6 +26,8 @@ export function usePortfolioData(): PortfolioLoad {
         api.propAccounts.rulebook.get.useQuery();
     const { data: snapshots, error: snapshotsError } =
         api.propAccounts.snapshot.latestForAll.useQuery();
+    const { data: transfers, error: transfersError } =
+        api.propAccounts.bankroll.list.useQuery();
     return useMemo(
         () =>
             portfolioLoad({
@@ -51,6 +53,10 @@ export function usePortfolioData(): PortfolioLoad {
                     data: snapshots,
                     error: snapshotsError,
                 },
+                [PortfolioSource.Transfers]: {
+                    data: transfers,
+                    error: transfersError,
+                },
             }),
         [
             accounts,
@@ -67,6 +73,8 @@ export function usePortfolioData(): PortfolioLoad {
             rulebookError,
             snapshots,
             snapshotsError,
+            transfers,
+            transfersError,
         ],
     );
 }

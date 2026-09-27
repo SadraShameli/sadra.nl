@@ -7,6 +7,12 @@ export {
     type AccountSnapshotInput,
     accountSnapshotInputSchema,
 } from './AccountSnapshotInput';
+export { type Advice } from './Advice';
+export {
+    type AdviceProvenance,
+    adviceProvenance,
+    type AdviceProvenanceInput,
+} from './AdviceProvenance';
 export { AdviceSource } from './AdviceSource';
 export {
     ADVICE_STALE_SESSION_THRESHOLD,
@@ -39,6 +45,12 @@ export {
     type CalendarGateProgressResult,
 } from './CalendarGateProgress';
 export { createDocumentedRule } from './createDocumentedRule';
+export {
+    createSizingAdvisor,
+    InstantFundedEvalAdvisorError,
+    type SizingAdvisorCreateOptions,
+} from './createSizingAdvisor';
+export { type DailyPlanCard, dailyPlanCard } from './DailyPlanCard';
 export {
     DashboardBalanceConvention,
     nominalBalanceOf,
@@ -88,14 +100,20 @@ export {
 export {
     type EngineLadderScoreConfig,
     type EngineOptimumRequest,
+    type FundedFromStateSweepRequest,
     type FundedSweepFreshRequest,
     type LadderSearchRequest,
     type LadderSearchRequestSource,
+    type NextPayoutProjectionRequest,
+    type PayoutSizeSweepRequest,
 } from './EngineOptimumRequest';
 export {
     type EngineOptimumRunnerResult,
+    type FundedFromStateEngineOptimumResult,
     type FundedSweepEngineOptimumResult,
     type LadderEngineOptimumResult,
+    type NextPayoutProjectionEngineOptimumResult,
+    type PayoutSizeSweepEngineOptimumResult,
     runEngineOptimum,
 } from './EngineOptimumRunner';
 export {
@@ -110,7 +128,26 @@ export {
 } from './EnginePolicyBuilder';
 export { EvalLadderRule } from './EvalLadderRule';
 export { EvalMaxRiskRule } from './EvalMaxRiskRule';
+export {
+    EvalSizingAdvisor,
+    type EvalSizingAdvisorInput,
+} from './EvalSizingAdvisor';
 export { FundedFixedRiskRule } from './FundedFixedRiskRule';
+export {
+    fundedCycleSeedFromTracker,
+    type FundedFromStateNoCandidatesResult,
+    type FundedFromStateOptimum,
+    type FundedFromStateOptimumFoundResult,
+    FundedFromStateOptimumResultKind,
+    type FundedFromStatePlacedRow,
+    type FundedFromStateRow,
+    type FundedFromStateSweepResult,
+    runFundedFromStateSweep,
+} from './FundedFromStateSweep';
+export {
+    FundedSizingAdvisor,
+    type FundedSizingAdvisorInput,
+} from './FundedSizingAdvisor';
 export {
     LEDGER_CONTENT_HASH,
     LEDGER_FILE,
@@ -138,6 +175,15 @@ export {
     type ModeledLiveTransition,
 } from './LivePlanApplicability';
 export {
+    LiveSizingAdvisor,
+    type LiveSizingAdvisorInput,
+} from './LiveSizingAdvisor';
+export {
+    type NextPayoutProjection,
+    runNextPayoutProjection,
+} from './NextPayoutProjection';
+export { type PayoutAdvice, payoutAdvice } from './PayoutAdvice';
+export {
     type GatePayoutBlockReason,
     type LiveTriggerInfo,
     type PayoutBlockReason,
@@ -148,6 +194,13 @@ export {
     type WouldTriggerLiveBlockReason,
     wouldTriggerLiveBlockReason,
 } from './PayoutBlockReason';
+export {
+    payoutPolicySensitivity,
+    type PayoutPolicySensitivityFigure,
+    type PayoutPolicySensitivityLabels,
+    type PayoutPolicySensitivityPlanEntry,
+    type PayoutPolicySensitivityRankedEntry,
+} from './PayoutPolicySensitivity';
 export {
     type BlockedPayoutReadiness,
     type EligiblePayoutReadiness,
@@ -180,11 +233,29 @@ export {
     ruleCappedWithdrawable,
 } from './PayoutRequestRule';
 export {
+    type FirmMinimumAboveRequestNote,
+    PAYOUT_SIZE_SWEEP_GRID,
+    PAYOUT_SIZE_SWEEP_OBJECTIVE,
+    type PayoutSizeSweepFoundResult,
+    type PayoutSizeSweepFreshRow,
+    type PayoutSizeSweepFromStateRow,
+    type PayoutSizeSweepNoOptimumResult,
+    PayoutSizeSweepObjective,
+    type PayoutSizeSweepOptimum,
+    type PayoutSizeSweepResult,
+    PayoutSizeSweepResultKind,
+    type PayoutSizeSweepRow,
+    type PersonalPayoutOverrideResult,
+    type PersonalPayoutOverrideWarning,
+    runPayoutSizeSweep,
+} from './PayoutSizeSweep';
+export {
     NO_PERSONAL_CAPS,
     type PersonalCaps,
     personalCapsSchema,
 } from './PersonalCaps';
 export * from './policy';
+export { measuredRebuyLagFrom, type RebuyLagResolution } from './RebuyLag';
 export {
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
@@ -241,6 +312,7 @@ export {
     tighterOf,
 } from './RuleContext';
 export { RuleSource } from './RuleSource';
+export { SizingAdvisor } from './SizingAdvisor';
 export {
     assertSizingInvariant,
     assertTradeInvariant,

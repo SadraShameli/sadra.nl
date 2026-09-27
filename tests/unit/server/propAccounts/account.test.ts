@@ -16,6 +16,7 @@ import {
     PlanKeyResolutionKind,
     readAccountEventDetail,
     resolvePlanKey,
+    RoundStatus,
     trackedAccountOf,
     UnresolvedPlanReason,
 } from '~/lib/prop-accounts';
@@ -53,6 +54,7 @@ import {
     deletesFrom,
     errorShapeOf,
     eventRow,
+    feeRow,
     IDS,
     insertsInto,
     INSTANT_ENTRY,
@@ -67,6 +69,7 @@ import {
     updatesOf,
     USER_ID,
 } from './propRouterHarness';
+import { roundRow, VIDEO_IDS, VIDEO_TABLES } from './videoRecordFixtures';
 
 vi.mock('~/environment', () => ({ environment: { NODE_ENV: 'test' } }));
 vi.mock('~/server/db', () => ({ db: {} }));
@@ -351,6 +354,127 @@ describe('propAccounts.account', () => {
         expect(shape.data.code).toBe('CONFLICT');
         expect(shape.data.propRejection).toEqual(
             mutationRejection(PropMutationRejection.MixedStageCopyGroup),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('create with a roundId inserts into an open round of the caller that still fits the budget', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.fee]: [feeRow({ amount_cents: 16_500 })] }),
+        );
+        await caller.account.create(
+            accountCreateInput({ roundId: VIDEO_IDS.round }),
+        );
+        const [accountInsert] = insertsInto(queries, TABLES.account);
+        expect(insertedColumnValues(defined(accountInsert), 'round_id')).toEqual(
+            [VIDEO_IDS.round],
+        );
+    });
+
+    it('create rejects a foreign roundId and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [VIDEO_TABLES.round]: [] }),
+        );
+        const error = await rejectionOf(
+            caller.account.create(
+                accountCreateInput({ roundId: VIDEO_IDS.round }),
+            ),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('NOT_FOUND');
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('create rejects a closed round and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [VIDEO_TABLES.round]: [
+                    roundRow({ status: RoundStatus.Closed }),
+                ],
+            }),
+        );
+        const error = await rejectionOf(
+            caller.account.create(
+                accountCreateInput({ roundId: VIDEO_IDS.round }),
+            ),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.RoundClosed),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('create rejects a round whose budget is already spent, and inserts with an explicit override', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 150_000 })],
+            }),
+        );
+        const error = await rejectionOf(
+            caller.account.create(
+                accountCreateInput({ roundId: VIDEO_IDS.round }),
+            ),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.RoundBudgetExceeded),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+        const { caller: overrideCaller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 150_000 })],
+            }),
+        );
+        await expect(
+            overrideCaller.account.create(
+                accountCreateInput({
+                    overrideRoundBudget: true,
+                    roundId: VIDEO_IDS.round,
+                }),
+            ),
+        ).resolves.toMatchObject({ id: IDS.account });
+    });
+
+    it('update checks the round only when the roundId actually changes', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [accountRow({ round_id: VIDEO_IDS.round })],
+            }),
+        );
+        await caller.account.update(
+            accountUpdateInput({ label: 'Renamed', roundId: VIDEO_IDS.round }),
+        );
+        const roundReads = queries.filter(
+            (query) => readTable(query) === VIDEO_TABLES.round,
+        );
+        expect(roundReads).toHaveLength(0);
+    });
+
+    it('update rejects moving into a round whose budget is already spent, unless overridden', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 150_000 })],
+            }),
+        );
+        const error = await rejectionOf(
+            caller.account.update(
+                accountUpdateInput({ roundId: VIDEO_IDS.round }),
+            ),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.RoundBudgetExceeded),
         );
         expect(propWrites(queries)).toHaveLength(0);
     });
@@ -1165,6 +1289,34 @@ describe('propAccounts.account', () => {
         expect(shape.data.code).toBe('CONFLICT');
         expect(shape.data.propRejection).toEqual(
             mutationRejection(PropMutationRejection.DuplicateImportLabel),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('importMany still enforces the round budget for a row that does not override it, even when another row targeting the same round does', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 150_000 })],
+            }),
+        );
+        const error = await rejectionOf(
+            caller.account.importMany([
+                accountCreateInput({
+                    label: 'Overridden',
+                    overrideRoundBudget: true,
+                    roundId: VIDEO_IDS.round,
+                }),
+                accountCreateInput({
+                    label: 'Not overridden',
+                    roundId: VIDEO_IDS.round,
+                }),
+            ]),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.RoundBudgetExceeded),
         );
         expect(propWrites(queries)).toHaveLength(0);
     });

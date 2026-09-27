@@ -2,9 +2,13 @@ import { and, eq } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
+import { bankrollOf } from '~/lib/prop-accounts/bankroll';
+import { todayIsoDate } from '~/lib/prop-accounts/core';
+import { PortfolioLedger } from '~/lib/prop-accounts/metrics';
 import { PropAccountRepo, PropQuotaGuard } from '~/lib/prop-accounts/server';
 import {
     okOutputSchema,
+    propBankrollSummaryOutputSchema,
     propBankrollTransferOutputSchema,
     PropQuota,
     PropRecord,
@@ -63,6 +67,26 @@ export const propBankrollRouter = createTRPCRouter({
                 return { ok: true as const };
             }),
         ),
+
+    summary: propProcedure
+        .output(propBankrollSummaryOutputSchema)
+        .query(async ({ ctx }) => {
+            const repo = new PropAccountRepo(ctx.db, ctx.userId);
+            const [accounts, fees, payouts, transfers] = await Promise.all([
+                repo.listAccounts({ includeArchived: true }),
+                repo.listFees(),
+                repo.listPayouts(),
+                repo.listBankrollTransfers(),
+            ]);
+            const ledger = PortfolioLedger.fromRows(ctx.userId, {
+                accounts,
+                events: [],
+                fees,
+                payouts,
+                transfers,
+            });
+            return bankrollOf(ledger, todayIsoDate(new Date()));
+        }),
 
     update: mutation
         .input(bankrollTransferUpdateSchema)

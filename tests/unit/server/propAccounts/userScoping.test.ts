@@ -74,6 +74,7 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
     },
     'bankroll.list': undefined,
     'bankroll.remove': { id: VIDEO_IDS.bankrollTransfer },
+    'bankroll.summary': undefined,
     'bankroll.update': {
         amountCents: 120_000,
         id: VIDEO_IDS.bankrollTransfer,
@@ -172,6 +173,7 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
         requestedOn: '2026-09-08',
         status: PayoutStatus.Paid,
     },
+    'round.assign': { accountId: IDS.account, roundId: VIDEO_IDS.round },
     'round.close': { closedOn: '2026-09-30', id: VIDEO_IDS.round },
     'round.create': {
         externalFirmId: VIDEO_IDS.externalFirm,
@@ -278,6 +280,7 @@ const MUTATIONS_BY_ID = [
     'payout.create',
     'payout.remove',
     'payout.update',
+    'round.assign',
     'round.close',
     'round.remove',
     'round.update',

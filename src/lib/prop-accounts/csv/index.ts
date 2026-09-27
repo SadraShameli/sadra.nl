@@ -4,6 +4,7 @@ export {
     type AccountCsvPreview,
     type AccountImportRow,
     type ExistingAccountLabel,
+    type ExistingRoundLabel,
     previewAccountCsv,
     REQUIRED_ACCOUNT_CSV_COLUMNS,
 } from './AccountCsv';

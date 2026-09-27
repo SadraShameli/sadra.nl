@@ -2,6 +2,7 @@ import { type SampleThresholds } from '~/lib/prop-calculator/advisor';
 
 export enum SampleKind {
     ClosedRounds = 'closed-rounds',
+    EndedAccounts = 'ended-accounts',
     EvalAttempts = 'eval-attempts',
     FundedAccounts = 'funded-accounts',
     Trades = 'trades',
@@ -31,6 +32,9 @@ function thresholdFor(
     switch (kind) {
         case SampleKind.ClosedRounds: {
             return thresholds.minClosedRounds;
+        }
+        case SampleKind.EndedAccounts: {
+            return thresholds.minFundedAccounts;
         }
         case SampleKind.EvalAttempts: {
             return thresholds.minEvalAttempts;

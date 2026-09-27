@@ -95,7 +95,14 @@ function accountStatesOrNone(
 ): readonly AccountStateEntry[] {
     return events === undefined
         ? NO_ACCOUNT_STATES
-        : accountStatesForRows(userId, today, accounts, events, payouts, snapshots);
+        : accountStatesForRows(
+              userId,
+              today,
+              accounts,
+              events,
+              payouts,
+              snapshots,
+          );
 }
 
 function hubAccountsSummary(inputs: HubAccountsInputs): HubAccountsSummary {
