@@ -1,4 +1,8 @@
-import { sampleAdequacy, SampleKind, SampleLevel } from '~/lib/prop-accounts/core';
+import {
+    sampleAdequacy,
+    SampleKind,
+    SampleLevel,
+} from '~/lib/prop-accounts/core';
 import {
     attemptsOf,
     type CentsEstimate,
@@ -85,10 +89,15 @@ export function scaleGateOf(inputs: ScaleGateInputs): ScaleGate {
     }
     const unmetConditions: ScaleGateUnmetCondition[] = [];
     if (
-        sampleAdequacy(SampleKind.EvalAttempts, inputs.evalAttempts, thresholds) !==
-        SampleLevel.Adequate
+        sampleAdequacy(
+            SampleKind.EvalAttempts,
+            inputs.evalAttempts,
+            thresholds,
+        ) !== SampleLevel.Adequate
     ) {
-        unmetConditions.push(ScaleGateUnmetCondition.EvalAttemptsBelowThreshold);
+        unmetConditions.push(
+            ScaleGateUnmetCondition.EvalAttemptsBelowThreshold,
+        );
     }
     if (
         sampleAdequacy(
@@ -117,7 +126,9 @@ export function scaleGateOf(inputs: ScaleGateInputs): ScaleGate {
             thresholds,
         ) !== SampleLevel.Adequate
     ) {
-        unmetConditions.push(ScaleGateUnmetCondition.CohortSampleBelowThreshold);
+        unmetConditions.push(
+            ScaleGateUnmetCondition.CohortSampleBelowThreshold,
+        );
     }
     if (!isCohortMultipleAboveOne(inputs.cohortMultiple)) {
         unmetConditions.push(ScaleGateUnmetCondition.CohortMultipleNotAboveOne);
@@ -143,7 +154,9 @@ function isCohortMultipleAboveOne(
     );
 }
 
-function isPooledNetBeyondNoise(pooledNetPerSlot: CentsEstimate | null): boolean {
+function isPooledNetBeyondNoise(
+    pooledNetPerSlot: CentsEstimate | null,
+): boolean {
     return (
         pooledNetPerSlot?.standardError != null &&
         pooledNetPerSlot.value >

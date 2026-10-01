@@ -6,7 +6,10 @@ import {
     newFundedCycleTracker,
     newFundedCycleTrackerAfterReset,
 } from '~/lib/prop-calculator/core/FundedPayoutCycle';
-import { canTakeFundedReset, fundedResetFee } from '~/lib/prop-calculator/core/FundedReset';
+import {
+    canTakeFundedReset,
+    fundedResetFee,
+} from '~/lib/prop-calculator/core/FundedReset';
 import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core/PayoutRequestPolicy';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 
@@ -135,10 +138,7 @@ export function advanceFundedDay(
             return {
                 fee: fundedResetFee(policy, discounts),
                 kind: FundedDayOutcomeKind.Reset,
-                tracker: newFundedCycleTrackerAfterReset(
-                    state,
-                    resetsUsed + 1,
-                ),
+                tracker: newFundedCycleTrackerAfterReset(state, resetsUsed + 1),
             };
         }
         return {

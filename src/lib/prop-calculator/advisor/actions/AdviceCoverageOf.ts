@@ -3,7 +3,10 @@ import { type AccountSnapshotInput } from '~/lib/prop-calculator/advisor/Account
 import { AccountSubstate } from '~/lib/prop-calculator/advisor/AccountSubstate';
 import { type Advice } from '~/lib/prop-calculator/advisor/Advice';
 import { AssumptionKind } from '~/lib/prop-calculator/advisor/AssumptionKind';
-import { createSizingAdvisor, InstantFundedEvalAdvisorError } from '~/lib/prop-calculator/advisor/createSizingAdvisor';
+import {
+    createSizingAdvisor,
+    InstantFundedEvalAdvisorError,
+} from '~/lib/prop-calculator/advisor/createSizingAdvisor';
 import { DashboardBalanceConvention } from '~/lib/prop-calculator/advisor/DashboardBalanceConvention';
 import { ReconstructedLiveKind } from '~/lib/prop-calculator/advisor/ReconstructedAccount';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor/Rulebook';
@@ -22,7 +25,10 @@ export enum AdviceCoverageUnsupportedReason {
 }
 
 export type AdviceCoverageOutcome =
-    | { readonly advice: Advice; readonly kind: AdviceCoverageOutcomeKind.Advice }
+    | {
+          readonly advice: Advice;
+          readonly kind: AdviceCoverageOutcomeKind.Advice;
+      }
     | {
           readonly kind: AdviceCoverageOutcomeKind.Unsupported;
           readonly reason: AdviceCoverageUnsupportedReason;

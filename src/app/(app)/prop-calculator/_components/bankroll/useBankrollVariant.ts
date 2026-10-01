@@ -5,7 +5,10 @@ import { useMemo } from 'react';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { type BankrollPlanVariantInputs } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { useSession } from '~/lib/auth/client';
-import { DEFAULT_RULEBOOK, type RulebookParameters } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    type RulebookParameters,
+} from '~/lib/prop-calculator/advisor';
 import { api } from '~/trpc/react';
 
 import { bankrollVariantFor } from './bankrollModel';

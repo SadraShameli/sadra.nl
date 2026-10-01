@@ -40,8 +40,8 @@ export default async function PropAccountsReviewPage() {
                     </h1>
                     <p className="mt-2 text-sm text-muted-foreground sm:text-base">
                         Enter this week&rsquo;s snapshot for every active
-                        account, see the size change since last week, and
-                        accept sizes into the decision log.
+                        account, see the size change since last week, and accept
+                        sizes into the decision log.
                     </p>
                 </header>
                 <WeeklyReviewView />

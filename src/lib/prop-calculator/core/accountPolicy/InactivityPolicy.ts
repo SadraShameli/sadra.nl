@@ -74,7 +74,9 @@ export function inactivityCountMismatch(
     modeledCount: null | number,
     verifiedCount: null | number,
 ): InactivityCountMismatch | null {
-    return verifiedCount === null || modeledCount === verifiedCount ? null : { modeledCount, verifiedCount };
+    return verifiedCount === null || modeledCount === verifiedCount
+        ? null
+        : { modeledCount, verifiedCount };
 }
 
 export function unverifiedInactivityPolicyFor(

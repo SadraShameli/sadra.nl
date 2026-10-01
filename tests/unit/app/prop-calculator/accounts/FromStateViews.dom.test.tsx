@@ -242,15 +242,14 @@ describe('from-state views', () => {
                 runId: number;
             }) {
                 posted.push(message.request);
-                const outcomes: OverviewOutcome[] = message.request.requests.map(
-                    (request) => ({
+                const outcomes: OverviewOutcome[] =
+                    message.request.requests.map((request) => ({
                         ...overviewOutcomeOf({
                             ...request,
                             spec: { ...request.spec, run: TINY_RUN },
                         }),
                         key: overviewRequestKey(request),
-                    }),
-                );
+                    }));
                 queueMicrotask(() => {
                     this.listener?.({
                         data: {
@@ -277,7 +276,8 @@ describe('from-state views', () => {
                 runId: number;
             }) {
                 const isChain = message.request.requests.some(
-                    (request) => request.kind === OverviewRequestKind.ValueChain,
+                    (request) =>
+                        request.kind === OverviewRequestKind.ValueChain,
                 );
                 if (!isChain) {
                     super.postMessage(message);
@@ -569,7 +569,9 @@ describe('from-state views', () => {
             expect(text).toContain('Pending');
             expect(text).toContain('Charlie: the stop is too wide');
             expect(text).toContain('never merged');
-            expect(container.querySelectorAll(':scope tbody tr')).toHaveLength(3);
+            expect(container.querySelectorAll(':scope tbody tr')).toHaveLength(
+                3,
+            );
         });
 
         it('shows the status note when there is no account to project', () => {

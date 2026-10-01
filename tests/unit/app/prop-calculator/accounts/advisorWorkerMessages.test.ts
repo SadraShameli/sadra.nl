@@ -389,7 +389,11 @@ describe('advisor value requests (PT-67)', () => {
         expect(result.swings[0]?.rung).toEqual(firstRung);
         expect(result.swings[0]?.outcome).toEqual({
             kind: AdvisorRequestOutcomeKind.Succeeded,
-            value: tradeValueSwing(account, request.spec, firstRung ?? { risk: 0, rr: 0 }),
+            value: tradeValueSwing(
+                account,
+                request.spec,
+                firstRung ?? { risk: 0, rr: 0 },
+            ),
         });
         expect(result.swings[1]?.outcome).toEqual({
             kind: AdvisorRequestOutcomeKind.Succeeded,
@@ -441,8 +445,11 @@ describe('advisor value requests (PT-67)', () => {
 
         expect(result.swings).toHaveLength(2);
         for (const [position, swing] of result.swings.entries()) {
-            expect(swing.outcome.kind).toBe(AdvisorRequestOutcomeKind.Succeeded);
-            if (swing.outcome.kind !== AdvisorRequestOutcomeKind.Succeeded) return;
+            expect(swing.outcome.kind).toBe(
+                AdvisorRequestOutcomeKind.Succeeded,
+            );
+            if (swing.outcome.kind !== AdvisorRequestOutcomeKind.Succeeded)
+                return;
             expect(swing.outcome.value).toEqual(
                 tradeValueSwing(account, request.spec, {
                     ...swing.rung,
@@ -453,8 +460,11 @@ describe('advisor value requests (PT-67)', () => {
             );
             expect(swing.outcome.value.kind).toBe(ValueResultKind.Swing);
         }
-        expect(result.candidates.kind).toBe(AdvisorRequestOutcomeKind.Succeeded);
-        if (result.candidates.kind !== AdvisorRequestOutcomeKind.Succeeded) return;
+        expect(result.candidates.kind).toBe(
+            AdvisorRequestOutcomeKind.Succeeded,
+        );
+        if (result.candidates.kind !== AdvisorRequestOutcomeKind.Succeeded)
+            return;
         expect(result.candidates.value.kind).toBe(ValueResultKind.Candidates);
     });
 
@@ -483,10 +493,16 @@ describe('advisor value requests (PT-67)', () => {
         const result = advisorValueOutcomeOf(plan, request);
 
         expect(result.payoutStake?.kind).toBe(AdvisorRequestOutcomeKind.Failed);
-        if (result.payoutStake?.kind !== AdvisorRequestOutcomeKind.Failed) return;
+        if (result.payoutStake?.kind !== AdvisorRequestOutcomeKind.Failed)
+            return;
         expect(result.payoutStake.reason.length).toBeGreaterThan(0);
         expect(result.now.kind).toBe(AdvisorRequestOutcomeKind.Succeeded);
-        expect(result.swings.every((swing) => swing.outcome.kind === AdvisorRequestOutcomeKind.Succeeded)).toBe(true);
+        expect(
+            result.swings.every(
+                (swing) =>
+                    swing.outcome.kind === AdvisorRequestOutcomeKind.Succeeded,
+            ),
+        ).toBe(true);
     });
 
     it('fails every slot with a stated reason, not a throw, when the spec is invalid', () => {
@@ -501,6 +517,11 @@ describe('advisor value requests (PT-67)', () => {
 
         expect(result.now.kind).toBe(AdvisorRequestOutcomeKind.Failed);
         expect(result.candidates.kind).toBe(AdvisorRequestOutcomeKind.Failed);
-        expect(result.swings.every((swing) => swing.outcome.kind === AdvisorRequestOutcomeKind.Failed)).toBe(true);
+        expect(
+            result.swings.every(
+                (swing) =>
+                    swing.outcome.kind === AdvisorRequestOutcomeKind.Failed,
+            ),
+        ).toBe(true);
     });
 });

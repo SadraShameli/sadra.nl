@@ -16,26 +16,30 @@ vi.mock('~/lib/prop-calculator', async (importOriginal) => {
             const firm = actual.findFirm(id as never);
             return firm === undefined ||
                 id !== actual.FirmId.TopStep ||
-                box.accountPolicy === null ? firm : (Object.assign(
-                Object.create(Object.getPrototypeOf(firm) as object),
-                firm,
-                { accountPolicy: box.accountPolicy },
-            ) as PropCalculatorModule.TradingFirm);
+                box.accountPolicy === null
+                ? firm
+                : (Object.assign(
+                      Object.create(Object.getPrototypeOf(firm) as object),
+                      firm,
+                      { accountPolicy: box.accountPolicy },
+                  ) as PropCalculatorModule.TradingFirm);
         },
     };
 });
 
-const { defaultCalculatorState } = await import(
-    '~/app/(app)/prop-calculator/_components/calculatorReducer'
-);
-const { fundedOptimizerRequest } = await import(
-    '~/app/(app)/prop-calculator/_components/fundedOptimizer/fundedOptimizerModel'
-);
-const { findFirm, FirmAccountPolicy, FirmId, LifetimePayoutCapOverrideKind, serializePlanId } =
-    await import('~/lib/prop-calculator');
-const { DEFAULT_RULEBOOK, LifetimePayoutCapBasis } = await import(
-    '~/lib/prop-calculator/advisor'
-);
+const { defaultCalculatorState } =
+    await import('~/app/(app)/prop-calculator/_components/calculatorReducer');
+const { fundedOptimizerRequest } =
+    await import('~/app/(app)/prop-calculator/_components/fundedOptimizer/fundedOptimizerModel');
+const {
+    findFirm,
+    FirmAccountPolicy,
+    FirmId,
+    LifetimePayoutCapOverrideKind,
+    serializePlanId,
+} = await import('~/lib/prop-calculator');
+const { DEFAULT_RULEBOOK, LifetimePayoutCapBasis } =
+    await import('~/lib/prop-calculator/advisor');
 const { TopStepVariant } = await import('~/lib/prop-calculator/core');
 
 class VerifiedCountTriggerPolicy extends FirmAccountPolicy {

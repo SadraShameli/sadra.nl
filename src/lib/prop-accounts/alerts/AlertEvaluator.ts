@@ -8,6 +8,8 @@ import { type AlertRule } from './AlertRule';
 import { alertSeverityRank } from './AlertSeverity';
 import { BankrollLossRiskAboveThresholdRule } from './BankrollLossRiskAboveThresholdRule';
 import { CalendarInactivityRule } from './CalendarInactivityRule';
+import { CapacityExceededRule } from './CapacityExceededRule';
+import { ConcentratedFirmProfitRule } from './ConcentratedFirmProfitRule';
 import { ConductPatternRule } from './ConductPatternRule';
 import { ConsistencyNearBreachRule } from './ConsistencyNearBreachRule';
 import { CooldownActiveRule } from './CooldownActiveRule';
@@ -16,6 +18,7 @@ import { EvalDayCapRule } from './EvalDayCapRule';
 import { FirmPayoutTotalMismatchRule } from './FirmPayoutTotalMismatchRule';
 import { IdleSessionLimitRule } from './IdleSessionLimitRule';
 import { InvalidStoredDateRule } from './InvalidStoredDateRule';
+import { LargeDayLossRule } from './LargeDayLossRule';
 import { LifetimeDollarCapRule } from './LifetimeDollarCapRule';
 import { LifetimePayoutCountRule } from './LifetimePayoutCountRule';
 import { LiveExclusivityRule } from './LiveExclusivityRule';
@@ -25,6 +28,7 @@ import { NearFloorRule } from './NearFloorRule';
 import { PayoutCountMismatchRule } from './PayoutCountMismatchRule';
 import { PayoutDollarMismatchRule } from './PayoutDollarMismatchRule';
 import { PayoutEligibleRule } from './PayoutEligibleRule';
+import { PayoutReadyOpenRiskRule } from './PayoutReadyOpenRiskRule';
 import { PayoutReadyWithdrawableDropRule } from './PayoutReadyWithdrawableDropRule';
 import { PlanRulesChangedRule } from './PlanRulesChangedRule';
 import { PooledCapReachedRule } from './PooledCapReachedRule';
@@ -50,6 +54,7 @@ export const DEFAULT_ALERT_RULES: readonly AlertRule[] = [
     new PayoutDollarMismatchRule(),
     new PayoutEligibleRule(),
     new PayoutReadyWithdrawableDropRule(),
+    new PayoutReadyOpenRiskRule(),
     new MixedStageCopyGroupRule(),
     new NearFloorRule(),
     new SubscriptionRenewalDueRule(),
@@ -64,6 +69,9 @@ export const DEFAULT_ALERT_RULES: readonly AlertRule[] = [
     new CooldownActiveRule(),
     new CalendarInactivityRule(),
     new ConductPatternRule(),
+    new LargeDayLossRule(),
+    new ConcentratedFirmProfitRule(),
+    new CapacityExceededRule(),
 ];
 
 const SORT_LOCALE = 'en';

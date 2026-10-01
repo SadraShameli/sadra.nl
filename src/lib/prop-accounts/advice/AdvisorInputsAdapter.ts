@@ -3,7 +3,10 @@ import {
     type UsdCents,
     usdCentsToDollars,
 } from '~/lib/prop-accounts/core';
-import { rebuyLagDefault, type ReplacementStats } from '~/lib/prop-accounts/metrics';
+import {
+    rebuyLagDefault,
+    type ReplacementStats,
+} from '~/lib/prop-accounts/metrics';
 import { type Dollars } from '~/lib/prop-calculator';
 import {
     type PersonalCaps,
@@ -30,9 +33,7 @@ export function advisorInputsFrom(
             personalRules.payoutRequestOverrideCents,
         ),
         personalCaps: {
-            dailyProfitCap: optionalDollars(
-                personalRules.dailyProfitCapCents,
-            ),
+            dailyProfitCap: optionalDollars(personalRules.dailyProfitCapCents),
             maxRiskPerTrade: optionalDollars(
                 personalRules.maxRiskPerTradeCents,
             ),

@@ -1,4 +1,7 @@
-import { formatRiskDisplay, type RiskDisplayFormatted } from '~/app/(app)/prop-calculator/_components/riskDisplay';
+import {
+    formatRiskDisplay,
+    type RiskDisplayFormatted,
+} from '~/app/(app)/prop-calculator/_components/riskDisplay';
 import {
     AdvisorRequestOutcomeKind,
     type AdvisorValueRequest,
@@ -50,9 +53,15 @@ import {
     valueGap,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
-import { bustCost, feeEquivalentTradeRisk } from '~/lib/prop-calculator/economics';
+import {
+    bustCost,
+    feeEquivalentTradeRisk,
+} from '~/lib/prop-calculator/economics';
 import { type SimStart } from '~/lib/prop-calculator/simulator';
-import { isBeyondNoise, type UncertainValue } from '~/lib/prop-calculator/stats';
+import {
+    isBeyondNoise,
+    type UncertainValue,
+} from '~/lib/prop-calculator/stats';
 
 import { accountActionFor } from './accountActionModel';
 
@@ -395,9 +404,7 @@ export function flatRiskReasonOf(
 ): DifferenceReasonDetail | null {
     const { rows } = candidatesNetOfReplacementFee(candidates, replacementFee);
     const best = rows[0];
-    const documented = rows.find((row) =>
-        isDocumentedRow(row, documentedRisk),
-    );
+    const documented = rows.find((row) => isDocumentedRow(row, documentedRisk));
     if (best === undefined || documented === undefined || best === documented) {
         return null;
     }
@@ -500,23 +507,21 @@ export function riskCandidatesViewOf(
         context.plan.retryFee(),
     );
     const isRanked = context.phase !== TradingPhase.Eval;
-    const views = rows.map(
-        (row, position): RiskCandidateRowView => ({
-            continuation: row.continuationValue,
-            contractsText:
-                row.placement.contracts === null
-                    ? null
-                    : `${String(row.placement.contracts)} contract${row.placement.contracts === 1 ? '' : 's'}`,
-            isDocumented:
-                documentedRisk !== null && isDocumentedRow(row, documentedRisk),
-            isEngineOptimum: position === 0,
-            monthlyNetCharge: row.monthlyNetCharge,
-            netOfDurationCharge: row.netOfDurationCharge,
-            rank: position + 1,
-            risk: riskFigureOf(row.placement.placedRisk, row.swing, context),
-            riskDollars: row.placement.placedRisk,
-        }),
-    );
+    const views = rows.map((row, position): RiskCandidateRowView => ({
+        continuation: row.continuationValue,
+        contractsText:
+            row.placement.contracts === null
+                ? null
+                : `${String(row.placement.contracts)} contract${row.placement.contracts === 1 ? '' : 's'}`,
+        isDocumented:
+            documentedRisk !== null && isDocumentedRow(row, documentedRisk),
+        isEngineOptimum: position === 0,
+        monthlyNetCharge: row.monthlyNetCharge,
+        netOfDurationCharge: row.netOfDurationCharge,
+        rank: position + 1,
+        risk: riskFigureOf(row.placement.placedRisk, row.swing, context),
+        riskDollars: row.placement.placedRisk,
+    }));
     return {
         isRanked,
         label,
@@ -538,7 +543,9 @@ export function valueRunNoteOf(request: AdvisorValueRequest): string {
     return `Value runs: ${String(run.trials)} trials, seed ${String(run.seed)}, ${String(enginePolicy.fundedHorizonDays)}-day funded horizon, ${String(run.maxEvalDays)}-day eval limit; rebuy lag ${rebuyLag}; commission ${formatCurrency(enginePolicy.commissionPerRoundTrip, 2)} per round trip.`;
 }
 
-export function valueSpecOf(input: AdviceValueRequestInput): DocumentedPolicySpec {
+export function valueSpecOf(
+    input: AdviceValueRequestInput,
+): DocumentedPolicySpec {
     const {
         accountPolicy,
         measuredRebuyLag,
@@ -593,8 +600,7 @@ function candidatesNetOfReplacementFee(
         rows: candidates.rows
             .map((row): RiskCandidateRow => {
                 if (!row.swing.afterLossBusted) return row;
-                const charge =
-                    (1 - row.swing.winProbability) * replacementFee;
+                const charge = (1 - row.swing.winProbability) * replacementFee;
                 return {
                     ...row,
                     continuationValue: {
@@ -643,18 +649,21 @@ function evAtStakeOf(
     const valueAfterLoss = swing.afterLoss.creditFree.value;
     if (!swing.afterLossBusted) return Math.max(0, valueNow - valueAfterLoss);
     const retryFee = dollars(context.plan.retryFee());
-    const bust =
-        bustCost(context.phase === TradingPhase.Eval ? {
+    const bust = bustCost(
+        context.phase === TradingPhase.Eval
+            ? {
                   phase: TradingPhase.Eval,
                   retryFee,
                   valueFreshEval: dollars(valueAfterLoss),
                   valueNow: dollars(valueNow),
-              } : {
+              }
+            : {
                   phase: TradingPhase.Funded,
                   rebuyFee: retryFee,
                   valueFreshEval: dollars(valueAfterLoss),
                   valueNow: dollars(valueNow),
-              });
+              },
+    );
     return bust.value;
 }
 
@@ -676,10 +685,15 @@ function firstSwingOf(
     const first = swings[0]?.outcome;
     return first === undefined ||
         first.kind === AdvisorRequestOutcomeKind.Failed ||
-        first.value.kind === ValueResultKind.NotModeled ? null : first.value;
+        first.value.kind === ValueResultKind.NotModeled
+        ? null
+        : first.value;
 }
 
-function isDocumentedRow(row: RiskCandidateRow, documentedRisk: number): boolean {
+function isDocumentedRow(
+    row: RiskCandidateRow,
+    documentedRisk: number,
+): boolean {
     return (
         Math.abs(row.placement.placedRisk - documentedRisk) <
         DOCUMENTED_RISK_MATCH_TOLERANCE
@@ -725,7 +739,10 @@ function startOf(
     account: ReconstructedFundedOrEvalAccount,
 ):
     | { readonly kind: AdviceValueRequestKind.Failed; readonly reason: string }
-    | { readonly kind: AdviceValueRequestKind.Ready; readonly start: SimStart } {
+    | {
+          readonly kind: AdviceValueRequestKind.Ready;
+          readonly start: SimStart;
+      } {
     try {
         return {
             kind: AdviceValueRequestKind.Ready,

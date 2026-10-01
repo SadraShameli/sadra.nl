@@ -1,5 +1,8 @@
 import { fundedCycleSeedFromTracker } from '~/lib/prop-calculator/advisor/FundedFromStateSweep';
-import { type DocumentedPolicySpec, toSimInputs } from '~/lib/prop-calculator/advisor/policy';
+import {
+    type DocumentedPolicySpec,
+    toSimInputs,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,

@@ -10,7 +10,9 @@ import {
     type SampleThresholds,
 } from '~/lib/prop-calculator/advisor';
 
-const thresholds = (overrides: Partial<SampleThresholds> = {}): SampleThresholds => ({
+const thresholds = (
+    overrides: Partial<SampleThresholds> = {},
+): SampleThresholds => ({
     ...DEFAULT_RULEBOOK.samples,
     ...overrides,
 });
@@ -92,9 +94,9 @@ describe('sampleAdequacy', () => {
                 thresholds({ minFundedAccounts: 5 }),
             ),
         ).toBe(SampleLevel.Adequate);
-        expect(
-            sampleAdequacy(SampleKind.EndedAccounts, 3, thresholds()),
-        ).toBe(null);
+        expect(sampleAdequacy(SampleKind.EndedAccounts, 3, thresholds())).toBe(
+            null,
+        );
     });
 
     it('reads EndedAccounts against its own threshold when set, instead of the funded-accounts fallback', () => {

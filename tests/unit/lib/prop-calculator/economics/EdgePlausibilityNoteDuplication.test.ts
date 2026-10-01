@@ -58,10 +58,7 @@ describe('one plausibility note wording for CLI and web (PT-61d, F-V22)', () => 
         expect(rulebookSource).toContain('edgePlausibilityNoteText');
 
         const barrelSource = readFileSync(
-            path.join(
-                REPO_ROOT,
-                'src/lib/prop-calculator/economics/index.ts',
-            ),
+            path.join(REPO_ROOT, 'src/lib/prop-calculator/economics/index.ts'),
             'utf8',
         );
         expect(barrelSource).toContain('edgePlausibilityNoteText');

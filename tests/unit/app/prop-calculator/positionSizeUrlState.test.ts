@@ -286,9 +286,10 @@ describe('decodePositionSize drops each invalid value on its own', () => {
     });
 
     it.each(['bogus', ''])('drops the unit %j', (raw) => {
-        expect(
-            decodedWith(base, PositionSizeUrlParameter.Unit, raw),
-        ).toEqual({ ...base, unit: defaults.unit });
+        expect(decodedWith(base, PositionSizeUrlParameter.Unit, raw)).toEqual({
+            ...base,
+            unit: defaults.unit,
+        });
     });
 });
 

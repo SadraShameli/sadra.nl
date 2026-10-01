@@ -44,14 +44,15 @@ export interface FirmReturns {
 }
 
 export function firmReturns(ledger: PortfolioLedger): FirmReturns {
-    const groups = groupByFirmKey(
-        ledger.resolvedAccounts,
-        (entry) => firmKeyOf(entry.row),
+    const groups = groupByFirmKey(ledger.resolvedAccounts, (entry) =>
+        firmKeyOf(entry.row),
     );
     return {
         firms: groups.map(({ firmKey, items }) => {
             const otherAccounts = groups
-                .filter((group) => firmKeyId(group.firmKey) !== firmKeyId(firmKey))
+                .filter(
+                    (group) => firmKeyId(group.firmKey) !== firmKeyId(firmKey),
+                )
                 .flatMap((group) => group.items);
             return firmReturn(firmKey, items, otherAccounts);
         }),
@@ -81,9 +82,8 @@ function firmReturn(
         attempts: accounts.reduce((sum, entry) => sum + attemptsOf(entry), 0),
         firmKey,
         firstPayoutOn: paidDates.at(0) ?? null,
-        fundedAccounts: accounts.filter(
-            (entry) => fundedSince(entry) !== null,
-        ).length,
+        fundedAccounts: accounts.filter((entry) => fundedSince(entry) !== null)
+            .length,
         lastPayoutOn: paidDates.at(-1) ?? null,
         multiple: payoutMultiple(cash.payouts, cash.spend),
         net: cash.net,

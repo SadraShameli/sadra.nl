@@ -70,25 +70,25 @@ export type LedgerAccount = LedgerOnlyLedgerAccount | ModeledLedgerAccount;
 
 export type LedgerAccountRow = Partial<Pick<PropAccountRow, 'roundId'>> &
     Pick<
-    PropAccountRow,
-    | 'accountSize'
-    | 'archivedAt'
-    | 'copyGroupId'
-    | 'externalFirmId'
-    | 'firmId'
-    | 'fundedOn'
-    | 'id'
-    | 'label'
-    | 'optIns'
-    | 'planLabel'
-    | 'planSerial'
-    | 'purchasedOn'
-    | 'replacesAccountId'
-    | 'stage'
-    | 'status'
-    | 'tracking'
-    | 'userId'
-> & {
+        PropAccountRow,
+        | 'accountSize'
+        | 'archivedAt'
+        | 'copyGroupId'
+        | 'externalFirmId'
+        | 'firmId'
+        | 'fundedOn'
+        | 'id'
+        | 'label'
+        | 'optIns'
+        | 'planLabel'
+        | 'planSerial'
+        | 'purchasedOn'
+        | 'replacesAccountId'
+        | 'stage'
+        | 'status'
+        | 'tracking'
+        | 'userId'
+    > & {
         readonly readIssues: readonly AccountReadIssue[];
     };
 

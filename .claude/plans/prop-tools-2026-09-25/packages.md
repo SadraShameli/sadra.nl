@@ -4344,6 +4344,45 @@ PT-25b (EJ5):
   4. Run the value lib tests named above, the tools worker tests, `calculatorFieldLabels.test.ts` and the simulator page value card tests (`--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
 - **Acceptance:** the first-payout-eligible step is eligible under every plan's own gates; one failing step never sinks the chain.
 
+## PT-67d: the value chain card shows its failed steps and the eligible step's assumptions; one documented payout evaluation (PT-67c leftovers)
+
+- **Lane / wave:** W / now (beside PT-68; disjoint files)  **Size:** small  **Depends on:** PT-67c (done)
+- **Items:** F-V17, F-V18, review leftovers of wf_305a350e-614
+- **Files owned:** `src/app/(app)/prop-calculator/_components/value/{valueCardsModel.ts, ValueChainCard.tsx}`, `src/lib/prop-calculator/advisor/value/{ValueChain.ts, MilestoneState.ts, index.ts}`, `src/app/(app)/prop-calculator/_workers/toolsWorkerMessages.ts` (the result schema), `src/lib/prop-calculator/advisor/{PayoutReadiness.ts, PayoutRequestRule.ts}` (only to call the one documented payout evaluation), and tests (`valueCardsModel.test.ts`, `ValueChainCard.dom.test.tsx`, `ValueChain.test.ts`, `MilestoneState.test.ts`, `toolsWorkerMessages.test.ts`, the PayoutReadiness and PayoutRequestRule tests).
+- **Steps** (RED first):
+  1. RED (re-review HIGH, a silent fallback PT-67c created): since `valueChain()` contains a step failure in `failedSteps` instead of throwing, the tools-page card drops the failed steps without a word. The card lists every failed step by its `VALUE_CHAIN_STEP_LABEL` with the reason, in a `role="alert"` or `aria-live` paragraph next to the built steps; DOM test with a non-empty `failedSteps` (a retained cushion of 10x the account size on MFF Rapid EOD 50K fails FirstPayoutEligible and PostFirstPayout).
+  2. RED (MEDIUM): `gapFromPrevious` is the gap between adjacent steps in the fixed `ValueChainStepKind` order, and null when the preceding kind failed (a FirstPayoutEligible failure while PostFirstPayout builds must not draw a FreshFunded to PostFirstPayout gap labelled "from the previous step").
+  3. RED (MEDIUM, trader rule: every number shows its source rule and assumptions): the first-payout-eligible step carries its assumptions (the number of equal winning sessions and why, the total and per-session profit, one closed trade per session, the documented request and the amount the engine settles, the retained cushion and its source rule); the schema and the card show them.
+  4. RED (MEDIUM, DRY): `PayoutReadiness.ts` (~356) and `PayoutRequestRule.ts` (~170, ~297) call the value lib's one documented payout evaluation (`documentedPayoutEvaluation`, or the same function moved to where both layers can import it without a cycle) instead of their own copies of the FullRequestOnly, documented request, cushion and plan call; a guard test finds one copy; their existing tests pin the behaviour.
+  5. RED (LOW): the request-scale sweep in `ValueChain.test.ts` pushes a failure instead of `catch { continue; }`.
+  6. Run the files named above (`--maxWorkers=1`), the advice panel and payout planner tests that read `PayoutReadiness`, `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** a failed chain step is always visible with its reason; the eligible step says how it was built; one documented payout evaluation in the repo.
+
+## PT-67e: the overview worker builds the value chain through the lib; the detail chain position shows the eligible step's assumptions (PT-67d leftovers)
+
+- **Lane / wave:** W / after PT-68 and PT-69 (PT-69 owns the overview files; PT-68 the detail header)  **Size:** small  **Depends on:** PT-67d (done)
+- **Items:** F-V17, F-V18, review leftovers of wf_4c5ea2ca-3b6
+- **Files owned:** `src/app/(app)/prop-calculator/_workers/overviewWorkerMessages.ts` (`valueChainResultOf`, `valueChainStepOf`, `ValueChainStepFigures`), `accounts/_components/detail/fromStateDetail.ts` and the detail chain-position component, `src/lib/prop-calculator/advisor/index.ts` (export `fundedRetainedCushionResolution` through the barrel; `ValueChain.ts` and its test then import it from there), and tests.
+- **Steps** (RED first):
+  1. RED (re-review MEDIUM): the overview worker builds the account's value chain by calling the lib's `valueChain()` (each step through its per-step guard, `failedSteps` kept) instead of its own `valueChainResultOf` step assembly; `ValueChainStepFigures` carries the step's `assumptions`; the detail page's chain position shows the first-payout-eligible step's assumptions as the tools card does. A guard test finds one value chain assembly in `src`.
+  2. RED (LOW): `fundedRetainedCushionResolution` is exported from the advisor barrel and imported through it.
+  3. Run the overview worker message, `fromStateDetail` and `FromStateViews` tests and the value chain tests (`--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** one value chain assembly; the eligible step says how it was built wherever it is shown.
+
+## PT-68b: one personal-rule assembly, one account-from-state run per page, a rulebook highlight window, one already-eligible rule (PT-68 leftovers)
+
+- **Lane / wave:** W / after PT-69 (it owns the overview files)  **Size:** small to medium  **Depends on:** PT-68 (done), PT-69
+- **Items:** F-V16, F-V18, review leftovers of wf_62e96e27-897
+- **Files owned:** `accounts/_components/advice/{AdvicePanel.tsx, adviceValueModel.ts, personalRuleOptions.ts}`, `accounts/_components/overview/{overviewModel.ts, OverviewView.tsx, accountFromStateModel.ts}`, `accounts/_components/{AccountsTable.tsx, useAccountValues.ts, accountValueColumns.ts}`, `accounts/_components/detail/{DetailHeaderFigures.tsx, NextPayoutSection.tsx}`, `src/lib/prop-calculator/advisor/{NextPayoutProjection.ts, Rulebook.ts}`, the rulebook form (`accounts/rulebook/{rulebookFormValues.ts, RulebookView.tsx}`), and tests.
+- **Steps** (RED first; refactors pinned by the existing tests):
+  1. DRY (re-review MEDIUM): `AdvicePanel.tsx` (its local personal caps, DLL, payout override and retained cushion assembly, `optionalDollars`, the plain `createSizingAdvisor` try/catch), `adviceValueModel.ts` `valueSpecOf` and `overviewModel.ts` (its private `readinessOverridesOf`) call `advice/personalRuleOptions.ts` (`personalAdvisorOptionsOf`, `buildSizingAdvisor`, `withPersonalPolicy`, the readiness override mapper); a guard test finds one copy of each.
+  2. RED: the overview's own account-from-state requests carry the account's personal payout override and retained cushion through `withPersonalPolicy`, as the list's do.
+  3. RED (MEDIUM): one account-from-state run per page. The overview passes its values to `AccountsTable` (or `useAccountValues` reads the overview's outcomes) and the detail header reads the next-payout section's result, so no identical Monte Carlo group runs twice while in flight; the `OverviewView.dom.test.tsx` guard goes back to 3 workers.
+  4. RED (MEDIUM): `display.nextPayoutHighlightDays` in the rulebook (schema, default 7, form field, tests) feeds the highlight; the paying-share floor for the highlight (today a bare 0.5) is named, shown in the column's note and tested.
+  5. RED (MEDIUM): one already-eligible rule: `NextPayoutProjection` reports eligibility on its result and `accountValueColumns` and `accountFromStateModel` read it (no inference from `payingTrials === trials`, zero days and zero SE); a null standard error never prints "0.0 calendar days".
+  6. Run the files named above (`--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** one personal-rule assembly and one account-from-state run per page; the highlight window is the user's; the list and the detail page agree on "eligible now".
+
 ## PT-37: from-state projections, live-transition preview, simulate-this-account
 
 - **Lane / wave:** J / EJ8 (with PT-30c and PT-30d; the last wave before PT-50)  **Size:** medium  **Depends on:** PT-23a (detail files), PT-32 (`NextPayoutProjection`, from-state sweep), PT-33 (projection card and worker kind), PT-36 (its cards, mounted only), PT-12b/c (`LivePlanApplicability`, reconstruction), PT-48 (`toSimInputs`), PT-14 (`SimInputs.start`), PT-21b (overview worker)

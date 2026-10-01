@@ -69,9 +69,14 @@ describe('propAccounts.round', () => {
     it('assign moves the caller account into an open round scoped by user, when it fits the budget', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,
-            tableResponder({ [TABLES.fee]: [feeRow({ amount_cents: 16_500 })] }),
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 16_500 })],
+            }),
         );
-        await caller.round.assign({ accountId: IDS.account, roundId: VIDEO_IDS.round });
+        await caller.round.assign({
+            accountId: IDS.account,
+            roundId: VIDEO_IDS.round,
+        });
         const [update] = updatesOf(queries, TABLES.account);
         assertUserScopedWhere(defined(update), USER_ID);
         expect(update?.text).toMatch(/"round_id" = \$\d+/);
@@ -89,7 +94,10 @@ describe('propAccounts.round', () => {
         );
         const shape = errorShapeOf(
             await rejectionOf(
-                caller.round.assign({ accountId: IDS.account, roundId: VIDEO_IDS.round }),
+                caller.round.assign({
+                    accountId: IDS.account,
+                    roundId: VIDEO_IDS.round,
+                }),
             ),
         );
         expect(shape.data.code).toBe('CONFLICT');
@@ -108,7 +116,10 @@ describe('propAccounts.round', () => {
         );
         const shape = errorShapeOf(
             await rejectionOf(
-                caller.round.assign({ accountId: IDS.account, roundId: VIDEO_IDS.round }),
+                caller.round.assign({
+                    accountId: IDS.account,
+                    roundId: VIDEO_IDS.round,
+                }),
             ),
         );
         expect(shape.data.code).toBe('CONFLICT');
@@ -134,7 +145,9 @@ describe('propAccounts.round', () => {
     it('assign records an Edited event with the old and new round', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,
-            tableResponder({ [TABLES.fee]: [feeRow({ amount_cents: 16_500 })] }),
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 16_500 })],
+            }),
         );
         await caller.round.assign({
             accountId: IDS.account,
@@ -243,7 +256,10 @@ describe('propAccounts.round', () => {
             tableResponder({ [VIDEO_TABLES.round]: [] }),
         );
         await expect(
-            caller.round.assign({ accountId: IDS.account, roundId: VIDEO_IDS.round }),
+            caller.round.assign({
+                accountId: IDS.account,
+                roundId: VIDEO_IDS.round,
+            }),
         ).rejects.toMatchObject({ code: 'NOT_FOUND' });
         expect(propWrites(queries)).toHaveLength(0);
     });

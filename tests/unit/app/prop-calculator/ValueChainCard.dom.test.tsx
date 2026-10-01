@@ -14,8 +14,14 @@ import {
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { findFirm, FirmId, serializePlanId } from '~/lib/prop-calculator';
-import { buildEnginePolicy, DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
-import { ValueChainStepKind, ValueResultKind } from '~/lib/prop-calculator/advisor/value';
+import {
+    buildEnginePolicy,
+    DEFAULT_RULEBOOK,
+} from '~/lib/prop-calculator/advisor';
+import {
+    ValueChainStepKind,
+    ValueResultKind,
+} from '~/lib/prop-calculator/advisor/value';
 import { MffuVariant } from '~/lib/prop-calculator/core';
 
 const DEBOUNCE_MS = 180;
@@ -28,45 +34,46 @@ const toolsWorkerBox = vi.hoisted(() => ({
     renders: 0,
 }));
 
-vi.mock('~/app/(app)/prop-calculator/_components/useToolsWorker', async (importOriginal) => {
-    const React = await import('react');
-    const actual = await importOriginal<typeof UseToolsWorkerModule>();
-    return {
-        ToolsWorkerPhase: actual.ToolsWorkerPhase,
-        useToolsWorker: () => {
-            toolsWorkerBox.renders += 1;
-            const [state, setState] = React.useState<unknown>({
-                phase: actual.ToolsWorkerPhase.Idle,
-            });
-            const indexReference = React.useRef<null | number>(null);
-            if (indexReference.current === null) {
-                indexReference.current = toolsWorkerBox.instances.length;
-                toolsWorkerBox.instances.push({
-                    runSpy: vi.fn<(request: unknown) => void>(),
-                    setState,
+vi.mock(
+    '~/app/(app)/prop-calculator/_components/useToolsWorker',
+    async (importOriginal) => {
+        const React = await import('react');
+        const actual = await importOriginal<typeof UseToolsWorkerModule>();
+        return {
+            ToolsWorkerPhase: actual.ToolsWorkerPhase,
+            useToolsWorker: () => {
+                toolsWorkerBox.renders += 1;
+                const [state, setState] = React.useState<unknown>({
+                    phase: actual.ToolsWorkerPhase.Idle,
                 });
-            }
-            const instance = toolsWorkerBox.instances[indexReference.current];
-            return {
-                cancel: vi.fn(),
-                run: (request: unknown) => {
-                    instance?.runSpy(request);
-                },
-                state,
-            };
-        },
-    };
-});
+                const indexReference = React.useRef<null | number>(null);
+                if (indexReference.current === null) {
+                    indexReference.current = toolsWorkerBox.instances.length;
+                    toolsWorkerBox.instances.push({
+                        runSpy: vi.fn<(request: unknown) => void>(),
+                        setState,
+                    });
+                }
+                const instance =
+                    toolsWorkerBox.instances[indexReference.current];
+                return {
+                    cancel: vi.fn(),
+                    run: (request: unknown) => {
+                        instance?.runSpy(request);
+                    },
+                    state,
+                };
+            },
+        };
+    },
+);
 
-const { FundedValueCard } = await import(
-    '~/app/(app)/prop-calculator/_components/value/FundedValueCard'
-);
-const { ValueChainCard } = await import(
-    '~/app/(app)/prop-calculator/_components/value/ValueChainCard'
-);
-const { ToolsWorkerPhase: RealToolsWorkerPhase } = await import(
-    '~/app/(app)/prop-calculator/_components/useToolsWorker'
-);
+const { FundedValueCard } =
+    await import('~/app/(app)/prop-calculator/_components/value/FundedValueCard');
+const { ValueChainCard } =
+    await import('~/app/(app)/prop-calculator/_components/value/ValueChainCard');
+const { ToolsWorkerPhase: RealToolsWorkerPhase } =
+    await import('~/app/(app)/prop-calculator/_components/useToolsWorker');
 
 function fakeCards(): ValueCardsSpec {
     const firm = findFirm(FirmId.Mffu);
@@ -79,7 +86,10 @@ function fakeCards(): ValueCardsSpec {
     return {
         plan: {
             firmId: FirmId.Mffu,
-            optIns: { takesFundedReset: false, takesOneTimeEarlyWithdrawal: false },
+            optIns: {
+                takesFundedReset: false,
+                takesOneTimeEarlyWithdrawal: false,
+            },
             planSerial: serializePlanId(plan.id),
         },
         spec: {
@@ -101,7 +111,10 @@ function ready(cards: ValueCardsSpec): ValueCardsInput {
 function setSampleSizeText(container: HTMLElement, text: string) {
     const input = container.querySelector('input');
     if (input === null) throw new Error('sample size input missing');
-    const valueDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    const valueDescriptor = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+    );
     act(() => {
         valueDescriptor?.set?.call(input, text);
         input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -144,7 +157,9 @@ describe('ValueChainCard (PT-66)', () => {
         const instance = toolsWorkerBox.instances[0];
         expect(instance).toBeDefined();
         expect(instance?.runSpy).toHaveBeenCalledTimes(1);
-        const [request] = instance?.runSpy.mock.calls[0] as [{ kind: ToolsRequestKind }];
+        const [request] = instance?.runSpy.mock.calls[0] as [
+            { kind: ToolsRequestKind },
+        ];
         expect(request.kind).toBe(ToolsRequestKind.ValueChain);
     });
 
@@ -162,14 +177,25 @@ describe('ValueChainCard (PT-66)', () => {
                     kind: ToolsResponseKind.ValueChain,
                     result: {
                         accountValue: null,
+                        failedSteps: [],
                         steps: [
-                            { kind: ValueChainStepKind.EvalStart, value: valueResult(1, 500, 100) },
-                            { kind: ValueChainStepKind.FreshFunded, value: valueResult(1, 500, 900) },
                             {
+                                assumptions: [],
+                                kind: ValueChainStepKind.EvalStart,
+                                value: valueResult(1, 500, 100),
+                            },
+                            {
+                                assumptions: [],
+                                kind: ValueChainStepKind.FreshFunded,
+                                value: valueResult(1, 500, 900),
+                            },
+                            {
+                                assumptions: [],
                                 kind: ValueChainStepKind.FirstPayoutEligible,
                                 value: valueResult(1, 500, 1400),
                             },
                             {
+                                assumptions: [],
                                 kind: ValueChainStepKind.PostFirstPayout,
                                 value: valueResult(1, 500, 950),
                             },
@@ -201,14 +227,25 @@ describe('ValueChainCard (PT-66)', () => {
                     kind: ToolsResponseKind.ValueChain,
                     result: {
                         accountValue: null,
+                        failedSteps: [],
                         steps: [
-                            { kind: ValueChainStepKind.EvalStart, value: valueResult(1, 500, 100) },
-                            { kind: ValueChainStepKind.FreshFunded, value: valueResult(1, 500, 900) },
                             {
+                                assumptions: [],
+                                kind: ValueChainStepKind.EvalStart,
+                                value: valueResult(1, 500, 100),
+                            },
+                            {
+                                assumptions: [],
+                                kind: ValueChainStepKind.FreshFunded,
+                                value: valueResult(1, 500, 900),
+                            },
+                            {
+                                assumptions: [],
                                 kind: ValueChainStepKind.FirstPayoutEligible,
                                 value: valueResult(1, 500, 1400),
                             },
                             {
+                                assumptions: [],
                                 kind: ValueChainStepKind.PostFirstPayout,
                                 value: valueResult(1, 500, 950),
                             },
@@ -223,7 +260,223 @@ describe('ValueChainCard (PT-66)', () => {
         expect(container.textContent).toContain('$890');
         expect(container.textContent).toContain('+$800 from the previous step');
         expect(container.textContent).toContain('credit-free');
-        expect(container.textContent).toContain('with end-of-horizon credit $100');
+        expect(container.textContent).toContain(
+            'with end-of-horizon credit $100',
+        );
+    });
+
+    it('lists every failed step by its label with the reason in an alert paragraph next to the built steps', () => {
+        act(() => {
+            root.render(<ValueChainCard cards={ready(fakeCards())} />);
+        });
+        const instance = toolsWorkerBox.instances[0];
+        const [request] = instance?.runSpy.mock.calls[0] as [{ runId: number }];
+
+        act(() => {
+            instance?.setState({
+                phase: RealToolsWorkerPhase.Succeeded,
+                result: {
+                    kind: ToolsResponseKind.ValueChain,
+                    result: {
+                        accountValue: null,
+                        failedSteps: [
+                            {
+                                kind: ValueChainStepKind.FirstPayoutEligible,
+                                reason: 'no first-payout-eligible account of 50000 dollars passes the payout gates',
+                            },
+                            {
+                                kind: ValueChainStepKind.PostFirstPayout,
+                                reason: 'the first-payout-eligible step failed, so there is no account to take the first payout from',
+                            },
+                        ],
+                        steps: [
+                            {
+                                assumptions: [],
+                                kind: ValueChainStepKind.EvalStart,
+                                value: valueResult(1, 500, 100),
+                            },
+                            {
+                                assumptions: [],
+                                kind: ValueChainStepKind.FreshFunded,
+                                value: valueResult(1, 500, 900),
+                            },
+                        ],
+                    },
+                    runId: request.runId,
+                },
+            });
+        });
+
+        const alerts = [...container.querySelectorAll('[role="alert"]')].map(
+            (alert) => alert.textContent,
+        );
+        expect(alerts).toEqual([
+            'First payout eligible: no first-payout-eligible account of 50000 dollars passes the payout gates',
+            'Post first payout: the first-payout-eligible step failed, so there is no account to take the first payout from',
+        ]);
+        expect(container.textContent).toContain('Eval start');
+        expect(container.textContent).toContain('Fresh funded');
+    });
+
+    it('shows no failure paragraph when every step built', () => {
+        act(() => {
+            root.render(<ValueChainCard cards={ready(fakeCards())} />);
+        });
+        const instance = toolsWorkerBox.instances[0];
+        const [request] = instance?.runSpy.mock.calls[0] as [{ runId: number }];
+        act(() => {
+            instance?.setState({
+                phase: RealToolsWorkerPhase.Succeeded,
+                result: {
+                    kind: ToolsResponseKind.ValueChain,
+                    result: {
+                        accountValue: null,
+                        failedSteps: [],
+                        steps: [
+                            {
+                                assumptions: [],
+                                kind: ValueChainStepKind.EvalStart,
+                                value: valueResult(1, 500, 100),
+                            },
+                        ],
+                    },
+                    runId: request.runId,
+                },
+            });
+        });
+
+        expect(container.querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('shows the assumptions of the first-payout-eligible step under its label', () => {
+        act(() => {
+            root.render(<ValueChainCard cards={ready(fakeCards())} />);
+        });
+        const instance = toolsWorkerBox.instances[0];
+        const [request] = instance?.runSpy.mock.calls[0] as [{ runId: number }];
+        act(() => {
+            instance?.setState({
+                phase: RealToolsWorkerPhase.Succeeded,
+                result: {
+                    kind: ToolsResponseKind.ValueChain,
+                    result: {
+                        accountValue: null,
+                        failedSteps: [],
+                        steps: [
+                            {
+                                assumptions: [],
+                                kind: ValueChainStepKind.EvalStart,
+                                value: valueResult(1, 500, 100),
+                            },
+                            {
+                                assumptions: [
+                                    '1 equal winning session: the plan payout day gate needs 1 session',
+                                    'One closed trade per session',
+                                ],
+                                kind: ValueChainStepKind.FirstPayoutEligible,
+                                value: valueResult(1, 500, 1400),
+                            },
+                        ],
+                    },
+                    runId: request.runId,
+                },
+            });
+        });
+
+        const list = container.querySelector(
+            '[aria-label="First payout eligible assumptions"]',
+        );
+        expect(list).not.toBeNull();
+        expect(
+            [...(list?.querySelectorAll('li') ?? [])].map(
+                (item) => item.textContent,
+            ),
+        ).toEqual([
+            '1 equal winning session: the plan payout day gate needs 1 session',
+            'One closed trade per session',
+        ]);
+        expect(
+            container.querySelector('[aria-label="Eval start assumptions"]'),
+        ).toBeNull();
+    });
+
+    it('lists the assumptions of every step that carries them, one labelled list per step', () => {
+        act(() => {
+            root.render(<ValueChainCard cards={ready(fakeCards())} />);
+        });
+        const instance = toolsWorkerBox.instances[0];
+        const [request] = instance?.runSpy.mock.calls[0] as [{ runId: number }];
+        act(() => {
+            instance?.setState({
+                phase: RealToolsWorkerPhase.Succeeded,
+                result: {
+                    kind: ToolsResponseKind.ValueChain,
+                    result: {
+                        accountValue: null,
+                        failedSteps: [],
+                        steps: [
+                            {
+                                assumptions: ['Eval basis line'],
+                                kind: ValueChainStepKind.EvalStart,
+                                value: valueResult(1, 500, 100),
+                            },
+                            {
+                                assumptions: ['Post payout line'],
+                                kind: ValueChainStepKind.PostFirstPayout,
+                                value: valueResult(1, 500, 950),
+                            },
+                        ],
+                    },
+                    runId: request.runId,
+                },
+            });
+        });
+
+        expect(
+            container.querySelector('[aria-label="Eval start assumptions"]')
+                ?.textContent,
+        ).toBe('Eval basis line');
+        expect(
+            container.querySelector(
+                '[aria-label="Post first payout assumptions"]',
+            )?.textContent,
+        ).toBe('Post payout line');
+        expect(
+            container.querySelector('[aria-label="Fresh funded assumptions"]'),
+        ).toBeNull();
+    });
+
+    it('names the documented policy and says how a gap is computed', () => {
+        act(() => {
+            root.render(<ValueChainCard cards={ready(fakeCards())} />);
+        });
+        const instance = toolsWorkerBox.instances[0];
+        const [request] = instance?.runSpy.mock.calls[0] as [{ runId: number }];
+        act(() => {
+            instance?.setState({
+                phase: RealToolsWorkerPhase.Succeeded,
+                result: {
+                    kind: ToolsResponseKind.ValueChain,
+                    result: {
+                        accountValue: null,
+                        failedSteps: [],
+                        steps: [
+                            {
+                                assumptions: [],
+                                kind: ValueChainStepKind.EvalStart,
+                                value: valueResult(1, 500, 100),
+                            },
+                        ],
+                    },
+                    runId: request.runId,
+                },
+            });
+        });
+
+        expect(container.textContent).toContain('under the documented policy');
+        expect(container.textContent).toContain(
+            "A gap is the credit-free value minus the previous built step's, with the two standard errors combined in quadrature",
+        );
     });
 
     it('waits for the inputs to settle before requesting the value chain again', () => {
@@ -241,7 +494,10 @@ describe('ValueChainCard (PT-66)', () => {
                     <ValueChainCard
                         cards={ready({
                             ...changed,
-                            spec: { ...changed.spec, run: { ...changed.spec.run, seed: 18 } },
+                            spec: {
+                                ...changed.spec,
+                                run: { ...changed.spec.run, seed: 18 },
+                            },
                         })}
                     />,
                 );
@@ -268,7 +524,9 @@ describe('ValueChainCard (PT-66)', () => {
                 root.render(<ValueChainCard cards={ready(fakeCards())} />);
             });
             act(() => {
-                toolsWorkerBox.instances[0]?.setState({ phase: RealToolsWorkerPhase.Running });
+                toolsWorkerBox.instances[0]?.setState({
+                    phase: RealToolsWorkerPhase.Running,
+                });
             });
             act(() => {
                 vi.advanceTimersByTime(DEBOUNCE_MS * 3);
@@ -288,10 +546,14 @@ describe('ValueChainCard (PT-66)', () => {
             root.render(<ValueChainCard cards={ready(fakeCards())} />);
         });
         act(() => {
-            toolsWorkerBox.instances[0]?.setState({ phase: RealToolsWorkerPhase.Running });
+            toolsWorkerBox.instances[0]?.setState({
+                phase: RealToolsWorkerPhase.Running,
+            });
         });
         expect(container.textContent).toContain('Computing...');
-        expect(container.querySelector('section')?.getAttribute('aria-busy')).toBe('true');
+        expect(
+            container.querySelector('section')?.getAttribute('aria-busy'),
+        ).toBe('true');
     });
 
     it('says so when the computation was cancelled', () => {
@@ -299,10 +561,14 @@ describe('ValueChainCard (PT-66)', () => {
             root.render(<ValueChainCard cards={ready(fakeCards())} />);
         });
         act(() => {
-            toolsWorkerBox.instances[0]?.setState({ phase: RealToolsWorkerPhase.Cancelled });
+            toolsWorkerBox.instances[0]?.setState({
+                phase: RealToolsWorkerPhase.Cancelled,
+            });
         });
         expect(container.textContent).toContain('Computation cancelled.');
-        expect(container.querySelector('section')?.getAttribute('aria-busy')).toBe('false');
+        expect(
+            container.querySelector('section')?.getAttribute('aria-busy'),
+        ).toBe('false');
     });
 
     it('renders the results inside a polite live region', () => {
@@ -323,9 +589,9 @@ describe('ValueChainCard (PT-66)', () => {
                 />,
             );
         });
-        expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-            'payoutRequestOverride: must be more than zero',
-        );
+        expect(
+            container.querySelector('[role="alert"]')?.textContent,
+        ).toContain('payoutRequestOverride: must be more than zero');
         expect(toolsWorkerBox.instances[0]?.runSpy).not.toHaveBeenCalled();
     });
 
@@ -333,7 +599,10 @@ describe('ValueChainCard (PT-66)', () => {
         act(() => {
             root.render(
                 <ValueChainCard
-                    cards={{ kind: ValueCardsInputKind.Refused, reason: 'bad input' }}
+                    cards={{
+                        kind: ValueCardsInputKind.Refused,
+                        reason: 'bad input',
+                    }}
                 />,
             );
         });
@@ -345,7 +614,9 @@ describe('ValueChainCard (PT-66)', () => {
             act(() => {
                 vi.advanceTimersByTime(DEBOUNCE_MS);
             });
-            expect(toolsWorkerBox.instances[0]?.runSpy).toHaveBeenCalledTimes(1);
+            expect(toolsWorkerBox.instances[0]?.runSpy).toHaveBeenCalledTimes(
+                1,
+            );
             expect(container.querySelector('[role="alert"]')).toBeNull();
         } finally {
             vi.useRealTimers();
@@ -425,7 +696,10 @@ describe('FundedValueCard (PT-66)', () => {
     it('requests the estimate with the rulebook threshold as the sample size', () => {
         act(() => {
             root.render(
-                <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+                <FundedValueCard
+                    cards={ready(fakeCards())}
+                    rulebookSampleThreshold={10}
+                />,
             );
         });
         const [request] = toolsWorkerBox.instances[0]?.runSpy.mock.calls[0] as [
@@ -438,7 +712,10 @@ describe('FundedValueCard (PT-66)', () => {
     it('requests with no sample size and shows no range until one is set', () => {
         act(() => {
             root.render(
-                <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={null} />,
+                <FundedValueCard
+                    cards={ready(fakeCards())}
+                    rulebookSampleThreshold={null}
+                />,
             );
         });
         const [request] = toolsWorkerBox.instances[0]?.runSpy.mock.calls[0] as [
@@ -455,7 +732,10 @@ describe('FundedValueCard (PT-66)', () => {
     it('shows the sample range with its chance label once a sample size exists', () => {
         act(() => {
             root.render(
-                <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+                <FundedValueCard
+                    cards={ready(fakeCards())}
+                    rulebookSampleThreshold={10}
+                />,
             );
         });
         succeedFundedValue({ lower: 1.5, sampleSize: 10, upper: 3.5 });
@@ -470,7 +750,10 @@ describe('FundedValueCard (PT-66)', () => {
         try {
             act(() => {
                 root.render(
-                    <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+                    <FundedValueCard
+                        cards={ready(fakeCards())}
+                        rulebookSampleThreshold={10}
+                    />,
                 );
             });
             const instance = toolsWorkerBox.instances[0];
@@ -492,7 +775,9 @@ describe('FundedValueCard (PT-66)', () => {
                 vi.advanceTimersByTime(DEBOUNCE_MS);
             });
             expect(instance?.runSpy).toHaveBeenCalledTimes(2);
-            const [second] = instance?.runSpy.mock.calls[1] as [{ sampleSize: null | number }];
+            const [second] = instance?.runSpy.mock.calls[1] as [
+                { sampleSize: null | number },
+            ];
             expect(second.sampleSize).toBe(25);
         } finally {
             vi.useRealTimers();
@@ -504,11 +789,16 @@ describe('FundedValueCard (PT-66)', () => {
         try {
             act(() => {
                 root.render(
-                    <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+                    <FundedValueCard
+                        cards={ready(fakeCards())}
+                        rulebookSampleThreshold={10}
+                    />,
                 );
             });
             act(() => {
-                toolsWorkerBox.instances[0]?.setState({ phase: RealToolsWorkerPhase.Running });
+                toolsWorkerBox.instances[0]?.setState({
+                    phase: RealToolsWorkerPhase.Running,
+                });
             });
             act(() => {
                 vi.advanceTimersByTime(DEBOUNCE_MS * 3);
@@ -518,7 +808,9 @@ describe('FundedValueCard (PT-66)', () => {
                 vi.advanceTimersByTime(DEBOUNCE_MS * 10);
             });
             expect(toolsWorkerBox.renders).toBe(settledRenders);
-            expect(toolsWorkerBox.instances[0]?.runSpy).toHaveBeenCalledTimes(1);
+            expect(toolsWorkerBox.instances[0]?.runSpy).toHaveBeenCalledTimes(
+                1,
+            );
         } finally {
             vi.useRealTimers();
         }
@@ -527,24 +819,36 @@ describe('FundedValueCard (PT-66)', () => {
     it('shows a pending line and marks the section busy while the worker runs', () => {
         act(() => {
             root.render(
-                <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+                <FundedValueCard
+                    cards={ready(fakeCards())}
+                    rulebookSampleThreshold={10}
+                />,
             );
         });
         act(() => {
-            toolsWorkerBox.instances[0]?.setState({ phase: RealToolsWorkerPhase.Running });
+            toolsWorkerBox.instances[0]?.setState({
+                phase: RealToolsWorkerPhase.Running,
+            });
         });
         expect(container.textContent).toContain('Computing...');
-        expect(container.querySelector('section')?.getAttribute('aria-busy')).toBe('true');
+        expect(
+            container.querySelector('section')?.getAttribute('aria-busy'),
+        ).toBe('true');
     });
 
     it('says so when the computation was cancelled', () => {
         act(() => {
             root.render(
-                <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+                <FundedValueCard
+                    cards={ready(fakeCards())}
+                    rulebookSampleThreshold={10}
+                />,
             );
         });
         act(() => {
-            toolsWorkerBox.instances[0]?.setState({ phase: RealToolsWorkerPhase.Cancelled });
+            toolsWorkerBox.instances[0]?.setState({
+                phase: RealToolsWorkerPhase.Cancelled,
+            });
         });
         expect(container.textContent).toContain('Computation cancelled.');
     });
@@ -552,7 +856,10 @@ describe('FundedValueCard (PT-66)', () => {
     it('names the sample size the range was computed for', () => {
         act(() => {
             root.render(
-                <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+                <FundedValueCard
+                    cards={ready(fakeCards())}
+                    rulebookSampleThreshold={10}
+                />,
             );
         });
         succeedFundedValue({ lower: 1.5, sampleSize: 10, upper: 3.5 });
@@ -566,7 +873,10 @@ describe('FundedValueCard (PT-66)', () => {
             try {
                 act(() => {
                     root.render(
-                        <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+                        <FundedValueCard
+                            cards={ready(fakeCards())}
+                            rulebookSampleThreshold={10}
+                        />,
                     );
                 });
                 succeedFundedValue({ lower: 1.5, sampleSize: 10, upper: 3.5 });
@@ -580,11 +890,12 @@ describe('FundedValueCard (PT-66)', () => {
 
                 const input = container.querySelector('input');
                 expect(input?.getAttribute('aria-invalid')).toBe('true');
-                const describedBy = input?.getAttribute('aria-describedby') ?? '';
+                const describedBy =
+                    input?.getAttribute('aria-describedby') ?? '';
                 expect(describedBy).not.toBe('');
-                expect(container.querySelector(`#${describedBy}`)?.textContent).toContain(
-                    'whole number',
-                );
+                expect(
+                    container.querySelector(`#${describedBy}`)?.textContent,
+                ).toContain('whole number');
                 expect(instance?.runSpy).toHaveBeenCalledTimes(1);
                 expect(container.textContent).not.toContain('1.50 to 3.50');
             } finally {
@@ -596,7 +907,10 @@ describe('FundedValueCard (PT-66)', () => {
     it('does not flag an empty field and keeps using the rulebook threshold', () => {
         act(() => {
             root.render(
-                <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+                <FundedValueCard
+                    cards={ready(fakeCards())}
+                    rulebookSampleThreshold={10}
+                />,
             );
         });
         const input = container.querySelector('input');
@@ -608,7 +922,10 @@ describe('FundedValueCard (PT-66)', () => {
         act(() => {
             root.render(
                 <FundedValueCard
-                    cards={{ kind: ValueCardsInputKind.Refused, reason: 'bad payout request' }}
+                    cards={{
+                        kind: ValueCardsInputKind.Refused,
+                        reason: 'bad payout request',
+                    }}
                     rulebookSampleThreshold={10}
                 />,
             );
@@ -622,7 +939,10 @@ describe('FundedValueCard (PT-66)', () => {
         act(() => {
             root.render(
                 <FundedValueCard
-                    cards={{ kind: ValueCardsInputKind.Refused, reason: 'bad payout request' }}
+                    cards={{
+                        kind: ValueCardsInputKind.Refused,
+                        reason: 'bad payout request',
+                    }}
                     rulebookSampleThreshold={10}
                 />,
             );
@@ -637,7 +957,10 @@ describe('FundedValueCard (PT-66)', () => {
     it('keeps its sample size input enabled when the inputs are ready (PT-67 review)', () => {
         act(() => {
             root.render(
-                <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+                <FundedValueCard
+                    cards={ready(fakeCards())}
+                    rulebookSampleThreshold={10}
+                />,
             );
         });
         expect(container.querySelector('input')?.disabled).toBe(false);
@@ -653,7 +976,10 @@ describe('FundedValueCard (PT-66)', () => {
             root.render(
                 <>
                     <ValueChainCard cards={refused} />
-                    <FundedValueCard cards={refused} rulebookSampleThreshold={10} />
+                    <FundedValueCard
+                        cards={refused}
+                        rulebookSampleThreshold={10}
+                    />
                 </>,
             );
         });
@@ -667,7 +993,10 @@ describe('FundedValueCard (PT-66)', () => {
     it('shows the engine failure reason', () => {
         act(() => {
             root.render(
-                <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={null} />,
+                <FundedValueCard
+                    cards={ready(fakeCards())}
+                    rulebookSampleThreshold={null}
+                />,
             );
         });
         act(() => {

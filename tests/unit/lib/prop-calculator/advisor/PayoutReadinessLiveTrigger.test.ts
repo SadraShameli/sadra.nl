@@ -80,7 +80,10 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         if (readiness.kind !== PayoutReadinessKind.Blocked) return;
         expect(readiness.reason).toEqual({
             kind: PayoutBlockReasonKind.WouldTriggerLive,
-            trigger: { paidPayoutsSinceLastLiveAccount: 2, triggerAtPayoutCount: 3 },
+            trigger: {
+                paidPayoutsSinceLastLiveAccount: 2,
+                triggerAtPayoutCount: 3,
+            },
         });
         expect(readiness.wait).toBeNull();
     });
@@ -115,7 +118,10 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         if (readiness.kind !== PayoutReadinessKind.Blocked) return;
         expect(readiness.reason).toEqual({
             kind: PayoutBlockReasonKind.WouldTriggerLive,
-            trigger: { paidPayoutsSinceLastLiveAccount: 9, triggerAtPayoutCount: 10 },
+            trigger: {
+                paidPayoutsSinceLastLiveAccount: 9,
+                triggerAtPayoutCount: 10,
+            },
         });
     });
 

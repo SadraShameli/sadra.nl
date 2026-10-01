@@ -61,9 +61,7 @@ function accountRow(
     };
 }
 
-function rowsOf(
-    overrides: Partial<AccountStatesRows> = {},
-): AccountStatesRows {
+function rowsOf(overrides: Partial<AccountStatesRows> = {}): AccountStatesRows {
     return {
         accounts: [accountRow()],
         events: [],
@@ -210,7 +208,9 @@ describe('accountStatesOf', () => {
             rowsOf({
                 accounts: [
                     accountRow({
-                        optIns: [1, 2] as unknown as AccountStateAccountRow['optIns'],
+                        optIns: [
+                            1, 2,
+                        ] as unknown as AccountStateAccountRow['optIns'],
                     }),
                 ],
             }),
@@ -312,18 +312,17 @@ describe('accountStatesOf', () => {
         expect(entry.state.reason.kind).toBe(
             AccountStateUnavailableKind.ImplausibleSnapshot,
         );
-        if (entry.state.reason.kind !== AccountStateUnavailableKind.ImplausibleSnapshot) {
+        if (
+            entry.state.reason.kind !==
+            AccountStateUnavailableKind.ImplausibleSnapshot
+        ) {
             throw new Error('unreachable');
         }
         expect(entry.state.reason.issues.length).toBeGreaterThan(0);
     });
 
-    it('never counts a plan resolved for one user against another user\'s query', () => {
-        const entries = accountStatesOf(
-            OTHER_USER_ID,
-            ASOF,
-            rowsOf(),
-        );
+    it("never counts a plan resolved for one user against another user's query", () => {
+        const entries = accountStatesOf(OTHER_USER_ID, ASOF, rowsOf());
         expect(entries).toEqual([]);
     });
 });

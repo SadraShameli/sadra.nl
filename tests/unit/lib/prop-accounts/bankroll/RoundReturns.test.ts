@@ -157,7 +157,9 @@ describe('roundReturns', () => {
 
     it('produces a bootstrap probability and a closed-form cross-check bounded in [0,1]', () => {
         const r = round(EVAL_PLAN, 'Round 1', '2026-01-01', RoundStatus.Open);
-        const accounts = Array.from({ length: 3 }, () => account(INSTANT_PLAN, { roundId: r.id }));
+        const accounts = Array.from({ length: 3 }, () =>
+            account(INSTANT_PLAN, { roundId: r.id }),
+        );
         const events = accounts.map((acc) =>
             event(acc, AccountEventKind.Purchased, '2026-01-01'),
         );
@@ -174,19 +176,29 @@ describe('roundReturns', () => {
         const negative = result.rounds[0]?.likeThisEndsNetNegative;
         expect(negative?.value.value).toBeGreaterThanOrEqual(0);
         expect(negative?.value.value).toBeLessThanOrEqual(1);
-        expect(result.rounds[0]?.likeThisEndsNetNegativeClosedForm).not.toBeNull();
+        expect(
+            result.rounds[0]?.likeThisEndsNetNegativeClosedForm,
+        ).not.toBeNull();
     });
 
-    it('states the round\'s own realized outcome as a plain fact, not a probability', () => {
-        const r = round(EVAL_PLAN, 'Round 1', '2026-01-01', RoundStatus.Closed, {
-            closedOn: '2026-02-01',
-        });
+    it("states the round's own realized outcome as a plain fact, not a probability", () => {
+        const r = round(
+            EVAL_PLAN,
+            'Round 1',
+            '2026-01-01',
+            RoundStatus.Closed,
+            {
+                closedOn: '2026-02-01',
+            },
+        );
         const member = account(EVAL_PLAN, { roundId: r.id });
         const result = roundReturns({
             draws: 200,
             ledger: ledger({
                 accounts: [member],
-                fees: [fee(member, FeeKind.EvalPurchase, 100_000, '2026-01-01')],
+                fees: [
+                    fee(member, FeeKind.EvalPurchase, 100_000, '2026-01-01'),
+                ],
                 payouts: [
                     payout(member, 20_000, {
                         netCents: 20_000,
@@ -203,8 +215,18 @@ describe('roundReturns', () => {
     });
 
     it('groups rounds by firm with count, min, max, mean and share positive', () => {
-        const roundA = round(EVAL_PLAN, 'Round A', '2026-01-01', RoundStatus.Open);
-        const roundB = round(EVAL_PLAN, 'Round B', '2026-03-01', RoundStatus.Open);
+        const roundA = round(
+            EVAL_PLAN,
+            'Round A',
+            '2026-01-01',
+            RoundStatus.Open,
+        );
+        const roundB = round(
+            EVAL_PLAN,
+            'Round B',
+            '2026-03-01',
+            RoundStatus.Open,
+        );
         const memberA = account(EVAL_PLAN, { roundId: roundA.id });
         const memberB = account(EVAL_PLAN, { roundId: roundB.id });
         const result = roundReturns({
@@ -241,10 +263,16 @@ describe('roundReturns', () => {
     });
 
     it('never throws on a round with no firm assigned, and excludes it from perFirm', () => {
-        const r = round(EVAL_PLAN, 'Round unassigned', '2026-01-01', RoundStatus.Open, {
-            externalFirmId: null,
-            firmId: null,
-        });
+        const r = round(
+            EVAL_PLAN,
+            'Round unassigned',
+            '2026-01-01',
+            RoundStatus.Open,
+            {
+                externalFirmId: null,
+                firmId: null,
+            },
+        );
         const member = account(EVAL_PLAN, { roundId: r.id });
         const result = roundReturns({
             draws: 200,

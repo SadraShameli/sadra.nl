@@ -121,7 +121,10 @@ function answerAll(request: OverviewRequest): OverviewOutcome {
                               standardError: 1,
                               value: 300,
                           },
-                          fundedBustProbability: { standardError: 1, value: 0.4 },
+                          fundedBustProbability: {
+                              standardError: 1,
+                              value: 0.4,
+                          },
                           requestSize: 750,
                       },
                       kind: OverviewRequestKind.PayoutSizeOptimum,
@@ -136,7 +139,10 @@ function answered(data: unknown): FakeQuery {
 function answerEverything() {
     harness.queries.set('account.list', answered([]));
     harness.queries.set('bankroll.list', answered([]));
-    harness.queries.set('edge.summary', answered({ summary: { sampleSize: 0 } }));
+    harness.queries.set(
+        'edge.summary',
+        answered({ summary: { sampleSize: 0 } }),
+    );
     harness.queries.set('event.list', answered([]));
     harness.queries.set('fee.list', answered([]));
     harness.queries.set('firmEngagement.list', answered([]));
@@ -168,7 +174,9 @@ function documentedFigures(): DocumentedRunFigures {
 describe('NextSlotView', () => {
     let container: HTMLDivElement;
     let root: Root;
-    const originals = ALL_FIRMS.map((firm) => [firm, firm.accountPolicy] as const);
+    const originals = ALL_FIRMS.map(
+        (firm) => [firm, firm.accountPolicy] as const,
+    );
 
     function render() {
         act(() => {
@@ -225,14 +233,16 @@ describe('NextSlotView', () => {
         ]);
         expect(container.textContent).toContain('No plan is ranked yet');
         const sections = [
-            ...container.querySelectorAll<HTMLElement>('section[aria-labelledby]'),
+            ...container.querySelectorAll<HTMLElement>(
+                'section[aria-labelledby]',
+            ),
         ];
         expect(sections).toHaveLength(3);
         for (const section of sections) {
             const id = section.getAttribute('aria-labelledby') ?? '';
-            expect(
-                container.querySelector(`#${CSS.escape(id)}`)?.tagName,
-            ).toBe('H2');
+            expect(container.querySelector(`#${CSS.escape(id)}`)?.tagName).toBe(
+                'H2',
+            );
         }
         expect(container.textContent).toContain('win rate');
     });

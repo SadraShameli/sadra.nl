@@ -2,7 +2,9 @@ import { type CommandDef, parseArgs } from 'citty';
 import { describe, expect, it, vi } from 'vitest';
 
 import { toBankrollTimelineInputs } from '~/cli/commands/prop/bankroll/bankrollFlags';
-import batchCommand, { batchArguments } from '~/cli/commands/prop/bankroll/batch';
+import batchCommand, {
+    batchArguments,
+} from '~/cli/commands/prop/bankroll/batch';
 import compareCommand, {
     compareArguments,
 } from '~/cli/commands/prop/bankroll/compare';
@@ -15,8 +17,14 @@ import projectCommand, {
     closedFormIllustration,
     projectArguments,
 } from '~/cli/commands/prop/bankroll/project';
-import riskCommand, { riskArguments, riskRows } from '~/cli/commands/prop/bankroll/risk';
-import { edgePlausibilityNote, TradingInputs } from '~/cli/commands/prop/shared';
+import riskCommand, {
+    riskArguments,
+    riskRows,
+} from '~/cli/commands/prop/bankroll/risk';
+import {
+    edgePlausibilityNote,
+    TradingInputs,
+} from '~/cli/commands/prop/shared';
 import {
     findFirm,
     FirmId,
@@ -128,10 +136,25 @@ describe('prop bankroll risk', () => {
     });
 
     it('prints "threshold not set" when no --loss-threshold is given and the edge is positive', () => {
-        const positiveEdgeArgs = [...SMALL_PLAN, '--trials', '40', '--eval-days', '20', '--funded-days', '20', '--winrate', '0.9', '--rr', '3'];
+        const positiveEdgeArgs = [
+            ...SMALL_PLAN,
+            '--trials',
+            '40',
+            '--eval-days',
+            '20',
+            '--funded-days',
+            '20',
+            '--winrate',
+            '0.9',
+            '--rr',
+            '3',
+        ];
         const out = simulate(
             TradingInputs.parse(
-                parseArgs<typeof riskArguments>(positiveEdgeArgs, riskArguments),
+                parseArgs<typeof riskArguments>(
+                    positiveEdgeArgs,
+                    riskArguments,
+                ),
             ).toSimInputs(rapidEodPlan()),
         );
         const rows = riskRows(
@@ -144,15 +167,32 @@ describe('prop bankroll risk', () => {
             },
             1,
         );
-        const row = rows.find(([label]) => label === 'minimum budget for the loss target');
+        const row = rows.find(
+            ([label]) => label === 'minimum budget for the loss target',
+        );
         expect(row?.[1]).toBe('threshold not set');
     });
 
     it('prints "no positive edge" when the mean net per attempt is not positive', () => {
-        const negativeEdgeArgs = [...SMALL_PLAN, '--trials', '40', '--eval-days', '20', '--funded-days', '20', '--winrate', '0.1', '--rr', '1'];
+        const negativeEdgeArgs = [
+            ...SMALL_PLAN,
+            '--trials',
+            '40',
+            '--eval-days',
+            '20',
+            '--funded-days',
+            '20',
+            '--winrate',
+            '0.1',
+            '--rr',
+            '1',
+        ];
         const out = simulate(
             TradingInputs.parse(
-                parseArgs<typeof riskArguments>(negativeEdgeArgs, riskArguments),
+                parseArgs<typeof riskArguments>(
+                    negativeEdgeArgs,
+                    riskArguments,
+                ),
             ).toSimInputs(rapidEodPlan()),
         );
         const rows = riskRows(
@@ -165,7 +205,9 @@ describe('prop bankroll risk', () => {
             },
             1,
         );
-        const row = rows.find(([label]) => label === 'minimum budget for the loss target');
+        const row = rows.find(
+            ([label]) => label === 'minimum budget for the loss target',
+        );
         expect(row?.[1]).toBe('no positive edge');
     });
 
@@ -242,7 +284,6 @@ describe('toBankrollTimelineInputs refuses an eval ladder loud instead of silent
             ),
         ).not.toThrow();
     });
-
 });
 
 describe('toBankrollTimelineInputs applies funded-phase flat parameter overrides instead of refusing them (PT-55b)', () => {
@@ -323,7 +364,15 @@ describe('prop bankroll project', () => {
         const stdout = await capturedRun(
             projectCommand,
             parseArgs<typeof projectArguments>(
-                [...SMALL_SIM, '--start', '5000', '--horizon-days', '40', '--trials', '30'],
+                [
+                    ...SMALL_SIM,
+                    '--start',
+                    '5000',
+                    '--horizon-days',
+                    '40',
+                    '--trials',
+                    '30',
+                ],
                 projectArguments,
             ),
             SMALL_SIM,
@@ -389,7 +438,15 @@ describe('prop bankroll compare', () => {
         const stdout = await capturedRun(
             compareCommand,
             parseArgs<typeof compareArguments>(
-                [...SMALL_SIM, '--start', '5000', '--horizon-days', '40', '--risks', '250,500'],
+                [
+                    ...SMALL_SIM,
+                    '--start',
+                    '5000',
+                    '--horizon-days',
+                    '40',
+                    '--risks',
+                    '250,500',
+                ],
                 compareArguments,
             ),
             SMALL_SIM,
@@ -413,7 +470,15 @@ describe('prop bankroll compare', () => {
         const stdout = await capturedRun(
             compareCommand,
             parseArgs<typeof compareArguments>(
-                [...SMALL_SIM, '--start', '5000', '--horizon-days', '60', '--multiples', '5@60,3@30'],
+                [
+                    ...SMALL_SIM,
+                    '--start',
+                    '5000',
+                    '--horizon-days',
+                    '60',
+                    '--multiples',
+                    '5@60,3@30',
+                ],
                 compareArguments,
             ),
             SMALL_SIM,
@@ -512,7 +577,9 @@ describe('prop bankroll levers', () => {
             tradesPerDay: [5],
         });
         expect(
-            variants.filter((variant) => variant.kind === BankrollLeverKind.Risk),
+            variants.filter(
+                (variant) => variant.kind === BankrollLeverKind.Risk,
+            ),
         ).toHaveLength(1);
         expect(
             variants.filter(

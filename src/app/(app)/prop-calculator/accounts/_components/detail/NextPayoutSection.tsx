@@ -107,7 +107,9 @@ export function NextPayoutSection({
             <FromStateBlock view={view} />
             {pathLines !== null && (
                 <div className="flex flex-col gap-1">
-                    <h4 className="text-sm font-medium">Path to the next payout</h4>
+                    <h4 className="text-sm font-medium">
+                        Path to the next payout
+                    </h4>
                     <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
                         {pathLines.map((line) => (
                             <li key={line}>{line}</li>
@@ -216,15 +218,21 @@ function RetireInformation({ view }: { readonly view: RetireView }) {
                     </h4>
                     <p className="text-sm">{model.verdict}</p>
                     <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
-                        <dt className="text-muted-foreground">Keeping this account</dt>
+                        <dt className="text-muted-foreground">
+                            Keeping this account
+                        </dt>
                         <dd className="tabular-nums">{model.keepRate}</dd>
                         <dt className="text-muted-foreground">
                             A fresh account, after its cost
                         </dt>
                         <dd className="tabular-nums">{model.switchRate}</dd>
-                        <dt className="text-muted-foreground">Cost of switching</dt>
+                        <dt className="text-muted-foreground">
+                            Cost of switching
+                        </dt>
                         <dd className="tabular-nums">{model.switchCost}</dd>
-                        <dt className="text-muted-foreground">Days left to earn</dt>
+                        <dt className="text-muted-foreground">
+                            Days left to earn
+                        </dt>
                         <dd className="tabular-nums">{model.remainingDays}</dd>
                     </dl>
                     {model.reason !== null && (

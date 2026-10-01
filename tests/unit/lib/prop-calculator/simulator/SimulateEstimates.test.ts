@@ -346,14 +346,11 @@ describe.each(CASES)(
                 (key) =>
                     !(COPY_SCALED_KEYS as readonly EstimateKey[]).includes(key),
             ),
-        )(
-            'leaves %s unscaled with three copy accounts',
-            (key) => {
-                expect(estimateOf(tripled, key)).toStrictEqual(
-                    estimateOf(out, key),
-                );
-            },
-        );
+        )('leaves %s unscaled with three copy accounts', (key) => {
+            expect(estimateOf(tripled, key)).toStrictEqual(
+                estimateOf(out, key),
+            );
+        });
 
         it.each(ESTIMATE_KEYS)('reports a finite SE >= 0 for %s', (key) => {
             const { standardError } = estimateOf(out, key);
@@ -663,7 +660,10 @@ describe('attempt economics outputs (video addendum)', () => {
         expect(threeAttemptsTripled.fundedPayoutValues).toStrictEqual(
             threeAttempts.fundedPayoutValues.map((value) => value * 3),
         );
-        for (const key of ['costPerAttempt', 'expectedNetPerAttempt'] as const) {
+        for (const key of [
+            'costPerAttempt',
+            'expectedNetPerAttempt',
+        ] as const) {
             expect(threeAttemptsTripled[key], key).toBe(threeAttempts[key] * 3);
         }
         expect(

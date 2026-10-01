@@ -1,11 +1,14 @@
 import { formatUsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
-import { AccountStateKind, fundedPayoutRuleContextOf } from '~/lib/prop-accounts/metrics';
+import {
+    AccountStateKind,
+    fundedRetainedCushionDollarsOf,
+    fundedWithdrawableDollarsOf,
+} from '~/lib/prop-accounts/metrics';
 import { CENTS_PER_DOLLAR, TradingPhase } from '~/lib/prop-calculator';
 import {
     payoutReadiness,
     PayoutReadinessKind,
     type ReconstructedFundedOrEvalAccount,
-    retainedCushionForStage,
 } from '~/lib/prop-calculator/advisor';
 
 import { type AccountAlert } from './AccountAlert';
@@ -44,9 +47,15 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
         ) {
             return null;
         }
-        const previousWithdrawable = withdrawableNowOf(context, previous);
+        const previousWithdrawable = fundedWithdrawableDollarsOf(
+            context.rulebook,
+            previous,
+        );
         if (previousWithdrawable <= 0) return null;
-        const latestWithdrawable = withdrawableNowOf(context, latest);
+        const latestWithdrawable = fundedWithdrawableDollarsOf(
+            context.rulebook,
+            latest,
+        );
         const drop =
             (previousWithdrawable - latestWithdrawable) / previousWithdrawable;
         return drop <= lossFraction
@@ -59,29 +68,15 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
     }
 }
 
-function retainedCushionOf(
-    context: AlertContext,
-    account: ReconstructedFundedOrEvalAccount,
-): number {
-    return account.fundedTracker === null
-        ? 0
-        : retainedCushionForStage(
-              context.rulebook,
-              fundedPayoutRuleContextOf(
-                  account.plan,
-                  account.state,
-                  account.fundedTracker,
-                  null,
-              ),
-          ).amount;
-}
-
 function wasPayoutEligible(
     context: AlertContext,
     account: ReconstructedFundedOrEvalAccount,
 ): boolean {
     if (account.fundedTracker === null) return false;
-    const minRetainedCushion = retainedCushionOf(context, account);
+    const minRetainedCushion = fundedRetainedCushionDollarsOf(
+        context.rulebook,
+        account,
+    );
     const rawRequest = context.rulebook.payout.requestCents / CENTS_PER_DOLLAR;
     const readiness = payoutReadiness(
         account.plan,
@@ -94,16 +89,4 @@ function wasPayoutEligible(
         },
     );
     return readiness.kind === PayoutReadinessKind.Eligible;
-}
-
-function withdrawableNowOf(
-    context: AlertContext,
-    account: ReconstructedFundedOrEvalAccount,
-): number {
-    if (account.fundedTracker === null) return 0;
-    return account.fundedTracker.withdrawableNow({
-        minRetainedCushion: retainedCushionOf(context, account),
-        plan: account.plan,
-        state: account.state,
-    });
 }

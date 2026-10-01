@@ -55,7 +55,10 @@ export function roundCycle(
 
 function daysToShare(
     firstOn: string,
-    sortedPayouts: readonly { readonly cents: number; readonly paidOn: string }[],
+    sortedPayouts: readonly {
+        readonly cents: number;
+        readonly paidOn: string;
+    }[],
     totalCents: number,
     share: number,
 ): null | number {
@@ -91,8 +94,18 @@ function measureRound(
     const lastPayoutOn = paidPayouts.at(-1)?.paidOn;
     if (lastPayoutOn === undefined) return null;
     const totalCents = paidPayouts.reduce((sum, row) => sum + row.cents, 0);
-    const daysTo50 = daysToShare(firstFeeOn, paidPayouts, totalCents, HALFWAY_SHARE);
-    const daysTo90 = daysToShare(firstFeeOn, paidPayouts, totalCents, MOST_SHARE);
+    const daysTo50 = daysToShare(
+        firstFeeOn,
+        paidPayouts,
+        totalCents,
+        HALFWAY_SHARE,
+    );
+    const daysTo90 = daysToShare(
+        firstFeeOn,
+        paidPayouts,
+        totalCents,
+        MOST_SHARE,
+    );
     if (daysTo50 === null || daysTo90 === null) return null;
     return {
         cycleDays: isoDaysBetween(firstFeeOn, lastPayoutOn),

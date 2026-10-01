@@ -751,10 +751,7 @@ describe('the preview and the router agree on which siblings a MovedLive suspend
         tracking: AccountTracking.Modeled,
     };
 
-    function listedOf(
-        candidate: Candidate,
-        id: string,
-    ): LivePreviewAccount {
+    function listedOf(candidate: Candidate, id: string): LivePreviewAccount {
         return {
             ...MOVED_LISTED,
             stage: AccountStage.Eval,

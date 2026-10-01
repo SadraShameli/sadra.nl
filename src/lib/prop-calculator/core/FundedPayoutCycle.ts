@@ -597,7 +597,7 @@ export function requiredDayGateDays(
     return tracker.payoutsIssued === 0
         ? plan.minDaysAfterPassForPayout
         : (plan.minDaysAfterPassForPayoutPerCycle ??
-          plan.minDaysAfterPassForPayout);
+              plan.minDaysAfterPassForPayout);
 }
 
 export function restoreFundedCycleTracker(

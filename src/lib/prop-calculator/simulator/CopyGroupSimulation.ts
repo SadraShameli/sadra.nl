@@ -1,12 +1,18 @@
 import { type AccountState } from '~/lib/prop-calculator/core/AccountState';
-import { type DayPolicy, type RungSizing } from '~/lib/prop-calculator/core/DayPolicy';
+import {
+    type DayPolicy,
+    type RungSizing,
+} from '~/lib/prop-calculator/core/DayPolicy';
 import { type CouponDiscounts } from '~/lib/prop-calculator/core/FeeSchedule';
 import {
     type FundedCycleTracker,
     type FundedPayoutResult,
     restoreFundedCycleTracker,
 } from '~/lib/prop-calculator/core/FundedPayoutCycle';
-import { type Dollars, type Fraction0to1 } from '~/lib/prop-calculator/core/lib/units';
+import {
+    type Dollars,
+    type Fraction0to1,
+} from '~/lib/prop-calculator/core/lib/units';
 import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core/PayoutRequestPolicy';
 import { type Plan } from '~/lib/prop-calculator/core/Plan';
 import { type PositionSizingConfig } from '~/lib/prop-calculator/core/PositionSizing';
@@ -208,14 +214,12 @@ export function simulateCopyGroup(
         }
     }
 
-    const memberMoments = fundedMembers.map(
-        (): MemberMoments => ({
-            horizonCredit: newMoments(),
-            payoutCount: newMoments(),
-            realizedPayout: newMoments(),
-            resetFees: newMoments(),
-        }),
-    );
+    const memberMoments = fundedMembers.map((): MemberMoments => ({
+        horizonCredit: newMoments(),
+        payoutCount: newMoments(),
+        realizedPayout: newMoments(),
+        resetFees: newMoments(),
+    }));
     const memberBustCounts = fundedMembers.map(() => 0);
     const groupHorizonCreditMoments = newMoments();
     const groupRealizedPayoutMoments = newMoments();
@@ -305,10 +309,7 @@ export function simulateCopyGroup(
                 expectedRealizedPayout: estimateOf(moments.realizedPayout),
                 expectedResetFees: estimateOf(moments.resetFees),
                 memberId: member.id,
-                pBust: proportionEstimate(
-                    memberBustCounts[index] ?? 0,
-                    trials,
-                ),
+                pBust: proportionEstimate(memberBustCounts[index] ?? 0, trials),
             };
         }),
         pAllBustSameDay: proportionEstimate(allBustSameDayCount, trials),

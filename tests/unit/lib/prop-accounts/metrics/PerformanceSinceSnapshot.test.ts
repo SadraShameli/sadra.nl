@@ -47,10 +47,7 @@ function evalAt(balance: number, tradingDays: number): ReconstructedAccount {
     };
 }
 
-function fundedAt(
-    balance: number,
-    tradingDays: number,
-): ReconstructedAccount {
+function fundedAt(balance: number, tradingDays: number): ReconstructedAccount {
     return {
         assumptions: [],
         contractLimit: null,

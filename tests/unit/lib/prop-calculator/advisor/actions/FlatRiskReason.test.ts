@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { dollars } from '~/lib/prop-calculator';
-import { DifferenceReason, differenceReasonText } from '~/lib/prop-calculator/advisor';
+import {
+    DifferenceReason,
+    differenceReasonText,
+} from '~/lib/prop-calculator/advisor';
 import { flatRiskIgnoresStateReason } from '~/lib/prop-calculator/advisor/actions';
 
 describe('flatRiskIgnoresStateReason (F-V15, QV-8, PT-74b step 5)', () => {

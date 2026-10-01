@@ -1,4 +1,8 @@
-import { CentsDisplay, formatUsdCents, isWithinPayoutTolerance } from '~/lib/prop-accounts/core';
+import {
+    CentsDisplay,
+    formatUsdCents,
+    isWithinPayoutTolerance,
+} from '~/lib/prop-accounts/core';
 
 import { type AccountAlert } from './AccountAlert';
 import {
@@ -22,7 +26,9 @@ export class PayoutDollarMismatchRule extends AccountAlertRule {
         const ledger = paidLedgerTotal(
             paidPayoutsThrough(monitored, snapshot.asOf),
         );
-        return isWithinPayoutTolerance(snapshot.cumulativePayoutCents - ledger.cents)
+        return isWithinPayoutTolerance(
+            snapshot.cumulativePayoutCents - ledger.cents,
+        )
             ? null
             : this.alertFor(
                   monitored,

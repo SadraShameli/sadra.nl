@@ -552,7 +552,7 @@ describe('toSimInputs: money fields', () => {
 });
 
 describe('toSimInputs: payout request policy (PT-48b, F-148, PD-40)', () => {
-    it('raises the rulebook $500 request to MFF Pro\'s $1,000 minimum via effectivePayoutRequest', () => {
+    it("raises the rulebook $500 request to MFF Pro's $1,000 minimum via effectivePayoutRequest", () => {
         const inputs = toSimInputs(mffPro, specOf());
 
         expect(DEFAULT_RULEBOOK.payout.requestCents / CENTS_PER_DOLLAR).toBe(
@@ -565,9 +565,7 @@ describe('toSimInputs: payout request policy (PT-48b, F-148, PD-40)', () => {
     });
 
     it('never lowers a request already above the plan minimum', () => {
-        expect(
-            toSimInputs(apexEod, specOf()).payoutRequestSize,
-        ).toBe(500);
+        expect(toSimInputs(apexEod, specOf()).payoutRequestSize).toBe(500);
     });
 
     it('raises a personal override below the plan minimum too', () => {

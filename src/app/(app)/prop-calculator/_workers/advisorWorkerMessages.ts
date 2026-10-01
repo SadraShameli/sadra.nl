@@ -39,7 +39,8 @@ export interface AdvisorRequestFailed {
     readonly source: EngineOptimumRequest['source'];
 }
 
-export type AdvisorRequestOutcome = AdvisorRequestFailed | AdvisorRequestSucceeded;
+export type AdvisorRequestOutcome =
+    AdvisorRequestFailed | AdvisorRequestSucceeded;
 
 export interface AdvisorRequestSucceeded {
     readonly kind: AdvisorRequestOutcomeKind.Succeeded;
@@ -135,7 +136,8 @@ export function advisorValueOutcomeOf(
                 ? null
                 : slot((account) =>
                       payoutStakeComparison(account, spec, {
-                          reducedRiskDollars: request.payoutStake?.reducedRiskDollars,
+                          reducedRiskDollars:
+                              request.payoutStake?.reducedRiskDollars,
                       }),
                   ),
         swings: request.rungs.map((rung, position) => ({
@@ -158,7 +160,9 @@ export function advisorWorkerCacheKey(request: AdvisorWorkerRequest): string {
         optIns: request.optIns,
         planSerial: request.planSerial,
         requests: request.requests.map(canonicalEngineOptimumRequest),
-        ...(request.values !== undefined && { values: canonicalValueRequest(request.values) }),
+        ...(request.values !== undefined && {
+            values: canonicalValueRequest(request.values),
+        }),
     });
 }
 

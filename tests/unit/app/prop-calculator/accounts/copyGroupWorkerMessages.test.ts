@@ -162,9 +162,15 @@ describe('copyGroupWorkerMessages (PT-42)', () => {
     });
 
     it('returns a typed Rejected outcome for a member whose risk is below one contract at the group stop', () => {
-        const request = requestFor([memberFor('small', { riskPerTrade: dollars(300) })], {
-            positionSizing: { instrument: InstrumentSymbol.ES, stopPoints: 10 },
-        });
+        const request = requestFor(
+            [memberFor('small', { riskPerTrade: dollars(300) })],
+            {
+                positionSizing: {
+                    instrument: InstrumentSymbol.ES,
+                    stopPoints: 10,
+                },
+            },
+        );
         const outcome = simulateGroupOutcomeOf(request);
         expect(outcome.kind).toBe(CopyGroupWorkerOutcomeKind.Rejected);
         if (outcome.kind !== CopyGroupWorkerOutcomeKind.Rejected) return;

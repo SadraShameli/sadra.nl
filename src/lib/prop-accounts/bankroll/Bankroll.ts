@@ -54,7 +54,10 @@ export function bankrollOf(
     const withdrawals = ledger.transfers.filter(
         (row) => row.kind === BankrollTransferKind.Withdrawal,
     );
-    const depositsCents = deposits.reduce((sum, row) => sum + row.amountCents, 0);
+    const depositsCents = deposits.reduce(
+        (sum, row) => sum + row.amountCents,
+        0,
+    );
     const withdrawalsCents = withdrawals.reduce(
         (sum, row) => sum + row.amountCents,
         0,

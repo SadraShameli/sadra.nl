@@ -11,10 +11,7 @@ import {
     FirmEngagementStatus,
     FirmKeyKind,
 } from '~/lib/prop-accounts/core';
-import {
-    firmEngagementFor,
-    firmRosterOf,
-} from '~/lib/prop-accounts/firms';
+import { firmEngagementFor, firmRosterOf } from '~/lib/prop-accounts/firms';
 
 import {
     account,
@@ -40,7 +37,9 @@ function collectSourceFiles(dir: string): string[] {
     return entries.flatMap((entry) => {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
-            return entry.name === 'node_modules' ? [] : collectSourceFiles(fullPath);
+            return entry.name === 'node_modules'
+                ? []
+                : collectSourceFiles(fullPath);
         }
         return /\.tsx?$/.test(entry.name) ? [fullPath] : [];
     });
@@ -57,11 +56,16 @@ describe('the firm-columns row type', () => {
         );
         const firmKeySource = fs.readFileSync(firmKeyPath, 'utf8');
         const firmRosterSource = fs.readFileSync(
-            path.join(process.cwd(), 'src/lib/prop-accounts/firms/FirmRoster.ts'),
+            path.join(
+                process.cwd(),
+                'src/lib/prop-accounts/firms/FirmRoster.ts',
+            ),
             'utf8',
         );
         expect(firmKeySource).toMatch(/export interface FirmColumnsRow\b/);
-        expect(firmRosterSource).not.toMatch(/export interface FirmEngagementColumns\b/);
+        expect(firmRosterSource).not.toMatch(
+            /export interface FirmEngagementColumns\b/,
+        );
         expect(firmRosterSource).toMatch(
             /export type FirmEngagementColumns\s*=\s*FirmColumnsRow\b/,
         );
@@ -72,9 +76,9 @@ describe('the firm-columns row type', () => {
             process.cwd(),
             'src/lib/prop-accounts/core/FirmKey.ts',
         );
-        const files = collectSourceFiles(path.join(process.cwd(), 'src')).filter(
-            (file) => file !== firmKeyPath,
-        );
+        const files = collectSourceFiles(
+            path.join(process.cwd(), 'src'),
+        ).filter((file) => file !== firmKeyPath);
         const offenders = files.filter((file) =>
             FIRM_COLUMNS_ROW_SHAPE_PATTERN.test(fs.readFileSync(file, 'utf8')),
         );
@@ -84,20 +88,27 @@ describe('the firm-columns row type', () => {
 
 describe('the firm-key engagement lookup', () => {
     it('matches a firm engagement row by firm key in exactly one place', () => {
-        const sources = CONSUMER_FILES.map((file) => fs.readFileSync(file, 'utf8'));
+        const sources = CONSUMER_FILES.map((file) =>
+            fs.readFileSync(file, 'utf8'),
+        );
         const matchPattern = /firmKeyId\(firmKeyOf\(firmColumnsOf\(/g;
         const matchCount = sources.reduce(
-            (count, source) => count + (source.match(matchPattern) ?? []).length,
+            (count, source) =>
+                count + (source.match(matchPattern) ?? []).length,
             0,
         );
         expect(matchCount).toBe(1);
     });
 
     it('is used by the roster and the firms page', () => {
-        const sources = CONSUMER_FILES.map((file) => fs.readFileSync(file, 'utf8'));
+        const sources = CONSUMER_FILES.map((file) =>
+            fs.readFileSync(file, 'utf8'),
+        );
         const usagePattern = /firmEngagementFor\(/g;
         for (const source of sources) {
-            expect((source.match(usagePattern) ?? []).length).toBeGreaterThan(0);
+            expect((source.match(usagePattern) ?? []).length).toBeGreaterThan(
+                0,
+            );
         }
     });
 });
@@ -118,7 +129,10 @@ describe('firmEngagementFor', () => {
         ).toBe(engagement);
         expect(
             firmEngagementFor(
-                { firmId: OTHER_FIRM_EVAL_PLAN.firm.id, kind: FirmKeyKind.Modeled },
+                {
+                    firmId: OTHER_FIRM_EVAL_PLAN.firm.id,
+                    kind: FirmKeyKind.Modeled,
+                },
                 [engagement],
             ),
         ).toBeNull();
@@ -207,7 +221,9 @@ describe('firmRosterOf', () => {
     });
 
     it('totals firms used, active and sent live', () => {
-        const sentLiveAccount = account(EVAL_PLAN, { stage: AccountStage.Live });
+        const sentLiveAccount = account(EVAL_PLAN, {
+            stage: AccountStage.Live,
+        });
         const pausedAccount = account(OTHER_FIRM_EVAL_PLAN);
         const sentLive = firmEngagement(
             'unused',

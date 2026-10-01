@@ -48,8 +48,8 @@ export default async function PropAccountsRoundsPage() {
                     </h1>
                     <p className="mt-2 text-sm text-muted-foreground sm:text-base">
                         Group your purchases into rounds with an optional
-                        budget, and see spend, payouts and realized multiple
-                        per round.
+                        budget, and see spend, payouts and realized multiple per
+                        round.
                     </p>
                 </header>
                 <RoundsView />

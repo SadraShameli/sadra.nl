@@ -200,11 +200,7 @@ export {
 } from './ReportedPayoutBasis';
 export { RoundStatus, roundStatusLabel } from './RoundStatus';
 export { RuleViolationKind, ruleViolationKindLabel } from './RuleViolationKind';
-export {
-    sampleAdequacy,
-    SampleKind,
-    SampleLevel,
-} from './SampleAdequacy';
+export { sampleAdequacy, SampleKind, SampleLevel } from './SampleAdequacy';
 export {
     checkSnapshotEntry,
     liveStartEntryIssues,

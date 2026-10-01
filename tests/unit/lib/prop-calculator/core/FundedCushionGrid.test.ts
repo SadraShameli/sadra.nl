@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { FundedCushionGrid } from '~/lib/prop-calculator/core/FundedCushionGrid';
 
 function dollarsOf(grid: FundedCushionGrid): number[] {
-    return Array.from({ length: grid.size }, (_, index) => grid.dollarsAt(index));
+    return Array.from({ length: grid.size }, (_, index) =>
+        grid.dollarsAt(index),
+    );
 }
 
 describe('FundedCushionGrid', () => {
-    describe('tail off (uniform, today\'s behaviour)', () => {
+    describe("tail off (uniform, today's behaviour)", () => {
         const grid = new FundedCushionGrid({ fineStep: 100, fineTop: 600 });
 
         it('is a plain uniform grid up to the fine top', () => {
@@ -23,30 +25,57 @@ describe('FundedCushionGrid', () => {
         });
 
         it('splits an exact cell dollar value with no upper weight', () => {
-            expect(grid.split(0)).toStrictEqual({ lowerIndex: 0, upperWeight: 0 });
-            expect(grid.split(300)).toStrictEqual({ lowerIndex: 3, upperWeight: 0 });
-            expect(grid.split(600)).toStrictEqual({ lowerIndex: 6, upperWeight: 0 });
+            expect(grid.split(0)).toStrictEqual({
+                lowerIndex: 0,
+                upperWeight: 0,
+            });
+            expect(grid.split(300)).toStrictEqual({
+                lowerIndex: 3,
+                upperWeight: 0,
+            });
+            expect(grid.split(600)).toStrictEqual({
+                lowerIndex: 6,
+                upperWeight: 0,
+            });
         });
 
         it('splits a midpoint between two cells with a 0.5 weight', () => {
-            expect(grid.split(250)).toStrictEqual({ lowerIndex: 2, upperWeight: 0.5 });
+            expect(grid.split(250)).toStrictEqual({
+                lowerIndex: 2,
+                upperWeight: 0.5,
+            });
         });
 
         it('splits a quarter-of-the-way point with a 0.25 weight', () => {
-            expect(grid.split(325)).toStrictEqual({ lowerIndex: 3, upperWeight: 0.25 });
+            expect(grid.split(325)).toStrictEqual({
+                lowerIndex: 3,
+                upperWeight: 0.25,
+            });
         });
 
         it('clamps a negative dollar value to the bottom cell with no weight', () => {
-            expect(grid.split(-50)).toStrictEqual({ lowerIndex: 0, upperWeight: 0 });
+            expect(grid.split(-50)).toStrictEqual({
+                lowerIndex: 0,
+                upperWeight: 0,
+            });
         });
 
         it('clamps a value at or above the top to the top cell with no weight', () => {
-            expect(grid.split(600)).toStrictEqual({ lowerIndex: 6, upperWeight: 0 });
-            expect(grid.split(10_000)).toStrictEqual({ lowerIndex: 6, upperWeight: 0 });
+            expect(grid.split(600)).toStrictEqual({
+                lowerIndex: 6,
+                upperWeight: 0,
+            });
+            expect(grid.split(10_000)).toStrictEqual({
+                lowerIndex: 6,
+                upperWeight: 0,
+            });
         });
 
         it('clamps to a bucketCount narrower than the grid itself', () => {
-            expect(grid.split(550, 4)).toStrictEqual({ lowerIndex: 3, upperWeight: 0 });
+            expect(grid.split(550, 4)).toStrictEqual({
+                lowerIndex: 3,
+                upperWeight: 0,
+            });
             expect(grid.floorIndex(550, 4)).toBe(3);
         });
 
@@ -70,7 +99,8 @@ describe('FundedCushionGrid', () => {
 
         it('round-trips every midpoint between adjacent cells', () => {
             for (let index = 0; index < grid.size - 1; index++) {
-                const midpoint = (grid.dollarsAt(index) + grid.dollarsAt(index + 1)) / 2;
+                const midpoint =
+                    (grid.dollarsAt(index) + grid.dollarsAt(index + 1)) / 2;
                 expect(grid.split(midpoint)).toStrictEqual({
                     lowerIndex: index,
                     upperWeight: 0.5,
@@ -101,21 +131,39 @@ describe('FundedCushionGrid', () => {
         });
 
         it('splits inside the fine range using the fine step', () => {
-            expect(grid.split(150)).toStrictEqual({ lowerIndex: 1, upperWeight: 0.5 });
+            expect(grid.split(150)).toStrictEqual({
+                lowerIndex: 1,
+                upperWeight: 0.5,
+            });
         });
 
         it('splits inside the coarse tail using the tail step', () => {
-            expect(grid.split(1050)).toStrictEqual({ lowerIndex: 4, upperWeight: 0.5 });
-            expect(grid.split(800)).toStrictEqual({ lowerIndex: 4, upperWeight: 0 });
+            expect(grid.split(1050)).toStrictEqual({
+                lowerIndex: 4,
+                upperWeight: 0.5,
+            });
+            expect(grid.split(800)).toStrictEqual({
+                lowerIndex: 4,
+                upperWeight: 0,
+            });
         });
 
         it('splits exactly at the fine-to-tail boundary using the fine cell', () => {
-            expect(grid.split(300)).toStrictEqual({ lowerIndex: 3, upperWeight: 0 });
+            expect(grid.split(300)).toStrictEqual({
+                lowerIndex: 3,
+                upperWeight: 0,
+            });
         });
 
         it('clamps at or above the tail top to the top cell', () => {
-            expect(grid.split(1800)).toStrictEqual({ lowerIndex: 6, upperWeight: 0 });
-            expect(grid.split(50_000)).toStrictEqual({ lowerIndex: 6, upperWeight: 0 });
+            expect(grid.split(1800)).toStrictEqual({
+                lowerIndex: 6,
+                upperWeight: 0,
+            });
+            expect(grid.split(50_000)).toStrictEqual({
+                lowerIndex: 6,
+                upperWeight: 0,
+            });
         });
 
         it('round-trips every cell and every midpoint across both ranges', () => {
@@ -128,7 +176,8 @@ describe('FundedCushionGrid', () => {
                 expect(grid.roundToIndex(dollarsValue)).toBe(index);
             }
             for (let index = 0; index < grid.size - 1; index++) {
-                const midpoint = (grid.dollarsAt(index) + grid.dollarsAt(index + 1)) / 2;
+                const midpoint =
+                    (grid.dollarsAt(index) + grid.dollarsAt(index + 1)) / 2;
                 expect(grid.split(midpoint)).toStrictEqual({
                     lowerIndex: index,
                     upperWeight: 0.5,
@@ -198,34 +247,45 @@ describe('FundedCushionGrid', () => {
 
     describe('validation', () => {
         it('rejects a non-finite bound or step', () => {
-            expect(() => new FundedCushionGrid({ fineStep: Infinity, fineTop: 100 })).toThrow();
-            expect(() => new FundedCushionGrid({ fineStep: 100, fineTop: NaN })).toThrow();
+            expect(
+                () =>
+                    new FundedCushionGrid({ fineStep: Infinity, fineTop: 100 }),
+            ).toThrow();
+            expect(
+                () => new FundedCushionGrid({ fineStep: 100, fineTop: NaN }),
+            ).toThrow();
         });
 
         it('rejects a non-positive fine or tail step', () => {
-            expect(() => new FundedCushionGrid({ fineStep: 0, fineTop: 100 })).toThrow();
-            expect(() =>
-                new FundedCushionGrid({
-                    fineStep: 100,
-                    fineTop: 300,
-                    tailStep: -50,
-                    tailTop: 1000,
-                }),
+            expect(
+                () => new FundedCushionGrid({ fineStep: 0, fineTop: 100 }),
+            ).toThrow();
+            expect(
+                () =>
+                    new FundedCushionGrid({
+                        fineStep: 100,
+                        fineTop: 300,
+                        tailStep: -50,
+                        tailTop: 1000,
+                    }),
             ).toThrow();
         });
 
         it('rejects a negative fine top', () => {
-            expect(() => new FundedCushionGrid({ fineStep: 100, fineTop: -100 })).toThrow();
+            expect(
+                () => new FundedCushionGrid({ fineStep: 100, fineTop: -100 }),
+            ).toThrow();
         });
 
         it('rejects a tail step finer than the fine step, naming both steps', () => {
-            expect(() =>
-                new FundedCushionGrid({
-                    fineStep: 100,
-                    fineTop: 300,
-                    tailStep: 50,
-                    tailTop: 1000,
-                }),
+            expect(
+                () =>
+                    new FundedCushionGrid({
+                        fineStep: 100,
+                        fineTop: 300,
+                        tailStep: 50,
+                        tailTop: 1000,
+                    }),
             ).toThrow(/tailStep \(50\) must be at least fineStep \(100\)/);
         });
 
@@ -279,13 +339,14 @@ describe('FundedCushionGrid', () => {
         });
 
         it('rejects a tail top below the fine top', () => {
-            expect(() =>
-                new FundedCushionGrid({
-                    fineStep: 100,
-                    fineTop: 600,
-                    tailStep: 500,
-                    tailTop: 300,
-                }),
+            expect(
+                () =>
+                    new FundedCushionGrid({
+                        fineStep: 100,
+                        fineTop: 600,
+                        tailStep: 500,
+                        tailTop: 300,
+                    }),
             ).toThrow();
         });
     });

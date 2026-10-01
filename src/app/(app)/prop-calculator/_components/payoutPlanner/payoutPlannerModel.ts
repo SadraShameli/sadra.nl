@@ -354,19 +354,16 @@ export function reconstructPayoutPlannerAccount(
         );
     }
 
-    const retainedCushion = retainedCushionForStage(
-        input.rulebook,
-        {
-            paidPayoutsSinceLastLiveAccount: null,
-            pendingPayouts: dollars(0),
-            personalRequestOverride: null,
-            personalRetainedCushion: null,
-            plan: input.plan,
-            stage: SizingStage.Funded,
-            state: account.state,
-            tracker: account.fundedTracker,
-        },
-    );
+    const retainedCushion = retainedCushionForStage(input.rulebook, {
+        paidPayoutsSinceLastLiveAccount: null,
+        pendingPayouts: dollars(0),
+        personalRequestOverride: null,
+        personalRetainedCushion: null,
+        plan: input.plan,
+        stage: SizingStage.Funded,
+        state: account.state,
+        tracker: account.fundedTracker,
+    });
 
     return { account, retainedCushion };
 }

@@ -184,7 +184,9 @@ describe('useCachedWorkerTask', () => {
 
         finish(result('a'));
 
-        expect(cache.get(ComputationId.PayoutSweep, 'key-a')).toEqual(result('a'));
+        expect(cache.get(ComputationId.PayoutSweep, 'key-a')).toEqual(
+            result('a'),
+        );
         expect(latest.current?.state).toMatchObject({
             phase: WorkerTaskPhase.Done,
             result: result('a'),
@@ -211,7 +213,9 @@ describe('useCachedWorkerTask', () => {
         finish(result('b'));
 
         expect(cache.get(ComputationId.PayoutSweep, 'key-a')).toBeUndefined();
-        expect(cache.get(ComputationId.PayoutSweep, 'key-b')).toEqual(result('b'));
+        expect(cache.get(ComputationId.PayoutSweep, 'key-b')).toEqual(
+            result('b'),
+        );
     });
 
     it('does not show a finished result of another key while the new key has not run yet', () => {

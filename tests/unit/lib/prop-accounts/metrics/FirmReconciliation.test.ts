@@ -32,7 +32,10 @@ describe('firmReconciliation', () => {
             planSerial: null,
             tracking: AccountTracking.LedgerOnly,
         });
-        const paid = payout(acc, 100_000, { netCents: 80_000, paidOn: '2026-09-10' });
+        const paid = payout(acc, 100_000, {
+            netCents: 80_000,
+            paidOn: '2026-09-10',
+        });
         const statement = firmStatement(
             'lucid-1',
             '2026-09-15',
@@ -63,7 +66,10 @@ describe('firmReconciliation', () => {
             planSerial: null,
             tracking: AccountTracking.LedgerOnly,
         });
-        const paid = payout(acc, 100_000, { netCents: 80_000, paidOn: '2026-09-10' });
+        const paid = payout(acc, 100_000, {
+            netCents: 80_000,
+            paidOn: '2026-09-10',
+        });
         const statement = firmStatement(
             'lucid-1',
             '2026-09-15',
@@ -90,7 +96,10 @@ describe('firmReconciliation', () => {
             planSerial: null,
             tracking: AccountTracking.LedgerOnly,
         });
-        const paid = payout(acc, 100_000, { netCents: 80_000, paidOn: '2026-09-10' });
+        const paid = payout(acc, 100_000, {
+            netCents: 80_000,
+            paidOn: '2026-09-10',
+        });
         const statement = firmStatement(
             'lucid-1',
             '2026-09-15',
@@ -116,8 +125,14 @@ describe('firmReconciliation', () => {
             planSerial: null,
             tracking: AccountTracking.LedgerOnly,
         });
-        const early = payout(acc, 50_000, { netCents: 50_000, paidOn: '2026-09-05' });
-        const late = payout(acc, 50_000, { netCents: 50_000, paidOn: '2026-09-20' });
+        const early = payout(acc, 50_000, {
+            netCents: 50_000,
+            paidOn: '2026-09-05',
+        });
+        const late = payout(acc, 50_000, {
+            netCents: 50_000,
+            paidOn: '2026-09-20',
+        });
         const statement = firmStatement(
             'lucid-1',
             '2026-09-15',
@@ -143,7 +158,10 @@ describe('firmReconciliation', () => {
             planSerial: null,
             tracking: AccountTracking.LedgerOnly,
         });
-        const paid = payout(acc, 80_000, { netCents: null, paidOn: '2026-09-10' });
+        const paid = payout(acc, 80_000, {
+            netCents: null,
+            paidOn: '2026-09-10',
+        });
         const statement = firmStatement(
             'lucid-1',
             '2026-09-15',
@@ -234,8 +252,14 @@ describe('firmReconciliation', () => {
             planSerial: null,
             tracking: AccountTracking.LedgerOnly,
         });
-        const paidA = payout(accA, 10_000, { netCents: 10_000, paidOn: '2026-09-10' });
-        const paidB = payout(accB, 20_000, { netCents: 20_000, paidOn: '2026-09-10' });
+        const paidA = payout(accA, 10_000, {
+            netCents: 10_000,
+            paidOn: '2026-09-10',
+        });
+        const paidB = payout(accB, 20_000, {
+            netCents: 20_000,
+            paidOn: '2026-09-10',
+        });
         const statement = firmStatement(
             'lucid-1',
             '2026-09-15',
@@ -292,7 +316,10 @@ describe('firmReconciliation', () => {
             planSerial: null,
             tracking: AccountTracking.LedgerOnly,
         });
-        const paid = payout(acc, 10_000, { netCents: 10_000, paidOn: '2026-09-10' });
+        const paid = payout(acc, 10_000, {
+            netCents: 10_000,
+            paidOn: '2026-09-10',
+        });
         const statement = firmStatement(
             'lucid-1',
             '2026-09-15',

@@ -8,7 +8,10 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
-import { nullIfBlank, parsedOrIssues } from '~/app/(app)/prop-calculator/accounts/_components/detail/formParsing';
+import {
+    nullIfBlank,
+    parsedOrIssues,
+} from '~/app/(app)/prop-calculator/accounts/_components/detail/formParsing';
 import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
@@ -99,7 +102,9 @@ const SCALE_GATE_STATUS_VARIANT: Readonly<
     [ScaleGateStatus.ThresholdsNotSet]: 'secondary',
 };
 
-const SCALE_GATE_UNMET_LABEL: Readonly<Record<ScaleGateUnmetCondition, string>> = {
+const SCALE_GATE_UNMET_LABEL: Readonly<
+    Record<ScaleGateUnmetCondition, string>
+> = {
     [ScaleGateUnmetCondition.CohortMultipleNotAboveOne]:
         'Purchase-cohort multiple is not above 1',
     [ScaleGateUnmetCondition.CohortSampleBelowThreshold]:
@@ -141,7 +146,8 @@ export function FirmsView() {
     const areEngagementsUnavailable =
         engagementsQuery.isError && engagementsQuery.data === undefined;
     const areEngagementsLoading = engagementsQuery.isPending;
-    const canEditEngagement = !areEngagementsUnavailable && !areEngagementsLoading;
+    const canEditEngagement =
+        !areEngagementsUnavailable && !areEngagementsLoading;
     const rulebook = rulebookQuery.data ?? DEFAULT_RULEBOOK;
     const trades = edgeQuery.data?.summary.sampleSize ?? 0;
 
@@ -203,22 +209,23 @@ export function FirmsView() {
             {externalFirmsQuery.isError &&
                 externalFirmsQuery.data === undefined && (
                     <p className="text-xs text-destructive">
-                        Your firms could not be loaded, so external firms
-                        show as an unlisted firm until they load:{' '}
+                        Your firms could not be loaded, so external firms show
+                        as an unlisted firm until they load:{' '}
                         {externalFirmsQuery.error.message}
                     </p>
                 )}
-            {engagementsQuery.isError && engagementsQuery.data === undefined && (
-                <p className="text-xs text-destructive">
-                    Your firm status could not be loaded, so every firm
-                    shows as Active until it loads:{' '}
-                    {engagementsQuery.error.message}
-                </p>
-            )}
+            {engagementsQuery.isError &&
+                engagementsQuery.data === undefined && (
+                    <p className="text-xs text-destructive">
+                        Your firm status could not be loaded, so every firm
+                        shows as Active until it loads:{' '}
+                        {engagementsQuery.error.message}
+                    </p>
+                )}
             {areEngagementsLoading && (
                 <p className="text-xs text-muted-foreground">
-                    Your firm statuses are still loading, so saving is
-                    disabled until they load.
+                    Your firm statuses are still loading, so saving is disabled
+                    until they load.
                 </p>
             )}
             {rulebookQuery.isError && rulebookQuery.data === undefined && (
@@ -230,9 +237,8 @@ export function FirmsView() {
             )}
             {edgeQuery.isError && edgeQuery.data === undefined && (
                 <p className="text-xs text-destructive">
-                    Your journal could not be loaded, so the scale gate
-                    treats your trade count as zero:{' '}
-                    {edgeQuery.error.message}
+                    Your journal could not be loaded, so the scale gate treats
+                    your trade count as zero: {edgeQuery.error.message}
                 </p>
             )}
             <ScaleGateCard scaleGate={model.scaleGate} />
@@ -333,10 +339,13 @@ function FirmRow({
             <TableCell>{entry.firstPurchaseOn ?? NOT_APPLICABLE}</TableCell>
             <TableCell>{entry.lastActivityOn ?? NOT_APPLICABLE}</TableCell>
             <TableCell>
-                <div>{formatRate(transferRate?.perPaidPayout ?? null)} per paid payout</div>
+                <div>
+                    {formatRate(transferRate?.perPaidPayout ?? null)} per paid
+                    payout
+                </div>
                 <div className="text-xs text-muted-foreground">
-                    {formatRate(transferRate?.perFundedAccountMonth ?? null)} per
-                    funded account-month
+                    {formatRate(transferRate?.perFundedAccountMonth ?? null)}{' '}
+                    per funded account-month
                 </div>
             </TableCell>
         </TableRow>
@@ -379,7 +388,9 @@ function FirmStatusForm({
         if (!parsed.success) return;
         try {
             await set.mutateAsync(parsed.data);
-            toast.success(`${firmEngagementStatusLabel(parsed.data.status)} saved`);
+            toast.success(
+                `${firmEngagementStatusLabel(parsed.data.status)} saved`,
+            );
         } catch (error) {
             toast.error(
                 error instanceof Error ? error.message : 'Could not save',
@@ -422,8 +433,13 @@ function FirmStatusForm({
                                 <SelectContent>
                                     {Object.values(FirmEngagementStatus).map(
                                         (value) => (
-                                            <SelectItem key={value} value={value}>
-                                                {firmEngagementStatusLabel(value)}
+                                            <SelectItem
+                                                key={value}
+                                                value={value}
+                                            >
+                                                {firmEngagementStatusLabel(
+                                                    value,
+                                                )}
                                             </SelectItem>
                                         ),
                                     )}
@@ -451,18 +467,18 @@ function FirmStatusForm({
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        {Object.values(FirmEngagementReason).map(
-                                            (value) => (
-                                                <SelectItem
-                                                    key={value}
-                                                    value={value}
-                                                >
-                                                    {firmEngagementReasonLabel(
-                                                        value,
-                                                    )}
-                                                </SelectItem>
-                                            ),
-                                        )}
+                                        {Object.values(
+                                            FirmEngagementReason,
+                                        ).map((value) => (
+                                            <SelectItem
+                                                key={value}
+                                                value={value}
+                                            >
+                                                {firmEngagementReasonLabel(
+                                                    value,
+                                                )}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -559,7 +575,9 @@ function ScaleGateCard({ scaleGate }: { readonly scaleGate: ScaleGate }) {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     Scale gate
-                    <Badge variant={SCALE_GATE_STATUS_VARIANT[scaleGate.status]}>
+                    <Badge
+                        variant={SCALE_GATE_STATUS_VARIANT[scaleGate.status]}
+                    >
                         {SCALE_GATE_STATUS_LABEL[scaleGate.status]}
                     </Badge>
                 </CardTitle>

@@ -22,7 +22,10 @@ export type ConsistencyStatus =
           readonly violationEffectLabel: null | string;
       }
     | { readonly kind: ConsistencyStatusKind.NoRule }
-    | { readonly kind: ConsistencyStatusKind.NotEvaluated; readonly rule: ConsistencyRule };
+    | {
+          readonly kind: ConsistencyStatusKind.NotEvaluated;
+          readonly rule: ConsistencyRule;
+      };
 
 export function consistencyStatusOf(
     rule: ConsistencyRule | null,

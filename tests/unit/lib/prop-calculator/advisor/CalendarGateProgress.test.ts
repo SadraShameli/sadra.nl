@@ -99,13 +99,18 @@ describe('calendarGateProgress: real calendar days, not the session approximatio
             firm: FirmId.Mffu,
             variant: MffuVariant.Rapid,
         });
-        expect(() =>
-            calendarGateProgress(rapid, 0, anchor, anchor),
-        ).toThrow(/calendar days/);
+        expect(() => calendarGateProgress(rapid, 0, anchor, anchor)).toThrow(
+            /calendar days/,
+        );
     });
 
     it('agrees with evaluatePayout at the boundary day for a first payout', () => {
-        const met = calendarGateProgress(plan, 0, anchor, addIsoDays(anchor, 14));
+        const met = calendarGateProgress(
+            plan,
+            0,
+            anchor,
+            addIsoDays(anchor, 14),
+        );
         const notMet = calendarGateProgress(
             plan,
             0,
@@ -153,7 +158,12 @@ describe('calendarGateProgress: real calendar days, not the session approximatio
     });
 
     it('agrees with evaluatePayout at the boundary day for a later cycle', () => {
-        const met = calendarGateProgress(plan, 1, anchor, addIsoDays(anchor, 14));
+        const met = calendarGateProgress(
+            plan,
+            1,
+            anchor,
+            addIsoDays(anchor, 14),
+        );
         if (met.kind !== CalendarGateProgressKind.Progress) {
             throw new Error('unreachable');
         }

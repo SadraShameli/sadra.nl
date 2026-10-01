@@ -30,7 +30,9 @@ function richState(): BankrollUrlState {
 }
 
 function roundTrip(state: BankrollUrlState): BankrollUrlState {
-    return decodeBankrollUrlState(new URLSearchParams(encodeBankrollUrlState(state)));
+    return decodeBankrollUrlState(
+        new URLSearchParams(encodeBankrollUrlState(state)),
+    );
 }
 
 describe('encodeBankrollUrlState and decodeBankrollUrlState', () => {
@@ -67,7 +69,10 @@ describe('encodeBankrollUrlState and decodeBankrollUrlState', () => {
 
     it('leaves out the given keys so a field the user is still fixing is never shared', () => {
         const state = richState();
-        const omitted = [BankrollUrlParameter.Budget, BankrollUrlParameter.Start];
+        const omitted = [
+            BankrollUrlParameter.Budget,
+            BankrollUrlParameter.Start,
+        ];
         const query = encodeBankrollUrlState(state, omitted);
         const keys = new URLSearchParams(query).keys().toArray();
         expect(keys).not.toContain(BankrollUrlParameter.Budget);
@@ -108,7 +113,9 @@ describe('decodeBankrollUrlState drops each invalid value on its own', () => {
         (raw) => {
             const parameters = new URLSearchParams();
             parameters.set(BankrollUrlParameter.Reinvest, raw);
-            expect(decodeBankrollUrlState(parameters).reinvestFraction).toBeNull();
+            expect(
+                decodeBankrollUrlState(parameters).reinvestFraction,
+            ).toBeNull();
         },
     );
 

@@ -12,7 +12,10 @@ import {
     type FundedCycleTracker,
 } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { type InstrumentSymbol } from '~/lib/prop-calculator/core/Instruments';
-import { type Dollars, type Fraction0to1 } from '~/lib/prop-calculator/core/lib/units';
+import {
+    type Dollars,
+    type Fraction0to1,
+} from '~/lib/prop-calculator/core/lib/units';
 import { type LiveAccountState } from '~/lib/prop-calculator/core/LiveAccountState';
 import { type LivePlan } from '~/lib/prop-calculator/core/LivePlan';
 import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core/PayoutRequestPolicy';
@@ -22,7 +25,10 @@ import { type ReplacementInputs } from '~/lib/prop-calculator/core/Replacement';
 import { type Roi } from '~/lib/prop-calculator/core/Roi';
 import { type TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { type Rng } from '~/lib/prop-calculator/rng';
-import { type Estimate, type UncertainValue } from '~/lib/prop-calculator/stats';
+import {
+    type Estimate,
+    type UncertainValue,
+} from '~/lib/prop-calculator/stats';
 
 import {
     type LossStreak,

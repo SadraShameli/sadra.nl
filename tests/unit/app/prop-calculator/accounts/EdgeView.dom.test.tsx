@@ -48,7 +48,13 @@ vi.mock('~/trpc/react', () => ({
 }));
 
 function answer(data: unknown): FakeQuery {
-    return { data, error: null, isError: false, isPending: false, isSuccess: true };
+    return {
+        data,
+        error: null,
+        isError: false,
+        isPending: false,
+        isSuccess: true,
+    };
 }
 
 function edgeSummary(sampleSize: number): EdgeSummary {
@@ -160,7 +166,7 @@ describe('EdgeView', () => {
         expect(query.get('wr')).toBe('0.400');
         expect(query.get('rr')).toBe('2.00');
         expect(container.textContent).toContain(
-            "not measured from your trades",
+            'not measured from your trades',
         );
     });
 
@@ -183,7 +189,8 @@ describe('EdgeView', () => {
         render();
         const link = [...container.querySelectorAll('a')].find(
             (candidate) =>
-                candidate.textContent === 'Try my measured win rate in the calculator',
+                candidate.textContent ===
+                'Try my measured win rate in the calculator',
         );
         expect(link).toBeUndefined();
     });
@@ -196,7 +203,8 @@ describe('EdgeView', () => {
         render();
         const link = [...container.querySelectorAll('a')].find(
             (candidate) =>
-                candidate.textContent === 'Try my measured win rate in the calculator',
+                candidate.textContent ===
+                'Try my measured win rate in the calculator',
         );
         expect(link?.tagName).toBe('A');
     });
@@ -253,7 +261,7 @@ describe('EdgeView', () => {
         );
     });
 
-    it("falls back to the rulebook reward:risk with a label when too few trades to measure it (PT-61e, F-V22)", () => {
+    it('falls back to the rulebook reward:risk with a label when too few trades to measure it (PT-61e, F-V22)', () => {
         harness.queries.set(
             'edge.summary',
             answer({
@@ -276,7 +284,7 @@ describe('EdgeView', () => {
         expect(query.get('rr')).toBe('2.00');
         expect(container.textContent).not.toContain('measured 1:');
         expect(container.textContent).toContain(
-            "not measured from your trades",
+            'not measured from your trades',
         );
     });
 });

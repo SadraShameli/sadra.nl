@@ -27,9 +27,7 @@ export function OptimaTable({
                 <TableRow>
                     <TableHead>Source</TableHead>
                     <TableHead>Result</TableHead>
-                    <TableHead className="text-right">
-                        Standard error
-                    </TableHead>
+                    <TableHead className="text-right">Standard error</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>

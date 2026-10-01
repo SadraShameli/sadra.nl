@@ -61,7 +61,8 @@ export interface FundedFromStatePlacedRow {
     readonly out: FromStateSimOutputs;
 }
 
-export type FundedFromStateRow = EngineOptimumRefusedRow | FundedFromStatePlacedRow;
+export type FundedFromStateRow =
+    EngineOptimumRefusedRow | FundedFromStatePlacedRow;
 
 export interface FundedFromStateSweepRequest {
     readonly base: Omit<SimInputs, 'plan'>;
@@ -72,8 +73,7 @@ export interface FundedFromStateSweepRequest {
 }
 
 export type FundedFromStateSweepResult =
-    | FundedFromStateNoCandidatesResult
-    | FundedFromStateOptimumFoundResult;
+    FundedFromStateNoCandidatesResult | FundedFromStateOptimumFoundResult;
 
 export function fundedCycleSeedFromTracker(
     plan: Plan,
@@ -121,13 +121,12 @@ export function runFundedFromStateSweep(
             ),
         }),
     );
-    const refusedRows: EngineOptimumRefusedRow[] = build.flatsBelowOneContract.map(
-        (dollar): EngineOptimumRefusedRow => ({
+    const refusedRows: EngineOptimumRefusedRow[] =
+        build.flatsBelowOneContract.map((dollar): EngineOptimumRefusedRow => ({
             kind: EngineOptimumRowKind.Refused,
             label: `flat $${dollar}`,
             reason: flatBelowOneContractRefusal(dollar),
-        }),
-    );
+        }));
 
     const ranked = placedRows.toSorted(
         (a, b) => b.out.fromStateExpectedCash - a.out.fromStateExpectedCash,

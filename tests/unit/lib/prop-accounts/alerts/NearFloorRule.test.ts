@@ -86,8 +86,7 @@ describe('NearFloorRule', () => {
         const threshold = probe.state.threshold;
         const funded = {
             ...fundedReconstructed(plan, {
-                balance:
-                    threshold + personalMaxRiskPerTrade * multiple * 0.5,
+                balance: threshold + personalMaxRiskPerTrade * multiple * 0.5,
             }),
             personalMaxRiskPerTrade,
         };
@@ -96,9 +95,7 @@ describe('NearFloorRule', () => {
             accountStates: [reconstructedEntry(account.id, plan, funded)],
         });
         expect(alerts).toHaveLength(1);
-        expect(alerts[0]?.message).toContain(
-            'the personal max risk per trade',
-        );
+        expect(alerts[0]?.message).toContain('the personal max risk per trade');
     });
 
     it('does not fire for a funded account exactly at the near-floor multiple', () => {
@@ -151,12 +148,13 @@ describe('NearFloorRule', () => {
         const live = liveReconstructed(plan);
         const belowRetained = {
             ...live,
-            cushion:
-                (live.livePlan?.defaultRetainedCushion() ?? 0) - 1,
+            cushion: (live.livePlan?.defaultRetainedCushion() ?? 0) - 1,
         };
         const alerts = alertsOf(rule, {
             accounts: [account],
-            accountStates: [reconstructedEntry(account.id, plan, belowRetained)],
+            accountStates: [
+                reconstructedEntry(account.id, plan, belowRetained),
+            ],
         });
         expect(alerts).toHaveLength(1);
     });

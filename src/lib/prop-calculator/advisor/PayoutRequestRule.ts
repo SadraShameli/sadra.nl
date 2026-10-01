@@ -17,7 +17,6 @@ import {
     nonNegativeDollarsSchema,
     PayoutEvaluationKind,
     PayoutGate,
-    PayoutRequestPolicy,
     payoutRequestSizeSchema,
     Plan,
     postPayoutThreshold,
@@ -31,6 +30,7 @@ import {
 } from './PayoutBlockReason';
 import {
     dayGateProgressOf,
+    evaluateDocumentedPayout,
     liveTriggerBlockReasonFor,
     type PayoutWait,
     PayoutWaitBasis,
@@ -167,12 +167,12 @@ export class PayoutRequestRule extends RulebookRule<PayoutRuleContext> {
                   }
                 : state;
         const evaluate = (evalState: AccountState) =>
-            tracker.evaluatePayout({
+            evaluateDocumentedPayout({
                 minRetainedCushion: retainedCushion,
-                payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
                 payoutRequestSize: requestedAmount,
                 plan,
                 state: evalState,
+                tracker,
             });
 
         const evaluation = evaluate(netState);
@@ -294,12 +294,12 @@ export class PayoutRequestRule extends RulebookRule<PayoutRuleContext> {
                 netState,
                 extraProfitCents / CENTS_PER_DOLLAR,
             );
-            const evaluation = tracker.evaluatePayout({
+            const evaluation = evaluateDocumentedPayout({
                 minRetainedCushion: retainedCushion,
-                payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
                 payoutRequestSize: requestedAmount,
                 plan,
                 state: hypothetical,
+                tracker,
             });
             return (
                 evaluation.kind === PayoutEvaluationKind.Eligible &&
@@ -378,6 +378,25 @@ export function firmMinimumNotice(
         : null;
 }
 
+export function fundedRetainedCushionResolution(
+    rulebook: RulebookParameters,
+    personal = 0,
+): RetainedCushionResolution {
+    const rulebookCushion =
+        rulebook.payout.retainedCushionCents / CENTS_PER_DOLLAR;
+    const hardFloor = rulebook.payout.allowBelowHardRule2
+        ? 0
+        : HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS;
+    const amount = Math.max(hardFloor, rulebookCushion, personal);
+    const basis =
+        personal === amount && personal > 0
+            ? RetainedCushionBasis.PersonalOverride
+            : rulebookCushion === amount
+              ? RetainedCushionBasis.RulebookSize
+              : RetainedCushionBasis.HardRule2Default;
+    return { amount: dollars(amount), basis };
+}
+
 export function retainedCushionForStage(
     rulebook: RulebookParameters,
     context: PayoutRuleContext,
@@ -387,17 +406,7 @@ export function retainedCushionForStage(
     const personal = context.personalRetainedCushion ?? 0;
     switch (context.stage) {
         case SizingStage.Funded: {
-            const hardFloor = rulebook.payout.allowBelowHardRule2
-                ? 0
-                : HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS;
-            const amount = Math.max(hardFloor, rulebookCushion, personal);
-            const basis =
-                personal === amount && personal > 0
-                    ? RetainedCushionBasis.PersonalOverride
-                    : rulebookCushion === amount
-                      ? RetainedCushionBasis.RulebookSize
-                      : RetainedCushionBasis.HardRule2Default;
-            return { amount: dollars(amount), basis };
+            return fundedRetainedCushionResolution(rulebook, personal);
         }
         case SizingStage.Live: {
             const oneDrawdown = context.livePlan.defaultRetainedCushion();

@@ -184,7 +184,8 @@ describe('computeFundedStateValue turns the coarse cushion tail on by default (W
         state.threshold = TOY_LOCKED_THRESHOLD;
         state.thresholdLocked = true;
         state.balance =
-            TOY_LOCKED_THRESHOLD + TAIL_CONFIG.maxCushionMultiple * TOY_DRAWDOWN;
+            TOY_LOCKED_THRESHOLD +
+            TAIL_CONFIG.maxCushionMultiple * TOY_DRAWDOWN;
         expect(result.isGridSaturated(state)).toBe(false);
     });
 

@@ -61,7 +61,10 @@ function build() {
     return { owner, rows };
 }
 
-const NO_TARGETS = { monthlyPayoutTargetCents: null, targetMonthlyMultiple: null };
+const NO_TARGETS = {
+    monthlyPayoutTargetCents: null,
+    targetMonthlyMultiple: null,
+};
 
 function zeroFees(): Record<FeeKind, number> {
     return Object.fromEntries(
@@ -73,7 +76,11 @@ describe('monthlyStatement', () => {
     it('lists each month with cash, signed fees by kind, event counts and the running net', () => {
         const { rows } = build();
         const portfolio = ledger(rows);
-        const { months } = monthlyStatement(portfolio, '2026-11-03', NO_TARGETS);
+        const { months } = monthlyStatement(
+            portfolio,
+            '2026-11-03',
+            NO_TARGETS,
+        );
         expect(months.map((m) => [m.month, m.net, m.cumulativeNet])).toEqual([
             ['2026-08', -16_700, -16_700],
             ['2026-09', -11_000, -27_700],

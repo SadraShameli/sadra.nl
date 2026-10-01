@@ -43,7 +43,8 @@ const rule = new ConductPatternRule();
 
 function withStubbedPolicy<T>(policy: FirmAccountPolicy, run: () => T): T {
     const firm = ALL_FIRMS.find((candidate) => candidate.id === ENTRY.firmId);
-    if (firm === undefined) throw new Error('expected the entry firm to be registered');
+    if (firm === undefined)
+        throw new Error('expected the entry firm to be registered');
     const mutable = firm as { accountPolicy: FirmAccountPolicy };
     const original = mutable.accountPolicy;
     mutable.accountPolicy = policy;
@@ -62,8 +63,16 @@ describe('ConductPatternRule', () => {
             alertsOf(rule, {
                 accounts: [a, b],
                 events: [
-                    { accountId: a.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-10' },
-                    { accountId: b.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-10' },
+                    {
+                        accountId: a.id,
+                        kind: AccountEventKind.Busted,
+                        occurredOn: '2026-09-10',
+                    },
+                    {
+                        accountId: b.id,
+                        kind: AccountEventKind.Busted,
+                        occurredOn: '2026-09-10',
+                    },
                 ],
             }),
         );
@@ -83,8 +92,16 @@ describe('ConductPatternRule', () => {
             alertsOf(rule, {
                 accounts: [busted, rebought],
                 events: [
-                    { accountId: busted.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-01' },
-                    { accountId: rebought.id, kind: AccountEventKind.Purchased, occurredOn: '2026-09-05' },
+                    {
+                        accountId: busted.id,
+                        kind: AccountEventKind.Busted,
+                        occurredOn: '2026-09-01',
+                    },
+                    {
+                        accountId: rebought.id,
+                        kind: AccountEventKind.Purchased,
+                        occurredOn: '2026-09-05',
+                    },
                 ],
             }),
         );
@@ -104,8 +121,16 @@ describe('ConductPatternRule', () => {
         const alerts = alertsOf(rule, {
             accounts: [a, b],
             events: [
-                { accountId: a.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-10' },
-                { accountId: b.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-10' },
+                {
+                    accountId: a.id,
+                    kind: AccountEventKind.Busted,
+                    occurredOn: '2026-09-10',
+                },
+                {
+                    accountId: b.id,
+                    kind: AccountEventKind.Busted,
+                    occurredOn: '2026-09-10',
+                },
             ],
         });
         expect(alerts).toEqual([]);
@@ -117,7 +142,11 @@ describe('ConductPatternRule', () => {
             alertsOf(rule, {
                 accounts: [a],
                 events: [
-                    { accountId: a.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-10' },
+                    {
+                        accountId: a.id,
+                        kind: AccountEventKind.Busted,
+                        occurredOn: '2026-09-10',
+                    },
                 ],
             }),
         );
@@ -132,8 +161,16 @@ describe('ConductPatternRule', () => {
                 alertsOf(rule, {
                     accounts: [busted, rebought],
                     events: [
-                        { accountId: busted.id, kind: AccountEventKind.Busted, occurredOn: 'not-a-date' },
-                        { accountId: rebought.id, kind: AccountEventKind.Purchased, occurredOn: '2026-09-05' },
+                        {
+                            accountId: busted.id,
+                            kind: AccountEventKind.Busted,
+                            occurredOn: 'not-a-date',
+                        },
+                        {
+                            accountId: rebought.id,
+                            kind: AccountEventKind.Purchased,
+                            occurredOn: '2026-09-05',
+                        },
                     ],
                 }),
             );

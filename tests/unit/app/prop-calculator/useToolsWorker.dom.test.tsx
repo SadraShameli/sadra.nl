@@ -16,12 +16,19 @@ import {
 
 type ToolsWorkerHandle = ReturnType<typeof useToolsWorker>;
 
-function Harness({ latest }: { latest: { current: null | ToolsWorkerHandle } }) {
+function Harness({
+    latest,
+}: {
+    latest: { current: null | ToolsWorkerHandle };
+}) {
     latest.current = useToolsWorker();
     return null;
 }
 
-function renderHarness(root: Root, latest: { current: null | ToolsWorkerHandle }): void {
+function renderHarness(
+    root: Root,
+    latest: { current: null | ToolsWorkerHandle },
+): void {
     act(() => {
         root.render(<Harness latest={latest} />);
     });

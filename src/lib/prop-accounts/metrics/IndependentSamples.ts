@@ -3,9 +3,7 @@ export interface CopyGroupKey {
     readonly purchasedOn: string;
 }
 
-export function independentSampleCount(
-    items: readonly CopyGroupKey[],
-): number {
+export function independentSampleCount(items: readonly CopyGroupKey[]): number {
     return independentSamples(items).length;
 }
 

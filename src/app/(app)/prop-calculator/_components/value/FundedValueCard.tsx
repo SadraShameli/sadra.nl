@@ -49,15 +49,24 @@ export function FundedValueCard({
     const inputs = useMemo(() => ({ cards, sampleSize }), [cards, sampleSize]);
     const settled = useDebouncedValue(inputs, SIM_DEBOUNCE_MS);
     const settledCards =
-        settled.cards.kind === ValueCardsInputKind.Ready ? settled.cards.cards : null;
+        settled.cards.kind === ValueCardsInputKind.Ready
+            ? settled.cards.cards
+            : null;
     const worker = useToolsRequest(
         settledCards === null || isSampleSizeInvalid
             ? null
-            : stableJson({ cards: settledCards, sampleSize: settled.sampleSize }),
+            : stableJson({
+                  cards: settledCards,
+                  sampleSize: settled.sampleSize,
+              }),
         (runId) =>
             settledCards === null
                 ? null
-                : fundedValueEstimateToolsRequest(settledCards, settled.sampleSize, runId),
+                : fundedValueEstimateToolsRequest(
+                      settledCards,
+                      settled.sampleSize,
+                      runId,
+                  ),
     );
 
     const isRefused = cards.kind === ValueCardsInputKind.Refused;
@@ -71,21 +80,33 @@ export function FundedValueCard({
     const failureReason = shouldShowWorkerOutput
         ? toolsWorkerFailureReason(worker.state)
         : null;
-    const pendingText = shouldShowWorkerOutput ? toolsWorkerPendingText(worker.state) : null;
+    const pendingText = shouldShowWorkerOutput
+        ? toolsWorkerPendingText(worker.state)
+        : null;
 
     return (
         <section
-            aria-busy={shouldShowWorkerOutput && worker.state.phase === ToolsWorkerPhase.Running}
+            aria-busy={
+                shouldShowWorkerOutput &&
+                worker.state.phase === ToolsWorkerPhase.Running
+            }
             aria-labelledby="funded-value-heading"
             className="flex flex-col gap-4"
         >
-            <h3 className="text-base font-semibold text-white" id="funded-value-heading">
+            <h3
+                className="text-base font-semibold text-white"
+                id="funded-value-heading"
+            >
                 Funded value
             </h3>
             <div className="flex flex-col gap-1">
-                <Label htmlFor="funded-value-sample-size">Sample size (n)</Label>
+                <Label htmlFor="funded-value-sample-size">
+                    Sample size (n)
+                </Label>
                 <Input
-                    aria-describedby={isSampleSizeInvalid ? SAMPLE_SIZE_ERROR_ID : undefined}
+                    aria-describedby={
+                        isSampleSizeInvalid ? SAMPLE_SIZE_ERROR_ID : undefined
+                    }
                     aria-invalid={isSampleSizeInvalid}
                     disabled={isRefused}
                     id="funded-value-sample-size"
@@ -102,10 +123,15 @@ export function FundedValueCard({
                     value={sampleSizeText}
                 />
                 {isRefused ? (
-                    <p className="text-xs text-muted-foreground">{REFUSED_TEXT}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {REFUSED_TEXT}
+                    </p>
                 ) : null}
                 {isSampleSizeInvalid ? (
-                    <p className="text-xs text-rose-400" id={SAMPLE_SIZE_ERROR_ID}>
+                    <p
+                        className="text-xs text-rose-400"
+                        id={SAMPLE_SIZE_ERROR_ID}
+                    >
                         {SAMPLE_SIZE_ERROR_TEXT}
                     </p>
                 ) : null}
@@ -117,23 +143,32 @@ export function FundedValueCard({
                     </p>
                 )}
                 {pendingText === null ? null : (
-                    <p className="text-xs text-muted-foreground">{pendingText}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {pendingText}
+                    </p>
                 )}
                 {result === null ? null : (
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         <StatCard
                             label="Mean payouts per funded account"
                             sub={`${String(result.trials)} trials`}
-                            value={uncertainCountText(result.meanPayoutsPerAccount)}
+                            value={uncertainCountText(
+                                result.meanPayoutsPerAccount,
+                            )}
                         />
                         <StatCard
                             label="P(0 payouts)"
-                            value={formatPercent(result.probabilityZeroPayouts.value)}
+                            value={formatPercent(
+                                result.probabilityZeroPayouts.value,
+                            )}
                         />
                         <StatCard
                             label="Range n accounts could show"
                             sub={sampleRangeSubText(result.sampleRange)}
-                            value={sampleRangeText(result.sampleRange) ?? NOT_APPLICABLE}
+                            value={
+                                sampleRangeText(result.sampleRange) ??
+                                NOT_APPLICABLE
+                            }
                         />
                     </div>
                 )}

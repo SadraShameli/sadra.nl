@@ -33,7 +33,9 @@ export function repeatability(
         ),
         perSlot: statsOf(
             slots.months.map((month) => month.netPerSlot),
-            slots.months.map((month) => perSlotTargetOf(target, month.slotMonths)),
+            slots.months.map((month) =>
+                perSlotTargetOf(target, month.slotMonths),
+            ),
         ),
     };
 }

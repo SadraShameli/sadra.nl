@@ -46,7 +46,6 @@ import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-
 type EdgeReport = RouterOutputs['propAccounts']['edge']['summary'];
 
 const EARLIEST_DATE = `${String(MIN_ACCOUNT_DATE_YEAR)}-01-01`;
@@ -266,7 +265,8 @@ function EdgeResult({
     const measuredRewardToRisk = measuredRewardToRiskWithinCalculatorBounds(
         summary.measuredRewardToRisk,
     );
-    const edgeRewardToRisk = measuredRewardToRisk?.value ?? summary.rewardToRisk;
+    const edgeRewardToRisk =
+        measuredRewardToRisk?.value ?? summary.rewardToRisk;
     const sampleLevel = sampleAdequacy(
         SampleKind.Trades,
         summary.sampleSize,
@@ -311,9 +311,9 @@ function EdgeResult({
                     <span className="font-semibold text-foreground tabular-nums">
                         n = {summary.sampleSize}
                     </span>{' '}
-                    journal {summary.sampleSize === 1 ? 'trade' : 'trades'}{' '}
-                    with a recorded result; breakevens count as trades that
-                    did not win.
+                    journal {summary.sampleSize === 1 ? 'trade' : 'trades'} with
+                    a recorded result; breakevens count as trades that did not
+                    win.
                 </p>
                 <SampleBadge level={sampleLevel} />
             </div>
@@ -387,7 +387,8 @@ function measuredRewardToRiskWithinCalculatorBounds(
 ): MeasuredRewardToRisk | null {
     if (measuredRewardToRisk === null) return null;
     const { max, min } = CALCULATOR_SCALAR_BOUNDS.rr;
-    return measuredRewardToRisk.value >= min && measuredRewardToRisk.value <= max
+    return measuredRewardToRisk.value >= min &&
+        measuredRewardToRisk.value <= max
         ? measuredRewardToRisk
         : null;
 }

@@ -13,7 +13,10 @@ import {
     type PositionSizingConfig,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
-import { type SimInputs, simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
+import {
+    type SimInputs,
+    simInputsSizingIssue,
+} from '~/lib/prop-calculator/simulator';
 
 export enum FundedCandidateBuildKind {
     Built = 'built',

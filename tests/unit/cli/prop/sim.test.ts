@@ -829,7 +829,9 @@ describe('sim attempt economics lines (PT-54, F-V8, F-V9, F-V22)', () => {
     });
 
     it('prints the funded value, EV per attempt, breakeven and funded value / attempt cost from the one EV definition', () => {
-        expect(economicsValue(rows, FUNDED_VALUE_LABEL)).toBe('$1,000 (SE $50)');
+        expect(economicsValue(rows, FUNDED_VALUE_LABEL)).toBe(
+            '$1,000 (SE $50)',
+        );
         expect(economicsValue(rows, EV_PER_ATTEMPT_LABEL)).toBe(
             '$150 (SE $10)',
         );
@@ -974,7 +976,11 @@ describe('sim bankroll lines (PT-54, F-V13)', () => {
 
     it('prints nothing without --bankroll or --loss-threshold', () => {
         expect(
-            simBankrollRows(twoPointFixture(), inputs, bankrollInputs(null, null)),
+            simBankrollRows(
+                twoPointFixture(),
+                inputs,
+                bankrollInputs(null, null),
+            ),
         ).toStrictEqual([]);
     });
 
@@ -993,9 +999,9 @@ describe('sim bankroll lines (PT-54, F-V13)', () => {
         expect(economicsValue(rows, 'attempts affordable')).toBe(
             '50 at $100 per attempt',
         );
-        expect(
-            economicsValue(rows, 'minimum budget for the loss target'),
-        ).toBe('threshold not set');
+        expect(economicsValue(rows, 'minimum budget for the loss target')).toBe(
+            'threshold not set',
+        );
     });
 
     it('computes P(batch net < 0) from the run nets: within 3 SE of the exact 0.018502 for the p 0.2, value 1,000, cost 100 two-point case', () => {
@@ -1051,9 +1057,9 @@ describe('sim bankroll lines (PT-54, F-V13)', () => {
             inputs,
             bankrollInputs(5000, 0.05),
         );
-        expect(
-            economicsValue(rows, 'minimum budget for the loss target'),
-        ).toBe('no positive edge');
+        expect(economicsValue(rows, 'minimum budget for the loss target')).toBe(
+            'no positive edge',
+        );
         expect(
             percentIn(
                 economicsValue(rows, 'P(batch net < 0) over 50 attempts'),
@@ -1152,7 +1158,9 @@ describe('prop sim prints the economics after the existing lines (PT-54)', () =>
         expect(stdout).toContain('attempts affordable');
         expect(stdout).toContain('P(no payout from');
         expect(stdout).toContain('minimum budget for the loss target');
-        expect(stdout).not.toMatch(/\b(?:implausible|no|strong|typical) edge\b/);
+        expect(stdout).not.toMatch(
+            /\b(?:implausible|no|strong|typical) edge\b/,
+        );
     });
 
     it('prints the plausibility note for 70% at 1:1', async () => {

@@ -1,4 +1,7 @@
-import { type LadderGridConfig, type LadderScoreConfig } from '~/lib/prop-calculator/core';
+import {
+    type LadderGridConfig,
+    type LadderScoreConfig,
+} from '~/lib/prop-calculator/core';
 import { type FundedCandidateOptions } from '~/lib/prop-calculator/optimize';
 import { type SimInputs } from '~/lib/prop-calculator/simulator';
 
@@ -34,8 +37,7 @@ export interface LadderSearchRequest {
 }
 
 export type LadderSearchRequestSource =
-    | AdviceSource.LadderSearchFresh
-    | AdviceSource.LadderSearchFromState;
+    AdviceSource.LadderSearchFresh | AdviceSource.LadderSearchFromState;
 
 export { type FundedFromStateSweepRequest } from './FundedFromStateSweep';
 export { type NextPayoutProjectionRequest } from './NextPayoutProjection';

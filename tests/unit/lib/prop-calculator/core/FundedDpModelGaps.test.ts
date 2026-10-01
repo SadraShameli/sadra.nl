@@ -234,7 +234,8 @@ describe('fundedDpModelGaps', () => {
             ): gap is Extract<
                 FundedDpModelGap,
                 { kind: FundedDpModelGapKind.CalendarWeekInactivityIgnored }
-            > => gap.kind === FundedDpModelGapKind.CalendarWeekInactivityIgnored,
+            > =>
+                gap.kind === FundedDpModelGapKind.CalendarWeekInactivityIgnored,
         );
         if (calendarWeekGap === undefined) {
             throw new Error('expected a calendar-week gap for TPT PRO');
@@ -264,8 +265,7 @@ describe('fundedDpModelGaps flags PayoutFloorEffect.ReleaseFloor plans as unvali
 
     it('flags every TopStep plan built off the XFA payout floor, today the only ReleaseFloor plans in the registry', () => {
         const flagged = ALL_FIRMS.flatMap((firm) => firm.plans).filter(
-            (plan) =>
-                plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor,
+            (plan) => plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor,
         );
         expect(flagged.length).toBeGreaterThan(0);
         for (const plan of flagged) {

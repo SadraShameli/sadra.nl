@@ -49,4 +49,3 @@ function lagDays(
         ? []
         : [dayNumberOf(on) - dayNumberOf(payout.requestedOn)];
 }
-

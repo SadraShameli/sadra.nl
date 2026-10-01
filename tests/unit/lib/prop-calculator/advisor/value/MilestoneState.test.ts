@@ -84,7 +84,10 @@ function fundedAccount(
     };
 }
 
-function modeledLiveAccount(plan: Plan, balanceAbove: number): ReconstructedAccount {
+function modeledLiveAccount(
+    plan: Plan,
+    balanceAbove: number,
+): ReconstructedAccount {
     const applicability = livePlanApplicability(plan.id);
     if (applicability.kind !== LiveApplicabilityKind.Builder) {
         throw new Error('expected a modeled live builder');
@@ -153,7 +156,10 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
     it('eval: moves the state to balance = target and counts the closing day, carrying elapsed progress', () => {
         const plan = rapidEodPlan();
         const spec = specFor(plan);
-        const account = evalAccount(plan, { qualifyingDays: 3, tradingDays: 3 });
+        const account = evalAccount(plan, {
+            qualifyingDays: 3,
+            tradingDays: 3,
+        });
 
         const outcome = milestoneState(account, spec);
         if (outcome.kind !== MilestoneKind.Eval) {
@@ -180,7 +186,9 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
         expect(outcome.state.todayPnL).toBe(0);
         expect(outcome.state.elapsedDays).toBe(4);
         expect(
-            evalStartStateIssue(plan, outcome.state, 40)?.includes('todayPnL') ?? false,
+            evalStartStateIssue(plan, outcome.state, 40)?.includes(
+                'todayPnL',
+            ) ?? false,
         ).toBe(false);
     });
 
@@ -194,9 +202,9 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
             throw new Error('expected an eval milestone');
         }
 
-        expect(outcome.unmetGates.includes(EvalMilestoneGap.MinTradingDaysNotMet)).toBe(
-            plan.minTradingDays > 0,
-        );
+        expect(
+            outcome.unmetGates.includes(EvalMilestoneGap.MinTradingDaysNotMet),
+        ).toBe(plan.minTradingDays > 0);
     });
 
     it('eval: lists ConsistencyNotMet exactly when the plan has an eval consistency rule', () => {
@@ -212,9 +220,9 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
             throw new Error('expected an eval milestone');
         }
 
-        expect(outcome.unmetGates.includes(EvalMilestoneGap.ConsistencyNotMet)).toBe(
-            plan.evalConsistencyRule() !== null,
-        );
+        expect(
+            outcome.unmetGates.includes(EvalMilestoneGap.ConsistencyNotMet),
+        ).toBe(plan.evalConsistencyRule() !== null);
     });
 
     it('eval: flags ConsistencyNotMet when the milestone-closing trade alone would blow the best-day share, even though the pre-existing best day was small', () => {
@@ -231,12 +239,10 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
             throw new Error('expected an eval milestone');
         }
 
-        expect(outcome.state.bestDayProfit).toBe(
-            plan.profitTarget - 1000,
-        );
-        expect(outcome.unmetGates.includes(EvalMilestoneGap.ConsistencyNotMet)).toBe(
-            true,
-        );
+        expect(outcome.state.bestDayProfit).toBe(plan.profitTarget - 1000);
+        expect(
+            outcome.unmetGates.includes(EvalMilestoneGap.ConsistencyNotMet),
+        ).toBe(true);
     });
 
     it('funded: debits the effective payout request and applies the post-payout floor', () => {
@@ -330,7 +336,11 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
         const plan = topStepPlan();
         const spec = specFor(plan);
         const account = modeledLiveAccount(plan, 5000);
-        if (account.kind !== ReconstructedLiveKind.Live || account.state === null || account.livePlan === null) {
+        if (
+            account.kind !== ReconstructedLiveKind.Live ||
+            account.state === null ||
+            account.livePlan === null
+        ) {
             throw new Error('expected a modeled live account');
         }
 
@@ -340,7 +350,10 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
         }
 
         const retainedCushion = dollars(
-            resolveDocumentedRetainedCushion(spec.enginePolicy, spec.rulebook.payout),
+            resolveDocumentedRetainedCushion(
+                spec.enginePolicy,
+                spec.rulebook.payout,
+            ),
         );
         const expectedDebited = account.livePlan.payoutRequestAmount(
             account.state,
@@ -387,14 +400,19 @@ describe('accountAfterClosedSession (PT-67b step 1)', () => {
         expect(closed.state.elapsedDays).toBe(3);
         expect(closed.state.bestDayProfit).toBe(600);
         expect(closed.state.threshold).toBeGreaterThan(account.state.threshold);
-        expect(closed.cushion).toBe(closed.state.balance - closed.state.threshold);
+        expect(closed.cushion).toBe(
+            closed.state.balance - closed.state.threshold,
+        );
         expect(account.state.todayPnL).toBe(0);
         expect(account.state.tradingDays).toBe(2);
     });
 
     it('eval: a losing day leaves the best day and the floor where they were', () => {
         const plan = rapidEodPlan();
-        const account = evalAccount(plan, { bestDayProfit: 300, tradingDays: 2 });
+        const account = evalAccount(plan, {
+            bestDayProfit: 300,
+            tradingDays: 2,
+        });
 
         const closed = accountAfterClosedSession(account, -250);
 
@@ -426,7 +444,8 @@ describe('accountAfterClosedSession (PT-67b step 1)', () => {
     it('funded: a smaller day never lowers the cycle best day', () => {
         const plan = rapidEodPlan();
         const account = fundedAccount(plan, { balance: 50_800 });
-        if (account.fundedTracker === null) throw new Error('expected a funded tracker');
+        if (account.fundedTracker === null)
+            throw new Error('expected a funded tracker');
         account.fundedTracker.cycleBestDayProfit = 700;
 
         const closed = accountAfterClosedSession(account, 200);

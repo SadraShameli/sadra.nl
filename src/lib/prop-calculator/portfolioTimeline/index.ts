@@ -1,7 +1,4 @@
-export {
-    runAccountTimeline,
-    type SharedPayoutBudget,
-} from './accountTimeline';
+export { runAccountTimeline, type SharedPayoutBudget } from './accountTimeline';
 export { simulateBankrollTimeline } from './bankrollTimeline';
 export { runEvalToFundedCycle } from './fundedCycle';
 export { simulatePortfolioTimeline } from './portfolio';

@@ -8,6 +8,7 @@ import {
     ladderStepLookup,
     minimumPayoutRequest,
     PayoutDayGateBasis,
+    type PayoutEvaluation,
     PayoutEvaluationKind,
     PayoutGate,
     payoutPoolProfit,
@@ -59,6 +60,14 @@ export interface CalendarDaysWait {
     readonly daysStillNeeded: number;
 }
 
+export interface DocumentedPayoutEvaluationInput {
+    readonly minRetainedCushion: number;
+    readonly payoutRequestSize: number;
+    readonly plan: Plan;
+    readonly state: AccountState;
+    readonly tracker: FundedCycleTracker;
+}
+
 export interface EligiblePayoutReadiness {
     readonly kind: PayoutReadinessKind.Eligible;
     readonly requestedAmount: number;
@@ -94,10 +103,7 @@ export type PayoutReadinessOptions =
       });
 
 export type PayoutWait =
-    | CalendarDaysWait
-    | NoClosedFormWait
-    | ProfitWait
-    | QualifyingDaysWait;
+    CalendarDaysWait | NoClosedFormWait | ProfitWait | QualifyingDaysWait;
 
 export interface ProfitWait {
     readonly basis: PayoutWaitBasis.Profit;
@@ -158,6 +164,18 @@ export function dayGateProgressOf(
     }
 }
 
+export function evaluateDocumentedPayout(
+    input: DocumentedPayoutEvaluationInput,
+): PayoutEvaluation {
+    return input.tracker.evaluatePayout({
+        minRetainedCushion: input.minRetainedCushion,
+        payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
+        payoutRequestSize: input.payoutRequestSize,
+        plan: input.plan,
+        state: input.state,
+    });
+}
+
 export function liveTriggerBlockReasonFor(
     payoutsIssued: number,
     limit: LiveTriggerCountLimit | undefined,
@@ -178,7 +196,8 @@ export function liveTriggerBlockReasonFor(
         limit.paidPayoutsSinceLastLiveAccount + 1 >= limit.firmTotalCap
     ) {
         return wouldTriggerLiveBlockReason({
-            paidPayoutsSinceLastLiveAccount: limit.paidPayoutsSinceLastLiveAccount,
+            paidPayoutsSinceLastLiveAccount:
+                limit.paidPayoutsSinceLastLiveAccount,
             triggerAtPayoutCount: limit.firmTotalCap,
         });
     }
@@ -311,10 +330,7 @@ export function payoutPath(
     });
 
     const requested = effectivePayoutRequest(plan, payoutRequestSize);
-    const { requestCap } = plan.resolvedPayoutCap(
-        state,
-        tracker.payoutsIssued,
-    );
+    const { requestCap } = plan.resolvedPayoutCap(state, tracker.payoutsIssued);
     const stepAmount =
         ladderStep.kind === 'step' ? ladderStep.amount : Infinity;
     const fullRequestAmount = Math.min(
@@ -353,12 +369,12 @@ export function payoutReadiness(
         options.payoutRequestSize ?? DEFAULT_PAYOUT_REQUEST_SIZE,
     );
     const evaluate = (evalState: AccountState) =>
-        tracker.evaluatePayout({
+        evaluateDocumentedPayout({
             minRetainedCushion: options.minRetainedCushion,
-            payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
             payoutRequestSize: requested,
             plan,
             state: evalState,
+            tracker,
         });
     const evaluation = evaluate(netState);
     switch (evaluation.kind) {
@@ -380,7 +396,11 @@ export function payoutReadiness(
                 options.liveTrigger,
             );
             if (liveTriggerReason !== null) {
-                return { kind: PayoutReadinessKind.Blocked, reason: liveTriggerReason, wait: null };
+                return {
+                    kind: PayoutReadinessKind.Blocked,
+                    reason: liveTriggerReason,
+                    wait: null,
+                };
             }
             return {
                 kind: PayoutReadinessKind.Eligible,

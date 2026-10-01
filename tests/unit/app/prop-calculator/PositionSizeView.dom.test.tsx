@@ -56,8 +56,8 @@ function statCardLabelSpan(
 
 function statCardSub(scope: ParentNode, label: string): string {
     return (
-        statCardLabelSpan(scope, label)?.nextElementSibling
-            ?.nextElementSibling?.textContent ?? ''
+        statCardLabelSpan(scope, label)?.nextElementSibling?.nextElementSibling
+            ?.textContent ?? ''
     );
 }
 
@@ -171,9 +171,7 @@ describe('PositionSizeView', () => {
     it('shows the retry fee field and an at-risk-if-busted line in the eval phase', () => {
         const retryFeeField = field('position-size-retry-fee');
         expect(retryFeeField.value).not.toBe('');
-        expect(positionSection().textContent).toContain(
-            'At risk if busted',
-        );
+        expect(positionSection().textContent).toContain('At risk if busted');
         typeInto(retryFeeField, '600');
         expect(positionSection().textContent).toContain('$600');
         expect(ownQuery().get(PositionSizeUrlParameter.RetryFee)).toBe('600');
@@ -184,9 +182,7 @@ describe('PositionSizeView', () => {
         act(() => {
             container
                 .querySelector('[data-testid="switch-plan"]')
-                ?.dispatchEvent(
-                    new MouseEvent('click', { bubbles: true }),
-                );
+                ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
         const after = field('position-size-retry-fee').value;
         expect(after).not.toBe('');

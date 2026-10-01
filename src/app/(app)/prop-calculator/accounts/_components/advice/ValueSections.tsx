@@ -98,7 +98,9 @@ export function ValuesNotice({
 }) {
     if (isLive) {
         return (
-            <p className="text-sm text-muted-foreground">{NO_LIVE_VALUE_TEXT}</p>
+            <p className="text-sm text-muted-foreground">
+                {NO_LIVE_VALUE_TEXT}
+            </p>
         );
     }
     switch (values.phase) {
@@ -137,7 +139,9 @@ export function ValuesNotice({
                 <div className="flex flex-col gap-2">
                     {children}
                     {runNote !== null && (
-                        <p className="text-xs text-muted-foreground">{runNote}</p>
+                        <p className="text-xs text-muted-foreground">
+                            {runNote}
+                        </p>
                     )}
                 </div>
             );

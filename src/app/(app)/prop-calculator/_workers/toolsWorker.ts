@@ -110,7 +110,10 @@ function computeBatch(request: BatchToolsRequest): BatchToolsSummary | null {
         LOSS_RISK_DRAWS,
         simInputs.seed,
     );
-    const decomposition = attemptEconomicsOfRun(out, simInputs.fundedHorizonDays);
+    const decomposition = attemptEconomicsOfRun(
+        out,
+        simInputs.fundedHorizonDays,
+    );
     const fundedValueToAttemptCostRatio =
         decomposition.value?.fundedValueToAttemptCost.value?.ratio ?? null;
     const { pAttemptPays, valuePerPayingAttempt } = empiricalPayingStatsOf(
@@ -152,19 +155,19 @@ function computeLevers(
     const baseOut = simulate(simInputs);
     const base = toLeverOutputs(baseOut);
     const variants: BankrollLeverVariant[] = [
-        ...(request.risks ?? []).map(
-            (risk): BankrollLeverVariant => ({
-                kind: BankrollLeverKind.Risk,
-                outputs: toLeverOutputs(
-                    simulate({ ...simInputs, riskPerTrade: risk }),
-                ),
-                value: risk,
-            }),
-        ),
+        ...(request.risks ?? []).map((risk): BankrollLeverVariant => ({
+            kind: BankrollLeverKind.Risk,
+            outputs: toLeverOutputs(
+                simulate({ ...simInputs, riskPerTrade: risk }),
+            ),
+            value: risk,
+        })),
         ...(request.tradesPerDay ?? []).map(
             (tradesPerDay): BankrollLeverVariant => ({
                 kind: BankrollLeverKind.TradesPerDay,
-                outputs: toLeverOutputs(simulate({ ...simInputs, tradesPerDay })),
+                outputs: toLeverOutputs(
+                    simulate({ ...simInputs, tradesPerDay }),
+                ),
                 value: tradesPerDay,
             }),
         ),
@@ -189,7 +192,10 @@ function computeLevers(
 
 function computeProjection(
     variant: BankrollPlanVariantInputs,
-    request: { bankroll: ProjectionToolsRequest['bankroll']; dayBudget: number },
+    request: {
+        bankroll: ProjectionToolsRequest['bankroll'];
+        dayBudget: number;
+    },
 ): BankrollTimelineResult | null {
     const resolved = resolveVariant(variant);
     if (resolved === null) return null;
@@ -222,11 +228,16 @@ function computeSameEvOutcome(
     const lossRisk =
         attempts.value === null
             ? null
-            : (cohortOutcome(out.netValues, attempts.value, LOSS_RISK_DRAWS, seed)
-                  .value?.lossProbability.value ?? null);
+            : (cohortOutcome(
+                  out.netValues,
+                  attempts.value,
+                  LOSS_RISK_DRAWS,
+                  seed,
+              ).value?.lossProbability.value ?? null);
     return {
         evPerAttempt: out.expectedNetPerAttempt,
-        evPerAttemptStandardError: out.estimates.expectedNetPerAttempt.standardError,
+        evPerAttemptStandardError:
+            out.estimates.expectedNetPerAttempt.standardError,
         lossRisk,
         noPayoutProbability: noPayout,
     };
@@ -255,7 +266,8 @@ function computeValueChain(
     return plan === null ? null : valueChain(plan, request.spec);
 }
 
-const PLAN_NOT_FOUND_REASON = 'toolsWorker: no plan for the requested firm and serial';
+const PLAN_NOT_FOUND_REASON =
+    'toolsWorker: no plan for the requested firm and serial';
 
 function fail(runId: number, reason: string): ToolsWorkerResult {
     return { kind: ToolsResponseKind.Failed, reason, runId };
@@ -325,8 +337,16 @@ function finishProjection(request: ProjectionToolsRequest): ToolsWorkerResult {
 
 function finishSameEv(request: SameEvToolsRequest): ToolsWorkerResult {
     const [firstVariant, secondVariant] = request.variants;
-    const first = computeSameEvOutcome(firstVariant, request.bankroll, firstVariant.base.seed);
-    const second = computeSameEvOutcome(secondVariant, request.bankroll, secondVariant.base.seed);
+    const first = computeSameEvOutcome(
+        firstVariant,
+        request.bankroll,
+        firstVariant.base.seed,
+    );
+    const second = computeSameEvOutcome(
+        secondVariant,
+        request.bankroll,
+        secondVariant.base.seed,
+    );
     if (first === null || second === null) {
         return fail(request.runId, PLAN_NOT_FOUND_REASON);
     }
@@ -337,7 +357,9 @@ function finishSameEv(request: SameEvToolsRequest): ToolsWorkerResult {
     });
 }
 
-function finishTakeProfitRows(request: TakeProfitRowsToolsRequest): ToolsWorkerResult {
+function finishTakeProfitRows(
+    request: TakeProfitRowsToolsRequest,
+): ToolsWorkerResult {
     let rows: null | readonly TakeProfitRowSummary[];
     try {
         rows = computeTakeProfitRows(request);
@@ -355,7 +377,9 @@ function finishTakeProfitRows(request: TakeProfitRowsToolsRequest): ToolsWorkerR
     });
 }
 
-function finishTwoStrategies(request: TwoStrategiesToolsRequest): ToolsWorkerResult {
+function finishTwoStrategies(
+    request: TwoStrategiesToolsRequest,
+): ToolsWorkerResult {
     const [firstVariant, secondVariant] = request.variants;
     const first = computeProjection(firstVariant, request);
     const second = computeProjection(secondVariant, request);
@@ -382,9 +406,7 @@ function finishValueChain(request: ValueChainToolsRequest): ToolsWorkerResult {
 function resolvePlanReference(reference: BankrollPlanReference): null | Plan {
     const firm = findFirm(reference.firmId);
     const rawPlan = firm?.findPlanBySerial(reference.planSerial) ?? null;
-    return rawPlan === null
-        ? null
-        : withPlanOptIns(rawPlan, reference.optIns);
+    return rawPlan === null ? null : withPlanOptIns(rawPlan, reference.optIns);
 }
 
 function resolveVariant(
@@ -438,7 +460,9 @@ function toLeverRowSummary(row: BankrollLeverRow): BankrollLeverRowSummary {
     };
 }
 
-function toTakeProfitRowSummary(row: TakeProfitWhatIfRow): TakeProfitRowSummary {
+function toTakeProfitRowSummary(
+    row: TakeProfitWhatIfRow,
+): TakeProfitRowSummary {
     return {
         attemptPassProbability: row.out.attemptPassProbability,
         daysToPassP50: row.out.daysToPassP50,
@@ -463,7 +487,10 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
                     ? event.data.runId
                     : -1;
             self.postMessage(
-                fail(runId, error instanceof Error ? error.message : String(error)),
+                fail(
+                    runId,
+                    error instanceof Error ? error.message : String(error),
+                ),
             );
         }
     });

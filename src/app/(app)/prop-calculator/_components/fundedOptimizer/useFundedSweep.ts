@@ -19,9 +19,14 @@ export interface FundedSweepState {
     readonly result: FundedSweepResult | null;
 }
 
-export function useFundedSweep(request: FundedSweepRequest | null): FundedSweepState {
+export function useFundedSweep(
+    request: FundedSweepRequest | null,
+): FundedSweepState {
     const job = useMemo(
-        () => (request === null ? null : { key: fundedSweepCacheKey(request), request }),
+        () =>
+            request === null
+                ? null
+                : { key: fundedSweepCacheKey(request), request },
         [request],
     );
     const { state } = useCachedWorkerTask<
@@ -60,7 +65,12 @@ export function useFundedSweep(request: FundedSweepRequest | null): FundedSweepS
             };
         }
         case WorkerTaskPhase.Idle: {
-            return { phase: state.phase, progress: null, reason: null, result: null };
+            return {
+                phase: state.phase,
+                progress: null,
+                reason: null,
+                result: null,
+            };
         }
         case WorkerTaskPhase.Running: {
             return {
@@ -74,7 +84,10 @@ export function useFundedSweep(request: FundedSweepRequest | null): FundedSweepS
 }
 
 function createFundedSweepWorker(): Worker {
-    return new Worker(new URL('../../_workers/fundedSweepWorker.ts', import.meta.url), {
-        type: 'module',
-    });
+    return new Worker(
+        new URL('../../_workers/fundedSweepWorker.ts', import.meta.url),
+        {
+            type: 'module',
+        },
+    );
 }

@@ -17,12 +17,12 @@ import {
     type OverviewWorkerResult,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 
+import {
+    type GroupDelivery,
+    slotEngineFromGroups,
+    uniformSlotEngine,
+} from './engineSlot';
 import { NO_OVERVIEW_ENGINE, type OverviewEngine } from './overviewModel';
-
-interface GroupTask {
-    readonly delivered: null | OverviewWorkerResult;
-    readonly failure: null | string;
-}
 
 const WORKERS_UNAVAILABLE = 'Web workers are not available in this browser.';
 
@@ -53,41 +53,19 @@ export function useOverviewWorker(
         hasWorkers,
     );
     const areWorkersMissing = isClient && !hasWorkers && requests.length > 0;
-    const failure =
-        accounts.failure ??
-        policy.failure ??
-        projection.failure ??
-        values.failure;
-    const { delivered: accountsDelivered } = accounts;
-    const { delivered: policyDelivered } = policy;
-    const { delivered: projectionDelivered } = projection;
-    const { delivered: valuesDelivered } = values;
 
     return useMemo(() => {
         if (areWorkersMissing) return unavailableEngine();
-        const delivered = [
-            ...(policyDelivered?.outcomes ?? []),
-            ...(projectionDelivered?.outcomes ?? []),
-            ...(valuesDelivered?.outcomes ?? []),
-            ...(accountsDelivered?.outcomes ?? []),
-        ];
-        if (failure === null && delivered.length === 0) {
-            return NO_OVERVIEW_ENGINE;
-        }
-        return {
-            failure,
-            outcomes: new Map(
-                delivered.map((outcome) => [outcome.key, outcome]),
-            ),
-        };
-    }, [
-        accountsDelivered,
-        areWorkersMissing,
-        failure,
-        policyDelivered,
-        projectionDelivered,
-        valuesDelivered,
-    ]);
+        const engine = slotEngineFromGroups({
+            [OverviewRequestGroup.Accounts]: accounts,
+            [OverviewRequestGroup.Policy]: policy,
+            [OverviewRequestGroup.Projection]: projection,
+            [OverviewRequestGroup.Values]: values,
+        });
+        return engine.failure === null && engine.outcomes.size === 0
+            ? NO_OVERVIEW_ENGINE
+            : engine;
+    }, [accounts, areWorkersMissing, policy, projection, values]);
 }
 
 function createOverviewWorker(): Worker {
@@ -120,7 +98,7 @@ function subscribeNever(): () => void {
 }
 
 function unavailableEngine(): OverviewEngine {
-    return { failure: WORKERS_UNAVAILABLE, outcomes: new Map() };
+    return uniformSlotEngine(WORKERS_UNAVAILABLE);
 }
 
 function unsubscribeNothing(): void {
@@ -130,7 +108,7 @@ function unsubscribeNothing(): void {
 function useRequestGroupTask(
     requests: readonly OverviewRequest[],
     hasWorkers: boolean,
-): GroupTask {
+): GroupDelivery {
     const job = useMemo(
         () =>
             hasWorkers && requests.length > 0
@@ -143,8 +121,8 @@ function useRequestGroupTask(
         OverviewWorkerRequest,
         OverviewWorkerResult
     >({ createWorker: createOverviewWorker, id: ComputationId.Overview, job });
-    return {
-        delivered: deliveredOf(state),
-        failure: state.phase === WorkerTaskPhase.Failed ? state.reason : null,
-    };
+    const delivered = deliveredOf(state);
+    const failure =
+        state.phase === WorkerTaskPhase.Failed ? state.reason : null;
+    return useMemo(() => ({ delivered, failure }), [delivered, failure]);
 }

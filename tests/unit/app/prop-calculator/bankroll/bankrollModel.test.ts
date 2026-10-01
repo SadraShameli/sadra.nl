@@ -22,8 +22,17 @@ import {
     parseBankrollDollarCandidateList,
 } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollModel';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
-import { type BankrollPlanVariantInputs, ToolsRequestKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { dollars, findFirm, FirmId, fraction, serializePlanId } from '~/lib/prop-calculator';
+import {
+    type BankrollPlanVariantInputs,
+    ToolsRequestKind,
+} from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import {
+    dollars,
+    findFirm,
+    FirmId,
+    fraction,
+    serializePlanId,
+} from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
     LifetimePayoutCapBasis,
@@ -31,10 +40,15 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import { type Plan, TopStepVariant } from '~/lib/prop-calculator/core';
 import { EconomicsReason } from '~/lib/prop-calculator/economics';
-import { type SimInputs, type SimOutputs, simulate } from '~/lib/prop-calculator/simulator';
+import {
+    type SimInputs,
+    type SimOutputs,
+    simulate,
+} from '~/lib/prop-calculator/simulator';
 
 function requirePlan(value: null | Plan | undefined): Plan {
-    if (value === null || value === undefined) throw new Error('plan not found');
+    if (value === null || value === undefined)
+        throw new Error('plan not found');
     return value;
 }
 
@@ -79,7 +93,10 @@ function variantFor(): BankrollPlanVariantInputs {
         },
         plan: {
             firmId: FirmId.TopStep,
-            optIns: { takesFundedReset: false, takesOneTimeEarlyWithdrawal: false },
+            optIns: {
+                takesFundedReset: false,
+                takesOneTimeEarlyWithdrawal: false,
+            },
             planSerial: serializePlanId({
                 accountSize: 50_000,
                 firm: FirmId.TopStep,
@@ -89,7 +106,8 @@ function variantFor(): BankrollPlanVariantInputs {
         policy: {
             commissionPerRoundTrip: 0,
             fundedHorizonDays: 30,
-            lifetimePayoutCapBasis: LifetimePayoutCapBasis.LiveTriggersNotChecked,
+            lifetimePayoutCapBasis:
+                LifetimePayoutCapBasis.LiveTriggersNotChecked,
             lifetimePayoutCapOverride: null,
             payoutRequestOverride: 500,
             rebuyLagBasis: RebuyLagBasis.AssumedZero,
@@ -111,17 +129,24 @@ describe('bankrollSetupSummary', () => {
     });
 
     it('is NoPositiveEdge when the mean net value is at or below zero', () => {
-        const noEdgeOut: SimOutputs = { ...POSITIVE_EDGE_OUT, netValues: [-50, -50, -50] };
+        const noEdgeOut: SimOutputs = {
+            ...POSITIVE_EDGE_OUT,
+            netValues: [-50, -50, -50],
+        };
         const summary = bankrollSetupSummary(noEdgeOut, fraction(0.1));
         expect(summary.status).toBe(BankrollSetupStatus.NoPositiveEdge);
         expect(summary.minimumBudget.value).toBeNull();
-        expect(summary.minimumBudget.reason).toBe(EconomicsReason.NoPositiveEdge);
+        expect(summary.minimumBudget.reason).toBe(
+            EconomicsReason.NoPositiveEdge,
+        );
     });
 
     it('gives a null minimum budget with reason ThresholdNotSet when no threshold is set', () => {
         const summary = bankrollSetupSummary(POSITIVE_EDGE_OUT, null);
         expect(summary.minimumBudget.value).toBeNull();
-        expect(summary.minimumBudget.reason).toBe(EconomicsReason.ThresholdNotSet);
+        expect(summary.minimumBudget.reason).toBe(
+            EconomicsReason.ThresholdNotSet,
+        );
     });
 
     it('gives a positive minimum budget and attempt count once a threshold is set on a positive-edge plan', () => {
@@ -138,8 +163,14 @@ describe('bankrollSetupSummary', () => {
 
 describe('bankrollMinimumBudgetForThreshold', () => {
     it('matches bankrollSetupSummary.minimumBudget', () => {
-        const direct = bankrollMinimumBudgetForThreshold(POSITIVE_EDGE_OUT, fraction(0.2));
-        const viaSummary = bankrollSetupSummary(POSITIVE_EDGE_OUT, fraction(0.2)).minimumBudget;
+        const direct = bankrollMinimumBudgetForThreshold(
+            POSITIVE_EDGE_OUT,
+            fraction(0.2),
+        );
+        const viaSummary = bankrollSetupSummary(
+            POSITIVE_EDGE_OUT,
+            fraction(0.2),
+        ).minimumBudget;
         expect(direct).toEqual(viaSummary);
     });
 });
@@ -147,7 +178,12 @@ describe('bankrollMinimumBudgetForThreshold', () => {
 describe('bankrollBatchRequest', () => {
     it('builds a Batch request sized to the attempts the budget affords', () => {
         const variant = variantFor();
-        const request = bankrollBatchRequest(variant, POSITIVE_EDGE_OUT, dollars(5000), 1);
+        const request = bankrollBatchRequest(
+            variant,
+            POSITIVE_EDGE_OUT,
+            dollars(5000),
+            1,
+        );
         expect(request).not.toBeNull();
         if (request === null) return;
         expect(request.kind).toBe(ToolsRequestKind.Batch);
@@ -159,7 +195,12 @@ describe('bankrollBatchRequest', () => {
 
     it('gives null when the budget cannot afford even one attempt', () => {
         const variant = variantFor();
-        const request = bankrollBatchRequest(variant, POSITIVE_EDGE_OUT, dollars(1), 1);
+        const request = bankrollBatchRequest(
+            variant,
+            POSITIVE_EDGE_OUT,
+            dollars(1),
+            1,
+        );
         expect(request).toBeNull();
     });
 });
@@ -185,7 +226,11 @@ describe('bankrollBudgetPricing', () => {
     });
 
     it('gives every field null when the budget affords no attempts', () => {
-        const pricing = bankrollBudgetPricing(POSITIVE_EDGE_OUT, dollars(1), null);
+        const pricing = bankrollBudgetPricing(
+            POSITIVE_EDGE_OUT,
+            dollars(1),
+            null,
+        );
         expect(pricing).toEqual({
             attempts: null,
             batchNetNegativeProbability: null,
@@ -196,22 +241,32 @@ describe('bankrollBudgetPricing', () => {
     });
 
     it('gives a null batch probability while the worker result has not arrived yet', () => {
-        const pricing = bankrollBudgetPricing(POSITIVE_EDGE_OUT, dollars(5000), null);
+        const pricing = bankrollBudgetPricing(
+            POSITIVE_EDGE_OUT,
+            dollars(5000),
+            null,
+        );
         expect(pricing.attempts).not.toBeNull();
         expect(pricing.batchNetNegativeProbability).toBeNull();
     });
 
     it('surfaces the reason a batch loss probability is unavailable, such as an attempt count too large for cohortOutcome to sample', () => {
-        const pricing = bankrollBudgetPricing(POSITIVE_EDGE_OUT, dollars(5000), {
-            crossCheckLossProbability: null,
-            fundedValueToAttemptCostRatio: null,
-            lossProbability: null,
-            lossProbabilityReason: EconomicsReason.InvalidInput,
-            lossProbabilityStandardError: null,
-            meanNet: null,
-        });
+        const pricing = bankrollBudgetPricing(
+            POSITIVE_EDGE_OUT,
+            dollars(5000),
+            {
+                crossCheckLossProbability: null,
+                fundedValueToAttemptCostRatio: null,
+                lossProbability: null,
+                lossProbabilityReason: EconomicsReason.InvalidInput,
+                lossProbabilityStandardError: null,
+                meanNet: null,
+            },
+        );
         expect(pricing.batchNetNegativeProbability).toBeNull();
-        expect(pricing.batchNetNegativeReason).toBe(EconomicsReason.InvalidInput);
+        expect(pricing.batchNetNegativeReason).toBe(
+            EconomicsReason.InvalidInput,
+        );
     });
 });
 
@@ -312,12 +367,18 @@ describe('bankrollClosedFormIllustration (labelled, never the headline)', () => 
     });
 
     it('compounds at 1 + reinvestFraction every 21 days', () => {
-        const quantity = bankrollClosedFormIllustration(dollars(5000), fraction(1), 42);
+        const quantity = bankrollClosedFormIllustration(
+            dollars(5000),
+            fraction(1),
+            42,
+        );
         expect(quantity?.value).toBe(5000 * 2 ** 2);
     });
 
     it('gives no illustration when reinvestFraction is 0 (no compounding cycle)', () => {
-        expect(bankrollClosedFormIllustration(dollars(5000), fraction(0), 42)).toBeNull();
+        expect(
+            bankrollClosedFormIllustration(dollars(5000), fraction(0), 42),
+        ).toBeNull();
     });
 });
 
@@ -328,7 +389,10 @@ function bankrollCalculatorBaseInputs(): BankrollCalculatorInputs {
 
 describe('bankrollVariantFor', () => {
     it('survives structuredClone: no Plan instance, only its serial and opt-ins', () => {
-        const variant = bankrollVariantFor(bankrollCalculatorBaseInputs(), DEFAULT_RULEBOOK);
+        const variant = bankrollVariantFor(
+            bankrollCalculatorBaseInputs(),
+            DEFAULT_RULEBOOK,
+        );
         expect(() => structuredClone(variant)).not.toThrow();
         expect(variant.plan.firmId).toBe(FirmId.TopStep);
         expect(variant.plan.planSerial).toBe(
@@ -345,7 +409,10 @@ describe('bankrollVariantFor', () => {
     });
 
     it('always carries a concrete payout request override, never null', () => {
-        const variant = bankrollVariantFor(bankrollCalculatorBaseInputs(), DEFAULT_RULEBOOK);
+        const variant = bankrollVariantFor(
+            bankrollCalculatorBaseInputs(),
+            DEFAULT_RULEBOOK,
+        );
         expect(variant.policy.payoutRequestOverride).not.toBeNull();
         expect(variant.policy.payoutRequestOverride).toBeGreaterThan(0);
     });
@@ -457,7 +524,11 @@ describe('bankrollSameEvRequest (PT-62b)', () => {
     it('builds a SameEv request from two variants and one shared bankroll', () => {
         const variantA = variantFor();
         const variantB = bankrollVariantWithRisk(variantA, 500);
-        const request = bankrollSameEvRequest([variantA, variantB], dollars(5000), 6);
+        const request = bankrollSameEvRequest(
+            [variantA, variantB],
+            dollars(5000),
+            6,
+        );
         expect(request).toEqual({
             bankroll: dollars(5000),
             kind: ToolsRequestKind.SameEv,
@@ -490,7 +561,9 @@ describe('bankrollLeversRequest (PT-62b)', () => {
 
 describe('parseBankrollCandidateList (PT-62b)', () => {
     it('parses a comma-separated list of positive numbers', () => {
-        expect(parseBankrollCandidateList('200, 300,400')).toEqual([200, 300, 400]);
+        expect(parseBankrollCandidateList('200, 300,400')).toEqual([
+            200, 300, 400,
+        ]);
     });
 
     it('gives null for an empty string', () => {
@@ -507,11 +580,15 @@ describe('parseBankrollCandidateList (PT-62b)', () => {
 
 describe('parseBankrollDollarCandidateList (PT-62b review MEDIUM: whole-cent rounding)', () => {
     it('parses a comma-separated list of positive dollar amounts', () => {
-        expect(parseBankrollDollarCandidateList('200, 300,400')).toEqual([200, 300, 400]);
+        expect(parseBankrollDollarCandidateList('200, 300,400')).toEqual([
+            200, 300, 400,
+        ]);
     });
 
     it('rounds each candidate down to the nearest whole cent, matching parseBankrollDollarsField', () => {
-        expect(parseBankrollDollarCandidateList('199.999, 300.005')).toEqual([199.99, 300]);
+        expect(parseBankrollDollarCandidateList('199.999, 300.005')).toEqual([
+            199.99, 300,
+        ]);
     });
 
     it('gives null for an empty string', () => {

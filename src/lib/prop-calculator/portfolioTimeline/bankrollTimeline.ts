@@ -148,10 +148,14 @@ export function simulateBankrollTimeline(
     const cushion = plan.resolveRetainedCushion(minRetainedCushion);
     const positionSizing = resolvePositionSizing(instrument, stopPoints);
     const requestSize =
-        payoutRequestSize === undefined ? undefined : dollars(payoutRequestSize);
+        payoutRequestSize === undefined
+            ? undefined
+            : dollars(payoutRequestSize);
     const winrate = fraction(winrateInput);
     const fundedRrRatio = fundedRrRatioInput ?? rrRatio;
-    const stopRule: DayStopRule = inputs.dayStop ?? { kind: DayStopRuleKind.None };
+    const stopRule: DayStopRule = inputs.dayStop ?? {
+        kind: DayStopRuleKind.None,
+    };
     const evalDayPolicy = resolvePhaseDayPolicy(
         inputs,
         TradingPhase.Eval,
@@ -270,8 +274,7 @@ export function simulateBankrollTimeline(
         cardsBoughtByTrial.push(state.cardsBought);
         if (state.ruined) ruinCount += 1;
 
-        const finalNet =
-            (payoutSeries.at(-1) ?? 0) - (spendSeries.at(-1) ?? 0);
+        const finalNet = (payoutSeries.at(-1) ?? 0) - (spendSeries.at(-1) ?? 0);
         if (finalNet < 0) finalNetNegativeCount += 1;
 
         if (state.firstPurchaseDay !== null && state.lastPayoutDay !== null) {
@@ -436,7 +439,13 @@ function purchaseCards(
     let reservedMonth = 0;
     let reservedSpend = 0;
     while (
-        canAffordAnotherCard(state, context, reserved, reservedMonth, reservedSpend)
+        canAffordAnotherCard(
+            state,
+            context,
+            reserved,
+            reservedMonth,
+            reservedSpend,
+        )
     ) {
         const remaining = dayBudget - day;
         const rng = mulberry32(
@@ -529,8 +538,7 @@ function retryAffordabilityCheckFor(
     let committed = 0;
     return (fee: number): boolean => {
         const { bankroll } = context;
-        const hasCash =
-            state.cash >= reservedAtPurchase + committed + fee;
+        const hasCash = state.cash >= reservedAtPurchase + committed + fee;
         const hasMonthlyRoom =
             bankroll.monthlyBudget === null ||
             state.monthSpent + reservedMonthAtPurchase + committed + fee <=

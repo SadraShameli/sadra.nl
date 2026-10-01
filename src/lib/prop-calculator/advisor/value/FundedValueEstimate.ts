@@ -1,10 +1,16 @@
-import { type DocumentedPolicySpec, toSimInputs } from '~/lib/prop-calculator/advisor/policy';
+import {
+    type DocumentedPolicySpec,
+    toSimInputs,
+} from '~/lib/prop-calculator/advisor/policy';
 import { type Plan } from '~/lib/prop-calculator/core';
 import {
     type FromStateSimInputs,
     simulateFromState,
 } from '~/lib/prop-calculator/simulator';
-import { NINETY_FIVE_PERCENT_Z, type UncertainValue } from '~/lib/prop-calculator/stats';
+import {
+    NINETY_FIVE_PERCENT_Z,
+    type UncertainValue,
+} from '~/lib/prop-calculator/stats';
 
 import { startStateOf } from './ValueAtState';
 import { freshFundedAccount } from './ValueChain';

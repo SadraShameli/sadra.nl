@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
     AdviceSource,
     type LadderEngineOptimumResult,
+    type LadderGridRefusal,
     LadderRefusalKind,
     type LadderSearchRequestSource,
     runEngineOptimum,
@@ -69,16 +70,18 @@ describe('runEngineOptimum ladder grid refusal (PT-24c step 1)', () => {
 
             const result = runEngineOptimum(apexEodPlan(), request);
 
-            if (!('ladder' in result)) throw new Error('expected a ladder result');
+            if (!('refusal' in result))
+                throw new Error('expected a refused ladder result');
             const ladderResult: LadderEngineOptimumResult = result;
-            expect(ladderResult.source).toBe(source);
-            expect(ladderResult.refusal).toStrictEqual({
-                kind: LadderRefusalKind.GridTooLarge,
-                limit: 2000,
-                size: 4680,
+            expect(ladderResult).toStrictEqual({
+                refusal: {
+                    kind: LadderRefusalKind.GridTooLarge,
+                    limit: 2000,
+                    size: 4680,
+                },
+                source,
             });
-            expect(ladderResult.ladder.laddersScored).toBe(0);
-            expect(ladderResult.ladder.bySpeed).toStrictEqual([]);
+            expect('ladder' in ladderResult).toBe(false);
         },
     );
 
@@ -93,8 +96,21 @@ describe('runEngineOptimum ladder grid refusal (PT-24c step 1)', () => {
         );
 
         if (!('ladder' in result)) throw new Error('expected a ladder result');
-        expect(result.refusal).toBeUndefined();
+        expect('refusal' in result).toBe(false);
         expect(result.ladder.laddersScored).toBeGreaterThan(0);
+    });
+
+    it('the result is exactly scored or refused, never both and never an empty ladder beside a refusal', () => {
+        type Refused = Extract<
+            LadderEngineOptimumResult,
+            { readonly refusal: unknown }
+        >;
+        type Scored = Exclude<LadderEngineOptimumResult, Refused>;
+
+        expectTypeOf<Refused['refusal']>().toEqualTypeOf<LadderGridRefusal>();
+        expectTypeOf<Refused>().not.toHaveProperty('ladder');
+        expectTypeOf<Scored>().toHaveProperty('ladder');
+        expectTypeOf<Scored>().not.toHaveProperty('refusal');
     });
 
     it('an invalid grid that is not about size still throws', () => {

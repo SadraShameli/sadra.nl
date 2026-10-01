@@ -1,5 +1,12 @@
-import { type EdgeModel, fraction, type Fraction0to1 } from '~/lib/prop-calculator/core';
-import { type SimInputs, type SimOutputs } from '~/lib/prop-calculator/simulator';
+import {
+    type EdgeModel,
+    fraction,
+    type Fraction0to1,
+} from '~/lib/prop-calculator/core';
+import {
+    type SimInputs,
+    type SimOutputs,
+} from '~/lib/prop-calculator/simulator';
 
 export const TAKE_PROFIT_WHAT_IF_LABEL =
     'what-if: win rate derived from your stated point, differs from your fixed 1:2';

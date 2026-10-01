@@ -2,12 +2,14 @@ import {
     type DocumentedRunFigures,
     OverviewOutcomeKind,
     type OverviewRequest,
+    overviewRequestGroupOf,
     overviewRequestKey,
     OverviewRequestKind,
     overviewRequestsFor,
     type OverviewResult,
     type PayoutSizeOptimumFigures,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
+import { groupFailureOf } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import { type OverviewEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
@@ -62,6 +64,7 @@ export interface NextSlotModel {
     readonly capacityNote: null | string;
     readonly computed: number;
     readonly disclosures: readonly string[];
+    readonly engineFailure: null | string;
     readonly excluded: readonly NextSlotListedViewRow[];
     readonly isProvisional: boolean;
     readonly objectiveNote: string;
@@ -130,7 +133,8 @@ const CREDIT_BASIS_NOTE =
     'Ranked by the credit-inclusive monthly net, the figure the command line ranks by; the credit-free figure is shown beside it.';
 
 const SIZING_LABEL: Readonly<Record<NextSlotSizingBasis, string>> = {
-    [NextSlotSizingBasis.InstrumentStop]: 'Sized at the policy instrument and stop',
+    [NextSlotSizingBasis.InstrumentStop]:
+        'Sized at the policy instrument and stop',
     [NextSlotSizingBasis.Unsized]: 'Unsized, optimistic',
 };
 
@@ -157,7 +161,9 @@ export function nextSlotModelOf(inputs: NextSlotModelInputs): NextSlotModel {
                 firm,
                 optimum: slotOf(
                     engine,
-                    bySerial.get(serial)?.get(OverviewRequestKind.PayoutSizeOptimum),
+                    bySerial
+                        .get(serial)
+                        ?.get(OverviewRequestKind.PayoutSizeOptimum),
                     optimumFiguresOf,
                     { kind: NextSlotEngineKind.NotRequested },
                 ),
@@ -185,15 +191,22 @@ export function nextSlotModelOf(inputs: NextSlotModelInputs): NextSlotModel {
     ).length;
     return {
         allocation,
-        assumptions: assumptionsOf(rulebook, requests, allocation.hardRule2MinCushion),
+        assumptions: assumptionsOf(
+            rulebook,
+            requests,
+            allocation.hardRule2MinCushion,
+        ),
         capacityNote: capacityNoteOf(allocation),
         computed,
         disclosures: [CREDIT_BASIS_NOTE, ...allocation.disclosures],
+        engineFailure: engineFailureOf(engine, requests),
         excluded: listedOf(allocation, NextSlotListingKind.Excluded),
         isProvisional: computed < requests.length,
         objectiveNote: objectiveNoteOf(objective),
         pending: listedOf(allocation, NextSlotListingKind.Pending),
-        ranked: allocation.ranked.map((row) => rankedViewRowOf(row, allocation)),
+        ranked: allocation.ranked.map((row) =>
+            rankedViewRowOf(row, allocation),
+        ),
         refused: listedOf(allocation, NextSlotListingKind.Refused),
         requested: requests.length,
         unverified: listedOf(allocation, NextSlotListingKind.Unverified),
@@ -265,7 +278,9 @@ function assumptionsOf(
 
 function capacityNoteOf(allocation: NextSlotAllocation): null | string {
     const { capacity } = allocation;
-    return capacity === null ? null : `Capacity: ${String(capacity.activeUnits)} of ${String(capacity.limit)} daily accounts in use (a copy group counts once), ${String(capacity.remaining)} left.`;
+    return capacity === null
+        ? null
+        : `Capacity: ${String(capacity.activeUnits)} of ${String(capacity.limit)} daily accounts in use (a copy group counts once), ${String(capacity.remaining)} left.`;
 }
 
 function currencyEstimate(estimate: UncertainValue): string {
@@ -290,6 +305,20 @@ function documentedFiguresOf(
     return result.kind === OverviewRequestKind.DocumentedRun
         ? result.figures
         : null;
+}
+
+function engineFailureOf(
+    engine: OverviewEngine,
+    requests: readonly OverviewRequest[],
+): null | string {
+    const groups = new Set(
+        requests.map((request) => overviewRequestGroupOf(request)),
+    );
+    for (const group of groups) {
+        const failure = groupFailureOf(engine, group);
+        if (failure !== null) return failure;
+    }
+    return null;
 }
 
 function enginePolicyOf(
@@ -392,7 +421,9 @@ function optimumFiguresOf(
 function optimumNoteOf(figures: NextSlotFigures): null | string {
     const { documented, optimum } = figures;
     if (optimum === null) return null;
-    return optimum.requestSize === documented.requestSize ? `The optimum asks the same ${formatCurrency(optimum.requestSize)} request as the documented rule.` : `The optimum asks ${formatCurrency(optimum.requestSize)} instead of the documented ${formatCurrency(documented.requestSize)}: it ends in a funded bust in ${formatPercent(optimum.fundedBustProbability.value)} of all simulated attempts over ${String(optimum.evaluatedSizes)} sizes tried, against ${formatPercent(figures.documentedFundedBust.value)} of all simulated attempts at the documented request.`;
+    return optimum.requestSize === documented.requestSize
+        ? `The optimum asks the same ${formatCurrency(optimum.requestSize)} request as the documented rule.`
+        : `The optimum asks ${formatCurrency(optimum.requestSize)} instead of the documented ${formatCurrency(documented.requestSize)}: it ends in a funded bust in ${formatPercent(optimum.fundedBustProbability.value)} of all simulated attempts over ${String(optimum.evaluatedSizes)} sizes tried, against ${formatPercent(figures.documentedFundedBust.value)} of all simulated attempts at the documented request.`;
 }
 
 function rankedViewRowOf(
@@ -494,7 +525,9 @@ function rebuyLagLabelOf(figures: NextSlotFigures): string {
         : 'Rebuy lag 0 days (assumed, optimistic)';
 }
 
-function rebuyLagNoteOf(enginePolicy: NextSlotCandidate['enginePolicy']): string {
+function rebuyLagNoteOf(
+    enginePolicy: NextSlotCandidate['enginePolicy'],
+): string {
     return enginePolicy.rebuyLagBasis === RebuyLagBasis.Measured
         ? `Every plan, held or not, runs with the same rebuy lag of ${String(enginePolicy.rebuyLagDays)} days, the sample-weighted average measured across your plans.`
         : 'Every plan runs with an assumed rebuy lag of 0 days, which is optimistic: you have no measured replacement yet.';
@@ -503,10 +536,14 @@ function rebuyLagNoteOf(enginePolicy: NextSlotCandidate['enginePolicy']): string
 function requestsBySerial(
     requests: readonly OverviewRequest[],
 ): ReadonlyMap<string, ReadonlyMap<OverviewRequestKind, OverviewRequest>> {
-    const bySerial = new Map<string, Map<OverviewRequestKind, OverviewRequest>>();
+    const bySerial = new Map<
+        string,
+        Map<OverviewRequestKind, OverviewRequest>
+    >();
     for (const request of requests) {
         if (!REQUEST_KINDS.has(request.kind)) continue;
-        const kinds = bySerial.get(request.planSerial) ??
+        const kinds =
+            bySerial.get(request.planSerial) ??
             new Map<OverviewRequestKind, OverviewRequest>();
         kinds.set(request.kind, request);
         bySerial.set(request.planSerial, kinds);
@@ -534,9 +571,10 @@ function slotOf<Figures>(
     if (request === undefined) return missing;
     const outcome = engine.outcomes.get(overviewRequestKey(request));
     if (outcome === undefined) {
-        return engine.failure === null
+        const failure = groupFailureOf(engine, overviewRequestGroupOf(request));
+        return failure === null
             ? { kind: NextSlotEngineKind.Pending }
-            : { kind: NextSlotEngineKind.Failed, reason: engine.failure };
+            : { kind: NextSlotEngineKind.Failed, reason: failure };
     }
     if (outcome.kind === OverviewOutcomeKind.Failed) {
         return { kind: NextSlotEngineKind.Refused, reason: outcome.reason };

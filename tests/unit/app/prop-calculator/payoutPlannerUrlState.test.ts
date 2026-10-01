@@ -12,7 +12,12 @@ import {
     type PayoutPlannerUrlState,
 } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerUrlState';
 import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
-import { ALL_FIRMS, dollars, type Plan, serializePlanId } from '~/lib/prop-calculator';
+import {
+    ALL_FIRMS,
+    dollars,
+    type Plan,
+    serializePlanId,
+} from '~/lib/prop-calculator';
 import { SizingStage } from '~/lib/prop-calculator/advisor';
 import { CalculatorUrlParameter } from '~/lib/schemas/calculatorUrlParameter';
 import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';

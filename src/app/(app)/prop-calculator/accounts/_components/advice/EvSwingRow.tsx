@@ -1,5 +1,9 @@
 import { signedCurrencyText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
-import { formatCurrency, formatGateCurrency, formatPercent } from '~/lib/format';
+import {
+    formatCurrency,
+    formatGateCurrency,
+    formatPercent,
+} from '~/lib/format';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
 import {
@@ -20,7 +24,8 @@ export function EvSwingRow({ view }: { readonly view: EvSwingView }) {
         case ValueSectionKind.NotModeled: {
             return (
                 <li className="text-sm text-muted-foreground">
-                    Trade {view.index}: the value of this trade is not modeled for this account.
+                    Trade {view.index}: the value of this trade is not modeled
+                    for this account.
                 </li>
             );
         }
@@ -48,15 +53,17 @@ function ReadySwingRow({ row }: { readonly row: EvSwingRowView }) {
     return (
         <li className="flex flex-col gap-0.5 text-sm">
             <span>
-                Trade {row.index}, risk {row.risk.text} ({row.risk.label}), 1:{row.rr}:{' '}
-                {deltaText('win', row.winDelta)}, {deltaText('loss', row.lossDelta)}; chance of a win{' '}
+                Trade {row.index}, risk {row.risk.text} ({row.risk.label}), 1:
+                {row.rr}: {deltaText('win', row.winDelta)},{' '}
+                {deltaText('loss', row.lossDelta)}; chance of a win{' '}
                 {formatPercent(row.winProbability, 0)}.
             </span>
             {row.bust !== null && (
                 <span className="text-muted-foreground">
                     A loss here busts the account: the value after it is a fresh
                     eval bought {bustText(row.bust.rebuyLagDays)}, net of its
-                    replacement fee of {formatCurrency(row.bust.replacementFee, 2)}.
+                    replacement fee of{' '}
+                    {formatCurrency(row.bust.replacementFee, 2)}.
                 </span>
             )}
         </li>

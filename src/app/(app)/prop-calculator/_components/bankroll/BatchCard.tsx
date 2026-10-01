@@ -6,7 +6,11 @@ import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { Input } from '~/components/ui/Input';
-import { formatGateCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import {
+    formatGateCurrency,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import { ECONOMICS_REASON_TEXT } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
 
@@ -21,11 +25,14 @@ export function BatchCard() {
     const [attempts, setAttempts] = useState<null | number>(null);
     const [attemptsText, setAttemptsText] = useState('');
 
-    const requestKey = attempts === null ? null : stableJson({ attempts, variant });
+    const requestKey =
+        attempts === null ? null : stableJson({ attempts, variant });
 
     const buildRequest = useCallback(
         (runId: number) =>
-            attempts === null ? null : bankrollExplicitBatchRequest(variant, attempts, runId),
+            attempts === null
+                ? null
+                : bankrollExplicitBatchRequest(variant, attempts, runId),
         [attempts, variant],
     );
     const worker = useToolsRequest(requestKey, buildRequest);
@@ -41,12 +48,21 @@ export function BatchCard() {
             : null;
 
     return (
-        <section aria-labelledby="bankroll-batch-heading" className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold tracking-tight text-white" id="bankroll-batch-heading">
+        <section
+            aria-labelledby="bankroll-batch-heading"
+            className="flex flex-col gap-4"
+        >
+            <h2
+                className="text-lg font-semibold tracking-tight text-white"
+                id="bankroll-batch-heading"
+            >
                 Batch
             </h2>
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="bankroll-batch-attempts">
+                <label
+                    className="text-xs font-medium text-muted-foreground"
+                    htmlFor="bankroll-batch-attempts"
+                >
                     Attempts (N)
                 </label>
                 <Input
@@ -54,7 +70,9 @@ export function BatchCard() {
                     inputMode="numeric"
                     onChange={(event) => {
                         setAttemptsText(event.target.value);
-                        setAttempts(parseBankrollPositiveIntField(event.target.value));
+                        setAttempts(
+                            parseBankrollPositiveIntField(event.target.value),
+                        );
                     }}
                     placeholder="e.g. 40"
                     type="number"
@@ -63,20 +81,28 @@ export function BatchCard() {
             </div>
             {result === null ? (
                 failureReason === null ? null : (
-                    <p className="text-xs text-rose-400" role="alert">{failureReason}</p>
+                    <p className="text-xs text-rose-400" role="alert">
+                        {failureReason}
+                    </p>
                 )
             ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <StatCard
                         label="EV (mean net)"
-                        value={result.meanNet === null ? NOT_APPLICABLE : formatGateCurrency(result.meanNet)}
+                        value={
+                            result.meanNet === null
+                                ? NOT_APPLICABLE
+                                : formatGateCurrency(result.meanNet)
+                        }
                     />
                     <StatCard
                         label="Funded value / attempt cost"
                         value={
                             result.fundedValueToAttemptCostRatio === null
                                 ? NOT_APPLICABLE
-                                : result.fundedValueToAttemptCostRatio.toFixed(2)
+                                : result.fundedValueToAttemptCostRatio.toFixed(
+                                      2,
+                                  )
                         }
                     />
                     <StatCard
@@ -86,7 +112,9 @@ export function BatchCard() {
                             result.lossProbability === null
                                 ? result.lossProbabilityReason === null
                                     ? NOT_APPLICABLE
-                                    : ECONOMICS_REASON_TEXT[result.lossProbabilityReason]
+                                    : ECONOMICS_REASON_TEXT[
+                                          result.lossProbabilityReason
+                                      ]
                                 : formatPercent(result.lossProbability)
                         }
                     />
@@ -96,7 +124,9 @@ export function BatchCard() {
                         value={
                             result.crossCheckLossProbability === null
                                 ? NOT_APPLICABLE
-                                : formatPercent(result.crossCheckLossProbability)
+                                : formatPercent(
+                                      result.crossCheckLossProbability,
+                                  )
                         }
                     />
                 </div>

@@ -15,7 +15,11 @@ import {
 } from '~/components/ui/Table';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatCurrency } from '~/lib/format';
-import { type AccountStage, usdCentsFromDollars, usdCentsToDollars } from '~/lib/prop-accounts';
+import {
+    type AccountStage,
+    usdCentsFromDollars,
+    usdCentsToDollars,
+} from '~/lib/prop-accounts';
 import { type AdviceSource } from '~/lib/prop-calculator/advisor';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -90,9 +94,7 @@ export function DecisionLog({
                             <TableHead className="text-right">
                                 Accepted
                             </TableHead>
-                            <TableHead className="text-right">
-                                Actual
-                            </TableHead>
+                            <TableHead className="text-right">Actual</TableHead>
                             <TableHead>Adherence</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -134,10 +136,16 @@ function DecisionRowView({ decision }: { readonly decision: DecisionRow }) {
         <TableRow>
             <TableCell>{decision.decidedOn}</TableCell>
             <TableCell className="text-right tabular-nums">
-                {formatCurrency(usdCentsToDollars(decision.headlineRiskCents), 2)}
+                {formatCurrency(
+                    usdCentsToDollars(decision.headlineRiskCents),
+                    2,
+                )}
             </TableCell>
             <TableCell className="text-right tabular-nums">
-                {formatCurrency(usdCentsToDollars(decision.acceptedRiskCents), 2)}
+                {formatCurrency(
+                    usdCentsToDollars(decision.acceptedRiskCents),
+                    2,
+                )}
             </TableCell>
             <TableCell className="text-right tabular-nums">
                 {decision.actualRiskCents === null ? (
@@ -172,7 +180,10 @@ function DecisionRowView({ decision }: { readonly decision: DecisionRow }) {
                         </Button>
                     </div>
                 ) : (
-                    formatCurrency(usdCentsToDollars(decision.actualRiskCents), 2)
+                    formatCurrency(
+                        usdCentsToDollars(decision.actualRiskCents),
+                        2,
+                    )
                 )}
             </TableCell>
             <TableCell>{adherenceText(decision)}</TableCell>

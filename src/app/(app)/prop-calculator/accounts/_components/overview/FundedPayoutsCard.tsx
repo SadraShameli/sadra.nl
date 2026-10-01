@@ -39,9 +39,7 @@ export function FundedPayoutsCard({
                                 </TableHead>
                             ),
                         )}
-                        <TableHead className="text-right">
-                            Too young
-                        </TableHead>
+                        <TableHead className="text-right">Too young</TableHead>
                         <TableHead className="text-right">
                             Realized funded value
                         </TableHead>
@@ -80,7 +78,9 @@ export function FundedPayoutsCard({
                             </TableRow>
                             {row.modeledCounts !== null && (
                                 <TableRow className="text-muted-foreground">
-                                    <TableCell>{row.plan} (modeled share)</TableCell>
+                                    <TableCell>
+                                        {row.plan} (modeled share)
+                                    </TableCell>
                                     {row.modeledCounts.map((share, index) => (
                                         <TableCell
                                             className="text-right tabular-nums"

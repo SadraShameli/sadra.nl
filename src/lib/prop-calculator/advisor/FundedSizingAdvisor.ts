@@ -10,7 +10,10 @@ import {
 } from '~/lib/prop-calculator/core';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
 import { DEFAULT_FUNDED_FLAT_CANDIDATES } from '~/lib/prop-calculator/optimize';
-import { type FundedSimStart, type SimInputs } from '~/lib/prop-calculator/simulator';
+import {
+    type FundedSimStart,
+    type SimInputs,
+} from '~/lib/prop-calculator/simulator';
 
 import { type Advice } from './Advice';
 import { adviceProvenance } from './AdviceProvenance';
@@ -198,7 +201,9 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
                     (row) => row.kind === EngineOptimumRowKind.Refused,
                 ).length;
                 if (!hasFromStateOptimum) {
-                    reasons.push({ kind: DifferenceReason.FreshStartApproximation });
+                    reasons.push({
+                        kind: DifferenceReason.FreshStartApproximation,
+                    });
                 }
                 reasons.push({
                     horizonDays: this.input.fundedHorizonDays,
@@ -419,7 +424,9 @@ export function fundedConsistencyCeiling(
 ): Dollars | null {
     const { fundedTracker } = account;
     if (fundedTracker === null) return null;
-    const rule = account.plan.fundedConsistencyRule(fundedTracker.payoutsIssued);
+    const rule = account.plan.fundedConsistencyRule(
+        fundedTracker.payoutsIssued,
+    );
     return rule === null
         ? null
         : rule.maxDayProfitBeforeViolation(

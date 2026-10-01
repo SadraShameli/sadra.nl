@@ -36,10 +36,7 @@ export class CumulativeAmountTrigger extends LiveTransitionTrigger {
     }
 
     distance(progress: LiveTriggerProgress): number {
-        return Math.max(
-            0,
-            this.amount - progress.cumulativePayoutDollars,
-        );
+        return Math.max(0, this.amount - progress.cumulativePayoutDollars);
     }
 }
 
@@ -109,9 +106,6 @@ export class SingleDayProfitTrigger extends LiveTransitionTrigger {
     }
 
     distance(progress: LiveTriggerProgress): number {
-        return Math.max(
-            0,
-            this.amount - progress.largestSingleDayProfit,
-        );
+        return Math.max(0, this.amount - progress.largestSingleDayProfit);
     }
 }

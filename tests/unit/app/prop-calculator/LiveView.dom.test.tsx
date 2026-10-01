@@ -101,9 +101,7 @@ function stateWith(patch: Partial<CalculatorState>): CalculatorState {
 }
 
 function topStepLfaPlan(): Plan {
-    const firm = ALL_FIRMS.find(
-        (candidate) => candidate.id === FirmId.TopStep,
-    );
+    const firm = ALL_FIRMS.find((candidate) => candidate.id === FirmId.TopStep);
     const plan = firm?.plans.find(
         (candidate) =>
             livePlanApplicability(candidate.id).kind ===

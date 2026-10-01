@@ -51,7 +51,8 @@ export function firmReconciliation(
         .toArray();
     return entries.toSorted(
         (a, b) =>
-            compareFirmKeys(a.firmKey, b.firmKey) || compareText(a.asOf, b.asOf),
+            compareFirmKeys(a.firmKey, b.firmKey) ||
+            compareText(a.asOf, b.asOf),
     );
 }
 

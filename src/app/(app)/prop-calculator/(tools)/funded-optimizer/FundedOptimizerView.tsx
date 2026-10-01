@@ -16,7 +16,10 @@ import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { WorkerTaskPhase } from '~/app/(app)/prop-calculator/_components/workerTaskState';
-import { type FundedSweepRequest, type FundedSweepResult } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
+import {
+    type FundedSweepRequest,
+    type FundedSweepResult,
+} from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
 import { useSession } from '~/lib/auth/client';
 import {
     DEFAULT_RULEBOOK,
@@ -44,12 +47,14 @@ const POLICY_BASIS_LABELS: Record<FundedPolicyBasis, string> = {
     [FundedPolicyBasis.RulebookDefault]: 'rulebook default',
 };
 
-const LIFETIME_PAYOUT_CAP_BASIS_LABELS: Record<LifetimePayoutCapBasis, string> = {
-    [LifetimePayoutCapBasis.LiveTriggersNotChecked]: 'not yet checked',
-    [LifetimePayoutCapBasis.VerifiedCountTrigger]: 'a verified count trigger',
-    [LifetimePayoutCapBasis.VerifiedNoCountTrigger]:
-        'a verified no-count trigger',
-};
+const LIFETIME_PAYOUT_CAP_BASIS_LABELS: Record<LifetimePayoutCapBasis, string> =
+    {
+        [LifetimePayoutCapBasis.LiveTriggersNotChecked]: 'not yet checked',
+        [LifetimePayoutCapBasis.VerifiedCountTrigger]:
+            'a verified count trigger',
+        [LifetimePayoutCapBasis.VerifiedNoCountTrigger]:
+            'a verified no-count trigger',
+    };
 
 const HEADER_CELLS = [
     'funded policy',
@@ -79,7 +84,10 @@ export function FundedOptimizerView() {
         [state, rulebook],
     );
     const sweep = useFundedSweep(request);
-    const sortDescriptionInputs: SimInputs = { ...request.base, plan: state.plan };
+    const sortDescriptionInputs: SimInputs = {
+        ...request.base,
+        plan: state.plan,
+    };
     const policyBasis = useMemo(
         () => fundedOptimizerPolicyBasis(state),
         [state],
@@ -189,7 +197,7 @@ function FundedOptimizerResult({
                     ))}
                 </ul>
             )}
-            <p className="whitespace-pre-line text-xs text-muted-foreground">
+            <p className="text-xs whitespace-pre-line text-muted-foreground">
                 {fundedSortDescription(sort, sortDescriptionInputs)}
             </p>
             <div className="overflow-x-auto">
@@ -198,7 +206,7 @@ function FundedOptimizerResult({
                         <tr>
                             {HEADER_CELLS.map((label) => (
                                 <th
-                                    className="whitespace-nowrap px-2 py-1 text-xs font-medium text-muted-foreground"
+                                    className="px-2 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground"
                                     key={label}
                                 >
                                     {label}
@@ -214,7 +222,7 @@ function FundedOptimizerResult({
                             >
                                 {row.cells.map((cell, index) => (
                                     <td
-                                        className="whitespace-nowrap px-2 py-1 tabular-nums"
+                                        className="px-2 py-1 whitespace-nowrap tabular-nums"
                                         key={`${row.cells[0]}-${index}`}
                                     >
                                         {cell}

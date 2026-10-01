@@ -25,7 +25,5 @@ export function ProvenanceLine({
             ? 'firm data unverified'
             : `firm data verified ${provenance.firmDataDate}`,
     ].filter((part): part is string => part !== null);
-    return (
-        <p className="text-xs text-muted-foreground">{parts.join(' · ')}</p>
-    );
+    return <p className="text-xs text-muted-foreground">{parts.join(' · ')}</p>;
 }

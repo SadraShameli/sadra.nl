@@ -1035,7 +1035,9 @@ describe('CopyGroupsView', () => {
             });
         }
 
-        function exposureFor(accounts: readonly ReturnType<typeof sizingAccount>[]) {
+        function exposureFor(
+            accounts: readonly ReturnType<typeof sizingAccount>[],
+        ) {
             const groups = copyGroupRows([MAIN], accounts).groups;
             const sections = copyGroupSizingSectionsOf(
                 DEFAULT_RULEBOOK,
@@ -1129,7 +1131,12 @@ describe('CopyGroupsView', () => {
             expect(text).toContain('could not be sized');
             expect(text).toContain(
                 describeUnresolvedPlan(
-                    { accountSize: SIZING_PLAN.accountSize, firmId: SIZING_PLAN.id.firm, optIns: {}, planSerial: 'no-such-plan' },
+                    {
+                        accountSize: SIZING_PLAN.accountSize,
+                        firmId: SIZING_PLAN.id.firm,
+                        optIns: {},
+                        planSerial: 'no-such-plan',
+                    },
                     UnresolvedPlanReason.UnknownPlanSerial,
                 ),
             );

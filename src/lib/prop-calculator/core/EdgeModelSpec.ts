@@ -23,9 +23,8 @@ export interface FixedEdgeModelSpec {
     readonly winrate: Fraction0to1;
 }
 
-export const edgeModelSpecSchema: z.ZodType<EdgeModelSpec> = z.discriminatedUnion(
-    'kind',
-    [
+export const edgeModelSpecSchema: z.ZodType<EdgeModelSpec> =
+    z.discriminatedUnion('kind', [
         z.strictObject({
             anchorRrRatio: z.number().positive(),
             anchorWinrate: fractionSchema,
@@ -35,8 +34,7 @@ export const edgeModelSpecSchema: z.ZodType<EdgeModelSpec> = z.discriminatedUnio
             kind: z.literal(EdgeModelKind.Fixed),
             winrate: fractionSchema,
         }),
-    ],
-);
+    ]);
 
 export function edgeModelFromSpec(spec: EdgeModelSpec): EdgeModel {
     switch (spec.kind) {

@@ -128,9 +128,9 @@ export function NextSlotView({ userId }: { readonly userId: string }) {
                     your trade count as zero: {edgeQuery.error.message}
                 </p>
             )}
-            {engine.failure !== null && (
+            {model.engineFailure !== null && (
                 <QueryErrorNotice
-                    message={engine.failure}
+                    message={model.engineFailure}
                     title="The engine runs could not be completed"
                 />
             )}
@@ -263,10 +263,7 @@ function RankedRow({ row }: { readonly row: NextSlotRankedViewRow }) {
             <TableCell>
                 {row.firm} {row.plan}
                 {notes.map((note) => (
-                    <span
-                        className="block text-xs text-amber-400"
-                        key={note}
-                    >
+                    <span className="block text-xs text-amber-400" key={note}>
                         {note}
                     </span>
                 ))}
@@ -356,7 +353,8 @@ function RankedTable({ model }: { readonly model: NextSlotModel }) {
                                     Optimum request
                                 </TableHead>
                                 <TableHead className="text-right" scope="col">
-                                    Funded bust at the optimum, share of all simulated attempts
+                                    Funded bust at the optimum, share of all
+                                    simulated attempts
                                 </TableHead>
                                 <TableHead className="text-right" scope="col">
                                     Rank, documented

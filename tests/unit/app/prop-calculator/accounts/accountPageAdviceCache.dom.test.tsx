@@ -64,12 +64,10 @@ vi.mock(
     () => ({ AccountsSubnav: () => null }),
 );
 
-const { default: PropAccountDetailPage } = await import(
-    '~/app/(app)/prop-calculator/accounts/[id]/page'
-);
-const { default: PropAccountsLayout } = await import(
-    '~/app/(app)/prop-calculator/accounts/layout'
-);
+const { default: PropAccountDetailPage } =
+    await import('~/app/(app)/prop-calculator/accounts/[id]/page');
+const { default: PropAccountsLayout } =
+    await import('~/app/(app)/prop-calculator/accounts/layout');
 
 function CacheProbe() {
     probe.seen.push(useContext(ComputationCacheContext));

@@ -88,7 +88,9 @@ function alertFor(
 
 function confirmedRebuyPatternOf(
     patterns: readonly ConductPattern[],
-): (ConductPattern & { readonly source: ConfirmedFirmPolicySource }) | undefined {
+):
+    | (ConductPattern & { readonly source: ConfirmedFirmPolicySource })
+    | undefined {
     return patterns.find(
         (
             pattern,

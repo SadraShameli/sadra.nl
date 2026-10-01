@@ -81,7 +81,9 @@ export function violationStatsOf(
         manualCount,
         netCostCents,
         netCostShareOfNetCash:
-            violations.length === 0 ? null : shareOf(netCostCents, netCashCents),
+            violations.length === 0
+                ? null
+                : shareOf(netCostCents, netCashCents),
         uncostedCount,
     };
 }
@@ -125,6 +127,11 @@ function addMonth(
     });
 }
 
-function shareOf(netCostCents: number, netCashCents: null | UsdCents): null | number {
-    return netCashCents === null || netCashCents <= 0 ? null : netCostCents / netCashCents;
+function shareOf(
+    netCostCents: number,
+    netCashCents: null | UsdCents,
+): null | number {
+    return netCashCents === null || netCashCents <= 0
+        ? null
+        : netCostCents / netCashCents;
 }

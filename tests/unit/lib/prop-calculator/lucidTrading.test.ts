@@ -115,10 +115,13 @@ describe("LucidPro first-payout gate (N-83, support.lucidtrading.com 12890092 Lu
     it.each([
         ['Pro', pro],
         ['ProNoDll', proNoDll],
-    ])('%s has no day gate before the first payout, like LucidDirect', (_, plan) => {
-        expect(plan.minDaysAfterPassForPayout).toBe(0);
-        expect(plan.minDaysAfterPassForPayoutPerCycle).toBeNull();
-    });
+    ])(
+        '%s has no day gate before the first payout, like LucidDirect',
+        (_, plan) => {
+            expect(plan.minDaysAfterPassForPayout).toBe(0);
+            expect(plan.minDaysAfterPassForPayoutPerCycle).toBeNull();
+        },
+    );
 
     it.each([
         ['Pro', 0, pro],

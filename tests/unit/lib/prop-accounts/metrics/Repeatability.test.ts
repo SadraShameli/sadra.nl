@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { AccountEventKind, AccountStage, FeeKind } from '~/lib/prop-accounts/core';
+import {
+    AccountEventKind,
+    AccountStage,
+    FeeKind,
+} from '~/lib/prop-accounts/core';
 import {
     monthlyStatement,
     realizedNetPerSlot,

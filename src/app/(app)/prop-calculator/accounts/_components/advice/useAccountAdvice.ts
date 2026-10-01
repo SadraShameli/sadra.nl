@@ -18,7 +18,11 @@ import {
     type AdvisorWorkerResult,
 } from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
 import { type FirmId, type PlanOptIns } from '~/lib/prop-calculator';
-import { type Advice, type EngineOptimumRunnerResult, type SizingAdvisor } from '~/lib/prop-calculator/advisor';
+import {
+    type Advice,
+    type EngineOptimumRunnerResult,
+    type SizingAdvisor,
+} from '~/lib/prop-calculator/advisor';
 
 export enum AccountAdvicePhase {
     Failed = 'failed',
@@ -60,7 +64,10 @@ export type AdviceValuesState =
           readonly phase: AdviceValuesPhase.Ready;
           readonly result: AdvisorValueResult;
       }
-    | { readonly phase: AdviceValuesPhase.Unavailable; readonly reason: string };
+    | {
+          readonly phase: AdviceValuesPhase.Unavailable;
+          readonly reason: string;
+      };
 
 export interface UseAccountAdviceInput {
     readonly advisor: SizingAdvisor;
@@ -149,7 +156,10 @@ export function useAccountAdvice(
     const valuesState: AdviceValuesState =
         valuesUnavailableReason === null
             ? adviceValuesStateOf(valueJob !== null, valueTask)
-            : { phase: AdviceValuesPhase.Unavailable, reason: valuesUnavailableReason };
+            : {
+                  phase: AdviceValuesPhase.Unavailable,
+                  reason: valuesUnavailableReason,
+              };
     const ready = useMemo(() => {
         if (advisor === undefined) return null;
         if (hasNoRequests) {
@@ -163,7 +173,11 @@ export function useAccountAdvice(
     }, [advisor, hasNoRequests, outcome]);
 
     if (ready !== null) {
-        return { ...ready, phase: AccountAdvicePhase.Ready, values: valuesState };
+        return {
+            ...ready,
+            phase: AccountAdvicePhase.Ready,
+            values: valuesState,
+        };
     }
     if (engineTask.state.phase === WorkerTaskPhase.Failed) {
         return {

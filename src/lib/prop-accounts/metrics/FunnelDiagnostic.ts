@@ -77,9 +77,7 @@ export function funnelDiagnostic(
             dollarChangePerMonth: dollarChangePerAttempt * attemptsPerMonth,
             stage,
         };
-    }).toSorted(
-        (a, b) => a.dollarChangePerAttempt - b.dollarChangePerAttempt,
-    );
+    }).toSorted((a, b) => a.dollarChangePerAttempt - b.dollarChangePerAttempt);
     return {
         modeledEvPerAttempt,
         realizedEvPerAttempt: evPerAttemptOf(realized),

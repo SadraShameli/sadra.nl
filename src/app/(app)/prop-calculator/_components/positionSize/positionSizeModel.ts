@@ -1,4 +1,7 @@
-import { formatRiskDisplay, type RiskDisplayFormatted } from '~/app/(app)/prop-calculator/_components/riskDisplay';
+import {
+    formatRiskDisplay,
+    type RiskDisplayFormatted,
+} from '~/app/(app)/prop-calculator/_components/riskDisplay';
 import { formatGateCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,

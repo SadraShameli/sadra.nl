@@ -1269,13 +1269,19 @@ describe('optimize funded prints the plausibility note (PT-54 step 4, F-V22)', (
             winrate: fraction(0.4),
         });
         expect(note).not.toBeNull();
-        const { stdout } = await capturedRun([...SMALL_RUN, '--funded-rr', '3']);
+        const { stdout } = await capturedRun([
+            ...SMALL_RUN,
+            '--funded-rr',
+            '3',
+        ]);
         expect(stdout).toContain(note ?? '');
     });
 
     it('stays silent at the typical 40% at 1:2', async () => {
         const { stdout } = await capturedRun(SMALL_RUN);
-        expect(stdout).not.toMatch(/\b(?:implausible|no|strong|typical) edge\b/);
+        expect(stdout).not.toMatch(
+            /\b(?:implausible|no|strong|typical) edge\b/,
+        );
     });
 });
 
@@ -1361,7 +1367,6 @@ describe('readTakeProfitWhatIfRequest (PT-64a, F-V23)', () => {
 });
 
 describe('printTakeProfitWhatIf and the full CLI run (PT-64a, F-V23, video figures)', () => {
-
     it('labels the table a what-if that differs from the fixed 1:2 and prints every candidate rr', async () => {
         const stdout = await capturedPrint({
             edgeSpec: {

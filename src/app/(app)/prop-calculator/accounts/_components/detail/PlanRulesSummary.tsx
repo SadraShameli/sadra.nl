@@ -68,12 +68,10 @@ export function PlanRulesSummary({
     );
     const ruleRows: readonly SummaryRow[] = describePlanRules(plan).flatMap(
         (line) =>
-            line.map(
-                (segment): SummaryRow => [
-                    PLAN_RULE_SEGMENT_LABEL[segment.kind],
-                    segment.value,
-                ],
-            ),
+            line.map((segment): SummaryRow => [
+                PLAN_RULE_SEGMENT_LABEL[segment.kind],
+                segment.value,
+            ]),
     );
     const rows: readonly SummaryRow[] = [
         ['Plan', `${firmName} ${plan.label}`],

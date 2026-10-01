@@ -8,7 +8,12 @@ import {
     AccountTracking,
     DashboardBalanceConvention,
 } from '~/lib/prop-accounts';
-import { ApexVariant, findFirm, FirmId, serializePlanId } from '~/lib/prop-calculator';
+import {
+    ApexVariant,
+    findFirm,
+    FirmId,
+    serializePlanId,
+} from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
 interface FakeQuery {
@@ -54,7 +59,11 @@ const sessionBox = vi.hoisted(() => {
             isPending: boolean;
         };
     } = {
-        state: { data: { user: { id: 'user-a' } }, error: null, isPending: false },
+        state: {
+            data: { user: { id: 'user-a' } },
+            error: null,
+            isPending: false,
+        },
     };
     return box;
 });
@@ -158,12 +167,8 @@ function engineWorkers() {
 async function loadAdviceModules() {
     vi.resetModules();
     const [provider, panel] = await Promise.all([
-        import(
-            '~/app/(app)/prop-calculator/accounts/_components/AccountsCacheProvider'
-        ),
-        import(
-            '~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel'
-        ),
+        import('~/app/(app)/prop-calculator/accounts/_components/AccountsCacheProvider'),
+        import('~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel'),
     ]);
     return {
         AccountsCacheProvider: provider.AccountsCacheProvider,

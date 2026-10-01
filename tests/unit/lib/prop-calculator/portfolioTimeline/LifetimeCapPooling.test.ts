@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { FirmId, LifetimeCapScope, MffuVariant } from '~/lib/prop-calculator/core';
+import {
+    FirmId,
+    LifetimeCapScope,
+    MffuVariant,
+} from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
 import {
     runAccountTimeline,
@@ -93,8 +97,10 @@ describe('simulatePortfolioTimeline: the per-user lifetime cap pools across acco
 
     it('never shows combined payouts above the per-user cap across two MFF Pro accounts', () => {
         const out = simulatePortfolioTimeline(MULTI_ACCOUNT_NEAR_CERTAIN_PASS);
-        for (const value of out.payoutP50) expect(value).toBeLessThanOrEqual(CAP);
-        for (const value of out.payoutP90) expect(value).toBeLessThanOrEqual(CAP);
+        for (const value of out.payoutP50)
+            expect(value).toBeLessThanOrEqual(CAP);
+        for (const value of out.payoutP90)
+            expect(value).toBeLessThanOrEqual(CAP);
     });
 
     it('keeps a per-account scope toy plan unpooled: two accounts can combine above the per-account cap', () => {

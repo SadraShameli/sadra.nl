@@ -5,7 +5,11 @@ import { useCallback, useMemo, useState } from 'react';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { Input } from '~/components/ui/Input';
-import { formatGateCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import {
+    formatGateCurrency,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import { type Dollars } from '~/lib/prop-calculator';
 import { BankrollLeverKind } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
@@ -49,7 +53,9 @@ export function LeversCard() {
         candidates.requestSizes !== null;
 
     const canRun = bankroll !== null && hasCandidates;
-    const requestKey = canRun ? stableJson({ bankroll, candidates, variant }) : null;
+    const requestKey = canRun
+        ? stableJson({ bankroll, candidates, variant })
+        : null;
 
     const buildRequest = useCallback(
         (runId: number) =>
@@ -66,28 +72,46 @@ export function LeversCard() {
             ? worker.state.result.rows
             : null;
     const failureReason =
-        canRun && worker.state.phase === ToolsWorkerPhase.Failed ? worker.state.reason : null;
+        canRun && worker.state.phase === ToolsWorkerPhase.Failed
+            ? worker.state.reason
+            : null;
 
     return (
-        <section aria-labelledby="bankroll-levers-heading" className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold tracking-tight text-white" id="bankroll-levers-heading">
+        <section
+            aria-labelledby="bankroll-levers-heading"
+            className="flex flex-col gap-4"
+        >
+            <h2
+                className="text-lg font-semibold tracking-tight text-white"
+                id="bankroll-levers-heading"
+            >
                 Levers
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-muted-foreground" htmlFor="bankroll-levers-bankroll">
+                    <label
+                        className="text-xs font-medium text-muted-foreground"
+                        htmlFor="bankroll-levers-bankroll"
+                    >
                         Bankroll ($)
                     </label>
                     <Input
                         id="bankroll-levers-bankroll"
                         inputMode="decimal"
-                        onChange={(event) => setBankroll(parseBankrollDollarsField(event.target.value))}
+                        onChange={(event) =>
+                            setBankroll(
+                                parseBankrollDollarsField(event.target.value),
+                            )
+                        }
                         placeholder="Enter your bankroll"
                         type="number"
                     />
                 </div>
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-muted-foreground" htmlFor="bankroll-levers-risks">
+                    <label
+                        className="text-xs font-medium text-muted-foreground"
+                        htmlFor="bankroll-levers-risks"
+                    >
                         Risk candidates ($, comma-separated)
                     </label>
                     <Input
@@ -98,23 +122,33 @@ export function LeversCard() {
                     />
                 </div>
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-muted-foreground" htmlFor="bankroll-levers-trades-per-day">
+                    <label
+                        className="text-xs font-medium text-muted-foreground"
+                        htmlFor="bankroll-levers-trades-per-day"
+                    >
                         Trades/day candidates (comma-separated)
                     </label>
                     <Input
                         id="bankroll-levers-trades-per-day"
-                        onChange={(event) => setTradesPerDayText(event.target.value)}
+                        onChange={(event) =>
+                            setTradesPerDayText(event.target.value)
+                        }
                         placeholder="e.g. 1, 2"
                         value={tradesPerDayText}
                     />
                 </div>
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-muted-foreground" htmlFor="bankroll-levers-request-sizes">
+                    <label
+                        className="text-xs font-medium text-muted-foreground"
+                        htmlFor="bankroll-levers-request-sizes"
+                    >
                         Payout request candidates ($, comma-separated)
                     </label>
                     <Input
                         id="bankroll-levers-request-sizes"
-                        onChange={(event) => setRequestSizesText(event.target.value)}
+                        onChange={(event) =>
+                            setRequestSizesText(event.target.value)
+                        }
                         placeholder="e.g. 500, 1000"
                         value={requestSizesText}
                     />
@@ -122,7 +156,9 @@ export function LeversCard() {
             </div>
             {rows === null ? (
                 failureReason === null ? null : (
-                    <p className="text-xs text-rose-400" role="alert">{failureReason}</p>
+                    <p className="text-xs text-rose-400" role="alert">
+                        {failureReason}
+                    </p>
                 )
             ) : (
                 <div className="overflow-x-auto">
@@ -141,29 +177,47 @@ export function LeversCard() {
                         </thead>
                         <tbody>
                             {rows.map((row, index) => (
-                                <tr className="border-t border-white/10" key={`${row.kind}-${String(index)}`}>
-                                    <td className="py-1 pr-3">{LEVER_KIND_LABEL[row.kind]}</td>
+                                <tr
+                                    className="border-t border-white/10"
+                                    key={`${row.kind}-${String(index)}`}
+                                >
+                                    <td className="py-1 pr-3">
+                                        {LEVER_KIND_LABEL[row.kind]}
+                                    </td>
                                     <td className="py-1 pr-3 font-mono">
                                         {formatLeverValue(row.kind, row.value)}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
-                                        {formatGateCurrency(row.deltaEvPerAttempt)}
+                                        {formatGateCurrency(
+                                            row.deltaEvPerAttempt,
+                                        )}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
-                                        {formatGateCurrency(row.deltaMonthlyNet)}
+                                        {formatGateCurrency(
+                                            row.deltaMonthlyNet,
+                                        )}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
-                                        {formatPercent(row.deltaPassProbability)}
+                                        {formatPercent(
+                                            row.deltaPassProbability,
+                                        )}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
-                                        {row.deltaAttemptPaysProbability === undefined
+                                        {row.deltaAttemptPaysProbability ===
+                                        undefined
                                             ? NOT_APPLICABLE
-                                            : formatPercent(row.deltaAttemptPaysProbability)}
+                                            : formatPercent(
+                                                  row.deltaAttemptPaysProbability,
+                                              )}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
-                                        {row.lossRisk === null ? NOT_APPLICABLE : formatPercent(row.lossRisk)}
+                                        {row.lossRisk === null
+                                            ? NOT_APPLICABLE
+                                            : formatPercent(row.lossRisk)}
                                     </td>
-                                    <td className="py-1 pr-3 text-amber-400">{row.label ?? ''}</td>
+                                    <td className="py-1 pr-3 text-amber-400">
+                                        {row.label ?? ''}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -174,7 +228,10 @@ export function LeversCard() {
     );
 }
 
-function formatLeverValue(kind: BankrollLeverKind, value: null | number): string {
+function formatLeverValue(
+    kind: BankrollLeverKind,
+    value: null | number,
+): string {
     if (value === null) return NOT_APPLICABLE;
     switch (kind) {
         case BankrollLeverKind.Base: {

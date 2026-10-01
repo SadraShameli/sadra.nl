@@ -103,17 +103,20 @@ vi.mock('~/app/(app)/prop-calculator/_components/InputsSummary', () => ({
     InputsSummary: renderNothing,
 }));
 
-vi.mock('~/app/(app)/prop-calculator/_components/useToolsWorker', async (importOriginal) => {
-    const actual = await importOriginal<typeof UseToolsWorkerModule>();
-    return {
-        ToolsWorkerPhase: actual.ToolsWorkerPhase,
-        useToolsWorker: () => ({
-            cancel: vi.fn(),
-            run: vi.fn(),
-            state: { phase: actual.ToolsWorkerPhase.Idle },
-        }),
-    };
-});
+vi.mock(
+    '~/app/(app)/prop-calculator/_components/useToolsWorker',
+    async (importOriginal) => {
+        const actual = await importOriginal<typeof UseToolsWorkerModule>();
+        return {
+            ToolsWorkerPhase: actual.ToolsWorkerPhase,
+            useToolsWorker: () => ({
+                cancel: vi.fn(),
+                run: vi.fn(),
+                state: { phase: actual.ToolsWorkerPhase.Idle },
+            }),
+        };
+    },
+);
 
 vi.mock('~/lib/auth/client', () => ({
     useSession: () => ({ data: null, error: null, isPending: false }),
@@ -202,12 +205,18 @@ function requiredIssue(inputs: SimInputsSizingInputs): string {
     return issue;
 }
 
-function setNumberInput(container: HTMLElement, id: string, value: string): void {
+function setNumberInput(
+    container: HTMLElement,
+    id: string,
+    value: string,
+): void {
     const input = container.querySelector(`#${id}`);
     if (input === null) throw new Error(`expected an input with id ${id}`);
     act(() => {
-        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')
-            ?.set?.call(input, value);
+        Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype,
+            'value',
+        )?.set?.call(input, value);
         input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 }
@@ -686,7 +695,9 @@ describe('refused sizing in the web panels (PT-11f)', () => {
             const card = [...container.querySelectorAll('span')]
                 .find((node) => node.textContent === 'P(ends net negative)')
                 ?.closest('.px-3');
-            expect(card?.querySelector('.font-mono')?.textContent).toMatch(/^\d+\.\d%$/);
+            expect(card?.querySelector('.font-mono')?.textContent).toMatch(
+                /^\d+\.\d%$/,
+            );
         });
 
         it('does not apply an undisclosed 0.5 red/green threshold to P(ends net negative), matching the neutral treatment of the same figure on ProjectionCard (PT-62b review HIGH fix)', () => {
@@ -725,17 +736,26 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                     passProbability: fraction(0.6),
                     payoutProbabilityGivenFunded: fraction(0.5),
                 }).value;
-                if (expected === null) throw new Error('expected a funnel result');
+                if (expected === null)
+                    throw new Error('expected a funnel result');
 
                 setNumberInput(container, 'cash-flow-what-if-attempts', '100');
                 setNumberInput(container, 'cash-flow-what-if-pass-rate', '60');
-                setNumberInput(container, 'cash-flow-what-if-payout-rate', '50');
+                setNumberInput(
+                    container,
+                    'cash-flow-what-if-payout-rate',
+                    '50',
+                );
                 setNumberInput(
                     container,
                     'cash-flow-what-if-average-payout',
                     '2000',
                 );
-                setNumberInput(container, 'cash-flow-what-if-attempt-cost', '165');
+                setNumberInput(
+                    container,
+                    'cash-flow-what-if-attempt-cost',
+                    '165',
+                );
 
                 expect(container.textContent).toContain(
                     formatCompactCurrency(expected.net),
@@ -760,13 +780,21 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 );
                 setNumberInput(container, 'cash-flow-what-if-attempts', '100');
                 setNumberInput(container, 'cash-flow-what-if-pass-rate', '160');
-                setNumberInput(container, 'cash-flow-what-if-payout-rate', '50');
+                setNumberInput(
+                    container,
+                    'cash-flow-what-if-payout-rate',
+                    '50',
+                );
                 setNumberInput(
                     container,
                     'cash-flow-what-if-average-payout',
                     '2000',
                 );
-                setNumberInput(container, 'cash-flow-what-if-attempt-cost', '165');
+                setNumberInput(
+                    container,
+                    'cash-flow-what-if-attempt-cost',
+                    '165',
+                );
 
                 expect(container.textContent).toContain(
                     'enter a valid pass rate, payout rate, attempts, average payout and attempt cost',
@@ -785,13 +813,21 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 );
                 setNumberInput(container, 'cash-flow-what-if-attempts', '100');
                 setNumberInput(container, 'cash-flow-what-if-pass-rate', '160');
-                setNumberInput(container, 'cash-flow-what-if-payout-rate', '50');
+                setNumberInput(
+                    container,
+                    'cash-flow-what-if-payout-rate',
+                    '50',
+                );
                 setNumberInput(
                     container,
                     'cash-flow-what-if-average-payout',
                     '2000',
                 );
-                setNumberInput(container, 'cash-flow-what-if-attempt-cost', '165');
+                setNumberInput(
+                    container,
+                    'cash-flow-what-if-attempt-cost',
+                    '165',
+                );
 
                 const message = container.querySelector(
                     '#cash-flow-what-if-validation-message',

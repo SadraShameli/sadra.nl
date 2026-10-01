@@ -115,7 +115,9 @@ describe('calculatorLinkForAccount', () => {
 
     it('is the same link every time it is built (no random lab or portfolio ids)', () => {
         expect(linkOf(MFF_PRO).href).toBe(linkOf(MFF_PRO).href);
-        const query = new URLSearchParams(linkOf(MFF_PRO).href.split('?', 2)[1]);
+        const query = new URLSearchParams(
+            linkOf(MFF_PRO).href.split('?', 2)[1],
+        );
         expect(query.has('lab')).toBe(false);
         expect(query.has('pf')).toBe(false);
     });
@@ -206,9 +208,7 @@ describe('calculatorLinkForAccount', () => {
             ...RULEBOOK,
             eval: { ...RULEBOOK.eval, mode: EvalSizingMode.MaxRisk },
         };
-        expect(
-            linkOf(TOPSTEP, { rulebook: maxRisk }).flags,
-        ).not.toContain(
+        expect(linkOf(TOPSTEP, { rulebook: maxRisk }).flags).not.toContain(
             AccountCalculatorLinkFlag.EvalSizingApproximatedByLadder,
         );
     });

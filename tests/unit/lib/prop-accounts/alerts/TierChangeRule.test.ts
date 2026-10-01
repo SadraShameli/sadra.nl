@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { AlertKind, AlertSeverity, TierChangeRule } from '~/lib/prop-accounts/alerts';
+import {
+    AlertKind,
+    AlertSeverity,
+    TierChangeRule,
+} from '~/lib/prop-accounts/alerts';
 import { AccountStage } from '~/lib/prop-accounts/core';
 import {
     ContractLimitKind,
@@ -44,8 +48,16 @@ describe('TierChangeRule', () => {
             { firmId: plan.id.firm, plan },
             { stage: AccountStage.Funded },
         );
-        const latest = { ...fundedReconstructed(plan), contractLimit: 5, resolvedDailyLossLimit: 2000 };
-        const previous = { ...fundedReconstructed(plan), contractLimit: 5, resolvedDailyLossLimit: 2000 };
+        const latest = {
+            ...fundedReconstructed(plan),
+            contractLimit: 5,
+            resolvedDailyLossLimit: 2000,
+        };
+        const previous = {
+            ...fundedReconstructed(plan),
+            contractLimit: 5,
+            resolvedDailyLossLimit: 2000,
+        };
         const alerts = alertsOf(rule, {
             accounts: [account],
             accountStates: [
@@ -61,8 +73,16 @@ describe('TierChangeRule', () => {
             { firmId: plan.id.firm, plan },
             { stage: AccountStage.Funded },
         );
-        const previous = { ...fundedReconstructed(plan), contractLimit: 5, resolvedDailyLossLimit: 2000 };
-        const latest = { ...fundedReconstructed(plan), contractLimit: 10, resolvedDailyLossLimit: 3000 };
+        const previous = {
+            ...fundedReconstructed(plan),
+            contractLimit: 5,
+            resolvedDailyLossLimit: 2000,
+        };
+        const latest = {
+            ...fundedReconstructed(plan),
+            contractLimit: 10,
+            resolvedDailyLossLimit: 3000,
+        };
         const alerts = alertsOf(rule, {
             accounts: [account],
             accountStates: [
@@ -80,8 +100,14 @@ describe('TierChangeRule', () => {
             { firmId: plan.id.firm, plan },
             { stage: AccountStage.Funded },
         );
-        const previous = { ...fundedReconstructed(plan), resolvedDailyLossLimit: 2000 };
-        const latest = { ...fundedReconstructed(plan), resolvedDailyLossLimit: 3000 };
+        const previous = {
+            ...fundedReconstructed(plan),
+            resolvedDailyLossLimit: 2000,
+        };
+        const latest = {
+            ...fundedReconstructed(plan),
+            resolvedDailyLossLimit: 3000,
+        };
         const alerts = alertsOf(rule, {
             accounts: [account],
             accountStates: [
@@ -148,7 +174,10 @@ describe('TierChangeRule', () => {
             { firmId: plan.id.firm, plan },
             { stage: AccountStage.Funded },
         );
-        const previous = { ...fundedReconstructed(plan), microContractLimit: 5 };
+        const previous = {
+            ...fundedReconstructed(plan),
+            microContractLimit: 5,
+        };
         const latest = { ...fundedReconstructed(plan), microContractLimit: 10 };
         const alerts = alertsOf(rule, {
             accounts: [account],
@@ -232,7 +261,11 @@ function tieredLivePlan(): LivePlan {
         liveDailyLossLimit: {
             kind: DailyLossLimitKind.Tiered,
             tiers: [
-                { dailyLossLimit: dollars(1000), maxContracts: contracts(2), minProfit: dollars(0) },
+                {
+                    dailyLossLimit: dollars(1000),
+                    maxContracts: contracts(2),
+                    minProfit: dollars(0),
+                },
                 {
                     dailyLossLimit: dollars(3000),
                     maxContracts: contracts(10),
@@ -241,7 +274,9 @@ function tieredLivePlan(): LivePlan {
             ],
         },
         liveDrawdown: new StaticDrawdown({ amount: dollars(9000) }),
-        payoutTiers: [{ thresholdProfit: dollars(0), traderShare: fraction(0.9) }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
         startingBalance: dollars(10_000),
     });
 }

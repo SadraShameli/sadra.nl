@@ -1,6 +1,8 @@
 export enum AlertKind {
     BankrollLossRiskAboveThreshold = 'bankroll-loss-risk-above-threshold',
     CalendarInactivity = 'calendar-inactivity',
+    CapacityExceeded = 'capacity-exceeded',
+    ConcentratedFirmProfit = 'concentrated-firm-profit',
     ConductPattern = 'conduct-pattern',
     ConsistencyNearBreach = 'consistency-near-breach',
     CooldownActive = 'cooldown-active',
@@ -9,6 +11,7 @@ export enum AlertKind {
     FirmPayoutTotalMismatch = 'firm-payout-total-mismatch',
     IdleSessionLimit = 'idle-session-limit',
     InvalidStoredDate = 'invalid-stored-date',
+    LargeDayLoss = 'large-day-loss',
     LifetimeDollarCapNear = 'lifetime-dollar-cap-near',
     LifetimePayoutCountNear = 'lifetime-payout-count-near',
     LiveExclusivity = 'live-exclusivity',
@@ -18,6 +21,7 @@ export enum AlertKind {
     PayoutCountMismatch = 'payout-count-mismatch',
     PayoutDollarMismatch = 'payout-dollar-mismatch',
     PayoutEligible = 'payout-eligible',
+    PayoutReadyOpenRisk = 'payout-ready-open-risk',
     PayoutReadyWithdrawableDrop = 'payout-ready-withdrawable-drop',
     PlanRulesChanged = 'plan-rules-changed',
     PooledCapReached = 'pooled-cap-reached',
@@ -30,8 +34,11 @@ export enum AlertKind {
 }
 
 const ALERT_KIND_LABELS: Readonly<Record<AlertKind, string>> = {
-    [AlertKind.BankrollLossRiskAboveThreshold]: 'Bankroll loss risk above threshold',
+    [AlertKind.BankrollLossRiskAboveThreshold]:
+        'Bankroll loss risk above threshold',
     [AlertKind.CalendarInactivity]: 'Calendar inactivity',
+    [AlertKind.CapacityExceeded]: 'Daily account capacity exceeded',
+    [AlertKind.ConcentratedFirmProfit]: 'Profit concentrated at one firm',
     [AlertKind.ConductPattern]: 'Conduct pattern',
     [AlertKind.ConsistencyNearBreach]: 'Consistency near breach',
     [AlertKind.CooldownActive]: 'Cooldown active',
@@ -40,6 +47,7 @@ const ALERT_KIND_LABELS: Readonly<Record<AlertKind, string>> = {
     [AlertKind.FirmPayoutTotalMismatch]: 'Firm payout total mismatch',
     [AlertKind.IdleSessionLimit]: 'Idle session limit',
     [AlertKind.InvalidStoredDate]: 'Invalid stored date',
+    [AlertKind.LargeDayLoss]: 'Large day loss',
     [AlertKind.LifetimeDollarCapNear]: 'Lifetime payout dollar cap',
     [AlertKind.LifetimePayoutCountNear]: 'Lifetime payout count',
     [AlertKind.LiveExclusivity]: 'Live exclusivity',
@@ -49,6 +57,8 @@ const ALERT_KIND_LABELS: Readonly<Record<AlertKind, string>> = {
     [AlertKind.PayoutCountMismatch]: 'Payout count mismatch',
     [AlertKind.PayoutDollarMismatch]: 'Payout dollar mismatch',
     [AlertKind.PayoutEligible]: 'Payout eligible',
+    [AlertKind.PayoutReadyOpenRisk]:
+        'Payout-ready account risked above the documented rung',
     [AlertKind.PayoutReadyWithdrawableDrop]: 'Payout-ready withdrawable drop',
     [AlertKind.PlanRulesChanged]: 'Plan rules changed',
     [AlertKind.PooledCapReached]: 'Pooled account cap reached',

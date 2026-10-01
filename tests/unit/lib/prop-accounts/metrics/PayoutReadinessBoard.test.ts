@@ -160,7 +160,9 @@ describe('payoutReadinessBoardOf', () => {
         expect(board.notApplicable).toEqual([
             {
                 accountId: 'eval',
-                notApplicable: { kind: PayoutReadinessNotApplicableKind.NotFunded },
+                notApplicable: {
+                    kind: PayoutReadinessNotApplicableKind.NotFunded,
+                },
             },
             {
                 accountId: 'missing',

@@ -39,7 +39,9 @@ function withStubbedPolicy<T>(policy: FirmAccountPolicy, run: () => T): T {
 describe('pooledCapUsage', () => {
     it('falls back to per-plan caps and lists the firm as cap scope unverified when the firm has no verified pool', () => {
         const usage = pooledCapUsage(
-            ledger({ accounts: [account(EVAL_PLAN, { stage: AccountStage.Funded })] }),
+            ledger({
+                accounts: [account(EVAL_PLAN, { stage: AccountStage.Funded })],
+            }),
         );
         expect(usage.pooledCapsModeled).toBe(false);
         expect(usage.capScopeUnverifiedFirmIds).toEqual([EVAL_PLAN.firm.id]);
@@ -151,7 +153,9 @@ describe('pooledCapUsage', () => {
             withStubbedPolicy(new FixedPoolPolicy(pool), () =>
                 pooledCapUsage(
                     ledger({
-                        accounts: [account(EVAL_PLAN, { stage: AccountStage.Funded })],
+                        accounts: [
+                            account(EVAL_PLAN, { stage: AccountStage.Funded }),
+                        ],
                     }),
                 ),
             ),
@@ -170,7 +174,11 @@ describe('pooledCapUsage', () => {
         };
         const usage = withStubbedPolicy(new FixedPoolPolicy(pool), () =>
             pooledCapUsage(
-                ledger({ accounts: [account(EVAL_PLAN, { stage: AccountStage.Funded })] }),
+                ledger({
+                    accounts: [
+                        account(EVAL_PLAN, { stage: AccountStage.Funded }),
+                    ],
+                }),
             ),
         );
         expect(usage.householdDisclosedFirmIds).toEqual([EVAL_PLAN.firm.id]);

@@ -6,7 +6,11 @@ import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { Input } from '~/components/ui/Input';
-import { formatGateCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import {
+    formatGateCurrency,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import { fraction } from '~/lib/prop-calculator';
 import { stableJson } from '~/lib/stableJson';
 
@@ -59,7 +63,9 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
 
     const buildRequest = useCallback(
         (runId: number) =>
-            policy === null ? null : bankrollProjectionRequest(variant, policy, runId),
+            policy === null
+                ? null
+                : bankrollProjectionRequest(variant, policy, runId),
         [policy, variant],
     );
     const worker = useToolsRequest(requestKey, buildRequest);
@@ -71,7 +77,9 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
             : null;
     const summary = result === null ? null : bankrollProjectionSummary(result);
     const failureReason =
-        worker.state.phase === ToolsWorkerPhase.Failed ? worker.state.reason : null;
+        worker.state.phase === ToolsWorkerPhase.Failed
+            ? worker.state.reason
+            : null;
 
     const illustration =
         state.start === null || state.horizonDays === null
@@ -83,48 +91,74 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
               );
 
     return (
-        <section aria-labelledby="bankroll-projection-heading" className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold tracking-tight text-white" id="bankroll-projection-heading">
+        <section
+            aria-labelledby="bankroll-projection-heading"
+            className="flex flex-col gap-4"
+        >
+            <h2
+                className="text-lg font-semibold tracking-tight text-white"
+                id="bankroll-projection-heading"
+            >
                 Projection
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
                 <NumberField
                     label="Starting bankroll ($)"
-                    onChange={(raw) => onChange({ start: parseBankrollDollarsField(raw) })}
+                    onChange={(raw) =>
+                        onChange({ start: parseBankrollDollarsField(raw) })
+                    }
                     testId="bankroll-start"
                     value={state.start}
                 />
                 <NumberField
                     label="Monthly budget ($, optional)"
-                    onChange={(raw) => onChange({ monthlyBudget: parseBankrollDollarsField(raw) })}
+                    onChange={(raw) =>
+                        onChange({
+                            monthlyBudget: parseBankrollDollarsField(raw),
+                        })
+                    }
                     testId="bankroll-monthly-budget"
                     value={state.monthlyBudget}
                 />
                 <NumberField
                     label="Reinvest fraction (0 to 1)"
                     onChange={(raw) =>
-                        onChange({ reinvestFraction: parseBankrollReinvestFractionField(raw) })
+                        onChange({
+                            reinvestFraction:
+                                parseBankrollReinvestFractionField(raw),
+                        })
                     }
                     testId="bankroll-reinvest"
                     value={state.reinvestFraction}
                 />
                 <NumberField
                     label="Capacity (max concurrent accounts, optional)"
-                    onChange={(raw) => onChange({ capacity: parseBankrollPositiveIntField(raw) })}
+                    onChange={(raw) =>
+                        onChange({
+                            capacity: parseBankrollPositiveIntField(raw),
+                        })
+                    }
                     testId="bankroll-capacity"
                     value={state.capacity}
                 />
                 <NumberField
                     label="Payout lag (days)"
                     onChange={(raw) =>
-                        onChange({ payoutLagDays: parseBankrollNonNegativeIntField(raw) })
+                        onChange({
+                            payoutLagDays:
+                                parseBankrollNonNegativeIntField(raw),
+                        })
                     }
                     testId="bankroll-payout-lag"
                     value={state.payoutLagDays}
                 />
                 <NumberField
                     label="Horizon (trading days)"
-                    onChange={(raw) => onChange({ horizonDays: parseBankrollPositiveIntField(raw) })}
+                    onChange={(raw) =>
+                        onChange({
+                            horizonDays: parseBankrollPositiveIntField(raw),
+                        })
+                    }
                     testId="bankroll-horizon"
                     value={state.horizonDays}
                 />
@@ -135,7 +169,9 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                         Enter a starting bankroll and a horizon to project.
                     </p>
                 ) : (
-                    <p className="text-xs text-rose-400" role="alert">{failureReason}</p>
+                    <p className="text-xs text-rose-400" role="alert">
+                        {failureReason}
+                    </p>
                 )
             ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -143,7 +179,10 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                         label="Final bankroll (P10 / P50 / P90)"
                         value={`${formatGateCurrency(summary.finalCashP10)} / ${formatGateCurrency(summary.finalCashP50)} / ${formatGateCurrency(summary.finalCashP90)}`}
                     />
-                    <StatCard label="Path ruin" value={formatPercent(summary.pathRuin)} />
+                    <StatCard
+                        label="Path ruin"
+                        value={formatPercent(summary.pathRuin)}
+                    />
                     <StatCard
                         label="P(final net < 0)"
                         value={formatPercent(summary.pFinalNetNegative)}
@@ -154,11 +193,19 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                     />
                     <StatCard
                         label="Multiple (P50 cash / start)"
-                        value={summary.multiple === null ? NOT_APPLICABLE : `${summary.multiple.toFixed(2)}x`}
+                        value={
+                            summary.multiple === null
+                                ? NOT_APPLICABLE
+                                : `${summary.multiple.toFixed(2)}x`
+                        }
                     />
                     <StatCard
                         label="Measured cycle days"
-                        value={summary.measuredCycleDays === null ? NOT_APPLICABLE : summary.measuredCycleDays.toFixed(1)}
+                        value={
+                            summary.measuredCycleDays === null
+                                ? NOT_APPLICABLE
+                                : summary.measuredCycleDays.toFixed(1)
+                        }
                     />
                 </div>
             )}
@@ -185,10 +232,15 @@ function NumberField({
     testId: string;
     value: null | number;
 }) {
-    const [text, setText] = useState(() => (value === null ? '' : String(value)));
+    const [text, setText] = useState(() =>
+        value === null ? '' : String(value),
+    );
     return (
         <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground" htmlFor={testId}>
+            <label
+                className="text-xs font-medium text-muted-foreground"
+                htmlFor={testId}
+            >
                 {label}
             </label>
             <Input

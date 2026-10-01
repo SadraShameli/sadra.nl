@@ -1,5 +1,8 @@
 import { formatUsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
-import { AccountStateKind, fundedPayoutRuleContextOf } from '~/lib/prop-accounts/metrics';
+import {
+    AccountStateKind,
+    fundedPayoutRuleContextOf,
+} from '~/lib/prop-accounts/metrics';
 import { TradingPhase } from '~/lib/prop-calculator';
 import {
     type FundedPayoutRuleContext,

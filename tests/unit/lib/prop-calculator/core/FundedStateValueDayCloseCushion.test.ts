@@ -89,17 +89,11 @@ describe('the funded DP interpolates the day-close cushion instead of flooring i
     }, 60_000);
 
     it('keeps the day-close path smooth across a cell boundary instead of a plateau-then-cliff step', () => {
-        const justBelow = initialValueAtLockedCushion(
-            CUSHION_STEP_DOLLARS - 1,
-        );
+        const justBelow = initialValueAtLockedCushion(CUSHION_STEP_DOLLARS - 1);
         const atTheBoundary = initialValueAtLockedCushion(CUSHION_STEP_DOLLARS);
-        const justAbove = initialValueAtLockedCushion(
-            CUSHION_STEP_DOLLARS + 1,
-        );
+        const justAbove = initialValueAtLockedCushion(CUSHION_STEP_DOLLARS + 1);
         expect(justBelow).toBeLessThanOrEqual(atTheBoundary);
         expect(atTheBoundary).toBeLessThanOrEqual(justAbove);
-        expect(atTheBoundary - justBelow).toBeLessThan(
-            0.1 * atTheBoundary,
-        );
+        expect(atTheBoundary - justBelow).toBeLessThan(0.1 * atTheBoundary);
     }, 60_000);
 });

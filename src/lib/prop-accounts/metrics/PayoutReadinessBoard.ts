@@ -195,7 +195,10 @@ function fundedRowOf(
     const grossPendingPayouts = pendingPayouts ?? 0;
     const grossState =
         grossPendingPayouts > 0
-            ? { ...state, balance: dollars(state.balance + grossPendingPayouts) }
+            ? {
+                  ...state,
+                  balance: dollars(state.balance + grossPendingPayouts),
+              }
             : state;
     const readiness = payoutReadiness(plan, grossState, tracker, {
         minRetainedCushion,
@@ -210,7 +213,8 @@ function fundedRowOf(
                 asOf,
                 kind: PayoutReadinessRowKind.Blocked,
                 pendingAmountCents:
-                    readiness.reason.kind === PayoutBlockReasonKind.PayoutPending
+                    readiness.reason.kind ===
+                    PayoutBlockReasonKind.PayoutPending
                         ? usdCentsFromDollars(grossPendingPayouts)
                         : null,
                 reason: readiness.reason,

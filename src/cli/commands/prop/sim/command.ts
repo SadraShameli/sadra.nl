@@ -79,7 +79,6 @@ export const simArguments = {
     ...bankrollArguments,
 };
 
-
 export default defineCommand({
     args: simArguments,
     meta: {
@@ -481,7 +480,9 @@ function formatMinimumBudget(
     if (quantity.reason === EconomicsReason.NoPositiveEdge) {
         return 'no positive edge';
     }
-    return quantity.reason === EconomicsReason.ThresholdNotSet ? 'threshold not set' : formatQuantityReason(quantity.reason);
+    return quantity.reason === EconomicsReason.ThresholdNotSet
+        ? 'threshold not set'
+        : formatQuantityReason(quantity.reason);
 }
 
 function formatNoPayout(pAttemptPays: number, attempts: number): string {
@@ -535,12 +536,14 @@ function minimumBudgetRow(
 }
 
 function payoutDistributionLine(distribution: readonly number[]): string {
-    return distribution.length === 0 ? 'n/a (no trial reached funded)' : distribution
-        .map(
-            (probability, index) =>
-                `${index === distribution.length - 1 ? '10+' : String(index)}: ${formatPercent(probability)}`,
-        )
-        .join(' | ');
+    return distribution.length === 0
+        ? 'n/a (no trial reached funded)'
+        : distribution
+              .map(
+                  (probability, index) =>
+                      `${index === distribution.length - 1 ? '10+' : String(index)}: ${formatPercent(probability)}`,
+              )
+              .join(' | ');
 }
 
 function unitWord(unit: LossSampleUnit, count: number): string {

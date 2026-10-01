@@ -303,9 +303,10 @@ describe('ReconstructionRoundTrip (F-107, PT-12j, PT-12k)', () => {
         );
         expect(reconstructed.state.balance).toBe(engineState.balance);
         expect(
-            reconstructed.fundedTracker
-                ?.cycleSnapshot(plan, reconstructed.state)
-                .fundedResetsUsed,
+            reconstructed.fundedTracker?.cycleSnapshot(
+                plan,
+                reconstructed.state,
+            ).fundedResetsUsed,
         ).toBe(1);
     });
 

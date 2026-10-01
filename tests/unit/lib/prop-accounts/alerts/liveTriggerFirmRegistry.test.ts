@@ -8,7 +8,12 @@ import {
 import { AccountEventKind, AccountStage } from '~/lib/prop-accounts/core';
 import { ALL_FIRMS, type FirmId, type Plan } from '~/lib/prop-calculator';
 
-import { accountFor, contextOf, paidPayout, snapshotFor } from './alertFixtures';
+import {
+    accountFor,
+    contextOf,
+    paidPayout,
+    snapshotFor,
+} from './alertFixtures';
 
 const VERIFIED_FIRM_POLICY_KINDS: ReadonlySet<AlertKind> = new Set([
     AlertKind.CalendarInactivity,
@@ -50,12 +55,36 @@ describe('firm-policy alert rules stay silent on every real (unverified) firm', 
                 rebuyTarget,
             ];
             const events: AlertEventRow[] = [
-                { accountId: live.id, kind: AccountEventKind.MovedLive, occurredOn: '2026-08-01' },
-                { accountId: live.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-10' },
-                { accountId: busted1.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-05' },
-                { accountId: busted2.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-05' },
-                { accountId: rebuySource.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-01' },
-                { accountId: rebuyTarget.id, kind: AccountEventKind.Purchased, occurredOn: '2026-09-03' },
+                {
+                    accountId: live.id,
+                    kind: AccountEventKind.MovedLive,
+                    occurredOn: '2026-08-01',
+                },
+                {
+                    accountId: live.id,
+                    kind: AccountEventKind.Busted,
+                    occurredOn: '2026-09-10',
+                },
+                {
+                    accountId: busted1.id,
+                    kind: AccountEventKind.Busted,
+                    occurredOn: '2026-09-05',
+                },
+                {
+                    accountId: busted2.id,
+                    kind: AccountEventKind.Busted,
+                    occurredOn: '2026-09-05',
+                },
+                {
+                    accountId: rebuySource.id,
+                    kind: AccountEventKind.Busted,
+                    occurredOn: '2026-09-01',
+                },
+                {
+                    accountId: rebuyTarget.id,
+                    kind: AccountEventKind.Purchased,
+                    occurredOn: '2026-09-03',
+                },
             ];
             const payouts = Array.from({ length: 15 }, (_unused, index) =>
                 paidPayout(sibling, {

@@ -7,7 +7,11 @@ import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToo
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { Input } from '~/components/ui/Input';
 import { formatGateCurrency, NOT_APPLICABLE } from '~/lib/format';
-import { type Dollars, fraction, type Fraction0to1 } from '~/lib/prop-calculator';
+import {
+    type Dollars,
+    fraction,
+    type Fraction0to1,
+} from '~/lib/prop-calculator';
 import { BankrollLeverLabel } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
 
@@ -35,13 +39,21 @@ export function TwoStrategiesCard() {
     const [riskB, setRiskB] = useState<Dollars | null>(null);
     const [start, setStart] = useState<Dollars | null>(null);
     const [horizonDays, setHorizonDays] = useState<null | number>(null);
-    const [reinvestFraction, setReinvestFraction] = useState<Fraction0to1 | null>(null);
+    const [reinvestFraction, setReinvestFraction] =
+        useState<Fraction0to1 | null>(null);
 
-    const variantB = riskB === null ? null : bankrollVariantWithRisk(variantA, riskB);
+    const variantB =
+        riskB === null ? null : bankrollVariantWithRisk(variantA, riskB);
 
     const canRun = variantB !== null && start !== null && horizonDays !== null;
     const requestKey = canRun
-        ? stableJson({ horizonDays, reinvestFraction, start, variantA, variantB })
+        ? stableJson({
+              horizonDays,
+              reinvestFraction,
+              start,
+              variantA,
+              variantB,
+          })
         : null;
 
     const buildRequest = useCallback(
@@ -69,18 +81,31 @@ export function TwoStrategiesCard() {
         worker.state.result.kind === ToolsResponseKind.TwoStrategies
             ? worker.state.result.results
             : null;
-    const summaries = results === null ? null : bankrollTwoStrategiesSummary(results);
+    const summaries =
+        results === null ? null : bankrollTwoStrategiesSummary(results);
     const failureReason =
-        canRun && worker.state.phase === ToolsWorkerPhase.Failed ? worker.state.reason : null;
+        canRun && worker.state.phase === ToolsWorkerPhase.Failed
+            ? worker.state.reason
+            : null;
 
     const illustration =
         start === null || horizonDays === null
             ? null
-            : bankrollClosedFormIllustration(start, reinvestFraction ?? fraction(0), horizonDays);
+            : bankrollClosedFormIllustration(
+                  start,
+                  reinvestFraction ?? fraction(0),
+                  horizonDays,
+              );
 
     return (
-        <section aria-labelledby="bankroll-two-strategies-heading" className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold tracking-tight text-white" id="bankroll-two-strategies-heading">
+        <section
+            aria-labelledby="bankroll-two-strategies-heading"
+            className="flex flex-col gap-4"
+        >
+            <h2
+                className="text-lg font-semibold tracking-tight text-white"
+                id="bankroll-two-strategies-heading"
+            >
                 Two strategies
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -96,28 +121,41 @@ export function TwoStrategiesCard() {
                 <NumberField
                     id="bankroll-two-strategies-horizon"
                     label="Horizon (trading days)"
-                    onChange={(raw) => setHorizonDays(parseBankrollPositiveIntField(raw))}
+                    onChange={(raw) =>
+                        setHorizonDays(parseBankrollPositiveIntField(raw))
+                    }
                 />
                 <NumberField
                     id="bankroll-two-strategies-reinvest"
                     label="Reinvest fraction (0 to 1)"
-                    onChange={(raw) => setReinvestFraction(parseBankrollReinvestFractionField(raw))}
+                    onChange={(raw) =>
+                        setReinvestFraction(
+                            parseBankrollReinvestFractionField(raw),
+                        )
+                    }
                 />
                 <NumberField
-                    describedBy={riskB === null ? undefined : RISK_B_CONFLICT_MESSAGE_ID}
+                    describedBy={
+                        riskB === null ? undefined : RISK_B_CONFLICT_MESSAGE_ID
+                    }
                     id="bankroll-two-strategies-risk-b"
                     label="Strategy B risk per trade ($)"
                     onChange={(raw) => setRiskB(parseBankrollDollarsField(raw))}
                 />
             </div>
             {riskB === null ? null : (
-                <p className="text-xs text-amber-400" id={RISK_B_CONFLICT_MESSAGE_ID}>
+                <p
+                    className="text-xs text-amber-400"
+                    id={RISK_B_CONFLICT_MESSAGE_ID}
+                >
                     Strategy B: {BankrollLeverLabel.ConflictsWithHardRule3}
                 </p>
             )}
             {summaries === null ? (
                 failureReason === null ? null : (
-                    <p className="text-xs text-rose-400" role="alert">{failureReason}</p>
+                    <p className="text-xs text-rose-400" role="alert">
+                        {failureReason}
+                    </p>
                 )
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -152,7 +190,10 @@ function NumberField({
     const [text, setText] = useState('');
     return (
         <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground" htmlFor={id}>
+            <label
+                className="text-xs font-medium text-muted-foreground"
+                htmlFor={id}
+            >
                 {label}
             </label>
             <Input
@@ -180,18 +221,28 @@ function StrategySummaryColumn({
 }) {
     return (
         <div className="grid gap-3">
-            <p className="text-xs font-medium text-muted-foreground">Strategy {label}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+                Strategy {label}
+            </p>
             <StatCard
                 label="Final bankroll (P10 / P50 / P90)"
                 value={`${formatGateCurrency(summary.finalCashP10)} / ${formatGateCurrency(summary.finalCashP50)} / ${formatGateCurrency(summary.finalCashP90)}`}
             />
             <StatCard
                 label="Multiple (P50 cash / start)"
-                value={summary.multiple === null ? NOT_APPLICABLE : `${summary.multiple.toFixed(2)}x`}
+                value={
+                    summary.multiple === null
+                        ? NOT_APPLICABLE
+                        : `${summary.multiple.toFixed(2)}x`
+                }
             />
             <StatCard
                 label="Measured cycle days"
-                value={summary.measuredCycleDays === null ? NOT_APPLICABLE : summary.measuredCycleDays.toFixed(1)}
+                value={
+                    summary.measuredCycleDays === null
+                        ? NOT_APPLICABLE
+                        : summary.measuredCycleDays.toFixed(1)
+                }
             />
         </div>
     );

@@ -1069,7 +1069,7 @@ describe('OverviewView', () => {
             expect(kinds).toContainEqual([
                 OverviewRequestKind.AccountFromState,
             ]);
-            expect(created).toBe(3);
+            expect(created).toBe(4);
             const accountRequest = posted
                 .flatMap((message) => message.requests)
                 .find(

@@ -45,6 +45,7 @@ import {
 
 export enum AccountSortKey {
     Cushion = 'cushion',
+    ExpectedValue = 'expected-value',
     Label = 'label',
     Readiness = 'readiness',
 }
@@ -107,6 +108,7 @@ export interface AccountListFilters {
 export interface AccountListRow {
     readonly account: TrackedAccountRow<AccountListAccount>;
     readonly cushionCents: null | UsdCents;
+    readonly expectedValueDollars: null | number;
     readonly isLedgerOnly: boolean;
     readonly isReadOnly: boolean;
     readonly latestSnapshot: AccountListSnapshot | null;
@@ -146,9 +148,11 @@ export const DEFAULT_ACCOUNT_LIST_FILTERS: AccountListFilters = {
 };
 
 export const DEFAULT_ACCOUNT_LIST_SORT: AccountListSort = {
-    direction: SortDirection.Ascending,
-    key: AccountSortKey.Label,
+    direction: SortDirection.Descending,
+    key: AccountSortKey.ExpectedValue,
 };
+
+const NO_EXPECTED_VALUES: ReadonlyMap<string, null | number> = new Map();
 
 const READINESS_TIER_RANK: Readonly<Record<PayoutReadinessTier, number>> = {
     [PayoutReadinessTier.Blocked]: 2,
@@ -227,6 +231,7 @@ export function buildAccountListRows(
     accounts: readonly AccountListAccount[],
     snapshots: readonly AccountListSnapshot[],
     boards: AccountListBoards | null = null,
+    expectedValues: ReadonlyMap<string, null | number> = NO_EXPECTED_VALUES,
 ): readonly AccountListRow[] {
     const cushions = new Map(
         boards?.cushion.rows.map((row) => [row.accountId, row.cushionCents]),
@@ -252,6 +257,7 @@ export function buildAccountListRows(
                 boards === null
                     ? cushionOf(latestSnapshot)
                     : (cushions.get(account.id) ?? null),
+            expectedValueDollars: expectedValues.get(account.id) ?? null,
             isLedgerOnly: account.tracking === AccountTracking.LedgerOnly,
             isReadOnly: issues.length > 0,
             latestSnapshot,
@@ -340,6 +346,21 @@ export function sortAccountRows(
                         right.cushionCents,
                         sign,
                     ) || compareLabels(left, right)
+                );
+            }
+            case AccountSortKey.ExpectedValue: {
+                return (
+                    compareKnownFirst(
+                        left.expectedValueDollars,
+                        right.expectedValueDollars,
+                        sign,
+                    ) ||
+                    compareKnownFirst(
+                        readinessRankOf(left.readiness),
+                        readinessRankOf(right.readiness),
+                        1,
+                    ) ||
+                    compareLabels(left, right)
                 );
             }
             case AccountSortKey.Label: {

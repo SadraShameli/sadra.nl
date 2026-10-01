@@ -132,7 +132,10 @@ const topStepConsistencyPlan = registryPlan(TOPSTEP_STANDARD_CONSISTENCY_ID);
 
 describe('copyGroupSizing (PT-26b, F-130)', () => {
     it('rejects a group with no members', () => {
-        const result = copyGroupSizing({ members: [], rulebook: DEFAULT_RULEBOOK });
+        const result = copyGroupSizing({
+            members: [],
+            rulebook: DEFAULT_RULEBOOK,
+        });
 
         expect(result.kind).toBe(CopyGroupSizingResultKind.Rejected);
         if (result.kind !== CopyGroupSizingResultKind.Rejected) return;
@@ -298,9 +301,9 @@ describe('copyGroupSizing (PT-26b, F-130)', () => {
         expect(result.kind).toBe(CopyGroupSizingResultKind.Sized);
         if (result.kind !== CopyGroupSizingResultKind.Sized) return;
         expect(result.sizing.rungs[0]?.risk).toBe(50);
-        expect(result.divergences.map((divergence) => divergence.memberId)).toContain(
-            'tight',
-        );
+        expect(
+            result.divergences.map((divergence) => divergence.memberId),
+        ).toContain('tight');
     });
 
     it('rejects a group where a member has no cushion room left instead of returning a silent empty ladder', () => {
@@ -317,7 +320,9 @@ describe('copyGroupSizing (PT-26b, F-130)', () => {
         expect(result.rejection.kind).toBe(
             CopyGroupSizingRejectionKind.NoCushionRoom,
         );
-        if (result.rejection.kind !== CopyGroupSizingRejectionKind.NoCushionRoom) {
+        if (
+            result.rejection.kind !== CopyGroupSizingRejectionKind.NoCushionRoom
+        ) {
             return;
         }
         expect(result.rejection.memberIds).toEqual(['drained']);
@@ -329,7 +334,10 @@ describe('copyGroupSizing (PT-26b, F-130)', () => {
                 member('tight', 'Tight', fundedAccount(600)),
                 member('roomy', 'Roomy', fundedAccount(5000)),
             ],
-            positionSizing: { instrument: InstrumentSymbol.MNQ, stopPoints: 10 },
+            positionSizing: {
+                instrument: InstrumentSymbol.MNQ,
+                stopPoints: 10,
+            },
             rulebook: DEFAULT_RULEBOOK,
         });
 
@@ -354,7 +362,10 @@ describe('copyGroupSizing (PT-26b, F-130)', () => {
                 member('tight', 'Tight', fundedAccount(600)),
                 member('roomy', 'Roomy', fundedAccount(5000)),
             ],
-            positionSizing: { instrument: InstrumentSymbol.ES, stopPoints: 1000 },
+            positionSizing: {
+                instrument: InstrumentSymbol.ES,
+                stopPoints: 1000,
+            },
             rulebook: DEFAULT_RULEBOOK,
         });
 

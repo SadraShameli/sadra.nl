@@ -101,9 +101,8 @@ export function costAnalytics(
             firmKey,
             spend: netSpendOf(items),
         })),
-        byFirmAttemptCost: groupByFirmKey(
-            ledger.resolvedAccounts,
-            (entry) => firmKeyOf(entry.row),
+        byFirmAttemptCost: groupByFirmKey(ledger.resolvedAccounts, (entry) =>
+            firmKeyOf(entry.row),
         ).map(({ firmKey, items }) => ({
             firmKey,
             ...attemptCostOf(items),

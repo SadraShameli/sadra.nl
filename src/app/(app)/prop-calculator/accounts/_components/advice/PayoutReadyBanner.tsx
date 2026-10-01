@@ -29,7 +29,9 @@ export function PayoutReadyBanner({
             </p>
             {flag !== null && (
                 <Alert variant="warning">
-                    <AlertTitle>Flag: risk above the documented rung</AlertTitle>
+                    <AlertTitle>
+                        Flag: risk above the documented rung
+                    </AlertTitle>
                     <AlertDescription>
                         The risk you entered or recorded is{' '}
                         {formatCurrency(flag.excess, 2)} above the documented
@@ -42,7 +44,11 @@ export function PayoutReadyBanner({
     );
 }
 
-function StakeLines({ stake }: { readonly stake: ValueSection<PayoutStakeView> }) {
+function StakeLines({
+    stake,
+}: {
+    readonly stake: ValueSection<PayoutStakeView>;
+}) {
     switch (stake.kind) {
         case ValueSectionKind.Failed: {
             return (

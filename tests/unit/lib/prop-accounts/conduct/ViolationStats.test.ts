@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { violationStatsOf } from '~/lib/prop-accounts/conduct';
-import { RuleViolationKind, usdCents, ViolationSource } from '~/lib/prop-accounts/core';
+import {
+    RuleViolationKind,
+    usdCents,
+    ViolationSource,
+} from '~/lib/prop-accounts/core';
 
 const ALPHA = 'account-alpha';
 const BRAVO = 'account-bravo';
@@ -37,8 +41,16 @@ describe('violationStatsOf', () => {
 
         expect(stats.byKind).toEqual(
             expect.arrayContaining([
-                { costCents: 15_000, count: 2, kind: RuleViolationKind.Oversize },
-                { costCents: 2000, count: 1, kind: RuleViolationKind.ChasedLoss },
+                {
+                    costCents: 15_000,
+                    count: 2,
+                    kind: RuleViolationKind.Oversize,
+                },
+                {
+                    costCents: 2000,
+                    count: 1,
+                    kind: RuleViolationKind.ChasedLoss,
+                },
             ]),
         );
         expect(stats.byMonth).toEqual(

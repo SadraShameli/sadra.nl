@@ -1,4 +1,8 @@
-import { AccountStage, isAccountDate, isEndedStatus } from '~/lib/prop-accounts/core';
+import {
+    AccountStage,
+    isAccountDate,
+    isEndedStatus,
+} from '~/lib/prop-accounts/core';
 import {
     InactivityBasisKind,
     isoDaysBetween,

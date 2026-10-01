@@ -1,4 +1,7 @@
-import { type DocumentedPolicySpec, toSimInputs } from '~/lib/prop-calculator/advisor/policy';
+import {
+    type DocumentedPolicySpec,
+    toSimInputs,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
@@ -16,10 +19,7 @@ import {
 import { simulate } from '~/lib/prop-calculator/simulator';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
-import {
-    tradeValueSwing,
-    type TradeValueSwingResult,
-} from './TradeValueSwing';
+import { tradeValueSwing, type TradeValueSwingResult } from './TradeValueSwing';
 import { requireValue } from './ValueChain';
 import {
     conservativeGapStandardError,
@@ -56,8 +56,7 @@ export interface RiskCandidateRow {
 }
 
 export type RiskCandidateValuesOutcome =
-    | RiskCandidateValuesResult
-    | ValueNotModeledResult;
+    RiskCandidateValuesResult | ValueNotModeledResult;
 
 export interface RiskCandidateValuesResult {
     readonly basis: RiskCandidateBasis;
@@ -91,7 +90,11 @@ export function riskCandidateValues(
     const monthlyNetCharge = monthlyNetChargeFor(account, spec);
 
     const rows = request.riskGrid.map((intendedRisk): RiskCandidateRow => {
-        const placement = placementOf(intendedRisk, positionSizing, maxContracts);
+        const placement = placementOf(
+            intendedRisk,
+            positionSizing,
+            maxContracts,
+        );
         const swing = swingFor(account, spec, placement.placedRisk, request.rr);
         const value = continuationValue(
             swing.winProbability,
@@ -144,7 +147,9 @@ function monthlyNetChargeFor(
         account.kind === TradingPhase.Funded
             ? spec.rulebook.funded.tradesPerDayMax
             : spec.rulebook.strategy.tradesPerDayMax;
-    return freshOutputs.expectedMonthlyNet / TRADING_DAYS_PER_MONTH / tradesPerDay;
+    return (
+        freshOutputs.expectedMonthlyNet / TRADING_DAYS_PER_MONTH / tradesPerDay
+    );
 }
 
 function placementOf(

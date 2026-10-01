@@ -15,6 +15,7 @@ import {
     LifetimePayoutCapBasis,
     RebuyLagBasis,
 } from '~/lib/prop-calculator/advisor';
+import { ValueChainStepKind } from '~/lib/prop-calculator/advisor/value';
 import { MffuVariant, TopStepVariant } from '~/lib/prop-calculator/core';
 import { EconomicsReason } from '~/lib/prop-calculator/economics';
 
@@ -30,7 +31,9 @@ const TOPSTEP_50K_SERIAL = serializePlanId({
     variant: TopStepVariant.StandardStandard,
 });
 
-function variant(overrides: Partial<BankrollPlanVariantInputs['base']> = {}): BankrollPlanVariantInputs {
+function variant(
+    overrides: Partial<BankrollPlanVariantInputs['base']> = {},
+): BankrollPlanVariantInputs {
     return {
         base: {
             fundedHorizonDays: 30,
@@ -45,13 +48,17 @@ function variant(overrides: Partial<BankrollPlanVariantInputs['base']> = {}): Ba
         },
         plan: {
             firmId: FirmId.TopStep,
-            optIns: { takesFundedReset: false, takesOneTimeEarlyWithdrawal: false },
+            optIns: {
+                takesFundedReset: false,
+                takesOneTimeEarlyWithdrawal: false,
+            },
             planSerial: TOPSTEP_50K_SERIAL,
         },
         policy: {
             commissionPerRoundTrip: 0,
             fundedHorizonDays: 30,
-            lifetimePayoutCapBasis: LifetimePayoutCapBasis.LiveTriggersNotChecked,
+            lifetimePayoutCapBasis:
+                LifetimePayoutCapBasis.LiveTriggersNotChecked,
             lifetimePayoutCapOverride: null,
             payoutRequestOverride: 500,
             rebuyLagBasis: RebuyLagBasis.AssumedZero,
@@ -78,7 +85,8 @@ describe('computeToolsResult: Projection (thin call into simulateBankrollTimelin
             variant: variant(),
         });
         expect(result.kind).toBe(ToolsResponseKind.Projection);
-        if (result.kind !== ToolsResponseKind.Projection) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.Projection)
+            throw new Error('unreachable');
         expect(result.result.days.length).toBeGreaterThan(0);
         expect(result.result.cashP50[0]).toBe(5000);
         expect(result.runId).toBe(1);
@@ -97,7 +105,10 @@ describe('computeToolsResult: Projection (thin call into simulateBankrollTimelin
             dayBudget: 60,
             kind: ToolsRequestKind.Projection,
             runId: 2,
-            variant: { ...variant(), plan: { ...variant().plan, planSerial: 'no-such-plan' } },
+            variant: {
+                ...variant(),
+                plan: { ...variant().plan, planSerial: 'no-such-plan' },
+            },
         });
         expect(result.kind).toBe(ToolsResponseKind.Failed);
     });
@@ -131,7 +142,8 @@ describe('computeToolsResult: Batch (thin call into cohortOutcome)', () => {
             variant: variant(),
         });
         expect(result.kind).toBe(ToolsResponseKind.Batch);
-        if (result.kind !== ToolsResponseKind.Batch) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.Batch)
+            throw new Error('unreachable');
         expect(result.result.meanNet).not.toBeNull();
         expect(result.result.lossProbability).toBeGreaterThanOrEqual(0);
         expect(result.result.lossProbability).toBeLessThanOrEqual(1);
@@ -146,9 +158,12 @@ describe('computeToolsResult: Batch (thin call into cohortOutcome)', () => {
             variant: variant(),
         });
         expect(result.kind).toBe(ToolsResponseKind.Batch);
-        if (result.kind !== ToolsResponseKind.Batch) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.Batch)
+            throw new Error('unreachable');
         expect(result.result.lossProbability).toBeNull();
-        expect(result.result.lossProbabilityReason).toBe(EconomicsReason.InvalidInput);
+        expect(result.result.lossProbabilityReason).toBe(
+            EconomicsReason.InvalidInput,
+        );
     });
 });
 
@@ -158,10 +173,14 @@ describe('computeToolsResult: SameEv (thin call into simulate + LossRisk)', () =
             bankroll: 2000,
             kind: ToolsRequestKind.SameEv,
             runId: 5,
-            variants: [variant({ riskPerTrade: 250 }), variant({ riskPerTrade: 500 })],
+            variants: [
+                variant({ riskPerTrade: 250 }),
+                variant({ riskPerTrade: 500 }),
+            ],
         });
         expect(result.kind).toBe(ToolsResponseKind.SameEv);
-        if (result.kind !== ToolsResponseKind.SameEv) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.SameEv)
+            throw new Error('unreachable');
         expect(result.results).toHaveLength(2);
     });
 });
@@ -178,11 +197,16 @@ describe('computeToolsResult: Levers (thin call into bankrollLevers)', () => {
             variant: variant(),
         });
         expect(result.kind).toBe(ToolsResponseKind.Levers);
-        if (result.kind !== ToolsResponseKind.Levers) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.Levers)
+            throw new Error('unreachable');
         expect(result.rows).toHaveLength(3);
         expect(result.rows[0]?.deltaAttemptPaysProbability).toBe(0);
-        expect(typeof result.rows[1]?.deltaAttemptPaysProbability).toBe('number');
-        expect(typeof result.rows[2]?.deltaAttemptPaysProbability).toBe('number');
+        expect(typeof result.rows[1]?.deltaAttemptPaysProbability).toBe(
+            'number',
+        );
+        expect(typeof result.rows[2]?.deltaAttemptPaysProbability).toBe(
+            'number',
+        );
     });
 });
 
@@ -200,10 +224,14 @@ describe('computeToolsResult: TwoStrategies and NextRound (thin calls into simul
             dayBudget: 60,
             kind: ToolsRequestKind.TwoStrategies,
             runId: 7,
-            variants: [variant({ riskPerTrade: 250 }), variant({ riskPerTrade: 500 })],
+            variants: [
+                variant({ riskPerTrade: 250 }),
+                variant({ riskPerTrade: 500 }),
+            ],
         });
         expect(result.kind).toBe(ToolsResponseKind.TwoStrategies);
-        if (result.kind !== ToolsResponseKind.TwoStrategies) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.TwoStrategies)
+            throw new Error('unreachable');
         expect(result.results).toHaveLength(2);
     });
 
@@ -232,7 +260,8 @@ describe('computeToolsResult: TwoStrategies and NextRound (thin calls into simul
             variant: variant(),
         });
         expect(result.kind).toBe(ToolsResponseKind.NextRound);
-        if (result.kind !== ToolsResponseKind.NextRound) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.NextRound)
+            throw new Error('unreachable');
         expect(result.optionB.cashP50[0]).toBe(6500);
     });
 });
@@ -269,10 +298,42 @@ describe('computeToolsResult: ValueChain (thin call into valueChain)', () => {
             spec: documentedPolicySpec(),
         });
         expect(result.kind).toBe(ToolsResponseKind.ValueChain);
-        if (result.kind !== ToolsResponseKind.ValueChain) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.ValueChain)
+            throw new Error('unreachable');
         expect(result.result.steps).toHaveLength(4);
         expect(result.result.accountValue).toBeNull();
         expect(result.runId).toBe(9);
+    });
+
+    it('reports the steps that built and names the ones that failed when the first-payout-eligible state cannot be built', () => {
+        const spec = documentedPolicySpec();
+        const result = computeToolsResult({
+            kind: ToolsRequestKind.ValueChain,
+            plan: valueChainPlanReference(),
+            runId: 14,
+            spec: {
+                ...spec,
+                enginePolicy: {
+                    ...spec.enginePolicy,
+                    retainedCushionRequest: 500_000,
+                },
+            },
+        });
+        expect(result.kind).toBe(ToolsResponseKind.ValueChain);
+        if (result.kind !== ToolsResponseKind.ValueChain)
+            throw new Error('unreachable');
+        expect(result.result.steps.map((step) => step.kind)).toEqual([
+            ValueChainStepKind.EvalStart,
+            ValueChainStepKind.FreshFunded,
+        ]);
+        expect(result.result.failedSteps.map((step) => step.kind)).toEqual([
+            ValueChainStepKind.FirstPayoutEligible,
+            ValueChainStepKind.PostFirstPayout,
+        ]);
+        expect(result.result.failedSteps[0]?.reason).toMatch(
+            /no first-payout-eligible account/,
+        );
+        expect(result.runId).toBe(14);
     });
 
     it('fails with a named reason when the plan does not resolve', () => {
@@ -296,7 +357,8 @@ describe('computeToolsResult: FundedValueEstimate (thin call into fundedValueEst
             spec: documentedPolicySpec(),
         });
         expect(result.kind).toBe(ToolsResponseKind.FundedValueEstimate);
-        if (result.kind !== ToolsResponseKind.FundedValueEstimate) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.FundedValueEstimate)
+            throw new Error('unreachable');
         expect(result.result.sampleRange).toBeNull();
         expect(typeof result.result.meanPayoutsPerAccount.value).toBe('number');
     });
@@ -310,7 +372,8 @@ describe('computeToolsResult: FundedValueEstimate (thin call into fundedValueEst
             spec: documentedPolicySpec(),
         });
         expect(result.kind).toBe(ToolsResponseKind.FundedValueEstimate);
-        if (result.kind !== ToolsResponseKind.FundedValueEstimate) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.FundedValueEstimate)
+            throw new Error('unreachable');
         expect(result.result.sampleRange).not.toBeNull();
     });
 

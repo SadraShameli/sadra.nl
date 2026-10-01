@@ -49,13 +49,15 @@ vi.mock('~/trpc/react', async () => {
                         useMutation: (
                             options: { onSuccess?: () => void } = {},
                         ) => {
-                            const [variables, setVariables] = useState<
-                                null | { decisionId: null | string }
-                            >(null);
+                            const [variables, setVariables] = useState<null | {
+                                decisionId: null | string;
+                            }>(null);
                             return {
                                 isPending: false,
                                 isSuccess: variables !== null,
-                                mutate: (input: { decisionId: null | string }) => {
+                                mutate: (input: {
+                                    decisionId: null | string;
+                                }) => {
                                     harness.mutate(input);
                                     setVariables(input);
                                     options.onSuccess?.();
@@ -77,14 +79,15 @@ vi.mock('~/trpc/react', async () => {
                     },
                 },
             },
-            useUtils: () => ({ propAccounts: { invalidate: harness.invalidate } }),
+            useUtils: () => ({
+                propAccounts: { invalidate: harness.invalidate },
+            }),
         },
     };
 });
 
-const { ProposedRiskCheck } = await import(
-    '~/app/(app)/prop-calculator/accounts/_components/advice/ProposedRiskCheck'
-);
+const { ProposedRiskCheck } =
+    await import('~/app/(app)/prop-calculator/accounts/_components/advice/ProposedRiskCheck');
 
 const VIDEO_FIGURES = ['600', '350', '466'];
 
@@ -224,9 +227,17 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
         it('has a risk field and optional wins and losses fields', () => {
             renderCheck();
 
-            expect(container.querySelector('input[aria-label="Proposed risk ($)"]')).not.toBeNull();
-            expect(container.querySelector('input[aria-label="Wins today"]')).not.toBeNull();
-            expect(container.querySelector('input[aria-label="Losses today"]')).not.toBeNull();
+            expect(
+                container.querySelector(
+                    'input[aria-label="Proposed risk ($)"]',
+                ),
+            ).not.toBeNull();
+            expect(
+                container.querySelector('input[aria-label="Wins today"]'),
+            ).not.toBeNull();
+            expect(
+                container.querySelector('input[aria-label="Losses today"]'),
+            ).not.toBeNull();
         });
 
         it('reports each edit through onChange with the other fields kept', () => {
@@ -255,9 +266,9 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
                 inputs: { losses: '2', risk: '250', wins: '' },
             });
 
-            expect(container.querySelector('[role="status"]')?.textContent).toContain(
-                'Within your documented plan.',
-            );
+            expect(
+                container.querySelector('[role="status"]')?.textContent,
+            ).toContain('Within your documented plan.');
             expect(button('Log violation')).toBeNull();
         });
 
@@ -267,9 +278,9 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
                 inputs: { losses: '1', risk: '375', wins: '' },
             });
 
-            expect(container.querySelector('[role="status"]')?.textContent).toContain(
-                'Above the documented rung of $250.00 by $125.00.',
-            );
+            expect(
+                container.querySelector('[role="status"]')?.textContent,
+            ).toContain('Above the documented rung of $250.00 by $125.00.');
         });
 
         it('never offers Log violation for a proposed risk, which has not been placed', () => {
@@ -278,9 +289,9 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
                 inputs: { losses: '1', risk: '375', wins: '' },
             });
 
-            expect(container.querySelector('[role="status"]')?.textContent).toContain(
-                'Above the documented rung',
-            );
+            expect(
+                container.querySelector('[role="status"]')?.textContent,
+            ).toContain('Above the documented rung');
             expect(button('Log violation')).toBeNull();
         });
 
@@ -288,7 +299,9 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
             renderCheck({
                 check: check(),
                 inputs: { losses: '1', risk: '250', wins: '' },
-                recorded: recordedOf(ABOVE_AFTER_LOSS, { decisionId: 'recorded-3' }),
+                recorded: recordedOf(ABOVE_AFTER_LOSS, {
+                    decisionId: 'recorded-3',
+                }),
             });
 
             const log = button('Log violation');
@@ -326,12 +339,17 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
         it('reads the violations of the account', () => {
             renderCheck({ recorded: recordedOf(ABOVE_AFTER_LOSS) });
 
-            expect(harness.listInputs).toContainEqual({ accountId: 'account-a' });
+            expect(harness.listInputs).toContainEqual({
+                accountId: 'account-a',
+            });
         });
 
         it('shows Violation recorded, never the button, for a decision that already has a violation of that kind, as after a remount', () => {
             harness.violations.rows = [
-                { decisionId: 'decision-7', kind: RuleViolationKind.ForcedRecovery },
+                {
+                    decisionId: 'decision-7',
+                    kind: RuleViolationKind.ForcedRecovery,
+                },
             ];
 
             renderCheck({ recorded: recordedOf(ABOVE_AFTER_LOSS) });
@@ -344,7 +362,10 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
         it('still offers the button when the existing violations are of another kind or another decision', () => {
             harness.violations.rows = [
                 { decisionId: 'decision-7', kind: RuleViolationKind.Oversize },
-                { decisionId: 'decision-8', kind: RuleViolationKind.ForcedRecovery },
+                {
+                    decisionId: 'decision-8',
+                    kind: RuleViolationKind.ForcedRecovery,
+                },
                 { decisionId: null, kind: RuleViolationKind.ForcedRecovery },
             ];
 
@@ -371,8 +392,12 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
 
             const text = container.textContent;
             expect(text).toContain('Recorded actual risk $375');
-            expect(text).toContain('Judged against 0 wins and 1 loss entered above.');
-            expect(text).toContain('Above the documented rung of $250.00 by $125.00.');
+            expect(text).toContain(
+                'Judged against 0 wins and 1 loss entered above.',
+            );
+            expect(text).toContain(
+                'Above the documented rung of $250.00 by $125.00.',
+            );
         });
 
         it('never offers Log violation for a recorded risk that is within the plan, even after a loss', () => {
@@ -390,9 +415,9 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
                 inputs: { losses: '', risk: '-5', wins: '' },
             });
 
-            expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-                'Enter a risk above $0.',
-            );
+            expect(
+                container.querySelector('[role="alert"]')?.textContent,
+            ).toContain('Enter a risk above $0.');
             expect(container.querySelector('[role="status"]')).toBeNull();
         });
 
@@ -421,9 +446,9 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
                 inputs: { losses: '2', risk: '100', wins: '' },
             });
 
-            expect(container.querySelector('[role="status"]')?.textContent).toContain(
-                'has stopped for today',
-            );
+            expect(
+                container.querySelector('[role="status"]')?.textContent,
+            ).toContain('has stopped for today');
         });
     });
 
@@ -431,8 +456,12 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
         it('headlines Request payout and says the documented rungs stay unchanged', () => {
             renderBanner();
 
-            expect(container.querySelector('h3')?.textContent).toBe('Request payout');
-            expect(container.textContent).toContain('documented rungs below are unchanged');
+            expect(container.querySelector('h3')?.textContent).toBe(
+                'Request payout',
+            );
+            expect(container.textContent).toContain(
+                'documented rungs below are unchanged',
+            );
         });
 
         it('states the lesson in one line', () => {
@@ -457,7 +486,9 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
             renderBanner();
 
             const text = container.textContent;
-            expect(text).toContain('what-if: your documented rung is unchanged (QV-18)');
+            expect(text).toContain(
+                'what-if: your documented rung is unchanged (QV-18)',
+            );
             expect(text).toContain('$900 ± $11');
         });
 
@@ -489,17 +520,24 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
 
         it('states a failed stake computation instead of hiding it', () => {
             renderBanner({
-                stake: { kind: ValueSectionKind.Failed, reason: 'the engine refused' },
+                stake: {
+                    kind: ValueSectionKind.Failed,
+                    reason: 'the engine refused',
+                },
             });
 
-            expect(container.textContent).toContain('Left out: the engine refused');
+            expect(container.textContent).toContain(
+                'Left out: the engine refused',
+            );
         });
 
         it('shows no EV at stake without a stake computation', () => {
             renderBanner({ stake: null });
 
             expect(container.textContent).not.toContain('EV at stake');
-            expect(container.querySelector('h3')?.textContent).toBe('Request payout');
+            expect(container.querySelector('h3')?.textContent).toBe(
+                'Request payout',
+            );
         });
     });
 
@@ -520,7 +558,10 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
                         />
                         <PayoutReadyBanner
                             flag={{ excess: 125 }}
-                            stake={{ kind: ValueSectionKind.Ready, view: STAKE }}
+                            stake={{
+                                kind: ValueSectionKind.Ready,
+                                view: STAKE,
+                            }}
                         />
                     </>,
                 );

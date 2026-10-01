@@ -105,7 +105,11 @@ describe('planCapUsage', () => {
         firm.accountPolicy = new FixedPoolPolicy(pool);
         try {
             const usage = planCapUsage(
-                ledger({ accounts: [account(EVAL_PLAN, { stage: AccountStage.Funded })] }),
+                ledger({
+                    accounts: [
+                        account(EVAL_PLAN, { stage: AccountStage.Funded }),
+                    ],
+                }),
             );
             expect(usage.pooledCapsModeled).toBe(true);
         } finally {
@@ -115,7 +119,9 @@ describe('planCapUsage', () => {
 
     it('stays false for every real firm today (no verified pool data yet)', () => {
         const usage = planCapUsage(
-            ledger({ accounts: [account(EVAL_PLAN, { stage: AccountStage.Funded })] }),
+            ledger({
+                accounts: [account(EVAL_PLAN, { stage: AccountStage.Funded })],
+            }),
         );
         expect(usage.pooledCapsModeled).toBe(false);
     });

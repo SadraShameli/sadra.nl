@@ -150,7 +150,8 @@ describe('TPT PRO funded inactivity closure follows the calendar-week rule, not 
 
     it('declares a 5-session calendar-week inactivity rule for the funded phase only', () => {
         expect(
-            plan.calendarWeekInactivityFor(TradingPhase.Funded)?.sessionsPerWeek,
+            plan.calendarWeekInactivityFor(TradingPhase.Funded)
+                ?.sessionsPerWeek,
         ).toBe(5);
         expect(plan.calendarWeekInactivityFor(TradingPhase.Eval)).toBeNull();
     });
@@ -201,9 +202,9 @@ describe('TPT PRO funded inactivity closure follows the calendar-week rule, not 
     });
 
     it('rejects setting both calendarWeekInactivity and maxConsecutiveIdleDays on the same plan', () => {
-        expect(() =>
-            plan.withOverrides({ maxConsecutiveIdleDays: 7 }),
-        ).toThrow(/calendarWeekInactivity and maxConsecutiveIdleDays/);
+        expect(() => plan.withOverrides({ maxConsecutiveIdleDays: 7 })).toThrow(
+            /calendarWeekInactivity and maxConsecutiveIdleDays/,
+        );
     });
 
     it('rejects a non-positive-integer sessionsPerWeek', () => {
@@ -216,13 +217,13 @@ describe('TPT PRO funded inactivity closure follows the calendar-week rule, not 
     });
 });
 
-describe('TPT notes cite the firm\'s own Zendesk articles, not the propfirmmatch extraction or a 403 caveat (N-85)', () => {
+describe("TPT notes cite the firm's own Zendesk articles, not the propfirmmatch extraction or a 403 caveat (N-85)", () => {
     const firm = new TakeProfitTrader();
 
     it('never cites the propfirmmatch.com extraction', () => {
-        expect(
-            firm.notes.some((note) => note.includes('propfirmmatch')),
-        ).toBe(false);
+        expect(firm.notes.some((note) => note.includes('propfirmmatch'))).toBe(
+            false,
+        );
     });
 
     it('cites Zendesk 15171769361053 for the calendar-week trading note', () => {
@@ -234,7 +235,9 @@ describe('TPT notes cite the firm\'s own Zendesk articles, not the propfirmmatch
 
     it('cites Zendesk 15169066911133 for the contract-limit note', () => {
         const note = firm.notes.find((candidate) =>
-            candidate.includes('6 minis / 60 micros, flat across eval and funded'),
+            candidate.includes(
+                '6 minis / 60 micros, flat across eval and funded',
+            ),
         );
         expect(note).toContain('15169066911133');
     });

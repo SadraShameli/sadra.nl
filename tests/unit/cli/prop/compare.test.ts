@@ -760,7 +760,9 @@ describe('prop compare run (PT-54)', () => {
         expect(stdout).toContain('P(no payout)');
         expect(stdout).toContain('$/screen hour');
         expect(stdout).toContain('sorted by hour');
-        expect(stdout).not.toMatch(/\b(?:implausible|no|strong|typical) edge\b/);
+        expect(stdout).not.toMatch(
+            /\b(?:implausible|no|strong|typical) edge\b/,
+        );
     });
 
     it('flags an implausible edge', async () => {
@@ -791,10 +793,7 @@ describe('P(no payout) is one definition, shared by the web tables (PT-61e, F-V2
 
     it('calls the shared engine helper instead of re-deriving the value from the distribution array', () => {
         const source = readFileSync(
-            path.join(
-                REPO_ROOT,
-                'src/cli/commands/prop/compare/command.ts',
-            ),
+            path.join(REPO_ROOT, 'src/cli/commands/prop/compare/command.ts'),
             'utf8',
         );
         expect(source).toContain('noPayoutProbabilityFromDistribution');

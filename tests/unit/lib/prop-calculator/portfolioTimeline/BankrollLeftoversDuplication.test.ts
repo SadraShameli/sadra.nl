@@ -18,9 +18,9 @@ describe('bankroll leftovers duplication (PT-55b)', () => {
         const leversText = textOf(
             'src/lib/prop-calculator/economics/BankrollLevers.ts',
         );
-        expect(occurrences(commandText, /function empiricalPayingStatsOf/)).toBe(
-            0,
-        );
+        expect(
+            occurrences(commandText, /function empiricalPayingStatsOf/),
+        ).toBe(0);
         expect(occurrences(leversText, /function empiricalPayingStatsOf/)).toBe(
             1,
         );

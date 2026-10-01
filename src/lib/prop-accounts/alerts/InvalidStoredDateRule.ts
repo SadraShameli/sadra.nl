@@ -1,4 +1,7 @@
-import { MAX_ACCOUNT_DATE_YEAR, MIN_ACCOUNT_DATE_YEAR } from '~/lib/prop-accounts/core';
+import {
+    MAX_ACCOUNT_DATE_YEAR,
+    MIN_ACCOUNT_DATE_YEAR,
+} from '~/lib/prop-accounts/core';
 
 import { type AccountAlert } from './AccountAlert';
 import {

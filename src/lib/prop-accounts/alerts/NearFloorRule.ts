@@ -37,9 +37,14 @@ export class NearFloorRule extends AccountAlertRule {
             context.rulebook,
             state.latest.reconstructed,
         );
-        return ratio.ratio === null || ratio.ratio >= thresholdFor(ratio, context)
+        return ratio.ratio === null ||
+            ratio.ratio >= thresholdFor(ratio, context)
             ? null
-            : this.alertFor(monitored, AlertSeverity.Warning, messageFor(ratio));
+            : this.alertFor(
+                  monitored,
+                  AlertSeverity.Warning,
+                  messageFor(ratio),
+              );
     }
 }
 

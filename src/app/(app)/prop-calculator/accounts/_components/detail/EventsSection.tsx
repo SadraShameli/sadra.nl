@@ -454,9 +454,9 @@ function EventForm({
                         <Info />
                         <AlertTitle>Loading your other accounts</AlertTitle>
                         <AlertDescription>
-                            What the firm&apos;s rules do to your other
-                            accounts when this one goes live is shown once
-                            they are loaded; recording waits until then.
+                            What the firm&apos;s rules do to your other accounts
+                            when this one goes live is shown once they are
+                            loaded; recording waits until then.
                         </AlertDescription>
                     </Alert>
                 )}
@@ -465,9 +465,9 @@ function EventForm({
                         <TriangleAlert />
                         <AlertTitle>Other accounts not loaded</AlertTitle>
                         <AlertDescription>
-                            Your other accounts could not be loaded, so what
-                            the firm&apos;s rules do to them is not shown.
-                            Recording this event suspends nothing.
+                            Your other accounts could not be loaded, so what the
+                            firm&apos;s rules do to them is not shown. Recording
+                            this event suspends nothing.
                         </AlertDescription>
                     </Alert>
                 )}
@@ -490,7 +490,9 @@ function EventForm({
                                 id={suspendId}
                                 onCheckedChange={(checked) => {
                                     setSuspendedKey(
-                                        checked === true ? exclusivityKey : null,
+                                        checked === true
+                                            ? exclusivityKey
+                                            : null,
                                     );
                                 }}
                             />
@@ -577,18 +579,16 @@ function MovedLiveSuggestion({
 }) {
     const utilities = api.useUtils();
     const firmLabel = firmKeyLabel(firmKeyOf(firmColumns), externalFirms);
-    const engagementMutation = api.propAccounts.firmEngagement.set.useMutation(
-        {
-            onError: (error) => {
-                toast.error(error.message);
-            },
-            onSuccess: () => {
-                toast.success(`${firmLabel} marked sent live`);
-                onDismiss();
-                return utilities.propAccounts.invalidate();
-            },
+    const engagementMutation = api.propAccounts.firmEngagement.set.useMutation({
+        onError: (error) => {
+            toast.error(error.message);
         },
-    );
+        onSuccess: () => {
+            toast.success(`${firmLabel} marked sent live`);
+            onDismiss();
+            return utilities.propAccounts.invalidate();
+        },
+    });
 
     return (
         <Alert className="mt-4">

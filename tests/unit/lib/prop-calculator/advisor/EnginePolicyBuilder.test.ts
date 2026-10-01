@@ -50,7 +50,9 @@ function topStepPlan(): Plan {
 
 const HORIZON_DAYS = 90;
 
-function rulebook(overrides: Partial<RulebookParameters> = {}): RulebookParameters {
+function rulebook(
+    overrides: Partial<RulebookParameters> = {},
+): RulebookParameters {
     return { ...DEFAULT_RULEBOOK, ...overrides };
 }
 
@@ -86,7 +88,10 @@ describe('buildEnginePolicy (PT-19 step 1)', () => {
     it('maps a verified capped count trigger to VerifiedCountTrigger with the cap', () => {
         class CappedAccountPolicy extends UnverifiedFirmAccountPolicy {
             override lifetimePayoutCapOverride() {
-                return { cap: 6, kind: LifetimePayoutCapOverrideKind.Capped as const };
+                return {
+                    cap: 6,
+                    kind: LifetimePayoutCapOverrideKind.Capped as const,
+                };
             }
         }
         const { assumptions, policy } = buildEnginePolicy({
@@ -100,14 +105,18 @@ describe('buildEnginePolicy (PT-19 step 1)', () => {
         );
         expect(policy.lifetimePayoutCapOverride).toBe(6);
         expect(assumptions).not.toContainEqual(
-            expect.objectContaining({ kind: AssumptionKind.LiveTriggersNotChecked }),
+            expect.objectContaining({
+                kind: AssumptionKind.LiveTriggersNotChecked,
+            }),
         );
     });
 
     it('maps a verified no-count-trigger firm to VerifiedNoCountTrigger with no override', () => {
         class NoCountTriggerAccountPolicy extends UnverifiedFirmAccountPolicy {
             override lifetimePayoutCapOverride() {
-                return { kind: LifetimePayoutCapOverrideKind.NoCountTrigger as const };
+                return {
+                    kind: LifetimePayoutCapOverrideKind.NoCountTrigger as const,
+                };
             }
         }
         const { policy } = buildEnginePolicy({
@@ -299,12 +308,20 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
             rebuyLagDays: 3,
             retainedCushionRequest: 2000,
         });
-        const result = applyEnginePolicy(plan, policy, baseSimInputs(plan, 500));
+        const result = applyEnginePolicy(
+            plan,
+            policy,
+            baseSimInputs(plan, 500),
+        );
 
         expect(result.plan.maxLifetimePayouts).toBe(6);
-        expect(result.minRetainedCushion).toBe(plan.resolveRetainedCushion(2000));
+        expect(result.minRetainedCushion).toBe(
+            plan.resolveRetainedCushion(2000),
+        );
         expect(result.minRetainedCushion).toBe(2000);
-        expect(result.payoutRequestPolicy).toBe(PayoutRequestPolicy.FullRequestOnly);
+        expect(result.payoutRequestPolicy).toBe(
+            PayoutRequestPolicy.FullRequestOnly,
+        );
         expect(result.payoutRequestSize).toBe(
             effectivePayoutRequest(result.plan, 500),
         );
@@ -316,7 +333,8 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
         const policy = enginePolicySchema.parse({
             commissionPerRoundTrip: 0,
             fundedHorizonDays: HORIZON_DAYS,
-            lifetimePayoutCapBasis: LifetimePayoutCapBasis.LiveTriggersNotChecked,
+            lifetimePayoutCapBasis:
+                LifetimePayoutCapBasis.LiveTriggersNotChecked,
             lifetimePayoutCapOverride: null,
             payoutRequestOverride: null,
             rebuyLagBasis: RebuyLagBasis.AssumedZero,
@@ -325,7 +343,11 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
         });
         expect(plan.defaultRetainedCushion()).toBe(0);
 
-        const result = applyEnginePolicy(plan, policy, baseSimInputs(plan, 500));
+        const result = applyEnginePolicy(
+            plan,
+            policy,
+            baseSimInputs(plan, 500),
+        );
 
         expect(result.minRetainedCushion).toBe(2000);
     });
@@ -335,14 +357,19 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
         const policy = enginePolicySchema.parse({
             commissionPerRoundTrip: 0,
             fundedHorizonDays: HORIZON_DAYS,
-            lifetimePayoutCapBasis: LifetimePayoutCapBasis.LiveTriggersNotChecked,
+            lifetimePayoutCapBasis:
+                LifetimePayoutCapBasis.LiveTriggersNotChecked,
             lifetimePayoutCapOverride: null,
             payoutRequestOverride: 777,
             rebuyLagBasis: RebuyLagBasis.AssumedZero,
             rebuyLagDays: 0,
             retainedCushionRequest: 2000,
         });
-        const result = applyEnginePolicy(plan, policy, baseSimInputs(plan, 500));
+        const result = applyEnginePolicy(
+            plan,
+            policy,
+            baseSimInputs(plan, 500),
+        );
 
         expect(result.payoutRequestSize).toBe(
             effectivePayoutRequest(result.plan, 777),
@@ -354,7 +381,8 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
         const policy = enginePolicySchema.parse({
             commissionPerRoundTrip: 0,
             fundedHorizonDays: HORIZON_DAYS,
-            lifetimePayoutCapBasis: LifetimePayoutCapBasis.LiveTriggersNotChecked,
+            lifetimePayoutCapBasis:
+                LifetimePayoutCapBasis.LiveTriggersNotChecked,
             lifetimePayoutCapOverride: null,
             payoutRequestOverride: null,
             rebuyLagBasis: RebuyLagBasis.AssumedZero,
@@ -365,9 +393,9 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
             ...baseSimInputs(plan, 500),
             intradayPathStepsPerR: 42,
         };
-        expect(applyEnginePolicy(plan, policy, base).intradayPathStepsPerR).toBe(
-            42,
-        );
+        expect(
+            applyEnginePolicy(plan, policy, base).intradayPathStepsPerR,
+        ).toBe(42);
     });
 
     it('throws when neither the policy nor the base carries a payout request size', () => {
@@ -375,7 +403,8 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
         const policy = enginePolicySchema.parse({
             commissionPerRoundTrip: 0,
             fundedHorizonDays: HORIZON_DAYS,
-            lifetimePayoutCapBasis: LifetimePayoutCapBasis.LiveTriggersNotChecked,
+            lifetimePayoutCapBasis:
+                LifetimePayoutCapBasis.LiveTriggersNotChecked,
             lifetimePayoutCapOverride: null,
             payoutRequestOverride: null,
             rebuyLagBasis: RebuyLagBasis.AssumedZero,

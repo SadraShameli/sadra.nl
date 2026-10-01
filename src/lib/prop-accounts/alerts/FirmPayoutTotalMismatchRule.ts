@@ -1,4 +1,9 @@
-import { CentsDisplay, firmKeyId, firmKeyOf, formatUsdCents } from '~/lib/prop-accounts/core';
+import {
+    CentsDisplay,
+    firmKeyId,
+    firmKeyOf,
+    formatUsdCents,
+} from '~/lib/prop-accounts/core';
 import { firmColumnsOf } from '~/lib/prop-accounts/metrics';
 
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
@@ -19,8 +24,9 @@ export class FirmPayoutTotalMismatchRule extends AlertRule {
                 .filter(
                     (monitored) =>
                         isActive(monitored) &&
-                        firmKeyId(firmKeyOf(firmColumnsOf(monitored.account))) ===
-                            targetKey,
+                        firmKeyId(
+                            firmKeyOf(firmColumnsOf(monitored.account)),
+                        ) === targetKey,
                 )
                 .map((monitored) => monitored.account.id);
             const decrease = entry.decreasedFromPrevious

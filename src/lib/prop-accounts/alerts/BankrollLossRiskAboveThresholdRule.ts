@@ -1,5 +1,9 @@
 import { formatPercent } from '~/lib/format';
-import { sampleAdequacy, SampleKind, SampleLevel } from '~/lib/prop-accounts/core';
+import {
+    sampleAdequacy,
+    SampleKind,
+    SampleLevel,
+} from '~/lib/prop-accounts/core';
 import { EconomicsReason } from '~/lib/prop-calculator/economics';
 
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';

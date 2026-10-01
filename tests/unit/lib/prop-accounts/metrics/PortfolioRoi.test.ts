@@ -86,7 +86,9 @@ describe('portfolioRoi', () => {
         const result = portfolioRoi(
             ledger({
                 accounts: [owner],
-                fees: [fee(owner, FeeKind.EvalPurchase, 55_000_000, '2026-07-01')],
+                fees: [
+                    fee(owner, FeeKind.EvalPurchase, 55_000_000, '2026-07-01'),
+                ],
                 payouts: [
                     payout(owner, 193_100_000, {
                         netCents: 193_100_000,

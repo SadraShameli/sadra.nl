@@ -20,11 +20,13 @@ vi.mock('~/lib/prop-calculator', async (importOriginal) => {
             const firm = actual.findFirm(id as never);
             return firm === undefined ||
                 id !== actual.FirmId.TopStep ||
-                box.accountPolicy === null ? firm : (Object.assign(
-                Object.create(Object.getPrototypeOf(firm) as object),
-                firm,
-                { accountPolicy: box.accountPolicy },
-            ) as PropCalculatorModule.TradingFirm);
+                box.accountPolicy === null
+                ? firm
+                : (Object.assign(
+                      Object.create(Object.getPrototypeOf(firm) as object),
+                      firm,
+                      { accountPolicy: box.accountPolicy },
+                  ) as PropCalculatorModule.TradingFirm);
         },
     };
 });
@@ -81,12 +83,16 @@ function renderNothing(): null {
     return null;
 }
 
-const { findFirm, FirmAccountPolicy, FirmId, LifetimePayoutCapOverrideKind, serializePlanId } =
-    await import('~/lib/prop-calculator');
+const {
+    findFirm,
+    FirmAccountPolicy,
+    FirmId,
+    LifetimePayoutCapOverrideKind,
+    serializePlanId,
+} = await import('~/lib/prop-calculator');
 const { TopStepVariant } = await import('~/lib/prop-calculator/core');
-const { FundedOptimizerView } = await import(
-    '~/app/(app)/prop-calculator/(tools)/funded-optimizer/FundedOptimizerView'
-);
+const { FundedOptimizerView } =
+    await import('~/app/(app)/prop-calculator/(tools)/funded-optimizer/FundedOptimizerView');
 
 class VerifiedNoCountTriggerPolicy extends FirmAccountPolicy {
     override lifetimePayoutCapOverride() {
@@ -125,7 +131,11 @@ describe('FundedOptimizerView names the lifetime payout cap basis (PT-25c)', () 
 
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-        sessionMock.mockReturnValue({ data: null, error: null, isPending: false });
+        sessionMock.mockReturnValue({
+            data: null,
+            error: null,
+            isPending: false,
+        });
         box.accountPolicy = null;
         container = document.createElement('div');
         document.body.append(container);

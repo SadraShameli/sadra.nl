@@ -362,15 +362,17 @@ describe('propAccounts.account', () => {
     it('create with a roundId inserts into an open round of the caller that still fits the budget', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,
-            tableResponder({ [TABLES.fee]: [feeRow({ amount_cents: 16_500 })] }),
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 16_500 })],
+            }),
         );
         await caller.account.create(
             accountCreateInput({ roundId: VIDEO_IDS.round }),
         );
         const [accountInsert] = insertsInto(queries, TABLES.account);
-        expect(insertedColumnValues(defined(accountInsert), 'round_id')).toEqual(
-            [VIDEO_IDS.round],
-        );
+        expect(
+            insertedColumnValues(defined(accountInsert), 'round_id'),
+        ).toEqual([VIDEO_IDS.round]);
     });
 
     it('create rejects a foreign roundId and writes nothing', async () => {

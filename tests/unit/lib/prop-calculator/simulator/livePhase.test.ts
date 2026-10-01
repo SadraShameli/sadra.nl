@@ -1756,9 +1756,9 @@ describe('runLiveDay on TPT PRO+ numbers (no buffer-zone withdrawal gate + weekl
 
     it('sets no rolling maxConsecutiveIdleDays, since PRO+ follows the same 5-session calendar-week rule as PRO (N-80)', () => {
         expect(buildTptLivePlan().maxConsecutiveIdleDays).toBeNull();
-        expect(
-            buildTptLivePlan().calendarWeekInactivity?.sessionsPerWeek,
-        ).toBe(5);
+        expect(buildTptLivePlan().calendarWeekInactivity?.sessionsPerWeek).toBe(
+            5,
+        );
     });
 
     it('closes for inactivity at the end of an empty 5-session calendar week, not the 7th consecutive idle day', () => {

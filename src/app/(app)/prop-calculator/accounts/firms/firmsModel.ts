@@ -1,4 +1,7 @@
-import { type ScaleGate, scaleGateFromLedger } from '~/lib/prop-accounts/bankroll';
+import {
+    type ScaleGate,
+    scaleGateFromLedger,
+} from '~/lib/prop-accounts/bankroll';
 import {
     type FirmRoster,
     firmRosterOf,

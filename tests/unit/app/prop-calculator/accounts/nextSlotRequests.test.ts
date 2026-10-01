@@ -63,7 +63,8 @@ const UNSOLD_SERIALS = ALL_FIRMS.flatMap((firm) => firm.plans)
     .filter((plan) => plan.availability !== PlanAvailability.Purchasable)
     .map((plan) => serializePlanId(plan.id));
 
-const RULEBOOK_REQUEST = DEFAULT_RULEBOOK.payout.requestCents / CENTS_PER_DOLLAR;
+const RULEBOOK_REQUEST =
+    DEFAULT_RULEBOOK.payout.requestCents / CENTS_PER_DOLLAR;
 
 class CappedAtFivePolicy extends FirmAccountPolicy {
     override lifetimePayoutCapOverride() {
@@ -121,14 +122,14 @@ describe('nextSlotRequestsOf', () => {
 
     it('asks for one documented-run request per rankable plan and none for a call-up-only or discontinued plan', () => {
         expect(plans.length).toBeGreaterThan(0);
-        expect(requestsOf(requests, OverviewRequestKind.DocumentedRun)).toHaveLength(
-            plans.length,
-        );
+        expect(
+            requestsOf(requests, OverviewRequestKind.DocumentedRun),
+        ).toHaveLength(plans.length);
         const rankableSerials = new Set(plans.map(refSerial));
         for (const request of requests) {
             expect(rankableSerials.has(request.planSerial)).toBe(true);
         }
-                expect(UNSOLD_SERIALS.length).toBeGreaterThan(0);
+        expect(UNSOLD_SERIALS.length).toBeGreaterThan(0);
         for (const serial of UNSOLD_SERIALS) {
             expect(requests.map((request) => request.planSerial)).not.toContain(
                 serial,
@@ -160,7 +161,9 @@ describe('nextSlotRequestsOf', () => {
             };
             expect(parsed.planSerial).toBe(request.planSerial);
             expect(parsed.kind).toBe(request.kind);
-            expect(parsed.policy).toBe(enginePolicyKey(request.spec.enginePolicy));
+            expect(parsed.policy).toBe(
+                enginePolicyKey(request.spec.enginePolicy),
+            );
         }
     });
 
@@ -192,11 +195,16 @@ describe('nextSlotRequestsOf', () => {
             nextSlotRequestsOf(
                 ledger({
                     firmEngagements: [
-                        firmEngagement('', '2026-09-01', FirmEngagementStatus.Paused, {
-                            externalFirmId: null,
-                            firmId: ref.firm.id,
-                            reason: FirmEngagementReason.LowExpectedValue,
-                        }),
+                        firmEngagement(
+                            '',
+                            '2026-09-01',
+                            FirmEngagementStatus.Paused,
+                            {
+                                externalFirmId: null,
+                                firmId: ref.firm.id,
+                                reason: FirmEngagementReason.LowExpectedValue,
+                            },
+                        ),
                     ],
                 }),
                 DEFAULT_RULEBOOK,
@@ -215,7 +223,11 @@ describe('nextSlotRequestsOf', () => {
             held.firm,
             new VerifiedPolicy(),
             () => ({
-                nextSlot: nextSlotRequestsOf(ledger({}), DEFAULT_RULEBOOK, TODAY),
+                nextSlot: nextSlotRequestsOf(
+                    ledger({}),
+                    DEFAULT_RULEBOOK,
+                    TODAY,
+                ),
                 overviewRequests: overviewRequestsFor(
                     [
                         {
@@ -306,9 +318,9 @@ describe('nextSlotRequestsOf', () => {
                 effectivePayoutRequest(plan, RULEBOOK_REQUEST),
             );
             if (request.kind === OverviewRequestKind.DocumentedRun) {
-                expect(toSimInputs(plan, request.spec).payoutRequestPolicy).toBe(
-                    PayoutRequestPolicy.FullRequestOnly,
-                );
+                expect(
+                    toSimInputs(plan, request.spec).payoutRequestPolicy,
+                ).toBe(PayoutRequestPolicy.FullRequestOnly);
             }
         }
     });

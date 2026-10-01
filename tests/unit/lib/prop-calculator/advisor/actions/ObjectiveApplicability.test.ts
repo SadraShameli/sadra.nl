@@ -9,12 +9,17 @@ import { SizingObjective } from '~/lib/prop-calculator/advisor/SizingObjective';
 
 describe('objectiveApplicability (F-V15, Hard Rule 3, Hard Rule 5, Mistake 10)', () => {
     it('lets RuinFirst apply on NextSlot and Compare', () => {
-        for (const surface of [RankingSurface.NextSlot, RankingSurface.Compare]) {
+        for (const surface of [
+            RankingSurface.NextSlot,
+            RankingSurface.Compare,
+        ]) {
             const result = objectiveApplicability(
                 SizingObjective.RuinFirst,
                 surface,
             );
-            expect(result.verdict).toBe(ObjectiveApplicabilityVerdict.Applicable);
+            expect(result.verdict).toBe(
+                ObjectiveApplicabilityVerdict.Applicable,
+            );
             expect(result.effectiveObjective).toBe(SizingObjective.RuinFirst);
             expect(result.reason).toBeNull();
         }

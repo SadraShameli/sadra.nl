@@ -56,7 +56,8 @@ function policyWith(
 
 function withStubbedPolicy<T>(policy: FirmAccountPolicy, run: () => T): T {
     const firm = ALL_FIRMS.find((candidate) => candidate.id === ENTRY.firmId);
-    if (firm === undefined) throw new Error('expected the entry firm to be registered');
+    if (firm === undefined)
+        throw new Error('expected the entry firm to be registered');
     const mutable = firm as { accountPolicy: FirmAccountPolicy };
     const original = mutable.accountPolicy;
     mutable.accountPolicy = policy;

@@ -393,7 +393,9 @@ describe('DocumentedPolicySpec.start (PT-48b, F-148)', () => {
     });
 
     it('leaves start unset when the spec has no start', () => {
-        expect(documentedPolicySpecSchema.parse(BASE_SPEC).start).toBeUndefined();
+        expect(
+            documentedPolicySpecSchema.parse(BASE_SPEC).start,
+        ).toBeUndefined();
     });
 
     it('rejects a start with a state that has no finite balance', () => {
@@ -402,7 +404,10 @@ describe('DocumentedPolicySpec.start (PT-48b, F-148)', () => {
                 ...BASE_SPEC,
                 start: {
                     phase: TradingPhase.Eval,
-                    state: { ...createInitialState(50_000, 48_000), balance: NaN },
+                    state: {
+                        ...createInitialState(50_000, 48_000),
+                        balance: NaN,
+                    },
                 },
             }),
         ).toEqual(['start']);

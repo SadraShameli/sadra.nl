@@ -13,7 +13,12 @@ import {
     AccountTracking,
     DashboardBalanceConvention,
 } from '~/lib/prop-accounts';
-import { ApexVariant, findFirm, FirmId, serializePlanId } from '~/lib/prop-calculator';
+import {
+    ApexVariant,
+    findFirm,
+    FirmId,
+    serializePlanId,
+} from '~/lib/prop-calculator';
 
 const USER_ID = 'user-a';
 const PRIOR_ID = 'prior-account';
@@ -82,7 +87,11 @@ function event(id: string, kind: AccountEventKind, occurredOn: string) {
 
 const MEASURED_ACCOUNTS = [
     account(),
-    account({ id: PRIOR_ID, replacesAccountId: null, status: AccountStatus.Busted }),
+    account({
+        id: PRIOR_ID,
+        replacesAccountId: null,
+        status: AccountStatus.Busted,
+    }),
 ];
 
 const MEASURED_EVENTS = [
@@ -154,9 +163,9 @@ describe('measuredRebuyLagOf (PT-34c)', () => {
             userId: USER_ID,
         });
         expect(line?.kind).toBe(RebuyLagLineKind.Failed);
-        expect(line !== null && 'message' in line ? line.message : '').toContain(
-            'Not a calendar date: "2026-02-30".',
-        );
+        expect(
+            line !== null && 'message' in line ? line.message : '',
+        ).toContain('Not a calendar date: "2026-02-30".');
     });
 });
 
@@ -177,9 +186,45 @@ describe('the measured rebuy lag lives in one place (PT-34c)', () => {
         })
             .filter((entry) => entry.isFile() && /\.tsx?$/u.test(entry.name))
             .map((entry) => path.join(entry.parentPath, entry.name))
-            .filter((file) => /\brebuyLagDefault\(/u.test(readFileSync(file, 'utf8')))
+            .filter((file) =>
+                /\brebuyLagDefault\(/u.test(readFileSync(file, 'utf8')),
+            )
             .map((file) => path.relative(ACCOUNTS_ROOT, file))
             .filter((relative) => !ALLOWED.has(relative));
         expect(offenders).toEqual([]);
+    });
+});
+
+describe('the measured-to-advisor lag mapping lives in one place (PT-37b)', () => {
+    const ACCOUNTS_ROOT = path.resolve(
+        import.meta.dirname,
+        '../../../../../src/app/(app)/prop-calculator/accounts',
+    );
+
+    function sourceOf(relative: string): string {
+        return readFileSync(path.join(ACCOUNTS_ROOT, relative), 'utf8');
+    }
+
+    it('has no private measuredRebuyLagFor in the accounts pages', () => {
+        const offenders = readdirSync(ACCOUNTS_ROOT, {
+            recursive: true,
+            withFileTypes: true,
+        })
+            .filter((entry) => entry.isFile() && /\.tsx?$/u.test(entry.name))
+            .map((entry) => path.join(entry.parentPath, entry.name))
+            .filter((file) =>
+                /\bmeasuredRebuyLagFor\b/u.test(readFileSync(file, 'utf8')),
+            )
+            .map((file) => path.relative(ACCOUNTS_ROOT, file));
+        expect(offenders).toEqual([]);
+    });
+
+    it('serves the detail helper and the overview model from the library mapping', () => {
+        expect(sourceOf('_components/measuredRebuyLag.ts')).toContain(
+            'measuredRebuyLagOfDefault(',
+        );
+        expect(sourceOf('_components/overview/overviewModel.ts')).toContain(
+            'measuredRebuyLagOfDefault(',
+        );
     });
 });

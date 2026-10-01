@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { roundBudgetStatus, willExceedRoundBudget } from '~/lib/prop-accounts/bankroll';
+import {
+    roundBudgetStatus,
+    willExceedRoundBudget,
+} from '~/lib/prop-accounts/bankroll';
 
 describe('roundBudgetStatus', () => {
     it('is null remaining with no budget set', () => {

@@ -20,6 +20,7 @@ import {
     type FirmMinimumAboveRequestNotice,
     FundedFromStateOptimumResultKind,
     FundedSweepOptimumResultKind,
+    type LadderGridRefusal,
     type PayoutAdvice,
     type PayoutRequestDecision,
     PayoutRequestDecisionKind,
@@ -32,7 +33,10 @@ import {
     type SizingStage,
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
-import { FundedCandidateRefusal, type FundedCandidateRefusalDetail } from '~/lib/prop-calculator/optimize';
+import {
+    FundedCandidateRefusal,
+    type FundedCandidateRefusalDetail,
+} from '~/lib/prop-calculator/optimize';
 
 import { accountActionFor } from './accountActionModel';
 
@@ -118,7 +122,8 @@ export interface StaleAdviceViewModel {
     readonly stage: SizingStage;
 }
 
-export const STALE_ADVICE_MESSAGE = "Enter today's balance to see sized amounts again.";
+export const STALE_ADVICE_MESSAGE =
+    "Enter today's balance to see sized amounts again.";
 
 const STALE_REASON_TEXT: Readonly<Record<AdviceStalenessReason, string>> = {
     [AdviceStalenessReason.FundedSnapshotStale]:
@@ -129,14 +134,18 @@ const STALE_REASON_TEXT: Readonly<Record<AdviceStalenessReason, string>> = {
         'More than one trading session has passed since the last balance entry.',
 };
 
-const RETAINED_CUSHION_BASIS_TEXT: Readonly<Record<RetainedCushionBasis, string>> = {
+const RETAINED_CUSHION_BASIS_TEXT: Readonly<
+    Record<RetainedCushionBasis, string>
+> = {
     [RetainedCushionBasis.HardRule2Default]: "Hard Rule 2's default",
     [RetainedCushionBasis.LiveOneDrawdown]: 'one live drawdown',
     [RetainedCushionBasis.PersonalOverride]: 'your personal override',
     [RetainedCushionBasis.RulebookSize]: 'your rulebook size',
 };
 
-const REQUEST_SOURCE_LABEL: Readonly<Record<EngineOptimumRequest['source'], string>> = {
+const REQUEST_SOURCE_LABEL: Readonly<
+    Record<EngineOptimumRequest['source'], string>
+> = {
     [AdviceSource.FundedSweepFresh]: 'Fresh funded sweep',
     [AdviceSource.FundedSweepFromState]: 'From-state funded sweep',
     [AdviceSource.LadderSearchFresh]: 'Ladder search (fresh start)',
@@ -163,7 +172,9 @@ export function adviceViewModel(advice: Advice): AdviceViewModel {
     }
     return {
         action,
-        assumptions: advice.assumptions.map(assumptionViewOf),
+        assumptions: advice.assumptions.map((assumption) =>
+            assumptionViewOf(assumption, advice.requests),
+        ),
         dailyPlanCard:
             advice.dailyPlanCard === null
                 ? null
@@ -192,13 +203,28 @@ export function leftOutOptimumRow(
     return leftOutRow(source, REQUEST_SOURCE_LABEL[source], reason);
 }
 
-function assumptionViewOf(assumption: Assumption): AssumptionView {
+function assumptionTextOf(
+    assumption: Assumption,
+    requests: readonly EngineOptimumRequest[],
+): string {
+    if (assumption.kind === AssumptionKind.SizingRule) {
+        return SIZING_ASSUMPTION_TEXT[assumption.sizingAssumption];
+    }
+    const label = assumptionLabel(assumption.kind);
+    if (assumption.kind !== AssumptionKind.LadderStepWidened) return label;
+    const step = ladderStepOf(requests);
+    return step === null
+        ? label
+        : `${label} It searched in ${formatCurrency(step, 0)} steps.`;
+}
+
+function assumptionViewOf(
+    assumption: Assumption,
+    requests: readonly EngineOptimumRequest[],
+): AssumptionView {
     return {
         bias: assumption.bias,
-        text:
-            assumption.kind === AssumptionKind.SizingRule
-                ? SIZING_ASSUMPTION_TEXT[assumption.sizingAssumption]
-                : assumptionLabel(assumption.kind),
+        text: assumptionTextOf(assumption, requests),
     };
 }
 
@@ -241,6 +267,24 @@ function fundedRefusalText(refusal: FundedCandidateRefusalDetail): string {
             return 'A percent-of-cushion candidate needs an instrument and stop.';
         }
     }
+}
+
+function ladderRefusalText(refusal: LadderGridRefusal): string {
+    return `ladder search not run: grid too large (${refusal.size.toLocaleString('en-US')} ladders, above the ${refusal.limit.toLocaleString('en-US')} limit).`;
+}
+
+function ladderStepOf(
+    requests: readonly EngineOptimumRequest[],
+): null | number {
+    for (const request of requests) {
+        if (
+            request.source === AdviceSource.LadderSearchFresh ||
+            request.source === AdviceSource.LadderSearchFromState
+        ) {
+            return request.grid.step;
+        }
+    }
+    return null;
 }
 
 function leftOutRow(
@@ -300,6 +344,13 @@ function optimumRowOf(result: EngineOptimumRunnerResult): OptimumRowView {
         }
         case AdviceSource.LadderSearchFresh:
         case AdviceSource.LadderSearchFromState: {
+            if ('refusal' in result) {
+                return leftOutRow(
+                    result.source,
+                    REQUEST_SOURCE_LABEL[result.source],
+                    ladderRefusalText(result.refusal),
+                );
+            }
             const winner = result.ladder.bySpeed[0];
             if (winner === undefined) {
                 return leftOutRow(

@@ -78,9 +78,7 @@ function sourceFilesUnder(directory: string): string[] {
 
 describe('kpiDescriptions renames riskOfRuin to bustBeforePassing (F-V13, PT-61)', () => {
     it('has no riskOfRuin key', () => {
-        expect(
-            Object.hasOwn(kpiDescriptions, 'riskOfRuin'),
-        ).toBe(false);
+        expect(Object.hasOwn(kpiDescriptions, 'riskOfRuin')).toBe(false);
     });
 
     it('keeps the exact wording under bustBeforePassing', () => {

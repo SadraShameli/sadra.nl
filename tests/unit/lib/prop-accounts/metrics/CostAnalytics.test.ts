@@ -252,8 +252,18 @@ describe('costAnalytics', () => {
                     ),
                 ],
                 fees: [
-                    fee(attemptFailed, FeeKind.EvalPurchase, 10_000, '2026-09-01'),
-                    fee(attemptFunded, FeeKind.EvalPurchase, 10_000, '2026-09-05'),
+                    fee(
+                        attemptFailed,
+                        FeeKind.EvalPurchase,
+                        10_000,
+                        '2026-09-01',
+                    ),
+                    fee(
+                        attemptFunded,
+                        FeeKind.EvalPurchase,
+                        10_000,
+                        '2026-09-05',
+                    ),
                     fee(attemptFunded, FeeKind.Reset, 5000, '2026-09-10'),
                 ],
             }),
@@ -355,7 +365,9 @@ describe('costAnalytics', () => {
                     firmKey: modeledFirm(OTHER_FIRM_EVAL_PLAN.firm.id),
                     retryFeeAttempts: 0,
                 },
-            ].toSorted((x, y) => compareText(x.firmKey.firmId, y.firmKey.firmId)),
+            ].toSorted((x, y) =>
+                compareText(x.firmKey.firmId, y.firmKey.firmId),
+            ),
         );
     });
 

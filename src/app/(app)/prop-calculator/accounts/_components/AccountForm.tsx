@@ -352,8 +352,8 @@ export function AccountCreator({
                     <AlertTitle>Your firms could not be loaded</AlertTitle>
                     <AlertDescription>
                         {externalFirms.error?.message} You can still add an
-                        account at a listed firm; a firm you added will not
-                        show in the picker until this loads.
+                        account at a listed firm; a firm you added will not show
+                        in the picker until this loads.
                     </AlertDescription>
                 </Alert>
             )}
@@ -805,8 +805,8 @@ function DetailsCard({
                                 </Label>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                Adds this account to its round even if the
-                                round has already spent its budget.
+                                Adds this account to its round even if the round
+                                has already spent its budget.
                             </p>
                         </div>
                     )}

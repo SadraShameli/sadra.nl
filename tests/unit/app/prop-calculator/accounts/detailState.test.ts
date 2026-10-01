@@ -232,7 +232,9 @@ describe('stateCardOf', () => {
         );
         expect(view.kind).toBe(StateCardKind.PeakRequired);
         if (view.kind !== StateCardKind.PeakRequired) return;
-        expect(view.reason).toBe(ReconstructionErrorReason.IntradayPeakRequired);
+        expect(view.reason).toBe(
+            ReconstructionErrorReason.IntradayPeakRequired,
+        );
         expect(view.message).toContain('intraday');
     });
 });
@@ -270,7 +272,10 @@ describe('previousReconstructionOf', () => {
         const result = previousReconstructionOf(
             registryPlan(MFF_PRO_ID),
             accountRow(MFF_PRO_ID),
-            snapshotRow({ asOf: '2026-02-01', balanceCents: usdCents(5_000_000) }),
+            snapshotRow({
+                asOf: '2026-02-01',
+                balanceCents: usdCents(5_000_000),
+            }),
             NO_EVENTS,
             NO_PAYOUTS,
             '2026-02-10',
@@ -373,7 +378,9 @@ function evalAt(
     return {
         assumptions: [],
         contractLimit: null,
-        cushion: balance - (plan.accountSize - plan.drawdownFor(TradingPhase.Eval).amount),
+        cushion:
+            balance -
+            (plan.accountSize - plan.drawdownFor(TradingPhase.Eval).amount),
         fundedTracker: null,
         kind: TradingPhase.Eval,
         plan,
@@ -508,9 +515,9 @@ describe('performanceCardOf', () => {
 
 describe('assumptionLabel', () => {
     it('gives a readable label for every input assumption kind used by reconstruction', () => {
-        expect(assumptionLabel(AssumptionKind.LiveModelApproximation)).toContain(
-            'approximation',
-        );
+        expect(
+            assumptionLabel(AssumptionKind.LiveModelApproximation),
+        ).toContain('approximation');
         expect(assumptionLabel(AssumptionKind.LiveNotModeled)).toContain(
             'No live stage',
         );

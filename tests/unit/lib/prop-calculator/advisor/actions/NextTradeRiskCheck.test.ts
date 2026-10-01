@@ -15,7 +15,12 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import { nextTradeRiskCheck } from '~/lib/prop-calculator/advisor/actions';
 
-const ZERO_DAY = { dayPnL: dollars(0), losses: 0, runningLoss: dollars(0), wins: 0 };
+const ZERO_DAY = {
+    dayPnL: dollars(0),
+    losses: 0,
+    runningLoss: dollars(0),
+    wins: 0,
+};
 
 function evalContext(): EvalRuleContext {
     return {
@@ -110,7 +115,7 @@ describe('nextTradeRiskCheck (F-V19, F-V20, PT-74b step 4)', () => {
         expect(result.excessCents).toBe(7000);
     });
 
-    it("prefers AboveDocumented over AboveDp when both are exceeded", () => {
+    it('prefers AboveDocumented over AboveDp when both are exceeded', () => {
         const result = nextTradeRiskCheck({
             context: fundedContext(),
             day: ZERO_DAY,

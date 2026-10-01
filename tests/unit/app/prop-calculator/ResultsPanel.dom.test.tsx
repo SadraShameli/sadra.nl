@@ -309,9 +309,7 @@ describe('ResultsPanel places the payouts-per-funded-account distribution (F-V8,
 
     it('shows the distribution chart when the run has funded trials', () => {
         const result = simulate(calculatorInputs(1));
-        expect(result.fundedPayoutCountDistribution.length).toBeGreaterThan(
-            0,
-        );
+        expect(result.fundedPayoutCountDistribution.length).toBeGreaterThan(0);
         act(() => {
             root.render(
                 <ResultsPanel

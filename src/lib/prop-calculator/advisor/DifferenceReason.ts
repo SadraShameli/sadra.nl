@@ -131,8 +131,14 @@ export type DifferenceReasonDetail =
           readonly kind: DifferenceReason.RemainingTargetCap;
           readonly remaining: Dollars;
       }
-    | { readonly kind: DifferenceReason.StaleAdvice; readonly snapshotDate: string }
-    | { readonly kind: DifferenceReason.WouldTriggerLive; readonly trigger: string };
+    | {
+          readonly kind: DifferenceReason.StaleAdvice;
+          readonly snapshotDate: string;
+      }
+    | {
+          readonly kind: DifferenceReason.WouldTriggerLive;
+          readonly trigger: string;
+      };
 
 type BareDifferenceReasonDetail<Kind extends DifferenceReason> = {
     readonly kind: Kind;

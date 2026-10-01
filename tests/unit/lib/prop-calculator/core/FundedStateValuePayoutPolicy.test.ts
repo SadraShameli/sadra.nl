@@ -625,9 +625,10 @@ describe('FundedStateValue honours the payout request policy when the withdrawab
             trials: 100,
             winrate: 1,
         });
-        expect(
-            out.expectedGrossPayout + out.expectedHorizonCredit,
-        ).toBeCloseTo(fullRequestOnly.initialValue, 6);
+        expect(out.expectedGrossPayout + out.expectedHorizonCredit).toBeCloseTo(
+            fullRequestOnly.initialValue,
+            6,
+        );
     }, 15_000);
 });
 
@@ -672,9 +673,7 @@ describe('AverageRewardSolver exports its grid configs for the DP advice source 
         expectTypeOf<FundedGridConfig['payoutRequestSize']>().toEqualTypeOf<
             Dollars | undefined
         >();
-        expectTypeOf<
-            FundedGridConfig['payoutRequestPolicy']
-        >().toEqualTypeOf<
+        expectTypeOf<FundedGridConfig['payoutRequestPolicy']>().toEqualTypeOf<
             FundedStateValueConfig['payoutRequestPolicy']
         >();
         expectTypeOf<FundedGridConfig['minRetainedCushion']>().toEqualTypeOf<

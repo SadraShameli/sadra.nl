@@ -1,4 +1,8 @@
-import { type ContractCount, contracts, type Dollars } from '~/lib/prop-calculator/core';
+import {
+    type ContractCount,
+    contracts,
+    type Dollars,
+} from '~/lib/prop-calculator/core';
 
 import { type PersonalCaps } from './PersonalCaps';
 

@@ -30,11 +30,7 @@ import {
     type OpenInSimulator,
     useOpenInSimulator,
 } from '~/app/(app)/prop-calculator/_components/useOpenInSimulator';
-import {
-    findFirm,
-    parseFirmId,
-    serializePlanId,
-} from '~/lib/prop-calculator';
+import { findFirm, parseFirmId, serializePlanId } from '~/lib/prop-calculator';
 import { routes } from '~/lib/site/routes';
 
 enum ComparisonTable {

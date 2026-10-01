@@ -90,7 +90,10 @@ export function withCashAdded(value: ValueResult, cash: number): ValueResult {
     };
 }
 
-function estimateOn(result: DualValueEstimate, basis: CreditBasis): UncertainValue {
+function estimateOn(
+    result: DualValueEstimate,
+    basis: CreditBasis,
+): UncertainValue {
     switch (basis) {
         case CreditBasis.CreditFree: {
             return result.creditFree;

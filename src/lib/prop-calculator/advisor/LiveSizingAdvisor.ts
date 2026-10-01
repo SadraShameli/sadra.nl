@@ -1,4 +1,8 @@
-import { dollars, type Dollars, resolveLiveAffordableRoom } from '~/lib/prop-calculator/core';
+import {
+    dollars,
+    type Dollars,
+    resolveLiveAffordableRoom,
+} from '~/lib/prop-calculator/core';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
 
 import { type Advice } from './Advice';
@@ -55,7 +59,6 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
     private assumptions(): readonly Assumption[] {
         return this.withLiveTriggersNotChecked(this.input.account.assumptions);
     }
-
 
     private payoutRuleContext(): LivePayoutRuleContext | null {
         const {

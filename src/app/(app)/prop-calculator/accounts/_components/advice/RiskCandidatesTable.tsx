@@ -61,7 +61,10 @@ export function RiskCandidatesTable({
                             {view.isRanked && <TableCell>{row.rank}</TableCell>}
                             <TableCell className="text-right tabular-nums">
                                 {row.risk.text}
-                                <span className="sr-only"> ({row.risk.label})</span>
+                                <span className="sr-only">
+                                    {' '}
+                                    ({row.risk.label})
+                                </span>
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
                                 {row.contractsText ?? ''}

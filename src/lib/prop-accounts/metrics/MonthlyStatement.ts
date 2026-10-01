@@ -137,8 +137,10 @@ export function monthlyStatement(
     let previousPayouts: null | number = null;
     return {
         months: months.map((month) => {
-            const cash: MonthlyCash =
-                cashByMonth.get(month) ?? { month, ...summarizeCash([], []) };
+            const cash: MonthlyCash = cashByMonth.get(month) ?? {
+                month,
+                ...summarizeCash([], []),
+            };
             cumulativeNet += cash.net;
             trailingSpend.push(cash.spend);
             trailingPayouts.push(cash.payouts);

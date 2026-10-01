@@ -60,9 +60,7 @@ class MultiPlanTriggerPolicy extends FirmAccountPolicy {
 }
 
 class StubTriggerPolicy extends FirmAccountPolicy {
-    constructor(
-        private readonly triggers: readonly LiveTransitionTrigger[],
-    ) {
+    constructor(private readonly triggers: readonly LiveTransitionTrigger[]) {
         super();
     }
 
@@ -190,7 +188,12 @@ describe('liveTransitionProximity', () => {
 
     it('lists a confirmed single-day trigger as a static fact with its quote, never a computed number', () => {
         const policy = new StubTriggerPolicy([
-            new SingleDayProfitTrigger(dollars(10_000), true, false, CONFIRMED_SOURCE),
+            new SingleDayProfitTrigger(
+                dollars(10_000),
+                true,
+                false,
+                CONFIRMED_SOURCE,
+            ),
         ]);
         const acc = account(EVAL_PLAN, { stage: AccountStage.Funded });
         const proximity = withStubbedPolicy(policy, () =>
@@ -209,7 +212,12 @@ describe('liveTransitionProximity', () => {
 
     it('drops an unconfirmed single-day trigger from the static facts', () => {
         const policy = new StubTriggerPolicy([
-            new SingleDayProfitTrigger(dollars(10_000), true, false, CONFLICTED_SOURCE),
+            new SingleDayProfitTrigger(
+                dollars(10_000),
+                true,
+                false,
+                CONFLICTED_SOURCE,
+            ),
         ]);
         const acc = account(EVAL_PLAN, { stage: AccountStage.Funded });
         const proximity = withStubbedPolicy(policy, () =>
@@ -220,12 +228,24 @@ describe('liveTransitionProximity', () => {
 
     it('lists a confirmed single-day trigger fact for every plan at the firm, not only the first-encountered plan', () => {
         const evalSerial = serializePlanId(EVAL_PLAN.plan.id);
-        const secondSerial = serializePlanId(SAME_FIRM_SECOND_EVAL_PLAN.plan.id);
+        const secondSerial = serializePlanId(
+            SAME_FIRM_SECOND_EVAL_PLAN.plan.id,
+        );
         const evalTriggers = [
-            new SingleDayProfitTrigger(dollars(10_000), true, false, CONFIRMED_SOURCE),
+            new SingleDayProfitTrigger(
+                dollars(10_000),
+                true,
+                false,
+                CONFIRMED_SOURCE,
+            ),
         ];
         const secondTriggers = [
-            new SingleDayProfitTrigger(dollars(20_000), true, false, CONFIRMED_SOURCE),
+            new SingleDayProfitTrigger(
+                dollars(20_000),
+                true,
+                false,
+                CONFIRMED_SOURCE,
+            ),
         ];
         const policy = new MultiPlanTriggerPolicy(
             new Map([
@@ -238,24 +258,41 @@ describe('liveTransitionProximity', () => {
             stage: AccountStage.Funded,
         });
         const proximity = withStubbedPolicy(policy, () =>
-            liveTransitionProximity(ledger({ accounts: [accA, accB] }), '2026-09-30'),
+            liveTransitionProximity(
+                ledger({ accounts: [accA, accB] }),
+                '2026-09-30',
+            ),
         );
         expect(proximity.singleDayFacts).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ amount: 10_000, planSerial: evalSerial }),
-                expect.objectContaining({ amount: 20_000, planSerial: secondSerial }),
+                expect.objectContaining({
+                    amount: 10_000,
+                    planSerial: evalSerial,
+                }),
+                expect.objectContaining({
+                    amount: 20_000,
+                    planSerial: secondSerial,
+                }),
             ]),
         );
         expect(proximity.singleDayFacts).toHaveLength(2);
     });
 
-    it('treats a firm-total trigger cap that disagrees across the firm\'s own plans as unverified rather than guessing', () => {
+    it("treats a firm-total trigger cap that disagrees across the firm's own plans as unverified rather than guessing", () => {
         const evalSerial = serializePlanId(EVAL_PLAN.plan.id);
-        const secondSerial = serializePlanId(SAME_FIRM_SECOND_EVAL_PLAN.plan.id);
+        const secondSerial = serializePlanId(
+            SAME_FIRM_SECOND_EVAL_PLAN.plan.id,
+        );
         const policy = new MultiPlanTriggerPolicy(
             new Map([
-                [evalSerial, [new PayoutCountTotalTrigger(10, CONFIRMED_SOURCE)]],
-                [secondSerial, [new PayoutCountTotalTrigger(5, CONFIRMED_SOURCE)]],
+                [
+                    evalSerial,
+                    [new PayoutCountTotalTrigger(10, CONFIRMED_SOURCE)],
+                ],
+                [
+                    secondSerial,
+                    [new PayoutCountTotalTrigger(5, CONFIRMED_SOURCE)],
+                ],
             ]),
         );
         const accA = account(EVAL_PLAN, { stage: AccountStage.Funded });
@@ -263,7 +300,10 @@ describe('liveTransitionProximity', () => {
             stage: AccountStage.Funded,
         });
         const proximity = withStubbedPolicy(policy, () =>
-            liveTransitionProximity(ledger({ accounts: [accA, accB] }), '2026-09-30'),
+            liveTransitionProximity(
+                ledger({ accounts: [accA, accB] }),
+                '2026-09-30',
+            ),
         );
         expect(proximity.byFirm).toEqual([
             expect.objectContaining({
@@ -276,11 +316,19 @@ describe('liveTransitionProximity', () => {
 
     it('agrees on a firm-total trigger cap that is the same on every plan at the firm', () => {
         const evalSerial = serializePlanId(EVAL_PLAN.plan.id);
-        const secondSerial = serializePlanId(SAME_FIRM_SECOND_EVAL_PLAN.plan.id);
+        const secondSerial = serializePlanId(
+            SAME_FIRM_SECOND_EVAL_PLAN.plan.id,
+        );
         const policy = new MultiPlanTriggerPolicy(
             new Map([
-                [evalSerial, [new PayoutCountTotalTrigger(10, CONFIRMED_SOURCE)]],
-                [secondSerial, [new PayoutCountTotalTrigger(10, CONFIRMED_SOURCE)]],
+                [
+                    evalSerial,
+                    [new PayoutCountTotalTrigger(10, CONFIRMED_SOURCE)],
+                ],
+                [
+                    secondSerial,
+                    [new PayoutCountTotalTrigger(10, CONFIRMED_SOURCE)],
+                ],
             ]),
         );
         const accA = account(EVAL_PLAN, { stage: AccountStage.Funded });

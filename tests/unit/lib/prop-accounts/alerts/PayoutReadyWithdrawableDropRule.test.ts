@@ -6,7 +6,10 @@ import {
     PayoutReadyWithdrawableDropRule,
 } from '~/lib/prop-accounts/alerts';
 import { AccountStage } from '~/lib/prop-accounts/core';
-import { DEFAULT_RULEBOOK, type RulebookParameters } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    type RulebookParameters,
+} from '~/lib/prop-calculator/advisor';
 
 import {
     fundedReconstructed,
@@ -17,7 +20,10 @@ import { accountFor, alertsOf } from './alertFixtures';
 
 const rule = new PayoutReadyWithdrawableDropRule();
 
-function eligiblePreviousFunded(plan: ReturnType<typeof mffProPlan>, balance: number) {
+function eligiblePreviousFunded(
+    plan: ReturnType<typeof mffProPlan>,
+    balance: number,
+) {
     const funded = fundedReconstructed(plan, {
         balance,
         cumulativePayout: 0,
@@ -25,7 +31,8 @@ function eligiblePreviousFunded(plan: ReturnType<typeof mffProPlan>, balance: nu
         lastPayoutBalance: plan.accountSize,
         payoutsIssued: 1,
     });
-    if (funded.fundedTracker === null) throw new Error('expected a funded tracker');
+    if (funded.fundedTracker === null)
+        throw new Error('expected a funded tracker');
     funded.fundedTracker.sessionDaysSinceAnchor = 999;
     return funded;
 }
@@ -33,7 +40,10 @@ function eligiblePreviousFunded(plan: ReturnType<typeof mffProPlan>, balance: nu
 function rulebookWithLossFraction(fraction: null | number): RulebookParameters {
     return {
         ...DEFAULT_RULEBOOK,
-        alerts: { ...DEFAULT_RULEBOOK.alerts, payoutReadyLossFraction: fraction },
+        alerts: {
+            ...DEFAULT_RULEBOOK.alerts,
+            payoutReadyLossFraction: fraction,
+        },
     };
 }
 
@@ -44,7 +54,10 @@ describe('PayoutReadyWithdrawableDropRule', () => {
             { firmId: plan.id.firm, plan },
             { stage: AccountStage.Funded },
         );
-        const previous = eligiblePreviousFunded(plan, plan.accountSize + 20_000);
+        const previous = eligiblePreviousFunded(
+            plan,
+            plan.accountSize + 20_000,
+        );
         const latest = fundedReconstructed(plan, {
             balance: plan.accountSize + 1000,
             cumulativePayout: 0,
@@ -68,7 +81,10 @@ describe('PayoutReadyWithdrawableDropRule', () => {
             { firmId: plan.id.firm, plan },
             { stage: AccountStage.Funded },
         );
-        const previous = eligiblePreviousFunded(plan, plan.accountSize + 20_000);
+        const previous = eligiblePreviousFunded(
+            plan,
+            plan.accountSize + 20_000,
+        );
         const latest = fundedReconstructed(plan, {
             balance: plan.accountSize + 1000,
             cumulativePayout: 0,
@@ -116,7 +132,10 @@ describe('PayoutReadyWithdrawableDropRule', () => {
             { firmId: plan.id.firm, plan },
             { stage: AccountStage.Funded },
         );
-        const previous = eligiblePreviousFunded(plan, plan.accountSize + 20_000);
+        const previous = eligiblePreviousFunded(
+            plan,
+            plan.accountSize + 20_000,
+        );
         const latest = fundedReconstructed(plan, {
             balance: plan.accountSize + 19_500,
             cumulativePayout: 0,

@@ -163,8 +163,7 @@ export interface WeeklyReviewSnapshotRow extends WeeklyReviewSnapshotValues {
     readonly asOf: string;
 }
 
-export interface WeeklyReviewSnapshotSubmitEntry
-    extends WeeklyReviewSnapshotValues {
+export interface WeeklyReviewSnapshotSubmitEntry extends WeeklyReviewSnapshotValues {
     readonly accountId: string;
 }
 
@@ -248,8 +247,8 @@ export function buildWeeklyReview(
         adherence: adherenceOf(rows),
         asOf,
         corruptRows,
-        ledgerOnlyExcludedCount: input.accounts.filter(isActiveLedgerOnly)
-            .length,
+        ledgerOnlyExcludedCount:
+            input.accounts.filter(isActiveLedgerOnly).length,
         rows,
         weekStart,
         windowEnd: input.today,
@@ -277,7 +276,9 @@ export function reviewSubmitPayload(
     const unblocked = result.rows.filter((row) => !row.isBlocked);
     return {
         asOf: result.asOf,
-        decisions: unblocked.flatMap((row) => decisionEntryFor(row, acceptedAccountIds)),
+        decisions: unblocked.flatMap((row) =>
+            decisionEntryFor(row, acceptedAccountIds),
+        ),
         snapshots: unblocked.map((row) => ({
             accountId: row.accountId,
             ...row.draft,
@@ -296,9 +297,7 @@ function adherenceKindOf(
         : DecisionAdherenceKind.NotFollowed;
 }
 
-function adherenceOf(
-    rows: readonly WeeklyReviewRow[],
-): WeeklyReviewAdherence {
+function adherenceOf(rows: readonly WeeklyReviewRow[]): WeeklyReviewAdherence {
     const kinds = rows.flatMap((row) =>
         row.lastDecision === null ? [] : [row.lastDecision.adherence],
     );
@@ -532,11 +531,18 @@ function reviewRowFor(
     const accountEntry: SnapshotEntryAccount = {
         accountSize: account.accountSize,
         dashboardConvention: account.dashboardConvention,
-        liveStartBalanceCents: brandedCentsOrNull(account.liveStartBalanceCents),
+        liveStartBalanceCents: brandedCentsOrNull(
+            account.liveStartBalanceCents,
+        ),
     };
     const messages: SnapshotPlausibilityMessages =
         missingFieldLabelsList.length > 0
-            ? { fieldIssues: [], fieldWarnings: [], formIssues: [], formWarnings: [] }
+            ? {
+                  fieldIssues: [],
+                  fieldWarnings: [],
+                  formIssues: [],
+                  formWarnings: [],
+              }
             : snapshotPlausibilityIssues(
                   { account: accountEntry, plan, stage: account.stage },
                   toSnapshotEntryValues(draft),
@@ -545,18 +551,22 @@ function reviewRowFor(
         ...messages.formIssues,
         ...messages.fieldIssues.map((issue) => issue.message),
     ];
-    const isBlocked = missingFieldLabelsList.length > 0 || blockedMessages.length > 0;
+    const isBlocked =
+        missingFieldLabelsList.length > 0 || blockedMessages.length > 0;
     const sizing = isBlocked
         ? { kind: WeeklyReviewSizingKind.NotModeled as const }
         : sizingFor(account, plan, draft, asOf, input);
     const previousAccepted = previousAcceptedRiskCents(account, plan, input);
     const diffCents =
-        previousAccepted !== null && sizing.kind === WeeklyReviewSizingKind.Ready
+        previousAccepted !== null &&
+        sizing.kind === WeeklyReviewSizingKind.Ready
             ? sizing.headlineRiskCents - previousAccepted
             : null;
     const lastDecision = lastDecisionOf(
         input.latestDecisions.get(account.id),
-        input.violations.filter((violation) => violation.accountId === account.id),
+        input.violations.filter(
+            (violation) => violation.accountId === account.id,
+        ),
     );
     return {
         accountId: account.id,
@@ -574,7 +584,12 @@ function reviewRowFor(
         previousAcceptedRiskCents: previousAccepted,
         sizing,
         stage: account.stage,
-        violations: violationsOf(account.id, weekStart, input.today, input.violations),
+        violations: violationsOf(
+            account.id,
+            weekStart,
+            input.today,
+            input.violations,
+        ),
     };
 }
 
@@ -634,7 +649,11 @@ function sizingFor(
         const [headlineRiskCents] = rungsCents;
         return headlineRiskCents === undefined
             ? { kind: WeeklyReviewSizingKind.ReconstructionFailed }
-            : { headlineRiskCents, kind: WeeklyReviewSizingKind.Ready, rungsCents };
+            : {
+                  headlineRiskCents,
+                  kind: WeeklyReviewSizingKind.Ready,
+                  rungsCents,
+              };
     } catch (error) {
         if (error instanceof InstantFundedEvalAdvisorError) {
             return { kind: WeeklyReviewSizingKind.NoEvalAdvice };
@@ -657,7 +676,9 @@ function toSnapshotEntryValues(
             snapshot.balanceAtLastPayoutCents,
         ),
         balanceCents: usdCents(snapshot.balanceCents),
-        cumulativePayoutCents: brandedCentsOrNull(snapshot.cumulativePayoutCents),
+        cumulativePayoutCents: brandedCentsOrNull(
+            snapshot.cumulativePayoutCents,
+        ),
         cycleBestDayProfitCents: brandedCentsOrNull(
             snapshot.cycleBestDayProfitCents,
         ),

@@ -20,7 +20,10 @@ export class FakeWorker {
         FakeWorker.instances.push(this);
     }
 
-    addEventListener(type: string, listener: (event: MessageEvent<unknown>) => void): void {
+    addEventListener(
+        type: string,
+        listener: (event: MessageEvent<unknown>) => void,
+    ): void {
         const existing = this.listeners.get(type) ?? [];
         existing.push(listener);
         this.listeners.set(type, existing);
@@ -68,13 +71,17 @@ export function projectionRequest(runId: number): ToolsWorkerRequest {
             },
             plan: {
                 firmId: FirmId.TopStep,
-                optIns: { takesFundedReset: false, takesOneTimeEarlyWithdrawal: false },
+                optIns: {
+                    takesFundedReset: false,
+                    takesOneTimeEarlyWithdrawal: false,
+                },
                 planSerial: 'topstep-50000-standard-standard',
             },
             policy: {
                 commissionPerRoundTrip: 0,
                 fundedHorizonDays: 30,
-                lifetimePayoutCapBasis: LifetimePayoutCapBasis.LiveTriggersNotChecked,
+                lifetimePayoutCapBasis:
+                    LifetimePayoutCapBasis.LiveTriggersNotChecked,
                 lifetimePayoutCapOverride: null,
                 payoutRequestOverride: 500,
                 rebuyLagBasis: RebuyLagBasis.AssumedZero,

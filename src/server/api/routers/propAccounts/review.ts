@@ -15,7 +15,10 @@ import {
 } from '~/lib/schemas/propAccountOutputs';
 import { weeklyReviewSubmitSchema } from '~/lib/schemas/propAccounts';
 import { createTRPCRouter } from '~/server/api/trpc';
-import { propAccountSnapshot, propSizingDecision } from '~/server/db/schemas/prop';
+import {
+    propAccountSnapshot,
+    propSizingDecision,
+} from '~/server/db/schemas/prop';
 
 import {
     assertModeledForOperation,
@@ -83,7 +86,12 @@ export const propReviewRouter = createTRPCRouter({
                 const snapshotEntries: StagedSnapshotEntry[] = staged.map(
                     (entry) => entry.snapshot,
                 );
-                await assertNotStored(tx, ctx.userId, snapshotEntries, accounts);
+                await assertNotStored(
+                    tx,
+                    ctx.userId,
+                    snapshotEntries,
+                    accounts,
+                );
                 await quotas.assertWithin(
                     PropQuota.Snapshots,
                     input.snapshots.length,

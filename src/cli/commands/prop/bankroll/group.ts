@@ -2,7 +2,8 @@ import { defineCommand } from 'citty';
 
 export default defineCommand({
     meta: {
-        description: 'Bankroll engine path: risk, projections, compares, batches and levers',
+        description:
+            'Bankroll engine path: risk, projections, compares, batches and levers',
         name: 'bankroll',
     },
     subCommands: {

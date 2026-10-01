@@ -275,7 +275,10 @@ describe('WeeklyReviewView adherence and violations', () => {
     it('says the rate is over each account latest decision, whatever its date', () => {
         seed({
             decisions: [
-                decisionRow({ actualRiskCents: 40_000, decidedOn: '2026-08-03' }),
+                decisionRow({
+                    actualRiskCents: 40_000,
+                    decidedOn: '2026-08-03',
+                }),
             ],
         });
         render();
@@ -457,7 +460,9 @@ describe('WeeklyReviewView adherence and violations', () => {
         render();
         expect(container.textContent).toContain('Adherence: 50%');
         expect(container.textContent).toContain('Could not refresh');
-        expect(container.querySelector('form[aria-label="Log a violation"]')).not.toBeNull();
+        expect(
+            container.querySelector('form[aria-label="Log a violation"]'),
+        ).not.toBeNull();
     });
 
     it('states that active ledger-only accounts are left out of the review', () => {

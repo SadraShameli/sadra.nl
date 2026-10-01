@@ -86,7 +86,8 @@ function calendarWeekPolicy(sessionsPerWeek: number): InactivityPolicy {
 
 function withStubbedPolicy<T>(policy: FirmAccountPolicy, run: () => T): T {
     const firm = ALL_FIRMS.find((candidate) => candidate.id === ENTRY.firmId);
-    if (firm === undefined) throw new Error('expected the entry firm to be registered');
+    if (firm === undefined)
+        throw new Error('expected the entry firm to be registered');
     const mutable = firm as { accountPolicy: FirmAccountPolicy };
     const original = mutable.accountPolicy;
     mutable.accountPolicy = policy;
@@ -103,7 +104,9 @@ describe('CalendarInactivityRule', () => {
         const policy = new StubInactivityPolicy({
             kind: InactivityBasisKind.CalendarDays,
             maxIdleDays: 7,
-            minimumQualifying: { kind: InactivityMinimumQualifyingKind.AnyTrade },
+            minimumQualifying: {
+                kind: InactivityMinimumQualifyingKind.AnyTrade,
+            },
             mismatch: null,
             outcome: InactivityOutcome.Closure,
             source: undefined,
@@ -111,7 +114,9 @@ describe('CalendarInactivityRule', () => {
         const alerts = withStubbedPolicy(policy, () =>
             alertsOf(rule, {
                 accounts: [account],
-                snapshots: [snapshotFor(account, { lastTradedOn: '2026-09-16' })],
+                snapshots: [
+                    snapshotFor(account, { lastTradedOn: '2026-09-16' }),
+                ],
             }),
         );
         expect(alerts).toEqual([]);
@@ -123,7 +128,9 @@ describe('CalendarInactivityRule', () => {
         const alerts = withStubbedPolicy(policy, () =>
             alertsOf(rule, {
                 accounts: [account],
-                snapshots: [snapshotFor(account, { lastTradedOn: '2026-09-18' })],
+                snapshots: [
+                    snapshotFor(account, { lastTradedOn: '2026-09-18' }),
+                ],
             }),
         );
         expect(alerts).toHaveLength(1);
@@ -144,7 +151,9 @@ describe('CalendarInactivityRule', () => {
         const alerts = withStubbedPolicy(policy, () =>
             alertsOf(rule, {
                 accounts: [account],
-                snapshots: [snapshotFor(account, { lastTradedOn: '2026-09-16' })],
+                snapshots: [
+                    snapshotFor(account, { lastTradedOn: '2026-09-16' }),
+                ],
             }),
         );
         expect(alerts).toHaveLength(1);
@@ -157,7 +166,9 @@ describe('CalendarInactivityRule', () => {
         const alerts = withStubbedPolicy(policy, () =>
             alertsOf(rule, {
                 accounts: [account],
-                snapshots: [snapshotFor(account, { lastTradedOn: '2026-09-16' })],
+                snapshots: [
+                    snapshotFor(account, { lastTradedOn: '2026-09-16' }),
+                ],
             }),
         );
         expect(alerts).toHaveLength(1);
@@ -184,7 +195,9 @@ describe('CalendarInactivityRule', () => {
             withStubbedPolicy(policy, () =>
                 alertsOf(rule, {
                     accounts: [account],
-                    snapshots: [snapshotFor(account, { lastTradedOn: 'not-a-date' })],
+                    snapshots: [
+                        snapshotFor(account, { lastTradedOn: 'not-a-date' }),
+                    ],
                 }),
             );
         expect(run).not.toThrow();
@@ -200,7 +213,9 @@ describe('CalendarInactivityRule', () => {
         const alerts = withStubbedPolicy(policy, () =>
             alertsOf(rule, {
                 accounts: [account],
-                snapshots: [snapshotFor(account, { lastTradedOn: '2026-09-16' })],
+                snapshots: [
+                    snapshotFor(account, { lastTradedOn: '2026-09-16' }),
+                ],
             }),
         );
         expect(alerts).toEqual([]);

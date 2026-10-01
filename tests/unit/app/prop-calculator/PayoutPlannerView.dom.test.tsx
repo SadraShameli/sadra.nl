@@ -143,7 +143,8 @@ vi.mock('~/app/(app)/prop-calculator/_components/useWorkerTask', async () => {
     };
 });
 
-const { PayoutPlannerView } = await import('~/app/(app)/prop-calculator/(tools)/payout-planner/PayoutPlannerView');
+const { PayoutPlannerView } =
+    await import('~/app/(app)/prop-calculator/(tools)/payout-planner/PayoutPlannerView');
 
 const BASE_OPTIMUM = buildBaseOptimum();
 const FIX_FIELD_TEXT = 'Fix the highlighted field to see the readiness.';
@@ -615,9 +616,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             const readiness = sectionOf('Readiness').textContent;
             expect(readiness).toContain('Minimum cushion kept: $500');
-            expect(readiness).toContain(
-                'below the $2,000 Hard Rule 2 minimum',
-            );
+            expect(readiness).toContain('below the $2,000 Hard Rule 2 minimum');
         });
 
         it('says nothing about a Hard Rule 2 waiver when the cushion meets the minimum', () => {

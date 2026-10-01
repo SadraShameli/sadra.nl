@@ -40,7 +40,10 @@ describe('consistencyStatusOf', () => {
     });
 
     it('reports not evaluated when there is a rule but no best day yet', () => {
-        const rule = new ConsistencyRule(ConsistencyScope.Funded, fraction(0.4));
+        const rule = new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.4),
+        );
         expect(consistencyStatusOf(rule, undefined, 500)).toEqual({
             kind: ConsistencyStatusKind.NotEvaluated,
             rule,
@@ -48,7 +51,10 @@ describe('consistencyStatusOf', () => {
     });
 
     it('reports the evaluated status, including whether the rule is violated', () => {
-        const rule = new ConsistencyRule(ConsistencyScope.Funded, fraction(0.4));
+        const rule = new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.4),
+        );
         expect(consistencyStatusOf(rule, 300, 500)).toEqual({
             bestDayProfit: 300,
             isViolated: true,
@@ -71,7 +77,9 @@ describe('consistencyStatusOf', () => {
             ConsistencyViolationEffect.DoubleTarget,
         );
         const status = consistencyStatusOf(rule, 400, 500);
-        expect(status).toMatchObject({ violationEffectLabel: 'target doubles' });
+        expect(status).toMatchObject({
+            violationEffectLabel: 'target doubles',
+        });
     });
 });
 
@@ -110,7 +118,8 @@ describe('fundedConsistencyStatus', () => {
         const plan = findFirm(id.firm)?.findPlan(id);
         if (!plan) throw new Error('FundedNext FNL:003 plan missing');
         const rule = plan.fundedConsistencyRule(1);
-        if (rule === null) throw new Error('expected a funded consistency rule');
+        if (rule === null)
+            throw new Error('expected a funded consistency rule');
         expect(rule.isPerpetual()).toBe(true);
         const status = fundedConsistencyStatus(plan, 1, 900, 3000);
         expect(status).toMatchObject({

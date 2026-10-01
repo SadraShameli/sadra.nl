@@ -229,7 +229,9 @@ export function snapshotInputFrom(
     const input: AccountSnapshotInput = {
         asOf: resolvedAsOf,
         balance: usdCentsToDollars(balanceCents),
-        balanceAtLastPayout: optionalDollars(snapshot?.balanceAtLastPayoutCents),
+        balanceAtLastPayout: optionalDollars(
+            snapshot?.balanceAtLastPayoutCents,
+        ),
         cumulativePayout: usdCentsToDollars(cumulativePayoutCents),
         cycleBestDayProfit: optionalDollars(snapshot?.cycleBestDayProfitCents),
         dashboardConvention: account.dashboardConvention,

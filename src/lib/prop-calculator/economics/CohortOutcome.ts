@@ -6,7 +6,11 @@ import {
     type Fraction0to1,
 } from '~/lib/prop-calculator/core';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
-import { binomialStandardError, mean, percentile } from '~/lib/prop-calculator/stats';
+import {
+    binomialStandardError,
+    mean,
+    percentile,
+} from '~/lib/prop-calculator/stats';
 
 import {
     type EconomicsEstimate,

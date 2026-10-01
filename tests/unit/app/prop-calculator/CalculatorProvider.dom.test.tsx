@@ -55,17 +55,20 @@ vi.mock('~/app/(app)/prop-calculator/_components/CalculatorInputsForm', () => ({
     CalculatorInputsForm: ({ aside }: { aside: ReactNode }) => aside,
 }));
 
-vi.mock('~/app/(app)/prop-calculator/_components/useToolsWorker', async (importOriginal) => {
-    const actual = await importOriginal<typeof UseToolsWorkerModule>();
-    return {
-        ToolsWorkerPhase: actual.ToolsWorkerPhase,
-        useToolsWorker: () => ({
-            cancel: vi.fn(),
-            run: vi.fn(),
-            state: { phase: actual.ToolsWorkerPhase.Idle },
-        }),
-    };
-});
+vi.mock(
+    '~/app/(app)/prop-calculator/_components/useToolsWorker',
+    async (importOriginal) => {
+        const actual = await importOriginal<typeof UseToolsWorkerModule>();
+        return {
+            ToolsWorkerPhase: actual.ToolsWorkerPhase,
+            useToolsWorker: () => ({
+                cancel: vi.fn(),
+                run: vi.fn(),
+                state: { phase: actual.ToolsWorkerPhase.Idle },
+            }),
+        };
+    },
+);
 
 vi.mock('~/lib/auth/client', () => ({
     useSession: () => ({ data: null, error: null, isPending: false }),

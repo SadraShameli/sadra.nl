@@ -57,7 +57,9 @@ function outlookRequest(
     };
 }
 
-function request(overrides: Partial<PayoutSweepRequest> = {}): PayoutSweepRequest {
+function request(
+    overrides: Partial<PayoutSweepRequest> = {},
+): PayoutSweepRequest {
     return {
         firmId: FirmId.TopStep,
         personalOverrideRequest: null,
@@ -186,7 +188,9 @@ describe('payoutSweepCacheKey', () => {
     });
 
     it('changes with the personal override request', () => {
-        const a = payoutSweepCacheKey(request({ personalOverrideRequest: null }));
+        const a = payoutSweepCacheKey(
+            request({ personalOverrideRequest: null }),
+        );
         const b = payoutSweepCacheKey(
             request({ personalOverrideRequest: 750 }),
         );
@@ -228,7 +232,9 @@ describe('payoutOutlookPlan', () => {
 
     it('gives null for an unknown serial', () => {
         expect(
-            payoutOutlookPlan(outlookRequest({ planSerial: 'not-a-real-plan' })),
+            payoutOutlookPlan(
+                outlookRequest({ planSerial: 'not-a-real-plan' }),
+            ),
         ).toBeNull();
     });
 });
@@ -252,8 +258,12 @@ describe('payoutOutlookCacheKey', () => {
     });
 
     it('changes with the retained cushion (keyed by the EnginePolicy)', () => {
-        const a = payoutOutlookCacheKey(outlookRequest({ spec: specFor(2000) }));
-        const b = payoutOutlookCacheKey(outlookRequest({ spec: specFor(3000) }));
+        const a = payoutOutlookCacheKey(
+            outlookRequest({ spec: specFor(2000) }),
+        );
+        const b = payoutOutlookCacheKey(
+            outlookRequest({ spec: specFor(3000) }),
+        );
         expect(a).not.toBe(b);
     });
 });
@@ -270,7 +280,9 @@ describe.each(RULEBOOK_VARIANTS)(
         });
 
         it('changes the outlook key when only the rulebook differs', () => {
-            const a = payoutOutlookCacheKey(outlookRequest({ spec: specFor(2000) }));
+            const a = payoutOutlookCacheKey(
+                outlookRequest({ spec: specFor(2000) }),
+            );
             const b = payoutOutlookCacheKey(
                 outlookRequest({ spec: specFor(2000, variant) }),
             );

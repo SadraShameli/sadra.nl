@@ -569,7 +569,7 @@ describe('LifetimeDollarCapRule', () => {
         );
     });
 
-    it("never lets a snapshot dated on or after the move-live date inflate the certain figure with live payouts, and keeps the disclosure consistent with it", () => {
+    it('never lets a snapshot dated on or after the move-live date inflate the certain figure with live payouts, and keeps the disclosure consistent with it', () => {
         const active = fundedPro();
         const movedLive = accountFor(MFF_PRO, { stage: AccountStage.Live });
         const alerts = alertsOf(rule, {
@@ -594,7 +594,7 @@ describe('LifetimeDollarCapRule', () => {
         );
     });
 
-    it("reconstructs an incomplete pre-cutoff ledger from a snapshot dated on or after the move-live date, instead of undercounting the certain figure", () => {
+    it('reconstructs an incomplete pre-cutoff ledger from a snapshot dated on or after the move-live date, instead of undercounting the certain figure', () => {
         const active = fundedPro();
         const movedLive = accountFor(MFF_PRO, { stage: AccountStage.Live });
         const alerts = alertsOf(rule, {

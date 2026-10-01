@@ -1,6 +1,13 @@
 'use client';
 
-import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
+import {
+    Bar,
+    BarChart,
+    CartesianGrid,
+    ReferenceLine,
+    XAxis,
+    YAxis,
+} from 'recharts';
 
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';

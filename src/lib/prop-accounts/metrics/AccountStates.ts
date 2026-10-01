@@ -46,7 +46,10 @@ export enum AccountStateUnavailableKind {
     UnresolvedPlan = 'unresolved-plan',
 }
 
-export type AccountStateAccountRow = Pick<PropAccountRow, 'archivedAt' | 'optIns' | 'status' | 'userId'> &
+export type AccountStateAccountRow = Pick<
+    PropAccountRow,
+    'archivedAt' | 'optIns' | 'status' | 'userId'
+> &
     SnapshotAccountRow & {
         readonly readIssues: readonly AccountReadIssue[];
     };
@@ -56,10 +59,16 @@ export interface AccountStateEntry {
     readonly state: AccountStateResult;
 }
 
-export type AccountStateEventRow = Pick<PropAccountEventRow, 'accountId' | 'userId'> &
+export type AccountStateEventRow = Pick<
+    PropAccountEventRow,
+    'accountId' | 'userId'
+> &
     SnapshotEventRow;
 
-export type AccountStatePayoutRow = Pick<PropPayoutRow, 'accountId' | 'userId'> &
+export type AccountStatePayoutRow = Pick<
+    PropPayoutRow,
+    'accountId' | 'userId'
+> &
     SnapshotPayoutRow;
 
 export type AccountStateResult =
@@ -74,7 +83,10 @@ export type AccountStateResult =
           readonly reason: AccountStateUnavailableReason;
       };
 
-export type AccountStateSnapshotRow = Pick<PropAccountSnapshotRow, 'accountId' | 'createdAt' | 'id' | 'userId'> &
+export type AccountStateSnapshotRow = Pick<
+    PropAccountSnapshotRow,
+    'accountId' | 'createdAt' | 'id' | 'userId'
+> &
     SnapshotSnapshotRow;
 
 export interface AccountStatesRows {
@@ -259,8 +271,7 @@ function stateFor(
         kind: AccountStateKind.Reconstructed,
         latest: latestAttempt.value,
         plan,
-        previous:
-            previousAttempt?.ok === true ? previousAttempt.value : null,
+        previous: previousAttempt?.ok === true ? previousAttempt.value : null,
     };
 }
 

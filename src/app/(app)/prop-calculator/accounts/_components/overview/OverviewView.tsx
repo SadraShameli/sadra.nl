@@ -213,7 +213,11 @@ function BoardsSections({ boards }: { readonly boards: OverviewBoards }) {
     }
 }
 
-function ExposureSection({ exposure }: { readonly exposure: OverviewExposure }) {
+function ExposureSection({
+    exposure,
+}: {
+    readonly exposure: OverviewExposure;
+}) {
     return (
         <OverviewSection id="exposure" title="Exposure">
             {exposure.kind === OverviewSectionStatus.Ready && (
@@ -259,7 +263,10 @@ function LedgerSections({
                     </p>
                 )}
             </OverviewSection>
-            <OverviewSection id="next-payout" title="Next payout and value from today's state">
+            <OverviewSection
+                id="next-payout"
+                title="Next payout and value from today's state"
+            >
                 {nextPayout.kind === OverviewSectionStatus.Ready && (
                     <NextPayoutCard model={nextPayout.model} />
                 )}
@@ -302,10 +309,16 @@ function LedgerSections({
             <OverviewSection id="payout-sizes" title="Payout sizes">
                 <PayoutSizesCard model={cards.payoutSizes} />
             </OverviewSection>
-            <OverviewSection id="funded-payouts" title="Payouts per funded account">
+            <OverviewSection
+                id="funded-payouts"
+                title="Payouts per funded account"
+            >
                 <FundedPayoutsCard model={cards.fundedPayouts} />
             </OverviewSection>
-            <OverviewSection id="attempt-economics" title="Your attempt economics">
+            <OverviewSection
+                id="attempt-economics"
+                title="Your attempt economics"
+            >
                 <AttemptEconomicsCard model={cards.attemptEconomics} />
             </OverviewSection>
             <OverviewSection id="replacement" title="Replacement">
@@ -314,10 +327,7 @@ function LedgerSections({
             <OverviewSection id="statement" title="Monthly statement">
                 <StatementCard model={cards.statement} />
             </OverviewSection>
-            <OverviewSection
-                id="attempt-throughput"
-                title="Attempt throughput"
-            >
+            <OverviewSection id="attempt-throughput" title="Attempt throughput">
                 <AttemptThroughputCard model={cards.attemptThroughput} />
             </OverviewSection>
             <OverviewSection id="repeatability" title="Repeatability">
@@ -488,9 +498,7 @@ function ViolationsSummarySection({
                 <SectionSkeleton label="Loading your rule violations" />
             )}
             {violations.kind === OverviewSectionStatus.Failed && (
-                <p className="text-sm text-destructive">
-                    {violations.message}
-                </p>
+                <p className="text-sm text-destructive">{violations.message}</p>
             )}
         </OverviewSection>
     );

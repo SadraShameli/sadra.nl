@@ -16,7 +16,10 @@ function bankrollWith(
 describe('chooseObjective (F-V15, QV-5)', () => {
     it('gives MonthlyNet when the available cents is null, whatever the threshold', () => {
         expect(
-            chooseObjective(null, bankrollWith({ objectiveSwitchCents: 100_000 })),
+            chooseObjective(
+                null,
+                bankrollWith({ objectiveSwitchCents: 100_000 }),
+            ),
         ).toBe(SizingObjective.MonthlyNet);
     });
 
@@ -28,7 +31,10 @@ describe('chooseObjective (F-V15, QV-5)', () => {
 
     it('gives RuinFirst when the available cents is below the threshold', () => {
         expect(
-            chooseObjective(50_000, bankrollWith({ objectiveSwitchCents: 100_000 })),
+            chooseObjective(
+                50_000,
+                bankrollWith({ objectiveSwitchCents: 100_000 }),
+            ),
         ).toBe(SizingObjective.RuinFirst);
     });
 

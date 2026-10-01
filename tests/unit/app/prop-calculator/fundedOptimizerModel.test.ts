@@ -140,10 +140,7 @@ describe('fundedOptimizerSweep', () => {
             throw new Error('expected a built sweep');
         }
 
-        const positionSizing = resolvePositionSizing(
-            InstrumentSymbol.NQ,
-            7.5,
-        );
+        const positionSizing = resolvePositionSizing(InstrumentSymbol.NQ, 7.5);
         const build = buildFundedCandidates({
             flat: DEFAULT_FUNDED_FLAT_CANDIDATES,
             fundedLadder: null,
@@ -186,13 +183,20 @@ describe('fundedOptimizerSweep', () => {
             stopPoints: 7.5,
         };
         const request = fundedOptimizerRequest(inputs, DEFAULT_RULEBOOK);
-        const plan = requirePlan(fundedSweepPlan(request), 'expected the built request to resolve a plan');
+        const plan = requirePlan(
+            fundedSweepPlan(request),
+            'expected the built request to resolve a plan',
+        );
         const result = fundedOptimizerSweep(plan, request);
         if (result.kind !== FundedCandidateBuildKind.Built) {
             throw new Error('expected a built sweep');
         }
         for (const sort of [FundedSortKey.Monthly, FundedSortKey.Cycle]) {
-            const rows = fundedOptimizerRows(result.rows, sort, request.base.trials);
+            const rows = fundedOptimizerRows(
+                result.rows,
+                sort,
+                request.base.trials,
+            );
             expect(rows.length).toBe(result.rows.length);
             for (const row of rows) {
                 expect(row.cells.length).toBeGreaterThan(0);
@@ -207,7 +211,10 @@ describe('fundedOptimizerSweep', () => {
             stopPoints: 7.5,
         };
         const request = fundedOptimizerRequest(inputs, DEFAULT_RULEBOOK);
-        const plan = requirePlan(fundedSweepPlan(request), 'expected the built request to resolve a plan');
+        const plan = requirePlan(
+            fundedSweepPlan(request),
+            'expected the built request to resolve a plan',
+        );
         const result = fundedOptimizerSweep(plan, request);
         if (result.kind !== FundedCandidateBuildKind.Built) {
             throw new Error('expected a built sweep');
@@ -224,7 +231,10 @@ describe('fundedOptimizerSweep', () => {
 
     it('leaves out percent rows with a note when no instrument or stop is chosen', () => {
         const request = fundedOptimizerRequest(baseInputs(), DEFAULT_RULEBOOK);
-        const plan = requirePlan(fundedSweepPlan(request), 'expected the built request to resolve a plan');
+        const plan = requirePlan(
+            fundedSweepPlan(request),
+            'expected the built request to resolve a plan',
+        );
         const result = fundedOptimizerSweep(plan, request);
         if (result.kind !== FundedCandidateBuildKind.Built) {
             throw new Error('expected a built sweep');
@@ -242,7 +252,10 @@ describe('fundedOptimizerSweep', () => {
             stopPoints: 750,
         };
         const request = fundedOptimizerRequest(inputs, DEFAULT_RULEBOOK);
-        const plan = requirePlan(fundedSweepPlan(request), 'expected the built request to resolve a plan');
+        const plan = requirePlan(
+            fundedSweepPlan(request),
+            'expected the built request to resolve a plan',
+        );
         const result = fundedOptimizerSweep(plan, request);
         if (result.kind !== FundedCandidateBuildKind.Built) {
             throw new Error('expected a built sweep');
@@ -250,9 +263,9 @@ describe('fundedOptimizerSweep', () => {
         expect(result.rows.length).toBeLessThan(
             DEFAULT_FUNDED_FLAT_CANDIDATES.length,
         );
-        expect(
-            result.notes.some((note) => note.includes('left out')),
-        ).toBe(true);
+        expect(result.notes.some((note) => note.includes('left out'))).toBe(
+            true,
+        );
     });
 
     it('clamps trials to the stated maximum', () => {

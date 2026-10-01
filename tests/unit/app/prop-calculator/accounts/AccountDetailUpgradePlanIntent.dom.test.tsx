@@ -113,12 +113,12 @@ vi.mock('~/trpc/react', () => ({
                 list: harness.query('account.list'),
                 remove: harness.mutation('account.remove'),
                 unarchive: harness.mutation('account.unarchive'),
-                upgradeToModeled: harness.mutation(
-                    'account.upgradeToModeled',
-                ),
+                upgradeToModeled: harness.mutation('account.upgradeToModeled'),
             },
+            bankroll: { list: harness.query('bankroll.list') },
             copyGroup: { list: harness.query('copyGroup.list') },
             decision: {
+                list: harness.query('decision.list'),
                 listForAccount: harness.query('decision.listForAccount'),
             },
             event: {
@@ -261,9 +261,8 @@ describe('the upgrade-to-modeled form offers the account’s own plan, even disc
 
     async function clickUpgrade() {
         await act(async () => {
-            const button = container.querySelector<HTMLButtonElement>(
-                '#account-upgrade',
-            );
+            const button =
+                container.querySelector<HTMLButtonElement>('#account-upgrade');
             if (button === null) throw new Error('no upgrade button');
             button.click();
             await new Promise((resolve) => setTimeout(resolve, 0));
@@ -273,13 +272,11 @@ describe('the upgrade-to-modeled form offers the account’s own plan, even disc
     it('offers a discontinued plan, tagged, when upgrading a ledger-only account it already holds', () => {
         answerEverything();
         act(() => {
-            root.render(
-                <AccountDetailView id={ACCOUNT_ID} userId={USER_ID} />,
-            );
+            root.render(<AccountDetailView id={ACCOUNT_ID} userId={USER_ID} />);
         });
-        const optionValues = [
-            ...container.querySelectorAll('option'),
-        ].map((option) => option.value);
+        const optionValues = [...container.querySelectorAll('option')].map(
+            (option) => option.value,
+        );
         expect(optionValues).toContain(serializePlanId(DISCONTINUED.plan.id));
         expect(container.textContent).toContain('no longer sold');
     });
@@ -287,9 +284,7 @@ describe('the upgrade-to-modeled form offers the account’s own plan, even disc
     it('can save the upgrade onto the account’s own discontinued plan', async () => {
         answerEverything();
         act(() => {
-            root.render(
-                <AccountDetailView id={ACCOUNT_ID} userId={USER_ID} />,
-            );
+            root.render(<AccountDetailView id={ACCOUNT_ID} userId={USER_ID} />);
         });
         chooseSelectValue(container, serializePlanId(DISCONTINUED.plan.id));
         await clickUpgrade();

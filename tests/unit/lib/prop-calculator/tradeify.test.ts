@@ -498,9 +498,7 @@ describe('Tradeify Lightning payout basis note discloses both readings (N-85, U2
 describe('Tradeify Select consistency add-on note cites the pricing reference, not the checkout screenshot as a correction (N-85)', () => {
     it('states $205 eval / $135 reset at 50K and keeps +$200 as a recorded conflicting observation', () => {
         const note = firm.notes.find((candidate) =>
-            candidate.includes(
-                "40% consistency rule can be paid-upgraded",
-            ),
+            candidate.includes('40% consistency rule can be paid-upgraded'),
         );
         expect(note).toContain('14369021');
         expect(note).toContain('205');

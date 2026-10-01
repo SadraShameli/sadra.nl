@@ -17,15 +17,20 @@ import {
     type ValueCardsCalculatorInputs,
     valueCardsInputFor,
     ValueCardsInputKind,
+    valueChainCardFailures,
     valueChainCardSteps,
     valueChainToolsRequest,
 } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import { ToolsRequestKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { CENTS_PER_DOLLAR, findFirm, FirmId } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK, type RulebookParameters } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    type RulebookParameters,
+} from '~/lib/prop-calculator/advisor';
 import {
     CreditBasis,
     type ValueChainResult,
+    type ValueChainStep,
     ValueChainStepKind,
     valueGap,
     ValueResultKind,
@@ -83,7 +88,11 @@ describe('valueCardsInputFor (PT-66)', () => {
         });
         expect(cards.spec.enginePolicy.fundedHorizonDays).toBe(60);
         expect(cards.spec.rulebook).toBe(DEFAULT_RULEBOOK);
-        expect(cards.spec.run).toEqual({ maxEvalDays: 60, seed: 7, trials: 500 });
+        expect(cards.spec.run).toEqual({
+            maxEvalDays: 60,
+            seed: 7,
+            trials: 500,
+        });
     });
 
     it('overrides the retained cushion request from the calculator state when it is set', () => {
@@ -115,25 +124,32 @@ describe('valueCardsInputFor (PT-66)', () => {
 
     it.each([
         ['a payout request of zero', { payoutRequestSize: 0 }],
-        ['a payout request that is not a whole number of cents', { payoutRequestSize: 600.005 }],
+        [
+            'a payout request that is not a whole number of cents',
+            { payoutRequestSize: 600.005 },
+        ],
         ['a fractional retained cushion', { retainedCushion: 100.123 }],
-    ] as const)('refuses with a reason instead of throwing for %s', (_name, overrides) => {
-        const input = valueCardsInputFor(
-            calculatorInputs({ ...overrides }),
-            DEFAULT_RULEBOOK,
-        );
-        expect(input.kind).toBe(ValueCardsInputKind.Refused);
-        if (input.kind === ValueCardsInputKind.Refused) {
-            expect(input.reason.length).toBeGreaterThan(0);
-        }
-    });
+    ] as const)(
+        'refuses with a reason instead of throwing for %s',
+        (_name, overrides) => {
+            const input = valueCardsInputFor(
+                calculatorInputs({ ...overrides }),
+                DEFAULT_RULEBOOK,
+            );
+            expect(input.kind).toBe(ValueCardsInputKind.Refused);
+            if (input.kind === ValueCardsInputKind.Refused) {
+                expect(input.reason.length).toBeGreaterThan(0);
+            }
+        },
+    );
 
     it('names the offending calculator field in the refusal, not the engine field (PT-67 addendum)', () => {
         const input = valueCardsInputFor(
             calculatorInputs({ payoutRequestSize: 0 }),
             DEFAULT_RULEBOOK,
         );
-        const reason = input.kind === ValueCardsInputKind.Refused ? input.reason : '';
+        const reason =
+            input.kind === ValueCardsInputKind.Refused ? input.reason : '';
         expect(reason).toContain('Payout request size ($)');
         expect(reason).toContain('must be more than zero');
         expect(reason).not.toContain('payoutRequestOverride');
@@ -144,17 +160,22 @@ describe('valueCardsInputFor (PT-66)', () => {
             calculatorInputs({ retainedCushion: 100.123 }),
             DEFAULT_RULEBOOK,
         );
-        const reason = input.kind === ValueCardsInputKind.Refused ? input.reason : '';
+        const reason =
+            input.kind === ValueCardsInputKind.Refused ? input.reason : '';
         expect(reason).toContain('Retained cushion on payout ($)');
         expect(reason).not.toContain('retainedCushionRequest');
     });
 
     it('names both calculator fields once each when both are refused (PT-67 addendum)', () => {
         const input = valueCardsInputFor(
-            calculatorInputs({ payoutRequestSize: 0, retainedCushion: 100.123 }),
+            calculatorInputs({
+                payoutRequestSize: 0,
+                retainedCushion: 100.123,
+            }),
             DEFAULT_RULEBOOK,
         );
-        const reason = input.kind === ValueCardsInputKind.Refused ? input.reason : '';
+        const reason =
+            input.kind === ValueCardsInputKind.Refused ? input.reason : '';
         expect(reason.split('Payout request size ($)')).toHaveLength(2);
         expect(reason.split('Retained cushion on payout ($)')).toHaveLength(2);
     });
@@ -162,17 +183,21 @@ describe('valueCardsInputFor (PT-66)', () => {
 
 describe('calculatorFieldLabelOf (PT-67 review)', () => {
     it('names a calculator field by its label', () => {
-        expect(calculatorFieldLabelOf(['payoutRequestOverride'])).toBe('Payout request size ($)');
+        expect(calculatorFieldLabelOf(['payoutRequestOverride'])).toBe(
+            'Payout request size ($)',
+        );
         expect(calculatorFieldLabelOf(['retainedCushionRequest'])).toBe(
             'Retained cushion on payout ($)',
         );
     });
 
     it('names an unlabelled engine field by its own name, with its nested path, instead of a generic text', () => {
-        expect(calculatorFieldLabelOf(['commissionPerRoundTrip'])).toBe('commissionPerRoundTrip');
-        expect(calculatorFieldLabelOf(['lifetimePayoutCapOverride', 'cap'])).toBe(
-            'lifetimePayoutCapOverride.cap',
+        expect(calculatorFieldLabelOf(['commissionPerRoundTrip'])).toBe(
+            'commissionPerRoundTrip',
         );
+        expect(
+            calculatorFieldLabelOf(['lifetimePayoutCapOverride', 'cap']),
+        ).toBe('lifetimePayoutCapOverride.cap');
     });
 
     it('falls back to a generic name only when the issue carries no path', () => {
@@ -205,20 +230,28 @@ describe('value chain and funded value request builders (PT-66)', () => {
     });
 });
 
+function chainStep(
+    kind: ValueChainStepKind,
+    creditFree: number,
+    creditInclusive: number,
+    assumptions: readonly string[] = [],
+): ValueChainStep {
+    return {
+        assumptions,
+        kind,
+        value: valueResult(1, 500, creditFree, creditInclusive),
+    };
+}
+
 function valueChainResult(): ValueChainResult {
     return {
         accountValue: null,
+        failedSteps: [],
         steps: [
-            { kind: ValueChainStepKind.EvalStart, value: valueResult(1, 500, 90, 100) },
-            { kind: ValueChainStepKind.FreshFunded, value: valueResult(1, 500, 800, 900) },
-            {
-                kind: ValueChainStepKind.FirstPayoutEligible,
-                value: valueResult(1, 500, 1200, 1400),
-            },
-            {
-                kind: ValueChainStepKind.PostFirstPayout,
-                value: valueResult(1, 500, 900, 950),
-            },
+            chainStep(ValueChainStepKind.EvalStart, 90, 100),
+            chainStep(ValueChainStepKind.FreshFunded, 800, 900),
+            chainStep(ValueChainStepKind.FirstPayoutEligible, 1200, 1400),
+            chainStep(ValueChainStepKind.PostFirstPayout, 900, 950),
         ],
     };
 }
@@ -266,13 +299,19 @@ describe('valueChainCardSteps (PT-66)', () => {
 
     it('carries the gap standard error from the two credit-free standard errors', () => {
         const steps = valueChainCardSteps(valueChainResult());
-        expect(steps[1]?.gapFromPrevious?.standardError).toBeCloseTo(Math.hypot(3, 3), 10);
+        expect(steps[1]?.gapFromPrevious?.standardError).toBeCloseTo(
+            Math.hypot(3, 3),
+            10,
+        );
     });
 
     it('keeps both credit bases per step so the headline can be credit-free', () => {
         const steps = valueChainCardSteps(valueChainResult());
         expect(steps[0]?.creditFree).toEqual({ standardError: 3, value: 90 });
-        expect(steps[0]?.creditInclusive).toEqual({ standardError: 5, value: 100 });
+        expect(steps[0]?.creditInclusive).toEqual({
+            standardError: 5,
+            value: 100,
+        });
     });
 
     it('keeps each step value in order', () => {
@@ -286,13 +325,138 @@ describe('valueChainCardSteps (PT-66)', () => {
     });
 });
 
+describe('valueChainCardSteps with failed steps (PT-67d)', () => {
+    it('draws no gap for a step whose preceding kind failed', () => {
+        const result: ValueChainResult = {
+            accountValue: null,
+            failedSteps: [
+                {
+                    kind: ValueChainStepKind.FirstPayoutEligible,
+                    reason: 'no account',
+                },
+            ],
+            steps: [
+                chainStep(ValueChainStepKind.EvalStart, 90, 100),
+                chainStep(ValueChainStepKind.FreshFunded, 800, 900),
+                chainStep(ValueChainStepKind.PostFirstPayout, 900, 950),
+            ],
+        };
+
+        const steps = valueChainCardSteps(result);
+
+        expect(steps.map((step) => step.kind)).toEqual([
+            ValueChainStepKind.EvalStart,
+            ValueChainStepKind.FreshFunded,
+            ValueChainStepKind.PostFirstPayout,
+        ]);
+        expect(steps[1]?.gapFromPrevious?.value).toBe(710);
+        expect(steps[2]?.gapFromPrevious).toBeNull();
+    });
+
+    it('draws no gap for fresh funded when the eval start failed', () => {
+        const result: ValueChainResult = {
+            accountValue: null,
+            failedSteps: [
+                { kind: ValueChainStepKind.EvalStart, reason: 'no account' },
+            ],
+            steps: [
+                chainStep(ValueChainStepKind.FreshFunded, 800, 900),
+                chainStep(ValueChainStepKind.FirstPayoutEligible, 1200, 1400),
+            ],
+        };
+
+        const steps = valueChainCardSteps(result);
+
+        expect(steps[0]?.gapFromPrevious).toBeNull();
+        expect(steps[1]?.gapFromPrevious?.value).toBe(400);
+    });
+
+    it('takes the gap from the adjacent kind in the fixed step order, not from the previous array entry', () => {
+        const result: ValueChainResult = {
+            accountValue: null,
+            failedSteps: [],
+            steps: [
+                chainStep(ValueChainStepKind.FreshFunded, 800, 900),
+                chainStep(ValueChainStepKind.EvalStart, 90, 100),
+            ],
+        };
+
+        const byKind = new Map(
+            valueChainCardSteps(result).map((step) => [step.kind, step]),
+        );
+
+        expect(
+            byKind.get(ValueChainStepKind.EvalStart)?.gapFromPrevious,
+        ).toBeNull();
+        expect(
+            byKind.get(ValueChainStepKind.FreshFunded)?.gapFromPrevious?.value,
+        ).toBe(710);
+    });
+
+    it('carries each step assumptions to the card', () => {
+        const result: ValueChainResult = {
+            accountValue: null,
+            failedSteps: [],
+            steps: [
+                chainStep(ValueChainStepKind.EvalStart, 90, 100),
+                chainStep(ValueChainStepKind.FirstPayoutEligible, 1200, 1400, [
+                    '3 equal winning sessions',
+                ]),
+            ],
+        };
+
+        const steps = valueChainCardSteps(result);
+
+        expect(steps[0]?.assumptions).toEqual([]);
+        expect(steps[1]?.assumptions).toEqual(['3 equal winning sessions']);
+    });
+});
+
+describe('valueChainCardFailures (PT-67d)', () => {
+    it('is empty when every step built', () => {
+        expect(valueChainCardFailures(valueChainResult())).toEqual([]);
+    });
+
+    it('names every failed step by its label with the reason, in the fixed step order', () => {
+        const result: ValueChainResult = {
+            accountValue: null,
+            failedSteps: [
+                {
+                    kind: ValueChainStepKind.PostFirstPayout,
+                    reason: 'depends on the eligible step',
+                },
+                {
+                    kind: ValueChainStepKind.FirstPayoutEligible,
+                    reason: 'no account passes',
+                },
+            ],
+            steps: [],
+        };
+
+        expect(valueChainCardFailures(result)).toEqual([
+            {
+                kind: ValueChainStepKind.FirstPayoutEligible,
+                text: 'First payout eligible: no account passes',
+            },
+            {
+                kind: ValueChainStepKind.PostFirstPayout,
+                text: 'Post first payout: depends on the eligible step',
+            },
+        ]);
+    });
+});
+
 describe('value figure text (PT-66)', () => {
     it('shows a currency estimate with its standard error when there is one', () => {
-        expect(uncertainCurrencyText({ standardError: 5, value: 100 })).toBe('$100 ± $5');
+        expect(uncertainCurrencyText({ standardError: 5, value: 100 })).toBe(
+            '$100 ± $5',
+        );
     });
 
     it('omits the standard error when it is null', () => {
-        expect(uncertainCurrencyText({ standardError: null, value: 100 })).toBe('$100');
+        expect(uncertainCurrencyText({ standardError: null, value: 100 })).toBe(
+            '$100',
+        );
     });
 
     it('signs a currency gap', () => {
@@ -302,8 +466,12 @@ describe('value figure text (PT-66)', () => {
     });
 
     it('shows a payout count with two decimals and its standard error', () => {
-        expect(uncertainCountText({ standardError: 0.041, value: 1.234 })).toBe('1.23 ± 0.04');
-        expect(uncertainCountText({ standardError: null, value: 1.234 })).toBe('1.23');
+        expect(uncertainCountText({ standardError: 0.041, value: 1.234 })).toBe(
+            '1.23 ± 0.04',
+        );
+        expect(uncertainCountText({ standardError: null, value: 1.234 })).toBe(
+            '1.23',
+        );
     });
 
     it('shows the sample range as lower to upper, and nothing until a sample size exists', () => {
@@ -384,16 +552,23 @@ describe('isInvalidSampleSizeField (PT-66)', () => {
 
 describe('toolsWorkerPendingText (PT-66)', () => {
     it('reports a running computation and a cancelled one', () => {
-        expect(toolsWorkerPendingText({ phase: ToolsWorkerPhase.Running })).toBe('Computing...');
-        expect(toolsWorkerPendingText({ phase: ToolsWorkerPhase.Cancelled })).toBe(
-            'Computation cancelled.',
-        );
+        expect(
+            toolsWorkerPendingText({ phase: ToolsWorkerPhase.Running }),
+        ).toBe('Computing...');
+        expect(
+            toolsWorkerPendingText({ phase: ToolsWorkerPhase.Cancelled }),
+        ).toBe('Computation cancelled.');
     });
 
     it('reports nothing for idle, failed or succeeded', () => {
-        expect(toolsWorkerPendingText({ phase: ToolsWorkerPhase.Idle })).toBeNull();
         expect(
-            toolsWorkerPendingText({ phase: ToolsWorkerPhase.Failed, reason: 'x' }),
+            toolsWorkerPendingText({ phase: ToolsWorkerPhase.Idle }),
+        ).toBeNull();
+        expect(
+            toolsWorkerPendingText({
+                phase: ToolsWorkerPhase.Failed,
+                reason: 'x',
+            }),
         ).toBeNull();
     });
 });

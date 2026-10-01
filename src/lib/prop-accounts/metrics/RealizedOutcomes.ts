@@ -170,7 +170,10 @@ function payoutRateOf(
     accounts: readonly ModeledLedgerAccount[],
     asOfDate: string,
     horizonDays: number,
-): { readonly openAccounts: number; readonly payoutRate: null | SampledEstimate } {
+): {
+    readonly openAccounts: number;
+    readonly payoutRate: null | SampledEstimate;
+} {
     const decided: DecidedSample[] = [];
     let openAccounts = 0;
     for (const entry of accounts) {

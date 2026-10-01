@@ -430,7 +430,9 @@ describe('cash flow simulation cache key (WP23: built on simInputsCacheKey)', ()
     });
 });
 
-function fundedCycleSeed(overrides: Partial<FundedCycleSeed> = {}): FundedCycleSeed {
+function fundedCycleSeed(
+    overrides: Partial<FundedCycleSeed> = {},
+): FundedCycleSeed {
     return {
         calendarDayGateProgress: 0,
         cumulativePayout: 0,

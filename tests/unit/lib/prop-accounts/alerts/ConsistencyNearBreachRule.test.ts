@@ -6,7 +6,12 @@ import {
     ConsistencyNearBreachRule,
 } from '~/lib/prop-accounts/alerts';
 import { AccountStage } from '~/lib/prop-accounts/core';
-import { CENTS_PER_DOLLAR, findFirm, FirmId, MffuVariant } from '~/lib/prop-calculator';
+import {
+    CENTS_PER_DOLLAR,
+    findFirm,
+    FirmId,
+    MffuVariant,
+} from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
 import {

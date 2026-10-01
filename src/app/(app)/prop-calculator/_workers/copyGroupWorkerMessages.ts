@@ -53,9 +53,7 @@ export interface CopyGroupWorkerMember {
 }
 
 export type CopyGroupWorkerOutcome =
-    | CopyGroupWorkerFailure
-    | CopyGroupWorkerRejected
-    | CopyGroupWorkerSimulated;
+    CopyGroupWorkerFailure | CopyGroupWorkerRejected | CopyGroupWorkerSimulated;
 
 export interface CopyGroupWorkerPositionSizing {
     readonly instrument: InstrumentSymbol;
@@ -160,7 +158,9 @@ function copyGroupSimulationMemberOf(
 }
 
 function outputsOf(
-    result: CopyGroupSimulationOutputs & { kind: CopyGroupSimulationResultKind.Simulated },
+    result: CopyGroupSimulationOutputs & {
+        kind: CopyGroupSimulationResultKind.Simulated;
+    },
 ): CopyGroupSimulationOutputs {
     const copy = { ...result };
     Reflect.deleteProperty(copy, 'kind');

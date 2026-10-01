@@ -95,15 +95,18 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
         expect(account.fundedTracker).not.toBeNull();
         expect(account.fundedTracker?.payoutsIssued).toBe(0);
         expect(account.fundedTracker?.lastPayoutBalance).toBe(50_000);
-        expect(account.fundedTracker?.dayGateProgress(plan, account.state)).toBe(
-            7,
-        );
+        expect(
+            account.fundedTracker?.dayGateProgress(plan, account.state),
+        ).toBe(7);
         expect(account.assumptions).toEqual([
             {
                 bias: 'conservative',
                 kind: AssumptionKind.CycleBestDayProfitAssumedWorstCase,
             },
-            { bias: 'neutral', kind: AssumptionKind.ContractCapInstrumentAssumed },
+            {
+                bias: 'neutral',
+                kind: AssumptionKind.ContractCapInstrumentAssumed,
+            },
         ]);
     });
 
@@ -157,7 +160,9 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             throw new Error('expected a funded reconstruction');
         }
         expect(account.contractLimit).not.toBeNull();
-        expect(account.microContractLimit).toBe((account.contractLimit ?? 0) * 10);
+        expect(account.microContractLimit).toBe(
+            (account.contractLimit ?? 0) * 10,
+        );
     });
 
     it('overrides the ratcheted threshold with the fixed locked floor once a payout moves the floor', () => {
@@ -181,9 +186,9 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
         expect(account.fundedTracker?.payoutsIssued).toBe(1);
         expect(account.fundedTracker?.lastPayoutBalance).toBe(50_500);
         expect(account.fundedTracker?.cumulativePayout).toBe(400);
-        expect(account.fundedTracker?.dayGateProgress(plan, account.state)).toBe(
-            5,
-        );
+        expect(
+            account.fundedTracker?.dayGateProgress(plan, account.state),
+        ).toBe(5);
     });
 
     it('defaults lastPayoutBalance to the current balance, not the account size, when payouts were taken but balanceAtLastPayout is missing', () => {
@@ -221,12 +226,15 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
         }
-        expect(account.fundedTracker?.dayGateProgress(plan, account.state)).toBe(
-            0,
-        );
+        expect(
+            account.fundedTracker?.dayGateProgress(plan, account.state),
+        ).toBe(0);
         expect(account.assumptions).toEqual(
             expect.arrayContaining([
-                { bias: 'conservative', kind: AssumptionKind.CalendarAnchorMissing },
+                {
+                    bias: 'conservative',
+                    kind: AssumptionKind.CalendarAnchorMissing,
+                },
             ]),
         );
     });
@@ -246,7 +254,10 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
         expect(account.state.balance).toBe(51_500);
         expect(account.assumptions).toEqual(
             expect.arrayContaining([
-                { bias: 'conservative', kind: AssumptionKind.PendingPayoutDeducted },
+                {
+                    bias: 'conservative',
+                    kind: AssumptionKind.PendingPayoutDeducted,
+                },
             ]),
         );
     });
@@ -370,9 +381,9 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             throw new Error('expected a funded reconstruction');
         }
         expect(account.fundedTracker?.cycleBestDayProfit).toBe(900);
-        expect(account.assumptions.map((assumption) => assumption.kind)).not.toContain(
-            AssumptionKind.CycleBestDayProfitAssumedWorstCase,
-        );
+        expect(
+            account.assumptions.map((assumption) => assumption.kind),
+        ).not.toContain(AssumptionKind.CycleBestDayProfitAssumedWorstCase);
     });
 });
 
@@ -556,7 +567,9 @@ describe('AccountReconstruction.rebuild: live phase', () => {
         expect(account.livePlan).not.toBeNull();
         expect(account.state).not.toBeNull();
         expect(account.livePlan?.seedReserveTerms()?.amount).toBe(40_000);
-        expect(account.assumptions.map((assumption) => assumption.kind)).toEqual(
+        expect(
+            account.assumptions.map((assumption) => assumption.kind),
+        ).toEqual(
             expect.arrayContaining([
                 AssumptionKind.TopStepLiveReserveDefaulted,
                 AssumptionKind.LiveModelApproximation,
@@ -578,8 +591,8 @@ describe('AccountReconstruction.rebuild: live phase', () => {
         expect(account.livePlan).not.toBeNull();
         expect(account.state).not.toBeNull();
         expect(account.state?.balance).toBe(2000);
-        expect(account.assumptions.map((assumption) => assumption.kind)).not.toContain(
-            AssumptionKind.LiveModelApproximation,
-        );
+        expect(
+            account.assumptions.map((assumption) => assumption.kind),
+        ).not.toContain(AssumptionKind.LiveModelApproximation);
     });
 });

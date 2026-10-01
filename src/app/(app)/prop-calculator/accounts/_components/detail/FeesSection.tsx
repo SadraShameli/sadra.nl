@@ -144,7 +144,7 @@ export function FeesSection({
                                     <TableCell className="text-right tabular-nums">
                                         {formatUsdCents(row.amountCents)}
                                     </TableCell>
-                                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                                    <TableCell className="text-right text-muted-foreground tabular-nums">
                                         {listCents === null
                                             ? NOT_APPLICABLE
                                             : formatUsdCents(listCents)}
@@ -209,7 +209,10 @@ export function FeesSection({
     );
 }
 
-function emptyFeeValues(plan: FeePrefillPlan | null, today: string): FeeFormValues {
+function emptyFeeValues(
+    plan: FeePrefillPlan | null,
+    today: string,
+): FeeFormValues {
     const kind =
         plan === null ? FeeKind.EvalPurchase : feePrefillDefaultKind(plan);
     return {

@@ -130,7 +130,10 @@ export function purchaseBlockedFirms(
                 account.status === AccountStatus.Active,
         );
         if (activeLive !== undefined && isPurchaseBlockedBy(activeLive)) {
-            blocked.push({ firmId, reason: PurchaseBlockReason.LiveExclusivity });
+            blocked.push({
+                firmId,
+                reason: PurchaseBlockReason.LiveExclusivity,
+            });
             continue;
         }
         if (group.some((account) => isInActiveCooldown(account, today))) {

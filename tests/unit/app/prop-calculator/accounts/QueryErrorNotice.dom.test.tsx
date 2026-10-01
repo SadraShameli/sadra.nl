@@ -44,7 +44,7 @@ describe('query-error notice duplication guard (PT-62e / PT-58f)', () => {
         for (const text of [ledgerText, roundsText]) {
             expect(text).not.toContain('TriangleAlert');
             expect(text).toMatch(
-                /import\s*{\s*QueryErrorNotice\s*}\s*from\s*'\.\.\/_components\/QueryErrorNotice'/,
+                /import\s*{\s*QueryErrorNotice\s*}\s*from\s*'~\/app\/\(app\)\/prop-calculator\/accounts\/_components\/QueryErrorNotice'/,
             );
         }
     });

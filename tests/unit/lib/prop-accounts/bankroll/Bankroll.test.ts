@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { bankrollOf, scaleAtMeasuredMultiple } from '~/lib/prop-accounts/bankroll';
+import {
+    bankrollOf,
+    scaleAtMeasuredMultiple,
+} from '~/lib/prop-accounts/bankroll';
 import {
     AccountEventKind,
     BankrollTransferKind,
@@ -34,11 +37,22 @@ describe('bankrollOf', () => {
                 events: [event(acc, AccountEventKind.Purchased, '2026-01-01')],
                 fees: [fee(acc, FeeKind.EvalPurchase, 50_000, '2026-01-01')],
                 payouts: [
-                    payout(acc, 30_000, { netCents: 30_000, paidOn: '2026-01-10' }),
+                    payout(acc, 30_000, {
+                        netCents: 30_000,
+                        paidOn: '2026-01-10',
+                    }),
                 ],
                 transfers: [
-                    transfer(BankrollTransferKind.Deposit, 200_000, '2025-12-01'),
-                    transfer(BankrollTransferKind.Withdrawal, 20_000, '2026-01-15'),
+                    transfer(
+                        BankrollTransferKind.Deposit,
+                        200_000,
+                        '2025-12-01',
+                    ),
+                    transfer(
+                        BankrollTransferKind.Withdrawal,
+                        20_000,
+                        '2026-01-15',
+                    ),
                 ],
             }),
             '2026-06-01',
@@ -58,7 +72,11 @@ describe('bankrollOf', () => {
                 fees: [],
                 payouts: [],
                 transfers: [
-                    transfer(BankrollTransferKind.Deposit, 200_000, '2026-01-01'),
+                    transfer(
+                        BankrollTransferKind.Deposit,
+                        200_000,
+                        '2026-01-01',
+                    ),
                 ],
             }),
             '2026-04-11',

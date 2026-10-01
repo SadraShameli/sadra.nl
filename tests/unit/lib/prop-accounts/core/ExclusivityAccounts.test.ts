@@ -111,10 +111,7 @@ describe('exclusivityAccountsOf', () => {
             { ...MOVED, status: AccountStatus.Active },
             [sibling('eval')],
         );
-        expect(accounts.map((account) => account.id)).toEqual([
-            'live',
-            'eval',
-        ]);
+        expect(accounts.map((account) => account.id)).toEqual(['live', 'eval']);
         expect(accounts[0]).toMatchObject({
             firmId: FIRM.id,
             plan: PLAN,
@@ -129,10 +126,7 @@ describe('exclusivityAccountsOf', () => {
             sibling('no-firm', { firmId: undefined }),
             sibling('kept'),
         ]);
-        expect(accounts.map((account) => account.id)).toEqual([
-            'live',
-            'kept',
-        ]);
+        expect(accounts.map((account) => account.id)).toEqual(['live', 'kept']);
     });
 
     it('gives a sibling without a plan the moved account plan, since the effects ignore a sibling plan', () => {
@@ -192,11 +186,14 @@ describe('one exclusivity account builder', () => {
     it.each([
         'src/server/api/routers/propAccounts/event.ts',
         'src/app/(app)/prop-calculator/accounts/_components/detail/liveExclusivityPreview.ts',
-    ])('%s builds its accounts and Suspend ids through the shared helpers', (file) => {
-        const source = readFileSync(path.resolve(ROOT, file), 'utf8');
-        expect(source.includes('exclusivityAccountsOf(')).toBe(true);
-        expect(source.includes('suspendedAccountIdsOf(')).toBe(true);
-        expect(source.includes('accountPolicy:')).toBe(false);
-        expect(source.includes('events: []')).toBe(false);
-    });
+    ])(
+        '%s builds its accounts and Suspend ids through the shared helpers',
+        (file) => {
+            const source = readFileSync(path.resolve(ROOT, file), 'utf8');
+            expect(source.includes('exclusivityAccountsOf(')).toBe(true);
+            expect(source.includes('suspendedAccountIdsOf(')).toBe(true);
+            expect(source.includes('accountPolicy:')).toBe(false);
+            expect(source.includes('events: []')).toBe(false);
+        },
+    );
 });

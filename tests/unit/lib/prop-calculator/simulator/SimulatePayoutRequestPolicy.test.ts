@@ -151,9 +151,7 @@ describe('default payout policy paths equal the PT-14 pins (PD-31, captured befo
     });
 
     it('simulate on Alpha Zero with the Qualified Reset taken', () => {
-        const fields = pinnedFields(
-            simulate(pinInputs(ALPHA_ZERO_WITH_RESET)),
-        );
+        const fields = pinnedFields(simulate(pinInputs(ALPHA_ZERO_WITH_RESET)));
         expect(fields).toMatchInlineSnapshot(`
           {
             "evalPassProbability": 0.97,
@@ -338,7 +336,9 @@ describe('FullRequestOnly waits for the full request instead of taking what UpTo
                 payoutRequestSize: 150,
             }),
         );
-        expect(fullRequestRecorded).toStrictEqual([1000, 1100, 1200, 1150, 1250]);
+        expect(fullRequestRecorded).toStrictEqual([
+            1000, 1100, 1200, 1150, 1250,
+        ]);
         expect(fullRequestOut.expectedGrossPayout).toBe(300);
         expect(fullRequestOut.expectedPayoutCount).toBe(2);
 
@@ -398,7 +398,9 @@ describe('FullRequestOnly waits for the full request instead of taking what UpTo
                 }),
             );
         const upToRequest = shortHorizon(undefined);
-        const fullRequestOnly = shortHorizon(PayoutRequestPolicy.FullRequestOnly);
+        const fullRequestOnly = shortHorizon(
+            PayoutRequestPolicy.FullRequestOnly,
+        );
         expect(upToRequest.expectedPayoutCount).toBe(0);
         expect(fullRequestOnly.expectedHorizonCredit).toBe(
             upToRequest.expectedHorizonCredit,

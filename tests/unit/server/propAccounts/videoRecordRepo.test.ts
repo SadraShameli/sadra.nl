@@ -352,9 +352,10 @@ describe('PropAccountRepo batched external firm ownership', () => {
             }),
         );
         await expect(
-            new PropAccountRepo(database, USER_ID).loadOwnedExternalFirmsOrThrow(
-                ids,
-            ),
+            new PropAccountRepo(
+                database,
+                USER_ID,
+            ).loadOwnedExternalFirmsOrThrow(ids),
         ).rejects.toThrow(new PropRecordNotFoundError(PropRecord.ExternalFirm));
     });
 

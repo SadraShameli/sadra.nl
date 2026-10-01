@@ -41,6 +41,7 @@ import {
     AccountStatus,
     type ExternalFirmName,
     firmKeyId,
+    isActiveAccount,
 } from '~/lib/prop-accounts';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -65,17 +66,30 @@ import {
     SortDirection,
 } from './accountListFilters';
 import { formatUsdCents } from './accountPlanOptions';
+import {
+    ExpectedPayoutsFigure,
+    NextActionFigure,
+    NextPayoutFigure,
+    ValueDetailLines,
+} from './AccountValueCells';
+import { type AccountValueColumns } from './accountValueColumns';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
 import {
     firmKeyOfOption,
     type LedgerOnlyFirmOption,
     ledgerOnlyFirmOptions,
 } from './externalFirmOptions';
+import {
+    expectedValuesOf,
+    hasPendingValues,
+    useAccountValues,
+} from './useAccountValues';
 
 const ALL = 'all';
 
 const SORT_LABEL: Readonly<Record<AccountSortKey, string>> = {
     [AccountSortKey.Cushion]: 'Cushion',
+    [AccountSortKey.ExpectedValue]: 'Expected payouts',
     [AccountSortKey.Label]: 'Label',
     [AccountSortKey.Readiness]: 'Payout readiness',
 };
@@ -99,7 +113,7 @@ interface FilterOptions {
     readonly tags: readonly FilterOption[];
 }
 
-export function AccountsTable() {
+export function AccountsTable({ userId }: { readonly userId?: string }) {
     const accountsQuery =
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
     const snapshotsQuery = api.propAccounts.snapshot.latestForAll.useQuery();
@@ -112,14 +126,22 @@ export function AccountsTable() {
         DEFAULT_ACCOUNT_LIST_SORT,
     );
 
+    const values = useAccountValues({ userId });
+    const isComputing = hasPendingValues(values);
+
     const accounts = accountsQuery.data;
     const snapshots = snapshotsQuery.data;
     const rows = useMemo(
         () =>
             accounts === undefined
                 ? []
-                : buildAccountListRows(accounts, snapshots ?? []),
-        [accounts, snapshots],
+                : buildAccountListRows(
+                      accounts,
+                      snapshots ?? [],
+                      values.boards,
+                      expectedValuesOf(values),
+                  ),
+        [accounts, snapshots, values],
     );
     const visible = useMemo(
         () => sortAccountRows(filterAccountRows(rows, filters), sort),
@@ -186,12 +208,18 @@ export function AccountsTable() {
 
     return (
         <section
+            aria-busy={isComputing}
             aria-labelledby="prop-accounts-list-heading"
             className="app-prop-accounts__list flex flex-col gap-4"
         >
             <h2 className="sr-only" id="prop-accounts-list-heading">
                 Accounts
             </h2>
+            {isComputing && (
+                <p className="sr-only" role="status">
+                    Computing values
+                </p>
+            )}
             {accountsQuery.isError && (
                 <Alert variant="warning">
                     <TriangleAlert />
@@ -229,12 +257,20 @@ export function AccountsTable() {
                 options={filterOptions}
                 sort={sort}
             />
-            {sort.key === AccountSortKey.Readiness && (
-                <p className="text-xs text-muted-foreground">
-                    Payout readiness is not computed yet, so this sort falls
-                    back to the label.
-                </p>
+            {values.notice !== null && (
+                <Alert variant="warning">
+                    <TriangleAlert />
+                    <AlertTitle>Values could not be computed</AlertTitle>
+                    <AlertDescription>{values.notice}</AlertDescription>
+                </Alert>
             )}
+            {sort.key === AccountSortKey.Readiness &&
+                values.boards === null && (
+                    <p className="text-xs text-muted-foreground">
+                        Payout readiness is not computed yet, so this sort falls
+                        back to the label.
+                    </p>
+                )}
             {visible.length === 0 ? (
                 <EmptyState
                     description="No account matches these filters."
@@ -248,6 +284,13 @@ export function AccountsTable() {
                             <TableHead>Firm and plan</TableHead>
                             <TableHead>Stage</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Next action</TableHead>
+                            <TableHead className="text-right">
+                                Expected payouts
+                            </TableHead>
+                            <TableHead className="text-right">
+                                Next payout
+                            </TableHead>
                             <TableHead className="text-right">
                                 Balance
                             </TableHead>
@@ -263,6 +306,7 @@ export function AccountsTable() {
                     <TableBody>
                         {visible.map((row) => (
                             <AccountRow
+                                columns={values.columns.get(row.account.id)}
                                 externalFirms={externalFirmsQuery.data ?? []}
                                 groupName={
                                     row.account.copyGroupId === null
@@ -475,10 +519,12 @@ function AccountListFilterBar({
 }
 
 function AccountRow({
+    columns,
     externalFirms,
     groupName,
     row,
 }: {
+    columns: AccountValueColumns | undefined;
     externalFirms: readonly ExternalFirmName[];
     groupName: null | string;
     row: AccountListRow;
@@ -545,6 +591,7 @@ function AccountRow({
             <TableCell className="align-top">
                 {accountStatusLabel(account.status)}
             </TableCell>
+            <ValueCells account={account} columns={columns} />
             <TableCell className="text-right align-top tabular-nums">
                 {latestSnapshot === null ? (
                     <span className="text-muted-foreground">No balance</span>
@@ -648,4 +695,55 @@ function parseEnum<T extends string>(
     value: null | string,
 ): null | T {
     return Object.values(enumObject).find((member) => member === value) ?? null;
+}
+
+function ValueCells({
+    account,
+    columns,
+}: {
+    account: AccountListRow['account'];
+    columns: AccountValueColumns | undefined;
+}) {
+    if (!isActiveAccount(account)) {
+        const reason =
+            account.archivedAt === null
+                ? accountStatusLabel(account.status)
+                : 'Archived';
+        return (
+            <>
+                <TableCell className="align-top text-muted-foreground">
+                    {reason}
+                </TableCell>
+                <TableCell className="text-right align-top text-muted-foreground">
+                    Not valued
+                </TableCell>
+                <TableCell className="text-right align-top text-muted-foreground">
+                    None
+                </TableCell>
+            </>
+        );
+    }
+    if (columns === undefined) {
+        return (
+            <TableCell className="align-top text-muted-foreground" colSpan={3}>
+                Computing
+            </TableCell>
+        );
+    }
+    return (
+        <>
+            <TableCell className="align-top">
+                <NextActionFigure action={columns.action} />
+            </TableCell>
+            <TableCell className="text-right align-top tabular-nums">
+                <ExpectedPayoutsFigure
+                    expectedPayouts={columns.expectedPayouts}
+                />
+                <ValueDetailLines columns={columns} />
+            </TableCell>
+            <TableCell className="text-right align-top tabular-nums">
+                <NextPayoutFigure nextPayout={columns.nextPayout} />
+            </TableCell>
+        </>
+    );
 }

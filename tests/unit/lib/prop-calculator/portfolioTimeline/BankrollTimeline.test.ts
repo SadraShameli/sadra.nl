@@ -160,8 +160,7 @@ describe('simulateBankrollTimeline (PT-55)', () => {
     it('with pass probability 1, a fixed payout and lag 0, the cash path equals compoundedBankroll at every cycle boundary', () => {
         const out = simulateBankrollTimeline(baseInputs());
         const expected = [0, 1, 2, 3].map(
-            (day) =>
-                compoundedBankroll(dollars(ATTEMPT_COST), 2, 1, day).value,
+            (day) => compoundedBankroll(dollars(ATTEMPT_COST), 2, 1, day).value,
         );
         expect(out.days).toEqual([0, 1, 2, 3]);
         expect(out.cashP50[1]).toBeCloseTo(expected[1] ?? NaN, 9);
@@ -170,9 +169,7 @@ describe('simulateBankrollTimeline (PT-55)', () => {
     });
 
     it('a lag of 10 days credits the first payout 10 days later than a lag of 0', () => {
-        const zeroLag = simulateBankrollTimeline(
-            baseInputs({ dayBudget: 12 }),
-        );
+        const zeroLag = simulateBankrollTimeline(baseInputs({ dayBudget: 12 }));
         const laggedInputs = baseInputs({
             bankroll: basePolicy({ payoutLagDays: 10 }),
             dayBudget: 12,

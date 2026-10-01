@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { dollars, LifetimeCapScope, type Plan } from '~/lib/prop-calculator/core';
-import { CorrelationMode, simulatePortfolio } from '~/lib/prop-calculator/simulator';
+import {
+    dollars,
+    LifetimeCapScope,
+    type Plan,
+} from '~/lib/prop-calculator/core';
+import {
+    CorrelationMode,
+    simulatePortfolio,
+} from '~/lib/prop-calculator/simulator';
 
 import { payoutCapToyPlan } from './toyPlans';
 
@@ -39,9 +46,9 @@ function portfolioNet(scope: LifetimeCapScope): number {
 
 describe('simulatePortfolio: the per-user lifetime cap pools across accounts in one trial (PT-12h review)', () => {
     it('never lets the combined expected net exceed the per-user cap across two independent accounts', () => {
-        expect(portfolioNet(LifetimeCapScope.PerUserAcrossVariant)).toBeLessThanOrEqual(
-            LIFETIME_CAP,
-        );
+        expect(
+            portfolioNet(LifetimeCapScope.PerUserAcrossVariant),
+        ).toBeLessThanOrEqual(LIFETIME_CAP);
     });
 
     it('keeps a per-account scope toy plan unpooled: two accounts can combine past the per-account cap', () => {

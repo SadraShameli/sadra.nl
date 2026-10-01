@@ -193,9 +193,7 @@ function element(scope: ParentNode, selector: string): HTMLElement {
 }
 
 function optionValues(scope: ParentNode): string[] {
-    return [...scope.querySelectorAll('option')].map(
-        (option) => option.value,
-    );
+    return [...scope.querySelectorAll('option')].map((option) => option.value);
 }
 
 function query(data: unknown): FakeQuery {

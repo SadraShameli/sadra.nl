@@ -44,13 +44,20 @@ export default defineCommand({
             const batch = readBankrollBatchInputs(context.args);
             const out = simulate(inputs.toSimInputs(plan));
 
-            ui.heading(`${plan.label}: bankroll batch (${batch.attempts} attempts)`);
+            ui.heading(
+                `${plan.label}: bankroll batch (${batch.attempts} attempts)`,
+            );
 
             const table = new TablePrinter([
                 { align: 'left', label: '', width: 30 },
                 { label: '', width: 0 },
             ]);
-            for (const row of batchRows(out, batch, inputs.seed, inputs.fundedHorizonDays)) {
+            for (const row of batchRows(
+                out,
+                batch,
+                inputs.seed,
+                inputs.fundedHorizonDays,
+            )) {
                 table.printRow(row);
             }
         } catch (error) {
@@ -79,7 +86,9 @@ export function batchRows(
     return [
         [
             'EV over the batch',
-            outcome.value === null ? 'n/a' : formatCurrency(outcome.value.meanNet),
+            outcome.value === null
+                ? 'n/a'
+                : formatCurrency(outcome.value.meanNet),
         ],
         [
             'funded value / attempt cost',

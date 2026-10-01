@@ -17,7 +17,9 @@ import {
 
 describe('Addendum to PT-19 (PD-42 type declarations, PT-74b)', () => {
     it('declares every AccountAction member exactly once', () => {
-        expect(Object.keys(AccountAction).toSorted((a, b) => a.localeCompare(b))).toEqual(
+        expect(
+            Object.keys(AccountAction).toSorted((a, b) => a.localeCompare(b)),
+        ).toEqual(
             [
                 'EnterSnapshot',
                 'NotModeled',
@@ -50,7 +52,9 @@ describe('Addendum to PT-19 (PD-42 type declarations, PT-74b)', () => {
 
     it('declares every NextTradeRiskVerdict member exactly once', () => {
         expect(
-            Object.keys(NextTradeRiskVerdict).toSorted((a, b) => a.localeCompare(b)),
+            Object.keys(NextTradeRiskVerdict).toSorted((a, b) =>
+                a.localeCompare(b),
+            ),
         ).toEqual(
             ['AboveDocumented', 'AboveDp', 'WithinPlan'].toSorted((a, b) =>
                 a.localeCompare(b),

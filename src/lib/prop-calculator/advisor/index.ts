@@ -294,7 +294,6 @@ export {
     personalCapsSchema,
 } from './PersonalCaps';
 export * from './policy';
-export { measuredRebuyLagFrom, type RebuyLagResolution } from './RebuyLag';
 export {
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,

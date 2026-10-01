@@ -48,7 +48,8 @@ const PROXIMITY: LiveProximityCardModel = {
             paidPayouts: '2',
             plan: 'Firm A 50K',
             remaining: '1',
-            sourceText: '"per account quote" https://example.test/a, checked 2026-09-01',
+            sourceText:
+                '"per account quote" https://example.test/a, checked 2026-09-01',
             trigger: '3',
         },
     ],
@@ -61,7 +62,8 @@ const PROXIMITY: LiveProximityCardModel = {
             paidSinceLastLive: '8',
             remaining: '2',
             since: '2026-09-08',
-            sourceText: '"firm total quote" https://example.test/b, checked 2026-09-02',
+            sourceText:
+                '"firm total quote" https://example.test/b, checked 2026-09-02',
             trigger: '10',
         },
         {

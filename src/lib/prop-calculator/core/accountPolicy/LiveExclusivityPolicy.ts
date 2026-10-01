@@ -68,9 +68,7 @@ export class TimeLiveReducedCooldown extends LiveBustCooldown {
 
     constructor(steps: readonly TimeLiveReducedCooldownStep[]) {
         super();
-        this.steps = steps.toSorted(
-            (a, b) => b.minDaysLive - a.minDaysLive,
-        );
+        this.steps = steps.toSorted((a, b) => b.minDaysLive - a.minDaysLive);
     }
 
     isActive(daysSinceBust: number, daysLive: number): boolean {

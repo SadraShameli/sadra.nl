@@ -38,9 +38,7 @@ function accountFor(
     plan: Plan,
     overrides: Partial<WeeklyReviewAccountInput> = {},
 ): WeeklyReviewAccountInput {
-    const firm = ALL_FIRMS.find((candidate) =>
-        candidate.plans.includes(plan),
-    );
+    const firm = ALL_FIRMS.find((candidate) => candidate.plans.includes(plan));
     if (firm === undefined) throw new Error('no firm owns this plan');
     return {
         accountSize: plan.accountSize,
@@ -71,9 +69,7 @@ function evalEodTrailingPlan(): Plan {
 }
 
 function findPlan(isMatch: (plan: Plan) => boolean): Plan {
-    const firm = ALL_FIRMS.find((candidate) =>
-        candidate.plans.some(isMatch),
-    );
+    const firm = ALL_FIRMS.find((candidate) => candidate.plans.some(isMatch));
     const plan = firm?.plans.find(isMatch);
     if (firm === undefined || plan === undefined) {
         throw new Error('no plan matches the predicate');
@@ -273,7 +269,9 @@ describe('buildWeeklyReview', () => {
         const row = result.rows[0];
         expect(row?.isBlocked).toBe(true);
         expect(row?.missingFieldLabels.length).toBeGreaterThan(0);
-        expect(row?.sizing).toEqual({ kind: WeeklyReviewSizingKind.NotModeled });
+        expect(row?.sizing).toEqual({
+            kind: WeeklyReviewSizingKind.NotModeled,
+        });
     });
 
     it('blocks a nominal 2,400 entry on a 50K account with the convention message', () => {
@@ -402,9 +400,7 @@ describe('buildWeeklyReview', () => {
         }
 
         expect(row.sizing.headlineRiskCents).toBeGreaterThan(0);
-        expect(row.sizing.rungsCents.every((cents) => cents > 0)).toBe(
-            true,
-        );
+        expect(row.sizing.rungsCents.every((cents) => cents > 0)).toBe(true);
     });
 
     it('gives no eval advice on an instant-funded plan', () => {
@@ -444,10 +440,7 @@ describe('buildWeeklyReview', () => {
         });
         const row = result.rows[0];
         expect(row?.sizing).toEqual({ kind: WeeklyReviewSizingKind.Stale });
-        const payload = reviewSubmitPayload(
-            result,
-            new Set([account.id]),
-        );
+        const payload = reviewSubmitPayload(result, new Set([account.id]));
         expect(payload.decisions).toEqual([]);
     });
 
@@ -626,7 +619,7 @@ describe('buildWeeklyReview adherence', () => {
             latestDecisions: new Map([[account.id, decisionRow()]]),
         });
         expect(unrecorded.rows[0]?.lastDecision?.adherence).toBe(
-            DecisionAdherenceKind.NotRecorded
+            DecisionAdherenceKind.NotRecorded,
         );
         const none = reviewWith([account], {});
         expect(none.rows[0]?.lastDecision).toBeNull();

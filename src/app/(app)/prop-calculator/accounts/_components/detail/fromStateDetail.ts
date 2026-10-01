@@ -1,4 +1,5 @@
 import { payoutPathStepText } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
+import { VALUE_CHAIN_STEP_LABEL } from '~/app/(app)/prop-calculator/_components/value/valueChainStepLabels';
 import {
     overviewAccountRequestsFor,
     overviewPlanOptInsOf,
@@ -16,7 +17,11 @@ import {
     type SlotEngine,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import { formatCurrency } from '~/lib/format';
-import { type Plan, serializePlanId, TradingPhase } from '~/lib/prop-calculator';
+import {
+    type Plan,
+    serializePlanId,
+    TradingPhase,
+} from '~/lib/prop-calculator';
 import {
     type AccountSnapshotInput,
     type DocumentedPolicySpec,
@@ -32,7 +37,6 @@ import {
     RetireComparisonReason,
     type RetireComparisonResult,
     RetireComparisonVerdict,
-    ValueChainStepKind,
     type ValueResult,
 } from '~/lib/prop-calculator/advisor/value';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
@@ -65,14 +69,6 @@ const RETIRE_VERDICT_TEXT: Readonly<Record<RetireComparisonVerdict, string>> = {
     [RetireComparisonVerdict.SwitchBeatsKeep]:
         'A fresh account would beat keeping this one',
 };
-
-const VALUE_CHAIN_STEP_LABEL: Readonly<Record<ValueChainStepKind, string>> = {
-    [ValueChainStepKind.EvalStart]: 'Eval start',
-    [ValueChainStepKind.FirstPayoutEligible]: 'First payout eligible',
-    [ValueChainStepKind.FreshFunded]: 'Fresh funded',
-    [ValueChainStepKind.PostFirstPayout]: 'Post first payout',
-};
-
 
 export enum ChainPositionViewKind {
     Pending = 'pending',
@@ -235,7 +231,10 @@ export function retireViewOf(
             return { kind: RetireViewKind.Pending };
         }
         case EngineSlotKind.Ready: {
-            return { kind: RetireViewKind.Ready, model: retireModelOf(slot.figures) };
+            return {
+                kind: RetireViewKind.Ready,
+                model: retireModelOf(slot.figures),
+            };
         }
         case EngineSlotKind.Refused: {
             return { kind: RetireViewKind.Refused, reason: slot.reason };
@@ -255,9 +254,7 @@ export function valueChainPositionOf(
         const { outcome } = step;
         if (outcome.kind === ValueChainStepOutcomeKind.Unavailable) {
             unavailable.push(`${label}: ${outcome.reason}`);
-        } else if (
-            valueNow.creditFree.value > outcome.value.creditFree.value
-        ) {
+        } else if (valueNow.creditFree.value > outcome.value.creditFree.value) {
             above.push(label);
         } else {
             below.push(label);

@@ -132,7 +132,9 @@ describe('value views (PT-67)', () => {
         it('names the continuation value as credit-free, apart from the credit-inclusive column of the candidates table', () => {
             render(<OneStepTree tree={TREE} />);
 
-            expect(container.textContent).toContain('Continuation value (credit-free)');
+            expect(container.textContent).toContain(
+                'Continuation value (credit-free)',
+            );
         });
 
         it('says the loss branch of a busting loss is a fresh eval net of its replacement fee, and says nothing of a fee otherwise', () => {
@@ -157,7 +159,9 @@ describe('value views (PT-67)', () => {
             render(<OneStepTree tree={TREE} />);
 
             expect(
-                container.querySelector('[role="group"]')?.getAttribute('aria-label'),
+                container
+                    .querySelector('[role="group"]')
+                    ?.getAttribute('aria-label'),
             ).toBe('One-step value tree');
         });
     });
@@ -296,7 +300,9 @@ describe('value views (PT-67)', () => {
                 <>
                     <OneStepTree tree={TREE} />
                     <ul>
-                        <EvSwingRow view={{ kind: ValueSectionKind.Ready, row: ROW }} />
+                        <EvSwingRow
+                            view={{ kind: ValueSectionKind.Ready, row: ROW }}
+                        />
                         <EvSwingRow
                             view={{
                                 index: 2,

@@ -171,9 +171,7 @@ export function reconstructedEntry(
     options: {
         readonly asOf?: string;
         readonly previous?:
-            | null
-            | ReconstructedFundedOrEvalAccount
-            | ReconstructedLiveAccount;
+            null | ReconstructedFundedOrEvalAccount | ReconstructedLiveAccount;
         readonly previousAsOf?: string;
     } = {},
 ): AccountStateEntry {

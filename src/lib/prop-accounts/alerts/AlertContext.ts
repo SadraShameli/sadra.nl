@@ -4,6 +4,7 @@ import type {
     PropAccountSnapshotRow,
     PropCopyGroupRow,
     PropPayoutRow,
+    PropSizingDecisionRow,
 } from '~/server/db/schemas/prop';
 
 import {
@@ -77,7 +78,9 @@ export type AlertAccountRow = Pick<
 export interface AlertContext {
     readonly accounts: readonly MonitoredAccount[];
     readonly archivedAccounts: readonly MonitoredAccount[];
+    readonly availableBankrollCents: null | UsdCents;
     readonly copyGroups: readonly AlertCopyGroupRow[];
+    readonly decisions: readonly AlertDecisionRow[];
     readonly firmReconciliation: readonly FirmReconciliationEntry[];
     readonly realizedLossRisk: null | RealizedLossRisk;
     readonly rounds: readonly AlertRoundRow[];
@@ -88,6 +91,11 @@ export interface AlertContext {
 
 export type AlertCopyGroupRow = Pick<PropCopyGroupRow, 'id' | 'name'>;
 
+export type AlertDecisionRow = Pick<
+    PropSizingDecisionRow,
+    'acceptedRiskCents' | 'accountId' | 'actualRiskCents' | 'decidedOn'
+>;
+
 export interface AlertRoundRow {
     readonly budget: RoundBudgetStatus;
     readonly id: string;
@@ -96,6 +104,8 @@ export interface AlertRoundRow {
 }
 
 export const NO_ACCOUNT_STATES: readonly AccountStateEntry[] = [];
+export const NO_AVAILABLE_BANKROLL: null | UsdCents = null;
+export const NO_DECISIONS: readonly AlertDecisionRow[] = [];
 export const NO_EVENTS: readonly AlertEventRow[] = [];
 export const NO_FIRM_RECONCILIATION: readonly FirmReconciliationEntry[] = [];
 export const NO_REALIZED_LOSS_RISK: null | RealizedLossRisk = null;
@@ -109,7 +119,9 @@ export type AlertEventRow = Pick<
 export interface AlertInputs {
     readonly accounts: readonly AlertAccountRow[];
     readonly accountStates: readonly AccountStateEntry[];
+    readonly availableBankrollCents?: null | UsdCents;
     readonly copyGroups: readonly AlertCopyGroupRow[];
+    readonly decisions?: readonly AlertDecisionRow[];
     readonly events?: readonly AlertEventRow[];
     readonly firmReconciliation?: readonly FirmReconciliationEntry[];
     readonly payouts: readonly AlertPayoutRow[];
@@ -213,7 +225,10 @@ export function createAlertContext(inputs: AlertInputs): AlertContext {
             .filter((account) => account.archivedAt === null)
             .map(monitorRow),
         archivedAccounts: archived.filter(isReadable).map(monitorRow),
+        availableBankrollCents:
+            inputs.availableBankrollCents ?? NO_AVAILABLE_BANKROLL,
         copyGroups: inputs.copyGroups,
+        decisions: inputs.decisions ?? NO_DECISIONS,
         firmReconciliation: inputs.firmReconciliation ?? NO_FIRM_RECONCILIATION,
         realizedLossRisk: inputs.realizedLossRisk ?? NO_REALIZED_LOSS_RISK,
         rounds: inputs.rounds ?? NO_ROUNDS,

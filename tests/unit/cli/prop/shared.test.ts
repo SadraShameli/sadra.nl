@@ -7,7 +7,9 @@ import { z } from 'zod';
 import ladderCommand, {
     ladderCommandArguments,
 } from '~/cli/commands/prop/ladder/command';
-import optimizeDp, { dpArguments } from '~/cli/commands/prop/optimize/dp/command';
+import optimizeDp, {
+    dpArguments,
+} from '~/cli/commands/prop/optimize/dp/command';
 import {
     bankrollArguments,
     copyAccountsArgument,
@@ -733,11 +735,10 @@ describe('bankroll and screen-time flags (PT-54, F-V13, F-V25)', () => {
             expect(flag).not.toHaveProperty('default');
         }
         expect(
-            Object.keys(bankrollArguments).toSorted((a, b) => a.localeCompare(b)),
-        ).toStrictEqual([
-            'bankroll',
-            'loss-threshold',
-        ]);
+            Object.keys(bankrollArguments).toSorted((a, b) =>
+                a.localeCompare(b),
+            ),
+        ).toStrictEqual(['bankroll', 'loss-threshold']);
     });
 
     it('declares --hours-per-day and --accounts-per-session as optional strings with no default', () => {
@@ -746,11 +747,10 @@ describe('bankroll and screen-time flags (PT-54, F-V13, F-V25)', () => {
             expect(flag).not.toHaveProperty('default');
         }
         expect(
-            Object.keys(screenTimeArguments).toSorted((a, b) => a.localeCompare(b)),
-        ).toStrictEqual([
-            'accounts-per-session',
-            'hours-per-day',
-        ]);
+            Object.keys(screenTimeArguments).toSorted((a, b) =>
+                a.localeCompare(b),
+            ),
+        ).toStrictEqual(['accounts-per-session', 'hours-per-day']);
     });
 
     it('says what each flag drives and that an absent threshold is not set', () => {
@@ -848,9 +848,7 @@ describe('bankroll and screen-time flags (PT-54, F-V13, F-V25)', () => {
         expect(bankroll.lossRiskThreshold.safeParse(0.5).success).toBe(true);
         expect(bankroll.lossRiskThreshold.safeParse(0.51).success).toBe(false);
         expect(bankroll.sessionHoursPerDay.safeParse(16).success).toBe(true);
-        expect(bankroll.sessionHoursPerDay.safeParse(16.5).success).toBe(
-            false,
-        );
+        expect(bankroll.sessionHoursPerDay.safeParse(16.5).success).toBe(false);
         expect(bankroll.accountsPerSession.safeParse(200).success).toBe(true);
         expect(bankroll.accountsPerSession.safeParse(201).success).toBe(false);
     });
@@ -865,10 +863,7 @@ describe('bankroll and screen-time flags (PT-54, F-V13, F-V25)', () => {
         ).toStrictEqual({ accountsPerSession: 3, sessionHoursPerDay: 2 });
     });
 
-    it.each([
-        [{ 'hours-per-day': '2' }],
-        [{ 'accounts-per-session': '3' }],
-    ])(
+    it.each([[{ 'hours-per-day': '2' }], [{ 'accounts-per-session': '3' }]])(
         'fails loud when only one of the pair is given (%o)',
         (arguments_) => {
             expect(() => readScreenTime(arguments_)).toThrow(TypeError);
@@ -1034,7 +1029,10 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
         ];
         const stdout = await capturedStdout(async () => {
             await ladderCommand.run?.({
-                args: parseArgs<typeof ladderCommandArguments>(argv, ladderCommandArguments),
+                args: parseArgs<typeof ladderCommandArguments>(
+                    argv,
+                    ladderCommandArguments,
+                ),
                 cmd: ladderCommand,
                 rawArgs: argv,
             });
@@ -1062,12 +1060,17 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
         ];
         const stdout = await capturedStdout(async () => {
             await ladderCommand.run?.({
-                args: parseArgs<typeof ladderCommandArguments>(argv, ladderCommandArguments),
+                args: parseArgs<typeof ladderCommandArguments>(
+                    argv,
+                    ladderCommandArguments,
+                ),
                 cmd: ladderCommand,
                 rawArgs: argv,
             });
         });
-        expect(stdout).not.toMatch(/\b(?:implausible|no|strong|typical) edge\b/);
+        expect(stdout).not.toMatch(
+            /\b(?:implausible|no|strong|typical) edge\b/,
+        );
     });
 
     it('optimize dp prints the note before the solve for 70% at 1:1', async () => {
@@ -1131,7 +1134,9 @@ describe('readEdgeModelSpec (PT-64a, F-V23)', () => {
     });
 
     it('builds a drift spec anchored at --rr when --edge-anchor-rr is omitted', () => {
-        const arguments_: EdgeModelArguments = { 'edge-model': EdgeModelKind.Drift };
+        const arguments_: EdgeModelArguments = {
+            'edge-model': EdgeModelKind.Drift,
+        };
         expect(readEdgeModelSpec(arguments_, inputs)).toStrictEqual({
             anchorRrRatio: 2,
             anchorWinrate: fraction(0.4),

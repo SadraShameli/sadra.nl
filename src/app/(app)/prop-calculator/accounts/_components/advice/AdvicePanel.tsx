@@ -4,8 +4,14 @@ import { type ComponentProps, type ReactNode, useMemo } from 'react';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
-import { StateCardKind, stateCardOf } from '~/app/(app)/prop-calculator/accounts/_components/detail/detailState';
-import { measuredRebuyLagOf, RebuyLagLineKind } from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
+import {
+    StateCardKind,
+    stateCardOf,
+} from '~/app/(app)/prop-calculator/accounts/_components/detail/detailState';
+import {
+    measuredRebuyLagOf,
+    RebuyLagLineKind,
+} from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
 import { EVENT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
@@ -24,7 +30,12 @@ import {
     usdCentsFromDollars,
     usdCentsToDollars,
 } from '~/lib/prop-accounts';
-import { findFirm, type Plan, type TierProfitContext, type TradingPhase } from '~/lib/prop-calculator';
+import {
+    findFirm,
+    type Plan,
+    type TierProfitContext,
+    type TradingPhase,
+} from '~/lib/prop-calculator';
 import {
     AccountAction,
     createSizingAdvisor,
@@ -41,8 +52,16 @@ import { MAX_ACCEPTED_RUNGS } from '~/lib/schemas/propAccounts';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import { ACCOUNT_ACTION_TEXT } from './accountActionModel';
-import { AdviceValueRequestKind, adviceValueRequestOf, valueRunNoteOf } from './adviceValueModel';
-import { AdviceDisplayKind, type adviceViewModel, leftOutOptimumRow } from './adviceViewModel';
+import {
+    AdviceValueRequestKind,
+    adviceValueRequestOf,
+    valueRunNoteOf,
+} from './adviceValueModel';
+import {
+    AdviceDisplayKind,
+    type adviceViewModel,
+    leftOutOptimumRow,
+} from './adviceViewModel';
 import { AssumptionsList } from './AssumptionsList';
 import { DailyPlanCardView } from './DailyPlanCardView';
 import { DecisionLog, type DecisionSuggestion } from './DecisionLog';
@@ -54,7 +73,11 @@ import { ProposedRiskCheck } from './ProposedRiskCheck';
 import { ProvenanceLine } from './ProvenanceLine';
 import { ReasonsList } from './ReasonsList';
 import { RiskCheckInputKind } from './riskCheckModel';
-import { AccountAdvicePhase, useAccountAdvice, type UseAccountAdviceInput } from './useAccountAdvice';
+import {
+    AccountAdvicePhase,
+    useAccountAdvice,
+    type UseAccountAdviceInput,
+} from './useAccountAdvice';
 import { useAdviceViews } from './useAdviceViews';
 import { useRiskCheck } from './useRiskCheck';
 import { NextTradeValue, RiskCandidates, ValuesNotice } from './ValueSections';
@@ -65,7 +88,9 @@ enum BuiltKind {
     Ready = 'ready',
 }
 
-type AccountRow = ReturnType<typeof trackedAccountOf<RouterOutputs['propAccounts']['account']['get']>>;
+type AccountRow = ReturnType<
+    typeof trackedAccountOf<RouterOutputs['propAccounts']['account']['get']>
+>;
 
 type Built =
     | {
@@ -82,9 +107,12 @@ type Built =
     | { readonly kind: BuiltKind.Loading }
     | { readonly kind: BuiltKind.NotModeled; readonly reason: string };
 
-type DecisionRows = NonNullable<ComponentProps<typeof DecisionLog>['decisions']>;
+type DecisionRows = NonNullable<
+    ComponentProps<typeof DecisionLog>['decisions']
+>;
 
-type EventRow = RouterOutputs['propAccounts']['event']['listForAccount'][number];
+type EventRow =
+    RouterOutputs['propAccounts']['event']['listForAccount'][number];
 
 interface InputQuery {
     readonly data: unknown;
@@ -93,7 +121,8 @@ interface InputQuery {
     readonly refetch: () => unknown;
 }
 
-type LedgerAccountRow = RouterOutputs['propAccounts']['account']['list'][number];
+type LedgerAccountRow =
+    RouterOutputs['propAccounts']['account']['list'][number];
 
 type LedgerEventRow = RouterOutputs['propAccounts']['event']['list'][number];
 
@@ -104,7 +133,8 @@ interface NamedQuery {
 
 type PayoutRow = RouterOutputs['propAccounts']['payout']['list'][number];
 
-type SnapshotRow = RouterOutputs['propAccounts']['snapshot']['listForAccount'][number];
+type SnapshotRow =
+    RouterOutputs['propAccounts']['snapshot']['listForAccount'][number];
 
 const EMPTY_DECISIONS: DecisionRows = [];
 
@@ -141,10 +171,17 @@ export function AdvicePanel({ id }: { readonly id: string }) {
                 planSerial: account?.planSerial ?? null,
                 userId,
             }),
-        [account?.planSerial, accountsListQuery.data, ledgerEventsQuery.data, userId],
+        [
+            account?.planSerial,
+            accountsListQuery.data,
+            ledgerEventsQuery.data,
+            userId,
+        ],
     );
     const measuredRebuyLag =
-        rebuyLagLine?.kind === RebuyLagLineKind.Measured ? rebuyLagLine.value : null;
+        rebuyLagLine?.kind === RebuyLagLineKind.Measured
+            ? rebuyLagLine.value
+            : null;
     const rebuyLagFailureAlert =
         rebuyLagLine?.kind === RebuyLagLineKind.Failed ? (
             <Alert variant="destructive">
@@ -293,9 +330,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
             canAcceptSize={refreshFailures.length === 0}
             decisions={decisionsQuery.data}
             decisionsError={
-                decisionsQuery.isError
-                    ? decisionsQuery.error.message
-                    : null
+                decisionsQuery.isError ? decisionsQuery.error.message : null
             }
             rebuyLagFailureAlert={rebuyLagFailureAlert}
             refreshFailureAlert={refreshFailureAlert}
@@ -424,7 +459,10 @@ function buildAdvisorInput(args: {
                     : null,
         },
         kind: BuiltKind.Ready,
-        phase: view.account.kind === ReconstructedLiveKind.Live ? null : view.account.kind,
+        phase:
+            view.account.kind === ReconstructedLiveKind.Live
+                ? null
+                : view.account.kind,
         plan,
         riskUnit: rulebook.display.riskUnit,
         snapshotId: latest?.id ?? null,
@@ -449,7 +487,8 @@ function ComputedAdvice({
     readonly accountId: string;
     readonly built: Extract<Built, { kind: BuiltKind.Ready }>;
     readonly canAcceptSize: boolean;
-    readonly decisions: ComponentProps<typeof DecisionLog>['decisions'] | undefined;
+    readonly decisions:
+        ComponentProps<typeof DecisionLog>['decisions'] | undefined;
     readonly decisionsError: null | string;
     readonly rebuyLagFailureAlert: ReactNode;
     readonly refreshFailureAlert: ReactNode;
@@ -534,10 +573,16 @@ function ComputedAdvice({
             {refreshFailureAlert}
             {rebuyLagFailureAlert}
             <HeadlineCard view={view} />
-            <p className="text-sm">Next action: {ACCOUNT_ACTION_TEXT[view.action]}</p>
+            <p className="text-sm">
+                Next action: {ACCOUNT_ACTION_TEXT[view.action]}
+            </p>
             {view.action === AccountAction.RequestPayout && (
                 <PayoutReadyBanner
-                    flag={riskCheck.flagExcess > 0 ? { excess: riskCheck.flagExcess } : null}
+                    flag={
+                        riskCheck.flagExcess > 0
+                            ? { excess: riskCheck.flagExcess }
+                            : null
+                    }
                     stake={valueView.stake}
                 />
             )}
@@ -589,7 +634,9 @@ function ComputedAdvice({
                 </ValuesNotice>
             </section>
             <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">One-step risk candidates</h3>
+                <h3 className="text-sm font-medium">
+                    One-step risk candidates
+                </h3>
                 <ValuesNotice
                     isLive={built.phase === null}
                     values={adviceState.values}

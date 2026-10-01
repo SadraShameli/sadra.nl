@@ -203,8 +203,9 @@ export function dpSolverConfig(
     objective: RenewalCycleObjective,
 ): AverageRewardConfig {
     const positionSizing = resolvedPositionSizing(inputs);
-    const evalDrawdownAmount =
-        objective.plan.drawdownFor(TradingPhase.Eval).amount;
+    const evalDrawdownAmount = objective.plan.drawdownFor(
+        TradingPhase.Eval,
+    ).amount;
     const evalDollarsAt = (multiple: number | undefined): number | undefined =>
         multiple === undefined ? undefined : multiple * evalDrawdownAmount;
     return {
@@ -786,9 +787,8 @@ export default defineCommand({
             )) {
                 ui.note(`  ${line}`);
             }
-            const gridSaturationShare = shareAtOrAboveGridTop(
-                gridSaturationTally,
-            );
+            const gridSaturationShare =
+                shareAtOrAboveGridTop(gridSaturationTally);
             ui.note(`  ${fundedGridSaturationLine(gridSaturationShare)}`);
             const gridSaturationWarning = fundedGridSaturationWarning(
                 plan,

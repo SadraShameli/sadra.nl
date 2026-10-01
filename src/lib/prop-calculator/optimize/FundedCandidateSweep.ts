@@ -1,4 +1,8 @@
-import { type SimInputs, type SimOutputs, simulate } from '~/lib/prop-calculator/simulator';
+import {
+    type SimInputs,
+    type SimOutputs,
+    simulate,
+} from '~/lib/prop-calculator/simulator';
 
 import { type FundedCandidate } from './FundedCandidate';
 

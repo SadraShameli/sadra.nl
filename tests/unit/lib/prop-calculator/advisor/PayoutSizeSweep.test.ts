@@ -90,11 +90,13 @@ describe('runPayoutSizeSweep (PT-32)', () => {
         if (result.kind !== PayoutSizeSweepResultKind.Optimum) {
             throw new Error(`expected an optimum, got ${result.kind}`);
         }
-        const belowMinimum = PAYOUT_SIZE_SWEEP_GRID.filter((size) => size < 1000);
+        const belowMinimum = PAYOUT_SIZE_SWEEP_GRID.filter(
+            (size) => size < 1000,
+        );
         expect(belowMinimum.length).toBeGreaterThan(0);
-        expect(
-            result.optimum.rows.some((row) => row.requestSize < 1000),
-        ).toBe(false);
+        expect(result.optimum.rows.some((row) => row.requestSize < 1000)).toBe(
+            false,
+        );
         const collapsedRow = result.optimum.rows.find(
             (row) => row.requestSize === 1000,
         );
@@ -119,12 +121,17 @@ describe('runPayoutSizeSweep (PT-32)', () => {
         if (result.kind !== PayoutSizeSweepResultKind.Optimum) {
             throw new Error(`expected an optimum, got ${result.kind}`);
         }
-        const row500 = result.optimum.rows.find((row) => row.requestSize === 500);
+        const row500 = result.optimum.rows.find(
+            (row) => row.requestSize === 500,
+        );
         if (!row500) throw new Error('expected the $500 row');
         const expectedOut = simulate(
             toSimInputs(plan, {
                 ...spec,
-                enginePolicy: { ...spec.enginePolicy, payoutRequestOverride: 500 },
+                enginePolicy: {
+                    ...spec.enginePolicy,
+                    payoutRequestOverride: 500,
+                },
             }),
         );
         expect(row500.out).toStrictEqual(expectedOut);
@@ -149,9 +156,11 @@ describe('runPayoutSizeSweep (PT-32)', () => {
         }
         expect(result.optimum.objective).toBe(PAYOUT_SIZE_SWEEP_OBJECTIVE);
         const winner = result.optimum.winner;
-        if (winner.kind !== StartBasis.Fresh) throw new Error('expected a fresh winner');
+        if (winner.kind !== StartBasis.Fresh)
+            throw new Error('expected a fresh winner');
         for (const row of result.optimum.rows) {
-            if (row.kind !== StartBasis.Fresh) throw new Error('expected fresh rows');
+            if (row.kind !== StartBasis.Fresh)
+                throw new Error('expected fresh rows');
             expect(row.out.expectedMonthlyNet).toBeLessThanOrEqual(
                 winner.out.expectedMonthlyNet,
             );
@@ -180,7 +189,8 @@ describe('runPayoutSizeSweep (PT-32)', () => {
         })[0];
         expect(result.optimum.creditSensitive).toBe(
             creditFreeWinner !== undefined &&
-                creditFreeWinner.requestSize !== result.optimum.winner.requestSize,
+                creditFreeWinner.requestSize !==
+                    result.optimum.winner.requestSize,
         );
     });
 
@@ -338,7 +348,10 @@ describe('runPayoutSizeSweep (PT-32)', () => {
         const spec = specFor(plan);
         const request: PayoutSizeSweepRequest = {
             source: AdviceSource.PayoutSizeSweep,
-            spec: { ...spec, start: { phase: TradingPhase.Funded, seed, state } },
+            spec: {
+                ...spec,
+                start: { phase: TradingPhase.Funded, seed, state },
+            },
         };
         const result = runPayoutSizeSweep(plan, request);
         if (result.kind !== PayoutSizeSweepResultKind.Optimum) {

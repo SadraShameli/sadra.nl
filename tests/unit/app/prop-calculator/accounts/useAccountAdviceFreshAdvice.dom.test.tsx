@@ -13,8 +13,16 @@ import {
     useAccountAdvice,
     type UseAccountAdviceInput,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/useAccountAdvice';
-import { ApexVariant, findFirm, FirmId, newFundedCycleTracker } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK, FundedSizingAdvisor } from '~/lib/prop-calculator/advisor';
+import {
+    ApexVariant,
+    findFirm,
+    FirmId,
+    newFundedCycleTracker,
+} from '~/lib/prop-calculator';
+import {
+    DEFAULT_RULEBOOK,
+    FundedSizingAdvisor,
+} from '~/lib/prop-calculator/advisor';
 import { TradingPhase } from '~/lib/prop-calculator/core';
 
 function apexEod50k() {

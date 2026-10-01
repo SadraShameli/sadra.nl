@@ -11,7 +11,11 @@ interface Item {
     readonly purchasedOn: string;
 }
 
-function item(id: string, copyGroupId: null | string, purchasedOn: string): Item {
+function item(
+    id: string,
+    copyGroupId: null | string,
+    purchasedOn: string,
+): Item {
     return { copyGroupId, id, purchasedOn };
 }
 

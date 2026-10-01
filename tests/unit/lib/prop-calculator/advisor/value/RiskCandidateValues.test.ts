@@ -7,7 +7,10 @@ import {
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
 } from '~/lib/prop-calculator/advisor';
-import { type DocumentedPolicySpec, type EnginePolicy } from '~/lib/prop-calculator/advisor/policy';
+import {
+    type DocumentedPolicySpec,
+    type EnginePolicy,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     continuationValue,
     RISK_CANDIDATE_LABEL,
@@ -57,7 +60,10 @@ function liveAccount(plan: Plan): ReconstructedAccount {
     };
 }
 
-function policyFor(plan: Plan, overrides: Partial<EnginePolicy> = {}): EnginePolicy {
+function policyFor(
+    plan: Plan,
+    overrides: Partial<EnginePolicy> = {},
+): EnginePolicy {
     return {
         ...buildEnginePolicy({
             fundedHorizonDays: 90,
@@ -78,7 +84,10 @@ function rapidEodPlan(): Plan {
     return plan;
 }
 
-function specFor(plan: Plan, overrides: Partial<EnginePolicy> = {}): DocumentedPolicySpec {
+function specFor(
+    plan: Plan,
+    overrides: Partial<EnginePolicy> = {},
+): DocumentedPolicySpec {
     return {
         enginePolicy: policyFor(plan, overrides),
         rulebook: DEFAULT_RULEBOOK,
@@ -189,7 +198,12 @@ describe('riskCandidateValues (F-V17, PT-65a step 4)', () => {
             kind: TradingPhase.Eval,
             plan,
             resolvedDailyLossLimit: null,
-            state: { ...state, balance: state.balance + 300, elapsedDays: 2, tradingDays: 2 },
+            state: {
+                ...state,
+                balance: state.balance + 300,
+                elapsedDays: 2,
+                tradingDays: 2,
+            },
         };
 
         const outcome = riskCandidateValues(account, spec, {

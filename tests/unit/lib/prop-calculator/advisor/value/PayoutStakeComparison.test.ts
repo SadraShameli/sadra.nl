@@ -7,14 +7,23 @@ import {
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
 } from '~/lib/prop-calculator/advisor';
-import { type DocumentedPolicySpec, type EnginePolicy } from '~/lib/prop-calculator/advisor/policy';
-import { MilestoneKind, milestoneState } from '~/lib/prop-calculator/advisor/value/MilestoneState';
+import {
+    type DocumentedPolicySpec,
+    type EnginePolicy,
+} from '~/lib/prop-calculator/advisor/policy';
+import {
+    MilestoneKind,
+    milestoneState,
+} from '~/lib/prop-calculator/advisor/value/MilestoneState';
 import {
     payoutStakeComparison,
     REDUCED_RISK_WHAT_IF_LABEL,
 } from '~/lib/prop-calculator/advisor/value/PayoutStakeComparison';
 import { valueAtState } from '~/lib/prop-calculator/advisor/value/ValueAtState';
-import { requestNowValue, requireValue } from '~/lib/prop-calculator/advisor/value/ValueChain';
+import {
+    requestNowValue,
+    requireValue,
+} from '~/lib/prop-calculator/advisor/value/ValueChain';
 import {
     type AccountState,
     FirmId,
@@ -120,9 +129,9 @@ describe('payoutStakeComparison (F-V19, PT-65b step 7)', () => {
         const outcome = payoutStakeComparison(account, spec);
 
         expect(outcome.kind).toBe('payout-stake');
-        expect(
-            payoutStakeComparison(liveAccount(plan), spec).kind,
-        ).toBe('not-modeled');
+        expect(payoutStakeComparison(liveAccount(plan), spec).kind).toBe(
+            'not-modeled',
+        );
     });
 
     it('takes requestNow from the one request-now construction in the value library', () => {
@@ -185,7 +194,8 @@ describe('payoutStakeComparison (F-V19, PT-65b step 7)', () => {
         const account = fundedAccount(plan, { balance: 51_500 });
 
         const outcome = payoutStakeComparison(account, spec);
-        if (!('reducedRiskWhatIf' in outcome)) throw new Error('expected a result');
+        if (!('reducedRiskWhatIf' in outcome))
+            throw new Error('expected a result');
         expect(outcome.reducedRiskWhatIf).toBeNull();
     });
 
@@ -197,13 +207,20 @@ describe('payoutStakeComparison (F-V19, PT-65b step 7)', () => {
         const outcome = payoutStakeComparison(account, spec, {
             reducedRiskDollars: 50,
         });
-        if (!('reducedRiskWhatIf' in outcome) || outcome.reducedRiskWhatIf === null) {
+        if (
+            !('reducedRiskWhatIf' in outcome) ||
+            outcome.reducedRiskWhatIf === null
+        ) {
             throw new Error('expected a what-if row');
         }
 
-        expect(outcome.reducedRiskWhatIf.label).toBe(REDUCED_RISK_WHAT_IF_LABEL);
+        expect(outcome.reducedRiskWhatIf.label).toBe(
+            REDUCED_RISK_WHAT_IF_LABEL,
+        );
         expect(outcome.reducedRiskWhatIf.risk).toBe(50);
-        expect(spec.rulebook.funded.riskCents).toBe(DEFAULT_RULEBOOK.funded.riskCents);
+        expect(spec.rulebook.funded.riskCents).toBe(
+            DEFAULT_RULEBOOK.funded.riskCents,
+        );
     });
 
     it('prices the reduced-risk what-if at the documented reward multiple, scaling the take profit with the risk', () => {
@@ -216,7 +233,10 @@ describe('payoutStakeComparison (F-V19, PT-65b step 7)', () => {
         const outcome = payoutStakeComparison(account, spec, {
             reducedRiskDollars: 125,
         });
-        if (!('reducedRiskWhatIf' in outcome) || outcome.reducedRiskWhatIf === null) {
+        if (
+            !('reducedRiskWhatIf' in outcome) ||
+            outcome.reducedRiskWhatIf === null
+        ) {
             throw new Error('expected a what-if row');
         }
 

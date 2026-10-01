@@ -137,7 +137,10 @@ function fundedAccount(): ReconstructedFundedOrEvalAccount {
         assumptions: [],
         contractLimit: null,
         cushion: state.balance - state.threshold,
-        fundedTracker: newFundedCycleTracker({ ...state, balance: state.startingBalance }),
+        fundedTracker: newFundedCycleTracker({
+            ...state,
+            balance: state.startingBalance,
+        }),
         kind: TradingPhase.Funded,
         plan,
         resolvedDailyLossLimit: null,
@@ -196,7 +199,10 @@ function value(
     return valueResult(
         {
             creditFree: { standardError: creditFreeSe, value: creditFree },
-            creditInclusive: { standardError: creditInclusiveSe, value: creditInclusive },
+            creditInclusive: {
+                standardError: creditInclusiveSe,
+                value: creditInclusive,
+            },
         },
         9,
         100,
@@ -218,7 +224,10 @@ function candidateRowOf(
     netOfDurationCharge: number,
 ): RiskCandidateRow {
     return {
-        continuationValue: { standardError: 6, value: netOfDurationCharge + 20 },
+        continuationValue: {
+            standardError: 6,
+            value: netOfDurationCharge + 20,
+        },
         monthlyNetCharge: 20,
         netOfDurationCharge,
         placement: { contracts: null, intendedRisk: placedRisk, placedRisk },
@@ -237,9 +246,14 @@ function candidatesOf(
     };
 }
 
-function decision(id: string, actualRisk: null | number, decidedOn = '2026-09-27') {
+function decision(
+    id: string,
+    actualRisk: null | number,
+    decidedOn = '2026-09-27',
+) {
     return {
-        actualRiskCents: actualRisk === null ? null : usdCentsFromDollars(actualRisk),
+        actualRiskCents:
+            actualRisk === null ? null : usdCentsFromDollars(actualRisk),
         decidedOn,
         id,
     };
@@ -270,7 +284,10 @@ function flatRowOf(
 }
 
 function succeeded<T>(valueOf: T) {
-    return { kind: AdvisorRequestOutcomeKind.Succeeded as const, value: valueOf };
+    return {
+        kind: AdvisorRequestOutcomeKind.Succeeded as const,
+        value: valueOf,
+    };
 }
 
 describe('evSwingViewsOf (PT-67 step 1)', () => {
@@ -286,9 +303,15 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
         if (view?.kind !== ValueSectionKind.Ready) return;
         expect(view.row.index).toBe(1);
         expect(view.row.winDelta.value).toBe(400);
-        expect(view.row.winDelta.standardError).toBeCloseTo(Math.hypot(10, 10), 10);
+        expect(view.row.winDelta.standardError).toBeCloseTo(
+            Math.hypot(10, 10),
+            10,
+        );
         expect(view.row.lossDelta.value).toBe(-300);
-        expect(view.row.lossDelta.standardError).toBeCloseTo(Math.hypot(10, 8), 10);
+        expect(view.row.lossDelta.standardError).toBeCloseTo(
+            Math.hypot(10, 8),
+            10,
+        );
         expect(view.row.winProbability).toBe(0.4);
         expect(view.row.rr).toBe(2);
     });
@@ -301,7 +324,8 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
             FUNDED_CONTEXT,
         );
 
-        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
+        if (view?.kind !== ValueSectionKind.Ready)
+            throw new Error('expected a row');
         expect(view.row.winDelta).toEqual(
             valueGap(swing.now, swing.afterWin, CreditBasis.CreditFree),
         );
@@ -311,7 +335,10 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
     it('numbers the rungs in order and states a failed swing and a not-modeled swing instead of dropping them', () => {
         const views = evSwingViewsOf(
             [
-                { outcome: succeeded(swingResult()), rung: { risk: 250, rr: 2 } },
+                {
+                    outcome: succeeded(swingResult()),
+                    rung: { risk: 250, rr: 2 },
+                },
                 {
                     outcome: {
                         kind: AdvisorRequestOutcomeKind.Failed,
@@ -353,7 +380,8 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
             EVAL_CONTEXT,
         );
 
-        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
+        if (view?.kind !== ValueSectionKind.Ready)
+            throw new Error('expected a row');
         expect(view.row.bust).toEqual({
             rebuyLagDays: 4,
             replacementFee: REPLACEMENT_FEE,
@@ -366,7 +394,8 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
             FUNDED_CONTEXT,
         );
 
-        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
+        if (view?.kind !== ValueSectionKind.Ready)
+            throw new Error('expected a row');
         expect(view.row.risk).toEqual(
             formatRiskDisplay(RiskDisplayUnit.AccountDollars, {
                 accountDollars: 250,
@@ -382,7 +411,8 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
             { ...FUNDED_CONTEXT, unit: RiskDisplayUnit.EvAtStake },
         );
 
-        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
+        if (view?.kind !== ValueSectionKind.Ready)
+            throw new Error('expected a row');
         expect(view.row.risk.isFallback).toBe(false);
         expect(view.row.risk.label).toBe('EV at stake');
         expect(view.row.risk.text).toBe(formatCurrency(300));
@@ -400,7 +430,8 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
             { ...EVAL_CONTEXT, unit: RiskDisplayUnit.EvAtStake },
         );
 
-        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
+        if (view?.kind !== ValueSectionKind.Ready)
+            throw new Error('expected a row');
         const expected = 1000 - 120 + plan.retryFee();
         expect(view.row.risk.text).toBe(formatCurrency(expected));
         expect(view.row.risk.label).toBe('EV at stake');
@@ -418,10 +449,19 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
             { ...EVAL_CONTEXT, unit: RiskDisplayUnit.EvAtStake },
         );
 
-        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
-        expect(view.row.lossDelta.value).toBeCloseTo(120 - 1000 - REPLACEMENT_FEE, 10);
-        expect(view.row.lossDelta.standardError).toBeCloseTo(Math.hypot(10, 5), 10);
-        expect(view.row.risk.text).toBe(formatCurrency(-view.row.lossDelta.value));
+        if (view?.kind !== ValueSectionKind.Ready)
+            throw new Error('expected a row');
+        expect(view.row.lossDelta.value).toBeCloseTo(
+            120 - 1000 - REPLACEMENT_FEE,
+            10,
+        );
+        expect(view.row.lossDelta.standardError).toBeCloseTo(
+            Math.hypot(10, 5),
+            10,
+        );
+        expect(view.row.risk.text).toBe(
+            formatCurrency(-view.row.lossDelta.value),
+        );
         expect(view.row.winDelta.value).toBe(400);
     });
 
@@ -431,7 +471,8 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
             EVAL_CONTEXT,
         );
 
-        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
+        if (view?.kind !== ValueSectionKind.Ready)
+            throw new Error('expected a row');
         expect(view.row.lossDelta.value).toBe(-300);
         expect(view.row.bust).toBeNull();
     });
@@ -439,10 +480,19 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
     it('passes an engine refusal through unchanged for an eval and a funded account alike, with no eval-specific rewrite', () => {
         const message = 'the account has already passed the eval';
         const [evalView] = evSwingViewsOf([failedSwing(message)], EVAL_CONTEXT);
-        const [fundedView] = evSwingViewsOf([failedSwing(message)], FUNDED_CONTEXT);
+        const [fundedView] = evSwingViewsOf(
+            [failedSwing(message)],
+            FUNDED_CONTEXT,
+        );
 
-        expect(evalView).toMatchObject({ kind: ValueSectionKind.Failed, reason: message });
-        expect(fundedView).toMatchObject({ kind: ValueSectionKind.Failed, reason: message });
+        expect(evalView).toMatchObject({
+            kind: ValueSectionKind.Failed,
+            reason: message,
+        });
+        expect(fundedView).toMatchObject({
+            kind: ValueSectionKind.Failed,
+            reason: message,
+        });
     });
 
     it('shows a real swing for an eval account instead of a fixed not-modeled line', () => {
@@ -451,7 +501,8 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
             EVAL_CONTEXT,
         );
 
-        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
+        if (view?.kind !== ValueSectionKind.Ready)
+            throw new Error('expected a row');
         expect(view.row.winDelta.value).toBe(400);
         expect(view.row.lossDelta.value).toBe(-300);
     });
@@ -462,8 +513,10 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
             { ...EVAL_CONTEXT, unit: RiskDisplayUnit.FeeEquivalent },
         );
 
-        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
-        const expected = Math.min(500 / plan.drawdown.amount, 1) * plan.retryFee();
+        if (view?.kind !== ValueSectionKind.Ready)
+            throw new Error('expected a row');
+        const expected =
+            Math.min(500 / plan.drawdown.amount, 1) * plan.retryFee();
         expect(view.row.risk.text).toBe(formatCurrency(expected));
     });
 
@@ -473,7 +526,8 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
             { ...FUNDED_CONTEXT, unit: RiskDisplayUnit.FeeEquivalent },
         );
 
-        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
+        if (view?.kind !== ValueSectionKind.Ready)
+            throw new Error('expected a row');
         expect(view.row.risk.label).toBe('Fee equivalent');
         expect(view.row.risk.text).not.toContain('$');
     });
@@ -493,7 +547,10 @@ describe('oneStepTreeOf (PT-67 step 1)', () => {
         const tree = oneStepTreeOf(swingResult(), REPLACEMENT_FEE);
 
         expect(tree.continuation.value).toBeCloseTo(0.4 * 1400 + 0.6 * 700, 10);
-        expect(tree.continuation.standardError).toBeCloseTo(Math.hypot(10, 8), 10);
+        expect(tree.continuation.standardError).toBeCloseTo(
+            Math.hypot(10, 8),
+            10,
+        );
     });
 });
 
@@ -507,14 +564,19 @@ describe('a loss that busts the account (PT-67 review)', () => {
     it('values the tree loss branch and the continuation net of the replacement fee and says so', () => {
         const tree = oneStepTreeOf(bustSwing, REPLACEMENT_FEE);
 
-        expect(tree.valueAfterLoss.value).toBeCloseTo(120 - REPLACEMENT_FEE, 10);
+        expect(tree.valueAfterLoss.value).toBeCloseTo(
+            120 - REPLACEMENT_FEE,
+            10,
+        );
         expect(tree.valueAfterLoss.standardError).toBe(5);
         expect(tree.continuation.value).toBeCloseTo(
             0.4 * 1400 + 0.6 * (120 - REPLACEMENT_FEE),
             10,
         );
         expect(tree.replacementFee).toBe(REPLACEMENT_FEE);
-        expect(oneStepTreeOf(swingResult(), REPLACEMENT_FEE).replacementFee).toBeNull();
+        expect(
+            oneStepTreeOf(swingResult(), REPLACEMENT_FEE).replacementFee,
+        ).toBeNull();
     });
 
     it('fills the daily card loss value net of the replacement fee', () => {
@@ -584,15 +646,25 @@ describe('a loss that busts the account (PT-67 review)', () => {
 describe('riskCandidatesViewOf (PT-67 step 1)', () => {
     it('keeps the library ranking, labels the comparison and marks the documented rung', () => {
         const view = riskCandidatesViewOf(
-            candidatesOf([candidateRowOf(250, 900), candidateRowOf(500, 880), candidateRowOf(125, 700)]),
+            candidatesOf([
+                candidateRowOf(250, 900),
+                candidateRowOf(500, 880),
+                candidateRowOf(125, 700),
+            ]),
             500,
             FUNDED_CONTEXT,
         );
 
-        expect(view.label).toBe('one-step comparison, documented sizing afterwards');
+        expect(view.label).toBe(
+            'one-step comparison, documented sizing afterwards',
+        );
         expect(view.rows.map((r) => r.rank)).toEqual([1, 2, 3]);
         expect(view.rows.map((r) => r.riskDollars)).toEqual([250, 500, 125]);
-        expect(view.rows.map((r) => r.isDocumented)).toEqual([false, true, false]);
+        expect(view.rows.map((r) => r.isDocumented)).toEqual([
+            false,
+            true,
+            false,
+        ]);
     });
 
     it('ranks a funded table and flags the first row as the engine optimum, with no sizing note', () => {
@@ -609,7 +681,11 @@ describe('riskCandidatesViewOf (PT-67 step 1)', () => {
 
     it('never ranks an eval table: the documented rung comes first, the engine optimum is only flagged, and the sizing rule is stated', () => {
         const view = riskCandidatesViewOf(
-            candidatesOf([candidateRowOf(250, 900), candidateRowOf(500, 880), candidateRowOf(125, 700)]),
+            candidatesOf([
+                candidateRowOf(250, 900),
+                candidateRowOf(500, 880),
+                candidateRowOf(125, 700),
+            ]),
             500,
             EVAL_CONTEXT,
         );
@@ -618,8 +694,16 @@ describe('riskCandidatesViewOf (PT-67 step 1)', () => {
         expect(view.sizingNote).toBe(EVAL_CANDIDATES_NOTE_TEXT);
         expect(EVAL_CANDIDATES_NOTE_TEXT).toContain('maximum allowed risk');
         expect(view.rows.map((r) => r.riskDollars)).toEqual([500, 250, 125]);
-        expect(view.rows.map((r) => r.isDocumented)).toEqual([true, false, false]);
-        expect(view.rows.map((r) => r.isEngineOptimum)).toEqual([false, true, false]);
+        expect(view.rows.map((r) => r.isDocumented)).toEqual([
+            true,
+            false,
+            false,
+        ]);
+        expect(view.rows.map((r) => r.isEngineOptimum)).toEqual([
+            false,
+            true,
+            false,
+        ]);
     });
 
     it('shows every candidate risk through riskDisplay in the chosen unit', () => {
@@ -636,17 +720,29 @@ describe('riskCandidatesViewOf (PT-67 step 1)', () => {
     it('shows whole contracts when the library placed them and leaves the text empty otherwise', () => {
         const placed: RiskCandidateRow = {
             ...candidateRowOf(250, 900),
-            placement: { contracts: contracts(2), intendedRisk: 260, placedRisk: 250 },
+            placement: {
+                contracts: contracts(2),
+                intendedRisk: 260,
+                placedRisk: 250,
+            },
         };
 
-        const view = riskCandidatesViewOf(candidatesOf([placed, candidateRowOf(125, 700)]), 250, FUNDED_CONTEXT);
+        const view = riskCandidatesViewOf(
+            candidatesOf([placed, candidateRowOf(125, 700)]),
+            250,
+            FUNDED_CONTEXT,
+        );
 
         expect(view.rows[0]?.contractsText).toBe('2 contracts');
         expect(view.rows[1]?.contractsText).toBeNull();
     });
 
     it('marks no row as documented when the documented rung is not in the grid', () => {
-        const view = riskCandidatesViewOf(candidatesOf([candidateRowOf(250, 900)]), 333, FUNDED_CONTEXT);
+        const view = riskCandidatesViewOf(
+            candidatesOf([candidateRowOf(250, 900)]),
+            333,
+            FUNDED_CONTEXT,
+        );
 
         expect(view.rows.every((r) => !r.isDocumented)).toBe(true);
     });
@@ -679,7 +775,11 @@ describe('filledDailyPlanCard (PT-67 step 1)', () => {
     };
 
     it('fills valueNow, valueAfterWin and valueAfterLoss from the next trade swing on the credit-free basis', () => {
-        const filled = filledDailyPlanCard(card, swingResult(), REPLACEMENT_FEE);
+        const filled = filledDailyPlanCard(
+            card,
+            swingResult(),
+            REPLACEMENT_FEE,
+        );
 
         expect(filled.valueNow).toBe(1000);
         expect(filled.valueAfterWin).toBe(1400);
@@ -690,7 +790,9 @@ describe('filledDailyPlanCard (PT-67 step 1)', () => {
         const unchanged = filledDailyPlanCard(card, null, REPLACEMENT_FEE);
 
         expect(unchanged).toEqual(card);
-        expect(filledDailyPlanCard(card, swingResult(), REPLACEMENT_FEE)).not.toBe(card);
+        expect(
+            filledDailyPlanCard(card, swingResult(), REPLACEMENT_FEE),
+        ).not.toBe(card);
         expect(card.valueNow).toBeNull();
     });
 });
@@ -731,7 +833,10 @@ describe('flatRiskReasonOf (PT-67 step 1, QV-8)', () => {
     });
 
     it('stays silent when the documented rung is not in the grid or a standard error is unknown', () => {
-        const absent = candidatesOf([flatRowOf(250, 1500, 5), flatRowOf(125, 900, 5)]);
+        const absent = candidatesOf([
+            flatRowOf(250, 1500, 5),
+            flatRowOf(125, 900, 5),
+        ]);
         const unknown: RiskCandidateRow = {
             ...flatRowOf(250, 1500, 5),
             continuationValue: { standardError: null, value: 1500 },
@@ -850,7 +955,9 @@ describe('accountActionFor (PT-67 step 2)', () => {
         });
 
         expect(accountActionFor(advice).action).toBe(AccountAction.Trade);
-        expect(accountActionFor(adviceFixture()).action).toBe(AccountAction.Trade);
+        expect(accountActionFor(adviceFixture()).action).toBe(
+            AccountAction.Trade,
+        );
     });
 
     it('is EnterSnapshot for stale advice, even when a payout request is documented', () => {
@@ -864,7 +971,9 @@ describe('accountActionFor (PT-67 step 2)', () => {
             },
         };
 
-        expect(accountActionFor(advice).action).toBe(AccountAction.EnterSnapshot);
+        expect(accountActionFor(advice).action).toBe(
+            AccountAction.EnterSnapshot,
+        );
     });
 
     it('is StopForToday when the day has no rung', () => {
@@ -879,7 +988,9 @@ describe('accountActionFor (PT-67 step 2)', () => {
             },
         });
 
-        expect(accountActionFor(advice).action).toBe(AccountAction.StopForToday);
+        expect(accountActionFor(advice).action).toBe(
+            AccountAction.StopForToday,
+        );
     });
 
     it('is NotModeled when there is no documented sizing, and never Retire (QV-19 off)', () => {
@@ -890,7 +1001,9 @@ describe('accountActionFor (PT-67 step 2)', () => {
     });
 
     it('offers RequestPayout only for a request decision, never for a blocked, waiting or unreachable one', () => {
-        const withDecision = (documented: NonNullable<Advice['payoutAdvice']>['documented']) =>
+        const withDecision = (
+            documented: NonNullable<Advice['payoutAdvice']>['documented'],
+        ) =>
             adviceFixture({
                 payoutAdvice: {
                     assumptions: [],
@@ -912,7 +1025,9 @@ describe('accountActionFor (PT-67 step 2)', () => {
             AccountAction.RequestPayout,
         );
         expect(accountActionFor(blocked).action).toBe(AccountAction.Trade);
-        expect(accountActionFor(adviceFixture()).action).toBe(AccountAction.Trade);
+        expect(accountActionFor(adviceFixture()).action).toBe(
+            AccountAction.Trade,
+        );
     });
 });
 
@@ -951,7 +1066,9 @@ describe('payoutStakeViewOf (PT-67 step 2, QV-18)', () => {
             risk: 125,
             value: { standardError: 11, value: 900 },
         });
-        expect(payoutStakeViewOf({ ...stake, reducedRiskWhatIf: null }).whatIf).toBeNull();
+        expect(
+            payoutStakeViewOf({ ...stake, reducedRiskWhatIf: null }).whatIf,
+        ).toBeNull();
     });
 });
 
@@ -996,7 +1113,9 @@ function readyRequestOf(
     return result.request;
 }
 
-function valueRequestInputOf(overrides: Partial<Parameters<typeof adviceValueRequestOf>[0]> = {}) {
+function valueRequestInputOf(
+    overrides: Partial<Parameters<typeof adviceValueRequestOf>[0]> = {},
+) {
     const advisor = fundedAdvisor();
     const account = fundedAccount();
     return {
@@ -1034,7 +1153,9 @@ describe('adviceValueRequestOf (PT-67 steps 1 and 2)', () => {
             },
         });
 
-        expect(adviceValueRequestOf({ ...valueRequestInputOf(), advice })).toEqual({
+        expect(
+            adviceValueRequestOf({ ...valueRequestInputOf(), advice }),
+        ).toEqual({
             kind: AdviceValueRequestKind.NotRequested,
         });
     });
@@ -1055,7 +1176,10 @@ describe('adviceValueRequestOf (PT-67 steps 1 and 2)', () => {
 
         const rungs = fundedAdvisor().dailyPlanCard()?.rungs ?? [];
         expect(request.rungs).toEqual(
-            rungs.map((rung) => ({ risk: rung.risk, rr: rung.takeProfit / rung.risk })),
+            rungs.map((rung) => ({
+                risk: rung.risk,
+                rr: rung.takeProfit / rung.risk,
+            })),
         );
         expect(request.rr).toBe(DEFAULT_RULEBOOK.strategy.rr);
         expect(request.candidateRiskGrid).toEqual(
@@ -1148,8 +1272,11 @@ describe('adviceValueRequestOf (PT-67 steps 1 and 2)', () => {
 
         const result = advisorValueOutcomeOf(plan, cheap);
 
-        expect(result.payoutStake?.kind).toBe(AdvisorRequestOutcomeKind.Succeeded);
-        if (result.payoutStake?.kind !== AdvisorRequestOutcomeKind.Succeeded) return;
+        expect(result.payoutStake?.kind).toBe(
+            AdvisorRequestOutcomeKind.Succeeded,
+        );
+        if (result.payoutStake?.kind !== AdvisorRequestOutcomeKind.Succeeded)
+            return;
         const stake = result.payoutStake.value;
         if ('reason' in stake) throw new Error('expected a stake comparison');
         expect(stake.requestedAmount).toBe(750);
@@ -1177,7 +1304,9 @@ describe('valueRunNoteOf (PT-67 review)', () => {
             measuredRebuyLag: { days: 4, samples: 3 },
         });
 
-        expect(valueRunNoteOf(request)).toContain('rebuy lag measured at 4 days');
+        expect(valueRunNoteOf(request)).toContain(
+            'rebuy lag measured at 4 days',
+        );
     });
 });
 
@@ -1225,14 +1354,22 @@ describe('adviceValueViewOf (PT-67 steps 1 and 2)', () => {
                 continuationValue: { standardError: 5, value: 1500 },
                 monthlyNetCharge: 0,
                 netOfDurationCharge: 1500,
-                placement: { contracts: null, intendedRisk: 250, placedRisk: 250 },
+                placement: {
+                    contracts: null,
+                    intendedRisk: 250,
+                    placedRisk: 250,
+                },
                 swing: swingResult(),
             },
             {
                 continuationValue: { standardError: 5, value: 900 },
                 monthlyNetCharge: 0,
                 netOfDurationCharge: 900,
-                placement: { contracts: null, intendedRisk: 500, placedRisk: 500 },
+                placement: {
+                    contracts: null,
+                    intendedRisk: 500,
+                    placedRisk: 500,
+                },
                 swing: swingResult(),
             },
         ],
@@ -1245,7 +1382,12 @@ describe('adviceValueViewOf (PT-67 steps 1 and 2)', () => {
             candidates: succeeded(candidatesResult),
             now: succeeded(swingResult().now),
             payoutStake: null,
-            swings: [{ outcome: succeeded(swingResult()), rung: { risk: 500, rr: 2 } }],
+            swings: [
+                {
+                    outcome: succeeded(swingResult()),
+                    rung: { risk: 500, rr: 2 },
+                },
+            ],
             ...overrides,
         };
     }
@@ -1276,7 +1418,9 @@ describe('adviceValueViewOf (PT-67 steps 1 and 2)', () => {
         expect(view.tree?.valueNow.value).toBe(1000);
         expect(view.firstSwing?.winProbability).toBe(0.4);
         expect(view.candidates?.kind).toBe(ValueSectionKind.Ready);
-        expect(view.flatRiskReason?.kind).toBe(DifferenceReason.FlatRiskIgnoresState);
+        expect(view.flatRiskReason?.kind).toBe(
+            DifferenceReason.FlatRiskIgnoresState,
+        );
     });
 
     it('states a failed candidates computation and a failed payout stake instead of hiding them', () => {
@@ -1291,8 +1435,14 @@ describe('adviceValueViewOf (PT-67 steps 1 and 2)', () => {
             outcome: outcomeOf({ candidates: failure, payoutStake: failure }),
         });
 
-        expect(view.candidates).toEqual({ kind: ValueSectionKind.Failed, reason: 'refused' });
-        expect(view.stake).toEqual({ kind: ValueSectionKind.Failed, reason: 'refused' });
+        expect(view.candidates).toEqual({
+            kind: ValueSectionKind.Failed,
+            reason: 'refused',
+        });
+        expect(view.stake).toEqual({
+            kind: ValueSectionKind.Failed,
+            reason: 'refused',
+        });
         expect(view.flatRiskReason).toBeNull();
     });
 
@@ -1322,19 +1472,30 @@ describe('adviceValueViewOf (PT-67 steps 1 and 2)', () => {
     });
 
     it('states the session boundary the swing is valued at, once, for any account kind', () => {
-        const swing = { outcome: succeeded(swingResult()), rung: { risk: 500, rr: 2 } };
+        const swing = {
+            outcome: succeeded(swingResult()),
+            rung: { risk: 500, rr: 2 },
+        };
         const oneRung = adviceValueViewOf({
             context: EVAL_CONTEXT,
             documentedRisk: 500,
             outcome: outcomeOf({ swings: [swing] }),
         });
 
-        expect(oneRung.boundaryNote).toBe(`Assumption: ${TRADE_VALUE_SWING_ASSUMPTION}.`);
+        expect(oneRung.boundaryNote).toBe(
+            `Assumption: ${TRADE_VALUE_SWING_ASSUMPTION}.`,
+        );
     });
 
     it('adds that the rest of today rungs are not in the after-loss value when the documented rule keeps trading after a loss', () => {
-        const first = { outcome: succeeded(swingResult()), rung: { risk: 500, rr: 2 } };
-        const second = { outcome: succeeded(swingResult()), rung: { risk: 750, rr: 2 } };
+        const first = {
+            outcome: succeeded(swingResult()),
+            rung: { risk: 500, rr: 2 },
+        };
+        const second = {
+            outcome: succeeded(swingResult()),
+            rung: { risk: 750, rr: 2 },
+        };
         const twoRungs = adviceValueViewOf({
             context: FUNDED_CONTEXT,
             documentedRisk: 500,
@@ -1420,12 +1581,20 @@ describe('parseRiskCheckInputs (PT-67 step 3)', () => {
             parseRiskCheckInputs({ losses: '', risk: '', wins: '' }).kind,
         ).toBe(RiskCheckInputKind.Empty);
         expect(
-            parseRiskCheckInputs({ losses: '2', risk: ' '.repeat(3), wins: '1' }).kind,
+            parseRiskCheckInputs({
+                losses: '2',
+                risk: ' '.repeat(3),
+                wins: '1',
+            }).kind,
         ).toBe(RiskCheckInputKind.Empty);
     });
 
     it('reads a risk in whole cents and blank wins and losses as zero', () => {
-        const parsed = parseRiskCheckInputs({ losses: '', risk: '250.50', wins: '' });
+        const parsed = parseRiskCheckInputs({
+            losses: '',
+            risk: '250.50',
+            wins: '',
+        });
 
         expect(parsed).toEqual({
             kind: RiskCheckInputKind.Valid,
@@ -1437,16 +1606,24 @@ describe('parseRiskCheckInputs (PT-67 step 3)', () => {
 
     it.each([
         ['a sub-cent risk that would floor to zero', '0.004'],
-        ['a risk with more than two decimals, which would floor in the permissive direction', '500.009'],
+        [
+            'a risk with more than two decimals, which would floor in the permissive direction',
+            '500.009',
+        ],
         ['a risk in exponent form', '1e3'],
-    ])('is Invalid for %s, never a within-plan check at a different risk', (_name, risk) => {
-        const parsed = parseRiskCheckInputs({ losses: '', risk, wins: '' });
+    ])(
+        'is Invalid for %s, never a within-plan check at a different risk',
+        (_name, risk) => {
+            const parsed = parseRiskCheckInputs({ losses: '', risk, wins: '' });
 
-        expect(parsed.kind).toBe(RiskCheckInputKind.Invalid);
-    });
+            expect(parsed.kind).toBe(RiskCheckInputKind.Invalid);
+        },
+    );
 
     it('reads whole wins and losses', () => {
-        expect(parseRiskCheckInputs({ losses: '2', risk: '100', wins: '1' })).toEqual({
+        expect(
+            parseRiskCheckInputs({ losses: '2', risk: '100', wins: '1' }),
+        ).toEqual({
             kind: RiskCheckInputKind.Valid,
             losses: 2,
             risk: 100,
@@ -1589,13 +1766,18 @@ describe('riskChecksOf (PT-67 step 3 and review)', () => {
 
         expect(checks.recorded?.decisionId).toBe('recorded');
         expect(checks.recorded?.risk).toBe(900);
-        expect(checks.recorded?.view.verdict).toBe(NextTradeRiskVerdict.AboveDocumented);
+        expect(checks.recorded?.view.verdict).toBe(
+            NextTradeRiskVerdict.AboveDocumented,
+        );
     });
 
     it('has no recorded check without a recorded actual risk today', () => {
         const checks = riskChecksOf({
             advisor,
-            decisions: [decision('latest', null), decision('old', 900, '2026-09-26')],
+            decisions: [
+                decision('latest', null),
+                decision('old', 900, '2026-09-26'),
+            ],
             inputs: EMPTY_RISK_CHECK_INPUTS,
             today: '2026-09-27',
         });
@@ -1614,7 +1796,9 @@ describe('riskChecksOf (PT-67 step 3 and review)', () => {
         expect(checks.recorded?.basisText).toBe(
             'Judged as the first trade of the day: no wins or losses are entered above.',
         );
-        expect(checks.recorded?.view.verdict).toBe(NextTradeRiskVerdict.WithinPlan);
+        expect(checks.recorded?.view.verdict).toBe(
+            NextTradeRiskVerdict.WithinPlan,
+        );
     });
 
     it('says which wins and losses the recorded risk was judged against once they are entered, and judges it by the entered progress', () => {
@@ -1652,7 +1836,9 @@ describe('riskChecksOf (PT-67 step 3 and review)', () => {
         });
 
         expect(checks.parsedRisk.kind).toBe(RiskCheckInputKind.Valid);
-        expect(checks.proposed?.verdict).toBe(NextTradeRiskVerdict.AboveDocumented);
+        expect(checks.proposed?.verdict).toBe(
+            NextTradeRiskVerdict.AboveDocumented,
+        );
         expect(checks.stopReason).not.toBeNull();
     });
 
@@ -1670,7 +1856,9 @@ describe('riskChecksOf (PT-67 step 3 and review)', () => {
     });
 
     it('takes the larger payout-eligible excess of the proposed and recorded checks as the banner flag', () => {
-        expect(payoutFlagExcessOf([flagViewOf(40, true), flagViewOf(90, true)])).toBe(90);
+        expect(
+            payoutFlagExcessOf([flagViewOf(40, true), flagViewOf(90, true)]),
+        ).toBe(90);
         expect(payoutFlagExcessOf([flagViewOf(40, false), null])).toBe(0);
         expect(payoutFlagExcessOf([])).toBe(0);
     });
@@ -1701,24 +1889,39 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
     it('leaves the stop out of the link and shows nothing inline until a stop is entered', () => {
         const sizing = contractsSizingOf(base);
 
-        expect(queryOf(sizing.href).has(PositionSizeUrlParameter.Stop)).toBe(false);
+        expect(queryOf(sizing.href).has(PositionSizeUrlParameter.Stop)).toBe(
+            false,
+        );
         expect(sizing.inline).toBeNull();
     });
 
     it('shows the whole contracts for the risk at the entered stop inline and puts the stop in the link', () => {
-        const sizing = contractsSizingOf({ ...base, risk: 150, stopPoints: 7.5 });
+        const sizing = contractsSizingOf({
+            ...base,
+            risk: 150,
+            stopPoints: 7.5,
+        });
 
         const decoded = decodePositionSize(queryOf(sizing.href));
-        const expected = positionSizeFor({ ...decoded, stopPoints: points(7.5) });
+        const expected = positionSizeFor({
+            ...decoded,
+            stopPoints: points(7.5),
+        });
 
         expect(sizing.inline?.contracts).toBe(expected.contracts);
         expect(sizing.inline?.contracts).toBe(1);
         expect(sizing.inline?.statusText).toContain('1 NQ');
-        expect(queryOf(sizing.href).get(PositionSizeUrlParameter.Stop)).toBe('7.5');
+        expect(queryOf(sizing.href).get(PositionSizeUrlParameter.Stop)).toBe(
+            '7.5',
+        );
     });
 
     it('floors to whole contracts, never rounding the risk up', () => {
-        const sizing = contractsSizingOf({ ...base, risk: 449, stopPoints: 7.5 });
+        const sizing = contractsSizingOf({
+            ...base,
+            risk: 449,
+            stopPoints: 7.5,
+        });
 
         expect(sizing.inline?.contracts).toBe(2);
     });
@@ -1759,7 +1962,10 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
             if (found === undefined) throw new Error('no tiered plan');
             return found;
         })();
-        const [, secondTier] = fundedTierOptions(tieredPlan, InstrumentSymbol.NQ);
+        const [, secondTier] = fundedTierOptions(
+            tieredPlan,
+            InstrumentSymbol.NQ,
+        );
 
         function scaledContext(profit: number) {
             const state = tieredPlan.initialState();
@@ -1801,7 +2007,9 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
 
             expect(atStart.inline?.contracts).toBe(startCap);
             expect(scaled.inline?.contracts).toBe(scaledCap);
-            expect(queryOf(scaled.href).has(PositionSizeUrlParameter.Tier)).toBe(true);
+            expect(
+                queryOf(scaled.href).has(PositionSizeUrlParameter.Tier),
+            ).toBe(true);
         });
 
         it('leaves the starting tier alone for an account that has not scaled', () => {
@@ -1811,10 +2019,14 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
                 plan: tieredPlan,
                 risk: 1_000_000,
                 stopPoints: 1,
-                tierContext: tieredPlan.tierProfitContext(tieredPlan.initialState()),
+                tierContext: tieredPlan.tierProfitContext(
+                    tieredPlan.initialState(),
+                ),
             });
 
-            expect(queryOf(sizing.href).has(PositionSizeUrlParameter.Tier)).toBe(false);
+            expect(
+                queryOf(sizing.href).has(PositionSizeUrlParameter.Tier),
+            ).toBe(false);
         });
 
         it('ignores the tier for an eval account', () => {
@@ -1825,13 +2037,20 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
                 tierContext: scaledContext(secondTier ?? 0),
             });
 
-            expect(queryOf(sizing.href).has(PositionSizeUrlParameter.Tier)).toBe(false);
+            expect(
+                queryOf(sizing.href).has(PositionSizeUrlParameter.Tier),
+            ).toBe(false);
         });
     });
 
-    it.each([0, -1, NaN])('shows nothing inline for an unusable stop of %s', (stopPoints) => {
-        expect(contractsSizingOf({ ...base, stopPoints }).inline).toBeNull();
-    });
+    it.each([0, -1, NaN])(
+        'shows nothing inline for an unusable stop of %s',
+        (stopPoints) => {
+            expect(
+                contractsSizingOf({ ...base, stopPoints }).inline,
+            ).toBeNull();
+        },
+    );
 });
 
 describe('dayStopReasonOf (PT-67 step 4)', () => {
@@ -1850,13 +2069,20 @@ describe('parseDayCounts (PT-67 step 4)', () => {
             losses: 2,
             wins: 0,
         });
-        expect(parseDayCounts(EMPTY_RISK_CHECK_INPUTS)).toEqual({ losses: 0, wins: 0 });
+        expect(parseDayCounts(EMPTY_RISK_CHECK_INPUTS)).toEqual({
+            losses: 0,
+            wins: 0,
+        });
     });
 
     it('is null when a count is not a whole number in range', () => {
-        expect(parseDayCounts({ losses: '1.5', risk: '', wins: '' })).toBeNull();
+        expect(
+            parseDayCounts({ losses: '1.5', risk: '', wins: '' }),
+        ).toBeNull();
         expect(parseDayCounts({ losses: '', risk: '', wins: '-1' })).toBeNull();
-        expect(parseDayCounts({ losses: '1000', risk: '', wins: '' })).toBeNull();
+        expect(
+            parseDayCounts({ losses: '1000', risk: '', wins: '' }),
+        ).toBeNull();
     });
 });
 

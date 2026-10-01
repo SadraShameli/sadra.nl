@@ -110,9 +110,7 @@ describe('SharedPoolPolicy.headroom (pure, keyed by plan serial)', () => {
             ['advanced', 1],
             [RAPID, 2],
         ]);
-        expect(sharedPoolHeadroom(withReduction, withTrigger).get(PRO)).toBe(
-            1,
-        );
+        expect(sharedPoolHeadroom(withReduction, withTrigger).get(PRO)).toBe(1);
     });
 
     it('reduces pool room once the trigger plan is held', () => {
@@ -148,7 +146,10 @@ describe('accountCapHeadroomFor(SharedPoolPolicy) data-wiring guard', () => {
 
 describe('AccountCapPolicy union', () => {
     it('discriminates by kind', () => {
-        const policies: AccountCapPolicy[] = [PER_PLAN_CAP_POLICY, poolPolicy()];
+        const policies: AccountCapPolicy[] = [
+            PER_PLAN_CAP_POLICY,
+            poolPolicy(),
+        ];
         expect(policies[0]?.kind).toBe(AccountCapPolicyKind.PerPlan);
         expect(policies[1]?.kind).toBe(AccountCapPolicyKind.SharedPool);
     });

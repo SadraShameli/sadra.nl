@@ -37,10 +37,15 @@ export default function TakeProfitWhatIf() {
     const rows =
         worker.state.phase === ToolsWorkerPhase.Succeeded &&
         worker.state.result.kind === ToolsResponseKind.TakeProfitRows
-            ? takeProfitWhatIfRowViews(worker.state.result.rows, cardInputs.anchorRrRatio)
+            ? takeProfitWhatIfRowViews(
+                  worker.state.result.rows,
+                  cardInputs.anchorRrRatio,
+              )
             : null;
     const failureReason =
-        worker.state.phase === ToolsWorkerPhase.Failed ? worker.state.reason : null;
+        worker.state.phase === ToolsWorkerPhase.Failed
+            ? worker.state.reason
+            : null;
 
     return (
         <section
@@ -54,8 +59,9 @@ export default function TakeProfitWhatIf() {
                 Take-profit what-if
             </h2>
             <p className="text-xs text-muted-foreground">
-                What-if only: the win rate at each reward multiple is derived from your
-                stated point, never used by the headline, the rulebook or advice.
+                What-if only: the win rate at each reward multiple is derived
+                from your stated point, never used by the headline, the rulebook
+                or advice.
             </p>
             {rows === null ? (
                 failureReason === null ? null : (
@@ -79,7 +85,10 @@ export default function TakeProfitWhatIf() {
                         </thead>
                         <tbody>
                             {rows.map((row) => (
-                                <tr className="border-t border-white/10" key={row.rrRatio}>
+                                <tr
+                                    className="border-t border-white/10"
+                                    key={row.rrRatio}
+                                >
                                     <td className="py-1 pr-3 font-mono">
                                         {row.rrRatio.toFixed(2)}
                                     </td>
@@ -87,13 +96,17 @@ export default function TakeProfitWhatIf() {
                                         {formatPercent(row.winrate)}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
-                                        {formatPercent(row.attemptPassProbability)}
+                                        {formatPercent(
+                                            row.attemptPassProbability,
+                                        )}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
                                         {row.daysToPassP50.toFixed(0)}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
-                                        {formatGateCurrency(row.expectedMonthlyNet)}
+                                        {formatGateCurrency(
+                                            row.expectedMonthlyNet,
+                                        )}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
                                         {formatGateCurrency(row.expectedNet)}

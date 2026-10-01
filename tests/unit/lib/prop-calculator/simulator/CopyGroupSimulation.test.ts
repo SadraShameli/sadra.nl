@@ -333,7 +333,11 @@ describe('the per-trade outcome RNG seam (runDay, stepFundedDay)', () => {
         const state = plan.initialState();
         plan.beginFundedPhase(state);
         const totals = new TradeTotals();
-        const stats = newPhaseStats(state.balance, totals, new LossStreak(totals));
+        const stats = newPhaseStats(
+            state.balance,
+            totals,
+            new LossStreak(totals),
+        );
         const tracker = newFundedCycleTracker(state);
         stepFundedDay({
             commission: dollars(0),
@@ -452,7 +456,10 @@ describe('simulateCopyGroup rejects a group it cannot simulate', () => {
         expect(result.rejection.kind).toBe(
             CopyGroupSimulationRejectionKind.MemberRefused,
         );
-        if (result.rejection.kind !== CopyGroupSimulationRejectionKind.MemberRefused) {
+        if (
+            result.rejection.kind !==
+            CopyGroupSimulationRejectionKind.MemberRefused
+        ) {
             return;
         }
         expect(result.rejection.memberId).toBe('busted-member');
@@ -607,7 +614,8 @@ describe('simulateCopyGroup drives cross-plan members from one shared outcome st
             winrate: fraction(0.5),
         });
         expect(groupResult.kind).toBe(CopyGroupSimulationResultKind.Simulated);
-        if (groupResult.kind !== CopyGroupSimulationResultKind.Simulated) return;
+        if (groupResult.kind !== CopyGroupSimulationResultKind.Simulated)
+            return;
 
         const start = member.start as FundedSimStart;
         const fromState = simulateFromState({
@@ -625,11 +633,12 @@ describe('simulateCopyGroup drives cross-plan members from one shared outcome st
         });
 
         const [outcome] = groupResult.memberOutcomes;
-        if (outcome === undefined) throw new Error('expected one member outcome');
+        if (outcome === undefined)
+            throw new Error('expected one member outcome');
 
         const bustCombinedSe = Math.hypot(
             outcome.pBust.standardError,
-                fromState.estimates.fundedBustProbability.standardError,
+            fromState.estimates.fundedBustProbability.standardError,
         );
         expect(
             Math.abs(outcome.pBust.value - fromState.fundedBustProbability),
@@ -700,20 +709,22 @@ describe('simulateCopyGroup drives cross-plan members from one shared outcome st
             winrate: 0.5,
         });
         const [outcome] = groupResult.memberOutcomes;
-        if (outcome === undefined) throw new Error('expected one member outcome');
+        if (outcome === undefined)
+            throw new Error('expected one member outcome');
 
-        const expectedFees = fromState.expectedFundedResets * TOY_FUNDED_RESET_FEE;
+        const expectedFees =
+            fromState.expectedFundedResets * TOY_FUNDED_RESET_FEE;
         expect(outcome.expectedResetFees.value).toBeGreaterThan(0);
         expect(groupResult.expectedGroupResetFees.value).toBe(
             outcome.expectedResetFees.value,
         );
         expect(
             Math.abs(outcome.expectedResetFees.value - expectedFees),
-        ).toBeLessThanOrEqual(3 * Math.SQRT2 * outcome.expectedResetFees.standardError);
+        ).toBeLessThanOrEqual(
+            3 * Math.SQRT2 * outcome.expectedResetFees.standardError,
+        );
         expect(
-            Math.abs(
-                outcome.pBust.value - fromState.fundedBustProbability,
-            ),
+            Math.abs(outcome.pBust.value - fromState.fundedBustProbability),
         ).toBeLessThanOrEqual(
             3 *
                 Math.hypot(
@@ -772,7 +783,10 @@ describe('simulateCopyGroup refuses a member it cannot simulate honestly', () =>
         expect(result.rejection.kind).toBe(
             CopyGroupSimulationRejectionKind.MemberRefused,
         );
-        if (result.rejection.kind !== CopyGroupSimulationRejectionKind.MemberRefused) {
+        if (
+            result.rejection.kind !==
+            CopyGroupSimulationRejectionKind.MemberRefused
+        ) {
             return;
         }
         expect(result.rejection.memberId).toBe('too-small');
@@ -792,7 +806,10 @@ describe('simulateCopyGroup refuses a member it cannot simulate honestly', () =>
         expect(result.rejection.kind).toBe(
             CopyGroupSimulationRejectionKind.MemberRefused,
         );
-        if (result.rejection.kind !== CopyGroupSimulationRejectionKind.MemberRefused) {
+        if (
+            result.rejection.kind !==
+            CopyGroupSimulationRejectionKind.MemberRefused
+        ) {
             return;
         }
         expect(result.rejection.message).toMatch(/wholeContracts/);

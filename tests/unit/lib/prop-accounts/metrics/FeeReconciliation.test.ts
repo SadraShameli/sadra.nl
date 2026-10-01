@@ -39,7 +39,11 @@ describe('feeReconciliation', () => {
             }),
         );
         expect(
-            result.rows.map((row) => [row.kind, row.check, row.differenceCents]),
+            result.rows.map((row) => [
+                row.kind,
+                row.check,
+                row.differenceCents,
+            ]),
         ).toEqual([
             [FeeKind.EvalPurchase, FeePriceCheck.Discounted, -1000],
             [FeeKind.EvalPurchase, FeePriceCheck.AtList, 0],

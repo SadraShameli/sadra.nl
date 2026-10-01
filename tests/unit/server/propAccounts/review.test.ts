@@ -111,12 +111,12 @@ describe('propAccounts.review', () => {
             TransactionStep.Commit,
         ]);
         const [snapshotInsert] = insertsInto(queries, TABLES.snapshot);
-        expect(
-            insertedColumnValues(defined(snapshotInsert), 'as_of'),
-        ).toEqual(['2026-09-21']);
-        expect(
-            insertedColumnValues(defined(snapshotInsert), 'source'),
-        ).toEqual([SnapshotSource.WeeklyReview]);
+        expect(insertedColumnValues(defined(snapshotInsert), 'as_of')).toEqual([
+            '2026-09-21',
+        ]);
+        expect(insertedColumnValues(defined(snapshotInsert), 'source')).toEqual(
+            [SnapshotSource.WeeklyReview],
+        );
         const [decisionInsert] = insertsInto(queries, TABLES.decision);
         expect(
             insertedColumnValues(defined(decisionInsert), 'snapshot_id'),
@@ -124,9 +124,9 @@ describe('propAccounts.review', () => {
         expect(
             insertedColumnValues(defined(decisionInsert), 'decided_on'),
         ).toEqual(['2026-09-21']);
-        expect(
-            insertedColumnValues(defined(decisionInsert), 'source'),
-        ).toEqual([AdviceSource.Documented]);
+        expect(insertedColumnValues(defined(decisionInsert), 'source')).toEqual(
+            [AdviceSource.Documented],
+        );
     });
 
     it('checks ownership of every account before writing anything', async () => {
@@ -153,7 +153,10 @@ describe('propAccounts.review', () => {
             SIGNED_IN,
             tableResponder({
                 [TABLES.snapshot]: [
-                    snapshotRow({ account_id: IDS.account, as_of: '2026-09-21' }),
+                    snapshotRow({
+                        account_id: IDS.account,
+                        as_of: '2026-09-21',
+                    }),
                 ],
             }),
         );
@@ -191,9 +194,7 @@ describe('propAccounts.review', () => {
     it('a missing required field gives MissingSnapshotField and writes nothing', async () => {
         const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
         const incomplete = reviewSubmitInput({
-            snapshots: [
-                { accountId: IDS.account, balanceCents: 5_050_000 },
-            ],
+            snapshots: [{ accountId: IDS.account, balanceCents: 5_050_000 }],
         });
         const rejection = caller.review.submit(incomplete);
         const shape = errorShapeOf(await rejectionOf(rejection));
@@ -292,9 +293,9 @@ describe('propAccounts.review', () => {
             }),
         );
         const [decisionInsert] = insertsInto(queries, TABLES.decision);
-        expect(
-            insertedColumnValues(defined(decisionInsert), 'stage'),
-        ).toEqual([AccountStage.Eval]);
+        expect(insertedColumnValues(defined(decisionInsert), 'stage')).toEqual([
+            AccountStage.Eval,
+        ]);
     });
 
     it('fails loudly instead of writing an orphaned decision when no snapshot id was stored for its account', async () => {

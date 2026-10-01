@@ -32,7 +32,11 @@ import {
     roundUpdateSchema,
 } from '~/lib/schemas/propAccounts';
 import { createTRPCRouter } from '~/server/api/trpc';
-import { propAccount, propRound, type PropRoundRow } from '~/server/db/schemas/prop';
+import {
+    propAccount,
+    propRound,
+    type PropRoundRow,
+} from '~/server/db/schemas/prop';
 
 import {
     assertExternalFirmOwned,
@@ -270,7 +274,5 @@ async function roundSpentCents(
     const fees = await Promise.all(
         members.map((member) => repo.listFees(member.id)),
     );
-    return fees
-        .flat()
-        .reduce((sum, fee) => sum + signedFeeCents(fee), 0);
+    return fees.flat().reduce((sum, fee) => sum + signedFeeCents(fee), 0);
 }

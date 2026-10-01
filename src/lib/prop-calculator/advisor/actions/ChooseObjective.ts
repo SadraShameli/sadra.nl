@@ -6,7 +6,8 @@ export function chooseObjective(
     bankroll: BankrollParameters,
 ): SizingObjective {
     if (availableCents === null) return SizingObjective.MonthlyNet;
-    if (bankroll.objectiveSwitchCents === null) return SizingObjective.MonthlyNet;
+    if (bankroll.objectiveSwitchCents === null)
+        return SizingObjective.MonthlyNet;
     return availableCents < bankroll.objectiveSwitchCents
         ? SizingObjective.RuinFirst
         : SizingObjective.MonthlyNet;

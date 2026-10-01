@@ -86,7 +86,11 @@ describe('payoutSizeStats', () => {
                 events: [
                     purchased(evalFirmA),
                     purchased(fundedFirmB),
-                    event(fundedFirmB, AccountEventKind.EvalPassed, '2026-01-05'),
+                    event(
+                        fundedFirmB,
+                        AccountEventKind.EvalPassed,
+                        '2026-01-05',
+                    ),
                 ],
                 payouts: [
                     payout(evalFirmA, 10_000, {

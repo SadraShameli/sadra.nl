@@ -18,7 +18,9 @@ function model(overrides: Partial<FunnelCardModel> = {}): FunnelCardModel {
     };
 }
 
-function row(overrides: Partial<FunnelRow> & Pick<FunnelRow, 'firm' | 'key'>): FunnelRow {
+function row(
+    overrides: Partial<FunnelRow> & Pick<FunnelRow, 'firm' | 'key'>,
+): FunnelRow {
     return {
         fees: '$0',
         firstPayout: '0',

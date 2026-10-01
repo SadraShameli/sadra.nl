@@ -26,11 +26,7 @@ import {
     PropQuotaGuard,
     readEvent,
 } from '~/lib/prop-accounts/server';
-import {
-    type FirmId,
-    parseFirmId,
-    type Plan,
-} from '~/lib/prop-calculator';
+import { type FirmId, parseFirmId, type Plan } from '~/lib/prop-calculator';
 import {
     propAccountEventOutputSchema,
     PropMutationRejection,

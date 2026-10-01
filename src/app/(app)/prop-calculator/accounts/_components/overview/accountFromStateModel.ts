@@ -5,7 +5,10 @@ import {
     ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
-import { type NextPayoutProjection, type SizingStage } from '~/lib/prop-calculator/advisor';
+import {
+    type NextPayoutProjection,
+    type SizingStage,
+} from '~/lib/prop-calculator/advisor';
 import {
     CreditBasis,
     EvalMilestoneGap,
@@ -14,11 +17,7 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
-import {
-    EngineSlotKind,
-    engineSlotOf,
-    type SlotEngine,
-} from './engineSlot';
+import { EngineSlotKind, engineSlotOf, type SlotEngine } from './engineSlot';
 import {
     estimateCurrency,
     estimatePercent,
@@ -249,7 +248,8 @@ function nextPayoutModelOf(
         projection.firstPayoutCausedBreachProbability === null
             ? NO_TRIAL_REACHED_A_PAYOUT
             : estimatePercent({
-                  standardError: projection.firstPayoutCausedBreachStandardError,
+                  standardError:
+                      projection.firstPayoutCausedBreachStandardError,
                   value: projection.firstPayoutCausedBreachProbability,
               });
     const lost =

@@ -78,7 +78,9 @@ export abstract class SizingAdvisor<
         return this.buildContext();
     }
 
-    protected isPayoutRequestDecision(context: null | PayoutRuleContext): boolean {
+    protected isPayoutRequestDecision(
+        context: null | PayoutRuleContext,
+    ): boolean {
         return (
             context !== null &&
             payoutAdvice(this.rulebook, context).documented.kind ===

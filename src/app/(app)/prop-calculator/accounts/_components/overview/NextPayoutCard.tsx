@@ -13,7 +13,10 @@ import {
     type AccountFromStateModel,
     AccountFromStateViewKind,
 } from './accountFromStateModel';
-import { type NextPayoutCardModel, type NextPayoutCardRow } from './overviewModel';
+import {
+    type NextPayoutCardModel,
+    type NextPayoutCardRow,
+} from './overviewModel';
 
 const NOT_AVAILABLE_TEXT = 'Not available';
 const NOT_FUNDED_TEXT = 'Not funded yet';

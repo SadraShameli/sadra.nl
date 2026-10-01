@@ -5,10 +5,12 @@ import {
     type OverviewOutcome,
     OverviewOutcomeKind,
     type OverviewRequest,
+    OverviewRequestGroup,
     overviewRequestKey,
     OverviewRequestKind,
     type PayoutSizeOptimumFigures,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
+import { uniformSlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import { type OverviewEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import {
     nextSlotModelOf,
@@ -62,9 +64,7 @@ class VerifiedPolicy extends FirmAccountPolicy {
     }
 }
 
-function answerAll(
-    overrides: Partial<DocumentedRunFigures> = {},
-): Answer {
+function answerAll(overrides: Partial<DocumentedRunFigures> = {}): Answer {
     return (request) => ({
         key: overviewRequestKey(request),
         kind: OverviewOutcomeKind.Succeeded,
@@ -155,7 +155,9 @@ function optimumFigures(): PayoutSizeOptimumFigures {
 }
 
 function withAllFirmsVerified<T>(run: () => T): T {
-    const originals = ALL_FIRMS.map((firm) => [firm, firm.accountPolicy] as const);
+    const originals = ALL_FIRMS.map(
+        (firm) => [firm, firm.accountPolicy] as const,
+    );
     for (const firm of ALL_FIRMS) {
         (firm as { accountPolicy: FirmAccountPolicy }).accountPolicy =
             new VerifiedPolicy();
@@ -176,7 +178,8 @@ describe('nextSlotModelOf with an unverified policy', () => {
     it('lists every plan of a firm with the unverified default policy and ranks none of them, even with every engine run answered', () => {
         expect(
             ALL_FIRMS.every(
-                (firm) => firm.accountPolicy instanceof UnverifiedFirmAccountPolicy,
+                (firm) =>
+                    firm.accountPolicy instanceof UnverifiedFirmAccountPolicy,
             ),
         ).toBe(true);
         const model = nextSlotModelOf({
@@ -222,7 +225,9 @@ describe('nextSlotModelOf with an unverified policy', () => {
         });
         const refused = model.allocation.notRanked.filter((row) =>
             row.reasons.some((reason) =>
-                reason.detail.includes('not rankable: the stop is below one tick'),
+                reason.detail.includes(
+                    'not rankable: the stop is below one tick',
+                ),
             ),
         );
         expect(refused.length).toBeGreaterThan(0);
@@ -244,6 +249,75 @@ describe('nextSlotModelOf with an unverified policy', () => {
         expect(model.ranked).toEqual([]);
         expect(model.requested).toBe(requests.length);
         expect(model.isProvisional).toBe(true);
+    });
+});
+
+function engineWithGroupFailure(
+    group: OverviewRequestGroup,
+    reason: string,
+): OverviewEngine {
+    return {
+        failure: reason,
+        groupFailures: {
+            ...uniformSlotEngine(null).groupFailures,
+            [group]: reason,
+        },
+        outcomes: new Map(),
+    };
+}
+
+function listedReasonsOf(model: ReturnType<typeof verifiedModelWith>): string {
+    return [
+        ...model.excluded,
+        ...model.pending,
+        ...model.refused,
+        ...model.unverified,
+    ]
+        .flatMap((row) => row.reasons)
+        .join(' ');
+}
+
+function verifiedModelWith(engine: OverviewEngine) {
+    return withAllFirmsVerified(() => {
+        const portfolio = ledger({});
+        const requests = nextSlotRequestsOf(portfolio, DEFAULT_RULEBOOK, TODAY);
+        return nextSlotModelOf({
+            engine,
+            ledger: portfolio,
+            requests,
+            rulebook: DEFAULT_RULEBOOK,
+            today: TODAY,
+            trades: 0,
+        });
+    });
+}
+
+describe('nextSlotModelOf when one request group of the overview worker failed', () => {
+    it('keeps its policy runs pending and shows no failure while only a group it never requests failed', () => {
+        const model = verifiedModelWith(
+            engineWithGroupFailure(
+                OverviewRequestGroup.Values,
+                'the values worker crashed',
+            ),
+        );
+        expect(model.engineFailure).toBeNull();
+        expect(listedReasonsOf(model)).not.toContain(
+            'the values worker crashed',
+        );
+        expect(model.pending.length).toBeGreaterThan(0);
+    });
+
+    it('names a failure of the policy group it requests on the page and on each affected row', () => {
+        const model = verifiedModelWith(
+            engineWithGroupFailure(
+                OverviewRequestGroup.Policy,
+                'the policy worker crashed',
+            ),
+        );
+        expect(model.engineFailure).toBe('the policy worker crashed');
+        expect(listedReasonsOf(model)).toContain(
+            'the engine run failed: the policy worker crashed',
+        );
     });
 });
 
@@ -300,7 +374,9 @@ describe('nextSlotModelOf ranked rows', () => {
     });
 
     it('labels a cushion the engine raised to the plan floor with the request it came from, and warns below Hard Rule 2', () => {
-        const model = modelFor({ answer: answerAll({ minRetainedCushion: 1000 }) });
+        const model = modelFor({
+            answer: answerAll({ minRetainedCushion: 1000 }),
+        });
         const raised = model.ranked.find((row) =>
             row.labels.some((label) => label.includes('engine-resolved from')),
         );
@@ -340,9 +416,9 @@ describe('nextSlotModelOf ranked rows', () => {
         });
         expect(switching.objectiveNote).toContain('ruin first');
         expect(switching.ranked.length).toBeGreaterThan(0);
-        expect(
-            switching.ranked.every((row) => row.batchLoss !== 'n/a'),
-        ).toBe(true);
+        expect(switching.ranked.every((row) => row.batchLoss !== 'n/a')).toBe(
+            true,
+        );
         expect(modelFor({ ledger: funded }).objectiveNote).toContain(
             'Objective: monthly net',
         );
@@ -380,9 +456,7 @@ describe('nextSlotModelOf ranked rows', () => {
         const free = Number(first?.freeSlots);
         expect(first?.allocatable).toBe(String(Math.min(2, free)));
         expect(first?.capacityNote).toBe(
-            free > 2
-                ? 'Limited by your daily account capacity.'
-                : null,
+            free > 2 ? 'Limited by your daily account capacity.' : null,
         );
     });
 
@@ -428,7 +502,9 @@ describe('nextSlotModelOf ranked rows', () => {
         expect(capped.ranked.length).toBeGreaterThan(0);
         for (const row of capped.ranked) {
             expect(row.allocatable).toBe('0');
-            expect(row.capacityNote).toBe('Limited by your daily account capacity.');
+            expect(row.capacityNote).toBe(
+                'Limited by your daily account capacity.',
+            );
             expect(row.nonPositiveNote).toBeNull();
         }
     });
@@ -439,11 +515,16 @@ describe('nextSlotModelOf ranked rows', () => {
         const scaleGated = modelFor({
             ledger: ledger({
                 accounts: [
-                    account(EVAL_PLAN, { accountSize: 1, purchasedOn: '2026-09-20' }),
+                    account(EVAL_PLAN, {
+                        accountSize: 1,
+                        purchasedOn: '2026-09-20',
+                    }),
                 ],
             }),
         });
-        expect(scaleGated.ranked.some((row) => row.scaleNote !== null)).toBe(true);
+        expect(scaleGated.ranked.some((row) => row.scaleNote !== null)).toBe(
+            true,
+        );
         const answers = [
             modelFor(),
             scaleGated,
@@ -466,7 +547,10 @@ describe('nextSlotModelOf ranked rows', () => {
         const model = modelFor({
             ledger: ledger({
                 accounts: [
-                    account(EVAL_PLAN, { accountSize: 1, purchasedOn: '2026-09-20' }),
+                    account(EVAL_PLAN, {
+                        accountSize: 1,
+                        purchasedOn: '2026-09-20',
+                    }),
                 ],
             }),
         });
@@ -478,15 +562,19 @@ describe('nextSlotModelOf ranked rows', () => {
         }
         expect(
             model.ranked.some((row) =>
-                row.notes.some((note) => note.includes('evaluation in progress')),
+                row.notes.some((note) =>
+                    note.includes('evaluation in progress'),
+                ),
             ),
         ).toBe(true);
     });
 
     it('lists a plan whose run was refused and a firm you paused, each with its reason, in separate sections', () => {
-        const [serial] = nextSlotRequestsOf(ledger({}), DEFAULT_RULEBOOK, TODAY).map(
-            (request) => request.planSerial,
-        );
+        const [serial] = nextSlotRequestsOf(
+            ledger({}),
+            DEFAULT_RULEBOOK,
+            TODAY,
+        ).map((request) => request.planSerial);
         if (serial === undefined) throw new Error('expected a request');
         const refusing = modelFor({
             answer: (request) =>
@@ -507,18 +595,25 @@ describe('nextSlotModelOf ranked rows', () => {
         const paused = modelFor({
             ledger: ledger({
                 firmEngagements: [
-                    firmEngagement('', '2026-09-01', FirmEngagementStatus.Paused, {
-                        externalFirmId: null,
-                        firmId: EVAL_PLAN.firm.id,
-                        reason: FirmEngagementReason.LowExpectedValue,
-                    }),
+                    firmEngagement(
+                        '',
+                        '2026-09-01',
+                        FirmEngagementStatus.Paused,
+                        {
+                            externalFirmId: null,
+                            firmId: EVAL_PLAN.firm.id,
+                            reason: FirmEngagementReason.LowExpectedValue,
+                        },
+                    ),
                 ],
             }),
         });
         expect(paused.excluded.length).toBeGreaterThan(0);
         expect(paused.excluded[0]?.reasons[0]).toContain('Paused');
         expect(
-            paused.ranked.some((row) => row.firm === EVAL_PLAN.firm.displayName),
+            paused.ranked.some(
+                (row) => row.firm === EVAL_PLAN.firm.displayName,
+            ),
         ).toBe(false);
     });
 

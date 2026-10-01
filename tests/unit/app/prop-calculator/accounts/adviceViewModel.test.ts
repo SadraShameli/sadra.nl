@@ -308,7 +308,9 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
             const text = payoutBlockReasonText(payoutBlockReasonFromGate(gate));
             expect(text.length).toBeGreaterThan(0);
         }
-        expect(payoutBlockReasonText(payoutPendingBlockReason()).length).toBeGreaterThan(0);
+        expect(
+            payoutBlockReasonText(payoutPendingBlockReason()).length,
+        ).toBeGreaterThan(0);
         expect(
             payoutBlockReasonText(
                 wouldTriggerLiveBlockReason({
@@ -339,12 +341,17 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
 
         const documented = advisor.documented();
         if (documented === null) throw new Error('expected documented sizing');
-        const context = ruleContextAt(plan, SizingStage.Funded, fundedAccount().state, {
-            ceiling: null,
-            instrument: null,
-            personalCaps: NO_PERSONAL_CAPS,
-            personalDll: null,
-        });
+        const context = ruleContextAt(
+            plan,
+            SizingStage.Funded,
+            fundedAccount().state,
+            {
+                ceiling: null,
+                instrument: null,
+                personalCaps: NO_PERSONAL_CAPS,
+                personalDll: null,
+            },
+        );
         assertSizingInvariant(documented, context);
 
         const rule = createDocumentedRule(SizingStage.Funded, DEFAULT_RULEBOOK);
@@ -375,7 +382,9 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         const fundedResults = fundedAdvisor()
             .optimumRequests()
             .map((request) => runEngineOptimum(plan, request));
-        const fundedView = adviceViewModel(fundedAdvisor().assemble(fundedResults));
+        const fundedView = adviceViewModel(
+            fundedAdvisor().assemble(fundedResults),
+        );
 
         const evalResults = smallLadderResults(evalAdvisor());
         const evalView = adviceViewModel(evalAdvisor().assemble(evalResults));
@@ -452,7 +461,9 @@ describe('adviceViewModel next action and daily card values (PT-67)', () => {
                     : { ...advice.dailyPlanCard, rungs: [] },
         };
 
-        expect(adviceViewModel(stopped).action).toBe(AccountAction.StopForToday);
+        expect(adviceViewModel(stopped).action).toBe(
+            AccountAction.StopForToday,
+        );
     });
 
     it('leaves the daily card values null until the value run fills them', () => {

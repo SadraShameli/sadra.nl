@@ -19,7 +19,9 @@ describe('funded consistency ceiling duplication (PT-24b step 4)', () => {
 
     it('computes the funded consistency ceiling in exactly one place across both files', () => {
         const total =
-            occurrencesIn('src/lib/prop-calculator/advisor/FundedSizingAdvisor.ts') +
+            occurrencesIn(
+                'src/lib/prop-calculator/advisor/FundedSizingAdvisor.ts',
+            ) +
             occurrencesIn('src/lib/prop-calculator/advisor/CopyGroupSizing.ts');
         expect(total).toBe(1);
     });
@@ -72,13 +74,18 @@ describe('SizingAdvisor context template method (review MEDIUM)', () => {
     it.each(['checkNextTradeRisk(', 'dailyPlanCard(', 'documented('])(
         'LiveSizingAdvisor does not redeclare %s and only overrides the nullable context builder',
         (member) => {
-            const declaration = new RegExp(`^    ${member.replace('(', String.raw`\(`)}`, 'm');
+            const declaration = new RegExp(
+                `^    ${member.replace('(', String.raw`\(`)}`,
+                'm',
+            );
             expect(sourceOf(LIVE_PATH)).not.toMatch(declaration);
             expect(sourceOf(BASE_PATH)).toMatch(declaration);
         },
     );
 
     it('LiveSizingAdvisor overrides buildContextOrNull', () => {
-        expect(sourceOf(LIVE_PATH)).toMatch(/buildContextOrNull\(\): LiveRuleContext \| null/);
+        expect(sourceOf(LIVE_PATH)).toMatch(
+            /buildContextOrNull\(\): LiveRuleContext \| null/,
+        );
     });
 });

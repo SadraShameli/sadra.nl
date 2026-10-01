@@ -129,12 +129,12 @@ vi.mock('~/trpc/react', () => ({
                 list: harness.query('account.list'),
                 remove: harness.mutation('account.remove'),
                 unarchive: harness.mutation('account.unarchive'),
-                upgradeToModeled: harness.mutation(
-                    'account.upgradeToModeled',
-                ),
+                upgradeToModeled: harness.mutation('account.upgradeToModeled'),
             },
+            bankroll: { list: harness.query('bankroll.list') },
             copyGroup: { list: harness.query('copyGroup.list') },
             decision: {
+                list: harness.query('decision.list'),
                 listForAccount: harness.query('decision.listForAccount'),
             },
             event: {
@@ -570,6 +570,34 @@ describe('AccountDetailView', () => {
         );
     });
 
+    it('mounts the value and next action figures above the plan rules of an active account (PT-68)', () => {
+        answerEverything();
+        render();
+        const figures = container.querySelector(
+            '[aria-label="Computing the value and next action"], dl[aria-label="Value and next action"], [role="alert"]',
+        );
+        expect(figures).not.toBeNull();
+        expect(
+            figures?.compareDocumentPosition(sectionTitled('Plan rules')) ===
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBe(true);
+    });
+
+    it('shows no value and next action figures for an archived account (PT-68)', () => {
+        answerEverything({
+            'account.get': answer({
+                ...BRAVO,
+                archivedAt: new Date('2026-09-01T00:00:00Z'),
+            }),
+        });
+        render();
+        expect(
+            container.querySelector(
+                '[aria-label="Computing the value and next action"], dl[aria-label="Value and next action"]',
+            ),
+        ).toBeNull();
+    });
+
     it('shows a loading placeholder and no sections while the account is pending', () => {
         render();
         expect(
@@ -698,7 +726,9 @@ describe('AccountDetailView', () => {
     });
 
     it('shows the list price and the difference on each fee row', () => {
-        answerEverything({ 'fee.list': answer([fee({ amountCents: 47_000 })]) });
+        answerEverything({
+            'fee.list': answer([fee({ amountCents: 47_000 })]),
+        });
         render();
         const fees = sectionTitled('Fees');
         const listPrice = feePrefillCents(PLAN, FeeKind.EvalPurchase);
@@ -945,7 +975,12 @@ describe('AccountDetailView', () => {
         harness.queries.set(
             'event.listForAccount',
             answer([
-                event('e-a1', ALPHA_ID, AccountEventKind.Purchased, '2026-08-03'),
+                event(
+                    'e-a1',
+                    ALPHA_ID,
+                    AccountEventKind.Purchased,
+                    '2026-08-03',
+                ),
                 {
                     ...event(
                         'e-a2',
@@ -1119,9 +1154,7 @@ describe('AccountDetailView', () => {
         });
         render();
         const state = sectionTitled('Account state');
-        expect(state.textContent).toContain(
-            'The balances could not be loaded',
-        );
+        expect(state.textContent).toContain('The balances could not be loaded');
         expect(state.textContent).toContain('Failed to fetch');
         expect(
             state.querySelector('[aria-label="Loading the account state"]'),

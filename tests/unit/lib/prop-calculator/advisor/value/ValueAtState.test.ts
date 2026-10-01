@@ -16,9 +16,7 @@ import {
     startStateOf,
     valueAtState,
 } from '~/lib/prop-calculator/advisor/value/ValueAtState';
-import {
-    ValueResultKind,
-} from '~/lib/prop-calculator/advisor/value/ValueEstimate';
+import { ValueResultKind } from '~/lib/prop-calculator/advisor/value/ValueEstimate';
 import {
     type AccountState,
     FirmId,

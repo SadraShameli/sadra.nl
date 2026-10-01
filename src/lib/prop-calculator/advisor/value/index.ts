@@ -54,22 +54,24 @@ export {
     type TradeValueSwingRequest,
     type TradeValueSwingResult,
 } from './TradeValueSwing';
-export {
-    startStateOf,
-    valueAtState,
-} from './ValueAtState';
+export { startStateOf, valueAtState } from './ValueAtState';
 export {
     evalStartAccount,
     firstPayoutEligibleAccount,
+    firstPayoutEligibleAssumptions,
+    type FirstPayoutEligibleBuild,
+    firstPayoutEligibleBuild,
     freshFundedAccount,
     fundedTrackerAfterMilestonePayout,
     postFirstPayoutAccount,
     requestNowValue,
     type RequestNowValue,
     requireValue,
+    VALUE_CHAIN_STEP_ORDER,
     valueChain,
     type ValueChainResult,
     type ValueChainStep,
+    type ValueChainStepFailure,
     ValueChainStepKind,
 } from './ValueChain';
 export {

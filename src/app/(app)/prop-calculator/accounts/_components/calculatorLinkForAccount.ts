@@ -131,7 +131,9 @@ export function calculatorLinkForAccount(
             });
         }
         if (rulebook.eval.mode === EvalSizingMode.MaxRisk) {
-            flags.push(AccountCalculatorLinkFlag.EvalSizingApproximatedByLadder);
+            flags.push(
+                AccountCalculatorLinkFlag.EvalSizingApproximatedByLadder,
+            );
         }
     }
 

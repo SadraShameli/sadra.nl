@@ -3,7 +3,11 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ViolationsSection } from '~/app/(app)/prop-calculator/accounts/_components/detail/ViolationsSection';
-import { RuleViolationKind, usdCents, ViolationSource } from '~/lib/prop-accounts';
+import {
+    RuleViolationKind,
+    usdCents,
+    ViolationSource,
+} from '~/lib/prop-accounts';
 import { type RouterOutputs } from '~/trpc/react';
 
 type ViolationRow = RouterOutputs['propAccounts']['violation']['list'][number];
@@ -323,9 +327,9 @@ describe('ViolationsSection', () => {
                 'Edit the Position above the documented size violation of 2026-09-12',
             ).click();
         });
-        expect((inputLabelled(container, 'Cost') as HTMLInputElement).value).toBe(
-            '50',
-        );
+        expect(
+            (inputLabelled(container, 'Cost') as HTMLInputElement).value,
+        ).toBe('50');
         typeInto(inputLabelled(container, 'Note'), 'edited note');
         await submit(container, 'Save violation');
         expect(harness.mutateAsyncOf('violation.update')).toHaveBeenCalledWith({

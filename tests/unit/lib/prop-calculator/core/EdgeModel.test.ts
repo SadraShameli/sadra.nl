@@ -86,7 +86,9 @@ describe('DriftEdge', () => {
     });
 
     it('throws instead of silently pinning mu at the search boundary for an unfittable combination', () => {
-        expect(() => DriftEdge.fittedTo(0.001, 0.001)).toThrow(DriftEdgeFitError);
+        expect(() => DriftEdge.fittedTo(0.001, 0.001)).toThrow(
+            DriftEdgeFitError,
+        );
     });
 });
 
@@ -119,7 +121,10 @@ describe('edgeModelSpecSchema (serializable, crosses the worker boundary)', () =
             kind: EdgeModelKind.Fixed,
             winrate: 0.4,
         });
-        expect(parsed).toStrictEqual({ kind: EdgeModelKind.Fixed, winrate: 0.4 });
+        expect(parsed).toStrictEqual({
+            kind: EdgeModelKind.Fixed,
+            winrate: 0.4,
+        });
     });
 
     it('parses a drift spec', () => {

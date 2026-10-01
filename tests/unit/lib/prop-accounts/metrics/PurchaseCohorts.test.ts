@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { AccountEventKind, AccountStatus, FeeKind } from '~/lib/prop-accounts/core';
+import {
+    AccountEventKind,
+    AccountStatus,
+    FeeKind,
+} from '~/lib/prop-accounts/core';
 import {
     cohortByPurchaseWindow,
     pooledEndedCohortMultiple,

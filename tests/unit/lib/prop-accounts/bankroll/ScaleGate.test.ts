@@ -80,7 +80,11 @@ describe('scaleGateOf', () => {
 
         const belowOne = scaleGateOf({
             ...BASE,
-            cohortMultiple: { interval: { lower: 0, upper: 1 }, n: 10, value: 0.8 },
+            cohortMultiple: {
+                interval: { lower: 0, upper: 1 },
+                n: 10,
+                value: 0.8,
+            },
         });
         expect(belowOne.status).toBe(ScaleGateStatus.NotPositiveAfterCost);
         expect(belowOne.unmetConditions).toEqual([
@@ -104,7 +108,11 @@ describe('scaleGateOf', () => {
             minTrades: 1,
         };
         const result = scaleGateOf({
-            cohortMultiple: { interval: { lower: 2, upper: 2 }, n: 1, value: 2 },
+            cohortMultiple: {
+                interval: { lower: 2, upper: 2 },
+                n: 1,
+                value: 2,
+            },
             evalAttempts: 1,
             fundedAccounts: 1,
             pooledNetPerSlot: { standardError: null, value: usdCents(5000) },
@@ -120,7 +128,11 @@ describe('scaleGateOf', () => {
     it('never lets a single ended account drive the cohort multiple to Ready, even with a beyond-noise pooled net', () => {
         const result = scaleGateOf({
             ...BASE,
-            cohortMultiple: { interval: { lower: 0.1, upper: 10 }, n: 1, value: 2 },
+            cohortMultiple: {
+                interval: { lower: 0.1, upper: 10 },
+                n: 1,
+                value: 2,
+            },
         });
         expect(result.status).not.toBe(ScaleGateStatus.Ready);
         expect(result.unmetConditions).toContain(
@@ -131,7 +143,12 @@ describe('scaleGateOf', () => {
 
 describe('scaleGateFromLedger', () => {
     it('is ThresholdsNotSet for an empty ledger', () => {
-        const result = scaleGateFromLedger(ledger({}), '2026-10-01', NO_THRESHOLDS, 0);
+        const result = scaleGateFromLedger(
+            ledger({}),
+            '2026-10-01',
+            NO_THRESHOLDS,
+            0,
+        );
         expect(result.status).toBe(ScaleGateStatus.ThresholdsNotSet);
     });
 
@@ -148,7 +165,11 @@ describe('scaleGateFromLedger', () => {
                 purchased(funded),
                 event(funded, AccountEventKind.EvalPassed, '2026-09-10'),
                 purchased(ledgerOnlyAccount),
-                event(ledgerOnlyAccount, AccountEventKind.EvalPassed, '2026-09-05'),
+                event(
+                    ledgerOnlyAccount,
+                    AccountEventKind.EvalPassed,
+                    '2026-09-05',
+                ),
             ],
             fees: [fee(funded, FeeKind.EvalPurchase, 10_000, '2026-09-01')],
             payouts: [payout(funded, 60_000, { paidOn: '2026-09-20' })],

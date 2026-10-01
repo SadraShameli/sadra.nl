@@ -103,16 +103,19 @@ export function leverVariants(
     levers: BankrollLeversInputs,
 ): BankrollLeverVariant[] {
     const variants: BankrollLeverVariant[] = [];
-    const risks =
-        levers.risks ?? [inputs.riskPerTrade * 0.5, inputs.riskPerTrade * 1.5];
+    const risks = levers.risks ?? [
+        inputs.riskPerTrade * 0.5,
+        inputs.riskPerTrade * 1.5,
+    ];
     for (const risk of risks) {
         const outputs = variantOutputsFor(inputs, plan, { riskPerTrade: risk });
         variants.push({ kind: BankrollLeverKind.Risk, outputs, value: risk });
     }
 
-    const tradesPerDayValues =
-        levers.tradesPerDay ??
-        [Math.max(1, inputs.tradesPerDay - 1), inputs.tradesPerDay + 1];
+    const tradesPerDayValues = levers.tradesPerDay ?? [
+        Math.max(1, inputs.tradesPerDay - 1),
+        inputs.tradesPerDay + 1,
+    ];
     for (const tradesPerDay of tradesPerDayValues) {
         const outputs = variantOutputsFor(inputs, plan, { tradesPerDay });
         variants.push({

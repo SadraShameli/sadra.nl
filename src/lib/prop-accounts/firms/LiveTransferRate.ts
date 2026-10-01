@@ -35,7 +35,9 @@ export function liveTransferRate(
     return {
         perFirm: groupByFirmKey(ledger.resolvedAccounts, (entry) =>
             firmKeyOf(entry.row),
-        ).map(({ firmKey, items }) => firmLiveTransferRate(firmKey, items, asOf)),
+        ).map(({ firmKey, items }) =>
+            firmLiveTransferRate(firmKey, items, asOf),
+        ),
     };
 }
 

@@ -56,9 +56,7 @@ export function TiltVarianceCard({
                     </TableBody>
                 </Table>
             )}
-            <p className="text-xs text-muted-foreground">
-                {model.disclosure}
-            </p>
+            <p className="text-xs text-muted-foreground">{model.disclosure}</p>
         </div>
     );
 }

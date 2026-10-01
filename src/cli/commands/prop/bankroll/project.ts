@@ -117,8 +117,14 @@ export function projectSummaryRows(
             'bankroll (P10 / P50 / P90)',
             `${formatCurrency(out.cashP10[lastIndex] ?? 0)} / ${formatCurrency(out.cashP50[lastIndex] ?? 0)} / ${formatCurrency(out.cashP90[lastIndex] ?? 0)}`,
         ],
-        ['cumulative spend (P50)', formatCurrency(out.cumulativeSpendP50[lastIndex] ?? 0)],
-        ['cumulative payouts (P50)', formatCurrency(out.payoutP50[lastIndex] ?? 0)],
+        [
+            'cumulative spend (P50)',
+            formatCurrency(out.cumulativeSpendP50[lastIndex] ?? 0),
+        ],
+        [
+            'cumulative payouts (P50)',
+            formatCurrency(out.payoutP50[lastIndex] ?? 0),
+        ],
         ['withdrawn (P50)', formatCurrency(out.withdrawnP50[lastIndex] ?? 0)],
         ['cards bought (median)', out.cardsBoughtP50.toFixed(1)],
         [

@@ -1,8 +1,18 @@
 import { type DocumentedRule } from '~/lib/prop-calculator/advisor/DocumentedRule';
-import { type DayStopReason, NextTradeKind } from '~/lib/prop-calculator/advisor/DocumentedSizing';
+import {
+    type DayStopReason,
+    NextTradeKind,
+} from '~/lib/prop-calculator/advisor/DocumentedSizing';
 import { NextTradeRiskVerdict } from '~/lib/prop-calculator/advisor/NextTradeRiskVerdict';
-import { type DayProgress, type RuleContext } from '~/lib/prop-calculator/advisor/RuleContext';
-import { CENTS_PER_DOLLAR, type Dollars, dollars } from '~/lib/prop-calculator/core';
+import {
+    type DayProgress,
+    type RuleContext,
+} from '~/lib/prop-calculator/advisor/RuleContext';
+import {
+    CENTS_PER_DOLLAR,
+    type Dollars,
+    dollars,
+} from '~/lib/prop-calculator/core';
 
 export interface NextTradeRiskCheckRequest<TContext extends RuleContext> {
     readonly context: TContext;
@@ -36,8 +46,7 @@ export function nextTradeRiskCheck<TContext extends RuleContext>(
     const trade = rule.nextTrade(context, day);
     const documentedRung =
         trade.kind === NextTradeKind.Trade ? trade.rung.risk : null;
-    const stopReason =
-        trade.kind === NextTradeKind.Stop ? trade.reason : null;
+    const stopReason = trade.kind === NextTradeKind.Stop ? trade.reason : null;
 
     const excessOverDocumentedCents = excessCentsOf(
         proposedRisk,

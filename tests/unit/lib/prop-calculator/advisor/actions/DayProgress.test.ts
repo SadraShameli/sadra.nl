@@ -84,7 +84,9 @@ describe('dayProgressFromCounts (PT-67b step 3)', () => {
         const day = dayProgressFromCounts(advisor, 1, 1);
 
         expect(day.dayPnL).toBe(
-            dollars((rungs[1]?.takeProfit ?? 0) - (rungs[0]?.runningLossAfter ?? 0)),
+            dollars(
+                (rungs[1]?.takeProfit ?? 0) - (rungs[0]?.runningLossAfter ?? 0),
+            ),
         );
     });
 

@@ -45,13 +45,17 @@ function variant(
         },
         plan: {
             firmId: FirmId.TopStep,
-            optIns: { takesFundedReset: false, takesOneTimeEarlyWithdrawal: false },
+            optIns: {
+                takesFundedReset: false,
+                takesOneTimeEarlyWithdrawal: false,
+            },
             planSerial: TOPSTEP_50K_SERIAL,
         },
         policy: {
             commissionPerRoundTrip: 0,
             fundedHorizonDays: 30,
-            lifetimePayoutCapBasis: LifetimePayoutCapBasis.LiveTriggersNotChecked,
+            lifetimePayoutCapBasis:
+                LifetimePayoutCapBasis.LiveTriggersNotChecked,
             lifetimePayoutCapOverride: null,
             payoutRequestOverride: 500,
             rebuyLagBasis: RebuyLagBasis.AssumedZero,
@@ -195,11 +199,12 @@ describe('computeToolsResult: TakeProfitRows (thin call into TakeProfitWhatIf)',
             variant: variant(),
         });
         expect(result.kind).toBe(ToolsResponseKind.TakeProfitRows);
-        if (result.kind !== ToolsResponseKind.TakeProfitRows) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.TakeProfitRows)
+            throw new Error('unreachable');
         expect(result.rows).toHaveLength(3);
-        expect(result.rows.every((row) => row.label === TAKE_PROFIT_WHAT_IF_LABEL)).toBe(
-            true,
-        );
+        expect(
+            result.rows.every((row) => row.label === TAKE_PROFIT_WHAT_IF_LABEL),
+        ).toBe(true);
         const anchorRow = result.rows.find((row) => row.rrRatio === 2);
         expect(anchorRow?.winrate).toBeCloseTo(0.4, 6);
         const rrOne = result.rows.find((row) => row.rrRatio === 1);
@@ -214,7 +219,10 @@ describe('computeToolsResult: TakeProfitRows (thin call into TakeProfitWhatIf)',
             kind: ToolsRequestKind.TakeProfitRows,
             rrCandidates: [1, 2],
             runId: 2,
-            variant: { ...variant(), plan: { ...variant().plan, planSerial: 'no-such-plan' } },
+            variant: {
+                ...variant(),
+                plan: { ...variant().plan, planSerial: 'no-such-plan' },
+            },
         });
         expect(result.kind).toBe(ToolsResponseKind.Failed);
     });
@@ -239,7 +247,8 @@ describe('computeToolsResult: TakeProfitRows (thin call into TakeProfitWhatIf)',
             variant: variant(),
         });
         expect(result.kind).toBe(ToolsResponseKind.TakeProfitRows);
-        if (result.kind !== ToolsResponseKind.TakeProfitRows) throw new Error('unreachable');
+        if (result.kind !== ToolsResponseKind.TakeProfitRows)
+            throw new Error('unreachable');
         expect(result.rows.map((row) => row.rrRatio)).toContain(1);
         expect(result.rows.map((row) => row.rrRatio)).toContain(2);
     });

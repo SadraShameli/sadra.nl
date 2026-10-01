@@ -191,7 +191,9 @@ export function SimulatorView() {
                     <ValueChainCard cards={valueCards} />
                     <FundedValueCard
                         cards={valueCards}
-                        rulebookSampleThreshold={rulebook.samples.minFundedAccounts}
+                        rulebookSampleThreshold={
+                            rulebook.samples.minFundedAccounts
+                        }
                     />
                 </section>
             </div>

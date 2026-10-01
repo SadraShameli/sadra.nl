@@ -22,9 +22,15 @@ const THRESHOLDS = {
 
 describe('roundCycle', () => {
     it('measures cycle days from the first fee to the last attributed payout', () => {
-        const r = round(EVAL_PLAN, 'Round 1', '2026-01-01', RoundStatus.Closed, {
-            closedOn: '2026-03-01',
-        });
+        const r = round(
+            EVAL_PLAN,
+            'Round 1',
+            '2026-01-01',
+            RoundStatus.Closed,
+            {
+                closedOn: '2026-03-01',
+            },
+        );
         const acc = account(EVAL_PLAN, { roundId: r.id });
         const fees = [
             fee(acc, FeeKind.EvalPurchase, 10_000, '2026-01-05'),
@@ -43,9 +49,15 @@ describe('roundCycle', () => {
     });
 
     it('computes days to 50% and 90% of cumulative payout dollars', () => {
-        const r = round(EVAL_PLAN, 'Round 1', '2026-01-01', RoundStatus.Closed, {
-            closedOn: '2026-03-01',
-        });
+        const r = round(
+            EVAL_PLAN,
+            'Round 1',
+            '2026-01-01',
+            RoundStatus.Closed,
+            {
+                closedOn: '2026-03-01',
+            },
+        );
         const acc = account(EVAL_PLAN, { roundId: r.id });
         const fees = [fee(acc, FeeKind.EvalPurchase, 10_000, '2026-01-01')];
         const payouts = [
@@ -92,16 +104,25 @@ describe('roundCycle', () => {
     });
 
     it('is null threshold level when no minimum is set even with samples', () => {
-        const r = round(EVAL_PLAN, 'Round 1', '2026-01-01', RoundStatus.Closed, {
-            closedOn: '2026-03-01',
-        });
+        const r = round(
+            EVAL_PLAN,
+            'Round 1',
+            '2026-01-01',
+            RoundStatus.Closed,
+            {
+                closedOn: '2026-03-01',
+            },
+        );
         const acc = account(EVAL_PLAN, { roundId: r.id });
         const result = roundCycle(
             ledger({
                 accounts: [acc],
                 fees: [fee(acc, FeeKind.EvalPurchase, 10_000, '2026-01-01')],
                 payouts: [
-                    payout(acc, 10_000, { netCents: 10_000, paidOn: '2026-01-05' }),
+                    payout(acc, 10_000, {
+                        netCents: 10_000,
+                        paidOn: '2026-01-05',
+                    }),
                 ],
                 rounds: [r],
             }),
@@ -112,21 +133,29 @@ describe('roundCycle', () => {
 
     it('is adequate once the closed-round minimum is met', () => {
         const rounds = Array.from({ length: 3 }, (_, index) =>
-            round(EVAL_PLAN, `Round ${index}`, '2026-01-01', RoundStatus.Closed, {
-                closedOn: '2026-03-01',
-            }),
+            round(
+                EVAL_PLAN,
+                `Round ${index}`,
+                '2026-01-01',
+                RoundStatus.Closed,
+                {
+                    closedOn: '2026-03-01',
+                },
+            ),
         );
-        const accounts = rounds.map((r) => account(EVAL_PLAN, { roundId: r.id }));
+        const accounts = rounds.map((r) =>
+            account(EVAL_PLAN, { roundId: r.id }),
+        );
         const fees = accounts.map((acc) =>
             fee(acc, FeeKind.EvalPurchase, 10_000, '2026-01-01'),
         );
         const payouts = accounts.map((acc) =>
             payout(acc, 10_000, { netCents: 10_000, paidOn: '2026-01-05' }),
         );
-        const result = roundCycle(
-            ledger({ accounts, fees, payouts, rounds }),
-            { ...THRESHOLDS, minClosedRounds: 3 },
-        );
+        const result = roundCycle(ledger({ accounts, fees, payouts, rounds }), {
+            ...THRESHOLDS,
+            minClosedRounds: 3,
+        });
         expect(result.sampleLevel).toBe(SampleLevel.Adequate);
     });
 });

@@ -53,9 +53,7 @@ describe('AccountsPassedDistributionChart caption prop (PT-61b)', () => {
                 />,
             );
         });
-        expect(container.textContent).toContain(
-            '# payouts per funded account',
-        );
+        expect(container.textContent).toContain('# payouts per funded account');
         expect(container.textContent).not.toContain('# accounts passed');
     });
 });

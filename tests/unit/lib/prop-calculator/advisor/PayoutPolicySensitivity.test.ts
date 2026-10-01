@@ -67,8 +67,14 @@ describe('payoutPolicySensitivity (PT-32)', () => {
     });
 
     it('breaks a tie deterministically by plan key', () => {
-        const first = payoutPolicySensitivity([entry('b', 100, 100), entry('a', 100, 100)]);
-        const second = payoutPolicySensitivity([entry('a', 100, 100), entry('b', 100, 100)]);
+        const first = payoutPolicySensitivity([
+            entry('b', 100, 100),
+            entry('a', 100, 100),
+        ]);
+        const second = payoutPolicySensitivity([
+            entry('a', 100, 100),
+            entry('b', 100, 100),
+        ]);
         expect(ranksOf(first)).toStrictEqual(ranksOf(second));
         expect(ranksOf(first).get('a')).toBe(1);
         expect(ranksOf(first).get('b')).toBe(2);

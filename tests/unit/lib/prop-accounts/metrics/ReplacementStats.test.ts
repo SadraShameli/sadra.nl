@@ -5,7 +5,9 @@ import {
     AccountStage,
     AccountStatus,
 } from '~/lib/prop-accounts/core';
+import * as MetricsBarrel from '~/lib/prop-accounts/metrics';
 import {
+    measuredRebuyLagOfDefault,
     RebuyLagBasis,
     rebuyLagDefault,
     replacementStats,
@@ -218,5 +220,35 @@ describe('rebuyLagDefault', () => {
             days: 0,
             samples: 0,
         });
+    });
+});
+
+describe('measuredRebuyLagOfDefault (PT-37b)', () => {
+    it('maps a measured lag to the advisor input and an assumed zero to none', () => {
+        const stats = replacementStats(ledger(buildRows()));
+        expect(
+            measuredRebuyLagOfDefault(rebuyLagDefault(stats, EVAL_PLAN.serial)),
+        ).toEqual({ days: 1, samples: 2 });
+        expect(
+            measuredRebuyLagOfDefault(
+                rebuyLagDefault(stats, INSTANT_PLAN.serial),
+            ),
+        ).toBeNull();
+    });
+
+    it('carries nothing but the days and the samples', () => {
+        expect(
+            measuredRebuyLagOfDefault({
+                basis: RebuyLagBasis.Measured,
+                days: 3.5,
+                samples: 4,
+            }),
+        ).toStrictEqual({ days: 3.5, samples: 4 });
+    });
+
+    it('does not reuse the name of the advisor mapping, which has a different contract', () => {
+        expect(Object.keys(MetricsBarrel)).not.toContain(
+            'measuredRebuyLagFrom',
+        );
     });
 });

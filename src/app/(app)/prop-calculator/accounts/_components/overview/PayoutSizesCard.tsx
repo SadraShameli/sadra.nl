@@ -33,9 +33,7 @@ export function PayoutSizesCard({
 }) {
     if (model.count === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No paid payout yet.
-            </p>
+            <p className="text-sm text-muted-foreground">No paid payout yet.</p>
         );
     }
     const histogramValues = payoutHistogramValues(model.histogram);
@@ -56,7 +54,9 @@ export function PayoutSizesCard({
                 values={histogramValues}
                 wrapperClassName="w-full"
                 xAxisLabel="Net payout"
-                xAxisTickFormatter={(value) => formatCompactCurrency(value / 100)}
+                xAxisTickFormatter={(value) =>
+                    formatCompactCurrency(value / 100)
+                }
             />
             <PayoutSizeTable
                 columnLabel="Account size"
@@ -145,11 +145,17 @@ function PayoutSizeTable({
     );
 }
 
-function Stat({ label, value }: { readonly label: string; readonly value: string }) {
+function Stat({
+    label,
+    value,
+}: {
+    readonly label: string;
+    readonly value: string;
+}) {
     return (
         <div>
             <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="text-lg font-semibold tabular-nums text-white">
+            <dd className="text-lg font-semibold text-white tabular-nums">
                 {value}
             </dd>
         </div>

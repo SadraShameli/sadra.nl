@@ -129,7 +129,8 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
                 } as const;
 
                 const result = runEngineOptimum(plan, request);
-                if (!('ladder' in result)) throw new Error('expected a ladder result');
+                if (!('ladder' in result))
+                    throw new Error('expected a ladder result');
                 const expected = runLadderSearch({
                     grid: request.grid,
                     score: { ...request.score, plan },
@@ -190,7 +191,8 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
             } as const;
 
             const result = runEngineOptimum(plan, request);
-            if (!('ladder' in result)) throw new Error('expected a ladder result');
+            if (!('ladder' in result))
+                throw new Error('expected a ladder result');
             const expected = runLadderSearch({
                 grid: request.grid,
                 score: { ...request.score, plan },
@@ -244,7 +246,8 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
             } as const;
 
             const result = runEngineOptimum(plan, request);
-            if (!('sweep' in result)) throw new Error('expected a sweep result');
+            if (!('sweep' in result))
+                throw new Error('expected a sweep result');
             const { sweep } = result;
             if (sweep.kind !== FundedSweepOptimumResultKind.Optimum) {
                 throw new Error(`expected an optimum, got ${sweep.kind}`);
@@ -311,12 +314,16 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
             } as const;
 
             const result = runEngineOptimum(plan, request);
-            if (!('sweep' in result)) throw new Error('expected a sweep result');
+            if (!('sweep' in result))
+                throw new Error('expected a sweep result');
             if (result.sweep.kind !== FundedSweepOptimumResultKind.Optimum) {
                 throw new Error('expected an optimum');
             }
 
-            const build = buildFundedCandidates({ ...request.candidates, plan });
+            const build = buildFundedCandidates({
+                ...request.candidates,
+                plan,
+            });
             if (build.kind !== FundedCandidateBuildKind.Built) {
                 throw new Error('expected candidates to build');
             }
@@ -336,9 +343,9 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
             )[0];
             if (!expectedWinner) throw new Error('no expected winner');
 
-            expect(
-                result.sweep.optimum.expectedMonthlyNetStandardError,
-            ).toBe(expectedWinner.out.estimates.expectedMonthlyNet.standardError);
+            expect(result.sweep.optimum.expectedMonthlyNetStandardError).toBe(
+                expectedWinner.out.estimates.expectedMonthlyNet.standardError,
+            );
             expect(
                 result.sweep.optimum.expectedMonthlyRealizedNetStandardError,
             ).toBe(
@@ -348,9 +355,12 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
             expect(
                 result.sweep.optimum.expectedHorizonCreditStandardError,
             ).toBe(
-                expectedWinner.out.estimates.expectedHorizonCredit.standardError,
+                expectedWinner.out.estimates.expectedHorizonCredit
+                    .standardError,
             );
-            expect(result.sweep.optimum.expectedMonthlyNetStandardError).not.toBeNull();
+            expect(
+                result.sweep.optimum.expectedMonthlyNetStandardError,
+            ).not.toBeNull();
             expect(
                 result.sweep.optimum.expectedMonthlyRealizedNetStandardError,
             ).not.toBeNull();
@@ -402,7 +412,8 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
             } as const;
 
             const result = runEngineOptimum(plan, request);
-            if (!('sweep' in result)) throw new Error('expected a sweep result');
+            if (!('sweep' in result))
+                throw new Error('expected a sweep result');
             if (result.sweep.kind !== FundedSweepOptimumResultKind.Optimum) {
                 throw new Error('expected an optimum');
             }
@@ -446,13 +457,21 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
                 source: AdviceSource.FundedSweepFresh,
             } as const;
 
-            const build = buildFundedCandidates({ ...request.candidates, plan });
+            const build = buildFundedCandidates({
+                ...request.candidates,
+                plan,
+            });
             expect(build.kind).toBe(FundedCandidateBuildKind.Refused);
 
             const result = runEngineOptimum(plan, request);
-            if (!('sweep' in result)) throw new Error('expected a sweep result');
-            expect(result.sweep.kind).toBe(FundedSweepOptimumResultKind.NoCandidates);
-            if (result.sweep.kind !== FundedSweepOptimumResultKind.NoCandidates) {
+            if (!('sweep' in result))
+                throw new Error('expected a sweep result');
+            expect(result.sweep.kind).toBe(
+                FundedSweepOptimumResultKind.NoCandidates,
+            );
+            if (
+                result.sweep.kind !== FundedSweepOptimumResultKind.NoCandidates
+            ) {
                 throw new Error('expected NoCandidates');
             }
             expect(result.sweep.refusal).toStrictEqual(
@@ -518,10 +537,15 @@ describe('runEngineOptimum dispatches PT-32 sources (PT-32 step 6)', () => {
         };
 
         const result = runEngineOptimum(plan, request);
-        if (!('sweep' in result) || result.source !== AdviceSource.FundedSweepFromState) {
+        if (
+            !('sweep' in result) ||
+            result.source !== AdviceSource.FundedSweepFromState
+        ) {
             throw new Error('expected a from-state sweep result');
         }
-        expect(result.sweep).toStrictEqual(runFundedFromStateSweep(plan, request));
+        expect(result.sweep).toStrictEqual(
+            runFundedFromStateSweep(plan, request),
+        );
     });
 
     it('dispatches PayoutSizeSweep to runPayoutSizeSweep, matching a direct call', () => {
@@ -537,7 +561,10 @@ describe('runEngineOptimum dispatches PT-32 sources (PT-32 step 6)', () => {
         };
 
         const result = runEngineOptimum(plan, request);
-        if (!('sweep' in result) || result.source !== AdviceSource.PayoutSizeSweep) {
+        if (
+            !('sweep' in result) ||
+            result.source !== AdviceSource.PayoutSizeSweep
+        ) {
             throw new Error('expected a payout-size sweep result');
         }
         expect(result.sweep).toStrictEqual(runPayoutSizeSweep(plan, request));

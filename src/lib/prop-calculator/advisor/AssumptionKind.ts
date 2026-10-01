@@ -7,6 +7,7 @@ export enum AssumptionKind {
     ElapsedDaysApproximatedFromTradingDays = 'elapsed-days-approximated-from-trading-days',
     FundedResetsFromEvents = 'funded-resets-from-events',
     GrossOnlyPayouts = 'gross-only-payouts',
+    LadderStepWidened = 'ladder-step-widened',
     LastPayoutBalanceAssumedCurrent = 'last-payout-balance-assumed-current',
     LiveModelApproximation = 'live-model-approximation',
     LiveNotModeled = 'live-not-modeled',

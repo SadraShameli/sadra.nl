@@ -8,9 +8,16 @@ import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToo
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { Input } from '~/components/ui/Input';
 import { useSession } from '~/lib/auth/client';
-import { formatGateCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import {
+    formatGateCurrency,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import { fraction } from '~/lib/prop-calculator';
-import { ECONOMICS_REASON_TEXT, EconomicsReason } from '~/lib/prop-calculator/economics';
+import {
+    ECONOMICS_REASON_TEXT,
+    EconomicsReason,
+} from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
 import { api } from '~/trpc/react';
 
@@ -39,15 +46,20 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
     const baseResult = useBaseResult();
     const session = useSession();
     const hasSession = session.data?.user.id !== undefined;
-    const bankrollSummaryQuery = api.propAccounts.bankroll.summary.useQuery(undefined, {
-        enabled: hasSession,
-    });
+    const bankrollSummaryQuery = api.propAccounts.bankroll.summary.useQuery(
+        undefined,
+        {
+            enabled: hasSession,
+        },
+    );
 
     const out = baseResult.result;
     const rulebookThreshold = rulebook.bankroll.lossRiskThreshold;
     const lossThreshold =
-        state.lossThreshold ?? (rulebookThreshold === null ? null : fraction(rulebookThreshold));
-    const summary = out === null ? null : bankrollSetupSummary(out, lossThreshold);
+        state.lossThreshold ??
+        (rulebookThreshold === null ? null : fraction(rulebookThreshold));
+    const summary =
+        out === null ? null : bankrollSetupSummary(out, lossThreshold);
 
     const budget = state.budget;
     const canPrice =
@@ -55,9 +67,7 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
         !baseResult.isPending &&
         budget !== null &&
         summary?.status === BankrollSetupStatus.Priced;
-    const requestKey = canPrice
-        ? stableJson({ budget, variant })
-        : null;
+    const requestKey = canPrice ? stableJson({ budget, variant }) : null;
 
     const buildRequest = useCallback(
         (runId: number) =>
@@ -75,7 +85,9 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
             : null;
 
     const pricing =
-        out === null || budget === null ? null : bankrollBudgetPricing(out, budget, batch);
+        out === null || budget === null
+            ? null
+            : bankrollBudgetPricing(out, budget, batch);
 
     const failureReason =
         budget !== null && worker.state.phase === ToolsWorkerPhase.Failed
@@ -85,19 +97,32 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
     const availableCents = bankrollSummaryQuery.data?.availableCents ?? null;
 
     return (
-        <section aria-labelledby="bankroll-setup-heading" className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold tracking-tight text-white" id="bankroll-setup-heading">
+        <section
+            aria-labelledby="bankroll-setup-heading"
+            className="flex flex-col gap-4"
+        >
+            <h2
+                className="text-lg font-semibold tracking-tight text-white"
+                id="bankroll-setup-heading"
+            >
                 Setup
             </h2>
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="bankroll-budget">
+                <label
+                    className="text-xs font-medium text-muted-foreground"
+                    htmlFor="bankroll-budget"
+                >
                     Budget ($)
                 </label>
                 <Input
                     id="bankroll-budget"
                     inputMode="decimal"
                     onChange={(event) => {
-                        onChange({ budget: parseBankrollDollarsField(event.target.value) });
+                        onChange({
+                            budget: parseBankrollDollarsField(
+                                event.target.value,
+                            ),
+                        });
                     }}
                     placeholder="Enter your budget"
                     type="number"
@@ -106,15 +131,25 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                 {availableCents === null ? null : (
                     <button
                         className="w-fit text-xs text-primary underline"
-                        onClick={() => onChange({ budget: parseBankrollDollarsField(String(availableCents / 100)) })}
+                        onClick={() =>
+                            onChange({
+                                budget: parseBankrollDollarsField(
+                                    String(availableCents / 100),
+                                ),
+                            })
+                        }
                         type="button"
                     >
-                        Use your available bankroll ({formatGateCurrency(availableCents / 100)})
+                        Use your available bankroll (
+                        {formatGateCurrency(availableCents / 100)})
                     </button>
                 )}
             </div>
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="bankroll-loss-threshold">
+                <label
+                    className="text-xs font-medium text-muted-foreground"
+                    htmlFor="bankroll-loss-threshold"
+                >
                     Loss-risk threshold (0 to 0.5, optional)
                 </label>
                 <Input
@@ -122,26 +157,45 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                     inputMode="decimal"
                     onChange={(event) => {
                         onChange({
-                            lossThreshold: parseBankrollLossThresholdField(event.target.value),
+                            lossThreshold: parseBankrollLossThresholdField(
+                                event.target.value,
+                            ),
                         });
                     }}
                     placeholder="e.g. 0.1"
                     type="number"
-                    value={state.lossThreshold === null ? '' : String(state.lossThreshold)}
+                    value={
+                        state.lossThreshold === null
+                            ? ''
+                            : String(state.lossThreshold)
+                    }
                 />
             </div>
-            {summary === null ? null : summary.status === BankrollSetupStatus.NoPositiveEdge ? (
-                <p className="text-sm text-amber-400">{NO_POSITIVE_EDGE_TEXT}</p>
+            {summary === null ? null : summary.status ===
+              BankrollSetupStatus.NoPositiveEdge ? (
+                <p className="text-sm text-amber-400">
+                    {NO_POSITIVE_EDGE_TEXT}
+                </p>
             ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatCard label="Attempt cost" value={formatGateCurrency(summary.attemptCost)} />
+                    <StatCard
+                        label="Attempt cost"
+                        value={formatGateCurrency(summary.attemptCost)}
+                    />
                     <StatCard
                         label="P(attempt pays)"
-                        value={formatPercent(summary.attemptPaysProbability.value)}
+                        value={formatPercent(
+                            summary.attemptPaysProbability.value,
+                        )}
                     />
                     <StatCard
                         label="Attempts affordable"
-                        value={pricing?.attempts === null || pricing?.attempts === undefined ? NOT_APPLICABLE : String(pricing.attempts)}
+                        value={
+                            pricing?.attempts === null ||
+                            pricing?.attempts === undefined
+                                ? NOT_APPLICABLE
+                                : String(pricing.attempts)
+                        }
                     />
                     <StatCard
                         label="P(batch net < 0)"
@@ -151,8 +205,12 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                             pricing?.batchNetNegativeProbability === undefined
                                 ? pricing?.batchNetNegativeReason == null
                                     ? NOT_APPLICABLE
-                                    : ECONOMICS_REASON_TEXT[pricing.batchNetNegativeReason]
-                                : formatPercent(pricing.batchNetNegativeProbability)
+                                    : ECONOMICS_REASON_TEXT[
+                                          pricing.batchNetNegativeReason
+                                      ]
+                                : formatPercent(
+                                      pricing.batchNetNegativeProbability,
+                                  )
                         }
                     />
                     <StatCard
@@ -169,7 +227,8 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                         label="Minimum budget for your threshold"
                         value={
                             summary.minimumBudget.value === null
-                                ? summary.minimumBudget.reason === EconomicsReason.ThresholdNotSet
+                                ? summary.minimumBudget.reason ===
+                                  EconomicsReason.ThresholdNotSet
                                     ? 'threshold not set'
                                     : NOT_APPLICABLE
                                 : `${formatGateCurrency(summary.minimumBudget.value.budget)} (${summary.minimumBudget.value.attempts} attempts)`
@@ -178,7 +237,9 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                 </div>
             )}
             {failureReason === null ? null : (
-                <p className="text-xs text-rose-400" role="alert">{failureReason}</p>
+                <p className="text-xs text-rose-400" role="alert">
+                    {failureReason}
+                </p>
             )}
         </section>
     );

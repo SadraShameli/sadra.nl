@@ -211,7 +211,10 @@ describe('FundedSizingAdvisor: funded-consistency ceiling (PT-19f, F-146, F-154)
     const consistencyPlan = registryPlan(TOPSTEP_STANDARD_CONSISTENCY_ID);
 
     function consistencyAccount(): ReconstructedFundedOrEvalAccount {
-        const state = accountState({ balance: 50_600, startingBalance: 50_000 });
+        const state = accountState({
+            balance: 50_600,
+            startingBalance: 50_000,
+        });
         return {
             assumptions: [],
             contractLimit: null,
@@ -224,7 +227,7 @@ describe('FundedSizingAdvisor: funded-consistency ceiling (PT-19f, F-146, F-154)
         };
     }
 
-    it('sources the ceiling from the plan\'s own fundedConsistencyRule against the real cycle profit, capping the daily plan card', () => {
+    it("sources the ceiling from the plan's own fundedConsistencyRule against the real cycle profit, capping the daily plan card", () => {
         const advisor = new FundedSizingAdvisor({
             account: consistencyAccount(),
             fundedHorizonDays: 252,
@@ -241,9 +244,7 @@ describe('FundedSizingAdvisor: funded-consistency ceiling (PT-19f, F-146, F-154)
 
         expect(card?.rungs[0]?.risk).toBe(200);
         expect(card?.rungs[0]?.takeProfit).toBe(400);
-        expect(card?.rungs[0]?.cappedBy).toContain(
-            SizingConstraint.CeilingCap,
-        );
+        expect(card?.rungs[0]?.cappedBy).toContain(SizingConstraint.CeilingCap);
     });
 });
 
@@ -296,20 +297,26 @@ describe('FundedSizingAdvisor: PT-32 from-state sweep, payout-size sweep', () =>
     it('assemble() marks the start basis FromState and omits FreshStartApproximation once a from-state optimum is present', () => {
         const advisor = advisorAt(account(), 20);
         const requests = advisor.optimumRequests();
-        const results = requests.map((request) => runEngineOptimum(plan, request));
+        const results = requests.map((request) =>
+            runEngineOptimum(plan, request),
+        );
 
         const advice = advisor.assemble(results);
 
         expect(advice.provenance.startBasis).toBe(StartBasis.FromState);
-        expect(advice.provenance.source).toBe(AdviceSource.FundedSweepFromState);
+        expect(advice.provenance.source).toBe(
+            AdviceSource.FundedSweepFromState,
+        );
         expect(
             advice.differenceReasons.some(
-                (reason) => reason.kind === DifferenceReason.FreshStartApproximation,
+                (reason) =>
+                    reason.kind === DifferenceReason.FreshStartApproximation,
             ),
         ).toBe(false);
         expect(
             advice.differenceReasons.some(
-                (reason) => reason.kind === DifferenceReason.HorizonCreditOneRequest,
+                (reason) =>
+                    reason.kind === DifferenceReason.HorizonCreditOneRequest,
             ),
         ).toBe(true);
     });
@@ -326,7 +333,8 @@ describe('FundedSizingAdvisor: PT-32 from-state sweep, payout-size sweep', () =>
         expect(advice.provenance.source).toBe(AdviceSource.FundedSweepFresh);
         expect(
             advice.differenceReasons.some(
-                (reason) => reason.kind === DifferenceReason.FreshStartApproximation,
+                (reason) =>
+                    reason.kind === DifferenceReason.FreshStartApproximation,
             ),
         ).toBe(true);
     });
@@ -334,7 +342,9 @@ describe('FundedSizingAdvisor: PT-32 from-state sweep, payout-size sweep', () =>
     it('assemble() attaches PayoutPolicyDiffers exactly when the payout-size optimum picks a different request than the rulebook default', () => {
         const advisor = advisorAt(account(), 20);
         const requests = advisor.optimumRequests();
-        const results = requests.map((request) => runEngineOptimum(plan, request));
+        const results = requests.map((request) =>
+            runEngineOptimum(plan, request),
+        );
         const payoutSizeResult = results.find(
             (result) => result.source === AdviceSource.PayoutSizeSweep,
         );
@@ -347,13 +357,15 @@ describe('FundedSizingAdvisor: PT-32 from-state sweep, payout-size sweep', () =>
         }
         const documentedRequest = DEFAULT_RULEBOOK.payout.requestCents / 100;
         const isWinnerDiffers =
-            payoutSizeResult.sweep.optimum.winner.requestSize !== documentedRequest;
+            payoutSizeResult.sweep.optimum.winner.requestSize !==
+            documentedRequest;
 
         const advice = advisor.assemble(results);
 
         expect(
             advice.differenceReasons.some(
-                (reason) => reason.kind === DifferenceReason.PayoutPolicyDiffers,
+                (reason) =>
+                    reason.kind === DifferenceReason.PayoutPolicyDiffers,
             ),
         ).toBe(isWinnerDiffers);
     });

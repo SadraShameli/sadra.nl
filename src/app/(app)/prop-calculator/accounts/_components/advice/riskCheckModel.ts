@@ -194,7 +194,11 @@ export function riskChecksOf(args: {
         parsedRisk.kind === RiskCheckInputKind.Valid
             ? advisor.checkNextTradeRisk(
                   parsedRisk.risk,
-                  dayProgressFromCounts(advisor, parsedRisk.wins, parsedRisk.losses),
+                  dayProgressFromCounts(
+                      advisor,
+                      parsedRisk.wins,
+                      parsedRisk.losses,
+                  ),
               )
             : null;
     const proposed =
@@ -246,7 +250,9 @@ export function todaysDecisionsOf<
         readonly decidedOn: string;
     },
 >(decisions: readonly TDecision[], today: string): TodaysDecisions<TDecision> {
-    const ofToday = decisions.filter((decision) => decision.decidedOn === today);
+    const ofToday = decisions.filter(
+        (decision) => decision.decidedOn === today,
+    );
     return {
         latest: ofToday[0] ?? null,
         recorded:
@@ -279,7 +285,10 @@ function judgedAgainstText(dayCounts: {
 
 function recordedRiskCheckOf(args: {
     readonly advisor: SizingAdvisor;
-    readonly dayCounts: null | { readonly losses: number; readonly wins: number };
+    readonly dayCounts: null | {
+        readonly losses: number;
+        readonly wins: number;
+    };
     readonly decision: null | {
         readonly actualRiskCents: null | UsdCents;
         readonly id: string;

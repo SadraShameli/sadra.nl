@@ -269,10 +269,19 @@ describe('PortfolioLedger.fromRows', () => {
     it('scopes rounds, transfers and firm engagements to the ledger owner', () => {
         const portfolio = ledger({
             firmEngagements: [
-                firmEngagement('firm-a', '2026-01-01', FirmEngagementStatus.Active),
-                firmEngagement('firm-a', '2026-01-01', FirmEngagementStatus.Active, {
-                    userId: OTHER_USER_ID,
-                }),
+                firmEngagement(
+                    'firm-a',
+                    '2026-01-01',
+                    FirmEngagementStatus.Active,
+                ),
+                firmEngagement(
+                    'firm-a',
+                    '2026-01-01',
+                    FirmEngagementStatus.Active,
+                    {
+                        userId: OTHER_USER_ID,
+                    },
+                ),
             ],
             rounds: [
                 round(EVAL_PLAN, 'Round 1', '2026-01-01', RoundStatus.Open),

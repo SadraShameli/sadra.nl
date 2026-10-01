@@ -35,7 +35,10 @@ describe('requireValue (one generic require-or-throw, PT-74b step 8)', () => {
     });
 
     it('also accepts a swing outcome, not only a plain value outcome', () => {
-        const swing: SwingLike = { kind: ValueResultKind.Swing, winProbability: 0.4 };
+        const swing: SwingLike = {
+            kind: ValueResultKind.Swing,
+            winProbability: 0.4,
+        };
         expect(requireValue(swing)).toBe(swing);
     });
 
@@ -45,12 +48,17 @@ describe('requireValue (one generic require-or-throw, PT-74b step 8)', () => {
 
     it('is defined exactly once across advisor/value', () => {
         const definitions = readdirSync(path.join(REPO_ROOT, VALUE_DIR))
-            .filter((name) => name.endsWith('.ts') && !name.endsWith('index.ts'))
+            .filter(
+                (name) => name.endsWith('.ts') && !name.endsWith('index.ts'),
+            )
             .flatMap((name) => {
-                const text = readFileSync(path.join(REPO_ROOT, VALUE_DIR, name), 'utf8');
-                return (text.match(/export function requireValue\b/g) ?? []).map(
-                    () => name,
+                const text = readFileSync(
+                    path.join(REPO_ROOT, VALUE_DIR, name),
+                    'utf8',
                 );
+                return (
+                    text.match(/export function requireValue\b/g) ?? []
+                ).map(() => name);
             });
         expect(definitions).toEqual(['ValueChain.ts']);
     });
@@ -60,6 +68,8 @@ describe('requireValue (one generic require-or-throw, PT-74b step 8)', () => {
             path.join(REPO_ROOT, VALUE_DIR, 'RiskCandidateValues.ts'),
             'utf8',
         );
-        expect(text).not.toMatch(/throw new Error\(\s*['"]riskCandidateValues:/);
+        expect(text).not.toMatch(
+            /throw new Error\(\s*['"]riskCandidateValues:/,
+        );
     });
 });

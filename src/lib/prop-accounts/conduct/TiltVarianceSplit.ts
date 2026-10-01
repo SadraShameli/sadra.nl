@@ -50,7 +50,10 @@ export function tiltVarianceSplitOf(
     for (const violation of input.violations) {
         if (violation.costCents === null) continue;
         const key = `${violation.accountId}|${isoMonthOf(violation.occurredOn)}`;
-        costByBucket.set(key, (costByBucket.get(key) ?? 0) + violation.costCents);
+        costByBucket.set(
+            key,
+            (costByBucket.get(key) ?? 0) + violation.costCents,
+        );
     }
     return {
         disclosure: NOT_PATH_ADJUSTED_DISCLOSURE,

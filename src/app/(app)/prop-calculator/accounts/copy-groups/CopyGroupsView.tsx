@@ -36,7 +36,11 @@ import { EmptyState } from '~/components/ui/EmptyState';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Skeleton } from '~/components/ui/Skeleton';
-import { formatConjunctionList, formatCurrency, formatPercent } from '~/lib/format';
+import {
+    formatConjunctionList,
+    formatCurrency,
+    formatPercent,
+} from '~/lib/format';
 import { todayIsoDate } from '~/lib/prop-accounts';
 import {
     CopyGroupSizingRejectionKind,
@@ -599,11 +603,11 @@ function GroupSizingSection({
     }
     const { asOf, exposure, result, unsizedMembers } = sizing.section;
     const labelOf = (memberId: string) =>
-        row.members.find((member) => member.id === memberId)?.label ??
-        memberId;
-    const cappedBy = result.kind === CopyGroupSizingResultKind.Sized
-        ? (result.sizing.rungs[0]?.cappedBy ?? [])
-        : [];
+        row.members.find((member) => member.id === memberId)?.label ?? memberId;
+    const cappedBy =
+        result.kind === CopyGroupSizingResultKind.Sized
+            ? (result.sizing.rungs[0]?.cappedBy ?? [])
+            : [];
     return (
         <div className="flex flex-col gap-2 text-sm">
             {result.kind === CopyGroupSizingResultKind.Sized ? (
@@ -666,16 +670,15 @@ function GroupSizingSection({
                     {formatCurrency(exposure.maxDailyLoss)} across the group
                     {exposure.shareOfCushionAtRisk !== null &&
                         `, ${formatPercent(exposure.shareOfCushionAtRisk)} of its combined cushion`}
-                    , each account sized to its own documented rung, not to
-                    the shared copy size above.
+                    , each account sized to its own documented rung, not to the
+                    shared copy size above.
                 </p>
             )}
             {unsizedMembers.length > 0 && (
                 <ul className="flex flex-col gap-1 text-muted-foreground">
                     {unsizedMembers.map((member) => (
                         <li key={member.memberId}>
-                            {member.label} could not be sized: {member.reason}
-                            .
+                            {member.label} could not be sized: {member.reason}.
                         </li>
                     ))}
                 </ul>

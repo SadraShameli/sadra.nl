@@ -28,7 +28,10 @@ export class TierChangeRule extends AccountAlertRule {
     protected evaluateAccount(
         monitored: MonitoredAccount,
     ): AccountAlert | null {
-        if (!isActive(monitored) || monitored.accountState?.kind !== AccountStateKind.Reconstructed) {
+        if (
+            !isActive(monitored) ||
+            monitored.accountState?.kind !== AccountStateKind.Reconstructed
+        ) {
             return null;
         }
         const { latest, previous } = monitored.accountState;
@@ -86,9 +89,7 @@ function tierChangeMessage(
     return `Since the previous snapshot, ${joinWithAnd(changes)} changed`;
 }
 
-function tierSignatureOf(
-    account: ReconstructedAccount,
-): null | TierSignature {
+function tierSignatureOf(account: ReconstructedAccount): null | TierSignature {
     switch (account.kind) {
         case ReconstructedLiveKind.Live: {
             if (account.livePlan === null || account.state === null) {

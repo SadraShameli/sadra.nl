@@ -8,7 +8,10 @@ import { SampleLevel } from '~/lib/prop-accounts';
 
 type FirmReturnRow = FirmReturnsCardModel['rows'][number];
 
-function row(overrides: Partial<FirmReturnRow> & Pick<FirmReturnRow, 'firm' | 'key' | 'multiple'>): FirmReturnRow {
+function row(
+    overrides: Partial<FirmReturnRow> &
+        Pick<FirmReturnRow, 'firm' | 'key' | 'multiple'>,
+): FirmReturnRow {
     return {
         accounts: '1',
         accountsWithPayout: '0',
@@ -49,7 +52,11 @@ describe('FirmReturnsCard', () => {
         const model: FirmReturnsCardModel = {
             rows: [
                 row({ firm: 'Zero spend firm', key: 'zero', multiple: 'n/a' }),
-                row({ firm: 'Real zero firm', key: 'realzero', multiple: '0.00x' }),
+                row({
+                    firm: 'Real zero firm',
+                    key: 'realzero',
+                    multiple: '0.00x',
+                }),
                 row({ firm: 'Winner firm', key: 'winner', multiple: '2.00x' }),
             ],
         };

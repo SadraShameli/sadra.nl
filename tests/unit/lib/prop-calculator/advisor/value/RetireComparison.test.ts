@@ -157,7 +157,9 @@ describe('retireComparison (F-V18, PT-65b step 8)', () => {
             throw new Error('expected results');
         }
 
-        expect(capacityBound.verdict).toBe(RetireComparisonVerdict.SwitchBeatsKeep);
+        expect(capacityBound.verdict).toBe(
+            RetireComparisonVerdict.SwitchBeatsKeep,
+        );
         expect(capacityBound.reason).toBeNull();
         expect(notCapacityBound.verdict).toBe(RetireComparisonVerdict.Keep);
         expect(notCapacityBound.reason).toBe(

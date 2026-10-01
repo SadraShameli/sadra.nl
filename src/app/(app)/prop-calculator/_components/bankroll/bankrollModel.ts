@@ -39,13 +39,17 @@ import {
     noPayoutProbability,
     type Quantity,
 } from '~/lib/prop-calculator/economics';
-import { type BankrollPolicy, type BankrollTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
+import {
+    type BankrollPolicy,
+    type BankrollTimelineResult,
+} from '~/lib/prop-calculator/portfolioTimeline';
 import { type SimOutputs } from '~/lib/prop-calculator/simulator';
 import { mean } from '~/lib/prop-calculator/stats';
 
 export const BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL =
     'deterministic illustration, not a forecast';
-export const NO_POSITIVE_EDGE_TEXT = 'no positive edge: no budget makes this safe';
+export const NO_POSITIVE_EDGE_TEXT =
+    'no positive edge: no budget makes this safe';
 
 export enum BankrollSetupStatus {
     NoPositiveEdge = 'no-positive-edge',
@@ -124,7 +128,14 @@ export function bankrollBatchRequest(
     runId: number,
 ): BatchToolsRequest | null {
     const attempts = attemptsAffordable(budget, dollars(out.costPerAttempt));
-    return attempts.value === null || attempts.value < 1 ? null : { attempts: attempts.value, kind: ToolsRequestKind.Batch, runId, variant };
+    return attempts.value === null || attempts.value < 1
+        ? null
+        : {
+              attempts: attempts.value,
+              kind: ToolsRequestKind.Batch,
+              runId,
+              variant,
+          };
 }
 
 export function bankrollBudgetPricing(
@@ -150,7 +161,8 @@ export function bankrollBudgetPricing(
         attempts: attempts.value,
         batchNetNegativeProbability: batch?.lossProbability ?? null,
         batchNetNegativeReason: batch?.lossProbabilityReason ?? null,
-        batchNetNegativeStandardError: batch?.lossProbabilityStandardError ?? null,
+        batchNetNegativeStandardError:
+            batch?.lossProbabilityStandardError ?? null,
         noPayoutProbability: noPayout.value,
     };
 }
@@ -160,7 +172,10 @@ export function bankrollClosedFormIllustration(
     reinvestFraction: Fraction0to1,
     horizonDays: number,
 ): null | Quantity<Dollars> {
-    return bankrollCompoundingIllustration(start, reinvestFraction, horizonDays)?.quantity ?? null;
+    return (
+        bankrollCompoundingIllustration(start, reinvestFraction, horizonDays)
+            ?.quantity ?? null
+    );
 }
 
 export function bankrollExplicitBatchRequest(
@@ -192,8 +207,11 @@ export function bankrollMinimumBudgetForThreshold(
     out: SimOutputs,
     lossThreshold: Fraction0to1 | null,
 ): Quantity<BankrollMinimumBudget> {
-    return bankrollLossRiskSummary(out.netValues, out.costPerAttempt, lossThreshold)
-        .minimumBudget;
+    return bankrollLossRiskSummary(
+        out.netValues,
+        out.costPerAttempt,
+        lossThreshold,
+    ).minimumBudget;
 }
 
 export function bankrollProjectionRequest(
@@ -294,11 +312,15 @@ export function bankrollVariantFor(
         positionSizing:
             inputs.instrument === null || inputs.stopPoints === null
                 ? null
-                : { instrument: inputs.instrument, stopPoints: points(inputs.stopPoints) },
+                : {
+                      instrument: inputs.instrument,
+                      stopPoints: points(inputs.stopPoints),
+                  },
         rulebook,
     });
     const effectivePayoutRequestSize =
-        inputs.payoutRequestSize ?? rulebook.payout.requestCents / CENTS_PER_DOLLAR;
+        inputs.payoutRequestSize ??
+        rulebook.payout.requestCents / CENTS_PER_DOLLAR;
     const policy: EnginePolicy = enginePolicySchema.parse({
         ...builtPolicy,
         payoutRequestOverride: effectivePayoutRequestSize,
@@ -344,17 +366,23 @@ export function bankrollVariantWithRisk(
     return { ...variant, base: { ...variant.base, riskPerTrade } };
 }
 
-export function parseBankrollCandidateList(raw: string): null | readonly number[] {
+export function parseBankrollCandidateList(
+    raw: string,
+): null | readonly number[] {
     const values = raw
         .split(',')
         .map((piece) => piece.trim())
         .filter((piece) => piece.length > 0)
         .map(Number);
     if (values.length === 0) return null;
-    return values.every((value) => Number.isFinite(value) && value > 0) ? values : null;
+    return values.every((value) => Number.isFinite(value) && value > 0)
+        ? values
+        : null;
 }
 
-export function parseBankrollDollarCandidateList(raw: string): null | readonly number[] {
+export function parseBankrollDollarCandidateList(
+    raw: string,
+): null | readonly number[] {
     const values = parseBankrollCandidateList(raw);
     if (values === null) return null;
     const rounded = values.map(floorToWholeCents);

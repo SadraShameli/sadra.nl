@@ -191,7 +191,10 @@ export function fundedOptimizerSweep(
         stopRule: request.base.dayStop ?? { kind: DayStopRuleKind.None },
     });
     if (build.kind === FundedCandidateBuildKind.Refused) {
-        return { kind: FundedCandidateBuildKind.Refused, refusal: build.refusal };
+        return {
+            kind: FundedCandidateBuildKind.Refused,
+            refusal: build.refusal,
+        };
     }
     const base: SimInputs = applyEnginePolicy(resolvedPlan, request.policy, {
         ...request.base,
@@ -209,5 +212,7 @@ export function fundedOptimizerSweep(
 }
 
 export function fundedSweepPlan(request: FundedSweepRequest): null | Plan {
-    return findFirm(request.firmId)?.findPlanBySerial(request.planSerial) ?? null;
+    return (
+        findFirm(request.firmId)?.findPlanBySerial(request.planSerial) ?? null
+    );
 }

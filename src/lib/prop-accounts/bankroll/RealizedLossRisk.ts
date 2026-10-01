@@ -60,15 +60,15 @@ export function realizedLossRisk(
     inputs: RealizedLossRiskInputs,
 ): RealizedLossRisk {
     const measuredDays = measuredMeanDaysToFirstPayout(inputs.ledger);
-    const toFirstPayoutDays = measuredDays?.value ?? inputs.toFirstPayoutFallbackDays;
+    const toFirstPayoutDays =
+        measuredDays?.value ?? inputs.toFirstPayoutFallbackDays;
     const netValuesCents = perAttemptNetCents(
         inputs.ledger,
         inputs.asOfDate,
         toFirstPayoutDays,
     );
     const netValuesDollars = netValuesCents.map((cents) => cents / 100);
-    const meanNetCents =
-        netValuesCents.length === 0 ? 0 : mean(netValuesCents);
+    const meanNetCents = netValuesCents.length === 0 ? 0 : mean(netValuesCents);
     const attemptPaysRate = pooledAttemptPaysRate(
         inputs.ledger,
         inputs.asOfDate,
@@ -173,9 +173,7 @@ function measuredMeanDaysToFirstPayout(
             .flatMap((paid) => (paid?.paidOn ? [paid.paidOn] : []))
             .toSorted(compareText);
         const first = paidDates[0];
-        return first === undefined
-            ? []
-            : [isoDaysBetween(funded.on, first)];
+        return first === undefined ? [] : [isoDaysBetween(funded.on, first)];
     });
     return sampledMean(days);
 }
@@ -189,7 +187,10 @@ function pooledAttemptPaysRate(
     let decided = 0;
     for (const entry of ledger.resolvedAccounts as readonly LedgerAccount[]) {
         const funded = fundedSince(entry);
-        if ((funded === null) || !isHorizonMaturedCohort(entry, funded.on, asOfDate, horizonDays)) {
+        if (
+            funded === null ||
+            !isHorizonMaturedCohort(entry, funded.on, asOfDate, horizonDays)
+        ) {
             continue;
         }
         decided += 1;

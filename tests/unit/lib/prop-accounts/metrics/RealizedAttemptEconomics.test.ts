@@ -160,8 +160,7 @@ describe('realizedAttemptEconomics', () => {
             6,
         );
         expect(
-            plan.decomposition.value.fundedValueToAttemptCost.value
-                ?.netToOne,
+            plan.decomposition.value.fundedValueToAttemptCost.value?.netToOne,
         ).toBeCloseTo(9, 6);
     });
 

@@ -26,8 +26,7 @@ export const TRADE_VALUE_SWING_ASSUMPTION =
     'valued at the next session start, as if you stop after this trade';
 
 export type TradeValueSwingOutcome =
-    | TradeValueSwingResult
-    | ValueNotModeledResult;
+    TradeValueSwingResult | ValueNotModeledResult;
 
 export interface TradeValueSwingRequest {
     readonly earlierRisks?: readonly number[];
@@ -92,7 +91,8 @@ export function tradeValueSwing(
     ]).account;
     const afterWin = requireValue(
         valueAtState(
-            account.kind === TradingPhase.Eval && account.plan.isPassed(won.state)
+            account.kind === TradingPhase.Eval &&
+                account.plan.isPassed(won.state)
                 ? freshFundedAccount(account.plan)
                 : won,
             spec,
@@ -104,7 +104,9 @@ export function tradeValueSwing(
         -request.risk - commission,
     ]);
     const isBusted = lost.isBusted;
-    const afterLossAccount = isBusted ? freshEvalAccount(account) : lost.account;
+    const afterLossAccount = isBusted
+        ? freshEvalAccount(account)
+        : lost.account;
     const afterLoss = requireValue(valueAtState(afterLossAccount, spec));
 
     return {

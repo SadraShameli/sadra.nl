@@ -10,10 +10,7 @@ import {
     type PersonalRules,
     usdCents,
 } from '~/lib/prop-accounts/core';
-import {
-    RebuyLagBasis,
-    replacementStats,
-} from '~/lib/prop-accounts/metrics';
+import { RebuyLagBasis, replacementStats } from '~/lib/prop-accounts/metrics';
 import { dollars } from '~/lib/prop-calculator';
 
 import {

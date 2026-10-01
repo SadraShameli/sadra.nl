@@ -23,7 +23,10 @@ import {
 import { AccountPlanPicker } from '~/app/(app)/prop-calculator/accounts/_components/AccountPlanPicker';
 import { ArchiveAccountButton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { DeleteAccountDialog } from '~/app/(app)/prop-calculator/accounts/_components/DeleteAccountDialog';
-import { measuredRebuyLagOf, RebuyLagLineKind } from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
+import {
+    measuredRebuyLagOf,
+    RebuyLagLineKind,
+} from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
 import { AlertsCenter } from '~/app/(app)/prop-calculator/accounts/_components/overview/AlertsCenter';
 import {
     EVENT_LIST_INPUT,
@@ -55,6 +58,7 @@ import {
     bustDiagnosisOfAttempt,
     type ExternalFirmName,
     formatUsdCents,
+    isActiveAccount,
     isModeledAccount,
     latestTwoSnapshots,
     LEDGER_ONLY_LIFECYCLE_FACTS,
@@ -80,6 +84,7 @@ import { api, type RouterOutputs } from '~/trpc/react';
 
 import { accountAlerts } from './accountAlerts';
 import { BustDiagnosisCard } from './BustDiagnosisCard';
+import { DetailHeaderFigures } from './DetailHeaderFigures';
 import {
     DetailSection,
     type ListQuery,
@@ -300,8 +305,8 @@ export function AccountDetailView({
                     <TriangleAlert />
                     <AlertTitle>Your firms could not be loaded</AlertTitle>
                     <AlertDescription>
-                        {externalFirmsQuery.error.message} This account shows
-                        it as an unlisted firm until your firms load.
+                        {externalFirmsQuery.error.message} This account shows it
+                        as an unlisted firm until your firms load.
                     </AlertDescription>
                 </Alert>
             )}
@@ -322,6 +327,9 @@ export function AccountDetailView({
                         setStoredIssue(null);
                     }}
                 />
+            )}
+            {isActiveAccount(account) && (
+                <DetailHeaderFigures accountId={account.id} userId={userId} />
             )}
             <DetailSection id="rules" title="Plan rules">
                 {account.tracking === AccountTracking.LedgerOnly ? (
@@ -599,7 +607,14 @@ function AccountStateSection({
             return null;
         }
         const { latest, previous } = latestTwoSnapshots(snapshots);
-        const state = stateCardOf(plan, account, latest, events, payouts, today);
+        const state = stateCardOf(
+            plan,
+            account,
+            latest,
+            events,
+            payouts,
+            today,
+        );
         const previousReconstruction = previousReconstructionOf(
             plan,
             account,
@@ -612,7 +627,11 @@ function AccountStateSection({
         const performance =
             state.kind === StateCardKind.Ready
                 ? performanceCardOf(
-                      { account: state.account, asOf: state.asOf, input: state.input },
+                      {
+                          account: state.account,
+                          asOf: state.asOf,
+                          input: state.input,
+                      },
                       previousReconstruction,
                       events,
                       payouts,

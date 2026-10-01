@@ -344,11 +344,10 @@ describe('the account form round picker (PT-58a3)', () => {
             root.render(<AccountEditor id={ACCOUNT_ID} />);
         });
         const round = fieldScope(container, 'Round');
-        const select = [...round.querySelectorAll('select')].find(
-            (candidate) =>
-                [...candidate.options].some(
-                    (option) => option.value === OPEN_ROUND_ID,
-                ),
+        const select = [...round.querySelectorAll('select')].find((candidate) =>
+            [...candidate.options].some(
+                (option) => option.value === OPEN_ROUND_ID,
+            ),
         );
         expect(select?.value).toBe(OPEN_ROUND_ID);
 

@@ -24,7 +24,9 @@ function patternOf(category: ConductCategory): ConductPattern {
 describe('ConductPattern predicates', () => {
     it('isAggressiveSizingConcern covers max-size, inconsistent, news and microscalping patterns only', () => {
         expect(
-            isAggressiveSizingConcern(patternOf(ConductCategory.MaxSizeMostTrades)),
+            isAggressiveSizingConcern(
+                patternOf(ConductCategory.MaxSizeMostTrades),
+            ),
         ).toBe(true);
         expect(
             isAggressiveSizingConcern(

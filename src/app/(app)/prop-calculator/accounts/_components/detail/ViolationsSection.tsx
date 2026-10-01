@@ -266,7 +266,9 @@ function ViolationForm({
     return (
         <Form {...form}>
             <form
-                aria-label={editing === null ? 'Add a violation' : 'Edit violation'}
+                aria-label={
+                    editing === null ? 'Add a violation' : 'Edit violation'
+                }
                 className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
                 noValidate
                 onSubmit={(event) => {
@@ -344,9 +346,9 @@ function ViolationForm({
                                 />
                             </FormControl>
                             <FormDescription>
-                                Leave blank when the dollar cost is not known.
-                                A negative amount means the violation still
-                                won money.
+                                Leave blank when the dollar cost is not known. A
+                                negative amount means the violation still won
+                                money.
                             </FormDescription>
                             <FormMessage />
                         </FormItem>
@@ -416,7 +418,9 @@ function ViolationForm({
     );
 }
 
-const RULE_VIOLATION_KIND_DISCLAIMER: Partial<Record<RuleViolationKind, string>> = {
+const RULE_VIOLATION_KIND_DISCLAIMER: Partial<
+    Record<RuleViolationKind, string>
+> = {
     [RuleViolationKind.ForcedRecovery]:
         "the documented ladder's step up after a loss is not a violation",
 };

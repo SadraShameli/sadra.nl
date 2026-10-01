@@ -1,4 +1,9 @@
-import { type Dollars, dollars, type Fraction0to1, TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator/core';
+import {
+    type Dollars,
+    dollars,
+    type Fraction0to1,
+    TRADING_DAYS_PER_MONTH,
+} from '~/lib/prop-calculator/core';
 import { mean } from '~/lib/prop-calculator/stats';
 
 import { compoundedBankroll } from './BankrollCompounding';

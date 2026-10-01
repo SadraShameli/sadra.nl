@@ -10,7 +10,11 @@ import {
     monthlySubscriptionFee,
     retryPath,
 } from '~/lib/prop-calculator/core/FeeSchedule';
-import { dollars, type Dollars, fraction } from '~/lib/prop-calculator/core/lib/units';
+import {
+    dollars,
+    type Dollars,
+    fraction,
+} from '~/lib/prop-calculator/core/lib/units';
 import { LifetimeCapScope, type Plan } from '~/lib/prop-calculator/core/Plan';
 import { resolvePositionSizing } from '~/lib/prop-calculator/core/PositionSizing';
 import {
@@ -32,10 +36,7 @@ import {
 import { resolveDayPolicy } from './day';
 import { SIM_INPUTS_REFUSAL_PREFIX } from './dayPolicyValidation';
 import { resolveCopyAccounts, SIM_DEFAULTS } from './SimDefaults';
-import {
-    assertPayoutRequestPolicy,
-    simStartIssue,
-} from './simStartValidation';
+import { assertPayoutRequestPolicy, simStartIssue } from './simStartValidation';
 import { hasPassedEval, simulateTrial } from './trial';
 import {
     type AtLeastProbabilities,
@@ -84,7 +85,9 @@ export function fromStateCashSamples(
         const fundedDaysElapsed = r.daysElapsed - r.evalDays;
         const remainingDays = Math.max(0, windowDays - fundedDaysElapsed);
         cash.push(
-            r.net + (remainingDays * freshExpectedMonthlyNet) / TRADING_DAYS_PER_MONTH,
+            r.net +
+                (remainingDays * freshExpectedMonthlyNet) /
+                    TRADING_DAYS_PER_MONTH,
         );
         realizedCash.push(
             r.net +
@@ -438,12 +441,14 @@ export function simulatePortfolio(
             const clampedGroupPayout =
                 remainingLifetimeBudget === null
                     ? rawGroupPayout
-                    : Math.max(0, Math.min(rawGroupPayout, remainingLifetimeBudget));
+                    : Math.max(
+                          0,
+                          Math.min(rawGroupPayout, remainingLifetimeBudget),
+                      );
             if (remainingLifetimeBudget !== null) {
                 remainingLifetimeBudget -= clampedGroupPayout;
             }
-            trialNet +=
-                r.net * size - (rawGroupPayout - clampedGroupPayout);
+            trialNet += r.net * size - (rawGroupPayout - clampedGroupPayout);
             trialCredit += r.horizonCredit * size;
             trialDayElapsed += r.daysElapsed * size;
             trialAttempts += r.attemptsUsed * size;
@@ -1089,7 +1094,8 @@ function toTrialStart(
             return {
                 attempt: { dayCap, state },
                 phase: TradingPhase.Eval,
-                sunkSubscriptionDays: start.subscriptionElapsedDays ?? elapsedDays,
+                sunkSubscriptionDays:
+                    start.subscriptionElapsedDays ?? elapsedDays,
             };
         }
         case TradingPhase.Funded: {

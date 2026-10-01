@@ -93,7 +93,9 @@ export interface RoundReturnsResult {
 }
 
 export function roundReturns(inputs: RoundReturnsInputs): RoundReturnsResult {
-    const rounds = inputs.ledger.rounds.map((round) => roundReturnOf(inputs, round));
+    const rounds = inputs.ledger.rounds.map((round) =>
+        roundReturnOf(inputs, round),
+    );
     return {
         perFirm: perFirmSummaries(rounds, inputs.sampleThresholds),
         rounds,
@@ -107,7 +109,9 @@ function bootstrapMultiple(
     seed: number,
 ): null | RoundMultiple {
     if (entries.length === 0) return null;
-    const cash = entries.map((entry) => summarizeCash(entry.fees, entry.payouts));
+    const cash = entries.map((entry) =>
+        summarizeCash(entry.fees, entry.payouts),
+    );
     const value = payoutMultiple(
         usdCents(cash.reduce((sum, c) => sum + c.payouts, 0)),
         usdCents(cash.reduce((sum, c) => sum + c.spend, 0)),
@@ -227,7 +231,9 @@ function perFirmSummaries(
             };
         })
         .toArray()
-        .toSorted((a, b) => compareText(firmKeyId(a.firmKey), firmKeyId(b.firmKey)));
+        .toSorted((a, b) =>
+            compareText(firmKeyId(a.firmKey), firmKeyId(b.firmKey)),
+        );
 }
 
 function roundReturnOf(

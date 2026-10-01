@@ -66,7 +66,9 @@ const APEX_ID: PlanId = {
 
 const LUCID_DAILY_BUFFER = 52_100;
 
-function inputOf(overrides: Partial<AccountSnapshotInput>): AccountSnapshotInput {
+function inputOf(
+    overrides: Partial<AccountSnapshotInput>,
+): AccountSnapshotInput {
     return {
         asOf: '2026-03-02',
         balance: dollars(60_000),
@@ -129,7 +131,10 @@ describe('liveTransitionPreview: TopStep', () => {
 
     it('does not depend on the account state', () => {
         const funded = AccountReconstruction.rebuild(
-            inputOf({ balance: dollars(53_000), highestEodBalance: dollars(53_000) }),
+            inputOf({
+                balance: dollars(53_000),
+                highestEodBalance: dollars(53_000),
+            }),
             plan,
         );
         expect(liveTransitionPreview(plan, funded)).toEqual(
@@ -177,7 +182,10 @@ describe('liveTransitionPreview: LucidDaily', () => {
             built.payoutFromProfit(built.transitionPayout),
             6,
         );
-        expect(preview.creditNet).toBeCloseTo((60_000 - LUCID_DAILY_BUFFER) * 0.9, 6);
+        expect(preview.creditNet).toBeCloseTo(
+            (60_000 - LUCID_DAILY_BUFFER) * 0.9,
+            6,
+        );
         expect(preview.isApproximation).toBe(false);
         expect(preview.note).toBe(
             LiveApplicabilityNote.LucidDailyTransitionPayoutIsPastCash,
@@ -190,7 +198,9 @@ describe('liveTransitionPreview: LucidDaily', () => {
             throw new Error('expected a Lucid daily credit preview');
         }
         expect(preview.simProfitAboveBuffer).toBe(80_000 - LUCID_DAILY_BUFFER);
-        expect(preview.creditGross).toBe(LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP);
+        expect(preview.creditGross).toBe(
+            LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP,
+        );
         expect(preview.isCapped).toBe(true);
         expect(preview.creditNet).toBeCloseTo(
             LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP * 0.9,
@@ -252,12 +262,14 @@ describe('liveTransitionPreview: every other plan', () => {
             for (const plan of firm.plans) {
                 const applicability = livePlanApplicability(plan.id);
                 const isCapable =
-                    applicability.kind === LiveApplicabilityKind.TransitionBuilder ||
+                    applicability.kind ===
+                        LiveApplicabilityKind.TransitionBuilder ||
                     (applicability.kind === LiveApplicabilityKind.Builder &&
                         applicability.documentedStart !== null);
                 const preview = liveTransitionPreview(plan, null);
                 const isPreviewed =
-                    preview.kind === LiveTransitionPreviewKind.DocumentedLiveStart ||
+                    preview.kind ===
+                        LiveTransitionPreviewKind.DocumentedLiveStart ||
                     preview.kind === LiveTransitionPreviewKind.LucidDailyCredit;
                 const isGapOnly =
                     preview.kind === LiveTransitionPreviewKind.NotModeled &&

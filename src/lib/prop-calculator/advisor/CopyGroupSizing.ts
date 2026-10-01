@@ -144,7 +144,9 @@ export function copyGroupSizing(
             message: 'A copy group needs at least one member to be sized.',
         });
     }
-    const stages = [...new Set(members.map((member) => stageOf(member.account)))];
+    const stages = [
+        ...new Set(members.map((member) => stageOf(member.account))),
+    ];
     if (stages.length > 1) {
         return rejected({
             kind: CopyGroupSizingRejectionKind.MixedStage,
@@ -157,12 +159,14 @@ export function copyGroupSizing(
     if (stage === undefined || stage === SizingStage.Live) {
         return rejected({
             kind: CopyGroupSizingRejectionKind.LiveNotModeled,
-            message:
-                'Copy-group sizing is not modeled for live accounts yet.',
+            message: 'Copy-group sizing is not modeled for live accounts yet.',
         });
     }
     const resolvedPositionSizing = positionSizing
-        ? resolvePositionSizing(positionSizing.instrument, positionSizing.stopPoints)
+        ? resolvePositionSizing(
+              positionSizing.instrument,
+              positionSizing.stopPoints,
+          )
         : null;
     const entries = members.map((member) => {
         const { account } = member;
@@ -326,7 +330,9 @@ function contractPlacementOf(
             placed,
         };
     });
-    const contracts = Math.min(...members.map((entry) => entry.placed.contracts));
+    const contracts = Math.min(
+        ...members.map((entry) => entry.placed.contracts),
+    );
     return {
         contracts,
         isRefused: contracts <= 0,
@@ -359,10 +365,13 @@ function firstDivergenceOf(
 ): CopyGroupDivergence | null {
     for (const [index, groupRung] of groupSizing.rungs.entries()) {
         const ownRung = entry.sizing.rungs[index];
-        if ((ownRung === undefined) || isAtOrBelowWithinCentTolerance(
+        if (
+            ownRung === undefined ||
+            isAtOrBelowWithinCentTolerance(
                 Math.abs(ownRung.risk - groupRung.risk),
                 CENT_TOLERANCE,
-            )) {
+            )
+        ) {
             continue;
         }
         return {
@@ -376,9 +385,7 @@ function firstDivergenceOf(
     return null;
 }
 
-function rejected(
-    rejection: CopyGroupSizingRejection,
-): CopyGroupSizingResult {
+function rejected(rejection: CopyGroupSizingRejection): CopyGroupSizingResult {
     return { kind: CopyGroupSizingResultKind.Rejected, rejection };
 }
 
@@ -392,13 +399,18 @@ function ruleContextFor(
     const placeableMinimum = ONE_CENT;
     switch (stage) {
         case SizingStage.Eval: {
-            return ruleContextAt(account.plan, SizingStage.Eval, account.state, {
-                ceiling: null,
-                instrument,
-                personalCaps,
-                personalDll,
-                placeableMinimum,
-            });
+            return ruleContextAt(
+                account.plan,
+                SizingStage.Eval,
+                account.state,
+                {
+                    ceiling: null,
+                    instrument,
+                    personalCaps,
+                    personalDll,
+                    placeableMinimum,
+                },
+            );
         }
         case SizingStage.Funded: {
             return ruleContextAt(
@@ -423,7 +435,9 @@ function rungAtOrThrow(
 ): DocumentedRung {
     const rung = sizing.rungs[index];
     if (rung === undefined) {
-        throw new Error(`copy-group sizing expected rung ${index + 1} to exist`);
+        throw new Error(
+            `copy-group sizing expected rung ${index + 1} to exist`,
+        );
     }
     return rung;
 }

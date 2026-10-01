@@ -2,6 +2,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as UseAccountValuesModule from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
+
 import { AccountsTable } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import {
     AccountStage,
@@ -45,6 +47,18 @@ vi.mock('next/navigation', () => ({
     useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
     useSearchParams: () => new URLSearchParams(),
 }));
+
+vi.mock(
+    '~/app/(app)/prop-calculator/accounts/_components/useAccountValues',
+    async (importOriginal) => ({
+        ...(await importOriginal<typeof UseAccountValuesModule>()),
+        useAccountValues: () => ({
+            boards: null,
+            columns: new Map(),
+            notice: null,
+        }),
+    }),
+);
 
 vi.mock('~/trpc/react', () => ({
     api: {

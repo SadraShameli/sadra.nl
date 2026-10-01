@@ -8,7 +8,11 @@ import { ComputationCacheContext } from '~/app/(app)/prop-calculator/_components
 const browserCache =
     typeof window === 'undefined' ? null : new ComputationCache();
 
-export function AccountsCacheProvider({ children }: { readonly children: ReactNode }) {
+export function AccountsCacheProvider({
+    children,
+}: {
+    readonly children: ReactNode;
+}) {
     const [cache] = useState(() => browserCache ?? new ComputationCache());
     return (
         <ComputationCacheContext.Provider value={cache}>

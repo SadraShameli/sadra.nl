@@ -6,7 +6,14 @@ import {
     PAYOUT_COUNT_CAP,
 } from '~/lib/prop-accounts/metrics';
 
-import { account, EVAL_PLAN, event, ledger, payout, purchased } from './ledgerFixtures';
+import {
+    account,
+    EVAL_PLAN,
+    event,
+    ledger,
+    payout,
+    purchased,
+} from './ledgerFixtures';
 
 describe('fundedPayoutDistribution', () => {
     it('counts funded accounts by their number of Paid payouts within the horizon, cohort-matured accounts only', () => {
@@ -19,13 +26,25 @@ describe('fundedPayoutDistribution', () => {
                 accounts: [zeroPayouts, onePayout, twoPayouts, stillYoung],
                 events: [
                     purchased(zeroPayouts),
-                    event(zeroPayouts, AccountEventKind.EvalPassed, '2026-01-05'),
+                    event(
+                        zeroPayouts,
+                        AccountEventKind.EvalPassed,
+                        '2026-01-05',
+                    ),
                     purchased(onePayout),
                     event(onePayout, AccountEventKind.EvalPassed, '2026-01-05'),
                     purchased(twoPayouts),
-                    event(twoPayouts, AccountEventKind.EvalPassed, '2026-01-05'),
+                    event(
+                        twoPayouts,
+                        AccountEventKind.EvalPassed,
+                        '2026-01-05',
+                    ),
                     purchased(stillYoung),
-                    event(stillYoung, AccountEventKind.EvalPassed, '2026-08-05'),
+                    event(
+                        stillYoung,
+                        AccountEventKind.EvalPassed,
+                        '2026-08-05',
+                    ),
                 ],
                 payouts: [
                     payout(onePayout, 40_000, {
@@ -118,10 +137,7 @@ describe('fundedPayoutDistribution', () => {
         );
         expect(plan?.realizedFundedValue?.value).toBe(20_000);
         expect(plan?.realizedFundedValue?.n).toBe(2);
-        expect(plan?.realizedFundedValue?.standardError).toBeCloseTo(
-            10_000,
-            6,
-        );
+        expect(plan?.realizedFundedValue?.standardError).toBeCloseTo(10_000, 6);
         expect(plan?.realizedFundedValue?.interval).not.toBeNull();
     });
 

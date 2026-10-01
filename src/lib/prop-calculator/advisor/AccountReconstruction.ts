@@ -18,11 +18,7 @@ import {
 } from '~/lib/prop-calculator/core';
 
 import { type AccountSnapshotInput } from './AccountSnapshotInput';
-import {
-    type Assumption,
-    AssumptionBias,
-    inputAssumption,
-} from './Assumption';
+import { type Assumption, AssumptionBias, inputAssumption } from './Assumption';
 import { AssumptionKind } from './AssumptionKind';
 import {
     calendarGateProgress,
@@ -160,7 +156,12 @@ function rebuildEval(
     const assumptions: Assumption[] = [];
     const nominal = nominalOf(input, plan.accountSize);
     const state = plan.initialState();
-    replayDrawdownPeak(plan.drawdownFor(TradingPhase.Eval), state, input, nominal);
+    replayDrawdownPeak(
+        plan.drawdownFor(TradingPhase.Eval),
+        state,
+        input,
+        nominal,
+    );
     state.balance = nominal(input.balance);
     state.bestDayProfit = input.evalBestDayProfit ?? 0;
     state.tradingDays = input.tradingDays ?? 0;
@@ -359,9 +360,7 @@ function rebuildLive(
 ): ReconstructedLiveAccount {
     const assumptions: Assumption[] = [];
     const nominal = nominalOf(input, plan.accountSize);
-    const applicability: LivePlanApplicability = livePlanApplicability(
-        plan.id,
-    );
+    const applicability: LivePlanApplicability = livePlanApplicability(plan.id);
     switch (applicability.kind) {
         case LiveApplicabilityKind.Builder:
         case LiveApplicabilityKind.TransitionBuilder: {
@@ -462,7 +461,10 @@ function resolvedContractLimits(
     phase: TradingPhase,
     state: AccountState,
     assumptions: Assumption[],
-): { readonly contractLimit: null | number; readonly microContractLimit: null | number } {
+): {
+    readonly contractLimit: null | number;
+    readonly microContractLimit: null | number;
+} {
     if (plan.contractLimits === null) {
         return { contractLimit: null, microContractLimit: null };
     }
@@ -474,7 +476,17 @@ function resolvedContractLimits(
     );
     const context = plan.tierProfitContext(state);
     return {
-        contractLimit: contractLimitAt(plan.contractLimits, phase, false, context),
-        microContractLimit: contractLimitAt(plan.contractLimits, phase, true, context),
+        contractLimit: contractLimitAt(
+            plan.contractLimits,
+            phase,
+            false,
+            context,
+        ),
+        microContractLimit: contractLimitAt(
+            plan.contractLimits,
+            phase,
+            true,
+            context,
+        ),
     };
 }

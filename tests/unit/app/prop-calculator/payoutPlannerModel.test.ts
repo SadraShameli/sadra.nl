@@ -29,7 +29,11 @@ import {
     wouldTriggerLiveBlockReason,
 } from '~/lib/prop-calculator/advisor';
 import { ValueResultKind } from '~/lib/prop-calculator/advisor/value';
-import { MffuVariant, type Plan, TopStepVariant } from '~/lib/prop-calculator/core';
+import {
+    MffuVariant,
+    type Plan,
+    TopStepVariant,
+} from '~/lib/prop-calculator/core';
 
 function requirePlan(value: null | Plan | undefined, message: string): Plan {
     if (value === null || value === undefined) throw new Error(message);
@@ -131,7 +135,9 @@ describe('planPayoutReadiness: readiness at the effective request', () => {
         expect(result.readiness.requestedAmount).toBeGreaterThan(0);
         expect(result.ruleCappedWithdrawable).toBeGreaterThan(0);
         expect(result.netAfterSplit).toBeGreaterThan(0);
-        expect(result.netAfterSplit).toBeLessThan(result.readiness.requestedAmount);
+        expect(result.netAfterSplit).toBeLessThan(
+            result.readiness.requestedAmount,
+        );
     });
 
     it('does not say no profit or time reaches a nothing-withdrawable block on the blocked result', () => {
@@ -240,7 +246,10 @@ describe('planPayoutReadiness: the retained cushion and its basis on the Ready r
             baseInput(TOPSTEP_50K, {
                 rulebook: {
                     ...DEFAULT_RULEBOOK,
-                    payout: { ...DEFAULT_RULEBOOK.payout, retainedCushionCents: 1 },
+                    payout: {
+                        ...DEFAULT_RULEBOOK.payout,
+                        retainedCushionCents: 1,
+                    },
                 },
             }),
         );
@@ -295,7 +304,10 @@ describe('payoutWaitText with a block reason: no false claim that nothing can cl
         expect(
             payoutWaitText(
                 { basis: PayoutWaitBasis.Profit, profitStillNeeded: 250 },
-                { gate: PayoutGate.AccountConcluded, kind: PayoutBlockReasonKind.Gate },
+                {
+                    gate: PayoutGate.AccountConcluded,
+                    kind: PayoutBlockReasonKind.Gate,
+                },
             ),
         ).toBe('wait: $250 more profit');
     });

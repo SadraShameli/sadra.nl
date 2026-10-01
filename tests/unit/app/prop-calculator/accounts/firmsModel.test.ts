@@ -3,7 +3,10 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { firmsModelOf } from '~/app/(app)/prop-calculator/accounts/firms/firmsModel';
-import { ScaleGateStatus, ScaleGateUnmetCondition } from '~/lib/prop-accounts/bankroll';
+import {
+    ScaleGateStatus,
+    ScaleGateUnmetCondition,
+} from '~/lib/prop-accounts/bankroll';
 import {
     AccountEventKind,
     AccountStage,
@@ -67,7 +70,11 @@ describe('firmsModelOf', () => {
                 purchased(funded),
                 event(funded, AccountEventKind.EvalPassed, '2026-09-10'),
                 purchased(ledgerOnlyAccount),
-                event(ledgerOnlyAccount, AccountEventKind.EvalPassed, '2026-09-05'),
+                event(
+                    ledgerOnlyAccount,
+                    AccountEventKind.EvalPassed,
+                    '2026-09-05',
+                ),
             ],
             fees: [fee(funded, FeeKind.EvalPurchase, 10_000, '2026-09-01')],
             payouts: [payout(funded, 60_000, { paidOn: '2026-09-20' })],

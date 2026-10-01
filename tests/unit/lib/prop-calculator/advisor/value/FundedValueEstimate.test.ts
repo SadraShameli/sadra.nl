@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildEnginePolicy, DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
-import { type DocumentedPolicySpec, type EnginePolicy } from '~/lib/prop-calculator/advisor/policy';
+import {
+    buildEnginePolicy,
+    DEFAULT_RULEBOOK,
+} from '~/lib/prop-calculator/advisor';
+import {
+    type DocumentedPolicySpec,
+    type EnginePolicy,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     FUNDED_VALUE_SAMPLE_RANGE_LABEL,
     fundedValueEstimate,

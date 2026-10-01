@@ -40,7 +40,8 @@ if (LIMIT === null) throw new Error('expected a configured idle limit');
 
 function requiredFirm(firmId: typeof WITH_LIMIT.firmId) {
     const firm = ALL_FIRMS.find((candidate) => candidate.id === firmId);
-    if (firm === undefined) throw new Error('expected the plan firm to be registered');
+    if (firm === undefined)
+        throw new Error('expected the plan firm to be registered');
     return firm;
 }
 
@@ -160,7 +161,9 @@ describe('IdleSessionLimitRule', () => {
         const verifiedPolicy: InactivityPolicy = {
             kind: InactivityBasisKind.CalendarDays,
             maxIdleDays: LIMIT,
-            minimumQualifying: { kind: InactivityMinimumQualifyingKind.AnyTrade },
+            minimumQualifying: {
+                kind: InactivityMinimumQualifyingKind.AnyTrade,
+            },
             mismatch: null,
             outcome: InactivityOutcome.Closure,
             source: {

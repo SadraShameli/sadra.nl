@@ -109,9 +109,7 @@ describe('BankrollLossRiskAboveThresholdRule', () => {
             rulebook: RULEBOOK_WITH_THRESHOLD,
         });
         expect(alerts).toHaveLength(1);
-        expect(alerts[0]?.kind).toBe(
-            AlertKind.BankrollLossRiskAboveThreshold,
-        );
+        expect(alerts[0]?.kind).toBe(AlertKind.BankrollLossRiskAboveThreshold);
         expect(alerts[0]?.severity).toBe(AlertSeverity.Warning);
         expect(alerts[0]?.subject.kind).toBe(AlertSubjectKind.Portfolio);
         expect(alerts[0]?.message).toContain('10.0%');

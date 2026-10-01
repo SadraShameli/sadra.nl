@@ -1,4 +1,7 @@
-import { type DocumentedPolicySpec, toSimInputs } from '~/lib/prop-calculator/advisor/policy';
+import {
+    type DocumentedPolicySpec,
+    toSimInputs,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     type ReconstructedAccount,
     ReconstructedLiveKind,
@@ -17,7 +20,11 @@ import {
 } from '~/lib/prop-calculator/stats';
 
 import { startStateOf } from './ValueAtState';
-import { notModeled, type ValueNotModeledResult, ValueUnavailableReason } from './ValueEstimate';
+import {
+    notModeled,
+    type ValueNotModeledResult,
+    ValueUnavailableReason,
+} from './ValueEstimate';
 
 export enum RetireComparisonBasis {
     AverageRewardDp = 'average-reward-dp',
@@ -38,8 +45,7 @@ export enum RetireComparisonVerdict {
 }
 
 export type RetireComparisonOutcome =
-    | RetireComparisonResult
-    | ValueNotModeledResult;
+    RetireComparisonResult | ValueNotModeledResult;
 
 export interface RetireComparisonRequest {
     readonly isCapacityBound: boolean;
@@ -118,7 +124,15 @@ export function retireComparison(
             : RetireComparisonVerdict.Keep;
     const reason = reasonFor(verdict, comparison, isSwitchAhead);
 
-    return { basis, keepRate, reason, remainingDays, switchCost, switchRate, verdict };
+    return {
+        basis,
+        keepRate,
+        reason,
+        remainingDays,
+        switchCost,
+        switchRate,
+        verdict,
+    };
 }
 
 function reasonFor(

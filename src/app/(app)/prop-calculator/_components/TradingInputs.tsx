@@ -1,6 +1,7 @@
 'use client';
 
 import { Settings2 } from 'lucide-react';
+import { z } from 'zod';
 
 import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import Eyebrow from '~/components/Eyebrow';
@@ -23,10 +24,10 @@ import {
     evalContractLimit,
     fraction,
     INSTRUMENTS,
-    type InstrumentSymbol,
+    InstrumentSymbol,
     type Plan,
     points,
-    type RungSizing,
+    RungSizing,
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import {
@@ -61,6 +62,9 @@ import { tradingInputBounds } from './tradingInputBounds';
 import { SizingMode } from './types';
 
 const SIZING_HINT_ID = 'position-sizing-hint';
+const rungSizingSchema = z.enum(RungSizing);
+const sizingModeSchema = z.enum(SizingMode);
+const instrumentSymbolSchema = z.enum(InstrumentSymbol);
 
 interface TradingInputsProperties {
     activationDiscountPercent: number;
@@ -345,7 +349,9 @@ export default function TradingInputs({
                                     className="mb-1 block text-xs font-medium text-muted-foreground"
                                     htmlFor="retained-cushion"
                                 >
-                                    {CALCULATOR_FIELD_LABELS.retainedCushionRequest}
+                                    {
+                                        CALCULATOR_FIELD_LABELS.retainedCushionRequest
+                                    }
                                 </label>
                                 <Input
                                     id="retained-cushion"
@@ -380,7 +386,9 @@ export default function TradingInputs({
                                     className="mb-1 block text-xs font-medium text-muted-foreground"
                                     htmlFor="payout-request-size"
                                 >
-                                    {CALCULATOR_FIELD_LABELS.payoutRequestOverride}
+                                    {
+                                        CALCULATOR_FIELD_LABELS.payoutRequestOverride
+                                    }
                                 </label>
                                 <Input
                                     id="payout-request-size"
@@ -499,11 +507,15 @@ export default function TradingInputs({
                                 <select
                                     className="h-8 w-full rounded-md border bg-transparent px-2 text-xs"
                                     id="rung-sizing"
-                                    onChange={(event) =>
-                                        onRungSizingChange(
-                                            event.target.value as RungSizing,
-                                        )
-                                    }
+                                    onChange={(event) => {
+                                        const parsed =
+                                            rungSizingSchema.safeParse(
+                                                event.target.value,
+                                            );
+                                        if (parsed.success) {
+                                            onRungSizingChange(parsed.data);
+                                        }
+                                    }}
                                     value={rungSizing}
                                 >
                                     {RUNG_SIZING_OPTIONS.map((option) => (
@@ -668,7 +680,8 @@ export default function TradingInputs({
                     </span>
                     <ToggleGroup
                         onValueChange={(v: string) => {
-                            if (v) onSizingModeChange(v as SizingMode);
+                            const parsed = sizingModeSchema.safeParse(v);
+                            if (parsed.success) onSizingModeChange(parsed.data);
                         }}
                         size="sm"
                         type="single"
@@ -750,14 +763,18 @@ export default function TradingInputs({
                         <select
                             className="h-8 rounded-md border bg-transparent px-2 text-xs"
                             id="position-sizing-instrument"
-                            onChange={(event) =>
-                                onInstrumentChange(
-                                    event.target.value === ''
-                                        ? null
-                                        : (event.target
-                                              .value as InstrumentSymbol),
-                                )
-                            }
+                            onChange={(event) => {
+                                if (event.target.value === '') {
+                                    onInstrumentChange(null);
+                                    return;
+                                }
+                                const parsed = instrumentSymbolSchema.safeParse(
+                                    event.target.value,
+                                );
+                                if (parsed.success) {
+                                    onInstrumentChange(parsed.data);
+                                }
+                            }}
                             value={instrument ?? ''}
                         >
                             <option value="">Not enforced</option>

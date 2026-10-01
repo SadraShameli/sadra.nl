@@ -420,10 +420,7 @@ function reduceCalculator(
         }
         case CalculatorActionType.SetEvalDayPolicy: {
             return {
-                ...withLinkParameterCleared(
-                    state,
-                    LinkParameter.EvalDayPolicy,
-                ),
+                ...withLinkParameterCleared(state, LinkParameter.EvalDayPolicy),
                 evalDayPolicy: action.policy,
             };
         }

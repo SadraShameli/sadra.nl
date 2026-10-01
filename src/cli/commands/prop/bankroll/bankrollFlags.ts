@@ -165,7 +165,8 @@ export const bankrollProjectArguments = {
     },
     reinvest: {
         default: '1',
-        description: 'Fraction [0,1] of each payout reinvested; the rest is withdrawn',
+        description:
+            'Fraction [0,1] of each payout reinvested; the rest is withdrawn',
         type: 'string',
     },
     start: {
@@ -187,7 +188,8 @@ export const bankrollRiskArguments = {
         type: 'string',
     },
     'loss-threshold': {
-        description: 'Loss-probability threshold (0, 0.5] for the minimum-budget line',
+        description:
+            'Loss-probability threshold (0, 0.5] for the minimum-budget line',
         type: 'string',
     },
     'pass-rate': {

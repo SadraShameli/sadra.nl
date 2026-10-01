@@ -11,7 +11,10 @@ import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToo
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { parsedOrIssues } from '~/app/(app)/prop-calculator/accounts/_components/detail/formParsing';
-import { EVENT_LIST_INPUT, LEDGER_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import {
+    EVENT_LIST_INPUT,
+    LEDGER_LIST_INPUT,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
@@ -205,15 +208,17 @@ export function RoundsView() {
               })
             : null;
     const nextRoundFailureReason =
-        worker.state.phase === ToolsWorkerPhase.Failed ? worker.state.reason : null;
+        worker.state.phase === ToolsWorkerPhase.Failed
+            ? worker.state.reason
+            : null;
 
     return (
         <div className="flex flex-col gap-6">
             {externalFirmsQuery.isError &&
                 externalFirmsQuery.data === undefined && (
                     <p className="text-xs text-destructive">
-                        Your firms could not be loaded, so external firms
-                        show as an unlisted firm until they load:{' '}
+                        Your firms could not be loaded, so external firms show
+                        as an unlisted firm until they load:{' '}
                         {externalFirmsQuery.error.message}
                     </p>
                 )}
@@ -227,9 +232,9 @@ export function RoundsView() {
             {bankrollSummaryQuery.isError &&
                 bankrollSummaryQuery.data === undefined && (
                     <p className="text-xs text-destructive">
-                        Your available bankroll could not be loaded, so
-                        option B on the &quot;Next round&quot; card is
-                        capped at option A&apos;s budget until it does:{' '}
+                        Your available bankroll could not be loaded, so option B
+                        on the &quot;Next round&quot; card is capped at option
+                        A&apos;s budget until it does:{' '}
                         {bankrollSummaryQuery.error.message}
                     </p>
                 )}
@@ -293,9 +298,7 @@ export function RoundsView() {
                                     <TableRow key={row.id}>
                                         <TableCell>{row.label}</TableCell>
                                         <TableCell>{row.firm}</TableCell>
-                                        <TableCell>
-                                            {row.statusLabel}
-                                        </TableCell>
+                                        <TableCell>{row.statusLabel}</TableCell>
                                         <TableCell>
                                             <div className="flex flex-col gap-1">
                                                 <span className="text-xs text-muted-foreground">
@@ -324,10 +327,16 @@ export function RoundsView() {
                                             {row.openMemberCount}
                                         </TableCell>
                                         <TableCell className="text-right tabular-nums">
-                                            <div>{row.likeThisEndsNetNegativeModeled}</div>
+                                            <div>
+                                                {
+                                                    row.likeThisEndsNetNegativeModeled
+                                                }
+                                            </div>
                                             <div className="text-xs text-muted-foreground">
                                                 Closed-form check:{' '}
-                                                {row.likeThisEndsNetNegativeClosedForm}
+                                                {
+                                                    row.likeThisEndsNetNegativeClosedForm
+                                                }
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -371,9 +380,9 @@ function NextRoundCard({
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
                 <p className="text-sm text-muted-foreground">
-                    After {model.roundLabel} closed ({model.planLabel}),
-                    modeled at {(model.modeledWinrate * 100).toFixed(0)}% win
-                    rate and {model.modeledRr}:1
+                    After {model.roundLabel} closed ({model.planLabel}), modeled
+                    at {(model.modeledWinrate * 100).toFixed(0)}% win rate and{' '}
+                    {model.modeledRr}:1
                     {model.realizedPassRate !== null && (
                         <>
                             {' '}
@@ -395,9 +404,7 @@ function NextRoundCard({
                     </p>
                 )}
                 {failureReason !== null && (
-                    <p className="text-xs text-destructive">
-                        {failureReason}
-                    </p>
+                    <p className="text-xs text-destructive">{failureReason}</p>
                 )}
                 {result === null ? (
                     <Skeleton className="h-24 w-full" />
@@ -452,16 +459,12 @@ function NextRoundOption({
                 <dd className="text-right tabular-nums">
                     {summary.medianMonthlyNet}
                 </dd>
-                <dt className="text-muted-foreground">
-                    P(round net negative)
-                </dt>
+                <dt className="text-muted-foreground">P(round net negative)</dt>
                 <dd className="text-right tabular-nums">
                     {summary.pRoundNetNegative}
                 </dd>
                 <dt className="text-muted-foreground">Path ruin</dt>
-                <dd className="text-right tabular-nums">
-                    {summary.pathRuin}
-                </dd>
+                <dd className="text-right tabular-nums">{summary.pathRuin}</dd>
             </dl>
             {summary.scaleGateNote !== null && (
                 <p className="text-xs text-amber-600">

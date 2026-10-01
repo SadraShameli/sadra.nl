@@ -10,10 +10,7 @@ import {
 import { type ContractCount, type Dollars } from './lib/units';
 import { type LiveAccountState } from './LiveAccountState';
 import { type LivePlan } from './LivePlan';
-import {
-    resolveLiveAffordableRoom,
-    resolveLiveTradeRisk,
-} from './LiveSizing';
+import { resolveLiveAffordableRoom, resolveLiveTradeRisk } from './LiveSizing';
 import { type Plan } from './Plan';
 import {
     capRiskToContractLimit,
@@ -65,9 +62,7 @@ export function applyClosedTrade(
     applyTrade(plan, phase, state, pnl, peakPnL);
 }
 
-export function resolveLiveRiskAt(
-    options: LiveTradeRiskOptions,
-): SizedTrade {
+export function resolveLiveRiskAt(options: LiveTradeRiskOptions): SizedTrade {
     const { commission, plan, positionSizing, state } = options;
     const cushion = state.balance - state.threshold;
     const cushionPercent = plan.cushionPercentFor(state);

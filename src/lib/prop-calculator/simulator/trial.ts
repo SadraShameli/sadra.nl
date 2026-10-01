@@ -58,7 +58,8 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         return simulateFundedStartTrial(options, start, totals);
     }
 
-    const evalStart = start?.phase === TradingPhase.Eval ? start.attempt : undefined;
+    const evalStart =
+        start?.phase === TradingPhase.Eval ? start.attempt : undefined;
     const sunkSubscriptionDays =
         start?.phase === TradingPhase.Eval ? start.sunkSubscriptionDays : 0;
 
@@ -270,11 +271,8 @@ function fromStateEvalCost(
         const chainDays = attemptDays.reduce((sum, days) => sum + days, 0);
         subscriptionCost = Math.max(
             0,
-            subscriptionFee(
-                fees,
-                sunkSubscriptionDays + chainDays,
-                discounts,
-            ) - subscriptionFee(fees, sunkSubscriptionDays, discounts),
+            subscriptionFee(fees, sunkSubscriptionDays + chainDays, discounts) -
+                subscriptionFee(fees, sunkSubscriptionDays, discounts),
         );
     }
     const evalCost = subscriptionCost + billing.resetFeesPaid;

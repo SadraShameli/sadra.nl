@@ -1,6 +1,9 @@
 import { simInputsCacheKey } from '~/app/(app)/prop-calculator/_components/simInputsCacheKey';
 import { type FirmId, type PlanOptIns } from '~/lib/prop-calculator';
-import { type EnginePolicy, enginePolicyKey } from '~/lib/prop-calculator/advisor';
+import {
+    type EnginePolicy,
+    enginePolicyKey,
+} from '~/lib/prop-calculator/advisor';
 import {
     type FundedCandidateBuildKind,
     type FundedCandidateRefusalDetail,
@@ -39,7 +42,8 @@ export interface FundedSweepRequest {
     readonly policy: EnginePolicy;
 }
 
-export type FundedSweepResult = FundedSweepBuiltResult | FundedSweepRefusedResult;
+export type FundedSweepResult =
+    FundedSweepBuiltResult | FundedSweepRefusedResult;
 
 export function clampFundedSweepTrials(trials: number): number {
     return Math.min(trials, MAX_FUNDED_SWEEP_TRIALS);

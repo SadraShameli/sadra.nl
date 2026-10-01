@@ -8,8 +8,14 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
-import { ListQueryStatus, RemoveRecordDialog } from '~/app/(app)/prop-calculator/accounts/_components/detail/DetailParts';
-import { nullIfBlank, parsedOrIssues } from '~/app/(app)/prop-calculator/accounts/_components/detail/formParsing';
+import {
+    ListQueryStatus,
+    RemoveRecordDialog,
+} from '~/app/(app)/prop-calculator/accounts/_components/detail/DetailParts';
+import {
+    nullIfBlank,
+    parsedOrIssues,
+} from '~/app/(app)/prop-calculator/accounts/_components/detail/formParsing';
 import { useRowEditing } from '~/app/(app)/prop-calculator/accounts/_components/detail/useRowEditing';
 import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
 import {
@@ -153,7 +159,8 @@ export function LedgerView() {
     const payouts = payoutsQuery.data;
     const fees = feesQuery.data;
     const payoutLagRows = useMemo(
-        () => payoutLagByFirm(accounts ?? [], payouts ?? [], externalFirms ?? []),
+        () =>
+            payoutLagByFirm(accounts ?? [], payouts ?? [], externalFirms ?? []),
         [accounts, externalFirms, payouts],
     );
     const entries = useMemo(
@@ -240,8 +247,8 @@ export function LedgerView() {
                     {externalFirmsQuery.isError &&
                         externalFirms === undefined && (
                             <p className="text-xs text-destructive">
-                                Your firms could not be loaded, so the export
-                                is paused until they load:{' '}
+                                Your firms could not be loaded, so the export is
+                                paused until they load:{' '}
                                 {externalFirmsQuery.error.message}
                             </p>
                         )}
@@ -287,8 +294,7 @@ function accountFilterOptions(
 function DepositsWithdrawalsSection() {
     const utilities = api.useUtils();
     const transfersQuery = api.propAccounts.bankroll.list.useQuery();
-    const { editing, startEditing, stopEditing } =
-        useRowEditing<TransferRow>();
+    const { editing, startEditing, stopEditing } = useRowEditing<TransferRow>();
     const remove = api.propAccounts.bankroll.remove.useMutation({
         onError: (error) => {
             toast.error(error.message);
@@ -325,9 +331,7 @@ function DepositsWithdrawalsSection() {
                         <TableRow>
                             <TableHead>Date</TableHead>
                             <TableHead>Kind</TableHead>
-                            <TableHead className="text-right">
-                                Amount
-                            </TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
                             <TableHead>Note</TableHead>
                             <TableHead>
                                 <span className="sr-only">Actions</span>
@@ -564,9 +568,7 @@ function FirmReconciliationSection({
                                 isRemovePending={remove.isPending}
                                 key={entry.id}
                                 onEdit={(trigger) => {
-                                    const stored = statementById.get(
-                                        entry.id,
-                                    );
+                                    const stored = statementById.get(entry.id);
                                     if (stored !== undefined) {
                                         startEditing(stored, trigger);
                                     }
@@ -858,33 +860,31 @@ function payoutLagByFirm(
     payouts: readonly LedgerExportPayout[],
     externalFirms: readonly ExternalFirmName[],
 ): readonly PayoutLagRow[] {
-    const byAccountId = new Map(accounts.map((account) => [account.id, account]));
+    const byAccountId = new Map(
+        accounts.map((account) => [account.id, account]),
+    );
     const withFirm = payouts.flatMap((payout) => {
         const account = byAccountId.get(payout.accountId);
         return account === undefined ? [] : [{ account, payout }];
     });
     return groupByFirmKey(withFirm, ({ account }) =>
         firmKeyOf(trackedAccountOf(account)),
-    ).map(
-        ({ firmKey, items }) => ({
-            firm: firmKeyLabel(firmKey, externalFirms),
-            key: firmKeyId(firmKey),
-            requestToApproval: formatLagDays(
-                sampledMean(
-                    items.flatMap(({ payout }) =>
-                        lagDaysOf(payout, payout.approvedOn),
-                    ),
+    ).map(({ firmKey, items }) => ({
+        firm: firmKeyLabel(firmKey, externalFirms),
+        key: firmKeyId(firmKey),
+        requestToApproval: formatLagDays(
+            sampledMean(
+                items.flatMap(({ payout }) =>
+                    lagDaysOf(payout, payout.approvedOn),
                 ),
             ),
-            requestToPaid: formatLagDays(
-                sampledMean(
-                    items.flatMap(({ payout }) =>
-                        lagDaysOf(payout, payout.paidOn),
-                    ),
-                ),
+        ),
+        requestToPaid: formatLagDays(
+            sampledMean(
+                items.flatMap(({ payout }) => lagDaysOf(payout, payout.paidOn)),
             ),
-        }),
-    );
+        ),
+    }));
 }
 
 function PayoutLagCard({ rows }: { readonly rows: readonly PayoutLagRow[] }) {
@@ -1282,7 +1282,9 @@ function TransferForm({
     return (
         <Form {...form}>
             <form
-                aria-label={editing === null ? 'Add a transfer' : 'Edit transfer'}
+                aria-label={
+                    editing === null ? 'Add a transfer' : 'Edit transfer'
+                }
                 className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
                 noValidate
                 onSubmit={(event) => {
@@ -1422,4 +1424,3 @@ const transferFormShape = z.object({
 type TransferFormValues = z.input<typeof transferFormShape>;
 
 type TransferRow = RouterOutputs['propAccounts']['bankroll']['list'][number];
-

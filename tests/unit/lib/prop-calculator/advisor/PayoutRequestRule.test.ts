@@ -41,6 +41,7 @@ import {
     ruleCappedWithdrawable,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
+import { fundedRetainedCushionResolution } from '~/lib/prop-calculator/advisor/PayoutRequestRule';
 
 function baseFundedContext(
     plan: Plan,
@@ -633,7 +634,9 @@ describe('PayoutRequestRule funded: firm gates (F-105g)', () => {
         );
         expect(decision.kind).toBe(PayoutRequestDecisionKind.NotEligible);
         if (decision.kind !== PayoutRequestDecisionKind.NotEligible) return;
-        expect(decision.reason).toEqual({ kind: PayoutBlockReasonKind.PayoutPending });
+        expect(decision.reason).toEqual({
+            kind: PayoutBlockReasonKind.PayoutPending,
+        });
     });
 
     it('waits in days for the day gate', () => {
@@ -704,7 +707,10 @@ describe('PayoutRequestRule funded: firm gates (F-105g)', () => {
 describe('PayoutRequestRule funded: MFF Pro one-time early withdrawal still enforces the cushion (F-105h)', () => {
     it('never uses closeoutCredit and still enforces the cushion above $50,100', () => {
         const plan = registryPlan(MFF_PRO_ID).withOverrides({
-            oneTimeEarlyWithdrawal: { maxProfitShare: fraction(1), minRequest: dollars(1) },
+            oneTimeEarlyWithdrawal: {
+                maxProfitShare: fraction(1),
+                minRequest: dollars(1),
+            },
             takesOneTimeEarlyWithdrawal: true,
         });
         const rulebook = rulebookWith({ requestCents: 100_000 });
@@ -772,6 +778,45 @@ describe('retainedCushionForStage (F-105i)', () => {
         expect(resolved.basis).toBe(RetainedCushionBasis.PersonalOverride);
     });
 
+    it('funded: the stage resolution is the funded cushion resolution, for every basis', () => {
+        const plan = registryPlan(TOPSTEP_STANDARD_ID);
+        const state = fundedState({});
+        const cases = [
+            { personal: null, rulebook: rulebookWith({}) },
+            {
+                personal: null,
+                rulebook: rulebookWith({ retainedCushionCents: 300_000 }),
+            },
+            { personal: dollars(5000), rulebook: rulebookWith({}) },
+            {
+                personal: null,
+                rulebook: rulebookWith({ retainedCushionCents: 10_000 }),
+            },
+        ];
+        for (const { personal, rulebook } of cases) {
+            const context = baseFundedContext(
+                plan,
+                trackerAt(state, 0),
+                state,
+                { personalRetainedCushion: personal },
+            );
+            expect(
+                fundedRetainedCushionResolution(
+                    rulebook,
+                    personal ?? undefined,
+                ),
+            ).toEqual(retainedCushionForStage(rulebook, context));
+        }
+    });
+
+    it('funded: a $3,000 rulebook cushion is the rulebook size, not the Hard Rule 2 default', () => {
+        const resolved = fundedRetainedCushionResolution(
+            rulebookWith({ retainedCushionCents: 300_000 }),
+        );
+        expect(resolved.amount).toBe(3000);
+        expect(resolved.basis).toBe(RetainedCushionBasis.RulebookSize);
+    });
+
     it('live: uses the larger of the rulebook cushion and one full live drawdown (D4)', () => {
         const builder = findLivePlanBuilder(FirmId.TopStep);
         if (!builder) throw new Error('missing TopStep live plan builder');
@@ -792,11 +837,16 @@ describe('retainedCushionForStage (F-105i)', () => {
 
     it('live: a trailing plan without a lock reports Unreachable, not a throw', () => {
         const trailingNoLock = new LivePlan({
-            cushionPercent: { postLock: fraction(0.1), preLock: fraction(0.05) },
+            cushionPercent: {
+                postLock: fraction(0.1),
+                preLock: fraction(0.05),
+            },
             label: 'synthetic trailing, no lock',
             liveDailyLossLimit: null,
             liveDrawdown: new EodTrailingDrawdown({ amount: dollars(2000) }),
-            payoutTiers: [{ thresholdProfit: dollars(0), traderShare: fraction(0.9) }],
+            payoutTiers: [
+                { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+            ],
             requiresLockForWithdrawal: false,
         });
         const rulebook = rulebookWith({});
@@ -824,7 +874,8 @@ describe('PayoutRequestRule live: request and wait (F-105i)', () => {
         const rule = new PayoutRequestRule(rulebook);
         const state = livePlan.initialState();
         state.qualifyingDays = 30;
-        state.balance = state.startingBalance + livePlan.defaultRetainedCushion() + 1000;
+        state.balance =
+            state.startingBalance + livePlan.defaultRetainedCushion() + 1000;
         const decision = rule.decide({
             livePlan,
             paidPayoutsSinceLastLiveAccount: null,
@@ -913,7 +964,9 @@ describe('PayoutRequestRule: invariants (F-105j)', () => {
             stage: SizingStage.Live,
             state: livePlan.initialState(),
         });
-        expect(liveDecision.sources).toContain('Live account (NOT replaceable)');
+        expect(liveDecision.sources).toContain(
+            'Live account (NOT replaceable)',
+        );
     });
 });
 
@@ -927,19 +980,26 @@ describe('PayoutRequestRule funded: live-trigger count limit (PT-36b)', () => {
     });
 
     it('blocks a payout that would reach the verified per-account trigger count, never offering a smaller request', () => {
-        const context = eligibleContextForLiveTrigger({ liveTriggerPerAccountCap: 3 });
+        const context = eligibleContextForLiveTrigger({
+            liveTriggerPerAccountCap: 3,
+        });
         context.tracker.payoutsIssued = 2;
         const decision = rule.decide(context);
         expect(decision.kind).toBe(PayoutRequestDecisionKind.NotEligible);
         if (decision.kind !== PayoutRequestDecisionKind.NotEligible) return;
         expect(decision.reason).toEqual({
             kind: PayoutBlockReasonKind.WouldTriggerLive,
-            trigger: { paidPayoutsSinceLastLiveAccount: 2, triggerAtPayoutCount: 3 },
+            trigger: {
+                paidPayoutsSinceLastLiveAccount: 2,
+                triggerAtPayoutCount: 3,
+            },
         });
     });
 
     it('does not block while under the verified per-account trigger count', () => {
-        const context = eligibleContextForLiveTrigger({ liveTriggerPerAccountCap: 3 });
+        const context = eligibleContextForLiveTrigger({
+            liveTriggerPerAccountCap: 3,
+        });
         context.tracker.payoutsIssued = 1;
         const decision = rule.decide(context);
         expect(decision.kind).toBe(PayoutRequestDecisionKind.Request);
@@ -956,7 +1016,10 @@ describe('PayoutRequestRule funded: live-trigger count limit (PT-36b)', () => {
         if (decision.kind !== PayoutRequestDecisionKind.NotEligible) return;
         expect(decision.reason).toEqual({
             kind: PayoutBlockReasonKind.WouldTriggerLive,
-            trigger: { paidPayoutsSinceLastLiveAccount: 9, triggerAtPayoutCount: 10 },
+            trigger: {
+                paidPayoutsSinceLastLiveAccount: 9,
+                triggerAtPayoutCount: 10,
+            },
         });
     });
 
@@ -973,9 +1036,7 @@ describe('PayoutRequestRule funded: live-trigger count limit (PT-36b)', () => {
 
 describe('firmMinimumNotice', () => {
     it('is exported so a caller like the payout readiness board can reuse it', () => {
-        expect(
-            firmMinimumNotice(500, 1000),
-        ).toEqual({
+        expect(firmMinimumNotice(500, 1000)).toEqual({
             kind: PayoutRequestNotice.FirmMinimumAboveRequest,
             minimumRequestAmount: 1000,
             requestedAmount: 500,

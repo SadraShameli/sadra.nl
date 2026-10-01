@@ -107,12 +107,9 @@ export default function PlanComparisonTable({
     const openInSimulator = useOpenInSimulator(planOptIns);
 
     const [hoursPerDayInput, setHoursPerDayInput] = useState('');
-    const [accountsPerSessionInput, setAccountsPerSessionInput] =
-        useState('');
+    const [accountsPerSessionInput, setAccountsPerSessionInput] = useState('');
     const hoursPerDay = parsePositiveNumber(hoursPerDayInput);
-    const accountsPerSession = parseAccountsPerSession(
-        accountsPerSessionInput,
-    );
+    const accountsPerSession = parseAccountsPerSession(accountsPerSessionInput);
     const hasScreenHourInputs =
         hoursPerDay !== null && accountsPerSession !== null;
 

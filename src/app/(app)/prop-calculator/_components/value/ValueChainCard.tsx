@@ -6,7 +6,6 @@ import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalc
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { ValueChainStepKind } from '~/lib/prop-calculator/advisor/value';
 import { stableJson } from '~/lib/stableJson';
 
 import {
@@ -16,44 +15,53 @@ import {
     uncertainCurrencyText,
     type ValueCardsInput,
     ValueCardsInputKind,
+    valueChainCardFailures,
     valueChainCardSteps,
     valueChainToolsRequest,
 } from './valueCardsModel';
-
-const VALUE_CHAIN_STEP_LABEL: Record<ValueChainStepKind, string> = {
-    [ValueChainStepKind.EvalStart]: 'Eval start',
-    [ValueChainStepKind.FirstPayoutEligible]: 'First payout eligible',
-    [ValueChainStepKind.FreshFunded]: 'Fresh funded',
-    [ValueChainStepKind.PostFirstPayout]: 'Post first payout',
-};
+import { VALUE_CHAIN_STEP_LABEL } from './valueChainStepLabels';
 
 export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
     const settledInput = useDebouncedValue(cards, SIM_DEBOUNCE_MS);
     const settledCards =
-        settledInput.kind === ValueCardsInputKind.Ready ? settledInput.cards : null;
+        settledInput.kind === ValueCardsInputKind.Ready
+            ? settledInput.cards
+            : null;
     const worker = useToolsRequest(
         settledCards === null ? null : stableJson(settledCards),
         (runId) =>
-            settledCards === null ? null : valueChainToolsRequest(settledCards, runId),
+            settledCards === null
+                ? null
+                : valueChainToolsRequest(settledCards, runId),
     );
 
-    const refusal = cards.kind === ValueCardsInputKind.Refused ? cards.reason : null;
+    const refusal =
+        cards.kind === ValueCardsInputKind.Refused ? cards.reason : null;
     const result =
         refusal === null &&
         worker.state.phase === ToolsWorkerPhase.Succeeded &&
         worker.state.result.kind === ToolsResponseKind.ValueChain
             ? worker.state.result.result
             : null;
+    const cardSteps = result === null ? [] : valueChainCardSteps(result);
+    const stepFailures = result === null ? [] : valueChainCardFailures(result);
     const failureReason = refusal ?? toolsWorkerFailureReason(worker.state);
-    const pendingText = refusal === null ? toolsWorkerPendingText(worker.state) : null;
+    const pendingText =
+        refusal === null ? toolsWorkerPendingText(worker.state) : null;
 
     return (
         <section
-            aria-busy={refusal === null && worker.state.phase === ToolsWorkerPhase.Running}
+            aria-busy={
+                refusal === null &&
+                worker.state.phase === ToolsWorkerPhase.Running
+            }
             aria-labelledby="value-chain-heading"
             className="flex flex-col gap-4"
         >
-            <h3 className="text-base font-semibold text-white" id="value-chain-heading">
+            <h3
+                className="text-base font-semibold text-white"
+                id="value-chain-heading"
+            >
                 Value chain
             </h3>
             <div aria-live="polite" className="flex flex-col gap-4">
@@ -63,16 +71,30 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                     </p>
                 )}
                 {pendingText === null ? null : (
-                    <p className="text-xs text-muted-foreground">{pendingText}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {pendingText}
+                    </p>
                 )}
+                {stepFailures.map((failure) => (
+                    <p
+                        className="text-xs text-rose-400"
+                        key={failure.kind}
+                        role="alert"
+                    >
+                        {failure.text}
+                    </p>
+                ))}
                 {result === null ? null : (
                     <>
                         <p className="text-xs text-muted-foreground">
-                            Expected credit-free cash from each state, with the
-                            value including the end-of-horizon credit beside it.
+                            Expected credit-free cash from each state under the
+                            documented policy, with the value including the
+                            end-of-horizon credit beside it. A gap is the
+                            credit-free value minus the previous built step's,
+                            with the two standard errors combined in quadrature.
                         </p>
                         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                            {valueChainCardSteps(result).map((step) => (
+                            {cardSteps.map((step) => (
                                 <StatCard
                                     key={step.kind}
                                     label={VALUE_CHAIN_STEP_LABEL[step.kind]}
@@ -84,10 +106,35 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                                     ]
                                         .filter((line) => line !== null)
                                         .join(' · ')}
-                                    value={uncertainCurrencyText(step.creditFree)}
+                                    value={uncertainCurrencyText(
+                                        step.creditFree,
+                                    )}
                                 />
                             ))}
                         </div>
+                        {cardSteps
+                            .filter((step) => step.assumptions.length > 0)
+                            .map((step) => (
+                                <div
+                                    className="flex flex-col gap-1"
+                                    key={step.kind}
+                                >
+                                    <h4 className="text-xs font-semibold text-white">
+                                        {VALUE_CHAIN_STEP_LABEL[step.kind]}{' '}
+                                        assumptions
+                                    </h4>
+                                    <ul
+                                        aria-label={`${VALUE_CHAIN_STEP_LABEL[step.kind]} assumptions`}
+                                        className="list-disc pl-4 text-xs text-muted-foreground"
+                                    >
+                                        {step.assumptions.map((assumption) => (
+                                            <li key={assumption}>
+                                                {assumption}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
                     </>
                 )}
             </div>

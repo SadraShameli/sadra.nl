@@ -37,13 +37,17 @@ describe('firmPayoutCounts', () => {
         ).toBe(2);
     });
 
-    it('only counts payouts paid after the firm\'s latest MovedLive event', () => {
+    it("only counts payouts paid after the firm's latest MovedLive event", () => {
         const liveAccount = account(EVAL_PLAN);
         const counts = firmPayoutCounts(
             ledger({
                 accounts: [liveAccount],
                 events: [
-                    event(liveAccount, AccountEventKind.MovedLive, '2026-09-10'),
+                    event(
+                        liveAccount,
+                        AccountEventKind.MovedLive,
+                        '2026-09-10',
+                    ),
                 ],
                 payouts: [
                     payout(liveAccount, 1000, { paidOn: '2026-09-05' }),

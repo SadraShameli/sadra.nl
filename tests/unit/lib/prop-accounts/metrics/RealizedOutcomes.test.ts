@@ -377,11 +377,7 @@ describe('realizedPayoutRates', () => {
                     event(busted, AccountEventKind.EvalPassed, '2026-01-05'),
                     event(busted, AccountEventKind.Busted, '2026-01-08'),
                     purchased(paidFirst),
-                    event(
-                        paidFirst,
-                        AccountEventKind.EvalPassed,
-                        '2026-01-05',
-                    ),
+                    event(paidFirst, AccountEventKind.EvalPassed, '2026-01-05'),
                     purchased(paidSecond),
                     event(
                         paidSecond,
@@ -480,17 +476,9 @@ describe('realizedPayoutRates', () => {
                 ],
                 events: [
                     purchased(planAWin),
-                    event(
-                        planAWin,
-                        AccountEventKind.EvalPassed,
-                        '2026-01-05',
-                    ),
+                    event(planAWin, AccountEventKind.EvalPassed, '2026-01-05'),
                     purchased(planALoss),
-                    event(
-                        planALoss,
-                        AccountEventKind.EvalPassed,
-                        '2025-12-20',
-                    ),
+                    event(planALoss, AccountEventKind.EvalPassed, '2025-12-20'),
                     purchased(planBLoss1),
                     event(
                         planBLoss1,

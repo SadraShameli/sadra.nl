@@ -4,7 +4,10 @@ import {
     weekdaysInRange,
 } from '~/lib/prop-accounts/core';
 import { type FirmId } from '~/lib/prop-calculator';
-import { RebuyLagBasis } from '~/lib/prop-calculator/advisor';
+import {
+    type MeasuredRebuyLag,
+    RebuyLagBasis,
+} from '~/lib/prop-calculator/advisor';
 
 import { attemptsOf } from './Attempts';
 import {
@@ -39,6 +42,14 @@ export interface ReplacementStats {
     readonly ledgerOnlyAccounts: number;
     readonly perPlan: readonly PlanReplacementStats[];
     readonly unresolvedAccounts: number;
+}
+
+export function measuredRebuyLagOfDefault(
+    lag: RebuyLagDefault,
+): MeasuredRebuyLag | null {
+    return lag.basis === RebuyLagBasis.Measured
+        ? { days: lag.days, samples: lag.samples }
+        : null;
 }
 
 export function rebuyLagDefault(

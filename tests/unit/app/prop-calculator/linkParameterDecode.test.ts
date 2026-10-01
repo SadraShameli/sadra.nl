@@ -225,9 +225,7 @@ describe('decodeState refuses a shared portfolio entry it cannot use, with a rea
         const state = decodeWithPortfolioWire(
             portfolioWire({ instrument: InstrumentSymbol.NQ, stopPoints: 10 }),
         );
-        expect(state.linkParameters[LinkParameter.Portfolio]).toEqual(
-            ACCEPTED,
-        );
+        expect(state.linkParameters[LinkParameter.Portfolio]).toEqual(ACCEPTED);
         expect(state.portfolio.map((entry) => entry.id)).toEqual([
             'wire-1',
             'wire-2',
@@ -253,9 +251,7 @@ describe('decodeState refuses a shared portfolio entry it cannot use, with a rea
             );
         });
         const state = decodeWithPortfolioWire(legacy);
-        expect(state.linkParameters[LinkParameter.Portfolio]).toEqual(
-            ACCEPTED,
-        );
+        expect(state.linkParameters[LinkParameter.Portfolio]).toEqual(ACCEPTED);
         expect(state.portfolio[1]).toMatchObject({
             instrument: null,
             monthlySubscriptionDiscountPercent: 0,
@@ -271,10 +267,15 @@ describe('a shared lab scenario sets its instrument and stop points together (PT
             'an instrument without stop points',
             { instrument: InstrumentSymbol.MNQ, stopPoints: null },
         ],
-        ['stop points without an instrument', { instrument: null, stopPoints: 8 }],
+        [
+            'stop points without an instrument',
+            { instrument: null, stopPoints: 8 },
+        ],
     ])('refuses a scenario with %s in plain words', (_name, patch) => {
         const decoded = decodeLabLink(
-            sharedLink({ lab: blob([sharedScenario, { ...sharedScenario, ...patch }]) }),
+            sharedLink({
+                lab: blob([sharedScenario, { ...sharedScenario, ...patch }]),
+            }),
             [],
         );
         expect(decoded).toEqual({
@@ -341,7 +342,11 @@ describe('decodeState reports an unreadable ds, dp or pf parameter instead of dr
             ds: blob(sharedDayStop),
             pf: blob(pfWire),
         });
-        const state = decodeState(parameters, ALL_FIRMS, defaultCalculatorState());
+        const state = decodeState(
+            parameters,
+            ALL_FIRMS,
+            defaultCalculatorState(),
+        );
         expect(state.dayStop).toEqual(sharedDayStop);
         expect(state.evalDayPolicy).toEqual(sharedPolicy);
         expect(state.linkParameters).toEqual({
@@ -355,8 +360,7 @@ describe('decodeState reports an unreadable ds, dp or pf parameter instead of dr
         const parameters = encodeState(defaultCalculatorState());
         parameters.delete(LinkParameter.Portfolio);
         expect(
-            decodeState(parameters, ALL_FIRMS, withRejections())
-                .linkParameters,
+            decodeState(parameters, ALL_FIRMS, withRejections()).linkParameters,
         ).toEqual({
             [LinkParameter.DayStop]: ABSENT,
             [LinkParameter.EvalDayPolicy]: ABSENT,
@@ -413,17 +417,20 @@ describe('the reducer clears a refused link parameter once the user sets it (PT-
             LinkParameter.Portfolio,
             { entries: [], type: CalculatorActionType.SetPortfolio },
         ],
-    ])('clears only the %s outcome when the user sets it', (parameter, action) => {
-        const next = calculatorReducer(withRejections(), action);
-        expect(next.linkParameters[parameter]).toEqual(ABSENT);
-        const others = Object.values(LinkParameter).filter(
-            (key) => key !== parameter,
-        );
-        for (const other of others)
-            expect(next.linkParameters[other].status).toBe(
-                LabLinkStatus.Rejected,
+    ])(
+        'clears only the %s outcome when the user sets it',
+        (parameter, action) => {
+            const next = calculatorReducer(withRejections(), action);
+            expect(next.linkParameters[parameter]).toEqual(ABSENT);
+            const others = Object.values(LinkParameter).filter(
+                (key) => key !== parameter,
             );
-    });
+            for (const other of others)
+                expect(next.linkParameters[other].status).toBe(
+                    LabLinkStatus.Rejected,
+                );
+        },
+    );
 
     it('clears every outcome when the user resets the calculator', () => {
         expect(

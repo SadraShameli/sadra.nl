@@ -187,11 +187,12 @@ export function runLiveDay(options: LiveDayRunOptions): {
     } else {
         state.consecutiveIdleDays += 1;
     }
-    const wasClosedForCalendarWeekInactivity = didCalendarWeekCloseForInactivity(
-        plan.calendarWeekInactivity,
-        state,
-        isTraded,
-    );
+    const wasClosedForCalendarWeekInactivity =
+        didCalendarWeekCloseForInactivity(
+            plan.calendarWeekInactivity,
+            state,
+            isTraded,
+        );
 
     plan.liveDrawdown?.onDayClose(state);
     plan.recordDayClose(state, isTraded);

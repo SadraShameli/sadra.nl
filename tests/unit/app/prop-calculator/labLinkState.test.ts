@@ -325,58 +325,62 @@ describe('a lab-only link reports its other parameters too (PT-53h)', () => {
         expect(state.riskDollars).toBe(defaults.riskDollars);
     });
 
-    it.each<[LinkParameter, () => URLSearchParams, (state: CalculatorState) => unknown]>(
+    it.each<
         [
-            [
-                LinkParameter.DayStop,
-                () =>
-                    new URLSearchParams({
-                        ds: labParameter({
-                            k: 2,
-                            kind: DayStopRuleKind.AfterKLosses,
-                        }),
+            LinkParameter,
+            () => URLSearchParams,
+            (state: CalculatorState) => unknown,
+        ]
+    >([
+        [
+            LinkParameter.DayStop,
+            () =>
+                new URLSearchParams({
+                    ds: labParameter({
+                        k: 2,
+                        kind: DayStopRuleKind.AfterKLosses,
                     }),
-                (state) => state.dayStop,
-            ],
-            [
-                LinkParameter.EvalDayPolicy,
-                () =>
-                    new URLSearchParams({
-                        dp: labParameter({
-                            ladder: [1],
-                            maxLossesPerDay: null,
-                            sizing: PolicySizing.ContractCapped,
-                            stopRule: { kind: DayStopRuleKind.None },
-                        }),
-                    }),
-                (state) => state.evalDayPolicy,
-            ],
-            [
-                LinkParameter.Portfolio,
-                () => {
-                    const { firm, plan } = apexEod();
-                    return new URLSearchParams({
-                        pf: labParameter([
-                            {
-                                activationDiscountPercent: 0,
-                                count: 1,
-                                evalDiscountPercent: 0,
-                                firmId: firm.id,
-                                id: 'entry-1',
-                                instrument: null,
-                                linkActivationDiscount: false,
-                                monthlySubscriptionDiscountPercent: 0,
-                                planId: serializePlanId(plan.id),
-                                resetDiscountPercent: 0,
-                                stopPoints: null,
-                            },
-                        ]),
-                    });
-                },
-                (state) => state.portfolio,
-            ],
+                }),
+            (state) => state.dayStop,
         ],
-    )(
+        [
+            LinkParameter.EvalDayPolicy,
+            () =>
+                new URLSearchParams({
+                    dp: labParameter({
+                        ladder: [1],
+                        maxLossesPerDay: null,
+                        sizing: PolicySizing.ContractCapped,
+                        stopRule: { kind: DayStopRuleKind.None },
+                    }),
+                }),
+            (state) => state.evalDayPolicy,
+        ],
+        [
+            LinkParameter.Portfolio,
+            () => {
+                const { firm, plan } = apexEod();
+                return new URLSearchParams({
+                    pf: labParameter([
+                        {
+                            activationDiscountPercent: 0,
+                            count: 1,
+                            evalDiscountPercent: 0,
+                            firmId: firm.id,
+                            id: 'entry-1',
+                            instrument: null,
+                            linkActivationDiscount: false,
+                            monthlySubscriptionDiscountPercent: 0,
+                            planId: serializePlanId(plan.id),
+                            resetDiscountPercent: 0,
+                            stopPoints: null,
+                        },
+                    ]),
+                });
+            },
+            (state) => state.portfolio,
+        ],
+    ])(
         'carries every LinkParameter enum member through to its CalculatorState field on a link with no firm (%s)',
         (parameter, buildParameters, readField) => {
             const state = initialStateFromSearch(buildParameters().toString());

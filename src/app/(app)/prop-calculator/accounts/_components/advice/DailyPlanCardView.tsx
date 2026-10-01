@@ -117,9 +117,9 @@ export function DailyPlanCardView({
                     <p className="text-sm">
                         Value now {formatGateCurrency(card.valueNow)}; after a
                         win {formatGateCurrency(card.valueAfterWin)}; after a
-                        loss {formatGateCurrency(card.valueAfterLoss)} (credit-free
-                        expected cash, if the next trade is taken at the first
-                        rung).
+                        loss {formatGateCurrency(card.valueAfterLoss)}{' '}
+                        (credit-free expected cash, if the next trade is taken
+                        at the first rung).
                     </p>
                 )}
             {sizing !== null && card.rungs[0] !== undefined && (
@@ -177,7 +177,10 @@ function ContractsSizing({
                         </SelectTrigger>
                         <SelectContent>
                             {POSITION_SIZE_INSTRUMENTS.map((spec) => (
-                                <SelectItem key={spec.symbol} value={spec.symbol}>
+                                <SelectItem
+                                    key={spec.symbol}
+                                    value={spec.symbol}
+                                >
                                     {spec.symbol}
                                 </SelectItem>
                             ))}
@@ -185,7 +188,9 @@ function ContractsSizing({
                     </Select>
                 </div>
                 <div className="flex flex-col gap-1">
-                    <Label htmlFor="daily-card-stop">{CALCULATOR_FIELD_LABELS.stopPoints}</Label>
+                    <Label htmlFor="daily-card-stop">
+                        {CALCULATOR_FIELD_LABELS.stopPoints}
+                    </Label>
                     <Input
                         className="w-32"
                         id="daily-card-stop"
@@ -196,7 +201,11 @@ function ContractsSizing({
                         value={stopText}
                     />
                 </div>
-                <Link className="text-sm underline" href={result.href} prefetch={false}>
+                <Link
+                    className="text-sm underline"
+                    href={result.href}
+                    prefetch={false}
+                >
                     Size in contracts
                 </Link>
             </div>

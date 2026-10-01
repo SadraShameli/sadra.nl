@@ -149,7 +149,10 @@ function specFor(
     };
 }
 
-function topStepEval(balance: number, tradingDays: number): ReconstructedFundedOrEvalAccount {
+function topStepEval(
+    balance: number,
+    tradingDays: number,
+): ReconstructedFundedOrEvalAccount {
     const plan = findFirm(FirmId.TopStep)?.findPlan({
         accountSize: 50_000,
         firm: FirmId.TopStep,
@@ -168,7 +171,8 @@ function topStepEval(balance: number, tradingDays: number): ReconstructedFundedO
         },
         plan,
     );
-    if (account.kind !== TradingPhase.Eval) throw new Error('expected an eval account');
+    if (account.kind !== TradingPhase.Eval)
+        throw new Error('expected an eval account');
     return account;
 }
 
@@ -189,7 +193,8 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
         const account = fundedAccount(plan, { balance: 50_800 });
 
         const outcome = tradeValueSwing(account, spec, { risk: 250, rr: 2 });
-        if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+        if (outcome.kind !== ValueResultKind.Swing)
+            throw new Error('expected a swing result');
 
         expect(outcome.now).toEqual(expectedValue(account, spec));
 
@@ -220,7 +225,8 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
         const account = fundedAccount(plan, { balance: 50_800 });
 
         const outcome = tradeValueSwing(account, spec, { risk: 250, rr: 2 });
-        if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+        if (outcome.kind !== ValueResultKind.Swing)
+            throw new Error('expected a swing result');
 
         expect(outcome.afterWin).toEqual(
             expectedValue(
@@ -260,7 +266,8 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
         };
 
         const outcome = tradeValueSwing(account, spec, { risk: 250, rr: 2 });
-        if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+        if (outcome.kind !== ValueResultKind.Swing)
+            throw new Error('expected a swing result');
 
         expect(outcome.afterLossBusted).toBe(true);
         expect(outcome.afterLossRebuyLagDays).toBe(
@@ -285,9 +292,9 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
         const spec = specFor(plan);
         const account = liveAccount(plan);
 
-        expect(tradeValueSwing(account, spec, { risk: 250, rr: 2 })).toStrictEqual(
-            { kind: 'not-modeled', reason: 'live-not-modeled' },
-        );
+        expect(
+            tradeValueSwing(account, spec, { risk: 250, rr: 2 }),
+        ).toStrictEqual({ kind: 'not-modeled', reason: 'live-not-modeled' });
     });
 
     it('is deterministic per seed', () => {
@@ -295,9 +302,9 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
         const spec = specFor(plan);
         const account = fundedAccount(plan, { balance: 50_800 });
 
-        expect(tradeValueSwing(account, spec, { risk: 250, rr: 2 })).toStrictEqual(
+        expect(
             tradeValueSwing(account, spec, { risk: 250, rr: 2 }),
-        );
+        ).toStrictEqual(tradeValueSwing(account, spec, { risk: 250, rr: 2 }));
     });
 
     it('states the session boundary it values at', () => {
@@ -306,7 +313,8 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
         const account = fundedAccount(plan, { balance: 50_800 });
 
         const outcome = tradeValueSwing(account, spec, { risk: 250, rr: 2 });
-        if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+        if (outcome.kind !== ValueResultKind.Swing)
+            throw new Error('expected a swing result');
 
         expect(outcome.assumption).toBe(TRADE_VALUE_SWING_ASSUMPTION);
         expect(TRADE_VALUE_SWING_ASSUMPTION).toBe(
@@ -326,7 +334,8 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
         const account = fundedAccount(plan, { balance: 50_900 });
 
         const outcome = tradeValueSwing(account, spec, { risk: 300, rr: 2 });
-        if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+        if (outcome.kind !== ValueResultKind.Swing)
+            throw new Error('expected a swing result');
 
         const won = closedSession(
             account,
@@ -352,7 +361,8 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
                 risk: (limit ?? 0) - spec.enginePolicy.commissionPerRoundTrip,
                 rr: 2,
             });
-            if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+            if (outcome.kind !== ValueResultKind.Swing)
+                throw new Error('expected a swing result');
 
             expect(outcome.afterLossBusted).toBe(true);
             expect(outcome.afterLossRebuyLagDays).toBe(
@@ -381,7 +391,8 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
                 risk: (limit ?? 0) - spec.enginePolicy.commissionPerRoundTrip,
                 rr: 2,
             });
-            if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+            if (outcome.kind !== ValueResultKind.Swing)
+                throw new Error('expected a swing result');
 
             expect(outcome.afterLossBusted).toBe(true);
         });
@@ -391,8 +402,12 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
             const spec = specFor(plan);
             const account = fundedAccount(plan, { balance: 52_000 });
 
-            const outcome = tradeValueSwing(account, spec, { risk: 400, rr: 2 });
-            if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+            const outcome = tradeValueSwing(account, spec, {
+                risk: 400,
+                rr: 2,
+            });
+            if (outcome.kind !== ValueResultKind.Swing)
+                throw new Error('expected a swing result');
 
             expect(outcome.afterLossBusted).toBe(false);
         });
@@ -402,8 +417,12 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
             const spec = specFor(plan);
             const account = fundedAccount(plan, { balance: 52_000 });
 
-            const outcome = tradeValueSwing(account, spec, { risk: 900, rr: 2 });
-            if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+            const outcome = tradeValueSwing(account, spec, {
+                risk: 900,
+                rr: 2,
+            });
+            if (outcome.kind !== ValueResultKind.Swing)
+                throw new Error('expected a swing result');
 
             expect(outcome.afterLossBusted).toBe(false);
         });
@@ -422,9 +441,11 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
                 risk: 200,
                 rr: 2,
             });
-            if (fourth.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+            if (fourth.kind !== ValueResultKind.Swing)
+                throw new Error('expected a swing result');
             const first = tradeValueSwing(account, spec, { risk: 400, rr: 2 });
-            if (first.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+            if (first.kind !== ValueResultKind.Swing)
+                throw new Error('expected a swing result');
 
             expect(first.afterLossBusted).toBe(false);
             expect(fourth.afterLossBusted).toBe(true);
@@ -435,7 +456,10 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
             expect(fourth.now).toEqual(expectedValue(afterThree, spec));
             expect(fourth.afterWin).toEqual(
                 expectedValue(
-                    closedSession(account, -1800 - 3 * commission + 400 - commission),
+                    closedSession(
+                        account,
+                        -1800 - 3 * commission + 400 - commission,
+                    ),
                     spec,
                 ),
             );
@@ -452,7 +476,8 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
                 risk: 600,
                 rr: 2,
             });
-            if (second.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+            if (second.kind !== ValueResultKind.Swing)
+                throw new Error('expected a swing result');
 
             expect(second.now).toEqual(
                 expectedValue(closedSession(account, -400 - commission), spec),
@@ -484,8 +509,12 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
             const account = topStepEval(50_400, 4);
             const spec = specFor(account.plan);
 
-            const outcome = tradeValueSwing(account, spec, { risk: 300, rr: 2 });
-            if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+            const outcome = tradeValueSwing(account, spec, {
+                risk: 300,
+                rr: 2,
+            });
+            if (outcome.kind !== ValueResultKind.Swing)
+                throw new Error('expected a swing result');
 
             const commission = spec.enginePolicy.commissionPerRoundTrip;
             expect(outcome.afterWin).toEqual(
@@ -508,10 +537,16 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
             const account = topStepEval(50_000 + plan.profitTarget - 200, 5);
             const spec = specFor(plan);
 
-            const outcome = tradeValueSwing(account, spec, { risk: 300, rr: 2 });
-            if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+            const outcome = tradeValueSwing(account, spec, {
+                risk: 300,
+                rr: 2,
+            });
+            if (outcome.kind !== ValueResultKind.Swing)
+                throw new Error('expected a swing result');
 
-            expect(plan.isPassed(closedSession(account, 600 - 4).state)).toBe(true);
+            expect(plan.isPassed(closedSession(account, 600 - 4).state)).toBe(
+                true,
+            );
             expect(outcome.afterWin).toEqual(
                 expectedValue(freshFundedAccount(plan), spec),
             );
@@ -521,8 +556,12 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
             const account = topStepEval(48_050, 5);
             const spec = specFor(account.plan);
 
-            const outcome = tradeValueSwing(account, spec, { risk: 300, rr: 2 });
-            if (outcome.kind !== ValueResultKind.Swing) throw new Error('expected a swing result');
+            const outcome = tradeValueSwing(account, spec, {
+                risk: 300,
+                rr: 2,
+            });
+            if (outcome.kind !== ValueResultKind.Swing)
+                throw new Error('expected a swing result');
 
             expect(outcome.afterLossBusted).toBe(true);
             expect(outcome.afterLossRebuyLagDays).toBe(

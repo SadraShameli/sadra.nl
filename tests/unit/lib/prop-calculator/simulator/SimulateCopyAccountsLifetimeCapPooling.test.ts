@@ -55,12 +55,21 @@ describe('simulate(): copied MFF Pro accounts share the per-user lifetime cap (P
     it('leaves a single copy unchanged under the pooled scope', () => {
         const single = simulate({ ...ALWAYS_WINS, plan: mffPro });
         const one = simulate({ ...ALWAYS_WINS, copyAccounts: 1, plan: mffPro });
-        expect(one.expectedGrossPayout).toBeCloseTo(single.expectedGrossPayout, 6);
+        expect(one.expectedGrossPayout).toBeCloseTo(
+            single.expectedGrossPayout,
+            6,
+        );
     });
 
     it('reduces expected monthly net for 3 copies below the naive per-copy multiple', () => {
         const single = simulate({ ...ALWAYS_WINS, plan: mffPro });
-        const copies = simulate({ ...ALWAYS_WINS, copyAccounts: 3, plan: mffPro });
-        expect(copies.expectedMonthlyNet).toBeLessThan(single.expectedMonthlyNet * 3);
+        const copies = simulate({
+            ...ALWAYS_WINS,
+            copyAccounts: 3,
+            plan: mffPro,
+        });
+        expect(copies.expectedMonthlyNet).toBeLessThan(
+            single.expectedMonthlyNet * 3,
+        );
     });
 });

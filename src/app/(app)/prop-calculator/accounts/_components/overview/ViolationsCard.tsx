@@ -29,17 +29,14 @@ export function ViolationsCard({
                             <dt className="text-muted-foreground">
                                 Total cost
                             </dt>
-                            <dd className="tabular-nums">
-                                {model.netCost}
-                            </dd>
+                            <dd className="tabular-nums">{model.netCost}</dd>
                         </div>
                         <div className="contents">
                             <dt className="text-muted-foreground">
                                 Share of net cash
                             </dt>
                             <dd className="tabular-nums">
-                                {model.netCostShareOfNetCash ??
-                                    NOT_APPLICABLE}
+                                {model.netCostShareOfNetCash ?? NOT_APPLICABLE}
                             </dd>
                         </div>
                         <div className="contents">

@@ -1,4 +1,9 @@
-import { CentsDisplay, formatUsdCents, RoundStatus, usdCents } from '~/lib/prop-accounts/core';
+import {
+    CentsDisplay,
+    formatUsdCents,
+    RoundStatus,
+    usdCents,
+} from '~/lib/prop-accounts/core';
 
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
 import { type AlertContext, type AlertRoundRow } from './AlertContext';
@@ -18,7 +23,10 @@ export class RoundBudgetReachedRule extends AlertRule {
                     kind: this.kind,
                     message: `Round "${round.label}" has spent ${formatUsdCents(usdCents(round.budget.spentCents), CentsDisplay.Always)} of its ${formatUsdCents(usdCents(round.budget.budgetCents ?? 0), CentsDisplay.Always)} budget`,
                     severity: AlertSeverity.Info,
-                    subject: { accountIds: [], kind: AlertSubjectKind.Portfolio },
+                    subject: {
+                        accountIds: [],
+                        kind: AlertSubjectKind.Portfolio,
+                    },
                 },
             ];
         });

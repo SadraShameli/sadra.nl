@@ -28,10 +28,7 @@ export interface CachedWorkerTask<TProgress, TResult> {
     readonly state: WorkerTaskState<TProgress, TResult>;
 }
 
-export interface CachedWorkerTaskOptions<
-    Id extends ComputationId,
-    TRequest,
-> {
+export interface CachedWorkerTaskOptions<Id extends ComputationId, TRequest> {
     readonly createWorker: () => Worker;
     readonly debounceMs?: number | undefined;
     readonly id: Id;

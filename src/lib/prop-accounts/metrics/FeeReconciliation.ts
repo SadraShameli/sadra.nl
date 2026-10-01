@@ -8,7 +8,11 @@ import {
     usdCents,
 } from '~/lib/prop-accounts/core';
 
-import { type LedgerAccount, type LedgerFeeRow, type PortfolioLedger } from './PortfolioLedger';
+import {
+    type LedgerAccount,
+    type LedgerFeeRow,
+    type PortfolioLedger,
+} from './PortfolioLedger';
 
 export enum FeePriceCheck {
     AboveList = 'above-list',
@@ -75,9 +79,7 @@ function feeCheckRow(entry: LedgerAccount, fee: LedgerFeeRow): FeeCheckRow {
         accountId: fee.accountId,
         check: priceCheck(fee.amountCents, listCents),
         differenceCents:
-            listCents === null
-                ? null
-                : usdCents(fee.amountCents - listCents),
+            listCents === null ? null : usdCents(fee.amountCents - listCents),
         feeId: fee.id,
         kind: fee.kind,
         listCents,

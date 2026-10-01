@@ -64,7 +64,8 @@ export const LINK_PARAMETER_LABELS: Readonly<Record<LinkParameter, string>> = {
 const UNREADABLE_LAB_PARAMETER = unreadableParameter('lab');
 const NOT_A_SCENARIO_LIST = 'the lab parameter is not a list of scenarios';
 const SCENARIO_COUNT_OUT_OF_RANGE = `the lab parameter must hold 1 to ${plainNumber(MAX_LAB_SCENARIOS)} scenarios`;
-const NOT_A_PORTFOLIO = 'the portfolio parameter is not a list of portfolio entries';
+const NOT_A_PORTFOLIO =
+    'the portfolio parameter is not a list of portfolio entries';
 const UNKNOWN_DAY_STOP = 'the day stop rule is not one the calculator knows';
 const UNUSABLE_EVAL_LADDER =
     'the eval ladder is not one the calculator can use';
@@ -296,8 +297,7 @@ function resolvePortfolioEntry(
     const firm = firms.find((f) => f.id === wireFirmId);
     if (!firm) return { issue: UNKNOWN_FIRM };
     const plan = firm.findPlanBySerial(wire.planId);
-    if (!plan)
-        return { issue: `plan is not one ${firm.displayName} offers` };
+    if (!plan) return { issue: `plan is not one ${firm.displayName} offers` };
     return {
         value: {
             activationDiscountPercent: wire.activationDiscountPercent,

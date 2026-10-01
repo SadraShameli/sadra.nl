@@ -95,7 +95,9 @@ const SIZING_LABEL: Readonly<Record<NotReadySizingKind, string>> = {
     [WeeklyReviewSizingKind.Stale]: 'Stale; no amount suggested',
 };
 
-type WeeklyReviewAccountRow = ReturnType<typeof buildWeeklyReview>['rows'][number];
+type WeeklyReviewAccountRow = ReturnType<
+    typeof buildWeeklyReview
+>['rows'][number];
 
 export function WeeklyReviewView() {
     const accountsQuery = api.propAccounts.account.list.useQuery({});
@@ -106,9 +108,8 @@ export function WeeklyReviewView() {
     const utilities = api.useUtils();
     const submission = api.propAccounts.review.submit.useMutation();
 
-    const [valuesByAccount, setValuesByAccount] = useState<
-        ReadonlyMap<string, SnapshotFormValues>
-    >(EMPTY_MAP);
+    const [valuesByAccount, setValuesByAccount] =
+        useState<ReadonlyMap<string, SnapshotFormValues>>(EMPTY_MAP);
     const [acceptedAccountIds, setAcceptedAccountIds] = useState<
         ReadonlySet<string>
     >(new Set());
@@ -244,7 +245,9 @@ export function WeeklyReviewView() {
         if (existing !== undefined) return existing;
         const row = result.rows.find((entry) => entry.accountId === accountId);
         const values = emptySnapshotFormValues(result.asOf);
-        return row === undefined ? values : formValuesFromDraft(values, row.draft);
+        return row === undefined
+            ? values
+            : formValuesFromDraft(values, row.draft);
     };
 
     const onFieldChange = (
@@ -273,7 +276,12 @@ export function WeeklyReviewView() {
                 snapshots: payload.snapshots.flatMap((snapshot) =>
                     snapshot.balanceCents === null
                         ? []
-                        : [{ ...snapshot, balanceCents: snapshot.balanceCents }],
+                        : [
+                              {
+                                  ...snapshot,
+                                  balanceCents: snapshot.balanceCents,
+                              },
+                          ],
                 ),
             });
             toast.success(`Recorded ${payload.snapshots.length} snapshots`);
@@ -366,23 +374,22 @@ export function WeeklyReviewView() {
                             />
                             {row.lastDecision?.adherence ===
                                 DecisionAdherenceKind.NotFollowed && (
-                                    <LogViolationSection
-                                        accountId={row.accountId}
-                                        decision={row.lastDecision}
-                                        initial={row.logViolation}
-                                        isOpen={
-                                            loggingAccountId === row.accountId
-                                        }
-                                        label={row.label}
-                                        onClose={() => {
-                                            setLoggingAccountId(null);
-                                        }}
-                                        onOpen={() => {
-                                            setLoggingAccountId(row.accountId);
-                                        }}
-                                    />
-                                )}
-                            {row.sizing.kind === WeeklyReviewSizingKind.Ready && (
+                                <LogViolationSection
+                                    accountId={row.accountId}
+                                    decision={row.lastDecision}
+                                    initial={row.logViolation}
+                                    isOpen={loggingAccountId === row.accountId}
+                                    label={row.label}
+                                    onClose={() => {
+                                        setLoggingAccountId(null);
+                                    }}
+                                    onOpen={() => {
+                                        setLoggingAccountId(row.accountId);
+                                    }}
+                                />
+                            )}
+                            {row.sizing.kind ===
+                                WeeklyReviewSizingKind.Ready && (
                                 <div className="flex items-center gap-2 text-sm">
                                     <Checkbox
                                         checked={isAccepted}
@@ -448,7 +455,9 @@ function AdherenceSummary({
 }
 
 function errorTextOf(error: unknown): string {
-    return error instanceof Error ? error.message : 'Could not save this review';
+    return error instanceof Error
+        ? error.message
+        : 'Could not save this review';
 }
 
 function formValuesFromDraft(
@@ -565,7 +574,8 @@ function LogViolationForm({
                                     const kind = z
                                         .enum(RuleViolationKind)
                                         .safeParse(next).data;
-                                    if (kind !== undefined) field.onChange(kind);
+                                    if (kind !== undefined)
+                                        field.onChange(kind);
                                 }}
                                 value={field.value}
                             >
@@ -736,7 +746,8 @@ function SizingSummary({
     }
     return (
         <p className="text-sm">
-            Documented headline: {formatUsdCents(usdCents(sizing.headlineRiskCents))}
+            Documented headline:{' '}
+            {formatUsdCents(usdCents(sizing.headlineRiskCents))}
             {diffCents !== null && (
                 <span className="ml-2 text-muted-foreground">
                     ({diffCents >= 0 ? '+' : ''}

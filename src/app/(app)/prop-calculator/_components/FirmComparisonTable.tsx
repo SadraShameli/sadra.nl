@@ -108,12 +108,9 @@ export default function FirmComparisonTable({
     const openInSimulator = useOpenInSimulator(planOptIns);
 
     const [hoursPerDayInput, setHoursPerDayInput] = useState('');
-    const [accountsPerSessionInput, setAccountsPerSessionInput] =
-        useState('');
+    const [accountsPerSessionInput, setAccountsPerSessionInput] = useState('');
     const hoursPerDay = parsePositiveNumber(hoursPerDayInput);
-    const accountsPerSession = parseAccountsPerSession(
-        accountsPerSessionInput,
-    );
+    const accountsPerSession = parseAccountsPerSession(accountsPerSessionInput);
     const hasScreenHourInputs =
         hoursPerDay !== null && accountsPerSession !== null;
 
@@ -354,9 +351,7 @@ export function ScreenHourInputs({
                     Hours per day
                 </label>
                 <Input
-                    aria-describedby={
-                        isHoursInvalid ? hoursHintId : undefined
-                    }
+                    aria-describedby={isHoursInvalid ? hoursHintId : undefined}
                     aria-invalid={isHoursInvalid}
                     aria-label="Hours per day"
                     className="h-7 w-16 text-xs"

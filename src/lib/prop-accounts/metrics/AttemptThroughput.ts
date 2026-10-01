@@ -8,10 +8,7 @@ import {
 } from '~/lib/prop-accounts/core';
 import { RetryKind } from '~/lib/prop-calculator';
 
-import {
-    earliestActivityMonth,
-    filledMonths,
-} from './MonthlyStatement';
+import { earliestActivityMonth, filledMonths } from './MonthlyStatement';
 import { type LedgerAccount, type PortfolioLedger } from './PortfolioLedger';
 
 export interface AttemptThroughput {
@@ -36,7 +33,10 @@ export function attemptThroughput(
     asOf: string,
 ): AttemptThroughput {
     const accounts = ledger.resolvedAccounts;
-    const months = filledMonths(earliestActivityMonth(ledger), isoMonthOf(asOf));
+    const months = filledMonths(
+        earliestActivityMonth(ledger),
+        isoMonthOf(asOf),
+    );
     const overall = monthlyCounts(accounts, months);
     const perFirm = groupByFirmKey(accounts, (entry) =>
         firmKeyOf(entry.row),
@@ -79,8 +79,7 @@ function attemptDatesOf(entry: LedgerAccount): readonly string[] {
                 event.kind === AccountEventKind.Reopened,
         )
         .map((event) => event.occurredOn);
-    const isRetriesByFee =
-        entry.plan?.plan.fees.retry === RetryKind.Rebuy;
+    const isRetriesByFee = entry.plan?.plan.fees.retry === RetryKind.Rebuy;
     const lifecycleDateSet = new Set(lifecycleDates);
     const extraFeeDates = isRetriesByFee
         ? entry.fees

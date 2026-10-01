@@ -446,11 +446,12 @@ describe('isBeyondNoise (VD-25)', () => {
         const a = { standardError: 3, value: 10.5 };
         const b = { standardError: 4, value: 8 };
         expect(
-            isBeyondNoise(a, b, { differenceStandardError: 1, sharedSeed: true }),
+            isBeyondNoise(a, b, {
+                differenceStandardError: 1,
+                sharedSeed: true,
+            }),
         ).toBe(true);
-        expect(
-            isBeyondNoise(a, b, { sharedSeed: false }),
-        ).toBe(false);
+        expect(isBeyondNoise(a, b, { sharedSeed: false })).toBe(false);
     });
 });
 
@@ -465,7 +466,9 @@ describe('the beyond-noise threshold has one implementation (VD-25 guard)', () =
     function tsFilesUnder(dir: string): string[] {
         return readdirSync(dir, { recursive: true })
             .filter((name): name is string => typeof name === 'string')
-            .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
+            .filter(
+                (name) => name.endsWith('.ts') && !name.endsWith('.test.ts'),
+            )
             .map((name) => path.join(dir, name));
     }
 

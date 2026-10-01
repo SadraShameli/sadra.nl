@@ -1,4 +1,7 @@
-import { isAtOrBelowWithinCentTolerance, resolveAffordableRisk } from '~/lib/prop-calculator/core';
+import {
+    isAtOrBelowWithinCentTolerance,
+    resolveAffordableRisk,
+} from '~/lib/prop-calculator/core';
 
 import {
     type DocumentedRung,

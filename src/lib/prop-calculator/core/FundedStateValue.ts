@@ -554,7 +554,8 @@ export function sweepToConvergence(options: SweepToConvergenceOptions): number {
 export async function warmFirmsRegistryCache(): Promise<Error | null> {
     firmsRegistryCache.warmPromise ??= (async () => {
         try {
-            firmsRegistryCache.module = await import('~/lib/prop-calculator/firms');
+            firmsRegistryCache.module =
+                await import('~/lib/prop-calculator/firms');
             return null;
         } catch (error) {
             return error instanceof Error ? error : new Error(String(error));
@@ -849,7 +850,9 @@ function buildFundedSolveContext(
     });
 
     const maxWinDollars = rrRatio * maxActionDollars;
-    const lockedTopDollars = cushionGrid.dollarsAt(lockedCushionBucketCount - 1);
+    const lockedTopDollars = cushionGrid.dollarsAt(
+        lockedCushionBucketCount - 1,
+    );
     const unlockedWorkingTopDollars = cushionGrid.dollarsAt(
         unlockedWorkingBucketCount - 1,
     );

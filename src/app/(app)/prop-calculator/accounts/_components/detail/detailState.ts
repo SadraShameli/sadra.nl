@@ -77,9 +77,7 @@ export interface LiveRulesCardPending {
 }
 
 export type LiveRulesCardView =
-    | LiveRulesCardModeled
-    | LiveRulesCardNotModeled
-    | LiveRulesCardPending;
+    LiveRulesCardModeled | LiveRulesCardNotModeled | LiveRulesCardPending;
 
 export interface PerformanceCardView {
     readonly consistency: ConsistencyStatus;
@@ -125,6 +123,8 @@ const INPUT_ASSUMPTION_LABEL: Readonly<Record<InputAssumptionKind, string>> = {
         'The funded reset count comes from recorded reset events.',
     [AssumptionKind.GrossOnlyPayouts]:
         'At least one paid payout has no net amount, so its gross amount is counted as received.',
+    [AssumptionKind.LadderStepWidened]:
+        'The ladder search uses a coarser risk step than the default grid so it stays within its size cap.',
     [AssumptionKind.LastPayoutBalanceAssumedCurrent]:
         'No balance at the last payout was entered, so the current balance is assumed.',
     [AssumptionKind.LiveModelApproximation]:

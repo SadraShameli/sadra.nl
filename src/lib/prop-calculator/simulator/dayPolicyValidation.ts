@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
-import { type DayPolicy, policySizingOf } from '~/lib/prop-calculator/core/DayPolicy';
+import {
+    type DayPolicy,
+    policySizingOf,
+} from '~/lib/prop-calculator/core/DayPolicy';
 import { InstrumentSymbol } from '~/lib/prop-calculator/core/Instruments';
 import {
     formatOneContractRisk,

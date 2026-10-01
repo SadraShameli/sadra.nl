@@ -115,8 +115,9 @@ export function payoutSizeStats(
 function byAccountSize(
     samples: readonly PayoutSizeSample[],
 ): readonly PayoutsByAccountSize[] {
-    const sizes = [...new Set(samples.map((sample) => sample.accountSize))]
-        .toSorted((a, b) => a - b);
+    const sizes = [
+        ...new Set(samples.map((sample) => sample.accountSize)),
+    ].toSorted((a, b) => a - b);
     return sizes.map((accountSize) => {
         const group = samples.filter(
             (sample) => sample.accountSize === accountSize,
@@ -132,7 +133,10 @@ function byAccountSize(
 function byFirm(
     samples: readonly PayoutSizeSample[],
 ): readonly PayoutsByFirm[] {
-    const byKey = new Map<string, { firmKey: FirmKey; items: PayoutSizeSample[] }>();
+    const byKey = new Map<
+        string,
+        { firmKey: FirmKey; items: PayoutSizeSample[] }
+    >();
     for (const sample of samples) {
         const id = firmKeyId(sample.firmKey);
         const entry = byKey.get(id);
@@ -189,7 +193,10 @@ function isLowBalance(
     options: PayoutSizeStatsOptions,
 ): boolean {
     const { latestBalanceOnOrBefore, retainedCushionCents } = options;
-    if (latestBalanceOnOrBefore === undefined || retainedCushionCents === undefined) {
+    if (
+        latestBalanceOnOrBefore === undefined ||
+        retainedCushionCents === undefined
+    ) {
         return false;
     }
     const balance = latestBalanceOnOrBefore(accountId, paidOn);

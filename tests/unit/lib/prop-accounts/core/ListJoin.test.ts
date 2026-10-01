@@ -37,7 +37,7 @@ describe('one list-join helper', () => {
         (file) => {
             const source = readFileSync(path.resolve(ROOT, file), 'utf8');
             expect(source.includes('joinWithAnd(')).toBe(true);
-            expect(source.includes('slice(0, -1).join(\', \')')).toBe(false);
+            expect(source.includes("slice(0, -1).join(', ')")).toBe(false);
             expect(source.includes('function joinWithAnd')).toBe(false);
             expect(source.includes('function listOf')).toBe(false);
         },

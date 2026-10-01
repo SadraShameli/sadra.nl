@@ -57,5 +57,4 @@ export interface FundedSweepOptimumFoundResult {
 }
 
 export type FundedSweepOptimumResult =
-    | FundedSweepNoCandidatesResult
-    | FundedSweepOptimumFoundResult;
+    FundedSweepNoCandidatesResult | FundedSweepOptimumFoundResult;

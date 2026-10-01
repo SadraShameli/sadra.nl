@@ -12,7 +12,12 @@ import {
     AccountTracking,
     DashboardBalanceConvention,
 } from '~/lib/prop-accounts';
-import { ApexVariant, findFirm, FirmId, serializePlanId } from '~/lib/prop-calculator';
+import {
+    ApexVariant,
+    findFirm,
+    FirmId,
+    serializePlanId,
+} from '~/lib/prop-calculator';
 import * as advisorLib from '~/lib/prop-calculator/advisor';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import * as advisorValue from '~/lib/prop-calculator/advisor/value';
@@ -63,10 +68,12 @@ const harness = vi.hoisted(() => {
         mutate,
         mutateOf,
         mutation: (name: string) => ({
-            useMutation: (options: {
-                onError?: (error: unknown) => void;
-                onSuccess?: () => void;
-            } = {}) => ({
+            useMutation: (
+                options: {
+                    onError?: (error: unknown) => void;
+                    onSuccess?: () => void;
+                } = {},
+            ) => ({
                 isPending: false,
                 mutate: (input: unknown) => {
                     mutateOf(name)(input);
@@ -98,7 +105,11 @@ const sessionBox = vi.hoisted(() => {
             isPending: boolean;
         };
     } = {
-        state: { data: { user: { id: 'user-a' } }, error: null, isPending: false },
+        state: {
+            data: { user: { id: 'user-a' } },
+            error: null,
+            isPending: false,
+        },
     };
     return box;
 });
@@ -158,7 +169,11 @@ type FakeAdviceState =
           readonly phase: 'ready';
           readonly values?: unknown;
       }
-    | { readonly phase: 'failed'; readonly reason: string; readonly retry: () => void }
+    | {
+          readonly phase: 'failed';
+          readonly reason: string;
+          readonly retry: () => void;
+      }
     | { readonly phase: 'loading' };
 
 const adviceBox = vi.hoisted(() => {
@@ -200,15 +215,12 @@ vi.mock(
     },
 );
 
-const { AccountAdvicePhase } = await import(
-    '~/app/(app)/prop-calculator/accounts/_components/advice/useAccountAdvice'
-);
-const { AdvicePanel } = await import(
-    '~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel'
-);
-const { EvalSizingAdvisor, FundedSizingAdvisor } = await import(
-    '~/lib/prop-calculator/advisor'
-);
+const { AccountAdvicePhase } =
+    await import('~/app/(app)/prop-calculator/accounts/_components/advice/useAccountAdvice');
+const { AdvicePanel } =
+    await import('~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel');
+const { EvalSizingAdvisor, FundedSizingAdvisor } =
+    await import('~/lib/prop-calculator/advisor');
 const { TradingPhase } = await import('~/lib/prop-calculator/core');
 const { newFundedCycleTracker } = await import('~/lib/prop-calculator');
 
@@ -294,7 +306,10 @@ function realFundedAdvice() {
         todayPnL: 0,
         tradingDays: 20,
     };
-    const tracker = newFundedCycleTracker({ ...state, balance: state.startingBalance });
+    const tracker = newFundedCycleTracker({
+        ...state,
+        balance: state.startingBalance,
+    });
     const advisor = new FundedSizingAdvisor({
         account: {
             assumptions: [],
@@ -381,7 +396,9 @@ function lastInput() {
     };
 }
 
-function logViolationButton(container: HTMLElement): HTMLButtonElement | undefined {
+function logViolationButton(
+    container: HTMLElement,
+): HTMLButtonElement | undefined {
     return [...container.querySelectorAll('button')].find(
         (candidate) => candidate.textContent === 'Log violation',
     );
@@ -402,10 +419,7 @@ function valueOf(creditFree: number, standardError: number) {
     );
 }
 
-function valuesFor(
-    risk: number,
-    overrides: Record<string, unknown> = {},
-) {
+function valuesFor(risk: number, overrides: Record<string, unknown> = {}) {
     const now = valueOf(1000, 10);
     const afterWin = valueOf(1400, 10);
     const afterLoss = valueOf(700, 8);
@@ -433,10 +447,7 @@ function valuesFor(
             basis: advisorValue.RiskCandidateBasis.Simulator,
             kind: advisorValue.ValueResultKind.Candidates,
             label: advisorValue.RISK_CANDIDATE_LABEL,
-            rows: [
-                candidateRow(risk / 2, 1500),
-                candidateRow(risk, 900),
-            ],
+            rows: [candidateRow(risk / 2, 1500), candidateRow(risk, 900)],
         }),
         now: succeeded(now),
         payoutStake: null,
@@ -590,7 +601,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         );
     });
 
-    it("shows a stale state with the reason and no amounts when the advice is stale", () => {
+    it('shows a stale state with the reason and no amounts when the advice is stale', () => {
         answerEverything();
         const advisor = new EvalSizingAdvisor({
             account: {
@@ -652,8 +663,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             button.click();
         });
 
-        const call = harness.mutateOf('decision.create').mock
-            .calls[0]?.[0] as {
+        const call = harness.mutateOf('decision.create').mock.calls[0]?.[0] as {
             acceptedRungsCents: number[];
             snapshotId: null | string;
             stage: string;
@@ -661,9 +671,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         expect(call).toBeDefined();
         expect(call.snapshotId).toBe('snap-1');
         expect(call.stage).toBe(AccountStage.Eval);
-        expect(call.acceptedRungsCents.every((cents) => cents > 0)).toBe(
-            true,
-        );
+        expect(call.acceptedRungsCents.every((cents) => cents > 0)).toBe(true);
     });
 
     it('calls decision.recordActual when "Record actual" is used', () => {
@@ -725,7 +733,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
         expect(spy).toHaveBeenCalled();
         const options = spy.mock.calls[0]?.[1];
-        expect(options?.accountPolicy).toBe(findFirm(FirmId.Apex)?.accountPolicy);
+        expect(options?.accountPolicy).toBe(
+            findFirm(FirmId.Apex)?.accountPolicy,
+        );
     });
 
     it('passes a measured rebuy lag from the accounts already loaded on the detail page to the advisor (PT-34b)', () => {
@@ -733,10 +743,16 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         const priorId = 'prior-account';
         answerEverything({
             'account.get': answer(
-                account({ purchasedOn: '2026-08-13', replacesAccountId: priorId }),
+                account({
+                    purchasedOn: '2026-08-13',
+                    replacesAccountId: priorId,
+                }),
             ),
             'account.list': answer([
-                account({ purchasedOn: '2026-08-13', replacesAccountId: priorId }),
+                account({
+                    purchasedOn: '2026-08-13',
+                    replacesAccountId: priorId,
+                }),
                 account({ id: priorId, status: AccountStatus.Busted }),
             ]),
             'event.list': answer([
@@ -774,7 +790,10 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         const priorId = 'prior-account';
         answerEverything({
             'account.get': answer(
-                account({ purchasedOn: '2026-08-13', replacesAccountId: priorId }),
+                account({
+                    purchasedOn: '2026-08-13',
+                    replacesAccountId: priorId,
+                }),
             ),
             'account.list': pendingQuery(),
             'event.list': pendingQuery(),
@@ -787,7 +806,10 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         harness.queries.set(
             'account.list',
             answer([
-                account({ purchasedOn: '2026-08-13', replacesAccountId: priorId }),
+                account({
+                    purchasedOn: '2026-08-13',
+                    replacesAccountId: priorId,
+                }),
                 account({ id: priorId, status: AccountStatus.Busted }),
             ]),
         );
@@ -911,10 +933,16 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         function replacementLedger() {
             answerEverything({
                 'account.get': answer(
-                    account({ purchasedOn: '2026-08-13', replacesAccountId: priorId }),
+                    account({
+                        purchasedOn: '2026-08-13',
+                        replacesAccountId: priorId,
+                    }),
                 ),
                 'account.list': answer([
-                    account({ purchasedOn: '2026-08-13', replacesAccountId: priorId }),
+                    account({
+                        purchasedOn: '2026-08-13',
+                        replacesAccountId: priorId,
+                    }),
                     account({ id: priorId, status: AccountStatus.Busted }),
                 ]),
                 'event.list': answer([
@@ -950,7 +978,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             expect(spy).not.toHaveBeenCalled();
             expect(adviceBox.inputs).toEqual([]);
-            expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
+            expect(
+                container.querySelector('[aria-busy="true"]'),
+            ).not.toBeNull();
         });
 
         it('builds the advisor with the measured rebuy lag once the session resolves', () => {
@@ -1122,7 +1152,8 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             const button = [...container.querySelectorAll('button')].find(
                 (candidate) => candidate.textContent === 'Retry refresh',
             );
-            if (button === undefined) throw new Error('no Retry refresh button');
+            if (button === undefined)
+                throw new Error('no Retry refresh button');
             act(() => {
                 button.click();
             });
@@ -1268,7 +1299,10 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         return risk;
     }
 
-    function readyWith(values: unknown, adjust: ((derived: unknown) => unknown) | null = (derived) => derived) {
+    function readyWith(
+        values: unknown,
+        adjust: ((derived: unknown) => unknown) | null = (derived) => derived,
+    ) {
         adviceBox.adjust = adjust;
         adviceBox.state = {
             advice: null,
@@ -1323,14 +1357,20 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             readyWith(valuesFor(risk));
 
-            const section = sectionOf('What the next trade does to value').textContent;
+            const section = sectionOf(
+                'What the next trade does to value',
+            ).textContent;
             expect(section).toContain('win: +$400 EV');
             expect(section).toContain('loss: -$300 EV');
             expect(
                 container.querySelector('[aria-label="One-step value tree"]'),
             ).not.toBeNull();
-            const candidates = sectionOf('One-step risk candidates').textContent;
-            expect(candidates).toContain('one-step comparison, documented sizing afterwards');
+            const candidates = sectionOf(
+                'One-step risk candidates',
+            ).textContent;
+            expect(candidates).toContain(
+                'one-step comparison, documented sizing afterwards',
+            );
             expect(candidates).toContain('Documented rung');
         });
 
@@ -1342,11 +1382,13 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             const section = sectionOf('One-step risk candidates');
             expect(section.textContent).toContain('maximum allowed risk');
             expect(
-                [...section.querySelectorAll('th')].map((header) => header.textContent),
+                [...section.querySelectorAll('th')].map(
+                    (header) => header.textContent,
+                ),
             ).not.toContain('Rank');
         });
 
-        it("fills the daily card with V now and the values after a win and a loss", () => {
+        it('fills the daily card with V now and the values after a win and a loss', () => {
             const risk = documentedRisk();
 
             readyWith(valuesFor(risk));
@@ -1371,7 +1413,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             readyWith(valuesFor(risk));
 
-            const text = sectionOf('What the next trade does to value').textContent;
+            const text = sectionOf(
+                'What the next trade does to value',
+            ).textContent;
             expect(text).toContain(
                 'Assumption: valued at the next session start, as if you stop after this trade.',
             );
@@ -1389,7 +1433,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             expect(
                 sectionOf('What the next trade does to value').textContent,
-            ).toContain("the rest of today's rungs are not in the after-loss value");
+            ).toContain(
+                "the rest of today's rungs are not in the after-loss value",
+            );
         });
 
         it('shows a failed value request as it is, never as a fixed eval line', () => {
@@ -1421,7 +1467,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             readyWith(valuesFor(risk));
 
-            const text = sectionOf('What the next trade does to value').textContent;
+            const text = sectionOf(
+                'What the next trade does to value',
+            ).textContent;
             expect(text).toContain('Value runs: 1000 trials, seed 42');
             expect(text).toContain('rebuy lag assumed zero (optimistic)');
         });
@@ -1474,7 +1522,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             expect(container.textContent).toContain('your documented rule');
             expect(
-                container.querySelectorAll('[aria-label="Computing the value views"]'),
+                container.querySelectorAll(
+                    '[aria-label="Computing the value views"]',
+                ),
             ).toHaveLength(2);
         });
 
@@ -1486,16 +1536,21 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
                 advice: null,
                 failedOptima: [],
                 phase: AccountAdvicePhase.Ready,
-                values: { phase: 'failed', reason: 'the value run crashed', retry },
+                values: {
+                    phase: 'failed',
+                    reason: 'the value run crashed',
+                    retry,
+                },
             };
             render();
 
             expect(container.textContent).toContain('your documented rule');
-            expect(sectionOf('What the next trade does to value').textContent).toContain(
-                'Left out: the value run crashed',
-            );
+            expect(
+                sectionOf('What the next trade does to value').textContent,
+            ).toContain('Left out: the value run crashed');
             const button = [...container.querySelectorAll('button')].find(
-                (candidate) => candidate.textContent === 'Retry the value views',
+                (candidate) =>
+                    candidate.textContent === 'Retry the value views',
             );
             if (button === undefined) throw new Error('no retry button');
             act(() => {
@@ -1568,24 +1623,28 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
                 },
                 traderReceivesNow: 450,
             };
-            const rungsBefore = lastInput().advisor.dailyPlanCard()?.rungs.length;
+            const rungsBefore =
+                lastInput().advisor.dailyPlanCard()?.rungs.length;
 
-            readyWith(valuesFor(risk, { payoutStake: succeeded(stake) }), (derived) => ({
-                ...(derived as object),
-                payoutAdvice: {
-                    assumptions: [],
-                    documented: {
-                        kind: 'request',
-                        notice: null,
-                        requestAmount: 500,
-                        retainedCushion: 2000,
-                        retainedCushionBasis: 'rulebook-size',
-                        sources: [],
+            readyWith(
+                valuesFor(risk, { payoutStake: succeeded(stake) }),
+                (derived) => ({
+                    ...(derived as object),
+                    payoutAdvice: {
+                        assumptions: [],
+                        documented: {
+                            kind: 'request',
+                            notice: null,
+                            requestAmount: 500,
+                            retainedCushion: 2000,
+                            retainedCushionBasis: 'rulebook-size',
+                            sources: [],
+                        },
+                        engineHorizonCredit: null,
+                        netAfterSplit: 450,
                     },
-                    engineHorizonCredit: null,
-                    netAfterSplit: 450,
-                },
-            }));
+                }),
+            );
 
             const headings = [...container.querySelectorAll('h3')].map(
                 (heading) => heading.textContent,
@@ -1608,9 +1667,12 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             const link = [...container.querySelectorAll('a')].find(
                 (candidate) => candidate.textContent === 'Size in contracts',
             );
-            if (link === undefined) throw new Error('no Size in contracts link');
+            if (link === undefined)
+                throw new Error('no Size in contracts link');
             const href = link.getAttribute('href') ?? '';
-            expect(href.startsWith('/prop-calculator/position-size?')).toBe(true);
+            expect(href.startsWith('/prop-calculator/position-size?')).toBe(
+                true,
+            );
             const query = new URLSearchParams(href.split('?', 2)[1]);
             expect(query.get('psr')).toBe(String(risk));
             expect(query.get('psp')).toBe(serializePlanId(PLAN.id));
@@ -1647,9 +1709,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             setField('Proposed risk ($)', '1');
 
-            expect(sectionOf('Check a risk before you place it').textContent).toContain(
-                'Within your documented plan.',
-            );
+            expect(
+                sectionOf('Check a risk before you place it').textContent,
+            ).toContain('Within your documented plan.');
             expect(
                 [...container.querySelectorAll('button')].some(
                     (candidate) => candidate.textContent === 'Log violation',
@@ -1660,16 +1722,18 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         it('flags a proposed risk above the documented rung after a loss without offering to log a violation for a trade not placed', () => {
             const risk = documentedRisk();
             answerEverything({
-                'decision.listForAccount': answer([decisionOf('decision-1', null)]),
+                'decision.listForAccount': answer([
+                    decisionOf('decision-1', null),
+                ]),
             });
             readyWith(valuesFor(risk));
 
             setField('Proposed risk ($)', '100000');
             setField('Losses today', '1');
 
-            expect(sectionOf('Check a risk before you place it').textContent).toContain(
-                'Above the documented rung',
-            );
+            expect(
+                sectionOf('Check a risk before you place it').textContent,
+            ).toContain('Above the documented rung');
             expect(logViolationButton(container)).toBeUndefined();
         });
 
@@ -1734,15 +1798,17 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             });
             readyWith(valuesFor(risk));
 
-            expect(sectionOf('Check a risk before you place it').textContent).toContain(
+            expect(
+                sectionOf('Check a risk before you place it').textContent,
+            ).toContain(
                 'Judged as the first trade of the day: no wins or losses are entered above.',
             );
 
             setField('Losses today', '1');
 
-            expect(sectionOf('Check a risk before you place it').textContent).toContain(
-                'Judged against 0 wins and 1 loss entered above.',
-            );
+            expect(
+                sectionOf('Check a risk before you place it').textContent,
+            ).toContain('Judged against 0 wins and 1 loss entered above.');
         });
 
         it('shows the verdict for the recorded actual risk of a decision made today', () => {
@@ -1769,7 +1835,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             });
             readyWith(valuesFor(risk));
 
-            const text = sectionOf('Check a risk before you place it').textContent;
+            const text = sectionOf(
+                'Check a risk before you place it',
+            ).textContent;
             expect(text).toContain('Recorded actual risk $100,000');
             expect(text).toContain('Above the documented rung');
         });
@@ -1780,9 +1848,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             setField('Proposed risk ($)', '-5');
 
-            expect(sectionOf('Check a risk before you place it').textContent).toContain(
-                'Enter a risk above $0',
-            );
+            expect(
+                sectionOf('Check a risk before you place it').textContent,
+            ).toContain('Enter a risk above $0');
         });
 
         it('shows none of the video figures in the new sections', () => {

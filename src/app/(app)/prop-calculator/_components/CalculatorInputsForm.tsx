@@ -7,6 +7,7 @@ import { Input } from '~/components/ui/Input';
 import { cn } from '~/lib/utilities';
 
 import { AppliedEvalLadderNotice } from './AppliedEvalLadderNotice';
+import { CALCULATOR_FIELD_LABELS } from './calculatorFieldLabels';
 import {
     useCalculatorActions,
     useCalculatorInputs,
@@ -136,7 +137,7 @@ export function CalculatorInputsForm({
                             className="mb-1 block text-xs font-medium text-muted-foreground"
                             htmlFor="funded-horizon-days"
                         >
-                            Funded horizon (trading days)
+                            {CALCULATOR_FIELD_LABELS.fundedHorizonDays}
                         </label>
                         <Input
                             id="funded-horizon-days"

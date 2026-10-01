@@ -20,8 +20,8 @@ export function OneStepTree({ tree }: { readonly tree: OneStepTreeView }) {
                 {uncertainCurrencyText(tree.valueAfterLoss)}
             </p>
             <p>
-                Continuation value (credit-free), p × V(win) + (1 - p) × V(loss):{' '}
-                {uncertainCurrencyText(tree.continuation)}
+                Continuation value (credit-free), p × V(win) + (1 - p) ×
+                V(loss): {uncertainCurrencyText(tree.continuation)}
             </p>
             {tree.replacementFee !== null && (
                 <p className="text-muted-foreground">

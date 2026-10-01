@@ -1,11 +1,7 @@
 import { type BankrollCardModel } from './overviewModel';
 import { SampleBadge } from './SampleBadge';
 
-export function BankrollCard({
-    model,
-}: {
-    readonly model: BankrollCardModel;
-}) {
+export function BankrollCard({ model }: { readonly model: BankrollCardModel }) {
     return (
         <div className="flex flex-col gap-4">
             <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -13,18 +9,9 @@ export function BankrollCard({
                     label="Available bankroll"
                     value={model.available}
                 />
-                <BankrollFigure
-                    label="Grown from"
-                    value={model.grownFrom}
-                />
-                <BankrollFigure
-                    label="Deposits"
-                    value={model.deposits}
-                />
-                <BankrollFigure
-                    label="Withdrawals"
-                    value={model.withdrawals}
-                />
+                <BankrollFigure label="Grown from" value={model.grownFrom} />
+                <BankrollFigure label="Deposits" value={model.deposits} />
+                <BankrollFigure label="Withdrawals" value={model.withdrawals} />
             </dl>
             <p className="text-sm text-muted-foreground">
                 Money-weighted return: {model.moneyWeightedReturn}
@@ -62,9 +49,8 @@ function ScaleAtMultipleLine({
             Scale at your measured multiple: {scale.multiple} (95% band{' '}
             {scale.intervalLower} to {scale.intervalUpper}, n = {scale.n}){' '}
             <SampleBadge level={scale.sampleLevel} /> projects to{' '}
-            {scale.projectedMonthly} if you spent your full daily capacity
-            once, at your cheapest measured attempt cost (not scaled to a
-            month).
+            {scale.projectedMonthly} if you spent your full daily capacity once,
+            at your cheapest measured attempt cost (not scaled to a month).
         </p>
     );
 }

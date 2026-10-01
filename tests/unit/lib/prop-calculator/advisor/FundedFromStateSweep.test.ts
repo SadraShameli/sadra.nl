@@ -138,7 +138,12 @@ describe('runFundedFromStateSweep (PT-32)', () => {
                 applyEnginePolicy(
                     plan,
                     policy,
-                    withCandidateOverrides(base, plan, start, candidate.overrides),
+                    withCandidateOverrides(
+                        base,
+                        plan,
+                        start,
+                        candidate.overrides,
+                    ),
                 ) as FromStateSimInputs,
             ),
         }));
@@ -191,7 +196,10 @@ describe('runFundedFromStateSweep (PT-32)', () => {
         if (positionSizing === null) throw new Error('no MNQ sizing at 10 pts');
         const start = startAt(plan, 800, 25, 25);
         const request: FundedFromStateSweepRequest = {
-            base: baseSimInputs({ instrument: InstrumentSymbol.MNQ, stopPoints: 10 }),
+            base: baseSimInputs({
+                instrument: InstrumentSymbol.MNQ,
+                stopPoints: 10,
+            }),
             candidates: {
                 flat: [10, 250],
                 fundedLadder: null,

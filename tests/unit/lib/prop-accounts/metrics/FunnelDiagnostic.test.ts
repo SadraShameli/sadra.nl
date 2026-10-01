@@ -31,7 +31,9 @@ describe('funnelDiagnostic', () => {
 
     it('returns ModeledFiguresMissing without modeled figures', () => {
         const result = funnelDiagnostic(modeled, null, 10);
-        expect(result.reason).toBe(FunnelDiagnosticReason.ModeledFiguresMissing);
+        expect(result.reason).toBe(
+            FunnelDiagnosticReason.ModeledFiguresMissing,
+        );
         expect(result.stages).toBeNull();
     });
 
@@ -44,7 +46,7 @@ describe('funnelDiagnostic', () => {
             (row) => row.stage === FunnelStage.PayoutRate,
         );
         const expectedChange =
-            (0.5 * 0.25 * 1 * 1000 - 100) - (0.5 * 0.5 * 1 * 1000 - 100);
+            0.5 * 0.25 * 1 * 1000 - 100 - (0.5 * 0.5 * 1 * 1000 - 100);
         expect(payoutRateRow?.dollarChangePerAttempt).toBeCloseTo(
             expectedChange,
             6,

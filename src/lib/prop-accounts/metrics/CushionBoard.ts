@@ -113,9 +113,7 @@ export function cushionRatioOf(
     }
 }
 
-export function documentedFundedRiskOf(
-    rulebook: RulebookParameters,
-): number {
+export function documentedFundedRiskOf(rulebook: RulebookParameters): number {
     return rulebook.funded.riskCents / CENTS_PER_DOLLAR;
 }
 
@@ -123,9 +121,7 @@ function evalDrawdownAmountOf(plan: Plan): number {
     return plan.drawdownFor(TradingPhase.Eval).amount;
 }
 
-function evalRatio(
-    account: ReconstructedFundedOrEvalAccount,
-): CushionRatio {
+function evalRatio(account: ReconstructedFundedOrEvalAccount): CushionRatio {
     const basisAmount = evalDrawdownAmountOf(account.plan);
     return {
         basis: CushionRatioBasis.Eval,

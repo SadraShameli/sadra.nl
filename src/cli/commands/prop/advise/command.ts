@@ -261,6 +261,8 @@ const ASSUMPTION_TEXT: Readonly<
     [AssumptionKind.FundedResetsFromEvents]:
         'Funded resets used are as entered.',
     [AssumptionKind.GrossOnlyPayouts]: 'Only gross payouts are modeled.',
+    [AssumptionKind.LadderStepWidened]:
+        'The ladder search uses a coarser risk step than the default grid to stay within its size cap.',
     [AssumptionKind.LastPayoutBalanceAssumedCurrent]:
         'The balance at the last payout is assumed to equal the current balance.',
     [AssumptionKind.LiveModelApproximation]:
@@ -506,7 +508,7 @@ export function adviceReportLines(
     const lines: string[] = [advice.headline];
     if (advice.staleness.kind === 'stale') {
         lines.push(
-            `Stale as of ${advice.staleness.snapshotAsOf} (${advice.staleness.reasons.join(', ')}): ${staleRemedy(advice.staleness.reasons)}.`,
+            `Stale as of ${advice.staleness.snapshotAsOf} (${staleReasonWords(advice.staleness.reasons)}): ${staleRemedy(advice.staleness.reasons)}.`,
         );
     } else if (advice.documented !== null) {
         lines.push(
@@ -521,7 +523,7 @@ export function adviceReportLines(
         lines.push(differenceReasonText(reason));
     }
     for (const assumption of advice.assumptions) {
-        lines.push(assumptionText(assumption));
+        lines.push(assumptionText(assumption, advice.requests));
     }
     lines.push(provenanceLine(advice.provenance));
     return lines;
@@ -790,10 +792,19 @@ export function swingLines(
     ];
 }
 
-function assumptionText(assumption: Assumption): string {
-    return assumption.kind === AssumptionKind.SizingRule
-        ? SIZING_ASSUMPTION_TEXT[assumption.sizingAssumption]
-        : ASSUMPTION_TEXT[assumption.kind];
+function assumptionText(
+    assumption: Assumption,
+    requests: readonly EngineOptimumRequest[],
+): string {
+    if (assumption.kind === AssumptionKind.SizingRule) {
+        return SIZING_ASSUMPTION_TEXT[assumption.sizingAssumption];
+    }
+    const text = ASSUMPTION_TEXT[assumption.kind];
+    if (assumption.kind !== AssumptionKind.LadderStepWidened) return text;
+    const step = ladderStepOf(requests);
+    return step === null
+        ? text
+        : `${text} It searched in ${formatCurrency(step)} steps.`;
 }
 
 function checkOptIn(
@@ -846,9 +857,18 @@ const STALE_REMEDY_TEXT: Readonly<Record<AdviceStalenessReason, string>> = {
     [AdviceStalenessReason.FundedSnapshotStale]:
         "enter today's balance for fresh rung amounts",
     [AdviceStalenessReason.PlanRulesChanged]:
-        'the plan rules changed since this advice was computed, so recompute it against the current rules',
+        'recompute the advice against the current rules',
     [AdviceStalenessReason.SessionSnapshotStale]:
         "enter today's balance for fresh rung amounts",
+};
+
+const STALE_REASON_WORDS: Readonly<Record<AdviceStalenessReason, string>> = {
+    [AdviceStalenessReason.FundedSnapshotStale]:
+        'the funded balance snapshot is older than the review cadence allows',
+    [AdviceStalenessReason.PlanRulesChanged]:
+        'the plan rules changed since this advice was computed',
+    [AdviceStalenessReason.SessionSnapshotStale]:
+        'more than one trading session has passed since the last balance entry',
 };
 
 const COVERAGE_UNSUPPORTED_REASON_TEXT: Readonly<
@@ -1093,12 +1113,14 @@ function ladderSearchLines(
     result: LadderEngineOptimumResult,
     request: LadderSearchRequest | undefined,
 ): string[] {
-    const { ladder, refusal, source } = result;
-    if (refusal !== undefined) {
+    const { source } = result;
+    if ('refusal' in result) {
+        const { refusal } = result;
         return [
             `${source}: ladder search not run: grid too large (${refusal.size.toLocaleString('en-US')} ladders, above the ${refusal.limit.toLocaleString('en-US')} limit)`,
         ];
     }
+    const { ladder } = result;
     const summary = `${source}: ${ladder.laddersScored} ladders scored, ${ladder.frontier.length} on the frontier`;
     const gridLines = request === undefined ? [] : [ladderGridLine(request)];
     const winner = ladder.bySpeed[0];
@@ -1108,6 +1130,20 @@ function ladderSearchLines(
         ...gridLines,
         `  fastest-to-funded ladder (eval-stage proxy for MonthlyNet, Hard Rule 3) [${winner.ladder.join(', ')}]: days to funded ${formatNumberWithSe(winner.expectedDaysToFunded, winner.expectedDaysToFundedStandardError, 1)}, pass rate ${formatPercentWithSe(winner.passRate, winner.passRateStandardError)}, cost/funded ${formatCurrencyWithSe(winner.costPerFunded, winner.costPerFundedStandardError)}`,
     ];
+}
+
+function ladderStepOf(
+    requests: readonly EngineOptimumRequest[],
+): null | number {
+    for (const request of requests) {
+        if (
+            request.source === AdviceSource.LadderSearchFresh ||
+            request.source === AdviceSource.LadderSearchFromState
+        ) {
+            return request.grid.step;
+        }
+    }
+    return null;
 }
 
 function nextPayoutProjectionLine(projection: NextPayoutProjection): string {
@@ -1391,7 +1427,7 @@ function requireFirm(firmId: FirmId): TradingFirm {
 
 function riskCheckNotRunReason(staleness: AdviceStaleness): string {
     return staleness.kind === 'stale'
-        ? `the advice is stale as of ${staleness.snapshotAsOf} (${staleness.reasons.join(', ')}), so there is no documented rung to check against: ${staleRemedy(staleness.reasons)}`
+        ? `the advice is stale as of ${staleness.snapshotAsOf} (${staleReasonWords(staleness.reasons)}), so there is no documented rung to check against: ${staleRemedy(staleness.reasons)}`
         : RISK_CHECK_NO_RUNG_REASON;
 }
 
@@ -1470,6 +1506,10 @@ function snapshotFieldToInputKey(field: SnapshotField): string {
             return 'tradingDays';
         }
     }
+}
+
+function staleReasonWords(reasons: readonly AdviceStalenessReason[]): string {
+    return reasons.map((reason) => STALE_REASON_WORDS[reason]).join('; ');
 }
 
 function staleRemedy(reasons: readonly AdviceStalenessReason[]): string {

@@ -144,10 +144,7 @@ export function encodePositionSize(
         serializePlanId(state.plan.id),
     );
     parameters.set(PositionSizeUrlParameter.Phase, state.phase);
-    parameters.set(
-        PositionSizeUrlParameter.RetryFee,
-        String(state.retryFee),
-    );
+    parameters.set(PositionSizeUrlParameter.RetryFee, String(state.retryFee));
     parameters.set(PositionSizeUrlParameter.Unit, state.unit);
     if (state.tierProfit !== null) {
         parameters.set(PositionSizeUrlParameter.Tier, String(state.tierProfit));

@@ -28,7 +28,7 @@ export function AssumptionsList({
                     {assumption.text}{' '}
                     <span
                         className={cn(
-                            'text-xs uppercase tracking-wide',
+                            'text-xs tracking-wide uppercase',
                             assumption.bias === AssumptionBias.Optimistic &&
                                 'text-amber-500',
                             assumption.bias === AssumptionBias.Conservative &&

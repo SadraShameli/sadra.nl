@@ -161,39 +161,39 @@ export function bustSplitByFirm(
 
 export function stageFunnel(ledger: PortfolioLedger): StageFunnel {
     return {
-        byFirm: groupByFirmKey(countedAccounts(ledger), (entry) => firmKeyOf(entry.row)).map(
-            ({ firmKey, items }) => {
-                const facts = items.map((entry) => funnelFacts(entry));
-                const count = (stage: keyof FunnelFacts) =>
-                    facts.filter((fact) => fact[stage]).length;
-                const feesCents = sumUsdCents(
-                    items.flatMap((entry) => entry.fees.map(signedFeeCents)),
-                );
-                const netPayoutsCents = sumUsdCents(
-                    items.flatMap((entry) =>
-                        entry.payouts.flatMap((row) => {
-                            const paid = paidPayoutCash(row);
-                            return paid === null ? [] : [paid.cents];
-                        }),
-                    ),
-                );
-                return {
-                    attempts: items.reduce(
-                        (total, entry) => total + attemptsFor(entry),
-                        0,
-                    ),
-                    feesCents,
-                    firmKey,
-                    firstPayout: count('firstPayout'),
-                    funded: count('funded'),
-                    movedLive: count('movedLive'),
-                    netCents: usdCents(netPayoutsCents - feesCents),
-                    netPayoutsCents,
-                    passed: count('passed'),
-                    purchased: count('purchased'),
-                };
-            },
-        ),
+        byFirm: groupByFirmKey(countedAccounts(ledger), (entry) =>
+            firmKeyOf(entry.row),
+        ).map(({ firmKey, items }) => {
+            const facts = items.map((entry) => funnelFacts(entry));
+            const count = (stage: keyof FunnelFacts) =>
+                facts.filter((fact) => fact[stage]).length;
+            const feesCents = sumUsdCents(
+                items.flatMap((entry) => entry.fees.map(signedFeeCents)),
+            );
+            const netPayoutsCents = sumUsdCents(
+                items.flatMap((entry) =>
+                    entry.payouts.flatMap((row) => {
+                        const paid = paidPayoutCash(row);
+                        return paid === null ? [] : [paid.cents];
+                    }),
+                ),
+            );
+            return {
+                attempts: items.reduce(
+                    (total, entry) => total + attemptsFor(entry),
+                    0,
+                ),
+                feesCents,
+                firmKey,
+                firstPayout: count('firstPayout'),
+                funded: count('funded'),
+                movedLive: count('movedLive'),
+                netCents: usdCents(netPayoutsCents - feesCents),
+                netPayoutsCents,
+                passed: count('passed'),
+                purchased: count('purchased'),
+            };
+        }),
         ledgerOnlyAccounts: ledger.ledgerOnlyAccounts.length,
         unresolvedAccounts: ledger.unresolvedAccounts.length,
     };

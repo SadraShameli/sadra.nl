@@ -189,19 +189,22 @@ describe('bustSplitByFirm', () => {
         });
         const active = account(EVAL_PLAN);
         const result = bustSplitByFirm(
-            ledgerOf([structural, withinPlan, unknown, active], [
-                purchased(structural),
-                event(structural, AccountEventKind.Busted, '2026-09-20', {
-                    detail: { bustCause: BustCause.MaxDrawdown },
-                }),
-                purchased(withinPlan),
-                event(withinPlan, AccountEventKind.Busted, '2026-09-20', {
-                    detail: { bustCause: BustCause.MaxDrawdown },
-                }),
-                purchased(unknown),
-                event(unknown, AccountEventKind.Busted, '2026-09-20'),
-                purchased(active),
-            ]),
+            ledgerOf(
+                [structural, withinPlan, unknown, active],
+                [
+                    purchased(structural),
+                    event(structural, AccountEventKind.Busted, '2026-09-20', {
+                        detail: { bustCause: BustCause.MaxDrawdown },
+                    }),
+                    purchased(withinPlan),
+                    event(withinPlan, AccountEventKind.Busted, '2026-09-20', {
+                        detail: { bustCause: BustCause.MaxDrawdown },
+                    }),
+                    purchased(unknown),
+                    event(unknown, AccountEventKind.Busted, '2026-09-20'),
+                    purchased(active),
+                ],
+            ),
             [
                 { ...followed('2026-09-05'), accountId: withinPlan.id },
                 { ...followed('2026-09-05'), accountId: active.id },
@@ -245,16 +248,19 @@ describe('bustSplitByFirm', () => {
             firmId: 'gone-firm',
             status: AccountStatus.Busted,
         });
-        const portfolio = ledgerOf([resolved, corrupt, removed], [
-            purchased(resolved),
-            event(resolved, AccountEventKind.Busted, '2026-09-20'),
-            purchased(corrupt),
-            event(corrupt, AccountEventKind.Busted, '2026-09-20', {
-                detail: { bustCause: BustCause.DailyLossLimit },
-            }),
-            purchased(removed),
-            event(removed, AccountEventKind.Busted, '2026-09-20'),
-        ]);
+        const portfolio = ledgerOf(
+            [resolved, corrupt, removed],
+            [
+                purchased(resolved),
+                event(resolved, AccountEventKind.Busted, '2026-09-20'),
+                purchased(corrupt),
+                event(corrupt, AccountEventKind.Busted, '2026-09-20', {
+                    detail: { bustCause: BustCause.DailyLossLimit },
+                }),
+                purchased(removed),
+                event(removed, AccountEventKind.Busted, '2026-09-20'),
+            ],
+        );
         const result = bustSplitByFirm(portfolio, [], []);
         expect(portfolio.unresolvedAccounts).toHaveLength(2);
         expect(result.get(modeledKeyId(EVAL_PLAN))).toEqual({
@@ -269,12 +275,15 @@ describe('bustSplitByFirm', () => {
         const target = account(EVAL_PLAN, { status: AccountStatus.Busted });
         const other = account(EVAL_PLAN);
         const result = bustSplitByFirm(
-            ledgerOf([target, other], [
-                purchased(target),
-                event(target, AccountEventKind.Busted, '2026-09-20', {
-                    detail: { bustCause: BustCause.MaxDrawdown },
-                }),
-            ]),
+            ledgerOf(
+                [target, other],
+                [
+                    purchased(target),
+                    event(target, AccountEventKind.Busted, '2026-09-20', {
+                        detail: { bustCause: BustCause.MaxDrawdown },
+                    }),
+                ],
+            ),
             [{ ...followed('2026-09-05'), accountId: other.id }],
             [{ ...violation('2026-09-10'), accountId: other.id }],
         );

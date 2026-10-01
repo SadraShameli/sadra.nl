@@ -181,9 +181,9 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
         const spec = specOf();
         const inputs = documentedPolicyTimelineInputs(topStep, spec, 1);
 
-        expect(
-            topStep.resolveRetainedCushion(inputs.minRetainedCushion),
-        ).toBe(2000);
+        expect(topStep.resolveRetainedCushion(inputs.minRetainedCushion)).toBe(
+            2000,
+        );
         expect(inputs.payoutRequestPolicy).toBe(
             PayoutRequestPolicy.FullRequestOnly,
         );
@@ -212,9 +212,9 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
     });
 
     it('keeps the same plan instance without a lifetime cap override', () => {
-        expect(
-            documentedPolicyTimelineInputs(apexEod, specOf(), 1).plan,
-        ).toBe(apexEod);
+        expect(documentedPolicyTimelineInputs(apexEod, specOf(), 1).plan).toBe(
+            apexEod,
+        );
     });
 
     it('names every EnginePolicy field the timeline cannot honour', () => {
@@ -231,9 +231,9 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
             DocumentedPolicyTimelineGap.RebuyLagDays,
         );
         for (const gap of DOCUMENTED_POLICY_TIMELINE_GAPS) {
-            expect(DOCUMENTED_POLICY_TIMELINE_GAP_TEXT[gap].length).toBeGreaterThan(
-                0,
-            );
+            expect(
+                DOCUMENTED_POLICY_TIMELINE_GAP_TEXT[gap].length,
+            ).toBeGreaterThan(0);
         }
     });
 
@@ -245,9 +245,14 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
         expect(
             applicableTimelineGaps(specOf({ intradayPathStepsPerR: 10 })),
         ).toEqual([DocumentedPolicyTimelineGap.IntradayPathStepsPerR]);
-        expect(applicableTimelineGaps(specOf({ rebuyLagBasis: RebuyLagBasis.Measured, rebuyLagDays: 4 }))).toEqual([
-            DocumentedPolicyTimelineGap.RebuyLagDays,
-        ]);
+        expect(
+            applicableTimelineGaps(
+                specOf({
+                    rebuyLagBasis: RebuyLagBasis.Measured,
+                    rebuyLagDays: 4,
+                }),
+            ),
+        ).toEqual([DocumentedPolicyTimelineGap.RebuyLagDays]);
     });
 
     it('lists a funded reward-to-risk that differs from the strategy one, and ignores a float-noise difference', () => {

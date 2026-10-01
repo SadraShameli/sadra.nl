@@ -136,11 +136,16 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         });
         expect(trusted.kind).toBe(PayoutReadinessKind.Eligible);
 
-        const doubleNetted = payoutReadiness(plan, alreadyNettedState, tracker, {
-            minRetainedCushion: 0,
-            pendingPayouts: 2000,
-            statePendingPayoutsNetted: false,
-        });
+        const doubleNetted = payoutReadiness(
+            plan,
+            alreadyNettedState,
+            tracker,
+            {
+                minRetainedCushion: 0,
+                pendingPayouts: 2000,
+                statePendingPayoutsNetted: false,
+            },
+        );
         expect(doubleNetted.kind).toBe(PayoutReadinessKind.Blocked);
         if (doubleNetted.kind !== PayoutReadinessKind.Blocked) return;
         expect(doubleNetted.reason).toEqual({
@@ -290,7 +295,10 @@ describe('payoutPath: the remaining six gates through the exported ladder helper
     it('flags LadderExhausted once payouts issued reach the ladder length', () => {
         const state = fundedState(53_000);
         const ladderedPlan = plan.withOverrides({
-            payoutLadder: { minRequestAmount: dollars(500), steps: [2000, 2000] },
+            payoutLadder: {
+                minRequestAmount: dollars(500),
+                steps: [2000, 2000],
+            },
         });
         const tracker = metCalendarTracker(state);
         tracker.payoutsIssued = 1;
@@ -354,9 +362,9 @@ describe('payoutPath: the remaining six gates through the exported ladder helper
         const state = fundedState(50_700);
         const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
         const path = payoutPath(state, plan, tracker, 0);
-        expect(pathStep(path, PayoutGate.EarlyWithdrawalBelowFloor)?.satisfied).toBe(
-            true,
-        );
+        expect(
+            pathStep(path, PayoutGate.EarlyWithdrawalBelowFloor)?.satisfied,
+        ).toBe(true);
         expect(
             pathStep(path, PayoutGate.EarlyWithdrawalBelowMinimum)?.satisfied,
         ).toBe(true);
@@ -388,7 +396,12 @@ describe('payoutPath: the remaining six gates through the exported ladder helper
         const state = fundedState(50_210);
         const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
 
-        const withFullAllowance = payoutPath(state, earlyWithdrawalPlan, tracker, 0);
+        const withFullAllowance = payoutPath(
+            state,
+            earlyWithdrawalPlan,
+            tracker,
+            0,
+        );
         const floorWithFullAllowance = pathStep(
             withFullAllowance,
             PayoutGate.EarlyWithdrawalBelowFloor,

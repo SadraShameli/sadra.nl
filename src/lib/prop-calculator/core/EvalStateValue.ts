@@ -584,11 +584,7 @@ export function computeEvalStateValue(
             tradingDays,
         };
 
-        const { nextTables, value } = solveDayGrid(
-            dayStartState,
-            day,
-            cushion,
-        );
+        const { nextTables, value } = solveDayGrid(dayStartState, day, cushion);
 
         const charged = value - dayCost(day);
         memo.set(key, charged);

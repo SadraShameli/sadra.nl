@@ -240,7 +240,9 @@ describe('previewAccountCsv', () => {
 
     it('resolves a round label to the caller own round, scoped to the rounds passed in', () => {
         const preview = previewAccountCsv(
-            csv(row(EVAL_PLAN, { [AccountCsvColumn.Round]: 'September round' })),
+            csv(
+                row(EVAL_PLAN, { [AccountCsvColumn.Round]: 'September round' }),
+            ),
             [],
             [],
             [{ id: ROUND_ID, label: 'September round' }],
@@ -278,7 +280,9 @@ describe('previewAccountCsv', () => {
     it('flags a round label matching more than one of the caller own rounds case-insensitively', () => {
         const OTHER_ROUND_ID = 'e6666666-6666-4666-8666-666666666666';
         const preview = previewAccountCsv(
-            csv(row(EVAL_PLAN, { [AccountCsvColumn.Round]: 'September round' })),
+            csv(
+                row(EVAL_PLAN, { [AccountCsvColumn.Round]: 'September round' }),
+            ),
             [],
             [],
             [

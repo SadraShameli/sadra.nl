@@ -1,30 +1,36 @@
-import { type ConductPattern, PolicyVerification } from '~/lib/prop-calculator/core';
+import {
+    type ConductPattern,
+    PolicyVerification,
+} from '~/lib/prop-calculator/core';
 
 import {
     DifferenceReason,
     type DifferenceReasonDetail,
     DpNotValidatedCause,
 } from './DifferenceReason';
-import { DayStopReason, SizingAssumption, SizingConstraint } from './DocumentedSizing';
+import {
+    DayStopReason,
+    SizingAssumption,
+    SizingConstraint,
+} from './DocumentedSizing';
 import { type RulebookParameters } from './Rulebook';
 import { documentedRuleLabel, rulebookDeviation } from './RulebookDeviation';
 
-export const SIZING_CONSTRAINT_TEXT: Readonly<Record<SizingConstraint, string>> =
-    {
-        [SizingConstraint.CeilingCap]:
-            "Capped by today's profit ceiling.",
-        [SizingConstraint.ConsistencyCap]:
-            'Capped by the funded consistency rule.',
-        [SizingConstraint.CushionCap]:
-            'Capped so the retained cushion stays intact.',
-        [SizingConstraint.DailyLossCap]: 'Capped by the daily loss limit.',
-        [SizingConstraint.DailyProfitCap]: 'Capped by the daily profit cap.',
-        [SizingConstraint.NoCushion]:
-            'No retained cushion is configured, so no cushion cap applies.',
-        [SizingConstraint.PersonalCap]: 'Capped by a personal risk limit.',
-        [SizingConstraint.RemainingTargetCap]:
-            'Capped by the profit remaining to the target.',
-    };
+export const SIZING_CONSTRAINT_TEXT: Readonly<
+    Record<SizingConstraint, string>
+> = {
+    [SizingConstraint.CeilingCap]: "Capped by today's profit ceiling.",
+    [SizingConstraint.ConsistencyCap]: 'Capped by the funded consistency rule.',
+    [SizingConstraint.CushionCap]:
+        'Capped so the retained cushion stays intact.',
+    [SizingConstraint.DailyLossCap]: 'Capped by the daily loss limit.',
+    [SizingConstraint.DailyProfitCap]: 'Capped by the daily profit cap.',
+    [SizingConstraint.NoCushion]:
+        'No retained cushion is configured, so no cushion cap applies.',
+    [SizingConstraint.PersonalCap]: 'Capped by a personal risk limit.',
+    [SizingConstraint.RemainingTargetCap]:
+        'Capped by the profit remaining to the target.',
+};
 
 export const DAY_STOP_REASON_TEXT: Readonly<Record<DayStopReason, string>> = {
     [DayStopReason.CeilingReached]:
@@ -37,19 +43,19 @@ export const DAY_STOP_REASON_TEXT: Readonly<Record<DayStopReason, string>> = {
     [DayStopReason.StopRule]: "Stopped: today's stop rule fired.",
 };
 
-export const SIZING_ASSUMPTION_TEXT: Readonly<Record<SizingAssumption, string>> =
-    {
-        [SizingAssumption.LiveDayPolicyUndocumented]:
-            'The live-stage day policy is not documented by the skill; it is approximated.',
-        [SizingAssumption.NoCommission]:
-            'Commission is assumed to be zero.',
-        [SizingAssumption.NoProfitCeiling]:
-            'No profit ceiling applies to this rung.',
-        [SizingAssumption.RungsAssumeEarlierLosses]:
-            'Later rungs assume every earlier rung lost.',
-        [SizingAssumption.WinsAddNoLossRoom]:
-            'Wins are assumed to add no further loss room.',
-    };
+export const SIZING_ASSUMPTION_TEXT: Readonly<
+    Record<SizingAssumption, string>
+> = {
+    [SizingAssumption.LiveDayPolicyUndocumented]:
+        'The live-stage day policy is not documented by the skill; it is approximated.',
+    [SizingAssumption.NoCommission]: 'Commission is assumed to be zero.',
+    [SizingAssumption.NoProfitCeiling]:
+        'No profit ceiling applies to this rung.',
+    [SizingAssumption.RungsAssumeEarlierLosses]:
+        'Later rungs assume every earlier rung lost.',
+    [SizingAssumption.WinsAddNoLossRoom]:
+        'Wins are assumed to add no further loss room.',
+};
 
 export function differenceReasonHeadline(rulebook: RulebookParameters): string {
     return documentedRuleLabel(rulebookDeviation(rulebook));

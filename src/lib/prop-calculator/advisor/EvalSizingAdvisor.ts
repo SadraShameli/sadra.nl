@@ -24,6 +24,12 @@ import {
     type AdviceStaleness,
     type PlanRulesFingerprintCheck,
 } from './AdviceStaleness';
+import {
+    type Assumption,
+    AssumptionBias,
+    inputAssumption,
+} from './Assumption';
+import { AssumptionKind } from './AssumptionKind';
 import { createDocumentedRule } from './createDocumentedRule';
 import {
     DifferenceReason,
@@ -82,6 +88,19 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
         this.input = input;
     }
 
+    private assumptions(): readonly Assumption[] {
+        const { account } = this.input;
+        return evalLadderGrid(account.cushion).step > EVAL_LADDER_GRID_STEP
+            ? [
+                  ...account.assumptions,
+                  inputAssumption(
+                      AssumptionKind.LadderStepWidened,
+                      AssumptionBias.Conservative,
+                  ),
+              ]
+            : account.assumptions;
+    }
+
     private differenceReasons(): readonly DifferenceReasonDetail[] {
         const { resolvedDailyLossLimit } = this.input.account;
         return [
@@ -118,7 +137,7 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
                 ? StartBasis.FromState
                 : StartBasis.Fresh;
         return {
-            assumptions: account.assumptions,
+            assumptions: this.assumptions(),
             dailyPlanCard: this.dailyPlanCard(),
             differenceReasons: this.differenceReasons(),
             documented,

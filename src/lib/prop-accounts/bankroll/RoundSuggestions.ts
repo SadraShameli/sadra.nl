@@ -23,8 +23,12 @@ export function roundSuggestions(
     roundGapDays: number,
 ): readonly RoundSuggestion[] {
     return groupByFirmKey(candidates, (candidate) => candidate.firmKey)
-        .flatMap(({ firmKey, items }) => suggestionsForFirm(firmKey, items, roundGapDays))
-        .toSorted((a, b) => compareText(a.earliestPurchase, b.earliestPurchase));
+        .flatMap(({ firmKey, items }) =>
+            suggestionsForFirm(firmKey, items, roundGapDays),
+        )
+        .toSorted((a, b) =>
+            compareText(a.earliestPurchase, b.earliestPurchase),
+        );
 }
 
 function suggestionsForFirm(

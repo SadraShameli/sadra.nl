@@ -67,7 +67,9 @@ function evalSeedState(overrides: Partial<AccountState> = {}): AccountState {
     };
 }
 
-function fullFundedSeed(overrides: Partial<FundedCycleSeed> = {}): FundedCycleSeed {
+function fullFundedSeed(
+    overrides: Partial<FundedCycleSeed> = {},
+): FundedCycleSeed {
     return {
         calendarDayGateProgress: 0,
         cumulativePayout: 0,
@@ -244,7 +246,9 @@ describe('simulateFromState: eval start refusals (PD-29 and T15)', () => {
 
     it('refuses an eval start already at or past the day cap', () => {
         const state = evalSeedState({ elapsedDays: 10, tradingDays: 10 });
-        expect(simStartIssue(plan, { phase: TradingPhase.Eval, state }, 10)).not.toBeNull();
+        expect(
+            simStartIssue(plan, { phase: TradingPhase.Eval, state }, 10),
+        ).not.toBeNull();
         expect(() =>
             simulateFromState({
                 fundedHorizonDays: 1,
@@ -263,12 +267,16 @@ describe('simulateFromState: eval start refusals (PD-29 and T15)', () => {
 
     it('refuses an eval start that has already passed', () => {
         const state = evalSeedState({ balance: 1400, tradingDays: 3 });
-        expect(simStartIssue(plan, { phase: TradingPhase.Eval, state }, 10)).not.toBeNull();
+        expect(
+            simStartIssue(plan, { phase: TradingPhase.Eval, state }, 10),
+        ).not.toBeNull();
     });
 
     it('refuses an eval start that is already busted', () => {
         const state = evalSeedState({ balance: 900, threshold: 900 });
-        expect(simStartIssue(plan, { phase: TradingPhase.Eval, state }, 10)).not.toBeNull();
+        expect(
+            simStartIssue(plan, { phase: TradingPhase.Eval, state }, 10),
+        ).not.toBeNull();
     });
 
     it('refuses an eval start closed for inactivity', () => {
@@ -316,11 +324,16 @@ describe('simulateFromState: eval start refusals (PD-29 and T15)', () => {
 
 describe('simulateFromState: funded seeded state is not reset by beginFundedPhase (T33)', () => {
     it("the first day's day policy sees the seeded balance and threshold, not accountSize/initialThreshold", () => {
-        const plan = payoutCapToyPlan().withOverrides({ maxLifetimePayouts: 10 });
+        const plan = payoutCapToyPlan().withOverrides({
+            maxLifetimePayouts: 10,
+        });
         const recorded: Array<{ balance: number; threshold: number }> = [];
         const recordingPolicy = computedDayPolicy(
             (state) => {
-                recorded.push({ balance: state.balance, threshold: state.threshold });
+                recorded.push({
+                    balance: state.balance,
+                    threshold: state.threshold,
+                });
                 return 0;
             },
             1,
@@ -457,7 +470,9 @@ describe('simulateFromState: refuses an impossible funded seed (T31 gating valid
     });
 
     it('refuses fundedResetsUsed above 0 without a funded reset offered', () => {
-        const noReset = payoutCapToyPlan().withOverrides({ maxLifetimePayouts: 10 });
+        const noReset = payoutCapToyPlan().withOverrides({
+            maxLifetimePayouts: 10,
+        });
         expect(
             simStartIssue(
                 noReset,
@@ -492,7 +507,10 @@ describe('simulateFromState: refuses an impossible funded seed (T31 gating valid
                 concluding,
                 {
                     phase: TradingPhase.Funded,
-                    seed: fullFundedSeed({ cumulativePayout: 400, payoutsIssued: 2 }),
+                    seed: fullFundedSeed({
+                        cumulativePayout: 400,
+                        payoutsIssued: 2,
+                    }),
                     state: fundedSeedState(),
                 },
                 1,
@@ -568,15 +586,21 @@ function runTieredPayoutToy(seed: FundedCycleSeed, lastPayoutBalance: number) {
 function tieredPayoutToyPlan(): Plan {
     return payoutCapToyPlan().withOverrides({
         maxLifetimePayouts: 10,
-        payoutTiers: [{ thresholdProfit: dollars(0), traderShare: fraction(0.7) }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.7) },
+        ],
         payoutTiersFromPayout: [
             {
                 fromPayoutIndex: 2,
-                tiers: [{ thresholdProfit: dollars(0), traderShare: fraction(0.8) }],
+                tiers: [
+                    { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+                ],
             },
             {
                 fromPayoutIndex: 4,
-                tiers: [{ thresholdProfit: dollars(0), traderShare: fraction(0.9) }],
+                tiers: [
+                    { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+                ],
             },
         ],
     });
@@ -613,7 +637,9 @@ describe('simulateFromState: the tiered payout split reads the seeded payout cou
 
 describe('simulateFromState: the credit-inclusive and credit-free from-state objectives (Q11 default)', () => {
     it('is the mean of net-plus-credit when alive, and net plus a fresh continuation when not, over a scripted RNG', () => {
-        const plan = payoutCapToyPlan().withOverrides({ maxLifetimePayouts: 10 });
+        const plan = payoutCapToyPlan().withOverrides({
+            maxLifetimePayouts: 10,
+        });
         const winPolicy = computedDayPolicy(
             () => 0,
             1,
@@ -654,9 +680,9 @@ describe('simulateFromState: the credit-inclusive and credit-free from-state obj
         expect(Object.hasOwn(out, 'expectedMonthlyRealizedNet')).toBe(false);
         expect(Object.hasOwn(out, 'costBreakdown')).toBe(false);
         expect(Object.hasOwn(out.estimates, 'expectedMonthlyNet')).toBe(false);
-        expect(
-            Object.hasOwn(out.estimates, 'expectedMonthlyRealizedNet'),
-        ).toBe(false);
+        expect(Object.hasOwn(out.estimates, 'expectedMonthlyRealizedNet')).toBe(
+            false,
+        );
     });
 });
 
@@ -821,7 +847,12 @@ function topstepNoFeeStandardPlan(): Plan {
 }
 
 function winningDayPolicy() {
-    return computedDayPolicy(() => 150, 1, undefined, PolicySizing.ContractCapped);
+    return computedDayPolicy(
+        () => 150,
+        1,
+        undefined,
+        PolicySizing.ContractCapped,
+    );
 }
 
 describe('simulateFromState: TopStep FullRequestOnly waits for its 50% balance-share cap (Q5 default, PT-14 step 4c)', () => {
@@ -847,10 +878,7 @@ describe('simulateFromState: TopStep FullRequestOnly waits for its 50% balance-s
         };
     }
 
-    function runTopStep(
-        horizonDays: number,
-        policy?: PayoutRequestPolicy,
-    ) {
+    function runTopStep(horizonDays: number, policy?: PayoutRequestPolicy) {
         return simulateFromState({
             fundedDayPolicy: winningDayPolicy(),
             fundedHorizonDays: horizonDays,
@@ -864,7 +892,9 @@ describe('simulateFromState: TopStep FullRequestOnly waits for its 50% balance-s
             seed: 1,
             start: {
                 phase: TradingPhase.Funded,
-                seed: fullFundedSeed({ lastPayoutBalance: topstep.accountSize }),
+                seed: fullFundedSeed({
+                    lastPayoutBalance: topstep.accountSize,
+                }),
                 state: topstepFundedSeedState(),
             },
             tradesPerDay: 1,
@@ -884,9 +914,7 @@ describe('simulateFromState: TopStep FullRequestOnly waits for its 50% balance-s
 
     it('FullRequestOnly pays nothing by day 5, since the 50% share (375) cannot cover the full 500 request', () => {
         const out = runTopStep(5, PayoutRequestPolicy.FullRequestOnly);
-        expect(out.fundedPayoutValues.every((value) => value === 0)).toBe(
-            true,
-        );
+        expect(out.fundedPayoutValues.every((value) => value === 0)).toBe(true);
         expect(out.expectedPayoutCount).toBe(0);
     });
 

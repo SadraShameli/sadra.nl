@@ -28,7 +28,10 @@ export type ToolsWorkerState =
     | { readonly phase: ToolsWorkerPhase.Failed; readonly reason: string }
     | { readonly phase: ToolsWorkerPhase.Idle }
     | { readonly phase: ToolsWorkerPhase.Running }
-    | { readonly phase: ToolsWorkerPhase.Succeeded; readonly result: ToolsWorkerResult };
+    | {
+          readonly phase: ToolsWorkerPhase.Succeeded;
+          readonly result: ToolsWorkerResult;
+      };
 
 const IDLE: ToolsWorkerState = { phase: ToolsWorkerPhase.Idle };
 const WORKER_FAILURE_REASON = 'The tools worker failed.';
@@ -65,31 +68,43 @@ export function useToolsWorker(): ToolsWorker {
             const worker = createToolsWorker();
             workerReference.current = worker;
 
-            worker.addEventListener('message', (event: MessageEvent<unknown>) => {
-                if (runIdReference.current !== runId) return;
-                let result: ToolsWorkerResult;
-                try {
-                    result = parseToolsResult(event.data);
-                } catch (error) {
+            worker.addEventListener(
+                'message',
+                (event: MessageEvent<unknown>) => {
+                    if (runIdReference.current !== runId) return;
+                    let result: ToolsWorkerResult;
+                    try {
+                        result = parseToolsResult(event.data);
+                    } catch (error) {
+                        teardown();
+                        setState({
+                            phase: ToolsWorkerPhase.Failed,
+                            reason:
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error),
+                        });
+                        return;
+                    }
+                    if (result.runId !== runId) return;
                     teardown();
-                    setState({
-                        phase: ToolsWorkerPhase.Failed,
-                        reason: error instanceof Error ? error.message : String(error),
-                    });
-                    return;
-                }
-                if (result.runId !== runId) return;
-                teardown();
-                if (result.kind === ToolsResponseKind.Failed) {
-                    setState({ phase: ToolsWorkerPhase.Failed, reason: result.reason });
-                    return;
-                }
-                setState({ phase: ToolsWorkerPhase.Succeeded, result });
-            });
+                    if (result.kind === ToolsResponseKind.Failed) {
+                        setState({
+                            phase: ToolsWorkerPhase.Failed,
+                            reason: result.reason,
+                        });
+                        return;
+                    }
+                    setState({ phase: ToolsWorkerPhase.Succeeded, result });
+                },
+            );
             worker.addEventListener('error', () => {
                 if (runIdReference.current !== runId) return;
                 teardown();
-                setState({ phase: ToolsWorkerPhase.Failed, reason: WORKER_FAILURE_REASON });
+                setState({
+                    phase: ToolsWorkerPhase.Failed,
+                    reason: WORKER_FAILURE_REASON,
+                });
             });
             worker.postMessage(request);
         },

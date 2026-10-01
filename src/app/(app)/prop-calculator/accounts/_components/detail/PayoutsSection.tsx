@@ -287,7 +287,9 @@ function PayoutForm({
     const schema = payoutFormSchema(accountId);
     const today = useTodayIsoDate();
     const defaults =
-        editing === null ? emptyPayoutValues(today) : storedPayoutValues(editing);
+        editing === null
+            ? emptyPayoutValues(today)
+            : storedPayoutValues(editing);
     const form = useForm<PayoutFormValues>({
         defaultValues: defaults,
         resolver: zodResolver(schema, undefined, { raw: true }),

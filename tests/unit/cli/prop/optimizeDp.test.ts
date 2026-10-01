@@ -423,7 +423,9 @@ describe('shareAtOrAboveGridTop (N-86, WP58 stage 1)', () => {
 
 describe('fundedGridSaturationWarning (N-86, WP58 stage 1)', () => {
     it('says nothing while the measured share stays below the warning threshold', () => {
-        expect(fundedGridSaturationWarning(topStepNoFeeStandardPlan(), 0)).toBeNull();
+        expect(
+            fundedGridSaturationWarning(topStepNoFeeStandardPlan(), 0),
+        ).toBeNull();
         expect(
             fundedGridSaturationWarning(
                 topStepNoFeeStandardPlan(),
@@ -661,7 +663,8 @@ describe('fundedDpModelGapWarning discloses the ReleaseFloor prediction gap (N-8
     });
 
     it('tells the reader to trust the empirical replay line, says the predicted rate overstated the replay at the default grid, and does not claim the policy fails', () => {
-        const warning = fundedDpModelGapWarning(topStepNoFeeStandardPlan()) ?? '';
+        const warning =
+            fundedDpModelGapWarning(topStepNoFeeStandardPlan()) ?? '';
         expect(warning).toContain('empirical replay');
         expect(warning).toContain('overstated');
         expect(warning).toContain('default grid');
@@ -749,18 +752,16 @@ describe('optimize dp run() measures funded grid saturation from the real replay
     ];
 
     it('reports a 100% share and the saturation warning when every sampled funded day hits the grid top', async () => {
-        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(
-            (config) => {
-                const solution = solveAverageRewardPolicy(config);
-                return {
-                    ...solution,
-                    fundedResult: {
-                        ...solution.fundedResult,
-                        isGridSaturated: () => true,
-                    },
-                };
-            },
-        );
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce((config) => {
+            const solution = solveAverageRewardPolicy(config);
+            return {
+                ...solution,
+                fundedResult: {
+                    ...solution.fundedResult,
+                    isGridSaturated: () => true,
+                },
+            };
+        });
 
         const { stdout } = await capturedRun(topStepSmallArgv);
 
@@ -773,18 +774,16 @@ describe('optimize dp run() measures funded grid saturation from the real replay
     }, 600_000);
 
     it('reports a 0% share and no saturation warning when no sampled funded day ever hits the grid top', async () => {
-        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(
-            (config) => {
-                const solution = solveAverageRewardPolicy(config);
-                return {
-                    ...solution,
-                    fundedResult: {
-                        ...solution.fundedResult,
-                        isGridSaturated: () => false,
-                    },
-                };
-            },
-        );
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce((config) => {
+            const solution = solveAverageRewardPolicy(config);
+            return {
+                ...solution,
+                fundedResult: {
+                    ...solution.fundedResult,
+                    isGridSaturated: () => false,
+                },
+            };
+        });
 
         const { stdout } = await capturedRun(topStepSmallArgv);
 
@@ -1146,9 +1145,7 @@ describe('optimize dp flag bounds', () => {
     });
 
     it('rejects an explicit tail top below the default fine top (WP58d)', () => {
-        expect(() =>
-            parseDpInputs(['--max-tail-cushion-multiple=4']),
-        ).toThrow(
+        expect(() => parseDpInputs(['--max-tail-cushion-multiple=4'])).toThrow(
             /--max-tail-cushion-multiple \(4\) must be at least --max-cushion-multiple \(6, the default\)/,
         );
     });
@@ -1415,9 +1412,7 @@ describe('optimize dp exposes the funded and eval grid settings as flags for fas
         expect(config.evalGrid?.cushionStepDollars).toBe(
             0.5 * evalDrawdownAmount,
         );
-        expect(config.evalGrid?.maxActionDollars).toBe(
-            2 * evalDrawdownAmount,
-        );
+        expect(config.evalGrid?.maxActionDollars).toBe(2 * evalDrawdownAmount);
     });
 });
 
@@ -1516,9 +1511,7 @@ describe('optimize dp hands the tail flags to the funded solve and prints the re
         );
         expect(line).toContain('uniform steps of 0.1x');
         expect(line).toContain('up to 9x ($18,000)');
-        expect(line).toContain(
-            '--max-tail-cushion-multiple asked for 8x',
-        );
+        expect(line).toContain('--max-tail-cushion-multiple asked for 8x');
     });
 
     it('does not mention the tail flag when the resolved tail top is the one asked for, or when no tail top was asked for (WP58d review)', () => {

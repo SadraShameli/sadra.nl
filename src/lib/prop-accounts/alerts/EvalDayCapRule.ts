@@ -38,11 +38,7 @@ export class EvalDayCapRule extends AccountAlertRule {
         const candidates: CapProgress[] = [];
         if (plan.maxEvalTradingDays !== null) {
             candidates.push(
-                tradingDayProgress(
-                    monitored,
-                    context,
-                    plan.maxEvalTradingDays,
-                ),
+                tradingDayProgress(monitored, context, plan.maxEvalTradingDays),
             );
         }
         if (plan.evalAccessWindowDays !== null) {
@@ -66,7 +62,8 @@ export class EvalDayCapRule extends AccountAlertRule {
                 binding.disclosures,
             );
         }
-        return binding.remaining > context.rulebook.alerts.evalDaysRemainingWarning
+        return binding.remaining >
+            context.rulebook.alerts.evalDaysRemainingWarning
             ? null
             : this.alertFor(
                   monitored,
@@ -83,10 +80,7 @@ function calendarWindowProgress(
     windowDays: number,
 ): CapProgress {
     const purchasedOn = monitored.account.purchasedOn;
-    const elapsed = Math.max(
-        0,
-        isoDaysBetween(purchasedOn, context.today),
-    );
+    const elapsed = Math.max(0, isoDaysBetween(purchasedOn, context.today));
     const remaining = windowDays - elapsed;
     return {
         disclosures: [],

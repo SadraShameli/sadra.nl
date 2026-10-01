@@ -10,7 +10,10 @@ import {
     type WorkerTaskRequest,
 } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import { dollars } from '~/lib/prop-calculator';
-import { AdviceSource, runPayoutSizeSweep } from '~/lib/prop-calculator/advisor';
+import {
+    AdviceSource,
+    runPayoutSizeSweep,
+} from '~/lib/prop-calculator/advisor';
 
 import {
     payoutOutlookPlan,

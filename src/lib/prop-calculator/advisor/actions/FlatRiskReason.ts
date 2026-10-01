@@ -1,6 +1,12 @@
-import { DifferenceReason, type DifferenceReasonDetail } from '~/lib/prop-calculator/advisor/DifferenceReason';
+import {
+    DifferenceReason,
+    type DifferenceReasonDetail,
+} from '~/lib/prop-calculator/advisor/DifferenceReason';
 import { type Dollars, dollars } from '~/lib/prop-calculator/core';
-import { isBeyondNoise, type UncertainValue } from '~/lib/prop-calculator/stats';
+import {
+    isBeyondNoise,
+    type UncertainValue,
+} from '~/lib/prop-calculator/stats';
 
 export function flatRiskIgnoresStateReason(
     documentedFlatRisk: Dollars,

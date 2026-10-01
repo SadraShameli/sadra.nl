@@ -19,7 +19,10 @@ import {
     type SimInputs,
     TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator';
-import { funnelWhatIf, type FunnelWhatIf } from '~/lib/prop-calculator/economics';
+import {
+    funnelWhatIf,
+    type FunnelWhatIf,
+} from '~/lib/prop-calculator/economics';
 import { median } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
@@ -113,7 +116,8 @@ export default function CashFlowPanel({
     const [horizonIndex, setHorizonIndex] = useState(1);
     const [accounts, setAccounts] = useState(DEFAULT_ACCOUNTS);
     const [trials, setTrials] = useState(DEFAULT_TRIALS);
-    const [whatIfForm, setWhatIfForm] = useState<FunnelWhatIfFormValues>(EMPTY_WHAT_IF_FORM);
+    const [whatIfForm, setWhatIfForm] =
+        useState<FunnelWhatIfFormValues>(EMPTY_WHAT_IF_FORM);
 
     const horizon = HORIZON_OPTIONS[horizonIndex] ?? HORIZON_OPTIONS[0];
     const accountCap = Math.min(MAX_ACCOUNTS, maxAccounts);
@@ -384,7 +388,8 @@ export default function CashFlowPanel({
 
                 <div className="flex flex-col gap-3 border-t border-white/10 pt-4">
                     <p className="text-xs font-medium text-muted-foreground">
-                        What-if funnel (attempts, pass rate, payout rate, payout, fee)
+                        What-if funnel (attempts, pass rate, payout rate,
+                        payout, fee)
                     </p>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                         <WhatIfField
@@ -392,7 +397,10 @@ export default function CashFlowPanel({
                             invalid={isWhatIfInvalid}
                             label="Attempts"
                             onChange={(value) =>
-                                setWhatIfForm((current) => ({ ...current, attempts: value }))
+                                setWhatIfForm((current) => ({
+                                    ...current,
+                                    attempts: value,
+                                }))
                             }
                             value={whatIfForm.attempts}
                         />
@@ -401,7 +409,10 @@ export default function CashFlowPanel({
                             invalid={isWhatIfInvalid}
                             label="Pass rate (%)"
                             onChange={(value) =>
-                                setWhatIfForm((current) => ({ ...current, passRate: value }))
+                                setWhatIfForm((current) => ({
+                                    ...current,
+                                    passRate: value,
+                                }))
                             }
                             value={whatIfForm.passRate}
                         />
@@ -410,7 +421,10 @@ export default function CashFlowPanel({
                             invalid={isWhatIfInvalid}
                             label="Payout rate given funded (%)"
                             onChange={(value) =>
-                                setWhatIfForm((current) => ({ ...current, payoutRate: value }))
+                                setWhatIfForm((current) => ({
+                                    ...current,
+                                    payoutRate: value,
+                                }))
                             }
                             value={whatIfForm.payoutRate}
                         />
@@ -440,13 +454,22 @@ export default function CashFlowPanel({
                         />
                     </div>
                     {isWhatIfInvalid ? (
-                        <p className="text-[11px] text-rose-400" id={WHAT_IF_VALIDATION_MESSAGE_ID}>
+                        <p
+                            className="text-[11px] text-rose-400"
+                            id={WHAT_IF_VALIDATION_MESSAGE_ID}
+                        >
                             {WHAT_IF_VALIDATION_MESSAGE}
                         </p>
                     ) : whatIf === null ? null : (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-                            <StatCard label="Passed" value={whatIf.passed.toFixed(1)} />
-                            <StatCard label="Paid" value={whatIf.paid.toFixed(1)} />
+                            <StatCard
+                                label="Passed"
+                                value={whatIf.passed.toFixed(1)}
+                            />
+                            <StatCard
+                                label="Paid"
+                                value={whatIf.paid.toFixed(1)}
+                            />
                             <StatCard
                                 label="Fees"
                                 value={formatCompactCurrency(whatIf.fees)}
@@ -458,7 +481,11 @@ export default function CashFlowPanel({
                             <StatCard
                                 label="Net"
                                 value={formatCompactCurrency(whatIf.net)}
-                                valueClassName={whatIf.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}
+                                valueClassName={
+                                    whatIf.net >= 0
+                                        ? 'text-emerald-400'
+                                        : 'text-rose-400'
+                                }
                             />
                             <StatCard
                                 label="Payout multiple"
@@ -476,7 +503,9 @@ export default function CashFlowPanel({
     );
 }
 
-export function funnelWhatIfFromForm(values: FunnelWhatIfFormValues): FunnelWhatIf | null {
+export function funnelWhatIfFromForm(
+    values: FunnelWhatIfFormValues,
+): FunnelWhatIf | null {
     const parsed = funnelWhatIfFormSchema.safeParse(values);
     if (!parsed.success) return null;
     const result = funnelWhatIf({
@@ -508,7 +537,9 @@ function WhatIfField({
                 {label}
             </label>
             <Input
-                aria-describedby={invalid ? WHAT_IF_VALIDATION_MESSAGE_ID : undefined}
+                aria-describedby={
+                    invalid ? WHAT_IF_VALIDATION_MESSAGE_ID : undefined
+                }
                 aria-invalid={invalid}
                 className="h-7 text-xs"
                 id={id}

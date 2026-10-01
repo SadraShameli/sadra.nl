@@ -6,7 +6,10 @@ import {
 } from '~/lib/prop-calculator/core/DayPolicy';
 import { type CouponDiscounts } from '~/lib/prop-calculator/core/FeeSchedule';
 import { type InstrumentSymbol } from '~/lib/prop-calculator/core/Instruments';
-import { type Dollars, type Fraction0to1 } from '~/lib/prop-calculator/core/lib/units';
+import {
+    type Dollars,
+    type Fraction0to1,
+} from '~/lib/prop-calculator/core/lib/units';
 import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core/PayoutRequestPolicy';
 import { type Plan } from '~/lib/prop-calculator/core/Plan';
 import { type PositionSizingConfig } from '~/lib/prop-calculator/core/PositionSizing';
@@ -53,8 +56,10 @@ export interface BankrollPolicy {
     startingBankroll: Dollars;
 }
 
-export interface BankrollTimelineInputs
-    extends Omit<PortfolioTimelineInputs, 'accounts'> {
+export interface BankrollTimelineInputs extends Omit<
+    PortfolioTimelineInputs,
+    'accounts'
+> {
     bankroll: BankrollPolicy;
     fundedRiskPerTrade?: number;
     fundedRrRatio?: number;

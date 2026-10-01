@@ -28,8 +28,7 @@ export interface FirmMinimumAboveRequestNotice {
     readonly requestedAmount: Dollars;
 }
 
-export interface NotEligiblePayoutRequestDecision
-    extends PayoutRequestDecisionBase {
+export interface NotEligiblePayoutRequestDecision extends PayoutRequestDecisionBase {
     readonly kind: PayoutRequestDecisionKind.NotEligible;
     readonly reason: PayoutBlockReason;
 }
@@ -48,8 +47,7 @@ export interface RequestPayoutDecision extends PayoutRequestDecisionBase {
     readonly retainedCushionBasis: RetainedCushionBasis;
 }
 
-export interface UnreachablePayoutRequestDecision
-    extends PayoutRequestDecisionBase {
+export interface UnreachablePayoutRequestDecision extends PayoutRequestDecisionBase {
     readonly kind: PayoutRequestDecisionKind.Unreachable;
 }
 

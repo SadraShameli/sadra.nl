@@ -36,7 +36,10 @@ interface FakeQuery {
     isPending: boolean;
 }
 
-function firstModeledPlan(): { readonly firm: TradingFirm; readonly plan: Plan } {
+function firstModeledPlan(): {
+    readonly firm: TradingFirm;
+    readonly plan: Plan;
+} {
     const [firm] = ALL_FIRMS;
     const [plan] = firm?.plans ?? [];
     if (firm === undefined || plan === undefined) {
@@ -134,36 +137,44 @@ vi.mock('~/trpc/react', () => ({
     },
 }));
 
-vi.mock('~/app/(app)/prop-calculator/_components/useToolsWorker', async (importOriginal) => {
-    const React = await import('react');
-    const actual = await importOriginal<typeof UseToolsWorkerModule>();
-    return {
-        ToolsWorkerPhase: actual.ToolsWorkerPhase,
-        useToolsWorker: () => {
-            const [state, setState] = React.useState<unknown>({
-                phase: actual.ToolsWorkerPhase.Idle,
-            });
-            const indexReference = React.useRef<null | number>(null);
-            if (indexReference.current === null) {
-                indexReference.current = toolsWorkerBox.instances.length;
-                toolsWorkerBox.instances.push({
-                    runSpy: vi.fn(),
-                    setState,
+vi.mock(
+    '~/app/(app)/prop-calculator/_components/useToolsWorker',
+    async (importOriginal) => {
+        const React = await import('react');
+        const actual = await importOriginal<typeof UseToolsWorkerModule>();
+        return {
+            ToolsWorkerPhase: actual.ToolsWorkerPhase,
+            useToolsWorker: () => {
+                const [state, setState] = React.useState<unknown>({
+                    phase: actual.ToolsWorkerPhase.Idle,
                 });
-            }
-            const instance = toolsWorkerBox.instances[indexReference.current];
-            return {
-                cancel: vi.fn(),
-                run: (request: unknown) => {
-                    instance?.runSpy(request);
-                },
-                state,
-            };
-        },
-    };
-});
+                const indexReference = React.useRef<null | number>(null);
+                if (indexReference.current === null) {
+                    indexReference.current = toolsWorkerBox.instances.length;
+                    toolsWorkerBox.instances.push({
+                        runSpy: vi.fn(),
+                        setState,
+                    });
+                }
+                const instance =
+                    toolsWorkerBox.instances[indexReference.current];
+                return {
+                    cancel: vi.fn(),
+                    run: (request: unknown) => {
+                        instance?.runSpy(request);
+                    },
+                    state,
+                };
+            },
+        };
+    },
+);
 
-function account(id: string, label: string, overrides: Record<string, unknown> = {}) {
+function account(
+    id: string,
+    label: string,
+    overrides: Record<string, unknown> = {},
+) {
     return {
         accountSize: FIRST_PLAN.id.accountSize,
         archivedAt: null,
@@ -513,9 +524,8 @@ describe('RoundsView', () => {
         render();
         expect(container.textContent).not.toContain('Next round');
         const instance = toolsWorkerBox.instances[0];
-        const calls = (
-            instance?.runSpy as unknown as ReturnType<typeof vi.fn>
-        ).mock.calls;
+        const calls = (instance?.runSpy as unknown as ReturnType<typeof vi.fn>)
+            .mock.calls;
         expect(calls).toHaveLength(0);
     });
 
@@ -568,9 +578,8 @@ describe('RoundsView', () => {
         expect(container.textContent).toContain('Q1 push');
         const instance = toolsWorkerBox.instances[0];
         expect(instance).toBeDefined();
-        const calls = (
-            instance?.runSpy as unknown as ReturnType<typeof vi.fn>
-        ).mock.calls;
+        const calls = (instance?.runSpy as unknown as ReturnType<typeof vi.fn>)
+            .mock.calls;
         expect(calls).toHaveLength(1);
         const [request] = calls.at(-1) as [{ kind: string; runId: number }];
         expect(request.kind).toBe('next-round');
@@ -700,9 +709,7 @@ describe('RoundsView', () => {
         render();
 
         expect(container.textContent).toContain('Next round');
-        expect(container.textContent).toContain(
-            'My own tracked account',
-        );
+        expect(container.textContent).toContain('My own tracked account');
     });
 });
 

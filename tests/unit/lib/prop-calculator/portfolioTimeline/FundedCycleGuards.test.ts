@@ -191,9 +191,7 @@ describe('PT-55b: runEvalToFundedCycle threads an optional fundedRrRatio distinc
 
         expect(withFundedOverride.evalDays).toBe(baseline.evalDays);
         expect(withFundedOverride.evalCost).toBeCloseTo(baseline.evalCost, 9);
-        expect(withFundedOverride.payouts).not.toStrictEqual(
-            baseline.payouts,
-        );
+        expect(withFundedOverride.payouts).not.toStrictEqual(baseline.payouts);
     });
 });
 

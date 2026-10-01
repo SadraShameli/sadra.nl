@@ -194,8 +194,7 @@ describe('propAccounts.violation', () => {
         expect(queries.filter((query) => isCount(query))).toHaveLength(0);
         const lookup = queries.find(
             (query) =>
-                readTable(query) === VIDEO_TABLES.violation &&
-                !isCount(query),
+                readTable(query) === VIDEO_TABLES.violation && !isCount(query),
         );
         assertUserScopedWhere(defined(lookup), USER_ID);
         expect(lookup?.params).toEqual(
@@ -224,12 +223,10 @@ describe('propAccounts.violation', () => {
     });
 
     it('create returns an existing violation only after the account and decision ownership checks, so another user decision still rejects', async () => {
-        const { caller, queries } = callerFor(
-            SIGNED_IN,
-            (query) =>
-                readTable(query) === TABLES.decision
-                    ? []
-                    : violationSelectsReturn([violationRow()])(query),
+        const { caller, queries } = callerFor(SIGNED_IN, (query) =>
+            readTable(query) === TABLES.decision
+                ? []
+                : violationSelectsReturn([violationRow()])(query),
         );
 
         const shape = errorShapeOf(

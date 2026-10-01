@@ -1,4 +1,8 @@
-import { evalAttemptTally, fundedSince, type LedgerAccount } from './PortfolioLedger';
+import {
+    evalAttemptTally,
+    fundedSince,
+    type LedgerAccount,
+} from './PortfolioLedger';
 
 export function attemptsOf(account: LedgerAccount): number {
     if (account.plan?.plan.isInstantFunded === true) {

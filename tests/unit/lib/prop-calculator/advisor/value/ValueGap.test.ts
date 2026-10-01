@@ -55,7 +55,11 @@ describe('valueGap credit basis (PT-67 addendum)', () => {
             500,
         );
 
-        expect(valueGap(unknown, TO, CreditBasis.CreditFree).standardError).toBeNull();
-        expect(valueGap(unknown, TO, CreditBasis.CreditInclusive).standardError).not.toBeNull();
+        expect(
+            valueGap(unknown, TO, CreditBasis.CreditFree).standardError,
+        ).toBeNull();
+        expect(
+            valueGap(unknown, TO, CreditBasis.CreditInclusive).standardError,
+        ).not.toBeNull();
     });
 });

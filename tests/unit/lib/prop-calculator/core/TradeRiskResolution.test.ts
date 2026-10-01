@@ -262,7 +262,8 @@ describe('resolveLiveRiskAt', () => {
         state.balance = 500;
         state.todayPnL = -50;
         const positionSizing = resolvePositionSizing(InstrumentSymbol.NQ, 10);
-        if (positionSizing === null) throw new Error('expected a position size');
+        if (positionSizing === null)
+            throw new Error('expected a position size');
         const result = resolveLiveRiskAt({
             commission: dollars(1.5),
             plan,
@@ -277,7 +278,8 @@ describe('resolveLiveRiskAt', () => {
         const state = plan.initialState();
         state.balance = state.threshold;
         const positionSizing = resolvePositionSizing(InstrumentSymbol.NQ, 10);
-        if (positionSizing === null) throw new Error('expected a position size');
+        if (positionSizing === null)
+            throw new Error('expected a position size');
         const result = resolveLiveRiskAt({
             commission: dollars(0),
             plan,
@@ -294,7 +296,8 @@ describe('resolveLiveRiskAt', () => {
         state.threshold = 100;
         state.balance = 5100;
         const positionSizing = resolvePositionSizing(InstrumentSymbol.NQ, 10);
-        if (positionSizing === null) throw new Error('expected a position size');
+        if (positionSizing === null)
+            throw new Error('expected a position size');
         const result = resolveLiveRiskAt({
             commission: dollars(0),
             plan,
@@ -310,7 +313,8 @@ describe('resolveLiveRiskAt', () => {
         state.balance = 15_000;
         state.todayPnL = -4750;
         const positionSizing = resolvePositionSizing(InstrumentSymbol.NQ, 10);
-        if (positionSizing === null) throw new Error('expected a position size');
+        if (positionSizing === null)
+            throw new Error('expected a position size');
         expect(plan.dailyLossLimitFor(state)).toBe(5000);
         const result = resolveLiveRiskAt({
             commission: dollars(0),

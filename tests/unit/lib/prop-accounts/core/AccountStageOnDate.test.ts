@@ -25,11 +25,15 @@ const CONSUMER_FILES = [
 ] as const;
 
 function allTypeScriptFiles(directory: string): string[] {
-    return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-        const entryPath = path.join(directory, entry.name);
-        if (entry.isDirectory()) return allTypeScriptFiles(entryPath);
-        return entry.isFile() && entry.name.endsWith('.ts') ? [entryPath] : [];
-    });
+    return fs
+        .readdirSync(directory, { withFileTypes: true })
+        .flatMap((entry) => {
+            const entryPath = path.join(directory, entry.name);
+            if (entry.isDirectory()) return allTypeScriptFiles(entryPath);
+            return entry.isFile() && entry.name.endsWith('.ts')
+                ? [entryPath]
+                : [];
+        });
 }
 
 function readSource(relativePath: string): string {

@@ -82,12 +82,10 @@ export interface PayoutSizeSweepRequest {
 }
 
 export type PayoutSizeSweepResult =
-    | PayoutSizeSweepFoundResult
-    | PayoutSizeSweepNoOptimumResult;
+    PayoutSizeSweepFoundResult | PayoutSizeSweepNoOptimumResult;
 
 export type PayoutSizeSweepRow =
-    | PayoutSizeSweepFreshRow
-    | PayoutSizeSweepFromStateRow;
+    PayoutSizeSweepFreshRow | PayoutSizeSweepFromStateRow;
 
 export interface PersonalPayoutOverrideResult {
     readonly row: PayoutSizeSweepRow;
@@ -181,7 +179,10 @@ function buildRow(
 ): PayoutSizeSweepRow {
     const candidateSpec: DocumentedPolicySpec = {
         ...spec,
-        enginePolicy: { ...spec.enginePolicy, payoutRequestOverride: effectiveRequest },
+        enginePolicy: {
+            ...spec.enginePolicy,
+            payoutRequestOverride: effectiveRequest,
+        },
     };
     const inputs = toSimInputs(plan, candidateSpec);
     const firmMinimumAboveRequest = firmMinimumNoteFor(
@@ -191,7 +192,8 @@ function buildRow(
     if (isFromState && spec.start !== undefined) {
         const out = simulateFromState({ ...inputs, start: spec.start });
         return {
-            anyPayoutGivenFundedProbability: out.anyPayoutGivenFundedProbability,
+            anyPayoutGivenFundedProbability:
+                out.anyPayoutGivenFundedProbability,
             attemptPaysProbability: out.attemptPaysProbability,
             firmMinimumAboveRequest,
             kind: StartBasis.FromState,
@@ -229,9 +231,7 @@ function firmMinimumNoteFor(
     requestedSizes: readonly number[],
 ): FirmMinimumAboveRequestNote | null {
     const requested = Math.min(...requestedSizes);
-    return effective > requested
-        ? { minimum: effective, requested }
-        : null;
+    return effective > requested ? { minimum: effective, requested } : null;
 }
 
 function groupedSizes(

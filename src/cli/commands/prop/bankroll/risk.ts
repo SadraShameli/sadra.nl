@@ -9,7 +9,13 @@ import {
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
-import { dollars, fraction, type Fraction0to1, type SimOutputs, simulate } from '~/lib/prop-calculator';
+import {
+    dollars,
+    fraction,
+    type Fraction0to1,
+    type SimOutputs,
+    simulate,
+} from '~/lib/prop-calculator';
 import {
     attemptsAffordable,
     bankrollLossRiskSummary,
@@ -70,7 +76,8 @@ export function riskRows(
     risk: BankrollRiskInputs,
     seed: number,
 ): readonly (readonly [string, string])[] {
-    const passRate = risk.passRateOverride ?? fraction(out.attemptPassProbability);
+    const passRate =
+        risk.passRateOverride ?? fraction(out.attemptPassProbability);
     const payoutRate =
         risk.payoutRateOverride ?? fraction(out.attemptPaysProbability);
     const attemptsQuantity = attemptsAffordable(
@@ -81,10 +88,7 @@ export function riskRows(
 
     const rows: (readonly [string, string])[] = [
         ['attempt cost', formatCurrency(out.costPerAttempt)],
-        [
-            'attempts affordable',
-            attempts === null ? 'n/a' : String(attempts),
-        ],
+        ['attempts affordable', attempts === null ? 'n/a' : String(attempts)],
         ['P(attempt pays)', rateLine(payoutRate, risk.payoutRateOverride)],
         [
             'P(batch net < 0)',
@@ -94,14 +98,9 @@ export function riskRows(
         ],
         [
             `P(no payout from ${attempts ?? 0} attempts)`,
-            attempts === null
-                ? 'n/a'
-                : noPayoutLine(payoutRate, attempts),
+            attempts === null ? 'n/a' : noPayoutLine(payoutRate, attempts),
         ],
-        [
-            'minimum budget for the loss target',
-            minimumBudgetLine(out, risk),
-        ],
+        ['minimum budget for the loss target', minimumBudgetLine(out, risk)],
     ];
 
     if (risk.passRateOverride !== null) {

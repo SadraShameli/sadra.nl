@@ -64,16 +64,23 @@ export interface FundedSweepEngineOptimumResult {
     readonly sweep: FundedSweepOptimumResult;
 }
 
-export interface LadderEngineOptimumResult {
-    readonly ladder: LadderSearchResult;
-    readonly refusal?: LadderGridRefusal;
-    readonly source: LadderSearchRequestSource;
-}
+export type LadderEngineOptimumResult =
+    LadderRefusedEngineOptimumResult | LadderScoredEngineOptimumResult;
 
 export interface LadderGridRefusal {
     readonly kind: LadderRefusalKind.GridTooLarge;
     readonly limit: number;
     readonly size: number;
+}
+
+export interface LadderRefusedEngineOptimumResult {
+    readonly refusal: LadderGridRefusal;
+    readonly source: LadderSearchRequestSource;
+}
+
+export interface LadderScoredEngineOptimumResult {
+    readonly ladder: LadderSearchResult;
+    readonly source: LadderSearchRequestSource;
 }
 
 export interface NextPayoutProjectionEngineOptimumResult {
@@ -125,19 +132,8 @@ export function runEngineOptimum(
 function refusedLadderSearch(
     request: LadderSearchRequest,
     error: LadderGridSizeError,
-): LadderEngineOptimumResult {
+): LadderRefusedEngineOptimumResult {
     return {
-        ladder: {
-            byCost: [],
-            byPassRate: [],
-            bySpeed: [],
-            droppedAliasCount: 0,
-            frontier: [],
-            gridSize: error.size,
-            laddersScored: 0,
-            topN: request.topN ?? 0,
-            unscorableCount: 0,
-        },
         refusal: {
             kind: LadderRefusalKind.GridTooLarge,
             limit: error.limit,
@@ -173,16 +169,14 @@ function runFundedSweepOptimum(
         }),
     );
     const refusedRows: EngineOptimumRefusedRow[] =
-        build.flatsBelowOneContract.map(
-            (dollar): EngineOptimumRefusedRow => ({
-                kind: EngineOptimumRowKind.Refused,
-                label: `flat $${dollar}`,
-                reason: {
-                    dollar,
-                    kind: EngineOptimumRefusalKind.FlatBelowOneContract,
-                },
-            }),
-        );
+        build.flatsBelowOneContract.map((dollar): EngineOptimumRefusedRow => ({
+            kind: EngineOptimumRowKind.Refused,
+            label: `flat $${dollar}`,
+            reason: {
+                dollar,
+                kind: EngineOptimumRefusalKind.FlatBelowOneContract,
+            },
+        }));
 
     const ranked = sortFundedResults(placedRows, FundedSortKey.Monthly);
     const winner = ranked[0];

@@ -166,7 +166,9 @@ function candidateOf(
         firm: entry.firm,
         optimum:
             options.optimum ??
-            ready(optimumFigures(options.optimumNet ?? options.monthlyNet ?? 300)),
+            ready(
+                optimumFigures(options.optimumNet ?? options.monthlyNet ?? 300),
+            ),
         plan: entry.plan,
     };
 }
@@ -175,9 +177,7 @@ function containing(text: string): unknown {
     return expect.stringContaining(text);
 }
 
-function costSlot(
-    cost: number,
-): NextSlotEngineSlot<NextSlotDocumentedFigures> {
+function costSlot(cost: number): NextSlotEngineSlot<NextSlotDocumentedFigures> {
     const figures = documentedFigures({ costPerAttempt: estimate(cost) });
     return ready(figures);
 }
@@ -358,7 +358,11 @@ function withPolicies<T>(
     }
 }
 
-const THREE_PLANS = [EVAL_PLAN, SAME_FIRM_SECOND_EVAL_PLAN, OTHER_FIRM_EVAL_PLAN];
+const THREE_PLANS = [
+    EVAL_PLAN,
+    SAME_FIRM_SECOND_EVAL_PLAN,
+    OTHER_FIRM_EVAL_PLAN,
+];
 
 const ABOVE_REQUEST_PLANS = [
     {
@@ -415,7 +419,10 @@ describe('nextSlotAllocation ranking', () => {
         const allocation = verified(THREE_PLANS, () =>
             allocate({
                 candidates: [
-                    candidateOf(EVAL_PLAN, { monthlyNet: 200, optimumNet: 210 }),
+                    candidateOf(EVAL_PLAN, {
+                        monthlyNet: 200,
+                        optimumNet: 210,
+                    }),
                     candidateOf(SAME_FIRM_SECOND_EVAL_PLAN, {
                         monthlyNet: 400,
                         optimumNet: 410,
@@ -446,7 +453,10 @@ describe('nextSlotAllocation ranking', () => {
         const flipped = verified(THREE_PLANS, () =>
             allocate({
                 candidates: [
-                    candidateOf(EVAL_PLAN, { monthlyNet: 300, optimumNet: 100 }),
+                    candidateOf(EVAL_PLAN, {
+                        monthlyNet: 300,
+                        optimumNet: 100,
+                    }),
                     candidateOf(SAME_FIRM_SECOND_EVAL_PLAN, {
                         monthlyNet: 200,
                         optimumNet: 400,
@@ -472,7 +482,10 @@ describe('nextSlotAllocation ranking', () => {
         const agreeing = verified(THREE_PLANS, () =>
             allocate({
                 candidates: [
-                    candidateOf(EVAL_PLAN, { monthlyNet: 300, optimumNet: 330 }),
+                    candidateOf(EVAL_PLAN, {
+                        monthlyNet: 300,
+                        optimumNet: 330,
+                    }),
                     candidateOf(SAME_FIRM_SECOND_EVAL_PLAN, {
                         monthlyNet: 200,
                         optimumNet: 230,
@@ -484,16 +497,19 @@ describe('nextSlotAllocation ranking', () => {
                 ],
             }),
         );
-        expect(
-            agreeing.ranked.map((row) => row.payoutPolicySensitive),
-        ).toEqual([false, false, false]);
+        expect(agreeing.ranked.map((row) => row.payoutPolicySensitive)).toEqual(
+            [false, false, false],
+        );
     });
 
     it('withholds the order comparison when one plan has no payout-size optimum, and still ranks it by the documented figure', () => {
         const allocation = verified(THREE_PLANS, () =>
             allocate({
                 candidates: [
-                    candidateOf(EVAL_PLAN, { monthlyNet: 300, optimumNet: 100 }),
+                    candidateOf(EVAL_PLAN, {
+                        monthlyNet: 300,
+                        optimumNet: 100,
+                    }),
                     candidateOf(SAME_FIRM_SECOND_EVAL_PLAN, {
                         monthlyNet: 200,
                         optimum: {
@@ -563,8 +579,9 @@ describe('nextSlotAllocation payout request above the $500 request', () => {
     });
 
     it('leaves out FundedNext FNL:003 Instant, whose $800 minimum (FundedNext.ts:41 and :269) is above $500 but which is discontinued', () => {
-        const fnl003 = ALL_FIRMS.find((firm) => firm.id === FirmId.FundedNext)
-            ?.plans.find((plan) => plan.label.includes('FNL:003'));
+        const fnl003 = ALL_FIRMS.find(
+            (firm) => firm.id === FirmId.FundedNext,
+        )?.plans.find((plan) => plan.label.includes('FNL:003'));
         expect(fnl003).toBeDefined();
         expect(fnl003?.availability).toBe(PlanAvailability.Discontinued);
         if (fnl003 === undefined) throw new Error('expected FNL:003');
@@ -643,7 +660,9 @@ describe('nextSlotAllocation free slots', () => {
         const allocation = verified([EVAL_PLAN], () =>
             allocate({
                 candidates: [candidateOf(EVAL_PLAN)],
-                ledger: ledger({ accounts: fundedAccounts(EVAL_PLAN, planCap) }),
+                ledger: ledger({
+                    accounts: fundedAccounts(EVAL_PLAN, planCap),
+                }),
             }),
         );
         expect(allocation.ranked).toEqual([]);
@@ -686,7 +705,9 @@ describe('nextSlotAllocation free slots', () => {
                 }),
             { pool },
         );
-        expect(rankedRow(allocation, SAME_FIRM_SECOND_EVAL_PLAN).freeSlots).toBe(
+        expect(
+            rankedRow(allocation, SAME_FIRM_SECOND_EVAL_PLAN).freeSlots,
+        ).toBe(
             Math.min(
                 SAME_FIRM_SECOND_EVAL_PLAN.firm.maxFundedAccounts(
                     SAME_FIRM_SECOND_EVAL_PLAN.plan,
@@ -715,10 +736,7 @@ describe('nextSlotAllocation live triggers', () => {
     it('lists a plan with an unverified live trigger as live trigger unverified and does not rank it, even with the cap scope verified', () => {
         const allocation = withPolicies(
             new Map([
-                [
-                    EVAL_PLAN.firm,
-                    new (class extends FirmAccountPolicy {})(),
-                ],
+                [EVAL_PLAN.firm, new (class extends FirmAccountPolicy {})()],
             ]),
             () => allocate({ candidates: [candidateOf(EVAL_PLAN)] }),
         );
@@ -766,7 +784,9 @@ describe('nextSlotAllocation exclusions', () => {
                 }),
             { exclusivity: BLOCKING_EXCLUSIVITY },
         );
-        expect(rankedSerials(allocation)).toEqual([OTHER_FIRM_EVAL_PLAN.serial]);
+        expect(rankedSerials(allocation)).toEqual([
+            OTHER_FIRM_EVAL_PLAN.serial,
+        ]);
         for (const entry of [EVAL_PLAN, SAME_FIRM_SECOND_EVAL_PLAN]) {
             const row = notRankedRow(allocation, entry);
             expect(row.kind).toBe(NextSlotListingKind.Excluded);
@@ -857,9 +877,7 @@ describe('nextSlotAllocation exclusions', () => {
             });
             const row = notRankedRow(allocation, EVAL_PLAN);
             expect(row.kind).toBe(NextSlotListingKind.Excluded);
-            expect(row.reasons).toEqual([
-                expect.objectContaining({ reason }),
-            ]);
+            expect(row.reasons).toEqual([expect.objectContaining({ reason })]);
             expect(
                 allocation.notRanked.find(
                     (candidate) =>
@@ -875,10 +893,15 @@ describe('nextSlotAllocation exclusions', () => {
                 candidates: [candidateOf(EVAL_PLAN)],
                 ledger: ledger({
                     firmEngagements: [
-                        firmEngagement('', '2026-09-01', FirmEngagementStatus.Active, {
-                            externalFirmId: null,
-                            firmId: EVAL_PLAN.firm.id,
-                        }),
+                        firmEngagement(
+                            '',
+                            '2026-09-01',
+                            FirmEngagementStatus.Active,
+                            {
+                                externalFirmId: null,
+                                firmId: EVAL_PLAN.firm.id,
+                            },
+                        ),
                     ],
                 }),
             }),
@@ -900,7 +923,9 @@ describe('nextSlotAllocation exclusions', () => {
                 ],
             }),
         );
-        expect(rankedSerials(allocation)).toEqual([OTHER_FIRM_EVAL_PLAN.serial]);
+        expect(rankedSerials(allocation)).toEqual([
+            OTHER_FIRM_EVAL_PLAN.serial,
+        ]);
         const row = notRankedRow(allocation, EVAL_PLAN);
         expect(row.kind).toBe(NextSlotListingKind.Refused);
         expect(row.reasons).toEqual([
@@ -929,7 +954,9 @@ describe('nextSlotAllocation exclusions', () => {
                 ],
             }),
         );
-        expect(rankedSerials(allocation)).toEqual([OTHER_FIRM_EVAL_PLAN.serial]);
+        expect(rankedSerials(allocation)).toEqual([
+            OTHER_FIRM_EVAL_PLAN.serial,
+        ]);
         expect(notRankedRow(allocation, EVAL_PLAN).kind).toBe(
             NextSlotListingKind.Pending,
         );
@@ -1021,7 +1048,9 @@ describe('nextSlotAllocation capacity', () => {
             allocate({
                 bankroll,
                 candidates: [
-                    candidateOf(SAME_FIRM_SECOND_EVAL_PLAN, { monthlyNet: 500 }),
+                    candidateOf(SAME_FIRM_SECOND_EVAL_PLAN, {
+                        monthlyNet: 500,
+                    }),
                     candidateOf(OTHER_FIRM_EVAL_PLAN, { monthlyNet: 100 }),
                 ],
                 ledger: ledger({ accounts: ownedAccounts() }),
@@ -1033,9 +1062,14 @@ describe('nextSlotAllocation capacity', () => {
             remaining: 2,
         });
         const [first, second] = allocation.ranked;
-        expect(first?.allocatableSlots).toBe(Math.min(first?.freeSlots ?? 0, 2));
+        expect(first?.allocatableSlots).toBe(
+            Math.min(first?.freeSlots ?? 0, 2),
+        );
         expect(second?.allocatableSlots).toBe(
-            Math.min(second?.freeSlots ?? 0, 2 - (first?.allocatableSlots ?? 0)),
+            Math.min(
+                second?.freeSlots ?? 0,
+                2 - (first?.allocatableSlots ?? 0),
+            ),
         );
     });
 
@@ -1098,7 +1132,10 @@ describe('nextSlotAllocation objective', () => {
 
     it('ranks by monthly net under the default objective', () => {
         const allocation = verified(THREE_PLANS, () =>
-            allocate({ availableCents: AVAILABLE_CENTS, candidates: candidates() }),
+            allocate({
+                availableCents: AVAILABLE_CENTS,
+                candidates: candidates(),
+            }),
         );
         expect(rankedSerials(allocation)).toEqual([
             OTHER_FIRM_EVAL_PLAN.serial,
@@ -1120,9 +1157,9 @@ describe('nextSlotAllocation objective', () => {
             EVAL_PLAN.serial,
             OTHER_FIRM_EVAL_PLAN.serial,
         ]);
-        expect(allocation.ranked.map((row) => row.isNonPositiveExpectedValue)).toEqual(
-            [false, false, true],
-        );
+        expect(
+            allocation.ranked.map((row) => row.isNonPositiveExpectedValue),
+        ).toEqual([false, false, true]);
         expect(
             rankedRow(allocation, SAME_FIRM_SECOND_EVAL_PLAN).figures
                 .batchLossProbability,
@@ -1162,9 +1199,9 @@ describe('nextSlotAllocation objective', () => {
             expect(
                 rankedRow(allocation, EVAL_PLAN).figures.documented.requestSize,
             ).toBe(500);
-            expect(
-                rankedRow(allocation, EVAL_PLAN).figures.sizingBasis,
-            ).toBe(NextSlotSizingBasis.Unsized);
+            expect(rankedRow(allocation, EVAL_PLAN).figures.sizingBasis).toBe(
+                NextSlotSizingBasis.Unsized,
+            );
         }
     });
 
@@ -1201,7 +1238,11 @@ describe('nextSlotAllocation objective', () => {
 
     it('reports the chance an attempt never pays beside the cycle net', () => {
         const allocation = verified([EVAL_PLAN], () =>
-            allocate({ candidates: [candidateOf(EVAL_PLAN, { documented: ready(PAYING) })] }),
+            allocate({
+                candidates: [
+                    candidateOf(EVAL_PLAN, { documented: ready(PAYING) }),
+                ],
+            }),
         );
         const { figures } = rankedRow(allocation, EVAL_PLAN);
         expect(figures.noPayoutProbability).toBeCloseTo(1 - 0.1 * 0.5, 12);
@@ -1357,9 +1398,9 @@ describe('nextSlotAllocation determinism', () => {
         expect(first.notRanked).toHaveLength(3);
         expect(first).toEqual(second);
         expect(first.notRanked.map((row) => row.firmName)).toEqual(
-            first.notRanked.map((row) => row.firmName).toSorted((a, b) =>
-                a.localeCompare(b),
-            ),
+            first.notRanked
+                .map((row) => row.firmName)
+                .toSorted((a, b) => a.localeCompare(b)),
         );
     });
 
@@ -1372,7 +1413,6 @@ describe('nextSlotAllocation determinism', () => {
         expect(frozen).toHaveLength(1);
     });
 });
-
 
 describe('nextSlotAllocation slots to fill', () => {
     const roomy = { ...DEFAULT_RULEBOOK.bankroll, dailyAccountCapacity: 1000 };
@@ -1387,7 +1427,9 @@ describe('nextSlotAllocation slots to fill', () => {
                 bankroll: roomy,
                 candidates: [
                     candidateOf(EVAL_PLAN, { documented: ready(losing) }),
-                    candidateOf(SAME_FIRM_SECOND_EVAL_PLAN, { monthlyNet: 300 }),
+                    candidateOf(SAME_FIRM_SECOND_EVAL_PLAN, {
+                        monthlyNet: 300,
+                    }),
                 ],
             }),
         );
@@ -1395,7 +1437,9 @@ describe('nextSlotAllocation slots to fill', () => {
         const bad = rankedRow(allocation, EVAL_PLAN);
         expect(bad.isNonPositiveExpectedValue).toBe(true);
         expect(bad.allocatableSlots).toBe(0);
-        expect(bad.limitedBy).toBe(NextSlotExclusionReason.NonPositiveExpectedValue);
+        expect(bad.limitedBy).toBe(
+            NextSlotExclusionReason.NonPositiveExpectedValue,
+        );
         const good = rankedRow(allocation, SAME_FIRM_SECOND_EVAL_PLAN);
         expect(good.allocatableSlots).toBe(good.freeSlots);
         expect(good.limitedBy).toBeNull();
@@ -1410,7 +1454,9 @@ describe('nextSlotAllocation slots to fill', () => {
         );
         const row = rankedRow(allocation, EVAL_PLAN);
         expect(row.allocatableSlots).toBe(0);
-        expect(row.limitedBy).toBe(NextSlotExclusionReason.NonPositiveExpectedValue);
+        expect(row.limitedBy).toBe(
+            NextSlotExclusionReason.NonPositiveExpectedValue,
+        );
     });
 
     it('gives a size whose scale gate is not met, or whose thresholds are not set, no slots to fill', () => {
@@ -1557,7 +1603,8 @@ describe('nextSlotAllocation batch loss risk', () => {
                 ],
             }),
         );
-        const loss = rankedRow(allocation, EVAL_PLAN).figures.batchLossProbability;
+        const loss = rankedRow(allocation, EVAL_PLAN).figures
+            .batchLossProbability;
         expect(loss).toBeCloseTo(0.2625, 10);
         expect(loss).not.toBeCloseTo(0.3125, 3);
     });
@@ -1567,7 +1614,9 @@ describe('nextSlotAllocation batch loss risk', () => {
         const allocation = verified([EVAL_PLAN], () =>
             allocate({
                 availableCents: 500_000,
-                candidates: [candidateOf(EVAL_PLAN, { documented: ready(figures) })],
+                candidates: [
+                    candidateOf(EVAL_PLAN, { documented: ready(figures) }),
+                ],
             }),
         );
         expect(
@@ -1583,7 +1632,9 @@ describe('nextSlotAllocation batch loss risk', () => {
         const allocation = verified([EVAL_PLAN], () =>
             allocate({
                 availableCents: 40_000,
-                candidates: [candidateOf(EVAL_PLAN, { documented: ready(never) })],
+                candidates: [
+                    candidateOf(EVAL_PLAN, { documented: ready(never) }),
+                ],
             }),
         );
         expect(
@@ -1592,7 +1643,9 @@ describe('nextSlotAllocation batch loss risk', () => {
         const free = verified([EVAL_PLAN], () =>
             allocate({
                 availableCents: 40_000,
-                candidates: [candidateOf(EVAL_PLAN, { documented: costSlot(0) })],
+                candidates: [
+                    candidateOf(EVAL_PLAN, { documented: costSlot(0) }),
+                ],
             }),
         );
         expect(
@@ -1611,7 +1664,9 @@ describe('nextSlotAllocation batch loss risk', () => {
         const hidden = verified([EVAL_PLAN], () =>
             allocate({ candidates: [candidateOf(EVAL_PLAN)] }),
         );
-        expect(hidden.disclosures).not.toContainEqual(containing('average payout'));
+        expect(hidden.disclosures).not.toContainEqual(
+            containing('average payout'),
+        );
     });
 });
 

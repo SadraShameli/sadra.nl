@@ -62,41 +62,43 @@ vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
     useCalculatorInputs: () => ({ state: defaultCalculatorState() }),
 }));
 
-vi.mock('~/app/(app)/prop-calculator/_components/useToolsWorker', async (importOriginal) => {
-    const React = await import('react');
-    const actual = await importOriginal<typeof UseToolsWorkerModule>();
-    return {
-        ToolsWorkerPhase: actual.ToolsWorkerPhase,
-        useToolsWorker: () => {
-            const [state, setState] = React.useState<unknown>({
-                phase: actual.ToolsWorkerPhase.Idle,
-            });
-            const indexReference = React.useRef<null | number>(null);
-            if (indexReference.current === null) {
-                indexReference.current = toolsWorkerBox.instances.length;
-                toolsWorkerBox.instances.push({
-                    runSpy: vi.fn(),
-                    setState,
+vi.mock(
+    '~/app/(app)/prop-calculator/_components/useToolsWorker',
+    async (importOriginal) => {
+        const React = await import('react');
+        const actual = await importOriginal<typeof UseToolsWorkerModule>();
+        return {
+            ToolsWorkerPhase: actual.ToolsWorkerPhase,
+            useToolsWorker: () => {
+                const [state, setState] = React.useState<unknown>({
+                    phase: actual.ToolsWorkerPhase.Idle,
                 });
-            }
-            const instance = toolsWorkerBox.instances[indexReference.current];
-            return {
-                cancel: vi.fn(),
-                run: (request: unknown) => {
-                    instance?.runSpy(request);
-                },
-                state,
-            };
-        },
-    };
-});
+                const indexReference = React.useRef<null | number>(null);
+                if (indexReference.current === null) {
+                    indexReference.current = toolsWorkerBox.instances.length;
+                    toolsWorkerBox.instances.push({
+                        runSpy: vi.fn(),
+                        setState,
+                    });
+                }
+                const instance =
+                    toolsWorkerBox.instances[indexReference.current];
+                return {
+                    cancel: vi.fn(),
+                    run: (request: unknown) => {
+                        instance?.runSpy(request);
+                    },
+                    state,
+                };
+            },
+        };
+    },
+);
 
-const { BankrollView } = await import(
-    '~/app/(app)/prop-calculator/(tools)/bankroll/BankrollView'
-);
-const { ToolsWorkerPhase: RealToolsWorkerPhase } = await import(
-    '~/app/(app)/prop-calculator/_components/useToolsWorker'
-);
+const { BankrollView } =
+    await import('~/app/(app)/prop-calculator/(tools)/bankroll/BankrollView');
+const { ToolsWorkerPhase: RealToolsWorkerPhase } =
+    await import('~/app/(app)/prop-calculator/_components/useToolsWorker');
 
 function fakeSimOutputs(): SimOutputs {
     return {
@@ -120,10 +122,10 @@ function requireInput(element: Element | null): HTMLInputElement {
 }
 
 function setInputValue(input: HTMLInputElement, value: string): void {
-    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        input,
-        value,
-    );
+    Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+    )?.set?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
@@ -162,7 +164,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         act(() => {
             root.render(<BankrollView />);
         });
-        expect(container.textContent).toContain('Enter a starting bankroll and a horizon to project.');
+        expect(container.textContent).toContain(
+            'Enter a starting bankroll and a horizon to project.',
+        );
         const budgetInput = container.querySelector('#bankroll-budget');
         expect(budgetInput).not.toBeNull();
         expect((budgetInput as HTMLInputElement).value).toBe('');
@@ -182,7 +186,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         act(() => {
             root.render(<BankrollView />);
         });
-        const budgetInput = requireInput(container.querySelector('#bankroll-budget'));
+        const budgetInput = requireInput(
+            container.querySelector('#bankroll-budget'),
+        );
         act(() => {
             setInputValue(budgetInput, '5000');
         });
@@ -200,7 +206,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             setInputValue(budgetInput, '4000');
         });
         expect(runSpy).toHaveBeenCalled();
-        const [request] = runSpy.mock.calls.at(-1) as [{ kind: ToolsRequestKind; runId: number }];
+        const [request] = runSpy.mock.calls.at(-1) as [
+            { kind: ToolsRequestKind; runId: number },
+        ];
         expect(request.kind).toBe(ToolsRequestKind.Batch);
 
         act(() => {
@@ -228,9 +236,15 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         act(() => {
             root.render(<BankrollView />);
         });
-        const startInput = requireInput(container.querySelector('#bankroll-start'));
-        const horizonInput = requireInput(container.querySelector('#bankroll-horizon'));
-        const reinvestInput = requireInput(container.querySelector('#bankroll-reinvest'));
+        const startInput = requireInput(
+            container.querySelector('#bankroll-start'),
+        );
+        const horizonInput = requireInput(
+            container.querySelector('#bankroll-horizon'),
+        );
+        const reinvestInput = requireInput(
+            container.querySelector('#bankroll-reinvest'),
+        );
         act(() => {
             setInputValue(startInput, '5000');
         });
@@ -286,7 +300,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         act(() => {
             root.render(<BankrollView />);
         });
-        const budgetInput = requireInput(container.querySelector('#bankroll-budget'));
+        const budgetInput = requireInput(
+            container.querySelector('#bankroll-budget'),
+        );
         act(() => {
             setInputValue(budgetInput, '5000');
         });
@@ -304,17 +320,21 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         expect(container.textContent).toContain(
             'toolsWorker: no plan for the requested firm and serial',
         );
-        expect(
-            container.querySelector('[role="alert"]')?.textContent,
-        ).toBe('toolsWorker: no plan for the requested firm and serial');
+        expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+            'toolsWorker: no plan for the requested firm and serial',
+        );
     });
 
     it('shows the worker failure reason on the Projection card instead of the generic empty-input copy once inputs are filled', () => {
         act(() => {
             root.render(<BankrollView />);
         });
-        const startInput = requireInput(container.querySelector('#bankroll-start'));
-        const horizonInput = requireInput(container.querySelector('#bankroll-horizon'));
+        const startInput = requireInput(
+            container.querySelector('#bankroll-start'),
+        );
+        const horizonInput = requireInput(
+            container.querySelector('#bankroll-horizon'),
+        );
         act(() => {
             setInputValue(startInput, '5000');
         });
@@ -338,16 +358,18 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         expect(container.textContent).not.toContain(
             'Enter a starting bankroll and a horizon to project.',
         );
-        expect(
-            container.querySelector('[role="alert"]')?.textContent,
-        ).toBe('toolsWorker: no plan for the requested firm and serial');
+        expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+            'toolsWorker: no plan for the requested firm and serial',
+        );
     });
 
     it('clears the Setup card failure banner once the budget is cleared, since no request is current (PT-62a LOW)', () => {
         act(() => {
             root.render(<BankrollView />);
         });
-        const budgetInput = requireInput(container.querySelector('#bankroll-budget'));
+        const budgetInput = requireInput(
+            container.querySelector('#bankroll-budget'),
+        );
         act(() => {
             setInputValue(budgetInput, '5000');
         });
@@ -378,7 +400,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         act(() => {
             root.render(<BankrollView />);
         });
-        const budgetInput = requireInput(container.querySelector('#bankroll-budget'));
+        const budgetInput = requireInput(
+            container.querySelector('#bankroll-budget'),
+        );
         act(() => {
             setInputValue(budgetInput, '5000');
         });
@@ -401,7 +425,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         act(() => {
             root.render(<BankrollView />);
         });
-        const horizonInput = requireInput(container.querySelector('#bankroll-horizon'));
+        const horizonInput = requireInput(
+            container.querySelector('#bankroll-horizon'),
+        );
         act(() => {
             setInputValue(horizonInput, '-1');
         });
@@ -413,7 +439,10 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             root.render(<BankrollView />);
         });
         act(() => {
-            setInputValue(requireInput(container.querySelector('#bankroll-start')), '5000');
+            setInputValue(
+                requireInput(container.querySelector('#bankroll-start')),
+                '5000',
+            );
         });
 
         const instance = toolsWorkerBox.instances[1];
@@ -428,7 +457,10 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         if (instance) instance.runSpy = runSpy;
 
         act(() => {
-            setInputValue(requireInput(container.querySelector('#bankroll-horizon')), '180');
+            setInputValue(
+                requireInput(container.querySelector('#bankroll-horizon')),
+                '180',
+            );
         });
 
         expect(runSpy).toHaveBeenCalledTimes(1);
@@ -441,25 +473,41 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-two-strategies-start')),
+                    requireInput(
+                        container.querySelector(
+                            '#bankroll-two-strategies-start',
+                        ),
+                    ),
                     '5000',
                 );
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-two-strategies-horizon')),
+                    requireInput(
+                        container.querySelector(
+                            '#bankroll-two-strategies-horizon',
+                        ),
+                    ),
                     '180',
                 );
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-two-strategies-reinvest')),
+                    requireInput(
+                        container.querySelector(
+                            '#bankroll-two-strategies-reinvest',
+                        ),
+                    ),
                     '1',
                 );
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-two-strategies-risk-b')),
+                    requireInput(
+                        container.querySelector(
+                            '#bankroll-two-strategies-risk-b',
+                        ),
+                    ),
                     '500',
                 );
             });
@@ -474,7 +522,11 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             if (instance) instance.runSpy = runSpy;
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-two-strategies-risk-b')),
+                    requireInput(
+                        container.querySelector(
+                            '#bankroll-two-strategies-risk-b',
+                        ),
+                    ),
                     '600',
                 );
             });
@@ -547,13 +599,21 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-two-strategies-start')),
+                    requireInput(
+                        container.querySelector(
+                            '#bankroll-two-strategies-start',
+                        ),
+                    ),
                     '5000',
                 );
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-two-strategies-horizon')),
+                    requireInput(
+                        container.querySelector(
+                            '#bankroll-two-strategies-horizon',
+                        ),
+                    ),
                     '180',
                 );
             });
@@ -571,7 +631,11 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
 
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-two-strategies-risk-b')),
+                    requireInput(
+                        container.querySelector(
+                            '#bankroll-two-strategies-risk-b',
+                        ),
+                    ),
                     '500',
                 );
             });
@@ -609,7 +673,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-batch-attempts')),
+                    requireInput(
+                        container.querySelector('#bankroll-batch-attempts'),
+                    ),
                     '40',
                 );
             });
@@ -620,7 +686,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             if (instance) instance.runSpy = runSpy;
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-batch-attempts')),
+                    requireInput(
+                        container.querySelector('#bankroll-batch-attempts'),
+                    ),
                     '41',
                 );
             });
@@ -660,7 +728,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-batch-attempts')),
+                    requireInput(
+                        container.querySelector('#bankroll-batch-attempts'),
+                    ),
                     '40',
                 );
             });
@@ -678,7 +748,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
 
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-batch-attempts')),
+                    requireInput(
+                        container.querySelector('#bankroll-batch-attempts'),
+                    ),
                     '41',
                 );
             });
@@ -694,13 +766,17 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-same-ev-bankroll')),
+                    requireInput(
+                        container.querySelector('#bankroll-same-ev-bankroll'),
+                    ),
                     '5000',
                 );
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-same-ev-risk-b')),
+                    requireInput(
+                        container.querySelector('#bankroll-same-ev-risk-b'),
+                    ),
                     '500',
                 );
             });
@@ -711,7 +787,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             if (instance) instance.runSpy = runSpy;
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-same-ev-risk-b')),
+                    requireInput(
+                        container.querySelector('#bankroll-same-ev-risk-b'),
+                    ),
                     '600',
                 );
             });
@@ -757,13 +835,17 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-same-ev-bankroll')),
+                    requireInput(
+                        container.querySelector('#bankroll-same-ev-bankroll'),
+                    ),
                     '5000',
                 );
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-same-ev-risk-b')),
+                    requireInput(
+                        container.querySelector('#bankroll-same-ev-risk-b'),
+                    ),
                     '500',
                 );
             });
@@ -781,7 +863,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
 
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-same-ev-risk-b')),
+                    requireInput(
+                        container.querySelector('#bankroll-same-ev-risk-b'),
+                    ),
                     '600',
                 );
             });
@@ -819,13 +903,17 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-levers-bankroll')),
+                    requireInput(
+                        container.querySelector('#bankroll-levers-bankroll'),
+                    ),
                     '5000',
                 );
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-levers-risks')),
+                    requireInput(
+                        container.querySelector('#bankroll-levers-risks'),
+                    ),
                     '200,300',
                 );
             });
@@ -836,7 +924,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             if (instance) instance.runSpy = runSpy;
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-levers-risks')),
+                    requireInput(
+                        container.querySelector('#bankroll-levers-risks'),
+                    ),
                     '200,300,400',
                 );
             });
@@ -900,13 +990,17 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-levers-bankroll')),
+                    requireInput(
+                        container.querySelector('#bankroll-levers-bankroll'),
+                    ),
                     '5000',
                 );
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-levers-risks')),
+                    requireInput(
+                        container.querySelector('#bankroll-levers-risks'),
+                    ),
                     '200,300',
                 );
             });
@@ -951,11 +1045,15 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
 
             const rows = [...container.querySelectorAll(':scope tbody tr')];
-            const riskRow = rows.find((row) => row.textContent.startsWith('Risk'));
+            const riskRow = rows.find((row) =>
+                row.textContent.startsWith('Risk'),
+            );
             const riskValueCell = riskRow?.querySelectorAll('td')[1];
             expect(riskValueCell?.textContent).toBe('$300');
 
-            const tradesRow = rows.find((row) => row.textContent.startsWith('Trades per day'));
+            const tradesRow = rows.find((row) =>
+                row.textContent.startsWith('Trades per day'),
+            );
             const tradesValueCell = tradesRow?.querySelectorAll('td')[1];
             expect(tradesValueCell?.textContent).toBe('2');
         });
@@ -966,13 +1064,17 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-levers-bankroll')),
+                    requireInput(
+                        container.querySelector('#bankroll-levers-bankroll'),
+                    ),
                     '5000',
                 );
             });
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-levers-risks')),
+                    requireInput(
+                        container.querySelector('#bankroll-levers-risks'),
+                    ),
                     '200,300',
                 );
             });
@@ -990,7 +1092,9 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
 
             act(() => {
                 setInputValue(
-                    requireInput(container.querySelector('#bankroll-levers-risks')),
+                    requireInput(
+                        container.querySelector('#bankroll-levers-risks'),
+                    ),
                     '200,300,400',
                 );
             });

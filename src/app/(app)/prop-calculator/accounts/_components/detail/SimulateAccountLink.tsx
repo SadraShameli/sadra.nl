@@ -8,16 +8,11 @@ import {
     calculatorLinkForAccount,
 } from '~/app/(app)/prop-calculator/accounts/_components/calculatorLinkForAccount';
 import { Button } from '~/components/ui/Button';
-import {
-    type Plan,
-    serializePlanId,
-} from '~/lib/prop-calculator';
+import { type Plan, serializePlanId } from '~/lib/prop-calculator';
 import {
     type RulebookParameters,
     type SizingStage,
 } from '~/lib/prop-calculator/advisor';
-
-
 
 export function SimulateAccountLink({
     plan,
@@ -46,8 +41,8 @@ export function SimulateAccountLink({
     if (rulebook === undefined) {
         return rulebookError === null ? (
             <p className="text-sm text-muted-foreground">
-                Your rulebook has not loaded, so the simulator link is not
-                ready yet.
+                Your rulebook has not loaded, so the simulator link is not ready
+                yet.
             </p>
         ) : (
             <SimulationFailureNotice

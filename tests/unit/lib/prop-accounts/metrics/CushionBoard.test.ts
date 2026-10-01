@@ -9,7 +9,10 @@ import {
     FundedRiskBasis,
 } from '~/lib/prop-accounts/metrics';
 import { dollars, TradingPhase } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK, RetainedCushionBasis } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    RetainedCushionBasis,
+} from '~/lib/prop-calculator/advisor';
 
 import {
     evalReconstructed,
@@ -41,9 +44,7 @@ describe('cushionBoardOf', () => {
             funded.cushion / documentedRisk,
             6,
         );
-        expect(row?.cushionCents).toEqual(
-            usdCentsFromDollars(funded.cushion),
-        );
+        expect(row?.cushionCents).toEqual(usdCentsFromDollars(funded.cushion));
         expect(row?.floorCents).toEqual(
             usdCentsFromDollars(funded.state.threshold),
         );
@@ -140,11 +141,16 @@ describe('cushionBoardOf', () => {
 
     it('lists not-reconstructed accounts separately, never in rows', () => {
         const board = cushionBoardOf(DEFAULT_RULEBOOK, [
-            unavailableEntry('a1', { kind: AccountStateUnavailableKind.NoSnapshot }),
+            unavailableEntry('a1', {
+                kind: AccountStateUnavailableKind.NoSnapshot,
+            }),
         ]);
         expect(board.rows).toEqual([]);
         expect(board.unavailable).toEqual([
-            { accountId: 'a1', reason: { kind: AccountStateUnavailableKind.NoSnapshot } },
+            {
+                accountId: 'a1',
+                reason: { kind: AccountStateUnavailableKind.NoSnapshot },
+            },
         ]);
     });
 
@@ -161,10 +167,7 @@ describe('cushionBoardOf', () => {
             reconstructedEntry('far', plan, far),
             reconstructedEntry('near', plan, near),
         ]);
-        expect(board.rows.map((row) => row.accountId)).toEqual([
-            'near',
-            'far',
-        ]);
+        expect(board.rows.map((row) => row.accountId)).toEqual(['near', 'far']);
     });
 
     it('produces cent values only through usdCentsFromDollars', () => {

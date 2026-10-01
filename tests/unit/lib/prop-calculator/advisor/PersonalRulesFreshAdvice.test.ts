@@ -209,9 +209,7 @@ describe('personal rules change the assembled advice without touching the engine
             personalCaps: { dailyProfitCap: dollars(200) },
         });
 
-        expect(riskOf(base).map(([risk]) => risk)).toEqual([
-            200, 300, 450, 50,
-        ]);
+        expect(riskOf(base).map(([risk]) => risk)).toEqual([200, 300, 450, 50]);
         expect(riskOf(capped).map(([risk]) => risk)).toEqual([
             100, 150, 225, 50,
         ]);

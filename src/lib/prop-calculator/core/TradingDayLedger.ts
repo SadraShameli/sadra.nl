@@ -41,11 +41,12 @@ export function closeTradingDay(
     } else {
         state.consecutiveIdleDays += 1;
     }
-    const wasClosedForCalendarWeekInactivity = didCalendarWeekCloseForInactivity(
-        plan.calendarWeekInactivityFor(phase),
-        state,
-        isTraded,
-    );
+    const wasClosedForCalendarWeekInactivity =
+        didCalendarWeekCloseForInactivity(
+            plan.calendarWeekInactivityFor(phase),
+            state,
+            isTraded,
+        );
     plan.drawdownFor(phase).onDayClose(state);
     plan.recordDayClosePeak(state);
     return {

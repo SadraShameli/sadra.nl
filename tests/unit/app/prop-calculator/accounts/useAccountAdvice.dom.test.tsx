@@ -18,8 +18,17 @@ import {
     useAccountAdvice,
     type UseAccountAdviceInput,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/useAccountAdvice';
-import { ApexVariant, findFirm, FirmId, newFundedCycleTracker } from '~/lib/prop-calculator';
-import { AdviceSource, DEFAULT_RULEBOOK, FundedSizingAdvisor } from '~/lib/prop-calculator/advisor';
+import {
+    ApexVariant,
+    findFirm,
+    FirmId,
+    newFundedCycleTracker,
+} from '~/lib/prop-calculator';
+import {
+    AdviceSource,
+    DEFAULT_RULEBOOK,
+    FundedSizingAdvisor,
+} from '~/lib/prop-calculator/advisor';
 import { TradingPhase } from '~/lib/prop-calculator/core';
 
 function apexEod50k() {
@@ -84,7 +93,10 @@ function fundedAdvisorInput(trials = 20): UseAccountAdviceInput {
         todayPnL: 0,
         tradingDays: 20,
     };
-    const tracker = newFundedCycleTracker({ ...state, balance: state.startingBalance });
+    const tracker = newFundedCycleTracker({
+        ...state,
+        balance: state.startingBalance,
+    });
     const advisor = new FundedSizingAdvisor({
         account: {
             assumptions: [],
@@ -164,7 +176,9 @@ describe('useAccountAdvice (PT-34b)', () => {
 
     it('retries the worker exactly once more after a failed run', () => {
         const input = fundedAdvisorInput();
-        const latest: { current: AccountAdviceState | null } = { current: null };
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
         renderHarness(root, input, latest);
         expect(FakeWorker.instances).toHaveLength(1);
 
@@ -192,7 +206,9 @@ describe('useAccountAdvice (PT-34b)', () => {
         const setSpy = vi.spyOn(ComputationCache.prototype, 'set');
         const getSpy = vi.spyOn(ComputationCache.prototype, 'get');
         const input = fundedAdvisorInput();
-        const latest: { current: AccountAdviceState | null } = { current: null };
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
         renderHarness(root, input, latest);
 
         act(() => {
@@ -218,7 +234,9 @@ describe('useAccountAdvice (PT-34b)', () => {
     it('reuses a cached advice across an unmount and remount when a ComputationCacheContext is provided (PT-34b)', () => {
         const sharedCache = new ComputationCache();
         const input = fundedAdvisorInput();
-        const latest: { current: AccountAdviceState | null } = { current: null };
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
 
         function renderWithSharedCache() {
             act(() => {
@@ -286,7 +304,10 @@ describe('useAccountAdvice (PT-34b)', () => {
         const frames: AccountAdviceState[] = [];
         act(() => {
             root.render(
-                <RecordingHarness frames={frames} input={fundedAdvisorInput(20)} />,
+                <RecordingHarness
+                    frames={frames}
+                    input={fundedAdvisorInput(20)}
+                />,
             );
         });
         act(() => {
@@ -301,7 +322,10 @@ describe('useAccountAdvice (PT-34b)', () => {
         frames.length = 0;
         act(() => {
             root.render(
-                <RecordingHarness frames={frames} input={fundedAdvisorInput(21)} />,
+                <RecordingHarness
+                    frames={frames}
+                    input={fundedAdvisorInput(21)}
+                />,
             );
         });
 
@@ -383,7 +407,6 @@ function postedRequest(index: number) {
     ).request;
 }
 
-
 describe('useAccountAdvice value requests (PT-67)', () => {
     let root: Root;
     let container: HTMLElement;
@@ -406,7 +429,9 @@ describe('useAccountAdvice value requests (PT-67)', () => {
 
     it('runs the value request in its own worker run, apart from the engine requests', () => {
         const values = valueRequest(500);
-        const latest: { current: AccountAdviceState | null } = { current: null };
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
 
         renderHarness(root, { ...fundedAdvisorInput(), values }, latest);
 
@@ -418,8 +443,14 @@ describe('useAccountAdvice value requests (PT-67)', () => {
     });
 
     it('is ready once the engine run is done, with the value views still computing', () => {
-        const latest: { current: AccountAdviceState | null } = { current: null };
-        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+        renderHarness(
+            root,
+            { ...fundedAdvisorInput(), values: valueRequest(500) },
+            latest,
+        );
 
         finishEngine(0);
 
@@ -429,8 +460,14 @@ describe('useAccountAdvice value requests (PT-67)', () => {
     });
 
     it('exposes the value outcome from the value run on the ready state', () => {
-        const latest: { current: AccountAdviceState | null } = { current: null };
-        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+        renderHarness(
+            root,
+            { ...fundedAdvisorInput(), values: valueRequest(500) },
+            latest,
+        );
 
         finishEngine(0);
         finishValues(1);
@@ -445,7 +482,9 @@ describe('useAccountAdvice value requests (PT-67)', () => {
     });
 
     it('has an idle value state and no value worker when none was requested', () => {
-        const latest: { current: AccountAdviceState | null } = { current: null };
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
         renderHarness(root, fundedAdvisorInput(), latest);
 
         finishEngine(0);
@@ -454,16 +493,21 @@ describe('useAccountAdvice value requests (PT-67)', () => {
         if (latest.current?.phase !== AccountAdvicePhase.Ready) {
             throw new Error('expected a ready state');
         }
-        expect(latest.current.values).toEqual({ phase: AdviceValuesPhase.Idle });
+        expect(latest.current.values).toEqual({
+            phase: AdviceValuesPhase.Idle,
+        });
     });
 
     it('carries the reason when the value request could not be built, with no value worker', () => {
-        const latest: { current: AccountAdviceState | null } = { current: null };
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
         renderHarness(
             root,
             {
                 ...fundedAdvisorInput(),
-                valuesUnavailableReason: 'a funded account needs its funded cycle tracker',
+                valuesUnavailableReason:
+                    'a funded account needs its funded cycle tracker',
             },
             latest,
         );
@@ -481,12 +525,22 @@ describe('useAccountAdvice value requests (PT-67)', () => {
     });
 
     it('runs only the value worker again when only the value request changes, keeping the advice ready', () => {
-        const latest: { current: AccountAdviceState | null } = { current: null };
-        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+        renderHarness(
+            root,
+            { ...fundedAdvisorInput(), values: valueRequest(500) },
+            latest,
+        );
         finishEngine(0);
         finishValues(1);
 
-        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(750) }, latest);
+        renderHarness(
+            root,
+            { ...fundedAdvisorInput(), values: valueRequest(750) },
+            latest,
+        );
 
         expect(FakeWorker.instances).toHaveLength(3);
         expect(postedRequest(2).values?.rungs[0]?.risk).toBe(750);
@@ -496,8 +550,14 @@ describe('useAccountAdvice value requests (PT-67)', () => {
     });
 
     it('keeps the advice when the value run fails, and retries only the value worker', () => {
-        const latest: { current: AccountAdviceState | null } = { current: null };
-        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+        renderHarness(
+            root,
+            { ...fundedAdvisorInput(), values: valueRequest(500) },
+            latest,
+        );
         finishEngine(0);
 
         act(() => {
@@ -525,8 +585,14 @@ describe('useAccountAdvice value requests (PT-67)', () => {
     });
 
     it('fails the value state when the value run returns no value outcome', () => {
-        const latest: { current: AccountAdviceState | null } = { current: null };
-        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+        renderHarness(
+            root,
+            { ...fundedAdvisorInput(), values: valueRequest(500) },
+            latest,
+        );
         finishEngine(0);
 
         finishValues(1, { outcomes: [] });

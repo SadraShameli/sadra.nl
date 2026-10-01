@@ -5,9 +5,17 @@ import {
     AlertSeverity,
     PlanRulesChangedRule,
 } from '~/lib/prop-accounts/alerts';
-import { AccountReadIssueKind, UnresolvedPlanReason } from '~/lib/prop-accounts/core';
+import {
+    AccountReadIssueKind,
+    UnresolvedPlanReason,
+} from '~/lib/prop-accounts/core';
 
-import { accountFor, alertsOf, ANY_EVAL_PLAN, ledgerOnlyAccountFor } from './alertFixtures';
+import {
+    accountFor,
+    alertsOf,
+    ANY_EVAL_PLAN,
+    ledgerOnlyAccountFor,
+} from './alertFixtures';
 
 const rule = new PlanRulesChangedRule();
 

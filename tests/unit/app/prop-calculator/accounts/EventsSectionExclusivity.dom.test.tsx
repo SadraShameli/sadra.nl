@@ -375,7 +375,10 @@ describe('EventsSection live exclusivity preview and confirm', () => {
         const sent = z
             .array(z.string())
             .parse(
-                Reflect.get(payload as object, 'confirmedExclusivityAccountIds'),
+                Reflect.get(
+                    payload as object,
+                    'confirmedExclusivityAccountIds',
+                ),
             );
         expect(sent).toHaveLength(2);
         expect(new Set(sent)).toEqual(new Set([EVAL_ID, FUNDED_ID]));

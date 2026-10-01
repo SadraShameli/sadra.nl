@@ -31,9 +31,8 @@ vi.mock('next/navigation', () => ({
 vi.mock(
     '~/app/(app)/prop-calculator/_components/CalculatorProvider',
     async () => {
-        const { defaultCalculatorState } = await import(
-            '~/app/(app)/prop-calculator/_components/calculatorReducer'
-        );
+        const { defaultCalculatorState } =
+            await import('~/app/(app)/prop-calculator/_components/calculatorReducer');
         return {
             useCalculatorActions: () => ({ applyState: vi.fn() }),
             useCalculatorInputs: () => ({ state: defaultCalculatorState() }),

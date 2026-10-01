@@ -37,7 +37,9 @@ export function payoutPolicySensitivity(
         (entry) => entry.documented.monthlyNet,
     );
     const optimumEntries = entries.filter(
-        (entry): entry is PayoutPolicySensitivityPlanEntry & {
+        (
+            entry,
+        ): entry is PayoutPolicySensitivityPlanEntry & {
             optimum: PayoutPolicySensitivityFigure;
         } => entry.optimum !== null,
     );

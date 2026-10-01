@@ -638,7 +638,11 @@ describe('describePlanRules: on breach (F-V30)', () => {
 
     it('title-cases a multi-word kebab variant using the firm’s own acronym (PT-12h review)', () => {
         const plan = mffPro.withOverrides({
-            id: { accountSize: 50_000, firm: FirmId.Mffu, variant: MffuVariant.RapidEod },
+            id: {
+                accountSize: 50_000,
+                firm: FirmId.Mffu,
+                variant: MffuVariant.RapidEod,
+            },
         });
         expect(segmentOf(plan, PlanRuleSegmentKind.Conclusion).value).toBe(
             'account concludes at $100,000 in lifetime payouts (per user across all Rapid EOD accounts)',

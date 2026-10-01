@@ -57,7 +57,9 @@ export function performanceSinceSnapshot(
     payouts: readonly PerformancePayoutRow[],
 ): PerformanceSinceSnapshot {
     if (previous === null || previousAsOf === null) {
-        return notComparable(PerformanceIncomparabilityReason.NoPreviousSnapshot);
+        return notComparable(
+            PerformanceIncomparabilityReason.NoPreviousSnapshot,
+        );
     }
     if (latest.kind !== previous.kind) {
         return notComparable(PerformanceIncomparabilityReason.StageChange);
@@ -125,5 +127,7 @@ function tradingDaysBetween(
     previous: ReconstructedAccount,
 ): null | number {
     return latest.kind === ReconstructedLiveKind.Live ||
-        previous.kind === ReconstructedLiveKind.Live ? null : latest.state.tradingDays - previous.state.tradingDays;
+        previous.kind === ReconstructedLiveKind.Live
+        ? null
+        : latest.state.tradingDays - previous.state.tradingDays;
 }

@@ -160,7 +160,11 @@ export function siblingInstrumentRisk(
     const { contracts: contractCount, instrument, room, stopPoints } = input;
     const sibling = siblingInstrumentOf(instrument.symbol);
     if (sibling === null) {
-        return { severity: MismatchSeverity.None, sibling: null, siblingRisk: null };
+        return {
+            severity: MismatchSeverity.None,
+            sibling: null,
+            siblingRisk: null,
+        };
     }
     const plannedRisk = contractCount * instrument.pointValue * stopPoints;
     const siblingRisk = contractCount * sibling.pointValue * stopPoints;

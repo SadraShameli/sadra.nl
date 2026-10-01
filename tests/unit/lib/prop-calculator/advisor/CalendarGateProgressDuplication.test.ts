@@ -14,14 +14,18 @@ function occurrencesIn(relativePath: string): number {
 describe('calendar gate day-gate count duplication (PT-46c)', () => {
     it('CalendarGateProgress delegates to requiredDayGateDays instead of its own ternary', () => {
         expect(
-            occurrencesIn('src/lib/prop-calculator/advisor/CalendarGateProgress.ts'),
+            occurrencesIn(
+                'src/lib/prop-calculator/advisor/CalendarGateProgress.ts',
+            ),
         ).toBe(0);
     });
 
     it('computes the day-gate required-days count in exactly one place across both files', () => {
         const total =
             occurrencesIn('src/lib/prop-calculator/core/FundedPayoutCycle.ts') +
-            occurrencesIn('src/lib/prop-calculator/advisor/CalendarGateProgress.ts');
+            occurrencesIn(
+                'src/lib/prop-calculator/advisor/CalendarGateProgress.ts',
+            );
         expect(total).toBe(1);
     });
 });

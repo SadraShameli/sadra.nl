@@ -62,16 +62,20 @@ describe('one cached worker task pattern for the tool pages', () => {
     });
 
     it('has the shared hook file the bookkeeping lives in', () => {
-        expect(sourceOf(path.join('_components', 'useCachedWorkerTask.ts'))).toMatch(
-            RUN_BOOKKEEPING,
-        );
+        expect(
+            sourceOf(path.join('_components', 'useCachedWorkerTask.ts')),
+        ).toMatch(RUN_BOOKKEEPING);
     });
 
     it('lets the payout planner and the funded sweep use the shared hook', () => {
         expect(sourceOf(PLANNER_VIEW)).toContain('useCachedWorkerTask');
         expect(
             sourceOf(
-                path.join('_components', 'fundedOptimizer', 'useFundedSweep.ts'),
+                path.join(
+                    '_components',
+                    'fundedOptimizer',
+                    'useFundedSweep.ts',
+                ),
             ),
         ).toContain('useCachedWorkerTask');
     });
@@ -103,18 +107,22 @@ describe('one cached worker task pattern for the tool pages', () => {
 });
 
 describe('one midnight-aware today on the account pages', () => {
-    it.each(TODAY_HOOK_USERS)('%s reads today through useTodayIsoDate, never from a per-render clock read', (relative) => {
-        const source = sourceOf(relative);
-        expect(source).toContain('useTodayIsoDate()');
-        expect(source).not.toMatch(RENDER_TIME_TODAY);
-    });
+    it.each(TODAY_HOOK_USERS)(
+        '%s reads today through useTodayIsoDate, never from a per-render clock read',
+        (relative) => {
+            const source = sourceOf(relative);
+            expect(source).toContain('useTodayIsoDate()');
+            expect(source).not.toMatch(RENDER_TIME_TODAY);
+        },
+    );
 
     it('keeps one midnight timer implementation', () => {
         const offenders = sourceFiles(PROP_CALCULATOR_ROOT)
             .map((file) => path.relative(PROP_CALCULATOR_ROOT, file))
             .filter(
                 (relative) =>
-                    relative !== path.join('_components', 'useTodayIsoDate.ts') &&
+                    relative !==
+                        path.join('_components', 'useTodayIsoDate.ts') &&
                     /MS_PER_DAY\s*-/.test(sourceOf(relative)),
             );
         expect(offenders).toEqual([]);

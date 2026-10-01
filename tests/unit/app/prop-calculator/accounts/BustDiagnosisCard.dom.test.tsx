@@ -3,7 +3,10 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BustDiagnosisCard } from '~/app/(app)/prop-calculator/accounts/_components/detail/BustDiagnosisCard';
-import { BustDiagnosisKind, BustEvidenceKind } from '~/lib/prop-accounts/conduct';
+import {
+    BustDiagnosisKind,
+    BustEvidenceKind,
+} from '~/lib/prop-accounts/conduct';
 
 describe('BustDiagnosisCard', () => {
     let container: HTMLDivElement;
@@ -49,7 +52,10 @@ describe('BustDiagnosisCard', () => {
         act(() => {
             root.render(
                 <BustDiagnosisCard
-                    diagnosis={{ evidence: [], kind: BustDiagnosisKind.WithinPlan }}
+                    diagnosis={{
+                        evidence: [],
+                        kind: BustDiagnosisKind.WithinPlan,
+                    }}
                 />,
             );
         });
@@ -63,7 +69,10 @@ describe('BustDiagnosisCard', () => {
         act(() => {
             root.render(
                 <BustDiagnosisCard
-                    diagnosis={{ evidence: [], kind: BustDiagnosisKind.Unknown }}
+                    diagnosis={{
+                        evidence: [],
+                        kind: BustDiagnosisKind.Unknown,
+                    }}
                 />,
             );
         });

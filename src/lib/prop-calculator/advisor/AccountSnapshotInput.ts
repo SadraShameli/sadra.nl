@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { dollars, type Dollars, dollarsSchema } from '~/lib/prop-calculator/core';
+import {
+    dollars,
+    type Dollars,
+    dollarsSchema,
+} from '~/lib/prop-calculator/core';
 
 import { DashboardBalanceConvention } from './DashboardBalanceConvention';
 import { SizingStage } from './SizingStage';

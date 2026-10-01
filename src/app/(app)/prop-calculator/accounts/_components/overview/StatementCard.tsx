@@ -66,11 +66,7 @@ export function StatementCard({
     );
 }
 
-function CashByMonthTable({
-    model,
-}: {
-    readonly model: StatementCardModel;
-}) {
+function CashByMonthTable({ model }: { readonly model: StatementCardModel }) {
     return (
         <Table>
             <TableHeader>
@@ -82,9 +78,7 @@ function CashByMonthTable({
                     </TableHead>
                     <TableHead className="text-right">Payout count</TableHead>
                     <TableHead className="text-right">Net</TableHead>
-                    <TableHead className="text-right">
-                        Cumulative net
-                    </TableHead>
+                    <TableHead className="text-right">Cumulative net</TableHead>
                     <TableHead className="text-right">Multiple</TableHead>
                     <TableHead className="text-right">
                         Trailing 3-month multiple

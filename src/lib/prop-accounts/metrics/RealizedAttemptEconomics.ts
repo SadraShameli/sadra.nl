@@ -91,19 +91,21 @@ export function realizedAttemptEconomics(
     const payoutRates = realizedPayoutRates(ledger, asOfDate, horizonDays);
     return {
         horizonDays,
-        perPlan: ledger.planGroups().map((group) =>
-            planEconomics(
-                group,
-                asOfDate,
-                horizonDays,
-                outcomes.perPlan.find(
-                    (plan) => plan.planSerial === group.planSerial,
-                )?.passRate ?? null,
-                payoutRates.perPlan.find(
-                    (plan) => plan.planSerial === group.planSerial,
-                )?.payoutRate ?? null,
+        perPlan: ledger
+            .planGroups()
+            .map((group) =>
+                planEconomics(
+                    group,
+                    asOfDate,
+                    horizonDays,
+                    outcomes.perPlan.find(
+                        (plan) => plan.planSerial === group.planSerial,
+                    )?.passRate ?? null,
+                    payoutRates.perPlan.find(
+                        (plan) => plan.planSerial === group.planSerial,
+                    )?.payoutRate ?? null,
+                ),
             ),
-        ),
     };
 }
 
@@ -176,9 +178,9 @@ function payoutsPerPaidFundedOf(
         const count = paidCountWithinHorizon(entry, funded.on, horizonDays);
         return count > 0 ? [Math.min(count, PAYOUT_COUNT_CAP)] : [];
     });
-    return paidCounts.length === 0 ? null : (
-        paidCounts.reduce((sum, count) => sum + count, 0) / paidCounts.length
-    );
+    return paidCounts.length === 0
+        ? null
+        : paidCounts.reduce((sum, count) => sum + count, 0) / paidCounts.length;
 }
 
 function planEconomics(

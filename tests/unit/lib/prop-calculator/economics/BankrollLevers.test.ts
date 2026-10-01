@@ -11,7 +11,9 @@ import {
 
 const NET_VALUES = [900, -100, -100, -100, -100, 1400, -250, -250];
 
-function outputsFor(overrides: Partial<BankrollLeverOutputs>): BankrollLeverOutputs {
+function outputsFor(
+    overrides: Partial<BankrollLeverOutputs>,
+): BankrollLeverOutputs {
     return {
         attemptPaysProbability: { standardError: 0.01, value: fraction(0.3) },
         costPerAttempt: dollars(100),
@@ -42,7 +44,11 @@ describe('bankrollLevers (PT-55)', () => {
         const rows = bankrollLevers(
             base,
             [
-                { kind: BankrollLeverKind.Risk, outputs: outputsFor({}), value: 500 },
+                {
+                    kind: BankrollLeverKind.Risk,
+                    outputs: outputsFor({}),
+                    value: 500,
+                },
                 {
                     kind: BankrollLeverKind.TradesPerDay,
                     outputs: outputsFor({}),
@@ -77,7 +83,10 @@ describe('bankrollLevers (PT-55)', () => {
     it('reports the change in P(pass), EV per attempt and monthly net relative to the base row', () => {
         const base = outputsFor({});
         const variant = outputsFor({
-            attemptPaysProbability: { standardError: 0.01, value: fraction(0.45) },
+            attemptPaysProbability: {
+                standardError: 0.01,
+                value: fraction(0.45),
+            },
             expectedMonthlyNet: { standardError: 20, value: dollars(260) },
             expectedNetPerAttempt: { standardError: 5, value: dollars(65) },
             passProbability: { standardError: 0.02, value: fraction(0.5) },
@@ -116,7 +125,10 @@ describe('empiricalPayingStatsOf', () => {
     it('computes P(attempt pays) and mean value per paying attempt, attempt cost included', () => {
         const stats = empiricalPayingStatsOf(NET_VALUES, 100);
         expect(stats.pAttemptPays).toBeCloseTo(2 / 8, 9);
-        expect(stats.valuePerPayingAttempt).toBeCloseTo((900 + 1400) / 2 + 100, 9);
+        expect(stats.valuePerPayingAttempt).toBeCloseTo(
+            (900 + 1400) / 2 + 100,
+            9,
+        );
     });
 
     it('returns zero paying probability and zero value for an empty distribution', () => {

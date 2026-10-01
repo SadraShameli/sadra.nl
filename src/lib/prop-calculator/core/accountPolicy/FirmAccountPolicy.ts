@@ -2,10 +2,7 @@ import { lifetimePayoutCountLimit } from '~/lib/prop-calculator/core/PayoutGate'
 import { type Plan } from '~/lib/prop-calculator/core/Plan';
 import { type TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 
-import {
-    type AccountCapPolicy,
-    PER_PLAN_CAP_POLICY,
-} from './AccountCapPolicy';
+import { type AccountCapPolicy, PER_PLAN_CAP_POLICY } from './AccountCapPolicy';
 import { type ConductPattern } from './ConductPattern';
 import { PolicyVerification } from './FirmPolicySource';
 import {
@@ -84,7 +81,12 @@ export function resolveLifetimePayoutCapOverride(
     const hasNotChecked = triggers.some(
         (trigger) => trigger.kind === LiveTriggerKind.NotChecked,
     );
-    return ({ kind: hasNotChecked || triggers.length === 0 ? LifetimePayoutCapOverrideKind.NotChecked : LifetimePayoutCapOverrideKind.NoCountTrigger });
+    return {
+        kind:
+            hasNotChecked || triggers.length === 0
+                ? LifetimePayoutCapOverrideKind.NotChecked
+                : LifetimePayoutCapOverrideKind.NoCountTrigger,
+    };
 }
 
 function payoutCountPerAccountOutcome(
@@ -92,7 +94,9 @@ function payoutCountPerAccountOutcome(
     cap: number,
 ): LifetimePayoutCapOverride {
     const limit = lifetimePayoutCountLimit(plan);
-    return limit === null || cap < limit.count ? { cap, kind: LifetimePayoutCapOverrideKind.Capped } : { kind: LifetimePayoutCapOverrideKind.PlanAlreadyConcludes };
+    return limit === null || cap < limit.count
+        ? { cap, kind: LifetimePayoutCapOverrideKind.Capped }
+        : { kind: LifetimePayoutCapOverrideKind.PlanAlreadyConcludes };
 }
 
 function resolveConflictingPayoutCountPerAccount(

@@ -659,9 +659,7 @@ describe('ledger-only accounts across the accounts pages', () => {
     it('fails loud instead of quietly grouping a payout under an empty external firm when its account has neither a listed nor an external firm', () => {
         harness.queries.set(
             'propAccounts.account.list',
-            answer([
-                ledgerOnlyAccount({ externalFirmId: null, firmId: null }),
-            ]),
+            answer([ledgerOnlyAccount({ externalFirmId: null, firmId: null })]),
         );
         harness.queries.set(
             'propAccounts.payout.list',

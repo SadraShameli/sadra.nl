@@ -19,12 +19,14 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
-import { type FundedSimStart, type SimInputs } from '~/lib/prop-calculator/simulator';
+import {
+    type FundedSimStart,
+    type SimInputs,
+} from '~/lib/prop-calculator/simulator';
 
-function baseFor(overrides: Partial<Omit<SimInputs, 'plan'>> = {}): Omit<
-    SimInputs,
-    'plan'
-> {
+function baseFor(
+    overrides: Partial<Omit<SimInputs, 'plan'>> = {},
+): Omit<SimInputs, 'plan'> {
     return {
         fundedHorizonDays: 40,
         maxEvalDays: 5,
@@ -75,7 +77,11 @@ describe('runNextPayoutProjection (PT-32)', () => {
         );
         state.qualifyingDays = 5;
         state.balance = state.startingBalance + 5000;
-        const start: FundedSimStart = { phase: TradingPhase.Funded, seed, state };
+        const start: FundedSimStart = {
+            phase: TradingPhase.Funded,
+            seed,
+            state,
+        };
 
         const request: NextPayoutProjectionRequest = {
             base: baseFor(),

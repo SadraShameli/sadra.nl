@@ -40,7 +40,10 @@ const CONFIRMED_QUOTE = {
 };
 
 const CONFLICTED_QUOTE = {
-    conflicting: { ...CONFIRMED_QUOTE, verification: PolicyVerification.Confirmed },
+    conflicting: {
+        ...CONFIRMED_QUOTE,
+        verification: PolicyVerification.Confirmed,
+    },
     fetchedOn: '2026-09-01',
     quote: 'a synthetic conflicting quote',
     sourceKind: PolicySourceKind.LiveFetch,
@@ -87,14 +90,20 @@ describe('liveExclusivityEffectsOf', () => {
             evalPurchaseEffect: EvalPurchaseEffect.Unknown,
             household: false,
             simAccountEffect: SimAccountEffect.Dormant,
-            source: { ...CONFIRMED_QUOTE, verification: PolicyVerification.Confirmed },
+            source: {
+                ...CONFIRMED_QUOTE,
+                verification: PolicyVerification.Confirmed,
+            },
         });
         const live = accountRow({
             accountPolicy: dormantPolicy,
             id: 'live',
             stage: AccountStage.Live,
         });
-        const sibling = accountRow({ accountPolicy: dormantPolicy, id: 'sibling' });
+        const sibling = accountRow({
+            accountPolicy: dormantPolicy,
+            id: 'sibling',
+        });
         const outcome = liveExclusivityEffectsOf([live, sibling], 'live');
         expect(outcome.effects).toEqual([
             { accountId: 'sibling', action: LiveExclusivityAction.Suspend },
@@ -108,7 +117,10 @@ describe('liveExclusivityEffectsOf', () => {
             evalPurchaseEffect: EvalPurchaseEffect.Blocked,
             household: false,
             simAccountEffect: SimAccountEffect.UpgradedAccountOnHold,
-            source: { ...CONFIRMED_QUOTE, verification: PolicyVerification.Confirmed },
+            source: {
+                ...CONFIRMED_QUOTE,
+                verification: PolicyVerification.Confirmed,
+            },
         });
         const live = accountRow({
             accountPolicy: holdPolicy,
@@ -151,7 +163,10 @@ describe('liveExclusivityEffectsOf', () => {
                 id: 'live',
                 stage: AccountStage.Live,
             });
-            const sibling = accountRow({ accountPolicy: dormantPolicy, id: 'sibling' });
+            const sibling = accountRow({
+                accountPolicy: dormantPolicy,
+                id: 'sibling',
+            });
             const outcome = liveExclusivityEffectsOf([live, sibling], 'live');
             expect(outcome.effects).toEqual([]);
         }
@@ -163,7 +178,10 @@ describe('liveExclusivityEffectsOf', () => {
             evalPurchaseEffect: EvalPurchaseEffect.Unknown,
             household: false,
             simAccountEffect: SimAccountEffect.Dormant,
-            source: { ...CONFIRMED_QUOTE, verification: PolicyVerification.Confirmed },
+            source: {
+                ...CONFIRMED_QUOTE,
+                verification: PolicyVerification.Confirmed,
+            },
         });
         const live = accountRow({
             accountPolicy: dormantPolicy,
@@ -198,7 +216,10 @@ describe('liveExclusivityEffectsOf', () => {
             evalPurchaseEffect: EvalPurchaseEffect.Unknown,
             household: true,
             simAccountEffect: SimAccountEffect.Unknown,
-            source: { ...CONFIRMED_QUOTE, verification: PolicyVerification.Confirmed },
+            source: {
+                ...CONFIRMED_QUOTE,
+                verification: PolicyVerification.Confirmed,
+            },
         });
         const live = accountRow({
             accountPolicy: householdPolicy,
@@ -218,7 +239,10 @@ describe('purchaseBlockedFirms', () => {
             evalPurchaseEffect: EvalPurchaseEffect.Blocked,
             household: false,
             simAccountEffect: SimAccountEffect.Unknown,
-            source: { ...CONFIRMED_QUOTE, verification: PolicyVerification.Confirmed },
+            source: {
+                ...CONFIRMED_QUOTE,
+                verification: PolicyVerification.Confirmed,
+            },
         });
         const live = accountRow({
             accountPolicy: blockingPolicy,
@@ -277,7 +301,10 @@ describe('purchaseBlockedFirms', () => {
             evalPurchaseEffect: EvalPurchaseEffect.Unknown,
             household: false,
             simAccountEffect: SimAccountEffect.Unknown,
-            source: { ...CONFIRMED_QUOTE, verification: PolicyVerification.Confirmed },
+            source: {
+                ...CONFIRMED_QUOTE,
+                verification: PolicyVerification.Confirmed,
+            },
         });
         const busted = accountRow({
             accountPolicy: cooldownPolicy,

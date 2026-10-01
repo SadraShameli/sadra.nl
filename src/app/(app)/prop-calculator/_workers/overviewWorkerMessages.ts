@@ -9,7 +9,6 @@ import {
     FirmId,
     type Plan,
     type PlanOptIns,
-    resetForNewDay,
     TradingPhase,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
@@ -48,11 +47,10 @@ import {
     evalStartAccount,
     firstPayoutEligibleAccount,
     freshFundedAccount,
-    type FundedMilestone,
-    fundedTrackerAfterMilestonePayout,
     MilestoneKind,
     milestoneState,
     postFirstPayoutAccount,
+    requestNowValue,
     requireValue,
     retireComparison,
     type RetireComparisonResult,
@@ -431,6 +429,12 @@ export function overviewProjectionRequestsFor(
     return requests.values().toArray();
 }
 
+export function overviewRequestGroupOf(
+    request: Pick<OverviewRequest, 'kind'>,
+): OverviewRequestGroup {
+    return REQUEST_GROUP[request.kind];
+}
+
 export function overviewRequestKey(request: OverviewRequest): string {
     const { spec } = request;
     return stableJson({
@@ -543,7 +547,9 @@ function accountFromStateResultOf(
 }
 
 function accountRequestsOf(
-    kind: OverviewRequestKind.AccountFromState | OverviewRequestKind.RetireComparison,
+    kind:
+        | OverviewRequestKind.AccountFromState
+        | OverviewRequestKind.RetireComparison,
     accounts: readonly OverviewAccountPlanInput[],
     rulebook: RulebookParameters,
 ): readonly OverviewRequest[] {
@@ -631,8 +637,7 @@ function evalMilestoneValueOf(
     milestone: EvalMilestone,
     spec: DocumentedPolicySpec,
 ): ValueResult {
-    const state = { ...milestone.state };
-    resetForNewDay(state);
+    const { state } = milestone;
     return requireValue(
         valueAtState(
             {
@@ -664,25 +669,12 @@ function fromStateAccountOf(
     return account;
 }
 
-function fundedContinuationValueOf(
-    account: ReconstructedFundedOrEvalAccount,
-    milestone: FundedMilestone,
-    spec: DocumentedPolicySpec,
-): ValueResult {
-    return requireValue(
-        valueAtState(
-            {
-                ...account,
-                cushion: milestone.state.balance - milestone.state.threshold,
-                fundedTracker: fundedTrackerAfterMilestonePayout(
-                    account,
-                    milestone,
-                ),
-                state: milestone.state,
-            },
-            spec,
-        ),
-    );
+function lazily<Built>(build: () => Built): () => Built {
+    let built: undefined | { readonly value: Built };
+    return () => {
+        built ??= { value: build() };
+        return built.value;
+    };
 }
 
 function milestoneFiguresOf(
@@ -703,25 +695,13 @@ function milestoneFiguresOf(
             };
         }
         case MilestoneKind.Funded: {
-            if (account.fundedTracker === null) {
-                throw new Error(
-                    'overviewWorker: a funded account needs its funded cycle tracker',
-                );
-            }
-            const received = account.plan.payoutFromProfit(
-                milestone.debited,
-                account.fundedTracker.payoutsIssued,
-            );
             return {
                 debited: milestone.debited,
                 kind: MilestoneKind.Funded,
-                received,
+                received: milestone.traderReceives,
                 unmetGates: [],
-                value: valueOutcomeOf(() =>
-                    withCashReceived(
-                        fundedContinuationValueOf(account, milestone, spec),
-                        received,
-                    ),
+                value: valueOutcomeOf(
+                    () => requestNowValue(account, milestone, spec).requestNow,
                 ),
             };
         }
@@ -883,7 +863,9 @@ function requestsOfGroup(
     requests: readonly OverviewRequest[],
     group: OverviewRequestGroup,
 ): readonly OverviewRequest[] {
-    return requests.filter((request) => REQUEST_GROUP[request.kind] === group);
+    return requests.filter(
+        (request) => overviewRequestGroupOf(request) === group,
+    );
 }
 
 function requiredInput(
@@ -965,17 +947,19 @@ function valueChainResultOf(
     spec: DocumentedPolicySpec,
 ): OverviewResult {
     const freshFunded = freshFundedAccount(plan);
-    const eligible = firstPayoutEligibleAccount(plan, freshFunded, spec);
+    const eligible = lazily(() =>
+        firstPayoutEligibleAccount(plan, freshFunded, spec),
+    );
     const steps: readonly (readonly [
         ValueChainStepKind,
         () => ReconstructedFundedOrEvalAccount,
     ])[] = [
         [ValueChainStepKind.EvalStart, () => evalStartAccount(plan)],
         [ValueChainStepKind.FreshFunded, () => freshFunded],
-        [ValueChainStepKind.FirstPayoutEligible, () => eligible],
+        [ValueChainStepKind.FirstPayoutEligible, eligible],
         [
             ValueChainStepKind.PostFirstPayout,
-            () => postFirstPayoutAccount(eligible, spec),
+            () => postFirstPayoutAccount(eligible(), spec),
         ],
     ];
     return {
@@ -1014,18 +998,4 @@ function valueOutcomeOf(valueOf: () => ValueResult): ValueChainStepOutcome {
             reason: describeSimulationFailure(error),
         };
     }
-}
-
-function withCashReceived(value: ValueResult, cash: number): ValueResult {
-    return {
-        ...value,
-        creditFree: {
-            standardError: value.creditFree.standardError,
-            value: value.creditFree.value + cash,
-        },
-        creditInclusive: {
-            standardError: value.creditInclusive.standardError,
-            value: value.creditInclusive.value + cash,
-        },
-    };
 }

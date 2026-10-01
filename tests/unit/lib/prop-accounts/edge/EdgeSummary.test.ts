@@ -33,6 +33,8 @@ const EDGE_IMPORTERS = [
     'src/app/(app)/prop-calculator/accounts/edge/page.tsx',
     'src/app/(app)/prop-calculator/accounts/firms/FirmsView.tsx',
     'src/app/(app)/prop-calculator/accounts/firms/page.tsx',
+    'src/app/(app)/prop-calculator/accounts/next-slot/NextSlotView.tsx',
+    'src/app/(app)/prop-calculator/accounts/next-slot/page.tsx',
     'src/app/(app)/prop-calculator/accounts/rounds/RoundsView.tsx',
     'src/server/api/routers/propAccounts/edge.ts',
 ];
@@ -360,7 +362,7 @@ describe('the edge summary is display only', () => {
         }
     });
 
-    it('is imported only by the edge router, the edge page, the firms page and the rounds view', () => {
+    it('is imported only by the edge router, the edge page, the rounds view and the trade count behind the scale gate on the firms and next slot pages', () => {
         const importers = sourceFiles('src')
             .filter(
                 (file) =>

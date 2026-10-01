@@ -19,6 +19,7 @@ import {
     type FundedValueSampleRange,
     type ValueChainResult,
     type ValueChainStep,
+    type ValueChainStepFailure,
     ValueChainStepKind,
     type ValueNotModeledResult,
     type ValueResult,
@@ -202,7 +203,10 @@ export interface SameEvToolsRequest {
     readonly bankroll: number;
     readonly kind: ToolsRequestKind.SameEv;
     readonly runId: number;
-    readonly variants: readonly [BankrollPlanVariantInputs, BankrollPlanVariantInputs];
+    readonly variants: readonly [
+        BankrollPlanVariantInputs,
+        BankrollPlanVariantInputs,
+    ];
 }
 
 export interface SameEvToolsResult {
@@ -269,7 +273,10 @@ export interface TwoStrategiesToolsRequest {
     readonly dayBudget: number;
     readonly kind: ToolsRequestKind.TwoStrategies;
     readonly runId: number;
-    readonly variants: readonly [BankrollPlanVariantInputs, BankrollPlanVariantInputs];
+    readonly variants: readonly [
+        BankrollPlanVariantInputs,
+        BankrollPlanVariantInputs,
+    ];
 }
 
 export interface TwoStrategiesToolsResult {
@@ -366,12 +373,19 @@ const valueOutcomeSchema = z.discriminatedUnion('kind', [
 ]);
 
 const valueChainStepSchema = z.object({
+    assumptions: z.array(z.string()),
     kind: z.enum(ValueChainStepKind),
     value: valueResultSchema,
 }) satisfies z.ZodType<ValueChainStep>;
 
+const valueChainStepFailureSchema = z.object({
+    kind: z.enum(ValueChainStepKind),
+    reason: z.string(),
+}) satisfies z.ZodType<ValueChainStepFailure>;
+
 const valueChainResultSchema = z.object({
     accountValue: valueOutcomeSchema.nullable(),
+    failedSteps: z.array(valueChainStepFailureSchema),
     steps: z.array(valueChainStepSchema),
 }) satisfies z.ZodType<ValueChainResult>;
 
@@ -566,7 +580,10 @@ export const toolsResultSchema = z.discriminatedUnion('kind', [
     }),
     z.object({
         kind: z.literal(ToolsResponseKind.TwoStrategies),
-        results: z.tuple([bankrollTimelineResultSchema, bankrollTimelineResultSchema]),
+        results: z.tuple([
+            bankrollTimelineResultSchema,
+            bankrollTimelineResultSchema,
+        ]),
         runId: z.number().int(),
     }),
     z.object({

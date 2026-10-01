@@ -55,7 +55,10 @@ export function accountCapHeadroomFor(
 ): number {
     const planSerial = serializePlanId(plan.id);
     if (policy.kind === AccountCapPolicyKind.PerPlan) {
-        return Math.max(0, plan.maxFundedAccounts - countOf(counts, planSerial));
+        return Math.max(
+            0,
+            plan.maxFundedAccounts - countOf(counts, planSerial),
+        );
     }
     const headroom = sharedPoolHeadroom(policy, counts).get(planSerial);
     if (headroom === undefined) {
@@ -75,11 +78,10 @@ export function sharedPoolHeadroom(
         countOf(counts, policy.reduction.triggerPlanSerial) > 0
             ? policy.reduction.reducedPoolSize
             : policy.poolSize;
-    const pooledMembers = policy.members.filter(
-        (planSerial) =>
-            policy.excludedPlans.every(
-                (excluded) => excluded.planSerial !== planSerial,
-            ),
+    const pooledMembers = policy.members.filter((planSerial) =>
+        policy.excludedPlans.every(
+            (excluded) => excluded.planSerial !== planSerial,
+        ),
     );
     const pooledUsed = pooledMembers.reduce(
         (sum, planSerial) => sum + countOf(counts, planSerial),

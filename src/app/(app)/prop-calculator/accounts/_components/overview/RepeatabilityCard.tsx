@@ -61,10 +61,7 @@ function RepeatabilityGroup({
                     />
                     <Stat label="Worst" value={stats.worst} />
                     <Stat label="Best" value={stats.best} />
-                    <Stat
-                        label="Share positive"
-                        value={stats.sharePositive}
-                    />
+                    <Stat label="Share positive" value={stats.sharePositive} />
                     <Stat
                         label="Share at or above target"
                         value={stats.shareAtOrAboveTarget ?? NOT_APPLICABLE}
@@ -75,7 +72,13 @@ function RepeatabilityGroup({
     );
 }
 
-function Stat({ label, value }: { readonly label: string; readonly value: string }) {
+function Stat({
+    label,
+    value,
+}: {
+    readonly label: string;
+    readonly value: string;
+}) {
     return (
         <div>
             <dt className="text-xs text-muted-foreground">{label}</dt>

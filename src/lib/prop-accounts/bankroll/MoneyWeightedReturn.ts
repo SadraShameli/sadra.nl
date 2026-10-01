@@ -30,7 +30,8 @@ export function moneyWeightedReturn(
         dated.reduce(
             (sum, cashflow, index) =>
                 sum +
-                cashflow.amountCents / (1 + rate) ** (yearsFromStart[index] ?? 0),
+                cashflow.amountCents /
+                    (1 + rate) ** (yearsFromStart[index] ?? 0),
             0,
         );
     let lower = LOWER_RATE_BOUND;
@@ -48,13 +49,10 @@ export function moneyWeightedReturn(
         const midpoint = (lower + upper) / 2;
         const valueAtMidpoint = netPresentValueAt(midpoint);
         if (!Number.isFinite(valueAtMidpoint)) return null;
-        if (
-            valueAtMidpoint === 0 ||
-            upper - lower < CONVERGENCE_TOLERANCE
-        ) {
+        if (valueAtMidpoint === 0 || upper - lower < CONVERGENCE_TOLERANCE) {
             return midpoint;
         }
-        if ((valueAtLower < 0) === (valueAtMidpoint < 0)) {
+        if (valueAtLower < 0 === valueAtMidpoint < 0) {
             lower = midpoint;
             valueAtLower = valueAtMidpoint;
         } else {

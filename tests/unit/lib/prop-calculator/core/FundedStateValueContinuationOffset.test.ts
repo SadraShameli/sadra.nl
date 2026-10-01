@@ -91,12 +91,8 @@ describe('the funded DP interpolates the unlocked pre-lock threshold offset inst
     }, 60_000);
 
     it('keeps the pre-lock offset path continuous approaching an offset-grid boundary instead of collapsing to the lower cell value', () => {
-        const atTheBoundary = initialValueAtOffsetExcess(
-            CUSHION_STEP_DOLLARS,
-        );
-        const justBelow = initialValueAtOffsetExcess(
-            CUSHION_STEP_DOLLARS - 1,
-        );
+        const atTheBoundary = initialValueAtOffsetExcess(CUSHION_STEP_DOLLARS);
+        const justBelow = initialValueAtOffsetExcess(CUSHION_STEP_DOLLARS - 1);
         expect(atTheBoundary - justBelow).toBeLessThan(0.1 * atTheBoundary);
     }, 60_000);
 

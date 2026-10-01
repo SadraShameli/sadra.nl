@@ -110,7 +110,9 @@ function queriesFor(
             error: null,
         },
         [PortfolioSource.CopyGroups]: { data: [], error: null },
-        ...(events !== undefined && { [PortfolioSource.Events]: { data: events, error: null } }),
+        ...(events !== undefined && {
+            [PortfolioSource.Events]: { data: events, error: null },
+        }),
         [PortfolioSource.Payouts]: {
             data: [
                 payout(bravo, 4_000_000, {

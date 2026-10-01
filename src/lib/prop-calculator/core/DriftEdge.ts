@@ -18,7 +18,10 @@ export class DriftEdge extends EdgeModel {
             );
         }
         const mu = solveMu(winrate, anchorRrRatio);
-        if (Math.abs(driftWinProbability(mu, anchorRrRatio) - winrate) > MU_FIT_TOLERANCE) {
+        if (
+            Math.abs(driftWinProbability(mu, anchorRrRatio) - winrate) >
+            MU_FIT_TOLERANCE
+        ) {
             throw new DriftEdgeFitError(
                 `could not fit a drift edge to win rate ${winrate} at rr ${anchorRrRatio}`,
             );

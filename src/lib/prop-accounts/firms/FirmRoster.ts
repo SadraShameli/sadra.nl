@@ -51,9 +51,8 @@ export function firmEngagementFor<T extends FirmEngagementColumns>(
 }
 
 export function firmRosterOf(ledger: PortfolioLedger): FirmRoster {
-    const groups = groupByFirmKey(
-        ledger.accounts,
-        (entry) => firmKeyOf(entry.row),
+    const groups = groupByFirmKey(ledger.accounts, (entry) =>
+        firmKeyOf(entry.row),
     );
     const firms = groups.map(({ firmKey, items }) =>
         firmRosterEntry(firmKey, items, ledger.firmEngagements),

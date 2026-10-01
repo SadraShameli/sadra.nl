@@ -26,7 +26,8 @@ describe('AdviceCoverage (F-V18, PT-74b step 6; source promoted to AdviceCoverag
                         expect(outcome.kind).toBe(
                             AdviceCoverageOutcomeKind.Unsupported,
                         );
-                        if (outcome.kind === AdviceCoverageOutcomeKind.Advice) return;
+                        if (outcome.kind === AdviceCoverageOutcomeKind.Advice)
+                            return;
                         expect(outcome.reason).toBe(
                             AdviceCoverageUnsupportedReason.InstantFundedNoEval,
                         );

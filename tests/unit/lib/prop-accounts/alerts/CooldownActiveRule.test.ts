@@ -43,7 +43,8 @@ class StubCooldownPolicy extends FirmAccountPolicy {
 
 function withStubbedPolicy<T>(policy: FirmAccountPolicy, run: () => T): T {
     const firm = ALL_FIRMS.find((candidate) => candidate.id === ENTRY.firmId);
-    if (firm === undefined) throw new Error('expected the entry firm to be registered');
+    if (firm === undefined)
+        throw new Error('expected the entry firm to be registered');
     const mutable = firm as { accountPolicy: FirmAccountPolicy };
     const original = mutable.accountPolicy;
     mutable.accountPolicy = policy;
@@ -69,8 +70,16 @@ describe('CooldownActiveRule', () => {
             alertsOf(rule, {
                 accounts: [account],
                 events: [
-                    { accountId: account.id, kind: AccountEventKind.MovedLive, occurredOn: '2026-08-01' },
-                    { accountId: account.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-10' },
+                    {
+                        accountId: account.id,
+                        kind: AccountEventKind.MovedLive,
+                        occurredOn: '2026-08-01',
+                    },
+                    {
+                        accountId: account.id,
+                        kind: AccountEventKind.Busted,
+                        occurredOn: '2026-09-10',
+                    },
                 ],
                 today: '2026-09-20',
             }),
@@ -93,8 +102,16 @@ describe('CooldownActiveRule', () => {
             alertsOf(rule, {
                 accounts: [account],
                 events: [
-                    { accountId: account.id, kind: AccountEventKind.MovedLive, occurredOn: '2026-08-01' },
-                    { accountId: account.id, kind: AccountEventKind.Busted, occurredOn: '2026-08-10' },
+                    {
+                        accountId: account.id,
+                        kind: AccountEventKind.MovedLive,
+                        occurredOn: '2026-08-01',
+                    },
+                    {
+                        accountId: account.id,
+                        kind: AccountEventKind.Busted,
+                        occurredOn: '2026-08-10',
+                    },
                 ],
                 today: '2026-09-05',
             }),
@@ -110,8 +127,16 @@ describe('CooldownActiveRule', () => {
             alertsOf(rule, {
                 accounts: [account],
                 events: [
-                    { accountId: account.id, kind: AccountEventKind.MovedLive, occurredOn: '2026-08-01' },
-                    { accountId: account.id, kind: AccountEventKind.Busted, occurredOn: '2026-08-10' },
+                    {
+                        accountId: account.id,
+                        kind: AccountEventKind.MovedLive,
+                        occurredOn: '2026-08-01',
+                    },
+                    {
+                        accountId: account.id,
+                        kind: AccountEventKind.Busted,
+                        occurredOn: '2026-08-10',
+                    },
                 ],
                 today: '2026-12-01',
             }),
@@ -125,7 +150,11 @@ describe('CooldownActiveRule', () => {
             alertsOf(rule, {
                 accounts: [account],
                 events: [
-                    { accountId: account.id, kind: AccountEventKind.MovedLive, occurredOn: '2026-08-01' },
+                    {
+                        accountId: account.id,
+                        kind: AccountEventKind.MovedLive,
+                        occurredOn: '2026-08-01',
+                    },
                 ],
                 today: '2026-09-20',
             }),
@@ -138,8 +167,16 @@ describe('CooldownActiveRule', () => {
         const alerts = alertsOf(rule, {
             accounts: [account],
             events: [
-                { accountId: account.id, kind: AccountEventKind.MovedLive, occurredOn: '2026-08-01' },
-                { accountId: account.id, kind: AccountEventKind.Busted, occurredOn: '2026-09-10' },
+                {
+                    accountId: account.id,
+                    kind: AccountEventKind.MovedLive,
+                    occurredOn: '2026-08-01',
+                },
+                {
+                    accountId: account.id,
+                    kind: AccountEventKind.Busted,
+                    occurredOn: '2026-09-10',
+                },
             ],
             today: '2026-09-20',
         });

@@ -6,7 +6,11 @@ import {
     AlertSeverity,
     PayoutEligibleRule,
 } from '~/lib/prop-accounts/alerts';
-import { AccountStage, formatUsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
+import {
+    AccountStage,
+    formatUsdCents,
+    usdCentsFromDollars,
+} from '~/lib/prop-accounts/core';
 import { minimumPayoutRequest } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
@@ -59,7 +63,9 @@ describe('PayoutEligibleRule', () => {
         });
         const alerts = alertsOf(rule, {
             accounts: [account],
-            accountStates: [reconstructedEntry(account.id, plan, freshlyFunded)],
+            accountStates: [
+                reconstructedEntry(account.id, plan, freshlyFunded),
+            ],
         });
         expect(alerts).toEqual([]);
     });
@@ -134,9 +140,7 @@ describe('PayoutEligibleRule', () => {
         );
         const target = formatUsdCents(usdCentsFromDollars(1));
         expect(alerts[0]?.message).toContain(`Eligible to request ${minimum}`);
-        expect(alerts[0]?.message).toContain(
-            `firm's minimum payout request`,
-        );
+        expect(alerts[0]?.message).toContain(`firm's minimum payout request`);
         expect(alerts[0]?.message).toContain(target);
     });
 

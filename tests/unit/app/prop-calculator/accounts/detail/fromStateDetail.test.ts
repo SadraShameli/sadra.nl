@@ -186,8 +186,12 @@ describe('fromStateDetailRequestsOf (PT-37, F-87)', () => {
     it('builds an account-from-state, a retire-comparison and a fresh value-chain request from the reconstruction input, with only the spec', () => {
         const requests = requestsFor(FUNDED);
         expect(requests).not.toBeNull();
-        expect(requests?.account.kind).toBe(OverviewRequestKind.AccountFromState);
-        expect(requests?.retire.kind).toBe(OverviewRequestKind.RetireComparison);
+        expect(requests?.account.kind).toBe(
+            OverviewRequestKind.AccountFromState,
+        );
+        expect(requests?.retire.kind).toBe(
+            OverviewRequestKind.RetireComparison,
+        );
         expect(requests?.chain.kind).toBe(OverviewRequestKind.ValueChain);
         expect(requests?.chain.account).toBeUndefined();
         expect(requests?.chain.spec).toEqual(requests?.account.spec);
@@ -235,7 +239,10 @@ describe('payoutPathLinesOf (PT-37)', () => {
         const requests = requestsFor(FUNDED);
         if (requests === null) throw new Error('no requests');
         const account = AccountReconstruction.rebuild(FUNDED, PLAN);
-        if (account.kind === ReconstructedLiveKind.Live || account.fundedTracker === null) {
+        if (
+            account.kind === ReconstructedLiveKind.Live ||
+            account.fundedTracker === null
+        ) {
             throw new Error('expected a funded account');
         }
         const { spec } = requests.account;
@@ -243,7 +250,10 @@ describe('payoutPathLinesOf (PT-37)', () => {
             account.state,
             account.plan,
             account.fundedTracker,
-            resolveDocumentedRetainedCushion(spec.enginePolicy, spec.rulebook.payout),
+            resolveDocumentedRetainedCushion(
+                spec.enginePolicy,
+                spec.rulebook.payout,
+            ),
             resolveDocumentedPayoutRequestSize(
                 account.plan,
                 spec.enginePolicy,
@@ -275,7 +285,10 @@ describe('retireViewOf (PT-37, QV-19 information)', () => {
             kind: RetireViewKind.Pending,
         });
         expect(
-            retireViewOf(engineWith(undefined, 'workers are down'), retireRequest()),
+            retireViewOf(
+                engineWith(undefined, 'workers are down'),
+                retireRequest(),
+            ),
         ).toEqual({ kind: RetireViewKind.Failed, reason: 'workers are down' });
     });
 
@@ -303,7 +316,8 @@ describe('retireViewOf (PT-37, QV-19 information)', () => {
             },
         };
         const view = retireViewOf(engineWith(outcome), request);
-        if (view.kind !== RetireViewKind.Ready) throw new Error('expected ready');
+        if (view.kind !== RetireViewKind.Ready)
+            throw new Error('expected ready');
         expect(view.model.keepRate).toBe('$12.35 per day (SE $0.40)');
         expect(view.model.switchRate).toBe('$14.20 per day (SE $0.60)');
         expect(view.model.switchCost).toBe('$150');
@@ -325,7 +339,8 @@ describe('retireViewOf (PT-37, QV-19 information)', () => {
             },
         };
         const view = retireViewOf(engineWith(outcome), request);
-        if (view.kind !== RetireViewKind.Ready) throw new Error('expected ready');
+        if (view.kind !== RetireViewKind.Ready)
+            throw new Error('expected ready');
         expect(view.model.reason).toBe(
             'A fresh account looks ahead, but account-slot scarcity is not tracked yet, so this comparison does not recommend switching.',
         );
@@ -347,14 +362,18 @@ describe('retireViewOf (PT-37, QV-19 information)', () => {
             },
         };
         const view = retireViewOf(engineWith(outcome), request);
-        if (view.kind !== RetireViewKind.Ready) throw new Error('expected ready');
+        if (view.kind !== RetireViewKind.Ready)
+            throw new Error('expected ready');
         expect(view.model.verdict.toLowerCase()).toContain('beat');
         expect(view.model.reason).toBeNull();
     });
 });
 
 describe('valueChainPositionOf (PT-37, F-V18)', () => {
-    function step(kind: ValueChainStepKind, creditFree: number): ValueChainStepFigures {
+    function step(
+        kind: ValueChainStepKind,
+        creditFree: number,
+    ): ValueChainStepFigures {
         return {
             kind,
             outcome: {
@@ -411,7 +430,6 @@ describe('valueChainPositionOf (PT-37, F-V18)', () => {
         expect(position.below).not.toContain('Post first payout');
     });
 });
-
 
 describe('chainPositionViewOf (PT-37, F-V18)', () => {
     const chain: ValueChainFigures = {

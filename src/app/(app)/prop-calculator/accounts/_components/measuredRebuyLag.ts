@@ -1,13 +1,17 @@
 import {
+    measuredRebuyLagOfDefault,
     PortfolioLedger,
-    RebuyLagBasis,
     rebuyLagDefault,
+    type ReplacementStats,
     replacementStats,
 } from '~/lib/prop-accounts';
 import { type MeasuredRebuyLag } from '~/lib/prop-calculator/advisor';
 import { type RouterOutputs } from '~/trpc/react';
 
-import { ledgerOrDateFailure, OverviewSectionStatus } from './overview/overviewModel';
+import {
+    ledgerOrDateFailure,
+    OverviewSectionStatus,
+} from './overview/overviewModel';
 
 export enum RebuyLagLineKind {
     Failed = 'failed',
@@ -16,11 +20,22 @@ export enum RebuyLagLineKind {
 
 export type RebuyLagLine =
     | { readonly kind: RebuyLagLineKind.Failed; readonly message: string }
-    | { readonly kind: RebuyLagLineKind.Measured; readonly value: MeasuredRebuyLag };
+    | {
+          readonly kind: RebuyLagLineKind.Measured;
+          readonly value: MeasuredRebuyLag;
+      };
 
-type LedgerAccountRow = RouterOutputs['propAccounts']['account']['list'][number];
+type LedgerAccountRow =
+    RouterOutputs['propAccounts']['account']['list'][number];
 
 type LedgerEventRow = RouterOutputs['propAccounts']['event']['list'][number];
+
+export function measuredRebuyLagFromStats(
+    stats: ReplacementStats,
+    planSerial: string,
+): MeasuredRebuyLag | null {
+    return measuredRebuyLagOfDefault(rebuyLagDefault(stats, planSerial));
+}
 
 export function measuredRebuyLagOf(args: {
     readonly accounts: readonly LedgerAccountRow[] | undefined;
@@ -38,7 +53,7 @@ export function measuredRebuyLagOf(args: {
         return null;
     }
     const computed = ledgerOrDateFailure(() =>
-        rebuyLagDefault(
+        measuredRebuyLagFromStats(
             replacementStats(
                 PortfolioLedger.fromRows(userId, {
                     accounts,
@@ -53,13 +68,7 @@ export function measuredRebuyLagOf(args: {
     if (computed.kind === OverviewSectionStatus.Failed) {
         return { kind: RebuyLagLineKind.Failed, message: computed.message };
     }
-    return computed.value.basis === RebuyLagBasis.Measured
-        ? {
-              kind: RebuyLagLineKind.Measured,
-              value: {
-                  days: computed.value.days,
-                  samples: computed.value.samples,
-              },
-          }
-        : null;
+    return computed.value === null
+        ? null
+        : { kind: RebuyLagLineKind.Measured, value: computed.value };
 }

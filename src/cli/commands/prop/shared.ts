@@ -801,12 +801,14 @@ export function printEdgePlausibilityNotes(
 }
 
 export function readAccountsPerSession(raw: string | undefined): null | number {
-    return raw === undefined || raw === '' ? null : parseFlag(
-        numericFlagSchema.pipe(bankrollAccountsPerSessionSchema),
-        raw,
-        'accounts-per-session',
-        'a whole number from 1 to 200',
-    );
+    return raw === undefined || raw === ''
+        ? null
+        : parseFlag(
+              numericFlagSchema.pipe(bankrollAccountsPerSessionSchema),
+              raw,
+              'accounts-per-session',
+              'a whole number from 1 to 200',
+          );
 }
 
 export function readBankroll(raw: string | undefined): Dollars | null {
@@ -855,25 +857,29 @@ export function readEdgeModelSpec(
 }
 
 export function readHoursPerDay(raw: string | undefined): null | number {
-    return raw === undefined || raw === '' ? null : parseFlag(
-        numericFlagSchema.pipe(bankrollSessionHoursPerDaySchema),
-        raw,
-        'hours-per-day',
-        'a number of hours above 0 and at most 16',
-    );
+    return raw === undefined || raw === ''
+        ? null
+        : parseFlag(
+              numericFlagSchema.pipe(bankrollSessionHoursPerDaySchema),
+              raw,
+              'hours-per-day',
+              'a number of hours above 0 and at most 16',
+          );
 }
 
 export function readLossThreshold(
     raw: string | undefined,
 ): Fraction0to1 | null {
-    return raw === undefined || raw === '' ? null : fraction(
-        parseFlag(
-            numericFlagSchema.pipe(bankrollLossRiskThresholdSchema),
-            raw,
-            'loss-threshold',
-            'a fraction above 0 and at most 0.5',
-        ),
-    );
+    return raw === undefined || raw === ''
+        ? null
+        : fraction(
+              parseFlag(
+                  numericFlagSchema.pipe(bankrollLossRiskThresholdSchema),
+                  raw,
+                  'loss-threshold',
+                  'a fraction above 0 and at most 0.5',
+              ),
+          );
 }
 
 export function readScreenTime(
@@ -975,7 +981,10 @@ export function hasEvalPass(
     return out.evalPassProbability > 0;
 }
 
-export function placedCapNote(plan: Plan | undefined, isCapped: boolean): string {
+export function placedCapNote(
+    plan: Plan | undefined,
+    isCapped: boolean,
+): string {
     if (plan === undefined) return ', before any contract limit';
     return isCapped ? `, capped at ${FUNDED_START_TIER_CONTRACT_LIMIT}` : '';
 }

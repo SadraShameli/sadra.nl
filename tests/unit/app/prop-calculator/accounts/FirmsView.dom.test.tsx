@@ -27,7 +27,10 @@ interface FakeQuery {
     isPending: boolean;
 }
 
-function firstModeledPlan(): { readonly firm: TradingFirm; readonly plan: Plan } {
+function firstModeledPlan(): {
+    readonly firm: TradingFirm;
+    readonly plan: Plan;
+} {
     const [firm] = ALL_FIRMS;
     const [plan] = firm?.plans ?? [];
     if (firm === undefined || plan === undefined) {
@@ -41,7 +44,10 @@ const { firm: FIRST_FIRM, plan: FIRST_PLAN } = firstModeledPlan();
 const USER_ID = 'user-a';
 const TODAY = '2026-09-26';
 const ALPHA_ID = '2a4c6e8f-1b3d-4f5a-9c7e-0d2f4a6c8e1b';
-const FIRM_VALUE = firmKeyId({ firmId: FIRST_FIRM.id, kind: FirmKeyKind.Modeled });
+const FIRM_VALUE = firmKeyId({
+    firmId: FIRST_FIRM.id,
+    kind: FirmKeyKind.Modeled,
+});
 
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
@@ -107,7 +113,11 @@ vi.mock('~/trpc/react', () => ({
     },
 }));
 
-function account(id: string, label: string, overrides: Record<string, unknown> = {}) {
+function account(
+    id: string,
+    label: string,
+    overrides: Record<string, unknown> = {},
+) {
     return {
         accountSize: FIRST_PLAN.id.accountSize,
         archivedAt: null,
@@ -249,7 +259,10 @@ describe('FirmsView', () => {
     });
 
     it('lists a firm with its lifetime and active account counts', () => {
-        harness.queries.set('account.list', answer([account(ALPHA_ID, 'Alpha')]));
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
         render();
         expect(container.textContent).toContain(FIRST_FIRM.displayName);
         const row = element(container, 'tbody tr');
@@ -263,7 +276,10 @@ describe('FirmsView', () => {
     });
 
     it('sets a firm to paused with a reason through firmEngagement.set', async () => {
-        harness.queries.set('account.list', answer([account(ALPHA_ID, 'Alpha')]));
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
         render();
         chooseSelectValue(container, 'paused');
         await submitForm(container, `Edit status for ${FIRM_VALUE}`);
@@ -279,7 +295,10 @@ describe('FirmsView', () => {
     });
 
     it('requires a sent-live date once the reason is sent live', async () => {
-        harness.queries.set('account.list', answer([account(ALPHA_ID, 'Alpha')]));
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
         render();
         chooseSelectValue(container, 'paused');
         chooseSelectValue(container, 'sent-live');
@@ -296,7 +315,10 @@ describe('FirmsView', () => {
     });
 
     it('warns when the firm status could not be loaded, without blocking the roster', () => {
-        harness.queries.set('account.list', answer([account(ALPHA_ID, 'Alpha')]));
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
         harness.queries.set('firmEngagement.list', failed('status down'));
         render();
         expect(container.textContent).toContain('status down');
@@ -304,7 +326,10 @@ describe('FirmsView', () => {
     });
 
     it('never saves a status change while the firm-status query has failed to load', async () => {
-        harness.queries.set('account.list', answer([account(ALPHA_ID, 'Alpha')]));
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
         harness.queries.set('firmEngagement.list', failed('status down'));
         render();
         const save = element(
@@ -317,7 +342,10 @@ describe('FirmsView', () => {
     });
 
     it('never saves a status change while the firm-status query is still loading, even though the account, event, fee and payout queries resolved', async () => {
-        harness.queries.set('account.list', answer([account(ALPHA_ID, 'Alpha')]));
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
         harness.queries.set('firmEngagement.list', loading());
         render();
         expect(container.textContent).toContain(FIRST_FIRM.displayName);
@@ -332,7 +360,10 @@ describe('FirmsView', () => {
     });
 
     it('shows the loaded status once the firm-status query resolves after the row has already rendered', async () => {
-        harness.queries.set('account.list', answer([account(ALPHA_ID, 'Alpha')]));
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
         harness.queries.set('firmEngagement.list', loading());
         render();
         const statusSelect = () =>
@@ -356,7 +387,10 @@ describe('FirmsView', () => {
     });
 
     it('disables every status-form field, not only Save, while the firm-status query is loading', () => {
-        harness.queries.set('account.list', answer([account(ALPHA_ID, 'Alpha')]));
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
         harness.queries.set('firmEngagement.list', loading());
         render();
         const form = element(

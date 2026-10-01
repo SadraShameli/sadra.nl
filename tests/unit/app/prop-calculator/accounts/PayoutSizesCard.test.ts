@@ -5,9 +5,7 @@ import { histogram } from '~/lib/prop-calculator/stats';
 
 describe('payoutHistogramValues', () => {
     it('reconstructs a values array whose re-binned boundaries match the original bins exactly', () => {
-        const originalValues = [
-            12_000, 34_000, 34_500, 61_000, 88_000, 91_000,
-        ];
+        const originalValues = [12_000, 34_000, 34_500, 61_000, 88_000, 91_000];
         const binCount = 4;
         const bins = histogram(originalValues, binCount);
         const reconstructed = payoutHistogramValues(bins);

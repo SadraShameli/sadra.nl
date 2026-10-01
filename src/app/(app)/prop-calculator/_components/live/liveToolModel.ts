@@ -36,9 +36,7 @@ export interface LiveToolCalculatorInputs {
 }
 
 export type LiveToolModel =
-    | LiveToolModeled
-    | LiveToolNotModeled
-    | LiveToolRefused;
+    LiveToolModeled | LiveToolNotModeled | LiveToolRefused;
 
 export interface LiveToolModeled {
     readonly hasCaveatNote: boolean;
@@ -157,11 +155,17 @@ export function modeledLiveTool(
     note: null | string,
 ): LiveToolModel {
     if (inputs.instrument === null || inputs.stopPoints === null) {
-        return { message: LIVE_TOOL_SIZING_REFUSAL, status: LiveToolStatus.Refused };
+        return {
+            message: LIVE_TOOL_SIZING_REFUSAL,
+            status: LiveToolStatus.Refused,
+        };
     }
     const defaultCushion = defaultRetainedCushionOf(plan);
     if (defaultCushion === null) {
-        return { message: LIVE_TOOL_CUSHION_REFUSAL, status: LiveToolStatus.Refused };
+        return {
+            message: LIVE_TOOL_CUSHION_REFUSAL,
+            status: LiveToolStatus.Refused,
+        };
     }
     const retainedCushion = dollars(
         Math.max(

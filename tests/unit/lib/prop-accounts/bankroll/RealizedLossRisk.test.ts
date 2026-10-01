@@ -1,6 +1,9 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { type RealizedLossRisk, realizedLossRisk } from '~/lib/prop-accounts/bankroll';
+import {
+    type RealizedLossRisk,
+    realizedLossRisk,
+} from '~/lib/prop-accounts/bankroll';
 import { AccountEventKind, FeeKind } from '~/lib/prop-accounts/core';
 import { type Dollars } from '~/lib/prop-calculator';
 import { type Quantity } from '~/lib/prop-calculator/economics';
@@ -20,9 +23,9 @@ function fundedAccount(overrides: Parameters<typeof account>[1] = {}) {
 
 describe('realizedLossRisk', () => {
     it('brands the minimum budget as Dollars, not a raw number', () => {
-        expectTypeOf<
-            RealizedLossRisk['minimumBudget']
-        >().toEqualTypeOf<Quantity<Dollars>>();
+        expectTypeOf<RealizedLossRisk['minimumBudget']>().toEqualTypeOf<
+            Quantity<Dollars>
+        >();
     });
 
     it('is NoPositiveEdge when the realized mean net per attempt is not positive', () => {
@@ -53,7 +56,12 @@ describe('realizedLossRisk', () => {
 
     it('excludes an open attempt younger than the payout timing window', () => {
         const winner = fundedAccount();
-        const winnerFee = fee(winner, FeeKind.EvalPurchase, 10_000, '2026-01-01');
+        const winnerFee = fee(
+            winner,
+            FeeKind.EvalPurchase,
+            10_000,
+            '2026-01-01',
+        );
         const winnerPayout = payout(winner, 50_000, {
             netCents: 50_000,
             paidOn: '2026-01-20',
@@ -87,14 +95,12 @@ describe('realizedLossRisk', () => {
         const fees = accounts.map((acc, index) =>
             fee(acc, FeeKind.EvalPurchase, 10_000, `2026-01-0${index + 1}`),
         );
-        const payouts = accounts
-            .slice(0, 4)
-            .map((acc, index) =>
-                payout(acc, 30_000, {
-                    netCents: 30_000,
-                    paidOn: `2026-01-1${index + 1}`,
-                }),
-            );
+        const payouts = accounts.slice(0, 4).map((acc, index) =>
+            payout(acc, 30_000, {
+                netCents: 30_000,
+                paidOn: `2026-01-1${index + 1}`,
+            }),
+        );
         const events = accounts.map((acc, index) =>
             event(acc, AccountEventKind.Purchased, `2026-01-0${index + 1}`),
         );

@@ -50,6 +50,23 @@ export {
     FundedRiskBasis,
 } from './CushionBoard';
 export {
+    type DayLoss,
+    type DayLossAccount,
+    DayLossBasis,
+    type DayLossEntry,
+    type DayLossShare,
+    type DayLossShareInputs,
+    dayLossShareOf,
+    type DayLossUnmeasured,
+    DayLossUnmeasuredReason,
+} from './DayLossShare';
+export {
+    type AdherenceDecision,
+    type DecisionAdherence,
+    decisionAdherenceOf,
+    isDecisionFollowed,
+} from './DecisionAdherence';
+export {
     type Diversification,
     diversification,
     type FirmShare,
@@ -72,6 +89,17 @@ export {
     feeReconciliation,
     type FirmDiscountCapture,
 } from './FeeReconciliation';
+export {
+    type ConcentrationAccount,
+    type FirmConcentration,
+    type FirmConcentrationOptions,
+    type FirmProfitConcentration,
+    firmProfitConcentrationOf,
+    fundedRetainedCushionDollarsOf,
+    fundedWithdrawableDollarsOf,
+    type PayoutsSinceMovedLive,
+    type PayoutWindow,
+} from './FirmProfitConcentration';
 export {
     firmReconciliation,
     type FirmReconciliationEntry,
@@ -264,6 +292,7 @@ export {
     type RepeatabilityStats,
 } from './Repeatability';
 export {
+    measuredRebuyLagOfDefault,
     type PlanReplacementStats,
     RebuyLagBasis,
     type RebuyLagDefault,
@@ -271,6 +300,18 @@ export {
     type ReplacementStats,
     replacementStats,
 } from './ReplacementStats';
+export {
+    type FirmVerificationDate,
+    heldPlanGroupsOf,
+    type SetupChecklist,
+    type SetupChecklistInputs,
+    setupChecklistOf,
+    type SetupMissingItem,
+    SetupMissingKind,
+    SetupStep,
+    type SetupStepResult,
+    SetupStepStatus,
+} from './SetupChecklist';
 export {
     type CashSummary,
     feesOnOrBefore,

@@ -46,10 +46,7 @@ function inputsFor(
     };
 }
 
-function planFor(
-    isMatch: (plan: Plan) => boolean,
-    description: string,
-): Plan {
+function planFor(isMatch: (plan: Plan) => boolean, description: string): Plan {
     const plan = ALL_PLANS.find((candidate) => isMatch(candidate));
     if (plan === undefined) throw new Error(`no plan found: ${description}`);
     return plan;
@@ -59,10 +56,7 @@ describe('buildLiveToolModel', () => {
     it('agrees with livePlanApplicability for every registry plan', () => {
         for (const plan of ALL_PLANS) {
             const applicability = livePlanApplicability(plan.id);
-            const model = buildLiveToolModel(
-                inputsFor(plan),
-                DEFAULT_RULEBOOK,
-            );
+            const model = buildLiveToolModel(inputsFor(plan), DEFAULT_RULEBOOK);
             if (applicability.kind === LiveApplicabilityKind.NotModeled) {
                 expect(model.status).toBe(LiveToolStatus.NotModeled);
                 if (model.status !== LiveToolStatus.NotModeled) continue;

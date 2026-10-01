@@ -70,7 +70,8 @@ const SNAPSHOT_ENTRY_SCOPES: Readonly<
     [SnapshotInputField.CycleBestDayProfit]: SnapshotEntryScope.Snapshot,
     [SnapshotInputField.DashboardConvention]: SnapshotEntryScope.Account,
     [SnapshotInputField.DashboardFloor]: SnapshotEntryScope.Snapshot,
-    [SnapshotInputField.ElapsedDaysSinceAttemptStart]: SnapshotEntryScope.Account,
+    [SnapshotInputField.ElapsedDaysSinceAttemptStart]:
+        SnapshotEntryScope.Account,
     [SnapshotInputField.EvalBestDayProfit]: SnapshotEntryScope.Snapshot,
     [SnapshotInputField.FirstFundedTradeOn]: SnapshotEntryScope.Account,
     [SnapshotInputField.FloorAtLastPayout]: SnapshotEntryScope.Snapshot,

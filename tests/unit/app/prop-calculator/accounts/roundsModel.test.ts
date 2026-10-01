@@ -20,7 +20,10 @@ import {
     RoundStatus,
     usdCents,
 } from '~/lib/prop-accounts';
-import { ScaleGateStatus, ScaleGateUnmetCondition } from '~/lib/prop-accounts/bankroll';
+import {
+    ScaleGateStatus,
+    ScaleGateUnmetCondition,
+} from '~/lib/prop-accounts/bankroll';
 import { findFirm, FirmId, fraction } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { type BankrollTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
@@ -48,7 +51,10 @@ const THRESHOLDS = {
 };
 
 const HOLA = { id: '5d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6', name: 'Hola Prime' };
-const ATLAS = { id: '7c2d9e4f-3a1b-4c5d-8e6f-9a0b1c2d3e4f', name: 'Atlas Prop' };
+const ATLAS = {
+    id: '7c2d9e4f-3a1b-4c5d-8e6f-9a0b1c2d3e4f',
+    name: 'Atlas Prop',
+};
 
 describe('firmSelectOptions', () => {
     it('lists every modeled firm and sorts external firms by name', () => {
@@ -106,7 +112,9 @@ describe('firmColumnsFromSelectValue', () => {
 
     it('returns null for a value with no separator or an unknown firm id', () => {
         expect(firmColumnsFromSelectValue('not-a-value')).toBeNull();
-        expect(firmColumnsFromSelectValue('modeled:not-a-real-firm')).toBeNull();
+        expect(
+            firmColumnsFromSelectValue('modeled:not-a-real-firm'),
+        ).toBeNull();
     });
 });
 
@@ -142,7 +150,7 @@ describe('roundsPageModel', () => {
         });
     });
 
-    it('feeds the user\'s own realized outcomes into the modeled P(round net negative), instead of leaving it stuck at N/A', () => {
+    it("feeds the user's own realized outcomes into the modeled P(round net negative), instead of leaving it stuck at N/A", () => {
         const closedRound = round(
             EVAL_PLAN,
             'Q1 push',
@@ -222,7 +230,12 @@ describe('roundsPageModel', () => {
 
 describe('nextRoundCardModelOf', () => {
     it('returns null when there is no closed round', () => {
-        const openRound = round(EVAL_PLAN, 'Q1 push', '2026-06-01', RoundStatus.Open);
+        const openRound = round(
+            EVAL_PLAN,
+            'Q1 push',
+            '2026-06-01',
+            RoundStatus.Open,
+        );
         const member = account(EVAL_PLAN, {
             purchasedOn: '2026-06-01',
             roundId: openRound.id,
@@ -239,9 +252,15 @@ describe('nextRoundCardModelOf', () => {
     });
 
     it('returns null when the closed round has no resolvable plan', () => {
-        const closedRound = round(EVAL_PLAN, 'Q1 push', '2026-06-01', RoundStatus.Closed, {
-            closedOn: '2026-07-01',
-        });
+        const closedRound = round(
+            EVAL_PLAN,
+            'Q1 push',
+            '2026-06-01',
+            RoundStatus.Closed,
+            {
+                closedOn: '2026-07-01',
+            },
+        );
         const model = nextRoundCardModelOf({
             availableCents: null,
             ledger: ledger({ accounts: [], rounds: [closedRound] }),
@@ -254,9 +273,15 @@ describe('nextRoundCardModelOf', () => {
     });
 
     it('builds a next-round request from the closed round, with option B capped at the available bankroll', () => {
-        const closedRound = round(EVAL_PLAN, 'Q1 push', '2026-06-01', RoundStatus.Closed, {
-            closedOn: '2026-07-01',
-        });
+        const closedRound = round(
+            EVAL_PLAN,
+            'Q1 push',
+            '2026-06-01',
+            RoundStatus.Closed,
+            {
+                closedOn: '2026-07-01',
+            },
+        );
         const member = account(EVAL_PLAN, {
             purchasedOn: '2026-06-01',
             roundId: closedRound.id,
@@ -280,13 +305,17 @@ describe('nextRoundCardModelOf', () => {
         expect(model.request.optionA.startingBankroll).toBeCloseTo(100);
         expect(model.request.optionB.startingBankroll).toBeCloseTo(200);
         expect(model.request.variant.plan.firmId).toBe(EVAL_PLAN.firm.id);
-        expect(model.request.variant.base.rrRatio).toBe(DEFAULT_RULEBOOK.strategy.rr);
-        expect(model.request.variant.base.winrate).toBe(DEFAULT_RULEBOOK.strategy.winrate);
+        expect(model.request.variant.base.rrRatio).toBe(
+            DEFAULT_RULEBOOK.strategy.rr,
+        );
+        expect(model.request.variant.base.winrate).toBe(
+            DEFAULT_RULEBOOK.strategy.winrate,
+        );
         expect(model.scaleGate.status).toBe(ScaleGateStatus.ThresholdsNotSet);
     });
 
     it(
-        'caps option B at option A\'s budget when no available bankroll figure is known ' +
+        "caps option B at option A's budget when no available bankroll figure is known " +
             'yet, instead of leaving it uncapped',
         () => {
             const closedRound = round(
@@ -304,7 +333,9 @@ describe('nextRoundCardModelOf', () => {
                 availableCents: null,
                 ledger: ledger({
                     accounts: [member],
-                    fees: [fee(member, FeeKind.EvalPurchase, 10_000, '2026-06-01')],
+                    fees: [
+                        fee(member, FeeKind.EvalPurchase, 10_000, '2026-06-01'),
+                    ],
                     payouts: [payout(member, 30_000, { paidOn: '2026-06-25' })],
                     rounds: [closedRound],
                 }),
@@ -313,16 +344,23 @@ describe('nextRoundCardModelOf', () => {
                 today: TODAY,
                 trades: 0,
             });
-            if (model === null) throw new Error('expected a next-round card model');
+            if (model === null)
+                throw new Error('expected a next-round card model');
             expect(model.request.optionA.startingBankroll).toBeCloseTo(100);
             expect(model.request.optionB.startingBankroll).toBeCloseTo(100);
         },
     );
 
     it('returns null when the closed round mixes members on different plans', () => {
-        const closedRound = round(EVAL_PLAN, 'Q1 push', '2026-06-01', RoundStatus.Closed, {
-            closedOn: '2026-07-01',
-        });
+        const closedRound = round(
+            EVAL_PLAN,
+            'Q1 push',
+            '2026-06-01',
+            RoundStatus.Closed,
+            {
+                closedOn: '2026-07-01',
+            },
+        );
         const memberA = account(EVAL_PLAN, {
             purchasedOn: '2026-06-01',
             roundId: closedRound.id,
@@ -345,10 +383,16 @@ describe('nextRoundCardModelOf', () => {
         expect(model).toBeNull();
     });
 
-    it('does not price a round\'s ledger-only member as the checked plan\'s, and names it as left out', () => {
-        const closedRound = round(EVAL_PLAN, 'Q1 push', '2026-06-01', RoundStatus.Closed, {
-            closedOn: '2026-07-01',
-        });
+    it("does not price a round's ledger-only member as the checked plan's, and names it as left out", () => {
+        const closedRound = round(
+            EVAL_PLAN,
+            'Q1 push',
+            '2026-06-01',
+            RoundStatus.Closed,
+            {
+                closedOn: '2026-07-01',
+            },
+        );
         const member = account(EVAL_PLAN, {
             purchasedOn: '2026-06-01',
             roundId: closedRound.id,
@@ -367,7 +411,12 @@ describe('nextRoundCardModelOf', () => {
                 accounts: [member, ledgerOnlyMember],
                 fees: [
                     fee(member, FeeKind.EvalPurchase, 10_000, '2026-06-01'),
-                    fee(ledgerOnlyMember, FeeKind.EvalPurchase, 99_000, '2026-06-03'),
+                    fee(
+                        ledgerOnlyMember,
+                        FeeKind.EvalPurchase,
+                        99_000,
+                        '2026-06-03',
+                    ),
                 ],
                 payouts: [payout(member, 30_000, { paidOn: '2026-06-25' })],
                 rounds: [closedRound],
@@ -383,9 +432,15 @@ describe('nextRoundCardModelOf', () => {
     });
 
     it('uses the measured round cycle for the day budget once the sample of closed rounds is adequate', () => {
-        const closedRound = round(EVAL_PLAN, 'Q1 push', '2026-06-01', RoundStatus.Closed, {
-            closedOn: '2026-07-01',
-        });
+        const closedRound = round(
+            EVAL_PLAN,
+            'Q1 push',
+            '2026-06-01',
+            RoundStatus.Closed,
+            {
+                closedOn: '2026-07-01',
+            },
+        );
         const member = account(EVAL_PLAN, {
             purchasedOn: '2026-06-01',
             roundId: closedRound.id,
@@ -464,7 +519,9 @@ describe('nextRoundResultSummaryOf', () => {
             optionBResult: bankrollTimelineResult({ cashP50: [300, 900] }),
             scaleGate: {
                 status: ScaleGateStatus.NotPositiveAfterCost,
-                unmetConditions: [ScaleGateUnmetCondition.PooledNetNotBeyondNoise],
+                unmetConditions: [
+                    ScaleGateUnmetCondition.PooledNetNotBeyondNoise,
+                ],
             },
         });
         expect(summary.recommended).toBe(NextRoundRecommendation.OptionA);
@@ -489,7 +546,10 @@ describe('nextRoundResultSummaryOf', () => {
             optionAResult: bankrollTimelineResult(),
             optionBBudget: 300,
             optionBResult: bankrollTimelineResult(),
-            scaleGate: { status: ScaleGateStatus.ThresholdsNotSet, unmetConditions: [] },
+            scaleGate: {
+                status: ScaleGateStatus.ThresholdsNotSet,
+                unmetConditions: [],
+            },
         });
         expect(summary.optionB.scaleGateNote).toBe('thresholds not set');
     });

@@ -116,10 +116,7 @@ function accountExposureOf(
 ): AccountExposure {
     const { sizing } = documentedSizingOf(account, rulebook);
     const firstTradeRisk = sizing.rungs[0]?.risk ?? 0;
-    const maxDailyLoss = sizing.rungs.reduce(
-        (sum, rung) => sum + rung.risk,
-        0,
-    );
+    const maxDailyLoss = sizing.rungs.reduce((sum, rung) => sum + rung.risk, 0);
     return {
         accountId,
         basis: ExposureBasis.DocumentedDollars,

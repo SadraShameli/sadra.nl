@@ -42,10 +42,7 @@ function consistencyToyPlan(): Plan {
         evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fundedConsistency: {
             kind: 'set',
-            rule: new ConsistencyRule(
-                ConsistencyScope.Funded,
-                fraction(0.4),
-            ),
+            rule: new ConsistencyRule(ConsistencyScope.Funded, fraction(0.4)),
         },
         fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
         fundedDrawdown: new EodTrailingDrawdown({
@@ -116,8 +113,8 @@ describe('computeFundedStateValue bounds the default best-day grid on a consiste
         const bounded = solve(30, undefined, wideDay);
         const wide = solve(30, 80, wideDay);
         expect(bounded.reachedStateCount).toBeLessThan(wide.reachedStateCount);
-        expect(
-            Math.abs(bounded.initialValue - wide.initialValue),
-        ).toBeLessThan(0.05);
+        expect(Math.abs(bounded.initialValue - wide.initialValue)).toBeLessThan(
+            0.05,
+        );
     }, 120_000);
 });

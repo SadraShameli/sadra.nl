@@ -146,7 +146,10 @@ describe('readAdviseInputs: reader (F-133 step 1a)', () => {
             parseAdvise(
                 FRESH_FUNDED_APEX_EOD.filter(
                     (part, index, all) =>
-                        !(part === '--snapshot-date' || all[index - 1] === '--snapshot-date'),
+                        !(
+                            part === '--snapshot-date' ||
+                            all[index - 1] === '--snapshot-date'
+                        ),
                 ),
             ),
         );
@@ -156,13 +159,17 @@ describe('readAdviseInputs: reader (F-133 step 1a)', () => {
     it('rejects a missing --stage', () => {
         expect(() =>
             readAdviseInputs(
-                parseAdvise(FRESH_FUNDED_APEX_EOD.filter((part) => part !== 'funded')),
+                parseAdvise(
+                    FRESH_FUNDED_APEX_EOD.filter((part) => part !== 'funded'),
+                ),
             ),
         ).toThrow('--stage');
     });
 
     it('builds a positionSizing option only when --stop-points is given', () => {
-        const withoutStop = readAdviseInputs(parseAdvise(FRESH_FUNDED_APEX_EOD));
+        const withoutStop = readAdviseInputs(
+            parseAdvise(FRESH_FUNDED_APEX_EOD),
+        );
         expect(withoutStop.options.positionSizing).toBeUndefined();
 
         const withStop = readAdviseInputs(
@@ -212,8 +219,14 @@ describe('readAdviseInputs: required-flag failures name the flag (F-133 step 1b)
                 parseAdvise(
                     FRESH_FUNDED_APEX_EOD.filter(
                         (part, index, all) =>
-                            !(part === '--balance' || all[index - 1] === '--balance') &&
-                            !(part === '50000' && all[index - 1] === '--balance'),
+                            !(
+                                part === '--balance' ||
+                                all[index - 1] === '--balance'
+                            ) &&
+                            !(
+                                part === '50000' &&
+                                all[index - 1] === '--balance'
+                            ),
                     ),
                 ),
             ),
@@ -376,7 +389,11 @@ describe('readAdviseInputs: rulebook overrides (F-133 step 1a/1b)', () => {
     it('a --retain-cushion below $2,000 fails with the Hard Rule 2 message', () => {
         expect(() =>
             readAdviseInputs(
-                parseAdvise([...FRESH_FUNDED_APEX_EOD, '--retain-cushion', '1500']),
+                parseAdvise([
+                    ...FRESH_FUNDED_APEX_EOD,
+                    '--retain-cushion',
+                    '1500',
+                ]),
             ),
         ).toThrow(/Hard Rule 2/);
     });
@@ -444,7 +461,10 @@ describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', ()
             parseAdvise([
                 ...FRESH_FUNDED_APEX_EOD.filter(
                     (part, index, all) =>
-                        !(part === '--snapshot-date' || all[index - 1] === '--snapshot-date'),
+                        !(
+                            part === '--snapshot-date' ||
+                            all[index - 1] === '--snapshot-date'
+                        ),
                 ),
                 '--snapshot-date',
                 '2000-01-03',
@@ -457,11 +477,13 @@ describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', ()
         expect(advice.staleness.kind).toBe('stale');
         expect(advice.documented).toBeNull();
         const lines = adviceReportLines(advice);
-        const staleLine = lines.find((line) => line.includes("enter today's balance"));
-        expect(staleLine).toBeDefined();
-        expect(lines.some((line) => /\$[0-9]/.test(line) && line !== staleLine)).toBe(
-            false,
+        const staleLine = lines.find((line) =>
+            line.includes("enter today's balance"),
         );
+        expect(staleLine).toBeDefined();
+        expect(
+            lines.some((line) => /\$[0-9]/.test(line) && line !== staleLine),
+        ).toBe(false);
     });
 
     it('the command is wired into the default export', () => {
@@ -556,7 +578,11 @@ describe('swingLines (F-V17 addendum: EV swing at --risk)', () => {
     });
 
     it('nets the replacement fee on a busting loss, as the web panel does', () => {
-        const busted = { ...SWING_FIXTURE, afterLossBusted: true, afterLossRebuyLagDays: 3 };
+        const busted = {
+            ...SWING_FIXTURE,
+            afterLossBusted: true,
+            afterLossRebuyLagDays: 3,
+        };
 
         const withoutFee = swingLines(busted, 2, 2, 0)[0];
         const withFee = swingLines(busted, 2, 2, 150)[0];
@@ -575,7 +601,10 @@ describe('swingLines (F-V17 addendum: EV swing at --risk)', () => {
 
     it('reports not-modeled outcomes without formatting them as dollars', () => {
         const lines = swingLines(
-            { kind: ValueResultKind.NotModeled, reason: 'live-not-modeled' as never },
+            {
+                kind: ValueResultKind.NotModeled,
+                reason: 'live-not-modeled' as never,
+            },
             2,
             null,
             0,
@@ -608,7 +637,9 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
         expect(day.wins).toBe(1);
         expect(day.runningLoss).toBe(rungs[0]?.runningLossAfter);
         expect(day.dayPnL).toBe(
-            dollars((rungs[1]?.takeProfit ?? 0) - (rungs[0]?.runningLossAfter ?? 0)),
+            dollars(
+                (rungs[1]?.takeProfit ?? 0) - (rungs[0]?.runningLossAfter ?? 0),
+            ),
         );
     });
 
@@ -707,7 +738,10 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
         const account = AccountReconstruction.rebuild(snapshot, plan);
         const advisor = createSizingAdvisor(account, options);
         const activeDay = dayProgressFromCounts(advisor, 1, 1);
-        const activeResult = advisor.checkNextTradeRisk(dollars(600), activeDay);
+        const activeResult = advisor.checkNextTradeRisk(
+            dollars(600),
+            activeDay,
+        );
         if (activeResult === null) throw new Error('expected a result');
         const zeroDay = dayProgressFromCounts(advisor, 0, 0);
         const zeroResult = advisor.checkNextTradeRisk(dollars(100), zeroDay);
@@ -851,8 +885,10 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
         expect(winnerLine).toBeDefined();
         expect(winnerLine).toContain('monthly net');
 
-        const overrideLine = lines.find((line) =>
-            line.includes('personal override') && line.includes('monthly net'),
+        const overrideLine = lines.find(
+            (line) =>
+                line.includes('personal override') &&
+                line.includes('monthly net'),
         );
         expect(overrideLine).toBeDefined();
 
@@ -936,10 +972,7 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
 describe('command.ts does not duplicate TRADING_DAYS_PER_YEAR (review finding MEDIUM)', () => {
     it('imports the shared constant instead of declaring its own funded-horizon-days default', () => {
         const source = readFileSync(
-            path.join(
-                process.cwd(),
-                'src/cli/commands/prop/advise/command.ts',
-            ),
+            path.join(process.cwd(), 'src/cli/commands/prop/advise/command.ts'),
             'utf8',
         );
         expect(source).not.toContain('DEFAULT_ADVISE_FUNDED_HORIZON_DAYS');
@@ -950,10 +983,7 @@ describe('command.ts does not duplicate TRADING_DAYS_PER_YEAR (review finding ME
 describe('command.ts does not duplicate the advisor default eval-days constant (PT-24b step 4)', () => {
     it('imports DEFAULT_MAX_EVAL_DAYS from createSizingAdvisor instead of declaring its own copy', () => {
         const source = readFileSync(
-            path.join(
-                process.cwd(),
-                'src/cli/commands/prop/advise/command.ts',
-            ),
+            path.join(process.cwd(), 'src/cli/commands/prop/advise/command.ts'),
             'utf8',
         );
         expect(source).not.toContain('DEFAULT_ADVISE_MAX_EVAL_DAYS');
@@ -998,7 +1028,10 @@ describe('adviceReportLines: minStopPointsAtCap flagged only above the entered s
             runEngineOptimum(plan, request),
         );
         const advice = advisor.assemble(results);
-        return { advice, enteredStopPoints: options.positionSizing?.stopPoints ?? null };
+        return {
+            advice,
+            enteredStopPoints: options.positionSizing?.stopPoints ?? null,
+        };
     }
 
     it('a real scenario actually produces a non-null minStopPointsAtCap', () => {

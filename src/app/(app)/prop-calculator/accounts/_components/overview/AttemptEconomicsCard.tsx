@@ -31,9 +31,7 @@ export function AttemptEconomicsCard({
                         <TableHead className="text-right">
                             Attempt cost
                         </TableHead>
-                        <TableHead className="text-right">
-                            Pass rate
-                        </TableHead>
+                        <TableHead className="text-right">Pass rate</TableHead>
                         <TableHead className="text-right">
                             Payout rate
                         </TableHead>

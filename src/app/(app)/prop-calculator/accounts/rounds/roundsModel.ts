@@ -70,7 +70,8 @@ export const ROUNDS_BOOTSTRAP_DRAWS = 500;
 export const ROUNDS_BOOTSTRAP_SEED = 20_260_927;
 export const NEXT_ROUND_TRIALS = 2000;
 export const NEXT_ROUND_SCALE_GATE_NOT_READY_TEXT = 'scale gate not met';
-export const NEXT_ROUND_SCALE_GATE_THRESHOLDS_NOT_SET_TEXT = 'thresholds not set';
+export const NEXT_ROUND_SCALE_GATE_THRESHOLDS_NOT_SET_TEXT =
+    'thresholds not set';
 
 export enum NextRoundRecommendation {
     OptionA = 'optionA',
@@ -97,7 +98,10 @@ export interface NextRoundCardModel {
     readonly modeledRr: number;
     readonly modeledWinrate: number;
     readonly planLabel: string;
-    readonly realizedPassRate: null | { readonly n: number; readonly value: number };
+    readonly realizedPassRate: null | {
+        readonly n: number;
+        readonly value: number;
+    };
     readonly request: NextRoundToolsRequest;
     readonly roundId: string;
     readonly roundLabel: string;
@@ -252,7 +256,12 @@ export function nextRoundCardModelOf(
         variant: nextRoundVariantFor(eligibility, rulebook),
     };
 
-    const scaleGate = scaleGateFromLedger(ledger, today, rulebook.samples, trades);
+    const scaleGate = scaleGateFromLedger(
+        ledger,
+        today,
+        rulebook.samples,
+        trades,
+    );
 
     const realizedPassRate = realizedOutcomes(ledger).perPlan.find(
         (plan) =>
@@ -280,9 +289,20 @@ export function nextRoundCardModelOf(
 export function nextRoundResultSummaryOf(
     inputs: NextRoundResultInputs,
 ): NextRoundResultSummary {
-    const { dayBudget, optionABudget, optionAResult, optionBBudget, optionBResult, scaleGate } =
-        inputs;
-    const optionA = nextRoundOptionSummary(optionAResult, dayBudget, optionABudget, null);
+    const {
+        dayBudget,
+        optionABudget,
+        optionAResult,
+        optionBBudget,
+        optionBResult,
+        scaleGate,
+    } = inputs;
+    const optionA = nextRoundOptionSummary(
+        optionAResult,
+        dayBudget,
+        optionABudget,
+        null,
+    );
     const optionB = nextRoundOptionSummary(
         optionBResult,
         dayBudget,
@@ -356,10 +376,14 @@ function medianMonthlyNetOf(
     const lastIndex = result.days.length - 1;
     const start = result.cashP50[0] ?? 0;
     const end = result.cashP50[lastIndex] ?? 0;
-    return dayBudget > 0 ? ((end - start) / dayBudget) * TRADING_DAYS_PER_MONTH : 0;
+    return dayBudget > 0
+        ? ((end - start) / dayBudget) * TRADING_DAYS_PER_MONTH
+        : 0;
 }
 
-function mostRecentlyClosedRound(ledger: PortfolioLedger): LedgerRoundRow | null {
+function mostRecentlyClosedRound(
+    ledger: PortfolioLedger,
+): LedgerRoundRow | null {
     const closed = ledger.rounds
         .filter((row) => row.status === RoundStatus.Closed)
         .toSorted((a, b) => compareText(b.closedOn ?? '', a.closedOn ?? ''));

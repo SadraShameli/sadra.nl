@@ -64,7 +64,9 @@ describe('takeProfitCandidateInputs', () => {
         const edge = new FixedWinRateEdge(fraction(0.4));
         const inputs = takeProfitCandidateInputs(base, edge, [1, 1.5, 2, 3]);
         expect(inputs.map((i) => i.rrRatio)).toStrictEqual([1, 1.5, 2, 3]);
-        expect(inputs.map((i) => i.fundedRrRatio)).toStrictEqual([1, 1.5, 2, 3]);
+        expect(inputs.map((i) => i.fundedRrRatio)).toStrictEqual([
+            1, 1.5, 2, 3,
+        ]);
     });
 
     it('derives the win rate from the edge model per rr (a fixed model repeats one rate)', () => {
@@ -84,7 +86,10 @@ describe('takeProfitCandidateInputs', () => {
     });
 
     it('leaves every other base field untouched', () => {
-        const base = baseSimInputs({ commissionPerRoundTrip: 4.5, copyAccounts: 3 });
+        const base = baseSimInputs({
+            commissionPerRoundTrip: 4.5,
+            copyAccounts: 3,
+        });
         const edge = new FixedWinRateEdge(fraction(0.4));
         const [input] = takeProfitCandidateInputs(base, edge, [2]);
         expect(input?.commissionPerRoundTrip).toBe(4.5);
@@ -111,9 +116,9 @@ describe('takeProfitRows', () => {
         const rows = takeProfitRows(candidateInputs, outputs);
         expect(rows).toHaveLength(2);
         expect(rows.map((row) => row.rrRatio)).toStrictEqual([1, 2]);
-        expect(rows.every((row) => row.label === TAKE_PROFIT_WHAT_IF_LABEL)).toBe(
-            true,
-        );
+        expect(
+            rows.every((row) => row.label === TAKE_PROFIT_WHAT_IF_LABEL),
+        ).toBe(true);
         expect(rows[0]?.out).toBe(outputs[0]);
         expect(rows.map((row) => row.winrate)).toStrictEqual([0.4, 0.4]);
     });
@@ -146,7 +151,8 @@ describe('the take-profit what-if is never reached from the advisor (never used 
         const offenders = advisorSourceFiles().filter((file) => {
             const content = readFileSync(file, 'utf8');
             return (
-                content.includes('DriftEdge') || content.includes('TakeProfitWhatIf')
+                content.includes('DriftEdge') ||
+                content.includes('TakeProfitWhatIf')
             );
         });
         expect(offenders).toStrictEqual([]);

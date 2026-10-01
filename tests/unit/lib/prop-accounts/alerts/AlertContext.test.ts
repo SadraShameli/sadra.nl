@@ -49,6 +49,7 @@ import {
     paidPayout,
     snapshotFor,
     TUESDAY,
+    WEDNESDAY,
 } from './alertFixtures';
 
 describe('createAlertContext', () => {
@@ -366,6 +367,28 @@ describe('createAlertContext', () => {
         }).archivedAccounts;
         expect(monitored?.payouts).toEqual([dated]);
         expect(monitored?.undatedPayouts).toEqual([undated]);
+    });
+
+    it('defaults the available bankroll to null and the decisions to none', () => {
+        const context = contextOf({});
+        expect(context.availableBankrollCents).toBeNull();
+        expect(context.decisions).toEqual([]);
+    });
+
+    it('carries the available bankroll and the decisions it is given', () => {
+        const account = accountFor(ANY_EVAL_PLAN);
+        const decision = {
+            acceptedRiskCents: usdCents(40_000),
+            accountId: account.id,
+            actualRiskCents: null,
+            decidedOn: WEDNESDAY,
+        };
+        const context = contextOf({
+            availableBankrollCents: usdCents(250_000),
+            decisions: [decision],
+        });
+        expect(context.availableBankrollCents).toBe(250_000);
+        expect(context.decisions).toEqual([decision]);
     });
 
     it('rejects a malformed today', () => {

@@ -4,9 +4,16 @@ import {
     fundedOptimizerSweep,
     fundedSweepPlan,
 } from '~/app/(app)/prop-calculator/_components/fundedOptimizer/fundedOptimizerModel';
-import { WorkerTaskEventKind, type WorkerTaskMessage, type WorkerTaskRequest } from '~/app/(app)/prop-calculator/_components/workerTaskState';
+import {
+    WorkerTaskEventKind,
+    type WorkerTaskMessage,
+    type WorkerTaskRequest,
+} from '~/app/(app)/prop-calculator/_components/workerTaskState';
 
-import { type FundedSweepRequest, type FundedSweepResult } from './fundedSweepWorkerMessages';
+import {
+    type FundedSweepRequest,
+    type FundedSweepResult,
+} from './fundedSweepWorkerMessages';
 
 function fail(runId: number, reason: string): void {
     const message: WorkerTaskMessage<never, never> = {

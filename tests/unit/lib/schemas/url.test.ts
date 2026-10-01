@@ -513,17 +513,17 @@ describe('portfolioEntrySchema refuses a field it cannot use instead of silently
         },
     );
 
-    it.each([
-        CALCULATOR_SCALAR_BOUNDS.sp.min,
-        CALCULATOR_SCALAR_BOUNDS.sp.max,
-    ])('accepts stop points %s on the calculator bounds', (stopPoints) => {
-        const r = portfolioEntrySchema.safeParse({
-            ...LEGACY_PORTFOLIO_ENTRY,
-            instrument: InstrumentSymbol.NQ,
-            stopPoints,
-        });
-        expect(r.data?.stopPoints).toBe(stopPoints);
-    });
+    it.each([CALCULATOR_SCALAR_BOUNDS.sp.min, CALCULATOR_SCALAR_BOUNDS.sp.max])(
+        'accepts stop points %s on the calculator bounds',
+        (stopPoints) => {
+            const r = portfolioEntrySchema.safeParse({
+                ...LEGACY_PORTFOLIO_ENTRY,
+                instrument: InstrumentSymbol.NQ,
+                stopPoints,
+            });
+            expect(r.data?.stopPoints).toBe(stopPoints);
+        },
+    );
 
     it.each([
         'activationDiscountPercent',
@@ -544,7 +544,10 @@ describe('portfolioEntrySchema refuses a field it cannot use instead of silently
 
 describe('an instrument and its stop points are set together (PT-53g)', () => {
     it.each<[string, Record<string, unknown>]>([
-        ['an instrument without stop points', { instrument: InstrumentSymbol.MNQ }],
+        [
+            'an instrument without stop points',
+            { instrument: InstrumentSymbol.MNQ },
+        ],
         [
             'an instrument with null stop points',
             { instrument: InstrumentSymbol.MNQ, stopPoints: null },
@@ -564,7 +567,10 @@ describe('an instrument and its stop points are set together (PT-53g)', () => {
     });
 
     it.each<[string, Record<string, unknown>]>([
-        ['an instrument without stop points', { instrument: InstrumentSymbol.NQ }],
+        [
+            'an instrument without stop points',
+            { instrument: InstrumentSymbol.NQ },
+        ],
         [
             'an instrument with null stop points',
             { instrument: InstrumentSymbol.NQ, stopPoints: null },

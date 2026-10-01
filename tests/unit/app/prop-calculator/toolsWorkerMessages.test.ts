@@ -48,13 +48,17 @@ function baseVariant(): BankrollPlanVariantInputs {
         },
         plan: {
             firmId: FirmId.TopStep,
-            optIns: { takesFundedReset: false, takesOneTimeEarlyWithdrawal: false },
+            optIns: {
+                takesFundedReset: false,
+                takesOneTimeEarlyWithdrawal: false,
+            },
             planSerial: 'topstep-50000-standard-standard',
         },
         policy: {
             commissionPerRoundTrip: 0,
             fundedHorizonDays: 30,
-            lifetimePayoutCapBasis: LifetimePayoutCapBasis.LiveTriggersNotChecked,
+            lifetimePayoutCapBasis:
+                LifetimePayoutCapBasis.LiveTriggersNotChecked,
             lifetimePayoutCapOverride: null,
             payoutRequestOverride: 500,
             rebuyLagBasis: RebuyLagBasis.AssumedZero,
@@ -186,9 +190,14 @@ describe('toolsRequestSchema (VD-24)', () => {
     });
 
     it('rejects a value request whose spec carries no EnginePolicy', () => {
-        const specWithoutPolicy: Record<string, unknown> = { ...documentedPolicySpec() };
+        const specWithoutPolicy: Record<string, unknown> = {
+            ...documentedPolicySpec(),
+        };
         delete specWithoutPolicy.enginePolicy;
-        for (const kind of [ToolsRequestKind.ValueChain, ToolsRequestKind.FundedValueEstimate]) {
+        for (const kind of [
+            ToolsRequestKind.ValueChain,
+            ToolsRequestKind.FundedValueEstimate,
+        ]) {
             expect(() =>
                 parseToolsRequest({
                     kind,
@@ -210,11 +219,15 @@ describe('toolsRequestSchema (VD-24)', () => {
 
 describe('takeProfitRowsRequestSchema (PT-64c)', () => {
     it('rejects an empty candidate list', () => {
-        expect(() => parseToolsRequest(takeProfitRequest({ rrCandidates: [] }))).toThrow();
+        expect(() =>
+            parseToolsRequest(takeProfitRequest({ rrCandidates: [] })),
+        ).toThrow();
     });
 
     it('rejects a non-positive anchor rr', () => {
-        expect(() => parseToolsRequest(takeProfitRequest({ anchorRrRatio: 0 }))).toThrow();
+        expect(() =>
+            parseToolsRequest(takeProfitRequest({ anchorRrRatio: 0 })),
+        ).toThrow();
     });
 
     it('rejects a non-positive candidate', () => {
@@ -246,10 +259,22 @@ function timelineResult() {
     };
 }
 
+function valueChainResponseWith(step: object) {
+    return {
+        kind: ToolsResponseKind.ValueChain,
+        result: { accountValue: null, failedSteps: [], steps: [step] },
+        runId: 3,
+    };
+}
+
 describe('toolsResultSchema (VD-24)', () => {
     it('parses every response kind and survives a structuredClone round trip', () => {
         const results: ToolsWorkerResult[] = [
-            { kind: ToolsResponseKind.Projection, result: timelineResult(), runId: 1 },
+            {
+                kind: ToolsResponseKind.Projection,
+                result: timelineResult(),
+                runId: 1,
+            },
             {
                 kind: ToolsResponseKind.TwoStrategies,
                 results: [timelineResult(), timelineResult()],
@@ -316,22 +341,31 @@ describe('toolsResultSchema (VD-24)', () => {
                 kind: ToolsResponseKind.ValueChain,
                 result: {
                     accountValue: null,
+                    failedSteps: [],
                     steps: [
                         {
+                            assumptions: [],
                             kind: ValueChainStepKind.EvalStart,
                             value: {
                                 creditFree: { standardError: 10, value: 100 },
-                                creditInclusive: { standardError: 12, value: 120 },
+                                creditInclusive: {
+                                    standardError: 12,
+                                    value: 120,
+                                },
                                 kind: ValueResultKind.Value,
                                 seed: 1,
                                 trials: 500,
                             },
                         },
                         {
+                            assumptions: [],
                             kind: ValueChainStepKind.FreshFunded,
                             value: {
                                 creditFree: { standardError: 20, value: 900 },
-                                creditInclusive: { standardError: 22, value: 950 },
+                                creditInclusive: {
+                                    standardError: 22,
+                                    value: 950,
+                                },
                                 kind: ValueResultKind.Value,
                                 seed: 1,
                                 trials: 500,
@@ -378,18 +412,112 @@ describe('toolsResultSchema (VD-24)', () => {
         }
     });
 
+    it('keeps the failed value chain steps and their reasons through the response schema', () => {
+        const response = {
+            kind: ToolsResponseKind.ValueChain,
+            result: {
+                accountValue: null,
+                failedSteps: [
+                    {
+                        kind: ValueChainStepKind.FirstPayoutEligible,
+                        reason: 'no first-payout-eligible account',
+                    },
+                ],
+                steps: [],
+            },
+            runId: 3,
+        };
+
+        expect(parseToolsResult(structuredClone(response))).toEqual(response);
+    });
+
+    it('keeps the assumptions of a value chain step through the response schema', () => {
+        const response = {
+            kind: ToolsResponseKind.ValueChain,
+            result: {
+                accountValue: null,
+                failedSteps: [],
+                steps: [
+                    {
+                        assumptions: [
+                            '3 equal winning sessions: the plan payout day gate needs 3 sessions',
+                            'Total profit $2,600.01, $866.67 per session',
+                        ],
+                        kind: ValueChainStepKind.FirstPayoutEligible,
+                        value: {
+                            creditFree: { standardError: 10, value: 100 },
+                            creditInclusive: { standardError: 12, value: 120 },
+                            kind: ValueResultKind.Value,
+                            seed: 1,
+                            trials: 500,
+                        },
+                    },
+                ],
+            },
+            runId: 3,
+        };
+
+        expect(parseToolsResult(structuredClone(response))).toEqual(response);
+    });
+
+    it('rejects a value chain step without its assumptions or with a non-text assumption', () => {
+        const value = {
+            creditFree: { standardError: 10, value: 100 },
+            creditInclusive: { standardError: 12, value: 120 },
+            kind: ValueResultKind.Value,
+            seed: 1,
+            trials: 500,
+        };
+        expect(() =>
+            parseToolsResult(
+                valueChainResponseWith({
+                    kind: ValueChainStepKind.EvalStart,
+                    value,
+                }),
+            ),
+        ).toThrow();
+        expect(() =>
+            parseToolsResult(
+                valueChainResponseWith({
+                    assumptions: [3],
+                    kind: ValueChainStepKind.EvalStart,
+                    value,
+                }),
+            ),
+        ).toThrow();
+    });
+
+    it('rejects a failed value chain step with an unknown kind', () => {
+        expect(() =>
+            parseToolsResult({
+                kind: ToolsResponseKind.ValueChain,
+                result: {
+                    accountValue: null,
+                    failedSteps: [{ kind: 'no-such-step', reason: 'x' }],
+                    steps: [],
+                },
+                runId: 3,
+            }),
+        ).toThrow();
+    });
+
     it('rejects a value chain step with a negative trial count', () => {
         expect(() =>
             parseToolsResult({
                 kind: ToolsResponseKind.ValueChain,
                 result: {
                     accountValue: null,
+                    failedSteps: [],
                     steps: [
                         {
+                            assumptions: [],
                             kind: ValueChainStepKind.EvalStart,
                             value: {
                                 creditFree: { standardError: 10, value: 100 },
-                                creditInclusive: { standardError: 12, value: 120 },
+                                creditInclusive: {
+                                    standardError: 12,
+                                    value: 120,
+                                },
                                 kind: ValueResultKind.Value,
                                 seed: 1,
                                 trials: -1,
@@ -455,7 +583,8 @@ describe('toolsResultSchema (VD-24)', () => {
         const cloned = structuredClone(result);
         const parsed = parseToolsResult(cloned);
         expect(parsed).toEqual(result);
-        if (parsed.kind !== ToolsResponseKind.Levers) throw new Error('unreachable');
+        if (parsed.kind !== ToolsResponseKind.Levers)
+            throw new Error('unreachable');
         expect(parsed.rows[0]?.deltaAttemptPaysProbability).toBe(0.125);
     });
 });

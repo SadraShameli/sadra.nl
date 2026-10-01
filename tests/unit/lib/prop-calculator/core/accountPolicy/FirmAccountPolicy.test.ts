@@ -110,7 +110,7 @@ describe('resolveLifetimePayoutCapOverride', () => {
         ).toBe(LifetimePayoutCapOverrideKind.NoCountTrigger);
     });
 
-    it('is Capped strictly below the plan\'s own conclusion count, never at or above it', () => {
+    it("is Capped strictly below the plan's own conclusion count, never at or above it", () => {
         const plan = planWithOwnCount(10);
         const capped = resolveLifetimePayoutCapOverride(plan, [
             new PayoutCountPerAccountTrigger(5, confirmedSource()),
@@ -143,9 +143,11 @@ describe('resolveLifetimePayoutCapOverride', () => {
         if (resolved.kind !== LifetimePayoutCapOverrideKind.Capped) {
             throw new Error('expected Capped');
         }
-        expect(plan.withMaxLifetimePayouts(resolved.cap).isAccountConcluded(
-            resolved.cap,
-        )).toBe(true);
+        expect(
+            plan
+                .withMaxLifetimePayouts(resolved.cap)
+                .isAccountConcluded(resolved.cap),
+        ).toBe(true);
         expect(
             plan
                 .withMaxLifetimePayouts(resolved.cap)
@@ -243,7 +245,9 @@ describe('UnverifiedFirmAccountPolicy (the default every firm gets)', () => {
     });
 
     it("gives the plan's own inactivity policy with an unverified basis", () => {
-        expect(policy.inactivityFor(BASE_PLAN, TradingPhase.Funded)).toStrictEqual(
+        expect(
+            policy.inactivityFor(BASE_PLAN, TradingPhase.Funded),
+        ).toStrictEqual(
             unverifiedInactivityPolicyFor(BASE_PLAN, TradingPhase.Funded),
         );
     });

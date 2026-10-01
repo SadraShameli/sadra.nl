@@ -7,7 +7,10 @@ interface QueryErrorNoticeProperties {
     readonly title: string;
 }
 
-export function QueryErrorNotice({ message, title }: QueryErrorNoticeProperties) {
+export function QueryErrorNotice({
+    message,
+    title,
+}: QueryErrorNoticeProperties) {
     return (
         <Alert variant="destructive">
             <TriangleAlert />

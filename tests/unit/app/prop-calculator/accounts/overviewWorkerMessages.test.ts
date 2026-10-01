@@ -70,6 +70,7 @@ import {
     fundedTrackerAfterMilestonePayout,
     MilestoneKind,
     milestoneState,
+    requestNowValue,
     requireValue,
     retireComparison,
     RetireComparisonBasis,
@@ -770,7 +771,9 @@ describe('overviewProjectionRequestsFor (PT-33, F-87)', () => {
             overviewRequestKey(two),
             overviewRequestKey(three),
             overviewRequestKey(documented),
-            overviewRequestKey(withPolicy(two, { retainedCushionRequest: 2500 })),
+            overviewRequestKey(
+                withPolicy(two, { retainedCushionRequest: 2500 }),
+            ),
         ];
         expect(new Set(keys).size).toBe(keys.length);
         expect(overviewRequestKey(two)).toBe(
@@ -901,7 +904,9 @@ describe('overviewOutcomeOf projection requests (PT-33, F-87)', () => {
             DocumentedPolicyTimelineGap.FundedRrDiffersFromStrategyRr,
         ]);
         for (const gap of gaps) {
-            expect(DOCUMENTED_POLICY_TIMELINE_GAP_TEXT[gap].length).toBeGreaterThan(0);
+            expect(
+                DOCUMENTED_POLICY_TIMELINE_GAP_TEXT[gap].length,
+            ).toBeGreaterThan(0);
         }
     });
 
@@ -913,7 +918,8 @@ describe('overviewOutcomeOf projection requests (PT-33, F-87)', () => {
         });
         const issue = simInputsSizingIssue({
             instrument: InstrumentSymbol.ES,
-            riskPerTrade: request.spec.rulebook.funded.riskCents / CENTS_PER_DOLLAR,
+            riskPerTrade:
+                request.spec.rulebook.funded.riskCents / CENTS_PER_DOLLAR,
             stopPoints: 500,
         });
         expect(issue).not.toBeNull();
@@ -973,7 +979,6 @@ describe('the projection timeline gaps come from the one shared rule', () => {
         expect(source).not.toContain('timelineGapsOf');
     });
 });
-
 
 const FUNDED_SNAPSHOT: AccountSnapshotInput = {
     asOf: '2026-03-02',
@@ -1046,7 +1051,10 @@ function planValueRequestFor(plan: Plan = TOPSTEP_50K): OverviewRequest {
     return { ...first, spec: { ...first.spec, run: TINY_RUN } };
 }
 
-function rebuiltAccount(snapshot: AccountSnapshotInput, plan: Plan = TOPSTEP_50K) {
+function rebuiltAccount(
+    snapshot: AccountSnapshotInput,
+    plan: Plan = TOPSTEP_50K,
+) {
     return AccountReconstruction.rebuild(snapshot, plan);
 }
 
@@ -1227,7 +1235,8 @@ describe('overviewRequestSchema account requests (PT-37)', () => {
                 overviewRequestsByGroup([{ ...withAccount, kind }])[
                     OverviewRequestGroup.Accounts
                 ].length === 1;
-            const isProjection = kind === OverviewRequestKind.PortfolioProjection;
+            const isProjection =
+                kind === OverviewRequestKind.PortfolioProjection;
             const accountsCount = isProjection ? { accounts: 1 } : {};
             const accepted = overviewRequestSchema.safeParse({
                 ...(isAccountKind ? withAccount : withoutAccount),
@@ -1263,7 +1272,8 @@ describe('overviewRequestSchema account requests (PT-37)', () => {
     it('rejects a from-state start inside the spec: the worker builds the start from the snapshot', () => {
         const request = accountRequestFor(FUNDED_SNAPSHOT);
         const funded = rebuiltAccount(FUNDED_SNAPSHOT);
-        if (funded.kind === ReconstructedLiveKind.Live) throw new Error('expected a funded account');
+        if (funded.kind === ReconstructedLiveKind.Live)
+            throw new Error('expected a funded account');
         expect(
             overviewRequestSchema.safeParse({
                 ...request,
@@ -1287,9 +1297,7 @@ describe('overviewOutcomeOf account requests (PT-37, F-87, F-88)', () => {
         expect(figures.valueNow.kind).toBe(ValueResultKind.Value);
         expect(figures.valueNow.trials).toBe(TINY_RUN.trials);
         expect(figures.valueNow.seed).toBe(TINY_RUN.seed);
-        expect(
-            figures.valueNow.creditInclusive.standardError,
-        ).not.toBeNull();
+        expect(figures.valueNow.creditInclusive.standardError).not.toBeNull();
         expect(figures.valueNow.creditFree.standardError).not.toBeNull();
         const direct = valueAtState(
             rebuiltAccount(EVAL_SNAPSHOT),
@@ -1343,7 +1351,8 @@ describe('overviewOutcomeOf account requests (PT-37, F-87, F-88)', () => {
         expect(milestoneValueOf(figures).seed).toBe(figures.valueNow.seed);
 
         const account = rebuiltAccount(FUNDED_SNAPSHOT);
-        if (account.kind !== TradingPhase.Funded) throw new Error('expected funded');
+        if (account.kind !== TradingPhase.Funded)
+            throw new Error('expected funded');
         const start = startStateOf(account.plan, account);
         if (start.phase !== TradingPhase.Funded) {
             throw new Error('expected a funded start');
@@ -1363,7 +1372,8 @@ describe('overviewOutcomeOf account requests (PT-37, F-87, F-88)', () => {
         const request = accountRequestFor(FUNDED_SNAPSHOT);
         const figures = succeededAccount(request);
         const account = rebuiltAccount(FUNDED_SNAPSHOT);
-        if (account.kind !== TradingPhase.Funded) throw new Error('expected funded');
+        if (account.kind !== TradingPhase.Funded)
+            throw new Error('expected funded');
         const milestone = milestoneState(account, request.spec);
         if (milestone.kind !== MilestoneKind.Funded) {
             throw new Error('expected a funded milestone');
@@ -1372,7 +1382,8 @@ describe('overviewOutcomeOf account requests (PT-37, F-87, F-88)', () => {
             valueAtState(
                 {
                     ...account,
-                    cushion: milestone.state.balance - milestone.state.threshold,
+                    cushion:
+                        milestone.state.balance - milestone.state.threshold,
                     fundedTracker: fundedTrackerAfterMilestonePayout(
                         account,
                         milestone,
@@ -1422,7 +1433,10 @@ describe('overviewOutcomeOf account requests (PT-37, F-87, F-88)', () => {
         expect(figures.milestone.value.kind).toBe(
             ValueChainStepOutcomeKind.Unavailable,
         );
-        if (figures.milestone.value.kind !== ValueChainStepOutcomeKind.Unavailable) {
+        if (
+            figures.milestone.value.kind !==
+            ValueChainStepOutcomeKind.Unavailable
+        ) {
             return;
         }
         expect(figures.milestone.value.reason).toMatch(/busted/i);
@@ -1430,7 +1444,9 @@ describe('overviewOutcomeOf account requests (PT-37, F-87, F-88)', () => {
     });
 
     it('reports the credit-inclusive and credit-free from-state values as separate figures', () => {
-        const { valueNow } = succeededAccount(accountRequestFor(FUNDED_SNAPSHOT));
+        const { valueNow } = succeededAccount(
+            accountRequestFor(FUNDED_SNAPSHOT),
+        );
         expect(Object.keys(valueNow)).toEqual(
             expect.arrayContaining(['creditFree', 'creditInclusive']),
         );
@@ -1524,7 +1540,9 @@ describe('overviewPlanValueRequestsFor (PT-37, F-V16, F-V17)', () => {
 
     it('keys the plan values apart from the documented run of the same plan', () => {
         const documentedKey = overviewRequestKey(documentedOf(requestsFor()));
-        expect(overviewRequestKey(planValueRequestFor())).not.toBe(documentedKey);
+        expect(overviewRequestKey(planValueRequestFor())).not.toBe(
+            documentedKey,
+        );
     });
 
     it('skips a plan the engine no longer models', () => {
@@ -1555,11 +1573,15 @@ describe('overviewPlanValueRequestsFor (PT-37, F-V16, F-V17)', () => {
         expect(figures.retryFee).toBe(TOPSTEP_50K.retryFee());
         expect(figures.trials).toBe(TINY_RUN.trials);
 
-        expect(figures.valueFreshEval.creditInclusive.standardError).not.toBeNull();
-        expect(figures.freshFundedValue.creditInclusive.standardError).not.toBeNull();
         expect(
-            structuredClone(overviewOutcomeOf(request)),
-        ).toEqual(overviewOutcomeOf(request));
+            figures.valueFreshEval.creditInclusive.standardError,
+        ).not.toBeNull();
+        expect(
+            figures.freshFundedValue.creditInclusive.standardError,
+        ).not.toBeNull();
+        expect(structuredClone(overviewOutcomeOf(request))).toEqual(
+            overviewOutcomeOf(request),
+        );
     });
 
     it('leaves expectedNetPerAttempt with its SE on the documented-run figures EJ9 reads', () => {
@@ -1606,7 +1628,6 @@ describe('overviewRetireRequestsFor (PT-37, QV-19 information)', () => {
     });
 });
 
-
 function everyKind(): readonly OverviewRequest[] {
     const projection = projectionRequestsFor(TOPSTEP_50K, 2);
     return [
@@ -1633,7 +1654,6 @@ function everyKind(): readonly OverviewRequest[] {
 }
 
 describe('overviewRequestsByGroup (PT-37)', () => {
-
     it('sends every request kind to exactly one group and drops none', () => {
         const requests = everyKind();
         expect(new Set(requests.map((request) => request.kind))).toEqual(
@@ -1653,22 +1673,21 @@ describe('overviewRequestsByGroup (PT-37)', () => {
             OverviewRequestKind.DocumentedRun,
             OverviewRequestKind.PayoutSizeOptimum,
         ]);
-        expect(groups[OverviewRequestGroup.Projection].map((r) => r.kind)).toEqual(
-            [OverviewRequestKind.PortfolioProjection],
-        );
+        expect(
+            groups[OverviewRequestGroup.Projection].map((r) => r.kind),
+        ).toEqual([OverviewRequestKind.PortfolioProjection]);
         expect(groups[OverviewRequestGroup.Values].map((r) => r.kind)).toEqual([
             OverviewRequestKind.PlanValues,
             OverviewRequestKind.ValueChain,
         ]);
-        expect(groups[OverviewRequestGroup.Accounts].map((r) => r.kind)).toEqual(
-            [
-                OverviewRequestKind.AccountFromState,
-                OverviewRequestKind.RetireComparison,
-            ],
-        );
+        expect(
+            groups[OverviewRequestGroup.Accounts].map((r) => r.kind),
+        ).toEqual([
+            OverviewRequestKind.AccountFromState,
+            OverviewRequestKind.RetireComparison,
+        ]);
     });
 });
-
 
 function chainFigures(request: OverviewRequest): ValueChainFigures {
     const outcome = overviewOutcomeOf(request);
@@ -1698,8 +1717,6 @@ function chainRequestFor(plan: Plan): OverviewRequest {
 }
 
 describe('overviewValueChainRequestsFor (PT-37, F-V18)', () => {
-
-
     it('emits one value-chain request per plan, deduped, carrying only the spec and keyed apart from the plan values', () => {
         const input = {
             firmId: TOPSTEP_50K.id.firm,
@@ -1760,5 +1777,96 @@ describe('overviewValueChainRequestsFor (PT-37, F-V18)', () => {
             }
         }
         expect(structuredClone(figures)).toEqual(figures);
+    });
+});
+
+describe('the funded milestone is the lib request-now value (PT-37b)', () => {
+    it('reports the cash and the milestone value the lib request-now function builds, with its standard errors unchanged', () => {
+        const request = accountRequestFor(FUNDED_SNAPSHOT);
+        const figures = succeededAccount(request);
+        const account = rebuiltAccount(FUNDED_SNAPSHOT);
+        if (account.kind !== TradingPhase.Funded)
+            throw new Error('expected funded');
+        const milestone = milestoneState(account, request.spec);
+        if (milestone.kind !== MilestoneKind.Funded) {
+            throw new Error('expected a funded milestone');
+        }
+        const direct = requestNowValue(account, milestone, request.spec);
+        expect(figures.milestone.received).toBe(direct.traderReceives);
+        expect(milestoneValueOf(figures)).toEqual(direct.requestNow);
+    });
+
+    it('keeps no copy of the request-now construction or the session reset in the worker messages', () => {
+        const source = readFileSync(
+            path.join(
+                process.cwd(),
+                'src',
+                'app',
+                '(app)',
+                'prop-calculator',
+                '_workers',
+                'overviewWorkerMessages.ts',
+            ),
+            'utf8',
+        );
+        expect(source).toContain('requestNowValue');
+        expect(source).not.toContain('fundedTrackerAfterMilestonePayout');
+        expect(source).not.toContain('withCashReceived');
+        expect(source).not.toContain('fundedContinuationValueOf');
+        expect(source).not.toContain('resetForNewDay');
+    });
+});
+
+describe('a value chain step that throws fails only the steps that depend on it (PT-37b, PT-67b re-review LOW)', () => {
+    const UNKEEPABLE_CUSHION = 200_000;
+
+    function unkeepableCushionRequest(): OverviewRequest {
+        const request = chainRequestFor(TOPSTEP_50K);
+        return {
+            ...request,
+            spec: {
+                ...request.spec,
+                enginePolicy: {
+                    ...request.spec.enginePolicy,
+                    retainedCushionRequest: UNKEEPABLE_CUSHION,
+                },
+            },
+        };
+    }
+
+    it('lets the chain request succeed when no first payout eligible account can keep the retained cushion', () => {
+        const outcome = overviewOutcomeOf(unkeepableCushionRequest());
+        expect(outcome.kind).toBe(OverviewOutcomeKind.Succeeded);
+    });
+
+    it('marks only the two steps built from the eligible account unavailable, with the lib reason, and keeps eval start and fresh funded', () => {
+        const figures = chainFigures(unkeepableCushionRequest());
+        const byKind = new Map(
+            figures.steps.map((step) => [step.kind, step.outcome] as const),
+        );
+        expect(byKind.get(ValueChainStepKind.EvalStart)?.kind).toBe(
+            ValueChainStepOutcomeKind.Value,
+        );
+        expect(byKind.get(ValueChainStepKind.FreshFunded)?.kind).toBe(
+            ValueChainStepOutcomeKind.Value,
+        );
+        for (const kind of [
+            ValueChainStepKind.FirstPayoutEligible,
+            ValueChainStepKind.PostFirstPayout,
+        ]) {
+            const outcome = byKind.get(kind);
+            expect(outcome?.kind).toBe(ValueChainStepOutcomeKind.Unavailable);
+            expect(
+                outcome?.kind === ValueChainStepOutcomeKind.Unavailable
+                    ? outcome.reason
+                    : '',
+            ).toMatch(/no first-payout-eligible account/u);
+        }
+        expect(figures.steps.map((step) => step.kind)).toEqual([
+            ValueChainStepKind.EvalStart,
+            ValueChainStepKind.FreshFunded,
+            ValueChainStepKind.FirstPayoutEligible,
+            ValueChainStepKind.PostFirstPayout,
+        ]);
     });
 });

@@ -2,7 +2,10 @@ import { z } from 'zod';
 
 import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
-import { ToolsWorkerPhase, type ToolsWorkerState } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
+import {
+    ToolsWorkerPhase,
+    type ToolsWorkerState,
+} from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import {
     type BankrollPlanReference,
     type FundedValueEstimateToolsRequest,
@@ -27,11 +30,14 @@ import {
 import {
     CreditBasis,
     type FundedValueSampleRange,
+    VALUE_CHAIN_STEP_ORDER,
     type ValueChainResult,
     type ValueChainStepKind,
     valueGap,
 } from '~/lib/prop-calculator/advisor/value';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
+
+import { VALUE_CHAIN_STEP_LABEL } from './valueChainStepLabels';
 
 export enum ValueCardsInputKind {
     Ready = 'ready',
@@ -54,7 +60,10 @@ export type ValueCardsCalculatorInputs = Pick<
 >;
 
 export type ValueCardsInput =
-    | { readonly cards: ValueCardsSpec; readonly kind: ValueCardsInputKind.Ready }
+    | {
+          readonly cards: ValueCardsSpec;
+          readonly kind: ValueCardsInputKind.Ready;
+      }
     | { readonly kind: ValueCardsInputKind.Refused; readonly reason: string };
 
 export interface ValueCardsSpec {
@@ -62,7 +71,13 @@ export interface ValueCardsSpec {
     readonly spec: DocumentedPolicySpec;
 }
 
+export interface ValueChainCardFailure {
+    readonly kind: ValueChainStepKind;
+    readonly text: string;
+}
+
 export interface ValueChainCardStep {
+    readonly assumptions: readonly string[];
     readonly creditFree: UncertainValue;
     readonly creditInclusive: UncertainValue;
     readonly gapFromPrevious: null | UncertainValue;
@@ -112,13 +127,17 @@ export function parseFundedValueSampleSizeField(raw: string): null | number {
     return parsed.success ? parsed.data : null;
 }
 
-export function sampleRangeSubText(range: FundedValueSampleRange | null): string {
+export function sampleRangeSubText(
+    range: FundedValueSampleRange | null,
+): string {
     return range === null
         ? 'enter a sample size'
         : `${range.label}, n = ${String(range.sampleSize)}`;
 }
 
-export function sampleRangeText(range: FundedValueSampleRange | null): null | string {
+export function sampleRangeText(
+    range: FundedValueSampleRange | null,
+): null | string {
     return range === null
         ? null
         : `${range.lower.toFixed(2)} to ${range.upper.toFixed(2)}`;
@@ -128,7 +147,9 @@ export function signedCurrencyText(amount: number): string {
     return `${amount >= 0 ? '+' : ''}${formatGateCurrency(amount)}`;
 }
 
-export function toolsWorkerFailureReason(state: ToolsWorkerState): null | string {
+export function toolsWorkerFailureReason(
+    state: ToolsWorkerState,
+): null | string {
     return state.phase === ToolsWorkerPhase.Failed ? state.reason : null;
 }
 
@@ -176,21 +197,29 @@ export function valueCardsInputFor(
         positionSizing:
             inputs.instrument === null || inputs.stopPoints === null
                 ? null
-                : { instrument: inputs.instrument, stopPoints: points(inputs.stopPoints) },
+                : {
+                      instrument: inputs.instrument,
+                      stopPoints: points(inputs.stopPoints),
+                  },
         rulebook,
     });
     const effectivePayoutRequestSize =
-        inputs.payoutRequestSize ?? rulebook.payout.requestCents / CENTS_PER_DOLLAR;
+        inputs.payoutRequestSize ??
+        rulebook.payout.requestCents / CENTS_PER_DOLLAR;
     const parsedPolicy = enginePolicySchema.safeParse({
         ...builtPolicy,
         payoutRequestOverride: effectivePayoutRequestSize,
-        retainedCushionRequest: inputs.retainedCushion ?? builtPolicy.retainedCushionRequest,
+        retainedCushionRequest:
+            inputs.retainedCushion ?? builtPolicy.retainedCushionRequest,
     });
     if (!parsedPolicy.success) {
         return {
             kind: ValueCardsInputKind.Refused,
             reason: parsedPolicy.error.issues
-                .map((issue) => `${calculatorFieldLabelOf(issue.path)}: ${issue.message}`)
+                .map(
+                    (issue) =>
+                        `${calculatorFieldLabelOf(issue.path)}: ${issue.message}`,
+                )
                 .join('; '),
         };
     }
@@ -217,18 +246,47 @@ export function valueCardsInputFor(
     return { cards, kind: ValueCardsInputKind.Ready };
 }
 
+export function valueChainCardFailures(
+    result: ValueChainResult,
+): readonly ValueChainCardFailure[] {
+    return result.failedSteps
+        .toSorted(
+            (left, right) =>
+                VALUE_CHAIN_STEP_ORDER.indexOf(left.kind) -
+                VALUE_CHAIN_STEP_ORDER.indexOf(right.kind),
+        )
+        .map((failure) => ({
+            kind: failure.kind,
+            text: `${VALUE_CHAIN_STEP_LABEL[failure.kind]}: ${failure.reason}`,
+        }));
+}
+
 export function valueChainCardSteps(
     result: ValueChainResult,
 ): readonly ValueChainCardStep[] {
-    return result.steps.map((step, index) => {
-        const previous = index === 0 ? null : (result.steps[index - 1] ?? null);
+    return result.steps.map((step) => {
+        const precedingKind =
+            VALUE_CHAIN_STEP_ORDER[
+                VALUE_CHAIN_STEP_ORDER.indexOf(step.kind) - 1
+            ];
+        const previous =
+            precedingKind === undefined
+                ? null
+                : (result.steps.find(
+                      (candidate) => candidate.kind === precedingKind,
+                  ) ?? null);
         return {
+            assumptions: step.assumptions,
             creditFree: step.value.creditFree,
             creditInclusive: step.value.creditInclusive,
             gapFromPrevious:
                 previous === null
                     ? null
-                    : valueGap(previous.value, step.value, CreditBasis.CreditFree),
+                    : valueGap(
+                          previous.value,
+                          step.value,
+                          CreditBasis.CreditFree,
+                      ),
             kind: step.kind,
         };
     });

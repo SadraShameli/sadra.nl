@@ -22,8 +22,7 @@ export const REDUCED_RISK_WHAT_IF_LABEL =
     'what-if: your documented rung is unchanged (QV-18)';
 
 export type PayoutStakeComparisonOutcome =
-    | PayoutStakeComparisonResult
-    | ValueNotModeledResult;
+    PayoutStakeComparisonResult | ValueNotModeledResult;
 
 export interface PayoutStakeComparisonRequest {
     readonly reducedRiskDollars?: number;

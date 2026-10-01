@@ -38,9 +38,8 @@ vi.mock('~/lib/prop-calculator', async (importOriginal) => {
     };
 });
 
-const { AccountPlanIntent, upgradePlanSelection } = await import(
-    '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions'
-);
+const { AccountPlanIntent, upgradePlanSelection } =
+    await import('~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions');
 const { FirmId } = await import('~/lib/prop-calculator');
 
 describe('upgradePlanSelection honours the intent when the size-matched plan is discontinued (PT-71h)', () => {

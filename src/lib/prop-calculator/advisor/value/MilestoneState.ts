@@ -4,6 +4,7 @@ import {
     LiveNotModeledReason,
     livePlanApplicability,
 } from '~/lib/prop-calculator/advisor/LivePlanApplicability';
+import { evaluateDocumentedPayout } from '~/lib/prop-calculator/advisor/PayoutReadiness';
 import {
     type DocumentedPolicySpec,
     documentedPolicySpecSchema,
@@ -24,6 +25,9 @@ import {
     dollars,
     type FundedCycleTracker,
     type LiveAccountState,
+    type PayoutEvaluation,
+    PayoutEvaluationKind,
+    type Plan,
     postPayoutThreshold,
     recordBestDay,
     resetForNewDay,
@@ -77,9 +81,7 @@ export interface MilestoneNotModeled {
 export type MilestoneOutcome = MilestoneNotModeled | MilestoneStateResult;
 
 export type MilestoneStateResult =
-    | EvalMilestone
-    | FundedMilestone
-    | LiveMilestone;
+    EvalMilestone | FundedMilestone | LiveMilestone;
 
 export function accountAfterClosedSession(
     account: ReconstructedFundedOrEvalAccount,
@@ -128,6 +130,42 @@ export function closedSessionOf(
     };
 }
 
+export function documentedPayoutEvaluation(
+    account: ReconstructedFundedOrEvalAccount,
+    spec: DocumentedPolicySpec,
+): PayoutEvaluation {
+    const { fundedTracker } = account;
+    if (fundedTracker === null) {
+        throw new Error(
+            'value/MilestoneState: a funded account needs its funded cycle tracker',
+        );
+    }
+    const plan = resolveDocumentedPlan(account.plan, spec.enginePolicy);
+    return evaluateDocumentedPayout({
+        minRetainedCushion: documentedRetainedCushion(plan, spec),
+        payoutRequestSize: resolveDocumentedPayoutRequestSize(
+            plan,
+            spec.enginePolicy,
+            spec.rulebook.payout,
+        ),
+        plan,
+        state: account.state,
+        tracker: fundedTracker,
+    });
+}
+
+export function documentedRetainedCushion(
+    plan: Plan,
+    spec: DocumentedPolicySpec,
+): number {
+    return plan.resolveRetainedCushion(
+        resolveDocumentedRetainedCushion(
+            spec.enginePolicy,
+            spec.rulebook.payout,
+        ),
+    );
+}
+
 export function milestoneState(
     account: ReconstructedAccount,
     spec: DocumentedPolicySpec,
@@ -174,11 +212,15 @@ function fundedMilestone(
             'value/MilestoneState: a funded account needs its funded cycle tracker',
         );
     }
-    const debited = resolveDocumentedPayoutRequestSize(
-        plan,
-        spec.enginePolicy,
-        spec.rulebook.payout,
-    );
+    const evaluation = documentedPayoutEvaluation(account, spec);
+    const debited =
+        evaluation.kind === PayoutEvaluationKind.Eligible
+            ? evaluation.debited
+            : resolveDocumentedPayoutRequestSize(
+                  plan,
+                  spec.enginePolicy,
+                  spec.rulebook.payout,
+              );
     const balanceAfter = account.state.balance - debited;
     const state: AccountState = {
         ...account.state,
@@ -220,7 +262,10 @@ function liveMilestone(
     }
     const livePlan = account.livePlan;
     const retainedCushion = dollars(
-        resolveDocumentedRetainedCushion(spec.enginePolicy, spec.rulebook.payout),
+        resolveDocumentedRetainedCushion(
+            spec.enginePolicy,
+            spec.rulebook.payout,
+        ),
     );
     const debited = livePlan.payoutRequestAmount(
         account.state,

@@ -20,7 +20,9 @@ import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPag
 export function BankrollView() {
     const searchParameters = useSearchParams();
     const [state, setState] = useState<BankrollUrlState>(() =>
-        decodeBankrollUrlState(new URLSearchParams(searchParameters.toString())),
+        decodeBankrollUrlState(
+            new URLSearchParams(searchParameters.toString()),
+        ),
     );
 
     const change = (patch: Partial<BankrollUrlState>): void => {

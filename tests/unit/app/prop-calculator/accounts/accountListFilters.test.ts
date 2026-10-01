@@ -725,10 +725,15 @@ describe('sortAccountRows', () => {
         includeArchived: true,
     });
 
-    it('sorts by label, case-insensitively, by default', () => {
-        expect(ids(sortAccountRows(active, DEFAULT_ACCOUNT_LIST_SORT))).toEqual(
-            ['alpha', 'bravo', 'charlie', 'delta'],
-        );
+    it('sorts by label, case-insensitively', () => {
+        expect(
+            ids(
+                sortAccountRows(active, {
+                    direction: SortDirection.Ascending,
+                    key: AccountSortKey.Label,
+                }),
+            ),
+        ).toEqual(['alpha', 'bravo', 'charlie', 'delta']);
         expect(
             ids(
                 sortAccountRows(active, {
@@ -1016,13 +1021,11 @@ describe('buildAccountListRows with the cushion and payout readiness boards (F-8
     });
 
     it('identifies the readiness tiers by name, so reordering them cannot change a sort', () => {
-        expect(Object.values(PayoutReadinessTier).toSorted((a, b) =>
-            a.localeCompare(b),
-        )).toEqual([
-            'blocked',
-            'eligible',
-            'waiting',
-        ]);
+        expect(
+            Object.values(PayoutReadinessTier).toSorted((a, b) =>
+                a.localeCompare(b),
+            ),
+        ).toEqual(['blocked', 'eligible', 'waiting']);
     });
 
     it('counts a pending payout request as waiting, since it resolves without more profit', () => {
@@ -1080,5 +1083,123 @@ describe('buildAccountListRows with the cushion and payout readiness boards (F-8
         expect(
             without.find((row) => row.account.id === 'alpha')?.readiness,
         ).toBeNull();
+    });
+});
+
+describe('expected value ordering (F-V18, PT-68)', () => {
+    const accounts = [
+        account('low', { label: 'Low' }),
+        account('high', { label: 'High' }),
+        account('unvalued', { label: 'Unvalued' }),
+        account('mid-eligible', { label: 'Mid eligible' }),
+        account('mid-waiting', { label: 'Mid waiting' }),
+        account('mid-blocked', { label: 'Mid blocked' }),
+        account('mid-unranked', { label: 'Mid unranked' }),
+    ];
+    const values = new Map<string, null | number>([
+        ['high', 4000],
+        ['low', 100],
+        ['mid-blocked', 900],
+        ['mid-eligible', 900],
+        ['mid-unranked', 900],
+        ['mid-waiting', 900],
+        ['unvalued', null],
+    ]);
+    const tiers: Readonly<Record<string, PayoutReadinessTier>> = {
+        'mid-blocked': PayoutReadinessTier.Blocked,
+        'mid-eligible': PayoutReadinessTier.Eligible,
+        'mid-waiting': PayoutReadinessTier.Waiting,
+    };
+    const rows = buildAccountListRows(accounts, [], null, values).map(
+        (row) => ({ ...row, readiness: tiers[row.account.id] ?? null }),
+    );
+
+    it('carries the credit-free expected value on each row, null when none is known', () => {
+        const byId = new Map(rows.map((row) => [row.account.id, row]));
+        expect(byId.get('high')?.expectedValueDollars).toBe(4000);
+        expect(byId.get('unvalued')?.expectedValueDollars).toBeNull();
+        const without = buildAccountListRows(accounts, []);
+        expect(without.every((row) => row.expectedValueDollars === null)).toBe(
+            true,
+        );
+    });
+
+    it('orders by expected value, highest first, with unvalued accounts last', () => {
+        expect(
+            ids(
+                sortAccountRows(rows, {
+                    direction: SortDirection.Descending,
+                    key: AccountSortKey.ExpectedValue,
+                }),
+            ),
+        ).toEqual([
+            'high',
+            'mid-eligible',
+            'mid-waiting',
+            'mid-blocked',
+            'mid-unranked',
+            'low',
+            'unvalued',
+        ]);
+    });
+
+    it('breaks a tie on expected value by readiness, most ready first, in both directions', () => {
+        const ascending = ids(
+            sortAccountRows(rows, {
+                direction: SortDirection.Ascending,
+                key: AccountSortKey.ExpectedValue,
+            }),
+        );
+        expect(ascending).toEqual([
+            'low',
+            'mid-eligible',
+            'mid-waiting',
+            'mid-blocked',
+            'mid-unranked',
+            'high',
+            'unvalued',
+        ]);
+    });
+
+    it('breaks a remaining tie by label', () => {
+        const tied = buildAccountListRows(
+            [
+                account('b', { label: 'Bravo' }),
+                account('a', { label: 'alpha' }),
+            ],
+            [],
+            null,
+            new Map([
+                ['a', 50],
+                ['b', 50],
+            ]),
+        );
+        expect(
+            ids(
+                sortAccountRows(tied, {
+                    direction: SortDirection.Descending,
+                    key: AccountSortKey.ExpectedValue,
+                }),
+            ),
+        ).toEqual(['a', 'b']);
+    });
+
+    it('lists accounts by expected value, highest first, by default', () => {
+        expect(DEFAULT_ACCOUNT_LIST_SORT).toEqual({
+            direction: SortDirection.Descending,
+            key: AccountSortKey.ExpectedValue,
+        });
+        expect(ids(sortAccountRows(rows, DEFAULT_ACCOUNT_LIST_SORT))[0]).toBe(
+            'high',
+        );
+    });
+
+    it('does not mutate its input', () => {
+        const before = ids(rows);
+        sortAccountRows(rows, {
+            direction: SortDirection.Descending,
+            key: AccountSortKey.ExpectedValue,
+        });
+        expect(ids(rows)).toEqual(before);
     });
 });

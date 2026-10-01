@@ -56,7 +56,9 @@ function dailyPlanCardFixture(hasRungs: boolean): DailyPlanCard {
     return {
         rungs: hasRungs ? documentedSizingFixture().rungs : [],
         stopCappedBy: [],
-        stopReason: hasRungs ? DayStopReason.MaxTrades : DayStopReason.NoLossRoom,
+        stopReason: hasRungs
+            ? DayStopReason.MaxTrades
+            : DayStopReason.NoLossRoom,
         valueAfterLoss: null,
         valueAfterWin: null,
         valueNow: null,
@@ -152,7 +154,9 @@ describe('accountActionOf (F-V18, F-V19, F-V20, PT-74b step 3)', () => {
     });
 
     it('gives StopForToday when the daily plan card has no rungs left to trade', () => {
-        const advice = adviceFixture({ dailyPlanCard: dailyPlanCardFixture(false) });
+        const advice = adviceFixture({
+            dailyPlanCard: dailyPlanCardFixture(false),
+        });
         const result = accountActionOf(
             advice,
             BLOCKED_READINESS,
@@ -171,7 +175,9 @@ describe('accountActionOf (F-V18, F-V19, F-V20, PT-74b step 3)', () => {
             NO_SETTINGS,
         );
         expect(result.action).toBe(AccountAction.Trade);
-        expect(result.retireVerdict).toBe(RetireComparisonVerdict.SwitchBeatsKeep);
+        expect(result.retireVerdict).toBe(
+            RetireComparisonVerdict.SwitchBeatsKeep,
+        );
     });
 
     it('gives Retire only when SwitchBeatsKeep and the settings flag (QV-19) is on', () => {

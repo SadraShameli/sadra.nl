@@ -12,10 +12,7 @@ import {
 import { mulberry32 } from '~/lib/prop-calculator/rng';
 import { percentile } from '~/lib/prop-calculator/stats';
 
-import {
-    earliestActivityMonth,
-    filledMonths,
-} from './MonthlyStatement';
+import { earliestActivityMonth, filledMonths } from './MonthlyStatement';
 import {
     finalState,
     type LedgerAccount,
@@ -84,16 +81,17 @@ export function cohortByPurchaseWindow(
 export function pooledEndedCohortMultiple(
     ledger: PortfolioLedger,
 ): CohortMultiple | null {
-    return bootstrapCohortMultiple(
-        ledger.resolvedAccounts.filter(isEnded),
-    );
+    return bootstrapCohortMultiple(ledger.resolvedAccounts.filter(isEnded));
 }
 
 export function purchaseCohorts(
     ledger: PortfolioLedger,
     asOf: string,
 ): readonly PurchaseCohortMonth[] {
-    const months = filledMonths(earliestActivityMonth(ledger), isoMonthOf(asOf));
+    const months = filledMonths(
+        earliestActivityMonth(ledger),
+        isoMonthOf(asOf),
+    );
     return months.map((month) => ({
         month,
         ...cohortByPurchaseWindow(

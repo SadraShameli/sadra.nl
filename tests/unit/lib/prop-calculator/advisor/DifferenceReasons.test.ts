@@ -57,7 +57,7 @@ describe('differenceReasonText (F-124, PD-32 sentinel test)', () => {
         expect(digitsOf(text)).toBe('995050');
     });
 
-    it('pins the WouldTriggerLive text on today\'s string-only trigger field (PT-36b: not typed numeric fields; PayoutRequestRule/PayoutReadiness carry the numbers separately)', () => {
+    it("pins the WouldTriggerLive text on today's string-only trigger field (PT-36b: not typed numeric fields; PayoutRequestRule/PayoutReadiness carry the numbers separately)", () => {
         const text = differenceReasonText({
             kind: DifferenceReason.WouldTriggerLive,
             trigger: '2 of 3 payouts taken',
@@ -116,18 +116,18 @@ function alphabetically(a: string, b: string): number {
 
 describe('exhaustive text maps (PT-19 step 8)', () => {
     it('covers every SizingConstraint member with non-empty text', () => {
-        expect(Object.keys(SIZING_CONSTRAINT_TEXT).toSorted(alphabetically)).toEqual(
-            Object.values(SizingConstraint).toSorted(alphabetically),
-        );
+        expect(
+            Object.keys(SIZING_CONSTRAINT_TEXT).toSorted(alphabetically),
+        ).toEqual(Object.values(SizingConstraint).toSorted(alphabetically));
         for (const text of Object.values(SIZING_CONSTRAINT_TEXT)) {
             expect(text.length).toBeGreaterThan(0);
         }
     });
 
     it('covers every DayStopReason member with non-empty text', () => {
-        expect(Object.keys(DAY_STOP_REASON_TEXT).toSorted(alphabetically)).toEqual(
-            Object.values(DayStopReason).toSorted(alphabetically),
-        );
+        expect(
+            Object.keys(DAY_STOP_REASON_TEXT).toSorted(alphabetically),
+        ).toEqual(Object.values(DayStopReason).toSorted(alphabetically));
         for (const text of Object.values(DAY_STOP_REASON_TEXT)) {
             expect(text.length).toBeGreaterThan(0);
         }

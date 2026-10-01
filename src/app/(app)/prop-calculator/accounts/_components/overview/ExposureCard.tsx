@@ -9,11 +9,7 @@ import {
 
 import { type ExposureCardModel } from './overviewModel';
 
-export function ExposureCard({
-    model,
-}: {
-    readonly model: ExposureCardModel;
-}) {
+export function ExposureCard({ model }: { readonly model: ExposureCardModel }) {
     return (
         <div className="flex flex-col gap-3">
             {model.accounts.length === 0 ? (

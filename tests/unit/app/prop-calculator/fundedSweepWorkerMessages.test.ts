@@ -19,7 +19,10 @@ import {
     PayoutRequestPolicy,
     serializePlanId,
 } from '~/lib/prop-calculator';
-import { applyEnginePolicy, DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    applyEnginePolicy,
+    DEFAULT_RULEBOOK,
+} from '~/lib/prop-calculator/advisor';
 import { type Plan, TopStepVariant } from '~/lib/prop-calculator/core';
 
 function requirePlan(value: null | Plan | undefined, message: string): Plan {

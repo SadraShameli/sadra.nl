@@ -169,6 +169,7 @@ const EXPECTED_ASSUMPTION_KINDS = [
     'ElapsedDaysApproximatedFromTradingDays',
     'FundedResetsFromEvents',
     'GrossOnlyPayouts',
+    'LadderStepWidened',
     'LastPayoutBalanceAssumedCurrent',
     'LiveModelApproximation',
     'LiveNotModeled',

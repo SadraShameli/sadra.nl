@@ -1,4 +1,9 @@
-import { type Dollars, dollars, fraction, type Fraction0to1 } from '~/lib/prop-calculator/core';
+import {
+    type Dollars,
+    dollars,
+    fraction,
+    type Fraction0to1,
+} from '~/lib/prop-calculator/core';
 
 import { cohortOutcome, LOSS_RISK_DRAWS } from './CohortOutcome';
 import {
@@ -47,7 +52,10 @@ export interface BankrollLeverRow {
 }
 
 export interface BankrollLeverVariant {
-    kind: BankrollLeverKind.RequestSize | BankrollLeverKind.Risk | BankrollLeverKind.TradesPerDay;
+    kind:
+        | BankrollLeverKind.RequestSize
+        | BankrollLeverKind.Risk
+        | BankrollLeverKind.TradesPerDay;
     outputs: BankrollLeverOutputs;
     value: number;
 }
@@ -126,7 +134,10 @@ function leverRow(
     seed: number,
     label: BankrollLeverLabel | null,
 ): BankrollLeverRow {
-    const attempts = attemptsAffordable(bankroll, dollars(outputs.costPerAttempt));
+    const attempts = attemptsAffordable(
+        bankroll,
+        dollars(outputs.costPerAttempt),
+    );
     const lossRisk =
         attempts.value === null
             ? missingQuantity(attempts.reason)
@@ -134,9 +145,11 @@ function leverRow(
     return {
         attemptPaysProbability: outputs.attemptPaysProbability,
         deltaAttemptPaysProbability:
-            outputs.attemptPaysProbability.value - base.attemptPaysProbability.value,
+            outputs.attemptPaysProbability.value -
+            base.attemptPaysProbability.value,
         deltaEvPerAttempt: dollars(
-            outputs.expectedNetPerAttempt.value - base.expectedNetPerAttempt.value,
+            outputs.expectedNetPerAttempt.value -
+                base.expectedNetPerAttempt.value,
         ),
         deltaMonthlyNet: dollars(
             outputs.expectedMonthlyNet.value - base.expectedMonthlyNet.value,
