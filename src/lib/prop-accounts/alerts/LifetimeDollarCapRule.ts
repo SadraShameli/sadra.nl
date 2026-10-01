@@ -3,6 +3,7 @@ import {
     compareText,
     findStoredFirm,
     formatUsdCents,
+    joinWithAnd,
     PayoutStatus,
     PlanKeyResolutionKind,
     sumUsdCents,
@@ -141,7 +142,7 @@ export class LifetimeDollarCapRule extends AccountAlertRule {
         if (isAtCap(received.certainCents)) {
             const uncounted =
                 unconfirmed.length > 0
-                    ? `, not counting ${listOf(unconfirmed.map((entry) => entry.short))}`
+                    ? `, not counting ${joinWithAnd(unconfirmed.map((entry) => entry.short))}`
                     : '';
             return this.alertFor(
                 monitored,
@@ -159,7 +160,7 @@ export class LifetimeDollarCapRule extends AccountAlertRule {
             return this.alertFor(
                 monitored,
                 AlertSeverity.Warning,
-                `${progress}, counting ${listOf([...grossCountOf(received), ...unconfirmed.map((entry) => entry.full)])}, so the cap may already be reached; ${WARNING_ONLY}; ${tail}`,
+                `${progress}, counting ${joinWithAnd([...grossCountOf(received), ...unconfirmed.map((entry) => entry.full)])}, so the cap may already be reached; ${WARNING_ONLY}; ${tail}`,
                 disclosures,
             );
         }
@@ -190,7 +191,7 @@ export class LifetimeDollarCapRule extends AccountAlertRule {
                 : '';
         const counting =
             unconfirmed.length > 0
-                ? `, counting ${listOf(unconfirmed.map((entry) => entry.full))}`
+                ? `, counting ${joinWithAnd(unconfirmed.map((entry) => entry.full))}`
                 : '';
         const leftCents = usdCents(Math.max(0, capCents - committedCents));
         const reach = isAtCap(committedCents)
@@ -372,13 +373,6 @@ function largerFigure(
     right: PayoutLedgerTotal,
 ): PayoutLedgerTotal {
     return right.cents > left.cents ? right : left;
-}
-
-function listOf(items: readonly string[]): string {
-    const last = items.at(-1);
-    return last === undefined || items.length === 1
-        ? items.join('')
-        : `${items.slice(0, -1).join(', ')} and ${last}`;
 }
 
 function movedLiveCount(accounts: number): string {

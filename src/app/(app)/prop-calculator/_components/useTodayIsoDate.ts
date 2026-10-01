@@ -1,8 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
 import { MS_PER_DAY, todayIsoDate } from '~/lib/prop-accounts';
+
+export function useFollowToday({
+    isEnabled,
+    read,
+    today,
+    write,
+}: {
+    readonly isEnabled: boolean;
+    readonly read: () => string;
+    readonly today: string;
+    readonly write: (day: string) => void;
+}) {
+    const seededDay = useRef(today);
+    const follow = useEffectEvent((day: string) => {
+        const previous = seededDay.current;
+        seededDay.current = day;
+        if (isEnabled && read() === previous) write(day);
+    });
+    useEffect(() => {
+        if (seededDay.current !== today) follow(today);
+    }, [today]);
+}
 
 export function useTodayIsoDate(): string {
     const [nowMs, setNowMs] = useState(() => Date.now());

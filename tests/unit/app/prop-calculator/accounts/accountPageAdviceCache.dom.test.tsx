@@ -59,21 +59,39 @@ vi.mock(
     }),
 );
 
+vi.mock(
+    '~/app/(app)/prop-calculator/accounts/_components/AccountsSubnav',
+    () => ({ AccountsSubnav: () => null }),
+);
+
 const { default: PropAccountDetailPage } = await import(
     '~/app/(app)/prop-calculator/accounts/[id]/page'
 );
+const { default: PropAccountsLayout } = await import(
+    '~/app/(app)/prop-calculator/accounts/layout'
+);
 
-describe('the account page advice cache (PT-34c)', () => {
+function CacheProbe() {
+    probe.seen.push(useContext(ComputationCacheContext));
+    return null;
+}
+
+describe('the accounts pages share one computation cache (PT-34c, PT-21c)', () => {
     let container: HTMLDivElement;
     let root: Root;
+
+    async function renderInLayout(children: ReactNode) {
+        const tree = await PropAccountsLayout({ children });
+        act(() => {
+            root.render(tree);
+        });
+    }
 
     async function renderPage() {
         const page = await PropAccountDetailPage({
             params: Promise.resolve({ id: ACCOUNT_ID }),
         });
-        act(() => {
-            root.render(page);
-        });
+        await renderInLayout(page);
     }
 
     beforeEach(() => {
@@ -110,5 +128,19 @@ describe('the account page advice cache (PT-34c)', () => {
 
         expect(first).not.toBeNull();
         expect(probe.seen.at(-1)).toBe(first);
+    });
+
+    it('gives the overview and every other accounts page the same cache as the account page', async () => {
+        await renderPage();
+        const advice = probe.seen.at(-1);
+
+        act(() => {
+            root.unmount();
+        });
+        root = createRoot(container);
+        await renderInLayout(<CacheProbe />);
+
+        expect(advice).not.toBeNull();
+        expect(probe.seen.at(-1)).toBe(advice);
     });
 });

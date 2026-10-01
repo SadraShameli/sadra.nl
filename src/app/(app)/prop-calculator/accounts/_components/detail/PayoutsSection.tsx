@@ -7,6 +7,10 @@ import { type Control, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import {
+    useFollowToday,
+    useTodayIsoDate,
+} from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
 import { payoutStatusLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Button } from '~/components/ui/Button';
@@ -41,7 +45,6 @@ import {
     parseMoneyText,
     PayoutStatus,
     summarizeCash,
-    todayIsoDate,
     usdCentsToText,
 } from '~/lib/prop-accounts';
 import { payoutCreateSchema } from '~/lib/schemas/propAccounts';
@@ -225,14 +228,14 @@ function DateField({
     );
 }
 
-function emptyPayoutValues(): PayoutFormValues {
+function emptyPayoutValues(today: string): PayoutFormValues {
     return {
         approvedOn: '',
         grossCents: '',
         netCents: '',
         note: '',
         paidOn: '',
-        requestedOn: todayIsoDate(new Date()),
+        requestedOn: today,
         status: PayoutStatus.Requested,
     };
 }
@@ -282,14 +285,23 @@ function PayoutForm({
     const create = api.propAccounts.payout.create.useMutation();
     const update = api.propAccounts.payout.update.useMutation();
     const schema = payoutFormSchema(accountId);
+    const today = useTodayIsoDate();
     const defaults =
-        editing === null ? emptyPayoutValues() : storedPayoutValues(editing);
+        editing === null ? emptyPayoutValues(today) : storedPayoutValues(editing);
     const form = useForm<PayoutFormValues>({
         defaultValues: defaults,
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
     const { setFocus } = form;
     const isEditing = editing !== null;
+    useFollowToday({
+        isEnabled: !isEditing,
+        read: () => form.getValues('requestedOn'),
+        today,
+        write: (day) => {
+            form.resetField('requestedOn', { defaultValue: day });
+        },
+    });
 
     useEffect(() => {
         if (isEditing) setFocus('requestedOn');
@@ -316,7 +328,7 @@ function PayoutForm({
                 });
                 toast.success('Payout saved');
             }
-            form.reset(emptyPayoutValues());
+            form.reset(emptyPayoutValues(today));
             onDone();
         } catch (error) {
             onFailure(error);

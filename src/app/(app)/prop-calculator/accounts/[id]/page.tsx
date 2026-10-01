@@ -1,6 +1,5 @@
 import { type Metadata } from 'next';
 
-import { AdviceCacheProvider } from '~/app/(app)/prop-calculator/accounts/_components/advice/AdviceCacheProvider';
 import { AdvicePanel } from '~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel';
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
 import { openAccountPage } from '~/app/(app)/prop-calculator/accounts/_components/detail/accountIdParameter';
@@ -49,9 +48,7 @@ export default async function PropAccountDetailPage({
                 )}
             >
                 <AccountDetailView id={id} userId={userId} />
-                <AdviceCacheProvider>
-                    <AdvicePanel id={id} />
-                </AdviceCacheProvider>
+                <AdvicePanel id={id} />
             </main>
         </HydrateClient>
     );

@@ -7,6 +7,10 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import {
+    useFollowToday,
+    useTodayIsoDate,
+} from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { feeKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Button } from '~/components/ui/Button';
 import {
@@ -44,7 +48,6 @@ import {
     type FeePrefillPlan,
     formatUsdCents,
     parseMoneyText,
-    todayIsoDate,
     usdCents,
     usdCentsToText,
 } from '~/lib/prop-accounts';
@@ -206,14 +209,14 @@ export function FeesSection({
     );
 }
 
-function emptyFeeValues(plan: FeePrefillPlan | null): FeeFormValues {
+function emptyFeeValues(plan: FeePrefillPlan | null, today: string): FeeFormValues {
     const kind =
         plan === null ? FeeKind.EvalPurchase : feePrefillDefaultKind(plan);
     return {
         amountCents: prefillText(plan, kind),
         kind,
         note: '',
-        paidOn: todayIsoDate(new Date()),
+        paidOn: today,
     };
 }
 
@@ -234,10 +237,11 @@ function FeeForm({
     const create = api.propAccounts.fee.create.useMutation();
     const update = api.propAccounts.fee.update.useMutation();
     const schema = feeFormSchema(accountId);
+    const today = useTodayIsoDate();
     const form = useForm<FeeFormValues>({
         defaultValues:
             editing === null
-                ? emptyFeeValues(plan)
+                ? emptyFeeValues(plan, today)
                 : {
                       amountCents: usdCentsToText(editing.amountCents),
                       kind: editing.kind,
@@ -248,6 +252,14 @@ function FeeForm({
     });
     const { setFocus } = form;
     const isEditing = editing !== null;
+    useFollowToday({
+        isEnabled: !isEditing,
+        read: () => form.getValues('paidOn'),
+        today,
+        write: (day) => {
+            form.resetField('paidOn', { defaultValue: day });
+        },
+    });
 
     useEffect(() => {
         if (isEditing) setFocus('kind');
@@ -280,7 +292,7 @@ function FeeForm({
                 });
                 toast.success('Fee saved');
             }
-            form.reset(emptyFeeValues(plan));
+            form.reset(emptyFeeValues(plan, today));
             onDone();
         } catch (error) {
             onFailure(error);

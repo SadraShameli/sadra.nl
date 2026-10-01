@@ -126,8 +126,6 @@ export interface DpInputs {
     winrate: Fraction0to1;
 }
 
-type ResolvedCushionGrid = FundedStateValueResult['cushionGrid'];
-
 interface DpCushionGrid {
     cushionStepMultiple: number;
     hasTail: boolean;
@@ -135,6 +133,8 @@ interface DpCushionGrid {
     maxTailCushionMultiple: number;
     tailCushionStepMultiple: number;
 }
+
+type ResolvedCushionGrid = FundedStateValueResult['cushionGrid'];
 
 export const EMPIRICAL_MAX_ATTEMPTS = 1000;
 

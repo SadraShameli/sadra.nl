@@ -67,6 +67,14 @@ describe('ACCOUNTS_NAV_CATALOG', () => {
         ).toBe(true);
     });
 
+    it('gives the next slot page a nav entry now that it is built', () => {
+        expect(
+            ACCOUNTS_NAV_CATALOG.find((item) => item.href === accounts.nextSlot)
+                ?.hasPage,
+        ).toBe(true);
+        expect(hasAccountsPage(accounts.nextSlot)).toBe(true);
+    });
+
     it('matches the overview item by prefix and every other item exactly', () => {
         const overview = ACCOUNTS_NAV_CATALOG.find(
             (item) => item.href === accounts.index,

@@ -248,6 +248,14 @@ describe('EventsSection live exclusivity preview and confirm', () => {
               );
     }
 
+    function recordButton(): HTMLButtonElement {
+        const button = [...container.querySelectorAll('button')].find(
+            (candidate) => candidate.textContent.trim() === 'Record event',
+        );
+        if (button === undefined) throw new Error('no record button');
+        return button;
+    }
+
     async function recordMovedLive() {
         await pickOption(inputLabelled(container, 'Event'), 'Moved live');
         return;
@@ -451,6 +459,51 @@ describe('EventsSection live exclusivity preview and confirm', () => {
             "Your other accounts could not be loaded, so what the firm's rules do to them is not shown. Recording this event suspends nothing.",
         );
         expect(exclusivityCheckbox()).toBeNull();
+    });
+
+    it('says the other accounts are still loading and holds the record button until the list settles, so a missing preview never means not loaded yet', async () => {
+        harness.queries.delete('account.list');
+        await withPolicy(
+            new ExclusivityStub(SimAccountEffect.Dormant),
+            async () => {
+                render();
+                await recordMovedLive();
+                expect(container.textContent).toContain(
+                    'Loading your other accounts',
+                );
+                expect(recordButton().disabled).toBe(true);
+                await submitRecord();
+                expect(harness.mutateAsync).not.toHaveBeenCalled();
+                harness.queries.set(
+                    'account.list',
+                    answer([
+                        listed(MOVED_ID, 'Alpha', {
+                            stage: AccountStage.Funded,
+                        }),
+                        listed(EVAL_ID, 'Bravo eval'),
+                    ]),
+                );
+                render();
+                await flush();
+                expect(container.textContent).not.toContain(
+                    'Loading your other accounts',
+                );
+                expect(container.textContent).toContain(
+                    'Alpha going live changes 1 other account',
+                );
+                expect(recordButton().disabled).toBe(false);
+            },
+        );
+    });
+
+    it('does not hold another event kind while the account list loads', async () => {
+        harness.queries.delete('account.list');
+        render();
+        await pickOption(inputLabelled(container, 'Event'), 'Busted');
+        expect(container.textContent).not.toContain(
+            'Loading your other accounts',
+        );
+        expect(recordButton().disabled).toBe(false);
     });
 
     it('keeps a ledger-only account out of the confirm flow when the moved account itself has no plan to read', async () => {

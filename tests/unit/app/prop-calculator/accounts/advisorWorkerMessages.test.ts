@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
     AdvisorRequestOutcomeKind,
     advisorRequestOutcomeOf,
+    advisorValueOutcomeOf,
+    type AdvisorValueRequest,
     advisorWorkerCacheKey,
     type AdvisorWorkerRequest,
+    reconstructedAccountOf,
 } from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
 import {
     type AccountState,
@@ -21,12 +24,21 @@ import {
 } from '~/lib/prop-calculator';
 import {
     AdviceSource,
+    buildEnginePolicy,
     DEFAULT_RULEBOOK,
+    type DocumentedPolicySpec,
     type EngineOptimumRequest,
     EvalSizingAdvisor,
     FundedSizingAdvisor,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
+import {
+    payoutStakeComparison,
+    riskCandidateValues,
+    startStateOf,
+    tradeValueSwing,
+    valueAtState,
+} from '~/lib/prop-calculator/advisor/value';
 import { InstrumentSymbol } from '~/lib/prop-calculator/core';
 import { SIM_INPUTS_REFUSAL_PREFIX } from '~/lib/prop-calculator/simulator';
 
@@ -240,5 +252,205 @@ describe('advisorWorkerMessages (PT-34)', () => {
         expect(failed.reason.length).toBeGreaterThan(0);
         expect(failed.reason.startsWith(SIM_INPUTS_REFUSAL_PREFIX)).toBe(false);
         expect(failed.source).toBe(AdviceSource.FundedSweepFresh);
+    });
+});
+
+function evalAccount(
+    overrides: Partial<ReconstructedFundedOrEvalAccount> = {},
+): ReconstructedFundedOrEvalAccount {
+    const state = accountState({
+        balance: 50_600,
+        elapsedDays: 7,
+        qualifyingDays: 5,
+        tradingDays: 5,
+    });
+    return {
+        assumptions: [],
+        contractLimit: null,
+        cushion: state.balance - state.threshold,
+        fundedTracker: null,
+        kind: TradingPhase.Eval,
+        plan,
+        resolvedDailyLossLimit: null,
+        state,
+        ...overrides,
+    };
+}
+
+function valueRequestOf(
+    account: ReconstructedFundedOrEvalAccount,
+    overrides: Partial<AdvisorValueRequest> = {},
+): AdvisorValueRequest {
+    return {
+        candidateRiskGrid: [250, 500],
+        payoutStake: null,
+        rr: 2,
+        rungs: [
+            { risk: 500, rr: 2 },
+            { risk: 750, rr: 2 },
+        ],
+        spec: valueSpec(),
+        start: startStateOf(plan, account),
+        ...overrides,
+    };
+}
+
+function valueSpec(): DocumentedPolicySpec {
+    return {
+        enginePolicy: buildEnginePolicy({
+            fundedHorizonDays: 60,
+            plan,
+            rulebook: DEFAULT_RULEBOOK,
+        }).policy,
+        rulebook: DEFAULT_RULEBOOK,
+        run: { maxEvalDays: 40, seed: 11, trials: 30 },
+    };
+}
+
+describe('advisor value requests (PT-67)', () => {
+    it('rebuilds an eval account from its start so it values exactly like the original', () => {
+        const original = evalAccount();
+        const request = valueRequestOf(original);
+
+        const rebuilt = reconstructedAccountOf(plan, request.start);
+
+        expect(rebuilt.kind).toBe(TradingPhase.Eval);
+        expect(rebuilt.state).toEqual(original.state);
+        expect(valueAtState(rebuilt, request.spec)).toEqual(
+            valueAtState(original, request.spec),
+        );
+    });
+
+    it('rebuilds a funded account with its cycle tracker from the seed so it values exactly like the original', () => {
+        const original = fundedAccount();
+        const request = valueRequestOf(original);
+
+        const rebuilt = reconstructedAccountOf(plan, request.start);
+
+        expect(rebuilt.kind).toBe(TradingPhase.Funded);
+        expect(rebuilt.fundedTracker?.payoutsIssued).toBe(
+            original.fundedTracker?.payoutsIssued,
+        );
+        expect(valueAtState(rebuilt, request.spec)).toEqual(
+            valueAtState(original, request.spec),
+        );
+    });
+
+    it('round-trips a value request through structuredClone', () => {
+        const request = valueRequestOf(fundedAccount(), {
+            payoutStake: { reducedRiskDollars: 125 },
+        });
+
+        expect(structuredClone(request)).toEqual(request);
+    });
+
+    it('keeps the cache key of a request without values unchanged and changes it when values are added', () => {
+        const advisor = fundedAdvisor();
+        const base = workerRequestOf(advisor.optimumRequests());
+
+        const withValues: AdvisorWorkerRequest = {
+            ...base,
+            values: valueRequestOf(fundedAccount()),
+        };
+
+        expect(advisorWorkerCacheKey({ ...base, values: undefined })).toBe(
+            advisorWorkerCacheKey(base),
+        );
+        expect(advisorWorkerCacheKey(withValues)).not.toBe(
+            advisorWorkerCacheKey(base),
+        );
+    });
+
+    it('gives the same cache key for identical value requests and a different one when the account state differs', () => {
+        const base = workerRequestOf([]);
+        const a = valueRequestOf(fundedAccount());
+        const b = valueRequestOf(fundedAccount());
+        const moved = valueRequestOf(
+            fundedAccount({ state: accountState({ balance: 52_000 }) }),
+        );
+
+        expect(advisorWorkerCacheKey({ ...base, values: a })).toBe(
+            advisorWorkerCacheKey({ ...base, values: b }),
+        );
+        expect(advisorWorkerCacheKey({ ...base, values: a })).not.toBe(
+            advisorWorkerCacheKey({ ...base, values: moved }),
+        );
+    });
+
+    it('computes the value now, a swing per rung and the ranked candidates exactly as the library does', () => {
+        const account = fundedAccount();
+        const request = valueRequestOf(account);
+
+        const result = advisorValueOutcomeOf(plan, request);
+
+        const [firstRung, secondRung] = request.rungs;
+        expect(result.swings).toHaveLength(2);
+        expect(result.swings[0]?.rung).toEqual(firstRung);
+        expect(result.swings[0]?.outcome).toEqual({
+            kind: AdvisorRequestOutcomeKind.Succeeded,
+            value: tradeValueSwing(account, request.spec, firstRung ?? { risk: 0, rr: 0 }),
+        });
+        expect(result.swings[1]?.outcome).toEqual({
+            kind: AdvisorRequestOutcomeKind.Succeeded,
+            value: tradeValueSwing(account, request.spec, secondRung ?? { risk: 0, rr: 0 }),
+        });
+        expect(result.now).toEqual({
+            kind: AdvisorRequestOutcomeKind.Succeeded,
+            value: valueAtState(account, request.spec),
+        });
+        expect(result.candidates).toEqual({
+            kind: AdvisorRequestOutcomeKind.Succeeded,
+            value: riskCandidateValues(account, request.spec, {
+                riskGrid: request.candidateRiskGrid,
+                rr: request.rr,
+            }),
+        });
+        expect(result.payoutStake).toBeNull();
+    });
+
+    it('computes the payout stake comparison only when it is requested', () => {
+        const account = fundedAccount();
+        const request = valueRequestOf(account, {
+            payoutStake: { reducedRiskDollars: 125 },
+        });
+
+        const result = advisorValueOutcomeOf(plan, request);
+
+        expect(result.payoutStake).toEqual({
+            kind: AdvisorRequestOutcomeKind.Succeeded,
+            value: payoutStakeComparison(account, request.spec, {
+                reducedRiskDollars: 125,
+            }),
+        });
+    });
+
+    it('turns a failing computation into a typed Failed slot and keeps the others', () => {
+        const account = fundedAccount();
+        const request = valueRequestOf(account, {
+            payoutStake: { reducedRiskDollars: -1 },
+        });
+
+        const result = advisorValueOutcomeOf(plan, request);
+
+        expect(result.payoutStake?.kind).toBe(AdvisorRequestOutcomeKind.Failed);
+        if (result.payoutStake?.kind !== AdvisorRequestOutcomeKind.Failed) return;
+        expect(result.payoutStake.reason.length).toBeGreaterThan(0);
+        expect(result.now.kind).toBe(AdvisorRequestOutcomeKind.Succeeded);
+        expect(result.swings.every((swing) => swing.outcome.kind === AdvisorRequestOutcomeKind.Succeeded)).toBe(true);
+    });
+
+    it('fails every slot with a stated reason, not a throw, when the spec is invalid', () => {
+        const account = evalAccount();
+        const valid = valueRequestOf(account);
+        const request: AdvisorValueRequest = {
+            ...valid,
+            spec: { ...valid.spec, run: { ...valid.spec.run, trials: 0 } },
+        };
+
+        const result = advisorValueOutcomeOf(plan, request);
+
+        expect(result.now.kind).toBe(AdvisorRequestOutcomeKind.Failed);
+        expect(result.candidates.kind).toBe(AdvisorRequestOutcomeKind.Failed);
+        expect(result.swings.every((swing) => swing.outcome.kind === AdvisorRequestOutcomeKind.Failed)).toBe(true);
     });
 });

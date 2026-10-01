@@ -3,11 +3,16 @@
 import { useMemo } from 'react';
 
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
-import { useCachedWorkerTask } from '~/app/(app)/prop-calculator/_components/useCachedWorkerTask';
+import {
+    type CachedWorkerTask,
+    useCachedWorkerTask,
+} from '~/app/(app)/prop-calculator/_components/useCachedWorkerTask';
 import { WorkerTaskPhase } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import {
     type AdvisorRequestFailed,
     AdvisorRequestOutcomeKind,
+    type AdvisorValueRequest,
+    type AdvisorValueResult,
     advisorWorkerCacheKey,
     type AdvisorWorkerRequest,
     type AdvisorWorkerResult,
@@ -21,11 +26,19 @@ export enum AccountAdvicePhase {
     Ready = 'ready',
 }
 
+export enum AdviceValuesPhase {
+    Failed = 'failed',
+    Idle = 'idle',
+    Loading = 'loading',
+    Ready = 'ready',
+}
+
 export type AccountAdviceState =
     | {
           readonly advice: Advice;
           readonly failedOptima: readonly AdvisorRequestFailed[];
           readonly phase: AccountAdvicePhase.Ready;
+          readonly values: AdviceValuesState;
       }
     | {
           readonly phase: AccountAdvicePhase.Failed;
@@ -34,14 +47,35 @@ export type AccountAdviceState =
       }
     | { readonly phase: AccountAdvicePhase.Loading };
 
+export type AdviceValuesState =
+    | {
+          readonly phase: AdviceValuesPhase.Failed;
+          readonly reason: string;
+          readonly retry: () => void;
+      }
+    | { readonly phase: AdviceValuesPhase.Idle }
+    | { readonly phase: AdviceValuesPhase.Loading }
+    | {
+          readonly phase: AdviceValuesPhase.Ready;
+          readonly result: AdvisorValueResult;
+      };
+
 export interface UseAccountAdviceInput {
     readonly advisor: SizingAdvisor;
     readonly firmId: FirmId;
     readonly optIns: PlanOptIns;
     readonly planSerial: string;
+    readonly values?: AdvisorValueRequest | null;
 }
 
+const IDLE_VALUES: AdviceValuesState = { phase: AdviceValuesPhase.Idle };
+
 const LOADING: AccountAdviceState = { phase: AccountAdvicePhase.Loading };
+
+const LOADING_VALUES: AdviceValuesState = { phase: AdviceValuesPhase.Loading };
+
+const NO_VALUE_OUTCOME_REASON =
+    'The advisor worker returned no value outcome for this account.';
 
 export function useAccountAdvice(
     input: null | UseAccountAdviceInput,
@@ -50,14 +84,14 @@ export function useAccountAdvice(
     const firmId = input?.firmId;
     const optIns = input?.optIns;
     const planSerial = input?.planSerial;
+    const values = input?.values ?? null;
     const requests = useMemo(() => advisor?.optimumRequests(), [advisor]);
-    const job = useMemo(() => {
+    const engineJob = useMemo(() => {
         if (
             firmId === undefined ||
             optIns === undefined ||
             planSerial === undefined ||
-            requests === undefined ||
-            requests.length === 0
+            !requests?.length
         ) {
             return null;
         }
@@ -69,17 +103,46 @@ export function useAccountAdvice(
         };
         return { key: advisorWorkerCacheKey(request), request };
     }, [firmId, optIns, planSerial, requests]);
-    const task = useCachedWorkerTask<
+    const valueJob = useMemo(() => {
+        if (
+            firmId === undefined ||
+            optIns === undefined ||
+            planSerial === undefined ||
+            values === null
+        ) {
+            return null;
+        }
+        const request: AdvisorWorkerRequest = {
+            firmId,
+            optIns,
+            planSerial,
+            requests: [],
+            values,
+        };
+        return { key: advisorWorkerCacheKey(request), request };
+    }, [firmId, optIns, planSerial, values]);
+    const engineTask = useCachedWorkerTask<
         ComputationId.Advice,
         AdvisorWorkerRequest
     >({
         createWorker: createAdvisorWorker,
         id: ComputationId.Advice,
-        job,
+        job: engineJob,
+    });
+    const valueTask = useCachedWorkerTask<
+        ComputationId.Advice,
+        AdvisorWorkerRequest
+    >({
+        createWorker: createAdvisorWorker,
+        id: ComputationId.Advice,
+        job: valueJob,
     });
     const outcome =
-        task.state.phase === WorkerTaskPhase.Done ? task.state.result : null;
-    const hasNoRequests = requests !== undefined && requests.length === 0;
+        engineTask.state.phase === WorkerTaskPhase.Done
+            ? engineTask.state.result
+            : null;
+    const hasNoRequests = requests?.length === 0;
+    const valuesState = adviceValuesStateOf(valueJob !== null, valueTask);
     const ready = useMemo(() => {
         if (advisor === undefined) return null;
         if (hasNoRequests) {
@@ -93,16 +156,47 @@ export function useAccountAdvice(
     }, [advisor, hasNoRequests, outcome]);
 
     if (ready !== null) {
-        return { ...ready, phase: AccountAdvicePhase.Ready };
+        return { ...ready, phase: AccountAdvicePhase.Ready, values: valuesState };
     }
-    if (task.state.phase === WorkerTaskPhase.Failed) {
+    if (engineTask.state.phase === WorkerTaskPhase.Failed) {
         return {
             phase: AccountAdvicePhase.Failed,
-            reason: task.state.reason,
-            retry: task.retry,
+            reason: engineTask.state.reason,
+            retry: engineTask.retry,
         };
     }
     return LOADING;
+}
+
+function adviceValuesStateOf(
+    isRequested: boolean,
+    task: CachedWorkerTask<never, AdvisorWorkerResult>,
+): AdviceValuesState {
+    if (!isRequested) return IDLE_VALUES;
+    switch (task.state.phase) {
+        case WorkerTaskPhase.Cancelled:
+        case WorkerTaskPhase.Idle:
+        case WorkerTaskPhase.Running: {
+            return LOADING_VALUES;
+        }
+        case WorkerTaskPhase.Done: {
+            const { values } = task.state.result;
+            return values === undefined
+                ? {
+                      phase: AdviceValuesPhase.Failed,
+                      reason: NO_VALUE_OUTCOME_REASON,
+                      retry: task.retry,
+                  }
+                : { phase: AdviceValuesPhase.Ready, result: values };
+        }
+        case WorkerTaskPhase.Failed: {
+            return {
+                phase: AdviceValuesPhase.Failed,
+                reason: task.state.reason,
+                retry: task.retry,
+            };
+        }
+    }
 }
 
 function createAdvisorWorker(): Worker {

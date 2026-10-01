@@ -395,6 +395,7 @@ function fromDatabaseError(
 function fromRejection(error: PropMutationRejectionError): TRPCError {
     switch (error.reason) {
         case PropMutationRejection.DecisionOfOtherAccount:
+        case PropMutationRejection.ExclusivityNotConfirmed:
         case PropMutationRejection.FutureDate:
         case PropMutationRejection.ImplausibleSnapshot:
         case PropMutationRejection.LifecycleTransition:

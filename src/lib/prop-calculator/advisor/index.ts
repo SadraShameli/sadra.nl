@@ -207,6 +207,15 @@ export {
     type LiveSizingAdvisorInput,
 } from './LiveSizingAdvisor';
 export {
+    type DocumentedLiveStartPreview,
+    type LiveTransitionPreview,
+    liveTransitionPreview,
+    LiveTransitionPreviewGap,
+    LiveTransitionPreviewKind,
+    type LiveTransitionPreviewNotModeled,
+    type LucidDailyCreditPreview,
+} from './LiveTransitionPreview';
+export {
     type NextPayoutProjection,
     runNextPayoutProjection,
 } from './NextPayoutProjection';

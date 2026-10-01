@@ -66,6 +66,7 @@ const workerBox = vi.hoisted(() => {
         private readonly listeners: Listener[] = [];
         private finished = false;
         private runId = 0;
+        runsEngineRequests = false;
         constructor() {
             FakeWorker.instances.push(this);
         }
@@ -85,8 +86,12 @@ const workerBox = vi.hoisted(() => {
                 });
             }
         }
-        postMessage(message: { runId: number }) {
+        postMessage(message: {
+            request: { requests: readonly unknown[] };
+            runId: number;
+        }) {
             this.runId = message.runId;
+            this.runsEngineRequests = message.request.requests.length > 0;
         }
         terminate() {
             return;
@@ -130,6 +135,7 @@ vi.mock('~/trpc/react', () => ({
             snapshot: {
                 listForAccount: harness.query('snapshot.listForAccount'),
             },
+            violation: { create: harness.mutation() },
         },
         useUtils: () => ({
             propAccounts: {
@@ -140,12 +146,27 @@ vi.mock('~/trpc/react', () => ({
     },
 }));
 
-const { AdviceCacheProvider } = await import(
-    '~/app/(app)/prop-calculator/accounts/_components/advice/AdviceCacheProvider'
-);
-const { AdvicePanel } = await import(
-    '~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel'
-);
+function engineWorkers() {
+    return workerBox.FakeWorker.instances.filter(
+        (worker) => worker.runsEngineRequests,
+    );
+}
+
+async function loadAdviceModules() {
+    vi.resetModules();
+    const [provider, panel] = await Promise.all([
+        import(
+            '~/app/(app)/prop-calculator/accounts/_components/AccountsCacheProvider'
+        ),
+        import(
+            '~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel'
+        ),
+    ]);
+    return {
+        AccountsCacheProvider: provider.AccountsCacheProvider,
+        AdvicePanel: panel.AdvicePanel,
+    };
+}
 
 const accountCounter = { value: 0 };
 
@@ -190,19 +211,19 @@ function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };
 }
 
-function snapshot(accountId: string, userId: string) {
+function snapshot(accountId: string, userId: string, balanceCents: number) {
     return {
         accountId,
         asOf: '2026-09-26',
         balanceAtLastPayoutCents: null,
-        balanceCents: 5_100_000,
+        balanceCents,
         createdAt: new Date('2026-09-26T12:00:00Z'),
         cumulativePayoutCents: null,
         cycleBestDayProfitCents: null,
         dashboardFloorCents: null,
         evalBestDayProfitCents: null,
         floorAtLastPayoutCents: null,
-        highestEodBalanceCents: 5_100_000,
+        highestEodBalanceCents: balanceCents,
         highestIntradayBalanceCents: null,
         id: `snap-${accountId}`,
         lastPayoutOn: null,
@@ -220,14 +241,18 @@ describe('the advice cache scope (PT-34c review)', () => {
     let root: Root;
     let accountId: string;
     let userId: string;
+    let modules: Awaited<ReturnType<typeof loadAdviceModules>>;
 
-    function answerAll(personalRules: Record<string, unknown>) {
+    function answerAll(
+        personalRules: Record<string, unknown>,
+        balanceCents = 5_100_000,
+    ) {
         const row = account(accountId, ROW_USER, personalRules);
         harness.queries.set('account.get', answer(row));
         harness.queries.set('account.list', answer([row]));
         harness.queries.set(
             'snapshot.listForAccount',
-            answer([snapshot(accountId, ROW_USER)]),
+            answer([snapshot(accountId, ROW_USER, balanceCents)]),
         );
         harness.queries.set('event.list', answer([]));
         harness.queries.set('event.listForAccount', answer([]));
@@ -240,9 +265,9 @@ describe('the advice cache scope (PT-34c review)', () => {
         root = createRoot(container);
         act(() => {
             root.render(
-                <AdviceCacheProvider>
-                    <AdvicePanel id={accountId} />
-                </AdviceCacheProvider>,
+                <modules.AccountsCacheProvider>
+                    <modules.AdvicePanel id={accountId} />
+                </modules.AccountsCacheProvider>,
             );
         });
         for (const worker of workerBox.FakeWorker.instances) {
@@ -258,7 +283,8 @@ describe('the advice cache scope (PT-34c review)', () => {
         });
     }
 
-    beforeEach(() => {
+    beforeEach(async () => {
+        modules = await loadAdviceModules();
         accountCounter.value += 1;
         accountId = `account-${accountCounter.value}`;
         userId = 'user-a';
@@ -289,45 +315,83 @@ describe('the advice cache scope (PT-34c review)', () => {
         answerAll({});
         mountPage();
         expect(container.textContent).toContain('Sizing advice');
-        expect(workerBox.FakeWorker.instances).toHaveLength(1);
+        expect(engineWorkers()).toHaveLength(1);
         leavePage();
 
         mountPage();
 
-        expect(workerBox.FakeWorker.instances).toHaveLength(1);
+        expect(engineWorkers()).toHaveLength(1);
         expect(container.textContent).toContain('Sizing advice');
         leavePage();
     });
 
-    it.each([
-        ['the daily profit cap', { dailyProfitCapCents: 100_000 }, { dailyProfitCapCents: 50_000 }],
-        ['the trades per day cap', { maxTradesPerDay: 3 }, { maxTradesPerDay: 1 }],
-        ['the daily loss limit', { dailyLossLimitCents: 200_000 }, { dailyLossLimitCents: 100_000 }],
-    ])('reuses the same worker run and shows fresh advice after %s changes', (_name, before, after) => {
-        answerAll(before);
+    it('reuses the same worker run and shows fresh advice after the trades per day cap changes', () => {
+        answerAll({ maxTradesPerDay: 3 });
         mountPage();
-        const adviceBefore = container.textContent;
-        expect(workerBox.FakeWorker.instances).toHaveLength(1);
+        expect(container.textContent).toContain('$300.00$600.00$500.00');
+        expect(container.textContent).toContain('$450.00$900.00$950.00');
+        expect(container.textContent).not.toContain('$50.00$100.00$1,000.00');
+        expect(engineWorkers()).toHaveLength(1);
         leavePage();
 
-        answerAll(after);
+        answerAll({ maxTradesPerDay: 1 });
         mountPage();
 
-        expect(workerBox.FakeWorker.instances).toHaveLength(1);
-        expect(container.textContent).toContain('Sizing advice');
-        expect(container.textContent).not.toBe(adviceBefore);
+        expect(engineWorkers()).toHaveLength(1);
+        expect(container.textContent).toContain('$200.00$400.00$200.00');
+        expect(container.textContent).not.toContain('$300.00$600.00$500.00');
         leavePage();
     });
 
-    it('recomputes after the retained cushion changes the engine requests', () => {
-        answerAll({ retainedCushionCents: 300_000 });
+    it('reuses the same worker run and shows the new first rung and personal cap after the personal daily loss limit changes', () => {
+        answerAll({});
+        mountPage();
+        expect(container.textContent).toContain('first rung $200.00');
+        expect(container.textContent).not.toContain(
+            'Capped by a personal risk limit.',
+        );
+        leavePage();
+
+        answerAll({ dailyLossLimitCents: 30_000 });
+        mountPage();
+
+        expect(engineWorkers()).toHaveLength(1);
+        expect(container.textContent).toContain('first rung $50.00');
+        expect(container.textContent).toContain(
+            '1$50.00$100.00$50.00Capped by a personal risk limit.',
+        );
+        expect(container.textContent).toContain(
+            '4$150.00$300.00$300.00Capped by a personal risk limit.',
+        );
+        leavePage();
+    });
+
+    it('reuses the same worker run and shows the capped daily plan after the personal daily profit cap changes', () => {
+        answerAll({});
+        mountPage();
+        expect(container.textContent).toContain('1$200.00$400.00$200.00');
+        leavePage();
+
+        answerAll({ dailyProfitCapCents: 20_000 });
+        mountPage();
+
+        expect(engineWorkers()).toHaveLength(1);
+        expect(container.textContent).toContain(
+            '1$100.00$200.00$100.00Capped by the daily loss limit., Capped by a personal risk limit.',
+        );
+        expect(container.textContent).toContain('3$225.00$450.00$475.00');
+        leavePage();
+    });
+
+    it('recomputes after the balance changes the engine requests', () => {
+        answerAll({}, 5_100_000);
         mountPage();
         leavePage();
 
-        answerAll({ retainedCushionCents: 100_000 });
+        answerAll({}, 5_200_000);
         mountPage();
 
-        expect(workerBox.FakeWorker.instances).toHaveLength(2);
+        expect(engineWorkers()).toHaveLength(2);
         leavePage();
     });
 
@@ -340,7 +404,7 @@ describe('the advice cache scope (PT-34c review)', () => {
         vi.setSystemTime(new Date('2026-09-28T12:00:00Z'));
         mountPage();
 
-        expect(workerBox.FakeWorker.instances).toHaveLength(1);
+        expect(engineWorkers()).toHaveLength(1);
         expect(container.textContent).not.toBe(adviceBefore);
         leavePage();
     });
@@ -359,7 +423,7 @@ describe('the advice cache scope (PT-34c review)', () => {
         answerAll({});
         mountPage();
 
-        expect(workerBox.FakeWorker.instances).toHaveLength(1);
+        expect(engineWorkers()).toHaveLength(1);
         expect(container.textContent).toContain('Sizing advice');
         leavePage();
     });

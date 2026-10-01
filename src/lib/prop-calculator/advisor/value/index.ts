@@ -67,6 +67,7 @@ export {
 } from './ValueChain';
 export {
     conservativeGapStandardError,
+    CreditBasis,
     type DualValueEstimate,
     isValueResult,
     notModeled,

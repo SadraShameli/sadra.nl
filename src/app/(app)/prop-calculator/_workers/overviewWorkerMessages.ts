@@ -9,29 +9,57 @@ import {
     FirmId,
     type Plan,
     type PlanOptIns,
+    resetForNewDay,
+    TradingPhase,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 import {
+    AccountReconstruction,
+    type AccountSnapshotInput,
+    accountSnapshotInputSchema,
     AdviceSource,
+    applicableTimelineGaps,
     buildEnginePolicy,
     DEFAULT_FUNDED_HORIZON_DAYS,
     DEFAULT_MAX_EVAL_DAYS,
-    DOCUMENTED_POLICY_TIMELINE_GAPS,
     type DocumentedPolicyRun,
     type DocumentedPolicySpec,
     documentedPolicySpecSchema,
-    DocumentedPolicyTimelineGap,
+    type DocumentedPolicyTimelineGap,
     documentedPolicyTimelineInputs,
     type EnginePolicy,
     enginePolicyKey,
     enginePolicySchema,
     type MeasuredRebuyLag,
+    type NextPayoutProjection,
     PayoutSizeSweepResultKind,
+    type ReconstructedFundedOrEvalAccount,
+    ReconstructedLiveKind,
     type RulebookParameters,
+    runEngineOptimum,
     runPayoutSizeSweep,
+    SizingStage,
     StartBasis,
     toSimInputs,
 } from '~/lib/prop-calculator/advisor';
+import {
+    type EvalMilestoneGap,
+    evalStartAccount,
+    firstPayoutEligibleAccount,
+    freshFundedAccount,
+    fundedTrackerAfterMilestonePayout,
+    MilestoneKind,
+    milestoneState,
+    postFirstPayoutAccount,
+    requireValue,
+    retireComparison,
+    type RetireComparisonResult,
+    startStateOf,
+    valueAtState,
+    ValueChainStepKind,
+    type ValueResult,
+    ValueResultKind,
+} from '~/lib/prop-calculator/advisor/value';
 import {
     DEFAULT_DAY_BUDGET,
     type PortfolioTimelineInputs,
@@ -54,10 +82,42 @@ export enum OverviewOutcomeKind {
     Succeeded = 'succeeded',
 }
 
+export enum OverviewRequestGroup {
+    Accounts = 'accounts',
+    Policy = 'policy',
+    Projection = 'projection',
+    Values = 'values',
+}
+
 export enum OverviewRequestKind {
+    AccountFromState = 'account-from-state',
     DocumentedRun = 'documented-run',
     PayoutSizeOptimum = 'payout-size-optimum',
+    PlanValues = 'plan-values',
     PortfolioProjection = 'portfolio-projection',
+    RetireComparison = 'retire-comparison',
+    ValueChain = 'value-chain',
+}
+
+export enum ValueChainStepOutcomeKind {
+    Unavailable = 'unavailable',
+    Value = 'value',
+}
+
+export interface AccountFromStateFigures {
+    readonly milestone: AccountMilestoneFigures;
+    readonly nextPayout: NextPayoutProjection | null;
+    readonly stage: SizingStage.Eval | SizingStage.Funded;
+    readonly startBasis: StartBasis.FromState;
+    readonly trials: number;
+    readonly valueNow: ValueResult;
+}
+
+export interface AccountMilestoneFigures {
+    readonly debited: null | number;
+    readonly kind: MilestoneKind.Eval | MilestoneKind.Funded;
+    readonly unmetGates: readonly EvalMilestoneGap[];
+    readonly value: ValueResult;
 }
 
 export interface DocumentedRunFigures {
@@ -76,6 +136,10 @@ export interface DocumentedRunFigures {
     readonly payoutRequestSize: number;
     readonly payoutsPerFundedAccount: UncertainValue;
     readonly trials: number;
+}
+
+export interface OverviewAccountPlanInput extends OverviewPlanInput {
+    readonly account: AccountSnapshotInput;
 }
 
 export type OverviewOutcome =
@@ -108,6 +172,7 @@ export interface OverviewProjectionPlanInput extends OverviewPlanInput {
 }
 
 export interface OverviewRequest {
+    readonly account?: AccountSnapshotInput;
     readonly accounts?: number;
     readonly firmId: FirmId;
     readonly kind: OverviewRequestKind;
@@ -118,6 +183,10 @@ export interface OverviewRequest {
 
 export type OverviewResult =
     | {
+          readonly figures: AccountFromStateFigures;
+          readonly kind: OverviewRequestKind.AccountFromState;
+      }
+    | {
           readonly figures: DocumentedRunFigures;
           readonly kind: OverviewRequestKind.DocumentedRun;
       }
@@ -126,8 +195,20 @@ export type OverviewResult =
           readonly kind: OverviewRequestKind.PayoutSizeOptimum;
       }
     | {
+          readonly figures: PlanValuesFigures;
+          readonly kind: OverviewRequestKind.PlanValues;
+      }
+    | {
           readonly figures: PortfolioProjectionFigures;
           readonly kind: OverviewRequestKind.PortfolioProjection;
+      }
+    | {
+          readonly figures: RetireComparisonResult;
+          readonly kind: OverviewRequestKind.RetireComparison;
+      }
+    | {
+          readonly figures: ValueChainFigures;
+          readonly kind: OverviewRequestKind.ValueChain;
       };
 
 export interface OverviewWorkerRequest {
@@ -147,6 +228,13 @@ export interface PayoutSizeOptimumFigures {
     readonly requestSize: number;
 }
 
+export interface PlanValuesFigures {
+    readonly freshFundedValue: ValueResult;
+    readonly retryFee: number;
+    readonly trials: number;
+    readonly valueFreshEval: ValueResult;
+}
+
 export interface PortfolioProjectionFigures {
     readonly accountsRequested: number;
     readonly accountsSimulated: number;
@@ -158,9 +246,44 @@ export interface PortfolioProjectionFigures {
     readonly trials: number;
 }
 
+export interface ValueChainFigures {
+    readonly steps: readonly ValueChainStepFigures[];
+    readonly trials: number;
+}
+
+export interface ValueChainStepFigures {
+    readonly kind: ValueChainStepKind;
+    readonly outcome: ValueChainStepOutcome;
+}
+
+export type ValueChainStepOutcome =
+    | {
+          readonly kind: ValueChainStepOutcomeKind.Unavailable;
+          readonly reason: string;
+      }
+    | {
+          readonly kind: ValueChainStepOutcomeKind.Value;
+          readonly value: ValueResult;
+      };
+
 const OVERVIEW_FUNDED_HORIZON_DAYS = DEFAULT_FUNDED_HORIZON_DAYS;
 
-const FUNDED_RR_TOLERANCE = 1e-9;
+const REQUEST_GROUP: Readonly<
+    Record<OverviewRequestKind, OverviewRequestGroup>
+> = {
+    [OverviewRequestKind.AccountFromState]: OverviewRequestGroup.Accounts,
+    [OverviewRequestKind.DocumentedRun]: OverviewRequestGroup.Policy,
+    [OverviewRequestKind.PayoutSizeOptimum]: OverviewRequestGroup.Policy,
+    [OverviewRequestKind.PlanValues]: OverviewRequestGroup.Values,
+    [OverviewRequestKind.PortfolioProjection]: OverviewRequestGroup.Projection,
+    [OverviewRequestKind.RetireComparison]: OverviewRequestGroup.Accounts,
+    [OverviewRequestKind.ValueChain]: OverviewRequestGroup.Values,
+};
+
+const ACCOUNT_REQUEST_KINDS: ReadonlySet<OverviewRequestKind> = new Set([
+    OverviewRequestKind.AccountFromState,
+    OverviewRequestKind.RetireComparison,
+]);
 
 const DOCUMENTED_ENGINE_KINDS: readonly OverviewRequestKind[] = [
     OverviewRequestKind.DocumentedRun,
@@ -181,6 +304,7 @@ const OVERVIEW_PROJECTION_RUN: DocumentedPolicyRun = {
 
 export const overviewRequestSchema = z
     .strictObject({
+        account: accountSnapshotInputSchema.optional(),
         accounts: z.number().int().positive().optional(),
         firmId: z.enum(FirmId),
         kind: z.enum(OverviewRequestKind),
@@ -198,19 +322,40 @@ export const overviewRequestSchema = z
     .superRefine((request, context) => {
         const isProjection =
             request.kind === OverviewRequestKind.PortfolioProjection;
-        if (isProjection === (request.accounts !== undefined)) return;
+        if (isProjection !== (request.accounts !== undefined)) {
+            context.addIssue({
+                code: 'custom',
+                message: isProjection
+                    ? 'a portfolio projection needs the number of accounts it simulates'
+                    : 'only a portfolio projection carries an account count',
+                path: ['accounts'],
+            });
+        }
+        const isAccountRequest = ACCOUNT_REQUEST_KINDS.has(request.kind);
+        if (isAccountRequest === (request.account !== undefined)) return;
         context.addIssue({
             code: 'custom',
-            message: isProjection
-                ? 'a portfolio projection needs the number of accounts it simulates'
-                : 'only a portfolio projection carries an account count',
-            path: ['accounts'],
+            message: isAccountRequest
+                ? 'an account request needs the account state it starts from'
+                : 'only an account request carries an account state',
+            path: ['account'],
         });
     }) satisfies z.ZodType<OverviewRequest>;
 
 export const overviewWorkerRequestSchema = z.strictObject({
     requests: z.array(overviewRequestSchema),
 }) satisfies z.ZodType<OverviewWorkerRequest>;
+
+export function overviewAccountRequestsFor(
+    accounts: readonly OverviewAccountPlanInput[],
+    rulebook: RulebookParameters,
+): readonly OverviewRequest[] {
+    return accountRequestsOf(
+        OverviewRequestKind.AccountFromState,
+        accounts,
+        rulebook,
+    );
+}
 
 export function overviewOutcomeOf(request: OverviewRequest): OverviewOutcome {
     const key = overviewRequestKey(request);
@@ -236,6 +381,22 @@ export function overviewPlanKey(plan: OverviewPlanKeyInput): string {
         optIns: plan.optIns,
         planSerial: plan.planSerial,
     });
+}
+
+export function overviewPlanOptInsOf(
+    plan: Pick<Plan, 'takesFundedReset' | 'takesOneTimeEarlyWithdrawal'>,
+): PlanOptIns {
+    return {
+        takesFundedReset: plan.takesFundedReset,
+        takesOneTimeEarlyWithdrawal: plan.takesOneTimeEarlyWithdrawal,
+    };
+}
+
+export function overviewPlanValueRequestsFor(
+    plans: readonly OverviewPlanInput[],
+    rulebook: RulebookParameters,
+): readonly OverviewRequest[] {
+    return planRequestsOf(OverviewRequestKind.PlanValues, plans, rulebook);
 }
 
 export function overviewProjectionRequestsFor(
@@ -268,6 +429,7 @@ export function overviewProjectionRequestsFor(
 export function overviewRequestKey(request: OverviewRequest): string {
     const { spec } = request;
     return stableJson({
+        account: request.account ?? null,
         accounts: request.accounts ?? null,
         firmId: request.firmId,
         kind: request.kind,
@@ -278,6 +440,29 @@ export function overviewRequestKey(request: OverviewRequest): string {
         run: spec.run,
         start: spec.start ?? null,
     });
+}
+
+export function overviewRequestsByGroup(
+    requests: readonly OverviewRequest[],
+): Readonly<Record<OverviewRequestGroup, readonly OverviewRequest[]>> {
+    return {
+        [OverviewRequestGroup.Accounts]: requestsOfGroup(
+            requests,
+            OverviewRequestGroup.Accounts,
+        ),
+        [OverviewRequestGroup.Policy]: requestsOfGroup(
+            requests,
+            OverviewRequestGroup.Policy,
+        ),
+        [OverviewRequestGroup.Projection]: requestsOfGroup(
+            requests,
+            OverviewRequestGroup.Projection,
+        ),
+        [OverviewRequestGroup.Values]: requestsOfGroup(
+            requests,
+            OverviewRequestGroup.Values,
+        ),
+    };
 }
 
 export function overviewRequestsFor(
@@ -299,6 +484,78 @@ export function overviewRequestsFor(
             };
             requests.set(overviewRequestKey(request), request);
         }
+    }
+    return requests.values().toArray();
+}
+
+export function overviewRequestsKey(
+    requests: readonly OverviewRequest[],
+): string {
+    return requests.map((request) => overviewRequestKey(request)).join('\n');
+}
+
+export function overviewRetireRequestsFor(
+    accounts: readonly OverviewAccountPlanInput[],
+    rulebook: RulebookParameters,
+): readonly OverviewRequest[] {
+    return accountRequestsOf(
+        OverviewRequestKind.RetireComparison,
+        accounts,
+        rulebook,
+    );
+}
+
+export function overviewValueChainRequestsFor(
+    plans: readonly OverviewPlanInput[],
+    rulebook: RulebookParameters,
+): readonly OverviewRequest[] {
+    return planRequestsOf(OverviewRequestKind.ValueChain, plans, rulebook);
+}
+
+function accountFromStateResultOf(
+    plan: Plan,
+    request: OverviewRequest,
+): OverviewResult {
+    const account = fromStateAccountOf(plan, request);
+    const { spec } = request;
+    return {
+        figures: {
+            milestone: milestoneFiguresOf(account, spec),
+            nextPayout:
+                account.kind === TradingPhase.Funded
+                    ? nextPayoutOf(account, spec)
+                    : null,
+            stage:
+                account.kind === TradingPhase.Eval
+                    ? SizingStage.Eval
+                    : SizingStage.Funded,
+            startBasis: StartBasis.FromState,
+            trials: spec.run.trials,
+            valueNow: requireValue(valueAtState(account, spec)),
+        },
+        kind: OverviewRequestKind.AccountFromState,
+    };
+}
+
+function accountRequestsOf(
+    kind: OverviewRequestKind.AccountFromState | OverviewRequestKind.RetireComparison,
+    accounts: readonly OverviewAccountPlanInput[],
+    rulebook: RulebookParameters,
+): readonly OverviewRequest[] {
+    const requests = new Map<string, OverviewRequest>();
+    for (const input of accounts) {
+        if (input.account.stage === SizingStage.Live) continue;
+        const plan = resolvedPlanOf(input);
+        if (plan === null) continue;
+        const request: OverviewRequest = {
+            account: input.account,
+            firmId: input.firmId,
+            kind,
+            optIns: input.optIns,
+            planSerial: input.planSerial,
+            spec: documentedSpecFor(plan, input, rulebook),
+        };
+        requests.set(overviewRequestKey(request), request);
     }
     return requests.values().toArray();
 }
@@ -363,6 +620,106 @@ function documentedSpecFor(
     };
 }
 
+function fromStateAccountOf(
+    plan: Plan,
+    request: OverviewRequest,
+): ReconstructedFundedOrEvalAccount {
+    const { account: snapshot } = request;
+    if (snapshot === undefined) {
+        throw new Error(
+            'overviewWorker: an account request has no account state',
+        );
+    }
+    const account = AccountReconstruction.rebuild(snapshot, plan);
+    if (account.kind === ReconstructedLiveKind.Live) {
+        throw new Error(
+            'overviewWorker: a live account has no from-state value model',
+        );
+    }
+    return account;
+}
+
+function milestoneFiguresOf(
+    account: ReconstructedFundedOrEvalAccount,
+    spec: DocumentedPolicySpec,
+): AccountMilestoneFigures {
+    const milestone = milestoneState(account, spec);
+    switch (milestone.kind) {
+        case MilestoneKind.Eval: {
+            const state = { ...milestone.state };
+            resetForNewDay(state);
+            return {
+                debited: null,
+                kind: MilestoneKind.Eval,
+                unmetGates: milestone.unmetGates,
+                value: requireValue(
+                    valueAtState(
+                        {
+                            ...account,
+                            cushion: state.balance - state.threshold,
+                            state,
+                        },
+                        spec,
+                    ),
+                ),
+            };
+        }
+        case MilestoneKind.Funded: {
+            return {
+                debited: milestone.debited,
+                kind: MilestoneKind.Funded,
+                unmetGates: [],
+                value: requireValue(
+                    valueAtState(
+                        {
+                            ...account,
+                            cushion:
+                                milestone.state.balance -
+                                milestone.state.threshold,
+                            fundedTracker: fundedTrackerAfterMilestonePayout(
+                                account,
+                                milestone,
+                            ),
+                            state: milestone.state,
+                        },
+                        spec,
+                    ),
+                ),
+            };
+        }
+        case MilestoneKind.Live:
+        case ValueResultKind.NotModeled: {
+            throw new Error(
+                'overviewWorker: the account has no modeled next milestone',
+            );
+        }
+    }
+}
+
+function nextPayoutOf(
+    account: ReconstructedFundedOrEvalAccount,
+    spec: DocumentedPolicySpec,
+): NextPayoutProjection {
+    const start = startStateOf(account.plan, account);
+    if (start.phase !== TradingPhase.Funded) {
+        throw new Error(
+            'overviewWorker: a next payout projection needs a funded account',
+        );
+    }
+    const result = runEngineOptimum(account.plan, {
+        base: toSimInputs(account.plan, spec),
+        policy: spec.enginePolicy,
+        source: AdviceSource.NextPayoutProjection,
+        start,
+    });
+    if (result.source !== AdviceSource.NextPayoutProjection) {
+        throw new Error(
+            'overviewWorker: the engine runner returned another result for a next payout projection',
+        );
+    }
+    return result.projection;
+}
+
 function payoutSizeOptimumResultOf(
     plan: Plan,
     spec: DocumentedPolicySpec,
@@ -405,6 +762,46 @@ function planOf(request: OverviewRequest): Plan {
     return plan;
 }
 
+function planRequestsOf(
+    kind: OverviewRequestKind.PlanValues | OverviewRequestKind.ValueChain,
+    plans: readonly OverviewPlanInput[],
+    rulebook: RulebookParameters,
+): readonly OverviewRequest[] {
+    const requests = new Map<string, OverviewRequest>();
+    for (const input of plans) {
+        const plan = resolvedPlanOf(input);
+        if (plan === null) continue;
+        const request: OverviewRequest = {
+            firmId: input.firmId,
+            kind,
+            optIns: input.optIns,
+            planSerial: input.planSerial,
+            spec: documentedSpecFor(plan, input, rulebook),
+        };
+        requests.set(overviewRequestKey(request), request);
+    }
+    return requests.values().toArray();
+}
+
+function planValuesResultOf(
+    plan: Plan,
+    spec: DocumentedPolicySpec,
+): OverviewResult {
+    return {
+        figures: {
+            freshFundedValue: requireValue(
+                valueAtState(freshFundedAccount(plan), spec),
+            ),
+            retryFee: plan.retryFee(),
+            trials: spec.run.trials,
+            valueFreshEval: requireValue(
+                valueAtState(evalStartAccount(plan), spec),
+            ),
+        },
+        kind: OverviewRequestKind.PlanValues,
+    };
+}
+
 function portfolioProjectionResultOf(
     plan: Plan,
     request: OverviewRequest,
@@ -437,11 +834,18 @@ function portfolioProjectionResultOf(
                 'payoutRequestSize',
             ),
             timeline,
-            timelineGaps: timelineGapsOf(spec),
+            timelineGaps: applicableTimelineGaps(spec),
             trials: inputs.trials,
         },
         kind: OverviewRequestKind.PortfolioProjection,
     };
+}
+
+function requestsOfGroup(
+    requests: readonly OverviewRequest[],
+    group: OverviewRequestGroup,
+): readonly OverviewRequest[] {
+    return requests.filter((request) => REQUEST_GROUP[request.kind] === group);
 }
 
 function requiredInput(
@@ -477,39 +881,96 @@ function resolvedPlanOf(input: OverviewPlanKeyInput): null | Plan {
 
 function resultOf(plan: Plan, request: OverviewRequest): OverviewResult {
     switch (request.kind) {
+        case OverviewRequestKind.AccountFromState: {
+            return accountFromStateResultOf(plan, request);
+        }
         case OverviewRequestKind.DocumentedRun: {
             return documentedRunResultOf(plan, request.spec);
         }
         case OverviewRequestKind.PayoutSizeOptimum: {
             return payoutSizeOptimumResultOf(plan, request.spec);
         }
+        case OverviewRequestKind.PlanValues: {
+            return planValuesResultOf(plan, request.spec);
+        }
         case OverviewRequestKind.PortfolioProjection: {
             return portfolioProjectionResultOf(plan, request);
+        }
+        case OverviewRequestKind.RetireComparison: {
+            return retireComparisonResultOf(plan, request);
+        }
+        case OverviewRequestKind.ValueChain: {
+            return valueChainResultOf(plan, request.spec);
         }
     }
 }
 
-function timelineGapsOf(
+function retireComparisonResultOf(
+    plan: Plan,
+    request: OverviewRequest,
+): OverviewResult {
+    const outcome = retireComparison(
+        fromStateAccountOf(plan, request),
+        request.spec,
+        { isCapacityBound: false, replacementPlan: plan },
+    );
+    if ('kind' in outcome) {
+        throw new Error(
+            'overviewWorker: the account has no modeled retire comparison',
+        );
+    }
+    return { figures: outcome, kind: OverviewRequestKind.RetireComparison };
+}
+
+function valueChainResultOf(
+    plan: Plan,
     spec: DocumentedPolicySpec,
-): readonly DocumentedPolicyTimelineGap[] {
-    const { enginePolicy, rulebook } = spec;
-    const { funded, strategy } = rulebook;
-    return DOCUMENTED_POLICY_TIMELINE_GAPS.filter((gap) => {
-        switch (gap) {
-            case DocumentedPolicyTimelineGap.FundedRrDiffersFromStrategyRr: {
-                return (
-                    Math.abs(
-                        funded.takeProfitCents / funded.riskCents -
-                            strategy.rr,
-                    ) > FUNDED_RR_TOLERANCE
-                );
-            }
-            case DocumentedPolicyTimelineGap.IntradayPathStepsPerR: {
-                return enginePolicy.intradayPathStepsPerR !== undefined;
-            }
-            case DocumentedPolicyTimelineGap.RebuyLagDays: {
-                return enginePolicy.rebuyLagDays > 0;
-            }
-        }
-    });
+): OverviewResult {
+    const freshFunded = freshFundedAccount(plan);
+    const eligible = firstPayoutEligibleAccount(plan, freshFunded);
+    const steps: readonly (readonly [
+        ValueChainStepKind,
+        () => ReconstructedFundedOrEvalAccount,
+    ])[] = [
+        [ValueChainStepKind.EvalStart, () => evalStartAccount(plan)],
+        [ValueChainStepKind.FreshFunded, () => freshFunded],
+        [ValueChainStepKind.FirstPayoutEligible, () => eligible],
+        [
+            ValueChainStepKind.PostFirstPayout,
+            () => postFirstPayoutAccount(eligible, spec),
+        ],
+    ];
+    return {
+        figures: {
+            steps: steps.map(([kind, accountOf]) =>
+                valueChainStepOf(kind, accountOf, spec),
+            ),
+            trials: spec.run.trials,
+        },
+        kind: OverviewRequestKind.ValueChain,
+    };
+}
+
+function valueChainStepOf(
+    kind: ValueChainStepKind,
+    accountOf: () => ReconstructedFundedOrEvalAccount,
+    spec: DocumentedPolicySpec,
+): ValueChainStepFigures {
+    try {
+        return {
+            kind,
+            outcome: {
+                kind: ValueChainStepOutcomeKind.Value,
+                value: requireValue(valueAtState(accountOf(), spec)),
+            },
+        };
+    } catch (error) {
+        return {
+            kind,
+            outcome: {
+                kind: ValueChainStepOutcomeKind.Unavailable,
+                reason: describeSimulationFailure(error),
+            },
+        };
+    }
 }

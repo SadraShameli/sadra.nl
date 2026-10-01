@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+import type * as PropAccounts from '~/lib/prop-accounts';
 
 import {
+    type AccountFromStateFigures,
     type DocumentedRunFigures,
     type OverviewOutcome,
     OverviewOutcomeKind,
@@ -10,6 +13,7 @@ import {
     type PortfolioProjectionFigures,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { accountAlerts } from '~/app/(app)/prop-calculator/accounts/_components/detail/accountAlerts';
+import { AccountFromStateViewKind } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
 import {
     accountEventKindLabel,
     accountStatesFromLoad,
@@ -21,6 +25,7 @@ import {
     ledgerOrDateFailure,
     NO_OVERVIEW_ENGINE,
     OVERVIEW_TIMELINE_LIMIT,
+    overviewAccountRequestsOf,
     type OverviewAccountRow,
     type OverviewAlert,
     type OverviewAlerts,
@@ -32,6 +37,7 @@ import {
     OverviewKpiKind,
     type OverviewLedger,
     type OverviewLedgerCards,
+    type OverviewNextPayout,
     OverviewNoticeKind,
     type OverviewPayoutRow,
     type OverviewProjection,
@@ -86,6 +92,8 @@ import {
 import {
     AccountCapPolicyKind,
     CENTS_PER_DOLLAR,
+    CumulativeAmountTrigger,
+    DiscretionaryTrigger,
     dollars,
     findFirm,
     FirmAccountPolicy,
@@ -94,6 +102,7 @@ import {
     MffuVariant,
     PayoutCountPerAccountTrigger,
     PayoutCountTotalTrigger,
+    PayoutGate,
     type Plan,
     PolicySourceKind,
     PolicyVerification,
@@ -104,9 +113,17 @@ import {
 import {
     DEFAULT_RULEBOOK,
     LifetimePayoutCapBasis,
+    PayoutBlockReasonKind,
     RebuyLagBasis,
+    SizingStage,
+    StartBasis,
 } from '~/lib/prop-calculator/advisor';
 import { DocumentedPolicyTimelineGap } from '~/lib/prop-calculator/advisor/policy';
+import {
+    EvalMilestoneGap,
+    MilestoneKind,
+    ValueResultKind,
+} from '~/lib/prop-calculator/advisor/value';
 import { type PortfolioTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
 import {
     PropLimitRejection,
@@ -130,6 +147,28 @@ import {
     SAME_FIRM_SECOND_EVAL_PLAN,
     transfer,
 } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
+
+const readinessOverride = vi.hoisted(() => ({
+    rows: null as null | readonly unknown[],
+}));
+
+vi.mock('~/lib/prop-accounts', async (importOriginal) => {
+    const actual = await importOriginal<typeof PropAccounts>();
+    return {
+        ...actual,
+        payoutReadinessBoardOf: (
+            ...parameters: Parameters<typeof actual.payoutReadinessBoardOf>
+        ) => {
+            const real = actual.payoutReadinessBoardOf(...parameters);
+            return readinessOverride.rows === null
+                ? real
+                : {
+                      ...real,
+                      rows: readinessOverride.rows as typeof real.rows,
+                  };
+        },
+    };
+});
 
 const EVAL_FIRM_KEY = firmKeyId({
     firmId: EVAL_PLAN.firm.id,
@@ -4004,6 +4043,42 @@ describe('buildOverview cushion and payout readiness boards (F-80, F-81)', () =>
         }
     });
 
+    it.each([
+        [PayoutGate.NothingWithdrawable, 'more profit or time'],
+        [PayoutGate.AccountConcluded, 'no further profit or time'],
+    ])(
+        'words an unmeasured wait for the %s gate from the block reason, not as an unexplained estimate',
+        (gate, expected) => {
+            const funded = mffFundedAccount('Funded', 1800);
+            const rows = rowsOf({
+                accounts: [funded.row],
+                snapshots: [funded.snapshot],
+            });
+            readinessOverride.rows = [
+                {
+                    accountId: funded.owner.id,
+                    asOf: TODAY,
+                    kind: PayoutReadinessRowKind.Blocked,
+                    pendingAmountCents: null,
+                    reason: { gate, kind: PayoutBlockReasonKind.Gate },
+                    wait: null,
+                },
+            ];
+            try {
+                const { boards } = buildOverview(inputs(rows));
+                if (boards.kind !== OverviewSectionStatus.Ready) {
+                    throw new Error(`boards not ready: ${boards.kind}`);
+                }
+                const [row] = boards.readiness.rows;
+                expect(row?.status).toBe('Blocked');
+                expect(row?.unlock).toContain(expected);
+                expect(row?.unlock).not.toContain('wait: no closed-form estimate');
+            } finally {
+                readinessOverride.rows = null;
+            }
+        },
+    );
+
     it('shows a pending payout request as the block, with its amount', () => {
         const funded = mffFundedAccount('Pending payout', 100, '2026-09-20');
         const rows = rowsOf({
@@ -4270,6 +4345,106 @@ describe('buildOverview funnel weaknesses across plans (F-V11)', () => {
         }).funnel;
         expect(biggestWeakness).toContain('Pass rate');
         expect(biggestWeakness).not.toContain('cannot be tested for noise');
+    });
+});
+
+describe('buildOverview funnel noise line names only the same plan untestable gap (F-V11)', () => {
+    it('does not point at another plan untestable gap under a weakness named for a different plan', () => {
+        const rows = mergedRows(
+            realizedCohortRows(EVAL_PLAN, {
+                busted: 14,
+                paidDollars: 500,
+                passed: 2,
+            }),
+            realizedCohortRows(OTHER_FIRM_EVAL_PLAN, {
+                busted: 6,
+                paidDollars: 500,
+                passed: 2,
+            }),
+        );
+        const { biggestWeakness } = engineCards(rows, {
+            [EVAL_PLAN.serial]: { documented: matchedFigures(0.9) },
+            [OTHER_FIRM_EVAL_PLAN.serial]: {
+                documented: documentedFigures({
+                    attemptPassProbability: {
+                        standardError: 0.01,
+                        value: 0.25,
+                    },
+                }),
+            },
+        }).funnel;
+        expect(biggestWeakness).toContain(planName(EVAL_PLAN));
+        expect(biggestWeakness).not.toContain('cannot be tested for noise');
+        expect(biggestWeakness).not.toContain(planName(OTHER_FIRM_EVAL_PLAN));
+    });
+
+    it('names an untestable largest gap of the plan the weakness is named for', () => {
+        const rows = mergedRows(
+            realizedCohortRows(EVAL_PLAN, {
+                busted: 6,
+                paidDollars: 500,
+                passed: 2,
+            }),
+            realizedCohortRows(OTHER_FIRM_EVAL_PLAN, {
+                busted: 14,
+                paidDollars: 500,
+                passed: 2,
+            }),
+        );
+        const { biggestWeakness } = engineCards(rows, {
+            [EVAL_PLAN.serial]: {
+                documented: documentedFigures({
+                    attemptPassProbability: {
+                        standardError: 0.01,
+                        value: 0.9,
+                    },
+                }),
+            },
+            [OTHER_FIRM_EVAL_PLAN.serial]: { documented: matchedFigures(0.9) },
+        }).funnel;
+        expect(biggestWeakness).toContain('cannot be tested for noise');
+        expect(biggestWeakness).toContain('Payouts per paid funded account');
+    });
+});
+
+describe('buildOverview cost card with an engine that never passes (F-73)', () => {
+    const NEVER_PASSES = documentedFigures({
+        attemptPassProbability: { standardError: 0, value: 0 },
+        costPerFundedAccount: Infinity,
+    });
+
+    it('states that there is no modeled cost instead of an unexplained not applicable', () => {
+        const cards = engineCards(pinnedRows(), {
+            [EVAL_PLAN.serial]: { documented: NEVER_PASSES },
+        });
+        const row = cards.cost.perPlan.find(
+            (candidate) => candidate.key === EVAL_PLAN.serial,
+        );
+        expect(row?.modeled).toBe(
+            'No modeled cost (the engine passes no attempt)',
+        );
+        expect(row?.realizedMinusModeled).toBe(row?.modeled);
+    });
+
+    it('shows no infinite or undefined number anywhere on the cost card', () => {
+        const cards = engineCards(pinnedRows(), {
+            [EVAL_PLAN.serial]: { documented: NEVER_PASSES },
+        });
+        const text = JSON.stringify(cards.cost);
+        expect(text).not.toMatch(/Infinity|NaN/);
+    });
+
+    it('keeps not applicable for a realized side that has no funded account while the modeled cost exists', () => {
+        const rows = rowsOf({
+            accounts: [
+                overviewAccount(account(EVAL_PLAN, { label: 'Only eval' })),
+            ],
+        });
+        const row = engineCards(rows, {
+            [EVAL_PLAN.serial]: { documented: documentedFigures() },
+        }).cost.perPlan.find((candidate) => candidate.key === EVAL_PLAN.serial);
+        expect(row?.modeled).toBe(cents(77_700));
+        expect(row?.realizedMinusModeled).toBe(NOT_APPLICABLE);
     });
 });
 
@@ -4815,6 +4990,13 @@ const CONFIRMED_FIRM_SOURCE = {
     verification: PolicyVerification.Confirmed,
 } as const;
 
+const NEEDS_PASTE_FIRM_SOURCE = {
+    verification: PolicyVerification.NeedsPaste,
+} as const;
+
+const CONFIRMED_SOURCE_TEXT =
+    '"a synthetic firm quote" https://example.test/policy, checked 2026-09-01';
+
 const CONFLICTED_FIRM_SOURCE = {
     conflicting: CONFIRMED_FIRM_SOURCE,
     fetchedOn: '2026-09-01',
@@ -4947,6 +5129,25 @@ describe('buildOverview pooled cap card', () => {
         );
     });
 
+    it('states which accounts a cap counts, whatever the pool verification', () => {
+        const owned = fundedAccounts(EVAL_PLAN, 1);
+        const unverified = cardsOf({
+            accounts: owned.map(overviewAccount),
+            events: owned.map((row) => purchased(row)),
+        });
+        const verified = withFirmPolicy(pooledPolicy(), () =>
+            cardsOf({
+                accounts: owned.map(overviewAccount),
+                events: owned.map((row) => purchased(row)),
+            }),
+        );
+        for (const cards of [unverified, verified]) {
+            expect(cards.pooledCaps.countingNote).toBe(
+                'Active and suspended funded accounts count toward a cap; accounts that moved live, ended or archived accounts and accounts held by others in a household do not.',
+            );
+        }
+    });
+
     it('names a firm whose verified pool is shared across a household, as a disclosure only', () => {
         const owned = fundedAccounts(EVAL_PLAN, 1);
         const cards = withFirmPolicy(pooledPolicy({ household: true }), () =>
@@ -5001,9 +5202,12 @@ describe('buildOverview live proximity card', () => {
                 paidPayouts: '2',
                 plan: `${EVAL_PLAN.firm.displayName} ${EVAL_PLAN.plan.label}`,
                 remaining: '1',
+                sourceText: CONFIRMED_SOURCE_TEXT,
                 trigger: '3',
             },
         ]);
+        expect(cards.liveProximity.firms).toEqual([]);
+        expect(cards.liveProximity.unlistedNote).toBeNull();
     });
 
     it('never shows a number for an unverified firm: the firm row says unverified and no account row is listed', () => {
@@ -5023,11 +5227,109 @@ describe('buildOverview live proximity card', () => {
                 paidSinceLastLive: '1',
                 remaining: 'Unverified',
                 since: 'all time',
+                sourceText: 'No confirmed source',
                 trigger: 'Unverified',
             },
         ]);
         expect(cards.liveProximity.unlistedNote).toBe(
             '1 funded account is at a firm whose live triggers are unverified, so its distance to going live is not shown.',
+        );
+    });
+
+    it('lists no row and notes the account when its only count trigger is an unconfirmed per-account one', () => {
+        const [owner] = fundedAccounts(EVAL_PLAN, 1);
+        if (owner === undefined) throw new Error('rows');
+        const cards = withFirmPolicy(
+            new SyntheticFirmPolicy({
+                triggers: [
+                    new PayoutCountPerAccountTrigger(3, NEEDS_PASTE_FIRM_SOURCE),
+                ],
+            }),
+            () =>
+                cardsOf({
+                    accounts: [overviewAccount(owner)],
+                    events: [purchased(owner)],
+                }),
+        );
+        expect(cards.liveProximity.accounts).toEqual([]);
+        expect(cards.liveProximity.firms).toEqual([]);
+        expect(cards.liveProximity.singleDayFacts).toEqual([]);
+        expect(cards.liveProximity.openFundedAccounts).toBe(1);
+        expect(cards.liveProximity.unlistedNote).toBe(
+            '1 funded account is at a firm whose live triggers are unverified, so its distance to going live is not shown.',
+        );
+    });
+
+    it('notes an open funded ledger-only account whose distance to live is not measured', () => {
+        const ledgerOnly = account(EVAL_PLAN, {
+            accountSize: 150_000,
+            label: 'Ledger only',
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            purchasedOn: '2026-09-01',
+            stage: AccountStage.Funded,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const cards = cardsOf({ accounts: [overviewAccount(ledgerOnly)] });
+        expect(cards.liveProximity.openFundedAccounts).toBe(0);
+        expect(cards.liveProximity.accounts).toEqual([]);
+        expect(cards.liveProximity.firms).toEqual([]);
+        expect(cards.liveProximity.unlistedNote).toBe(
+            '1 funded ledger-only account has no modeled plan, so its distance to going live is not measured.',
+        );
+    });
+
+    it('notes an open funded account whose plan is no longer modeled, and ignores an ended or evaluation ledger-only one', () => {
+        const unknown = account(EVAL_PLAN, {
+            fundedOn: '2026-09-10',
+            label: 'Unknown plan',
+            planSerial: 'no-such-plan',
+            stage: AccountStage.Funded,
+        });
+        const endedLedgerOnly = account(EVAL_PLAN, {
+            accountSize: 150_000,
+            label: 'Ended',
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            stage: AccountStage.Funded,
+            status: AccountStatus.Busted,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const evalLedgerOnly = account(EVAL_PLAN, {
+            accountSize: 150_000,
+            label: 'Evaluation',
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            stage: AccountStage.Eval,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const cards = cardsOf({
+            accounts: [unknown, endedLedgerOnly, evalLedgerOnly].map(
+                overviewAccount,
+            ),
+        });
+        expect(cards.liveProximity.unlistedNote).toBe(
+            '1 funded account has a plan that is no longer modeled, so its distance to going live is not measured.',
+        );
+    });
+
+    it('joins the unverified-firm note and the unmodeled-account note', () => {
+        const [owner] = fundedAccounts(EVAL_PLAN, 1);
+        if (owner === undefined) throw new Error('rows');
+        const ledgerOnly = account(OTHER_FIRM_EVAL_PLAN, {
+            accountSize: 150_000,
+            label: 'Ledger only',
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            stage: AccountStage.Funded,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const cards = cardsOf({
+            accounts: [owner, ledgerOnly].map(overviewAccount),
+            events: [purchased(owner)],
+        });
+        expect(cards.liveProximity.unlistedNote).toBe(
+            '1 funded account is at a firm whose live triggers are unverified, so its distance to going live is not shown. 1 funded ledger-only account has no modeled plan, so its distance to going live is not measured.',
         );
     });
 
@@ -5087,9 +5389,12 @@ describe('buildOverview live proximity card', () => {
                 paidSinceLastLive: '2',
                 remaining: '8',
                 since: '2026-09-08',
+                sourceText: CONFIRMED_SOURCE_TEXT,
                 trigger: '10',
             },
         ]);
+        expect(cards.liveProximity.accounts).toEqual([]);
+        expect(cards.liveProximity.unlistedNote).toBeNull();
     });
 
     it('shows a verified single-day trigger as a fact with its quote and source', () => {
@@ -5109,8 +5414,12 @@ describe('buildOverview live proximity card', () => {
                     events: [purchased(owner)],
                 }),
         );
+        expect(cards.liveProximity.firms).toEqual([]);
+        expect(cards.liveProximity.accounts).toEqual([]);
+        expect(cards.liveProximity.unlistedNote).toBeNull();
         expect(cards.liveProximity.singleDayFacts).toEqual([
             {
+                fetchedOn: '2026-09-01',
                 firm: EVAL_PLAN.firm.displayName,
                 key: `${EVAL_PLAN.serial}-single-day`,
                 plan: `${EVAL_PLAN.firm.displayName} ${EVAL_PLAN.plan.label}`,
@@ -5121,11 +5430,629 @@ describe('buildOverview live proximity card', () => {
         ]);
     });
 
+    it('says nothing is unverified for a firm whose only verified trigger is a firm total: no account row, no note', () => {
+        const owners = fundedAccounts(EVAL_PLAN, 2);
+        const cards = withFirmPolicy(
+            new SyntheticFirmPolicy({
+                triggers: [
+                    new PayoutCountTotalTrigger(10, CONFIRMED_FIRM_SOURCE),
+                ],
+            }),
+            () =>
+                cardsOf({
+                    accounts: owners.map(overviewAccount),
+                    events: owners.map((row) => purchased(row)),
+                }),
+        );
+        expect(cards.liveProximity.accounts).toEqual([]);
+        expect(cards.liveProximity.unlistedNote).toBeNull();
+        expect(cards.liveProximity.firms).toHaveLength(1);
+        expect(cards.liveProximity.firms[0]).toMatchObject({
+            isVerified: true,
+            remaining: '10',
+            trigger: '10',
+        });
+    });
+
+    it('shows no unverified firm row for a firm whose only verified trigger is per account', () => {
+        const [owner] = fundedAccounts(EVAL_PLAN, 1);
+        if (owner === undefined) throw new Error('rows');
+        const cards = withFirmPolicy(
+            new SyntheticFirmPolicy({
+                triggers: [
+                    new PayoutCountPerAccountTrigger(3, CONFIRMED_FIRM_SOURCE),
+                ],
+            }),
+            () =>
+                cardsOf({
+                    accounts: [overviewAccount(owner)],
+                    events: [purchased(owner)],
+                }),
+        );
+        expect(cards.liveProximity.firms).toEqual([]);
+        expect(cards.liveProximity.accounts).toHaveLength(1);
+        expect(cards.liveProximity.unlistedNote).toBeNull();
+    });
+
+    it('does not call a firm unverified when its only verified trigger is a single-day profit', () => {
+        const [owner] = fundedAccounts(EVAL_PLAN, 1);
+        if (owner === undefined) throw new Error('rows');
+        const singleDayTrigger = new SingleDayProfitTrigger(
+            dollars(10_000),
+            true,
+            false,
+            CONFIRMED_FIRM_SOURCE,
+        );
+        const cards = withFirmPolicy(
+            new SyntheticFirmPolicy({
+                triggers: [singleDayTrigger],
+            }),
+            () =>
+                cardsOf({
+                    accounts: [overviewAccount(owner)],
+                    events: [purchased(owner)],
+                }),
+        );
+        expect(cards.liveProximity.firms).toEqual([]);
+        expect(cards.liveProximity.accounts).toEqual([]);
+        expect(cards.liveProximity.unlistedNote).toBeNull();
+        expect(cards.liveProximity.singleDayFacts).toHaveLength(1);
+    });
+
+    it('does not call a firm unverified for a verified discretionary trigger', () => {
+        const [owner] = fundedAccounts(EVAL_PLAN, 1);
+        if (owner === undefined) throw new Error('rows');
+        const cards = withFirmPolicy(
+            new SyntheticFirmPolicy({
+                triggers: [new DiscretionaryTrigger(CONFIRMED_FIRM_SOURCE)],
+            }),
+            () =>
+                cardsOf({
+                    accounts: [overviewAccount(owner)],
+                    events: [purchased(owner)],
+                }),
+        );
+        expect(cards.liveProximity.firms).toEqual([]);
+        expect(cards.liveProximity.accounts).toEqual([]);
+        expect(cards.liveProximity.unlistedNote).toBeNull();
+        expect(cards.liveProximity.openFundedAccounts).toBe(1);
+    });
+
+    it('says a verified cumulative payout trigger is not measured here instead of dropping it silently', () => {
+        const [owner] = fundedAccounts(EVAL_PLAN, 1);
+        if (owner === undefined) throw new Error('rows');
+        const cumulativeTrigger = new CumulativeAmountTrigger(
+            dollars(100_000),
+            CONFIRMED_FIRM_SOURCE,
+        );
+        const cards = withFirmPolicy(
+            new SyntheticFirmPolicy({ triggers: [cumulativeTrigger] }),
+            () =>
+                cardsOf({
+                    accounts: [overviewAccount(owner)],
+                    events: [purchased(owner)],
+                }),
+        );
+        expect(cards.liveProximity.firms).toEqual([]);
+        expect(cards.liveProximity.accounts).toEqual([]);
+        expect(cards.liveProximity.unlistedNote).toBeNull();
+        expect(cards.liveProximity.unmeasuredNote).toBe(
+            `${EVAL_PLAN.firm.displayName} ${EVAL_PLAN.plan.label} has a verified cumulative payout trigger of ${cents(10_000_000)} that this card does not measure.`,
+        );
+    });
+
+    it('still lists a trigger that is present but unconfirmed as unverified', () => {
+        const [owner] = fundedAccounts(EVAL_PLAN, 1);
+        if (owner === undefined) throw new Error('rows');
+        const cards = withFirmPolicy(
+            new SyntheticFirmPolicy({
+                triggers: [
+                    new PayoutCountPerAccountTrigger(
+                        3,
+                        NEEDS_PASTE_FIRM_SOURCE,
+                    ),
+                ],
+            }),
+            () =>
+                cardsOf({
+                    accounts: [overviewAccount(owner)],
+                    events: [purchased(owner)],
+                }),
+        );
+        expect(cards.liveProximity.accounts).toEqual([]);
+        expect(cards.liveProximity.unlistedNote).toBe(
+            '1 funded account is at a firm whose live triggers are unverified, so its distance to going live is not shown.',
+        );
+    });
+
+    it('states what each number counts: paid payouts only, a firm total that restarts at the latest move live, and no household', () => {
+        const cards = cardsOf({ accounts: [] });
+        expect(cards.liveProximity.disclosure).toContain(
+            'Only paid payouts are counted',
+        );
+        expect(cards.liveProximity.disclosure).toContain(
+            'after your latest move live',
+        );
+        expect(cards.liveProximity.disclosure).toContain('household');
+        expect(cards.liveProximity.openFundedAccounts).toBe(0);
+    });
+
     it('has no rows and no note when there is no funded account', () => {
         const cards = cardsOf({
             accounts: [overviewAccount(account(EVAL_PLAN))],
         });
         expect(cards.liveProximity.accounts).toEqual([]);
         expect(cards.liveProximity.unlistedNote).toBeNull();
+    });
+});
+
+
+function accountFromStateFigures(
+    overrides: Partial<AccountFromStateFigures> = {},
+): AccountFromStateFigures {
+    return {
+        milestone: {
+            debited: 1000,
+            kind: MilestoneKind.Funded,
+            unmetGates: [],
+            value: valueFigure(2500, 90),
+        },
+        nextPayout: {
+            accountLostBeforeFirstPayoutProbability: 0.04,
+            accountLostBeforeFirstPayoutStandardError: 0.0044,
+            expectedCalendarDaysToFirstPayout: { standardError: 0.5, value: 14 },
+            expectedResetFeeBeforeFirstPayout: { standardError: 3, value: 12 },
+            expectedSessionDaysToFirstPayout: { standardError: 0.4, value: 10 },
+            firstPayoutCausedBreachProbability: 0.02,
+            firstPayoutCausedBreachStandardError: 0.003,
+            payingTrials: 1800,
+            trials: 2000,
+        },
+        stage: SizingStage.Funded,
+        startBasis: StartBasis.FromState,
+        trials: 2000,
+        valueNow: valueFigure(1800, 70),
+        ...overrides,
+    };
+}
+
+function activeEvalFixture(label = 'Eval account') {
+    const owner = account(EVAL_PLAN, { label, purchasedOn: '2026-09-01' });
+    const start = EVAL_PLAN.plan.accountSize;
+    return {
+        owner,
+        row: overviewAccount(owner),
+        snapshot: snapshotRow(owner, {
+            asOf: TODAY,
+            balanceCents: usdCents(Math.round((start + 600) * CENTS_PER_DOLLAR)),
+            createdAt: new Date('2026-09-25T00:00:00Z'),
+            dashboardFloorCents: null,
+            highestEodBalanceCents: usdCents(
+                Math.round((start + 600) * CENTS_PER_DOLLAR),
+            ),
+            highestIntradayBalanceCents: usdCents(
+                Math.round((start + 600) * CENTS_PER_DOLLAR),
+            ),
+            tradingDays: 3,
+        }),
+    };
+}
+
+function fromStateInputs(
+    rows: Partial<PortfolioRows>,
+    answer: AccountFromStateFigures | string | undefined,
+    failure: null | string = null,
+): OverviewInputs {
+    const load = portfolioLoad(answered(rowsOf(rows)));
+    const outcomes = new Map<string, OverviewOutcome>();
+    for (const request of overviewAccountRequestsOf(load, USER_ID, TODAY)) {
+        if (answer === undefined) continue;
+        const key = overviewRequestKey(request);
+        outcomes.set(
+            key,
+            typeof answer === 'string'
+                ? { key, kind: OverviewOutcomeKind.Failed, reason: answer }
+                : {
+                      key,
+                      kind: OverviewOutcomeKind.Succeeded,
+                      result: {
+                          figures: answer,
+                          kind: OverviewRequestKind.AccountFromState,
+                      },
+                  },
+        );
+    }
+    return { ...inputs(rows), engine: { failure, outcomes } };
+}
+
+function readyFromStateView(
+    rows: Partial<PortfolioRows>,
+    answer: AccountFromStateFigures | string | undefined,
+    failure: null | string = null,
+) {
+    const model = readyNextPayout(
+        buildOverview(fromStateInputs(rows, answer, failure)).nextPayout,
+    );
+    const [row] = model.rows;
+    if (row === undefined) throw new Error('expected a next payout row');
+    return { model, row };
+}
+
+function readyNextPayout(nextPayout: OverviewNextPayout) {
+    if (nextPayout.kind !== OverviewSectionStatus.Ready) {
+        throw new Error(`next payout not ready: ${nextPayout.kind}`);
+    }
+    return nextPayout.model;
+}
+
+function valueFigure(amount: number, standardError: number) {
+    return {
+        creditFree: { standardError, value: amount },
+        creditInclusive: { standardError, value: amount + 150 },
+        kind: ValueResultKind.Value as const,
+        seed: 42,
+        trials: 2000,
+    };
+}
+
+describe('overviewAccountRequestsOf (PT-37, F-87)', () => {
+    it('plans one from-state request per active funded or eval account carrying its snapshot input and only the spec', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const evalAccount = activeEvalFixture();
+        const rows = {
+            accounts: [funded.row, evalAccount.row],
+            snapshots: [funded.snapshot, evalAccount.snapshot],
+        };
+        const load = portfolioLoad(answered(rowsOf(rows)));
+        const requests = overviewAccountRequestsOf(load, USER_ID, TODAY);
+        expect(requests).toHaveLength(2);
+        for (const request of requests) {
+            expect(request.kind).toBe(OverviewRequestKind.AccountFromState);
+            expect(request.spec.start).toBeUndefined();
+            expect(request.spec.rulebook).toEqual(DEFAULT_RULEBOOK);
+            expect(request.account?.asOf).toBe(TODAY);
+            expect(structuredClone(request)).toEqual(request);
+        }
+        const stages = requests.map((request) => request.account?.stage);
+        expect(stages).toContain(SizingStage.Funded);
+        expect(stages).toContain(SizingStage.Eval);
+        const fundedRequest = requests.find(
+            (request) => request.account?.stage === SizingStage.Funded,
+        );
+        expect(fundedRequest?.account?.balance).toBeCloseTo(
+            funded.threshold + 1800,
+            6,
+        );
+        expect(fundedRequest?.planSerial).toBe(mffProEntry().serial);
+    });
+
+    it('carries the same engine policy as the documented-run request of the same plan', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const load = portfolioLoad(
+            answered(
+                rowsOf({
+                    accounts: [funded.row],
+                    snapshots: [funded.snapshot],
+                }),
+            ),
+        );
+        const [request] = overviewAccountRequestsOf(load, USER_ID, TODAY);
+        const documented = overviewEngineRequestsOf(load, USER_ID).find(
+            (candidate) => candidate.kind === OverviewRequestKind.DocumentedRun,
+        );
+        expect(request?.spec).toEqual(documented?.spec);
+    });
+
+    it('plans nothing for an ended, archived, snapshotless or unreconstructable account', () => {
+        const busted = mffFundedAccount('Busted', 1800);
+        const archived = mffFundedAccount('Archived', 1800);
+        const noSnapshot = mffFundedAccount('No snapshot', 1800);
+        const noPeak = mffFundedAccount('No peak', 1800);
+        const rows = {
+            accounts: [
+                { ...busted.row, status: AccountStatus.Busted },
+                { ...archived.row, archivedAt: new Date('2026-09-01') },
+                noSnapshot.row,
+                noPeak.row,
+            ],
+            snapshots: [
+                busted.snapshot,
+                archived.snapshot,
+                {
+                    ...noPeak.snapshot,
+                    highestEodBalanceCents: null,
+                    highestIntradayBalanceCents: null,
+                },
+            ],
+        };
+        const load = portfolioLoad(answered(rowsOf(rows)));
+        expect(overviewAccountRequestsOf(load, USER_ID, TODAY)).toEqual([]);
+    });
+
+    it('plans nothing for a ledger-only account or an account that is already live', () => {
+        const live = mffFundedAccount('Live', 1800);
+        const rows = {
+            accounts: [{ ...live.row, stage: AccountStage.Live }],
+            snapshots: [live.snapshot],
+        };
+        const load = portfolioLoad(answered(rowsOf(rows)));
+        expect(overviewAccountRequestsOf(load, USER_ID, TODAY)).toEqual([]);
+    });
+
+    it('plans nothing while the accounts, the ledger or the rulebook has not loaded', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const base = {
+            accounts: [funded.row],
+            snapshots: [funded.snapshot],
+        };
+        const noEvents = portfolioLoad({
+            ...answered(rowsOf(base)),
+            [PortfolioSource.Events]: { data: undefined, error: null },
+        });
+        expect(overviewAccountRequestsOf(noEvents, USER_ID, TODAY)).toEqual([]);
+        const noRulebook = portfolioLoad({
+            ...answered(rowsOf(base)),
+            [PortfolioSource.Rulebook]: { data: undefined, error: null },
+        });
+        expect(overviewAccountRequestsOf(noRulebook, USER_ID, TODAY)).toEqual(
+            [],
+        );
+    });
+
+    it('keys each request per account state: two accounts in different states are two requests, identical states are one', () => {
+        const low = mffFundedAccount('Low', 1800);
+        const high = mffFundedAccount('High', 1500);
+        const twin = mffFundedAccount('Twin', 1800);
+        const load = portfolioLoad(
+            answered(
+                rowsOf({
+                    accounts: [low.row, high.row, twin.row],
+                    snapshots: [low.snapshot, high.snapshot, twin.snapshot],
+                }),
+            ),
+        );
+        const requests = overviewAccountRequestsOf(load, USER_ID, TODAY);
+        expect(requests).toHaveLength(2);
+        expect(
+            new Set(requests.map((request) => overviewRequestKey(request)))
+                .size,
+        ).toBe(2);
+    });
+});
+
+describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
+    it('is pending until the accounts and the ledger have loaded', () => {
+        const load = portfolioLoad({
+            ...answered(rowsOf({})),
+            [PortfolioSource.Accounts]: { data: undefined, error: null },
+        });
+        const model = buildOverview({ ...inputs({}), load });
+        expect(model.nextPayout).toEqual({
+            kind: OverviewSectionStatus.Pending,
+        });
+    });
+
+    it('lists each active modeled account with a pending view until the engine answers', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const { row } = readyFromStateView(
+            { accounts: [funded.row], snapshots: [funded.snapshot] },
+            undefined,
+        );
+        expect(row.label).toBe('Funded');
+        expect(row.plan).toContain('Pro');
+        expect(row.view).toEqual({ kind: AccountFromStateViewKind.Pending });
+    });
+
+    it('reads the from-state value as credit-free with the credit-inclusive figure separate, both with their standard errors, labelled from state with its trials', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const { row } = readyFromStateView(
+            { accounts: [funded.row], snapshots: [funded.snapshot] },
+            accountFromStateFigures(),
+        );
+        if (row.view.kind !== AccountFromStateViewKind.Ready) {
+            throw new Error('expected a ready view');
+        }
+        const { model } = row.view;
+        expect(model.value.creditFree).toBe('$1,800 (SE $70)');
+        expect(model.value.creditInclusive).toBe('$1,950 (SE $70)');
+        expect(model.trials).toBe('2,000 trials');
+        expect(model.startBasis).toContain('From the account state');
+        expect(model.startBasis).toContain(TODAY);
+        expect(model.startBasis.toLowerCase()).toContain('not a fresh start');
+        expect(model.creditBasis).toContain('credit-free');
+        expect(model.creditBasis).toContain('credit-inclusive');
+    });
+
+    it('shows the next payout projection with days, the chance of losing the account first and the breach at the first payout, each with its standard error', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const { row } = readyFromStateView(
+            { accounts: [funded.row], snapshots: [funded.snapshot] },
+            accountFromStateFigures(),
+        );
+        if (row.view.kind !== AccountFromStateViewKind.Ready) {
+            throw new Error('expected a ready view');
+        }
+        const { nextPayout } = row.view.model;
+        expect(nextPayout?.calendarDays).toBe('14.0 calendar days (SE 0.5)');
+        expect(nextPayout?.sessionDays).toBe('10.0 sessions (SE 0.4)');
+        expect(nextPayout?.accountLostBeforePayout).toBe(
+            `${formatPercent(0.04)} (SE ${formatPercent(0.0044)})`,
+        );
+        expect(nextPayout?.breachAtFirstPayout).toBe(
+            `${formatPercent(0.02)} (SE ${formatPercent(0.003)})`,
+        );
+        expect(nextPayout?.resetFee).toBe('$12 (SE $3)');
+        expect(nextPayout?.payingTrials).toBe(
+            '1,800 of 2,000 trials reached a payout',
+        );
+    });
+
+    it('says no trial reached a payout instead of showing zero days when none did', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const { row } = readyFromStateView(
+            { accounts: [funded.row], snapshots: [funded.snapshot] },
+            accountFromStateFigures({
+                nextPayout: {
+                    accountLostBeforeFirstPayoutProbability: 0.3,
+                    accountLostBeforeFirstPayoutStandardError: 0.01,
+                    expectedCalendarDaysToFirstPayout: {
+                        standardError: null,
+                        value: 0,
+                    },
+                    expectedResetFeeBeforeFirstPayout: {
+                        standardError: null,
+                        value: 0,
+                    },
+                    expectedSessionDaysToFirstPayout: {
+                        standardError: null,
+                        value: 0,
+                    },
+                    firstPayoutCausedBreachProbability: null,
+                    firstPayoutCausedBreachStandardError: null,
+                    payingTrials: 0,
+                    trials: 2000,
+                },
+            }),
+        );
+        if (row.view.kind !== AccountFromStateViewKind.Ready) {
+            throw new Error('expected a ready view');
+        }
+        const { nextPayout } = row.view.model;
+        expect(nextPayout?.calendarDays).toContain('No simulated trial');
+        expect(nextPayout?.sessionDays).toContain('No simulated trial');
+        expect(nextPayout?.breachAtFirstPayout).toContain('No simulated trial');
+        expect(nextPayout?.calendarDays).not.toContain('0.0');
+        expect(nextPayout?.payingTrials).toBe(
+            '0 of 2,000 trials reached a payout',
+        );
+    });
+
+    it('says the account is eligible now when the engine finds it already eligible', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const zero = { standardError: 0, value: 0 };
+        const { row } = readyFromStateView(
+            { accounts: [funded.row], snapshots: [funded.snapshot] },
+            accountFromStateFigures({
+                nextPayout: {
+                    accountLostBeforeFirstPayoutProbability: 0,
+                    accountLostBeforeFirstPayoutStandardError: 0,
+                    expectedCalendarDaysToFirstPayout: zero,
+                    expectedResetFeeBeforeFirstPayout: zero,
+                    expectedSessionDaysToFirstPayout: zero,
+                    firstPayoutCausedBreachProbability: 0,
+                    firstPayoutCausedBreachStandardError: 0,
+                    payingTrials: 2000,
+                    trials: 2000,
+                },
+            }),
+        );
+        if (row.view.kind !== AccountFromStateViewKind.Ready) {
+            throw new Error('expected a ready view');
+        }
+        expect(row.view.model.nextPayout?.calendarDays).toBe(
+            'Already eligible now',
+        );
+    });
+
+    it('shows the milestone value, the credit-free gain with its standard error and the payout debited for a funded account', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const { row } = readyFromStateView(
+            { accounts: [funded.row], snapshots: [funded.snapshot] },
+            accountFromStateFigures(),
+        );
+        if (row.view.kind !== AccountFromStateViewKind.Ready) {
+            throw new Error('expected a ready view');
+        }
+        const { milestone } = row.view.model;
+        expect(milestone.kind).toBe(MilestoneKind.Funded);
+        expect(milestone.valueCreditFree).toBe('$2,500 (SE $90)');
+        expect(milestone.valueCreditInclusive).toBe('$2,650 (SE $90)');
+        expect(milestone.gain).toBe(`+$700 (SE $${Math.round(Math.hypot(70, 90))})`);
+        expect(milestone.debited).toBe('$1,000');
+        expect(milestone.label.toLowerCase()).toContain('payout');
+    });
+
+    it('names the unmet eval gates at the milestone and has no next payout for an eval account', () => {
+        const evalAccount = activeEvalFixture();
+        const { row } = readyFromStateView(
+            { accounts: [evalAccount.row], snapshots: [evalAccount.snapshot] },
+            accountFromStateFigures({
+                milestone: {
+                    debited: null,
+                    kind: MilestoneKind.Eval,
+                    unmetGates: [EvalMilestoneGap.ConsistencyNotMet],
+                    value: {
+                        creditFree: { standardError: 0, value: 700 },
+                        creditInclusive: { standardError: 0, value: 700 },
+                        kind: ValueResultKind.Value,
+                        seed: 42,
+                        trials: 2000,
+                    },
+                },
+                nextPayout: null,
+                stage: SizingStage.Eval,
+            }),
+        );
+        if (row.view.kind !== AccountFromStateViewKind.Ready) {
+            throw new Error('expected a ready view');
+        }
+        expect(row.view.model.nextPayout).toBeNull();
+        expect(row.view.model.milestone.debited).toBeNull();
+        expect(row.view.model.milestone.gates).toHaveLength(1);
+        expect(row.view.model.milestone.gates[0]?.toLowerCase()).toContain(
+            'consistency',
+        );
+        expect(row.view.model.milestone.gain.startsWith('-')).toBe(true);
+    });
+
+    it('turns a refused sizing into a typed refused row with the engine text, and an engine failure into a failed one', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const rows = { accounts: [funded.row], snapshots: [funded.snapshot] };
+        const refused = readyFromStateView(rows, 'the stop is too wide');
+        expect(refused.row.view).toEqual({
+            kind: AccountFromStateViewKind.Refused,
+            reason: 'the stop is too wide',
+        });
+        const failed = readyFromStateView(rows, undefined, 'workers are down');
+        expect(failed.row.view).toEqual({
+            kind: AccountFromStateViewKind.Failed,
+            reason: 'workers are down',
+        });
+    });
+
+    it('never merges the from-state figures into the fresh-start projection: the projection model is the same with or without them, and says where the from-state figures are', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const rows = { accounts: [funded.row], snapshots: [funded.snapshot] };
+        const without = buildOverview(inputs(rows)).projection;
+        const withFromState = buildOverview(
+            fromStateInputs(rows, accountFromStateFigures()),
+        ).projection;
+        expect(withFromState).toEqual(without);
+        const model = readyProjection(withFromState);
+        expect(
+            model.disclosures.some((text) =>
+                text.toLowerCase().includes('never merged'),
+            ),
+        ).toBe(true);
+    });
+
+    it('keys the from-state request apart from every fresh-start request of the plan', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const load = portfolioLoad(
+            answered(
+                rowsOf({
+                    accounts: [funded.row],
+                    snapshots: [funded.snapshot],
+                }),
+            ),
+        );
+        const fresh = [
+            ...overviewEngineRequestsOf(load, USER_ID),
+            ...overviewProjectionRequestsOf(load, USER_ID),
+        ].map((request) => overviewRequestKey(request));
+        const [request] = overviewAccountRequestsOf(load, USER_ID, TODAY);
+        expect(request).toBeDefined();
+        if (request === undefined) return;
+        expect(fresh).not.toContain(overviewRequestKey(request));
     });
 });

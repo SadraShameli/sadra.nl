@@ -2,6 +2,7 @@ import { payoutBlockReasonText } from '~/app/(app)/prop-calculator/_components/p
 import { assumptionLabel } from '~/app/(app)/prop-calculator/accounts/_components/detail/detailState';
 import { formatCurrency } from '~/lib/format';
 import {
+    type AccountAction,
     type Advice,
     type AdviceProvenance,
     AdviceSource,
@@ -33,6 +34,8 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import { FundedCandidateRefusal, type FundedCandidateRefusalDetail } from '~/lib/prop-calculator/optimize';
 
+import { accountActionFor } from './accountActionModel';
+
 export { payoutBlockReasonText } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
 
 export enum AdviceDisplayKind {
@@ -56,6 +59,9 @@ export interface DailyPlanCardViewModel {
     readonly rungs: readonly RungView[];
     readonly stopCappedByText: readonly string[];
     readonly stopReasonText: string;
+    readonly valueAfterLoss: null | number;
+    readonly valueAfterWin: null | number;
+    readonly valueNow: null | number;
 }
 
 export interface OptimumRowView {
@@ -77,6 +83,7 @@ export interface PayoutAdviceViewModel {
 export type ProvenanceView = AdviceProvenance;
 
 export interface ReadyAdviceViewModel {
+    readonly action: AccountAction;
     readonly assumptions: readonly AssumptionView[];
     readonly dailyPlanCard: DailyPlanCardViewModel | null;
     readonly documented: DocumentedSizing | null;
@@ -102,6 +109,7 @@ export interface RungView {
 }
 
 export interface StaleAdviceViewModel {
+    readonly action: AccountAction;
     readonly headline: string;
     readonly kind: AdviceDisplayKind.Stale;
     readonly message: string;
@@ -139,8 +147,10 @@ const REQUEST_SOURCE_LABEL: Readonly<Record<EngineOptimumRequest['source'], stri
 
 export function adviceViewModel(advice: Advice): AdviceViewModel {
     const headline = `${advice.headline}, as of ${advice.provenance.snapshotDate}`;
+    const { action } = accountActionFor(advice);
     if (advice.staleness.kind === 'stale') {
         return {
+            action,
             headline,
             kind: AdviceDisplayKind.Stale,
             message: STALE_ADVICE_MESSAGE,
@@ -152,6 +162,7 @@ export function adviceViewModel(advice: Advice): AdviceViewModel {
         };
     }
     return {
+        action,
         assumptions: advice.assumptions.map(assumptionViewOf),
         dailyPlanCard:
             advice.dailyPlanCard === null
@@ -205,6 +216,9 @@ function dailyPlanCardViewOf(card: DailyPlanCard): DailyPlanCardViewModel {
             (constraint) => SIZING_CONSTRAINT_TEXT[constraint],
         ),
         stopReasonText: DAY_STOP_REASON_TEXT[card.stopReason],
+        valueAfterLoss: card.valueAfterLoss,
+        valueAfterWin: card.valueAfterWin,
+        valueNow: card.valueNow,
     };
 }
 

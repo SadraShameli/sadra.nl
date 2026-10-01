@@ -23,6 +23,7 @@ import {
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 import {
+    applicableTimelineGaps,
     DOCUMENTED_POLICY_TIMELINE_GAP_TEXT,
     DOCUMENTED_POLICY_TIMELINE_GAPS,
     type DocumentedPolicySpec,
@@ -234,6 +235,60 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
                 0,
             );
         }
+    });
+
+    it('lists no gap for a policy and rulebook the timeline honours in full', () => {
+        expect(applicableTimelineGaps(specOf())).toEqual([]);
+    });
+
+    it('lists the intraday path steps and the rebuy lag only when the policy sets them', () => {
+        expect(
+            applicableTimelineGaps(specOf({ intradayPathStepsPerR: 10 })),
+        ).toEqual([DocumentedPolicyTimelineGap.IntradayPathStepsPerR]);
+        expect(applicableTimelineGaps(specOf({ rebuyLagBasis: RebuyLagBasis.Measured, rebuyLagDays: 4 }))).toEqual([
+            DocumentedPolicyTimelineGap.RebuyLagDays,
+        ]);
+    });
+
+    it('lists a funded reward-to-risk that differs from the strategy one, and ignores a float-noise difference', () => {
+        const { funded, strategy } = DEFAULT_RULEBOOK;
+        const differs = {
+            ...DEFAULT_RULEBOOK,
+            funded: { ...funded, takeProfitCents: funded.riskCents * 3 },
+            strategy: { ...strategy, rr: 1 },
+        };
+        expect(applicableTimelineGaps(specOf({}, differs))).toEqual([
+            DocumentedPolicyTimelineGap.FundedRrDiffersFromStrategyRr,
+        ]);
+        const noise = {
+            ...DEFAULT_RULEBOOK,
+            strategy: {
+                ...strategy,
+                rr: funded.takeProfitCents / funded.riskCents + 1e-12,
+            },
+        };
+        expect(applicableTimelineGaps(specOf({}, noise))).toEqual([]);
+    });
+
+    it('lists every applicable gap in the declared order', () => {
+        const { funded, strategy } = DEFAULT_RULEBOOK;
+        const differs = {
+            ...DEFAULT_RULEBOOK,
+            funded: { ...funded, takeProfitCents: funded.riskCents * 3 },
+            strategy: { ...strategy, rr: 1 },
+        };
+        expect(
+            applicableTimelineGaps(
+                specOf(
+                    {
+                        intradayPathStepsPerR: 10,
+                        rebuyLagBasis: RebuyLagBasis.Measured,
+                        rebuyLagDays: 4,
+                    },
+                    differs,
+                ),
+            ),
+        ).toEqual(DOCUMENTED_POLICY_TIMELINE_GAPS);
     });
 
     it('runs simulatePortfolioTimeline on the built inputs without error', () => {

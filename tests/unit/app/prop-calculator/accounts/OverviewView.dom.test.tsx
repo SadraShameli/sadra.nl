@@ -2,6 +2,9 @@ import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ComputationCache } from '~/app/(app)/prop-calculator/_components/computationCache';
+import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
+import { ComputationCacheContext } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import {
     type DocumentedRunFigures,
     type OverviewOutcome,
@@ -9,10 +12,10 @@ import {
     type OverviewRequest,
     overviewRequestKey,
     OverviewRequestKind,
+    overviewRequestsKey,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { type AccountListAccount } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { OverviewView } from '~/app/(app)/prop-calculator/accounts/_components/overview/OverviewView';
-import { overviewOutcomeCache } from '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker';
 import {
     AccountEventKind,
     AccountStage,
@@ -124,6 +127,7 @@ const CARD_HEADINGS = [
     'Data notes',
     'Expected net',
     'Fresh-start projection',
+    "Next payout and value from today's state",
     'Plan cap usage',
     'Pooled caps',
     'Live proximity',
@@ -276,6 +280,16 @@ function rejection(overrides: Partial<PropRejection>): PropRejection {
         recordId: null,
         ...overrides,
     };
+}
+
+function renderWithCache(root: Root, cache: ComputationCache) {
+    act(() => {
+        root.render(
+            <ComputationCacheContext.Provider value={cache}>
+                <OverviewView userId={USER_ID} />
+            </ComputationCacheContext.Provider>,
+        );
+    });
 }
 
 async function settle() {
@@ -859,10 +873,9 @@ describe('OverviewView', () => {
             heldDone.length = 0;
             created = 0;
             isStreamingProgress = false;
-            overviewOutcomeCache.clear();
         });
 
-        it('starts one worker for one request set even when the worker streams a progress message per outcome', async () => {
+        it('starts one worker per request group even when the worker streams a progress message per outcome', async () => {
             isStreamingProgress = true;
             vi.stubGlobal('Worker', FakeWorker);
             answerEverything([heldFundedAccount()]);
@@ -871,12 +884,12 @@ describe('OverviewView', () => {
             expect(sectionNamed('Expected net')?.textContent).toContain(
                 '$1,111 (SE $9)',
             );
-            expect(created).toBe(1);
-            expect(posted).toHaveLength(1);
+            expect(created).toBe(2);
+            expect(posted).toHaveLength(2);
             for (const done of heldDone) done();
             await settle();
-            expect(created).toBe(1);
-            expect(posted).toHaveLength(1);
+            expect(created).toBe(2);
+            expect(posted).toHaveLength(2);
             expect(sectionNamed('Expected net')?.textContent).toContain(
                 'one ES contract risks more than your risk',
             );
@@ -898,39 +911,104 @@ describe('OverviewView', () => {
             );
         });
 
-        it('keeps the answers across a visit: coming back to the overview shows them at once and starts no worker', async () => {
+        it('keeps each request group in the shared computation cache under the overview id, keyed by that group', async () => {
             vi.stubGlobal('Worker', FakeWorker);
             answerEverything([heldFundedAccount()]);
-            render();
+            const cache = new ComputationCache();
+            renderWithCache(root, cache);
             await settle();
-            expect(created).toBe(1);
-            act(() => {
-                root.unmount();
-            });
-            root = createRoot(container);
-            render();
+            expect(posted).toHaveLength(2);
+            for (const sent of posted) {
+                const stored = cache.get(
+                    ComputationId.Overview,
+                    overviewRequestsKey(sent.requests),
+                );
+                expect(stored?.outcomes.map((outcome) => outcome.key)).toEqual(
+                    sent.requests.map((request) => overviewRequestKey(request)),
+                );
+            }
+        });
+
+        it('reruns only the projection when an account of a held plan is added, and keeps the policy answers on screen meanwhile', async () => {
+            isStreamingProgress = false;
+            vi.stubGlobal('Worker', FakeWorker);
+            answerEverything([heldFundedAccount()]);
+            const cache = new ComputationCache();
+            renderWithCache(root, cache);
+            await settle();
+            expect(posted).toHaveLength(2);
+            answerEverything([
+                heldFundedAccount(),
+                overviewAccount('beta', {
+                    fundedOn: '2026-09-06',
+                    purchasedOn: '2026-06-02',
+                    stage: AccountStage.Funded,
+                }),
+            ]);
+            renderWithCache(root, cache);
             expect(sectionNamed('Expected net')?.textContent).toContain(
                 '$1,111 (SE $9)',
             );
             await settle();
-            expect(created).toBe(1);
-            expect(posted).toHaveLength(1);
+            expect(posted).toHaveLength(3);
+            expect(posted[2]?.requests.map((request) => request.kind)).toEqual([
+                OverviewRequestKind.PortfolioProjection,
+            ]);
+            expect(posted[2]?.requests[0]?.accounts).toBe(2);
         });
 
-        it('sends one documented-run, one payout-size-optimum and one portfolio-projection request for the held plan and fills the expected net card and KPI from the answers', async () => {
+        it('shows the cached outcomes at once and starts no worker when the overview is visited again under the same cache', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            answerEverything([heldFundedAccount()]);
+            const cache = new ComputationCache();
+            renderWithCache(root, cache);
+            await settle();
+            expect(created).toBe(2);
+            act(() => {
+                root.unmount();
+            });
+            root = createRoot(container);
+            renderWithCache(root, cache);
+            expect(sectionNamed('Expected net')?.textContent).toContain(
+                '$1,111 (SE $9)',
+            );
+            await settle();
+            expect(created).toBe(2);
+            expect(posted).toHaveLength(2);
+        });
+
+        it('resimulates under a different cache: no outcome survives in a module global', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            answerEverything([heldFundedAccount()]);
+            renderWithCache(root, new ComputationCache());
+            await settle();
+            expect(created).toBe(2);
+            act(() => {
+                root.unmount();
+            });
+            root = createRoot(container);
+            renderWithCache(root, new ComputationCache());
+            await settle();
+            expect(created).toBe(4);
+            expect(posted).toHaveLength(4);
+        });
+
+        it('sends the documented-run and payout-size-optimum requests in one message and the portfolio-projection request in another for the held plan and fills the expected net card and KPI from the answers', async () => {
             vi.stubGlobal('Worker', FakeWorker);
             answerEverything([heldFundedAccount()]);
             render();
             await act(async () => {
                 await Promise.resolve();
             });
-            expect(posted).toHaveLength(1);
+            expect(posted).toHaveLength(2);
             expect(posted[0]?.requests.map((request) => request.kind)).toEqual([
                 OverviewRequestKind.DocumentedRun,
                 OverviewRequestKind.PayoutSizeOptimum,
+            ]);
+            expect(posted[1]?.requests.map((request) => request.kind)).toEqual([
                 OverviewRequestKind.PortfolioProjection,
             ]);
-            expect(posted[0]?.requests[2]?.accounts).toBe(1);
+            expect(posted[1]?.requests[0]?.accounts).toBe(1);
             expect(
                 sectionNamed('Fresh-start projection')?.textContent,
             ).toContain('one ES contract risks more than your risk');
@@ -949,6 +1027,62 @@ describe('OverviewView', () => {
             expect(sectionNamed('Costs')?.textContent).toContain('$777-$627');
         });
 
+        it('sends the account-from-state request of an account with a snapshot in its own message, and shows the answer on the next payout card (PT-37)', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            const alpha = heldFundedAccount();
+            answerEverything([alpha]);
+            const balanceCents = usdCents(
+                Math.round((plan.id.accountSize + 1000) * 100),
+            );
+            harness.queries.set(
+                'snapshot.latestForAll',
+                answer([
+                    {
+                        accountId: alpha.id,
+                        asOf: TODAY,
+                        balanceAtLastPayoutCents: null,
+                        balanceCents,
+                        createdAt: new Date(`${TODAY}T00:00:00Z`),
+                        cumulativePayoutCents: null,
+                        cycleBestDayProfitCents: null,
+                        dashboardFloorCents: null,
+                        evalBestDayProfitCents: null,
+                        floorAtLastPayoutCents: null,
+                        highestEodBalanceCents: balanceCents,
+                        highestIntradayBalanceCents: balanceCents,
+                        id: `snapshot-${alpha.id}`,
+                        lastPayoutOn: null,
+                        lastTradedOn: null,
+                        payoutsTaken: null,
+                        qualifyingDaysSinceLastPayout: null,
+                        tradingDays: 5,
+                        userId: USER_ID,
+                    },
+                ]),
+            );
+            render();
+            await settle();
+            const kinds = posted.map((message) =>
+                message.requests.map((request) => request.kind),
+            );
+            expect(kinds).toContainEqual([
+                OverviewRequestKind.AccountFromState,
+            ]);
+            expect(created).toBe(3);
+            const accountRequest = posted
+                .flatMap((message) => message.requests)
+                .find(
+                    (request) =>
+                        request.kind === OverviewRequestKind.AccountFromState,
+                );
+            expect(accountRequest?.account?.asOf).toBe(TODAY);
+            expect(accountRequest?.spec.start).toBeUndefined();
+            expect(
+                sectionNamed("Next payout and value from today's state")
+                    ?.textContent,
+            ).toContain('alpha: one ES contract risks more than your risk');
+        });
+
         it('does not send the same requests again when the view renders again with the same data', async () => {
             vi.stubGlobal('Worker', FakeWorker);
             answerEverything([heldFundedAccount()]);
@@ -960,7 +1094,7 @@ describe('OverviewView', () => {
             await act(async () => {
                 await Promise.resolve();
             });
-            expect(posted).toHaveLength(1);
+            expect(posted).toHaveLength(2);
         });
 
         it('says so instead of throwing when web workers are not available, and the other cards keep their data', () => {

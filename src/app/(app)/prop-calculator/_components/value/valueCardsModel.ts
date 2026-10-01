@@ -24,10 +24,11 @@ import {
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 import {
-    conservativeGapStandardError,
+    CreditBasis,
     type FundedValueSampleRange,
     type ValueChainResult,
     type ValueChainStepKind,
+    valueGap,
 } from '~/lib/prop-calculator/advisor/value';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
@@ -68,6 +69,19 @@ export interface ValueChainCardStep {
 }
 
 const positiveIntSchema = z.coerce.number().int().positive();
+
+const CALCULATOR_FIELD_LABEL: ReadonlyMap<PropertyKey, string> = new Map<
+    keyof EnginePolicy,
+    string
+>([
+    ['fundedHorizonDays', 'Funded horizon (days)'],
+    ['instrument', 'Instrument (contract-limit enforcement)'],
+    ['payoutRequestOverride', 'Payout request size ($)'],
+    ['retainedCushionRequest', 'Retained cushion on payout ($)'],
+    ['stopPoints', 'Stop distance (points)'],
+]);
+
+const UNLABELLED_FIELD_TEXT = 'Engine policy';
 
 export function fundedValueEstimateToolsRequest(
     cards: ValueCardsSpec,
@@ -177,7 +191,7 @@ export function valueCardsInputFor(
         return {
             kind: ValueCardsInputKind.Refused,
             reason: parsedPolicy.error.issues
-                .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+                .map((issue) => `${calculatorFieldLabelOf(issue.path)}: ${issue.message}`)
                 .join('; '),
         };
     }
@@ -215,15 +229,7 @@ export function valueChainCardSteps(
             gapFromPrevious:
                 previous === null
                     ? null
-                    : {
-                          standardError: conservativeGapStandardError(
-                              previous.value.creditFree.standardError,
-                              step.value.creditFree.standardError,
-                          ),
-                          value:
-                              step.value.creditFree.value -
-                              previous.value.creditFree.value,
-                      },
+                    : valueGap(previous.value, step.value, CreditBasis.CreditFree),
             kind: step.kind,
         };
     });
@@ -239,4 +245,12 @@ export function valueChainToolsRequest(
         runId,
         spec: cards.spec,
     };
+}
+
+function calculatorFieldLabelOf(path: readonly PropertyKey[]): string {
+    const [key] = path;
+    return (
+        (key === undefined ? undefined : CALCULATOR_FIELD_LABEL.get(key)) ??
+        UNLABELLED_FIELD_TEXT
+    );
 }

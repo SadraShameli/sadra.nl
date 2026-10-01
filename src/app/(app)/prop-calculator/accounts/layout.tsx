@@ -7,6 +7,7 @@ import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
+import { AccountsCacheProvider } from './_components/AccountsCacheProvider';
 import { AccountsSubnav } from './_components/AccountsSubnav';
 
 export const metadata: Metadata = {
@@ -27,7 +28,7 @@ export default async function PropAccountsLayout({
     return (
         <div className={cn('app-prop-accounts')}>
             <AccountsSubnav />
-            {children}
+            <AccountsCacheProvider>{children}</AccountsCacheProvider>
         </div>
     );
 }

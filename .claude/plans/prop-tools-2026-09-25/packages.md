@@ -1898,6 +1898,17 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 - **Steps** (RED first, on a synthetic verified test firm; a registry test pins that no real firm changes while all are unverified): a funded account on a firm with a verified count trigger at 3 gets NotEligible WouldTriggerLive for its third payout through `FundedSizingAdvisor`, with the per-account scope named; the firm-total case names the firm scope; a verified single-day trigger caps the daily card's rungs (whole contracts at the stop, "stop for today" below one contract); the readiness board shows the same block. Run the advisor, prop-accounts and accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
 - **Acceptance:** once PT-35b lands verified firm data, the payout advice and the daily plan respect live-transition triggers with no further code change.
 
+
+#### Added 2026-10-01 to PT-36d (PT-34e leftover)
+
+- A personal retained cushion reaches the engine: `EnginePolicyBuilder.buildEnginePolicy` sets `retainedCushionRequest` to the larger of the rulebook cushion and the account's personal retained cushion (never below Hard Rule 2 unless the rulebook waives it), so `FundedSizingAdvisor.optimumRequests`, the funded sweeps and the payout optimum honour it and it is part of `advisorWorkerCacheKey`; RED first with an account whose personal cushion is above the rulebook's. Add `EnginePolicyBuilder.ts` to the files owned.
+
+#### Added 2026-10-01 to PT-36d (PT-36e LOW leftovers)
+
+- The server checks the reverse too: a MovedLive `event.record` on a firm whose verified policy suspends siblings must confirm every Active sibling in the verified Suspend set; leaving one out (or sending no `confirmedExclusivityAccountIds`) is refused with `PropMutationRejection.ExclusivityNotConfirmed` and nothing is written. RED first on the synthetic verified test firm; the registry test keeps pinning that no real firm changes while all are unverified. Check that the events section's confirm checkbox sends the whole set.
+- One root cause, one reason: a confirmed id outside the verified Suspend set gets the same typed rejection whatever the sibling's lifecycle state (today a not-Active sibling reports `LifecycleTransition` because the lifecycle check runs first); pin both cases.
+- Add `src/server/api/routers/propAccounts/event.ts` and `tests/unit/server/propAccounts/eventExclusivity.test.ts` to the files owned.
+
 ## PT-34c: the advice panel waits for the session before it sizes; one measured rebuy lag; the shared cache on the account page (PT-34b leftovers)
 
 - **Lane / wave:** W / EJ6-f  **Size:** small  **Depends on:** PT-34b (done)
@@ -1979,6 +1990,14 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 - **Files owned:** `_components/ComputationId.ts` (the Advice slot holds `AdvisorWorkerResult`; `CachedAdvice` goes), `tests/unit/app/prop-calculator/computationCache.test.ts`, `accounts/_components/advice/{useAccountAdvice.ts, AdvicePanel.tsx, AdviceCacheProvider.tsx}` (the hook runs on `useCachedWorkerTask` with `ComputationId.Advice` and the `advisorWorkerCacheKey` job, and assembles advice from the cached outcome on every render; PT-34d's interim stale-state guard, the private started-key and run-key bookkeeping and PT-34c's per-input cache scope go), `tests/unit/app/prop-calculator/cachedWorkerTaskGuard.test.ts` (only `useCachedWorkerTask.ts` keeps the bookkeeping), `tests/unit/app/prop-calculator/accounts/adviceCacheScope.dom.test.tsx` (a personal rule change reuses the same worker run and gives fresh advice), a new shared `_components/useTodayIsoDate.ts` (PT-34d's midnight, visibility and focus resync) used by `AdvicePanel.tsx`, `accounts/_components/detail/AccountDetailView.tsx` and the detail sections that call `todayIsoDate(new Date())` per render, and tests.
 - **Steps** (RED first): adopt PT-34d's probe as the regression test (`scratchpad/useAccountAdviceFreshAdvice.dom.test.tsx`: two advisors with identical engine requests that differ only in `today` must never render the first one's advice for the second; it failed with one stale frame); the account page's today moves at midnight. Run only the touched and importing test files (`--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
 - **Acceptance:** the advice panel caches the expensive engine work only, and nothing on the account pages keeps yesterday's date.
+
+## PT-36e: the live proximity empty state, one list join, a typed exclusivity rejection (PT-36c leftovers)
+
+- **Lane / wave:** J / after PT-21c and before PT-37 (the overview files)  **Size:** small  **Depends on:** PT-36c (done)
+- **Items:** F-92, F-97, review leftovers of wf_6c515959-369
+- **Files owned:** `overview/{LiveProximityCard.tsx, overviewModel.ts}` (the empty state never contradicts the unlisted-accounts note), `src/lib/prop-accounts/alerts/LifetimeDollarCapRule.ts` (its private `listOf` uses the core `joinWithAnd`; `tests/unit/lib/prop-accounts/core/ListJoin.test.ts`'s guard covers the file), `src/lib/schemas/propAccountOutputs.ts` (a `PropMutationRejection.ExclusivityNotConfirmed` member), `src/server/api/routers/propAccounts/{event.ts, mutationGuard.ts}` (use it; the BAD_REQUEST group), and tests.
+- **Steps** (RED first): a plan whose only count trigger is unconfirmed shows the note and no "nothing to show" line; one list join; the exclusivity rejection is typed. Run only the touched and importing test files (`--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** no contradictory card text, one helper, one typed rejection.
 
 ## PT-52d: one ledger-only rule set and one set of ownership checks on the server (PT-51b and PT-52b leftovers)
 
@@ -4269,6 +4288,19 @@ PT-25b (EJ5):
 **Acceptance**
 
 - Each account shows its documented headline first, engine optima off the main thread with labelled bases and refusals, typed reasons and assumptions, provenance, a ceiling-capped daily card and payout advice, and logs accepted sizes and actual adherence; Kelly never appears in advice.
+
+## PT-38b: next slot: one reason text per slot limit, the metrics barrel, bust against bust, one shared table (PT-38 leftovers)
+
+- **Lane / wave:** J / after PT-37 (PT-37 owns `_workers/overviewWorkerMessages.ts` until it finishes)  **Size:** small  **Depends on:** PT-38 (done), PT-37
+- **Items:** F-96, F-152, review leftovers of wf_a5f5dd58-d85
+- **Files owned:** `src/app/(app)/prop-calculator/accounts/next-slot/{NextSlotView.tsx, nextSlotModel.ts}`, `src/lib/prop-accounts/planning/NextSlotAllocation.ts`, `src/lib/prop-accounts/metrics/index.ts` (export `isFirmPolicyVerified` and `fundedSlotCountsOf`), `src/app/(app)/prop-calculator/_workers/overviewWorkerMessages.ts` and the overview worker only to add `fundedBustProbability` to `DocumentedRunFigures`, `src/components/ui/Table.tsx` (container props: `tabIndex`, `role`, `aria-label` or `aria-labelledby`), and tests.
+- **Steps** (RED first):
+  1. RED (re-review MEDIUM): each slot limit has its own text. A row given 0 slots for non-positive EV, an unmet scale gate or capacity says which one; a row blocked only by a negative credit-inclusive monthly net (cycle net above 0) gets its own reason, and no row says "Limited by your daily account capacity" when the user has no capacity set.
+  2. RED (MEDIUM, DRY and barrel): the planning module imports `isFirmPolicyVerified` and `fundedSlotCountsOf` through `~/lib/prop-accounts/metrics`; unheld plans get their pool headroom from the same helper the Pooled cap card uses, so no second copy of the headroom arithmetic is left (a guard test finds none).
+  3. RED (LOW): the optimum note compares like with like: the documented run carries `fundedBustProbability` and the note sets the optimum's funded bust against it.
+  4. RED (LOW): the next-slot tables use the shared `Table` with the new container props; the local `ScrollTable` and its tab-index constant go; the DOM test still finds a focusable, named scroll region with `scope="col"` headers.
+  5. Run the four PT-38 test files, the Pooled cap card and overview worker message tests (`--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** every slot limit names its real reason; one verified-policy rule and one headroom rule serve both pages; the optimum and the documented run are compared on the same measure.
 
 ## PT-37: from-state projections, live-transition preview, simulate-this-account
 

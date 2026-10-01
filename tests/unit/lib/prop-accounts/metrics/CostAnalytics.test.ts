@@ -13,10 +13,11 @@ import {
 import {
     costAnalytics,
     type FirmSpend,
+    type ModeledFundedCost,
     PendingFeeAttribution,
     type PlanFundedCost,
 } from '~/lib/prop-accounts/metrics';
-import { type FirmId, type ReplacementEconomics } from '~/lib/prop-calculator';
+import { type FirmId } from '~/lib/prop-calculator';
 
 import {
     account,
@@ -29,12 +30,8 @@ import {
     purchased,
 } from './ledgerFixtures';
 
-function economics(costPerFundedAccount: number): ReplacementEconomics {
-    return {
-        attemptsPerFundedAccount: 2,
-        costPerFundedAccount,
-        daysPerFundedAccount: 20,
-    };
+function economics(costPerFundedAccount: number): ModeledFundedCost {
+    return { costPerFundedAccount };
 }
 
 function modeledFirm(firmId: StoredFirmId) {
@@ -182,6 +179,15 @@ describe('costAnalytics', () => {
         );
         expect(result.perPlan[0]?.fundedAccounts).toBe(3);
         expect(result.perPlan[0]?.costPerFundedAccount).toBe(3333);
+    });
+
+    it('asks for the measured cost per funded account only, no attempt or day count it cannot know', () => {
+        expectTypeOf<ModeledFundedCost>().toEqualTypeOf<{
+            readonly costPerFundedAccount: number;
+        }>();
+        expectTypeOf<Parameters<typeof costAnalytics>[1]>().toEqualTypeOf<
+            ReadonlyMap<string, ModeledFundedCost>
+        >();
     });
 
     it('compares against the modeled replacement economics passed in, in cents', () => {

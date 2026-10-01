@@ -17,12 +17,15 @@ export function LiveProximityCard({
     const isEmpty =
         model.firms.length === 0 &&
         model.accounts.length === 0 &&
-        model.singleDayFacts.length === 0;
+        model.singleDayFacts.length === 0 &&
+        model.unlistedNote === null;
     return (
         <div className="flex flex-col gap-3">
             {isEmpty && (
                 <p className="text-sm text-muted-foreground">
-                    No open funded account to measure against a live trigger.
+                    {model.openFundedAccounts === 0
+                        ? 'No open funded account to measure against a live trigger.'
+                        : 'None of your open funded accounts has a payout-count live trigger to count down.'}
                 </p>
             )}
             {model.firms.length > 0 && (
@@ -40,6 +43,7 @@ export function LiveProximityCard({
                             <TableHead className="text-right">
                                 Payouts left
                             </TableHead>
+                            <TableHead>Source</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -55,6 +59,9 @@ export function LiveProximityCard({
                                 </TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.remaining}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                    {row.sourceText}
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -76,6 +83,7 @@ export function LiveProximityCard({
                             <TableHead className="text-right">
                                 Payouts left
                             </TableHead>
+                            <TableHead>Source</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -92,6 +100,9 @@ export function LiveProximityCard({
                                 <TableCell className="text-right tabular-nums">
                                     {row.remaining}
                                 </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                    {row.sourceText}
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -107,13 +118,20 @@ export function LiveProximityCard({
                             {fact.plan}: {fact.text}
                             <blockquote className="mt-1 border-l-2 border-border pl-3 text-xs text-muted-foreground">
                                 {fact.quote}
-                                <span className="block">{fact.source}</span>
+                                <span className="block">
+                                    {fact.source}, checked {fact.fetchedOn}
+                                </span>
                             </blockquote>
                         </li>
                     ))}
                 </ul>
             )}
             <p className="text-xs text-muted-foreground">{model.disclosure}</p>
+            {model.unmeasuredNote !== null && (
+                <p className="text-xs text-muted-foreground">
+                    {model.unmeasuredNote}
+                </p>
+            )}
             {model.unlistedNote !== null && (
                 <p className="text-xs text-muted-foreground">
                     {model.unlistedNote}

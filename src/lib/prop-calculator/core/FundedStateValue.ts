@@ -9,7 +9,7 @@ import {
 } from 'node:worker_threads';
 import { require as tsxRequire } from 'tsx/cjs/api';
 
-import type * as FirmsModule from '../firms';
+import type * as FirmsModule from '~/lib/prop-calculator/firms';
 
 import { type AccountState, createInitialState } from './AccountState';
 import { BUCKET_EPSILON } from './constants';
@@ -554,7 +554,7 @@ export function sweepToConvergence(options: SweepToConvergenceOptions): number {
 export async function warmFirmsRegistryCache(): Promise<Error | null> {
     firmsRegistryCache.warmPromise ??= (async () => {
         try {
-            firmsRegistryCache.module = await import('../firms');
+            firmsRegistryCache.module = await import('~/lib/prop-calculator/firms');
             return null;
         } catch (error) {
             return error instanceof Error ? error : new Error(String(error));

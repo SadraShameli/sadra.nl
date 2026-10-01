@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as UseAccountAdviceModule from '~/app/(app)/prop-calculator/accounts/_components/advice/useAccountAdvice';
 
+import { AdvisorRequestOutcomeKind } from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
 import {
     AccountEventKind,
     AccountStage,
@@ -14,6 +15,7 @@ import {
 import { ApexVariant, findFirm, FirmId, serializePlanId } from '~/lib/prop-calculator';
 import * as advisorLib from '~/lib/prop-calculator/advisor';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import * as advisorValue from '~/lib/prop-calculator/advisor/value';
 
 const USER_ID = 'user-a';
 const ACCOUNT_ID = 'account-a';
@@ -132,6 +134,7 @@ vi.mock('~/trpc/react', () => ({
             snapshot: {
                 listForAccount: harness.query('snapshot.listForAccount'),
             },
+            violation: { create: harness.mutation('violation.create') },
         },
         useUtils: () => ({
             propAccounts: {
@@ -150,12 +153,18 @@ type FakeAdviceState =
               readonly source: string;
           }[];
           readonly phase: 'ready';
+          readonly values?: unknown;
       }
     | { readonly phase: 'failed'; readonly reason: string; readonly retry: () => void }
     | { readonly phase: 'loading' };
 
 const adviceBox = vi.hoisted(() => {
-    const box: { inputs: unknown[]; state: FakeAdviceState } = {
+    const box: {
+        adjust: ((derived: unknown) => unknown) | null;
+        inputs: unknown[];
+        state: FakeAdviceState;
+    } = {
+        adjust: null,
         inputs: [],
         state: { phase: 'loading' },
     };
@@ -170,7 +179,19 @@ vi.mock(
             ...actual,
             useAccountAdvice: (input: unknown) => {
                 adviceBox.inputs.push(input);
-                return adviceBox.state;
+                const { state } = adviceBox;
+                if (state.phase !== 'ready') return state;
+                const derived =
+                    adviceBox.adjust === null
+                        ? state.advice
+                        : adviceBox.adjust(
+                              (
+                                  input as {
+                                      advisor: { assemble: (r: []) => unknown };
+                                  }
+                              ).advisor.assemble([]),
+                          );
+                return { values: { phase: 'idle' }, ...state, advice: derived };
             },
         };
     },
@@ -316,6 +337,80 @@ function snapshot(overrides: Record<string, unknown> = {}) {
     };
 }
 
+const VIDEO_FIGURES = ['600', '350', '466'];
+
+function lastInput() {
+    return adviceBox.inputs.at(-1) as {
+        advisor: { dailyPlanCard: () => null | { rungs: { risk: number }[] } };
+        values: null | {
+            payoutStake: unknown;
+            rungs: { risk: number; rr: number }[];
+            spec: { rulebook: unknown };
+            start: { phase: string };
+        };
+    };
+}
+
+function succeeded<T>(value: T) {
+    return { kind: AdvisorRequestOutcomeKind.Succeeded as const, value };
+}
+
+function valueOf(creditFree: number, standardError: number) {
+    return advisorValue.valueResult(
+        {
+            creditFree: { standardError, value: creditFree },
+            creditInclusive: { standardError, value: creditFree + 90 },
+        },
+        42,
+        1000,
+    );
+}
+
+function valuesFor(
+    risk: number,
+    overrides: Record<string, unknown> = {},
+) {
+    const now = valueOf(1000, 10);
+    const afterWin = valueOf(1400, 10);
+    const afterLoss = valueOf(700, 8);
+    const swing = {
+        afterLoss,
+        afterLossBusted: false,
+        afterLossRebuyLagDays: null,
+        afterWin,
+        deltaLoss: advisorValue.valueGap(now, afterLoss),
+        deltaWin: advisorValue.valueGap(now, afterWin),
+        kind: advisorValue.ValueResultKind.Swing,
+        now,
+        winProbability: 0.4,
+    };
+    const candidateRow = (placedRisk: number, value: number) => ({
+        continuationValue: { standardError: 5, value },
+        monthlyNetCharge: 0,
+        netOfDurationCharge: value,
+        placement: { contracts: null, intendedRisk: placedRisk, placedRisk },
+        swing,
+    });
+    return {
+        candidates: succeeded({
+            basis: advisorValue.RiskCandidateBasis.Simulator,
+            kind: advisorValue.ValueResultKind.Candidates,
+            label: advisorValue.RISK_CANDIDATE_LABEL,
+            rows: [
+                candidateRow(risk / 2, 1500),
+                candidateRow(risk, 900),
+            ],
+        }),
+        now: succeeded(now),
+        payoutStake: null,
+        swings: [succeeded(swing)].map((outcome) => ({
+            outcome,
+            rung: { risk, rr: 2 },
+        })),
+        ...overrides,
+    };
+}
+
 describe('AdvicePanel (PT-34, F-131, F-132)', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -339,6 +434,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             isPending: false,
         };
         adviceBox.state = { phase: AccountAdvicePhase.Loading };
+        adviceBox.adjust = null;
         adviceBox.inputs = [];
         container = document.createElement('div');
         document.body.append(container);
@@ -1123,6 +1219,404 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
                 'focus',
                 expect.any(Function),
             );
+        });
+    });
+
+    function documentedRisk(): number {
+        answerEverything();
+        adviceBox.state = { phase: AccountAdvicePhase.Loading };
+        render();
+        const risk = lastInput().values?.rungs[0]?.risk;
+        if (risk === undefined) throw new Error('no value request rung');
+        return risk;
+    }
+
+    function readyWith(values: unknown, adjust: ((derived: unknown) => unknown) | null = (derived) => derived) {
+        adviceBox.adjust = adjust;
+        adviceBox.state = {
+            advice: null,
+            failedOptima: [],
+            phase: AccountAdvicePhase.Ready,
+            values: { phase: 'ready', result: values },
+        };
+        render();
+    }
+
+    function sectionOf(heading: string): HTMLElement {
+        const found = [...container.querySelectorAll('h3')].find(
+            (candidate) => candidate.textContent === heading,
+        );
+        const section = found?.parentElement;
+        if (!section) throw new Error(`no section ${heading}`);
+        return section;
+    }
+
+    function setField(label: string, text: string) {
+        const input = container.querySelector<HTMLInputElement>(
+            `input[aria-label="${CSS.escape(label)}"], input[id="${CSS.escape(label)}"]`,
+        );
+        if (input === null) throw new Error(`no input ${label}`);
+        act(() => {
+            Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype,
+                'value',
+            )?.set?.call(input, text);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    }
+
+    describe('value extensions (PT-67)', () => {
+        it('asks the worker for the value request of the account state with a swing per daily rung', () => {
+            answerEverything();
+            render();
+
+            const { values } = lastInput();
+            expect(values).not.toBeNull();
+            const rungs = lastInput().advisor.dailyPlanCard()?.rungs ?? [];
+            expect(values?.rungs.map((rung) => rung.risk)).toEqual(
+                rungs.map((rung) => rung.risk),
+            );
+            expect(values?.start.phase).toBe('eval');
+            expect(values?.spec.rulebook).toEqual(DEFAULT_RULEBOOK);
+            expect(values?.payoutStake).toBeNull();
+        });
+
+        it('shows win and loss EV per rung, the one-step tree and the ranked candidates with the documented rung marked', () => {
+            const risk = documentedRisk();
+
+            readyWith(valuesFor(risk));
+
+            const section = sectionOf('What the next trade does to value').textContent;
+            expect(section).toContain('win: +$400 EV');
+            expect(section).toContain('loss: -$300 EV');
+            expect(
+                container.querySelector('[aria-label="One-step value tree"]'),
+            ).not.toBeNull();
+            const candidates = sectionOf('Ranked risk candidates').textContent;
+            expect(candidates).toContain('one-step comparison, documented sizing afterwards');
+            expect(candidates).toContain('Documented rung');
+        });
+
+        it("fills the daily card with V now and the values after a win and a loss", () => {
+            const risk = documentedRisk();
+
+            readyWith(valuesFor(risk));
+
+            expect(sectionOf("Today's plan").textContent).toContain(
+                'Value now $1,000; after a win $1,400; after a loss $700',
+            );
+        });
+
+        it('appends the flat-risk reason when a smaller candidate beats the documented rung beyond noise', () => {
+            const risk = documentedRisk();
+
+            readyWith(valuesFor(risk));
+
+            expect(sectionOf('Reasons').textContent).toContain(
+                'The documented flat',
+            );
+            expect(sectionOf('Reasons').textContent).toContain(
+                'ignores your current state',
+            );
+        });
+
+        it('states a left-out candidates computation instead of hiding it', () => {
+            const risk = documentedRisk();
+
+            readyWith(
+                valuesFor(risk, {
+                    candidates: {
+                        kind: AdvisorRequestOutcomeKind.Failed,
+                        reason: 'the engine refused this start',
+                    },
+                }),
+            );
+
+            expect(sectionOf('Ranked risk candidates').textContent).toContain(
+                'Left out: the engine refused this start',
+            );
+        });
+
+        it('shows the advice with the value views still computing, not a blocked panel', () => {
+            documentedRisk();
+            adviceBox.adjust = (derived) => derived;
+            adviceBox.state = {
+                advice: null,
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+                values: { phase: 'loading' },
+            };
+            render();
+
+            expect(container.textContent).toContain('your documented rule');
+            expect(
+                container.querySelectorAll('[aria-label="Computing the value views"]'),
+            ).toHaveLength(2);
+        });
+
+        it('states a failed value run and retries it, keeping the advice', () => {
+            documentedRisk();
+            const retry = vi.fn();
+            adviceBox.adjust = (derived) => derived;
+            adviceBox.state = {
+                advice: null,
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+                values: { phase: 'failed', reason: 'the value run crashed', retry },
+            };
+            render();
+
+            expect(container.textContent).toContain('your documented rule');
+            expect(sectionOf('What the next trade does to value').textContent).toContain(
+                'Left out: the value run crashed',
+            );
+            const button = [...container.querySelectorAll('button')].find(
+                (candidate) => candidate.textContent === 'Retry the value views',
+            );
+            if (button === undefined) throw new Error('no retry button');
+            act(() => {
+                button.click();
+            });
+            expect(retry).toHaveBeenCalledTimes(1);
+        });
+
+        it('says the value views are unavailable when no value request could be built', () => {
+            documentedRisk();
+            adviceBox.adjust = (derived) => derived;
+            adviceBox.state = {
+                advice: null,
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+                values: { phase: 'idle' },
+            };
+            render();
+
+            expect(sectionOf('Ranked risk candidates').textContent).toContain(
+                'unavailable for this account state',
+            );
+        });
+
+        it('shows no payout banner for an account that cannot request a payout', () => {
+            const risk = documentedRisk();
+
+            readyWith(valuesFor(risk));
+
+            expect(
+                [...container.querySelectorAll('h3')].some(
+                    (heading) => heading.textContent === 'Request payout',
+                ),
+            ).toBe(false);
+        });
+
+        it('shows the request-payout banner with the documented rungs unchanged when a payout can be requested', () => {
+            const risk = documentedRisk();
+            const stake = {
+                continueNow: valueOf(1000, 10),
+                reducedRiskWhatIf: {
+                    label: advisorValue.REDUCED_RISK_WHAT_IF_LABEL,
+                    risk: 125,
+                    value: valueOf(900, 11),
+                },
+                requestedAmount: 500,
+                requestNow: {
+                    creditFree: { standardError: 9, value: 1300 },
+                    creditInclusive: { standardError: 9, value: 1390 },
+                },
+                traderReceivesNow: 450,
+            };
+            const rungsBefore = lastInput().advisor.dailyPlanCard()?.rungs.length;
+
+            readyWith(valuesFor(risk, { payoutStake: succeeded(stake) }), (derived) => ({
+                ...(derived as object),
+                payoutAdvice: {
+                    assumptions: [],
+                    documented: {
+                        kind: 'request',
+                        notice: null,
+                        requestAmount: 500,
+                        retainedCushion: 2000,
+                        retainedCushionBasis: 'rulebook-size',
+                        sources: [],
+                    },
+                    engineHorizonCredit: null,
+                    netAfterSplit: 450,
+                },
+            }));
+
+            const headings = [...container.querySelectorAll('h3')].map(
+                (heading) => heading.textContent,
+            );
+            expect(headings).toContain('Request payout');
+            expect(container.textContent).toContain('EV at stake');
+            expect(container.textContent).toContain(
+                'what-if: your documented rung is unchanged (QV-18)',
+            );
+            expect(
+                sectionOf("Today's plan").querySelectorAll(':scope tbody tr'),
+            ).toHaveLength(rungsBefore ?? -1);
+        });
+
+        it('links Size in contracts to the position size page with the risk, plan and instrument prefilled', () => {
+            const risk = documentedRisk();
+
+            readyWith(valuesFor(risk));
+
+            const link = [...container.querySelectorAll('a')].find(
+                (candidate) => candidate.textContent === 'Size in contracts',
+            );
+            if (link === undefined) throw new Error('no Size in contracts link');
+            const href = link.getAttribute('href') ?? '';
+            expect(href.startsWith('/prop-calculator/position-size?')).toBe(true);
+            const query = new URLSearchParams(href.split('?', 2)[1]);
+            expect(query.get('psr')).toBe(String(risk));
+            expect(query.get('psp')).toBe(serializePlanId(PLAN.id));
+            expect(query.get('psi')).toBe('NQ');
+            expect(query.has('pss')).toBe(false);
+        });
+
+        it('shows the whole contracts inline once a stop is entered', () => {
+            const risk = documentedRisk();
+            readyWith(valuesFor(risk));
+
+            setField('daily-card-stop', '7.5');
+
+            expect(sectionOf("Today's plan").textContent).toMatch(/\d+ NQ/);
+        });
+
+        it('renders a lock once the entered trades of the day have fired the stop', () => {
+            const risk = documentedRisk();
+            readyWith(valuesFor(risk));
+            expect(sectionOf("Today's plan").textContent).not.toContain(
+                'Stop for today:',
+            );
+
+            setField('Losses today', '50');
+
+            expect(sectionOf("Today's plan").textContent).toContain(
+                'Stop for today:',
+            );
+        });
+
+        it('says a risk within the documented plan is within plan and offers no violation log', () => {
+            const risk = documentedRisk();
+            readyWith(valuesFor(risk));
+
+            setField('Proposed risk ($)', '1');
+
+            expect(sectionOf('Check a risk before you place it').textContent).toContain(
+                'Within your documented plan.',
+            );
+            expect(
+                [...container.querySelectorAll('button')].some(
+                    (candidate) => candidate.textContent === 'Log violation',
+                ),
+            ).toBe(false);
+        });
+
+        it('flags a risk above the documented rung after a loss and logs a ForcedRecovery violation with the decision id', () => {
+            const risk = documentedRisk();
+            answerEverything({
+                'decision.listForAccount': answer([
+                    {
+                        acceptedRiskCents: 50_000,
+                        acceptedRungsCents: [50_000],
+                        accountId: ACCOUNT_ID,
+                        actualRiskCents: null,
+                        createdAt: new Date('2026-09-26T12:00:00Z'),
+                        decidedOn: '2026-09-26',
+                        headlineRiskCents: 50_000,
+                        id: 'decision-1',
+                        note: null,
+                        snapshotId: 'snap-1',
+                        source: 'ladder-search-fresh',
+                        stage: AccountStage.Eval,
+                        updatedAt: new Date('2026-09-26T12:00:00Z'),
+                        userId: USER_ID,
+                    },
+                ]),
+            });
+            readyWith(valuesFor(risk));
+
+            setField('Proposed risk ($)', '100000');
+            setField('Losses today', '1');
+
+            expect(sectionOf('Check a risk before you place it').textContent).toContain(
+                'Above the documented rung',
+            );
+            const log = [...container.querySelectorAll('button')].find(
+                (candidate) => candidate.textContent === 'Log violation',
+            );
+            if (log === undefined) throw new Error('no Log violation button');
+            act(() => {
+                log.click();
+            });
+
+            expect(harness.mutateOf('violation.create')).toHaveBeenCalledWith({
+                accountId: ACCOUNT_ID,
+                costCents: null,
+                decisionId: 'decision-1',
+                kind: 'forced-recovery',
+                note: null,
+                occurredOn: '2026-09-26',
+            });
+        });
+
+        it('shows the verdict for the recorded actual risk of a decision made today', () => {
+            const risk = documentedRisk();
+            answerEverything({
+                'decision.listForAccount': answer([
+                    {
+                        acceptedRiskCents: 50_000,
+                        acceptedRungsCents: [50_000],
+                        accountId: ACCOUNT_ID,
+                        actualRiskCents: 10_000_000,
+                        createdAt: new Date('2026-09-26T12:00:00Z'),
+                        decidedOn: '2026-09-26',
+                        headlineRiskCents: 50_000,
+                        id: 'decision-2',
+                        note: null,
+                        snapshotId: 'snap-1',
+                        source: 'ladder-search-fresh',
+                        stage: AccountStage.Eval,
+                        updatedAt: new Date('2026-09-26T12:00:00Z'),
+                        userId: USER_ID,
+                    },
+                ]),
+            });
+            readyWith(valuesFor(risk));
+
+            const text = sectionOf('Check a risk before you place it').textContent;
+            expect(text).toContain('Recorded actual risk $100,000');
+            expect(text).toContain('Above the documented rung');
+        });
+
+        it('says an invalid entry is invalid instead of checking it', () => {
+            const risk = documentedRisk();
+            readyWith(valuesFor(risk));
+
+            setField('Proposed risk ($)', '-5');
+
+            expect(sectionOf('Check a risk before you place it').textContent).toContain(
+                'Enter a risk above $0',
+            );
+        });
+
+        it('shows none of the video figures in the new sections', () => {
+            const risk = documentedRisk();
+            readyWith(valuesFor(risk));
+            setField('Proposed risk ($)', '100000');
+            setField('Losses today', '1');
+
+            const text = [
+                sectionOf('What the next trade does to value'),
+                sectionOf('Ranked risk candidates'),
+                sectionOf('Check a risk before you place it'),
+            ]
+                .map((section) => section.textContent)
+                .join(' ');
+            for (const figure of VIDEO_FIGURES) {
+                expect(text).not.toContain(figure);
+            }
         });
     });
 });

@@ -11,15 +11,15 @@ import {
 } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
 import {
     type DocumentedRunFigures,
+    overviewAccountRequestsFor,
     type OverviewOutcome,
-    OverviewOutcomeKind,
+    overviewPlanOptInsOf,
     type OverviewProjectionPlanInput,
     overviewProjectionRequestsFor,
     type OverviewRequest,
     overviewRequestKey,
     OverviewRequestKind,
     overviewRequestsFor,
-    type OverviewResult,
     type PayoutSizeOptimumFigures,
     type PortfolioProjectionFigures,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
@@ -42,6 +42,7 @@ import {
     accountStageLabel,
     type AccountStateAccountRow,
     type AccountStateEntry,
+    AccountStateKind,
     type AccountStateSnapshotRow,
     accountStatesOf,
     AccountStatus,
@@ -96,8 +97,10 @@ import {
     type FunnelStageFigures,
     isActiveAccount,
     isEndedStatus,
+    isModeledAccount,
     IsoDateError,
     joinWithAnd,
+    latestTwoSnapshots,
     type LedgerAccount,
     type LedgerAccountRow,
     type LedgerEventRow,
@@ -108,6 +111,7 @@ import {
     LiveProximityStatus,
     liveTransitionProximity,
     MARGIN_ABOVE_BREAKEVEN_HELP_TEXT,
+    type ModeledFundedCost,
     type MonthlyCash,
     monthlyCash,
     type MonthlyStatement,
@@ -158,10 +162,12 @@ import {
     SampleKind,
     SampleLevel,
     type SingleDayTriggerFact,
+    snapshotInputFrom,
     spendAndPayouts,
     stageFunnel,
     type TimelineEntry,
     TimelineEntryKind,
+    trackedAccountOf,
     type UsdCents,
     usdCents,
     usdCentsFromDollars,
@@ -184,10 +190,17 @@ import {
 } from '~/lib/prop-accounts/conduct';
 import {
     CENTS_PER_DOLLAR,
+    CumulativeAmountTrigger,
     type FirmId,
+    type LiveTransitionTrigger,
+    LiveTriggerKind,
+    PayoutCountPerAccountTrigger,
+    PayoutCountTotalTrigger,
     PayoutRequestPolicy,
-    type ReplacementEconomics,
+    type PolicyQuote,
+    PolicyVerification,
     ROI_BASIS_LABEL,
+    serializePlanId,
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator';
 import {
@@ -199,6 +212,7 @@ import {
     payoutPolicySensitivity,
     type PayoutPolicySensitivityPlanEntry,
     type PayoutPolicySensitivityRankedEntry,
+    ReconstructedLiveKind,
     type RulebookParameters,
     type SampleThresholds,
     StartBasis,
@@ -216,6 +230,17 @@ import {
     type ledgerListSchema,
     MAX_EVENT_LIST_YEARS,
 } from '~/lib/schemas/propAccounts';
+
+import {
+    type AccountFromStateView,
+    accountFromStateViewOf,
+} from './accountFromStateModel';
+import { type EngineSlot, EngineSlotKind, engineSlotOf } from './engineSlot';
+import {
+    estimateCurrency,
+    estimatePercent,
+    formatTrials,
+} from './uncertainText';
 
 export enum ExpectedNetStatus {
     Failed = 'failed',
@@ -392,8 +417,23 @@ export interface LiveProximityCardModel {
     readonly accounts: readonly LiveProximityAccountRow[];
     readonly disclosure: string;
     readonly firms: readonly LiveProximityFirmRow[];
+    readonly openFundedAccounts: number;
     readonly singleDayFacts: readonly SingleDayFactRow[];
     readonly unlistedNote: null | string;
+    readonly unmeasuredNote: null | string;
+}
+
+export interface NextPayoutCardModel {
+    readonly disclosures: readonly string[];
+    readonly rows: readonly NextPayoutCardRow[];
+    readonly statusNote: null | string;
+}
+
+export interface NextPayoutCardRow {
+    readonly accountId: string;
+    readonly label: string;
+    readonly plan: string;
+    readonly view: AccountFromStateView;
 }
 
 export interface OutcomesCardModel {
@@ -505,9 +545,17 @@ export interface OverviewModel {
     readonly exposure: OverviewExposure;
     readonly hasAccounts: boolean;
     readonly ledger: OverviewLedger;
+    readonly nextPayout: OverviewNextPayout;
     readonly projection: OverviewProjection;
     readonly violations: OverviewViolations;
 }
+
+export type OverviewNextPayout =
+    | OverviewSectionGap
+    | {
+          readonly kind: OverviewSectionStatus.Ready;
+          readonly model: NextPayoutCardModel;
+      };
 
 export interface OverviewNotice {
     readonly kind: OverviewNoticeKind;
@@ -570,6 +618,7 @@ export interface PayoutSizesCardModel {
 }
 
 export interface PooledCapCardModel {
+    readonly countingNote: string;
     readonly disclosure: string;
     readonly householdNote: null | string;
     readonly rows: readonly PooledCapRow[];
@@ -897,7 +946,7 @@ interface FunnelRow {
 
 interface FunnelWeaknessAnalysis {
     readonly rows: readonly FunnelWeaknessRow[];
-    readonly untested: readonly string[];
+    readonly untested: readonly UntestedFunnelGap[];
 }
 
 interface FunnelWeaknessRow {
@@ -912,6 +961,7 @@ interface LiveProximityAccountRow {
     readonly paidPayouts: string;
     readonly plan: string;
     readonly remaining: string;
+    readonly sourceText: string;
     readonly trigger: string;
 }
 
@@ -922,6 +972,7 @@ interface LiveProximityFirmRow {
     readonly paidSinceLastLive: string;
     readonly remaining: string;
     readonly since: string;
+    readonly sourceText: string;
     readonly trigger: string;
 }
 
@@ -1019,6 +1070,7 @@ interface ReplacementRow {
 }
 
 interface SingleDayFactRow {
+    readonly fetchedOn: string;
     readonly firm: string;
     readonly key: string;
     readonly plan: string;
@@ -1073,6 +1125,12 @@ interface UnavailableAccountRow {
     readonly account: string;
     readonly key: string;
     readonly reason: string;
+}
+
+interface UntestedFunnelGap {
+    readonly key: string;
+    readonly plan: string;
+    readonly stage: string;
 }
 
 interface ViolationKindRow {
@@ -1176,6 +1234,7 @@ const PENDING_FEE_ATTRIBUTION_TEXT: Readonly<
 };
 
 const PENDING = 'Pending';
+const NO_MODELED_COST = 'No modeled cost (the engine passes no attempt)';
 const MODELED_COST_PENDING =
     'The modeled cost per funded account is pending the engine cards.';
 const MODELED_OUTCOMES_PENDING =
@@ -1195,7 +1254,10 @@ const POOLED_CAPS_CARD_PARTIAL_DISCLOSURE =
 const POOLED_CAPS_CARD_VERIFIED_DISCLOSURE =
     "Pools come from each firm's own verified policy; a plan outside any pool is counted per plan.";
 const LIVE_PROXIMITY_DISCLOSURE =
-    'Distances to going live come only from a trigger a firm source confirms. A firm whose triggers are unverified or in conflict shows unverified, never a number.';
+    'Distances to going live come only from a trigger a firm source confirms. A firm whose triggers are unverified or in conflict shows unverified, never a number. Only paid payouts are counted, so a payout that is requested or approved but not yet paid leaves payouts left one too high. A firm-wide count covers every account you hold at the firm and starts after your latest move live. Accounts held by others in a household are not tracked.';
+const POOLED_CAPS_COUNTING_NOTE =
+    'Active and suspended funded accounts count toward a cap; accounts that moved live, ended or archived accounts and accounts held by others in a household do not.';
+const NO_CONFIRMED_SOURCE_TEXT = 'No confirmed source';
 const UNVERIFIED_TEXT = 'Unverified';
 const ALL_TIME_TEXT = 'all time';
 export const DEFAULT_REALIZED_HORIZON_DAYS = 365;
@@ -1234,11 +1296,21 @@ const PROJECTION_START_BASIS_LABEL =
     'Fresh start from a new purchase of every account, not your current balances';
 const PROJECTION_CREDIT_BASIS_LABEL =
     'Cash only: no end-of-horizon credit is booked, unlike the expected monthly net.';
+const NEXT_PAYOUT_DISCLOSURES: readonly string[] = [
+    'Each figure starts from the latest snapshot of the account and runs your documented policy forward from that state. It is not a fresh start, and it is never merged into the fresh-start projection.',
+    'Values are expected cash from the state of the account, in dollars, each with the standard error (SE) of the simulation. The credit-free figure is the headline.',
+    'No instrument or stop is set, so risk runs as dollars, not whole contracts.',
+];
+const NEXT_PAYOUT_NO_RULEBOOK_NOTE =
+    'Your rulebook has not loaded, so no from-state figure can be computed.';
+const NEXT_PAYOUT_NO_ACCOUNTS_NOTE =
+    'No active funded or evaluation account has a usable snapshot yet. Record a snapshot to see its value and next payout from its own state.';
 const PROJECTION_DISCLOSURES: readonly string[] = [
     'Each plan is simulated as a fresh start from a new purchase of every active account on it, under your documented policy, not from your current balances.',
     'The timeline books no end-of-horizon credit, while the expected monthly net on the Expected net card includes one capped payout request for each surviving account, so the two are different figures and are not comparable.',
     'No instrument or stop is set, so risk runs as dollars, not whole contracts; with a stop the documented funded risk would be placed in whole contracts, possibly below the documented risk or refused.',
     'Accounts on a plan are simulated independently, up to the number of funded accounts the plan allows.',
+    'The from-state figures for the accounts you hold are on the Next payout card and are never merged into this fresh-start band.',
 ];
 const EXPECTED_NET_DISCLOSURES: readonly string[] = [
     'Both figures are fresh-start simulations: the documented policy runs your rulebook rule itself, and the payout-size optimum is the best request size on the same seed.',
@@ -1253,9 +1325,13 @@ const START_BASIS_LABEL: Readonly<Record<StartBasis, string>> = {
 };
 
 const REQUEST_RUN_LABEL: Readonly<Record<OverviewRequestKind, string>> = {
+    [OverviewRequestKind.AccountFromState]: 'From-state account value',
     [OverviewRequestKind.DocumentedRun]: 'Documented policy',
     [OverviewRequestKind.PayoutSizeOptimum]: 'Payout-size optimum',
+    [OverviewRequestKind.PlanValues]: 'Fresh plan values',
     [OverviewRequestKind.PortfolioProjection]: 'Fresh-start projection',
+    [OverviewRequestKind.RetireComparison]: 'Retire comparison',
+    [OverviewRequestKind.ValueChain]: 'Value chain',
 };
 
 const EXPOSURE_BASIS_LABEL: Readonly<Record<ExposureBasis, string>> = {
@@ -1297,11 +1373,11 @@ const LEDGER_SOURCES = [
     PortfolioSource.Transfers,
 ] as const;
 
-enum EngineSlotKind {
-    Failed = 'failed',
-    Pending = 'pending',
-    Ready = 'ready',
-    Refused = 'refused',
+interface AccountFromStateEntry {
+    readonly accountId: string;
+    readonly label: string;
+    readonly plan: string;
+    readonly request: OverviewRequest;
 }
 
 type AlertRows = Pick<PortfolioRows, (typeof ALERT_SOURCES)[number]>;
@@ -1311,14 +1387,6 @@ interface Counted {
     readonly plural: string;
     readonly singular: string;
 }
-
-type EngineSlot<Figures> =
-    | { readonly figures: Figures; readonly kind: EngineSlotKind.Ready }
-    | {
-          readonly kind: EngineSlotKind.Failed | EngineSlotKind.Refused;
-          readonly reason: string;
-      }
-    | { readonly kind: EngineSlotKind.Pending };
 
 interface EngineView {
     readonly failure: null | string;
@@ -1489,6 +1557,7 @@ export function buildOverview({
             engine,
             load.rulebook,
         ),
+        nextPayout: nextPayoutFor(load, userId, accountStates, engine),
         projection: projectionFor(load, userId, engine),
         violations: violationsFor(
             load.violations,
@@ -1513,6 +1582,31 @@ export function ledgerOrDateFailure<Result>(
             message: asSentence(error.message),
         };
     }
+}
+
+export function overviewAccountRequestsOf(
+    load: PortfolioLoad,
+    userId: string,
+    today: string,
+): readonly OverviewRequest[] {
+    const { rulebook } = load;
+    if (rulebook === null) return [];
+    const computed = ledgerOrDateFailure(() =>
+        accountFromStateEntriesOf(
+            load,
+            userId,
+            accountStatesFromLoad(userId, today, load),
+        ),
+    );
+    if (computed.kind !== OverviewSectionStatus.Ready) return [];
+    return new Map(
+        computed.value.map((entry) => [
+            overviewRequestKey(entry.request),
+            entry.request,
+        ]),
+    )
+        .values()
+        .toArray();
 }
 
 export function overviewEngineRequestsOf(
@@ -1604,6 +1698,87 @@ export function violationsFor(
             };
         }
     }
+}
+
+function accountFromStateEntriesOf(
+    load: PortfolioLoad,
+    userId: string,
+    accountStates: readonly AccountStateEntry[],
+): readonly AccountFromStateEntry[] {
+    const { alerts, ledger: section, rulebook } = load;
+    if (
+        rulebook === null ||
+        alerts.status !== OverviewSectionStatus.Ready ||
+        section.status !== OverviewSectionStatus.Ready
+    ) {
+        return [];
+    }
+    const ledger = PortfolioLedger.fromRows(userId, section.rows);
+    const names = planNames(ledger);
+    const stats = replacementStats(ledger);
+    const { accounts, payouts, snapshots } = alerts.rows;
+    const entries: AccountFromStateEntry[] = [];
+    for (const { accountId, state } of accountStates) {
+        if (
+            state.kind !== AccountStateKind.Reconstructed ||
+            state.latest.reconstructed.kind === ReconstructedLiveKind.Live
+        ) {
+            continue;
+        }
+        const row = accounts.find((candidate) => candidate.id === accountId);
+        if (row === undefined || !isActiveAccount(row)) continue;
+        const tracked = trackedAccountOf(accountStateAccountRowOf(row));
+        if (!isModeledAccount(tracked)) continue;
+        const { latest } = latestTwoSnapshots(
+            snapshots
+                .filter(
+                    (snapshot) =>
+                        snapshot.accountId === accountId &&
+                        snapshot.userId === userId,
+                )
+                .map(accountStateSnapshotRowOf),
+        );
+        const { plan } = state;
+        const { input } = snapshotInputFrom(
+            plan,
+            tracked,
+            latest,
+            section.rows.events.filter(
+                (event) =>
+                    event.accountId === accountId && event.userId === userId,
+            ),
+            payouts.filter(
+                (payout) =>
+                    payout.accountId === accountId && payout.userId === userId,
+            ),
+            state.latest.asOf,
+        );
+        const planSerial = serializePlanId(plan.id);
+        const lag = rebuyLagDefault(stats, planSerial);
+        const [request] = overviewAccountRequestsFor(
+            [
+                {
+                    account: input,
+                    firmId: plan.id.firm,
+                    measuredRebuyLag:
+                        lag.basis === RebuyLagBasis.Measured
+                            ? { days: lag.days, samples: lag.samples }
+                            : null,
+                    optIns: overviewPlanOptInsOf(plan),
+                    planSerial,
+                },
+            ],
+            rulebook,
+        );
+        if (request === undefined) continue;
+        entries.push({
+            accountId,
+            label: row.label,
+            plan: names.of(planSerial),
+            request,
+        });
+    }
+    return entries;
 }
 
 function accountsLoad(
@@ -1892,13 +2067,17 @@ function biggestWeaknessLine(
     if (readyDocumentedFigures(engine) === null) {
         return FUNNEL_DIAGNOSTIC_PENDING_TEXT;
     }
-    const untested = analysis.untested.join('; ');
     const [first] = analysis.rows;
     if (first === undefined) {
+        const untested = analysis.untested
+            .map((gap) => `${gap.stage} (${gap.plan})`)
+            .join('; ');
         return untested === ''
             ? NO_STAGE_BEYOND_NOISE
             : `${NO_STAGE_BEYOND_NOISE} The largest gap is in ${untested}, which cannot be tested for noise.`;
     }
+    const samePlan = analysis.untested.filter((gap) => gap.key === first.key);
+    const untested = samePlan.map((gap) => gap.stage).join('; ');
     return `Biggest weakness vs the engine beyond noise: ${first.plan}, ${first.text}${untested === '' ? '' : ` A larger gap in ${untested} cannot be tested for noise.`}`;
 }
 
@@ -2038,6 +2217,22 @@ function combinedNote(...notes: readonly (null | string)[]): null | string {
     return present.length === 0 ? null : present.join(' ');
 }
 
+function confirmedTriggerSource(
+    triggers: readonly LiveTransitionTrigger[],
+    kind: LiveTriggerKind,
+): null | PolicyQuote {
+    for (const trigger of triggers) {
+        const { source } = trigger;
+        if (
+            trigger.kind === kind &&
+            source?.verification === PolicyVerification.Confirmed
+        ) {
+            return source;
+        }
+    }
+    return null;
+}
+
 function costCard(
     ledger: PortfolioLedger,
     names: PlanNames,
@@ -2117,11 +2312,15 @@ function costCard(
             pendingEvalAccounts: String(row.pendingEvalAccounts),
             pendingSpend: formatUsdCents(row.pendingAcquisitionSpend),
             plan: names.of(row.planSerial),
-            realizedMinusModeled: modeledCostText(
-                row.realizedMinusModeled,
-                engine.plans.get(row.planSerial)?.documented,
-                signedCash,
-            ),
+            realizedMinusModeled:
+                row.modeledCostPerFundedAccount !== null &&
+                row.realizedMinusModeled === null
+                    ? NOT_APPLICABLE
+                    : modeledCostText(
+                          row.realizedMinusModeled,
+                          engine.plans.get(row.planSerial)?.documented,
+                          signedCash,
+                      ),
         })),
     };
 }
@@ -2246,30 +2445,6 @@ function engineRequestsOfLedger(
         : overviewRequestsFor(heldPlanInputsOf(ledger), rulebook);
 }
 
-function engineSlotOf<Figures>(
-    engine: OverviewEngine,
-    request: OverviewRequest | undefined,
-    figuresOf: (result: OverviewResult) => Figures | null,
-): EngineSlot<Figures> {
-    if (request === undefined) return { kind: EngineSlotKind.Pending };
-    const outcome = engine.outcomes.get(overviewRequestKey(request));
-    if (outcome === undefined) {
-        return engine.failure === null
-            ? { kind: EngineSlotKind.Pending }
-            : { kind: EngineSlotKind.Failed, reason: engine.failure };
-    }
-    if (outcome.kind === OverviewOutcomeKind.Failed) {
-        return { kind: EngineSlotKind.Refused, reason: outcome.reason };
-    }
-    const figures = figuresOf(outcome.result);
-    return figures === null
-        ? {
-              kind: EngineSlotKind.Failed,
-              reason: 'The engine answered with a result of the wrong kind.',
-          }
-        : { figures, kind: EngineSlotKind.Ready };
-}
-
 function engineText<Figures>(
     slot: EngineSlot<Figures> | undefined,
     ready: (figures: Figures) => string,
@@ -2318,22 +2493,6 @@ function engineViewOf(
         });
     }
     return { failure: engine.failure, hasRulebook, plans };
-}
-
-function estimateCurrency(estimate: UncertainValue): string {
-    const standardError =
-        estimate.standardError === null
-            ? NOT_APPLICABLE
-            : formatCurrency(estimate.standardError);
-    return `${formatCurrency(estimate.value)} (SE ${standardError})`;
-}
-
-function estimatePercent(estimate: UncertainValue): string {
-    const standardError =
-        estimate.standardError === null
-            ? NOT_APPLICABLE
-            : formatPercent(estimate.standardError);
-    return `${formatPercent(estimate.value)} (SE ${standardError})`;
 }
 
 function eventsFrom(
@@ -2811,6 +2970,17 @@ function firmReturnsCard(
     };
 }
 
+function firmTotalSourceOf(groups: readonly PlanGroup[]): null | PolicyQuote {
+    for (const group of groups) {
+        const source = confirmedTriggerSource(
+            liveTriggersOf(group),
+            LiveTriggerKind.PayoutCountTotal,
+        );
+        if (source !== null) return source;
+    }
+    return null;
+}
+
 function formatMultiple(value: null | number): string {
     return value === null ? NOT_APPLICABLE : `${value.toFixed(2)}x`;
 }
@@ -2853,10 +3023,6 @@ function formatSessions(estimate: null | SampledEstimate): string {
             ? NOT_APPLICABLE
             : estimate.standardError.toFixed(1);
     return `${estimate.value.toFixed(1)} sessions (SE ${standardError}, n = ${String(estimate.n)})`;
-}
-
-function formatTrials(trials: number): string {
-    return `${trials.toLocaleString('en-US')} trials`;
 }
 
 function fundedPayoutsCard(
@@ -3123,7 +3289,11 @@ function funnelWeaknessesOf(
                         row,
                         slot.figures,
                     ) === null
-                        ? `${FUNNEL_STAGE_LABEL[largest.stage]} (${names.of(row.planSerial)})`
+                        ? {
+                              key: row.planSerial,
+                              plan: names.of(row.planSerial),
+                              stage: FUNNEL_STAGE_LABEL[largest.stage],
+                          }
                         : null,
             },
         ];
@@ -3170,11 +3340,7 @@ function heldPlanInputsOf(
                 lag.basis === RebuyLagBasis.Measured
                     ? { days: lag.days, samples: lag.samples }
                     : null,
-            optIns: {
-                takesFundedReset: group.plan.takesFundedReset,
-                takesOneTimeEarlyWithdrawal:
-                    group.plan.takesOneTimeEarlyWithdrawal,
-            },
+            optIns: overviewPlanOptInsOf(group.plan),
             planSerial: group.planSerial,
         };
     });
@@ -3193,8 +3359,37 @@ function householdNoteOf(
     return `${labels} ${firmIds.length === 1 ? 'counts' : 'count'} a household's accounts together; accounts held by others in your household are not in these figures.`;
 }
 
+function isAccountTriggerUnverified(group: PlanGroup): boolean {
+    const triggers = liveTriggersOf(group);
+    return (
+        triggers.some(
+            (trigger) => trigger instanceof PayoutCountPerAccountTrigger,
+        ) || !isLiveTriggerListChecked(triggers)
+    );
+}
+
 function isFailed(query: PortfolioQuery<unknown>): boolean {
     return query.data === undefined && hasError(query.error);
+}
+
+function isFirmTriggerUnverified(groups: readonly PlanGroup[]): boolean {
+    return groups.some((group) => {
+        const triggers = liveTriggersOf(group);
+        return (
+            triggers.some(
+                (trigger) => trigger instanceof PayoutCountTotalTrigger,
+            ) || !isLiveTriggerListChecked(triggers)
+        );
+    });
+}
+
+function isLiveTriggerListChecked(
+    triggers: readonly LiveTransitionTrigger[],
+): boolean {
+    return (
+        triggers.length > 0 &&
+        triggers.every((trigger) => trigger.kind !== LiveTriggerKind.NotChecked)
+    );
 }
 
 function isStale(query: PortfolioQuery<unknown>): boolean {
@@ -3557,42 +3752,75 @@ function liveProximityCard(
     firms: FirmNames,
 ): LiveProximityCardModel {
     const proximity = liveTransitionProximity(ledger, today);
-    const entries = new Map(
-        ledger
-            .planGroups()
-            .flatMap((group) =>
-                group.accounts.map((entry) => [entry.row.id, entry] as const),
+    const groups = ledger.planGroups();
+    const located = new Map(
+        groups.flatMap((group) =>
+            group.accounts.map(
+                (entry) => [entry.row.id, { entry, group }] as const,
             ),
+        ),
     );
     const open = proximity.byAccount.filter((row) => {
-        const entry = entries.get(row.accountId);
+        const entry = located.get(row.accountId)?.entry;
         return (
             entry?.row.stage === AccountStage.Funded &&
             !isEndedStatus(entry.row.status)
         );
     });
     const openFirmIds = new Set(open.map((row) => row.firmId));
-    const unverified = open.filter(
-        (row) => row.status !== LiveProximityStatus.Verified,
+    const openGroups = new Set(
+        open.flatMap((row) => {
+            const group = located.get(row.accountId)?.group;
+            return group === undefined ? [] : [group];
+        }),
     );
+    const unverified = open.filter((row) => {
+        const group = located.get(row.accountId)?.group;
+        return (
+            row.status !== LiveProximityStatus.Verified &&
+            (group === undefined || isAccountTriggerUnverified(group))
+        );
+    });
     return {
-        accounts: open.flatMap((row) =>
-            row.status === LiveProximityStatus.Verified
+        accounts: open.flatMap((row) => {
+            const found = located.get(row.accountId);
+            return found !== undefined &&
+                row.status === LiveProximityStatus.Verified
                 ? [
                       {
-                          account: entries.get(row.accountId)?.row.label ?? '',
+                          account: found.entry.row.label,
                           key: row.accountId,
                           paidPayouts: String(row.paidPayouts),
                           plan: names.of(row.planSerial),
                           remaining: optionalCount(row.remaining),
+                          sourceText: policySourceText(
+                              confirmedTriggerSource(
+                                  liveTriggersOf(found.group),
+                                  LiveTriggerKind.PayoutCountPerAccount,
+                              ),
+                          ),
                           trigger: optionalCount(row.triggerCount),
                       },
                   ]
-                : [],
-        ),
+                : [];
+        }),
         disclosure: LIVE_PROXIMITY_DISCLOSURE,
         firms: proximity.byFirm
-            .filter((row) => openFirmIds.has(row.firmId))
+            .filter(
+                (row) =>
+                    openFirmIds.has(row.firmId) &&
+                    (row.status === LiveProximityStatus.Verified ||
+                        isFirmTriggerUnverified(
+                            groups.filter(
+                                (group) =>
+                                    group.firmId === row.firmId &&
+                                    group.accounts.some(
+                                        (entry) =>
+                                            entry.row.archivedAt === null,
+                                    ),
+                            ),
+                        )),
+            )
             .map((row) => {
                 const firmKey = firmKeyOf({
                     externalFirmId: null,
@@ -3607,12 +3835,25 @@ function liveProximityCard(
                     ),
                     remaining: optionalCount(row.remaining),
                     since: row.sinceOn ?? ALL_TIME_TEXT,
+                    sourceText:
+                        row.status === LiveProximityStatus.Verified
+                            ? policySourceText(
+                                  firmTotalSourceOf(
+                                      groups.filter(
+                                          (group) =>
+                                              group.firmId === row.firmId,
+                                      ),
+                                  ),
+                              )
+                            : NO_CONFIRMED_SOURCE_TEXT,
                     trigger: optionalCount(row.triggerCount),
                 };
             }),
+        openFundedAccounts: open.length,
         singleDayFacts: proximity.singleDayFacts
             .filter((fact) => openFirmIds.has(fact.firmId))
             .map((fact) => ({
+                fetchedOn: fact.quote.fetchedOn,
                 firm: firms.of(
                     firmKeyOf({ externalFirmId: null, firmId: fact.firmId }),
                 ),
@@ -3622,11 +3863,34 @@ function liveProximityCard(
                 source: fact.quote.url,
                 text: singleDayFactText(fact),
             })),
-        unlistedNote:
+        unlistedNote: combinedNote(
             unverified.length === 0
                 ? null
                 : `${counted({ count: unverified.length, plural: 'funded accounts', singular: 'funded account' })} ${unverified.length === 1 ? 'is at a firm whose live triggers are unverified, so its' : 'are at firms whose live triggers are unverified, so their'} distance to going live is not shown.`,
+            unmodeledFundedNote({
+                count: openFundedOf(ledger.ledgerOnlyAccounts),
+                plural: 'funded ledger-only accounts',
+                reason: 'no modeled plan',
+                reasons: 'no modeled plan',
+                singular: 'funded ledger-only account',
+            }),
+            unmodeledFundedNote({
+                count: openFundedOf(ledger.unresolvedAccounts),
+                plural: 'funded accounts',
+                reason: 'a plan that is no longer modeled',
+                reasons: 'plans that are no longer modeled',
+                singular: 'funded account',
+            }),
+        ),
+        unmeasuredNote: unmeasuredTriggerNote(
+            [...openGroups],
+            names,
+        ),
     };
+}
+
+function liveTriggersOf(group: PlanGroup): readonly LiveTransitionTrigger[] {
+    return group.firm.accountPolicy.liveTriggersFor(group.plan);
 }
 
 function loadGap(
@@ -3646,7 +3910,7 @@ function marginAboveBreakevenLabel(margin: boolean | null): string {
 
 function modeledCostMap(
     engine: EngineView,
-): ReadonlyMap<string, ReplacementEconomics> {
+): ReadonlyMap<string, ModeledFundedCost> {
     return new Map(
         [...engine.plans].flatMap(([serial, plan]) =>
             plan.documented.kind === EngineSlotKind.Ready
@@ -3654,13 +3918,8 @@ function modeledCostMap(
                       [
                           serial,
                           {
-                              attemptsPerFundedAccount:
-                                  1 /
-                                  plan.documented.figures.attemptPassProbability
-                                      .value,
                               costPerFundedAccount:
                                   plan.documented.figures.costPerFundedAccount,
-                              daysPerFundedAccount: NaN,
                           },
                       ] as const,
                   ]
@@ -3675,7 +3934,7 @@ function modeledCostText(
     format: (cents: UsdCents) => string = formatUsdCents,
 ): string {
     return value === null
-        ? engineText(slot, () => NOT_APPLICABLE)
+        ? engineText(slot, () => NO_MODELED_COST)
         : format(value);
 }
 
@@ -3698,6 +3957,68 @@ function netCashCentsFor(load: PortfolioLoad, userId: string): null | UsdCents {
         if (error instanceof IsoDateError) return null;
         throw error;
     }
+}
+
+function nextPayoutFor(
+    load: PortfolioLoad,
+    userId: string,
+    accountStates: readonly AccountStateEntry[],
+    engine: OverviewEngine,
+): OverviewNextPayout {
+    const failed = boardFailures(load);
+    if (failed.length > 0) {
+        return {
+            kind: OverviewSectionStatus.Failed,
+            message: `The from-state figures could not be computed because your ${sourceList(failed)} could not be loaded.`,
+        };
+    }
+    if (
+        load.alerts.status !== OverviewSectionStatus.Ready ||
+        load.ledger.status !== OverviewSectionStatus.Ready
+    ) {
+        return { kind: OverviewSectionStatus.Pending };
+    }
+    const computed = ledgerOrDateFailure(() =>
+        accountFromStateEntriesOf(load, userId, accountStates),
+    );
+    switch (computed.kind) {
+        case OverviewSectionStatus.Failed: {
+            return {
+                kind: OverviewSectionStatus.Failed,
+                message: `The from-state figures could not be computed: ${computed.message} Fix the stored date listed in the alerts.`,
+            };
+        }
+        case OverviewSectionStatus.Ready: {
+            return {
+                kind: OverviewSectionStatus.Ready,
+                model: {
+                    disclosures: NEXT_PAYOUT_DISCLOSURES,
+                    rows: computed.value.map((entry) => ({
+                        accountId: entry.accountId,
+                        label: entry.label,
+                        plan: entry.plan,
+                        view: accountFromStateViewOf(engine, entry.request),
+                    })),
+                    statusNote:
+                        load.rulebook === null
+                            ? NEXT_PAYOUT_NO_RULEBOOK_NOTE
+                            : computed.value.length === 0
+                              ? NEXT_PAYOUT_NO_ACCOUNTS_NOTE
+                              : null,
+                },
+            };
+        }
+    }
+}
+
+function openFundedOf(
+    entries: readonly { readonly row: LedgerAccountRow }[],
+): number {
+    return entries.filter(
+        (entry) =>
+            entry.row.stage === AccountStage.Funded &&
+            !isEndedStatus(entry.row.status),
+    ).length;
 }
 
 function optionalCents(value: null | UsdCents): string {
@@ -3982,6 +4303,12 @@ function planNames(ledger: PortfolioLedger): PlanNames {
     return { of: (planSerial) => names.get(planSerial) ?? planSerial };
 }
 
+function policySourceText(source: null | PolicyQuote): string {
+    return source === null
+        ? NO_CONFIRMED_SOURCE_TEXT
+        : `"${source.quote}" ${source.url}, checked ${source.fetchedOn}`;
+}
+
 function pooledAttemptCostCentsOf(ledger: PortfolioLedger): null | number {
     const totals = costAnalytics(ledger, new Map()).perPlan.reduce(
         (sum, row) => ({
@@ -4000,6 +4327,7 @@ function pooledCapCard(
 ): PooledCapCardModel {
     const usage = pooledCapUsage(ledger);
     return {
+        countingNote: POOLED_CAPS_COUNTING_NOTE,
         disclosure:
             usage.pooledCapsModeled && usage.plans.length > 0
                 ? POOLED_CAPS_CARD_VERIFIED_DISCLOSURE
@@ -4342,7 +4670,7 @@ function readinessRow(
                 status: 'Blocked',
                 unlock:
                     row.pendingAmountCents === null
-                        ? `Blocked: ${payoutBlockReasonText(row.reason)}; ${payoutWaitText(row.wait)}`
+                        ? `Blocked: ${payoutBlockReasonText(row.reason)}; ${payoutWaitText(row.wait, row.reason)}`
                         : `Blocked: ${payoutBlockReasonText(row.reason)}`,
             };
         }
@@ -4555,6 +4883,25 @@ function unavailableFigure(text: string): ExpectedNetFigure {
         requestSize: text,
         totalCreditFree: text,
     };
+}
+
+function unmodeledFundedNote({
+    count,
+    plural,
+    reason,
+    reasons,
+    singular,
+}: {
+    readonly count: number;
+    readonly plural: string;
+    readonly reason: string;
+    readonly reasons: string;
+    readonly singular: string;
+}): null | string {
+    if (count === 0) return null;
+    return count === 1
+        ? `${counted({ count, plural, singular })} has ${reason}, so its distance to going live is not measured.`
+        : `${counted({ count, plural, singular })} have ${reasons}, so their distance to going live is not measured.`;
 }
 
 function violationsLoad(
@@ -4917,6 +5264,23 @@ function timelineRow(entry: TimelineEntry): TimelineRow {
 function toneOf(value: number): KpiTone {
     if (value > 0) return KpiTone.Positive;
     return value < 0 ? KpiTone.Negative : KpiTone.Neutral;
+}
+
+function unmeasuredTriggerNote(
+    groups: readonly PlanGroup[],
+    names: PlanNames,
+): null | string {
+    const sentences = groups.flatMap((group) =>
+        liveTriggersOf(group).flatMap((trigger) =>
+            trigger instanceof CumulativeAmountTrigger &&
+            trigger.source?.verification === PolicyVerification.Confirmed
+                ? [
+                      `${names.of(group.planSerial)} has a verified cumulative payout trigger of ${formatUsdCents(usdCentsFromDollars(trigger.amount))} that this card does not measure.`,
+                  ]
+                : [],
+        ),
+    );
+    return sentences.length === 0 ? null : sentences.join(' ');
 }
 
 function unresolvedNote(unresolvedAccounts: number): null | string {

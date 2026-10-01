@@ -7,13 +7,19 @@ import { ComputationId } from '~/app/(app)/prop-calculator/_components/Computati
 import { ComputationCacheContext } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { WorkerTaskEventKind } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import {
+    AdvisorRequestOutcomeKind,
+    type AdvisorValueRequest,
+    type AdvisorValueResult,
+} from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
+import {
     AccountAdvicePhase,
     type AccountAdviceState,
+    AdviceValuesPhase,
     useAccountAdvice,
     type UseAccountAdviceInput,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/useAccountAdvice';
 import { ApexVariant, findFirm, FirmId, newFundedCycleTracker } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK, FundedSizingAdvisor } from '~/lib/prop-calculator/advisor';
+import { AdviceSource, DEFAULT_RULEBOOK, FundedSizingAdvisor } from '~/lib/prop-calculator/advisor';
 import { TradingPhase } from '~/lib/prop-calculator/core';
 
 function apexEod50k() {
@@ -302,5 +308,209 @@ describe('useAccountAdvice (PT-34b)', () => {
         expect(frames.map((frame) => frame.phase)).not.toContain(
             AccountAdvicePhase.Failed,
         );
+    });
+});
+
+function valueRequest(risk: number): AdvisorValueRequest {
+    const { advisor } = fundedAdvisorInput();
+    const [fresh] = advisor.optimumRequests();
+    if (fresh?.source !== AdviceSource.FundedSweepFresh) {
+        throw new Error('expected a FundedSweepFresh request');
+    }
+    return {
+        candidateRiskGrid: [risk],
+        payoutStake: null,
+        rr: 2,
+        rungs: [{ risk, rr: 2 }],
+        spec: {
+            enginePolicy: fresh.policy,
+            rulebook: DEFAULT_RULEBOOK,
+            run: { maxEvalDays: 40, seed: 5, trials: 20 },
+        },
+        start: {
+            phase: TradingPhase.Eval,
+            state: {
+                balance: 51_000,
+                bestDayProfit: 0,
+                consecutiveIdleDays: 0,
+                elapsedDays: 3,
+                intradayHighProfit: 0,
+                peakDayCloseProfit: 0,
+                peakIntradayProfit: 0,
+                qualifyingDays: 3,
+                startingBalance: 50_000,
+                threshold: 48_000,
+                thresholdLocked: false,
+                todayPnL: 0,
+                tradingDays: 3,
+            },
+        },
+    };
+}
+
+const FAILED_VALUES: AdvisorValueResult = {
+    candidates: { kind: AdvisorRequestOutcomeKind.Failed, reason: 'x' },
+    now: { kind: AdvisorRequestOutcomeKind.Failed, reason: 'x' },
+    payoutStake: null,
+    swings: [],
+};
+
+function finishEngine(index = 0) {
+    act(() => {
+        FakeWorker.instances[index]?.emit('message', {
+            kind: WorkerTaskEventKind.Done,
+            result: { outcomes: [] },
+            runId: 1,
+        });
+    });
+}
+
+function finishValues(index: number, result?: unknown) {
+    act(() => {
+        FakeWorker.instances[index]?.emit('message', {
+            kind: WorkerTaskEventKind.Done,
+            result: result ?? { outcomes: [], values: FAILED_VALUES },
+            runId: 1,
+        });
+    });
+}
+
+function postedRequest(index: number) {
+    return (
+        FakeWorker.instances[index]?.posted[0] as {
+            request: { requests: unknown[]; values?: AdvisorValueRequest };
+        }
+    ).request;
+}
+
+
+describe('useAccountAdvice value requests (PT-67)', () => {
+    let root: Root;
+    let container: HTMLElement;
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        FakeWorker.instances = [];
+        vi.stubGlobal('Worker', FakeWorker);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => root.unmount());
+        container.remove();
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it('runs the value request in its own worker run, apart from the engine requests', () => {
+        const values = valueRequest(500);
+        const latest: { current: AccountAdviceState | null } = { current: null };
+
+        renderHarness(root, { ...fundedAdvisorInput(), values }, latest);
+
+        expect(FakeWorker.instances).toHaveLength(2);
+        expect(postedRequest(0).values).toBeUndefined();
+        expect(postedRequest(0).requests.length).toBeGreaterThan(0);
+        expect(postedRequest(1).values).toEqual(values);
+        expect(postedRequest(1).requests).toEqual([]);
+    });
+
+    it('is ready once the engine run is done, with the value views still computing', () => {
+        const latest: { current: AccountAdviceState | null } = { current: null };
+        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);
+
+        finishEngine(0);
+
+        expect(latest.current?.phase).toBe(AccountAdvicePhase.Ready);
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) return;
+        expect(latest.current.values.phase).toBe(AdviceValuesPhase.Loading);
+    });
+
+    it('exposes the value outcome from the value run on the ready state', () => {
+        const latest: { current: AccountAdviceState | null } = { current: null };
+        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);
+
+        finishEngine(0);
+        finishValues(1);
+
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) {
+            throw new Error('expected a ready state');
+        }
+        expect(latest.current.values).toEqual({
+            phase: AdviceValuesPhase.Ready,
+            result: FAILED_VALUES,
+        });
+    });
+
+    it('has an idle value state and no value worker when none was requested', () => {
+        const latest: { current: AccountAdviceState | null } = { current: null };
+        renderHarness(root, fundedAdvisorInput(), latest);
+
+        finishEngine(0);
+
+        expect(FakeWorker.instances).toHaveLength(1);
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) {
+            throw new Error('expected a ready state');
+        }
+        expect(latest.current.values).toEqual({ phase: AdviceValuesPhase.Idle });
+    });
+
+    it('runs only the value worker again when only the value request changes, keeping the advice ready', () => {
+        const latest: { current: AccountAdviceState | null } = { current: null };
+        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);
+        finishEngine(0);
+        finishValues(1);
+
+        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(750) }, latest);
+
+        expect(FakeWorker.instances).toHaveLength(3);
+        expect(postedRequest(2).values?.rungs[0]?.risk).toBe(750);
+        expect(latest.current?.phase).toBe(AccountAdvicePhase.Ready);
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) return;
+        expect(latest.current.values.phase).toBe(AdviceValuesPhase.Loading);
+    });
+
+    it('keeps the advice when the value run fails, and retries only the value worker', () => {
+        const latest: { current: AccountAdviceState | null } = { current: null };
+        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);
+        finishEngine(0);
+
+        act(() => {
+            FakeWorker.instances[1]?.emit('message', {
+                kind: WorkerTaskEventKind.Failed,
+                reason: 'the value run crashed',
+                runId: 1,
+            });
+        });
+
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) {
+            throw new Error('expected a ready state');
+        }
+        const { values } = latest.current;
+        expect(values.phase).toBe(AdviceValuesPhase.Failed);
+        if (values.phase !== AdviceValuesPhase.Failed) return;
+        expect(values.reason).toBe('the value run crashed');
+
+        act(() => {
+            values.retry();
+        });
+
+        expect(FakeWorker.instances).toHaveLength(3);
+        expect(postedRequest(2).values).toBeDefined();
+    });
+
+    it('fails the value state when the value run returns no value outcome', () => {
+        const latest: { current: AccountAdviceState | null } = { current: null };
+        renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);
+        finishEngine(0);
+
+        finishValues(1, { outcomes: [] });
+
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) {
+            throw new Error('expected a ready state');
+        }
+        expect(latest.current.values.phase).toBe(AdviceValuesPhase.Failed);
     });
 });

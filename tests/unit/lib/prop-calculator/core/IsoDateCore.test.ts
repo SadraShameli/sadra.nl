@@ -49,6 +49,19 @@ describe('the pure ISO-date helpers live in the prop-calculator core (PT-01d)', 
         );
     });
 
+    it('names the weekday of a whole day number and refuses any other number', () => {
+        const { dayNumberOf, IsoDateError, UtcWeekday, utcWeekdayOfDay } =
+            calculatorCore;
+        expect(utcWeekdayOfDay(dayNumberOf('1970-01-01'))).toBe(
+            UtcWeekday.Thursday,
+        );
+        expect(utcWeekdayOfDay(dayNumberOf('1969-12-28'))).toBe(
+            UtcWeekday.Sunday,
+        );
+        expect(() => utcWeekdayOfDay(1.5)).toThrow(IsoDateError);
+        expect(() => utcWeekdayOfDay(NaN)).toThrow(IsoDateError);
+    });
+
     it('takes the week lengths from the core constants instead of redefining them', () => {
         const source = readFileSync(
             path.join(REPO_ROOT, CORE_DATE_MODULE),

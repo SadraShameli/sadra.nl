@@ -24,6 +24,8 @@ export enum DocumentedPolicyTimelineGap {
     RebuyLagDays = 'rebuy-lag-days',
 }
 
+const FUNDED_RR_TOLERANCE = 1e-9;
+
 export const DOCUMENTED_POLICY_TIMELINE_GAPS: readonly DocumentedPolicyTimelineGap[] =
     Object.values(DocumentedPolicyTimelineGap);
 
@@ -37,6 +39,30 @@ export const DOCUMENTED_POLICY_TIMELINE_GAP_TEXT: Readonly<
     [DocumentedPolicyTimelineGap.RebuyLagDays]:
         'The portfolio timeline has no rebuy lag input, so a measured rebuy lag from the engine policy is not honoured here.',
 };
+
+export function applicableTimelineGaps(
+    spec: DocumentedPolicySpec,
+): readonly DocumentedPolicyTimelineGap[] {
+    const { enginePolicy, rulebook } = spec;
+    const { funded, strategy } = rulebook;
+    return DOCUMENTED_POLICY_TIMELINE_GAPS.filter((gap) => {
+        switch (gap) {
+            case DocumentedPolicyTimelineGap.FundedRrDiffersFromStrategyRr: {
+                return (
+                    Math.abs(
+                        funded.takeProfitCents / funded.riskCents - strategy.rr,
+                    ) > FUNDED_RR_TOLERANCE
+                );
+            }
+            case DocumentedPolicyTimelineGap.IntradayPathStepsPerR: {
+                return enginePolicy.intradayPathStepsPerR !== undefined;
+            }
+            case DocumentedPolicyTimelineGap.RebuyLagDays: {
+                return enginePolicy.rebuyLagDays > 0;
+            }
+        }
+    });
+}
 
 export function documentedPolicyTimelineInputs(
     plan: Plan,

@@ -8,6 +8,10 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import {
+    useFollowToday,
+    useTodayIsoDate,
+} from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
+import {
     ACCOUNT_LIST_INPUT,
     type AccountListAccount,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
@@ -46,7 +50,6 @@ import {
     firmKeyLabel,
     firmKeyOf,
     type PlanLifecycleFacts,
-    todayIsoDate,
 } from '~/lib/prop-accounts';
 import { type FirmId, parseFirmId } from '~/lib/prop-calculator';
 import { eventRecordSchema } from '~/lib/schemas/propAccounts';
@@ -225,14 +228,23 @@ function EventForm({
     const utilities = api.useUtils();
     const record = api.propAccounts.event.record.useMutation();
     const schema = eventFormSchema(accountId);
+    const today = useTodayIsoDate();
     const form = useForm<EventFormValues>({
         defaultValues: {
             bustCause: BustCause.Unknown,
             kind: first.kind,
             note: '',
-            occurredOn: todayIsoDate(new Date()),
+            occurredOn: today,
         },
         resolver: zodResolver(schema, undefined, { raw: true }),
+    });
+    useFollowToday({
+        isEnabled: true,
+        read: () => form.getValues('occurredOn'),
+        today,
+        write: (day) => {
+            form.resetField('occurredOn', { defaultValue: day });
+        },
     });
     const kind = form.watch('kind');
     const isBusted = kind === AccountEventKind.Busted;
@@ -246,6 +258,8 @@ function EventForm({
     const isAwaitingConfirmation =
         shown?.requiresConfirmation === true && !isConfirmed;
     const isMovedLive = kind === AccountEventKind.MovedLive;
+    const isAwaitingAccounts =
+        isMovedLive && accounts === undefined && !accountsFailed;
     const exclusivity = useMemo(
         () =>
             isMovedLive && accounts !== undefined
@@ -266,7 +280,9 @@ function EventForm({
 
     const save = async (values: EventFormValues) => {
         const parsed = schema.safeParse(values);
-        if (isAwaitingConfirmation || !parsed.success) return;
+        if (isAwaitingConfirmation || isAwaitingAccounts || !parsed.success) {
+            return;
+        }
         try {
             await record.mutateAsync(
                 suspendedIds.length > 0
@@ -286,7 +302,7 @@ function EventForm({
                 bustCause: BustCause.Unknown,
                 kind: first.kind,
                 note: '',
-                occurredOn: todayIsoDate(new Date()),
+                occurredOn: today,
             });
         } catch (error) {
             onFailure(error);
@@ -433,6 +449,17 @@ function EventForm({
                         </AlertDescription>
                     </Alert>
                 )}
+                {isAwaitingAccounts && (
+                    <Alert className="sm:col-span-2">
+                        <Info />
+                        <AlertTitle>Loading your other accounts</AlertTitle>
+                        <AlertDescription>
+                            What the firm&apos;s rules do to your other
+                            accounts when this one goes live is shown once
+                            they are loaded; recording waits until then.
+                        </AlertDescription>
+                    </Alert>
+                )}
                 {isMovedLive && accountsFailed && (
                     <Alert className="sm:col-span-2" variant="warning">
                         <TriangleAlert />
@@ -490,7 +517,11 @@ function EventForm({
                 )}
                 <div className="sm:col-span-2">
                     <Button
-                        disabled={record.isPending || isAwaitingConfirmation}
+                        disabled={
+                            record.isPending ||
+                            isAwaitingConfirmation ||
+                            isAwaitingAccounts
+                        }
                         type="submit"
                     >
                         Record event

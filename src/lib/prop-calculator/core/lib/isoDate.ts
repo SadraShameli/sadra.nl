@@ -23,6 +23,15 @@ export enum UtcWeekday {
 }
 
 const EPOCH_WEEKDAY = UtcWeekday.Thursday;
+const UTC_WEEKDAYS = [
+    UtcWeekday.Sunday,
+    UtcWeekday.Monday,
+    UtcWeekday.Tuesday,
+    UtcWeekday.Wednesday,
+    UtcWeekday.Thursday,
+    UtcWeekday.Friday,
+    UtcWeekday.Saturday,
+] as const;
 
 export class IsoDateError extends RangeError {
     constructor(message: string) {
@@ -99,11 +108,16 @@ export function todayIsoDate(now: Date): string {
 }
 
 export function utcWeekdayOfDay(day: number): UtcWeekday {
-    return (
-        (((day + EPOCH_WEEKDAY) % CALENDAR_DAYS_PER_WEEK) +
-            CALENDAR_DAYS_PER_WEEK) %
-        CALENDAR_DAYS_PER_WEEK
-    );
+    const weekday =
+        UTC_WEEKDAYS[
+            (((day + EPOCH_WEEKDAY) % CALENDAR_DAYS_PER_WEEK) +
+                CALENDAR_DAYS_PER_WEEK) %
+                CALENDAR_DAYS_PER_WEEK
+        ];
+    if (weekday === undefined) {
+        throw new IsoDateError(`${String(day)} is not a whole day number`);
+    }
+    return weekday;
 }
 
 export function weekdaysInRange(

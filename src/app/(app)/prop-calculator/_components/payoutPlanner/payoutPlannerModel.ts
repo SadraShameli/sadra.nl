@@ -53,8 +53,6 @@ const TERMINAL_GATES: ReadonlySet<PayoutGate> = new Set([
     PayoutGate.LifetimeDollarCapReached,
 ]);
 
-const UNEXPLAINED_NULL_WAIT_TEXT = 'wait: no closed-form estimate';
-
 export enum PayoutPlannerResultKind {
     Blocked = 'blocked',
     Implausible = 'implausible',
@@ -209,13 +207,9 @@ export function payoutPathStepText(step: PayoutPathStep): string {
 
 export function payoutWaitText(
     wait: null | PayoutWait,
-    reason?: PayoutBlockReason,
+    reason: PayoutBlockReason,
 ): string {
-    if (wait === null && reason === undefined) {
-        return UNEXPLAINED_NULL_WAIT_TEXT;
-    }
-    const resolved =
-        wait ?? (reason === undefined ? null : unmeasuredWaitFor(reason));
+    const resolved = wait ?? unmeasuredWaitFor(reason);
     if (resolved === null) {
         return 'wait: no further profit or time reaches this payout';
     }

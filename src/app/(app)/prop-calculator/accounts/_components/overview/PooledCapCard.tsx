@@ -65,6 +65,9 @@ export function PooledCapCard({
                 </Table>
             )}
             <p className="text-xs text-muted-foreground">{model.disclosure}</p>
+            <p className="text-xs text-muted-foreground">
+                {model.countingNote}
+            </p>
             {model.unverifiedFirms.length > 0 && (
                 <ul
                     aria-label="Firms with an unverified cap scope"

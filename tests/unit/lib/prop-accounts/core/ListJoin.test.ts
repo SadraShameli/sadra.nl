@@ -7,6 +7,7 @@ import { joinWithAnd } from '~/lib/prop-accounts/core';
 const ROOT = path.resolve(import.meta.dirname, '../../../../..');
 
 const CALLERS = [
+    'src/lib/prop-accounts/alerts/LifetimeDollarCapRule.ts',
     'src/lib/prop-accounts/alerts/TierChangeRule.ts',
     'src/app/(app)/prop-calculator/accounts/_components/overview/overviewModel.ts',
 ];
@@ -38,6 +39,7 @@ describe('one list-join helper', () => {
             expect(source.includes('joinWithAnd(')).toBe(true);
             expect(source.includes('slice(0, -1).join(\', \')')).toBe(false);
             expect(source.includes('function joinWithAnd')).toBe(false);
+            expect(source.includes('function listOf')).toBe(false);
         },
     );
 });

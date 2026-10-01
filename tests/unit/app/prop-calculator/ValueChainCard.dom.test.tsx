@@ -604,7 +604,7 @@ describe('FundedValueCard (PT-66)', () => {
         expect(container.querySelector('[id$="sample-size-error"]')).toBeNull();
     });
 
-    it('shows the refusal reason and requests nothing when the calculator inputs are refused', () => {
+    it('does not repeat the refusal the value chain card shows, and requests nothing (PT-67 addendum)', () => {
         act(() => {
             root.render(
                 <FundedValueCard
@@ -613,10 +613,29 @@ describe('FundedValueCard (PT-66)', () => {
                 />,
             );
         });
-        expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-            'bad payout request',
-        );
+        expect(container.querySelector('[role="alert"]')).toBeNull();
+        expect(container.textContent).not.toContain('bad payout request');
         expect(toolsWorkerBox.instances[0]?.runSpy).not.toHaveBeenCalled();
+    });
+
+    it('shows the refusal text once when both value cards are refused (PT-67 addendum)', () => {
+        const refused: ValueCardsInput = {
+            kind: ValueCardsInputKind.Refused,
+            reason: 'Payout request size ($): must be more than zero',
+        };
+        act(() => {
+            root.render(
+                <>
+                    <ValueChainCard cards={refused} />
+                    <FundedValueCard cards={refused} rulebookSampleThreshold={10} />
+                </>,
+            );
+        });
+        const occurrences = container.textContent.split(
+            'Payout request size ($): must be more than zero',
+        );
+        expect(occurrences).toHaveLength(2);
+        expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);
     });
 
     it('shows the engine failure reason', () => {

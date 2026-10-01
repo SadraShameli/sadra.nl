@@ -58,16 +58,17 @@ export function FundedValueCard({
                 : fundedValueEstimateToolsRequest(settledCards, settled.sampleSize, runId),
     );
 
-    const refusal = cards.kind === ValueCardsInputKind.Refused ? cards.reason : null;
-    const shouldShowWorkerOutput = refusal === null && !isSampleSizeInvalid;
+    const isRefused = cards.kind === ValueCardsInputKind.Refused;
+    const shouldShowWorkerOutput = !isRefused && !isSampleSizeInvalid;
     const result =
         shouldShowWorkerOutput &&
         worker.state.phase === ToolsWorkerPhase.Succeeded &&
         worker.state.result.kind === ToolsResponseKind.FundedValueEstimate
             ? worker.state.result.result
             : null;
-    const failureReason =
-        refusal ?? (shouldShowWorkerOutput ? toolsWorkerFailureReason(worker.state) : null);
+    const failureReason = shouldShowWorkerOutput
+        ? toolsWorkerFailureReason(worker.state)
+        : null;
     const pendingText = shouldShowWorkerOutput ? toolsWorkerPendingText(worker.state) : null;
 
     return (

@@ -1,13 +1,16 @@
 import { type AccountListAccount } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
     AccountStage,
+    AccountStatus,
     AccountTracking,
-    type ExclusivityAccount,
+    exclusivityAccountsOf,
+    type ExclusivitySibling,
     isConfirmedPolicySource,
     LiveExclusivityAction,
     liveExclusivityEffectsOf,
     PlanKeyResolutionKind,
     resolvePlanKey,
+    suspendedAccountIdsOf,
     trackedAccountOf,
     type TrackedAccountRow,
 } from '~/lib/prop-accounts';
@@ -66,12 +69,12 @@ export function liveExclusivityPreviewOf(
     const policy = firm.accountPolicy.liveExclusivityFor(movedPlan);
     if (!isConfirmedPolicySource(policy.source)) return null;
 
-    const siblings: ExclusivityAccount[] = [];
+    const siblings: ExclusivitySibling[] = [];
     let unreadable = 0;
     for (const row of rows) {
         if (row.id === moved.id || row.archivedAt !== null) continue;
-        const sibling = siblingOf(row, movedPlan, firm.accountPolicy);
-        if (sibling !== undefined) {
+        const sibling = siblingOf(row);
+        if (sibling.firmId !== undefined) {
             siblings.push(sibling);
         } else if (
             row.tracking === AccountTracking.Modeled &&
@@ -81,18 +84,15 @@ export function liveExclusivityPreviewOf(
         }
     }
     const outcome = liveExclusivityEffectsOf(
-        [
+        exclusivityAccountsOf(
             {
-                accountPolicy: firm.accountPolicy,
-                events: [],
-                firmId: movedPlan.id.firm,
                 id: moved.id,
                 plan: movedPlan,
                 stage: AccountStage.Live,
-                status: moved.status,
+                status: AccountStatus.Active,
             },
-            ...siblings,
-        ],
+            siblings,
+        ),
         moved.id,
     );
     const labels = new Map(rows.map((row) => [row.id, row.label]));
@@ -108,9 +108,7 @@ export function liveExclusivityPreviewOf(
     ];
     if (lines.length === 0) return null;
     return {
-        confirmedAccountIds: effects
-            .filter((effect) => effect.action === LiveExclusivityAction.Suspend)
-            .map((effect) => effect.accountId),
+        confirmedAccountIds: suspendedAccountIdsOf(outcome),
         effects,
         lines,
         title:
@@ -159,19 +157,12 @@ function siblingFirmIdOf(row: PreviewRow): FirmId | undefined {
     }
 }
 
-function siblingOf(
-    row: PreviewRow,
-    movedPlan: Plan,
-    accountPolicy: ExclusivityAccount['accountPolicy'],
-): ExclusivityAccount | undefined {
-    const firmId = siblingFirmIdOf(row);
-    if (firmId === undefined) return undefined;
+function siblingOf(row: PreviewRow): ExclusivitySibling {
     return {
-        accountPolicy,
-        events: [],
-        firmId,
+        firmId: siblingFirmIdOf(row),
         id: row.id,
-        plan: resolvedPlanOf(row) ?? movedPlan,
+        isArchived: false,
+        plan: resolvedPlanOf(row),
         stage: row.stage,
         status: row.status,
     };

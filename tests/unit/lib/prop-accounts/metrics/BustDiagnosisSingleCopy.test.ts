@@ -7,7 +7,6 @@ import { compareText } from '~/lib/prop-accounts/core';
 const SOURCE_ROOT = path.join(import.meta.dirname, '../../../../../src');
 
 const DIAGNOSIS_CALL_OWNERS: readonly string[] = [
-    'app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView.tsx',
     'lib/prop-accounts/conduct/BustDiagnosis.ts',
     'lib/prop-accounts/metrics/StageFunnel.ts',
 ];
@@ -28,7 +27,7 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('the per-account bust diagnosis', () => {
-    it('is called only by the rule itself, the funnel module, and the detail page copy PT-37 removes', () => {
+    it('is called only by the rule itself and the funnel module, so the detail page uses the funnel helper', () => {
         expect(filesMatching(/\bbustDiagnosisOf\(/)).toEqual(
             DIAGNOSIS_CALL_OWNERS,
         );

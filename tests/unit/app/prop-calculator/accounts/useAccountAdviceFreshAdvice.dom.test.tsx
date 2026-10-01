@@ -47,7 +47,8 @@ class FakeWorker {
     }
 
     emit(type: string, data: unknown): void {
-        for (const listener of this.listeners.get(type) ?? []) {
+        const listeners = this.listeners.get(type) ?? [];
+        for (const listener of listeners) {
             listener({ data } as MessageEvent<unknown>);
         }
     }
@@ -59,6 +60,16 @@ class FakeWorker {
     terminate(): void {
         return;
     }
+}
+
+function finishFirstRun() {
+    act(() => {
+        FakeWorker.instances[0]?.emit('message', {
+            kind: WorkerTaskEventKind.Done,
+            result: { outcomes: [] },
+            runId: 1,
+        });
+    });
 }
 
 function fundedAdvisorInput(today: string): UseAccountAdviceInput {
@@ -129,16 +140,6 @@ describe('useAccountAdvice caches the engine outcome and assembles fresh advice 
                     <Harness frames={frames} input={input} />
                 </ComputationCacheContext.Provider>,
             );
-        });
-    }
-
-    function finishFirstRun() {
-        act(() => {
-            FakeWorker.instances[0]?.emit('message', {
-                kind: WorkerTaskEventKind.Done,
-                result: { outcomes: [] },
-                runId: 1,
-            });
         });
     }
 

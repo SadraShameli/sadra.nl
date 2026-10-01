@@ -11,6 +11,7 @@ import {
 import { PooledCapCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/PooledCapCard';
 
 const POOLED: PooledCapCardModel = {
+    countingNote: 'Active and suspended funded accounts count toward a cap.',
     disclosure:
         'Pools are modeled only for firms whose policy a source confirms.',
     householdNote: null,
@@ -47,6 +48,7 @@ const PROXIMITY: LiveProximityCardModel = {
             paidPayouts: '2',
             plan: 'Firm A 50K',
             remaining: '1',
+            sourceText: '"per account quote" https://example.test/a, checked 2026-09-01',
             trigger: '3',
         },
     ],
@@ -59,6 +61,7 @@ const PROXIMITY: LiveProximityCardModel = {
             paidSinceLastLive: '8',
             remaining: '2',
             since: '2026-09-08',
+            sourceText: '"firm total quote" https://example.test/b, checked 2026-09-02',
             trigger: '10',
         },
         {
@@ -68,11 +71,14 @@ const PROXIMITY: LiveProximityCardModel = {
             paidSinceLastLive: '1',
             remaining: 'Unverified',
             since: 'all time',
+            sourceText: 'No confirmed source',
             trigger: 'Unverified',
         },
     ],
+    openFundedAccounts: 3,
     singleDayFacts: [
         {
+            fetchedOn: '2026-09-03',
             firm: 'Firm A',
             key: 'plan-a-single-day',
             plan: 'Firm A 50K',
@@ -83,6 +89,8 @@ const PROXIMITY: LiveProximityCardModel = {
     ],
     unlistedNote:
         '1 funded account is at a firm whose live triggers are unverified, so its distance to going live is not shown.',
+    unmeasuredNote:
+        'Firm C 50K has a verified cumulative payout trigger of $100,000.00 that this card does not measure.',
 };
 
 describe('PooledCapCard and LiveProximityCard', () => {
@@ -120,6 +128,7 @@ describe('PooledCapCard and LiveProximityCard', () => {
             'Firm A 50K|Shared pool|4|5|0|0|',
             'Firm B 100K|Cap scope unverified|1|5|Unverified|4|',
         ]);
+        expect(container.textContent).toContain(POOLED.countingNote);
         const list = container.querySelector(
             '[aria-label="Firms with an unverified cap scope"]',
         );
@@ -167,9 +176,9 @@ describe('PooledCapCard and LiveProximityCard', () => {
             root.render(<LiveProximityCard model={PROXIMITY} />);
         });
         expect(rowTexts()).toEqual([
-            'Firm A|8|2026-09-08|10|2',
-            'Firm B|1|all time|Unverified|Unverified',
-            'Alpha|Firm A 50K|2|3|1',
+            'Firm A|8|2026-09-08|10|2|"firm total quote" https://example.test/b, checked 2026-09-02',
+            'Firm B|1|all time|Unverified|Unverified|No confirmed source',
+            'Alpha|Firm A 50K|2|3|1|"per account quote" https://example.test/a, checked 2026-09-01',
         ]);
         const facts = container.querySelector(
             '[aria-label="Single-day live triggers"]',
@@ -179,6 +188,10 @@ describe('PooledCapCard and LiveProximityCard', () => {
         );
         expect(facts?.textContent).toContain('a synthetic firm quote');
         expect(facts?.textContent).toContain('https://example.test/policy');
+        expect(facts?.textContent).toContain('checked 2026-09-03');
+        expect(container.textContent).toContain(
+            PROXIMITY.unmeasuredNote ?? 'missing',
+        );
         expect(container.textContent).toContain(PROXIMITY.disclosure);
         expect(container.textContent).toContain(
             PROXIMITY.unlistedNote ?? 'missing',
@@ -193,8 +206,10 @@ describe('PooledCapCard and LiveProximityCard', () => {
                         accounts: [],
                         disclosure: PROXIMITY.disclosure,
                         firms: [],
+                        openFundedAccounts: 0,
                         singleDayFacts: [],
                         unlistedNote: null,
+                        unmeasuredNote: null,
                     }}
                 />,
             );
@@ -203,5 +218,56 @@ describe('PooledCapCard and LiveProximityCard', () => {
             'No open funded account to measure against a live trigger.',
         );
         expect(container.querySelector('table')).toBeNull();
+    });
+
+    it('shows the unlisted note and no nothing-to-show line when the only count trigger of the open funded accounts is unconfirmed', () => {
+        act(() => {
+            root.render(
+                <LiveProximityCard
+                    model={{
+                        accounts: [],
+                        disclosure: PROXIMITY.disclosure,
+                        firms: [],
+                        openFundedAccounts: 1,
+                        singleDayFacts: [],
+                        unlistedNote: PROXIMITY.unlistedNote,
+                        unmeasuredNote: null,
+                    }}
+                />,
+            );
+        });
+        expect(container.textContent).toContain(
+            PROXIMITY.unlistedNote ?? 'missing',
+        );
+        expect(container.textContent).not.toContain(
+            'None of your open funded accounts has a payout-count live trigger to count down.',
+        );
+        expect(container.textContent).not.toContain(
+            'No open funded account to measure against a live trigger.',
+        );
+    });
+
+    it('says no firm of the open funded accounts has a count to show, not that there is no account, when every trigger is of another kind', () => {
+        act(() => {
+            root.render(
+                <LiveProximityCard
+                    model={{
+                        accounts: [],
+                        disclosure: PROXIMITY.disclosure,
+                        firms: [],
+                        openFundedAccounts: 2,
+                        singleDayFacts: [],
+                        unlistedNote: null,
+                        unmeasuredNote: null,
+                    }}
+                />,
+            );
+        });
+        expect(container.textContent).not.toContain(
+            'No open funded account to measure against a live trigger.',
+        );
+        expect(container.textContent).toContain(
+            'None of your open funded accounts has a payout-count live trigger to count down.',
+        );
     });
 });

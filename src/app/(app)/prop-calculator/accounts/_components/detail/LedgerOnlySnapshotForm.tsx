@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import {
+    useFollowToday,
+    useTodayIsoDate,
+} from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
+import {
     emptySnapshotFormValues,
     ledgerOnlySnapshotRules,
     parseSnapshotForm,
@@ -13,7 +17,7 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
 import { SnapshotFields } from '~/app/(app)/prop-calculator/accounts/_components/SnapshotFields';
 import { Button } from '~/components/ui/Button';
-import { AccountTracking, todayIsoDate } from '~/lib/prop-accounts';
+import { AccountTracking, SnapshotField } from '~/lib/prop-accounts';
 import { api } from '~/trpc/react';
 
 export function LedgerOnlySnapshotForm({
@@ -25,8 +29,18 @@ export function LedgerOnlySnapshotForm({
 }) {
     const utilities = api.useUtils();
     const creation = api.propAccounts.snapshot.create.useMutation();
-    const [values, setValues] =
-        useState<SnapshotFormValues>(blankValuesForToday);
+    const today = useTodayIsoDate();
+    const [values, setValues] = useState<SnapshotFormValues>(() =>
+        emptySnapshotFormValues(today),
+    );
+    useFollowToday({
+        isEnabled: true,
+        read: () => values[SnapshotField.AsOf],
+        today,
+        write: (day) => {
+            setValues((current) => ({ ...current, [SnapshotField.AsOf]: day }));
+        },
+    });
     const [checked, setChecked] = useState<null | SnapshotFormResult>(null);
     const invalid =
         checked?.kind === SnapshotFormResultKind.Invalid ? checked : null;
@@ -38,7 +52,7 @@ export function LedgerOnlySnapshotForm({
         try {
             await creation.mutateAsync({ ...parsed.snapshot, accountId });
             toast.success(`Snapshot of ${parsed.snapshot.asOf} added`);
-            setValues(blankValuesForToday());
+            setValues(emptySnapshotFormValues(today));
             setChecked(null);
         } catch (error) {
             onFailure(error);
@@ -84,8 +98,4 @@ export function LedgerOnlySnapshotForm({
             </Button>
         </form>
     );
-}
-
-function blankValuesForToday(): SnapshotFormValues {
-    return emptySnapshotFormValues(todayIsoDate(new Date()));
 }

@@ -17,6 +17,7 @@ export {
     documentedPolicySpecSchema,
 } from './DocumentedPolicySpec';
 export {
+    applicableTimelineGaps,
     DOCUMENTED_POLICY_TIMELINE_GAP_TEXT,
     DOCUMENTED_POLICY_TIMELINE_GAPS,
     DocumentedPolicyTimelineGap,

@@ -356,7 +356,7 @@ describe('N-45 in the funded dynamic program: the net-losing cycle rule holds fr
         expect(isFundedDpEligible(alphaToy(qualifiedRule))).toBe(true);
     });
 
-    it('separates the Alpha rule from a loss-exempt rule after the first request, in the same direction as simulated trials of its own policy, at the 6 drawdown cushion grid with the coarse tail pinned off (WP58d: with the default 30 drawdown tail two funded levels of this toy stop at the 200 sweep cap without converging, so the grid top is pinned the way FundedStateValueGridBias.test.ts did)', () => {
+    it('separates the Alpha rule from a loss-exempt rule after the first request, in the same direction as simulated trials of its own policy, at the 6 drawdown cushion grid with the coarse tail pinned off (WP58d: this toy sets no meanHorizonDays, so its sweep cap is the plain 200 floor, and its loss-exempt rule needs more than that on two funded levels at the default 30 drawdown tail; it reaches the same value to 5e-8 with maxIterationsPerLevel 1000 and converges with a 400 day horizon like optimize dp gives it, and the tail-on path of consistency-tracked rules is covered by the one-request toy below)', () => {
         const alpha = dpAndSimulate(qualifiedRule);
         const lossExempt = dpAndSimulate(lossExemptRule);
         expect(alpha.simulated - lossExempt.simulated).toBeGreaterThan(50);
@@ -507,6 +507,9 @@ describe('N-45 at single funded DP states: a negative-edge policy trades only wh
             winrate: 0.3,
         });
         expect(result.unconvergedLevelCount).toBe(0);
+        expect(result.cushionGrid.tailTopDollars).toBeGreaterThan(
+            result.cushionGrid.fineTopDollars,
+        );
         const riskAt = ({
             balance,
             cycleBestDayProfit,

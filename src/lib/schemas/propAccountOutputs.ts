@@ -58,6 +58,7 @@ export enum PropMutationRejection {
     DecisionOfOtherAccount = 'decision-of-other-account',
     DuplicateImportLabel = 'duplicate-import-label',
     DuplicateSnapshot = 'duplicate-snapshot',
+    ExclusivityNotConfirmed = 'exclusivity-not-confirmed',
     FutureDate = 'future-date',
     ImplausibleSnapshot = 'implausible-snapshot',
     LifecycleTransition = 'lifecycle-transition',

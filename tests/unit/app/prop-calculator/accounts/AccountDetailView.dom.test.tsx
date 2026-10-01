@@ -1002,6 +1002,65 @@ describe('AccountDetailView', () => {
         expect(state.textContent).not.toContain('unavailable');
     });
 
+    it('mounts the value and next payout section, the live transition preview and the simulate link once the state reconstructs (PT-37)', () => {
+        answerEverything({
+            'snapshot.listForAccount': answer([
+                snapshot('s2', '2026-09-20', 5_100_000, {
+                    highestEodBalanceCents: 5_200_000,
+                }),
+            ]),
+        });
+        render();
+        const state = sectionTitled('Account state');
+        const headings = [...state.querySelectorAll('h3')].map(
+            (heading) => heading.textContent,
+        );
+        expect(headings).toEqual(
+            expect.arrayContaining([
+                'Value and next payout from this state',
+                'Live transition preview',
+                'Simulate this account',
+            ]),
+        );
+        const link = [...state.querySelectorAll('a')].find(
+            (anchor) => anchor.textContent === 'Simulate this account',
+        );
+        expect(
+            link
+                ?.getAttribute('href')
+                ?.startsWith(`${routes.propCalculator.simulator}?`),
+        ).toBe(true);
+        expect(state.textContent.toLowerCase()).toContain('fresh start');
+    });
+
+    it('shows no simulator link for a live-stage account and says the simulator cannot start from it (PT-37)', () => {
+        const live = account(CHARLIE_ID, 'Charlie', {
+            stage: AccountStage.Live,
+        });
+        answerEverything({
+            'account.get': answer(live),
+            'account.list': answer([ALPHA, BRAVO, live]),
+            'event.listForAccount': answer([]),
+            'fee.list': answer([]),
+            'payout.list': answer([]),
+            'snapshot.listForAccount': answer([
+                snapshot('s1', '2026-09-20', 200_000, {
+                    highestEodBalanceCents: 200_000,
+                }),
+            ]),
+        });
+        render(CHARLIE_ID);
+        const state = sectionTitled('Account state');
+        expect(
+            [...state.querySelectorAll('a')].some(
+                (anchor) => anchor.textContent === 'Simulate this account',
+            ),
+        ).toBe(false);
+        expect(state.textContent).toContain(
+            'The simulator cannot start from a live account.',
+        );
+    });
+
     it('shows no live stage modeled for a live-stage account on a plan with no live program', () => {
         const noLiveFirmPlan = findFirm(FirmId.FtmoFutures)?.findPlan({
             accountSize: 50_000,
@@ -1506,6 +1565,7 @@ describe('AccountDetailView', () => {
 
     it('suggests marking the firm sent live after a MovedLive event, and applies it through firmEngagement.set', async () => {
         harness.queries.set('account.get', answer(BRAVO));
+        harness.queries.set('account.list', answer([ALPHA, BRAVO]));
         act(() => {
             root.render(
                 <EventsSection
@@ -1548,6 +1608,7 @@ describe('AccountDetailView', () => {
 
     it('dismisses the MovedLive suggestion without calling firmEngagement.set', async () => {
         harness.queries.set('account.get', answer(BRAVO));
+        harness.queries.set('account.list', answer([ALPHA, BRAVO]));
         act(() => {
             root.render(
                 <EventsSection
@@ -1575,6 +1636,7 @@ describe('AccountDetailView', () => {
 
     it('keeps the MovedLive suggestion visible after the account state changes and remounts the event form', async () => {
         harness.queries.set('account.get', answer(BRAVO));
+        harness.queries.set('account.list', answer([ALPHA, BRAVO]));
         act(() => {
             root.render(
                 <EventsSection

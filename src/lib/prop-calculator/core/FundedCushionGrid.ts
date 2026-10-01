@@ -5,18 +5,18 @@ export interface CushionGridSplit {
     readonly upperWeight: number;
 }
 
-export interface FundedCushionGridSummary {
-    readonly fineStepDollars: number;
-    readonly fineTopDollars: number;
-    readonly tailStepDollars: number;
-    readonly tailTopDollars: number;
-}
-
 export interface FundedCushionGridOptions {
     readonly fineStep: number;
     readonly fineTop: number;
     readonly tailStep?: number;
     readonly tailTop?: number;
+}
+
+export interface FundedCushionGridSummary {
+    readonly fineStepDollars: number;
+    readonly fineTopDollars: number;
+    readonly tailStepDollars: number;
+    readonly tailTopDollars: number;
 }
 
 interface CushionGridCell {
@@ -82,15 +82,6 @@ export class FundedCushionGrid {
         this.size = this.fineCount + tailCount + 1;
     }
 
-    summary(): FundedCushionGridSummary {
-        return {
-            fineStepDollars: this.fineStep,
-            fineTopDollars: this.fineTop,
-            tailStepDollars: this.tailStep,
-            tailTopDollars: this.dollarsAt(this.size - 1),
-        };
-    }
-
     private locate(dollarsValue: number): CushionGridCell {
         if (dollarsValue <= this.fineTop + BUCKET_EPSILON) {
             const raw = Math.floor(
@@ -151,6 +142,15 @@ export class FundedCushionGrid {
         return {
             lowerIndex: rawIndex,
             upperWeight: remainder > BUCKET_EPSILON ? remainder / cellStep : 0,
+        };
+    }
+
+    summary(): FundedCushionGridSummary {
+        return {
+            fineStepDollars: this.fineStep,
+            fineTopDollars: this.fineTop,
+            tailStepDollars: this.tailStep,
+            tailTopDollars: this.dollarsAt(this.size - 1),
         };
     }
 }

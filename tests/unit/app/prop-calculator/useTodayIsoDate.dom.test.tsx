@@ -11,17 +11,17 @@ function Harness({ seen }: { readonly seen: string[] }) {
     return null;
 }
 
+function visibility(state: 'hidden' | 'visible') {
+    Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => state,
+    });
+}
+
 describe('useTodayIsoDate', () => {
     let root: Root;
     let container: HTMLElement;
     let seen: string[];
-
-    function visibility(state: 'hidden' | 'visible') {
-        Object.defineProperty(document, 'visibilityState', {
-            configurable: true,
-            get: () => state,
-        });
-    }
 
     beforeEach(() => {
         vi.useFakeTimers({ now: new Date('2026-09-26T23:30:00Z') });

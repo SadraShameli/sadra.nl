@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import {
     ACCOUNT_LIST_INPUT,
     accountFirmLabel,
@@ -47,13 +48,11 @@ import {
 } from '~/components/ui/Table';
 import { errorMessage } from '~/lib/errorMessage';
 import {
-    AccountEventKind,
     AccountStage,
     accountStageLabel,
     AccountStatus,
     AccountTracking,
-    BustCause,
-    compareText,
+    bustDiagnosisOfAttempt,
     type ExternalFirmName,
     formatUsdCents,
     isModeledAccount,
@@ -68,11 +67,8 @@ import {
     upgradeChanges,
     upgradeChangeText,
 } from '~/lib/prop-accounts';
-import {
-    type BustDiagnosis,
-    bustDiagnosisOf,
-} from '~/lib/prop-accounts/conduct';
 import { type Plan } from '~/lib/prop-calculator';
+import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
 import {
     PropRecord,
     type PropRejection,
@@ -102,9 +98,12 @@ import { EventsSection } from './EventsSection';
 import { FeesSection } from './FeesSection';
 import { LedgerOnlySnapshotForm } from './LedgerOnlySnapshotForm';
 import { LiveRulesCard } from './LiveRulesCard';
+import { LiveTransitionPreviewCard } from './LiveTransitionPreviewCard';
+import { NextPayoutSection } from './NextPayoutSection';
 import { PayoutsSection } from './PayoutsSection';
 import { PerformanceCard } from './PerformanceCard';
 import { LedgerOnlyPlanSummary, PlanRulesSummary } from './PlanRulesSummary';
+import { SimulateAccountLink } from './SimulateAccountLink';
 import { SnapshotHistoryChart } from './SnapshotHistoryChart';
 import { snapshotSeries } from './snapshotSeries';
 import { StateCard } from './StateCard';
@@ -357,10 +356,14 @@ export function AccountDetailView({
                     <AccountStateSection
                         account={account}
                         eventsQuery={eventsQuery}
+                        ledgerAccounts={accountsQuery.data}
+                        ledgerEvents={allEventsQuery.data}
                         payoutsQuery={payoutsQuery}
                         plan={plan}
+                        rulebook={rulebookQuery.data}
                         snapshotsQuery={snapshotsQuery}
                         today={today}
+                        userId={userId}
                     />
                 </DetailSection>
             )}
@@ -548,18 +551,35 @@ function AccountStateQueryErrors({
 function AccountStateSection({
     account,
     eventsQuery,
+    ledgerAccounts,
+    ledgerEvents,
     payoutsQuery,
     plan,
+    rulebook,
     snapshotsQuery,
     today,
+    userId,
 }: {
     readonly account: ModeledAccountRow<SnapshotAccountRow>;
     readonly eventsQuery: ListQuery<AccountEventRow>;
+    readonly ledgerAccounts: readonly ListedAccount[] | undefined;
+    readonly ledgerEvents: readonly AccountEventRow[] | undefined;
     readonly payoutsQuery: ListQuery<PayoutRow>;
     readonly plan: Plan;
+    readonly rulebook: RulebookParameters | undefined;
     readonly snapshotsQuery: ListQuery<SnapshotRow>;
     readonly today: string;
+    readonly userId: string;
 }) {
+    const rebuyLag = useMemo(() => {
+        const line = measuredRebuyLagOf({
+            accounts: ledgerAccounts,
+            events: ledgerEvents,
+            planSerial: account.planSerial,
+            userId,
+        });
+        return line?.kind === RebuyLagLineKind.Measured ? line.value : null;
+    }, [account.planSerial, ledgerAccounts, ledgerEvents, userId]);
     const events = eventsQuery.data;
     const payouts = payoutsQuery.data;
     const snapshots = snapshotsQuery.data;
@@ -632,6 +652,41 @@ function AccountStateSection({
                     <LiveRulesCard view={view.liveRules} />
                 </div>
             )}
+            {view.state.kind === StateCardKind.Ready && (
+                <>
+                    <div className="flex flex-col gap-2">
+                        <h3 className="text-sm font-medium">
+                            Value and next payout from this state
+                        </h3>
+                        <NextPayoutSection
+                            account={view.state.account}
+                            input={view.state.input}
+                            measuredRebuyLag={rebuyLag}
+                            plan={plan}
+                            rulebook={rulebook}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <h3 className="text-sm font-medium">
+                            Live transition preview
+                        </h3>
+                        <LiveTransitionPreviewCard
+                            account={view.state.account}
+                            plan={plan}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <h3 className="text-sm font-medium">
+                            Simulate this account
+                        </h3>
+                        <SimulateAccountLink
+                            plan={plan}
+                            rulebook={rulebook}
+                            stage={view.state.input.stage}
+                        />
+                    </div>
+                </>
+            )}
         </div>
     );
 }
@@ -647,38 +702,12 @@ function BustDiagnosisSubsection({
     readonly eventsQuery: ListQuery<AccountEventRow>;
     readonly violationsQuery: ListQuery<ViolationRow>;
 }) {
-    const events = eventsQuery.data ?? [];
-    const bustEvent = events
-        .filter((event) => event.kind === AccountEventKind.Busted)
-        .toSorted((a, b) => compareText(b.occurredOn, a.occurredOn))[0];
-    if (bustEvent === undefined) return null;
-    const windowStart = account.purchasedOn;
-    const windowEnd = bustEvent.occurredOn;
-    const decisions = (decisionsQuery.data ?? [])
-        .filter(
-            (decision) =>
-                compareText(decision.decidedOn, windowStart) >= 0 &&
-                compareText(decision.decidedOn, windowEnd) <= 0,
-        )
-        .map((decision) => ({
-            acceptedRiskCents: decision.acceptedRiskCents,
-            actualRiskCents: decision.actualRiskCents,
-        }));
-    const violations = (violationsQuery.data ?? [])
-        .filter(
-            (violation) =>
-                compareText(violation.occurredOn, windowStart) >= 0 &&
-                compareText(violation.occurredOn, windowEnd) <= 0,
-        )
-        .map((violation) => ({
-            kind: violation.kind,
-            occurredOn: violation.occurredOn,
-        }));
-    const diagnosis: BustDiagnosis = bustDiagnosisOf({
-        bustCause: bustEvent.detail.bustCause ?? BustCause.Unknown,
-        decisions,
-        violations,
-    });
+    const diagnosis = bustDiagnosisOfAttempt(
+        { events: eventsQuery.data ?? [], purchasedOn: account.purchasedOn },
+        decisionsQuery.data ?? [],
+        violationsQuery.data ?? [],
+    );
+    if (diagnosis === null) return null;
     return (
         <div className="flex flex-col gap-2">
             <h3 className="text-sm font-medium">Bust diagnosis</h3>

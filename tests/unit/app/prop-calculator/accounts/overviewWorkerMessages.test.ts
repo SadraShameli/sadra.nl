@@ -1,21 +1,34 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+    type AccountFromStateFigures,
     type DocumentedRunFigures,
+    overviewAccountRequestsFor,
     OverviewOutcomeKind,
     overviewOutcomeOf,
     overviewPlanKey,
+    overviewPlanValueRequestsFor,
     overviewProjectionRequestsFor,
     type OverviewRequest,
+    OverviewRequestGroup,
     overviewRequestKey,
     OverviewRequestKind,
+    overviewRequestsByGroup,
     overviewRequestSchema,
     overviewRequestsFor,
+    overviewRetireRequestsFor,
+    overviewValueChainRequestsFor,
     type PayoutSizeOptimumFigures,
+    type PlanValuesFigures,
     type PortfolioProjectionFigures,
+    type ValueChainFigures,
+    ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
     CENTS_PER_DOLLAR,
+    dollars,
     effectivePayoutRequest,
     findFirm,
     FirmId,
@@ -26,23 +39,44 @@ import {
     type Plan,
     serializePlanId,
     TopStepVariant,
+    TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    AccountReconstruction,
+    type AccountSnapshotInput,
     AdviceSource,
+    DashboardBalanceConvention,
     DEFAULT_RULEBOOK,
     enginePolicyKey,
     LifetimePayoutCapBasis,
     PayoutSizeSweepResultKind,
     RebuyLagBasis,
+    ReconstructedLiveKind,
+    runNextPayoutProjection,
     runPayoutSizeSweep,
+    SizingStage,
     StartBasis,
     toSimInputs,
 } from '~/lib/prop-calculator/advisor';
 import {
+    applicableTimelineGaps,
     DOCUMENTED_POLICY_TIMELINE_GAP_TEXT,
     DocumentedPolicyTimelineGap,
     documentedPolicyTimelineInputs,
 } from '~/lib/prop-calculator/advisor/policy';
+import {
+    evalStartAccount,
+    freshFundedAccount,
+    MilestoneKind,
+    milestoneState,
+    retireComparison,
+    RetireComparisonBasis,
+    startStateOf,
+    valueAtState,
+    valueChain,
+    ValueChainStepKind,
+    ValueResultKind,
+} from '~/lib/prop-calculator/advisor/value';
 import { simulatePortfolioTimeline } from '~/lib/prop-calculator/portfolioTimeline';
 import {
     SIM_INPUTS_REFUSAL_PREFIX,
@@ -894,5 +928,721 @@ describe('overviewOutcomeOf projection requests (PT-33, F-87)', () => {
         const outcome = overviewOutcomeOf(request);
         expect(structuredClone(outcome)).toEqual(outcome);
         expect(outcome.key).toBe(overviewRequestKey(request));
+    });
+});
+
+describe('the projection timeline gaps come from the one shared rule', () => {
+    it('reports exactly what applicableTimelineGaps returns for the request spec', () => {
+        const base = tinyProjection();
+        const request = withPolicy(base, {
+            intradayPathStepsPerR: 10,
+            rebuyLagBasis: RebuyLagBasis.Measured,
+            rebuyLagDays: 6,
+        });
+        expect(succeededProjection(request).timelineGaps).toEqual(
+            applicableTimelineGaps(request.spec),
+        );
+    });
+
+    it('keeps no private timeline gap rule or tolerance of its own', () => {
+        const source = readFileSync(
+            path.join(
+                process.cwd(),
+                'src',
+                'app',
+                '(app)',
+                'prop-calculator',
+                '_workers',
+                'overviewWorkerMessages.ts',
+            ),
+            'utf8',
+        );
+        expect(source).not.toContain('FUNDED_RR_TOLERANCE');
+        expect(source).not.toContain('timelineGapsOf');
+    });
+});
+
+
+const FUNDED_SNAPSHOT: AccountSnapshotInput = {
+    asOf: '2026-03-02',
+    balance: dollars(52_000),
+    dashboardConvention: DashboardBalanceConvention.Nominal,
+    firstFundedTradeOn: '2026-01-05',
+    highestEodBalance: dollars(52_000),
+    highestIntradayBalance: dollars(52_000),
+    payoutsTaken: 0,
+    stage: SizingStage.Funded,
+    tradingDays: 12,
+};
+
+const EVAL_SNAPSHOT: AccountSnapshotInput = {
+    asOf: '2026-03-02',
+    balance: dollars(50_800),
+    dashboardConvention: DashboardBalanceConvention.Nominal,
+    highestEodBalance: dollars(50_800),
+    highestIntradayBalance: dollars(50_800),
+    stage: SizingStage.Eval,
+    tradingDays: 5,
+};
+
+function accountPlanInput(
+    snapshot: AccountSnapshotInput,
+    plan: Plan = TOPSTEP_50K,
+) {
+    return {
+        account: snapshot,
+        firmId: plan.id.firm,
+        measuredRebuyLag: null,
+        optIns: NO_PLAN_OPT_INS,
+        planSerial: serializePlanId(plan.id),
+    };
+}
+
+function accountRequestFor(
+    snapshot: AccountSnapshotInput,
+    plan: Plan = TOPSTEP_50K,
+): OverviewRequest {
+    const [first] = overviewAccountRequestsFor(
+        [accountPlanInput(snapshot, plan)],
+        DEFAULT_RULEBOOK,
+    );
+    if (first === undefined) throw new Error('no account request');
+    return { ...first, spec: { ...first.spec, run: TINY_RUN } };
+}
+
+function planValueRequestFor(plan: Plan = TOPSTEP_50K): OverviewRequest {
+    const [first] = overviewPlanValueRequestsFor(
+        [
+            {
+                firmId: plan.id.firm,
+                measuredRebuyLag: null,
+                optIns: NO_PLAN_OPT_INS,
+                planSerial: serializePlanId(plan.id),
+            },
+        ],
+        DEFAULT_RULEBOOK,
+    );
+    if (first === undefined) throw new Error('no plan-values request');
+    return { ...first, spec: { ...first.spec, run: TINY_RUN } };
+}
+
+function rebuiltAccount(snapshot: AccountSnapshotInput, plan: Plan = TOPSTEP_50K) {
+    return AccountReconstruction.rebuild(snapshot, plan);
+}
+
+function succeededAccount(request: OverviewRequest): AccountFromStateFigures {
+    const outcome = overviewOutcomeOf(request);
+    if (outcome.kind !== OverviewOutcomeKind.Succeeded) {
+        throw new Error(`expected success, got: ${outcome.reason}`);
+    }
+    if (outcome.result.kind !== OverviewRequestKind.AccountFromState) {
+        throw new Error('expected an account-from-state result');
+    }
+    return outcome.result.figures;
+}
+
+function succeededPlanValues(request: OverviewRequest): PlanValuesFigures {
+    const outcome = overviewOutcomeOf(request);
+    if (outcome.kind !== OverviewOutcomeKind.Succeeded) {
+        throw new Error(`expected success, got: ${outcome.reason}`);
+    }
+    if (outcome.result.kind !== OverviewRequestKind.PlanValues) {
+        throw new Error('expected a plan-values result');
+    }
+    return outcome.result.figures;
+}
+
+describe('overviewAccountRequestsFor (PT-37, F-87)', () => {
+    it('emits one account-from-state request per account state carrying the snapshot and only the spec, surviving structuredClone', () => {
+        const requests = overviewAccountRequestsFor(
+            [accountPlanInput(FUNDED_SNAPSHOT)],
+            DEFAULT_RULEBOOK,
+        );
+        expect(requests.map((request) => request.kind)).toEqual([
+            OverviewRequestKind.AccountFromState,
+        ]);
+        const [request] = requests;
+        expect(request?.account).toEqual(FUNDED_SNAPSHOT);
+        expect(request?.spec.start).toBeUndefined();
+        expect(request?.accounts).toBeUndefined();
+        expect(structuredClone(request)).toEqual(request);
+        for (const candidate of requests) {
+            expect(
+                overviewRequestSchema.parse(structuredClone(candidate)),
+            ).toEqual(candidate);
+        }
+    });
+
+    it('builds the same documented spec the fresh documented run uses for the plan', () => {
+        const [account] = overviewAccountRequestsFor(
+            [accountPlanInput(FUNDED_SNAPSHOT)],
+            DEFAULT_RULEBOOK,
+        );
+        expect(account?.spec).toEqual(documentedOf(requestsFor()).spec);
+    });
+
+    it('keys the request per account state and full policy, and collapses identical states', () => {
+        const same = overviewAccountRequestsFor(
+            [
+                accountPlanInput(FUNDED_SNAPSHOT),
+                accountPlanInput({ ...FUNDED_SNAPSHOT }),
+            ],
+            DEFAULT_RULEBOOK,
+        );
+        expect(same).toHaveLength(1);
+        const moved = overviewAccountRequestsFor(
+            [
+                accountPlanInput(FUNDED_SNAPSHOT),
+                accountPlanInput({
+                    ...FUNDED_SNAPSHOT,
+                    balance: dollars(52_500),
+                    highestEodBalance: dollars(52_500),
+                    highestIntradayBalance: dollars(52_500),
+                }),
+            ],
+            DEFAULT_RULEBOOK,
+        );
+        expect(moved).toHaveLength(2);
+        const [first, second] = moved;
+        if (first === undefined || second === undefined) return;
+        expect(overviewRequestKey(first)).not.toBe(overviewRequestKey(second));
+        const [other] = overviewAccountRequestsFor(
+            [accountPlanInput(FUNDED_SNAPSHOT)],
+            {
+                ...DEFAULT_RULEBOOK,
+                payout: { ...DEFAULT_RULEBOOK.payout, requestCents: 120_000 },
+            },
+        );
+        expect(other).toBeDefined();
+        if (other === undefined) return;
+        expect(overviewRequestKey(other)).not.toBe(overviewRequestKey(first));
+        const documentedKey = overviewRequestKey(documentedOf(requestsFor()));
+        expect(overviewRequestKey(first)).not.toBe(documentedKey);
+    });
+
+    it('skips an account that is already live: there is no from-state live model', () => {
+        const live = { ...FUNDED_SNAPSHOT, stage: SizingStage.Live };
+        expect(
+            overviewAccountRequestsFor(
+                [accountPlanInput(live)],
+                DEFAULT_RULEBOOK,
+            ),
+        ).toEqual([]);
+        expect(
+            overviewRetireRequestsFor(
+                [accountPlanInput(live)],
+                DEFAULT_RULEBOOK,
+            ),
+        ).toEqual([]);
+    });
+
+    it('skips a plan the engine no longer models instead of throwing', () => {
+        expect(
+            overviewAccountRequestsFor(
+                [
+                    {
+                        ...accountPlanInput(FUNDED_SNAPSHOT),
+                        planSerial: 'no-such-plan',
+                    },
+                ],
+                DEFAULT_RULEBOOK,
+            ),
+        ).toEqual([]);
+    });
+});
+
+describe('overviewRequestSchema account requests (PT-37)', () => {
+    it('rejects an account request without its account state, and an account state on another kind', () => {
+        const request = accountRequestFor(FUNDED_SNAPSHOT);
+        const withoutAccount = { ...request, account: undefined };
+        expect(overviewRequestSchema.safeParse(withoutAccount).success).toBe(
+            false,
+        );
+        const documented = documentedOf(requestsFor());
+        expect(
+            overviewRequestSchema.safeParse({
+                ...documented,
+                account: FUNDED_SNAPSHOT,
+            }).success,
+        ).toBe(false);
+    });
+
+    it('accepts every request kind its builder emits, so the worker validates what the pages send', () => {
+        const planInput = {
+            firmId: TOPSTEP_50K.id.firm,
+            measuredRebuyLag: null,
+            optIns: NO_PLAN_OPT_INS,
+            planSerial: TOPSTEP_SERIAL,
+        };
+        const requests = [
+            ...overviewAccountRequestsFor(
+                [accountPlanInput(FUNDED_SNAPSHOT)],
+                DEFAULT_RULEBOOK,
+            ),
+            ...overviewRetireRequestsFor(
+                [accountPlanInput(FUNDED_SNAPSHOT)],
+                DEFAULT_RULEBOOK,
+            ),
+            ...overviewPlanValueRequestsFor([planInput], DEFAULT_RULEBOOK),
+            ...overviewValueChainRequestsFor([planInput], DEFAULT_RULEBOOK),
+        ];
+        expect(requests.map((request) => request.kind)).toEqual([
+            OverviewRequestKind.AccountFromState,
+            OverviewRequestKind.RetireComparison,
+            OverviewRequestKind.PlanValues,
+            OverviewRequestKind.ValueChain,
+        ]);
+        for (const request of requests) {
+            expect(
+                overviewRequestSchema.parse(structuredClone(request)),
+            ).toEqual(request);
+        }
+    });
+
+    it('rejects an account state with an unknown key or a bad stage', () => {
+        const request = accountRequestFor(FUNDED_SNAPSHOT);
+        expect(
+            overviewRequestSchema.safeParse({
+                ...request,
+                account: { ...FUNDED_SNAPSHOT, extra: 1 },
+            }).success,
+        ).toBe(false);
+        expect(
+            overviewRequestSchema.safeParse({
+                ...request,
+                account: { ...FUNDED_SNAPSHOT, stage: 'retired' },
+            }).success,
+        ).toBe(false);
+    });
+
+    it('rejects a from-state start inside the spec: the worker builds the start from the snapshot', () => {
+        const request = accountRequestFor(FUNDED_SNAPSHOT);
+        const funded = rebuiltAccount(FUNDED_SNAPSHOT);
+        if (funded.kind === ReconstructedLiveKind.Live) throw new Error('expected a funded account');
+        expect(
+            overviewRequestSchema.safeParse({
+                ...request,
+                spec: {
+                    ...request.spec,
+                    start: startStateOf(TOPSTEP_50K, funded),
+                },
+            }).success,
+        ).toBe(false);
+    });
+});
+
+describe('overviewOutcomeOf account requests (PT-37, F-87, F-88)', () => {
+    it('values an eval account from its own state, with SEs, labelled from state, and has no next payout', () => {
+        const request = accountRequestFor(EVAL_SNAPSHOT);
+        const figures = succeededAccount(request);
+        expect(figures.stage).toBe(SizingStage.Eval);
+        expect(figures.startBasis).toBe(StartBasis.FromState);
+        expect(figures.trials).toBe(TINY_RUN.trials);
+        expect(figures.nextPayout).toBeNull();
+        expect(figures.valueNow.kind).toBe(ValueResultKind.Value);
+        expect(figures.valueNow.trials).toBe(TINY_RUN.trials);
+        expect(figures.valueNow.seed).toBe(TINY_RUN.seed);
+        expect(
+            figures.valueNow.creditInclusive.standardError,
+        ).not.toBeNull();
+        expect(figures.valueNow.creditFree.standardError).not.toBeNull();
+        const direct = valueAtState(
+            rebuiltAccount(EVAL_SNAPSHOT),
+            request.spec,
+        );
+        expect(figures.valueNow).toEqual(direct);
+    });
+
+    it('runs the milestone value at the same seed and trials, from a state that starts a new session, and names the eval gaps', () => {
+        const request = accountRequestFor(EVAL_SNAPSHOT);
+        const figures = succeededAccount(request);
+        expect(figures.milestone.kind).toBe(MilestoneKind.Eval);
+        expect(figures.milestone.debited).toBeNull();
+        expect(figures.milestone.value.kind).toBe(ValueResultKind.Value);
+        expect(figures.milestone.value.seed).toBe(figures.valueNow.seed);
+        expect(figures.milestone.value.trials).toBe(figures.valueNow.trials);
+        const account = rebuiltAccount(EVAL_SNAPSHOT);
+        const milestone = milestoneState(account, request.spec);
+        if (milestone.kind !== MilestoneKind.Eval) {
+            throw new Error('expected an eval milestone');
+        }
+        expect(figures.milestone.unmetGates).toEqual(milestone.unmetGates);
+        if (account.kind === ReconstructedLiveKind.Live) {
+            throw new Error('expected an eval account');
+        }
+        const sessionStart = { ...milestone.state, todayPnL: 0 };
+        expect(figures.milestone.value).toEqual(
+            valueAtState(
+                {
+                    ...account,
+                    cushion: sessionStart.balance - sessionStart.threshold,
+                    state: sessionStart,
+                },
+                request.spec,
+            ),
+        );
+    });
+
+    it('values a funded account from state, projects its next payout through the same engine call, and runs the milestone after the payout', () => {
+        const request = accountRequestFor(FUNDED_SNAPSHOT);
+        const figures = succeededAccount(request);
+        expect(figures.stage).toBe(SizingStage.Funded);
+        expect(figures.milestone.kind).toBe(MilestoneKind.Funded);
+        expect(figures.milestone.debited).toBe(
+            effectivePayoutRequest(
+                TOPSTEP_50K,
+                DEFAULT_RULEBOOK.payout.requestCents / CENTS_PER_DOLLAR,
+            ),
+        );
+        expect(figures.milestone.value.seed).toBe(figures.valueNow.seed);
+
+        const account = rebuiltAccount(FUNDED_SNAPSHOT);
+        if (account.kind !== TradingPhase.Funded) throw new Error('expected funded');
+        const start = startStateOf(account.plan, account);
+        if (start.phase !== TradingPhase.Funded) {
+            throw new Error('expected a funded start');
+        }
+        const direct = runNextPayoutProjection(account.plan, {
+            base: toSimInputs(account.plan, request.spec),
+            policy: request.spec.enginePolicy,
+            source: AdviceSource.NextPayoutProjection,
+            start,
+        });
+        expect(figures.nextPayout).toEqual(direct);
+        expect(figures.nextPayout?.trials).toBe(TINY_RUN.trials);
+        expect(figures.valueNow).toEqual(valueAtState(account, request.spec));
+    });
+
+    it('reports the credit-inclusive and credit-free from-state values as separate figures', () => {
+        const { valueNow } = succeededAccount(accountRequestFor(FUNDED_SNAPSHOT));
+        expect(Object.keys(valueNow)).toEqual(
+            expect.arrayContaining(['creditFree', 'creditInclusive']),
+        );
+        expect(valueNow.creditFree).not.toBe(valueNow.creditInclusive);
+    });
+
+    it('returns a typed failure with the engine text, found before the run, when the sizing is refused', () => {
+        const base = accountRequestFor(FUNDED_SNAPSHOT);
+        const request: OverviewRequest = {
+            ...base,
+            spec: {
+                ...base.spec,
+                enginePolicy: {
+                    ...base.spec.enginePolicy,
+                    instrument: InstrumentSymbol.ES,
+                    stopPoints: 500,
+                },
+            },
+        };
+        const outcome = overviewOutcomeOf(request);
+        expect(outcome.kind).toBe(OverviewOutcomeKind.Failed);
+        if (outcome.kind !== OverviewOutcomeKind.Failed) return;
+        expect(outcome.reason.length).toBeGreaterThan(0);
+        expect(outcome.reason.startsWith(SIM_INPUTS_REFUSAL_PREFIX)).toBe(
+            false,
+        );
+        expect(outcome.key).toBe(overviewRequestKey(request));
+    });
+
+    it('returns a typed failure, not a throw, for a snapshot the engine cannot rebuild', () => {
+        const peakless: AccountSnapshotInput = {
+            ...FUNDED_SNAPSHOT,
+            highestEodBalance: undefined,
+            highestIntradayBalance: undefined,
+        };
+        const outcome = overviewOutcomeOf(accountRequestFor(peakless));
+        expect(outcome.kind).toBe(OverviewOutcomeKind.Failed);
+        if (outcome.kind !== OverviewOutcomeKind.Failed) return;
+        expect(outcome.reason).toMatch(/highest/i);
+    });
+
+    it('returns a typed failure for a live account: there is no from-state live value model', () => {
+        const outcome = overviewOutcomeOf({
+            ...accountRequestFor(FUNDED_SNAPSHOT),
+            account: { ...FUNDED_SNAPSHOT, stage: SizingStage.Live },
+        });
+        expect(outcome.kind).toBe(OverviewOutcomeKind.Failed);
+        if (outcome.kind !== OverviewOutcomeKind.Failed) return;
+        expect(outcome.reason).toMatch(/live/i);
+    });
+
+    it('returns a typed failure naming the serial when the plan is no longer modeled', () => {
+        const outcome = overviewOutcomeOf({
+            ...accountRequestFor(FUNDED_SNAPSHOT),
+            planSerial: 'no-such-plan',
+        });
+        expect(outcome.kind).toBe(OverviewOutcomeKind.Failed);
+        if (outcome.kind !== OverviewOutcomeKind.Failed) return;
+        expect(outcome.reason).toContain('no-such-plan');
+    });
+
+    it('returns a result that survives structuredClone, keyed by its request key', () => {
+        const request = accountRequestFor(FUNDED_SNAPSHOT);
+        const outcome = overviewOutcomeOf(request);
+        expect(structuredClone(outcome)).toEqual(outcome);
+        expect(outcome.key).toBe(overviewRequestKey(request));
+    });
+});
+
+describe('overviewPlanValueRequestsFor (PT-37, F-V16, F-V17)', () => {
+    it('emits one plan-values request per plan carrying only the spec, deduped, surviving structuredClone', () => {
+        const input = {
+            firmId: TOPSTEP_50K.id.firm,
+            measuredRebuyLag: null,
+            optIns: NO_PLAN_OPT_INS,
+            planSerial: TOPSTEP_SERIAL,
+        };
+        const requests = overviewPlanValueRequestsFor(
+            [input, input],
+            DEFAULT_RULEBOOK,
+        );
+        expect(requests.map((request) => request.kind)).toEqual([
+            OverviewRequestKind.PlanValues,
+        ]);
+        const [request] = requests;
+        expect(request?.account).toBeUndefined();
+        expect(request?.spec.start).toBeUndefined();
+        expect(structuredClone(request)).toEqual(request);
+        expect(request?.spec).toEqual(documentedOf(requestsFor()).spec);
+    });
+
+    it('keys the plan values apart from the documented run of the same plan', () => {
+        const documentedKey = overviewRequestKey(documentedOf(requestsFor()));
+        expect(overviewRequestKey(planValueRequestFor())).not.toBe(documentedKey);
+    });
+
+    it('skips a plan the engine no longer models', () => {
+        expect(
+            overviewPlanValueRequestsFor(
+                [
+                    {
+                        firmId: FirmId.TopStep,
+                        measuredRebuyLag: null,
+                        optIns: NO_PLAN_OPT_INS,
+                        planSerial: 'no-such-plan',
+                    },
+                ],
+                DEFAULT_RULEBOOK,
+            ),
+        ).toEqual([]);
+    });
+
+    it('values a fresh eval and a fresh funded account of the plan with SEs and reports the retry fee', () => {
+        const request = planValueRequestFor();
+        const figures = succeededPlanValues(request);
+        expect(figures.valueFreshEval).toEqual(
+            valueAtState(evalStartAccount(TOPSTEP_50K), request.spec),
+        );
+        expect(figures.freshFundedValue).toEqual(
+            valueAtState(freshFundedAccount(TOPSTEP_50K), request.spec),
+        );
+        expect(figures.retryFee).toBe(TOPSTEP_50K.retryFee());
+        expect(figures.trials).toBe(TINY_RUN.trials);
+
+        expect(figures.valueFreshEval.creditInclusive.standardError).not.toBeNull();
+        expect(figures.freshFundedValue.creditInclusive.standardError).not.toBeNull();
+        expect(
+            structuredClone(overviewOutcomeOf(request)),
+        ).toEqual(overviewOutcomeOf(request));
+    });
+
+    it('leaves expectedNetPerAttempt with its SE on the documented-run figures EJ9 reads', () => {
+        const request = smallRun(documentedOf(requestsFor()));
+        const figures = succeededDocumented(request);
+        expect(figures.expectedNetPerAttempt.standardError).toEqual(
+            expect.any(Number),
+        );
+    });
+});
+
+describe('overviewRetireRequestsFor (PT-37, QV-19 information)', () => {
+    it('emits one retire-comparison request per account state and runs the PT-65 comparison against a fresh account of the same plan', () => {
+        const [base] = overviewRetireRequestsFor(
+            [accountPlanInput(FUNDED_SNAPSHOT)],
+            DEFAULT_RULEBOOK,
+        );
+        if (base === undefined) throw new Error('no retire request');
+        expect(base.kind).toBe(OverviewRequestKind.RetireComparison);
+        const request: OverviewRequest = {
+            ...base,
+            spec: { ...base.spec, run: TINY_RUN },
+        };
+        const outcome = overviewOutcomeOf(request);
+        if (outcome.kind !== OverviewOutcomeKind.Succeeded) {
+            throw new Error(`expected success, got: ${outcome.reason}`);
+        }
+        if (outcome.result.kind !== OverviewRequestKind.RetireComparison) {
+            throw new Error('expected a retire-comparison result');
+        }
+        const direct = retireComparison(
+            rebuiltAccount(FUNDED_SNAPSHOT),
+            request.spec,
+            { isCapacityBound: false, replacementPlan: TOPSTEP_50K },
+        );
+        expect(outcome.result.figures).toEqual(direct);
+        expect(outcome.result.figures.basis).toBe(
+            RetireComparisonBasis.Simulator,
+        );
+        expect(structuredClone(outcome)).toEqual(outcome);
+        expect(overviewRequestKey(request)).not.toBe(
+            overviewRequestKey(accountRequestFor(FUNDED_SNAPSHOT)),
+        );
+    });
+});
+
+
+function everyKind(): readonly OverviewRequest[] {
+    const projection = projectionRequestsFor(TOPSTEP_50K, 2);
+    return [
+        ...requestsFor(),
+        ...projection,
+        planValueRequestFor(),
+        ...overviewValueChainRequestsFor(
+            [
+                {
+                    firmId: TOPSTEP_50K.id.firm,
+                    measuredRebuyLag: null,
+                    optIns: NO_PLAN_OPT_INS,
+                    planSerial: TOPSTEP_SERIAL,
+                },
+            ],
+            DEFAULT_RULEBOOK,
+        ),
+        accountRequestFor(FUNDED_SNAPSHOT),
+        ...overviewRetireRequestsFor(
+            [accountPlanInput(FUNDED_SNAPSHOT)],
+            DEFAULT_RULEBOOK,
+        ),
+    ];
+}
+
+describe('overviewRequestsByGroup (PT-37)', () => {
+
+    it('sends every request kind to exactly one group and drops none', () => {
+        const requests = everyKind();
+        expect(new Set(requests.map((request) => request.kind))).toEqual(
+            new Set(Object.values(OverviewRequestKind)),
+        );
+        const groups = overviewRequestsByGroup(requests);
+        const grouped = Object.values(OverviewRequestGroup).flatMap(
+            (group) => groups[group],
+        );
+        expect(grouped).toHaveLength(requests.length);
+        expect(new Set(grouped)).toEqual(new Set(requests));
+    });
+
+    it('keeps the fresh policy runs, the fresh projection, the fresh plan values and the per-account runs in separate groups so one input change recomputes only its own group', () => {
+        const groups = overviewRequestsByGroup(everyKind());
+        expect(groups[OverviewRequestGroup.Policy].map((r) => r.kind)).toEqual([
+            OverviewRequestKind.DocumentedRun,
+            OverviewRequestKind.PayoutSizeOptimum,
+        ]);
+        expect(groups[OverviewRequestGroup.Projection].map((r) => r.kind)).toEqual(
+            [OverviewRequestKind.PortfolioProjection],
+        );
+        expect(groups[OverviewRequestGroup.Values].map((r) => r.kind)).toEqual([
+            OverviewRequestKind.PlanValues,
+            OverviewRequestKind.ValueChain,
+        ]);
+        expect(groups[OverviewRequestGroup.Accounts].map((r) => r.kind)).toEqual(
+            [
+                OverviewRequestKind.AccountFromState,
+                OverviewRequestKind.RetireComparison,
+            ],
+        );
+    });
+});
+
+
+function chainFigures(request: OverviewRequest): ValueChainFigures {
+    const outcome = overviewOutcomeOf(request);
+    if (outcome.kind !== OverviewOutcomeKind.Succeeded) {
+        throw new Error(`expected success, got: ${outcome.reason}`);
+    }
+    if (outcome.result.kind !== OverviewRequestKind.ValueChain) {
+        throw new Error('expected a value-chain result');
+    }
+    return outcome.result.figures;
+}
+
+function chainRequestFor(plan: Plan): OverviewRequest {
+    const [first] = overviewValueChainRequestsFor(
+        [
+            {
+                firmId: plan.id.firm,
+                measuredRebuyLag: null,
+                optIns: NO_PLAN_OPT_INS,
+                planSerial: serializePlanId(plan.id),
+            },
+        ],
+        DEFAULT_RULEBOOK,
+    );
+    if (first === undefined) throw new Error('no value-chain request');
+    return { ...first, spec: { ...first.spec, run: TINY_RUN } };
+}
+
+describe('overviewValueChainRequestsFor (PT-37, F-V18)', () => {
+
+
+    it('emits one value-chain request per plan, deduped, carrying only the spec and keyed apart from the plan values', () => {
+        const input = {
+            firmId: TOPSTEP_50K.id.firm,
+            measuredRebuyLag: null,
+            optIns: NO_PLAN_OPT_INS,
+            planSerial: TOPSTEP_SERIAL,
+        };
+        const requests = overviewValueChainRequestsFor(
+            [input, input],
+            DEFAULT_RULEBOOK,
+        );
+        expect(requests.map((request) => request.kind)).toEqual([
+            OverviewRequestKind.ValueChain,
+        ]);
+        expect(requests[0]?.account).toBeUndefined();
+        expect(structuredClone(requests[0])).toEqual(requests[0]);
+        expect(overviewRequestKey(chainRequestFor(TOPSTEP_50K))).not.toBe(
+            overviewRequestKey(planValueRequestFor(TOPSTEP_50K)),
+        );
+    });
+
+    it('values the four chain steps of a plan exactly as the PT-65 chain does', () => {
+        const plan = requirePlan(
+            findFirm(FirmId.Mffu)?.findPlan({
+                accountSize: 50_000,
+                firm: FirmId.Mffu,
+                variant: MffuVariant.RapidEod,
+            }),
+            'expected the MFF Rapid EOD 50K plan to resolve',
+        );
+        const request = chainRequestFor(plan);
+        const figures = chainFigures(request);
+        expect(figures.trials).toBe(TINY_RUN.trials);
+        expect(figures.steps.map((step) => step.kind)).toEqual([
+            ValueChainStepKind.EvalStart,
+            ValueChainStepKind.FreshFunded,
+            ValueChainStepKind.FirstPayoutEligible,
+            ValueChainStepKind.PostFirstPayout,
+        ]);
+        const direct = valueChain(plan, request.spec).steps;
+        expect(
+            figures.steps.map((step) =>
+                step.outcome.kind === ValueChainStepOutcomeKind.Value
+                    ? step.outcome.value
+                    : null,
+            ),
+        ).toEqual(direct.map((step) => step.value));
+    });
+
+    it('reports a step the engine cannot start from as an unavailable step with its reason, keeping the steps that can run', () => {
+        const figures = chainFigures(chainRequestFor(TOPSTEP_50K));
+        const [evalStart, freshFunded] = figures.steps;
+        expect(evalStart?.outcome.kind).toBe(ValueChainStepOutcomeKind.Value);
+        expect(freshFunded?.outcome.kind).toBe(ValueChainStepOutcomeKind.Value);
+        for (const step of figures.steps) {
+            if (step.outcome.kind === ValueChainStepOutcomeKind.Unavailable) {
+                expect(step.outcome.reason.length).toBeGreaterThan(0);
+            }
+        }
+        expect(structuredClone(figures)).toEqual(figures);
     });
 });

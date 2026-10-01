@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+    liveExclusivityPreviewOf,
+    type LivePreviewAccount,
+} from '~/app/(app)/prop-calculator/accounts/_components/detail/liveExclusivityPreview';
+import {
     AccountEventKind,
     AccountStage,
     AccountStatus,
+    AccountTracking,
     LifecycleRejection,
     readAccountEventDetail,
 } from '~/lib/prop-accounts';
@@ -12,6 +17,7 @@ import {
     EvalPurchaseEffect,
     FirmAccountPolicy,
     type LiveExclusivityPolicy,
+    NO_PLAN_OPT_INS,
     PolicySourceKind,
     PolicyVerification,
     SimAccountEffect,
@@ -206,6 +212,17 @@ async function withPolicy<T>(
     firm.accountPolicy = policy;
     try {
         return await run();
+    } finally {
+        firm.accountPolicy = original;
+    }
+}
+
+function withPolicyNow<T>(policy: FirmAccountPolicy, run: () => T): T {
+    const firm = DOCUMENTED_LIVE.firm as { accountPolicy: FirmAccountPolicy };
+    const original = firm.accountPolicy;
+    firm.accountPolicy = policy;
+    try {
+        return run();
     } finally {
         firm.accountPolicy = original;
     }
@@ -408,7 +425,7 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
         );
         expect(shape.data.code).toBe('BAD_REQUEST');
         expect(shape.data.propRejection).toEqual(
-            mutationRejection(PropMutationRejection.LifecycleTransition),
+            mutationRejection(PropMutationRejection.ExclusivityNotConfirmed),
         );
         expect(shape.message).toContain(SECOND_SIBLING);
         expect(propWrites(queries)).toHaveLength(0);
@@ -459,7 +476,7 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
             ),
         );
         expect(shape.data.propRejection).toEqual(
-            mutationRejection(PropMutationRejection.LifecycleTransition),
+            mutationRejection(PropMutationRejection.ExclusivityNotConfirmed),
         );
         expect(propWrites(queries)).toHaveLength(0);
     });
@@ -480,7 +497,7 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
             ),
         );
         expect(shape.data.propRejection).toEqual(
-            mutationRejection(PropMutationRejection.LifecycleTransition),
+            mutationRejection(PropMutationRejection.ExclusivityNotConfirmed),
         );
         expect(propWrites(queries)).toHaveLength(0);
     });
@@ -521,7 +538,7 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
             await rejectionOf(recordMovedLive(caller, [FIRST_SIBLING])),
         );
         expect(shape.data.propRejection).toEqual(
-            mutationRejection(PropMutationRejection.LifecycleTransition),
+            mutationRejection(PropMutationRejection.ExclusivityNotConfirmed),
         );
         expect(propWrites(queries)).toHaveLength(0);
     });
@@ -542,7 +559,7 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
             ),
         );
         expect(shape.data.propRejection).toEqual(
-            mutationRejection(PropMutationRejection.LifecycleTransition),
+            mutationRejection(PropMutationRejection.ExclusivityNotConfirmed),
         );
         expect(propWrites(queries)).toHaveLength(0);
     });
@@ -564,7 +581,7 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
             ),
         );
         expect(shape.data.propRejection).toEqual(
-            mutationRejection(PropMutationRejection.LifecycleTransition),
+            mutationRejection(PropMutationRejection.ExclusivityNotConfirmed),
         );
         expect(propWrites(queries)).toHaveLength(0);
     });
@@ -628,5 +645,159 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
             }),
         );
         expect(queries).toHaveLength(0);
+    });
+});
+
+describe('the preview and the router agree on which siblings a MovedLive suspends', () => {
+    interface Candidate {
+        readonly listed: Partial<LivePreviewAccount>;
+        readonly name: string;
+        readonly row: FakeRow;
+    }
+
+    const otherFirm = defined(ALL_FIRMS.find((firm) => firm.id !== KEY.firmId));
+    const otherKey = planKeyFields({
+        firm: otherFirm,
+        plan: defined(otherFirm.plans[0]),
+    });
+    const archivedOn = new Date('2026-09-10T00:00:00Z');
+
+    const CANDIDATES: readonly Candidate[] = [
+        { listed: {}, name: 'an active eval', row: {} },
+        {
+            listed: { stage: AccountStage.Funded },
+            name: 'an active funded account',
+            row: { stage: AccountStage.Funded },
+        },
+        {
+            listed: { stage: AccountStage.Live },
+            name: 'a live account',
+            row: { stage: AccountStage.Live },
+        },
+        {
+            listed: { status: AccountStatus.Busted },
+            name: 'a busted account',
+            row: { status: AccountStatus.Busted },
+        },
+        {
+            listed: { status: AccountStatus.Suspended },
+            name: 'a suspended account',
+            row: { status: AccountStatus.Suspended },
+        },
+        {
+            listed: { archivedAt: archivedOn },
+            name: 'an archived account',
+            row: { archived_at: archivedOn },
+        },
+        {
+            listed: {
+                accountSize: otherKey.accountSize,
+                firmId: otherKey.firmId,
+                planSerial: otherKey.planSerial,
+            },
+            name: 'an account at another firm',
+            row: {
+                account_size: otherKey.accountSize,
+                firm_id: otherKey.firmId,
+                plan_serial: otherKey.planSerial,
+            },
+        },
+        {
+            listed: {
+                planLabel: 'Hand typed plan',
+                planSerial: null,
+                tracking: AccountTracking.LedgerOnly,
+            },
+            name: 'a ledger-only account at the same firm',
+            row: ledgerOnlyAccountRow({
+                firm_id: KEY.firmId,
+                id: FIRST_SIBLING,
+                plan_label: 'Hand typed plan',
+                stage: AccountStage.Eval,
+            }),
+        },
+        {
+            listed: {
+                externalFirmId: 'external-firm',
+                firmId: null,
+                planLabel: 'Hand typed plan',
+                planSerial: null,
+                tracking: AccountTracking.LedgerOnly,
+            },
+            name: 'a ledger-only account at an external firm',
+            row: ledgerOnlyAccountRow({
+                external_firm_id: 'external-firm',
+                firm_id: null,
+                id: FIRST_SIBLING,
+                plan_label: 'Hand typed plan',
+                stage: AccountStage.Eval,
+            }),
+        },
+    ];
+
+    const MOVED_LISTED: LivePreviewAccount = {
+        accountSize: KEY.accountSize,
+        archivedAt: null,
+        externalFirmId: null,
+        firmId: KEY.firmId,
+        id: IDS.account,
+        label: 'Going live',
+        optIns: NO_PLAN_OPT_INS,
+        planLabel: null,
+        planSerial: KEY.planSerial,
+        readIssues: [],
+        stage: AccountStage.Funded,
+        status: AccountStatus.Active,
+        tracking: AccountTracking.Modeled,
+    };
+
+    function listedOf(
+        candidate: Candidate,
+        id: string,
+    ): LivePreviewAccount {
+        return {
+            ...MOVED_LISTED,
+            stage: AccountStage.Eval,
+            ...candidate.listed,
+            id,
+            label: candidate.name,
+        };
+    }
+
+    it('offers a sibling in the preview exactly when the router accepts it', async () => {
+        const offeredByName = new Map<string, boolean>();
+        const acceptedByName = new Map<string, boolean>();
+        for (const candidate of CANDIDATES) {
+            const row = siblingAccount(FIRST_SIBLING, candidate.row);
+            const preview = withPolicyNow(DORMANT_WHILE_LIVE, () =>
+                liveExclusivityPreviewOf(
+                    [MOVED_LISTED, listedOf(candidate, FIRST_SIBLING)],
+                    IDS.account,
+                ),
+            );
+            offeredByName.set(
+                candidate.name,
+                preview?.confirmedAccountIds.includes(FIRST_SIBLING) ?? false,
+            );
+            const { caller } = callerFor(
+                SIGNED_IN,
+                responderFor([movedAccount(), row]),
+            );
+            acceptedByName.set(
+                candidate.name,
+                await withPolicy(DORMANT_WHILE_LIVE, async () => {
+                    try {
+                        await recordMovedLive(caller, [FIRST_SIBLING]);
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                }),
+            );
+        }
+        expect(acceptedByName).toEqual(offeredByName);
+        const offered = offeredByName.values().toArray();
+        expect(offered.filter(Boolean)).toHaveLength(3);
+        expect(offered.filter((isOffered) => !isOffered)).toHaveLength(6);
     });
 });

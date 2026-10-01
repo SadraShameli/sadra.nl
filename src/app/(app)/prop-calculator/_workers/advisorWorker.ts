@@ -9,6 +9,7 @@ import { findFirm, withPlanOptIns } from '~/lib/prop-calculator';
 
 import {
     advisorRequestOutcomeOf,
+    advisorValueOutcomeOf,
     type AdvisorWorkerRequest,
     type AdvisorWorkerResult,
 } from './advisorWorkerMessages';
@@ -43,6 +44,10 @@ self.addEventListener(
                 outcomes: request.requests.map((one) =>
                     advisorRequestOutcomeOf(plan, one),
                 ),
+                values:
+                    request.values === undefined
+                        ? undefined
+                        : advisorValueOutcomeOf(plan, request.values),
             };
             const message: WorkerTaskMessage<never, AdvisorWorkerResult> = {
                 kind: WorkerTaskEventKind.Done,

@@ -7,6 +7,10 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import {
+    useFollowToday,
+    useTodayIsoDate,
+} from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { Button } from '~/components/ui/Button';
 import {
     Form,
@@ -39,7 +43,6 @@ import {
     formatUsdCents,
     RuleViolationKind,
     ruleViolationKindLabel,
-    todayIsoDate,
 } from '~/lib/prop-accounts';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -209,7 +212,8 @@ function ViolationForm({
     const create = api.propAccounts.violation.create.useMutation();
     const update = api.propAccounts.violation.update.useMutation();
     const schema = violationFormSchema(accountId);
-    const emptyValues = emptyViolationFormValues(todayIsoDate(new Date()));
+    const today = useTodayIsoDate();
+    const emptyValues = emptyViolationFormValues(today);
     const form = useForm<ViolationFormValues>({
         defaultValues:
             editing === null ? emptyValues : violationEditFormValues(editing),
@@ -217,6 +221,14 @@ function ViolationForm({
     });
     const { setFocus } = form;
     const isEditing = editing !== null;
+    useFollowToday({
+        isEnabled: !isEditing,
+        read: () => form.getValues('occurredOn'),
+        today,
+        write: (day) => {
+            form.resetField('occurredOn', { defaultValue: day });
+        },
+    });
     const kind = form.watch('kind');
 
     useEffect(() => {

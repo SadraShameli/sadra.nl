@@ -23,8 +23,10 @@ import { ToolsRequestKind } from '~/app/(app)/prop-calculator/_workers/toolsWork
 import { CENTS_PER_DOLLAR, findFirm, FirmId } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK, type RulebookParameters } from '~/lib/prop-calculator/advisor';
 import {
+    CreditBasis,
     type ValueChainResult,
     ValueChainStepKind,
+    valueGap,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
 import { TopStepVariant } from '~/lib/prop-calculator/core';
@@ -125,14 +127,35 @@ describe('valueCardsInputFor (PT-66)', () => {
         }
     });
 
-    it('names the offending calculator input in the refusal', () => {
+    it('names the offending calculator field in the refusal, not the engine field (PT-67 addendum)', () => {
         const input = valueCardsInputFor(
             calculatorInputs({ payoutRequestSize: 0 }),
             DEFAULT_RULEBOOK,
         );
-        expect(input.kind === ValueCardsInputKind.Refused && input.reason).toContain(
-            'payoutRequestOverride',
+        const reason = input.kind === ValueCardsInputKind.Refused ? input.reason : '';
+        expect(reason).toContain('Payout request size ($)');
+        expect(reason).toContain('must be more than zero');
+        expect(reason).not.toContain('payoutRequestOverride');
+    });
+
+    it('names the retained cushion field, not retainedCushionRequest (PT-67 addendum)', () => {
+        const input = valueCardsInputFor(
+            calculatorInputs({ retainedCushion: 100.123 }),
+            DEFAULT_RULEBOOK,
         );
+        const reason = input.kind === ValueCardsInputKind.Refused ? input.reason : '';
+        expect(reason).toContain('Retained cushion on payout ($)');
+        expect(reason).not.toContain('retainedCushionRequest');
+    });
+
+    it('names both calculator fields once each when both are refused (PT-67 addendum)', () => {
+        const input = valueCardsInputFor(
+            calculatorInputs({ payoutRequestSize: 0, retainedCushion: 100.123 }),
+            DEFAULT_RULEBOOK,
+        );
+        const reason = input.kind === ValueCardsInputKind.Refused ? input.reason : '';
+        expect(reason.split('Payout request size ($)')).toHaveLength(2);
+        expect(reason.split('Retained cushion on payout ($)')).toHaveLength(2);
     });
 });
 
@@ -202,6 +225,22 @@ describe('valueChainCardSteps (PT-66)', () => {
         expect(steps[1]?.gapFromPrevious?.value).toBe(710);
         expect(steps[2]?.gapFromPrevious?.value).toBe(400);
         expect(steps[3]?.gapFromPrevious?.value).toBe(-300);
+    });
+
+    it('takes the gap from valueGap on the credit-free basis, the one shared gap (PT-67 addendum)', () => {
+        const result = valueChainResult();
+        const steps = valueChainCardSteps(result);
+        for (const [index, step] of steps.entries()) {
+            const previous = result.steps[index - 1];
+            const current = result.steps[index];
+            if (previous === undefined || current === undefined) {
+                expect(step.gapFromPrevious).toBeNull();
+                continue;
+            }
+            expect(step.gapFromPrevious).toEqual(
+                valueGap(previous.value, current.value, CreditBasis.CreditFree),
+            );
+        }
     });
 
     it('carries the gap standard error from the two credit-free standard errors', () => {

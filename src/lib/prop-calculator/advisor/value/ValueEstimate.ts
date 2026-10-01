@@ -1,5 +1,10 @@
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
+export enum CreditBasis {
+    CreditFree = 'credit-free',
+    CreditInclusive = 'credit-inclusive',
+}
+
 export enum ValueResultKind {
     Candidates = 'candidates',
     NotModeled = 'not-modeled',
@@ -46,13 +51,19 @@ export function notModeled(
     return { kind: ValueResultKind.NotModeled, reason };
 }
 
-export function valueGap(from: ValueResult, to: ValueResult): UncertainValue {
+export function valueGap(
+    from: ValueResult,
+    to: ValueResult,
+    basis: CreditBasis = CreditBasis.CreditInclusive,
+): UncertainValue {
+    const fromEstimate = estimateOn(from, basis);
+    const toEstimate = estimateOn(to, basis);
     return {
         standardError: conservativeGapStandardError(
-            from.creditInclusive.standardError,
-            to.creditInclusive.standardError,
+            fromEstimate.standardError,
+            toEstimate.standardError,
         ),
-        value: to.creditInclusive.value - from.creditInclusive.value,
+        value: toEstimate.value - fromEstimate.value,
     };
 }
 
@@ -62,4 +73,15 @@ export function valueResult(
     trials: number,
 ): ValueResult {
     return { ...estimate, kind: ValueResultKind.Value, seed, trials };
+}
+
+function estimateOn(result: DualValueEstimate, basis: CreditBasis): UncertainValue {
+    switch (basis) {
+        case CreditBasis.CreditFree: {
+            return result.creditFree;
+        }
+        case CreditBasis.CreditInclusive: {
+            return result.creditInclusive;
+        }
+    }
 }

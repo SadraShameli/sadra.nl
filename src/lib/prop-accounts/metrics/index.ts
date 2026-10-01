@@ -33,6 +33,7 @@ export {
     feesByKind,
     type FirmAttemptCost,
     type FirmSpend,
+    type ModeledFundedCost,
     type MonthlySpend,
     PendingFeeAttribution,
     type PlanFundedCost,

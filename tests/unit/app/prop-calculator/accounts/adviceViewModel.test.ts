@@ -23,6 +23,7 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    AccountAction,
     AdviceSource,
     assertSizingInvariant,
     assertTradeInvariant,
@@ -415,5 +416,78 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
                 (assumption) => assumption.bias === AssumptionBias.Optimistic,
             ),
         ).toBe(true);
+    });
+});
+
+describe('adviceViewModel next action and daily card values (PT-67)', () => {
+    it('carries the next action: Trade for a fresh funded account that can place a trade', () => {
+        const view = adviceViewModel(fundedAdvisor().assemble([]));
+
+        expect(view.action).toBe(AccountAction.Trade);
+    });
+
+    it('carries EnterSnapshot, not an amount, for stale advice', () => {
+        const advisor = new FundedSizingAdvisor({
+            account: fundedAccount(),
+            fundedHorizonDays: 252,
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-01-01',
+            today: '2026-09-26',
+            trials: 20,
+        });
+
+        const view = adviceViewModel(advisor.assemble([]));
+
+        expect(view.kind).toBe(AdviceDisplayKind.Stale);
+        expect(view.action).toBe(AccountAction.EnterSnapshot);
+    });
+
+    it('carries StopForToday when the daily card has no rung', () => {
+        const advice = fundedAdvisor().assemble([]);
+        const stopped = {
+            ...advice,
+            dailyPlanCard:
+                advice.dailyPlanCard === null
+                    ? null
+                    : { ...advice.dailyPlanCard, rungs: [] },
+        };
+
+        expect(adviceViewModel(stopped).action).toBe(AccountAction.StopForToday);
+    });
+
+    it('leaves the daily card values null until the value run fills them', () => {
+        const view = adviceViewModel(fundedAdvisor().assemble([]));
+
+        if (view.kind !== AdviceDisplayKind.Ready) {
+            throw new Error('expected ready advice');
+        }
+        expect(view.dailyPlanCard?.valueNow).toBeNull();
+        expect(view.dailyPlanCard?.valueAfterWin).toBeNull();
+        expect(view.dailyPlanCard?.valueAfterLoss).toBeNull();
+    });
+
+    it('shows the daily card values the value run filled in', () => {
+        const advice = fundedAdvisor().assemble([]);
+        const filled = {
+            ...advice,
+            dailyPlanCard:
+                advice.dailyPlanCard === null
+                    ? null
+                    : {
+                          ...advice.dailyPlanCard,
+                          valueAfterLoss: 700,
+                          valueAfterWin: 1400,
+                          valueNow: 1000,
+                      },
+        };
+
+        const view = adviceViewModel(filled);
+
+        if (view.kind !== AdviceDisplayKind.Ready) {
+            throw new Error('expected ready advice');
+        }
+        expect(view.dailyPlanCard?.valueNow).toBe(1000);
+        expect(view.dailyPlanCard?.valueAfterWin).toBe(1400);
+        expect(view.dailyPlanCard?.valueAfterLoss).toBe(700);
     });
 });

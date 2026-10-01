@@ -4,12 +4,12 @@ import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useMemo } from 'react';
 
+import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { AccountsTable } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader } from '~/components/ui/Card';
 import { Skeleton } from '~/components/ui/Skeleton';
-import { todayIsoDate } from '~/lib/prop-accounts';
 import {
     isInvalidStoredRecord,
     PropRecord,
@@ -33,14 +33,17 @@ import { FundedPayoutsCard } from './FundedPayoutsCard';
 import { FunnelCard } from './FunnelCard';
 import { KpiRow } from './KpiRow';
 import { LiveProximityCard } from './LiveProximityCard';
+import { NextPayoutCard } from './NextPayoutCard';
 import {
     buildOverview,
+    overviewAccountRequestsOf,
     type OverviewAlerts,
     type OverviewBoards,
     overviewEngineRequestsOf,
     type OverviewExposure,
     type OverviewLedgerCards,
     type OverviewModel,
+    type OverviewNextPayout,
     type OverviewNotice,
     type OverviewProjection,
     overviewProjectionRequestsOf,
@@ -67,12 +70,14 @@ export function OverviewView({ userId }: { readonly userId: string }) {
     const load = usePortfolioData();
     const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
     const externalFirms = externalFirmsQuery.data;
+    const today = useTodayIsoDate();
     const engineRequests = useMemo(
         () => [
             ...overviewEngineRequestsOf(load, userId),
             ...overviewProjectionRequestsOf(load, userId),
+            ...overviewAccountRequestsOf(load, userId, today),
         ],
-        [load, userId],
+        [load, today, userId],
     );
     const engine = useOverviewWorker(engineRequests);
     const model = useMemo(
@@ -81,10 +86,10 @@ export function OverviewView({ userId }: { readonly userId: string }) {
                 engine,
                 externalFirms: externalFirms ?? [],
                 load,
-                today: todayIsoDate(new Date()),
+                today,
                 userId,
             }),
-        [engine, externalFirms, load, userId],
+        [engine, externalFirms, load, today, userId],
     );
     return (
         <>
@@ -226,9 +231,11 @@ function ExposureSection({ exposure }: { readonly exposure: OverviewExposure }) 
 
 function LedgerSections({
     cards,
+    nextPayout,
     projection,
 }: {
     readonly cards: OverviewLedgerCards;
+    readonly nextPayout: OverviewNextPayout;
     readonly projection: OverviewProjection;
 }) {
     return (
@@ -249,6 +256,19 @@ function LedgerSections({
                 {projection.kind === OverviewSectionStatus.Failed && (
                     <p className="text-sm text-destructive">
                         {projection.message}
+                    </p>
+                )}
+            </OverviewSection>
+            <OverviewSection id="next-payout" title="Next payout and value from today's state">
+                {nextPayout.kind === OverviewSectionStatus.Ready && (
+                    <NextPayoutCard model={nextPayout.model} />
+                )}
+                {nextPayout.kind === OverviewSectionStatus.Pending && (
+                    <SectionSkeleton label="Loading the figures from each account's own state" />
+                )}
+                {nextPayout.kind === OverviewSectionStatus.Failed && (
+                    <p className="text-sm text-destructive">
+                        {nextPayout.message}
                     </p>
                 )}
             </OverviewSection>
@@ -423,6 +443,7 @@ function OverviewSections({ model }: { readonly model: OverviewModel }) {
                     </OverviewSection>
                     <LedgerSections
                         cards={ledger}
+                        nextPayout={model.nextPayout}
                         projection={model.projection}
                     />
                 </>

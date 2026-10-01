@@ -64,6 +64,12 @@ export {
     parseCountText,
     parseMoneyText,
 } from './EntryText';
+export {
+    exclusivityAccountsOf,
+    type ExclusivityMovedAccount,
+    type ExclusivitySibling,
+    suspendedAccountIdsOf,
+} from './ExclusivityAccounts';
 export { FeeKind } from './FeeKind';
 export {
     feePrefillCents,

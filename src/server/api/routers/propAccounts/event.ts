@@ -13,13 +13,12 @@ import {
     compareText,
     describeLedgerOnlyLifecycleRejection,
     describeLifecycleRejection,
-    type ExclusivityAccount,
+    exclusivityAccountsOf,
     LEDGER_ONLY_LIFECYCLE_FACTS,
     LifecycleOutcomeKind,
-    type LifecycleRejection,
-    LiveExclusivityAction,
     liveExclusivityEffectsOf,
     type PlanLifecycleFacts,
+    suspendedAccountIdsOf,
 } from '~/lib/prop-accounts';
 import {
     type OwnedAccount,
@@ -28,7 +27,6 @@ import {
     readEvent,
 } from '~/lib/prop-accounts/server';
 import {
-    findFirm,
     type FirmId,
     parseFirmId,
     type Plan,
@@ -257,14 +255,10 @@ function assertInOrder(
     }
 }
 
-function exclusivityRejection(
-    message: string,
-    lifecycleRejection: LifecycleRejection | null = null,
-): PropMutationRejectionError {
+function exclusivityRejection(message: string): PropMutationRejectionError {
     return new PropMutationRejectionError(
-        PropMutationRejection.LifecycleTransition,
+        PropMutationRejection.ExclusivityNotConfirmed,
         message,
-        lifecycleRejection,
     );
 }
 
@@ -310,44 +304,24 @@ function suspendSetOf(
 ): ReadonlySet<string> {
     const { plan } = movedLive;
     if (plan === null) return new Set();
-    const firm = findFirm(plan.id.firm);
-    if (firm === undefined) return new Set();
-    const accounts: ExclusivityAccount[] = [
+    const accounts = exclusivityAccountsOf(
         {
-            accountPolicy: firm.accountPolicy,
-            events: [],
-            firmId: plan.id.firm,
             id: movedLive.account.id,
             plan,
             stage: movedLive.state.stage,
             status: movedLive.state.status,
         },
-        ...siblings.flatMap((sibling) =>
-            sibling.firmId === undefined || sibling.account.archivedAt !== null
-                ? []
-                : [
-                      {
-                          accountPolicy: firm.accountPolicy,
-                          events: [],
-                          firmId: sibling.firmId,
-                          id: sibling.account.id,
-                          plan: sibling.plan ?? plan,
-                          stage: sibling.account.stage,
-                          status: sibling.account.status,
-                      },
-                  ],
-        ),
-    ];
-    return new Set(
-        liveExclusivityEffectsOf(
-            accounts,
-            movedLive.account.id,
-        ).effects.flatMap((effect) =>
-            effect.action === LiveExclusivityAction.Suspend
-                ? [effect.accountId]
-                : [],
-        ),
+        siblings.map((sibling) => ({
+            firmId: sibling.firmId,
+            id: sibling.account.id,
+            isArchived: sibling.account.archivedAt !== null,
+            plan: sibling.plan,
+            stage: sibling.account.stage,
+            status: sibling.account.status,
+        })),
     );
+    const outcome = liveExclusivityEffectsOf(accounts, movedLive.account.id);
+    return new Set(suspendedAccountIdsOf(outcome));
 }
 
 async function suspensionsOf({
@@ -369,7 +343,8 @@ async function suspensionsOf({
             AccountEventKind.Suspended,
         );
         if (outcome.kind === LifecycleOutcomeKind.Rejected) {
-            throw exclusivityRejection(
+            throw new PropMutationRejectionError(
+                PropMutationRejection.LifecycleTransition,
                 sibling.plan === null
                     ? describeLedgerOnlyLifecycleRejection(
                           outcome.reason,

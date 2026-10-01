@@ -1,12 +1,13 @@
 import { z } from 'zod';
 
-import { deriveSubSeed, mulberry32, type Rng } from '../rng';
+import { deriveSubSeed, mulberry32, type Rng } from '~/lib/prop-calculator/rng';
 import {
     binomialStandardError,
     type Estimate,
     meanStandardError,
     propagatedStandardError,
-} from '../stats';
+} from '~/lib/prop-calculator/stats';
+
 import { type AccountState, resetForNewDay } from './AccountState';
 import { TRADING_DAYS_PER_MONTH } from './constants';
 import { DailyLossLimitKind, resolveDailyLossLimit } from './DailyLossLimit';

@@ -1,5 +1,6 @@
 import type { AdvisorWorkerResult } from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
 import type { FundedSweepResult } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
+import type { OverviewWorkerResult } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import type {
     PayoutOutlookResult,
     PayoutSweepResult,
@@ -23,6 +24,7 @@ export enum ComputationId {
     FundedOptimizer = 'funded-optimizer',
     Live = 'live',
     OptimalRisk = 'optimal-risk',
+    Overview = 'overview',
     PayoutOutlook = 'payout-outlook',
     PayoutSweep = 'payout-sweep',
     PlanComparison = 'plan-comparison',
@@ -40,6 +42,7 @@ export interface ComputationResultMap {
     [ComputationId.FundedOptimizer]: FundedSweepResult;
     [ComputationId.Live]: LiveOutputs | null;
     [ComputationId.OptimalRisk]: OptimalRiskRow[];
+    [ComputationId.Overview]: OverviewWorkerResult;
     [ComputationId.PayoutOutlook]: PayoutOutlookResult;
     [ComputationId.PayoutSweep]: PayoutSweepResult;
     [ComputationId.PlanComparison]: PlanComparisonRow[];

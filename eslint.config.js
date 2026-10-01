@@ -125,6 +125,23 @@ export default tseslint.config(
         },
     },
     {
+        files: ['src/**/*.ts', 'src/**/*.tsx'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            message:
+                                "Import through the ~/ alias (for example '~/lib/...'); only same-folder './' imports stay relative.",
+                            regex: String.raw`^\.\.(?:/|$)`,
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
         linterOptions: { reportUnusedDisableDirectives: true },
     },
 );

@@ -57,7 +57,7 @@ export const ACCOUNTS_NAV_CATALOG: readonly AccountsNavEntry[] = [
         label: 'Copy groups',
     },
     {
-        hasPage: false,
+        hasPage: true,
         href: accounts.nextSlot,
         icon: ShoppingCart,
         label: 'Next slot',

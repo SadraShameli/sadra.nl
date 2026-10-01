@@ -21,6 +21,7 @@ import {
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
     type DocumentedPolicySpec,
+    type PayoutBlockReason,
     PayoutBlockReasonKind,
     type PayoutPathStep,
     PayoutWaitBasis,
@@ -290,13 +291,6 @@ describe('payoutWaitText with a block reason: no false claim that nothing can cl
         ).toContain(NO_FURTHER_TEXT);
     });
 
-    it('makes neither the terminal claim nor the clearable claim without a reason', () => {
-        const text = payoutWaitText(null);
-        expect(text).not.toContain(NO_FURTHER_TEXT);
-        expect(text).not.toContain('more profit or time');
-        expect(text).toBe('wait: no closed-form estimate');
-    });
-
     it('prefers a computed wait over the reason', () => {
         expect(
             payoutWaitText(
@@ -308,29 +302,34 @@ describe('payoutWaitText with a block reason: no false claim that nothing can cl
 });
 
 describe('payoutWaitText', () => {
+    const REASON: PayoutBlockReason = {
+        gate: PayoutGate.NothingWithdrawable,
+        kind: PayoutBlockReasonKind.Gate,
+    };
+
     it('formats each wait basis', () => {
         expect(
-            payoutWaitText({
-                basis: PayoutWaitBasis.Profit,
-                profitStillNeeded: 250,
-            }),
+            payoutWaitText(
+                { basis: PayoutWaitBasis.Profit, profitStillNeeded: 250 },
+                REASON,
+            ),
         ).toBe('wait: $250 more profit');
         expect(
-            payoutWaitText({
-                basis: PayoutWaitBasis.QualifyingDays,
-                daysStillNeeded: 3,
-            }),
+            payoutWaitText(
+                { basis: PayoutWaitBasis.QualifyingDays, daysStillNeeded: 3 },
+                REASON,
+            ),
         ).toBe('wait: 3 qualifying days');
         expect(
-            payoutWaitText({
-                basis: PayoutWaitBasis.CalendarDays,
-                daysStillNeeded: 1,
-            }),
+            payoutWaitText(
+                { basis: PayoutWaitBasis.CalendarDays, daysStillNeeded: 1 },
+                REASON,
+            ),
         ).toBe('wait: 1 calendar day');
-        expect(payoutWaitText({ basis: PayoutWaitBasis.NoClosedForm })).toMatch(
-            /^wait:/,
-        );
-        expect(payoutWaitText(null)).toMatch(/^wait:/);
+        expect(
+            payoutWaitText({ basis: PayoutWaitBasis.NoClosedForm }, REASON),
+        ).toMatch(/^wait:/);
+        expect(payoutWaitText(null, REASON)).toMatch(/^wait:/);
     });
 });
 

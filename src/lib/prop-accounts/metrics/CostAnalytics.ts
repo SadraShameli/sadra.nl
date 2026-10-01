@@ -12,7 +12,7 @@ import {
     usdCents,
     usdCentsFromDollars,
 } from '~/lib/prop-accounts/core';
-import { type FirmId, type ReplacementEconomics } from '~/lib/prop-calculator';
+import { type FirmId } from '~/lib/prop-calculator';
 
 import { attemptsOf } from './Attempts';
 import {
@@ -63,6 +63,10 @@ export interface FirmSpend {
     readonly spend: UsdCents;
 }
 
+export interface ModeledFundedCost {
+    readonly costPerFundedAccount: number;
+}
+
 export interface MonthlySpend {
     readonly month: string;
     readonly spend: UsdCents;
@@ -85,7 +89,7 @@ export interface PlanFundedCost {
 
 export function costAnalytics(
     ledger: PortfolioLedger,
-    modeled: ReadonlyMap<string, ReplacementEconomics>,
+    modeled: ReadonlyMap<string, ModeledFundedCost>,
 ): CostAnalytics {
     const fees = ledgerFees(ledger);
     return {
@@ -249,7 +253,7 @@ function isRetryFee(kind: FeeKind): boolean {
 }
 
 function modeledCostCents(
-    economics: ReplacementEconomics | undefined,
+    economics: ModeledFundedCost | undefined,
 ): null | UsdCents {
     return economics === undefined ||
         !Number.isFinite(economics.costPerFundedAccount)
