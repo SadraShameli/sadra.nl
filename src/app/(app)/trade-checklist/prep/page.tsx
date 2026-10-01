@@ -3,6 +3,7 @@ import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
+import { PrepView } from '~/app/(app)/trade-checklist/_components/PrepView';
 import { getServerSession } from '~/lib/auth/server';
 import { dailyPreparationRowSchema } from '~/lib/schemas/trading';
 import { routes } from '~/lib/site/routes';
@@ -10,8 +11,6 @@ import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { PLAN_TIMEZONE } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
 import { dailyPreparations, db, tradingPlans } from '~/server/db';
-
-import { PrepView } from '../_components/PrepView';
 
 export const metadata: Metadata = {
     description:

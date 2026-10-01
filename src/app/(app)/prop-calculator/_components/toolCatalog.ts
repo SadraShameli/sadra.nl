@@ -8,6 +8,7 @@ import {
     GitCompareArrows,
     LayoutGrid,
     type LucideIcon,
+    PiggyBank,
     Radio,
     Scale,
     Target,
@@ -30,6 +31,7 @@ export enum ToolGroup {
 
 export enum ToolId {
     Analysis = 'analysis',
+    Bankroll = 'bankroll',
     CashFlow = 'cash-flow',
     Compare = 'compare',
     FundedOptimizer = 'funded-optimizer',
@@ -103,6 +105,14 @@ const TOOL_DEFINITIONS = {
         label: 'Analysis',
         route: routes.propCalculator.analysis,
     }),
+    [ToolId.Bankroll]: calculatorTool({
+        blurb: 'How likely a batch ends net negative or runs out of cash, the budget your own loss-risk threshold needs, and a reinvesting projection with bands and path ruin.',
+        group: ToolGroup.Plan,
+        hasPage: true,
+        icon: PiggyBank,
+        label: 'Bankroll',
+        route: routes.propCalculator.bankroll,
+    }),
     [ToolId.CashFlow]: calculatorTool({
         blurb: 'Rules-aware cash flow over time: eval purchases and retries, funded payouts and re-buys, with the P10 to P90 spread of cumulative net.',
         group: ToolGroup.Plan,
@@ -147,7 +157,7 @@ const TOOL_DEFINITIONS = {
         {
             blurb: 'From a balance, a peak and past payouts: payout readiness, the blocking gate, the rule-capped withdrawable and the net after the split.',
             group: ToolGroup.Plan,
-            hasPage: false,
+            hasPage: true,
             icon: Banknote,
             label: 'Payout planner',
             route: routes.propCalculator.payoutPlanner,
@@ -219,6 +229,7 @@ const TOOL_ORDER: readonly ToolId[] = [
     ToolId.Sizing,
     ToolId.Compare,
     ToolId.CashFlow,
+    ToolId.Bankroll,
     ToolId.LadderLab,
     ToolId.StrategyLab,
     ToolId.Planner,

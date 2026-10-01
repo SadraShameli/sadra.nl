@@ -82,6 +82,7 @@ export type TextFieldName =
     | 'review.monthlyPayoutTargetCents'
     | 'review.targetMonthlyMultiple'
     | 'samples.minClosedRounds'
+    | 'samples.minEndedAccounts'
     | 'samples.minEvalAttempts'
     | 'samples.minFundedAccounts'
     | 'samples.minTrades'
@@ -184,6 +185,7 @@ const rulebookFormTextSchema = z.object({
     }),
     samples: z.object({
         minClosedRounds: z.string(),
+        minEndedAccounts: z.string(),
         minEvalAttempts: z.string(),
         minFundedAccounts: z.string(),
         minTrades: z.string(),
@@ -484,6 +486,14 @@ export const TEXT_FIELDS: Readonly<Record<TextFieldName, TextFieldSpec>> = {
         read: (v) => v.samples.minClosedRounds,
         source: null,
     },
+    'samples.minEndedAccounts': {
+        hint: 'Ended accounts before a purchase-cohort multiple is called adequate. Blank falls back to the funded-accounts threshold.',
+        isOptional: true,
+        kind: FieldKind.Count,
+        label: 'Ended accounts before a rate is adequate',
+        read: (v) => v.samples.minEndedAccounts,
+        source: null,
+    },
     'samples.minEvalAttempts': {
         hint: `Ended eval attempts before the pass rate is called adequate. The video author uses 50 (${VIDEO_AUTHOR_CHOICE}).`,
         isOptional: true,
@@ -780,6 +790,7 @@ export function readRulebookDraft(values: RulebookFormValues): RulebookDraft {
             },
             samples: {
                 minClosedRounds: optionalAt('samples.minClosedRounds'),
+                minEndedAccounts: optionalAt('samples.minEndedAccounts'),
                 minEvalAttempts: optionalAt('samples.minEvalAttempts'),
                 minFundedAccounts: optionalAt('samples.minFundedAccounts'),
                 minTrades: optionalAt('samples.minTrades'),
@@ -931,6 +942,7 @@ export function rulebookToFormValues(
         },
         samples: {
             minClosedRounds: optionalText(samples.minClosedRounds, String),
+            minEndedAccounts: optionalText(samples.minEndedAccounts, String),
             minEvalAttempts: optionalText(samples.minEvalAttempts, String),
             minFundedAccounts: optionalText(samples.minFundedAccounts, String),
             minTrades: optionalText(samples.minTrades, String),

@@ -1,4 +1,4 @@
-import { type PayoutGate } from '../core';
+import { type PayoutGate } from '~/lib/prop-calculator/core';
 
 export enum PayoutBlockReasonKind {
     Gate = 'gate',

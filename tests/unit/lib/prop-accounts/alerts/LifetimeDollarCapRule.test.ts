@@ -42,6 +42,7 @@ import {
     contextOf,
     ledgerOnlyAccountFor,
     MONDAY,
+    movedLiveEvent,
     paidPayout,
     planWhere,
     snapshotFor,
@@ -524,6 +525,168 @@ describe('LifetimeDollarCapRule', () => {
         );
     });
 
+    it("counts a moved-live account's payouts before its recorded move-live date as certain, and leaves its later payouts out", () => {
+        const active = fundedPro();
+        const movedLive = accountFor(MFF_PRO, { stage: AccountStage.Live });
+        const alerts = alertsOf(rule, {
+            accounts: [active, movedLive],
+            events: [movedLiveEvent(movedLive, '2026-09-15')],
+            payouts: [
+                received(active, 4_000_000),
+                received(movedLive, 6_000_000, { paidOn: '2026-09-10' }),
+                received(movedLive, 3_000_000, { paidOn: '2026-09-20' }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.severity).toBe(AlertSeverity.Critical);
+        expect(alerts[0]?.message).toBe(
+            `$100,000 of the plan's $100,000 lifetime payout cap received across your 2 accounts on this plan; no further payout fits under the cap; ${PER_USER}; not counting $30,000 paid on 1 account after moving live, since the cap only counts sim-funded payouts`,
+        );
+    });
+
+    it("reconciles a moved-live account's pre-cutoff certain figure against its snapshot instead of trusting an incomplete dated ledger", () => {
+        const active = fundedPro();
+        const movedLive = accountFor(MFF_PRO, { stage: AccountStage.Live });
+        const alerts = alertsOf(rule, {
+            accounts: [active, movedLive],
+            events: [movedLiveEvent(movedLive, '2026-09-15')],
+            payouts: [
+                received(active, 4_000_000),
+                received(movedLive, 1_000_000, { paidOn: '2026-09-10' }),
+                received(movedLive, 3_000_000, { paidOn: '2026-09-20' }),
+            ],
+            snapshots: [
+                snapshotFor(movedLive, {
+                    asOf: '2026-09-12',
+                    cumulativePayoutCents: usdCents(6_000_000),
+                }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.severity).toBe(AlertSeverity.Critical);
+        expect(alerts[0]?.message).toBe(
+            `$100,000 of the plan's $100,000 lifetime payout cap received across your 2 accounts on this plan; no further payout fits under the cap; ${PER_USER}; not counting $30,000 paid on 1 account after moving live, since the cap only counts sim-funded payouts`,
+        );
+    });
+
+    it("never lets a snapshot dated on or after the move-live date inflate the certain figure with live payouts, and keeps the disclosure consistent with it", () => {
+        const active = fundedPro();
+        const movedLive = accountFor(MFF_PRO, { stage: AccountStage.Live });
+        const alerts = alertsOf(rule, {
+            accounts: [active, movedLive],
+            events: [movedLiveEvent(movedLive, '2026-09-15')],
+            payouts: [
+                received(active, 4_000_000),
+                received(movedLive, 6_000_000, { paidOn: '2026-09-10' }),
+                received(movedLive, 3_000_000, { paidOn: '2026-09-20' }),
+            ],
+            snapshots: [
+                snapshotFor(movedLive, {
+                    asOf: '2026-09-25',
+                    cumulativePayoutCents: usdCents(9_000_000),
+                }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.severity).toBe(AlertSeverity.Critical);
+        expect(alerts[0]?.message).toBe(
+            `$100,000 of the plan's $100,000 lifetime payout cap received across your 2 accounts on this plan; no further payout fits under the cap; ${PER_USER}; not counting $30,000 paid on 1 account after moving live, since the cap only counts sim-funded payouts`,
+        );
+    });
+
+    it("reconstructs an incomplete pre-cutoff ledger from a snapshot dated on or after the move-live date, instead of undercounting the certain figure", () => {
+        const active = fundedPro();
+        const movedLive = accountFor(MFF_PRO, { stage: AccountStage.Live });
+        const alerts = alertsOf(rule, {
+            accounts: [active, movedLive],
+            events: [movedLiveEvent(movedLive, '2026-09-15')],
+            payouts: [
+                received(active, 4_000_000),
+                received(movedLive, 1_000_000, { paidOn: '2026-09-10' }),
+                received(movedLive, 3_000_000, { paidOn: '2026-09-20' }),
+            ],
+            snapshots: [
+                snapshotFor(movedLive, {
+                    asOf: '2026-09-25',
+                    cumulativePayoutCents: usdCents(9_000_000),
+                }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.severity).toBe(AlertSeverity.Critical);
+        expect(alerts[0]?.message).toBe(
+            `$100,000 of the plan's $100,000 lifetime payout cap received across your 2 accounts on this plan; no further payout fits under the cap; ${PER_USER}; not counting $30,000 paid on 1 account after moving live, since the cap only counts sim-funded payouts`,
+        );
+    });
+
+    it('never applies the move-live cutoff to an account whose stored plan could not be resolved, even with a recorded move-live date', () => {
+        const active = fundedPro();
+        const flagged = fundedPro({
+            archivedAt: ARCHIVED_AT,
+            readIssues: [
+                {
+                    kind: AccountReadIssueKind.UnresolvablePlan,
+                    reason: UnresolvedPlanReason.CorruptOptIns,
+                },
+            ],
+        });
+        const alerts = alertsOf(rule, {
+            accounts: [active, flagged],
+            events: [movedLiveEvent(flagged, '2026-09-15')],
+            payouts: [
+                received(active, 4_500_000),
+                received(flagged, 3_000_000, { paidOn: '2026-09-10' }),
+                received(flagged, 3_000_000, { paidOn: '2026-09-20' }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.severity).toBe(AlertSeverity.Warning);
+        expect(alerts[0]?.message).toBe(
+            `$105,000 of the plan's $100,000 lifetime payout cap received across your 2 accounts on this plan, counting ${UNRESOLVED}, so the cap may already be reached; ${WARNING_ONLY}; ${PER_USER}`,
+        );
+    });
+
+    it("keeps a moved-live account's payouts unconfirmed when no move-live date is recorded, even with the same totals", () => {
+        const active = fundedPro();
+        const movedLive = accountFor(MFF_PRO, { stage: AccountStage.Live });
+        const alerts = alertsOf(rule, {
+            accounts: [active, movedLive],
+            payouts: [
+                received(active, 4_000_000),
+                received(movedLive, 6_000_000, { paidOn: '2026-09-10' }),
+                received(movedLive, 3_000_000, { paidOn: '2026-09-20' }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.severity).toBe(AlertSeverity.Warning);
+        expect(alerts[0]?.message).toContain(
+            'so the cap may already be reached',
+        );
+        expect(alerts[0]?.message).not.toContain(
+            'no further payout fits under the cap',
+        );
+    });
+
+    it("gives an archived account's stale requested payout a ledger notice even when the pool is nowhere near the cap", () => {
+        const active = fundedPro();
+        const archived = fundedPro({ archivedAt: ARCHIVED_AT });
+        const staleRequest = paidPayout(archived, {
+            grossCents: usdCents(450_000),
+            netCents: usdCents(360_000),
+            paidOn: null,
+            status: PayoutStatus.Requested,
+        });
+        const alerts = alertsOf(rule, {
+            accounts: [active, archived],
+            payouts: [received(active, 1_000_000), staleRequest],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.severity).toBe(AlertSeverity.Warning);
+        expect(alerts[0]?.message).toBe(
+            `$3,600 requested on 1 archived account on this plan was never marked paid or denied; mark it paid or denied to keep the lifetime cap total accurate; ${PER_USER}`,
+        );
+    });
+
     it('counts an archived account on this plan whose stored plan does not resolve as unconfirmed: it can warn but never make the alert critical', () => {
         const active = fundedPro();
         const sizeMismatch = fundedPro({
@@ -632,12 +795,15 @@ describe('LifetimeDollarCapRule', () => {
             paidOn: null,
             status: PayoutStatus.Requested,
         });
-        expect(
-            alertsOf(rule, {
-                accounts: [active, archived],
-                payouts: [received(active, 9_560_000), staleRequest],
-            }),
-        ).toEqual([]);
+        const belowCap = alertsOf(rule, {
+            accounts: [active, archived],
+            payouts: [received(active, 9_560_000), staleRequest],
+        });
+        expect(belowCap).toHaveLength(1);
+        expect(belowCap[0]?.severity).toBe(AlertSeverity.Warning);
+        expect(belowCap[0]?.message).toBe(
+            `$3,600 requested on 1 archived account on this plan was never marked paid or denied; mark it paid or denied to keep the lifetime cap total accurate; ${PER_USER}`,
+        );
         const atCap = alertsOf(rule, {
             accounts: [active, archived],
             payouts: [received(active, CAP_CENTS), staleRequest],

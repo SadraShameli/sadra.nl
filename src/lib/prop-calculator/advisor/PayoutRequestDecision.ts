@@ -1,4 +1,5 @@
-import { type Dollars } from '../core';
+import { type Dollars } from '~/lib/prop-calculator/core';
+
 import { type PayoutBlockReason } from './PayoutBlockReason';
 import { type PayoutWait } from './PayoutReadiness';
 import { type RuleSource } from './RuleSource';

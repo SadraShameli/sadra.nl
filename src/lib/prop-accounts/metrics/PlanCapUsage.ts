@@ -1,6 +1,6 @@
-import { AccountStage, AccountStatus } from '~/lib/prop-accounts/core';
 import { type FirmId } from '~/lib/prop-calculator';
 
+import { arePooledCapsModeled, fundedSlotCountsOf } from './PooledCapUsage';
 import { type PlanGroup, type PortfolioLedger } from './PortfolioLedger';
 
 export interface PlanCapRow {
@@ -17,7 +17,7 @@ export interface PlanCapRow {
 export interface PlanCapUsage {
     readonly ledgerOnlyAccounts: number;
     readonly plans: readonly PlanCapRow[];
-    readonly pooledCapsModeled: false;
+    readonly pooledCapsModeled: boolean;
     readonly unresolvedAccounts: number;
 }
 
@@ -30,24 +30,17 @@ export function planCapUsage(ledger: PortfolioLedger): PlanCapUsage {
                 group.accounts.some((entry) => entry.row.archivedAt === null),
             )
             .map((group) => capRow(group)),
-        pooledCapsModeled: false,
+        pooledCapsModeled: arePooledCapsModeled(ledger),
         unresolvedAccounts: ledger.unresolvedAccounts.length,
     };
 }
 
+export function totalUsedFundedSlots(usage: PlanCapUsage): number {
+    return usage.plans.reduce((sum, row) => sum + row.used, 0);
+}
+
 function capRow(group: PlanGroup): PlanCapRow {
-    const funded = group.accounts.filter(
-        (entry) =>
-            entry.row.archivedAt === null &&
-            entry.row.stage === AccountStage.Funded,
-    );
-    const active = funded.filter(
-        (entry) => entry.row.status === AccountStatus.Active,
-    ).length;
-    const suspended = funded.filter(
-        (entry) => entry.row.status === AccountStatus.Suspended,
-    ).length;
-    const used = active + suspended;
+    const { suspended, used } = fundedSlotCountsOf(group);
     const cap = group.firm.maxFundedAccounts(group.plan);
     return {
         cap,

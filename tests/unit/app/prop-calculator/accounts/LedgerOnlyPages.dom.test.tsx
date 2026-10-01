@@ -25,6 +25,7 @@ import {
     AccountStage,
     AccountStatus,
     AccountTracking,
+    BustCause,
     DashboardBalanceConvention,
     FeeKind,
     firmKeyId,
@@ -113,6 +114,14 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+
+vi.mock('~/lib/auth/client', () => ({
+    useSession: () => ({
+        data: { user: { id: 'user-a' } },
+        error: null,
+        isPending: false,
+    }),
+}));
 
 vi.mock('~/trpc/react', () => ({ api: harness.api }));
 
@@ -560,6 +569,7 @@ describe('ledger-only accounts across the accounts pages', () => {
         harness.queries.set('propAccounts.fee.list', answer([holaFee()]));
         harness.queries.set('propAccounts.payout.list', answer([]));
         harness.queries.set('propAccounts.snapshot.latestForAll', answer([]));
+        harness.queries.set('propAccounts.bankroll.list', answer([]));
         harness.queries.set('propAccounts.rulebook.get', {
             data: undefined,
             error: new Error('rulebook not needed here'),
@@ -693,6 +703,7 @@ describe('ledger-only accounts across the accounts pages', () => {
             harness.mutateAsyncOf('propAccounts.event.record'),
         ).toHaveBeenCalledWith({
             accountId: LEDGER_ID,
+            bustCause: BustCause.Unknown,
             kind: AccountEventKind.Busted,
             note: null,
             occurredOn: TODAY,

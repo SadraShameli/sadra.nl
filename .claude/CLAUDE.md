@@ -20,8 +20,8 @@ line.
   `lib/prop-calculator/core/index.ts`, `lib/prop-calculator/index.ts`) — add
   new exports there; don't make callers reach into internal files directly.
 - **Import via the `~/` alias** (`~/lib/...`, `~/components/...`,
-  `~/server/...`), never a relative `../../..` chain across a top-level
-  boundary.
+  `~/server/...`, `~/app/...`), never a relative `../` import in `src`: only
+  same-folder `./` imports stay relative (lint enforces it).
 - **Never log or return a raw secret/credential value.** Accounting
   credentials only ever exist as ciphertext (`sealSecret`/`openSecret`) or
   inside a `'server-only'` module.

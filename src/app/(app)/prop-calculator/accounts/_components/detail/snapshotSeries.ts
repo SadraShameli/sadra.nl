@@ -1,3 +1,4 @@
+import { accountEventKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import {
     type AccountEventKind,
     compareText,
@@ -5,8 +6,6 @@ import {
     usdCentsToDollars,
 } from '~/lib/prop-accounts';
 import { type Dollars } from '~/lib/prop-calculator';
-
-import { accountEventKindLabel } from '../overview/overviewModel';
 
 export interface SeriesEvent {
     readonly id: string;

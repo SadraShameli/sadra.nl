@@ -12,6 +12,7 @@ import {
     accountIdSchema,
     decisionCreateSchema,
     decisionRecordActualSchema,
+    ledgerListSchema,
 } from '~/lib/schemas/propAccounts';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propSizingDecision } from '~/server/db/schemas/prop';
@@ -54,13 +55,26 @@ export const propDecisionRouter = createTRPCRouter({
             }),
         ),
 
+    latestForAll: propProcedure
+        .output(z.array(propSizingDecisionOutputSchema))
+        .query(({ ctx }) =>
+            new PropAccountRepo(ctx.db, ctx.userId).latestDecisions(),
+        ),
+
+    list: propProcedure
+        .input(ledgerListSchema)
+        .output(z.array(propSizingDecisionOutputSchema))
+        .query(({ ctx, input }) =>
+            new PropAccountRepo(ctx.db, ctx.userId).listDecisions(
+                input.accountId,
+            ),
+        ),
+
     listForAccount: propProcedure
         .input(accountIdSchema)
         .output(z.array(propSizingDecisionOutputSchema))
         .query(({ ctx, input }) =>
-            new PropAccountRepo(ctx.db, ctx.userId).listDecisionsForAccount(
-                input.id,
-            ),
+            new PropAccountRepo(ctx.db, ctx.userId).listDecisions(input.id),
         ),
 
     recordActual: mutation

@@ -16,7 +16,8 @@ import {
     type Plan,
     resolveDailyLossLimit,
     TradingPhase,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import { type CappedAmount, SizingConstraint } from './DocumentedSizing';
 import {
     NO_PERSONAL_CAPS,

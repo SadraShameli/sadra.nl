@@ -1,4 +1,5 @@
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { type LiveContractCaps } from '~/lib/prop-calculator';
 
 import { LiveRulesCardKind, type LiveRulesCardView } from './detailState';
 
@@ -27,6 +28,7 @@ export function LiveRulesCard({ view }: { readonly view: LiveRulesCardView }) {
                     'Minimum payout request',
                     formatCurrency(view.minPayoutRequest),
                 ],
+                ['Contract limit', contractLimitLabel(view.contractLimit)],
             ];
             return (
                 <div className="flex flex-col gap-4">
@@ -65,4 +67,13 @@ export function LiveRulesCard({ view }: { readonly view: LiveRulesCardView }) {
             );
         }
     }
+}
+
+function contractLimitLabel(limit: LiveContractCaps): string {
+    if (limit.minis === null && limit.micros === null) return NOT_APPLICABLE;
+    const minis =
+        limit.minis === null ? NOT_APPLICABLE : `${limit.minis} minis`;
+    const micros =
+        limit.micros === null ? NOT_APPLICABLE : `${limit.micros} micros`;
+    return `${minis} / ${micros}`;
 }

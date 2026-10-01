@@ -5,23 +5,14 @@ import { z } from 'zod';
 import {
     AccountEventKind,
     AccountStage,
-    accountStageLabel,
     accountStageOn,
     type AccountStageStarts,
     AccountTracking,
-    checkSnapshotEntry,
-    compareText,
     fundedSince,
     isLedgerOnlySnapshotField,
     type LedgerAccount,
-    type MissingSnapshotField,
-    missingSnapshotFields,
     NO_RECORDED_STAGE_STARTS,
     PortfolioLedger,
-    type SnapshotEntryAccount,
-    snapshotEntryIssueMessage,
-    type SnapshotEntryValues,
-    snapshotFieldRules,
 } from '~/lib/prop-accounts';
 import {
     type OwnedAccount,
@@ -31,11 +22,9 @@ import {
     PropQuotaGuard,
 } from '~/lib/prop-accounts/server';
 import { type Plan } from '~/lib/prop-calculator';
-import { type SnapshotPlausibilityIssue } from '~/lib/prop-calculator/advisor';
 import {
     okOutputSchema,
     propAccountSnapshotOutputSchema,
-    PropMutationRejection,
     PropQuota,
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
@@ -56,31 +45,19 @@ import {
     assertModeledForOperation,
     ModeledOperation,
     propMutationProcedure,
-    PropMutationRejectionError,
     propProcedure,
     PropRouterBucket,
     resolvedPlanOrThrow,
     returnedRowOrThrow,
 } from './mutationGuard';
-
-interface ImplausibleEntry {
-    readonly issues: readonly SnapshotPlausibilityIssue[];
-    readonly staged: StagedSnapshot;
-}
-
-interface SnapshotGap {
-    readonly missing: readonly string[];
-    readonly staged: StagedSnapshot;
-}
+import {
+    assertNotStored,
+    assertPlausible,
+    assertRequiredFields,
+    type StagedSnapshot,
+} from './snapshotGuards';
 
 type SnapshotInput = z.output<typeof snapshotCreateSchema>;
-
-interface StagedSnapshot {
-    readonly account: Pick<OwnedAccount, 'label'> & SnapshotEntryAccount;
-    readonly plan: Plan;
-    readonly snapshot: Pick<SnapshotInput, 'asOf'> & SnapshotEntryValues;
-    readonly stage: AccountStage;
-}
 
 const NEW_SNAPSHOT_REMEDY = '';
 
@@ -119,13 +96,6 @@ export async function assertStoredSnapshotsFit(
     assertPlausible(staged, UPGRADE_SNAPSHOT_REMEDY);
 }
 
-function accountLabelOf(
-    accounts: ReadonlyMap<string, OwnedAccount>,
-    snapshot: SnapshotInput,
-): string {
-    return accounts.get(snapshot.accountId)?.label ?? snapshot.accountId;
-}
-
 function assertLedgerOnlyFields(
     input: readonly SnapshotInput[],
     accounts: ReadonlyMap<string, OwnedAccount>,
@@ -146,97 +116,6 @@ function assertLedgerOnlyFields(
             );
         }
     }
-}
-
-async function assertNotStored(
-    database: PropDatabase,
-    userId: string,
-    input: readonly SnapshotInput[],
-    accounts: ReadonlyMap<string, OwnedAccount>,
-): Promise<void> {
-    const accountIds = [
-        ...new Set(input.map((snapshot) => snapshot.accountId)),
-    ];
-    const dates = [...new Set(input.map((snapshot) => snapshot.asOf))];
-    const stored = await database
-        .select({
-            accountId: propAccountSnapshot.accountId,
-            asOf: propAccountSnapshot.asOf,
-        })
-        .from(propAccountSnapshot)
-        .where(
-            and(
-                eq(propAccountSnapshot.userId, userId),
-                inArray(propAccountSnapshot.accountId, accountIds),
-                inArray(propAccountSnapshot.asOf, dates),
-            ),
-        )
-        .limit(PROP_QUOTA_LIMITS[PropQuota.Snapshots]);
-    const storedKeys = new Set(
-        stored.map((row) => snapshotKey(row.accountId, row.asOf)),
-    );
-    const duplicate = input.find((snapshot) =>
-        storedKeys.has(snapshotKey(snapshot.accountId, snapshot.asOf)),
-    );
-    if (duplicate === undefined) return;
-    throw new PropMutationRejectionError(
-        PropMutationRejection.DuplicateSnapshot,
-        `A snapshot for "${accountLabelOf(accounts, duplicate)}" on ${duplicate.asOf} is already stored; remove it first or use another date`,
-    );
-}
-
-function assertPlausible(
-    staged: readonly StagedSnapshot[],
-    remedy: string,
-): void {
-    const implausible = staged.flatMap((entry): ImplausibleEntry[] => {
-        const { blocking } = checkSnapshotEntry(
-            entry.plan,
-            entry.stage,
-            entry.account,
-            entry.snapshot,
-        );
-        return blocking.length === 0
-            ? []
-            : [{ issues: blocking, staged: entry }];
-    });
-    const [first] = implausible;
-    if (first === undefined) return;
-    const { account, snapshot, stage } = first.staged;
-    const others =
-        implausible.length > 1
-            ? ` (and ${String(implausible.length - 1)} more implausible snapshots)`
-            : '';
-    throw new PropMutationRejectionError(
-        PropMutationRejection.ImplausibleSnapshot,
-        `The snapshot for "${account.label}" on ${snapshot.asOf} does not fit the account in the ${accountStageLabel(stage)} stage: ${first.issues.map(snapshotEntryIssueMessage).join(' ')}${others}${remedy}`,
-    );
-}
-
-function assertRequiredFields(
-    staged: readonly StagedSnapshot[],
-    remedy: string,
-): void {
-    const gaps = staged.flatMap((entry): SnapshotGap[] => {
-        const missing = missingFieldLabels(
-            missingSnapshotFields(
-                snapshotFieldRules(entry.plan, entry.stage),
-                (field) => entry.snapshot[field] !== null,
-            ),
-        );
-        return missing.length > 0 ? [{ missing, staged: entry }] : [];
-    });
-    const [first] = gaps;
-    if (first === undefined) return;
-    const { account, snapshot, stage } = first.staged;
-    const others =
-        gaps.length > 1
-            ? ` (and ${String(gaps.length - 1)} more snapshots with missing fields)`
-            : '';
-    throw new PropMutationRejectionError(
-        PropMutationRejection.MissingSnapshotField,
-        `The snapshot for "${account.label}" on ${snapshot.asOf} needs what its plan requires in the ${accountStageLabel(stage)} stage: ${first.missing.join('; ')}${others}${remedy}`,
-    );
 }
 
 async function assertStorable(
@@ -303,26 +182,6 @@ async function loadStageStarts(
             ledgerStageStarts(entry),
         ]),
     );
-}
-
-function missingFieldLabels(
-    missing: readonly MissingSnapshotField[],
-): string[] {
-    return [
-        ...new Set(
-            missing.map((field) =>
-                field.alternative === null
-                    ? field.label
-                    : [field.label, field.alternative.label]
-                          .toSorted(compareText)
-                          .join(' or '),
-            ),
-        ),
-    ];
-}
-
-function snapshotKey(accountId: string, asOf: string): string {
-    return `${accountId} ${asOf}`;
 }
 
 async function stagedSnapshots(

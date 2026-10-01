@@ -2,15 +2,23 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as UseToolsWorkerModule from '~/app/(app)/prop-calculator/_components/useToolsWorker';
+
+import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { RoundsView } from '~/app/(app)/prop-calculator/accounts/rounds/RoundsView';
 import {
     AccountStage,
     AccountStatus,
     AccountTracking,
     DashboardBalanceConvention,
+    FeeKind,
     firmKeyId,
     FirmKeyKind,
+    type LedgerFeeRow,
+    type LedgerPayoutRow,
+    PayoutStatus,
     RoundStatus,
+    usdCents,
 } from '~/lib/prop-accounts';
 import {
     ALL_FIRMS,
@@ -23,8 +31,8 @@ import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
 interface FakeQuery {
     data: unknown;
-    error: null;
-    isError: false;
+    error: null | { message: string };
+    isError: boolean;
     isPending: boolean;
 }
 
@@ -47,7 +55,8 @@ const BRAVO_ID = '9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
 
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
-    const create = vi.fn(() => Promise.resolve({}));
+    const create = vi.fn(() => Promise.resolve({ id: 'created-round' }));
+    const assign = vi.fn(() => Promise.resolve({}));
     const pending: FakeQuery = {
         data: undefined,
         error: null,
@@ -55,6 +64,7 @@ const harness = vi.hoisted(() => {
         isPending: true,
     };
     return {
+        assign,
         create,
         queries,
         query: (name: string) => ({
@@ -63,9 +73,17 @@ const harness = vi.hoisted(() => {
         reset() {
             queries.clear();
             create.mockClear();
+            assign.mockClear();
         },
     };
 });
+
+const toolsWorkerBox = vi.hoisted(() => ({
+    instances: [] as {
+        runSpy: (request: unknown) => void;
+        setState: (state: unknown) => void;
+    }[],
+}));
 
 vi.mock('next/navigation', () => ({
     usePathname: () => '/prop-calculator/accounts/rounds',
@@ -87,11 +105,19 @@ vi.mock('~/trpc/react', () => ({
     api: {
         propAccounts: {
             account: { list: harness.query('account.list') },
+            bankroll: { summary: harness.query('bankroll.summary') },
+            edge: { summary: harness.query('edge.summary') },
             event: { list: harness.query('event.list') },
             externalFirm: { list: harness.query('externalFirm.list') },
             fee: { list: harness.query('fee.list') },
             payout: { list: harness.query('payout.list') },
             round: {
+                assign: {
+                    useMutation: () => ({
+                        isPending: false,
+                        mutateAsync: harness.assign,
+                    }),
+                },
                 create: {
                     useMutation: () => ({
                         isPending: false,
@@ -107,6 +133,35 @@ vi.mock('~/trpc/react', () => ({
         }),
     },
 }));
+
+vi.mock('~/app/(app)/prop-calculator/_components/useToolsWorker', async (importOriginal) => {
+    const React = await import('react');
+    const actual = await importOriginal<typeof UseToolsWorkerModule>();
+    return {
+        ToolsWorkerPhase: actual.ToolsWorkerPhase,
+        useToolsWorker: () => {
+            const [state, setState] = React.useState<unknown>({
+                phase: actual.ToolsWorkerPhase.Idle,
+            });
+            const indexReference = React.useRef<null | number>(null);
+            if (indexReference.current === null) {
+                indexReference.current = toolsWorkerBox.instances.length;
+                toolsWorkerBox.instances.push({
+                    runSpy: vi.fn(),
+                    setState,
+                });
+            }
+            const instance = toolsWorkerBox.instances[indexReference.current];
+            return {
+                cancel: vi.fn(),
+                run: (request: unknown) => {
+                    instance?.runSpy(request);
+                },
+                state,
+            };
+        },
+    };
+});
 
 function account(id: string, label: string, overrides: Record<string, unknown> = {}) {
     return {
@@ -167,6 +222,15 @@ function element(scope: ParentNode, selector: string): HTMLElement {
     return found;
 }
 
+function failed(message: string): FakeQuery {
+    return {
+        data: undefined,
+        error: { message },
+        isError: true,
+        isPending: false,
+    };
+}
+
 function input(scope: ParentNode, selector: string): HTMLInputElement {
     const found = scope.querySelector<HTMLInputElement>(selector);
     if (found === null) throw new Error(`no input ${selector}`);
@@ -210,6 +274,7 @@ describe('RoundsView', () => {
         });
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.reset();
+        toolsWorkerBox.instances = [];
         harness.queries.set('account.list', answer([]));
         harness.queries.set('event.list', answer([]));
         harness.queries.set('externalFirm.list', answer([]));
@@ -290,6 +355,69 @@ describe('RoundsView', () => {
         );
     });
 
+    it('assigns the suggested accounts to the round it creates from a prefilled suggestion', async () => {
+        harness.queries.set(
+            'account.list',
+            answer([
+                account(ALPHA_ID, 'Alpha', { purchasedOn: '2026-06-01' }),
+                account(BRAVO_ID, 'Bravo', { purchasedOn: '2026-06-05' }),
+            ]),
+        );
+        render();
+        act(() => {
+            element(container, 'button[type="button"]').click();
+        });
+        await submitForm(container, 'Add a round');
+        expect(harness.create).toHaveBeenCalledTimes(1);
+        expect(harness.assign).toHaveBeenNthCalledWith(1, {
+            accountId: ALPHA_ID,
+            roundId: 'created-round',
+        });
+        expect(harness.assign).toHaveBeenNthCalledWith(2, {
+            accountId: BRAVO_ID,
+            roundId: 'created-round',
+        });
+    });
+
+    it('keeps the add-round button disabled while suggested accounts are still being assigned', async () => {
+        harness.queries.set(
+            'account.list',
+            answer([
+                account(ALPHA_ID, 'Alpha', { purchasedOn: '2026-06-01' }),
+                account(BRAVO_ID, 'Bravo', { purchasedOn: '2026-06-05' }),
+            ]),
+        );
+        let resolveFirstAssign: (() => void) | undefined;
+        harness.assign.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    resolveFirstAssign = () => resolve({});
+                }),
+        );
+        render();
+        act(() => {
+            element(container, 'button[type="button"]').click();
+        });
+        const form = element(container, 'form[aria-label="Add a round"]');
+        await act(async () => {
+            form.dispatchEvent(
+                new Event('submit', { bubbles: true, cancelable: true }),
+            );
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+        const button = element(
+            container,
+            'button[type="submit"]',
+        ) as HTMLButtonElement;
+        expect(button.disabled).toBe(true);
+        await act(async () => {
+            resolveFirstAssign?.();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+        expect(button.disabled).toBe(false);
+    });
+
     it('creates a round through round.create with the picked firm', async () => {
         render();
         const firmValue = firmKeyId({
@@ -308,4 +436,294 @@ describe('RoundsView', () => {
             openedOn: TODAY,
         });
     });
+
+    it('shows an error instead of an indefinite loading skeleton when a required query fails', () => {
+        harness.queries.set('account.list', failed('accounts down'));
+        render();
+        expect(container.textContent).toContain('accounts down');
+        expect(container.querySelector('.animate-pulse')).toBeNull();
+    });
+
+    it('warns when the external firms could not be loaded, without blocking the rest of the page', () => {
+        harness.queries.set('externalFirm.list', failed('firms down'));
+        render();
+        expect(container.textContent).toContain('firms down');
+        expect(container.textContent).toContain('Rounds');
+        expect(container.textContent).toContain('No rounds yet');
+    });
+
+    it('warns when the rulebook could not be loaded, without blocking the rest of the page', () => {
+        harness.queries.set('rulebook.get', failed('rulebook down'));
+        render();
+        expect(container.textContent).toContain('rulebook down');
+        expect(container.textContent).toContain('Rounds');
+        expect(container.textContent).toContain('No rounds yet');
+    });
+
+    it('warns when the available bankroll could not be loaded, instead of silently leaving option B uncapped', () => {
+        harness.queries.set(
+            'round.list',
+            answer([
+                {
+                    budgetCents: null,
+                    closedOn: '2026-07-01',
+                    externalFirmId: null,
+                    firmId: FIRST_FIRM.id,
+                    id: ROUND_ID,
+                    label: 'Q1 push',
+                    notes: null,
+                    openedOn: '2026-06-01',
+                    status: RoundStatus.Closed,
+                    userId: USER_ID,
+                },
+            ]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha', { roundId: ROUND_ID })]),
+        );
+        harness.queries.set('bankroll.summary', failed('bankroll down'));
+        render();
+        expect(container.textContent).toContain('bankroll down');
+        expect(container.textContent).toContain('Rounds');
+    });
+
+    it('shows no "Next round" card when no round is closed', () => {
+        harness.queries.set(
+            'round.list',
+            answer([
+                {
+                    budgetCents: null,
+                    closedOn: null,
+                    externalFirmId: null,
+                    firmId: FIRST_FIRM.id,
+                    id: ROUND_ID,
+                    label: 'Q1 push',
+                    notes: null,
+                    openedOn: '2026-06-01',
+                    status: RoundStatus.Open,
+                    userId: USER_ID,
+                },
+            ]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha', { roundId: ROUND_ID })]),
+        );
+        render();
+        expect(container.textContent).not.toContain('Next round');
+        const instance = toolsWorkerBox.instances[0];
+        const calls = (
+            instance?.runSpy as unknown as ReturnType<typeof vi.fn>
+        ).mock.calls;
+        expect(calls).toHaveLength(0);
+    });
+
+    it('runs a "Next round" request through the tools worker for a closed round, and shows the scale gate note when thresholds are not set', () => {
+        harness.queries.set(
+            'round.list',
+            answer([
+                {
+                    budgetCents: null,
+                    closedOn: '2026-07-01',
+                    externalFirmId: null,
+                    firmId: FIRST_FIRM.id,
+                    id: ROUND_ID,
+                    label: 'Q1 push',
+                    notes: null,
+                    openedOn: '2026-06-01',
+                    status: RoundStatus.Closed,
+                    userId: USER_ID,
+                },
+            ]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha', { roundId: ROUND_ID })]),
+        );
+        const paidFee: LedgerFeeRow = {
+            accountId: ALPHA_ID,
+            amountCents: usdCents(10_000),
+            id: 'fee-alpha',
+            kind: FeeKind.EvalPurchase,
+            paidOn: '2026-06-01',
+            userId: USER_ID,
+        };
+        harness.queries.set('fee.list', answer([paidFee]));
+        const paidPayout: LedgerPayoutRow = {
+            accountId: ALPHA_ID,
+            approvedOn: null,
+            grossCents: usdCents(30_000),
+            id: 'payout-alpha',
+            netCents: usdCents(30_000),
+            paidOn: '2026-06-25',
+            requestedOn: '2026-06-20',
+            status: PayoutStatus.Paid,
+            userId: USER_ID,
+        };
+        harness.queries.set('payout.list', answer([paidPayout]));
+        render();
+
+        expect(container.textContent).toContain('Next round');
+        expect(container.textContent).toContain('Q1 push');
+        const instance = toolsWorkerBox.instances[0];
+        expect(instance).toBeDefined();
+        const calls = (
+            instance?.runSpy as unknown as ReturnType<typeof vi.fn>
+        ).mock.calls;
+        expect(calls).toHaveLength(1);
+        const [request] = calls.at(-1) as [{ kind: string; runId: number }];
+        expect(request.kind).toBe('next-round');
+
+        act(() => {
+            instance?.setState({
+                phase: 'succeeded',
+                result: {
+                    kind: ToolsResponseKind.NextRound,
+                    optionA: fakeTimelineResult(150),
+                    optionB: fakeTimelineResult(900),
+                    runId: request.runId,
+                },
+            });
+        });
+
+        expect(container.textContent).toContain('thresholds not set');
+        expect(container.textContent).toContain('Recommended');
+    });
+
+    it(
+        'does not double-fire the next-round worker request when a query refetch returns ' +
+            'a referentially new but content-identical array (PT-62e CRITICAL runId-in-key fix)',
+        () => {
+            harness.queries.set(
+                'round.list',
+                answer([
+                    {
+                        budgetCents: null,
+                        closedOn: '2026-07-01',
+                        externalFirmId: null,
+                        firmId: FIRST_FIRM.id,
+                        id: ROUND_ID,
+                        label: 'Q1 push',
+                        notes: null,
+                        openedOn: '2026-06-01',
+                        status: RoundStatus.Closed,
+                        userId: USER_ID,
+                    },
+                ]),
+            );
+            harness.queries.set(
+                'account.list',
+                answer([account(ALPHA_ID, 'Alpha', { roundId: ROUND_ID })]),
+            );
+            const paidFee: LedgerFeeRow = {
+                accountId: ALPHA_ID,
+                amountCents: usdCents(10_000),
+                id: 'fee-alpha',
+                kind: FeeKind.EvalPurchase,
+                paidOn: '2026-06-01',
+                userId: USER_ID,
+            };
+            harness.queries.set('fee.list', answer([paidFee]));
+            const paidPayout: LedgerPayoutRow = {
+                accountId: ALPHA_ID,
+                approvedOn: null,
+                grossCents: usdCents(30_000),
+                id: 'payout-alpha',
+                netCents: usdCents(30_000),
+                paidOn: '2026-06-25',
+                requestedOn: '2026-06-20',
+                status: PayoutStatus.Paid,
+                userId: USER_ID,
+            };
+            harness.queries.set('payout.list', answer([paidPayout]));
+            render();
+
+            const instance = toolsWorkerBox.instances[0];
+            expect(instance).toBeDefined();
+            const calls = (
+                instance?.runSpy as unknown as ReturnType<typeof vi.fn>
+            ).mock.calls;
+            expect(calls).toHaveLength(1);
+
+            harness.queries.set('fee.list', answer([{ ...paidFee }]));
+            harness.queries.set('payout.list', answer([{ ...paidPayout }]));
+            harness.queries.set(
+                'account.list',
+                answer([account(ALPHA_ID, 'Alpha', { roundId: ROUND_ID })]),
+            );
+            render();
+
+            expect(calls).toHaveLength(1);
+        },
+    );
+
+    it('names a ledger-only member of the closed round as left out of the next-round pricing', () => {
+        harness.queries.set(
+            'round.list',
+            answer([
+                {
+                    budgetCents: null,
+                    closedOn: '2026-07-01',
+                    externalFirmId: null,
+                    firmId: FIRST_FIRM.id,
+                    id: ROUND_ID,
+                    label: 'Q1 push',
+                    notes: null,
+                    openedOn: '2026-06-01',
+                    status: RoundStatus.Closed,
+                    userId: USER_ID,
+                },
+            ]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([
+                account(ALPHA_ID, 'Alpha', { roundId: ROUND_ID }),
+                account(BRAVO_ID, 'My own tracked account', {
+                    planLabel: 'My own tracked plan',
+                    planSerial: null,
+                    roundId: ROUND_ID,
+                    tracking: AccountTracking.LedgerOnly,
+                }),
+            ]),
+        );
+        const paidFee: LedgerFeeRow = {
+            accountId: ALPHA_ID,
+            amountCents: usdCents(10_000),
+            id: 'fee-alpha',
+            kind: FeeKind.EvalPurchase,
+            paidOn: '2026-06-01',
+            userId: USER_ID,
+        };
+        harness.queries.set('fee.list', answer([paidFee]));
+        render();
+
+        expect(container.textContent).toContain('Next round');
+        expect(container.textContent).toContain(
+            'My own tracked account',
+        );
+    });
 });
+
+function fakeTimelineResult(cashEnd: number) {
+    return {
+        cardsBoughtP50: 1,
+        cashP10: [100, cashEnd],
+        cashP50: [100, cashEnd],
+        cashP90: [100, cashEnd],
+        cumulativeSpendP10: [0, 0],
+        cumulativeSpendP50: [0, 0],
+        cumulativeSpendP90: [0, 0],
+        days: [0, 1],
+        measuredCycleDays: null,
+        pathRuin: 0.1,
+        payoutP10: [0, 0],
+        payoutP50: [0, 0],
+        payoutP90: [0, 0],
+        pFinalNetNegative: 0.2,
+        withdrawnP10: [0, 0],
+        withdrawnP50: [0, 0],
+        withdrawnP90: [0, 0],
+    };
+}

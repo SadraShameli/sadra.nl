@@ -1,6 +1,7 @@
 import {
     AccountEventKind,
     compareText,
+    type FirmColumnsRow,
     FirmEngagementReason,
     FirmEngagementStatus,
     type FirmKey,
@@ -15,6 +16,8 @@ import {
     type LedgerFirmEngagementRow,
     type PortfolioLedger,
 } from '~/lib/prop-accounts/metrics';
+
+export type FirmEngagementColumns = FirmColumnsRow;
 
 export interface FirmRoster {
     readonly firms: readonly FirmRosterEntry[];
@@ -33,6 +36,18 @@ export interface FirmRosterEntry {
     readonly movedLiveCount: number;
     readonly reason: FirmEngagementReason | null;
     readonly status: FirmEngagementStatus;
+}
+
+export function firmEngagementFor<T extends FirmEngagementColumns>(
+    firmKey: FirmKey,
+    engagements: readonly T[],
+): null | T {
+    const targetKey = firmKeyId(firmKey);
+    return (
+        engagements.find(
+            (row) => firmKeyId(firmKeyOf(firmColumnsOf(row))) === targetKey,
+        ) ?? null
+    );
 }
 
 export function firmRosterOf(ledger: PortfolioLedger): FirmRoster {
@@ -60,11 +75,7 @@ function firmRosterEntry(
     accounts: readonly LedgerAccount[],
     engagements: readonly LedgerFirmEngagementRow[],
 ): FirmRosterEntry {
-    const targetKey = firmKeyId(firmKey);
-    const engagement =
-        engagements.find(
-            (row) => firmKeyId(firmKeyOf(firmColumnsOf(row))) === targetKey,
-        ) ?? null;
+    const engagement = firmEngagementFor(firmKey, engagements);
     const purchaseDates = accounts
         .map((entry) => entry.row.purchasedOn)
         .toSorted(compareText);

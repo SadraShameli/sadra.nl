@@ -4,6 +4,7 @@ import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useMemo } from 'react';
 
+import { AccountsTable } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader } from '~/components/ui/Card';
@@ -17,49 +18,73 @@ import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
-import { AccountsTable } from '../AccountsTable';
 import { AlertsCenter } from './AlertsCenter';
 import { AttemptEconomicsCard } from './AttemptEconomicsCard';
 import { AttemptThroughputCard } from './AttemptThroughputCard';
 import { BankrollCard } from './BankrollCard';
 import { CapUsageCard } from './CapUsageCard';
 import { CostCard } from './CostCard';
+import { CushionBoardCard } from './CushionBoardCard';
 import { DiversificationCard } from './DiversificationCard';
+import { ExpectedNetCard } from './ExpectedNetCard';
+import { ExposureCard } from './ExposureCard';
 import { FirmReturnsCard } from './FirmReturnsCard';
 import { FundedPayoutsCard } from './FundedPayoutsCard';
 import { FunnelCard } from './FunnelCard';
 import { KpiRow } from './KpiRow';
+import { LiveProximityCard } from './LiveProximityCard';
 import {
     buildOverview,
     type OverviewAlerts,
+    type OverviewBoards,
+    overviewEngineRequestsOf,
+    type OverviewExposure,
     type OverviewLedgerCards,
     type OverviewModel,
     type OverviewNotice,
+    type OverviewProjection,
+    overviewProjectionRequestsOf,
     OverviewSectionStatus,
+    type OverviewViolations,
     type PortfolioLoadIssue,
     PortfolioSource,
 } from './overviewModel';
 import { PayoutSizesCard } from './PayoutSizesCard';
+import { PooledCapCard } from './PooledCapCard';
+import { ProjectionCard } from './ProjectionCard';
+import { ReadinessBoardCard } from './ReadinessBoardCard';
 import { RealizedOutcomesCard } from './RealizedOutcomesCard';
 import { RepeatabilityCard } from './RepeatabilityCard';
 import { ReplacementCard } from './ReplacementCard';
 import { StatementCard } from './StatementCard';
+import { TiltVarianceCard } from './TiltVarianceCard';
 import { TimelineCard } from './TimelineCard';
+import { useOverviewWorker } from './useOverviewWorker';
 import { usePortfolioData } from './usePortfolioData';
+import { ViolationsCard } from './ViolationsCard';
 
 export function OverviewView({ userId }: { readonly userId: string }) {
     const load = usePortfolioData();
     const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
     const externalFirms = externalFirmsQuery.data;
+    const engineRequests = useMemo(
+        () => [
+            ...overviewEngineRequestsOf(load, userId),
+            ...overviewProjectionRequestsOf(load, userId),
+        ],
+        [load, userId],
+    );
+    const engine = useOverviewWorker(engineRequests);
     const model = useMemo(
         () =>
             buildOverview({
+                engine,
                 externalFirms: externalFirms ?? [],
                 load,
                 today: todayIsoDate(new Date()),
                 userId,
             }),
-        [externalFirms, load, userId],
+        [engine, externalFirms, load, userId],
     );
     return (
         <>
@@ -110,7 +135,14 @@ function AlertsSection({ alerts }: { readonly alerts: OverviewAlerts }) {
     return (
         <OverviewSection id="alerts" title="Alerts">
             {alerts.kind === OverviewSectionStatus.Ready && (
-                <AlertsCenter alerts={alerts.alerts} />
+                <>
+                    {alerts.accountStatesCaveat !== null && (
+                        <p className="mb-3 text-sm text-muted-foreground">
+                            {alerts.accountStatesCaveat}
+                        </p>
+                    )}
+                    <AlertsCenter alerts={alerts.alerts} />
+                </>
             )}
             {alerts.kind === OverviewSectionStatus.Pending && (
                 <SectionSkeleton label="Loading the alerts" />
@@ -122,14 +154,118 @@ function AlertsSection({ alerts }: { readonly alerts: OverviewAlerts }) {
     );
 }
 
-function LedgerSections({ cards }: { readonly cards: OverviewLedgerCards }) {
+function BoardsSections({ boards }: { readonly boards: OverviewBoards }) {
+    switch (boards.kind) {
+        case OverviewSectionStatus.Failed: {
+            return (
+                <>
+                    <OverviewSection id="cushion-board" title="Cushion board">
+                        <p className="text-sm text-destructive">
+                            {boards.message}
+                        </p>
+                    </OverviewSection>
+                    <OverviewSection
+                        id="readiness-board"
+                        title="Payout readiness"
+                    >
+                        <p className="text-sm text-destructive">
+                            {boards.message}
+                        </p>
+                    </OverviewSection>
+                </>
+            );
+        }
+        case OverviewSectionStatus.Pending: {
+            return (
+                <>
+                    <OverviewSection id="cushion-board" title="Cushion board">
+                        <SectionSkeleton label="Loading the cushion board" />
+                    </OverviewSection>
+                    <OverviewSection
+                        id="readiness-board"
+                        title="Payout readiness"
+                    >
+                        <SectionSkeleton label="Loading the payout readiness board" />
+                    </OverviewSection>
+                </>
+            );
+        }
+        case OverviewSectionStatus.Ready: {
+            return (
+                <>
+                    <OverviewSection id="cushion-board" title="Cushion board">
+                        <CushionBoardCard model={boards.cushion} />
+                    </OverviewSection>
+                    <OverviewSection
+                        id="readiness-board"
+                        title="Payout readiness"
+                    >
+                        <ReadinessBoardCard model={boards.readiness} />
+                    </OverviewSection>
+                </>
+            );
+        }
+    }
+}
+
+function ExposureSection({ exposure }: { readonly exposure: OverviewExposure }) {
+    return (
+        <OverviewSection id="exposure" title="Exposure">
+            {exposure.kind === OverviewSectionStatus.Ready && (
+                <ExposureCard model={exposure.model} />
+            )}
+            {exposure.kind === OverviewSectionStatus.Pending && (
+                <SectionSkeleton label="Loading the exposure" />
+            )}
+            {exposure.kind === OverviewSectionStatus.Failed && (
+                <p className="text-sm text-destructive">{exposure.message}</p>
+            )}
+        </OverviewSection>
+    );
+}
+
+function LedgerSections({
+    cards,
+    projection,
+}: {
+    readonly cards: OverviewLedgerCards;
+    readonly projection: OverviewProjection;
+}) {
     return (
         <>
+            <OverviewSection id="expected-net" title="Expected net">
+                <ExpectedNetCard model={cards.expectedNet} />
+            </OverviewSection>
+            <OverviewSection
+                id="fresh-start-projection"
+                title="Fresh-start projection"
+            >
+                {projection.kind === OverviewSectionStatus.Ready && (
+                    <ProjectionCard model={projection.model} />
+                )}
+                {projection.kind === OverviewSectionStatus.Pending && (
+                    <SectionSkeleton label="Loading the fresh-start projection" />
+                )}
+                {projection.kind === OverviewSectionStatus.Failed && (
+                    <p className="text-sm text-destructive">
+                        {projection.message}
+                    </p>
+                )}
+            </OverviewSection>
             <OverviewSection id="cap-usage" title="Plan cap usage">
                 <CapUsageCard model={cards.capUsage} />
             </OverviewSection>
+            <OverviewSection id="pooled-caps" title="Pooled caps">
+                <PooledCapCard model={cards.pooledCaps} />
+            </OverviewSection>
+            <OverviewSection id="live-proximity" title="Live proximity">
+                <LiveProximityCard model={cards.liveProximity} />
+            </OverviewSection>
             <OverviewSection id="funnel" title="Stage funnel">
                 <FunnelCard model={cards.funnel} />
+            </OverviewSection>
+            <OverviewSection id="tilt-variance" title="Tilt vs variance">
+                <TiltVarianceCard model={cards.tiltVariance} />
             </OverviewSection>
             <OverviewSection id="diversification" title="Diversification">
                 <DiversificationCard model={cards.diversification} />
@@ -251,6 +387,7 @@ function OverviewSections({ model }: { readonly model: OverviewModel }) {
             return (
                 <>
                     <AlertsSection alerts={model.alerts} />
+                    <ViolationsSummarySection violations={model.violations} />
                     <Alert variant="destructive">
                         <TriangleAlert />
                         <AlertTitle>The ledger cards are not shown</AlertTitle>
@@ -263,6 +400,7 @@ function OverviewSections({ model }: { readonly model: OverviewModel }) {
             return (
                 <>
                     <AlertsSection alerts={model.alerts} />
+                    <ViolationsSummarySection violations={model.violations} />
                     <SectionSkeleton label="Loading the ledger cards" />
                 </>
             );
@@ -277,10 +415,16 @@ function OverviewSections({ model }: { readonly model: OverviewModel }) {
                         <BankrollCard model={ledger.bankroll} />
                     </OverviewSection>
                     <AlertsSection alerts={model.alerts} />
+                    <BoardsSections boards={model.boards} />
+                    <ExposureSection exposure={model.exposure} />
+                    <ViolationsSummarySection violations={model.violations} />
                     <OverviewSection id="notes" title="Data notes">
                         <NoticeList notices={ledger.notices} />
                     </OverviewSection>
-                    <LedgerSections cards={ledger} />
+                    <LedgerSections
+                        cards={ledger}
+                        projection={model.projection}
+                    />
                 </>
             );
         }
@@ -306,5 +450,27 @@ function SectionSkeleton({ label }: { readonly label: string }) {
         <div aria-busy="true" aria-label={label}>
             <Skeleton className="h-64 w-full" />
         </div>
+    );
+}
+
+function ViolationsSummarySection({
+    violations,
+}: {
+    readonly violations: OverviewViolations;
+}) {
+    return (
+        <OverviewSection id="violations" title="Rule violations">
+            {violations.kind === OverviewSectionStatus.Ready && (
+                <ViolationsCard model={violations.model} />
+            )}
+            {violations.kind === OverviewSectionStatus.Pending && (
+                <SectionSkeleton label="Loading your rule violations" />
+            )}
+            {violations.kind === OverviewSectionStatus.Failed && (
+                <p className="text-sm text-destructive">
+                    {violations.message}
+                </p>
+            )}
+        </OverviewSection>
     );
 }

@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { api } from '~/trpc/react';
 
-import { ACCOUNT_LIST_INPUT } from '../accountListFilters';
 import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
@@ -16,6 +16,8 @@ export function usePortfolioData(): PortfolioLoad {
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
     const { data: copyGroups, error: copyGroupsError } =
         api.propAccounts.copyGroup.list.useQuery();
+    const { data: decisions, error: decisionsError } =
+        api.propAccounts.decision.list.useQuery(LEDGER_LIST_INPUT);
     const { data: events, error: eventsError } =
         api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
     const { data: fees, error: feesError } =
@@ -28,6 +30,8 @@ export function usePortfolioData(): PortfolioLoad {
         api.propAccounts.snapshot.latestForAll.useQuery();
     const { data: transfers, error: transfersError } =
         api.propAccounts.bankroll.list.useQuery();
+    const { data: violations, error: violationsError } =
+        api.propAccounts.violation.list.useQuery(LEDGER_LIST_INPUT);
     return useMemo(
         () =>
             portfolioLoad({
@@ -38,6 +42,10 @@ export function usePortfolioData(): PortfolioLoad {
                 [PortfolioSource.CopyGroups]: {
                     data: copyGroups,
                     error: copyGroupsError,
+                },
+                [PortfolioSource.Decisions]: {
+                    data: decisions,
+                    error: decisionsError,
                 },
                 [PortfolioSource.Events]: { data: events, error: eventsError },
                 [PortfolioSource.Fees]: { data: fees, error: feesError },
@@ -57,12 +65,18 @@ export function usePortfolioData(): PortfolioLoad {
                     data: transfers,
                     error: transfersError,
                 },
+                [PortfolioSource.Violations]: {
+                    data: violations,
+                    error: violationsError,
+                },
             }),
         [
             accounts,
             accountsError,
             copyGroups,
             copyGroupsError,
+            decisions,
+            decisionsError,
             events,
             eventsError,
             fees,
@@ -75,6 +89,8 @@ export function usePortfolioData(): PortfolioLoad {
             snapshotsError,
             transfers,
             transfersError,
+            violations,
+            violationsError,
         ],
     );
 }

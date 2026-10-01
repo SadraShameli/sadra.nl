@@ -1,4 +1,5 @@
-import { type Dollars, TRADING_DAYS_PER_MONTH } from '../core';
+import { type Dollars, TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator/core';
+
 import {
     type EconomicsEstimate,
     EconomicsReason,

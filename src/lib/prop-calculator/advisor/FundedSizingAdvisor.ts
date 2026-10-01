@@ -7,10 +7,11 @@ import {
     points,
     resolvePositionSizing,
     TradingPhase,
-} from '../core';
-import { firmDataProvenance } from '../describe';
-import { DEFAULT_FUNDED_FLAT_CANDIDATES } from '../optimize';
-import { type FundedSimStart, type SimInputs } from '../simulator';
+} from '~/lib/prop-calculator/core';
+import { firmDataProvenance } from '~/lib/prop-calculator/describe';
+import { DEFAULT_FUNDED_FLAT_CANDIDATES } from '~/lib/prop-calculator/optimize';
+import { type FundedSimStart, type SimInputs } from '~/lib/prop-calculator/simulator';
+
 import { type Advice } from './Advice';
 import { adviceProvenance } from './AdviceProvenance';
 import { AdviceSource } from './AdviceSource';
@@ -110,20 +111,6 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
 
     private assumptions(): readonly Assumption[] {
         return this.withLiveTriggersNotChecked(this.input.account.assumptions);
-    }
-
-    private fundedConsistencyCeiling(): Dollars | null {
-        const { account } = this.input;
-        const { fundedTracker } = account;
-        if (fundedTracker === null) return null;
-        const rule = account.plan.fundedConsistencyRule(
-            fundedTracker.payoutsIssued,
-        );
-        return rule === null
-            ? null
-            : rule.maxDayProfitBeforeViolation(
-                  account.state.balance - fundedTracker.lastPayoutBalance,
-              );
     }
 
     private payoutRuleContext(): FundedPayoutRuleContext | null {
@@ -415,10 +402,27 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
         const { account, personalCaps, personalDll, positionSizing } =
             this.input;
         return ruleContextAt(account.plan, SizingStage.Funded, account.state, {
-            ceiling: this.fundedConsistencyCeiling(),
+            ceiling: fundedConsistencyCeiling(account),
             instrument: positionSizing?.instrument ?? null,
             personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
             personalDll: personalDll ?? null,
         });
     }
+
+    protected payoutEligibleForRiskCheck(): boolean {
+        return this.isPayoutRequestDecision(this.payoutRuleContext());
+    }
+}
+
+export function fundedConsistencyCeiling(
+    account: ReconstructedFundedOrEvalAccount,
+): Dollars | null {
+    const { fundedTracker } = account;
+    if (fundedTracker === null) return null;
+    const rule = account.plan.fundedConsistencyRule(fundedTracker.payoutsIssued);
+    return rule === null
+        ? null
+        : rule.maxDayProfitBeforeViolation(
+              account.state.balance - fundedTracker.lastPayoutBalance,
+          );
 }

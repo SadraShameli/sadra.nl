@@ -2,14 +2,43 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type CopyGroupAccount } from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
+import {
+    type CopyGroupAccount,
+    copyGroupRows,
+} from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
+import {
+    type OverviewAccountRow,
+    type OverviewSnapshotRow,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import {
+    bindingMemberIdsOf,
+    copyGroupSizingSectionsOf,
+} from '~/app/(app)/prop-calculator/accounts/copy-groups/copyGroupSizingModel';
 import { CopyGroupsView } from '~/app/(app)/prop-calculator/accounts/copy-groups/CopyGroupsView';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     AccountStage,
     AccountStatus,
     AccountTracking,
+    DashboardBalanceConvention,
+    describeUnresolvedPlan,
+    UnresolvedPlanReason,
+    usdCents,
 } from '~/lib/prop-accounts';
-import { ALL_FIRMS } from '~/lib/prop-calculator';
+import {
+    ALL_FIRMS,
+    CENTS_PER_DOLLAR,
+    findFirm,
+    FirmId,
+    MffuVariant,
+    serializePlanId,
+} from '~/lib/prop-calculator';
+import {
+    CopyGroupSizingResultKind,
+    DEFAULT_RULEBOOK,
+    SIZING_ASSUMPTION_TEXT,
+    SIZING_CONSTRAINT_TEXT,
+} from '~/lib/prop-calculator/advisor';
 import {
     PropLimitRejection,
     PropMutationRejection,
@@ -120,6 +149,10 @@ vi.mock('~/trpc/react', () => ({
                 remove: harness.mutation('copyGroup.remove'),
                 update: harness.mutation('copyGroup.update'),
             },
+            event: { list: harness.query('event.list') },
+            payout: { list: harness.query('payout.list') },
+            rulebook: { get: harness.query('rulebook.get') },
+            snapshot: { latestForAll: harness.query('snapshot.latestForAll') },
         },
         useUtils: () => ({
             propAccounts: { invalidate: harness.invalidate },
@@ -132,6 +165,8 @@ vi.mock('sonner', () => ({
 }));
 
 const FIRM = firstModeledFirm();
+const USER_ID = 'user-a';
+const TODAY = '2026-09-26';
 
 const MAIN = {
     id: '30000000-0000-4000-8000-000000000001',
@@ -173,6 +208,24 @@ function account(
 function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };
 }
+
+function mffProPlan() {
+    const firm = findFirm(FirmId.Mffu);
+    if (firm === undefined) throw new Error('MFF firm missing');
+    const plan = firm.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.Pro,
+    });
+    if (plan === undefined) throw new Error('no MFF Pro 50K plan');
+    return plan;
+}
+
+const SIZING_PLAN = mffProPlan();
+const DOCUMENTED_FUNDED_RISK =
+    DEFAULT_RULEBOOK.funded.riskCents / CENTS_PER_DOLLAR;
+const SIZING_PEAK = SIZING_PLAN.accountSize + 20_000;
+const SIZING_THRESHOLD = SIZING_PEAK - SIZING_PLAN.fundedDrawdown.amount;
 
 function answerWith(
     groups: readonly (typeof MAIN | typeof SPARE)[],
@@ -292,6 +345,73 @@ async function settle() {
     });
 }
 
+function sizingAccount(
+    id: string,
+    groupId: string,
+    overrides: Record<string, unknown> = {},
+) {
+    return {
+        accountSize: SIZING_PLAN.accountSize,
+        archivedAt: null,
+        copyGroupId: groupId,
+        dashboardConvention: DashboardBalanceConvention.Nominal,
+        externalFirmId: null,
+        firmId: SIZING_PLAN.id.firm,
+        firstFundedTradeOn: '2026-08-01',
+        fundedOn: '2026-08-01',
+        id,
+        label: id,
+        liveStartBalanceCents: null,
+        notes: null,
+        optIns: {},
+        personalRules: {},
+        planLabel: null,
+        planSerial: serializePlanId(SIZING_PLAN.id),
+        purchasedOn: '2026-07-01',
+        readIssues: [],
+        replacesAccountId: null,
+        stage: AccountStage.Funded,
+        status: AccountStatus.Active,
+        tags: [],
+        tracking: AccountTracking.Modeled,
+        userId: USER_ID,
+        ...overrides,
+    } as unknown as CopyGroupAccount & OverviewAccountRow;
+}
+
+function sizingSnapshot(
+    accountId: string,
+    balanceCents: number,
+    overrides: Record<string, unknown> = {},
+) {
+    return {
+        accountId,
+        asOf: TODAY,
+        balanceAtLastPayoutCents: null,
+        balanceCents: usdCents(balanceCents),
+        createdAt: new Date(`${TODAY}T00:00:00Z`),
+        cumulativePayoutCents: null,
+        cycleBestDayProfitCents: null,
+        dashboardFloorCents: null,
+        evalBestDayProfitCents: null,
+        floorAtLastPayoutCents: null,
+        highestEodBalanceCents: usdCents(Math.round(SIZING_PEAK * 100)),
+        highestIntradayBalanceCents: null,
+        id: `${accountId}-snapshot`,
+        lastPayoutOn: null,
+        lastTradedOn: null,
+        payoutsTaken: null,
+        qualifyingDaysSinceLastPayout: null,
+        tradingDays: 20,
+        userId: USER_ID,
+        ...overrides,
+    } as unknown as OverviewSnapshotRow;
+}
+
+function suspendedSizingAccount(id: string, groupId: string) {
+    return sizingAccount(id, groupId, { status: AccountStatus.Suspended });
+}
+
 function typeInto(input: HTMLInputElement | HTMLSelectElement, text: string) {
     act(() => {
         const prototype =
@@ -313,11 +433,15 @@ describe('CopyGroupsView', () => {
 
     function render() {
         act(() => {
-            root.render(<CopyGroupsView />);
+            root.render(<CopyGroupsView userId={USER_ID} />);
         });
     }
 
     beforeEach(() => {
+        vi.useFakeTimers({
+            now: new Date(`${TODAY}T12:00:00Z`),
+            toFake: ['Date'],
+        });
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.queries.clear();
         harness.outcomes.clear();
@@ -328,6 +452,10 @@ describe('CopyGroupsView', () => {
         harness.invalidate.mockClear();
         harness.toastError.mockClear();
         harness.toastSuccess.mockClear();
+        harness.queries.set('event.list', answer([]));
+        harness.queries.set('payout.list', answer([]));
+        harness.queries.set('rulebook.get', answer(DEFAULT_RULEBOOK));
+        harness.queries.set('snapshot.latestForAll', answer([]));
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -338,6 +466,7 @@ describe('CopyGroupsView', () => {
             root.unmount();
         });
         document.body.replaceChildren();
+        vi.useRealTimers();
         vi.unstubAllGlobals();
     });
 
@@ -505,7 +634,7 @@ describe('CopyGroupsView', () => {
                 isPending: false,
             });
             harness.queries.set('account.list', answer([]));
-            root.render(<CopyGroupsView />);
+            root.render(<CopyGroupsView userId={USER_ID} />);
         });
         expect(container.textContent).toContain(
             'Your copy groups could not be loaded',
@@ -879,5 +1008,252 @@ describe('CopyGroupsView', () => {
         expect(errorOf(field('Account to add to Main copy'))).toBe(
             'Choose an account to add.',
         );
+    });
+
+    describe('sizing and exposure', () => {
+        const LOOSE_ID = 'funded-loose';
+        const TIGHT_ID = 'funded-tight';
+        const UNRESOLVABLE_ID = 'funded-unresolvable';
+        const LOOSE_BALANCE_CENTS = Math.round(
+            (SIZING_THRESHOLD + DOCUMENTED_FUNDED_RISK * 5) * 100,
+        );
+        const TIGHT_RISK_CENTS = Math.round((DOCUMENTED_FUNDED_RISK / 2) * 100);
+
+        function loose() {
+            return sizingAccount(LOOSE_ID, MAIN.id);
+        }
+
+        function tight() {
+            return sizingAccount(TIGHT_ID, MAIN.id, {
+                personalRules: { maxRiskPerTradeCents: TIGHT_RISK_CENTS },
+            });
+        }
+
+        function unresolvable() {
+            return sizingAccount(UNRESOLVABLE_ID, MAIN.id, {
+                planSerial: 'no-such-plan',
+            });
+        }
+
+        function exposureFor(accounts: readonly ReturnType<typeof sizingAccount>[]) {
+            const groups = copyGroupRows([MAIN], accounts).groups;
+            const sections = copyGroupSizingSectionsOf(
+                DEFAULT_RULEBOOK,
+                USER_ID,
+                TODAY,
+                accounts,
+                [],
+                [],
+                snapshotsFor(accounts),
+                groups,
+            );
+            return sections.get(MAIN.id)?.exposure ?? null;
+        }
+
+        function snapshotsFor(
+            accounts: readonly ReturnType<typeof sizingAccount>[],
+        ) {
+            return accounts.map((sizingAccountRow) =>
+                sizingSnapshot(sizingAccountRow.id, LOOSE_BALANCE_CENTS),
+            );
+        }
+
+        function answerWithSizing(
+            accounts: readonly ReturnType<typeof sizingAccount>[],
+        ) {
+            answerWith([MAIN], accounts);
+            harness.queries.set(
+                'snapshot.latestForAll',
+                answer(snapshotsFor(accounts)),
+            );
+        }
+
+        function expectedSection(
+            accounts: readonly ReturnType<typeof sizingAccount>[],
+        ) {
+            const groups = copyGroupRows([MAIN], accounts).groups;
+            const sections = copyGroupSizingSectionsOf(
+                DEFAULT_RULEBOOK,
+                USER_ID,
+                TODAY,
+                accounts,
+                [],
+                [],
+                snapshotsFor(accounts),
+                groups,
+            );
+            const section = sections.get(MAIN.id);
+            if (section === undefined) {
+                throw new Error('no sizing section computed for the group');
+            }
+            return section;
+        }
+
+        it("shows the documented size at the tightest member's rung, naming the binding member, and the group's combined exposure", () => {
+            const accounts = [loose(), tight()];
+            answerWithSizing(accounts);
+            const section = expectedSection(accounts);
+            if (section.result.kind !== CopyGroupSizingResultKind.Sized) {
+                throw new Error('expected the group to be sized');
+            }
+            const groupRisk = section.result.sizing.rungs[0]?.risk ?? 0;
+            const bindingLabels = bindingMemberIdsOf(section.result);
+            expect(bindingLabels).toEqual([TIGHT_ID]);
+            expect(groupRisk).toBeLessThan(DOCUMENTED_FUNDED_RISK);
+
+            render();
+            const text = groupSection('Main copy').textContent;
+            expect(text).toContain(formatCurrency(groupRisk));
+            expect(text).toContain(TIGHT_ID);
+            expect(text).toContain('Combined exposure');
+            if (section.exposure === null) {
+                return;
+            }
+
+            expect(text).toContain(
+                formatCurrency(section.exposure.maxDailyLoss),
+            );
+            if (section.exposure.shareOfCushionAtRisk !== null) {
+                expect(text).toContain(
+                    formatPercent(section.exposure.shareOfCushionAtRisk),
+                );
+            }
+        });
+
+        it('explains which members could not be sized and why', () => {
+            const accounts = [loose(), tight(), unresolvable()];
+            answerWithSizing(accounts);
+            render();
+            const text = groupSection('Main copy').textContent;
+            expect(text).toContain(UNRESOLVABLE_ID);
+            expect(text).toContain('could not be sized');
+            expect(text).toContain(
+                describeUnresolvedPlan(
+                    { accountSize: SIZING_PLAN.accountSize, firmId: SIZING_PLAN.id.firm, optIns: {}, planSerial: 'no-such-plan' },
+                    UnresolvedPlanReason.UnknownPlanSerial,
+                ),
+            );
+        });
+
+        it('does not fold a suspended, non-archived member into the combined exposure it is excluded from sizing', () => {
+            const activeOnly = [loose(), tight()];
+            const withSuspended = [
+                ...activeOnly,
+                suspendedSizingAccount('funded-suspended', MAIN.id),
+            ];
+            const baseline = exposureFor(activeOnly);
+            if (baseline === null) {
+                throw new Error('expected the baseline group to have exposure');
+            }
+            const withExtraMember = exposureFor(withSuspended);
+            expect(withExtraMember).toEqual(baseline);
+
+            answerWithSizing(withSuspended);
+            render();
+            const text = groupSection('Main copy').textContent;
+            expect(text).toContain(
+                `Combined exposure: worst-case daily loss of ${formatCurrency(baseline.maxDailyLoss)}`,
+            );
+        });
+
+        it('names the member with no cushion room left when a group is rejected for it', () => {
+            const drained = sizingAccount('funded-drained', MAIN.id);
+            const roomy = tight();
+            const accounts = [drained, roomy];
+            answerWith([MAIN], accounts);
+            const drainedBalanceCents = Math.round(SIZING_THRESHOLD * 100);
+            const drainedSnapshot = sizingSnapshot(
+                drained.id,
+                drainedBalanceCents,
+            );
+            const roomySnapshot = sizingSnapshot(roomy.id, LOOSE_BALANCE_CENTS);
+            harness.queries.set(
+                'snapshot.latestForAll',
+                answer([drainedSnapshot, roomySnapshot]),
+            );
+            render();
+            const paragraphs = [
+                ...groupSection('Main copy').querySelectorAll('p'),
+            ].map((paragraph) => paragraph.textContent);
+            expect(
+                paragraphs.some(
+                    (paragraph) =>
+                        /cushion room left/i.test(paragraph) &&
+                        paragraph.includes('funded-drained'),
+                ),
+            ).toBe(true);
+        });
+
+        it('does not double a trailing period when a member is unsized for an implausible snapshot', () => {
+            const implausibleId = 'funded-implausible';
+            const sizedMembers = [loose(), tight()];
+            const accounts = [
+                ...sizedMembers,
+                sizingAccount(implausibleId, MAIN.id),
+            ];
+            answerWith([MAIN], accounts);
+            const implausibleFloorCents = usdCents(LOOSE_BALANCE_CENTS + 100);
+            const implausibleSnapshot = sizingSnapshot(
+                implausibleId,
+                LOOSE_BALANCE_CENTS,
+                { dashboardFloorCents: implausibleFloorCents },
+            );
+            harness.queries.set(
+                'snapshot.latestForAll',
+                answer([...snapshotsFor(sizedMembers), implausibleSnapshot]),
+            );
+            render();
+            const text = groupSection('Main copy').textContent;
+            expect(text).toContain(implausibleId);
+            expect(text).toContain('could not be sized');
+            expect(text).not.toContain('..');
+        });
+
+        it("shows the rung's capping rule, the assumptions, the sources and the snapshot date behind the documented size", () => {
+            const accounts = [loose(), tight()];
+            answerWithSizing(accounts);
+            const section = expectedSection(accounts);
+            if (section.result.kind !== CopyGroupSizingResultKind.Sized) {
+                throw new Error('expected the group to be sized');
+            }
+            render();
+            const text = groupSection('Main copy').textContent;
+            expect(text).toContain(TODAY);
+            const cappedBy = section.result.sizing.rungs[0]?.cappedBy ?? [];
+            for (const constraint of cappedBy) {
+                expect(text).toContain(SIZING_CONSTRAINT_TEXT[constraint]);
+            }
+            for (const assumption of section.result.sizing.assumptions) {
+                expect(text).toContain(SIZING_ASSUMPTION_TEXT[assumption]);
+            }
+            expect(text).toContain(section.result.sizing.sources.join(', '));
+        });
+
+        it('shows a loading state for sizing while a required query is still pending, never a stale number', () => {
+            const accounts = [loose(), tight()];
+            answerWith([MAIN], accounts);
+            harness.queries.delete('snapshot.latestForAll');
+            render();
+            const text = groupSection('Main copy').textContent;
+            expect(text).toContain('still loading');
+            expect(text).not.toContain('Documented size');
+            expect(text).not.toContain('$');
+        });
+
+        it('shows a readable error when a sizing query fails, without dropping the group', () => {
+            const accounts = [loose(), tight()];
+            answerWith([MAIN], accounts);
+            harness.queries.set('rulebook.get', {
+                data: undefined,
+                error: new Error('rulebook down'),
+                isError: true,
+                isPending: false,
+            });
+            render();
+            const text = groupSection('Main copy').textContent;
+            expect(text).toContain('could not be checked');
+            expect(text).toContain('rulebook down');
+            expect(container.textContent).toContain('Main copy');
+        });
     });
 });

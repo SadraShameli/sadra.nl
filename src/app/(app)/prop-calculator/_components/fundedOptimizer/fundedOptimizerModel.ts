@@ -1,6 +1,13 @@
 import type { CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 
+import { riskPercentToDollars } from '~/app/(app)/prop-calculator/_components/riskConversion';
 import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
+import {
+    clampFundedSweepTrials,
+    type FundedSweepBaseInputs,
+    type FundedSweepRequest,
+    type FundedSweepResult,
+} from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
 import {
     CENTS_PER_DOLLAR,
     DayStopRuleKind,
@@ -29,14 +36,6 @@ import {
     sortFundedResults,
 } from '~/lib/prop-calculator/optimize';
 import { type SimInputs, simulate } from '~/lib/prop-calculator/simulator';
-
-import {
-    clampFundedSweepTrials,
-    type FundedSweepBaseInputs,
-    type FundedSweepRequest,
-    type FundedSweepResult,
-} from '../../_workers/fundedSweepWorkerMessages';
-import { riskPercentToDollars } from '../riskConversion';
 
 export const PERCENT_CANDIDATES_NEED_STOP_NOTE =
     'percent-of-cushion candidates are left out: pick an instrument and a stop to place them in whole contracts';
@@ -106,6 +105,7 @@ export function fundedOptimizerRequest(
         takesOneTimeEarlyWithdrawal: inputs.takesOneTimeEarlyWithdrawal,
     });
     const { policy: builtPolicy } = buildEnginePolicy({
+        accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
         fundedHorizonDays: inputs.fundedHorizonDays,
         measuredRebuyLag: null,
         plan,

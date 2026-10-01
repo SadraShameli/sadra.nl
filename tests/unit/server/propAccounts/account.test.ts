@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-    buildAccountListRows,
-    unresolvablePlanAlerts,
-} from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { buildAccountListRows } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { portfolioAlerts } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { captureError } from '~/lib/observability/logger';
 import {
     AccountEventKind,
     type AccountReadIssue,
     AccountReadIssueKind,
     AccountStage,
+    AlertKind,
     compareText,
     describeAccountReadIssue,
     LifecycleRejection,
+    NO_ACCOUNT_STATES,
     PlanKeyResolutionKind,
     readAccountEventDetail,
     resolvePlanKey,
@@ -22,6 +22,7 @@ import {
 } from '~/lib/prop-accounts';
 import { PropInvalidStoredRecordError } from '~/lib/prop-accounts/server';
 import { NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
+import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import {
     PropMutationRejection,
     PropRecord,
@@ -1076,9 +1077,17 @@ describe('propAccounts.account', () => {
                 describedReadIssues(trackedAccountOf(account)),
             ),
         );
-        const alerted = unresolvablePlanAlerts(listed, '2026-09-25').map(
-            (alert) => alert.subject,
-        );
+        const alerted = portfolioAlerts({
+            accounts: listed,
+            accountStates: NO_ACCOUNT_STATES,
+            copyGroups: [],
+            payouts: [],
+            rulebook: DEFAULT_RULEBOOK,
+            snapshots: [],
+            today: '2026-09-25',
+        })
+            .filter((alert) => alert.kind === AlertKind.UnresolvablePlan)
+            .map((alert) => alert.subject);
         expect(alerted).toHaveLength(
             UNREADABLE_CASES.filter((entry) => !isPersonalRulesCase(entry))
                 .length,

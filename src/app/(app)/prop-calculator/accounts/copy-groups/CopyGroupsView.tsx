@@ -4,6 +4,20 @@ import { Layers, Pencil, Trash2, TriangleAlert, UserMinus } from 'lucide-react';
 import { useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import {
+    type CopyGroupMember,
+    copyGroupNameError,
+    type CopyGroupRow,
+    copyGroupRows,
+    memberStateLabel,
+    stageConflictsOf,
+    stageRosterOf,
+} from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
+import {
+    EVENT_LIST_INPUT,
+    LEDGER_LIST_INPUT,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import {
     AlertDialog,
@@ -22,7 +36,14 @@ import { EmptyState } from '~/components/ui/EmptyState';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Skeleton } from '~/components/ui/Skeleton';
-import { formatConjunctionList } from '~/lib/format';
+import { formatConjunctionList, formatCurrency, formatPercent } from '~/lib/format';
+import { todayIsoDate } from '~/lib/prop-accounts';
+import {
+    CopyGroupSizingRejectionKind,
+    CopyGroupSizingResultKind,
+    SIZING_ASSUMPTION_TEXT,
+    SIZING_CONSTRAINT_TEXT,
+} from '~/lib/prop-calculator/advisor';
 import {
     PropMutationRejection,
     propRejectionOf,
@@ -30,16 +51,11 @@ import {
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
-import { ACCOUNT_LIST_INPUT } from '../_components/accountListFilters';
 import {
-    type CopyGroupMember,
-    copyGroupNameError,
-    type CopyGroupRow,
-    copyGroupRows,
-    memberStateLabel,
-    stageConflictsOf,
-    stageRosterOf,
-} from '../_components/copyGroups/copyGroupRows';
+    bindingMemberIdsOf,
+    type CopyGroupSizingSection,
+    copyGroupSizingSectionsOf,
+} from './copyGroupSizingModel';
 
 const CHOOSE_ACCOUNT = 'Choose an account to add.';
 
@@ -49,10 +65,20 @@ interface AssignRejection {
     readonly message: string;
 }
 
-export function CopyGroupsView() {
+type GroupSizingView =
+    | { readonly kind: 'failed'; readonly message: string }
+    | { readonly kind: 'pending' }
+    | { readonly kind: 'ready'; readonly section: CopyGroupSizingSection };
+
+export function CopyGroupsView({ userId }: { readonly userId: string }) {
     const groupsQuery = api.propAccounts.copyGroup.list.useQuery();
     const accountsQuery =
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
+    const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
+    const payoutsQuery =
+        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
+    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
+    const snapshotsQuery = api.propAccounts.snapshot.latestForAll.useQuery();
     const headingReference = useRef<HTMLHeadingElement>(null);
     const groups = groupsQuery.data;
     const accounts = accountsQuery.data;
@@ -63,6 +89,48 @@ export function CopyGroupsView() {
                 : copyGroupRows(groups, accounts),
         [groups, accounts],
     );
+    const sizingFailure =
+        [eventsQuery, payoutsQuery, rulebookQuery, snapshotsQuery].find(
+            (query) => query.isError,
+        )?.error.message ?? null;
+    const sizingSections = useMemo(() => {
+        return sizingFailure === null &&
+            overview !== null &&
+            accounts !== undefined &&
+            eventsQuery.data !== undefined &&
+            payoutsQuery.data !== undefined &&
+            rulebookQuery.data !== undefined &&
+            snapshotsQuery.data !== undefined
+            ? copyGroupSizingSectionsOf(
+                  rulebookQuery.data,
+                  userId,
+                  todayIsoDate(new Date()),
+                  accounts,
+                  eventsQuery.data,
+                  payoutsQuery.data,
+                  snapshotsQuery.data,
+                  overview.groups,
+              )
+            : null;
+    }, [
+        sizingFailure,
+        overview,
+        accounts,
+        eventsQuery.data,
+        payoutsQuery.data,
+        rulebookQuery.data,
+        snapshotsQuery.data,
+        userId,
+    ]);
+    const sizingViewFor = (groupId: string): GroupSizingView => {
+        if (sizingFailure !== null) {
+            return { kind: 'failed', message: sizingFailure };
+        }
+        const section = sizingSections?.get(groupId);
+        return section === undefined
+            ? { kind: 'pending' }
+            : { kind: 'ready', section };
+    };
 
     return (
         <>
@@ -117,6 +185,7 @@ export function CopyGroupsView() {
                                         headingReference.current?.focus();
                                     }}
                                     row={row}
+                                    sizing={sizingViewFor(row.group.id)}
                                 />
                             ))
                         )}
@@ -286,10 +355,12 @@ function GroupSection({
     candidates,
     onDeleted,
     row,
+    sizing,
 }: {
     readonly candidates: readonly CopyGroupMember[];
     readonly onDeleted: () => void;
     readonly row: CopyGroupRow;
+    readonly sizing: GroupSizingView;
 }) {
     const utilities = api.useUtils();
     const headingId = useId();
@@ -430,6 +501,9 @@ function GroupSection({
                 members={row.members}
                 onRemove={remove}
             />
+            {row.members.length > 0 && (
+                <GroupSizingSection row={row} sizing={sizing} />
+            )}
             {row.otherMembers.length > 0 && (
                 <div className="flex flex-col gap-2">
                     <p className="text-sm text-muted-foreground">
@@ -499,6 +573,114 @@ function GroupSection({
                 </form>
             )}
         </section>
+    );
+}
+
+function GroupSizingSection({
+    row,
+    sizing,
+}: {
+    readonly row: CopyGroupRow;
+    readonly sizing: GroupSizingView;
+}) {
+    if (sizing.kind === 'pending') {
+        return (
+            <p aria-busy="true" className="text-sm text-muted-foreground">
+                Sizing and exposure are still loading.
+            </p>
+        );
+    }
+    if (sizing.kind === 'failed') {
+        return (
+            <p className="text-sm text-destructive">
+                Sizing and exposure could not be checked: {sizing.message}
+            </p>
+        );
+    }
+    const { asOf, exposure, result, unsizedMembers } = sizing.section;
+    const labelOf = (memberId: string) =>
+        row.members.find((member) => member.id === memberId)?.label ??
+        memberId;
+    const cappedBy = result.kind === CopyGroupSizingResultKind.Sized
+        ? (result.sizing.rungs[0]?.cappedBy ?? [])
+        : [];
+    return (
+        <div className="flex flex-col gap-2 text-sm">
+            {result.kind === CopyGroupSizingResultKind.Sized ? (
+                <>
+                    <p>
+                        Documented size for every copy:{' '}
+                        <strong>
+                            {formatCurrency(result.sizing.rungs[0]?.risk ?? 0)}
+                        </strong>
+                        , set by{' '}
+                        {formatConjunctionList(
+                            bindingMemberIdsOf(result).map(labelOf),
+                        )}
+                        , as of {asOf}.
+                    </p>
+                    {cappedBy.length > 0 && (
+                        <p className="text-muted-foreground">
+                            {cappedBy
+                                .map(
+                                    (constraint) =>
+                                        SIZING_CONSTRAINT_TEXT[constraint],
+                                )
+                                .join(' ')}
+                        </p>
+                    )}
+                    {result.sizing.assumptions.length > 0 && (
+                        <p className="text-muted-foreground">
+                            {result.sizing.assumptions
+                                .map(
+                                    (assumption) =>
+                                        SIZING_ASSUMPTION_TEXT[assumption],
+                                )
+                                .join(' ')}
+                        </p>
+                    )}
+                    {result.sizing.sources.length > 0 && (
+                        <p className="text-muted-foreground">
+                            Source: {result.sizing.sources.join(', ')}.
+                        </p>
+                    )}
+                </>
+            ) : (
+                <>
+                    <p>{result.rejection.message}</p>
+                    {result.rejection.kind ===
+                        CopyGroupSizingRejectionKind.NoCushionRoom && (
+                        <p className="text-muted-foreground">
+                            No cushion room left for{' '}
+                            {formatConjunctionList(
+                                result.rejection.memberIds.map(labelOf),
+                            )}
+                            .
+                        </p>
+                    )}
+                </>
+            )}
+            {exposure !== null && (
+                <p>
+                    Combined exposure: worst-case daily loss of{' '}
+                    {formatCurrency(exposure.maxDailyLoss)} across the group
+                    {exposure.shareOfCushionAtRisk !== null &&
+                        `, ${formatPercent(exposure.shareOfCushionAtRisk)} of its combined cushion`}
+                    , each account sized to its own documented rung, not to
+                    the shared copy size above.
+                </p>
+            )}
+            {unsizedMembers.length > 0 && (
+                <ul className="flex flex-col gap-1 text-muted-foreground">
+                    {unsizedMembers.map((member) => (
+                        <li key={member.memberId}>
+                            {member.label} could not be sized: {member.reason}
+                            .
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
     );
 }
 

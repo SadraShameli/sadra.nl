@@ -1,14 +1,24 @@
-import { act } from 'react';
+import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+    type DocumentedRunFigures,
+    type OverviewOutcome,
+    OverviewOutcomeKind,
+    type OverviewRequest,
+    overviewRequestKey,
+    OverviewRequestKind,
+} from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { type AccountListAccount } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { OverviewView } from '~/app/(app)/prop-calculator/accounts/_components/overview/OverviewView';
+import { overviewOutcomeCache } from '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker';
 import {
     AccountEventKind,
     AccountStage,
     AccountStatus,
     AccountTracking,
+    DashboardBalanceConvention,
     FeeKind,
     type LedgerAccountRow,
     type LedgerEventRow,
@@ -80,12 +90,14 @@ vi.mock('~/trpc/react', () => ({
             },
             bankroll: { list: harness.query('bankroll.list') },
             copyGroup: { list: harness.query('copyGroup.list') },
+            decision: { list: harness.query('decision.list') },
             event: { list: harness.query('event.list') },
             externalFirm: { list: harness.query('externalFirm.list') },
             fee: { list: harness.query('fee.list') },
             payout: { list: harness.query('payout.list') },
             rulebook: { get: harness.query('rulebook.get') },
             snapshot: { latestForAll: harness.query('snapshot.latestForAll') },
+            violation: { list: harness.query('violation.list') },
         },
         useUtils: () => ({
             propAccounts: {
@@ -105,9 +117,18 @@ const CARD_HEADINGS = [
     'Key figures',
     'Bankroll',
     'Alerts',
+    'Cushion board',
+    'Payout readiness',
+    'Exposure',
+    'Rule violations',
     'Data notes',
+    'Expected net',
+    'Fresh-start projection',
     'Plan cap usage',
+    'Pooled caps',
+    'Live proximity',
     'Stage funnel',
+    'Tilt vs variance',
     'Diversification',
     'Costs',
     'Firm returns',
@@ -146,11 +167,41 @@ function answerEverything(accounts: readonly OverviewAccount[]) {
     harness.queries.set('account.list', answer(accounts));
     harness.queries.set('bankroll.list', answer([]));
     harness.queries.set('copyGroup.list', answer([]));
+    harness.queries.set('decision.list', answer([]));
     harness.queries.set('event.list', answer(events));
     harness.queries.set('fee.list', answer(fees));
     harness.queries.set('payout.list', answer([]));
     harness.queries.set('rulebook.get', answer(DEFAULT_RULEBOOK));
     harness.queries.set('snapshot.latestForAll', answer([]));
+    harness.queries.set('violation.list', answer([]));
+}
+
+function documentedFigures(): DocumentedRunFigures {
+    return {
+        anyPayoutGivenFundedProbability: {
+            standardError: 0.01,
+            value: 0.4,
+        },
+        attemptPassProbability: { standardError: 0.02, value: 0.3 },
+        costPerAttempt: { standardError: 1, value: 120 },
+        costPerFundedAccount: 777,
+        expectedMonthlyNet: { standardError: 11, value: 1234 },
+        expectedMonthlyRealizedNet: { standardError: 9, value: 1111 },
+        expectedNetPerAttempt: { standardError: 5, value: 55 },
+        expectedPayoutPerFundedAccount: {
+            standardError: 20,
+            value: 900,
+        },
+        fundedHorizonDays: 252,
+        fundedPayoutCountDistribution: [
+            0.6, 0.2, 0.1, 0.05, 0.03, 0.02, 0, 0, 0, 0, 0,
+        ],
+        fundedSurvivalProbability: { standardError: 0.03, value: 0.55 },
+        minRetainedCushion: 2750,
+        payoutRequestSize: 1250,
+        payoutsPerFundedAccount: { standardError: 0.1, value: 1.5 },
+        trials: 1234,
+    };
 }
 
 function failure(message: string, propRejection?: PropRejection): FakeQuery {
@@ -175,6 +226,14 @@ function firstEvalPlan() {
     throw new Error('no eval plan');
 }
 
+function heldFundedAccount(): OverviewAccount {
+    return overviewAccount('alpha', {
+        fundedOn: '2026-09-05',
+        purchasedOn: '2026-06-01',
+        stage: AccountStage.Funded,
+    });
+}
+
 function overviewAccount(
     id: string,
     overrides: Partial<OverviewAccount> = {},
@@ -183,11 +242,14 @@ function overviewAccount(
         accountSize: plan.id.accountSize,
         archivedAt: null,
         copyGroupId: null,
+        dashboardConvention: DashboardBalanceConvention.Nominal,
         externalFirmId: null,
         firmId: firm.id,
+        firstFundedTradeOn: null,
         fundedOn: null,
         id,
         label: id,
+        liveStartBalanceCents: null,
         notes: null,
         optIns: {},
         planLabel: null,
@@ -214,6 +276,14 @@ function rejection(overrides: Partial<PropRejection>): PropRejection {
         recordId: null,
         ...overrides,
     };
+}
+
+async function settle() {
+    await act(async () => {
+        await new Promise((resolve) => {
+            setTimeout(resolve, 20);
+        });
+    });
 }
 
 describe('OverviewView', () => {
@@ -410,6 +480,87 @@ describe('OverviewView', () => {
         );
     });
 
+    it('fires the bankroll loss risk alert from real ledger data (PT-58a3 leftover)', () => {
+        const losers = Array.from({ length: 5 }, (_unused, index) =>
+            overviewAccount(`loser-${String(index)}`, {
+                fundedOn: '2026-06-01',
+                purchasedOn: '2026-05-01',
+                stage: AccountStage.Funded,
+            }),
+        );
+        const winner = overviewAccount('winner', {
+            fundedOn: '2026-06-01',
+            purchasedOn: '2026-05-01',
+            stage: AccountStage.Funded,
+        });
+        const every = [...losers, winner];
+        answerEverything(every);
+        harness.queries.set(
+            'fee.list',
+            answer(
+                every.map((row): LedgerFeeRow => ({
+                    accountId: row.id,
+                    amountCents: usdCents(20_000),
+                    id: `fee-${row.id}`,
+                    kind: FeeKind.EvalPurchase,
+                    paidOn: '2026-05-01',
+                    userId: USER_ID,
+                })),
+            ),
+        );
+        harness.queries.set(
+            'event.list',
+            answer(
+                every.flatMap((row): LedgerEventRow[] => [
+                    {
+                        accountId: row.id,
+                        createdAt: new Date('2026-05-01T12:00:00Z'),
+                        id: `purchased-${row.id}`,
+                        kind: AccountEventKind.Purchased,
+                        occurredOn: '2026-05-01',
+                        userId: USER_ID,
+                    },
+                    {
+                        accountId: row.id,
+                        createdAt: new Date('2026-06-01T12:00:00Z'),
+                        id: `eval-passed-${row.id}`,
+                        kind: AccountEventKind.EvalPassed,
+                        occurredOn: '2026-06-01',
+                        userId: USER_ID,
+                    },
+                ]),
+            ),
+        );
+        const paidPayout: LedgerPayoutRow = {
+            accountId: winner.id,
+            approvedOn: null,
+            grossCents: usdCents(150_000),
+            id: 'payout-winner',
+            netCents: usdCents(150_000),
+            paidOn: '2026-06-15',
+            requestedOn: '2026-06-10',
+            status: PayoutStatus.Paid,
+            userId: USER_ID,
+        };
+        harness.queries.set('payout.list', answer([paidPayout]));
+        harness.queries.set(
+            'rulebook.get',
+            answer({
+                ...DEFAULT_RULEBOOK,
+                bankroll: {
+                    ...DEFAULT_RULEBOOK.bankroll,
+                    lossRiskThreshold: 0.3,
+                },
+                samples: { ...DEFAULT_RULEBOOK.samples, minEvalAttempts: 1 },
+            }),
+        );
+        render();
+        expect(container.textContent).toContain(
+            'Bankroll loss risk above threshold',
+        );
+        expect(container.textContent).toContain('above your 30.0% threshold');
+    });
+
     it('shows one readable error and no table error or skeleton when the accounts cannot be loaded', () => {
         answerEverything([]);
         harness.queries.set('account.list', failure('Failed to fetch'));
@@ -514,11 +665,14 @@ describe('OverviewView', () => {
             'Spend, payouts, net and the ledger cards are not shown because your account events could not be loaded.',
         );
         expect(container.textContent).toContain('Unresolvable plan');
+        expect(container.textContent).toContain(
+            'Alerts that depend on account history could not be checked because your account events could not be loaded.',
+        );
         expect(
             labelledSections().map(
                 (section) => headingOf(section)?.textContent,
             ),
-        ).toEqual(['Alerts', 'Accounts']);
+        ).toEqual(['Alerts', 'Rule violations', 'Accounts']);
     });
 
     it('keeps every card after a failed refetch and says which data is stale', () => {
@@ -596,5 +750,235 @@ describe('OverviewView', () => {
                 (section) => headingOf(section)?.textContent === 'Key figures',
             ),
         ).toHaveLength(0);
+    });
+    it('shows the cushion and payout readiness boards with the reason an account has no state yet (F-80, F-81)', () => {
+        answerEverything([
+            overviewAccount('alpha', {
+                fundedOn: '2026-09-05',
+                purchasedOn: '2026-06-01',
+                stage: AccountStage.Funded,
+            }),
+            overviewAccount('beta'),
+        ]);
+        render();
+        const cushion = sectionNamed('Cushion board');
+        expect(cushion?.textContent).toContain(
+            'No account has a usable balance snapshot yet.',
+        );
+        expect(cushion?.textContent).toContain('alpha: it has no snapshot yet');
+        const readiness = sectionNamed('Payout readiness');
+        expect(readiness?.textContent).toContain(
+            'No funded account has a usable balance snapshot yet.',
+        );
+        expect(readiness?.textContent).toContain(
+            'beta: it has no snapshot yet',
+        );
+    });
+
+    describe('engine cards from the overview worker', () => {
+        interface Posted {
+            readonly requests: readonly OverviewRequest[];
+        }
+
+        const posted: Posted[] = [];
+
+        function outcomeFor(request: OverviewRequest): OverviewOutcome {
+            const key = overviewRequestKey(request);
+            return request.kind === OverviewRequestKind.DocumentedRun
+                ? {
+                      key,
+                      kind: OverviewOutcomeKind.Succeeded,
+                      result: {
+                          figures: documentedFigures(),
+                          kind: OverviewRequestKind.DocumentedRun,
+                      },
+                  }
+                : {
+                      key,
+                      kind: OverviewOutcomeKind.Failed,
+                      reason: 'one ES contract risks more than your risk',
+                  };
+        }
+
+        const heldDone: (() => void)[] = [];
+        let created = 0;
+        let isStreamingProgress = false;
+
+        class FakeWorker {
+            private listener: ((event: { data: unknown }) => void) | null =
+                null;
+
+            constructor() {
+                created += 1;
+            }
+
+            addEventListener(
+                type: string,
+                listener: (event: { data: unknown }) => void,
+            ) {
+                if (type === 'message') this.listener = listener;
+            }
+
+            postMessage(message: { request: Posted; runId: number }) {
+                posted.push(message.request);
+                const outcomes = message.request.requests.map((request) =>
+                    outcomeFor(request),
+                );
+                const done = () => {
+                    this.listener?.({
+                        data: {
+                            kind: 'done',
+                            result: { outcomes },
+                            runId: message.runId,
+                        },
+                    });
+                };
+                if (!isStreamingProgress) {
+                    queueMicrotask(done);
+                    return;
+                }
+                queueMicrotask(() => {
+                    this.listener?.({
+                        data: {
+                            kind: 'progress',
+                            progress: { outcomes: outcomes.slice(0, 1) },
+                            runId: message.runId,
+                        },
+                    });
+                });
+                heldDone.push(done);
+            }
+
+            terminate() {
+                this.listener = null;
+            }
+        }
+
+        beforeEach(() => {
+            posted.length = 0;
+            heldDone.length = 0;
+            created = 0;
+            isStreamingProgress = false;
+            overviewOutcomeCache.clear();
+        });
+
+        it('starts one worker for one request set even when the worker streams a progress message per outcome', async () => {
+            isStreamingProgress = true;
+            vi.stubGlobal('Worker', FakeWorker);
+            answerEverything([heldFundedAccount()]);
+            render();
+            await settle();
+            expect(sectionNamed('Expected net')?.textContent).toContain(
+                '$1,111 (SE $9)',
+            );
+            expect(created).toBe(1);
+            expect(posted).toHaveLength(1);
+            for (const done of heldDone) done();
+            await settle();
+            expect(created).toBe(1);
+            expect(posted).toHaveLength(1);
+            expect(sectionNamed('Expected net')?.textContent).toContain(
+                'one ES contract risks more than your risk',
+            );
+        });
+
+        it('still gets its answer under React strict mode, which unmounts and remounts once', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            answerEverything([heldFundedAccount()]);
+            act(() => {
+                root.render(
+                    <StrictMode>
+                        <OverviewView userId={USER_ID} />
+                    </StrictMode>,
+                );
+            });
+            await settle();
+            expect(sectionNamed('Expected net')?.textContent).toContain(
+                '$1,111 (SE $9)',
+            );
+        });
+
+        it('keeps the answers across a visit: coming back to the overview shows them at once and starts no worker', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            answerEverything([heldFundedAccount()]);
+            render();
+            await settle();
+            expect(created).toBe(1);
+            act(() => {
+                root.unmount();
+            });
+            root = createRoot(container);
+            render();
+            expect(sectionNamed('Expected net')?.textContent).toContain(
+                '$1,111 (SE $9)',
+            );
+            await settle();
+            expect(created).toBe(1);
+            expect(posted).toHaveLength(1);
+        });
+
+        it('sends one documented-run, one payout-size-optimum and one portfolio-projection request for the held plan and fills the expected net card and KPI from the answers', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            answerEverything([heldFundedAccount()]);
+            render();
+            await act(async () => {
+                await Promise.resolve();
+            });
+            expect(posted).toHaveLength(1);
+            expect(posted[0]?.requests.map((request) => request.kind)).toEqual([
+                OverviewRequestKind.DocumentedRun,
+                OverviewRequestKind.PayoutSizeOptimum,
+                OverviewRequestKind.PortfolioProjection,
+            ]);
+            expect(posted[0]?.requests[2]?.accounts).toBe(1);
+            expect(
+                sectionNamed('Fresh-start projection')?.textContent,
+            ).toContain('one ES contract risks more than your risk');
+            expect(sectionNamed('Exposure')?.textContent).toContain(
+                'alpha: it has no snapshot yet',
+            );
+            const expectedNet = sectionNamed('Expected net');
+            expect(expectedNet?.textContent).toContain('$1,111 (SE $9)');
+            expect(expectedNet?.textContent).toContain('1,234 trials');
+            expect(expectedNet?.textContent).toContain(
+                'one ES contract risks more than your risk',
+            );
+            expect(sectionNamed('Key figures')?.textContent).toContain(
+                '$1,111',
+            );
+            expect(sectionNamed('Costs')?.textContent).toContain('$777-$627');
+        });
+
+        it('does not send the same requests again when the view renders again with the same data', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            answerEverything([heldFundedAccount()]);
+            render();
+            await act(async () => {
+                await Promise.resolve();
+            });
+            render();
+            await act(async () => {
+                await Promise.resolve();
+            });
+            expect(posted).toHaveLength(1);
+        });
+
+        it('says so instead of throwing when web workers are not available, and the other cards keep their data', () => {
+            answerEverything([heldFundedAccount()]);
+            render();
+            const expectedNet = sectionNamed('Expected net');
+            expect(expectedNet?.textContent).toContain(
+                'Web workers are not available in this browser.',
+            );
+            expect(expectedNet?.textContent).toContain('Not available');
+            expect(sectionNamed('Key figures')).toBeDefined();
+        });
+
+        it('sends nothing while no plan is held', () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            answerEverything([]);
+            render();
+            expect(posted).toEqual([]);
+        });
     });
 });

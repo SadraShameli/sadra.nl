@@ -39,7 +39,19 @@ import {
     valueOnCushionGrid,
 } from './EvalStateValue';
 import { type CouponDiscounts } from './FeeSchedule';
+import {
+    FundedCushionGrid,
+    type FundedCushionGridSummary,
+} from './FundedCushionGrid';
 import { FundedCycleBaselineGrid } from './FundedCycleBaselineGrid';
+import {
+    DEFAULT_ACTION_STEP_MULTIPLE,
+    DEFAULT_CUSHION_STEP_MULTIPLE,
+    DEFAULT_MAX_ACTION_MULTIPLE,
+    DEFAULT_MAX_CUSHION_MULTIPLE,
+    DEFAULT_MAX_TAIL_CUSHION_MULTIPLE,
+    DEFAULT_TAIL_CUSHION_STEP_MULTIPLE,
+} from './FundedGridDefaults';
 import {
     newFundedCycleTracker,
     PayoutDayGateBasis,
@@ -92,6 +104,10 @@ export interface FundedCycleBaselineRounding {
     readonly topDollars: number;
 }
 
+export interface FundedResolvedCushionGrid extends FundedCushionGridSummary {
+    readonly lockedTopDollars: number;
+}
+
 export interface FundedStateValueConfig {
     readonly actionStepMultiple?: number;
     readonly commission?: Dollars;
@@ -107,6 +123,7 @@ export interface FundedStateValueConfig {
     readonly maxCushionMultiple?: number;
     readonly maxIterationsPerLevel?: number;
     readonly maxPreLockOffsetMultiple?: number;
+    readonly maxTailCushionMultiple?: number;
     readonly meanHorizonDays?: number;
     readonly minRetainedCushion?: number;
     readonly payoutRegimeCap?: number;
@@ -117,6 +134,7 @@ export interface FundedStateValueConfig {
     readonly rrRatio: number;
     readonly rungSizing?: RungSizing;
     readonly stopRule?: DayStopRule;
+    readonly tailCushionStepMultiple?: number;
     readonly tradesPerDay?: number;
     readonly warmStartValues?: Float64Array;
     readonly winrate: number;
@@ -124,9 +142,14 @@ export interface FundedStateValueConfig {
 
 export interface FundedStateValueResult {
     readonly bustTerminalValue: number;
+    readonly cushionGrid: FundedResolvedCushionGrid;
     readonly cycleBaselineRounding: FundedCycleBaselineRounding | null;
     readonly dayPolicy: DayPolicy;
     readonly initialValue: number;
+    readonly isGridSaturated: (
+        state: AccountState,
+        fundedCycle?: FundedCycleSnapshot,
+    ) => boolean;
     readonly reachedStateCount: number;
     readonly stateValues: Float64Array;
     readonly sweepCount: number;
@@ -148,10 +171,6 @@ export interface SweepToConvergenceOptions {
     readonly sweep: () => number;
 }
 
-export const DEFAULT_ACTION_STEP_MULTIPLE = 0.05;
-export const DEFAULT_MAX_ACTION_MULTIPLE = 1;
-export const DEFAULT_CUSHION_STEP_MULTIPLE = 0.1;
-export const DEFAULT_MAX_CUSHION_MULTIPLE = 6;
 const DEFAULT_MAX_PRE_LOCK_OFFSET_MULTIPLE = 3;
 const DEFAULT_PAYOUT_REGIME_CAP = 6;
 const DEFAULT_TRADES_PER_DAY = 4;
@@ -323,6 +342,7 @@ interface FundedSolveContext {
     readonly bustTerminalValue: number;
     readonly candidateTradesCache: CandidateTradesCache;
     readonly commission: Dollars;
+    readonly cushionGrid: FundedCushionGrid;
     readonly cushionStepDollars: number;
     readonly cycleBaselineGrid: FundedCycleBaselineGrid;
     readonly cycleBestDayKeyRadix: number;
@@ -595,10 +615,7 @@ function bucketIndex(
     dollarsValue: number,
     bucketCount: number,
 ): number {
-    const raw = Math.floor(
-        (dollarsValue + BUCKET_EPSILON) / context.cushionStepDollars,
-    );
-    return Math.min(bucketCount - 1, Math.max(0, raw));
+    return context.cushionGrid.floorIndex(dollarsValue, bucketCount);
 }
 
 function buildFundedSolveContext(
@@ -707,13 +724,20 @@ function buildFundedSolveContext(
         contractsAreMicro,
     );
 
-    const lockedCushionBucketCount =
+    const lockedFineCushionBucketCount =
         Math.max(
             1,
             Math.round(
                 (maxCushionMultiple * drawdownAmount) / cushionStepDollars,
             ),
         ) + 1;
+    const tailCushionStepMultiple =
+        config.tailCushionStepMultiple ?? DEFAULT_TAIL_CUSHION_STEP_MULTIPLE;
+    const tailCushionStepDollars = tailCushionStepMultiple * drawdownAmount;
+    const maxTailCushionMultiple = Math.max(
+        maxCushionMultiple,
+        config.maxTailCushionMultiple ?? DEFAULT_MAX_TAIL_CUSHION_MULTIPLE,
+    );
     const unlockedCushionBucketCount =
         Math.max(1, Math.round(drawdownAmount / cushionStepDollars)) + 1;
 
@@ -757,6 +781,31 @@ function buildFundedSolveContext(
     const unlockedWorkingBucketCount =
         unlockedCushionBucketCount +
         Math.max(0, Math.ceil(maxDailySwingDollars / cushionStepDollars));
+    const cushionGridFineTop =
+        (Math.max(
+            lockedFineCushionBucketCount,
+            unlockedWorkingBucketCount,
+            offsetBucketCount,
+        ) -
+            1) *
+        cushionStepDollars;
+    const cushionGridTailTop = Math.max(
+        cushionGridFineTop,
+        maxTailCushionMultiple * drawdownAmount,
+    );
+    const cushionGrid = new FundedCushionGrid({
+        fineStep: cushionStepDollars,
+        fineTop: cushionGridFineTop,
+        tailStep: tailCushionStepDollars,
+        tailTop: cushionGridTailTop,
+    });
+    const lockedCushionBucketCount =
+        cushionGrid.roundToIndex(
+            Math.max(
+                (lockedFineCushionBucketCount - 1) * cushionStepDollars,
+                maxTailCushionMultiple * drawdownAmount,
+            ),
+        ) + 1;
 
     const lockedThreshold = resolveLockedThreshold(plan, startingBalance);
     const isUnlockedPostPayoutReachable = canWithdrawWhileUnlocked(
@@ -788,7 +837,7 @@ function buildFundedSolveContext(
         ? cycleBaselineMin
         : Math.max(
               cycleBaselineMin,
-              maxCushionMultiple * drawdownAmount -
+              maxTailCushionMultiple * drawdownAmount -
                   (lockedPayoutFloor - lockedThreshold),
           );
     const cycleBaselineGrid = new FundedCycleBaselineGrid({
@@ -800,10 +849,12 @@ function buildFundedSolveContext(
     });
 
     const maxWinDollars = rrRatio * maxActionDollars;
+    const lockedTopDollars = cushionGrid.dollarsAt(lockedCushionBucketCount - 1);
+    const unlockedWorkingTopDollars = cushionGrid.dollarsAt(
+        unlockedWorkingBucketCount - 1,
+    );
     const maxDayCloseBalance = Math.max(
-        lockedThreshold +
-            (lockedCushionBucketCount - 1) * cushionStepDollars +
-            maxWinDollars,
+        lockedThreshold + lockedTopDollars + maxWinDollars,
         initialThreshold +
             (offsetBucketCount - 1 + unlockedWorkingBucketCount - 1) *
                 cushionStepDollars +
@@ -825,15 +876,11 @@ function buildFundedSolveContext(
         ? resolveCycleBestDayGrid({
               cushionStepDollars,
               relevantBestDayDollars: Math.min(
-                  (Math.max(
-                      lockedCushionBucketCount,
-                      unlockedWorkingBucketCount,
-                  ) -
-                      1) *
-                      cushionStepDollars +
+                  Math.max(lockedTopDollars, unlockedWorkingTopDollars) +
                       maxWinDollars,
                   maxBestDayShare *
                       (maxDayCloseBalance - minCycleBaselineBalance),
+                  maxDailySwingDollars + slots * cushionStepDollars,
               ),
               requestedBucketCount: config.cycleBestDayBucketCount,
           })
@@ -869,6 +916,7 @@ function buildFundedSolveContext(
         bustTerminalValue,
         candidateTradesCache: new Map(),
         commission,
+        cushionGrid,
         cushionStepDollars,
         cycleBaselineGrid,
         cycleBestDayKeyRadix,
@@ -1077,8 +1125,9 @@ function cellOutcome(
     return dayCloseOutcome(
         scope.context,
         scope.dayStart,
-        (cell - reach * scope.workingBucketCount) *
-            scope.context.cushionStepDollars,
+        scope.context.cushionGrid.dollarsAt(
+            cell - reach * scope.workingBucketCount,
+        ),
         wasIdleToday,
         reach,
     );
@@ -1109,7 +1158,7 @@ function continuationKey(
     if (state.thresholdLocked) {
         const split = splitOntoCushionGrid(
             cushion,
-            context.cushionStepDollars,
+            context.cushionGrid,
             context.lockedCushionBucketCount,
         );
         const key = lockedKey(context, regime, pair, split.lowerIndex);
@@ -1122,12 +1171,12 @@ function continuationKey(
     }
     const cushionSplit = splitOntoCushionGrid(
         cushion,
-        context.cushionStepDollars,
+        context.cushionGrid,
         context.unlockedCushionBucketCount,
     );
     const offsetSplit = splitOntoCushionGrid(
         state.threshold - context.initialThreshold,
-        context.cushionStepDollars,
+        context.cushionGrid,
         context.offsetBucketCount,
     );
     const lowerKey = unlockedKey(
@@ -1750,9 +1799,8 @@ function levelBaseKey(context: FundedSolveContext, level: FundedLevel): number {
             true,
         );
     }
-    const offsetIndex = Math.round(
-        (level.thresholdDollars - context.initialThreshold) /
-            context.cushionStepDollars,
+    const offsetIndex = context.cushionGrid.roundToIndex(
+        level.thresholdDollars - context.initialThreshold,
     );
     return levelBase(
         context,
@@ -1912,7 +1960,7 @@ function regimeZeroRanges(context: FundedSolveContext): FundedValueRange[] {
                 regime: 0,
                 thresholdDollars:
                     context.initialThreshold +
-                    offset * context.cushionStepDollars,
+                    context.cushionGrid.dollarsAt(offset),
             },
         })),
     ];
@@ -2057,7 +2105,7 @@ function riskAtExactCushion(
     const rowOffset = reach * workingBucketCount;
     const split = splitOntoCushionGrid(
         cushionDollars,
-        context.cushionStepDollars,
+        context.cushionGrid,
         workingBucketCount,
     );
     const outcomeValue = (pnl: number): number => {
@@ -2140,7 +2188,7 @@ function scopedIdleValue(
             scope,
             closeTable.idleEntries,
             cell,
-            index * context.cushionStepDollars,
+            context.cushionGrid.dollarsAt(index),
             true,
             reach,
         );
@@ -2221,7 +2269,7 @@ function skeletonRow(
     const cell = reach * skeleton.workingBucketCount + index;
     const cached = skeleton.rows[cell];
     if (cached !== undefined) return cached;
-    const cushionNow = index * context.cushionStepDollars;
+    const cushionNow = context.cushionGrid.dollarsAt(index);
     const trades = skeletonTrades(context, skeleton, dayStart, index);
     const risks = trades.map((trade) => trade.risk);
     const wins = new Int32Array(trades.length);
@@ -2273,7 +2321,7 @@ function skeletonTrades(
     const trades = tradesAtCushion(
         context,
         dayStart,
-        index * context.cushionStepDollars,
+        context.cushionGrid.dollarsAt(index),
     );
     skeleton.tradesByIndex[index] = trades;
     return trades;
@@ -2306,8 +2354,8 @@ function solveDayTreeOnce(
     };
 
     const isWindowed = context.isSolvingPerDayStart && !isRecordingPolicy;
-    const startIndex = Math.round(
-        dayStart.cushionAtDayStart / cushionStepDollars,
+    const startIndex = context.cushionGrid.roundToIndex(
+        dayStart.cushionAtDayStart,
     );
     const maxRisk = Math.max(0, ...context.actionGrid);
     const cellsUpPerTrade =
@@ -2333,8 +2381,12 @@ function solveDayTreeOnce(
                   context,
                   dayStart,
                   reachCount,
-                  (startIndex + tradeIndex * cellsUpPerTrade + 1) *
-                      cushionStepDollars,
+                  context.cushionGrid.dollarsAt(
+                      Math.min(
+                          context.cushionGrid.size - 1,
+                          startIndex + tradeIndex * cellsUpPerTrade + 1,
+                      ),
+                  ),
               )
             : reachCount - 1;
         const currentTable = new Float64Array(cellCount);
@@ -2404,7 +2456,6 @@ function solveFundedLevels(
     const contraction = 1 - mainContext.horizonHazard;
 
     const {
-        cushionStepDollars,
         initialThreshold,
         lockedCushionBucketCount,
         lockedThreshold,
@@ -2546,7 +2597,8 @@ function solveFundedLevels(
                 offsetIndex--
             ) {
                 const thresholdDollars =
-                    initialThreshold + offsetIndex * cushionStepDollars;
+                    initialThreshold +
+                    mainContext.cushionGrid.dollarsAt(offsetIndex);
                 for (let regime = payoutRegimeCap; regime >= 0; regime--) {
                     if (!isSolved(regime, false)) continue;
                     solveLevelToConvergence(
@@ -2604,7 +2656,7 @@ function solveIdleGroup(
     workingBucketCount: number,
     results: Float64Array,
 ): void {
-    const { cushionStepDollars, dayCost, horizonHazard } = context;
+    const { dayCost, horizonHazard } = context;
     const cycleBaselineRadix = cycleBaselineRadixAt(context, level.regime);
     const groupCount = groupCountAt(context, level.regime);
     const tradeValues = tradingDayStartValues(
@@ -2623,7 +2675,7 @@ function solveIdleGroup(
         for (let index = 0; index < cushionBucketCount; index++) {
             const ownOffset = pairIndex * cushionBucketCount + index;
             const outcome = cachedIdleClose(idleCloseCells, ownOffset, () => {
-                const cushionDollars = index * cushionStepDollars;
+                const cushionDollars = context.cushionGrid.dollarsAt(index);
                 return dayCloseOutcome(
                     context,
                     {
@@ -2818,7 +2870,7 @@ function tradeOutcome(
     }
     const { lowerIndex, upperWeight } = splitOntoCushionGrid(
         cushionAfter,
-        context.cushionStepDollars,
+        context.cushionGrid,
         skeleton.workingBucketCount,
     );
     return {
@@ -2882,7 +2934,7 @@ function tradingDayStartValues(
                     ...level,
                     ...pair,
                     cushionAtDayStart:
-                        cushionStartIndex * context.cushionStepDollars,
+                        context.cushionGrid.dollarsAt(cushionStartIndex),
                 },
                 workingBucketCount,
                 FundedDayTreePurpose.TradingValue,
@@ -3290,7 +3342,6 @@ export function computeFundedStateValue(
     clearSolveCaches(mainContext);
 
     const {
-        cushionStepDollars,
         initialThreshold,
         lockedCushionBucketCount,
         lockedThreshold,
@@ -3401,7 +3452,8 @@ export function computeFundedStateValue(
                   isLocked: false,
                   regime,
                   thresholdDollars:
-                      initialThreshold + offsetIndex * cushionStepDollars,
+                      initialThreshold +
+                      mainContext.cushionGrid.dollarsAt(offsetIndex),
               };
         const cacheKey = state.thresholdLocked
             ? lockedKey(mainContext, regime, pair, cushionStartIndex)
@@ -3420,7 +3472,7 @@ export function computeFundedStateValue(
                     ...level,
                     ...pair,
                     cushionAtDayStart:
-                        cushionStartIndex * mainContext.cushionStepDollars,
+                        mainContext.cushionGrid.dollarsAt(cushionStartIndex),
                 },
                 workingBucketCount,
             );
@@ -3441,11 +3493,40 @@ export function computeFundedStateValue(
         PolicySizing.WholeContracts,
     );
 
+    function isGridSaturated(
+        state: AccountState,
+        fundedCycle?: FundedCycleSnapshot,
+    ): boolean {
+        const cushionDollars = state.balance - state.threshold;
+        const cushionTopBucketCount = state.thresholdLocked
+            ? lockedCushionBucketCount
+            : unlockedCushionBucketCount;
+        const cushionTopDollars = mainContext.cushionGrid.dollarsAt(
+            cushionTopBucketCount - 1,
+        );
+        if (cushionDollars >= cushionTopDollars - BUCKET_EPSILON) return true;
+        const lastPayoutBalance =
+            fundedCycle?.lastPayoutBalance ?? mainContext.startingBalance;
+        const cycleBaselineDollars =
+            lastPayoutBalance - mainContext.lockedPayoutFloor;
+        const cycleBaselineTopDollars = mainContext.cycleBaselineGrid.dollarsAt(
+            mainContext.cycleBaselineGrid.size - 1,
+        );
+        return cycleBaselineDollars >= cycleBaselineTopDollars - BUCKET_EPSILON;
+    }
+
     return {
         bustTerminalValue: mainContext.bustTerminalValue,
+        cushionGrid: {
+            ...mainContext.cushionGrid.summary(),
+            lockedTopDollars: mainContext.cushionGrid.dollarsAt(
+                lockedCushionBucketCount - 1,
+            ),
+        },
         cycleBaselineRounding: cycleBaselineRoundingOf(mainContext),
         dayPolicy,
         initialValue,
+        isGridSaturated,
         reachedStateCount: levelSolve.reachedStateCount,
         stateValues: values,
         sweepCount: levelSolve.sweepCount,

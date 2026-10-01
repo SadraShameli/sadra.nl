@@ -2,11 +2,15 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as UseToolsWorkerModule from '~/app/(app)/prop-calculator/_components/useToolsWorker';
+
 import { AnalysisView } from '~/app/(app)/prop-calculator/(tools)/analysis/AnalysisView';
 import { SimulatorView } from '~/app/(app)/prop-calculator/(tools)/simulator/SimulatorView';
 import { CalculatorInputsForm } from '~/app/(app)/prop-calculator/_components/CalculatorInputsForm';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
-import CashFlowPanel from '~/app/(app)/prop-calculator/_components/CashFlowPanel';
+import CashFlowPanel, {
+    funnelWhatIfFromForm,
+} from '~/app/(app)/prop-calculator/_components/CashFlowPanel';
 import FirmComparisonTable from '~/app/(app)/prop-calculator/_components/FirmComparisonTable';
 import OptimalRiskTable from '~/app/(app)/prop-calculator/_components/OptimalRiskTable';
 import PlanComparisonTable from '~/app/(app)/prop-calculator/_components/PlanComparisonTable';
@@ -22,16 +26,20 @@ import {
     type PortfolioEntry,
 } from '~/app/(app)/prop-calculator/_components/types';
 import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalculator';
+import { formatCompactCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
     CorrelationMode,
     DayStopRuleKind,
+    dollars,
+    fraction,
     InstrumentSymbol,
     type PlanOptIns,
     type SimInputs,
     simulate,
     simulatePortfolio,
 } from '~/lib/prop-calculator';
+import { funnelWhatIf } from '~/lib/prop-calculator/economics';
 import { simulatePortfolioTimeline } from '~/lib/prop-calculator/portfolioTimeline';
 import {
     type SimInputsSizingInputs,
@@ -93,6 +101,32 @@ vi.mock('~/app/(app)/prop-calculator/_components/ToolPageHeading', () => ({
 
 vi.mock('~/app/(app)/prop-calculator/_components/InputsSummary', () => ({
     InputsSummary: renderNothing,
+}));
+
+vi.mock('~/app/(app)/prop-calculator/_components/useToolsWorker', async (importOriginal) => {
+    const actual = await importOriginal<typeof UseToolsWorkerModule>();
+    return {
+        ToolsWorkerPhase: actual.ToolsWorkerPhase,
+        useToolsWorker: () => ({
+            cancel: vi.fn(),
+            run: vi.fn(),
+            state: { phase: actual.ToolsWorkerPhase.Idle },
+        }),
+    };
+});
+
+vi.mock('~/lib/auth/client', () => ({
+    useSession: () => ({ data: null, error: null, isPending: false }),
+}));
+
+vi.mock('~/trpc/react', () => ({
+    api: {
+        propAccounts: {
+            rulebook: {
+                get: { useQuery: () => ({ data: undefined }) },
+            },
+        },
+    },
 }));
 
 vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
@@ -166,6 +200,16 @@ function requiredIssue(inputs: SimInputsSizingInputs): string {
     const issue = simInputsSizingIssue(inputs);
     if (issue === null) throw new Error('expected a refused input');
     return issue;
+}
+
+function setNumberInput(container: HTMLElement, id: string, value: string): void {
+    const input = container.querySelector(`#${id}`);
+    if (input === null) throw new Error(`expected an input with id ${id}`);
+    act(() => {
+        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')
+            ?.set?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
 }
 
 function stateWith(patch: Partial<CalculatorState>): CalculatorState {
@@ -626,6 +670,168 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 vi.mocked(simulatePortfolioTimeline).mock.calls[0] ?? [];
             expect(timelineInputs?.stopPoints).toBeUndefined();
             expect(notices()).toEqual([]);
+        });
+
+        it('CashFlowPanel shows P(ends net negative) next to P10 final net (PT-62b, F-V14)', () => {
+            const state = stateWith({});
+            provide(state);
+            render(
+                <CashFlowPanel
+                    baseInputs={buildSimInputs(state)}
+                    firmDisplayName={state.firm.displayName}
+                    maxAccounts={5}
+                />,
+            );
+            expect(container.textContent).toContain('P(ends net negative)');
+            const card = [...container.querySelectorAll('span')]
+                .find((node) => node.textContent === 'P(ends net negative)')
+                ?.closest('.px-3');
+            expect(card?.querySelector('.font-mono')?.textContent).toMatch(/^\d+\.\d%$/);
+        });
+
+        it('does not apply an undisclosed 0.5 red/green threshold to P(ends net negative), matching the neutral treatment of the same figure on ProjectionCard (PT-62b review HIGH fix)', () => {
+            const state = stateWith({});
+            provide(state);
+            render(
+                <CashFlowPanel
+                    baseInputs={buildSimInputs(state)}
+                    firmDisplayName={state.firm.displayName}
+                    maxAccounts={5}
+                />,
+            );
+            const card = [...container.querySelectorAll('span')]
+                .find((node) => node.textContent === 'P(ends net negative)')
+                ?.closest('.px-3');
+            const valueSpan = card?.querySelector('.font-mono');
+            expect(valueSpan?.className).not.toContain('text-rose-400');
+            expect(valueSpan?.className).not.toContain('text-emerald-400');
+        });
+
+        describe('the funnel what-if form (PT-62b, F-V11)', () => {
+            it('computes through funnelWhatIf once every field is a valid number', () => {
+                const state = stateWith({});
+                provide(state);
+                render(
+                    <CashFlowPanel
+                        baseInputs={buildSimInputs(state)}
+                        firmDisplayName={state.firm.displayName}
+                        maxAccounts={5}
+                    />,
+                );
+                const expected = funnelWhatIf({
+                    attemptCost: dollars(165),
+                    attempts: 100,
+                    averagePayout: dollars(2000),
+                    passProbability: fraction(0.6),
+                    payoutProbabilityGivenFunded: fraction(0.5),
+                }).value;
+                if (expected === null) throw new Error('expected a funnel result');
+
+                setNumberInput(container, 'cash-flow-what-if-attempts', '100');
+                setNumberInput(container, 'cash-flow-what-if-pass-rate', '60');
+                setNumberInput(container, 'cash-flow-what-if-payout-rate', '50');
+                setNumberInput(
+                    container,
+                    'cash-flow-what-if-average-payout',
+                    '2000',
+                );
+                setNumberInput(container, 'cash-flow-what-if-attempt-cost', '165');
+
+                expect(container.textContent).toContain(
+                    formatCompactCurrency(expected.net),
+                );
+                expect(container.textContent).toContain(
+                    formatCompactCurrency(expected.fees),
+                );
+                expect(container.textContent).toContain(
+                    formatCompactCurrency(expected.payouts),
+                );
+            });
+
+            it('shows a validation message and no computed result for an out-of-range field, without crashing', () => {
+                const state = stateWith({});
+                provide(state);
+                render(
+                    <CashFlowPanel
+                        baseInputs={buildSimInputs(state)}
+                        firmDisplayName={state.firm.displayName}
+                        maxAccounts={5}
+                    />,
+                );
+                setNumberInput(container, 'cash-flow-what-if-attempts', '100');
+                setNumberInput(container, 'cash-flow-what-if-pass-rate', '160');
+                setNumberInput(container, 'cash-flow-what-if-payout-rate', '50');
+                setNumberInput(
+                    container,
+                    'cash-flow-what-if-average-payout',
+                    '2000',
+                );
+                setNumberInput(container, 'cash-flow-what-if-attempt-cost', '165');
+
+                expect(container.textContent).toContain(
+                    'enter a valid pass rate, payout rate, attempts, average payout and attempt cost',
+                );
+            });
+
+            it('wires the validation message to every what-if field via aria-describedby and aria-invalid (PT-62b review MEDIUM fix)', () => {
+                const state = stateWith({});
+                provide(state);
+                render(
+                    <CashFlowPanel
+                        baseInputs={buildSimInputs(state)}
+                        firmDisplayName={state.firm.displayName}
+                        maxAccounts={5}
+                    />,
+                );
+                setNumberInput(container, 'cash-flow-what-if-attempts', '100');
+                setNumberInput(container, 'cash-flow-what-if-pass-rate', '160');
+                setNumberInput(container, 'cash-flow-what-if-payout-rate', '50');
+                setNumberInput(
+                    container,
+                    'cash-flow-what-if-average-payout',
+                    '2000',
+                );
+                setNumberInput(container, 'cash-flow-what-if-attempt-cost', '165');
+
+                const message = container.querySelector(
+                    '#cash-flow-what-if-validation-message',
+                );
+                expect(message).not.toBeNull();
+
+                for (const id of [
+                    'cash-flow-what-if-attempts',
+                    'cash-flow-what-if-pass-rate',
+                    'cash-flow-what-if-payout-rate',
+                    'cash-flow-what-if-average-payout',
+                    'cash-flow-what-if-attempt-cost',
+                ]) {
+                    const field = container.querySelector(`#${id}`);
+                    expect(field?.getAttribute('aria-describedby')).toBe(
+                        'cash-flow-what-if-validation-message',
+                    );
+                    expect(field?.getAttribute('aria-invalid')).toBe('true');
+                }
+            });
+
+            it('rounds attempt cost and average payout down to whole cents before computing, matching every other dollar field on the page (PT-62b review MEDIUM fix)', () => {
+                const rounded = funnelWhatIfFromForm({
+                    attemptCost: '165.999',
+                    attempts: '100',
+                    averagePayout: '2000.006',
+                    passRate: '60',
+                    payoutRate: '50',
+                });
+                const flooredDirectly = funnelWhatIfFromForm({
+                    attemptCost: '165.99',
+                    attempts: '100',
+                    averagePayout: '2000',
+                    passRate: '60',
+                    payoutRate: '50',
+                });
+                expect(rounded).not.toBeNull();
+                expect(flooredDirectly).not.toBeNull();
+                expect(rounded).toEqual(flooredDirectly);
+            });
         });
     });
 });

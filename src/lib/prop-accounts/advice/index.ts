@@ -3,6 +3,11 @@ export {
     type AdvisorPersonalInputs,
 } from './AdvisorInputsAdapter';
 export {
+    type FirmPayoutCount,
+    firmPayoutCounts,
+    paidPayoutsSinceLastLiveAccountFor,
+} from './FirmPayoutCount';
+export {
     AdviceUnavailableReason,
     SNAPSHOT_FIELD_TO_INPUT_FIELD,
     type SnapshotAccountRow,

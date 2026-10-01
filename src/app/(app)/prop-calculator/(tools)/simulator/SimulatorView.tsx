@@ -3,6 +3,7 @@
 import { UserPlus } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useMemo } from 'react';
 
 import { CalculatorInputsForm } from '~/app/(app)/prop-calculator/_components/CalculatorInputsForm';
 import {
@@ -22,10 +23,16 @@ import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
+import { FundedValueCard } from '~/app/(app)/prop-calculator/_components/value/FundedValueCard';
+import { valueCardsInputFor } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
+import { ValueChainCard } from '~/app/(app)/prop-calculator/_components/value/ValueChainCard';
 import { accountPrefillHref } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
 import { Button } from '~/components/ui/Button';
+import { useSession } from '~/lib/auth/client';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
+import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+import { api } from '~/trpc/react';
 
 const ResultsPanel = dynamic(
     () => import('~/app/(app)/prop-calculator/_components/ResultsPanel'),
@@ -49,6 +56,20 @@ export function SimulatorView() {
         failure === null ? null : <SimulationFailureNotice message={failure} />;
     const { chartType, pinned } = useLabSlots();
     const actions = useCalculatorActions();
+
+    const session = useSession();
+    const hasSession = session.data?.user.id !== undefined;
+    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
+        enabled: hasSession,
+    });
+    const rulebook =
+        hasSession && rulebookQuery.data !== undefined
+            ? rulebookQuery.data
+            : DEFAULT_RULEBOOK;
+    const valueCards = useMemo(
+        () => valueCardsInputFor(state, rulebook),
+        [state, rulebook],
+    );
 
     return (
         <>
@@ -155,6 +176,24 @@ export function SimulatorView() {
                             </>
                         ))}
                 </ToolSection>
+
+                <section
+                    aria-labelledby="value-heading"
+                    className="flex scroll-mt-26 flex-col gap-6"
+                    id="value"
+                >
+                    <h2
+                        className="text-lg font-semibold tracking-tight text-white"
+                        id="value-heading"
+                    >
+                        Value
+                    </h2>
+                    <ValueChainCard cards={valueCards} />
+                    <FundedValueCard
+                        cards={valueCards}
+                        rulebookSampleThreshold={rulebook.samples.minFundedAccounts}
+                    />
+                </section>
             </div>
         </>
     );

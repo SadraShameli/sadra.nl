@@ -11,7 +11,8 @@ import {
     points,
     type Points,
     shouldStopDay,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import {
     DayStopReason,
     type DocumentedRung,

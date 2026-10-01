@@ -1,3 +1,4 @@
+import { formatRiskDisplay, type RiskDisplayFormatted } from '~/app/(app)/prop-calculator/_components/riskDisplay';
 import { formatGateCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
@@ -30,8 +31,6 @@ import {
 } from '~/lib/prop-calculator';
 import { type RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 import { feeEquivalentTradeRisk } from '~/lib/prop-calculator/economics';
-
-import { formatRiskDisplay, type RiskDisplayFormatted } from '../riskDisplay';
 
 export enum PositionSizeOutcome {
     BelowOneContractEval = 'below-one-contract-eval',

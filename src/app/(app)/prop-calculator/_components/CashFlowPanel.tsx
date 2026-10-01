@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { z } from 'zod';
 
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
@@ -11,7 +12,14 @@ import {
     formatPercent,
     NOT_APPLICABLE,
 } from '~/lib/format';
-import { type SimInputs, TRADING_DAYS_PER_YEAR } from '~/lib/prop-calculator';
+import {
+    dollars,
+    floorToWholeCents,
+    fraction,
+    type SimInputs,
+    TRADING_DAYS_PER_YEAR,
+} from '~/lib/prop-calculator';
+import { funnelWhatIf, type FunnelWhatIf } from '~/lib/prop-calculator/economics';
 import { median } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
@@ -49,6 +57,36 @@ const DEFAULT_TRIALS = 150;
 const MAX_TRIALS = 300;
 const MIN_TRIALS = 25;
 
+const WHAT_IF_VALIDATION_MESSAGE =
+    'enter a valid pass rate, payout rate, attempts, average payout and attempt cost';
+const WHAT_IF_VALIDATION_MESSAGE_ID = 'cash-flow-what-if-validation-message';
+
+export interface FunnelWhatIfFormValues {
+    attemptCost: string;
+    attempts: string;
+    averagePayout: string;
+    passRate: string;
+    payoutRate: string;
+}
+
+const EMPTY_WHAT_IF_FORM: FunnelWhatIfFormValues = {
+    attemptCost: '',
+    attempts: '',
+    averagePayout: '',
+    passRate: '',
+    payoutRate: '',
+};
+
+const percentField = z.coerce.number().min(0).max(100);
+
+const funnelWhatIfFormSchema = z.object({
+    attemptCost: z.coerce.number().nonnegative().transform(floorToWholeCents),
+    attempts: z.coerce.number().int().positive(),
+    averagePayout: z.coerce.number().nonnegative().transform(floorToWholeCents),
+    passRate: percentField,
+    payoutRate: percentField,
+});
+
 export default function CashFlowPanel({
     baseInputs,
     firmDisplayName,
@@ -75,6 +113,7 @@ export default function CashFlowPanel({
     const [horizonIndex, setHorizonIndex] = useState(1);
     const [accounts, setAccounts] = useState(DEFAULT_ACCOUNTS);
     const [trials, setTrials] = useState(DEFAULT_TRIALS);
+    const [whatIfForm, setWhatIfForm] = useState<FunnelWhatIfFormValues>(EMPTY_WHAT_IF_FORM);
 
     const horizon = HORIZON_OPTIONS[horizonIndex] ?? HORIZON_OPTIONS[0];
     const accountCap = Math.min(MAX_ACCOUNTS, maxAccounts);
@@ -117,7 +156,17 @@ export default function CashFlowPanel({
     const finalNet10 = result?.netP10.at(-1) ?? 0;
     const finalNet90 = result?.netP90.at(-1) ?? 0;
     const finalSpend50 = result?.spendP50.at(-1) ?? 0;
+    const pFinalNetNegative = result?.pFinalNetNegative ?? 0;
     const pEverBreakEven = result?.pEverCashflowPositive ?? 0;
+    const isWhatIfFilled = [
+        whatIfForm.attemptCost,
+        whatIfForm.attempts,
+        whatIfForm.averagePayout,
+        whatIfForm.passRate,
+        whatIfForm.payoutRate,
+    ].every((value) => value.trim() !== '');
+    const whatIf = isWhatIfFilled ? funnelWhatIfFromForm(whatIfForm) : null;
+    const isWhatIfInvalid = isWhatIfFilled && whatIf === null;
     const medianBreakEvenMonth =
         result && result.breakEvenMonthValues.length > 0
             ? median(result.breakEvenMonthValues)
@@ -251,6 +300,11 @@ export default function CashFlowPanel({
                             value={formatCompactCurrency(finalNet10)}
                         />
                         <StatCard
+                            label="P(ends net negative)"
+                            sub="share of trials with a negative final net"
+                            value={formatPercent(pFinalNetNegative)}
+                        />
+                        <StatCard
                             label="P90 final net"
                             sub="90th percentile outcome"
                             value={formatCompactCurrency(finalNet90)}
@@ -327,7 +381,142 @@ export default function CashFlowPanel({
                 ) : (
                     <SimulationFailureNotice message={error} />
                 )}
+
+                <div className="flex flex-col gap-3 border-t border-white/10 pt-4">
+                    <p className="text-xs font-medium text-muted-foreground">
+                        What-if funnel (attempts, pass rate, payout rate, payout, fee)
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                        <WhatIfField
+                            id="cash-flow-what-if-attempts"
+                            invalid={isWhatIfInvalid}
+                            label="Attempts"
+                            onChange={(value) =>
+                                setWhatIfForm((current) => ({ ...current, attempts: value }))
+                            }
+                            value={whatIfForm.attempts}
+                        />
+                        <WhatIfField
+                            id="cash-flow-what-if-pass-rate"
+                            invalid={isWhatIfInvalid}
+                            label="Pass rate (%)"
+                            onChange={(value) =>
+                                setWhatIfForm((current) => ({ ...current, passRate: value }))
+                            }
+                            value={whatIfForm.passRate}
+                        />
+                        <WhatIfField
+                            id="cash-flow-what-if-payout-rate"
+                            invalid={isWhatIfInvalid}
+                            label="Payout rate given funded (%)"
+                            onChange={(value) =>
+                                setWhatIfForm((current) => ({ ...current, payoutRate: value }))
+                            }
+                            value={whatIfForm.payoutRate}
+                        />
+                        <WhatIfField
+                            id="cash-flow-what-if-average-payout"
+                            invalid={isWhatIfInvalid}
+                            label="Average payout ($)"
+                            onChange={(value) =>
+                                setWhatIfForm((current) => ({
+                                    ...current,
+                                    averagePayout: value,
+                                }))
+                            }
+                            value={whatIfForm.averagePayout}
+                        />
+                        <WhatIfField
+                            id="cash-flow-what-if-attempt-cost"
+                            invalid={isWhatIfInvalid}
+                            label="Attempt cost ($)"
+                            onChange={(value) =>
+                                setWhatIfForm((current) => ({
+                                    ...current,
+                                    attemptCost: value,
+                                }))
+                            }
+                            value={whatIfForm.attemptCost}
+                        />
+                    </div>
+                    {isWhatIfInvalid ? (
+                        <p className="text-[11px] text-rose-400" id={WHAT_IF_VALIDATION_MESSAGE_ID}>
+                            {WHAT_IF_VALIDATION_MESSAGE}
+                        </p>
+                    ) : whatIf === null ? null : (
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
+                            <StatCard label="Passed" value={whatIf.passed.toFixed(1)} />
+                            <StatCard label="Paid" value={whatIf.paid.toFixed(1)} />
+                            <StatCard
+                                label="Fees"
+                                value={formatCompactCurrency(whatIf.fees)}
+                            />
+                            <StatCard
+                                label="Payouts"
+                                value={formatCompactCurrency(whatIf.payouts)}
+                            />
+                            <StatCard
+                                label="Net"
+                                value={formatCompactCurrency(whatIf.net)}
+                                valueClassName={whatIf.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}
+                            />
+                            <StatCard
+                                label="Payout multiple"
+                                value={
+                                    whatIf.payoutMultiple.value === null
+                                        ? NOT_APPLICABLE
+                                        : `${whatIf.payoutMultiple.value.toFixed(2)}:1`
+                                }
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
         </Card>
+    );
+}
+
+export function funnelWhatIfFromForm(values: FunnelWhatIfFormValues): FunnelWhatIf | null {
+    const parsed = funnelWhatIfFormSchema.safeParse(values);
+    if (!parsed.success) return null;
+    const result = funnelWhatIf({
+        attemptCost: dollars(parsed.data.attemptCost),
+        attempts: parsed.data.attempts,
+        averagePayout: dollars(parsed.data.averagePayout),
+        passProbability: fraction(parsed.data.passRate / 100),
+        payoutProbabilityGivenFunded: fraction(parsed.data.payoutRate / 100),
+    });
+    return result.value;
+}
+
+function WhatIfField({
+    id,
+    invalid = false,
+    label,
+    onChange,
+    value,
+}: {
+    id: string;
+    invalid?: boolean;
+    label: string;
+    onChange: (raw: string) => void;
+    value: string;
+}) {
+    return (
+        <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-muted-foreground" htmlFor={id}>
+                {label}
+            </label>
+            <Input
+                aria-describedby={invalid ? WHAT_IF_VALIDATION_MESSAGE_ID : undefined}
+                aria-invalid={invalid}
+                className="h-7 text-xs"
+                id={id}
+                inputMode="decimal"
+                onChange={(event) => onChange(event.target.value)}
+                type="number"
+                value={value}
+            />
+        </div>
     );
 }

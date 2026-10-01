@@ -3,6 +3,8 @@ import path from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
+import { aliasPathOf } from '../../../importSpecifiers';
+
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
 const PROP_CALCULATOR = path.join(SOURCE_ROOT, 'lib', 'prop-calculator');
 const ECONOMICS = path.join(PROP_CALCULATOR, 'economics');
@@ -101,10 +103,8 @@ function relativeFiles(files: Iterable<string>, directory: string): string[] {
 }
 
 function resolveSpecifier(from: string, specifier: string): null | string {
-    let base: null | string = null;
-    if (specifier.startsWith('~/')) {
-        base = path.join(SOURCE_ROOT, specifier.slice(2));
-    } else if (specifier.startsWith('.')) {
+    let base: null | string = aliasPathOf(specifier, SOURCE_ROOT);
+    if (base === null && specifier.startsWith('.')) {
         base = path.resolve(path.dirname(from), specifier);
     }
     if (base === null) return null;

@@ -7,7 +7,10 @@ import { type AlertContext } from './AlertContext';
 import { type AlertRule } from './AlertRule';
 import { alertSeverityRank } from './AlertSeverity';
 import { BankrollLossRiskAboveThresholdRule } from './BankrollLossRiskAboveThresholdRule';
+import { CalendarInactivityRule } from './CalendarInactivityRule';
+import { ConductPatternRule } from './ConductPatternRule';
 import { ConsistencyNearBreachRule } from './ConsistencyNearBreachRule';
+import { CooldownActiveRule } from './CooldownActiveRule';
 import { DashboardFloorMismatchRule } from './DashboardFloorMismatchRule';
 import { EvalDayCapRule } from './EvalDayCapRule';
 import { FirmPayoutTotalMismatchRule } from './FirmPayoutTotalMismatchRule';
@@ -15,6 +18,8 @@ import { IdleSessionLimitRule } from './IdleSessionLimitRule';
 import { InvalidStoredDateRule } from './InvalidStoredDateRule';
 import { LifetimeDollarCapRule } from './LifetimeDollarCapRule';
 import { LifetimePayoutCountRule } from './LifetimePayoutCountRule';
+import { LiveExclusivityRule } from './LiveExclusivityRule';
+import { LiveTriggerNearRule } from './LiveTriggerNearRule';
 import { MixedStageCopyGroupRule } from './MixedStageCopyGroupRule';
 import { NearFloorRule } from './NearFloorRule';
 import { PayoutCountMismatchRule } from './PayoutCountMismatchRule';
@@ -22,6 +27,7 @@ import { PayoutDollarMismatchRule } from './PayoutDollarMismatchRule';
 import { PayoutEligibleRule } from './PayoutEligibleRule';
 import { PayoutReadyWithdrawableDropRule } from './PayoutReadyWithdrawableDropRule';
 import { PlanRulesChangedRule } from './PlanRulesChangedRule';
+import { PooledCapReachedRule } from './PooledCapReachedRule';
 import { RoundBudgetReachedRule } from './RoundBudgetReachedRule';
 import { StaleSnapshotRule } from './StaleSnapshotRule';
 import { SubscriptionRenewalDueRule } from './SubscriptionRenewalDueRule';
@@ -52,6 +58,12 @@ export const DEFAULT_ALERT_RULES: readonly AlertRule[] = [
     new RoundBudgetReachedRule(),
     new BankrollLossRiskAboveThresholdRule(),
     new FirmPayoutTotalMismatchRule(),
+    new LiveTriggerNearRule(),
+    new PooledCapReachedRule(),
+    new LiveExclusivityRule(),
+    new CooldownActiveRule(),
+    new CalendarInactivityRule(),
+    new ConductPatternRule(),
 ];
 
 const SORT_LOCALE = 'en';

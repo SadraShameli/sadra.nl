@@ -4,6 +4,12 @@ import { CircleCheck, FileUp, TriangleAlert } from 'lucide-react';
 import { useDeferredValue, useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import {
+    accountOptInOptions,
+    accountPlanOptions,
+    planTagLabel,
+} from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -51,13 +57,6 @@ import { ALL_FIRMS, FirmId } from '~/lib/prop-calculator';
 import { MAX_IMPORT_ROWS } from '~/lib/schemas/propAccounts';
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
-
-import { ACCOUNT_LIST_INPUT } from '../_components/accountListFilters';
-import {
-    accountOptInOptions,
-    accountPlanOptions,
-    planTagLabel,
-} from '../_components/accountPlanOptions';
 
 enum ImportKind {
     Accounts = 'accounts',

@@ -7,6 +7,8 @@ import { type Control, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
+import { payoutStatusLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Button } from '~/components/ui/Button';
 import {
     Form,
@@ -45,8 +47,6 @@ import {
 import { payoutCreateSchema } from '~/lib/schemas/propAccounts';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-import { GrossOnlyPayoutsNote } from '../GrossOnlyPayoutsNote';
-import { payoutStatusLabel } from '../overview/overviewModel';
 import {
     type ListQuery,
     ListQueryStatus,

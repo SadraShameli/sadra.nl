@@ -15,7 +15,11 @@ import {
     assertValidCalendarWeekInactivityRule,
     type CalendarWeekInactivityRule,
 } from './InactivityRule';
-import { type InstrumentSpec } from './Instruments';
+import {
+    INSTRUMENTS,
+    type InstrumentSpec,
+    InstrumentSymbol,
+} from './Instruments';
 import {
     type ContractCount,
     dollars,
@@ -42,6 +46,11 @@ import {
     postPayoutThreshold,
 } from './PostPayoutThreshold';
 import { type UntrackedTierProfitContext } from './TierBasis';
+
+export interface LiveContractCaps {
+    readonly micros: ContractCount | null;
+    readonly minis: ContractCount | null;
+}
 
 export interface LiveCushionPercent {
     postLock: Fraction0to1;
@@ -331,6 +340,19 @@ export class LivePlan {
             limit !== null &&
             isAtOrBelowWithinCentTolerance(state.todayPnL, -limit)
         );
+    }
+
+    liveContractLimitsFor(state: LiveAccountState): LiveContractCaps {
+        return {
+            micros: this.maxContractsFor(
+                state,
+                INSTRUMENTS[InstrumentSymbol.MNQ],
+            ),
+            minis: this.maxContractsFor(
+                state,
+                INSTRUMENTS[InstrumentSymbol.NQ],
+            ),
+        };
     }
 
     maxContractsFor(

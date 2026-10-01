@@ -4,6 +4,7 @@ import { Clock, Dumbbell, Flag, Play, Square } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { RestTimerOverlay } from '~/app/(app)/lifting/_components/shared/RestTimerOverlay';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { EmptyState } from '~/components/ui/EmptyState';
@@ -19,7 +20,6 @@ import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-import { RestTimerOverlay } from '../shared/RestTimerOverlay';
 import { AddExerciseSheet } from './AddExerciseSheet';
 import { ExerciseCard } from './ExerciseCard';
 

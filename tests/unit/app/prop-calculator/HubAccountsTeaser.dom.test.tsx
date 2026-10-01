@@ -10,6 +10,7 @@ import {
     portfolioAlerts,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import {
+    AccountEventKind,
     AccountStage,
     AccountStatus,
     AccountTracking,
@@ -18,6 +19,7 @@ import {
     FeeKind,
     formatUsdCents,
     type LedgerAccountRow,
+    type LedgerEventRow,
     type LedgerFeeRow,
     type LedgerPayoutRow,
     NO_ACCOUNT_STATES,
@@ -174,11 +176,14 @@ function teaserAccount(
         accountSize: plan.id.accountSize,
         archivedAt: null,
         copyGroupId: null,
+        dashboardConvention: DashboardBalanceConvention.Nominal,
         externalFirmId: null,
         firmId: firm.id,
+        firstFundedTradeOn: null,
         fundedOn: null,
         id,
         label: id,
+        liveStartBalanceCents: null,
         notes: null,
         optIns: {},
         planLabel: null,
@@ -406,6 +411,62 @@ describe('HubAccountsTeaser', () => {
                 alerts.some((alert) => alert.kind === AlertKind.NearFloor),
             ).toBe(true);
             expect(statValue('Alerts')).toBe(String(alerts.length));
+        });
+
+        it('threads recorded events into the lifetime cap alert, not only into account state reconstruction', () => {
+            const mff = mffProPlan();
+            const active = teaserAccount('mff-active', {
+                accountSize: mff.id.accountSize,
+                firmId: mff.id.firm,
+                planSerial: serializePlanId(mff.id),
+                stage: AccountStage.Funded,
+            });
+            const movedLive = teaserAccount('mff-moved-live', {
+                accountSize: mff.id.accountSize,
+                firmId: mff.id.firm,
+                planSerial: serializePlanId(mff.id),
+                stage: AccountStage.Live,
+            });
+            const mffPayout = (
+                id: string,
+                accountId: string,
+                cents: number,
+                paidOn: string,
+            ): LedgerPayoutRow => ({
+                accountId,
+                approvedOn: null,
+                grossCents: usdCents(cents),
+                id,
+                netCents: usdCents(cents),
+                paidOn,
+                requestedOn: paidOn,
+                status: PayoutStatus.Paid,
+                userId: USER_ID,
+            });
+            const mffPayouts = [
+                mffPayout('mff-p1', movedLive.id, 1_000_000, '2026-02-01'),
+                mffPayout('mff-p2', movedLive.id, 9_500_000, '2026-08-01'),
+            ];
+            const movedLiveEvent: LedgerEventRow = {
+                accountId: movedLive.id,
+                createdAt: new Date('2026-06-01T00:00:00Z'),
+                id: 'moved-live-event',
+                kind: AccountEventKind.MovedLive,
+                occurredOn: '2026-06-01',
+                userId: USER_ID,
+            };
+            harness.queries.set('account.list', answer([active, movedLive]));
+            harness.queries.set('fee.list', answer([]));
+            harness.queries.set('payout.list', answer(mffPayouts));
+            harness.queries.set('event.list', answer([]));
+            render();
+            const withoutEvent = Number(statValue('Alerts'));
+
+            harness.queries.set('event.list', answer([movedLiveEvent]));
+            render();
+            const withEvent = Number(statValue('Alerts'));
+
+            expect(withEvent).toBe(withoutEvent - 1);
         });
 
         it('waits for the alert inputs before showing totals', () => {

@@ -1,5 +1,4 @@
 import { formatGateCurrency } from '~/lib/format';
-
 import {
     dollars,
     type Dollars,
@@ -12,7 +11,8 @@ import {
     PayoutFloorEffect,
     type Plan,
     TradingPhase,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import { type AccountSnapshotInput } from './AccountSnapshotInput';
 import {
     DashboardBalanceConvention,

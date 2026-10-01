@@ -40,6 +40,9 @@ const DEFAULT_PLAN: Plan = required(
     'Prop calculator: default $50K plan missing from Apex',
 );
 
+export const DEFAULT_FUNDED_HORIZON_DAYS = 60;
+export const DEFAULT_MAX_EVAL_DAYS = 60;
+
 const NO_LAB_LINK: LabLinkOutcome = { status: LabLinkStatus.Absent };
 
 const NO_LINK_PARAMETERS: LinkParameterOutcomes = {
@@ -235,7 +238,7 @@ export function defaultCalculatorState(): CalculatorState {
         evalDiscountPercent: 0,
         firm: DEFAULT_FIRM,
         firmMemory: {},
-        fundedHorizonDays: 60,
+        fundedHorizonDays: DEFAULT_FUNDED_HORIZON_DAYS,
         idleDayProbability: 0,
         instrument: null,
         labLink: NO_LAB_LINK,
@@ -243,7 +246,7 @@ export function defaultCalculatorState(): CalculatorState {
         linkActivationDiscount: false,
         linkParameters: NO_LINK_PARAMETERS,
         maxAttempts: 1,
-        maxEvalDays: 60,
+        maxEvalDays: DEFAULT_MAX_EVAL_DAYS,
         monthlySubscriptionDiscountPercent: 0,
         payoutRequestSize: null,
         plan: DEFAULT_PLAN,

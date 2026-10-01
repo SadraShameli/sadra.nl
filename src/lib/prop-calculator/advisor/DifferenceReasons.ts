@@ -1,4 +1,5 @@
-import { type ConductPattern, PolicyVerification } from '../core';
+import { type ConductPattern, PolicyVerification } from '~/lib/prop-calculator/core';
+
 import {
     DifferenceReason,
     type DifferenceReasonDetail,
@@ -109,6 +110,13 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
         }
         case DifferenceReason.FirmMinimumAboveRequest: {
             return `Requested $${detail.requested.toFixed(2)}, raised to the firm's $${detail.minimum.toFixed(2)} minimum.`;
+        }
+        case DifferenceReason.FlatRiskIgnoresState: {
+            const gapText =
+                detail.gapInCombinedSEs === null
+                    ? 'an exact difference with no measured uncertainty'
+                    : `${detail.gapInCombinedSEs.toFixed(1)} combined SEs apart`;
+            return `The documented flat $${detail.documentedFlatRisk.toFixed(2)} risk ignores your current state; the state-dependent optimum is $${detail.fromStateOptimum.toFixed(2)}, ${gapText}.`;
         }
         case DifferenceReason.FreshStartApproximation: {
             return 'This optimum was computed from a fresh start, not the current account state.';

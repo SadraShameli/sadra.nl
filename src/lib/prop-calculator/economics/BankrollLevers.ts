@@ -1,5 +1,6 @@
-import { type Dollars, dollars, fraction, type Fraction0to1 } from '../core';
-import { cohortOutcome } from './CohortOutcome';
+import { type Dollars, dollars, fraction, type Fraction0to1 } from '~/lib/prop-calculator/core';
+
+import { cohortOutcome, LOSS_RISK_DRAWS } from './CohortOutcome';
 import {
     type EconomicsEstimate,
     EconomicsReason,
@@ -8,8 +9,6 @@ import {
     quantityOf,
 } from './EdgeMath';
 import { attemptsAffordable } from './LossRisk';
-
-const LOSS_RISK_DRAWS = 10_000;
 
 export enum BankrollLeverKind {
     Base = 'base',
@@ -34,6 +33,7 @@ export interface BankrollLeverOutputs {
 
 export interface BankrollLeverRow {
     attemptPaysProbability: EconomicsEstimate<Fraction0to1>;
+    deltaAttemptPaysProbability: number;
     deltaEvPerAttempt: Dollars;
     deltaMonthlyNet: Dollars;
     deltaPassProbability: number;
@@ -133,6 +133,8 @@ function leverRow(
             : lossRiskOf(outputs.netValues, attempts.value, seed);
     return {
         attemptPaysProbability: outputs.attemptPaysProbability,
+        deltaAttemptPaysProbability:
+            outputs.attemptPaysProbability.value - base.attemptPaysProbability.value,
         deltaEvPerAttempt: dollars(
             outputs.expectedNetPerAttempt.value - base.expectedNetPerAttempt.value,
         ),

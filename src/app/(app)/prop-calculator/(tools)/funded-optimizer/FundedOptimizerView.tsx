@@ -18,7 +18,10 @@ import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPag
 import { WorkerTaskPhase } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import { type FundedSweepRequest, type FundedSweepResult } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
 import { useSession } from '~/lib/auth/client';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    LifetimePayoutCapBasis,
+} from '~/lib/prop-calculator/advisor';
 import {
     FundedCandidateBuildKind,
     FundedCandidateRefusal,
@@ -39,6 +42,13 @@ const SORT_LABELS: Record<FundedSortKey, string> = {
 const POLICY_BASIS_LABELS: Record<FundedPolicyBasis, string> = {
     [FundedPolicyBasis.CalculatorOverride]: 'your override',
     [FundedPolicyBasis.RulebookDefault]: 'rulebook default',
+};
+
+const LIFETIME_PAYOUT_CAP_BASIS_LABELS: Record<LifetimePayoutCapBasis, string> = {
+    [LifetimePayoutCapBasis.LiveTriggersNotChecked]: 'not yet checked',
+    [LifetimePayoutCapBasis.VerifiedCountTrigger]: 'a verified count trigger',
+    [LifetimePayoutCapBasis.VerifiedNoCountTrigger]:
+        'a verified no-count trigger',
 };
 
 const HEADER_CELLS = [
@@ -108,7 +118,7 @@ export function FundedOptimizerView() {
                         </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        {`cushion: ${POLICY_BASIS_LABELS[policyBasis.cushion]}, payout request: ${POLICY_BASIS_LABELS[policyBasis.payoutRequest]}`}
+                        {`cushion: ${POLICY_BASIS_LABELS[policyBasis.cushion]}, payout request: ${POLICY_BASIS_LABELS[policyBasis.payoutRequest]}, lifetime payout cap: ${LIFETIME_PAYOUT_CAP_BASIS_LABELS[request.policy.lifetimePayoutCapBasis]}`}
                     </p>
                     <FundedOptimizerResult
                         reason={sweep.reason}

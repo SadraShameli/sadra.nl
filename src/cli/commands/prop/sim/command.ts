@@ -4,8 +4,12 @@ import {
     bankrollArguments,
     type BankrollInputs,
     describeStopRule,
+    formatCurrencyWithSe,
     formatDaysToPass,
+    formatNumberWithSe,
+    formatPercentWithSe,
     pathGranularityComparisonArgument,
+    placedFundedRiskNote,
     planArguments,
     planResolver,
     printEdgePlausibilityNotes,
@@ -26,11 +30,8 @@ import {
 import {
     dollars,
     type Dollars,
-    formatWholeCentDollars,
     fraction,
     type Fraction0to1,
-    FUNDED_START_TIER_CONTRACT_LIMIT,
-    placedFundedRisk,
     type Plan,
     type SimOutputs,
     simulate,
@@ -45,6 +46,7 @@ import {
     empiricalPayingStatsOf,
     evalPace,
     expectancyPerTradeR,
+    LOSS_RISK_DRAWS,
     LossSampleUnit,
     MAX_LOSS_TARGET_CAP,
     minimumAttemptsForLossTarget,
@@ -52,6 +54,7 @@ import {
     type Quantity,
     requiredR,
 } from '~/lib/prop-calculator/economics';
+import { mean } from '~/lib/prop-calculator/stats';
 
 export interface GranularityRow {
     out: SimOutputs;
@@ -76,7 +79,6 @@ export const simArguments = {
     ...bankrollArguments,
 };
 
-const BANKROLL_COHORT_DRAWS = 10_000;
 
 export default defineCommand({
     args: simArguments,
@@ -454,18 +456,12 @@ function formatBatchLoss(
     const outcome = cohortOutcome(
         netValues,
         sampleCount,
-        BANKROLL_COHORT_DRAWS,
+        LOSS_RISK_DRAWS,
         seed,
     );
     if (outcome.value === null) return formatQuantityReason(outcome.reason);
     const { standardError, value } = outcome.value.lossProbability;
     return formatPercentWithSe(value, standardError);
-}
-
-function formatCurrencyWithSe(value: number, se: null | number): string {
-    return se === null
-        ? formatCurrency(value)
-        : `${formatCurrency(value)} (SE ${formatCurrency(se)})`;
 }
 
 function formatMinimumBudget(
@@ -495,34 +491,12 @@ function formatNoPayout(pAttemptPays: number, attempts: number): string {
         : `${formatPercent(quantity.value, 3)} (ignores payout size)`;
 }
 
-function formatNumberWithSe(
-    value: number,
-    se: null | number,
-    digits = 2,
-): string {
-    return se === null
-        ? value.toFixed(digits)
-        : `${value.toFixed(digits)} (SE ${se.toFixed(digits)})`;
-}
-
-function formatPercentWithSe(value: number, se: null | number): string {
-    return se === null
-        ? formatPercent(value)
-        : `${formatPercent(value)} (SE ${formatPercent(se)})`;
-}
-
 function formatQuantityReason(reason: EconomicsReason): string {
     return `n/a: ${ECONOMICS_REASON_TEXT[reason]}`;
 }
 
 function fundedValueLabel(fundedHorizonDays: number): string {
     return `funded value (engine, ${fundedHorizonDays} funded days, credit-free)`;
-}
-
-function meanOf(values: readonly number[]): number {
-    return values.length === 0
-        ? 0
-        : values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function minimumBudgetRow(
@@ -550,7 +524,7 @@ function minimumBudgetRow(
             });
             return result.value ?? 1;
         },
-        meanNetPerSample: dollars(meanOf(out.netValues)),
+        meanNetPerSample: dollars(mean(out.netValues)),
         sampleUnit: unit,
         threshold,
     });
@@ -567,21 +541,6 @@ function payoutDistributionLine(distribution: readonly number[]): string {
                 `${index === distribution.length - 1 ? '10+' : String(index)}: ${formatPercent(probability)}`,
         )
         .join(' | ');
-}
-
-function placedCapNote(plan: Plan | undefined, isCapped: boolean): string {
-    if (plan === undefined) return ', before any contract limit';
-    return isCapped ? `, capped at ${FUNDED_START_TIER_CONTRACT_LIMIT}` : '';
-}
-
-function placedFundedRiskNote(
-    inputs: TradingInputs,
-    plan: Plan | undefined,
-): string {
-    const placed = placedFundedRisk(inputs, plan);
-    if (placed === null) return '';
-    const { instrument, stopPoints } = placed.positionSizing;
-    return ` (placed ${formatWholeCentDollars(placed.risk)}: ${placed.contracts} ${instrument.symbol} at ${stopPoints} pt${placedCapNote(plan, placed.isCapped)})`;
 }
 
 function unitWord(unit: LossSampleUnit, count: number): string {

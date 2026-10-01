@@ -4,13 +4,12 @@ import { redirect } from 'next/navigation';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
+import { AnalyticsDashboard } from '~/app/(app)/trade-checklist/_components/AnalyticsDashboard';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
-
-import { AnalyticsDashboard } from '../_components/AnalyticsDashboard';
 
 export const metadata: Metadata = {
     description:

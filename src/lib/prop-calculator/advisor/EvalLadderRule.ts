@@ -4,7 +4,8 @@ import {
     floorToWholeCents,
     isAtOrBelowWithinCentTolerance,
     ONE_CENT,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import {
     assertEvalMode,
     DocumentedRule,

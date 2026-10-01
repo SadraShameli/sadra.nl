@@ -1,13 +1,13 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
-import { ACCOUNT_LIST_INPUT } from '../_components/accountListFilters';
 import { ImportView } from './ImportView';
 
 export const metadata: Metadata = {

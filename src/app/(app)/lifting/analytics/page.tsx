@@ -1,12 +1,11 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { AnalyticsDashboard } from '~/app/(app)/lifting/_components/AnalyticsDashboard';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { AnalyticsDashboard } from '../_components/AnalyticsDashboard';
 
 export const metadata: Metadata = {
     description: 'Charts, PRs, volume, frequency.',

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { firmsModelOf } from '~/app/(app)/prop-calculator/accounts/firms/firmsModel';
@@ -22,6 +24,7 @@ import {
 
 const NO_THRESHOLDS: SampleThresholds = {
     minClosedRounds: null,
+    minEndedAccounts: null,
     minEvalAttempts: null,
     minFundedAccounts: null,
     minTrades: null,
@@ -74,6 +77,7 @@ describe('firmsModelOf', () => {
             ledger: built,
             thresholds: {
                 minClosedRounds: null,
+                minEndedAccounts: null,
                 minEvalAttempts: 2,
                 minFundedAccounts: 1,
                 minTrades: 5,
@@ -95,5 +99,19 @@ describe('firmsModelOf', () => {
         expect(result.roster.firms).toEqual([]);
         expect(result.transferRate.perFirm).toEqual([]);
         expect(result.scaleGate.status).toBe(ScaleGateStatus.ThresholdsNotSet);
+    });
+});
+
+describe('firmsModel duplication guard (PT-62e)', () => {
+    it('assembles the scale gate inputs through scaleGateFromLedger, not a re-derived copy', () => {
+        const source = readFileSync(
+            path.join(
+                process.cwd(),
+                'src/app/(app)/prop-calculator/accounts/firms/firmsModel.ts',
+            ),
+            'utf8',
+        );
+        expect(source).not.toContain('scaleGateOf(');
+        expect(source).toContain('scaleGateFromLedger(');
     });
 });

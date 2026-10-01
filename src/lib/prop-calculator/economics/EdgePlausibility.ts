@@ -1,4 +1,5 @@
-import { type Fraction0to1 } from '../core';
+import { type Fraction0to1 } from '~/lib/prop-calculator/core';
+
 import {
     EconomicsDisclosure,
     EconomicsReason,

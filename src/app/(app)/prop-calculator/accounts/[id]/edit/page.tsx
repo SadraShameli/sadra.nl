@@ -1,11 +1,10 @@
 import { type Metadata } from 'next';
 
+import { AccountEditor } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
+import { openAccountPage } from '~/app/(app)/prop-calculator/accounts/_components/detail/accountIdParameter';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { AccountEditor } from '../../_components/AccountForm';
-import { openAccountPage } from '../../_components/detail/accountIdParameter';
 
 export const metadata: Metadata = {
     description: 'Edit a prop firm account.',

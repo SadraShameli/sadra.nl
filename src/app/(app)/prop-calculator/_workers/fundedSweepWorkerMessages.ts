@@ -1,3 +1,4 @@
+import { simInputsCacheKey } from '~/app/(app)/prop-calculator/_components/simInputsCacheKey';
 import { type FirmId, type PlanOptIns } from '~/lib/prop-calculator';
 import { type EnginePolicy, enginePolicyKey } from '~/lib/prop-calculator/advisor';
 import {
@@ -6,8 +7,6 @@ import {
     type FundedSweepRow,
 } from '~/lib/prop-calculator/optimize';
 import { type SimInputs } from '~/lib/prop-calculator/simulator';
-
-import { simInputsCacheKey } from '../_components/simInputsCacheKey';
 
 export const MAX_FUNDED_SWEEP_TRIALS = 5000;
 

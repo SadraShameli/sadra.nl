@@ -4,7 +4,8 @@ import {
     dollars,
     type Fraction0to1,
     resolveLiveTradeRisk,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import { FlatRiskRule, SHARED_ASSUMPTIONS } from './DocumentedRule';
 import {
     type PlannedRisk,

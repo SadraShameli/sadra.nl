@@ -1088,6 +1088,7 @@ function SamplesCard({ control }: { control: Control<RulebookFormValues> }) {
         <SectionCard title="Samples">
             <TextField control={control} name="samples.minEvalAttempts" />
             <TextField control={control} name="samples.minFundedAccounts" />
+            <TextField control={control} name="samples.minEndedAccounts" />
             <TextField control={control} name="samples.minTrades" />
             <TextField control={control} name="samples.minClosedRounds" />
         </SectionCard>

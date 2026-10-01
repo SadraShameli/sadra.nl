@@ -308,6 +308,22 @@ export class PropAccountRepo {
         return row?.occurredOn ?? null;
     }
 
+    async latestDecisions(): Promise<PropSizingDecisionRow[]> {
+        const limit = PROP_QUOTA_LIMITS[PropQuota.Accounts];
+        const rows = await this.database
+            .selectDistinctOn([propSizingDecision.accountId])
+            .from(propSizingDecision)
+            .where(eq(propSizingDecision.userId, this.userId))
+            .orderBy(
+                propSizingDecision.accountId,
+                desc(propSizingDecision.decidedOn),
+                desc(propSizingDecision.createdAt),
+                desc(propSizingDecision.id),
+            )
+            .limit(limit + 1);
+        return boundedRows(rows, limit, PropRecord.Decision);
+    }
+
     async latestSnapshots(): Promise<PropAccountSnapshotRow[]> {
         const limit = PROP_QUOTA_LIMITS[PropQuota.Accounts];
         const rows = await this.database
@@ -437,16 +453,16 @@ export class PropAccountRepo {
         );
     }
 
-    async listDecisionsForAccount(
-        accountId: string,
-    ): Promise<PropSizingDecisionRow[]> {
+    async listDecisions(accountId?: string): Promise<PropSizingDecisionRow[]> {
         const rows = await this.database
             .select()
             .from(propSizingDecision)
             .where(
                 and(
                     eq(propSizingDecision.userId, this.userId),
-                    eq(propSizingDecision.accountId, accountId),
+                    accountId === undefined
+                        ? undefined
+                        : eq(propSizingDecision.accountId, accountId),
                 ),
             )
             .orderBy(

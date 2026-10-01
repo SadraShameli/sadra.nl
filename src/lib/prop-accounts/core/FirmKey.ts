@@ -15,6 +15,11 @@ export type FirmColumns =
     | { readonly externalFirmId: null; readonly firmId: StoredFirmId }
     | { readonly externalFirmId: string; readonly firmId: null };
 
+export interface FirmColumnsRow {
+    readonly externalFirmId: null | string;
+    readonly firmId: null | StoredFirmId;
+}
+
 export type FirmKey =
     | {
           readonly externalFirmId: string;

@@ -1,9 +1,8 @@
 import { type Metadata } from 'next';
 
+import { LedgersBrowser } from '~/app/(app)/accounting/_components/LedgersBrowser';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { LedgersBrowser } from '../_components/LedgersBrowser';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },

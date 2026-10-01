@@ -1,4 +1,5 @@
-import { describeUnresolvedPlan, PlanKeyResolutionKind } from '../core';
+import { describeUnresolvedPlan, PlanKeyResolutionKind } from '~/lib/prop-accounts/core';
+
 import { type AccountAlert } from './AccountAlert';
 import { isModeledMonitored, type MonitoredAccount } from './AlertContext';
 import { AlertKind } from './AlertKind';

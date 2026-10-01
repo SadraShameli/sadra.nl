@@ -40,6 +40,7 @@ const OPTIONAL_FIELDS: readonly TextFieldName[] = [
     'review.monthlyPayoutTargetCents',
     'review.targetMonthlyMultiple',
     'samples.minClosedRounds',
+    'samples.minEndedAccounts',
     'samples.minEvalAttempts',
     'samples.minFundedAccounts',
     'samples.minTrades',
@@ -83,6 +84,7 @@ function everyV2FieldSet(): RulebookParameters {
         },
         samples: {
             minClosedRounds: 3,
+            minEndedAccounts: 30,
             minEvalAttempts: 50,
             minFundedAccounts: 40,
             minTrades: 200,
@@ -162,7 +164,10 @@ describe('rulebook form values for the v2 sections', () => {
     it('reads the empty defaults back as null', () => {
         expect(
             rulebookFormSchema.parse(rulebookToFormValues(DEFAULT_RULEBOOK)),
-        ).toEqual(DEFAULT_RULEBOOK);
+        ).toEqual({
+            ...DEFAULT_RULEBOOK,
+            samples: { ...DEFAULT_RULEBOOK.samples, minEndedAccounts: null },
+        });
     });
 
     it('round-trips a rulebook with every v2 field set', () => {
@@ -352,6 +357,25 @@ describe('rulebook form values for the v2 sections', () => {
             '',
         );
         expect(TEXT_FIELDS['samples.minEvalAttempts'].read(defaults)).toBe('');
+    });
+
+    it('round-trips the ended-accounts threshold, and a blank field saves null', () => {
+        const values = rulebookToFormValues(DEFAULT_RULEBOOK);
+        expect(TEXT_FIELDS['samples.minEndedAccounts'].read(values)).toBe('');
+        expect(TEXT_FIELDS['samples.minEndedAccounts'].hint).toContain(
+            'funded-accounts threshold',
+        );
+        const withValue = withText(values, 'samples.minEndedAccounts', '25');
+        const parsed = rulebookFormSchema.parse(withValue);
+        expect(parsed.samples.minEndedAccounts).toBe(25);
+        const roundTripped = rulebookToFormValues(parsed);
+        expect(TEXT_FIELDS['samples.minEndedAccounts'].read(roundTripped)).toBe(
+            '25',
+        );
+        const cleared = withText(withValue, 'samples.minEndedAccounts', '');
+        expect(
+            rulebookFormSchema.parse(cleared).samples.minEndedAccounts,
+        ).toBeNull();
     });
 
     it('writes no em dash in any field label or hint', () => {

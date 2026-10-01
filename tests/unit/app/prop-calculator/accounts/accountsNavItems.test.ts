@@ -60,6 +60,13 @@ describe('ACCOUNTS_NAV_CATALOG', () => {
         }
     });
 
+    it('gives the firms bankroll page a nav entry now that it is built', () => {
+        expect(
+            ACCOUNTS_NAV_CATALOG.find((item) => item.href === accounts.firms)
+                ?.hasPage,
+        ).toBe(true);
+    });
+
     it('matches the overview item by prefix and every other item exactly', () => {
         const overview = ACCOUNTS_NAV_CATALOG.find(
             (item) => item.href === accounts.index,

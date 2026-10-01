@@ -31,6 +31,9 @@ const EDGE_MODULE = /['"]~\/lib\/prop-accounts\/edge(?:\/[\w.]+)?['"]/;
 const EDGE_IMPORTERS = [
     'src/app/(app)/prop-calculator/accounts/edge/EdgeView.tsx',
     'src/app/(app)/prop-calculator/accounts/edge/page.tsx',
+    'src/app/(app)/prop-calculator/accounts/firms/FirmsView.tsx',
+    'src/app/(app)/prop-calculator/accounts/firms/page.tsx',
+    'src/app/(app)/prop-calculator/accounts/rounds/RoundsView.tsx',
     'src/server/api/routers/propAccounts/edge.ts',
 ];
 
@@ -357,7 +360,7 @@ describe('the edge summary is display only', () => {
         }
     });
 
-    it('is imported only by the edge router and the edge page', () => {
+    it('is imported only by the edge router, the edge page, the firms page and the rounds view', () => {
         const importers = sourceFiles('src')
             .filter(
                 (file) =>

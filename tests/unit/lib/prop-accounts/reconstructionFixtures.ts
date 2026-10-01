@@ -42,6 +42,7 @@ export interface EvalFixtureOptions {
     readonly assumptions?: readonly Assumption[];
     readonly balance?: number;
     readonly bestDayProfit?: number;
+    readonly personalMaxRiskPerTrade?: null | number;
     readonly tradingDays?: number;
 }
 
@@ -50,8 +51,14 @@ export interface FundedFixtureOptions {
     readonly balance?: number;
     readonly cumulativePayout?: number;
     readonly cycleBestDayProfit?: number;
+    readonly dashboardFloorMismatch?: null | {
+        readonly engineFloor: number;
+        readonly enteredFloor: number;
+    };
     readonly lastPayoutBalance?: number;
     readonly payoutsIssued?: number;
+    readonly pendingPayouts?: number;
+    readonly personalMaxRiskPerTrade?: null | number;
 }
 
 export interface LiveFixtureOptions {
@@ -75,6 +82,7 @@ export function evalReconstructed(
         cushion: state.balance - state.threshold,
         fundedTracker: null,
         kind: TradingPhase.Eval,
+        personalMaxRiskPerTrade: options.personalMaxRiskPerTrade ?? null,
         plan,
         resolvedDailyLossLimit: plan.resolvedDailyLossLimit(
             state,
@@ -111,8 +119,11 @@ export function fundedReconstructed(
         assumptions: options.assumptions ?? [],
         contractLimit: null,
         cushion: state.balance - state.threshold,
+        dashboardFloorMismatch: options.dashboardFloorMismatch ?? null,
         fundedTracker: tracker,
         kind: TradingPhase.Funded,
+        pendingPayouts: options.pendingPayouts ?? 0,
+        personalMaxRiskPerTrade: options.personalMaxRiskPerTrade ?? null,
         plan,
         resolvedDailyLossLimit: plan.resolvedDailyLossLimit(
             state,

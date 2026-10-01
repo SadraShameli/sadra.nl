@@ -1,5 +1,6 @@
 import { type z } from 'zod';
 
+import { accountEventKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import {
     type AccountLifecycleState,
     applyLifecycleEvent,
@@ -10,8 +11,6 @@ import {
     eventRecordSchema,
     requiresEventNote,
 } from '~/lib/schemas/propAccounts';
-
-import { accountEventKindLabel } from '../overview/overviewModel';
 
 export interface EventDraft {
     readonly accountId: string;

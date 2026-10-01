@@ -583,7 +583,9 @@ export const propSizingDecision = createTable(
         index('prop_sizing_decision_user_account_decided_idx').on(
             t.userId,
             t.accountId,
-            t.decidedOn,
+            t.decidedOn.desc().nullsFirst(),
+            t.createdAt.desc().nullsFirst(),
+            t.id.desc().nullsFirst(),
         ),
         nonNegative(
             'prop_sizing_decision_accepted_risk_ck',

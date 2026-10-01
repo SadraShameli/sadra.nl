@@ -1,3 +1,4 @@
+import { type UsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
 import {
     type AccountState,
     CENTS_PER_DOLLAR,
@@ -8,8 +9,10 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    firmMinimumNotice,
     type FundedPayoutRuleContext,
     type PayoutBlockReason,
+    PayoutBlockReasonKind,
     payoutReadiness,
     PayoutReadinessKind,
     type PayoutWait,
@@ -19,7 +22,6 @@ import {
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
-import { type UsdCents, usdCentsFromDollars } from '../core';
 import {
     type AccountStateEntry,
     AccountStateKind,
@@ -50,6 +52,7 @@ export interface PayoutReadinessBlockedRow {
     readonly accountId: string;
     readonly asOf: string;
     readonly kind: PayoutReadinessRowKind.Blocked;
+    readonly pendingAmountCents: null | UsdCents;
     readonly reason: PayoutBlockReason;
     readonly wait: null | PayoutWait;
 }
@@ -151,13 +154,15 @@ function firmMinimumNoticeOf(
     rawRequest: number,
     plan: Plan,
 ): FirmMinimumNotice | null {
-    const minimum = minimumPayoutRequest(plan);
-    return minimum > rawRequest
-        ? {
-              minimumRequestAmountCents: usdCentsFromDollars(minimum),
-              requestedAmountCents: usdCentsFromDollars(rawRequest),
-          }
-        : null;
+    const notice = firmMinimumNotice(rawRequest, minimumPayoutRequest(plan));
+    return notice === null
+        ? null
+        : {
+              minimumRequestAmountCents: usdCentsFromDollars(
+                  notice.minimumRequestAmount,
+              ),
+              requestedAmountCents: usdCentsFromDollars(notice.requestedAmount),
+          };
 }
 
 function fundedRowOf(
@@ -168,7 +173,7 @@ function fundedRowOf(
     account: ReconstructedFundedOrEvalAccount,
     override: PayoutReadinessAccountOverride | undefined,
 ): PayoutReadinessRow {
-    const { fundedTracker: tracker, state } = account;
+    const { fundedTracker: tracker, pendingPayouts, state } = account;
     if (tracker === null) {
         throw new Error(
             'a funded reconstructed account is missing its funded cycle tracker',
@@ -187,10 +192,16 @@ function fundedRowOf(
     const rawRequest =
         override?.personalRequestOverride ??
         rulebook.payout.requestCents / CENTS_PER_DOLLAR;
-    const readiness = payoutReadiness(plan, state, tracker, {
+    const grossPendingPayouts = pendingPayouts ?? 0;
+    const grossState =
+        grossPendingPayouts > 0
+            ? { ...state, balance: dollars(state.balance + grossPendingPayouts) }
+            : state;
+    const readiness = payoutReadiness(plan, grossState, tracker, {
         minRetainedCushion,
         payoutRequestSize: rawRequest,
-        statePendingPayoutsNetted: true,
+        pendingPayouts: grossPendingPayouts,
+        statePendingPayoutsNetted: false,
     });
     switch (readiness.kind) {
         case PayoutReadinessKind.Blocked: {
@@ -198,6 +209,10 @@ function fundedRowOf(
                 accountId,
                 asOf,
                 kind: PayoutReadinessRowKind.Blocked,
+                pendingAmountCents:
+                    readiness.reason.kind === PayoutBlockReasonKind.PayoutPending
+                        ? usdCentsFromDollars(grossPendingPayouts)
+                        : null,
                 reason: readiness.reason,
                 wait: readiness.wait,
             };

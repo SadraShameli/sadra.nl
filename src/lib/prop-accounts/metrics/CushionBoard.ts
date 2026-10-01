@@ -1,3 +1,4 @@
+import { type UsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
 import {
     CENTS_PER_DOLLAR,
     type Plan,
@@ -14,7 +15,6 @@ import {
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
-import { type UsdCents, usdCentsFromDollars } from '../core';
 import {
     type AccountStateEntry,
     AccountStateKind,
@@ -25,6 +25,11 @@ export enum CushionRatioBasis {
     Eval = 'eval',
     Funded = 'funded',
     Live = 'live',
+}
+
+export enum FundedRiskBasis {
+    PersonalMaxRiskPerTrade = 'personal-max-risk-per-trade',
+    RulebookFunded = 'rulebook-funded',
 }
 
 export interface CushionBoard {
@@ -50,6 +55,7 @@ export interface CushionRatio {
     readonly basisAmount: null | number;
     readonly cushion: null | number;
     readonly floor: null | number;
+    readonly fundedRiskBasis?: FundedRiskBasis;
     readonly ratio: null | number;
     readonly retainedCushionBasis?: RetainedCushionBasis;
 }
@@ -134,14 +140,35 @@ function fundedRatio(
     rulebook: RulebookParameters,
     account: ReconstructedFundedOrEvalAccount,
 ): CushionRatio {
-    const basisAmount = documentedFundedRiskOf(rulebook);
+    const { basis: fundedRiskBasis, basisAmount } = fundedRiskBasisOf(
+        rulebook,
+        account.personalMaxRiskPerTrade ?? null,
+    );
     return {
         basis: CushionRatioBasis.Funded,
         basisAmount,
         cushion: account.cushion,
         floor: account.state.threshold,
+        fundedRiskBasis,
         ratio: ratioOf(account.cushion, basisAmount),
     };
+}
+
+function fundedRiskBasisOf(
+    rulebook: RulebookParameters,
+    personalMaxRiskPerTrade: null | number,
+): { readonly basis: FundedRiskBasis; readonly basisAmount: number } {
+    const documented = documentedFundedRiskOf(rulebook);
+    if (
+        personalMaxRiskPerTrade !== null &&
+        personalMaxRiskPerTrade < documented
+    ) {
+        return {
+            basis: FundedRiskBasis.PersonalMaxRiskPerTrade,
+            basisAmount: personalMaxRiskPerTrade,
+        };
+    }
+    return { basis: FundedRiskBasis.RulebookFunded, basisAmount: documented };
 }
 
 function liveRatio(

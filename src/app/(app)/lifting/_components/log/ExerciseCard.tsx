@@ -3,6 +3,7 @@
 import { ChevronDown, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
+import { PlateVisualizer } from '~/app/(app)/lifting/_components/shared/PlateVisualizer';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -36,7 +37,6 @@ import {
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-import { PlateVisualizer } from '../shared/PlateVisualizer';
 import { SetRow, type SetRowData } from './SetRow';
 
 interface ExerciseCardProperties {

@@ -12,12 +12,10 @@ import { formatCurrency, formatPercent } from '~/lib/format';
 import { dollars, fraction, type Fraction0to1, type SimOutputs, simulate } from '~/lib/prop-calculator';
 import {
     attemptsAffordable,
-    batchLossClosedForm,
+    bankrollLossRiskSummary,
     cohortOutcome,
-    empiricalPayingStatsOf,
-    LossSampleUnit,
-    MAX_LOSS_TARGET_CAP,
-    minimumBudgetForLossTarget,
+    EconomicsReason,
+    LOSS_RISK_DRAWS,
     noPayoutProbability,
 } from '~/lib/prop-calculator/economics';
 
@@ -35,7 +33,6 @@ export const riskArguments = {
 
 const OVERRIDE_NOTE =
     'override is an input, not derived from your win rate, rr and risk';
-const LOSS_RISK_DRAWS = 10_000;
 
 export default defineCommand({
     args: riskArguments,
@@ -131,34 +128,20 @@ function batchLossLine(
 }
 
 function minimumBudgetLine(out: SimOutputs, risk: BankrollRiskInputs): string {
-    const meanNet =
-        out.netValues.reduce((sum, value) => sum + value, 0) /
-        Math.max(1, out.netValues.length);
-    if (meanNet <= 0) return 'no positive edge';
-    if (risk.lossThreshold === null) return 'threshold not set';
-    const attemptCost = dollars(out.costPerAttempt);
-    const { pAttemptPays, valuePerPayingAttempt } = empiricalPayingStatsOf(
+    const summary = bankrollLossRiskSummary(
         out.netValues,
         out.costPerAttempt,
+        risk.lossThreshold,
     );
-    const quantity = minimumBudgetForLossTarget({
-        cap: MAX_LOSS_TARGET_CAP,
-        costPerSample: attemptCost,
-        costUnit: LossSampleUnit.Attempt,
-        lossProbability: (samples) => {
-            const outcome = batchLossClosedForm({
-                attemptCost,
-                attempts: samples,
-                pAttemptPays,
-                valuePerPayingAttempt,
-            });
-            return outcome.value ?? 1;
-        },
-        meanNetPerSample: dollars(meanNet),
-        sampleUnit: LossSampleUnit.Attempt,
-        threshold: risk.lossThreshold,
-    });
-    return quantity.value === null ? 'n/a' : formatCurrency(quantity.value);
+    if (summary.minimumBudget.reason === EconomicsReason.NoPositiveEdge) {
+        return 'no positive edge';
+    }
+    if (summary.minimumBudget.reason === EconomicsReason.ThresholdNotSet) {
+        return 'threshold not set';
+    }
+    return summary.minimumBudget.value === null
+        ? 'n/a'
+        : formatCurrency(summary.minimumBudget.value.budget);
 }
 
 function noPayoutLine(payoutRate: Fraction0to1, attempts: number): string {

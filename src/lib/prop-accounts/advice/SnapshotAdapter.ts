@@ -5,6 +5,25 @@ import type {
     PropPayoutRow,
 } from '~/server/db/schemas/prop';
 
+import {
+    AccountEventKind,
+    accountStageOn,
+    type AccountStageStarts,
+    compareText,
+    isLedgerOnlyAccount,
+    latestEventOn,
+    type ModeledAccountRow,
+    paidPayoutCash,
+    PayoutStatus,
+    readPersonalRulesOrNull,
+    sumUsdCents,
+    type TrackedAccountRow,
+    type UsdCents,
+    usdCents,
+    usdCentsFromDollars,
+    usdCentsToDollars,
+} from '~/lib/prop-accounts/core';
+import { SnapshotField } from '~/lib/prop-accounts/snapshots';
 import { type Dollars, isoDaysBetween, type Plan } from '~/lib/prop-calculator';
 import {
     type AccountSnapshotInput,
@@ -14,24 +33,6 @@ import {
     inputAssumption,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
-
-import {
-    AccountEventKind,
-    accountStageOn,
-    type AccountStageStarts,
-    compareText,
-    isLedgerOnlyAccount,
-    type ModeledAccountRow,
-    paidPayoutCash,
-    PayoutStatus,
-    sumUsdCents,
-    type TrackedAccountRow,
-    type UsdCents,
-    usdCents,
-    usdCentsFromDollars,
-    usdCentsToDollars,
-} from '../core';
-import { SnapshotField } from '../snapshots';
 
 export enum AdviceUnavailableReason {
     LedgerOnly = 'ledger-only',
@@ -57,11 +58,14 @@ export type SnapshotAccountRow = Pick<
     | 'purchasedOn'
     | 'stage'
     | 'tracking'
->;
+> & {
+    readonly personalRules?: PropAccountRow['personalRules'];
+};
 
 export interface SnapshotAdapterResult {
     readonly assumptions: readonly Assumption[];
     readonly input: AccountSnapshotInput;
+    readonly personalMaxRiskPerTrade: Dollars | null;
 }
 
 export type SnapshotAdviceInput =
@@ -159,8 +163,8 @@ export function snapshotInputFrom(
     const assumptions: Assumption[] = [];
 
     const stageStarts: AccountStageStarts = {
-        evalPassedOn: latestOccurredOn(events, AccountEventKind.EvalPassed),
-        movedLiveOn: latestOccurredOn(events, AccountEventKind.MovedLive),
+        evalPassedOn: latestEventOn(events, AccountEventKind.EvalPassed),
+        movedLiveOn: latestEventOn(events, AccountEventKind.MovedLive),
     };
     const resolvedAsOf = snapshot?.asOf ?? asOf;
     const stage = accountStageOn(
@@ -258,21 +262,13 @@ export function snapshotInputFrom(
         tradingDays: snapshot?.tradingDays ?? undefined,
     };
 
-    return { assumptions, input };
-}
+    const personalMaxRiskPerTrade =
+        optionalDollars(
+            readPersonalRulesOrNull(account.personalRules)
+                ?.maxRiskPerTradeCents,
+        ) ?? null;
 
-function latestOccurredOn(
-    events: readonly SnapshotEventRow[],
-    kind: AccountEventKind,
-): null | string {
-    let latest: null | string = null;
-    for (const event of events) {
-        if (event.kind !== kind) continue;
-        if (latest === null || compareText(event.occurredOn, latest) > 0) {
-            latest = event.occurredOn;
-        }
-    }
-    return latest;
+    return { assumptions, input, personalMaxRiskPerTrade };
 }
 
 function optionalDollars(

@@ -63,7 +63,10 @@ function alertOf(
 
 const DEFAULT_KINDS = [
     AlertKind.BankrollLossRiskAboveThreshold,
+    AlertKind.CalendarInactivity,
+    AlertKind.ConductPattern,
     AlertKind.ConsistencyNearBreach,
+    AlertKind.CooldownActive,
     AlertKind.DashboardFloorMismatch,
     AlertKind.EvalDayCapNear,
     AlertKind.FirmPayoutTotalMismatch,
@@ -71,6 +74,8 @@ const DEFAULT_KINDS = [
     AlertKind.InvalidStoredDate,
     AlertKind.LifetimeDollarCapNear,
     AlertKind.LifetimePayoutCountNear,
+    AlertKind.LiveExclusivity,
+    AlertKind.LiveTriggerNear,
     AlertKind.MixedStageCopyGroup,
     AlertKind.NearFloor,
     AlertKind.PayoutCountMismatch,
@@ -78,6 +83,7 @@ const DEFAULT_KINDS = [
     AlertKind.PayoutEligible,
     AlertKind.PayoutReadyWithdrawableDrop,
     AlertKind.PlanRulesChanged,
+    AlertKind.PooledCapReached,
     AlertKind.RoundBudgetReached,
     AlertKind.StaleSnapshot,
     AlertKind.SubscriptionRenewalDue,

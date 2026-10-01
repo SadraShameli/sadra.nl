@@ -29,10 +29,16 @@ export function RealizedOutcomesCard({
                                 Pass rate
                             </TableHead>
                             <TableHead className="text-right">
+                                Modeled pass rate
+                            </TableHead>
+                            <TableHead className="text-right">
                                 Sessions to funded
                             </TableHead>
                             <TableHead className="text-right">
                                 Funded survival
+                            </TableHead>
+                            <TableHead className="text-right">
+                                Modeled funded survival
                             </TableHead>
                             <TableHead className="text-right">
                                 Still open
@@ -46,11 +52,17 @@ export function RealizedOutcomesCard({
                                 <TableCell className="text-right tabular-nums">
                                     {row.passRate}
                                 </TableCell>
+                                <TableCell className="text-right text-muted-foreground tabular-nums">
+                                    {row.modeledPassRate}
+                                </TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.sessionsToFunded}
                                 </TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.fundedSurvival}
+                                </TableCell>
+                                <TableCell className="text-right text-muted-foreground tabular-nums">
+                                    {row.modeledFundedSurvival}
                                 </TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.openFunded}

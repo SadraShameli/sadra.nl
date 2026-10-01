@@ -1,4 +1,5 @@
 import type {
+    PropAccountEventRow,
     PropAccountRow,
     PropAccountSnapshotRow,
     PropCopyGroupRow,
@@ -9,14 +10,15 @@ import {
     type RealizedLossRisk,
     type RoundBudgetStatus,
 } from '~/lib/prop-accounts/bankroll';
-import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
-
 import {
+    AccountEventKind,
     type AccountReadIssue,
     accountShapeProblem,
     AccountTracking,
+    findStoredFirm,
     isAccountDate,
     isPaidOnOrBefore,
+    latestEventOn,
     latestTwoSnapshots,
     type ModeledAccountRow,
     paidPayoutCash,
@@ -30,17 +32,21 @@ import {
     trackedAccountOf,
     type TrackedAccountRow,
     type UsdCents,
-} from '../core';
+} from '~/lib/prop-accounts/core';
 import {
     type AccountStateEntry,
     type AccountStateResult,
     type FirmReconciliationEntry,
     isActiveAccount,
-} from '../metrics';
+} from '~/lib/prop-accounts/metrics';
+import { type Plan, type TradingFirm } from '~/lib/prop-calculator';
+import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
+
 import { AlertDisclosure } from './AccountAlert';
 import { TradingSessionCalendar } from './TradingSessionCalendar';
 
 export enum StoredDateField {
+    MovedLiveOn = 'moved-live-on',
     PayoutPaidOn = 'payout-paid-on',
     PayoutRequestedOn = 'payout-requested-on',
     PurchasedOn = 'purchased-on',
@@ -90,14 +96,21 @@ export interface AlertRoundRow {
 }
 
 export const NO_ACCOUNT_STATES: readonly AccountStateEntry[] = [];
+export const NO_EVENTS: readonly AlertEventRow[] = [];
 export const NO_FIRM_RECONCILIATION: readonly FirmReconciliationEntry[] = [];
 export const NO_REALIZED_LOSS_RISK: null | RealizedLossRisk = null;
 export const NO_ROUNDS: readonly AlertRoundRow[] = [];
+
+export type AlertEventRow = Pick<
+    PropAccountEventRow,
+    'accountId' | 'kind' | 'occurredOn'
+>;
 
 export interface AlertInputs {
     readonly accounts: readonly AlertAccountRow[];
     readonly accountStates: readonly AccountStateEntry[];
     readonly copyGroups: readonly AlertCopyGroupRow[];
+    readonly events?: readonly AlertEventRow[];
     readonly firmReconciliation?: readonly FirmReconciliationEntry[];
     readonly payouts: readonly AlertPayoutRow[];
     readonly realizedLossRisk?: null | RealizedLossRisk;
@@ -142,8 +155,10 @@ export type ModeledMonitoredAccount = MonitoredAccount & {
 export interface MonitoredAccount {
     readonly account: TrackedAccountRow<AlertAccountRow>;
     readonly accountState: AccountStateResult | null;
+    readonly events: readonly AlertEventRow[];
     readonly invalidDates: readonly InvalidStoredDate[];
     readonly latestSnapshot: AlertSnapshotRow | null;
+    readonly movedLiveOn: null | string;
     readonly payouts: readonly AlertPayoutRow[];
     readonly plan: PlanKeyResolution;
     readonly planKey: null | PlanKeyInput;
@@ -155,6 +170,12 @@ export interface PayoutLedgerTotal {
     readonly cents: UsdCents;
     readonly grossCounted: number;
     readonly netCents: UsdCents;
+}
+
+export interface ResolvedFirmAccount {
+    readonly firm: TradingFirm;
+    readonly monitored: ModeledMonitoredAccount;
+    readonly plan: Plan;
 }
 
 interface LedgerCash {
@@ -169,6 +190,10 @@ export function createAlertContext(inputs: AlertInputs): AlertContext {
         (snapshot) => snapshot.accountId,
     );
     const payouts = Map.groupBy(inputs.payouts, (payout) => payout.accountId);
+    const events = Map.groupBy(
+        inputs.events ?? NO_EVENTS,
+        (event) => event.accountId,
+    );
     const accountStates = new Map(
         inputs.accountStates.map((entry) => [entry.accountId, entry.state]),
     );
@@ -178,6 +203,7 @@ export function createAlertContext(inputs: AlertInputs): AlertContext {
             snapshots.get(account.id) ?? [],
             payouts.get(account.id) ?? [],
             accountStates.get(account.id) ?? null,
+            events.get(account.id) ?? NO_EVENTS,
         );
     const archived = inputs.accounts.filter(
         (account) => account.archivedAt !== null,
@@ -257,11 +283,34 @@ export function requestedLedgerTotal(
     );
 }
 
+export function resolvedFirmAccountsOf(
+    context: AlertContext,
+): readonly ResolvedFirmAccount[] {
+    return context.accounts.flatMap((monitored) => {
+        if (!isModeledMonitored(monitored)) return [];
+        if (monitored.plan.kind !== PlanKeyResolutionKind.Resolved) return [];
+        const firm = findStoredFirm(monitored.planKey.firmId);
+        return firm === undefined
+            ? []
+            : [{ firm, monitored, plan: monitored.plan.plan }];
+    });
+}
+
 function invalidDate(
     field: StoredDateField,
     value: null | string,
 ): InvalidStoredDate[] {
     return value === null || isAccountDate(value) ? [] : [{ field, value }];
+}
+
+function invalidMovedLiveDates(
+    events: readonly AlertEventRow[],
+): InvalidStoredDate[] {
+    return events.flatMap((event) =>
+        event.kind === AccountEventKind.MovedLive
+            ? invalidDate(StoredDateField.MovedLiveOn, event.occurredOn)
+            : [],
+    );
 }
 
 function invalidPayoutDates(payout: AlertPayoutRow): InvalidStoredDate[] {
@@ -292,6 +341,7 @@ function monitor(
     snapshots: readonly AlertSnapshotRow[],
     payouts: readonly AlertPayoutRow[],
     accountState: AccountStateResult | null,
+    events: readonly AlertEventRow[],
 ): MonitoredAccount {
     const account = trackedAccountOf(stored);
     const planKey =
@@ -304,14 +354,17 @@ function monitor(
     return {
         account,
         accountState,
+        events,
         invalidDates: [
             ...invalidDate(StoredDateField.PurchasedOn, account.purchasedOn),
             ...snapshots.flatMap((snapshot) =>
                 invalidDate(StoredDateField.SnapshotAsOf, snapshot.asOf),
             ),
             ...payouts.flatMap(invalidPayoutDates),
+            ...invalidMovedLiveDates(events),
         ],
         latestSnapshot: latest,
+        movedLiveOn: movedLiveOnOf(events),
         payouts: payouts.filter(isDated),
         plan:
             planKey === null
@@ -321,6 +374,13 @@ function monitor(
         previousSnapshot: previous,
         undatedPayouts: payouts.filter((payout) => !isDated(payout)),
     };
+}
+
+function movedLiveOnOf(events: readonly AlertEventRow[]): null | string {
+    return latestEventOn(
+        events.filter((event) => isAccountDate(event.occurredOn)),
+        AccountEventKind.MovedLive,
+    );
 }
 
 function toPlanKey(account: ModeledAccountRow<AlertAccountRow>): PlanKeyInput {

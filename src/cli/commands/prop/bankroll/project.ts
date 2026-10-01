@@ -11,7 +11,7 @@ import {
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
-import { compoundedBankroll } from '~/lib/prop-calculator/economics';
+import { bankrollCompoundingIllustration } from '~/lib/prop-calculator/economics';
 import {
     type BankrollTimelineResult,
     simulateBankrollTimeline,
@@ -95,20 +95,17 @@ export default defineCommand({
 export function closedFormIllustration(
     project: Pick<BankrollProjectInputs, 'horizonDays' | 'reinvest' | 'start'>,
 ): string {
-    if (project.reinvest <= 0) {
-        return 'n/a: reinvestment is 0, so there is no compounding cycle to illustrate';
-    }
-    const illustrativeMultiple = 1 + project.reinvest;
-    const illustrativeCycleDays = 21;
-    const quantity = compoundedBankroll(
+    const illustration = bankrollCompoundingIllustration(
         project.start,
-        illustrativeMultiple,
-        illustrativeCycleDays,
+        project.reinvest,
         project.horizonDays,
     );
-    return quantity.value === null
+    if (illustration === null) {
+        return 'n/a: reinvestment is 0, so there is no compounding cycle to illustrate';
+    }
+    return illustration.quantity.value === null
         ? 'n/a'
-        : `${formatCurrency(quantity.value)} at a ${illustrativeMultiple.toFixed(2)}x / ${illustrativeCycleDays}-day illustrative cycle`;
+        : `${formatCurrency(illustration.quantity.value)} at a ${illustration.multiple.toFixed(2)}x / ${illustration.cycleDays}-day illustrative cycle`;
 }
 
 export function projectSummaryRows(

@@ -38,7 +38,7 @@ const TOY_GRID = {
 const COARSE_BEST_DAY_STEP = 200;
 const TOY_LOCKED_CUSHION_STEPS = 12;
 const TOY_CUSHION_STEP = 50;
-const BUILDER_COARSE_FIXED_POINT = 12_040.484358923788;
+const BUILDER_COARSE_FIXED_POINT = 11_540.95058132762;
 
 function consistencyToyPlan(maxBestDayShare: number): Plan {
     const base = new MyFundedFutures().findPlan({
@@ -86,7 +86,10 @@ function dpAgainstReplay(
     plan: Plan,
     grid: Pick<
         FundedStateValueConfig,
-        'cushionStepMultiple' | 'cycleBestDayBucketCount' | 'maxCushionMultiple'
+        | 'cushionStepMultiple'
+        | 'cycleBestDayBucketCount'
+        | 'maxCushionMultiple'
+        | 'maxTailCushionMultiple'
     >,
 ) {
     const result = computeFundedStateValue({ ...TOY_GRID, ...grid, plan });
@@ -160,10 +163,10 @@ describe('computeFundedStateValue with a funded consistency rule agrees with a r
         600_000,
     );
 
-    it('earns at least its DP value in a replay of its own policy on the 40 percent toy at the default 6 drawdown cushion grid, a result for this toy only since truncation above the grid top can err either way', () => {
+    it('earns at least its DP value in a replay of its own policy on the default 6 drawdown cushion grid (the tail pinned off, WP58c: this test studies that specific grid top on purpose), a result for this toy only since truncation above the grid top can err either way', () => {
         const { dpValue, replayValue } = dpAgainstReplay(
             consistencyToyPlan(0.4),
-            { cushionStepMultiple: 0.5 },
+            { cushionStepMultiple: 0.5, maxTailCushionMultiple: 6 },
         );
         expect(replayValue).toBeGreaterThan(
             dpValue * (1 - REPLAY_RELATIVE_TOLERANCE),
@@ -171,10 +174,14 @@ describe('computeFundedStateValue with a funded consistency rule agrees with a r
         expect(dpValue).toBeGreaterThan(300);
     }, 600_000);
 
-    it('keeps the 40 percent toy above 300 and no higher than its own replay on a coarse cycleBestDayBucketCount of 3', () => {
+    it('keeps the 40 percent toy above 300 and no higher than its own replay on a coarse cycleBestDayBucketCount of 3, at the default 6 drawdown cushion grid (the tail pinned off, WP58c: this test studies that specific grid top on purpose)', () => {
         const { dpValue, replayValue } = dpAgainstReplay(
             consistencyToyPlan(0.4),
-            { cushionStepMultiple: 0.5, cycleBestDayBucketCount: 3 },
+            {
+                cushionStepMultiple: 0.5,
+                cycleBestDayBucketCount: 3,
+                maxTailCushionMultiple: 6,
+            },
         );
         expect(replayValue).toBeGreaterThan(
             dpValue * (1 - REPLAY_RELATIVE_TOLERANCE),
@@ -182,11 +189,12 @@ describe('computeFundedStateValue with a funded consistency rule agrees with a r
         expect(dpValue).toBeGreaterThan(300);
     }, 600_000);
 
-    it('rounds an off-grid carried best day up to the next bucket of a coarse cycleBestDayBucketCount, so its policy acts on the larger best day and never on a smaller one the real rule would not see', () => {
+    it('rounds an off-grid carried best day up to the next bucket of a coarse cycleBestDayBucketCount, so its policy acts on the larger best day and never on a smaller one the real rule would not see, at the default 6 drawdown cushion grid (the tail pinned off, WP58c: this test studies that specific grid top on purpose)', () => {
         const { dayPolicy } = computeFundedStateValue({
             ...TOY_GRID,
             cushionStepMultiple: 0.5,
             cycleBestDayBucketCount: 3,
+            maxTailCushionMultiple: 6,
             plan: consistencyToyPlan(0.4),
         });
         const atZero = lockedRiskProfile(dayPolicy, 0);
@@ -221,7 +229,7 @@ describe('computeFundedStateValue with a funded consistency rule agrees with a r
 });
 
 describe('computeFundedStateValue pins a real plan with a funded consistency rule (N-65 review)', () => {
-    it('values MFF Builder 50K (50 percent best-day rule) at the coarse probe grid at $11,614.25 over 226,800 states, within its stated error bound of the fixed point $11,614.29 the solver reaches at tolerance 0.0001. Re-pinned for T32: the end-of-horizon credit is one request under the payout ladder step, not the whole balance above the floor; with only the pre-T32 credit restored the same run reproduces the WP17e pin $14,039.06 and fixed point $14,039.08 exactly, so the credit is the only move. Re-pinned again for N-86 (WP54, continuationKey interpolates the day-close cushion): $11,614.25 moved to $12,040.46 and its tolerance-0.0001 fixed point moved from $11,614.29 to $12,040.48 (reachedStateCount and unconvergedLevelCount unchanged), an upward move consistent with the fix removing a downward floor-rounding bias at Builder’s drawdown lock', async () => {
+    it('values MFF Builder 50K (50 percent best-day rule) at the coarse probe grid, within its stated error bound of the fixed point the solver reaches at tolerance 0.0001. Re-pinned for T32: the end-of-horizon credit is one request under the payout ladder step, not the whole balance above the floor; with only the pre-T32 credit restored the same run reproduces the WP17e pin $14,039.06 and fixed point $14,039.08 exactly, so the credit is the only move. Re-pinned again for N-86 (WP54, continuationKey interpolates the day-close cushion): $11,614.25 moved to $12,040.46 and its tolerance-0.0001 fixed point moved from $11,614.29 to $12,040.48 (reachedStateCount and unconvergedLevelCount unchanged), an upward move consistent with the fix removing a downward floor-rounding bias at Builder’s drawdown lock. Re-pinned again for WP58c (N-86 stage 2): the coarse cushion tail is on by default now, reaching 30 drawdowns above the locked floor instead of 6, and this plan tracks a funded consistency rule whose own cycleBestDayGrid dimension scales with that wider range uncapped (no cycleBestDayBucketCount override here), so reachedStateCount grew far more than the ~1.2x to ~2x seen elsewhere: 226,800 to 4,640,328 (about 20.5x, disclosed as exceeding the "about 2x" guidance; the design accepts this and keeps the tail on). initialValue moved from 12,040.458422262556 to 11,541.08563746211 (a decrease here, consistent with FTMO Growth’s direction elsewhere in this fix) and its tolerance-0.0001 fixed point from 12,040.484358923788 to 11,540.95058132762. Re-pinned again for WP58d: the default best-day grid is now bounded by what one day can win (tradesPerDay times the largest win, plus one cushion step per trade), so reachedStateCount fell from 4,640,328 to 1,406,160 (3.3x fewer, still about 6.2x the pre-tail 226,800: the rest is the cushion tail and the cycle-baseline grid, which follows the tail top) and initialValue moved from 11,541.08563746211 to 11,541.088348689482, a rise of 0.0027 against the DP tolerance of 1 and the error bound of this run', async () => {
         const plan = await registryMffBuilder50k();
         const result = computeFundedStateValue({
             actionStepMultiple: 0.25,
@@ -237,8 +245,8 @@ describe('computeFundedStateValue pins a real plan with a funded consistency rul
             winrate: 0.5,
         });
         expect(result.unconvergedLevelCount).toBe(0);
-        expect(result.reachedStateCount).toBe(226_800);
-        expect(result.initialValue).toBeCloseTo(12_040.458422262556, 6);
+        expect(result.reachedStateCount).toBe(1_406_160);
+        expect(result.initialValue).toBeCloseTo(11_541.088348689482, 6);
         expect(
             Math.abs(result.initialValue - BUILDER_COARSE_FIXED_POINT),
         ).toBeLessThanOrEqual(result.valueErrorBound);

@@ -92,6 +92,14 @@ export function histogram(
     return bins;
 }
 
+export function isBeyondNoise(
+    a: UncertainValue,
+    b: UncertainValue,
+    comparison: NoiseComparison,
+): boolean {
+    return noiseVerdict(a, b, comparison) === NoiseVerdict.BeyondNoise;
+}
+
 export function mean(xs: readonly number[]): number {
     if (xs.length === 0) return 0;
     let sum = 0;

@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
+    type LadderWorkerRequest,
+    LadderWorkerRequestKind,
+    type LadderWorkerResponse,
+    LadderWorkerResponseKind,
+} from '~/app/(app)/prop-calculator/_workers/ladderWorkerMessages';
+import {
     buildLadderGrid,
     canonicaliseGrid,
     ladderFrontier,
@@ -12,12 +18,6 @@ import {
     resolveCopyAccounts,
 } from '~/lib/prop-calculator';
 
-import {
-    type LadderWorkerRequest,
-    LadderWorkerRequestKind,
-    type LadderWorkerResponse,
-    LadderWorkerResponseKind,
-} from '../_workers/ladderWorkerMessages';
 import {
     LadderRunPhase,
     type LadderSearchInputs,

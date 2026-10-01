@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { OAuthButtons } from '~/app/(auth)/_components/OAuthButtons';
+import { SignInMethodTabs } from '~/app/(auth)/_components/SignInMethodTabs';
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import {
     Card,
@@ -14,9 +16,6 @@ import { getServerSession } from '~/lib/auth/server';
 import { loginSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-
-import { OAuthButtons } from '../_components/OAuthButtons';
-import { SignInMethodTabs } from '../_components/SignInMethodTabs';
 
 export default async function LoginPage({
     searchParams,

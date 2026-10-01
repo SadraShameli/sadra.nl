@@ -1,5 +1,6 @@
 import {
     BookOpen,
+    Building2,
     CalendarCheck,
     CirclePlus,
     Crosshair,
@@ -7,6 +8,7 @@ import {
     Layers,
     LayoutDashboard,
     Receipt,
+    Repeat,
     ShoppingCart,
 } from 'lucide-react';
 
@@ -35,7 +37,7 @@ export const ACCOUNTS_NAV_CATALOG: readonly AccountsNavEntry[] = [
         label: 'Add account',
     },
     {
-        hasPage: false,
+        hasPage: true,
         href: accounts.review,
         icon: CalendarCheck,
         label: 'Weekly review',
@@ -61,6 +63,13 @@ export const ACCOUNTS_NAV_CATALOG: readonly AccountsNavEntry[] = [
         label: 'Next slot',
     },
     { hasPage: true, href: accounts.edge, icon: Crosshair, label: 'Edge' },
+    { hasPage: true, href: accounts.rounds, icon: Repeat, label: 'Rounds' },
+    {
+        hasPage: true,
+        href: accounts.firms,
+        icon: Building2,
+        label: 'Firms',
+    },
 ];
 
 export const ACCOUNTS_NAV_ITEMS: readonly RouteSubnavItem[] =

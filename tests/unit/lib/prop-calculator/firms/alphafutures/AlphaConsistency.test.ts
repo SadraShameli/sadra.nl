@@ -271,6 +271,7 @@ function dpAndSimulate(rule: ConsistencyRule): DpRun {
         evalInitialValue: 0,
         feePerAttempt: dollars(0),
         maxActionMultiple: 1,
+        maxTailCushionMultiple: 6,
         plan,
         rrRatio: 2,
         tradesPerDay: 2,
@@ -355,7 +356,7 @@ describe('N-45 in the funded dynamic program: the net-losing cycle rule holds fr
         expect(isFundedDpEligible(alphaToy(qualifiedRule))).toBe(true);
     });
 
-    it('separates the Alpha rule from a loss-exempt rule after the first request, in the same direction as simulated trials of its own policy', () => {
+    it('separates the Alpha rule from a loss-exempt rule after the first request, in the same direction as simulated trials of its own policy, at the 6 drawdown cushion grid with the coarse tail pinned off (WP58d: with the default 30 drawdown tail two funded levels of this toy stop at the 200 sweep cap without converging, so the grid top is pinned the way FundedStateValueGridBias.test.ts did)', () => {
         const alpha = dpAndSimulate(qualifiedRule);
         const lossExempt = dpAndSimulate(lossExemptRule);
         expect(alpha.simulated - lossExempt.simulated).toBeGreaterThan(50);
@@ -432,7 +433,7 @@ describe('N-45 aggregate explanation: under a lifetime payout cap the loss-exemp
         expect(strict.grossPayout).toBe(362.5);
     });
 
-    it('aggregate: under their DP policies both rules bust about equally and stay well under the 3-payout cap, and the strict rule wins on larger requests', () => {
+    it('aggregate: under their DP policies both rules bust about equally and stay well under the 3-payout cap, and the strict rule wins on larger requests, at the 6 drawdown cushion grid with the coarse tail pinned off (WP58d, same reason as the first DP test above)', () => {
         const strict = dpAndSimulate(qualifiedRule);
         const lossExempt = dpAndSimulate(lossExemptRule);
 

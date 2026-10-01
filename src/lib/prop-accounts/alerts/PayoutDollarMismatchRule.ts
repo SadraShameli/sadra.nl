@@ -1,4 +1,5 @@
-import { CentsDisplay, formatUsdCents, isWithinPayoutTolerance } from '../core';
+import { CentsDisplay, formatUsdCents, isWithinPayoutTolerance } from '~/lib/prop-accounts/core';
+
 import { type AccountAlert } from './AccountAlert';
 import {
     grossDisclosureOf,

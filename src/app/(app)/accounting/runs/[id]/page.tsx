@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
-import { RunDetail } from '../../_components/RunDetail';
+import { RunDetail } from '~/app/(app)/accounting/_components/RunDetail';
 
 interface PageProperties {
     params: Promise<{ id: string }>;

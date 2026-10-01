@@ -1,7 +1,7 @@
 import {
     CALENDAR_DAYS_PER_WEEK,
     SESSION_DAYS_PER_CALENDAR_WEEK,
-} from '../constants';
+} from '~/lib/prop-calculator/core/constants';
 
 export const ISO_DATE_LENGTH = 10;
 export const MS_PER_DAY = 86_400_000;

@@ -1,13 +1,15 @@
-import { type DatedCharge } from '../core/DatedCharge';
-import { type CouponDiscounts } from '../core/FeeSchedule';
+import { type DatedCharge } from '~/lib/prop-calculator/core/DatedCharge';
+import { type CouponDiscounts } from '~/lib/prop-calculator/core/FeeSchedule';
 import {
     type FundedCycleTracker,
+    type FundedPayoutResult,
     newFundedCycleTracker,
     newFundedCycleTrackerAfterReset,
-} from '../core/FundedPayoutCycle';
-import { canTakeFundedReset, fundedResetFee } from '../core/FundedReset';
-import { type PayoutRequestPolicy } from '../core/PayoutRequestPolicy';
-import { TradingPhase } from '../core/TradingPhase';
+} from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { canTakeFundedReset, fundedResetFee } from '~/lib/prop-calculator/core/FundedReset';
+import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core/PayoutRequestPolicy';
+import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+
 import { runDay } from './day';
 import { newPhaseStats } from './PhaseStats';
 import {
@@ -17,11 +19,47 @@ import {
     type FundedHorizonResult,
 } from './types';
 
+export enum FundedDayOutcomeKind {
+    Busted = 'busted',
+    Concluded = 'concluded',
+    Continued = 'continued',
+    Reset = 'reset',
+}
+
 export enum FundedStage {
     Busted = 'busted',
     Concluded = 'concluded',
     HorizonReached = 'horizon-reached',
 }
+
+export interface FundedDayAdvanceOptions extends FundedDayStepOptions {
+    discounts: CouponDiscounts | undefined;
+    equityCurve: null | number[];
+    minRetainedCushion: number;
+    payoutRequestPolicy?: PayoutRequestPolicy;
+    payoutRequestSize: number | undefined;
+    resetsUsed: number;
+}
+
+export type FundedDayOutcome =
+    | {
+          readonly closedForInactivity: boolean;
+          readonly kind: FundedDayOutcomeKind.Busted;
+          readonly payout: FundedPayoutResult | null;
+      }
+    | {
+          readonly fee: number;
+          readonly kind: FundedDayOutcomeKind.Reset;
+          readonly tracker: FundedCycleTracker;
+      }
+    | {
+          readonly kind: FundedDayOutcomeKind.Concluded;
+          readonly payout: FundedPayoutResult;
+      }
+    | {
+          readonly kind: FundedDayOutcomeKind.Continued;
+          readonly payout: FundedPayoutResult | null;
+      };
 
 export interface FundedDaysOptions extends Omit<
     FundedDayStepOptions,
@@ -65,6 +103,80 @@ export class PayoutTotals implements PayoutSink {
     }
 }
 
+export function advanceFundedDay(
+    options: FundedDayAdvanceOptions,
+): FundedDayOutcome {
+    const {
+        discounts,
+        equityCurve,
+        minRetainedCushion,
+        payoutRequestPolicy,
+        payoutRequestSize,
+        resetsUsed,
+        ...stepOptions
+    } = options;
+    const { plan, state, tracker } = stepOptions;
+    const { busted, closedForInactivity } = stepFundedDay(stepOptions);
+    if (equityCurve) {
+        equityCurve.push(state.balance);
+    }
+
+    if (busted) {
+        const policy = plan.fundedReset;
+        if (
+            policy !== null &&
+            canTakeFundedReset(plan, {
+                closedForInactivity,
+                payoutsIssued: tracker.payoutsIssued,
+                resetsUsed,
+            })
+        ) {
+            plan.beginFundedPhase(state);
+            return {
+                fee: fundedResetFee(policy, discounts),
+                kind: FundedDayOutcomeKind.Reset,
+                tracker: newFundedCycleTrackerAfterReset(
+                    state,
+                    resetsUsed + 1,
+                ),
+            };
+        }
+        return {
+            closedForInactivity,
+            kind: FundedDayOutcomeKind.Busted,
+            payout: null,
+        };
+    }
+
+    const payout = tracker.tryPayout({
+        minRetainedCushion,
+        payoutRequestPolicy,
+        payoutRequestSize,
+        plan,
+        state,
+    });
+    if (payout === null) {
+        return { kind: FundedDayOutcomeKind.Continued, payout };
+    }
+    if (payout.causesHardBreach) {
+        return {
+            closedForInactivity: false,
+            kind: FundedDayOutcomeKind.Busted,
+            payout,
+        };
+    }
+    const isConcluded = plan.isAccountConcluded(
+        tracker.payoutsIssued,
+        tracker.cumulativePayout,
+    );
+    return {
+        kind: isConcluded
+            ? FundedDayOutcomeKind.Concluded
+            : FundedDayOutcomeKind.Continued,
+        payout,
+    };
+}
+
 export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
     const {
         commission,
@@ -88,6 +200,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         sink,
         state,
         stats,
+        tradeRng,
         winrate,
     } = options;
     let tracker = initialTracker ?? newFundedCycleTracker(state);
@@ -106,81 +219,69 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         state,
         stats,
         tracker,
+        tradeRng,
         winrate,
     };
 
     for (let day = 0; day < maxDays; day++) {
-        const { busted, closedForInactivity } = stepFundedDay(dayOptions);
-        daysElapsed += 1;
-        if (equityCurve) {
-            equityCurve.push(state.balance);
-        }
-
-        if (busted) {
-            const policy = plan.fundedReset;
-            if (
-                policy !== null &&
-                canTakeFundedReset(plan, {
-                    closedForInactivity,
-                    payoutsIssued: tracker.payoutsIssued,
-                    resetsUsed: priorFundedResetsUsed + fundedResets.length,
-                })
-            ) {
-                fundedResets.push({
-                    dayOffset: dayOffsetBase + daysElapsed,
-                    fee: fundedResetFee(policy, discounts),
-                });
-                plan.beginFundedPhase(state);
-                tracker = newFundedCycleTrackerAfterReset(
-                    state,
-                    priorFundedResetsUsed + fundedResets.length,
-                );
-                dayOptions = { ...dayOptions, tracker };
-                continue;
-            }
-            return {
-                closedForInactivity,
-                daysElapsed,
-                fundedResets,
-                stage: FundedStage.Busted,
-                tracker,
-            };
-        }
-
-        const payout = tracker.tryPayout({
+        const outcome = advanceFundedDay({
+            ...dayOptions,
+            discounts,
+            equityCurve,
             minRetainedCushion,
             payoutRequestPolicy,
             payoutRequestSize,
-            plan,
-            state,
+            resetsUsed: priorFundedResetsUsed + fundedResets.length,
         });
-        if (payout === null) continue;
+        daysElapsed += 1;
 
-        sink.record(dayOffsetBase + daysElapsed, payout.traderReceives);
-
-        if (payout.causesHardBreach) {
-            return {
-                closedForInactivity: false,
-                daysElapsed,
-                fundedResets,
-                stage: FundedStage.Busted,
-                tracker,
-            };
-        }
-
-        if (
-            plan.isAccountConcluded(
-                tracker.payoutsIssued,
-                tracker.cumulativePayout,
-            )
-        ) {
-            return {
-                closedForInactivity: false,
-                daysElapsed,
-                fundedResets,
-                stage: FundedStage.Concluded,
-                tracker,
-            };
+        switch (outcome.kind) {
+            case FundedDayOutcomeKind.Busted: {
+                if (outcome.payout !== null) {
+                    sink.record(
+                        dayOffsetBase + daysElapsed,
+                        outcome.payout.traderReceives,
+                    );
+                }
+                return {
+                    closedForInactivity: outcome.closedForInactivity,
+                    daysElapsed,
+                    fundedResets,
+                    stage: FundedStage.Busted,
+                    tracker,
+                };
+            }
+            case FundedDayOutcomeKind.Concluded: {
+                sink.record(
+                    dayOffsetBase + daysElapsed,
+                    outcome.payout.traderReceives,
+                );
+                return {
+                    closedForInactivity: false,
+                    daysElapsed,
+                    fundedResets,
+                    stage: FundedStage.Concluded,
+                    tracker,
+                };
+            }
+            case FundedDayOutcomeKind.Continued: {
+                if (outcome.payout !== null) {
+                    sink.record(
+                        dayOffsetBase + daysElapsed,
+                        outcome.payout.traderReceives,
+                    );
+                }
+                continue;
+            }
+            case FundedDayOutcomeKind.Reset: {
+                fundedResets.push({
+                    dayOffset: dayOffsetBase + daysElapsed,
+                    fee: outcome.fee,
+                });
+                tracker = outcome.tracker;
+                dayOptions = { ...dayOptions, tracker };
+                continue;
+            }
         }
     }
 
@@ -309,6 +410,7 @@ export function stepFundedDay(options: FundedDayStepOptions): {
         state,
         stats,
         tracker,
+        tradeRng,
         winrate,
     } = options;
     const { busted, closedForInactivity } = runDay({
@@ -325,6 +427,7 @@ export function stepFundedDay(options: FundedDayStepOptions): {
         rungSizing,
         state,
         stats,
+        tradeRng,
         winrate,
     });
     if (state.todayPnL > tracker.cycleBestDayProfit) {

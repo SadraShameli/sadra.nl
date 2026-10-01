@@ -1,4 +1,5 @@
-import { AccountStage, accountStageBreakdown } from '../core';
+import { AccountStage, accountStageBreakdown } from '~/lib/prop-accounts/core';
+
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
 import { type AlertContext, isActive } from './AlertContext';
 import { AlertKind } from './AlertKind';

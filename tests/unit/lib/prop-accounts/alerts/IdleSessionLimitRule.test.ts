@@ -8,7 +8,18 @@ import {
     IdleSessionLimitRule,
 } from '~/lib/prop-accounts/alerts';
 import { AccountStage } from '~/lib/prop-accounts/core';
-import { addIsoDays, TradingPhase } from '~/lib/prop-calculator';
+import {
+    addIsoDays,
+    ALL_FIRMS,
+    FirmAccountPolicy,
+    InactivityBasisKind,
+    InactivityMinimumQualifyingKind,
+    InactivityOutcome,
+    type InactivityPolicy,
+    PolicySourceKind,
+    PolicyVerification,
+    TradingPhase,
+} from '~/lib/prop-calculator';
 
 import {
     accountFor,
@@ -26,6 +37,33 @@ const WITH_LIMIT = planWhere(
 );
 const LIMIT = WITH_LIMIT.plan.maxConsecutiveIdleDaysFor(TradingPhase.Eval);
 if (LIMIT === null) throw new Error('expected a configured idle limit');
+
+function requiredFirm(firmId: typeof WITH_LIMIT.firmId) {
+    const firm = ALL_FIRMS.find((candidate) => candidate.id === firmId);
+    if (firm === undefined) throw new Error('expected the plan firm to be registered');
+    return firm;
+}
+
+function withStubbedInactivityPolicy<T>(
+    verifiedPolicy: InactivityPolicy,
+    run: () => T,
+): T {
+    class VerifiedCalendarPolicy extends FirmAccountPolicy {
+        override inactivityFor(): InactivityPolicy {
+            return verifiedPolicy;
+        }
+    }
+    const firm = requiredFirm(WITH_LIMIT.firmId) as {
+        accountPolicy: FirmAccountPolicy;
+    };
+    const original = firm.accountPolicy;
+    firm.accountPolicy = new VerifiedCalendarPolicy();
+    try {
+        return run();
+    } finally {
+        firm.accountPolicy = original;
+    }
+}
 
 const rule = new IdleSessionLimitRule();
 
@@ -116,5 +154,29 @@ describe('IdleSessionLimitRule', () => {
                 (candidate) => candidate instanceof IdleSessionLimitRule,
             ),
         ).toBe(true);
+    });
+
+    it('skips a firm whose calendar inactivity policy is verified, deferring to CalendarInactivityRule', () => {
+        const verifiedPolicy: InactivityPolicy = {
+            kind: InactivityBasisKind.CalendarDays,
+            maxIdleDays: LIMIT,
+            minimumQualifying: { kind: InactivityMinimumQualifyingKind.AnyTrade },
+            mismatch: null,
+            outcome: InactivityOutcome.Closure,
+            source: {
+                fetchedOn: '2026-09-01',
+                quote: 'a synthetic test quote',
+                sourceKind: PolicySourceKind.LiveFetch,
+                url: 'https://example.test/policy',
+                verification: PolicyVerification.Confirmed,
+            },
+        };
+        const today = WEDNESDAY;
+        const lastTradedOn = daysBefore(today, LIMIT);
+        expect(
+            withStubbedInactivityPolicy(verifiedPolicy, () =>
+                alertsAt(lastTradedOn, { today }),
+            ),
+        ).toEqual([]);
     });
 });

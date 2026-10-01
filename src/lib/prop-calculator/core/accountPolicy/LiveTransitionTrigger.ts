@@ -1,4 +1,5 @@
-import { type Dollars } from '../lib/units';
+import { type Dollars } from '~/lib/prop-calculator/core/lib/units';
+
 import { type FirmPolicySource } from './FirmPolicySource';
 
 export enum LiveTriggerKind {

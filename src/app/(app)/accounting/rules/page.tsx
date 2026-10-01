@@ -1,9 +1,8 @@
 import { type Metadata } from 'next';
 
+import { RulesManager } from '~/app/(app)/accounting/_components/RulesManager';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { RulesManager } from '../_components/RulesManager';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },

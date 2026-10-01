@@ -1,4 +1,5 @@
-import { type SimInputs, type SimOutputs, simulate } from '../simulator';
+import { type SimInputs, type SimOutputs, simulate } from '~/lib/prop-calculator/simulator';
+
 import { type FundedCandidate } from './FundedCandidate';
 
 export enum FundedSortKey {

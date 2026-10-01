@@ -17,6 +17,7 @@ import {
     accountFor,
     ANY_EVAL_PLAN,
     contextOf,
+    movedLiveEvent,
     paidPayout,
     snapshotFor,
     TUESDAY,
@@ -69,6 +70,18 @@ describe('createAlertContext date safety', () => {
         expect(monitored?.payouts).toEqual([goodPayout]);
     });
 
+    it('lists a malformed MovedLive event date like other malformed stored dates, and keeps the account out of the move-live cutoff', () => {
+        const account = accountFor(ANY_EVAL_PLAN, { stage: AccountStage.Live });
+        const monitored = contextOf({
+            accounts: [account],
+            events: [movedLiveEvent(account, '2026-13-01')],
+        }).accounts[0];
+        expect(monitored?.invalidDates).toEqual([
+            { field: StoredDateField.MovedLiveOn, value: '2026-13-01' },
+        ]);
+        expect(monitored?.movedLiveOn).toBeNull();
+    });
+
     it('lists nothing for an account whose dates are all real', () => {
         const account = accountFor(ANY_EVAL_PLAN);
         const monitored = contextOf({
@@ -114,6 +127,18 @@ describe('InvalidStoredDateRule', () => {
         expect(alerts[0]?.message).toContain('snapshot date "yesterday"');
         expect(alerts[0]?.message).toContain('2000 through 2100');
         expect(alerts[0]?.message).toContain('not checked');
+    });
+
+    it('names a malformed move-live date the same way as other malformed stored dates', () => {
+        const broken = accountFor(ANY_EVAL_PLAN, { stage: AccountStage.Live });
+        const alerts = new InvalidStoredDateRule().evaluate(
+            contextOf({
+                accounts: [broken],
+                events: [movedLiveEvent(broken, '2026-13-01')],
+            }),
+        );
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.message).toContain('move-live date "2026-13-01"');
     });
 
     it('is silent when every stored date is real', () => {

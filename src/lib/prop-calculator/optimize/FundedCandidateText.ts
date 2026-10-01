@@ -3,7 +3,6 @@ import {
     formatCurrency,
     formatPercent,
 } from '~/lib/format';
-
 import {
     ContractLimitKind,
     formatOneContractRisk,
@@ -14,13 +13,14 @@ import {
     type Plan,
     type PositionSizingConfig,
     TRADING_DAYS_PER_MONTH,
-} from '../core';
+} from '~/lib/prop-calculator/core';
 import {
     resolveCopyAccounts,
     SIM_DEFAULTS,
     type SimInputs,
     type SimOutputs,
-} from '../simulator';
+} from '~/lib/prop-calculator/simulator';
+
 import {
     type BuiltFundedCandidates,
     fundedPlacementText,

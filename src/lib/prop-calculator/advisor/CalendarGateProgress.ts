@@ -4,7 +4,7 @@ import {
     type Plan,
     requiredDayGateDays,
     sessionDaysForCalendarDays,
-} from '../core';
+} from '~/lib/prop-calculator/core';
 
 export enum CalendarGateProgressKind {
     MissingAnchor = 'missing-anchor',

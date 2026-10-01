@@ -33,6 +33,7 @@ describe('bankrollLevers (PT-55)', () => {
         expect(rows[0]?.deltaPassProbability).toBe(0);
         expect(rows[0]?.deltaEvPerAttempt).toBe(0);
         expect(rows[0]?.deltaMonthlyNet).toBe(0);
+        expect(rows[0]?.deltaAttemptPaysProbability).toBe(0);
         expect(rows[0]?.passProbability).toEqual(base.passProbability);
     });
 
@@ -76,6 +77,7 @@ describe('bankrollLevers (PT-55)', () => {
     it('reports the change in P(pass), EV per attempt and monthly net relative to the base row', () => {
         const base = outputsFor({});
         const variant = outputsFor({
+            attemptPaysProbability: { standardError: 0.01, value: fraction(0.45) },
             expectedMonthlyNet: { standardError: 20, value: dollars(260) },
             expectedNetPerAttempt: { standardError: 5, value: dollars(65) },
             passProbability: { standardError: 0.02, value: fraction(0.5) },
@@ -90,6 +92,7 @@ describe('bankrollLevers (PT-55)', () => {
         expect(row?.deltaPassProbability).toBeCloseTo(0.1, 9);
         expect(row?.deltaEvPerAttempt).toBeCloseTo(15, 9);
         expect(row?.deltaMonthlyNet).toBeCloseTo(60, 9);
+        expect(row?.deltaAttemptPaysProbability).toBeCloseTo(0.15, 9);
     });
 
     it('carries a loss risk at the bankroll with a standard error, over the attempts the bankroll affords', () => {

@@ -1,8 +1,7 @@
 import { type Metadata } from 'next';
 
+import { ConnectionsManager } from '~/app/(app)/accounting/_components/ConnectionsManager';
 import { cn } from '~/lib/utilities';
-
-import { ConnectionsManager } from '../_components/ConnectionsManager';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },

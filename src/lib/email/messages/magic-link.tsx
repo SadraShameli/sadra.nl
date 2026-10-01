@@ -1,8 +1,8 @@
 import { Button, Heading, Text } from '@react-email/components';
 import { render } from '@react-email/render';
 
-import { EmailMessage } from '../message';
-import { BaseEmail } from '../templates/base';
+import { EmailMessage } from '~/lib/email/message';
+import { BaseEmail } from '~/lib/email/templates/base';
 
 export class MagicLinkEmail extends EmailMessage {
     readonly subject = 'Sign in to sadra.nl';

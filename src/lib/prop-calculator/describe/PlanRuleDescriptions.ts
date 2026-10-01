@@ -4,7 +4,6 @@ import {
     formatPercent,
     NOT_APPLICABLE,
 } from '~/lib/format';
-
 import {
     type AccountConclusionSource,
     type ConsistencyRule,
@@ -30,7 +29,7 @@ import {
     type Plan,
     retryPath,
     TradingPhase,
-} from '../core';
+} from '~/lib/prop-calculator/core';
 
 export enum ContractUnit {
     Micro = 'micro',

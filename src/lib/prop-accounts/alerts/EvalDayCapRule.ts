@@ -1,6 +1,6 @@
+import { AccountStage, PlanKeyResolutionKind } from '~/lib/prop-accounts/core';
 import { isoDaysBetween } from '~/lib/prop-calculator';
 
-import { AccountStage, PlanKeyResolutionKind } from '../core';
 import { type AccountAlert, type AlertDisclosure } from './AccountAlert';
 import {
     type AlertContext,

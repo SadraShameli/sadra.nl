@@ -229,10 +229,15 @@ describe('DEFAULT_RULEBOOK', () => {
     it('leaves every sample minimum unset', () => {
         expect(DEFAULT_RULEBOOK.samples).toEqual({
             minClosedRounds: null,
+            minEndedAccounts: null,
             minEvalAttempts: null,
             minFundedAccounts: null,
             minTrades: null,
         });
+    });
+
+    it('leaves the ended-accounts threshold null so it falls back to the funded-accounts one', () => {
+        expect(DEFAULT_RULEBOOK.samples.minEndedAccounts).toBeNull();
     });
 
     it('calls expectancy typical up to 0.30R and strong up to 0.35R, outside the strategy section', () => {
@@ -699,6 +704,7 @@ describe('rulebookSchema v2 sections', () => {
             'minFundedAccounts',
             'minTrades',
             'minClosedRounds',
+            'minEndedAccounts',
         ]) {
             expect(isValid(withSection('samples', { [key]: 1 }))).toBe(true);
             expect(isValid(withSection('samples', { [key]: 10_000 }))).toBe(
@@ -935,6 +941,7 @@ describe('the documented rule label and the v2 sections', () => {
         ['samples', 'minFundedAccounts', 50],
         ['samples', 'minTrades', 200],
         ['samples', 'minClosedRounds', 3],
+        ['samples', 'minEndedAccounts', 4],
         ['review', 'monthlyPayoutTargetCents', 1_000_000],
         ['review', 'targetMonthlyMultiple', 2],
         ['plausibility', 'typicalMaxExpectancyR', 0.25],

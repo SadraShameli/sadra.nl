@@ -36,6 +36,10 @@ describe('DashboardFloorMismatchRule', () => {
                 ),
             ],
             balance: plan.accountSize + 5000,
+            dashboardFloorMismatch: {
+                engineFloor: plan.accountSize - 1000,
+                enteredFloor: plan.accountSize,
+            },
         });
         const alerts = alertsOf(rule, {
             accounts: [account],
@@ -52,6 +56,34 @@ describe('DashboardFloorMismatchRule', () => {
         expect(alerts[0]?.message).toContain(
             'is used as the more conservative one',
         );
+    });
+
+    it('names both the engine floor and the entered floor', () => {
+        const plan = mffProPlan();
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Funded },
+        );
+        const funded = fundedReconstructed(plan, {
+            assumptions: [
+                inputAssumption(
+                    AssumptionKind.DashboardFloorMismatch,
+                    AssumptionBias.Conservative,
+                ),
+            ],
+            balance: plan.accountSize + 5000,
+            dashboardFloorMismatch: {
+                engineFloor: 49_000,
+                enteredFloor: 50_000,
+            },
+        });
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [reconstructedEntry(account.id, plan, funded)],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.message).toContain('$49,000');
+        expect(alerts[0]?.message).toContain('$50,000');
     });
 
     it('is silent without the reconstruction warning', () => {

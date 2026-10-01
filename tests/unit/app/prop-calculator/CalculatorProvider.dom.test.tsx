@@ -10,6 +10,8 @@ import {
     vi,
 } from 'vitest';
 
+import type * as UseToolsWorkerModule from '~/app/(app)/prop-calculator/_components/useToolsWorker';
+
 import { AnalysisView } from '~/app/(app)/prop-calculator/(tools)/analysis/AnalysisView';
 import { SimulatorView } from '~/app/(app)/prop-calculator/(tools)/simulator/SimulatorView';
 import { CalculatorProvider } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
@@ -51,6 +53,32 @@ vi.mock('~/app/(app)/prop-calculator/_components/InputsSummary', () => ({
 
 vi.mock('~/app/(app)/prop-calculator/_components/CalculatorInputsForm', () => ({
     CalculatorInputsForm: ({ aside }: { aside: ReactNode }) => aside,
+}));
+
+vi.mock('~/app/(app)/prop-calculator/_components/useToolsWorker', async (importOriginal) => {
+    const actual = await importOriginal<typeof UseToolsWorkerModule>();
+    return {
+        ToolsWorkerPhase: actual.ToolsWorkerPhase,
+        useToolsWorker: () => ({
+            cancel: vi.fn(),
+            run: vi.fn(),
+            state: { phase: actual.ToolsWorkerPhase.Idle },
+        }),
+    };
+});
+
+vi.mock('~/lib/auth/client', () => ({
+    useSession: () => ({ data: null, error: null, isPending: false }),
+}));
+
+vi.mock('~/trpc/react', () => ({
+    api: {
+        propAccounts: {
+            rulebook: {
+                get: { useQuery: () => ({ data: undefined }) },
+            },
+        },
+    },
 }));
 
 const TIMEOUT_MS = 5000;

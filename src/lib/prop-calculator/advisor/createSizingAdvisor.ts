@@ -3,7 +3,8 @@ import {
     type FirmAccountPolicy,
     type InstrumentSymbol,
     TradingPhase,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import { type PlanRulesFingerprintCheck } from './AdviceStaleness';
 import { type MeasuredRebuyLag } from './EnginePolicyBuilder';
 import { EvalSizingAdvisor } from './EvalSizingAdvisor';
@@ -17,8 +18,8 @@ import {
 import { type RulebookParameters } from './Rulebook';
 import { type SizingAdvisor } from './SizingAdvisor';
 
-const DEFAULT_FUNDED_HORIZON_DAYS = 252;
-const DEFAULT_MAX_EVAL_DAYS = 150;
+export const DEFAULT_FUNDED_HORIZON_DAYS = 252;
+export const DEFAULT_MAX_EVAL_DAYS = 150;
 
 export interface SizingAdvisorCreateOptions {
     readonly accountPolicy?: FirmAccountPolicy;

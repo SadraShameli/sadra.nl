@@ -14,6 +14,7 @@ import {
 
 const THRESHOLDS = {
     minClosedRounds: null,
+    minEndedAccounts: null,
     minEvalAttempts: null,
     minFundedAccounts: null,
     minTrades: null,

@@ -1,13 +1,17 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import {
+    EVENT_LIST_INPUT,
+    LEDGER_LIST_INPUT,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
-import { ACCOUNT_LIST_INPUT } from '../_components/accountListFilters';
 import { CopyGroupsView } from './CopyGroupsView';
 
 export const metadata: Metadata = {
@@ -25,6 +29,10 @@ export default async function PropAccountsCopyGroupsPage() {
     }
     void api.propAccounts.copyGroup.list.prefetch();
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
+    void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
+    void api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT);
+    void api.propAccounts.rulebook.get.prefetch();
+    void api.propAccounts.snapshot.latestForAll.prefetch();
     return (
         <HydrateClient>
             <main
@@ -33,7 +41,7 @@ export default async function PropAccountsCopyGroupsPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <CopyGroupsView />
+                <CopyGroupsView userId={session.user.id} />
             </main>
         </HydrateClient>
     );

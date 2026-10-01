@@ -1,4 +1,5 @@
-import { type PayoutRequestPolicy } from '../core';
+import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core';
+
 import { type LifetimePayoutCapBasis } from './policy';
 import { type StartBasis } from './StartBasis';
 

@@ -34,7 +34,7 @@ function thresholdFor(
             return thresholds.minClosedRounds;
         }
         case SampleKind.EndedAccounts: {
-            return thresholds.minFundedAccounts;
+            return thresholds.minEndedAccounts ?? thresholds.minFundedAccounts;
         }
         case SampleKind.EvalAttempts: {
             return thresholds.minEvalAttempts;

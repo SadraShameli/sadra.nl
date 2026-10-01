@@ -1,10 +1,12 @@
-import { formatUsdCents, usdCentsFromDollars } from '../core';
+import { formatUsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
 import {
     AccountStateKind,
     type CushionRatio,
     CushionRatioBasis,
     cushionRatioOf,
-} from '../metrics';
+    FundedRiskBasis,
+} from '~/lib/prop-accounts/metrics';
+
 import { type AccountAlert } from './AccountAlert';
 import {
     type AlertContext,
@@ -44,8 +46,14 @@ export class NearFloorRule extends AccountAlertRule {
 function messageFor(ratio: CushionRatio): string {
     const cushion = usdCentsFromDollars(ratio.cushion ?? 0);
     const basisAmount = usdCentsFromDollars(ratio.basisAmount ?? 0);
-    const noun = STAGE_NOUN[ratio.basis];
+    const noun = nounFor(ratio);
     return `Cushion of ${formatUsdCents(cushion)} is close to the floor: below ${noun} of ${formatUsdCents(basisAmount)}`;
+}
+
+function nounFor(ratio: CushionRatio): string {
+    return ratio.fundedRiskBasis === FundedRiskBasis.PersonalMaxRiskPerTrade
+        ? 'the personal max risk per trade'
+        : STAGE_NOUN[ratio.basis];
 }
 
 function thresholdFor(ratio: CushionRatio, context: AlertContext): number {

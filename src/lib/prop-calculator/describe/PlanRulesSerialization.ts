@@ -1,6 +1,5 @@
+import { type DrawdownLockConfig, type Plan } from '~/lib/prop-calculator/core';
 import { stableJson } from '~/lib/stableJson';
-
-import { type DrawdownLockConfig, type Plan } from '../core';
 
 const DESCRIPTIVE_KEYS: ReadonlySet<string> = new Set([
     'availability',

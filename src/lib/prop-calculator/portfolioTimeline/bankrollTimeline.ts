@@ -1,4 +1,4 @@
-import { TRADING_DAYS_PER_MONTH } from '../core/constants';
+import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator/core/constants';
 import {
     type DayPolicy,
     type DayStopRule,
@@ -7,26 +7,26 @@ import {
     flatDayPolicy,
     policySizingOf,
     type RungSizing,
-} from '../core/DayPolicy';
+} from '~/lib/prop-calculator/core/DayPolicy';
 import {
     activationFee,
     type CouponDiscounts,
     initialEvalFee,
-} from '../core/FeeSchedule';
+} from '~/lib/prop-calculator/core/FeeSchedule';
 import {
     type Dollars,
     dollars,
     fraction,
     type Fraction0to1,
-} from '../core/lib/units';
-import { type PayoutRequestPolicy } from '../core/PayoutRequestPolicy';
-import { type Plan } from '../core/Plan';
+} from '~/lib/prop-calculator/core/lib/units';
+import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core/PayoutRequestPolicy';
+import { type Plan } from '~/lib/prop-calculator/core/Plan';
 import {
     type PositionSizingConfig,
     resolvePositionSizing,
-} from '../core/PositionSizing';
-import { TradingPhase } from '../core/TradingPhase';
-import { deriveSubSeed, mulberry32 } from '../rng';
+} from '~/lib/prop-calculator/core/PositionSizing';
+import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+import { deriveSubSeed, mulberry32 } from '~/lib/prop-calculator/rng';
 import {
     assertDeclaredSizingMatchesPhase,
     assertPositiveSafeInteger,
@@ -34,8 +34,9 @@ import {
     SIM_DEFAULTS,
     SIM_INPUTS_REFUSAL_PREFIX,
     simInputsSizingIssue,
-} from '../simulator';
-import { percentile } from '../stats';
+} from '~/lib/prop-calculator/simulator';
+import { percentile } from '~/lib/prop-calculator/stats';
+
 import { CardChargeCursor } from './DatedChargeCursor';
 import { runEvalToFundedCycle } from './fundedCycle';
 import {

@@ -1,12 +1,20 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { useToolsRequest } from '~/app/(app)/prop-calculator/_components/bankroll/useToolsRequest';
+import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
+import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { parsedOrIssues } from '~/app/(app)/prop-calculator/accounts/_components/detail/formParsing';
+import { EVENT_LIST_INPUT, LEDGER_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
+import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import {
@@ -43,16 +51,21 @@ import {
     PortfolioLedger,
     todayIsoDate,
 } from '~/lib/prop-accounts';
+import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { roundCreateSchema } from '~/lib/schemas/propAccounts';
+import { stableJson } from '~/lib/stableJson';
 import { api } from '~/trpc/react';
 
-import { ACCOUNT_LIST_INPUT } from '../_components/accountListFilters';
-import { parsedOrIssues } from '../_components/detail/formParsing';
-import { EVENT_LIST_INPUT, LEDGER_LIST_INPUT } from '../_components/overview/overviewModel';
 import {
     firmColumnsFromSelectValue,
     firmSelectOptions,
+    type NextRoundCardModel,
+    nextRoundCardModelOf,
+    type NextRoundOptionSummary,
+    NextRoundRecommendation,
+    type NextRoundResultSummary,
+    nextRoundResultSummaryOf,
     roundsPageModel,
     type RoundSuggestionRow,
 } from './roundsModel';
@@ -68,6 +81,13 @@ const roundFormShape = z.object({
 
 type RoundFormValues = z.input<typeof roundFormShape>;
 
+interface RoundPrefill {
+    readonly firmValue: string;
+    readonly label: string;
+    readonly memberAccountIds: readonly string[];
+    readonly openedOn: string;
+}
+
 export function RoundsView() {
     const session = useSession();
     const accountsQuery =
@@ -79,15 +99,16 @@ export function RoundsView() {
     const roundsQuery = api.propAccounts.round.list.useQuery();
     const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    const [prefill, setPrefill] = useState<null | {
-        firmValue: string;
-        label: string;
-        openedOn: string;
-    }>(null);
+    const bankrollSummaryQuery = api.propAccounts.bankroll.summary.useQuery();
+    const edgeQuery = api.propAccounts.edge.summary.useQuery(ALL_JOURNAL_DAYS);
+    const [prefill, setPrefill] = useState<null | RoundPrefill>(null);
 
     const externalFirms = externalFirmsQuery.data ?? EMPTY_EXTERNAL_FIRMS;
     const rulebook = rulebookQuery.data ?? DEFAULT_RULEBOOK;
-    const model = useMemo(() => {
+    const availableCents = bankrollSummaryQuery.data?.availableCents ?? null;
+    const trades = edgeQuery.data?.summary.sampleSize ?? 0;
+
+    const ledger = useMemo(() => {
         if (
             session.data?.user.id === undefined ||
             accountsQuery.data === undefined ||
@@ -98,44 +119,138 @@ export function RoundsView() {
         ) {
             return null;
         }
-        const ledger = PortfolioLedger.fromRows(session.data.user.id, {
+        return PortfolioLedger.fromRows(session.data.user.id, {
             accounts: accountsQuery.data,
             events: eventsQuery.data,
             fees: feesQuery.data,
             payouts: payoutsQuery.data,
             rounds: roundsQuery.data,
         });
-        return roundsPageModel(
-            ledger,
-            rulebook.samples,
-            rulebook.bankroll.roundGapDays,
-            externalFirms,
-        );
     }, [
         accountsQuery.data,
         eventsQuery.data,
-        externalFirms,
         feesQuery.data,
         payoutsQuery.data,
         roundsQuery.data,
-        rulebook,
         session.data?.user.id,
     ]);
 
-    if (model === null) return <Skeleton className="h-64 w-full" />;
+    const model = useMemo(
+        () =>
+            ledger === null
+                ? null
+                : roundsPageModel(
+                      ledger,
+                      rulebook.samples,
+                      rulebook.bankroll.roundGapDays,
+                      externalFirms,
+                      todayIsoDate(new Date()),
+                  ),
+        [externalFirms, ledger, rulebook],
+    );
+
+    const nextRound = useMemo(
+        () =>
+            ledger === null
+                ? null
+                : nextRoundCardModelOf({
+                      availableCents,
+                      ledger,
+                      rulebook,
+                      runId: 0,
+                      today: todayIsoDate(new Date()),
+                      trades,
+                  }),
+        [availableCents, ledger, rulebook, trades],
+    );
+    const nextRoundRequestKey =
+        nextRound === null ? null : stableJson(nextRound.request);
+    const buildNextRoundRequest = useCallback(
+        (runId: number) =>
+            nextRound === null ? null : { ...nextRound.request, runId },
+        [nextRound],
+    );
+    const worker = useToolsRequest(nextRoundRequestKey, buildNextRoundRequest);
+
+    if (model === null) {
+        const failed = [
+            accountsQuery,
+            eventsQuery,
+            feesQuery,
+            payoutsQuery,
+            roundsQuery,
+        ].find((query) => query.isError);
+        if (failed?.error) {
+            return (
+                <QueryErrorNotice
+                    message={failed.error.message}
+                    title="The rounds page could not be loaded"
+                />
+            );
+        }
+        return <Skeleton className="h-64 w-full" />;
+    }
+
+    const nextRoundResult =
+        nextRound !== null &&
+        worker.state.phase === ToolsWorkerPhase.Succeeded &&
+        worker.state.result.kind === ToolsResponseKind.NextRound
+            ? nextRoundResultSummaryOf({
+                  dayBudget: nextRound.request.dayBudget,
+                  optionABudget: nextRound.request.optionA.startingBankroll,
+                  optionAResult: worker.state.result.optionA,
+                  optionBBudget: nextRound.request.optionB.startingBankroll,
+                  optionBResult: worker.state.result.optionB,
+                  scaleGate: nextRound.scaleGate,
+              })
+            : null;
+    const nextRoundFailureReason =
+        worker.state.phase === ToolsWorkerPhase.Failed ? worker.state.reason : null;
 
     return (
         <div className="flex flex-col gap-6">
+            {externalFirmsQuery.isError &&
+                externalFirmsQuery.data === undefined && (
+                    <p className="text-xs text-destructive">
+                        Your firms could not be loaded, so external firms
+                        show as an unlisted firm until they load:{' '}
+                        {externalFirmsQuery.error.message}
+                    </p>
+                )}
+            {rulebookQuery.isError && rulebookQuery.data === undefined && (
+                <p className="text-xs text-destructive">
+                    Your rulebook could not be loaded, so this page is using
+                    default thresholds instead of yours:{' '}
+                    {rulebookQuery.error.message}
+                </p>
+            )}
+            {bankrollSummaryQuery.isError &&
+                bankrollSummaryQuery.data === undefined && (
+                    <p className="text-xs text-destructive">
+                        Your available bankroll could not be loaded, so
+                        option B on the &quot;Next round&quot; card is
+                        capped at option A&apos;s budget until it does:{' '}
+                        {bankrollSummaryQuery.error.message}
+                    </p>
+                )}
             {model.suggestions.length > 0 && (
                 <SuggestionsCard
                     onAccept={(row) => {
                         setPrefill({
                             firmValue: row.firmValue,
                             label: row.label,
+                            memberAccountIds: row.memberAccountIds,
                             openedOn: row.earliestPurchase,
                         });
                     }}
                     suggestions={model.suggestions}
+                />
+            )}
+            {nextRound !== null && (
+                <NextRoundCard
+                    failureReason={nextRoundFailureReason}
+                    model={nextRound}
+                    result={nextRoundResult}
                 />
             )}
             <Card>
@@ -167,6 +282,9 @@ export function RoundsView() {
                                     </TableHead>
                                     <TableHead className="text-right">
                                         Open members
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        P(round like this net negative)
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -205,6 +323,13 @@ export function RoundsView() {
                                         <TableCell className="text-right tabular-nums">
                                             {row.openMemberCount}
                                         </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            <div>{row.likeThisEndsNetNegativeModeled}</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                Closed-form check:{' '}
+                                                {row.likeThisEndsNetNegativeClosedForm}
+                                            </div>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -230,34 +355,171 @@ function emptyRoundFormValues(): RoundFormValues {
     };
 }
 
+function NextRoundCard({
+    failureReason,
+    model,
+    result,
+}: {
+    readonly failureReason: null | string;
+    readonly model: NextRoundCardModel;
+    readonly result: NextRoundResultSummary | null;
+}) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Next round</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+                <p className="text-sm text-muted-foreground">
+                    After {model.roundLabel} closed ({model.planLabel}),
+                    modeled at {(model.modeledWinrate * 100).toFixed(0)}% win
+                    rate and {model.modeledRr}:1
+                    {model.realizedPassRate !== null && (
+                        <>
+                            {' '}
+                            (your realized pass rate is{' '}
+                            {(model.realizedPassRate.value * 100).toFixed(0)}%
+                            over {model.realizedPassRate.n})
+                        </>
+                    )}
+                    .
+                </p>
+                {model.leftOutLabels.length > 0 && (
+                    <p className="text-xs text-amber-600">
+                        This round also has{' '}
+                        {model.leftOutLabels.length === 1
+                            ? 'a member'
+                            : 'members'}{' '}
+                        whose plan agreement was not checked, so its spend and
+                        payouts are left out: {model.leftOutLabels.join(', ')}.
+                    </p>
+                )}
+                {failureReason !== null && (
+                    <p className="text-xs text-destructive">
+                        {failureReason}
+                    </p>
+                )}
+                {result === null ? (
+                    <Skeleton className="h-24 w-full" />
+                ) : (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <NextRoundOption
+                            label="Option A: repeat with the same budget"
+                            recommended={
+                                result.recommended ===
+                                NextRoundRecommendation.OptionA
+                            }
+                            summary={result.optionA}
+                        />
+                        <NextRoundOption
+                            label="Option B: budget plus attributed payouts"
+                            recommended={
+                                result.recommended ===
+                                NextRoundRecommendation.OptionB
+                            }
+                            summary={result.optionB}
+                        />
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function NextRoundOption({
+    label,
+    recommended,
+    summary,
+}: {
+    readonly label: string;
+    readonly recommended: boolean;
+    readonly summary: NextRoundOptionSummary;
+}) {
+    return (
+        <div className="flex flex-col gap-2 rounded-md border p-3">
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium">{label}</span>
+                {recommended && <Badge variant="outline">Recommended</Badge>}
+            </div>
+            <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm">
+                <dt className="text-muted-foreground">Budget</dt>
+                <dd className="text-right tabular-nums">
+                    {summary.startingBankroll}
+                </dd>
+                <dt className="text-muted-foreground">
+                    Median monthly net (P50)
+                </dt>
+                <dd className="text-right tabular-nums">
+                    {summary.medianMonthlyNet}
+                </dd>
+                <dt className="text-muted-foreground">
+                    P(round net negative)
+                </dt>
+                <dd className="text-right tabular-nums">
+                    {summary.pRoundNetNegative}
+                </dd>
+                <dt className="text-muted-foreground">Path ruin</dt>
+                <dd className="text-right tabular-nums">
+                    {summary.pathRuin}
+                </dd>
+            </dl>
+            {summary.scaleGateNote !== null && (
+                <p className="text-xs text-amber-600">
+                    {summary.scaleGateNote}
+                </p>
+            )}
+        </div>
+    );
+}
+
 function RoundForm({
     externalFirms,
     prefill,
 }: {
     readonly externalFirms: Parameters<typeof firmSelectOptions>[0];
-    readonly prefill: null | {
-        firmValue: string;
-        label: string;
-        openedOn: string;
-    };
+    readonly prefill: null | RoundPrefill;
 }) {
     const utilities = api.useUtils();
     const create = api.propAccounts.round.create.useMutation();
+    const assign = api.propAccounts.round.assign.useMutation();
     const options = firmSelectOptions(externalFirms);
     const schema = roundFormSchema();
     const form = useForm<RoundFormValues>({
         defaultValues:
             prefill === null
                 ? emptyRoundFormValues()
-                : { ...emptyRoundFormValues(), ...prefill },
+                : {
+                      ...emptyRoundFormValues(),
+                      firmValue: prefill.firmValue,
+                      label: prefill.label,
+                      openedOn: prefill.openedOn,
+                  },
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
+
+    const assignSuggestedAccounts = async (roundId: string) => {
+        if (prefill === null || prefill.memberAccountIds.length === 0) return;
+        for (const accountId of prefill.memberAccountIds) {
+            try {
+                await assign.mutateAsync({ accountId, roundId });
+            } catch (error) {
+                toast.error(
+                    `The round was created, but one account could not be assigned to it: ${
+                        error instanceof Error
+                            ? error.message
+                            : 'Could not save'
+                    }`,
+                );
+            }
+        }
+    };
 
     const save = async (values: RoundFormValues) => {
         const parsed = schema.safeParse(values);
         if (!parsed.success) return;
         try {
-            await create.mutateAsync(parsed.data);
+            const created = await create.mutateAsync(parsed.data);
+            await assignSuggestedAccounts(created.id);
             toast.success(`${parsed.data.label} created`);
             form.reset(emptyRoundFormValues());
         } catch (error) {
@@ -362,7 +624,10 @@ function RoundForm({
                         />
                         <div className="sm:col-span-2">
                             <Button
-                                disabled={create.isPending}
+                                disabled={
+                                    create.isPending ||
+                                    form.formState.isSubmitting
+                                }
                                 type="submit"
                             >
                                 Add round

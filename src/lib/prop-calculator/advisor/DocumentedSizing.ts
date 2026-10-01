@@ -1,4 +1,5 @@
-import { type DayStopRule, type Dollars, type Points } from '../core';
+import { type DayStopRule, type Dollars, type Points } from '~/lib/prop-calculator/core';
+
 import { type RuleSource } from './RuleSource';
 
 export const NO_COMMISSION = 0;

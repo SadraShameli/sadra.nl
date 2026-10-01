@@ -1,4 +1,5 @@
-import { dollars, type Dollars, TradingPhase } from '../core';
+import { dollars, type Dollars, TradingPhase } from '~/lib/prop-calculator/core';
+
 import {
     EconomicsDisclosure,
     EconomicsReason,

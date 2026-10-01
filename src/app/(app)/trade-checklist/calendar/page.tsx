@@ -4,13 +4,12 @@ import { redirect } from 'next/navigation';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
+import { CalendarView } from '~/app/(app)/trade-checklist/_components/CalendarView';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments } from '~/server/db';
-
-import { CalendarView } from '../_components/CalendarView';
 
 interface CalendarPageProperties {
     searchParams: Promise<{ month?: string }>;

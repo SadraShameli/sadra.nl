@@ -4,7 +4,8 @@ import {
     type LiveCushionPercent,
     type LivePlan,
     type TradingFirm,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import { AlphaFutures } from './alphafutures/AlphaFutures';
 import { buildAlphaFuturesLivePlan } from './alphafutures/AlphaFuturesLive';
 import { buildApexLivePlan } from './apex/ApexLive';

@@ -1,6 +1,6 @@
 import { formatCurrency } from '~/lib/format';
+import { AccountStage, PlanKeyResolutionKind } from '~/lib/prop-accounts/core';
 
-import { AccountStage, PlanKeyResolutionKind } from '../core';
 import { type AccountAlert, AlertDisclosure } from './AccountAlert';
 import {
     type AlertContext,

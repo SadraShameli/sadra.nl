@@ -33,6 +33,15 @@ export function FunnelCard({ model }: { readonly model: FunnelCardModel }) {
                                 Moved live
                             </TableHead>
                             <TableHead className="text-right">
+                                Structural busts
+                            </TableHead>
+                            <TableHead className="text-right">
+                                Within-plan busts
+                            </TableHead>
+                            <TableHead className="text-right">
+                                Unknown busts
+                            </TableHead>
+                            <TableHead className="text-right">
                                 Payout rate
                             </TableHead>
                             <TableHead className="text-right">Fees</TableHead>
@@ -62,6 +71,15 @@ export function FunnelCard({ model }: { readonly model: FunnelCardModel }) {
                                     {row.movedLive}
                                 </TableCell>
                                 <TableCell className="text-right tabular-nums">
+                                    {row.structuralBusts}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {row.withinPlanBusts}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {row.unknownBusts}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
                                     {row.payoutRate}
                                 </TableCell>
                                 <TableCell className="text-right tabular-nums">
@@ -86,6 +104,18 @@ export function FunnelCard({ model }: { readonly model: FunnelCardModel }) {
             <p className="text-xs text-muted-foreground">
                 {model.biggestWeakness}
             </p>
+            {model.weaknesses.length > 0 && (
+                <ul
+                    aria-label="Biggest weakness by plan"
+                    className="flex flex-col gap-1 text-sm"
+                >
+                    {model.weaknesses.map((weakness) => (
+                        <li key={weakness.key}>
+                            Biggest weakness, {weakness.plan}: {weakness.text}
+                        </li>
+                    ))}
+                </ul>
+            )}
             <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {model.disclosures.map((disclosure) => (
                     <li key={disclosure}>{disclosure}</li>

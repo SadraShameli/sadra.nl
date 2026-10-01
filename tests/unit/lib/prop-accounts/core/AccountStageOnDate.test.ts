@@ -1,12 +1,43 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import * as root from '~/lib/prop-accounts';
 import {
+    AccountEventKind,
     AccountStage,
     accountStageOn,
     type AccountStageStarts,
     impliedEvalPassOn,
+    latestEventOn,
 } from '~/lib/prop-accounts/core';
+
+const PROP_ACCOUNTS_DIRECTORY = path.join(
+    process.cwd(),
+    'src/lib/prop-accounts',
+);
+
+const CONSUMER_FILES = [
+    'alerts/AlertContext.ts',
+    'advice/SnapshotAdapter.ts',
+    'advice/FirmPayoutCount.ts',
+    'metrics/PayoutSizeStats.ts',
+] as const;
+
+function allTypeScriptFiles(directory: string): string[] {
+    return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) return allTypeScriptFiles(entryPath);
+        return entry.isFile() && entry.name.endsWith('.ts') ? [entryPath] : [];
+    });
+}
+
+function readSource(relativePath: string): string {
+    return fs.readFileSync(
+        path.join(PROP_ACCOUNTS_DIRECTORY, relativePath),
+        'utf8',
+    );
+}
 
 const PURCHASED_ON = '2026-09-01';
 const EVAL_PLAN = { isInstantFunded: false };
@@ -128,5 +159,67 @@ describe('accountStageOn', () => {
 
     it('is exported through the root barrel', () => {
         expect(root.accountStageOn).toBe(accountStageOn);
+    });
+});
+
+describe('latestEventOn', () => {
+    const events = [
+        { kind: AccountEventKind.MovedLive, occurredOn: '2026-09-10' },
+        { kind: AccountEventKind.EvalPassed, occurredOn: '2026-09-05' },
+        { kind: AccountEventKind.MovedLive, occurredOn: '2026-09-20' },
+    ];
+
+    it('finds the latest occurrence of a kind', () => {
+        expect(latestEventOn(events, AccountEventKind.MovedLive)).toBe(
+            '2026-09-20',
+        );
+        expect(latestEventOn(events, AccountEventKind.EvalPassed)).toBe(
+            '2026-09-05',
+        );
+    });
+
+    it('returns null when no event of the kind is present', () => {
+        expect(latestEventOn(events, AccountEventKind.Busted)).toBeNull();
+        expect(latestEventOn([], AccountEventKind.MovedLive)).toBeNull();
+    });
+
+    it('bounds the search to events on or before a given date', () => {
+        expect(
+            latestEventOn(events, AccountEventKind.MovedLive, '2026-09-15'),
+        ).toBe('2026-09-10');
+        expect(
+            latestEventOn(events, AccountEventKind.MovedLive, '2026-09-01'),
+        ).toBeNull();
+    });
+
+    it('is exported through the root barrel', () => {
+        expect(root.latestEventOn).toBe(latestEventOn);
+    });
+
+    it('is defined exactly once in core/AccountStageOnDate.ts and used, not reimplemented, by its named consumers', () => {
+        const definitionCount = (
+            readSource('core/AccountStageOnDate.ts').match(
+                /let latest: null \| string = null;/g,
+            ) ?? []
+        ).length;
+        expect(definitionCount).toBe(1);
+        for (const file of CONSUMER_FILES) {
+            const source = readSource(file);
+            expect(source).not.toMatch(/let latest: null \| string = null;/);
+            expect(source).toContain('latestEventOn(');
+        }
+    });
+
+    it('has no second copy of the "latest event of a kind" scan anywhere under src/lib/prop-accounts', () => {
+        const accountStageOnDatePath = path.join(
+            PROP_ACCOUNTS_DIRECTORY,
+            'core/AccountStageOnDate.ts',
+        );
+        for (const file of allTypeScriptFiles(PROP_ACCOUNTS_DIRECTORY)) {
+            if (file === accountStageOnDatePath) continue;
+            expect(fs.readFileSync(file, 'utf8')).not.toMatch(
+                /let latest: null \| string = null;/,
+            );
+        }
     });
 });

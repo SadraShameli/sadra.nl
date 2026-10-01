@@ -45,6 +45,7 @@ import {
     EXTERNAL_FIRM_ID,
     ledgerOnlyAccountFor,
     MONDAY,
+    movedLiveEvent,
     paidPayout,
     snapshotFor,
     TUESDAY,
@@ -114,13 +115,13 @@ describe('createAlertContext', () => {
         expect(context.accounts[0]?.latestSnapshot?.lastTradedOn).toBe(MONDAY);
     });
 
-    it('defaults a monitored account\'s state to null when no entry names its id', () => {
+    it("defaults a monitored account's state to null when no entry names its id", () => {
         const account = accountFor(ANY_EVAL_PLAN);
         const context = contextOf({ accounts: [account] });
         expect(context.accounts[0]?.accountState).toBeNull();
     });
 
-    it('attaches the account state entry matching the account id, never another account\'s', () => {
+    it("attaches the account state entry matching the account id, never another account's", () => {
         const first = accountFor(ANY_EVAL_PLAN);
         const second = accountFor(ANY_EVAL_PLAN);
         const secondState: AccountStateEntry = {
@@ -369,6 +370,37 @@ describe('createAlertContext', () => {
 
     it('rejects a malformed today', () => {
         expect(() => contextOf({ today: '23-09-2026' })).toThrow(RangeError);
+    });
+
+    it('leaves movedLiveOn null without a recorded MovedLive event', () => {
+        const account = accountFor(ANY_EVAL_PLAN, { stage: AccountStage.Live });
+        const context = contextOf({ accounts: [account] });
+        expect(context.accounts[0]?.movedLiveOn).toBeNull();
+    });
+
+    it('derives movedLiveOn from the latest recorded MovedLive event, for that account only', () => {
+        const movedLive = accountFor(ANY_EVAL_PLAN, {
+            stage: AccountStage.Live,
+        });
+        const other = accountFor(ANY_EVAL_PLAN, { stage: AccountStage.Live });
+        const context = contextOf({
+            accounts: [movedLive, other],
+            events: [
+                movedLiveEvent(movedLive, MONDAY),
+                movedLiveEvent(movedLive, TUESDAY),
+            ],
+        });
+        expect(context.accounts[0]?.movedLiveOn).toBe(TUESDAY);
+        expect(context.accounts[1]?.movedLiveOn).toBeNull();
+    });
+
+    it('never trusts a MovedLive event with a malformed occurredOn as the move-live date', () => {
+        const account = accountFor(ANY_EVAL_PLAN, { stage: AccountStage.Live });
+        const context = contextOf({
+            accounts: [account],
+            events: [movedLiveEvent(account, '2026-13-45')],
+        });
+        expect(context.accounts[0]?.movedLiveOn).toBeNull();
     });
 });
 

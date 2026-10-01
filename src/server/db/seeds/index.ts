@@ -1,4 +1,4 @@
-import type { DatabaseSeeder } from '../types';
+import type { DatabaseSeeder } from '~/server/db/types';
 
 import SeedAccountingRules from './accounting/rules';
 import SeedDevice from './iot/device';

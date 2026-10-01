@@ -10,8 +10,7 @@ import {
     PayoutFloorEffect,
     TierBasis,
 } from '~/lib/prop-calculator/core';
-
-import { lockThresholdAt } from '../shared';
+import { lockThresholdAt } from '~/lib/prop-calculator/firms/shared';
 
 export const LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP = dollars(15_000);
 

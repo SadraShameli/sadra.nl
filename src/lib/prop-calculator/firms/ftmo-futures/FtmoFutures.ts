@@ -19,8 +19,7 @@ import {
     TierBasis,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
-
-import { lockThresholdAt, planLabel } from '../shared';
+import { lockThresholdAt, planLabel } from '~/lib/prop-calculator/firms/shared';
 
 const ACCOUNT_SIZE = 50_000;
 const PROFIT_TARGET = dollars(3000);

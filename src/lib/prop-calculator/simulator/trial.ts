@@ -8,10 +8,11 @@ import {
     RetryKind,
     retryPath,
     subscriptionFee,
-} from '../core/FeeSchedule';
-import { restoreFundedCycleTracker } from '../core/FundedPayoutCycle';
-import { type Plan } from '../core/Plan';
-import { TradingPhase } from '../core/TradingPhase';
+} from '~/lib/prop-calculator/core/FeeSchedule';
+import { restoreFundedCycleTracker } from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { type Plan } from '~/lib/prop-calculator/core/Plan';
+import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+
 import { runEvalWithRetries } from './evalPhase';
 import { runFundedFromState, runFundedHorizon } from './fundedPhase';
 import { LossStreak, newPhaseStats, TradeTotals } from './PhaseStats';

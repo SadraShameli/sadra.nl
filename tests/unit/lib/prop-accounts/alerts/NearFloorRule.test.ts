@@ -46,6 +46,61 @@ describe('NearFloorRule', () => {
         });
     });
 
+    it('does not fire for a funded account near the rulebook risk floor when its smaller personal max risk per trade is not breached', () => {
+        const plan = mffProPlan();
+        const documentedRisk = documentedFundedRiskOf(DEFAULT_RULEBOOK);
+        const personalMaxRiskPerTrade = documentedRisk / 4;
+        const multiple = DEFAULT_RULEBOOK.alerts.fundedNearFloorRiskMultiple;
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Funded },
+        );
+        const probe = fundedReconstructed(plan, { balance: plan.accountSize });
+        const threshold = probe.state.threshold;
+        const funded = {
+            ...fundedReconstructed(plan, {
+                balance: threshold + documentedRisk * multiple * 0.5,
+            }),
+            personalMaxRiskPerTrade,
+        };
+        expect(funded.cushion / personalMaxRiskPerTrade).toBeGreaterThan(
+            multiple,
+        );
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [reconstructedEntry(account.id, plan, funded)],
+        });
+        expect(alerts).toEqual([]);
+    });
+
+    it('fires against the personal max risk per trade and names it in the message when it is the smaller basis', () => {
+        const plan = mffProPlan();
+        const documentedRisk = documentedFundedRiskOf(DEFAULT_RULEBOOK);
+        const personalMaxRiskPerTrade = documentedRisk / 4;
+        const multiple = DEFAULT_RULEBOOK.alerts.fundedNearFloorRiskMultiple;
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Funded },
+        );
+        const probe = fundedReconstructed(plan, { balance: plan.accountSize });
+        const threshold = probe.state.threshold;
+        const funded = {
+            ...fundedReconstructed(plan, {
+                balance:
+                    threshold + personalMaxRiskPerTrade * multiple * 0.5,
+            }),
+            personalMaxRiskPerTrade,
+        };
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [reconstructedEntry(account.id, plan, funded)],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.message).toContain(
+            'the personal max risk per trade',
+        );
+    });
+
     it('does not fire for a funded account exactly at the near-floor multiple', () => {
         const plan = mffProPlan();
         const documentedRisk = documentedFundedRiskOf(DEFAULT_RULEBOOK);

@@ -1,3 +1,19 @@
+import { createDocumentedRule } from '~/lib/prop-calculator/advisor/createDocumentedRule';
+import {
+    type NextTrade,
+    NextTradeKind,
+    SizingConstraint,
+} from '~/lib/prop-calculator/advisor/DocumentedSizing';
+import { type RulebookParameters } from '~/lib/prop-calculator/advisor/Rulebook';
+import {
+    type DayProgress,
+    type EvalRuleContext,
+    type FundedRuleContext,
+    type PlanPhaseStage,
+    ruleContextAt,
+    type RuleContextCaps,
+} from '~/lib/prop-calculator/advisor/RuleContext';
+import { SizingStage } from '~/lib/prop-calculator/advisor/SizingStage';
 import {
     type AccountState,
     type ComputeRisk,
@@ -10,22 +26,6 @@ import {
     resolvePositionSizing,
 } from '~/lib/prop-calculator/core';
 
-import { createDocumentedRule } from '../createDocumentedRule';
-import {
-    type NextTrade,
-    NextTradeKind,
-    SizingConstraint,
-} from '../DocumentedSizing';
-import { type RulebookParameters } from '../Rulebook';
-import {
-    type DayProgress,
-    type EvalRuleContext,
-    type FundedRuleContext,
-    type PlanPhaseStage,
-    ruleContextAt,
-    type RuleContextCaps,
-} from '../RuleContext';
-import { SizingStage } from '../SizingStage';
 import { type EnginePolicy } from './EnginePolicy';
 
 export enum DocumentedPolicyDisclosure {

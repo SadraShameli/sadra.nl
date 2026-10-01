@@ -1,12 +1,18 @@
-import { type LadderSearchResult, type Plan, runLadderSearch } from '../core';
+import {
+    LadderGridSizeError,
+    type LadderSearchResult,
+    type Plan,
+    runLadderSearch,
+} from '~/lib/prop-calculator/core';
 import {
     buildFundedCandidates,
     FundedCandidateBuildKind,
     FundedSortKey,
     sortFundedResults,
     survivorCount,
-} from '../optimize';
-import { simulate } from '../simulator';
+} from '~/lib/prop-calculator/optimize';
+import { simulate } from '~/lib/prop-calculator/simulator';
+
 import { AdviceSource } from './AdviceSource';
 import {
     type EngineOptimum,
@@ -20,6 +26,7 @@ import {
 import {
     type EngineOptimumRequest,
     type FundedSweepFreshRequest,
+    type LadderSearchRequest,
     type LadderSearchRequestSource,
 } from './EngineOptimumRequest';
 import { applyEnginePolicy } from './EnginePolicyBuilder';
@@ -35,6 +42,10 @@ import {
     type PayoutSizeSweepResult,
     runPayoutSizeSweep,
 } from './PayoutSizeSweep';
+
+export enum LadderRefusalKind {
+    GridTooLarge = 'grid-too-large',
+}
 
 export type EngineOptimumRunnerResult =
     | FundedFromStateEngineOptimumResult
@@ -55,7 +66,14 @@ export interface FundedSweepEngineOptimumResult {
 
 export interface LadderEngineOptimumResult {
     readonly ladder: LadderSearchResult;
+    readonly refusal?: LadderGridRefusal;
     readonly source: LadderSearchRequestSource;
+}
+
+export interface LadderGridRefusal {
+    readonly kind: LadderRefusalKind.GridTooLarge;
+    readonly limit: number;
+    readonly size: number;
 }
 
 export interface NextPayoutProjectionEngineOptimumResult {
@@ -87,16 +105,7 @@ export function runEngineOptimum(
         }
         case AdviceSource.LadderSearchFresh:
         case AdviceSource.LadderSearchFromState: {
-            return {
-                ladder: runLadderSearch({
-                    grid: request.grid,
-                    maxGridSize: request.maxGridSize,
-                    score: { ...request.score, plan },
-                    seed: request.seed,
-                    topN: request.topN,
-                }),
-                source: request.source,
-            };
+            return runLadderOptimum(plan, request);
         }
         case AdviceSource.NextPayoutProjection: {
             return {
@@ -111,6 +120,31 @@ export function runEngineOptimum(
             };
         }
     }
+}
+
+function refusedLadderSearch(
+    request: LadderSearchRequest,
+    error: LadderGridSizeError,
+): LadderEngineOptimumResult {
+    return {
+        ladder: {
+            byCost: [],
+            byPassRate: [],
+            bySpeed: [],
+            droppedAliasCount: 0,
+            frontier: [],
+            gridSize: error.size,
+            laddersScored: 0,
+            topN: request.topN ?? 0,
+            unscorableCount: 0,
+        },
+        refusal: {
+            kind: LadderRefusalKind.GridTooLarge,
+            limit: error.limit,
+            size: error.size,
+        },
+        source: request.source,
+    };
 }
 
 function runFundedSweepOptimum(
@@ -173,4 +207,27 @@ function runFundedSweepOptimum(
         survivors: survivorCount(winner.out, request.base.trials),
     };
     return { kind: FundedSweepOptimumResultKind.Optimum, optimum };
+}
+
+function runLadderOptimum(
+    plan: Plan,
+    request: LadderSearchRequest,
+): LadderEngineOptimumResult {
+    try {
+        return {
+            ladder: runLadderSearch({
+                grid: request.grid,
+                maxGridSize: request.maxGridSize,
+                score: { ...request.score, plan },
+                seed: request.seed,
+                topN: request.topN,
+            }),
+            source: request.source,
+        };
+    } catch (error) {
+        if (error instanceof LadderGridSizeError) {
+            return refusedLadderSearch(request, error);
+        }
+        throw error;
+    }
 }

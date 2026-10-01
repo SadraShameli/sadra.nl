@@ -1,10 +1,4 @@
 import {
-    isSnapshotStale,
-    ReviewWeekday,
-    type SizingStage,
-} from '~/lib/prop-calculator/advisor';
-
-import {
     addIsoDays,
     dayNumberOf,
     DAYS_PER_WEEK,
@@ -14,7 +8,13 @@ import {
     UtcWeekday,
     utcWeekdayOfDay,
     weekdaysInRange,
-} from '../core';
+} from '~/lib/prop-accounts/core';
+import {
+    isSnapshotStale,
+    ReviewWeekday,
+    type SizingStage,
+} from '~/lib/prop-calculator/advisor';
+
 import { AlertDisclosure } from './AccountAlert';
 
 export interface SessionDate {

@@ -954,7 +954,11 @@ describe(
                 'same initialValue with dayCost != 0 and a horizon, on ' +
                 'coarse grids -- proving dayCost/meanHorizonDays reach ' +
                 'workers through SerializableFundedConfig/' +
-                'toSerializableConfig/runFundedWorkerBootstrap correctly',
+                'toSerializableConfig/runFundedWorkerBootstrap correctly. ' +
+                'WP58d: the cushion tail is pinned off at the 6 drawdown ' +
+                'fine top, because the default 30 drawdown tail made this ' +
+                'test 25 s instead of 0.7 s and it studies worker parity, ' +
+                'not the grid',
             async () => {
                 await warmFirmsRegistryCache();
                 const firm = ALL_FIRMS.find(
@@ -978,6 +982,7 @@ describe(
                     evalInitialValue: 0,
                     feePerAttempt: dollars(0),
                     maxActionMultiple: 1,
+                    maxTailCushionMultiple: 6,
                     meanHorizonDays: 100,
                     payoutRegimeCap: 0,
                     rrRatio: 2,
@@ -1011,7 +1016,10 @@ describe(
                 'cap can leave the balance above the payout floor), so the ' +
                 'workers decode, solve and read back every baseline pair from ' +
                 'a snapshot sized for it (an out-of-range read throws in the ' +
-                'worker) and agree with the single-threaded solve',
+                'worker) and agree with the single-threaded solve. WP58d: ' +
+                'the cushion tail is pinned off at the 6 drawdown fine top, ' +
+                'because the default 30 drawdown tail made this test 16 s ' +
+                'instead of 0.8 s and it studies worker parity, not the grid',
             async () => {
                 await warmFirmsRegistryCache();
                 const firm = ALL_FIRMS.find(
@@ -1029,6 +1037,7 @@ describe(
                     evalInitialValue: 0,
                     feePerAttempt: dollars(0),
                     maxActionMultiple: 1,
+                    maxTailCushionMultiple: 6,
                     meanHorizonDays: 100,
                     payoutRegimeCap: 1,
                     rrRatio: 2,
@@ -1060,7 +1069,10 @@ describe(
             'worker parity at a non-default cycleBaselineFineRangeMultiple: the ' +
                 'multiple sets the cycle-baseline grid size and so the shared ' +
                 'key layout, so the workers must receive it and agree with the ' +
-                'single-threaded solve',
+                'single-threaded solve. WP58d: the cushion tail is pinned off ' +
+                'at the 3 drawdown fine top, because the default 30 drawdown ' +
+                'tail made this test 19 s instead of 1.2 s and it studies ' +
+                'worker parity, not the grid',
             async () => {
                 await warmFirmsRegistryCache();
                 const livePlan = ALL_FIRMS.find(
@@ -1077,6 +1089,7 @@ describe(
                     maxActionMultiple: 1,
                     maxCushionMultiple: 3,
                     maxPreLockOffsetMultiple: 1,
+                    maxTailCushionMultiple: 3,
                     meanHorizonDays: 100,
                     payoutRegimeCap: 1,
                     rrRatio: 2,
@@ -1290,7 +1303,14 @@ describe('idle-days DP state dimension', () => {
             'not 105: the toy concludes on its one payout, so the six ' +
             'regime-1+ locked levels and every unlocked regime-1+ level ' +
             '(unreachable, since a payout always locks this plan) are no ' +
-            'longer solved; 105 was those 7 regimes x 15 states',
+            'longer solved; 105 was those 7 regimes x 15 states. ' +
+            'Re-pinned for WP58c (N-86 stage 2): reachedStateCount moved ' +
+            'from 15 to 39 because the coarse cushion tail is on by ' +
+            'default now, widening the reachable regime-0 locked cushion ' +
+            'dimension from 7 to 31 cells (0 to 30 drawdowns, at this ' +
+            "toy's coincidental 1-drawdown fine step); initialValue and " +
+            'the risk pin are unaffected since the toy concludes on its ' +
+            'one payout well inside the old top',
         () => {
             const plan = onePayoutToyPlan().withOverrides({
                 maxConsecutiveIdleDays: undefined,
@@ -1310,7 +1330,7 @@ describe('idle-days DP state dimension', () => {
             });
 
             expect(result.initialValue).toBeCloseTo(50, 10);
-            expect(result.reachedStateCount).toBe(15);
+            expect(result.reachedStateCount).toBe(39);
 
             const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
             expect(risk).toBe(100);
@@ -1445,7 +1465,13 @@ describe('cycleBestDayProfit DP state dimension', () => {
             'and floor-round it down; continuationKey now interpolates ' +
             'that day-close cushion the same way WP45 already interpolated ' +
             'within-day trade outcomes, so the true (uniformly higher) ' +
-            'value shows up instead of the floored one',
+            'value shows up instead of the floored one. Re-pinned for ' +
+            'WP58c (N-86 stage 2): reachedStateCount moved from 10,752 to ' +
+            '13,104 because the coarse cushion tail is on by default now, ' +
+            'widening the locked cushion dimension from 61 to 85 cells ' +
+            '(0 to 30 drawdowns above the locked floor, was 0 to 6); ' +
+            'initialValue and every policy pin are unaffected because ' +
+            "this plan's own reachable trajectory never needed the tail",
         () => {
             const plan = rapidEodPlan();
             expect(plan.fundedConsistencyRule()).toBeNull();
@@ -1462,7 +1488,7 @@ describe('cycleBestDayProfit DP state dimension', () => {
             });
 
             expect(result.initialValue).toBeCloseTo(29_608.362636674246, 6);
-            expect(result.reachedStateCount).toBe(10_752);
+            expect(result.reachedStateCount).toBe(13_104);
 
             const state = plan.initialState();
             expect(
@@ -2064,7 +2090,7 @@ describe('computeFundedStateValue enforces the Apex PA Level daily loss limit on
 });
 
 describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baseline is gridded (T11)', () => {
-    it('FTMO Futures Growth 50K converges at fine range multiples 0, 1 and 6 and keeps its pinned values, which are not monotone in the multiple: a finer grid never rounds the baseline higher (FundedCycleBaselineGrid.test), yet multiple 0 is worth about $20 more than multiple 1, a gap that stays the same at the fixed point. Re-pinned for T32 (the end-of-horizon credit is one capped request, not the whole balance above the floor): each is within its stated error bound of the fixed point the solver reaches at tolerance 0.0001 (14,434.82, 14,415.15 and 15,074.60); the same runs with only the pre-T32 whole-balance credit restored reproduce the WP17e pins 15,348.41, 15,312.21 and 15,801.07 exactly, so the credit is the only move. Re-pinned again for N-86 (WP54, continuationKey interpolates the day-close cushion): all three moved by a few cents to a few thousandths of a cent (14,434.573089830497 to 14,434.573004711958; 14,414.82874384173 to 14,414.892599117371; 15,074.421238294104 to 15,074.424104151796), the fixed points and reachedStateCount unchanged. FTMO Growth keeps a thick $2,000 retained cushion so this fix mostly matters far away from it (TopStep), but its own drawdown lock still snaps to a fixed dollar threshold independent of the cushion grid, so a tiny off-grid landing at the lock transition existed here too, just far smaller than TopStep’s', async () => {
+    it('FTMO Futures Growth 50K converges at fine range multiples 0, 1 and 6 and keeps its pinned values, which are not monotone in the multiple: a finer grid never rounds the baseline higher (FundedCycleBaselineGrid.test), yet multiple 0 is worth about $20 more than multiple 1, a gap that stays the same at the fixed point. Re-pinned for T32 (the end-of-horizon credit is one capped request, not the whole balance above the floor): each is within its stated error bound of the fixed point the solver reaches at tolerance 0.0001 (14,434.82, 14,415.15 and 15,074.60); the same runs with only the pre-T32 whole-balance credit restored reproduce the WP17e pins 15,348.41, 15,312.21 and 15,801.07 exactly, so the credit is the only move. Re-pinned again for N-86 (WP54, continuationKey interpolates the day-close cushion): all three moved by a few cents to a few thousandths of a cent (14,434.573089830497 to 14,434.573004711958; 14,414.82874384173 to 14,414.892599117371; 15,074.421238294104 to 15,074.424104151796), the fixed points and reachedStateCount unchanged. FTMO Growth keeps a thick $2,000 retained cushion so this fix mostly matters far away from it (TopStep), but its own drawdown lock still snaps to a fixed dollar threshold independent of the cushion grid, so a tiny off-grid landing at the lock transition existed here too, just far smaller than TopStep’s. Re-pinned again for WP58c (N-86 stage 2): the coarse cushion tail is on by default now, so both the cushion grid and the cycle-baseline grid it feeds reach 30 drawdowns above the locked floor instead of 6: initialValue moved (14,434.573004711958 to 14,076.766322248957; 14,414.892599117371 to 14,058.431864665115; 15,074.424104151796 to 14,815.597389308608), reachedStateCount grew (58,500 to 458,100; 81,000 to 502,200; 171,000 to 722,700), and the tolerance-0.0001 fixed points were re-derived the same way (14,077.062673410524; 14,058.726672778212; 14,815.80995091164)', async () => {
         const [coarse, landed, exact] = [
             await ftmoGrowthCoarse(0),
             await ftmoGrowthCoarse(1),
@@ -2073,13 +2099,13 @@ describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baselin
         for (const result of [coarse, landed, exact]) {
             expect(result.unconvergedLevelCount).toBe(0);
         }
-        expect(coarse.initialValue).toBeCloseTo(14_434.573004711958, 6);
-        expect(landed.initialValue).toBeCloseTo(14_414.892599117371, 6);
-        expect(exact.initialValue).toBeCloseTo(15_074.424104151796, 6);
+        expect(coarse.initialValue).toBeCloseTo(14_076.766322248957, 6);
+        expect(landed.initialValue).toBeCloseTo(14_058.431864665115, 6);
+        expect(exact.initialValue).toBeCloseTo(14_815.597389308608, 6);
         for (const [result, fixedPoint] of [
-            [coarse, 14_434.8181546761],
-            [landed, 14_415.146182514178],
-            [exact, 15_074.597963135726],
+            [coarse, 14_077.062673410524],
+            [landed, 14_058.726672778212],
+            [exact, 14_815.80995091164],
         ] as const) {
             expect(
                 Math.abs(result.initialValue - fixedPoint),
@@ -2087,7 +2113,7 @@ describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baselin
         }
         expect(
             [coarse, landed, exact].map((result) => result.reachedStateCount),
-        ).toStrictEqual([58_500, 81_000, 171_000]);
+        ).toStrictEqual([458_100, 502_200, 722_700]);
     }, 1_800_000);
 });
 
@@ -2319,6 +2345,7 @@ async function ftmoGrowthCoarseConfig(dayCost: number) {
         evalInitialValue: 0,
         feePerAttempt: dollars(0),
         maxActionMultiple: 1,
+        maxTailCushionMultiple: 6,
         meanHorizonDays: 60,
         payoutRegimeCap: 2,
         plan,
@@ -2329,7 +2356,7 @@ async function ftmoGrowthCoarseConfig(dayCost: number) {
 }
 
 describe('FundedWorkerSession keeps one worker pool across funded solves of the same grid (WP17e follow-up: peak memory across rate solves)', () => {
-    it('starts its workers once for two FTMO Futures Growth solves at different day costs, and each solve equals one run with its own pool', async () => {
+    it('starts its workers once for two FTMO Futures Growth solves at different day costs, and each solve equals one run with its own pool (WP58d: the cushion tail is pinned off at the 6 drawdown fine top, because the default 30 drawdown tail made this test 44 s instead of 4.4 s and it studies worker pool reuse, not the grid)', async () => {
         const session = new FundedWorkerSession();
         try {
             const atZero = computeFundedStateValue(
@@ -2379,6 +2406,7 @@ function coarseAlphaConfig(plan: Plan) {
         feePerAttempt: dollars(0),
         maxActionMultiple: 1,
         maxCushionMultiple: 2,
+        maxTailCushionMultiple: 2,
         meanHorizonDays: 20,
         payoutRegimeCap: 1,
         plan,
@@ -2394,6 +2422,7 @@ function coarseMffuProConfig(plan: Plan) {
         actionStepMultiple: 0.25,
         cushionStepMultiple: 0.25,
         maxCushionMultiple: 3,
+        maxTailCushionMultiple: 3,
         meanHorizonDays: 40,
     };
 }
@@ -2422,7 +2451,7 @@ async function registryMffuPro(): Promise<Plan> {
     return plan;
 }
 
-describe('an opted-in registry plan keeps the worker pool (optimize dp --funded-reset and --early-withdrawal)', () => {
+describe('an opted-in registry plan keeps the worker pool (optimize dp --funded-reset and --early-withdrawal; WP58d: coarseAlphaConfig and coarseMffuProConfig pin the cushion tail off at their own fine top, because the MFF Pro solves here ran 144 s and 125 s instead of 2.2 s and 2.7 s with the default 30 drawdown tail and these tests compare pooled to single-threaded values, not the grid)', () => {
     const RESET_TAKEN: PlanOptIns = {
         takesFundedReset: true,
         takesOneTimeEarlyWithdrawal: false,
@@ -2541,7 +2570,7 @@ describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1)
         winrate: 0.4,
     };
 
-    it('reports where the baseline grid switches from the cushion step to the coarse drawdown step at the default fine range, and where the grid tops out', () => {
+    it('reports where the baseline grid switches from the cushion step to the coarse drawdown step at the default fine range, and where the grid tops out. Re-pinned for WP58c (N-86 stage 2): topDollars moved from 6,000 (maxCushionMultiple=3 drawdowns) to 60,000 (maxTailCushionMultiple, the coarse cushion tail default of 30 drawdowns, which the cycle-baseline grid now follows out to instead of maxCushionMultiple)', () => {
         const plan = topStepOffRegistryPlan();
         expect(plan.fundedDrawdown.amount).toBe(2000);
 
@@ -2550,14 +2579,14 @@ describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1)
         expect(result.cycleBaselineRounding).toStrictEqual({
             coarseFromDollars: 2000,
             coarseStepDollars: 2000,
-            topDollars: 6000,
+            topDollars: 60_000,
         });
     }, 120_000);
 
-    it('reports no rounding once the fine range covers the whole baseline grid', () => {
+    it('reports no rounding once the fine range covers the whole baseline grid. Re-pinned for WP58c (N-86 stage 2): cycleBaselineFineRangeMultiple raised from 3 to 30 to keep covering the whole baseline grid now that its top follows maxTailCushionMultiple (30 drawdowns) instead of maxCushionMultiple (3)', () => {
         const result = computeFundedStateValue({
             ...coarseConfig,
-            cycleBaselineFineRangeMultiple: 3,
+            cycleBaselineFineRangeMultiple: 30,
             plan: topStepOffRegistryPlan(),
         });
 

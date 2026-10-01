@@ -1,5 +1,3 @@
-import { stableJson } from '~/lib/stableJson';
-
 import {
     CENTS_PER_DOLLAR,
     DrawdownKind,
@@ -10,8 +8,10 @@ import {
     PayoutRequestPolicy,
     type Plan,
     type Points,
-} from '../core';
-import { SIM_DEFAULTS, type SimInputs } from '../simulator';
+} from '~/lib/prop-calculator/core';
+import { SIM_DEFAULTS, type SimInputs } from '~/lib/prop-calculator/simulator';
+import { stableJson } from '~/lib/stableJson';
+
 import {
     type Assumption,
     AssumptionBias,

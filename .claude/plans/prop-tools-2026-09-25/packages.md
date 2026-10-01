@@ -866,7 +866,7 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 
 #### Added 2026-09-27 to PT-62
 
-- Add `routes.propCalculator.accounts.firms` in `src/lib/site/routes.ts` (PT-58b built `accounts/firms/{page.tsx, FirmsView.tsx}` and the nav item and waits on this route).
+- (Moved to PT-58d: the `rounds` and `firms` routes in `src/lib/site/routes.ts`.)
 
 ## PT-63: objective selector, split vs concentrate, ladder lab contracts
 
@@ -942,7 +942,7 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 
 ## PT-64c: take-profit what-if card on the sizing page
 
-- **Lane / wave:** W / EJ5 (owner in EJ5 of the tools worker files and `(tools)/sizing/SizingView.tsx`)  **Size:** small  **Depends on:** PT-64a, PT-62 (tools worker)
+- **Lane / wave:** W / after PT-62b (owner after it of the tools worker files and `(tools)/sizing/SizingView.tsx`)  **Size:** small  **Depends on:** PT-64a, PT-62a (tools worker), PT-62b (last writer of the worker files)
 - **Items:** F-V23 (web half)
 - **Files owned:** new `_components/{TakeProfitWhatIf.tsx, takeProfitWhatIfModel.ts}`; changed `_workers/{toolsWorker.ts, toolsWorkerMessages.ts}` (the `TakeProfitRows` request kind), `(tools)/sizing/SizingView.tsx` (mount); tests new `tests/unit/app/prop-calculator/takeProfitWhatIf.test.ts`, extended `toolsWorkerMessages.test.ts`
 - **Reviewers:** code-reviewer, typescript-reviewer, react-reviewer, trader-rules reviewer
@@ -1035,6 +1035,11 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 **Acceptance**
 
 - On each account the user sees what the next trade does to the account's value, the ranked alternatives at 1:2, the contracts to place, the wrong-instrument risk, a request-payout banner with unchanged documented sizing when eligible, and whether a proposed risk is within plan.
+
+
+#### Added 2026-10-01 to PT-67 (PT-66 leftovers)
+
+- `advisor/value/ValueEstimate.ts`'s `valueGap` takes the credit basis (credit-free or credit-inclusive) and `_components/value/valueCardsModel.ts` uses it instead of its own credit-free gap; the value cards' refusal text names calculator fields, not engine field names (`payoutRequestOverride`, `retainedCushionRequest`), and appears once, not once per card.
 
 ## PT-68: account list and detail header lead with value and next action
 
@@ -1234,6 +1239,10 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 
 - One typed next action per modeled account, a proposed-risk verdict against the documented rung, an objective that never touches sizing outside plan ranking, and a full coverage matrix over every modeled plan, stage and substate.
 
+
+#### Added 2026-09-27 to PT-74 (PT-65b leftovers)
+
+- Also owned: `src/lib/prop-calculator/stats.ts` (the `isBeyondNoise(a, b, { sharedSeed })` helper VD-25 names, over the existing `noiseVerdict`; `RetireComparison` and `NextTradeRiskCheck` use it, a guard test finds no second copy of the beyond-noise test) and `advisor/value/{RiskCandidateValues.ts, RetireComparison.ts}` (import `requireValue` from `./ValueChain` instead of a private copy; call `isBeyondNoise`). `RetireComparisonReason.Unknown` (added by PT-65b for a missing SE) passes through `accountActionOf` as information, never as Retire.
 ## PT-18b: the eval DP reads a reached state as passed only at day close (EJ1 review HIGH)
 
 - **Lane / wave:** E / EJ1-c  **Size:** small  **Depends on:** PT-18 (done in EJ1)
@@ -1375,6 +1384,7 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 - **Files owned:** `src/lib/prop-accounts/alerts/{AlertContext.ts, LifetimeDollarCapRule.ts}` (an optional move-live date per account in `AlertInputs`), the alert callers `accounts/_components/overview/overviewModel.ts` (ALERT_SOURCES, portfolioAlerts), `accounts/_components/accountListFilters.ts`, the hub teaser (`HubAccountsTeaser.tsx`), `accounts/_components/detail/accountAlerts.ts`, and tests.
 - **Steps** (RED first): (1) RED: a Live-stage MFF Pro account whose payouts before its move-live date total $60,000 and after it $30,000 counts $60,000 as certain in the pooled cap and leaves the $30,000 out; without a move-live date it keeps today's unconfirmed treatment. (2) GREEN: pass `recorded.movedLiveOn` (from `core/AccountStageOnDate.ts`) or the account's stage starts through every caller; one input shape, no per-caller copy. (3) RED: an archived account with a payout still in Requested gets a ledger notice asking the user to mark it paid or denied (reuse the stale-request disclosure PT-12g added). Run the alerts, overview, list, hub and detail tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
 - **Acceptance:** the cap alert's certain total matches the firm's pre-live payouts when the move date is known, and says so when it is not.
+- **Added 2026-09-27 (for PT-36b):** `AlertInputs` gains an optional per-account event history (like `rounds`, so callers opt in); the move-live date is derived from it through `core/AccountStageOnDate.ts`, and every caller that already loads events passes them. PT-36b's cooldown, exclusivity and conduct rules read it.
 
 ## PT-52e: ledger-only wording, firm filter, prefetch and guard imports (PT-52c and PT-52d leftovers)
 
@@ -1670,6 +1680,7 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 - **Files owned:** `advisor/PayoutRequestRule.ts` (export `firmMinimumNotice`) and `src/lib/prop-accounts/metrics/PayoutReadinessBoard.ts` (call it), `advisor/AccountReconstruction.ts` (carry the engine-computed dashboard floor on the DashboardFloorMismatch assumption, the raw pending payouts, the personal max risk into the reconstruction, and the micro contract limit instead of a hard-coded `isMicro = false`), `alerts/{DashboardFloorMismatchRule.ts, PayoutEligibleRule.ts, TierChangeRule.ts, AccountAlert.ts (AlertDisclosure.LiveTriggersNotChecked)}`, `overview/{overviewModel.ts (widen the account and snapshot rows so the `as unknown as` casts go), OverviewView.tsx (show `accountStatesCaveat`)}`, and tests.
 - **Steps** (RED first for each): the dashboard floor alert names the engine floor and the entered floor; the readiness board shows PayoutPending with the raw pending amount; the near-floor board uses the personal max risk when set; the tier change rule follows micro limits; the live-trigger caveat is a disclosure; the overview shows the account-states caveat; no casts remain. Run `tests/unit/lib/prop-accounts`, the advisor tests and the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
 - **Acceptance:** every account-state alert says exactly what it measured.
+- **Added 2026-09-27 (PT-58a3 leftover):** wire `realizedLossRisk()` into the `AlertInputs` the overview builds (attempt cost, available cash, the rulebook loss-risk threshold, the time-to-first-payout fallback) so `BankrollLossRiskAboveThresholdRule` can fire, with a DOM test on the overview.
 
 ## PT-19g: the advisor reasons that need later data (PT-19f leftovers)
 
@@ -1684,6 +1695,290 @@ The packages below close the concepts of the "$550K on prop firm evaluations" vi
 - **Files owned:** `src/server/api/routers/propAccounts/round.ts` (`round.assign` writes through `repo.recordEdits` like `account.update`, so a round move is in the account history), `advisor/Rulebook.ts` (a `minEndedAccounts` sample threshold) and `src/lib/prop-accounts/core/SampleAdequacy.ts` (use it for `SampleKind.EndedAccounts`), and tests.
 - **Steps** (RED first): assigning an account to a round records an Edited event with the old and new round; the ended-accounts sample level reads its own threshold (default stated in help text). Run `tests/unit/server/propAccounts`, `tests/unit/lib/prop-accounts`, the rulebook tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
 - **Acceptance:** round moves are auditable; each sample kind has its own threshold.
+
+## PT-58d: rounds and firms pages routed, round-budget override, statement edits, round prefill (PT-58a3 and PT-58b leftovers)
+
+- **Lane / wave:** W / EJ5-b  **Size:** small  **Depends on:** PT-58a3, PT-58b (done)
+- **Files owned:** `src/lib/site/routes.ts` (`routes.propCalculator.accounts.rounds` and `.firms`; taken from PT-62's addendum, which drops that line), new `accounts/rounds/page.tsx`, `accounts/_components/accountsNavItems.ts` (Rounds and Firms entries), `accounts/_components/AccountForm.tsx` (an "override the round budget" checkbox that sends `overrideRoundBudget`), `accounts/ledger/LedgerView.tsx` (edit a firm statement in place), `accounts/rounds/RoundsView.tsx` (the prefill suggestion also assigns the suggested accounts, userId-scoped through the existing router), and tests (`accountsNavItems.test.ts` guards stay green with the new routes).
+- **Steps** (RED first, DOM tests): the rounds and firms pages are reachable from the accounts nav; saving an over-budget account without the checkbox shows the server refusal and with it saves; a statement can be edited; the prefill assigns its accounts. Run the accounts app tests and `tests/unit/server/propAccounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip` (RoundsView gains its importer).
+- **Acceptance:** every bankroll page is reachable and every bankroll action works end to end.
+
+## PT-23c: live contract limits on the detail page (PT-23b leftover)
+
+- **Lane / wave:** E / EJ5-b  **Size:** small  **Depends on:** PT-23b (done)
+- **Files owned:** `src/lib/prop-calculator/core/LivePlan.ts` (a public `liveContractLimitsFor(state)` accessor over the existing limit logic, no behaviour change), `core/index.ts` (if exported through it), the detail page's live rules card, and tests.
+- **Steps** (RED first): the live rules card shows the live contract cap as a limit (PD-25, F-89) from the accessor; engine pins unchanged. Record the fingerprint handoff for `LivePlan.ts`. Run the LivePlan, live firm and accounts detail tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the live stage shows its contract cap.
+
+## PT-25c: the funded optimizer page names the lifetime payout cap basis (PT-25b leftover)
+
+- **Lane / wave:** W / EJ5-b  **Size:** small  **Depends on:** PT-25b (done)
+- **Files owned:** the funded optimizer page and its model (the files PT-25b created under `(tools)/`), and tests.
+- **Steps** (RED first, DOM test): the page states whether the lifetime payout cap comes from a verified count trigger, a verified no-count trigger, or is not yet checked (from the `EnginePolicy` basis PT-19b built). Run the prop-calculator app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** every policy basis the optimizer uses is named on the page.
+
+## PT-22e: the personal max risk on the near-floor board, the advisor barrel, one live contract accessor (PT-22d and PT-23c leftovers)
+
+- **Lane / wave:** W / EJ5-c  **Size:** small  **Depends on:** PT-22d, PT-23c (done), PT-32 (done, so `advisor/index.ts` is free)
+- **Items:** F-80 (audit T33), review leftovers of wf_1e7f061f-4f5
+- **Files owned:** `src/lib/prop-calculator/advisor/index.ts` (export `firmMinimumNotice`), `src/lib/prop-accounts/metrics/PayoutReadinessBoard.ts` and `tests/unit/lib/prop-calculator/advisor/PayoutRequestRule.test.ts` (import it through the barrel), `src/lib/prop-accounts/alerts/TierChangeRule.ts` (the Live branch reads `LivePlan.liveContractLimitsFor(state)` instead of two inline `maxContractsFor` calls), `src/lib/prop-accounts/metrics/CushionBoard.ts` and `alerts/NearFloorRule.ts` (the funded near-floor basis is the smaller of the rulebook funded risk and the account's personal max risk per trade when one is set, since PT-19c caps every placed rung at it), and the data path for the personal max risk only as far as it needs: `advisor/{AccountReconstruction.ts, ReconstructedAccount.ts}`, `src/lib/prop-accounts/advice/SnapshotAdapter.ts` and the snapshot input type it builds; tests. Not the overview, hub or detail files (PT-59 and PT-12i own them): if the personal rules cannot reach the board without a caller change, report it under needs_outside_change.
+- **Steps** (RED first): (1) RED: a funded account whose cushion is near the floor at the rulebook funded risk but not at its smaller personal max risk per trade is not flagged, and the board names the personal basis; an account without a personal max risk behaves exactly as today (the existing CushionBoard and NearFloorRule tests are the pin). (2) The advisor barrel exports `firmMinimumNotice`; no import of `advisor/PayoutRequestRule` from outside the advisor folder remains (grep in the report). (3) TierChangeRule reads the accessor; its tests stay green (a pure refactor). Run `tests/unit/lib/prop-accounts`, the advisor tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** the near-floor warning measures the risk the trader actually places; one definition each.
+
+## PT-58e: the firms page and the ended-accounts threshold in the rulebook form (PT-58b, PT-58c and PT-58d leftovers)
+
+- **Lane / wave:** W / EJ5-c  **Size:** small  **Depends on:** PT-58b (done: `firmsModel.ts`, `FirmRoster`, `LiveTransferRate`, `ScaleGate`, the `firmEngagement` router), PT-58c and PT-58d (done: `Rulebook.samples.minEndedAccounts`, the `firms` route, the Firms nav entry with `hasPage: false`)
+- **Items:** F-V5, F-V26, F-V27 (the page), review leftovers of wf_1e7f061f-4f5
+- **Files owned:** new `accounts/firms/{page.tsx, FirmsView.tsx}` (the page mirrors `accounts/rounds/page.tsx`: session guard, prefetches, renders the view), `accounts/firms/firmsModel.ts` (only if the view needs it), `accounts/_components/accountsNavItems.ts` (Firms `hasPage: true`), `accounts/rulebook/{rulebookFormValues.ts, RulebookView.tsx}` (a `samples.minEndedAccounts` field whose help text says a blank value falls back to the funded-accounts threshold), and tests (new `FirmsView.dom.test.tsx`; extended `accountsNavItems.test.ts`, `firmsModel.test.ts`, the rulebook form and view tests).
+- **Steps** (RED first, DOM tests): PT-58b's step 4 (the roster with status editing through `firmEngagement`, the transfer rates with n and interval, the scale gate card naming each unmet condition; query errors shown, never an endless loading state); the nav reaches the page; the rulebook form round-trips the ended-accounts threshold and a blank field saves null. Run the accounts app tests and `tests/unit/server/propAccounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** every bankroll page is reachable and every sample threshold can be set.
+
+## PT-58f: one query-error notice on the rounds and ledger pages (PT-58d leftover)
+
+- **Lane / wave:** W / after PT-62c (which owns `RoundsView.tsx` before it)  **Size:** small  **Depends on:** PT-58d, PT-62c
+- **Files owned:** `accounts/rounds/RoundsView.tsx`, `accounts/ledger/LedgerView.tsx`, one shared notice component under `accounts/_components/` (reuse an existing one if it fits a single-object query), and tests.
+- **Steps** (RED first for the component): the inline `isError && data === undefined` banners on both pages render through one component; the existing DOM tests stay green. Run the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** one definition of the query-error notice.
+
+## PT-62a: the tools worker and the bankroll page with setup and projection (PT-62 split)
+
+- **Lane / wave:** W / EJ5-c  **Size:** large  **Depends on:** as "## PT-62:"
+- **Files owned:** new `_workers/{toolsWorker.ts, toolsWorkerMessages.ts}`, `_components/useToolsWorker.ts`, new `(tools)/bankroll/{page.tsx, BankrollView.tsx}`, new `_components/bankroll/{bankrollModel.ts, bankrollUrlState.ts, SetupCard.tsx, ProjectionCard.tsx}`, new leaf `src/lib/schemas/bankrollUrlParameter.ts`, `_components/toolCatalog.ts` (`hasPage: true` for the bankroll tool), `src/lib/site/routes.ts` (the bankroll tool route only if it is missing), and tests (new `bankrollModel`, `bankrollUrlState`, `toolsWorkerMessages` tests and `BankrollView.dom.test.tsx`; extended `toolAvailability.test.ts`).
+- **Steps** (RED first): "## PT-62:" step 1 for the setup and projection cards only; step 2 in full, with every bankroll request kind declared, validated and handled in the worker now (Projection, TwoStrategies, Batch, SameEv, Levers, NextRound; each handler a thin call into the existing lib, never a second engine path), so PT-62b and PT-62c add no worker kind; step 5 for the page. The DOM test that no figure from the video renders unless the user typed the inputs.
+- **Acceptance:** the public bankroll page answers the setup and projection questions of PT-62's acceptance, and every heavy bankroll computation runs in the tools worker.
+
+## PT-62b: the remaining bankroll cards and the cash-flow extensions (PT-62 split)
+
+- **Lane / wave:** W / after PT-62a  **Size:** medium  **Depends on:** PT-62a
+- **Files owned:** new `_components/bankroll/{TwoStrategiesCard.tsx, BatchCard.tsx, SameEvCard.tsx, LeversCard.tsx}`, `BankrollView.tsx`, `bankrollModel.ts`, `_components/bankroll/SetupCard.tsx` (the PT-62a LOW: a failure banner stays after the budget is cleared; clear it when no request is current), `_workers/{toolsWorker.ts, toolsWorkerMessages.ts}` (only to widen `BankrollBaseInputs` if a card needs a field PT-62a left out; PT-64c waits for this package), `_components/CashFlowPanel.tsx`, and tests (extended `bankrollModel`, `BankrollView` DOM and cash-flow tests).
+- **Steps** (RED first): "## PT-62:" step 1 for two strategies, batch, same EV and levers (closed forms only as labelled cross-checks; eval-risk rows labelled "what-if: conflicts with Hard Rule 3"); step 3.
+- **Acceptance:** the rest of PT-62's acceptance on the bankroll page and the cash-flow page.
+
+## PT-62c: the "Next round" card on the rounds page (PT-62 split)
+
+- **Lane / wave:** W / after PT-62a (in parallel with PT-62b)  **Size:** small  **Depends on:** PT-62a (the NextRound worker kind), PT-58b (scale gate)
+- **Files owned:** `accounts/rounds/{RoundsView.tsx, roundsModel.ts}`, and tests (extended `roundsModel.test.ts`, the rounds DOM test).
+- **Steps** (RED first): "## PT-62:" step 4.
+- **Acceptance:** a closed round gets a repeat-or-scale comparison with the scale gate stated.
+
+## PT-62d: one bankroll risk helper for the CLI, the worker and the page (PT-62a leftovers)
+
+- **Lane / wave:** E / after PT-64c and PT-62e (the worker, model and card files)  **Size:** small  **Depends on:** PT-62a (done), PT-62b, PT-64c, PT-62e
+- **Files owned:** `src/lib/prop-calculator/economics/{CohortOutcome.ts (export `LOSS_RISK_DRAWS`), BankrollLevers.ts (a P(attempt pays) delta per lever row, PT-62b leftover), index.ts}`, `_workers/toolsWorkerMessages.ts` and `_components/bankroll/LeversCard.tsx` (carry and show that delta), a new economics helper for the loss-risk summary (attempt cost, P(attempt pays), value per paying attempt, the minimum budget for a threshold) and the closed-form compounding illustration (cycle days from `TRADING_DAYS_PER_MONTH`), `src/cli/commands/prop/bankroll/{project.ts, risk.ts, batch.ts}`, `_workers/toolsWorker.ts`, `_components/bankroll/bankrollModel.ts`, and tests.
+- **Steps** (RED first for the helper; the rest is a refactor): the CLI's `prop bankroll risk` and `project` and the bankroll page read one helper and one draw count; a guard test finds no second copy of `10_000` loss-risk draws or the illustration's cycle-day constant; the CLI output and the page numbers are unchanged (existing CLI and page tests are the pin). Run the economics, CLI bankroll and bankroll page tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** the CLI and the page cannot drift on the loss-risk figure.
+
+## PT-65a: value at a state, milestones, trade value swing, risk candidates (PT-65 split)
+
+- **Lane / wave:** E / EJ5-c  **Size:** large  **Depends on:** as "## PT-65:"
+- **Files owned:** new `src/lib/prop-calculator/advisor/value/{ValueEstimate.ts, ValueAtState.ts, MilestoneState.ts, TradeValueSwing.ts, RiskCandidateValues.ts, index.ts}` and the tests for them plus `valueImportGraph.test.ts`.
+- **Steps** (RED first): "## PT-65:" steps 1 to 4 and 9. Where a validated DP row does not exist (every plan today: the audit's N-86 fix is in flight and gate D11 has not passed), `RiskCandidateValues` uses the simulator and says so; no DP value is read.
+- **Acceptance:** the first half of PT-65's acceptance (now, next milestone, after a win and a loss, each risk candidate at 1:2).
+
+## PT-65b: value chain, funded value, payout stake, retire comparison (PT-65 split)
+
+- **Lane / wave:** E / after PT-65a  **Size:** medium  **Depends on:** PT-65a
+- **Files owned:** new `advisor/value/{ValueChain.ts, FundedValueEstimate.ts, PayoutStakeComparison.ts, RetireComparison.ts}`, `advisor/value/{index.ts, TradeValueSwing.ts}`, and their tests.
+- **Steps** (RED first): "## PT-65:" steps 5 to 8 and 10. `RetireComparison` uses the simulator's monthly net per slot over `TRADING_DAYS_PER_MONTH` until a DP row is validated (T34), and says which basis it used. Also (PT-65a leftover): `TradeValueSwing.ts` reads `rebuyLagDays` through the validated spec (`documentedPolicySpecSchema.parse`), not the raw input; the swing tests are the pin.
+- **Acceptance:** the rest of PT-65's acceptance.
+
+## PT-36b: the firm-policy consumers on PT-35a's framework (PT-36 leftovers)
+
+- **Lane / wave:** J / after PT-12i (which adds the event history to `AlertInputs`)  **Size:** large  **Depends on:** the PT-36 slice (done: `PooledCapUsage`, `FirmPayoutCount`), PT-35a, PT-12i
+- **Items:** F-92, F-93, F-94, F-97 (library and alerts), F-145 (checks), F-154 (trigger ceiling)
+- **Scope:** "## PT-36:" steps 1b, 2, 3 and 5. Tests build verified policies from PT-35a's types on a synthetic test firm, never a real firm's values; every real firm stays unverified until PT-35b, so a registry test pins that no real firm fires a new rule or gets a live-trigger block (they keep "not checked").
+- **Decision (2026-09-27, from PT-36's review):** `PayoutRequestRule` and `PayoutReadiness` take the live-trigger count limit pre-resolved by the caller from the firm's `accountPolicy` (the path `buildEnginePolicy` already uses), as an optional additive option; `Plan` gets no firm reference, and the existing types keep every current field.
+- **Files owned:** new `src/lib/prop-accounts/metrics/LiveTransitionProximity.ts`, changed `metrics/index.ts`; new `alerts/{LiveTriggerNearRule, PooledCapReachedRule, ConductPatternRule, CalendarInactivityRule, LiveExclusivityRule, CooldownActiveRule}.ts`, changed `alerts/{AlertEvaluator.ts, index.ts, LifetimePayoutCountRule.ts, IdleSessionLimitRule.ts}`; new `core/LiveExclusivityEffects.ts`, changed `core/index.ts`; changed `advisor/{PayoutRequestRule.ts, PayoutReadiness.ts, DailyPlanCard.ts}`; `src/lib/prop-accounts/advice/FirmPayoutCount.ts` (its `latestMovedLiveOn` calls `latestEventOn` from `core/AccountStageOnDate.ts`, and the guard test in `AccountStageOnDate.test.ts` scans all of `src/lib/prop-accounts` for a second copy; PT-12n leftover); tests as listed in "## PT-36:". `metrics/index.ts` is shared with PT-26b while both run: re-read it right before editing and add only your own export lines.
+- **Acceptance:** each firm-policy rule works on verified data and stays silent or says "not checked" on unverified data.
+
+## PT-36c: the exclusivity router, the overview cards and the MovedLive preview (PT-36 leftovers)
+
+- **Lane / wave:** J / after PT-36b, PT-59 and PT-12i (the overview and detail files)  **Size:** medium  **Depends on:** PT-36b
+- **Files owned:** `src/server/api/routers/propAccounts/event.ts`, `src/lib/schemas/propAccounts.ts` (`confirmedExclusivityAccountIds`), new `overview/{PooledCapCard.tsx, LiveProximityCard.tsx}`, changed `overview/{OverviewView.tsx, overviewModel.ts, CapUsageCard.tsx}`, `detail/EventsSection.tsx`, new `detail/liveExclusivityPreview.ts`, and tests as listed in "## PT-36:".
+- **Steps** (RED first): "## PT-36:" steps 4, 6 and 7 (UI and router). Also (PT-22f leftover): one list-join helper under `src/lib/prop-accounts/core/` used by `TierChangeRule.ts` (`joinWithAnd`) and `overviewModel.ts` (`sourceList`), with a guard test; add `alerts/TierChangeRule.ts` and the core barrel line to the files owned.
+- **Acceptance:** confirmed MovedLive effects on sibling accounts apply atomically and user-scoped; the overview shows pooled caps and live proximity, labelled unverified where the firm is.
+
+## PT-58g: the firms page never saves over a status it has not loaded; one engagement lookup; the ended-accounts threshold required (PT-58e leftovers)
+
+- **Lane / wave:** W / EJ5-d  **Size:** small  **Depends on:** PT-58e (done)
+- **Items:** F-V26, review leftovers of wf_d2be2a95-428
+- **Files owned:** `accounts/firms/FirmsView.tsx`, `src/lib/prop-accounts/firms/{FirmRoster.ts, index.ts}` (export one `firmEngagementFor(firmKey, engagements)` that `FirmRoster` and the view both use), `src/lib/prop-calculator/advisor/Rulebook.ts` (`SampleThresholds.minEndedAccounts` required and nullable like its siblings, `DEFAULT_RULEBOOK.samples.minEndedAccounts: null`), the rulebook fixtures and tests that spread `DEFAULT_RULEBOOK.samples` only to add that key, and tests (`FirmsView.dom.test.tsx`, `FirmRoster.test.ts`, the rulebook tests).
+- **Steps** (RED first): (1) RED (HIGH from the re-review): with `firmEngagement.list` still pending while the account, event, fee and payout queries have resolved, the firms page shows no enabled Save button and `firmEngagement.set` is never called; the page says the statuses are still loading; the error case keeps its guard. (2) One engagement lookup (a guard test finds no second copy of the firm-key match). (3) The ended-accounts threshold is a required nullable field; the rulebook schema, form and fixtures agree; the fallback to the funded-accounts threshold is unchanged (`SampleAdequacy` tests are the pin). Run the accounts app tests, `tests/unit/lib/prop-accounts`, the rulebook and advisor tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** a status, reason or note is never overwritten by a save made before it loaded.
+
+## PT-22f: the personal max risk reaches real accounts; micro limits for eval and funded tier changes (PT-22e and PT-22d leftovers)
+
+- **Lane / wave:** W / after PT-59 (which owns the overview and detail files before it)  **Size:** small  **Depends on:** PT-22e (done), PT-59
+- **Items:** F-80, F-84 (the eval and funded micro limit half)
+- **Files owned:** `src/lib/prop-accounts/metrics/AccountStates.ts` (pass the adapter's `personalMaxRiskPerTrade` into `AccountReconstruction.rebuild`), `accounts/_components/detail/detailState.ts` (both `snapshotInputFrom` call sites), `accounts/_components/overview/overviewModel.ts` (`accountStateAccountRowOf` carries the account's personal rules), `src/lib/prop-accounts/alerts/TierChangeRule.ts` and `advisor/AccountReconstruction.ts` (the eval and funded tier signature includes the micro contract limit PT-22d added to the reconstruction), and tests.
+- **Steps** (RED first): (1) RED end to end: an account with a personal max risk per trade below the rulebook funded risk, loaded through `accountStatesOf` (and through the detail page state), gets the personal near-floor basis; one with none is unchanged. (2) RED: an eval or funded account whose micro contract limit changes between two snapshots raises the tier change alert naming the micro limit; accounts without a micro limit are unchanged. Run `tests/unit/lib/prop-accounts`, the advisor tests and the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the near-floor board and the tier change alert work on real accounts, not only on unit fixtures.
+
+## PT-59b: the funnel bust split by the diagnosis rule, the tilt card, the deviation map confirmed (PT-59 leftovers)
+
+- **Lane / wave:** W / after PT-22f (the overview files)  **Size:** medium  **Depends on:** PT-59 (done: `conduct/{ViolationStats, TiltVarianceSplit, BustDiagnosis, ExecutionDeviationMap}`), Q51
+- **Items:** F-V20
+- **Files owned:** `src/lib/prop-accounts/metrics/{PortfolioLedger.ts, StageFunnel.ts}` (the ledger event row carries the bust cause from the event detail; the funnel counts busts per firm with their diagnosis), `src/server/api/routers/propAccounts/decision.ts` (a userId-scoped `decision.list` for the portfolio, bounded like the other list procedures), `overview/{overviewModel.ts, usePortfolioData.ts, FunnelCard.tsx, OverviewView.tsx}`, new `overview/TiltVarianceCard.tsx`, and tests.
+- **Steps** (RED first): (1) RED: the funnel's Structural versus WithinPlan split per firm equals `BustDiagnosis` applied per busted account (cause, decisions, violations), replacing PT-59's violation-only proxy and its disclosure; loading or failed sources still show n/a. (2) RED: `decision.list` returns only the caller's rows (a second user's decision never appears), bounded. (3) RED: a tilt versus variance card shows net cash, violation cost and "net without violations" per firm and month with the "not path-adjusted" label, from `TiltVarianceSplit`. (4) `ExecutionDeviationMap` follows the user's answer to Q51 (default: keep the pinned map). Run `tests/unit/lib/prop-accounts`, `tests/unit/server/propAccounts` and the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** every busted account is diagnosed by one rule on the detail page and in the funnel; tilt versus variance is on the page.
+
+## PT-58h: the firms page holds edits until statuses load; one firm-columns row type (PT-58g leftovers)
+
+- **Lane / wave:** W / EJ5-g  **Size:** small  **Depends on:** PT-58g (done)
+- **Files owned:** `accounts/firms/FirmsView.tsx` (the status, reason, sent-live and since fields are disabled while the firm statuses load, like the Save button, so nothing the user types is dropped by the remount), `src/lib/prop-accounts/core/FirmKey.ts` or `metrics/PortfolioLedger.ts` (one exported firm-columns row type) and `firms/FirmRoster.ts` (`FirmEngagementColumns` uses it), and tests.
+- **Steps** (RED first, DOM test): while `firmEngagement.list` is pending every field of the status form is disabled; one firm-columns type (a guard test or grep in the report). Run the accounts app tests and `tests/unit/lib/prop-accounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the firms page never discards a typed edit and never saves an unloaded status.
+
+## PT-74b: the action types and the next action, risk check and coverage (PT-74 leftovers; the PT-19 addendum declarations never landed)
+
+- **Lane / wave:** E / EJ5-h  **Size:** medium  **Depends on:** PT-74 (done: `chooseObjective`, `objectiveApplicability`, `isBeyondNoise`), PT-65b, PT-12c, PT-46, PT-48b
+- **Items:** F-V18, F-V19, F-V20 (and the declarations of the "Addendum to PT-19 (EJ4)")
+- **Files owned:** new `src/lib/prop-calculator/advisor/{AccountAction.ts, AccountSubstate.ts, NextTradeRiskVerdict.ts}`, `advisor/{DifferenceReason.ts, DifferenceReasons.ts}` (`FlatRiskIgnoresState` with its text from typed fields only; the sentinel test stays green), `advisor/DailyPlanCard.ts` (nullable `valueNow`, `valueAfterWin`, `valueAfterLoss`, filled by PT-67; no behaviour change), `advisor/index.ts` (export the three new types), `advisor/actions/{AccountActionOf.ts, NextTradeRiskCheck.ts, FlatRiskReason.ts, index.ts}`, `advisor/value/{ValueChain.ts, RiskCandidateValues.ts}` (one generic require-or-throw for value outcomes that `swingFor` uses too), and tests (`AccountActionOf`, `NextTradeRiskCheck`, `FlatRiskReason`, `AdviceCoverage`, the addendum's one members-and-texts test; `actionsImportGraph` stays green).
+- **Steps** (RED first): the addendum's declarations (one RED test pins the members and texts); then "## PT-74:" steps 3 to 6 in full (`accountActionOf` with RequestPayout leaving the documented rung unchanged, Retire only when the QV-19 settings flag is true and `RetireComparison` says `SwitchBeatsKeep`, `RetireComparisonReason.Unknown` and `NoRemainingHorizon` passed through as information; `NextTradeRiskCheck` through `isBeyondNoise` where a DP risk is compared; `FlatRiskReason`; the coverage matrix over every modeled plan, stage and substate); the `requireValue` generalization (a guard finds one copy). Run the advisor tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** PT-74's acceptance in full.
+
+## PT-12n: the lifetime cap's certain total after a snapshot taken while live; the detail page's move-live date; one latest-event helper (PT-12i leftovers)
+
+- **Lane / wave:** W / EJ5-i  **Size:** small  **Depends on:** PT-12i (done)
+- **Items:** F-110, review leftovers of wf_f7cc1d0e-9be
+- **Files owned:** `src/lib/prop-accounts/alerts/{LifetimeDollarCapRule.ts, AlertContext.ts, InvalidStoredDateRule.ts}`, `src/lib/prop-accounts/core/AccountStageOnDate.ts` (one "latest event of a kind on or before a date" helper), `src/lib/prop-accounts/advice/SnapshotAdapter.ts` and `src/lib/prop-accounts/metrics/PayoutSizeStats.ts` (use it), `accounts/_components/detail/AccountDetailView.tsx` (pass the already loaded events query to `accountAlerts`), and tests.
+- **Steps** (RED first): (1) RED (re-review HIGH): a Live account with a recorded move-live date, a $60,000 payout before it, a $30,000 payout after it and a snapshot dated after both with $90,000 cumulative counts $60,000 as certain in the pooled cap, and the "not counting ... after moving live" line names the same $30,000 it left out; the certain total and the disclosure never disagree. (2) RED: the account detail page's lifetime cap alert uses the move-live date. (3) RED: a MovedLive event with a malformed date is reported by `InvalidStoredDateRule` like other malformed stored dates (a new `StoredDateField` member). (4) One latest-event helper (a guard test finds no second copy). Run `tests/unit/lib/prop-accounts` and the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** the cap alert's certain total matches the firm's pre-live payouts whenever the move date is known, on every page.
+
+## PT-62e: one bankroll variant hook and one worker request hook; shared scale gate inputs and day defaults; round spend over modeled members; one query-error notice (PT-62b, PT-62c and PT-58d leftovers; absorbs PT-58f)
+
+- **Lane / wave:** W / EJ5-i  **Size:** medium  **Depends on:** PT-62b, PT-62c (done)
+- **Files owned:** new `_components/bankroll/{useBankrollVariant.ts, useToolsRequest.ts}` (the session, rulebook and variant derivation and the dedupe-by-semantic-key worker dispatch, each defined once), `_components/bankroll/{SetupCard, ProjectionCard, TwoStrategiesCard, BatchCard, SameEvCard, LeversCard}.tsx` (use them), `_components/calculatorReducer.ts` (export the default eval and funded day constants) and `accounts/rounds/{roundsModel.ts, RoundsView.tsx}` (import them; the next-round spend and payouts sum the same members whose plan agreement was checked, or the card says which members it left out), `src/lib/prop-accounts/bankroll/{ScaleGate.ts, index.ts}` (`scaleGateFromLedger(ledger, asOf, thresholds, trades)`) and `accounts/firms/firmsModel.ts` (use it), `accounts/ledger/LedgerView.tsx` and one shared query-error notice under `accounts/_components/` (the PT-58f scope), and tests.
+- **Steps** (RED first where behaviour changes): (1) RED (re-review MEDIUM): a round holding a ledger-only member next to modeled members of one plan does not price the ledger-only member's spend and payouts as that plan's; the card names what it left out. (2) Refactors with guard tests that find one copy each: the bankroll variant derivation, the worker dispatch (every card fires once per semantic input change; the existing double-fire tests are the pin), the scale gate input assembly, the day defaults, the query-error notice. Run the bankroll, rounds, firms, ledger and accounts app tests and `tests/unit/lib/prop-accounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** one definition each; the next-round card prices only what it checked.
+
+## PT-24b: the next-trade risk check in `prop advise`, the full coverage matrix, one funded consistency ceiling (PT-24, PT-26b and PT-74b leftovers)
+
+- **Lane / wave:** E / EJ6-c  **Size:** medium  **Depends on:** PT-24, PT-26b, PT-74b (done)
+- **Items:** F-V18, F-V20 (CLI), review leftovers of wf_e5ac6941-fb2
+- **Files owned:** `src/lib/prop-calculator/advisor/{SizingAdvisor.ts, EvalSizingAdvisor.ts, FundedSizingAdvisor.ts, LiveSizingAdvisor.ts}` (a public `checkNextTradeRisk(proposedRisk, day, dpRisk?)` that builds the same `RuleContext` the advisor sizes with and calls `nextTradeRiskCheck`; `fundedConsistencyCeiling` exported once and used by `CopyGroupSizing.ts`), `advisor/createSizingAdvisor.ts` (export the default horizon and eval-day constants), `advisor/CopyGroupSizing.ts` (use the shared ceiling), new `advisor/actions/AdviceCoverageOf.ts` and `actions/index.ts` (the coverage classification promoted from `AdviceCoverage.test.ts`, which then tests the source; the PT-74b to PT-68 handoff), `src/cli/commands/prop/advise/command.ts` (`--wins-today`, `--losses-today`, `--proposed-risk`; `--matrix` over the full substate grid through `AdviceCoverageOf`; the shared constants), and tests.
+- **Steps** (RED first): (0) RED first (trader re-review HIGH, wf_1fb46eb7-e95): `prop advise`'s eval ladder line must not call `ladder.byCost[0]` "the winning ladder" (cost per funded account is dominated by pass rate, Mistake 10); it shows the ladder the MonthlyNet objective picks at the eval stage (`bySpeed`, labelled an eval-stage proxy, the same choice PT-63 makes for `prop ladder`) with its expected days to funded and SE, and lists cost per funded account only as a secondary column. (1) RED: `checkNextTradeRisk` gives WithinPlan at the documented rung (including the escalated eval rung after a loss), AboveDocumented with the excess and the payout-eligible flag, AboveDp; the same context the advisor sizes with (a test compares the rung it checks against `assemble`'s daily card). (2) RED: `prop advise ... --wins-today 1 --losses-today 1 --proposed-risk 600` prints the verdict and the excess. (3) RED: `--matrix` prints every substate per plan and stage; the coverage test reads the promoted source. (4) One funded consistency ceiling and one set of advisor defaults (guard tests). Run the advisor, actions and CLI advise tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** the CLI checks a proposed trade against the documented rung with the advisor's own context.
+
+## PT-26c: sizing and exposure on the copy groups page (PT-26b leftover F-67)
+
+- **Lane / wave:** W / EJ6-b  **Size:** small  **Depends on:** PT-26b (done: `copyGroupSizing`, `exposureOf`)
+- **Items:** F-67, F-86 (UI), F-130 (UI)
+- **Files owned:** `accounts/copy-groups/**` (the view and its model; load the rows the overview and hub already load for account states: accounts, latest snapshots, events, payouts, the rulebook, and rebuild states with `accountStatesOf`; no new procedure), and tests (the copy groups DOM test's tRPC mock gains the extra queries).
+- **Steps** (RED first, DOM tests): each copy group shows one documented size for all copies (the tightest member's rung, the member that binds it named), the group's combined exposure and worst-case loss, and says which members could not be sized and why; a failed or loading query shows its state, never a stale number. Run the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** copy trading sizes every copy at the group's safe rung, visibly.
+
+## PT-27b: the weekly review shows adherence and this week's violations (PT-27 leftovers, the F-V20 addendum)
+
+- **Lane / wave:** W / EJ6-c  **Size:** small  **Depends on:** PT-27 (done), PT-59b (`decision.list`, violations)
+- **Items:** F-V20 (review), review leftovers of wf_e5ac6941-fb2
+- **Files owned:** `src/server/db/schemas/prop.ts` (reshape `prop_sizing_decision_user_account_decided_idx` to `(userId, accountId, decidedOn desc nulls first, createdAt desc nulls first, id desc nulls first)` like the snapshot index, so `latestDecisions()`'s DISTINCT ON uses the index; generate the migration with `bun run db:generate` and inspect the SQL, never migrate; database re-review MEDIUM, wf_1fb46eb7-e95), `accounts/review/{weeklyReviewModel.ts, WeeklyReviewView.tsx}`, `src/server/api/routers/propAccounts/mutationGuard.ts` (a `PropRouterBucket.Review` for `review.submit` with its own limit, if the shared snapshot bucket would refuse a full review of up to 200 accounts in one go; decide by test), `review.ts` (use it), and tests.
+- **Steps** (RED first): each row shows whether the last decision was followed and the week's adherence rate; this week's violations are listed per account (`violation.list`); "log violation" opens the violation form prefilled with the decision; a 200-account review is not refused by the rate limit (a router test). Ledger-only accounts stay out of the review (a balance-only row is not offered; stated on the page). Run the accounts app tests and `tests/unit/server/propAccounts` (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the weekly review is where adherence and violations are seen and logged.
+
+## PT-34b: the advice panel uses the firm policy and the measured rebuy lag; one computation cache; retry tested (PT-34 leftovers)
+
+- **Lane / wave:** W / EJ6-c  **Size:** small  **Depends on:** PT-34 (done)
+- **Files owned:** `_components/payoutPlanner/payoutPlannerModel.ts` (export one PayoutGate and PayoutBlockReason text mapping, keeping the WouldTriggerLive trigger-count detail, used by both the planner and the advice panel; trader re-review MEDIUM, wf_1fb46eb7-e95), `accounts/_components/advice/{AdvicePanel.tsx, useAccountAdvice.ts, adviceViewModel.ts}` (pass `findFirm(plan.id.firm)?.accountPolicy` and the measured rebuy lag from `replacementStats` over the rows the detail page already loads; the three relative imports use `~/`), `_components/{ComputationId.ts, computationCache.ts}` (an Advice member; the per-hook map goes), and tests (a `useAccountAdvice` test that a failed run retried runs the worker exactly once more; an AdvicePanel test with non-empty personal rules).
+- **Steps** (RED first): the panel's advice for an account with a measured rebuy lag uses it (the provenance line says measured, not assumed); the firm policy reaches the advisor; the cache is the shared one; retry runs once. Run the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the advice panel's inputs match the CLI's.
+
+## PT-31e: the payout planner's DOM test and cached results (PT-31c leftovers)
+
+- **Lane / wave:** W / after PT-34b (`ComputationId.ts`)  **Size:** small  **Depends on:** PT-31c, PT-34b
+- **Files owned:** `(tools)/payout-planner/PayoutPlannerView.tsx`, `_components/ComputationId.ts` (PayoutPlanner members for the sweep and the outlook), new `tests/unit/app/prop-calculator/PayoutPlannerView.dom.test.tsx`.
+- **Steps** (RED first, DOM test): invalid input gates the result, the payout path list, the outlook section and the personal-override note render; the sweep and outlook results survive navigation through the shared cache. Run the prop-calculator app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the payout planner behaves like the other tool pages.
+
+## PT-36d: the advisors pass the verified live-trigger limits; typed live-trigger reasons (PT-36b leftovers)
+
+- **Lane / wave:** E / after PT-24b and PT-34b (the advisor and advice-view files)  **Size:** small  **Depends on:** PT-36b (done: the optional live-trigger inputs on `PayoutRequestRule`, `PayoutReadiness` and the daily card; `liveTriggerCeilingFor`, `combinedProfitCeiling`)
+- **Items:** F-145, F-154 (wiring), review leftovers of wf_526deda5-71e
+- **Files owned:** `src/lib/prop-calculator/advisor/{FundedSizingAdvisor.ts, LiveSizingAdvisor.ts, PayoutAdvice.ts}` (resolve `firm.accountPolicy.liveTriggersFor(plan)` into the per-account and firm-total count limits and pass them; build the funded and live ceiling with `combinedProfitCeiling(existing, liveTriggerCeilingFor(verified single-day trigger))`), `advisor/PayoutBlockReason.ts` (`LiveTriggerInfo` says whether the limit is per account or firm-wide), `advisor/{DifferenceReason.ts, DifferenceReasons.ts}` (WouldTriggerLive carries typed count and limit fields, text from them; the sentinel test stays green), `src/lib/prop-accounts/metrics/PayoutReadinessBoard.ts` (passes the same limits), `accounts/_components/advice/adviceViewModel.ts` (the text for both scopes), and tests.
+- **Steps** (RED first, on a synthetic verified test firm; a registry test pins that no real firm changes while all are unverified): a funded account on a firm with a verified count trigger at 3 gets NotEligible WouldTriggerLive for its third payout through `FundedSizingAdvisor`, with the per-account scope named; the firm-total case names the firm scope; a verified single-day trigger caps the daily card's rungs (whole contracts at the stop, "stop for today" below one contract); the readiness board shows the same block. Run the advisor, prop-accounts and accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** once PT-35b lands verified firm data, the payout advice and the daily plan respect live-transition triggers with no further code change.
+
+## PT-34c: the advice panel waits for the session before it sizes; one measured rebuy lag; the shared cache on the account page (PT-34b leftovers)
+
+- **Lane / wave:** W / EJ6-f  **Size:** small  **Depends on:** PT-34b (done)
+- **Items:** review leftovers of wf_74148607-066
+- **Files owned:** `accounts/_components/advice/AdvicePanel.tsx` (no advisor input is built and no worker runs while the session query is pending; a signed-out state is not the same as a loading one), one shared exported helper for the measured rebuy lag (`PortfolioLedger.fromRows` then `replacementStats` then `rebuyLagDefault`, with the failed-query state kept) used by both `AdvicePanel.tsx` and `accounts/_components/detail/AccountDetailView.tsx` (its private `measuredLag`), `accounts/[id]/page.tsx` (the provider that makes `useAccountAdvice`'s computation cache shared across navigation, as the calculator pages have), and tests.
+- **Steps** (RED first, DOM tests): (1) RED (re-review HIGH): while the session is loading, the panel shows a loading state, never advice built on an assumed rebuy lag, and the worker is not called; once the session resolves the measured lag is used (the provenance line says measured). (2) One measured-rebuy-lag helper (a guard test finds no second copy). (3) Advice computed on the account page is reused after navigating away and back (the shared cache). Run the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the advice panel never shows a number computed from a placeholder input.
+
+## PT-59c: decisions listed through the repository; one bust diagnosis per account for the funnel (PT-59b leftovers)
+
+- **Lane / wave:** W / EJ6-f  **Size:** small  **Depends on:** PT-59b (done)
+- **Items:** F-V20, review leftovers of wf_74148607-066
+- **Files owned:** `src/lib/prop-accounts/server/PropAccountRepo.ts` (`listDecisions(accountId?)`, userId-scoped and bounded like `listViolations`), `src/server/api/routers/propAccounts/decision.ts` (`list`, `listForAccount` and the local all-decisions query collapse onto it), `src/lib/prop-accounts/metrics/{StageFunnel.ts, index.ts}` (an exported per-account bust diagnosis and per-firm aggregation, the logic now in `overviewModel.ts`'s `bustDiagnosisKindOf` and `bustSplitByFirm`), `accounts/_components/overview/overviewModel.ts` (use it), and tests. `AccountDetailView.tsx` switches to the same helper in PT-37 (its owner), not here.
+- **Steps** (RED first where behaviour can move; otherwise refactors pinned by the existing funnel, decision router and user-scoping tests): `decision.list` and `decision.listForAccount` return exactly what they return today through one repo method; the funnel's Structural versus WithinPlan split is unchanged for every existing fixture; a guard test finds one copy of the per-account diagnosis outside `StageFunnel.ts` (the detail page's copy is listed as the one PT-37 removes). Run `tests/unit/lib/prop-accounts`, `tests/unit/server/propAccounts` and the accounts app tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** one query path for decisions and one bust diagnosis rule.
+
+## PT-24c: `prop advise` on a fresh eval, a stated refusal for the risk check, no silently dropped flags (PT-24b trader re-review leftovers)
+
+- **Lane / wave:** E / EJ6-g  **Size:** small  **Depends on:** PT-24b (done)
+- **Items:** F-133, F-V18, review leftovers of wf_c11aa312-832
+- **Files owned:** `src/lib/prop-calculator/advisor/EvalSizingAdvisor.ts` (the eval ladder search request fits the ladder grid cap at any cushion: coarsen the step with the cushion, disclosed as an assumption, rather than exceeding the cap), `advisor/EngineOptimumRunner.ts` (a ladder grid that is still too large becomes a typed refusal, "ladder search not run: grid too large", never a thrown error that ends the advice), `src/cli/commands/prop/advise/command.ts` (an explicit "next-trade risk check: not run" line with the reason when the check returns null; `--json` carries the risk check result, and `--wins-today` or `--losses-today` without `--proposed-risk` is refused with a message), and tests.
+- **Steps** (RED first): (1) RED (HIGH): `prop advise --firm apex --variant eod --stage eval --balance 50000 --highest-eod 50000 --trading-days 0 --trials 50 --wins-today 0 --losses-today 1 --proposed-risk 600` exits 0 with the documented rule, the ladder line (or the typed refusal) and a verdict; the same for one more firm at a fresh 50K eval (today: "ladder grid has 4,680 ladders, above the 2,000 limit"). (2) RED: a stale snapshot with `--proposed-risk` prints that the check was not run and why. (3) RED: `--json --proposed-risk` includes the check; `--losses-today 1` alone is refused. Run the advisor, actions and CLI advise tests (0 failures), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** `prop advise` works on every fresh 50K eval and never stays silent when asked for a verdict.
+
+## PT-34d: the advice hook caches engine results only; named query failures; good advice survives a failed refresh (PT-34c leftovers)
+
+- **Lane / wave:** W / after PT-34c  **Size:** small  **Depends on:** PT-34c (done)
+- **Items:** review leftovers of wf_359d3ce3-a04
+- **Files owned:** `accounts/_components/advice/{useAccountAdvice.ts, AdvicePanel.tsx, AdviceCacheProvider.tsx}`, `_workers/advisorWorkerMessages.ts` (only if the cache key needs it), and tests.
+- **Steps** (RED first): (1) RED: with identical engine requests, changing the personal caps or the snapshot date gives fresh advice from the real hook with a stub worker: the cache holds only the worker outcomes (engine optima and failures) and `advisor.assemble` runs on every render; PT-34c's per-input cache scope can then be simplified. (2) RED: when several input queries fail with the same message, each notice names its source and React sees unique keys. (3) RED: a failed background refetch that keeps the previous data shows the advice with a "could not refresh" notice instead of replacing it. (4) `today` moves at midnight without a remount. Run the accounts app tests (0 failures, `--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the advice panel never shows stale advice and never hides good advice for a transient error.
+- **Added 2026-10-01 (after PT-31f):** `useAccountAdvice` uses PT-31f's `useCachedWorkerTask` instead of its own cache and run-key bookkeeping.
+
+## PT-42b: copy-group members sized through their own engine policy; the simulation card on the copy groups page (PT-42 leftovers)
+
+- **Lane / wave:** W / EJ6-i  **Size:** medium  **Depends on:** PT-42 (done: `simulateCopyGroup` with per-trial independent seeds and the shared `advanceFundedDay`, the copy group worker)
+- **Items:** F-136, the PT-26c leftover, review leftovers of wf_919cea3b-60a
+- **Files owned:** `_workers/{copyGroupWorker.ts, copyGroupWorkerMessages.ts}` (each member carries its reconstructed account and its `EnginePolicy`; the worker builds each member through `toSimInputs` and `resolveDayPolicy` with the declared sizing asserted and its own contract limit, the T33 design, instead of a flat pre-resolved risk), `src/lib/prop-calculator/simulator/CopyGroupSimulation.ts` (`expectedPayoutCount` counts simulated payouts only, like `simulateFromState`), new `accounts/copy-groups/{CopyGroupSimulationCard.tsx, GroupSizingSection.tsx}` and changed `CopyGroupsView.tsx` (the card runs the worker for a funded group and shows P(any bust), P(all bust the same day), the group's realized payout and horizon credit and the conditional time to first bust, each with its SE and labelled; the sizing section moves to its own file so the view shrinks), and tests (replace the tautological cache-key test).
+- **Steps** (RED first): (1) RED: a member whose own EnginePolicy sizes below its plan's minimum is refused the same way the single-account path refuses it. (2) RED: a seed with 2 past payouts reports simulated payouts only. (3) RED, DOM: the card shows each figure with its SE, a mixed-stage group shows the typed rejection, a loading or failed worker shows its state. Run the simulator, worker and copy groups tests (0 failures, `--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** copy trading shows the group's correlated bust risk and payouts on the page, every member sized the way its own advice sizes it.
+- **Added 2026-10-01 (PT-21b leftover):** `copyGroupSizingModel.ts` uses `accountStateUnavailableText` from `accounts/_components/accountStateReasonText.ts` instead of its private `reconstructionReasonText` and `reconstructionErrorText` copies. Also (PT-33 leftover): its private "sizing is not modeled yet for live accounts" text and per-reason switch come from the same shared module as the overview's exposure text.
+
+## PT-24d: the coarser eval ladder step is a typed assumption; the ladder refusal shown on the web; one ladder result shape (PT-24c leftovers)
+
+- **Lane / wave:** E / after PT-21b (the detail state file) and before PT-36d (the advice view model)  **Size:** small  **Depends on:** PT-24c (done)
+- **Items:** F-133, review leftovers of wf_325c9a49-5fb
+- **Files owned:** `src/lib/prop-calculator/advisor/{AssumptionKind.ts (a LadderStepWidened member with its text), EvalSizingAdvisor.ts (assemble lists it whenever the grid step was widened, with the step), EngineOptimumRunner.ts (the ladder result becomes a discriminated union, scored or refused, instead of an optional refusal beside an empty result)}`, `accounts/_components/detail/detailState.ts` (its exhaustive assumption record), `accounts/_components/advice/adviceViewModel.ts` (the assumption text, and "ladder search not run: grid too large" for a refused ladder), `src/cli/commands/prop/advise/command.ts` (its assumption text record; the next-trade report as a union so a missing result always has a reason; the stale reason names the staleness kinds in words, not raw enum values, and asks for today's balance only when the snapshot is the reason), and tests.
+- **Steps** (RED first): a fresh 50K eval's advice lists the widened step as an assumption, on the web view model and the CLI; a refused ladder renders its refusal on the web; the report and result types admit no impossible state (type tests plus behaviour unchanged). Run the advisor, advice view model, detail state and CLI advise tests (0 failures, `--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`, `bunx knip`.
+- **Acceptance:** every place the advice is shown states when the ladder search was coarsened or not run.
+
+## PT-27c: one violation form, one "followed" rule, a week-bounded violation query (PT-27b leftovers)
+
+- **Lane / wave:** W / after PT-37 (the detail files) or alone if PT-37 has not started  **Size:** small  **Depends on:** PT-27b (done)
+- **Items:** F-V20, review leftovers of wf_cd0c3382-280
+- **Files owned:** `accounts/_components/detail/ViolationsSection.tsx` (export the violation form with initial values), `accounts/review/{WeeklyReviewView.tsx, weeklyReviewModel.ts}` (use it; the model's followed rule calls the shared one), `src/lib/prop-accounts/conduct/BustDiagnosis.ts` and `conduct/index.ts` (one exported "decision followed" predicate: actual at or below accepted), `src/server/api/routers/propAccounts/violation.ts` and `src/lib/schemas/propAccounts.ts` (an optional `occurredFrom` bound on `violation.list`, userId-scoped as today), `src/lib/prop-accounts/server/PropAccountRepo.ts` (`listViolations` honours it), `src/server/db/schemas/prop.ts` plus a drizzle-kit migration only if an index on (user_id, occurred_on) is missing (generate and inspect, never migrate), and tests.
+- **Steps** (RED first where behaviour moves): the weekly review asks only for violations from the week start; one form component and one followed predicate (guard tests find no second copy); the router test pins userId scoping with the new bound. Run the accounts app, conduct and server tests (0 failures, `--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** one definition each; the review reads a week of violations, not all of them.
+
+## PT-31f: one cached worker task hook; the payout planner's keys, cushion and wait text in their own files (PT-31e leftovers)
+
+- **Lane / wave:** W / after PT-31e, before PT-34d (which adopts the hook in `useAccountAdvice`)  **Size:** small  **Depends on:** PT-31e (done)
+- **Items:** review leftovers of wf_509e3853-8cb
+- **Files owned:** new `_components/useCachedWorkerTask.ts` (the shared cache plus started-key and run-key bookkeeping, key-scoped Done and Failed, the debounce), `_components/fundedOptimizer/useFundedSweep.ts` and `(tools)/payout-planner/PayoutPlannerView.tsx` (use it; the view's `useCachedPayoutTask`, `retainedCushionOf` and the key wrappers go), `_workers/payoutSweepWorkerMessages.ts` (`payoutSweepCacheKey` and `payoutOutlookCacheKey` hash the whole simulation-relevant rulebook), `_components/payoutPlanner/payoutPlannerModel.ts` (the Ready result carries the retained cushion and its basis; `payoutWaitText(null)` never says "no further profit or time reaches this payout" for gates that more profit or time does clear), and tests.
+- **Steps** (RED first where behaviour moves; the existing planner, funded optimizer and cache tests are the pin): one hook (a guard finds no second copy of the started-key and run-key pattern outside it and `useAccountAdvice`, which PT-34d moves); a rulebook differing only in the strategy win rate reruns the sweep through the worker-message key; the model's wait text for the profit and day gates is honest. Run only the touched and importing test files (`--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** one cached worker pattern for the tool pages; no planner figure from a stale rulebook.
+
+## PT-21c: overview engine card leftovers (PT-21b review)
+
+- **Lane / wave:** W / after PT-33 (the overview files), PT-31f (the shared cached worker hook) and PT-34e (`ComputationId.ts`)  **Size:** small  **Depends on:** PT-21b (done)
+- **Items:** F-73, F-V11, F-142 (cache), review leftovers of wf_20b980cd-94e
+- **Files owned:** `overview/overviewModel.ts` (the "cannot be tested for noise" line only when the plan's own biggest gap is untestable; the modeled cost map carries only what the worker measures, so no `NaN` days and no infinite attempts), `src/lib/prop-accounts/metrics/CostAnalytics.ts` (a modeled-cost input type with only the measured figures), `overview/useOverviewWorker.ts` and `_components/ComputationId.ts` (an Overview member; outcomes cached through PT-31f's `useCachedWorkerTask`, so a revisit does not resimulate), `accountListFilters.ts` (`readiness` typed by its tier enum), `_workers/overviewWorkerMessages.ts` and `advisor/policy/documentedPolicyTimelineInputs.ts` (PT-33 leftover: one exported `applicableTimelineGaps(spec)` with the funded rr tolerance, so the worker's `timelineGapsOf` and its local tolerance go), `_components/payoutPlanner/payoutPlannerModel.ts` (PT-31f leftover: the readiness board calls `payoutWaitText(row.wait, row.reason)` and the reason parameter becomes required, so a terminal gate says no further profit or time helps and a clearable one says more profit or time), and tests.
+- **Steps** (RED first where behaviour moves): the noise line names only an untestable largest gap of the same plan; a zero pass rate gives a stated "no modeled cost" instead of infinite attempts; revisiting the overview reuses cached outcomes. Run only the touched and importing test files (`--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** no fabricated modeled figure and no recomputation on a revisit.
+
+## PT-34e: the advice hook caches engine outcomes through the shared hook; one midnight-aware today (PT-34d leftovers)
+
+- **Lane / wave:** W / EJ6-r, before PT-21c (both edit `ComputationId.ts`)  **Size:** small  **Depends on:** PT-34d, PT-31f (done)
+- **Items:** review leftovers of wf_a6c552e7-aee
+- **Files owned:** `_components/ComputationId.ts` (the Advice slot holds `AdvisorWorkerResult`; `CachedAdvice` goes), `tests/unit/app/prop-calculator/computationCache.test.ts`, `accounts/_components/advice/{useAccountAdvice.ts, AdvicePanel.tsx, AdviceCacheProvider.tsx}` (the hook runs on `useCachedWorkerTask` with `ComputationId.Advice` and the `advisorWorkerCacheKey` job, and assembles advice from the cached outcome on every render; PT-34d's interim stale-state guard, the private started-key and run-key bookkeeping and PT-34c's per-input cache scope go), `tests/unit/app/prop-calculator/cachedWorkerTaskGuard.test.ts` (only `useCachedWorkerTask.ts` keeps the bookkeeping), `tests/unit/app/prop-calculator/accounts/adviceCacheScope.dom.test.tsx` (a personal rule change reuses the same worker run and gives fresh advice), a new shared `_components/useTodayIsoDate.ts` (PT-34d's midnight, visibility and focus resync) used by `AdvicePanel.tsx`, `accounts/_components/detail/AccountDetailView.tsx` and the detail sections that call `todayIsoDate(new Date())` per render, and tests.
+- **Steps** (RED first): adopt PT-34d's probe as the regression test (`scratchpad/useAccountAdviceFreshAdvice.dom.test.tsx`: two advisors with identical engine requests that differ only in `today` must never render the first one's advice for the second; it failed with one stale frame); the account page's today moves at midnight. Run only the touched and importing test files (`--maxWorkers=1`), `bun run typecheck`, `bunx eslint <owned files>`.
+- **Acceptance:** the advice panel caches the expensive engine work only, and nothing on the account pages keeps yesterday's date.
 
 ## PT-52d: one ledger-only rule set and one set of ownership checks on the server (PT-51b and PT-52b leftovers)
 
@@ -4026,6 +4321,11 @@ PT-25b (EJ5):
 - **Extra step:** RED in `overviewWorkerMessages.test.ts` and the detail models: per account a second from-state run at `MilestoneState` (PT-65, same seed) gives a "Value" card on the detail page (V(now), V(milestone), the gain, SEs) and the account's position in the value chain; `NextPayoutSection` lists the `payoutPath` steps; the retire comparison (PT-65) is shown there as information (QV-19). The worker messages declare, with their cache keys, every field EJ9 reads so PT-68 and PT-69 only import them: per account `valueNow` and `valueAtMilestone` with SEs; per held eval plan `valueFreshEval` and `retryFee` (for `bustCost`); per held plan `freshFundedValue` (for `evSplit`) and `expectedNetPerAttempt`; one request kind per family, Zod-validated, structuredClone round trip; only `ModeledAccountRow` accounts are sent (VD-23).
 
 
+
+#### Added 2026-10-01 to PT-37 (PT-59b and PT-59c leftover)
+
+- `AccountDetailView.tsx`'s bust diagnosis subsection uses the per-account diagnosis PT-59c exports from `metrics/StageFunnel.ts` instead of its own copy; PT-59c's guard test then finds exactly one copy.
+
 ## PT-38: next-slot allocation
 
 - **Lane / wave:** J / EJ7 (with PT-33, PT-30b, PT-42)  **Size:** medium  **Depends on:** PT-36 (`purchaseBlockedFirms`, `PooledCapUsage`), PT-32 (payout-size optimum, `PayoutPolicySensitivity`), PT-48 (spec, `toSimInputs`), PT-19 (EnginePolicy), PT-35 (through PT-36), PT-21b (its worker protocol, reused read-only; PT-33 owns those files in EJ7)
@@ -4118,6 +4418,11 @@ PT-25b (EJ5):
 **Acceptance**
 
 - A copy group on different plans is simulated from each member's real state on one shared stream of trade outcomes, with each member's own rules, contract limits and policy, reporting joint-bust risk and group payouts with SEs; the single-account engine is unchanged.
+
+
+#### Added 2026-09-27 to PT-42 (PT-26c leftover)
+
+- `CopyGroupsView.tsx` grew to 868 lines with PT-26c's sizing section; move `GroupSizingSection` (and the new simulation card) into their own files under `accounts/copy-groups/` so the view stays small; the copy groups DOM tests are the pin. PT-26c's `copyGroupSizingModel.ts` is the pattern for loading member states.
 
 ## PT-30: DP advice (CLI solve and store, gate re-run, web row)
 

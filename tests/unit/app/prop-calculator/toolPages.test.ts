@@ -22,6 +22,8 @@ import {
 } from '~/lib/site/legacyCalculatorLinks';
 import { indexableRoutes, routes } from '~/lib/site/routes';
 
+import { aliasPathOf } from '../../importSpecifiers';
+
 const CALCULATOR_ROOT = path.join(
     process.cwd(),
     'src',
@@ -470,8 +472,9 @@ function readSource(...segments: string[]): string {
 
 function resolveImport(from: string, specifier: string): null | string {
     let base: string;
-    if (specifier.startsWith('~/')) {
-        base = path.join(SRC_ROOT, specifier.slice(2));
+    const aliased = aliasPathOf(specifier, SRC_ROOT);
+    if (aliased !== null) {
+        base = aliased;
     } else if (specifier.startsWith('.')) {
         base = path.resolve(path.dirname(from), specifier);
     } else {
@@ -614,7 +617,7 @@ describe.each(PAGES)('the $folder tool page', (spec) => {
             sectionsOnRoute(spec.route)
                 .filter(
                     (section) =>
-                        !spec.innerSections.includes(section as LegacySection),
+                        !new Set<string>(spec.innerSections).has(section),
                 )
                 .toSorted(byText),
         );

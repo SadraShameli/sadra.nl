@@ -1,5 +1,13 @@
 import { sampleAdequacy, SampleKind, SampleLevel } from '~/lib/prop-accounts/core';
-import { type CentsEstimate, type CohortMultiple } from '~/lib/prop-accounts/metrics';
+import {
+    attemptsOf,
+    type CentsEstimate,
+    type CohortMultiple,
+    fundedSince,
+    pooledEndedCohortMultiple,
+    type PortfolioLedger,
+    realizedNetPerSlot,
+} from '~/lib/prop-accounts/metrics';
 import { type SampleThresholds } from '~/lib/prop-calculator/advisor';
 import { NOISE_STANDARD_ERRORS } from '~/lib/prop-calculator/stats';
 
@@ -39,6 +47,29 @@ const SAMPLE_UNMET_CONDITIONS: ReadonlySet<ScaleGateUnmetCondition> = new Set([
     ScaleGateUnmetCondition.FundedAccountsBelowThreshold,
     ScaleGateUnmetCondition.TradesBelowThreshold,
 ]);
+
+export function scaleGateFromLedger(
+    ledger: PortfolioLedger,
+    asOf: string,
+    thresholds: SampleThresholds,
+    trades: number,
+): ScaleGate {
+    const evalAttempts = ledger.accounts.reduce(
+        (sum, entry) => sum + attemptsOf(entry),
+        0,
+    );
+    const fundedAccounts = ledger.resolvedAccounts.filter(
+        (entry) => fundedSince(entry) !== null,
+    ).length;
+    return scaleGateOf({
+        cohortMultiple: pooledEndedCohortMultiple(ledger),
+        evalAttempts,
+        fundedAccounts,
+        pooledNetPerSlot: realizedNetPerSlot(ledger, asOf).pooled,
+        thresholds,
+        trades,
+    });
+}
 
 export function scaleGateOf(inputs: ScaleGateInputs): ScaleGate {
     const { thresholds } = inputs;

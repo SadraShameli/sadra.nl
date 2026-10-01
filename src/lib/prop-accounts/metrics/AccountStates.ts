@@ -147,7 +147,7 @@ function attemptSnapshot(
     payouts: readonly AccountStatePayoutRow[],
     asOf: string,
 ): SnapshotAttempt {
-    const { input } = snapshotInputFrom(
+    const { input, personalMaxRiskPerTrade } = snapshotInputFrom(
         plan,
         account,
         snapshot,
@@ -172,7 +172,11 @@ function attemptSnapshot(
             ok: true,
             value: {
                 asOf: input.asOf,
-                reconstructed: AccountReconstruction.rebuild(input, plan),
+                reconstructed: AccountReconstruction.rebuild(
+                    input,
+                    plan,
+                    personalMaxRiskPerTrade,
+                ),
             },
         };
     } catch (error) {

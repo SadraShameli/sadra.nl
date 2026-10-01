@@ -2,9 +2,11 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import * as accountListFilters from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
     ACCOUNT_LIST_INPUT,
     type AccountListAccount,
+    type AccountListBoards,
     type AccountListRow,
     type AccountListSnapshot,
     AccountSortKey,
@@ -15,12 +17,13 @@ import {
     DEFAULT_ACCOUNT_LIST_FILTERS,
     DEFAULT_ACCOUNT_LIST_SORT,
     filterAccountRows,
+    PayoutReadinessTier,
     readOnlyAccountNotice,
     readOnlyAlertTitle,
     sortAccountRows,
     SortDirection,
-    unresolvablePlanAlerts,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { portfolioAlerts } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import {
     type AccountReadIssue,
     AccountReadIssueKind,
@@ -31,12 +34,20 @@ import {
     AlertSeverity,
     AlertSubjectKind,
     compareText,
+    type CushionBoardRow,
+    CushionRatioBasis,
+    DashboardBalanceConvention,
     describeAccountReadIssue,
     describeUnresolvedPlan,
     type FirmKey,
     FirmKeyKind,
     type LedgerOnlyAccountRow,
     type ModeledAccountRow,
+    NO_ACCOUNT_STATES,
+    type PayoutReadinessBlockedRow,
+    type PayoutReadinessEligibleRow,
+    PayoutReadinessNotApplicableKind,
+    PayoutReadinessRowKind,
     PlanKeyResolutionKind,
     type StoredFirmId,
     UnresolvedPlanReason,
@@ -47,8 +58,14 @@ import {
     ALL_FIRMS,
     FirmId,
     NO_PLAN_OPT_INS,
+    PayoutGate,
     serializePlanId,
 } from '~/lib/prop-calculator';
+import {
+    DEFAULT_RULEBOOK,
+    PayoutBlockReasonKind,
+    PayoutWaitBasis,
+} from '~/lib/prop-calculator/advisor';
 
 const GROUP_A = '0f3e2d1c-0000-4000-8000-00000000000a';
 const GROUP_B = '0f3e2d1c-0000-4000-8000-00000000000b';
@@ -70,10 +87,13 @@ function account(
         accountSize: apexPlan.id.accountSize,
         archivedAt: null,
         copyGroupId: null,
+        dashboardConvention: DashboardBalanceConvention.Nominal,
         externalFirmId: null,
         firmId: FirmId.Apex,
+        firstFundedTradeOn: null,
         id,
         label: id,
+        liveStartBalanceCents: null,
         notes: null,
         optIns: NO_PLAN_OPT_INS,
         planLabel: null,
@@ -132,6 +152,7 @@ function snapshot(
     balanceCents: number,
     dashboardFloorCents: null | number,
     createdAt = new Date(`${asOf}T12:00:00Z`),
+    id = `${accountId}-${asOf}`,
 ): AccountListSnapshot {
     return {
         accountId,
@@ -140,7 +161,23 @@ function snapshot(
         createdAt,
         dashboardFloorCents:
             dashboardFloorCents === null ? null : usdCents(dashboardFloorCents),
+        id,
     };
+}
+
+function unresolvablePlanAlerts(
+    accounts: readonly AccountListAccount[],
+    today: string,
+) {
+    return portfolioAlerts({
+        accounts,
+        accountStates: NO_ACCOUNT_STATES,
+        copyGroups: [],
+        payouts: [],
+        rulebook: DEFAULT_RULEBOOK,
+        snapshots: [],
+        today,
+    }).filter((alert) => alert.kind === AlertKind.UnresolvablePlan);
 }
 
 const ACCOUNTS: readonly AccountListAccount[] = [
@@ -788,7 +825,7 @@ describe('accountStatusLabel', () => {
     });
 });
 
-describe('unresolvablePlanAlerts', () => {
+describe('unresolvable plan alerts through the portfolio evaluator', () => {
     it('raises one warning per unarchived account whose plan no longer resolves', () => {
         const broken = account('india', {
             label: 'India',
@@ -838,5 +875,210 @@ describe('unresolvablePlanAlerts', () => {
             'KILO',
             'LIMA',
         ]);
+    });
+});
+
+describe('the unused unresolvable-plan helper', () => {
+    it('is gone from the module: the overview runs the full alert evaluator instead', () => {
+        expect(accountListFilters).not.toHaveProperty('unresolvablePlanAlerts');
+    });
+});
+
+describe('buildAccountListRows snapshot order', () => {
+    it('breaks a tie on the same day and the same creation time by the larger snapshot id', () => {
+        const createdAt = new Date('2026-09-24T12:00:00Z');
+        const rows = buildAccountListRows(
+            [account('echo')],
+            [
+                snapshot('echo', '2026-09-24', 100, null, createdAt, 'snap-b'),
+                snapshot('echo', '2026-09-24', 200, null, createdAt, 'snap-a'),
+                snapshot('echo', '2026-09-24', 300, null, createdAt, 'snap-c'),
+            ],
+        );
+        expect(rows[0]?.latestSnapshot?.id).toBe('snap-c');
+        expect(rows[0]?.latestSnapshot?.balanceCents).toBe(300);
+    });
+
+    it('gives the same latest snapshot whatever order the rows arrive in', () => {
+        const createdAt = new Date('2026-09-24T12:00:00Z');
+        const entries = [
+            snapshot('echo', '2026-09-24', 100, null, createdAt, 'snap-b'),
+            snapshot('echo', '2026-09-24', 200, null, createdAt, 'snap-a'),
+        ];
+        const forward = buildAccountListRows([account('echo')], entries);
+        const reversed = buildAccountListRows(
+            [account('echo')],
+            entries.toReversed(),
+        );
+        expect(forward[0]?.latestSnapshot?.id).toBe(
+            reversed[0]?.latestSnapshot?.id,
+        );
+    });
+});
+
+describe('buildAccountListRows with the cushion and payout readiness boards (F-80, F-81)', () => {
+    const asOf = '2026-09-24';
+
+    function cushionRow(
+        accountId: string,
+        cushionCents: null | number,
+    ): CushionBoardRow {
+        return {
+            accountId,
+            asOf,
+            cushionCents: cushionCents === null ? null : usdCents(cushionCents),
+            floorCents: usdCents(5_000_000),
+            ratio: {
+                basis: CushionRatioBasis.Funded,
+                basisAmount: 250,
+                cushion: cushionCents === null ? null : cushionCents / 100,
+                floor: 50_000,
+                ratio: cushionCents === null ? null : cushionCents / 25_000,
+            },
+        };
+    }
+
+    function eligibleRow(accountId: string): PayoutReadinessEligibleRow {
+        return {
+            accountId,
+            asOf,
+            firmMinimumNotice: null,
+            kind: PayoutReadinessRowKind.Eligible,
+            requestedAmountCents: usdCents(50_000),
+            traderReceivesCents: usdCents(40_000),
+        };
+    }
+
+    function blockedRow(
+        accountId: string,
+        overrides: Partial<PayoutReadinessBlockedRow>,
+    ): PayoutReadinessBlockedRow {
+        return {
+            accountId,
+            asOf,
+            kind: PayoutReadinessRowKind.Blocked,
+            pendingAmountCents: null,
+            reason: {
+                gate: PayoutGate.DayGateNotMet,
+                kind: PayoutBlockReasonKind.Gate,
+            },
+            wait: null,
+            ...overrides,
+        };
+    }
+
+    const boards: AccountListBoards = {
+        cushion: {
+            rows: [cushionRow('alpha', 12_345), cushionRow('bravo', null)],
+            unavailable: [],
+        },
+        readiness: {
+            notApplicable: [
+                {
+                    accountId: 'delta',
+                    notApplicable: {
+                        kind: PayoutReadinessNotApplicableKind.NotFunded,
+                    },
+                },
+            ],
+            rows: [
+                eligibleRow('alpha'),
+                blockedRow('bravo', {
+                    wait: {
+                        basis: PayoutWaitBasis.QualifyingDays,
+                        daysStillNeeded: 3,
+                    },
+                }),
+                blockedRow('charlie', {
+                    wait: { basis: PayoutWaitBasis.NoClosedForm },
+                }),
+            ],
+        },
+    };
+
+    const rows = buildAccountListRows(ACCOUNTS, SNAPSHOTS, boards);
+    const byId = new Map(rows.map((row) => [row.account.id, row]));
+
+    it('takes the cushion from the board, not from the dashboard floor on the latest snapshot', () => {
+        expect(byId.get('alpha')?.cushionCents).toBe(12_345);
+        expect(byId.get('bravo')?.cushionCents).toBeNull();
+        expect(byId.get('charlie')?.cushionCents).toBeNull();
+        expect(byId.get('delta')?.cushionCents).toBeNull();
+    });
+
+    it('ranks readiness in tiers: eligible, waiting with an estimate, then blocked with none', () => {
+        expect(byId.get('alpha')?.readiness).toBe(PayoutReadinessTier.Eligible);
+        expect(byId.get('bravo')?.readiness).toBe(PayoutReadinessTier.Waiting);
+        expect(byId.get('charlie')?.readiness).toBe(
+            PayoutReadinessTier.Blocked,
+        );
+        expect(byId.get('delta')?.readiness).toBeNull();
+    });
+
+    it('identifies the readiness tiers by name, so reordering them cannot change a sort', () => {
+        expect(Object.values(PayoutReadinessTier).toSorted((a, b) =>
+            a.localeCompare(b),
+        )).toEqual([
+            'blocked',
+            'eligible',
+            'waiting',
+        ]);
+    });
+
+    it('counts a pending payout request as waiting, since it resolves without more profit', () => {
+        const pending: AccountListBoards = {
+            ...boards,
+            readiness: {
+                notApplicable: [],
+                rows: [
+                    blockedRow('alpha', {
+                        pendingAmountCents: usdCents(50_000),
+                        reason: { kind: PayoutBlockReasonKind.PayoutPending },
+                    }),
+                ],
+            },
+        };
+        const [first] = buildAccountListRows(ACCOUNTS, SNAPSHOTS, pending);
+        expect(first?.readiness).toBe(PayoutReadinessTier.Waiting);
+    });
+
+    it('sorts by readiness with the most ready first and unranked rows last', () => {
+        expect(
+            ids(
+                sortAccountRows(rows, {
+                    direction: SortDirection.Ascending,
+                    key: AccountSortKey.Readiness,
+                }),
+            ),
+        ).toEqual(['alpha', 'bravo', 'charlie', 'delta']);
+        expect(
+            ids(
+                sortAccountRows(rows, {
+                    direction: SortDirection.Descending,
+                    key: AccountSortKey.Readiness,
+                }),
+            ),
+        ).toEqual(['charlie', 'bravo', 'alpha', 'delta']);
+    });
+
+    it('sorts by the board cushion, unknown cushions last', () => {
+        expect(
+            ids(
+                sortAccountRows(rows, {
+                    direction: SortDirection.Ascending,
+                    key: AccountSortKey.Cushion,
+                }),
+            ),
+        ).toEqual(['alpha', 'bravo', 'charlie', 'delta']);
+    });
+
+    it('keeps the snapshot stand-in cushion only while no boards are given', () => {
+        const without = buildAccountListRows(ACCOUNTS, SNAPSHOTS);
+        expect(
+            without.find((row) => row.account.id === 'alpha')?.cushionCents,
+        ).toBe(200_000);
+        expect(
+            without.find((row) => row.account.id === 'alpha')?.readiness,
+        ).toBeNull();
     });
 });

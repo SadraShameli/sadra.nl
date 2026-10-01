@@ -1,4 +1,4 @@
-import { resetForNewDay } from '../core/AccountState';
+import { resetForNewDay } from '~/lib/prop-calculator/core/AccountState';
 import {
     computedDayPolicy,
     type DayPolicy,
@@ -7,18 +7,19 @@ import {
     policySizingOf,
     resolveFundedTradeRisk,
     shouldStopDay,
-} from '../core/DayPolicy';
-import { IntradayTrailingDrawdown } from '../core/DrawdownStrategy';
+} from '~/lib/prop-calculator/core/DayPolicy';
+import { IntradayTrailingDrawdown } from '~/lib/prop-calculator/core/DrawdownStrategy';
 import {
     calibrateStepProbability,
     simulateTradePath,
-} from '../core/TradePathSimulation';
+} from '~/lib/prop-calculator/core/TradePathSimulation';
 import {
     applyClosedTrade,
     resolveRiskAt,
-} from '../core/TradeRiskResolution';
-import { closeTradingDay } from '../core/TradingDayLedger';
-import { TradingPhase } from '../core/TradingPhase';
+} from '~/lib/prop-calculator/core/TradeRiskResolution';
+import { closeTradingDay } from '~/lib/prop-calculator/core/TradingDayLedger';
+import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+
 import {
     assertDeclaredSizingMatchesPhase,
     assertNoFundedDayPolicyConflict,
@@ -88,6 +89,7 @@ export function runDay(options: DayRunOptions): {
         rungSizing,
         state,
         stats,
+        tradeRng,
         winrate,
     } = options;
     const fundedCycle =
@@ -135,16 +137,17 @@ export function runDay(options: DayRunOptions): {
             }
             if (risk <= 0) break;
 
+            const outcomeRng = tradeRng ? tradeRng(index) : rng;
             let isWon: boolean;
             let peakPnL: number | undefined;
             if (pathConfig === undefined) {
-                isWon = rng() < winrate;
+                isWon = outcomeRng() < winrate;
             } else {
                 const path = simulateTradePath(
                     pathConfig.probability,
                     pathConfig.stepsPerR,
                     rrRatio,
-                    rng,
+                    outcomeRng,
                     MAX_INTRADAY_PATH_STEPS,
                 );
                 isWon = path.outcome === 'win';

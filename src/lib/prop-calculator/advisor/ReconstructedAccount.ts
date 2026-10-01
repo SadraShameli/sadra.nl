@@ -5,7 +5,8 @@ import {
     type LivePlan,
     type Plan,
     type TradingPhase,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import { type Assumption } from './Assumption';
 
 export enum ReconstructedLiveKind {
@@ -19,8 +20,15 @@ export interface ReconstructedFundedOrEvalAccount {
     readonly assumptions: readonly Assumption[];
     readonly contractLimit: null | number;
     readonly cushion: number;
+    readonly dashboardFloorMismatch?: null | {
+        readonly engineFloor: number;
+        readonly enteredFloor: number;
+    };
     readonly fundedTracker: FundedCycleTracker | null;
     readonly kind: TradingPhase.Eval | TradingPhase.Funded;
+    readonly microContractLimit?: null | number;
+    readonly pendingPayouts?: number;
+    readonly personalMaxRiskPerTrade?: null | number;
     readonly plan: Plan;
     readonly resolvedDailyLossLimit: null | number;
     readonly state: AccountState;

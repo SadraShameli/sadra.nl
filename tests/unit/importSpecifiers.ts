@@ -16,6 +16,17 @@ const MODULE_SPECIFIER =
 
 const LOCAL_CANDIDATES = ['.ts', '.tsx', '/index.ts', '/index.tsx'];
 
+const SOURCE_ALIAS = '~/';
+
+export function aliasPathOf(
+    specifier: string,
+    sourceRoot: string,
+): null | string {
+    return specifier.startsWith(SOURCE_ALIAS)
+        ? path.join(sourceRoot, specifier.slice(SOURCE_ALIAS.length))
+        : null;
+}
+
 export function importSpecifiersOf(source: string): ImportSpecifier[] {
     return source
         .matchAll(MODULE_SPECIFIER)
@@ -54,10 +65,10 @@ export function resolveLocalSpecifier(
     specifier: string,
     sourceRoot: string,
 ): null | string {
-    if (specifier.startsWith('~/')) {
-        const base = path.join(sourceRoot, specifier.slice(2));
+    const aliased = aliasPathOf(specifier, sourceRoot);
+    if (aliased !== null) {
         return (
-            LOCAL_CANDIDATES.map((suffix) => `${base}${suffix}`).find(
+            LOCAL_CANDIDATES.map((suffix) => `${aliased}${suffix}`).find(
                 (option) => existsSync(option),
             ) ?? null
         );

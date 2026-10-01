@@ -1,5 +1,5 @@
-import { TRADING_DAYS_PER_MONTH } from '../core/constants';
-import { DEFAULT_RUNG_SIZING } from '../core/DayPolicy';
+import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator/core/constants';
+import { DEFAULT_RUNG_SIZING } from '~/lib/prop-calculator/core/DayPolicy';
 import {
     activationFee,
     type CouponDiscounts,
@@ -9,17 +9,17 @@ import {
     initialEvalFee,
     monthlySubscriptionFee,
     retryPath,
-} from '../core/FeeSchedule';
-import { dollars, type Dollars, fraction } from '../core/lib/units';
-import { LifetimeCapScope, type Plan } from '../core/Plan';
-import { resolvePositionSizing } from '../core/PositionSizing';
+} from '~/lib/prop-calculator/core/FeeSchedule';
+import { dollars, type Dollars, fraction } from '~/lib/prop-calculator/core/lib/units';
+import { LifetimeCapScope, type Plan } from '~/lib/prop-calculator/core/Plan';
+import { resolvePositionSizing } from '~/lib/prop-calculator/core/PositionSizing';
 import {
     replacementEconomics,
     type ReplacementInputs,
-} from '../core/Replacement';
-import { totalRoiOnCost } from '../core/Roi';
-import { TradingPhase } from '../core/TradingPhase';
-import { deriveSubSeed, mulberry32 } from '../rng';
+} from '~/lib/prop-calculator/core/Replacement';
+import { totalRoiOnCost } from '~/lib/prop-calculator/core/Roi';
+import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+import { deriveSubSeed, mulberry32 } from '~/lib/prop-calculator/rng';
 import {
     binomialStandardError,
     type Estimate,
@@ -27,7 +27,8 @@ import {
     percentile,
     ratioEstimate,
     type UncertainValue,
-} from '../stats';
+} from '~/lib/prop-calculator/stats';
+
 import { resolveDayPolicy } from './day';
 import { SIM_INPUTS_REFUSAL_PREFIX } from './dayPolicyValidation';
 import { resolveCopyAccounts, SIM_DEFAULTS } from './SimDefaults';

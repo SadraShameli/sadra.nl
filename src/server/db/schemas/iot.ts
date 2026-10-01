@@ -9,7 +9,8 @@ import {
     varchar,
 } from 'drizzle-orm/pg-core';
 
-import { bytea } from '../types';
+import { bytea } from '~/server/db/types';
+
 import { createTable } from './main';
 
 export const sensorUnit = createTable(

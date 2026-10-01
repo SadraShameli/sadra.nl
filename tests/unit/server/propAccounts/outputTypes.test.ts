@@ -5,6 +5,7 @@ import { type z } from 'zod';
 import {
     AccountEventKind,
     AccountReadIssueKind,
+    AccountStage,
     AccountTracking,
     BankrollTransferKind,
     BustCause,
@@ -54,6 +55,7 @@ import {
     roundUpdateSchema,
     violationCreateSchema,
     violationUpdateSchema,
+    weeklyReviewSubmitSchema,
 } from '~/lib/schemas/propAccounts';
 import {
     propAccount,
@@ -1035,6 +1037,41 @@ describe('propAccounts video record input schemas', () => {
         ).toBe(false);
         expect(
             isAccepted(eventRecordSchema, { ...busted, bustCause: 'bad-luck' }),
+        ).toBe(false);
+    });
+
+    it('rejects a weekly review decision for an account without a snapshot in the batch', () => {
+        const snapshot = {
+            accountId: ACCOUNT_ID,
+            balanceCents: 5_050_000,
+        };
+        const decision = {
+            acceptedRiskCents: 40_000,
+            acceptedRungsCents: [40_000],
+            accountId: ACCOUNT_ID,
+            headlineRiskCents: 40_000,
+            stage: AccountStage.Eval,
+        };
+        expect(
+            isAccepted(weeklyReviewSubmitSchema, {
+                asOf: '2026-09-21',
+                decisions: [decision],
+                snapshots: [snapshot],
+            }),
+        ).toBe(true);
+        expect(
+            isAccepted(weeklyReviewSubmitSchema, {
+                asOf: '2026-09-21',
+                decisions: [{ ...decision, accountId: VIDEO_IDS.round }],
+                snapshots: [snapshot],
+            }),
+        ).toBe(false);
+        expect(
+            isAccepted(weeklyReviewSubmitSchema, {
+                asOf: '2026-09-21',
+                decisions: [],
+                snapshots: [snapshot, snapshot],
+            }),
         ).toBe(false);
     });
 });

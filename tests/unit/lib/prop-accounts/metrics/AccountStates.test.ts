@@ -131,6 +131,42 @@ describe('accountStatesOf', () => {
         expect(entry.state.plan.id).toEqual(MFF_PRO_ID);
     });
 
+    it("carries the account's personal max risk per trade into the reconstruction", () => {
+        const maxRiskPerTradeCents = usdCents(20_000);
+        const rows = rowsOf({
+            accounts: [accountRow({ personalRules: { maxRiskPerTradeCents } })],
+        });
+        const [entry] = accountStatesOf(USER_ID, ASOF, rows);
+        if (entry === undefined) throw new Error('expected one entry');
+        if (entry.state.kind !== AccountStateKind.Reconstructed) {
+            throw new Error(
+                `expected a reconstructed state, got ${JSON.stringify(entry.state)}`,
+            );
+        }
+        if (entry.state.latest.reconstructed.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(entry.state.latest.reconstructed.personalMaxRiskPerTrade).toBe(
+            200,
+        );
+    });
+
+    it('leaves the personal max risk per trade null without personal rules', () => {
+        const [entry] = accountStatesOf(USER_ID, ASOF, rowsOf());
+        if (entry === undefined) throw new Error('expected one entry');
+        if (entry.state.kind !== AccountStateKind.Reconstructed) {
+            throw new Error(
+                `expected a reconstructed state, got ${JSON.stringify(entry.state)}`,
+            );
+        }
+        if (entry.state.latest.reconstructed.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(
+            entry.state.latest.reconstructed.personalMaxRiskPerTrade,
+        ).toBeNull();
+    });
+
     it('skips a ledger-only account with a typed reason instead of reconstructing it', () => {
         const [entry] = accountStatesOf(
             USER_ID,

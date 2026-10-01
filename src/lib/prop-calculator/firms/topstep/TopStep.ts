@@ -15,8 +15,7 @@ import {
     TopStepVariant,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
-
-import { lockThresholdAt, planLabel } from '../shared';
+import { lockThresholdAt, planLabel } from '~/lib/prop-calculator/firms/shared';
 
 const ACCOUNT_SIZE = 50_000;
 const MAX_LOSS_LIMIT = dollars(2000);

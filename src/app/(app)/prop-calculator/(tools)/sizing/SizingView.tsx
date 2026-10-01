@@ -22,6 +22,11 @@ const SensitivityHeatmap = dynamic(
     { loading: () => <PanelSkeleton /> },
 );
 
+const TakeProfitWhatIf = dynamic(
+    () => import('~/app/(app)/prop-calculator/_components/TakeProfitWhatIf'),
+    { loading: () => <PanelSkeleton /> },
+);
+
 export function SizingView() {
     const { simInputs, state } = useCalculatorInputs();
 
@@ -56,6 +61,8 @@ export function SizingView() {
                         currentWinrate={state.winrate}
                     />
                 </ToolSection>
+
+                <TakeProfitWhatIf />
             </div>
         </>
     );

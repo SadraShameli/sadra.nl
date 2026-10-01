@@ -1,3 +1,11 @@
+import { formatUsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
+import {
+    AccountStateKind,
+    type ConsistencyStatus,
+    ConsistencyStatusKind,
+    evalConsistencyStatus,
+    fundedConsistencyStatus,
+} from '~/lib/prop-accounts/metrics';
 import {
     CENTS_PER_DOLLAR,
     type ConsistencyRule,
@@ -8,14 +16,6 @@ import {
     ReconstructedLiveKind,
 } from '~/lib/prop-calculator/advisor';
 
-import { formatUsdCents, usdCentsFromDollars } from '../core';
-import {
-    AccountStateKind,
-    type ConsistencyStatus,
-    ConsistencyStatusKind,
-    evalConsistencyStatus,
-    fundedConsistencyStatus,
-} from '../metrics';
 import { type AccountAlert } from './AccountAlert';
 import {
     type AlertContext,

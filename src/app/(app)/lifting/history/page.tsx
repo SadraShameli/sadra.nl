@@ -1,12 +1,11 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { HistoryView } from '~/app/(app)/lifting/_components/HistoryView';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { HistoryView } from '../_components/HistoryView';
 
 export const metadata: Metadata = {
     description: 'Your training history.',

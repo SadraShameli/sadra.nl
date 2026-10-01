@@ -1,9 +1,8 @@
 import { type Metadata } from 'next';
 
+import { MutationsBrowser } from '~/app/(app)/accounting/_components/MutationsBrowser';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { MutationsBrowser } from '../_components/MutationsBrowser';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },

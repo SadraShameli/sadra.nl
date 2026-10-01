@@ -1,4 +1,5 @@
-import { MAX_ACCOUNT_DATE_YEAR, MIN_ACCOUNT_DATE_YEAR } from '../core';
+import { MAX_ACCOUNT_DATE_YEAR, MIN_ACCOUNT_DATE_YEAR } from '~/lib/prop-accounts/core';
+
 import { type AccountAlert } from './AccountAlert';
 import {
     type InvalidStoredDate,
@@ -32,6 +33,9 @@ function describeDate(invalid: InvalidStoredDate): string {
 
 function fieldLabel(field: StoredDateField): string {
     switch (field) {
+        case StoredDateField.MovedLiveOn: {
+            return 'move-live date';
+        }
         case StoredDateField.PayoutPaidOn: {
             return 'payout paid date';
         }

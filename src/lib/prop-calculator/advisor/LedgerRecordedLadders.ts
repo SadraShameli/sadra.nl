@@ -1,4 +1,5 @@
-import { type FirmId, parseFirmId } from '../core';
+import { type FirmId, parseFirmId } from '~/lib/prop-calculator/core';
+
 import { StartBasis } from './StartBasis';
 
 export enum LedgerLadderSelection {

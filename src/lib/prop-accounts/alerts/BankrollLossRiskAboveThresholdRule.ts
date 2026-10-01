@@ -1,7 +1,7 @@
 import { formatPercent } from '~/lib/format';
+import { sampleAdequacy, SampleKind, SampleLevel } from '~/lib/prop-accounts/core';
 import { EconomicsReason } from '~/lib/prop-calculator/economics';
 
-import { sampleAdequacy, SampleKind, SampleLevel } from '../core';
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
 import { type AlertContext } from './AlertContext';
 import { AlertKind } from './AlertKind';

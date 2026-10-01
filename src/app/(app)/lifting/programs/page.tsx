@@ -1,11 +1,10 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { ProgramsLibrary } from '~/app/(app)/lifting/_components/ProgramsLibrary';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-
-import { ProgramsLibrary } from '../_components/ProgramsLibrary';
 
 export const metadata: Metadata = {
     description: 'Pick a program or build your own.',

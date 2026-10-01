@@ -135,6 +135,14 @@ export {
 export { FirmId, parseFirmId } from './FirmId';
 export { FixedWinRateEdge } from './FixedWinRateEdge';
 export {
+    DEFAULT_ACTION_STEP_MULTIPLE,
+    DEFAULT_CUSHION_STEP_MULTIPLE,
+    DEFAULT_MAX_ACTION_MULTIPLE,
+    DEFAULT_MAX_CUSHION_MULTIPLE,
+    DEFAULT_MAX_TAIL_CUSHION_MULTIPLE,
+    DEFAULT_TAIL_CUSHION_STEP_MULTIPLE,
+} from './FundedGridDefaults';
+export {
     describePayoutDayGate,
     type EligiblePayout,
     type FundedCycleSeed,
@@ -266,6 +274,7 @@ export {
     type LiveAccountState,
 } from './LiveAccountState';
 export {
+    type LiveContractCaps,
     type LiveCushionPercent,
     LivePlan,
     type LivePlanInit,

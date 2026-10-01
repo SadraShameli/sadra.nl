@@ -9,6 +9,7 @@ import { type Plan } from './Plan';
 
 export enum FundedDpModelGapKind {
     CalendarWeekInactivityIgnored = 'calendar-week-inactivity-ignored',
+    FundedGridSaturationHigh = 'funded-grid-saturation-high',
     LifetimeDollarCapIgnored = 'lifetime-dollar-cap-ignored',
     PayoutCountTierBeyondRegimeCap = 'payout-count-tier-beyond-regime-cap',
     PayoutFloorReleaseUnvalidated = 'payout-floor-release-unvalidated',
@@ -26,6 +27,10 @@ export type FundedDpModelGap =
           readonly message: string;
       }
     | {
+          readonly kind: FundedDpModelGapKind.FundedGridSaturationHigh;
+          readonly shareAtOrAboveTop: number;
+      }
+    | {
           readonly kind: FundedDpModelGapKind.LifetimeDollarCapIgnored;
           readonly maxLifetimePayoutDollars: Dollars;
       }
@@ -35,6 +40,8 @@ export type FundedDpModelGap =
     | {
           readonly kind: FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates;
       };
+
+export const FUNDED_GRID_SATURATION_WARNING_SHARE = 0.01;
 
 export function fundedDpModelGaps(plan: Plan): FundedDpModelGap[] {
     const gaps: FundedDpModelGap[] = [];
@@ -74,6 +81,18 @@ export function fundedDpModelGaps(plan: Plan): FundedDpModelGap[] {
         });
     }
     return gaps;
+}
+
+export function fundedGridSaturationGap(
+    shareAtOrAboveTop: number,
+    warningShare: number = FUNDED_GRID_SATURATION_WARNING_SHARE,
+): FundedDpModelGap | null {
+    return shareAtOrAboveTop >= warningShare
+        ? {
+              kind: FundedDpModelGapKind.FundedGridSaturationHigh,
+              shareAtOrAboveTop,
+          }
+        : null;
 }
 
 function withoutLeadingPlanLabel(plan: Plan, message: string): string {

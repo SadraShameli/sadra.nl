@@ -6,6 +6,31 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import {
+    ACCOUNT_LIST_INPUT,
+    accountFirmLabel,
+    accountPlanLabel,
+    accountStatusLabel,
+    readIssuesOf,
+    readOnlyAccountNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import {
+    AccountPlanIntent,
+    type AccountPlanSelection,
+    upgradePlanSelection,
+} from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
+import { AccountPlanPicker } from '~/app/(app)/prop-calculator/accounts/_components/AccountPlanPicker';
+import { ArchiveAccountButton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
+import { DeleteAccountDialog } from '~/app/(app)/prop-calculator/accounts/_components/DeleteAccountDialog';
+import { measuredRebuyLagOf, RebuyLagLineKind } from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
+import { AlertsCenter } from '~/app/(app)/prop-calculator/accounts/_components/overview/AlertsCenter';
+import {
+    EVENT_LIST_INPUT,
+    LEDGER_LIST_INPUT,
+    type OverviewAlerts,
+    OverviewSectionStatus,
+    PortfolioSource,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -22,9 +47,13 @@ import {
 } from '~/components/ui/Table';
 import { errorMessage } from '~/lib/errorMessage';
 import {
+    AccountEventKind,
     AccountStage,
     accountStageLabel,
+    AccountStatus,
     AccountTracking,
+    BustCause,
+    compareText,
     type ExternalFirmName,
     formatUsdCents,
     isModeledAccount,
@@ -32,18 +61,17 @@ import {
     LEDGER_ONLY_LIFECYCLE_FACTS,
     type ModeledAccountRow,
     PlanKeyResolutionKind,
-    PortfolioLedger,
-    RebuyLagBasis,
-    rebuyLagDefault,
-    replacementStats,
     resolvePlanKey,
     type SnapshotAccountRow,
-    todayIsoDate,
     trackedAccountOf,
     type TrackedAccountRow,
     upgradeChanges,
     upgradeChangeText,
 } from '~/lib/prop-accounts';
+import {
+    type BustDiagnosis,
+    bustDiagnosisOf,
+} from '~/lib/prop-accounts/conduct';
 import { type Plan } from '~/lib/prop-calculator';
 import {
     PropRecord,
@@ -54,32 +82,8 @@ import {
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-import {
-    ACCOUNT_LIST_INPUT,
-    accountFirmLabel,
-    accountPlanLabel,
-    accountStatusLabel,
-    readIssuesOf,
-    readOnlyAccountNotice,
-} from '../accountListFilters';
-import {
-    AccountPlanIntent,
-    type AccountPlanSelection,
-    upgradePlanSelection,
-} from '../accountPlanOptions';
-import { AccountPlanPicker } from '../AccountPlanPicker';
-import { ArchiveAccountButton } from '../AccountsTable';
-import { DeleteAccountDialog } from '../DeleteAccountDialog';
-import { AlertsCenter } from '../overview/AlertsCenter';
-import {
-    EVENT_LIST_INPUT,
-    LEDGER_LIST_INPUT,
-    ledgerOrDateFailure,
-    type OverviewAlerts,
-    OverviewSectionStatus,
-    PortfolioSource,
-} from '../overview/overviewModel';
 import { accountAlerts } from './accountAlerts';
+import { BustDiagnosisCard } from './BustDiagnosisCard';
 import {
     DetailSection,
     type ListQuery,
@@ -104,6 +108,7 @@ import { LedgerOnlyPlanSummary, PlanRulesSummary } from './PlanRulesSummary';
 import { SnapshotHistoryChart } from './SnapshotHistoryChart';
 import { snapshotSeries } from './snapshotSeries';
 import { StateCard } from './StateCard';
+import { ViolationsSection } from './ViolationsSection';
 
 enum LagLineKind {
     Failed = 'failed',
@@ -111,6 +116,9 @@ enum LagLineKind {
 }
 
 type AccountEventRow = RouterOutputs['propAccounts']['event']['list'][number];
+
+type DecisionRow =
+    RouterOutputs['propAccounts']['decision']['listForAccount'][number];
 
 interface LagLine {
     readonly kind: LagLineKind;
@@ -139,6 +147,8 @@ interface StoredRecordIssue {
     readonly rejection: PropRejection;
 }
 
+type ViolationRow = RouterOutputs['propAccounts']['violation']['list'][number];
+
 export function AccountDetailView({
     id,
     userId,
@@ -157,6 +167,12 @@ export function AccountDetailView({
     });
     const feesQuery = api.propAccounts.fee.list.useQuery({ accountId: id });
     const eventsQuery = api.propAccounts.event.listForAccount.useQuery({ id });
+    const violationsQuery = api.propAccounts.violation.list.useQuery({
+        accountId: id,
+    });
+    const decisionsQuery = api.propAccounts.decision.listForAccount.useQuery({
+        id,
+    });
     const allEventsQuery =
         api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
     const allPayoutsQuery =
@@ -185,7 +201,7 @@ export function AccountDetailView({
         accountQuery.data === undefined
             ? undefined
             : trackedAccountOf(accountQuery.data);
-    const today = todayIsoDate(new Date());
+    const today = useTodayIsoDate();
     const alerts = useMemo<OverviewAlerts>(
         () =>
             accountAlerts({
@@ -198,6 +214,10 @@ export function AccountDetailView({
                     [PortfolioSource.CopyGroups]: {
                         data: copyGroupsQuery.data,
                         error: copyGroupsQuery.error,
+                    },
+                    [PortfolioSource.Events]: {
+                        data: allEventsQuery.data,
+                        error: allEventsQuery.error,
                     },
                     [PortfolioSource.Payouts]: {
                         data: allPayoutsQuery.data,
@@ -217,6 +237,8 @@ export function AccountDetailView({
         [
             accountsQuery.data,
             accountsQuery.error,
+            allEventsQuery.data,
+            allEventsQuery.error,
             allPayoutsQuery.data,
             allPayoutsQuery.error,
             copyGroupsQuery.data,
@@ -384,6 +406,22 @@ export function AccountDetailView({
                     state={account}
                     tracking={account.tracking}
                 />
+            </DetailSection>
+            <DetailSection id="violations" title="Violations">
+                <ViolationsSection
+                    accountId={account.id}
+                    canRecord={!isReadOnly}
+                    onFailure={reportFailure}
+                    query={violationsQuery}
+                />
+                {account.status === AccountStatus.Busted && (
+                    <BustDiagnosisSubsection
+                        account={account}
+                        decisionsQuery={decisionsQuery}
+                        eventsQuery={eventsQuery}
+                        violationsQuery={violationsQuery}
+                    />
+                )}
             </DetailSection>
             <DetailSection id="replacement" title="Replacement chain">
                 <ReplacementChain
@@ -598,40 +636,82 @@ function AccountStateSection({
     );
 }
 
+function BustDiagnosisSubsection({
+    account,
+    decisionsQuery,
+    eventsQuery,
+    violationsQuery,
+}: {
+    readonly account: Pick<StoredAccount, 'purchasedOn'>;
+    readonly decisionsQuery: ListQuery<DecisionRow>;
+    readonly eventsQuery: ListQuery<AccountEventRow>;
+    readonly violationsQuery: ListQuery<ViolationRow>;
+}) {
+    const events = eventsQuery.data ?? [];
+    const bustEvent = events
+        .filter((event) => event.kind === AccountEventKind.Busted)
+        .toSorted((a, b) => compareText(b.occurredOn, a.occurredOn))[0];
+    if (bustEvent === undefined) return null;
+    const windowStart = account.purchasedOn;
+    const windowEnd = bustEvent.occurredOn;
+    const decisions = (decisionsQuery.data ?? [])
+        .filter(
+            (decision) =>
+                compareText(decision.decidedOn, windowStart) >= 0 &&
+                compareText(decision.decidedOn, windowEnd) <= 0,
+        )
+        .map((decision) => ({
+            acceptedRiskCents: decision.acceptedRiskCents,
+            actualRiskCents: decision.actualRiskCents,
+        }));
+    const violations = (violationsQuery.data ?? [])
+        .filter(
+            (violation) =>
+                compareText(violation.occurredOn, windowStart) >= 0 &&
+                compareText(violation.occurredOn, windowEnd) <= 0,
+        )
+        .map((violation) => ({
+            kind: violation.kind,
+            occurredOn: violation.occurredOn,
+        }));
+    const diagnosis: BustDiagnosis = bustDiagnosisOf({
+        bustCause: bustEvent.detail.bustCause ?? BustCause.Unknown,
+        decisions,
+        violations,
+    });
+    return (
+        <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium">Bust diagnosis</h3>
+            <BustDiagnosisCard diagnosis={diagnosis} />
+        </div>
+    );
+}
+
 function measuredLag(
     accounts: readonly ListedAccount[],
     events: readonly AccountEventRow[],
     account: StoredAccount,
     userId: string,
 ): LagLine | null {
-    if (account.tracking === AccountTracking.LedgerOnly) return null;
-    const { planSerial } = account;
-    const computed = ledgerOrDateFailure(() =>
-        rebuyLagDefault(
-            replacementStats(
-                PortfolioLedger.fromRows(userId, {
-                    accounts,
-                    events,
-                    fees: [],
-                    payouts: [],
-                }),
-            ),
-            planSerial,
-        ),
-    );
-    if (computed.kind === OverviewSectionStatus.Failed) {
-        return {
-            kind: LagLineKind.Failed,
-            text: `The rebuy lag could not be measured: ${computed.message} Fix the stored date listed in the alerts on the accounts overview.`,
-        };
-    }
-    const lag = computed.value;
-    return lag.basis === RebuyLagBasis.Measured
+    const line = measuredRebuyLagOf({
+        accounts,
+        events,
+        planSerial:
+            account.tracking === AccountTracking.LedgerOnly
+                ? null
+                : account.planSerial,
+        userId,
+    });
+    if (line === null) return null;
+    return line.kind === RebuyLagLineKind.Failed
         ? {
-              kind: LagLineKind.Measured,
-              text: `Measured rebuy lag on this plan: ${lag.days.toFixed(1)} sessions (n = ${String(lag.samples)})`,
+              kind: LagLineKind.Failed,
+              text: `The rebuy lag could not be measured: ${line.message} Fix the stored date listed in the alerts on the accounts overview.`,
           }
-        : null;
+        : {
+              kind: LagLineKind.Measured,
+              text: `Measured rebuy lag on this plan: ${line.value.days.toFixed(1)} sessions (n = ${String(line.value.samples)})`,
+          };
 }
 
 function ReplacementChain({

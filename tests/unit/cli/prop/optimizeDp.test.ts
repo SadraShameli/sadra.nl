@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import optimizeDp, {
     bundleRenewalNote,
     dpArguments,
+    dpGridSettingsLine,
     dpPayoutSettingsLine,
     dpSolverConfig,
     EMPIRICAL_MAX_ATTEMPTS,
@@ -14,13 +15,18 @@ import optimizeDp, {
     fundedConsistencyGridNote,
     fundedCycleBaselineGapWarning,
     fundedDpModelGapWarning,
+    fundedGridSaturationLine,
+    type FundedGridSaturationTally,
+    fundedGridSaturationWarning,
     fundedIneligibilityMessage,
     fundedResetModelNote,
     fundedValueIterationLine,
+    instrumentFundedDayPolicyForSaturation,
     readDpInputs,
     registryWarmUpFailureWarning,
     renewalObjective,
     resolveDpPlan,
+    shareAtOrAboveGridTop,
 } from '~/cli/commands/prop/optimize/dp/command';
 import {
     commonSimArguments,
@@ -28,12 +34,14 @@ import {
     tradingArguments,
 } from '~/cli/commands/prop/shared';
 import {
+    type AccountState,
     ApexVariant,
     type DayPolicy,
     dollars,
     E8FuturesVariant,
     effectivePayoutRequest,
     FirmId,
+    type FundedCycleSnapshot,
     InstrumentSymbol,
     MffuVariant,
     minimumPayoutRequest,
@@ -59,8 +67,14 @@ import {
     solveAverageRewardPolicy,
 } from '~/lib/prop-calculator/core/AverageRewardSolver';
 import {
+    FUNDED_GRID_SATURATION_WARNING_SHARE,
+    FundedDpModelGapKind,
+    fundedGridSaturationGap,
+} from '~/lib/prop-calculator/core/FundedDpModelGaps';
+import {
     computeFundedStateValue,
     findRegistryPlanId,
+    type FundedStateValueResult,
     isFundedDpEligible,
     warmFirmsRegistryCache,
 } from '~/lib/prop-calculator/core/FundedStateValue';
@@ -207,6 +221,25 @@ describe('fundedIneligibilityMessage', () => {
     });
 });
 
+const BUILDER_DRAWDOWN = 2000;
+
+function cushionGridOf(multiples: {
+    fineStep?: number;
+    fineTop: number;
+    lockedTop?: number;
+    tailStep?: number;
+    tailTop?: number;
+}): FundedStateValueResult['cushionGrid'] {
+    const tailTop = multiples.tailTop ?? multiples.fineTop;
+    return {
+        fineStepDollars: (multiples.fineStep ?? 0.1) * BUILDER_DRAWDOWN,
+        fineTopDollars: multiples.fineTop * BUILDER_DRAWDOWN,
+        lockedTopDollars: (multiples.lockedTop ?? tailTop) * BUILDER_DRAWDOWN,
+        tailStepDollars: (multiples.tailStep ?? 1) * BUILDER_DRAWDOWN,
+        tailTopDollars: tailTop * BUILDER_DRAWDOWN,
+    };
+}
+
 describe('fundedConsistencyGridNote (N-65)', () => {
     it('says nothing for a plan without a funded consistency rule', () => {
         const plan = new FtmoFutures().findPlan({
@@ -216,19 +249,24 @@ describe('fundedConsistencyGridNote (N-65)', () => {
         });
         if (!plan) throw new Error('FTMO Futures Growth 50K plan not found');
         expect(plan.fundedConsistencyRule()).toBeNull();
-        expect(fundedConsistencyGridNote(plan)).toBeNull();
+        const grid = cushionGridOf({ fineTop: 6, tailTop: 30 });
+        expect(fundedConsistencyGridNote(plan, grid)).toBeNull();
         expect(
-            fundedConsistencyGridNote(topStepNoFeeStandardPlan()),
+            fundedConsistencyGridNote(topStepNoFeeStandardPlan(), grid),
         ).toBeNull();
     });
 
-    it('discloses for MFF Builder that the 6 drawdown cushion grid truncates both the balance and a day ending above the grid top, so neither direction of the consistency error is guaranteed there, without claiming the DP is conservative (N-65 review)', () => {
+    it('discloses for MFF Builder that the cushion grid truncates both the balance and a day ending above the grid top, so neither direction of the consistency error is guaranteed there, without claiming the DP is conservative (N-65 review). Re-pinned for WP58c (N-86 stage 2): the grid top is now 30 drawdowns (a fine grid up to 6, then a coarse tail), not a flat 6', () => {
         const plan = mffBuilderPlan();
-        const note = fundedConsistencyGridNote(plan);
+        const note = fundedConsistencyGridNote(
+            plan,
+            cushionGridOf({ fineTop: 6, tailTop: 30 }),
+        );
         expect(note).not.toBeNull();
         expect(note?.startsWith(`${plan.label}: `)).toBe(true);
         expect(note).toContain('50%');
-        expect(note).toContain('6 drawdowns');
+        expect(note).toContain('30 drawdowns');
+        expect(note).toContain('fine grid up to 6');
         expect(note).toContain('rounded up between grid steps');
         expect(note).toContain('a day that ends above the grid top');
         expect(note).toContain('neither direction is guaranteed');
@@ -237,6 +275,60 @@ describe('fundedConsistencyGridNote (N-65)', () => {
             'never allows a payout the real rule denies',
         );
         expect(note?.slice(plan.label.length)).not.toContain('\u{2014}');
+    });
+
+    it('reads the tops the solver resolved, so a fine top at or above the tail top says the grid is uniform up to it with no coarse tail past it (WP58d)', () => {
+        const plan = mffBuilderPlan();
+        const note = fundedConsistencyGridNote(
+            plan,
+            cushionGridOf({ fineTop: 40 }),
+        );
+        expect(note).not.toBeNull();
+        expect(note).toContain('40 drawdowns');
+        expect(note).toContain('uniform grid up to 40');
+        expect(note).not.toContain('coarse tail');
+        expect(note).not.toContain('30 drawdowns');
+        expect(note).not.toContain('fine grid up to');
+    });
+
+    it('reflects a resolved coarse tail top as the grid top while keeping the coarse tail wording (WP58d)', () => {
+        const note = fundedConsistencyGridNote(
+            mffBuilderPlan(),
+            cushionGridOf({ fineTop: 4, tailTop: 12 }),
+        );
+        expect(note).toContain('stops at 12 drawdowns');
+        expect(note).toContain('fine grid up to 4, then a coarse tail past it');
+        expect(note).not.toContain('30 drawdowns');
+    });
+
+    it('reports the real fine top the solver widened to, not the requested one (WP58d review)', () => {
+        const note = fundedConsistencyGridNote(
+            mffBuilderPlan(),
+            cushionGridOf({ fineTop: 9, tailTop: 30 }),
+        );
+        expect(note).toContain('fine grid up to 9, then a coarse tail past it');
+        expect(note).not.toContain('fine grid up to 6');
+    });
+
+    it('says the locked grid is uniform up to the locked top when the working range is wider than a pinned tail (WP58d review)', () => {
+        const note = fundedConsistencyGridNote(
+            mffBuilderPlan(),
+            cushionGridOf({ fineTop: 9, lockedTop: 6 }),
+        );
+        expect(note).toContain('stops at 6 drawdowns');
+        expect(note).toContain('uniform grid up to 6');
+        expect(note).not.toContain('coarse tail');
+    });
+
+    it('discloses that a best day past the largest possible one-day swing is clamped, which understates it and can let the DP allow a payout the real rule denies (WP58d review)', () => {
+        const note = fundedConsistencyGridNote(
+            mffBuilderPlan(),
+            cushionGridOf({ fineTop: 6, tailTop: 30 }),
+        );
+        expect(note).toContain('largest swing one trading day can produce');
+        expect(note).toContain('clamped down to that cap');
+        expect(note).toContain('understates the best day');
+        expect(note).toContain('allow a payout the real rule denies');
     });
 });
 
@@ -250,6 +342,215 @@ describe('fundedValueIterationLine (N-63)', () => {
         ).toBe(
             "funded value iteration: 535 sweeps, every funded state value within $5.96 of the DP's exact fixed point",
         );
+    });
+});
+
+function toyFundedCycle(): FundedCycleSnapshot {
+    return {
+        cycleBestDayProfit: 0,
+        dayGateProgress: 0,
+        fundedResetsUsed: 0,
+        lastPayoutBalance: 0,
+        payoutsIssued: 0,
+    };
+}
+
+describe('fundedGridSaturationGap (N-86, WP58 stage 1)', () => {
+    it('reports no gap below the warning threshold', () => {
+        expect(fundedGridSaturationGap(0)).toBeNull();
+        expect(
+            fundedGridSaturationGap(
+                FUNDED_GRID_SATURATION_WARNING_SHARE - 0.001,
+            ),
+        ).toBeNull();
+    });
+
+    it('reports the gap at and above the warning threshold', () => {
+        expect(
+            fundedGridSaturationGap(FUNDED_GRID_SATURATION_WARNING_SHARE),
+        ).toEqual({
+            kind: FundedDpModelGapKind.FundedGridSaturationHigh,
+            shareAtOrAboveTop: FUNDED_GRID_SATURATION_WARNING_SHARE,
+        });
+        expect(fundedGridSaturationGap(1)).toEqual({
+            kind: FundedDpModelGapKind.FundedGridSaturationHigh,
+            shareAtOrAboveTop: 1,
+        });
+    });
+
+    it('honours a caller-supplied warning threshold instead of the default', () => {
+        expect(fundedGridSaturationGap(0.2, 0.5)).toBeNull();
+        expect(fundedGridSaturationGap(0.5, 0.5)).not.toBeNull();
+    });
+});
+
+describe('fundedGridSaturationLine (N-86, WP58 stage 1)', () => {
+    it('formats the measured share of funded trial-days at or above the grid top as a percent', () => {
+        expect(fundedGridSaturationLine(0)).toBe(
+            "funded grid saturation: 0.0% of funded trial-days had a cushion or post-payout balance at or above this DP's grid top",
+        );
+        expect(fundedGridSaturationLine(1)).toBe(
+            "funded grid saturation: 100.0% of funded trial-days had a cushion or post-payout balance at or above this DP's grid top",
+        );
+    });
+});
+
+describe('shareAtOrAboveGridTop (N-86, WP58 stage 1)', () => {
+    it('is 0 when no funded day was ever sampled, instead of dividing by zero', () => {
+        const tally: FundedGridSaturationTally = {
+            fundedDayCount: 0,
+            saturatedDayCount: 0,
+        };
+        expect(shareAtOrAboveGridTop(tally)).toBe(0);
+    });
+
+    it('divides the saturated day count by the sampled funded day count', () => {
+        const tally: FundedGridSaturationTally = {
+            fundedDayCount: 10,
+            saturatedDayCount: 3,
+        };
+        expect(shareAtOrAboveGridTop(tally)).toBeCloseTo(0.3);
+    });
+
+    it('is 1 when every sampled funded day was saturated', () => {
+        const tally: FundedGridSaturationTally = {
+            fundedDayCount: 4,
+            saturatedDayCount: 4,
+        };
+        expect(shareAtOrAboveGridTop(tally)).toBe(1);
+    });
+});
+
+describe('fundedGridSaturationWarning (N-86, WP58 stage 1)', () => {
+    it('says nothing while the measured share stays below the warning threshold', () => {
+        expect(fundedGridSaturationWarning(topStepNoFeeStandardPlan(), 0)).toBeNull();
+        expect(
+            fundedGridSaturationWarning(
+                topStepNoFeeStandardPlan(),
+                FUNDED_GRID_SATURATION_WARNING_SHARE - 0.001,
+            ),
+        ).toBeNull();
+    });
+
+    it('names the plan, the measured share and N-86 once the share clears the warning threshold', () => {
+        const plan = topStepNoFeeStandardPlan();
+        const warning = fundedGridSaturationWarning(plan, 1);
+        expect(warning).not.toBeNull();
+        expect(warning?.startsWith(`${plan.label}: `)).toBe(true);
+        expect(warning).toContain('100.0%');
+        expect(warning).toContain('N-86');
+        expect(warning).toContain('clamped to the top cell');
+    });
+});
+
+describe('instrumentFundedDayPolicyForSaturation (N-86, WP58 stage 1)', () => {
+    it('returns the day policy unchanged when it has no computeRisk to wrap', () => {
+        const dayPolicy: DayPolicy = {
+            ladder: [10, 20],
+            maxLossesPerDay: null,
+            sizing: PolicySizing.WholeContracts,
+            stopRule: { kind: DayStopRuleKind.None },
+        };
+        const tally: FundedGridSaturationTally = {
+            fundedDayCount: 0,
+            saturatedDayCount: 0,
+        };
+
+        const wrapped = instrumentFundedDayPolicyForSaturation(
+            dayPolicy,
+            () => true,
+            tally,
+        );
+
+        expect(wrapped).toBe(dayPolicy);
+        expect(tally).toEqual({ fundedDayCount: 0, saturatedDayCount: 0 });
+    });
+
+    it('samples the grid-saturation predicate once per day at the first trade, and tallies a saturated day', () => {
+        const state = topStepNoFeeStandardPlan().initialState();
+        const fundedCycle = toyFundedCycle();
+        const computeRisk = vi.fn(
+            (_state: AccountState, tradeIndexToday: number) =>
+                100 + tradeIndexToday,
+        );
+        const dayPolicy: DayPolicy = {
+            computeRisk,
+            ladder: [100, 100, 100],
+            maxLossesPerDay: null,
+            sizing: PolicySizing.WholeContracts,
+            stopRule: { kind: DayStopRuleKind.None },
+        };
+        const tally: FundedGridSaturationTally = {
+            fundedDayCount: 0,
+            saturatedDayCount: 0,
+        };
+        const checkGridSaturation = vi.fn(() => true);
+
+        const wrapped = instrumentFundedDayPolicyForSaturation(
+            dayPolicy,
+            checkGridSaturation,
+            tally,
+        );
+
+        expect(wrapped.computeRisk?.(state, 0, fundedCycle)).toBe(100);
+        expect(wrapped.computeRisk?.(state, 1, fundedCycle)).toBe(101);
+        expect(wrapped.computeRisk?.(state, 2, fundedCycle)).toBe(102);
+
+        expect(tally).toEqual({ fundedDayCount: 1, saturatedDayCount: 1 });
+        expect(checkGridSaturation).toHaveBeenCalledTimes(1);
+        expect(checkGridSaturation).toHaveBeenCalledWith(state, fundedCycle);
+        expect(computeRisk).toHaveBeenCalledTimes(3);
+    });
+
+    it('does not tally a saturated day when the predicate reports false', () => {
+        const state = topStepNoFeeStandardPlan().initialState();
+        const dayPolicy: DayPolicy = {
+            computeRisk: () => 50,
+            ladder: [50],
+            maxLossesPerDay: null,
+            sizing: PolicySizing.WholeContracts,
+            stopRule: { kind: DayStopRuleKind.None },
+        };
+        const tally: FundedGridSaturationTally = {
+            fundedDayCount: 0,
+            saturatedDayCount: 0,
+        };
+
+        const wrapped = instrumentFundedDayPolicyForSaturation(
+            dayPolicy,
+            () => false,
+            tally,
+        );
+        wrapped.computeRisk?.(state, 0);
+
+        expect(tally).toEqual({ fundedDayCount: 1, saturatedDayCount: 0 });
+    });
+
+    it('counts a later day separately from an earlier one', () => {
+        const state = topStepNoFeeStandardPlan().initialState();
+        const dayPolicy: DayPolicy = {
+            computeRisk: () => 50,
+            ladder: [50],
+            maxLossesPerDay: null,
+            sizing: PolicySizing.WholeContracts,
+            stopRule: { kind: DayStopRuleKind.None },
+        };
+        const tally: FundedGridSaturationTally = {
+            fundedDayCount: 0,
+            saturatedDayCount: 0,
+        };
+        let isSaturated = true;
+
+        const wrapped = instrumentFundedDayPolicyForSaturation(
+            dayPolicy,
+            () => isSaturated,
+            tally,
+        );
+        wrapped.computeRisk?.(state, 0);
+        isSaturated = false;
+        wrapped.computeRisk?.(state, 0);
+
+        expect(tally).toEqual({ fundedDayCount: 2, saturatedDayCount: 1 });
     });
 });
 
@@ -270,10 +571,10 @@ describe('fundedDpModelGapWarning', () => {
         expect(fundedDpModelGapWarning(mffBuilderPlan())).toBeNull();
     });
 
-    it('is not null for TopStep no-fee-standard: it has no count-keyed payout rule, but it does carry the ReleaseFloor disclosure (N-86, WP57)', () => {
+    it('is not null for TopStep no-fee-standard: it has no count-keyed payout rule, but it does carry the ReleaseFloor disclosure (N-89, WP58d)', () => {
         const warning = fundedDpModelGapWarning(topStepNoFeeStandardPlan());
         expect(warning).not.toBeNull();
-        expect(warning).toContain('N-86');
+        expect(warning).toContain('N-89');
     });
 
     it('warns about MFF Pro’s $100,000 lifetime payout-dollar cap and says this DP ignores it (optimistic)', () => {
@@ -348,15 +649,26 @@ describe('fundedDpModelGapWarning', () => {
     });
 });
 
-describe('fundedDpModelGapWarning discloses the unvalidated ReleaseFloor policy (N-86, WP57)', () => {
+describe('fundedDpModelGapWarning discloses the ReleaseFloor prediction gap (N-89, WP58d, reworded from the WP57 N-86 text after gate D11-r4 passed; its run() pins --max-tail-cushion-multiple 6, the fine top, because the default 30 drawdown tail took that TopStep solve to about 120 s and it checks the printed warning, not the grid)', () => {
     it('names the audit item and points at the optimize funded flat comparison, for TopStep no-fee-standard', () => {
         const plan = topStepNoFeeStandardPlan();
         const warning = fundedDpModelGapWarning(plan);
         expect(warning).not.toBeNull();
-        expect(warning).toContain('N-86');
+        expect(warning).toContain('N-89');
         expect(warning).toContain('optimize funded');
         expect(warning).toContain('ReleaseFloor');
         expect(warning).not.toContain('\u{2014}');
+    });
+
+    it('tells the reader to trust the empirical replay line, says the predicted rate overstated the replay at the default grid, and does not claim the policy fails', () => {
+        const warning = fundedDpModelGapWarning(topStepNoFeeStandardPlan()) ?? '';
+        expect(warning).toContain('empirical replay');
+        expect(warning).toContain('overstated');
+        expect(warning).toContain('default grid');
+        expect(warning).toContain('best flat row');
+        expect(warning).not.toContain('N-86');
+        expect(warning).not.toContain('did not match its own simulation');
+        expect(warning).not.toContain('size positions by the documented rule');
     });
 
     it('prints the plan label exactly once on that warning', () => {
@@ -385,7 +697,7 @@ describe('fundedDpModelGapWarning discloses the unvalidated ReleaseFloor policy 
                 expect(
                     fundedDpModelGapWarning(plan) ?? '',
                     plan.label,
-                ).not.toContain('N-86');
+                ).not.toContain('N-89');
             }
         }
     });
@@ -404,15 +716,82 @@ describe('fundedDpModelGapWarning discloses the unvalidated ReleaseFloor policy 
             '1',
             '--trials',
             '10',
+            '--max-tail-cushion-multiple',
+            '6',
         ];
         const { stdout } = await capturedRun(argv);
         const plan = topStepNoFeeStandardPlan();
 
-        expect(stdout).toContain('N-86');
+        expect(stdout).toContain('N-89');
         expect(stdout.split('ReleaseFloor').length - 1).toBe(1);
         const warning = fundedDpModelGapWarning(plan);
         expect(warning).not.toBeNull();
         expect(stdout.split(warning ?? '').length - 1).toBe(1);
+    }, 600_000);
+});
+
+describe('optimize dp run() measures funded grid saturation from the real replay (N-86, WP58 stage 1; WP58d: the run pins --max-tail-cushion-multiple 6, the fine top, because the default 30 drawdown tail took each TopStep solve here from seconds to about 50 s and these tests mock the saturation check, not the grid)', () => {
+    const topStepSmallArgv = [
+        '--firm',
+        'topstep',
+        '--variant',
+        'no-fee-standard',
+        '--eval-days',
+        '2',
+        '--funded-days',
+        '2',
+        '--iterations',
+        '1',
+        '--trials',
+        '10',
+        '--max-tail-cushion-multiple',
+        '6',
+    ];
+
+    it('reports a 100% share and the saturation warning when every sampled funded day hits the grid top', async () => {
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(
+            (config) => {
+                const solution = solveAverageRewardPolicy(config);
+                return {
+                    ...solution,
+                    fundedResult: {
+                        ...solution.fundedResult,
+                        isGridSaturated: () => true,
+                    },
+                };
+            },
+        );
+
+        const { stdout } = await capturedRun(topStepSmallArgv);
+
+        expect(stdout).toContain(
+            "funded grid saturation: 100.0% of funded trial-days had a cushion or post-payout balance at or above this DP's grid top",
+        );
+        expect(stdout).toContain(
+            'clamped to the top cell, which distorts both the predicted value and the policy there',
+        );
+    }, 600_000);
+
+    it('reports a 0% share and no saturation warning when no sampled funded day ever hits the grid top', async () => {
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(
+            (config) => {
+                const solution = solveAverageRewardPolicy(config);
+                return {
+                    ...solution,
+                    fundedResult: {
+                        ...solution.fundedResult,
+                        isGridSaturated: () => false,
+                    },
+                };
+            },
+        );
+
+        const { stdout } = await capturedRun(topStepSmallArgv);
+
+        expect(stdout).toContain(
+            "funded grid saturation: 0.0% of funded trial-days had a cushion or post-payout balance at or above this DP's grid top",
+        );
+        expect(stdout).not.toContain('clamped to the top cell');
     }, 600_000);
 });
 
@@ -658,6 +1037,16 @@ describe('optimize dp flag bounds', () => {
             '-1',
             /--max-cushion-multiple must be a number > 0/,
         ],
+        [
+            'max-tail-cushion-multiple',
+            '0',
+            /--max-tail-cushion-multiple must be a number > 0/,
+        ],
+        [
+            'tail-cushion-step-multiple',
+            '-1',
+            /--tail-cushion-step-multiple must be a number > 0/,
+        ],
     ])('rejects --%s %s, naming the flag', (flag, value, message) => {
         expect(() => parseDpInputs([`--${flag}=${value}`])).toThrow(message);
     });
@@ -679,6 +1068,103 @@ describe('optimize dp flag bounds', () => {
         expect(inputs.maxCushionMultiple).toBe(3);
     });
 
+    it('parses the tail flags (WP58d), left undefined by default', () => {
+        expect(parseDpInputs([]).maxTailCushionMultiple).toBeUndefined();
+        expect(parseDpInputs([]).tailCushionStepMultiple).toBeUndefined();
+        const inputs = parseDpInputs([
+            '--max-tail-cushion-multiple=12',
+            '--tail-cushion-step-multiple=2',
+        ]);
+        expect(inputs.maxTailCushionMultiple).toBe(12);
+        expect(inputs.tailCushionStepMultiple).toBe(2);
+    });
+
+    it('rejects a tail step finer than the cushion step, naming both flags (WP58d)', () => {
+        expect(() =>
+            parseDpInputs([
+                '--cushion-step-multiple=0.5',
+                '--tail-cushion-step-multiple=0.25',
+            ]),
+        ).toThrow(
+            /--tail-cushion-step-multiple \(0\.25\) must be at least --cushion-step-multiple \(0\.5\)/,
+        );
+    });
+
+    it('rejects a tail step finer than the default cushion step, saying the cushion step is the default (WP58d)', () => {
+        expect(() =>
+            parseDpInputs(['--tail-cushion-step-multiple=0.05']),
+        ).toThrow(
+            /--tail-cushion-step-multiple \(0\.05\) must be at least --cushion-step-multiple \(0\.1, the default\)/,
+        );
+    });
+
+    it('rejects a cushion step coarser than the default tail step (WP58d)', () => {
+        expect(() => parseDpInputs(['--cushion-step-multiple=2'])).toThrow(
+            /--tail-cushion-step-multiple \(1, the default\) must be at least --cushion-step-multiple \(2\)/,
+        );
+    });
+
+    it('accepts a cushion step coarser than the default tail step when the tail is off, because the guard protects only the tail region (WP58d review)', () => {
+        const inputs = parseDpInputs([
+            '--cushion-step-multiple=2',
+            '--max-cushion-multiple=6',
+            '--max-tail-cushion-multiple=6',
+        ]);
+        expect(inputs.cushionStepMultiple).toBe(2);
+        expect(inputs.maxTailCushionMultiple).toBe(6);
+    });
+
+    it('still rejects a tail step finer than the cushion step when a tail is on, whether the tail top is the default or an explicit one (WP58d review)', () => {
+        expect(() =>
+            parseDpInputs([
+                '--cushion-step-multiple=2',
+                '--max-tail-cushion-multiple=12',
+            ]),
+        ).toThrow(
+            /--tail-cushion-step-multiple \(1, the default\) must be at least --cushion-step-multiple \(2\)/,
+        );
+    });
+
+    it('accepts a tail step equal to the cushion step (WP58d)', () => {
+        expect(
+            parseDpInputs([
+                '--cushion-step-multiple=0.5',
+                '--tail-cushion-step-multiple=0.5',
+            ]).tailCushionStepMultiple,
+        ).toBe(0.5);
+    });
+
+    it('rejects an explicit tail top below the fine top, naming both flags (WP58d)', () => {
+        expect(() =>
+            parseDpInputs([
+                '--max-cushion-multiple=8',
+                '--max-tail-cushion-multiple=5',
+            ]),
+        ).toThrow(
+            /--max-tail-cushion-multiple \(5\) must be at least --max-cushion-multiple \(8\)/,
+        );
+    });
+
+    it('rejects an explicit tail top below the default fine top (WP58d)', () => {
+        expect(() =>
+            parseDpInputs(['--max-tail-cushion-multiple=4']),
+        ).toThrow(
+            /--max-tail-cushion-multiple \(4\) must be at least --max-cushion-multiple \(6, the default\)/,
+        );
+    });
+
+    it('accepts a tail top equal to the fine top, and a fine top above the default tail top when no tail top is given (WP58d)', () => {
+        expect(
+            parseDpInputs([
+                '--max-cushion-multiple=8',
+                '--max-tail-cushion-multiple=8',
+            ]).maxTailCushionMultiple,
+        ).toBe(8);
+        expect(
+            parseDpInputs(['--max-cushion-multiple=40']).maxCushionMultiple,
+        ).toBe(40);
+    });
+
     it('reads the defaults', () => {
         expect(parseDpInputs([])).toStrictEqual({
             actionStepMultiple: undefined,
@@ -691,6 +1177,7 @@ describe('optimize dp flag bounds', () => {
             maxCushionMultiple: undefined,
             maxEvalDays: 40,
             maxSolves: 12,
+            maxTailCushionMultiple: undefined,
             minRetainedCushion: 0,
             payoutRequestPolicy: PayoutRequestPolicy.UpToRequest,
             payoutRequestSize: undefined,
@@ -698,6 +1185,7 @@ describe('optimize dp flag bounds', () => {
             rrRatio: 2,
             seed: 42,
             stopPoints: undefined,
+            tailCushionStepMultiple: undefined,
             trials: 4000,
             winrate: 0.4,
         });
@@ -888,6 +1376,8 @@ describe('optimize dp exposes the funded and eval grid settings as flags for fas
         expect(config.fundedGrid?.cushionStepMultiple).toBeUndefined();
         expect(config.fundedGrid?.maxActionMultiple).toBeUndefined();
         expect(config.fundedGrid?.maxCushionMultiple).toBeUndefined();
+        expect(config.fundedGrid?.maxTailCushionMultiple).toBeUndefined();
+        expect(config.fundedGrid?.tailCushionStepMultiple).toBeUndefined();
         expect(config.evalGrid?.actionStepDollars).toBeUndefined();
         expect(config.evalGrid?.cushionStepDollars).toBeUndefined();
         expect(config.evalGrid?.maxActionDollars).toBeUndefined();
@@ -931,7 +1421,196 @@ describe('optimize dp exposes the funded and eval grid settings as flags for fas
     });
 });
 
-describe('optimize dp wires --stop-points and --instrument into whole-contract sizing (N-78)', () => {
+describe('optimize dp hands the tail flags to the funded solve and prints the resolved grid (WP58d)', () => {
+    it('hands the raw tail multiples straight to the funded grid of the solver config', () => {
+        const inputs = parseDpInputs([
+            '--max-tail-cushion-multiple=12',
+            '--tail-cushion-step-multiple=2',
+        ]);
+        const config = dpSolverConfig(
+            inputs,
+            renewalObjective(inputs, topStepNoFeeStandardPlan()),
+        );
+        expect(config.fundedGrid?.maxTailCushionMultiple).toBe(12);
+        expect(config.fundedGrid?.tailCushionStepMultiple).toBe(2);
+    });
+
+    it('describes the default grid as fine steps up to the fine top and a coarse tail up to the tail top, in drawdowns and dollars', () => {
+        const plan = mffBuilderPlan();
+        expect(
+            dpGridSettingsLine(
+                plan,
+                parseDpInputs([]),
+                cushionGridOf({ fineTop: 6, tailTop: 30 }),
+            ),
+        ).toBe(
+            'funded cushion grid: fine steps of 0.1x the drawdown ($200) up to 6x ($12,000), then coarse steps of 1x ($2,000) up to 30x ($60,000)',
+        );
+    });
+
+    it('reflects every resolved tail and fine value in the line', () => {
+        const plan = mffBuilderPlan();
+        const inputs = parseDpInputs([
+            '--cushion-step-multiple=0.25',
+            '--max-cushion-multiple=4',
+            '--max-tail-cushion-multiple=12',
+            '--tail-cushion-step-multiple=2',
+        ]);
+        expect(
+            dpGridSettingsLine(
+                plan,
+                inputs,
+                cushionGridOf({
+                    fineStep: 0.25,
+                    fineTop: 4,
+                    tailStep: 2,
+                    tailTop: 12,
+                }),
+            ),
+        ).toBe(
+            'funded cushion grid: fine steps of 0.25x the drawdown ($500) up to 4x ($8,000), then coarse steps of 2x ($4,000) up to 12x ($24,000)',
+        );
+    });
+
+    it('describes a grid whose fine top reaches the tail top as uniform, with no coarse tail', () => {
+        const plan = mffBuilderPlan();
+        expect(
+            dpGridSettingsLine(
+                plan,
+                parseDpInputs(['--max-cushion-multiple=40']),
+                cushionGridOf({ fineTop: 40 }),
+            ),
+        ).toBe(
+            'funded cushion grid: uniform steps of 0.1x the drawdown ($200) up to 40x ($80,000)',
+        );
+        expect(
+            dpGridSettingsLine(
+                plan,
+                parseDpInputs([
+                    '--max-cushion-multiple=8',
+                    '--max-tail-cushion-multiple=8',
+                ]),
+                cushionGridOf({ fineTop: 8 }),
+            ),
+        ).toBe(
+            'funded cushion grid: uniform steps of 0.1x the drawdown ($200) up to 8x ($16,000)',
+        );
+    });
+
+    it('prints the fine top the solver widened to, and says why it differs from --max-cushion-multiple (WP58d review)', () => {
+        const line = dpGridSettingsLine(
+            mffBuilderPlan(),
+            parseDpInputs([]),
+            cushionGridOf({ fineTop: 9, tailTop: 30 }),
+        );
+        expect(line).toBe(
+            'funded cushion grid: fine steps of 0.1x the drawdown ($200) up to 9x ($18,000), then coarse steps of 1x ($2,000) up to 30x ($60,000); the fine range reaches 9x instead of the 6x that --max-cushion-multiple asks for, because it must cover the largest swing one trading day can make or the pre-lock offset range',
+        );
+    });
+
+    it('says an explicit --max-tail-cushion-multiple was moved when the solver resolved a different top (WP58d review)', () => {
+        const line = dpGridSettingsLine(
+            mffBuilderPlan(),
+            parseDpInputs(['--max-tail-cushion-multiple=8']),
+            cushionGridOf({ fineTop: 9 }),
+        );
+        expect(line).toContain('uniform steps of 0.1x');
+        expect(line).toContain('up to 9x ($18,000)');
+        expect(line).toContain(
+            '--max-tail-cushion-multiple asked for 8x',
+        );
+    });
+
+    it('does not mention the tail flag when the resolved tail top is the one asked for, or when no tail top was asked for (WP58d review)', () => {
+        const plan = mffBuilderPlan();
+        expect(
+            dpGridSettingsLine(
+                plan,
+                parseDpInputs(['--max-tail-cushion-multiple=12']),
+                cushionGridOf({ fineTop: 6, tailTop: 12 }),
+            ),
+        ).not.toContain('asked for');
+        expect(
+            dpGridSettingsLine(
+                plan,
+                parseDpInputs([]),
+                cushionGridOf({ fineTop: 6, tailTop: 30 }),
+            ),
+        ).not.toContain('asked for');
+    });
+
+    it('prints the real tail top when a tail step that does not divide the range moved it, and calls a tail that collapsed to no cells uniform (WP58d review)', () => {
+        const plan = mffBuilderPlan();
+        const moved = dpGridSettingsLine(
+            plan,
+            parseDpInputs([
+                '--max-tail-cushion-multiple=10',
+                '--tail-cushion-step-multiple=3',
+            ]),
+            cushionGridOf({ fineTop: 6, tailStep: 3, tailTop: 9 }),
+        );
+        expect(moved).toContain('then coarse steps of 3x ($6,000) up to 9x');
+        expect(moved).toContain('--max-tail-cushion-multiple asked for 10x');
+        const collapsed = dpGridSettingsLine(
+            plan,
+            parseDpInputs([
+                '--max-tail-cushion-multiple=8',
+                '--tail-cushion-step-multiple=5',
+            ]),
+            cushionGridOf({ fineTop: 6, tailStep: 5, tailTop: 6 }),
+        );
+        expect(collapsed).toContain('uniform steps of 0.1x');
+        expect(collapsed).not.toContain('then coarse steps');
+    });
+
+    it('run() prints the resolved grid line with the tail flags it was given', async () => {
+        mockSolveStatus(RateSearchStatus.Converged);
+        const { stdout } = await capturedRun([
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+            '--eval-days',
+            '2',
+            '--funded-days',
+            '2',
+            '--iterations',
+            '1',
+            '--trials',
+            '10',
+            '--max-tail-cushion-multiple=13',
+            '--tail-cushion-step-multiple=2',
+        ]);
+        expect(stdout).toContain(
+            'funded cushion grid: fine steps of 0.1x the drawdown ($200) up to 9x ($18,000), then coarse steps of 2x ($4,000) up to 13x ($26,000); the fine range reaches 9x instead of the 6x that --max-cushion-multiple asks for',
+        );
+    }, 600_000);
+
+    it('run() hands the tail flags to the solver config', async () => {
+        mockSolveStatus(RateSearchStatus.Converged);
+        await capturedRun([
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+            '--eval-days',
+            '2',
+            '--funded-days',
+            '2',
+            '--iterations',
+            '1',
+            '--trials',
+            '10',
+            '--max-tail-cushion-multiple=10',
+            '--tail-cushion-step-multiple=2',
+        ]);
+        const config = vi.mocked(solveAverageRewardPolicy).mock.lastCall?.[0];
+        expect(config?.fundedGrid?.maxTailCushionMultiple).toBe(10);
+        expect(config?.fundedGrid?.tailCushionStepMultiple).toBe(2);
+    }, 600_000);
+});
+
+describe('optimize dp wires --stop-points and --instrument into whole-contract sizing (N-78; WP58d: the end-to-end run pins --max-tail-cushion-multiple 6, the fine top, because the default 30 drawdown tail took it from 7 s to 30 s and it checks the sizing handed to the solver, not the grid)', () => {
     const policy: DayPolicy = {
         ladder: [200],
         maxLossesPerDay: null,
@@ -1010,6 +1689,8 @@ describe('optimize dp wires --stop-points and --instrument into whole-contract s
             '1',
             '--trials',
             '10',
+            '--max-tail-cushion-multiple',
+            '6',
         ];
         vi.mocked(solveAverageRewardPolicy).mockClear();
 
@@ -1473,7 +2154,7 @@ describe('optimize dp run() awaits the firm registry warm-up before its first so
 });
 
 describe('optimize dp funded solve keeps the WP17c shared day skeleton and day-close cache (N-63)', () => {
-    it('computes at most 260 day-close outcomes (330 without the day-close tables, 932 with both the day-close tables and the idle-close cache off) and at most 30 skeleton risk lists (148 without the shared day skeleton) over 10+ sweeps of a small MFF Rapid EOD grid', () => {
+    it('computes at most 630 day-close outcomes and at most 47 skeleton risk lists over 10+ sweeps of a small MFF Rapid EOD grid, bounding the shared day skeleton and day-close cache instead of pinning their exact call counts (WP58c, N-86 stage 2: the coarse cushion tail is on by default now, so reachedStateCount moved from 210 to 546 and both cache bounds moved with it (260 to 630, 30 to 47); the earlier without-caching comparison figures (330, 932, 148) are stale under the new grid and are not re-verified here)', () => {
         const plan = resolvedDpPlan([
             '--firm',
             'mffu',
@@ -1500,9 +2181,9 @@ describe('optimize dp funded solve keeps the WP17c shared day skeleton and day-c
         });
 
         expect(result.workerCount).toBe(0);
-        expect(result.reachedStateCount).toBe(210);
+        expect(result.reachedStateCount).toBe(546);
         expect(result.sweepCount).toBeGreaterThanOrEqual(10);
-        expect(dayCloses.mock.calls.length).toBeLessThanOrEqual(260);
-        expect(riskLists.mock.calls.length).toBeLessThanOrEqual(30);
+        expect(dayCloses.mock.calls.length).toBeLessThanOrEqual(630);
+        expect(riskLists.mock.calls.length).toBeLessThanOrEqual(47);
     });
 });

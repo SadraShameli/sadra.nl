@@ -28,6 +28,12 @@ import {
     type AccountState,
     type CouponDiscounts,
     type DayPolicy,
+    DEFAULT_ACTION_STEP_MULTIPLE,
+    DEFAULT_CUSHION_STEP_MULTIPLE,
+    DEFAULT_MAX_ACTION_MULTIPLE,
+    DEFAULT_MAX_CUSHION_MULTIPLE,
+    DEFAULT_MAX_TAIL_CUSHION_MULTIPLE,
+    DEFAULT_TAIL_CUSHION_STEP_MULTIPLE,
     describeFundedResetTerms,
     type Dollars,
     dollars,
@@ -57,12 +63,9 @@ import {
     type FundedDpModelGap,
     FundedDpModelGapKind,
     fundedDpModelGaps,
+    fundedGridSaturationGap,
 } from '~/lib/prop-calculator/core/FundedDpModelGaps';
 import {
-    DEFAULT_ACTION_STEP_MULTIPLE,
-    DEFAULT_CUSHION_STEP_MULTIPLE,
-    DEFAULT_MAX_ACTION_MULTIPLE,
-    DEFAULT_MAX_CUSHION_MULTIPLE,
     type FundedStateValueResult,
     isFundedDpEligible,
     warmFirmsRegistryCache,
@@ -89,10 +92,12 @@ export interface DpArguments
     iterations: string;
     'max-action-multiple'?: string;
     'max-cushion-multiple'?: string;
+    'max-tail-cushion-multiple'?: string;
     'payout-policy': PayoutRequestPolicy;
     'rebuy-lag-days': string;
     rr: string;
     seed: string;
+    'tail-cushion-step-multiple'?: string;
     trials: string;
     winrate: string;
 }
@@ -108,6 +113,7 @@ export interface DpInputs {
     maxCushionMultiple: number | undefined;
     maxEvalDays: number;
     maxSolves: number;
+    maxTailCushionMultiple: number | undefined;
     minRetainedCushion: number;
     payoutRequestPolicy: PayoutRequestPolicy;
     payoutRequestSize: Dollars | undefined;
@@ -115,8 +121,19 @@ export interface DpInputs {
     rrRatio: number;
     seed: number;
     stopPoints: number | undefined;
+    tailCushionStepMultiple: number | undefined;
     trials: number;
     winrate: Fraction0to1;
+}
+
+type ResolvedCushionGrid = FundedStateValueResult['cushionGrid'];
+
+interface DpCushionGrid {
+    cushionStepMultiple: number;
+    hasTail: boolean;
+    maxCushionMultiple: number;
+    maxTailCushionMultiple: number;
+    tailCushionStepMultiple: number;
 }
 
 export const EMPIRICAL_MAX_ATTEMPTS = 1000;
@@ -126,6 +143,11 @@ export interface DpPolicies {
     fundedDayPolicy: DayPolicy;
 }
 
+export interface FundedGridSaturationTally {
+    fundedDayCount: number;
+    saturatedDayCount: number;
+}
+
 export function bundleRenewalNote(
     objective: RenewalCycleObjective,
 ): null | string {
@@ -133,6 +155,38 @@ export function bundleRenewalNote(
     return bundlePercent <= 0
         ? null
         : `${objective.plan.label}: with ${objective.copyAccounts} copy-traded accounts, this DP and its simulate() cross-check re-buy all of them together at every renewal and apply the ${formatPercent(bundlePercent / 100)} bundle discount to each renewal cycle's first eval fee and activation fee. The cash-flow timeline instead runs each account slot on its own and gives the bundle discount only to each slot's first purchase, so the two differ on repeat purchases. Which one matches the firm's checkout for a re-purchase is an open question.`;
+}
+
+export function dpGridSettingsLine(
+    plan: Plan,
+    inputs: DpInputs,
+    resolved: ResolvedCushionGrid,
+): string {
+    const requested = resolveDpCushionGrid(inputs);
+    const multipleWithDollars = (dollarsValue: number): string =>
+        `${drawdownMultiple(plan, dollarsValue)}x (${formatCurrency(dollarsValue)})`;
+    const fineStep = `${drawdownMultiple(plan, resolved.fineStepDollars)}x the drawdown (${formatCurrency(resolved.fineStepDollars)})`;
+    const fineTop = drawdownMultiple(plan, resolved.fineTopDollars);
+    const tailTop = drawdownMultiple(plan, resolved.tailTopDollars);
+    const grid =
+        tailTop > fineTop
+            ? `fine steps of ${fineStep} up to ${multipleWithDollars(resolved.fineTopDollars)}, then coarse steps of ${multipleWithDollars(resolved.tailStepDollars)} up to ${multipleWithDollars(resolved.tailTopDollars)}`
+            : `uniform steps of ${fineStep} up to ${multipleWithDollars(resolved.fineTopDollars)}`;
+    const disclosures: string[] = [];
+    if (fineTop > requested.maxCushionMultiple) {
+        disclosures.push(
+            `the fine range reaches ${fineTop}x instead of the ${requested.maxCushionMultiple}x that --max-cushion-multiple asks for, because it must cover the largest swing one trading day can make or the pre-lock offset range`,
+        );
+    }
+    if (
+        inputs.maxTailCushionMultiple !== undefined &&
+        inputs.maxTailCushionMultiple !== tailTop
+    ) {
+        disclosures.push(
+            `--max-tail-cushion-multiple asked for ${inputs.maxTailCushionMultiple}x`,
+        );
+    }
+    return [`funded cushion grid: ${grid}`, ...disclosures].join('; ');
 }
 
 export function dpPayoutSettingsLine(plan: Plan, inputs: DpInputs): string {
@@ -165,6 +219,7 @@ export function dpSolverConfig(
             cushionStepMultiple: inputs.cushionStepMultiple,
             maxActionMultiple: inputs.maxActionMultiple,
             maxCushionMultiple: inputs.maxCushionMultiple,
+            maxTailCushionMultiple: inputs.maxTailCushionMultiple,
             minRetainedCushion: inputs.minRetainedCushion,
             payoutRequestPolicy: inputs.payoutRequestPolicy,
             payoutRequestSize: resolvedPayoutRequestSize(
@@ -172,6 +227,7 @@ export function dpSolverConfig(
                 objective.plan,
             ),
             positionSizing,
+            tailCushionStepMultiple: inputs.tailCushionStepMultiple,
         },
         maxSolves: inputs.maxSolves,
         objective,
@@ -225,11 +281,19 @@ export function empiricalSummaryLines(
     ];
 }
 
-export function fundedConsistencyGridNote(plan: Plan): null | string {
+export function fundedConsistencyGridNote(
+    plan: Plan,
+    resolved: ResolvedCushionGrid,
+): null | string {
     const rule = plan.fundedConsistencyRule();
-    return rule === null
-        ? null
-        : `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${DEFAULT_MAX_CUSHION_MULTIPLE} drawdowns and truncates any balance above that. The best day is tracked on the cushion grid and rounded up between grid steps, but a day that ends above the grid top is truncated like the balance, which shrinks both that day's P&L and the cycle profit the rule compares it with. In those states the DP can pay out less than the real account, and it can also allow a payout the real rule denies or deny one it allows: neither direction is guaranteed there, so trust the empirical run below over the DP-predicted rate.`;
+    if (rule === null) return null;
+    const lockedTop = drawdownMultiple(plan, resolved.lockedTopDollars);
+    const fineTop = drawdownMultiple(plan, resolved.fineTopDollars);
+    const gridShape =
+        lockedTop > fineTop
+            ? `a fine grid up to ${fineTop}, then a coarse tail past it`
+            : `a uniform grid up to ${lockedTop}`;
+    return `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${lockedTop} drawdowns (${gridShape}) and truncates any balance above that. The best day is tracked on the cushion grid and rounded up between grid steps, but a day that ends above the grid top is truncated like the balance, which shrinks both that day's P&L and the cycle profit the rule compares it with. In those states the DP can pay out less than the real account, and it can also allow a payout the real rule denies or deny one it allows: neither direction is guaranteed there, so trust the empirical run below over the DP-predicted rate. The best day is also capped at the largest swing one trading day can produce on this grid (trades per day times the largest position times the reward-to-risk ratio, at least 1, plus one cushion step per trade for grid rounding), and a day that rounds past that is clamped down to that cap, which understates the best day and so can let the DP allow a payout the real rule denies.`;
 }
 
 export function fundedCycleBaselineGapWarning(
@@ -249,6 +313,20 @@ export function fundedDpModelGapWarning(plan: Plan): null | string {
     return `${plan.label}: ${described}.`;
 }
 
+export function fundedGridSaturationLine(shareAtOrAboveTop: number): string {
+    return `funded grid saturation: ${formatPercent(shareAtOrAboveTop)} of funded trial-days had a cushion or post-payout balance at or above this DP's grid top`;
+}
+
+export function fundedGridSaturationWarning(
+    plan: Plan,
+    shareAtOrAboveTop: number,
+): null | string {
+    const gap = fundedGridSaturationGap(shareAtOrAboveTop);
+    return gap === null
+        ? null
+        : `${plan.label}: ${describeFundedDpModelGap(gap)}.`;
+}
+
 export function fundedIneligibilityMessage(plan: Plan): string {
     return `${plan.label}: funded phase is not DP-eligible (intraday-trailing drawdown, a funded daily loss limit that scales continuously with peak-day-close profit (PeakProfitShare), no drawdown lock / ReleaseFloor payout effect, or a payout cap keyed on cumulative qualifying days (QualifyingDaysMilestonePayoutCap)).`;
 }
@@ -266,10 +344,31 @@ export function fundedValueIterationLine(
     return `funded value iteration: ${result.sweepCount} sweeps, every funded state value within ${formatCurrency(result.valueErrorBound, 2)} of the DP's exact fixed point`;
 }
 
+export function instrumentFundedDayPolicyForSaturation(
+    dayPolicy: DayPolicy,
+    checkGridSaturation: FundedStateValueResult['isGridSaturated'],
+    tally: FundedGridSaturationTally,
+): DayPolicy {
+    const { computeRisk } = dayPolicy;
+    if (computeRisk === undefined) return dayPolicy;
+    return {
+        ...dayPolicy,
+        computeRisk: (state, tradeIndexToday, fundedCycle) => {
+            if (tradeIndexToday === 0) {
+                tally.fundedDayCount += 1;
+                if (checkGridSaturation(state, fundedCycle)) {
+                    tally.saturatedDayCount += 1;
+                }
+            }
+            return computeRisk(state, tradeIndexToday, fundedCycle);
+        },
+    };
+}
+
 export function readDpInputs(arguments_: DpArguments): DpInputs {
     const requestSize = arguments_['request-size'];
     const stopPoints = arguments_['stop-points'];
-    return {
+    const inputs: DpInputs = {
         actionStepMultiple: readOptionalPositiveNumber(
             arguments_['action-step-multiple'],
             'action-step-multiple',
@@ -298,6 +397,10 @@ export function readDpInputs(arguments_: DpArguments): DpInputs {
         ),
         maxEvalDays: readPositiveInteger(arguments_['eval-days'], 'eval-days'),
         maxSolves: readPositiveInteger(arguments_.iterations, 'iterations'),
+        maxTailCushionMultiple: readOptionalPositiveNumber(
+            arguments_['max-tail-cushion-multiple'],
+            'max-tail-cushion-multiple',
+        ),
         minRetainedCushion: readNonNegativeNumber(
             arguments_['retain-cushion'],
             'retain-cushion',
@@ -314,9 +417,15 @@ export function readDpInputs(arguments_: DpArguments): DpInputs {
             stopPoints === undefined
                 ? undefined
                 : readPositiveNumber(stopPoints, 'stop-points'),
+        tailCushionStepMultiple: readOptionalPositiveNumber(
+            arguments_['tail-cushion-step-multiple'],
+            'tail-cushion-step-multiple',
+        ),
         trials: readPositiveInteger(arguments_.trials, 'trials'),
         winrate: readFraction(arguments_.winrate, 'winrate'),
     };
+    assertCushionGridFlagsConsistent(inputs);
+    return inputs;
 }
 
 export function registryWarmUpFailureWarning(error: Error): string {
@@ -347,10 +456,49 @@ export function resolveDpPlan(
     });
 }
 
+export function shareAtOrAboveGridTop(
+    tally: FundedGridSaturationTally,
+): number {
+    return tally.fundedDayCount === 0
+        ? 0
+        : tally.saturatedDayCount / tally.fundedDayCount;
+}
+
+function assertCushionGridFlagsConsistent(
+    inputs: Pick<
+        DpInputs,
+        | 'cushionStepMultiple'
+        | 'maxCushionMultiple'
+        | 'maxTailCushionMultiple'
+        | 'tailCushionStepMultiple'
+    >,
+): void {
+    const grid = resolveDpCushionGrid(inputs);
+    if (
+        grid.hasTail &&
+        grid.tailCushionStepMultiple < grid.cushionStepMultiple
+    ) {
+        throw new Error(
+            `--tail-cushion-step-multiple (${flagValueWithDefaultNote(grid.tailCushionStepMultiple, inputs.tailCushionStepMultiple === undefined)}) must be at least --cushion-step-multiple (${flagValueWithDefaultNote(grid.cushionStepMultiple, inputs.cushionStepMultiple === undefined)}): the day tree's search windows are sized from the fine step, so a finer tail step would under-cover the reachable range there`,
+        );
+    }
+    if (
+        inputs.maxTailCushionMultiple !== undefined &&
+        inputs.maxTailCushionMultiple < grid.maxCushionMultiple
+    ) {
+        throw new Error(
+            `--max-tail-cushion-multiple (${inputs.maxTailCushionMultiple}) must be at least --max-cushion-multiple (${flagValueWithDefaultNote(grid.maxCushionMultiple, inputs.maxCushionMultiple === undefined)}), since the tail starts where the fine grid ends`,
+        );
+    }
+}
+
 function describeFundedDpModelGap(gap: FundedDpModelGap): string {
     switch (gap.kind) {
         case FundedDpModelGapKind.CalendarWeekInactivityIgnored: {
             return gap.message;
+        }
+        case FundedDpModelGapKind.FundedGridSaturationHigh: {
+            return `its funded replay reports ${formatPercent(gap.shareAtOrAboveTop)} of funded trial-days with a cushion or post-payout balance at or above this DP's grid top (N-86): those days are clamped to the top cell, which distorts both the predicted value and the policy there, so trust the empirical run below over the DP-predicted rate`;
         }
         case FundedDpModelGapKind.LifetimeDollarCapIgnored: {
             return `has a lifetime payout-dollar cap of ${formatCurrency(gap.maxLifetimePayoutDollars)} (maxLifetimePayoutDollars) that this DP ignores entirely: it never restores FundedCycleTracker.cumulativePayout from any state, so it is optimistic about payouts past that total`;
@@ -359,12 +507,20 @@ function describeFundedDpModelGap(gap: FundedDpModelGap): string {
             return `has a payout-count-tiered payout cap tier starting at payout #${gap.fromPayoutIndex + 1}, beyond this DP's payout-count regime cap of ${gap.payoutRegimeCap}, and payout counts past the cap saturate at the cap bucket inside it, so that tier is not modeled exactly`;
         }
         case FundedDpModelGapKind.PayoutFloorReleaseUnvalidated: {
-            return "resets its funded drawdown floor to breakeven on every payout (PayoutFloorEffect.ReleaseFloor), and this DP's policy did not match its own simulation on TopStep plans (audit N-86): size positions by the documented rule instead, and compare against the best flat row from optimize funded";
+            return "resets its funded drawdown floor to breakeven on every payout (PayoutFloorEffect.ReleaseFloor), and at this DP's default grid its predicted rate overstated its own empirical replay on TopStep plans (audit N-89): trust the empirical replay line below over the predicted rate, and compare the result against the best flat row from optimize funded";
         }
         case FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates: {
             return `locks its funded drawdown only on the first payout (no profit trigger), so its floor can trail without bound before that payout while this DP's pre-lock offset grid stops at a fixed multiple of the drawdown. Offsets past it saturate at the top bucket, so the DP understates the balance (and the first payout) in those rare high-profit states before the first payout, making it slightly pessimistic`;
         }
     }
+}
+
+function drawdownMultiple(plan: Plan, dollarsValue: number): number {
+    return Number((dollarsValue / plan.fundedDrawdown.amount).toFixed(6));
+}
+
+function flagValueWithDefaultNote(value: number, isDefault: boolean): string {
+    return isDefault ? `${value}, the default` : String(value);
 }
 
 function readOptionalPositiveNumber(
@@ -381,6 +537,33 @@ function resolvedPayoutRequestSize(
     return inputs.payoutRequestSize === undefined
         ? undefined
         : effectivePayoutRequest(plan, inputs.payoutRequestSize);
+}
+
+function resolveDpCushionGrid(
+    inputs: Pick<
+        DpInputs,
+        | 'cushionStepMultiple'
+        | 'maxCushionMultiple'
+        | 'maxTailCushionMultiple'
+        | 'tailCushionStepMultiple'
+    >,
+): DpCushionGrid {
+    const maxCushionMultiple =
+        inputs.maxCushionMultiple ?? DEFAULT_MAX_CUSHION_MULTIPLE;
+    const maxTailCushionMultiple = Math.max(
+        maxCushionMultiple,
+        inputs.maxTailCushionMultiple ?? DEFAULT_MAX_TAIL_CUSHION_MULTIPLE,
+    );
+    return {
+        cushionStepMultiple:
+            inputs.cushionStepMultiple ?? DEFAULT_CUSHION_STEP_MULTIPLE,
+        hasTail: maxTailCushionMultiple > maxCushionMultiple,
+        maxCushionMultiple,
+        maxTailCushionMultiple,
+        tailCushionStepMultiple:
+            inputs.tailCushionStepMultiple ??
+            DEFAULT_TAIL_CUSHION_STEP_MULTIPLE,
+    };
 }
 
 function resolvedPositionSizing(inputs: DpInputs): null | PositionSizingConfig {
@@ -432,7 +615,11 @@ export const dpArguments = {
         type: 'string',
     },
     'max-cushion-multiple': {
-        description: `Funded DP cushion grid top, as a multiple of the plan's own drawdown amount (default ${DEFAULT_MAX_CUSHION_MULTIPLE}).`,
+        description: `Funded DP cushion grid fine-range top, as a multiple of the plan's own drawdown amount (default ${DEFAULT_MAX_CUSHION_MULTIPLE}). Past this point the grid continues as a coarser tail (N-86) up to ${DEFAULT_MAX_TAIL_CUSHION_MULTIPLE} drawdowns by default, so the DP's real cushion grid top is wider than this flag alone. The fine range is also widened past this flag when one trading day can swing further than it, and the grid line printed after the solve shows the range actually used.`,
+        type: 'string',
+    },
+    'max-tail-cushion-multiple': {
+        description: `Funded DP cushion grid top, as a multiple of the plan's own drawdown amount (default ${DEFAULT_MAX_TAIL_CUSHION_MULTIPLE}). Must be at least --max-cushion-multiple; equal to it turns the coarse tail off.`,
         type: 'string',
     },
     ...payoutRequestPolicyArgument,
@@ -450,6 +637,10 @@ export const dpArguments = {
         type: 'string',
     },
     'stop-points': commonSimArguments['stop-points'],
+    'tail-cushion-step-multiple': {
+        description: `Funded DP cushion grid step in the coarse tail past --max-cushion-multiple, as a multiple of the plan's own drawdown amount (default ${DEFAULT_TAIL_CUSHION_STEP_MULTIPLE}). Must be at least --cushion-step-multiple.`,
+        type: 'string',
+    },
     trials: {
         default: '4000',
         description: 'Monte Carlo trials for the empirical validation run',
@@ -501,11 +692,6 @@ export default defineCommand({
             if (resetNote !== null) {
                 ui.muted(`${resetNote}\n`);
             }
-            const consistencyNote = fundedConsistencyGridNote(plan);
-            if (consistencyNote !== null) {
-                ui.muted(`${consistencyNote}\n`);
-            }
-
             const inputs = readDpInputs(context.args);
             printEdgePlausibilityNotes([
                 edgePlausibilityNote({
@@ -537,6 +723,16 @@ export default defineCommand({
                 `solved ${plan.label} in ${elapsed.toFixed(1)}s (${solvesUsed} rate-search solves, ${totalStates} states)`,
             );
 
+            const resolvedGrid = solution.fundedResult.cushionGrid;
+            ui.muted(`${dpGridSettingsLine(plan, inputs, resolvedGrid)}\n`);
+            const consistencyNote = fundedConsistencyGridNote(
+                plan,
+                resolvedGrid,
+            );
+            if (consistencyNote !== null) {
+                ui.muted(`${consistencyNote}\n`);
+            }
+
             const monthlyRate = objective.monthlyRate(solution.ratePerDay);
 
             ui.heading(plan.label);
@@ -565,10 +761,18 @@ export default defineCommand({
                 );
             }
 
+            const gridSaturationTally: FundedGridSaturationTally = {
+                fundedDayCount: 0,
+                saturatedDayCount: 0,
+            };
             const out = simulate(
                 empiricalSimInputs(inputs, plan, {
                     evalDayPolicy: solution.evalResult.dayPolicy,
-                    fundedDayPolicy: solution.fundedResult.dayPolicy,
+                    fundedDayPolicy: instrumentFundedDayPolicyForSaturation(
+                        solution.fundedResult.dayPolicy,
+                        solution.fundedResult.isGridSaturated,
+                        gridSaturationTally,
+                    ),
                 }),
             );
 
@@ -581,6 +785,17 @@ export default defineCommand({
                 copyAccounts,
             )) {
                 ui.note(`  ${line}`);
+            }
+            const gridSaturationShare = shareAtOrAboveGridTop(
+                gridSaturationTally,
+            );
+            ui.note(`  ${fundedGridSaturationLine(gridSaturationShare)}`);
+            const gridSaturationWarning = fundedGridSaturationWarning(
+                plan,
+                gridSaturationShare,
+            );
+            if (gridSaturationWarning !== null) {
+                ui.warn(gridSaturationWarning);
             }
 
             const evalSampleState = plan.initialState();

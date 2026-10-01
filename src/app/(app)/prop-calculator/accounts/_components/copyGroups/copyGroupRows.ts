@@ -1,6 +1,10 @@
 import type { PropCopyGroupRow } from '~/server/db/schemas/prop';
 
 import {
+    type AccountListAccount,
+    accountStatusLabel,
+} from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import {
     type AccountStage,
     accountStageBreakdown,
     accountStageLabel,
@@ -19,11 +23,6 @@ import {
     copyGroupCreateSchema,
     MAX_ACCOUNT_LABEL_LENGTH,
 } from '~/lib/schemas/propAccounts';
-
-import {
-    type AccountListAccount,
-    accountStatusLabel,
-} from '../accountListFilters';
 
 export type CopyGroupAccount = Pick<
     AccountListAccount,

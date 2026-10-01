@@ -66,6 +66,7 @@ export type FundedGridConfig = Pick<
     | 'maxCushionMultiple'
     | 'maxIterationsPerLevel'
     | 'maxPreLockOffsetMultiple'
+    | 'maxTailCushionMultiple'
     | 'minRetainedCushion'
     | 'payoutRegimeCap'
     | 'payoutRequestPolicy'
@@ -73,6 +74,7 @@ export type FundedGridConfig = Pick<
     | 'positionSizing'
     | 'rungSizing'
     | 'stopRule'
+    | 'tailCushionStepMultiple'
     | 'tradesPerDay'
 >;
 

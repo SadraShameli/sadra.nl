@@ -1,4 +1,5 @@
-import { CentsDisplay, formatUsdCents, RoundStatus, usdCents } from '../core';
+import { CentsDisplay, formatUsdCents, RoundStatus, usdCents } from '~/lib/prop-accounts/core';
+
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
 import { type AlertContext, type AlertRoundRow } from './AlertContext';
 import { AlertKind } from './AlertKind';

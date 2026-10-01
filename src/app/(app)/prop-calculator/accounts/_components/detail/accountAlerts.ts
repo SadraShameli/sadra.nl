@@ -1,12 +1,11 @@
-import { type AccountAlert, AlertSubjectKind } from '~/lib/prop-accounts';
-
 import {
     alertsFor,
     type OverviewAlerts,
     portfolioLoad,
     type PortfolioQueries,
     PortfolioSource,
-} from '../overview/overviewModel';
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { type AccountAlert, AlertSubjectKind } from '~/lib/prop-accounts';
 
 interface AccountAlertInputs {
     readonly accountId: string;
@@ -14,14 +13,17 @@ interface AccountAlertInputs {
     readonly today: string;
 }
 
-type AccountAlertQueries = Pick<
-    PortfolioQueries,
-    | PortfolioSource.Accounts
-    | PortfolioSource.CopyGroups
-    | PortfolioSource.Payouts
-    | PortfolioSource.Rulebook
-    | PortfolioSource.Snapshots
->;
+type AccountAlertQueries = Partial<
+    Pick<PortfolioQueries, PortfolioSource.Events>
+> &
+    Pick<
+        PortfolioQueries,
+        | PortfolioSource.Accounts
+        | PortfolioSource.CopyGroups
+        | PortfolioSource.Payouts
+        | PortfolioSource.Rulebook
+        | PortfolioSource.Snapshots
+    >;
 
 const LEDGER_ONLY_SOURCE = { data: undefined, error: null } as const;
 
@@ -30,14 +32,23 @@ export function accountAlerts({
     queries,
     today,
 }: AccountAlertInputs): OverviewAlerts {
+    const eventsQuery = queries[PortfolioSource.Events];
     const load = portfolioLoad({
         ...queries,
-        [PortfolioSource.Events]: LEDGER_ONLY_SOURCE,
+        [PortfolioSource.Decisions]: LEDGER_ONLY_SOURCE,
+        [PortfolioSource.Events]: eventsQuery ?? LEDGER_ONLY_SOURCE,
         [PortfolioSource.Fees]: LEDGER_ONLY_SOURCE,
         [PortfolioSource.Transfers]: LEDGER_ONLY_SOURCE,
+        [PortfolioSource.Violations]: LEDGER_ONLY_SOURCE,
     });
-    return alertsFor(load.alerts, today, (alert) =>
-        isAboutAccount(alert, accountId),
+    return alertsFor(
+        load.alerts,
+        today,
+        (alert) => isAboutAccount(alert, accountId),
+        undefined,
+        null,
+        null,
+        eventsQuery?.data,
     );
 }
 

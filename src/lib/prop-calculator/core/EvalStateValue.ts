@@ -1,6 +1,5 @@
 import { type AccountState } from './AccountState';
 import { ConsistencyViolationEffect } from './ConsistencyRule';
-import { BUCKET_EPSILON } from './constants';
 import {
     describeDailyLossLimit,
     hasPeakShareDependency,
@@ -18,6 +17,7 @@ import {
     shouldStopDay,
 } from './DayPolicy';
 import { DrawdownKind } from './DrawdownStrategy';
+import { type CushionGridSplit, FundedCushionGrid } from './FundedCushionGrid';
 import {
     type ContractCount,
     dollars,
@@ -32,10 +32,7 @@ import {
 } from './PositionSizing';
 import { TradingPhase } from './TradingPhase';
 
-export interface CushionGridSplit {
-    readonly lowerIndex: number;
-    readonly upperWeight: number;
-}
+export type { CushionGridSplit } from './FundedCushionGrid';
 
 export interface EvalStateValueConfig {
     readonly actionStepDollars?: number;
@@ -160,6 +157,10 @@ export function computeEvalStateValue(
         : untrackedCeiling;
     const cushionBucketCount =
         Math.round(maxTrackedProfitLike / cushionStepDollars) + 1;
+    const cushionGrid = new FundedCushionGrid({
+        fineStep: cushionStepDollars,
+        fineTop: (cushionBucketCount - 1) * cushionStepDollars,
+    });
     const contractLimit: ContractCount | null =
         positionSizing === null
             ? null
@@ -262,11 +263,7 @@ export function computeEvalStateValue(
         exactCushion: number,
     ): number {
         return valueOnCushionGrid(
-            splitOntoCushionGrid(
-                exactCushion,
-                cushionStepDollars,
-                cushionBucketCount,
-            ),
+            splitOntoCushionGrid(exactCushion, cushionGrid, cushionBucketCount),
             (index) => table[index] ?? 0,
         );
     }
@@ -357,7 +354,7 @@ export function computeEvalStateValue(
 
         const cushionSplit = splitOntoCushionGrid(
             clampRange(state.balance - state.threshold, maxTrackedProfitLike),
-            cushionStepDollars,
+            cushionGrid,
             cushionBucketCount,
         );
 
@@ -732,19 +729,10 @@ export function isEvalDpEligible(plan: Plan): boolean {
 
 export function splitOntoCushionGrid(
     cushionDollars: number,
-    stepDollars: number,
-    bucketCount: number,
+    grid: FundedCushionGrid,
+    bucketCount: number = grid.size,
 ): CushionGridSplit {
-    const raw = Math.floor((cushionDollars + BUCKET_EPSILON) / stepDollars);
-    if (raw >= bucketCount - 1) {
-        return { lowerIndex: bucketCount - 1, upperWeight: 0 };
-    }
-    if (raw < 0) return { lowerIndex: 0, upperWeight: 0 };
-    const remainder = cushionDollars - raw * stepDollars;
-    return {
-        lowerIndex: raw,
-        upperWeight: remainder > BUCKET_EPSILON ? remainder / stepDollars : 0,
-    };
+    return grid.split(cushionDollars, bucketCount);
 }
 
 export function valueOnCushionGrid(

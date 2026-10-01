@@ -1,8 +1,7 @@
+import { formatUsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
+import { AccountStateKind } from '~/lib/prop-accounts/metrics';
 import { TradingPhase } from '~/lib/prop-calculator';
-import { AssumptionKind } from '~/lib/prop-calculator/advisor';
 
-import { formatUsdCents, usdCentsFromDollars } from '../core';
-import { AccountStateKind } from '../metrics';
 import { type AccountAlert } from './AccountAlert';
 import { isActive, type MonitoredAccount } from './AlertContext';
 import { AlertKind } from './AlertKind';
@@ -20,18 +19,18 @@ export class DashboardFloorMismatchRule extends AccountAlertRule {
         if (state?.kind !== AccountStateKind.Reconstructed) return null;
         const { reconstructed } = state.latest;
         if (reconstructed.kind !== TradingPhase.Funded) return null;
-        const hasMismatch = reconstructed.assumptions.some(
-            (assumption) =>
-                assumption.kind === AssumptionKind.DashboardFloorMismatch,
+        const mismatch = reconstructed.dashboardFloorMismatch ?? null;
+        if (mismatch === null) return null;
+        const engineFloor = formatUsdCents(
+            usdCentsFromDollars(mismatch.engineFloor),
         );
-        if (!hasMismatch) return null;
-        const governingFloor = formatUsdCents(
-            usdCentsFromDollars(reconstructed.state.threshold),
+        const enteredFloor = formatUsdCents(
+            usdCentsFromDollars(mismatch.enteredFloor),
         );
         return this.alertFor(
             monitored,
             AlertSeverity.Warning,
-            `The entered dashboard floor is above the engine's own calculated floor; the entered floor of ${governingFloor} is used as the more conservative one`,
+            `The entered dashboard floor of ${enteredFloor} is above the engine's own calculated floor of ${engineFloor}; the entered floor is used as the more conservative one`,
         );
     }
 }

@@ -1,17 +1,18 @@
 import { z } from 'zod';
 
-import { type DayPolicy, policySizingOf } from '../core/DayPolicy';
-import { InstrumentSymbol } from '../core/Instruments';
+import { type DayPolicy, policySizingOf } from '~/lib/prop-calculator/core/DayPolicy';
+import { InstrumentSymbol } from '~/lib/prop-calculator/core/Instruments';
 import {
     formatOneContractRisk,
     formatWholeCentDollars,
-} from '../core/PlacedFundedRisk';
+} from '~/lib/prop-calculator/core/PlacedFundedRisk';
 import {
     isBelowOneContract,
     type PositionSizingConfig,
     resolvePositionSizing,
-} from '../core/PositionSizing';
-import { TradingPhase } from '../core/TradingPhase';
+} from '~/lib/prop-calculator/core/PositionSizing';
+import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+
 import { type SimInputs } from './types';
 
 export enum PercentSizingScope {

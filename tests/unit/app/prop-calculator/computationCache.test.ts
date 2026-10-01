@@ -9,6 +9,7 @@ import { ComputationId } from '~/app/(app)/prop-calculator/_components/Computati
 import { type ScenarioRow } from '~/app/(app)/prop-calculator/_components/RuleStressTestPanel';
 import { type Cell } from '~/app/(app)/prop-calculator/_components/SensitivityHeatmap';
 import { simInputsCacheKey } from '~/app/(app)/prop-calculator/_components/simInputsCacheKey';
+import { type AdvisorWorkerResult } from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
 import {
     ApexVariant,
     FirmId,
@@ -148,6 +149,14 @@ describe('ComputationCache', () => {
     it('rejects a capacity below one', () => {
         expect(() => new ComputationCache(0)).toThrow();
         expect(() => new ComputationCache(1.5)).toThrow();
+    });
+
+    it('keeps an Advice entry separate from other computation ids (PT-34b)', () => {
+        const cache = new ComputationCache();
+        const outcome: AdvisorWorkerResult = { outcomes: [] };
+        cache.set(ComputationId.Advice, 'k', outcome);
+        expect(cache.get(ComputationId.Advice, 'k')).toBe(outcome);
+        expect(cache.get(ComputationId.Sensitivity, 'k')).toBeUndefined();
     });
 });
 

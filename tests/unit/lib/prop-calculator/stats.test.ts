@@ -1,9 +1,12 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
     binomialStandardError,
     clamp,
     histogram,
+    isBeyondNoise,
     mean,
     meanStandardError,
     median,
@@ -414,5 +417,64 @@ describe('noiseVerdict', () => {
                 sharedSeed: true,
             }),
         ).toThrow(RangeError);
+    });
+});
+
+describe('isBeyondNoise (VD-25)', () => {
+    it('is true exactly when noiseVerdict is BeyondNoise', () => {
+        const b = { standardError: 4, value: 0 };
+        const independent = { sharedSeed: false } as const;
+        expect(
+            isBeyondNoise({ standardError: 3, value: 10 }, b, independent),
+        ).toBe(false);
+        expect(
+            isBeyondNoise({ standardError: 3, value: 10.5 }, b, independent),
+        ).toBe(true);
+    });
+
+    it('is false, never a thrown verdict, when a needed SE is null (Unknown)', () => {
+        expect(
+            isBeyondNoise(
+                { standardError: null, value: 1000 },
+                { standardError: 1, value: 0 },
+                { sharedSeed: false },
+            ),
+        ).toBe(false);
+    });
+
+    it('uses the paired-difference SE for a shared seed', () => {
+        const a = { standardError: 3, value: 10.5 };
+        const b = { standardError: 4, value: 8 };
+        expect(
+            isBeyondNoise(a, b, { differenceStandardError: 1, sharedSeed: true }),
+        ).toBe(true);
+        expect(
+            isBeyondNoise(a, b, { sharedSeed: false }),
+        ).toBe(false);
+    });
+});
+
+describe('the beyond-noise threshold has one implementation (VD-25 guard)', () => {
+    const PROP_CALCULATOR_ROOT = path.resolve(
+        import.meta.dirname,
+        '../../../../src/lib/prop-calculator',
+    );
+    const STATS_FILE = path.join(PROP_CALCULATOR_ROOT, 'stats.ts');
+    const NOISE_THRESHOLD_PATTERN = /NOISE_STANDARD_ERRORS\s*\*/;
+
+    function tsFilesUnder(dir: string): string[] {
+        return readdirSync(dir, { recursive: true })
+            .filter((name): name is string => typeof name === 'string')
+            .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
+            .map((name) => path.join(dir, name));
+    }
+
+    it('finds the SE multiple only in stats.ts, never a second copy elsewhere in prop-calculator', () => {
+        const offenders = tsFilesUnder(PROP_CALCULATOR_ROOT)
+            .filter((file) => file !== STATS_FILE)
+            .filter((file) =>
+                NOISE_THRESHOLD_PATTERN.test(readFileSync(file, 'utf8')),
+            );
+        expect(offenders).toEqual([]);
     });
 });

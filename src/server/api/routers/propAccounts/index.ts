@@ -11,6 +11,7 @@ import { propFeeRouter } from './fee';
 import { propFirmEngagementRouter } from './firmEngagement';
 import { propFirmStatementRouter } from './firmStatement';
 import { propPayoutRouter } from './payout';
+import { propReviewRouter } from './review';
 import { propRoundRouter } from './round';
 import { propRulebookRouter } from './rulebook';
 import { propScenarioRouter } from './scenario';
@@ -29,6 +30,7 @@ export const propAccountsRouter = createTRPCRouter({
     firmEngagement: propFirmEngagementRouter,
     firmStatement: propFirmStatementRouter,
     payout: propPayoutRouter,
+    review: propReviewRouter,
     round: propRoundRouter,
     rulebook: propRulebookRouter,
     scenario: propScenarioRouter,

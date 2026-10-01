@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { feeKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Button } from '~/components/ui/Button';
 import {
     Form,
@@ -50,7 +51,6 @@ import {
 import { feeCreateSchema } from '~/lib/schemas/propAccounts';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-import { feeKindLabel } from '../overview/overviewModel';
 import {
     type ListQuery,
     ListQueryStatus,

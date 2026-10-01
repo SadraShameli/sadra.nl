@@ -1,11 +1,10 @@
 import { type Metadata } from 'next';
 
+import PortfolioContent from '~/app/(app)/_components/Portfolio/Portfolio';
 import { isRoot } from '~/lib/auth/roles';
 import { getServerSession } from '~/lib/auth/server';
 import { portfolioContent, siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
-
-import PortfolioContent from '../_components/Portfolio/Portfolio';
 
 export const metadata: Metadata = {
     alternates: { canonical: routes.portfolio },

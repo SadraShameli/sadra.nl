@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { OAuthButtons } from '~/app/(auth)/_components/OAuthButtons';
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import {
     Card,
@@ -15,7 +16,6 @@ import { signupSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
-import { OAuthButtons } from '../_components/OAuthButtons';
 import { SignupForm } from './SignupForm';
 
 const errorMessages: Record<string, string> = {

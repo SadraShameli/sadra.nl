@@ -17,8 +17,7 @@ import {
     TradeifyVariant,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
-
-import { lockThresholdAt, planLabel } from '../shared';
+import { lockThresholdAt, planLabel } from '~/lib/prop-calculator/firms/shared';
 
 const PROFIT_TARGET_RATIO = 0.06;
 const LOCK_OFFSET = 100;

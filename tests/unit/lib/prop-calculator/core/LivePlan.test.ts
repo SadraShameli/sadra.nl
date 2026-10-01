@@ -15,6 +15,7 @@ import {
     LivePlan,
     type LivePlanInit,
     type LiveSeedReserve,
+    LockKeyedContractCapLivePlan,
     PayoutFloorEffect,
     ReserveLivePlan,
     TierBasis,
@@ -869,6 +870,85 @@ describe('LivePlan.maxContractsFor tier selection', () => {
         expect(
             plan.maxContractsFor(state, INSTRUMENTS[InstrumentSymbol.NQ]),
         ).toBe(2);
+    });
+});
+
+describe('LivePlan.liveContractLimitsFor', () => {
+    it('reports no cap for either family when the plan has no contract limits', () => {
+        const plan = new LivePlan(apexLikeInit());
+
+        expect(plan.liveContractLimitsFor(plan.initialState())).toEqual({
+            micros: null,
+            minis: null,
+        });
+    });
+
+    it('resolves the mini and micro caps together at the current state, matching maxContractsFor', () => {
+        const plan = new LivePlan(
+            apexLikeInit({
+                contractLimits: { micros: FLAT_TWENTY, minis: FLAT_TWO },
+            }),
+        );
+        const state = plan.initialState();
+
+        expect(plan.liveContractLimitsFor(state)).toEqual({
+            micros: 20,
+            minis: 2,
+        });
+        expect(plan.liveContractLimitsFor(state).minis).toBe(
+            plan.maxContractsFor(state, INSTRUMENTS[InstrumentSymbol.NQ]),
+        );
+        expect(plan.liveContractLimitsFor(state).micros).toBe(
+            plan.maxContractsFor(state, INSTRUMENTS[InstrumentSymbol.MNQ]),
+        );
+    });
+
+    it('follows a tiered mini cap by live profit above the starting balance', () => {
+        const tieredMinis = {
+            kind: ContractLimitKind.Tiered,
+            tiers: [
+                { maxContracts: contracts(2), minBalance: dollars(0) },
+                { maxContracts: contracts(4), minBalance: dollars(2000) },
+            ],
+        } as const;
+        const plan = new LivePlan(
+            apexLikeInit({
+                contractLimits: { micros: FLAT_TWENTY, minis: tieredMinis },
+                startingBalance: dollars(2000),
+            }),
+        );
+
+        expect(
+            plan.liveContractLimitsFor({
+                ...plan.initialState(),
+                balance: 3999,
+            }).minis,
+        ).toBe(2);
+        expect(
+            plan.liveContractLimitsFor({
+                ...plan.initialState(),
+                balance: 4000,
+            }).minis,
+        ).toBe(4);
+    });
+
+    it('respects a subclass override, reporting the locked caps once the threshold locks', () => {
+        const plan = new LockKeyedContractCapLivePlan({
+            ...apexLikeInit({
+                contractLimits: { micros: FLAT_TWENTY, minis: FLAT_TWO },
+            }),
+            lockedContractCaps: { micros: contracts(70), minis: contracts(7) },
+        });
+        const locked = {
+            ...plan.initialState(),
+            balance: 50_000,
+            thresholdLocked: true,
+        };
+
+        expect(plan.liveContractLimitsFor(locked)).toEqual({
+            micros: 70,
+            minis: 7,
+        });
     });
 });
 

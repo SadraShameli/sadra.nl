@@ -416,7 +416,10 @@ describe('RulebookView when the rulebook cannot be read', () => {
         });
 
         expect(harness.upsert).toHaveBeenCalledTimes(1);
-        expect(harness.upsert).toHaveBeenCalledWith(DEFAULT_RULEBOOK);
+        expect(harness.upsert).toHaveBeenCalledWith({
+            ...DEFAULT_RULEBOOK,
+            samples: { ...DEFAULT_RULEBOOK.samples, minEndedAccounts: null },
+        });
         expect(harness.toastSuccess).toHaveBeenCalledWith('Rulebook saved');
     });
 
@@ -726,7 +729,25 @@ describe('RulebookView v2 sections', () => {
                 lossRiskThreshold: 0.005,
             },
             liveTransfer: { hazardPerPaidPayoutByFirm: { mffu: 0.1 } },
-            samples: { ...DEFAULT_RULEBOOK.samples, minEvalAttempts: 50 },
+            samples: {
+                ...DEFAULT_RULEBOOK.samples,
+                minEndedAccounts: null,
+                minEvalAttempts: 50,
+            },
+        });
+    });
+
+    it('round-trips the ended-accounts threshold, saving a blank field as null', async () => {
+        expect(inputLabelled('Ended accounts before').value).toBe('');
+        expect(itemOf('Ended accounts before').textContent).toContain(
+            'funded-accounts threshold',
+        );
+        typeInto(inputLabelled('Ended accounts before'), '25');
+        await save();
+
+        expect(harness.upsert).toHaveBeenCalledWith({
+            ...DEFAULT_RULEBOOK,
+            samples: { ...DEFAULT_RULEBOOK.samples, minEndedAccounts: 25 },
         });
     });
 

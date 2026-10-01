@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+
 import {
     Table,
     TableBody,
@@ -43,27 +45,56 @@ export function FundedPayoutsCard({
                         <TableHead className="text-right">
                             Realized funded value
                         </TableHead>
+                        <TableHead className="text-right">
+                            Modeled funded value
+                        </TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {model.rows.map((row) => (
-                        <TableRow key={row.key}>
-                            <TableCell>{row.plan}</TableCell>
-                            {row.counts.map((count, index) => (
-                                <TableCell
-                                    className="text-right tabular-nums"
-                                    key={index}
-                                >
-                                    {count}
+                        <Fragment key={row.key}>
+                            <TableRow>
+                                <TableCell>{row.plan}</TableCell>
+                                {row.counts.map((count, index) => (
+                                    <TableCell
+                                        className="text-right tabular-nums"
+                                        key={index}
+                                    >
+                                        {count}
+                                    </TableCell>
+                                ))}
+                                <TableCell className="text-right tabular-nums">
+                                    {row.openAccounts}
                                 </TableCell>
-                            ))}
-                            <TableCell className="text-right tabular-nums">
-                                {row.openAccounts}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.realizedFundedValue}
-                            </TableCell>
-                        </TableRow>
+                                <TableCell className="text-right tabular-nums">
+                                    {row.realizedFundedValue}
+                                </TableCell>
+                                <TableCell className="text-right text-muted-foreground tabular-nums">
+                                    {row.modeledFundedValue}
+                                    {row.fundedValueFlag !== null && (
+                                        <span className="block text-xs text-amber-400">
+                                            {row.fundedValueFlag}
+                                        </span>
+                                    )}
+                                </TableCell>
+                            </TableRow>
+                            {row.modeledCounts !== null && (
+                                <TableRow className="text-muted-foreground">
+                                    <TableCell>{row.plan} (modeled share)</TableCell>
+                                    {row.modeledCounts.map((share, index) => (
+                                        <TableCell
+                                            className="text-right tabular-nums"
+                                            key={index}
+                                        >
+                                            {share}
+                                        </TableCell>
+                                    ))}
+                                    <TableCell />
+                                    <TableCell />
+                                    <TableCell />
+                                </TableRow>
+                            )}
+                        </Fragment>
                     ))}
                 </TableBody>
             </Table>

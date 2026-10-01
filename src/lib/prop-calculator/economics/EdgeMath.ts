@@ -1,4 +1,5 @@
-import { type Fraction0to1 } from '../core';
+import { type Fraction0to1 } from '~/lib/prop-calculator/core';
+
 import {
     MAX_WALK_CELLS,
     MAX_WALK_RATIO_DENOMINATOR,

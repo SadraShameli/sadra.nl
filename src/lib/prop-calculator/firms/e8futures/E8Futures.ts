@@ -20,8 +20,7 @@ import {
     TierBasis,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
-
-import { lockThresholdAt, planLabel } from '../shared';
+import { lockThresholdAt, planLabel } from '~/lib/prop-calculator/firms/shared';
 
 const SIZES = [
     {

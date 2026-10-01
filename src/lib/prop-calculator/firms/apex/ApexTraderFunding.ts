@@ -19,8 +19,7 @@ import {
     TierBasis,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
-
-import { lockThresholdAt, planLabel } from '../shared';
+import { lockThresholdAt, planLabel } from '~/lib/prop-calculator/firms/shared';
 
 const LOCK_OFFSET = 100;
 const PA_LEVEL_TIER_BASIS = TierBasis.SessionOpenProfit;

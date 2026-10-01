@@ -172,6 +172,47 @@ describe('payoutReadinessBoardOf', () => {
         ]);
     });
 
+    it('shows PayoutPending with the raw pending amount when a pending payout is the only thing blocking it', () => {
+        const plan = mffProPlan();
+        const funded = fundedReconstructed(plan, {
+            balance: plan.accountSize + 3000,
+            cumulativePayout: 0,
+            cycleBestDayProfit: 3000,
+            lastPayoutBalance: plan.accountSize,
+            payoutsIssued: 1,
+            pendingPayouts: 2500,
+        });
+        if (funded.fundedTracker === null) {
+            throw new Error('expected a funded tracker');
+        }
+        funded.fundedTracker.sessionDaysSinceAnchor = 999;
+        const board = payoutReadinessBoardOf(DEFAULT_RULEBOOK, [
+            reconstructedEntry('a1', plan, funded),
+        ]);
+        const [row] = board.rows;
+        if (row?.kind !== PayoutReadinessRowKind.Blocked) {
+            throw new Error(`expected blocked, got ${JSON.stringify(row)}`);
+        }
+        expect(row.reason.kind).toBe(PayoutBlockReasonKind.PayoutPending);
+        expect(row.pendingAmountCents).toBe(usdCentsFromDollars(2500));
+    });
+
+    it('carries no pending amount when blocked for another reason', () => {
+        const plan = mffProPlan();
+        const funded = fundedReconstructed(plan, {
+            balance: plan.accountSize + 20_000,
+        });
+        const board = payoutReadinessBoardOf(DEFAULT_RULEBOOK, [
+            reconstructedEntry('a1', plan, funded),
+        ]);
+        const [row] = board.rows;
+        if (row?.kind !== PayoutReadinessRowKind.Blocked) {
+            throw new Error(`expected blocked, got ${JSON.stringify(row)}`);
+        }
+        expect(row.reason.kind).not.toBe(PayoutBlockReasonKind.PayoutPending);
+        expect(row.pendingAmountCents).toBeNull();
+    });
+
     it('never returns an amount above the balance minus post-payout floor minus retained cushion', () => {
         const plan = mffProPlan();
         const funded = fundedReconstructed(plan, {

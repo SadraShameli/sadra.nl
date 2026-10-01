@@ -1,12 +1,11 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { GoalsView } from '~/app/(app)/lifting/_components/GoalsView';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { GoalsView } from '../_components/GoalsView';
 
 export const metadata: Metadata = {
     description: 'Set and track lifting goals.',

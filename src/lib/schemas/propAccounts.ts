@@ -48,6 +48,7 @@ export const MAX_ACCEPTED_RUNGS = 20;
 export const MAX_SCENARIO_NAME_LENGTH = 64;
 export const MAX_SCENARIO_QUERY_LENGTH = 8192;
 export const MAX_EVENT_LIST_YEARS = 3;
+export const MAX_CONFIRMED_EXCLUSIVITY_ACCOUNTS = 50;
 
 const CONTROL_CHARACTER = /\p{Cc}/u;
 const NOTE_LINE_CONTROL = /^[\t\n\r]$/u;
@@ -382,9 +383,7 @@ export const importAccountsSchema = z
     .min(1)
     .max(MAX_IMPORT_ROWS);
 
-export const snapshotCreateSchema = z.object({
-    accountId: idSchema,
-    asOf: accountDateSchema,
+const snapshotEntryValuesShape = {
     balanceAtLastPayoutCents: usdCentsSchema.nullable().default(null),
     balanceCents: usdCentsSchema,
     cumulativePayoutCents: nonNegativeUsdCentsSchema.nullable().default(null),
@@ -404,8 +403,14 @@ export const snapshotCreateSchema = z.object({
         .nullable()
         .default(null),
     qualifyingDaysSinceLastPayout: dayCountSchema.nullable().default(null),
-    source: z.enum(SnapshotSource),
     tradingDays: dayCountSchema.nullable().default(null),
+};
+
+export const snapshotCreateSchema = z.object({
+    accountId: idSchema,
+    asOf: accountDateSchema,
+    ...snapshotEntryValuesShape,
+    source: z.enum(SnapshotSource),
 });
 
 export const snapshotBulkCreateSchema = z
@@ -555,6 +560,10 @@ export const eventRecordSchema = z
     .strictObject({
         accountId: idSchema,
         bustCause: z.enum(BustCause).optional(),
+        confirmedExclusivityAccountIds: z
+            .array(idSchema)
+            .max(MAX_CONFIRMED_EXCLUSIVITY_ACCOUNTS)
+            .optional(),
         kind: z.enum(AccountEventKind).exclude(['Edited', 'Purchased']),
         note: eventNoteSchema.nullable().default(null),
         occurredOn: accountDateSchema,
@@ -569,6 +578,32 @@ export const eventRecordSchema = z
                 message: 'only a bust has a bust cause',
                 path: ['bustCause'],
             });
+        }
+        const confirmed = event.confirmedExclusivityAccountIds;
+        if (confirmed !== undefined) {
+            if (event.kind !== AccountEventKind.MovedLive) {
+                context.addIssue({
+                    code: 'custom',
+                    message:
+                        'only moving an account live can confirm effects on other accounts',
+                    path: ['confirmedExclusivityAccountIds'],
+                });
+            }
+            if (confirmed.includes(event.accountId)) {
+                context.addIssue({
+                    code: 'custom',
+                    message:
+                        'the account moving live cannot be one of the accounts it affects',
+                    path: ['confirmedExclusivityAccountIds'],
+                });
+            }
+            if (new Set(confirmed).size !== confirmed.length) {
+                context.addIssue({
+                    code: 'custom',
+                    message: 'each affected account can be confirmed once',
+                    path: ['confirmedExclusivityAccountIds'],
+                });
+            }
         }
         const requirement = EVENT_NOTE_REQUIREMENT[event.kind];
         if (
@@ -657,6 +692,55 @@ export const decisionRecordActualSchema = z.object({
     actualRiskCents: nonNegativeUsdCentsSchema,
     id: idSchema,
 });
+
+export const weeklyReviewSnapshotEntrySchema = z.object({
+    accountId: idSchema,
+    ...snapshotEntryValuesShape,
+});
+
+export const weeklyReviewDecisionEntrySchema = z.object({
+    acceptedRiskCents: nonNegativeUsdCentsSchema,
+    acceptedRungsCents: z.array(positiveUsdCentsSchema).max(MAX_ACCEPTED_RUNGS),
+    accountId: idSchema,
+    headlineRiskCents: nonNegativeUsdCentsSchema,
+    stage: z.enum(AccountStage),
+});
+
+export const weeklyReviewSubmitSchema = z
+    .object({
+        asOf: accountDateSchema,
+        decisions: z
+            .array(weeklyReviewDecisionEntrySchema)
+            .max(MAX_BULK_SNAPSHOTS),
+        snapshots: z
+            .array(weeklyReviewSnapshotEntrySchema)
+            .min(1)
+            .max(MAX_BULK_SNAPSHOTS),
+    })
+    .superRefine((payload, context) => {
+        const withSnapshot = new Set<string>();
+        for (const [index, snapshot] of payload.snapshots.entries()) {
+            if (withSnapshot.has(snapshot.accountId)) {
+                context.addIssue({
+                    code: 'custom',
+                    message:
+                        'one weekly review submits at most one snapshot per account',
+                    path: ['snapshots', index, 'accountId'],
+                });
+            }
+            withSnapshot.add(snapshot.accountId);
+        }
+        for (const [index, decision] of payload.decisions.entries()) {
+            if (!withSnapshot.has(decision.accountId)) {
+                context.addIssue({
+                    code: 'custom',
+                    message:
+                        'a decision needs a snapshot for the same account in this submission',
+                    path: ['decisions', index, 'accountId'],
+                });
+            }
+        }
+    });
 
 export const bankrollTransferCreateSchema = z.object({
     amountCents: positiveUsdCentsSchema,

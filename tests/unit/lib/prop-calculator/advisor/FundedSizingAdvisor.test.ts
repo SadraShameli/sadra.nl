@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     type AccountState,
+    dollars,
     findFirm,
     FirmId,
     type FundedCycleTracker,
@@ -19,6 +20,7 @@ import {
     DEFAULT_RULEBOOK,
     DifferenceReason,
     FundedSizingAdvisor,
+    NextTradeRiskVerdict,
     PayoutSizeSweepResultKind,
     type ReconstructedFundedOrEvalAccount,
     runEngineOptimum,
@@ -26,6 +28,13 @@ import {
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
+
+const ZERO_DAY = {
+    dayPnL: dollars(0),
+    losses: 0,
+    runningLoss: dollars(0),
+    wins: 0,
+};
 
 const TOPSTEP_STANDARD_ID: PlanId = {
     accountSize: 50_000,
@@ -347,5 +356,112 @@ describe('FundedSizingAdvisor: PT-32 from-state sweep, payout-size sweep', () =>
                 (reason) => reason.kind === DifferenceReason.PayoutPolicyDiffers,
             ),
         ).toBe(isWinnerDiffers);
+    });
+});
+
+describe('FundedSizingAdvisor.checkNextTradeRisk (PT-24b)', () => {
+    it('checks the same rung the daily plan card starts with', () => {
+        const advisor = advisorAt(account());
+        const documentedRung = DEFAULT_RULEBOOK.funded.riskCents / 100;
+
+        const result = advisor.checkNextTradeRisk(
+            dollars(documentedRung),
+            ZERO_DAY,
+        );
+
+        expect(result).not.toBeNull();
+        expect(result?.verdict).toBe(NextTradeRiskVerdict.WithinPlan);
+        expect(result?.documentedRung).toBe(
+            advisor.dailyPlanCard()?.rungs[0]?.risk,
+        );
+    });
+
+    it('is AboveDocumented with the excess in cents above the documented rung', () => {
+        const advisor = advisorAt(account());
+        const documentedRung = DEFAULT_RULEBOOK.funded.riskCents / 100;
+
+        const result = advisor.checkNextTradeRisk(
+            dollars(documentedRung + 50),
+            ZERO_DAY,
+        );
+
+        expect(result?.verdict).toBe(NextTradeRiskVerdict.AboveDocumented);
+        expect(result?.excessCents).toBe(5000);
+    });
+
+    it('flags payoutEligibleAboveRung when the account is payout-eligible', () => {
+        const seedState = accountState({
+            qualifyingDays: 0,
+            startingBalance: 50_000,
+        });
+        const fundedTracker = tracker(seedState);
+        const state = accountState({
+            balance: 60_000,
+            qualifyingDays: 9999,
+            startingBalance: 50_000,
+            tradingDays: 9999,
+        });
+        const advisor = new FundedSizingAdvisor({
+            account: {
+                assumptions: [],
+                contractLimit: null,
+                cushion: state.balance - state.threshold,
+                fundedTracker,
+                kind: TradingPhase.Funded,
+                plan,
+                resolvedDailyLossLimit: null,
+                state,
+            },
+            fundedHorizonDays: 252,
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-09-26',
+            today: '2026-09-26',
+        });
+        const documentedRung = DEFAULT_RULEBOOK.funded.riskCents / 100;
+
+        const result = advisor.checkNextTradeRisk(
+            dollars(documentedRung + 50),
+            ZERO_DAY,
+        );
+
+        expect(result?.verdict).toBe(NextTradeRiskVerdict.AboveDocumented);
+        expect(result?.payoutEligibleAboveRung).toBe(true);
+    });
+
+    it('is null while advice is stale', () => {
+        const advisor = new FundedSizingAdvisor({
+            account: account(),
+            fundedHorizonDays: 252,
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-01-01',
+            today: '2026-09-26',
+        });
+
+        expect(advisor.checkNextTradeRisk(dollars(250), ZERO_DAY)).toBeNull();
+    });
+
+    it('never reports WithinPlan or AboveDp for a proposed risk once the day is already stopped (review CRITICAL)', () => {
+        const advisor = advisorAt(account());
+        const rungs = advisor.dailyPlanCard()?.rungs ?? [];
+        if (rungs.length === 0) {
+            throw new Error('expected at least one rung in this fixture');
+        }
+        const lastRung = rungs.at(-1);
+        if (lastRung === undefined) throw new Error('expected a last rung');
+        const runningLossAfter: number = lastRung.runningLossAfter;
+        const stoppedDay = {
+            dayPnL: dollars(-runningLossAfter),
+            losses: rungs.length,
+            runningLoss: lastRung.runningLossAfter,
+            wins: 0,
+        };
+
+        const result = advisor.checkNextTradeRisk(dollars(10_000), stoppedDay);
+
+        expect(result).not.toBeNull();
+        expect(result?.verdict).not.toBe(NextTradeRiskVerdict.WithinPlan);
+        expect(result?.verdict).not.toBe(NextTradeRiskVerdict.AboveDp);
+        expect(result?.verdict).toBe(NextTradeRiskVerdict.AboveDocumented);
+        expect(result?.excessCents).toBe(1_000_000);
     });
 });

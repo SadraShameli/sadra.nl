@@ -4,7 +4,8 @@ import {
     dollars,
     floorToWholeCents,
     ONE_CENT,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import {
     assertEvalMode,
     FlatRiskRule,

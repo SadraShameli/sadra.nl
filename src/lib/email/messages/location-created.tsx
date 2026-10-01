@@ -1,8 +1,8 @@
 import { Heading, Text } from '@react-email/components';
 import { render } from '@react-email/render';
 
-import { EmailMessage } from '../message';
-import { BaseEmail } from '../templates/base';
+import { EmailMessage } from '~/lib/email/message';
+import { BaseEmail } from '~/lib/email/templates/base';
 
 interface LocationCreatedTemplateProperties {
     locationId: number;

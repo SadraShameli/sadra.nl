@@ -5,14 +5,17 @@ import {
     dollars,
     type Dollars,
     type InstrumentSymbol,
+    type LadderGridConfig,
+    ladderGridSize,
     MAX_LADDER_GRID_SIZE,
     ONE_CENT,
     oneContractRisk,
     resolvePositionSizing,
     RungSizing,
     TradingPhase,
-} from '../core';
-import { firmDataProvenance } from '../describe';
+} from '~/lib/prop-calculator/core';
+import { firmDataProvenance } from '~/lib/prop-calculator/describe';
+
 import { type Advice } from './Advice';
 import { adviceProvenance } from './AdviceProvenance';
 import { AdviceSource } from './AdviceSource';
@@ -22,6 +25,10 @@ import {
     type PlanRulesFingerprintCheck,
 } from './AdviceStaleness';
 import { createDocumentedRule } from './createDocumentedRule';
+import {
+    DifferenceReason,
+    type DifferenceReasonDetail,
+} from './DifferenceReason';
 import { NO_COMMISSION } from './DocumentedSizing';
 import {
     type EngineLadderScoreConfig,
@@ -75,6 +82,21 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
         this.input = input;
     }
 
+    private differenceReasons(): readonly DifferenceReasonDetail[] {
+        const { resolvedDailyLossLimit } = this.input.account;
+        return [
+            { kind: DifferenceReason.ObjectiveSpeedVsMonthlyNet },
+            ...(resolvedDailyLossLimit === null
+                ? []
+                : [
+                      {
+                          dailyLossLimit: dollars(resolvedDailyLossLimit),
+                          kind: DifferenceReason.DailyLossCap,
+                      } as const,
+                  ]),
+        ];
+    }
+
     private placeableMinimum(): Dollars {
         const { positionSizing } = this.input;
         if (positionSizing) {
@@ -98,7 +120,7 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
         return {
             assumptions: account.assumptions,
             dailyPlanCard: this.dailyPlanCard(),
-            differenceReasons: [],
+            differenceReasons: this.differenceReasons(),
             documented,
             headline: documentedRuleLabel(rulebookDeviation(this.rulebook)),
             optima: results,
@@ -166,12 +188,7 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
         };
         return [
             {
-                grid: {
-                    lo: EVAL_LADDER_GRID_LO,
-                    max: defaultLadderGridMax(account.cushion),
-                    slots: EVAL_LADDER_GRID_SLOTS,
-                    step: EVAL_LADDER_GRID_STEP,
-                },
+                grid: evalLadderGrid(account.cushion),
                 maxGridSize: EVAL_LADDER_MAX_GRID_SIZE,
                 score,
                 seed: seed ?? EVAL_LADDER_DEFAULT_SEED,
@@ -209,4 +226,29 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
 
 function elapsedDaysOf(account: { readonly state: AccountState }): number {
     return account.state.elapsedDays ?? 0;
+}
+
+function evalLadderGrid(cushion: number): LadderGridConfig {
+    const span =
+        Math.max(EVAL_LADDER_GRID_LO, defaultLadderGridMax(cushion)) -
+        EVAL_LADDER_GRID_LO;
+    const baseRungCount = Math.floor(span / EVAL_LADDER_GRID_STEP) + 1;
+    let grid = gridWithRungCount(baseRungCount, EVAL_LADDER_GRID_STEP);
+    for (
+        let rungCount = baseRungCount - 1;
+        ladderGridSize(grid) > EVAL_LADDER_MAX_GRID_SIZE && rungCount >= 2;
+        rungCount--
+    ) {
+        grid = gridWithRungCount(rungCount, Math.ceil(span / (rungCount - 1)));
+    }
+    return grid;
+}
+
+function gridWithRungCount(rungCount: number, step: number): LadderGridConfig {
+    return {
+        lo: EVAL_LADDER_GRID_LO,
+        max: EVAL_LADDER_GRID_LO + (rungCount - 1) * step,
+        slots: EVAL_LADDER_GRID_SLOTS,
+        step,
+    };
 }

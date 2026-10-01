@@ -49,6 +49,24 @@ describe('differenceReasonText (F-124, PD-32 sentinel test)', () => {
         expect(digitsOf(text)).toBe('123456725');
     });
 
+    it('builds the CeilingCap text only from the typed ceiling field (PT-36b F-154)', () => {
+        const text = differenceReasonText({
+            ceiling: dollars(9950.5),
+            kind: DifferenceReason.CeilingCap,
+        });
+        expect(digitsOf(text)).toBe('995050');
+    });
+
+    it('pins the WouldTriggerLive text on today\'s string-only trigger field (PT-36b: not typed numeric fields; PayoutRequestRule/PayoutReadiness carry the numbers separately)', () => {
+        const text = differenceReasonText({
+            kind: DifferenceReason.WouldTriggerLive,
+            trigger: '2 of 3 payouts taken',
+        });
+        expect(text).toBe(
+            'This would trigger a live-account transition: 2 of 3 payouts taken',
+        );
+    });
+
     it('reports the DpNotValidated cause including SolveCapReached', () => {
         const text = differenceReasonText({
             cause: DpNotValidatedCause.SolveCapReached,

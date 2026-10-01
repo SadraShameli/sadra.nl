@@ -1,5 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { toast } from 'sonner';
 import {
     afterEach,
     beforeEach,
@@ -309,6 +310,12 @@ describe('the account form round picker (PT-58a3)', () => {
         );
     });
 
+    it('disables picking a closed round from the select', () => {
+        const round = fieldScope(container, 'Round');
+        expect(optionOf(round, OPEN_ROUND_ID).disabled).toBe(false);
+        expect(optionOf(round, CLOSED_ROUND_ID).disabled).toBe(true);
+    });
+
     it('saves the picked round through account.create', async () => {
         chooseSelectValue(fieldScope(container, 'Round'), OPEN_ROUND_ID);
         skipSnapshot();
@@ -350,5 +357,60 @@ describe('the account form round picker (PT-58a3)', () => {
         expect(
             harness.mutateAsyncOf('propAccounts.account.update'),
         ).toHaveBeenCalledWith(expect.objectContaining({ roundId: null }));
+    });
+
+    it('defaults overrideRoundBudget to false through account.create', async () => {
+        chooseSelectValue(fieldScope(container, 'Round'), OPEN_ROUND_ID);
+        skipSnapshot();
+        await submitForm(container);
+        expect(
+            harness.mutateAsyncOf('propAccounts.account.create'),
+        ).toHaveBeenCalledWith(
+            expect.objectContaining({ overrideRoundBudget: false }),
+        );
+    });
+
+    it('sends overrideRoundBudget true only once its checkbox is checked', async () => {
+        chooseSelectValue(fieldScope(container, 'Round'), OPEN_ROUND_ID);
+        act(() => {
+            element(container, '#account-override-round-budget').click();
+        });
+        skipSnapshot();
+        await submitForm(container);
+        expect(
+            harness.mutateAsyncOf('propAccounts.account.create'),
+        ).toHaveBeenCalledWith(
+            expect.objectContaining({ overrideRoundBudget: true }),
+        );
+    });
+
+    it('shows the server refusal when the round is over budget, and saves once overridden', async () => {
+        chooseSelectValue(fieldScope(container, 'Round'), OPEN_ROUND_ID);
+        skipSnapshot();
+        harness
+            .mutateAsyncOf('propAccounts.account.create')
+            .mockRejectedValueOnce(
+                new Error(
+                    'Round "Q1 push" has already spent $1,000 of its $1,000 budget; set overrideRoundBudget to add another account anyway',
+                ),
+            );
+        await submitForm(container);
+        expect(toast.error).toHaveBeenCalledWith(
+            expect.stringContaining(
+                'set overrideRoundBudget to add another account anyway',
+            ),
+        );
+        act(() => {
+            element(container, '#account-override-round-budget').click();
+        });
+        await submitForm(container);
+        expect(
+            harness.mutateAsyncOf('propAccounts.account.create'),
+        ).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                overrideRoundBudget: true,
+                roundId: OPEN_ROUND_ID,
+            }),
+        );
     });
 });

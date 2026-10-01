@@ -3,14 +3,13 @@ import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
+import { JournalView } from '~/app/(app)/trade-checklist/_components/JournalView';
 import { getServerSession } from '~/lib/auth/server';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
 import { routes } from '~/lib/site/routes';
 import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
-
-import { JournalView } from '../_components/JournalView';
 
 export const metadata: Metadata = {
     description:

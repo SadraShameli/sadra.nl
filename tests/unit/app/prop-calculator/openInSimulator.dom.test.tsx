@@ -30,7 +30,11 @@ import {
     type OpenInSimulator,
     useOpenInSimulator,
 } from '~/app/(app)/prop-calculator/_components/useOpenInSimulator';
-import { findFirm, type FirmId, serializePlanId } from '~/lib/prop-calculator';
+import {
+    findFirm,
+    parseFirmId,
+    serializePlanId,
+} from '~/lib/prop-calculator';
 import { routes } from '~/lib/site/routes';
 
 enum ComparisonTable {
@@ -240,7 +244,8 @@ describe('Open in the simulator from a comparison table', () => {
                 ORIGIN,
             );
             expect(pushed.pathname).toBe(routes.propCalculator.simulator);
-            const firm = findFirm(pushed.searchParams.get('firm') as FirmId);
+            const firmId = parseFirmId(pushed.searchParams.get('firm') ?? '');
+            const firm = firmId === undefined ? undefined : findFirm(firmId);
             const plan = firm?.findPlanBySerial(
                 pushed.searchParams.get('plan') ?? '',
             );

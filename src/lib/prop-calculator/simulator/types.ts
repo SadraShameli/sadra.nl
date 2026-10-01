@@ -1,28 +1,29 @@
-import { type AccountState } from '../core/AccountState';
-import { type DatedCharge } from '../core/DatedCharge';
+import { type AccountState } from '~/lib/prop-calculator/core/AccountState';
+import { type DatedCharge } from '~/lib/prop-calculator/core/DatedCharge';
 import {
     type DayPolicy,
     type DayStopRule,
     type FundedCycleSnapshot,
     type RungSizing,
-} from '../core/DayPolicy';
-import { type CouponDiscounts } from '../core/FeeSchedule';
+} from '~/lib/prop-calculator/core/DayPolicy';
+import { type CouponDiscounts } from '~/lib/prop-calculator/core/FeeSchedule';
 import {
     type FundedCycleSeed,
     type FundedCycleTracker,
-} from '../core/FundedPayoutCycle';
-import { type InstrumentSymbol } from '../core/Instruments';
-import { type Dollars, type Fraction0to1 } from '../core/lib/units';
-import { type LiveAccountState } from '../core/LiveAccountState';
-import { type LivePlan } from '../core/LivePlan';
-import { type PayoutRequestPolicy } from '../core/PayoutRequestPolicy';
-import { type Plan } from '../core/Plan';
-import { type PositionSizingConfig } from '../core/PositionSizing';
-import { type ReplacementInputs } from '../core/Replacement';
-import { type Roi } from '../core/Roi';
-import { type TradingPhase } from '../core/TradingPhase';
-import { type Rng } from '../rng';
-import { type Estimate, type UncertainValue } from '../stats';
+} from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { type InstrumentSymbol } from '~/lib/prop-calculator/core/Instruments';
+import { type Dollars, type Fraction0to1 } from '~/lib/prop-calculator/core/lib/units';
+import { type LiveAccountState } from '~/lib/prop-calculator/core/LiveAccountState';
+import { type LivePlan } from '~/lib/prop-calculator/core/LivePlan';
+import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core/PayoutRequestPolicy';
+import { type Plan } from '~/lib/prop-calculator/core/Plan';
+import { type PositionSizingConfig } from '~/lib/prop-calculator/core/PositionSizing';
+import { type ReplacementInputs } from '~/lib/prop-calculator/core/Replacement';
+import { type Roi } from '~/lib/prop-calculator/core/Roi';
+import { type TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+import { type Rng } from '~/lib/prop-calculator/rng';
+import { type Estimate, type UncertainValue } from '~/lib/prop-calculator/stats';
+
 import {
     type LossStreak,
     type PhaseStats,
@@ -190,6 +191,7 @@ export interface FundedDayStepOptions {
     state: AccountState;
     stats: PhaseStats;
     tracker: FundedCycleTracker;
+    tradeRng?: (tradeIndex: number) => Rng;
     winrate: Fraction0to1;
 }
 
@@ -506,6 +508,7 @@ interface DayRunCommonOptions {
     rungSizing: RungSizing;
     state: AccountState;
     stats: PhaseStats;
+    tradeRng?: (tradeIndex: number) => Rng;
     winrate: Fraction0to1;
 }
 

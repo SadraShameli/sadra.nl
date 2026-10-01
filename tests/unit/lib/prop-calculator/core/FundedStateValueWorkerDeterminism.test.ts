@@ -53,6 +53,7 @@ const TOP_STEP_PARITY_CONFIG = {
     evalInitialValue: 0,
     feePerAttempt: dollars(0),
     maxActionMultiple: 1,
+    maxTailCushionMultiple: 6,
     meanHorizonDays: 100,
     payoutRegimeCap: 1,
     rrRatio: 2,
@@ -66,7 +67,7 @@ function topStepRegistryPlan() {
     return plan;
 }
 
-describe('funded DP worker dispatch is deterministic (N-70)', () => {
+describe('funded DP worker dispatch is deterministic (N-70; WP58d: the cushion tail is pinned off at the 6 drawdown fine top, because the real TopStep plan solve ran about 9x slower, 10.5 s to 96 s per file, with the default 30 drawdown tail and this suite studies worker determinism, not the grid)', () => {
     it('gives the same TopStep regime-1 value on every worker solve, bit for bit equal to the single-threaded solve', async () => {
         await warmFirmsRegistryCache();
         const plan = topStepRegistryPlan();

@@ -1,4 +1,5 @@
-import { CENTS_PER_DOLLAR, DayStopRuleKind, dollars } from '../core';
+import { CENTS_PER_DOLLAR, DayStopRuleKind, dollars } from '~/lib/prop-calculator/core';
+
 import { FlatRiskRule, SHARED_ASSUMPTIONS } from './DocumentedRule';
 import {
     DailyProfitCapKind,

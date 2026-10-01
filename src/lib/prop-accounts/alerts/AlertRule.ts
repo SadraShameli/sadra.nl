@@ -1,4 +1,5 @@
-import { IsoDateError } from '../core';
+import { IsoDateError } from '~/lib/prop-accounts/core';
+
 import {
     type AccountAlert,
     type AlertDisclosure,

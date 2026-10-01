@@ -11,6 +11,7 @@ import {
     type PayoutSizeSweepRequest,
     PayoutSizeSweepResultKind,
     runPayoutSizeSweep,
+    StartBasis,
     toSimInputs,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -212,14 +213,62 @@ describe('runPayoutSizeSweep (PT-32)', () => {
         );
     });
 
-    it('leaves the personal override warning null exactly within the 2-combined-SE safe band', () => {
+    it('leaves the personal override warning null when the override matches the winner exactly', () => {
         const plan = rapidEodPlan();
-        const request: PayoutSizeSweepRequest = {
-            personalOverrideRequest: 1500,
+        const baseline = runPayoutSizeSweep(plan, {
             source: AdviceSource.PayoutSizeSweep,
             spec: specFor(plan, { trials: 400 }),
-        };
-        const result = runPayoutSizeSweep(plan, request);
+        });
+        if (baseline.kind !== PayoutSizeSweepResultKind.Optimum) {
+            throw new Error('expected an optimum');
+        }
+        const winnerSize = baseline.optimum.winner.requestSize;
+        const result = runPayoutSizeSweep(plan, {
+            personalOverrideRequest: winnerSize,
+            source: AdviceSource.PayoutSizeSweep,
+            spec: specFor(plan, { trials: 400 }),
+        });
+        if (result.kind !== PayoutSizeSweepResultKind.Optimum) {
+            throw new Error('expected an optimum');
+        }
+        expect(result.optimum.personalOverride?.row.requestSize).toBe(
+            winnerSize,
+        );
+        expect(result.optimum.personalOverride?.warning).toBeNull();
+    });
+
+    it('warns on a personal override far enough from the winner that no defensible noise band would hide it', () => {
+        const plan = rapidEodPlan();
+        const highTrialSpec = specFor(plan, { trials: 3000 });
+        const baseline = runPayoutSizeSweep(plan, {
+            source: AdviceSource.PayoutSizeSweep,
+            spec: highTrialSpec,
+        });
+        if (baseline.kind !== PayoutSizeSweepResultKind.Optimum) {
+            throw new Error('expected an optimum');
+        }
+        const winnerSize = baseline.optimum.winner.requestSize;
+        const gridExtremes = [
+            PAYOUT_SIZE_SWEEP_GRID[0],
+            PAYOUT_SIZE_SWEEP_GRID.at(-1),
+        ];
+        const farthestExtreme = gridExtremes.reduce((farthest, candidate) =>
+            candidate !== undefined &&
+            (farthest === undefined ||
+                Math.abs(candidate - winnerSize) >
+                    Math.abs(farthest - winnerSize))
+                ? candidate
+                : farthest,
+        );
+        if (farthestExtreme === undefined) {
+            throw new Error('expected a grid extreme');
+        }
+
+        const result = runPayoutSizeSweep(plan, {
+            personalOverrideRequest: farthestExtreme,
+            source: AdviceSource.PayoutSizeSweep,
+            spec: highTrialSpec,
+        });
         if (result.kind !== PayoutSizeSweepResultKind.Optimum) {
             throw new Error('expected an optimum');
         }
@@ -227,32 +276,30 @@ describe('runPayoutSizeSweep (PT-32)', () => {
         if (!override) throw new Error('expected a personal override result');
         const overrideRow = override.row;
         const winner = result.optimum.winner;
-        if (overrideRow.kind !== StartBasis.Fresh || winner.kind !== StartBasis.Fresh) {
+        if (
+            overrideRow.kind !== StartBasis.Fresh ||
+            winner.kind !== StartBasis.Fresh
+        ) {
             throw new Error('expected fresh rows');
         }
-        const overrideSe = overrideRow.out.estimates.expectedMonthlyNet.standardError;
-        const winnerSe = winner.out.estimates.expectedMonthlyNet.standardError;
-        const threshold = 2 * Math.hypot(overrideSe, winnerSe);
-        const isMonthlyWithinBand =
-            Math.abs(
-                overrideRow.out.expectedMonthlyNet - winner.out.expectedMonthlyNet,
-            ) <= threshold;
-        const isBustNotWorse =
-            overrideRow.out.fundedBustProbability <=
-                winner.out.fundedBustProbability ||
-            Math.abs(
-                overrideRow.out.fundedBustProbability -
-                    winner.out.fundedBustProbability,
-            ) <=
-                2 *
-                    Math.hypot(
-                        overrideRow.out.estimates.fundedBustProbability
-                            .standardError,
-                        winner.out.estimates.fundedBustProbability
-                            .standardError,
-                    );
-        expect(override.warning === null).toBe(
-            isMonthlyWithinBand && isBustNotWorse,
+        expect(overrideRow.requestSize).not.toBe(winner.requestSize);
+        expect(override.warning).toStrictEqual({
+            optimumBustProbability: winner.out.fundedBustProbability,
+            optimumMonthlyNet: winner.out.expectedMonthlyNet,
+            overrideBustProbability: overrideRow.out.fundedBustProbability,
+            overrideMonthlyNet: overrideRow.out.expectedMonthlyNet,
+        });
+    });
+
+    it('propagates a non-refusal error instead of masking it as a no-optimum result', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+        const request: PayoutSizeSweepRequest = {
+            source: AdviceSource.PayoutSizeSweep,
+            spec: { ...spec, planSerial: 'not-a-real-plan-serial' },
+        };
+        expect(() => runPayoutSizeSweep(plan, request)).toThrow(
+            'the documented policy spec is for plan not-a-real-plan-serial',
         );
     });
 

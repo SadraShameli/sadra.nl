@@ -13,6 +13,7 @@ import {
 } from '~/lib/prop-calculator';
 
 import {
+    evalReconstructed,
     fundedReconstructed,
     liveReconstructed,
     mffProPlan,
@@ -71,6 +72,112 @@ describe('TierChangeRule', () => {
         expect(alerts).toHaveLength(1);
         expect(alerts[0]?.kind).toBe(AlertKind.TierChange);
         expect(alerts[0]?.severity).toBe(AlertSeverity.Info);
+    });
+
+    it('fires Info and names the daily loss limit when only it changes for a funded account', () => {
+        const plan = mffProPlan();
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Funded },
+        );
+        const previous = { ...fundedReconstructed(plan), resolvedDailyLossLimit: 2000 };
+        const latest = { ...fundedReconstructed(plan), resolvedDailyLossLimit: 3000 };
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [
+                reconstructedEntry(account.id, plan, latest, { previous }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.message).toContain('the daily loss limit');
+        expect(alerts[0]?.message).toContain('$2,000 to $3,000');
+    });
+
+    it('fires Info and names the mini contract limit when only it changes for a funded account', () => {
+        const plan = mffProPlan();
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Funded },
+        );
+        const previous = { ...fundedReconstructed(plan), contractLimit: 5 };
+        const latest = { ...fundedReconstructed(plan), contractLimit: 10 };
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [
+                reconstructedEntry(account.id, plan, latest, { previous }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.message).toContain('the mini contract limit');
+        expect(alerts[0]?.message).toContain('5 to 10');
+    });
+
+    it('fires Info and joins all three changed fields without an Oxford comma when the DLL and both contract limits change together', () => {
+        const plan = mffProPlan();
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Funded },
+        );
+        const previous = {
+            ...fundedReconstructed(plan),
+            contractLimit: 5,
+            microContractLimit: 5,
+            resolvedDailyLossLimit: 2000,
+        };
+        const latest = {
+            ...fundedReconstructed(plan),
+            contractLimit: 10,
+            microContractLimit: 10,
+            resolvedDailyLossLimit: 3000,
+        };
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [
+                reconstructedEntry(account.id, plan, latest, { previous }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.message).toBe(
+            'Since the previous snapshot, the daily loss limit ($2,000 to $3,000), the mini contract limit (5 to 10) and the micro contract limit (5 to 10) changed',
+        );
+    });
+
+    it('fires Info and names the micro contract limit when only it changes for a funded account', () => {
+        const plan = mffProPlan();
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Funded },
+        );
+        const previous = { ...fundedReconstructed(plan), microContractLimit: 5 };
+        const latest = { ...fundedReconstructed(plan), microContractLimit: 10 };
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [
+                reconstructedEntry(account.id, plan, latest, { previous }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.message).toContain('the micro contract limit');
+        expect(alerts[0]?.message).toContain('5 to 10');
+    });
+
+    it('fires Info and names the micro contract limit when only it changes for an eval account', () => {
+        const plan = mffProPlan();
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Eval },
+        );
+        const previous = { ...evalReconstructed(plan), microContractLimit: 30 };
+        const latest = { ...evalReconstructed(plan), microContractLimit: 40 };
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [
+                reconstructedEntry(account.id, plan, latest, { previous }),
+            ],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.message).toContain('the micro contract limit');
+        expect(alerts[0]?.message).toContain('30 to 40');
     });
 
     it('fires Info for a live account whose contract tier moves with profit', () => {

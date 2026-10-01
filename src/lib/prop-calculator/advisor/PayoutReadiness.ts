@@ -18,11 +18,13 @@ import {
     requiredDayGateDays,
     SESSION_DAYS_PER_CALENDAR_WEEK,
     sessionDaysForCalendarDays,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import {
     type PayoutBlockReason,
     payoutBlockReasonFromGate,
     payoutPendingBlockReason,
+    wouldTriggerLiveBlockReason,
 } from './PayoutBlockReason';
 
 export const DEFAULT_PAYOUT_REQUEST_SIZE = dollars(500);
@@ -61,6 +63,12 @@ export interface EligiblePayoutReadiness {
     readonly kind: PayoutReadinessKind.Eligible;
     readonly requestedAmount: number;
     readonly traderReceives: number;
+}
+
+export interface LiveTriggerCountLimit {
+    readonly firmTotalCap: null | number;
+    readonly paidPayoutsSinceLastLiveAccount: null | number;
+    readonly perAccountCap: null | number;
 }
 
 export interface NoClosedFormWait {
@@ -102,6 +110,7 @@ export interface QualifyingDaysWait {
 }
 
 interface PayoutReadinessCommonOptions {
+    readonly liveTrigger?: LiveTriggerCountLimit;
     readonly minRetainedCushion: number;
     readonly payoutRequestSize?: number | undefined;
 }
@@ -147,6 +156,33 @@ export function dayGateProgressOf(
             };
         }
     }
+}
+
+export function liveTriggerBlockReasonFor(
+    payoutsIssued: number,
+    limit: LiveTriggerCountLimit | undefined,
+): null | PayoutBlockReason {
+    if (limit === undefined) return null;
+    if (
+        limit.perAccountCap !== null &&
+        payoutsIssued + 1 >= limit.perAccountCap
+    ) {
+        return wouldTriggerLiveBlockReason({
+            paidPayoutsSinceLastLiveAccount: payoutsIssued,
+            triggerAtPayoutCount: limit.perAccountCap,
+        });
+    }
+    if (
+        limit.firmTotalCap !== null &&
+        limit.paidPayoutsSinceLastLiveAccount !== null &&
+        limit.paidPayoutsSinceLastLiveAccount + 1 >= limit.firmTotalCap
+    ) {
+        return wouldTriggerLiveBlockReason({
+            paidPayoutsSinceLastLiveAccount: limit.paidPayoutsSinceLastLiveAccount,
+            triggerAtPayoutCount: limit.firmTotalCap,
+        });
+    }
+    return null;
 }
 
 export function payoutPath(
@@ -339,6 +375,13 @@ export function payoutReadiness(
             };
         }
         case PayoutEvaluationKind.Eligible: {
+            const liveTriggerReason = liveTriggerBlockReasonFor(
+                tracker.payoutsIssued,
+                options.liveTrigger,
+            );
+            if (liveTriggerReason !== null) {
+                return { kind: PayoutReadinessKind.Blocked, reason: liveTriggerReason, wait: null };
+            }
             return {
                 kind: PayoutReadinessKind.Eligible,
                 requestedAmount: evaluation.debited,

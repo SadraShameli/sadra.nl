@@ -53,6 +53,21 @@ export function AttemptEconomicsCard({
                             Realized EV per attempt
                         </TableHead>
                         <TableHead className="text-right">
+                            Modeled EV per attempt
+                        </TableHead>
+                        <TableHead className="text-right">
+                            Modeled pass rate
+                        </TableHead>
+                        <TableHead className="text-right">
+                            Modeled payout rate
+                        </TableHead>
+                        <TableHead className="text-right">
+                            Modeled payouts per paid funded
+                        </TableHead>
+                        <TableHead className="text-right">
+                            Modeled funded value
+                        </TableHead>
+                        <TableHead className="text-right">
                             Margin above breakeven
                         </TableHead>
                     </TableRow>
@@ -88,6 +103,21 @@ export function AttemptEconomicsCard({
                             <TableCell className="text-right tabular-nums">
                                 {row.realizedEvPerAttempt}
                             </TableCell>
+                            <TableCell className="text-right text-muted-foreground tabular-nums">
+                                {row.modeledEvPerAttempt}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground tabular-nums">
+                                {row.modeledPassRate}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground tabular-nums">
+                                {row.modeledPayoutRate}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground tabular-nums">
+                                {row.modeledPayoutsPerPaidFunded}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground tabular-nums">
+                                {row.modeledFundedValue}
+                            </TableCell>
                             <TableCell className="text-right tabular-nums">
                                 {row.marginAboveBreakeven}
                             </TableCell>
@@ -97,6 +127,10 @@ export function AttemptEconomicsCard({
             </Table>
             <p className="text-xs text-muted-foreground">
                 Realized EV per attempt: ignores time.
+            </p>
+            <p className="text-xs text-muted-foreground">
+                Modeled EV per attempt: the engine&apos;s credit-free net per
+                attempt; it ignores time and is not the ranking objective.
             </p>
             <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {model.disclosures.map((disclosure) => (

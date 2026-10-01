@@ -1,16 +1,34 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    scaleGateFromLedger,
     type ScaleGateInputs,
     scaleGateOf,
     ScaleGateStatus,
     ScaleGateUnmetCondition,
 } from '~/lib/prop-accounts/bankroll';
-import { usdCents } from '~/lib/prop-accounts/core';
+import {
+    AccountEventKind,
+    AccountStage,
+    AccountTracking,
+    FeeKind,
+    usdCents,
+} from '~/lib/prop-accounts/core';
 import { type SampleThresholds } from '~/lib/prop-calculator/advisor';
+
+import {
+    account,
+    EVAL_PLAN,
+    event,
+    fee,
+    ledger,
+    payout,
+    purchased,
+} from '../metrics/ledgerFixtures';
 
 const NO_THRESHOLDS: SampleThresholds = {
     minClosedRounds: null,
+    minEndedAccounts: null,
     minEvalAttempts: null,
     minFundedAccounts: null,
     minTrades: null,
@@ -18,6 +36,7 @@ const NO_THRESHOLDS: SampleThresholds = {
 
 const THRESHOLDS: SampleThresholds = {
     minClosedRounds: null,
+    minEndedAccounts: null,
     minEvalAttempts: 5,
     minFundedAccounts: 2,
     minTrades: 30,
@@ -79,6 +98,7 @@ describe('scaleGateOf', () => {
     it('never lets a first payout alone pass, even with trivial thresholds', () => {
         const trivialThresholds: SampleThresholds = {
             minClosedRounds: null,
+            minEndedAccounts: null,
             minEvalAttempts: 1,
             minFundedAccounts: 1,
             minTrades: 1,
@@ -105,6 +125,48 @@ describe('scaleGateOf', () => {
         expect(result.status).not.toBe(ScaleGateStatus.Ready);
         expect(result.unmetConditions).toContain(
             ScaleGateUnmetCondition.CohortSampleBelowThreshold,
+        );
+    });
+});
+
+describe('scaleGateFromLedger', () => {
+    it('is ThresholdsNotSet for an empty ledger', () => {
+        const result = scaleGateFromLedger(ledger({}), '2026-10-01', NO_THRESHOLDS, 0);
+        expect(result.status).toBe(ScaleGateStatus.ThresholdsNotSet);
+    });
+
+    it('counts eval attempts only from resolved accounts, matching the input assembly the firms and rounds pages used to duplicate', () => {
+        const funded = account(EVAL_PLAN, { stage: AccountStage.Funded });
+        const ledgerOnlyAccount = account(EVAL_PLAN, {
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const built = ledger({
+            accounts: [funded, ledgerOnlyAccount],
+            events: [
+                purchased(funded),
+                event(funded, AccountEventKind.EvalPassed, '2026-09-10'),
+                purchased(ledgerOnlyAccount),
+                event(ledgerOnlyAccount, AccountEventKind.EvalPassed, '2026-09-05'),
+            ],
+            fees: [fee(funded, FeeKind.EvalPurchase, 10_000, '2026-09-01')],
+            payouts: [payout(funded, 60_000, { paidOn: '2026-09-20' })],
+        });
+        const result = scaleGateFromLedger(
+            built,
+            '2026-10-01',
+            {
+                minClosedRounds: null,
+                minEndedAccounts: null,
+                minEvalAttempts: 2,
+                minFundedAccounts: 1,
+                minTrades: 5,
+            },
+            5,
+        );
+        expect(result.unmetConditions).toContain(
+            ScaleGateUnmetCondition.EvalAttemptsBelowThreshold,
         );
     });
 });

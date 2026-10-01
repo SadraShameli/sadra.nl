@@ -107,6 +107,59 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
         ]);
     });
 
+    it('carries the personal max risk per trade passed in by the caller, defaulting to null', () => {
+        const sharedInput = baseInput({
+            highestEodBalance: dollars(51_000),
+            payoutsTaken: 0,
+        });
+        const withoutPersonalCap = AccountReconstruction.rebuild(
+            sharedInput,
+            plan,
+        );
+        if (withoutPersonalCap.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(withoutPersonalCap.personalMaxRiskPerTrade).toBeNull();
+
+        const withPersonalCap = AccountReconstruction.rebuild(
+            sharedInput,
+            plan,
+            dollars(250),
+        );
+        if (withPersonalCap.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(withPersonalCap.personalMaxRiskPerTrade).toBe(250);
+    });
+
+    it('resolves the funded micro contract limit as the micro variant of the same tier', () => {
+        const input = baseInput({
+            highestEodBalance: dollars(51_000),
+            payoutsTaken: 0,
+        });
+        const account = AccountReconstruction.rebuild(input, plan);
+        if (account.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(account.contractLimit).toBe(5);
+        expect(account.microContractLimit).toBe(5);
+    });
+
+    it('resolves the funded micro contract limit independently of the mini limit on a tiered plan', () => {
+        const apexPlan = registryPlan(APEX_EOD_ID);
+        const input = baseInput({
+            balance: dollars(50_000),
+            highestEodBalance: dollars(50_500),
+            payoutsTaken: 0,
+        });
+        const account = AccountReconstruction.rebuild(input, apexPlan);
+        if (account.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(account.contractLimit).not.toBeNull();
+        expect(account.microContractLimit).toBe((account.contractLimit ?? 0) * 10);
+    });
+
     it('overrides the ratcheted threshold with the fixed locked floor once a payout moves the floor', () => {
         const input = baseInput({
             asOf: '2026-02-08',
@@ -236,6 +289,71 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
                 },
             ]),
         );
+    });
+
+    it('carries both the engine-computed floor and the entered floor on a dashboard floor mismatch', () => {
+        const input = baseInput({
+            asOf: '2026-01-10',
+            balance: dollars(56_000),
+            dashboardFloor: dollars(55_000),
+            firstFundedTradeOn: '2026-01-01',
+            highestEodBalance: dollars(53_000),
+            payoutsTaken: 0,
+        });
+        const account = AccountReconstruction.rebuild(input, plan);
+        if (account.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(account.dashboardFloorMismatch).toEqual({
+            engineFloor: 51_000,
+            enteredFloor: 55_000,
+        });
+        expect(account.state.threshold).toBe(55_000);
+    });
+
+    it('carries no dashboard floor mismatch when the entered floor does not override the engine floor', () => {
+        const input = baseInput({
+            asOf: '2026-01-10',
+            balance: dollars(52_400),
+            dashboardFloor: dollars(50_500),
+            firstFundedTradeOn: '2026-01-01',
+            highestEodBalance: dollars(53_000),
+            payoutsTaken: 0,
+        });
+        const account = AccountReconstruction.rebuild(input, plan);
+        if (account.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(account.dashboardFloorMismatch).toBeNull();
+    });
+
+    it('carries the raw pending payouts, not just the netted balance', () => {
+        const input = baseInput({
+            balance: dollars(52_000),
+            firstFundedTradeOn: '2026-01-01',
+            highestEodBalance: dollars(52_000),
+            payoutsTaken: 0,
+            pendingPayouts: dollars(500),
+        });
+        const account = AccountReconstruction.rebuild(input, plan);
+        if (account.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(account.pendingPayouts).toBe(500);
+    });
+
+    it('carries zero pending payouts by default', () => {
+        const input = baseInput({
+            balance: dollars(52_000),
+            firstFundedTradeOn: '2026-01-01',
+            highestEodBalance: dollars(52_000),
+            payoutsTaken: 0,
+        });
+        const account = AccountReconstruction.rebuild(input, plan);
+        if (account.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(account.pendingPayouts).toBe(0);
     });
 
     it('discloses no worst-case assumption when cycleBestDayProfit is given', () => {
@@ -368,6 +486,22 @@ describe('AccountReconstruction.rebuild: eval phase', () => {
             ]),
         );
         expect(evalStartStateIssue(plan, account.state, 90)).toBeNull();
+    });
+
+    it('resolves the eval micro contract limit independently of the mini limit', () => {
+        const plan = registryPlan(MFF_PRO_ID);
+        const input = baseInput({
+            balance: dollars(51_800),
+            highestEodBalance: dollars(52_200),
+            stage: SizingStage.Eval,
+            tradingDays: 4,
+        });
+        const account = AccountReconstruction.rebuild(input, plan);
+        if (account.kind !== TradingPhase.Eval) {
+            throw new Error('expected an eval reconstruction');
+        }
+        expect(account.contractLimit).toBe(3);
+        expect(account.microContractLimit).toBe(30);
     });
 });
 

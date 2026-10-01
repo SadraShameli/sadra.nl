@@ -3,7 +3,7 @@ import type { ArgsDef } from 'citty';
 import { z } from 'zod';
 
 import { ui } from '~/cli/ui';
-import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
+import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     ALL_FIRMS,
     type CouponDiscounts,
@@ -18,10 +18,12 @@ import {
     type EdgeModelSpec,
     findFirm,
     FirmId,
+    formatWholeCentDollars,
     fraction,
     type Fraction0to1,
     fractionSchema,
     FUNDED_RESET_MECHANICS,
+    FUNDED_START_TIER_CONTRACT_LIMIT,
     INSTRUMENTS,
     type InstrumentSpec,
     InstrumentSymbol,
@@ -30,6 +32,7 @@ import {
     PayoutRequestPolicy,
     type Percent0to100,
     percentSchema,
+    placedFundedRisk,
     type Plan,
     PLAN_AVAILABILITY_LABEL,
     type PlanOptIns,
@@ -925,12 +928,34 @@ export const planArguments = {
     },
 } satisfies ArgsDef;
 
+export function formatCurrencyWithSe(value: number, se: null | number): string {
+    return se === null
+        ? formatCurrency(value)
+        : `${formatCurrency(value)} (SE ${formatCurrency(se)})`;
+}
+
 export function formatDaysToPass(
     out: Pick<SimOutputs, 'evalPassProbability'>,
     days: number,
     fractionDigits: number,
 ): string {
     return hasEvalPass(out) ? days.toFixed(fractionDigits) : NOT_APPLICABLE;
+}
+
+export function formatNumberWithSe(
+    value: number,
+    se: null | number,
+    digits = 2,
+): string {
+    return se === null
+        ? value.toFixed(digits)
+        : `${value.toFixed(digits)} (SE ${se.toFixed(digits)})`;
+}
+
+export function formatPercentWithSe(value: number, se: null | number): string {
+    return se === null
+        ? formatPercent(value)
+        : `${formatPercent(value)} (SE ${formatPercent(se)})`;
 }
 
 export function fundedResetFlagDescription(plans: readonly Plan[]): string {
@@ -948,6 +973,21 @@ export function hasEvalPass(
     out: Pick<SimOutputs, 'evalPassProbability'>,
 ): boolean {
     return out.evalPassProbability > 0;
+}
+
+export function placedCapNote(plan: Plan | undefined, isCapped: boolean): string {
+    if (plan === undefined) return ', before any contract limit';
+    return isCapped ? `, capped at ${FUNDED_START_TIER_CONTRACT_LIMIT}` : '';
+}
+
+export function placedFundedRiskNote(
+    inputs: TradingInputs,
+    plan: Plan | undefined,
+): string {
+    const placed = placedFundedRisk(inputs, plan);
+    if (placed === null) return '';
+    const { instrument, stopPoints } = placed.positionSizing;
+    return ` (placed ${formatWholeCentDollars(placed.risk)}: ${placed.contracts} ${instrument.symbol} at ${stopPoints} pt${placedCapNote(plan, placed.isCapped)})`;
 }
 
 export function planVariant(plan: Plan): string {

@@ -4,7 +4,8 @@ import {
     type Dollars,
     fraction,
     type Fraction0to1,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import {
     EconomicsDisclosure,
     EconomicsReason,

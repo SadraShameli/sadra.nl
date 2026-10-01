@@ -1,4 +1,4 @@
-import { dollars, type Dollars } from '../core';
+import { dollars, type Dollars } from '~/lib/prop-calculator/core';
 
 export enum DashboardBalanceConvention {
     Nominal = 'nominal',

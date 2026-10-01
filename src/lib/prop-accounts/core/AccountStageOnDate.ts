@@ -1,4 +1,4 @@
-import { impliedEvalPassOn } from './AccountEventKind';
+import { type AccountEventKind, impliedEvalPassOn } from './AccountEventKind';
 import { type PlanLifecycleFacts } from './AccountLifecycle';
 import { AccountStage } from './AccountStage';
 import { compareText } from './IsoDate';
@@ -6,6 +6,11 @@ import { compareText } from './IsoDate';
 export interface AccountStageStarts {
     readonly evalPassedOn: null | string;
     readonly movedLiveOn: null | string;
+}
+
+export interface KindDatedEvent {
+    readonly kind: AccountEventKind;
+    readonly occurredOn: string;
 }
 
 export interface StagedAccount {
@@ -35,6 +40,27 @@ export function accountStageOn(
         compareText(asOf, recorded.movedLiveOn) >= 0
         ? AccountStage.Live
         : AccountStage.Funded;
+}
+
+export function latestEventOn(
+    events: readonly KindDatedEvent[],
+    kind: AccountEventKind,
+    onOrBefore?: string,
+): null | string {
+    let latest: null | string = null;
+    for (const event of events) {
+        if (event.kind !== kind) continue;
+        if (
+            onOrBefore !== undefined &&
+            compareText(event.occurredOn, onOrBefore) > 0
+        ) {
+            continue;
+        }
+        if (latest === null || compareText(event.occurredOn, latest) > 0) {
+            latest = event.occurredOn;
+        }
+    }
+    return latest;
 }
 
 function evalLeftOnOf(

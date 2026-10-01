@@ -6,6 +6,7 @@ import {
     cushionBoardOf,
     CushionRatioBasis,
     documentedFundedRiskOf,
+    FundedRiskBasis,
 } from '~/lib/prop-accounts/metrics';
 import { dollars, TradingPhase } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK, RetainedCushionBasis } from '~/lib/prop-calculator/advisor';
@@ -46,6 +47,61 @@ describe('cushionBoardOf', () => {
         expect(row?.floorCents).toEqual(
             usdCentsFromDollars(funded.state.threshold),
         );
+    });
+
+    it('reports the funded cushion ratio against the rulebook basis when no personal max risk is set', () => {
+        const plan = mffProPlan();
+        const documentedRisk = documentedFundedRiskOf(DEFAULT_RULEBOOK);
+        const funded = fundedReconstructed(plan, {
+            balance: plan.accountSize + documentedRisk * 3,
+        });
+        const board = cushionBoardOf(DEFAULT_RULEBOOK, [
+            reconstructedEntry('a1', plan, funded),
+        ]);
+        const [row] = board.rows;
+        expect(row?.ratio.fundedRiskBasis).toBe(FundedRiskBasis.RulebookFunded);
+        expect(row?.ratio.basisAmount).toBe(documentedRisk);
+    });
+
+    it('uses the smaller personal max risk per trade as the funded basis when one is set', () => {
+        const plan = mffProPlan();
+        const documentedRisk = documentedFundedRiskOf(DEFAULT_RULEBOOK);
+        const personalMaxRiskPerTrade = documentedRisk / 4;
+        const funded = {
+            ...fundedReconstructed(plan, {
+                balance: plan.accountSize + documentedRisk * 3,
+            }),
+            personalMaxRiskPerTrade,
+        };
+        const board = cushionBoardOf(DEFAULT_RULEBOOK, [
+            reconstructedEntry('a1', plan, funded),
+        ]);
+        const [row] = board.rows;
+        expect(row?.ratio.fundedRiskBasis).toBe(
+            FundedRiskBasis.PersonalMaxRiskPerTrade,
+        );
+        expect(row?.ratio.basisAmount).toBe(personalMaxRiskPerTrade);
+        expect(row?.ratio.ratio).toBeCloseTo(
+            funded.cushion / personalMaxRiskPerTrade,
+            6,
+        );
+    });
+
+    it('keeps the rulebook basis when a personal max risk per trade is larger than it', () => {
+        const plan = mffProPlan();
+        const documentedRisk = documentedFundedRiskOf(DEFAULT_RULEBOOK);
+        const funded = {
+            ...fundedReconstructed(plan, {
+                balance: plan.accountSize + documentedRisk * 3,
+            }),
+            personalMaxRiskPerTrade: documentedRisk * 4,
+        };
+        const board = cushionBoardOf(DEFAULT_RULEBOOK, [
+            reconstructedEntry('a1', plan, funded),
+        ]);
+        const [row] = board.rows;
+        expect(row?.ratio.fundedRiskBasis).toBe(FundedRiskBasis.RulebookFunded);
+        expect(row?.ratio.basisAmount).toBe(documentedRisk);
     });
 
     it('reports the eval cushion ratio against the eval drawdown amount', () => {

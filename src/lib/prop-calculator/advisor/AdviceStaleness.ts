@@ -3,7 +3,8 @@ import {
     isoDaysBetween,
     isWeekendDay,
     weekdaysInRange,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import { SizingStage } from './SizingStage';
 
 export const ADVICE_STALE_SESSION_THRESHOLD = 2;

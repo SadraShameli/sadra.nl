@@ -108,6 +108,31 @@ describe('propAccounts.decision', () => {
         ).toHaveLength(0);
     });
 
+    it('list filters by account only on top of the user scope, and never returns another user row', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.decision.list({});
+        await caller.decision.list({ accountId: IDS.account });
+        const [all, one] = queries;
+        assertUserScopedWhere(defined(all), USER_ID);
+        expect(all?.text).not.toMatch(/"account_id" = /);
+        expect(all?.text).toMatch(/ limit \$\d+$/);
+        assertUserScopedWhere(defined(one), USER_ID);
+        expect(one?.params).toContain(IDS.account);
+    });
+
+    it('latestForAll returns at most one row per account, userId-scoped', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.decision.latestForAll();
+        const [latest] = queries;
+        assertUserScopedWhere(defined(latest), USER_ID);
+        expect(latest?.text).toMatch(
+            /^select distinct on \((?:"\w+"\.)?"account_id"\)/,
+        );
+        expect(latest?.text).toMatch(
+            /order by (?:"\w+"\.)?"account_id", (?:"\w+"\.)?"decided_on" desc, (?:"\w+"\.)?"created_at" desc, (?:"\w+"\.)?"id" desc/,
+        );
+    });
+
     it('recordActual updates the owned decision by id and user id', async () => {
         const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
         await caller.decision.recordActual({

@@ -21,7 +21,8 @@ import {
     payoutRequestSizeSchema,
     Plan,
     postPayoutThreshold,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import { RulebookRule } from './DocumentedRule';
 import {
     type PayoutBlockReason,
@@ -30,6 +31,7 @@ import {
 } from './PayoutBlockReason';
 import {
     dayGateProgressOf,
+    liveTriggerBlockReasonFor,
     type PayoutWait,
     PayoutWaitBasis,
     poolProfitOf,
@@ -51,6 +53,8 @@ import { SizingStage } from './SizingStage';
 const MAX_SHORTFALL_SEARCH_CENTS = 100_000_000;
 
 export interface FundedPayoutRuleContext {
+    readonly liveTriggerFirmTotalCap?: null | number;
+    readonly liveTriggerPerAccountCap?: null | number;
     readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly pendingPayouts: Dollars;
     readonly personalRequestOverride: Dollars | null;
@@ -83,6 +87,8 @@ const paidPayoutsSinceLastLiveAccountSchema = z
     .nonnegative()
     .nullable();
 
+const liveTriggerCapSchema = z.number().int().positive().nullable().optional();
+
 const personalRequestOverrideSchema = payoutRequestSizeSchema
     .transform(dollars)
     .nullable();
@@ -104,6 +110,8 @@ const liveAccountStateSchema = z.looseObject({
 const fundedCycleTrackerSchema = z.instanceof(FundedCycleTracker);
 
 const fundedPayoutRuleContextSchema = z.strictObject({
+    liveTriggerFirmTotalCap: liveTriggerCapSchema,
+    liveTriggerPerAccountCap: liveTriggerCapSchema,
     paidPayoutsSinceLastLiveAccount: paidPayoutsSinceLastLiveAccountSchema,
     pendingPayouts: nonNegativeDollarsSchema,
     personalRequestOverride: personalRequestOverrideSchema,
@@ -185,6 +193,18 @@ export class PayoutRequestRule extends RulebookRule<PayoutRuleContext> {
                       );
             }
             case PayoutEvaluationKind.Eligible: {
+                const liveTriggerReason = liveTriggerBlockReasonFor(
+                    tracker.payoutsIssued,
+                    {
+                        firmTotalCap: context.liveTriggerFirmTotalCap ?? null,
+                        paidPayoutsSinceLastLiveAccount:
+                            context.paidPayoutsSinceLastLiveAccount,
+                        perAccountCap: context.liveTriggerPerAccountCap ?? null,
+                    },
+                );
+                if (liveTriggerReason !== null) {
+                    return notEligible(liveTriggerReason, sources);
+                }
                 if (evaluation.keepsRetainedCushion) {
                     return {
                         kind: PayoutRequestDecisionKind.Request,
@@ -345,6 +365,19 @@ export class PayoutRequestRule extends RulebookRule<PayoutRuleContext> {
     }
 }
 
+export function firmMinimumNotice(
+    requestedAmount: number,
+    effectiveAmount: number,
+): FirmMinimumAboveRequestNotice | null {
+    return effectiveAmount > requestedAmount
+        ? {
+              kind: PayoutRequestNotice.FirmMinimumAboveRequest,
+              minimumRequestAmount: dollars(effectiveAmount),
+              requestedAmount: dollars(requestedAmount),
+          }
+        : null;
+}
+
 export function retainedCushionForStage(
     rulebook: RulebookParameters,
     context: PayoutRuleContext,
@@ -412,19 +445,6 @@ function dayGateWait(
     tracker: FundedCycleTracker,
 ): PayoutWait {
     return dayGateProgressOf(plan, state, tracker).wait;
-}
-
-function firmMinimumNotice(
-    requestedAmount: number,
-    effectiveAmount: number,
-): FirmMinimumAboveRequestNotice | null {
-    return effectiveAmount > requestedAmount
-        ? {
-              kind: PayoutRequestNotice.FirmMinimumAboveRequest,
-              minimumRequestAmount: dollars(effectiveAmount),
-              requestedAmount: dollars(requestedAmount),
-          }
-        : null;
 }
 
 function hasUnretainableLiveLock(livePlan: LivePlan): boolean {

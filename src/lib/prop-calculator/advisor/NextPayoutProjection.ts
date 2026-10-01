@@ -9,8 +9,8 @@ import {
     restoreFundedCycleTracker,
     SESSION_DAYS_PER_CALENDAR_WEEK,
     TradingPhase,
-} from '../core';
-import { mulberry32 } from '../rng';
+} from '~/lib/prop-calculator/core';
+import { mulberry32 } from '~/lib/prop-calculator/rng';
 import {
     type FundedSimStart,
     FundedStage,
@@ -24,12 +24,13 @@ import {
     type SimInputs,
     simStartIssue,
     TradeTotals,
-} from '../simulator';
+} from '~/lib/prop-calculator/simulator';
 import {
     binomialStandardError,
     meanStandardError,
     type UncertainValue,
-} from '../stats';
+} from '~/lib/prop-calculator/stats';
+
 import { type AdviceSource } from './AdviceSource';
 import { applyEnginePolicy } from './EnginePolicyBuilder';
 import { type EnginePolicy } from './policy';

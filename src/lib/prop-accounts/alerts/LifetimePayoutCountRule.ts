@@ -1,10 +1,10 @@
+import { AccountStage, PlanKeyResolutionKind } from '~/lib/prop-accounts/core';
 import {
     type LifetimePayoutCountGate,
     lifetimePayoutCountLimit,
     PayoutGate,
 } from '~/lib/prop-calculator/core';
 
-import { AccountStage, PlanKeyResolutionKind } from '../core';
 import { type AccountAlert } from './AccountAlert';
 import {
     isActive,

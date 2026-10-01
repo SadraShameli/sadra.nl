@@ -3,6 +3,7 @@ import {
     type AlertAccountRow,
     type AlertContext,
     type AlertCopyGroupRow,
+    type AlertEventRow,
     type AlertInputs,
     type AlertPayoutRow,
     type AlertRule,
@@ -10,6 +11,7 @@ import {
     createAlertContext,
 } from '~/lib/prop-accounts/alerts';
 import {
+    AccountEventKind,
     AccountStage,
     AccountStatus,
     AccountTracking,
@@ -153,4 +155,15 @@ export function ledgerOnlyAccountFor(
         tracking: AccountTracking.LedgerOnly,
         ...overrides,
     });
+}
+
+export function movedLiveEvent(
+    account: AlertAccountRow,
+    occurredOn: string,
+): AlertEventRow {
+    return {
+        accountId: account.id,
+        kind: AccountEventKind.MovedLive,
+        occurredOn,
+    };
 }

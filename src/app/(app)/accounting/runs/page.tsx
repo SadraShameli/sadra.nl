@@ -1,9 +1,8 @@
 import { type Metadata } from 'next';
 
+import { RunsBrowser } from '~/app/(app)/accounting/_components/RunsBrowser';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { RunsBrowser } from '../_components/RunsBrowser';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },

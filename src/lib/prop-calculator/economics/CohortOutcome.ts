@@ -4,9 +4,10 @@ import {
     type Dollars,
     fraction,
     type Fraction0to1,
-} from '../core';
-import { mulberry32 } from '../rng';
-import { binomialStandardError, mean, percentile } from '../stats';
+} from '~/lib/prop-calculator/core';
+import { mulberry32 } from '~/lib/prop-calculator/rng';
+import { binomialStandardError, mean, percentile } from '~/lib/prop-calculator/stats';
+
 import {
     type EconomicsEstimate,
     EconomicsReason,
@@ -16,6 +17,7 @@ import {
     quantityOf,
 } from './EdgeMath';
 
+export const LOSS_RISK_DRAWS = 10_000;
 export const MAX_COHORT_SAMPLES = 20_000_000;
 
 export interface CohortOutcome {

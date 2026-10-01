@@ -303,12 +303,12 @@ function uncappedToyPlan(): Plan {
 }
 
 describe('FundedStateValue without a payout request size keeps its pins (PT-47a, PD-31)', () => {
-    it('payout-request-cap toy: initialValue, sweep count and the post-payout risk', () => {
+    it('payout-request-cap toy: initialValue, sweep count and the post-payout risk. Re-pinned for WP58c (N-86 stage 2): sweepCount moved from 28 to 52 because the coarse cushion tail is on by default now, widening the locked cushion grid this toy solves over; initialValue and the risk pin are unaffected since this toy never reaches past the old top', () => {
         const result = computeFundedStateValue(
             payoutRequestCapConfig(payoutRequestCapToyPlan()),
         );
         expect(result.initialValue).toBeCloseTo(250, 10);
-        expect(result.sweepCount).toBe(28);
+        expect(result.sweepCount).toBe(52);
         expect(
             result.dayPolicy.computeRisk?.(
                 lockedStateAt(1150),
@@ -318,20 +318,23 @@ describe('FundedStateValue without a payout request size keeps its pins (PT-47a,
         ).toBe(100);
     });
 
-    it('coarse TopStep: initialValue, sweep count and sampled risks. Re-pinned for N-86 (WP54): initialValue moved from 5081.6891952778915 to 5081.88878430116 and sweepCount from 332 to 358 (both risk pins unchanged) because TopStep locks its funded drawdown at a fixed dollar threshold, and continuationKey now interpolates the day-close cushion at that lock transition instead of floor-rounding it down', () => {
+    it('coarse TopStep: initialValue, sweep count and sampled risks. Re-pinned for N-86 (WP54): initialValue moved from 5081.6891952778915 to 5081.88878430116 and sweepCount from 332 to 358 (both risk pins unchanged) because TopStep locks its funded drawdown at a fixed dollar threshold, and continuationKey now interpolates the day-close cushion at that lock transition instead of floor-rounding it down. Re-pinned again for WP58c (N-86 stage 2): the coarse cushion tail is on by default now, reaching 30 drawdowns above the locked floor instead of 6, so TopStep (this plan is the audit N-86 driver) is no longer truncated at the old top: initialValue moved from 5081.88878430116 to 7113.52900787553 (+2031.64, the expected direction: the old top was undervaluing this plan) and sweepCount from 358 to 466 (both risk pins unchanged, the sampled cushions here are still well inside the fine range)', () => {
         const plan = topStepPlan();
         const result = computeFundedStateValue(topStepCoarseConfig(plan));
-        expect(result.initialValue).toBeCloseTo(5081.88878430116, 6);
-        expect(result.sweepCount).toBe(358);
+        expect(result.initialValue).toBeCloseTo(7113.52900787553, 6);
+        expect(result.sweepCount).toBe(466);
         expect(result.dayPolicy.computeRisk?.(fundedStart(plan), 0)).toBe(1000);
         expect(
             result.dayPolicy.computeRisk?.(lockedStateAt(52_000, 50_000), 0),
         ).toBe(1000);
     }, 120_000);
 
-    it('FTMO Futures Growth 50K at fine range multiple 1: initialValue, sweep count and sampled risks. Re-pinned for N-86 (WP54): initialValue moved from 14_414.82874384173 to 14_414.892599117371 and sweepCount from 366 to 387 (both risk pins unchanged), the same tiny day-close cushion interpolation move pinned in FundedStateValue.test.ts’s T11 "landed" case', async () => {
+    it('FTMO Futures Growth 50K at fine range multiple 1: initialValue, sweep count and sampled risks. Re-pinned for N-86 (WP54): initialValue moved from 14_414.82874384173 to 14_414.892599117371 and sweepCount from 366 to 387 (both risk pins unchanged), the same tiny day-close cushion interpolation move pinned in FundedStateValue.test.ts’s T11 "landed" case. Pinned back to the 6 drawdown fine top for WP58d (the WP58c re-pin to the default 30 drawdown coarse tail moved initialValue to 14_058.431864665115 and sweepCount to 613 and took this test from 8 s to 37 s, 4.6x; this pin studies the payout request policy, not the grid, so the cushion tail is pinned off and the WP54 values are restored)', async () => {
         const plan = await ftmoGrowthPlan();
-        const result = computeFundedStateValue(ftmoGrowthConfig(plan));
+        const result = computeFundedStateValue({
+            ...ftmoGrowthConfig(plan),
+            maxTailCushionMultiple: 6,
+        });
         expect(result.unconvergedLevelCount).toBe(0);
         expect(result.initialValue).toBeCloseTo(14_414.892599117371, 6);
         expect(result.sweepCount).toBe(387);
@@ -539,26 +542,28 @@ describe('FundedStateValue sends the payout request size to its workers (PT-47a)
 });
 
 describe('FundedStateValue retained cushion on the coarse TopStep config (PT-47a)', () => {
-    it('resolves a requested 2,000 cushion to max(2000, the plan floor) and values it differently from the default', () => {
+    it('resolves a requested 2,000 cushion to max(2000, the plan floor) and values it differently from the default. Pinned back to the 6 drawdown fine top for WP58d (the WP58c re-pin to the default 30 drawdown coarse tail moved initialValue from 5072.586527996037 to 7107.689015613951 and took this test to 24 s; the retained cushion, not the grid, is under test here, so the cushion tail is pinned off and the WP54 values are restored; the tail-on TopStep default pin stays in the coarse TopStep test above)', () => {
         const plan = topStepPlan();
         expect(plan.resolveRetainedCushion(2000)).toBe(
             Math.max(2000, plan.defaultRetainedCushion()),
         );
         const result = computeFundedStateValue({
             ...topStepCoarseConfig(plan),
+            maxTailCushionMultiple: 6,
             minRetainedCushion: 2000,
         });
         expect(result.initialValue).toBeCloseTo(5072.586527996037, 6);
         expect(result.initialValue).not.toBeCloseTo(5081.88878430116, 2);
     }, 120_000);
 
-    it('equals the default pin at a requested cushion of 0, which resolves to the plan floor. Re-pinned for N-86 (WP54): moved with the coarse TopStep default pin above, from 5081.6891952778915 to 5081.88878430116', () => {
+    it('equals the default pin at a requested cushion of 0, which resolves to the plan floor. Re-pinned for N-86 (WP54): moved with the coarse TopStep default pin above, from 5081.6891952778915 to 5081.88878430116. Pinned back to the 6 drawdown fine top for WP58d (the WP58c re-pin to the default 30 drawdown coarse tail moved it to 7113.52900787553 and took this test to 24 s; the retained cushion, not the grid, is under test here, so the cushion tail is pinned off and the WP54 value is restored)', () => {
         const plan = topStepPlan();
         expect(plan.resolveRetainedCushion(0)).toBe(
             plan.resolveRetainedCushion(undefined),
         );
         const result = computeFundedStateValue({
             ...topStepCoarseConfig(plan),
+            maxTailCushionMultiple: 6,
             minRetainedCushion: 0,
         });
         expect(result.initialValue).toBeCloseTo(5081.88878430116, 6);

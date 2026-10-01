@@ -1,15 +1,16 @@
 import { type Metadata } from 'next';
 
-import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
-
-import { AccountDetailView } from '../_components/detail/AccountDetailView';
-import { openAccountPage } from '../_components/detail/accountIdParameter';
+import { AdviceCacheProvider } from '~/app/(app)/prop-calculator/accounts/_components/advice/AdviceCacheProvider';
+import { AdvicePanel } from '~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel';
+import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
+import { openAccountPage } from '~/app/(app)/prop-calculator/accounts/_components/detail/accountIdParameter';
 import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
-} from '../_components/overview/overviewModel';
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { routes } from '~/lib/site/routes';
+import { cn } from '~/lib/utilities';
+import { api, HydrateClient } from '~/trpc/server';
 
 export const metadata: Metadata = {
     description:
@@ -38,6 +39,7 @@ export default async function PropAccountDetailPage({
     void api.propAccounts.copyGroup.list.prefetch();
     void api.propAccounts.snapshot.latestForAll.prefetch();
     void api.propAccounts.rulebook.get.prefetch();
+    void api.propAccounts.decision.listForAccount.prefetch({ id });
     return (
         <HydrateClient>
             <main
@@ -47,6 +49,9 @@ export default async function PropAccountDetailPage({
                 )}
             >
                 <AccountDetailView id={id} userId={userId} />
+                <AdviceCacheProvider>
+                    <AdvicePanel id={id} />
+                </AdviceCacheProvider>
             </main>
         </HydrateClient>
     );

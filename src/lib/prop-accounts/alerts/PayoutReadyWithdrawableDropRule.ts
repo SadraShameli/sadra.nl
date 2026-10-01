@@ -1,3 +1,5 @@
+import { formatUsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
+import { AccountStateKind, fundedPayoutRuleContextOf } from '~/lib/prop-accounts/metrics';
 import { CENTS_PER_DOLLAR, TradingPhase } from '~/lib/prop-calculator';
 import {
     payoutReadiness,
@@ -6,8 +8,6 @@ import {
     retainedCushionForStage,
 } from '~/lib/prop-calculator/advisor';
 
-import { formatUsdCents, usdCentsFromDollars } from '../core';
-import { AccountStateKind, fundedPayoutRuleContextOf } from '../metrics';
 import { type AccountAlert } from './AccountAlert';
 import {
     type AlertContext,

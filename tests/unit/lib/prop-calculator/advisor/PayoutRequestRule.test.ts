@@ -26,6 +26,7 @@ import {
 } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
+    firmMinimumNotice,
     type FundedPayoutRuleContext,
     type LivePayoutRuleContext,
     PayoutBlockReasonKind,
@@ -58,6 +59,21 @@ function baseFundedContext(
         tracker,
         ...overrides,
     };
+}
+
+function eligibleContextForLiveTrigger(
+    overrides: Partial<FundedPayoutRuleContext>,
+): FundedPayoutRuleContext {
+    const plan = registryPlan(MFF_PRO_ID);
+    const state = fundedState({
+        balance: 55_000,
+        qualifyingDays: 20,
+        threshold: 50_100,
+        thresholdLocked: true,
+    });
+    const tracker = trackerAt(state, 0);
+    tracker.restoreCalendarDayGateProgress(20);
+    return baseFundedContext(plan, tracker, state, overrides);
 }
 
 function fundedState(overrides: Partial<AccountState>): AccountState {
@@ -898,5 +914,76 @@ describe('PayoutRequestRule: invariants (F-105j)', () => {
             state: livePlan.initialState(),
         });
         expect(liveDecision.sources).toContain('Live account (NOT replaceable)');
+    });
+});
+
+describe('PayoutRequestRule funded: live-trigger count limit (PT-36b)', () => {
+    const rulebook = rulebookWith({ requestCents: 50_000 });
+    const rule = new PayoutRequestRule(rulebook);
+
+    it('is eligible with no live-trigger caps supplied (unverified firm behaviour, unchanged)', () => {
+        const decision = rule.decide(eligibleContextForLiveTrigger({}));
+        expect(decision.kind).toBe(PayoutRequestDecisionKind.Request);
+    });
+
+    it('blocks a payout that would reach the verified per-account trigger count, never offering a smaller request', () => {
+        const context = eligibleContextForLiveTrigger({ liveTriggerPerAccountCap: 3 });
+        context.tracker.payoutsIssued = 2;
+        const decision = rule.decide(context);
+        expect(decision.kind).toBe(PayoutRequestDecisionKind.NotEligible);
+        if (decision.kind !== PayoutRequestDecisionKind.NotEligible) return;
+        expect(decision.reason).toEqual({
+            kind: PayoutBlockReasonKind.WouldTriggerLive,
+            trigger: { paidPayoutsSinceLastLiveAccount: 2, triggerAtPayoutCount: 3 },
+        });
+    });
+
+    it('does not block while under the verified per-account trigger count', () => {
+        const context = eligibleContextForLiveTrigger({ liveTriggerPerAccountCap: 3 });
+        context.tracker.payoutsIssued = 1;
+        const decision = rule.decide(context);
+        expect(decision.kind).toBe(PayoutRequestDecisionKind.Request);
+    });
+
+    it('blocks a payout that would reach the verified firm-total trigger count', () => {
+        const decision = rule.decide(
+            eligibleContextForLiveTrigger({
+                liveTriggerFirmTotalCap: 10,
+                paidPayoutsSinceLastLiveAccount: 9,
+            }),
+        );
+        expect(decision.kind).toBe(PayoutRequestDecisionKind.NotEligible);
+        if (decision.kind !== PayoutRequestDecisionKind.NotEligible) return;
+        expect(decision.reason).toEqual({
+            kind: PayoutBlockReasonKind.WouldTriggerLive,
+            trigger: { paidPayoutsSinceLastLiveAccount: 9, triggerAtPayoutCount: 10 },
+        });
+    });
+
+    it('does not block while under the verified firm-total trigger count', () => {
+        const decision = rule.decide(
+            eligibleContextForLiveTrigger({
+                liveTriggerFirmTotalCap: 10,
+                paidPayoutsSinceLastLiveAccount: 8,
+            }),
+        );
+        expect(decision.kind).toBe(PayoutRequestDecisionKind.Request);
+    });
+});
+
+describe('firmMinimumNotice', () => {
+    it('is exported so a caller like the payout readiness board can reuse it', () => {
+        expect(
+            firmMinimumNotice(500, 1000),
+        ).toEqual({
+            kind: PayoutRequestNotice.FirmMinimumAboveRequest,
+            minimumRequestAmount: 1000,
+            requestedAmount: 500,
+        });
+    });
+
+    it('is null when the effective amount is not above the requested amount', () => {
+        expect(firmMinimumNotice(1000, 1000)).toBeNull();
+        expect(firmMinimumNotice(1500, 1000)).toBeNull();
     });
 });

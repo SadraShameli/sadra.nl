@@ -1,5 +1,6 @@
-import { dollars, type Dollars, fraction, type Fraction0to1 } from '../core';
-import { type SimEstimates, type SimOutputs } from '../simulator';
+import { dollars, type Dollars, fraction, type Fraction0to1 } from '~/lib/prop-calculator/core';
+import { type SimEstimates, type SimOutputs } from '~/lib/prop-calculator/simulator';
+
 import {
     type EconomicsEstimate,
     EconomicsReason,

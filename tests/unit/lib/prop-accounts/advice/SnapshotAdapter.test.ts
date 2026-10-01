@@ -93,6 +93,33 @@ describe('snapshotInputFrom: a pure row-to-domain mapping', () => {
         expect(input.liveStartBalance).toBeUndefined();
     });
 
+    it('reports no personal max risk per trade when no personal rules are stored', () => {
+        const { personalMaxRiskPerTrade } = snapshotInputFrom(
+            NOT_INSTANT_FUNDED,
+            accountRow(),
+            null,
+            [],
+            [],
+            '2026-02-01',
+        );
+        expect(personalMaxRiskPerTrade).toBeNull();
+    });
+
+    it('reads the personal max risk per trade from the stored personal rules', () => {
+        const { personalMaxRiskPerTrade } = snapshotInputFrom(
+            NOT_INSTANT_FUNDED,
+            {
+                ...accountRow(),
+                personalRules: { maxRiskPerTradeCents: usdCents(50_000) },
+            },
+            null,
+            [],
+            [],
+            '2026-02-01',
+        );
+        expect(personalMaxRiskPerTrade).toBe(500);
+    });
+
     it('defaults the balance to the account size with no snapshot yet', () => {
         const { input } = snapshotInputFrom(
             NOT_INSTANT_FUNDED,

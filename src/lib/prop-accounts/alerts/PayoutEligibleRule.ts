@@ -1,3 +1,5 @@
+import { formatUsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
+import { AccountStateKind, fundedPayoutRuleContextOf } from '~/lib/prop-accounts/metrics';
 import { TradingPhase } from '~/lib/prop-calculator';
 import {
     type FundedPayoutRuleContext,
@@ -9,9 +11,7 @@ import {
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
-import { formatUsdCents, usdCentsFromDollars } from '../core';
-import { AccountStateKind, fundedPayoutRuleContextOf } from '../metrics';
-import { type AccountAlert } from './AccountAlert';
+import { type AccountAlert, AlertDisclosure } from './AccountAlert';
 import {
     type AlertContext,
     isActive,
@@ -37,14 +37,22 @@ export class PayoutEligibleRule extends AccountAlertRule {
             ruleContext,
         );
         if (decision.kind !== PayoutRequestDecisionKind.Request) return null;
-        const liveTriggerNote =
+        const disclosures =
             ruleContext.stage === SizingStage.Live
-                ? '; the live trigger count since the last live account is not checked here'
-                : '';
+                ? [AlertDisclosure.LiveTriggersNotChecked]
+                : [];
+        const amount = formatUsdCents(
+            usdCentsFromDollars(decision.requestAmount),
+        );
+        const noticeText =
+            decision.notice === null
+                ? ''
+                : ` (the firm's minimum payout request; your target of ${formatUsdCents(usdCentsFromDollars(decision.notice.requestedAmount))} is below it)`;
         return this.alertFor(
             monitored,
             AlertSeverity.Info,
-            `Eligible to request ${formatUsdCents(usdCentsFromDollars(decision.requestAmount))}${liveTriggerNote}`,
+            `Eligible to request ${amount}${noticeText}`,
+            disclosures,
         );
     }
 }

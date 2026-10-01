@@ -1,3 +1,14 @@
+export {
+    type CopyGroupSimulationInputs,
+    type CopyGroupSimulationMember,
+    type CopyGroupSimulationMemberOutput,
+    type CopyGroupSimulationOutputs,
+    type CopyGroupSimulationRejection,
+    CopyGroupSimulationRejectionKind,
+    type CopyGroupSimulationResult,
+    CopyGroupSimulationResultKind,
+    simulateCopyGroup,
+} from './CopyGroupSimulation';
 export { resolveDayPolicy, runDay } from './day';
 export {
     assertDeclaredSizingMatchesPhase,
@@ -17,6 +28,10 @@ export {
 } from './engine';
 export { runEvalAttempt, runEvalWithRetries } from './evalPhase';
 export {
+    advanceFundedDay,
+    type FundedDayAdvanceOptions,
+    type FundedDayOutcome,
+    FundedDayOutcomeKind,
     FundedStage,
     type PayoutSink,
     PayoutTotals,

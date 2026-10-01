@@ -15,6 +15,7 @@ import {
     batchLossClosedForm,
     cohortOutcome,
     empiricalPayingStatsOf,
+    LOSS_RISK_DRAWS,
 } from '~/lib/prop-calculator/economics';
 
 import {
@@ -28,8 +29,6 @@ export const batchArguments = {
     ...tradingArguments,
     ...bankrollBatchArguments,
 };
-
-const LOSS_RISK_DRAWS = 10_000;
 
 export default defineCommand({
     args: batchArguments,

@@ -18,8 +18,7 @@ import {
     QualifyingDaysMilestonePayoutCap,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
-
-import { lockThresholdAt, planLabel } from '../shared';
+import { lockThresholdAt, planLabel } from '~/lib/prop-calculator/firms/shared';
 
 const RAPID_LOCK_OFFSET = 100;
 const RAPID_DAILY_BUFFER_OFFSET = 100;

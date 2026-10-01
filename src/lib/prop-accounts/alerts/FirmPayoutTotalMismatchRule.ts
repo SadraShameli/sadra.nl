@@ -1,5 +1,6 @@
-import { CentsDisplay, firmKeyId, firmKeyOf, formatUsdCents } from '../core';
-import { firmColumnsOf } from '../metrics';
+import { CentsDisplay, firmKeyId, firmKeyOf, formatUsdCents } from '~/lib/prop-accounts/core';
+import { firmColumnsOf } from '~/lib/prop-accounts/metrics';
+
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
 import { type AlertContext, isActive } from './AlertContext';
 import { AlertKind } from './AlertKind';

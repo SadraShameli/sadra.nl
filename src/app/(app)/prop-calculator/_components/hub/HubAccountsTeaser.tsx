@@ -186,6 +186,7 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
                     snapshots,
                 ),
                 copyGroups,
+                events,
                 payouts,
                 rulebook,
                 snapshots,

@@ -1,10 +1,13 @@
-import { effectivePayoutRequest, type Plan } from '../core';
+import { effectivePayoutRequest, type Plan } from '~/lib/prop-calculator/core';
 import {
     type FromStateSimOutputs,
+    SIM_INPUTS_REFUSAL_PREFIX,
     type SimOutputs,
     simulate,
     simulateFromState,
-} from '../simulator';
+} from '~/lib/prop-calculator/simulator';
+import { noiseVerdict, NoiseVerdict } from '~/lib/prop-calculator/stats';
+
 import { type AdviceSource } from './AdviceSource';
 import {
     type DocumentedPolicySpec,
@@ -97,8 +100,6 @@ export interface PersonalPayoutOverrideWarning {
     readonly overrideBustProbability: number;
     readonly overrideMonthlyNet: number;
 }
-
-const SAFE_BAND_STANDARD_ERRORS = 2;
 
 export function runPayoutSizeSweep(
     plan: Plan,
@@ -256,13 +257,33 @@ function isWithinSafeBand(
     seA: null | number,
     seB: null | number,
 ): boolean {
-    if (seA === null || seB === null) return false;
-    const threshold = SAFE_BAND_STANDARD_ERRORS * Math.hypot(seA, seB);
-    return Math.abs(a - b) <= threshold;
+    return (
+        noiseVerdict(
+            { standardError: null, value: a },
+            { standardError: null, value: b },
+            {
+                differenceStandardError: pairedDifferenceStandardError(
+                    seA,
+                    seB,
+                ),
+                sharedSeed: true,
+            },
+        ) === NoiseVerdict.WithinNoise
+    );
+}
+
+function pairedDifferenceStandardError(
+    seA: null | number,
+    seB: null | number,
+): null | number {
+    return seA === null || seB === null ? null : Math.max(seA, seB);
 }
 
 function refusalFrom(error: unknown): PayoutSizeSweepNoOptimumResult {
-    if (error instanceof Error) {
+    if (
+        error instanceof Error &&
+        error.message.startsWith(SIM_INPUTS_REFUSAL_PREFIX)
+    ) {
         return {
             issue: error.message,
             kind: PayoutSizeSweepResultKind.NoOptimum,

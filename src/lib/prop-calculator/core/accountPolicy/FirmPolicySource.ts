@@ -1,4 +1,4 @@
-import { dayNumberOf } from '../lib/isoDate';
+import { dayNumberOf } from '~/lib/prop-calculator/core/lib/isoDate';
 
 export enum PolicySourceKind {
     LiveFetch = 'live-fetch',

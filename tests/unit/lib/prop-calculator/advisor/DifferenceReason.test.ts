@@ -21,6 +21,7 @@ const EXPECTED_MEMBERS = [
     'DpStateUnreached',
     'EngineInputsRefused',
     'FirmMinimumAboveRequest',
+    'FlatRiskIgnoresState',
     'FreshStartApproximation',
     'HorizonCreditOneRequest',
     'LiveModelApproximation',

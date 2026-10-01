@@ -4,21 +4,22 @@ import {
     type FundedCycleTracker,
     PayoutDayGateBasis,
     type Plan,
-} from '../core';
+} from '~/lib/prop-calculator/core';
 import {
     buildFundedCandidates,
     FundedCandidateBuildKind,
     type FundedCandidateOptions,
     type FundedCandidateRefusalDetail,
     survivorCount,
-} from '../optimize';
+} from '~/lib/prop-calculator/optimize';
 import {
     type FromStateSimInputs,
     type FromStateSimOutputs,
     type FundedSimStart,
     type SimInputs,
     simulateFromState,
-} from '../simulator';
+} from '~/lib/prop-calculator/simulator';
+
 import { type AdviceSource } from './AdviceSource';
 import {
     type EngineOptimumRefusal,

@@ -1,4 +1,4 @@
-import { FirmId } from '../core';
+import { FirmId } from '~/lib/prop-calculator/core';
 
 export interface FirmDataProvenanceEntry {
     readonly openItems: readonly string[];

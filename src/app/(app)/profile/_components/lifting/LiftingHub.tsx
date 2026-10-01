@@ -1,9 +1,9 @@
 'use client';
 
+import { LiftingSettingsForm } from '~/app/(app)/profile/_components/LiftingSettingsForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { type RouterOutputs } from '~/trpc/react';
 
-import { LiftingSettingsForm } from '../LiftingSettingsForm';
 import { ExercisesManager } from './ExercisesManager';
 import { ProgramsManager } from './ProgramsManager';
 import { WorkoutsManager } from './WorkoutsManager';

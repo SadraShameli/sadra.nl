@@ -1,12 +1,17 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Info } from 'lucide-react';
-import { useId, useState } from 'react';
+import { Info, TriangleAlert } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import {
+    ACCOUNT_LIST_INPUT,
+    type AccountListAccount,
+} from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { accountEventKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 import { Checkbox } from '~/components/ui/Checkbox';
@@ -33,6 +38,8 @@ import {
     AccountEventKind,
     type AccountLifecycleState,
     AccountTracking,
+    BustCause,
+    bustCauseLabel,
     type ExternalFirmName,
     FirmEngagementReason,
     FirmEngagementStatus,
@@ -45,7 +52,6 @@ import { type FirmId, parseFirmId } from '~/lib/prop-calculator';
 import { eventRecordSchema } from '~/lib/schemas/propAccounts';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-import { accountEventKindLabel } from '../overview/overviewModel';
 import { type ListQuery, ListQueryStatus } from './DetailParts';
 import {
     type EventOption,
@@ -55,6 +61,12 @@ import {
     NO_EVENT_PREVIEW,
 } from './eventOptions';
 import { nullIfBlank, parsedOrIssues } from './formParsing';
+import { liveExclusivityPreviewOf } from './liveExclusivityPreview';
+
+type AccountFirmColumns = Pick<
+    RouterOutputs['propAccounts']['account']['get'],
+    'externalFirmId' | 'firmId'
+>;
 
 type EngagementFirmColumns =
     | { readonly externalFirmId: null; readonly firmId: FirmId }
@@ -64,6 +76,7 @@ type EventRow =
     RouterOutputs['propAccounts']['event']['listForAccount'][number];
 
 const eventFormShape = z.object({
+    bustCause: z.enum(BustCause),
     kind: z.enum(AccountEventKind),
     note: z.string(),
     occurredOn: z.string(),
@@ -98,8 +111,11 @@ export function EventsSection({
         id: accountId,
     });
     const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
+    const accountsQuery =
+        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
     const firmColumns = firmColumnsOf(accountQuery.data);
     const externalFirms = externalFirmsQuery.data ?? [];
+    const [movedLiveOn, setMovedLiveOn] = useState<null | string>(null);
     return (
         <>
             <ListQueryStatus query={query} subject="account events" />
@@ -157,13 +173,30 @@ export function EventsSection({
             {first !== undefined && (
                 <EventForm
                     accountId={accountId}
-                    externalFirms={externalFirms}
-                    firmColumns={firmColumns}
+                    accounts={accountsQuery.data}
+                    accountsFailed={accountsQuery.isError}
                     first={first}
                     key={options.map((option) => option.kind).join(',')}
                     onFailure={onFailure}
+                    onRecorded={(kind, occurredOn) => {
+                        setMovedLiveOn(
+                            kind === AccountEventKind.MovedLive
+                                ? occurredOn
+                                : null,
+                        );
+                    }}
                     options={options}
                     preview={preview}
+                />
+            )}
+            {movedLiveOn !== null && firmColumns !== null && (
+                <MovedLiveSuggestion
+                    externalFirms={externalFirms}
+                    firmColumns={firmColumns}
+                    onDismiss={() => {
+                        setMovedLiveOn(null);
+                    }}
+                    sentLiveOn={movedLiveOn}
                 />
             )}
         </>
@@ -172,18 +205,20 @@ export function EventsSection({
 
 function EventForm({
     accountId,
-    externalFirms,
-    firmColumns,
+    accounts,
+    accountsFailed,
     first,
     onFailure,
+    onRecorded,
     options,
     preview,
 }: {
     readonly accountId: string;
-    readonly externalFirms: readonly ExternalFirmName[];
-    readonly firmColumns: EngagementFirmColumns | null;
+    readonly accounts: readonly AccountListAccount[] | undefined;
+    readonly accountsFailed: boolean;
     readonly first: EventOption;
     readonly onFailure: (error: unknown) => void;
+    readonly onRecorded: (kind: AccountEventKind, occurredOn: string) => void;
     readonly options: readonly EventOption[];
     readonly preview: EventPreviewer;
 }) {
@@ -192,6 +227,7 @@ function EventForm({
     const schema = eventFormSchema(accountId);
     const form = useForm<EventFormValues>({
         defaultValues: {
+            bustCause: BustCause.Unknown,
             kind: first.kind,
             note: '',
             occurredOn: todayIsoDate(new Date()),
@@ -199,32 +235,55 @@ function EventForm({
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
     const kind = form.watch('kind');
+    const isBusted = kind === AccountEventKind.Busted;
     const selected = options.find((option) => option.kind === kind);
     const draft = schema.safeParse(form.watch());
     const shown = draft.success ? preview(draft.data) : null;
     const shownKey = shown === null ? null : previewKey(shown);
     const [confirmedKey, setConfirmedKey] = useState<null | string>(null);
-    const [movedLiveOn, setMovedLiveOn] = useState<null | string>(null);
     const confirmId = useId();
     const isConfirmed = shownKey !== null && confirmedKey === shownKey;
     const isAwaitingConfirmation =
         shown?.requiresConfirmation === true && !isConfirmed;
+    const isMovedLive = kind === AccountEventKind.MovedLive;
+    const exclusivity = useMemo(
+        () =>
+            isMovedLive && accounts !== undefined
+                ? liveExclusivityPreviewOf(accounts, accountId)
+                : null,
+        [accountId, accounts, isMovedLive],
+    );
+    const exclusivityKey =
+        exclusivity === null ? null : exclusivity.confirmedAccountIds.join(',');
+    const [suspendedKey, setSuspendedKey] = useState<null | string>(null);
+    const suspendId = useId();
+    const suspendedIds =
+        exclusivity !== null &&
+        exclusivityKey !== '' &&
+        suspendedKey === exclusivityKey
+            ? exclusivity.confirmedAccountIds
+            : [];
 
     const save = async (values: EventFormValues) => {
         const parsed = schema.safeParse(values);
         if (isAwaitingConfirmation || !parsed.success) return;
         try {
-            await record.mutateAsync(parsed.data);
+            await record.mutateAsync(
+                suspendedIds.length > 0
+                    ? {
+                          ...parsed.data,
+                          confirmedExclusivityAccountIds: [...suspendedIds],
+                      }
+                    : parsed.data,
+            );
             toast.success(
                 `${accountEventKindLabel(parsed.data.kind)} recorded`,
             );
             setConfirmedKey(null);
-            setMovedLiveOn(
-                parsed.data.kind === AccountEventKind.MovedLive
-                    ? parsed.data.occurredOn
-                    : null,
-            );
+            setSuspendedKey(null);
+            onRecorded(parsed.data.kind, parsed.data.occurredOn);
             form.reset({
+                bustCause: BustCause.Unknown,
                 kind: first.kind,
                 note: '',
                 occurredOn: todayIsoDate(new Date()),
@@ -291,6 +350,47 @@ function EventForm({
                         </FormItem>
                     )}
                 />
+                {isBusted && (
+                    <FormField
+                        control={form.control}
+                        name="bustCause"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Bust cause</FormLabel>
+                                <Select
+                                    onValueChange={(next) => {
+                                        const parsed = z
+                                            .enum(BustCause)
+                                            .safeParse(next).data;
+                                        if (parsed !== undefined) {
+                                            field.onChange(parsed);
+                                        }
+                                    }}
+                                    value={field.value}
+                                >
+                                    <FormControl>
+                                        <SelectTrigger ref={field.ref}>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {Object.values(BustCause).map(
+                                            (cause) => (
+                                                <SelectItem
+                                                    key={cause}
+                                                    value={cause}
+                                                >
+                                                    {bustCauseLabel(cause)}
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
                 <FormField
                     control={form.control}
                     name="occurredOn"
@@ -333,6 +433,45 @@ function EventForm({
                         </AlertDescription>
                     </Alert>
                 )}
+                {isMovedLive && accountsFailed && (
+                    <Alert className="sm:col-span-2" variant="warning">
+                        <TriangleAlert />
+                        <AlertTitle>Other accounts not loaded</AlertTitle>
+                        <AlertDescription>
+                            Your other accounts could not be loaded, so what
+                            the firm&apos;s rules do to them is not shown.
+                            Recording this event suspends nothing.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {exclusivity !== null && (
+                    <Alert className="sm:col-span-2">
+                        <Info />
+                        <AlertTitle>{exclusivity.title}</AlertTitle>
+                        <AlertDescription>
+                            {exclusivity.lines.map((line) => (
+                                <p key={line}>{line}</p>
+                            ))}
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {exclusivity !== null &&
+                    exclusivity.confirmedAccountIds.length > 0 && (
+                        <div className="flex items-center gap-2 sm:col-span-2">
+                            <Checkbox
+                                checked={suspendedIds.length > 0}
+                                id={suspendId}
+                                onCheckedChange={(checked) => {
+                                    setSuspendedKey(
+                                        checked === true ? exclusivityKey : null,
+                                    );
+                                }}
+                            />
+                            <Label htmlFor={suspendId}>
+                                Suspend these accounts when recording
+                            </Label>
+                        </div>
+                    )}
                 {shown?.requiresConfirmation === true && (
                     <div className="flex items-center gap-2 sm:col-span-2">
                         <Checkbox
@@ -358,16 +497,6 @@ function EventForm({
                     </Button>
                 </div>
             </form>
-            {movedLiveOn !== null && firmColumns !== null && (
-                <MovedLiveSuggestion
-                    externalFirms={externalFirms}
-                    firmColumns={firmColumns}
-                    onDismiss={() => {
-                        setMovedLiveOn(null);
-                    }}
-                    sentLiveOn={movedLiveOn}
-                />
-            )}
         </Form>
     );
 }
@@ -376,6 +505,10 @@ function eventFormSchema(accountId: string) {
     return eventFormShape.transform((values, context) => {
         const parsed = eventRecordSchema.safeParse({
             accountId,
+            bustCause:
+                values.kind === AccountEventKind.Busted
+                    ? values.bustCause
+                    : undefined,
             kind: values.kind,
             note: nullIfBlank(values.note),
             occurredOn: values.occurredOn,
@@ -384,23 +517,18 @@ function eventFormSchema(accountId: string) {
     });
 }
 
-function firmColumnsOf(data: unknown): EngagementFirmColumns | null {
-    if (
-        typeof data !== 'object' ||
-        data === null ||
-        !('firmId' in data) ||
-        !('externalFirmId' in data)
-    ) {
-        return null;
-    }
+function firmColumnsOf(
+    data: AccountFirmColumns | undefined,
+): EngagementFirmColumns | null {
+    if (data === undefined) return null;
     const { externalFirmId, firmId } = data;
-    if (typeof firmId === 'string' && externalFirmId === null) {
+    if (firmId !== null && externalFirmId === null) {
         const parsed = parseFirmId(firmId);
         return parsed === undefined
             ? null
             : { externalFirmId: null, firmId: parsed };
     }
-    return typeof externalFirmId === 'string' && firmId === null
+    return externalFirmId !== null && firmId === null
         ? { externalFirmId, firmId: null }
         : null;
 }

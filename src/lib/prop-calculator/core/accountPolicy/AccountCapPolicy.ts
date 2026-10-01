@@ -1,5 +1,5 @@
-import { type Plan } from '../Plan';
-import { serializePlanId } from '../PlanId';
+import { type Plan } from '~/lib/prop-calculator/core/Plan';
+import { serializePlanId } from '~/lib/prop-calculator/core/PlanId';
 
 export enum AccountCapPolicyKind {
     PerPlan = 'per-plan',

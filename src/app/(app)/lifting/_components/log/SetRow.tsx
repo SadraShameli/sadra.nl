@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import type { SetType, UnitDistance, UnitWeight } from '~/lib/lifting/types';
 
+import { NumberStepper } from '~/app/(app)/lifting/_components/shared/NumberStepper';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -34,8 +35,6 @@ import {
 } from '~/components/ui/Tooltip';
 import { DistanceUnit, WeightUnit } from '~/lib/lifting/format';
 import { cn } from '~/lib/utilities';
-
-import { NumberStepper } from '../shared/NumberStepper';
 
 const TEMPO_PATTERN = /^\d-\d-\d-\d$/;
 

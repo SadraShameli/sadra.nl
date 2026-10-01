@@ -9,10 +9,10 @@ import {
     type AccountStage,
     AccountStatus,
     AccountTracking,
-    AlertEvaluator,
     AlertSubjectKind,
+    compareSnapshots,
     compareText,
-    createAlertContext,
+    type CushionBoard,
     describeAccountReadIssue,
     type ExternalFirmName,
     type FirmKey,
@@ -20,7 +20,9 @@ import {
     firmKeyLabel,
     firmKeyOf,
     type LedgerOnlyPlanKey,
-    NO_ACCOUNT_STATES,
+    type PayoutReadinessBoard,
+    type PayoutReadinessRow,
+    PayoutReadinessRowKind,
     type PlanKeyInput,
     type PlanKeyResolution,
     PlanKeyResolutionKind,
@@ -28,12 +30,14 @@ import {
     trackedAccountOf,
     type TrackedAccountRow,
     type TrackedColumns,
-    UnresolvablePlanRule,
     UnresolvedPlanReason,
     type UsdCents,
     usdCents,
 } from '~/lib/prop-accounts';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    PayoutBlockReasonKind,
+    PayoutWaitBasis,
+} from '~/lib/prop-calculator/advisor';
 import {
     type propAccountSnapshotOutputSchema,
     STORED_DATA_OWNER_REPAIR,
@@ -43,6 +47,12 @@ export enum AccountSortKey {
     Cushion = 'cushion',
     Label = 'label',
     Readiness = 'readiness',
+}
+
+export enum PayoutReadinessTier {
+    Blocked = 'blocked',
+    Eligible = 'eligible',
+    Waiting = 'waiting',
 }
 
 export enum SortDirection {
@@ -60,10 +70,13 @@ export type AccountListAccount = Pick<
     | 'accountSize'
     | 'archivedAt'
     | 'copyGroupId'
+    | 'dashboardConvention'
     | 'externalFirmId'
     | 'firmId'
+    | 'firstFundedTradeOn'
     | 'id'
     | 'label'
+    | 'liveStartBalanceCents'
     | 'notes'
     | 'optIns'
     | 'planLabel'
@@ -76,6 +89,11 @@ export type AccountListAccount = Pick<
 > & {
     readonly readIssues: readonly AccountReadIssue[];
 };
+
+export interface AccountListBoards {
+    readonly cushion: CushionBoard;
+    readonly readiness: PayoutReadinessBoard;
+}
 
 export interface AccountListFilters {
     readonly copyGroupId: null | string;
@@ -94,13 +112,18 @@ export interface AccountListRow {
     readonly latestSnapshot: AccountListSnapshot | null;
     readonly plan: PlanKeyResolution;
     readonly planIssue: null | string;
-    readonly readiness: null | number;
+    readonly readiness: null | PayoutReadinessTier;
     readonly readOnlyNotice: null | string;
 }
 
 export type AccountListSnapshot = Pick<
     z.output<typeof propAccountSnapshotOutputSchema>,
-    'accountId' | 'asOf' | 'balanceCents' | 'createdAt' | 'dashboardFloorCents'
+    | 'accountId'
+    | 'asOf'
+    | 'balanceCents'
+    | 'createdAt'
+    | 'dashboardFloorCents'
+    | 'id'
 >;
 
 export interface AccountListSort {
@@ -127,6 +150,12 @@ export const DEFAULT_ACCOUNT_LIST_SORT: AccountListSort = {
     key: AccountSortKey.Label,
 };
 
+const READINESS_TIER_RANK: Readonly<Record<PayoutReadinessTier, number>> = {
+    [PayoutReadinessTier.Blocked]: 2,
+    [PayoutReadinessTier.Eligible]: 0,
+    [PayoutReadinessTier.Waiting]: 1,
+};
+
 const STATUS_LABEL: Readonly<Record<AccountStatus, string>> = {
     [AccountStatus.Active]: 'Active',
     [AccountStatus.Busted]: 'Busted',
@@ -139,10 +168,6 @@ const READ_ONLY_CLOSING =
     'While it is read-only, the account cannot be edited here and gets no sizing advice. Archiving keeps its payouts and fees in your totals; deleting it removes its balances, payouts, fees and events for good.';
 
 const REPAIR_OR_REPLACE = `${STORED_DATA_OWNER_REPAIR}, or archive it and add it again as a new account`;
-
-const UNRESOLVABLE_PLAN_EVALUATOR = new AlertEvaluator([
-    new UnresolvablePlanRule(),
-]);
 
 const LABEL_COLLATOR = new Intl.Collator('en', { sensitivity: 'base' });
 
@@ -201,7 +226,14 @@ export function alertSubjectView(alert: AccountAlert): AccountAlertSubjectView {
 export function buildAccountListRows(
     accounts: readonly AccountListAccount[],
     snapshots: readonly AccountListSnapshot[],
+    boards: AccountListBoards | null = null,
 ): readonly AccountListRow[] {
+    const cushions = new Map(
+        boards?.cushion.rows.map((row) => [row.accountId, row.cushionCents]),
+    );
+    const readiness = new Map(
+        boards?.readiness.rows.map((row) => [row.accountId, row]),
+    );
     const latest = new Map<string, AccountListSnapshot>();
     for (const snapshot of snapshots) {
         const current = latest.get(snapshot.accountId);
@@ -216,7 +248,10 @@ export function buildAccountListRows(
         const latestSnapshot = latest.get(account.id) ?? null;
         return {
             account,
-            cushionCents: cushionOf(latestSnapshot),
+            cushionCents:
+                boards === null
+                    ? cushionOf(latestSnapshot)
+                    : (cushions.get(account.id) ?? null),
             isLedgerOnly: account.tracking === AccountTracking.LedgerOnly,
             isReadOnly: issues.length > 0,
             latestSnapshot,
@@ -229,7 +264,7 @@ export function buildAccountListRows(
                               describeAccountReadIssue(account, issue),
                           )
                           .join('; '),
-            readiness: null,
+            readiness: readinessTierOf(readiness.get(account.id)),
             readOnlyNotice:
                 issues.length === 0
                     ? null
@@ -312,29 +347,15 @@ export function sortAccountRows(
             }
             case AccountSortKey.Readiness: {
                 return (
-                    compareKnownFirst(left.readiness, right.readiness, sign) ||
-                    compareLabels(left, right)
+                    compareKnownFirst(
+                        readinessRankOf(left.readiness),
+                        readinessRankOf(right.readiness),
+                        sign,
+                    ) || compareLabels(left, right)
                 );
             }
         }
     });
-}
-
-export function unresolvablePlanAlerts(
-    accounts: readonly AccountListAccount[],
-    today: string,
-): readonly AccountAlert[] {
-    return UNRESOLVABLE_PLAN_EVALUATOR.evaluate(
-        createAlertContext({
-            accounts,
-            accountStates: NO_ACCOUNT_STATES,
-            copyGroups: [],
-            payouts: [],
-            rulebook: DEFAULT_RULEBOOK,
-            snapshots: [],
-            today,
-        }),
-    );
 }
 
 function compareKnownFirst(
@@ -354,21 +375,33 @@ function compareLabels(left: AccountListRow, right: AccountListRow): number {
     );
 }
 
-function compareSnapshots(
-    left: AccountListSnapshot,
-    right: AccountListSnapshot,
-): number {
-    return (
-        compareText(left.asOf, right.asOf) ||
-        left.createdAt.getTime() - right.createdAt.getTime()
-    );
-}
-
 function cushionOf(snapshot: AccountListSnapshot | null): null | UsdCents {
     const floor = snapshot?.dashboardFloorCents ?? null;
     return snapshot === null || floor === null
         ? null
         : usdCents(snapshot.balanceCents - floor);
+}
+
+function readinessRankOf(tier: null | PayoutReadinessTier): null | number {
+    return tier === null ? null : READINESS_TIER_RANK[tier];
+}
+
+function readinessTierOf(
+    row: PayoutReadinessRow | undefined,
+): null | PayoutReadinessTier {
+    if (row === undefined) return null;
+    switch (row.kind) {
+        case PayoutReadinessRowKind.Blocked: {
+            return row.reason.kind === PayoutBlockReasonKind.PayoutPending ||
+                (row.wait !== null &&
+                    row.wait.basis !== PayoutWaitBasis.NoClosedForm)
+                ? PayoutReadinessTier.Waiting
+                : PayoutReadinessTier.Blocked;
+        }
+        case PayoutReadinessRowKind.Eligible: {
+            return PayoutReadinessTier.Eligible;
+        }
+    }
 }
 
 function readOnlyExplanation(issue: AccountReadIssue): string {

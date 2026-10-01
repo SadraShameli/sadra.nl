@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { type Dollars, dollarsSchema } from '../core';
+import { type Dollars, dollarsSchema } from '~/lib/prop-calculator/core';
 
 export const positiveDollarsSchema = dollarsSchema.refine(
     (amount) => amount > 0,

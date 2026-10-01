@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
 import {
+    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
+    type RulebookParameters,
+    rulebookSchema,
+} from '~/lib/prop-calculator/advisor/Rulebook';
+import {
     type AccountState,
     accountStateSchema,
     CENTS_PER_DOLLAR,
@@ -9,11 +14,6 @@ import {
 } from '~/lib/prop-calculator/core';
 import { type SimStart } from '~/lib/prop-calculator/simulator';
 
-import {
-    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
-    type RulebookParameters,
-    rulebookSchema,
-} from '../Rulebook';
 import { type EnginePolicy, enginePolicySchema } from './EnginePolicy';
 
 export interface DocumentedPolicyRun {

@@ -1,4 +1,4 @@
-import { type DatedCharge } from '../core/DatedCharge';
+import { type DatedCharge } from '~/lib/prop-calculator/core/DatedCharge';
 
 export interface CardChargeCursorInputs {
     evalDays: number;

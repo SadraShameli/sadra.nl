@@ -8,8 +8,9 @@ import {
     fraction,
     type LiveCushionPercent,
     MAX_LADDER_SLOTS,
-} from '../core';
-import { type PlausibilityThresholds } from '../economics';
+} from '~/lib/prop-calculator/core';
+import { type PlausibilityThresholds } from '~/lib/prop-calculator/economics';
+
 import { RiskDisplayUnit } from './RiskDisplayUnit';
 
 export enum EvalSizingMode {
@@ -138,6 +139,7 @@ export interface RulebookParameters {
 
 export interface SampleThresholds {
     readonly minClosedRounds: null | number;
+    readonly minEndedAccounts: null | number;
     readonly minEvalAttempts: null | number;
     readonly minFundedAccounts: null | number;
     readonly minTrades: null | number;
@@ -203,6 +205,7 @@ export const DEFAULT_RULEBOOK: RulebookParameters = {
     },
     samples: {
         minClosedRounds: null,
+        minEndedAccounts: null,
         minEvalAttempts: null,
         minFundedAccounts: null,
         minTrades: null,
@@ -385,6 +388,7 @@ const reviewSchema = z.object({
 
 const samplesSchema = z.object({
     minClosedRounds: sampleMinimumSchema.nullable(),
+    minEndedAccounts: sampleMinimumSchema.nullable(),
     minEvalAttempts: sampleMinimumSchema.nullable(),
     minFundedAccounts: sampleMinimumSchema.nullable(),
     minTrades: sampleMinimumSchema.nullable(),

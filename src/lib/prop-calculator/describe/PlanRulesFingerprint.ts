@@ -1,4 +1,5 @@
-import { type Plan } from '../core';
+import { type Plan } from '~/lib/prop-calculator/core';
+
 import { serializePlanRules } from './PlanRulesSerialization';
 
 export const PLAN_RULES_FINGERPRINT_LENGTH = 64;

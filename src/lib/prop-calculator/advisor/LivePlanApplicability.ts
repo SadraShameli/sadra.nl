@@ -14,7 +14,7 @@ import {
     type PlanId,
     TopStepVariant,
     TradeifyVariant,
-} from '../core';
+} from '~/lib/prop-calculator/core';
 import {
     ALPHAFUTURES_LIVE_DEFAULT_CUSHION_PERCENT,
     APEX_LIVE_DEFAULT_CUSHION_PERCENT,
@@ -36,7 +36,8 @@ import {
     TOPSTEP_LIVE_DEFAULT_CUSHION_PERCENT,
     TPT_LIVE_DEFAULT_CUSHION_PERCENT,
     TRADEIFY_LIVE_DEFAULT_CUSHION_PERCENT,
-} from '../firms';
+} from '~/lib/prop-calculator/firms';
+
 import { type InputAssumptionKind } from './Assumption';
 import { AssumptionKind } from './AssumptionKind';
 

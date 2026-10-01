@@ -98,6 +98,8 @@ describe('routes.propCalculator', () => {
         );
         expect(accounts.nextSlot).toBe('/prop-calculator/accounts/next-slot');
         expect(accounts.edge).toBe('/prop-calculator/accounts/edge');
+        expect(accounts.rounds).toBe('/prop-calculator/accounts/rounds');
+        expect(accounts.firms).toBe('/prop-calculator/accounts/firms');
     });
 
     it('keeps the hub, not the whole object, in the indexable list', () => {

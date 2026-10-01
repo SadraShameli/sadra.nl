@@ -1,6 +1,16 @@
-import { isoDaysBetween, TradingPhase } from '~/lib/prop-calculator';
+import {
+    AccountStage,
+    findStoredFirm,
+    PlanKeyResolutionKind,
+    type StoredFirmId,
+} from '~/lib/prop-accounts/core';
+import {
+    isoDaysBetween,
+    type Plan,
+    PolicyVerification,
+    TradingPhase,
+} from '~/lib/prop-calculator';
 
-import { AccountStage, PlanKeyResolutionKind } from '../core';
 import { type AccountAlert, AlertDisclosure } from './AccountAlert';
 import {
     type AlertContext,
@@ -31,7 +41,16 @@ export class IdleSessionLimitRule extends AccountAlertRule {
         const phase = phaseFor(monitored.account.stage);
         if (phase === null) return null;
         const limit = monitored.plan.plan.maxConsecutiveIdleDaysFor(phase);
-        if (limit === null) return null;
+        if (
+            limit === null ||
+            hasVerifiedCalendarPolicy(
+                monitored.planKey.firmId,
+                monitored.plan.plan,
+                phase,
+            )
+        ) {
+            return null;
+        }
         const lastTradedOn = monitored.latestSnapshot?.lastTradedOn ?? null;
         if (lastTradedOn === null) return null;
         const idleDays = isoDaysBetween(lastTradedOn, context.today);
@@ -45,6 +64,17 @@ export class IdleSessionLimitRule extends AccountAlertRule {
             [AlertDisclosure.SessionLimitApproximatedAsCalendarDays],
         );
     }
+}
+
+function hasVerifiedCalendarPolicy(
+    firmId: StoredFirmId,
+    plan: Plan,
+    phase: TradingPhase,
+): boolean {
+    const firm = findStoredFirm(firmId);
+    if (firm === undefined) return false;
+    const policy = firm.accountPolicy.inactivityFor(plan, phase);
+    return policy.source?.verification === PolicyVerification.Confirmed;
 }
 
 function phaseFor(stage: AccountStage): null | TradingPhase {

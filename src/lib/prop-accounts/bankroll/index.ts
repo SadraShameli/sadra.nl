@@ -36,6 +36,7 @@ export {
 } from './RoundSuggestions';
 export {
     type ScaleGate,
+    scaleGateFromLedger,
     type ScaleGateInputs,
     scaleGateOf,
     ScaleGateStatus,

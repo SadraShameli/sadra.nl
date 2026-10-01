@@ -1,11 +1,10 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { RoutinesView } from '~/app/(app)/lifting/_components/RoutinesView';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-
-import { RoutinesView } from '../_components/RoutinesView';
 
 export const metadata: Metadata = {
     description: 'Quick-start workout templates.',

@@ -1,12 +1,11 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { BodyView } from '~/app/(app)/lifting/_components/BodyView';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { BodyView } from '../_components/BodyView';
 
 export const metadata: Metadata = {
     description: 'Track bodyweight and tape measurements.',

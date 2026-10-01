@@ -10,8 +10,7 @@ import {
     LockKeyedContractCapLivePlan,
     ONE_CENT,
 } from '~/lib/prop-calculator/core';
-
-import { lockThresholdAt } from '../shared';
+import { lockThresholdAt } from '~/lib/prop-calculator/firms/shared';
 
 export const FUNDEDNEXT_LIVE_DEFAULT_CUSHION_PERCENT: LiveCushionPercent = {
     postLock: fraction(0.1),

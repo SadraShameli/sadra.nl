@@ -2,11 +2,10 @@ import { notFound, redirect } from 'next/navigation';
 import 'server-only';
 import { z } from 'zod';
 
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { api } from '~/trpc/server';
-
-import { ACCOUNT_LIST_INPUT } from '../accountListFilters';
 
 export interface AccountPageSession {
     readonly id: string;

@@ -45,6 +45,12 @@ describe('the accounts overview imports', () => {
         expect(names).toContain('overviewModel.ts');
     });
 
+    it('never casts an account or snapshot row through `as unknown as`', () => {
+        const modelFile = path.join(OVERVIEW_ROOT, 'overviewModel.ts');
+        const source = readFileSync(modelFile, 'utf8');
+        expect(source).not.toContain('as unknown as');
+    });
+
     it('never import from the rulebook route', () => {
         const offenders = sourceFiles(OVERVIEW_ROOT).flatMap((file) =>
             resolvedImports(file)

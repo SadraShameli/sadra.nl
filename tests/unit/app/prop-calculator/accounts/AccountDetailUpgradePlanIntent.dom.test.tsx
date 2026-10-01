@@ -118,6 +118,9 @@ vi.mock('~/trpc/react', () => ({
                 ),
             },
             copyGroup: { list: harness.query('copyGroup.list') },
+            decision: {
+                listForAccount: harness.query('decision.listForAccount'),
+            },
             event: {
                 list: harness.query('event.list'),
                 listForAccount: harness.query('event.listForAccount'),
@@ -142,6 +145,12 @@ vi.mock('~/trpc/react', () => ({
                 latestForAll: harness.query('snapshot.latestForAll'),
                 listForAccount: harness.query('snapshot.listForAccount'),
                 remove: harness.mutation('snapshot.remove'),
+            },
+            violation: {
+                create: harness.mutation('violation.create'),
+                list: harness.query('violation.list'),
+                remove: harness.mutation('violation.remove'),
+                update: harness.mutation('violation.update'),
             },
         },
         useUtils: () => ({

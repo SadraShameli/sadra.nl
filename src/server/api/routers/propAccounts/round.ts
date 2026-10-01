@@ -58,16 +58,36 @@ export const propRoundRouter = createTRPCRouter({
                     input.accountId,
                     true,
                 );
+                if (input.roundId === stored.roundId) return stored;
                 await assertRoundAcceptsMembership(
                     repo,
                     input.roundId,
                     input.overrideRoundBudget,
                 );
+                const quotas = await PropQuotaGuard.acquire(tx, ctx.userId);
+                await quotas.assertWithin(PropQuota.Events, 1);
+                const now = new Date();
                 const [row] = await tx
                     .update(propAccount)
-                    .set({ roundId: input.roundId, updatedAt: new Date() })
+                    .set({ roundId: input.roundId, updatedAt: now })
                     .where(ownedAccount(stored.id, ctx.userId))
                     .returning();
+                await repo.recordEdits(
+                    [
+                        {
+                            accountId: stored.id,
+                            changes: [
+                                {
+                                    field: 'roundId',
+                                    from: stored.roundId,
+                                    to: input.roundId,
+                                },
+                            ],
+                            purchasedOn: stored.purchasedOn,
+                        },
+                    ],
+                    now,
+                );
                 return readAccount(returnedRowOrThrow(row, PropRecord.Account));
             }),
         ),

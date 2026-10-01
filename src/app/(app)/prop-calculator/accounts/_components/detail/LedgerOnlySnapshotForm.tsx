@@ -3,10 +3,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { Button } from '~/components/ui/Button';
-import { AccountTracking, todayIsoDate } from '~/lib/prop-accounts';
-import { api } from '~/trpc/react';
-
 import {
     emptySnapshotFormValues,
     ledgerOnlySnapshotRules,
@@ -14,8 +10,11 @@ import {
     type SnapshotFormResult,
     SnapshotFormResultKind,
     type SnapshotFormValues,
-} from '../snapshotFieldRules';
-import { SnapshotFields } from '../SnapshotFields';
+} from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
+import { SnapshotFields } from '~/app/(app)/prop-calculator/accounts/_components/SnapshotFields';
+import { Button } from '~/components/ui/Button';
+import { AccountTracking, todayIsoDate } from '~/lib/prop-accounts';
+import { api } from '~/trpc/react';
 
 export function LedgerOnlySnapshotForm({
     accountId,

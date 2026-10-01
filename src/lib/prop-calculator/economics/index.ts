@@ -29,8 +29,16 @@ export {
     empiricalPayingStatsOf,
 } from './BankrollLevers';
 export {
+    bankrollCompoundingIllustration,
+    type BankrollLossRiskSummary,
+    bankrollLossRiskSummary,
+    type BankrollMinimumBudget,
+    type CompoundingIllustration,
+} from './BankrollRiskSummary';
+export {
     cohortOutcome,
     type CohortOutcome,
+    LOSS_RISK_DRAWS,
     MAX_COHORT_SAMPLES,
 } from './CohortOutcome';
 export {

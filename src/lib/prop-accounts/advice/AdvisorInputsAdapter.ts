@@ -1,15 +1,14 @@
+import {
+    type PersonalRules,
+    type UsdCents,
+    usdCentsToDollars,
+} from '~/lib/prop-accounts/core';
+import { rebuyLagDefault, type ReplacementStats } from '~/lib/prop-accounts/metrics';
 import { type Dollars } from '~/lib/prop-calculator';
 import {
     type PersonalCaps,
     type RebuyLagBasis,
 } from '~/lib/prop-calculator/advisor';
-
-import {
-    type PersonalRules,
-    type UsdCents,
-    usdCentsToDollars,
-} from '../core';
-import { rebuyLagDefault, type ReplacementStats } from '../metrics';
 
 export interface AdvisorPersonalInputs {
     readonly payoutRequestOverride: Dollars | null;

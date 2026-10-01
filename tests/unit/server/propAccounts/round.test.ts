@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { isWithinRateLimit } from '~/lib/observability/rate-limit';
-import { RoundStatus } from '~/lib/prop-accounts';
+import {
+    AccountEventKind,
+    readAccountEventDetail,
+    RoundStatus,
+} from '~/lib/prop-accounts';
 import { PROP_QUOTA_LIMITS } from '~/lib/prop-accounts/server';
 import { FirmId } from '~/lib/prop-calculator';
 import {
@@ -127,8 +131,103 @@ describe('propAccounts.round', () => {
         ).resolves.toMatchObject({ id: IDS.account });
     });
 
+    it('assign records an Edited event with the old and new round', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.fee]: [feeRow({ amount_cents: 16_500 })] }),
+        );
+        await caller.round.assign({
+            accountId: IDS.account,
+            roundId: VIDEO_IDS.round,
+        });
+        const [eventInsert] = insertsInto(queries, TABLES.event);
+        expect(insertedColumnValues(defined(eventInsert), 'kind')).toEqual([
+            AccountEventKind.Edited,
+        ]);
+        const [detail] = insertedColumnValues(
+            defined(eventInsert),
+            'detail',
+        ).map((raw) =>
+            readAccountEventDetail(
+                typeof raw === 'string' ? JSON.parse(raw) : raw,
+            ),
+        );
+        expect(detail?.changes).toEqual([
+            { field: 'roundId', from: null, to: VIDEO_IDS.round },
+        ]);
+    });
+
+    it('assign writes no Edited event when the round does not change', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [accountRow({ round_id: VIDEO_IDS.round })],
+                [TABLES.fee]: [feeRow({ amount_cents: 16_500 })],
+            }),
+        );
+        await caller.round.assign({
+            accountId: IDS.account,
+            roundId: VIDEO_IDS.round,
+        });
+        expect(insertsInto(queries, TABLES.event)).toHaveLength(0);
+        expect(updatesOf(queries, TABLES.account)).toHaveLength(0);
+    });
+
+    it('assign is a no-op that skips re-validation when reassigning to the same round, even once that round has closed or gone over budget', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [accountRow({ round_id: VIDEO_IDS.round })],
+                [TABLES.fee]: [feeRow({ amount_cents: 150_000 })],
+                [VIDEO_TABLES.round]: [
+                    roundRow({ status: RoundStatus.Closed }),
+                ],
+            }),
+        );
+        await expect(
+            caller.round.assign({
+                accountId: IDS.account,
+                roundId: VIDEO_IDS.round,
+            }),
+        ).resolves.toMatchObject({ id: IDS.account });
+        const roundReads = queries.filter(
+            (query) => readTable(query) === VIDEO_TABLES.round,
+        );
+        expect(roundReads).toHaveLength(0);
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('assign fails loud at the events quota when the round actually changes, and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder(
+                { [TABLES.fee]: [feeRow({ amount_cents: 16_500 })] },
+                { [TABLES.event]: PROP_QUOTA_LIMITS[PropQuota.Events] },
+            ),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(
+                caller.round.assign({
+                    accountId: IDS.account,
+                    roundId: VIDEO_IDS.round,
+                }),
+            ),
+        );
+        expect(shape.data.code).toBe('TOO_MANY_REQUESTS');
+        expect(shape.data.propRejection).toMatchObject({
+            quota: PropQuota.Events,
+            reason: PropLimitRejection.QuotaExceeded,
+        });
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
     it('assign unassigns an account from its round without a budget check', async () => {
-        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [accountRow({ round_id: VIDEO_IDS.round })],
+            }),
+        );
         await caller.round.assign({ accountId: IDS.account, roundId: null });
         const [update] = updatesOf(queries, TABLES.account);
         expect(update?.text).toMatch(/"round_id" = /);

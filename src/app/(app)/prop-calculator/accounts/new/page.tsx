@@ -1,19 +1,18 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { AccountCreator } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import {
+    type AccountPrefillParameters,
+    accountPrefillQuery,
+    parseAccountPrefill,
+} from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { AccountCreator } from '../_components/AccountForm';
-import { ACCOUNT_LIST_INPUT } from '../_components/accountListFilters';
-import {
-    type AccountPrefillParameters,
-    accountPrefillQuery,
-    parseAccountPrefill,
-} from '../_components/accountPrefill';
 
 export const metadata: Metadata = {
     description: 'Add a prop firm account.',

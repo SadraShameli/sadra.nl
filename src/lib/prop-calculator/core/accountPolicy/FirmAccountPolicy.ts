@@ -1,6 +1,7 @@
-import { lifetimePayoutCountLimit } from '../PayoutGate';
-import { type Plan } from '../Plan';
-import { type TradingPhase } from '../TradingPhase';
+import { lifetimePayoutCountLimit } from '~/lib/prop-calculator/core/PayoutGate';
+import { type Plan } from '~/lib/prop-calculator/core/Plan';
+import { type TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+
 import {
     type AccountCapPolicy,
     PER_PLAN_CAP_POLICY,

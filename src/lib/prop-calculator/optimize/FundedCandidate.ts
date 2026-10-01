@@ -12,8 +12,8 @@ import {
     policySizingOf,
     type PositionSizingConfig,
     TradingPhase,
-} from '../core';
-import { type SimInputs, simInputsSizingIssue } from '../simulator';
+} from '~/lib/prop-calculator/core';
+import { type SimInputs, simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 
 export enum FundedCandidateBuildKind {
     Built = 'built',

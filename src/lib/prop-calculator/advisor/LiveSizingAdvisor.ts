@@ -1,5 +1,6 @@
-import { dollars, type Dollars, resolveLiveAffordableRoom } from '../core';
-import { firmDataProvenance } from '../describe';
+import { dollars, type Dollars, resolveLiveAffordableRoom } from '~/lib/prop-calculator/core';
+import { firmDataProvenance } from '~/lib/prop-calculator/describe';
+
 import { type Advice } from './Advice';
 import { adviceProvenance } from './AdviceProvenance';
 import { AdviceSource } from './AdviceSource';
@@ -10,10 +11,6 @@ import {
 } from './AdviceStaleness';
 import { type Assumption } from './Assumption';
 import { createDocumentedRule } from './createDocumentedRule';
-import {
-    dailyPlanCard as buildDailyPlanCard,
-    type DailyPlanCard,
-} from './DailyPlanCard';
 import { NO_COMMISSION } from './DocumentedSizing';
 import { type EngineOptimumRequest } from './EngineOptimumRequest';
 import { type EngineOptimumRunnerResult } from './EngineOptimumRunner';
@@ -59,40 +56,6 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
         return this.withLiveTriggersNotChecked(this.input.account.assumptions);
     }
 
-    private buildContextOrNull(): LiveRuleContext | null {
-        const { account, personalCaps, personalDll } = this.input;
-        if (account.cushion === null) return null;
-        const cushion = dollars(account.cushion);
-        if (account.livePlan === null || account.state === null) {
-            return {
-                ceiling: null,
-                contractLimit: null,
-                cushion,
-                dayStartDllRoom: null,
-                instrument: null,
-                liveCushionPercent: null,
-                personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
-                personalDll: personalDll ?? null,
-                placeableMinimum: dollars(0.01),
-                stage: SizingStage.Live,
-                thresholdLocked: false,
-            };
-        }
-        const { livePlan, state } = account;
-        return {
-            ceiling: null,
-            contractLimit: null,
-            cushion,
-            dayStartDllRoom: dollarsOrNull(livePlan.dailyLossLimitFor(state)),
-            instrument: null,
-            liveCushionPercent: livePlan.cushionPercentFor(state),
-            personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
-            personalDll: personalDll ?? null,
-            placeableMinimum: dollars(0.01),
-            stage: SizingStage.Live,
-            thresholdLocked: state.thresholdLocked,
-        };
-    }
 
     private payoutRuleContext(): LivePayoutRuleContext | null {
         const {
@@ -161,18 +124,6 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
         return riskCaps(dollars(room.room), null, personal);
     }
 
-    dailyPlanCard(): DailyPlanCard | null {
-        if (this.staleness().kind === 'stale') return null;
-        const context = this.buildContextOrNull();
-        return context === null ? null : buildDailyPlanCard(this.rule, context);
-    }
-
-    documented() {
-        if (this.staleness().kind === 'stale') return null;
-        const context = this.buildContextOrNull();
-        return context === null ? null : this.rule.size(context);
-    }
-
     optimumRequests(): readonly EngineOptimumRequest[] {
         return [];
     }
@@ -189,6 +140,41 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
         });
     }
 
+    protected override buildContextOrNull(): LiveRuleContext | null {
+        const { account, personalCaps, personalDll } = this.input;
+        if (account.cushion === null) return null;
+        const cushion = dollars(account.cushion);
+        if (account.livePlan === null || account.state === null) {
+            return {
+                ceiling: null,
+                contractLimit: null,
+                cushion,
+                dayStartDllRoom: null,
+                instrument: null,
+                liveCushionPercent: null,
+                personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
+                personalDll: personalDll ?? null,
+                placeableMinimum: dollars(0.01),
+                stage: SizingStage.Live,
+                thresholdLocked: false,
+            };
+        }
+        const { livePlan, state } = account;
+        return {
+            ceiling: null,
+            contractLimit: null,
+            cushion,
+            dayStartDllRoom: dollarsOrNull(livePlan.dailyLossLimitFor(state)),
+            instrument: null,
+            liveCushionPercent: livePlan.cushionPercentFor(state),
+            personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
+            personalDll: personalDll ?? null,
+            placeableMinimum: dollars(0.01),
+            stage: SizingStage.Live,
+            thresholdLocked: state.thresholdLocked,
+        };
+    }
+
     protected buildContext(): LiveRuleContext {
         const context = this.buildContextOrNull();
         if (context === null) {
@@ -197,6 +183,10 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
             );
         }
         return context;
+    }
+
+    protected payoutEligibleForRiskCheck(): boolean {
+        return this.isPayoutRequestDecision(this.payoutRuleContext());
     }
 }
 

@@ -1,4 +1,5 @@
 import PlanStatsBadges from '~/app/(app)/prop-calculator/_components/PlanStatsBadges';
+import { LEDGER_ONLY_STATUS_NOTE } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
 import { formatCurrency } from '~/lib/format';
 import {
     describePlanOptIn,
@@ -10,8 +11,6 @@ import {
     describePlanRules,
     PLAN_RULE_SEGMENT_LABEL,
 } from '~/lib/prop-calculator/describe';
-
-import { LEDGER_ONLY_STATUS_NOTE } from '../accountPlanOptions';
 
 const NO_LIMIT = 'None';
 

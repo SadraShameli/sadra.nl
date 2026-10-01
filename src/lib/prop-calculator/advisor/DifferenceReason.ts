@@ -1,4 +1,4 @@
-import { type ConductPattern, type Dollars } from '../core';
+import { type ConductPattern, type Dollars } from '~/lib/prop-calculator/core';
 
 export enum DifferenceReason {
     AggressiveOptimumChurn = 'aggressive-optimum-churn',
@@ -19,6 +19,7 @@ export enum DifferenceReason {
     DpStateUnreached = 'dp-state-unreached',
     EngineInputsRefused = 'engine-inputs-refused',
     FirmMinimumAboveRequest = 'firm-minimum-above-request',
+    FlatRiskIgnoresState = 'flat-risk-ignores-state',
     FreshStartApproximation = 'fresh-start-approximation',
     HorizonCreditOneRequest = 'horizon-credit-one-request',
     LiveModelApproximation = 'live-model-approximation',
@@ -78,6 +79,12 @@ export type DifferenceReasonDetail =
           readonly kind: DifferenceReason.DailyLossCap;
       }
     | { readonly day: number; readonly kind: DifferenceReason.DpStateUnreached }
+    | {
+          readonly documentedFlatRisk: Dollars;
+          readonly fromStateOptimum: Dollars;
+          readonly gapInCombinedSEs: null | number;
+          readonly kind: DifferenceReason.FlatRiskIgnoresState;
+      }
     | {
           readonly drawdown: Dollars;
           readonly kind: DifferenceReason.DpGridMisaligned;

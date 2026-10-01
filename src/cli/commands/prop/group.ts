@@ -7,6 +7,10 @@ export default defineCommand({
         name: 'prop',
     },
     subCommands: {
+        advise: async () => {
+            const commandModule = await import('./advise/command');
+            return commandModule.default;
+        },
         bankroll: async () => {
             const commandModule = await import('./bankroll/group');
             return commandModule.default;

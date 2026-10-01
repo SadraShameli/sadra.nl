@@ -627,7 +627,10 @@ describe('rulebook form values', () => {
         const parsed = rulebookFormSchema.parse(
             rulebookToFormValues(DEFAULT_RULEBOOK),
         );
-        expect(parsed).toEqual(DEFAULT_RULEBOOK);
+        expect(parsed).toEqual({
+            ...DEFAULT_RULEBOOK,
+            samples: { ...DEFAULT_RULEBOOK.samples, minEndedAccounts: null },
+        });
         expect(rulebookDeviation(parsed)).toEqual([]);
     });
 
@@ -703,6 +706,7 @@ describe('rulebook form values', () => {
             },
             samples: {
                 minClosedRounds: 4,
+                minEndedAccounts: 12,
                 minEvalAttempts: 30,
                 minFundedAccounts: 20,
                 minTrades: 150,
@@ -723,6 +727,7 @@ describe('rulebook form values', () => {
                 ...DEFAULT_RULEBOOK.funded,
                 stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
             },
+            samples: { ...DEFAULT_RULEBOOK.samples, minEndedAccounts: null },
         };
         expect(rulebookFormSchema.parse(rulebookToFormValues(custom))).toEqual(
             custom,
@@ -904,7 +909,10 @@ describe('rulebook form codec module', () => {
         const values = rulebookToFormValues(DEFAULT_RULEBOOK);
         const clean = readRulebookDraft(values);
         expect(clean.issues).toEqual([]);
-        expect(rulebookSchema.parse(clean.candidate)).toEqual(DEFAULT_RULEBOOK);
+        expect(rulebookSchema.parse(clean.candidate)).toEqual({
+            ...DEFAULT_RULEBOOK,
+            samples: { ...DEFAULT_RULEBOOK.samples, minEndedAccounts: null },
+        });
         const broken = readRulebookDraft({
             ...values,
             funded: { ...values.funded, riskCents: 'abc' },

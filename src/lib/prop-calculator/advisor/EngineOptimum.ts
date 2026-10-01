@@ -1,5 +1,5 @@
-import { type FundedCandidateRefusalDetail } from '../optimize';
-import { type SimOutputs } from '../simulator';
+import { type FundedCandidateRefusalDetail } from '~/lib/prop-calculator/optimize';
+import { type SimOutputs } from '~/lib/prop-calculator/simulator';
 
 export enum EngineOptimumRefusalKind {
     FlatBelowOneContract = 'flat-below-one-contract',

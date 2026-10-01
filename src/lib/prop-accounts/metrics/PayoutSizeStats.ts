@@ -7,6 +7,7 @@ import {
     type FirmKey,
     firmKeyId,
     firmKeyOf,
+    latestEventOn,
     paidPayoutCash,
     type UsdCents,
     usdCents,
@@ -203,10 +204,13 @@ function latestOn(
     entry: ModeledLedgerAccount,
     kind: AccountEventKind,
 ): null | string {
-    const matches = entry.transitions.filter(
-        (transition) => transition.kind === kind,
+    return latestEventOn(
+        entry.transitions.map((transition) => ({
+            kind: transition.kind,
+            occurredOn: transition.on,
+        })),
+        kind,
     );
-    return matches.at(-1)?.on ?? null;
 }
 
 function sampleOf(

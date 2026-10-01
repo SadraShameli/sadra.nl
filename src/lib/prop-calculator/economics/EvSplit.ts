@@ -1,4 +1,5 @@
-import { dollars, type Dollars, type Fraction0to1 } from '../core';
+import { dollars, type Dollars, type Fraction0to1 } from '~/lib/prop-calculator/core';
+
 import { expectedNetPerAttemptOf } from './AttemptEconomics';
 import {
     EconomicsReason,

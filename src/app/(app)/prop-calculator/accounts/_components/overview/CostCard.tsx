@@ -100,7 +100,10 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                                     Open eval attempts
                                 </TableHead>
                                 <TableHead className="text-right">
-                                    Modeled
+                                    Modeled cost per funded
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Realized minus modeled
                                 </TableHead>
                             </TableRow>
                         </TableHeader>
@@ -128,8 +131,11 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                                     <TableCell className="text-right tabular-nums">
                                         {row.pendingEvalAccounts}
                                     </TableCell>
-                                    <TableCell className="text-right text-muted-foreground">
+                                    <TableCell className="text-right text-muted-foreground tabular-nums">
                                         {row.modeled}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.realizedMinusModeled}
                                     </TableCell>
                                 </TableRow>
                             ))}

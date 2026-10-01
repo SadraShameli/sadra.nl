@@ -100,7 +100,7 @@ describe('computeFundedStateValue converges to its fixed point within the stated
         },
     );
 
-    it('values FTMO Futures Growth 50K at the coarse probe grid within $1 of the fixed point the solver reaches at tolerance 0.0001 ($60,708.76), in under half the 2,152 sweeps the pre-WP17e default took. Re-derived for T32: the end-of-horizon credit is one capped request, not the whole balance above the floor; with only the pre-T32 credit restored the tolerance 0.0001 run reproduces the old $61,833.38 fixed point exactly, so the credit is the only move', async () => {
+    it('values FTMO Futures Growth 50K at the coarse probe grid within $1 of the fixed point the solver reaches at tolerance 0.0001 ($60,708.76), in under half the 2,152 sweeps the pre-WP17e default took. Re-derived for T32: the end-of-horizon credit is one capped request, not the whole balance above the floor; with only the pre-T32 credit restored the tolerance 0.0001 run reproduces the old $61,833.38 fixed point exactly, so the credit is the only move. Pinned back to the 6 drawdown fine top for WP58d (the WP58c re-pin to the default 30 drawdown coarse tail took reachedStateCount from 81,000 to 502,200 and this file from 8.8 s to 102 s, 11x, and it studies convergence, not the grid, so the cushion tail is pinned off and the pre-tail pins are restored; the tail-on solve is covered by FundedStateValueGridSaturation.test.ts and FundedStateValueBestDayBound.test.ts)', async () => {
         await warmFirmsRegistryCache();
         const plan = ALL_FIRMS.find(
             (firm) => firm.id === FirmId.FtmoFutures,
@@ -117,6 +117,7 @@ describe('computeFundedStateValue converges to its fixed point within the stated
             evalInitialValue: 0,
             feePerAttempt: dollars(0),
             maxActionMultiple: 1,
+            maxTailCushionMultiple: 6,
             meanHorizonDays: HORIZON_DAYS,
             payoutRegimeCap: 2,
             plan,

@@ -46,12 +46,24 @@ export {
     CushionRatioBasis,
     cushionRatioOf,
     documentedFundedRiskOf,
+    FundedRiskBasis,
 } from './CushionBoard';
 export {
     type Diversification,
     diversification,
     type FirmShare,
 } from './Diversification';
+export {
+    type AccountExposure,
+    type AccountExposureUnavailableReason,
+    type CopyGroupExposure,
+    type Exposure,
+    ExposureBasis,
+    type ExposureEntry,
+    exposureOf,
+    ExposureUnavailableKind,
+    type ExposureUnavailableRow,
+} from './Exposure';
 export {
     type FeeCheckRow,
     FeePriceCheck,
@@ -94,6 +106,14 @@ export {
     independentSampleCount,
     independentSamples,
 } from './IndependentSamples';
+export {
+    type AccountLiveTriggerProximity,
+    type FirmLiveTriggerProximity,
+    LiveProximityStatus,
+    type LiveTransitionProximity,
+    liveTransitionProximity,
+    type SingleDayTriggerFact,
+} from './LiveTransitionProximity';
 export {
     earliestActivityMonth,
     filledMonths,
@@ -149,7 +169,13 @@ export {
     type PlanCapRow,
     type PlanCapUsage,
     planCapUsage,
+    totalUsedFundedSlots,
 } from './PlanCapUsage';
+export {
+    type PooledCapPlanRow,
+    type PooledCapUsage,
+    pooledCapUsage,
+} from './PooledCapUsage';
 export {
     accountRoundId,
     AVERAGE_DAYS_PER_MONTH,
@@ -252,4 +278,16 @@ export {
     spendAndPayouts,
     summarizeCash,
 } from './SpendAndPayouts';
-export { type FirmFunnel, type StageFunnel, stageFunnel } from './StageFunnel';
+export {
+    type AccountBustDecision,
+    type AccountBustViolation,
+    type BustAttempt,
+    type BustAttemptDecision,
+    type BustAttemptEvent,
+    bustDiagnosisOfAttempt,
+    type BustSplit,
+    bustSplitByFirm,
+    type FirmFunnel,
+    type StageFunnel,
+    stageFunnel,
+} from './StageFunnel';

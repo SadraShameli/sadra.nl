@@ -200,6 +200,27 @@ describe('stateCardOf', () => {
         expect(view.issues[0]?.message).toContain('highest end-of-day balance');
     });
 
+    it("carries the account's personal max risk per trade into the reconstruction", () => {
+        const view = stateCardOf(
+            registryPlan(MFF_PRO_ID),
+            {
+                ...accountRow(MFF_PRO_ID),
+                personalRules: { maxRiskPerTradeCents: usdCents(20_000) },
+            },
+            snapshotRow(),
+            NO_EVENTS,
+            NO_PAYOUTS,
+            '2026-02-10',
+        );
+        if (view.kind !== StateCardKind.Ready) {
+            throw new Error('expected a ready state card');
+        }
+        if (view.account.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded reconstruction');
+        }
+        expect(view.account.personalMaxRiskPerTrade).toBe(200);
+    });
+
     it('shows the intraday-peak-required message instead of numbers on an intraday-trailing plan with no peak entered', () => {
         const view = stateCardOf(
             registryPlan(MFF_RAPID_ID),
@@ -298,6 +319,7 @@ describe('liveRulesCardOf', () => {
         expect(view.requiresLockForWithdrawal).toBe(true);
         expect(view.minPayoutRequest).toBe(500);
         expect(view.drawdown).toEqual({ amount: 3000, kind: 'eod-trailing' });
+        expect(view.contractLimit).toEqual({ micros: 100, minis: 10 });
     });
 
     it('flags the approximation when only a firm-level (defaulted) builder applies', () => {

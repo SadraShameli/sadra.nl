@@ -1,7 +1,8 @@
-import { CALENDAR_DAYS_PER_WEEK } from '../constants';
-import { type Dollars } from '../lib/units';
-import { type Plan } from '../Plan';
-import { type TradingPhase } from '../TradingPhase';
+import { CALENDAR_DAYS_PER_WEEK } from '~/lib/prop-calculator/core/constants';
+import { type Dollars } from '~/lib/prop-calculator/core/lib/units';
+import { type Plan } from '~/lib/prop-calculator/core/Plan';
+import { type TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+
 import { type FirmPolicySource } from './FirmPolicySource';
 
 export enum InactivityBasisKind {

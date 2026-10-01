@@ -1,18 +1,16 @@
 'use client';
 
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
+import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
+import { useCachedWorkerTask } from '~/app/(app)/prop-calculator/_components/useCachedWorkerTask';
+import { WorkerTaskPhase } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import {
     fundedSweepCacheKey,
     type FundedSweepProgress,
     type FundedSweepRequest,
     type FundedSweepResult,
-} from '../../_workers/fundedSweepWorkerMessages';
-import { ComputationCache, initialFor } from '../computationCache';
-import { ComputationId } from '../ComputationId';
-import { ComputationCacheContext } from '../useDebouncedSimulation';
-import { useWorkerTask } from '../useWorkerTask';
-import { WorkerTaskPhase } from '../workerTaskState';
+} from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
 
 export interface FundedSweepState {
     readonly phase: WorkerTaskPhase;
@@ -22,91 +20,52 @@ export interface FundedSweepState {
 }
 
 export function useFundedSweep(request: FundedSweepRequest | null): FundedSweepState {
-    const sharedCache = useContext(ComputationCacheContext);
-    const [localCache] = useState(() => new ComputationCache());
-    const cache = sharedCache ?? localCache;
-    const task = useWorkerTask<
+    const job = useMemo(
+        () => (request === null ? null : { key: fundedSweepCacheKey(request), request }),
+        [request],
+    );
+    const { state } = useCachedWorkerTask<
+        ComputationId.FundedOptimizer,
         FundedSweepRequest,
-        FundedSweepProgress,
-        FundedSweepResult
-    >(createFundedSweepWorker);
-    const runReference = useRef(task.run);
-    runReference.current = task.run;
-    const startedKeyReference = useRef<null | string>(null);
-    const runKeyReference = useRef<null | { key: string; runId: number }>(null);
+        FundedSweepProgress
+    >({
+        createWorker: createFundedSweepWorker,
+        id: ComputationId.FundedOptimizer,
+        job,
+    });
 
-    const key = request === null ? null : fundedSweepCacheKey(request);
-    const cached =
-        key === null ? undefined : initialFor(ComputationId.FundedOptimizer, key, cache);
-
-    useEffect(() => {
-        if (request === null || key === null || (cached?.shouldCompute === false) || (startedKeyReference.current === key)) return;
-        startedKeyReference.current = key;
-        runReference.current(request);
-    }, [cached?.shouldCompute, key, request]);
-
-    useEffect(() => {
-        if (
-            key !== null &&
-            task.state.phase === WorkerTaskPhase.Running &&
-            runKeyReference.current?.runId !== task.state.runId
-        ) {
-            runKeyReference.current = { key, runId: task.state.runId };
-        }
-    }, [key, task.state]);
-
-    useEffect(() => {
-        if (
-            key !== null &&
-            task.state.phase === WorkerTaskPhase.Done &&
-            runKeyReference.current?.runId === task.state.runId &&
-            runKeyReference.current.key === key
-        ) {
-            cache.set(ComputationId.FundedOptimizer, key, task.state.result);
-        }
-    }, [cache, key, task.state]);
-
-    if (key !== null && cached?.shouldCompute === false) {
-        return {
-            phase: WorkerTaskPhase.Done,
-            progress: null,
-            reason: null,
-            result: cached.result,
-        };
-    }
-
-    switch (task.state.phase) {
+    switch (state.phase) {
         case WorkerTaskPhase.Cancelled: {
             return {
-                phase: task.state.phase,
-                progress: task.state.progress,
+                phase: state.phase,
+                progress: state.progress,
                 reason: null,
                 result: null,
             };
         }
         case WorkerTaskPhase.Done: {
             return {
-                phase: task.state.phase,
+                phase: state.phase,
                 progress: null,
                 reason: null,
-                result: task.state.result,
+                result: state.result,
             };
         }
         case WorkerTaskPhase.Failed: {
             return {
-                phase: task.state.phase,
+                phase: state.phase,
                 progress: null,
-                reason: task.state.reason,
+                reason: state.reason,
                 result: null,
             };
         }
         case WorkerTaskPhase.Idle: {
-            return { phase: task.state.phase, progress: null, reason: null, result: null };
+            return { phase: state.phase, progress: null, reason: null, result: null };
         }
         case WorkerTaskPhase.Running: {
             return {
-                phase: task.state.phase,
-                progress: task.state.progress,
+                phase: state.phase,
+                progress: state.progress,
                 reason: null,
                 result: null,
             };

@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Checkbox } from '~/components/ui/Checkbox';
 import {
     Form,
     FormControl,
@@ -198,6 +199,7 @@ const accountFormSchema = z
         liveStartBalanceCents: z.string(),
         notes: z.string(),
         optIns: planOptInsSchema,
+        overrideRoundBudget: z.boolean(),
         personalRules: personalRulesTextSchema,
         planLabel: z.string(),
         planSerial: z.string(),
@@ -278,6 +280,7 @@ const accountFormSchema = z
             liveStartBalanceCents:
                 liveStart.kind === EntryTextKind.Valid ? liveStart.cents : null,
             notes: nullIfBlank(values.notes),
+            overrideRoundBudget: values.overrideRoundBudget,
             personalRules: personalRules.rules,
             purchasedOn: values.purchasedOn,
             replacesAccountId: nullIfNone(values.replacesAccountId),
@@ -368,6 +371,7 @@ export function AccountCreator({
                     ledgerSize: '',
                     liveStartBalanceCents: '',
                     notes: '',
+                    overrideRoundBudget: false,
                     personalRules: EMPTY_PERSONAL_RULES_TEXT,
                     planLabel: '',
                     purchasedOn: todayIsoDate(new Date()),
@@ -759,6 +763,10 @@ function DetailsCard({
                                     </SelectItem>
                                     {rounds.map((round) => (
                                         <SelectItem
+                                            disabled={
+                                                round.status ===
+                                                RoundStatus.Closed
+                                            }
                                             key={round.id}
                                             value={round.id}
                                         >
@@ -777,6 +785,30 @@ function DetailsCard({
                             </FormDescription>
                             <FormMessage />
                         </FormItem>
+                    )}
+                />
+                <FormField
+                    control={control}
+                    name="overrideRoundBudget"
+                    render={({ field }) => (
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    checked={field.value}
+                                    id="account-override-round-budget"
+                                    onCheckedChange={(checked) => {
+                                        field.onChange(checked === true);
+                                    }}
+                                />
+                                <Label htmlFor="account-override-round-budget">
+                                    Override the round budget
+                                </Label>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Adds this account to its round even if the
+                                round has already spent its budget.
+                            </p>
+                        </div>
                     )}
                 />
                 <FormField
@@ -1492,6 +1524,7 @@ function storedDetailDefaults(
                 ? ''
                 : usdCentsToText(account.liveStartBalanceCents),
         notes: account.notes ?? '',
+        overrideRoundBudget: false,
         personalRules: personalRulesToText(account.personalRules),
         purchasedOn: account.purchasedOn,
         replacesAccountId: account.replacesAccountId ?? NONE,

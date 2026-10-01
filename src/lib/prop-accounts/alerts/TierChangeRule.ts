@@ -1,10 +1,15 @@
-import { INSTRUMENTS, InstrumentSymbol, TradingPhase } from '~/lib/prop-calculator';
+import {
+    formatUsdCents,
+    joinWithAnd,
+    usdCentsFromDollars,
+} from '~/lib/prop-accounts/core';
+import { AccountStateKind } from '~/lib/prop-accounts/metrics';
+import { TradingPhase } from '~/lib/prop-calculator';
 import {
     type ReconstructedAccount,
     ReconstructedLiveKind,
 } from '~/lib/prop-calculator/advisor';
 
-import { AccountStateKind } from '../metrics';
 import { type AccountAlert } from './AccountAlert';
 import { isActive, type MonitoredAccount } from './AlertContext';
 import { AlertKind } from './AlertKind';
@@ -37,9 +42,17 @@ export class TierChangeRule extends AccountAlertRule {
             : this.alertFor(
                   monitored,
                   AlertSeverity.Info,
-                  'The resolved daily loss limit or contract tier changed since the previous snapshot',
+                  tierChangeMessage(previousSignature, latestSignature),
               );
     }
+}
+
+function formatContractLimit(value: null | number): string {
+    return value === null ? 'none' : String(value);
+}
+
+function formatDailyLossLimit(value: null | number): string {
+    return value === null ? 'none' : formatUsdCents(usdCentsFromDollars(value));
 }
 
 function isSameSignature(left: TierSignature, right: TierSignature): boolean {
@@ -48,6 +61,29 @@ function isSameSignature(left: TierSignature, right: TierSignature): boolean {
         left.miniContractLimit === right.miniContractLimit &&
         left.microContractLimit === right.microContractLimit
     );
+}
+
+function tierChangeMessage(
+    previous: TierSignature,
+    latest: TierSignature,
+): string {
+    const changes: string[] = [];
+    if (previous.dailyLossLimit !== latest.dailyLossLimit) {
+        changes.push(
+            `the daily loss limit (${formatDailyLossLimit(previous.dailyLossLimit)} to ${formatDailyLossLimit(latest.dailyLossLimit)})`,
+        );
+    }
+    if (previous.miniContractLimit !== latest.miniContractLimit) {
+        changes.push(
+            `the mini contract limit (${formatContractLimit(previous.miniContractLimit)} to ${formatContractLimit(latest.miniContractLimit)})`,
+        );
+    }
+    if (previous.microContractLimit !== latest.microContractLimit) {
+        changes.push(
+            `the micro contract limit (${formatContractLimit(previous.microContractLimit)} to ${formatContractLimit(latest.microContractLimit)})`,
+        );
+    }
+    return `Since the previous snapshot, ${joinWithAnd(changes)} changed`;
 }
 
 function tierSignatureOf(
@@ -59,23 +95,18 @@ function tierSignatureOf(
                 return null;
             }
             const { livePlan, state } = account;
+            const { micros, minis } = livePlan.liveContractLimitsFor(state);
             return {
                 dailyLossLimit: livePlan.dailyLossLimitFor(state),
-                microContractLimit: livePlan.maxContractsFor(
-                    state,
-                    INSTRUMENTS[InstrumentSymbol.MNQ],
-                ),
-                miniContractLimit: livePlan.maxContractsFor(
-                    state,
-                    INSTRUMENTS[InstrumentSymbol.NQ],
-                ),
+                microContractLimit: micros,
+                miniContractLimit: minis,
             };
         }
         case TradingPhase.Eval:
         case TradingPhase.Funded: {
             return {
                 dailyLossLimit: account.resolvedDailyLossLimit,
-                microContractLimit: null,
+                microContractLimit: account.microContractLimit ?? null,
                 miniContractLimit: account.contractLimit,
             };
         }

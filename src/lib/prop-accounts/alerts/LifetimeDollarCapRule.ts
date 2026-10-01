@@ -1,12 +1,4 @@
 import {
-    effectivePayoutRequest,
-    LifetimeCapScope,
-    PayoutGate,
-    type Plan,
-    type PlanId,
-} from '~/lib/prop-calculator/core';
-
-import {
     AccountStage,
     compareText,
     findStoredFirm,
@@ -18,10 +10,19 @@ import {
     type UsdCents,
     usdCentsFromDollars,
     usdCentsToDollars,
-} from '../core';
+} from '~/lib/prop-accounts/core';
+import {
+    effectivePayoutRequest,
+    LifetimeCapScope,
+    PayoutGate,
+    type Plan,
+    type PlanId,
+} from '~/lib/prop-calculator/core';
+
 import { type AccountAlert } from './AccountAlert';
 import {
     type AlertContext,
+    type AlertSnapshotRow,
     grossDisclosureOf,
     isActive,
     type MonitoredAccount,
@@ -124,7 +125,8 @@ export class LifetimeDollarCapRule extends AccountAlertRule {
         const scope = plan.lifetimeConclusion.dollarCapScope;
         if (cap === null || scope === null) return null;
         const taken = payoutsTakenOf(monitored);
-        const received = receivedIn(capPoolOf(monitored, plan, scope, context));
+        const pool = capPoolOf(monitored, plan, scope, context);
+        const received = receivedIn(pool);
         const text = scopeTextOf(scope);
         const tail = [text.outcome, text.pool, ...received.exclusions].join(
             '; ',
@@ -173,7 +175,14 @@ export class LifetimeDollarCapRule extends AccountAlertRule {
             plan.payoutFromProfit(request, taken + requestedCountOf(monitored)),
         );
         if (!isAtCap(sumUsdCents([committedCents, nextNetCents]))) {
-            return null;
+            const staleRequestNotice = staleRequestNoticeOf(pool);
+            return staleRequestNotice === null
+                ? null
+                : this.alertFor(
+                      monitored,
+                      AlertSeverity.Warning,
+                      `${staleRequestNotice}; ${text.outcome}; ${text.pool}`,
+                  );
         }
         const requested =
             received.requestedCents > 0
@@ -198,6 +207,43 @@ export class LifetimeDollarCapRule extends AccountAlertRule {
 
 function accountsOf(count: number, noun: string): string {
     return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
+}
+
+function afterMovedLiveOf(
+    monitored: MonitoredAccount,
+    cutoff: string,
+): PayoutLedgerTotal {
+    return paidLedgerTotal(
+        monitored.payouts.filter(
+            (payout) =>
+                payout.paidOn !== null &&
+                compareText(payout.paidOn, cutoff) >= 0,
+        ),
+    );
+}
+
+function anchoredFigure(
+    ledger: PayoutLedgerTotal,
+    snapshot: AlertSnapshotRow,
+    afterSnapshot: PayoutLedgerTotal,
+): PayoutLedgerTotal {
+    if (snapshot.cumulativePayoutCents == null) return ledger;
+    const anchored: PayoutLedgerTotal = {
+        cents: sumUsdCents([
+            snapshot.cumulativePayoutCents,
+            afterSnapshot.cents,
+        ]),
+        grossCounted: afterSnapshot.grossCounted,
+        netCents: sumUsdCents([
+            snapshot.cumulativePayoutCents,
+            afterSnapshot.netCents,
+        ]),
+    };
+    const counted = largerFigure(anchored, ledger);
+    return {
+        ...counted,
+        netCents: usdCents(Math.max(anchored.netCents, ledger.netCents)),
+    };
 }
 
 function capFamilyOf(id: PlanId): string {
@@ -229,14 +275,8 @@ function capPoolOf(
 }
 
 function exclusionsOf(pool: CapPool): readonly string[] {
-    const staleRequests = pool.members.filter(
-        (member) => member.isArchived && requestedCountOf(member.monitored) > 0,
-    );
-    const staleRequestedCents = sumUsdCents(
-        staleRequests.map(
-            (member) => requestedLedgerTotal(member.monitored.payouts).cents,
-        ),
-    );
+    const staleRequests = staleRequestsIn(pool);
+    const movedLiveExclusions = movedLiveExclusionsIn(pool);
     const paidLedgerOnly = pool.ledgerOnly.filter(
         (monitored) => receivedOf(monitored).cents > 0,
     );
@@ -256,12 +296,26 @@ function exclusionsOf(pool: CapPool): readonly string[] {
                   `not counting ${formatUsdCents(sumUsdCents(paidLedgerOnly.map((monitored) => receivedOf(monitored).cents)))} paid on ${accountsOf(paidLedgerOnly.length, 'ledger-only account')} at this firm that may belong to this plan`,
               ]
             : []),
-        ...(staleRequests.length > 0
+        ...(movedLiveExclusions.accounts > 0
             ? [
-                  `not counting ${formatUsdCents(staleRequestedCents)} requested on ${accountsOf(staleRequests.length, 'archived account')} and never marked paid or denied`,
+                  `not counting ${formatUsdCents(movedLiveExclusions.cents)} paid on ${accountsOf(movedLiveExclusions.accounts, 'account')} after moving live, since the cap only counts sim-funded payouts`,
+              ]
+            : []),
+        ...(staleRequests.count > 0
+            ? [
+                  `not counting ${formatUsdCents(staleRequests.cents)} requested on ${accountsOf(staleRequests.count, 'archived account')} and never marked paid or denied`,
               ]
             : []),
     ];
+}
+
+function figureOf(
+    monitored: MonitoredAccount,
+    role: PoolRole,
+): PayoutLedgerTotal {
+    return role === PoolRole.Certain && monitored.movedLiveOn !== null
+        ? receivedBeforeOf(monitored, monitored.movedLiveOn)
+        : receivedOf(monitored);
 }
 
 function grossCountOf(received: ReceivedPayouts): readonly string[] {
@@ -333,6 +387,25 @@ function movedLiveCount(accounts: number): string {
         : `${accounts} accounts that moved live`;
 }
 
+function movedLiveExclusionsIn(pool: CapPool): {
+    readonly accounts: number;
+    readonly cents: UsdCents;
+} {
+    const excludedCents = pool.members.flatMap((member) => {
+        const cutoff =
+            member.role === PoolRole.Certain
+                ? member.monitored.movedLiveOn
+                : null;
+        if (cutoff === null) return [];
+        const cents = afterMovedLiveOf(member.monitored, cutoff).cents;
+        return cents > 0 ? [cents] : [];
+    });
+    return {
+        accounts: excludedCents.length,
+        cents: sumUsdCents(excludedCents),
+    };
+}
+
 function paidPayoutCount(count: number): string {
     return count === 1 ? '1 paid payout' : `${count} paid payouts`;
 }
@@ -386,9 +459,42 @@ function perUserPoolOf(plan: Plan, context: AlertContext): CapPool {
     };
 }
 
+function receivedBeforeOf(
+    monitored: MonitoredAccount,
+    cutoff: string,
+): PayoutLedgerTotal {
+    const preCutoffLedger = paidLedgerTotal(
+        monitored.payouts.filter(
+            (payout) =>
+                payout.paidOn !== null &&
+                compareText(payout.paidOn, cutoff) < 0,
+        ),
+    );
+    const snapshot = monitored.latestSnapshot;
+    if (snapshot?.cumulativePayoutCents == null) return preCutoffLedger;
+    if (compareText(snapshot.asOf, cutoff) >= 0) {
+        return reconstructedBeforeOf(
+            monitored,
+            cutoff,
+            snapshot,
+            snapshot.cumulativePayoutCents,
+            preCutoffLedger,
+        );
+    }
+    const afterSnapshotBeforeCutoff = paidLedgerTotal(
+        monitored.payouts.filter(
+            (payout) =>
+                payout.paidOn !== null &&
+                compareText(payout.paidOn, snapshot.asOf) > 0 &&
+                compareText(payout.paidOn, cutoff) < 0,
+        ),
+    );
+    return anchoredFigure(preCutoffLedger, snapshot, afterSnapshotBeforeCutoff);
+}
+
 function receivedIn(pool: CapPool): ReceivedPayouts {
     const figures = pool.members.map((member) => ({
-        figure: receivedOf(member.monitored),
+        figure: figureOf(member.monitored, member.role),
         hasPayouts: hasPayouts(member.monitored),
         member,
         undated: undatedPaidOf(member.monitored),
@@ -446,21 +552,46 @@ function receivedOf(monitored: MonitoredAccount): PayoutLedgerTotal {
                 compareText(payout.paidOn, snapshot.asOf) > 0,
         ),
     );
-    const anchored: PayoutLedgerTotal = {
-        cents: sumUsdCents([
-            snapshot.cumulativePayoutCents,
-            afterSnapshot.cents,
-        ]),
-        grossCounted: afterSnapshot.grossCounted,
-        netCents: sumUsdCents([
-            snapshot.cumulativePayoutCents,
-            afterSnapshot.netCents,
-        ]),
+    return anchoredFigure(ledger, snapshot, afterSnapshot);
+}
+
+function reconstructedBeforeOf(
+    monitored: MonitoredAccount,
+    cutoff: string,
+    snapshot: AlertSnapshotRow,
+    cumulativePayoutCents: UsdCents,
+    preCutoffLedger: PayoutLedgerTotal,
+): PayoutLedgerTotal {
+    const datedSinceCutoffThroughSnapshot = paidLedgerTotal(
+        monitored.payouts.filter(
+            (payout) =>
+                payout.paidOn !== null &&
+                compareText(payout.paidOn, cutoff) >= 0 &&
+                compareText(payout.paidOn, snapshot.asOf) <= 0,
+        ),
+    );
+    const reconstructed: PayoutLedgerTotal = {
+        cents: usdCents(
+            Math.max(
+                0,
+                cumulativePayoutCents - datedSinceCutoffThroughSnapshot.cents,
+            ),
+        ),
+        grossCounted: 0,
+        netCents: usdCents(
+            Math.max(
+                0,
+                cumulativePayoutCents -
+                    datedSinceCutoffThroughSnapshot.netCents,
+            ),
+        ),
     };
-    const counted = largerFigure(anchored, ledger);
+    const counted = largerFigure(reconstructed, preCutoffLedger);
     return {
         ...counted,
-        netCents: usdCents(Math.max(anchored.netCents, ledger.netCents)),
+        netCents: usdCents(
+            Math.max(reconstructed.netCents, preCutoffLedger.netCents),
+        ),
     };
 }
 
@@ -488,7 +619,10 @@ function roleOf(
             return null;
         }
         case PoolIdentity.SamePlan: {
-            return monitored.account.stage === AccountStage.Live
+            if (monitored.account.stage !== AccountStage.Live) {
+                return PoolRole.Certain;
+            }
+            return monitored.movedLiveOn === null
                 ? PoolRole.MovedLive
                 : PoolRole.Certain;
         }
@@ -516,6 +650,28 @@ function scopeTextOf(scope: LifetimeCapScope): ScopeText {
             return { outcome: PER_ACCOUNT_OUTCOME, pool: UNCONFIRMED_POOL };
         }
     }
+}
+
+function staleRequestNoticeOf(pool: CapPool): null | string {
+    const staleRequests = staleRequestsIn(pool);
+    return staleRequests.count === 0
+        ? null
+        : `${formatUsdCents(staleRequests.cents)} requested on ${accountsOf(staleRequests.count, 'archived account')} on this plan was never marked paid or denied; mark it paid or denied to keep the lifetime cap total accurate`;
+}
+
+function staleRequestsIn(pool: CapPool): { cents: UsdCents; count: number } {
+    const staleRequests = pool.members.filter(
+        (member) => member.isArchived && requestedCountOf(member.monitored) > 0,
+    );
+    return {
+        cents: sumUsdCents(
+            staleRequests.map(
+                (member) =>
+                    requestedLedgerTotal(member.monitored.payouts).cents,
+            ),
+        ),
+        count: staleRequests.length,
+    };
 }
 
 function unconfirmedCounts(

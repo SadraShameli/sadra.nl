@@ -1,9 +1,9 @@
 'use client';
 
+import { LoginForm } from '~/app/(auth)/login/LoginForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { cn } from '~/lib/utilities';
 
-import { LoginForm } from '../login/LoginForm';
 import { MagicLinkForm } from './MagicLinkForm';
 
 export function SignInMethodTabs() {

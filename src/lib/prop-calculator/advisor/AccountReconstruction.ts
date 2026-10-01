@@ -15,7 +15,8 @@ import {
     type Plan,
     restoreFundedCycleTracker,
     TradingPhase,
-} from '../core';
+} from '~/lib/prop-calculator/core';
+
 import { type AccountSnapshotInput } from './AccountSnapshotInput';
 import {
     type Assumption,
@@ -60,13 +61,17 @@ export class AccountReconstructionError extends Error {
 }
 
 export const AccountReconstruction = {
-    rebuild(input: AccountSnapshotInput, plan: Plan): ReconstructedAccount {
+    rebuild(
+        input: AccountSnapshotInput,
+        plan: Plan,
+        personalMaxRiskPerTrade: Dollars | null = null,
+    ): ReconstructedAccount {
         switch (input.stage) {
             case SizingStage.Eval: {
-                return rebuildEval(input, plan);
+                return rebuildEval(input, plan, personalMaxRiskPerTrade);
             }
             case SizingStage.Funded: {
-                return rebuildFunded(input, plan);
+                return rebuildFunded(input, plan, personalMaxRiskPerTrade);
             }
             case SizingStage.Live: {
                 return rebuildLive(input, plan);
@@ -150,6 +155,7 @@ function nominalOf(
 function rebuildEval(
     input: AccountSnapshotInput,
     plan: Plan,
+    personalMaxRiskPerTrade: Dollars | null,
 ): ReconstructedFundedOrEvalAccount {
     const assumptions: Assumption[] = [];
     const nominal = nominalOf(input, plan.accountSize);
@@ -173,7 +179,7 @@ function rebuildEval(
         state.elapsedDays = input.elapsedDaysSinceAttemptStart;
     }
 
-    const contractLimit = resolvedContractLimit(
+    const { contractLimit, microContractLimit } = resolvedContractLimits(
         plan,
         TradingPhase.Eval,
         state,
@@ -184,8 +190,12 @@ function rebuildEval(
         assumptions,
         contractLimit,
         cushion: state.balance - state.threshold,
+        dashboardFloorMismatch: null,
         fundedTracker: null,
         kind: TradingPhase.Eval,
+        microContractLimit,
+        pendingPayouts: 0,
+        personalMaxRiskPerTrade,
         plan,
         resolvedDailyLossLimit: plan.resolvedDailyLossLimit(
             state,
@@ -198,6 +208,7 @@ function rebuildEval(
 function rebuildFunded(
     input: AccountSnapshotInput,
     plan: Plan,
+    personalMaxRiskPerTrade: Dollars | null,
 ): ReconstructedFundedOrEvalAccount {
     const assumptions: Assumption[] = [];
     const nominal = nominalOf(input, plan.accountSize);
@@ -217,9 +228,17 @@ function rebuildFunded(
         );
     }
 
+    let dashboardFloorMismatch: null | {
+        readonly engineFloor: number;
+        readonly enteredFloor: number;
+    } = null;
     if (input.dashboardFloor !== undefined) {
         const nominalFloor = nominal(input.dashboardFloor);
         if (nominalFloor > state.threshold + ONE_CENT) {
+            dashboardFloorMismatch = {
+                engineFloor: state.threshold,
+                enteredFloor: nominalFloor,
+            };
             state.threshold = nominalFloor;
             assumptions.push(
                 inputAssumption(
@@ -308,7 +327,7 @@ function rebuildFunded(
     };
     const tracker = restoreFundedCycleTracker(state, seed);
 
-    const contractLimit = resolvedContractLimit(
+    const { contractLimit, microContractLimit } = resolvedContractLimits(
         plan,
         TradingPhase.Funded,
         state,
@@ -319,8 +338,12 @@ function rebuildFunded(
         assumptions,
         contractLimit,
         cushion: state.balance - state.threshold,
+        dashboardFloorMismatch,
         fundedTracker: tracker,
         kind: TradingPhase.Funded,
+        microContractLimit,
+        pendingPayouts,
+        personalMaxRiskPerTrade,
         plan,
         resolvedDailyLossLimit: plan.resolvedDailyLossLimit(
             state,
@@ -434,23 +457,24 @@ function replayDrawdownPeak(
     }
 }
 
-function resolvedContractLimit(
+function resolvedContractLimits(
     plan: Plan,
     phase: TradingPhase,
     state: AccountState,
     assumptions: Assumption[],
-): null | number {
-    if (plan.contractLimits === null) return null;
+): { readonly contractLimit: null | number; readonly microContractLimit: null | number } {
+    if (plan.contractLimits === null) {
+        return { contractLimit: null, microContractLimit: null };
+    }
     assumptions.push(
         inputAssumption(
             AssumptionKind.ContractCapInstrumentAssumed,
             AssumptionBias.Neutral,
         ),
     );
-    return contractLimitAt(
-        plan.contractLimits,
-        phase,
-        false,
-        plan.tierProfitContext(state),
-    );
+    const context = plan.tierProfitContext(state);
+    return {
+        contractLimit: contractLimitAt(plan.contractLimits, phase, false, context),
+        microContractLimit: contractLimitAt(plan.contractLimits, phase, true, context),
+    };
 }

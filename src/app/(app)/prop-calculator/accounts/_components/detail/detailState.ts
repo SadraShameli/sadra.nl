@@ -18,6 +18,7 @@ import {
 import {
     type DrawdownKind,
     type Fraction0to1,
+    type LiveContractCaps,
     type Plan,
     TradingPhase,
 } from '~/lib/prop-calculator';
@@ -54,6 +55,7 @@ export enum StateCardKind {
 export type DetailSnapshotRow = OrderedSnapshot & SnapshotSnapshotRow;
 
 export interface LiveRulesCardModeled {
+    readonly contractLimit: LiveContractCaps;
     readonly cushionPercent: Fraction0to1;
     readonly dailyLossLimit: null | number;
     readonly drawdown: null | {
@@ -174,6 +176,7 @@ export function liveRulesCardOf(
     }
     const { livePlan, state } = reconstructed;
     return {
+        contractLimit: livePlan.liveContractLimitsFor(state),
         cushionPercent: livePlan.cushionPercentFor(state),
         dailyLossLimit: livePlan.dailyLossLimitFor(state),
         drawdown:
@@ -227,7 +230,7 @@ export function previousReconstructionOf(
     asOf: string,
 ): null | PreviousReconstruction {
     if (snapshot === null) return null;
-    const { input } = snapshotInputFrom(
+    const { input, personalMaxRiskPerTrade } = snapshotInputFrom(
         plan,
         account,
         snapshot,
@@ -241,7 +244,11 @@ export function previousReconstructionOf(
     if (isBlocked) return null;
     try {
         return {
-            account: AccountReconstruction.rebuild(input, plan),
+            account: AccountReconstruction.rebuild(
+                input,
+                plan,
+                personalMaxRiskPerTrade,
+            ),
             asOf: input.asOf,
         };
     } catch (error) {
@@ -259,7 +266,7 @@ export function stateCardOf(
     asOf: string,
 ): StateCardView {
     if (snapshot === null) return { kind: StateCardKind.NoSnapshot };
-    const { input } = snapshotInputFrom(
+    const { input, personalMaxRiskPerTrade } = snapshotInputFrom(
         plan,
         account,
         snapshot,
@@ -270,7 +277,11 @@ export function stateCardOf(
     const issues = snapshotInputIssues(plan, input);
     try {
         return {
-            account: AccountReconstruction.rebuild(input, plan),
+            account: AccountReconstruction.rebuild(
+                input,
+                plan,
+                personalMaxRiskPerTrade,
+            ),
             asOf: input.asOf,
             input,
             issues,

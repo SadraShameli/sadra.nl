@@ -1,4 +1,5 @@
-import { dollars, type Dollars } from '../core';
+import { dollars, type Dollars } from '~/lib/prop-calculator/core';
+
 import { type Assumption, AssumptionBias, inputAssumption } from './Assumption';
 import { AssumptionKind } from './AssumptionKind';
 import {

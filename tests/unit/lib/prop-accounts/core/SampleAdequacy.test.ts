@@ -77,7 +77,7 @@ describe('sampleAdequacy', () => {
         );
     });
 
-    it('reads EndedAccounts against the funded-accounts threshold, since ended accounts are a subset of ever-funded accounts', () => {
+    it('falls back to the funded-accounts threshold for EndedAccounts when its own threshold is unset, since ended accounts are a subset of ever-funded accounts', () => {
         expect(
             sampleAdequacy(
                 SampleKind.EndedAccounts,
@@ -95,5 +95,22 @@ describe('sampleAdequacy', () => {
         expect(
             sampleAdequacy(SampleKind.EndedAccounts, 3, thresholds()),
         ).toBe(null);
+    });
+
+    it('reads EndedAccounts against its own threshold when set, instead of the funded-accounts fallback', () => {
+        expect(
+            sampleAdequacy(
+                SampleKind.EndedAccounts,
+                3,
+                thresholds({ minEndedAccounts: 2, minFundedAccounts: 5 }),
+            ),
+        ).toBe(SampleLevel.Adequate);
+        expect(
+            sampleAdequacy(
+                SampleKind.EndedAccounts,
+                1,
+                thresholds({ minEndedAccounts: 2, minFundedAccounts: 5 }),
+            ),
+        ).toBe(SampleLevel.Low);
     });
 });

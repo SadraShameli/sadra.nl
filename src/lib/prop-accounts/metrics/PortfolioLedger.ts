@@ -21,6 +21,7 @@ import {
     FeeKind,
     findStoredFirm,
     type FirmColumns,
+    type FirmColumnsRow,
     type FirmKey,
     firmKeyOf,
     impliedEvalPassOn,
@@ -29,7 +30,6 @@ import {
     type ModeledAccountRow,
     PlanKeyResolutionKind,
     resolvePlanKey,
-    type StoredFirmId,
     trackedAccountOf,
     type UnresolvedPlanReason,
     usdCents,
@@ -95,7 +95,9 @@ export type LedgerAccountRow = Partial<Pick<PropAccountRow, 'roundId'>> &
 export type LedgerEventRow = Pick<
     PropAccountEventRow,
     'accountId' | 'createdAt' | 'id' | 'kind' | 'occurredOn' | 'userId'
->;
+> & {
+    readonly detail?: PropAccountEventRow['detail'];
+};
 
 export type LedgerFeeRow = Pick<
     PropFeeRow,
@@ -418,10 +420,7 @@ export function finalState(
     return account.transitions.at(-1)?.to ?? null;
 }
 
-export function firmColumnsOf(row: {
-    readonly externalFirmId: null | string;
-    readonly firmId: null | StoredFirmId;
-}): FirmColumns {
+export function firmColumnsOf(row: FirmColumnsRow): FirmColumns {
     if (row.firmId !== null) {
         return { externalFirmId: null, firmId: row.firmId };
     }
@@ -488,10 +487,7 @@ export function roundCents(value: number): UsdCents {
     return usdCents(rounded === 0 ? 0 : rounded);
 }
 
-export function roundFirmKeyOf(round: {
-    readonly externalFirmId: null | string;
-    readonly firmId: null | StoredFirmId;
-}): FirmKey | null {
+export function roundFirmKeyOf(round: FirmColumnsRow): FirmKey | null {
     return round.firmId === null && round.externalFirmId === null
         ? null
         : firmKeyOf(firmColumnsOf(round));

@@ -22,6 +22,7 @@ const COARSE_GRID = {
     evalInitialValue: 0,
     feePerAttempt: dollars(0),
     maxActionMultiple: 3,
+    maxTailCushionMultiple: 6,
     rrRatio: 2,
     winrate: 0.5,
 } as const;
@@ -141,7 +142,7 @@ describe('the funded DP keeps a whole-contract win smaller than one cushion step
         { expectedStartRisk: 200, stopPoints: 5, symbol: InstrumentSymbol.NQ },
         { expectedStartRisk: 80, stopPoints: 2, symbol: InstrumentSymbol.MNQ },
     ])(
-        'values TopStep with $symbol at a $stopPoints point stop above 0 and trades the capped $expectedStartRisk at the funded start',
+        'values TopStep with $symbol at a $stopPoints point stop above 0 and trades the capped $expectedStartRisk at the funded start (WP58c: COARSE_GRID pins maxTailCushionMultiple at 6, the coarse cushion tail off, since this test is about whole-contract sizing at the funded start, not the grid top, and the default tail multiplies this real TopStep-scale solve’s state count well past what these three cases need)',
         ({ expectedStartRisk, stopPoints, symbol }) => {
             const { initialValue, startRisk, stepDollars } = fundedStartSolve(
                 symbol,

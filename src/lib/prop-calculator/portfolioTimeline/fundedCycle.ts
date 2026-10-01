@@ -1,4 +1,4 @@
-import { evalPhaseCost } from '../core/FeeSchedule';
+import { evalPhaseCost } from '~/lib/prop-calculator/core/FeeSchedule';
 import {
     assertNonNegativeSafeInteger,
     assertPositiveSafeInteger,
@@ -7,7 +7,8 @@ import {
     runEvalWithRetries,
     runFundedDays,
     TradeTotals,
-} from '../simulator';
+} from '~/lib/prop-calculator/simulator';
+
 import {
     type CardResult,
     type EvalToFundedCycleOptions,

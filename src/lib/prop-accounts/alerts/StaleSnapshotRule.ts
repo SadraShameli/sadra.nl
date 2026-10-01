@@ -1,4 +1,5 @@
-import { AccountStage, accountStageLabel } from '../core';
+import { AccountStage, accountStageLabel } from '~/lib/prop-accounts/core';
+
 import { type AccountAlert } from './AccountAlert';
 import {
     type AlertContext,

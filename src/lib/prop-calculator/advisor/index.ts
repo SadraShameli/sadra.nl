@@ -1,3 +1,4 @@
+export { AccountAction } from './AccountAction';
 export {
     AccountReconstruction,
     AccountReconstructionError,
@@ -7,6 +8,7 @@ export {
     type AccountSnapshotInput,
     accountSnapshotInputSchema,
 } from './AccountSnapshotInput';
+export { AccountSubstate } from './AccountSubstate';
 export { type Advice } from './Advice';
 export {
     type AdviceProvenance,
@@ -44,13 +46,37 @@ export {
     CalendarGateProgressKind,
     type CalendarGateProgressResult,
 } from './CalendarGateProgress';
+export {
+    type CopyGroupContractPlacement,
+    type CopyGroupDivergence,
+    type CopyGroupMemberContractPlacement,
+    copyGroupSizing,
+    type CopyGroupSizingInput,
+    type CopyGroupSizingMember,
+    type CopyGroupSizingRejection,
+    CopyGroupSizingRejectionKind,
+    type CopyGroupSizingResult,
+    CopyGroupSizingResultKind,
+    type DocumentedSizingOf,
+    documentedSizingOf,
+    type DocumentedSizingOfOptions,
+    personalCapsFromAccount,
+} from './CopyGroupSizing';
 export { createDocumentedRule } from './createDocumentedRule';
 export {
     createSizingAdvisor,
+    DEFAULT_FUNDED_HORIZON_DAYS,
+    DEFAULT_MAX_EVAL_DAYS,
     InstantFundedEvalAdvisorError,
     type SizingAdvisorCreateOptions,
 } from './createSizingAdvisor';
-export { type DailyPlanCard, dailyPlanCard } from './DailyPlanCard';
+export {
+    combinedProfitCeiling,
+    type DailyPlanCard,
+    dailyPlanCard,
+    LIVE_TRIGGER_CEILING_MARGIN_DOLLARS,
+    liveTriggerCeilingFor,
+} from './DailyPlanCard';
 export {
     DashboardBalanceConvention,
     nominalBalanceOf,
@@ -112,6 +138,8 @@ export {
     type FundedFromStateEngineOptimumResult,
     type FundedSweepEngineOptimumResult,
     type LadderEngineOptimumResult,
+    type LadderGridRefusal,
+    LadderRefusalKind,
     type NextPayoutProjectionEngineOptimumResult,
     type PayoutSizeSweepEngineOptimumResult,
     runEngineOptimum,
@@ -182,6 +210,7 @@ export {
     type NextPayoutProjection,
     runNextPayoutProjection,
 } from './NextPayoutProjection';
+export { NextTradeRiskVerdict } from './NextTradeRiskVerdict';
 export { type PayoutAdvice, payoutAdvice } from './PayoutAdvice';
 export {
     type GatePayoutBlockReason,
@@ -225,6 +254,7 @@ export {
     type WaitPayoutRequestDecision,
 } from './PayoutRequestDecision';
 export {
+    firmMinimumNotice,
     type FundedPayoutRuleContext,
     type LivePayoutRuleContext,
     PayoutRequestRule,

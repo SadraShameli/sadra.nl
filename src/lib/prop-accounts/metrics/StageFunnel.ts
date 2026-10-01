@@ -1,11 +1,23 @@
 import {
+    type BustDiagnosis,
+    type BustDiagnosisDecision,
+    BustDiagnosisKind,
+    bustDiagnosisOf,
+    type BustDiagnosisViolation,
+} from '~/lib/prop-accounts/conduct';
+import {
     AccountEventKind,
     AccountStage,
+    AccountStatus,
     AccountTracking,
+    BustCause,
+    compareText,
     type FirmKey,
+    firmKeyId,
     firmKeyOf,
     groupByFirmKey,
     paidPayoutCash,
+    readAccountEventDetail,
     sumUsdCents,
     type UsdCents,
     usdCents,
@@ -18,6 +30,35 @@ import {
     type PortfolioLedger,
     signedFeeCents,
 } from './PortfolioLedger';
+
+export interface AccountBustDecision extends BustAttemptDecision {
+    readonly accountId: string;
+}
+
+export interface AccountBustViolation extends BustDiagnosisViolation {
+    readonly accountId: string;
+}
+
+export interface BustAttempt {
+    readonly events: readonly BustAttemptEvent[];
+    readonly purchasedOn: string;
+}
+
+export interface BustAttemptDecision extends BustDiagnosisDecision {
+    readonly decidedOn: string;
+}
+
+export interface BustAttemptEvent {
+    readonly detail?: unknown;
+    readonly kind: AccountEventKind;
+    readonly occurredOn: string;
+}
+
+export interface BustSplit {
+    readonly structuralBusts: number;
+    readonly unknownBusts: number;
+    readonly withinPlanBusts: number;
+}
 
 export interface FirmFunnel {
     readonly attempts: number;
@@ -46,13 +87,81 @@ interface FunnelFacts {
     readonly purchased: boolean;
 }
 
+export function bustDiagnosisOfAttempt(
+    attempt: BustAttempt,
+    decisions: readonly BustAttemptDecision[],
+    violations: readonly BustDiagnosisViolation[],
+): BustDiagnosis | null {
+    const bustEvent = attempt.events
+        .filter((event) => event.kind === AccountEventKind.Busted)
+        .toSorted((a, b) => compareText(b.occurredOn, a.occurredOn))[0];
+    if (bustEvent === undefined) return null;
+    const windowStart = attempt.purchasedOn;
+    const windowEnd = bustEvent.occurredOn;
+    return bustDiagnosisOf({
+        bustCause:
+            readAccountEventDetail(bustEvent.detail ?? {}).bustCause ??
+            BustCause.Unknown,
+        decisions: decisions
+            .filter((decision) =>
+                isWithinWindow(decision.decidedOn, windowStart, windowEnd),
+            )
+            .map((decision) => ({
+                acceptedRiskCents: decision.acceptedRiskCents,
+                actualRiskCents: decision.actualRiskCents,
+            })),
+        violations: violations
+            .filter((violation) =>
+                isWithinWindow(violation.occurredOn, windowStart, windowEnd),
+            )
+            .map((violation) => ({
+                kind: violation.kind,
+                occurredOn: violation.occurredOn,
+            })),
+    });
+}
+
+export function bustSplitByFirm(
+    ledger: PortfolioLedger,
+    decisions: readonly AccountBustDecision[],
+    violations: readonly AccountBustViolation[],
+): ReadonlyMap<string, BustSplit> {
+    const violationsByAccount = Map.groupBy(
+        violations,
+        (violation) => violation.accountId,
+    );
+    const decisionsByAccount = Map.groupBy(
+        decisions,
+        (decision) => decision.accountId,
+    );
+    const byFirm = new Map<string, BustSplit>();
+    for (const entry of countedAccounts(ledger)) {
+        if (entry.row.status !== AccountStatus.Busted) continue;
+        const key = firmKeyId(firmKeyOf(entry.row));
+        const kind =
+            bustDiagnosisOfAttempt(
+                { events: entry.events, purchasedOn: entry.row.purchasedOn },
+                decisionsByAccount.get(entry.row.id) ?? [],
+                violationsByAccount.get(entry.row.id) ?? [],
+            )?.kind ?? BustDiagnosisKind.Unknown;
+        byFirm.set(
+            key,
+            addBustCount(
+                byFirm.get(key) ?? {
+                    structuralBusts: 0,
+                    unknownBusts: 0,
+                    withinPlanBusts: 0,
+                },
+                kind,
+            ),
+        );
+    }
+    return byFirm;
+}
+
 export function stageFunnel(ledger: PortfolioLedger): StageFunnel {
-    const counted = [
-        ...ledger.planGroups().flatMap((group) => group.accounts),
-        ...ledger.ledgerOnlyAccounts,
-    ];
     return {
-        byFirm: groupByFirmKey(counted, (entry) => firmKeyOf(entry.row)).map(
+        byFirm: groupByFirmKey(countedAccounts(ledger), (entry) => firmKeyOf(entry.row)).map(
             ({ firmKey, items }) => {
                 const facts = items.map((entry) => funnelFacts(entry));
                 const count = (stage: keyof FunnelFacts) =>
@@ -90,10 +199,31 @@ export function stageFunnel(ledger: PortfolioLedger): StageFunnel {
     };
 }
 
+function addBustCount(counts: BustSplit, kind: BustDiagnosisKind): BustSplit {
+    switch (kind) {
+        case BustDiagnosisKind.Structural: {
+            return { ...counts, structuralBusts: counts.structuralBusts + 1 };
+        }
+        case BustDiagnosisKind.Unknown: {
+            return { ...counts, unknownBusts: counts.unknownBusts + 1 };
+        }
+        case BustDiagnosisKind.WithinPlan: {
+            return { ...counts, withinPlanBusts: counts.withinPlanBusts + 1 };
+        }
+    }
+}
+
 function attemptsFor(entry: LedgerAccount): number {
     return entry.row.tracking === AccountTracking.LedgerOnly
         ? 1
         : attemptsOf(entry);
+}
+
+function countedAccounts(ledger: PortfolioLedger): readonly LedgerAccount[] {
+    return [
+        ...ledger.planGroups().flatMap((group) => group.accounts),
+        ...ledger.ledgerOnlyAccounts,
+    ];
 }
 
 function funnelFacts(entry: LedgerAccount): FunnelFacts {
@@ -124,4 +254,8 @@ function funnelFacts(entry: LedgerAccount): FunnelFacts {
 
 function hasTransition(entry: LedgerAccount, kind: AccountEventKind): boolean {
     return entry.transitions.some((transition) => transition.kind === kind);
+}
+
+function isWithinWindow(date: string, start: string, end: string): boolean {
+    return compareText(date, start) >= 0 && compareText(date, end) <= 0;
 }

@@ -1,6 +1,7 @@
-import { type LadderGridConfig, type LadderScoreConfig } from '../core';
-import { type FundedCandidateOptions } from '../optimize';
-import { type SimInputs } from '../simulator';
+import { type LadderGridConfig, type LadderScoreConfig } from '~/lib/prop-calculator/core';
+import { type FundedCandidateOptions } from '~/lib/prop-calculator/optimize';
+import { type SimInputs } from '~/lib/prop-calculator/simulator';
+
 import { type AdviceSource } from './AdviceSource';
 import { type FundedFromStateSweepRequest } from './FundedFromStateSweep';
 import { type NextPayoutProjectionRequest } from './NextPayoutProjection';

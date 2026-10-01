@@ -1,4 +1,10 @@
 import {
+    fundedStopRuleToDayStopRule,
+    type PayoutParameters,
+    type RulebookParameters,
+} from '~/lib/prop-calculator/advisor/Rulebook';
+import { SizingStage } from '~/lib/prop-calculator/advisor/SizingStage';
+import {
     CENTS_PER_DOLLAR,
     computedDayPolicy,
     type DayPolicy,
@@ -18,12 +24,6 @@ import {
     simInputsSizingIssue,
 } from '~/lib/prop-calculator/simulator';
 
-import {
-    fundedStopRuleToDayStopRule,
-    type PayoutParameters,
-    type RulebookParameters,
-} from '../Rulebook';
-import { SizingStage } from '../SizingStage';
 import { documentedDayRisk } from './DocumentedDayRisk';
 import {
     type DocumentedPolicySpec,

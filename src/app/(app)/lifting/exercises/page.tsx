@@ -1,11 +1,10 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { ExercisesBrowser } from '~/app/(app)/lifting/_components/ExercisesBrowser';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-
-import { ExercisesBrowser } from '../_components/ExercisesBrowser';
 
 export const metadata: Metadata = {
     description: 'Browse exercises and add your own.',
