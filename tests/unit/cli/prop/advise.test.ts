@@ -9,7 +9,6 @@ import advise, {
     type AdviseArguments,
     adviseArguments,
     coverageMatrixLines,
-    dayProgressFromCounts,
     nextTradeRiskCheckLines,
     readAdviseInputs,
     readSignedNumber,
@@ -35,7 +34,12 @@ import {
     SizingAssumption,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
-import { ValueResultKind } from '~/lib/prop-calculator/advisor/value';
+import { dayProgressFromCounts } from '~/lib/prop-calculator/advisor/actions';
+import {
+    TRADE_VALUE_SWING_ASSUMPTION,
+    type TradeValueSwingResult,
+    ValueResultKind,
+} from '~/lib/prop-calculator/advisor/value';
 
 function instantFundedPlan(): Plan {
     const plan = ALL_FIRMS.flatMap((firm) => firm.plans).find(
@@ -466,8 +470,41 @@ describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', ()
     });
 });
 
+const SWING_FIXTURE: TradeValueSwingResult = {
+    afterLoss: {
+        creditFree: { standardError: null, value: 600 },
+        creditInclusive: { standardError: null, value: 900 },
+        kind: ValueResultKind.Value as const,
+        seed: 1,
+        trials: 1,
+    },
+    afterLossBusted: false,
+    afterLossRebuyLagDays: null,
+    afterWin: {
+        creditFree: { standardError: null, value: 1000 },
+        creditInclusive: { standardError: null, value: 1100 },
+        kind: ValueResultKind.Value as const,
+        seed: 1,
+        trials: 1,
+    },
+    assumption: TRADE_VALUE_SWING_ASSUMPTION,
+    deltaLoss: { standardError: null, value: -100 },
+    deltaWin: { standardError: null, value: 100 },
+    kind: ValueResultKind.Swing as const,
+    now: {
+        creditFree: { standardError: null, value: 800 },
+        creditInclusive: { standardError: null, value: 1000 },
+        kind: ValueResultKind.Value as const,
+        seed: 1,
+        trials: 1,
+    },
+    winProbability: 0.4,
+};
+
 describe('swingLines (F-V17 addendum: EV swing at --risk)', () => {
     it('renders now/after-win/after-loss values and flags a --rr that differs from the documented rule as a what-if', () => {
+        const assumption: typeof TRADE_VALUE_SWING_ASSUMPTION =
+            TRADE_VALUE_SWING_ASSUMPTION;
         const outcome = {
             afterLoss: {
                 creditFree: { standardError: null, value: 900 },
@@ -485,6 +522,7 @@ describe('swingLines (F-V17 addendum: EV swing at --risk)', () => {
                 seed: 1,
                 trials: 1,
             },
+            assumption,
             deltaLoss: { standardError: null, value: -100 },
             deltaWin: { standardError: null, value: 100 },
             kind: ValueResultKind.Swing as const,
@@ -498,12 +536,41 @@ describe('swingLines (F-V17 addendum: EV swing at --risk)', () => {
             winProbability: 0.4,
         };
 
-        const sameRr = swingLines(outcome, 2, 2);
+        const sameRr = swingLines(outcome, 2, 2, 0);
         expect(sameRr[0]).not.toContain('what-if');
 
-        const differentRr = swingLines(outcome, 3, 2);
+        const differentRr = swingLines(outcome, 3, 2, 0);
         expect(differentRr[0]).toContain('what-if');
         expect(differentRr[0]).toContain('documented 1:2');
+    });
+
+    it('states the session boundary and the credit basis, and prints the credit-free figures', () => {
+        const lines = swingLines(SWING_FIXTURE, 2, 2, 0);
+
+        expect(lines[0]).toContain(TRADE_VALUE_SWING_ASSUMPTION);
+        expect(lines[0]).toContain('credit-free');
+        expect(lines[0]).toContain('now $800');
+        expect(lines[0]).toContain('after a win $1,000');
+        expect(lines[0]).toContain('after a loss $600');
+        expect(lines[0]).not.toContain('$1,000.00');
+    });
+
+    it('nets the replacement fee on a busting loss, as the web panel does', () => {
+        const busted = { ...SWING_FIXTURE, afterLossBusted: true, afterLossRebuyLagDays: 3 };
+
+        const withoutFee = swingLines(busted, 2, 2, 0)[0];
+        const withFee = swingLines(busted, 2, 2, 150)[0];
+
+        expect(withoutFee).toContain('after a loss $600');
+        expect(withFee).toContain('after a loss $450');
+        expect(withFee).toContain('replacement fee $150');
+        expect(withFee).toContain('rebuy lag 3 days');
+    });
+
+    it('leaves a loss that does not bust untouched by the replacement fee', () => {
+        expect(swingLines(SWING_FIXTURE, 2, 2, 150)[0]).toContain(
+            'after a loss $600',
+        );
     });
 
     it('reports not-modeled outcomes without formatting them as dollars', () => {
@@ -511,6 +578,7 @@ describe('swingLines (F-V17 addendum: EV swing at --risk)', () => {
             { kind: ValueResultKind.NotModeled, reason: 'live-not-modeled' as never },
             2,
             null,
+            0,
         );
         expect(lines[0]).toContain('not modeled');
     });

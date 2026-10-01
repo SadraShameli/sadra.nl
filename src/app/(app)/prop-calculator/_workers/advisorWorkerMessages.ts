@@ -48,7 +48,7 @@ export interface AdvisorRequestSucceeded {
 
 export interface AdvisorValueRequest {
     readonly candidateRiskGrid: readonly number[];
-    readonly payoutStake: null | { readonly reducedRiskDollars: number };
+    readonly payoutStake: null | { readonly reducedRiskDollars?: number };
     readonly rr: number;
     readonly rungs: readonly AdvisorValueRung[];
     readonly spec: DocumentedPolicySpec;
@@ -138,8 +138,15 @@ export function advisorValueOutcomeOf(
                           reducedRiskDollars: request.payoutStake?.reducedRiskDollars,
                       }),
                   ),
-        swings: request.rungs.map((rung) => ({
-            outcome: slot((account) => tradeValueSwing(account, spec, rung)),
+        swings: request.rungs.map((rung, position) => ({
+            outcome: slot((account) =>
+                tradeValueSwing(account, spec, {
+                    ...rung,
+                    earlierRisks: request.rungs
+                        .slice(0, position)
+                        .map((earlier) => earlier.risk),
+                }),
+            ),
             rung,
         })),
     };

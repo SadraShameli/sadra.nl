@@ -44,7 +44,7 @@ import {
     RetainedCushionBasis,
 } from './PayoutRequestDecision';
 import {
-    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
+    HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
     type RulebookParameters,
 } from './Rulebook';
 import { RuleSource } from './RuleSource';
@@ -389,7 +389,7 @@ export function retainedCushionForStage(
         case SizingStage.Funded: {
             const hardFloor = rulebook.payout.allowBelowHardRule2
                 ? 0
-                : HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR;
+                : HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS;
             const amount = Math.max(hardFloor, rulebookCushion, personal);
             const basis =
                 personal === amount && personal > 0

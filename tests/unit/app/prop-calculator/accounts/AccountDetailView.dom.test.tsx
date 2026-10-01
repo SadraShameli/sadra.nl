@@ -1128,6 +1128,43 @@ describe('AccountDetailView', () => {
         ).toBeNull();
     });
 
+    it('announces the account state loading skeleton through a status role (PT-37)', () => {
+        answerEverything({
+            'snapshot.listForAccount': {
+                data: undefined,
+                error: null,
+                isError: false,
+                isPending: true,
+            },
+        });
+        render();
+        const skeleton = sectionTitled('Account state').querySelector(
+            '[aria-label="Loading the account state"]',
+        );
+        expect(skeleton?.getAttribute('role')).toBe('status');
+    });
+
+    it('says the rulebook could not be loaded, with the error, in the value section and the simulator link (PT-37)', () => {
+        answerEverything({
+            'rulebook.get': {
+                data: undefined,
+                error: new Error('rulebook fetch failed'),
+                isError: true,
+                isPending: false,
+            },
+            'snapshot.listForAccount': answer([
+                snapshot('s2', '2026-09-20', 5_100_000, {
+                    highestEodBalanceCents: 5_200_000,
+                }),
+            ]),
+        });
+        render();
+        const state = sectionTitled('Account state');
+        expect(state.textContent).toContain('rulebook could not be loaded');
+        expect(state.textContent).toContain('rulebook fetch failed');
+        expect(state.textContent).not.toContain('rulebook has not loaded');
+    });
+
     it('shows the read-only notice and no event form for an account whose plan cannot be resolved', () => {
         const broken = { ...BRAVO, planSerial: 'no-such-plan' };
         answerEverything({

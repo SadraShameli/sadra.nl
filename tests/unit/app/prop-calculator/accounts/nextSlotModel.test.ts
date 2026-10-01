@@ -91,6 +91,7 @@ function documentedFigures(): DocumentedRunFigures {
         expectedMonthlyRealizedNet: estimate(280),
         expectedNetPerAttempt: estimate(50),
         expectedPayoutPerFundedAccount: { standardError: 0, value: 800 },
+        fundedBustProbability: estimate(0.2),
         fundedHorizonDays: 120,
         fundedPayoutCountDistribution: [0.5, 0.5],
         fundedSurvivalProbability: estimate(0.55),
@@ -281,15 +282,20 @@ describe('nextSlotModelOf ranked rows', () => {
         expect(first.perScreenHour).toBe('n/a');
     });
 
-    it('says why the optimum differs from the documented request and shows its funded bust beside the documented funded survival', () => {
+    it('says why the optimum differs from the documented request and sets its funded bust against the documented run funded bust', () => {
         const [first] = modelFor().ranked;
         expect(first?.optimumNote).toContain(
             `asks ${formatCurrency(750)} instead of the documented`,
         );
-        expect(first?.optimumNote).toContain(`${formatPercent(0.4)} funded bust`);
         expect(first?.optimumNote).toContain(
-            `${formatPercent(0.55)} funded survival`,
+            `${formatPercent(0.4)} of all simulated attempts`,
         );
+        expect(first?.optimumNote).toContain(
+            `against ${formatPercent(0.2)} of all simulated attempts at the documented request`,
+        );
+        expect(first?.optimumNote).toContain('funded bust');
+        expect(first?.optimumNote).not.toContain('funded bust probability');
+        expect(first?.optimumNote).not.toContain('survival');
         expect(first?.optimumNote).toContain('5 sizes tried');
     });
 
@@ -378,6 +384,82 @@ describe('nextSlotModelOf ranked rows', () => {
                 ? 'Limited by your daily account capacity.'
                 : null,
         );
+    });
+
+    it('names each slot limit with its own text and blames capacity only for a capacity limit', () => {
+        const capacity = {
+            ...DEFAULT_RULEBOOK,
+            bankroll: {
+                ...DEFAULT_RULEBOOK.bankroll,
+                dailyAccountCapacity: 1,
+            },
+        };
+        const heldPlan = ledger({
+            accounts: [account(EVAL_PLAN, { purchasedOn: '2026-09-20' })],
+        });
+        const noEv = modelFor({
+            answer: answerAll({ expectedNetPerAttempt: estimate(-5) }),
+            ledger: heldPlan,
+            rulebook: capacity,
+        });
+        expect(noEv.ranked.length).toBeGreaterThan(0);
+        for (const row of noEv.ranked) {
+            expect(row.allocatable).toBe('0');
+            expect(row.nonPositiveNote).toBe(
+                'Expected value per attempt is not positive.',
+            );
+            expect(row.capacityNote).toBeNull();
+        }
+        const negativeMonthly = modelFor({
+            answer: answerAll({ expectedMonthlyNet: estimate(-10) }),
+            ledger: heldPlan,
+            rulebook: capacity,
+        });
+        expect(negativeMonthly.ranked.length).toBeGreaterThan(0);
+        for (const row of negativeMonthly.ranked) {
+            expect(row.allocatable).toBe('0');
+            expect(row.nonPositiveNote).toContain(
+                'credit-inclusive monthly net is not positive',
+            );
+            expect(row.nonPositiveNote).not.toContain('per attempt');
+            expect(row.capacityNote).toBeNull();
+        }
+        const capped = modelFor({ ledger: heldPlan, rulebook: capacity });
+        expect(capped.ranked.length).toBeGreaterThan(0);
+        for (const row of capped.ranked) {
+            expect(row.allocatable).toBe('0');
+            expect(row.capacityNote).toBe('Limited by your daily account capacity.');
+            expect(row.nonPositiveNote).toBeNull();
+        }
+    });
+
+    it('never says a row is limited by capacity when no daily capacity is set', () => {
+        const base = DEFAULT_RULEBOOK.bankroll.dailyAccountCapacity;
+        expect(base).toBeNull();
+        const scaleGated = modelFor({
+            ledger: ledger({
+                accounts: [
+                    account(EVAL_PLAN, { accountSize: 1, purchasedOn: '2026-09-20' }),
+                ],
+            }),
+        });
+        expect(scaleGated.ranked.some((row) => row.scaleNote !== null)).toBe(true);
+        const answers = [
+            modelFor(),
+            scaleGated,
+            modelFor({
+                answer: answerAll({ expectedNetPerAttempt: estimate(-5) }),
+            }),
+            modelFor({
+                answer: answerAll({ expectedMonthlyNet: estimate(-10) }),
+            }),
+        ];
+        for (const model of answers) {
+            expect(model.capacityNote).toBeNull();
+            for (const row of model.ranked) {
+                expect(row.capacityNote).toBeNull();
+            }
+        }
     });
 
     it('marks every larger size of a firm while the scale gate is not ready, with no slots to fill, and counts the evaluations in progress', () => {

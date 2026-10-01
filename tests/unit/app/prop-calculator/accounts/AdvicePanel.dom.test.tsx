@@ -134,7 +134,10 @@ vi.mock('~/trpc/react', () => ({
             snapshot: {
                 listForAccount: harness.query('snapshot.listForAccount'),
             },
-            violation: { create: harness.mutation('violation.create') },
+            violation: {
+                create: harness.mutation('violation.create'),
+                list: harness.query('violation.list'),
+            },
         },
         useUtils: () => ({
             propAccounts: {
@@ -256,6 +259,7 @@ function answerEverything(overrides: Record<string, FakeQuery> = {}) {
     harness.queries.set('payout.list', answer([]));
     harness.queries.set('rulebook.get', answer(DEFAULT_RULEBOOK));
     harness.queries.set('decision.listForAccount', answer([]));
+    harness.queries.set('violation.list', answer([]));
     for (const [name, query] of Object.entries(overrides)) {
         harness.queries.set(name, query);
     }
@@ -339,16 +343,48 @@ function snapshot(overrides: Record<string, unknown> = {}) {
 
 const VIDEO_FIGURES = ['600', '350', '466'];
 
+function decisionOf(id: string, actualRiskCents: null | number) {
+    return {
+        acceptedRiskCents: 50_000,
+        acceptedRungsCents: [50_000],
+        accountId: ACCOUNT_ID,
+        actualRiskCents,
+        createdAt: new Date('2026-09-26T12:00:00Z'),
+        decidedOn: '2026-09-26',
+        headlineRiskCents: 50_000,
+        id,
+        note: null,
+        snapshotId: 'snap-1',
+        source: 'ladder-search-fresh',
+        stage: AccountStage.Eval,
+        updatedAt: new Date('2026-09-26T12:00:00Z'),
+        userId: USER_ID,
+    };
+}
+
 function lastInput() {
     return adviceBox.inputs.at(-1) as {
         advisor: { dailyPlanCard: () => null | { rungs: { risk: number }[] } };
         values: null | {
             payoutStake: unknown;
             rungs: { risk: number; rr: number }[];
-            spec: { rulebook: unknown };
+            spec: {
+                enginePolicy: {
+                    payoutRequestOverride: null | number;
+                    retainedCushionRequest: null | number;
+                };
+                rulebook: unknown;
+            };
             start: { phase: string };
         };
+        valuesUnavailableReason?: null | string;
     };
+}
+
+function logViolationButton(container: HTMLElement): HTMLButtonElement | undefined {
+    return [...container.querySelectorAll('button')].find(
+        (candidate) => candidate.textContent === 'Log violation',
+    );
 }
 
 function succeeded<T>(value: T) {
@@ -378,6 +414,7 @@ function valuesFor(
         afterLossBusted: false,
         afterLossRebuyLagDays: null,
         afterWin,
+        assumption: advisorValue.TRADE_VALUE_SWING_ASSUMPTION,
         deltaLoss: advisorValue.valueGap(now, afterLoss),
         deltaWin: advisorValue.valueGap(now, afterWin),
         kind: advisorValue.ValueResultKind.Swing,
@@ -1281,7 +1318,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             expect(values?.payoutStake).toBeNull();
         });
 
-        it('shows win and loss EV per rung, the one-step tree and the ranked candidates with the documented rung marked', () => {
+        it('shows win and loss EV per rung, the one-step tree and the one-step candidates with the documented rung marked', () => {
             const risk = documentedRisk();
 
             readyWith(valuesFor(risk));
@@ -1292,9 +1329,21 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             expect(
                 container.querySelector('[aria-label="One-step value tree"]'),
             ).not.toBeNull();
-            const candidates = sectionOf('Ranked risk candidates').textContent;
+            const candidates = sectionOf('One-step risk candidates').textContent;
             expect(candidates).toContain('one-step comparison, documented sizing afterwards');
             expect(candidates).toContain('Documented rung');
+        });
+
+        it('shows the eval candidates unranked, with the documented sizing rule stated', () => {
+            const risk = documentedRisk();
+
+            readyWith(valuesFor(risk));
+
+            const section = sectionOf('One-step risk candidates');
+            expect(section.textContent).toContain('maximum allowed risk');
+            expect(
+                [...section.querySelectorAll('th')].map((header) => header.textContent),
+            ).not.toContain('Rank');
         });
 
         it("fills the daily card with V now and the values after a win and a loss", () => {
@@ -1307,17 +1356,92 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             );
         });
 
-        it('appends the flat-risk reason when a smaller candidate beats the documented rung beyond noise', () => {
+        it('does not append a flat-risk reason for an eval account, where the documented rung is the maximum', () => {
             const risk = documentedRisk();
 
             readyWith(valuesFor(risk));
 
-            expect(sectionOf('Reasons').textContent).toContain(
-                'The documented flat',
-            );
-            expect(sectionOf('Reasons').textContent).toContain(
+            expect(sectionOf('Reasons').textContent).not.toContain(
                 'ignores your current state',
             );
+        });
+
+        it('states the session boundary the swing is valued at under the next trade value, on an eval account', () => {
+            const risk = documentedRisk();
+
+            readyWith(valuesFor(risk));
+
+            const text = sectionOf('What the next trade does to value').textContent;
+            expect(text).toContain(
+                'Assumption: valued at the next session start, as if you stop after this trade.',
+            );
+            expect(text).not.toContain('not modeled for eval accounts');
+        });
+
+        it('adds that the rest of the day rungs are not in the after-loss value when the documented rule keeps trading', () => {
+            const risk = documentedRisk();
+            const base = valuesFor(risk);
+
+            readyWith({
+                ...base,
+                swings: [...base.swings, ...base.swings],
+            });
+
+            expect(
+                sectionOf('What the next trade does to value').textContent,
+            ).toContain("the rest of today's rungs are not in the after-loss value");
+        });
+
+        it('shows a failed value request as it is, never as a fixed eval line', () => {
+            const risk = documentedRisk();
+            const failure = {
+                kind: AdvisorRequestOutcomeKind.Failed as const,
+                reason: 'the engine refused this start',
+            };
+
+            readyWith(
+                valuesFor(risk, {
+                    candidates: failure,
+                    swings: [{ outcome: failure, rung: { risk, rr: 2 } }],
+                }),
+            );
+
+            const text = [
+                sectionOf('What the next trade does to value'),
+                sectionOf('One-step risk candidates'),
+            ]
+                .map((section) => section.textContent)
+                .join(' ');
+            expect(text).toContain('Left out: the engine refused this start');
+            expect(text).not.toContain('not modeled for eval accounts');
+        });
+
+        it('states the run assumptions next to the value figures', () => {
+            const risk = documentedRisk();
+
+            readyWith(valuesFor(risk));
+
+            const text = sectionOf('What the next trade does to value').textContent;
+            expect(text).toContain('Value runs: 1000 trials, seed 42');
+            expect(text).toContain('rebuy lag assumed zero (optimistic)');
+        });
+
+        it('values the payout the way the account documents it: the personal request and the larger retained cushion', () => {
+            answerEverything({
+                'account.get': answer(
+                    account({
+                        personalRules: {
+                            payoutRequestOverrideCents: 75_000,
+                            retainedCushionCents: 300_000,
+                        },
+                    }),
+                ),
+            });
+            render();
+
+            const policy = lastInput().values?.spec.enginePolicy;
+            expect(policy?.payoutRequestOverride).toBe(750);
+            expect(policy?.retainedCushionRequest).toBe(3000);
         });
 
         it('states a left-out candidates computation instead of hiding it', () => {
@@ -1332,7 +1456,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
                 }),
             );
 
-            expect(sectionOf('Ranked risk candidates').textContent).toContain(
+            expect(sectionOf('One-step risk candidates').textContent).toContain(
                 'Left out: the engine refused this start',
             );
         });
@@ -1391,8 +1515,27 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             };
             render();
 
-            expect(sectionOf('Ranked risk candidates').textContent).toContain(
+            expect(sectionOf('One-step risk candidates').textContent).toContain(
                 'unavailable for this account state',
+            );
+        });
+
+        it('says why the value views could not be built instead of going quiet', () => {
+            documentedRisk();
+            adviceBox.adjust = (derived) => derived;
+            adviceBox.state = {
+                advice: null,
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+                values: {
+                    phase: 'unavailable',
+                    reason: 'a funded account needs its funded cycle tracker',
+                },
+            };
+            render();
+
+            expect(sectionOf('One-step risk candidates').textContent).toContain(
+                'Left out: a funded account needs its funded cycle tracker',
             );
         });
 
@@ -1412,6 +1555,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             const risk = documentedRisk();
             const stake = {
                 continueNow: valueOf(1000, 10),
+                kind: advisorValue.ValueResultKind.PayoutStake as const,
                 reducedRiskWhatIf: {
                     label: advisorValue.REDUCED_RISK_WHAT_IF_LABEL,
                     risk: 125,
@@ -1513,27 +1657,10 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             ).toBe(false);
         });
 
-        it('flags a risk above the documented rung after a loss and logs a ForcedRecovery violation with the decision id', () => {
+        it('flags a proposed risk above the documented rung after a loss without offering to log a violation for a trade not placed', () => {
             const risk = documentedRisk();
             answerEverything({
-                'decision.listForAccount': answer([
-                    {
-                        acceptedRiskCents: 50_000,
-                        acceptedRungsCents: [50_000],
-                        accountId: ACCOUNT_ID,
-                        actualRiskCents: null,
-                        createdAt: new Date('2026-09-26T12:00:00Z'),
-                        decidedOn: '2026-09-26',
-                        headlineRiskCents: 50_000,
-                        id: 'decision-1',
-                        note: null,
-                        snapshotId: 'snap-1',
-                        source: 'ladder-search-fresh',
-                        stage: AccountStage.Eval,
-                        updatedAt: new Date('2026-09-26T12:00:00Z'),
-                        userId: USER_ID,
-                    },
-                ]),
+                'decision.listForAccount': answer([decisionOf('decision-1', null)]),
             });
             readyWith(valuesFor(risk));
 
@@ -1543,9 +1670,21 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             expect(sectionOf('Check a risk before you place it').textContent).toContain(
                 'Above the documented rung',
             );
-            const log = [...container.querySelectorAll('button')].find(
-                (candidate) => candidate.textContent === 'Log violation',
-            );
+            expect(logViolationButton(container)).toBeUndefined();
+        });
+
+        it('logs a ForcedRecovery violation against the decision that holds the recorded actual risk, not the latest decision of the day', () => {
+            const risk = documentedRisk();
+            answerEverything({
+                'decision.listForAccount': answer([
+                    decisionOf('decision-later', null),
+                    decisionOf('decision-recorded', 10_000_000),
+                ]),
+            });
+            readyWith(valuesFor(risk));
+
+            setField('Losses today', '1');
+            const log = logViolationButton(container);
             if (log === undefined) throw new Error('no Log violation button');
             act(() => {
                 log.click();
@@ -1554,11 +1693,56 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             expect(harness.mutateOf('violation.create')).toHaveBeenCalledWith({
                 accountId: ACCOUNT_ID,
                 costCents: null,
-                decisionId: 'decision-1',
+                decisionId: 'decision-recorded',
                 kind: 'forced-recovery',
                 note: null,
                 occurredOn: '2026-09-26',
             });
+        });
+
+        it('shows Violation recorded instead of the button for a decision that already has a violation of that kind, after a remount too', () => {
+            const risk = documentedRisk();
+            answerEverything({
+                'decision.listForAccount': answer([
+                    decisionOf('decision-recorded', 10_000_000),
+                ]),
+                'violation.list': answer([
+                    {
+                        accountId: ACCOUNT_ID,
+                        decisionId: 'decision-recorded',
+                        id: 'violation-1',
+                        kind: 'forced-recovery',
+                    },
+                ]),
+            });
+            readyWith(valuesFor(risk));
+
+            setField('Losses today', '1');
+
+            expect(logViolationButton(container)).toBeUndefined();
+            expect(
+                sectionOf('Check a risk before you place it').textContent,
+            ).toContain('Violation recorded');
+        });
+
+        it('says what day progress the recorded risk was judged against', () => {
+            const risk = documentedRisk();
+            answerEverything({
+                'decision.listForAccount': answer([
+                    decisionOf('decision-recorded', 10_000_000),
+                ]),
+            });
+            readyWith(valuesFor(risk));
+
+            expect(sectionOf('Check a risk before you place it').textContent).toContain(
+                'Judged as the first trade of the day: no wins or losses are entered above.',
+            );
+
+            setField('Losses today', '1');
+
+            expect(sectionOf('Check a risk before you place it').textContent).toContain(
+                'Judged against 0 wins and 1 loss entered above.',
+            );
         });
 
         it('shows the verdict for the recorded actual risk of a decision made today', () => {
@@ -1609,7 +1793,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             const text = [
                 sectionOf('What the next trade does to value'),
-                sectionOf('Ranked risk candidates'),
+                sectionOf('One-step risk candidates'),
                 sectionOf('Check a risk before you place it'),
             ]
                 .map((section) => section.textContent)

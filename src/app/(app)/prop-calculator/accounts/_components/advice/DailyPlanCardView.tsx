@@ -4,6 +4,7 @@ import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
+import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import { POSITION_SIZE_INSTRUMENTS } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
 import {
     parsePositionSizeInstrument,
@@ -27,15 +28,21 @@ import {
     TableRow,
 } from '~/components/ui/Table';
 import { formatCurrency, formatGateCurrency } from '~/lib/format';
-import { InstrumentSymbol, type Plan, type TradingPhase } from '~/lib/prop-calculator';
+import {
+    InstrumentSymbol,
+    type Plan,
+    type TierProfitContext,
+    type TradingPhase,
+} from '~/lib/prop-calculator';
 import { type RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 
-import { contractsSizingOf } from './contractsSizingModel';
 import { type DailyPlanCardViewModel } from './adviceViewModel';
+import { contractsSizingOf } from './contractsSizingModel';
 
 export interface DailyCardSizing {
     readonly phase: TradingPhase;
     readonly plan: Plan;
+    readonly tierContext: null | TierProfitContext;
     readonly unit: RiskDisplayUnit;
 }
 
@@ -140,9 +147,18 @@ function ContractsSizing({
                 plan: sizing.plan,
                 risk,
                 stopPoints,
+                tierContext: sizing.tierContext,
                 unit: sizing.unit,
             }),
-        [instrument, risk, sizing.phase, sizing.plan, sizing.unit, stopPoints],
+        [
+            instrument,
+            risk,
+            sizing.phase,
+            sizing.plan,
+            sizing.tierContext,
+            sizing.unit,
+            stopPoints,
+        ],
     );
     return (
         <div className="flex flex-col gap-2">
@@ -169,7 +185,7 @@ function ContractsSizing({
                     </Select>
                 </div>
                 <div className="flex flex-col gap-1">
-                    <Label htmlFor="daily-card-stop">Stop distance (points)</Label>
+                    <Label htmlFor="daily-card-stop">{CALCULATOR_FIELD_LABELS.stopPoints}</Label>
                     <Input
                         className="w-32"
                         id="daily-card-stop"

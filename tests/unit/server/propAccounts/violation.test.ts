@@ -11,10 +11,13 @@ import {
 
 import {
     assertUserScopedWhere,
+    type FakeRow,
     insertedColumnValues,
+    type IssuedQuery,
     readTable,
     TransactionStep,
     transactionSteps,
+    writeTable,
 } from '../fakeDatabase';
 import {
     accountUpdateInput,
@@ -49,6 +52,19 @@ vi.mock('~/lib/observability/rate-limit', () => ({
 }));
 
 const rateLimit = vi.mocked(isWithinRateLimit);
+
+function violationSelectsReturn(
+    existing: FakeRow[],
+    counts: Readonly<Record<string, number>> = {},
+) {
+    const base = tableResponder({}, counts);
+    return (query: IssuedQuery): FakeRow[] =>
+        readTable(query) === VIDEO_TABLES.violation &&
+        writeTable(query) === null &&
+        !isCount(query)
+            ? existing
+            : base(query);
+}
 
 const OVERSIZE = {
     accountId: IDS.account,
@@ -94,7 +110,10 @@ afterEach(() => {
 
 describe('propAccounts.violation', () => {
     it('create stores a manual violation for the session user after scoped account and decision reads, in one transaction', async () => {
-        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            violationSelectsReturn([]),
+        );
         const created = await caller.violation.create(OVERSIZE);
         expect(created.source).toBe(ViolationSource.Manual);
         for (const table of [TABLES.account, TABLES.decision]) {
@@ -124,7 +143,10 @@ describe('propAccounts.violation', () => {
     });
 
     it('create keeps a negative cost signed: a violation trade that won is disclosed, not hidden', async () => {
-        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            violationSelectsReturn([]),
+        );
         await caller.violation.create({ ...OVERSIZE, costCents: -12_000 });
         const [insert] = insertsInto(queries, VIDEO_TABLES.violation);
         expect(insertedColumnValues(defined(insert), 'cost_cents')).toEqual([
@@ -132,13 +154,92 @@ describe('propAccounts.violation', () => {
         ]);
     });
 
-    it('create without a decision reads no decision', async () => {
-        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+    it('create without a decision reads no decision and never looks for an existing violation of the decision', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            violationSelectsReturn([violationRow()]),
+        );
         await caller.violation.create({ ...OVERSIZE, decisionId: null });
         expect(
             queries.filter((query) => readTable(query) === TABLES.decision),
         ).toHaveLength(0);
+        expect(
+            queries.filter(
+                (query) =>
+                    readTable(query) === VIDEO_TABLES.violation &&
+                    !isCount(query),
+            ),
+        ).toHaveLength(0);
         expect(insertsInto(queries, VIDEO_TABLES.violation)).toHaveLength(1);
+    });
+
+    it('create with a decision is idempotent per user, account, decision and kind: an existing row is returned, nothing is written and no quota is taken', async () => {
+        const existing = violationRow({
+            account_id: IDS.account,
+            decision_id: IDS.decision,
+            kind: RuleViolationKind.Oversize,
+        });
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            violationSelectsReturn([existing], {
+                [VIDEO_TABLES.violation]:
+                    PROP_QUOTA_LIMITS[PropQuota.Violations],
+            }),
+        );
+
+        const created = await caller.violation.create(OVERSIZE);
+
+        expect(created.id).toBe(VIDEO_IDS.violation);
+        expect(propWrites(queries)).toHaveLength(0);
+        expect(queries.filter((query) => isCount(query))).toHaveLength(0);
+        const lookup = queries.find(
+            (query) =>
+                readTable(query) === VIDEO_TABLES.violation &&
+                !isCount(query),
+        );
+        assertUserScopedWhere(defined(lookup), USER_ID);
+        expect(lookup?.params).toEqual(
+            expect.arrayContaining([
+                IDS.account,
+                IDS.decision,
+                RuleViolationKind.Oversize,
+            ]),
+        );
+        expect(transactionSteps(queries)).toEqual([
+            TransactionStep.Begin,
+            TransactionStep.Commit,
+        ]);
+    });
+
+    it('create with a decision still inserts when that decision has no violation of this kind yet, and takes the quota', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            violationSelectsReturn([]),
+        );
+
+        await caller.violation.create(OVERSIZE);
+
+        expect(insertsInto(queries, VIDEO_TABLES.violation)).toHaveLength(1);
+        expect(queries.filter((query) => isCount(query))).toHaveLength(1);
+    });
+
+    it('create returns an existing violation only after the account and decision ownership checks, so another user decision still rejects', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            (query) =>
+                readTable(query) === TABLES.decision
+                    ? []
+                    : violationSelectsReturn([violationRow()])(query),
+        );
+
+        const shape = errorShapeOf(
+            await rejectionOf(caller.violation.create(OVERSIZE)),
+        );
+
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ReferenceNotOwned),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
     });
 
     it('the client cannot set the source: detected violations come from the server only', async () => {
@@ -247,13 +348,10 @@ describe('propAccounts.violation', () => {
     it('create fails loud at the violation quota and writes nothing', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,
-            tableResponder(
-                {},
-                {
-                    [VIDEO_TABLES.violation]:
-                        PROP_QUOTA_LIMITS[PropQuota.Violations],
-                },
-            ),
+            violationSelectsReturn([], {
+                [VIDEO_TABLES.violation]:
+                    PROP_QUOTA_LIMITS[PropQuota.Violations],
+            }),
         );
         const shape = errorShapeOf(
             await rejectionOf(caller.violation.create(OVERSIZE)),
@@ -268,7 +366,7 @@ describe('propAccounts.violation', () => {
 
     it('rate-limits changes in the violation bucket per user', async () => {
         rateLimit.mockClear();
-        const { caller } = callerFor(SIGNED_IN, tableResponder());
+        const { caller } = callerFor(SIGNED_IN, violationSelectsReturn([]));
         await caller.violation.create(OVERSIZE);
         expect(rateLimit).toHaveBeenCalledWith(
             expect.objectContaining({

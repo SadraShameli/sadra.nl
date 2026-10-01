@@ -28,14 +28,11 @@ import {
     resolveDocumentedPlan,
 } from './policy';
 import {
-    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
+    HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
     type RulebookParameters,
 } from './Rulebook';
 
 export const INTRADAY_TRAILING_PATH_STEPS_PER_R = 10;
-
-const HARD_RULE_2_MIN_RETAINED_CUSHION =
-    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR;
 
 export interface EnginePolicyBuild {
     readonly assumptions: readonly Assumption[];
@@ -67,7 +64,8 @@ export function applyEnginePolicy(
     base: SimInputs,
 ): SimInputs {
     const simulatedPlan = resolveDocumentedPlan(plan, policy);
-    const requestedBeforeMinimum = policy.payoutRequestOverride ?? base.payoutRequestSize;
+    const requestedBeforeMinimum =
+        policy.payoutRequestOverride ?? base.payoutRequestSize;
     if (requestedBeforeMinimum === undefined) {
         throw new Error(
             'applyEnginePolicy: the base SimInputs must carry a payoutRequestSize when the policy has no payoutRequestOverride',
@@ -78,7 +76,8 @@ export function applyEnginePolicy(
         intradayPathStepsPerR:
             policy.intradayPathStepsPerR ?? base.intradayPathStepsPerR,
         minRetainedCushion: simulatedPlan.resolveRetainedCushion(
-            policy.retainedCushionRequest ?? HARD_RULE_2_MIN_RETAINED_CUSHION,
+            policy.retainedCushionRequest ??
+                HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
         ),
         payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
         payoutRequestSize: effectivePayoutRequest(
@@ -116,7 +115,10 @@ export function buildEnginePolicy(
         : RebuyLagBasis.AssumedZero;
     if (rebuyLagBasis === RebuyLagBasis.AssumedZero) {
         assumptions.push(
-            inputAssumption(AssumptionKind.RebuyLagAssumed, AssumptionBias.Optimistic),
+            inputAssumption(
+                AssumptionKind.RebuyLagAssumed,
+                AssumptionBias.Optimistic,
+            ),
         );
     }
 
@@ -186,7 +188,8 @@ function resolveLifetimePayoutCap(
     switch (override.kind) {
         case LifetimePayoutCapOverrideKind.Capped: {
             return {
-                lifetimePayoutCapBasis: LifetimePayoutCapBasis.VerifiedCountTrigger,
+                lifetimePayoutCapBasis:
+                    LifetimePayoutCapBasis.VerifiedCountTrigger,
                 lifetimePayoutCapOverride: override.cap,
             };
         }
@@ -206,7 +209,8 @@ function resolveLifetimePayoutCap(
                 ),
             );
             return {
-                lifetimePayoutCapBasis: LifetimePayoutCapBasis.LiveTriggersNotChecked,
+                lifetimePayoutCapBasis:
+                    LifetimePayoutCapBasis.LiveTriggersNotChecked,
                 lifetimePayoutCapOverride: null,
             };
         }

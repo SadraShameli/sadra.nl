@@ -17,6 +17,7 @@ import {
     type MeasuredRebuyLag,
     type ReconstructedAccount,
     type RulebookParameters,
+    SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
 import {
@@ -36,12 +37,14 @@ export function NextPayoutSection({
     measuredRebuyLag,
     plan,
     rulebook,
+    rulebookError,
 }: {
     readonly account: ReconstructedAccount;
     readonly input: AccountSnapshotInput;
     readonly measuredRebuyLag: MeasuredRebuyLag | null;
     readonly plan: Plan;
     readonly rulebook: RulebookParameters | undefined;
+    readonly rulebookError: null | string;
 }) {
     const requests = useMemo(
         () =>
@@ -72,17 +75,29 @@ export function NextPayoutSection({
     );
 
     if (rulebook === undefined) {
-        return (
+        return rulebookError === null ? (
             <p className="text-sm text-muted-foreground">
                 Your rulebook has not loaded, so the figures from this state
                 cannot be computed yet.
+            </p>
+        ) : (
+            <SimulationFailureNotice
+                message={`Your rulebook could not be loaded, so the figures from this state cannot be computed: ${rulebookError}`}
+            />
+        );
+    }
+    if (input.stage === SizingStage.Live) {
+        return (
+            <p className="text-sm text-muted-foreground">
+                A live account has no from-state value model.
             </p>
         );
     }
     if (requests === null) {
         return (
             <p className="text-sm text-muted-foreground">
-                A live account has no from-state value model.
+                The plan of this account is not modeled by the engine, so no
+                figures from this state can be computed.
             </p>
         );
     }
@@ -112,7 +127,7 @@ function ChainPosition({ view }: { readonly view: ChainPositionView }) {
     switch (view.kind) {
         case ChainPositionViewKind.Pending: {
             return (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground" role="status">
                     Placing the account in the value chain of its plan...
                 </p>
             );
@@ -156,7 +171,11 @@ function FromStateBlock({ view }: { readonly view: AccountFromStateView }) {
         }
         case AccountFromStateViewKind.Pending: {
             return (
-                <div aria-busy="true" aria-label="Computing the figures from this state">
+                <div
+                    aria-busy="true"
+                    aria-label="Computing the figures from this state"
+                    role="status"
+                >
                     <Skeleton className="h-24 w-full" />
                 </div>
             );
@@ -183,7 +202,7 @@ function RetireInformation({ view }: { readonly view: RetireView }) {
         }
         case RetireViewKind.Pending: {
             return (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground" role="status">
                     Comparing with a fresh account of the same plan...
                 </p>
             );

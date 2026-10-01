@@ -14,6 +14,7 @@ import {
     RiskCandidateBasis,
     riskCandidateValues,
 } from '~/lib/prop-calculator/advisor/value/RiskCandidateValues';
+import { TRADE_VALUE_SWING_ASSUMPTION } from '~/lib/prop-calculator/advisor/value/TradeValueSwing';
 import { ValueResultKind } from '~/lib/prop-calculator/advisor/value/ValueEstimate';
 import {
     type AccountState,
@@ -174,5 +175,35 @@ describe('riskCandidateValues (F-V17, PT-65a step 4)', () => {
         ).toStrictEqual(
             riskCandidateValues(account, spec, { riskGrid: [150, 250], rr: 2 }),
         );
+    });
+
+    it('prices an eval account too, every row valued after a closed session with the boundary stated', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+        const state = plan.initialState();
+        const account: ReconstructedFundedOrEvalAccount = {
+            assumptions: [],
+            contractLimit: null,
+            cushion: state.balance - state.threshold,
+            fundedTracker: null,
+            kind: TradingPhase.Eval,
+            plan,
+            resolvedDailyLossLimit: null,
+            state: { ...state, balance: state.balance + 300, elapsedDays: 2, tradingDays: 2 },
+        };
+
+        const outcome = riskCandidateValues(account, spec, {
+            riskGrid: [150, 250],
+            rr: 2,
+        });
+        if (outcome.kind !== ValueResultKind.Candidates) {
+            throw new Error('expected a candidates result');
+        }
+
+        expect(outcome.rows).toHaveLength(2);
+        for (const row of outcome.rows) {
+            expect(row.swing.assumption).toBe(TRADE_VALUE_SWING_ASSUMPTION);
+            expect(Number.isFinite(row.continuationValue.value)).toBe(true);
+        }
     });
 });

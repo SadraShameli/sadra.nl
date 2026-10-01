@@ -2,9 +2,20 @@ import * as React from 'react';
 
 import { cn } from '~/lib/utilities';
 
-function Table({ className, ...properties }: React.ComponentProps<'table'>) {
+type TableContainerProperties = Pick<
+    React.ComponentProps<'div'>,
+    'aria-label' | 'aria-labelledby' | 'role' | 'tabIndex'
+>;
+
+function Table({
+    className,
+    containerProps,
+    ...properties
+}: React.ComponentProps<'table'> & {
+    readonly containerProps?: TableContainerProperties;
+}) {
     return (
-        <div className="relative w-full overflow-auto">
+        <div className="relative w-full overflow-auto" {...containerProps}>
             <table
                 className={cn('w-full caption-bottom text-sm', className)}
                 data-slot="table"

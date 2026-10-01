@@ -202,8 +202,8 @@ function documentedFigures(
         expectedMonthlyRealizedNet: estimate(monthlyNet - 20),
         expectedNetPerAttempt: estimate(50),
         expectedPayoutPerFundedAccount: { standardError: 5, value: 800 },
+        fundedBustProbability: estimate(0.2),
         fundedPayoutCountDistribution: [1 - anyPayout, anyPayout],
-        fundedSurvivalProbability: estimate(0.6),
         minRetainedCushion: 2000,
         payoutRequestSize: 500,
         payoutsPerFundedAccount: { standardError: 0.05, value: anyPayout },
@@ -1616,7 +1616,7 @@ describe('nextSlotAllocation batch loss risk', () => {
 });
 
 describe('nextSlotAllocation payout-size optimum risk', () => {
-    it('carries the funded bust probability and the evaluated sizes of the optimum and the funded survival of the documented run', () => {
+    it('carries the funded bust probability and the evaluated sizes of the optimum and the funded bust of the documented run', () => {
         const optimum = ready(
             optimumFigures(300, {
                 evaluatedSizes: 9,
@@ -1629,7 +1629,7 @@ describe('nextSlotAllocation payout-size optimum risk', () => {
         const { figures } = rankedRow(allocation, EVAL_PLAN);
         expect(figures.optimum?.fundedBustProbability.value).toBe(0.82);
         expect(figures.optimum?.evaluatedSizes).toBe(9);
-        expect(figures.documentedFundedSurvival.value).toBe(0.6);
+        expect(figures.documentedFundedBust.value).toBe(0.2);
     });
 
     it('shows the optimum with the same retained cushion the documented run resolved to', () => {
@@ -1648,6 +1648,9 @@ describe('nextSlotAllocation payout-size optimum risk', () => {
         );
         expect(allocation.disclosures).toContainEqual(
             containing('chance of losing the funded account'),
+        );
+        expect(allocation.disclosures).toContainEqual(
+            containing('share of all simulated attempts'),
         );
     });
 });
@@ -1675,6 +1678,15 @@ describe('nextSlotAllocation retained cushion', () => {
         expect(documented.retainedCushion).toBe(floor);
         expect(documented.requestedCushion).toBe(floor - 500);
         expect(isBelowHardRule2).toBe(true);
+    });
+
+    it('carries the Hard Rule 2 minimum in dollars, the figure its below-minimum flag is judged against', () => {
+        const allocation = verified([EVAL_PLAN], () =>
+            allocate({ candidates: [candidateOf(EVAL_PLAN)] }),
+        );
+        expect(allocation.hardRule2MinCushion).toBe(
+            HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / 100,
+        );
     });
 
     it('does not mark a cushion at the Hard Rule 2 minimum', () => {

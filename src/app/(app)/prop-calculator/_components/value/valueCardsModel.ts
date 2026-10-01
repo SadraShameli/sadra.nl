@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 import { ToolsWorkerPhase, type ToolsWorkerState } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import {
@@ -70,18 +71,16 @@ export interface ValueChainCardStep {
 
 const positiveIntSchema = z.coerce.number().int().positive();
 
-const CALCULATOR_FIELD_LABEL: ReadonlyMap<PropertyKey, string> = new Map<
-    keyof EnginePolicy,
-    string
->([
-    ['fundedHorizonDays', 'Funded horizon (days)'],
-    ['instrument', 'Instrument (contract-limit enforcement)'],
-    ['payoutRequestOverride', 'Payout request size ($)'],
-    ['retainedCushionRequest', 'Retained cushion on payout ($)'],
-    ['stopPoints', 'Stop distance (points)'],
-]);
-
 const UNLABELLED_FIELD_TEXT = 'Engine policy';
+
+export function calculatorFieldLabelOf(path: readonly PropertyKey[]): string {
+    const [key] = path;
+    if (key === undefined) return UNLABELLED_FIELD_TEXT;
+    const labelled = Object.entries(CALCULATOR_FIELD_LABELS).find(
+        ([field]) => field === key,
+    );
+    return labelled?.[1] ?? path.map(String).join('.');
+}
 
 export function fundedValueEstimateToolsRequest(
     cards: ValueCardsSpec,
@@ -245,12 +244,4 @@ export function valueChainToolsRequest(
         runId,
         spec: cards.spec,
     };
-}
-
-function calculatorFieldLabelOf(path: readonly PropertyKey[]): string {
-    const [key] = path;
-    return (
-        (key === undefined ? undefined : CALCULATOR_FIELD_LABEL.get(key)) ??
-        UNLABELLED_FIELD_TEXT
-    );
 }

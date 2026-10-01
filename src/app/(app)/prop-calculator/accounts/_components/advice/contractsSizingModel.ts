@@ -1,4 +1,5 @@
 import {
+    fundedTierOptions,
     normalizePositionSizeInput,
     positionSizeFor,
     type PositionSizeInput,
@@ -12,11 +13,15 @@ import {
     PositionSizeUrlParameter,
 } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
 import {
+    contractLimitAt,
+    type Dollars,
     dollars,
+    INSTRUMENTS,
     type InstrumentSymbol,
     type Plan,
     points,
-    type TradingPhase,
+    type TierProfitContext,
+    TradingPhase,
 } from '~/lib/prop-calculator';
 import { type RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 import { routes } from '~/lib/site/routes';
@@ -27,6 +32,7 @@ export interface ContractsSizingInput {
     readonly plan: Plan;
     readonly risk: number;
     readonly stopPoints: null | number;
+    readonly tierContext: null | TierProfitContext;
     readonly unit: RiskDisplayUnit;
 }
 
@@ -54,7 +60,7 @@ export function contractsSizingOf(
         retryFee: dollars(input.plan.retryFee()),
         risk: dollars(input.risk),
         stopPoints: stopPoints ?? defaultPositionSize().stopPoints,
-        tierProfit: null,
+        tierProfit: tierProfitOf(input),
         unit: input.unit,
     });
     const query = encodePositionSize(
@@ -72,5 +78,30 @@ export function contractsSizingOf(
             siblingText: siblingInstrumentText(result),
             statusText: positionSizeStatusText(state, result),
         },
+    };
+}
+
+function tierProfitOf(input: ContractsSizingInput): Dollars | null {
+    const { instrument, phase, plan, tierContext } = input;
+    if (tierContext === null || phase !== TradingPhase.Funded) return null;
+    const { isMicro } = INSTRUMENTS[instrument];
+    const capAt = (context: TierProfitContext) =>
+        contractLimitAt(plan.contractLimits, phase, isMicro, context);
+    const actualCap = capAt(tierContext);
+    if (actualCap === capAt(plan.tierProfitContext(plan.initialState()))) {
+        return null;
+    }
+    const matching = fundedTierOptions(plan, instrument).filter(
+        (option) => capAt(uniformTierContext(option)) === actualCap,
+    );
+    return matching.length === 0 ? null : dollars(Math.min(...matching));
+}
+
+function uniformTierContext(profit: number): TierProfitContext {
+    return {
+        peakDayCloseProfit: profit,
+        peakIntradayProfit: profit,
+        profit,
+        sessionOpenProfit: profit,
     };
 }

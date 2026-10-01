@@ -5,6 +5,9 @@ export {
     type FundedValueSampleRange,
 } from './FundedValueEstimate';
 export {
+    accountAfterClosedSession,
+    type ClosedSession,
+    closedSessionOf,
     type EvalMilestone,
     EvalMilestoneGap,
     type FundedMilestone,
@@ -44,6 +47,8 @@ export {
     type RiskCandidateValuesResult,
 } from './RiskCandidateValues';
 export {
+    netOfReplacementFee,
+    TRADE_VALUE_SWING_ASSUMPTION,
     tradeValueSwing,
     type TradeValueSwingOutcome,
     type TradeValueSwingRequest,
@@ -59,6 +64,8 @@ export {
     freshFundedAccount,
     fundedTrackerAfterMilestonePayout,
     postFirstPayoutAccount,
+    requestNowValue,
+    type RequestNowValue,
     requireValue,
     valueChain,
     type ValueChainResult,
@@ -78,4 +85,5 @@ export {
     valueResult,
     ValueResultKind,
     ValueUnavailableReason,
+    withCashAdded,
 } from './ValueEstimate';

@@ -5,17 +5,24 @@ import {
     DEFAULT_RULEBOOK,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
-import { type DocumentedPolicySpec, type EnginePolicy } from '~/lib/prop-calculator/advisor/policy';
 import {
+    type DocumentedPolicySpec,
+    type EnginePolicy,
+    resolveDocumentedRetainedCushion,
+} from '~/lib/prop-calculator/advisor/policy';
+import {
+    accountAfterClosedSession,
     MilestoneKind,
     milestoneState,
 } from '~/lib/prop-calculator/advisor/value/MilestoneState';
+import { valueAtState } from '~/lib/prop-calculator/advisor/value/ValueAtState';
 import {
     evalStartAccount,
     firstPayoutEligibleAccount,
     freshFundedAccount,
     fundedTrackerAfterMilestonePayout,
     postFirstPayoutAccount,
+    requestNowValue,
     valueChain,
     ValueChainStepKind,
 } from '~/lib/prop-calculator/advisor/value/ValueChain';
@@ -24,10 +31,27 @@ import {
     FirmId,
     MffuVariant,
     newFundedCycleTracker,
+    ONE_CENT,
     type Plan,
+    TopStepVariant,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
-import { findFirm } from '~/lib/prop-calculator/firms';
+import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
+
+function eligibleFundedMilestone() {
+    const plan = rapidEodPlan();
+    const spec = specFor(plan);
+    const account = firstPayoutEligibleAccount(
+        plan,
+        freshFundedAccount(plan),
+        spec,
+    );
+    const milestone = milestoneState(account, spec);
+    if (milestone.kind !== MilestoneKind.Funded) {
+        throw new Error('expected a funded milestone');
+    }
+    return { account, milestone, plan, spec };
+}
 
 function policyFor(plan: Plan): EnginePolicy {
     return buildEnginePolicy({
@@ -147,7 +171,11 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
         const plan = rapidEodPlan();
         const spec = specFor(plan);
         const freshFunded = freshFundedAccount(plan);
-        const firstPayoutEligible = firstPayoutEligibleAccount(plan, freshFunded);
+        const firstPayoutEligible = firstPayoutEligibleAccount(
+            plan,
+            freshFunded,
+            spec,
+        );
         const priorTracker = firstPayoutEligible.fundedTracker;
         if (priorTracker === null) throw new Error('expected a funded tracker');
 
@@ -165,7 +193,11 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
         const plan = rapidEodPlan();
         const spec = specFor(plan);
         const freshFunded = freshFundedAccount(plan);
-        const firstPayoutEligible = firstPayoutEligibleAccount(plan, freshFunded);
+        const firstPayoutEligible = firstPayoutEligibleAccount(
+            plan,
+            freshFunded,
+            spec,
+        );
         const milestone = milestoneState(firstPayoutEligible, spec);
         if (milestone.kind !== MilestoneKind.Funded) {
             throw new Error('expected a funded milestone');
@@ -183,5 +215,234 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
             priorTracker.cumulativePayout +
                 plan.payoutFromProfit(milestone.debited, priorTracker.payoutsIssued),
         );
+    });
+
+    it('TopStep 50K: the chain no longer throws at the post-first-payout step under the default rulebook', () => {
+        const plan = findFirm(FirmId.TopStep)?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.TopStep,
+            variant: TopStepVariant.StandardStandard,
+        });
+        if (!plan) throw new Error('TopStep Standard/Standard 50K plan not found');
+        const spec = specFor(plan);
+
+        const result = valueChain(plan, spec);
+
+        expect(result.steps.map((step) => step.kind)).toEqual([
+            ValueChainStepKind.EvalStart,
+            ValueChainStepKind.FreshFunded,
+            ValueChainStepKind.FirstPayoutEligible,
+            ValueChainStepKind.PostFirstPayout,
+        ]);
+    });
+
+    it('TopStep 50K: the first-payout-eligible account can take the documented request, and the account after it is not busted', () => {
+        const plan = findFirm(FirmId.TopStep)?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.TopStep,
+            variant: TopStepVariant.StandardStandard,
+        });
+        if (!plan) throw new Error('TopStep Standard/Standard 50K plan not found');
+        const spec = specFor(plan);
+        const eligible = firstPayoutEligibleAccount(
+            plan,
+            freshFundedAccount(plan),
+            spec,
+        );
+
+        const milestone = milestoneState(eligible, spec);
+        if (milestone.kind !== MilestoneKind.Funded) {
+            throw new Error('expected a funded milestone');
+        }
+        const post = postFirstPayoutAccount(eligible, spec);
+
+        expect(milestone.debited).toBeGreaterThan(0);
+        expect(plan.isBust(post.state, TradingPhase.Funded)).toBe(false);
+        expect(post.state.balance - post.state.threshold).toBeGreaterThanOrEqual(
+            0,
+        );
+    });
+
+    it('does not move the first payout eligible state for a plan whose minimum payout profit already covers the request and the retained cushion', () => {
+        const plan = rapidEodPlan();
+        const spec: DocumentedPolicySpec = {
+            ...specFor(plan),
+            enginePolicy: { ...policyFor(plan), retainedCushionRequest: 0 },
+            rulebook: {
+                ...DEFAULT_RULEBOOK,
+                payout: { ...DEFAULT_RULEBOOK.payout, allowBelowHardRule2: true },
+            },
+        };
+        const fresh = freshFundedAccount(plan);
+        const eligible = firstPayoutEligibleAccount(plan, fresh, spec);
+
+        expect(eligible.state.balance - fresh.state.balance).toBe(
+            plan.minPayoutProfit,
+        );
+        expect(
+            plan.isBust(
+                postFirstPayoutAccount(eligible, spec).state,
+                TradingPhase.Funded,
+            ),
+        ).toBe(false);
+    });
+
+    it('builds the first payout eligible account through the same day close as a closed session', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+        const fresh = freshFundedAccount(plan);
+        const eligible = firstPayoutEligibleAccount(plan, fresh, spec);
+        const profit = eligible.state.balance - fresh.state.balance;
+
+        expect(eligible).toEqual(accountAfterClosedSession(fresh, profit));
+        expect(eligible.state.todayPnL).toBe(0);
+        expect(eligible.fundedTracker?.cycleBestDayProfit).toBe(profit);
+        expect(eligible.fundedTracker?.lastPayoutBalance).toBe(
+            fresh.state.balance,
+        );
+    });
+
+    it('moves the first payout eligible state up until the documented request keeps the retained cushion', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+        const fresh = freshFundedAccount(plan);
+        const eligible = firstPayoutEligibleAccount(plan, fresh, spec);
+        const milestone = milestoneState(eligible, spec);
+        if (milestone.kind !== MilestoneKind.Funded) {
+            throw new Error('expected a funded milestone');
+        }
+
+        expect(eligible.state.balance - fresh.state.balance).toBeGreaterThan(
+            plan.minPayoutProfit,
+        );
+        expect(
+            milestone.state.balance - milestone.state.threshold,
+        ).toBeGreaterThanOrEqual(
+            resolveDocumentedRetainedCushion(
+                spec.enginePolicy,
+                spec.rulebook.payout,
+            ),
+        );
+    });
+
+    describe('requestNowValue (the one request-now construction)', () => {
+        it('values the account after the payout with the advanced cycle tracker, never the stale one', () => {
+            const { account, milestone, spec } = eligibleFundedMilestone();
+
+            const result = requestNowValue(account, milestone, spec);
+
+            const expected = valueAtState(
+                {
+                    ...account,
+                    fundedTracker: fundedTrackerAfterMilestonePayout(
+                        account,
+                        milestone,
+                    ),
+                    state: milestone.state,
+                },
+                spec,
+            );
+            if (!isValueResult(expected)) throw new Error('expected a value');
+            expect(result.continuation).toEqual(expected);
+        });
+
+        it('adds the cash the trader receives to both credit bases and leaves the standard errors unchanged', () => {
+            const { account, milestone, plan, spec } = eligibleFundedMilestone();
+
+            const result = requestNowValue(account, milestone, spec);
+
+            const received = plan.payoutFromProfit(
+                milestone.debited,
+                account.fundedTracker?.payoutsIssued ?? 0,
+            );
+            expect(result.traderReceives).toBe(received);
+            expect(result.traderReceives).toBe(milestone.traderReceives);
+            expect(result.requestNow.creditFree.value).toBeCloseTo(
+                result.continuation.creditFree.value + received,
+                8,
+            );
+            expect(result.requestNow.creditInclusive.value).toBeCloseTo(
+                result.continuation.creditInclusive.value + received,
+                8,
+            );
+            expect(result.requestNow.creditFree.standardError).toBe(
+                result.continuation.creditFree.standardError,
+            );
+            expect(result.requestNow.creditInclusive.standardError).toBe(
+                result.continuation.creditInclusive.standardError,
+            );
+            expect(result.requestNow.seed).toBe(spec.run.seed);
+            expect(result.requestNow.trials).toBe(spec.run.trials);
+        });
+
+        it('refuses an account without its funded cycle tracker', () => {
+            const { account, milestone, spec } = eligibleFundedMilestone();
+
+            expect(() =>
+                requestNowValue({ ...account, fundedTracker: null }, milestone, spec),
+            ).toThrow(/funded cycle tracker/);
+        });
+    });
+
+    describe('every registry plan', () => {
+        const plans = ALL_FIRMS.flatMap((firm) => firm.plans);
+
+        it('has a first-payout-eligible account whose documented request keeps the retained cushion', () => {
+            const failures: string[] = [];
+            for (const plan of plans) {
+                const spec = specFor(plan);
+                const label = JSON.stringify(plan.id);
+                try {
+                    const eligible = firstPayoutEligibleAccount(
+                        plan,
+                        freshFundedAccount(plan),
+                        spec,
+                    );
+                    const milestone = milestoneState(eligible, spec);
+                    if (milestone.kind !== MilestoneKind.Funded) {
+                        failures.push(`${label}: not a funded milestone`);
+                        continue;
+                    }
+                    const after =
+                        milestone.state.balance - milestone.state.threshold;
+                    const required = Math.max(
+                        resolveDocumentedRetainedCushion(
+                            spec.enginePolicy,
+                            spec.rulebook.payout,
+                        ),
+                        ONE_CENT,
+                    );
+                    if (after < required) {
+                        failures.push(`${label}: cushion ${after} < ${required}`);
+                    }
+                    const cycleProfit =
+                        eligible.state.balance -
+                        (eligible.fundedTracker?.lastPayoutBalance ?? NaN);
+                    if (!(cycleProfit >= plan.minPayoutProfit)) {
+                        failures.push(
+                            `${label}: cycle profit ${cycleProfit} < ${plan.minPayoutProfit}`,
+                        );
+                    }
+                } catch (error) {
+                    failures.push(`${label}: threw ${String(error)}`);
+                }
+            }
+            expect(failures).toEqual([]);
+        });
+    });
+
+    it('refuses loudly when no profit within reach keeps the retained cushion after the documented request', () => {
+        const plan = rapidEodPlan();
+        const spec: DocumentedPolicySpec = {
+            ...specFor(plan),
+            enginePolicy: {
+                ...policyFor(plan),
+                retainedCushionRequest: plan.accountSize * 10,
+            },
+        };
+
+        expect(() =>
+            firstPayoutEligibleAccount(plan, freshFundedAccount(plan), spec),
+        ).toThrow(/no first-payout-eligible account/);
     });
 });

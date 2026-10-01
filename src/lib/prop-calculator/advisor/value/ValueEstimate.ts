@@ -8,6 +8,7 @@ export enum CreditBasis {
 export enum ValueResultKind {
     Candidates = 'candidates',
     NotModeled = 'not-modeled',
+    PayoutStake = 'payout-stake',
     Swing = 'swing',
     Value = 'value',
 }
@@ -73,6 +74,20 @@ export function valueResult(
     trials: number,
 ): ValueResult {
     return { ...estimate, kind: ValueResultKind.Value, seed, trials };
+}
+
+export function withCashAdded(value: ValueResult, cash: number): ValueResult {
+    return {
+        ...value,
+        creditFree: {
+            standardError: value.creditFree.standardError,
+            value: value.creditFree.value + cash,
+        },
+        creditInclusive: {
+            standardError: value.creditInclusive.standardError,
+            value: value.creditInclusive.value + cash,
+        },
+    };
 }
 
 function estimateOn(result: DualValueEstimate, basis: CreditBasis): UncertainValue {

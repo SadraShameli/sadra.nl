@@ -1,32 +1,50 @@
-import { type DocumentedPolicySpec } from '~/lib/prop-calculator/advisor/policy';
+import {
+    type DocumentedPolicySpec,
+    resolveDocumentedRetainedCushion,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor/ReconstructedAccount';
 import {
-    applyClosedTrade,
     type FundedCycleTracker,
     newFundedCycleTracker,
     newFundedCycleTrackerAfterReset,
+    ONE_CENT,
     type Plan,
-    recordBestDay,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 
-import { type FundedMilestone, MilestoneKind, milestoneState } from './MilestoneState';
+import {
+    accountAfterClosedSession,
+    type FundedMilestone,
+    MilestoneKind,
+    milestoneState,
+} from './MilestoneState';
 import { valueAtState } from './ValueAtState';
 import {
     type ValueNotModeledResult,
     type ValueOutcome,
     type ValueResult,
     ValueResultKind,
+    withCashAdded,
 } from './ValueEstimate';
+
+const MAX_ELIGIBILITY_PROFIT_MULTIPLE = 2;
+
+const ONE_DOLLAR = 1;
 
 export enum ValueChainStepKind {
     EvalStart = 'eval-start',
     FirstPayoutEligible = 'first-payout-eligible',
     FreshFunded = 'fresh-funded',
     PostFirstPayout = 'post-first-payout',
+}
+
+export interface RequestNowValue {
+    readonly continuation: ValueResult;
+    readonly requestNow: ValueResult;
+    readonly traderReceives: number;
 }
 
 export interface ValueChainResult {
@@ -56,18 +74,31 @@ export function evalStartAccount(plan: Plan): ReconstructedFundedOrEvalAccount {
 export function firstPayoutEligibleAccount(
     plan: Plan,
     freshFunded: ReconstructedFundedOrEvalAccount,
+    spec: DocumentedPolicySpec,
 ): ReconstructedFundedOrEvalAccount {
-    const state = { ...freshFunded.state };
-    applyClosedTrade(state, plan, TradingPhase.Funded, plan.minPayoutProfit);
-    plan.drawdownFor(TradingPhase.Funded).onDayClose(state);
-    plan.recordDayClosePeak(state);
-    recordBestDay(state);
-    return {
-        ...freshFunded,
-        cushion: state.balance - state.threshold,
-        fundedTracker: newFundedCycleTracker(state),
-        state,
-    };
+    const accountFor = (profit: number) =>
+        accountAfterClosedSession(freshFunded, profit);
+    const isEligible = (profit: number) =>
+        retainedCushionShortfallOf(accountFor(profit), spec) <= 0;
+    let low: number = plan.minPayoutProfit;
+    if (isEligible(low)) return accountFor(low);
+    const ceiling = plan.accountSize * MAX_ELIGIBILITY_PROFIT_MULTIPLE;
+    let high = Math.max(low * 2, ONE_DOLLAR);
+    while (!isEligible(high)) {
+        if (high >= ceiling) {
+            throw new Error(
+                `value/ValueChain: no first-payout-eligible account of ${plan.accountSize} dollars keeps the retained cushion after the documented request, even at a profit of ${ceiling}`,
+            );
+        }
+        low = high;
+        high = Math.min(high * 2, ceiling);
+    }
+    while (high - low > ONE_CENT) {
+        const middle = (low + high) / 2;
+        if (isEligible(middle)) high = middle;
+        else low = middle;
+    }
+    return accountFor(high);
 }
 
 export function freshFundedAccount(plan: Plan): ReconstructedFundedOrEvalAccount {
@@ -95,10 +126,6 @@ export function fundedTrackerAfterMilestonePayout(
             'value/ValueChain: a funded account needs its funded cycle tracker',
         );
     }
-    const traderReceives = account.plan.payoutFromProfit(
-        milestone.debited,
-        priorTracker.payoutsIssued,
-    );
     const consistency = account.plan.fundedConsistencyRule(
         priorTracker.payoutsIssued,
     );
@@ -110,7 +137,8 @@ export function fundedTrackerAfterMilestonePayout(
                   priorTracker.fundedResetsUsed,
               );
     tracker.payoutsIssued = priorTracker.payoutsIssued + 1;
-    tracker.cumulativePayout = priorTracker.cumulativePayout + traderReceives;
+    tracker.cumulativePayout =
+        priorTracker.cumulativePayout + milestone.traderReceives;
     tracker.cycleBestDayProfit = consistency?.isPerpetual()
         ? priorTracker.cycleBestDayProfit
         : 0;
@@ -137,6 +165,32 @@ export function postFirstPayoutAccount(
     };
 }
 
+export function requestNowValue(
+    account: ReconstructedFundedOrEvalAccount,
+    milestone: FundedMilestone,
+    spec: DocumentedPolicySpec,
+): RequestNowValue {
+    const continuation = requireValue(
+        valueAtState(
+            {
+                ...account,
+                cushion: milestone.state.balance - milestone.state.threshold,
+                fundedTracker: fundedTrackerAfterMilestonePayout(
+                    account,
+                    milestone,
+                ),
+                state: milestone.state,
+            },
+            spec,
+        ),
+    );
+    return {
+        continuation,
+        requestNow: withCashAdded(continuation, milestone.traderReceives),
+        traderReceives: milestone.traderReceives,
+    };
+}
+
 export function requireValue<
     TModeled extends { readonly kind: Exclude<ValueResultKind, ValueResultKind.NotModeled> },
 >(outcome: TModeled | ValueNotModeledResult): TModeled {
@@ -154,7 +208,11 @@ export function valueChain(
     account?: ReconstructedAccount,
 ): ValueChainResult {
     const freshFunded = freshFundedAccount(plan);
-    const firstPayoutEligible = firstPayoutEligibleAccount(plan, freshFunded);
+    const firstPayoutEligible = firstPayoutEligibleAccount(
+        plan,
+        freshFunded,
+        spec,
+    );
     const steps: ValueChainStep[] = [
         {
             kind: ValueChainStepKind.EvalStart,
@@ -182,4 +240,21 @@ export function valueChain(
         accountValue: account === undefined ? null : valueAtState(account, spec),
         steps,
     };
+}
+
+function retainedCushionShortfallOf(
+    account: ReconstructedFundedOrEvalAccount,
+    spec: DocumentedPolicySpec,
+): number {
+    const milestone = milestoneState(account, spec);
+    if (milestone.kind !== MilestoneKind.Funded) {
+        throw new Error(
+            'value/ValueChain: expected a funded milestone for a funded account',
+        );
+    }
+    const required = Math.max(
+        resolveDocumentedRetainedCushion(spec.enginePolicy, spec.rulebook.payout),
+        ONE_CENT,
+    );
+    return required - (milestone.state.balance - milestone.state.threshold);
 }

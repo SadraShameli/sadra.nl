@@ -10,6 +10,7 @@ import {
     type OverviewRequest,
     overviewRequestKey,
     OverviewRequestKind,
+    ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { LiveTransitionPreviewCard } from '~/app/(app)/prop-calculator/accounts/_components/detail/LiveTransitionPreviewCard';
 import { NextPayoutSection } from '~/app/(app)/prop-calculator/accounts/_components/detail/NextPayoutSection';
@@ -83,8 +84,12 @@ function readyView(request: OverviewRequest) {
                 milestone: {
                     debited: 1000,
                     kind: MilestoneKind.Funded,
+                    received: 400,
                     unmetGates: [],
-                    value: valueOf(2500),
+                    value: {
+                        kind: ValueChainStepOutcomeKind.Value,
+                        value: valueOf(2500),
+                    },
                 },
                 nextPayout: null,
                 stage: SizingStage.Eval,
@@ -150,6 +155,7 @@ describe('from-state views', () => {
                 <SimulateAccountLink
                     plan={PLAN}
                     rulebook={DEFAULT_RULEBOOK}
+                    rulebookError={null}
                     stage={SizingStage.Funded}
                 />,
             );
@@ -166,11 +172,30 @@ describe('from-state views', () => {
             expect(container.textContent).toContain('without whole contracts');
         });
 
+        it('says the rulebook could not be loaded, with the error, and links nothing', () => {
+            render(
+                <SimulateAccountLink
+                    plan={PLAN}
+                    rulebook={undefined}
+                    rulebookError="the rulebook query failed"
+                    stage={SizingStage.Funded}
+                />,
+            );
+            expect(container.querySelector('a')).toBeNull();
+            expect(container.textContent).toContain(
+                'rulebook could not be loaded',
+            );
+            expect(container.textContent).toContain(
+                'the rulebook query failed',
+            );
+        });
+
         it('says so when the rulebook has not loaded or the account is live, and links nothing', () => {
             render(
                 <SimulateAccountLink
                     plan={PLAN}
                     rulebook={undefined}
+                    rulebookError={null}
                     stage={SizingStage.Funded}
                 />,
             );
@@ -180,6 +205,7 @@ describe('from-state views', () => {
                 <SimulateAccountLink
                     plan={PLAN}
                     rulebook={DEFAULT_RULEBOOK}
+                    rulebookError={null}
                     stage={SizingStage.Live}
                 />,
             );
@@ -201,7 +227,7 @@ describe('from-state views', () => {
         const posted: { requests: OverviewRequest[] }[] = [];
 
         class FakeWorker {
-            private listener: ((event: { data: unknown }) => void) | null =
+            protected listener: ((event: { data: unknown }) => void) | null =
                 null;
 
             addEventListener(
@@ -236,8 +262,44 @@ describe('from-state views', () => {
                 });
             }
 
+            protected deliver(data: unknown) {
+                this.listener?.({ data });
+            }
+
             terminate() {
                 this.listener = null;
+            }
+        }
+
+        class ChainFailingWorker extends FakeWorker {
+            override postMessage(message: {
+                request: { requests: OverviewRequest[] };
+                runId: number;
+            }) {
+                const isChain = message.request.requests.some(
+                    (request) => request.kind === OverviewRequestKind.ValueChain,
+                );
+                if (!isChain) {
+                    super.postMessage(message);
+                    return;
+                }
+                posted.push(message.request);
+                queueMicrotask(() => {
+                    this.deliver({
+                        kind: 'failed',
+                        reason: 'the chain worker crashed',
+                        runId: message.runId,
+                    });
+                });
+            }
+        }
+
+        class SilentWorker extends FakeWorker {
+            override postMessage(message: {
+                request: { requests: OverviewRequest[] };
+                runId: number;
+            }) {
+                posted.push(message.request);
             }
         }
 
@@ -255,6 +317,7 @@ describe('from-state views', () => {
                     measuredRebuyLag={null}
                     plan={PLAN}
                     rulebook={DEFAULT_RULEBOOK}
+                    rulebookError={null}
                 />,
             );
             await settle();
@@ -280,6 +343,127 @@ describe('from-state views', () => {
             }
         });
 
+        it('keeps the account figures when the group of fresh-chain requests fails, and says only the chain is unavailable', async () => {
+            posted.length = 0;
+            vi.stubGlobal('Worker', ChainFailingWorker);
+            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            render(
+                <NextPayoutSection
+                    account={account}
+                    input={FUNDED}
+                    measuredRebuyLag={null}
+                    plan={PLAN}
+                    rulebook={DEFAULT_RULEBOOK}
+                    rulebookError={null}
+                />,
+            );
+            await settle();
+            const text = container.textContent;
+            expect(text).toContain('Value from this state, credit-free');
+            expect(text).toContain('Expected time to the next payout');
+            expect(text).toContain('Keep or start a fresh account');
+            expect(text).toContain('Value chain: the chain worker crashed');
+        });
+
+        it('says the account cannot be valued after the next payout request, while the value now and the next payout stay (TopStep 50K at 50,300)', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            const nearThreshold: AccountSnapshotInput = {
+                ...FUNDED,
+                balance: dollars(50_300),
+                highestEodBalance: dollars(50_300),
+                highestIntradayBalance: dollars(50_300),
+            };
+            const account = AccountReconstruction.rebuild(nearThreshold, PLAN);
+            render(
+                <NextPayoutSection
+                    account={account}
+                    input={nearThreshold}
+                    measuredRebuyLag={null}
+                    plan={PLAN}
+                    rulebook={DEFAULT_RULEBOOK}
+                    rulebookError={null}
+                />,
+            );
+            await settle();
+            const text = container.textContent;
+            expect(text).toContain('Value from this state, credit-free');
+            expect(text).toContain('Expected time to the next payout');
+            expect(text).toContain(
+                'The account cannot be valued after the next payout request',
+            );
+            expect(text).not.toContain('Credit-free gain from the milestone');
+        });
+
+        it('announces the pending figures through a status role', () => {
+            vi.stubGlobal('Worker', SilentWorker);
+            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            render(
+                <NextPayoutSection
+                    account={account}
+                    input={FUNDED}
+                    measuredRebuyLag={null}
+                    plan={PLAN}
+                    rulebook={DEFAULT_RULEBOOK}
+                    rulebookError={null}
+                />,
+            );
+            const status = container.querySelector(
+                '[role="status"][aria-label="Computing the figures from this state"]',
+            );
+            expect(status).not.toBeNull();
+            expect(
+                container
+                    .querySelector('[role="status"]:not([aria-label])')
+                    ?.textContent.includes('Comparing with a fresh account'),
+            ).toBe(true);
+        });
+
+        it('says the rulebook could not be loaded, with the error, instead of saying it has not loaded', () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            render(
+                <NextPayoutSection
+                    account={account}
+                    input={FUNDED}
+                    measuredRebuyLag={null}
+                    plan={PLAN}
+                    rulebook={undefined}
+                    rulebookError="the rulebook query failed"
+                />,
+            );
+            expect(container.textContent).toContain(
+                'rulebook could not be loaded',
+            );
+            expect(container.textContent).toContain(
+                'the rulebook query failed',
+            );
+            expect(container.textContent).not.toContain('has not loaded');
+            expect(posted).toHaveLength(0);
+        });
+
+        it('does not call a non-live account with an unresolvable plan a live account', () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            const unlisted = Object.create(PLAN, {
+                id: { value: { ...PLAN.id, accountSize: 12_345 } },
+            }) as Plan;
+            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            render(
+                <NextPayoutSection
+                    account={account}
+                    input={FUNDED}
+                    measuredRebuyLag={null}
+                    plan={unlisted}
+                    rulebook={DEFAULT_RULEBOOK}
+                    rulebookError={null}
+                />,
+            );
+            expect(container.textContent).not.toContain('live account');
+            expect(container.textContent).toContain(
+                'plan of this account is not modeled',
+            );
+            expect(posted).toHaveLength(0);
+        });
+
         it('says the rulebook has not loaded instead of computing', () => {
             vi.stubGlobal('Worker', FakeWorker);
             const account = AccountReconstruction.rebuild(FUNDED, PLAN);
@@ -290,6 +474,7 @@ describe('from-state views', () => {
                     measuredRebuyLag={null}
                     plan={PLAN}
                     rulebook={undefined}
+                    rulebookError={null}
                 />,
             );
             expect(container.textContent).toContain('rulebook has not loaded');
@@ -307,6 +492,7 @@ describe('from-state views', () => {
                     measuredRebuyLag={null}
                     plan={PLAN}
                     rulebook={DEFAULT_RULEBOOK}
+                    rulebookError={null}
                 />,
             );
             expect(container.textContent).toContain(
@@ -325,6 +511,7 @@ describe('from-state views', () => {
                     measuredRebuyLag={null}
                     plan={PLAN}
                     rulebook={DEFAULT_RULEBOOK}
+                    rulebookError={null}
                 />,
             );
             expect(container.textContent).toContain(

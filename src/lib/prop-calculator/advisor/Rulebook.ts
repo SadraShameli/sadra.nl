@@ -35,6 +35,8 @@ export enum ReviewWeekday {
 
 export const RULEBOOK_SCHEMA_VERSION = 1;
 export const HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS = 200_000;
+export const HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS =
+    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR;
 export const LADDER_FRACTION_SUM_TOLERANCE = 1e-9;
 
 export interface AlertThresholds {
@@ -425,7 +427,7 @@ export const rulebookSchema = z
         ) {
             context.addIssue({
                 code: 'custom',
-                message: `retained cushion below $${HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR} breaks Hard Rule 2; set allowBelowHardRule2 to keep it`,
+                message: `retained cushion below $${HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS} breaks Hard Rule 2; set allowBelowHardRule2 to keep it`,
                 path: ['payout', 'retainedCushionCents'],
             });
         }

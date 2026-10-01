@@ -2,6 +2,7 @@ import {
     type AccountFromStateFigures,
     type OverviewRequest,
     OverviewRequestKind,
+    ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
 import { type NextPayoutProjection, type SizingStage } from '~/lib/prop-calculator/advisor';
@@ -43,7 +44,17 @@ const MILESTONE_LABEL: Readonly<
 > = {
     [MilestoneKind.Eval]:
         'At the evaluation target, modeled as reached in one closing day',
-    [MilestoneKind.Funded]: 'After the next payout request is taken',
+    [MilestoneKind.Funded]:
+        'After the next payout request is taken, counting the cash you receive from it',
+};
+
+const MILESTONE_UNAVAILABLE_TEXT: Readonly<
+    Record<MilestoneKind.Eval | MilestoneKind.Funded, string>
+> = {
+    [MilestoneKind.Eval]:
+        'The account cannot be valued at the evaluation target',
+    [MilestoneKind.Funded]:
+        'The account cannot be valued after the next payout request',
 };
 
 export enum AccountFromStateViewKind {
@@ -53,14 +64,18 @@ export enum AccountFromStateViewKind {
     Refused = 'refused',
 }
 
+export enum MilestoneValueViewKind {
+    Unavailable = 'unavailable',
+    Value = 'value',
+}
+
 export interface AccountFromStateMilestoneModel {
     readonly debited: null | string;
-    readonly gain: string;
     readonly gates: readonly string[];
     readonly kind: MilestoneKind.Eval | MilestoneKind.Funded;
     readonly label: string;
-    readonly valueCreditFree: string;
-    readonly valueCreditInclusive: string;
+    readonly received: null | string;
+    readonly value: AccountFromStateMilestoneValueModel;
 }
 
 export interface AccountFromStateModel {
@@ -101,6 +116,18 @@ export type AccountFromStateView =
     | {
           readonly kind: AccountFromStateViewKind.Refused;
           readonly reason: string;
+      };
+
+type AccountFromStateMilestoneValueModel =
+    | {
+          readonly creditFree: string;
+          readonly creditInclusive: string;
+          readonly gain: string;
+          readonly kind: MilestoneValueViewKind.Value;
+      }
+    | {
+          readonly kind: MilestoneValueViewKind.Unavailable;
+          readonly text: string;
       };
 
 export function accountFromStateViewOf(
@@ -156,16 +183,35 @@ function modelOf(
                 milestone.debited === null
                     ? null
                     : formatCurrency(milestone.debited),
-            gain: signedEstimate(
-                valueGap(valueNow, milestone.value, CreditBasis.CreditFree),
-            ),
             gates: milestone.unmetGates.map((gate) => EVAL_GATE_TEXT[gate]),
             kind: milestone.kind,
             label: MILESTONE_LABEL[milestone.kind],
-            valueCreditFree: estimateCurrency(milestone.value.creditFree),
-            valueCreditInclusive: estimateCurrency(
-                milestone.value.creditInclusive,
-            ),
+            received:
+                milestone.received === null
+                    ? null
+                    : formatCurrency(milestone.received),
+            value:
+                milestone.value.kind === ValueChainStepOutcomeKind.Unavailable
+                    ? {
+                          kind: MilestoneValueViewKind.Unavailable,
+                          text: `${MILESTONE_UNAVAILABLE_TEXT[milestone.kind]}: ${milestone.value.reason}`,
+                      }
+                    : {
+                          creditFree: estimateCurrency(
+                              milestone.value.value.creditFree,
+                          ),
+                          creditInclusive: estimateCurrency(
+                              milestone.value.value.creditInclusive,
+                          ),
+                          gain: signedEstimate(
+                              valueGap(
+                                  valueNow,
+                                  milestone.value.value,
+                                  CreditBasis.CreditFree,
+                              ),
+                          ),
+                          kind: MilestoneValueViewKind.Value,
+                      },
         },
         nextPayout:
             figures.nextPayout === null

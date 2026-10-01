@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
     HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
+    HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
     type RulebookParameters,
     rulebookSchema,
 } from '~/lib/prop-calculator/advisor/Rulebook';
@@ -76,7 +77,7 @@ export const documentedPolicySpecSchema = z
         }
         context.addIssue({
             code: 'custom',
-            message: `a retained cushion request below $${HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR} breaks Hard Rule 2; set the rulebook allowBelowHardRule2 to keep it`,
+            message: `a retained cushion request below $${HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS} breaks Hard Rule 2; set the rulebook allowBelowHardRule2 to keep it`,
             path: ['enginePolicy', 'retainedCushionRequest'],
         });
     }) satisfies z.ZodType<DocumentedPolicySpec>;

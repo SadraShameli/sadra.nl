@@ -1,5 +1,5 @@
 import { uncertainCurrencyText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
-import { formatPercent } from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 
 import { type OneStepTreeView, VALUE_BASIS_TEXT } from './adviceValueModel';
 
@@ -20,9 +20,16 @@ export function OneStepTree({ tree }: { readonly tree: OneStepTreeView }) {
                 {uncertainCurrencyText(tree.valueAfterLoss)}
             </p>
             <p>
-                Continuation value, p × V(win) + (1 - p) × V(loss):{' '}
+                Continuation value (credit-free), p × V(win) + (1 - p) × V(loss):{' '}
                 {uncertainCurrencyText(tree.continuation)}
             </p>
+            {tree.replacementFee !== null && (
+                <p className="text-muted-foreground">
+                    Note: a loss that busts the account is valued as a fresh
+                    eval net of its {formatCurrency(tree.replacementFee)}{' '}
+                    replacement fee.
+                </p>
+            )}
             <p className="text-muted-foreground">{VALUE_BASIS_TEXT}</p>
         </div>
     );

@@ -67,7 +67,7 @@ import {
     DEFAULT_MAX_EVAL_DAYS,
     DEFAULT_RULEBOOK,
     type DocumentedPolicySpec,
-    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
+    HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
     type PayoutSizeSweepOptimum,
     PayoutSizeSweepResultKind,
     type PayoutSizeSweepRow,
@@ -80,6 +80,7 @@ import {
     conservativeGapStandardError,
     type PayoutStakeComparisonOutcome,
     type ValueNotModeledResult,
+    ValueResultKind,
     ValueUnavailableReason,
 } from '~/lib/prop-calculator/advisor/value';
 import { noiseVerdict, NoiseVerdict } from '~/lib/prop-calculator/stats';
@@ -96,8 +97,6 @@ const MID_SIZE_BAND_MIN = 1000;
 const MID_SIZE_BAND_MAX = 2000;
 const SWEEP_SEED = 42;
 const SWEEP_TRIALS = 2000;
-const HARD_RULE_2_MIN_CUSHION =
-    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR;
 const PEAK_ASSUMED_VIEW: AssumptionView = {
     bias: AssumptionBias.Optimistic,
     text: 'No peak balance was entered, so the current balance is assumed to be the peak, the most generous trailing-drawdown state.',
@@ -203,16 +202,15 @@ export function PayoutPlannerView() {
         [state, rulebook, asOf],
     );
 
-    const sweepJob =
-        useMemo((): CachedWorkerJob<PayoutSweepRequest> | null => {
-            if (policy === null || !isRequestSizeValid) return null;
-            const request = sweepRequestFor(
-                state.plan,
-                state.requestSize,
-                policy.spec,
-            );
-            return { key: payoutSweepCacheKey(request), request };
-        }, [policy, isRequestSizeValid, state.plan, state.requestSize]);
+    const sweepJob = useMemo((): CachedWorkerJob<PayoutSweepRequest> | null => {
+        if (policy === null || !isRequestSizeValid) return null;
+        const request = sweepRequestFor(
+            state.plan,
+            state.requestSize,
+            policy.spec,
+        );
+        return { key: payoutSweepCacheKey(request), request };
+    }, [policy, isRequestSizeValid, state.plan, state.requestSize]);
     const { state: sweepTask } = useCachedWorkerTask<
         ComputationId.PayoutSweep,
         PayoutSweepRequest
@@ -445,7 +443,7 @@ function creditInclusiveOf(row: PayoutSizeSweepRow): number {
 function isNotModeled(
     outcome: PayoutStakeComparisonOutcome,
 ): outcome is ValueNotModeledResult {
-    return 'kind' in outcome;
+    return outcome.kind === ValueResultKind.NotModeled;
 }
 
 function isPeakAssumed(state: PayoutPlannerUrlState): boolean {
@@ -863,9 +861,7 @@ function PayoutPlannerReadinessSummary({
                     <p className="text-foreground">
                         {payoutBlockReasonText(result.readiness.reason)}
                     </p>
-                    <p className="text-muted-foreground">
-                        {result.waitText}
-                    </p>
+                    <p className="text-muted-foreground">{result.waitText}</p>
                     {result.firmMinimumNotice !== null && (
                         <p className="text-amber-400">
                             {payoutFirmMinimumMessage(result.firmMinimumNotice)}
@@ -914,10 +910,13 @@ function PayoutPlannerReadinessSummary({
                             {formatGateCurrency(cushion.amount)} (
                             {RETAINED_CUSHION_BASIS_TEXT[cushion.basis]})
                         </p>
-                        {cushion.amount < HARD_RULE_2_MIN_CUSHION && (
+                        {cushion.amount <
+                            HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS && (
                             <p className="text-amber-400">
                                 This is below the{' '}
-                                {formatGateCurrency(HARD_RULE_2_MIN_CUSHION)}{' '}
+                                {formatGateCurrency(
+                                    HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
+                                )}{' '}
                                 Hard Rule 2 minimum: your rulebook waives it.
                             </p>
                         )}

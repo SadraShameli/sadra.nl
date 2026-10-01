@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { positionSizeFor } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
+import {
+    fundedTierOptions,
+    positionSizeFor,
+} from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
 import {
     decodePositionSize,
     PositionSizeUrlParameter,
 } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
 import { formatRiskDisplay } from '~/app/(app)/prop-calculator/_components/riskDisplay';
 import {
-    advisorValueOutcomeOf,
     AdvisorRequestOutcomeKind,
+    advisorValueOutcomeOf,
     type AdvisorValueRequest,
     type AdvisorValueResult,
 } from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
@@ -22,30 +25,35 @@ import {
     adviceValueViewOf,
     adviceWithValues,
     candidateRiskGridOf,
-    EVAL_NEXT_TRADE_NOT_MODELED_TEXT,
+    EVAL_CANDIDATES_NOTE_TEXT,
     evSwingViewsOf,
     filledDailyPlanCard,
     flatRiskReasonOf,
     oneStepTreeOf,
     payoutStakeViewOf,
     riskCandidatesViewOf,
+    SESSION_BOUNDARY_CONTINUES_TEXT,
     valueRunNoteOf,
     ValueSectionKind,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
 import { contractsSizingOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/contractsSizingModel';
 import {
-    dayProgressOf,
     dayStopReasonOf,
     EMPTY_RISK_CHECK_INPUTS,
     parseDayCounts,
     parseRiskCheckInputs,
+    payoutFlagExcessOf,
     RiskCheckInputKind,
+    riskChecksOf,
     riskCheckViewOf,
     todaysDecisionsOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/riskCheckModel';
 import { formatCurrency } from '~/lib/format';
+import { usdCentsFromDollars } from '~/lib/prop-accounts';
 import {
     type AccountState,
+    ALL_FIRMS,
+    contractLimitAt,
     dollars,
     findFirm,
     FirmId,
@@ -53,6 +61,7 @@ import {
     newFundedCycleTracker,
     type Plan,
     points,
+    TierBasis,
     TopStepVariant,
     TradingPhase,
 } from '~/lib/prop-calculator';
@@ -87,6 +96,7 @@ import {
     RiskCandidateBasis,
     type RiskCandidateRow,
     type RiskCandidateValuesResult,
+    TRADE_VALUE_SWING_ASSUMPTION,
     type TradeValueSwingResult,
     valueGap,
     valueResult,
@@ -157,6 +167,7 @@ function swingResult(
         afterLossBusted: false,
         afterLossRebuyLagDays: null,
         afterWin,
+        assumption: TRADE_VALUE_SWING_ASSUMPTION,
         deltaLoss: valueGap(now, afterLoss),
         deltaWin: valueGap(now, afterWin),
         kind: ValueResultKind.Swing,
@@ -223,6 +234,24 @@ function candidatesOf(
         kind: ValueResultKind.Candidates,
         label: RISK_CANDIDATE_LABEL,
         rows,
+    };
+}
+
+function decision(id: string, actualRisk: null | number, decidedOn = '2026-09-27') {
+    return {
+        actualRiskCents: actualRisk === null ? null : usdCentsFromDollars(actualRisk),
+        decidedOn,
+        id,
+    };
+}
+
+function failedSwing(reason: string) {
+    return {
+        outcome: {
+            kind: AdvisorRequestOutcomeKind.Failed as const,
+            reason,
+        },
+        rung: { risk: 250, rr: 2 },
     };
 }
 
@@ -407,39 +436,24 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
         expect(view.row.bust).toBeNull();
     });
 
-    it('replaces the engine message of the known eval start-state limit with a plain statement', () => {
-        const failed = (reason: string) => ({
-            outcome: {
-                kind: AdvisorRequestOutcomeKind.Failed as const,
-                reason,
-            },
-            rung: { risk: 250, rr: 2 },
-        });
+    it('passes an engine refusal through unchanged for an eval and a funded account alike, with no eval-specific rewrite', () => {
+        const message = 'the account has already passed the eval';
+        const [evalView] = evSwingViewsOf([failedSwing(message)], EVAL_CONTEXT);
+        const [fundedView] = evSwingViewsOf([failedSwing(message)], FUNDED_CONTEXT);
 
-        const [unclosedDay] = evSwingViewsOf(
-            [failed('todayPnL must be 0 at the start of a session, got 500')],
+        expect(evalView).toMatchObject({ kind: ValueSectionKind.Failed, reason: message });
+        expect(fundedView).toMatchObject({ kind: ValueSectionKind.Failed, reason: message });
+    });
+
+    it('shows a real swing for an eval account instead of a fixed not-modeled line', () => {
+        const [view] = evSwingViewsOf(
+            [{ outcome: succeeded(swingResult()), rung: { risk: 500, rr: 2 } }],
             EVAL_CONTEXT,
         );
-        const [passed] = evSwingViewsOf(
-            [failed('the account has already passed the eval')],
-            EVAL_CONTEXT,
-        );
-        const [other] = evSwingViewsOf([failed('the engine refused this start')], EVAL_CONTEXT);
-        const [funded] = evSwingViewsOf(
-            [failed('todayPnL must be 0 at the start of a session, got 500')],
-            FUNDED_CONTEXT,
-        );
 
-        expect(unclosedDay).toMatchObject({
-            kind: ValueSectionKind.Failed,
-            reason: EVAL_NEXT_TRADE_NOT_MODELED_TEXT,
-        });
-        expect(passed).toMatchObject({ reason: EVAL_NEXT_TRADE_NOT_MODELED_TEXT });
-        expect(other).toMatchObject({ reason: 'the engine refused this start' });
-        expect(funded).toMatchObject({
-            reason: 'todayPnL must be 0 at the start of a session, got 500',
-        });
-        expect(EVAL_NEXT_TRADE_NOT_MODELED_TEXT).not.toContain('todayPnL');
+        if (view?.kind !== ValueSectionKind.Ready) throw new Error('expected a row');
+        expect(view.row.winDelta.value).toBe(400);
+        expect(view.row.lossDelta.value).toBe(-300);
     });
 
     it('shows the fee equivalent for an eval from the retry fee scaled by risk over the drawdown', () => {
@@ -579,6 +593,33 @@ describe('riskCandidatesViewOf (PT-67 step 1)', () => {
         expect(view.rows.map((r) => r.rank)).toEqual([1, 2, 3]);
         expect(view.rows.map((r) => r.riskDollars)).toEqual([250, 500, 125]);
         expect(view.rows.map((r) => r.isDocumented)).toEqual([false, true, false]);
+    });
+
+    it('ranks a funded table and flags the first row as the engine optimum, with no sizing note', () => {
+        const view = riskCandidatesViewOf(
+            candidatesOf([candidateRowOf(250, 900), candidateRowOf(500, 880)]),
+            500,
+            FUNDED_CONTEXT,
+        );
+
+        expect(view.isRanked).toBe(true);
+        expect(view.sizingNote).toBeNull();
+        expect(view.rows.map((r) => r.isEngineOptimum)).toEqual([true, false]);
+    });
+
+    it('never ranks an eval table: the documented rung comes first, the engine optimum is only flagged, and the sizing rule is stated', () => {
+        const view = riskCandidatesViewOf(
+            candidatesOf([candidateRowOf(250, 900), candidateRowOf(500, 880), candidateRowOf(125, 700)]),
+            500,
+            EVAL_CONTEXT,
+        );
+
+        expect(view.isRanked).toBe(false);
+        expect(view.sizingNote).toBe(EVAL_CANDIDATES_NOTE_TEXT);
+        expect(EVAL_CANDIDATES_NOTE_TEXT).toContain('maximum allowed risk');
+        expect(view.rows.map((r) => r.riskDollars)).toEqual([500, 250, 125]);
+        expect(view.rows.map((r) => r.isDocumented)).toEqual([true, false, false]);
+        expect(view.rows.map((r) => r.isEngineOptimum)).toEqual([false, true, false]);
     });
 
     it('shows every candidate risk through riskDisplay in the chosen unit', () => {
@@ -878,6 +919,7 @@ describe('accountActionFor (PT-67 step 2)', () => {
 describe('payoutStakeViewOf (PT-67 step 2, QV-18)', () => {
     const stake = {
         continueNow: value(1000, 10, 1100, 12),
+        kind: ValueResultKind.PayoutStake as const,
         reducedRiskWhatIf: {
             label: 'what-if: your documented rung is unchanged (QV-18)' as const,
             risk: 125,
@@ -913,47 +955,6 @@ describe('payoutStakeViewOf (PT-67 step 2, QV-18)', () => {
     });
 });
 
-describe('dayProgressOf (PT-67 step 3)', () => {
-    const rungs = [
-        { risk: 250, runningLossAfter: 250, takeProfit: 500 },
-        { risk: 300, runningLossAfter: 550, takeProfit: 620 },
-    ].map((rung) => ({
-        cappedBy: [],
-        risk: dollars(rung.risk),
-        runningLossAfter: dollars(rung.runningLossAfter),
-        runningLossBefore: dollars(0),
-        takeProfit: dollars(rung.takeProfit),
-    }));
-
-    it('is a zero day without trades', () => {
-        expect(dayProgressOf(rungs, 0, 0)).toEqual({
-            dayPnL: 0,
-            losses: 0,
-            runningLoss: 0,
-            wins: 0,
-        });
-    });
-
-    it('adds the running loss of the documented ladder for each loss', () => {
-        expect(dayProgressOf(rungs, 0, 1).runningLoss).toBe(250);
-        expect(dayProgressOf(rungs, 0, 2).runningLoss).toBe(550);
-        expect(dayProgressOf(rungs, 0, 2).dayPnL).toBe(-550);
-    });
-
-    it('counts wins at the take profit of the rung the day stands on', () => {
-        expect(dayProgressOf(rungs, 1, 0).dayPnL).toBe(500);
-        expect(dayProgressOf(rungs, 1, 1).dayPnL).toBe(620 - 250);
-    });
-
-    it('stays at the last rung when the day has more losses than rungs', () => {
-        expect(dayProgressOf(rungs, 0, 5).runningLoss).toBe(550);
-    });
-
-    it('is a zero running loss with no rungs at all', () => {
-        expect(dayProgressOf([], 0, 2).runningLoss).toBe(0);
-    });
-});
-
 function checkResult(
     overrides: Partial<NextTradeRiskCheckResult> = {},
 ): NextTradeRiskCheckResult {
@@ -966,6 +967,17 @@ function checkResult(
         verdict: NextTradeRiskVerdict.WithinPlan,
         ...overrides,
     };
+}
+
+function flagViewOf(excess: number, isPayoutEligible: boolean) {
+    return riskCheckViewOf(
+        checkResult({
+            excessCents: excess * 100,
+            payoutEligibleAboveRung: isPayoutEligible,
+            verdict: NextTradeRiskVerdict.AboveDocumented,
+        }),
+        0,
+    );
 }
 
 function queryOf(href: string): URLSearchParams {
@@ -1051,6 +1063,34 @@ describe('adviceValueRequestOf (PT-67 steps 1 and 2)', () => {
         );
     });
 
+    it('prices the candidate grid at the documented rung reward multiple, not the strategy rr, when the funded take profit differs', () => {
+        const rulebook = {
+            ...DEFAULT_RULEBOOK,
+            funded: {
+                ...DEFAULT_RULEBOOK.funded,
+                takeProfitCents: DEFAULT_RULEBOOK.funded.riskCents * 3,
+            },
+        };
+        const advisor = new FundedSizingAdvisor({
+            account: fundedAccount(),
+            fundedHorizonDays: 252,
+            rulebook,
+            snapshotAsOf: '2026-09-26',
+            today: '2026-09-26',
+            trials: 20,
+        });
+
+        const request = readyRequestOf({
+            ...valueRequestInputOf(),
+            advice: advisor.assemble([]),
+            rulebook,
+        });
+
+        expect(rulebook.strategy.rr).not.toBe(3);
+        expect(request.rungs[0]?.rr).toBeCloseTo(3);
+        expect(request.rr).toBeCloseTo(3);
+    });
+
     it('carries a serializable start state and the full spec', () => {
         const request = readyRequestOf(valueRequestInputOf());
 
@@ -1059,14 +1099,16 @@ describe('adviceValueRequestOf (PT-67 steps 1 and 2)', () => {
         expect(request.spec.rulebook).toEqual(DEFAULT_RULEBOOK);
     });
 
-    it('asks for the payout stake only for an eligible account, and never prices a reduced-risk what-if', () => {
+    it('asks for the payout stake only for an eligible account, with the reduced-risk what-if at half the documented funded risk', () => {
         const eligible = readyRequestOf({
             ...valueRequestInputOf(),
             advice: { ...valueRequestInputOf().advice, ...eligibleAdvice() },
         });
         const notEligible = readyRequestOf(valueRequestInputOf());
 
-        expect(eligible.payoutStake).toEqual({});
+        expect(eligible.payoutStake).toEqual({
+            reducedRiskDollars: DEFAULT_RULEBOOK.funded.riskCents / 100 / 2,
+        });
         expect(notEligible.payoutStake).toBeNull();
     });
 
@@ -1111,7 +1153,9 @@ describe('adviceValueRequestOf (PT-67 steps 1 and 2)', () => {
         const stake = result.payoutStake.value;
         if ('reason' in stake) throw new Error('expected a stake comparison');
         expect(stake.requestedAmount).toBe(750);
-        expect(stake.reducedRiskWhatIf).toBeNull();
+        expect(stake.reducedRiskWhatIf?.risk).toBe(
+            DEFAULT_RULEBOOK.funded.riskCents / 100 / 2,
+        );
     });
 });
 
@@ -1133,7 +1177,7 @@ describe('valueRunNoteOf (PT-67 review)', () => {
             measuredRebuyLag: { days: 4, samples: 3 },
         });
 
-        expect(valueRunNoteOf(request)).toContain('rebuy lag measured at 4 days over 3 samples');
+        expect(valueRunNoteOf(request)).toContain('rebuy lag measured at 4 days');
     });
 });
 
@@ -1252,10 +1296,10 @@ describe('adviceValueViewOf (PT-67 steps 1 and 2)', () => {
         expect(view.flatRiskReason).toBeNull();
     });
 
-    it('replaces the eval start-state engine message for the swings and the candidates, and stays silent on the flat-risk reason for an eval', () => {
+    it('leaves the engine message of a failed eval swing and candidates untouched', () => {
         const failure = {
             kind: AdvisorRequestOutcomeKind.Failed as const,
-            reason: 'todayPnL must be 0 at the start of a session, got 500',
+            reason: 'the engine refused this start',
         };
 
         const view = adviceValueViewOf({
@@ -1269,12 +1313,59 @@ describe('adviceValueViewOf (PT-67 steps 1 and 2)', () => {
 
         expect(view.candidates).toEqual({
             kind: ValueSectionKind.Failed,
-            reason: EVAL_NEXT_TRADE_NOT_MODELED_TEXT,
+            reason: 'the engine refused this start',
         });
         expect(view.swings[0]).toMatchObject({
             kind: ValueSectionKind.Failed,
-            reason: EVAL_NEXT_TRADE_NOT_MODELED_TEXT,
+            reason: 'the engine refused this start',
         });
+    });
+
+    it('states the session boundary the swing is valued at, once, for any account kind', () => {
+        const swing = { outcome: succeeded(swingResult()), rung: { risk: 500, rr: 2 } };
+        const oneRung = adviceValueViewOf({
+            context: EVAL_CONTEXT,
+            documentedRisk: 500,
+            outcome: outcomeOf({ swings: [swing] }),
+        });
+
+        expect(oneRung.boundaryNote).toBe(`Assumption: ${TRADE_VALUE_SWING_ASSUMPTION}.`);
+    });
+
+    it('adds that the rest of today rungs are not in the after-loss value when the documented rule keeps trading after a loss', () => {
+        const first = { outcome: succeeded(swingResult()), rung: { risk: 500, rr: 2 } };
+        const second = { outcome: succeeded(swingResult()), rung: { risk: 750, rr: 2 } };
+        const twoRungs = adviceValueViewOf({
+            context: FUNDED_CONTEXT,
+            documentedRisk: 500,
+            outcome: outcomeOf({ swings: [first, second] }),
+        });
+
+        expect(twoRungs.boundaryNote).toBe(
+            `Assumption: ${TRADE_VALUE_SWING_ASSUMPTION}. ${SESSION_BOUNDARY_CONTINUES_TEXT}`,
+        );
+        expect(SESSION_BOUNDARY_CONTINUES_TEXT).toContain(
+            "the rest of today's rungs are not in the after-loss value",
+        );
+        expect(SESSION_BOUNDARY_CONTINUES_TEXT).toContain(
+            'Each later rung is priced as reached after the earlier rungs lost',
+        );
+    });
+
+    it('has no boundary note when no swing was valued', () => {
+        const none = adviceValueViewOf({
+            context: FUNDED_CONTEXT,
+            documentedRisk: 500,
+            outcome: null,
+        });
+        const failed = adviceValueViewOf({
+            context: FUNDED_CONTEXT,
+            documentedRisk: 500,
+            outcome: outcomeOf({ swings: [failedSwing('refused')] }),
+        });
+
+        expect(none.boundaryNote).toBeNull();
+        expect(failed.boundaryNote).toBeNull();
     });
 
     it('does not name a flat-risk reason for an eval, where the documented rung is the maximum and the grid only reaches lower', () => {
@@ -1483,6 +1574,108 @@ describe('todaysDecisionsOf (PT-67 step 3)', () => {
     });
 });
 
+describe('riskChecksOf (PT-67 step 3 and review)', () => {
+    const advisor = fundedAdvisor();
+    const rungs = advisor.dailyPlanCard()?.rungs ?? [];
+    const firstRung = rungs[0]?.risk ?? 0;
+
+    it('links the recorded block to the decision that holds the recorded actual risk, not the latest decision of the day', () => {
+        const checks = riskChecksOf({
+            advisor,
+            decisions: [decision('latest', null), decision('recorded', 900)],
+            inputs: EMPTY_RISK_CHECK_INPUTS,
+            today: '2026-09-27',
+        });
+
+        expect(checks.recorded?.decisionId).toBe('recorded');
+        expect(checks.recorded?.risk).toBe(900);
+        expect(checks.recorded?.view.verdict).toBe(NextTradeRiskVerdict.AboveDocumented);
+    });
+
+    it('has no recorded check without a recorded actual risk today', () => {
+        const checks = riskChecksOf({
+            advisor,
+            decisions: [decision('latest', null), decision('old', 900, '2026-09-26')],
+            inputs: EMPTY_RISK_CHECK_INPUTS,
+            today: '2026-09-27',
+        });
+
+        expect(checks.recorded).toBeNull();
+    });
+
+    it('says the recorded risk was judged as the first trade of the day while no wins or losses are entered', () => {
+        const checks = riskChecksOf({
+            advisor,
+            decisions: [decision('recorded', firstRung)],
+            inputs: EMPTY_RISK_CHECK_INPUTS,
+            today: '2026-09-27',
+        });
+
+        expect(checks.recorded?.basisText).toBe(
+            'Judged as the first trade of the day: no wins or losses are entered above.',
+        );
+        expect(checks.recorded?.view.verdict).toBe(NextTradeRiskVerdict.WithinPlan);
+    });
+
+    it('says which wins and losses the recorded risk was judged against once they are entered, and judges it by the entered progress', () => {
+        const checks = riskChecksOf({
+            advisor,
+            decisions: [decision('recorded', firstRung)],
+            inputs: { losses: '1', risk: '', wins: '0' },
+            today: '2026-09-27',
+        });
+
+        expect(checks.recorded?.basisText).toBe(
+            'Judged against 0 wins and 1 loss entered above.',
+        );
+    });
+
+    it('says the entered counts are not valid when they cannot be read', () => {
+        const checks = riskChecksOf({
+            advisor,
+            decisions: [decision('recorded', firstRung)],
+            inputs: { losses: 'x', risk: '', wins: '' },
+            today: '2026-09-27',
+        });
+
+        expect(checks.recorded?.basisText).toBe(
+            'Judged as the first trade of the day: the wins and losses entered above are not valid.',
+        );
+    });
+
+    it('checks a proposed risk against the entered day and names the stop once the day has stopped', () => {
+        const checks = riskChecksOf({
+            advisor,
+            decisions: [],
+            inputs: { losses: '50', risk: '100', wins: '0' },
+            today: '2026-09-27',
+        });
+
+        expect(checks.parsedRisk.kind).toBe(RiskCheckInputKind.Valid);
+        expect(checks.proposed?.verdict).toBe(NextTradeRiskVerdict.AboveDocumented);
+        expect(checks.stopReason).not.toBeNull();
+    });
+
+    it('has no proposed check and no stop while nothing is entered', () => {
+        const checks = riskChecksOf({
+            advisor,
+            decisions: [],
+            inputs: EMPTY_RISK_CHECK_INPUTS,
+            today: '2026-09-27',
+        });
+
+        expect(checks.proposed).toBeNull();
+        expect(checks.stopReason).toBeNull();
+        expect(checks.flagExcess).toBe(0);
+    });
+
+    it('takes the larger payout-eligible excess of the proposed and recorded checks as the banner flag', () => {
+        expect(payoutFlagExcessOf([flagViewOf(40, true), flagViewOf(90, true)])).toBe(90);
+        expect(payoutFlagExcessOf([flagViewOf(40, false), null])).toBe(0);
+        expect(payoutFlagExcessOf([])).toBe(0);
+    });
+});
+
 describe('contractsSizingOf (PT-67 step 4)', () => {
     const base = {
         instrument: InstrumentSymbol.NQ,
@@ -1490,6 +1683,7 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
         plan,
         risk: 450,
         stopPoints: null,
+        tierContext: null,
         unit: RiskDisplayUnit.AccountDollars,
     };
 
@@ -1553,6 +1747,88 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
         expect(sizing.inline?.siblingSeverityText ?? null).toBeNull();
     });
 
+    describe('on a funded account that has scaled up', () => {
+        const tieredPlan = (() => {
+            const found = ALL_FIRMS.flatMap((firm) => firm.plans).find(
+                (candidate) =>
+                    !candidate.isInstantFunded &&
+                    Object.values(TierBasis).flatMap((basis) =>
+                        candidate.fundedContractTierBreakpoints(basis, false),
+                    ).length > 1,
+            );
+            if (found === undefined) throw new Error('no tiered plan');
+            return found;
+        })();
+        const [, secondTier] = fundedTierOptions(tieredPlan, InstrumentSymbol.NQ);
+
+        function scaledContext(profit: number) {
+            const state = tieredPlan.initialState();
+            const scaled = {
+                ...state,
+                balance: state.balance + profit,
+                peakDayCloseProfit: profit,
+                peakIntradayProfit: profit,
+            };
+            return tieredPlan.tierProfitContext(scaled);
+        }
+
+        it('caps the contracts at the tier the account stands on, not at the starting tier', () => {
+            const context = scaledContext(secondTier ?? 0);
+            const scaledCap = contractLimitAt(
+                tieredPlan.contractLimits,
+                TradingPhase.Funded,
+                false,
+                context,
+            );
+            const startCap = contractLimitAt(
+                tieredPlan.contractLimits,
+                TradingPhase.Funded,
+                false,
+                tieredPlan.tierProfitContext(tieredPlan.initialState()),
+            );
+            expect(scaledCap).not.toBeNull();
+            expect(scaledCap ?? 0).toBeGreaterThan(startCap ?? 0);
+            const wide = {
+                ...base,
+                phase: TradingPhase.Funded,
+                plan: tieredPlan,
+                risk: 1_000_000,
+                stopPoints: 1,
+            };
+
+            const atStart = contractsSizingOf({ ...wide, tierContext: null });
+            const scaled = contractsSizingOf({ ...wide, tierContext: context });
+
+            expect(atStart.inline?.contracts).toBe(startCap);
+            expect(scaled.inline?.contracts).toBe(scaledCap);
+            expect(queryOf(scaled.href).has(PositionSizeUrlParameter.Tier)).toBe(true);
+        });
+
+        it('leaves the starting tier alone for an account that has not scaled', () => {
+            const sizing = contractsSizingOf({
+                ...base,
+                phase: TradingPhase.Funded,
+                plan: tieredPlan,
+                risk: 1_000_000,
+                stopPoints: 1,
+                tierContext: tieredPlan.tierProfitContext(tieredPlan.initialState()),
+            });
+
+            expect(queryOf(sizing.href).has(PositionSizeUrlParameter.Tier)).toBe(false);
+        });
+
+        it('ignores the tier for an eval account', () => {
+            const sizing = contractsSizingOf({
+                ...base,
+                phase: TradingPhase.Eval,
+                plan: tieredPlan,
+                tierContext: scaledContext(secondTier ?? 0),
+            });
+
+            expect(queryOf(sizing.href).has(PositionSizeUrlParameter.Tier)).toBe(false);
+        });
+    });
+
     it.each([0, -1, NaN])('shows nothing inline for an unusable stop of %s', (stopPoints) => {
         expect(contractsSizingOf({ ...base, stopPoints }).inline).toBeNull();
     });
@@ -1561,11 +1837,10 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
 describe('dayStopReasonOf (PT-67 step 4)', () => {
     it('is null at the start of a day with a rung, and names a reason once the day has stopped', () => {
         const advisor = fundedAdvisor();
-        const rungs = advisor.dailyPlanCard()?.rungs ?? [];
-        expect(rungs.length).toBeGreaterThan(0);
+        expect(advisor.dailyPlanCard()?.rungs.length).toBeGreaterThan(0);
 
-        expect(dayStopReasonOf(advisor, rungs, 0, 0)).toBeNull();
-        expect(dayStopReasonOf(advisor, rungs, 0, 50)).not.toBeNull();
+        expect(dayStopReasonOf(advisor, 0, 0)).toBeNull();
+        expect(dayStopReasonOf(advisor, 0, 50)).not.toBeNull();
     });
 });
 

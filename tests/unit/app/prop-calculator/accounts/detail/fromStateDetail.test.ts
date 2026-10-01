@@ -129,8 +129,12 @@ function chainPositionViewFor(
                 milestone: {
                     debited: 500,
                     kind: MilestoneKind.Funded,
+                    received: 400,
                     unmetGates: [],
-                    value: valueOf(accountValue + 100),
+                    value: {
+                        kind: ValueChainStepOutcomeKind.Value,
+                        value: valueOf(accountValue + 100),
+                    },
                 },
                 nextPayout: null,
                 stage: SizingStage.Funded,
@@ -308,6 +312,24 @@ describe('retireViewOf (PT-37, QV-19 information)', () => {
         expect(view.model.basis.toLowerCase()).toContain('simulat');
         expect(view.model.reason).not.toBeNull();
         expect(view.model.note.toLowerCase()).toContain('information only');
+    });
+
+    it('does not claim account slots are not scarce or that keeping costs nothing: capacity is not tracked, so the text says the comparison cannot recommend switching', () => {
+        const request = retireRequest();
+        const outcome: OverviewOutcome = {
+            key: overviewRequestKey(request),
+            kind: OverviewOutcomeKind.Succeeded,
+            result: {
+                figures: RETIRE_RESULT,
+                kind: OverviewRequestKind.RetireComparison,
+            },
+        };
+        const view = retireViewOf(engineWith(outcome), request);
+        if (view.kind !== RetireViewKind.Ready) throw new Error('expected ready');
+        expect(view.model.reason).toBe(
+            'A fresh account looks ahead, but account-slot scarcity is not tracked yet, so this comparison does not recommend switching.',
+        );
+        expect(view.model.reason).not.toContain('costs nothing');
     });
 
     it('says a fresh account would beat keeping this one only when the engine says so', () => {

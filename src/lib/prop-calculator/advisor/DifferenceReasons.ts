@@ -116,7 +116,7 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
                 detail.gapInCombinedSEs === null
                     ? 'an exact difference with no measured uncertainty'
                     : `${detail.gapInCombinedSEs.toFixed(1)} combined SEs apart`;
-            return `The documented flat $${detail.documentedFlatRisk.toFixed(2)} risk ignores your current state; the state-dependent optimum is $${detail.fromStateOptimum.toFixed(2)}, ${gapText}.`;
+            return `The documented flat $${detail.documentedFlatRisk.toFixed(2)} risk ignores your current state; a one-step comparison favours $${detail.fromStateOptimum.toFixed(2)} over the documented $${detail.documentedFlatRisk.toFixed(2)}, ${gapText}; documented sizing afterwards.`;
         }
         case DifferenceReason.FreshStartApproximation: {
             return 'This optimum was computed from a fresh start, not the current account state.';

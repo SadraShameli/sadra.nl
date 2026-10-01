@@ -2,6 +2,7 @@
 
 import { Settings2 } from 'lucide-react';
 
+import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import Eyebrow from '~/components/Eyebrow';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
@@ -344,7 +345,7 @@ export default function TradingInputs({
                                     className="mb-1 block text-xs font-medium text-muted-foreground"
                                     htmlFor="retained-cushion"
                                 >
-                                    Retained cushion on payout ($)
+                                    {CALCULATOR_FIELD_LABELS.retainedCushionRequest}
                                 </label>
                                 <Input
                                     id="retained-cushion"
@@ -379,7 +380,7 @@ export default function TradingInputs({
                                     className="mb-1 block text-xs font-medium text-muted-foreground"
                                     htmlFor="payout-request-size"
                                 >
-                                    Payout request size ($)
+                                    {CALCULATOR_FIELD_LABELS.payoutRequestOverride}
                                 </label>
                                 <Input
                                     id="payout-request-size"
@@ -744,7 +745,7 @@ export default function TradingInputs({
                             className="text-xs font-medium text-muted-foreground"
                             htmlFor="position-sizing-instrument"
                         >
-                            Instrument (contract-limit enforcement)
+                            {CALCULATOR_FIELD_LABELS.instrument}
                         </label>
                         <select
                             className="h-8 rounded-md border bg-transparent px-2 text-xs"
@@ -773,7 +774,7 @@ export default function TradingInputs({
                                 className="text-xs font-medium text-muted-foreground"
                                 htmlFor="position-sizing-stop"
                             >
-                                Stop distance (points)
+                                {CALCULATOR_FIELD_LABELS.stopPoints}
                             </label>
                             <Input
                                 {...riskInputAria}

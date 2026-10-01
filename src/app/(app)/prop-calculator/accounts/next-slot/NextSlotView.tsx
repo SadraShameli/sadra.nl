@@ -12,6 +12,7 @@ import { useOverviewWorker } from '~/app/(app)/prop-calculator/accounts/_compone
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { Skeleton } from '~/components/ui/Skeleton';
 import {
+    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -29,8 +30,6 @@ import {
     type NextSlotRankedViewRow,
     nextSlotRequestsOf,
 } from './nextSlotModel';
-
-const SCROLL_REGION_TAB_INDEX = 0;
 
 export function NextSlotView({ userId }: { readonly userId: string }) {
     const today = useTodayIsoDate();
@@ -191,7 +190,7 @@ function ListedSection({
     return (
         <Section id={id} title={title}>
             <p className="mb-3 text-sm text-muted-foreground">{description}</p>
-            <ScrollTable labelledBy={`next-slot-${id}`}>
+            <Table {...namedScrollRegion(`next-slot-${id}`)}>
                 <TableHeader>
                     <TableRow>
                         <TableHead scope="col">Firm</TableHead>
@@ -220,9 +219,20 @@ function ListedSection({
                         </TableRow>
                     ))}
                 </TableBody>
-            </ScrollTable>
+            </Table>
         </Section>
     );
+}
+
+function namedScrollRegion(labelledBy: string) {
+    return {
+        'aria-labelledby': labelledBy,
+        containerProps: {
+            'aria-labelledby': labelledBy,
+            role: 'region',
+            tabIndex: 0,
+        },
+    } as const;
 }
 
 function Progress({ model }: { readonly model: NextSlotModel }) {
@@ -325,7 +335,7 @@ function RankedTable({ model }: { readonly model: NextSlotModel }) {
                 </p>
             ) : (
                 <>
-                    <ScrollTable labelledBy="next-slot-ranked">
+                    <Table {...namedScrollRegion('next-slot-ranked')}>
                         <TableHeader>
                             <TableRow>
                                 <TableHead scope="col">Rank</TableHead>
@@ -346,7 +356,7 @@ function RankedTable({ model }: { readonly model: NextSlotModel }) {
                                     Optimum request
                                 </TableHead>
                                 <TableHead className="text-right" scope="col">
-                                    Funded bust at the optimum
+                                    Funded bust at the optimum, share of all simulated attempts
                                 </TableHead>
                                 <TableHead className="text-right" scope="col">
                                     Rank, documented
@@ -379,7 +389,7 @@ function RankedTable({ model }: { readonly model: NextSlotModel }) {
                                 <RankedRow key={row.key} row={row} />
                             ))}
                         </TableBody>
-                    </ScrollTable>
+                    </Table>
                     <div className="flex flex-col gap-2">
                         {model.ranked.map((row) => (
                             <p
@@ -393,31 +403,6 @@ function RankedTable({ model }: { readonly model: NextSlotModel }) {
                     </div>
                 </>
             )}
-        </div>
-    );
-}
-
-function ScrollTable({
-    children,
-    labelledBy,
-}: {
-    readonly children: ReactNode;
-    readonly labelledBy: string;
-}) {
-    return (
-        <div
-            aria-labelledby={labelledBy}
-            className="relative w-full overflow-auto"
-            role="region"
-            tabIndex={SCROLL_REGION_TAB_INDEX}
-        >
-            <table
-                aria-labelledby={labelledBy}
-                className="w-full caption-bottom text-sm"
-                data-slot="table"
-            >
-                {children}
-            </table>
         </div>
     );
 }

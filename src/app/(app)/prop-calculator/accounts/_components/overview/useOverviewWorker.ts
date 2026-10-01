@@ -65,21 +65,21 @@ export function useOverviewWorker(
 
     return useMemo(() => {
         if (areWorkersMissing) return unavailableEngine();
-        if (failure !== null) return { failure, outcomes: new Map() };
         const delivered = [
             ...(policyDelivered?.outcomes ?? []),
             ...(projectionDelivered?.outcomes ?? []),
             ...(valuesDelivered?.outcomes ?? []),
             ...(accountsDelivered?.outcomes ?? []),
         ];
-        return delivered.length === 0
-            ? NO_OVERVIEW_ENGINE
-            : {
-                  failure: null,
-                  outcomes: new Map(
-                      delivered.map((outcome) => [outcome.key, outcome]),
-                  ),
-              };
+        if (failure === null && delivered.length === 0) {
+            return NO_OVERVIEW_ENGINE;
+        }
+        return {
+            failure,
+            outcomes: new Map(
+                delivered.map((outcome) => [outcome.key, outcome]),
+            ),
+        };
     }, [
         accountsDelivered,
         areWorkersMissing,

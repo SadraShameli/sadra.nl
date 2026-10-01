@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import {
+    calculatorFieldLabelOf,
     fundedValueEstimateToolsRequest,
     fundedValueSampleSize,
     isInvalidSampleSizeField,
@@ -156,6 +157,26 @@ describe('valueCardsInputFor (PT-66)', () => {
         const reason = input.kind === ValueCardsInputKind.Refused ? input.reason : '';
         expect(reason.split('Payout request size ($)')).toHaveLength(2);
         expect(reason.split('Retained cushion on payout ($)')).toHaveLength(2);
+    });
+});
+
+describe('calculatorFieldLabelOf (PT-67 review)', () => {
+    it('names a calculator field by its label', () => {
+        expect(calculatorFieldLabelOf(['payoutRequestOverride'])).toBe('Payout request size ($)');
+        expect(calculatorFieldLabelOf(['retainedCushionRequest'])).toBe(
+            'Retained cushion on payout ($)',
+        );
+    });
+
+    it('names an unlabelled engine field by its own name, with its nested path, instead of a generic text', () => {
+        expect(calculatorFieldLabelOf(['commissionPerRoundTrip'])).toBe('commissionPerRoundTrip');
+        expect(calculatorFieldLabelOf(['lifetimePayoutCapOverride', 'cap'])).toBe(
+            'lifetimePayoutCapOverride.cap',
+        );
+    });
+
+    it('falls back to a generic name only when the issue carries no path', () => {
+        expect(calculatorFieldLabelOf([])).toBe('Engine policy');
     });
 });
 

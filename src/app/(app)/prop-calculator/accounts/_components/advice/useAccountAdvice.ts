@@ -31,6 +31,7 @@ export enum AdviceValuesPhase {
     Idle = 'idle',
     Loading = 'loading',
     Ready = 'ready',
+    Unavailable = 'unavailable',
 }
 
 export type AccountAdviceState =
@@ -58,7 +59,8 @@ export type AdviceValuesState =
     | {
           readonly phase: AdviceValuesPhase.Ready;
           readonly result: AdvisorValueResult;
-      };
+      }
+    | { readonly phase: AdviceValuesPhase.Unavailable; readonly reason: string };
 
 export interface UseAccountAdviceInput {
     readonly advisor: SizingAdvisor;
@@ -66,6 +68,7 @@ export interface UseAccountAdviceInput {
     readonly optIns: PlanOptIns;
     readonly planSerial: string;
     readonly values?: AdvisorValueRequest | null;
+    readonly valuesUnavailableReason?: null | string;
 }
 
 const IDLE_VALUES: AdviceValuesState = { phase: AdviceValuesPhase.Idle };
@@ -85,6 +88,7 @@ export function useAccountAdvice(
     const optIns = input?.optIns;
     const planSerial = input?.planSerial;
     const values = input?.values ?? null;
+    const valuesUnavailableReason = input?.valuesUnavailableReason ?? null;
     const requests = useMemo(() => advisor?.optimumRequests(), [advisor]);
     const engineJob = useMemo(() => {
         if (
@@ -142,7 +146,10 @@ export function useAccountAdvice(
             ? engineTask.state.result
             : null;
     const hasNoRequests = requests?.length === 0;
-    const valuesState = adviceValuesStateOf(valueJob !== null, valueTask);
+    const valuesState: AdviceValuesState =
+        valuesUnavailableReason === null
+            ? adviceValuesStateOf(valueJob !== null, valueTask)
+            : { phase: AdviceValuesPhase.Unavailable, reason: valuesUnavailableReason };
     const ready = useMemo(() => {
         if (advisor === undefined) return null;
         if (hasNoRequests) {

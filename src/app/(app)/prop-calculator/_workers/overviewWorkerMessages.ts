@@ -43,10 +43,12 @@ import {
     toSimInputs,
 } from '~/lib/prop-calculator/advisor';
 import {
+    type EvalMilestone,
     type EvalMilestoneGap,
     evalStartAccount,
     firstPayoutEligibleAccount,
     freshFundedAccount,
+    type FundedMilestone,
     fundedTrackerAfterMilestonePayout,
     MilestoneKind,
     milestoneState,
@@ -113,13 +115,6 @@ export interface AccountFromStateFigures {
     readonly valueNow: ValueResult;
 }
 
-export interface AccountMilestoneFigures {
-    readonly debited: null | number;
-    readonly kind: MilestoneKind.Eval | MilestoneKind.Funded;
-    readonly unmetGates: readonly EvalMilestoneGap[];
-    readonly value: ValueResult;
-}
-
 export interface DocumentedRunFigures {
     readonly anyPayoutGivenFundedProbability: UncertainValue;
     readonly attemptPassProbability: Estimate;
@@ -129,6 +124,7 @@ export interface DocumentedRunFigures {
     readonly expectedMonthlyRealizedNet: Estimate;
     readonly expectedNetPerAttempt: Estimate;
     readonly expectedPayoutPerFundedAccount: UncertainValue;
+    readonly fundedBustProbability: Estimate;
     readonly fundedHorizonDays: number;
     readonly fundedPayoutCountDistribution: readonly number[];
     readonly fundedSurvivalProbability: Estimate;
@@ -256,7 +252,15 @@ export interface ValueChainStepFigures {
     readonly outcome: ValueChainStepOutcome;
 }
 
-export type ValueChainStepOutcome =
+interface AccountMilestoneFigures {
+    readonly debited: null | number;
+    readonly kind: MilestoneKind.Eval | MilestoneKind.Funded;
+    readonly received: null | number;
+    readonly unmetGates: readonly EvalMilestoneGap[];
+    readonly value: ValueChainStepOutcome;
+}
+
+type ValueChainStepOutcome =
     | {
           readonly kind: ValueChainStepOutcomeKind.Unavailable;
           readonly reason: string;
@@ -280,10 +284,11 @@ const REQUEST_GROUP: Readonly<
     [OverviewRequestKind.ValueChain]: OverviewRequestGroup.Values,
 };
 
-const ACCOUNT_REQUEST_KINDS: ReadonlySet<OverviewRequestKind> = new Set([
-    OverviewRequestKind.AccountFromState,
-    OverviewRequestKind.RetireComparison,
-]);
+const ACCOUNT_REQUEST_KINDS: ReadonlySet<OverviewRequestKind> = new Set(
+    Object.values(OverviewRequestKind).filter(
+        (kind) => REQUEST_GROUP[kind] === OverviewRequestGroup.Accounts,
+    ),
+);
 
 const DOCUMENTED_ENGINE_KINDS: readonly OverviewRequestKind[] = [
     OverviewRequestKind.DocumentedRun,
@@ -579,6 +584,7 @@ function documentedRunResultOf(
             expectedNetPerAttempt: estimates.expectedNetPerAttempt,
             expectedPayoutPerFundedAccount:
                 estimates.expectedPayoutPerFundedAccount,
+            fundedBustProbability: estimates.fundedBustProbability,
             fundedHorizonDays: inputs.fundedHorizonDays,
             fundedPayoutCountDistribution: out.fundedPayoutCountDistribution,
             fundedSurvivalProbability: estimates.fundedSurvivalProbability,
@@ -620,6 +626,25 @@ function documentedSpecFor(
     };
 }
 
+function evalMilestoneValueOf(
+    account: ReconstructedFundedOrEvalAccount,
+    milestone: EvalMilestone,
+    spec: DocumentedPolicySpec,
+): ValueResult {
+    const state = { ...milestone.state };
+    resetForNewDay(state);
+    return requireValue(
+        valueAtState(
+            {
+                ...account,
+                cushion: state.balance - state.threshold,
+                state,
+            },
+            spec,
+        ),
+    );
+}
+
 function fromStateAccountOf(
     plan: Plan,
     request: OverviewRequest,
@@ -639,6 +664,27 @@ function fromStateAccountOf(
     return account;
 }
 
+function fundedContinuationValueOf(
+    account: ReconstructedFundedOrEvalAccount,
+    milestone: FundedMilestone,
+    spec: DocumentedPolicySpec,
+): ValueResult {
+    return requireValue(
+        valueAtState(
+            {
+                ...account,
+                cushion: milestone.state.balance - milestone.state.threshold,
+                fundedTracker: fundedTrackerAfterMilestonePayout(
+                    account,
+                    milestone,
+                ),
+                state: milestone.state,
+            },
+            spec,
+        ),
+    );
+}
+
 function milestoneFiguresOf(
     account: ReconstructedFundedOrEvalAccount,
     spec: DocumentedPolicySpec,
@@ -646,43 +692,35 @@ function milestoneFiguresOf(
     const milestone = milestoneState(account, spec);
     switch (milestone.kind) {
         case MilestoneKind.Eval: {
-            const state = { ...milestone.state };
-            resetForNewDay(state);
             return {
                 debited: null,
                 kind: MilestoneKind.Eval,
+                received: null,
                 unmetGates: milestone.unmetGates,
-                value: requireValue(
-                    valueAtState(
-                        {
-                            ...account,
-                            cushion: state.balance - state.threshold,
-                            state,
-                        },
-                        spec,
-                    ),
+                value: valueOutcomeOf(() =>
+                    evalMilestoneValueOf(account, milestone, spec),
                 ),
             };
         }
         case MilestoneKind.Funded: {
+            if (account.fundedTracker === null) {
+                throw new Error(
+                    'overviewWorker: a funded account needs its funded cycle tracker',
+                );
+            }
+            const received = account.plan.payoutFromProfit(
+                milestone.debited,
+                account.fundedTracker.payoutsIssued,
+            );
             return {
                 debited: milestone.debited,
                 kind: MilestoneKind.Funded,
+                received,
                 unmetGates: [],
-                value: requireValue(
-                    valueAtState(
-                        {
-                            ...account,
-                            cushion:
-                                milestone.state.balance -
-                                milestone.state.threshold,
-                            fundedTracker: fundedTrackerAfterMilestonePayout(
-                                account,
-                                milestone,
-                            ),
-                            state: milestone.state,
-                        },
-                        spec,
+                value: valueOutcomeOf(() =>
+                    withCashReceived(
+                        fundedContinuationValueOf(account, milestone, spec),
+                        received,
                     ),
                 ),
             };
@@ -927,7 +965,7 @@ function valueChainResultOf(
     spec: DocumentedPolicySpec,
 ): OverviewResult {
     const freshFunded = freshFundedAccount(plan);
-    const eligible = firstPayoutEligibleAccount(plan, freshFunded);
+    const eligible = firstPayoutEligibleAccount(plan, freshFunded, spec);
     const steps: readonly (readonly [
         ValueChainStepKind,
         () => ReconstructedFundedOrEvalAccount,
@@ -956,21 +994,38 @@ function valueChainStepOf(
     accountOf: () => ReconstructedFundedOrEvalAccount,
     spec: DocumentedPolicySpec,
 ): ValueChainStepFigures {
+    return {
+        kind,
+        outcome: valueOutcomeOf(() =>
+            requireValue(valueAtState(accountOf(), spec)),
+        ),
+    };
+}
+
+function valueOutcomeOf(valueOf: () => ValueResult): ValueChainStepOutcome {
     try {
         return {
-            kind,
-            outcome: {
-                kind: ValueChainStepOutcomeKind.Value,
-                value: requireValue(valueAtState(accountOf(), spec)),
-            },
+            kind: ValueChainStepOutcomeKind.Value,
+            value: valueOf(),
         };
     } catch (error) {
         return {
-            kind,
-            outcome: {
-                kind: ValueChainStepOutcomeKind.Unavailable,
-                reason: describeSimulationFailure(error),
-            },
+            kind: ValueChainStepOutcomeKind.Unavailable,
+            reason: describeSimulationFailure(error),
         };
     }
+}
+
+function withCashReceived(value: ValueResult, cash: number): ValueResult {
+    return {
+        ...value,
+        creditFree: {
+            standardError: value.creditFree.standardError,
+            value: value.creditFree.value + cash,
+        },
+        creditInclusive: {
+            standardError: value.creditInclusive.standardError,
+            value: value.creditInclusive.value + cash,
+        },
+    };
 }

@@ -11,7 +11,14 @@ import { formatCurrency } from '~/lib/format';
 import { RuleViolationKind } from '~/lib/prop-accounts';
 import { api } from '~/trpc/react';
 
-import { type RiskCheckInputs, type RiskCheckView } from './riskCheckModel';
+import {
+    hasViolationForDecision,
+    type RecordedRiskCheck,
+    type RiskCheckInputs,
+    type RiskCheckView,
+} from './riskCheckModel';
+
+const VIOLATION_KIND = RuleViolationKind.ForcedRecovery;
 
 const FIELD_LABELS = {
     losses: 'Losses today',
@@ -22,7 +29,6 @@ const FIELD_LABELS = {
 export function ProposedRiskCheck({
     accountId,
     check,
-    decisionId,
     inputMessage,
     inputs,
     notRunReason,
@@ -32,16 +38,12 @@ export function ProposedRiskCheck({
 }: {
     readonly accountId: string;
     readonly check: null | RiskCheckView;
-    readonly decisionId: null | string;
     readonly inputMessage: null | string;
     readonly inputs: RiskCheckInputs;
     readonly notRunReason: null | string;
     readonly occurredOn: string;
     readonly onChange: (inputs: RiskCheckInputs) => void;
-    readonly recorded: null | {
-        readonly risk: number;
-        readonly view: RiskCheckView;
-    };
+    readonly recorded: null | RecordedRiskCheck;
 }) {
     const utilities = api.useUtils();
     const create = api.propAccounts.violation.create.useMutation({
@@ -53,12 +55,16 @@ export function ProposedRiskCheck({
             return utilities.propAccounts.invalidate();
         },
     });
-    const logViolation = () => {
+    const violations = api.propAccounts.violation.list.useQuery({ accountId });
+    const loggedDecisionId = create.isSuccess
+        ? create.variables.decisionId
+        : null;
+    const logViolation = (decisionId: string) => {
         create.mutate({
             accountId,
             costCents: null,
             decisionId,
-            kind: RuleViolationKind.ForcedRecovery,
+            kind: VIOLATION_KIND,
             note: null,
             occurredOn,
         });
@@ -97,22 +103,30 @@ export function ProposedRiskCheck({
             {notRunReason !== null && (
                 <p className="text-sm text-muted-foreground">{notRunReason}</p>
             )}
-            {check !== null && (
-                <VerdictBlock
-                    isPending={create.isPending}
-                    onLog={logViolation}
-                    view={check}
-                />
-            )}
+            {check !== null && <VerdictBlock view={check} violation={null} />}
             {recorded !== null && (
                 <div className="flex flex-col gap-1">
                     <p className="text-sm font-medium">
                         Recorded actual risk {formatCurrency(recorded.risk, 2)}
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                        {recorded.basisText}
+                    </p>
                     <VerdictBlock
-                        isPending={create.isPending}
-                        onLog={logViolation}
                         view={recorded.view}
+                        violation={{
+                            isLogged:
+                                loggedDecisionId === recorded.decisionId ||
+                                hasViolationForDecision(
+                                    violations.data ?? [],
+                                    recorded.decisionId,
+                                    VIOLATION_KIND,
+                                ),
+                            isPending: create.isPending || violations.isPending,
+                            onLog: () => {
+                                logViolation(recorded.decisionId);
+                            },
+                        }}
                     />
                 </div>
             )}
@@ -121,13 +135,15 @@ export function ProposedRiskCheck({
 }
 
 function VerdictBlock({
-    isPending,
-    onLog,
     view,
+    violation,
 }: {
-    readonly isPending: boolean;
-    readonly onLog: () => void;
     readonly view: RiskCheckView;
+    readonly violation: null | {
+        readonly isLogged: boolean;
+        readonly isPending: boolean;
+        readonly onLog: () => void;
+    };
 }) {
     return (
         <div className="flex flex-col gap-2">
@@ -137,17 +153,36 @@ function VerdictBlock({
                 )}
                 {view.verdictText}
             </p>
-            {view.isViolationOffered && (
-                <Button
-                    className="self-start"
-                    disabled={isPending}
-                    onClick={onLog}
-                    type="button"
-                    variant="outline"
-                >
-                    Log violation
-                </Button>
+            {violation !== null && view.isViolationOffered && (
+                <ViolationControl violation={violation} />
             )}
         </div>
+    );
+}
+
+function ViolationControl({
+    violation,
+}: {
+    readonly violation: {
+        readonly isLogged: boolean;
+        readonly isPending: boolean;
+        readonly onLog: () => void;
+    };
+}) {
+    if (violation.isLogged) {
+        return (
+            <p className="text-sm text-muted-foreground">Violation recorded</p>
+        );
+    }
+    return (
+        <Button
+            className="self-start"
+            disabled={violation.isPending}
+            onClick={violation.onLog}
+            type="button"
+            variant="outline"
+        >
+            Log violation
+        </Button>
     );
 }

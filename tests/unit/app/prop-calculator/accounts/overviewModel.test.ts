@@ -11,9 +11,13 @@ import {
     OverviewRequestKind,
     type PayoutSizeOptimumFigures,
     type PortfolioProjectionFigures,
+    ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { accountAlerts } from '~/app/(app)/prop-calculator/accounts/_components/detail/accountAlerts';
-import { AccountFromStateViewKind } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
+import {
+    AccountFromStateViewKind,
+    MilestoneValueViewKind,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
 import {
     accountEventKindLabel,
     accountStatesFromLoad,
@@ -3122,6 +3126,7 @@ function documentedFigures(
         expectedMonthlyRealizedNet: { standardError: 9, value: 1111 },
         expectedNetPerAttempt: { standardError: 5, value: 55 },
         expectedPayoutPerFundedAccount: { standardError: 20, value: 900 },
+        fundedBustProbability: { standardError: 0.02, value: 0.2 },
         fundedHorizonDays: 252,
         fundedPayoutCountDistribution: [
             0.6, 0.2, 0.1, 0.05, 0.03, 0.02, 0, 0, 0, 0, 0,
@@ -5594,8 +5599,12 @@ function accountFromStateFigures(
         milestone: {
             debited: 1000,
             kind: MilestoneKind.Funded,
+            received: 800,
             unmetGates: [],
-            value: valueFigure(2500, 90),
+            value: {
+                kind: ValueChainStepOutcomeKind.Value,
+                value: valueFigure(2500, 90),
+            },
         },
         nextPayout: {
             accountLostBeforeFirstPayoutProbability: 0.04,
@@ -5724,6 +5733,56 @@ describe('overviewAccountRequestsOf (PT-37, F-87)', () => {
             6,
         );
         expect(fundedRequest?.planSerial).toBe(mffProEntry().serial);
+    });
+
+    it('carries the measured rebuy lag of the plan into the from-state policy, the same lag the documented run of that plan carries', () => {
+        const entry = mffProEntry();
+        const old = account(entry, {
+            fundedOn: '2026-06-01',
+            label: 'Old',
+            purchasedOn: '2026-05-01',
+            stage: AccountStage.Funded,
+            status: AccountStatus.Busted,
+        });
+        const funded = mffFundedAccount('Replacement', 1800);
+        const replacement = {
+            ...funded.owner,
+            replacesAccountId: old.id,
+        };
+        const rows = rowsOf({
+            accounts: [
+                overviewAccount(old),
+                {
+                    ...funded.row,
+                    replacesAccountId: old.id,
+                },
+            ],
+            events: [
+                purchased(old),
+                event(old, AccountEventKind.EvalPassed, '2026-06-01'),
+                event(old, AccountEventKind.Busted, '2026-07-02'),
+                purchased(replacement),
+                event(replacement, AccountEventKind.EvalPassed, '2026-08-01'),
+            ],
+            snapshots: [funded.snapshot],
+        });
+        const measured = rebuyLagDefault(
+            replacementStats(PortfolioLedger.fromRows(USER_ID, rows)),
+            entry.serial,
+        );
+        expect(measured.basis).toBe(RebuyLagBasis.Measured);
+        const load = portfolioLoad(answered(rows));
+        const [request] = overviewAccountRequestsOf(load, USER_ID, TODAY);
+        expect(request?.spec.enginePolicy.rebuyLagBasis).toBe(
+            RebuyLagBasis.Measured,
+        );
+        expect(request?.spec.enginePolicy.rebuyLagDays).toBe(measured.days);
+        const documented = overviewEngineRequestsOf(load, USER_ID).find(
+            (candidate) => candidate.kind === OverviewRequestKind.DocumentedRun,
+        );
+        expect(request?.spec.enginePolicy).toEqual(
+            documented?.spec.enginePolicy,
+        );
     });
 
     it('carries the same engine policy as the documented-run request of the same plan', () => {
@@ -5954,7 +6013,7 @@ describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
         );
     });
 
-    it('shows the milestone value, the credit-free gain with its standard error and the payout debited for a funded account', () => {
+    it('shows the milestone value with the cash received counted in it, the credit-free gain with its standard error, and the payout debited for a funded account', () => {
         const funded = mffFundedAccount('Funded', 1800);
         const { row } = readyFromStateView(
             { accounts: [funded.row], snapshots: [funded.snapshot] },
@@ -5965,11 +6024,46 @@ describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
         }
         const { milestone } = row.view.model;
         expect(milestone.kind).toBe(MilestoneKind.Funded);
-        expect(milestone.valueCreditFree).toBe('$2,500 (SE $90)');
-        expect(milestone.valueCreditInclusive).toBe('$2,650 (SE $90)');
-        expect(milestone.gain).toBe(`+$700 (SE $${Math.round(Math.hypot(70, 90))})`);
+        expect(milestone.value).toEqual({
+            creditFree: '$2,500 (SE $90)',
+            creditInclusive: '$2,650 (SE $90)',
+            gain: `+$700 (SE $${Math.round(Math.hypot(70, 90))})`,
+            kind: MilestoneValueViewKind.Value,
+        });
         expect(milestone.debited).toBe('$1,000');
+        expect(milestone.received).toBe('$800');
         expect(milestone.label.toLowerCase()).toContain('payout');
+        expect(milestone.label.toLowerCase()).toContain('cash');
+    });
+
+    it('says the account cannot be valued after the next payout request, with the reason and no gain, while still showing the value now and the next payout', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const { row } = readyFromStateView(
+            { accounts: [funded.row], snapshots: [funded.snapshot] },
+            accountFromStateFigures({
+                milestone: {
+                    debited: 500,
+                    kind: MilestoneKind.Funded,
+                    received: 400,
+                    unmetGates: [],
+                    value: {
+                        kind: ValueChainStepOutcomeKind.Unavailable,
+                        reason: 'the funded account is already busted',
+                    },
+                },
+            }),
+        );
+        if (row.view.kind !== AccountFromStateViewKind.Ready) {
+            throw new Error('expected a ready view');
+        }
+        const { milestone, nextPayout, value } = row.view.model;
+        expect(milestone.value).toEqual({
+            kind: MilestoneValueViewKind.Unavailable,
+            text: 'The account cannot be valued after the next payout request: the funded account is already busted',
+        });
+        expect(milestone.debited).toBe('$500');
+        expect(value.creditFree).toBe('$1,800 (SE $70)');
+        expect(nextPayout).not.toBeNull();
     });
 
     it('names the unmet eval gates at the milestone and has no next payout for an eval account', () => {
@@ -5980,13 +6074,17 @@ describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
                 milestone: {
                     debited: null,
                     kind: MilestoneKind.Eval,
+                    received: null,
                     unmetGates: [EvalMilestoneGap.ConsistencyNotMet],
                     value: {
-                        creditFree: { standardError: 0, value: 700 },
-                        creditInclusive: { standardError: 0, value: 700 },
-                        kind: ValueResultKind.Value,
-                        seed: 42,
-                        trials: 2000,
+                        kind: ValueChainStepOutcomeKind.Value,
+                        value: {
+                            creditFree: { standardError: 0, value: 700 },
+                            creditInclusive: { standardError: 0, value: 700 },
+                            kind: ValueResultKind.Value,
+                            seed: 42,
+                            trials: 2000,
+                        },
                     },
                 },
                 nextPayout: null,
@@ -5996,13 +6094,16 @@ describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
         if (row.view.kind !== AccountFromStateViewKind.Ready) {
             throw new Error('expected a ready view');
         }
+        const { milestone } = row.view.model;
         expect(row.view.model.nextPayout).toBeNull();
-        expect(row.view.model.milestone.debited).toBeNull();
-        expect(row.view.model.milestone.gates).toHaveLength(1);
-        expect(row.view.model.milestone.gates[0]?.toLowerCase()).toContain(
-            'consistency',
-        );
-        expect(row.view.model.milestone.gain.startsWith('-')).toBe(true);
+        expect(milestone.debited).toBeNull();
+        expect(milestone.received).toBeNull();
+        expect(milestone.gates).toHaveLength(1);
+        expect(milestone.gates[0]?.toLowerCase()).toContain('consistency');
+        if (milestone.value.kind !== MilestoneValueViewKind.Value) {
+            throw new Error('expected a milestone value');
+        }
+        expect(milestone.value.gain.startsWith('-')).toBe(true);
     });
 
     it('turns a refused sizing into a typed refused row with the engine text, and an engine failure into a failed one', () => {

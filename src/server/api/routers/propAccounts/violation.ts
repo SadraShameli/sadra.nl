@@ -5,11 +5,13 @@ import { z } from 'zod';
 import {
     compareText,
     latestIsoDateAnywhere,
+    type RuleViolationKind,
     ViolationSource,
 } from '~/lib/prop-accounts';
 import {
     type OwnedAccountRef,
     PropAccountRepo,
+    type PropDatabase,
     PropQuotaGuard,
 } from '~/lib/prop-accounts/server';
 import {
@@ -26,7 +28,10 @@ import {
     violationUpdateSchema,
 } from '~/lib/schemas/propAccounts';
 import { createTRPCRouter } from '~/server/api/trpc';
-import { propRuleViolation } from '~/server/db/schemas/prop';
+import {
+    propRuleViolation,
+    type PropRuleViolationRow,
+} from '~/server/db/schemas/prop';
 
 import {
     ownedReferenceOrThrow,
@@ -58,6 +63,12 @@ export const propViolationRouter = createTRPCRouter({
                     'The account for this violation is not one of your accounts',
                 );
                 await assertViolationLinks(repo, account, input);
+                const existing = await existingDecisionViolation(
+                    tx,
+                    ctx.userId,
+                    input,
+                );
+                if (existing !== null) return existing;
                 await quotas.assertWithin(PropQuota.Violations, 1);
                 const [row] = await tx
                     .insert(propRuleViolation)
@@ -156,6 +167,31 @@ async function assertViolationLinks(
             'The linked sizing decision belongs to another account; link a decision of this account, or none',
         );
     }
+}
+
+async function existingDecisionViolation(
+    database: PropDatabase,
+    userId: string,
+    violation: Pick<ViolationLinks, 'decisionId'> & {
+        readonly accountId: string;
+        readonly kind: RuleViolationKind;
+    },
+): Promise<null | PropRuleViolationRow> {
+    const { decisionId } = violation;
+    if (decisionId === null) return null;
+    const [row] = await database
+        .select()
+        .from(propRuleViolation)
+        .where(
+            and(
+                eq(propRuleViolation.userId, userId),
+                eq(propRuleViolation.accountId, violation.accountId),
+                eq(propRuleViolation.decisionId, decisionId),
+                eq(propRuleViolation.kind, violation.kind),
+            ),
+        )
+        .limit(1);
+    return row ?? null;
 }
 
 function ownedViolation(id: string, userId: string) {

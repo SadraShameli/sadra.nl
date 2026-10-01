@@ -6,6 +6,7 @@ import {
     type AdvisorValueSlot,
     type AdvisorValueSwing,
 } from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
+import { formatCurrency } from '~/lib/format';
 import {
     CENTS_PER_DOLLAR,
     type Dollars,
@@ -24,9 +25,11 @@ import {
     DEFAULT_MAX_EVAL_DAYS,
     type DifferenceReasonDetail,
     type DocumentedPolicySpec,
+    type DocumentedRung,
     type MeasuredRebuyLag,
     RebuyLagBasis,
     type ReconstructedAccount,
+    type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
     RiskDisplayUnit,
     type RulebookParameters,
@@ -36,6 +39,7 @@ import {
     conservativeGapStandardError,
     continuationValue,
     CreditBasis,
+    netOfReplacementFee,
     type PayoutStakeComparisonOutcome,
     type PayoutStakeComparisonResult,
     type RiskCandidateRow,
@@ -44,10 +48,10 @@ import {
     startStateOf,
     type TradeValueSwingResult,
     valueGap,
-    type ValueNotModeledResult,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
 import { bustCost, feeEquivalentTradeRisk } from '~/lib/prop-calculator/economics';
+import { type SimStart } from '~/lib/prop-calculator/simulator';
 import { isBeyondNoise, type UncertainValue } from '~/lib/prop-calculator/stats';
 
 import { accountActionFor } from './accountActionModel';
@@ -84,6 +88,7 @@ export type AdviceValueRequestResult =
       };
 
 export interface AdviceValueView {
+    readonly boundaryNote: null | string;
     readonly candidates: null | ValueSection<RiskCandidatesView>;
     readonly firstSwing: null | TradeValueSwingResult;
     readonly flatRiskReason: DifferenceReasonDetail | null;
@@ -142,6 +147,7 @@ export interface RiskCandidateRowView {
     readonly continuation: UncertainValue;
     readonly contractsText: null | string;
     readonly isDocumented: boolean;
+    readonly isEngineOptimum: boolean;
     readonly monthlyNetCharge: number;
     readonly netOfDurationCharge: number;
     readonly rank: number;
@@ -150,8 +156,10 @@ export interface RiskCandidateRowView {
 }
 
 export interface RiskCandidatesView {
+    readonly isRanked: boolean;
     readonly label: string;
     readonly rows: readonly RiskCandidateRowView[];
+    readonly sizingNote: null | string;
 }
 
 export interface ValueFigureContext {
@@ -168,11 +176,14 @@ export type ValueSection<T> =
 export const CANDIDATE_VALUE_BASIS_TEXT =
     'includes the end-of-horizon credit, net of the expected duration charge';
 
-export const EVAL_NEXT_TRADE_NOT_MODELED_TEXT =
-    'The value of the next trade is not modeled for eval accounts yet.';
+export const EVAL_CANDIDATES_NOTE_TEXT =
+    'Eval sizing is the maximum allowed risk under a daily cap, for speed to funded. This table values one trade at smaller sizes; it is not a smaller eval size to take.';
 
 export const NO_LIVE_VALUE_TEXT =
     'Value views are not modeled for a live account.';
+
+export const SESSION_BOUNDARY_CONTINUES_TEXT =
+    "The documented rule keeps trading after a loss, and the rest of today's rungs are not in the after-loss value. Each later rung is priced as reached after the earlier rungs lost.";
 
 export const VALUE_BASIS_TEXT =
     'Expected cash from the account as it stands, credit-free: the end-of-horizon credit is left out.';
@@ -180,11 +191,6 @@ export const VALUE_BASIS_TEXT =
 const CANDIDATE_RISK_FRACTIONS: readonly number[] = [0.25, 0.5, 0.75, 1];
 
 const DOCUMENTED_RISK_MATCH_TOLERANCE = 0.005;
-
-const EVAL_NEXT_TRADE_ENGINE_LIMITS: readonly string[] = [
-    'todayPnL must be 0 at the start of a session',
-    'has already passed the eval',
-];
 
 const VALUE_RUN_SEED = 42;
 
@@ -212,8 +218,13 @@ export function adviceValueRequestOf(
         kind: AdviceValueRequestKind.Ready,
         request: {
             candidateRiskGrid: candidateRiskGridOf(rungs[0]?.risk ?? 0),
-            payoutStake: isPayoutEligible ? {} : null,
-            rr: rulebook.strategy.rr,
+            payoutStake: isPayoutEligible
+                ? {
+                      reducedRiskDollars:
+                          rulebook.funded.riskCents / CENTS_PER_DOLLAR / 2,
+                  }
+                : null,
+            rr: documentedRewardMultipleOf(rungs[0], rulebook.strategy.rr),
             rungs: rungs.map((rung) => ({
                 risk: rung.risk,
                 rr: rung.takeProfit / rung.risk,
@@ -233,6 +244,7 @@ export function adviceValueViewOf(args: {
     const replacementFee = context.plan.retryFee();
     if (outcome === null) {
         return {
+            boundaryNote: null,
             candidates: null,
             firstSwing: null,
             flatRiskReason: null,
@@ -249,6 +261,7 @@ export function adviceValueViewOf(args: {
             ? outcome.candidates.value
             : null;
     return {
+        boundaryNote: boundaryNoteOf(firstSwing, outcome.swings.length),
         candidates: candidatesSectionOf(
             outcome.candidates,
             documentedRisk,
@@ -316,6 +329,7 @@ export function evSwingViewsOf(
     swings: readonly AdvisorValueSwing[],
     context: ValueFigureContext,
 ): readonly EvSwingView[] {
+    const replacementFee = context.plan.retryFee();
     return swings.map((swing, position): EvSwingView => {
         const index = position + 1;
         if (swing.outcome.kind === AdvisorRequestOutcomeKind.Failed) {
@@ -329,24 +343,28 @@ export function evSwingViewsOf(
         if (result.kind === ValueResultKind.NotModeled) {
             return { index, kind: ValueSectionKind.NotModeled };
         }
+        const netOfFee = netOfReplacementFee(result, replacementFee);
         return {
             kind: ValueSectionKind.Ready,
             row: {
                 bust: result.afterLossBusted
-                    ? { rebuyLagDays: result.afterLossRebuyLagDays ?? 0 }
+                    ? {
+                          rebuyLagDays: result.afterLossRebuyLagDays ?? 0,
+                          replacementFee,
+                      }
                     : null,
                 index,
                 lossDelta: valueGap(
-                    result.now,
-                    result.afterLoss,
+                    netOfFee.now,
+                    netOfFee.afterLoss,
                     CreditBasis.CreditFree,
                 ),
                 risk: riskFigureOf(swing.rung.risk, result, context),
                 riskDollars: swing.rung.risk,
                 rr: swing.rung.rr,
                 winDelta: valueGap(
-                    result.now,
-                    result.afterWin,
+                    netOfFee.now,
+                    netOfFee.afterWin,
                     CreditBasis.CreditFree,
                 ),
                 winProbability: result.winProbability,
@@ -358,22 +376,24 @@ export function evSwingViewsOf(
 export function filledDailyPlanCard(
     card: DailyPlanCard,
     swing: null | TradeValueSwingResult,
+    replacementFee: number,
 ): DailyPlanCard {
-    return swing === null
-        ? card
-        : {
-              ...card,
-              valueAfterLoss: swing.afterLoss.creditFree.value,
-              valueAfterWin: swing.afterWin.creditFree.value,
-              valueNow: swing.now.creditFree.value,
-          };
+    if (swing === null) return card;
+    const netOfFee = netOfReplacementFee(swing, replacementFee);
+    return {
+        ...card,
+        valueAfterLoss: netOfFee.afterLoss.creditFree.value,
+        valueAfterWin: netOfFee.afterWin.creditFree.value,
+        valueNow: netOfFee.now.creditFree.value,
+    };
 }
 
 export function flatRiskReasonOf(
     candidates: RiskCandidateValuesResult,
     documentedRisk: number,
+    replacementFee: number,
 ): DifferenceReasonDetail | null {
-    const { rows } = candidates;
+    const { rows } = candidatesNetOfReplacementFee(candidates, replacementFee);
     const best = rows[0];
     const documented = rows.find((row) =>
         isDocumentedRow(row, documentedRisk),
@@ -414,8 +434,14 @@ export function flatRiskReasonOf(
     });
 }
 
-export function oneStepTreeOf(swing: TradeValueSwingResult): OneStepTreeView {
-    const { afterLoss, afterWin, now, winProbability } = swing;
+export function oneStepTreeOf(
+    swing: TradeValueSwingResult,
+    replacementFee: number,
+): OneStepTreeView {
+    const { afterLoss, afterWin, now, winProbability } = netOfReplacementFee(
+        swing,
+        replacementFee,
+    );
     return {
         continuation: {
             standardError: conservativeGapStandardError(
@@ -428,6 +454,7 @@ export function oneStepTreeOf(swing: TradeValueSwingResult): OneStepTreeView {
                 afterLoss.creditFree.value,
             ),
         },
+        replacementFee: swing.afterLossBusted ? replacementFee : null,
         valueAfterLoss: afterLoss.creditFree,
         valueAfterWin: afterWin.creditFree,
         valueNow: now.creditFree,
@@ -468,9 +495,13 @@ export function riskCandidatesViewOf(
     documentedRisk: null | number,
     context: ValueFigureContext,
 ): RiskCandidatesView {
-    return {
-        label: candidates.label,
-        rows: candidates.rows.map((row, position) => ({
+    const { label, rows } = candidatesNetOfReplacementFee(
+        candidates,
+        context.plan.retryFee(),
+    );
+    const isRanked = context.phase !== TradingPhase.Eval;
+    const views = rows.map(
+        (row, position): RiskCandidateRowView => ({
             continuation: row.continuationValue,
             contractsText:
                 row.placement.contracts === null
@@ -478,17 +509,44 @@ export function riskCandidatesViewOf(
                     : `${String(row.placement.contracts)} contract${row.placement.contracts === 1 ? '' : 's'}`,
             isDocumented:
                 documentedRisk !== null && isDocumentedRow(row, documentedRisk),
+            isEngineOptimum: position === 0,
             monthlyNetCharge: row.monthlyNetCharge,
             netOfDurationCharge: row.netOfDurationCharge,
             rank: position + 1,
             risk: riskFigureOf(row.placement.placedRisk, row.swing, context),
             riskDollars: row.placement.placedRisk,
-        })),
+        }),
+    );
+    return {
+        isRanked,
+        label,
+        rows: isRanked
+            ? views
+            : views.toSorted(
+                  (a, b) => Number(b.isDocumented) - Number(a.isDocumented),
+              ),
+        sizingNote: isRanked ? null : EVAL_CANDIDATES_NOTE_TEXT,
     };
 }
 
+export function valueRunNoteOf(request: AdvisorValueRequest): string {
+    const { enginePolicy, run } = request.spec;
+    const rebuyLag =
+        enginePolicy.rebuyLagBasis === RebuyLagBasis.Measured
+            ? `measured at ${String(enginePolicy.rebuyLagDays)} days`
+            : 'assumed zero (optimistic)';
+    return `Value runs: ${String(run.trials)} trials, seed ${String(run.seed)}, ${String(enginePolicy.fundedHorizonDays)}-day funded horizon, ${String(run.maxEvalDays)}-day eval limit; rebuy lag ${rebuyLag}; commission ${formatCurrency(enginePolicy.commissionPerRoundTrip, 2)} per round trip.`;
+}
+
 export function valueSpecOf(input: AdviceValueRequestInput): DocumentedPolicySpec {
-    const { accountPolicy, measuredRebuyLag, plan, rulebook } = input;
+    const {
+        accountPolicy,
+        measuredRebuyLag,
+        personalPayoutOverride,
+        personalRetainedCushion,
+        plan,
+        rulebook,
+    } = input;
     const { policy } = buildEnginePolicy({
         accountPolicy,
         fundedHorizonDays: DEFAULT_FUNDED_HORIZON_DAYS,
@@ -498,7 +556,14 @@ export function valueSpecOf(input: AdviceValueRequestInput): DocumentedPolicySpe
         rulebook,
     });
     return {
-        enginePolicy: policy,
+        enginePolicy: {
+            ...policy,
+            payoutRequestOverride: personalPayoutOverride ?? null,
+            retainedCushionRequest: Math.max(
+                policy.retainedCushionRequest ?? 0,
+                personalRetainedCushion ?? 0,
+            ),
+        },
         rulebook,
         run: {
             maxEvalDays: DEFAULT_MAX_EVAL_DAYS,
@@ -508,13 +573,51 @@ export function valueSpecOf(input: AdviceValueRequestInput): DocumentedPolicySpe
     };
 }
 
+function boundaryNoteOf(
+    firstSwing: null | TradeValueSwingResult,
+    rungCount: number,
+): null | string {
+    if (firstSwing === null) return null;
+    const assumption = `Assumption: ${firstSwing.assumption}.`;
+    return rungCount > 1
+        ? `${assumption} ${SESSION_BOUNDARY_CONTINUES_TEXT}`
+        : assumption;
+}
+
+function candidatesNetOfReplacementFee(
+    candidates: RiskCandidateValuesResult,
+    replacementFee: number,
+): RiskCandidateValuesResult {
+    return {
+        ...candidates,
+        rows: candidates.rows
+            .map((row): RiskCandidateRow => {
+                if (!row.swing.afterLossBusted) return row;
+                const charge =
+                    (1 - row.swing.winProbability) * replacementFee;
+                return {
+                    ...row,
+                    continuationValue: {
+                        ...row.continuationValue,
+                        value: row.continuationValue.value - charge,
+                    },
+                    netOfDurationCharge: row.netOfDurationCharge - charge,
+                };
+            })
+            .toSorted((a, b) => b.netOfDurationCharge - a.netOfDurationCharge),
+    };
+}
+
 function candidatesSectionOf(
     slot: AdvisorValueSlot<RiskCandidateValuesOutcome>,
     documentedRisk: null | number,
     context: ValueFigureContext,
 ): ValueSection<RiskCandidatesView> {
     if (slot.kind === AdvisorRequestOutcomeKind.Failed) {
-        return { kind: ValueSectionKind.Failed, reason: slot.reason };
+        return {
+            kind: ValueSectionKind.Failed,
+            reason: slot.reason,
+        };
     }
     if (slot.value.kind === ValueResultKind.NotModeled) {
         return { kind: ValueSectionKind.NotModeled };
@@ -523,6 +626,13 @@ function candidatesSectionOf(
         kind: ValueSectionKind.Ready,
         view: riskCandidatesViewOf(slot.value, documentedRisk, context),
     };
+}
+
+function documentedRewardMultipleOf(
+    rung: DocumentedRung | undefined,
+    fallback: number,
+): number {
+    return rung === undefined ? fallback : rung.takeProfit / rung.risk;
 }
 
 function evAtStakeOf(
@@ -597,9 +707,34 @@ function stakeSectionOf(
     if (slot.kind === AdvisorRequestOutcomeKind.Failed) {
         return { kind: ValueSectionKind.Failed, reason: slot.reason };
     }
-    if ('reason' in slot.value) return { kind: ValueSectionKind.NotModeled };
-    return {
-        kind: ValueSectionKind.Ready,
-        view: payoutStakeViewOf(slot.value),
-    };
+    switch (slot.value.kind) {
+        case ValueResultKind.NotModeled: {
+            return { kind: ValueSectionKind.NotModeled };
+        }
+        case ValueResultKind.PayoutStake: {
+            return {
+                kind: ValueSectionKind.Ready,
+                view: payoutStakeViewOf(slot.value),
+            };
+        }
+    }
+}
+
+function startOf(
+    plan: Plan,
+    account: ReconstructedFundedOrEvalAccount,
+):
+    | { readonly kind: AdviceValueRequestKind.Failed; readonly reason: string }
+    | { readonly kind: AdviceValueRequestKind.Ready; readonly start: SimStart } {
+    try {
+        return {
+            kind: AdviceValueRequestKind.Ready,
+            start: startStateOf(plan, account),
+        };
+    } catch (error) {
+        return {
+            kind: AdviceValueRequestKind.Failed,
+            reason: error instanceof Error ? error.message : String(error),
+        };
+    }
 }

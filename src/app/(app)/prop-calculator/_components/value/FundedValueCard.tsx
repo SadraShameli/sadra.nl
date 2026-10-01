@@ -29,6 +29,8 @@ import {
 
 const SAMPLE_SIZE_ERROR_ID = 'funded-value-sample-size-error';
 const SAMPLE_SIZE_ERROR_TEXT = 'Enter a whole number of accounts, 1 or more.';
+const REFUSED_TEXT =
+    'Not computed while the value inputs are refused; the reason is shown in the value chain card.';
 
 export function FundedValueCard({
     cards,
@@ -85,6 +87,7 @@ export function FundedValueCard({
                 <Input
                     aria-describedby={isSampleSizeInvalid ? SAMPLE_SIZE_ERROR_ID : undefined}
                     aria-invalid={isSampleSizeInvalid}
+                    disabled={isRefused}
                     id="funded-value-sample-size"
                     inputMode="numeric"
                     onChange={(event) => {
@@ -98,6 +101,9 @@ export function FundedValueCard({
                     type="number"
                     value={sampleSizeText}
                 />
+                {isRefused ? (
+                    <p className="text-xs text-muted-foreground">{REFUSED_TEXT}</p>
+                ) : null}
                 {isSampleSizeInvalid ? (
                     <p className="text-xs text-rose-400" id={SAMPLE_SIZE_ERROR_ID}>
                         {SAMPLE_SIZE_ERROR_TEXT}

@@ -457,6 +457,29 @@ describe('useAccountAdvice value requests (PT-67)', () => {
         expect(latest.current.values).toEqual({ phase: AdviceValuesPhase.Idle });
     });
 
+    it('carries the reason when the value request could not be built, with no value worker', () => {
+        const latest: { current: AccountAdviceState | null } = { current: null };
+        renderHarness(
+            root,
+            {
+                ...fundedAdvisorInput(),
+                valuesUnavailableReason: 'a funded account needs its funded cycle tracker',
+            },
+            latest,
+        );
+
+        finishEngine(0);
+
+        expect(FakeWorker.instances).toHaveLength(1);
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) {
+            throw new Error('expected a ready state');
+        }
+        expect(latest.current.values).toEqual({
+            phase: AdviceValuesPhase.Unavailable,
+            reason: 'a funded account needs its funded cycle tracker',
+        });
+    });
+
     it('runs only the value worker again when only the value request changes, keeping the advice ready', () => {
         const latest: { current: AccountAdviceState | null } = { current: null };
         renderHarness(root, { ...fundedAdvisorInput(), values: valueRequest(500) }, latest);

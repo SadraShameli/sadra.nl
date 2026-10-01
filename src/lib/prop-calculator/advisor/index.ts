@@ -316,6 +316,7 @@ export {
     fundedStopRuleToDayStopRule,
     type GeneralDerivationLadder,
     HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
+    HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
     LADDER_FRACTION_SUM_TOLERANCE,
     LadderFractionSource,
     type LiveSizingParameters,

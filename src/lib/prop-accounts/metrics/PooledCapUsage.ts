@@ -4,7 +4,11 @@ import {
     AccountCapPolicyKind,
     type FirmAccountPolicy,
     type FirmId,
+    type Plan,
+    type PlanAccountCounts,
+    serializePlanId,
     type SharedPoolPolicy,
+    type TradingFirm,
     UnverifiedFirmAccountPolicy,
 } from '~/lib/prop-calculator';
 
@@ -14,6 +18,11 @@ export interface FundedSlotCounts {
     readonly active: number;
     readonly suspended: number;
     readonly used: number;
+}
+
+export interface FundedSlotRoom {
+    readonly freeSlots: number;
+    readonly poolFreeSlots: null | number;
 }
 
 export interface PooledCapPlanRow {
@@ -56,6 +65,24 @@ export function fundedSlotCountsOf(group: PlanGroup): FundedSlotCounts {
     return { active, suspended, used: active + suspended };
 }
 
+export function fundedSlotRoomOf(
+    firm: TradingFirm,
+    plan: Plan,
+    counts: PlanAccountCounts,
+): FundedSlotRoom {
+    const used = counts.get(serializePlanId(plan.id)) ?? 0;
+    const perPlanFree = Math.max(0, firm.maxFundedAccounts(plan) - used);
+    const policy = firm.accountPolicy.capPolicyFor(plan);
+    if (policy.kind !== AccountCapPolicyKind.SharedPool) {
+        return { freeSlots: perPlanFree, poolFreeSlots: null };
+    }
+    const poolFreeSlots = accountCapHeadroomFor(plan, policy, counts);
+    return {
+        freeSlots: Math.min(perPlanFree, poolFreeSlots),
+        poolFreeSlots,
+    };
+}
+
 export function isFirmPolicyVerified(policy: FirmAccountPolicy): boolean {
     return !(policy instanceof UnverifiedFirmAccountPolicy);
 }
@@ -92,24 +119,15 @@ export function pooledCapUsage(ledger: PortfolioLedger): PooledCapUsage {
             members.push(group);
             pools.set(policy, members);
         }
-        for (const [policy, members] of pools) {
+        for (const members of pools.values()) {
             for (const group of members) {
                 plans.push(
-                    planRow(
-                        firmId,
-                        group,
-                        counts,
-                        slotCounts,
-                        isVerified,
-                        accountCapHeadroomFor(group.plan, policy, counts),
-                    ),
+                    planRow(firmId, group, counts, slotCounts, isVerified),
                 );
             }
         }
         for (const group of unpooled) {
-            plans.push(
-                planRow(firmId, group, counts, slotCounts, isVerified, null),
-            );
+            plans.push(planRow(firmId, group, counts, slotCounts, isVerified));
         }
     }
 
@@ -135,23 +153,21 @@ function planRow(
     counts: ReadonlyMap<string, number>,
     slotCounts: ReadonlyMap<string, FundedSlotCounts>,
     isVerified: boolean,
-    poolFreeSlots: null | number,
 ): PooledCapPlanRow {
-    const used = counts.get(group.planSerial) ?? 0;
-    const cap = group.firm.maxFundedAccounts(group.plan);
-    const perPlanFree = Math.max(0, cap - used);
+    const { freeSlots, poolFreeSlots } = fundedSlotRoomOf(
+        group.firm,
+        group.plan,
+        counts,
+    );
     return {
-        cap,
+        cap: group.firm.maxFundedAccounts(group.plan),
         firmId,
-        freeSlots:
-            poolFreeSlots === null
-                ? perPlanFree
-                : Math.min(perPlanFree, poolFreeSlots),
+        freeSlots,
         isVerified,
         planLabel: group.plan.label,
         planSerial: group.planSerial,
         poolFreeSlots,
         suspended: slotCounts.get(group.planSerial)?.suspended ?? 0,
-        used,
+        used: counts.get(group.planSerial) ?? 0,
     };
 }

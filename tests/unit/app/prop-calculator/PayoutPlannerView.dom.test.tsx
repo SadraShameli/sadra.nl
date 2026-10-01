@@ -300,6 +300,7 @@ function stakeComparison(
             seed: 1,
             trials: 100,
         },
+        kind: ValueResultKind.PayoutStake,
         reducedRiskWhatIf: null,
         requestedAmount: 500,
         requestNow: {

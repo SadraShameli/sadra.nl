@@ -51,7 +51,7 @@ const RETIRE_REASON_TEXT: Readonly<Record<RetireComparisonReason, string>> = {
     [RetireComparisonReason.NoRemainingHorizon]:
         'No horizon is left to earn from this account.',
     [RetireComparisonReason.NotCapacityBound]:
-        'A fresh account looks ahead, but no account slot is scarce, so keeping this one costs nothing.',
+        'A fresh account looks ahead, but account-slot scarcity is not tracked yet, so this comparison does not recommend switching.',
     [RetireComparisonReason.SwitchBehind]:
         'A fresh account of the same plan is behind keeping this one.',
     [RetireComparisonReason.Unknown]:
@@ -111,17 +111,6 @@ export interface FromStateDetailRequests {
     readonly retire: OverviewRequest;
 }
 
-export interface RetireModel {
-    readonly basis: string;
-    readonly keepRate: string;
-    readonly note: string;
-    readonly reason: null | string;
-    readonly remainingDays: string;
-    readonly switchCost: string;
-    readonly switchRate: string;
-    readonly verdict: string;
-}
-
 export type RetireView =
     | { readonly kind: RetireViewKind.Failed; readonly reason: string }
     | { readonly kind: RetireViewKind.Pending }
@@ -132,6 +121,17 @@ export interface ValueChainPositionModel {
     readonly above: readonly string[];
     readonly below: readonly string[];
     readonly unavailable: readonly string[];
+}
+
+interface RetireModel {
+    readonly basis: string;
+    readonly keepRate: string;
+    readonly note: string;
+    readonly reason: null | string;
+    readonly remainingDays: string;
+    readonly switchCost: string;
+    readonly switchRate: string;
+    readonly verdict: string;
 }
 
 export function chainPositionViewOf(
@@ -266,15 +266,6 @@ export function valueChainPositionOf(
     return { above, below, unavailable };
 }
 
-export function valueChainSlotOf(
-    engine: SlotEngine,
-    request: OverviewRequest,
-): EngineSlot<ValueChainFigures> {
-    return engineSlotOf(engine, request, (result) =>
-        result.kind === OverviewRequestKind.ValueChain ? result.figures : null,
-    );
-}
-
 function perDayText(rate: UncertainValue): string {
     const standardError =
         rate.standardError === null
@@ -295,4 +286,13 @@ function retireModelOf(figures: RetireComparisonResult): RetireModel {
         switchRate: perDayText(figures.switchRate),
         verdict: RETIRE_VERDICT_TEXT[figures.verdict],
     };
+}
+
+function valueChainSlotOf(
+    engine: SlotEngine,
+    request: OverviewRequest,
+): EngineSlot<ValueChainFigures> {
+    return engineSlotOf(engine, request, (result) =>
+        result.kind === OverviewRequestKind.ValueChain ? result.figures : null,
+    );
 }

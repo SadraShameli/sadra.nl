@@ -14,16 +14,15 @@ import {
 } from '~/lib/prop-accounts/core';
 import { firmEngagementFor } from '~/lib/prop-accounts/firms';
 import {
+    fundedSlotRoomOf,
     isActiveAccount,
+    isFirmPolicyVerified,
     modeledEntries,
     type PooledCapPlanRow,
     pooledCapUsage,
     type PortfolioLedger,
 } from '~/lib/prop-accounts/metrics';
-import { isFirmPolicyVerified } from '~/lib/prop-accounts/metrics/PooledCapUsage';
 import {
-    accountCapHeadroomFor,
-    AccountCapPolicyKind,
     ALL_FIRMS,
     CENTS_PER_DOLLAR,
     dollars,
@@ -42,7 +41,7 @@ import {
     type EnginePolicy,
     type FirmMinimumAboveRequestNotice,
     firmMinimumNotice,
-    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
+    HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
     LifetimePayoutCapBasis,
     payoutPolicySensitivity,
     type PayoutPolicySensitivityPlanEntry,
@@ -106,6 +105,7 @@ export enum NextSlotSizingBasis {
 export interface NextSlotAllocation {
     readonly capacity: NextSlotCapacity | null;
     readonly disclosures: readonly string[];
+    readonly hardRule2MinCushion: number;
     readonly ledgerOnlyAccounts: number;
     readonly notRanked: readonly NextSlotNotRankedRow[];
     readonly objective: SizingObjective;
@@ -135,8 +135,8 @@ export interface NextSlotDocumentedFigures {
     readonly expectedMonthlyRealizedNet: Estimate;
     readonly expectedNetPerAttempt: Estimate;
     readonly expectedPayoutPerFundedAccount: UncertainValue;
+    readonly fundedBustProbability: Estimate;
     readonly fundedPayoutCountDistribution: readonly number[];
-    readonly fundedSurvivalProbability: Estimate;
     readonly minRetainedCushion: number;
     readonly payoutRequestSize: number;
     readonly payoutsPerFundedAccount: UncertainValue;
@@ -155,7 +155,7 @@ export interface NextSlotFigures {
     readonly creditSensitive: boolean;
     readonly cycleNet: Estimate;
     readonly documented: NextSlotMonthlyFigure;
-    readonly documentedFundedSurvival: Estimate;
+    readonly documentedFundedBust: Estimate;
     readonly firmMinimumAboveRequest: FirmMinimumAboveRequestNotice | null;
     readonly isBelowHardRule2: boolean;
     readonly lifetimeCapBasis: LifetimePayoutCapBasis;
@@ -299,9 +299,6 @@ const PENDING_REASONS: ReadonlySet<NextSlotExclusionReason> = new Set([
 
 const MAX_LOSING_PAYOUT_COUNT = 2000;
 
-const HARD_RULE_2_MIN_CUSHION =
-    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR;
-
 const UNSIZED_DISCLOSURE =
     'The documented runs use no instrument or stop, so they are unsized (no whole-contract rounding and no contract cap) and optimistic.';
 
@@ -315,10 +312,10 @@ const BATCH_LOSS_DISCLOSURE =
     'The batch loss risk draws the number of payouts per funded account from the simulated spread but takes every payout at the average payout size, so it ignores the spread of payout sizes and is optimistic.';
 
 const OPTIMUM_BUST_DISCLOSURE =
-    'The payout-size optimum maximises the expected monthly net and can carry a high chance of losing the funded account; read its funded bust probability before using its request size.';
+    'The payout-size optimum maximises the expected monthly net and can carry a high chance of losing the funded account; read its funded bust figure, a share of all simulated attempts including those that never pass the evaluation, before using its request size.';
 
 const SLOTS_UPPER_BOUND_DISCLOSURE =
-    'Slots to fill is an upper bound: it fills slots from the top of the ranking and counts only funded accounts, so evaluations in progress that pass will take funded slots too. Spreading purchases across firms limits your exposure to one firm\'s rule changes, bans and payout delays.';
+    "Slots to fill is an upper bound: it fills slots from the top of the ranking and counts only funded accounts, so evaluations in progress that pass will take funded slots too. Spreading purchases across firms limits your exposure to one firm's rule changes, bans and payout delays.";
 
 enum PlacementKind {
     Listed = 'listed',
@@ -327,7 +324,10 @@ enum PlacementKind {
 
 type Placement =
     | { readonly entry: RankableEntry; readonly kind: PlacementKind.Rankable }
-    | { readonly kind: PlacementKind.Listed; readonly row: NextSlotNotRankedRow };
+    | {
+          readonly kind: PlacementKind.Listed;
+          readonly row: NextSlotNotRankedRow;
+      };
 
 export function nextSlotAllocation(inputs: NextSlotInputs): NextSlotAllocation {
     const context = contextOf(inputs.ledger, inputs.today);
@@ -349,13 +349,19 @@ export function nextSlotAllocation(inputs: NextSlotInputs): NextSlotAllocation {
     );
     const sensitivity = new Map(
         payoutPolicySensitivity(
-            ordered.map((entry) => sensitivityEntryOf(entry, isOptimumComparable)),
+            ordered.map((entry) =>
+                sensitivityEntryOf(entry, isOptimumComparable),
+            ),
         ).map((entry) => [entry.planKey, entry]),
     );
     const capacity = capacityOf(inputs.ledger, inputs.bankroll);
     let remaining = capacity?.remaining ?? Infinity;
     const ranked = ordered.map((entry, index) => {
-        const scaleMark = scaleMarkOf(entry.candidate, context, inputs.scaleGate);
+        const scaleMark = scaleMarkOf(
+            entry.candidate,
+            context,
+            inputs.scaleGate,
+        );
         const blockedBy = noSlotReasonOf(entry, scaleMark);
         const allocatable =
             blockedBy === null ? Math.min(entry.freeSlots, remaining) : 0;
@@ -381,6 +387,7 @@ export function nextSlotAllocation(inputs: NextSlotInputs): NextSlotAllocation {
             notRanked,
             isOptimumComparable,
         ),
+        hardRule2MinCushion: HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
         ledgerOnlyAccounts: inputs.ledger.ledgerOnlyAccounts.length,
         notRanked: notRanked.toSorted(compareNotRanked),
         objective: inputs.objective,
@@ -505,7 +512,8 @@ function compareByObjective(
         case SizingObjective.RuinFirst: {
             const isANonPositive = isNonPositive(a);
             const isBNonPositive = isNonPositive(b);
-            if (isANonPositive !== isBNonPositive) return isANonPositive ? 1 : -1;
+            if (isANonPositive !== isBNonPositive)
+                return isANonPositive ? 1 : -1;
             return (
                 (isANonPositive ? 0 : compareLoss(a, b)) || monthly || tieBreak
             );
@@ -572,7 +580,9 @@ function disclosuresOf(
 ): readonly string[] {
     const withFigures = [
         ...ranked.map((row) => row.figures),
-        ...notRanked.flatMap((row) => (row.figures === null ? [] : [row.figures])),
+        ...notRanked.flatMap((row) =>
+            row.figures === null ? [] : [row.figures],
+        ),
     ];
     const ledgerOnly = inputs.ledger.ledgerOnlyAccounts.length;
     return [
@@ -689,14 +699,16 @@ function figuresOf(
             creditInclusive: documented.expectedMonthlyNet,
             requestSize: documented.payoutRequestSize,
         },
-        documentedFundedSurvival: documented.fundedSurvivalProbability,
+        documentedFundedBust: documented.fundedBustProbability,
         firmMinimumAboveRequest: firmMinimumNotice(
             requested,
             effectivePayoutRequest(candidate.plan, requested),
         ),
-        isBelowHardRule2: retainedCushion < HARD_RULE_2_MIN_CUSHION,
+        isBelowHardRule2:
+            retainedCushion < HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
         lifetimeCapBasis: candidate.enginePolicy.lifetimePayoutCapBasis,
-        lifetimePayoutCapOverride: candidate.enginePolicy.lifetimePayoutCapOverride,
+        lifetimePayoutCapOverride:
+            candidate.enginePolicy.lifetimePayoutCapOverride,
         netPerScreenHour:
             accountsPerSession === null || sessionHoursPerDay === null
                 ? null
@@ -707,9 +719,10 @@ function figuresOf(
                       ),
                       sessionHoursPerDay,
                   }).value?.value ?? null),
-        noPayoutProbability:
-            noPayoutProbability(fraction(attemptPaysProbabilityOf(documented)), 1)
-                .value,
+        noPayoutProbability: noPayoutProbability(
+            fraction(attemptPaysProbabilityOf(documented)),
+            1,
+        ).value,
         optimum:
             optimumFigures === null
                 ? null
@@ -718,7 +731,8 @@ function figuresOf(
                       creditFree: optimumFigures.expectedMonthlyRealizedNet,
                       creditInclusive: optimumFigures.expectedMonthlyNet,
                       evaluatedSizes: optimumFigures.evaluatedSizes,
-                      fundedBustProbability: optimumFigures.fundedBustProbability,
+                      fundedBustProbability:
+                          optimumFigures.fundedBustProbability,
                       requestSize: optimumFigures.requestSize,
                   },
         rebuyLagBasis: candidate.enginePolicy.rebuyLagBasis,
@@ -732,17 +746,15 @@ function figuresOf(
     };
 }
 
-function freeSlotsOf(candidate: NextSlotCandidate | NextSlotPlanPolicy, context: Context): number {
+function freeSlotsOf(
+    candidate: NextSlotCandidate | NextSlotPlanPolicy,
+    context: Context,
+): number {
     const row = context.capRows.get(serialOf(candidate));
-    if (row !== undefined) return row.freeSlots;
-    const cap = candidate.firm.maxFundedAccounts(candidate.plan);
-    const policy = candidate.firm.accountPolicy.capPolicyFor(candidate.plan);
-    return policy.kind === AccountCapPolicyKind.SharedPool
-        ? Math.min(
-              cap,
-              accountCapHeadroomFor(candidate.plan, policy, context.usedBySerial),
-          )
-        : cap;
+    return row === undefined
+        ? fundedSlotRoomOf(candidate.firm, candidate.plan, context.usedBySerial)
+              .freeSlots
+        : row.freeSlots;
 }
 
 function isNonPositive(entry: RankableEntry): boolean {
@@ -768,7 +780,9 @@ function listedRow(
     };
 }
 
-function listingKindOf(reasons: readonly NextSlotReason[]): NextSlotListingKind {
+function listingKindOf(
+    reasons: readonly NextSlotReason[],
+): NextSlotListingKind {
     if (reasons.some((entry) => EXCLUDING_REASONS.has(entry.reason))) {
         return NextSlotListingKind.Excluded;
     }
@@ -802,9 +816,11 @@ function payoutCountsPerAttemptOf(
             ? [1]
             : figures.fundedPayoutCountDistribution;
     return !(passes >= 0 && passes <= 1) ||
-        funded.some((share) => !(share >= 0 && Number.isFinite(share))) ? null : funded.map((share, count) =>
-        count === 0 ? 1 - passes + passes * share : passes * share,
-    );
+        funded.some((share) => !(share >= 0 && Number.isFinite(share)))
+        ? null
+        : funded.map((share, count) =>
+              count === 0 ? 1 - passes + passes * share : passes * share,
+          );
 }
 
 function placementOf(
@@ -1058,7 +1074,8 @@ function truncatedPower(
     let square: readonly number[] = base.slice(0, length);
     let remaining = exponent;
     while (remaining > 0) {
-        if (remaining % 2 === 1) result = truncatedProduct(result, square, length);
+        if (remaining % 2 === 1)
+            result = truncatedProduct(result, square, length);
         remaining = Math.floor(remaining / 2);
         if (remaining > 0) square = truncatedProduct(square, square, length);
     }

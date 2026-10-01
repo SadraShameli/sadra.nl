@@ -8,12 +8,13 @@ import { CENTS_PER_DOLLAR, TradingPhase } from '~/lib/prop-calculator/core';
 
 import { MilestoneKind, milestoneState } from './MilestoneState';
 import { valueAtState } from './ValueAtState';
-import { fundedTrackerAfterMilestonePayout, requireValue } from './ValueChain';
+import { requestNowValue, requireValue } from './ValueChain';
 import {
     type DualValueEstimate,
     notModeled,
     type ValueNotModeledResult,
     type ValueResult,
+    ValueResultKind,
     ValueUnavailableReason,
 } from './ValueEstimate';
 
@@ -30,6 +31,7 @@ export interface PayoutStakeComparisonRequest {
 
 export interface PayoutStakeComparisonResult {
     readonly continueNow: ValueResult;
+    readonly kind: ValueResultKind.PayoutStake;
     readonly reducedRiskWhatIf: null | ReducedRiskWhatIf;
     readonly requestedAmount: number;
     readonly requestNow: DualValueEstimate;
@@ -66,45 +68,26 @@ export function payoutStakeComparison(
             'payoutStakeComparison: expected a funded milestone for a funded account',
         );
     }
-    const continuation = requireValue(
-        valueAtState(
-            {
-                ...account,
-                fundedTracker: fundedTrackerAfterMilestonePayout(
-                    account,
-                    milestone,
-                ),
-                state: milestone.state,
-            },
-            spec,
-        ),
-    );
-    const traderReceivesNow = account.plan.payoutFromProfit(
-        milestone.debited,
-        account.fundedTracker.payoutsIssued,
+    const { requestNow, traderReceives } = requestNowValue(
+        account,
+        milestone,
+        spec,
     );
     const continueNow = requireValue(valueAtState(account, spec));
 
-    const requestNow: DualValueEstimate = {
-        creditFree: {
-            standardError: continuation.creditFree.standardError,
-            value: traderReceivesNow + continuation.creditFree.value,
-        },
-        creditInclusive: {
-            standardError: continuation.creditInclusive.standardError,
-            value: traderReceivesNow + continuation.creditInclusive.value,
-        },
-    };
-
     return {
         continueNow,
+        kind: ValueResultKind.PayoutStake,
         reducedRiskWhatIf:
             request.reducedRiskDollars === undefined
                 ? null
                 : reducedRiskWhatIf(account, spec, request.reducedRiskDollars),
         requestedAmount: milestone.debited,
-        requestNow,
-        traderReceivesNow,
+        requestNow: {
+            creditFree: requestNow.creditFree,
+            creditInclusive: requestNow.creditInclusive,
+        },
+        traderReceivesNow: traderReceives,
     };
 }
 
@@ -118,13 +101,18 @@ function reducedRiskWhatIf(
             `payoutStakeComparison: reducedRiskDollars must be > 0, got ${risk}`,
         );
     }
+    const { funded } = spec.rulebook;
+    const riskCents = Math.round(risk * CENTS_PER_DOLLAR);
     const reducedSpec: DocumentedPolicySpec = {
         ...spec,
         rulebook: {
             ...spec.rulebook,
             funded: {
-                ...spec.rulebook.funded,
-                riskCents: Math.round(risk * CENTS_PER_DOLLAR),
+                ...funded,
+                riskCents,
+                takeProfitCents: Math.round(
+                    (riskCents * funded.takeProfitCents) / funded.riskCents,
+                ),
             },
         },
     };

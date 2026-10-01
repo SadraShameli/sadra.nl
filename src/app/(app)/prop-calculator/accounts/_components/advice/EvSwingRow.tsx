@@ -1,5 +1,5 @@
 import { signedCurrencyText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
-import { formatGateCurrency, formatPercent } from '~/lib/format';
+import { formatCurrency, formatGateCurrency, formatPercent } from '~/lib/format';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
 import {
@@ -55,7 +55,8 @@ function ReadySwingRow({ row }: { readonly row: EvSwingRowView }) {
             {row.bust !== null && (
                 <span className="text-muted-foreground">
                     A loss here busts the account: the value after it is a fresh
-                    eval bought {bustText(row.bust.rebuyLagDays)}.
+                    eval bought {bustText(row.bust.rebuyLagDays)}, net of its
+                    replacement fee of {formatCurrency(row.bust.replacementFee, 2)}.
                 </span>
             )}
         </li>

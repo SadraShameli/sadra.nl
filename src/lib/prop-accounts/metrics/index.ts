@@ -173,6 +173,10 @@ export {
     totalUsedFundedSlots,
 } from './PlanCapUsage';
 export {
+    fundedSlotCountsOf,
+    type FundedSlotRoom,
+    fundedSlotRoomOf,
+    isFirmPolicyVerified,
     type PooledCapPlanRow,
     type PooledCapUsage,
     pooledCapUsage,

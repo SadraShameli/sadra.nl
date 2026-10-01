@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 
+import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import { overviewPlanOptInsOf } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
     ACCOUNT_CALCULATOR_LINK_FLAG_TEXT,
@@ -21,10 +22,12 @@ import {
 export function SimulateAccountLink({
     plan,
     rulebook,
+    rulebookError,
     stage,
 }: {
     readonly plan: Plan;
     readonly rulebook: RulebookParameters | undefined;
+    readonly rulebookError: null | string;
     readonly stage: SizingStage;
 }) {
     const link = useMemo(
@@ -41,11 +44,15 @@ export function SimulateAccountLink({
         [plan, rulebook, stage],
     );
     if (rulebook === undefined) {
-        return (
+        return rulebookError === null ? (
             <p className="text-sm text-muted-foreground">
                 Your rulebook has not loaded, so the simulator link is not
                 ready yet.
             </p>
+        ) : (
+            <SimulationFailureNotice
+                message={`Your rulebook could not be loaded, so the simulator link cannot be built: ${rulebookError}`}
+            />
         );
     }
     if (link === null) {

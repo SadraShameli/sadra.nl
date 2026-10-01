@@ -142,3 +142,39 @@ describe('exhaustive text maps (PT-19 step 8)', () => {
         }
     });
 });
+
+describe('differenceReasonText: FlatRiskIgnoresState (PT-67b step 4)', () => {
+    const text = differenceReasonText({
+        documentedFlatRisk: dollars(250),
+        fromStateOptimum: dollars(913.5),
+        gapInCombinedSEs: 4.2,
+        kind: DifferenceReason.FlatRiskIgnoresState,
+    });
+
+    it('never calls a one-step grid point an optimum, funded or eval', () => {
+        expect(text.toLowerCase()).not.toContain('optimum');
+    });
+
+    it('names the one-step comparison and says the documented sizing follows it', () => {
+        expect(text).toContain(
+            'a one-step comparison favours $913.50 over the documented $250.00',
+        );
+        expect(text).toContain('documented sizing afterwards');
+    });
+
+    it('keeps the measured gap, or states an exact difference when there is no uncertainty', () => {
+        expect(text).toContain('4.2 combined SEs apart');
+        expect(
+            differenceReasonText({
+                documentedFlatRisk: dollars(250),
+                fromStateOptimum: dollars(913.5),
+                gapInCombinedSEs: null,
+                kind: DifferenceReason.FlatRiskIgnoresState,
+            }),
+        ).toContain('an exact difference with no measured uncertainty');
+    });
+
+    it('builds the text only from its typed fields: the sentinel numbers appear and no others', () => {
+        expect(digitsOf(text)).toBe('25000913502500042');
+    });
+});

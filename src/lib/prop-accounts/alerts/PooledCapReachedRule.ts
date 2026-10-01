@@ -4,12 +4,8 @@ import {
     isEndedStatus,
     PlanKeyResolutionKind,
 } from '~/lib/prop-accounts/core';
-import {
-    accountCapHeadroomFor,
-    AccountCapPolicyKind,
-    type Plan,
-    type TradingFirm,
-} from '~/lib/prop-calculator';
+import { fundedSlotRoomOf } from '~/lib/prop-accounts/metrics';
+import { type Plan, type TradingFirm } from '~/lib/prop-calculator';
 
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
 import {
@@ -37,15 +33,11 @@ export class PooledCapReachedRule extends AlertRule {
             groups.map((group) => [group.planSerial, group.accounts.length]),
         );
         return groups.flatMap((group) => {
-            const policy = group.firm.accountPolicy.capPolicyFor(group.plan);
-            const freeSlots =
-                policy.kind === AccountCapPolicyKind.SharedPool
-                    ? accountCapHeadroomFor(group.plan, policy, counts)
-                    : Math.max(
-                          0,
-                          group.firm.maxFundedAccounts(group.plan) -
-                              group.accounts.length,
-                      );
+            const { freeSlots } = fundedSlotRoomOf(
+                group.firm,
+                group.plan,
+                counts,
+            );
             if (freeSlots > 0) return [];
             return [
                 {

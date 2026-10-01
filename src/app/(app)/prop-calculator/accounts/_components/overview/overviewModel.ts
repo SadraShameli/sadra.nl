@@ -209,6 +209,7 @@ import {
     DOCUMENTED_POLICY_TIMELINE_GAP_TEXT,
     type EnginePolicy,
     LifetimePayoutCapBasis,
+    type MeasuredRebuyLag,
     payoutPolicySensitivity,
     type PayoutPolicySensitivityPlanEntry,
     type PayoutPolicySensitivityRankedEntry,
@@ -1754,16 +1755,12 @@ function accountFromStateEntriesOf(
             state.latest.asOf,
         );
         const planSerial = serializePlanId(plan.id);
-        const lag = rebuyLagDefault(stats, planSerial);
         const [request] = overviewAccountRequestsFor(
             [
                 {
                     account: input,
                     firmId: plan.id.firm,
-                    measuredRebuyLag:
-                        lag.basis === RebuyLagBasis.Measured
-                            ? { days: lag.days, samples: lag.samples }
-                            : null,
+                    measuredRebuyLag: measuredRebuyLagFor(stats, planSerial),
                     optIns: overviewPlanOptInsOf(plan),
                     planSerial,
                 },
@@ -3329,21 +3326,14 @@ function heldPlanInputsOf(
     ledger: PortfolioLedger,
 ): readonly OverviewProjectionPlanInput[] {
     const stats = replacementStats(ledger);
-    return heldPlanGroups(ledger).map((group) => {
-        const lag = rebuyLagDefault(stats, group.planSerial);
-        return {
-            accounts: group.accounts.filter((entry) =>
-                isActiveAccount(entry.row),
-            ).length,
-            firmId: group.firmId,
-            measuredRebuyLag:
-                lag.basis === RebuyLagBasis.Measured
-                    ? { days: lag.days, samples: lag.samples }
-                    : null,
-            optIns: overviewPlanOptInsOf(group.plan),
-            planSerial: group.planSerial,
-        };
-    });
+    return heldPlanGroups(ledger).map((group) => ({
+        accounts: group.accounts.filter((entry) => isActiveAccount(entry.row))
+            .length,
+        firmId: group.firmId,
+        measuredRebuyLag: measuredRebuyLagFor(stats, group.planSerial),
+        optIns: overviewPlanOptInsOf(group.plan),
+        planSerial: group.planSerial,
+    }));
 }
 
 function householdNoteOf(
@@ -3906,6 +3896,16 @@ function loadGap(
 function marginAboveBreakevenLabel(margin: boolean | null): string {
     if (margin === null) return NOT_APPLICABLE;
     return margin ? 'Above breakeven' : 'Not above breakeven';
+}
+
+function measuredRebuyLagFor(
+    stats: ReturnType<typeof replacementStats>,
+    planSerial: string,
+): MeasuredRebuyLag | null {
+    const lag = rebuyLagDefault(stats, planSerial);
+    return lag.basis === RebuyLagBasis.Measured
+        ? { days: lag.days, samples: lag.samples }
+        : null;
 }
 
 function modeledCostMap(

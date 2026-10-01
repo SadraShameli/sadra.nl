@@ -17,6 +17,7 @@ import {
     nextSlotCandidatePlans,
     NextSlotEngineKind,
     type NextSlotEngineSlot,
+    NextSlotExclusionReason,
     type NextSlotFigures,
     NextSlotListingKind,
     type NextSlotMonthlyFigure,
@@ -36,7 +37,6 @@ import {
     serializePlanId,
 } from '~/lib/prop-calculator';
 import {
-    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
     LifetimePayoutCapBasis,
     type MeasuredRebuyLag,
     RebuyLagBasis,
@@ -112,15 +112,19 @@ export interface NextSlotRankedViewRow {
     readonly sizing: string;
 }
 
-const HARD_RULE_2_MIN_CUSHION =
-    HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR;
-
 const REQUEST_KINDS: ReadonlySet<OverviewRequestKind> = new Set([
     OverviewRequestKind.DocumentedRun,
     OverviewRequestKind.PayoutSizeOptimum,
 ]);
 
 const FRESH_START_LABEL = 'Fresh start';
+
+const CAPACITY_LIMIT_NOTE = 'Limited by your daily account capacity.';
+
+const NON_POSITIVE_CYCLE_NOTE = 'Expected value per attempt is not positive.';
+
+const NON_POSITIVE_MONTHLY_NOTE =
+    'The credit-inclusive monthly net is not positive even though the cycle net is above zero, so no slots are filled.';
 
 const CREDIT_BASIS_NOTE =
     'Ranked by the credit-inclusive monthly net, the figure the command line ranks by; the credit-free figure is shown beside it.';
@@ -181,7 +185,7 @@ export function nextSlotModelOf(inputs: NextSlotModelInputs): NextSlotModel {
     ).length;
     return {
         allocation,
-        assumptions: assumptionsOf(rulebook, requests),
+        assumptions: assumptionsOf(rulebook, requests, allocation.hardRule2MinCushion),
         capacityNote: capacityNoteOf(allocation),
         computed,
         disclosures: [CREDIT_BASIS_NOTE, ...allocation.disclosures],
@@ -235,6 +239,7 @@ export function nextSlotRequestsOf(
 function assumptionsOf(
     rulebook: RulebookParameters,
     requests: readonly OverviewRequest[],
+    hardRule2MinCushion: number,
 ): readonly string[] {
     const first = requests.find(
         (request) => request.kind === OverviewRequestKind.DocumentedRun,
@@ -244,7 +249,7 @@ function assumptionsOf(
         `Strategy from your rulebook: ${formatPercent(strategy.winrate)} win rate, ${String(strategy.rr)} to 1 reward to risk, up to ${String(strategy.tradesPerDayMax)} trades per day in evaluations.`,
         `Funded phase from your rulebook: ${formatCurrency(funded.riskCents / CENTS_PER_DOLLAR)} risked and ${formatCurrency(funded.takeProfitCents / CENTS_PER_DOLLAR)} take profit per trade, up to ${String(funded.tradesPerDayMax)} trades per day, stop rule ${funded.stopRule.kind}.`,
         `Evaluation sizing from your rulebook: ${rulebook.eval.mode}.`,
-        `Payout rule (${RuleSource.PayoutSize}, ${RuleSource.HardRule2}): your rulebook requests ${formatCurrency(payout.requestCents / CENTS_PER_DOLLAR)} as a full request only, with a retained cushion of at least ${formatCurrency(payout.retainedCushionCents / CENTS_PER_DOLLAR)} and never below the plan's own floor; a plan whose firm minimum is above the request runs at that minimum. Hard Rule 2 asks for at least ${formatCurrency(HARD_RULE_2_MIN_CUSHION)}.`,
+        `Payout rule (${RuleSource.PayoutSize}, ${RuleSource.HardRule2}): your rulebook requests ${formatCurrency(payout.requestCents / CENTS_PER_DOLLAR)} as a full request only, with a retained cushion of at least ${formatCurrency(payout.retainedCushionCents / CENTS_PER_DOLLAR)} and never below the plan's own floor; a plan whose firm minimum is above the request runs at that minimum. Hard Rule 2 asks for at least ${formatCurrency(hardRule2MinCushion)}.`,
     ];
     if (first === undefined) return lines;
     const { enginePolicy, run } = first.spec;
@@ -355,6 +360,13 @@ function monthlyFigureText(
           };
 }
 
+function nonPositiveNoteOf(row: NextSlotRankedRow): null | string {
+    if (row.isNonPositiveExpectedValue) return NON_POSITIVE_CYCLE_NOTE;
+    return row.limitedBy === NextSlotExclusionReason.NonPositiveExpectedValue
+        ? NON_POSITIVE_MONTHLY_NOTE
+        : null;
+}
+
 function objectiveNoteOf(objective: SizingObjective): string {
     switch (objective) {
         case SizingObjective.CycleCash: {
@@ -380,7 +392,7 @@ function optimumFiguresOf(
 function optimumNoteOf(figures: NextSlotFigures): null | string {
     const { documented, optimum } = figures;
     if (optimum === null) return null;
-    return optimum.requestSize === documented.requestSize ? `The optimum asks the same ${formatCurrency(optimum.requestSize)} request as the documented rule.` : `The optimum asks ${formatCurrency(optimum.requestSize)} instead of the documented ${formatCurrency(documented.requestSize)}: it carries ${formatPercent(optimum.fundedBustProbability.value)} funded bust probability over ${String(optimum.evaluatedSizes)} sizes tried, against ${formatPercent(figures.documentedFundedSurvival.value)} funded survival at the documented request.`;
+    return optimum.requestSize === documented.requestSize ? `The optimum asks the same ${formatCurrency(optimum.requestSize)} request as the documented rule.` : `The optimum asks ${formatCurrency(optimum.requestSize)} instead of the documented ${formatCurrency(documented.requestSize)}: it ends in a funded bust in ${formatPercent(optimum.fundedBustProbability.value)} of all simulated attempts over ${String(optimum.evaluatedSizes)} sizes tried, against ${formatPercent(figures.documentedFundedBust.value)} of all simulated attempts at the documented request.`;
 }
 
 function rankedViewRowOf(
@@ -400,9 +412,9 @@ function rankedViewRowOf(
                 ? NOT_APPLICABLE
                 : formatPercent(figures.batchLossProbability),
         capacityNote:
-            row.limitedBy === null
-                ? null
-                : 'Limited by your daily account capacity.',
+            row.limitedBy === NextSlotExclusionReason.Capacity
+                ? CAPACITY_LIMIT_NOTE
+                : null,
         creditFree: documented.creditFree,
         cycleNet: currencyEstimate(figures.cycleNet),
         documentedNet: documented.creditInclusive,
@@ -422,9 +434,7 @@ function rankedViewRowOf(
             figures.firmMinimumAboveRequest === null
                 ? null
                 : `Firm minimum ${formatCurrency(figures.firmMinimumAboveRequest.minimumRequestAmount)} is above your ${formatCurrency(figures.firmMinimumAboveRequest.requestedAmount)} request, so this plan runs at its minimum.`,
-        nonPositiveNote: row.isNonPositiveExpectedValue
-            ? 'Expected value per attempt is not positive.'
-            : null,
+        nonPositiveNote: nonPositiveNoteOf(row),
         noPayout:
             figures.noPayoutProbability === null
                 ? NOT_APPLICABLE
@@ -432,7 +442,7 @@ function rankedViewRowOf(
         notes: [
             ...(figures.isBelowHardRule2
                 ? [
-                      `Retained cushion is below the ${RuleSource.HardRule2} minimum of ${formatCurrency(HARD_RULE_2_MIN_CUSHION)}.`,
+                      `Retained cushion is below the ${RuleSource.HardRule2} minimum of ${formatCurrency(allocation.hardRule2MinCushion)}.`,
                   ]
                 : []),
             ...(row.inFlightEvaluations > 0

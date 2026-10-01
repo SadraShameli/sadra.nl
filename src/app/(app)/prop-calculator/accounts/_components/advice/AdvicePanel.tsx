@@ -1,6 +1,6 @@
 'use client';
 
-import { type ComponentProps, type ReactNode, useMemo, useState } from 'react';
+import { type ComponentProps, type ReactNode, useMemo } from 'react';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
@@ -24,12 +24,11 @@ import {
     usdCentsFromDollars,
     usdCentsToDollars,
 } from '~/lib/prop-accounts';
-import { findFirm, type Plan, TradingPhase } from '~/lib/prop-calculator';
+import { findFirm, type Plan, type TierProfitContext, type TradingPhase } from '~/lib/prop-calculator';
 import {
     AccountAction,
     createSizingAdvisor,
     DAY_STOP_REASON_TEXT,
-    type DocumentedRung,
     type MeasuredRebuyLag,
     type PersonalCaps,
     ReconstructedLiveKind,
@@ -41,46 +40,24 @@ import { dollars } from '~/lib/prop-calculator/core';
 import { MAX_ACCEPTED_RUNGS } from '~/lib/schemas/propAccounts';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-import {
-    ACCOUNT_ACTION_TEXT,
-    adviceValueRequestOf,
-    type AdviceValueView,
-    adviceValueViewOf,
-    adviceWithValues,
-    dayProgressOf,
-    dayStopReasonOf,
-    EMPTY_RISK_CHECK_INPUTS,
-    NO_LIVE_VALUE_TEXT,
-    parseDayCounts,
-    parseRiskCheckInputs,
-    RiskCheckInputKind,
-    type RiskCheckInputs,
-    type RiskCheckView,
-    riskCheckViewOf,
-    todaysDecisionsOf,
-    ValueSectionKind,
-} from './adviceValueModel';
-import { AdviceDisplayKind, adviceViewModel, leftOutOptimumRow } from './adviceViewModel';
+import { ACCOUNT_ACTION_TEXT } from './accountActionModel';
+import { AdviceValueRequestKind, adviceValueRequestOf, valueRunNoteOf } from './adviceValueModel';
+import { AdviceDisplayKind, type adviceViewModel, leftOutOptimumRow } from './adviceViewModel';
 import { AssumptionsList } from './AssumptionsList';
 import { DailyPlanCardView } from './DailyPlanCardView';
 import { DecisionLog, type DecisionSuggestion } from './DecisionLog';
-import { EvSwingRow } from './EvSwingRow';
 import { HeadlineCard } from './HeadlineCard';
-import { OneStepTree } from './OneStepTree';
 import { OptimaTable } from './OptimaTable';
 import { PayoutAdviceCard } from './PayoutAdviceCard';
 import { PayoutReadyBanner } from './PayoutReadyBanner';
 import { ProposedRiskCheck } from './ProposedRiskCheck';
 import { ProvenanceLine } from './ProvenanceLine';
 import { ReasonsList } from './ReasonsList';
-import { RiskCandidatesTable } from './RiskCandidatesTable';
-import {
-    AccountAdvicePhase,
-    AdviceValuesPhase,
-    type AdviceValuesState,
-    useAccountAdvice,
-    type UseAccountAdviceInput,
-} from './useAccountAdvice';
+import { RiskCheckInputKind } from './riskCheckModel';
+import { AccountAdvicePhase, useAccountAdvice, type UseAccountAdviceInput } from './useAccountAdvice';
+import { useAdviceViews } from './useAdviceViews';
+import { useRiskCheck } from './useRiskCheck';
+import { NextTradeValue, RiskCandidates, ValuesNotice } from './ValueSections';
 
 enum BuiltKind {
     Loading = 'loading',
@@ -99,10 +76,13 @@ type Built =
           readonly riskUnit: RiskDisplayUnit;
           readonly snapshotId: null | string;
           readonly stage: AccountStage;
+          readonly tierContext: null | TierProfitContext;
           readonly today: string;
       }
     | { readonly kind: BuiltKind.Loading }
     | { readonly kind: BuiltKind.NotModeled; readonly reason: string };
+
+type DecisionRows = NonNullable<ComponentProps<typeof DecisionLog>['decisions']>;
 
 type EventRow = RouterOutputs['propAccounts']['event']['listForAccount'][number];
 
@@ -125,6 +105,8 @@ interface NamedQuery {
 type PayoutRow = RouterOutputs['propAccounts']['payout']['list'][number];
 
 type SnapshotRow = RouterOutputs['propAccounts']['snapshot']['listForAccount'][number];
+
+const EMPTY_DECISIONS: DecisionRows = [];
 
 export function AdvicePanel({ id }: { readonly id: string }) {
     const session = useSession();
@@ -391,6 +373,12 @@ function buildAdvisorInput(args: {
         maxTradesPerDay: personalRules?.maxTradesPerDay ?? null,
     };
     const accountPolicy = findFirm(plan.id.firm)?.accountPolicy;
+    const personalPayoutOverride = optionalDollars(
+        personalRules?.payoutRequestOverrideCents,
+    );
+    const personalRetainedCushion = optionalDollars(
+        personalRules?.retainedCushionCents,
+    );
     let advisor: SizingAdvisor;
     try {
         advisor = createSizingAdvisor(view.account, {
@@ -398,12 +386,8 @@ function buildAdvisorInput(args: {
             measuredRebuyLag,
             personalCaps,
             personalDll: optionalDollars(personalRules?.dailyLossLimitCents),
-            personalPayoutOverride: optionalDollars(
-                personalRules?.payoutRequestOverrideCents,
-            ),
-            personalRetainedCushion: optionalDollars(
-                personalRules?.retainedCushionCents,
-            ),
+            personalPayoutOverride,
+            personalRetainedCushion,
             rulebook,
             snapshotAsOf: view.input.asOf,
             today,
@@ -414,20 +398,30 @@ function buildAdvisorInput(args: {
             reason: error instanceof Error ? error.message : String(error),
         };
     }
+    const valueRequest = adviceValueRequestOf({
+        account: view.account,
+        accountPolicy,
+        advice: advisor.assemble([]),
+        measuredRebuyLag,
+        personalPayoutOverride,
+        personalRetainedCushion,
+        plan,
+        rulebook,
+    });
     return {
         input: {
             advisor,
             firmId: plan.id.firm,
             optIns: account.optIns,
             planSerial: account.planSerial,
-            values: adviceValueRequestOf({
-                account: view.account,
-                accountPolicy,
-                advice: advisor.assemble([]),
-                measuredRebuyLag,
-                plan,
-                rulebook,
-            }),
+            values:
+                valueRequest.kind === AdviceValueRequestKind.Ready
+                    ? valueRequest.request
+                    : null,
+            valuesUnavailableReason:
+                valueRequest.kind === AdviceValueRequestKind.Failed
+                    ? valueRequest.reason
+                    : null,
         },
         kind: BuiltKind.Ready,
         phase: view.account.kind === ReconstructedLiveKind.Live ? null : view.account.kind,
@@ -435,6 +429,10 @@ function buildAdvisorInput(args: {
         riskUnit: rulebook.display.riskUnit,
         snapshotId: latest?.id ?? null,
         stage: account.stage,
+        tierContext:
+            view.account.kind === ReconstructedLiveKind.Live
+                ? null
+                : plan.tierProfitContext(view.account.state),
         today,
     };
 }
@@ -457,9 +455,18 @@ function ComputedAdvice({
     readonly refreshFailureAlert: ReactNode;
 }) {
     const adviceState = useAccountAdvice(built.input);
-    const [riskInputs, setRiskInputs] = useState<RiskCheckInputs>(
-        EMPTY_RISK_CHECK_INPUTS,
-    );
+    const { advisor } = built.input;
+    const riskCheck = useRiskCheck({
+        advisor,
+        decisions: decisions ?? EMPTY_DECISIONS,
+        today: built.today,
+    });
+    const views = useAdviceViews({
+        adviceState,
+        phase: built.phase,
+        plan: built.plan,
+        riskUnit: built.riskUnit,
+    });
 
     if (adviceState.phase === AccountAdvicePhase.Loading) {
         return <LoadingAdvice label="Computing the advice" />;
@@ -483,21 +490,9 @@ function ComputedAdvice({
         );
     }
 
-    const { advisor } = built.input;
-    const rungs = adviceState.advice.dailyPlanCard?.rungs ?? [];
-    const valueView = adviceValueViewOf({
-        context: {
-            phase: built.phase ?? TradingPhase.Funded,
-            plan: built.plan,
-            unit: built.riskUnit,
-        },
-        documentedRisk: rungs[0]?.risk ?? null,
-        outcome:
-            adviceState.values.phase === AdviceValuesPhase.Ready
-                ? adviceState.values.result
-                : null,
-    });
-    const view = adviceViewModel(adviceWithValues(adviceState.advice, valueView));
+    if (views === null) return <LoadingAdvice label="Computing the advice" />;
+
+    const { valueView, view } = views;
 
     if (view.kind === AdviceDisplayKind.Stale) {
         return (
@@ -521,35 +516,10 @@ function ComputedAdvice({
     }
 
     const suggestion = canAcceptSize ? suggestionFrom(view, built) : null;
-
-    const dayCounts = parseDayCounts(riskInputs);
-    const stopReason =
-        dayCounts === null || dayCounts.wins + dayCounts.losses === 0
+    const runNote =
+        built.input.values === null || built.input.values === undefined
             ? null
-            : dayStopReasonOf(advisor, rungs, dayCounts.wins, dayCounts.losses);
-    const parsedRisk = parseRiskCheckInputs(riskInputs);
-    const proposedResult =
-        parsedRisk.kind === RiskCheckInputKind.Valid
-            ? advisor.checkNextTradeRisk(
-                  parsedRisk.risk,
-                  dayProgressOf(rungs, parsedRisk.wins, parsedRisk.losses),
-              )
-            : null;
-    const proposedCheck: null | RiskCheckView =
-        proposedResult !== null && parsedRisk.kind === RiskCheckInputKind.Valid
-            ? riskCheckViewOf(proposedResult, parsedRisk.losses)
-            : null;
-    const { latest, recorded } = todaysDecisionsOf(decisions ?? [], built.today);
-    const recordedCheck = recordedCheckOf(
-        advisor,
-        rungs,
-        recorded?.actualRiskCents ?? null,
-        dayCounts,
-    );
-    const flagExcess = Math.max(
-        payoutFlagExcessOf(proposedCheck),
-        payoutFlagExcessOf(recordedCheck?.view ?? null),
-    );
+            : valueRunNoteOf(built.input.values);
 
     const optimaRows = [
         ...view.optima,
@@ -567,7 +537,7 @@ function ComputedAdvice({
             <p className="text-sm">Next action: {ACCOUNT_ACTION_TEXT[view.action]}</p>
             {view.action === AccountAction.RequestPayout && (
                 <PayoutReadyBanner
-                    flag={flagExcess > 0 ? { excess: flagExcess } : null}
+                    flag={riskCheck.flagExcess > 0 ? { excess: riskCheck.flagExcess } : null}
                     stake={valueView.stake}
                 />
             )}
@@ -594,13 +564,14 @@ function ComputedAdvice({
                                 : {
                                       phase: built.phase,
                                       plan: built.plan,
+                                      tierContext: built.tierContext,
                                       unit: built.riskUnit,
                                   }
                         }
                         stopText={
-                            stopReason === null
+                            riskCheck.stopReason === null
                                 ? null
-                                : DAY_STOP_REASON_TEXT[stopReason]
+                                : DAY_STOP_REASON_TEXT[riskCheck.stopReason]
                         }
                     />
                 </section>
@@ -611,13 +582,14 @@ function ComputedAdvice({
                 </h3>
                 <ValuesNotice
                     isLive={built.phase === null}
+                    runNote={runNote}
                     values={adviceState.values}
                 >
                     <NextTradeValue valueView={valueView} />
                 </ValuesNotice>
             </section>
             <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">Ranked risk candidates</h3>
+                <h3 className="text-sm font-medium">One-step risk candidates</h3>
                 <ValuesNotice
                     isLive={built.phase === null}
                     values={adviceState.values}
@@ -631,23 +603,22 @@ function ComputedAdvice({
                 </h3>
                 <ProposedRiskCheck
                     accountId={accountId}
-                    check={proposedCheck}
-                    decisionId={latest?.id ?? null}
+                    check={riskCheck.proposed}
                     inputMessage={
-                        parsedRisk.kind === RiskCheckInputKind.Invalid
-                            ? parsedRisk.message
+                        riskCheck.parsedRisk.kind === RiskCheckInputKind.Invalid
+                            ? riskCheck.parsedRisk.message
                             : null
                     }
-                    inputs={riskInputs}
+                    inputs={riskCheck.inputs}
                     notRunReason={
-                        proposedCheck === null &&
-                        parsedRisk.kind === RiskCheckInputKind.Valid
+                        riskCheck.proposed === null &&
+                        riskCheck.parsedRisk.kind === RiskCheckInputKind.Valid
                             ? 'The risk check could not run for this account.'
                             : null
                     }
                     occurredOn={built.today}
-                    onChange={setRiskInputs}
-                    recorded={recordedCheck}
+                    onChange={riskCheck.setInputs}
+                    recorded={riskCheck.recorded}
                 />
             </section>
             {view.payoutAdvice !== null && (
@@ -704,87 +675,8 @@ function namedInputQueries(queries: {
     ];
 }
 
-function NextTradeValue({ valueView }: { readonly valueView: AdviceValueView }) {
-    if (valueView.swings.length === 0) {
-        return (
-            <p className="text-sm text-muted-foreground">
-                No trade is placeable today, so there is no next trade to value.
-            </p>
-        );
-    }
-    return (
-        <div className="flex flex-col gap-3">
-            <ul className="flex list-none flex-col gap-1">
-                {valueView.swings.map((swing) => (
-                    <EvSwingRow
-                        key={
-                            swing.kind === ValueSectionKind.Ready
-                                ? swing.row.index
-                                : swing.index
-                        }
-                        view={swing}
-                    />
-                ))}
-            </ul>
-            {valueView.tree !== null && <OneStepTree tree={valueView.tree} />}
-        </div>
-    );
-}
-
 function optionalDollars(cents: undefined | UsdCents) {
     return cents === undefined ? null : usdCentsToDollars(cents);
-}
-
-function payoutFlagExcessOf(check: null | RiskCheckView): number {
-    return check?.payoutEligibleAboveRung === true ? check.excess : 0;
-}
-
-function recordedCheckOf(
-    advisor: SizingAdvisor,
-    rungs: readonly DocumentedRung[],
-    actualRiskCents: null | UsdCents,
-    dayCounts: null | { readonly losses: number; readonly wins: number },
-): null | { readonly risk: number; readonly view: RiskCheckView } {
-    if (actualRiskCents === null) return null;
-    const risk = usdCentsToDollars(actualRiskCents);
-    const counts = dayCounts ?? { losses: 0, wins: 0 };
-    const result = advisor.checkNextTradeRisk(
-        risk,
-        dayProgressOf(rungs, counts.wins, counts.losses),
-    );
-    return result === null
-        ? null
-        : { risk, view: riskCheckViewOf(result, counts.losses) };
-}
-
-function RiskCandidates({ valueView }: { readonly valueView: AdviceValueView }) {
-    const { candidates } = valueView;
-    if (candidates === null) {
-        return (
-            <p className="text-sm text-muted-foreground">
-                No risk candidates were computed.
-            </p>
-        );
-    }
-    switch (candidates.kind) {
-        case ValueSectionKind.Failed: {
-            return (
-                <p className="text-sm text-muted-foreground">
-                    Left out: {candidates.reason}
-                </p>
-            );
-        }
-        case ValueSectionKind.NotModeled: {
-            return (
-                <p className="text-sm text-muted-foreground">
-                    Risk candidates are not modeled for this account.
-                </p>
-            );
-        }
-        case ValueSectionKind.Ready: {
-            return <RiskCandidatesTable view={candidates.view} />;
-        }
-    }
 }
 
 function suggestionFrom(
@@ -807,53 +699,4 @@ function suggestionFrom(
         source: view.provenance.source,
         stage: built.stage,
     };
-}
-
-function ValuesNotice({
-    children,
-    isLive,
-    values,
-}: {
-    readonly children: ReactNode;
-    readonly isLive: boolean;
-    readonly values: AdviceValuesState;
-}) {
-    if (isLive) {
-        return <p className="text-sm text-muted-foreground">{NO_LIVE_VALUE_TEXT}</p>;
-    }
-    switch (values.phase) {
-        case AdviceValuesPhase.Failed: {
-            return (
-                <div className="flex flex-col gap-2">
-                    <p className="text-sm text-muted-foreground">
-                        Left out: {values.reason}
-                    </p>
-                    <Button
-                        className="self-start"
-                        onClick={values.retry}
-                        variant="outline"
-                    >
-                        Retry the value views
-                    </Button>
-                </div>
-            );
-        }
-        case AdviceValuesPhase.Idle: {
-            return (
-                <p className="text-sm text-muted-foreground">
-                    The value views are unavailable for this account state.
-                </p>
-            );
-        }
-        case AdviceValuesPhase.Loading: {
-            return (
-                <div aria-busy="true" aria-label="Computing the value views">
-                    <Skeleton className="h-16 w-full" />
-                </div>
-            );
-        }
-        case AdviceValuesPhase.Ready: {
-            return children;
-        }
-    }
 }

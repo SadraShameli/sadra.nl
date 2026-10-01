@@ -618,6 +618,32 @@ describe('FundedValueCard (PT-66)', () => {
         expect(toolsWorkerBox.instances[0]?.runSpy).not.toHaveBeenCalled();
     });
 
+    it('disables its sample size input and says it was not computed while the inputs are refused, pointing at the value chain card (PT-67 review)', () => {
+        act(() => {
+            root.render(
+                <FundedValueCard
+                    cards={{ kind: ValueCardsInputKind.Refused, reason: 'bad payout request' }}
+                    rulebookSampleThreshold={10}
+                />,
+            );
+        });
+        expect(container.querySelector('input')?.disabled).toBe(true);
+        expect(container.textContent).toContain(
+            'Not computed while the value inputs are refused; the reason is shown in the value chain card.',
+        );
+        expect(container.textContent).not.toContain('bad payout request');
+    });
+
+    it('keeps its sample size input enabled when the inputs are ready (PT-67 review)', () => {
+        act(() => {
+            root.render(
+                <FundedValueCard cards={ready(fakeCards())} rulebookSampleThreshold={10} />,
+            );
+        });
+        expect(container.querySelector('input')?.disabled).toBe(false);
+        expect(container.textContent).not.toContain('Not computed while');
+    });
+
     it('shows the refusal text once when both value cards are refused (PT-67 addendum)', () => {
         const refused: ValueCardsInput = {
             kind: ValueCardsInputKind.Refused,

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -152,6 +154,7 @@ function documentedFigures(): DocumentedRunFigures {
         expectedMonthlyRealizedNet: { standardError: 1, value: 280 },
         expectedNetPerAttempt: { standardError: 1, value: 50 },
         expectedPayoutPerFundedAccount: { standardError: 0, value: 800 },
+        fundedBustProbability: { standardError: 1, value: 0.2 },
         fundedHorizonDays: 120,
         fundedPayoutCountDistribution: [0.5, 0.5],
         fundedSurvivalProbability: { standardError: 1, value: 0.55 },
@@ -250,7 +253,9 @@ describe('NextSlotView', () => {
         expect(headers.every((header) => header.scope === 'col')).toBe(true);
         expect(
             headers.some(
-                (header) => header.textContent === 'Funded bust at the optimum',
+                (header) =>
+                    header.textContent ===
+                    'Funded bust at the optimum, share of all simulated attempts',
             ),
         ).toBe(true);
         expect(table?.textContent).toContain('40.0%');
@@ -264,6 +269,21 @@ describe('NextSlotView', () => {
             '[role="region"][aria-labelledby="next-slot-unverified"]',
         );
         expect(region?.tabIndex).toBe(0);
+    });
+
+    it('uses the shared Table with its container props and keeps no local scroll-table copy', () => {
+        const source = readFileSync(
+            path.resolve(
+                import.meta.dirname,
+                '../../../../../src/app/(app)/prop-calculator/accounts/next-slot/NextSlotView.tsx',
+            ),
+            'utf8',
+        );
+        expect(source).toContain("from '~/components/ui/Table'");
+        expect(source).toMatch(/<Table\b/u);
+        expect(source).not.toContain('ScrollTable');
+        expect(source).not.toContain('SCROLL_REGION_TAB_INDEX');
+        expect(source).not.toMatch(/<table\b/u);
     });
 
     it('banners the ranking as provisional while engine runs are still pending', () => {

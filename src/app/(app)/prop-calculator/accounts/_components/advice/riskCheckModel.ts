@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 import { formatCurrency } from '~/lib/format';
 import {
+    type RuleViolationKind,
+    type UsdCents,
+    usdCentsToDollars,
+} from '~/lib/prop-accounts';
+import {
     CENTS_PER_DOLLAR,
     type Dollars,
     dollars,
@@ -10,13 +15,14 @@ import {
 } from '~/lib/prop-calculator';
 import {
     DAY_STOP_REASON_TEXT,
-    type DayProgress,
     type DayStopReason,
-    type DocumentedRung,
     NextTradeRiskVerdict,
     type SizingAdvisor,
 } from '~/lib/prop-calculator/advisor';
-import { type NextTradeRiskCheckResult } from '~/lib/prop-calculator/advisor/actions';
+import {
+    dayProgressFromCounts,
+    type NextTradeRiskCheckResult,
+} from '~/lib/prop-calculator/advisor/actions';
 
 export enum RiskCheckInputKind {
     Empty = 'empty',
@@ -34,10 +40,31 @@ export type ParsedRiskCheckInputs =
           readonly wins: number;
       };
 
+export interface RecordedRiskCheck {
+    readonly basisText: string;
+    readonly decisionId: string;
+    readonly risk: number;
+    readonly view: RiskCheckView;
+}
+
+export interface RiskCheckDecision {
+    readonly actualRiskCents: null | UsdCents;
+    readonly decidedOn: string;
+    readonly id: string;
+}
+
 export interface RiskCheckInputs {
     readonly losses: string;
     readonly risk: string;
     readonly wins: string;
+}
+
+export interface RiskChecks {
+    readonly flagExcess: number;
+    readonly parsedRisk: ParsedRiskCheckInputs;
+    readonly proposed: null | RiskCheckView;
+    readonly recorded: null | RecordedRiskCheck;
+    readonly stopReason: DayStopReason | null;
 }
 
 export interface RiskCheckView {
@@ -71,45 +98,39 @@ const dayCountSchema = z
     .pipe(z.coerce.number())
     .pipe(z.number().int().nonnegative().max(MAX_DAY_TRADE_COUNT));
 
+const WHOLE_CENTS_PATTERN = /^(\d+(\.\d{0,2})?|\.\d{1,2})$/;
+
 const riskCheckRiskSchema = z
     .string()
     .trim()
+    .regex(WHOLE_CENTS_PATTERN)
     .pipe(z.coerce.number())
     .pipe(z.number().positive().max(MAX_RISK_CHECK_DOLLARS));
 
-export function dayProgressOf(
-    rungs: readonly DocumentedRung[],
-    wins: number,
-    losses: number,
-): DayProgress {
-    const lastIndex = rungs.length - 1;
-    const runningLoss =
-        losses <= 0 || lastIndex < 0
-            ? dollars(0)
-            : (rungs[Math.min(losses - 1, lastIndex)]?.runningLossAfter ??
-              dollars(0));
-    const currentRung =
-        lastIndex < 0 ? null : (rungs[Math.min(losses, lastIndex)] ?? null);
-    const winProfit = currentRung === null ? 0 : wins * currentRung.takeProfit;
-    return {
-        dayPnL: dollars(winProfit - runningLoss),
-        losses,
-        runningLoss,
-        wins,
-    };
-}
-
 export function dayStopReasonOf(
     advisor: SizingAdvisor,
-    rungs: readonly DocumentedRung[],
     wins: number,
     losses: number,
 ): DayStopReason | null {
     const result = advisor.checkNextTradeRisk(
         ONE_CENT,
-        dayProgressOf(rungs, wins, losses),
+        dayProgressFromCounts(advisor, wins, losses),
     );
     return result?.stopReason ?? null;
+}
+
+export function hasViolationForDecision(
+    violations: readonly {
+        readonly decisionId: null | string;
+        readonly kind: RuleViolationKind;
+    }[],
+    decisionId: string,
+    kind: RuleViolationKind,
+): boolean {
+    return violations.some(
+        (violation) =>
+            violation.decisionId === decisionId && violation.kind === kind,
+    );
 }
 
 export function parseDayCounts(
@@ -130,7 +151,7 @@ export function parseRiskCheckInputs(
     if (!risk.success) {
         return {
             kind: RiskCheckInputKind.Invalid,
-            message: `Enter a risk above $0 and up to ${formatCurrency(MAX_RISK_CHECK_DOLLARS)}.`,
+            message: `Enter a risk above $0 and up to ${formatCurrency(MAX_RISK_CHECK_DOLLARS)}, in whole cents.`,
         };
     }
     const wins = dayCountSchema.safeParse(inputs.wins);
@@ -146,6 +167,55 @@ export function parseRiskCheckInputs(
         losses: losses.data,
         risk: dollars(floorToWholeCents(risk.data)),
         wins: wins.data,
+    };
+}
+
+export function payoutFlagExcessOf(
+    checks: readonly (null | RiskCheckView)[],
+): number {
+    return Math.max(
+        0,
+        ...checks.map((check) =>
+            check?.payoutEligibleAboveRung === true ? check.excess : 0,
+        ),
+    );
+}
+
+export function riskChecksOf(args: {
+    readonly advisor: SizingAdvisor;
+    readonly decisions: readonly RiskCheckDecision[];
+    readonly inputs: RiskCheckInputs;
+    readonly today: string;
+}): RiskChecks {
+    const { advisor, decisions, inputs, today } = args;
+    const dayCounts = parseDayCounts(inputs);
+    const parsedRisk = parseRiskCheckInputs(inputs);
+    const proposedResult =
+        parsedRisk.kind === RiskCheckInputKind.Valid
+            ? advisor.checkNextTradeRisk(
+                  parsedRisk.risk,
+                  dayProgressFromCounts(advisor, parsedRisk.wins, parsedRisk.losses),
+              )
+            : null;
+    const proposed =
+        proposedResult !== null && parsedRisk.kind === RiskCheckInputKind.Valid
+            ? riskCheckViewOf(proposedResult, parsedRisk.losses)
+            : null;
+    const { recorded: recordedDecision } = todaysDecisionsOf(decisions, today);
+    const recorded = recordedRiskCheckOf({
+        advisor,
+        dayCounts,
+        decision: recordedDecision,
+    });
+    return {
+        flagExcess: payoutFlagExcessOf([proposed, recorded?.view ?? null]),
+        parsedRisk,
+        proposed,
+        recorded,
+        stopReason:
+            dayCounts === null || dayCounts.wins + dayCounts.losses === 0
+                ? null
+                : dayStopReasonOf(advisor, dayCounts.wins, dayCounts.losses),
     };
 }
 
@@ -183,6 +253,54 @@ export function todaysDecisionsOf<
             ofToday.find((decision) => decision.actualRiskCents !== null) ??
             null,
     };
+}
+
+function countText(count: number, singular: string, plural: string): string {
+    return `${String(count)} ${count === 1 ? singular : plural}`;
+}
+
+function dayBasisTextOf(
+    dayCounts: null | { readonly losses: number; readonly wins: number },
+): string {
+    if (dayCounts === null) {
+        return 'Judged as the first trade of the day: the wins and losses entered above are not valid.';
+    }
+    return dayCounts.wins + dayCounts.losses === 0
+        ? 'Judged as the first trade of the day: no wins or losses are entered above.'
+        : judgedAgainstText(dayCounts);
+}
+
+function judgedAgainstText(dayCounts: {
+    readonly losses: number;
+    readonly wins: number;
+}): string {
+    return `Judged against ${countText(dayCounts.wins, 'win', 'wins')} and ${countText(dayCounts.losses, 'loss', 'losses')} entered above.`;
+}
+
+function recordedRiskCheckOf(args: {
+    readonly advisor: SizingAdvisor;
+    readonly dayCounts: null | { readonly losses: number; readonly wins: number };
+    readonly decision: null | {
+        readonly actualRiskCents: null | UsdCents;
+        readonly id: string;
+    };
+}): null | RecordedRiskCheck {
+    const { advisor, dayCounts, decision } = args;
+    if (decision?.actualRiskCents == null) return null;
+    const risk = usdCentsToDollars(decision.actualRiskCents);
+    const counts = dayCounts ?? { losses: 0, wins: 0 };
+    const result = advisor.checkNextTradeRisk(
+        risk,
+        dayProgressFromCounts(advisor, counts.wins, counts.losses),
+    );
+    return result === null
+        ? null
+        : {
+              basisText: dayBasisTextOf(dayCounts),
+              decisionId: decision.id,
+              risk,
+              view: riskCheckViewOf(result, counts.losses),
+          };
 }
 
 function verdictTextOf(

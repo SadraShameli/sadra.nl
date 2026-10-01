@@ -38,6 +38,7 @@ import {
     startStateOf,
     tradeValueSwing,
     valueAtState,
+    ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
 import { InstrumentSymbol } from '~/lib/prop-calculator/core';
 import { SIM_INPUTS_REFUSAL_PREFIX } from '~/lib/prop-calculator/simulator';
@@ -392,7 +393,10 @@ describe('advisor value requests (PT-67)', () => {
         });
         expect(result.swings[1]?.outcome).toEqual({
             kind: AdvisorRequestOutcomeKind.Succeeded,
-            value: tradeValueSwing(account, request.spec, secondRung ?? { risk: 0, rr: 0 }),
+            value: tradeValueSwing(account, request.spec, {
+                ...(secondRung ?? { risk: 0, rr: 0 }),
+                earlierRisks: [firstRung?.risk ?? 0],
+            }),
         });
         expect(result.now).toEqual({
             kind: AdvisorRequestOutcomeKind.Succeeded,
@@ -406,6 +410,52 @@ describe('advisor value requests (PT-67)', () => {
             }),
         });
         expect(result.payoutStake).toBeNull();
+    });
+
+    it('prices a later rung from the account after the earlier rungs lost, never from the session start', () => {
+        const account = evalAccount();
+        const request = valueRequestOf(account);
+
+        const result = advisorValueOutcomeOf(plan, request);
+
+        const [first, second] = result.swings;
+        if (
+            first?.outcome.kind !== AdvisorRequestOutcomeKind.Succeeded ||
+            second?.outcome.kind !== AdvisorRequestOutcomeKind.Succeeded ||
+            first.outcome.value.kind !== ValueResultKind.Swing ||
+            second.outcome.value.kind !== ValueResultKind.Swing
+        ) {
+            throw new Error('expected two swing results');
+        }
+        expect(second.outcome.value.now).not.toEqual(first.outcome.value.now);
+        expect(second.outcome.value).not.toEqual(
+            tradeValueSwing(account, request.spec, second.rung),
+        );
+    });
+
+    it('values every swing and the candidates of an eval account through the worker, valued at the next session start', () => {
+        const account = evalAccount();
+        const request = valueRequestOf(account);
+
+        const result = advisorValueOutcomeOf(plan, request);
+
+        expect(result.swings).toHaveLength(2);
+        for (const [position, swing] of result.swings.entries()) {
+            expect(swing.outcome.kind).toBe(AdvisorRequestOutcomeKind.Succeeded);
+            if (swing.outcome.kind !== AdvisorRequestOutcomeKind.Succeeded) return;
+            expect(swing.outcome.value).toEqual(
+                tradeValueSwing(account, request.spec, {
+                    ...swing.rung,
+                    earlierRisks: request.rungs
+                        .slice(0, position)
+                        .map((earlier) => earlier.risk),
+                }),
+            );
+            expect(swing.outcome.value.kind).toBe(ValueResultKind.Swing);
+        }
+        expect(result.candidates.kind).toBe(AdvisorRequestOutcomeKind.Succeeded);
+        if (result.candidates.kind !== AdvisorRequestOutcomeKind.Succeeded) return;
+        expect(result.candidates.value.kind).toBe(ValueResultKind.Candidates);
     });
 
     it('computes the payout stake comparison only when it is requested', () => {

@@ -361,6 +361,11 @@ export function AccountDetailView({
                         payoutsQuery={payoutsQuery}
                         plan={plan}
                         rulebook={rulebookQuery.data}
+                        rulebookError={
+                            rulebookQuery.error === null
+                                ? null
+                                : errorMessage(rulebookQuery.error)
+                        }
                         snapshotsQuery={snapshotsQuery}
                         today={today}
                         userId={userId}
@@ -556,6 +561,7 @@ function AccountStateSection({
     payoutsQuery,
     plan,
     rulebook,
+    rulebookError,
     snapshotsQuery,
     today,
     userId,
@@ -567,6 +573,7 @@ function AccountStateSection({
     readonly payoutsQuery: ListQuery<PayoutRow>;
     readonly plan: Plan;
     readonly rulebook: RulebookParameters | undefined;
+    readonly rulebookError: null | string;
     readonly snapshotsQuery: ListQuery<SnapshotRow>;
     readonly today: string;
     readonly userId: string;
@@ -629,7 +636,11 @@ function AccountStateSection({
     if (view === null) {
         return (
             queryErrors || (
-                <div aria-busy="true" aria-label="Loading the account state">
+                <div
+                    aria-busy="true"
+                    aria-label="Loading the account state"
+                    role="status"
+                >
                     <Skeleton className="h-24 w-full" />
                 </div>
             )
@@ -664,6 +675,7 @@ function AccountStateSection({
                             measuredRebuyLag={rebuyLag}
                             plan={plan}
                             rulebook={rulebook}
+                            rulebookError={rulebookError}
                         />
                     </div>
                     <div className="flex flex-col gap-2">
@@ -682,6 +694,7 @@ function AccountStateSection({
                         <SimulateAccountLink
                             plan={plan}
                             rulebook={rulebook}
+                            rulebookError={rulebookError}
                             stage={view.state.input.stage}
                         />
                     </div>

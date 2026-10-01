@@ -38,7 +38,8 @@ function withStubbedPolicy<T>(
     run: () => T,
 ): T {
     const firm = ALL_FIRMS.find((candidate) => candidate.id === firmId);
-    if (firm === undefined) throw new Error('expected the entry firm to be registered');
+    if (firm === undefined)
+        throw new Error('expected the entry firm to be registered');
     const mutable = firm as { accountPolicy: FirmAccountPolicy };
     const original = mutable.accountPolicy;
     mutable.accountPolicy = policy;
@@ -87,10 +88,7 @@ describe('PooledCapReachedRule: shared pool', () => {
             reduction: null,
             subCaps: [],
         };
-        const accounts = [
-            accountFor(FUNDED_ENTRY),
-            accountFor(FUNDED_ENTRY),
-        ];
+        const accounts = [accountFor(FUNDED_ENTRY), accountFor(FUNDED_ENTRY)];
         const alerts = withStubbedPolicy(
             FUNDED_ENTRY.firmId,
             new StubCapPolicy(policy),
@@ -98,6 +96,28 @@ describe('PooledCapReachedRule: shared pool', () => {
         );
         expect(alerts).toHaveLength(1);
         expect(alerts[0]?.severity).toBe(AlertSeverity.Warning);
+    });
+
+    it('warns once the plan cap is used even while the verified pool has room, as the pooled cap card counts it', () => {
+        const cap = FUNDED_ENTRY.plan.maxFundedAccounts;
+        const policy: SharedPoolPolicy = {
+            excludedPlans: [],
+            household: false,
+            kind: AccountCapPolicyKind.SharedPool,
+            members: [FUNDED_PLAN_SERIAL],
+            poolSize: cap + 2,
+            reduction: null,
+            subCaps: [],
+        };
+        const accounts = Array.from({ length: cap }, () =>
+            accountFor(FUNDED_ENTRY),
+        );
+        const alerts = withStubbedPolicy(
+            FUNDED_ENTRY.firmId,
+            new StubCapPolicy(policy),
+            () => alertsOf(rule, { accounts }),
+        );
+        expect(alerts).toHaveLength(1);
     });
 
     it('is silent while the verified pool still has a free slot', () => {

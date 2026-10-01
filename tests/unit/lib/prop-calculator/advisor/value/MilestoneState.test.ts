@@ -18,6 +18,8 @@ import {
     resolveDocumentedRetainedCushion,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
+    accountAfterClosedSession,
+    closedSessionOf,
     EvalMilestoneGap,
     MilestoneKind,
     milestoneState,
@@ -26,6 +28,7 @@ import {
     type AccountState,
     dollars,
     E8FuturesVariant,
+    evalStartStateIssue,
     FirmId,
     MffuVariant,
     newFundedCycleTracker,
@@ -147,7 +150,7 @@ function topStepPlan(): Plan {
 }
 
 describe('milestoneState (F-V17, PT-65a step 2)', () => {
-    it('eval: moves the state to balance = target, carrying elapsed progress', () => {
+    it('eval: moves the state to balance = target and counts the closing day, carrying elapsed progress', () => {
         const plan = rapidEodPlan();
         const spec = specFor(plan);
         const account = evalAccount(plan, { qualifyingDays: 3, tradingDays: 3 });
@@ -160,8 +163,25 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
         expect(outcome.state.balance).toBe(
             account.state.startingBalance + plan.profitTarget,
         );
-        expect(outcome.state.qualifyingDays).toBe(3);
-        expect(outcome.state.tradingDays).toBe(3);
+        expect(outcome.state.qualifyingDays).toBe(4);
+        expect(outcome.state.tradingDays).toBe(4);
+    });
+
+    it('eval: returns a session-start state, so callers never compose resetForNewDay themselves', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+        const account = evalAccount(plan, { elapsedDays: 3, tradingDays: 3 });
+
+        const outcome = milestoneState(account, spec);
+        if (outcome.kind !== MilestoneKind.Eval) {
+            throw new Error('expected an eval milestone');
+        }
+
+        expect(outcome.state.todayPnL).toBe(0);
+        expect(outcome.state.elapsedDays).toBe(4);
+        expect(
+            evalStartStateIssue(plan, outcome.state, 40)?.includes('todayPnL') ?? false,
+        ).toBe(false);
     });
 
     it('eval: lists MinTradingDaysNotMet when the plan needs more trading days than elapsed', () => {
@@ -248,6 +268,39 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
         );
     });
 
+    it('funded: carries the cash the trader receives for the debited request, net of the split and the payouts already issued', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+        const account = fundedAccount(plan, { balance: 51_500 });
+
+        const outcome = milestoneState(account, spec);
+        if (outcome.kind !== MilestoneKind.Funded) {
+            throw new Error('expected a funded milestone');
+        }
+
+        expect(outcome.traderReceives).toBe(
+            plan.payoutFromProfit(
+                outcome.debited,
+                account.fundedTracker?.payoutsIssued ?? 0,
+            ),
+        );
+        expect(outcome.traderReceives).toBeGreaterThan(0);
+        expect(outcome.traderReceives).toBeLessThanOrEqual(outcome.debited);
+    });
+
+    it('funded: refuses an account without its funded cycle tracker, which the cash depends on', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+        const account: ReconstructedFundedOrEvalAccount = {
+            ...fundedAccount(plan, { balance: 51_500 }),
+            fundedTracker: null,
+        };
+
+        expect(() => milestoneState(account, spec)).toThrow(
+            /funded cycle tracker/,
+        );
+    });
+
     it('rejects a spec whose retained cushion request breaks Hard Rule 2, before computing a payout or withdrawal', () => {
         const plan = rapidEodPlan();
         const spec: DocumentedPolicySpec = {
@@ -314,5 +367,122 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
             milestoneState(account, spec),
         );
         expect(account.state).toStrictEqual(before);
+    });
+});
+
+describe('accountAfterClosedSession (PT-67b step 1)', () => {
+    it('eval: closes the day through the ledger, with todayPnL back at 0', () => {
+        const plan = rapidEodPlan();
+        const account = evalAccount(plan, {
+            elapsedDays: 2,
+            qualifyingDays: 1,
+            tradingDays: 2,
+        });
+
+        const closed = accountAfterClosedSession(account, 600);
+
+        expect(closed.state.balance).toBe(account.state.balance + 600);
+        expect(closed.state.todayPnL).toBe(0);
+        expect(closed.state.tradingDays).toBe(3);
+        expect(closed.state.elapsedDays).toBe(3);
+        expect(closed.state.bestDayProfit).toBe(600);
+        expect(closed.state.threshold).toBeGreaterThan(account.state.threshold);
+        expect(closed.cushion).toBe(closed.state.balance - closed.state.threshold);
+        expect(account.state.todayPnL).toBe(0);
+        expect(account.state.tradingDays).toBe(2);
+    });
+
+    it('eval: a losing day leaves the best day and the floor where they were', () => {
+        const plan = rapidEodPlan();
+        const account = evalAccount(plan, { bestDayProfit: 300, tradingDays: 2 });
+
+        const closed = accountAfterClosedSession(account, -250);
+
+        expect(closed.state.bestDayProfit).toBe(300);
+        expect(closed.state.threshold).toBe(account.state.threshold);
+        expect(closed.state.todayPnL).toBe(0);
+    });
+
+    it('funded: counts the day as the cycle best day on a fresh tracker object and advances the session count', () => {
+        const plan = rapidEodPlan();
+        const account = fundedAccount(plan, { balance: 50_800 });
+        const priorTracker = account.fundedTracker;
+        if (priorTracker === null) throw new Error('expected a funded tracker');
+
+        const closed = accountAfterClosedSession(account, 500);
+
+        expect(closed.fundedTracker).not.toBe(priorTracker);
+        expect(closed.fundedTracker?.cycleBestDayProfit).toBe(500);
+        expect(closed.fundedTracker?.sessionDaysSinceAnchor).toBe(0);
+        expect(closed.state.todayPnL).toBe(0);
+        expect(closed.state.qualifyingDays).toBe(
+            account.state.qualifyingDays +
+                (500 >= (plan.minQualifyingDayProfit ?? -Infinity) ? 1 : 0),
+        );
+        expect(priorTracker.cycleBestDayProfit).toBe(0);
+        expect(priorTracker.sessionDaysSinceAnchor).toBeNull();
+    });
+
+    it('funded: a smaller day never lowers the cycle best day', () => {
+        const plan = rapidEodPlan();
+        const account = fundedAccount(plan, { balance: 50_800 });
+        if (account.fundedTracker === null) throw new Error('expected a funded tracker');
+        account.fundedTracker.cycleBestDayProfit = 700;
+
+        const closed = accountAfterClosedSession(account, 200);
+
+        expect(closed.fundedTracker?.cycleBestDayProfit).toBe(700);
+    });
+
+    it('funded: refuses an account without its cycle tracker', () => {
+        const plan = rapidEodPlan();
+        const account: ReconstructedFundedOrEvalAccount = {
+            ...fundedAccount(plan),
+            fundedTracker: null,
+        };
+
+        expect(() => accountAfterClosedSession(account, 100)).toThrow(
+            /funded cycle tracker/,
+        );
+    });
+});
+
+describe('closedSessionOf (a session of several trades)', () => {
+    it('closes the day once over all the trades and leaves the session start state', () => {
+        const plan = rapidEodPlan();
+        const account = evalAccount(plan);
+
+        const session = closedSessionOf(account, [-300, -200]);
+
+        expect(session.isBusted).toBe(false);
+        expect(session.isDayEnded).toBe(false);
+        expect(session.account.state.balance).toBe(account.state.balance - 500);
+        expect(session.account.state.todayPnL).toBe(0);
+        expect(session.account.state.tradingDays).toBe(
+            account.state.tradingDays + 1,
+        );
+    });
+
+    it('stops at the trade that busts and reports the bust, though the reset state is alive', () => {
+        const plan = rapidEodPlan();
+        const account = evalAccount(plan);
+        const cushion = account.state.balance - account.state.threshold;
+
+        const session = closedSessionOf(account, [-cushion, -100]);
+
+        expect(session.isBusted).toBe(true);
+        expect(session.isDayEnded).toBe(true);
+        expect(session.account.state.balance).toBe(
+            account.state.balance - cushion,
+        );
+    });
+
+    it('agrees with accountAfterClosedSession for one trade', () => {
+        const plan = rapidEodPlan();
+        const account = fundedAccount(plan, { balance: 50_800 });
+
+        expect(closedSessionOf(account, [500]).account).toEqual(
+            accountAfterClosedSession(account, 500),
+        );
     });
 });

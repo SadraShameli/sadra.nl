@@ -10,6 +10,7 @@ export {
     AdviceCoverageUnsupportedReason,
 } from './AdviceCoverageOf';
 export { chooseObjective } from './ChooseObjective';
+export { dayProgressFromCounts } from './DayProgress';
 export { flatRiskIgnoresStateReason } from './FlatRiskReason';
 export {
     nextTradeRiskCheck,

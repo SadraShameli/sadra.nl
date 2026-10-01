@@ -108,6 +108,7 @@ import {
     adviceCoverageOf,
     AdviceCoverageOutcomeKind,
     AdviceCoverageUnsupportedReason,
+    dayProgressFromCounts,
     type NextTradeRiskCheckResult,
 } from '~/lib/prop-calculator/advisor/actions';
 import {
@@ -115,8 +116,11 @@ import {
     documentedPolicySpecSchema,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
+    CreditBasis,
+    netOfReplacementFee,
     tradeValueSwing,
     type TradeValueSwingOutcome,
+    valueGap,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
@@ -605,7 +609,12 @@ export default defineCommand({
                 const outcome = tradeValueSwing(account, spec, { risk, rr });
                 const documentedRewardMultiple =
                     advice.documented?.rewardMultiple ?? null;
-                const swing = swingLines(outcome, rr, documentedRewardMultiple);
+                const swing = swingLines(
+                    outcome,
+                    rr,
+                    documentedRewardMultiple,
+                    plan.retryFee(),
+                );
                 for (const line of swing) {
                     ui.note(line);
                 }
@@ -758,19 +767,26 @@ export function swingLines(
     outcome: TradeValueSwingOutcome,
     rr: number,
     documentedRewardMultiple: null | number,
+    replacementFee: number,
 ): string[] {
     if (outcome.kind === ValueResultKind.NotModeled) {
         return [`EV swing: not modeled (${outcome.reason})`];
     }
+    const { afterLoss, afterWin, now } = netOfReplacementFee(
+        outcome,
+        replacementFee,
+    );
     const whatIf =
         documentedRewardMultiple !== null && documentedRewardMultiple !== rr
             ? ` (what-if: differs from the documented 1:${documentedRewardMultiple})`
             : '';
     const bustNote = outcome.afterLossBusted
-        ? `, a loss busts the account (rebuy lag ${outcome.afterLossRebuyLagDays ?? 0} days)`
+        ? `, a loss busts the account (rebuy lag ${outcome.afterLossRebuyLagDays ?? 0} days, replacement fee ${formatCurrency(replacementFee)} netted off)`
         : '';
+    const delta = (to: typeof now) =>
+        uncertainCurrency(valueGap(now, to, CreditBasis.CreditFree));
     return [
-        `EV swing at 1:${rr}${whatIf}: now ${uncertainCurrency(outcome.now.creditInclusive)}, after a win ${uncertainCurrency(outcome.afterWin.creditInclusive)} (${uncertainCurrency(outcome.deltaWin)}), after a loss ${uncertainCurrency(outcome.afterLoss.creditInclusive)} (${uncertainCurrency(outcome.deltaLoss)})${bustNote}, win probability ${formatPercent(outcome.winProbability)}`,
+        `EV swing at 1:${rr}${whatIf}, credit-free, ${outcome.assumption}: now ${uncertainCurrency(now.creditFree)}, after a win ${uncertainCurrency(afterWin.creditFree)} (${delta(afterWin)}), after a loss ${uncertainCurrency(afterLoss.creditFree)} (${delta(afterLoss)})${bustNote}, win probability ${formatPercent(outcome.winProbability)}`,
     ];
 }
 
@@ -843,29 +859,6 @@ const COVERAGE_UNSUPPORTED_REASON_TEXT: Readonly<
     [AdviceCoverageUnsupportedReason.LiveNotModeled]: 'live not modeled',
     [AdviceCoverageUnsupportedReason.Suspended]: 'suspended',
 };
-
-export function dayProgressFromCounts(
-    advisor: SizingAdvisor,
-    wins: number,
-    losses: number,
-): DayProgress {
-    const rungs = advisor.dailyPlanCard()?.rungs ?? [];
-    const lastIndex = rungs.length - 1;
-    const runningLoss =
-        losses <= 0 || lastIndex < 0
-            ? dollars(0)
-            : (rungs[Math.min(losses - 1, lastIndex)]?.runningLossAfter ??
-              dollars(0));
-    const currentRung =
-        lastIndex < 0 ? null : (rungs[Math.min(losses, lastIndex)] ?? null);
-    const winProfit = currentRung === null ? 0 : wins * currentRung.takeProfit;
-    return {
-        dayPnL: dollars(winProfit - runningLoss),
-        losses,
-        runningLoss,
-        wins,
-    };
-}
 
 export function documentedSizingLines(
     sizing: DocumentedSizing,

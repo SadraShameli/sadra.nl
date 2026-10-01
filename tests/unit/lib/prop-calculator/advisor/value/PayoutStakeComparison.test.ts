@@ -14,7 +14,7 @@ import {
     REDUCED_RISK_WHAT_IF_LABEL,
 } from '~/lib/prop-calculator/advisor/value/PayoutStakeComparison';
 import { valueAtState } from '~/lib/prop-calculator/advisor/value/ValueAtState';
-import { requireValue } from '~/lib/prop-calculator/advisor/value/ValueChain';
+import { requestNowValue, requireValue } from '~/lib/prop-calculator/advisor/value/ValueChain';
 import {
     type AccountState,
     FirmId,
@@ -112,6 +112,39 @@ describe('payoutStakeComparison (F-V19, PT-65b step 7)', () => {
         );
     });
 
+    it('carries the payout-stake discriminant, so callers switch on kind and never probe for a field', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+        const account = fundedAccount(plan, { balance: 51_500 });
+
+        const outcome = payoutStakeComparison(account, spec);
+
+        expect(outcome.kind).toBe('payout-stake');
+        expect(
+            payoutStakeComparison(liveAccount(plan), spec).kind,
+        ).toBe('not-modeled');
+    });
+
+    it('takes requestNow from the one request-now construction in the value library', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+        const account = fundedAccount(plan, { balance: 51_500 });
+
+        const outcome = payoutStakeComparison(account, spec);
+        if (!('requestNow' in outcome)) throw new Error('expected a result');
+        const milestone = milestoneState(account, spec);
+        if (milestone.kind !== MilestoneKind.Funded) {
+            throw new Error('expected a funded milestone');
+        }
+        const shared = requestNowValue(account, milestone, spec);
+
+        expect(outcome.requestNow).toEqual({
+            creditFree: shared.requestNow.creditFree,
+            creditInclusive: shared.requestNow.creditInclusive,
+        });
+        expect(outcome.traderReceivesNow).toBe(shared.traderReceives);
+    });
+
     it('continueNow equals V(now) for the account unchanged', () => {
         const plan = rapidEodPlan();
         const spec = specFor(plan);
@@ -171,6 +204,49 @@ describe('payoutStakeComparison (F-V19, PT-65b step 7)', () => {
         expect(outcome.reducedRiskWhatIf.label).toBe(REDUCED_RISK_WHAT_IF_LABEL);
         expect(outcome.reducedRiskWhatIf.risk).toBe(50);
         expect(spec.rulebook.funded.riskCents).toBe(DEFAULT_RULEBOOK.funded.riskCents);
+    });
+
+    it('prices the reduced-risk what-if at the documented reward multiple, scaling the take profit with the risk', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+        const account = fundedAccount(plan, { balance: 51_500 });
+        const { funded } = spec.rulebook;
+        const rewardMultiple = funded.takeProfitCents / funded.riskCents;
+
+        const outcome = payoutStakeComparison(account, spec, {
+            reducedRiskDollars: 125,
+        });
+        if (!('reducedRiskWhatIf' in outcome) || outcome.reducedRiskWhatIf === null) {
+            throw new Error('expected a what-if row');
+        }
+
+        const keepsMultiple: DocumentedPolicySpec = {
+            ...spec,
+            rulebook: {
+                ...spec.rulebook,
+                funded: {
+                    ...funded,
+                    riskCents: 12_500,
+                    takeProfitCents: Math.round(12_500 * rewardMultiple),
+                },
+            },
+        };
+        const keepsOldTakeProfit: DocumentedPolicySpec = {
+            ...spec,
+            rulebook: {
+                ...spec.rulebook,
+                funded: { ...funded, riskCents: 12_500 },
+            },
+        };
+        expect(keepsMultiple.rulebook.funded.takeProfitCents / 12_500).toBe(
+            rewardMultiple,
+        );
+        expect(outcome.reducedRiskWhatIf.value).toEqual(
+            requireValue(valueAtState(account, keepsMultiple)),
+        );
+        expect(outcome.reducedRiskWhatIf.value).not.toEqual(
+            requireValue(valueAtState(account, keepsOldTakeProfit)),
+        );
     });
 
     it('rejects a non-positive reduced risk', () => {

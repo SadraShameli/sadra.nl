@@ -1,4 +1,7 @@
-import { type AccountFromStateModel } from './accountFromStateModel';
+import {
+    type AccountFromStateModel,
+    MilestoneValueViewKind,
+} from './accountFromStateModel';
 
 export function AccountFromStateDetails({
     model,
@@ -17,21 +20,44 @@ export function AccountFromStateDetails({
                     Value from this state, with end-of-horizon credit
                 </dt>
                 <dd className="tabular-nums">{value.creditInclusive}</dd>
-                <dt className="text-muted-foreground">{milestone.label}</dt>
-                <dd className="tabular-nums">
-                    {milestone.valueCreditFree} credit-free;{' '}
-                    {milestone.valueCreditInclusive} with credit
-                </dd>
-                <dt className="text-muted-foreground">
-                    Credit-free gain from the milestone
-                </dt>
-                <dd className="tabular-nums">{milestone.gain}</dd>
+                {milestone.value.kind === MilestoneValueViewKind.Value ? (
+                    <>
+                        <dt className="text-muted-foreground">
+                            {milestone.label}
+                        </dt>
+                        <dd className="tabular-nums">
+                            {milestone.value.creditFree} credit-free;{' '}
+                            {milestone.value.creditInclusive} with credit
+                        </dd>
+                        <dt className="text-muted-foreground">
+                            Credit-free gain from the milestone
+                        </dt>
+                        <dd className="tabular-nums">{milestone.value.gain}</dd>
+                    </>
+                ) : (
+                    <>
+                        <dt className="text-muted-foreground">
+                            {milestone.label}
+                        </dt>
+                        <dd className="text-amber-400">
+                            {milestone.value.text}
+                        </dd>
+                    </>
+                )}
                 {milestone.debited !== null && (
                     <>
                         <dt className="text-muted-foreground">
-                            Payout taken at the milestone
+                            Payout requested at the milestone
                         </dt>
                         <dd className="tabular-nums">{milestone.debited}</dd>
+                    </>
+                )}
+                {milestone.received !== null && (
+                    <>
+                        <dt className="text-muted-foreground">
+                            Cash you receive from that payout
+                        </dt>
+                        <dd className="tabular-nums">{milestone.received}</dd>
                     </>
                 )}
                 {nextPayout !== null && (

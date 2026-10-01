@@ -45,7 +45,7 @@ export interface AccountCalculatorLinkInput {
     readonly stage: SizingStage;
 }
 
-export const ACCOUNT_CALCULATOR_LINK_LABEL =
+const ACCOUNT_CALCULATOR_LINK_LABEL =
     'Fresh start: the simulator runs this plan from day one with your rulebook, not from the current balance of this account';
 
 export const ACCOUNT_CALCULATOR_LINK_FLAG_TEXT: Readonly<

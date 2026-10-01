@@ -196,6 +196,7 @@ function documentedFigures(): DocumentedRunFigures {
             standardError: 20,
             value: 900,
         },
+        fundedBustProbability: { standardError: 0.02, value: 0.2 },
         fundedHorizonDays: 252,
         fundedPayoutCountDistribution: [
             0.6, 0.2, 0.1, 0.05, 0.03, 0.02, 0, 0, 0, 0, 0,

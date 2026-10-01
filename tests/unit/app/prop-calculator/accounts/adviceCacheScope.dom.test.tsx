@@ -135,7 +135,10 @@ vi.mock('~/trpc/react', () => ({
             snapshot: {
                 listForAccount: harness.query('snapshot.listForAccount'),
             },
-            violation: { create: harness.mutation() },
+            violation: {
+                create: harness.mutation(),
+                list: harness.query('violation.list'),
+            },
         },
         useUtils: () => ({
             propAccounts: {
@@ -259,6 +262,7 @@ describe('the advice cache scope (PT-34c review)', () => {
         harness.queries.set('payout.list', answer([]));
         harness.queries.set('rulebook.get', answer(DEFAULT_RULEBOOK));
         harness.queries.set('decision.listForAccount', answer([]));
+        harness.queries.set('violation.list', answer([]));
     }
 
     function mountPage() {
