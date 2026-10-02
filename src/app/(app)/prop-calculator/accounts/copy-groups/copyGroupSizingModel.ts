@@ -3,8 +3,10 @@ import { readinessOverridesOf } from '~/app/(app)/prop-calculator/accounts/_comp
 import { type CopyGroupRow } from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
 import {
     accountStatesForRows,
+    ledgerOrDateFailure,
     type OverviewAccountRow,
     type OverviewPayoutRow,
+    OverviewSectionStatus,
     type OverviewSnapshotRow,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import {
@@ -13,11 +15,16 @@ import {
     type CopyGroupExposure,
     type ExposureEntry,
     exposureOf,
+    firmPayoutCounts,
     isActiveAccount,
     type LedgerEventRow,
+    NO_FIRM_PAYOUT_COUNTS,
+    PortfolioLedger,
 } from '~/lib/prop-accounts';
+import { findFirm } from '~/lib/prop-calculator';
 import {
     copyGroupSizing,
+    type CopyGroupSizingInput,
     type CopyGroupSizingMember,
     type CopyGroupSizingResult,
     CopyGroupSizingResultKind,
@@ -31,9 +38,27 @@ import {
     copyGroupSimulationPlanOf,
 } from './copyGroupSimulationModel';
 
+export const COPY_GROUP_LIVE_TRIGGERS_ENFORCED_TEXT =
+    "The group size applies each member firm's verified live-account triggers.";
+
+export const COPY_GROUP_LIVE_TRIGGERS_NOT_CHECKED_TEXT =
+    "Live triggers not checked: this group's firm rules for moving an account live are not all verified here, or its firm-wide payout count is unknown, so the group size may be one the firm moves live.";
+
+export type CopyGroupPositionSizing = NonNullable<
+    CopyGroupSizingInput['positionSizing']
+>;
+
+export interface CopyGroupSizingInputs {
+    readonly leftOutLabels: readonly string[];
+    readonly members: readonly CopyGroupSizingMember[];
+    readonly rulebook: RulebookParameters;
+    readonly simulationMembers: readonly CopyGroupSimulationMemberInput[];
+}
+
 export interface CopyGroupSizingSection {
     readonly asOf: string;
     readonly exposure: CopyGroupExposure | null;
+    readonly inputs: CopyGroupSizingInputs;
     readonly result: CopyGroupSizingResult;
     readonly simulation: CopyGroupSimulationPlan;
     readonly unsizedMembers: readonly UnsizedCopyGroupMember[];
@@ -94,7 +119,23 @@ export function copyGroupSizingSectionsOf(
             };
         }),
     );
-    const overrides = readinessOverridesOf(accounts);
+    const counted = ledgerOrDateFailure(() =>
+        firmPayoutCounts(
+            PortfolioLedger.fromRows(userId, {
+                accounts,
+                events,
+                fees: [],
+                payouts,
+            }),
+            today,
+        ),
+    );
+    const overrides = readinessOverridesOf(
+        accounts,
+        counted.kind === OverviewSectionStatus.Ready
+            ? counted.value
+            : NO_FIRM_PAYOUT_COUNTS,
+    );
     const unavailableByAccountId = new Map(
         exposure.unavailable.map((row) => [row.accountId, row.reason]),
     );
@@ -124,33 +165,71 @@ export function copyGroupSizingSectionsOf(
                 continue;
             }
             const account = state.state.latest.reconstructed;
-            members.push({ account, id: member.id, label: member.label });
+            const { plan } = state.state;
+            const override = overrides.get(member.id);
+            members.push({
+                account,
+                accountPolicy: findFirm(plan.id.firm)?.accountPolicy ?? null,
+                id: member.id,
+                label: member.label,
+                paidPayoutsSinceLastLiveAccount:
+                    override?.paidPayoutsSinceLastLiveAccount ?? null,
+                personalCaps: override?.personalCaps,
+                personalDll: override?.personalDll ?? null,
+            });
             simulationMembers.push({
                 account,
                 id: member.id,
                 label: member.label,
-                override: overrides.get(member.id),
-                plan: state.state.plan,
+                override,
+                plan,
             });
         }
-        const result = copyGroupSizing({ members, rulebook });
-        sections.set(group.group.id, {
-            asOf: today,
-            exposure:
-                exposure.groups.find(
-                    (row) => row.copyGroupId === group.group.id,
-                ) ?? null,
-            result,
-            simulation: copyGroupSimulationPlanOf({
-                leftOutLabels: unsizedMembers.map((member) => member.label),
-                members: simulationMembers,
-                result,
-                rulebook,
-            }),
-            unsizedMembers,
-        });
+        const inputs: CopyGroupSizingInputs = {
+            leftOutLabels: unsizedMembers.map((member) => member.label),
+            members,
+            rulebook,
+            simulationMembers,
+        };
+        sections.set(
+            group.group.id,
+            withPositionSizing(
+                {
+                    asOf: today,
+                    exposure:
+                        exposure.groups.find(
+                            (row) => row.copyGroupId === group.group.id,
+                        ) ?? null,
+                    inputs,
+                    unsizedMembers,
+                },
+                null,
+            ),
+        );
     }
     return sections;
+}
+
+export function withPositionSizing(
+    section: Omit<CopyGroupSizingSection, 'result' | 'simulation'>,
+    positionSizing: CopyGroupPositionSizing | null,
+): CopyGroupSizingSection {
+    const { inputs } = section;
+    const result = copyGroupSizing({
+        members: inputs.members,
+        positionSizing,
+        rulebook: inputs.rulebook,
+    });
+    return {
+        ...section,
+        result,
+        simulation: copyGroupSimulationPlanOf({
+            leftOutLabels: inputs.leftOutLabels,
+            members: inputs.simulationMembers,
+            result,
+            rulebook: inputs.rulebook,
+        }),
+    };
 }
 
 function unsizedReasonOf(

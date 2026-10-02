@@ -49,4 +49,29 @@ describe('one placeable-minimum helper (PT-36f, PT-68h addendum)', () => {
         expect(eval_?.text).not.toContain('oneContractRisk');
         expect(eval_?.text).not.toMatch(/private placeableMinimum\(/);
     });
+
+    it('keeps no re-export of the placeable minimum outside PlaceableMinimum.ts and the advisor barrel (PT-36h)', () => {
+        const reExporters = advisorSources()
+            .filter(({ text }) =>
+                /export\s*\{[^}]*\bplaceableMinimumFor\b[^}]*\}\s*from/.test(
+                    text,
+                ),
+            )
+            .map(({ file }) => file);
+
+        expect(reExporters).toStrictEqual([`${ADVISOR_DIR}/index.ts`]);
+    });
+
+    it('imports the placeable minimum into PersonalDayLimits.ts from PlaceableMinimum.ts, not from DocumentedDayRisk.ts (PT-36h)', () => {
+        const personal = advisorSources().find(
+            ({ file }) => file === `${ADVISOR_DIR}/policy/PersonalDayLimits.ts`,
+        );
+
+        expect(personal?.text).toMatch(
+            /placeableMinimumFor[^;]*from\s*'~\/lib\/prop-calculator\/advisor\/PlaceableMinimum'/,
+        );
+        expect(personal?.text).not.toMatch(
+            /placeableMinimumFor[^;]*from\s*'\.\/DocumentedDayRisk'/,
+        );
+    });
 });

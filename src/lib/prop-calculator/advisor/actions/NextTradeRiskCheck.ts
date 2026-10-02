@@ -5,9 +5,15 @@ import {
 } from '~/lib/prop-calculator/advisor/DocumentedSizing';
 import { NextTradeRiskVerdict } from '~/lib/prop-calculator/advisor/NextTradeRiskVerdict';
 import {
+    RungPlacement,
+    rungPlacementOf,
+    type SizingPlacement,
+} from '~/lib/prop-calculator/advisor/PlaceableMinimum';
+import {
     type DayProgress,
     type RuleContext,
 } from '~/lib/prop-calculator/advisor/RuleContext';
+import { SizingStage } from '~/lib/prop-calculator/advisor/SizingStage';
 import {
     CENTS_PER_DOLLAR,
     type Dollars,
@@ -19,12 +25,14 @@ export interface NextTradeRiskCheckRequest<TContext extends RuleContext> {
     readonly day: DayProgress;
     readonly dpRisk?: Dollars | null;
     readonly isPayoutEligible: boolean;
+    readonly placement?: null | SizingPlacement;
     readonly proposedRisk: Dollars;
     readonly rule: DocumentedRule<TContext>;
 }
 
 export interface NextTradeRiskCheckResult {
     readonly documentedRung: Dollars | null;
+    readonly documentedRungPlacement: RungPlacement;
     readonly dpRisk: Dollars | null;
     readonly excessCents: number;
     readonly payoutEligibleAboveRung: boolean;
@@ -40,6 +48,7 @@ export function nextTradeRiskCheck<TContext extends RuleContext>(
         day,
         dpRisk = null,
         isPayoutEligible,
+        placement = null,
         proposedRisk,
         rule,
     } = request;
@@ -47,6 +56,10 @@ export function nextTradeRiskCheck<TContext extends RuleContext>(
     const documentedRung =
         trade.kind === NextTradeKind.Trade ? trade.rung.risk : null;
     const stopReason = trade.kind === NextTradeKind.Stop ? trade.reason : null;
+    const documentedRungPlacement =
+        documentedRung !== null && context.stage === SizingStage.Funded
+            ? rungPlacementOf(documentedRung, placement)
+            : RungPlacement.NotChecked;
 
     const excessOverDocumentedCents = excessCentsOf(
         proposedRisk,
@@ -55,6 +68,7 @@ export function nextTradeRiskCheck<TContext extends RuleContext>(
     if (excessOverDocumentedCents > 0) {
         return {
             documentedRung,
+            documentedRungPlacement,
             dpRisk,
             excessCents: excessOverDocumentedCents,
             payoutEligibleAboveRung: isPayoutEligible,
@@ -67,6 +81,7 @@ export function nextTradeRiskCheck<TContext extends RuleContext>(
     if (excessOverDpCents > 0) {
         return {
             documentedRung,
+            documentedRungPlacement,
             dpRisk,
             excessCents: excessOverDpCents,
             payoutEligibleAboveRung: false,
@@ -77,6 +92,7 @@ export function nextTradeRiskCheck<TContext extends RuleContext>(
 
     return {
         documentedRung,
+        documentedRungPlacement,
         dpRisk,
         excessCents: 0,
         payoutEligibleAboveRung: false,

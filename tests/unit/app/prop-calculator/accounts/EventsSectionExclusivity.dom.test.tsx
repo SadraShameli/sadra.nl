@@ -481,8 +481,9 @@ describe('EventsSection live exclusivity preview and confirm', () => {
             },
         );
         expect(container.textContent).toContain(
-            "Your other accounts could not be loaded, so what the firm's rules do to them is not shown. Recording this event suspends nothing.",
+            "Your other accounts could not be loaded, so what the firm's rules do to them is not shown. Recording this event is refused if the firm's policy suspends another of your accounts; reload to see which.",
         );
+        expect(container.textContent).not.toContain('suspends nothing');
         expect(exclusivityCheckbox()).toBeNull();
     });
 

@@ -23,6 +23,7 @@ import {
     type AlertContext,
     type AlertDecisionRow,
     isActive,
+    liveTriggerDisclosuresOf,
     type MonitoredAccount,
     paidPayoutsSinceLastLiveAccountOf,
 } from './AlertContext';
@@ -96,6 +97,7 @@ export class PayoutReadyOpenRiskRule extends AccountAlertRule {
             monitored,
             AlertSeverity.Warning,
             `A payout is available on this account and the ${basis} risk of ${formatUsdCents(riskCents)} is ${excess} above the documented rung${rung}; requesting the payout leaves the documented rung unchanged`,
+            liveTriggerDisclosuresOf(row.liveTriggerCoverage),
         );
     }
 }

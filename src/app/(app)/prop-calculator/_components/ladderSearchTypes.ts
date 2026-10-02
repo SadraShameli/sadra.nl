@@ -3,7 +3,7 @@ import {
     type DayStopRule,
     type InstrumentSymbol,
     type LadderGridConfig,
-    type LadderScore,
+    type LadderScoreRanking,
     type Plan,
     type RungSizing,
 } from '~/lib/prop-calculator';
@@ -40,15 +40,10 @@ export interface LadderSearchInputs {
     winrate: number;
 }
 
-export interface LadderSearchRun {
-    byCost: readonly LadderScore[];
-    byPassRate: readonly LadderScore[];
-    bySpeed: readonly LadderScore[];
+export interface LadderSearchRun extends LadderScoreRanking {
     droppedAliasCount: number;
-    frontier: readonly LadderScore[];
     gridSize: number;
     laddersScored: number;
-    unscorableCount: number;
 }
 
 export type LadderSearchState =

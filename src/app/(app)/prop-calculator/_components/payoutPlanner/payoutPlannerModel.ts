@@ -54,6 +54,9 @@ import {
     type PayoutStakeComparisonOutcome,
 } from '~/lib/prop-calculator/advisor/value';
 
+export const PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT =
+    "Live triggers are not checked here: this planner does not know how many payouts your accounts at the firm have been paid, so a payout that moves an account live is not flagged. Compare the firm's live-transition rule with your own payout history before you request.";
+
 const TERMINAL_GATES: ReadonlySet<PayoutGate> = new Set([
     PayoutGate.AccountConcluded,
     PayoutGate.LadderExhausted,

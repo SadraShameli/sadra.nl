@@ -29,6 +29,15 @@ export {
     empiricalPayingStatsOf,
 } from './BankrollLevers';
 export {
+    bankrollAttempts,
+    bankrollNoPayout,
+    type BankrollRisk,
+    bankrollRisk,
+    type BankrollRiskFigures,
+    bankrollRiskFigures,
+    type BankrollRiskOutputs,
+} from './BankrollRiskFigures';
+export {
     bankrollCompoundingIllustration,
     type BankrollLossRiskSummary,
     bankrollLossRiskSummary,

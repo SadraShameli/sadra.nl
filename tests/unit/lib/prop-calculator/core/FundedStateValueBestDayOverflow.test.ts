@@ -44,6 +44,24 @@ describe('the best-day overflow bucket leaves the value of real consistency plan
             reachedStateCount: 146_880,
             value: 6915.558313154495,
         },
+        {
+            firmId: FirmId.AlphaFutures,
+            label: '$50K · Standard',
+            reachedStateCount: 146_880,
+            value: 13_777.410482973317,
+        },
+        {
+            firmId: FirmId.Tradeify,
+            label: '$50K · Growth',
+            reachedStateCount: 1_814_400,
+            value: 13_804.319470665403,
+        },
+        {
+            firmId: FirmId.TopStep,
+            label: '$50K · Standard path · Consistency XFA',
+            reachedStateCount: 3_243_600,
+            value: 17_749.61137859767,
+        },
     ])(
         '$firmId $label at the fast grid with the coarse tail off keeps its pre-overflow value $value to the cent and gains one best-day bucket per level',
         async ({ firmId, label, reachedStateCount, value }) => {

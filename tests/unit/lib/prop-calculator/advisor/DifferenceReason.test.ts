@@ -22,6 +22,7 @@ const EXPECTED_MEMBERS = [
     'DpPayoutPolicyMismatch',
     'DpStateUnreached',
     'EngineInputsRefused',
+    'EngineLadderNeverFunded',
     'FirmMinimumAboveRequest',
     'FlatRiskIgnoresState',
     'FreshStartApproximation',

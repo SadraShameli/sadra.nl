@@ -44,6 +44,7 @@ import { assertSizingInvariant } from './SizingInvariant';
 import { SizingStage } from './SizingStage';
 
 export enum CopyGroupSizingRejectionKind {
+    BelowOneContractAtStop = 'below-one-contract-at-stop',
     LiveNotModeled = 'live-not-modeled',
     MixedStage = 'mixed-stage',
     NoCushionRoom = 'no-cushion-room',
@@ -88,15 +89,20 @@ export interface CopyGroupSizingInput {
 
 export interface CopyGroupSizingMember {
     readonly account: ReconstructedAccount;
-    readonly accountPolicy?: FirmAccountPolicy;
+    readonly accountPolicy: FirmAccountPolicy | null;
     readonly id: string;
     readonly label: string;
-    readonly paidPayoutsSinceLastLiveAccount?: null | number;
+    readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
 }
 
 export type CopyGroupSizingRejection =
+    | {
+          readonly kind: CopyGroupSizingRejectionKind.BelowOneContractAtStop;
+          readonly memberIds: readonly string[];
+          readonly message: string;
+      }
     | {
           readonly kind: CopyGroupSizingRejectionKind.LiveNotModeled;
           readonly message: string;
@@ -200,12 +206,12 @@ export function copyGroupSizing(
             account,
             rulebook,
             {
-                ...(member.accountPolicy !== undefined && {
+                ...(member.accountPolicy !== null && {
                     accountPolicy: member.accountPolicy,
                 }),
                 instrument: positionSizing?.instrument ?? null,
                 paidPayoutsSinceLastLiveAccount:
-                    member.paidPayoutsSinceLastLiveAccount ?? null,
+                    member.paidPayoutsSinceLastLiveAccount,
                 personalCaps: personalCapsFromAccount(
                     account,
                     member.personalCaps,
@@ -223,15 +229,28 @@ export function copyGroupSizing(
     if (firstEntry === undefined) {
         throw new Error('copy-group sizing expected at least one member');
     }
-    const noCushionRoomMemberIds = entries
-        .filter((entry) => entry.sizing.rungs.length === 0)
-        .map((entry) => entry.member.id);
-    if (noCushionRoomMemberIds.length > 0) {
+    const emptyEntries = entries.filter(
+        (entry) => entry.sizing.rungs.length === 0,
+    );
+    if (emptyEntries.length > 0) {
+        const isStopBound = (entry: (typeof entries)[number]): boolean =>
+            isBoundByPlaceableMinimum(entry.context, stage, rulebook);
+        const noCushionRoomMemberIds = emptyEntries
+            .filter((entry) => !isStopBound(entry))
+            .map((entry) => entry.member.id);
+        if (noCushionRoomMemberIds.length > 0) {
+            return rejected({
+                kind: CopyGroupSizingRejectionKind.NoCushionRoom,
+                memberIds: noCushionRoomMemberIds,
+                message:
+                    'A copy group cannot be sized while a member has no cushion room left.',
+            });
+        }
         return rejected({
-            kind: CopyGroupSizingRejectionKind.NoCushionRoom,
-            memberIds: noCushionRoomMemberIds,
+            kind: CopyGroupSizingRejectionKind.BelowOneContractAtStop,
+            memberIds: emptyEntries.map((entry) => entry.member.id),
             message:
-                'A copy group cannot be sized while a member has no cushion room left.',
+                "A copy group cannot be sized at this stop: one contract at it risks more than the size the members' limits leave for each copy.",
         });
     }
     const groupRungCount = Math.min(
@@ -445,6 +464,22 @@ function groupCoverageOf(
     )
         ? LiveTriggerCoverage.Enforced
         : LiveTriggerCoverage.NotChecked;
+}
+
+function isBoundByPlaceableMinimum(
+    context: RuleContext,
+    stage: SizingStage.Eval | SizingStage.Funded,
+    rulebook: RulebookParameters,
+): boolean {
+    const unplacedMinimum = advisorPlaceableMinimum(null);
+    if (context.cushion <= 0 || context.placeableMinimum <= unplacedMinimum) {
+        return false;
+    }
+    const withoutMinimum = createDocumentedRule(stage, rulebook).size({
+        ...context,
+        placeableMinimum: unplacedMinimum,
+    });
+    return withoutMinimum.rungs.length > 0;
 }
 
 function rejected(rejection: CopyGroupSizingRejection): CopyGroupSizingResult {

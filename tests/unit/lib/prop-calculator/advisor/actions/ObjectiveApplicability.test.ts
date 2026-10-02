@@ -32,6 +32,8 @@ describe('objectiveApplicability (F-V15, Hard Rule 3, Hard Rule 5, Mistake 10)',
             RankingSurface.Ladder,
             RankingSurface.Advice,
             RankingSurface.DocumentedRules,
+            RankingSurface.RiskTable,
+            RankingSurface.CopySplit,
         ];
         for (const surface of sizingSurfaces) {
             const result = objectiveApplicability(

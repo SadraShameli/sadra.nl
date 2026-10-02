@@ -77,6 +77,9 @@ vi.mock('~/lib/auth/client', () => ({
 vi.mock('~/trpc/react', () => ({
     api: {
         propAccounts: {
+            bankroll: {
+                summary: { useQuery: () => ({ data: undefined }) },
+            },
             rulebook: {
                 get: { useQuery: () => ({ data: undefined }) },
             },

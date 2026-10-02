@@ -133,6 +133,9 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
         case DifferenceReason.EngineInputsRefused: {
             return `The engine refused these inputs: ${detail.issue}`;
         }
+        case DifferenceReason.EngineLadderNeverFunded: {
+            return `The engine's best ladder never funded the account in ${detail.sims} simulated attempts, so no cost or speed to funded can be compared here.`;
+        }
         case DifferenceReason.FirmMinimumAboveRequest: {
             return `Requested $${detail.requested.toFixed(2)}, raised to the firm's $${detail.minimum.toFixed(2)} minimum.`;
         }

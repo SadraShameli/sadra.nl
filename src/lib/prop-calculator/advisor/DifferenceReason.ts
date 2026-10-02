@@ -22,6 +22,7 @@ export enum DifferenceReason {
     DpPayoutPolicyMismatch = 'dp-payout-policy-mismatch',
     DpStateUnreached = 'dp-state-unreached',
     EngineInputsRefused = 'engine-inputs-refused',
+    EngineLadderNeverFunded = 'engine-ladder-never-funded',
     FirmMinimumAboveRequest = 'firm-minimum-above-request',
     FlatRiskIgnoresState = 'flat-risk-ignores-state',
     FreshStartApproximation = 'fresh-start-approximation',
@@ -136,6 +137,10 @@ export type DifferenceReasonDetail =
           readonly sims: number;
       }
     | { readonly kind: DifferenceReason.DpIneligible; readonly reason: string }
+    | {
+          readonly kind: DifferenceReason.EngineLadderNeverFunded;
+          readonly sims: number;
+      }
     | {
           readonly kind: DifferenceReason.FirmMinimumAboveRequest;
           readonly minimum: Dollars;

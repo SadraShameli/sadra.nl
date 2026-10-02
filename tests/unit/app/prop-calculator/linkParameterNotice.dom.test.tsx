@@ -20,6 +20,23 @@ vi.mock('~/app/(app)/prop-calculator/_components/PropCalculatorSubnav', () => ({
     PropCalculatorSubnav: () => null,
 }));
 
+vi.mock('~/lib/auth/client', () => ({
+    useSession: () => ({ data: null, error: null, isPending: false }),
+}));
+
+vi.mock('~/trpc/react', () => ({
+    api: {
+        propAccounts: {
+            bankroll: {
+                summary: { useQuery: () => ({ data: undefined }) },
+            },
+            rulebook: {
+                get: { useQuery: () => ({ data: undefined }) },
+            },
+        },
+    },
+}));
+
 const REFUSED = 'in this link or saved scenario was refused';
 
 const validPortfolio = [

@@ -6,15 +6,18 @@ import {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from 'react';
 
+import { useSession } from '~/lib/auth/client';
 import {
     ALL_FIRMS,
     type PlanOptIns,
     type SimInputs,
     type SimOutputs,
 } from '~/lib/prop-calculator';
+import { api } from '~/trpc/react';
 
 import { ComputationCache } from './computationCache';
 import {
@@ -28,6 +31,7 @@ import {
     type CalculatorActions,
     type PinnedScenario,
     pinScenario,
+    signedInDefaultObjective,
     SIM_DEBOUNCE_MS,
     useCalculator,
 } from './useCalculator';
@@ -90,6 +94,48 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
     );
 
     const calculatorActions = calculator.actions;
+    const { hasLinkObjective } = calculator;
+    const { objective } = calculator.state;
+    const initialObjective = useRef(objective);
+    const hasChosenObjectiveReference = useRef(false);
+    const session = useSession();
+    const hasSession = session.data?.user.id !== undefined;
+    const rulebook = api.propAccounts.rulebook.get.useQuery(undefined, {
+        enabled: hasSession,
+    }).data;
+    const availableCents = api.propAccounts.bankroll.summary.useQuery(
+        undefined,
+        {
+            enabled: hasSession,
+            refetchOnWindowFocus: false,
+            staleTime: Infinity,
+        },
+    ).data?.availableCents;
+    useEffect(() => {
+        if (
+            !hasSession ||
+            availableCents === undefined ||
+            rulebook === undefined ||
+            hasChosenObjectiveReference.current
+        ) {
+            return;
+        }
+        hasChosenObjectiveReference.current = true;
+        const chosen = signedInDefaultObjective({
+            availableCents,
+            bankroll: rulebook.bankroll,
+            hasLinkObjective,
+            isObjectiveChanged: objective !== initialObjective.current,
+        });
+        if (chosen !== null) calculatorActions.setObjective(chosen);
+    }, [
+        availableCents,
+        calculatorActions,
+        hasLinkObjective,
+        hasSession,
+        objective,
+        rulebook,
+    ]);
     const actions = useMemo<CalculatorProviderActions>(
         () => ({
             ...calculatorActions,

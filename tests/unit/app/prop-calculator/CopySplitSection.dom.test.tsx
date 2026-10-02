@@ -28,10 +28,12 @@ import {
     ToolsRequestKind,
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { FirmId } from '~/lib/prop-calculator';
+import { DayStopRuleKind, FirmId } from '~/lib/prop-calculator';
 import {
+    DEFAULT_RULEBOOK,
     LifetimePayoutCapBasis,
     RebuyLagBasis,
+    type RulebookParameters,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 import { CopySplitRowKind } from '~/lib/prop-calculator/advisor/policy';
@@ -43,6 +45,7 @@ interface SectionHarness {
     phase: null | ToolsWorkerPhase;
     requestKey: null | string;
     result: null | ToolsWorkerResult;
+    rulebook: null | RulebookParameters;
 }
 
 const harness = vi.hoisted((): SectionHarness => ({
@@ -52,6 +55,7 @@ const harness = vi.hoisted((): SectionHarness => ({
     phase: null,
     requestKey: null,
     result: null,
+    rulebook: null,
 }));
 
 const VARIANT: BankrollPlanVariantInputs = {
@@ -98,7 +102,12 @@ vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
 
 vi.mock(
     '~/app/(app)/prop-calculator/_components/bankroll/useBankrollVariant',
-    () => ({ useBankrollVariant: () => ({ variant: VARIANT }) }),
+    () => ({
+        useBankrollVariant: () => ({
+            rulebook: harness.rulebook ?? DEFAULT_RULEBOOK,
+            variant: VARIANT,
+        }),
+    }),
 );
 
 vi.mock(
@@ -191,6 +200,18 @@ function succeeded(
     };
 }
 
+function typeInto(input: HTMLInputElement | null, value: string) {
+    if (input === null) throw new Error('input missing');
+    const descriptor = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+    );
+    act(() => {
+        descriptor?.set?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+}
+
 describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -201,11 +222,30 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
         });
     }
 
+    function labelledInput(labelStart: string): HTMLInputElement | null {
+        const label = [...container.querySelectorAll('label')].find((entry) =>
+            entry.textContent.startsWith(labelStart),
+        );
+        return container.querySelector<HTMLInputElement>(
+            `input[id="${CSS.escape(label?.htmlFor ?? '')}"]`,
+        );
+    }
+
+    function fundedRiskInput(): HTMLInputElement | null {
+        return labelledInput('Funded risk');
+    }
+
+    function describedAlert(input: HTMLInputElement | null): string {
+        const id = input?.getAttribute('aria-describedby') ?? '';
+        return container.querySelector(`[id="${CSS.escape(id)}"]`)?.textContent ?? '';
+    }
+
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.dispatch.mockReset();
         harness.objective = SizingObjective.MonthlyNet;
         harness.result = null;
+        harness.rulebook = null;
         harness.phase = null;
         harness.requestKey = null;
         harness.buildRequest = null;
@@ -232,8 +272,81 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
         expect(request.objective).toBe(SizingObjective.CycleCash);
         expect(request.splits).toStrictEqual([1, 2, 5, 10]);
         expect(request.totalRisk).toBe(250);
-        expect(request.variant).toBe(VARIANT);
+        expect(request.variant).toStrictEqual({
+            ...VARIANT,
+            base: { ...VARIANT.base, fundedRiskPerTrade: 250 },
+        });
         expect(request.runId).toBe(7);
+    });
+
+    it('prices the funded phase at the signed-in rulebook funded risk, shown in a funded risk input', () => {
+        harness.rulebook = {
+            ...DEFAULT_RULEBOOK,
+            funded: { ...DEFAULT_RULEBOOK.funded, riskCents: 40_000 },
+        };
+        render();
+        expect(fundedRiskInput()?.value).toBe('400');
+        const request = harness.buildRequest?.(1);
+        if (request?.kind !== ToolsRequestKind.CopySplit) {
+            throw new Error('expected a CopySplit request');
+        }
+        expect(request.variant.base.fundedRiskPerTrade).toBe(400);
+    });
+
+    it('sends the funded risk the trader types, and an invalid one sends nothing and says why', () => {
+        render();
+        typeInto(fundedRiskInput(), '800');
+        const request = harness.buildRequest?.(2);
+        if (request?.kind !== ToolsRequestKind.CopySplit) {
+            throw new Error('expected a CopySplit request');
+        }
+        expect(request.variant.base.fundedRiskPerTrade).toBe(800);
+        typeInto(fundedRiskInput(), 'abc');
+        expect(harness.requestKey).toBeNull();
+        expect(container.textContent).toContain(
+            'funded risk must be a positive dollar amount',
+        );
+    });
+
+    it('warns next to the funded risk input when the rulebook funded stop is not carried to the worker', () => {
+        harness.rulebook = {
+            ...DEFAULT_RULEBOOK,
+            funded: {
+                ...DEFAULT_RULEBOOK.funded,
+                stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
+            },
+        };
+        render();
+        expect(container.textContent).toContain(
+            'your rulebook funded stop (after 2 losses) is not applied to this split yet',
+        );
+    });
+
+    it('shows no funded stop warning for the default rulebook', () => {
+        render();
+        expect(container.textContent).not.toContain('is not applied to this split yet');
+    });
+
+    it('ties each invalid input to its alert and marks only the failing input invalid', () => {
+        render();
+        const total = labelledInput('Total risk');
+        const splits = labelledInput('Splits');
+        const funded = fundedRiskInput();
+        expect(total?.getAttribute('aria-invalid')).toBeNull();
+        expect(splits?.getAttribute('aria-invalid')).toBeNull();
+        expect(funded?.getAttribute('aria-invalid')).toBeNull();
+        typeInto(splits, '2,2');
+        expect(splits?.getAttribute('aria-invalid')).toBe('true');
+        expect(total?.getAttribute('aria-invalid')).toBeNull();
+        expect(describedAlert(splits)).toContain('a split appears more than once');
+        typeInto(total, 'abc');
+        expect(total?.getAttribute('aria-invalid')).toBe('true');
+        expect(describedAlert(total)).toContain('total risk must be a positive dollar amount');
+        typeInto(fundedRiskInput(), 'abc');
+        expect(fundedRiskInput()?.getAttribute('aria-invalid')).toBe('true');
+        expect(describedAlert(fundedRiskInput())).toContain(
+            'funded risk must be a positive dollar amount',
+        );
     });
 
     it('sends no request while the inputs are invalid and says why', () => {

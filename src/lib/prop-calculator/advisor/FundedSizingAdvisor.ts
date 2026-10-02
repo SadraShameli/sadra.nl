@@ -77,7 +77,10 @@ import {
 } from './PayoutAdvice';
 import { PayoutBlockReasonKind } from './PayoutBlockReason';
 import { PayoutRequestDecisionKind } from './PayoutRequestDecision';
-import { type FundedPayoutRuleContext } from './PayoutRequestRule';
+import {
+    type FundedPayoutRuleContext,
+    fundedPayoutRuleContextOf,
+} from './PayoutRequestRule';
 import {
     type PayoutSizeSweepOptimum,
     type PayoutSizeSweepRequest,
@@ -110,7 +113,6 @@ export interface FundedSizingAdvisorInput {
     readonly fundedHorizonDays: number;
     readonly measuredRebuyLag?: MeasuredRebuyLag | null;
     readonly paidPayoutsSinceLastLiveAccount?: null | number;
-    readonly pendingPayouts?: Dollars;
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
     readonly personalPayoutOverride?: Dollars | null;
@@ -164,29 +166,17 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
     }
 
     private payoutRuleContext(): FundedPayoutRuleContext | null {
-        const {
-            account,
-            paidPayoutsSinceLastLiveAccount,
-            pendingPayouts,
-            personalRetainedCushion,
-        } = this.input;
+        const { account, personalRetainedCushion } = this.input;
         if (account.fundedTracker === null) return null;
-        const limits = this.liveTriggerLimits();
-        return {
-            liveTriggerFirmTotalCap: limits.firmTotalCap,
-            liveTriggerFirmTotalSource: limits.firmTotalSource,
-            liveTriggerPerAccountCap: limits.perAccountCap,
-            liveTriggerPerAccountSource: limits.perAccountSource,
-            paidPayoutsSinceLastLiveAccount:
-                paidPayoutsSinceLastLiveAccount ?? null,
-            pendingPayouts: pendingPayouts ?? dollars(0),
+        return fundedPayoutRuleContextOf({
+            liveTrigger: this.liveTriggerLimits(),
+            pendingPayouts: account.pendingPayouts ?? 0,
             personalRequestOverride: this.appliedPayoutOverride(),
             personalRetainedCushion: personalRetainedCushion ?? null,
             plan: account.plan,
-            stage: SizingStage.Funded,
             state: account.state,
             tracker: account.fundedTracker,
-        };
+        });
     }
 
     private appliedPayoutOverride(): Dollars | null {

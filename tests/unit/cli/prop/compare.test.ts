@@ -1369,6 +1369,24 @@ describe('prop compare names the objective and runs split vs concentrate (PT-63,
         expect(stdout).toContain(COPY_SPLIT_CORRELATION_NOTE);
     });
 
+    it('divides an after-target day cap in the eval and runs the funded phase on the default rulebook funded stop', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--stop',
+            'after-target:1000',
+            '--total-risk',
+            '2000',
+            '--splits',
+            '1,10',
+        ]);
+        expect(stdout).toContain(
+            'after-target day cap $1,000 is a group total, so each account gets its share of it together with the risk in the eval',
+        );
+        expect(stdout).toContain(
+            'the funded phase uses the default rulebook funded stop (none) per account, not the divided cap',
+        );
+    });
+
     it('prints the explicit funded risk per account, not divided by the split', async () => {
         const stdout = await capturedCompareRun([
             ...SMALL_COMPARE,

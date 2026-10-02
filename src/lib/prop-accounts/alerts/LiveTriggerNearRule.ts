@@ -1,4 +1,3 @@
-import { compareText, PayoutStatus } from '~/lib/prop-accounts/core';
 import {
     type ConfirmedFirmPolicySource,
     type FirmPolicySource,
@@ -11,7 +10,7 @@ import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
 import {
     type AlertContext,
     isActive,
-    paidPayoutsThrough,
+    paidPayoutsSinceLastLiveAccountOf,
     payoutsTakenOf,
     type ResolvedFirmAccount,
     resolvedFirmAccountsOf,
@@ -57,7 +56,7 @@ export class LiveTriggerNearRule extends AlertRule {
 
     private perFirmAlerts(
         resolved: readonly ResolvedFirmAccount[],
-        today: string,
+        context: AlertContext,
     ): readonly AccountAlert[] {
         const byFirmId = Map.groupBy(
             resolved,
@@ -74,8 +73,12 @@ export class LiveTriggerNearRule extends AlertRule {
                         candidate instanceof PayoutCountTotalTrigger,
                 );
             if (trigger === undefined || !isConfirmed(trigger.source)) continue;
-            const taken = firmPaidPayoutCount(group, today);
-            if (taken < trigger.cap - 1) continue;
+            const taken = paidPayoutsSinceLastLiveAccountOf(
+                context,
+                first.monitored,
+                context.today,
+            );
+            if (taken === null || taken < trigger.cap - 1) continue;
             const activeAccountIds = group
                 .filter((entry) => isActive(entry.monitored))
                 .map((entry) => entry.monitored.account.id);
@@ -105,33 +108,9 @@ export class LiveTriggerNearRule extends AlertRule {
             ...resolved
                 .filter((entry) => isActive(entry.monitored))
                 .flatMap((entry) => this.perAccountAlert(entry)),
-            ...this.perFirmAlerts(resolved, context.today),
+            ...this.perFirmAlerts(resolved, context),
         ];
     }
-}
-
-function firmPaidPayoutCount(
-    group: readonly ResolvedFirmAccount[],
-    today: string,
-): number {
-    const sinceOn =
-        group
-            .map((entry) => entry.monitored.movedLiveOn)
-            .filter((on): on is string => on !== null)
-            .toSorted(compareText)
-            .at(-1) ?? null;
-    return group.reduce(
-        (sum, entry) =>
-            sum +
-            paidPayoutsThrough(entry.monitored, today).filter(
-                (payout) =>
-                    payout.status === PayoutStatus.Paid &&
-                    (sinceOn === null ||
-                        (payout.paidOn !== null &&
-                            compareText(payout.paidOn, sinceOn) > 0)),
-            ).length,
-        0,
-    );
 }
 
 function isConfirmed(

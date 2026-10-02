@@ -9,6 +9,10 @@ import {
     type PersonalCaps,
 } from '~/lib/prop-calculator/advisor/PersonalCaps';
 import {
+    placeableMinimumFor,
+    type SizingPlacement,
+} from '~/lib/prop-calculator/advisor/PlaceableMinimum';
+import {
     type DayProgress,
     type FundedRuleContext,
 } from '~/lib/prop-calculator/advisor/RuleContext';
@@ -30,11 +34,7 @@ import {
     type SimInputs,
 } from '~/lib/prop-calculator/simulator';
 
-import {
-    DayLedger,
-    placeableMinimumFor,
-    type SizingPlacement,
-} from './DocumentedDayRisk';
+import { DayLedger } from './DocumentedDayRisk';
 import { type EnginePolicy, hasDayLimits } from './EnginePolicy';
 
 const DAY_PNL_SCALE = 1_000_000;

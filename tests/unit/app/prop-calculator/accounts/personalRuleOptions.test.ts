@@ -19,6 +19,7 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import {
     AccountStatus,
+    NO_FIRM_PAYOUT_COUNTS,
     personalMaxRiskOf,
     usdCents,
 } from '~/lib/prop-accounts';
@@ -121,6 +122,18 @@ describe('one personal-rule assembly across accounts/_components (PT-68b, F-V16)
         ]);
     });
 
+    it('gives readinessOverridesOf no default firm payout count, so a caller that omits it fails to compile (PT-36h)', () => {
+        const source = readFileSync(
+            path.join(COMPONENTS_ROOT, PERSONAL_RULE_OPTIONS),
+            'utf8',
+        );
+
+        expect(source).not.toContain('NO_FIRM_PAYOUT_COUNTS');
+        expect(source).not.toMatch(
+            /function readinessOverridesOf\([^)]*firmCounts:[^)]*=/,
+        );
+    });
+
     it('merges the personal retained cushion into an engine policy in personalRuleOptions only, within accounts/_components', () => {
         expect(
             filesMatching(
@@ -189,16 +202,19 @@ describe('withPersonalPolicy', () => {
 
 describe('readinessOverridesOf', () => {
     it('maps valid personal rules to dollars and leaves an account without them unset', () => {
-        const overrides = readinessOverridesOf([
-            {
-                id: 'with-rules',
-                personalRules: {
-                    payoutRequestOverrideCents: usdCents(75_000),
-                    retainedCushionCents: usdCents(900_000),
+        const overrides = readinessOverridesOf(
+            [
+                {
+                    id: 'with-rules',
+                    personalRules: {
+                        payoutRequestOverrideCents: usdCents(75_000),
+                        retainedCushionCents: usdCents(900_000),
+                    },
                 },
-            },
-            { id: 'without-rules', personalRules: null },
-        ]);
+                { id: 'without-rules', personalRules: null },
+            ],
+            NO_FIRM_PAYOUT_COUNTS,
+        );
         expect(overrides.get('with-rules')).toMatchObject({
             personalRequestOverride: 750,
             personalRetainedCushion: 9000,
@@ -210,15 +226,18 @@ describe('readinessOverridesOf', () => {
     });
 
     it('reads stored personal rules the way the advisor does, so an invalid stored value sets nothing', () => {
-        const overrides = readinessOverridesOf([
-            {
-                id: 'invalid',
-                personalRules: {
-                    payoutRequestOverrideCents: 75_000,
-                    retainedCushionCents: 'nine thousand',
+        const overrides = readinessOverridesOf(
+            [
+                {
+                    id: 'invalid',
+                    personalRules: {
+                        payoutRequestOverrideCents: 75_000,
+                        retainedCushionCents: 'nine thousand',
+                    },
                 },
-            },
-        ]);
+            ],
+            NO_FIRM_PAYOUT_COUNTS,
+        );
         expect(overrides.get('invalid')).toMatchObject({
             personalRequestOverride: null,
             personalRetainedCushion: null,
@@ -228,18 +247,21 @@ describe('readinessOverridesOf', () => {
 
 describe('readinessOverridesOf carries the personal limits of each account (PT-68g, F-V16)', () => {
     it('maps the personal max risk, max trades, daily profit cap and daily loss limit to dollars, and none for an account without rules', () => {
-        const overrides = readinessOverridesOf([
-            {
-                id: 'limited',
-                personalRules: {
-                    dailyLossLimitCents: usdCents(60_000),
-                    dailyProfitCapCents: usdCents(90_000),
-                    maxRiskPerTradeCents: usdCents(12_500),
-                    maxTradesPerDay: 2,
+        const overrides = readinessOverridesOf(
+            [
+                {
+                    id: 'limited',
+                    personalRules: {
+                        dailyLossLimitCents: usdCents(60_000),
+                        dailyProfitCapCents: usdCents(90_000),
+                        maxRiskPerTradeCents: usdCents(12_500),
+                        maxTradesPerDay: 2,
+                    },
                 },
-            },
-            { id: 'plain', personalRules: null },
-        ]);
+                { id: 'plain', personalRules: null },
+            ],
+            NO_FIRM_PAYOUT_COUNTS,
+        );
 
         expect(overrides.get('limited')?.personalCaps).toEqual({
             dailyProfitCap: 900,
@@ -254,12 +276,15 @@ describe('readinessOverridesOf carries the personal limits of each account (PT-6
 
 describe('the copy-group member caps (PT-68g, F-V16)', () => {
     it('feeds the personal caps of a copy-group member', () => {
-        const overrides = readinessOverridesOf([
-            {
-                id: 'member',
-                personalRules: { maxRiskPerTradeCents: usdCents(7500) },
-            },
-        ]);
+        const overrides = readinessOverridesOf(
+            [
+                {
+                    id: 'member',
+                    personalRules: { maxRiskPerTradeCents: usdCents(7500) },
+                },
+            ],
+            NO_FIRM_PAYOUT_COUNTS,
+        );
 
         expect(overrides.get('member')?.personalCaps.maxRiskPerTrade).toBe(
             personalMaxRiskOf({ maxRiskPerTradeCents: usdCents(7500) }),

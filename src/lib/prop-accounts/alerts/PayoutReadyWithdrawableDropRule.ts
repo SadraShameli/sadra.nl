@@ -12,13 +12,14 @@ import {
     fundedWithdrawableDollarsOf,
     fundedWithdrawableLossCents,
     fundedWithdrawableLostToResetCents,
-    grossStateOf,
     PerformanceComparabilityKind,
     PerformanceIncomparabilityReason,
     performanceSinceSnapshot,
 } from '~/lib/prop-accounts/metrics';
 import { CENTS_PER_DOLLAR, TradingPhase } from '~/lib/prop-calculator';
 import {
+    grossStateOf,
+    type LiveTriggerLimits,
     payoutReadiness,
     PayoutReadinessKind,
     type ReconstructedFundedOrEvalAccount,
@@ -29,6 +30,7 @@ import { type AccountAlert } from './AccountAlert';
 import {
     type AlertContext,
     isActive,
+    liveTriggerDisclosuresOf,
     liveTriggerLimitsIn,
     type MonitoredAccount,
 } from './AlertContext';
@@ -74,16 +76,17 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
         const latest = state.latest.reconstructed;
         if (
             previous.kind !== TradingPhase.Funded ||
-            latest.kind !== TradingPhase.Funded ||
-            !wasPayoutEligible(
-                context,
-                monitored,
-                previous,
-                state.previous.asOf,
-            )
+            latest.kind !== TradingPhase.Funded
         ) {
             return null;
         }
+        const liveTrigger = liveTriggerLimitsIn(
+            context,
+            monitored,
+            previous.plan,
+            state.previous.asOf,
+        );
+        if (!wasPayoutEligible(context, previous, liveTrigger)) return null;
         const previousCents = usdCentsFromDollars(
             fundedWithdrawableDollarsOf(context.rulebook, previous),
         );
@@ -114,6 +117,7 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
             loss.isReset
                 ? `The account was reset after it was payout-ready, so ${formatUsdCents(loss.lostCents)} of the ${formatUsdCents(previousCents)} withdrawable was lost${afterPayout}`
                 : `The withdrawable amount fell from ${formatUsdCents(previousCents)} to ${formatUsdCents(latestCents)} since the account was last payout-ready${loss.paidCents > 0 ? `, ${formatUsdCents(loss.lostCents)} of it lost trading${afterPayout}` : ''}`,
+            liveTriggerDisclosuresOf(liveTrigger.coverage),
         );
     }
 }
@@ -199,9 +203,8 @@ function paidGrossBeforeReset(inputs: WithdrawableLossInputs): UsdCents {
 
 function wasPayoutEligible(
     context: AlertContext,
-    monitored: MonitoredAccount,
     account: ReconstructedFundedOrEvalAccount,
-    asOf: string,
+    liveTrigger: LiveTriggerLimits,
 ): boolean {
     if (account.fundedTracker === null) return false;
     const minRetainedCushion = fundedRetainedCushionDollarsOf(
@@ -215,12 +218,7 @@ function wasPayoutEligible(
         grossStateOf(account.state, pendingPayouts),
         account.fundedTracker,
         {
-            liveTrigger: liveTriggerLimitsIn(
-                context,
-                monitored,
-                account.plan,
-                asOf,
-            ),
+            liveTrigger,
             minRetainedCushion,
             payoutRequestSize: rawRequest,
             pendingPayouts,

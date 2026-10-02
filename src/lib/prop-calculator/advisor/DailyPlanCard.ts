@@ -1,10 +1,10 @@
 import {
     type Dollars,
     dollars,
-    PolicyVerification,
     type SingleDayProfitTrigger,
 } from '~/lib/prop-calculator/core';
 
+import { isConfirmedTrigger } from './ConfirmedTrigger';
 import { type DocumentedRule } from './DocumentedRule';
 import {
     type DayStopReason,
@@ -12,11 +12,18 @@ import {
     NextTradeKind,
     type SizingConstraint,
 } from './DocumentedSizing';
+import {
+    RungPlacement,
+    rungPlacementOf,
+    type SizingPlacement,
+} from './PlaceableMinimum';
 import { type DayProgress, type RuleContext } from './RuleContext';
+import { SizingStage } from './SizingStage';
 
 export const LIVE_TRIGGER_CEILING_MARGIN_DOLLARS = 50;
 
 export interface DailyPlanCard {
+    readonly rungPlacements: readonly RungPlacement[];
     readonly rungs: readonly DocumentedRung[];
     readonly stopCappedBy: readonly SizingConstraint[];
     readonly stopReason: DayStopReason;
@@ -45,6 +52,7 @@ export function combinedProfitCeiling(
 export function dailyPlanCard<TContext extends RuleContext>(
     rule: DocumentedRule<TContext>,
     context: TContext,
+    placement: null | SizingPlacement = null,
 ): DailyPlanCard {
     const rungs: DocumentedRung[] = [];
     let day = ZERO_DAY;
@@ -55,6 +63,11 @@ export function dailyPlanCard<TContext extends RuleContext>(
         trade = rule.nextTrade(context, day);
     }
     return {
+        rungPlacements: rungs.map((rung) =>
+            context.stage === SizingStage.Funded
+                ? rungPlacementOf(rung.risk, placement)
+                : RungPlacement.NotChecked,
+        ),
         rungs,
         stopCappedBy: trade.cappedBy,
         stopReason: trade.reason,
@@ -68,8 +81,7 @@ export function liveTriggerCeilingFor(
     trigger: null | SingleDayProfitTrigger,
     marginDollars: number = LIVE_TRIGGER_CEILING_MARGIN_DOLLARS,
 ): Dollars | null {
-    return trigger === null ||
-        trigger.source?.verification !== PolicyVerification.Confirmed
+    return trigger === null || !isConfirmedTrigger(trigger)
         ? null
         : dollars(Math.max(0, trigger.amount - marginDollars));
 }

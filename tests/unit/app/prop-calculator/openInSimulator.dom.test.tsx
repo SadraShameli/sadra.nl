@@ -72,6 +72,23 @@ vi.mock('next/navigation', async () => {
     };
 });
 
+vi.mock('~/lib/auth/client', () => ({
+    useSession: () => ({ data: null, error: null, isPending: false }),
+}));
+
+vi.mock('~/trpc/react', () => ({
+    api: {
+        propAccounts: {
+            bankroll: {
+                summary: { useQuery: () => ({ data: undefined }) },
+            },
+            rulebook: {
+                get: { useQuery: () => ({ data: undefined }) },
+            },
+        },
+    },
+}));
+
 const observed: {
     handlers: OpenInSimulator[];
     location: null | URL;

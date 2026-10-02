@@ -316,7 +316,9 @@ export {
     firmMinimumNotice,
     fundedLiveTriggerFieldsOf,
     type FundedPayoutRuleContext,
+    fundedPayoutRuleContextOf,
     fundedRetainedCushionResolution,
+    grossStateOf,
     type LivePayoutRuleContext,
     PayoutRequestRule,
     type PayoutRuleContext,
@@ -416,7 +418,11 @@ export {
     SizingInvariantBreach,
     SizingInvariantError,
 } from './SizingInvariant';
-export { SizingObjective, sizingObjectiveText } from './SizingObjective';
+export {
+    SIZING_OBJECTIVE_LABEL,
+    SizingObjective,
+    sizingObjectiveText,
+} from './SizingObjective';
 export { SizingStage } from './SizingStage';
 export { SnapshotInputField } from './SnapshotInputField';
 export {

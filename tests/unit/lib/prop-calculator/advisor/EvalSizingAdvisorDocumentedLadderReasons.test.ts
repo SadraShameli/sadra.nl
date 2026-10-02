@@ -9,6 +9,7 @@ import {
     type LadderSearchResult,
     type Plan,
     type PlanId,
+    rankLadderScores,
     serializePlanId,
     TradingPhase,
 } from '~/lib/prop-calculator';
@@ -33,6 +34,7 @@ const APEX_EOD_ID: PlanId = {
 const LADDER_REASON_KINDS: ReadonlySet<DifferenceReason> = new Set([
     DifferenceReason.DocumentedLadderNeverFunded,
     DifferenceReason.DocumentedLadderNotScored,
+    DifferenceReason.EngineLadderNeverFunded,
     DifferenceReason.WithinNoise,
 ]);
 
@@ -97,15 +99,11 @@ function ladderReasonsOf(
 
 function ladderResult(winner: LadderScore): LadderSearchResult {
     return {
-        byCost: [winner],
-        byPassRate: [winner],
-        bySpeed: [winner],
+        ...rankLadderScores([winner], 10),
         droppedAliasCount: 0,
-        frontier: [winner],
         gridSize: 1,
         laddersScored: 1,
         topN: 10,
-        unscorableCount: 0,
     };
 }
 
@@ -226,36 +224,57 @@ describe('EvalSizingAdvisor documented-ladder reasons (PT-19i, F-119)', () => {
         ).toEqual([DifferenceReason.DocumentedLadderNeverFunded]);
     });
 
-    it('says the documented ladder never funded when the engine best ladder never funds either (PT-36f)', () => {
+    it('says the engine ladder never funded, and never blames the documented ladder, when both never fund (PT-36h)', () => {
         expect(
             reasonsFor(advisorAt({ sims: SIMS }), NEVER_FUNDED, NEVER_FUNDED),
         ).toEqual([
-            {
-                kind: DifferenceReason.DocumentedLadderNeverFunded,
-                sims: SIMS,
-            },
+            { kind: DifferenceReason.EngineLadderNeverFunded, sims: SIMS },
         ]);
     });
 
-    it('says the documented ladder was not scored when the engine best ladder never funds and the result carries no documented score (PT-36f)', () => {
+    it('says the engine ladder never funded when the documented ladder was requested but carries no score (PT-36h)', () => {
         expect(reasonsFor(advisorAt({ sims: SIMS }), NEVER_FUNDED)).toEqual([
-            {
-                kind: DifferenceReason.DocumentedLadderNotScored,
-                sims: SIMS,
-            },
+            { kind: DifferenceReason.EngineLadderNeverFunded, sims: SIMS },
         ]);
     });
 
-    it('stays silent when the engine best ladder never funds but the documented ladder did: the two cannot be compared (PT-36f)', () => {
+    it('says the engine ladder never funded even when the documented ladder did fund (PT-36h)', () => {
         expect(
             reasonsFor(advisorAt({ sims: SIMS }), NEVER_FUNDED, score()),
-        ).toEqual([]);
+        ).toEqual([
+            { kind: DifferenceReason.EngineLadderNeverFunded, sims: SIMS },
+        ]);
     });
 
-    it('stays silent for an engine best ladder that never funds when no documented ladder was requested (PT-36f)', () => {
+    it('says the engine ladder never funded when no documented ladder was requested (PT-36h)', () => {
         const stale = advisorAt({ sims: SIMS, snapshotAsOf: '2026-09-01' });
 
-        expect(reasonsFor(stale, NEVER_FUNDED)).toEqual([]);
+        expect(stale.documented()).toBeNull();
+        expect(reasonsFor(stale, NEVER_FUNDED)).toEqual([
+            { kind: DifferenceReason.EngineLadderNeverFunded, sims: SIMS },
+        ]);
+    });
+
+    it('says the engine ladder never funded when only one of its cost and days is non-finite (PT-36h)', () => {
+        for (const optimum of [
+            score({ costPerFunded: Infinity }),
+            score({ expectedDaysToFunded: Infinity }),
+        ]) {
+            expect(
+                reasonsFor(advisorAt({ sims: SIMS }), optimum, score()).map(
+                    (reason) => reason.kind,
+                ),
+            ).toEqual([DifferenceReason.EngineLadderNeverFunded]);
+        }
+    });
+
+    it('reports the default simulation count for an engine ladder that never funds when the advisor has none of its own (PT-36h)', () => {
+        expect(reasonsFor(advisorAt(), NEVER_FUNDED)).toEqual([
+            {
+                kind: DifferenceReason.EngineLadderNeverFunded,
+                sims: DEFAULT_SIMS,
+            },
+        ]);
     });
 
     it('stays silent when no documented ladder was requested', () => {

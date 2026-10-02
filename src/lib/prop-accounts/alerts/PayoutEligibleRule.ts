@@ -1,13 +1,10 @@
 import { formatUsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
-import {
-    AccountStateKind,
-    fundedPayoutRuleContextOf,
-} from '~/lib/prop-accounts/metrics';
+import { AccountStateKind } from '~/lib/prop-accounts/metrics';
 import { TradingPhase } from '~/lib/prop-calculator';
 import {
     type FundedPayoutRuleContext,
+    fundedPayoutRuleContextOf,
     type LivePayoutRuleContext,
-    LiveTriggerCoverage,
     type LiveTriggerLimits,
     PayoutRequestDecisionKind,
     PayoutRequestRule,
@@ -20,6 +17,7 @@ import { type AccountAlert, AlertDisclosure } from './AccountAlert';
 import {
     type AlertContext,
     isActive,
+    liveTriggerDisclosuresOf,
     liveTriggerLimitsIn,
     type MonitoredAccount,
 } from './AlertContext';
@@ -53,10 +51,9 @@ export class PayoutEligibleRule extends AccountAlertRule {
         );
         if (decision.kind !== PayoutRequestDecisionKind.Request) return null;
         const disclosures =
-            ruleContext.stage === SizingStage.Live ||
-            liveTrigger.coverage === LiveTriggerCoverage.NotChecked
+            ruleContext.stage === SizingStage.Live
                 ? [AlertDisclosure.LiveTriggersNotChecked]
-                : [];
+                : liveTriggerDisclosuresOf(liveTrigger.coverage);
         const amount = formatUsdCents(
             usdCentsFromDollars(decision.requestAmount),
         );
@@ -98,14 +95,15 @@ function payoutRuleContextOf(
         case TradingPhase.Funded: {
             return account.fundedTracker === null
                 ? null
-                : fundedPayoutRuleContextOf(
-                      account.plan,
-                      account.state,
-                      account.fundedTracker,
-                      null,
+                : fundedPayoutRuleContextOf({
                       liveTrigger,
-                      account.pendingPayouts ?? 0,
-                  );
+                      pendingPayouts: account.pendingPayouts ?? 0,
+                      personalRequestOverride: null,
+                      personalRetainedCushion: null,
+                      plan: account.plan,
+                      state: account.state,
+                      tracker: account.fundedTracker,
+                  });
         }
     }
 }

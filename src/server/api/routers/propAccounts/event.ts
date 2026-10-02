@@ -18,7 +18,9 @@ import {
     LEDGER_ONLY_LIFECYCLE_FACTS,
     LifecycleOutcomeKind,
     liveExclusivityEffectsOf,
+    PlanKeyResolutionKind,
     type PlanLifecycleFacts,
+    resolvePlanKey,
     suspendedAccountIdsOf,
 } from '~/lib/prop-accounts';
 import {
@@ -268,6 +270,19 @@ function exclusivityRejection(message: string): PropMutationRejectionError {
     );
 }
 
+function isListedSiblingReadable(account: ListedSiblingRow): boolean {
+    switch (account.tracking) {
+        case AccountTracking.LedgerOnly: {
+            return true;
+        }
+        case AccountTracking.Modeled: {
+            return (
+                resolvePlanKey(account).kind === PlanKeyResolutionKind.Resolved
+            );
+        }
+    }
+}
+
 function lifecyclePlanOf(stored: OwnedAccount): null | Plan {
     switch (stored.tracking) {
         case AccountTracking.LedgerOnly: {
@@ -336,7 +351,9 @@ async function requiredSuspensionsOf(
         true,
     );
     const others = listed.filter(
-        (account) => account.id !== movedLive.account.id,
+        (account) =>
+            account.id !== movedLive.account.id &&
+            isListedSiblingReadable(account),
     );
     const suspendedIds = suspendSetOf(
         movedLive,

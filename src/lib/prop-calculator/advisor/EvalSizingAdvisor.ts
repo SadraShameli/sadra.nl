@@ -11,6 +11,7 @@ import {
     type LadderGridConfig,
     ladderGridSize,
     type LadderScore,
+    type LadderSearchResult,
     MAX_LADDER_GRID_SIZE,
     resolvePositionSizing,
     RungSizing,
@@ -244,6 +245,13 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
     ): DifferenceReasonDetail | null {
         const scored = results.find(isScoredLadderResult);
         if (scored === undefined) return null;
+        const optimum = scored.ladder.bySpeed[0];
+        if (isEngineLadderNeverFunded(scored.ladder, optimum)) {
+            return {
+                kind: DifferenceReason.EngineLadderNeverFunded,
+                sims: this.scoredSims(),
+            };
+        }
         const { documentedScore } = scored;
         if (documentedScore === undefined) {
             return this.documentedLadder() === null
@@ -259,8 +267,7 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
                 sims: this.scoredSims(),
             };
         }
-        const optimum = scored.ladder.bySpeed[0];
-        if (optimum === undefined || !isFundedScore(optimum)) return null;
+        if (optimum === undefined) return null;
         const cost = measuredPair(
             documentedScore.costPerFunded,
             documentedScore.costPerFundedStandardError,
@@ -447,6 +454,15 @@ function gridWithRungCount(
         slots,
         step,
     };
+}
+
+function isEngineLadderNeverFunded(
+    ladder: LadderSearchResult,
+    optimum: LadderScore | undefined,
+): boolean {
+    return optimum === undefined
+        ? ladder.unscorableCount > 0
+        : !isFundedScore(optimum);
 }
 
 function isFundedScore(score: LadderScore): boolean {

@@ -25,6 +25,9 @@ import {
     COPY_SPLIT_NOISE_SIGMAS,
     copySplitBasisLines,
     copySplitCandidates,
+    type CopySplitFundedSizing,
+    CopySplitFundedSource,
+    copySplitFundedStopNotice,
     CopySplitRowKind,
     copySplitTrials,
     type EnginePolicy,
@@ -32,8 +35,14 @@ import {
     runCopySplit,
     SIZING_OBJECTIVE_LABEL,
 } from '~/lib/prop-calculator/advisor/policy';
-import { TopStepVariant } from '~/lib/prop-calculator/core';
+import {
+    flatDayPolicy,
+    policySizingOf,
+    TopStepVariant,
+    TradingPhase,
+} from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
+import { resolveDayPolicy } from '~/lib/prop-calculator/simulator';
 
 const DOCUMENTED_FUNDED_RISK = DEFAULT_RULEBOOK.funded.riskCents / 100;
 
@@ -44,6 +53,9 @@ const ADVISOR_ROOT = path.join(
     'prop-calculator',
     'advisor',
 );
+
+const COPY_SPLIT_USE =
+    /from '[^']*\/CopySplit'|\b(?:COPY_SPLIT_\w+|copySplit\w+|CopySplit(?:Candidate|Funded\w*|Placement|Refused\w*|Result|Row\w*|Simulated\w*)|DEFAULT_COPY_SPLIT_FUNDED|rankCopySplitRows|RankedCopySplitRows|runCopySplit)\b/;
 
 const POLICY: EnginePolicy = {
     commissionPerRoundTrip: 0,
@@ -86,6 +98,15 @@ function topStepPlan(): Plan {
     });
     if (!plan) throw new Error('TopStep 50K plan not found');
     return plan;
+}
+
+function userFunded(
+    overrides: Partial<typeof DEFAULT_RULEBOOK.funded>,
+): CopySplitFundedSizing {
+    return {
+        parameters: { ...DEFAULT_RULEBOOK.funded, ...overrides },
+        source: CopySplitFundedSource.UserRulebook,
+    };
 }
 
 describe('copySplitTrials', () => {
@@ -190,38 +211,190 @@ describe('copySplitCandidates', () => {
         expect(funded).toStrictEqual([250, 250, 250]);
     });
 
-    it('splits a fixed-dollar after-target day cap across the accounts together with the risk', () => {
+    it('divides a fixed-dollar after-target day cap across the accounts in the eval, together with the risk', () => {
         const candidates = copySplitCandidates(
             baseInputs({
                 dayStop: { dollars: 1000, kind: DayStopRuleKind.AfterTarget },
             }),
             POLICY,
             2000,
-            [1, 4],
+            [1, 4, 10],
         );
         const stops = candidates.map((candidate) =>
             candidate.kind === CopySplitRowKind.Simulated
-                ? candidate.inputs.dayStop
+                ? resolveDayPolicy(candidate.inputs, TradingPhase.Eval)
+                      .stopRule
                 : null,
         );
         expect(stops).toStrictEqual([
             { dollars: 1000, kind: DayStopRuleKind.AfterTarget },
             { dollars: 250, kind: DayStopRuleKind.AfterTarget },
+            { dollars: 100, kind: DayStopRuleKind.AfterTarget },
         ]);
     });
 
-    it('leaves a day stop that has no dollar amount unchanged across the split', () => {
-        const [candidate] = copySplitCandidates(
+    it('keeps the eval risk per account on the eval day policy the divided cap rides on', () => {
+        const [four] = copySplitCandidates(
             baseInputs({
-                dayStop: { k: 2, kind: DayStopRuleKind.AfterKLosses },
+                dayStop: { dollars: 1000, kind: DayStopRuleKind.AfterTarget },
+                tradesPerDay: 2,
             }),
             POLICY,
             2000,
             [4],
         );
+        if (four?.kind !== CopySplitRowKind.Simulated) {
+            throw new Error('expected a simulated candidate');
+        }
+        const policy = resolveDayPolicy(four.inputs, TradingPhase.Eval);
+        expect(policy.ladder).toStrictEqual([500, 500]);
+        expect(four.inputs.riskPerTrade).toBe(500);
+    });
+
+    it('runs the funded phase at the documented funded stop, never the cap divided by the split', () => {
+        const candidates = copySplitCandidates(
+            baseInputs({
+                dayStop: { dollars: 1000, kind: DayStopRuleKind.AfterTarget },
+            }),
+            POLICY,
+            2000,
+            [1, 10],
+        );
+        const stops = candidates.map((candidate) =>
+            candidate.kind === CopySplitRowKind.Simulated
+                ? resolveDayPolicy(candidate.inputs, TradingPhase.Funded)
+                      .stopRule
+                : null,
+        );
+        expect(stops).toStrictEqual([
+            { kind: DayStopRuleKind.None },
+            { kind: DayStopRuleKind.None },
+        ]);
+    });
+
+    it('takes the funded stop from the rulebook funded sizing it is given, in dollars and not divided', () => {
+        const candidates = copySplitCandidates(
+            baseInputs({
+                dayStop: { dollars: 1000, kind: DayStopRuleKind.AfterTarget },
+            }),
+            POLICY,
+            2000,
+            [1, 10],
+            userFunded({
+                stopRule: {
+                    kind: DayStopRuleKind.AfterTarget,
+                    targetCents: 30_000,
+                },
+            }),
+        );
+        const stops = candidates.map((candidate) =>
+            candidate.kind === CopySplitRowKind.Simulated
+                ? resolveDayPolicy(candidate.inputs, TradingPhase.Funded)
+                      .stopRule
+                : null,
+        );
+        expect(stops).toStrictEqual([
+            { dollars: 300, kind: DayStopRuleKind.AfterTarget },
+            { dollars: 300, kind: DayStopRuleKind.AfterTarget },
+        ]);
+    });
+
+    it('takes the funded risk from the rulebook funded sizing it is given, and an explicit funded risk still wins', () => {
+        const funded = userFunded({ riskCents: 40_000 });
+        const [fromRulebook] = copySplitCandidates(
+            baseInputs(),
+            POLICY,
+            2000,
+            [2],
+            funded,
+        );
+        const [explicit] = copySplitCandidates(
+            baseInputs({ fundedRiskPerTrade: 800 }),
+            POLICY,
+            2000,
+            [2],
+            funded,
+        );
+        if (
+            fromRulebook?.kind !== CopySplitRowKind.Simulated ||
+            explicit?.kind !== CopySplitRowKind.Simulated
+        ) {
+            throw new Error('expected simulated candidates');
+        }
+        expect(fromRulebook.inputs.fundedRiskPerTrade).toBe(400);
+        expect(explicit.inputs.fundedRiskPerTrade).toBe(800);
+    });
+
+    it('does not refuse every split for a contract-sized instrument when the rulebook funded risk is at least one contract', () => {
+        const candidates = copySplitCandidates(
+            baseInputs({ instrument: InstrumentSymbol.NQ, stopPoints: 20 }),
+            POLICY,
+            2000,
+            [1, 2],
+            userFunded({ riskCents: 80_000 }),
+        );
+        expect(candidates.map((candidate) => candidate.kind)).toStrictEqual([
+            CopySplitRowKind.Simulated,
+            CopySplitRowKind.Simulated,
+        ]);
+    });
+
+    it('keeps the eval on the entered day stop and the funded phase on the rulebook funded stop for a stop that is not an after-target cap', () => {
+        const candidates = copySplitCandidates(
+            baseInputs({ dayStop: { kind: DayStopRuleKind.FirstWin } }),
+            POLICY,
+            2000,
+            [1, 4],
+            userFunded({ stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses } }),
+        );
+        const stops = candidates.map((candidate) =>
+            candidate.kind === CopySplitRowKind.Simulated
+                ? [
+                      resolveDayPolicy(candidate.inputs, TradingPhase.Eval)
+                          .stopRule,
+                      resolveDayPolicy(candidate.inputs, TradingPhase.Funded)
+                          .stopRule,
+                  ]
+                : null,
+        );
+        const expected = [
+            { kind: DayStopRuleKind.FirstWin },
+            { k: 2, kind: DayStopRuleKind.AfterKLosses },
+        ];
+        expect(stops).toStrictEqual([expected, expected]);
+    });
+
+    it('applies a rulebook funded stop when no day stop is entered, leaving the eval unstopped', () => {
+        const [candidate] = copySplitCandidates(
+            baseInputs(),
+            POLICY,
+            2000,
+            [4],
+            userFunded({ stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses } }),
+        );
         if (candidate?.kind !== CopySplitRowKind.Simulated) {
             throw new Error('expected a simulated candidate');
         }
+        expect(
+            resolveDayPolicy(candidate.inputs, TradingPhase.Eval).stopRule,
+        ).toStrictEqual({ kind: DayStopRuleKind.None });
+        expect(
+            resolveDayPolicy(candidate.inputs, TradingPhase.Funded).stopRule,
+        ).toStrictEqual({ k: 2, kind: DayStopRuleKind.AfterKLosses });
+    });
+
+    it('leaves the eval day policy unset when the entered stop already equals the funded stop and is not a cap', () => {
+        const [candidate] = copySplitCandidates(
+            baseInputs({ dayStop: { k: 2, kind: DayStopRuleKind.AfterKLosses } }),
+            POLICY,
+            2000,
+            [4],
+            userFunded({ stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses } }),
+        );
+        if (candidate?.kind !== CopySplitRowKind.Simulated) {
+            throw new Error('expected a simulated candidate');
+        }
+        expect(candidate.inputs.evalDayPolicy).toBeUndefined();
         expect(candidate.inputs.dayStop).toStrictEqual({
             k: 2,
             kind: DayStopRuleKind.AfterKLosses,
@@ -375,6 +548,97 @@ describe('runCopySplit', () => {
         expect(one.totalMonthlyNet.standardError).toBe(
             out.estimates.expectedMonthlyNet.standardError,
         );
+    });
+
+    it('simulates a divided split with the eval cap divided, not the cap undivided', () => {
+        const base = baseInputs({
+            dayStop: { dollars: 1000, kind: DayStopRuleKind.AfterTarget },
+            rrRatio: 0.25,
+            tradesPerDay: 3,
+            trials: 200,
+        });
+        const result = runCopySplit(
+            base,
+            POLICY,
+            2000,
+            [1, 4],
+            SizingObjective.MonthlyNet,
+        );
+        const four = result.rows.find((row) => row.splitCount === 4);
+        if (four?.kind !== CopySplitRowKind.Simulated) {
+            throw new Error('expected a simulated row');
+        }
+        const withCap = (cap: number) => {
+            const inputs = applyEnginePolicy(base.plan, POLICY, {
+                ...base,
+                copyAccounts: 4,
+                dayStop: { kind: DayStopRuleKind.None },
+                evalDayPolicy: flatDayPolicy(
+                    500,
+                    3,
+                    { dollars: cap, kind: DayStopRuleKind.AfterTarget },
+                    policySizingOf(TradingPhase.Eval),
+                ),
+                fundedRiskPerTrade: DOCUMENTED_FUNDED_RISK,
+                riskPerTrade: 500,
+                trials: four.trials,
+            });
+            return simulate(inputs).expectedMonthlyNet;
+        };
+        expect(four.totalMonthlyNet.value).toBe(withCap(250));
+        expect(withCap(250)).not.toBe(withCap(1000));
+    });
+
+    it('simulates the funded phase on the rulebook funded stop, not on the stop entered for the eval', () => {
+        const base = baseInputs({
+            dayStop: { dollars: 600, kind: DayStopRuleKind.AfterTarget },
+            tradesPerDay: 3,
+            trials: 200,
+        });
+        const funded = userFunded({
+            stopRule: { k: 1, kind: DayStopRuleKind.AfterKLosses },
+        });
+        const withStop = runCopySplit(
+            base,
+            POLICY,
+            2000,
+            [1],
+            SizingObjective.MonthlyNet,
+            funded,
+        );
+        const withoutStop = runCopySplit(
+            base,
+            POLICY,
+            2000,
+            [1],
+            SizingObjective.MonthlyNet,
+        );
+        const [row] = withStop.rows;
+        const [plain] = withoutStop.rows;
+        if (
+            row?.kind !== CopySplitRowKind.Simulated ||
+            plain?.kind !== CopySplitRowKind.Simulated
+        ) {
+            throw new Error('expected simulated rows');
+        }
+        const evalDayPolicy = flatDayPolicy(
+            2000,
+            3,
+            { dollars: 600, kind: DayStopRuleKind.AfterTarget },
+            policySizingOf(TradingPhase.Eval),
+        );
+        const inputs = applyEnginePolicy(base.plan, POLICY, {
+            ...base,
+            copyAccounts: 1,
+            dayStop: { k: 1, kind: DayStopRuleKind.AfterKLosses },
+            evalDayPolicy,
+            fundedRiskPerTrade: DOCUMENTED_FUNDED_RISK,
+            riskPerTrade: 2000,
+            trials: row.trials,
+        });
+        const expected = simulate(inputs);
+        expect(row.totalMonthlyNet.value).toBe(expected.expectedMonthlyNet);
+        expect(row.totalMonthlyNet.value).not.toBe(plain.totalMonthlyNet.value);
     });
 
     it('is deterministic for one seed', () => {
@@ -608,6 +872,81 @@ describe('copySplitBasisLines', () => {
         expect(text).toContain('after-target day cap $1,000 is a group total');
     });
 
+    it('names the funded risk and the funded stop taken from the rulebook funded sizing it is given', () => {
+        const text = copySplitBasisLines(
+            baseInputs({
+                dayStop: { dollars: 1000, kind: DayStopRuleKind.AfterTarget },
+            }),
+            POLICY,
+            userFunded({
+                riskCents: 40_000,
+                stopRule: {
+                    kind: DayStopRuleKind.AfterTarget,
+                    targetCents: 30_000,
+                },
+            }),
+        ).join('\n');
+        expect(text).toContain('funded risk $400 per account');
+        expect(text).toContain(
+            'the funded phase uses your rulebook funded stop (after-target $300) per account, not the divided cap',
+        );
+        expect(text).not.toContain('\u{2014}');
+    });
+
+    it('says the funded phase has no stop, and that it is the default rulebook, when no funded sizing is given', () => {
+        const text = copySplitBasisLines(
+            baseInputs({
+                dayStop: { dollars: 1000, kind: DayStopRuleKind.AfterTarget },
+            }),
+            POLICY,
+        ).join('\n');
+        expect(text).toContain(
+            'the funded phase uses the default rulebook funded stop (none) per account, not the divided cap',
+        );
+        expect(text).not.toContain('documented funded stop');
+    });
+
+    it('names the funded stop for a day stop that is not an after-target cap, and for no day stop at all', () => {
+        const none = copySplitBasisLines(baseInputs(), POLICY).join('\n');
+        const firstWin = copySplitBasisLines(
+            baseInputs({ dayStop: { kind: DayStopRuleKind.FirstWin } }),
+            POLICY,
+            userFunded({ stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses } }),
+        ).join('\n');
+        expect(none).toContain(
+            'the funded phase uses the default rulebook funded stop (none) per account',
+        );
+        expect(none).not.toContain('not the divided cap');
+        expect(firstWin).toContain(
+            'the eval phase uses the day stop entered (first win)',
+        );
+        expect(firstWin).toContain(
+            'the funded phase uses your rulebook funded stop (after 2 losses) per account',
+        );
+        expect(firstWin).not.toContain('not the divided cap');
+    });
+
+    it('says the funded trades per day and reward multiple follow the entered strategy, not the rulebook funded trades', () => {
+        const entered = copySplitBasisLines(
+            baseInputs({ tradesPerDay: 6 }),
+            POLICY,
+        ).join('\n');
+        const given = copySplitBasisLines(
+            baseInputs({
+                fundedRrRatio: 3,
+                fundedTradesPerDay: 2,
+                tradesPerDay: 6,
+            }),
+            POLICY,
+        ).join('\n');
+        expect(entered).toContain(
+            'funded trades per day 6 and reward multiple 1:2 follow the strategy entered, not the rulebook funded trades per day',
+        );
+        expect(given).toContain(
+            'funded trades per day 2 and reward multiple 1:3 follow the strategy entered',
+        );
+    });
+
     it('is carried on the result of a run', () => {
         const base = baseInputs({ trials: 100 });
         const result = runCopySplit(
@@ -619,6 +958,22 @@ describe('copySplitBasisLines', () => {
         );
         expect(result.basisLines).toStrictEqual(
             copySplitBasisLines(base, POLICY),
+        );
+    });
+});
+
+describe('copySplitFundedStopNotice', () => {
+    it('is null while the rulebook funded stop is the default one the split runs on', () => {
+        expect(copySplitFundedStopNotice(DEFAULT_RULEBOOK.funded)).toBeNull();
+    });
+
+    it('names the rulebook funded stop that is not applied and the default one that is', () => {
+        const notice = copySplitFundedStopNotice({
+            ...DEFAULT_RULEBOOK.funded,
+            stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
+        });
+        expect(notice).toBe(
+            'your rulebook funded stop (after 2 losses) is not applied to this split yet: the funded phase runs on the default rulebook funded stop (none)',
         );
     });
 });
@@ -639,9 +994,7 @@ describe('CopySplit is never used by the headline, the rulebook or advice', () =
             (file) => !file.includes(`${path.sep}policy${path.sep}`),
         );
         const offenders = outsidePolicy.filter((file) =>
-            /CopySplit|copySplitCandidates|runCopySplit/.test(
-                readFileSync(file, 'utf8'),
-            ),
+            COPY_SPLIT_USE.test(readFileSync(file, 'utf8')),
         );
         expect(offenders).toStrictEqual([]);
     });

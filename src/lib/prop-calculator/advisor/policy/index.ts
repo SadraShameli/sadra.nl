@@ -1,14 +1,13 @@
 export {
-    type BankrollRiskFigures,
-    bankrollRiskFigures,
-} from './BankrollRiskFigures';
-export {
     COPY_SPLIT_CORRELATION_NOTE,
     COPY_SPLIT_MIN_TRIALS,
     COPY_SPLIT_NOISE_SIGMAS,
     copySplitBasisLines,
     type CopySplitCandidate,
     copySplitCandidates,
+    type CopySplitFundedSizing,
+    CopySplitFundedSource,
+    copySplitFundedStopNotice,
     type CopySplitPlacement,
     type CopySplitRefusedCandidate,
     type CopySplitRefusedRow,
@@ -18,10 +17,10 @@ export {
     type CopySplitSimulatedCandidate,
     type CopySplitSimulatedRow,
     copySplitTrials,
+    DEFAULT_COPY_SPLIT_FUNDED,
     rankCopySplitRows,
     type RankedCopySplitRows,
     runCopySplit,
-    SIZING_OBJECTIVE_LABEL,
 } from './CopySplit';
 export {
     DayLedger,
@@ -74,3 +73,8 @@ export {
     personalDayLimitsOfPolicy,
     withPersonalDayLimits,
 } from './PersonalDayLimits';
+export { SIZING_OBJECTIVE_LABEL } from '~/lib/prop-calculator/advisor/SizingObjective';
+export {
+    type BankrollRiskFigures,
+    bankrollRiskFigures,
+} from '~/lib/prop-calculator/economics';

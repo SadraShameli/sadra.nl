@@ -69,3 +69,14 @@ describe('floorToPlaceableUnit', () => {
         expect(floorToPlaceableUnit(120, 40)).toBe(120);
     });
 });
+
+describe('floorToPlaceableUnit refuses a unit that cannot divide a risk (PT-36h)', () => {
+    it.each([0, -40, NaN, Infinity])(
+        'throws for a unit of %s instead of returning a risk',
+        (unit) => {
+            expect(() => floorToPlaceableUnit(100, unit)).toThrow(
+                /placeable unit/,
+            );
+        },
+    );
+});

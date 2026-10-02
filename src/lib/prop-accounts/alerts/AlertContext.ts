@@ -43,6 +43,7 @@ import {
 } from '~/lib/prop-accounts/metrics';
 import { findFirm, type Plan, type TradingFirm } from '~/lib/prop-calculator';
 import {
+    LiveTriggerCoverage,
     type LiveTriggerLimits,
     liveTriggerLimitsFor,
     type RulebookParameters,
@@ -267,6 +268,14 @@ export function isModeledMonitored(
         monitored.account.tracking === AccountTracking.Modeled &&
         monitored.planKey !== null
     );
+}
+
+export function liveTriggerDisclosuresOf(
+    coverage: LiveTriggerCoverage,
+): readonly AlertDisclosure[] {
+    return coverage === LiveTriggerCoverage.NotChecked
+        ? [AlertDisclosure.LiveTriggersNotChecked]
+        : [];
 }
 
 export function liveTriggerLimitsIn(

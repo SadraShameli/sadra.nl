@@ -11,10 +11,10 @@ import {
 import {
     buildLadderGrid,
     canonicaliseGrid,
-    ladderFrontier,
     LadderGridError,
     type LadderGridLabels,
     type LadderScore,
+    rankLadderScores,
     resolveCopyAccounts,
 } from '~/lib/prop-calculator';
 
@@ -140,9 +140,6 @@ export function useLadderSearch() {
             );
 
             const finish = () => {
-                const scorable = scores.filter((score) =>
-                    Number.isFinite(score.expectedDaysToFunded),
-                );
                 setState({
                     phase: LadderRunPhase.Succeeded,
                     progress: {
@@ -152,26 +149,10 @@ export function useLadderSearch() {
                         total,
                     },
                     result: {
-                        byCost: scorable
-                            .toSorted(
-                                (a, b) => a.costPerFunded - b.costPerFunded,
-                            )
-                            .slice(0, TOP_N),
-                        byPassRate: scorable
-                            .toSorted((a, b) => b.passRate - a.passRate)
-                            .slice(0, TOP_N),
-                        bySpeed: scorable
-                            .toSorted(
-                                (a, b) =>
-                                    a.expectedDaysToFunded -
-                                    b.expectedDaysToFunded,
-                            )
-                            .slice(0, TOP_N),
+                        ...rankLadderScores(scores, TOP_N),
                         droppedAliasCount: gridSize - total,
-                        frontier: ladderFrontier(scorable),
                         gridSize,
                         laddersScored: total,
-                        unscorableCount: scores.length - scorable.length,
                     },
                 });
                 teardown();

@@ -421,6 +421,51 @@ describe('the advice panel passes the firm payout count to the advisor (PT-36g, 
     });
 });
 
+describe('the advice panel flags a firm payout ledger that failed to refresh (PT-36g)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.queries.clear();
+        adviceBox.inputs = [];
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        document.body.replaceChildren();
+        vi.unstubAllGlobals();
+    });
+
+    it('says the firm payouts could not be refreshed when the ledger keeps stale data after a failed refetch', () => {
+        answerEverything({
+            data: [paid(0)],
+            error: new Error('refetch exploded'),
+            isError: true,
+            isPending: false,
+        });
+        act(() => {
+            root.render(<AdvicePanel id={ACCOUNT_ID} />);
+        });
+        expect(container.textContent).toContain(
+            'The firm payouts could not be refreshed',
+        );
+    });
+
+    it('does not say so while the firm payout ledger is healthy', () => {
+        answerEverything(answer([paid(0)]));
+        act(() => {
+            root.render(<AdvicePanel id={ACCOUNT_ID} />);
+        });
+        expect(container.textContent).not.toContain('could not be refreshed');
+    });
+});
+
 describe('a suspended account never reaches the value request builder through a panel short-circuit (PT-36g, PT-19i addendum)', () => {
     it('returns NotRequested from the request builder itself for the advice of a suspended advisor', () => {
         const rebuilt = AccountReconstruction.rebuild(

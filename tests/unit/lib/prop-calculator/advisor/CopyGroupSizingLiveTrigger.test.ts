@@ -145,9 +145,10 @@ function member(
 ): CopyGroupSizingMember {
     return {
         account: fundedAccount(),
-        ...(accountPolicy !== undefined && { accountPolicy }),
+        accountPolicy: accountPolicy ?? null,
         id,
         label: id,
+        paidPayoutsSinceLastLiveAccount: null,
     };
 }
 

@@ -17,6 +17,7 @@ import {
     bankrollTwoStrategiesRequest,
     bankrollTwoStrategiesSummary,
     bankrollVariantFor,
+    bankrollVariantWithFundedRisk,
     bankrollVariantWithRisk,
     parseBankrollCandidateList,
     parseBankrollDollarCandidateList,
@@ -443,6 +444,18 @@ describe('bankrollVariantWithRisk (PT-62b)', () => {
         expect(overridden.plan).toBe(variant.plan);
         expect(overridden.policy).toBe(variant.policy);
         expect(variant.base.riskPerTrade).toBe(250);
+    });
+});
+
+describe('bankrollVariantWithFundedRisk (PT-63b)', () => {
+    it('sets only the funded risk per trade, leaving the eval risk, the plan and the policy untouched', () => {
+        const variant = variantFor();
+        const overridden = bankrollVariantWithFundedRisk(variant, 400);
+        expect(overridden.base.fundedRiskPerTrade).toBe(400);
+        expect(overridden.base.riskPerTrade).toBe(variant.base.riskPerTrade);
+        expect(overridden.plan).toBe(variant.plan);
+        expect(overridden.policy).toBe(variant.policy);
+        expect(variant.base.fundedRiskPerTrade).toBeUndefined();
     });
 });
 

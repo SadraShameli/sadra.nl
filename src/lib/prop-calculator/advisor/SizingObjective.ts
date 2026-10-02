@@ -4,6 +4,13 @@ export enum SizingObjective {
     RuinFirst = 'ruin-first',
 }
 
+export const SIZING_OBJECTIVE_LABEL: Readonly<Record<SizingObjective, string>> =
+    {
+        [SizingObjective.CycleCash]: 'cycle cash',
+        [SizingObjective.MonthlyNet]: 'monthly net',
+        [SizingObjective.RuinFirst]: 'ruin first',
+    };
+
 export function sizingObjectiveText(objective: SizingObjective): string {
     switch (objective) {
         case SizingObjective.CycleCash: {

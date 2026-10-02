@@ -33,6 +33,23 @@ vi.mock('~/app/(app)/prop-calculator/_components/InputsSummary', () => ({
     InputsSummary: renderNothing,
 }));
 
+vi.mock('~/lib/auth/client', () => ({
+    useSession: () => ({ data: null, error: null, isPending: false }),
+}));
+
+vi.mock('~/trpc/react', () => ({
+    api: {
+        propAccounts: {
+            bankroll: {
+                summary: { useQuery: () => ({ data: undefined }) },
+            },
+            rulebook: {
+                get: { useQuery: () => ({ data: undefined }) },
+            },
+        },
+    },
+}));
+
 const REJECTED = 'lab scenarios in this link or saved scenario were rejected';
 
 const sharedScenario: LabScenario = {

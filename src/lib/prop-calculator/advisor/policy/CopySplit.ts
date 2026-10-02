@@ -4,7 +4,11 @@ import {
     RankingSurface,
 } from '~/lib/prop-calculator/advisor/actions/ObjectiveApplicability';
 import { applyEnginePolicy } from '~/lib/prop-calculator/advisor/EnginePolicyBuilder';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor/Rulebook';
+import {
+    DEFAULT_RULEBOOK,
+    type FundedSizingParameters,
+    fundedStopRuleToDayStopRule,
+} from '~/lib/prop-calculator/advisor/Rulebook';
 import { SizingObjective } from '~/lib/prop-calculator/advisor/SizingObjective';
 import {
     CENTS_PER_DOLLAR,
@@ -12,11 +16,14 @@ import {
     type DayStopRule,
     DayStopRuleKind,
     evalContractLimit,
+    flatDayPolicy,
     formatOneContractRisk,
     formatWholeCentDollars,
     isBelowOneContract,
+    policySizingOf,
     type PositionSizingConfig,
     resolvePositionSizing,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
 import {
     type SimInputs,
@@ -25,12 +32,18 @@ import {
     simulate,
 } from '~/lib/prop-calculator/simulator';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
+import { stableJson } from '~/lib/stableJson';
 
 import {
     type EnginePolicy,
     LifetimePayoutCapBasis,
     RebuyLagBasis,
 } from './EnginePolicy';
+
+export enum CopySplitFundedSource {
+    DefaultRulebook = 'default-rulebook',
+    UserRulebook = 'user-rulebook',
+}
 
 export enum CopySplitRowKind {
     Refused = 'refused',
@@ -39,6 +52,11 @@ export enum CopySplitRowKind {
 
 export type CopySplitCandidate =
     CopySplitRefusedCandidate | CopySplitSimulatedCandidate;
+
+export interface CopySplitFundedSizing {
+    readonly parameters: FundedSizingParameters;
+    readonly source: CopySplitFundedSource;
+}
 
 export interface CopySplitPlacement {
     readonly contracts: number;
@@ -93,32 +111,28 @@ export interface RankedCopySplitRows {
 
 export const COPY_SPLIT_MIN_TRIALS = 50;
 export const COPY_SPLIT_NOISE_SIGMAS = 2;
+export const DEFAULT_COPY_SPLIT_FUNDED: CopySplitFundedSizing = {
+    parameters: DEFAULT_RULEBOOK.funded,
+    source: CopySplitFundedSource.DefaultRulebook,
+};
 export const COPY_SPLIT_CORRELATION_NOTE =
     'the copies are engine copies that take identical trades, so they win and bust together: splitting does not diversify the group, it only changes the size of each account';
-
-export const SIZING_OBJECTIVE_LABEL: Readonly<Record<SizingObjective, string>> =
-    {
-        [SizingObjective.CycleCash]: 'cycle cash',
-        [SizingObjective.MonthlyNet]: 'monthly net',
-        [SizingObjective.RuinFirst]: 'ruin first',
-    };
 
 export function copySplitBasisLines(
     base: SimInputs,
     policy: EnginePolicy,
+    funded: CopySplitFundedSizing = DEFAULT_COPY_SPLIT_FUNDED,
 ): string[] {
     const lines = [
         `win rate ${(base.winrate * 100).toFixed(0)}% at 1:${base.rrRatio}, ${base.fundedHorizonDays} funded days`,
-        fundedRiskLine(base),
+        fundedRiskLine(base, funded.parameters),
+        fundedStrategyLine(base),
         payoutLine(base, policy),
-    ];
-    const dayStopLine = dayStopBasisLine(base.dayStop);
-    if (dayStopLine !== null) lines.push(dayStopLine);
-    lines.push(
+        ...dayStopBasisLines(base.dayStop, funded),
         policy.rebuyLagBasis === RebuyLagBasis.AssumedZero
             ? 'rebuy lag is assumed zero, which is optimistic'
             : `rebuy lag ${policy.rebuyLagDays} days, measured`,
-    );
+    ];
     if (
         policy.lifetimePayoutCapBasis ===
         LifetimePayoutCapBasis.LiveTriggersNotChecked
@@ -141,6 +155,7 @@ export function copySplitCandidates(
     policy: EnginePolicy,
     totalRisk: number,
     splits: readonly number[],
+    funded: CopySplitFundedSizing = DEFAULT_COPY_SPLIT_FUNDED,
 ): CopySplitCandidate[] {
     assertValidSplits(totalRisk, splits);
     const trials = copySplitTrials(base.trials, splits);
@@ -156,8 +171,21 @@ export function copySplitCandidates(
             splitCount,
             totalRisk / splitCount,
             trials,
+            funded,
         ),
     );
+}
+
+export function copySplitFundedStopNotice(
+    rulebookFunded: FundedSizingParameters,
+): null | string {
+    const own = fundedStopRuleToDayStopRule(rulebookFunded.stopRule);
+    const applied = fundedStopRuleToDayStopRule(
+        DEFAULT_COPY_SPLIT_FUNDED.parameters.stopRule,
+    );
+    return stableJson(own) === stableJson(applied)
+        ? null
+        : `your rulebook funded stop (${fundedStopText(own)}) is not applied to this split yet: the funded phase runs on the default rulebook funded stop (${fundedStopText(applied)})`;
 }
 
 export function copySplitTrials(
@@ -177,7 +205,7 @@ export function rankCopySplitRows(
 ): RankedCopySplitRows {
     const applicability = objectiveApplicability(
         requestedObjective,
-        RankingSurface.Advice,
+        RankingSurface.CopySplit,
     );
     const objective = applicability.effectiveObjective;
     const simulated = rows
@@ -202,8 +230,15 @@ export function runCopySplit(
     totalRisk: number,
     splits: readonly number[],
     objective: SizingObjective,
+    funded: CopySplitFundedSizing = DEFAULT_COPY_SPLIT_FUNDED,
 ): CopySplitResult {
-    const candidates = copySplitCandidates(base, policy, totalRisk, splits);
+    const candidates = copySplitCandidates(
+        base,
+        policy,
+        totalRisk,
+        splits,
+        funded,
+    );
     const rows = candidates.map((candidate): CopySplitRow =>
         candidate.kind === CopySplitRowKind.Refused
             ? candidate
@@ -211,7 +246,7 @@ export function runCopySplit(
     );
     return {
         ...rankCopySplitRows(rows, objective),
-        basisLines: copySplitBasisLines(base, policy),
+        basisLines: copySplitBasisLines(base, policy, funded),
         trialsPerSplit: copySplitTrials(base.trials, splits),
     };
 }
@@ -258,6 +293,7 @@ function candidateFor(
     splitCount: number,
     riskPerAccount: number,
     trials: number,
+    funded: CopySplitFundedSizing,
 ): CopySplitCandidate {
     const refusal = belowOneContractReason(riskPerAccount, positionSizing);
     if (refusal !== null) {
@@ -266,10 +302,8 @@ function candidateFor(
     const inputs = applyEnginePolicy(base.plan, policy, {
         ...base,
         copyAccounts: splitCount,
-        ...(base.dayStop !== undefined && {
-            dayStop: splitDayStop(base.dayStop, splitCount),
-        }),
-        fundedRiskPerTrade: fundedRiskPerAccount(base),
+        ...splitDayStops(base, splitCount, riskPerAccount, funded.parameters),
+        fundedRiskPerTrade: fundedRiskPerAccount(base, funded.parameters),
         riskPerTrade: riskPerAccount,
         trials,
     });
@@ -304,24 +338,72 @@ function compareRows(
     }
 }
 
-function dayStopBasisLine(rule: DayStopRule | undefined): null | string {
-    return rule?.kind === DayStopRuleKind.AfterTarget
-        ? `after-target day cap ${formatCurrency(rule.dollars)} is a group total, so each account gets its share of it together with the risk`
-        : null;
+function dayStopBasisLines(
+    rule: DayStopRule | undefined,
+    funded: CopySplitFundedSizing,
+): string[] {
+    const fundedStop = fundedStopText(
+        fundedStopRuleToDayStopRule(funded.parameters.stopRule),
+    );
+    const owner =
+        funded.source === CopySplitFundedSource.UserRulebook
+            ? 'your rulebook'
+            : 'the default rulebook';
+    const fundedLine = `the funded phase uses ${owner} funded stop (${fundedStop}) per account`;
+    if (rule?.kind === DayStopRuleKind.AfterTarget) {
+        return [
+            `after-target day cap ${formatCurrency(rule.dollars)} is a group total, so each account gets its share of it together with the risk in the eval; ${fundedLine}, not the divided cap`,
+        ];
+    }
+    return rule === undefined || rule.kind === DayStopRuleKind.None
+        ? [fundedLine]
+        : [
+              `the eval phase uses the day stop entered (${fundedStopText(rule)})`,
+              fundedLine,
+          ];
 }
 
-function fundedRiskLine(base: SimInputs): string {
-    const amount = formatCurrency(fundedRiskPerAccount(base));
+function fundedRiskLine(
+    base: SimInputs,
+    funded: FundedSizingParameters,
+): string {
+    const amount = formatCurrency(fundedRiskPerAccount(base, funded));
     return base.fundedRiskPerTrade === undefined
         ? `funded risk ${amount} per account, the Hard Rule 5 fixed amount, not divided by the split`
         : `funded risk ${amount} per account as given, not divided by the split`;
 }
 
-function fundedRiskPerAccount(base: SimInputs): number {
-    return (
-        base.fundedRiskPerTrade ??
-        DEFAULT_RULEBOOK.funded.riskCents / CENTS_PER_DOLLAR
-    );
+function fundedRiskPerAccount(
+    base: SimInputs,
+    funded: FundedSizingParameters,
+): number {
+    return base.fundedRiskPerTrade ?? funded.riskCents / CENTS_PER_DOLLAR;
+}
+
+function fundedStopText(rule: DayStopRule): string {
+    switch (rule.kind) {
+        case DayStopRuleKind.AfterKLosses: {
+            return `after ${rule.k} losses`;
+        }
+        case DayStopRuleKind.AfterTarget: {
+            return `after-target ${formatCurrency(rule.dollars)}`;
+        }
+        case DayStopRuleKind.DayGreen: {
+            return 'day green';
+        }
+        case DayStopRuleKind.FirstWin: {
+            return 'first win';
+        }
+        case DayStopRuleKind.None: {
+            return 'none';
+        }
+    }
+}
+
+function fundedStrategyLine(base: SimInputs): string {
+    const trades = base.fundedTradesPerDay ?? base.tradesPerDay;
+    const rr = base.fundedRrRatio ?? base.rrRatio;
+    return `funded trades per day ${trades} and reward multiple 1:${rr} follow the strategy entered, not the rulebook funded trades per day`;
 }
 
 function indistinguishableFromBest(
@@ -440,8 +522,26 @@ function simulatedRow(
     };
 }
 
-function splitDayStop(rule: DayStopRule, splitCount: number): DayStopRule {
-    return rule.kind === DayStopRuleKind.AfterTarget
-        ? { ...rule, dollars: rule.dollars / splitCount }
-        : rule;
+function splitDayStops(
+    base: SimInputs,
+    splitCount: number,
+    riskPerAccount: number,
+    funded: FundedSizingParameters,
+): Pick<SimInputs, 'dayStop' | 'evalDayPolicy'> {
+    const fundedStop = fundedStopRuleToDayStopRule(funded.stopRule);
+    if (base.evalDayPolicy !== undefined) return { dayStop: fundedStop };
+    const evalStop = base.dayStop ?? { kind: DayStopRuleKind.None };
+    const isCap = evalStop.kind === DayStopRuleKind.AfterTarget;
+    if (!isCap && stableJson(evalStop) === stableJson(fundedStop)) return {};
+    return {
+        dayStop: fundedStop,
+        evalDayPolicy: flatDayPolicy(
+            riskPerAccount,
+            base.tradesPerDay,
+            isCap
+                ? { ...evalStop, dollars: evalStop.dollars / splitCount }
+                : evalStop,
+            policySizingOf(TradingPhase.Eval),
+        ),
+    };
 }

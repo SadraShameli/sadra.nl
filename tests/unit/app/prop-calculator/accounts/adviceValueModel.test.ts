@@ -99,6 +99,7 @@ import {
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
 import { type NextTradeRiskCheckResult } from '~/lib/prop-calculator/advisor/actions';
+import { RungPlacement } from '~/lib/prop-calculator/advisor/PlaceableMinimum';
 import {
     CreditBasis,
     RISK_CANDIDATE_LABEL,
@@ -599,6 +600,7 @@ describe('a loss that busts the account (PT-67 review)', () => {
     it('fills the daily card loss value net of the replacement fee', () => {
         const filled = filledDailyPlanCard(
             {
+                rungPlacements: [],
                 rungs: [],
                 stopCappedBy: [],
                 stopReason: DayStopReason.MaxTrades,
@@ -783,6 +785,7 @@ describe('candidateRiskGridOf', () => {
 
 describe('filledDailyPlanCard (PT-67 step 1)', () => {
     const card: DailyPlanCard = {
+        rungPlacements: [],
         rungs: [],
         stopCappedBy: [],
         stopReason: DayStopReason.MaxTrades,
@@ -869,6 +872,7 @@ function adviceFixture(overrides: Partial<Advice> = {}): Advice {
     return {
         assumptions: [],
         dailyPlanCard: {
+            rungPlacements: [RungPlacement.NotChecked],
             rungs: [
                 {
                     cappedBy: [],
@@ -996,6 +1000,7 @@ describe('accountActionFor (PT-67 step 2)', () => {
     it('is StopForToday when the day has no rung', () => {
         const advice = adviceFixture({
             dailyPlanCard: {
+                rungPlacements: [],
                 rungs: [],
                 stopCappedBy: [],
                 stopReason: DayStopReason.NoLossRoom,
@@ -1094,6 +1099,7 @@ function checkResult(
 ): NextTradeRiskCheckResult {
     return {
         documentedRung: dollars(250),
+        documentedRungPlacement: RungPlacement.NotChecked,
         dpRisk: null,
         excessCents: 0,
         payoutEligibleAboveRung: false,

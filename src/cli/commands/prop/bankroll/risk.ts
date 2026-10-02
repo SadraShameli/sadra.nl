@@ -10,19 +10,16 @@ import {
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
-    dollars,
     fraction,
     type Fraction0to1,
     type SimOutputs,
     simulate,
 } from '~/lib/prop-calculator';
 import {
-    attemptsAffordable,
     bankrollLossRiskSummary,
-    cohortOutcome,
+    type BankrollRisk,
+    bankrollRisk,
     EconomicsReason,
-    LOSS_RISK_DRAWS,
-    noPayoutProbability,
 } from '~/lib/prop-calculator/economics';
 
 import {
@@ -80,11 +77,13 @@ export function riskRows(
         risk.passRateOverride ?? fraction(out.attemptPassProbability);
     const payoutRate =
         risk.payoutRateOverride ?? fraction(out.attemptPaysProbability);
-    const attemptsQuantity = attemptsAffordable(
+    const exposure = bankrollRisk(
+        out,
         risk.budget,
-        dollars(out.costPerAttempt),
+        seed,
+        risk.payoutRateOverride ?? undefined,
     );
-    const attempts = attemptsQuantity.value;
+    const { attempts } = exposure;
 
     const rows: (readonly [string, string])[] = [
         ['attempt cost', formatCurrency(out.costPerAttempt)],
@@ -92,13 +91,11 @@ export function riskRows(
         ['P(attempt pays)', rateLine(payoutRate, risk.payoutRateOverride)],
         [
             'P(batch net < 0)',
-            attempts === null
-                ? 'n/a'
-                : batchLossLine(out.netValues, attempts, seed),
+            batchLossLine(exposure),
         ],
         [
             `P(no payout from ${attempts ?? 0} attempts)`,
-            attempts === null ? 'n/a' : noPayoutLine(payoutRate, attempts),
+            noPayoutLine(exposure),
         ],
         ['minimum budget for the loss target', minimumBudgetLine(out, risk)],
     ];
@@ -113,14 +110,9 @@ export function riskRows(
     return rows;
 }
 
-function batchLossLine(
-    netValues: readonly number[],
-    attempts: number,
-    seed: number,
-): string {
-    const outcome = cohortOutcome(netValues, attempts, LOSS_RISK_DRAWS, seed);
-    if (outcome.value === null) return 'n/a';
-    const { standardError, value } = outcome.value.lossProbability;
+function batchLossLine(exposure: BankrollRisk): string {
+    if (exposure.lossProbability === null) return 'n/a';
+    const { standardError, value } = exposure.lossProbability;
     return standardError === null
         ? formatPercent(value)
         : `${formatPercent(value)} (SE ${formatPercent(standardError)})`;
@@ -143,11 +135,10 @@ function minimumBudgetLine(out: SimOutputs, risk: BankrollRiskInputs): string {
         : formatCurrency(summary.minimumBudget.value.budget);
 }
 
-function noPayoutLine(payoutRate: Fraction0to1, attempts: number): string {
-    const quantity = noPayoutProbability(payoutRate, attempts);
-    return quantity.value === null
+function noPayoutLine(exposure: BankrollRisk): string {
+    return exposure.noPayoutProbability === null
         ? 'n/a'
-        : `${formatPercent(quantity.value, 3)} (ignores payout size)`;
+        : `${formatPercent(exposure.noPayoutProbability, 3)} (ignores payout size)`;
 }
 
 function rateLine(rate: Fraction0to1, override: Fraction0to1 | null): string {

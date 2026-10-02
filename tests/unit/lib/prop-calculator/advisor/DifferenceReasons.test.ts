@@ -68,6 +68,17 @@ describe('differenceReasonText (F-124, PD-32 sentinel test)', () => {
         expect(text).toContain('never');
     });
 
+    it('builds the EngineLadderNeverFunded text only from the typed simulation count and names the engine ladder, not the documented one (PT-36h)', () => {
+        const text = differenceReasonText({
+            kind: DifferenceReason.EngineLadderNeverFunded,
+            sims: 654,
+        });
+        expect(digitsOf(text)).toBe('654');
+        expect(text).toContain('engine');
+        expect(text).toContain('never');
+        expect(text).not.toContain('documented');
+    });
+
     it('builds the DocumentedLadderNotScored text only from the typed simulation count (PT-19i, F-119)', () => {
         const text = differenceReasonText({
             kind: DifferenceReason.DocumentedLadderNotScored,

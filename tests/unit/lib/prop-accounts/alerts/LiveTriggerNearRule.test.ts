@@ -17,7 +17,13 @@ import {
     PolicyVerification,
 } from '~/lib/prop-calculator';
 
-import { accountFor, alertsOf, paidPayout, planWhere } from './alertFixtures';
+import {
+    accountFor,
+    alertsOf,
+    movedLiveEvent,
+    paidPayout,
+    planWhere,
+} from './alertFixtures';
 
 const CONFIRMED_QUOTE_TEXT = 'a synthetic test quote';
 
@@ -161,6 +167,70 @@ describe('LiveTriggerNearRule: firm total', () => {
         expect(alert?.severity).toBe(AlertSeverity.Warning);
         expect(alert?.message).toContain('9 of 10');
         expect(alert?.subject).toMatchObject({ accountIds: [active.id] });
+    });
+
+    it('counts the payouts of an archived account at the firm', () => {
+        const archived = accountFor(ENTRY, {
+            archivedAt: new Date('2026-09-10T00:00:00Z'),
+        });
+        const active = accountFor(ENTRY);
+        const policy = new StubTriggerPolicy([
+            new PayoutCountTotalTrigger(4, CONFIRMED_SOURCE),
+        ]);
+        const alerts = withStubbedPolicy(policy, () =>
+            alertsOf(rule, {
+                accounts: [archived, active],
+                payouts: [
+                    ...paidPayoutsFor(archived, 2, 1),
+                    ...paidPayoutsFor(active, 1, 10),
+                ],
+            }),
+        );
+        const firmAlerts = alerts.filter(
+            (alert) => alert.subject.kind === AlertSubjectKind.Portfolio,
+        );
+        expect(firmAlerts).toHaveLength(1);
+        expect(firmAlerts[0]?.message).toContain('3 of 4');
+    });
+
+    it('restarts the count at a live move recorded on an archived account', () => {
+        const archived = accountFor(ENTRY, {
+            archivedAt: new Date('2026-09-10T00:00:00Z'),
+        });
+        const active = accountFor(ENTRY);
+        const policy = new StubTriggerPolicy([
+            new PayoutCountTotalTrigger(4, CONFIRMED_SOURCE),
+        ]);
+        const alerts = withStubbedPolicy(policy, () =>
+            alertsOf(rule, {
+                accounts: [archived, active],
+                events: [movedLiveEvent(archived, '2026-08-20')],
+                payouts: paidPayoutsFor(active, 3, 1),
+            }),
+        );
+        expect(alerts).toEqual([]);
+    });
+
+    it('is silent when the firm count cannot be read because a sibling payout has an invalid stored date', () => {
+        const sibling = accountFor(ENTRY);
+        const active = accountFor(ENTRY);
+        const policy = new StubTriggerPolicy([
+            new PayoutCountTotalTrigger(4, CONFIRMED_SOURCE),
+        ]);
+        const alerts = withStubbedPolicy(policy, () =>
+            alertsOf(rule, {
+                accounts: [sibling, active],
+                payouts: [
+                    ...paidPayoutsFor(active, 3, 1),
+                    paidPayout(sibling, { paidOn: 'not a date' }),
+                ],
+            }),
+        );
+        expect(
+            alerts.filter(
+                (alert) => alert.subject.kind === AlertSubjectKind.Portfolio,
+            ),
+        ).toEqual([]);
     });
 
     it('is critical once the firm-total cap is reached', () => {

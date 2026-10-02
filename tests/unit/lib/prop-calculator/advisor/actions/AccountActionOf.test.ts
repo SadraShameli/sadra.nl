@@ -22,6 +22,7 @@ import {
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
 import { accountActionOf } from '~/lib/prop-calculator/advisor/actions';
+import { RungPlacement } from '~/lib/prop-calculator/advisor/PlaceableMinimum';
 import { RetireComparisonVerdict } from '~/lib/prop-calculator/advisor/value';
 
 function adviceFixture(overrides: Partial<Advice> = {}): Advice {
@@ -53,8 +54,10 @@ function adviceFixture(overrides: Partial<Advice> = {}): Advice {
 }
 
 function dailyPlanCardFixture(hasRungs: boolean): DailyPlanCard {
+    const rungs = hasRungs ? documentedSizingFixture().rungs : [];
     return {
-        rungs: hasRungs ? documentedSizingFixture().rungs : [],
+        rungPlacements: rungs.map(() => RungPlacement.NotChecked),
+        rungs,
         stopCappedBy: [],
         stopReason: hasRungs
             ? DayStopReason.MaxTrades

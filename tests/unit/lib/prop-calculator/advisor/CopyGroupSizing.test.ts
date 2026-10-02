@@ -111,9 +111,16 @@ function member(
     account: ReconstructedAccount,
     personalDll?: number,
 ): CopyGroupSizingMember {
+    const base = {
+        account,
+        accountPolicy: null,
+        id,
+        label,
+        paidPayoutsSinceLastLiveAccount: null,
+    };
     return personalDll === undefined
-        ? { account, id, label }
-        : { account, id, label, personalDll: dollars(personalDll) };
+        ? base
+        : { ...base, personalDll: dollars(personalDll) };
 }
 
 function registryPlan(id: PlanId): Plan {

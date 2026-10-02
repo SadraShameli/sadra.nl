@@ -328,9 +328,10 @@ export function AdvicePanel({ id }: { readonly id: string }) {
     const blockingQueries = failedQueries.filter(
         ({ query }) => query.data === undefined,
     );
-    const refreshFailures = failedQueries.filter(
-        ({ query }) => query.data !== undefined,
-    );
+    const refreshFailures = [
+        ...failedQueries,
+        { label: 'firm payouts', query: ledgerPayoutsQuery },
+    ].filter(({ query }) => query.isError && query.data !== undefined);
     if (blockingQueries.length > 0) {
         return (
             <div className="flex flex-col gap-2">

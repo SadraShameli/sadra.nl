@@ -8,11 +8,13 @@ export enum ObjectiveApplicabilityVerdict {
 export enum RankingSurface {
     Advice = 'advice',
     Compare = 'compare',
+    CopySplit = 'copy-split',
     DocumentedRules = 'documented-rules',
     Dp = 'dp',
     FundedRiskSweep = 'funded-risk-sweep',
     Ladder = 'ladder',
     NextSlot = 'next-slot',
+    RiskTable = 'risk-table',
 }
 
 export interface ObjectiveApplicabilityResult {

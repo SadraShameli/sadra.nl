@@ -30,13 +30,13 @@ import {
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 import {
-    attemptsAffordable,
+    bankrollAttempts,
     bankrollCompoundingIllustration,
     bankrollLossRiskSummary,
     type BankrollMinimumBudget,
+    bankrollNoPayout,
     type EconomicsEstimate,
     type EconomicsReason,
-    noPayoutProbability,
     type Quantity,
 } from '~/lib/prop-calculator/economics';
 import {
@@ -127,11 +127,11 @@ export function bankrollBatchRequest(
     budget: Dollars,
     runId: number,
 ): BatchToolsRequest | null {
-    const attempts = attemptsAffordable(budget, dollars(out.costPerAttempt));
-    return attempts.value === null || attempts.value < 1
+    const attempts = bankrollAttempts(out, budget);
+    return attempts === null || attempts < 1
         ? null
         : {
-              attempts: attempts.value,
+              attempts,
               kind: ToolsRequestKind.Batch,
               runId,
               variant,
@@ -143,8 +143,8 @@ export function bankrollBudgetPricing(
     budget: Dollars,
     batch: BatchToolsSummary | null,
 ): BankrollBudgetPricing {
-    const attempts = attemptsAffordable(budget, dollars(out.costPerAttempt));
-    if (attempts.value === null || attempts.value < 1) {
+    const attempts = bankrollAttempts(out, budget);
+    if (attempts === null || attempts < 1) {
         return {
             attempts: null,
             batchNetNegativeProbability: null,
@@ -153,17 +153,13 @@ export function bankrollBudgetPricing(
             noPayoutProbability: null,
         };
     }
-    const noPayout = noPayoutProbability(
-        fraction(out.attemptPaysProbability),
-        attempts.value,
-    );
     return {
-        attempts: attempts.value,
+        attempts,
         batchNetNegativeProbability: batch?.lossProbability ?? null,
         batchNetNegativeReason: batch?.lossProbabilityReason ?? null,
         batchNetNegativeStandardError:
             batch?.lossProbabilityStandardError ?? null,
-        noPayoutProbability: noPayout.value,
+        noPayoutProbability: bankrollNoPayout(out, attempts),
     };
 }
 
@@ -357,6 +353,13 @@ export function bankrollVariantFor(
         },
         policy,
     };
+}
+
+export function bankrollVariantWithFundedRisk(
+    variant: BankrollPlanVariantInputs,
+    fundedRiskPerTrade: number,
+): BankrollPlanVariantInputs {
+    return { ...variant, base: { ...variant.base, fundedRiskPerTrade } };
 }
 
 export function bankrollVariantWithRisk(

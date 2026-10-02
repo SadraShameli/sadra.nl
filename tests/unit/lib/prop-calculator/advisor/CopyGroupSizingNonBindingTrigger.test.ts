@@ -121,7 +121,14 @@ function member(
     id: string,
     extras: Partial<CopyGroupSizingMember> = {},
 ): CopyGroupSizingMember {
-    return { account: fundedAccount(), id, label: id, ...extras };
+    return {
+        account: fundedAccount(),
+        accountPolicy: null,
+        id,
+        label: id,
+        paidPayoutsSinceLastLiveAccount: null,
+        ...extras,
+    };
 }
 
 function registryPlan(id: PlanId): Plan {

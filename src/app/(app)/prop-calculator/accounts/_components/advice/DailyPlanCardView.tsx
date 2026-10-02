@@ -4,21 +4,7 @@ import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
-import { POSITION_SIZE_INSTRUMENTS } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
-import {
-    parsePositionSizeInstrument,
-    parsePositionSizeStop,
-} from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { parsePositionSizeStop } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
 import {
     Table,
     TableBody,
@@ -27,17 +13,30 @@ import {
     TableHeader,
     TableRow,
 } from '~/components/ui/Table';
-import { formatCurrency, formatGateCurrency } from '~/lib/format';
 import {
-    InstrumentSymbol,
+    formatConjunctionList,
+    formatCurrency,
+    formatGateCurrency,
+} from '~/lib/format';
+import {
+    type InstrumentSymbol,
     type Plan,
     type TierProfitContext,
-    type TradingPhase,
+    TradingPhase,
 } from '~/lib/prop-calculator';
 import { type RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
+import {
+    advisorPlaceableMinimum,
+    RungPlacement,
+    rungPlacementOf,
+} from '~/lib/prop-calculator/advisor/PlaceableMinimum';
 
 import { type DailyPlanCardViewModel } from './adviceViewModel';
 import { contractsSizingOf } from './contractsSizingModel';
+import {
+    DEFAULT_ENTRY_INSTRUMENT,
+    InstrumentStopEntry,
+} from './InstrumentStopEntry';
 
 export interface DailyCardSizing {
     readonly phase: TradingPhase;
@@ -45,8 +44,6 @@ export interface DailyCardSizing {
     readonly tierContext: null | TierProfitContext;
     readonly unit: RiskDisplayUnit;
 }
-
-const DEFAULT_INSTRUMENT = InstrumentSymbol.NQ;
 
 export function DailyPlanCardView({
     card,
@@ -57,6 +54,18 @@ export function DailyPlanCardView({
     readonly sizing?: DailyCardSizing | null;
     readonly stopText?: null | string;
 }) {
+    const [instrument, setInstrument] = useState(DEFAULT_ENTRY_INSTRUMENT);
+    const [stopInput, setStopInput] = useState('');
+    const stopPoints = parsePositionSizeStop(stopInput);
+    const placement =
+        stopPoints !== null && sizing?.phase === TradingPhase.Funded
+            ? { instrument, stopPoints }
+            : null;
+    const unplacedTrades = card.rungs.flatMap((rung, index) =>
+        rungPlacementOf(rung.risk, placement) === RungPlacement.BelowOneContract
+            ? [index + 1]
+            : [],
+    );
     return (
         <div className="flex flex-col gap-2">
             {card.rungs.length === 0 ? (
@@ -122,23 +131,47 @@ export function DailyPlanCardView({
                         at the first rung).
                     </p>
                 )}
+            {unplacedTrades.length > 0 && (
+                <p className="text-sm font-medium text-amber-400">
+                    {unplacedTrades.length === 1 ? 'Trade' : 'Trades'}{' '}
+                    {formatConjunctionList(unplacedTrades.map(String))} cannot
+                    be placed: below one contract at this stop, where one
+                    contract risks{' '}
+                    {formatCurrency(advisorPlaceableMinimum(placement), 2)}.
+                </p>
+            )}
             {sizing !== null && card.rungs[0] !== undefined && (
-                <ContractsSizing risk={card.rungs[0].risk} sizing={sizing} />
+                <ContractsSizing
+                    instrument={instrument}
+                    onInstrumentChange={setInstrument}
+                    onStopInputChange={setStopInput}
+                    risk={card.rungs[0].risk}
+                    sizing={sizing}
+                    stopInput={stopInput}
+                    stopPoints={stopPoints}
+                />
             )}
         </div>
     );
 }
 
 function ContractsSizing({
+    instrument,
+    onInstrumentChange,
+    onStopInputChange,
     risk,
     sizing,
+    stopInput,
+    stopPoints,
 }: {
+    readonly instrument: InstrumentSymbol;
+    readonly onInstrumentChange: (instrument: InstrumentSymbol) => void;
+    readonly onStopInputChange: (text: string) => void;
     readonly risk: number;
     readonly sizing: DailyCardSizing;
+    readonly stopInput: string;
+    readonly stopPoints: null | number;
 }) {
-    const [instrument, setInstrument] = useState(DEFAULT_INSTRUMENT);
-    const [stopText, setStopText] = useState('');
-    const stopPoints = parsePositionSizeStop(stopText);
     const result = useMemo(
         () =>
             contractsSizingOf({
@@ -162,45 +195,14 @@ function ContractsSizing({
     );
     return (
         <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-end gap-3">
-                <div className="flex flex-col gap-1">
-                    <Label htmlFor="daily-card-instrument">Instrument</Label>
-                    <Select
-                        onValueChange={(value) => {
-                            const next = parsePositionSizeInstrument(value);
-                            if (next !== null) setInstrument(next);
-                        }}
-                        value={instrument}
-                    >
-                        <SelectTrigger id="daily-card-instrument">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {POSITION_SIZE_INSTRUMENTS.map((spec) => (
-                                <SelectItem
-                                    key={spec.symbol}
-                                    value={spec.symbol}
-                                >
-                                    {spec.symbol}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="flex flex-col gap-1">
-                    <Label htmlFor="daily-card-stop">
-                        {CALCULATOR_FIELD_LABELS.stopPoints}
-                    </Label>
-                    <Input
-                        className="w-32"
-                        id="daily-card-stop"
-                        inputMode="decimal"
-                        onChange={(event) => {
-                            setStopText(event.target.value);
-                        }}
-                        value={stopText}
-                    />
-                </div>
+            <InstrumentStopEntry
+                instrument={instrument}
+                instrumentId="daily-card-instrument"
+                onInstrumentChange={onInstrumentChange}
+                onStopInputChange={onStopInputChange}
+                stopId="daily-card-stop"
+                stopInput={stopInput}
+            >
                 <Link
                     className="text-sm underline"
                     href={result.href}
@@ -208,7 +210,7 @@ function ContractsSizing({
                 >
                     Size in contracts
                 </Link>
-            </div>
+            </InstrumentStopEntry>
             {result.inline !== null && (
                 <div className="flex flex-col gap-1 text-sm">
                     <p>{result.inline.statusText}</p>

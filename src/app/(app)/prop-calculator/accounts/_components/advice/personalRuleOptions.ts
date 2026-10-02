@@ -8,7 +8,6 @@ import {
     type AccountStatus,
     accountSubstateOf,
     type FirmPayoutCount,
-    NO_FIRM_PAYOUT_COUNTS,
     optionalDollars,
     paidPayoutsSinceLastLiveAccountFor,
     type PayoutReadinessAccountOverride,
@@ -215,7 +214,7 @@ export function readinessBoardInputsOf(
 
 export function readinessOverridesOf(
     accounts: readonly ReadinessOverrideAccount[],
-    firmCounts: readonly FirmPayoutCount[] = NO_FIRM_PAYOUT_COUNTS,
+    firmCounts: readonly FirmPayoutCount[],
 ): ReadonlyMap<string, MemberPersonalOverride> {
     return new Map(
         accounts.map((account) => {

@@ -31,6 +31,7 @@ import {
 import {
     createSizingAdvisor,
     DEFAULT_RULEBOOK,
+    PayoutRequestDecisionKind,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 
@@ -107,6 +108,70 @@ function withPolicy<T>(
         firm.accountPolicy = original;
     }
 }
+
+describe('the board, the advisor and the eligible alert count a pending payout the same way (PT-36g)', () => {
+    const plan = mffProPlan();
+
+    function surfacesAt(cap: number) {
+        const account = fundedAccountFor(plan);
+        const sibling = fundedAccountFor(plan);
+        const funded = eligibleFunded(plan, plan.accountSize + 20_000, 1000);
+        const entry = reconstructedEntry(account.id, plan, funded);
+        return withPolicy(
+            plan,
+            [new PayoutCountTotalTrigger(cap, CONFIRMED_SOURCE)],
+            () => {
+                const [row] = payoutReadinessBoardOf(
+                    DEFAULT_RULEBOOK,
+                    [entry],
+                    new Map([
+                        [
+                            account.id,
+                            { paidPayoutsSinceLastLiveAccount: 2 },
+                        ],
+                    ]),
+                ).rows;
+                const advice = createSizingAdvisor(funded, {
+                    accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
+                    paidPayoutsSinceLastLiveAccount: 2,
+                    rulebook: DEFAULT_RULEBOOK,
+                    snapshotAsOf: WEDNESDAY,
+                    substate: null,
+                    today: WEDNESDAY,
+                }).assemble([]);
+                const alerts = alertsOf(new PayoutEligibleRule(), {
+                    accounts: [account, sibling],
+                    accountStates: [entry],
+                    payouts: [
+                        paidPayout(account, { paidOn: '2026-09-02' }),
+                        paidPayout(sibling, { paidOn: '2026-09-03' }),
+                    ],
+                });
+                return {
+                    advisor: advice.payoutAdvice?.documented.kind,
+                    alerts: alerts.map((alert) => alert.kind),
+                    board: row?.kind,
+                };
+            },
+        );
+    }
+
+    it('all hold the payout that the pending payout makes the one reaching the verified firm total', () => {
+        expect(surfacesAt(4)).toEqual({
+            advisor: PayoutRequestDecisionKind.NotEligible,
+            alerts: [],
+            board: PayoutReadinessRowKind.Blocked,
+        });
+    });
+
+    it('all offer the payout while the pending payout still leaves it under the verified firm total', () => {
+        expect(surfacesAt(5)).toEqual({
+            advisor: PayoutRequestDecisionKind.Request,
+            alerts: [AlertKind.PayoutEligible],
+            board: PayoutReadinessRowKind.Eligible,
+        });
+    });
+});
 
 describe('PayoutEligibleRule under a verified live trigger (PT-36g)', () => {
     const rule = new PayoutEligibleRule();
@@ -407,6 +472,52 @@ describe('PayoutReadyOpenRiskRule under a verified live trigger (PT-36g)', () =>
         expect(alerts.map((alert) => alert.kind)).toEqual([
             AlertKind.PayoutReadyOpenRisk,
         ]);
+        expect(alerts[0]?.disclosures).toEqual([
+            AlertDisclosure.LiveTriggersNotChecked,
+        ]);
+    });
+
+    it('does not disclose a live-trigger check when every trigger is verified and the firm count is known', () => {
+        const { account, decision, entry } = setup();
+        const alerts = withPolicy(
+            plan,
+            [new PayoutCountTotalTrigger(9, CONFIRMED_SOURCE)],
+            () =>
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions: [decision],
+                    payouts: [paidPayout(account, { paidOn: '2026-09-02' })],
+                    rulebook,
+                }),
+        );
+        expect(alerts.map((alert) => alert.kind)).toEqual([
+            AlertKind.PayoutReadyOpenRisk,
+        ]);
+        expect(alerts[0]?.disclosures).toEqual([]);
+    });
+
+    it('discloses that live triggers were not checked when the firm count cannot be read', () => {
+        const { account, decision, entry } = setup();
+        const sibling = fundedAccountFor(plan);
+        const alerts = withPolicy(
+            plan,
+            [new PayoutCountTotalTrigger(9, CONFIRMED_SOURCE)],
+            () =>
+                alertsOf(rule, {
+                    accounts: [account, sibling],
+                    accountStates: [entry],
+                    decisions: [decision],
+                    payouts: [paidPayout(sibling, { paidOn: 'not a date' })],
+                    rulebook,
+                }),
+        );
+        expect(alerts.map((alert) => alert.kind)).toEqual([
+            AlertKind.PayoutReadyOpenRisk,
+        ]);
+        expect(alerts[0]?.disclosures).toEqual([
+            AlertDisclosure.LiveTriggersNotChecked,
+        ]);
     });
 
     it('is silent when the next payout goes live under a verified per-account trigger, so no payout is available', () => {
@@ -515,6 +626,29 @@ describe('PayoutReadyWithdrawableDropRule under a verified live trigger (PT-36g)
                 rulebook,
             }).map((alert) => alert.kind),
         ).toEqual([AlertKind.PayoutReadyWithdrawableDrop]);
+    });
+
+    it('discloses that live triggers were not checked for an unverified firm and not for a verified one with a known count', () => {
+        const { account, entry } = fixtures();
+        const unverified = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [entry],
+            rulebook,
+        });
+        expect(unverified[0]?.disclosures).toEqual([
+            AlertDisclosure.LiveTriggersNotChecked,
+        ]);
+        const verified = withPolicy(
+            plan,
+            [new PayoutCountTotalTrigger(9, CONFIRMED_SOURCE)],
+            () =>
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    rulebook,
+                }),
+        );
+        expect(verified[0]?.disclosures).toEqual([]);
     });
 
     it('is silent when the earlier state was one whose next payout goes live, so it was never payout-ready', () => {

@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -136,5 +138,20 @@ describe('rankLadderScores (PT-68i, one ranking tail)', () => {
         expect(rescored.byCost).toStrictEqual(result.byCost);
         expect(rescored.byPassRate).toStrictEqual(result.byPassRate);
         expect(rescored.bySpeed).toStrictEqual(result.bySpeed);
+    });
+
+    it('is the one ranking tail under src: no other file builds the frontier or the cost ranking itself (PT-68i follow-up)', () => {
+        const srcRoot = path.join(process.cwd(), 'src');
+        const rankers = readdirSync(srcRoot, { recursive: true })
+            .map(String)
+            .filter((name) => /\.tsx?$/u.test(name))
+            .filter((name) =>
+                /ladderFrontier\(|a\.costPerFunded - b\.costPerFunded/u.test(
+                    readFileSync(path.join(srcRoot, name), 'utf8'),
+                ),
+            )
+            .map((name) => name.split(path.sep).join('/'));
+
+        expect(rankers).toEqual(['lib/prop-calculator/core/LadderSearch.ts']);
     });
 });

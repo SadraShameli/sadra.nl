@@ -193,8 +193,8 @@ function responderFor(
             return accounts.filter(
                 (row) =>
                     query.params.includes(row.user_id) &&
-                    (row.firm_id === null ||
-                        query.params.includes(row.firm_id)) &&
+                    row.firm_id !== null &&
+                    query.params.includes(row.firm_id) &&
                     row.archived_at === null,
             );
         }
@@ -869,6 +869,11 @@ describe('the preview and the router agree on which siblings a MovedLive suspend
             },
         },
         {
+            listed: { planSerial: 'not-a-plan-serial' },
+            name: 'a modeled account at the same firm whose plan cannot be read',
+            row: { plan_serial: 'not-a-plan-serial' },
+        },
+        {
             listed: {
                 planLabel: 'Hand typed plan',
                 planSerial: null,
@@ -930,6 +935,7 @@ describe('the preview and the router agree on which siblings a MovedLive suspend
     it('offers a sibling in the preview exactly when the router accepts it', async () => {
         const offeredByName = new Map<string, boolean>();
         const acceptedByName = new Map<string, boolean>();
+        const requiredByName = new Map<string, boolean>();
         for (const candidate of CANDIDATES) {
             const row = siblingAccount(FIRST_SIBLING, candidate.row);
             const preview = withPolicyNow(DORMANT_WHILE_LIVE, () =>
@@ -957,10 +963,26 @@ describe('the preview and the router agree on which siblings a MovedLive suspend
                     }
                 }),
             );
+            const { caller: unconfirmedCaller } = callerFor(
+                SIGNED_IN,
+                responderFor([movedAccount(), row]),
+            );
+            requiredByName.set(
+                candidate.name,
+                await withPolicy(DORMANT_WHILE_LIVE, async () => {
+                    try {
+                        await recordMovedLive(unconfirmedCaller);
+                        return false;
+                    } catch {
+                        return true;
+                    }
+                }),
+            );
         }
         expect(acceptedByName).toEqual(offeredByName);
+        expect(requiredByName).toEqual(offeredByName);
         const offered = offeredByName.values().toArray();
         expect(offered.filter(Boolean)).toHaveLength(3);
-        expect(offered.filter((isOffered) => !isOffered)).toHaveLength(6);
+        expect(offered.filter((isOffered) => !isOffered)).toHaveLength(7);
     });
 });

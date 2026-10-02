@@ -86,6 +86,13 @@ const harness = vi.hoisted(() => {
                 },
             }),
         }),
+        payoutQuery: () => ({
+            useQuery: (input?: { accountId?: string }) =>
+                (input?.accountId === undefined
+                    ? (queries.get('payout.list.ledger') ??
+                      queries.get('payout.list'))
+                    : queries.get('payout.list')) ?? pending,
+        }),
         queries,
         query: (name: string) => ({
             useQuery: () => queries.get(name) ?? pending,
@@ -145,7 +152,7 @@ vi.mock('~/trpc/react', () => ({
                 list: harness.query('event.list'),
                 listForAccount: harness.query('event.listForAccount'),
             },
-            payout: { list: harness.query('payout.list') },
+            payout: { list: harness.payoutQuery() },
             rulebook: { get: harness.query('rulebook.get') },
             snapshot: {
                 listForAccount: harness.query('snapshot.listForAccount'),
@@ -1255,6 +1262,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
                     isPending: false,
                     refetch,
                 },
+                'payout.list.ledger': answer([]),
             });
             adviceBox.state = {
                 advice: realFundedAdvice(),

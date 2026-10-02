@@ -82,6 +82,16 @@ export interface LivePayoutRuleContext {
 
 export type PayoutRuleContext = FundedPayoutRuleContext | LivePayoutRuleContext;
 
+interface FundedPayoutRuleInputs {
+    readonly liveTrigger: LiveTriggerCountLimit;
+    readonly pendingPayouts: number;
+    readonly personalRequestOverride: Dollars | null;
+    readonly personalRetainedCushion: Dollars | null;
+    readonly plan: Plan;
+    readonly state: AccountState;
+    readonly tracker: FundedCycleTracker;
+}
+
 interface RetainedCushionResolution {
     readonly amount: Dollars;
     readonly basis: RetainedCushionBasis;
@@ -415,6 +425,21 @@ export function fundedLiveTriggerFieldsOf(
     };
 }
 
+export function fundedPayoutRuleContextOf(
+    inputs: FundedPayoutRuleInputs,
+): FundedPayoutRuleContext {
+    return {
+        ...fundedLiveTriggerFieldsOf(inputs.liveTrigger),
+        pendingPayouts: dollars(inputs.pendingPayouts),
+        personalRequestOverride: inputs.personalRequestOverride,
+        personalRetainedCushion: inputs.personalRetainedCushion,
+        plan: inputs.plan,
+        stage: SizingStage.Funded,
+        state: grossStateOf(inputs.state, inputs.pendingPayouts),
+        tracker: inputs.tracker,
+    };
+}
+
 export function fundedRetainedCushionResolution(
     rulebook: RulebookParameters,
     personal = 0,
@@ -432,6 +457,15 @@ export function fundedRetainedCushionResolution(
               ? RetainedCushionBasis.RulebookSize
               : RetainedCushionBasis.HardRule2Default;
     return { amount: dollars(amount), basis };
+}
+
+export function grossStateOf(
+    state: AccountState,
+    pendingPayouts: number,
+): AccountState {
+    return pendingPayouts > 0
+        ? { ...state, balance: dollars(state.balance + pendingPayouts) }
+        : state;
 }
 
 export function retainedCushionForStage(

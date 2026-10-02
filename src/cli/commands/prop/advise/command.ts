@@ -39,6 +39,7 @@ import {
     findFirm,
     type FirmId,
     type InstrumentSymbol,
+    PayoutCountTotalTrigger,
     type Plan,
     points,
     rankablePlans,
@@ -80,6 +81,7 @@ import {
     ladderRefusalText,
     type LadderSearchRequest,
     liveTriggerCountText,
+    liveTriggerLimitsFor,
     NEXT_PAYOUT_AMONG_PAYING_TEXT,
     NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
     NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
@@ -121,6 +123,11 @@ import {
     type NextTradeRiskCheckResult,
 } from '~/lib/prop-calculator/advisor/actions';
 import {
+    RungPlacement,
+    rungPlacementOf,
+    type SizingPlacement,
+} from '~/lib/prop-calculator/advisor/PlaceableMinimum';
+import {
     type DocumentedPolicySpec,
     documentedPolicySpecSchema,
 } from '~/lib/prop-calculator/advisor/policy';
@@ -151,6 +158,7 @@ export interface AdviseArguments {
     'eval-best-day'?: string;
     'eval-mode': string;
     firm?: FirmId;
+    'firm-payouts-since-live'?: string;
     'first-funded-trade-date'?: string;
     'floor-at-last-payout'?: string;
     'funded-reset'?: boolean;
@@ -303,6 +311,11 @@ export const adviseArguments = {
             'How the evaluation is sized: a risk ladder or flat max risk',
         options: Object.values(EvalSizingMode),
         type: 'enum',
+    },
+    'firm-payouts-since-live': {
+        description:
+            'Payouts paid across every account you hold at this firm since your latest move live (a whole number). A firm whose verified rule counts payouts across the firm needs it to be enforced; omit it and that rule is reported as not checked',
+        type: 'string',
     },
     'first-funded-trade-date': {
         description: 'Date of the first funded trade (YYYY-MM-DD)',
@@ -474,6 +487,7 @@ export function adviceJson(
 export function adviceReportLines(
     advice: Advice,
     enteredStopPoints: null | number = null,
+    enteredInstrument: InstrumentSymbol | null = null,
 ): string[] {
     const lines: string[] = [advice.headline];
     if (advice.staleness.kind === 'stale') {
@@ -484,8 +498,21 @@ export function adviceReportLines(
         ];
     }
     if (advice.documented !== null) {
+        const placement =
+            enteredStopPoints !== null &&
+            enteredInstrument !== null &&
+            advice.stage === SizingStage.Funded
+                ? {
+                      instrument: enteredInstrument,
+                      stopPoints: enteredStopPoints,
+                  }
+                : null;
         lines.push(
-            ...documentedSizingLines(advice.documented, enteredStopPoints),
+            ...documentedSizingLines(
+                advice.documented,
+                enteredStopPoints,
+                placement,
+            ),
         );
     }
     if (advice.payoutAdvice !== null) {
@@ -562,7 +589,9 @@ export default defineCommand({
             }
             rejectRiskWithSuspended(context.args);
             const riskInputs = readNextTradeRiskInputs(context.args);
-            const { options, plan, snapshot } = readAdviseInputs(context.args);
+            const { options, plan, snapshot, stage } = readAdviseInputs(
+                context.args,
+            );
             if (!isJson) {
                 spinner = ui.spinner(`${plan.label}: advise`).start();
             }
@@ -572,7 +601,11 @@ export default defineCommand({
             const riskReport =
                 riskInputs === null
                     ? null
-                    : nextTradeRiskReport(advisor, riskInputs);
+                    : nextTradeRiskReport(
+                          advisor,
+                          riskInputs,
+                          options.positionSizing ?? null,
+                      );
             if (isJson) {
                 process.stdout.write(`${adviceJson(advice, riskReport)}\n`);
                 return;
@@ -581,7 +614,15 @@ export default defineCommand({
             ui.heading(plan.label);
             const enteredStopPoints =
                 options.positionSizing?.stopPoints ?? null;
-            for (const line of adviceReportLines(advice, enteredStopPoints)) {
+            const reportLines = [
+                ...adviceReportLines(
+                    advice,
+                    enteredStopPoints,
+                    options.positionSizing?.instrument ?? null,
+                ),
+                ...firmPayoutCountLines(plan, stage, options),
+            ];
+            for (const line of reportLines) {
                 ui.note(line);
             }
             const riskRaw = context.args.risk;
@@ -618,18 +659,30 @@ export default defineCommand({
 export function nextTradeRiskReport(
     advisor: SizingAdvisor,
     inputs: NextTradeRiskInputs,
+    placement: null | SizingPlacement = null,
 ): NextTradeRiskReport {
     const day = dayProgressFromCounts(advisor, inputs.wins, inputs.losses);
     const { proposedRisk } = inputs;
-    const result = advisor.checkNextTradeRisk(proposedRisk, day);
-    return result === null
-        ? {
-              day,
-              kind: NextTradeRiskReportKind.NotRun,
-              proposedRisk,
-              reason: riskCheckNotRunReason(advisor),
-          }
-        : { day, kind: NextTradeRiskReportKind.Checked, proposedRisk, result };
+    const checked = advisor.checkNextTradeRisk(proposedRisk, day);
+    if (checked === null) {
+        return {
+            day,
+            kind: NextTradeRiskReportKind.NotRun,
+            proposedRisk,
+            reason: riskCheckNotRunReason(advisor),
+        };
+    }
+    const result: NextTradeRiskCheckResult =
+        checked.documentedRung !== null && advisor.stage === SizingStage.Funded
+            ? {
+                  ...checked,
+                  documentedRungPlacement: rungPlacementOf(
+                      checked.documentedRung,
+                      placement,
+                  ),
+              }
+            : checked;
+    return { day, kind: NextTradeRiskReportKind.Checked, proposedRisk, result };
 }
 
 export function nextTradeRiskReportLines(
@@ -723,12 +776,19 @@ export function readAdviseInputs(arguments_: AdviseArguments): AdviseInputs {
                   stopPoints: readPositiveNumber(stopPointsRaw, 'stop-points'),
               };
 
+    const firmPayoutsRaw = arguments_['firm-payouts-since-live'];
+    const paidPayoutsSinceLastLiveAccount =
+        firmPayoutsRaw === undefined
+            ? null
+            : readNonNegativeInteger(firmPayoutsRaw, 'firm-payouts-since-live');
+
     const seed = readPositiveInteger(arguments_.seed, 'seed');
     const trials = readPositiveInteger(arguments_.trials, 'trials');
 
     const options: SizingAdvisorCreateOptions = {
         accountPolicy: requireFirm(plan.id.firm).accountPolicy,
         ...(measuredRebuyLag !== undefined && { measuredRebuyLag }),
+        paidPayoutsSinceLastLiveAccount,
         ...(personalPayoutOverride !== undefined && {
             personalPayoutOverride,
         }),
@@ -828,6 +888,9 @@ function checkRequiredSnapshotFields(
     }
 }
 
+const BELOW_ONE_CONTRACT_TEXT =
+    'cannot be placed: it is below one contract at the entered stop';
+
 const RISK_CHECK_NO_RUNG_REASON =
     'no documented rung applies to this account, so there is nothing to check the proposed risk against';
 
@@ -861,6 +924,7 @@ const COVERAGE_UNSUPPORTED_REASON_TEXT: Readonly<
 export function documentedSizingLines(
     sizing: DocumentedSizing,
     enteredStopPoints: null | number,
+    placement: null | SizingPlacement = null,
 ): string[] {
     const lines: string[] = [
         `provenance: ${sizing.provenance}, reward multiple ${sizing.rewardMultiple}, stop ${JSON.stringify(sizing.stopRule)}`,
@@ -872,8 +936,13 @@ export function documentedSizingLines(
             rung.cappedBy.length === 0
                 ? ''
                 : ` (${rung.cappedBy.map((constraint) => SIZING_CONSTRAINT_TEXT[constraint]).join(' ')})`;
+        const unplaced =
+            rungPlacementOf(rung.risk, placement) ===
+            RungPlacement.BelowOneContract
+                ? ` ${BELOW_ONE_CONTRACT_TEXT}`
+                : '';
         lines.push(
-            `rung ${rungIndex}: risk ${formatCurrency(rung.risk)}, TP ${formatCurrency(rung.takeProfit)}, running loss ${formatCurrency(rung.runningLossBefore)} -> ${formatCurrency(rung.runningLossAfter)}${capped}`,
+            `rung ${rungIndex}: risk ${formatCurrency(rung.risk)}, TP ${formatCurrency(rung.takeProfit)}, running loss ${formatCurrency(rung.runningLossBefore)} -> ${formatCurrency(rung.runningLossAfter)}${capped}${unplaced}`,
         );
     }
     if (sizing.dailyProfitCap !== null) {
@@ -898,6 +967,36 @@ export function documentedSizingLines(
     return lines;
 }
 
+export function firmPayoutCountLines(
+    plan: Plan,
+    stage: SizingStage,
+    options: Pick<
+        SizingAdvisorCreateOptions,
+        'accountPolicy' | 'paidPayoutsSinceLastLiveAccount'
+    >,
+): string[] {
+    const hasFirmTotalTrigger = (
+        options.accountPolicy?.liveTriggersFor(plan) ?? []
+    ).some((trigger) => trigger instanceof PayoutCountTotalTrigger);
+    if (!hasFirmTotalTrigger || stage !== SizingStage.Funded) return [];
+    const count = options.paidPayoutsSinceLastLiveAccount ?? null;
+    const { firmTotalCap } = liveTriggerLimitsFor(
+        options.accountPolicy,
+        plan,
+        count,
+    );
+    if (firmTotalCap === null) {
+        return [
+            "firm-total live trigger: not verified against the firm's own source, so it is not checked",
+        ];
+    }
+    return [
+        count === null
+            ? 'firm payouts since the last live account: not entered, so the firm-total live trigger is not checked (pass --firm-payouts-since-live)'
+            : `firm payouts since the last live account: ${String(count)} (entered), applied to the firm-total live trigger`,
+    ];
+}
+
 export function nextTradeRiskCheckLines(
     result: NextTradeRiskCheckResult,
     day?: DayProgress,
@@ -905,6 +1004,9 @@ export function nextTradeRiskCheckLines(
     const lines = [`next-trade risk check: ${result.verdict}`];
     if (result.documentedRung !== null) {
         lines.push(`documented rung: ${formatCurrency(result.documentedRung)}`);
+    }
+    if (result.documentedRungPlacement === RungPlacement.BelowOneContract) {
+        lines.push(`the documented rung ${BELOW_ONE_CONTRACT_TEXT}`);
     }
     if (result.stopReason !== null) {
         lines.push(

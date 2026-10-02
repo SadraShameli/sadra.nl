@@ -23,7 +23,15 @@ import {
     type TradingFirm,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
-import { CalculatorUrlParameter } from '~/lib/schemas/url';
+import {
+    type BankrollParameters,
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
+import { chooseObjective } from '~/lib/prop-calculator/advisor/actions';
+import {
+    CalculatorUrlParameter,
+    OBJECTIVE_URL_PARAMETER,
+} from '~/lib/schemas/url';
 import { legacySectionTarget } from '~/lib/site/legacyCalculatorLinks';
 
 import {
@@ -81,6 +89,7 @@ export interface CalculatorActions {
     setMaxAttempts: (n: number) => void;
     setMaxEvalDays: (n: number) => void;
     setMonthlySubscriptionDiscountPercent: (n: number) => void;
+    setObjective: (objective: SizingObjective) => void;
     setPayoutRequestSize: (n: null | number) => void;
     setPlan: (plan: Plan) => void;
     setPortfolio: (entries: PortfolioEntry[]) => void;
@@ -105,9 +114,17 @@ export interface PinnedScenario {
     result: SimOutputs;
 }
 
+export interface SignedInObjectiveInputs {
+    availableCents: null | number;
+    bankroll: BankrollParameters;
+    hasLinkObjective: boolean;
+    isObjectiveChanged: boolean;
+}
+
 export interface UseCalculatorReturn {
     actions: CalculatorActions;
     debouncedQuery: string;
+    hasLinkObjective: boolean;
     legacyHashSettled: boolean;
     mounted: boolean;
     planOptIns: PlanOptIns;
@@ -264,6 +281,11 @@ export function createCalculatorActions(
                 type: CalculatorActionType.SetMonthlySubscriptionDiscountPercent,
                 value: n,
             }),
+        setObjective: (objective) =>
+            dispatch({
+                objective,
+                type: CalculatorActionType.SetObjective,
+            }),
         setPayoutRequestSize: (n) =>
             dispatch({
                 type: CalculatorActionType.SetPayoutRequestSize,
@@ -339,8 +361,20 @@ export function initialStateFromSearch(search: string): CalculatorState {
     }
 }
 
+export function isObjectiveInSearch(search: string): boolean {
+    return new URLSearchParams(search).has(OBJECTIVE_URL_PARAMETER);
+}
+
 export function pinScenario(result: SimOutputs): PinnedScenario {
     return { result };
+}
+
+export function signedInDefaultObjective(
+    inputs: SignedInObjectiveInputs,
+): null | SizingObjective {
+    if (inputs.hasLinkObjective || inputs.isObjectiveChanged) return null;
+    const chosen = chooseObjective(inputs.availableCents, inputs.bankroll);
+    return chosen === SizingObjective.MonthlyNet ? null : chosen;
 }
 
 export function useCalculator(): UseCalculatorReturn {
@@ -357,6 +391,9 @@ export function useCalculator(): UseCalculatorReturn {
         pendingLegacyHash: null,
     });
     const hasMountedReference = useRef(false);
+    const [hasLinkObjective] = useState(() =>
+        isObjectiveInSearch(searchParameters.toString()),
+    );
     const hasSettledLegacyHash = isLegacyHashSettled(
         mount.mounted,
         mount.pendingLegacyHash,
@@ -510,6 +547,7 @@ export function useCalculator(): UseCalculatorReturn {
     return {
         actions,
         debouncedQuery,
+        hasLinkObjective,
         legacyHashSettled: hasSettledLegacyHash,
         mounted: mount.mounted,
         planOptIns,

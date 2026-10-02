@@ -2,6 +2,8 @@
 
 import { useCallback, useId, useMemo, useState } from 'react';
 
+import { bankrollVariantWithFundedRisk } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollModel';
+import { parseBankrollDollarsField } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollUrlState';
 import { useBankrollVariant } from '~/app/(app)/prop-calculator/_components/bankroll/useBankrollVariant';
 import { useToolsRequest } from '~/app/(app)/prop-calculator/_components/bankroll/useToolsRequest';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
@@ -10,6 +12,8 @@ import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDe
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { Input } from '~/components/ui/Input';
+import { CENTS_PER_DOLLAR } from '~/lib/prop-calculator';
+import { copySplitFundedStopNotice } from '~/lib/prop-calculator/advisor/policy';
 import { stableJson } from '~/lib/stableJson';
 
 import {
@@ -21,11 +25,32 @@ import {
 } from './copySplitModel';
 import { CalculatorObjectiveChip } from './ObjectiveChip';
 
+interface FieldAccessibilityProps {
+    'aria-describedby'?: string;
+    'aria-invalid'?: true;
+}
+
 export default function CopySplitSection() {
     const { state: calculatorState } = useCalculatorInputs();
-    const { variant } = useBankrollVariant();
+    const { rulebook, variant } = useBankrollVariant();
     const totalRiskId = useId();
     const splitsId = useId();
+    const fundedRiskId = useId();
+    const totalRiskIssueId = useId();
+    const splitsIssueId = useId();
+    const fundedRiskIssueId = useId();
+    const fundedStopNoticeId = useId();
+    const [fundedRiskText, setFundedRiskText] = useState<null | string>(null);
+    const fundedRiskShown =
+        fundedRiskText ?? String(rulebook.funded.riskCents / CENTS_PER_DOLLAR);
+    const fundedRisk = parseBankrollDollarsField(fundedRiskShown);
+    const fundedVariant = useMemo(
+        () =>
+            fundedRisk === null
+                ? null
+                : bankrollVariantWithFundedRisk(variant, fundedRisk),
+        [fundedRisk, variant],
+    );
     const [text, setText] = useState(() => {
         const defaults = defaultCopySplitInputs(
             variant.base.riskPerTrade,
@@ -37,28 +62,47 @@ export default function CopySplitSection() {
         };
     });
     const parsed = useMemo(() => parseCopySplitInputs(text), [text]);
+    const totalRiskIssue = useMemo(
+        () => parseCopySplitInputs({ splits: '1', totalRisk: text.totalRisk }).issue,
+        [text.totalRisk],
+    );
+    const splitsIssue = useMemo(
+        () => parseCopySplitInputs({ splits: text.splits, totalRisk: '1' }).issue,
+        [text.splits],
+    );
+    const fundedStopNotice = copySplitFundedStopNotice(rulebook.funded);
     const { objective } = calculatorState;
 
     const requestKey =
-        parsed.inputs === null
+        fundedVariant === null || parsed.inputs === null
             ? null
-            : stableJson({ inputs: parsed.inputs, objective, variant });
+            : stableJson({
+                  inputs: parsed.inputs,
+                  objective,
+                  variant: fundedVariant,
+              });
     const debouncedRequestKey = useDebouncedValue(requestKey, SIM_DEBOUNCE_MS);
     const buildRequest = useCallback(
         (runId: number) =>
-            parsed.inputs === null
+            fundedVariant === null || parsed.inputs === null
                 ? null
-                : copySplitRequest(variant, parsed.inputs, objective, runId),
-        [objective, parsed.inputs, variant],
+                : copySplitRequest(
+                      fundedVariant,
+                      parsed.inputs,
+                      objective,
+                      runId,
+                  ),
+        [fundedVariant, objective, parsed.inputs],
     );
     const worker = useToolsRequest(debouncedRequestKey, buildRequest);
 
+    const hasRequest = parsed.inputs !== null && fundedVariant !== null;
     const isComputing =
-        parsed.inputs !== null &&
+        hasRequest &&
         (worker.state.phase === ToolsWorkerPhase.Running ||
             requestKey !== debouncedRequestKey);
     const result =
-        parsed.inputs !== null &&
+        hasRequest &&
         worker.state.phase === ToolsWorkerPhase.Succeeded &&
         worker.state.result.kind === ToolsResponseKind.CopySplit
             ? worker.state.result.result
@@ -96,6 +140,7 @@ export default function CopySplitSection() {
                         Total risk per trade
                     </label>
                     <Input
+                        {...invalidFieldProps(totalRiskIssue !== null, totalRiskIssueId)}
                         className="h-8 w-32"
                         id={totalRiskId}
                         inputMode="decimal"
@@ -116,6 +161,7 @@ export default function CopySplitSection() {
                         Splits (accounts, comma separated)
                     </label>
                     <Input
+                        {...invalidFieldProps(splitsIssue !== null, splitsIssueId)}
                         className="h-8 w-48"
                         id={splitsId}
                         onChange={(event) =>
@@ -127,10 +173,64 @@ export default function CopySplitSection() {
                         value={text.splits}
                     />
                 </div>
+                <div className="flex flex-col gap-1">
+                    <label
+                        className="text-xs text-muted-foreground"
+                        htmlFor={fundedRiskId}
+                    >
+                        Funded risk per trade, per account
+                    </label>
+                    <Input
+                        {...fundedRiskFieldProps(
+                            fundedRisk === null,
+                            fundedRiskIssueId,
+                            fundedStopNotice === null
+                                ? null
+                                : fundedStopNoticeId,
+                        )}
+                        className="h-8 w-32"
+                        id={fundedRiskId}
+                        inputMode="decimal"
+                        onChange={(event) =>
+                            setFundedRiskText(event.target.value)
+                        }
+                        value={fundedRiskShown}
+                    />
+                </div>
             </div>
-            {parsed.issue !== null && (
-                <p className="text-xs text-rose-400" role="alert">
-                    {parsed.issue}
+            {totalRiskIssue !== null && (
+                <p
+                    className="text-xs text-rose-400"
+                    id={totalRiskIssueId}
+                    role="alert"
+                >
+                    {totalRiskIssue}
+                </p>
+            )}
+            {splitsIssue !== null && (
+                <p
+                    className="text-xs text-rose-400"
+                    id={splitsIssueId}
+                    role="alert"
+                >
+                    {splitsIssue}
+                </p>
+            )}
+            {fundedRisk === null && (
+                <p
+                    className="text-xs text-rose-400"
+                    id={fundedRiskIssueId}
+                    role="alert"
+                >
+                    funded risk must be a positive dollar amount
+                </p>
+            )}
+            {fundedStopNotice !== null && (
+                <p
+                    className="text-xs text-amber-400"
+                    id={fundedStopNoticeId}
+                >
+                    {fundedStopNotice}
                 </p>
             )}
             {isComputing && (
@@ -138,7 +238,7 @@ export default function CopySplitSection() {
                     Computing the splits...
                 </p>
             )}
-            {failureReason !== null && parsed.inputs !== null && (
+            {failureReason !== null && hasRequest && (
                 <p className="text-xs text-rose-400" role="alert">
                     {failureReason}
                 </p>
@@ -235,4 +335,22 @@ export default function CopySplitSection() {
             )}
         </section>
     );
+}
+
+function fundedRiskFieldProps(
+    isInvalid: boolean,
+    issueId: string,
+    noticeId: null | string,
+): FieldAccessibilityProps {
+    if (isInvalid) return invalidFieldProps(true, issueId);
+    return noticeId === null ? {} : { 'aria-describedby': noticeId };
+}
+
+function invalidFieldProps(
+    isInvalid: boolean,
+    issueId: string,
+): FieldAccessibilityProps {
+    return isInvalid
+        ? { 'aria-describedby': issueId, 'aria-invalid': true }
+        : {};
 }

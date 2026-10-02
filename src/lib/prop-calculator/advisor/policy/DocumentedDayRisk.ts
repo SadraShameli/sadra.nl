@@ -32,11 +32,6 @@ import {
 
 import { type EnginePolicy } from './EnginePolicy';
 
-export {
-    placeableMinimumFor,
-    type SizingPlacement,
-} from '~/lib/prop-calculator/advisor/PlaceableMinimum';
-
 export enum DocumentedPolicyDisclosure {
     CommissionCoveredTarget = 'commission-covered-target',
     DayStartContext = 'day-start-context',

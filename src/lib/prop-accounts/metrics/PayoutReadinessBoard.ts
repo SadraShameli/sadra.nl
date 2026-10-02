@@ -1,19 +1,15 @@
 import { type UsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
 import {
-    type AccountState,
     CENTS_PER_DOLLAR,
     dollars,
     findFirm,
-    type FundedCycleTracker,
     minimumPayoutRequest,
     type Plan,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
     firmMinimumNotice,
-    fundedLiveTriggerFieldsOf,
-    type FundedPayoutRuleContext,
-    type LiveTriggerCountLimit,
+    fundedPayoutRuleContextOf,
     type LiveTriggerCoverage,
     liveTriggerLimitsFor,
     type PayoutBlockReason,
@@ -24,7 +20,6 @@ import {
     type ReconstructedFundedOrEvalAccount,
     retainedCushionForStage,
     type RulebookParameters,
-    SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
 import {
@@ -92,38 +87,6 @@ export interface PayoutReadinessNotApplicableRow {
 
 export type PayoutReadinessRow =
     PayoutReadinessBlockedRow | PayoutReadinessEligibleRow;
-
-export function fundedPayoutRuleContextOf(
-    plan: Plan,
-    state: AccountState,
-    tracker: FundedCycleTracker,
-    personalRetainedCushion: null | number,
-    liveTrigger: LiveTriggerCountLimit,
-    pendingPayouts = 0,
-): FundedPayoutRuleContext {
-    return {
-        ...fundedLiveTriggerFieldsOf(liveTrigger),
-        pendingPayouts: dollars(pendingPayouts),
-        personalRequestOverride: null,
-        personalRetainedCushion:
-            personalRetainedCushion == null
-                ? null
-                : dollars(personalRetainedCushion),
-        plan,
-        stage: SizingStage.Funded,
-        state: grossStateOf(state, pendingPayouts),
-        tracker,
-    };
-}
-
-export function grossStateOf(
-    state: AccountState,
-    pendingPayouts: number,
-): AccountState {
-    return pendingPayouts > 0
-        ? { ...state, balance: dollars(state.balance + pendingPayouts) }
-        : state;
-}
 
 export function payoutReadinessBoardOf(
     rulebook: RulebookParameters,
@@ -202,14 +165,18 @@ function fundedRowOf(
         plan,
         override?.paidPayoutsSinceLastLiveAccount ?? null,
     );
-    const ruleContext = fundedPayoutRuleContextOf(
+    const ruleContext = fundedPayoutRuleContextOf({
+        liveTrigger: liveTriggerLimits,
+        pendingPayouts: pendingPayouts ?? 0,
+        personalRequestOverride: null,
+        personalRetainedCushion:
+            override?.personalRetainedCushion == null
+                ? null
+                : dollars(override.personalRetainedCushion),
         plan,
         state,
         tracker,
-        override?.personalRetainedCushion ?? null,
-        liveTriggerLimits,
-        pendingPayouts ?? 0,
-    );
+    });
     const { amount: minRetainedCushion } = retainedCushionForStage(
         rulebook,
         ruleContext,

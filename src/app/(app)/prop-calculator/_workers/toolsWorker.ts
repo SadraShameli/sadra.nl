@@ -25,17 +25,16 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import {
     attemptEconomicsOfRun,
-    attemptsAffordable,
     BankrollLeverKind,
     type BankrollLeverOutputs,
     type BankrollLeverRow,
     bankrollLevers,
     type BankrollLeverVariant,
+    bankrollRisk,
     batchLossClosedForm,
     cohortOutcome,
     empiricalPayingStatsOf,
     LOSS_RISK_DRAWS,
-    noPayoutProbability,
     takeProfitCandidateInputs,
     takeProfitRows,
     type TakeProfitWhatIfRow,
@@ -237,32 +236,13 @@ function computeSameEvOutcome(
     const resolved = resolveVariant(variant);
     if (resolved === null) return null;
     const out = simulate(resolved.simInputs);
-    const attempts = attemptsAffordable(
-        dollars(bankroll),
-        dollars(out.costPerAttempt),
-    );
-    const noPayout =
-        attempts.value === null
-            ? null
-            : (noPayoutProbability(
-                  fraction(out.attemptPaysProbability),
-                  attempts.value,
-              ).value ?? null);
-    const lossRisk =
-        attempts.value === null
-            ? null
-            : (cohortOutcome(
-                  out.netValues,
-                  attempts.value,
-                  LOSS_RISK_DRAWS,
-                  seed,
-              ).value?.lossProbability.value ?? null);
+    const risk = bankrollRisk(out, dollars(bankroll), seed);
     return {
         evPerAttempt: out.expectedNetPerAttempt,
         evPerAttemptStandardError:
             out.estimates.expectedNetPerAttempt.standardError,
-        lossRisk,
-        noPayoutProbability: noPayout,
+        lossRisk: risk.lossProbability?.value ?? null,
+        noPayoutProbability: risk.noPayoutProbability,
     };
 }
 

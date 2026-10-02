@@ -476,7 +476,9 @@ function EventForm({
                         <AlertDescription>
                             Your other accounts could not be loaded, so what the
                             firm&apos;s rules do to them is not shown. Recording
-                            this event suspends nothing.
+                            this event is refused if the firm&apos;s policy
+                            suspends another of your accounts; reload to see
+                            which.
                         </AlertDescription>
                     </Alert>
                 )}
