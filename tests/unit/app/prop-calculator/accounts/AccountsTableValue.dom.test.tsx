@@ -1036,7 +1036,10 @@ describe('account list and detail header lead with value and next action (PT-68)
                 ]),
             );
             render(
-                <DetailHeaderFiguresWithData accountId="progress" userId={USER_ID} />,
+                <DetailHeaderFiguresWithData
+                    accountId="progress"
+                    userId={USER_ID}
+                />,
             );
             const text = container.textContent;
             expect(text).toContain('Next action');
@@ -1062,7 +1065,12 @@ describe('account list and detail header lead with value and next action (PT-68)
                     ],
                 ]),
             );
-            render(<DetailHeaderFiguresWithData accountId="alpha" userId={USER_ID} />);
+            render(
+                <DetailHeaderFiguresWithData
+                    accountId="alpha"
+                    userId={USER_ID}
+                />,
+            );
             expect(
                 container.querySelector('[data-soon="true"]')?.textContent,
             ).toBe('3.4 calendar days (SE 0.4)');
@@ -1073,7 +1081,12 @@ describe('account list and detail header lead with value and next action (PT-68)
 
         it('shows a ledger-only account as not valued with its reason', () => {
             answerEverything([ledgerOnlyAccount('hola', 'Hola')], []);
-            render(<DetailHeaderFiguresWithData accountId="hola" userId={USER_ID} />);
+            render(
+                <DetailHeaderFiguresWithData
+                    accountId="hola"
+                    userId={USER_ID}
+                />,
+            );
             expect(container.textContent).toContain('Not valued');
             expect(container.textContent).toContain('Ledger only');
             expect(container.textContent).toContain(
@@ -1094,7 +1107,12 @@ describe('account list and detail header lead with value and next action (PT-68)
                 requested.push(request);
                 return null;
             };
-            render(<DetailHeaderFiguresWithData accountId="alpha" userId={USER_ID} />);
+            render(
+                <DetailHeaderFiguresWithData
+                    accountId="alpha"
+                    userId={USER_ID}
+                />,
+            );
             const stages = requested
                 .filter(
                     (request) =>
@@ -1123,14 +1141,16 @@ describe('account list and detail header lead with value and next action (PT-68)
                 [snapshotOf('alpha', 52_000)],
             );
             const requested = captureRequests();
-            render(<AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />);
+            render(
+                <AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />,
+            );
 
             expect(requested).toEqual([]);
             for (const text of SUSPENDED_ACTION_TEXTS) {
                 expect(container.textContent).not.toContain(text);
             }
             expect(container.textContent).toContain(
-                'Not modeled for this account',
+                'Suspended: no sizing until the account is Active again',
             );
         });
 
@@ -1145,7 +1165,9 @@ describe('account list and detail header lead with value and next action (PT-68)
                 [snapshotOf('bravo', 51_500)],
             );
             const requested = captureRequests();
-            render(<AccountDetailValuesProbe accountId="bravo" userId={USER_ID} />);
+            render(
+                <AccountDetailValuesProbe accountId="bravo" userId={USER_ID} />,
+            );
 
             expect(requested).toEqual([]);
             for (const text of SUSPENDED_ACTION_TEXTS) {
@@ -1159,7 +1181,9 @@ describe('account list and detail header lead with value and next action (PT-68)
                 [snapshotOf('alpha', 52_000)],
             );
             const requested = captureRequests();
-            render(<AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />);
+            render(
+                <AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />,
+            );
 
             expect(
                 requestsOfKind(requested, OverviewRequestKind.AccountFromState),
@@ -1203,7 +1227,9 @@ describe('account list and detail header lead with value and next action (PT-68)
                 [snapshotOf('alpha', 52_000)],
             );
             const requested = captureRequests();
-            render(<AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />);
+            render(
+                <AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />,
+            );
 
             const fromState = requestsOfKind(
                 requested,

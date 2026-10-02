@@ -41,7 +41,10 @@ function capBoundAccount(id: PlanId, paidFraction: number) {
     const plan = findFirm(id.firm)?.findPlan(id);
     if (!plan) throw new Error('fixture plan missing from the registry');
     const previous = eligibleFundedOf(plan, plan.accountSize + 12_000);
-    const withdrawable = fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, previous);
+    const withdrawable = fundedWithdrawableDollarsOf(
+        DEFAULT_RULEBOOK,
+        previous,
+    );
     const paid = withdrawable * paidFraction;
     const latest = fundedReconstructed(plan, {
         balance: plan.accountSize,
@@ -261,7 +264,9 @@ describe('dayLossShareOf', () => {
             lastPayoutBalance: plan.accountSize + 20_000 - withdrawable,
             payoutsIssued: 2,
         });
-        expect(fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, afterLoss)).toBe(0);
+        expect(fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, afterLoss)).toBe(
+            0,
+        );
         const result = dayLossShareOf({
             ...BASE,
             accounts: [
@@ -296,7 +301,9 @@ describe('dayLossShareOf', () => {
             lastPayoutBalance: plan.accountSize + 20_000 - paid,
             payoutsIssued: 2,
         });
-        expect(fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, afterLoss)).toBe(0);
+        expect(fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, afterLoss)).toBe(
+            0,
+        );
         const result = dayLossShareOf({
             ...BASE,
             accounts: [
@@ -679,16 +686,11 @@ describe('dayLossShareOf', () => {
                         paidPayouts: [
                             payoutOf(usdCentsFromDollars(withdrawable)),
                         ],
-                        state: reconstructedEntry(
-                            'capped',
-                            plan,
-                            afterPayout,
-                            {
-                                asOf: '2026-09-23',
-                                previous: kept,
-                                previousAsOf: '2026-09-22',
-                            },
-                        ).state,
+                        state: reconstructedEntry('capped', plan, afterPayout, {
+                            asOf: '2026-09-23',
+                            previous: kept,
+                            previousAsOf: '2026-09-22',
+                        }).state,
                     },
                 ],
             });

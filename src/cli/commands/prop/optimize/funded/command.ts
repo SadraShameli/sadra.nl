@@ -196,10 +196,7 @@ export default defineCommand({
 
             ui.heading(plan.label);
             ui.muted(`  ${objectiveHeadingLine(objectiveOfSort(sort))}`);
-            printLiveTransferLines(
-                base,
-                rows[0]?.out.liveTransferContinuation,
-            );
+            printLiveTransferLines(base, rows[0]?.out.liveTransferContinuation);
             for (const note of fundedSizingNotes(
                 context.args,
                 build,

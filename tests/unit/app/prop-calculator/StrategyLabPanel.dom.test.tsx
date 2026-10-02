@@ -471,9 +471,8 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
     function cell(header: string): string {
         const index = headers().indexOf(header);
         if (index === -1) throw new Error(`no ${header} column`);
-        const row = container.querySelector<HTMLTableRowElement>(
-            ':scope tbody tr',
-        );
+        const row =
+            container.querySelector<HTMLTableRowElement>(':scope tbody tr');
         return row?.cells[index]?.textContent.trim() ?? '';
     }
 
@@ -562,9 +561,7 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
     it('says the rest of the account is valued at $0 where no live plan is modeled for the scenario', () => {
         render(0.5);
         expect(container.textContent).toContain('valued at $0');
-        expect(container.textContent).not.toContain(
-            'recurring withdrawals',
-        );
+        expect(container.textContent).not.toContain('recurring withdrawals');
     });
 
     it('says the live plan continues the account and adds only its recurring withdrawals where it is modeled', () => {

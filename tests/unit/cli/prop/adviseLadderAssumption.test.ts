@@ -262,12 +262,8 @@ describe('the next-trade report admits no impossible state (PT-24d)', () => {
         expectTypeOf<NextTradeRiskReport>().toEqualTypeOf<
             CheckedNextTradeRiskReport | NotRunNextTradeRiskReport
         >();
-        expectTypeOf<CheckedNextTradeRiskReport>().not.toHaveProperty(
-            'reason',
-        );
-        expectTypeOf<NotRunNextTradeRiskReport>().not.toHaveProperty(
-            'result',
-        );
+        expectTypeOf<CheckedNextTradeRiskReport>().not.toHaveProperty('reason');
+        expectTypeOf<NotRunNextTradeRiskReport>().not.toHaveProperty('result');
         expectTypeOf<
             NotRunNextTradeRiskReport['reason']
         >().toEqualTypeOf<string>();

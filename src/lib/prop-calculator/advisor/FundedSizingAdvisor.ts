@@ -689,6 +689,8 @@ function personalBoundedFlats(
     );
     const clamped = within.map((flat) => cappedRisk(flat, cap));
     return [
-        ...new Set(within.length === flats.length ? clamped : [...clamped, cap]),
+        ...new Set(
+            within.length === flats.length ? clamped : [...clamped, cap],
+        ),
     ].toSorted((a, b) => a - b);
 }

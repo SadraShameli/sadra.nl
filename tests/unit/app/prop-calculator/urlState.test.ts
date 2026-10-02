@@ -25,7 +25,10 @@ import {
 } from '~/lib/prop-calculator';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
-import { CalculatorUrlParameter, OBJECTIVE_URL_PARAMETER } from '~/lib/schemas/url';
+import {
+    CalculatorUrlParameter,
+    OBJECTIVE_URL_PARAMETER,
+} from '~/lib/schemas/url';
 
 function apexEod() {
     const firm = ALL_FIRMS.find((f) => f.id === FirmId.Apex);
@@ -628,7 +631,6 @@ describe('idleDayProbability round-trip through the URL (PT-11j)', () => {
         expect(state.idleDayProbability).toBe(0);
     });
 });
-
 
 function linkFor(extra: Record<string, string>): URLSearchParams {
     const { firm, plan } = apexEod();

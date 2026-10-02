@@ -24,11 +24,7 @@ describe('the detail page reads one decision query (PT-68e)', () => {
     });
 
     it('does not read the latest-decisions list in the detail view', () => {
-        const view = sourceOf(
-            '_components',
-            'detail',
-            'AccountDetailView.tsx',
-        );
+        const view = sourceOf('_components', 'detail', 'AccountDetailView.tsx');
 
         expect(view).not.toContain('decision.latestForAll');
         expect(view).toContain('decision.list.useQuery(LEDGER_LIST_INPUT)');

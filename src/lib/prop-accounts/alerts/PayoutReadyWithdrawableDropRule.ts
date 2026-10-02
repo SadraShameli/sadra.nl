@@ -12,6 +12,7 @@ import {
     fundedWithdrawableDollarsOf,
     fundedWithdrawableLossCents,
     fundedWithdrawableLostToResetCents,
+    grossStateOf,
     PerformanceComparabilityKind,
     PerformanceIncomparabilityReason,
     performanceSinceSnapshot,
@@ -28,6 +29,7 @@ import { type AccountAlert } from './AccountAlert';
 import {
     type AlertContext,
     isActive,
+    liveTriggerLimitsIn,
     type MonitoredAccount,
 } from './AlertContext';
 import { AlertKind } from './AlertKind';
@@ -73,7 +75,12 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
         if (
             previous.kind !== TradingPhase.Funded ||
             latest.kind !== TradingPhase.Funded ||
-            !wasPayoutEligible(context, previous)
+            !wasPayoutEligible(
+                context,
+                monitored,
+                previous,
+                state.previous.asOf,
+            )
         ) {
             return null;
         }
@@ -192,7 +199,9 @@ function paidGrossBeforeReset(inputs: WithdrawableLossInputs): UsdCents {
 
 function wasPayoutEligible(
     context: AlertContext,
+    monitored: MonitoredAccount,
     account: ReconstructedFundedOrEvalAccount,
+    asOf: string,
 ): boolean {
     if (account.fundedTracker === null) return false;
     const minRetainedCushion = fundedRetainedCushionDollarsOf(
@@ -200,14 +209,22 @@ function wasPayoutEligible(
         account,
     );
     const rawRequest = context.rulebook.payout.requestCents / CENTS_PER_DOLLAR;
+    const pendingPayouts = account.pendingPayouts ?? 0;
     const readiness = payoutReadiness(
         account.plan,
-        account.state,
+        grossStateOf(account.state, pendingPayouts),
         account.fundedTracker,
         {
+            liveTrigger: liveTriggerLimitsIn(
+                context,
+                monitored,
+                account.plan,
+                asOf,
+            ),
             minRetainedCushion,
             payoutRequestSize: rawRequest,
-            statePendingPayoutsNetted: true,
+            pendingPayouts,
+            statePendingPayoutsNetted: false,
         },
     );
     return readiness.kind === PayoutReadinessKind.Eligible;

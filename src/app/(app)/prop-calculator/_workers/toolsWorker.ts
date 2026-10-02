@@ -149,13 +149,15 @@ function computeCopySplit(
     request: CopySplitToolsRequest,
 ): CopySplitResult | null {
     const plan = resolvePlanReference(request.variant.plan);
-    return plan === null ? null : runCopySplit(
-        { ...request.variant.base, plan },
-        request.variant.policy,
-        request.totalRisk,
-        request.splits,
-        request.objective,
-    );
+    return plan === null
+        ? null
+        : runCopySplit(
+              { ...request.variant.base, plan },
+              request.variant.policy,
+              request.totalRisk,
+              request.splits,
+              request.objective,
+          );
 }
 
 function computeFundedValueEstimate(

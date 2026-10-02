@@ -487,7 +487,9 @@ function payoutAdviceViewOf(advice: PayoutAdvice): PayoutAdviceViewModel {
         personalOverrideWarningText:
             advice.personalOverrideWarning === undefined
                 ? null
-                : personalPayoutOverrideWarningText(advice.personalOverrideWarning),
+                : personalPayoutOverrideWarningText(
+                      advice.personalOverrideWarning,
+                  ),
     };
 }
 

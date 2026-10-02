@@ -51,6 +51,7 @@ export function adviceCoverageOf(
     let advisor;
     try {
         advisor = createSizingAdvisor(reconstructed, {
+            paidPayoutsSinceLastLiveAccount: null,
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: today,
             substate: null,

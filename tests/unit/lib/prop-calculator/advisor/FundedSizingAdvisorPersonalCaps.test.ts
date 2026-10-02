@@ -268,7 +268,17 @@ describe('the funded sweep stays ordered and bounded at the personal max risk (P
     });
 
     it('keeps every candidate list ascending for each cap between and around the defaults', () => {
-        for (const cap of [90, 120, 150, 150 - 1e-9, 150 + 1e-9, 175, 200 - 1e-9, 275, 900]) {
+        for (const cap of [
+            90,
+            120,
+            150,
+            150 - 1e-9,
+            150 + 1e-9,
+            175,
+            200 - 1e-9,
+            275,
+            900,
+        ]) {
             const flats = flatCandidatesFor(dollars(cap));
 
             expect(flats).toEqual(flats.toSorted((a, b) => a - b));
@@ -282,9 +292,7 @@ describe('the funded sweep stays ordered and bounded at the personal max risk (P
                 cap: dollars(150),
                 kind: DifferenceReason.PersonalCap,
             }),
-        ).toBe(
-            'Capped by your personal max risk per trade of $150.00.',
-        );
+        ).toBe('Capped by your personal max risk per trade of $150.00.');
     });
 
     it('builds the sweep base at the capped funded risk, the one the engine places', () => {

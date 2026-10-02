@@ -13,9 +13,7 @@ export enum AssumptionBias {
 }
 
 export type Assumption =
-    | InputAssumption
-    | LadderStepWidenedAssumption
-    | SizingRuleAssumption;
+    InputAssumption | LadderStepWidenedAssumption | SizingRuleAssumption;
 
 export interface InputAssumption {
     readonly bias: AssumptionBias;

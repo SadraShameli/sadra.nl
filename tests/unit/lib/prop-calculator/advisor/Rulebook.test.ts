@@ -983,16 +983,11 @@ describe('display.nextPayoutHighlightDays (PT-68b, F-V18)', () => {
         ).toBe(days);
     });
 
-    it.each([0, -1, 1.5, 366, null, '7'])(
-        'rejects a window of %s',
-        (days) => {
-            expect(
-                isValid(
-                    withSection('display', { nextPayoutHighlightDays: days }),
-                ),
-            ).toBe(false);
-        },
-    );
+    it.each([0, -1, 1.5, 366, null, '7'])('rejects a window of %s', (days) => {
+        expect(
+            isValid(withSection('display', { nextPayoutHighlightDays: days })),
+        ).toBe(false);
+    });
 
     it('fills the window for a stored rulebook whose display section predates it', () => {
         const stored = {

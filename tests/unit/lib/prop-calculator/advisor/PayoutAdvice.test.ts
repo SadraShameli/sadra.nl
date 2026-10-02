@@ -67,6 +67,10 @@ function fundedContext(
 ): FundedPayoutRuleContext {
     const state = fundedState({});
     return {
+        liveTriggerFirmTotalCap: null,
+        liveTriggerFirmTotalSource: null,
+        liveTriggerPerAccountCap: null,
+        liveTriggerPerAccountSource: null,
         paidPayoutsSinceLastLiveAccount: null,
         pendingPayouts: dollars(0),
         personalRequestOverride: null,

@@ -121,7 +121,9 @@ export function dayLossBasisNotes(day: DayLoss): readonly string[] {
         ...(bases.has(DayLossBasis.FundedWithdrawable)
             ? [DAY_LOSS_FUNDED_NOTE]
             : []),
-        ...(bases.has(DayLossBasis.EvalFeeHeuristic) ? [DAY_LOSS_EVAL_NOTE] : []),
+        ...(bases.has(DayLossBasis.EvalFeeHeuristic)
+            ? [DAY_LOSS_EVAL_NOTE]
+            : []),
     ];
 }
 
@@ -222,7 +224,10 @@ function accountLossOf(
             reason: DayLossUnmeasuredReason.LiveNotModeled,
         };
     }
-    if (previous !== null && isSpanningSeveralDays(previous.asOf, latest.asOf)) {
+    if (
+        previous !== null &&
+        isSpanningSeveralDays(previous.asOf, latest.asOf)
+    ) {
         return {
             kind: 'unmeasured',
             reason: DayLossUnmeasuredReason.SpansSeveralDays,
@@ -278,7 +283,10 @@ function accountLossOf(
           );
 }
 
-function isSpanningSeveralDays(previousAsOf: string, latestAsOf: string): boolean {
+function isSpanningSeveralDays(
+    previousAsOf: string,
+    latestAsOf: string,
+): boolean {
     return (
         weekdaysInRange(
             dayNumberOf(previousAsOf) + 1,

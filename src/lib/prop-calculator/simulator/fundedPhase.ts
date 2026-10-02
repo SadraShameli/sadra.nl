@@ -369,7 +369,9 @@ export function runFundedFromState(
         });
 
     const isTransferredLive = stage === FundedStage.TransferredLive;
-    const liveSlotDays = isTransferredLive ? fundedHorizonDays - daysElapsed : 0;
+    const liveSlotDays = isTransferredLive
+        ? fundedHorizonDays - daysElapsed
+        : 0;
     const liveCash =
         isTransferredLive && liveTransfer?.continuation
             ? runLiveTransferContinuation(

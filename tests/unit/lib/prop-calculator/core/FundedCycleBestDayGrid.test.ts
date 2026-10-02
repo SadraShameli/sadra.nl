@@ -129,23 +129,20 @@ describe('FundedCycleBestDayGrid', () => {
 
     it.each([
         { cushionStepDollars: 0, relevantBestDayDollars: 200 },
-        { cushionStepDollars: Number.NaN, relevantBestDayDollars: 200 },
-        { cushionStepDollars: STEP, relevantBestDayDollars: Number.NaN },
+        { cushionStepDollars: NaN, relevantBestDayDollars: 200 },
+        { cushionStepDollars: STEP, relevantBestDayDollars: NaN },
         {
             cushionStepDollars: STEP,
-            relevantBestDayDollars: Number.POSITIVE_INFINITY,
+            relevantBestDayDollars: Infinity,
         },
-    ])(
-        'refuses a non-positive or non-finite step or range: %o',
-        (options) => {
-            expect(
-                () =>
-                    new FundedCycleBestDayGrid({
-                        ...options,
-                        overflowDollars: 4000,
-                        requestedBucketCount: undefined,
-                    }),
-            ).toThrow(/FundedCycleBestDayGrid/);
-        },
-    );
+    ])('refuses a non-positive or non-finite step or range: %o', (options) => {
+        expect(
+            () =>
+                new FundedCycleBestDayGrid({
+                    ...options,
+                    overflowDollars: 4000,
+                    requestedBucketCount: undefined,
+                }),
+        ).toThrow(/FundedCycleBestDayGrid/);
+    });
 });

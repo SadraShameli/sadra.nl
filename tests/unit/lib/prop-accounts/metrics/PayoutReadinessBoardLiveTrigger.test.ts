@@ -111,6 +111,11 @@ describe('payoutReadinessBoardOf: verified live-trigger limits (PT-36d)', () => 
             trigger: {
                 payoutsTaken: 2,
                 scope: LiveTriggerScope.Account,
+                source: {
+                    fetchedOn: CONFIRMED_SOURCE.fetchedOn,
+                    quote: CONFIRMED_SOURCE.quote,
+                    url: CONFIRMED_SOURCE.url,
+                },
                 triggerAtPayoutCount: 3,
             },
         });
@@ -159,6 +164,11 @@ describe('payoutReadinessBoardOf: verified live-trigger limits (PT-36d)', () => 
             trigger: {
                 payoutsTaken: 9,
                 scope: LiveTriggerScope.Firm,
+                source: {
+                    fetchedOn: CONFIRMED_SOURCE.fetchedOn,
+                    quote: CONFIRMED_SOURCE.quote,
+                    url: CONFIRMED_SOURCE.url,
+                },
                 triggerAtPayoutCount: 10,
             },
         });
@@ -207,5 +217,109 @@ describe('payoutReadinessBoardOf: verified live-trigger limits (PT-36d)', () => 
             throw new Error('expected an eligible row');
         }
         expect(row.liveTriggerCoverage).toBe(LiveTriggerCoverage.NotChecked);
+    });
+
+    it('cites the verified per-account source on the blocked row, like the advisor', () => {
+        const board = withPolicy(
+            new StubTriggerPolicy([
+                new PayoutCountPerAccountTrigger(3, CONFIRMED_SOURCE),
+            ]),
+            () =>
+                payoutReadinessBoardOf(DEFAULT_RULEBOOK, [
+                    eligibleEntry(plan, 2),
+                ]),
+        );
+        const [row] = board.rows;
+        if (row?.kind !== PayoutReadinessRowKind.Blocked) {
+            throw new Error('expected a blocked row');
+        }
+        expect(row.reason).toMatchObject({
+            kind: PayoutBlockReasonKind.WouldTriggerLive,
+            trigger: {
+                source: {
+                    fetchedOn: CONFIRMED_SOURCE.fetchedOn,
+                    quote: CONFIRMED_SOURCE.quote,
+                    url: CONFIRMED_SOURCE.url,
+                },
+            },
+        });
+    });
+
+    it('cites the verified firm-total source on the blocked row', () => {
+        const board = withPolicy(
+            new StubTriggerPolicy([
+                new PayoutCountTotalTrigger(10, CONFIRMED_SOURCE),
+            ]),
+            () =>
+                payoutReadinessBoardOf(
+                    DEFAULT_RULEBOOK,
+                    [eligibleEntry(plan, 0)],
+                    new Map([['a1', { paidPayoutsSinceLastLiveAccount: 9 }]]),
+                ),
+        );
+        const [row] = board.rows;
+        if (row?.kind !== PayoutReadinessRowKind.Blocked) {
+            throw new Error('expected a blocked row');
+        }
+        expect(row.reason).toMatchObject({
+            trigger: {
+                scope: LiveTriggerScope.Firm,
+                source: { url: CONFIRMED_SOURCE.url },
+            },
+        });
+    });
+
+    it('counts a pending payout toward the verified per-account cap', () => {
+        const funded = fundedReconstructed(plan, {
+            balance: plan.accountSize + 20_000,
+            cumulativePayout: 0,
+            cycleBestDayProfit: 20_000,
+            lastPayoutBalance: plan.accountSize,
+            payoutsIssued: 1,
+        });
+        if (funded.fundedTracker === null) {
+            throw new Error('expected a funded tracker');
+        }
+        funded.fundedTracker.sessionDaysSinceAnchor = 999;
+        const board = withPolicy(
+            new StubTriggerPolicy([
+                new PayoutCountPerAccountTrigger(3, CONFIRMED_SOURCE),
+            ]),
+            () =>
+                payoutReadinessBoardOf(DEFAULT_RULEBOOK, [
+                    reconstructedEntry('a1', plan, {
+                        ...funded,
+                        pendingPayouts: 100,
+                    }),
+                ]),
+        );
+        const [row] = board.rows;
+        if (row?.kind !== PayoutReadinessRowKind.Blocked) {
+            throw new Error('expected a blocked row');
+        }
+        expect(row.reason).toMatchObject({
+            kind: PayoutBlockReasonKind.WouldTriggerLive,
+            trigger: { payoutsTaken: 2, scope: LiveTriggerScope.Account },
+        });
+    });
+
+    it('cites the primary quote for a per-account trigger whose conflicting sources agree on the cap', () => {
+        const entry = eligibleEntry(plan, 1);
+        const board = withPolicy(
+            new StubTriggerPolicy([
+                new PayoutCountPerAccountTrigger(2, CONFLICTED_SOURCE, 2),
+            ]),
+            () => payoutReadinessBoardOf(DEFAULT_RULEBOOK, [entry]),
+        );
+        const [row] = board.rows;
+        if (row?.kind !== PayoutReadinessRowKind.Blocked) {
+            throw new Error('expected a blocked row');
+        }
+        expect(row.reason).toMatchObject({
+            trigger: {
+                scope: LiveTriggerScope.Account,
+                source: { quote: CONFLICTED_SOURCE.quote },
+            },
+        });
     });
 });

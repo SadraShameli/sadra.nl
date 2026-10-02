@@ -32,9 +32,7 @@ const APEX_EOD_ID = {
 
 const BASE_STEP = 100;
 
-function accountWithCushion(
-    cushion: number,
-): ReconstructedFundedOrEvalAccount {
+function accountWithCushion(cushion: number): ReconstructedFundedOrEvalAccount {
     const state: AccountState = {
         balance: 50_000 + cushion,
         bestDayProfit: 0,
@@ -99,7 +97,8 @@ function widenedAssumptionsOf(advisor: EvalSizingAdvisor) {
     return advisor
         .assemble([])
         .assumptions.filter(
-            (assumption) => assumption.kind === AssumptionKind.LadderStepWidened,
+            (assumption) =>
+                assumption.kind === AssumptionKind.LadderStepWidened,
         );
 }
 
@@ -111,11 +110,15 @@ describe('the eval ladder grid uses at most the personal max trades per day as s
         ).toBe(4);
     });
 
-    it.each([1, 2, 3])('searches at most the personal maximum of %d slots', (max) => {
-        expect(
-            ladderRequestOf(advisorWith({ maxTradesPerDay: max })).grid.slots,
-        ).toBe(max);
-    });
+    it.each([1, 2, 3])(
+        'searches at most the personal maximum of %d slots',
+        (max) => {
+            expect(
+                ladderRequestOf(advisorWith({ maxTradesPerDay: max })).grid
+                    .slots,
+            ).toBe(max);
+        },
+    );
 
     it('searches the finer default grid when fewer slots keep the grid inside the size limit', () => {
         expect(
@@ -141,7 +144,12 @@ describe('the widened-step assumption states the step the search used (PT-68f, F
 
             expect(widenedAssumptionsOf(advisor)).toStrictEqual(
                 step > BASE_STEP
-                    ? [ladderStepWidenedAssumption(step, AssumptionBias.Neutral)]
+                    ? [
+                          ladderStepWidenedAssumption(
+                              step,
+                              AssumptionBias.Neutral,
+                          ),
+                      ]
                     : [],
             );
         },

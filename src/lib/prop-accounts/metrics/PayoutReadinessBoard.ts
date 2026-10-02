@@ -11,7 +11,9 @@ import {
 } from '~/lib/prop-calculator';
 import {
     firmMinimumNotice,
+    fundedLiveTriggerFieldsOf,
     type FundedPayoutRuleContext,
+    type LiveTriggerCountLimit,
     type LiveTriggerCoverage,
     liveTriggerLimitsFor,
     type PayoutBlockReason,
@@ -96,10 +98,12 @@ export function fundedPayoutRuleContextOf(
     state: AccountState,
     tracker: FundedCycleTracker,
     personalRetainedCushion: null | number,
+    liveTrigger: LiveTriggerCountLimit,
+    pendingPayouts = 0,
 ): FundedPayoutRuleContext {
     return {
-        paidPayoutsSinceLastLiveAccount: null,
-        pendingPayouts: dollars(0),
+        ...fundedLiveTriggerFieldsOf(liveTrigger),
+        pendingPayouts: dollars(pendingPayouts),
         personalRequestOverride: null,
         personalRetainedCushion:
             personalRetainedCushion == null
@@ -107,9 +111,18 @@ export function fundedPayoutRuleContextOf(
                 : dollars(personalRetainedCushion),
         plan,
         stage: SizingStage.Funded,
-        state,
+        state: grossStateOf(state, pendingPayouts),
         tracker,
     };
+}
+
+export function grossStateOf(
+    state: AccountState,
+    pendingPayouts: number,
+): AccountState {
+    return pendingPayouts > 0
+        ? { ...state, balance: dollars(state.balance + pendingPayouts) }
+        : state;
 }
 
 export function payoutReadinessBoardOf(
@@ -184,11 +197,18 @@ function fundedRowOf(
             'a funded reconstructed account is missing its funded cycle tracker',
         );
     }
+    const liveTriggerLimits = liveTriggerLimitsFor(
+        findFirm(plan.id.firm)?.accountPolicy,
+        plan,
+        override?.paidPayoutsSinceLastLiveAccount ?? null,
+    );
     const ruleContext = fundedPayoutRuleContextOf(
         plan,
         state,
         tracker,
         override?.personalRetainedCushion ?? null,
+        liveTriggerLimits,
+        pendingPayouts ?? 0,
     );
     const { amount: minRetainedCushion } = retainedCushionForStage(
         rulebook,
@@ -198,26 +218,8 @@ function fundedRowOf(
         override?.personalRequestOverride ??
         rulebook.payout.requestCents / CENTS_PER_DOLLAR;
     const grossPendingPayouts = pendingPayouts ?? 0;
-    const grossState =
-        grossPendingPayouts > 0
-            ? {
-                  ...state,
-                  balance: dollars(state.balance + grossPendingPayouts),
-              }
-            : state;
-    const paidPayoutsSinceLastLiveAccount =
-        override?.paidPayoutsSinceLastLiveAccount ?? null;
-    const liveTriggerLimits = liveTriggerLimitsFor(
-        findFirm(plan.id.firm)?.accountPolicy,
-        plan,
-        paidPayoutsSinceLastLiveAccount,
-    );
-    const readiness = payoutReadiness(plan, grossState, tracker, {
-        liveTrigger: {
-            firmTotalCap: liveTriggerLimits.firmTotalCap,
-            paidPayoutsSinceLastLiveAccount,
-            perAccountCap: liveTriggerLimits.perAccountCap,
-        },
+    const readiness = payoutReadiness(plan, ruleContext.state, tracker, {
+        liveTrigger: liveTriggerLimits,
         minRetainedCushion,
         payoutRequestSize: rawRequest,
         pendingPayouts: grossPendingPayouts,

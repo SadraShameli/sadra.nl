@@ -1,3 +1,4 @@
+import { isPaidSinceLastLive } from '~/lib/prop-accounts/advice/FirmPayoutCount';
 import {
     compareText,
     isPaidOnOrBefore,
@@ -10,14 +11,13 @@ import {
 } from '~/lib/prop-accounts/core';
 import { addIsoDays, TradingPhase } from '~/lib/prop-calculator';
 import {
+    fundedRetainedCushionResolution,
     type ReconstructedFundedOrEvalAccount,
-    retainedCushionForStage,
     type RulebookParameters,
     ruleCappedWithdrawable,
 } from '~/lib/prop-calculator/advisor';
 
 import { AccountStateKind, type AccountStateResult } from './AccountStates';
-import { fundedPayoutRuleContextOf } from './PayoutReadinessBoard';
 
 export interface ConcentrationAccount {
     readonly accountId: string;
@@ -106,7 +106,9 @@ export function firmProfitConcentrationOf(
             .filter((account) => account.isActive)
             .map((account) => fundedReconstructedOf(account))
             .find(
-                (reconstructed): reconstructed is ReconstructedFundedOrEvalAccount =>
+                (
+                    reconstructed,
+                ): reconstructed is ReconstructedFundedOrEvalAccount =>
                     reconstructed !== null,
             ) ?? null;
     return {
@@ -115,7 +117,10 @@ export function firmProfitConcentrationOf(
         retainedCushionDollars:
             sampleFunded === null
                 ? null
-                : fundedRetainedCushionDollarsOf(options.rulebook, sampleFunded),
+                : fundedRetainedCushionDollarsOf(
+                      options.rulebook,
+                      sampleFunded,
+                  ),
         totalInProfitAccounts: firms.reduce(
             (sum, firm) => sum + firm.inProfitAccounts,
             0,
@@ -128,18 +133,9 @@ export function fundedRetainedCushionDollarsOf(
     rulebook: RulebookParameters,
     account: ReconstructedFundedOrEvalAccount,
 ): number {
-    const { fundedTracker } = account;
-    return fundedTracker === null
+    return account.fundedTracker === null
         ? 0
-        : retainedCushionForStage(
-              rulebook,
-              fundedPayoutRuleContextOf(
-                  account.plan,
-                  account.state,
-                  fundedTracker,
-                  null,
-              ),
-          ).amount;
+        : fundedRetainedCushionResolution(rulebook).amount;
 }
 
 export function fundedWithdrawableDollarsOf(
@@ -147,12 +143,14 @@ export function fundedWithdrawableDollarsOf(
     account: ReconstructedFundedOrEvalAccount,
 ): number {
     const { fundedTracker } = account;
-    return fundedTracker === null ? 0 : ruleCappedWithdrawable(
-        account.plan,
-        fundedTracker,
-        account.state,
-        fundedRetainedCushionDollarsOf(rulebook, account),
-    );
+    return fundedTracker === null
+        ? 0
+        : ruleCappedWithdrawable(
+              account.plan,
+              fundedTracker,
+              account.state,
+              fundedRetainedCushionDollarsOf(rulebook, account),
+          );
 }
 
 function draftOf(
@@ -177,10 +175,8 @@ function draftOf(
         inProfitAccounts: inProfit.length,
         payoutsSinceLastMovedLive: {
             ...windowOf(
-                payouts.filter(
-                    (payout) =>
-                        isPaidOnOrBefore(payout, options.today) &&
-                        isAfter(payout.paidOn, sinceOn),
+                payouts.filter((payout) =>
+                    isPaidSinceLastLive(payout, sinceOn, options.today),
                 ),
             ),
             since: sinceOn,
@@ -224,13 +220,6 @@ function fundedReconstructedOf(
     if (state.kind !== AccountStateKind.Reconstructed) return null;
     const { reconstructed } = state.latest;
     return reconstructed.kind === TradingPhase.Funded ? reconstructed : null;
-}
-
-function isAfter(paidOn: null | string, sinceOn: null | string): boolean {
-    return (
-        sinceOn === null ||
-        (paidOn !== null && compareText(paidOn, sinceOn) > 0)
-    );
 }
 
 function isOnOrAfter(paidOn: null | string, start: string): boolean {

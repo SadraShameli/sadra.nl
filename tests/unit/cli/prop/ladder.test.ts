@@ -751,7 +751,6 @@ describe('prop ladder --help names only flags prop ladder accepts (WP43d)', () =
     });
 });
 
-
 const smallRun = [
     '--firm',
     'mffu',

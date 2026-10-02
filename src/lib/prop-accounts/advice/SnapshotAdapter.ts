@@ -272,4 +272,3 @@ export function snapshotInputFrom(
 
     return { assumptions, input, personalMaxRiskPerTrade };
 }
-

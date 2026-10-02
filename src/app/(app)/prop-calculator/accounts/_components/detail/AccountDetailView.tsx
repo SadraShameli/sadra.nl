@@ -188,7 +188,8 @@ export function AccountDetailView({
         api.propAccounts.snapshot.latestTwoForAll.useQuery();
     const ledgerDecisionsQuery =
         api.propAccounts.decision.list.useQuery(LEDGER_LIST_INPUT);
-    const ledgerFeesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
+    const ledgerFeesQuery =
+        api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
     const transfersQuery = api.propAccounts.bankroll.list.useQuery();
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
     const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();

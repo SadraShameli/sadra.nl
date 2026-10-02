@@ -17,6 +17,7 @@ export function documentedPayoutRequest(
     personalOverride: null | number,
     payout: PayoutParameters,
 ): DocumentedPayoutRequest {
-    const requested = personalOverride ?? payout.requestCents / CENTS_PER_DOLLAR;
+    const requested =
+        personalOverride ?? payout.requestCents / CENTS_PER_DOLLAR;
     return { effective: effectivePayoutRequest(source, requested), requested };
 }

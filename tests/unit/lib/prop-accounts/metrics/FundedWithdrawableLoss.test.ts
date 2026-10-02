@@ -262,12 +262,12 @@ describe('the payout-netted funded loss', () => {
                 'lib/prop-accounts/metrics/FundedWithdrawableLoss.ts',
             ].toSorted(compareText),
         );
-        expect(
-            filesMatching(/\bfundedWithdrawableLostToResetCents\(/),
-        ).toEqual([
-            'lib/prop-accounts/alerts/PayoutReadyWithdrawableDropRule.ts',
-            'lib/prop-accounts/metrics/FundedWithdrawableLoss.ts',
-        ]);
+        expect(filesMatching(/\bfundedWithdrawableLostToResetCents\(/)).toEqual(
+            [
+                'lib/prop-accounts/alerts/PayoutReadyWithdrawableDropRule.ts',
+                'lib/prop-accounts/metrics/FundedWithdrawableLoss.ts',
+            ],
+        );
     });
 
     it('is not netted by hand in either consumer', () => {

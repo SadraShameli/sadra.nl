@@ -34,8 +34,10 @@ import {
     evaluateDocumentedPayout,
     isCycleEndingGate,
     liveTriggerBlockReasonFor,
+    type LiveTriggerCountLimit,
     type PayoutWait,
     PayoutWaitBasis,
+    pendingPayoutCountOf,
     poolProfitOf,
 } from './PayoutReadiness';
 import {
@@ -55,10 +57,10 @@ import { SizingStage } from './SizingStage';
 const MAX_SHORTFALL_SEARCH_CENTS = 100_000_000;
 
 export interface FundedPayoutRuleContext {
-    readonly liveTriggerFirmTotalCap?: null | number;
-    readonly liveTriggerFirmTotalSource?: null | PolicyCitation;
-    readonly liveTriggerPerAccountCap?: null | number;
-    readonly liveTriggerPerAccountSource?: null | PolicyCitation;
+    readonly liveTriggerFirmTotalCap: null | number;
+    readonly liveTriggerFirmTotalSource: null | PolicyCitation;
+    readonly liveTriggerPerAccountCap: null | number;
+    readonly liveTriggerPerAccountSource: null | PolicyCitation;
     readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly pendingPayouts: Dollars;
     readonly personalRequestOverride: Dollars | null;
@@ -91,16 +93,15 @@ const paidPayoutsSinceLastLiveAccountSchema = z
     .nonnegative()
     .nullable();
 
-const liveTriggerCapSchema = z.number().int().positive().nullable().optional();
+const liveTriggerCapSchema = z.number().int().positive().nullable();
 
-const liveTriggerSourceSchema = z
-    .strictObject({
-        fetchedOn: z.string().min(1),
-        quote: z.string().min(1),
-        url: z.string().min(1),
-    })
-    .nullable()
-    .optional();
+const policyCitationSchema = z.object({
+    fetchedOn: z.string().min(1),
+    quote: z.string().min(1),
+    url: z.string().min(1),
+}) satisfies z.ZodType<PolicyCitation>;
+
+const liveTriggerSourceSchema = policyCitationSchema.nullable();
 
 const personalRequestOverrideSchema = payoutRequestSizeSchema
     .transform(dollars)
@@ -395,6 +396,25 @@ export function firmMinimumNotice(
         : null;
 }
 
+export function fundedLiveTriggerFieldsOf(
+    limit: LiveTriggerCountLimit,
+): Pick<
+    FundedPayoutRuleContext,
+    | 'liveTriggerFirmTotalCap'
+    | 'liveTriggerFirmTotalSource'
+    | 'liveTriggerPerAccountCap'
+    | 'liveTriggerPerAccountSource'
+    | 'paidPayoutsSinceLastLiveAccount'
+> {
+    return {
+        liveTriggerFirmTotalCap: limit.firmTotalCap,
+        liveTriggerFirmTotalSource: limit.firmTotalSource,
+        liveTriggerPerAccountCap: limit.perAccountCap,
+        liveTriggerPerAccountSource: limit.perAccountSource,
+        paidPayoutsSinceLastLiveAccount: limit.paidPayoutsSinceLastLiveAccount,
+    };
+}
+
 export function fundedRetainedCushionResolution(
     rulebook: RulebookParameters,
     personal = 0,
@@ -485,13 +505,18 @@ function hasUnretainableLiveLock(livePlan: LivePlan): boolean {
 function liveTriggerReasonOf(
     context: FundedPayoutRuleContext,
 ): null | PayoutBlockReason {
-    return liveTriggerBlockReasonFor(context.tracker.payoutsIssued, {
-        firmTotalCap: context.liveTriggerFirmTotalCap ?? null,
-        firmTotalSource: context.liveTriggerFirmTotalSource ?? null,
-        paidPayoutsSinceLastLiveAccount: context.paidPayoutsSinceLastLiveAccount,
-        perAccountCap: context.liveTriggerPerAccountCap ?? null,
-        perAccountSource: context.liveTriggerPerAccountSource ?? null,
-    });
+    return liveTriggerBlockReasonFor(
+        context.tracker.payoutsIssued,
+        {
+            firmTotalCap: context.liveTriggerFirmTotalCap,
+            firmTotalSource: context.liveTriggerFirmTotalSource,
+            paidPayoutsSinceLastLiveAccount:
+                context.paidPayoutsSinceLastLiveAccount,
+            perAccountCap: context.liveTriggerPerAccountCap,
+            perAccountSource: context.liveTriggerPerAccountSource,
+        },
+        pendingPayoutCountOf(context.pendingPayouts),
+    );
 }
 
 function notEligible(

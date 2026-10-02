@@ -7,6 +7,7 @@ import type {
     PropSizingDecisionRow,
 } from '~/server/db/schemas/prop';
 
+import { firmPayoutCountOf } from '~/lib/prop-accounts/advice';
 import {
     type RealizedLossRisk,
     type RoundBudgetStatus,
@@ -40,8 +41,12 @@ import {
     type FirmReconciliationEntry,
     isActiveAccount,
 } from '~/lib/prop-accounts/metrics';
-import { type Plan, type TradingFirm } from '~/lib/prop-calculator';
-import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
+import { findFirm, type Plan, type TradingFirm } from '~/lib/prop-calculator';
+import {
+    type LiveTriggerLimits,
+    liveTriggerLimitsFor,
+    type RulebookParameters,
+} from '~/lib/prop-calculator/advisor';
 
 import { AlertDisclosure } from './AccountAlert';
 import { TradingSessionCalendar } from './TradingSessionCalendar';
@@ -264,6 +269,19 @@ export function isModeledMonitored(
     );
 }
 
+export function liveTriggerLimitsIn(
+    context: AlertContext,
+    monitored: MonitoredAccount,
+    plan: Plan,
+    asOf: string,
+): LiveTriggerLimits {
+    return liveTriggerLimitsFor(
+        findFirm(plan.id.firm)?.accountPolicy,
+        plan,
+        paidPayoutsSinceLastLiveAccountOf(context, monitored, asOf),
+    );
+}
+
 export function paidLedgerTotal(
     payouts: readonly AlertPayoutRow[],
 ): PayoutLedgerTotal {
@@ -273,6 +291,26 @@ export function paidLedgerTotal(
             return cash === null ? [] : [cash];
         }),
     );
+}
+
+export function paidPayoutsSinceLastLiveAccountOf(
+    context: AlertContext,
+    monitored: MonitoredAccount,
+    asOf: string,
+): null | number {
+    const firmId = monitored.planKey?.firmId;
+    if (firmId === undefined) return null;
+    const hasUnreadableAccount = context.unreadableArchivedAccounts.some(
+        (account) => account.firmId === firmId,
+    );
+    const members = [...context.accounts, ...context.archivedAccounts].filter(
+        (member) => member.account.firmId === firmId,
+    );
+    return hasUnreadableAccount ||
+        members.some((member) => member.invalidDates.length > 0)
+        ? null
+        : firmPayoutCountOf(firmId, members, asOf)
+              .paidPayoutsSinceLastLiveAccount;
 }
 
 export function paidPayoutsThrough(

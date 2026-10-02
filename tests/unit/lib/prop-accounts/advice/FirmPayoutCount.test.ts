@@ -83,6 +83,31 @@ describe('firmPayoutCounts', () => {
         ).toBe(1);
     });
 
+    it('ignores a MovedLive recorded after the as-of date', () => {
+        const liveAccount = account(EVAL_PLAN);
+        const counts = firmPayoutCounts(
+            ledger({
+                accounts: [liveAccount],
+                events: [
+                    event(
+                        liveAccount,
+                        AccountEventKind.MovedLive,
+                        '2026-09-20',
+                    ),
+                ],
+                payouts: [
+                    payout(liveAccount, 1000, { paidOn: '2026-09-05' }),
+                    payout(liveAccount, 1000, { paidOn: '2026-09-06' }),
+                ],
+            }),
+            '2026-09-15',
+        );
+        expect(
+            paidPayoutsSinceLastLiveAccountFor(counts, EVAL_PLAN.firm.id),
+        ).toBe(2);
+        expect(counts[0]?.sinceOn).toBeNull();
+    });
+
     it('excludes payouts that are not yet paid and payouts after the as-of date', () => {
         const acct = account(EVAL_PLAN);
         const counts = firmPayoutCounts(

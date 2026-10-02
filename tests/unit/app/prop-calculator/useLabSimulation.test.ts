@@ -179,7 +179,12 @@ describe('simulateLabScenarios simulates once per scenario (PT-73b)', () => {
         const baselines = new Map<string, number>();
         const priced = { ...labRun, liveTransferHazard: 0.5 };
 
-        simulateLabScenarios(priced, [labScenario], baselines, counter.simulate);
+        simulateLabScenarios(
+            priced,
+            [labScenario],
+            baselines,
+            counter.simulate,
+        );
         simulateLabScenarios(
             priced,
             [{ ...labScenario, winrate: 0.6 }],

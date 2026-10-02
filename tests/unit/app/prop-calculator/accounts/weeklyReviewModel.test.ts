@@ -24,9 +24,7 @@ import {
     UnresolvedPlanReason,
     usdCents,
 } from '~/lib/prop-accounts';
-import {
-    isDecisionFollowed,
-} from '~/lib/prop-accounts/metrics';
+import { isDecisionFollowed } from '~/lib/prop-accounts/metrics';
 import {
     ALL_FIRMS,
     DrawdownKind,
@@ -710,7 +708,10 @@ describe('buildWeeklyReview adherence', () => {
         const step = DEFAULT_RULEBOOK.eval.roundingStepCents;
         const above = reviewWith([account], {
             latestDecisions: new Map([
-                [account.id, decisionRow({ actualRiskCents: 40_000 + step + 1 })],
+                [
+                    account.id,
+                    decisionRow({ actualRiskCents: 40_000 + step + 1 }),
+                ],
             ]),
         });
         expect(above.rows[0]?.lastDecision?.adherence).toBe(
@@ -726,28 +727,25 @@ describe('buildWeeklyReview adherence', () => {
         const step = DEFAULT_RULEBOOK.eval.roundingStepCents;
         const below = reviewWith([account], {
             latestDecisions: new Map([
-                [account.id, decisionRow({ actualRiskCents: 40_000 - step - 1 })],
+                [
+                    account.id,
+                    decisionRow({ actualRiskCents: 40_000 - step - 1 }),
+                ],
             ]),
         });
         expect(below.rows[0]?.lastDecision?.adherence).toBe(
             DecisionAdherenceKind.NotFollowed,
         );
         expect(below.rows[0]?.lastDecision?.isAboveAccepted).toBe(false);
-        expect(below.rows[0]?.violationOffer.kind).toBe(ViolationOfferKind.None);
+        expect(below.rows[0]?.violationOffer.kind).toBe(
+            ViolationOfferKind.None,
+        );
     });
 
     it('gives the overview verdict on every decision, one rule for both screens', () => {
         const step = DEFAULT_RULEBOOK.eval.roundingStepCents;
         for (const actualRiskCents of [
-            0,
-            1000,
-            34_999,
-            35_000,
-            39_999,
-            40_000,
-            40_001,
-            45_000,
-            45_001,
+            0, 1000, 34_999, 35_000, 39_999, 40_000, 40_001, 45_000, 45_001,
             90_000,
         ]) {
             const decision = decisionRow({ actualRiskCents });
@@ -905,9 +903,9 @@ describe('violationsFromOf', () => {
     });
 
     it('reaches back to the date of a reviewed account decision that was not followed and traded above the accepted risk, so a violation linked to it is still seen as logged', () => {
-        expect(
-            fromOf([account], [[account.id, decisionRow(oversized)]]),
-        ).toBe('2026-08-03');
+        expect(fromOf([account], [[account.id, decisionRow(oversized)]])).toBe(
+            '2026-08-03',
+        );
     });
 
     it('takes the oldest date among the decisions that can offer a violation', () => {

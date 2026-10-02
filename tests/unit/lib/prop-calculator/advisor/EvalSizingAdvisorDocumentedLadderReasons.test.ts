@@ -92,9 +92,7 @@ function advisorAt(
 function ladderReasonsOf(
     reasons: readonly DifferenceReasonDetail[],
 ): readonly DifferenceReasonDetail[] {
-    return reasons.filter(
-        (reason) => LADDER_REASON_KINDS.has(reason.kind),
-    );
+    return reasons.filter((reason) => LADDER_REASON_KINDS.has(reason.kind));
 }
 
 function ladderResult(winner: LadderScore): LadderSearchResult {
@@ -170,7 +168,9 @@ describe('EvalSizingAdvisor documented-ladder reasons (PT-19i, F-119)', () => {
     });
 
     it('says the documented ladder never funded when the optimum is finite and the documented score is not', () => {
-        expect(reasonsFor(advisorAt({ sims: SIMS }), score(), NEVER_FUNDED)).toEqual([
+        expect(
+            reasonsFor(advisorAt({ sims: SIMS }), score(), NEVER_FUNDED),
+        ).toEqual([
             {
                 kind: DifferenceReason.DocumentedLadderNeverFunded,
                 sims: SIMS,
@@ -273,7 +273,9 @@ describe('EvalSizingAdvisor documented-ladder reasons (PT-19i, F-119)', () => {
             costPerFunded: 4000,
             expectedDaysToFunded: 80,
         });
-        expect(reasonsFor(advisorAt({ sims: SIMS }), score(), worse)).toEqual([]);
+        expect(reasonsFor(advisorAt({ sims: SIMS }), score(), worse)).toEqual(
+            [],
+        );
         expect(
             reasonsFor(advisorAt({ sims: SIMS }), score(), score()).map(
                 (reason) => reason.kind,

@@ -367,7 +367,10 @@ function DisplayCard({ control }: { control: Control<RulebookFormValues> }) {
                     </FormItem>
                 )}
             />
-            <TextField control={control} name="display.nextPayoutHighlightDays" />
+            <TextField
+                control={control}
+                name="display.nextPayoutHighlightDays"
+            />
         </SectionCard>
     );
 }
@@ -774,15 +777,15 @@ function LiveTransferCard({
                 Your estimate of the chance, per paid payout, that a firm moves
                 a funded account to live. No firm publishes this number. A rate
                 entered for a firm is applied to every simulation built from
-                your rulebook for that firm&apos;s accounts: the
-                advisor&apos;s account value runs, the payout planner and its
-                withdrawal-size table, the overview projections and next-payout
-                figures, retire comparisons, risk candidates and copy-group
-                runs. Only the advisor&apos;s run note states it beside its
-                figures; the other surfaces apply it without repeating it. A
-                firm with no rate is priced with none. The portfolio timeline
-                does not price transfers, and the calculator takes its own
-                single hazard in its advanced settings.
+                your rulebook for that firm&apos;s accounts: the advisor&apos;s
+                account value runs, the payout planner and its withdrawal-size
+                table, the overview projections and next-payout figures, retire
+                comparisons, risk candidates and copy-group runs. Only the
+                advisor&apos;s run note states it beside its figures; the other
+                surfaces apply it without repeating it. A firm with no rate is
+                priced with none. The portfolio timeline does not price
+                transfers, and the calculator takes its own single hazard in its
+                advanced settings.
             </p>
             {pending && (
                 <p
@@ -797,8 +800,8 @@ function LiveTransferCard({
                     className="text-xs text-destructive md:col-span-2"
                     role="status"
                 >
-                    Measured rates unavailable: your ledger could not be
-                    loaded, so no measured rate is suggested.
+                    Measured rates unavailable: your ledger could not be loaded,
+                    so no measured rate is suggested.
                 </p>
             )}
             {Object.values(FirmId).map((firmId) => (

@@ -2228,9 +2228,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             accountWith({ maxRiskPerTradeCents: 15_000 });
             readyWith(valuesFor(risk));
 
-            expect(
-                sectionOf('One-step risk candidates').textContent,
-            ).toContain('max risk per trade $150.00');
+            expect(sectionOf('One-step risk candidates').textContent).toContain(
+                'max risk per trade $150.00',
+            );
         });
     });
 });

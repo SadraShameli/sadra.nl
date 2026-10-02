@@ -461,7 +461,6 @@ describe('calculatorReducer rungSizing (H4)', () => {
     });
 });
 
-
 describe('calculatorReducer objective (PT-63, F-V15)', () => {
     it('starts on MonthlyNet (Q1)', () => {
         expect(defaultCalculatorState().objective).toBe(

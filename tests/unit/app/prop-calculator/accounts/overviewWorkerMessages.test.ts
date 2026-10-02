@@ -325,7 +325,8 @@ describe('overviewRequestKey', () => {
             overviewRequestKey(
                 withDisplay({
                     ...display,
-                    nextPayoutHighlightDays: display.nextPayoutHighlightDays + 1,
+                    nextPayoutHighlightDays:
+                        display.nextPayoutHighlightDays + 1,
                 }),
             ),
         ).toBe(overviewRequestKey(base));
@@ -337,7 +338,9 @@ describe('overviewRequestKey', () => {
                 ? RiskDisplayUnit.EvAtStake
                 : RiskDisplayUnit.AccountDollars;
         expect(
-            overviewRequestKey(withDisplay({ ...display, riskUnit: otherUnit })),
+            overviewRequestKey(
+                withDisplay({ ...display, riskUnit: otherUnit }),
+            ),
         ).toBe(overviewRequestKey(base));
     });
 

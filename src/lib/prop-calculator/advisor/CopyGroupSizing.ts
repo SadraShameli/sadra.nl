@@ -440,7 +440,9 @@ function groupCoverageOf(
         (coverage): coverage is LiveTriggerCoverage => coverage !== null,
     );
     if (checked.length === 0) return null;
-    return checked.every((coverage) => coverage === LiveTriggerCoverage.Enforced)
+    return checked.every(
+        (coverage) => coverage === LiveTriggerCoverage.Enforced,
+    )
         ? LiveTriggerCoverage.Enforced
         : LiveTriggerCoverage.NotChecked;
 }

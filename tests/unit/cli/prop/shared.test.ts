@@ -126,15 +126,11 @@ function registryPlan() {
     return planResolver.resolveOne({ firm: FirmId.Mffu, variant: 'rapid-eod' });
 }
 
-function stubTriggers(
-    triggers: readonly CumulativeAmountTrigger[],
-): Plan {
+function stubTriggers(triggers: readonly CumulativeAmountTrigger[]): Plan {
     const plan = registryPlan();
     const firm = findFirm(plan.id.firm);
     if (!firm) throw new Error('firm not registered');
-    vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue(
-        triggers,
-    );
+    vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue(triggers);
     return plan;
 }
 

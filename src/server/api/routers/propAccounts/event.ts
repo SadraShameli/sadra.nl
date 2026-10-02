@@ -331,10 +331,10 @@ async function requiredSuspensionsOf(
 ): Promise<ReadonlyMap<string, string>> {
     const { plan } = movedLive;
     if (plan === null) return new Map();
-    const listed = await repo.listAccounts({
-        firmId: plan.id.firm,
-        includeArchived: false,
-    });
+    const listed = await repo.listAccounts(
+        { firmId: plan.id.firm, includeArchived: false },
+        true,
+    );
     const others = listed.filter(
         (account) => account.id !== movedLive.account.id,
     );

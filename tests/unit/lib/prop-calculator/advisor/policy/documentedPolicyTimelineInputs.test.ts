@@ -353,7 +353,8 @@ describe('documentedPolicyTimelineInputs sizes the funded phase at the personal 
             cappedSpec(dollars(5000)),
             1,
         );
-        const rulebookRisk = DEFAULT_RULEBOOK.funded.riskCents / CENTS_PER_DOLLAR;
+        const rulebookRisk =
+            DEFAULT_RULEBOOK.funded.riskCents / CENTS_PER_DOLLAR;
 
         expect(plain.riskPerTrade).toBe(rulebookRisk);
         expect(loose.riskPerTrade).toBe(rulebookRisk);

@@ -196,10 +196,7 @@ export function enginePolicyKey(policy: EnginePolicy): string {
     return stableJson(enginePolicySchema.parse(policy));
 }
 
-function cappedDayPolicy(
-    dayPolicy: DayPolicy,
-    caps: PersonalCaps,
-): DayPolicy {
+function cappedDayPolicy(dayPolicy: DayPolicy, caps: PersonalCaps): DayPolicy {
     const { maxRiskPerTrade, maxTradesPerDay } = caps;
     const { computeRisk } = dayPolicy;
     const slots =
@@ -296,8 +293,7 @@ function withPersonalCaps(base: SimInputs, caps: PersonalCaps): SimInputs {
             base.evalDayPolicy === undefined
                 ? undefined
                 : cappedDayPolicy(base.evalDayPolicy, caps),
-        fundedCushionPercent:
-            percentPolicy === undefined ? percent : undefined,
+        fundedCushionPercent: percentPolicy === undefined ? percent : undefined,
         fundedDayPolicy:
             percentPolicy ??
             (base.fundedDayPolicy === undefined

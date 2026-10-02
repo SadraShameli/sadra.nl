@@ -277,10 +277,19 @@ function EventForm({
         suspendedKey === exclusivityKey
             ? exclusivity.confirmedAccountIds
             : [];
+    const isAwaitingSuspensions =
+        exclusivity !== null &&
+        exclusivity.confirmedAccountIds.length > 0 &&
+        suspendedIds.length === 0;
 
     const save = async (values: EventFormValues) => {
         const parsed = schema.safeParse(values);
-        if (isAwaitingConfirmation || isAwaitingAccounts || !parsed.success) {
+        if (
+            isAwaitingConfirmation ||
+            isAwaitingAccounts ||
+            isAwaitingSuspensions ||
+            !parsed.success
+        ) {
             return;
         }
         try {
@@ -501,6 +510,12 @@ function EventForm({
                             </Label>
                         </div>
                     )}
+                {isAwaitingSuspensions && (
+                    <p className="text-sm text-muted-foreground sm:col-span-2">
+                        Confirm the accounts the firm suspends before recording
+                        this move live; recording without them is refused.
+                    </p>
+                )}
                 {shown?.requiresConfirmation === true && (
                     <div className="flex items-center gap-2 sm:col-span-2">
                         <Checkbox
@@ -522,7 +537,8 @@ function EventForm({
                         disabled={
                             record.isPending ||
                             isAwaitingConfirmation ||
-                            isAwaitingAccounts
+                            isAwaitingAccounts ||
+                            isAwaitingSuspensions
                         }
                         type="submit"
                     >

@@ -737,7 +737,9 @@ describe('simulateCopyGroup drives cross-plan members from one shared outcome st
 
 describe('simulateCopyGroup counts the payouts it simulated, not the payouts already taken', () => {
     it('reports zero expected payouts for a seed with 2 past payouts that earns none inside the horizon', () => {
-        const plan = payoutCapToyPlan().withOverrides({ maxLifetimePayouts: 10 });
+        const plan = payoutCapToyPlan().withOverrides({
+            maxLifetimePayouts: 10,
+        });
         const base = memberFor('veteran', plan, 40);
         const start = fundedStartFor(plan);
         const result = simulatedOf(
@@ -771,7 +773,9 @@ describe('simulateCopyGroup counts the payouts it simulated, not the payouts alr
     });
 
     it('counts each simulated payout once on top of the past ones', () => {
-        const plan = payoutCapToyPlan().withOverrides({ maxLifetimePayouts: 10 });
+        const plan = payoutCapToyPlan().withOverrides({
+            maxLifetimePayouts: 10,
+        });
         const base = memberFor('veteran', plan, 40);
         const start = fundedStartFor(plan);
         const withPast = simulatedOf(

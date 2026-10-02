@@ -51,6 +51,10 @@ function baseFundedContext(
     overrides: Partial<FundedPayoutRuleContext> = {},
 ): FundedPayoutRuleContext {
     return {
+        liveTriggerFirmTotalCap: null,
+        liveTriggerFirmTotalSource: null,
+        liveTriggerPerAccountCap: null,
+        liveTriggerPerAccountSource: null,
         paidPayoutsSinceLastLiveAccount: null,
         pendingPayouts: dollars(0),
         personalRequestOverride: null,

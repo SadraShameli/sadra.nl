@@ -323,17 +323,15 @@ function stakeComparison(
 
 function stubVerifiedTrigger() {
     for (const firm of ALL_FIRMS) {
-        vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue(
-            [
-                new CumulativeAmountTrigger(dollars(20_000), {
-                    fetchedOn: '2026-09-26',
-                    quote: 'quote',
-                    sourceKind: PolicySourceKind.LiveFetch,
-                    url: 'https://example.invalid/rule',
-                    verification: PolicyVerification.Confirmed,
-                }),
-            ],
-        );
+        vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue([
+            new CumulativeAmountTrigger(dollars(20_000), {
+                fetchedOn: '2026-09-26',
+                quote: 'quote',
+                sourceKind: PolicySourceKind.LiveFetch,
+                url: 'https://example.invalid/rule',
+                verification: PolicyVerification.Confirmed,
+            }),
+        ]);
     }
 }
 

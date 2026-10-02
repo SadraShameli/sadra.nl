@@ -308,7 +308,10 @@ describe('PayoutReadyWithdrawableDropRule', () => {
                 plan.accountSize + 20_000,
             );
             const rulebook = rulebookWithLossFraction(0.2);
-            const withdrawable = fundedWithdrawableDollarsOf(rulebook, previous);
+            const withdrawable = fundedWithdrawableDollarsOf(
+                rulebook,
+                previous,
+            );
             const tradingLoss = 5000;
             expect(withdrawable).toBeGreaterThan(tradingLoss);
             const latest = fundedReconstructed(plan, {

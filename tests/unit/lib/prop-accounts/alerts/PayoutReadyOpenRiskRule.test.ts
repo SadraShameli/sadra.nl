@@ -259,7 +259,14 @@ describe('PayoutReadyOpenRiskRule', () => {
             sameTime,
             'a',
         );
-        const high = decisionFor(account.id, rung, rung, WEDNESDAY, sameTime, 'b');
+        const high = decisionFor(
+            account.id,
+            rung,
+            rung,
+            WEDNESDAY,
+            sameTime,
+            'b',
+        );
         for (const decisions of [
             [low, high],
             [high, low],

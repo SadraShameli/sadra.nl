@@ -12,6 +12,7 @@ import {
     serializePlanId,
 } from '~/lib/prop-calculator';
 import {
+    LIVE_TRIGGER_NOT_CHECKED,
     LiveTriggerScope,
     PayoutBlockReasonKind,
     payoutReadiness,
@@ -60,6 +61,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         const state = fundedState(53_000);
         const tracker = metCalendarTracker(state);
         const readiness = payoutReadiness(plan, state, tracker, {
+            liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
         expect(readiness.kind).toBe(PayoutReadinessKind.Eligible);
@@ -72,8 +74,10 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         const readiness = payoutReadiness(plan, state, tracker, {
             liveTrigger: {
                 firmTotalCap: null,
+                firmTotalSource: null,
                 paidPayoutsSinceLastLiveAccount: null,
                 perAccountCap: 3,
+                perAccountSource: null,
             },
             minRetainedCushion: 0,
         });
@@ -97,8 +101,10 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         const readiness = payoutReadiness(plan, state, tracker, {
             liveTrigger: {
                 firmTotalCap: null,
+                firmTotalSource: null,
                 paidPayoutsSinceLastLiveAccount: null,
                 perAccountCap: 3,
+                perAccountSource: null,
             },
             minRetainedCushion: 0,
         });
@@ -111,8 +117,10 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         const readiness = payoutReadiness(plan, state, tracker, {
             liveTrigger: {
                 firmTotalCap: 10,
+                firmTotalSource: null,
                 paidPayoutsSinceLastLiveAccount: 9,
                 perAccountCap: null,
+                perAccountSource: null,
             },
             minRetainedCushion: 0,
         });
@@ -134,8 +142,10 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         const readiness = payoutReadiness(plan, state, tracker, {
             liveTrigger: {
                 firmTotalCap: 10,
+                firmTotalSource: null,
                 paidPayoutsSinceLastLiveAccount: 8,
                 perAccountCap: null,
+                perAccountSource: null,
             },
             minRetainedCushion: 0,
         });

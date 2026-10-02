@@ -144,7 +144,7 @@ describe('PayoutEligibleRule', () => {
         expect(alerts[0]?.message).toContain(target);
     });
 
-    it('carries no live-trigger disclosure for a funded account', () => {
+    it('discloses that live triggers were not checked for a funded account whose firm has no verified trigger', () => {
         const plan = mffProPlan();
         const account = accountFor(
             { firmId: plan.id.firm, plan },
@@ -166,6 +166,8 @@ describe('PayoutEligibleRule', () => {
             accountStates: [reconstructedEntry(account.id, plan, funded)],
         });
         expect(alerts).toHaveLength(1);
-        expect(alerts[0]?.disclosures).toEqual([]);
+        expect(alerts[0]?.disclosures).toEqual([
+            AlertDisclosure.LiveTriggersNotChecked,
+        ]);
     });
 });

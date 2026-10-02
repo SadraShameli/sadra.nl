@@ -15,6 +15,7 @@ import {
 import {
     DEFAULT_RULEBOOK,
     type FundedPayoutRuleContext,
+    LIVE_TRIGGER_NOT_CHECKED,
     LiveTriggerScope,
     PayoutBlockReasonKind,
     payoutReadiness,
@@ -48,7 +49,10 @@ function contextFor(
     overrides: Partial<FundedPayoutRuleContext> = {},
 ): FundedPayoutRuleContext {
     return {
+        liveTriggerFirmTotalCap: null,
+        liveTriggerFirmTotalSource: null,
         liveTriggerPerAccountCap: 3,
+        liveTriggerPerAccountSource: null,
         paidPayoutsSinceLastLiveAccount: null,
         pendingPayouts: dollars(0),
         personalRequestOverride: null,
@@ -162,9 +166,9 @@ describe('the live trigger is checked before every wait (PT-36f, step 4)', () =>
             const tracker = trackerAfterTwoPayouts(state, 20);
             tracker.payoutsIssued = 1;
 
-            expect(
-                rule.decide(contextFor(plan, state, tracker)).kind,
-            ).toBe(PayoutRequestDecisionKind.Wait);
+            expect(rule.decide(contextFor(plan, state, tracker)).kind).toBe(
+                PayoutRequestDecisionKind.Wait,
+            );
         });
 
         it('keeps a payout already pending ahead of the live trigger', () => {
@@ -207,13 +211,16 @@ describe('the live trigger is checked before every wait (PT-36f, step 4)', () =>
             const state = fundedState(50_050);
             const tracker = trackerAfterTwoPayouts(state, 20);
             const waiting = payoutReadiness(plan, state, tracker, {
+                liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
                 minRetainedCushion: 0,
             });
             const readiness = payoutReadiness(plan, state, tracker, {
                 liveTrigger: {
                     firmTotalCap: null,
+                    firmTotalSource: null,
                     paidPayoutsSinceLastLiveAccount: null,
                     perAccountCap: 3,
+                    perAccountSource: null,
                 },
                 minRetainedCushion: 0,
             });
@@ -240,8 +247,10 @@ describe('the live trigger is checked before every wait (PT-36f, step 4)', () =>
                 {
                     liveTrigger: {
                         firmTotalCap: null,
+                        firmTotalSource: null,
                         paidPayoutsSinceLastLiveAccount: null,
                         perAccountCap: 3,
+                        perAccountSource: null,
                     },
                     minRetainedCushion: 0,
                 },

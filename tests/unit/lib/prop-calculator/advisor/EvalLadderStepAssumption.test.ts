@@ -82,7 +82,8 @@ function widenedAssumptionsOf(advisor: EvalSizingAdvisor) {
     return advisor
         .assemble([])
         .assumptions.filter(
-            (assumption) => assumption.kind === AssumptionKind.LadderStepWidened,
+            (assumption) =>
+                assumption.kind === AssumptionKind.LadderStepWidened,
         );
 }
 

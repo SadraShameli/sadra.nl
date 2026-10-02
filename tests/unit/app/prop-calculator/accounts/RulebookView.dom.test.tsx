@@ -734,7 +734,10 @@ describe('RulebookView v2 sections', () => {
 
         expect(harness.upsert).toHaveBeenCalledWith({
             ...DEFAULT_RULEBOOK,
-            display: { ...DEFAULT_RULEBOOK.display, nextPayoutHighlightDays: 10 },
+            display: {
+                ...DEFAULT_RULEBOOK.display,
+                nextPayoutHighlightDays: 10,
+            },
         });
     });
 
@@ -876,7 +879,8 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         };
         render();
         const input = (): HTMLInputElement => {
-            const found = hazardItem('My Funded Futures').querySelector('input');
+            const found =
+                hazardItem('My Funded Futures').querySelector('input');
             if (found === null) throw new TypeError('no hazard input');
             return found;
         };
@@ -932,9 +936,10 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         expect(labels).toHaveLength(2);
         expect(new Set(labels).size).toBe(2);
         expect(
-            requireButton(hazardItem('My Funded Futures'), 'Use 15%').getAttribute(
-                'aria-label',
-            ),
+            requireButton(
+                hazardItem('My Funded Futures'),
+                'Use 15%',
+            ).getAttribute('aria-label'),
         ).toBe('Use 15% for My Funded Futures');
     });
 
@@ -945,7 +950,9 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
             "applied to every simulation built from your rulebook for that firm's accounts",
         );
         expect(text).toContain("the advisor's account value runs");
-        expect(text).toContain('the payout planner and its withdrawal-size table');
+        expect(text).toContain(
+            'the payout planner and its withdrawal-size table',
+        );
         expect(text).toContain(
             'the overview projections and next-payout figures',
         );
@@ -975,12 +982,18 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         harness.measuredStatus = { failed: false, pending: true };
         render();
         expect(container.textContent).toContain('Loading your measured rates');
-        expect(container.textContent).not.toContain('Measured rates unavailable');
+        expect(container.textContent).not.toContain(
+            'Measured rates unavailable',
+        );
     });
 
     it('shows neither notice when the rates were read', () => {
         render();
-        expect(container.textContent).not.toContain('Loading your measured rates');
-        expect(container.textContent).not.toContain('Measured rates unavailable');
+        expect(container.textContent).not.toContain(
+            'Loading your measured rates',
+        );
+        expect(container.textContent).not.toContain(
+            'Measured rates unavailable',
+        );
     });
 });

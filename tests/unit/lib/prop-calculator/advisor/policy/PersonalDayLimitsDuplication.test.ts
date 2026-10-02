@@ -39,16 +39,19 @@ describe('one personal day-limit rule (PT-68h, F-V16)', () => {
         expect(total).toBe(1);
     });
 
-    it.each([
-        'EngineOptimumRunner.ts',
-        'NextPayoutProjection.ts',
-    ])('%s reaches the limits through applyPersonalDayLimits or ladderUnderPersonalDayLimits only', (file) => {
-        const text = sourceOf(`${ADVISOR_DIR}/${file}`);
+    it.each(['EngineOptimumRunner.ts', 'NextPayoutProjection.ts'])(
+        '%s reaches the limits through applyPersonalDayLimits or ladderUnderPersonalDayLimits only',
+        (file) => {
+            const text = sourceOf(`${ADVISOR_DIR}/${file}`);
 
-        expect(
-            occurrences(text, /applyPersonalDayLimits\(|ladderUnderPersonalDayLimits\(/g),
-        ).toBeGreaterThan(0);
-        expect(text).not.toContain('personalDll');
-        expect(text).not.toContain('dailyProfitCap');
-    });
+            expect(
+                occurrences(
+                    text,
+                    /applyPersonalDayLimits\(|ladderUnderPersonalDayLimits\(/g,
+                ),
+            ).toBeGreaterThan(0);
+            expect(text).not.toContain('personalDll');
+            expect(text).not.toContain('dailyProfitCap');
+        },
+    );
 });

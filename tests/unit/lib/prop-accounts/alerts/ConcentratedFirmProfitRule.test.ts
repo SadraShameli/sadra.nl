@@ -198,12 +198,9 @@ describe('ConcentratedFirmProfitRule', () => {
         );
         const stale = {
             account: staleAccount,
-            entry: reconstructedEntry(
-                staleAccount.id,
-                plan,
-                inProfit(20_000),
-                { asOf: '2026-08-01' },
-            ),
+            entry: reconstructedEntry(staleAccount.id, plan, inProfit(20_000), {
+                asOf: '2026-08-01',
+            }),
         };
         const unread = accountFor(
             { firmId: plan.id.firm, plan },

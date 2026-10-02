@@ -116,9 +116,9 @@ describe('runNextPayoutProjection (PT-32)', () => {
             start: { phase: TradingPhase.Funded, seed, state },
         });
         expect(projection.payingTrials).toBe(projection.trials);
-        expect(projection.expectedCalendarDaysToFirstPayout.value).toBeGreaterThan(
-            0,
-        );
+        expect(
+            projection.expectedCalendarDaysToFirstPayout.value,
+        ).toBeGreaterThan(0);
         expect(projection.alreadyEligible).toBe(false);
     });
 

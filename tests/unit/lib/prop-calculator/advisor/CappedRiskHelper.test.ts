@@ -133,7 +133,10 @@ describe('personalBoundedFlats clamps a candidate that overshoots the cap by cen
 
         expect(Math.max(...flats)).toBe(cap);
         expect(flats.every((flat) => flat <= cap)).toBe(true);
-        expect(flats).toEqual([...DEFAULT_FUNDED_FLAT_CANDIDATES.slice(0, -1), cap]);
+        expect(flats).toEqual([
+            ...DEFAULT_FUNDED_FLAT_CANDIDATES.slice(0, -1),
+            cap,
+        ]);
     });
 
     it('clamps an overshooting candidate in the middle of the list too', () => {

@@ -67,10 +67,7 @@ function continuationOf(
     livePlanAt: () => ReturnType<typeof buildLucidLivePlan>,
     extra: { payoutRequestSize?: Dollars; retainedCushion?: number } = {},
 ): NonNullable<LiveTransferOptions['continuation']> {
-    const positionSizing = resolvePositionSizing(
-        InstrumentSymbol.MNQ,
-        10,
-    );
+    const positionSizing = resolvePositionSizing(InstrumentSymbol.MNQ, 10);
     if (positionSizing === null) throw new Error('no MNQ sizing');
     return {
         commission: dollars(0),
@@ -250,7 +247,9 @@ describe('the live-transfer hazard is absent by default', () => {
 
     it('keeps the trade stream when a hazard is set but never fires', () => {
         const baseline = simulate(toyInputs());
-        const tiny = simulate(toyInputs({ liveTransferHazard: fraction(1e-12) }));
+        const tiny = simulate(
+            toyInputs({ liveTransferHazard: fraction(1e-12) }),
+        );
         expect(withoutLiveTransferFields(tiny)).toStrictEqual(
             withoutLiveTransferFields(baseline),
         );
@@ -273,10 +272,18 @@ describe('a transfer ends the simulated payouts', () => {
     it('lowers the funded value as the hazard rises', () => {
         const none = simulate(toyInputs({ seed: 11, winrate: 0.9 }));
         const some = simulate(
-            toyInputs({ liveTransferHazard: fraction(0.4), seed: 11, winrate: 0.9 }),
+            toyInputs({
+                liveTransferHazard: fraction(0.4),
+                seed: 11,
+                winrate: 0.9,
+            }),
         );
         const all = simulate(
-            toyInputs({ liveTransferHazard: fraction(1), seed: 11, winrate: 0.9 }),
+            toyInputs({
+                liveTransferHazard: fraction(1),
+                seed: 11,
+                winrate: 0.9,
+            }),
         );
         expect(some.liveTransferProbability).toBeGreaterThan(0);
         expect(some.liveTransferProbability).toBeLessThan(1);
@@ -315,7 +322,8 @@ describe('only an account that was paid can be sent live', () => {
             trials: 400,
             winrate: 0.45,
         });
-        const paid = out.evalPassProbability * out.anyPayoutGivenFundedProbability;
+        const paid =
+            out.evalPassProbability * out.anyPayoutGivenFundedProbability;
         expect(out.liveTransferProbability).toBeGreaterThan(0);
         expect(out.liveTransferProbability).toBeLessThanOrEqual(paid + 1e-9);
     });
@@ -329,7 +337,11 @@ describe('a transfer continues through the live plan where one is modeled', () =
 
     it('adds the live cash on top of the first simulated payout', () => {
         const modeled = simulate(
-            toyInputs({ liveTransferHazard: fraction(1), ...sized, winrate: 1 }),
+            toyInputs({
+                liveTransferHazard: fraction(1),
+                ...sized,
+                winrate: 1,
+            }),
         );
         const unmodeled = simulate(
             toyInputs({ liveTransferHazard: fraction(1), winrate: 1 }),
@@ -413,14 +425,11 @@ describe('the transfer draw is one correlated draw per group', () => {
 });
 
 describe('the hazard is validated at the boundary', () => {
-    it.each([-0.1, 1.1, NaN, Infinity])(
-        'refuses a hazard of %s',
-        (hazard) => {
-            expect(() =>
-                simulate(toyInputs({ liveTransferHazard: fraction(hazard) })),
-            ).toThrow(/liveTransferHazard/);
-        },
-    );
+    it.each([-0.1, 1.1, NaN, Infinity])('refuses a hazard of %s', (hazard) => {
+        expect(() =>
+            simulate(toyInputs({ liveTransferHazard: fraction(hazard) })),
+        ).toThrow(/liveTransferHazard/);
+    });
 });
 
 describe('a verified cumulative payout trigger ends the simulated payouts', () => {
@@ -570,7 +579,11 @@ describe('an account sent live keeps its slot to the end of the funded horizon',
 
     it('divides the money of a modeled continuation by the whole horizon', () => {
         const out = simulate(
-            toyInputs({ liveTransferHazard: fraction(1), ...sized, winrate: 1 }),
+            toyInputs({
+                liveTransferHazard: fraction(1),
+                ...sized,
+                winrate: 1,
+            }),
         );
         expect(out.liveTransferContinuation).toBe('modeled');
         expect(out.expectedLiveTransferCash).toBeGreaterThan(0);
@@ -582,7 +595,9 @@ describe('an account sent live keeps its slot to the end of the funded horizon',
     });
 
     it('holds the slot to the horizon too when the rest of the account is valued at 0', () => {
-        const out = simulate(toyInputs({ liveTransferHazard: fraction(1), winrate: 1 }));
+        const out = simulate(
+            toyInputs({ liveTransferHazard: fraction(1), winrate: 1 }),
+        );
         expect(out.liveTransferContinuation).toBe('not-modeled');
         expect(out.expectedMonthlyNet).toBeCloseTo(expectedMonthly(out), 8);
     });
@@ -631,10 +646,15 @@ describe('an account sent live keeps its slot to the end of the funded horizon',
         });
         expect(out.liveTransferProbability).toBe(1);
         const single = simulate(
-            toyInputs({ liveTransferHazard: fraction(1), ...sized, winrate: 1 }),
+            toyInputs({
+                liveTransferHazard: fraction(1),
+                ...sized,
+                winrate: 1,
+            }),
         );
         expect(out.expectedMonthlyNet).toBeCloseTo(
-            (out.expectedNet * MONTH) / (single.expectedDaysToPass + FUNDED_DAYS),
+            (out.expectedNet * MONTH) /
+                (single.expectedDaysToPass + FUNDED_DAYS),
             8,
         );
     });

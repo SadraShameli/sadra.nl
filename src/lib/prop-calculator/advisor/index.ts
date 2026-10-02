@@ -258,6 +258,7 @@ export {
 } from './NextPayoutTiming';
 export { NextTradeRiskVerdict } from './NextTradeRiskVerdict';
 export {
+    LIVE_TRIGGER_NOT_CHECKED,
     LiveTriggerCoverage,
     type LiveTriggerLimits,
     liveTriggerLimitsFor,
@@ -290,6 +291,7 @@ export {
 export {
     type BlockedPayoutReadiness,
     type EligiblePayoutReadiness,
+    type LiveTriggerCountLimit,
     payoutPath,
     type PayoutPathStep,
     PayoutPathStepUnit,
@@ -312,6 +314,7 @@ export {
 } from './PayoutRequestDecision';
 export {
     firmMinimumNotice,
+    fundedLiveTriggerFieldsOf,
     type FundedPayoutRuleContext,
     fundedRetainedCushionResolution,
     type LivePayoutRuleContext,

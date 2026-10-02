@@ -8,9 +8,8 @@ import {
     type SizingAdvisorCreateOptions,
 } from '~/lib/prop-calculator/advisor';
 
-type IsOptional<T, K extends keyof T> = object extends Pick<T, K>
-    ? true
-    : false;
+type IsOptional<T, K extends keyof T> =
+    object extends Pick<T, K> ? true : false;
 
 describe('substate is required but nullable on every advisor input (PT-19i, F-118)', () => {
     it('is null or Suspended, never undefined, on the factory options and on the Eval, Funded and Live inputs', () => {

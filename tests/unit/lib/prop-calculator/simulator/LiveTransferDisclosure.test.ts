@@ -144,9 +144,7 @@ describe('the live continuation approximations are disclosed (PT-73b)', () => {
         expect(LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT).toContain(
             'funded day stop',
         );
-        expect(LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT).toContain(
-            'rung sizing',
-        );
+        expect(LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT).toContain('rung sizing');
     });
 
     it('carries no continuation note where the rest of the account is valued at 0', () => {
@@ -209,7 +207,9 @@ describe('the hazard fields use a branded probability (PT-73b)', () => {
         expectTypeOf<SimInputs['liveTransferHazard']>().toEqualTypeOf<
             Fraction0to1 | undefined
         >();
-        expectTypeOf<LiveTransferOptions['hazard']>().toEqualTypeOf<Fraction0to1>();
+        expectTypeOf<
+            LiveTransferOptions['hazard']
+        >().toEqualTypeOf<Fraction0to1>();
     });
 });
 

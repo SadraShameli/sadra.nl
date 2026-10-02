@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+    PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
     payoutBlockReasonText,
     payoutFirmMinimumMessage,
     payoutPathStepText,
@@ -16,6 +17,9 @@ import {
     dollars,
     findFirm,
     FirmId,
+    type LiveTransitionTrigger,
+    PayoutCountPerAccountTrigger,
+    PayoutCountTotalTrigger,
     PayoutGate,
     PolicySourceKind,
     PolicyVerification,
@@ -112,13 +116,11 @@ function baseInput(
 
 function stubTriggers(
     plan: Plan,
-    triggers: readonly CumulativeAmountTrigger[],
+    triggers: readonly LiveTransitionTrigger[],
 ): void {
     const firm = findFirm(plan.id.firm);
     if (!firm) throw new Error('firm not registered');
-    vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue(
-        triggers,
-    );
+    vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue(triggers);
 }
 
 describe('planPayoutReadiness: implausible snapshots (both mis-entry directions)', () => {
@@ -578,5 +580,113 @@ describe('planPayoutReadiness: the payout ceiling to stay simulated from verifie
         expect(text).toContain('gross payouts');
         expect(text).toContain('what you receive after the split and fees');
         expect(text).toContain('lower');
+    });
+});
+
+describe('planPayoutReadiness: the verified per-account live trigger (PT-36g)', () => {
+    const confirmed = {
+        fetchedOn: '2026-09-26',
+        quote: 'Accounts convert after the third payout.',
+        sourceKind: PolicySourceKind.LiveFetch,
+        url: 'https://example.invalid/rule',
+        verification: PolicyVerification.Confirmed as const,
+    };
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('says the next payout goes live, with the firm source, instead of saying the account is eligible', () => {
+        stubTriggers(MFF_PRO_50K, [
+            new PayoutCountPerAccountTrigger(3, confirmed),
+        ]);
+        const result = planPayoutReadiness(
+            baseInput(MFF_PRO_50K, {
+                balance: dollars(MFF_PRO_50K.accountSize + 15_000),
+                payoutsTaken: 2,
+                requestSize: dollars(1000),
+            }),
+        );
+        expect(result.kind).toBe(PayoutPlannerResultKind.Blocked);
+        if (result.kind !== PayoutPlannerResultKind.Blocked) return;
+        expect(result.readiness.reason).toMatchObject({
+            kind: PayoutBlockReasonKind.WouldTriggerLive,
+            trigger: {
+                payoutsTaken: 2,
+                scope: LiveTriggerScope.Account,
+                source: { url: confirmed.url },
+                triggerAtPayoutCount: 3,
+            },
+        });
+        expect(result.blockingGateText).toContain(confirmed.url);
+    });
+
+    it('stays eligible one payout under the verified trigger', () => {
+        stubTriggers(TOPSTEP_50K, [
+            new PayoutCountPerAccountTrigger(2, confirmed),
+        ]);
+        const result = planPayoutReadiness(baseInput(TOPSTEP_50K));
+        expect(result.kind).toBe(PayoutPlannerResultKind.Ready);
+    });
+});
+
+describe('planPayoutReadiness: the live-trigger coverage the planner cannot check (PT-36g)', () => {
+    const confirmed = {
+        fetchedOn: '2026-09-26',
+        quote: 'Accounts convert after the tenth payout at the firm.',
+        sourceKind: PolicySourceKind.LiveFetch,
+        url: 'https://example.invalid/rule',
+        verification: PolicyVerification.Confirmed as const,
+    };
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    function plausible(result: ReturnType<typeof planPayoutReadiness>) {
+        if (result.kind === PayoutPlannerResultKind.Implausible) {
+            throw new Error('expected a plausible snapshot');
+        }
+        return result;
+    }
+
+    it('says the firm-wide count is not checked on a ready and a blocked result when a verified firm total exists', () => {
+        stubTriggers(TOPSTEP_50K, [new PayoutCountTotalTrigger(10, confirmed)]);
+        const ready = plausible(planPayoutReadiness(baseInput(TOPSTEP_50K)));
+        const blocked = plausible(
+            planPayoutReadiness(
+                baseInput(TOPSTEP_50K, { qualifyingDaysSinceLastPayout: 0 }),
+            ),
+        );
+        expect(ready.kind).toBe(PayoutPlannerResultKind.Ready);
+        expect(blocked.kind).toBe(PayoutPlannerResultKind.Blocked);
+        expect(ready.liveTriggerNote).toBe(
+            PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
+        );
+        expect(blocked.liveTriggerNote).toBe(
+            PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
+        );
+    });
+
+    it('says it for a firm whose triggers are not verified', () => {
+        const result = plausible(planPayoutReadiness(baseInput(TOPSTEP_50K)));
+        expect(result.liveTriggerNote).toBe(
+            PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
+        );
+    });
+
+    it('says nothing when every trigger is verified and none needs the firm count', () => {
+        stubTriggers(TOPSTEP_50K, [
+            new PayoutCountPerAccountTrigger(5, confirmed),
+        ]);
+        const result = plausible(planPayoutReadiness(baseInput(TOPSTEP_50K)));
+        expect(result.liveTriggerNote).toBeNull();
+    });
+
+    it('words the note in plain words without an em dash', () => {
+        expect(PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT).not.toContain('\u2014');
+        expect(PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT).toContain(
+            'not checked',
+        );
     });
 });

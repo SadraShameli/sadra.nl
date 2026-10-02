@@ -79,7 +79,10 @@ function accountState(overrides: Partial<AccountState> = {}): AccountState {
 }
 
 function advisorWith(
-    options: { readonly personalDll?: number; readonly state?: AccountState } = {},
+    options: {
+        readonly personalDll?: number;
+        readonly state?: AccountState;
+    } = {},
 ): EvalSizingAdvisor {
     return new EvalSizingAdvisor({
         account: account(options.state),

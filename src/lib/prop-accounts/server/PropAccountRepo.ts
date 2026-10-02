@@ -376,8 +376,11 @@ export class PropAccountRepo {
         return boundedRows(rows, limit, PropRecord.Snapshot);
     }
 
-    async listAccounts(filter: AccountListFilter): Promise<ListedAccount[]> {
-        const rows = await this.database
+    async listAccounts(
+        filter: AccountListFilter,
+        isLocked = false,
+    ): Promise<ListedAccount[]> {
+        const query = this.database
             .select()
             .from(propAccount)
             .where(
@@ -396,6 +399,7 @@ export class PropAccountRepo {
             )
             .orderBy(asc(propAccount.label), asc(propAccount.id))
             .limit(PROP_QUOTA_LIMITS[PropQuota.Accounts] + 1);
+        const rows = isLocked ? await query.for('update') : await query;
         return boundedRows(
             rows,
             PROP_QUOTA_LIMITS[PropQuota.Accounts],

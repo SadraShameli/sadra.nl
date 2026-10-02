@@ -233,9 +233,13 @@ describe('copy-group sizing says whether the live triggers were enforced (PT-36f
 
     it('carries the coverage of one member through documentedSizingOf', () => {
         const policy = singleDayPolicy(650);
-        const withPolicy = documentedSizingOf(fundedAccount(), DEFAULT_RULEBOOK, {
-            accountPolicy: policy,
-        });
+        const withPolicy = documentedSizingOf(
+            fundedAccount(),
+            DEFAULT_RULEBOOK,
+            {
+                accountPolicy: policy,
+            },
+        );
         const withoutPolicy = documentedSizingOf(
             fundedAccount(),
             DEFAULT_RULEBOOK,

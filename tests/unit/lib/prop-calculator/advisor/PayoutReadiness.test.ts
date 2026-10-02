@@ -15,6 +15,7 @@ import {
     withOneTimeEarlyWithdrawalTaken,
 } from '~/lib/prop-calculator';
 import {
+    LIVE_TRIGGER_NOT_CHECKED,
     PayoutBlockReasonKind,
     payoutPath,
     type PayoutPathStep,
@@ -84,6 +85,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const state = fundedState(53_000);
         const tracker = metCalendarTracker(state);
         const readiness = payoutReadiness(plan, state, tracker, {
+            liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
         expect(readiness.kind).toBe(PayoutReadinessKind.Eligible);
@@ -93,11 +95,13 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const state = fundedState(53_000);
         const tracker = metCalendarTracker(state);
         const withoutPending = payoutReadiness(plan, state, tracker, {
+            liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
         expect(withoutPending.kind).toBe(PayoutReadinessKind.Eligible);
 
         const withPending = payoutReadiness(plan, state, tracker, {
+            liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
             pendingPayouts: 2900,
             statePendingPayoutsNetted: false,
@@ -115,6 +119,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
         tracker.restoreCalendarDayGateProgress(1);
         const readiness = payoutReadiness(plan, state, tracker, {
+            liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
             pendingPayouts: 100,
             statePendingPayoutsNetted: false,
@@ -132,6 +137,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const tracker = metCalendarTracker(alreadyNettedState);
 
         const trusted = payoutReadiness(plan, alreadyNettedState, tracker, {
+            liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
         expect(trusted.kind).toBe(PayoutReadinessKind.Eligible);
@@ -141,6 +147,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
             alreadyNettedState,
             tracker,
             {
+                liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
                 minRetainedCushion: 0,
                 pendingPayouts: 2000,
                 statePendingPayoutsNetted: false,
@@ -158,6 +165,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
         tracker.restoreCalendarDayGateProgress(11);
         const readiness = payoutReadiness(plan, state, tracker, {
+            liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
         expect(readiness.kind).toBe(PayoutReadinessKind.Blocked);
@@ -177,6 +185,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
         tracker.restoreCalendarDayGateProgress(1);
         const readiness = payoutReadiness(plan, state, tracker, {
+            liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
         expect(readiness.kind).toBe(PayoutReadinessKind.Blocked);
@@ -193,6 +202,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
         tracker.restoreCalendarDayGateProgress(10);
         const readiness = payoutReadiness(plan, state, tracker, {
+            liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
         expect(readiness.kind).toBe(PayoutReadinessKind.Blocked);
@@ -217,7 +227,10 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const tracker = metCalendarTracker(state);
         const before = { ...state };
         const trackerBefore = trackerSnapshotOf(tracker);
-        payoutReadiness(plan, state, tracker, { minRetainedCushion: 0 });
+        payoutReadiness(plan, state, tracker, {
+            liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
+            minRetainedCushion: 0,
+        });
         expect(state).toEqual(before);
         expect(trackerSnapshotOf(tracker)).toEqual(trackerBefore);
     });

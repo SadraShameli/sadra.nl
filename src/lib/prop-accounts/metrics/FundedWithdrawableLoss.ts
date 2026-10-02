@@ -18,8 +18,7 @@ export interface FundedWithdrawableAfterPayoutInputs {
     readonly rulebook: RulebookParameters;
 }
 
-export interface FundedWithdrawableLossInputs
-    extends FundedWithdrawableAfterPayoutInputs {
+export interface FundedWithdrawableLossInputs extends FundedWithdrawableAfterPayoutInputs {
     readonly latestWithdrawableCents: UsdCents;
     readonly profitSinceSnapshotDollars: number;
 }
@@ -41,13 +40,16 @@ export function fundedWithdrawableAfterPayoutCents(
                   },
               }
             : previous;
-    return usdCentsFromDollars(fundedWithdrawableDollarsOf(rulebook, afterPayout));
+    return usdCentsFromDollars(
+        fundedWithdrawableDollarsOf(rulebook, afterPayout),
+    );
 }
 
 export function fundedWithdrawableLossCents(
     inputs: FundedWithdrawableLossInputs,
 ): UsdCents {
-    const withdrawableAfterPayoutCents = fundedWithdrawableAfterPayoutCents(inputs);
+    const withdrawableAfterPayoutCents =
+        fundedWithdrawableAfterPayoutCents(inputs);
     const droppedCents =
         withdrawableAfterPayoutCents - inputs.latestWithdrawableCents;
     if (inputs.payoutsPaidGrossCents <= 0) {
@@ -56,7 +58,9 @@ export function fundedWithdrawableLossCents(
     const lostTradingProfitCents = usdCentsFromDollars(
         Math.max(0, -inputs.profitSinceSnapshotDollars),
     );
-    return usdCents(Math.max(0, Math.min(droppedCents, lostTradingProfitCents)));
+    return usdCents(
+        Math.max(0, Math.min(droppedCents, lostTradingProfitCents)),
+    );
 }
 
 export function fundedWithdrawableLostToResetCents(

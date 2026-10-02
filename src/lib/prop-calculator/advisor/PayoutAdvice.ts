@@ -8,6 +8,7 @@ import {
     PayoutCountPerAccountTrigger,
     PayoutCountTotalTrigger,
     type Plan,
+    type PolicyQuote,
     PolicyVerification,
     resolveLifetimePayoutCapOverride,
     SingleDayProfitTrigger,
@@ -17,6 +18,7 @@ import { type Assumption, AssumptionBias, inputAssumption } from './Assumption';
 import { AssumptionKind } from './AssumptionKind';
 import { combinedProfitCeiling, liveTriggerCeilingFor } from './DailyPlanCard';
 import { type PolicyCitation } from './PayoutBlockReason';
+import { type LiveTriggerCountLimit } from './PayoutReadiness';
 import {
     type PayoutRequestDecision,
     PayoutRequestDecisionKind,
@@ -35,12 +37,8 @@ export enum LiveTriggerCoverage {
     NotChecked = 'not-checked',
 }
 
-export interface LiveTriggerLimits {
+export interface LiveTriggerLimits extends LiveTriggerCountLimit {
     readonly coverage: LiveTriggerCoverage;
-    readonly firmTotalCap: null | number;
-    readonly firmTotalSource: null | PolicyCitation;
-    readonly perAccountCap: null | number;
-    readonly perAccountSource: null | PolicyCitation;
     readonly singleDayCeiling: Dollars | null;
 }
 
@@ -59,8 +57,19 @@ export interface PayoutAdvice {
 
 interface CappedBySource {
     readonly cap: number;
+    readonly isConfirmed: boolean;
     readonly source: null | PolicyCitation;
 }
+
+export const LIVE_TRIGGER_NOT_CHECKED: LiveTriggerLimits = {
+    coverage: LiveTriggerCoverage.NotChecked,
+    firmTotalCap: null,
+    firmTotalSource: null,
+    paidPayoutsSinceLastLiveAccount: null,
+    perAccountCap: null,
+    perAccountSource: null,
+    singleDayCeiling: null,
+};
 
 export function liveTriggerLimitsFor(
     accountPolicy: FirmAccountPolicy | undefined,
@@ -72,12 +81,24 @@ export function liveTriggerLimitsFor(
         if (!(trigger instanceof PayoutCountPerAccountTrigger)) return [];
         const override = resolveLifetimePayoutCapOverride(plan, [trigger]);
         return override.kind === LifetimePayoutCapOverrideKind.Capped
-            ? [{ cap: override.cap, source: confirmedCitationOf(trigger) }]
+            ? [
+                  {
+                      cap: override.cap,
+                      isConfirmed: isConfirmed(trigger),
+                      source: citedSourceOf(trigger),
+                  },
+              ]
             : [];
     });
     const firmTotalCaps = triggers.flatMap((trigger) =>
         trigger instanceof PayoutCountTotalTrigger && isConfirmed(trigger)
-            ? [{ cap: trigger.cap, source: confirmedCitationOf(trigger) }]
+            ? [
+                  {
+                      cap: trigger.cap,
+                      isConfirmed: true,
+                      source: confirmedCitationOf(trigger),
+                  },
+              ]
             : [],
     );
     const singleDayCeiling = triggers.reduce<Dollars | null>(
@@ -102,6 +123,7 @@ export function liveTriggerLimitsFor(
             : LiveTriggerCoverage.NotChecked,
         firmTotalCap: firmTotal?.cap ?? null,
         firmTotalSource: firmTotal?.source ?? null,
+        paidPayoutsSinceLastLiveAccount,
         perAccountCap: perAccount?.cap ?? null,
         perAccountSource: perAccount?.source ?? null,
         singleDayCeiling,
@@ -153,16 +175,29 @@ export function payoutAdvice(
     };
 }
 
+function citationOf(source: PolicyQuote): PolicyCitation {
+    return {
+        fetchedOn: source.fetchedOn,
+        quote: source.quote,
+        url: source.url,
+    };
+}
+
+function citedSourceOf(trigger: LiveTransitionTrigger): null | PolicyCitation {
+    const confirmed = confirmedCitationOf(trigger);
+    if (confirmed !== null) return confirmed;
+    const { source } = trigger;
+    return source?.verification === PolicyVerification.Conflict
+        ? citationOf(source)
+        : null;
+}
+
 function confirmedCitationOf(
     trigger: LiveTransitionTrigger,
 ): null | PolicyCitation {
     const { source } = trigger;
     return source?.verification === PolicyVerification.Confirmed
-        ? {
-              fetchedOn: source.fetchedOn,
-              quote: source.quote,
-              url: source.url,
-          }
+        ? citationOf(source)
         : null;
 }
 
@@ -216,16 +251,14 @@ function numbersFor(
     }
 }
 
-function tightestOf(
-    caps: readonly CappedBySource[],
-): CappedBySource | null {
+function tightestOf(caps: readonly CappedBySource[]): CappedBySource | null {
     return caps.reduce<CappedBySource | null>(
         (tightest, candidate) =>
             tightest === null ||
             candidate.cap < tightest.cap ||
             (candidate.cap === tightest.cap &&
-                tightest.source === null &&
-                candidate.source !== null)
+                !tightest.isConfirmed &&
+                candidate.isConfirmed)
                 ? candidate
                 : tightest,
         null,

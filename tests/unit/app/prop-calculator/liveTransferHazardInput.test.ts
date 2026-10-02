@@ -94,8 +94,8 @@ describe('web calculator input for the live-transfer hazard (PT-73, F-V26)', () 
 
     it('still tells the simulation cache a hazard changes the money', () => {
         const base = buildSimInputs(defaultCalculatorState());
-        expect(simInputsCacheKey({ ...base, liveTransferHazard: fraction(0.25) })).not.toBe(
-            simInputsCacheKey(base),
-        );
+        expect(
+            simInputsCacheKey({ ...base, liveTransferHazard: fraction(0.25) }),
+        ).not.toBe(simInputsCacheKey(base));
     });
 });

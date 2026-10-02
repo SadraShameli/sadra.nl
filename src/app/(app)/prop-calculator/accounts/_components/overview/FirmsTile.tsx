@@ -75,7 +75,11 @@ export function FirmsTile({
                 </span>
                 <span className="flex items-center gap-2">
                     Scale gate:
-                    <Badge variant={SCALE_GATE_STATUS_VARIANT[model.scaleGateStatus]}>
+                    <Badge
+                        variant={
+                            SCALE_GATE_STATUS_VARIANT[model.scaleGateStatus]
+                        }
+                    >
                         {model.scaleGateLabel}
                     </Badge>
                     {model.unmetConditions > 0 && (

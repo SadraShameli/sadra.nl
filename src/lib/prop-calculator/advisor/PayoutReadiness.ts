@@ -62,14 +62,6 @@ export interface CalendarDaysWait {
     readonly daysStillNeeded: number;
 }
 
-export interface DocumentedPayoutEvaluationInput {
-    readonly minRetainedCushion: number;
-    readonly payoutRequestSize: number;
-    readonly plan: Plan;
-    readonly state: AccountState;
-    readonly tracker: FundedCycleTracker;
-}
-
 export interface EligiblePayoutReadiness {
     readonly kind: PayoutReadinessKind.Eligible;
     readonly requestedAmount: number;
@@ -78,10 +70,10 @@ export interface EligiblePayoutReadiness {
 
 export interface LiveTriggerCountLimit {
     readonly firmTotalCap: null | number;
-    readonly firmTotalSource?: null | PolicyCitation;
+    readonly firmTotalSource: null | PolicyCitation;
     readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly perAccountCap: null | number;
-    readonly perAccountSource?: null | PolicyCitation;
+    readonly perAccountSource: null | PolicyCitation;
 }
 
 export interface NoClosedFormWait {
@@ -119,8 +111,16 @@ export interface QualifyingDaysWait {
     readonly daysStillNeeded: number;
 }
 
+interface DocumentedPayoutEvaluationInput {
+    readonly minRetainedCushion: number;
+    readonly payoutRequestSize: number;
+    readonly plan: Plan;
+    readonly state: AccountState;
+    readonly tracker: FundedCycleTracker;
+}
+
 interface PayoutReadinessCommonOptions {
-    readonly liveTrigger?: LiveTriggerCountLimit;
+    readonly liveTrigger: LiveTriggerCountLimit;
     readonly minRetainedCushion: number;
     readonly payoutRequestSize?: number | undefined;
 }
@@ -203,15 +203,16 @@ export function isCycleEndingGate(gate: PayoutGate): boolean {
 
 export function liveTriggerBlockReasonFor(
     payoutsIssued: number,
-    limit: LiveTriggerCountLimit | undefined,
+    limit: LiveTriggerCountLimit,
+    pendingPayoutCount: number,
 ): null | PayoutBlockReason {
-    if (limit === undefined) return null;
+    const accountPayoutsTaken = payoutsIssued + pendingPayoutCount;
     if (
         limit.perAccountCap !== null &&
-        payoutsIssued + 1 >= limit.perAccountCap
+        accountPayoutsTaken + 1 >= limit.perAccountCap
     ) {
         return wouldTriggerLiveBlockReason({
-            payoutsTaken: payoutsIssued,
+            payoutsTaken: accountPayoutsTaken,
             scope: LiveTriggerScope.Account,
             ...(limit.perAccountSource && { source: limit.perAccountSource }),
             triggerAtPayoutCount: limit.perAccountCap,
@@ -219,15 +220,20 @@ export function liveTriggerBlockReasonFor(
     }
     if (
         limit.firmTotalCap !== null &&
-        limit.paidPayoutsSinceLastLiveAccount !== null &&
-        limit.paidPayoutsSinceLastLiveAccount + 1 >= limit.firmTotalCap
+        limit.paidPayoutsSinceLastLiveAccount !== null
     ) {
-        return wouldTriggerLiveBlockReason({
-            payoutsTaken: limit.paidPayoutsSinceLastLiveAccount,
-            scope: LiveTriggerScope.Firm,
-            ...(limit.firmTotalSource && { source: limit.firmTotalSource }),
-            triggerAtPayoutCount: limit.firmTotalCap,
-        });
+        const firmPayoutsTaken =
+            limit.paidPayoutsSinceLastLiveAccount + pendingPayoutCount;
+        if (firmPayoutsTaken + 1 >= limit.firmTotalCap) {
+            return wouldTriggerLiveBlockReason({
+                payoutsTaken: firmPayoutsTaken,
+                scope: LiveTriggerScope.Firm,
+                ...(limit.firmTotalSource && {
+                    source: limit.firmTotalSource,
+                }),
+                triggerAtPayoutCount: limit.firmTotalCap,
+            });
+        }
     }
     return null;
 }
@@ -404,6 +410,10 @@ export function payoutReadiness(
             state: evalState,
             tracker,
         });
+    const pendingPayoutCount =
+        options.statePendingPayoutsNetted === false
+            ? pendingPayoutCountOf(options.pendingPayouts)
+            : 0;
     const evaluation = evaluate(netState);
     switch (evaluation.kind) {
         case PayoutEvaluationKind.Blocked: {
@@ -423,6 +433,7 @@ export function payoutReadiness(
                 : liveTriggerBlockReasonFor(
                       tracker.payoutsIssued,
                       options.liveTrigger,
+                      pendingPayoutCount,
                   );
             return {
                 kind: PayoutReadinessKind.Blocked,
@@ -436,6 +447,7 @@ export function payoutReadiness(
             const liveTriggerReason = liveTriggerBlockReasonFor(
                 tracker.payoutsIssued,
                 options.liveTrigger,
+                pendingPayoutCount,
             );
             if (liveTriggerReason !== null) {
                 return {
@@ -451,6 +463,10 @@ export function payoutReadiness(
             };
         }
     }
+}
+
+export function pendingPayoutCountOf(pendingPayouts: number): number {
+    return pendingPayouts > 0 ? 1 : 0;
 }
 
 export function poolProfitOf(

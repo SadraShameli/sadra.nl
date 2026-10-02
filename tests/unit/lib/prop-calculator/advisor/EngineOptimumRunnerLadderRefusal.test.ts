@@ -159,6 +159,8 @@ describe('the shared ladder wording (PT-24d review)', () => {
         expect(base).toContain('coarser');
         expect(base).not.toContain('searched');
         expect(base).not.toContain('grid step is');
-        expect(ladderStepWidenedText(140)).toBe(`${base} The grid step is $140.`);
+        expect(ladderStepWidenedText(140)).toBe(
+            `${base} The grid step is $140.`,
+        );
     });
 });

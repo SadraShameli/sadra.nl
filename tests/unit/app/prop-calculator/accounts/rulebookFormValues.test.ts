@@ -336,9 +336,10 @@ describe('rulebook form values for the v2 sections', () => {
             display: { ...values.display, nextPayoutHighlightDays: '21' },
         });
         expect(edited.display.nextPayoutHighlightDays).toBe(21);
-        expect(
-            formPathOf(['display', 'nextPayoutHighlightDays']),
-        ).toEqual(['display', 'nextPayoutHighlightDays']);
+        expect(formPathOf(['display', 'nextPayoutHighlightDays'])).toEqual([
+            'display',
+            'nextPayoutHighlightDays',
+        ]);
     });
 
     it.each(['', 'x', '0', '1.5', '366'])(

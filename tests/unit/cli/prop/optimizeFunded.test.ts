@@ -1496,7 +1496,6 @@ describe('optimize funded --payout-policy (PT-32 step 8)', () => {
     });
 });
 
-
 function ruinFirstFundedSort(): FundedSortKey {
     return resolveFundedSort(
         { objective: 'ruin-first', sort: 'monthly' },
@@ -1571,7 +1570,9 @@ describe('optimize funded --objective is an alias over --sort (PT-63, F-V15)', (
         ]);
         expect(exitCode).toBeUndefined();
         expect(stdout).toContain('objective: cycle cash');
-        expect(stdout).toContain('ranked by per-cycle expected net for THIS run only');
+        expect(stdout).toContain(
+            'ranked by per-cycle expected net for THIS run only',
+        );
     });
 
     it('fails with ObjectiveNotApplicable text for --objective ruin-first', async () => {
@@ -1587,10 +1588,11 @@ describe('optimize funded --objective is an alias over --sort (PT-63, F-V15)', (
     });
 });
 
-
 describe('prop optimize funded --help names only flags it accepts (PT-63)', () => {
     it('names no flag the command lacks, with --objective declared', async () => {
-        expect(await flagsNamedButNotAccepted(optimizeFunded)).toStrictEqual([]);
+        expect(await flagsNamedButNotAccepted(optimizeFunded)).toStrictEqual(
+            [],
+        );
     });
 });
 

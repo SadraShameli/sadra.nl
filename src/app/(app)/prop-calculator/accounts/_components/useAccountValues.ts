@@ -34,7 +34,7 @@ import {
     accountFromStateRequestOf,
     buildSizingAdvisor,
     personalAdvisorOptionsOf,
-    readinessOverridesOf,
+    readinessBoardInputsOf,
     SizingAdvisorBuildKind,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import {
@@ -70,10 +70,13 @@ import {
     type AccountStateUnavailableReason,
     accountSubstateOf,
     cushionBoardOf,
+    type FirmPayoutCount,
+    firmPayoutCounts,
     isActiveAccount,
     isLedgerOnlyAccount,
     latestTwoSnapshots,
     type ModeledAccountRow,
+    paidPayoutsSinceLastLiveAccountFor,
     payoutReadinessBoardOf,
     PortfolioLedger,
     realizedAttemptEconomics,
@@ -90,6 +93,7 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    AccountAction,
     DEFAULT_RULEBOOK,
     type MeasuredRebuyLag,
     type ReconstructedAccount,
@@ -130,6 +134,7 @@ interface AccountValuesPreparation {
 interface ModeledPreparationInputs {
     readonly accountId: string;
     readonly events: readonly AccountStateEventRow[];
+    readonly firmCounts: readonly FirmPayoutCount[];
     readonly includeFromStateDetail: boolean;
     readonly isActive: boolean;
     readonly payouts: readonly AccountStatePayoutRow[];
@@ -182,6 +187,9 @@ const MISSING_ACCOUNT_TEXT =
     'This account is not among the accounts that were loaded, so no figures from its state can be computed.';
 
 const MISSING_STATE_TEXT = 'its state could not be built';
+
+const SUSPENDED_ACTION_TEXT =
+    'Suspended: no sizing until the account is Active again';
 
 const SUSPENDED_NOT_VALUED_TEXT =
     'A suspended account is neither sized nor valued.';
@@ -264,6 +272,7 @@ function accountValuesOf(
 function actionOf({
     asOf,
     measuredRebuyLag,
+    paidPayoutsSinceLastLiveAccount,
     plan,
     reconstructed,
     row,
@@ -272,6 +281,7 @@ function actionOf({
 }: {
     readonly asOf: string;
     readonly measuredRebuyLag: MeasuredRebuyLag | null;
+    readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly plan: Plan;
     readonly reconstructed: ReconstructedAccount;
     readonly row: OverviewAccountRow;
@@ -283,6 +293,7 @@ function actionOf({
         personalAdvisorOptionsOf({
             account: reconstructed,
             measuredRebuyLag,
+            paidPayoutsSinceLastLiveAccount,
             personalRules: row.personalRules,
             plan,
             rulebook,
@@ -311,13 +322,19 @@ function boardsOf(
     rulebook: RulebookParameters,
     accounts: readonly OverviewAccountRow[],
     states: readonly AccountStateEntry[],
+    firmCounts: readonly FirmPayoutCount[],
 ): AccountListBoards {
+    const readinessInputs = readinessBoardInputsOf(
+        accounts,
+        states,
+        firmCounts,
+    );
     return {
         cushion: cushionBoardOf(rulebook, states),
         readiness: payoutReadinessBoardOf(
             rulebook,
-            states,
-            readinessOverridesOf(accounts),
+            readinessInputs.states,
+            readinessInputs.overrides,
         ),
     };
 }
@@ -481,6 +498,10 @@ function modeledPrepared(inputs: ModeledPreparationInputs): PreparedAccount {
     const action = actionOf({
         asOf: latest.asOf,
         measuredRebuyLag,
+        paidPayoutsSinceLastLiveAccount: paidPayoutsSinceLastLiveAccountFor(
+            inputs.firmCounts,
+            plan.id.firm,
+        ),
         plan,
         reconstructed: latest.reconstructed,
         row,
@@ -502,7 +523,11 @@ function modeledPrepared(inputs: ModeledPreparationInputs): PreparedAccount {
         return {
             accountId,
             input: {
-                action,
+                action: {
+                    action: AccountAction.NotModeled,
+                    reason: SUSPENDED_NOT_VALUED_TEXT,
+                    text: SUSPENDED_ACTION_TEXT,
+                },
                 kind: AccountValueInputKind.NotValued,
                 reason: SUSPENDED_NOT_VALUED_TEXT,
             },
@@ -604,6 +629,7 @@ function preparationOf({
         return emptyPreparation(load);
     }
     const ledger = PortfolioLedger.fromRows(owner, section.rows);
+    const firmCounts = firmPayoutCounts(ledger, today);
     const stats = replacementStats(ledger);
     const { accounts, payouts, snapshots } = alerts.rows;
     const isRequested = (row: { readonly accountId: string }) =>
@@ -638,6 +664,7 @@ function preparationOf({
                     (event) =>
                         event.accountId === row.id && event.userId === owner,
                 ),
+                firmCounts,
                 includeFromStateDetail,
                 isActive,
                 payouts: payouts.filter(
@@ -663,7 +690,7 @@ function preparationOf({
         accounts: prepared,
         boards:
             accountId === undefined
-                ? boardsOf(rulebook, accounts, states)
+                ? boardsOf(rulebook, accounts, states, firmCounts)
                 : null,
         highlightWithinDays: highlightWithinDaysOf(rulebook),
         isSettled: true,

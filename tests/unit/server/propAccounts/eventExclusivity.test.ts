@@ -587,6 +587,39 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
         expect(propWrites(queries)).toHaveLength(0);
     });
 
+    it('reads the required Suspend set under row locks, with FOR UPDATE like the confirmed ids, before any write', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            responderFor([
+                movedAccount(),
+                siblingAccount(FIRST_SIBLING),
+                siblingAccount(SECOND_SIBLING, { stage: AccountStage.Funded }),
+            ]),
+        );
+        await withPolicy(DORMANT_WHILE_LIVE, () =>
+            recordMovedLive(caller, [FIRST_SIBLING, SECOND_SIBLING]),
+        );
+        const listings = queries.filter(isAccountListQuery);
+        expect(listings).toHaveLength(1);
+        expect(
+            listings.every((query) => query.text.endsWith(' for update')),
+        ).toBe(true);
+        for (const query of listings) assertUserScopedWhere(query, USER_ID);
+        const lockIndex = queries.findIndex(
+            (query) =>
+                query.text.endsWith(' for update') &&
+                query.params.includes(FIRST_SIBLING),
+        );
+        const listIndex = queries.indexOf(defined(listings[0]));
+        const firstWriteIndex = queries.findIndex(
+            (query) =>
+                query.text.startsWith('update') ||
+                query.text.startsWith('insert'),
+        );
+        expect(lockIndex).toBeGreaterThanOrEqual(0);
+        expect(listIndex).toBeLessThan(firstWriteIndex);
+    });
+
     it('rejects an archived sibling: the verified policy suspends open accounts only', async () => {
         const archivedOn = new Date('2026-09-10T00:00:00Z');
         const archived = siblingAccount(FIRST_SIBLING, {

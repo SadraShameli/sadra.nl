@@ -190,7 +190,7 @@ describe('liveTriggerLimitsFor carries the verified trigger source (PT-36f, step
         expect(limits.perAccountSource?.url).toBe(FIRST_QUOTE.url);
     });
 
-    it('carries no source when no trigger is verified', () => {
+    it('carries the primary quote of a conflicted trigger that agrees on the cap, never a confirmed source', () => {
         const limits = liveTriggerLimitsFor(
             new StubTriggerPolicy([
                 new PayoutCountPerAccountTrigger(
@@ -211,7 +211,11 @@ describe('liveTriggerLimitsFor carries the verified trigger source (PT-36f, step
         );
 
         expect(limits.perAccountCap).toBe(3);
-        expect(limits.perAccountSource).toBeNull();
+        expect(limits.perAccountSource).toStrictEqual({
+            fetchedOn: '2026-09-01',
+            quote: 'a conflicting reading',
+            url: 'https://example.test/conflict',
+        });
         expect(limits.firmTotalSource).toBeNull();
     });
 });
@@ -297,6 +301,8 @@ describe('WouldTriggerLive cites the verified trigger source (PT-36f, step 5)', 
 describe('the strict payout rule context accepts the source fields (PT-36f, step 5)', () => {
     const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
     const baseContext: FundedPayoutRuleContext = {
+        liveTriggerFirmTotalCap: null,
+        liveTriggerFirmTotalSource: null,
         liveTriggerPerAccountCap: 3,
         liveTriggerPerAccountSource: {
             fetchedOn: FIRST_QUOTE.fetchedOn,
@@ -319,7 +325,7 @@ describe('the strict payout rule context accepts the source fields (PT-36f, step
         ).not.toThrow();
     });
 
-    it('rejects a source with an extra or missing field', () => {
+    it('rejects a source with a missing field', () => {
         const rule = new PayoutRequestRule(DEFAULT_RULEBOOK);
 
         expect(() =>

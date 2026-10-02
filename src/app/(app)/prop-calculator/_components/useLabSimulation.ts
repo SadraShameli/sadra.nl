@@ -167,10 +167,7 @@ export function simulateLabScenarios(
         results.set(sc.id, {
             ...r,
             ...theoreticalPass(plan, sc),
-            lifetimeCapPoolingGap: lifetimeCapPoolingGapNote(
-                plan,
-                sc.accounts,
-            ),
+            lifetimeCapPoolingGap: lifetimeCapPoolingGapNote(plan, sc.accounts),
             noTransferMonthlyNet: baseline,
         });
     }

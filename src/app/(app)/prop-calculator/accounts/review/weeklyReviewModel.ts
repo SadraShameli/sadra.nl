@@ -352,7 +352,10 @@ export function weeklyReviewWindowOf(
         today,
         rulebook.review.weekday,
     );
-    return { asOf, weekStart: TradingSessionCalendar.addDays(asOf, 1 - WEEK_DAYS) };
+    return {
+        asOf,
+        weekStart: TradingSessionCalendar.addDays(asOf, 1 - WEEK_DAYS),
+    };
 }
 
 function adherenceDecisionOf(
@@ -713,6 +716,7 @@ function sizingFor(
             personalAdvisorOptionsOf({
                 account: reconstructed,
                 measuredRebuyLag: null,
+                paidPayoutsSinceLastLiveAccount: null,
                 personalRules: account.personalRules,
                 plan,
                 rulebook: input.rulebook,

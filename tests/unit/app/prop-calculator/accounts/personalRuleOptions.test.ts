@@ -367,6 +367,7 @@ describe('personalAdvisorOptionsOf takes the account status and returns the subs
         const options = personalAdvisorOptionsOf({
             account,
             measuredRebuyLag: null,
+            paidPayoutsSinceLastLiveAccount: null,
             personalRules: null,
             plan: plan(),
             rulebook: DEFAULT_RULEBOOK,

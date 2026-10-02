@@ -295,7 +295,8 @@ describe('runPayoutSizeSweep (PT-32)', () => {
             throw new Error('expected fresh rows');
         }
         expect(overrideRow.requestSize).not.toBe(winner.requestSize);
-        const documentedCushion = fundedRetainedCushionResolution(DEFAULT_RULEBOOK);
+        const documentedCushion =
+            fundedRetainedCushionResolution(DEFAULT_RULEBOOK);
         expect(override.warning).toStrictEqual({
             horizonDays: highTrialSpec.enginePolicy.fundedHorizonDays,
             optimumBustProbability: winner.out.fundedBustProbability,
@@ -340,7 +341,9 @@ describe('runPayoutSizeSweep (PT-32)', () => {
             expect(warning.retainedCushionBasis).toBe(
                 RetainedCushionBasis.PersonalOverride,
             );
-            expect(warning.horizonDays).toBe(spec.enginePolicy.fundedHorizonDays);
+            expect(warning.horizonDays).toBe(
+                spec.enginePolicy.fundedHorizonDays,
+            );
         }
     }, 60_000);
 

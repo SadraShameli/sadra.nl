@@ -27,9 +27,7 @@ const APEX_EOD_ID = {
     variant: ApexVariant.Eod,
 } as const;
 
-function accountWithCushion(
-    cushion: number,
-): ReconstructedFundedOrEvalAccount {
+function accountWithCushion(cushion: number): ReconstructedFundedOrEvalAccount {
     const state: AccountState = {
         balance: 50_000 + cushion,
         bestDayProfit: 0,

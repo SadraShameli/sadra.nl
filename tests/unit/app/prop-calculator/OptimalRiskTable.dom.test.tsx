@@ -152,7 +152,6 @@ describe('OptimalRiskTable applied eval ladder notice', () => {
     });
 });
 
-
 function fakeOutputs(monthlyNet: number, cycleNet: number): SimOutputs {
     return {
         bustProbability: 0.1,
@@ -170,7 +169,10 @@ function sweepRow(
     riskPct: number,
     monthlyNet: number,
     cycleNet: number,
-    bankroll: null | { lossProbability: null | number; noPayoutProbability: null | number } = null,
+    bankroll: null | {
+        lossProbability: null | number;
+        noPayoutProbability: null | number;
+    } = null,
 ) {
     return {
         accountSize: 50_000,
@@ -203,7 +205,11 @@ describe('OptimalRiskTable objective ranking (PT-63, F-V15)', () => {
     }
 
     function bodyRows(): HTMLTableRowElement[] {
-        return [...container.querySelectorAll<HTMLTableRowElement>(':scope tbody tr')];
+        return [
+            ...container.querySelectorAll<HTMLTableRowElement>(
+                ':scope tbody tr',
+            ),
+        ];
     }
 
     function starredRiskTexts(): string[] {

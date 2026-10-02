@@ -2229,7 +2229,6 @@ describe('optimize dp funded solve keeps the WP17c shared day skeleton and day-c
     });
 });
 
-
 describe('optimize dp --objective (PT-63, F-V15)', () => {
     const smallArgv = [
         '--firm',
@@ -2256,7 +2255,10 @@ describe('optimize dp --objective (PT-63, F-V15)', () => {
         const plan = topStepNoFeeStandardPlan();
         const inputs = parseDpInputs(['--iterations', '12']);
         const config = dpSolverConfig(inputs, renewalObjective(inputs, plan));
-        const cycle = dpObjectiveSolverConfig(config, SizingObjective.CycleCash);
+        const cycle = dpObjectiveSolverConfig(
+            config,
+            SizingObjective.CycleCash,
+        );
         expect(cycle.maxSolves).toBe(1);
         expect(cycle.startRatePerDay).toBe(0);
         expect(cycle.objective).toBe(config.objective);
@@ -2328,11 +2330,11 @@ describe('optimize dp --objective (PT-63, F-V15)', () => {
         expect(stdout).not.toContain('sample risk at the very first day');
         expect(stdout).not.toContain('eval, day 1, trade');
         expect(stdout).not.toContain('funded, day 1, trade');
-        const [config] = vi.mocked(solveAverageRewardPolicy).mock.calls[0] ?? [];
+        const [config] =
+            vi.mocked(solveAverageRewardPolicy).mock.calls[0] ?? [];
         expect(config?.maxSolves).toBe(1);
     }, 600_000);
 });
-
 
 describe('prop optimize dp --help names only flags it accepts (PT-63)', () => {
     it('names no flag the command lacks, with --objective declared', async () => {
@@ -2346,9 +2348,7 @@ async function capturedDpPreamble(argv: string[]): Promise<string> {
         written.push(String(chunk));
         return true;
     };
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation(capture);
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(capture);
     const writeError = vi
         .spyOn(process.stderr, 'write')
         .mockImplementation(capture);

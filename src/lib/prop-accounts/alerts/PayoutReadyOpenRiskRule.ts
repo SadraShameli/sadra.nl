@@ -11,7 +11,7 @@ import {
     payoutReadinessBoardOf,
     PayoutReadinessRowKind,
 } from '~/lib/prop-accounts/metrics';
-import { TradingPhase } from '~/lib/prop-calculator';
+import { findFirm, TradingPhase } from '~/lib/prop-calculator';
 import {
     createSizingAdvisor,
     NextTradeRiskVerdict,
@@ -24,6 +24,7 @@ import {
     type AlertDecisionRow,
     isActive,
     type MonitoredAccount,
+    paidPayoutsSinceLastLiveAccountOf,
 } from './AlertContext';
 import { AlertKind } from './AlertKind';
 import { AccountAlertRule } from './AlertRule';
@@ -47,15 +48,28 @@ export class PayoutReadyOpenRiskRule extends AccountAlertRule {
         ) {
             return null;
         }
-        const [row] = payoutReadinessBoardOf(context.rulebook, [
-            { accountId: monitored.account.id, state },
-        ]).rows;
+        const { plan } = state;
+        const paidPayoutsSinceLastLiveAccount =
+            paidPayoutsSinceLastLiveAccountOf(
+                context,
+                monitored,
+                context.today,
+            );
+        const [row] = payoutReadinessBoardOf(
+            context.rulebook,
+            [{ accountId: monitored.account.id, state }],
+            new Map([
+                [monitored.account.id, { paidPayoutsSinceLastLiveAccount }],
+            ]),
+        ).rows;
         if (row?.kind !== PayoutReadinessRowKind.Eligible) return null;
         const decision = latestDecisionOf(context, monitored.account.id);
         if (decision === null) return null;
         const riskCents =
             decision.actualRiskCents ?? decision.acceptedRiskCents;
         const advisor = createSizingAdvisor(state.latest.reconstructed, {
+            accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
+            paidPayoutsSinceLastLiveAccount,
             rulebook: context.rulebook,
             snapshotAsOf: state.latest.asOf,
             substate: accountSubstateOf(monitored.account.status),
@@ -92,7 +106,11 @@ function isNewerDecision(
 ): boolean {
     const byCreation =
         candidate.createdAt.getTime() - current.createdAt.getTime();
-    return (byCreation === 0 ? compareText(candidate.id, current.id) : byCreation) > 0;
+    return (
+        (byCreation === 0
+            ? compareText(candidate.id, current.id)
+            : byCreation) > 0
+    );
 }
 
 function latestDecisionOf(

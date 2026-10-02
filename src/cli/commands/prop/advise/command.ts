@@ -1237,9 +1237,7 @@ function personalPayoutOverrideLines(
         `payout-size sweep personal override: $${override.row.requestSize} requested, monthly net ${formatCurrencyWithSe(overrideValue.value, overrideValue.standardError)}`,
     ];
     if (override.warning !== null) {
-        lines.push(
-            personalPayoutOverrideWarningText(override.warning),
-        );
+        lines.push(personalPayoutOverrideWarningText(override.warning));
     }
     return lines;
 }

@@ -140,6 +140,14 @@ const UNSCORABLE_COSTS = {
     expectedDaysToFundedStandardError: Infinity,
 } as const;
 
+export interface LadderScoreRanking {
+    byCost: readonly LadderScore[];
+    byPassRate: readonly LadderScore[];
+    bySpeed: readonly LadderScore[];
+    frontier: readonly LadderScore[];
+    unscorableCount: number;
+}
+
 export interface LadderSearchOptions {
     grid: LadderGridConfig;
     maxGridSize?: number;
@@ -156,16 +164,11 @@ export interface LadderSearchProgress {
     total: number;
 }
 
-export interface LadderSearchResult {
-    byCost: readonly LadderScore[];
-    byPassRate: readonly LadderScore[];
-    bySpeed: readonly LadderScore[];
+export interface LadderSearchResult extends LadderScoreRanking {
     droppedAliasCount: number;
-    frontier: readonly LadderScore[];
     gridSize: number;
     laddersScored: number;
     topN: number;
-    unscorableCount: number;
 }
 
 export const MAX_LADDER_GRID_SIZE = 1_000_000;
@@ -959,6 +962,28 @@ export function ladderFrontier(scores: readonly LadderScore[]): LadderScore[] {
     return frontier;
 }
 
+export function rankLadderScores(
+    scores: readonly LadderScore[],
+    topN: number,
+): LadderScoreRanking {
+    const scorable = scores.filter((score) =>
+        Number.isFinite(score.expectedDaysToFunded),
+    );
+    return {
+        byCost: scorable
+            .toSorted((a, b) => a.costPerFunded - b.costPerFunded)
+            .slice(0, topN),
+        byPassRate: scorable
+            .toSorted((a, b) => b.passRate - a.passRate)
+            .slice(0, topN),
+        bySpeed: scorable
+            .toSorted((a, b) => a.expectedDaysToFunded - b.expectedDaysToFunded)
+            .slice(0, topN),
+        frontier: ladderFrontier(scorable),
+        unscorableCount: scores.length - scorable.length,
+    };
+}
+
 export function runLadderSearch(
     options: LadderSearchOptions,
 ): LadderSearchResult {
@@ -991,25 +1016,11 @@ export function runLadderSearch(
     }
     onProgress?.({ completed: total, total });
 
-    const scorable = scores.filter((s) =>
-        Number.isFinite(s.expectedDaysToFunded),
-    );
-
     return {
-        byCost: scorable
-            .toSorted((a, b) => a.costPerFunded - b.costPerFunded)
-            .slice(0, topN),
-        byPassRate: scorable
-            .toSorted((a, b) => b.passRate - a.passRate)
-            .slice(0, topN),
-        bySpeed: scorable
-            .toSorted((a, b) => a.expectedDaysToFunded - b.expectedDaysToFunded)
-            .slice(0, topN),
+        ...rankLadderScores(scores, topN),
         droppedAliasCount: raw.length - total,
-        frontier: ladderFrontier(scorable),
         gridSize: raw.length,
         laddersScored: total,
         topN,
-        unscorableCount: scores.length - scorable.length,
     };
 }

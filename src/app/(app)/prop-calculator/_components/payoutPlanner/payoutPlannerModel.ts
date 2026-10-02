@@ -23,8 +23,12 @@ import {
     type FirmMinimumAboveRequestNotice,
     firmMinimumNotice,
     fundedCycleSeedFromTracker,
+    fundedLiveTriggerFieldsOf,
     ImplausibleSnapshotError,
+    LIVE_TRIGGER_NOT_CHECKED,
     liveTriggerCountText,
+    LiveTriggerCoverage,
+    liveTriggerLimitsFor,
     type NextPayoutProjection,
     type PayoutBlockReason,
     PayoutBlockReasonKind,
@@ -80,6 +84,7 @@ export interface PayoutPlannerBlockedResult {
     readonly blockingGateText: string;
     readonly firmMinimumNotice: FirmMinimumAboveRequestNotice | null;
     readonly kind: PayoutPlannerResultKind.Blocked;
+    readonly liveTriggerNote: null | string;
     readonly path: readonly PayoutPathStep[];
     readonly readiness: BlockedPayoutReadiness;
     readonly simStayCeiling: null | SimStayCeiling;
@@ -111,6 +116,7 @@ export interface PayoutPlannerReadyResult {
     readonly account: ReconstructedFundedOrEvalAccount;
     readonly firmMinimumNotice: FirmMinimumAboveRequestNotice | null;
     readonly kind: PayoutPlannerResultKind.Ready;
+    readonly liveTriggerNote: null | string;
     readonly netAfterSplit: Dollars;
     readonly path: readonly PayoutPathStep[];
     readonly readiness: EligiblePayoutReadiness;
@@ -296,7 +302,17 @@ export function planPayoutReadiness(
     }
     const { state } = account;
 
+    const liveTrigger = liveTriggerLimitsFor(
+        findFirm(input.plan.id.firm)?.accountPolicy,
+        input.plan,
+        null,
+    );
+    const liveTriggerNote =
+        liveTrigger.coverage === LiveTriggerCoverage.NotChecked
+            ? PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT
+            : null;
     const readiness = payoutReadiness(input.plan, state, fundedTracker, {
+        liveTrigger,
         minRetainedCushion: retainedCushion.amount,
         payoutRequestSize: input.requestSize,
         statePendingPayoutsNetted: true,
@@ -322,6 +338,7 @@ export function planPayoutReadiness(
                 blockingGateText: payoutBlockReasonText(readiness.reason),
                 firmMinimumNotice: notice,
                 kind: PayoutPlannerResultKind.Blocked,
+                liveTriggerNote,
                 path,
                 readiness,
                 simStayCeiling: simStayCeilingOf(input.plan),
@@ -333,6 +350,7 @@ export function planPayoutReadiness(
                 account,
                 firmMinimumNotice: notice,
                 kind: PayoutPlannerResultKind.Ready,
+                liveTriggerNote,
                 netAfterSplit: dollars(readiness.traderReceives),
                 path,
                 readiness,
@@ -368,7 +386,7 @@ export function reconstructPayoutPlannerAccount(
     }
 
     const retainedCushion = retainedCushionForStage(input.rulebook, {
-        paidPayoutsSinceLastLiveAccount: null,
+        ...fundedLiveTriggerFieldsOf(LIVE_TRIGGER_NOT_CHECKED),
         pendingPayouts: dollars(0),
         personalRequestOverride: null,
         personalRetainedCushion: null,
@@ -429,7 +447,9 @@ function peakFieldsFor(
 }
 
 function simStayCeilingOf(plan: Plan): null | SimStayCeiling {
-    const triggers = findFirm(plan.id.firm)?.accountPolicy.liveTriggersFor(plan);
+    const triggers = findFirm(plan.id.firm)?.accountPolicy.liveTriggersFor(
+        plan,
+    );
     const verified =
         triggers === undefined
             ? null

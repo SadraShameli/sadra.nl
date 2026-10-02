@@ -193,37 +193,40 @@ describe('the cushion board counts the funded risk the way the engine places it 
         ['no personal max risk', null],
         ['a personal max risk below the rulebook risk', 100],
         ['a personal max risk above the rulebook risk', 5000],
-    ])('uses the documented funded risk of the engine policy as the funded basis with %s', (_name, personalMaxRiskPerTrade) => {
-        const plan = mffProPlan();
-        const { policy } = buildEnginePolicy({
-            fundedHorizonDays: 40,
-            plan,
-            rulebook: DEFAULT_RULEBOOK,
-        });
-        const enginePolicy =
-            personalMaxRiskPerTrade === null
-                ? policy
-                : {
-                      ...policy,
-                      personalCaps: {
-                          ...NO_PERSONAL_CAPS,
-                          maxRiskPerTrade: dollars(personalMaxRiskPerTrade),
-                      },
-                  };
-        const funded = {
-            ...fundedReconstructed(plan, {
-                balance: plan.accountSize + 1000,
-            }),
-            personalMaxRiskPerTrade,
-        };
-        const [row] = cushionBoardOf(DEFAULT_RULEBOOK, [
-            reconstructedEntry('a1', plan, funded),
-        ]).rows;
+    ])(
+        'uses the documented funded risk of the engine policy as the funded basis with %s',
+        (_name, personalMaxRiskPerTrade) => {
+            const plan = mffProPlan();
+            const { policy } = buildEnginePolicy({
+                fundedHorizonDays: 40,
+                plan,
+                rulebook: DEFAULT_RULEBOOK,
+            });
+            const enginePolicy =
+                personalMaxRiskPerTrade === null
+                    ? policy
+                    : {
+                          ...policy,
+                          personalCaps: {
+                              ...NO_PERSONAL_CAPS,
+                              maxRiskPerTrade: dollars(personalMaxRiskPerTrade),
+                          },
+                      };
+            const funded = {
+                ...fundedReconstructed(plan, {
+                    balance: plan.accountSize + 1000,
+                }),
+                personalMaxRiskPerTrade,
+            };
+            const [row] = cushionBoardOf(DEFAULT_RULEBOOK, [
+                reconstructedEntry('a1', plan, funded),
+            ]).rows;
 
-        expect(row?.ratio.basisAmount).toBe(
-            documentedFundedRisk(DEFAULT_RULEBOOK, enginePolicy),
-        );
-    });
+            expect(row?.ratio.basisAmount).toBe(
+                documentedFundedRisk(DEFAULT_RULEBOOK, enginePolicy),
+            );
+        },
+    );
 
     it('reads no rulebook cents of its own for the funded risk', () => {
         const source = readFileSync(

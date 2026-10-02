@@ -2211,7 +2211,9 @@ describe('buildOverview alerts', () => {
         const failed = { data: undefined, error: new Error('down') };
         const loading = { data: undefined, error: null };
         expect(decisionsCaveatOf(5000, failed)).toContain('sizing decisions');
-        expect(decisionsCaveatOf(5000, failed)).toContain('could not be loaded');
+        expect(decisionsCaveatOf(5000, failed)).toContain(
+            'could not be loaded',
+        );
         expect(decisionsCaveatOf(5000, loading)).toContain('still loading');
         expect(decisionsCaveatOf(null, failed)).toBeNull();
         expect(decisionsCaveatOf(5000, { data: [], error: null })).toBeNull();
@@ -6804,7 +6806,10 @@ describe('setupChecklistCardOf (PT-69, F-V28)', () => {
         expect(complete?.isComplete).toBe(true);
         expect(complete?.doneCount).toBe(4);
         expect(complete?.totalSteps).toBe(4);
-        const incomplete = hubPortfolioOf({ ...hubInputs, transfers: [] }).setup;
+        const incomplete = hubPortfolioOf({
+            ...hubInputs,
+            transfers: [],
+        }).setup;
         expect(incomplete?.isComplete).toBe(false);
         expect(incomplete?.doneCount).toBe(3);
         expect(incomplete?.totalSteps).toBe(4);
@@ -6955,7 +6960,9 @@ describe('buildOverview profit concentration (PT-69, F-V26)', () => {
         const card = readyConcentration(buildOverview(inputs(rows)));
         expect(card.caveats).toHaveLength(1);
         expect(card.caveats[0]).toContain(mffProEntry().firm.displayName);
-        expect(card.caveats[0]).toContain('1 funded account has a stale snapshot');
+        expect(card.caveats[0]).toContain(
+            '1 funded account has a stale snapshot',
+        );
         expect(card.caveats[0]).toContain(
             '1 active account could not be read from a snapshot',
         );
@@ -7283,7 +7290,8 @@ describe('buildOverview protection, concentration and capacity alerts (PT-69, F-
             load.ledger,
         );
         const unchecked = readyAlerts(without).find(
-            (alert) => alert.kindLabel === alertKindLabel(AlertKind.LargeDayLoss),
+            (alert) =>
+                alert.kindLabel === alertKindLabel(AlertKind.LargeDayLoss),
         );
         expect(unchecked?.severity).toBe(AlertSeverity.Info);
         expect(unchecked?.message).toContain('no available bankroll');
@@ -7470,5 +7478,113 @@ describe('the alert-extras assembly shared with the detail page (PT-69c, F-V29)'
         expect(extras.decisions).toEqual([decision]);
         expect(extras.availableBankrollCents).toBeGreaterThan(0);
         expect(extras.decisionsCaveat).toBeNull();
+    });
+});
+
+function paidAt(owner: LedgerAccountRow, count: number) {
+    return Array.from({ length: count }, (_unused, index) =>
+        payout(owner, 50_000, {
+            paidOn: `2026-09-${String(index + 1).padStart(2, '0')}`,
+        }),
+    );
+}
+
+function readinessRowsOf(rows: Partial<PortfolioRows>) {
+    const { boards } = buildOverview(inputs(rows));
+    if (boards.kind !== OverviewSectionStatus.Ready) {
+        throw new Error(`boards not ready: ${boards.kind}`);
+    }
+    return boards.readiness.rows;
+}
+
+function withMffTriggers<T>(
+    triggers: readonly LiveTransitionTrigger[],
+    run: () => T,
+): T {
+    const { firm } = mffProEntry();
+    const mutable = firm as { accountPolicy: FirmAccountPolicy };
+    const original = mutable.accountPolicy;
+    mutable.accountPolicy = new SyntheticFirmPolicy({ triggers });
+    try {
+        return run();
+    } finally {
+        mutable.accountPolicy = original;
+    }
+}
+
+describe('buildOverview payout readiness board and the live triggers (PT-36g, F-145)', () => {
+    it('blocks the eligible funded row on the firm-wide count of paid payouts across the ledger, naming the trigger', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const sibling = account(mffProEntry(), {
+            fundedOn: '2026-08-01',
+            label: 'Sibling',
+            purchasedOn: '2026-07-01',
+            stage: AccountStage.Funded,
+        });
+        const rows = {
+            accounts: [funded.row, overviewAccount(sibling)],
+            payouts: paidAt(sibling, 9),
+            snapshots: [funded.snapshot],
+        };
+        const [row] = withMffTriggers(
+            [new PayoutCountTotalTrigger(10, CONFIRMED_FIRM_SOURCE)],
+            () => readinessRowsOf(rows),
+        );
+        expect(row?.status).toBe('Blocked');
+        expect(row?.unlock).toContain('9 of 10 payouts taken');
+        expect(row?.unlock).toContain(CONFIRMED_FIRM_SOURCE.url);
+    });
+
+    it('keeps the row eligible while the firm-wide count is lower', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const sibling = account(mffProEntry(), {
+            fundedOn: '2026-08-01',
+            label: 'Sibling',
+            purchasedOn: '2026-07-01',
+            stage: AccountStage.Funded,
+        });
+        const [row] = withMffTriggers(
+            [new PayoutCountTotalTrigger(10, CONFIRMED_FIRM_SOURCE)],
+            () =>
+                readinessRowsOf({
+                    accounts: [funded.row, overviewAccount(sibling)],
+                    payouts: paidAt(sibling, 3),
+                    snapshots: [funded.snapshot],
+                }),
+        );
+        expect(row?.status).toBe('Eligible');
+    });
+
+    it('says in words on an eligible row that the live triggers were not checked when no firm trigger is verified', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const [row] = readinessRowsOf({
+            accounts: [funded.row],
+            snapshots: [funded.snapshot],
+        });
+        expect(row?.status).toBe('Eligible');
+        expect(row?.note).toContain('Live triggers not checked');
+    });
+
+    it('does not say so once every verified trigger of the firm is enforced', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const [row] = withMffTriggers(
+            [new PayoutCountTotalTrigger(10, CONFIRMED_FIRM_SOURCE)],
+            () =>
+                readinessRowsOf({
+                    accounts: [funded.row],
+                    snapshots: [funded.snapshot],
+                }),
+        );
+        expect(row?.status).toBe('Eligible');
+        expect(row?.note ?? '').not.toContain('Live triggers not checked');
+    });
+
+    it('leaves a suspended funded account out of the readiness board', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const rows = readinessRowsOf({
+            accounts: [{ ...funded.row, status: AccountStatus.Suspended }],
+            snapshots: [funded.snapshot],
+        });
+        expect(rows).toEqual([]);
     });
 });

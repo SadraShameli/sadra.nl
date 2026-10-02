@@ -67,9 +67,7 @@ function ladderUnder(ceiling: number): number[] {
 }
 
 function registryPlan(): Plan {
-    const plan = ALL_FIRMS.find(
-        (firm) => firm.id === FirmId.Apex,
-    )?.findPlan({
+    const plan = ALL_FIRMS.find((firm) => firm.id === FirmId.Apex)?.findPlan({
         accountSize: 50_000,
         firm: FirmId.Apex,
         variant: ApexVariant.Eod,

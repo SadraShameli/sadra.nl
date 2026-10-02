@@ -173,6 +173,7 @@ export { type FirmPayoutLag, type PayoutLag, payoutLag } from './PayoutLag';
 export {
     type FirmMinimumNotice,
     fundedPayoutRuleContextOf,
+    grossStateOf,
     type PayoutReadinessAccountOverride,
     type PayoutReadinessBlockedRow,
     type PayoutReadinessBoard,

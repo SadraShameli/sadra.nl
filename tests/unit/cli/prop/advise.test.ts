@@ -901,9 +901,8 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
         );
         expect(overrideLine).toBeDefined();
 
-        const warningLine = lines.find(
-            (line) =>
-                line.includes('underperforms'),
+        const warningLine = lines.find((line) =>
+            line.includes('underperforms'),
         );
         expect(warningLine).toBeDefined();
         expect(warningLine).toContain('bust probability');
@@ -931,9 +930,7 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
         expect(warningLine).toContain(
             `retaining ${formatCurrency(warning.retainedCushion, 0)} (`,
         );
-        expect(warningLine).toBe(
-            personalPayoutOverrideWarningText(warning),
-        );
+        expect(warningLine).toBe(personalPayoutOverrideWarningText(warning));
     });
 
     it('omits the override warning line when the personal override does not underperform (HIGH-1)', () => {

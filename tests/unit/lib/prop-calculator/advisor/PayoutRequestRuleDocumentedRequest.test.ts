@@ -56,9 +56,10 @@ function engineRequestOf(
     );
 }
 
-function fundedContext(
-    override: null | number,
-): { context: FundedPayoutRuleContext; plan: Plan } {
+function fundedContext(override: null | number): {
+    context: FundedPayoutRuleContext;
+    plan: Plan;
+} {
     const plan = registryPlan(MFF_PRO_ID);
     const state = fundedState();
     const tracker: FundedCycleTracker = newFundedCycleTracker({
@@ -68,9 +69,14 @@ function fundedContext(
     tracker.restoreCalendarDayGateProgress(20);
     return {
         context: {
+            liveTriggerFirmTotalCap: null,
+            liveTriggerFirmTotalSource: null,
+            liveTriggerPerAccountCap: null,
+            liveTriggerPerAccountSource: null,
             paidPayoutsSinceLastLiveAccount: null,
             pendingPayouts: dollars(0),
-            personalRequestOverride: override === null ? null : dollars(override),
+            personalRequestOverride:
+                override === null ? null : dollars(override),
             personalRetainedCushion: null,
             plan,
             stage: SizingStage.Funded,

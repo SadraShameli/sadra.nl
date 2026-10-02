@@ -20,7 +20,10 @@ import {
     type PersonalCaps,
 } from '~/lib/prop-calculator/advisor';
 import { findFirm } from '~/lib/prop-calculator/firms';
-import { resolveDayPolicy, type SimInputs } from '~/lib/prop-calculator/simulator';
+import {
+    resolveDayPolicy,
+    type SimInputs,
+} from '~/lib/prop-calculator/simulator';
 
 function apexEod(): Plan {
     const plan = findFirm(FirmId.Apex)?.findPlan({
@@ -181,7 +184,9 @@ describe('applyEnginePolicy applies the personal max risk and max trades to the 
         );
 
         expect(applied.fundedTradesPerDay).toBeUndefined();
-        expect(resolveDayPolicy(applied, TradingPhase.Funded).ladder).toHaveLength(3);
+        expect(
+            resolveDayPolicy(applied, TradingPhase.Funded).ladder,
+        ).toHaveLength(3);
     });
 
     it('leaves a percent-of-cushion candidate below the cap on its percent', () => {

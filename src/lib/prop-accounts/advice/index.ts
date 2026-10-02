@@ -2,7 +2,11 @@ export { accountSubstateOf } from './AccountSubstateOf';
 export { optionalDollars } from './AdvisorInputsAdapter';
 export {
     type FirmPayoutCount,
+    type FirmPayoutCountAccount,
+    firmPayoutCountOf,
     firmPayoutCounts,
+    isPaidSinceLastLive,
+    NO_FIRM_PAYOUT_COUNTS,
     paidPayoutsSinceLastLiveAccountFor,
 } from './FirmPayoutCount';
 export {

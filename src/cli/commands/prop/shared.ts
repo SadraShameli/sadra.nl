@@ -1449,7 +1449,9 @@ function parseFlag<T>(
 }
 
 function verifiedPayoutTriggerOf(plan: Plan): number | undefined {
-    const triggers = findFirm(plan.id.firm)?.accountPolicy.liveTriggersFor(plan);
+    const triggers = findFirm(plan.id.firm)?.accountPolicy.liveTriggersFor(
+        plan,
+    );
     return triggers === undefined
         ? undefined
         : (verifiedCumulativePayoutLimit(triggers) ?? undefined);

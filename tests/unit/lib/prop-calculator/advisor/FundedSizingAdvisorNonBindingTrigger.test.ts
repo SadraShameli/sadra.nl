@@ -123,7 +123,9 @@ function advisorWithTrigger(
 }
 
 function consistencyAdvisor(
-    positionSizing?: typeof NQ_AT_20_POINTS | { instrument: InstrumentSymbol; stopPoints: number },
+    positionSizing?:
+        | typeof NQ_AT_20_POINTS
+        | { instrument: InstrumentSymbol; stopPoints: number },
 ): FundedSizingAdvisor {
     return new FundedSizingAdvisor({
         account: accountOf(registryPlan(TOPSTEP_CONSISTENCY_ID), {

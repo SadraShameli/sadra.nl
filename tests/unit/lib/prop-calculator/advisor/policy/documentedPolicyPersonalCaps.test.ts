@@ -67,7 +67,8 @@ function policyOf(plan: Plan, limits: Limits): EnginePolicy {
 }
 
 function riskOf(computeRisk: ComputeRisk | undefined): ComputeRisk {
-    if (computeRisk === undefined) throw new Error('expected a computed policy');
+    if (computeRisk === undefined)
+        throw new Error('expected a computed policy');
     return computeRisk;
 }
 
@@ -115,9 +116,9 @@ describe('the engine policy carries the personal limits (PT-68f, F-V16)', () => 
             dll: dollars(600),
         });
 
-        expect(
-            documentedPolicySpecSchema.parse(structuredClone(spec)),
-        ).toEqual(spec);
+        expect(documentedPolicySpecSchema.parse(structuredClone(spec))).toEqual(
+            spec,
+        );
     });
 });
 

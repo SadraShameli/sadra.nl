@@ -187,7 +187,10 @@ function singleDayPolicy(amount: number): FirmAccountPolicy {
 describe('copy-group sizing applies the verified single-day trigger (PT-36f, step 3)', () => {
     it('caps the group rung at the trigger ceiling, the same rung the single-account card shows', () => {
         const policy = singleDayPolicy(250);
-        const group = firstGroupRung([member('a', policy), member('b', policy)]);
+        const group = firstGroupRung([
+            member('a', policy),
+            member('b', policy),
+        ]);
 
         expect(group?.risk).toBe(100);
         expect(group?.cappedBy).toContain(SizingConstraint.CeilingCap);
@@ -224,11 +227,15 @@ describe('copy-group sizing applies the verified single-day trigger (PT-36f, ste
     });
 
     it('applies the trigger through documentedSizingOf for one member, with the same ceiling the group used', () => {
-        const { sizing } = documentedSizingOf(fundedAccount(), DEFAULT_RULEBOOK, {
-            accountPolicy: singleDayPolicy(250),
-            instrument: MNQ_AT_20_POINTS.instrument,
-            stopPoints: MNQ_AT_20_POINTS.stopPoints,
-        });
+        const { sizing } = documentedSizingOf(
+            fundedAccount(),
+            DEFAULT_RULEBOOK,
+            {
+                accountPolicy: singleDayPolicy(250),
+                instrument: MNQ_AT_20_POINTS.instrument,
+                stopPoints: MNQ_AT_20_POINTS.stopPoints,
+            },
+        );
 
         expect(sizing.rungs[0]?.risk).toBe(80);
     });
@@ -246,10 +253,14 @@ describe('copy-group sizing uses the shared placeable-minimum helper (PT-36f, st
             substate: null,
             today: '2026-09-26',
         }).dailyPlanCard();
-        const { context } = documentedSizingOf(evalAccount(), DEFAULT_RULEBOOK, {
-            instrument: hugeStop.instrument,
-            stopPoints: hugeStop.stopPoints,
-        });
+        const { context } = documentedSizingOf(
+            evalAccount(),
+            DEFAULT_RULEBOOK,
+            {
+                instrument: hugeStop.instrument,
+                stopPoints: hugeStop.stopPoints,
+            },
+        );
         const first = createDocumentedRule(
             SizingStage.Eval,
             DEFAULT_RULEBOOK,

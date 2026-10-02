@@ -7,6 +7,8 @@ import { TradingPhase } from '~/lib/prop-calculator';
 import {
     type FundedPayoutRuleContext,
     type LivePayoutRuleContext,
+    LiveTriggerCoverage,
+    type LiveTriggerLimits,
     PayoutRequestDecisionKind,
     PayoutRequestRule,
     type ReconstructedAccount,
@@ -18,6 +20,7 @@ import { type AccountAlert, AlertDisclosure } from './AccountAlert';
 import {
     type AlertContext,
     isActive,
+    liveTriggerLimitsIn,
     type MonitoredAccount,
 } from './AlertContext';
 import { AlertKind } from './AlertKind';
@@ -34,14 +37,24 @@ export class PayoutEligibleRule extends AccountAlertRule {
         if (!isActive(monitored)) return null;
         const state = monitored.accountState;
         if (state?.kind !== AccountStateKind.Reconstructed) return null;
-        const ruleContext = payoutRuleContextOf(state.latest.reconstructed);
+        const liveTrigger = liveTriggerLimitsIn(
+            context,
+            monitored,
+            state.plan,
+            context.today,
+        );
+        const ruleContext = payoutRuleContextOf(
+            state.latest.reconstructed,
+            liveTrigger,
+        );
         if (ruleContext === null) return null;
         const decision = new PayoutRequestRule(context.rulebook).decide(
             ruleContext,
         );
         if (decision.kind !== PayoutRequestDecisionKind.Request) return null;
         const disclosures =
-            ruleContext.stage === SizingStage.Live
+            ruleContext.stage === SizingStage.Live ||
+            liveTrigger.coverage === LiveTriggerCoverage.NotChecked
                 ? [AlertDisclosure.LiveTriggersNotChecked]
                 : [];
         const amount = formatUsdCents(
@@ -62,6 +75,7 @@ export class PayoutEligibleRule extends AccountAlertRule {
 
 function payoutRuleContextOf(
     account: ReconstructedAccount,
+    liveTrigger: LiveTriggerLimits,
 ): FundedPayoutRuleContext | LivePayoutRuleContext | null {
     switch (account.kind) {
         case ReconstructedLiveKind.Live: {
@@ -70,7 +84,8 @@ function payoutRuleContextOf(
             }
             return {
                 livePlan: account.livePlan,
-                paidPayoutsSinceLastLiveAccount: null,
+                paidPayoutsSinceLastLiveAccount:
+                    liveTrigger.paidPayoutsSinceLastLiveAccount,
                 personalRequestOverride: null,
                 personalRetainedCushion: null,
                 stage: SizingStage.Live,
@@ -88,6 +103,8 @@ function payoutRuleContextOf(
                       account.state,
                       account.fundedTracker,
                       null,
+                      liveTrigger,
+                      account.pendingPayouts ?? 0,
                   );
         }
     }

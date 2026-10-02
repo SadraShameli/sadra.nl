@@ -45,7 +45,10 @@ function adviceFor(argv: string[]) {
         AccountReconstruction.rebuild(snapshot, plan),
         options,
     );
-    return { advice: advisor.assemble(engineResultsFor(advisor, plan)), options };
+    return {
+        advice: advisor.assemble(engineResultsFor(advisor, plan)),
+        options,
+    };
 }
 
 function parseAdvise(argv: string[]): AdviseArguments {
@@ -57,7 +60,8 @@ describe('advise --suspended (PT-19h, F-118)', () => {
         expect(adviseArguments.suspended.type).toBe('boolean');
         expect(adviseArguments.suspended.default).toBe(false);
         expect(
-            readAdviseInputs(parseAdvise(FRESH_FUNDED_APEX_EOD)).options.substate,
+            readAdviseInputs(parseAdvise(FRESH_FUNDED_APEX_EOD)).options
+                .substate,
         ).toBeNull();
     });
 
@@ -104,7 +108,12 @@ describe('advise --suspended (PT-19h, F-118)', () => {
     it('rejects --risk together with --suspended, since a suspended account is never sized', () => {
         expect(() =>
             rejectRiskWithSuspended(
-                parseAdvise([...FRESH_FUNDED_APEX_EOD, '--suspended', '--risk', '500']),
+                parseAdvise([
+                    ...FRESH_FUNDED_APEX_EOD,
+                    '--suspended',
+                    '--risk',
+                    '500',
+                ]),
             ),
         ).toThrow(/--risk.*--suspended/);
     });

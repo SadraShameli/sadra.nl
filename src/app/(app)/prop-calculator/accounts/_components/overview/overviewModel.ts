@@ -32,7 +32,7 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/accountStateReasonText';
 import {
     accountFromStateRequestOf,
-    readinessOverridesOf,
+    readinessBoardInputsOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import { firmsModelOf } from '~/app/(app)/prop-calculator/accounts/firms/firmsModel';
 import { errorMessage } from '~/lib/errorMessage';
@@ -103,6 +103,7 @@ import {
     FirmKeyKind,
     firmKeyLabel,
     firmKeyOf,
+    firmPayoutCounts,
     type FirmProfitConcentration,
     firmProfitConcentrationOfContext,
     type FirmReturn,
@@ -141,6 +142,7 @@ import {
     monthlyStatement,
     type MonthlyStatementTargets,
     NO_ACCOUNT_STATES,
+    NO_FIRM_PAYOUT_COUNTS,
     paidPayoutCash,
     PAYOUT_COUNT_CAP,
     payoutMultiple,
@@ -243,6 +245,7 @@ import {
     DOCUMENTED_POLICY_TIMELINE_GAP_TEXT,
     type EnginePolicy,
     LifetimePayoutCapBasis,
+    LiveTriggerCoverage,
     payoutPolicySensitivity,
     type PayoutPolicySensitivityPlanEntry,
     type PayoutPolicySensitivityRankedEntry,
@@ -1409,6 +1412,9 @@ const POOLED_CAPS_CARD_PARTIAL_DISCLOSURE =
     'Pools are modeled only for firms whose policy a source confirms. A firm listed as cap scope unverified falls back to the per-plan cap, so it can stop you sooner than these free slots suggest.';
 const POOLED_CAPS_CARD_VERIFIED_DISCLOSURE =
     "Pools come from each firm's own verified policy; a plan outside any pool is counted per plan.";
+const LIVE_TRIGGERS_NOT_CHECKED_NOTE =
+    "Live triggers not checked: this firm's rules for moving an account live are not all verified here, or its firm-wide payout count is unknown, so this payout may be one the firm moves live.";
+
 const LIVE_PROXIMITY_DISCLOSURE =
     'Distances to going live come only from a trigger a firm source confirms. A firm whose triggers are unverified or in conflict shows unverified, never a number. Only paid payouts are counted, so a payout that is requested or approved but not yet paid leaves payouts left one too high. A firm-wide count covers every account you hold at the firm and starts after your latest move live. Accounts held by others in a household are not tracked.';
 const POOLED_CAPS_COUNTING_NOTE =
@@ -1807,7 +1813,7 @@ export function buildOverview({
             undefined,
             extras,
         ),
-        boards: boardsFor(load, accountStates),
+        boards: boardsFor(load, accountStates, userId, today),
         concentration: concentrationFor(load, context, firms),
         evSources: evSourcesFor(load, userId, today, accountStates, engine),
         exposure: exposureFor(load, accountStates),
@@ -2546,6 +2552,8 @@ function boardFailures(load: PortfolioLoad): readonly PortfolioSource[] {
 function boardsFor(
     load: PortfolioLoad,
     accountStates: readonly AccountStateEntry[],
+    userId: string,
+    today: string,
 ): OverviewBoards {
     const failed = boardFailures(load);
     if (failed.length > 0) {
@@ -2561,11 +2569,22 @@ function boardsFor(
         return { kind: OverviewSectionStatus.Pending };
     }
     const { accounts, rulebook } = load.alerts.rows;
+    const { rows: ledgerRows } = load.ledger;
     const byId = boardAccountLabels(accounts);
+    const counted = ledgerOrDateFailure(() =>
+        firmPayoutCounts(PortfolioLedger.fromRows(userId, ledgerRows), today),
+    );
+    const readinessInputs = readinessBoardInputsOf(
+        accounts,
+        accountStates,
+        counted.kind === OverviewSectionStatus.Ready
+            ? counted.value
+            : NO_FIRM_PAYOUT_COUNTS,
+    );
     const readiness = payoutReadinessBoardOf(
         rulebook,
-        accountStates,
-        readinessOverridesOf(accounts),
+        readinessInputs.states,
+        readinessInputs.overrides,
     );
     return {
         cushion: cushionBoardCard(
@@ -5463,10 +5482,14 @@ function readinessRow(
                 asOf: row.asOf,
                 key: row.accountId,
                 netAfterSplit: formatUsdCents(row.traderReceivesCents),
-                note:
+                note: combinedNote(
                     row.firmMinimumNotice === null
                         ? null
                         : `Firm minimum ${formatUsdCents(row.firmMinimumNotice.minimumRequestAmountCents)} is above your ${formatUsdCents(row.firmMinimumNotice.requestedAmountCents)} request.`,
+                    row.liveTriggerCoverage === LiveTriggerCoverage.Enforced
+                        ? null
+                        : LIVE_TRIGGERS_NOT_CHECKED_NOTE,
+                ),
                 requested: formatUsdCents(row.requestedAmountCents),
                 status: 'Eligible',
                 unlock: 'Ready now',

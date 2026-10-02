@@ -319,8 +319,7 @@ describe('firmProfitConcentrationOf', () => {
     it('names the retained cushion it assumed, the larger of Hard Rule 2 and the rulebook size', () => {
         const accounts = [accountOf('a1', FirmId.Mffu, 20_000)];
         expect(
-            firmProfitConcentrationOf(accounts, OPTIONS)
-                .retainedCushionDollars,
+            firmProfitConcentrationOf(accounts, OPTIONS).retainedCushionDollars,
         ).toBe(2000);
         expect(
             firmProfitConcentrationOf(accounts, {

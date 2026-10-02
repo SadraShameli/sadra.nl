@@ -32,9 +32,7 @@ const APEX_EOD_ID = {
 
 const DEFAULT_GRID_AT_2000 = { lo: 100, max: 800, slots: 4, step: 140 };
 
-function accountWithCushion(
-    cushion: number,
-): ReconstructedFundedOrEvalAccount {
+function accountWithCushion(cushion: number): ReconstructedFundedOrEvalAccount {
     const state: AccountState = {
         balance: 50_000 + cushion,
         bestDayProfit: 0,

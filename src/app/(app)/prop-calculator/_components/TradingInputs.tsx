@@ -522,18 +522,18 @@ export default function TradingInputs({
                                     value={liveTransferHazard}
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    The chance, after each paid payout, that
-                                    the firm sends the account live, which ends
-                                    its simulated payouts. It is your
-                                    assumption, not a firm rule. 0 leaves
-                                    transfers unpriced, as before. Only the
-                                    strategy lab uses it; the results, sizing,
-                                    compare and the other tools stay unpriced.
-                                    In the lab, a scenario with an instrument
-                                    and stop points on a plan with a verified
-                                    live plan continues the account through it;
-                                    otherwise the rest of a transferred account
-                                    is valued at $0.
+                                    The chance, after each paid payout, that the
+                                    firm sends the account live, which ends its
+                                    simulated payouts. It is your assumption,
+                                    not a firm rule. 0 leaves transfers
+                                    unpriced, as before. Only the strategy lab
+                                    uses it; the results, sizing, compare and
+                                    the other tools stay unpriced. In the lab, a
+                                    scenario with an instrument and stop points
+                                    on a plan with a verified live plan
+                                    continues the account through it; otherwise
+                                    the rest of a transferred account is valued
+                                    at $0.
                                 </p>
                             </div>
                             <div>

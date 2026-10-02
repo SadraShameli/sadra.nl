@@ -29,18 +29,19 @@ interface Harness {
     events: FakeQuery;
     fees: FakeQuery;
     payouts: FakeQuery;
-    session: { data: undefined | { user: { id: string } }; isPending?: boolean };
+    session: {
+        data: undefined | { user: { id: string } };
+        isPending?: boolean;
+    };
 }
 
-const harness = vi.hoisted(
-    (): Harness => ({
-        accounts: { data: undefined },
-        events: { data: undefined },
-        fees: { data: undefined },
-        payouts: { data: undefined },
-        session: { data: undefined },
-    }),
-);
+const harness = vi.hoisted((): Harness => ({
+    accounts: { data: undefined },
+    events: { data: undefined },
+    fees: { data: undefined },
+    payouts: { data: undefined },
+    session: { data: undefined },
+}));
 
 vi.mock('~/lib/auth/client', () => ({
     useSession: () => harness.session,
@@ -80,7 +81,11 @@ function ledgerRows() {
 describe('useMeasuredHazards (PT-73, F-V26)', () => {
     let container: HTMLDivElement;
     let root: Root;
-    let state: MeasuredHazardsState = { failed: false, measured: {}, pending: true };
+    let state: MeasuredHazardsState = {
+        failed: false,
+        measured: {},
+        pending: true,
+    };
     let latest: MeasuredHazardsState['measured'] = {};
 
     function Probe() {

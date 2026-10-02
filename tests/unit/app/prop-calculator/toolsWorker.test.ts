@@ -408,7 +408,6 @@ describe('resolving the requested plan', () => {
     });
 });
 
-
 function copySplit(
     overrides: Partial<{
         objective: SizingObjective;
@@ -434,12 +433,12 @@ describe('computeToolsResult: CopySplit (thin call into runCopySplit, PT-63, F-V
         if (result.kind !== ToolsResponseKind.CopySplit) {
             throw new Error('unreachable');
         }
-        expect(result.result.rows.map((row) => row.splitCount).toSorted((a, b) => a - b)).toStrictEqual(
-            [1, 2],
-        );
-        expect(result.result.trialsPerSplit).toBe(
-            copySplitTrials(130, [1, 2]),
-        );
+        expect(
+            result.result.rows
+                .map((row) => row.splitCount)
+                .toSorted((a, b) => a - b),
+        ).toStrictEqual([1, 2]);
+        expect(result.result.trialsPerSplit).toBe(copySplitTrials(130, [1, 2]));
         expect(result.result.objective).toBe(SizingObjective.MonthlyNet);
     });
 

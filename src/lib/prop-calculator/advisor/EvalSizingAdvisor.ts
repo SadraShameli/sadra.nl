@@ -128,7 +128,8 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
         const withinNoise = this.withinNoiseReason(results);
         const { account, accountPolicy } = this.input;
         const { resolvedDailyLossLimit } = account;
-        const personalMaxRisk = this.input.personalCaps?.maxRiskPerTrade ?? null;
+        const personalMaxRisk =
+            this.input.personalCaps?.maxRiskPerTrade ?? null;
         const slots = this.ladderSlots();
         const churn = aggressiveOptimumChurnReasons({
             accountPolicy,
@@ -422,12 +423,11 @@ function gridWithin(grid: LadderGridConfig, cap: number): LadderGridConfig {
     if (minimumLevels <= 1) return { ...grid, max: cap };
     const defaultLevels = Math.round((grid.max - grid.lo) / grid.step) + 1;
     const levels = wholeCentLevels(span, minimumLevels, defaultLevels);
-    if (levels !== null) return { ...grid, max: cap, step: span / (levels - 1) };
+    if (levels !== null)
+        return { ...grid, max: cap, step: span / (levels - 1) };
     const stepCents = Math.max(
         1,
-        Math.floor(
-            Math.round(span * CENTS_PER_DOLLAR) / (minimumLevels - 1),
-        ),
+        Math.floor(Math.round(span * CENTS_PER_DOLLAR) / (minimumLevels - 1)),
     );
     return {
         ...grid,

@@ -316,7 +316,7 @@ describe('EventsSection live exclusivity preview and confirm', () => {
         vi.unstubAllGlobals();
     });
 
-    it('lists the siblings a verified policy suspends and sends none until the user confirms', async () => {
+    it('lists the siblings a verified policy suspends and holds the record button until the user confirms them', async () => {
         await withPolicy(
             new ExclusivityStub(SimAccountEffect.Dormant),
             async () => {
@@ -335,17 +335,39 @@ describe('EventsSection live exclusivity preview and confirm', () => {
                 expect(
                     exclusivityCheckbox()?.getAttribute('aria-checked'),
                 ).toBe('false');
+                expect(recordButton().disabled).toBe(true);
+                expect(container.textContent).toContain(
+                    'Confirm the accounts the firm suspends before recording this move live',
+                );
                 await submitRecord();
             },
         );
-        expect(harness.mutateAsync).toHaveBeenCalledWith({
-            accountId: MOVED_ID,
-            kind: AccountEventKind.MovedLive,
-            note: null,
-            occurredOn: TODAY,
-        });
-        const [payload] = harness.mutateAsync.mock.calls[0] ?? [];
-        expect(payload).not.toHaveProperty('confirmedExclusivityAccountIds');
+        expect(harness.mutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('releases the record button once the suspended accounts are confirmed and holds it again when the confirmation is withdrawn', async () => {
+        await withPolicy(
+            new ExclusivityStub(SimAccountEffect.Dormant),
+            async () => {
+                render();
+                await recordMovedLive();
+                const checkbox = exclusivityCheckbox();
+                if (checkbox === null) {
+                    throw new Error('no exclusivity checkbox');
+                }
+                act(() => {
+                    checkbox.click();
+                });
+                expect(recordButton().disabled).toBe(false);
+                expect(container.textContent).not.toContain(
+                    'Confirm the accounts the firm suspends before recording this move live',
+                );
+                act(() => {
+                    checkbox.click();
+                });
+                expect(recordButton().disabled).toBe(true);
+            },
+        );
     });
 
     it('sends exactly the suspended siblings once the user ticks the confirmation', async () => {
@@ -494,6 +516,13 @@ describe('EventsSection live exclusivity preview and confirm', () => {
                 expect(container.textContent).toContain(
                     'Alpha going live changes 1 other account',
                 );
+                const checkbox = exclusivityCheckbox();
+                if (checkbox === null) {
+                    throw new Error('no exclusivity checkbox');
+                }
+                act(() => {
+                    checkbox.click();
+                });
                 expect(recordButton().disabled).toBe(false);
             },
         );

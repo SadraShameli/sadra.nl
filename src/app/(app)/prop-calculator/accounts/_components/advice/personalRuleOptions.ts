@@ -4,13 +4,18 @@ import {
     type OverviewRequest,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
+    type AccountStateEntry,
     type AccountStatus,
     accountSubstateOf,
+    type FirmPayoutCount,
+    NO_FIRM_PAYOUT_COUNTS,
     optionalDollars,
+    paidPayoutsSinceLastLiveAccountFor,
     type PayoutReadinessAccountOverride,
     personalMaxRiskOf,
     type PersonalRules,
     readPersonalRulesOrNull,
+    type StoredFirmId,
 } from '~/lib/prop-accounts';
 import {
     type Dollars,
@@ -60,6 +65,7 @@ export type SizingAdvisorBuild =
 interface PersonalAdvisorOptionsInput {
     readonly account: ReconstructedAccount;
     readonly measuredRebuyLag: MeasuredRebuyLag | null;
+    readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly personalRules: unknown;
     readonly plan: Plan;
     readonly rulebook: RulebookParameters;
@@ -73,6 +79,21 @@ interface PersonalPolicyOverrides {
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
     readonly retainedCushionRequest: Dollars | null;
+}
+
+interface ReadinessBoardAccount extends ReadinessOverrideAccount {
+    readonly status: AccountStatus;
+}
+
+interface ReadinessBoardInputs {
+    readonly overrides: ReadonlyMap<string, MemberPersonalOverride>;
+    readonly states: readonly AccountStateEntry[];
+}
+
+interface ReadinessOverrideAccount {
+    readonly firmId?: null | StoredFirmId;
+    readonly id: string;
+    readonly personalRules?: unknown;
 }
 
 export function accountFromStateRequestOf(input: {
@@ -146,6 +167,7 @@ export function personalAdvisorOptionsOf(
     return {
         accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
         measuredRebuyLag: input.measuredRebuyLag,
+        paidPayoutsSinceLastLiveAccount: input.paidPayoutsSinceLastLiveAccount,
         personalCaps: personalCapsOf(
             personalRules,
             account.kind === ReconstructedLiveKind.Live ||
@@ -175,11 +197,25 @@ export function personalLimitsOf(
     };
 }
 
+export function readinessBoardInputsOf(
+    accounts: readonly ReadinessBoardAccount[],
+    states: readonly AccountStateEntry[],
+    firmCounts: readonly FirmPayoutCount[],
+): ReadinessBoardInputs {
+    const suspendedIds = new Set(
+        accounts
+            .filter((account) => accountSubstateOf(account.status) !== null)
+            .map((account) => account.id),
+    );
+    return {
+        overrides: readinessOverridesOf(accounts, firmCounts),
+        states: states.filter((entry) => !suspendedIds.has(entry.accountId)),
+    };
+}
+
 export function readinessOverridesOf(
-    accounts: readonly {
-        readonly id: string;
-        readonly personalRules?: unknown;
-    }[],
+    accounts: readonly ReadinessOverrideAccount[],
+    firmCounts: readonly FirmPayoutCount[] = NO_FIRM_PAYOUT_COUNTS,
 ): ReadonlyMap<string, MemberPersonalOverride> {
     return new Map(
         accounts.map((account) => {
@@ -187,6 +223,13 @@ export function readinessOverridesOf(
             return [
                 account.id,
                 {
+                    paidPayoutsSinceLastLiveAccount:
+                        account.firmId == null
+                            ? null
+                            : paidPayoutsSinceLastLiveAccountFor(
+                                  firmCounts,
+                                  account.firmId,
+                              ),
                     personalCaps: personalCapsOf(
                         rules,
                         personalMaxRiskOf(rules),

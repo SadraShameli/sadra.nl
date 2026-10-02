@@ -12,7 +12,12 @@ import {
     measuredRebuyLagOf,
     RebuyLagLineKind,
 } from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
-import { EVENT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import {
+    EVENT_LIST_INPUT,
+    LEDGER_LIST_INPUT,
+    ledgerOrDateFailure,
+    OverviewSectionStatus,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
@@ -20,9 +25,12 @@ import { Skeleton } from '~/components/ui/Skeleton';
 import { useSession } from '~/lib/auth/client';
 import {
     type AccountStage,
+    firmPayoutCounts,
     isModeledAccount,
     latestTwoSnapshots,
+    paidPayoutsSinceLastLiveAccountFor,
     PlanKeyResolutionKind,
+    PortfolioLedger,
     resolvePlanKey,
     trackedAccountOf,
     usdCentsFromDollars,
@@ -91,6 +99,12 @@ enum BuiltKind {
     Ready = 'ready',
 }
 
+enum FirmPayoutCountKind {
+    Failed = 'failed',
+    Pending = 'pending',
+    Ready = 'ready',
+}
+
 type AccountRow = ReturnType<
     typeof trackedAccountOf<RouterOutputs['propAccounts']['account']['get']>
 >;
@@ -117,6 +131,14 @@ type DecisionRows = NonNullable<
 
 type EventRow =
     RouterOutputs['propAccounts']['event']['listForAccount'][number];
+
+type FirmPayoutCountOutcome =
+    | {
+          readonly count: null | number;
+          readonly kind: FirmPayoutCountKind.Ready;
+      }
+    | { readonly kind: FirmPayoutCountKind.Failed; readonly message: string }
+    | { readonly kind: FirmPayoutCountKind.Pending };
 
 interface InputQuery {
     readonly data: unknown;
@@ -160,6 +182,8 @@ export function AdvicePanel({ id }: { readonly id: string }) {
     const payoutsQuery = api.propAccounts.payout.list.useQuery({
         accountId: id,
     });
+    const ledgerPayoutsQuery =
+        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
     const decisionsQuery = api.propAccounts.decision.listForAccount.useQuery({
         id,
@@ -203,6 +227,46 @@ export function AdvicePanel({ id }: { readonly id: string }) {
 
     const today = useTodayIsoDate();
 
+    const firmPayoutCount = useMemo(
+        () =>
+            firmPayoutCountOf({
+                accounts: accountsListQuery.data,
+                events: ledgerEventsQuery.data,
+                firmId: account?.firmId ?? null,
+                payouts: ledgerPayoutsQuery.data,
+                payoutsFailure:
+                    ledgerPayoutsQuery.isError &&
+                    ledgerPayoutsQuery.data === undefined
+                        ? ledgerPayoutsQuery.error.message
+                        : null,
+                today,
+                userId,
+            }),
+        [
+            account?.firmId,
+            accountsListQuery.data,
+            ledgerEventsQuery.data,
+            ledgerPayoutsQuery.data,
+            ledgerPayoutsQuery.error,
+            ledgerPayoutsQuery.isError,
+            today,
+            userId,
+        ],
+    );
+    const firmCountFailureAlert =
+        firmPayoutCount.kind === FirmPayoutCountKind.Failed ? (
+            <Alert variant="destructive">
+                <AlertTitle>
+                    The firm payout count could not be loaded
+                </AlertTitle>
+                <AlertDescription>
+                    {firmPayoutCount.message} The advice below does not check a
+                    firm-wide live trigger, so a payout it shows may be one the
+                    firm moves live.
+                </AlertDescription>
+            </Alert>
+        ) : null;
+
     const built = useMemo(
         () =>
             userId === undefined
@@ -210,6 +274,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
                 : buildAdvisorInput({
                       account,
                       events: eventsQuery.data,
+                      firmPayoutCount,
                       ledgerAccounts: accountsListQuery.data,
                       ledgerEvents: ledgerEventsQuery.data,
                       measuredRebuyLag,
@@ -222,6 +287,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
             account,
             accountsListQuery.data,
             eventsQuery.data,
+            firmPayoutCount,
             ledgerEventsQuery.data,
             measuredRebuyLag,
             payoutsQuery.data,
@@ -339,7 +405,12 @@ export function AdvicePanel({ id }: { readonly id: string }) {
             decisionsError={
                 decisionsQuery.isError ? decisionsQuery.error.message : null
             }
-            rebuyLagFailureAlert={rebuyLagFailureAlert}
+            inputFailureAlerts={
+                <>
+                    {rebuyLagFailureAlert}
+                    {firmCountFailureAlert}
+                </>
+            }
             refreshFailureAlert={refreshFailureAlert}
         />
     );
@@ -362,6 +433,7 @@ function advisorBuildOf(
 function buildAdvisorInput(args: {
     readonly account: AccountRow | undefined;
     readonly events: readonly EventRow[] | undefined;
+    readonly firmPayoutCount: FirmPayoutCountOutcome;
     readonly ledgerAccounts: readonly LedgerAccountRow[] | undefined;
     readonly ledgerEvents: readonly LedgerEventRow[] | undefined;
     readonly measuredRebuyLag: MeasuredRebuyLag | null;
@@ -373,6 +445,7 @@ function buildAdvisorInput(args: {
     const {
         account,
         events,
+        firmPayoutCount,
         ledgerAccounts,
         ledgerEvents,
         measuredRebuyLag,
@@ -402,7 +475,8 @@ function buildAdvisorInput(args: {
         snapshots === undefined ||
         payouts === undefined ||
         ledgerAccounts === undefined ||
-        ledgerEvents === undefined
+        ledgerEvents === undefined ||
+        firmPayoutCount.kind === FirmPayoutCountKind.Pending
     ) {
         return { kind: BuiltKind.Loading };
     }
@@ -421,6 +495,10 @@ function buildAdvisorInput(args: {
     const options = personalAdvisorOptionsOf({
         account: view.account,
         measuredRebuyLag,
+        paidPayoutsSinceLastLiveAccount:
+            firmPayoutCount.kind === FirmPayoutCountKind.Ready
+                ? firmPayoutCount.count
+                : null,
         personalRules: account.personalRules,
         plan,
         rulebook,
@@ -434,20 +512,18 @@ function buildAdvisorInput(args: {
     }
     const { advisor } = build;
     const limits = personalLimitsOf(options);
-    const valueRequest: AdviceValueRequestResult = advisor.isSuspended()
-        ? { kind: AdviceValueRequestKind.NotRequested }
-        : adviceValueRequestOf({
-              account: view.account,
-              accountPolicy: options.accountPolicy,
-              advice: advisor.assemble([]),
-              measuredRebuyLag,
-              personalCaps: limits.caps,
-              personalDll: limits.dailyLossLimit,
-              personalPayoutOverride: options.personalPayoutOverride,
-              personalRetainedCushion: options.personalRetainedCushion,
-              plan,
-              rulebook,
-          });
+    const valueRequest: AdviceValueRequestResult = adviceValueRequestOf({
+        account: view.account,
+        accountPolicy: options.accountPolicy,
+        advice: advisor.assemble([]),
+        measuredRebuyLag,
+        personalCaps: limits.caps,
+        personalDll: limits.dailyLossLimit,
+        personalPayoutOverride: options.personalPayoutOverride,
+        personalRetainedCushion: options.personalRetainedCushion,
+        plan,
+        rulebook,
+    });
     return {
         input: {
             advisor,
@@ -487,7 +563,7 @@ function ComputedAdvice({
     canAcceptSize,
     decisions,
     decisionsError,
-    rebuyLagFailureAlert,
+    inputFailureAlerts,
     refreshFailureAlert,
 }: {
     readonly accountId: string;
@@ -496,7 +572,7 @@ function ComputedAdvice({
     readonly decisions:
         ComponentProps<typeof DecisionLog>['decisions'] | undefined;
     readonly decisionsError: null | string;
-    readonly rebuyLagFailureAlert: ReactNode;
+    readonly inputFailureAlerts: ReactNode;
     readonly refreshFailureAlert: ReactNode;
 }) {
     const adviceState = useAccountAdvice(built.input);
@@ -545,7 +621,7 @@ function ComputedAdvice({
             <div className="flex flex-col gap-2">
                 <h2 className="text-lg font-semibold">Sizing advice</h2>
                 {refreshFailureAlert}
-                {rebuyLagFailureAlert}
+                {inputFailureAlerts}
                 <Alert variant="warning">
                     <AlertTitle>This account is suspended</AlertTitle>
                     <AlertDescription>
@@ -562,7 +638,7 @@ function ComputedAdvice({
             <div className="flex flex-col gap-2">
                 <h2 className="text-lg font-semibold">{view.headline}</h2>
                 {refreshFailureAlert}
-                {rebuyLagFailureAlert}
+                {inputFailureAlerts}
                 <Alert variant="warning">
                     <AlertTitle>{view.message}</AlertTitle>
                     <AlertDescription>
@@ -595,7 +671,7 @@ function ComputedAdvice({
         <div className="flex flex-col gap-6">
             <h2 className="text-lg font-semibold">Sizing advice</h2>
             {refreshFailureAlert}
-            {rebuyLagFailureAlert}
+            {inputFailureAlerts}
             <HeadlineCard view={view} />
             <p className="text-sm">
                 Next action: {ACCOUNT_ACTION_TEXT[view.action]}
@@ -722,6 +798,50 @@ function ComputedAdvice({
             </section>
         </div>
     );
+}
+
+function firmPayoutCountOf(args: {
+    readonly accounts: readonly LedgerAccountRow[] | undefined;
+    readonly events: readonly LedgerEventRow[] | undefined;
+    readonly firmId: null | string;
+    readonly payouts: readonly PayoutRow[] | undefined;
+    readonly payoutsFailure: null | string;
+    readonly today: string;
+    readonly userId: string | undefined;
+}): FirmPayoutCountOutcome {
+    const { accounts, events, firmId, payouts, payoutsFailure, today, userId } =
+        args;
+    if (payoutsFailure !== null) {
+        return { kind: FirmPayoutCountKind.Failed, message: payoutsFailure };
+    }
+    if (
+        accounts === undefined ||
+        events === undefined ||
+        payouts === undefined ||
+        userId === undefined
+    ) {
+        return { kind: FirmPayoutCountKind.Pending };
+    }
+    if (firmId === null) {
+        return { count: null, kind: FirmPayoutCountKind.Ready };
+    }
+    const computed = ledgerOrDateFailure(() =>
+        paidPayoutsSinceLastLiveAccountFor(
+            firmPayoutCounts(
+                PortfolioLedger.fromRows(userId, {
+                    accounts,
+                    events,
+                    fees: [],
+                    payouts,
+                }),
+                today,
+            ),
+            firmId,
+        ),
+    );
+    return computed.kind === OverviewSectionStatus.Ready
+        ? { count: computed.value, kind: FirmPayoutCountKind.Ready }
+        : { kind: FirmPayoutCountKind.Failed, message: computed.message };
 }
 
 function LoadingAdvice({ label }: { readonly label: string }) {

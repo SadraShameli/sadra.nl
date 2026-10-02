@@ -145,7 +145,11 @@ function withinNoiseReasons(
 ) {
     return advisor
         .assemble([
-            scoredResult(winner, AdviceSource.LadderSearchFresh, documentedScore),
+            scoredResult(
+                winner,
+                AdviceSource.LadderSearchFresh,
+                documentedScore,
+            ),
         ])
         .differenceReasons.flatMap((reason) =>
             reason.kind === DifferenceReason.WithinNoise ? [reason] : [],

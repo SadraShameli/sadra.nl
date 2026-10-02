@@ -137,7 +137,12 @@ describe('TradingInputs live-transfer hazard input (PT-73, F-V26)', () => {
         });
         openAdvanced();
         act(() => {
-            Reflect.set(HTMLInputElement.prototype, 'value', '0.3', hazardInput());
+            Reflect.set(
+                HTMLInputElement.prototype,
+                'value',
+                '0.3',
+                hazardInput(),
+            );
             hazardInput().dispatchEvent(new Event('input', { bubbles: true }));
         });
         expect(onChange).toHaveBeenCalledWith(0.3);

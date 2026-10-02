@@ -168,7 +168,9 @@ function basisOf(inputs: SimInputs): SharedBasis {
 
 function distinctDefined<Value>(values: readonly (undefined | Value)[]) {
     return [
-        ...new Set(values.filter((value): value is Value => value !== undefined)),
+        ...new Set(
+            values.filter((value): value is Value => value !== undefined),
+        ),
     ];
 }
 
@@ -242,7 +244,9 @@ function sharedBasisOf(inputs: readonly SimInputs[]): SharedBasis {
     if (first === undefined) {
         throw new RangeError('a copy group needs at least one member');
     }
-    for (const field of Object.keys(SHARED_BASIS_LABEL) as (keyof SharedBasis)[]) {
+    for (const field of Object.keys(
+        SHARED_BASIS_LABEL,
+    ) as (keyof SharedBasis)[]) {
         const distinct = distinctDefined<unknown>(
             bases.map((basis) => basis[field]),
         );

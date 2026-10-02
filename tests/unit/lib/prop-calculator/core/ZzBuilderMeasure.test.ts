@@ -1,5 +1,4 @@
 import { appendFileSync } from 'node:fs';
-
 import { expect, it } from 'vitest';
 
 import { ALL_FIRMS } from '~/lib/prop-calculator';
@@ -15,7 +14,8 @@ const plans = ALL_FIRMS.flatMap((firm) =>
     ),
 );
 const index = Number(process.env.PLAN_INDEX ?? '-1');
-const tail = process.env.TAIL === undefined ? undefined : Number(process.env.TAIL);
+const tail =
+    process.env.TAIL === undefined ? undefined : Number(process.env.TAIL);
 const tag = process.env.TAG ?? '';
 
 it('measure', async () => {
@@ -27,7 +27,10 @@ it('measure', async () => {
     await warmFirmsRegistryCache();
     const plan = plans[index];
     if (!plan) {
-        appendFileSync('/private/tmp/claude-501/-Users-sadrashameli-Personal-sadra-nl/1b264b7a-c902-4b3b-b522-d0676e267927/scratchpad/measure2.log', `COUNT ${plans.map((p, i) => `${i}:${p.id.firm}:${p.label}`).join(" ; ")}\n`);
+        appendFileSync(
+            '/private/tmp/claude-501/-Users-sadrashameli-Personal-sadra-nl/1b264b7a-c902-4b3b-b522-d0676e267927/scratchpad/measure2.log',
+            `COUNT ${plans.map((p, i) => `${i}:${p.id.firm}:${p.label}`).join(' ; ')}\n`,
+        );
         return;
     }
     const t = Date.now();
@@ -38,12 +41,15 @@ it('measure', async () => {
         feePerAttempt: dollars(0),
         maxActionMultiple: 1,
         maxTailCushionMultiple: tail,
-        meanHorizonDays: Number(process.env.HORIZON ?? "60"),
+        meanHorizonDays: Number(process.env.HORIZON ?? '60'),
         plan,
         rrRatio: 2,
         tradesPerDay: 2,
         winrate: 0.5,
     });
-    appendFileSync('/private/tmp/claude-501/-Users-sadrashameli-Personal-sadra-nl/1b264b7a-c902-4b3b-b522-d0676e267927/scratchpad/measure2.log', `${tag} #${index} ${plan.label} ${plan.id.firm}: states ${r.reachedStateCount} value ${r.initialValue} unconv ${r.unconvergedLevelCount} err ${r.valueErrorBound} sweeps ${r.sweepCount} ms ${Date.now() - t}\n`);
+    appendFileSync(
+        '/private/tmp/claude-501/-Users-sadrashameli-Personal-sadra-nl/1b264b7a-c902-4b3b-b522-d0676e267927/scratchpad/measure2.log',
+        `${tag} #${index} ${plan.label} ${plan.id.firm}: states ${r.reachedStateCount} value ${r.initialValue} unconv ${r.unconvergedLevelCount} err ${r.valueErrorBound} sweeps ${r.sweepCount} ms ${Date.now() - t}\n`,
+    );
     expect(true).toBe(true);
 }, 3_000_000);

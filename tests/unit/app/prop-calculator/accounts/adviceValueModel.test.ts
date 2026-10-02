@@ -2308,7 +2308,9 @@ describe('the value run note names the live-transfer hazard the run priced (PT-7
             spec: withoutPlanSerial(request.spec),
         });
 
-        expect(note).toContain('Live transfer: a hazard is entered in your rulebook');
+        expect(note).toContain(
+            'Live transfer: a hazard is entered in your rulebook',
+        );
         expect(note).toContain('could not be identified');
         expect(note).toContain('cannot say whether it was priced');
     });

@@ -346,8 +346,7 @@ describe('the from-state funded sweep runs every candidate through the personal 
         const unlimited = fromStateSweepResultOf(policyWith(null, null));
         const capped = fromStateSweepResultOf(policyWith(null, dollars(100)));
         if (
-            unlimited.sweep.kind !==
-                FundedFromStateOptimumResultKind.Optimum ||
+            unlimited.sweep.kind !== FundedFromStateOptimumResultKind.Optimum ||
             capped.sweep.kind !== FundedFromStateOptimumResultKind.Optimum
         ) {
             throw new Error('expected optima');

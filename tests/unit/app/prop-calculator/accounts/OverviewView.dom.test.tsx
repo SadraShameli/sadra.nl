@@ -440,7 +440,9 @@ async function settle() {
 }
 
 function sortedText(values: readonly string[]): string {
-    return values.toSorted((left, right) => left.localeCompare(right)).join('+');
+    return values
+        .toSorted((left, right) => left.localeCompare(right))
+        .join('+');
 }
 
 describe('OverviewView', () => {
@@ -1480,10 +1482,7 @@ describe('OverviewView', () => {
             answerWithSnapshot(alpha);
             harness.queries.set(
                 'account.list',
-                answer([
-                    alpha,
-                    overviewAccount('stray', { userId: 'user-b' }),
-                ]),
+                answer([alpha, overviewAccount('stray', { userId: 'user-b' })]),
             );
             render();
             await settle();
