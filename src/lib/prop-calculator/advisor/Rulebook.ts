@@ -61,6 +61,7 @@ export interface BankrollParameters {
 }
 
 export interface DisplayPreferences {
+    readonly nextPayoutHighlightDays: number;
     readonly riskUnit: RiskDisplayUnit;
 }
 
@@ -173,7 +174,10 @@ export const DEFAULT_RULEBOOK: RulebookParameters = {
         roundGapDays: 14,
         sessionHoursPerDay: null,
     },
-    display: { riskUnit: RiskDisplayUnit.AccountDollars },
+    display: {
+        nextPayoutHighlightDays: 7,
+        riskUnit: RiskDisplayUnit.AccountDollars,
+    },
     eval: {
         generalDerivation: { escalation: 1.5, firstRungFraction: 0.2 },
         ladderFractionSource: LadderFractionSource.GeneralDerivation,
@@ -334,6 +338,11 @@ const bankrollSchema = z.object({
     sessionHoursPerDay: z.number().gt(0).max(MAX_SESSION_HOURS).nullable(),
 });
 
+const displaySchema = z.object({
+    nextPayoutHighlightDays: z.number().int().min(1).max(MAX_DAY_COUNT),
+    riskUnit: z.enum(RiskDisplayUnit),
+});
+
 const evalSizingSchema = z.object({
     generalDerivation: z.object({
         escalation: z.number().positive().max(MAX_ESCALATION),
@@ -406,7 +415,7 @@ export const rulebookSchema = z
     .object({
         alerts: alertThresholdsSchema,
         bankroll: bankrollSchema,
-        display: z.object({ riskUnit: z.enum(RiskDisplayUnit) }),
+        display: displaySchema,
         eval: evalSizingSchema,
         execution: z.object({ maxTradesPerWindow: tradeCountSchema }),
         funded: fundedSizingSchema,

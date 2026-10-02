@@ -4,6 +4,8 @@ import { formatCurrency } from '~/lib/format';
 import {
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
+    NO_PERSONAL_CAPS,
+    type PersonalCaps,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -12,6 +14,7 @@ import {
     resolveDocumentedPayoutRequestSize,
     resolveDocumentedPlan,
     resolveDocumentedRetainedCushion,
+    toSimInputs,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
     accountAfterClosedSession,
@@ -32,6 +35,7 @@ import {
 } from '~/lib/prop-calculator/advisor/value/ValueChain';
 import { isValueResult } from '~/lib/prop-calculator/advisor/value/ValueEstimate';
 import {
+    dollars,
     FirmId,
     MffuVariant,
     newFundedCycleTracker,
@@ -1145,5 +1149,126 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
                 "Documented request $1,000.00 from the rulebook's payout size, raised from $500.00 to the firm minimum",
             );
         });
+    });
+});
+
+function cappedSpecFor(plan: Plan, caps: Partial<PersonalCaps>) {
+    return {
+        ...specFor(plan),
+        enginePolicy: {
+            ...policyFor(plan),
+            personalCaps: { ...NO_PERSONAL_CAPS, ...caps },
+        },
+    };
+}
+
+function textOf(
+    plan: Plan,
+    spec: DocumentedPolicySpec,
+    kind: ValueChainStepKind,
+) {
+    const step = valueChain(plan, spec).steps.find(
+        (candidate) => candidate.kind === kind,
+    );
+    return step?.assumptions.join('\n') ?? '';
+}
+
+describe('the value chain prints the funded sizing it simulates at the personal limits (PT-68g, F-V16)', () => {
+    it('names the capped funded risk and its take profit on every step, equal to the risk the simulator places', () => {
+        const plan = rapidEodPlan();
+        const spec = cappedSpecFor(plan, { maxRiskPerTrade: dollars(100) });
+        const { riskPerTrade } = toSimInputs(plan, spec);
+
+        expect(riskPerTrade).toBe(100);
+        for (const step of valueChain(plan, spec).steps) {
+            const text = step.assumptions.join('\n');
+            expect(text).toContain(
+                `funded risk ${formatCurrency(riskPerTrade, 2)} and take-profit ${formatCurrency(riskPerTrade * spec.rulebook.strategy.rr, 2)}`,
+            );
+            expect(text).not.toContain(
+                `funded risk ${formatCurrency(DEFAULT_RULEBOOK.funded.riskCents / 100, 2)} `,
+            );
+        }
+    });
+
+    it('prints the rulebook funded risk when the personal cap sits above it', () => {
+        const plan = rapidEodPlan();
+        const spec = cappedSpecFor(plan, { maxRiskPerTrade: dollars(5000) });
+
+        expect(textOf(plan, spec, ValueChainStepKind.FreshFunded)).toContain(
+            `funded risk ${formatCurrency(DEFAULT_RULEBOOK.funded.riskCents / 100, 2)} and take-profit`,
+        );
+    });
+
+    it('sizes the session comparison at the capped take profit and the personal trades per day', () => {
+        const plan = rapidEodPlan();
+        const spec = cappedSpecFor(plan, {
+            maxRiskPerTrade: dollars(100),
+            maxTradesPerDay: 2,
+        });
+
+        const text = textOf(plan, spec, ValueChainStepKind.FirstPayoutEligible);
+
+        expect(text).toMatch(
+            /would need \d+ take-profit wins? of \$200\.00, above your cap of 2 trades per day/,
+        );
+        expect(text).toContain('at most 2 trades per day');
+    });
+
+    it('prints the take profit the simulator places when the funded reward multiple differs from the strategy one', () => {
+        const plan = rapidEodPlan();
+        const base = cappedSpecFor(plan, { maxRiskPerTrade: dollars(100) });
+        const spec: DocumentedPolicySpec = {
+            ...base,
+            rulebook: {
+                ...base.rulebook,
+                funded: {
+                    ...base.rulebook.funded,
+                    takeProfitCents: base.rulebook.funded.riskCents * 3,
+                },
+            },
+        };
+        const simInputs = toSimInputs(plan, spec);
+
+        expect(simInputs.fundedRrRatio).toBe(3);
+        expect(spec.rulebook.strategy.rr).not.toBe(3);
+        for (const step of valueChain(plan, spec).steps) {
+            expect(step.assumptions.join('\n')).toContain(
+                'funded risk $100.00 and take-profit $300.00 per trade',
+            );
+        }
+        expect(
+            textOf(plan, spec, ValueChainStepKind.FirstPayoutEligible),
+        ).toMatch(/would need \d+ take-profit wins? of \$300\.00,/);
+    });
+
+    it('prints the uncapped take profit from the funded multiple too', () => {
+        const plan = rapidEodPlan();
+        const base = specFor(plan);
+        const spec: DocumentedPolicySpec = {
+            ...base,
+            rulebook: {
+                ...base.rulebook,
+                funded: {
+                    ...base.rulebook.funded,
+                    takeProfitCents: base.rulebook.funded.riskCents * 3,
+                },
+            },
+        };
+
+        expect(textOf(plan, spec, ValueChainStepKind.FreshFunded)).toContain(
+            'funded risk $250.00 and take-profit $750.00 per trade',
+        );
+    });
+
+    it('leaves the printed sizing of an account without personal limits untouched', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan);
+
+        expect(
+            textOf(plan, spec, ValueChainStepKind.FirstPayoutEligible),
+        ).toMatch(
+            /of \$500\.00, (?:above|within) your cap of 4 trades per day/,
+        );
     });
 });

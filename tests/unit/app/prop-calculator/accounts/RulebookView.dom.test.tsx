@@ -33,6 +33,8 @@ const harness = vi.hoisted(() => {
     };
     return {
         invalidate: vi.fn(() => Promise.resolve()),
+        measured: {},
+        measuredStatus: { failed: false, pending: false },
         reset: vi.fn(() => Promise.resolve({ ok: true })),
         rulebookQuery,
         toastError: vi.fn(),
@@ -71,6 +73,16 @@ vi.mock('~/trpc/react', () => ({
         }),
     },
 }));
+
+vi.mock(
+    '~/app/(app)/prop-calculator/accounts/rulebook/useMeasuredHazards',
+    () => ({
+        useMeasuredHazards: () => ({
+            ...harness.measuredStatus,
+            measured: harness.measured,
+        }),
+    }),
+);
 
 vi.mock('sonner', () => ({
     toast: { error: harness.toastError, success: harness.toastSuccess },
@@ -712,7 +724,18 @@ describe('RulebookView v2 sections', () => {
         expect(inputLabelled('Typical edge up to').value).toBe('0.3');
         expect(inputLabelled('Strong edge up to').value).toBe('0.35');
         expect(itemOf('Show risk as').textContent).toContain('Account dollars');
+        expect(inputLabelled('Highlight a next payout within').value).toBe('7');
         expect(inputLabelled('My Funded Futures').value).toBe('');
+    });
+
+    it('saves the next payout highlight window the user sets, in whole days', async () => {
+        typeInto(inputLabelled('Highlight a next payout within'), '10');
+        await save();
+
+        expect(harness.upsert).toHaveBeenCalledWith({
+            ...DEFAULT_RULEBOOK,
+            display: { ...DEFAULT_RULEBOOK.display, nextPayoutHighlightDays: 10 },
+        });
     });
 
     it('saves the thresholds and firm hazards the user sets, as fractions', async () => {
@@ -776,5 +799,188 @@ describe('RulebookView v2 sections', () => {
         expect(itemOf('Typical edge up to').textContent).toContain(
             'must not exceed the strong one',
         );
+    });
+});
+
+describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.rulebookQuery = answered(DEFAULT_RULEBOOK);
+        harness.measured = {};
+        harness.measuredStatus = { failed: false, pending: false };
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+        vi.unstubAllGlobals();
+        harness.measured = {};
+        harness.measuredStatus = { failed: false, pending: false };
+    });
+
+    function render() {
+        act(() => {
+            root.render(<RulebookView tradingPlan={READY_PLAN} />);
+        });
+    }
+
+    function hazardItem(label: string): HTMLElement {
+        const labelElement = [...container.querySelectorAll('label')].find(
+            (candidate) => candidate.textContent.startsWith(label),
+        );
+        const item = labelElement?.parentElement;
+        if (item === null || item === undefined) {
+            throw new TypeError(`no form item for ${label}`);
+        }
+        return item;
+    }
+
+    it('shows no measured line while nothing was measured', () => {
+        render();
+        expect(container.textContent).not.toContain('Measured:');
+    });
+
+    it('shows the measured rate with its counts under the firm field and offers it as a prefill', () => {
+        harness.measured = {
+            mffu: {
+                movedLiveCount: 3,
+                paidPayouts: 20,
+                rate: 0.15,
+                suggestedText: '15',
+            },
+        };
+        render();
+        const item = hazardItem('My Funded Futures');
+        expect(item.textContent).toContain(
+            'Measured: 15.0% per paid payout (3 sent live in 20 paid payouts)',
+        );
+        expect(buttonIn(item, 'Use 15%')).toBeDefined();
+    });
+
+    it('fills the field with the measured rate only when the user asks, and leaves it empty before', () => {
+        harness.measured = {
+            mffu: {
+                movedLiveCount: 3,
+                paidPayouts: 20,
+                rate: 0.15,
+                suggestedText: '15',
+            },
+        };
+        render();
+        const input = (): HTMLInputElement => {
+            const found = hazardItem('My Funded Futures').querySelector('input');
+            if (found === null) throw new TypeError('no hazard input');
+            return found;
+        };
+        expect(input().value).toBe('');
+        click(requireButton(hazardItem('My Funded Futures'), 'Use 15%'));
+        expect(input().value).toBe('15');
+    });
+
+    it('shows a firm with no transfers seen but offers no prefill, since 0 is not accepted', () => {
+        harness.measured = {
+            mffu: {
+                movedLiveCount: 0,
+                paidPayouts: 12,
+                rate: 0,
+                suggestedText: null,
+            },
+        };
+        render();
+        const item = hazardItem('My Funded Futures');
+        expect(item.textContent).toContain(
+            'Measured: 0.0% per paid payout (0 sent live in 12 paid payouts)',
+        );
+        expect(item.querySelector('button')).toBeNull();
+    });
+
+    it('says the measurement is history, not a firm rule', () => {
+        harness.measured = {
+            mffu: {
+                movedLiveCount: 3,
+                paidPayouts: 20,
+                rate: 0.15,
+                suggestedText: '15',
+            },
+        };
+        render();
+        expect(hazardItem('My Funded Futures').textContent).toContain(
+            'from your own ledger',
+        );
+    });
+
+    it('names the firm on each prefill button so assistive technology can tell them apart', () => {
+        const measured = {
+            movedLiveCount: 3,
+            paidPayouts: 20,
+            rate: 0.15,
+            suggestedText: '15',
+        };
+        harness.measured = { apex: measured, mffu: measured };
+        render();
+        const labels = [...container.querySelectorAll('button')]
+            .map((button) => button.getAttribute('aria-label'))
+            .filter((label) => label?.startsWith('Use 15%'));
+        expect(labels).toHaveLength(2);
+        expect(new Set(labels).size).toBe(2);
+        expect(
+            requireButton(hazardItem('My Funded Futures'), 'Use 15%').getAttribute(
+                'aria-label',
+            ),
+        ).toBe('Use 15% for My Funded Futures');
+    });
+
+    it('says a hazard entered for a firm is applied to every simulation built from the rulebook for that firm', () => {
+        render();
+        const text = container.textContent;
+        expect(text).toContain(
+            "applied to every simulation built from your rulebook for that firm's accounts",
+        );
+        expect(text).toContain("the advisor's account value runs");
+        expect(text).toContain('the payout planner and its withdrawal-size table');
+        expect(text).toContain(
+            'the overview projections and next-payout figures',
+        );
+        expect(text).toContain('retire comparisons, risk candidates');
+        expect(text).toContain('copy-group runs');
+        expect(text).toContain('A firm with no rate is priced with none');
+        expect(text).not.toContain('not yet used by any calculation');
+        expect(text).not.toContain('keep its transfers unpriced');
+    });
+
+    it('says only the advisor run note states the hazard beside its figures, so the other surfaces do not hide it', () => {
+        render();
+        expect(container.textContent).toContain(
+            "Only the advisor's run note states it beside its figures; the other surfaces apply it without repeating it",
+        );
+    });
+
+    it('says the measured rates are unavailable when the ledger could not be loaded', () => {
+        harness.measuredStatus = { failed: true, pending: false };
+        render();
+        expect(container.textContent).toContain(
+            'Measured rates unavailable: your ledger could not be loaded',
+        );
+    });
+
+    it('says the measured rates are loading while the ledger is read', () => {
+        harness.measuredStatus = { failed: false, pending: true };
+        render();
+        expect(container.textContent).toContain('Loading your measured rates');
+        expect(container.textContent).not.toContain('Measured rates unavailable');
+    });
+
+    it('shows neither notice when the rates were read', () => {
+        render();
+        expect(container.textContent).not.toContain('Loading your measured rates');
+        expect(container.textContent).not.toContain('Measured rates unavailable');
     });
 });

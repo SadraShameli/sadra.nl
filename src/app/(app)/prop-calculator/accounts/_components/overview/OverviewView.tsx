@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { type ReactNode, useMemo } from 'react';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
-import { AccountsTable } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
+import { AccountsTableWithValues } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
+import { useAccountValuesWithEngine } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader } from '~/components/ui/Card';
@@ -26,9 +27,11 @@ import { CapUsageCard } from './CapUsageCard';
 import { CostCard } from './CostCard';
 import { CushionBoardCard } from './CushionBoardCard';
 import { DiversificationCard } from './DiversificationCard';
+import { EvSourcesCard } from './EvSourcesCard';
 import { ExpectedNetCard } from './ExpectedNetCard';
 import { ExposureCard } from './ExposureCard';
 import { FirmReturnsCard } from './FirmReturnsCard';
+import { FirmsTile } from './FirmsTile';
 import { FundedPayoutsCard } from './FundedPayoutsCard';
 import { FunnelCard } from './FunnelCard';
 import { KpiRow } from './KpiRow';
@@ -39,7 +42,9 @@ import {
     overviewAccountRequestsOf,
     type OverviewAlerts,
     type OverviewBoards,
+    type OverviewConcentration,
     overviewEngineRequestsOf,
+    type OverviewEvSources,
     type OverviewExposure,
     type OverviewLedgerCards,
     type OverviewModel,
@@ -48,21 +53,25 @@ import {
     type OverviewProjection,
     overviewProjectionRequestsOf,
     OverviewSectionStatus,
+    type OverviewSetup,
+    overviewValueRequestsOf,
     type OverviewViolations,
+    type PortfolioLoad,
     type PortfolioLoadIssue,
     PortfolioSource,
 } from './overviewModel';
 import { PayoutSizesCard } from './PayoutSizesCard';
 import { PooledCapCard } from './PooledCapCard';
+import { ProfitConcentrationCard } from './ProfitConcentrationCard';
 import { ProjectionCard } from './ProjectionCard';
 import { ReadinessBoardCard } from './ReadinessBoardCard';
 import { RealizedOutcomesCard } from './RealizedOutcomesCard';
 import { RepeatabilityCard } from './RepeatabilityCard';
 import { ReplacementCard } from './ReplacementCard';
+import { SetupChecklistCard } from './SetupChecklistCard';
 import { StatementCard } from './StatementCard';
 import { TiltVarianceCard } from './TiltVarianceCard';
 import { TimelineCard } from './TimelineCard';
-import { useOverviewWorker } from './useOverviewWorker';
 import { usePortfolioData } from './usePortfolioData';
 import { ViolationsCard } from './ViolationsCard';
 
@@ -76,10 +85,14 @@ export function OverviewView({ userId }: { readonly userId: string }) {
             ...overviewEngineRequestsOf(load, userId),
             ...overviewProjectionRequestsOf(load, userId),
             ...overviewAccountRequestsOf(load, userId, today),
+            ...overviewValueRequestsOf(load, userId),
         ],
         [load, today, userId],
     );
-    const engine = useOverviewWorker(engineRequests);
+    const { engine, values } = useAccountValuesWithEngine({
+        extraRequests: engineRequests,
+        userId,
+    });
     const model = useMemo(
         () =>
             buildOverview({
@@ -127,9 +140,15 @@ export function OverviewView({ userId }: { readonly userId: string }) {
                 {load.accounts.status === OverviewSectionStatus.Pending && (
                     <SectionSkeleton label="Loading your overview" />
                 )}
-                {model.hasAccounts && <OverviewSections model={model} />}
+                {model.hasAccounts && (
+                    <OverviewSections
+                        load={load}
+                        model={model}
+                        userId={userId}
+                    />
+                )}
                 {load.accounts.status === OverviewSectionStatus.Ready && (
-                    <AccountsTable />
+                    <AccountsTableWithValues values={values} />
                 )}
             </div>
         </>
@@ -213,6 +232,28 @@ function BoardsSections({ boards }: { readonly boards: OverviewBoards }) {
     }
 }
 
+function ConcentrationSection({
+    concentration,
+}: {
+    readonly concentration: OverviewConcentration;
+}) {
+    return (
+        <OverviewSection id="profit-concentration" title="Profit concentration">
+            {concentration.kind === OverviewSectionStatus.Ready && (
+                <ProfitConcentrationCard model={concentration.model} />
+            )}
+            {concentration.kind === OverviewSectionStatus.Pending && (
+                <SectionSkeleton label="Loading the profit concentration" />
+            )}
+            {concentration.kind === OverviewSectionStatus.Failed && (
+                <p className="text-sm text-destructive">
+                    {concentration.message}
+                </p>
+            )}
+        </OverviewSection>
+    );
+}
+
 function ExposureSection({
     exposure,
 }: {
@@ -235,10 +276,12 @@ function ExposureSection({
 
 function LedgerSections({
     cards,
+    evSources,
     nextPayout,
     projection,
 }: {
     readonly cards: OverviewLedgerCards;
+    readonly evSources: OverviewEvSources;
     readonly nextPayout: OverviewNextPayout;
     readonly projection: OverviewProjection;
 }) {
@@ -246,6 +289,19 @@ function LedgerSections({
         <>
             <OverviewSection id="expected-net" title="Expected net">
                 <ExpectedNetCard model={cards.expectedNet} />
+            </OverviewSection>
+            <OverviewSection id="ev-sources" title="Where EV comes from">
+                {evSources.kind === OverviewSectionStatus.Ready && (
+                    <EvSourcesCard model={evSources.model} />
+                )}
+                {evSources.kind === OverviewSectionStatus.Pending && (
+                    <SectionSkeleton label="Loading where EV comes from" />
+                )}
+                {evSources.kind === OverviewSectionStatus.Failed && (
+                    <p className="text-sm text-destructive">
+                        {evSources.message}
+                    </p>
+                )}
             </OverviewSection>
             <OverviewSection
                 id="fresh-start-projection"
@@ -410,7 +466,15 @@ function OverviewSection({
     );
 }
 
-function OverviewSections({ model }: { readonly model: OverviewModel }) {
+function OverviewSections({
+    load,
+    model,
+    userId,
+}: {
+    readonly load: PortfolioLoad;
+    readonly model: OverviewModel;
+    readonly userId: string;
+}) {
     const { ledger } = model;
     switch (ledger.kind) {
         case OverviewSectionStatus.Failed: {
@@ -438,21 +502,27 @@ function OverviewSections({ model }: { readonly model: OverviewModel }) {
         case OverviewSectionStatus.Ready: {
             return (
                 <>
+                    <SetupSection setup={model.setup} />
                     <OverviewSection id="kpis" title="Key figures">
                         <KpiRow kpis={ledger.kpis} />
                     </OverviewSection>
                     <OverviewSection id="bankroll" title="Bankroll">
                         <BankrollCard model={ledger.bankroll} />
                     </OverviewSection>
+                    <OverviewSection id="firms" title="Firms">
+                        <FirmsTile load={load} userId={userId} />
+                    </OverviewSection>
                     <AlertsSection alerts={model.alerts} />
                     <BoardsSections boards={model.boards} />
                     <ExposureSection exposure={model.exposure} />
+                    <ConcentrationSection concentration={model.concentration} />
                     <ViolationsSummarySection violations={model.violations} />
                     <OverviewSection id="notes" title="Data notes">
                         <NoticeList notices={ledger.notices} />
                     </OverviewSection>
                     <LedgerSections
                         cards={ledger}
+                        evSources={model.evSources}
                         nextPayout={model.nextPayout}
                         projection={model.projection}
                     />
@@ -481,6 +551,27 @@ function SectionSkeleton({ label }: { readonly label: string }) {
         <div aria-busy="true" aria-label={label}>
             <Skeleton className="h-64 w-full" />
         </div>
+    );
+}
+
+function SetupSection({ setup }: { readonly setup: OverviewSetup }) {
+    if (setup.kind === OverviewSectionStatus.Failed) {
+        return (
+            <OverviewSection id="setup" title="Setup checklist">
+                <p className="text-sm text-destructive">{setup.message}</p>
+            </OverviewSection>
+        );
+    }
+    if (
+        setup.kind === OverviewSectionStatus.Pending ||
+        setup.model.isComplete
+    ) {
+        return null;
+    }
+    return (
+        <OverviewSection id="setup" title="Setup checklist">
+            <SetupChecklistCard model={setup.model} />
+        </OverviewSection>
     );
 }
 

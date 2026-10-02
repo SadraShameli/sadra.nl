@@ -100,6 +100,7 @@ function fundedAdvisor(
         fundedHorizonDays: 252,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
         trials: 20,
     });
@@ -155,6 +156,7 @@ describe('advisorWorkerMessages (PT-34)', () => {
             rulebook: DEFAULT_RULEBOOK,
             sims: 20,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
         });
         const [ladderRequest] = evalAdvisor.optimumRequests();
@@ -376,6 +378,36 @@ describe('advisor value requests (PT-67)', () => {
         expect(advisorWorkerCacheKey({ ...base, values: a })).not.toBe(
             advisorWorkerCacheKey({ ...base, values: moved }),
         );
+    });
+
+    it('changes the cache key when the rulebook live-transfer hazard changes, so a stale value is never reused (PT-73b)', () => {
+        const base = workerRequestOf([]);
+        const values = valueRequestOf(fundedAccount());
+        const withHazard = (hazard: number): AdvisorValueRequest => ({
+            ...values,
+            spec: {
+                ...values.spec,
+                rulebook: {
+                    ...values.spec.rulebook,
+                    liveTransfer: {
+                        hazardPerPaidPayoutByFirm: { [FirmId.TopStep]: hazard },
+                    },
+                },
+            },
+        });
+
+        const none = advisorWorkerCacheKey({ ...base, values });
+        const thirty = advisorWorkerCacheKey({
+            ...base,
+            values: withHazard(0.3),
+        });
+        const forty = advisorWorkerCacheKey({
+            ...base,
+            values: withHazard(0.4),
+        });
+
+        expect(thirty).not.toBe(none);
+        expect(forty).not.toBe(thirty);
     });
 
     it('computes the value now, a swing per rung and the ranked candidates exactly as the library does', () => {

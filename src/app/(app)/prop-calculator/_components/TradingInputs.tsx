@@ -76,6 +76,7 @@ interface TradingInputsProperties {
     idleDayProbability: number;
     instrument: InstrumentSymbol | null;
     linkActivationDiscount: boolean;
+    liveTransferHazard: number;
     maxAttempts: number;
     maxCopyAccounts: number;
     maxEvalDays: number;
@@ -88,6 +89,7 @@ interface TradingInputsProperties {
     onIdleDayProbabilityChange: (n: number) => void;
     onInstrumentChange: (instrument: InstrumentSymbol | null) => void;
     onLinkActivationDiscountChange: (isLinked: boolean) => void;
+    onLiveTransferHazardChange: (n: number) => void;
     onMaxAttemptsChange: (n: number) => void;
     onMaxEvalDaysChange: (n: number) => void;
     onMonthlySubscriptionDiscountPercentChange: (n: number) => void;
@@ -146,6 +148,7 @@ export default function TradingInputs({
     idleDayProbability,
     instrument,
     linkActivationDiscount,
+    liveTransferHazard,
     maxAttempts,
     maxCopyAccounts,
     maxEvalDays,
@@ -158,6 +161,7 @@ export default function TradingInputs({
     onIdleDayProbabilityChange,
     onInstrumentChange,
     onLinkActivationDiscountChange,
+    onLiveTransferHazardChange,
     onMaxAttemptsChange,
     onMaxEvalDaysChange,
     onMonthlySubscriptionDiscountPercentChange,
@@ -495,6 +499,41 @@ export default function TradingInputs({
                                     matters for plans with a modeled
                                     inactivity-closure rule (e.g. MFFU Rapid
                                     EOD).
+                                </p>
+                            </div>
+                            <div>
+                                <label
+                                    className="mb-1 block text-xs font-medium text-muted-foreground"
+                                    htmlFor="live-transfer-hazard"
+                                >
+                                    Live-transfer hazard per paid payout
+                                </label>
+                                <Input
+                                    id="live-transfer-hazard"
+                                    max={1}
+                                    min={0}
+                                    onChange={(event) =>
+                                        onLiveTransferHazardChange(
+                                            Number(event.target.value),
+                                        )
+                                    }
+                                    step={0.01}
+                                    type="number"
+                                    value={liveTransferHazard}
+                                />
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    The chance, after each paid payout, that
+                                    the firm sends the account live, which ends
+                                    its simulated payouts. It is your
+                                    assumption, not a firm rule. 0 leaves
+                                    transfers unpriced, as before. Only the
+                                    strategy lab uses it; the results, sizing,
+                                    compare and the other tools stay unpriced.
+                                    In the lab, a scenario with an instrument
+                                    and stop points on a plan with a verified
+                                    live plan continues the account through it;
+                                    otherwise the rest of a transferred account
+                                    is valued at $0.
                                 </p>
                             </div>
                             <div>

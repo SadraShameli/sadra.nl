@@ -1,8 +1,14 @@
 import { z } from 'zod';
 
 import {
+    type PersonalCaps,
+    personalCapsSchema,
+    positiveDollarsSchema,
+} from '~/lib/prop-calculator/advisor/PersonalCaps';
+import {
     CENT_ROUNDING_TOLERANCE_IN_CENTS,
     CENTS_PER_DOLLAR,
+    type Dollars,
     InstrumentSymbol,
 } from '~/lib/prop-calculator/core';
 
@@ -28,6 +34,8 @@ export interface EnginePolicy {
     readonly lifetimePayoutCapBasis: LifetimePayoutCapBasis;
     readonly lifetimePayoutCapOverride: null | number;
     readonly payoutRequestOverride: null | number;
+    readonly personalCaps?: PersonalCaps;
+    readonly personalDll?: Dollars | null;
     readonly rebuyLagBasis: RebuyLagBasis;
     readonly rebuyLagDays: number;
     readonly retainedCushionRequest: null | number;
@@ -62,6 +70,8 @@ export const enginePolicySchema = z
                 message: 'must be more than zero',
             })
             .nullable(),
+        personalCaps: personalCapsSchema.optional(),
+        personalDll: positiveDollarsSchema.nullable().optional(),
         rebuyLagBasis: z.enum(RebuyLagBasis),
         rebuyLagDays: z.number().nonnegative(),
         retainedCushionRequest: wholeCentDollarsSchema.nullable(),
@@ -103,6 +113,24 @@ export const enginePolicySchema = z
             });
         }
     }) satisfies z.ZodType<EnginePolicy>;
+
+export function hasDayLimits(policy: EnginePolicy): boolean {
+    return (
+        (policy.personalCaps?.dailyProfitCap ?? null) !== null ||
+        (policy.personalDll ?? null) !== null
+    );
+}
+
+export function hasPersonalCaps(
+    caps: PersonalCaps | undefined,
+): caps is PersonalCaps {
+    return (
+        caps !== undefined &&
+        (caps.dailyProfitCap !== null ||
+            caps.maxRiskPerTrade !== null ||
+            caps.maxTradesPerDay !== null)
+    );
+}
 
 function isWholeCents(amount: number): boolean {
     const cents = amount * CENTS_PER_DOLLAR;

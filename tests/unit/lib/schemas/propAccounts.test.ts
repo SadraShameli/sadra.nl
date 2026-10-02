@@ -41,6 +41,7 @@ import {
     scenarioSaveSchema,
     snapshotBulkCreateSchema,
     snapshotCreateSchema,
+    violationListSchema,
 } from '~/lib/schemas/propAccounts';
 
 function registryEntry(isMatch: (plan: Plan) => boolean): {
@@ -967,6 +968,25 @@ describe('fee schemas', () => {
             true,
         );
         expect(isAccepted(ledgerListSchema, { accountId: 'x' })).toBe(false);
+    });
+
+    it('violation lists take an optional account id and an optional occurred-from date', () => {
+        expect(violationListSchema.safeParse({}).success).toBe(true);
+        expect(
+            violationListSchema.parse({
+                accountId: ACCOUNT_ID,
+                occurredFrom: '2026-09-15',
+            }),
+        ).toEqual({ accountId: ACCOUNT_ID, occurredFrom: '2026-09-15' });
+        expect(
+            isAccepted(violationListSchema, { occurredFrom: '2026-9-15' }),
+        ).toBe(false);
+        expect(
+            isAccepted(violationListSchema, { occurredFrom: '2026-02-30' }),
+        ).toBe(false);
+        expect(isAccepted(violationListSchema, { occurredFrom: null })).toBe(
+            false,
+        );
     });
 });
 

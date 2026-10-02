@@ -1,6 +1,6 @@
 import { payoutBlockReasonText } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
-import { assumptionLabel } from '~/app/(app)/prop-calculator/accounts/_components/detail/detailState';
 import { formatCurrency } from '~/lib/format';
+import { type Dollars } from '~/lib/prop-calculator';
 import {
     type AccountAction,
     type Advice,
@@ -9,7 +9,7 @@ import {
     AdviceStalenessReason,
     type Assumption,
     type AssumptionBias,
-    AssumptionKind,
+    assumptionText,
     type DailyPlanCard,
     DAY_STOP_REASON_TEXT,
     type DifferenceReason,
@@ -20,15 +20,25 @@ import {
     type FirmMinimumAboveRequestNotice,
     FundedFromStateOptimumResultKind,
     FundedSweepOptimumResultKind,
-    type LadderGridRefusal,
+    type LadderEngineOptimumResult,
+    LadderEngineOptimumResultKind,
+    ladderRefusalText,
+    NEXT_PAYOUT_AMONG_PAYING_TEXT,
+    NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+    NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
+    nextPayoutEvidenceText,
+    type NextPayoutProjectionEngineOptimumResult,
+    NextPayoutTimingKind,
+    nextPayoutTimingOf,
     type PayoutAdvice,
     type PayoutRequestDecision,
     PayoutRequestDecisionKind,
     PayoutSizeSweepResultKind,
     type PayoutWait,
     PayoutWaitBasis,
-    RetainedCushionBasis,
-    SIZING_ASSUMPTION_TEXT,
+    type PersonalCaps,
+    personalPayoutOverrideWarningText,
+    RETAINED_CUSHION_BASIS_TEXT,
     SIZING_CONSTRAINT_TEXT,
     type SizingStage,
     StartBasis,
@@ -82,6 +92,12 @@ export interface PayoutAdviceViewModel {
     readonly engineHorizonCredit: null | number;
     readonly netAfterSplit: null | number;
     readonly noticeText: null | string;
+    readonly personalOverrideWarningText: null | string;
+}
+
+export interface PersonalLimits {
+    readonly caps: PersonalCaps;
+    readonly dailyLossLimit: Dollars | null;
 }
 
 export type ProvenanceView = AdviceProvenance;
@@ -134,14 +150,13 @@ const STALE_REASON_TEXT: Readonly<Record<AdviceStalenessReason, string>> = {
         'More than one trading session has passed since the last balance entry.',
 };
 
-const RETAINED_CUSHION_BASIS_TEXT: Readonly<
-    Record<RetainedCushionBasis, string>
-> = {
-    [RetainedCushionBasis.HardRule2Default]: "Hard Rule 2's default",
-    [RetainedCushionBasis.LiveOneDrawdown]: 'one live drawdown',
-    [RetainedCushionBasis.PersonalOverride]: 'your personal override',
-    [RetainedCushionBasis.RulebookSize]: 'your rulebook size',
-};
+const CLAUSE_LIST = new Intl.ListFormat('en', {
+    style: 'long',
+    type: 'conjunction',
+});
+
+const LADDER_LIMITS_TEXT =
+    'The ladder is cut to fit: every win and loss path of the day stays inside the limits, and rungs are not rounded to the grid step.';
 
 const REQUEST_SOURCE_LABEL: Readonly<
     Record<EngineOptimumRequest['source'], string>
@@ -154,7 +169,10 @@ const REQUEST_SOURCE_LABEL: Readonly<
     [AdviceSource.PayoutSizeSweep]: 'Payout-size sweep',
 };
 
-export function adviceViewModel(advice: Advice): AdviceViewModel {
+export function adviceViewModel(
+    advice: Advice,
+    limits: PersonalLimits,
+): AdviceViewModel {
     const headline = `${advice.headline}, as of ${advice.provenance.snapshotDate}`;
     const { action } = accountActionFor(advice);
     if (advice.staleness.kind === 'stale') {
@@ -173,7 +191,7 @@ export function adviceViewModel(advice: Advice): AdviceViewModel {
     return {
         action,
         assumptions: advice.assumptions.map((assumption) =>
-            assumptionViewOf(assumption, advice.requests),
+            assumptionViewOf(assumption),
         ),
         dailyPlanCard:
             advice.dailyPlanCard === null
@@ -182,7 +200,9 @@ export function adviceViewModel(advice: Advice): AdviceViewModel {
         documented: advice.documented,
         headline,
         kind: AdviceDisplayKind.Ready,
-        optima: advice.optima.map(optimumRowOf),
+        optima: advice.optima.map((result) =>
+            withLimitsNote(optimumRowOf(result), result.source, limits),
+        ),
         payoutAdvice:
             advice.payoutAdvice === null
                 ? null
@@ -203,29 +223,26 @@ export function leftOutOptimumRow(
     return leftOutRow(source, REQUEST_SOURCE_LABEL[source], reason);
 }
 
-function assumptionTextOf(
-    assumption: Assumption,
-    requests: readonly EngineOptimumRequest[],
-): string {
-    if (assumption.kind === AssumptionKind.SizingRule) {
-        return SIZING_ASSUMPTION_TEXT[assumption.sizingAssumption];
-    }
-    const label = assumptionLabel(assumption.kind);
-    if (assumption.kind !== AssumptionKind.LadderStepWidened) return label;
-    const step = ladderStepOf(requests);
-    return step === null
-        ? label
-        : `${label} It searched in ${formatCurrency(step, 0)} steps.`;
+function appliedLimitsNoteOf(limits: PersonalLimits): null | string {
+    const parts = dayLimitParts(limits);
+    if (parts.length === 0) return null;
+    const reaches = parts.length === 2 ? 'either' : 'it';
+    const clauses = [
+        `a day ends once it reaches ${reaches}`,
+        `the last trade is sized so it cannot cross ${reaches}`,
+        ...(limits.dailyLossLimit === null
+            ? []
+            : [
+                  'a win does not give loss room back',
+                  'commission is not counted against the loss limit',
+                  "the plan's own daily loss limit and cushion are handled by the simulator",
+              ]),
+    ];
+    return `Simulated under your ${parts.join(' and ')}: ${CLAUSE_LIST.format(clauses)}.`;
 }
 
-function assumptionViewOf(
-    assumption: Assumption,
-    requests: readonly EngineOptimumRequest[],
-): AssumptionView {
-    return {
-        bias: assumption.bias,
-        text: assumptionTextOf(assumption, requests),
-    };
+function assumptionViewOf(assumption: Assumption): AssumptionView {
+    return { bias: assumption.bias, text: assumptionText(assumption) };
 }
 
 function dailyPlanCardViewOf(card: DailyPlanCard): DailyPlanCardViewModel {
@@ -246,6 +263,18 @@ function dailyPlanCardViewOf(card: DailyPlanCard): DailyPlanCardViewModel {
         valueAfterWin: card.valueAfterWin,
         valueNow: card.valueNow,
     };
+}
+
+function dayLimitParts(limits: PersonalLimits): readonly string[] {
+    const { caps, dailyLossLimit } = limits;
+    return [
+        ...(dailyLossLimit === null
+            ? []
+            : [`daily loss limit ${formatCurrency(dailyLossLimit, 2)}`]),
+        ...(caps.dailyProfitCap === null
+            ? []
+            : [`daily profit cap ${formatCurrency(caps.dailyProfitCap, 2)}`]),
+    ];
 }
 
 function firmMinimumNoticeText(notice: FirmMinimumAboveRequestNotice): string {
@@ -269,22 +298,34 @@ function fundedRefusalText(refusal: FundedCandidateRefusalDetail): string {
     }
 }
 
-function ladderRefusalText(refusal: LadderGridRefusal): string {
-    return `ladder search not run: grid too large (${refusal.size.toLocaleString('en-US')} ladders, above the ${refusal.limit.toLocaleString('en-US')} limit).`;
-}
-
-function ladderStepOf(
-    requests: readonly EngineOptimumRequest[],
-): null | number {
-    for (const request of requests) {
-        if (
-            request.source === AdviceSource.LadderSearchFresh ||
-            request.source === AdviceSource.LadderSearchFromState
-        ) {
-            return request.grid.step;
+function ladderOptimumRowOf(result: LadderEngineOptimumResult): OptimumRowView {
+    switch (result.kind) {
+        case LadderEngineOptimumResultKind.Refused: {
+            return leftOutRow(
+                result.source,
+                REQUEST_SOURCE_LABEL[result.source],
+                `${ladderRefusalText(result.refusal)}.`,
+            );
+        }
+        case LadderEngineOptimumResultKind.Scored: {
+            const winner = result.ladder.bySpeed[0];
+            if (winner === undefined) {
+                return leftOutRow(
+                    result.source,
+                    REQUEST_SOURCE_LABEL[result.source],
+                    'No ladder scored within the grid.',
+                );
+            }
+            return {
+                label: REQUEST_SOURCE_LABEL[result.source],
+                source: result.source,
+                standardError: winner.expectedDaysToFundedStandardError,
+                status: OptimumRowStatus.Ready,
+                text: `Pass rate ${(winner.passRate * 100).toFixed(1)}%, ${winner.expectedDaysToFunded.toFixed(1)} days to funded, cost per funded ${formatCurrency(winner.costPerFunded, 2)}.`,
+                value: winner.expectedDaysToFunded,
+            };
         }
     }
-    return null;
 }
 
 function leftOutRow(
@@ -300,6 +341,63 @@ function leftOutRow(
         text: `Left out: ${issue}`,
         value: null,
     };
+}
+
+function limitsNoteOf(
+    source: EngineOptimumRunnerResult['source'],
+    limits: PersonalLimits,
+): null | string {
+    switch (source) {
+        case AdviceSource.FundedSweepFresh:
+        case AdviceSource.FundedSweepFromState:
+        case AdviceSource.NextPayoutProjection:
+        case AdviceSource.PayoutSizeSweep: {
+            return appliedLimitsNoteOf(limits);
+        }
+        case AdviceSource.LadderSearchFresh:
+        case AdviceSource.LadderSearchFromState: {
+            const note = appliedLimitsNoteOf(limits);
+            return note === null ? null : `${note} ${LADDER_LIMITS_TEXT}`;
+        }
+    }
+}
+
+function nextPayoutProjectionRowOf(
+    result: NextPayoutProjectionEngineOptimumResult,
+): OptimumRowView {
+    const { projection } = result;
+    const timing = nextPayoutTimingOf(projection);
+    const row = {
+        label: REQUEST_SOURCE_LABEL[result.source],
+        source: result.source,
+        status: OptimumRowStatus.Ready,
+    };
+    switch (timing.kind) {
+        case NextPayoutTimingKind.AlreadyEligible: {
+            return {
+                ...row,
+                standardError: null,
+                text: `${NEXT_PAYOUT_ELIGIBLE_NOW_TEXT} (${nextPayoutEvidenceText(projection)}).`,
+                value: null,
+            };
+        }
+        case NextPayoutTimingKind.InDays: {
+            return {
+                ...row,
+                standardError: timing.sessionDays.standardError,
+                text: `Expected ${timing.sessionDays.value.toFixed(1)} sessions to the first payout ${NEXT_PAYOUT_AMONG_PAYING_TEXT} (${nextPayoutEvidenceText(projection)}).`,
+                value: timing.sessionDays.value,
+            };
+        }
+        case NextPayoutTimingKind.NoTrialPaid: {
+            return {
+                ...row,
+                standardError: null,
+                text: `${NEXT_PAYOUT_NO_TRIAL_PAID_TEXT} (${nextPayoutEvidenceText(projection)}).`,
+                value: null,
+            };
+        }
+    }
 }
 
 function optimumRowOf(result: EngineOptimumRunnerResult): OptimumRowView {
@@ -344,41 +442,10 @@ function optimumRowOf(result: EngineOptimumRunnerResult): OptimumRowView {
         }
         case AdviceSource.LadderSearchFresh:
         case AdviceSource.LadderSearchFromState: {
-            if ('refusal' in result) {
-                return leftOutRow(
-                    result.source,
-                    REQUEST_SOURCE_LABEL[result.source],
-                    ladderRefusalText(result.refusal),
-                );
-            }
-            const winner = result.ladder.bySpeed[0];
-            if (winner === undefined) {
-                return leftOutRow(
-                    result.source,
-                    REQUEST_SOURCE_LABEL[result.source],
-                    'No ladder scored within the grid.',
-                );
-            }
-            return {
-                label: REQUEST_SOURCE_LABEL[result.source],
-                source: result.source,
-                standardError: winner.expectedDaysToFundedStandardError,
-                status: OptimumRowStatus.Ready,
-                text: `Pass rate ${(winner.passRate * 100).toFixed(1)}%, ${winner.expectedDaysToFunded.toFixed(1)} days to funded, cost per funded ${formatCurrency(winner.costPerFunded, 2)}.`,
-                value: winner.expectedDaysToFunded,
-            };
+            return ladderOptimumRowOf(result);
         }
         case AdviceSource.NextPayoutProjection: {
-            const { projection } = result;
-            return {
-                label: REQUEST_SOURCE_LABEL[result.source],
-                source: result.source,
-                standardError:
-                    projection.expectedSessionDaysToFirstPayout.standardError,
-                status: OptimumRowStatus.Ready,
-                text: `Expected ${projection.expectedSessionDaysToFirstPayout.value.toFixed(1)} sessions to the first payout (n=${String(projection.trials)}).`,
-                value: projection.expectedSessionDaysToFirstPayout.value,
-            };
+            return nextPayoutProjectionRowOf(result);
         }
         case AdviceSource.PayoutSizeSweep: {
             const { sweep } = result;
@@ -417,6 +484,10 @@ function payoutAdviceViewOf(advice: PayoutAdvice): PayoutAdviceViewModel {
             documented.notice !== null
                 ? firmMinimumNoticeText(documented.notice)
                 : null,
+        personalOverrideWarningText:
+            advice.personalOverrideWarning === undefined
+                ? null
+                : personalPayoutOverrideWarningText(advice.personalOverrideWarning),
     };
 }
 
@@ -452,4 +523,14 @@ function payoutWaitText(wait: PayoutWait): string {
             return `${String(wait.daysStillNeeded)} more qualifying day${wait.daysStillNeeded === 1 ? '' : 's'} needed.`;
         }
     }
+}
+
+function withLimitsNote(
+    row: OptimumRowView,
+    source: EngineOptimumRunnerResult['source'],
+    limits: PersonalLimits,
+): OptimumRowView {
+    if (row.status === OptimumRowStatus.LeftOut) return row;
+    const note = limitsNoteOf(source, limits);
+    return note === null ? row : { ...row, text: `${row.text} ${note}` };
 }

@@ -12,6 +12,7 @@ import {
     serializePlanId,
 } from '~/lib/prop-calculator';
 import {
+    LiveTriggerScope,
     PayoutBlockReasonKind,
     payoutReadiness,
     PayoutReadinessKind,
@@ -81,7 +82,8 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         expect(readiness.reason).toEqual({
             kind: PayoutBlockReasonKind.WouldTriggerLive,
             trigger: {
-                paidPayoutsSinceLastLiveAccount: 2,
+                payoutsTaken: 2,
+                scope: LiveTriggerScope.Account,
                 triggerAtPayoutCount: 3,
             },
         });
@@ -119,7 +121,8 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         expect(readiness.reason).toEqual({
             kind: PayoutBlockReasonKind.WouldTriggerLive,
             trigger: {
-                paidPayoutsSinceLastLiveAccount: 9,
+                payoutsTaken: 9,
+                scope: LiveTriggerScope.Firm,
                 triggerAtPayoutCount: 10,
             },
         });

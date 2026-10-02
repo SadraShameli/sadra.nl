@@ -11,12 +11,13 @@ import {
 } from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
 import { formatCurrency } from '~/lib/format';
 import {
-    CENTS_PER_DOLLAR,
+    ALL_FIRMS,
     type Dollars,
     dollars,
     type FirmAccountPolicy,
     floorToWholeCents,
     type Plan,
+    serializePlanId,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
@@ -29,15 +30,25 @@ import {
     type DifferenceReasonDetail,
     type DocumentedPolicySpec,
     type DocumentedRung,
+    type EnginePolicy,
     type MeasuredRebuyLag,
+    NO_PERSONAL_CAPS,
+    type PersonalCaps,
     RebuyLagBasis,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
     RiskDisplayUnit,
     type RulebookParameters,
+    SIZING_ASSUMPTION_TEXT,
+    SizingAssumption,
 } from '~/lib/prop-calculator/advisor';
 import { flatRiskIgnoresStateReason } from '~/lib/prop-calculator/advisor/actions';
+import {
+    documentedFundedRisk,
+    documentedLiveTransferHazard,
+    hasDayLimits,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     conservativeGapStandardError,
     continuationValue,
@@ -57,13 +68,17 @@ import {
     bustCost,
     feeEquivalentTradeRisk,
 } from '~/lib/prop-calculator/economics';
-import { type SimStart } from '~/lib/prop-calculator/simulator';
+import {
+    liveTransferHazardLines,
+    type SimStart,
+} from '~/lib/prop-calculator/simulator';
 import {
     isBeyondNoise,
     type UncertainValue,
 } from '~/lib/prop-calculator/stats';
 
 import { accountActionFor } from './accountActionModel';
+import { withPersonalPolicy } from './personalRuleOptions';
 
 export enum AdviceValueRequestKind {
     Failed = 'failed',
@@ -82,6 +97,8 @@ export interface AdviceValueRequestInput {
     readonly accountPolicy?: FirmAccountPolicy;
     readonly advice: Advice;
     readonly measuredRebuyLag?: MeasuredRebuyLag | null;
+    readonly personalCaps: PersonalCaps;
+    readonly personalDll: Dollars | null;
     readonly personalPayoutOverride?: Dollars | null;
     readonly personalRetainedCushion?: Dollars | null;
     readonly plan: Plan;
@@ -188,6 +205,9 @@ export const CANDIDATE_VALUE_BASIS_TEXT =
 export const EVAL_CANDIDATES_NOTE_TEXT =
     'Eval sizing is the maximum allowed risk under a daily cap, for speed to funded. This table values one trade at smaller sizes; it is not a smaller eval size to take.';
 
+export const LIVE_TRANSFER_UNIDENTIFIED_PLAN_TEXT =
+    'Live transfer: a hazard is entered in your rulebook, but the plan for these runs could not be identified, so this note cannot say whether it was priced.';
+
 export const NO_LIVE_VALUE_TEXT =
     'Value views are not modeled for a live account.';
 
@@ -211,7 +231,8 @@ export function adviceValueRequestOf(
     const { account, advice, plan, rulebook } = input;
     if (
         account.kind === ReconstructedLiveKind.Live ||
-        advice.staleness.kind === 'stale'
+        advice.staleness.kind === 'stale' ||
+        advice.documented === null
     ) {
         return { kind: AdviceValueRequestKind.NotRequested };
     }
@@ -223,6 +244,7 @@ export function adviceValueRequestOf(
     const isPayoutEligible =
         account.kind === TradingPhase.Funded &&
         accountActionFor(advice).action === AccountAction.RequestPayout;
+    const spec = valueSpecOf(input);
     return {
         kind: AdviceValueRequestKind.Ready,
         request: {
@@ -230,7 +252,7 @@ export function adviceValueRequestOf(
             payoutStake: isPayoutEligible
                 ? {
                       reducedRiskDollars:
-                          rulebook.funded.riskCents / CENTS_PER_DOLLAR / 2,
+                          documentedFundedRisk(rulebook, spec.enginePolicy) / 2,
                   }
                 : null,
             rr: documentedRewardMultipleOf(rungs[0], rulebook.strategy.rr),
@@ -238,7 +260,7 @@ export function adviceValueRequestOf(
                 risk: rung.risk,
                 rr: rung.takeProfit / rung.risk,
             })),
-            spec: valueSpecOf(input),
+            spec,
             start: start.start,
         },
     };
@@ -540,7 +562,7 @@ export function valueRunNoteOf(request: AdvisorValueRequest): string {
         enginePolicy.rebuyLagBasis === RebuyLagBasis.Measured
             ? `measured at ${String(enginePolicy.rebuyLagDays)} days`
             : 'assumed zero (optimistic)';
-    return `Value runs: ${String(run.trials)} trials, seed ${String(run.seed)}, ${String(enginePolicy.fundedHorizonDays)}-day funded horizon, ${String(run.maxEvalDays)}-day eval limit; rebuy lag ${rebuyLag}; commission ${formatCurrency(enginePolicy.commissionPerRoundTrip, 2)} per round trip.`;
+    return `Value runs: ${String(run.trials)} trials, seed ${String(run.seed)}, ${String(enginePolicy.fundedHorizonDays)}-day funded horizon, ${String(run.maxEvalDays)}-day eval limit; rebuy lag ${rebuyLag}; commission ${formatCurrency(enginePolicy.commissionPerRoundTrip, 2)} per round trip.${appliedLimitsNoteOf(enginePolicy)}${liveTransferNoteOf(request.spec)}`;
 }
 
 export function valueSpecOf(
@@ -549,6 +571,8 @@ export function valueSpecOf(
     const {
         accountPolicy,
         measuredRebuyLag,
+        personalCaps,
+        personalDll,
         personalPayoutOverride,
         personalRetainedCushion,
         plan,
@@ -562,22 +586,50 @@ export function valueSpecOf(
         positionSizing: null,
         rulebook,
     });
-    return {
-        enginePolicy: {
-            ...policy,
+    return withPersonalPolicy(
+        {
+            enginePolicy: policy,
+            planSerial: serializePlanId(plan.id),
+            rulebook,
+            run: {
+                maxEvalDays: DEFAULT_MAX_EVAL_DAYS,
+                seed: VALUE_RUN_SEED,
+                trials: VALUE_RUN_TRIALS,
+            },
+        },
+        {
             payoutRequestOverride: personalPayoutOverride ?? null,
-            retainedCushionRequest: Math.max(
-                policy.retainedCushionRequest ?? 0,
-                personalRetainedCushion ?? 0,
-            ),
+            personalCaps,
+            personalDll,
+            retainedCushionRequest: personalRetainedCushion ?? null,
         },
-        rulebook,
-        run: {
-            maxEvalDays: DEFAULT_MAX_EVAL_DAYS,
-            seed: VALUE_RUN_SEED,
-            trials: VALUE_RUN_TRIALS,
-        },
-    };
+    );
+}
+
+function appliedLimitsNoteOf(enginePolicy: EnginePolicy): string {
+    const caps = enginePolicy.personalCaps ?? NO_PERSONAL_CAPS;
+    const dailyLossLimit = enginePolicy.personalDll ?? null;
+    const parts = [
+        ...(caps.maxRiskPerTrade === null
+            ? []
+            : [
+                  `max risk per trade ${formatCurrency(caps.maxRiskPerTrade, 2)}`,
+              ]),
+        ...(caps.maxTradesPerDay === null
+            ? []
+            : [`max ${String(caps.maxTradesPerDay)} trades per day`]),
+        ...(caps.dailyProfitCap === null
+            ? []
+            : [`daily profit cap ${formatCurrency(caps.dailyProfitCap, 2)}`]),
+        ...(dailyLossLimit === null
+            ? []
+            : [`daily loss limit ${formatCurrency(dailyLossLimit, 2)}`]),
+    ];
+    if (parts.length === 0) return '';
+    const documentedRule = hasDayLimits(enginePolicy)
+        ? ` The funded day follows the documented rule. ${SIZING_ASSUMPTION_TEXT[SizingAssumption.WinsAddNoLossRoom]}`
+        : '';
+    return ` Personal limits applied: ${parts.join(', ')}.${documentedRule}`;
 }
 
 function boundaryNoteOf(
@@ -698,6 +750,30 @@ function isDocumentedRow(
         Math.abs(row.placement.placedRisk - documentedRisk) <
         DOCUMENTED_RISK_MATCH_TOLERANCE
     );
+}
+
+function liveTransferNoteOf(spec: DocumentedPolicySpec): string {
+    const { planSerial, rulebook } = spec;
+    const { hazardPerPaidPayoutByFirm } = rulebook.liveTransfer;
+    if (Object.keys(hazardPerPaidPayoutByFirm).length === 0) return '';
+    const plan = planSerial === undefined ? null : planOfSerial(planSerial);
+    if (plan === null) return ` ${LIVE_TRANSFER_UNIDENTIFIED_PLAN_TEXT}`;
+    const hazard = documentedLiveTransferHazard(rulebook, plan.id.firm);
+    if (hazard === undefined) return '';
+    return ` ${liveTransferHazardLines(
+        plan,
+        hazard,
+        spec.enginePolicy.instrument,
+        spec.enginePolicy.stopPoints,
+    ).join(' ')}`;
+}
+
+function planOfSerial(planSerial: string): null | Plan {
+    for (const firm of ALL_FIRMS) {
+        const plan = firm.findPlanBySerial(planSerial);
+        if (plan !== null) return plan;
+    }
+    return null;
 }
 
 function riskFigureOf(

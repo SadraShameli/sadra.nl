@@ -27,7 +27,7 @@ export function usePortfolioData(): PortfolioLoad {
     const { data: rulebook, error: rulebookError } =
         api.propAccounts.rulebook.get.useQuery();
     const { data: snapshots, error: snapshotsError } =
-        api.propAccounts.snapshot.latestForAll.useQuery();
+        api.propAccounts.snapshot.latestTwoForAll.useQuery();
     const { data: transfers, error: transfersError } =
         api.propAccounts.bankroll.list.useQuery();
     const { data: violations, error: violationsError } =

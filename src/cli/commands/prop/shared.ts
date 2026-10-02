@@ -29,6 +29,7 @@ import {
     InstrumentSymbol,
     ladderRungSchema,
     ladderRungsSchema,
+    LiveTransferContinuationKind,
     PayoutRequestPolicy,
     type Percent0to100,
     percentSchema,
@@ -45,17 +46,34 @@ import {
     stopTargetDollarsSchema,
     TRADING_DAYS_PER_YEAR,
     type TradingFirm,
+    verifiedCumulativePayoutLimit,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
     rulebookSchema,
+    SizingObjective,
+    sizingObjectiveText,
 } from '~/lib/prop-calculator/advisor';
-import { MAX_INTRADAY_PATH_STEPS_PER_R } from '~/lib/prop-calculator/advisor/policy';
+import {
+    objectiveApplicability,
+    ObjectiveApplicabilityVerdict,
+    type RankingSurface,
+} from '~/lib/prop-calculator/advisor/actions';
+import {
+    MAX_INTRADAY_PATH_STEPS_PER_R,
+    SIZING_OBJECTIVE_LABEL,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     edgePlausibilityNoteText,
     type PlausibilityThresholds,
 } from '~/lib/prop-calculator/economics';
+
+export enum ObjectiveFlag {
+    CycleCash = 'cycle',
+    MonthlyNet = 'monthly',
+    RuinFirst = 'ruin-first',
+}
 
 export interface BankrollArguments {
     bankroll?: string;
@@ -87,6 +105,15 @@ export interface EdgeInputs {
 export interface EdgeModelArguments {
     'edge-anchor-rr'?: string;
     'edge-model': string;
+}
+
+export interface LiveTransferHazardArguments {
+    'live-transfer-hazard'?: string;
+}
+
+export interface ObjectiveArguments {
+    bankroll?: string;
+    objective?: string;
 }
 
 export interface ScreenTime {
@@ -150,6 +177,7 @@ export interface TradingInputsInit {
     instrument: InstrumentSymbol | undefined;
     intradayPathStepsPerR: number[] | undefined;
     ladder: null | number[];
+    liveTransferHazard: Fraction0to1 | undefined;
     maxAttempts: number;
     maxEvalDays: number;
     maxLifetimePayoutsOverride: null | number | undefined;
@@ -239,6 +267,15 @@ class PlanResolver {
     }
 }
 
+export class ObjectiveNotApplicable extends Error {}
+
+export class RuinFirstNeedsBankroll extends Error {}
+
+export class SortObjectiveConflict extends Error {}
+
+export const RUIN_FIRST_NOT_APPLICABLE_MESSAGE =
+    'RuinFirst only ranks which plan to buy; eval rungs and funded risk stay on Hard Rules 3 and 5';
+
 export class TablePrinter {
     constructor(private readonly columns: readonly TableColumn[]) {}
 
@@ -264,7 +301,9 @@ export class TablePrinter {
 }
 
 export class TradingInputs {
-    static parse(arguments_: TradingArguments): TradingInputs {
+    static parse(
+        arguments_: LiveTransferHazardArguments & TradingArguments,
+    ): TradingInputs {
         const requestSize = arguments_['request-size'];
         const stopPoints = arguments_['stop-points'];
         const fundedRisk = arguments_['funded-risk'];
@@ -306,6 +345,9 @@ export class TradingInputs {
                 arguments_['path-granularity'],
             ),
             ladder: readLadder(arguments_.ladder),
+            liveTransferHazard: readLiveTransferHazard(
+                arguments_['live-transfer-hazard'],
+            ),
             maxAttempts: readPositiveInteger(
                 arguments_['max-attempts'],
                 'max-attempts',
@@ -356,6 +398,7 @@ export class TradingInputs {
     readonly instrument: InstrumentSymbol | undefined;
     readonly intradayPathStepsPerR: number[] | undefined;
     readonly ladder: null | number[];
+    readonly liveTransferHazard: Fraction0to1 | undefined;
     readonly maxAttempts: number;
     readonly maxEvalDays: number;
     readonly maxLifetimePayoutsOverride: null | number | undefined;
@@ -388,6 +431,7 @@ export class TradingInputs {
         this.instrument = init.instrument;
         this.intradayPathStepsPerR = init.intradayPathStepsPerR;
         this.ladder = init.ladder;
+        this.liveTransferHazard = init.liveTransferHazard;
         this.maxAttempts = init.maxAttempts;
         this.maxEvalDays = init.maxEvalDays;
         this.maxLifetimePayoutsOverride = init.maxLifetimePayoutsOverride;
@@ -449,6 +493,7 @@ export class TradingInputs {
             idleDayProbability: this.idleDayProbability,
             instrument: this.instrument,
             intradayPathStepsPerR: this.intradayPathStepsPerR?.[0],
+            liveTransferHazard: this.liveTransferHazard,
             maxAttempts: this.maxAttempts,
             maxEvalDays: this.maxEvalDays,
             minRetainedCushion: this.minRetainedCushion,
@@ -462,6 +507,7 @@ export class TradingInputs {
             stopPoints: this.stopPoints,
             tradesPerDay: this.tradesPerDay,
             trials: this.trials,
+            verifiedCumulativePayoutTrigger: verifiedPayoutTriggerOf(plan),
             winrate: this.winrate,
         };
     }
@@ -750,6 +796,14 @@ export const tradingArguments = {
     },
 } satisfies ArgsDef;
 
+export const liveTransferHazardArgument = {
+    'live-transfer-hazard': {
+        description:
+            'Probability [0,1] per paid payout that the firm sends the account live, which ends its simulated payouts (your assumption, not a firm rule; empty means unpriced, as before). Where the plan has a modeled live plan and --stop-points is set, the account continues through it; otherwise its remaining value is counted as $0. One extra draw per paid payout from a separate seeded stream, so the trade draws are unchanged; copy-traded accounts share one draw per group',
+        type: 'string',
+    },
+} satisfies ArgsDef;
+
 export const includeCallUpArgument = {
     'include-callup': {
         default: false,
@@ -772,6 +826,15 @@ export const bankrollArguments = {
     },
 } satisfies ArgsDef;
 
+export const objectiveArgument = {
+    objective: {
+        description:
+            'Ranking objective: monthly (default, expected monthly net), cycle (expected cash per eval-to-funded cycle) or ruin-first (ranks which plan to buy only, never eval rungs or funded risk)',
+        options: Object.values(ObjectiveFlag),
+        type: 'enum',
+    },
+} satisfies ArgsDef;
+
 export const screenTimeArguments = {
     'accounts-per-session': {
         description:
@@ -790,6 +853,45 @@ export function edgePlausibilityNote(
     thresholds: PlausibilityThresholds = DEFAULT_RULEBOOK.plausibility,
 ): null | string {
     return edgePlausibilityNoteText(inputs, thresholds);
+}
+
+export function liveTransferHazardLines(
+    hazard: number | undefined,
+    out: Pick<
+        SimOutputs,
+        'liveTransferContinuation' | 'liveTransferProbability'
+    >,
+    hasVerifiedTrigger = false,
+): readonly string[] {
+    if (hazard === undefined || hazard <= 0) {
+        return hasVerifiedTrigger
+            ? [liveTransferContinuationText(out.liveTransferContinuation)]
+            : [];
+    }
+    return [
+        `${liveTransferAssumptionText(hazard)}; ${formatPercent(out.liveTransferProbability)} of runs are sent live within the funded horizon`,
+        liveTransferContinuationText(out.liveTransferContinuation),
+    ];
+}
+
+export function liveTransferSweepLines(
+    hazard: number | undefined,
+    continuation: LiveTransferContinuationKind,
+    hasVerifiedTrigger = false,
+): readonly string[] {
+    if (hazard === undefined || hazard <= 0) {
+        return hasVerifiedTrigger
+            ? [liveTransferContinuationText(continuation)]
+            : [];
+    }
+    return [
+        liveTransferAssumptionText(hazard),
+        liveTransferContinuationText(continuation),
+    ];
+}
+
+export function objectiveHeadingLine(objective: SizingObjective): string {
+    return `objective: ${SIZING_OBJECTIVE_LABEL[objective]}. ${sizingObjectiveText(objective)}`;
 }
 
 export function printEdgePlausibilityNotes(
@@ -867,6 +969,14 @@ export function readHoursPerDay(raw: string | undefined): null | number {
           );
 }
 
+export function readLiveTransferHazard(
+    raw: string | undefined,
+): Fraction0to1 | undefined {
+    return raw === undefined || raw === ''
+        ? undefined
+        : readFraction(raw, 'live-transfer-hazard');
+}
+
 export function readLossThreshold(
     raw: string | undefined,
 ): Fraction0to1 | null {
@@ -880,6 +990,48 @@ export function readLossThreshold(
                   'a fraction above 0 and at most 0.5',
               ),
           );
+}
+
+export function readObjective(
+    arguments_: ObjectiveArguments,
+    surface: RankingSurface,
+): SizingObjective {
+    const flag = arguments_.objective;
+    if (flag === undefined) return SizingObjective.MonthlyNet;
+    const parsed = z.enum(ObjectiveFlag).safeParse(flag);
+    if (!parsed.success) {
+        throw new TypeError(
+            `Invalid --objective "${flag}": expected ${Object.values(ObjectiveFlag).join(', ')}`,
+        );
+    }
+    switch (parsed.data) {
+        case ObjectiveFlag.CycleCash: {
+            return SizingObjective.CycleCash;
+        }
+        case ObjectiveFlag.MonthlyNet: {
+            return SizingObjective.MonthlyNet;
+        }
+        case ObjectiveFlag.RuinFirst: {
+            const applicability = objectiveApplicability(
+                SizingObjective.RuinFirst,
+                surface,
+            );
+            if (
+                applicability.verdict ===
+                ObjectiveApplicabilityVerdict.NotApplicable
+            ) {
+                throw new ObjectiveNotApplicable(
+                    RUIN_FIRST_NOT_APPLICABLE_MESSAGE,
+                );
+            }
+            if (readBankroll(arguments_.bankroll) === null) {
+                throw new RuinFirstNeedsBankroll(
+                    '--objective ruin-first ranks by P(batch net < 0) at your bankroll, so it needs --bankroll',
+                );
+            }
+            return SizingObjective.RuinFirst;
+        }
+    }
 }
 
 export function readScreenTime(
@@ -1106,6 +1258,16 @@ export function readRebuyLagDays(raw: unknown): number {
     return readNonNegativeNumber(raw, 'rebuy-lag-days');
 }
 
+export function verifiedTriggerLines(
+    limit: number | undefined,
+): readonly string[] {
+    return limit === undefined
+        ? []
+        : [
+              `  verified firm trigger: simulated payouts end once the cumulative amount the trader receives reaches ${formatCurrency(limit)} per account, the threshold the firm itself publishes`,
+          ];
+}
+
 export const MAX_PATH_GRANULARITY = MAX_INTRADAY_PATH_STEPS_PER_R;
 
 const numericFlagSchema = z.union([
@@ -1250,6 +1412,27 @@ export function readStopRule(raw: string): DayStopRule {
     }
 }
 
+function liveTransferAssumptionText(hazard: number): string {
+    return `  live transfer: ${formatPercent(hazard)} per paid payout (your assumption, not a firm rule)`;
+}
+
+function liveTransferContinuationText(
+    continuation: LiveTransferContinuationKind,
+): string {
+    switch (continuation) {
+        case LiveTransferContinuationKind.Modeled: {
+            return '  after a transfer the account continues through the modeled live plan; only its recurring withdrawals count in net and monthly net, while a transition credit, capital returned and a liquidation payout are separate and not annualized';
+        }
+        case LiveTransferContinuationKind.ModeledApproximate: {
+            return '  after a transfer the account continues through the modeled live plan, an approximation of the firm live terms (part of the live state is assumed); only its recurring withdrawals count in net and monthly net, while a transition credit, capital returned and a liquidation payout are separate and not annualized';
+        }
+        case LiveTransferContinuationKind.NotModeled:
+        case LiveTransferContinuationKind.Off: {
+            return '  no verified live plan is modeled here (or --instrument and --stop-points are unset), so after a transfer the rest of the account is valued at $0';
+        }
+    }
+}
+
 function parseFlag<T>(
     schema: z.ZodType<T>,
     raw: unknown,
@@ -1263,4 +1446,11 @@ function parseFlag<T>(
         );
     }
     return parsed.data;
+}
+
+function verifiedPayoutTriggerOf(plan: Plan): number | undefined {
+    const triggers = findFirm(plan.id.firm)?.accountPolicy.liveTriggersFor(plan);
+    return triggers === undefined
+        ? undefined
+        : (verifiedCumulativePayoutLimit(triggers) ?? undefined);
 }

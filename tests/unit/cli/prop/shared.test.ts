@@ -1,7 +1,7 @@
 import type { ArgsDef } from 'citty';
 
 import { parseArgs } from 'citty';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import ladderCommand, {
@@ -19,7 +19,14 @@ import {
     edgePlausibilityNote,
     formatDaysToPass,
     hasEvalPass,
+    liveTransferHazardArgument,
+    liveTransferHazardLines,
+    liveTransferSweepLines,
     MAX_PATH_GRANULARITY,
+    objectiveArgument,
+    ObjectiveFlag,
+    objectiveHeadingLine,
+    ObjectiveNotApplicable,
     planArguments,
     planResolver,
     readAccountsPerSession,
@@ -31,11 +38,13 @@ import {
     readHoursPerDay,
     readInteger,
     readLadder,
+    readLiveTransferHazard,
     readLossThreshold,
     readMaxLifetimePayouts,
     readNonNegativeInteger,
     readNonNegativeNumber,
     readNumberList,
+    readObjective,
     readPercent,
     readPercentAsFraction,
     readPositiveInteger,
@@ -43,11 +52,13 @@ import {
     readRebuyLagDays,
     readScreenTime,
     readStopRule,
+    RuinFirstNeedsBankroll,
     screenTimeArguments,
     singlePathGranularityArgument,
     tradingArguments,
     tradingEdgeNotes,
     TradingInputs,
+    verifiedTriggerLines,
 } from '~/cli/commands/prop/shared';
 import * as sharedModule from '~/cli/commands/prop/shared';
 import { NOT_APPLICABLE } from '~/lib/format';
@@ -59,6 +70,7 @@ import {
     ConsistencyScope,
     ContractLimitKind,
     contracts,
+    CumulativeAmountTrigger,
     DailyLossLimitKind,
     type DayStopRule,
     DayStopRuleKind,
@@ -68,14 +80,23 @@ import {
     findFirm,
     FirmId,
     fraction,
+    LiveTransferContinuationKind,
     percent,
     type Plan,
     type PlanId,
+    PolicySourceKind,
+    PolicyVerification,
 } from '~/lib/prop-calculator';
+import {
+    SizingObjective,
+    sizingObjectiveText,
+} from '~/lib/prop-calculator/advisor';
 import {
     DEFAULT_RULEBOOK,
     rulebookSchema,
 } from '~/lib/prop-calculator/advisor';
+import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
+import { SIZING_OBJECTIVE_LABEL } from '~/lib/prop-calculator/advisor/policy';
 import { solveAverageRewardPolicy } from '~/lib/prop-calculator/core/AverageRewardSolver';
 import {
     ContractUnit,
@@ -103,6 +124,18 @@ const ARGS = {
 
 function registryPlan() {
     return planResolver.resolveOne({ firm: FirmId.Mffu, variant: 'rapid-eod' });
+}
+
+function stubTriggers(
+    triggers: readonly CumulativeAmountTrigger[],
+): Plan {
+    const plan = registryPlan();
+    const firm = findFirm(plan.id.firm);
+    if (!firm) throw new Error('firm not registered');
+    vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue(
+        triggers,
+    );
+    return plan;
 }
 
 describe('--rebuy-lag-days', () => {
@@ -1162,5 +1195,291 @@ describe('readEdgeModelSpec (PT-64a, F-V23)', () => {
             'edge-model': EdgeModelKind.Drift,
         };
         expect(() => readEdgeModelSpec(arguments_, inputs)).toThrow();
+    });
+});
+
+function ruinFirstOn(surface: RankingSurface): SizingObjective {
+    return readObjective(
+        { bankroll: '5000', objective: 'ruin-first' },
+        surface,
+    );
+}
+
+function ruinFirstWithoutBankroll(): SizingObjective {
+    return readObjective({ objective: 'ruin-first' }, RankingSurface.Compare);
+}
+
+describe('readObjective (PT-63, F-V15)', () => {
+    it('defaults to MonthlyNet when --objective is absent (Q1)', () => {
+        expect(readObjective({}, RankingSurface.Compare)).toBe(
+            SizingObjective.MonthlyNet,
+        );
+    });
+
+    it('maps monthly and cycle onto MonthlyNet and CycleCash on every surface', () => {
+        for (const surface of Object.values(RankingSurface)) {
+            expect(readObjective({ objective: 'monthly' }, surface)).toBe(
+                SizingObjective.MonthlyNet,
+            );
+            expect(readObjective({ objective: 'cycle' }, surface)).toBe(
+                SizingObjective.CycleCash,
+            );
+        }
+    });
+
+    it('names the three flag values after the SizingObjective members', () => {
+        expect(Object.values(ObjectiveFlag)).toStrictEqual([
+            'cycle',
+            'monthly',
+            'ruin-first',
+        ]);
+        const argument = objectiveArgument.objective;
+        expect(argument.type).toBe('enum');
+        expect(argument.options).toStrictEqual(Object.values(ObjectiveFlag));
+    });
+
+    it('accepts ruin-first with a bankroll where it ranks which plan to buy', () => {
+        expect(
+            readObjective(
+                { bankroll: '5000', objective: 'ruin-first' },
+                RankingSurface.Compare,
+            ),
+        ).toBe(SizingObjective.RuinFirst);
+    });
+
+    it('needs --bankroll for ruin-first, as a typed error', () => {
+        expect(ruinFirstWithoutBankroll).toThrow(RuinFirstNeedsBankroll);
+        expect(ruinFirstWithoutBankroll).toThrow(/--bankroll/);
+        expect(() =>
+            readObjective(
+                { bankroll: '', objective: 'ruin-first' },
+                RankingSurface.Compare,
+            ),
+        ).toThrow(RuinFirstNeedsBankroll);
+    });
+
+    it('rejects a bad --bankroll for ruin-first instead of ignoring it', () => {
+        expect(() =>
+            readObjective(
+                { bankroll: 'lots', objective: 'ruin-first' },
+                RankingSurface.Compare,
+            ),
+        ).toThrow(/bankroll/);
+    });
+
+    it('refuses ruin-first with ObjectiveNotApplicable where it would size eval rungs or funded risk', () => {
+        for (const surface of [
+            RankingSurface.Dp,
+            RankingSurface.FundedRiskSweep,
+            RankingSurface.Ladder,
+        ]) {
+            expect(() => ruinFirstOn(surface)).toThrow(ObjectiveNotApplicable);
+            expect(() => ruinFirstOn(surface)).toThrow(
+                'RuinFirst only ranks which plan to buy; eval rungs and funded risk stay on Hard Rules 3 and 5',
+            );
+        }
+    });
+
+    it('reports not applicable before it asks for a bankroll', () => {
+        expect(() =>
+            readObjective({ objective: 'ruin-first' }, RankingSurface.Ladder),
+        ).toThrow(ObjectiveNotApplicable);
+    });
+
+    it('rejects an unknown objective naming the choices', () => {
+        expect(() =>
+            readObjective({ objective: 'fast' }, RankingSurface.Compare),
+        ).toThrow(/monthly/);
+    });
+});
+
+describe('objectiveHeadingLine (PT-63, VD-6)', () => {
+    it('names the active objective with its ranking sentence and no em dash', () => {
+        for (const objective of Object.values(SizingObjective)) {
+            const line = objectiveHeadingLine(objective);
+            expect(line).toContain(SIZING_OBJECTIVE_LABEL[objective]);
+            expect(line).toContain(sizingObjectiveText(objective));
+            expect(line).not.toContain('\u{2014}');
+        }
+    });
+});
+
+describe('--live-transfer-hazard (PT-73, VD-17)', () => {
+    const HAZARD_ARGS = {
+        ...ARGS,
+        ...liveTransferHazardArgument,
+    } satisfies ArgsDef;
+
+    function parseWithHazard(argv: string[]): TradingInputs {
+        return TradingInputs.parse(
+            parseArgs<typeof HAZARD_ARGS>(argv, HAZARD_ARGS),
+        );
+    }
+
+    it('is absent by default and changes nothing in the simulation inputs', () => {
+        const inputs = parseWithHazard([]);
+        expect(inputs.liveTransferHazard).toBeUndefined();
+        expect(
+            inputs.toSimInputs(registryPlan()).liveTransferHazard,
+        ).toBeUndefined();
+    });
+
+    it('threads a parsed probability through TradingInputs into SimInputs', () => {
+        const inputs = parseWithHazard(['--live-transfer-hazard', '0.2']);
+        expect(inputs.liveTransferHazard).toBe(0.2);
+        expect(inputs.toSimInputs(registryPlan()).liveTransferHazard).toBe(0.2);
+    });
+
+    it('names itself as your assumption, not a firm rule, in its help text', () => {
+        expect(
+            liveTransferHazardArgument['live-transfer-hazard'].description,
+        ).toContain('your assumption, not a firm rule');
+    });
+
+    it.each(['-0.1', '1.5', 'abc'])('rejects %s, naming the flag', (raw) => {
+        expect(() => readLiveTransferHazard(raw)).toThrow(
+            /--live-transfer-hazard/,
+        );
+    });
+
+    it('reads an empty value as absent', () => {
+        expect(readLiveTransferHazard(undefined)).toBeUndefined();
+        expect(readLiveTransferHazard('')).toBeUndefined();
+    });
+
+    describe('liveTransferHazardLines', () => {
+        const modeled = {
+            liveTransferContinuation: LiveTransferContinuationKind.Modeled,
+            liveTransferProbability: 0.413,
+        };
+        const notModeled = {
+            liveTransferContinuation: LiveTransferContinuationKind.NotModeled,
+            liveTransferProbability: 0.413,
+        };
+
+        it('prints nothing without a hazard', () => {
+            expect(liveTransferHazardLines(undefined, modeled)).toStrictEqual(
+                [],
+            );
+            expect(liveTransferHazardLines(0, modeled)).toStrictEqual([]);
+        });
+
+        it('labels the rate as your assumption and gives the share sent live', () => {
+            const [line] = liveTransferHazardLines(0.2, modeled);
+            expect(line).toContain('your assumption, not a firm rule');
+            expect(line).toContain('20.0% per paid payout');
+            expect(line).toContain('41.3%');
+        });
+
+        it('says the live plan continues the account where one is modeled', () => {
+            const text = liveTransferHazardLines(0.2, modeled).join('\n');
+            expect(text).toContain('modeled live plan');
+            expect(text).not.toContain('valued at $0');
+        });
+
+        it('says the rest is valued at $0 where no live plan is modeled', () => {
+            const text = liveTransferHazardLines(0.2, notModeled).join('\n');
+            expect(text).toContain('valued at $0');
+        });
+
+        it('never uses an em dash', () => {
+            const text = liveTransferHazardLines(0.2, notModeled).join('\n');
+            expect(text).not.toContain('\u{2014}');
+        });
+
+        it('says the live model is an approximation when part of it is assumed', () => {
+            const text = liveTransferHazardLines(0.2, {
+                liveTransferContinuation:
+                    LiveTransferContinuationKind.ModeledApproximate,
+                liveTransferProbability: 0.413,
+            }).join('\n');
+            expect(text).toContain('modeled live plan');
+            expect(text).toContain('approximation');
+            expect(text).not.toContain('valued at $0');
+        });
+
+        it('prints the continuation line for a trigger-only run with no hazard', () => {
+            const lines = liveTransferHazardLines(undefined, notModeled, true);
+            expect(lines).toHaveLength(1);
+            expect(lines.join('\n')).toContain('valued at $0');
+            expect(lines.join('\n')).not.toContain('your assumption');
+            expect(
+                liveTransferHazardLines(0, modeled, true).join('\n'),
+            ).toContain('modeled live plan');
+        });
+
+        it('prints the continuation line of a sweep for a trigger-only run too', () => {
+            const lines = liveTransferSweepLines(
+                undefined,
+                LiveTransferContinuationKind.NotModeled,
+                true,
+            );
+            expect(lines.join('\n')).toContain('valued at $0');
+            expect(
+                liveTransferSweepLines(
+                    undefined,
+                    LiveTransferContinuationKind.NotModeled,
+                ),
+            ).toStrictEqual([]);
+        });
+    });
+});
+
+describe('verified cumulative payout triggers reach the simulation inputs (PT-73)', () => {
+    const confirmed = {
+        fetchedOn: '2026-09-26',
+        quote: 'quote',
+        sourceKind: PolicySourceKind.LiveFetch,
+        url: 'https://example.invalid/rule',
+        verification: PolicyVerification.Confirmed as const,
+    };
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('leaves the field unset for every firm whose triggers are not checked', () => {
+        expect(
+            parseTradingInputs([]).toSimInputs(registryPlan())
+                .verifiedCumulativePayoutTrigger,
+        ).toBeUndefined();
+    });
+
+    it('carries a confirmed cumulative amount into the simulation inputs', () => {
+        const plan = stubTriggers([
+            new CumulativeAmountTrigger(dollars(20_000), confirmed),
+        ]);
+        expect(
+            parseTradingInputs([]).toSimInputs(plan)
+                .verifiedCumulativePayoutTrigger,
+        ).toBe(20_000);
+    });
+
+    it('does not carry a cumulative amount the firm pages disagree on', () => {
+        const plan = stubTriggers([
+            new CumulativeAmountTrigger(dollars(20_000), {
+                ...confirmed,
+                conflicting: { ...confirmed, quote: 'other' },
+                verification: PolicyVerification.Conflict,
+            }),
+        ]);
+        expect(
+            parseTradingInputs([]).toSimInputs(plan)
+                .verifiedCumulativePayoutTrigger,
+        ).toBeUndefined();
+    });
+
+    it('prints nothing without a verified trigger and names the threshold with one', () => {
+        expect(verifiedTriggerLines(undefined)).toStrictEqual([]);
+        const [line] = verifiedTriggerLines(20_000);
+        expect(line).toContain('$20,000');
+        expect(line).toContain('verified firm trigger');
+        expect(line).not.toContain('\u{2014}');
+    });
+
+    it('states that the amount is compared per account on what the trader receives', () => {
+        const [line] = verifiedTriggerLines(20_000);
+        expect(line).toContain('per account');
+        expect(line).toContain('trader receives');
     });
 });

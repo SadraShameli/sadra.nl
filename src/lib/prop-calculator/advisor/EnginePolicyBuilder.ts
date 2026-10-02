@@ -1,13 +1,19 @@
 import {
-    CENTS_PER_DOLLAR,
+    ceilToWholeCents,
+    type DayPolicy,
+    DayStopRuleKind,
+    type Dollars,
     DrawdownKind,
     effectivePayoutRequest,
     type FirmAccountPolicy,
     type InstrumentSymbol,
     LifetimePayoutCapOverrideKind,
     PayoutRequestPolicy,
+    percentCushionDayPolicy,
     type Plan,
     type Points,
+    policySizingOf,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { SIM_DEFAULTS, type SimInputs } from '~/lib/prop-calculator/simulator';
 import { stableJson } from '~/lib/stableJson';
@@ -20,9 +26,13 @@ import {
 } from './Assumption';
 import { AssumptionKind } from './AssumptionKind';
 import { SizingAssumption } from './DocumentedSizing';
+import { fundedRetainedCushionResolution } from './PayoutRequestRule';
+import { NO_PERSONAL_CAPS, type PersonalCaps } from './PersonalCaps';
 import {
+    cappedRisk,
     type EnginePolicy,
     enginePolicySchema,
+    hasPersonalCaps,
     LifetimePayoutCapBasis,
     RebuyLagBasis,
     resolveDocumentedPlan,
@@ -43,6 +53,9 @@ export interface EnginePolicyBuilderInput {
     readonly accountPolicy?: FirmAccountPolicy;
     readonly fundedHorizonDays: number;
     readonly measuredRebuyLag?: MeasuredRebuyLag | null;
+    readonly personalCaps?: PersonalCaps;
+    readonly personalDll?: Dollars | null;
+    readonly personalRetainedCushion?: Dollars | null;
     readonly plan: Plan;
     readonly positionSizing?: EnginePolicyPositionSizing | null;
     readonly rulebook: RulebookParameters;
@@ -72,7 +85,7 @@ export function applyEnginePolicy(
         );
     }
     return {
-        ...base,
+        ...withPersonalCaps(base, policy.personalCaps ?? NO_PERSONAL_CAPS),
         intradayPathStepsPerR:
             policy.intradayPathStepsPerR ?? base.intradayPathStepsPerR,
         minRetainedCushion: simulatedPlan.resolveRetainedCushion(
@@ -96,6 +109,9 @@ export function buildEnginePolicy(
         accountPolicy,
         fundedHorizonDays,
         measuredRebuyLag,
+        personalCaps,
+        personalDll,
+        personalRetainedCushion,
         plan,
         positionSizing,
         rulebook,
@@ -159,10 +175,17 @@ export function buildEnginePolicy(
         lifetimePayoutCapBasis,
         lifetimePayoutCapOverride,
         payoutRequestOverride: null,
+        ...(hasPersonalCaps(personalCaps) && { personalCaps }),
+        ...(personalDll !== null &&
+            personalDll !== undefined && { personalDll }),
         rebuyLagBasis,
         rebuyLagDays,
-        retainedCushionRequest:
-            rulebook.payout.retainedCushionCents / CENTS_PER_DOLLAR,
+        retainedCushionRequest: ceilToWholeCents(
+            fundedRetainedCushionResolution(
+                rulebook,
+                personalRetainedCushion ?? 0,
+            ).amount,
+        ),
         ...(stopPoints !== undefined && { stopPoints }),
     });
 
@@ -171,6 +194,37 @@ export function buildEnginePolicy(
 
 export function enginePolicyKey(policy: EnginePolicy): string {
     return stableJson(enginePolicySchema.parse(policy));
+}
+
+function cappedDayPolicy(
+    dayPolicy: DayPolicy,
+    caps: PersonalCaps,
+): DayPolicy {
+    const { maxRiskPerTrade, maxTradesPerDay } = caps;
+    const { computeRisk } = dayPolicy;
+    const slots =
+        maxTradesPerDay === null
+            ? dayPolicy.ladder
+            : dayPolicy.ladder.slice(0, maxTradesPerDay);
+    return {
+        ...dayPolicy,
+        ...(computeRisk !== undefined &&
+            maxRiskPerTrade !== null && {
+                computeRisk: (state, tradeIndexToday, fundedCycle) =>
+                    cappedRisk(
+                        computeRisk(state, tradeIndexToday, fundedCycle),
+                        maxRiskPerTrade,
+                    ),
+            }),
+        ladder:
+            maxRiskPerTrade === null
+                ? slots
+                : slots.map((rung) => cappedRisk(rung, maxRiskPerTrade)),
+    };
+}
+
+function fewerTradesOf(value: number, limit: null | number): number {
+    return limit === null ? value : Math.min(value, limit);
 }
 
 function isIntradayTrailing(plan: Plan): boolean {
@@ -215,4 +269,47 @@ function resolveLifetimePayoutCap(
             };
         }
     }
+}
+
+function withPersonalCaps(base: SimInputs, caps: PersonalCaps): SimInputs {
+    const { maxRiskPerTrade, maxTradesPerDay } = caps;
+    if (maxRiskPerTrade === null && maxTradesPerDay === null) return base;
+    const tradesPerDay = fewerTradesOf(base.tradesPerDay, maxTradesPerDay);
+    const fundedTradesPerDay =
+        base.fundedTradesPerDay === undefined
+            ? undefined
+            : fewerTradesOf(base.fundedTradesPerDay, maxTradesPerDay);
+    const percent = base.fundedCushionPercent;
+    const percentPolicy =
+        percent !== undefined && maxRiskPerTrade !== null
+            ? percentCushionDayPolicy(
+                  percent,
+                  fundedTradesPerDay ?? tradesPerDay,
+                  base.dayStop ?? { kind: DayStopRuleKind.None },
+                  policySizingOf(TradingPhase.Funded),
+                  maxRiskPerTrade,
+              )
+            : undefined;
+    return {
+        ...base,
+        evalDayPolicy:
+            base.evalDayPolicy === undefined
+                ? undefined
+                : cappedDayPolicy(base.evalDayPolicy, caps),
+        fundedCushionPercent:
+            percentPolicy === undefined ? percent : undefined,
+        fundedDayPolicy:
+            percentPolicy ??
+            (base.fundedDayPolicy === undefined
+                ? undefined
+                : cappedDayPolicy(base.fundedDayPolicy, caps)),
+        fundedRiskPerTrade:
+            base.fundedRiskPerTrade === undefined
+                ? undefined
+                : cappedRisk(base.fundedRiskPerTrade, maxRiskPerTrade),
+        fundedTradesPerDay:
+            percentPolicy === undefined ? fundedTradesPerDay : undefined,
+        riskPerTrade: cappedRisk(base.riskPerTrade, maxRiskPerTrade),
+        tradesPerDay,
+    };
 }

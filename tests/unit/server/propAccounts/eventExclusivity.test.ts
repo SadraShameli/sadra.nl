@@ -9,7 +9,6 @@ import {
     AccountStage,
     AccountStatus,
     AccountTracking,
-    LifecycleRejection,
     readAccountEventDetail,
 } from '~/lib/prop-accounts';
 import {
@@ -134,6 +133,14 @@ function eventInserts(queries: readonly IssuedQuery[]) {
     }));
 }
 
+function isAccountListQuery(query: IssuedQuery): boolean {
+    return (
+        readTable(query) === TABLES.account &&
+        !isCount(query) &&
+        query.text.includes(' order by ')
+    );
+}
+
 function lockedAccountIds(queries: readonly IssuedQuery[]): string[] {
     return queries
         .filter(
@@ -181,14 +188,24 @@ function responderFor(
     counts: Readonly<Record<string, number>> = {},
 ): Responder {
     const base = tableResponder({}, counts);
-    return (query) =>
-        readTable(query) === TABLES.account && !isCount(query)
+    return (query) => {
+        if (isAccountListQuery(query)) {
+            return accounts.filter(
+                (row) =>
+                    query.params.includes(row.user_id) &&
+                    (row.firm_id === null ||
+                        query.params.includes(row.firm_id)) &&
+                    row.archived_at === null,
+            );
+        }
+        return readTable(query) === TABLES.account && !isCount(query)
             ? accounts.filter(
                   (row) =>
                       query.params.includes(row.id) &&
                       query.params.includes(row.user_id),
               )
             : base(query);
+    };
 }
 
 function siblingAccount(id: string, overrides: FakeRow = {}): FakeRow {
@@ -432,30 +449,141 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
         expect(transactionSteps(queries).at(-1)).toBe(TransactionStep.Rollback);
     });
 
-    it('rejects a sibling that is not Active with the lifecycle reason and writes nothing', async () => {
+    it.each([
+        ['Suspended', { status: AccountStatus.Suspended }],
+        ['Busted', { status: AccountStatus.Busted }],
+        ['Closed', { status: AccountStatus.Closed }],
+    ])(
+        'rejects a confirmed %s sibling with the one typed exclusivity reason, whatever its lifecycle state, and writes nothing',
+        async (_name, overrides) => {
+            const { caller, queries } = callerFor(
+                SIGNED_IN,
+                responderFor([
+                    movedAccount(),
+                    siblingAccount(FIRST_SIBLING),
+                    siblingAccount(SECOND_SIBLING, overrides),
+                ]),
+            );
+            const shape = errorShapeOf(
+                await rejectionOf(
+                    withPolicy(DORMANT_WHILE_LIVE, () =>
+                        recordMovedLive(caller, [
+                            FIRST_SIBLING,
+                            SECOND_SIBLING,
+                        ]),
+                    ),
+                ),
+            );
+            expect(shape.data.propRejection).toEqual(
+                mutationRejection(
+                    PropMutationRejection.ExclusivityNotConfirmed,
+                ),
+            );
+            expect(shape.message).toContain(SECOND_SIBLING);
+            expect(propWrites(queries)).toHaveLength(0);
+        },
+    );
+
+    it('refuses a MovedLive that sends no confirmed ids while the verified policy suspends an Active sibling, and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            responderFor([movedAccount(), siblingAccount(FIRST_SIBLING)]),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(
+                withPolicy(DORMANT_WHILE_LIVE, () => recordMovedLive(caller)),
+            ),
+        );
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.ExclusivityNotConfirmed),
+        );
+        expect(shape.message).toContain(FIRST_SIBLING);
+        expect(propWrites(queries)).toHaveLength(0);
+        expect(transactionSteps(queries).at(-1)).toBe(TransactionStep.Rollback);
+    });
+
+    it('refuses a MovedLive that confirms one of two Active siblings the verified policy suspends and names the one left out', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,
             responderFor([
                 movedAccount(),
                 siblingAccount(FIRST_SIBLING),
-                siblingAccount(SECOND_SIBLING, {
-                    status: AccountStatus.Suspended,
-                }),
+                siblingAccount(SECOND_SIBLING, { stage: AccountStage.Funded }),
             ]),
         );
         const shape = errorShapeOf(
             await rejectionOf(
                 withPolicy(DORMANT_WHILE_LIVE, () =>
-                    recordMovedLive(caller, [FIRST_SIBLING, SECOND_SIBLING]),
+                    recordMovedLive(caller, [FIRST_SIBLING]),
                 ),
             ),
         );
         expect(shape.data.propRejection).toEqual(
-            mutationRejection(
-                PropMutationRejection.LifecycleTransition,
-                LifecycleRejection.NotActive,
-            ),
+            mutationRejection(PropMutationRejection.ExclusivityNotConfirmed),
         );
+        expect(shape.message).toContain(SECOND_SIBLING);
+        expect(shape.message).not.toContain(FIRST_SIBLING);
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('does not require a sibling the verified policy leaves alone: archived, busted, suspended, live, at another firm or only flagged', async () => {
+        const archivedOn = new Date('2026-09-10T00:00:00Z');
+        const otherFirm = defined(
+            ALL_FIRMS.find((firm) => firm.id !== KEY.firmId),
+        );
+        const otherKey = planKeyFields({
+            firm: otherFirm,
+            plan: defined(otherFirm.plans[0]),
+        });
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            responderFor([
+                movedAccount(),
+                siblingAccount(FIRST_SIBLING, { archived_at: archivedOn }),
+                siblingAccount(SECOND_SIBLING, {
+                    status: AccountStatus.Busted,
+                }),
+                siblingAccount(THIRD_SIBLING, { stage: AccountStage.Live }),
+                siblingAccount('cccccccc-cccc-4ccc-8ccc-cccccccccccc', {
+                    status: AccountStatus.Suspended,
+                }),
+                siblingAccount('dddddddd-dddd-4ddd-8ddd-dddddddddddd', {
+                    account_size: otherKey.accountSize,
+                    firm_id: otherKey.firmId,
+                    plan_serial: otherKey.planSerial,
+                }),
+            ]),
+        );
+        await withPolicy(DORMANT_WHILE_LIVE, () => recordMovedLive(caller));
+        expect(insertsInto(queries, TABLES.event)).toHaveLength(1);
+        const flagOnly = new ExclusivityStub(
+            SimAccountEffect.UpgradedAccountOnHold,
+            CONFIRMED_SOURCE,
+        );
+        const flagged = callerFor(
+            SIGNED_IN,
+            responderFor([movedAccount(), siblingAccount(FIRST_SIBLING)]),
+        );
+        await withPolicy(flagOnly, () => recordMovedLive(flagged.caller));
+        expect(insertsInto(flagged.queries, TABLES.event)).toHaveLength(1);
+    });
+
+    it('reads the siblings user-scoped, once, and never writes for a sibling the caller did not confirm', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            responderFor([
+                movedAccount(),
+                siblingAccount(FIRST_SIBLING),
+                siblingAccount(SECOND_SIBLING, { user_id: OTHER_USER }),
+            ]),
+        );
+        await rejectionOf(
+            withPolicy(DORMANT_WHILE_LIVE, () => recordMovedLive(caller)),
+        );
+        const listings = queries.filter(isAccountListQuery);
+        expect(listings).toHaveLength(1);
+        for (const query of listings) assertUserScopedWhere(query, USER_ID);
         expect(propWrites(queries)).toHaveLength(0);
     });
 
@@ -607,11 +735,11 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
         expect(propWrites(queries)).toHaveLength(0);
     });
 
-    it('keeps today behaviour when the field is omitted or empty: one event, one account update, only the moved account locked', async () => {
+    it('keeps today behaviour when the field is omitted or empty and the verified policy suspends no sibling: one event, one account update, only the moved account locked', async () => {
         for (const confirmed of [undefined, []]) {
             const { caller, queries } = callerFor(
                 SIGNED_IN,
-                responderFor([movedAccount(), siblingAccount(FIRST_SIBLING)]),
+                responderFor([movedAccount()]),
             );
             await withPolicy(DORMANT_WHILE_LIVE, () =>
                 recordMovedLive(caller, confirmed),
@@ -622,13 +750,18 @@ describe('propAccounts.event.record with confirmed exclusivity effects', () => {
         }
     });
 
-    it('records a plain move live on a firm with a verified policy when no ids are sent', async () => {
+    it('records a plain move live while the firm policy is unverified, which is every real firm today, even with active siblings', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,
-            responderFor([movedAccount(), siblingAccount(FIRST_SIBLING)]),
+            responderFor([
+                movedAccount(),
+                siblingAccount(FIRST_SIBLING),
+                siblingAccount(SECOND_SIBLING, { stage: AccountStage.Funded }),
+            ]),
         );
         await recordMovedLive(caller);
         expect(insertsInto(queries, TABLES.event)).toHaveLength(1);
+        expect(updatesOf(queries, TABLES.account)).toHaveLength(1);
     });
 
     it('rejects the field on another kind before touching the database', async () => {

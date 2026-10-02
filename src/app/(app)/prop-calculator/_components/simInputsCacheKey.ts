@@ -25,6 +25,7 @@ export enum SimInputsKeyField {
     IdleDayProbability = 'idle',
     Instrument = 'instrument',
     IntradayPathStepsPerR = 'pathSteps',
+    LiveTransferHazard = 'liveTransferHazard',
     MaxEvalDays = 'max',
     MinRetainedCushion = 'minCushion',
     MonthlyDiscount = 'monthly',
@@ -41,6 +42,7 @@ export enum SimInputsKeyField {
     StopPoints = 'stopPoints',
     TradesPerDay = 'tpd',
     Trials = 'trials',
+    VerifiedCumulativePayoutTrigger = 'verifiedCumulativePayoutTrigger',
     Winrate = 'winrate',
 }
 
@@ -92,6 +94,8 @@ export function simInputsCacheKey(
         [SimInputsKeyField.Instrument]: inputs.instrument ?? null,
         [SimInputsKeyField.IntradayPathStepsPerR]:
             inputs.intradayPathStepsPerR ?? null,
+        [SimInputsKeyField.LiveTransferHazard]:
+            inputs.liveTransferHazard ?? null,
         [SimInputsKeyField.MaxEvalDays]: inputs.maxEvalDays,
         [SimInputsKeyField.MinRetainedCushion]:
             inputs.minRetainedCushion ?? null,
@@ -112,6 +116,8 @@ export function simInputsCacheKey(
         [SimInputsKeyField.StopPoints]: inputs.stopPoints ?? null,
         [SimInputsKeyField.TradesPerDay]: inputs.tradesPerDay,
         [SimInputsKeyField.Trials]: inputs.trials,
+        [SimInputsKeyField.VerifiedCumulativePayoutTrigger]:
+            inputs.verifiedCumulativePayoutTrigger ?? null,
         [SimInputsKeyField.Winrate]: inputs.winrate,
     };
 

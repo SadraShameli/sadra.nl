@@ -1,4 +1,7 @@
-import { type DocumentedPolicySpec } from '~/lib/prop-calculator/advisor/policy';
+import {
+    documentedFundedRisk,
+    type DocumentedPolicySpec,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
@@ -101,7 +104,17 @@ function reducedRiskWhatIf(
         );
     }
     const { funded } = spec.rulebook;
-    const riskCents = Math.round(risk * CENTS_PER_DOLLAR);
+    const placedRisk = documentedFundedRisk(
+        {
+            ...spec.rulebook,
+            funded: {
+                ...funded,
+                riskCents: Math.round(risk * CENTS_PER_DOLLAR),
+            },
+        },
+        spec.enginePolicy,
+    );
+    const riskCents = Math.round(placedRisk * CENTS_PER_DOLLAR);
     const reducedSpec: DocumentedPolicySpec = {
         ...spec,
         rulebook: {
@@ -117,7 +130,7 @@ function reducedRiskWhatIf(
     };
     return {
         label: REDUCED_RISK_WHAT_IF_LABEL,
-        risk,
+        risk: placedRisk,
         value: requireValue(valueAtState(account, reducedSpec)),
     };
 }

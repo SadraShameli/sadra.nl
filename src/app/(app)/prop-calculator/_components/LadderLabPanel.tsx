@@ -2,6 +2,7 @@
 
 import { FlaskConical } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { z } from 'zod';
 
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
@@ -16,19 +17,25 @@ import {
     defaultLadderGridMax,
     evalContractLimit,
     INSTRUMENTS,
-    type InstrumentSymbol,
+    InstrumentSymbol,
     type LadderGridConfig,
     type LadderScore,
     ladderSum,
     MAX_LADDER_SLOTS,
     minStopPoints,
     resolvePositionSizing,
-    type RungSizing,
+    RungSizing,
     type SimInputs,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
 import { cn } from '~/lib/utilities';
 
-import { useCalculatorActions, useLabSlots } from './CalculatorProvider';
+import {
+    useCalculatorActions,
+    useCalculatorInputs,
+    useLabSlots,
+} from './CalculatorProvider';
 import LadderFrontierChartView from './charts/LadderFrontierChartView';
 import DayStopRulePicker from './DayStopRulePicker';
 import { describeLadderIgnoredInputs } from './ladderIgnoredInputs';
@@ -56,6 +63,12 @@ import {
     type LadderSearchState,
 } from './ladderSearchTypes';
 import { describeUnscorableLadderRun } from './ladderUnscorable';
+import { CalculatorObjectiveChip } from './ObjectiveChip';
+import {
+    ladderObjectiveStar,
+    ladderRungPlacements,
+    riskTableObjective,
+} from './objectiveRanking';
 import {
     RUNG_SIZING_LABELS,
     RUNG_SIZING_OPTIONS,
@@ -75,6 +88,12 @@ interface LatestLadderRun {
     runInputs: LadderSearchInputs | null;
     search: LadderSearchState;
 }
+
+const instrumentChoiceSchema = z.union([
+    z.literal(''),
+    z.enum(InstrumentSymbol),
+]);
+const rungSizingSchema = z.enum(RungSizing);
 
 export default function LadderLabPanel({
     activePolicy,
@@ -97,6 +116,11 @@ export default function LadderLabPanel({
     const cushion = plan.drawdown.amount;
     const positionSizing = resolvePositionSizing(sizingInstrument, stopPoints);
     const { ladderSlot } = useLabSlots();
+    const { state: calculatorState } = useCalculatorInputs();
+    const objectiveView = riskTableObjective(
+        calculatorState.objective,
+        RankingSurface.Ladder,
+    );
     const { setRungSizing, writeLadderSlot } = useCalculatorActions();
     const activeRungSizing = baseInputs.rungSizing ?? DEFAULT_RUNG_SIZING;
     const [form, setForm] = useState<LadderLabForm>(() =>
@@ -187,6 +211,14 @@ export default function LadderLabPanel({
         instrumentSpec === null
             ? null
             : evalContractLimit(plan.contractLimits, instrumentSpec.isMicro);
+    const labPositionSizing = useMemo(
+        () =>
+            resolvePositionSizing(
+                instrument === '' ? undefined : instrument,
+                stopPoints,
+            ),
+        [instrument, stopPoints],
+    );
 
     const scored =
         view.kind === LadderLabViewKind.Restored ||
@@ -195,6 +227,16 @@ export default function LadderLabPanel({
             : null;
     const unscorableNote =
         scored === null ? null : describeUnscorableLadderRun(scored.result);
+    const starKey = useMemo(
+        () =>
+            scored === null
+                ? null
+                : (ladderObjectiveStar(
+                      scored.result,
+                      objectiveView.effective,
+                  )?.ladder.join(',') ?? null),
+        [objectiveView.effective, scored],
+    );
     const rows = useMemo(() => {
         const result = scored?.result;
         if (!result) return [];
@@ -220,6 +262,9 @@ export default function LadderLabPanel({
                 cell: ({ row }) => (
                     <span className="font-mono">
                         {row.original.ladder.join(' / ')}
+                        {row.original.ladder.join(',') === starKey && (
+                            <span className="ml-1 text-emerald-400">★</span>
+                        )}
                     </span>
                 ),
                 header: 'Ladder',
@@ -302,6 +347,9 @@ export default function LadderLabPanel({
                 header: 'Min stop',
                 id: 'minStop',
             },
+            ...(labPositionSizing === null
+                ? []
+                : [contractsColumn(labPositionSizing, contractCap)]),
             {
                 cell: ({ row }) => (
                     <LadderRowButton
@@ -327,9 +375,11 @@ export default function LadderLabPanel({
             activePolicy,
             activeRungSizing,
             contractCap,
+            labPositionSizing,
             onApply,
             pointValue,
             setRungSizing,
+            starKey,
             view,
         ],
     );
@@ -398,6 +448,8 @@ export default function LadderLabPanel({
                 </div>
             </div>
 
+            <CalculatorObjectiveChip className="mt-3" />
+
             <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
                 <NumberField
                     label="Min rung"
@@ -437,13 +489,17 @@ export default function LadderLabPanel({
                     <select
                         className="h-8 rounded-md border bg-transparent px-2 text-xs"
                         id="ladder-lab-instrument"
-                        onChange={(event) =>
-                            setForm((current) => ({
-                                ...current,
-                                displayInstrument: event.target.value as
-                                    '' | InstrumentSymbol,
-                            }))
-                        }
+                        onChange={(event) => {
+                            const parsed = instrumentChoiceSchema.safeParse(
+                                event.target.value,
+                            );
+                            if (parsed.success) {
+                                setForm((current) => ({
+                                    ...current,
+                                    displayInstrument: parsed.data,
+                                }));
+                            }
+                        }}
                         value={instrument}
                     >
                         <option value="">Not set</option>
@@ -478,12 +534,17 @@ export default function LadderLabPanel({
                     </span>
                     <select
                         className="h-8 rounded-md border bg-transparent px-2 text-xs"
-                        onChange={(event) =>
-                            setForm((current) => ({
-                                ...current,
-                                rungSizing: event.target.value as RungSizing,
-                            }))
-                        }
+                        onChange={(event) => {
+                            const parsed = rungSizingSchema.safeParse(
+                                event.target.value,
+                            );
+                            if (parsed.success) {
+                                setForm((current) => ({
+                                    ...current,
+                                    rungSizing: parsed.data,
+                                }));
+                            }
+                        }}
                         value={rungSizing}
                     >
                         {RUNG_SIZING_OPTIONS.map((option) => (
@@ -570,6 +631,12 @@ export default function LadderLabPanel({
                         <h4 className="text-xs font-semibold">
                             Ranked ladders ({rows.length})
                         </h4>
+                        <p className="text-xs text-muted-foreground">
+                            {ladderStarText(objectiveView.effective)}
+                            {labPositionSizing === null
+                                ? ''
+                                : ' Contracts are display only: whole contracts at your stop, rounded down.'}
+                        </p>
                         <DataTable<LadderScore>
                             className="app-prop-calculator__ladder-table text-xs tabular-nums"
                             columns={columns}
@@ -593,6 +660,42 @@ export default function LadderLabPanel({
             )}
         </Card>
     );
+}
+
+function contractsColumn(
+    positionSizing: NonNullable<ReturnType<typeof resolvePositionSizing>>,
+    contractCap: null | number,
+): DataTableColumn<LadderScore> {
+    return {
+        accessorFn: (r) =>
+            ladderRungPlacements(r.ladder, positionSizing, contractCap)
+                ?.map((placement) => placement.contracts)
+                .join(' / ') ?? '',
+        cell: ({ row }) => {
+            const placements =
+                ladderRungPlacements(
+                    row.original.ladder,
+                    positionSizing,
+                    contractCap,
+                ) ?? [];
+            return (
+                <span className="text-muted-foreground">
+                    {placements
+                        .map((placement) => placement.contracts)
+                        .join(' / ')}{' '}
+                    contracts,{' '}
+                    {placements
+                        .map((placement) =>
+                            formatCurrency(placement.placedRisk),
+                        )
+                        .join(' / ')}{' '}
+                    placed
+                </span>
+            );
+        },
+        header: 'Contracts at stop',
+        id: 'contracts',
+    };
 }
 
 function LadderRowButton({
@@ -638,6 +741,18 @@ function LadderRowButton({
                     Apply
                 </button>
             );
+        }
+    }
+}
+
+function ladderStarText(objective: SizingObjective): string {
+    switch (objective) {
+        case SizingObjective.CycleCash: {
+            return 'The star marks the cheapest ladder per funded account, an eval-stage proxy for cycle cash.';
+        }
+        case SizingObjective.MonthlyNet:
+        case SizingObjective.RuinFirst: {
+            return 'The star marks the fastest ladder to funded, an eval-stage proxy for monthly net.';
         }
     }
 }

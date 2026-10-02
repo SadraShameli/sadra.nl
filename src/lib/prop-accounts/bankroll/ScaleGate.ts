@@ -45,6 +45,14 @@ export interface ScaleGateInputs {
     readonly trades: number;
 }
 
+export const SCALE_GATE_STATUS_TEXT: Readonly<Record<ScaleGateStatus, string>> =
+    {
+        [ScaleGateStatus.NotEnoughSample]: 'Not enough sample',
+        [ScaleGateStatus.NotPositiveAfterCost]: 'Not positive after cost',
+        [ScaleGateStatus.Ready]: 'Ready to scale',
+        [ScaleGateStatus.ThresholdsNotSet]: 'Sample thresholds not set',
+    };
+
 const SAMPLE_UNMET_CONDITIONS: ReadonlySet<ScaleGateUnmetCondition> = new Set([
     ScaleGateUnmetCondition.CohortSampleBelowThreshold,
     ScaleGateUnmetCondition.EvalAttemptsBelowThreshold,

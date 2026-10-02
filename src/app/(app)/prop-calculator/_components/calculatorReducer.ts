@@ -12,6 +12,7 @@ import {
     type RungSizing,
     type TradingFirm,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { CALCULATOR_SCALAR_BOUNDS, MAX_LAB_SCENARIOS } from '~/lib/schemas/url';
 
 import { clampInt, clampNumber, clampStateToPlan } from './clamp';
@@ -70,9 +71,11 @@ export enum CalculatorActionType {
     SetInstrument = 'set-instrument',
     SetLabScenarios = 'set-lab-scenarios',
     SetLinkActivationDiscount = 'set-link-activation-discount',
+    SetLiveTransferHazard = 'set-live-transfer-hazard',
     SetMaxAttempts = 'set-max-attempts',
     SetMaxEvalDays = 'set-max-eval-days',
     SetMonthlySubscriptionDiscountPercent = 'set-monthly-subscription-discount-percent',
+    SetObjective = 'set-objective',
     SetPayoutRequestSize = 'set-payout-request-size',
     SetPlan = 'set-plan',
     SetPortfolio = 'set-portfolio',
@@ -126,6 +129,7 @@ export type CalculatorAction =
           type: CalculatorActionType.SetTakesOneTimeEarlyWithdrawal;
       }
     | { mode: SizingMode; type: CalculatorActionType.SetSizingMode }
+    | { objective: SizingObjective; type: CalculatorActionType.SetObjective }
     | { plan: Plan; type: CalculatorActionType.SetPlan }
     | {
           policy: DayPolicy | null;
@@ -149,6 +153,7 @@ export type CalculatorAction =
     | { type: CalculatorActionType.SetEvalDiscountPercent; value: number }
     | { type: CalculatorActionType.SetFundedHorizonDays; value: number }
     | { type: CalculatorActionType.SetIdleDayProbability; value: number }
+    | { type: CalculatorActionType.SetLiveTransferHazard; value: number }
     | { type: CalculatorActionType.SetMaxAttempts; value: number }
     | { type: CalculatorActionType.SetMaxEvalDays; value: number }
     | {
@@ -245,9 +250,11 @@ export function defaultCalculatorState(): CalculatorState {
         labScenarios: buildDefaultLabScenarios(),
         linkActivationDiscount: false,
         linkParameters: NO_LINK_PARAMETERS,
+        liveTransferHazard: 0,
         maxAttempts: 1,
         maxEvalDays: DEFAULT_MAX_EVAL_DAYS,
         monthlySubscriptionDiscountPercent: 0,
+        objective: SizingObjective.MonthlyNet,
         payoutRequestSize: null,
         plan: DEFAULT_PLAN,
         portfolio: [
@@ -501,6 +508,17 @@ function reduceCalculator(
         case CalculatorActionType.SetLinkActivationDiscount: {
             return { ...state, linkActivationDiscount: action.isLinked };
         }
+        case CalculatorActionType.SetLiveTransferHazard: {
+            return {
+                ...state,
+                liveTransferHazard: clampNumber(
+                    action.value,
+                    CALCULATOR_SCALAR_BOUNDS.lth.min,
+                    CALCULATOR_SCALAR_BOUNDS.lth.max,
+                    state.liveTransferHazard,
+                ),
+            };
+        }
         case CalculatorActionType.SetMaxAttempts: {
             return {
                 ...state,
@@ -533,6 +551,9 @@ function reduceCalculator(
                     state.monthlySubscriptionDiscountPercent,
                 ),
             };
+        }
+        case CalculatorActionType.SetObjective: {
+            return { ...state, objective: action.objective };
         }
         case CalculatorActionType.SetPayoutRequestSize: {
             return {

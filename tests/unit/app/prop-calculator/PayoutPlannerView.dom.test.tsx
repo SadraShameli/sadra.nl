@@ -24,11 +24,19 @@ import {
     type PayoutSweepRequest,
     type PayoutSweepResult,
 } from '~/app/(app)/prop-calculator/_workers/payoutSweepWorkerMessages';
-import { assumptionLabel } from '~/app/(app)/prop-calculator/accounts/_components/detail/detailState';
 import { formatGateCurrency } from '~/lib/format';
+import {
+    ALL_FIRMS,
+    CumulativeAmountTrigger,
+    dollars,
+    effectivePayoutRequest,
+    PolicySourceKind,
+    PolicyVerification,
+} from '~/lib/prop-calculator';
 import {
     AdviceSource,
     AssumptionKind,
+    assumptionKindText,
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
     PayoutSizeSweepObjective,
@@ -36,6 +44,7 @@ import {
     PayoutSizeSweepResultKind,
     type PayoutSizeSweepRow,
     type PersonalPayoutOverrideWarning,
+    RetainedCushionBasis,
     type RulebookParameters,
     runPayoutSizeSweep,
 } from '~/lib/prop-calculator/advisor';
@@ -44,7 +53,6 @@ import {
     ValueResultKind,
     ValueUnavailableReason,
 } from '~/lib/prop-calculator/advisor/value';
-import { effectivePayoutRequest } from '~/lib/prop-calculator/core';
 import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';
 
 type AnyEvent = WorkerTaskEvent<never, unknown>;
@@ -244,6 +252,7 @@ function outlookResult(
         projection: {
             accountLostBeforeFirstPayoutProbability: 0.25,
             accountLostBeforeFirstPayoutStandardError: 0.01,
+            alreadyEligible: false,
             expectedCalendarDaysToFirstPayout: {
                 standardError: 0.5,
                 value: 12.3,
@@ -310,6 +319,22 @@ function stakeComparison(
         },
         traderReceivesNow: 400,
     };
+}
+
+function stubVerifiedTrigger() {
+    for (const firm of ALL_FIRMS) {
+        vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue(
+            [
+                new CumulativeAmountTrigger(dollars(20_000), {
+                    fetchedOn: '2026-09-26',
+                    quote: 'quote',
+                    sourceKind: PolicySourceKind.LiveFetch,
+                    url: 'https://example.invalid/rule',
+                    verification: PolicyVerification.Confirmed,
+                }),
+            ],
+        );
+    }
 }
 
 function sweepResult(patch: Partial<PayoutSizeSweepOptimum> = {}) {
@@ -706,6 +731,102 @@ describe('PayoutPlannerView (PT-31e)', () => {
             expect(text).toContain('25.0% (±1.0%)');
         });
 
+        it('says eligible now for an already-eligible projection and prints no zero days (PT-68c, F-V18)', () => {
+            render(<PayoutPlannerView />);
+            const base = outlookResult();
+            finish('outlook', {
+                ...base,
+                projection: {
+                    ...base.projection,
+                    accountLostBeforeFirstPayoutProbability: 0,
+                    accountLostBeforeFirstPayoutStandardError: 0,
+                    alreadyEligible: true,
+                    expectedCalendarDaysToFirstPayout: {
+                        standardError: 0,
+                        value: 0,
+                    },
+                    payingTrials: 200,
+                },
+            });
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain('Expected days to the next payout');
+            expect(text).toContain('Eligible now');
+            expect(text).not.toContain('0.0 days');
+            expect(text).not.toContain('(±0.0)');
+        });
+
+        it('attributes an already-eligible projection to the eligibility check, with no simulated trial count and no zero loss figure', () => {
+            render(<PayoutPlannerView />);
+            const base = outlookResult();
+            finish('outlook', {
+                ...base,
+                projection: {
+                    ...base.projection,
+                    accountLostBeforeFirstPayoutProbability: 0,
+                    accountLostBeforeFirstPayoutStandardError: 0,
+                    alreadyEligible: true,
+                    expectedCalendarDaysToFirstPayout: {
+                        standardError: 0,
+                        value: 0,
+                    },
+                    payingTrials: 200,
+                    trials: 200,
+                },
+            });
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain("the engine's payout eligibility check");
+            expect(text).toContain('no trials were simulated');
+            expect(text).not.toContain('trials reached a payout');
+            expect(text).not.toContain(
+                'P(account lost before the next payout)',
+            );
+        });
+
+        it('says the projected days are the mean over the trials that paid', () => {
+            render(<PayoutPlannerView />);
+            finish('outlook', outlookResult());
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain(
+                'Expected days to the next payout among the trials that paid',
+            );
+        });
+
+        it('says no simulated trial reached a payout instead of printing zero days (PT-68c, F-V18)', () => {
+            render(<PayoutPlannerView />);
+            const base = outlookResult();
+            finish('outlook', {
+                ...base,
+                projection: {
+                    ...base.projection,
+                    expectedCalendarDaysToFirstPayout: {
+                        standardError: null,
+                        value: 0,
+                    },
+                    payingTrials: 0,
+                },
+            });
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain(
+                'No simulated trial reached a payout within the horizon',
+            );
+            expect(text).not.toContain('0.0 days');
+        });
+
+        it('shows how many trials reached a payout next to the projected days (PT-68c)', () => {
+            render(<PayoutPlannerView />);
+            finish('outlook', outlookResult());
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain('12.3 days (±0.5)');
+            expect(text).toContain(
+                '100 of 200 trials reached a payout (50.0%)',
+            );
+        });
+
         it('shows the worker failure reason instead of a skeleton', () => {
             render(<PayoutPlannerView />);
             const instance = fakeWorker.latest.outlook;
@@ -909,10 +1030,15 @@ describe('PayoutPlannerView (PT-31e)', () => {
             finish(
                 'sweep',
                 sweepResultWithOverride(6000, 0.6, {
+                    horizonDays: 252,
                     optimumBustProbability: 0.2,
                     optimumMonthlyNet: 400,
+                    optimumRequestSize: 1000,
                     overrideBustProbability: 0.6,
                     overrideMonthlyNet: 300,
+                    overrideRequestSize: 6000,
+                    retainedCushion: 2000,
+                    retainedCushionBasis: RetainedCushionBasis.RulebookSize,
                 }),
             );
 
@@ -987,10 +1113,10 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             const text = container.textContent;
             expect(text).toContain(
-                assumptionLabel(AssumptionKind.LiveTriggersNotChecked),
+                assumptionKindText(AssumptionKind.LiveTriggersNotChecked),
             );
             expect(text).toContain(
-                assumptionLabel(AssumptionKind.RebuyLagAssumed),
+                assumptionKindText(AssumptionKind.RebuyLagAssumed),
             );
         });
 
@@ -1253,6 +1379,44 @@ describe('PayoutPlannerView (PT-31e)', () => {
             expect(lastSweepRequest().spec.rulebook.funded.riskCents).toBe(
                 40_000,
             );
+        });
+    });
+
+    describe('payout ceiling to stay simulated (PT-73, F-V26)', () => {
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
+
+        it('says nothing about a ceiling while the firm has no verified trigger', () => {
+            searchState.query = READY_QUERY;
+
+            render(<PayoutPlannerView />);
+
+            expect(sectionOf('Readiness').textContent).not.toContain(
+                'verified firm trigger',
+            );
+        });
+
+        it('names the verified cumulative payout trigger in the readiness, with its source', () => {
+            stubVerifiedTrigger();
+            searchState.query = READY_QUERY;
+
+            render(<PayoutPlannerView />);
+
+            const readiness = sectionOf('Readiness').textContent;
+            expect(readiness).toContain('verified firm trigger');
+            expect(readiness).toContain('$20,000');
+            expect(readiness).toContain('https://example.invalid/rule');
+        });
+
+        it('names it on a blocked readiness too', () => {
+            stubVerifiedTrigger();
+
+            render(<PayoutPlannerView />);
+
+            const readiness = sectionOf('Readiness').textContent;
+            expect(readiness).toContain('wait: 5 qualifying days');
+            expect(readiness).toContain('verified firm trigger');
         });
     });
 });

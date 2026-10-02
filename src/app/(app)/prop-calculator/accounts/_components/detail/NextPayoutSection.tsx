@@ -9,12 +9,10 @@ import {
     AccountFromStateViewKind,
     accountFromStateViewOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
-import { useOverviewWorker } from '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker';
+import { type SlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import { Skeleton } from '~/components/ui/Skeleton';
-import { type Plan } from '~/lib/prop-calculator';
 import {
     type AccountSnapshotInput,
-    type MeasuredRebuyLag,
     type ReconstructedAccount,
     type RulebookParameters,
     SizingStage,
@@ -24,7 +22,10 @@ import {
     type ChainPositionView,
     ChainPositionViewKind,
     chainPositionViewOf,
-    fromStateDetailRequestsOf,
+    FROM_STATE_PERSONAL_RULES_NOTE,
+    type FromStateDetail,
+    FromStateDetailKind,
+    type FromStateDetailRequests,
     payoutPathLinesOf,
     type RetireView,
     RetireViewKind,
@@ -33,47 +34,17 @@ import {
 
 export function NextPayoutSection({
     account,
+    detail,
     input,
-    measuredRebuyLag,
-    plan,
     rulebook,
     rulebookError,
 }: {
     readonly account: ReconstructedAccount;
+    readonly detail: FromStateDetail;
     readonly input: AccountSnapshotInput;
-    readonly measuredRebuyLag: MeasuredRebuyLag | null;
-    readonly plan: Plan;
     readonly rulebook: RulebookParameters | undefined;
     readonly rulebookError: null | string;
 }) {
-    const requests = useMemo(
-        () =>
-            rulebook === undefined
-                ? null
-                : fromStateDetailRequestsOf({
-                      input,
-                      measuredRebuyLag,
-                      plan,
-                      rulebook,
-                  }),
-        [input, measuredRebuyLag, plan, rulebook],
-    );
-    const engineRequests = useMemo(
-        () =>
-            requests === null
-                ? []
-                : [requests.account, requests.retire, requests.chain],
-        [requests],
-    );
-    const engine = useOverviewWorker(engineRequests);
-    const pathLines = useMemo(
-        () =>
-            requests === null
-                ? null
-                : payoutPathLinesOf(account, requests.account.spec),
-        [account, requests],
-    );
-
     if (rulebook === undefined) {
         return rulebookError === null ? (
             <p className="text-sm text-muted-foreground">
@@ -93,36 +64,33 @@ export function NextPayoutSection({
             </p>
         );
     }
-    if (requests === null) {
-        return (
-            <p className="text-sm text-muted-foreground">
-                The plan of this account is not modeled by the engine, so no
-                figures from this state can be computed.
-            </p>
-        );
-    }
-    const view = accountFromStateViewOf(engine, requests.account);
-    return (
-        <div className="flex flex-col gap-4">
-            <FromStateBlock view={view} />
-            {pathLines !== null && (
-                <div className="flex flex-col gap-1">
-                    <h4 className="text-sm font-medium">
-                        Path to the next payout
-                    </h4>
-                    <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
-                        {pathLines.map((line) => (
-                            <li key={line}>{line}</li>
-                        ))}
-                    </ul>
+    switch (detail.kind) {
+        case FromStateDetailKind.Pending: {
+            return (
+                <div
+                    aria-busy="true"
+                    aria-label="Computing the figures from this state"
+                    role="status"
+                >
+                    <Skeleton className="h-24 w-full" />
                 </div>
-            )}
-            {view.kind === AccountFromStateViewKind.Ready && (
-                <ChainPosition view={chainPositionViewOf(engine, requests)} />
-            )}
-            <RetireInformation view={retireViewOf(engine, requests.retire)} />
-        </div>
-    );
+            );
+        }
+        case FromStateDetailKind.Ready: {
+            return (
+                <ReadyNextPayout
+                    account={account}
+                    engine={detail.engine}
+                    requests={detail.requests}
+                />
+            );
+        }
+        case FromStateDetailKind.Unavailable: {
+            return (
+                <p className="text-sm text-muted-foreground">{detail.reason}</p>
+            );
+        }
+    }
 }
 
 function ChainPosition({ view }: { readonly view: ChainPositionView }) {
@@ -135,7 +103,8 @@ function ChainPosition({ view }: { readonly view: ChainPositionView }) {
             );
         }
         case ChainPositionViewKind.Ready: {
-            const { above, below, unavailable } = view.model;
+            const { above, below, eligibleAssumptions, unavailable } =
+                view.model;
             return (
                 <div className="flex flex-col gap-1">
                     <h4 className="text-sm font-medium">
@@ -145,6 +114,21 @@ function ChainPosition({ view }: { readonly view: ChainPositionView }) {
                         Credit-free, this account is worth more than{' '}
                         {listText(above)} and no more than {listText(below)}.
                     </p>
+                    {eligibleAssumptions === null ? null : (
+                        <div className="flex flex-col gap-1">
+                            <h5 className="text-xs font-semibold text-white">
+                                {eligibleAssumptions.heading}
+                            </h5>
+                            <ul
+                                aria-label={eligibleAssumptions.heading}
+                                className="list-disc pl-4 text-xs text-muted-foreground"
+                            >
+                                {eligibleAssumptions.lines.map((line) => (
+                                    <li key={line}>{line}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                     {unavailable.length > 0 && (
                         <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-amber-400">
                             {unavailable.map((line) => (
@@ -190,6 +174,46 @@ function FromStateBlock({ view }: { readonly view: AccountFromStateView }) {
 
 function listText(labels: readonly string[]): string {
     return labels.length === 0 ? 'none of the steps' : labels.join(', ');
+}
+
+function ReadyNextPayout({
+    account,
+    engine,
+    requests,
+}: {
+    readonly account: ReconstructedAccount;
+    readonly engine: SlotEngine;
+    readonly requests: FromStateDetailRequests;
+}) {
+    const pathLines = useMemo(
+        () => payoutPathLinesOf(account, requests.account.spec),
+        [account, requests],
+    );
+    const view = accountFromStateViewOf(engine, requests.account);
+    return (
+        <div className="flex flex-col gap-4">
+            <FromStateBlock view={view} />
+            <p className="text-xs text-muted-foreground">
+                {FROM_STATE_PERSONAL_RULES_NOTE}
+            </p>
+            {pathLines !== null && (
+                <div className="flex flex-col gap-1">
+                    <h4 className="text-sm font-medium">
+                        Path to the next payout
+                    </h4>
+                    <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
+                        {pathLines.map((line) => (
+                            <li key={line}>{line}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {view.kind === AccountFromStateViewKind.Ready && (
+                <ChainPosition view={chainPositionViewOf(engine, requests)} />
+            )}
+            <RetireInformation view={retireViewOf(engine, requests.retire)} />
+        </div>
+    );
 }
 
 function RetireInformation({ view }: { readonly view: RetireView }) {

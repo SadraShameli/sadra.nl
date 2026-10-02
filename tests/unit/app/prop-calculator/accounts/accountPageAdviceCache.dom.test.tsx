@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { act, type ReactNode, useContext } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +10,7 @@ import { ComputationCacheContext } from '~/app/(app)/prop-calculator/_components
 const ACCOUNT_ID = '3f0c1a52-8b6e-4c8f-9d2a-5e1b7a9c4d10';
 
 const probe = vi.hoisted(() => ({
+    prefetched: [] as string[],
     seen: [] as (ComputationCache | null)[],
 }));
 
@@ -25,21 +28,18 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('~/trpc/server', () => {
-    const prefetch = { prefetch: () => Promise.resolve() };
+    const recorder = (path: readonly string[]): unknown =>
+        new Proxy(vi.fn(), {
+            get: (_target, key) =>
+                key === 'prefetch'
+                    ? () => {
+                          probe.prefetched.push(path.join('.'));
+                          return Promise.resolve();
+                      }
+                    : recorder([...path, String(key)]),
+        });
     return {
-        api: {
-            propAccounts: {
-                account: { get: prefetch, list: prefetch },
-                copyGroup: { list: prefetch },
-                decision: { listForAccount: prefetch },
-                event: { list: prefetch, listForAccount: prefetch },
-                externalFirm: { list: prefetch },
-                fee: { list: prefetch },
-                payout: { list: prefetch },
-                rulebook: { get: prefetch },
-                snapshot: { latestForAll: prefetch, listForAccount: prefetch },
-            },
-        },
+        api: recorder([]),
         HydrateClient: ({ children }: { children: ReactNode }) => children,
     };
 });
@@ -95,6 +95,7 @@ describe('the accounts pages share one computation cache (PT-34c, PT-21c)', () =
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         probe.seen = [];
+        probe.prefetched = [];
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -140,5 +141,33 @@ describe('the accounts pages share one computation cache (PT-34c, PT-21c)', () =
 
         expect(advice).not.toBeNull();
         expect(probe.seen.at(-1)).toBe(advice);
+    });
+
+    it('prefetches every query the portfolio load reads, so the detail page does not wait on a cold list', async () => {
+        const portfolioSource = readFileSync(
+            path.join(
+                process.cwd(),
+                'src',
+                'app',
+                '(app)',
+                'prop-calculator',
+                'accounts',
+                '_components',
+                'overview',
+                'usePortfolioData.ts',
+            ),
+            'utf8',
+        );
+        const portfolioQueries = portfolioSource
+            .matchAll(/api\.(propAccounts\.\w+\.\w+)\.useQuery/g)
+            .map((match) => match[1])
+            .toArray();
+        expect(portfolioQueries.length).toBeGreaterThan(5);
+
+        await renderPage();
+
+        for (const query of portfolioQueries) {
+            expect(probe.prefetched, query).toContain(query);
+        }
     });
 });

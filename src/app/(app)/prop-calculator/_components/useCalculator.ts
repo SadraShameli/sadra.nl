@@ -77,6 +77,7 @@ export interface CalculatorActions {
     setInstrument: (instrument: InstrumentSymbol | null) => void;
     setLabScenarios: (entries: LabScenario[]) => void;
     setLinkActivationDiscount: (isLinked: boolean) => void;
+    setLiveTransferHazard: (n: number) => void;
     setMaxAttempts: (n: number) => void;
     setMaxEvalDays: (n: number) => void;
     setMonthlySubscriptionDiscountPercent: (n: number) => void;
@@ -248,6 +249,11 @@ export function createCalculatorActions(
             dispatch({
                 isLinked,
                 type: CalculatorActionType.SetLinkActivationDiscount,
+            }),
+        setLiveTransferHazard: (n) =>
+            dispatch({
+                type: CalculatorActionType.SetLiveTransferHazard,
+                value: n,
             }),
         setMaxAttempts: (n) =>
             dispatch({ type: CalculatorActionType.SetMaxAttempts, value: n }),

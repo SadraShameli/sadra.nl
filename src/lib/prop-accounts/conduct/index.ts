@@ -7,6 +7,7 @@ export {
     type BustDiagnosisViolation,
     type BustEvidenceItem,
     BustEvidenceKind,
+    isActualRiskAboveAccepted,
 } from './BustDiagnosis';
 export {
     EXECUTION_DEVIATION_VIOLATION_KIND,

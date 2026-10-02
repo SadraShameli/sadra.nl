@@ -50,9 +50,14 @@ export {
     FundedRiskBasis,
 } from './CushionBoard';
 export {
+    DAY_LOSS_EVAL_NOTE,
+    DAY_LOSS_FUNDED_NOTE,
+    DAY_LOSS_MAX_WEEKDAYS_APART,
     type DayLoss,
     type DayLossAccount,
     DayLossBasis,
+    dayLossBasisNotes,
+    dayLossBreakdownText,
     type DayLossEntry,
     type DayLossShare,
     type DayLossShareInputs,
@@ -61,6 +66,7 @@ export {
     DayLossUnmeasuredReason,
 } from './DayLossShare';
 export {
+    ADHERENCE_STEP_REASON,
     type AdherenceDecision,
     type DecisionAdherence,
     decisionAdherenceOf,
@@ -113,6 +119,13 @@ export {
     PAYOUT_COUNT_CAP,
     type PlanPayoutCountDistribution,
 } from './FundedPayoutDistribution';
+export {
+    fundedWithdrawableAfterPayoutCents,
+    type FundedWithdrawableAfterPayoutInputs,
+    fundedWithdrawableLossCents,
+    type FundedWithdrawableLossInputs,
+    fundedWithdrawableLostToResetCents,
+} from './FundedWithdrawableLoss';
 export {
     type FirmFunding,
     fundedNominalOf,

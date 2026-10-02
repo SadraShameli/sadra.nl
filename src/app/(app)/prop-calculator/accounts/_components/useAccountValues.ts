@@ -6,11 +6,10 @@ import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useToda
 import {
     type AccountFromStateFigures,
     type DocumentedRunFigures,
-    type OverviewAccountPlanInput,
-    overviewAccountRequestsFor,
     overviewPlanOptInsOf,
     overviewPlanValueRequestsFor,
     type OverviewRequest,
+    overviewRequestKey,
     OverviewRequestKind,
     overviewRequestsFor,
     type PlanValuesFigures,
@@ -24,7 +23,6 @@ import {
     AccountValueInputKind,
     type AccountValueLedgerOnlyInput,
     type AccountValueNotValuedInput,
-    DEFAULT_NEXT_PAYOUT_HIGHLIGHT_DAYS,
     ExpectedPayoutsKind,
     expectedValueOf,
     nextActionOf,
@@ -33,13 +31,19 @@ import {
     type RealizedAttemptFigures,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountValueColumns';
 import {
+    accountFromStateRequestOf,
     buildSizingAdvisor,
     personalAdvisorOptionsOf,
-    personalPolicyOverridesOf,
     readinessOverridesOf,
     SizingAdvisorBuildKind,
-    withPersonalPolicy,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
+import {
+    FROM_STATE_NOT_MODELED_TEXT,
+    type FromStateDetail,
+    FromStateDetailKind,
+    type FromStateDetailRequests,
+    fromStateDetailRequestsOf,
+} from '~/app/(app)/prop-calculator/accounts/_components/detail/fromStateDetail';
 import { measuredRebuyLagFromStats } from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
 import {
     type EngineSlot,
@@ -64,6 +68,7 @@ import {
     type AccountStateSnapshotRow,
     AccountStateUnavailableKind,
     type AccountStateUnavailableReason,
+    accountSubstateOf,
     cushionBoardOf,
     isActiveAccount,
     isLedgerOnlyAccount,
@@ -71,7 +76,6 @@ import {
     type ModeledAccountRow,
     payoutReadinessBoardOf,
     PortfolioLedger,
-    readPersonalRulesOrNull,
     realizedAttemptEconomics,
     replacementStats,
     type SnapshotAccountRow,
@@ -86,6 +90,7 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    DEFAULT_RULEBOOK,
     type MeasuredRebuyLag,
     type ReconstructedAccount,
     ReconstructedLiveKind,
@@ -99,15 +104,24 @@ enum PreparedKind {
     Modeled = 'modeled',
 }
 
-interface AccountValues {
+export interface AccountValues {
     readonly boards: AccountListBoards | null;
     readonly columns: ReadonlyMap<string, AccountValueColumns>;
     readonly notice: null | string;
 }
 
+interface AccountValuesInput {
+    readonly accountId?: string;
+    readonly extraRequests?: readonly OverviewRequest[];
+    readonly includeFromStateDetail?: boolean;
+    readonly userId?: string;
+}
+
 interface AccountValuesPreparation {
     readonly accounts: readonly PreparedAccount[];
     readonly boards: AccountListBoards | null;
+    readonly highlightWithinDays: number;
+    readonly isSettled: boolean;
     readonly notice: null | string;
     readonly requests: readonly OverviewRequest[];
     readonly sampleThresholds: SampleThresholds;
@@ -116,6 +130,8 @@ interface AccountValuesPreparation {
 interface ModeledPreparationInputs {
     readonly accountId: string;
     readonly events: readonly AccountStateEventRow[];
+    readonly includeFromStateDetail: boolean;
+    readonly isActive: boolean;
     readonly payouts: readonly AccountStatePayoutRow[];
     readonly realizedByPlan: ReadonlyMap<string, RealizedAttemptFigures>;
     readonly row: OverviewAccountRow;
@@ -150,15 +166,25 @@ interface PreparedModeled {
 
 interface PreparedRequests {
     readonly account: OverviewRequest | undefined;
+    readonly detail: FromStateDetailRequests | null;
     readonly documented: OverviewRequest | undefined;
     readonly planValues: OverviewRequest | undefined;
 }
 
 const NO_REQUESTS: readonly OverviewRequest[] = [];
 
+const FROM_STATE_UNAVAILABLE_PREFIX =
+    'The figures from this state cannot be computed: ';
+
 const LIVE_NOT_VALUED_TEXT = 'A live account has no from-state value model.';
 
+const MISSING_ACCOUNT_TEXT =
+    'This account is not among the accounts that were loaded, so no figures from its state can be computed.';
+
 const MISSING_STATE_TEXT = 'its state could not be built';
+
+const SUSPENDED_NOT_VALUED_TEXT =
+    'A suspended account is neither sized nor valued.';
 
 const MIXED_USERS_TEXT =
     'The accounts belong to more than one user, so no values are shown.';
@@ -189,24 +215,30 @@ export function hasPendingValues(values: AccountValues): boolean {
         );
 }
 
-export function useAccountValues({
+export function useAccountDetailValues({
     accountId,
     userId,
 }: {
-    readonly accountId?: string;
-    readonly userId?: string;
-} = {}): AccountValues {
-    const load = usePortfolioData();
-    const today = useTodayIsoDate();
-    const preparation = useMemo(
-        () => prepareAccountValues({ accountId, load, today, userId }),
-        [accountId, load, today, userId],
-    );
-    const engine = useOverviewWorker(preparation.requests);
-    return useMemo(
-        () => accountValuesOf(preparation, engine),
-        [engine, preparation],
-    );
+    readonly accountId: string;
+    readonly userId: string;
+}): {
+    readonly detail: FromStateDetail;
+    readonly values: AccountValues;
+} {
+    const { detail, values } = useAccountValuesCore({
+        accountId,
+        includeFromStateDetail: true,
+        userId,
+    });
+    return { detail, values };
+}
+
+export function useAccountValuesWithEngine(input: AccountValuesInput = {}): {
+    readonly engine: SlotEngine;
+    readonly values: AccountValues;
+} {
+    const { engine, values } = useAccountValuesCore(input);
+    return { engine, values };
 }
 
 function accountValuesOf(
@@ -214,7 +246,7 @@ function accountValuesOf(
     engine: SlotEngine,
 ): AccountValues {
     const options = {
-        highlightWithinDays: DEFAULT_NEXT_PAYOUT_HIGHLIGHT_DAYS,
+        highlightWithinDays: preparation.highlightWithinDays,
         sampleThresholds: preparation.sampleThresholds,
     };
     return {
@@ -255,6 +287,7 @@ function actionOf({
             plan,
             rulebook,
             snapshotAsOf: asOf,
+            status: row.status,
             today,
         }),
     );
@@ -300,16 +333,57 @@ function documentedSlotOf(
     );
 }
 
-function emptyPreparation(
-    sampleThresholds: SampleThresholds,
-): AccountValuesPreparation {
+function emptyPreparation(load: PortfolioLoad): AccountValuesPreparation {
     return {
         accounts: [],
         boards: null,
+        highlightWithinDays: highlightWithinDaysOf(load.rulebook),
+        isSettled: false,
         notice: null,
         requests: NO_REQUESTS,
-        sampleThresholds,
+        sampleThresholds: load.sampleThresholds,
     };
+}
+
+function fromStateDetailOf(
+    preparation: AccountValuesPreparation,
+    accountId: string | undefined,
+    engine: SlotEngine,
+): FromStateDetail {
+    if (preparation.notice !== null) {
+        return {
+            kind: FromStateDetailKind.Unavailable,
+            reason: preparation.notice,
+        };
+    }
+    const prepared = preparation.accounts.find(
+        (candidate) => candidate.accountId === accountId,
+    );
+    if (prepared === undefined) {
+        return preparation.isSettled
+            ? {
+                  kind: FromStateDetailKind.Unavailable,
+                  reason: MISSING_ACCOUNT_TEXT,
+              }
+            : { kind: FromStateDetailKind.Pending };
+    }
+    switch (prepared.kind) {
+        case PreparedKind.Final: {
+            return {
+                kind: FromStateDetailKind.Unavailable,
+                reason: `${FROM_STATE_UNAVAILABLE_PREFIX}${prepared.input.reason}`,
+            };
+        }
+        case PreparedKind.Modeled: {
+            const { detail } = prepared.modeled.requests;
+            return detail === null
+                ? {
+                      kind: FromStateDetailKind.Unavailable,
+                      reason: FROM_STATE_NOT_MODELED_TEXT,
+                  }
+                : { engine, kind: FromStateDetailKind.Ready, requests: detail };
+        }
+    }
 }
 
 function fromStateSlotOf(
@@ -321,6 +395,10 @@ function fromStateSlotOf(
             ? result.figures
             : null,
     );
+}
+
+function highlightWithinDaysOf(rulebook: null | RulebookParameters): number {
+    return (rulebook ?? DEFAULT_RULEBOOK).display.nextPayoutHighlightDays;
 }
 
 function inputOf(
@@ -420,8 +498,19 @@ function modeledPrepared(inputs: ModeledPreparationInputs): PreparedAccount {
             kind: PreparedKind.Final,
         };
     }
+    if (accountSubstateOf(row.status) !== null) {
+        return {
+            accountId,
+            input: {
+                action,
+                kind: AccountValueInputKind.NotValued,
+                reason: SUSPENDED_NOT_VALUED_TEXT,
+            },
+            kind: PreparedKind.Final,
+        };
+    }
     const { latest: snapshot } = latestTwoSnapshots(inputs.snapshots);
-    const { input } = snapshotInputFrom(
+    const { input, personalMaxRiskPerTrade } = snapshotInputFrom(
         plan,
         inputs.tracked,
         snapshot,
@@ -435,32 +524,32 @@ function modeledPrepared(inputs: ModeledPreparationInputs): PreparedAccount {
         optIns: overviewPlanOptInsOf(plan),
         planSerial,
     };
-    const accountInput: OverviewAccountPlanInput = {
-        ...planInput,
-        account: input,
-    };
-    const [rulebookAccountRequest] = overviewAccountRequestsFor(
-        [accountInput],
-        inputs.rulebook,
-    );
-    const personalOverrides = personalPolicyOverridesOf(
-        readPersonalRulesOrNull(row.personalRules),
-    );
+    const detail = inputs.includeFromStateDetail
+        ? fromStateDetailRequestsOf({
+              input,
+              measuredRebuyLag,
+              personalMaxRiskPerTrade,
+              personalRules: row.personalRules,
+              plan,
+              rulebook: inputs.rulebook,
+          })
+        : null;
     const accountRequest =
-        rulebookAccountRequest === undefined
-            ? undefined
-            : {
-                  ...rulebookAccountRequest,
-                  spec: withPersonalPolicy(
-                      rulebookAccountRequest.spec,
-                      personalOverrides,
-                  ),
-              };
+        detail?.account ??
+        accountFromStateRequestOf({
+            account: input,
+            measuredRebuyLag,
+            personalMaxRiskPerTrade,
+            personalRules: row.personalRules,
+            plan,
+            rulebook: inputs.rulebook,
+        });
     const isEval = latest.reconstructed.kind === TradingPhase.Eval;
-    const [planValuesRequest] = isEval
+    const isValued = isEval && inputs.isActive;
+    const [planValuesRequest] = isValued
         ? overviewPlanValueRequestsFor([planInput], inputs.rulebook)
         : [];
-    const documentedRequest = isEval
+    const documentedRequest = isValued
         ? overviewRequestsFor([planInput], inputs.rulebook).find(
               (request) => request.kind === OverviewRequestKind.DocumentedRun,
           )
@@ -473,6 +562,7 @@ function modeledPrepared(inputs: ModeledPreparationInputs): PreparedAccount {
             realized: inputs.realizedByPlan.get(planSerial) ?? null,
             requests: {
                 account: accountRequest,
+                detail,
                 documented: documentedRequest,
                 planValues: planValuesRequest,
             },
@@ -493,12 +583,14 @@ function planValuesSlotOf(
 
 function preparationOf({
     accountId,
+    includeFromStateDetail,
     load,
     owner,
     rulebook,
     today,
 }: {
     readonly accountId: string | undefined;
+    readonly includeFromStateDetail: boolean;
     readonly load: PortfolioLoad;
     readonly owner: string;
     readonly rulebook: RulebookParameters;
@@ -509,7 +601,7 @@ function preparationOf({
         alerts.status !== OverviewSectionStatus.Ready ||
         section.status !== OverviewSectionStatus.Ready
     ) {
-        return emptyPreparation(load.sampleThresholds);
+        return emptyPreparation(load);
     }
     const ledger = PortfolioLedger.fromRows(owner, section.rows);
     const stats = replacementStats(ledger);
@@ -529,7 +621,8 @@ function preparationOf({
     const prepared: PreparedAccount[] = [];
     for (const row of accounts) {
         if (accountId !== undefined && row.id !== accountId) continue;
-        if (!isActiveAccount(row)) continue;
+        const isActive = isActiveAccount(row);
+        if (!isActive && !includeFromStateDetail) continue;
         const tracked = trackedAccountOf({
             ...row,
             personalRules: row.personalRules ?? undefined,
@@ -545,6 +638,8 @@ function preparationOf({
                     (event) =>
                         event.accountId === row.id && event.userId === owner,
                 ),
+                includeFromStateDetail,
+                isActive,
                 payouts: payouts.filter(
                     (payout) =>
                         payout.accountId === row.id && payout.userId === owner,
@@ -570,6 +665,8 @@ function preparationOf({
             accountId === undefined
                 ? boardsOf(rulebook, accounts, states)
                 : null,
+        highlightWithinDays: highlightWithinDaysOf(rulebook),
+        isSettled: true,
         notice: null,
         requests: requestsOf(prepared),
         sampleThresholds: load.sampleThresholds,
@@ -578,22 +675,24 @@ function preparationOf({
 
 function prepareAccountValues({
     accountId,
+    includeFromStateDetail,
     load,
     today,
     userId,
 }: {
     readonly accountId: string | undefined;
+    readonly includeFromStateDetail: boolean;
     readonly load: PortfolioLoad;
     readonly today: string;
     readonly userId: string | undefined;
 }): AccountValuesPreparation {
-    const empty = emptyPreparation(load.sampleThresholds);
+    const empty = emptyPreparation(load);
     const { alerts, ledger: section, rulebook } = load;
     if (
         alerts.status === OverviewSectionStatus.Failed ||
         section.status === OverviewSectionStatus.Failed
     ) {
-        return { ...empty, notice: UNAVAILABLE_TEXT };
+        return { ...empty, isSettled: true, notice: UNAVAILABLE_TEXT };
     }
     if (
         rulebook === null ||
@@ -606,14 +705,21 @@ function prepareAccountValues({
     if (owner === null) {
         return alerts.rows.accounts.length === 0
             ? empty
-            : { ...empty, notice: MIXED_USERS_TEXT };
+            : { ...empty, isSettled: true, notice: MIXED_USERS_TEXT };
     }
     const computed = ledgerOrDateFailure(() =>
-        preparationOf({ accountId, load, owner, rulebook, today }),
+        preparationOf({
+            accountId,
+            includeFromStateDetail,
+            load,
+            owner,
+            rulebook,
+            today,
+        }),
     );
     return computed.kind === OverviewSectionStatus.Ready
         ? computed.value
-        : { ...empty, notice: computed.message };
+        : { ...empty, isSettled: true, notice: computed.message };
 }
 
 function realizedFiguresOf(
@@ -654,6 +760,8 @@ function requestsOf(
                   prepared.modeled.requests.account,
                   prepared.modeled.requests.planValues,
                   prepared.modeled.requests.documented,
+                  prepared.modeled.requests.detail?.retire,
+                  prepared.modeled.requests.detail?.chain,
               ].filter((request) => request !== undefined)
             : NO_REQUESTS,
     );
@@ -695,4 +803,54 @@ function unavailablePrepared(
         },
         kind: PreparedKind.Final,
     };
+}
+
+function uniqueRequestsOf(
+    requests: readonly OverviewRequest[],
+): readonly OverviewRequest[] {
+    const byKey = new Map<string, OverviewRequest>();
+    for (const request of requests) {
+        const key = overviewRequestKey(request);
+        if (!byKey.has(key)) byKey.set(key, request);
+    }
+    return byKey.values().toArray();
+}
+
+function useAccountValuesCore({
+    accountId,
+    extraRequests = NO_REQUESTS,
+    includeFromStateDetail = false,
+    userId,
+}: AccountValuesInput): {
+    readonly detail: FromStateDetail;
+    readonly engine: SlotEngine;
+    readonly values: AccountValues;
+} {
+    const load = usePortfolioData();
+    const today = useTodayIsoDate();
+    const preparation = useMemo(
+        () =>
+            prepareAccountValues({
+                accountId,
+                includeFromStateDetail,
+                load,
+                today,
+                userId,
+            }),
+        [accountId, includeFromStateDetail, load, today, userId],
+    );
+    const requests = useMemo(
+        () => uniqueRequestsOf([...extraRequests, ...preparation.requests]),
+        [extraRequests, preparation.requests],
+    );
+    const engine = useOverviewWorker(requests);
+    const values = useMemo(
+        () => accountValuesOf(preparation, engine),
+        [engine, preparation],
+    );
+    const detail = useMemo(
+        () => fromStateDetailOf(preparation, accountId, engine),
+        [accountId, engine, preparation],
+    );
+    return { detail, engine, values };
 }

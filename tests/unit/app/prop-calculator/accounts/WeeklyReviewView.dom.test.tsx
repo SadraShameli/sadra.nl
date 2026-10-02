@@ -1,3 +1,4 @@
+import { skipToken } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -25,6 +26,7 @@ import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 const FOLLOWED_ID = 'a1111111-1111-4111-8111-111111111111';
 const MISSED_ID = 'a2222222-2222-4222-8222-222222222222';
 const LEDGER_ID = 'a3333333-3333-4333-8333-333333333333';
+const BUSTED_ID = 'a4444444-4444-4444-8444-444444444444';
 const FOLLOWED_DECISION_ID = 'd1111111-1111-4111-8111-111111111111';
 const MISSED_DECISION_ID = 'd2222222-2222-4222-8222-222222222222';
 
@@ -37,6 +39,7 @@ interface FakeQuery {
 
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
+    const inputs = new Map<string, unknown[]>();
     const mutateAsync = new Map<
         string,
         ReturnType<typeof vi.fn<(input: unknown) => Promise<unknown>>>
@@ -58,6 +61,7 @@ const harness = vi.hoisted(() => {
         return created;
     }
     return {
+        inputs,
         invalidate,
         mutateAsyncOf,
         mutation: (name: string) => ({
@@ -69,10 +73,14 @@ const harness = vi.hoisted(() => {
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            useQuery: (input?: unknown) => {
+                inputs.set(name, [...(inputs.get(name) ?? []), input]);
+                return queries.get(name) ?? pending;
+            },
         }),
         reset() {
             queries.clear();
+            inputs.clear();
             mutateAsync.clear();
             invalidate.mockClear();
         },
@@ -100,6 +108,7 @@ vi.mock('~/trpc/react', () => ({
             violation: {
                 create: harness.mutation('violation.create'),
                 list: harness.query('violation.list'),
+                update: harness.mutation('violation.update'),
             },
         },
         useUtils: () => ({
@@ -364,6 +373,135 @@ describe('WeeklyReviewView adherence and violations', () => {
         });
     });
 
+    it('asks the server only for violations from the first day of the week when every latest decision is that recent', () => {
+        seed({
+            decisions: [
+                decisionRow({
+                    actualRiskCents: 40_000,
+                    decidedOn: '2026-09-16',
+                }),
+            ],
+        });
+        render();
+        expect(harness.inputs.get('violation.list')?.at(-1)).toEqual({
+            occurredFrom: '2026-09-15',
+        });
+    });
+
+    it('reaches back to the oldest latest decision so a violation already linked to it is still seen', () => {
+        seed({
+            decisions: [
+                decisionRow({
+                    actualRiskCents: 90_000,
+                    decidedOn: '2026-08-03',
+                }),
+            ],
+        });
+        render();
+        expect(harness.inputs.get('violation.list')?.at(-1)).toEqual({
+            occurredFrom: '2026-08-03',
+        });
+    });
+
+    it('is not moved back by an old decision of an account the review does not show', () => {
+        seed({
+            decisions: [
+                decisionRow({
+                    accountId: BUSTED_ID,
+                    actualRiskCents: 90_000,
+                    decidedOn: '2026-06-01',
+                    id: 'd4444444-4444-4444-8444-444444444444',
+                }),
+                decisionRow({
+                    accountId: LEDGER_ID,
+                    actualRiskCents: 90_000,
+                    decidedOn: '2026-05-01',
+                    id: 'd3333333-3333-4333-8333-333333333333',
+                }),
+                decisionRow({ actualRiskCents: 40_000 }),
+            ],
+        });
+        harness.queries.set(
+            'account.list',
+            answer([
+                accountRow(FOLLOWED_ID, 'Eval followed'),
+                accountRow(BUSTED_ID, 'Eval busted', {
+                    status: AccountStatus.Busted,
+                }),
+                accountRow(LEDGER_ID, 'Balance only', {
+                    firmId: null,
+                    planSerial: null,
+                    tracking: AccountTracking.LedgerOnly,
+                }),
+            ]),
+        );
+        render();
+        expect(harness.inputs.get('violation.list')?.at(-1)).toEqual({
+            occurredFrom: '2026-09-15',
+        });
+    });
+
+    it('does not ask for violations before the accounts have loaded either', () => {
+        seed();
+        harness.queries.delete('account.list');
+        render();
+        expect(harness.inputs.get('violation.list')).toEqual([skipToken]);
+    });
+
+    it('does not ask for violations before the decisions and the rulebook that bound the request have loaded', () => {
+        seed();
+        harness.queries.delete('decision.latestForAll');
+        render();
+        expect(harness.inputs.get('violation.list')).toEqual([skipToken]);
+    });
+
+    it('states the followed rule: within one rounding step of the accepted risk', () => {
+        seed();
+        render();
+        expect(container.textContent).toMatch(
+            /Followed means the actual risk is within \$50(?:\.00)? of the accepted risk/,
+        );
+    });
+
+    it('calls a decision traded more than a step below the accepted risk not followed and offers no violation to log for trading smaller', () => {
+        seed({
+            decisions: [
+                decisionRow({
+                    accountId: MISSED_ID,
+                    actualRiskCents: 10_000,
+                    id: MISSED_DECISION_ID,
+                }),
+            ],
+        });
+        render();
+        expect(container.textContent).toContain(
+            'Last decision on 2026-09-14: not followed',
+        );
+        expect(container.textContent).toContain(
+            'traded below the accepted risk',
+        );
+        const labels = [...container.querySelectorAll('button')].map(
+            (button) => button.getAttribute('aria-label') ?? '',
+        );
+        expect(labels).not.toContain('Log violation for Eval missed');
+    });
+
+    it('renders the account page violation form, with its cost guidance and the decision as a linkable option', async () => {
+        seed();
+        render();
+        await act(async () => {
+            buttonLabelled(container, 'Log violation for Eval missed').click();
+        });
+        const form = container.querySelector(
+            'form[aria-label="Log a violation"]',
+        );
+        expect(form?.textContent).toContain(
+            'Leave blank when the dollar cost is not known',
+        );
+        expect(form?.textContent).toContain('Decision on 2026-09-14');
+        expect(form?.textContent).toContain('Linked decision');
+    });
+
     it('names the window from the first day of the week to today on an account with no violations', () => {
         seed();
         render();
@@ -389,6 +527,22 @@ describe('WeeklyReviewView adherence and violations', () => {
         expect(container.textContent).toContain(
             'Violation already logged for this decision',
         );
+    });
+
+    it('keeps the violation linked to the decision when logged from the review: the link cannot be removed', async () => {
+        seed();
+        render();
+        await act(async () => {
+            buttonLabelled(container, 'Log violation for Eval missed').click();
+        });
+        const form = container.querySelector(
+            'form[aria-label="Log a violation"]',
+        );
+        const trigger = [...(form?.querySelectorAll('button') ?? [])].find(
+            (button) => button.textContent.includes('Decision on 2026-09-14'),
+        );
+        expect(trigger).toBeDefined();
+        expect(trigger?.hasAttribute('disabled')).toBe(true);
     });
 
     it('moves focus to the Kind field when the violation form opens', async () => {
@@ -498,5 +652,75 @@ describe('WeeklyReviewView adherence and violations', () => {
         render();
         expect(container.textContent).toContain('Could not load');
         expect(container.textContent).not.toContain('Adherence');
+    });
+});
+
+describe('WeeklyReviewView across midnight', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+        vi.setSystemTime(new Date('2026-09-21T23:59:00Z'));
+        harness.reset();
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+        vi.useRealTimers();
+    });
+
+    it('moves the review window end and the violation bound together once the day changes', () => {
+        seed({
+            decisions: [
+                decisionRow({
+                    actualRiskCents: 40_000,
+                    decidedOn: '2026-09-16',
+                }),
+            ],
+        });
+        act(() => {
+            root.render(<WeeklyReviewView />);
+        });
+        expect(container.textContent).toContain(
+            'No violations recorded from 2026-09-15 to 2026-09-21.',
+        );
+        act(() => {
+            vi.advanceTimersByTime(120_000);
+        });
+        expect(container.textContent).toContain(
+            'No violations recorded from 2026-09-15 to 2026-09-22.',
+        );
+    });
+
+    it('moves the week start of the violation request when the new day opens a new review week', () => {
+        seed({
+            decisions: [
+                decisionRow({
+                    actualRiskCents: 40_000,
+                    decidedOn: '2026-09-16',
+                }),
+            ],
+        });
+        vi.setSystemTime(new Date('2026-09-27T23:59:00Z'));
+        act(() => {
+            root.render(<WeeklyReviewView />);
+        });
+        expect(harness.inputs.get('violation.list')?.at(-1)).toEqual({
+            occurredFrom: '2026-09-15',
+        });
+        act(() => {
+            vi.advanceTimersByTime(120_000);
+        });
+        expect(harness.inputs.get('violation.list')?.at(-1)).toEqual({
+            occurredFrom: '2026-09-22',
+        });
     });
 });

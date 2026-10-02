@@ -11,6 +11,7 @@ import {
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import {
     CALCULATOR_SCALAR_BOUNDS,
     calculatorScalarFieldsSchema,
@@ -21,6 +22,8 @@ import {
     LAB_SCENARIO_BOUNDS,
     labScenarioSchema,
     MAX_LAB_SCENARIOS,
+    OBJECTIVE_URL_PARAMETER,
+    objectiveUrlSchema,
     portfolioEntrySchema,
     type SavedScenarioRecord as SavedScenarioRecordSchema,
     savedScenarioRecordSchema,
@@ -450,9 +453,13 @@ export function decodeState(
         labScenarios,
         linkActivationDiscount: parameters.get('linkAct') === UrlFlag.On,
         linkParameters,
+        liveTransferHazard: scalarFields.lth,
         maxAttempts: scalarFields.attempts,
         maxEvalDays: scalarFields.maxDays,
         monthlySubscriptionDiscountPercent: scalarFields.msub,
+        objective: objectiveUrlSchema.parse(
+            parameters.get(OBJECTIVE_URL_PARAMETER) ?? undefined,
+        ),
         payoutRequestSize,
         plan: resolvedPlan,
         portfolio: valueOr(portfolioLink, fallback.portfolio),
@@ -502,12 +509,18 @@ export function encodeState(state: CalculatorState): URLSearchParams {
         CalculatorUrlParameter.IdleDayProbability,
         state.idleDayProbability.toFixed(3),
     );
+    if (state.liveTransferHazard > 0) {
+        p.set('lth', String(state.liveTransferHazard));
+    }
     p.set('rung', state.rungSizing);
     p.set(
         CalculatorUrlParameter.EarlyWithdrawal,
         urlFlag(state.takesOneTimeEarlyWithdrawal),
     );
     p.set(CalculatorUrlParameter.FundedReset, urlFlag(state.takesFundedReset));
+    if (state.objective !== SizingObjective.MonthlyNet) {
+        p.set(OBJECTIVE_URL_PARAMETER, state.objective);
+    }
     if (state.instrument !== null && state.stopPoints !== null) {
         p.set('instr', state.instrument);
         p.set('sp', String(state.stopPoints));

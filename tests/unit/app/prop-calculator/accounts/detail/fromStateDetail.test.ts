@@ -4,6 +4,7 @@ import { payoutPathStepText } from '~/app/(app)/prop-calculator/_components/payo
 import {
     type OverviewOutcome,
     OverviewOutcomeKind,
+    overviewOutcomeOf,
     overviewRequestKey,
     OverviewRequestKind,
     overviewRequestsFor,
@@ -14,13 +15,16 @@ import {
 import {
     ChainPositionViewKind,
     chainPositionViewOf,
+    FROM_STATE_PERSONAL_RULES_NOTE,
     fromStateDetailRequestsOf,
     payoutPathLinesOf,
     RetireViewKind,
     retireViewOf,
     valueChainPositionOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/detail/fromStateDetail';
+import { type PersonalRules, usdCents } from '~/lib/prop-accounts';
 import {
+    type Dollars,
     dollars,
     findFirm,
     FirmId,
@@ -79,14 +83,29 @@ const FUNDED: AccountSnapshotInput = {
 function requestsFor(
     input: AccountSnapshotInput,
     measuredRebuyLag: null | { days: number; samples: number } = null,
+    personalRules: null | PersonalRules = null,
+    personalMaxRiskPerTrade: Dollars | null = null,
 ) {
     return fromStateDetailRequestsOf({
         input,
         measuredRebuyLag,
+        personalMaxRiskPerTrade,
+        personalRules,
         plan: PLAN,
         rulebook: DEFAULT_RULEBOOK,
     });
 }
+
+const LIMIT_RULES: PersonalRules = {
+    dailyLossLimitCents: usdCents(30_000),
+    dailyProfitCapCents: usdCents(50_000),
+    maxTradesPerDay: 2,
+};
+
+const PERSONAL_RULES: PersonalRules = {
+    payoutRequestOverrideCents: usdCents(40_000),
+    retainedCushionCents: usdCents(900_000),
+};
 
 const RETIRE_RESULT: RetireComparisonResult = {
     basis: RetireComparisonBasis.Simulator,
@@ -229,8 +248,161 @@ describe('fromStateDetailRequestsOf (PT-37, F-87)', () => {
         );
     });
 
+    it('carries the personal payout override and retained cushion into the account, value chain and retire requests (PT-68c, PT-67e, PT-68g)', () => {
+        const plain = requestsFor(FUNDED);
+        const personal = requestsFor(FUNDED, null, PERSONAL_RULES);
+        if (plain === null || personal === null) throw new Error('no requests');
+        expect(personal.account.spec.enginePolicy.payoutRequestOverride).toBe(
+            400,
+        );
+        expect(
+            personal.account.spec.enginePolicy.retainedCushionRequest,
+        ).toBeGreaterThanOrEqual(9000);
+        expect(plain.account.spec.enginePolicy.payoutRequestOverride).not.toBe(
+            400,
+        );
+        expect(overviewRequestKey(personal.account)).not.toBe(
+            overviewRequestKey(plain.account),
+        );
+        expect(personal.retire.spec.enginePolicy.payoutRequestOverride).toBe(
+            400,
+        );
+        expect(
+            personal.retire.spec.enginePolicy.retainedCushionRequest,
+        ).toBeGreaterThanOrEqual(9000);
+        expect(overviewRequestKey(personal.retire)).not.toBe(
+            overviewRequestKey(plain.retire),
+        );
+        expect(personal.chain.spec.enginePolicy.payoutRequestOverride).toBe(
+            400,
+        );
+        expect(
+            personal.chain.spec.enginePolicy.retainedCushionRequest,
+        ).toBeGreaterThanOrEqual(9000);
+        expect(personal.chain.spec).toEqual(personal.account.spec);
+        expect(personal.chain.account).toBeUndefined();
+        expect(overviewRequestKey(personal.chain)).not.toBe(
+            overviewRequestKey(plain.chain),
+        );
+    });
+
+    it('builds the chain assumptions on the personal basis when personal rules are set, and on the rulebook basis when they are not', () => {
+        const eligibleAssumptionsOf = (
+            requests: ReturnType<typeof requestsFor>,
+        ): readonly string[] => {
+            if (requests === null) throw new Error('no requests');
+            const outcome = overviewOutcomeOf({
+                ...requests.chain,
+                spec: {
+                    ...requests.chain.spec,
+                    run: { ...requests.chain.spec.run, trials: 50 },
+                },
+            });
+            if (
+                outcome.kind !== OverviewOutcomeKind.Succeeded ||
+                outcome.result.kind !== OverviewRequestKind.ValueChain
+            ) {
+                throw new Error('expected a value chain result');
+            }
+            const eligible = outcome.result.figures.steps.find(
+                (step) => step.kind === ValueChainStepKind.FirstPayoutEligible,
+            );
+            if (eligible === undefined) throw new Error('no eligible step');
+            return eligible.assumptions;
+        };
+        const personal = eligibleAssumptionsOf(
+            requestsFor(FUNDED, null, PERSONAL_RULES),
+        );
+        const plain = eligibleAssumptionsOf(requestsFor(FUNDED));
+        expect(personal.join('\n')).toContain('your payout request entry');
+        expect(personal.join('\n')).toContain('your retained cushion entry');
+        expect(plain.join('\n')).toContain("the rulebook's payout size");
+        expect(plain.join('\n')).not.toContain('your retained cushion entry');
+    });
+
     it('asks for nothing for an account that is already live: there is no live from-state model', () => {
         expect(requestsFor({ ...FUNDED, stage: SizingStage.Live })).toBeNull();
+    });
+});
+
+describe('fromStateDetailRequestsOf carries the personal max risk (PT-68g, F-V16)', () => {
+    it('puts the personal max risk of the account on the from-state request and on the chain request', () => {
+        const requests = requestsFor(FUNDED, null, null, dollars(100));
+        if (requests === null) throw new Error('no requests');
+
+        expect(
+            requests.account.spec.enginePolicy.personalCaps?.maxRiskPerTrade,
+        ).toBe(100);
+        expect(
+            requests.chain.spec.enginePolicy.personalCaps?.maxRiskPerTrade,
+        ).toBe(100);
+        expect(requests.chain.spec).toEqual(requests.account.spec);
+    });
+
+    it('puts the personal limits on the retire request, so the fresh-account side runs at the same max risk, trades cap and daily limits', () => {
+        const requests = requestsFor(FUNDED, null, LIMIT_RULES, dollars(100));
+        if (requests === null) throw new Error('no requests');
+        const { enginePolicy } = requests.retire.spec;
+
+        expect(enginePolicy.personalCaps).toEqual({
+            dailyProfitCap: 500,
+            maxRiskPerTrade: 100,
+            maxTradesPerDay: 2,
+        });
+        expect(enginePolicy.personalDll).toBe(300);
+        expect(requests.retire.spec).toEqual(requests.account.spec);
+    });
+
+    it('leaves both requests without personal caps when the account sets no max risk', () => {
+        const requests = requestsFor(FUNDED);
+        if (requests === null) throw new Error('no requests');
+
+        expect(requests.account.spec.enginePolicy).not.toHaveProperty(
+            'personalCaps',
+        );
+        expect(requests.chain.spec.enginePolicy).not.toHaveProperty(
+            'personalCaps',
+        );
+        expect(requests.retire.spec.enginePolicy).not.toHaveProperty(
+            'personalCaps',
+        );
+    });
+});
+
+function projectionOf(rules: null | PersonalRules) {
+    const requests = requestsFor(FUNDED, null, rules);
+    if (requests === null) throw new Error('no requests');
+    const outcome = overviewOutcomeOf({
+        ...requests.account,
+        spec: {
+            ...requests.account.spec,
+            run: { ...requests.account.spec.run, trials: 200 },
+        },
+    });
+    if (
+        outcome.kind !== OverviewOutcomeKind.Succeeded ||
+        outcome.result.kind !== OverviewRequestKind.AccountFromState ||
+        outcome.result.figures.nextPayout === null
+    ) {
+        throw new Error('expected a next payout projection');
+    }
+    return outcome.result.figures.nextPayout;
+}
+
+describe('the from-state next payout projection applies the personal daily loss limit (PT-68g)', () => {
+    it('gives a different projection with a tight personal daily loss limit than without one', () => {
+        const without = projectionOf(null);
+        const tight = projectionOf({ dailyLossLimitCents: usdCents(6000) });
+
+        expect(tight.expectedSessionDaysToFirstPayout.value).toBeGreaterThan(
+            without.expectedSessionDaysToFirstPayout.value,
+        );
+    });
+
+    it('does not tell the trader that the next payout projection ignores the daily loss limit or the daily profit cap', () => {
+        expect(FROM_STATE_PERSONAL_RULES_NOTE).not.toMatch(/does not apply/i);
+        expect(FROM_STATE_PERSONAL_RULES_NOTE).toContain('daily loss limit');
+        expect(FROM_STATE_PERSONAL_RULES_NOTE).toContain('daily profit cap');
     });
 });
 
@@ -373,8 +545,10 @@ describe('valueChainPositionOf (PT-37, F-V18)', () => {
     function step(
         kind: ValueChainStepKind,
         creditFree: number,
+        assumptions: readonly string[] = [],
     ): ValueChainStepFigures {
         return {
+            assumptions,
             kind,
             outcome: {
                 kind: ValueChainStepOutcomeKind.Value,
@@ -415,6 +589,7 @@ describe('valueChainPositionOf (PT-37, F-V18)', () => {
             steps: [
                 ...chain.steps.slice(0, 3),
                 {
+                    assumptions: [],
                     kind: ValueChainStepKind.PostFirstPayout,
                     outcome: {
                         kind: ValueChainStepOutcomeKind.Unavailable,
@@ -431,12 +606,73 @@ describe('valueChainPositionOf (PT-37, F-V18)', () => {
     });
 });
 
+function chainWith(eligible: null | ValueChainStepFigures): ValueChainFigures {
+    const evalStart: ValueChainStepFigures = {
+        assumptions: ['basis'],
+        kind: ValueChainStepKind.EvalStart,
+        outcome: {
+            kind: ValueChainStepOutcomeKind.Value,
+            value: valueOf(400),
+        },
+    };
+    return {
+        steps: eligible === null ? [evalStart] : [evalStart, eligible],
+        trials: 2000,
+    };
+}
+
+describe('the first payout eligible assumptions on the chain position (PT-67e, F-V17)', () => {
+    const ELIGIBLE_ASSUMPTIONS = [
+        '5 equal winning sessions, because the plan needs 5 qualifying days',
+        'A stylised state, not a path at your sizing',
+    ];
+
+    it('lists the eligible step assumptions under the step label, as the tools card does', () => {
+        const position = valueChainPositionOf(
+            valueOf(1800),
+            chainWith({
+                assumptions: ELIGIBLE_ASSUMPTIONS,
+                kind: ValueChainStepKind.FirstPayoutEligible,
+                outcome: {
+                    kind: ValueChainStepOutcomeKind.Value,
+                    value: valueOf(2200),
+                },
+            }),
+        );
+        expect(position.eligibleAssumptions).toEqual({
+            heading: 'First payout eligible assumptions',
+            lines: ELIGIBLE_ASSUMPTIONS,
+        });
+    });
+
+    it('shows no assumptions for the eligible step when it failed, and none for the other steps', () => {
+        expect(
+            valueChainPositionOf(
+                valueOf(1800),
+                chainWith({
+                    assumptions: [],
+                    kind: ValueChainStepKind.FirstPayoutEligible,
+                    outcome: {
+                        kind: ValueChainStepOutcomeKind.Unavailable,
+                        reason: 'no first-payout-eligible account',
+                    },
+                }),
+            ).eligibleAssumptions,
+        ).toBeNull();
+        expect(
+            valueChainPositionOf(valueOf(1800), chainWith(null))
+                .eligibleAssumptions,
+        ).toBeNull();
+    });
+});
+
 describe('chainPositionViewOf (PT-37, F-V18)', () => {
     const chain: ValueChainFigures = {
         steps: [
             ValueChainStepKind.EvalStart,
             ValueChainStepKind.FreshFunded,
         ].map((kind, index) => ({
+            assumptions: [],
             kind,
             outcome: {
                 kind: ValueChainStepOutcomeKind.Value as const,

@@ -1,6 +1,10 @@
 import { type Dollars } from '~/lib/prop-calculator/core/lib/units';
 
-import { type FirmPolicySource } from './FirmPolicySource';
+import {
+    type ConfirmedFirmPolicySource,
+    type FirmPolicySource,
+    PolicyVerification,
+} from './FirmPolicySource';
 
 export enum LiveTriggerKind {
     CumulativeAmount = 'cumulative-amount',
@@ -16,6 +20,11 @@ export interface LiveTriggerProgress {
     readonly largestSingleDayProfit: Dollars;
     readonly payoutCountAcrossFirm: number;
     readonly payoutCountThisAccount: number;
+}
+
+export interface VerifiedCumulativeTrigger {
+    readonly amount: Dollars;
+    readonly source: ConfirmedFirmPolicySource;
 }
 
 export abstract class LiveTransitionTrigger {
@@ -108,4 +117,26 @@ export class SingleDayProfitTrigger extends LiveTransitionTrigger {
     distance(progress: LiveTriggerProgress): number {
         return Math.max(0, this.amount - progress.largestSingleDayProfit);
     }
+}
+
+export function tightestVerifiedCumulativeTrigger(
+    triggers: readonly LiveTransitionTrigger[],
+): null | VerifiedCumulativeTrigger {
+    let tightest: null | VerifiedCumulativeTrigger = null;
+    for (const trigger of triggers) {
+        if (
+            trigger instanceof CumulativeAmountTrigger &&
+            trigger.source?.verification === PolicyVerification.Confirmed &&
+            (tightest === null || trigger.amount < tightest.amount)
+        ) {
+            tightest = { amount: trigger.amount, source: trigger.source };
+        }
+    }
+    return tightest;
+}
+
+export function verifiedCumulativePayoutLimit(
+    triggers: readonly LiveTransitionTrigger[],
+): Dollars | null {
+    return tightestVerifiedCumulativeTrigger(triggers)?.amount ?? null;
 }

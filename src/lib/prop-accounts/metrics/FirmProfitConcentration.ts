@@ -13,6 +13,7 @@ import {
     type ReconstructedFundedOrEvalAccount,
     retainedCushionForStage,
     type RulebookParameters,
+    ruleCappedWithdrawable,
 } from '~/lib/prop-calculator/advisor';
 
 import { AccountStateKind, type AccountStateResult } from './AccountStates';
@@ -22,6 +23,7 @@ export interface ConcentrationAccount {
     readonly accountId: string;
     readonly firmId: StoredFirmId;
     readonly isActive: boolean;
+    readonly isStale: boolean;
     readonly movedLiveOn: null | string;
     readonly paidPayouts: readonly PayoutCashFields[];
     readonly state: AccountStateResult;
@@ -34,6 +36,8 @@ export interface FirmConcentration {
     readonly inProfitAccounts: number;
     readonly payoutsSinceLastMovedLive: PayoutsSinceMovedLive;
     readonly recentPayouts: PayoutWindow;
+    readonly staleAccounts: number;
+    readonly unreadableAccounts: number;
     readonly withdrawableCents: UsdCents;
     readonly withdrawableShare: null | number;
 }
@@ -47,6 +51,7 @@ export interface FirmConcentrationOptions {
 export interface FirmProfitConcentration {
     readonly firms: readonly FirmConcentration[];
     readonly recentDays: number;
+    readonly retainedCushionDollars: null | number;
     readonly totalInProfitAccounts: number;
     readonly totalWithdrawableCents: UsdCents;
 }
@@ -69,7 +74,7 @@ export function firmProfitConcentrationOf(
     accounts: readonly ConcentrationAccount[],
     options: FirmConcentrationOptions,
 ): FirmProfitConcentration {
-    if (!Number.isInteger(options.recentDays) || options.recentDays < 1) {
+    if (!Number.isSafeInteger(options.recentDays) || options.recentDays < 1) {
         throw new RangeError(
             `the recent payout window must be a whole number of days of at least 1, got ${String(options.recentDays)}`,
         );
@@ -96,9 +101,21 @@ export function firmProfitConcentrationOf(
                 b.inProfitAccounts - a.inProfitAccounts ||
                 compareText(a.firmId, b.firmId),
         );
+    const sampleFunded =
+        accounts
+            .filter((account) => account.isActive)
+            .map((account) => fundedReconstructedOf(account))
+            .find(
+                (reconstructed): reconstructed is ReconstructedFundedOrEvalAccount =>
+                    reconstructed !== null,
+            ) ?? null;
     return {
         firms,
         recentDays: options.recentDays,
+        retainedCushionDollars:
+            sampleFunded === null
+                ? null
+                : fundedRetainedCushionDollarsOf(options.rulebook, sampleFunded),
         totalInProfitAccounts: firms.reduce(
             (sum, firm) => sum + firm.inProfitAccounts,
             0,
@@ -130,17 +147,11 @@ export function fundedWithdrawableDollarsOf(
     account: ReconstructedFundedOrEvalAccount,
 ): number {
     const { fundedTracker } = account;
-    if (fundedTracker === null) return 0;
-    return Math.max(
-        0,
-        fundedTracker.withdrawableNow({
-            minRetainedCushion: fundedRetainedCushionDollarsOf(
-                rulebook,
-                account,
-            ),
-            plan: account.plan,
-            state: account.state,
-        }),
+    return fundedTracker === null ? 0 : ruleCappedWithdrawable(
+        account.plan,
+        fundedTracker,
+        account.state,
+        fundedRetainedCushionDollarsOf(rulebook, account),
     );
 }
 
@@ -155,6 +166,7 @@ function draftOf(
         return figures === null ? [] : [{ figures, member }];
     });
     const inProfit = funded.filter(({ figures }) => figures.isInProfit);
+    const active = members.filter((member) => member.isActive);
     const payouts = members.flatMap((member) => member.paidPayouts);
     const sinceOn = latestOf(members.map((member) => member.movedLiveOn));
     const windowStart = addIsoDays(options.today, -options.recentDays);
@@ -180,6 +192,10 @@ function draftOf(
                     isOnOrAfter(payout.paidOn, windowStart),
             ),
         ),
+        staleAccounts: funded.filter(({ member }) => member.isStale).length,
+        unreadableAccounts: active.filter(
+            (member) => member.state.kind !== AccountStateKind.Reconstructed,
+        ).length,
         withdrawableCents: sumUsdCents(
             inProfit.map(({ figures }) => figures.withdrawableCents),
         ),
@@ -199,6 +215,15 @@ function fundedFiguresOf(
             fundedWithdrawableDollarsOf(rulebook, reconstructed),
         ),
     };
+}
+
+function fundedReconstructedOf(
+    account: ConcentrationAccount,
+): null | ReconstructedFundedOrEvalAccount {
+    const { state } = account;
+    if (state.kind !== AccountStateKind.Reconstructed) return null;
+    const { reconstructed } = state.latest;
+    return reconstructed.kind === TradingPhase.Funded ? reconstructed : null;
 }
 
 function isAfter(paidOn: null | string, sinceOn: null | string): boolean {

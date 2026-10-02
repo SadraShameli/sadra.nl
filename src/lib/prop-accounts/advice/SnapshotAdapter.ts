@@ -15,10 +15,10 @@ import {
     type ModeledAccountRow,
     paidPayoutCash,
     PayoutStatus,
+    personalMaxRiskOf,
     readPersonalRulesOrNull,
     sumUsdCents,
     type TrackedAccountRow,
-    type UsdCents,
     usdCents,
     usdCentsFromDollars,
     usdCentsToDollars,
@@ -33,6 +33,8 @@ import {
     inputAssumption,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
+
+import { optionalDollars } from './AdvisorInputsAdapter';
 
 export enum AdviceUnavailableReason {
     LedgerOnly = 'ledger-only',
@@ -264,19 +266,10 @@ export function snapshotInputFrom(
         tradingDays: snapshot?.tradingDays ?? undefined,
     };
 
-    const personalMaxRiskPerTrade =
-        optionalDollars(
-            readPersonalRulesOrNull(account.personalRules)
-                ?.maxRiskPerTradeCents,
-        ) ?? null;
+    const personalMaxRiskPerTrade = personalMaxRiskOf(
+        readPersonalRulesOrNull(account.personalRules),
+    );
 
     return { assumptions, input, personalMaxRiskPerTrade };
 }
 
-function optionalDollars(
-    cents: null | undefined | UsdCents,
-): Dollars | undefined {
-    return cents === null || cents === undefined
-        ? undefined
-        : usdCentsToDollars(cents);
-}

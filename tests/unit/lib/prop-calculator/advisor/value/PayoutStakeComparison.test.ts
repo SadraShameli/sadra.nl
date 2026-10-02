@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
+    NO_PERSONAL_CAPS,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
@@ -26,6 +27,7 @@ import {
 } from '~/lib/prop-calculator/advisor/value/ValueChain';
 import {
     type AccountState,
+    dollars,
     FirmId,
     MffuVariant,
     newFundedCycleTracker,
@@ -266,6 +268,51 @@ describe('payoutStakeComparison (F-V19, PT-65b step 7)', () => {
         );
         expect(outcome.reducedRiskWhatIf.value).not.toEqual(
             requireValue(valueAtState(account, keepsOldTakeProfit)),
+        );
+    });
+
+    it('prices and reports the what-if at the personal max risk when the requested reduced risk sits above it (PT-68g, F-V16)', () => {
+        const plan = rapidEodPlan();
+        const base = specFor(plan);
+        const spec: DocumentedPolicySpec = {
+            ...base,
+            enginePolicy: {
+                ...base.enginePolicy,
+                personalCaps: {
+                    ...NO_PERSONAL_CAPS,
+                    maxRiskPerTrade: dollars(100),
+                },
+            },
+        };
+        const account = fundedAccount(plan, { balance: 51_500 });
+        const { funded } = spec.rulebook;
+
+        const outcome = payoutStakeComparison(account, spec, {
+            reducedRiskDollars: 200,
+        });
+        if (
+            !('reducedRiskWhatIf' in outcome) ||
+            outcome.reducedRiskWhatIf === null
+        ) {
+            throw new Error('expected a what-if row');
+        }
+
+        expect(outcome.reducedRiskWhatIf.risk).toBe(100);
+        const atCap: DocumentedPolicySpec = {
+            ...spec,
+            rulebook: {
+                ...spec.rulebook,
+                funded: {
+                    ...funded,
+                    riskCents: 10_000,
+                    takeProfitCents: Math.round(
+                        (10_000 * funded.takeProfitCents) / funded.riskCents,
+                    ),
+                },
+            },
+        };
+        expect(outcome.reducedRiskWhatIf.value).toEqual(
+            requireValue(valueAtState(account, atCap)),
         );
     });
 

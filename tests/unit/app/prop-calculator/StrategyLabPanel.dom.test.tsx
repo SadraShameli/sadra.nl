@@ -27,9 +27,11 @@ import {
     DayStopRuleKind,
     FirmId,
     type Fraction0to1,
+    InstrumentSymbol,
     MffuVariant,
     type Plan,
 } from '~/lib/prop-calculator';
+import { LiveApplicabilityNote } from '~/lib/prop-calculator/advisor';
 import {
     ECONOMICS_DISCLOSURE_TEXT,
     ECONOMICS_REASON_TEXT,
@@ -37,6 +39,13 @@ import {
     EconomicsReason,
 } from '~/lib/prop-calculator/economics';
 import { findFirm } from '~/lib/prop-calculator/firms';
+import {
+    LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
+    LIVE_TRANSFER_CONTINUATION_TEXT,
+    LIVE_TRANSFER_NOTE_TEXT,
+    LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT,
+    LiveTransferContinuationKind,
+} from '~/lib/prop-calculator/simulator';
 
 vi.mock('next/dynamic', () => ({ default: () => renderNothing }));
 
@@ -84,10 +93,14 @@ function flush() {
 }
 
 function LabHarness({
+    fundedHorizonDays = 5,
     initial,
+    liveTransferHazard,
     plan = defaultCalculatorState().plan,
 }: {
+    fundedHorizonDays?: number;
     initial: LabScenario[];
+    liveTransferHazard?: number;
     plan?: Plan;
 }) {
     const [current, setCurrent] = useState(initial);
@@ -96,9 +109,10 @@ function LabHarness({
             activationDiscountPercent={0}
             commissionPerRoundTrip={0}
             evalDiscountPercent={0}
-            fundedHorizonDays={5}
+            fundedHorizonDays={fundedHorizonDays}
             labLink={{ status: LabLinkStatus.Absent }}
             linkActivationDiscount={false}
+            liveTransferHazard={liveTransferHazard}
             maxEvalDays={10}
             minRetainedCushion={undefined}
             monthlySubscriptionDiscountPercent={0}
@@ -122,6 +136,16 @@ function LabHarness({
             seed={1}
         />
     );
+}
+
+function rapidEodPlan(): Plan {
+    const plan = findFirm(FirmId.Mffu)?.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.RapidEod,
+    });
+    if (!plan) throw new Error('MFF Rapid EOD 50K plan not found');
+    return plan;
 }
 
 function renderNothing(): null {
@@ -406,5 +430,185 @@ describe('StrategyLabPanel lifetime cap pooling gap (PT-12h, F-110 REV-5)', () =
         });
         flush();
         expect(container.textContent).not.toContain('lifetime cap is per user');
+    });
+});
+
+describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    const payingScenario: LabScenario = {
+        ...baseScenario,
+        accounts: 3,
+        id: 'paying',
+        label: 'Paying',
+        winrate: 0.55,
+    };
+
+    function render(
+        liveTransferHazard: number | undefined,
+        scenario: LabScenario = payingScenario,
+    ) {
+        act(() => {
+            root.render(
+                <LabHarness
+                    fundedHorizonDays={60}
+                    initial={[scenario]}
+                    liveTransferHazard={liveTransferHazard}
+                    plan={rapidEodPlan()}
+                />,
+            );
+        });
+        flush();
+    }
+
+    function headers(): string[] {
+        return [...container.querySelectorAll(':scope thead th')].map((node) =>
+            node.textContent.trim(),
+        );
+    }
+
+    function cell(header: string): string {
+        const index = headers().indexOf(header);
+        if (index === -1) throw new Error(`no ${header} column`);
+        const row = container.querySelector<HTMLTableRowElement>(
+            ':scope tbody tr',
+        );
+        return row?.cells[index]?.textContent.trim() ?? '';
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+    });
+
+    it('adds no column and no note while no hazard is set', () => {
+        render(undefined);
+        expect(headers()).not.toContain('E[$/mo] no transfer');
+        expect(headers()).not.toContain('Sent live');
+        expect(container.textContent).not.toContain('Live-transfer hazard');
+    });
+
+    it('shows the monthly net at hazard 0 beside the user hazard, and the share sent live', () => {
+        render(undefined);
+        const unpriced = cell('E[$/mo]');
+        render(1);
+        expect(headers()).toContain('E[$/mo] no transfer');
+        expect(headers()).toContain('Sent live');
+        expect(cell('E[$/mo] no transfer')).toBe(unpriced);
+        expect(cell('E[$/mo]')).not.toBe(unpriced);
+        expect(cell('Sent live')).toMatch(/^\d+\.\d%$/);
+        expect(cell('Sent live')).not.toBe('0.0%');
+    });
+
+    it('labels the hazard as your assumption, not a firm rule', () => {
+        render(0.5);
+        expect(container.textContent).toContain(
+            'Live-transfer hazard of 50.0% per paid payout (your assumption, not a firm rule)',
+        );
+        expect(container.textContent).not.toContain('\u{2014}');
+    });
+
+    it('words a hazard below one tenth of a percent with the digits it was entered with', () => {
+        render(0.0004);
+        expect(container.textContent).toContain(
+            'Live-transfer hazard of 0.04% per paid payout',
+        );
+        expect(container.textContent).not.toContain('of 0.0% per paid payout');
+    });
+
+    it('words the continuation with the one lib text the advice note uses', () => {
+        render(0.5, {
+            ...payingScenario,
+            instrument: InstrumentSymbol.MNQ,
+            stopPoints: 10,
+        });
+        expect(container.textContent).toContain(
+            LIVE_TRANSFER_CONTINUATION_TEXT[
+                LiveTransferContinuationKind.Modeled
+            ],
+        );
+    });
+
+    it('words the unmodeled continuation with the one lib text the advice note uses', () => {
+        render(0.5);
+        expect(container.textContent).toContain(
+            LIVE_TRANSFER_CONTINUATION_TEXT[
+                LiveTransferContinuationKind.NotModeled
+            ],
+        );
+    });
+
+    it('says the payout that concludes an account is also a transfer chance', () => {
+        render(0.5);
+        expect(container.textContent).toContain(
+            LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
+        );
+    });
+
+    it('says the rest of the account is valued at $0 where no live plan is modeled for the scenario', () => {
+        render(0.5);
+        expect(container.textContent).toContain('valued at $0');
+        expect(container.textContent).not.toContain(
+            'recurring withdrawals',
+        );
+    });
+
+    it('says the live plan continues the account and adds only its recurring withdrawals where it is modeled', () => {
+        render(0.5, {
+            ...payingScenario,
+            instrument: InstrumentSymbol.MNQ,
+            stopPoints: 10,
+        });
+        const text = container.textContent;
+        expect(text).toContain('recurring withdrawals');
+        expect(text).toContain('not counted');
+        expect(text).not.toContain('valued at $0');
+    });
+
+    it('says the live continuation ignores the funded day stop and rung sizing, and carries the live plan note, where it is modeled', () => {
+        render(0.5, {
+            ...payingScenario,
+            instrument: InstrumentSymbol.MNQ,
+            stopPoints: 10,
+        });
+        const text = container.textContent;
+        expect(text).toContain(LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT);
+        expect(text).toContain(
+            LIVE_TRANSFER_NOTE_TEXT[
+                LiveApplicabilityNote.MffuRapidEodLiveContractLimitDisputed
+            ],
+        );
+    });
+
+    it('adds no continuation disclosure where the rest of the account is valued at $0', () => {
+        render(0.5);
+        const text = container.textContent;
+        expect(text).not.toContain(LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT);
+        expect(text).not.toContain(
+            LIVE_TRANSFER_NOTE_TEXT[
+                LiveApplicabilityNote.MffuRapidEodLiveContractLimitDisputed
+            ],
+        );
+    });
+
+    it('says a transferred account keeps its slot to the end of the funded horizon', () => {
+        render(0.5);
+        expect(container.textContent).toContain(
+            'keeps its slot to the end of the funded horizon',
+        );
     });
 });

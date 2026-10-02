@@ -17,10 +17,10 @@ describe('funded consistency ceiling duplication (PT-24b step 4)', () => {
         ).toBe(0);
     });
 
-    it('computes the funded consistency ceiling in exactly one place across both files', () => {
+    it('computes the funded consistency ceiling in exactly one place across the ceiling module and CopyGroupSizing', () => {
         const total =
             occurrencesIn(
-                'src/lib/prop-calculator/advisor/FundedSizingAdvisor.ts',
+                'src/lib/prop-calculator/advisor/FundedConsistencyCeiling.ts',
             ) +
             occurrencesIn('src/lib/prop-calculator/advisor/CopyGroupSizing.ts');
         expect(total).toBe(1);
@@ -54,7 +54,7 @@ describe('payoutEligibleForRiskCheck duplication (review HIGH)', () => {
                 'src/lib/prop-calculator/advisor/SizingAdvisor.ts',
             ) +
             payoutRequestDecisionCheckOccurrencesIn(
-                'src/lib/prop-calculator/advisor/FundedSizingAdvisor.ts',
+                'src/lib/prop-calculator/advisor/FundedConsistencyCeiling.ts',
             ) +
             payoutRequestDecisionCheckOccurrencesIn(
                 'src/lib/prop-calculator/advisor/LiveSizingAdvisor.ts',

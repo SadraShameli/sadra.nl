@@ -53,11 +53,9 @@ import {
     type Advice,
     type AdviceProvenance,
     AdviceSource,
-    type AdviceStaleness,
     AdviceStalenessReason,
     assertPlausibleSnapshot,
-    type Assumption,
-    AssumptionKind,
+    assumptionText,
     buildEnginePolicy,
     createSizingAdvisor,
     DailyProfitCapKind,
@@ -66,6 +64,7 @@ import {
     type DayProgress,
     DEFAULT_MAX_EVAL_DAYS,
     DEFAULT_RULEBOOK,
+    DifferenceReason,
     differenceReasonText,
     type DocumentedSizing,
     type EngineOptimumRequest,
@@ -76,9 +75,18 @@ import {
     FundedSweepOptimumResultKind,
     ImplausibleSnapshotError,
     type LadderEngineOptimumResult,
+    LadderEngineOptimumResultKind,
     LadderFractionSource,
+    ladderRefusalText,
     type LadderSearchRequest,
+    liveTriggerCountText,
+    NEXT_PAYOUT_AMONG_PAYING_TEXT,
+    NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+    NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
+    nextPayoutEvidenceText,
     type NextPayoutProjection,
+    NextPayoutTimingKind,
+    nextPayoutTimingOf,
     type PayoutAdvice,
     type PayoutBlockReason,
     PayoutBlockReasonKind,
@@ -90,6 +98,7 @@ import {
     type PayoutWait,
     PayoutWaitBasis,
     type PersonalPayoutOverrideResult,
+    personalPayoutOverrideWarningText,
     type ReconstructedAccount,
     type RulebookParameters,
     rulebookSchema,
@@ -169,6 +178,7 @@ export interface AdviseArguments {
     'snapshot-date'?: string;
     stage?: string;
     'stop-points'?: string;
+    suspended?: boolean;
     tpd: string;
     'trading-days'?: string;
     trials: string;
@@ -241,52 +251,6 @@ const PLAUSIBILITY_FIELD_FLAG: Readonly<Record<SnapshotInputField, string>> = {
     [SnapshotInputField.QualifyingDaysSinceLastPayout]: 'qualifying-days',
     [SnapshotInputField.Stage]: 'stage',
     [SnapshotInputField.TradingDays]: 'trading-days',
-};
-
-const ASSUMPTION_TEXT: Readonly<
-    Record<Exclude<AssumptionKind, AssumptionKind.SizingRule>, string>
-> = {
-    [AssumptionKind.CalendarAnchorMissing]:
-        'The calendar-day payout gate anchor is missing; treated as day 0.',
-    [AssumptionKind.ContractCapInstrumentAssumed]:
-        'The contract cap assumes the entered instrument.',
-    [AssumptionKind.CumulativeQualifyingDaysAssumed]:
-        'Qualifying days since the last payout are as entered, not reconstructed from a full history.',
-    [AssumptionKind.CycleBestDayProfitAssumedWorstCase]:
-        'The best day profit this payout cycle is assumed to be the worst case (today).',
-    [AssumptionKind.DashboardFloorMismatch]:
-        'The entered dashboard floor is more conservative than the reconstructed floor; the entered value is used.',
-    [AssumptionKind.ElapsedDaysApproximatedFromTradingDays]:
-        'Elapsed days are approximated from trading days.',
-    [AssumptionKind.FundedResetsFromEvents]:
-        'Funded resets used are as entered.',
-    [AssumptionKind.GrossOnlyPayouts]: 'Only gross payouts are modeled.',
-    [AssumptionKind.LadderStepWidened]:
-        'The ladder search uses a coarser risk step than the default grid to stay within its size cap.',
-    [AssumptionKind.LastPayoutBalanceAssumedCurrent]:
-        'The balance at the last payout is assumed to equal the current balance.',
-    [AssumptionKind.LiveModelApproximation]:
-        'No account-level live model exists for this firm; the firm-level rule is used instead.',
-    [AssumptionKind.LiveNotModeled]:
-        'Live-stage rules are not modeled for this firm.',
-    [AssumptionKind.LiveTriggersNotChecked]:
-        'Live-transition triggers are not verified yet; engine numbers here are optimistic.',
-    [AssumptionKind.NoHolidayCalendar]:
-        'No holiday calendar is modeled; every weekday counts as a trading day.',
-    [AssumptionKind.PeakOrderAssumed]:
-        'The order in which peaks occurred is assumed, not measured.',
-    [AssumptionKind.PendingPayoutDeducted]:
-        'A pending payout was deducted from the balance.',
-    [AssumptionKind.PercentCandidatesLeftOut]:
-        'Percent-of-cushion candidates are left out without a stop distance.',
-    [AssumptionKind.PositionSizingUnspecified]:
-        'No instrument or stop distance was given; sizing is fractional, not contract-capped.',
-    [AssumptionKind.RebuyLagAssumed]:
-        'The rebuy lag is assumed to be zero days.',
-    [AssumptionKind.TopStepLfaProgressDefaulted]:
-        'TopStep LFA progress defaults to zero.',
-    [AssumptionKind.TopStepLiveReserveDefaulted]:
-        'The TopStep live reserve defaults to its documented minimum.',
 };
 
 export const adviseArguments = {
@@ -449,6 +413,12 @@ export const adviseArguments = {
         options: Object.values(SizingStage),
         type: 'enum',
     },
+    suspended: {
+        default: false,
+        description:
+            'The firm has suspended this account: no sizing, daily plan, payout advice or risk check is given, only the reason',
+        type: 'boolean',
+    },
     tpd: {
         default: '4',
         description: 'Trades per day when using flat risk',
@@ -507,10 +477,13 @@ export function adviceReportLines(
 ): string[] {
     const lines: string[] = [advice.headline];
     if (advice.staleness.kind === 'stale') {
-        lines.push(
+        return [
+            ...lines,
             `Stale as of ${advice.staleness.snapshotAsOf} (${staleReasonWords(advice.staleness.reasons)}): ${staleRemedy(advice.staleness.reasons)}.`,
-        );
-    } else if (advice.documented !== null) {
+            provenanceLine(advice.provenance),
+        ];
+    }
+    if (advice.documented !== null) {
         lines.push(
             ...documentedSizingLines(advice.documented, enteredStopPoints),
         );
@@ -523,7 +496,7 @@ export function adviceReportLines(
         lines.push(differenceReasonText(reason));
     }
     for (const assumption of advice.assumptions) {
-        lines.push(assumptionText(assumption, advice.requests));
+        lines.push(assumptionText(assumption));
     }
     lines.push(provenanceLine(advice.provenance));
     return lines;
@@ -553,6 +526,17 @@ export function coverageMatrixLines(firmId: FirmId | undefined): string[] {
     ]);
 }
 
+export function engineResultsFor(
+    advisor: SizingAdvisor,
+    plan: Plan,
+): EngineOptimumRunnerResult[] {
+    return advisor.staleness().kind === 'stale'
+        ? []
+        : advisor
+              .optimumRequests()
+              .map((request) => runEngineOptimum(plan, request));
+}
+
 export default defineCommand({
     args: adviseArguments,
     meta: {
@@ -576,6 +560,7 @@ export default defineCommand({
                     '--risk prints the EV swing as text and cannot be combined with --json',
                 );
             }
+            rejectRiskWithSuspended(context.args);
             const riskInputs = readNextTradeRiskInputs(context.args);
             const { options, plan, snapshot } = readAdviseInputs(context.args);
             if (!isJson) {
@@ -583,11 +568,7 @@ export default defineCommand({
             }
             const account = AccountReconstruction.rebuild(snapshot, plan);
             const advisor = createSizingAdvisor(account, options);
-            const requests = advisor.optimumRequests();
-            const results: EngineOptimumRunnerResult[] = requests.map(
-                (request) => runEngineOptimum(plan, request),
-            );
-            const advice = advisor.assemble(results);
+            const advice = advisor.assemble(engineResultsFor(advisor, plan));
             const riskReport =
                 riskInputs === null
                     ? null
@@ -646,7 +627,7 @@ export function nextTradeRiskReport(
               day,
               kind: NextTradeRiskReportKind.NotRun,
               proposedRisk,
-              reason: riskCheckNotRunReason(advisor.staleness()),
+              reason: riskCheckNotRunReason(advisor),
           }
         : { day, kind: NextTradeRiskReportKind.Checked, proposedRisk, result };
 }
@@ -746,6 +727,7 @@ export function readAdviseInputs(arguments_: AdviseArguments): AdviseInputs {
     const trials = readPositiveInteger(arguments_.trials, 'trials');
 
     const options: SizingAdvisorCreateOptions = {
+        accountPolicy: requireFirm(plan.id.firm).accountPolicy,
         ...(measuredRebuyLag !== undefined && { measuredRebuyLag }),
         ...(personalPayoutOverride !== undefined && {
             personalPayoutOverride,
@@ -758,11 +740,22 @@ export function readAdviseInputs(arguments_: AdviseArguments): AdviseInputs {
         seed,
         sims: trials,
         snapshotAsOf: snapshot.asOf,
+        substate: arguments_.suspended ? AccountSubstate.Suspended : null,
         today: todayIsoDate(new Date()),
         trials,
     };
 
     return { options, plan, snapshot, stage };
+}
+
+export function rejectRiskWithSuspended(
+    arguments_: Pick<AdviseArguments, 'risk' | 'suspended'>,
+): void {
+    if (arguments_.suspended && arguments_.risk !== undefined) {
+        throw new Error(
+            '--risk prints the EV swing at a risk, and a suspended account is not sized, so --risk cannot be combined with --suspended',
+        );
+    }
 }
 
 export function swingLines(
@@ -790,21 +783,6 @@ export function swingLines(
     return [
         `EV swing at 1:${rr}${whatIf}, credit-free, ${outcome.assumption}: now ${uncertainCurrency(now.creditFree)}, after a win ${uncertainCurrency(afterWin.creditFree)} (${delta(afterWin)}), after a loss ${uncertainCurrency(afterLoss.creditFree)} (${delta(afterLoss)})${bustNote}, win probability ${formatPercent(outcome.winProbability)}`,
     ];
-}
-
-function assumptionText(
-    assumption: Assumption,
-    requests: readonly EngineOptimumRequest[],
-): string {
-    if (assumption.kind === AssumptionKind.SizingRule) {
-        return SIZING_ASSUMPTION_TEXT[assumption.sizingAssumption];
-    }
-    const text = ASSUMPTION_TEXT[assumption.kind];
-    if (assumption.kind !== AssumptionKind.LadderStepWidened) return text;
-    const step = ladderStepOf(requests);
-    return step === null
-        ? text
-        : `${text} It searched in ${formatCurrency(step)} steps.`;
 }
 
 function checkOptIn(
@@ -1114,11 +1092,8 @@ function ladderSearchLines(
     request: LadderSearchRequest | undefined,
 ): string[] {
     const { source } = result;
-    if ('refusal' in result) {
-        const { refusal } = result;
-        return [
-            `${source}: ladder search not run: grid too large (${refusal.size.toLocaleString('en-US')} ladders, above the ${refusal.limit.toLocaleString('en-US')} limit)`,
-        ];
+    if (result.kind === LadderEngineOptimumResultKind.Refused) {
+        return [`${source}: ${ladderRefusalText(result.refusal)}`];
     }
     const { ladder } = result;
     const summary = `${source}: ${ladder.laddersScored} ladders scored, ${ladder.frontier.length} on the frontier`;
@@ -1132,26 +1107,35 @@ function ladderSearchLines(
     ];
 }
 
-function ladderStepOf(
-    requests: readonly EngineOptimumRequest[],
-): null | number {
-    for (const request of requests) {
-        if (
-            request.source === AdviceSource.LadderSearchFresh ||
-            request.source === AdviceSource.LadderSearchFromState
-        ) {
-            return request.grid.step;
-        }
-    }
-    return null;
-}
-
 function nextPayoutProjectionLine(projection: NextPayoutProjection): string {
+    const timing = `next payout projection: ${nextPayoutTimingText(projection)}`;
+    const evidence = nextPayoutEvidenceText(projection);
+    if (
+        nextPayoutTimingOf(projection).kind ===
+        NextPayoutTimingKind.AlreadyEligible
+    ) {
+        return `${timing}, ${evidence}`;
+    }
     const probabilityText =
         projection.accountLostBeforeFirstPayoutProbability === null
             ? 'n/a'
             : formatPercent(projection.accountLostBeforeFirstPayoutProbability);
-    return `next payout projection: ${projection.expectedCalendarDaysToFirstPayout.value.toFixed(1)} calendar days, account lost before first payout ${probabilityText}`;
+    return `${timing}, account lost before first payout ${probabilityText}, ${evidence}`;
+}
+
+function nextPayoutTimingText(projection: NextPayoutProjection): string {
+    const timing = nextPayoutTimingOf(projection);
+    switch (timing.kind) {
+        case NextPayoutTimingKind.AlreadyEligible: {
+            return NEXT_PAYOUT_ELIGIBLE_NOW_TEXT.toLowerCase();
+        }
+        case NextPayoutTimingKind.InDays: {
+            return `${timing.calendarDays.value.toFixed(1)} calendar days ${NEXT_PAYOUT_AMONG_PAYING_TEXT}`;
+        }
+        case NextPayoutTimingKind.NoTrialPaid: {
+            return NEXT_PAYOUT_NO_TRIAL_PAID_TEXT.toLowerCase();
+        }
+    }
 }
 
 function payoutAdviceLines(advice: PayoutAdvice): string[] {
@@ -1168,7 +1152,7 @@ function payoutBlockReasonLines(reason: PayoutBlockReason): string[] {
         }
         case PayoutBlockReasonKind.WouldTriggerLive: {
             return [
-                `payout: not eligible (would trigger a live-account transition at payout ${reason.trigger.triggerAtPayoutCount})`,
+                `payout: not eligible (would trigger a live-account transition: ${liveTriggerCountText(reason.trigger)})`,
             ];
         }
     }
@@ -1254,7 +1238,7 @@ function personalPayoutOverrideLines(
     ];
     if (override.warning !== null) {
         lines.push(
-            `payout-size sweep personal override: underperforms the engine optimum (optimum monthly net ${formatCurrency(override.warning.optimumMonthlyNet)} vs override ${formatCurrency(override.warning.overrideMonthlyNet)}, optimum bust probability ${formatPercent(override.warning.optimumBustProbability)} vs override bust probability ${formatPercent(override.warning.overrideBustProbability)})`,
+            personalPayoutOverrideWarningText(override.warning),
         );
     }
     return lines;
@@ -1425,7 +1409,11 @@ function requireFirm(firmId: FirmId): TradingFirm {
     return firm;
 }
 
-function riskCheckNotRunReason(staleness: AdviceStaleness): string {
+function riskCheckNotRunReason(advisor: SizingAdvisor): string {
+    if (advisor.isSuspended()) {
+        return differenceReasonText({ kind: DifferenceReason.Suspended });
+    }
+    const staleness = advisor.staleness();
     return staleness.kind === 'stale'
         ? `the advice is stale as of ${staleness.snapshotAsOf} (${staleReasonWords(staleness.reasons)}), so there is no documented rung to check against: ${staleRemedy(staleness.reasons)}`
         : RISK_CHECK_NO_RUNG_REASON;

@@ -769,6 +769,14 @@ function baseTrialResult(overrides: Partial<TrialResult> = {}): TrialResult {
         had10LossStreak: false,
         horizonCredit: 0,
         isAliveAtHorizon: false,
+        isTransferredLive: false,
+        liveSlotDays: 0,
+        liveTransferCash: 0,
+        liveTransferOneOff: {
+            capitalReturned: 0,
+            liquidationPayout: 0,
+            transitionCredit: 0,
+        },
         maxDrawdown: 0,
         maxLosingStreak: 0,
         net: 0,
@@ -833,6 +841,25 @@ describe('fromStateCashSamples: the imputed continuation window excludes eval-ph
         );
         expect(cash[0]).toBeCloseTo(540, 6);
         expect(realizedCash[0]).toBeCloseTo(500, 6);
+    });
+
+    it('a trial sent live contributes its net only, with no imputed continuation', () => {
+        const trial = baseTrialResult({
+            daysElapsed: 25,
+            evalDays: 0,
+            isAliveAtHorizon: false,
+            isTransferredLive: true,
+            liveTransferCash: 120,
+            net: 320,
+        });
+        const { cash, realizedCash } = fromStateCashSamples(
+            [trial],
+            30,
+            999,
+            999,
+        );
+        expect(cash[0]).toBeCloseTo(320, 6);
+        expect(realizedCash[0]).toBeCloseTo(320, 6);
     });
 });
 

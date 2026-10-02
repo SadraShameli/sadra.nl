@@ -14,6 +14,7 @@ import advise, {
     readSignedNumber,
     swingLines,
 } from '~/cli/commands/prop/advise/command';
+import { formatCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
     dollars,
@@ -25,10 +26,13 @@ import {
 import {
     AccountReconstruction,
     AccountSubstate,
+    AdviceSource,
     createSizingAdvisor,
     DAY_STOP_REASON_TEXT,
     DEFAULT_RULEBOOK,
+    type NextPayoutProjection,
     NextTradeRiskVerdict,
+    personalPayoutOverrideWarningText,
     runEngineOptimum,
     SIZING_ASSUMPTION_TEXT,
     SizingAssumption,
@@ -840,8 +844,6 @@ function evalAdviceForLadderSearch() {
             '48500',
             '--trading-days',
             '3',
-            '--snapshot-date',
-            '2024-01-02',
             '--trials',
             '50',
             '--seed',
@@ -858,7 +860,7 @@ function evalAdviceForLadderSearch() {
 function fundedAdviceWithOverride(requestSize: string) {
     const { options, plan, snapshot } = readAdviseInputs(
         parseAdvise([
-            ...FRESH_FUNDED_APEX_EOD,
+            ...withoutSnapshotDate(FRESH_FUNDED_APEX_EOD),
             '--trials',
             '200',
             '--request-size',
@@ -870,6 +872,13 @@ function fundedAdviceWithOverride(requestSize: string) {
     const requests = advisor.optimumRequests();
     const results = requests.map((request) => runEngineOptimum(plan, request));
     return advisor.assemble(results);
+}
+
+function withoutSnapshotDate(argv: readonly string[]): string[] {
+    return argv.filter(
+        (part, index) =>
+            part !== '--snapshot-date' && argv[index - 1] !== '--snapshot-date',
+    );
 }
 
 describe('adviceReportLines: engine optima disclose their basis and standard error (review findings HIGH-1, HIGH-2, MEDIUM)', () => {
@@ -894,12 +903,37 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
 
         const warningLine = lines.find(
             (line) =>
-                line.includes('personal override') &&
                 line.includes('underperforms'),
         );
         expect(warningLine).toBeDefined();
-        expect(warningLine).toContain('optimum monthly net');
         expect(warningLine).toContain('bust probability');
+    });
+
+    it('prints the request sizes, the funded horizon and the retained cushion with its basis in the override warning, as the panel does (PT-19i review)', () => {
+        const advice = fundedAdviceWithOverride('1000');
+        const warning = advice.payoutAdvice?.personalOverrideWarning;
+        if (warning === undefined) {
+            throw new Error('expected a personal override warning');
+        }
+        const warningLine = adviceReportLines(advice).find((line) =>
+            line.includes('underperforms'),
+        );
+        expect(warningLine).toBeDefined();
+        expect(warningLine).toContain(
+            `payout-size sweep over ${String(warning.horizonDays)} funded days`,
+        );
+        expect(warningLine).toContain(
+            `${formatCurrency(warning.overrideMonthlyNet, 0)} at a ${formatCurrency(warning.overrideRequestSize, 0)} request`,
+        );
+        expect(warningLine).toContain(
+            `${formatCurrency(warning.optimumMonthlyNet, 0)} at ${formatCurrency(warning.optimumRequestSize, 0)}`,
+        );
+        expect(warningLine).toContain(
+            `retaining ${formatCurrency(warning.retainedCushion, 0)} (`,
+        );
+        expect(warningLine).toBe(
+            personalPayoutOverrideWarningText(warning),
+        );
     });
 
     it('omits the override warning line when the personal override does not underperform (HIGH-1)', () => {
@@ -944,7 +978,11 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
 
     it('prints a standard error beside the fresh funded sweep and from-state funded sweep monthly net (MEDIUM)', () => {
         const { options, plan, snapshot } = readAdviseInputs(
-            parseAdvise([...FRESH_FUNDED_APEX_EOD, '--trials', '200']),
+            parseAdvise([
+                ...withoutSnapshotDate(FRESH_FUNDED_APEX_EOD),
+                '--trials',
+                '200',
+            ]),
         );
         const account = AccountReconstruction.rebuild(snapshot, plan);
         const advisor = createSizingAdvisor(account, options);
@@ -1058,5 +1096,97 @@ describe('adviceReportLines: minStopPointsAtCap flagged only above the entered s
                 line.includes('minimum stop to stay at the contract cap'),
             ),
         ).toBe(false);
+    });
+});
+
+function nextPayoutProjectionLine(value: NextPayoutProjection): string {
+    const { options, plan, snapshot } = readAdviseInputs(
+        parseAdvise(FRESH_FUNDED_APEX_EOD_TODAY),
+    );
+    const account = AccountReconstruction.rebuild(snapshot, plan);
+    const advice = createSizingAdvisor(account, options).assemble([
+        { projection: value, source: AdviceSource.NextPayoutProjection },
+    ]);
+    const line = adviceReportLines(advice).find((candidate) =>
+        candidate.startsWith('next payout projection:'),
+    );
+    if (line === undefined) throw new Error('no projection line');
+    return line;
+}
+
+function nextPayoutProjectionWith(
+    overrides: Partial<NextPayoutProjection>,
+): NextPayoutProjection {
+    return {
+        accountLostBeforeFirstPayoutProbability: 0.1,
+        accountLostBeforeFirstPayoutStandardError: 0.01,
+        alreadyEligible: false,
+        expectedCalendarDaysToFirstPayout: {
+            standardError: 0.5,
+            value: 12.3,
+        },
+        expectedResetFeeBeforeFirstPayout: { standardError: 0, value: 0 },
+        expectedSessionDaysToFirstPayout: { standardError: 0.4, value: 9 },
+        firstPayoutCausedBreachProbability: 0,
+        firstPayoutCausedBreachStandardError: 0,
+        payingTrials: 150,
+        trials: 200,
+        ...overrides,
+    };
+}
+
+describe('adviceReportLines: the next payout projection line reads the engine eligibility (PT-68c, F-V18)', () => {
+    it('says eligible now instead of 0.0 calendar days for an already-eligible projection', () => {
+        const line = nextPayoutProjectionLine(
+            nextPayoutProjectionWith({
+                accountLostBeforeFirstPayoutProbability: 0,
+                alreadyEligible: true,
+                expectedCalendarDaysToFirstPayout: {
+                    standardError: 0,
+                    value: 0,
+                },
+                payingTrials: 200,
+            }),
+        );
+        expect(line).toContain('eligible now');
+        expect(line).not.toContain('calendar days');
+    });
+
+    it('attributes an already-eligible line to the eligibility check, with no simulated trial count and no zero loss figure', () => {
+        const line = nextPayoutProjectionLine(
+            nextPayoutProjectionWith({
+                accountLostBeforeFirstPayoutProbability: 0,
+                alreadyEligible: true,
+                expectedCalendarDaysToFirstPayout: {
+                    standardError: 0,
+                    value: 0,
+                },
+                payingTrials: 200,
+            }),
+        );
+        expect(line).toContain("the engine's payout eligibility check");
+        expect(line).toContain('no trials were simulated');
+        expect(line).not.toContain('trials reached a payout');
+        expect(line).not.toContain('account lost before first payout');
+    });
+
+    it('says no simulated trial reached a payout instead of 0.0 calendar days', () => {
+        const line = nextPayoutProjectionLine(
+            nextPayoutProjectionWith({
+                expectedCalendarDaysToFirstPayout: {
+                    standardError: null,
+                    value: 0,
+                },
+                payingTrials: 0,
+            }),
+        );
+        expect(line).toContain('no simulated trial reached a payout');
+        expect(line).not.toContain('calendar days');
+    });
+
+    it('keeps the projected calendar days and adds the paying share for a projection that pays', () => {
+        const line = nextPayoutProjectionLine(nextPayoutProjectionWith({}));
+        expect(line).toContain('12.3 calendar days among the trials that paid');
+        expect(line).toContain('150 of 200 trials reached a payout (75.0%)');
     });
 });

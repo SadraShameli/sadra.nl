@@ -12,8 +12,6 @@ import {
     OverviewRequestKind,
     ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
-import { AccountsTable } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
-import { DetailHeaderFigures } from '~/app/(app)/prop-calculator/accounts/_components/detail/DetailHeaderFigures';
 import {
     AccountEventKind,
     AccountStage,
@@ -40,6 +38,12 @@ import {
     MilestoneKind,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
+
+import {
+    AccountDetailValuesProbe,
+    AccountsTable,
+    DetailHeaderFiguresWithData,
+} from './AccountsTableWithData';
 
 interface FakeQuery {
     data: unknown;
@@ -138,7 +142,10 @@ vi.mock('~/trpc/react', () => ({
             fee: { list: harness.query('fee.list') },
             payout: { list: harness.query('payout.list') },
             rulebook: { get: harness.query('rulebook.get') },
-            snapshot: { latestForAll: harness.query('snapshot.latestForAll') },
+            snapshot: {
+                latestForAll: harness.query('snapshot.latestForAll'),
+                latestTwoForAll: harness.query('snapshot.latestForAll'),
+            },
             violation: { list: harness.query('violation.list') },
         },
         useUtils: () => ({
@@ -199,6 +206,15 @@ function answerEverything(
     harness.queries.set('violation.list', answer([]));
 }
 
+function captureRequests() {
+    const requested: OverviewRequest[] = [];
+    harness.resultFor = (request) => {
+        requested.push(request);
+        return null;
+    };
+    return requested;
+}
+
 function documentedFigures(): DocumentedRunFigures {
     return {
         anyPayoutGivenFundedProbability: { standardError: 0.01, value: 0.4 },
@@ -240,6 +256,10 @@ function ledgerOnlyAccount(id: string, label: string) {
     });
 }
 
+function maxRiskOf(request: OverviewRequest | undefined) {
+    return request?.spec.enginePolicy.personalCaps?.maxRiskPerTrade;
+}
+
 function modeledAccount(
     id: string,
     label: string,
@@ -277,6 +297,7 @@ function projection(days: number, payingTrials = 2000): NextPayoutProjection {
     return {
         accountLostBeforeFirstPayoutProbability: 0.1,
         accountLostBeforeFirstPayoutStandardError: 0.01,
+        alreadyEligible: false,
         expectedCalendarDaysToFirstPayout: { standardError: 0.4, value: days },
         expectedResetFeeBeforeFirstPayout: { standardError: 1, value: 0 },
         expectedSessionDaysToFirstPayout: {
@@ -288,6 +309,13 @@ function projection(days: number, payingTrials = 2000): NextPayoutProjection {
         payingTrials,
         trials: 2000,
     };
+}
+
+function requestsOfKind(
+    requested: readonly OverviewRequest[],
+    kind: OverviewRequestKind,
+) {
+    return requested.filter((request) => request.kind === kind);
 }
 
 function snapshotOf(
@@ -562,6 +590,44 @@ describe('account list and detail header lead with value and next action (PT-68)
             expect(rowOf('Later').querySelector('[data-soon]')).toBeNull();
             expect(rowOf('Later').textContent).toContain(
                 '40.0 calendar days (SE 0.4)',
+            );
+        });
+
+        it('highlights a next payout by the window set in the rulebook, and names that window in the note (PT-68b)', () => {
+            answerEverything(
+                [fundedAccount('soon', 'Soon'), fundedAccount('mid', 'Mid')],
+                [snapshotOf('soon', 52_000), snapshotOf('mid', 53_000)],
+            );
+            harness.queries.set(
+                'rulebook.get',
+                answer({
+                    ...DEFAULT_RULEBOOK,
+                    display: {
+                        ...DEFAULT_RULEBOOK.display,
+                        nextPayoutHighlightDays: 3,
+                    },
+                }),
+            );
+            useValues(
+                new Map([
+                    [
+                        valueKey(SizingStage.Funded, 52_000),
+                        { days: 2.5, value: 2500 },
+                    ],
+                    [
+                        valueKey(SizingStage.Funded, 53_000),
+                        { days: 5, value: 2400 },
+                    ],
+                ]),
+            );
+            render(<AccountsTable userId={USER_ID} />);
+            expect(
+                rowOf('Soon').querySelector('[data-soon="true"]')?.textContent,
+            ).toBe('2.5 calendar days (SE 0.4)');
+            expect(rowOf('Mid').querySelector('[data-soon]')).toBeNull();
+            expect(rowOf('Mid').textContent).toContain('5.0 calendar days');
+            expect(container.getHTML()).toContain(
+                'within 3 calendar days and at least 50.0% of the simulated trials reach one',
             );
         });
 
@@ -970,7 +1036,7 @@ describe('account list and detail header lead with value and next action (PT-68)
                 ]),
             );
             render(
-                <DetailHeaderFigures accountId="progress" userId={USER_ID} />,
+                <DetailHeaderFiguresWithData accountId="progress" userId={USER_ID} />,
             );
             const text = container.textContent;
             expect(text).toContain('Next action');
@@ -996,7 +1062,7 @@ describe('account list and detail header lead with value and next action (PT-68)
                     ],
                 ]),
             );
-            render(<DetailHeaderFigures accountId="alpha" userId={USER_ID} />);
+            render(<DetailHeaderFiguresWithData accountId="alpha" userId={USER_ID} />);
             expect(
                 container.querySelector('[data-soon="true"]')?.textContent,
             ).toBe('3.4 calendar days (SE 0.4)');
@@ -1007,7 +1073,7 @@ describe('account list and detail header lead with value and next action (PT-68)
 
         it('shows a ledger-only account as not valued with its reason', () => {
             answerEverything([ledgerOnlyAccount('hola', 'Hola')], []);
-            render(<DetailHeaderFigures accountId="hola" userId={USER_ID} />);
+            render(<DetailHeaderFiguresWithData accountId="hola" userId={USER_ID} />);
             expect(container.textContent).toContain('Not valued');
             expect(container.textContent).toContain('Ledger only');
             expect(container.textContent).toContain(
@@ -1028,7 +1094,7 @@ describe('account list and detail header lead with value and next action (PT-68)
                 requested.push(request);
                 return null;
             };
-            render(<DetailHeaderFigures accountId="alpha" userId={USER_ID} />);
+            render(<DetailHeaderFiguresWithData accountId="alpha" userId={USER_ID} />);
             const stages = requested
                 .filter(
                     (request) =>
@@ -1036,6 +1102,138 @@ describe('account list and detail header lead with value and next action (PT-68)
                 )
                 .map((request) => request.account?.stage);
             expect(new Set(stages)).toEqual(new Set([SizingStage.Funded]));
+        });
+    });
+
+    describe('a suspended account is never sized on the detail page (PT-19i, F-118)', () => {
+        const SUSPENDED_ACTION_TEXTS = [
+            'Trade at the documented rung',
+            'Request payout',
+            'Stop for today',
+        ];
+
+        it('builds no value request and no sizing next action for a suspended funded account', () => {
+            answerEverything(
+                [
+                    {
+                        ...fundedAccount('alpha', 'Alpha'),
+                        status: AccountStatus.Suspended,
+                    },
+                ],
+                [snapshotOf('alpha', 52_000)],
+            );
+            const requested = captureRequests();
+            render(<AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />);
+
+            expect(requested).toEqual([]);
+            for (const text of SUSPENDED_ACTION_TEXTS) {
+                expect(container.textContent).not.toContain(text);
+            }
+            expect(container.textContent).toContain(
+                'Not modeled for this account',
+            );
+        });
+
+        it('builds no value request and no sizing next action for a suspended eval account', () => {
+            answerEverything(
+                [
+                    {
+                        ...modeledAccount('bravo', 'Bravo'),
+                        status: AccountStatus.Suspended,
+                    },
+                ],
+                [snapshotOf('bravo', 51_500)],
+            );
+            const requested = captureRequests();
+            render(<AccountDetailValuesProbe accountId="bravo" userId={USER_ID} />);
+
+            expect(requested).toEqual([]);
+            for (const text of SUSPENDED_ACTION_TEXTS) {
+                expect(container.textContent).not.toContain(text);
+            }
+        });
+
+        it('still sizes the same account once it is active again', () => {
+            answerEverything(
+                [fundedAccount('alpha', 'Alpha')],
+                [snapshotOf('alpha', 52_000)],
+            );
+            const requested = captureRequests();
+            render(<AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />);
+
+            expect(
+                requestsOfKind(requested, OverviewRequestKind.AccountFromState),
+            ).toHaveLength(1);
+            expect(container.textContent).toContain(
+                'Trade at the documented rung',
+            );
+        });
+    });
+
+    describe('the personal max risk reaches every from-state request (PT-68g, F-V16)', () => {
+        it('puts the personal max risk of the account on its list from-state request', () => {
+            answerEverything(
+                [
+                    {
+                        ...fundedAccount('alpha', 'Alpha'),
+                        personalRules: { maxRiskPerTradeCents: 10_000 },
+                    },
+                ],
+                [snapshotOf('alpha', 52_000)],
+            );
+            const requested = captureRequests();
+            render(<AccountsTable userId={USER_ID} />);
+
+            const fromState = requestsOfKind(
+                requested,
+                OverviewRequestKind.AccountFromState,
+            );
+            expect(fromState).toHaveLength(1);
+            expect(maxRiskOf(fromState[0])).toBe(100);
+        });
+
+        it('puts the personal max risk on the from-state, chain and request of the detail page', () => {
+            answerEverything(
+                [
+                    {
+                        ...fundedAccount('alpha', 'Alpha'),
+                        personalRules: { maxRiskPerTradeCents: 10_000 },
+                    },
+                ],
+                [snapshotOf('alpha', 52_000)],
+            );
+            const requested = captureRequests();
+            render(<AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />);
+
+            const fromState = requestsOfKind(
+                requested,
+                OverviewRequestKind.AccountFromState,
+            );
+            const chain = requestsOfKind(
+                requested,
+                OverviewRequestKind.ValueChain,
+            );
+            expect(fromState).toHaveLength(1);
+            expect(chain).toHaveLength(1);
+            expect(maxRiskOf(fromState[0])).toBe(100);
+            expect(maxRiskOf(chain[0])).toBe(100);
+        });
+
+        it('leaves the from-state request without personal caps for an account that sets none', () => {
+            answerEverything(
+                [fundedAccount('alpha', 'Alpha')],
+                [snapshotOf('alpha', 52_000)],
+            );
+            const requested = captureRequests();
+            render(<AccountsTable userId={USER_ID} />);
+
+            const [request] = requestsOfKind(
+                requested,
+                OverviewRequestKind.AccountFromState,
+            );
+            expect(request?.spec.enginePolicy).not.toHaveProperty(
+                'personalCaps',
+            );
         });
     });
 });

@@ -33,11 +33,12 @@ import {
 
 import { type AdviceSource } from './AdviceSource';
 import { applyEnginePolicy } from './EnginePolicyBuilder';
-import { type EnginePolicy } from './policy';
+import { applyPersonalDayLimits, type EnginePolicy } from './policy';
 
 export interface NextPayoutProjection {
     readonly accountLostBeforeFirstPayoutProbability: null | number;
     readonly accountLostBeforeFirstPayoutStandardError: null | number;
+    readonly alreadyEligible: boolean;
     readonly expectedCalendarDaysToFirstPayout: UncertainValue;
     readonly expectedResetFeeBeforeFirstPayout: UncertainValue;
     readonly expectedSessionDaysToFirstPayout: UncertainValue;
@@ -58,10 +59,13 @@ export function runNextPayoutProjection(
     plan: Plan,
     request: NextPayoutProjectionRequest,
 ): NextPayoutProjection {
-    const applied = applyEnginePolicy(plan, request.policy, {
-        ...request.base,
-        plan,
-    });
+    const applied = applyPersonalDayLimits(
+        request.policy,
+        applyEnginePolicy(plan, request.policy, {
+            ...request.base,
+            plan,
+        }),
+    );
     const startIssue = simStartIssue(plan, request.start, applied.maxEvalDays);
     if (startIssue !== null) {
         throw new Error(`${SIM_INPUTS_REFUSAL_PREFIX}${startIssue}`);
@@ -71,6 +75,7 @@ export function runNextPayoutProjection(
         return {
             accountLostBeforeFirstPayoutProbability: 0,
             accountLostBeforeFirstPayoutStandardError: 0,
+            alreadyEligible: true,
             expectedCalendarDaysToFirstPayout: { standardError: 0, value: 0 },
             expectedResetFeeBeforeFirstPayout: { standardError: 0, value: 0 },
             expectedSessionDaysToFirstPayout: { standardError: 0, value: 0 },
@@ -164,6 +169,7 @@ export function runNextPayoutProjection(
             lostTrials / trials,
             trials,
         ),
+        alreadyEligible: false,
         expectedCalendarDaysToFirstPayout: uncertainMeanOf(
             calendarDaysSum,
             calendarDaysSquaredSum,

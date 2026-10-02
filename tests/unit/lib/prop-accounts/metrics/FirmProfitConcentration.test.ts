@@ -11,8 +11,16 @@ import {
     firmProfitConcentrationOf,
     fundedWithdrawableDollarsOf,
 } from '~/lib/prop-accounts/metrics';
-import { FirmId } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    findFirm,
+    FirmId,
+    type PlanId,
+    TopStepVariant,
+} from '~/lib/prop-calculator';
+import {
+    DEFAULT_RULEBOOK,
+    ruleCappedWithdrawable,
+} from '~/lib/prop-calculator/advisor';
 
 import {
     evalReconstructed,
@@ -37,6 +45,7 @@ function accountOf(
         accountId,
         firmId,
         isActive: true,
+        isStale: false,
         movedLiveOn: null,
         paidPayouts: [],
         state: reconstructedEntry(accountId, plan, funded).state,
@@ -71,14 +80,55 @@ function paid(
     };
 }
 
+const TOPSTEP_STANDARD_ID: PlanId = {
+    accountSize: 50_000,
+    firm: FirmId.TopStep,
+    variant: TopStepVariant.StandardStandard,
+};
+
+function topStepFundedAt(extraProfit: number) {
+    const plan = findFirm(FirmId.TopStep)?.findPlan(TOPSTEP_STANDARD_ID);
+    if (!plan) throw new Error('the TopStep plan is missing from the registry');
+    const funded = fundedReconstructed(plan, {
+        balance: plan.accountSize + extraProfit,
+        cumulativePayout: 0,
+        cycleBestDayProfit: extraProfit,
+        lastPayoutBalance: plan.accountSize,
+        payoutsIssued: 1,
+    });
+    if (funded.fundedTracker === null) throw new Error('expected a tracker');
+    funded.fundedTracker.sessionDaysSinceAnchor = 999;
+    return funded;
+}
+
 describe('fundedWithdrawableDollarsOf', () => {
+    it.each([
+        [1000, 0],
+        [2500, 500],
+        [4000, 2000],
+    ])(
+        'caps a release-floor plan at the rule-capped withdrawable (TopStep, $%i profit gives $%i)',
+        (extraProfit, expected) => {
+            const funded = topStepFundedAt(extraProfit);
+            const { fundedTracker } = funded;
+            if (fundedTracker === null) throw new Error('expected a tracker');
+            expect(
+                ruleCappedWithdrawable(
+                    funded.plan,
+                    fundedTracker,
+                    funded.state,
+                    2000,
+                ),
+            ).toBe(expected);
+            expect(fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, funded)).toBe(
+                expected,
+            );
+        },
+    );
+
     it('is zero for an eval account that has no funded tracker', () => {
-        expect(
-            fundedWithdrawableDollarsOf(
-                DEFAULT_RULEBOOK,
-                evalReconstructed(mffProPlan()),
-            ),
-        ).toBe(0);
+        const account = evalReconstructed(mffProPlan());
+        expect(fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, account)).toBe(0);
     });
 
     it('is the tracker withdrawable for a funded account in profit', () => {
@@ -104,6 +154,7 @@ describe('firmProfitConcentrationOf', () => {
         expect(firmProfitConcentrationOf([], OPTIONS)).toEqual({
             firms: [],
             recentDays: 30,
+            retainedCushionDollars: null,
             totalInProfitAccounts: 0,
             totalWithdrawableCents: 0,
         });
@@ -149,6 +200,7 @@ describe('firmProfitConcentrationOf', () => {
                     accountId: 'flat',
                     firmId: FirmId.Mffu,
                     isActive: true,
+                    isStale: false,
                     movedLiveOn: null,
                     paidPayouts: [],
                     state: reconstructedEntry('flat', plan, flat).state,
@@ -170,6 +222,7 @@ describe('firmProfitConcentrationOf', () => {
                     accountId: 'eval',
                     firmId: FirmId.Mffu,
                     isActive: true,
+                    isStale: false,
                     movedLiveOn: null,
                     paidPayouts: [],
                     state: reconstructedEntry(
@@ -182,6 +235,7 @@ describe('firmProfitConcentrationOf', () => {
                     accountId: 'live',
                     firmId: FirmId.Mffu,
                     isActive: true,
+                    isStale: false,
                     movedLiveOn: null,
                     paidPayouts: [],
                     state: reconstructedEntry(
@@ -194,6 +248,7 @@ describe('firmProfitConcentrationOf', () => {
                     accountId: 'none',
                     firmId: FirmId.Mffu,
                     isActive: true,
+                    isStale: false,
                     movedLiveOn: null,
                     paidPayouts: [],
                     state: notReconstructed({
@@ -205,6 +260,80 @@ describe('firmProfitConcentrationOf', () => {
         );
         expect(result.firms[0]?.fundedAccounts).toBe(0);
         expect(result.firms[0]?.inProfitAccounts).toBe(0);
+    });
+
+    it('counts the active accounts it could not read and the funded accounts whose snapshot is stale, never silently', () => {
+        const plan = mffProPlan();
+        const result = firmProfitConcentrationOf(
+            [
+                accountOf('fresh', FirmId.Mffu, 20_000),
+                accountOf('stale', FirmId.Mffu, 20_000, { isStale: true }),
+                accountOf('ended-stale', FirmId.Mffu, 20_000, {
+                    isActive: false,
+                    isStale: true,
+                }),
+                {
+                    accountId: 'unread',
+                    firmId: FirmId.Mffu,
+                    isActive: true,
+                    isStale: false,
+                    movedLiveOn: null,
+                    paidPayouts: [],
+                    state: notReconstructed({
+                        kind: AccountStateUnavailableKind.NoSnapshot,
+                    }),
+                },
+                {
+                    accountId: 'ended-unread',
+                    firmId: FirmId.Mffu,
+                    isActive: false,
+                    isStale: false,
+                    movedLiveOn: null,
+                    paidPayouts: [],
+                    state: notReconstructed({
+                        kind: AccountStateUnavailableKind.NoSnapshot,
+                    }),
+                },
+                {
+                    accountId: 'stale-eval',
+                    firmId: FirmId.Mffu,
+                    isActive: true,
+                    isStale: true,
+                    movedLiveOn: null,
+                    paidPayouts: [],
+                    state: reconstructedEntry(
+                        'stale-eval',
+                        plan,
+                        evalReconstructed(plan),
+                    ).state,
+                },
+            ],
+            OPTIONS,
+        );
+        const [firm] = result.firms;
+        expect(firm?.fundedAccounts).toBe(2);
+        expect(firm?.staleAccounts).toBe(1);
+        expect(firm?.unreadableAccounts).toBe(1);
+    });
+
+    it('names the retained cushion it assumed, the larger of Hard Rule 2 and the rulebook size', () => {
+        const accounts = [accountOf('a1', FirmId.Mffu, 20_000)];
+        expect(
+            firmProfitConcentrationOf(accounts, OPTIONS)
+                .retainedCushionDollars,
+        ).toBe(2000);
+        expect(
+            firmProfitConcentrationOf(accounts, {
+                ...OPTIONS,
+                rulebook: {
+                    ...DEFAULT_RULEBOOK,
+                    payout: {
+                        ...DEFAULT_RULEBOOK.payout,
+                        retainedCushionCents: 350_000,
+                    },
+                },
+            }).retainedCushionDollars,
+        ).toBe(3500);
     });
 
     it('keeps an ended account out of the profit counts while its payouts and move live still count for the firm', () => {

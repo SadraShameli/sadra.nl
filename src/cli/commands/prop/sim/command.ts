@@ -8,6 +8,8 @@ import {
     formatDaysToPass,
     formatNumberWithSe,
     formatPercentWithSe,
+    liveTransferHazardArgument,
+    liveTransferHazardLines,
     pathGranularityComparisonArgument,
     placedFundedRiskNote,
     planArguments,
@@ -19,6 +21,7 @@ import {
     tradingArguments,
     tradingEdgeNotes,
     TradingInputs,
+    verifiedTriggerLines,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import {
@@ -77,6 +80,7 @@ export const simArguments = {
     ...tradingArguments,
     ...pathGranularityComparisonArgument,
     ...bankrollArguments,
+    ...liveTransferHazardArgument,
 };
 
 export default defineCommand({
@@ -95,13 +99,26 @@ export default defineCommand({
             const label = simSpinnerLabel(plan.label, inputs.trials);
             spinner = ui.spinner(label).start();
 
-            const out = simulate(inputs.toSimInputs(plan));
+            const simInputs = inputs.toSimInputs(plan);
+            const out = simulate(simInputs);
             spinner.succeed(label);
 
             ui.heading(plan.label);
             const [riskLine, runLine] = simHeaderLines(inputs, plan);
             ui.muted(riskLine);
             ui.muted(`${runLine}\n`);
+            for (const line of [
+                ...verifiedTriggerLines(
+                    simInputs.verifiedCumulativePayoutTrigger,
+                ),
+                ...liveTransferHazardLines(
+                    inputs.liveTransferHazard,
+                    out,
+                    simInputs.verifiedCumulativePayoutTrigger !== undefined,
+                ),
+            ]) {
+                ui.muted(line);
+            }
             printEdgePlausibilityNotes(
                 tradingEdgeNotes({
                     fundedRrRatio: inputs.fundedRrRatio,

@@ -69,7 +69,13 @@ function consistencyToyPlan(): Plan {
 function solve(
     maxTailCushionMultiple: number,
     cycleBestDayBucketCount?: number,
-    overrides: { rrRatio?: number; tradesPerDay?: number } = {},
+    overrides: {
+        convergenceTolerance?: number;
+        rrRatio?: number;
+        tailCushionStepMultiple?: number;
+        tradesPerDay?: number;
+        winrate?: number;
+    } = {},
 ) {
     const result = computeFundedStateValue({
         ...TOY_CONFIG,
@@ -86,8 +92,8 @@ describe('computeFundedStateValue bounds the default best-day grid on a consiste
     it('grows its state count with the cushion grid alone, not 6x with the tail: a day cannot win more than tradesPerDay times the largest win, so the best-day dimension stops at that bound however far the cushion tail reaches', () => {
         const noTail = solve(6).reachedStateCount;
         const withTail = solve(30).reachedStateCount;
-        expect(noTail).toBe(423);
-        expect(withTail).toBe(1140);
+        expect(noTail).toBe(470);
+        expect(withTail).toBe(1235);
         expect(withTail / noTail).toBeLessThan(3);
     }, 120_000);
 
@@ -116,5 +122,20 @@ describe('computeFundedStateValue bounds the default best-day grid on a consiste
         expect(Math.abs(bounded.initialValue - wide.initialValue)).toBeLessThan(
             0.05,
         );
+    }, 120_000);
+
+    it('fails closed on a day past the cap: with a coarse tail that lets a win land a whole tail step above the fine-grid cap, a capped day blocks payouts instead of being clamped, so the capped value is 5,477.47 where the old clamp gave 5,914.05, and it stays below the 300-bucket grid that never clamps (6,132.41)', () => {
+        const overCapDay = {
+            convergenceTolerance: 1e-6,
+            rrRatio: 3,
+            tailCushionStepMultiple: 4,
+            tradesPerDay: 3,
+            winrate: 0.8,
+        } as const;
+        const capped = solve(40, undefined, overCapDay);
+        const uncapped = solve(40, 300, overCapDay);
+        expect(capped.initialValue).toBeCloseTo(5477.469760802233, 4);
+        expect(uncapped.initialValue).toBeCloseTo(6132.405714537264, 4);
+        expect(capped.initialValue).toBeLessThan(uncapped.initialValue);
     }, 120_000);
 });

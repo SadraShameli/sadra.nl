@@ -5,7 +5,6 @@ import {
     adviceViewModel,
     OptimumRowStatus,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceViewModel';
-import { assumptionLabel } from '~/app/(app)/prop-calculator/accounts/_components/detail/detailState';
 import {
     type AccountState,
     ApexVariant,
@@ -17,12 +16,15 @@ import {
 } from '~/lib/prop-calculator';
 import {
     AdviceSource,
-    AssumptionKind,
+    AssumptionBias,
     DEFAULT_RULEBOOK,
     EvalSizingAdvisor,
+    ladderStepWidenedAssumption,
     type ReconstructedFundedOrEvalAccount,
     runEngineOptimum,
 } from '~/lib/prop-calculator/advisor';
+
+import { NO_PERSONAL_LIMITS } from './personalLimitsFixture';
 
 const APEX_EOD_ID = {
     accountSize: 50_000,
@@ -62,12 +64,13 @@ function freshEvalAdvisor(cushion: number): EvalSizingAdvisor {
         rulebook: DEFAULT_RULEBOOK,
         sims: 5,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
     });
 }
 
 function readyViewOf(advice: ReturnType<EvalSizingAdvisor['assemble']>) {
-    const view = adviceViewModel(advice);
+    const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
     if (view.kind !== AdviceDisplayKind.Ready) {
         throw new Error('expected ready advice');
     }
@@ -103,10 +106,32 @@ describe('the advice view model states a widened ladder step (PT-24d, F-133)', (
         ).toBe(false);
     });
 
-    it('has a label for the widened-step kind on the detail state', () => {
-        expect(assumptionLabel(AssumptionKind.LadderStepWidened)).toContain(
-            'coarser',
+    it('says the step from the assumption itself, with no engine requests on the advice', () => {
+        const advice = freshEvalAdvisor(2000).assemble([]);
+
+        const view = readyViewOf({ ...advice, requests: [] });
+
+        const widened = view.assumptions.find((assumption) =>
+            assumption.text.includes('coarser'),
         );
+        expect(widened?.text).toContain('The grid step is $140.');
+        expect(widened?.text).not.toContain('searched');
+    });
+
+    it('says the step the assumption carries, not one read from the requests', () => {
+        const advice = freshEvalAdvisor(2000).assemble([]);
+
+        const view = readyViewOf({
+            ...advice,
+            assumptions: [
+                ladderStepWidenedAssumption(175, AssumptionBias.Neutral),
+            ],
+        });
+
+        const widened = view.assumptions.find((assumption) =>
+            assumption.text.includes('coarser'),
+        );
+        expect(widened?.text).toContain('The grid step is $175.');
     });
 });
 

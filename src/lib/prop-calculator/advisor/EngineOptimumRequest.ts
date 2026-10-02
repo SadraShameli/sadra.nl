@@ -9,7 +9,7 @@ import { type AdviceSource } from './AdviceSource';
 import { type FundedFromStateSweepRequest } from './FundedFromStateSweep';
 import { type NextPayoutProjectionRequest } from './NextPayoutProjection';
 import { type PayoutSizeSweepRequest } from './PayoutSizeSweep';
-import { type EnginePolicy } from './policy';
+import { type EnginePolicy, type PersonalDayLimits } from './policy';
 
 export type EngineLadderScoreConfig = Omit<LadderScoreConfig, 'plan'>;
 
@@ -28,6 +28,8 @@ export interface FundedSweepFreshRequest {
 }
 
 export interface LadderSearchRequest {
+    readonly dayLimits?: PersonalDayLimits;
+    readonly documentedLadder?: readonly number[];
     readonly grid: LadderGridConfig;
     readonly maxGridSize?: number;
     readonly score: EngineLadderScoreConfig;

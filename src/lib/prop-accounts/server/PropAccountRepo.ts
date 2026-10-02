@@ -3,12 +3,14 @@ import {
     asc,
     desc,
     eq,
+    getTableColumns,
     gte,
     inArray,
     isNull,
     lte,
     ne,
     notInArray,
+    sql,
 } from 'drizzle-orm';
 import 'server-only';
 import { ZodError } from 'zod';
@@ -91,6 +93,8 @@ import { PROP_QUOTA_LIMITS } from './PropAccountQuotas';
 export const MAX_EVENT_LIST_ROWS = 5000;
 
 const CORRUPT_ROW_TAG = 'prop-accounts:corrupt-row';
+
+const SNAPSHOTS_PER_ACCOUNT = 2;
 
 const UNREADABLE_EVENT_DETAIL: AccountEventDetail = { changes: [], note: null };
 
@@ -337,6 +341,38 @@ export class PropAccountRepo {
                 desc(propAccountSnapshot.id),
             )
             .limit(limit + 1);
+        return boundedRows(rows, limit, PropRecord.Snapshot);
+    }
+
+    async latestTwoSnapshots(): Promise<PropAccountSnapshotRow[]> {
+        const limit =
+            PROP_QUOTA_LIMITS[PropQuota.Accounts] * SNAPSHOTS_PER_ACCOUNT;
+        const snapshotColumns = getTableColumns(propAccountSnapshot);
+        const ranked = this.database
+            .select({
+                ...snapshotColumns,
+                snapshotRank:
+                    sql<number>`row_number() over (partition by ${propAccountSnapshot.accountId} order by ${desc(propAccountSnapshot.asOf)}, ${desc(propAccountSnapshot.createdAt)}, ${desc(propAccountSnapshot.id)})`.as(
+                        'snapshot_rank',
+                    ),
+            })
+            .from(propAccountSnapshot)
+            .where(eq(propAccountSnapshot.userId, this.userId))
+            .as('ranked_snapshot');
+        const rankedRows = await this.database
+            .select()
+            .from(ranked)
+            .where(lte(ranked.snapshotRank, SNAPSHOTS_PER_ACCOUNT))
+            .orderBy(
+                ranked.accountId,
+                desc(ranked.asOf),
+                desc(ranked.createdAt),
+                desc(ranked.id),
+            )
+            .limit(limit + 1);
+        const rows = rankedRows.map(
+            ({ snapshotRank: _snapshotRank, ...snapshot }) => snapshot,
+        );
         return boundedRows(rows, limit, PropRecord.Snapshot);
     }
 
@@ -681,7 +717,10 @@ export class PropAccountRepo {
         );
     }
 
-    async listViolations(accountId?: string): Promise<PropRuleViolationRow[]> {
+    async listViolations(
+        accountId?: string,
+        occurredFrom?: string,
+    ): Promise<PropRuleViolationRow[]> {
         const rows = await this.database
             .select()
             .from(propRuleViolation)
@@ -691,6 +730,9 @@ export class PropAccountRepo {
                     accountId === undefined
                         ? undefined
                         : eq(propRuleViolation.accountId, accountId),
+                    occurredFrom === undefined
+                        ? undefined
+                        : gte(propRuleViolation.occurredOn, occurredFrom),
                 ),
             )
             .orderBy(

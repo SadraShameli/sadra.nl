@@ -7,10 +7,12 @@ import {
     leftOutOptimumRow,
     OptimumRowStatus,
     payoutBlockReasonText,
+    type PersonalLimits,
     STALE_ADVICE_MESSAGE,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceViewModel';
 import {
     type AccountState,
+    type Dollars,
     dollars,
     findFirm,
     FirmId,
@@ -32,12 +34,17 @@ import {
     type DayProgress,
     DEFAULT_RULEBOOK,
     DifferenceReason,
+    DocumentedPolicyDisclosure,
     EvalSizingAdvisor,
     FundedSizingAdvisor,
+    LiveTriggerScope,
+    NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
+    type NextPayoutProjection,
     NextTradeKind,
     NO_PERSONAL_CAPS,
     payoutBlockReasonFromGate,
     payoutPendingBlockReason,
+    type PersonalCaps,
     type ReconstructedFundedOrEvalAccount,
     ruleContextAt,
     runEngineOptimum,
@@ -46,6 +53,8 @@ import {
     wouldTriggerLiveBlockReason,
 } from '~/lib/prop-calculator/advisor';
 import { PayoutGate } from '~/lib/prop-calculator/core';
+
+import { NO_PERSONAL_LIMITS } from './personalLimitsFixture';
 
 const TOPSTEP_STANDARD_ID: PlanId = {
     accountSize: 50_000,
@@ -105,6 +114,7 @@ function evalAdvisor(): EvalSizingAdvisor {
         rulebook: DEFAULT_RULEBOOK,
         sims: 20,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
     });
 }
@@ -132,6 +142,7 @@ function fundedAdvisor(trials = 20): FundedSizingAdvisor {
         fundedHorizonDays: 252,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
         trials,
     });
@@ -161,7 +172,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         const advisor = fundedAdvisor();
         const advice = advisor.assemble([]);
 
-        const view = adviceViewModel(advice);
+        const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
 
         expect(view.kind).toBe(AdviceDisplayKind.Ready);
         expect(view.headline).toContain('your documented rule');
@@ -174,12 +185,13 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
             fundedHorizonDays: 252,
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-01-01',
+            substate: null,
             today: '2026-09-26',
             trials: 20,
         });
         const advice = advisor.assemble([]);
 
-        const view = adviceViewModel(advice);
+        const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
 
         if (view.kind !== AdviceDisplayKind.Stale) {
             throw new Error('expected stale advice');
@@ -198,7 +210,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
             .map((request) => runEngineOptimum(plan, request));
 
         const advice = advisor.assemble(results);
-        const view = adviceViewModel(advice);
+        const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
 
         if (view.kind !== AdviceDisplayKind.Ready) {
             throw new Error('expected ready advice');
@@ -234,7 +246,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         const result = runEngineOptimum(plan, noCandidatesRequest);
         const advice = advisor.assemble([result]);
 
-        const view = adviceViewModel(advice);
+        const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
 
         if (view.kind !== AdviceDisplayKind.Ready) {
             throw new Error('expected ready advice');
@@ -266,7 +278,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
             .map((request) => runEngineOptimum(plan, request));
         const advice = advisor.assemble(results);
 
-        const view = adviceViewModel(advice);
+        const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
 
         if (view.kind !== AdviceDisplayKind.Ready) {
             throw new Error('expected ready advice');
@@ -287,7 +299,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         const advisor = fundedAdvisor();
         const advice = advisor.assemble([]);
 
-        const view = adviceViewModel(advice);
+        const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
 
         if (view.kind !== AdviceDisplayKind.Ready) {
             throw new Error('expected ready advice');
@@ -314,11 +326,36 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         expect(
             payoutBlockReasonText(
                 wouldTriggerLiveBlockReason({
-                    paidPayoutsSinceLastLiveAccount: 2,
+                    payoutsTaken: 2,
+                    scope: LiveTriggerScope.Account,
                     triggerAtPayoutCount: 3,
                 }),
             ).length,
         ).toBeGreaterThan(0);
+    });
+
+    it('words the would-trigger-live block per scope: this account for a per-account limit, the firm since its last live account for a firm total (PT-36d)', () => {
+        const account = payoutBlockReasonText(
+            wouldTriggerLiveBlockReason({
+                payoutsTaken: 2,
+                scope: LiveTriggerScope.Account,
+                triggerAtPayoutCount: 3,
+            }),
+        );
+        const firm = payoutBlockReasonText(
+            wouldTriggerLiveBlockReason({
+                payoutsTaken: 9,
+                scope: LiveTriggerScope.Firm,
+                triggerAtPayoutCount: 10,
+            }),
+        );
+        expect(account).toBe(
+            'this payout would trigger a live-account transition (2 of 3 payouts taken on this account)',
+        );
+        expect(account).not.toContain('last live account');
+        expect(firm).toBe(
+            "this payout would trigger a live-account transition (9 of 10 payouts taken across the firm's accounts since the last live account)",
+        );
     });
 
     it('shares one PayoutGate and PayoutBlockReason text mapping with the payout planner (PT-34b)', () => {
@@ -329,7 +366,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         const advisor = fundedAdvisor();
         const advice = advisor.assemble([]);
 
-        const view = adviceViewModel(advice);
+        const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
 
         if (view.kind !== AdviceDisplayKind.Ready) {
             throw new Error('expected ready advice');
@@ -384,10 +421,14 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
             .map((request) => runEngineOptimum(plan, request));
         const fundedView = adviceViewModel(
             fundedAdvisor().assemble(fundedResults),
+            NO_PERSONAL_LIMITS,
         );
 
         const evalResults = smallLadderResults(evalAdvisor());
-        const evalView = adviceViewModel(evalAdvisor().assemble(evalResults));
+        const evalView = adviceViewModel(
+            evalAdvisor().assemble(evalResults),
+            NO_PERSONAL_LIMITS,
+        );
 
         expect(JSON.stringify(fundedView).toLowerCase()).not.toContain('kelly');
         expect(JSON.stringify(evalView).toLowerCase()).not.toContain('kelly');
@@ -397,7 +438,10 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         const advisor = evalAdvisor();
         const results = smallLadderResults(advisor);
 
-        const view = adviceViewModel(advisor.assemble(results));
+        const view = adviceViewModel(
+            advisor.assemble(results),
+            NO_PERSONAL_LIMITS,
+        );
 
         if (view.kind !== AdviceDisplayKind.Ready) {
             throw new Error('expected ready advice');
@@ -413,7 +457,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         const advisor = fundedAdvisor();
         const advice = advisor.assemble([]);
 
-        const view = adviceViewModel(advice);
+        const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
 
         if (view.kind !== AdviceDisplayKind.Ready) {
             throw new Error('expected ready advice');
@@ -430,7 +474,10 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
 
 describe('adviceViewModel next action and daily card values (PT-67)', () => {
     it('carries the next action: Trade for a fresh funded account that can place a trade', () => {
-        const view = adviceViewModel(fundedAdvisor().assemble([]));
+        const view = adviceViewModel(
+            fundedAdvisor().assemble([]),
+            NO_PERSONAL_LIMITS,
+        );
 
         expect(view.action).toBe(AccountAction.Trade);
     });
@@ -441,11 +488,12 @@ describe('adviceViewModel next action and daily card values (PT-67)', () => {
             fundedHorizonDays: 252,
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-01-01',
+            substate: null,
             today: '2026-09-26',
             trials: 20,
         });
 
-        const view = adviceViewModel(advisor.assemble([]));
+        const view = adviceViewModel(advisor.assemble([]), NO_PERSONAL_LIMITS);
 
         expect(view.kind).toBe(AdviceDisplayKind.Stale);
         expect(view.action).toBe(AccountAction.EnterSnapshot);
@@ -461,13 +509,16 @@ describe('adviceViewModel next action and daily card values (PT-67)', () => {
                     : { ...advice.dailyPlanCard, rungs: [] },
         };
 
-        expect(adviceViewModel(stopped).action).toBe(
+        expect(adviceViewModel(stopped, NO_PERSONAL_LIMITS).action).toBe(
             AccountAction.StopForToday,
         );
     });
 
     it('leaves the daily card values null until the value run fills them', () => {
-        const view = adviceViewModel(fundedAdvisor().assemble([]));
+        const view = adviceViewModel(
+            fundedAdvisor().assemble([]),
+            NO_PERSONAL_LIMITS,
+        );
 
         if (view.kind !== AdviceDisplayKind.Ready) {
             throw new Error('expected ready advice');
@@ -492,7 +543,7 @@ describe('adviceViewModel next action and daily card values (PT-67)', () => {
                       },
         };
 
-        const view = adviceViewModel(filled);
+        const view = adviceViewModel(filled, NO_PERSONAL_LIMITS);
 
         if (view.kind !== AdviceDisplayKind.Ready) {
             throw new Error('expected ready advice');
@@ -500,5 +551,524 @@ describe('adviceViewModel next action and daily card values (PT-67)', () => {
         expect(view.dailyPlanCard?.valueNow).toBe(1000);
         expect(view.dailyPlanCard?.valueAfterWin).toBe(1400);
         expect(view.dailyPlanCard?.valueAfterLoss).toBe(700);
+    });
+});
+
+function nextPayoutRowText(projection: NextPayoutProjection): string {
+    const advice = fundedAdvisor().assemble([
+        { projection, source: AdviceSource.NextPayoutProjection },
+    ]);
+    const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
+    if (view.kind !== AdviceDisplayKind.Ready) {
+        throw new Error('expected ready advice');
+    }
+    const row = view.optima.find(
+        (candidate) => candidate.source === AdviceSource.NextPayoutProjection,
+    );
+    if (row === undefined) throw new Error('no next payout projection row');
+    return row.text;
+}
+
+function projectionWith(
+    overrides: Partial<NextPayoutProjection>,
+): NextPayoutProjection {
+    return {
+        accountLostBeforeFirstPayoutProbability: 0.1,
+        accountLostBeforeFirstPayoutStandardError: 0.01,
+        alreadyEligible: false,
+        expectedCalendarDaysToFirstPayout: { standardError: 0.5, value: 12.3 },
+        expectedResetFeeBeforeFirstPayout: { standardError: 0, value: 0 },
+        expectedSessionDaysToFirstPayout: { standardError: 0.4, value: 9 },
+        firstPayoutCausedBreachProbability: 0,
+        firstPayoutCausedBreachStandardError: 0,
+        payingTrials: 150,
+        trials: 200,
+        ...overrides,
+    };
+}
+
+describe('the next payout row of the advice panel reads the engine eligibility (PT-68c, F-V18)', () => {
+    it('says eligible now for an already-eligible projection and never prints zero sessions', () => {
+        const text = nextPayoutRowText(
+            projectionWith({
+                alreadyEligible: true,
+                expectedCalendarDaysToFirstPayout: {
+                    standardError: 0,
+                    value: 0,
+                },
+                expectedSessionDaysToFirstPayout: {
+                    standardError: 0,
+                    value: 0,
+                },
+                payingTrials: 200,
+            }),
+        );
+        expect(text).toContain('Eligible now');
+        expect(text).not.toContain('sessions');
+    });
+
+    it('carries the eligible-now caveat on an already-eligible row and on no other row (PT-68e, F-V18)', () => {
+        const eligible = nextPayoutRowText(
+            projectionWith({ alreadyEligible: true, payingTrials: 200 }),
+        );
+        expect(eligible).toContain(NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT);
+        expect(nextPayoutRowText(projectionWith({}))).not.toContain(
+            NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
+        );
+    });
+
+    it('attributes an already-eligible row to the eligibility check and prints no simulated trial count', () => {
+        const text = nextPayoutRowText(
+            projectionWith({
+                alreadyEligible: true,
+                expectedCalendarDaysToFirstPayout: {
+                    standardError: 0,
+                    value: 0,
+                },
+                expectedSessionDaysToFirstPayout: {
+                    standardError: 0,
+                    value: 0,
+                },
+                payingTrials: 200,
+            }),
+        );
+        expect(text).toContain("the engine's payout eligibility check");
+        expect(text).toContain('no trials were simulated');
+        expect(text).not.toContain('trials reached a payout');
+        expect(text).not.toContain('200');
+    });
+
+    it('says no trial reached a payout when none paid, never zero sessions', () => {
+        const text = nextPayoutRowText(
+            projectionWith({
+                expectedCalendarDaysToFirstPayout: {
+                    standardError: null,
+                    value: 0,
+                },
+                expectedSessionDaysToFirstPayout: {
+                    standardError: null,
+                    value: 0,
+                },
+                payingTrials: 0,
+            }),
+        );
+        expect(text).toContain('No simulated trial reached a payout');
+        expect(text).not.toContain('sessions');
+    });
+
+    it('keeps the expected sessions and adds the paying share for a projection that pays', () => {
+        const text = nextPayoutRowText(projectionWith({}));
+        expect(text).toContain('Expected 9.0 sessions to the first payout');
+        expect(text).toContain('150 of 200 trials reached a payout (75.0%)');
+    });
+
+    it('says the expected sessions are the mean over the trials that paid', () => {
+        const text = nextPayoutRowText(projectionWith({}));
+        expect(text).toContain(
+            'Expected 9.0 sessions to the first payout among the trials that paid',
+        );
+    });
+});
+
+describe('the engine figures name the personal limits they do not apply (PT-68f, F-V16)', () => {
+    const LOOSE_CAPS: PersonalCaps = {
+        ...NO_PERSONAL_CAPS,
+        maxRiskPerTrade: dollars(1_000_000),
+    };
+
+    function limitsOf(
+        caps: PersonalCaps,
+        dailyLossLimit: Dollars | null = null,
+    ): PersonalLimits {
+        return { caps, dailyLossLimit };
+    }
+
+    function fundedAdviceWith(
+        personalCaps: PersonalCaps,
+        personalDll: Dollars | null = null,
+    ) {
+        const advisor = new FundedSizingAdvisor({
+            account: fundedAccount(),
+            fundedHorizonDays: 252,
+            personalCaps,
+            personalDll,
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-09-26',
+            substate: null,
+            today: '2026-09-26',
+            trials: 20,
+        });
+        return advisor.assemble([
+            {
+                projection: projectionWith({}),
+                source: AdviceSource.NextPayoutProjection,
+            },
+            ...advisor
+                .optimumRequests()
+                .filter(
+                    (request) =>
+                        request.source === AdviceSource.PayoutSizeSweep,
+                )
+                .map((request) => runEngineOptimum(plan, request)),
+        ]);
+    }
+
+    function evalAdviceWith(personalCaps: PersonalCaps) {
+        const advisor = new EvalSizingAdvisor({
+            account: evalAccount(),
+            maxEvalDays: 150,
+            personalCaps,
+            rulebook: DEFAULT_RULEBOOK,
+            sims: 20,
+            snapshotAsOf: '2026-09-26',
+            substate: null,
+            today: '2026-09-26',
+        });
+        return advisor.assemble(smallLadderResults(advisor));
+    }
+
+    function ladderRowOf(view: ReturnType<typeof readyView>) {
+        const row = view.optima.find(
+            (candidate) => candidate.source === AdviceSource.LadderSearchFresh,
+        );
+        if (row === undefined) throw new Error('expected a ladder row');
+        return row;
+    }
+
+    function readyView(
+        advice: ReturnType<typeof fundedAdviceWith>,
+        limits: PersonalLimits,
+    ) {
+        const view = adviceViewModel(advice, limits);
+        if (view.kind !== AdviceDisplayKind.Ready) {
+            throw new Error('expected ready advice');
+        }
+        return view;
+    }
+
+    function rowOf(view: ReturnType<typeof readyView>, source: AdviceSource) {
+        const row = view.optima.find(
+            (candidate) => candidate.source === source,
+        );
+        if (row === undefined) throw new Error(`expected a ${source} row`);
+        return row;
+    }
+
+    function freshSweepViewWith(limits: PersonalLimits) {
+        const advisor = new FundedSizingAdvisor({
+            account: fundedAccount(),
+            fundedHorizonDays: 30,
+            personalCaps: limits.caps,
+            personalDll: limits.dailyLossLimit,
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-09-26',
+            substate: null,
+            today: '2026-09-26',
+            trials: 20,
+        });
+        const fresh = advisor
+            .optimumRequests()
+            .find(
+                (request) => request.source === AdviceSource.FundedSweepFresh,
+            );
+        if (fresh === undefined) {
+            throw new Error('expected a fresh sweep request');
+        }
+        return readyView(
+            advisor.assemble([runEngineOptimum(plan, fresh)]),
+            limits,
+        );
+    }
+
+    it('has no generic not-simulated disclosure left: the constant, the enum member and the view model field are gone', () => {
+        expect(Object.values(DocumentedPolicyDisclosure)).not.toContain(
+            'personal-caps-not-simulated',
+        );
+        const view = readyView(
+            fundedAdviceWith(NO_PERSONAL_CAPS),
+            limitsOf(NO_PERSONAL_CAPS),
+        );
+        expect('engineFigureNote' in view).toBe(false);
+    });
+
+    it('says nothing when no personal limit is set', () => {
+        const view = readyView(
+            fundedAdviceWith(NO_PERSONAL_CAPS),
+            limitsOf(NO_PERSONAL_CAPS),
+        );
+
+        for (const row of view.optima) {
+            expect(row.text).not.toContain('your ');
+        }
+        expect(
+            view.assumptions.some((item) => item.text.includes('do not apply')),
+        ).toBe(false);
+    });
+
+    it.each([
+        [
+            'a personal max risk',
+            limitsOf({ ...NO_PERSONAL_CAPS, maxRiskPerTrade: dollars(5) }),
+        ],
+        ['a loose personal max risk', limitsOf(LOOSE_CAPS)],
+        [
+            'a max trades per day',
+            limitsOf({ ...NO_PERSONAL_CAPS, maxTradesPerDay: 2 }),
+        ],
+    ])(
+        'says nothing about %s: the engine figures simulate it',
+        (_name, limits) => {
+            const view = readyView(fundedAdviceWith(limits.caps), limits);
+
+            for (const row of view.optima) {
+                expect(row.text).not.toContain('do not apply');
+            }
+            expect(
+                view.assumptions.some((item) =>
+                    item.text.includes('do not apply'),
+                ),
+            ).toBe(false);
+        },
+    );
+
+    it('names no day limit on the next-payout, payout-size or fresh sweep rows: the engine simulates each of them', () => {
+        const limits = limitsOf(
+            { ...NO_PERSONAL_CAPS, dailyProfitCap: dollars(700) },
+            dollars(600),
+        );
+        const view = readyView(
+            fundedAdviceWith(limits.caps, dollars(600)),
+            limits,
+        );
+
+        expect(view.optima.length).toBeGreaterThan(0);
+        for (const row of view.optima) {
+            expect(row.text).not.toContain('do not apply');
+        }
+        expect(
+            view.assumptions.some((item) => item.text.includes('do not apply')),
+        ).toBe(false);
+    });
+
+    it('names no limit on the fresh funded sweep row either', () => {
+        const limits = limitsOf(NO_PERSONAL_CAPS, dollars(600));
+        const advisor = new FundedSizingAdvisor({
+            account: fundedAccount(),
+            fundedHorizonDays: 30,
+            personalCaps: limits.caps,
+            personalDll: dollars(600),
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-09-26',
+            substate: null,
+            today: '2026-09-26',
+            trials: 20,
+        });
+        const fresh = advisor
+            .optimumRequests()
+            .find(
+                (request) => request.source === AdviceSource.FundedSweepFresh,
+            );
+        if (fresh === undefined)
+            throw new Error('expected a fresh sweep request');
+
+        const view = readyView(
+            advisor.assemble([runEngineOptimum(plan, fresh)]),
+            limits,
+        );
+
+        expect(rowOf(view, AdviceSource.FundedSweepFresh).text).not.toContain(
+            'do not apply',
+        );
+    });
+
+    it('leaves the ladder search row alone when the personal max risk and max trades are the only limits, because the grid simulates both', () => {
+        const caps = {
+            ...NO_PERSONAL_CAPS,
+            maxRiskPerTrade: dollars(250),
+            maxTradesPerDay: 2,
+        };
+        const view = readyView(evalAdviceWith(caps), limitsOf(caps));
+
+        expect(ladderRowOf(view).text).not.toContain('do not apply');
+    });
+
+    it.each([
+        [
+            'a daily profit cap',
+            limitsOf({ ...NO_PERSONAL_CAPS, dailyProfitCap: dollars(300) }),
+        ],
+        ['a personal DLL', limitsOf(NO_PERSONAL_CAPS, dollars(600))],
+        [
+            'a max risk beside a daily profit cap',
+            limitsOf({
+                ...NO_PERSONAL_CAPS,
+                dailyProfitCap: dollars(300),
+                maxRiskPerTrade: dollars(5),
+            }),
+        ],
+    ])(
+        'names no limit on the ladder search row when %s is set, because the ladder score applies it',
+        (_name, limits) => {
+            const view = readyView(evalAdviceWith(limits.caps), limits);
+
+            expect(ladderRowOf(view).text).not.toContain('do not apply');
+        },
+    );
+
+    describe('rows that apply the day limits say what they applied (PT-68h, F-V16)', () => {
+        const BOTH = limitsOf(
+            { ...NO_PERSONAL_CAPS, dailyProfitCap: dollars(700) },
+            dollars(600),
+        );
+        const APPLIED =
+            'Simulated under your daily loss limit $600.00 and daily profit cap $700.00';
+
+        it('names both limits and the day semantics on the fresh funded sweep row', () => {
+            const { text } = rowOf(
+                freshSweepViewWith(BOTH),
+                AdviceSource.FundedSweepFresh,
+            );
+
+            expect(text).toContain(APPLIED);
+            expect(text).toContain('a win does not give loss room back');
+            expect(text).toContain(
+                'the last trade is sized so it cannot cross either',
+            );
+            expect(text).toContain(
+                'commission is not counted against the loss limit',
+            );
+        });
+
+        it('names only the limit that is set', () => {
+            const lossOnly = limitsOf(NO_PERSONAL_CAPS, dollars(600));
+            const { text } = rowOf(
+                freshSweepViewWith(lossOnly),
+                AdviceSource.FundedSweepFresh,
+            );
+
+            expect(text).toContain(
+                'Simulated under your daily loss limit $600.00:',
+            );
+            expect(text).not.toContain('daily profit cap');
+        });
+
+        it('names the limits on the next-payout projection and the payout-size sweep rows', () => {
+            const view = readyView(
+                fundedAdviceWith(BOTH.caps, dollars(600)),
+                BOTH,
+            );
+
+            expect(
+                rowOf(view, AdviceSource.NextPayoutProjection).text,
+            ).toContain(APPLIED);
+            expect(rowOf(view, AdviceSource.PayoutSizeSweep).text).toContain(
+                APPLIED,
+            );
+        });
+
+        it('names the limits on the ladder row with the ladder rule: cut rungs, every day path inside both limits, no grid rounding', () => {
+            const view = readyView(
+                evalAdviceWith(BOTH.caps),
+                limitsOf(BOTH.caps),
+            );
+            const { text } = ladderRowOf(view);
+
+            expect(text).toContain(
+                'Simulated under your daily profit cap $700.00',
+            );
+            expect(text).toContain(
+                'every win and loss path of the day stays inside the limits',
+            );
+            expect(text).toContain('rungs are not rounded to the grid step');
+        });
+
+        it('says nothing on any row when no day limit is set, even with a max risk and max trades', () => {
+            const caps = {
+                ...NO_PERSONAL_CAPS,
+                maxRiskPerTrade: dollars(250),
+                maxTradesPerDay: 2,
+            };
+            const view = readyView(fundedAdviceWith(caps), limitsOf(caps));
+
+            for (const row of view.optima) {
+                expect(row.text).not.toContain('Simulated under your');
+            }
+        });
+
+        it('names the applied limits on the from-state sweep row too, now that its sweep applies them (PT-68h follow-up)', () => {
+            const advisor = new FundedSizingAdvisor({
+                account: fundedAccount({
+                    state: accountState({ elapsedDays: 12, tradingDays: 12 }),
+                }),
+                fundedHorizonDays: 30,
+                personalCaps: BOTH.caps,
+                personalDll: dollars(600),
+                rulebook: DEFAULT_RULEBOOK,
+                snapshotAsOf: '2026-09-26',
+                substate: null,
+                today: '2026-09-26',
+                trials: 20,
+            });
+            const fromState = advisor
+                .optimumRequests()
+                .find(
+                    (request) =>
+                        request.source === AdviceSource.FundedSweepFromState,
+                );
+            if (fromState === undefined) {
+                throw new Error('expected a from-state sweep request');
+            }
+
+            const view = readyView(
+                advisor.assemble([runEngineOptimum(plan, fromState)]),
+                BOTH,
+            );
+            const { text } = rowOf(view, AdviceSource.FundedSweepFromState);
+
+            expect(text).toContain(APPLIED);
+            expect(text).not.toContain('do not apply');
+        });
+    });
+
+    it('names the daily loss limit and the daily profit cap on the from-state sweep row as applied, and no row names an unapplied limit (PT-68h follow-up)', () => {
+        const limits = limitsOf(
+            { ...NO_PERSONAL_CAPS, dailyProfitCap: dollars(700) },
+            dollars(600),
+        );
+        const advisor = new FundedSizingAdvisor({
+            account: fundedAccount({
+                state: accountState({ elapsedDays: 12, tradingDays: 12 }),
+            }),
+            fundedHorizonDays: 30,
+            personalCaps: limits.caps,
+            personalDll: dollars(600),
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-09-26',
+            substate: null,
+            today: '2026-09-26',
+            trials: 20,
+        });
+        const fromState = advisor
+            .optimumRequests()
+            .find(
+                (request) =>
+                    request.source === AdviceSource.FundedSweepFromState,
+            );
+        if (fromState === undefined) {
+            throw new Error('expected a from-state sweep request');
+        }
+
+        const view = readyView(
+            advisor.assemble([runEngineOptimum(plan, fromState)]),
+            limits,
+        );
+        const { text } = rowOf(view, AdviceSource.FundedSweepFromState);
+
+        expect(text).toContain('daily loss limit $600.00');
+        expect(text).toContain('daily profit cap $700.00');
+        expect(text.split('Simulated under your').length - 1).toBe(1);
+        for (const row of view.optima) {
+            expect(row.text).not.toContain('do not apply');
+        }
     });
 });

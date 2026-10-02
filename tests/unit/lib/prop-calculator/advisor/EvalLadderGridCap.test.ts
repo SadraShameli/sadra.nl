@@ -64,6 +64,7 @@ function adviceAt(cushion: number, dailyLossLimit: null | number) {
         maxEvalDays: 150,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
     });
     return advisor.assemble([]);
@@ -75,6 +76,7 @@ function ladderRequestAt(cushion: number) {
         maxEvalDays: 150,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
     });
     const [request] = advisor.optimumRequests();

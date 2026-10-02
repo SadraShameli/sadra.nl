@@ -45,18 +45,19 @@ import {
     type EvalMilestone,
     type EvalMilestoneGap,
     evalStartAccount,
-    firstPayoutEligibleAccount,
     freshFundedAccount,
     MilestoneKind,
     milestoneState,
-    postFirstPayoutAccount,
     requestNowValue,
     requireValue,
     retireComparison,
     type RetireComparisonResult,
     startStateOf,
+    VALUE_CHAIN_STEP_ORDER,
     valueAtState,
-    ValueChainStepKind,
+    valueChain,
+    type ValueChainResult,
+    type ValueChainStepKind,
     type ValueResult,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
@@ -66,11 +67,7 @@ import {
     type PortfolioTimelineResult,
     simulatePortfolioTimeline,
 } from '~/lib/prop-calculator/portfolioTimeline';
-import {
-    type SimInputs,
-    simInputsSizingIssue,
-    simulate,
-} from '~/lib/prop-calculator/simulator';
+import { type SimInputs, simulate } from '~/lib/prop-calculator/simulator';
 import {
     type Estimate,
     type UncertainValue,
@@ -246,6 +243,7 @@ export interface ValueChainFigures {
 }
 
 export interface ValueChainStepFigures {
+    readonly assumptions: readonly string[];
     readonly kind: ValueChainStepKind;
     readonly outcome: ValueChainStepOutcome;
 }
@@ -445,7 +443,7 @@ export function overviewRequestKey(request: OverviewRequest): string {
         optIns: request.optIns,
         planSerial: request.planSerial,
         policy: enginePolicyKey(spec.enginePolicy),
-        rulebook: spec.rulebook,
+        rulebook: engineRulebookOf(spec.rulebook),
         run: spec.run,
         start: spec.start ?? null,
     });
@@ -632,6 +630,12 @@ function documentedSpecFor(
     };
 }
 
+function engineRulebookOf(
+    rulebook: RulebookParameters,
+): Omit<RulebookParameters, 'display'> & { readonly display: null } {
+    return { ...rulebook, display: null };
+}
+
 function evalMilestoneValueOf(
     account: ReconstructedFundedOrEvalAccount,
     milestone: EvalMilestone,
@@ -667,14 +671,6 @@ function fromStateAccountOf(
         );
     }
     return account;
-}
-
-function lazily<Built>(build: () => Built): () => Built {
-    let built: undefined | { readonly value: Built };
-    return () => {
-        built ??= { value: build() };
-        return built.value;
-    };
 }
 
 function milestoneFiguresOf(
@@ -831,12 +827,6 @@ function portfolioProjectionResultOf(
         );
     }
     const inputs = documentedPolicyTimelineInputs(plan, spec, accounts);
-    const issue = simInputsSizingIssue({
-        instrument: inputs.instrument,
-        riskPerTrade: inputs.riskPerTrade,
-        stopPoints: inputs.stopPoints,
-    });
-    if (issue !== null) throw new Error(issue);
     const timeline = simulatePortfolioTimeline(inputs);
     return {
         figures: {
@@ -946,26 +936,11 @@ function valueChainResultOf(
     plan: Plan,
     spec: DocumentedPolicySpec,
 ): OverviewResult {
-    const freshFunded = freshFundedAccount(plan);
-    const eligible = lazily(() =>
-        firstPayoutEligibleAccount(plan, freshFunded, spec),
-    );
-    const steps: readonly (readonly [
-        ValueChainStepKind,
-        () => ReconstructedFundedOrEvalAccount,
-    ])[] = [
-        [ValueChainStepKind.EvalStart, () => evalStartAccount(plan)],
-        [ValueChainStepKind.FreshFunded, () => freshFunded],
-        [ValueChainStepKind.FirstPayoutEligible, eligible],
-        [
-            ValueChainStepKind.PostFirstPayout,
-            () => postFirstPayoutAccount(eligible(), spec),
-        ],
-    ];
+    const chain = valueChain(plan, spec);
     return {
         figures: {
-            steps: steps.map(([kind, accountOf]) =>
-                valueChainStepOf(kind, accountOf, spec),
+            steps: VALUE_CHAIN_STEP_ORDER.map((kind) =>
+                valueChainStepOf(kind, chain),
             ),
             trials: spec.run.trials,
         },
@@ -975,14 +950,32 @@ function valueChainResultOf(
 
 function valueChainStepOf(
     kind: ValueChainStepKind,
-    accountOf: () => ReconstructedFundedOrEvalAccount,
-    spec: DocumentedPolicySpec,
+    chain: ValueChainResult,
 ): ValueChainStepFigures {
+    const built = chain.steps.find((step) => step.kind === kind);
+    if (built !== undefined) {
+        return {
+            assumptions: built.assumptions,
+            kind,
+            outcome: {
+                kind: ValueChainStepOutcomeKind.Value,
+                value: built.value,
+            },
+        };
+    }
+    const failure = chain.failedSteps.find((step) => step.kind === kind);
+    if (failure === undefined) {
+        throw new Error(
+            `overviewWorker: the value chain reported neither a value nor a failure for the ${kind} step`,
+        );
+    }
     return {
+        assumptions: [],
         kind,
-        outcome: valueOutcomeOf(() =>
-            requireValue(valueAtState(accountOf(), spec)),
-        ),
+        outcome: {
+            kind: ValueChainStepOutcomeKind.Unavailable,
+            reason: describeSimulationFailure(failure.reason),
+        },
     };
 }
 

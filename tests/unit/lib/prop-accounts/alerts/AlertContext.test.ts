@@ -218,7 +218,7 @@ describe('createAlertContext', () => {
     it('resolves the plan and never throws for an unresolvable one', () => {
         const resolved = accountFor(ANY_EVAL_PLAN);
         const unknownFirm = accountFor(ANY_EVAL_PLAN, {
-            firmId: 'no-such-firm' as FirmId,
+            firmId: 'no-such-firm',
         });
         const context = contextOf({ accounts: [resolved, unknownFirm] });
         expect(context.accounts.map((entry) => entry.plan.kind)).toEqual([
@@ -381,7 +381,9 @@ describe('createAlertContext', () => {
             acceptedRiskCents: usdCents(40_000),
             accountId: account.id,
             actualRiskCents: null,
+            createdAt: new Date('2026-09-23T10:00:00Z'),
             decidedOn: WEDNESDAY,
+            id: 'decision-1',
         };
         const context = contextOf({
             availableBankrollCents: usdCents(250_000),

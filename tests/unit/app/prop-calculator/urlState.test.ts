@@ -23,8 +23,9 @@ import {
     InstrumentSymbol,
     RungSizing,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
-import { CalculatorUrlParameter } from '~/lib/schemas/url';
+import { CalculatorUrlParameter, OBJECTIVE_URL_PARAMETER } from '~/lib/schemas/url';
 
 function apexEod() {
     const firm = ALL_FIRMS.find((f) => f.id === FirmId.Apex);
@@ -60,9 +61,11 @@ function fallbackState(): CalculatorState {
             [LinkParameter.EvalDayPolicy]: { status: LabLinkStatus.Absent },
             [LinkParameter.Portfolio]: { status: LabLinkStatus.Absent },
         },
+        liveTransferHazard: 0,
         maxAttempts: 1,
         maxEvalDays: 60,
         monthlySubscriptionDiscountPercent: 0,
+        objective: SizingObjective.MonthlyNet,
         payoutRequestSize: null,
         plan,
         portfolio: [],
@@ -623,5 +626,54 @@ describe('idleDayProbability round-trip through the URL (PT-11j)', () => {
         const state = decodeState(parameters, ALL_FIRMS, fallbackState());
 
         expect(state.idleDayProbability).toBe(0);
+    });
+});
+
+
+function linkFor(extra: Record<string, string>): URLSearchParams {
+    const { firm, plan } = apexEod();
+    return new URLSearchParams({
+        firm: firm.id,
+        plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
+        ...extra,
+    });
+}
+
+describe('objective round-trip through the URL (PT-63, F-V15)', () => {
+    it('names the key obj', () => {
+        expect(OBJECTIVE_URL_PARAMETER).toBe('obj');
+    });
+
+    it.each([SizingObjective.CycleCash, SizingObjective.RuinFirst])(
+        'survives a share link for %s',
+        (objective) => {
+            const encoded = encodeState({ ...fallbackState(), objective });
+            expect(encoded.get(OBJECTIVE_URL_PARAMETER)).toBe(objective);
+            expect(
+                decodeState(encoded, ALL_FIRMS, fallbackState()).objective,
+            ).toBe(objective);
+        },
+    );
+
+    it('leaves the key out for MonthlyNet, so existing links keep their exact query', () => {
+        const encoded = encodeState(fallbackState());
+        expect(encoded.has(OBJECTIVE_URL_PARAMETER)).toBe(false);
+    });
+
+    it('decodes an old link with no objective key to MonthlyNet', () => {
+        const state = decodeState(linkFor({}), ALL_FIRMS, {
+            ...fallbackState(),
+            objective: SizingObjective.CycleCash,
+        });
+        expect(state.objective).toBe(SizingObjective.MonthlyNet);
+    });
+
+    it('decodes an unknown objective value to MonthlyNet instead of failing', () => {
+        const state = decodeState(
+            linkFor({ [OBJECTIVE_URL_PARAMETER]: 'fastest' }),
+            ALL_FIRMS,
+            fallbackState(),
+        );
+        expect(state.objective).toBe(SizingObjective.MonthlyNet);
     });
 });

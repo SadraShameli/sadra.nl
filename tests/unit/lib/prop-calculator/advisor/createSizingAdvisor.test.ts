@@ -77,6 +77,7 @@ const commonOptions = {
     maxEvalDays: 150,
     rulebook: DEFAULT_RULEBOOK,
     snapshotAsOf: '2026-09-26',
+    substate: null,
     today: '2026-09-26',
 };
 

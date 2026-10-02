@@ -4,12 +4,15 @@ import {
     buildWeeklyReview,
     DecisionAdherenceKind,
     reviewSubmitPayload,
+    ViolationOfferKind,
+    violationsFromOf,
     type WeeklyReviewAccountInput,
     type WeeklyReviewDecisionRow,
     type WeeklyReviewDraft,
     WeeklyReviewSizingKind,
     type WeeklyReviewSnapshotRow,
     type WeeklyReviewViolationRow,
+    weeklyReviewWindowOf,
 } from '~/app/(app)/prop-calculator/accounts/review/weeklyReviewModel';
 import {
     AccountReadIssueKind,
@@ -19,7 +22,11 @@ import {
     DashboardBalanceConvention,
     RuleViolationKind,
     UnresolvedPlanReason,
+    usdCents,
 } from '~/lib/prop-accounts';
+import {
+    isDecisionFollowed,
+} from '~/lib/prop-accounts/metrics';
 import {
     ALL_FIRMS,
     DrawdownKind,
@@ -403,6 +410,108 @@ describe('buildWeeklyReview', () => {
         expect(row.sizing.rungsCents.every((cents) => cents > 0)).toBe(true);
     });
 
+    it('sizes a funded account with its own personal max risk per trade, so it caps the headline and every rung (PT-68c, F-V16)', () => {
+        const plan = evalEodTrailingPlan();
+        const draft = plausibleSnapshotRow(MONDAY, {
+            payoutsTaken: 0,
+            tradingDays: 12,
+        });
+        const sizingOf = (account: WeeklyReviewAccountInput) => {
+            const result = buildWeeklyReview({
+                accounts: [account],
+                drafts: new Map([[account.id, draft]]),
+                latestDecisions: EMPTY_MAP,
+                latestSnapshots: EMPTY_MAP,
+                rulebook: DEFAULT_RULEBOOK,
+                today: MONDAY,
+                violations: [],
+            });
+            const row = result.rows[0];
+            if (row?.sizing.kind !== WeeklyReviewSizingKind.Ready) {
+                throw new Error(
+                    `expected a ready sizing: ${JSON.stringify(row?.blockedMessages)} ${row?.sizing.kind}`,
+                );
+            }
+            return row.sizing;
+        };
+        const funded = accountFor(plan, { stage: AccountStage.Funded });
+        const plain = sizingOf(funded);
+        const personalCap = Math.floor(plain.headlineRiskCents / 4);
+        expect(personalCap).toBeGreaterThan(0);
+        const capped = sizingOf({
+            ...funded,
+            personalRules: { maxRiskPerTradeCents: usdCents(personalCap) },
+        });
+        expect(capped.headlineRiskCents).toBeLessThanOrEqual(personalCap);
+        expect(capped.rungsCents.every((cents) => cents <= personalCap)).toBe(
+            true,
+        );
+        expect(plain.headlineRiskCents).toBeGreaterThan(personalCap);
+    });
+
+    it('sizes an eval account with its own personal max risk per trade, so it caps the headline and every rung', () => {
+        const plan = evalEodTrailingPlan();
+        const draft = plausibleSnapshotRow(MONDAY);
+        const sizingOf = (account: WeeklyReviewAccountInput) => {
+            const result = buildWeeklyReview({
+                accounts: [account],
+                drafts: new Map([[account.id, draft]]),
+                latestDecisions: EMPTY_MAP,
+                latestSnapshots: EMPTY_MAP,
+                rulebook: DEFAULT_RULEBOOK,
+                today: MONDAY,
+                violations: [],
+            });
+            const sizing = result.rows[0]?.sizing;
+            if (sizing?.kind !== WeeklyReviewSizingKind.Ready) {
+                throw new Error('expected a ready sizing');
+            }
+            return sizing;
+        };
+        const evalAccount = accountFor(plan, { stage: AccountStage.Eval });
+        const plain = sizingOf(evalAccount);
+        const personalCap = Math.floor(plain.headlineRiskCents / 4);
+        expect(personalCap).toBeGreaterThan(0);
+        const capped = sizingOf({
+            ...evalAccount,
+            personalRules: { maxRiskPerTradeCents: usdCents(personalCap) },
+        });
+        expect(capped.headlineRiskCents).toBeLessThanOrEqual(personalCap);
+        expect(capped.rungsCents.every((cents) => cents <= personalCap)).toBe(
+            true,
+        );
+        expect(plain.headlineRiskCents).toBeGreaterThan(personalCap);
+    });
+
+    it('sizes an account within its personal daily loss limit (PT-68c, F-V16)', () => {
+        const plan = evalEodTrailingPlan();
+        const draft = plausibleSnapshotRow(MONDAY);
+        const sizingOf = (account: WeeklyReviewAccountInput) => {
+            const result = buildWeeklyReview({
+                accounts: [account],
+                drafts: new Map([[account.id, draft]]),
+                latestDecisions: EMPTY_MAP,
+                latestSnapshots: EMPTY_MAP,
+                rulebook: DEFAULT_RULEBOOK,
+                today: MONDAY,
+                violations: [],
+            });
+            const sizing = result.rows[0]?.sizing;
+            if (sizing?.kind !== WeeklyReviewSizingKind.Ready) {
+                throw new Error('expected a ready sizing');
+            }
+            return sizing;
+        };
+        const plain = sizingOf(accountFor(plan));
+        const personalLimit = Math.floor(plain.headlineRiskCents / 2);
+        const limited = sizingOf(
+            accountFor(plan, {
+                personalRules: { dailyLossLimitCents: usdCents(personalLimit) },
+            }),
+        );
+        expect(limited.headlineRiskCents).toBeLessThanOrEqual(personalLimit);
+    });
+
     it('gives no eval advice on an instant-funded plan', () => {
         const plan = instantFundedPlan();
         const account = accountFor(plan, { stage: AccountStage.Eval });
@@ -569,33 +678,103 @@ describe('buildWeeklyReview adherence', () => {
             adherence: DecisionAdherenceKind.Followed,
             decidedOn: '2026-09-14',
             id: 'decision-1',
+            isAboveAccepted: false,
             isViolationLogged: false,
         });
     });
 
-    it('treats an actual risk at or below the accepted risk as followed, the way the bust diagnosis does', () => {
-        const below = reviewWith([account], {
-            latestDecisions: new Map([
-                [account.id, decisionRow({ actualRiskCents: 1000 })],
-            ]),
-        });
-        expect(below.rows[0]?.lastDecision?.adherence).toBe(
-            DecisionAdherenceKind.Followed,
-        );
+    it('says an actual risk within one rounding step of the accepted risk was followed, above or below it', () => {
+        const step = DEFAULT_RULEBOOK.eval.roundingStepCents;
+        for (const actualRiskCents of [
+            40_000 - step,
+            40_000 - 1,
+            40_000 + 1,
+            40_000 + step,
+        ]) {
+            const result = reviewWith([account], {
+                latestDecisions: new Map([
+                    [account.id, decisionRow({ actualRiskCents })],
+                ]),
+            });
+            expect(
+                result.rows[0]?.lastDecision?.adherence,
+                String(actualRiskCents),
+            ).toBe(DecisionAdherenceKind.Followed);
+            expect(result.rows[0]?.violationOffer.kind).toBe(
+                ViolationOfferKind.None,
+            );
+        }
     });
 
-    it('says an actual risk even one cent above the accepted risk was not followed', () => {
+    it('says an actual risk more than one rounding step above the accepted risk was not followed and offers the violation form', () => {
+        const step = DEFAULT_RULEBOOK.eval.roundingStepCents;
         const above = reviewWith([account], {
             latestDecisions: new Map([
-                [account.id, decisionRow({ actualRiskCents: 40_001 })],
+                [account.id, decisionRow({ actualRiskCents: 40_000 + step + 1 })],
             ]),
         });
         expect(above.rows[0]?.lastDecision?.adherence).toBe(
             DecisionAdherenceKind.NotFollowed,
         );
+        expect(above.rows[0]?.lastDecision?.isAboveAccepted).toBe(true);
+        expect(above.rows[0]?.violationOffer.kind).toBe(
+            ViolationOfferKind.Available,
+        );
     });
 
-    it('says a funded decision risked 40 dollars above its accepted risk was not followed', () => {
+    it('says an actual risk more than one rounding step below the accepted risk was not followed, as the overview does, and offers no violation to log for trading smaller', () => {
+        const step = DEFAULT_RULEBOOK.eval.roundingStepCents;
+        const below = reviewWith([account], {
+            latestDecisions: new Map([
+                [account.id, decisionRow({ actualRiskCents: 40_000 - step - 1 })],
+            ]),
+        });
+        expect(below.rows[0]?.lastDecision?.adherence).toBe(
+            DecisionAdherenceKind.NotFollowed,
+        );
+        expect(below.rows[0]?.lastDecision?.isAboveAccepted).toBe(false);
+        expect(below.rows[0]?.violationOffer.kind).toBe(ViolationOfferKind.None);
+    });
+
+    it('gives the overview verdict on every decision, one rule for both screens', () => {
+        const step = DEFAULT_RULEBOOK.eval.roundingStepCents;
+        for (const actualRiskCents of [
+            0,
+            1000,
+            34_999,
+            35_000,
+            39_999,
+            40_000,
+            40_001,
+            45_000,
+            45_001,
+            90_000,
+        ]) {
+            const decision = decisionRow({ actualRiskCents });
+            const result = reviewWith([account], {
+                latestDecisions: new Map([[account.id, decision]]),
+            });
+            const verdict = isDecisionFollowed(
+                {
+                    acceptedRiskCents: usdCents(decision.acceptedRiskCents),
+                    accountId: account.id,
+                    actualRiskCents: usdCents(actualRiskCents),
+                    decidedOn: decision.decidedOn,
+                },
+                step,
+            );
+            expect(
+                result.rows[0]?.lastDecision?.adherence,
+                String(actualRiskCents),
+            ).toBe(
+                verdict
+                    ? DecisionAdherenceKind.Followed
+                    : DecisionAdherenceKind.NotFollowed,
+            );
+        }
+    });
+
+    it('says a funded decision risked 40 dollars above its accepted risk was followed, inside the 50 dollar rounding step', () => {
         const funded = accountFor(plan, { stage: AccountStage.Funded });
         const result = reviewWith([funded], {
             latestDecisions: new Map([
@@ -609,9 +788,16 @@ describe('buildWeeklyReview adherence', () => {
             ]),
         });
         expect(result.rows[0]?.lastDecision?.adherence).toBe(
-            DecisionAdherenceKind.NotFollowed,
+            DecisionAdherenceKind.Followed,
         );
-        expect(result.adherence.followed).toBe(0);
+        expect(result.adherence.followed).toBe(1);
+    });
+
+    it('reports the rounding step the rule used', () => {
+        const result = reviewWith([account], {});
+        expect(result.adherenceStepCents).toBe(
+            DEFAULT_RULEBOOK.eval.roundingStepCents,
+        );
     });
 
     it('says adherence is not recorded when no actual risk was entered, and shows no decision when there is none', () => {
@@ -642,6 +828,7 @@ describe('buildWeeklyReview adherence', () => {
             measured: 2,
             notRecorded: 1,
             rate: 0.5,
+            total: 3,
         });
     });
 
@@ -654,6 +841,7 @@ describe('buildWeeklyReview adherence', () => {
             measured: 0,
             notRecorded: 1,
             rate: null,
+            total: 1,
         });
     });
 
@@ -670,6 +858,122 @@ describe('buildWeeklyReview adherence', () => {
         });
         expect(result.adherence.measured).toBe(1);
         expect(result.adherence.rate).toBe(1);
+    });
+});
+
+describe('weeklyReviewWindowOf', () => {
+    it('runs from the first day of the week to the latest review weekday on or before today', () => {
+        expect(weeklyReviewWindowOf(LATE_SAME_WEEK, DEFAULT_RULEBOOK)).toEqual({
+            asOf: MONDAY,
+            weekStart: '2026-09-15',
+        });
+        expect(weeklyReviewWindowOf(MONDAY, DEFAULT_RULEBOOK)).toEqual({
+            asOf: MONDAY,
+            weekStart: '2026-09-15',
+        });
+    });
+
+    it('matches the window the built review reports', () => {
+        const result = reviewWith([], { today: LATE_SAME_WEEK });
+        expect(weeklyReviewWindowOf(LATE_SAME_WEEK, DEFAULT_RULEBOOK)).toEqual({
+            asOf: result.asOf,
+            weekStart: result.weekStart,
+        });
+    });
+});
+
+function fromOf(
+    accounts: readonly WeeklyReviewAccountInput[],
+    decisions: readonly (readonly [string, WeeklyReviewDecisionRow])[],
+    today = MONDAY,
+) {
+    return violationsFromOf({
+        accounts,
+        latestDecisions: new Map(decisions),
+        rulebook: DEFAULT_RULEBOOK,
+        today,
+    });
+}
+
+describe('violationsFromOf', () => {
+    const plan = evalEodTrailingPlan();
+    const account = accountFor(plan);
+    const oversized = { actualRiskCents: 90_000, decidedOn: '2026-08-03' };
+
+    it('is the week start when there is no decision', () => {
+        expect(fromOf([account], [])).toBe('2026-09-15');
+    });
+
+    it('reaches back to the date of a reviewed account decision that was not followed and traded above the accepted risk, so a violation linked to it is still seen as logged', () => {
+        expect(
+            fromOf([account], [[account.id, decisionRow(oversized)]]),
+        ).toBe('2026-08-03');
+    });
+
+    it('takes the oldest date among the decisions that can offer a violation', () => {
+        const second = accountFor(plan, { id: 'account-2' });
+        expect(
+            fromOf(
+                [account, second],
+                [
+                    [
+                        account.id,
+                        decisionRow({ ...oversized, decidedOn: '2026-08-20' }),
+                    ],
+                    [second.id, decisionRow(oversized)],
+                ],
+            ),
+        ).toBe('2026-08-03');
+    });
+
+    it('stays at the week start for a decision that offers no violation: followed, below the accepted risk, no actual risk, or newer than the week start', () => {
+        const rows = [
+            decisionRow({ ...oversized, actualRiskCents: 40_000 }),
+            decisionRow({ ...oversized, actualRiskCents: 1000 }),
+            decisionRow({ ...oversized, actualRiskCents: null }),
+            decisionRow({ ...oversized, decidedOn: '2026-09-16' }),
+        ];
+        for (const row of rows) {
+            expect(fromOf([account], [[account.id, row]])).toBe('2026-09-15');
+        }
+    });
+
+    it('is not moved back by an old decision of an account the review never shows', () => {
+        const busted = accountFor(plan, {
+            id: 'busted',
+            status: AccountStatus.Busted,
+        });
+        const closed = accountFor(plan, {
+            id: 'closed',
+            status: AccountStatus.Closed,
+        });
+        const ledgerOnly = accountFor(plan, {
+            id: 'ledger-only',
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const corrupt = accountFor(plan, {
+            id: 'corrupt',
+            readIssues: [
+                {
+                    kind: AccountReadIssueKind.UnresolvablePlan,
+                    reason: UnresolvedPlanReason.AccountSizeMismatch,
+                },
+            ],
+        });
+        const unknown = accountFor(plan, { id: 'unknown-to-the-review' });
+        expect(
+            fromOf(
+                [busted, closed, ledgerOnly, corrupt],
+                [busted, closed, ledgerOnly, corrupt, unknown].map(
+                    (entry) => [entry.id, decisionRow(oversized)] as const,
+                ),
+            ),
+        ).toBe('2026-09-15');
+    });
+
+    it('follows the week start of the day it is given', () => {
+        expect(fromOf([account], [], LATE_SAME_WEEK)).toBe('2026-09-15');
+        expect(fromOf([account], [], '2026-09-28')).toBe('2026-09-22');
     });
 });
 
@@ -747,12 +1051,16 @@ describe('buildWeeklyReview log violation prefill', () => {
                 [account.id, decisionRow({ actualRiskCents: 90_000 })],
             ]),
         });
-        expect(result.rows[0]?.logViolation).toEqual({
-            costCents: '',
-            decisionId: 'decision-1',
-            kind: RuleViolationKind.Oversize,
-            note: '',
-            occurredOn: '2026-09-14',
+        expect(result.rows[0]?.violationOffer).toEqual({
+            decision: { decidedOn: '2026-09-14', id: 'decision-1' },
+            initial: {
+                costCents: '',
+                decisionId: 'decision-1',
+                kind: RuleViolationKind.Oversize,
+                note: '',
+                occurredOn: '2026-09-14',
+            },
+            kind: ViolationOfferKind.Available,
         });
     });
 
@@ -768,7 +1076,12 @@ describe('buildWeeklyReview log violation prefill', () => {
                 ],
             ]),
         });
-        expect(result.rows[0]?.logViolation?.occurredOn).toBe('2026-08-17');
+        const offer = result.rows[0]?.violationOffer;
+        expect(
+            offer?.kind === ViolationOfferKind.Available
+                ? offer.initial.occurredOn
+                : null,
+        ).toBe('2026-08-17');
     });
 
     it('offers nothing and says it is logged once a violation is linked to the last decision, whatever its date', () => {
@@ -784,11 +1097,27 @@ describe('buildWeeklyReview log violation prefill', () => {
                 }),
             ],
         });
-        expect(result.rows[0]?.logViolation).toBeNull();
+        expect(result.rows[0]?.violationOffer).toEqual({
+            kind: ViolationOfferKind.AlreadyLogged,
+        });
         expect(result.rows[0]?.lastDecision?.isViolationLogged).toBe(true);
         expect(result.rows[0]?.lastDecision?.adherence).toBe(
             DecisionAdherenceKind.NotFollowed,
         );
+    });
+
+    it('offers nothing and does not say it is logged for a followed decision that has a linked violation', () => {
+        const result = reviewWith([account], {
+            latestDecisions: new Map([
+                [account.id, decisionRow({ actualRiskCents: 40_000 })],
+            ]),
+            violations: [
+                violationRow({ decisionId: 'decision-1', id: 'linked' }),
+            ],
+        });
+        expect(result.rows[0]?.violationOffer).toEqual({
+            kind: ViolationOfferKind.None,
+        });
     });
 
     it('still offers it when the only linked violation belongs to another decision', () => {
@@ -800,7 +1129,9 @@ describe('buildWeeklyReview log violation prefill', () => {
                 violationRow({ decisionId: 'decision-0', id: 'older' }),
             ],
         });
-        expect(result.rows[0]?.logViolation).not.toBeNull();
+        expect(result.rows[0]?.violationOffer.kind).toBe(
+            ViolationOfferKind.Available,
+        );
         expect(result.rows[0]?.lastDecision?.isViolationLogged).toBe(false);
     });
 
@@ -814,9 +1145,11 @@ describe('buildWeeklyReview log violation prefill', () => {
             latestDecisions: new Map([[account.id, decisionRow()]]),
         });
         const none = reviewWith([account], {});
-        expect(followed.rows[0]?.logViolation).toBeNull();
-        expect(unrecorded.rows[0]?.logViolation).toBeNull();
-        expect(none.rows[0]?.logViolation).toBeNull();
+        for (const result of [followed, unrecorded, none]) {
+            expect(result.rows[0]?.violationOffer).toEqual({
+                kind: ViolationOfferKind.None,
+            });
+        }
     });
 });
 

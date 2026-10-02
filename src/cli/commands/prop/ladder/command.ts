@@ -6,14 +6,20 @@ import {
     describeStopRule,
     edgePlausibilityNote,
     evalPolicyArguments,
+    type LiveTransferHazardArguments,
     monteCarloArguments,
+    objectiveArgument,
+    objectiveHeadingLine,
+    ObjectiveNotApplicable,
     planArguments,
     planResolver,
     printEdgePlausibilityNotes,
     purchaseArguments,
     readInstrument,
+    readObjective,
     readPositiveInteger,
     readPositiveNumber,
+    RUIN_FIRST_NOT_APPLICABLE_MESSAGE,
     type TableColumn,
     TablePrinter,
     tradingArguments,
@@ -45,6 +51,9 @@ import {
     runLadderSearch,
     validateLadderGrid,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
+import { SIZING_OBJECTIVE_LABEL } from '~/lib/prop-calculator/advisor/policy';
 import { describeShare } from '~/lib/prop-calculator/describe';
 
 type LadderArguments = LadderGridArguments &
@@ -78,7 +87,7 @@ type LadderTradingFlag = Extract<
 >;
 
 type UnsupportedLadderFlag = Exclude<
-    keyof TradingArguments,
+    keyof (LiveTransferHazardArguments & TradingArguments),
     keyof typeof ladderArguments
 >;
 
@@ -109,6 +118,10 @@ const UNSUPPORTED_LADDER_FLAGS: Readonly<
         takesValue: true,
     },
     ladder: { reason: LadderIgnoredInput.OwnLadder, takesValue: true },
+    'live-transfer-hazard': {
+        reason: LadderIgnoredInput.FundedPhase,
+        takesValue: true,
+    },
     'max-attempts': {
         reason: LadderIgnoredInput.MaxAttempts,
         takesValue: true,
@@ -187,6 +200,7 @@ export const ladderArguments = {
     ...monteCarloArguments,
     ...purchaseArguments,
     ...evalPolicyArguments,
+    ...objectiveArgument,
     lo: {
         default: '100',
         description: 'Smallest rung to search',
@@ -310,6 +324,30 @@ export function describeUnscorableLadders(
         : `${unscorableCount} of ${laddersScored} ladders passed the eval in under ${floor} of trials and are left out of every ranking`;
 }
 
+export function ladderRankingsFor(
+    objective: SizingObjective,
+): readonly LadderRanking[] {
+    const [speed, cost, passRate] = LADDER_RANKINGS;
+    if (speed === undefined || cost === undefined || passRate === undefined) {
+        throw new Error('LADDER_RANKINGS must list speed, cost and pass rate');
+    }
+    const reference: LadderRanking = {
+        ...passRate,
+        title: `${passRate.title} (reference only, not an objective)`,
+    };
+    switch (objective) {
+        case SizingObjective.CycleCash: {
+            return [proxyRanking(cost, objective), speed, reference];
+        }
+        case SizingObjective.MonthlyNet: {
+            return [proxyRanking(speed, objective), cost, reference];
+        }
+        case SizingObjective.RuinFirst: {
+            throw new ObjectiveNotApplicable(RUIN_FIRST_NOT_APPLICABLE_MESSAGE);
+        }
+    }
+}
+
 export function ladderTableRow(
     score: LadderScore,
     contractLimit: null | number,
@@ -380,6 +418,10 @@ export default defineCommand({
     run(context) {
         let spinner: ReturnType<typeof ui.spinner> | undefined;
         try {
+            const objective = readObjective(
+                context.args,
+                RankingSurface.Ladder,
+            );
             const plan = planResolver.resolveOne(context.args);
             if (plan.isInstantFunded) {
                 const [warning, hint] = describeInstantFundedPlan(plan);
@@ -410,6 +452,7 @@ export default defineCommand({
             spinner.succeed(`searched ${plan.label} in ${elapsed.toFixed(1)}s`);
 
             ui.heading(plan.label);
+            ui.muted(`  ${objectiveHeadingLine(objective)}`);
             ui.muted(
                 `  cushion ${formatCurrency(score.cushion)} | drawdown ${plan.drawdown.kind} | target ${formatCurrency(plan.profitTarget)} | consistency ${describeShare(plan.evalConsistencyRule())} | min days ${plan.minTradingDays} | ${describeEvalWindow(plan, score.maxDays)}`,
             );
@@ -427,7 +470,7 @@ export default defineCommand({
                 plan.contractLimits,
                 instrument.isMicro,
             );
-            for (const { select, title } of LADDER_RANKINGS) {
+            for (const { select, title } of ladderRankingsFor(objective)) {
                 printTable(
                     title,
                     select(result),
@@ -476,6 +519,16 @@ function printTable(
     for (const score of rows) {
         table.printRow(ladderTableRow(score, contractLimit, pointValue));
     }
+}
+
+function proxyRanking(
+    ranking: LadderRanking,
+    objective: SizingObjective,
+): LadderRanking {
+    return {
+        ...ranking,
+        title: `${ranking.title} (eval-stage proxy for ${SIZING_OBJECTIVE_LABEL[objective]})`,
+    };
 }
 
 function withLadderGridFlags<T>(action: () => T): T {

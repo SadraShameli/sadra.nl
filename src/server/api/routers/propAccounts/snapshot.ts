@@ -262,6 +262,12 @@ export const propSnapshotRouter = createTRPCRouter({
             new PropAccountRepo(ctx.db, ctx.userId).latestSnapshots(),
         ),
 
+    latestTwoForAll: propProcedure
+        .output(z.array(propAccountSnapshotOutputSchema))
+        .query(({ ctx }) =>
+            new PropAccountRepo(ctx.db, ctx.userId).latestTwoSnapshots(),
+        ),
+
     listForAccount: propProcedure
         .input(accountIdSchema)
         .output(z.array(propAccountSnapshotOutputSchema))

@@ -6,13 +6,21 @@ import {
     groupByAvailabilityLabel,
     hasEvalPass,
     includeCallUpArgument,
+    objectiveArgument,
+    ObjectiveFlag,
+    objectiveHeadingLine,
     planArguments,
     planResolver,
     printEdgePlausibilityNotes,
+    readBankroll,
+    readObjective,
+    readPositiveInteger,
+    readPositiveNumber,
     readScreenTime,
     type ScreenTime,
     screenTimeArguments,
     singlePathGranularityArgument,
+    SortObjectiveConflict,
     type TableColumn,
     TablePrinter,
     tradingArguments,
@@ -27,13 +35,33 @@ import {
     NOT_APPLICABLE,
 } from '~/lib/format';
 import {
+    CENTS_PER_DOLLAR,
     dollars,
+    findFirm,
     FirmId,
     type Plan,
+    points,
     type SimOutputs,
     simulate,
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator';
+import {
+    buildEnginePolicy,
+    DEFAULT_RULEBOOK,
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
+import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
+import {
+    type BankrollRiskFigures,
+    bankrollRiskFigures,
+    COPY_SPLIT_NOISE_SIGMAS,
+    type CopySplitResult,
+    type CopySplitRow,
+    CopySplitRowKind,
+    type EnginePolicy,
+    enginePolicySchema,
+    runCopySplit,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     netPerScreenHour,
     noPayoutProbabilityFromDistribution,
@@ -41,11 +69,29 @@ import {
 
 export enum CompareSortKey {
     Cost = 'cost',
+    Cycle = 'cycle',
     Days = 'days',
     Hour = 'hour',
     Net = 'net',
     Pass = 'pass',
+    RuinFirst = 'ruin-first',
     Spend = 'spend',
+}
+
+export interface CompareRanking {
+    readonly objective: null | SizingObjective;
+    readonly sort: CompareSortKey;
+}
+
+export interface CompareRankingArguments {
+    bankroll?: string;
+    objective?: string;
+    sort?: string;
+}
+
+export interface RankableRow {
+    readonly batchLossProbability?: null | number;
+    readonly out: RankedMetrics;
 }
 
 export type RankedMetrics = Pick<
@@ -54,6 +100,8 @@ export type RankedMetrics = Pick<
     | 'daysToPassP50'
     | 'evalPassProbability'
     | 'expectedMonthlyNet'
+    | 'expectedNet'
+    | 'expectedNetPerAttempt'
     | 'expectedTotalCost'
 >;
 
@@ -67,12 +115,27 @@ export default defineCommand({
         ...singlePathGranularityArgument,
         ...includeCallUpArgument,
         ...screenTimeArguments,
-        sort: {
-            default: CompareSortKey.Net,
+        ...objectiveArgument,
+        bankroll: {
             description:
-                'Rank by: net (monthly net), cost (expected cost per funded account, eval pass rate included), spend (expected spend per trial), pass (eval pass), days (median days to pass the eval) or hour (monthly net per screen hour; needs --hours-per-day and --accounts-per-session)',
+                'Bankroll in account currency: adds P(no payout, bankroll) and P(batch < 0) columns priced at the attempts it affords, and is needed by --objective ruin-first',
+            type: 'string',
+        },
+        sort: {
+            description:
+                'Rank by: net (monthly net, the default), cycle (expected net of one eval-to-funded cycle), ruin-first (needs --bankroll: plans with EV per attempt above zero by lower P(batch net < 0), then monthly net; non-positive EV plans last), cost (expected cost per funded account, eval pass rate included), spend (expected spend per trial), pass (eval pass), days (median days to pass the eval) or hour (monthly net per screen hour; needs --hours-per-day and --accounts-per-session). Mutually exclusive with --objective',
             options: [...SORT_KEYS],
             type: 'enum',
+        },
+        splits: {
+            description:
+                'Account counts to split --total-risk across, comma separated (e.g. 1,2,10): one row per split on the same seed for one plan, ranked by the objective, with the whole group as the unit (needs --total-risk, one plan and no --copy-accounts)',
+            type: 'string',
+        },
+        'total-risk': {
+            description:
+                'Total risk per trade across the copied accounts (e.g. 2000): each split puts total / accounts on every account, under the same engine policy (needs --splits)',
+            type: 'string',
         },
     },
     meta: {
@@ -88,19 +151,40 @@ export default defineCommand({
                 context.args['include-callup'],
             );
             const inputs = TradingInputs.parse(context.args);
-            const sort = z.enum(CompareSortKey).parse(context.args.sort);
+            const ranking = resolveCompareRanking(context.args);
+            const { sort } = ranking;
             const screenTime = readScreenTime(context.args);
             requireScreenTimeForSort(sort, screenTime);
+            const bankroll = readBankroll(context.args.bankroll);
+            const splitRequest = readSplitRequest(context.args);
+            if (splitRequest !== null) {
+                runSplitComparison(
+                    planResolver.resolveOne(context.args),
+                    inputs,
+                    ranking,
+                    splitRequest,
+                );
+                return;
+            }
 
             spinner = ui
                 .spinner(
                     `simulating ${plans.length} plan(s) x ${inputs.trials} trials`,
                 )
                 .start();
-            const simulated = plans.map((plan) => ({
-                out: simulate(inputs.toSimInputs(plan)),
-                plan,
-            }));
+            const simulated = plans.map((plan) => {
+                const out = simulate(inputs.toSimInputs(plan));
+                const figures =
+                    bankroll === null
+                        ? null
+                        : bankrollRiskFigures(out, bankroll, inputs.seed);
+                return {
+                    batchLossProbability: figures?.lossProbability ?? null,
+                    figures,
+                    out,
+                    plan,
+                };
+            });
             spinner.succeed(
                 `simulated ${plans.length} plan(s) x ${inputs.trials} trials`,
             );
@@ -110,6 +194,7 @@ export default defineCommand({
             ui.heading(
                 `${plans.length} plan(s) · ${(inputs.winrate * 100).toFixed(0)}% WR · 1:${inputs.rrRatio} · ${inputs.fundedHorizonDays} funded days · sorted by ${sort}`,
             );
+            ui.muted(`  ${compareRankingHeadingLine(ranking)}`);
             printEdgePlausibilityNotes(
                 tradingEdgeNotes({
                     fundedRrRatio: inputs.fundedRrRatio,
@@ -118,11 +203,15 @@ export default defineCommand({
                 }),
             );
             const table = new TablePrinter(
-                compareColumns(inputs.copyAccounts, screenTime),
+                compareColumns(
+                    inputs.copyAccounts,
+                    screenTime,
+                    bankroll !== null,
+                ),
             );
             table.printHeader();
-            for (const { out, plan } of rows) {
-                table.printRow(compareRow(plan, out, screenTime));
+            for (const { figures, out, plan } of rows) {
+                table.printRow(compareRow(plan, out, screenTime, figures));
             }
 
             const basisLine = describeColumnBasis(inputs.copyAccounts);
@@ -130,15 +219,31 @@ export default defineCommand({
             for (const line of describeEconomicsColumns(screenTime)) {
                 ui.muted(line);
             }
+            if (bankroll !== null) {
+                ui.muted(BANKROLL_COLUMNS_NOTE);
+            }
+            if (sort === CompareSortKey.RuinFirst) {
+                for (const line of nonPositiveEvPlanLines(rows)) {
+                    ui.muted(line);
+                }
+            }
 
             const excludedLine = describeExcludedPlans(excluded);
             if (excludedLine !== null) ui.muted(excludedLine);
 
             const best = rows[0];
             if (best) {
-                ui.success(
-                    `best by ${sort}: ${best.plan.label} (${best.plan.id.firm})`,
-                );
+                const warning =
+                    sort === CompareSortKey.RuinFirst
+                        ? ruinFirstWarning(rows)
+                        : null;
+                if (warning === null) {
+                    ui.success(
+                        `best by ${sort}: ${best.plan.label} (${best.plan.id.firm})`,
+                    );
+                } else {
+                    ui.warn(warning);
+                }
             }
         } catch (error) {
             spinner?.fail();
@@ -152,9 +257,20 @@ const FIRM_COLUMN_WIDTH = Math.max(
     ...Object.values(FirmId).map((id) => id.length),
 );
 
+export interface SplitArguments {
+    splits?: string;
+    'total-risk'?: string;
+}
+
+export interface SplitRequest {
+    readonly splits: number[];
+    readonly totalRisk: number;
+}
+
 export function compareColumns(
     copyAccounts: number,
     screenTime: null | ScreenTime = null,
+    hasBankroll = false,
 ): TableColumn[] {
     const totalled = (label: string, width: number): TableColumn => {
         const text = copyAccounts > 1 ? `${label} x${copyAccounts}` : label;
@@ -176,6 +292,12 @@ export function compareColumns(
     if (screenTime !== null) {
         columns.push({ label: '$/screen hour', width: 13 });
     }
+    if (hasBankroll) {
+        columns.push(
+            { label: 'P(no payout, bankroll)', width: 22 },
+            { label: 'P(batch < 0)', width: 12 },
+        );
+    }
     return columns;
 }
 
@@ -184,45 +306,32 @@ export function compareOutputs(
     b: RankedMetrics,
     sort: CompareSortKey,
 ): number {
-    switch (sort) {
-        case CompareSortKey.Cost: {
-            return ascending(a.costPerFundedAccount, b.costPerFundedAccount);
-        }
-        case CompareSortKey.Days: {
-            const isAPassed = hasEvalPass(a);
-            const isBPassed = hasEvalPass(b);
-            if (isAPassed && isBPassed) {
-                return ascending(a.daysToPassP50, b.daysToPassP50);
-            }
-            if (isAPassed === isBPassed) return 0;
-            return isAPassed ? -1 : 1;
-        }
-        case CompareSortKey.Hour: {
-            return ascending(b.expectedMonthlyNet, a.expectedMonthlyNet);
-        }
-        case CompareSortKey.Net: {
-            return ascending(b.expectedMonthlyNet, a.expectedMonthlyNet);
-        }
-        case CompareSortKey.Pass: {
-            return ascending(b.evalPassProbability, a.evalPassProbability);
-        }
-        case CompareSortKey.Spend: {
-            return ascending(a.expectedTotalCost, b.expectedTotalCost);
-        }
-    }
+    return compareRows({ out: a }, { out: b }, sort);
+}
+
+export function compareRankingHeadingLine(ranking: CompareRanking): string {
+    return ranking.objective === null
+        ? `objective: none. Rows are sorted by ${ranking.sort}, which is not an objective ranking.`
+        : objectiveHeadingLine(ranking.objective);
 }
 
 export function compareRow(
     plan: Plan,
     out: SimOutputs,
     screenTime: null | ScreenTime = null,
+    bankroll: BankrollRiskFigures | null = null,
 ): string[] {
-    return [plan.id.firm, plan.label, ...compareRowCells(out, screenTime)];
+    return [
+        plan.id.firm,
+        plan.label,
+        ...compareRowCells(out, screenTime, bankroll),
+    ];
 }
 
 export function compareRowCells(
     out: SimOutputs,
     screenTime: null | ScreenTime = null,
+    bankroll: BankrollRiskFigures | null = null,
 ): string[] {
     const cells = [
         formatPercent(out.evalPassProbability),
@@ -237,6 +346,12 @@ export function compareRowCells(
     ];
     if (screenTime !== null) {
         cells.push(formatScreenHour(out.expectedMonthlyNet, screenTime));
+    }
+    if (bankroll !== null) {
+        cells.push(
+            formatOptionalProbability(bankroll.noPayoutProbability),
+            formatOptionalProbability(bankroll.lossProbability),
+        );
     }
     return cells;
 }
@@ -274,11 +389,46 @@ export function describeExcludedPlans(
     return `excluded ${parts.join('; ')} (pass --include-callup to rank them)`;
 }
 
-export function rankRows<T extends { readonly out: RankedMetrics }>(
+export function nonPositiveEvPlanLines(
+    rows: readonly {
+        readonly out: RankedMetrics;
+        readonly plan: Pick<Plan, 'label'>;
+    }[],
+): string[] {
+    const labels = rows
+        .filter((row) => !hasPositiveEv(row.out))
+        .map((row) => row.plan.label);
+    return labels.length === 0
+        ? []
+        : [
+              `listed last, EV per attempt is not above zero, so ruin-first does not rank them: ${labels.join(', ')}`,
+          ];
+}
+
+export function rankRows<T extends RankableRow>(
     rows: readonly T[],
     sort: CompareSortKey,
 ): T[] {
-    return rows.toSorted((a, b) => compareOutputs(a.out, b.out, sort));
+    return rows.toSorted((a, b) => compareRows(a, b, sort));
+}
+
+export function readSplitRequest(
+    arguments_: SplitArguments,
+): null | SplitRequest {
+    const totalRisk = arguments_['total-risk'];
+    const splits = arguments_.splits;
+    if (totalRisk === undefined && splits === undefined) return null;
+    if (totalRisk === undefined || splits === undefined) {
+        throw new TypeError(
+            '--total-risk and --splits go together: pass both or neither',
+        );
+    }
+    return {
+        splits: splits
+            .split(',')
+            .map((part) => readPositiveInteger(part.trim(), 'splits')),
+        totalRisk: readPositiveNumber(totalRisk, 'total-risk'),
+    };
 }
 
 export function requireScreenTimeForSort(
@@ -292,9 +442,202 @@ export function requireScreenTimeForSort(
     }
 }
 
+export function resolveCompareRanking(
+    arguments_: CompareRankingArguments,
+): CompareRanking {
+    const { objective: objectiveFlag, sort: sortFlag } = arguments_;
+    if (objectiveFlag !== undefined && sortFlag !== undefined) {
+        throw new SortObjectiveConflict(
+            '--sort and --objective are mutually exclusive: --objective picks the ranking key itself (monthly is net, cycle is cycle, ruin-first is ruin-first)',
+        );
+    }
+    if (sortFlag === undefined) {
+        const objective = readObjective(arguments_, RankingSurface.Compare);
+        return { objective, sort: sortKeyOf(objective) };
+    }
+    const sort = z.enum(CompareSortKey).parse(sortFlag);
+    const sortObjective = objectiveFlagOf(sort);
+    return {
+        objective:
+            sortObjective === null
+                ? null
+                : readObjective(
+                      {
+                          bankroll: arguments_.bankroll,
+                          objective: sortObjective,
+                      },
+                      RankingSurface.Compare,
+                  ),
+        sort,
+    };
+}
+
+export function ruinFirstWarning(rows: readonly RankableRow[]): null | string {
+    if (rows.length === 0) return null;
+    const positive = rows.filter((row) => hasPositiveEv(row.out));
+    if (positive.length === 0) {
+        return 'no plan has EV per attempt above zero, so ruin-first ranks none';
+    }
+    return positive.some((row) => row.batchLossProbability != null)
+        ? null
+        : 'bankroll affords no attempt of any ranked plan, so ruin-first fell back to monthly net';
+}
+
+export function splitTableRow(
+    row: CopySplitRow,
+    isIndistinguishable: boolean,
+): string[] {
+    if (row.kind === CopySplitRowKind.Refused) {
+        return [
+            String(row.splitCount),
+            formatCurrency(row.riskPerAccount, 2),
+            'refused',
+            row.reason,
+        ];
+    }
+    const { placement } = row;
+    return [
+        String(row.splitCount),
+        formatCurrency(row.riskPerAccount, 2),
+        placement === null ? NOT_APPLICABLE : String(placement.contracts),
+        placement === null
+            ? NOT_APPLICABLE
+            : formatCurrency(placement.placedRiskPerAccount, 2),
+        placement === null
+            ? NOT_APPLICABLE
+            : formatCurrency(
+                  placement.placedRiskPerAccount * row.splitCount,
+                  2,
+              ),
+        formatPercent(row.passRate),
+        formatDaysToPass(
+            { evalPassProbability: row.passRate },
+            row.daysToPassP50,
+            0,
+        ),
+        formatCurrency(row.totalFees),
+        formatUncertainCurrency(row.totalMonthlyNet),
+        formatUncertainCurrency(row.cycleNet),
+        row.netPerFeeDollar === null
+            ? NOT_APPLICABLE
+            : row.netPerFeeDollar.toFixed(2),
+        isIndistinguishable ? 'within noise' : '',
+    ];
+}
+
+const BANKROLL_COLUMNS_NOTE =
+    'P(no payout, bankroll) and P(batch < 0) are priced at the attempts the bankroll affords (bankroll / cost per attempt), per plan, on the shared seed';
+
+export const SPLIT_COLUMNS: readonly TableColumn[] = [
+    { label: 'accounts', width: 8 },
+    { label: 'risk/account', width: 12 },
+    { label: 'eval contracts', width: 14 },
+    { label: 'placed/account', width: 14 },
+    { label: 'placed group', width: 12 },
+    { label: 'eval pass', width: 9 },
+    { label: 'days P50', width: 8 },
+    { label: 'total fees', width: 10 },
+    { label: 'monthly net (group)', width: 24 },
+    { label: 'cycle net (group)', width: 18 },
+    { label: 'net/fee $', width: 9 },
+    { align: 'left', label: 'vs best', width: 12 },
+];
+
 function ascending(a: number, b: number): number {
     if (a === b) return 0;
     return a < b ? -1 : 1;
+}
+
+function assertSplitInputs(
+    inputs: TradingInputs,
+    ranking: CompareRanking,
+): SizingObjective {
+    if (inputs.copyAccounts !== 1) {
+        throw new TypeError(
+            '--copy-accounts is set by --splits: leave it at 1 when comparing splits',
+        );
+    }
+    if (inputs.ladder !== null) {
+        throw new TypeError(
+            '--ladder sizes each trade by rung, not by --total-risk: drop --ladder to compare splits',
+        );
+    }
+    if (ranking.objective === null) {
+        throw new TypeError(
+            `--sort ${ranking.sort} ranks plans: with --total-risk and --splits use --objective monthly or cycle`,
+        );
+    }
+    return ranking.objective;
+}
+
+function compareOptionalAscending(a: null | number, b: null | number): number {
+    if (a === null || b === null) {
+        return a === b ? 0 : a === null ? 1 : -1;
+    }
+    return ascending(a, b);
+}
+
+function compareRows(
+    a: RankableRow,
+    b: RankableRow,
+    sort: CompareSortKey,
+): number {
+    switch (sort) {
+        case CompareSortKey.Cost: {
+            return ascending(
+                a.out.costPerFundedAccount,
+                b.out.costPerFundedAccount,
+            );
+        }
+        case CompareSortKey.Cycle: {
+            return ascending(b.out.expectedNet, a.out.expectedNet);
+        }
+        case CompareSortKey.Days: {
+            const isAPassed = hasEvalPass(a.out);
+            const isBPassed = hasEvalPass(b.out);
+            if (isAPassed && isBPassed) {
+                return ascending(a.out.daysToPassP50, b.out.daysToPassP50);
+            }
+            if (isAPassed === isBPassed) return 0;
+            return isAPassed ? -1 : 1;
+        }
+        case CompareSortKey.Hour:
+        case CompareSortKey.Net: {
+            return ascending(
+                b.out.expectedMonthlyNet,
+                a.out.expectedMonthlyNet,
+            );
+        }
+        case CompareSortKey.Pass: {
+            return ascending(
+                b.out.evalPassProbability,
+                a.out.evalPassProbability,
+            );
+        }
+        case CompareSortKey.RuinFirst: {
+            return compareRuinFirst(a, b);
+        }
+        case CompareSortKey.Spend: {
+            return ascending(a.out.expectedTotalCost, b.out.expectedTotalCost);
+        }
+    }
+}
+
+function compareRuinFirst(a: RankableRow, b: RankableRow): number {
+    const positivity = ascending(
+        Number(!hasPositiveEv(a.out)),
+        Number(!hasPositiveEv(b.out)),
+    );
+    if (positivity !== 0) return positivity;
+    const loss = hasPositiveEv(a.out)
+        ? compareOptionalAscending(
+              a.batchLossProbability ?? null,
+              b.batchLossProbability ?? null,
+          )
+        : 0;
+    return (
+        loss || ascending(b.out.expectedMonthlyNet, a.out.expectedMonthlyNet)
+    );
 }
 
 function formatNoPayoutProbability(
@@ -303,6 +646,10 @@ function formatNoPayoutProbability(
     const value = noPayoutProbabilityFromDistribution(
         out.fundedPayoutCountDistribution,
     );
+    return value === null ? NOT_APPLICABLE : formatPercent(value);
+}
+
+function formatOptionalProbability(value: null | number): string {
     return value === null ? NOT_APPLICABLE : formatPercent(value);
 }
 
@@ -319,3 +666,135 @@ function formatScreenHour(
         ? NOT_APPLICABLE
         : formatCurrency(result.value.value);
 }
+
+function formatUncertainCurrency(value: {
+    readonly standardError: null | number;
+    readonly value: number;
+}): string {
+    return value.standardError === null
+        ? formatCurrency(value.value)
+        : `${formatCurrency(value.value)} (SE ${formatCurrency(value.standardError)})`;
+}
+
+function hasPositiveEv(
+    out: Pick<SimOutputs, 'expectedNetPerAttempt'>,
+): boolean {
+    return out.expectedNetPerAttempt > 0;
+}
+
+function objectiveFlagOf(sort: CompareSortKey): null | ObjectiveFlag {
+    switch (sort) {
+        case CompareSortKey.Cost:
+        case CompareSortKey.Days:
+        case CompareSortKey.Hour:
+        case CompareSortKey.Pass:
+        case CompareSortKey.Spend: {
+            return null;
+        }
+        case CompareSortKey.Cycle: {
+            return ObjectiveFlag.CycleCash;
+        }
+        case CompareSortKey.Net: {
+            return ObjectiveFlag.MonthlyNet;
+        }
+        case CompareSortKey.RuinFirst: {
+            return ObjectiveFlag.RuinFirst;
+        }
+    }
+}
+
+function printSplitComparison(
+    plan: Plan,
+    inputs: TradingInputs,
+    request: SplitRequest,
+    result: CopySplitResult,
+): void {
+    ui.heading(
+        `${plan.label} · total risk ${formatCurrency(request.totalRisk)} per trade · splits ${request.splits.join(', ')} · seed ${inputs.seed} · ${result.trialsPerSplit} trials per split`,
+    );
+    ui.muted(`  ${objectiveHeadingLine(result.objective)}`);
+    for (const line of result.basisLines) {
+        ui.muted(`  ${line}`);
+    }
+    if (result.note !== null) ui.warn(result.note);
+    const table = new TablePrinter([...SPLIT_COLUMNS]);
+    table.printHeader();
+    const indistinguishable = new Set(result.indistinguishableSplits);
+    for (const row of result.rows) {
+        table.printRow(
+            splitTableRow(row, indistinguishable.has(row.splitCount)),
+        );
+    }
+    ui.muted(SPLIT_BASIS_NOTE);
+    if (indistinguishable.size > 0) {
+        ui.muted(SPLIT_NOISE_NOTE);
+    }
+}
+
+function runSplitComparison(
+    plan: Plan,
+    inputs: TradingInputs,
+    ranking: CompareRanking,
+    request: SplitRequest,
+): void {
+    const objective = assertSplitInputs(inputs, ranking);
+    const base = inputs.toSimInputs(plan);
+    const result = runCopySplit(
+        base,
+        splitEnginePolicy(plan, inputs),
+        request.totalRisk,
+        request.splits,
+        objective,
+    );
+    printSplitComparison(plan, inputs, request, result);
+}
+
+function sortKeyOf(objective: SizingObjective): CompareSortKey {
+    switch (objective) {
+        case SizingObjective.CycleCash: {
+            return CompareSortKey.Cycle;
+        }
+        case SizingObjective.MonthlyNet: {
+            return CompareSortKey.Net;
+        }
+        case SizingObjective.RuinFirst: {
+            return CompareSortKey.RuinFirst;
+        }
+    }
+}
+
+function splitEnginePolicy(plan: Plan, inputs: TradingInputs): EnginePolicy {
+    const hasStop =
+        inputs.instrument !== undefined && inputs.stopPoints !== undefined;
+    const { policy } = buildEnginePolicy({
+        accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
+        fundedHorizonDays: inputs.fundedHorizonDays,
+        measuredRebuyLag:
+            inputs.rebuyLagDays > 0
+                ? { days: inputs.rebuyLagDays, samples: 1 }
+                : null,
+        plan,
+        positionSizing: hasStop
+            ? {
+                  instrument: inputs.instrument,
+                  stopPoints: points(inputs.stopPoints),
+              }
+            : null,
+        rulebook: DEFAULT_RULEBOOK,
+    });
+    return enginePolicySchema.parse({
+        ...policy,
+        payoutRequestOverride:
+            inputs.payoutRequestSize ??
+            DEFAULT_RULEBOOK.payout.requestCents / CENTS_PER_DOLLAR,
+        retainedCushionRequest:
+            inputs.minRetainedCushion > 0
+                ? inputs.minRetainedCushion
+                : policy.retainedCushionRequest,
+    });
+}
+
+const SPLIT_BASIS_NOTE =
+    'monthly and cycle net, total fees and net/fee $ are for the whole group of accounts (cycle net / total fees); eval pass and days P50 are per account; eval contracts and placed risk are the eval-phase placement at the eval contract limit; every split runs the same seed and the same trial count';
+
+const SPLIT_NOISE_NOTE = `rows marked within noise differ from the best row by less than ${COPY_SPLIT_NOISE_SIGMAS} combined standard errors: do not read their order as a ranking`;

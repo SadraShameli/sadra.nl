@@ -101,6 +101,39 @@ describe('runNextPayoutProjection (PT-32)', () => {
         });
         expect(projection.accountLostBeforeFirstPayoutProbability).toBe(0);
         expect(projection.firstPayoutCausedBreachProbability).toBe(0);
+        expect(projection.alreadyEligible).toBe(true);
+    });
+
+    it('reports an account that is not eligible yet as not already eligible, even when every trial pays later (PT-68b, F-V18)', () => {
+        const plan = rapidEodPlan();
+        const state = freshFundedState(plan);
+        const tracker = newFundedCycleTracker(state);
+        const seed = fundedCycleSeedFromTracker(plan, state, tracker);
+        const projection = runNextPayoutProjection(plan, {
+            base: baseFor({ trials: 1, winrate: 1 }),
+            policy: policyFor(plan),
+            source: AdviceSource.NextPayoutProjection,
+            start: { phase: TradingPhase.Funded, seed, state },
+        });
+        expect(projection.payingTrials).toBe(projection.trials);
+        expect(projection.expectedCalendarDaysToFirstPayout.value).toBeGreaterThan(
+            0,
+        );
+        expect(projection.alreadyEligible).toBe(false);
+    });
+
+    it('reports a never-paying account as not already eligible', () => {
+        const plan = rapidEodPlan();
+        const state = freshFundedState(plan);
+        const tracker = newFundedCycleTracker(state);
+        const seed = fundedCycleSeedFromTracker(plan, state, tracker);
+        const projection = runNextPayoutProjection(plan, {
+            base: baseFor({ fundedHorizonDays: 3, trials: 10, winrate: 0 }),
+            policy: policyFor(plan),
+            source: AdviceSource.NextPayoutProjection,
+            start: { phase: TradingPhase.Funded, seed, state },
+        });
+        expect(projection.alreadyEligible).toBe(false);
     });
 
     it('is deterministic per seed: the same request gives the same result', () => {

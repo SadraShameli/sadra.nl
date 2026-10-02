@@ -22,9 +22,11 @@ import {
 } from '~/lib/prop-calculator/core';
 
 import {
+    LiveTriggerScope,
     type PayoutBlockReason,
     payoutBlockReasonFromGate,
     payoutPendingBlockReason,
+    type PolicyCitation,
     wouldTriggerLiveBlockReason,
 } from './PayoutBlockReason';
 
@@ -76,8 +78,10 @@ export interface EligiblePayoutReadiness {
 
 export interface LiveTriggerCountLimit {
     readonly firmTotalCap: null | number;
+    readonly firmTotalSource?: null | PolicyCitation;
     readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly perAccountCap: null | number;
+    readonly perAccountSource?: null | PolicyCitation;
 }
 
 export interface NoClosedFormWait {
@@ -176,6 +180,27 @@ export function evaluateDocumentedPayout(
     });
 }
 
+export function isCycleEndingGate(gate: PayoutGate): boolean {
+    switch (gate) {
+        case PayoutGate.AccountConcluded:
+        case PayoutGate.FundedConsistency:
+        case PayoutGate.LadderExhausted:
+        case PayoutGate.LifetimeDollarCapReached: {
+            return true;
+        }
+        case PayoutGate.BelowFullRequest:
+        case PayoutGate.BelowMinPayoutProfit:
+        case PayoutGate.BelowMinRequest:
+        case PayoutGate.DayGateNotMet:
+        case PayoutGate.EarlyWithdrawalBelowFloor:
+        case PayoutGate.EarlyWithdrawalBelowMinimum:
+        case PayoutGate.LadderStepUnaffordable:
+        case PayoutGate.NothingWithdrawable: {
+            return false;
+        }
+    }
+}
+
 export function liveTriggerBlockReasonFor(
     payoutsIssued: number,
     limit: LiveTriggerCountLimit | undefined,
@@ -186,7 +211,9 @@ export function liveTriggerBlockReasonFor(
         payoutsIssued + 1 >= limit.perAccountCap
     ) {
         return wouldTriggerLiveBlockReason({
-            paidPayoutsSinceLastLiveAccount: payoutsIssued,
+            payoutsTaken: payoutsIssued,
+            scope: LiveTriggerScope.Account,
+            ...(limit.perAccountSource && { source: limit.perAccountSource }),
             triggerAtPayoutCount: limit.perAccountCap,
         });
     }
@@ -196,8 +223,9 @@ export function liveTriggerBlockReasonFor(
         limit.paidPayoutsSinceLastLiveAccount + 1 >= limit.firmTotalCap
     ) {
         return wouldTriggerLiveBlockReason({
-            paidPayoutsSinceLastLiveAccount:
-                limit.paidPayoutsSinceLastLiveAccount,
+            payoutsTaken: limit.paidPayoutsSinceLastLiveAccount,
+            scope: LiveTriggerScope.Firm,
+            ...(limit.firmTotalSource && { source: limit.firmTotalSource }),
             triggerAtPayoutCount: limit.firmTotalCap,
         });
     }
@@ -382,12 +410,26 @@ export function payoutReadiness(
             const isCausedByPendingPayout =
                 netState !== state &&
                 evaluate(state).kind === PayoutEvaluationKind.Eligible;
+            const wait = waitFor(plan, netState, tracker, evaluation.gate);
+            if (isCausedByPendingPayout) {
+                return {
+                    kind: PayoutReadinessKind.Blocked,
+                    reason: payoutPendingBlockReason(),
+                    wait,
+                };
+            }
+            const liveTriggerReason = isCycleEndingGate(evaluation.gate)
+                ? null
+                : liveTriggerBlockReasonFor(
+                      tracker.payoutsIssued,
+                      options.liveTrigger,
+                  );
             return {
                 kind: PayoutReadinessKind.Blocked,
-                reason: isCausedByPendingPayout
-                    ? payoutPendingBlockReason()
-                    : payoutBlockReasonFromGate(evaluation.gate),
-                wait: waitFor(plan, netState, tracker, evaluation.gate),
+                reason:
+                    liveTriggerReason ??
+                    payoutBlockReasonFromGate(evaluation.gate),
+                wait,
             };
         }
         case PayoutEvaluationKind.Eligible: {

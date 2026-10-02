@@ -6,7 +6,12 @@ import {
     AlertSubjectKind,
     LargeDayLossRule,
 } from '~/lib/prop-accounts/alerts';
-import { AccountStage, AccountStatus, usdCents } from '~/lib/prop-accounts/core';
+import {
+    AccountStage,
+    AccountStatus,
+    usdCents,
+} from '~/lib/prop-accounts/core';
+import { addIsoDays } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
     type RulebookParameters,
@@ -36,7 +41,7 @@ function fundedAt(extraProfit: number) {
     return funded;
 }
 
-function fundedLoss(asOf = '2026-09-23') {
+function fundedLoss(asOf = '2026-09-23', previousAsOf = addIsoDays(asOf, -1)) {
     const plan = mffProPlan();
     const account = accountFor(
         { firmId: plan.id.firm, plan },
@@ -47,7 +52,7 @@ function fundedLoss(asOf = '2026-09-23') {
         entry: reconstructedEntry(account.id, plan, fundedAt(1000), {
             asOf,
             previous: fundedAt(20_000),
-            previousAsOf: '2026-09-18',
+            previousAsOf,
         }),
     };
 }
@@ -106,7 +111,7 @@ describe('LargeDayLossRule', () => {
         expect(alerts).toHaveLength(1);
         expect(alerts[0]?.message).toContain('2 recent days');
         expect(alerts[0]?.subject).toEqual({
-            accountIds: expect.arrayContaining([first.account.id]),
+            accountIds: [first.account.id],
             kind: AlertSubjectKind.Portfolio,
         });
     });
@@ -123,18 +128,71 @@ describe('LargeDayLossRule', () => {
         ).toEqual([]);
     });
 
-    it('is silent without an available bankroll, because the share cannot be computed', () => {
+    it('says the limit cannot be checked, instead of staying silent, when a loss was measured but there is no available bankroll', () => {
         const { account, entry } = fundedLoss();
-        for (const available of [null, usdCents(0)]) {
-            expect(
-                alertsOf(rule, {
-                    accounts: [account],
-                    accountStates: [entry],
-                    availableBankrollCents: available,
-                    rulebook: rulebookWithFraction(0.0001),
-                }),
-            ).toEqual([]);
+        for (const available of [null, usdCents(0), usdCents(-5000)]) {
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                availableBankrollCents: available,
+                rulebook: rulebookWithFraction(0.0001),
+            });
+            expect(alerts).toHaveLength(1);
+            const [alert] = alerts;
+            expect(alert?.kind).toBe(AlertKind.LargeDayLoss);
+            expect(alert?.severity).toBe(AlertSeverity.Info);
+            expect(alert?.subject).toEqual({
+                accountIds: [account.id],
+                kind: AlertSubjectKind.Portfolio,
+            });
+            expect(alert?.message).toContain('no available bankroll');
+            expect(alert?.message).toContain('2026-09-23');
         }
+    });
+
+    it('stays off without a fraction and silent without a measured loss when there is no bankroll', () => {
+        const { account, entry } = fundedLoss();
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                availableBankrollCents: null,
+                rulebook: rulebookWithFraction(null),
+            }),
+        ).toEqual([]);
+        expect(
+            alertsOf(rule, {
+                accounts: [],
+                accountStates: [],
+                availableBankrollCents: null,
+                rulebook: rulebookWithFraction(0.01),
+            }),
+        ).toEqual([]);
+    });
+
+    it('does not turn a loss across several weeks into a day loss', () => {
+        const { account, entry } = fundedLoss('2026-09-23', '2026-09-02');
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                availableBankrollCents: usdCents(100_000),
+                rulebook: rulebookWithFraction(0.0001),
+            }),
+        ).toEqual([]);
+    });
+
+    it('names the basis of a funded loss as withdrawable, never as expected value', () => {
+        const { account, entry } = fundedLoss();
+        const [alert] = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [entry],
+            availableBankrollCents: usdCents(100_000),
+            rulebook: rulebookWithFraction(0.05),
+        });
+        expect(alert?.message).toContain('of withdrawable on funded accounts');
+        expect(alert?.message).toContain('retained cushion');
+        expect(alert?.message).not.toContain('expected value');
     });
 
     it('ignores a loss day older than a week so the alert clears itself', () => {
@@ -174,6 +232,7 @@ describe('LargeDayLossRule', () => {
         expect(alerts).toHaveLength(1);
         expect(alerts[0]?.message).toContain('approximation');
         expect(alerts[0]?.message).toContain('retry fee');
+        expect(alerts[0]?.message).toContain('of estimated eval value');
     });
 
     it('does not count an ended account', () => {

@@ -29,12 +29,24 @@ export {
     type StaleAdviceStaleness,
 } from './AdviceStaleness';
 export {
+    type AggressiveOptimumChurnInput,
+    aggressiveOptimumChurnReasons,
+    documentedPeakRiskOf,
+    peakRiskOf,
+} from './AggressiveOptimumChurn';
+export {
     type Assumption,
     AssumptionBias,
+    assumptionKindText,
     assumptionSchema,
+    assumptionText,
+    type AssumptionTextKind,
     type InputAssumption,
     inputAssumption,
     type InputAssumptionKind,
+    ladderStepWidenedAssumption,
+    type LadderStepWidenedAssumption,
+    ladderStepWidenedText,
     type SizingRuleAssumption,
     sizingRuleAssumption,
 } from './Assumption';
@@ -90,9 +102,19 @@ export {
     DAY_STOP_REASON_TEXT,
     differenceReasonHeadline,
     differenceReasonText,
+    personalPayoutOverrideWarningText,
+    RETAINED_CUSHION_BASIS_TEXT,
     SIZING_ASSUMPTION_TEXT,
     SIZING_CONSTRAINT_TEXT,
 } from './DifferenceReasons';
+export {
+    documentedPayoutRequest,
+    type DocumentedPayoutRequest,
+} from './DocumentedPayoutRequest';
+export {
+    documentedRetainedCushionResolution,
+    type DocumentedRetainedCushionResolution,
+} from './DocumentedRetainedCushion';
 export { DocumentedRule, RulebookRule } from './DocumentedRule';
 export {
     type CappedAmount,
@@ -138,8 +160,12 @@ export {
     type FundedFromStateEngineOptimumResult,
     type FundedSweepEngineOptimumResult,
     type LadderEngineOptimumResult,
+    LadderEngineOptimumResultKind,
     type LadderGridRefusal,
     LadderRefusalKind,
+    ladderRefusalText,
+    type LadderRefusedEngineOptimumResult,
+    type LadderScoredEngineOptimumResult,
     type NextPayoutProjectionEngineOptimumResult,
     type PayoutSizeSweepEngineOptimumResult,
     runEngineOptimum,
@@ -160,6 +186,7 @@ export {
     EvalSizingAdvisor,
     type EvalSizingAdvisorInput,
 } from './EvalSizingAdvisor';
+export { fundedConsistencyCeiling } from './FundedConsistencyCeiling';
 export { FundedFixedRiskRule } from './FundedFixedRiskRule';
 export {
     fundedCycleSeedFromTracker,
@@ -219,16 +246,37 @@ export {
     type NextPayoutProjection,
     runNextPayoutProjection,
 } from './NextPayoutProjection';
+export {
+    NEXT_PAYOUT_AMONG_PAYING_TEXT,
+    NEXT_PAYOUT_ELIGIBILITY_CHECK_TEXT,
+    NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
+    NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+    NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
+    nextPayoutEvidenceText,
+    NextPayoutTimingKind,
+    nextPayoutTimingOf,
+} from './NextPayoutTiming';
 export { NextTradeRiskVerdict } from './NextTradeRiskVerdict';
-export { type PayoutAdvice, payoutAdvice } from './PayoutAdvice';
+export {
+    LiveTriggerCoverage,
+    type LiveTriggerLimits,
+    liveTriggerLimitsFor,
+    type LiveTriggerRuleCaps,
+    liveTriggerRuleCaps,
+    type PayoutAdvice,
+    payoutAdvice,
+} from './PayoutAdvice';
 export {
     type GatePayoutBlockReason,
+    liveTriggerCountText,
     type LiveTriggerInfo,
+    LiveTriggerScope,
     type PayoutBlockReason,
     payoutBlockReasonFromGate,
     PayoutBlockReasonKind,
     type PayoutPendingBlockReason,
     payoutPendingBlockReason,
+    type PolicyCitation,
     type WouldTriggerLiveBlockReason,
     wouldTriggerLiveBlockReason,
 } from './PayoutBlockReason';
@@ -265,6 +313,7 @@ export {
 export {
     firmMinimumNotice,
     type FundedPayoutRuleContext,
+    fundedRetainedCushionResolution,
     type LivePayoutRuleContext,
     PayoutRequestRule,
     type PayoutRuleContext,
@@ -293,6 +342,12 @@ export {
     type PersonalCaps,
     personalCapsSchema,
 } from './PersonalCaps';
+export {
+    advisorPlaceableMinimum,
+    floorToPlaceableUnit,
+    placeableMinimumFor,
+    type SizingPlacement,
+} from './PlaceableMinimum';
 export * from './policy';
 export {
     type ReconstructedAccount,

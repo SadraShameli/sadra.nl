@@ -9,6 +9,7 @@ import {
     type RungSizing,
     type TradingFirm,
 } from '~/lib/prop-calculator';
+import { type SizingObjective } from '~/lib/prop-calculator/advisor';
 
 export enum ChartType {
     DaysToPassHistogram = 'days-to-pass-hist',
@@ -51,9 +52,11 @@ export interface CalculatorState {
     labScenarios: LabScenario[];
     linkActivationDiscount: boolean;
     linkParameters: LinkParameterOutcomes;
+    liveTransferHazard: number;
     maxAttempts: number;
     maxEvalDays: number;
     monthlySubscriptionDiscountPercent: number;
+    objective: SizingObjective;
     payoutRequestSize: null | number;
     plan: Plan;
     portfolio: PortfolioEntry[];

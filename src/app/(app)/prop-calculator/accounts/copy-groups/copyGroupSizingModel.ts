@@ -1,3 +1,5 @@
+import { exposureUnavailableText } from '~/app/(app)/prop-calculator/accounts/_components/accountStateReasonText';
+import { readinessOverridesOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import { type CopyGroupRow } from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
 import {
     accountStatesForRows,
@@ -8,13 +10,9 @@ import {
 import {
     type AccountExposureUnavailableReason,
     AccountStateKind,
-    AccountStateUnavailableKind,
-    type AccountStateUnavailableReason,
     type CopyGroupExposure,
-    describeUnresolvedPlan,
     type ExposureEntry,
     exposureOf,
-    ExposureUnavailableKind,
     isActiveAccount,
     type LedgerEventRow,
 } from '~/lib/prop-accounts';
@@ -24,14 +22,20 @@ import {
     type CopyGroupSizingResult,
     CopyGroupSizingResultKind,
     ReconstructedLiveKind,
-    ReconstructionErrorReason,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
+
+import {
+    type CopyGroupSimulationMemberInput,
+    type CopyGroupSimulationPlan,
+    copyGroupSimulationPlanOf,
+} from './copyGroupSimulationModel';
 
 export interface CopyGroupSizingSection {
     readonly asOf: string;
     readonly exposure: CopyGroupExposure | null;
     readonly result: CopyGroupSizingResult;
+    readonly simulation: CopyGroupSimulationPlan;
     readonly unsizedMembers: readonly UnsizedCopyGroupMember[];
 }
 
@@ -90,6 +94,7 @@ export function copyGroupSizingSectionsOf(
             };
         }),
     );
+    const overrides = readinessOverridesOf(accounts);
     const unavailableByAccountId = new Map(
         exposure.unavailable.map((row) => [row.accountId, row.reason]),
     );
@@ -97,6 +102,7 @@ export function copyGroupSizingSectionsOf(
     const sections = new Map<string, CopyGroupSizingSection>();
     for (const group of groups) {
         const members: CopyGroupSizingMember[] = [];
+        const simulationMembers: CopyGroupSimulationMemberInput[] = [];
         const unsizedMembers: UnsizedCopyGroupMember[] = [];
         for (const member of group.members) {
             const state = stateByAccountId.get(member.id);
@@ -117,81 +123,41 @@ export function copyGroupSizingSectionsOf(
                 });
                 continue;
             }
-            members.push({
-                account: state.state.latest.reconstructed,
+            const account = state.state.latest.reconstructed;
+            members.push({ account, id: member.id, label: member.label });
+            simulationMembers.push({
+                account,
                 id: member.id,
                 label: member.label,
+                override: overrides.get(member.id),
+                plan: state.state.plan,
             });
         }
+        const result = copyGroupSizing({ members, rulebook });
         sections.set(group.group.id, {
             asOf: today,
             exposure:
                 exposure.groups.find(
                     (row) => row.copyGroupId === group.group.id,
                 ) ?? null,
-            result: copyGroupSizing({ members, rulebook }),
+            result,
+            simulation: copyGroupSimulationPlanOf({
+                leftOutLabels: unsizedMembers.map((member) => member.label),
+                members: simulationMembers,
+                result,
+                rulebook,
+            }),
             unsizedMembers,
         });
     }
     return sections;
 }
 
-function reconstructionErrorText(reason: ReconstructionErrorReason): string {
-    switch (reason) {
-        case ReconstructionErrorReason.EodPeakRequired: {
-            return 'its EOD-trailing drawdown needs the highest EOD balance on the snapshot';
-        }
-        case ReconstructionErrorReason.IntradayPeakRequired: {
-            return 'its intraday-trailing drawdown needs the highest intraday balance on the snapshot';
-        }
-    }
-}
-
-function reconstructionReasonText(
-    account: OverviewAccountRow | undefined,
-    reason: AccountStateUnavailableReason,
-): string {
-    switch (reason.kind) {
-        case AccountStateUnavailableKind.ImplausibleSnapshot: {
-            return reason.issues
-                .map((issue) => issue.message.replace(/\.+$/, ''))
-                .join('; ');
-        }
-        case AccountStateUnavailableKind.LedgerOnly: {
-            return 'it is a ledger-only account with no state to reconstruct';
-        }
-        case AccountStateUnavailableKind.NoSnapshot: {
-            return 'it has no snapshot yet';
-        }
-        case AccountStateUnavailableKind.ReconstructionError: {
-            return reconstructionErrorText(reason.reason);
-        }
-        case AccountStateUnavailableKind.UnresolvedPlan: {
-            return account === undefined
-                ? 'its plan could not be resolved'
-                : describeUnresolvedPlan(
-                      {
-                          ...account,
-                          firmId: account.firmId ?? 'unknown',
-                          planSerial: account.planSerial ?? 'unknown',
-                      },
-                      reason.reason,
-                  );
-        }
-    }
-}
-
 function unsizedReasonOf(
     account: OverviewAccountRow | undefined,
     reason: AccountExposureUnavailableReason | undefined,
 ): string {
-    if (reason === undefined) return 'its account state could not be checked';
-    switch (reason.kind) {
-        case ExposureUnavailableKind.LiveNotModeled: {
-            return 'sizing is not modeled yet for live accounts';
-        }
-        case ExposureUnavailableKind.Reconstruction: {
-            return reconstructionReasonText(account, reason.reason);
-        }
-    }
+    return reason === undefined
+        ? 'its account state could not be checked'
+        : exposureUnavailableText(account, reason);
 }

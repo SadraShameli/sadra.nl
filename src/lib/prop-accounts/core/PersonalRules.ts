@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { positiveUsdCentsSchema, type UsdCents } from './UsdCents';
+import { type Dollars } from '~/lib/prop-calculator';
+
+import {
+    positiveUsdCentsSchema,
+    type UsdCents,
+    usdCentsToDollars,
+} from './UsdCents';
 
 export const MAX_PERSONAL_TRADES_PER_DAY = 20;
 
@@ -26,3 +32,10 @@ export const personalRulesSchema = z.object({
     payoutRequestOverrideCents: positiveUsdCentsSchema.optional(),
     retainedCushionCents: positiveUsdCentsSchema.optional(),
 }) satisfies z.ZodType<PersonalRules>;
+
+export function personalMaxRiskOf(
+    personalRules: null | PersonalRules,
+): Dollars | null {
+    const cents = personalRules?.maxRiskPerTradeCents;
+    return cents === undefined ? null : usdCentsToDollars(cents);
+}

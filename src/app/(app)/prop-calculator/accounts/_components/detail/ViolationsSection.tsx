@@ -60,10 +60,241 @@ import {
     type ViolationFormValues,
 } from './violationForm';
 
+export type ViolationDecisionOption = Pick<DecisionRow, 'decidedOn' | 'id'>;
+
 type DecisionRow =
     RouterOutputs['propAccounts']['decision']['listForAccount'][number];
 
 type ViolationRow = RouterOutputs['propAccounts']['violation']['list'][number];
+
+export function ViolationForm({
+    accountId,
+    decisions,
+    editing = null,
+    initial,
+    isDecisionLocked = false,
+    onDone,
+    onFailure,
+}: {
+    readonly accountId: string;
+    readonly decisions: readonly ViolationDecisionOption[];
+    readonly editing?: null | ViolationRow;
+    readonly initial?: ViolationFormValues;
+    readonly isDecisionLocked?: boolean;
+    readonly onDone: () => void;
+    readonly onFailure: (error: unknown) => void;
+}) {
+    const utilities = api.useUtils();
+    const create = api.propAccounts.violation.create.useMutation();
+    const update = api.propAccounts.violation.update.useMutation();
+    const schema = violationFormSchema(accountId);
+    const today = useTodayIsoDate();
+    const emptyValues = emptyViolationFormValues(today);
+    const form = useForm<ViolationFormValues>({
+        defaultValues:
+            editing === null
+                ? (initial ?? emptyValues)
+                : violationEditFormValues(editing),
+        resolver: zodResolver(schema, undefined, { raw: true }),
+    });
+    const { setFocus } = form;
+    const isEditing = editing !== null;
+    const isOpenedOnPurpose = isEditing || initial !== undefined;
+    useFollowToday({
+        isEnabled: !isOpenedOnPurpose,
+        read: () => form.getValues('occurredOn'),
+        today,
+        write: (day) => {
+            form.resetField('occurredOn', { defaultValue: day });
+        },
+    });
+    const kind = form.watch('kind');
+
+    useEffect(() => {
+        if (isOpenedOnPurpose) setFocus('kind');
+    }, [isOpenedOnPurpose, setFocus]);
+
+    const save = async (values: ViolationFormValues) => {
+        const parsed = schema.safeParse(values);
+        if (!parsed.success) return;
+        const draft = parsed.data;
+        try {
+            if (editing === null) {
+                await create.mutateAsync(draft);
+                toast.success('Violation recorded');
+            } else {
+                await update.mutateAsync({
+                    costCents: draft.costCents,
+                    decisionId: draft.decisionId,
+                    id: editing.id,
+                    kind: draft.kind,
+                    note: draft.note,
+                    occurredOn: draft.occurredOn,
+                });
+                toast.success('Violation saved');
+            }
+            form.reset(emptyValues);
+            onDone();
+        } catch (error) {
+            onFailure(error);
+        } finally {
+            await utilities.propAccounts.invalidate();
+        }
+    };
+
+    return (
+        <Form {...form}>
+            <form
+                aria-label={formLabelOf(editing, initial)}
+                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                noValidate
+                onSubmit={(event) => {
+                    void form.handleSubmit(save)(event);
+                }}
+            >
+                <FormField
+                    control={form.control}
+                    name="kind"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Kind</FormLabel>
+                            <Select
+                                onValueChange={(next) => {
+                                    const parsed = z
+                                        .enum(RuleViolationKind)
+                                        .safeParse(next).data;
+                                    if (parsed !== undefined) {
+                                        field.onChange(parsed);
+                                    }
+                                }}
+                                value={field.value}
+                            >
+                                <FormControl>
+                                    <SelectTrigger ref={field.ref}>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {Object.values(RuleViolationKind).map(
+                                        (candidate) => (
+                                            <SelectItem
+                                                key={candidate}
+                                                value={candidate}
+                                            >
+                                                {ruleViolationKindLabel(
+                                                    candidate,
+                                                )}
+                                            </SelectItem>
+                                        ),
+                                    )}
+                                </SelectContent>
+                            </Select>
+                            <FormDescription>
+                                {violationKindHelpText(kind)}
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="occurredOn"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Date</FormLabel>
+                            <FormControl>
+                                <Input type="date" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="costCents"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Cost</FormLabel>
+                            <FormControl>
+                                <Input
+                                    inputMode="decimal"
+                                    placeholder="0.00"
+                                    {...field}
+                                />
+                            </FormControl>
+                            <FormDescription>
+                                Leave blank when the dollar cost is not known. A
+                                negative amount means the violation still won
+                                money.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="decisionId"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Linked decision</FormLabel>
+                            <Select
+                                disabled={isDecisionLocked}
+                                onValueChange={field.onChange}
+                                value={field.value}
+                            >
+                                <FormControl>
+                                    <SelectTrigger ref={field.ref}>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value={NO_LINKED_DECISION}>
+                                        No linked decision
+                                    </SelectItem>
+                                    {decisions.map((decision) => (
+                                        <SelectItem
+                                            key={decision.id}
+                                            value={decision.id}
+                                        >
+                                            {`Decision on ${decision.decidedOn}`}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="note"
+                    render={({ field }) => (
+                        <FormItem className="sm:col-span-2 lg:col-span-3">
+                            <FormLabel>Note</FormLabel>
+                            <FormControl>
+                                <Textarea rows={2} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-3">
+                    <Button
+                        disabled={create.isPending || update.isPending}
+                        type="submit"
+                    >
+                        {editing === null ? 'Add violation' : 'Save violation'}
+                    </Button>
+                    {isOpenedOnPurpose && (
+                        <Button onClick={onDone} type="button" variant="ghost">
+                            {isEditing ? 'Cancel edit' : 'Cancel'}
+                        </Button>
+                    )}
+                </div>
+            </form>
+        </Form>
+    );
+}
 
 export function ViolationsSection({
     accountId,
@@ -195,235 +426,20 @@ export function ViolationsSection({
     );
 }
 
-function ViolationForm({
-    accountId,
-    decisions,
-    editing,
-    onDone,
-    onFailure,
-}: {
-    readonly accountId: string;
-    readonly decisions: readonly DecisionRow[];
-    readonly editing: null | ViolationRow;
-    readonly onDone: () => void;
-    readonly onFailure: (error: unknown) => void;
-}) {
-    const utilities = api.useUtils();
-    const create = api.propAccounts.violation.create.useMutation();
-    const update = api.propAccounts.violation.update.useMutation();
-    const schema = violationFormSchema(accountId);
-    const today = useTodayIsoDate();
-    const emptyValues = emptyViolationFormValues(today);
-    const form = useForm<ViolationFormValues>({
-        defaultValues:
-            editing === null ? emptyValues : violationEditFormValues(editing),
-        resolver: zodResolver(schema, undefined, { raw: true }),
-    });
-    const { setFocus } = form;
-    const isEditing = editing !== null;
-    useFollowToday({
-        isEnabled: !isEditing,
-        read: () => form.getValues('occurredOn'),
-        today,
-        write: (day) => {
-            form.resetField('occurredOn', { defaultValue: day });
-        },
-    });
-    const kind = form.watch('kind');
-
-    useEffect(() => {
-        if (isEditing) setFocus('kind');
-    }, [isEditing, setFocus]);
-
-    const save = async (values: ViolationFormValues) => {
-        const parsed = schema.safeParse(values);
-        if (!parsed.success) return;
-        const draft = parsed.data;
-        try {
-            if (editing === null) {
-                await create.mutateAsync(draft);
-                toast.success('Violation recorded');
-            } else {
-                await update.mutateAsync({
-                    costCents: draft.costCents,
-                    decisionId: draft.decisionId,
-                    id: editing.id,
-                    kind: draft.kind,
-                    note: draft.note,
-                    occurredOn: draft.occurredOn,
-                });
-                toast.success('Violation saved');
-            }
-            form.reset(emptyValues);
-            onDone();
-        } catch (error) {
-            onFailure(error);
-        } finally {
-            await utilities.propAccounts.invalidate();
-        }
-    };
-
-    return (
-        <Form {...form}>
-            <form
-                aria-label={
-                    editing === null ? 'Add a violation' : 'Edit violation'
-                }
-                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-                noValidate
-                onSubmit={(event) => {
-                    void form.handleSubmit(save)(event);
-                }}
-            >
-                <FormField
-                    control={form.control}
-                    name="kind"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Kind</FormLabel>
-                            <Select
-                                onValueChange={(next) => {
-                                    const parsed = z
-                                        .enum(RuleViolationKind)
-                                        .safeParse(next).data;
-                                    if (parsed !== undefined) {
-                                        field.onChange(parsed);
-                                    }
-                                }}
-                                value={field.value}
-                            >
-                                <FormControl>
-                                    <SelectTrigger ref={field.ref}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {Object.values(RuleViolationKind).map(
-                                        (candidate) => (
-                                            <SelectItem
-                                                key={candidate}
-                                                value={candidate}
-                                            >
-                                                {ruleViolationKindLabel(
-                                                    candidate,
-                                                )}
-                                            </SelectItem>
-                                        ),
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            <FormDescription>
-                                {violationKindHelpText(kind)}
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="occurredOn"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Date</FormLabel>
-                            <FormControl>
-                                <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="costCents"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Cost</FormLabel>
-                            <FormControl>
-                                <Input
-                                    inputMode="decimal"
-                                    placeholder="0.00"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormDescription>
-                                Leave blank when the dollar cost is not known. A
-                                negative amount means the violation still won
-                                money.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="decisionId"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Linked decision</FormLabel>
-                            <Select
-                                onValueChange={field.onChange}
-                                value={field.value}
-                            >
-                                <FormControl>
-                                    <SelectTrigger ref={field.ref}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    <SelectItem value={NO_LINKED_DECISION}>
-                                        No linked decision
-                                    </SelectItem>
-                                    {decisions.map((decision) => (
-                                        <SelectItem
-                                            key={decision.id}
-                                            value={decision.id}
-                                        >
-                                            {`Decision on ${decision.decidedOn}`}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="note"
-                    render={({ field }) => (
-                        <FormItem className="sm:col-span-2 lg:col-span-3">
-                            <FormLabel>Note</FormLabel>
-                            <FormControl>
-                                <Textarea rows={2} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-3">
-                    <Button
-                        disabled={create.isPending || update.isPending}
-                        type="submit"
-                    >
-                        {editing === null ? 'Add violation' : 'Save violation'}
-                    </Button>
-                    {editing !== null && (
-                        <Button onClick={onDone} type="button" variant="ghost">
-                            Cancel edit
-                        </Button>
-                    )}
-                </div>
-            </form>
-        </Form>
-    );
-}
-
 const RULE_VIOLATION_KIND_DISCLAIMER: Partial<
     Record<RuleViolationKind, string>
 > = {
     [RuleViolationKind.ForcedRecovery]:
         "the documented ladder's step up after a loss is not a violation",
 };
+
+function formLabelOf(
+    editing: null | ViolationRow,
+    initial: undefined | ViolationFormValues,
+): string {
+    if (editing !== null) return 'Edit violation';
+    return initial === undefined ? 'Add a violation' : 'Log a violation';
+}
 
 function violationKindHelpText(kind: RuleViolationKind): string {
     const disclaimer = RULE_VIOLATION_KIND_DISCLAIMER[kind];

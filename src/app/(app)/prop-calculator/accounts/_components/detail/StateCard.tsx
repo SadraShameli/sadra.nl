@@ -1,17 +1,12 @@
 import { formatCurrency } from '~/lib/format';
 import {
-    type Assumption,
     AssumptionKind,
-    type InputAssumption,
+    assumptionText,
     ReconstructedLiveKind,
     type SnapshotPlausibilityIssue,
 } from '~/lib/prop-calculator/advisor';
 
-import {
-    assumptionLabel,
-    StateCardKind,
-    type StateCardView,
-} from './detailState';
+import { StateCardKind, type StateCardView } from './detailState';
 
 export function StateCard({ view }: { readonly view: StateCardView }) {
     switch (view.kind) {
@@ -70,10 +65,14 @@ export function StateCard({ view }: { readonly view: StateCardView }) {
                     {view.account.assumptions.length > 0 && (
                         <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
                             {view.account.assumptions
-                                .filter(isInputAssumption)
+                                .filter(
+                                    (assumption) =>
+                                        assumption.kind !==
+                                        AssumptionKind.SizingRule,
+                                )
                                 .map((assumption) => (
                                     <li key={assumption.kind}>
-                                        {assumptionLabel(assumption.kind)}
+                                        {assumptionText(assumption)}
                                     </li>
                                 ))}
                         </ul>
@@ -101,12 +100,6 @@ function floorAndLock(
         floor: reconstructed.state.threshold,
         locked: reconstructed.state.thresholdLocked,
     };
-}
-
-function isInputAssumption(
-    assumption: Assumption,
-): assumption is InputAssumption {
-    return assumption.kind !== AssumptionKind.SizingRule;
 }
 
 function IssueList({

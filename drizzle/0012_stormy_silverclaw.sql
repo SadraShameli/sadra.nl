@@ -1,0 +1,1 @@
+CREATE INDEX "prop_rule_violation_user_occurred_idx" ON "sadranl_prop_rule_violation" USING btree ("user_id","occurred_on");

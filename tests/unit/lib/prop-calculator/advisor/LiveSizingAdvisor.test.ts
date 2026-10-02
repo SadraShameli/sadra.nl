@@ -52,6 +52,7 @@ function advisorAt(reconstructed: ReconstructedLiveAccount): LiveSizingAdvisor {
         account: reconstructed,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
     });
 }
@@ -144,6 +145,7 @@ describe('LiveSizingAdvisor (PT-19f, F-118, F-129)', () => {
             planRulesFingerprint: { atAdvice: 'old-hash', current: 'new-hash' },
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
         }).assemble([]);
 

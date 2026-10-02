@@ -1,3 +1,4 @@
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type ConductPattern,
     PolicyVerification,
@@ -13,6 +14,9 @@ import {
     SizingAssumption,
     SizingConstraint,
 } from './DocumentedSizing';
+import { liveTriggerCountText } from './PayoutBlockReason';
+import { RetainedCushionBasis } from './PayoutRequestDecision';
+import { type PersonalPayoutOverrideWarning } from './PayoutSizeSweep';
 import { type RulebookParameters } from './Rulebook';
 import { documentedRuleLabel, rulebookDeviation } from './RulebookDeviation';
 
@@ -30,6 +34,15 @@ export const SIZING_CONSTRAINT_TEXT: Readonly<
     [SizingConstraint.PersonalCap]: 'Capped by a personal risk limit.',
     [SizingConstraint.RemainingTargetCap]:
         'Capped by the profit remaining to the target.',
+};
+
+export const RETAINED_CUSHION_BASIS_TEXT: Readonly<
+    Record<RetainedCushionBasis, string>
+> = {
+    [RetainedCushionBasis.HardRule2Default]: "Hard Rule 2's default",
+    [RetainedCushionBasis.LiveOneDrawdown]: 'one live drawdown',
+    [RetainedCushionBasis.PersonalOverride]: 'your personal override',
+    [RetainedCushionBasis.RulebookSize]: 'your rulebook size',
 };
 
 export const DAY_STOP_REASON_TEXT: Readonly<Record<DayStopReason, string>> = {
@@ -86,6 +99,12 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
         }
         case DifferenceReason.DailyLossCap: {
             return `Capped by the $${detail.dailyLossLimit.toFixed(2)} daily loss limit.`;
+        }
+        case DifferenceReason.DocumentedLadderNeverFunded: {
+            return `Your documented ladder never funded the account in ${detail.sims} simulated attempts, so it has no cost or speed to compare with the optimum.`;
+        }
+        case DifferenceReason.DocumentedLadderNotScored: {
+            return `Your documented ladder was requested but not scored (${detail.sims} simulations planned), so it is not compared with the optimum.`;
         }
         case DifferenceReason.DpGridMisaligned: {
             return `The $${detail.drawdown.toFixed(2)} drawdown is not an even multiple of the $${detail.step.toFixed(2)} cushion step; informational only.`;
@@ -149,7 +168,7 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
             return `This number used the "${detail.enginePolicyLabel}" payout policy, not the headline's "${detail.headlinePolicyLabel}".`;
         }
         case DifferenceReason.PersonalCap: {
-            return `Capped by your personal $${detail.cap.toFixed(2)} limit.`;
+            return `Capped by your personal max risk per trade of $${detail.cap.toFixed(2)}.`;
         }
         case DifferenceReason.PlanRulesChanged: {
             return "This plan's rules changed since the advice was computed; refresh it.";
@@ -163,6 +182,9 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
         case DifferenceReason.StaleAdvice: {
             return `This advice is from the ${detail.snapshotDate} snapshot and is stale; rung amounts are withheld.`;
         }
+        case DifferenceReason.Suspended: {
+            return 'This account is suspended, so no sizing, daily plan or payout advice is given.';
+        }
         case DifferenceReason.WholeContractPlacement: {
             return `Placed as ${detail.contracts} whole contract${detail.contracts === 1 ? '' : 's'}, rounded down from the documented risk.`;
         }
@@ -170,9 +192,15 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
             return `The $${detail.gap.toFixed(2)} gap is within $${detail.threshold.toFixed(2)} of noise; treat these as the same.`;
         }
         case DifferenceReason.WouldTriggerLive: {
-            return `This would trigger a live-account transition: ${detail.trigger}`;
+            return `This would trigger a live-account transition: ${liveTriggerCountText(detail.trigger)}.`;
         }
     }
+}
+
+export function personalPayoutOverrideWarningText(
+    warning: PersonalPayoutOverrideWarning,
+): string {
+    return `In the payout-size sweep over ${String(warning.horizonDays)} funded days, your payout request underperforms the engine's best payout size: monthly net ${formatCurrency(warning.overrideMonthlyNet, 0)} at a ${formatCurrency(warning.overrideRequestSize, 0)} request against ${formatCurrency(warning.optimumMonthlyNet, 0)} at ${formatCurrency(warning.optimumRequestSize, 0)}, bust probability ${formatPercent(warning.overrideBustProbability)} against ${formatPercent(warning.optimumBustProbability)}, retaining ${formatCurrency(warning.retainedCushion, 0)} (${RETAINED_CUSHION_BASIS_TEXT[warning.retainedCushionBasis]}).`;
 }
 
 function conductPatternQuote(pattern: ConductPattern): string {

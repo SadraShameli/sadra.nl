@@ -257,6 +257,29 @@ describe('propAccounts.snapshot', () => {
         );
     });
 
+    it('latestTwoForAll reads through the repository window query, scoped by the session user, and returns the stored rows', async () => {
+        const previous = snapshotRow({ as_of: '2026-09-19', id: IDS.fee });
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.snapshot]: [snapshotRow(), previous] }),
+        );
+        const rows = await caller.snapshot.latestTwoForAll();
+        expect(rows.map((row) => row.asOf)).toEqual([
+            '2026-09-20',
+            '2026-09-19',
+        ]);
+        const [latest] = queries;
+        assertUserScopedWhere(defined(latest), USER_ID);
+        expect(latest?.text).toMatch(/row_number\(\) over \(partition by /);
+        expect(latest?.text).not.toMatch(/distinct on/i);
+    });
+
+    it('latestForAll still returns at most one snapshot per account', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.snapshot.latestForAll();
+        expect(queries[0]?.text).toMatch(/^select distinct on /);
+    });
+
     it('remove clears decision links, deletes the snapshot and logs an Edited event in one transaction', async () => {
         const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
         await caller.snapshot.remove({ id: IDS.snapshot });

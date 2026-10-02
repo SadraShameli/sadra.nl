@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as UseAccountValuesModule from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 
-import { AccountsTable } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import {
     AccountStage,
     AccountStatus,
@@ -12,6 +11,8 @@ import {
 } from '~/lib/prop-accounts';
 import { ALL_FIRMS, serializePlanId } from '~/lib/prop-calculator';
 import { routes } from '~/lib/site/routes';
+
+import { AccountsTable } from './AccountsTableWithData';
 
 interface FakeQuery {
     data: unknown;
@@ -52,10 +53,8 @@ vi.mock(
     '~/app/(app)/prop-calculator/accounts/_components/useAccountValues',
     async (importOriginal) => ({
         ...(await importOriginal<typeof UseAccountValuesModule>()),
-        useAccountValues: () => ({
-            boards: null,
-            columns: new Map(),
-            notice: null,
+        useAccountValuesWithEngine: () => ({
+            values: { boards: null, columns: new Map(), notice: null },
         }),
     }),
 );
@@ -71,7 +70,9 @@ vi.mock('~/trpc/react', () => ({
             },
             copyGroup: { list: harness.query('copyGroup.list') },
             externalFirm: { list: harness.query('externalFirm.list') },
-            snapshot: { latestForAll: harness.query('snapshot.latestForAll') },
+            snapshot: {
+                latestTwoForAll: harness.query('snapshot.latestTwoForAll'),
+            },
         },
         useUtils: () => ({
             propAccounts: {
@@ -188,7 +189,7 @@ describe('AccountsTable', () => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.queries.clear();
         harness.queries.set('copyGroup.list', answer([]));
-        harness.queries.set('snapshot.latestForAll', answer([]));
+        harness.queries.set('snapshot.latestTwoForAll', answer([]));
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);

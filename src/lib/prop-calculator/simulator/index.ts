@@ -46,6 +46,16 @@ export {
     simulateLiveAccount,
 } from './livePhase';
 export {
+    LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
+    LIVE_TRANSFER_CONTINUATION_TEXT,
+    LIVE_TRANSFER_NOTE_TEXT,
+    LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT,
+    liveTransferContinuationKindFor,
+    liveTransferContinuationNotes,
+    liveTransferHazardLines,
+    liveTransferHazardPercentText,
+} from './LiveTransfer';
+export {
     DrawdownTracker,
     LossStreak,
     newPhaseStats,
@@ -79,6 +89,8 @@ export {
     type LiveDayRunOptions,
     type LiveOutputs,
     type LiveSimInputs,
+    LiveTransferContinuationKind,
+    type LiveTransferOptions,
     type MultiAccountResult,
     type PortfolioSimInputs,
     type SimEstimates,

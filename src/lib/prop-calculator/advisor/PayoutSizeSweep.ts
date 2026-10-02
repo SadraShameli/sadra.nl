@@ -9,6 +9,8 @@ import {
 import { noiseVerdict, NoiseVerdict } from '~/lib/prop-calculator/stats';
 
 import { type AdviceSource } from './AdviceSource';
+import { documentedRetainedCushionResolution } from './DocumentedRetainedCushion';
+import { type RetainedCushionBasis } from './PayoutRequestDecision';
 import {
     type DocumentedPolicySpec,
     documentedPolicySpecSchema,
@@ -93,10 +95,15 @@ export interface PersonalPayoutOverrideResult {
 }
 
 export interface PersonalPayoutOverrideWarning {
+    readonly horizonDays: number;
     readonly optimumBustProbability: number;
     readonly optimumMonthlyNet: number;
+    readonly optimumRequestSize: number;
     readonly overrideBustProbability: number;
     readonly overrideMonthlyNet: number;
+    readonly overrideRequestSize: number;
+    readonly retainedCushion: number;
+    readonly retainedCushionBasis: RetainedCushionBasis;
 }
 
 export function runPayoutSizeSweep(
@@ -154,7 +161,7 @@ export function runPayoutSizeSweep(
         }
         personalOverride = {
             row: overrideRow,
-            warning: safeBandWarning(overrideRow, winner),
+            warning: safeBandWarning(overrideRow, winner, spec),
         };
     }
 
@@ -295,6 +302,7 @@ function refusalFrom(error: unknown): PayoutSizeSweepNoOptimumResult {
 function safeBandWarning(
     overrideRow: PayoutSizeSweepRow,
     winner: PayoutSizeSweepRow,
+    spec: DocumentedPolicySpec,
 ): null | PersonalPayoutOverrideWarning {
     const overrideMonthlyNet = creditInclusiveValue(overrideRow);
     const optimumMonthlyNet = creditInclusiveValue(winner);
@@ -318,14 +326,19 @@ function safeBandWarning(
             winnerSe.bust,
         );
 
-    return isMonthlyWithinBand && isBustNotWorse
-        ? null
-        : {
-              optimumBustProbability,
-              optimumMonthlyNet,
-              overrideBustProbability,
-              overrideMonthlyNet,
-          };
+    if (isMonthlyWithinBand && isBustNotWorse) return null;
+    const cushion = documentedRetainedCushionResolution(spec);
+    return {
+        horizonDays: spec.enginePolicy.fundedHorizonDays,
+        optimumBustProbability,
+        optimumMonthlyNet,
+        optimumRequestSize: winner.requestSize,
+        overrideBustProbability,
+        overrideMonthlyNet,
+        overrideRequestSize: overrideRow.requestSize,
+        retainedCushion: cushion.amount,
+        retainedCushionBasis: cushion.basis,
+    };
 }
 
 function standardErrorOf(row: PayoutSizeSweepRow): {

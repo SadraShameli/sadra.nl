@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    assumptionLabel,
     type DetailSnapshotRow,
     liveAccountOf,
     LiveRulesCardKind,
@@ -45,6 +44,7 @@ import {
 import {
     AccountReconstruction,
     AssumptionKind,
+    assumptionKindText,
     DashboardBalanceConvention,
     type ReconstructedAccount,
     ReconstructedLiveKind,
@@ -513,12 +513,12 @@ describe('performanceCardOf', () => {
     });
 });
 
-describe('assumptionLabel', () => {
+describe('assumptionKindText for the reconstruction assumptions', () => {
     it('gives a readable label for every input assumption kind used by reconstruction', () => {
         expect(
-            assumptionLabel(AssumptionKind.LiveModelApproximation),
+            assumptionKindText(AssumptionKind.LiveModelApproximation),
         ).toContain('approximation');
-        expect(assumptionLabel(AssumptionKind.LiveNotModeled)).toContain(
+        expect(assumptionKindText(AssumptionKind.LiveNotModeled)).toContain(
             'No live stage',
         );
     });

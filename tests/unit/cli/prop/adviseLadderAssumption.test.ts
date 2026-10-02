@@ -6,6 +6,7 @@ import {
     type AdviseArguments,
     adviseArguments,
     type CheckedNextTradeRiskReport,
+    engineResultsFor,
     nextTradeRiskReport,
     type NextTradeRiskReport,
     NextTradeRiskReportKind,
@@ -105,7 +106,7 @@ function riskReportFor(
 }
 
 describe('prop advise lists the widened ladder step as an assumption (PT-24d, F-133)', () => {
-    it('a fresh 50K apex eval names the coarser step and the step it searched in', () => {
+    it('a fresh 50K apex eval names the coarser step and the grid step', () => {
         const { advisor, plan } = adviceFor(FRESH_EVAL_APEX_EOD);
         const [request] = advisor.optimumRequests();
         if (request === undefined || !('grid' in request)) {
@@ -123,6 +124,18 @@ describe('prop advise lists the widened ladder step as an assumption (PT-24d, F-
         const assumption = lines.find((line) => line.includes('coarser'));
         expect(assumption).toBeDefined();
         expect(assumption).toContain(`$${request.grid.step}`);
+    });
+
+    it('says the step from the assumption itself, with no engine requests on the advice', () => {
+        const { advisor } = adviceFor(FRESH_EVAL_APEX_EOD);
+
+        const lines = adviceReportLines({
+            ...advisor.assemble([]),
+            requests: [],
+        });
+
+        const assumption = lines.find((line) => line.includes('coarser'));
+        expect(assumption).toContain('The grid step is $140.');
     });
 
     it('a refused ladder still lists the widened step beside the refusal', () => {
@@ -145,7 +158,9 @@ describe('prop advise lists the widened ladder step as an assumption (PT-24d, F-
                 line.includes('ladder search not run: grid too large'),
             ),
         ).toBe(true);
-        expect(lines.some((line) => line.includes('coarser'))).toBe(true);
+        const widened = lines.find((line) => line.includes('coarser'));
+        expect(widened).toContain('The grid step is $140.');
+        expect(widened).not.toContain('searched');
     });
 });
 
@@ -192,6 +207,53 @@ describe('the stale reasons are named in words, never as raw enum values (PT-24d
         expect(hasRawStalenessValue(staleLine ?? '')).toBe(false);
         expect(staleLine).toContain('balance snapshot');
         expect(staleLine).toContain('plan rules changed');
+    });
+});
+
+describe('stale advice shows no engine optimum beside its stale line (PT-24d review)', () => {
+    const REWRITTEN_RULES = {
+        planRulesFingerprint: { atAdvice: 'before', current: 'after' },
+    };
+
+    it('the report keeps the headline, the stale line and the provenance, and drops the optima, reasons and assumptions', () => {
+        const { advisor, plan } = adviceFor(FRESH_EVAL_APEX_EOD, {
+            ...REWRITTEN_RULES,
+            sims: 5,
+        });
+        const results = advisor
+            .optimumRequests()
+            .map((request) => runEngineOptimum(plan, request));
+
+        const lines = adviceReportLines(advisor.assemble(results));
+
+        expect(lines).toHaveLength(3);
+        expect(lines[1]).toContain('Stale as of');
+        expect(
+            lines.some((line) =>
+                /ladders scored|ladder grid|ladder search not run/.test(line),
+            ),
+        ).toBe(false);
+        expect(lines.some((line) => line.includes('coarser'))).toBe(false);
+    });
+
+    it('a stale advisor runs no engine optimum at all', () => {
+        const { advisor, plan } = adviceFor(FRESH_EVAL_APEX_EOD, {
+            ...REWRITTEN_RULES,
+            sims: 5,
+        });
+
+        expect(engineResultsFor(advisor, plan)).toStrictEqual([]);
+    });
+
+    it('a fresh advisor runs one engine optimum per request', () => {
+        const { advisor, plan } = adviceFor(FRESH_EVAL_APEX_EOD, { sims: 5 });
+
+        const results = engineResultsFor(advisor, plan);
+
+        expect(results.map((result) => result.source)).toStrictEqual(
+            advisor.optimumRequests().map((request) => request.source),
+        );
+        expect(results.length).toBeGreaterThan(0);
     });
 });
 

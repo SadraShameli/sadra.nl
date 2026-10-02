@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     payoutBlockReasonText,
@@ -9,18 +9,23 @@ import {
     payoutWaitText,
     planPayoutOutlook,
     planPayoutReadiness,
+    simStayCeilingText,
 } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
 import {
+    CumulativeAmountTrigger,
     dollars,
     findFirm,
     FirmId,
     PayoutGate,
+    PolicySourceKind,
+    PolicyVerification,
     serializePlanId,
 } from '~/lib/prop-calculator';
 import {
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
     type DocumentedPolicySpec,
+    LiveTriggerScope,
     type PayoutBlockReason,
     PayoutBlockReasonKind,
     type PayoutPathStep,
@@ -103,6 +108,17 @@ function baseInput(
         rulebook: DEFAULT_RULEBOOK,
         ...overrides,
     };
+}
+
+function stubTriggers(
+    plan: Plan,
+    triggers: readonly CumulativeAmountTrigger[],
+): void {
+    const firm = findFirm(plan.id.firm);
+    if (!firm) throw new Error('firm not registered');
+    vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue(
+        triggers,
+    );
 }
 
 describe('planPayoutReadiness: implausible snapshots (both mis-entry directions)', () => {
@@ -293,7 +309,8 @@ describe('payoutWaitText with a block reason: no false claim that nothing can cl
             payoutWaitText(
                 null,
                 wouldTriggerLiveBlockReason({
-                    paidPayoutsSinceLastLiveAccount: 2,
+                    payoutsTaken: 2,
+                    scope: LiveTriggerScope.Account,
                     triggerAtPayoutCount: 3,
                 }),
             ),
@@ -358,7 +375,8 @@ describe('payoutBlockReasonText', () => {
     it('names the trigger count for a would-trigger-live block reason (PT-34b)', () => {
         const text = payoutBlockReasonText(
             wouldTriggerLiveBlockReason({
-                paidPayoutsSinceLastLiveAccount: 2,
+                payoutsTaken: 2,
+                scope: LiveTriggerScope.Account,
                 triggerAtPayoutCount: 3,
             }),
         );
@@ -457,5 +475,108 @@ describe('planPayoutOutlook: PT-32 projection and payoutStakeComparison (F-V19)'
             spec: specFor(TOPSTEP_50K, 200),
         });
         expect(outlook.stakeComparison).toBeNull();
+    });
+});
+
+describe('planPayoutReadiness: the payout ceiling to stay simulated from verified triggers (PT-73, F-V26)', () => {
+    const confirmed = {
+        fetchedOn: '2026-09-26',
+        quote: 'quote',
+        sourceKind: PolicySourceKind.LiveFetch,
+        url: 'https://example.invalid/rule',
+        verification: PolicyVerification.Confirmed as const,
+    };
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('carries no ceiling for a firm whose triggers are not checked, on a ready and a blocked result', () => {
+        const ready = planPayoutReadiness(baseInput(TOPSTEP_50K));
+        const blocked = planPayoutReadiness(
+            baseInput(TOPSTEP_50K, { qualifyingDaysSinceLastPayout: 0 }),
+        );
+        for (const result of [ready, blocked]) {
+            if (result.kind === PayoutPlannerResultKind.Implausible) {
+                throw new Error('expected a plausible snapshot');
+            }
+            expect(result.simStayCeiling).toBeNull();
+        }
+    });
+
+    it('carries the confirmed cumulative payout limit and its source on a ready and a blocked result', () => {
+        stubTriggers(TOPSTEP_50K, [
+            new CumulativeAmountTrigger(dollars(20_000), confirmed),
+        ]);
+        const ready = planPayoutReadiness(baseInput(TOPSTEP_50K));
+        const blocked = planPayoutReadiness(
+            baseInput(TOPSTEP_50K, { qualifyingDaysSinceLastPayout: 0 }),
+        );
+        expect(ready.kind).toBe(PayoutPlannerResultKind.Ready);
+        expect(blocked.kind).toBe(PayoutPlannerResultKind.Blocked);
+        for (const result of [ready, blocked]) {
+            if (result.kind === PayoutPlannerResultKind.Implausible) {
+                throw new Error('expected a plausible snapshot');
+            }
+            expect(result.simStayCeiling).toStrictEqual({
+                cumulativePayoutLimit: 20_000,
+                fetchedOn: '2026-09-26',
+                sourceUrl: 'https://example.invalid/rule',
+            });
+        }
+    });
+
+    it('carries no ceiling for a cumulative amount the firm pages disagree on', () => {
+        stubTriggers(TOPSTEP_50K, [
+            new CumulativeAmountTrigger(dollars(20_000), {
+                ...confirmed,
+                conflicting: { ...confirmed, quote: 'other' },
+                verification: PolicyVerification.Conflict,
+            }),
+        ]);
+        const result = planPayoutReadiness(baseInput(TOPSTEP_50K));
+        if (result.kind === PayoutPlannerResultKind.Implausible) {
+            throw new Error('expected a plausible snapshot');
+        }
+        expect(result.simStayCeiling).toBeNull();
+    });
+
+    it('words the ceiling with the firm trigger, its source and date, and that past payouts cannot be subtracted', () => {
+        const text = simStayCeilingText({
+            cumulativePayoutLimit: dollars(20_000),
+            fetchedOn: '2026-09-26',
+            sourceUrl: 'https://example.invalid/rule',
+        });
+        expect(text).toContain('$20,000');
+        expect(text).toContain('stay simulated');
+        expect(text).toContain('https://example.invalid/rule');
+        expect(text).toContain('2026-09-26');
+        expect(text).toContain('cannot subtract your past payouts');
+        expect(text).toMatch(/^[A-Z]/);
+        expect(text).toMatch(/\.$/);
+        expect(text).not.toContain(';');
+        expect(text).not.toContain('\u{2014}');
+    });
+
+    it('says the planner simulations do not apply the trigger, so a favored size can cross it', () => {
+        const text = simStayCeilingText({
+            cumulativePayoutLimit: dollars(20_000),
+            fetchedOn: '2026-09-26',
+            sourceUrl: 'https://example.invalid/rule',
+        });
+        expect(text).toContain('simulations do not apply');
+        expect(text).toContain('can cross it');
+        expect(text).not.toContain('the simulator compares it');
+    });
+
+    it('says the firm may count gross payouts, which would put the ceiling lower in what the trader receives', () => {
+        const text = simStayCeilingText({
+            cumulativePayoutLimit: dollars(20_000),
+            fetchedOn: '2026-09-26',
+            sourceUrl: 'https://example.invalid/rule',
+        });
+        expect(text).toContain('gross payouts');
+        expect(text).toContain('what you receive after the split and fees');
+        expect(text).toContain('lower');
     });
 });

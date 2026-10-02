@@ -3,6 +3,7 @@ import {
     type AccountState,
     CENTS_PER_DOLLAR,
     dollars,
+    findFirm,
     type FundedCycleTracker,
     minimumPayoutRequest,
     type Plan,
@@ -11,6 +12,8 @@ import {
 import {
     firmMinimumNotice,
     type FundedPayoutRuleContext,
+    type LiveTriggerCoverage,
+    liveTriggerLimitsFor,
     type PayoutBlockReason,
     PayoutBlockReasonKind,
     payoutReadiness,
@@ -44,6 +47,7 @@ export interface FirmMinimumNotice {
 }
 
 export interface PayoutReadinessAccountOverride {
+    readonly paidPayoutsSinceLastLiveAccount?: null | number;
     readonly personalRequestOverride?: null | number;
     readonly personalRetainedCushion?: null | number;
 }
@@ -67,6 +71,7 @@ export interface PayoutReadinessEligibleRow {
     readonly asOf: string;
     readonly firmMinimumNotice: FirmMinimumNotice | null;
     readonly kind: PayoutReadinessRowKind.Eligible;
+    readonly liveTriggerCoverage: LiveTriggerCoverage;
     readonly requestedAmountCents: UsdCents;
     readonly traderReceivesCents: UsdCents;
 }
@@ -200,7 +205,19 @@ function fundedRowOf(
                   balance: dollars(state.balance + grossPendingPayouts),
               }
             : state;
+    const paidPayoutsSinceLastLiveAccount =
+        override?.paidPayoutsSinceLastLiveAccount ?? null;
+    const liveTriggerLimits = liveTriggerLimitsFor(
+        findFirm(plan.id.firm)?.accountPolicy,
+        plan,
+        paidPayoutsSinceLastLiveAccount,
+    );
     const readiness = payoutReadiness(plan, grossState, tracker, {
+        liveTrigger: {
+            firmTotalCap: liveTriggerLimits.firmTotalCap,
+            paidPayoutsSinceLastLiveAccount,
+            perAccountCap: liveTriggerLimits.perAccountCap,
+        },
         minRetainedCushion,
         payoutRequestSize: rawRequest,
         pendingPayouts: grossPendingPayouts,
@@ -227,6 +244,7 @@ function fundedRowOf(
                 asOf,
                 firmMinimumNotice: firmMinimumNoticeOf(rawRequest, plan),
                 kind: PayoutReadinessRowKind.Eligible,
+                liveTriggerCoverage: liveTriggerLimits.coverage,
                 requestedAmountCents: usdCentsFromDollars(
                     readiness.requestedAmount,
                 ),

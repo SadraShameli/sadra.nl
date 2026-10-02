@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 
+import { useBankrollVariant } from '~/app/(app)/prop-calculator/_components/bankroll/useBankrollVariant';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { InputsSummary } from '~/app/(app)/prop-calculator/_components/InputsSummary';
 import { PanelSkeleton } from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
@@ -10,6 +11,7 @@ import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
 import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
+import { CENTS_PER_DOLLAR, dollars } from '~/lib/prop-calculator';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
 
 const OptimalRiskTable = dynamic(
@@ -29,6 +31,8 @@ const TakeProfitWhatIf = dynamic(
 
 export function SizingView() {
     const { simInputs, state } = useCalculatorInputs();
+    const { rulebook } = useBankrollVariant();
+    const roundBudgetCents = rulebook.bankroll.defaultRoundBudgetCents;
 
     return (
         <>
@@ -41,6 +45,11 @@ export function SizingView() {
                     title="Optimal risk"
                 >
                     <OptimalRiskTable
+                        bankroll={
+                            roundBudgetCents === null
+                                ? null
+                                : dollars(roundBudgetCents / CENTS_PER_DOLLAR)
+                        }
                         baseInputs={simInputs}
                         currentRiskPercent={
                             state.sizingMode === SizingMode.Percent

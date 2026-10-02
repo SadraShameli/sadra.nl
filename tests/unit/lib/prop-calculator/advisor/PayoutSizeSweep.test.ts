@@ -6,10 +6,12 @@ import {
     DEFAULT_RULEBOOK,
     type DocumentedPolicySpec,
     fundedCycleSeedFromTracker,
+    fundedRetainedCushionResolution,
     PAYOUT_SIZE_SWEEP_GRID,
     PAYOUT_SIZE_SWEEP_OBJECTIVE,
     type PayoutSizeSweepRequest,
     PayoutSizeSweepResultKind,
+    RetainedCushionBasis,
     runPayoutSizeSweep,
     StartBasis,
     toSimInputs,
@@ -293,13 +295,101 @@ describe('runPayoutSizeSweep (PT-32)', () => {
             throw new Error('expected fresh rows');
         }
         expect(overrideRow.requestSize).not.toBe(winner.requestSize);
+        const documentedCushion = fundedRetainedCushionResolution(DEFAULT_RULEBOOK);
         expect(override.warning).toStrictEqual({
+            horizonDays: highTrialSpec.enginePolicy.fundedHorizonDays,
             optimumBustProbability: winner.out.fundedBustProbability,
             optimumMonthlyNet: winner.out.expectedMonthlyNet,
+            optimumRequestSize: winner.requestSize,
             overrideBustProbability: overrideRow.out.fundedBustProbability,
             overrideMonthlyNet: overrideRow.out.expectedMonthlyNet,
+            overrideRequestSize: overrideRow.requestSize,
+            retainedCushion: documentedCushion.amount,
+            retainedCushionBasis: documentedCushion.basis,
         });
-    });
+    }, 60_000);
+
+    it('names the personal override as the retained-cushion basis when the policy retains more than the rulebook', () => {
+        const plan = rapidEodPlan();
+        const personalCushion = 9000;
+        const base = specFor(plan, { trials: 3000 });
+        const spec: DocumentedPolicySpec = {
+            ...base,
+            enginePolicy: {
+                ...base.enginePolicy,
+                retainedCushionRequest: personalCushion,
+            },
+        };
+        const firstSize = PAYOUT_SIZE_SWEEP_GRID[0];
+        const lastSize = PAYOUT_SIZE_SWEEP_GRID.at(-1);
+        const warnings = [firstSize, lastSize].flatMap((size) => {
+            const result = runPayoutSizeSweep(plan, {
+                personalOverrideRequest: size,
+                source: AdviceSource.PayoutSizeSweep,
+                spec,
+            });
+            return result.kind === PayoutSizeSweepResultKind.Optimum &&
+                result.optimum.personalOverride?.warning
+                ? [result.optimum.personalOverride.warning]
+                : [];
+        });
+
+        expect(warnings.length).toBeGreaterThan(0);
+        for (const warning of warnings) {
+            expect(warning.retainedCushion).toBe(personalCushion);
+            expect(warning.retainedCushionBasis).toBe(
+                RetainedCushionBasis.PersonalOverride,
+            );
+            expect(warning.horizonDays).toBe(spec.enginePolicy.fundedHorizonDays);
+        }
+    }, 60_000);
+
+    it('names the personal override as the retained-cushion basis when the policy retains less than the rulebook (PT-19i review)', () => {
+        const plan = rapidEodPlan();
+        const retainedCushionCents = 900_000;
+        const rulebook = {
+            ...DEFAULT_RULEBOOK,
+            payout: { ...DEFAULT_RULEBOOK.payout, retainedCushionCents },
+        };
+        const { policy } = buildEnginePolicy({
+            fundedHorizonDays: 90,
+            plan,
+            positionSizing: null,
+            rulebook,
+        });
+        const policyCushion = 2000;
+        const spec: DocumentedPolicySpec = {
+            enginePolicy: {
+                ...policy,
+                retainedCushionRequest: policyCushion,
+            },
+            rulebook,
+            run: { maxEvalDays: 40, seed: 42, trials: 3000 },
+        };
+
+        const warnings = [
+            PAYOUT_SIZE_SWEEP_GRID[0],
+            PAYOUT_SIZE_SWEEP_GRID.at(-1),
+        ].flatMap((size) => {
+            const result = runPayoutSizeSweep(plan, {
+                personalOverrideRequest: size,
+                source: AdviceSource.PayoutSizeSweep,
+                spec,
+            });
+            return result.kind === PayoutSizeSweepResultKind.Optimum &&
+                result.optimum.personalOverride?.warning
+                ? [result.optimum.personalOverride.warning]
+                : [];
+        });
+
+        expect(warnings.length).toBeGreaterThan(0);
+        for (const warning of warnings) {
+            expect(warning.retainedCushion).toBe(policyCushion);
+            expect(warning.retainedCushionBasis).toBe(
+                RetainedCushionBasis.PersonalOverride,
+            );
+        }
+    }, 60_000);
 
     it('propagates a non-refusal error instead of masking it as a no-optimum result', () => {
         const plan = rapidEodPlan();

@@ -23,8 +23,8 @@ import {
 } from '~/lib/schemas/propAccountOutputs';
 import {
     entityIdSchema,
-    ledgerListSchema,
     violationCreateSchema,
+    violationListSchema,
     violationUpdateSchema,
 } from '~/lib/schemas/propAccounts';
 import { createTRPCRouter } from '~/server/api/trpc';
@@ -83,11 +83,12 @@ export const propViolationRouter = createTRPCRouter({
         ),
 
     list: propProcedure
-        .input(ledgerListSchema)
+        .input(violationListSchema)
         .output(z.array(propRuleViolationOutputSchema))
         .query(({ ctx, input }) =>
             new PropAccountRepo(ctx.db, ctx.userId).listViolations(
                 input.accountId,
+                input.occurredFrom,
             ),
         ),
 
@@ -165,6 +166,12 @@ async function assertViolationLinks(
         throw new PropMutationRejectionError(
             PropMutationRejection.DecisionOfOtherAccount,
             'The linked sizing decision belongs to another account; link a decision of this account, or none',
+        );
+    }
+    if (compareText(links.occurredOn, decision.decidedOn) < 0) {
+        throw new PropMutationRejectionError(
+            PropMutationRejection.OutOfOrderEvent,
+            `The violation date ${links.occurredOn} is before the linked sizing decision of ${decision.decidedOn}; pick a date on or after it, or link no decision`,
         );
     }
 }

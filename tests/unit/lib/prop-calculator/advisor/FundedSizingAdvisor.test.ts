@@ -92,6 +92,7 @@ function advisorAt(
         fundedHorizonDays: 252,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
         trials,
     });
@@ -179,6 +180,7 @@ describe('FundedSizingAdvisor (PT-19f, F-118, F-121)', () => {
             planRulesFingerprint: { atAdvice: 'old-hash', current: 'new-hash' },
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
         }).assemble([]);
 
@@ -194,6 +196,7 @@ describe('FundedSizingAdvisor (PT-19f, F-118, F-121)', () => {
             planRulesFingerprint: { atAdvice: 'old-hash', current: 'new-hash' },
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
         });
 
@@ -233,6 +236,7 @@ describe('FundedSizingAdvisor: funded-consistency ceiling (PT-19f, F-146, F-154)
             fundedHorizonDays: 252,
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
         });
         const expectedCeiling = consistencyPlan
@@ -427,6 +431,7 @@ describe('FundedSizingAdvisor.checkNextTradeRisk (PT-24b)', () => {
             fundedHorizonDays: 252,
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
         });
         const documentedRung = DEFAULT_RULEBOOK.funded.riskCents / 100;
@@ -446,6 +451,7 @@ describe('FundedSizingAdvisor.checkNextTradeRisk (PT-24b)', () => {
             fundedHorizonDays: 252,
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-01-01',
+            substate: null,
             today: '2026-09-26',
         });
 

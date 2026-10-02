@@ -65,6 +65,7 @@ const base: Required<SimInputs> = {
     idleDayProbability: 0.1,
     instrument: InstrumentSymbol.MNQ,
     intradayPathStepsPerR: 4,
+    liveTransferHazard: fraction(0.1),
     maxAttempts: 3,
     maxEvalDays: 60,
     minRetainedCushion: 500,
@@ -79,6 +80,7 @@ const base: Required<SimInputs> = {
     stopPoints: 20,
     tradesPerDay: 1,
     trials: 10,
+    verifiedCumulativePayoutTrigger: 20_000,
     winrate: 0.5,
 };
 
@@ -107,6 +109,7 @@ const changed: Required<SimInputs> = {
     idleDayProbability: 0.2,
     instrument: InstrumentSymbol.NQ,
     intradayPathStepsPerR: 8,
+    liveTransferHazard: fraction(0.2),
     maxAttempts: 4,
     maxEvalDays: 90,
     minRetainedCushion: 750,
@@ -121,6 +124,7 @@ const changed: Required<SimInputs> = {
     stopPoints: 30,
     tradesPerDay: 2,
     trials: 20,
+    verifiedCumulativePayoutTrigger: 40_000,
     winrate: 0.6,
 };
 

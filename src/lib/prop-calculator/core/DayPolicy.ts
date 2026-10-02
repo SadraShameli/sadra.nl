@@ -184,6 +184,34 @@ export function ladderSum(ladder: readonly number[]): number {
     return total;
 }
 
+export function percentCushionDayPolicy(
+    percent: Fraction0to1,
+    maxTrades: number,
+    stopRule: DayStopRule | undefined,
+    sizing: PolicySizing,
+    maxRiskPerTrade?: number,
+): DayPolicy {
+    return computedDayPolicy(
+        maxRiskPerTrade === undefined
+            ? (state) =>
+                  resolveFundedTradeRisk(
+                      state.balance - state.threshold,
+                      percent,
+                  )
+            : (state) =>
+                  Math.min(
+                      resolveFundedTradeRisk(
+                          state.balance - state.threshold,
+                          percent,
+                      ),
+                      maxRiskPerTrade,
+                  ),
+        maxTrades,
+        stopRule,
+        sizing,
+    );
+}
+
 export function placeWholeContractTrade(
     options: WholeContractTradeOptions,
 ): SizedTrade {

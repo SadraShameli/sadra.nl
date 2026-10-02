@@ -14,12 +14,17 @@ import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core/PayoutReque
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 
 import { runDay } from './day';
+import {
+    NO_LIVE_TRANSFER_CASH,
+    runLiveTransferContinuation,
+} from './livePhase';
 import { newPhaseStats } from './PhaseStats';
 import {
     type FundedDayStepOptions,
     type FundedFromStateOptions,
     type FundedHorizonOptions,
     type FundedHorizonResult,
+    type LiveTransferOptions,
 } from './types';
 
 export enum FundedDayOutcomeKind {
@@ -33,6 +38,7 @@ export enum FundedStage {
     Busted = 'busted',
     Concluded = 'concluded',
     HorizonReached = 'horizon-reached',
+    TransferredLive = 'transferred-live',
 }
 
 export interface FundedDayAdvanceOptions extends FundedDayStepOptions {
@@ -72,6 +78,7 @@ export interface FundedDaysOptions extends Omit<
     discounts: CouponDiscounts | undefined;
     equityCurve: null | number[];
     initialTracker?: FundedCycleTracker;
+    liveTransfer?: LiveTransferOptions;
     maxDays: number;
     minRetainedCushion: number;
     payoutRequestPolicy?: PayoutRequestPolicy;
@@ -187,6 +194,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         idleDayProbability,
         initialTracker,
         intradayPathStepsPerR,
+        liveTransfer,
         maxDays,
         minRetainedCushion,
         payoutRequestPolicy,
@@ -260,7 +268,9 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
                     closedForInactivity: false,
                     daysElapsed,
                     fundedResets,
-                    stage: FundedStage.Concluded,
+                    stage: hasDrawnLiveTransfer(liveTransfer, tracker)
+                        ? FundedStage.TransferredLive
+                        : FundedStage.Concluded,
                     tracker,
                 };
             }
@@ -270,6 +280,15 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
                         dayOffsetBase + daysElapsed,
                         outcome.payout.traderReceives,
                     );
+                    if (hasDrawnLiveTransfer(liveTransfer, tracker)) {
+                        return {
+                            closedForInactivity: false,
+                            daysElapsed,
+                            fundedResets,
+                            stage: FundedStage.TransferredLive,
+                            tracker,
+                        };
+                    }
                 }
                 continue;
             }
@@ -306,6 +325,7 @@ export function runFundedFromState(
         idleDayProbability,
         initialTracker,
         intradayPathStepsPerR,
+        liveTransfer,
         minRetainedCushion,
         payoutRequestPolicy,
         payoutRequestSize,
@@ -331,6 +351,7 @@ export function runFundedFromState(
             idleDayProbability,
             initialTracker,
             intradayPathStepsPerR,
+            liveTransfer,
             maxDays: fundedHorizonDays,
             minRetainedCushion,
             payoutRequestPolicy,
@@ -346,6 +367,18 @@ export function runFundedFromState(
             stats,
             winrate,
         });
+
+    const isTransferredLive = stage === FundedStage.TransferredLive;
+    const liveSlotDays = isTransferredLive ? fundedHorizonDays - daysElapsed : 0;
+    const liveCash =
+        isTransferredLive && liveTransfer?.continuation
+            ? runLiveTransferContinuation(
+                  liveTransfer.continuation,
+                  state,
+                  liveSlotDays,
+                  liveTransfer.rng,
+              )
+            : NO_LIVE_TRANSFER_CASH;
 
     const horizonCredit =
         stage === FundedStage.HorizonReached
@@ -369,6 +402,10 @@ export function runFundedFromState(
         horizonCredit,
         isAliveAtHorizon: stage === FundedStage.HorizonReached,
         isBustedFunded: stage === FundedStage.Busted,
+        isTransferredLive,
+        liveSlotDays,
+        liveTransferCash: liveCash.recurring,
+        liveTransferOneOff: liveCash.oneOff,
         payoutCount: sink.count,
         totalPayout: sink.total,
     };
@@ -435,4 +472,16 @@ export function stepFundedDay(options: FundedDayStepOptions): {
     }
     if (!busted) tracker.recordSessionClose(state);
     return { busted, closedForInactivity };
+}
+
+function hasDrawnLiveTransfer(
+    liveTransfer: LiveTransferOptions | undefined,
+    tracker: FundedCycleTracker,
+): boolean {
+    if (liveTransfer === undefined) return false;
+    const { cumulativePayoutLimit, hazard, rng } = liveTransfer;
+    const isTriggerReached =
+        cumulativePayoutLimit !== null &&
+        tracker.cumulativePayout >= cumulativePayoutLimit;
+    return isTriggerReached || (hazard > 0 && rng() < hazard);
 }

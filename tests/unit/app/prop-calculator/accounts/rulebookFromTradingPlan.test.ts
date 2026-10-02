@@ -655,7 +655,10 @@ describe('rulebook form values', () => {
                 roundGapDays: 21,
                 sessionHoursPerDay: 3.5,
             },
-            display: { riskUnit: RiskDisplayUnit.EvAtStake },
+            display: {
+                nextPayoutHighlightDays: 21,
+                riskUnit: RiskDisplayUnit.EvAtStake,
+            },
             eval: {
                 generalDerivation: {
                     escalation: 1.25,

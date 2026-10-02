@@ -7,6 +7,7 @@ import {
     hazardFieldName,
     type HazardFieldName,
     hazardFieldSpec,
+    measuredHazardsOf,
     readRulebookDraft,
     rulebookFormSchema,
     type RulebookFormValues,
@@ -14,6 +15,9 @@ import {
     TEXT_FIELDS,
     type TextFieldName,
 } from '~/app/(app)/prop-calculator/accounts/rulebook/rulebookFormValues';
+import { FirmKeyKind } from '~/lib/prop-accounts';
+import { type LiveTransferRate } from '~/lib/prop-accounts/firms';
+import { sampledRate } from '~/lib/prop-accounts/metrics';
 import { FirmId } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
@@ -66,7 +70,10 @@ function everyV2FieldSet(): RulebookParameters {
             roundGapDays: 7,
             sessionHoursPerDay: 2.5,
         },
-        display: { riskUnit: RiskDisplayUnit.FeeEquivalent },
+        display: {
+            nextPayoutHighlightDays: 14,
+            riskUnit: RiskDisplayUnit.FeeEquivalent,
+        },
         liveTransfer: {
             hazardPerPaidPayoutByFirm: {
                 [FirmId.Mffu]: 0.1,
@@ -316,6 +323,40 @@ describe('rulebook form values for the v2 sections', () => {
         ).toEqual(['liveTransfer', 'hazardPerPaidPayoutByFirm', 'mffu']);
     });
 
+    it('shows the next payout highlight window as a whole number of days and reads it back', () => {
+        const values = rulebookToFormValues(DEFAULT_RULEBOOK);
+        expect(values.display.nextPayoutHighlightDays).toBe('7');
+        expect(TEXT_FIELDS['display.nextPayoutHighlightDays']).toMatchObject({
+            isOptional: false,
+            kind: FieldKind.Count,
+            source: null,
+        });
+        const edited = rulebookFormSchema.parse({
+            ...values,
+            display: { ...values.display, nextPayoutHighlightDays: '21' },
+        });
+        expect(edited.display.nextPayoutHighlightDays).toBe(21);
+        expect(
+            formPathOf(['display', 'nextPayoutHighlightDays']),
+        ).toEqual(['display', 'nextPayoutHighlightDays']);
+    });
+
+    it.each(['', 'x', '0', '1.5', '366'])(
+        'rejects %j as the next payout highlight window',
+        (text) => {
+            const values = rulebookToFormValues(DEFAULT_RULEBOOK);
+            expect(
+                rulebookFormSchema.safeParse({
+                    ...values,
+                    display: {
+                        ...values.display,
+                        nextPayoutHighlightDays: text,
+                    },
+                }).success,
+            ).toBe(false);
+        },
+    );
+
     it('marks the unset thresholds optional, not skill rules, with the units the schema stores', () => {
         for (const name of OPTIONAL_FIELDS) {
             expect(TEXT_FIELDS[name]).toMatchObject({
@@ -387,5 +428,106 @@ describe('rulebook form values for the v2 sections', () => {
             expect(spec.label).not.toContain(EM_DASH);
             expect(spec.hint).not.toContain(EM_DASH);
         }
+    });
+});
+
+function rateOf(
+    firmId: string,
+    movedLiveCount: number,
+    paidPayouts: number,
+): LiveTransferRate['perFirm'][number] {
+    return {
+        firmKey: { firmId, kind: FirmKeyKind.Modeled },
+        movedLiveCount,
+        perFundedAccountMonth: null,
+        perPaidPayout: sampledRate(movedLiveCount, paidPayouts),
+    };
+}
+
+describe('measuredHazardsOf: the measured transfer rate offered next to each firm hazard field (PT-73, F-V26)', () => {
+    it('offers the measured per paid payout rate as the form text, with its counts', () => {
+        const measured = measuredHazardsOf({
+            perFirm: [rateOf(FirmId.Mffu, 3, 20)],
+        });
+        expect(measured[FirmId.Mffu]).toStrictEqual({
+            movedLiveCount: 3,
+            paidPayouts: 20,
+            rate: 0.15,
+            suggestedText: '15',
+        });
+    });
+
+    it('rounds the suggested text to two decimals of a percent', () => {
+        const measured = measuredHazardsOf({
+            perFirm: [rateOf(FirmId.Apex, 1, 3)],
+        });
+        expect(measured[FirmId.Apex]?.suggestedText).toBe('33.33');
+    });
+
+    it('shows a firm that never sent an account live but offers no text, since 0 is not a hazard the rulebook accepts', () => {
+        const measured = measuredHazardsOf({
+            perFirm: [rateOf(FirmId.Lucid, 0, 12)],
+        });
+        expect(measured[FirmId.Lucid]).toStrictEqual({
+            movedLiveCount: 0,
+            paidPayouts: 12,
+            rate: 0,
+            suggestedText: null,
+        });
+    });
+
+    it('offers no text for a rate of 1, which the rulebook does not accept either', () => {
+        const measured = measuredHazardsOf({
+            perFirm: [rateOf(FirmId.Tpt, 2, 2)],
+        });
+        expect(measured[FirmId.Tpt]?.suggestedText).toBeNull();
+    });
+
+    it('offers no text for a rate that rounds to 0% or 100%, which the rulebook does not accept', () => {
+        const measured = measuredHazardsOf({
+            perFirm: [
+                rateOf(FirmId.Apex, 1, 25_000),
+                rateOf(FirmId.Mffu, 24_999, 25_000),
+            ],
+        });
+        expect(measured[FirmId.Apex]?.suggestedText).toBeNull();
+        expect(measured[FirmId.Mffu]?.suggestedText).toBeNull();
+    });
+
+    it('still offers the smallest and largest rates that round inside the open interval', () => {
+        const measured = measuredHazardsOf({
+            perFirm: [
+                rateOf(FirmId.Apex, 1, 10_000),
+                rateOf(FirmId.Mffu, 9999, 10_000),
+            ],
+        });
+        expect(measured[FirmId.Apex]?.suggestedText).toBe('0.01');
+        expect(measured[FirmId.Mffu]?.suggestedText).toBe('99.99');
+    });
+
+    it('leaves out a firm with no paid payouts, an unlisted firm and an unknown stored firm', () => {
+        const measured = measuredHazardsOf({
+            perFirm: [
+                rateOf(FirmId.TopStep, 0, 0),
+                {
+                    firmKey: {
+                        externalFirmId: 'ext-1',
+                        kind: FirmKeyKind.External,
+                    },
+                    movedLiveCount: 1,
+                    perFundedAccountMonth: null,
+                    perPaidPayout: sampledRate(1, 4),
+                },
+                rateOf('not-a-firm', 1, 4),
+            ],
+        });
+        expect(measured).toStrictEqual({});
+    });
+
+    it('never uses an em dash in the suggested text', () => {
+        const measured = measuredHazardsOf({
+            perFirm: [rateOf(FirmId.Mffu, 3, 20)],
+        });
+        expect(JSON.stringify(measured)).not.toContain(EM_DASH);
     });
 });

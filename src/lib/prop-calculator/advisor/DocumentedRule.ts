@@ -8,6 +8,7 @@ import {
     INSTRUMENTS,
     isAtOrBelowWithinCentTolerance,
     minStopPoints,
+    ONE_CENT,
     points,
     type Points,
     shouldStopDay,
@@ -25,6 +26,7 @@ import {
     SizingConstraint,
     type SizingTerms,
 } from './DocumentedSizing';
+import { floorToPlaceableUnit } from './PlaceableMinimum';
 import { type EvalSizingMode, type RulebookParameters } from './Rulebook';
 import {
     dailyLossRoom,
@@ -34,6 +36,7 @@ import {
     tighterOf,
 } from './RuleContext';
 import { assertSizingInvariant, assertTradeInvariant } from './SizingInvariant';
+import { SizingStage } from './SizingStage';
 
 export const SHARED_ASSUMPTIONS: readonly SizingAssumption[] = [
     SizingAssumption.NoCommission,
@@ -251,7 +254,15 @@ export function resolveNextTrade(
         ceiling === null
             ? Infinity
             : (ceiling.amount - day.dayPnL) / terms.rewardMultiple;
-    if (ceiling !== null && ceilingRoom < context.placeableMinimum) {
+    const isFlatRungPlacedAsPlanned =
+        context.stage === SizingStage.Funded && context.ceiling !== null;
+    const ceilingMinimum =
+        isFlatRungPlacedAsPlanned &&
+        planned !== null &&
+        isAtOrBelowWithinCentTolerance(planned.amount, ceilingRoom)
+            ? ONE_CENT
+            : context.placeableMinimum;
+    if (ceiling !== null && ceilingRoom < ceilingMinimum) {
         return stopFor(DayStopReason.CeilingReached, [ceiling.constraint]);
     }
     const runningLoss: number = day.runningLoss;
@@ -281,9 +292,19 @@ export function resolveNextTrade(
             room.constraint,
         );
     }
-    if (ceiling !== null) capAt(ceilingRoom, ceiling.constraint);
+    if (ceiling !== null) {
+        const riskBeforeCeiling = risk;
+        capAt(ceilingRoom, ceiling.constraint);
+        if (risk < riskBeforeCeiling && context.placeableMinimum > ONE_CENT) {
+            risk = floorToPlaceableUnit(risk, context.placeableMinimum);
+        }
+    }
     const placed = floorToWholeCents(risk);
-    if (placed < context.placeableMinimum) {
+    const isStandingFlatRung = isFlatRungPlacedAsPlanned && cappedBy.size === 0;
+    const placeableMinimum = isStandingFlatRung
+        ? ONE_CENT
+        : context.placeableMinimum;
+    if (placed < placeableMinimum) {
         return stopFor(DayStopReason.NoLossRoom, [...cappedBy]);
     }
     if (planned === null) return stopFor(DayStopReason.LadderExhausted, []);

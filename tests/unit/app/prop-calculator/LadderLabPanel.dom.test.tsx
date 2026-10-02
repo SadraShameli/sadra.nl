@@ -10,12 +10,16 @@ import {
     vi,
 } from 'vitest';
 
+import type * as DataTableModule from '~/components/ui/DataTable';
+
+import { type CalculatorAction } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import LadderLabPanel from '~/app/(app)/prop-calculator/_components/LadderLabPanel';
 import {
     initialLadderLabForm,
     ladderSearchInputsFor,
 } from '~/app/(app)/prop-calculator/_components/ladderLabRestore';
 import {
+    type LadderDisplayInstrument,
     type LadderResultSlot,
     LadderSlotEvent,
     ladderSlotFor,
@@ -38,30 +42,52 @@ import {
     RungSizing,
     type SimInputs,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { findFirm } from '~/lib/prop-calculator/firms';
 
 interface PanelHarness {
+    dispatch: Mock<(action: CalculatorAction) => void>;
     ladderSlot: LadderResultSlot | null;
+    objective: null | SizingObjective;
     runInputs: LadderSearchInputs | null;
     search: LadderSearchState | null;
     setRungSizing: Mock<(rungSizing: RungSizing) => void>;
+    tableColumns: unknown[];
     writeLadderSlot: Mock<
         (event: LadderSlotEvent, slot: LadderResultSlot | null) => void
     >;
 }
 
 const harness = vi.hoisted((): PanelHarness => ({
+    dispatch: vi.fn(),
     ladderSlot: null,
+    objective: null,
     runInputs: null,
     search: null,
     setRungSizing: vi.fn(),
+    tableColumns: [],
     writeLadderSlot: vi.fn(),
 }));
 
+vi.mock('~/components/ui/DataTable', async (importOriginal) => {
+    const actual = await importOriginal<typeof DataTableModule>();
+    return {
+        ...actual,
+        DataTable: (properties: Parameters<typeof actual.DataTable>[0]) => {
+            harness.tableColumns.push(properties.columns);
+            return actual.DataTable(properties);
+        },
+    };
+});
+
 vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
     useCalculatorActions: () => ({
+        dispatch: harness.dispatch,
         setRungSizing: harness.setRungSizing,
         writeLadderSlot: harness.writeLadderSlot,
+    }),
+    useCalculatorInputs: () => ({
+        state: { objective: harness.objective ?? 'monthly-net' },
     }),
     useLabSlots: () => ({ ladderSlot: harness.ladderSlot }),
 }));
@@ -190,7 +216,9 @@ describe('LadderLabPanel', () => {
 
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.dispatch.mockClear();
         harness.ladderSlot = null;
+        harness.objective = SizingObjective.MonthlyNet;
         harness.runInputs = null;
         harness.search = { phase: LadderRunPhase.Idle };
         harness.setRungSizing.mockClear();
@@ -369,5 +397,211 @@ describe('LadderLabPanel', () => {
         expect(container.textContent).toContain(
             'Apply also sets the unaffordable rung choice for every trade in the simulation, eval and funded, not only for this ladder.',
         );
+    });
+});
+
+describe('LadderLabPanel objective and contracts at the stop (PT-63, F-V15, F-V23)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+    let isMounted: boolean;
+    const onApply = vi.fn<(policy: DayPolicy | null) => void>();
+
+    const fast: LadderScore = {
+        ...score,
+        costPerFunded: 900,
+        expectedDaysToFunded: 5,
+        ladder: [200, 300, 400],
+    };
+    const cheap: LadderScore = {
+        ...score,
+        costPerFunded: 400,
+        expectedDaysToFunded: 9,
+        ladder: [150, 150],
+    };
+
+    function twoLadders(): LadderSearchState {
+        return {
+            phase: LadderRunPhase.Succeeded,
+            progress: progress(40),
+            result: {
+                byCost: [cheap, fast],
+                byPassRate: [cheap, fast],
+                bySpeed: [fast, cheap],
+                droppedAliasCount: 0,
+                frontier: [fast, cheap],
+                gridSize: 40,
+                laddersScored: 40,
+                unscorableCount: 0,
+            },
+        };
+    }
+
+    function renderScored(
+        baseInputs: SimInputs,
+        instrument: LadderDisplayInstrument,
+    ) {
+        harness.ladderSlot = ladderSlotFor(
+            LadderSlotEvent.Completed,
+            twoLadders(),
+            searchInputsFor(baseInputs, RungSizing.CapToCushion),
+            instrument,
+        );
+        act(() => {
+            root.render(
+                <LadderLabPanel
+                    activePolicy={null}
+                    baseInputs={baseInputs}
+                    onApply={onApply}
+                />,
+            );
+        });
+        isMounted = true;
+    }
+
+    function rowFor(ladder: number[]): HTMLTableRowElement {
+        const text = ladder.join(' / ');
+        const found = [...container.querySelectorAll(':scope tbody tr')].find(
+            (row) => row.textContent.includes(text),
+        );
+        if (!found) throw new Error(`no row for ${text}`);
+        return found as HTMLTableRowElement;
+    }
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.dispatch.mockClear();
+        harness.objective = SizingObjective.MonthlyNet;
+        harness.runInputs = null;
+        harness.search = { phase: LadderRunPhase.Idle };
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+        isMounted = false;
+    });
+
+    afterEach(() => {
+        if (isMounted) {
+            act(() => {
+                root.unmount();
+            });
+        }
+        harness.ladderSlot = null;
+        container.remove();
+    });
+
+    it('shows whole contracts and the placed risk per rung at the entered stop, display only', () => {
+        renderScored(
+            baseInputsWith(RungSizing.CapToCushion),
+            InstrumentSymbol.NQ,
+        );
+        const headers = [...container.querySelectorAll('th')].map(
+            (header) => header.textContent,
+        );
+        expect(headers).toContain('Contracts at stop');
+        expect(rowFor([200, 300, 400]).textContent).toContain(
+            '1 / 1 / 2 contracts',
+        );
+        expect(rowFor([200, 300, 400]).textContent).toContain(
+            '$200 / $200 / $400 placed',
+        );
+        expect(rowFor([150, 150]).textContent).toContain('0 / 0 contracts');
+    });
+
+    it('leaves the contracts column out without an entered stop', () => {
+        renderScored(
+            {
+                ...baseInputsWith(RungSizing.CapToCushion),
+                stopPoints: undefined,
+            },
+            InstrumentSymbol.NQ,
+        );
+        const headers = [...container.querySelectorAll('th')].map(
+            (header) => header.textContent,
+        );
+        expect(headers).not.toContain('Contracts at stop');
+    });
+
+    it('leaves the contracts column out without an instrument', () => {
+        renderScored(baseInputsWith(RungSizing.CapToCushion), '');
+        const headers = [...container.querySelectorAll('th')].map(
+            (header) => header.textContent,
+        );
+        expect(headers).not.toContain('Contracts at stop');
+    });
+
+    it('stars the fastest ladder under MonthlyNet, an eval-stage proxy', () => {
+        renderScored(
+            baseInputsWith(RungSizing.CapToCushion),
+            InstrumentSymbol.NQ,
+        );
+        expect(rowFor([200, 300, 400]).textContent).toContain('★');
+        expect(rowFor([150, 150]).textContent).not.toContain('★');
+        expect(container.textContent).toContain('eval-stage proxy');
+    });
+
+    it('stars the cheapest per funded ladder under CycleCash', () => {
+        harness.objective = SizingObjective.CycleCash;
+        renderScored(
+            baseInputsWith(RungSizing.CapToCushion),
+            InstrumentSymbol.NQ,
+        );
+        expect(rowFor([150, 150]).textContent).toContain('★');
+        expect(rowFor([200, 300, 400]).textContent).not.toContain('★');
+    });
+
+    it('keeps the fastest star under RuinFirst and shows the risk sizing note', () => {
+        harness.objective = SizingObjective.RuinFirst;
+        renderScored(
+            baseInputsWith(RungSizing.CapToCushion),
+            InstrumentSymbol.NQ,
+        );
+        expect(rowFor([200, 300, 400]).textContent).toContain('★');
+        expect(container.textContent).toContain(
+            'RuinFirst ranks plans to buy; risk sizing stays on monthly net (Hard Rule 3)',
+        );
+    });
+
+    it('shows cost per funded and days to funded on every row whatever the objective', () => {
+        harness.objective = SizingObjective.CycleCash;
+        renderScored(
+            baseInputsWith(RungSizing.CapToCushion),
+            InstrumentSymbol.NQ,
+        );
+        expect(rowFor([200, 300, 400]).textContent).toContain('$900');
+        expect(rowFor([200, 300, 400]).textContent).toContain('5.0');
+        expect(rowFor([150, 150]).textContent).toContain('$400');
+    });
+
+    it('keeps the table columns stable across a re-render with the same inputs', () => {
+        const baseInputs = baseInputsWith(RungSizing.CapToCushion);
+        harness.tableColumns.length = 0;
+        renderScored(baseInputs, InstrumentSymbol.NQ);
+        const afterFirst = harness.tableColumns.length;
+        expect(afterFirst).toBeGreaterThan(0);
+        act(() => {
+            root.render(
+                <LadderLabPanel
+                    activePolicy={null}
+                    baseInputs={baseInputs}
+                    onApply={onApply}
+                />,
+            );
+        });
+        expect(harness.tableColumns.length).toBeGreaterThan(afterFirst);
+        expect(harness.tableColumns.at(-1)).toBe(
+            harness.tableColumns.at(afterFirst - 1),
+        );
+    });
+
+    it('names the objective on a chip', () => {
+        harness.objective = SizingObjective.CycleCash;
+        renderScored(
+            baseInputsWith(RungSizing.CapToCushion),
+            InstrumentSymbol.NQ,
+        );
+        expect(
+            container.querySelector('.app-prop-calculator__objective-chip')
+                ?.textContent,
+        ).toContain('cycle cash');
     });
 });

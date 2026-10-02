@@ -91,6 +91,7 @@ function evalAdvice(personal: {
         personalDll: personal.personalDll ?? null,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
     }).assemble([]);
 }
@@ -141,6 +142,7 @@ function fundedAdvisor(personal: {
         personalRetainedCushion: personal.personalRetainedCushion ?? null,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
         trials: 20,
     });
@@ -203,7 +205,7 @@ describe('personal rules change the assembled advice without touching the engine
         ).toBe(true);
     });
 
-    it('a personal daily profit cap of $200 halves the first three daily plan rungs and keeps the documented ladder', () => {
+    it('a personal daily profit cap of $200 caps the documented ladder and the daily plan card alike (PT-68d)', () => {
         const base = evalAdvice({});
         const capped = evalAdvice({
             personalCaps: { dailyProfitCap: dollars(200) },
@@ -211,9 +213,11 @@ describe('personal rules change the assembled advice without touching the engine
 
         expect(riskOf(base).map(([risk]) => risk)).toEqual([200, 300, 450, 50]);
         expect(riskOf(capped).map(([risk]) => risk)).toEqual([
-            100, 150, 225, 50,
+            100, 150, 200, 50,
         ]);
-        expect(capped.documented?.rungs).toEqual(base.documented?.rungs);
+        expect(capped.documented?.rungs.map((rung) => rung.risk)).toEqual(
+            riskOf(capped).map(([risk]) => risk),
+        );
     });
 
     it('a personal max trades per day of 1 leaves one daily plan rung', () => {
@@ -243,7 +247,7 @@ describe('personal rules change the assembled advice without touching the engine
         );
     });
 
-    it('personal daily limits and caps leave the engine request key unchanged, so the cached engine outcome stays valid', () => {
+    it('personal daily limits and caps change the engine request key, because the engine now simulates them (PT-68f)', () => {
         const base = requestKeyOf(fundedAdvisor({}));
         const advisor = new FundedSizingAdvisor({
             account: fundedAccount(),
@@ -256,11 +260,12 @@ describe('personal rules change the assembled advice without touching the engine
             personalDll: dollars(300),
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
             trials: 20,
         });
 
-        expect(requestKeyOf(advisor)).toBe(base);
+        expect(requestKeyOf(advisor)).not.toBe(base);
     });
 
     it('a personal payout override changes the engine request key', () => {

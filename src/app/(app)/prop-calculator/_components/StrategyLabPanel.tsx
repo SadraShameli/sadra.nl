@@ -2,6 +2,7 @@
 
 import { Plus, RotateCcw, X } from 'lucide-react';
 import { useMemo } from 'react';
+import { z } from 'zod';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
@@ -25,7 +26,8 @@ import {
 import {
     ALL_INSTRUMENTS,
     CorrelationMode,
-    type InstrumentSymbol,
+    InstrumentSymbol,
+    LiveTransferContinuationKind,
     type Plan,
     type RungSizing,
 } from '~/lib/prop-calculator';
@@ -34,6 +36,12 @@ import {
     ECONOMICS_REASON_TEXT,
     EconomicsDisclosure,
 } from '~/lib/prop-calculator/economics';
+import {
+    LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
+    LIVE_TRANSFER_CONTINUATION_TEXT,
+    liveTransferContinuationNotes,
+    liveTransferHazardPercentText,
+} from '~/lib/prop-calculator/simulator';
 import {
     CALCULATOR_SCALAR_BOUNDS,
     LAB_SCENARIO_BOUNDS,
@@ -55,6 +63,7 @@ interface StrategyLabPanelProperties {
     fundedHorizonDays: number;
     labLink: LabLinkOutcome;
     linkActivationDiscount: boolean;
+    liveTransferHazard?: number;
     maxEvalDays: number;
     minRetainedCushion: number | undefined;
     monthlySubscriptionDiscountPercent: number;
@@ -90,6 +99,8 @@ const CORRELATION_LABEL: Record<CorrelationMode, string> = {
     grouped: 'Group-split',
     independent: 'Independent',
 };
+const correlationModeSchema = z.enum(CorrelationMode);
+const instrumentSymbolSchema = z.enum(InstrumentSymbol);
 
 export default function StrategyLabPanel({
     activationDiscountPercent,
@@ -98,6 +109,7 @@ export default function StrategyLabPanel({
     fundedHorizonDays,
     labLink,
     linkActivationDiscount,
+    liveTransferHazard,
     maxEvalDays,
     minRetainedCushion,
     monthlySubscriptionDiscountPercent,
@@ -118,6 +130,7 @@ export default function StrategyLabPanel({
         discountPercent: evalDiscountPercent,
         fundedHorizonDays,
         linkActivationDiscount,
+        liveTransferHazard,
         maxEvalDays,
         minRetainedCushion,
         monthlySubscriptionDiscountPercent,
@@ -128,6 +141,8 @@ export default function StrategyLabPanel({
         scenarios,
         seed,
     });
+    const isHazardPriced =
+        liveTransferHazard !== undefined && liveTransferHazard > 0;
 
     const verdict = useMemo(() => {
         if (results.size === 0) return null;
@@ -259,7 +274,22 @@ export default function StrategyLabPanel({
                 />
             ))}
             <SimulationFailureNotice message={error} />
+            {isHazardPriced && (
+                <Alert className="mt-3" variant="warning">
+                    <AlertDescription className="text-xs">
+                        {`Live-transfer hazard of ${liveTransferHazardPercentText(liveTransferHazard)} per paid payout (your assumption, not a firm rule): E[$/mo] includes it and ends each paid account's simulated payouts at a transfer, while E[$/mo] no transfer is the same scenario with the hazard at 0. A transferred account keeps its slot to the end of the funded horizon. Copy-traded accounts are sent live together. ${LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT}`}
+                        {hazardContinuationNotes(results.values(), plan).map(
+                            (note) => (
+                                <span className="mt-1 block" key={note}>
+                                    {note}
+                                </span>
+                            ),
+                        )}
+                    </AlertDescription>
+                </Alert>
+            )}
             <StrategyLabTable
+                isHazardPriced={isHazardPriced}
                 onRemove={onRemove}
                 onUpdate={onUpdate}
                 pending={pending}
@@ -350,6 +380,57 @@ export default function StrategyLabPanel({
     );
 }
 
+function hazardColumns(): DataTableColumn<StrategyLabRow>[] {
+    return [
+        {
+            accessorFn: (r) => r.result?.noTransferMonthlyNet ?? -Infinity,
+            cell: ({ row }) => (
+                <ResultCell
+                    className="text-muted-foreground"
+                    value={
+                        row.original.result?.noTransferMonthlyNet ?? undefined
+                    }
+                >
+                    {(v) => formatCompactCurrency(v)}
+                </ResultCell>
+            ),
+            header: 'E[$/mo] no transfer',
+            id: 'monthly-no-transfer',
+        },
+        {
+            accessorFn: (r) => r.result?.liveTransferProbability ?? -1,
+            cell: ({ row }) => (
+                <ResultCell
+                    value={row.original.result?.liveTransferProbability}
+                >
+                    {(v) => formatPercent(v)}
+                </ResultCell>
+            ),
+            header: 'Sent live',
+            id: 'sent-live',
+        },
+    ];
+}
+
+function hazardContinuationNotes(
+    results: Iterable<LabResult>,
+    plan: Plan,
+): string[] {
+    const kinds = new Set<LiveTransferContinuationKind>();
+    for (const result of results) kinds.add(result.liveTransferContinuation);
+    const notes = Object.values(LiveTransferContinuationKind)
+        .flatMap((kind) =>
+            kinds.has(kind)
+                ? [
+                      LIVE_TRANSFER_CONTINUATION_TEXT[kind],
+                      ...liveTransferContinuationNotes(plan, kind),
+                  ]
+                : [],
+        )
+        .filter((note) => note !== '');
+    return [...new Set(notes)];
+}
+
 function ResultCell({
     children,
     className,
@@ -367,11 +448,13 @@ function ResultCell({
 }
 
 function StrategyLabTable({
+    isHazardPriced,
     onRemove,
     onUpdate,
     pending,
     rows,
 }: {
+    isHazardPriced: boolean;
     onRemove: (id: string) => void;
     onUpdate: (id: string, patch: Partial<LabScenario>) => void;
     pending: boolean;
@@ -501,14 +584,19 @@ function StrategyLabTable({
                     const sc = row.original.scenario;
                     return (
                         <Select
-                            onValueChange={(v) =>
-                                onUpdate(sc.id, {
-                                    instrument:
-                                        v === 'none'
-                                            ? null
-                                            : (v as InstrumentSymbol),
-                                })
-                            }
+                            onValueChange={(v) => {
+                                if (v === 'none') {
+                                    onUpdate(sc.id, { instrument: null });
+                                    return;
+                                }
+                                const parsed =
+                                    instrumentSymbolSchema.safeParse(v);
+                                if (parsed.success) {
+                                    onUpdate(sc.id, {
+                                        instrument: parsed.data,
+                                    });
+                                }
+                            }}
                             value={sc.instrument ?? 'none'}
                         >
                             <SelectTrigger className="h-7 w-24 text-xs">
@@ -594,22 +682,21 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Select
-                        onValueChange={(v) =>
-                            onUpdate(row.original.scenario.id, {
-                                correlation: v as CorrelationMode,
-                            })
-                        }
+                        onValueChange={(v) => {
+                            const parsed = correlationModeSchema.safeParse(v);
+                            if (parsed.success) {
+                                onUpdate(row.original.scenario.id, {
+                                    correlation: parsed.data,
+                                });
+                            }
+                        }}
                         value={row.original.scenario.correlation}
                     >
                         <SelectTrigger className="h-7 w-36 text-xs">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            {(
-                                Object.keys(
-                                    CORRELATION_LABEL,
-                                ) as CorrelationMode[]
-                            ).map((mode) => (
+                            {Object.values(CorrelationMode).map((mode) => (
                                 <SelectItem key={mode} value={mode}>
                                     {CORRELATION_LABEL[mode]}
                                 </SelectItem>
@@ -793,6 +880,7 @@ function StrategyLabTable({
                 header: 'E[$/mo]',
                 id: 'monthly',
             },
+            ...(isHazardPriced ? hazardColumns() : []),
             {
                 accessorFn: (r) => r.result?.pHitDDLimit ?? -1,
                 cell: ({ row }) => (
@@ -819,7 +907,7 @@ function StrategyLabTable({
                 id: 'remove',
             },
         ],
-        [onRemove, onUpdate],
+        [isHazardPriced, onRemove, onUpdate],
     );
 
     return (

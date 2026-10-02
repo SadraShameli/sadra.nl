@@ -2,7 +2,10 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { VALUE_CHAIN_STEP_LABEL } from '~/app/(app)/prop-calculator/_components/value/valueChainStepLabels';
+import {
+    stepAssumptionsHeading,
+    VALUE_CHAIN_STEP_LABEL,
+} from '~/app/(app)/prop-calculator/_components/value/valueChainStepLabels';
 import { ValueChainStepKind } from '~/lib/prop-calculator/advisor/value';
 
 const APP_ROOT = path.resolve(import.meta.dirname, '../../../../src/app');
@@ -50,5 +53,24 @@ describe('the value chain step labels (PT-37b, F-V18)', () => {
             )
             .map((file) => path.relative(APP_ROOT, file));
         expect(offenders).toEqual([LABEL_LEAF]);
+    });
+
+    it('builds every step assumptions heading in the label leaf only', () => {
+        expect(
+            stepAssumptionsHeading(ValueChainStepKind.FirstPayoutEligible),
+        ).toBe('First payout eligible assumptions');
+        const builders = readdirSync(APP_ROOT, {
+            recursive: true,
+            withFileTypes: true,
+        })
+            .filter((entry) => entry.isFile() && /\.tsx?$/u.test(entry.name))
+            .map((entry) => path.join(entry.parentPath, entry.name))
+            .filter((file) =>
+                /\} assumptions`|\]\}\{' '\}\s*assumptions/u.test(
+                    readFileSync(file, 'utf8'),
+                ),
+            )
+            .map((file) => path.relative(APP_ROOT, file));
+        expect(builders).toEqual([LABEL_LEAF]);
     });
 });

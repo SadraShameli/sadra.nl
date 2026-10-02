@@ -1,5 +1,6 @@
 import { type Metadata } from 'next';
 
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { AdvicePanel } from '~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel';
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
 import { openAccountPage } from '~/app/(app)/prop-calculator/accounts/_components/detail/accountIdParameter';
@@ -36,7 +37,12 @@ export default async function PropAccountDetailPage({
     void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
     void api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT);
     void api.propAccounts.copyGroup.list.prefetch();
-    void api.propAccounts.snapshot.latestForAll.prefetch();
+    void api.propAccounts.snapshot.latestTwoForAll.prefetch();
+    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
+    void api.propAccounts.decision.list.prefetch(LEDGER_LIST_INPUT);
+    void api.propAccounts.violation.list.prefetch(LEDGER_LIST_INPUT);
+    void api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT);
+    void api.propAccounts.bankroll.list.prefetch();
     void api.propAccounts.rulebook.get.prefetch();
     void api.propAccounts.decision.listForAccount.prefetch({ id });
     return (

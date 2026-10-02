@@ -1,7 +1,7 @@
 import type { ArgsDef } from 'citty';
 
 import { parseArgs, renderUsage } from 'citty';
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import propGroup from '~/cli/commands/prop/group';
 import ladder, {
@@ -14,11 +14,14 @@ import ladder, {
     LADDER_TABLE_LABELS,
     ladderArguments,
     ladderCommandArguments,
+    ladderRankingsFor,
     ladderTableRow,
     ladderWorkWarning,
     readLadderGrid,
 } from '~/cli/commands/prop/ladder/command';
 import {
+    ObjectiveFlag,
+    ObjectiveNotApplicable,
     planArguments,
     planResolver,
     singlePathGranularityArgument,
@@ -45,6 +48,7 @@ import {
     scoreLadder,
     TopStepVariant,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
@@ -550,6 +554,23 @@ describe('prop ladder --help lists only what works (WP46c, N-78 follow-up)', () 
         expect(issue).toBeNull();
     });
 
+    it('explains --live-transfer-hazard as a funded-phase input the ladder search never runs, not as an unknown flag (PT-73)', async () => {
+        const issue = await findUnknownFlag(
+            ['ladder', '--live-transfer-hazard', '0.3'],
+            propGroup,
+            'cli prop',
+        );
+        expect(issue).toBeNull();
+        expect(() =>
+            buildLadderSearchOptions(
+                apexEodPlan(),
+                parseGrid(['--live-transfer-hazard', '0.3']),
+            ),
+        ).toThrow(
+            `--live-transfer-hazard is not supported by prop ladder: the ladder search ${LADDER_IGNORED_INPUT_REASONS[LadderIgnoredInput.FundedPhase]}, so drop the flag or use prop sim`,
+        );
+    });
+
     it('still lets the shared unknown-flag guard reject a truly unknown flag on prop ladder', async () => {
         const issue = await findUnknownFlag(
             ['ladder', '--totally-bogus-flag'],
@@ -727,5 +748,165 @@ describe('ladderTableRow shows each estimate with its standard error', () => {
 describe('prop ladder --help names only flags prop ladder accepts (WP43d)', () => {
     it('names no flag prop ladder lacks, such as --percent or --funded-ladder', async () => {
         expect(await flagsNamedButNotAccepted(ladder)).toStrictEqual([]);
+    });
+});
+
+
+const smallRun = [
+    '--firm',
+    'mffu',
+    '--variant',
+    'rapid-eod',
+    '--rungs',
+    '2',
+    '--lo',
+    '200',
+    '--max',
+    '600',
+    '--step',
+    '200',
+    '--trials',
+    '200',
+    '--top',
+    '2',
+];
+
+async function capturedLadder(argv: string[]) {
+    const written: string[] = [];
+    const write = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+            written.push(String(chunk));
+            return true;
+        });
+    const writeError = vi
+        .spyOn(process.stderr, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+            written.push(String(chunk));
+            return true;
+        });
+    const previous = process.exitCode;
+    process.exitCode = undefined;
+    let exitCode: typeof process.exitCode;
+    try {
+        await ladder.run?.({
+            args: parseArgs<typeof ladderCommandArguments>(
+                argv,
+                ladderCommandArguments,
+            ),
+            cmd: ladder,
+            rawArgs: argv,
+        });
+        exitCode = process.exitCode;
+    } finally {
+        write.mockRestore();
+        writeError.mockRestore();
+        process.exitCode = previous;
+    }
+    return { exitCode, output: written.join('') };
+}
+
+describe('prop ladder --objective (PT-63, F-V15)', () => {
+    const result: LadderSearchResult = {
+        byCost: [],
+        byPassRate: [],
+        bySpeed: [],
+        droppedAliasCount: 0,
+        frontier: [],
+        gridSize: 0,
+        laddersScored: 0,
+        topN: 10,
+        unscorableCount: 0,
+    };
+
+    it('offers every objective flag value', () => {
+        const objective = ladderArguments.objective;
+        expect(objective.type).toBe('enum');
+        expect(objective.options).toStrictEqual(Object.values(ObjectiveFlag));
+    });
+
+    it('lists bySpeed first under MonthlyNet, labelled an eval-stage proxy', () => {
+        const [first, second, third] = ladderRankingsFor(
+            SizingObjective.MonthlyNet,
+        );
+        expect(first?.select(result)).toBe(result.bySpeed);
+        expect(first?.title).toContain('FASTEST TO FUNDED');
+        expect(first?.title).toContain('eval-stage proxy');
+        expect(second?.select(result)).toBe(result.byCost);
+        expect(second?.title).not.toContain('eval-stage proxy');
+        expect(third?.select(result)).toBe(result.byPassRate);
+    });
+
+    it('lists byCost first under CycleCash, labelled an eval-stage proxy', () => {
+        const [first, second, third] = ladderRankingsFor(
+            SizingObjective.CycleCash,
+        );
+        expect(first?.select(result)).toBe(result.byCost);
+        expect(first?.title).toContain('CHEAPEST PER FUNDED ACCOUNT');
+        expect(first?.title).toContain('eval-stage proxy');
+        expect(second?.select(result)).toBe(result.bySpeed);
+        expect(second?.title).not.toContain('eval-stage proxy');
+        expect(third?.select(result)).toBe(result.byPassRate);
+    });
+
+    it('never offers the pass rate table as an objective', () => {
+        for (const objective of [
+            SizingObjective.CycleCash,
+            SizingObjective.MonthlyNet,
+        ]) {
+            const rankings = ladderRankingsFor(objective);
+            const passRate = rankings.at(-1);
+            expect(passRate?.select(result)).toBe(result.byPassRate);
+            expect(passRate?.title).toContain('reference only');
+            expect(passRate?.title).not.toContain('eval-stage proxy');
+        }
+    });
+
+    it('keeps the default ranking list unchanged', () => {
+        expect(LADDER_RANKINGS.map((ranking) => ranking.title)).toStrictEqual([
+            'FASTEST TO FUNDED',
+            'CHEAPEST PER FUNDED ACCOUNT',
+            'HIGHEST EVAL PASS RATE',
+        ]);
+    });
+
+    it('refuses RuinFirst, which would size eval rungs', () => {
+        expect(() => ladderRankingsFor(SizingObjective.RuinFirst)).toThrow(
+            ObjectiveNotApplicable,
+        );
+    });
+
+    it('prints MonthlyNet and the speed table first by default', async () => {
+        const { exitCode, output } = await capturedLadder(smallRun);
+        expect(exitCode).toBeUndefined();
+        expect(output).toContain('objective: monthly net');
+        expect(output.indexOf('FASTEST TO FUNDED')).toBeGreaterThan(-1);
+        expect(output.indexOf('FASTEST TO FUNDED')).toBeLessThan(
+            output.indexOf('CHEAPEST PER FUNDED ACCOUNT'),
+        );
+    });
+
+    it('prints cycle cash and the cost table first under --objective cycle', async () => {
+        const { exitCode, output } = await capturedLadder([
+            ...smallRun,
+            '--objective',
+            'cycle',
+        ]);
+        expect(exitCode).toBeUndefined();
+        expect(output).toContain('objective: cycle cash');
+        expect(output.indexOf('CHEAPEST PER FUNDED ACCOUNT')).toBeLessThan(
+            output.indexOf('FASTEST TO FUNDED'),
+        );
+    });
+
+    it('fails with ObjectiveNotApplicable text for --objective ruin-first', async () => {
+        const { exitCode, output } = await capturedLadder([
+            ...smallRun,
+            '--objective',
+            'ruin-first',
+        ]);
+        expect(exitCode).toBe(1);
+        expect(output).toContain('RuinFirst only ranks which plan to buy');
+        expect(output).not.toContain('FASTEST TO FUNDED');
     });
 });

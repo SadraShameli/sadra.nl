@@ -10,7 +10,7 @@ import {
     adviceValueViewOf,
     adviceWithValues,
 } from './adviceValueModel';
-import { adviceViewModel } from './adviceViewModel';
+import { adviceViewModel, type PersonalLimits } from './adviceViewModel';
 import {
     AccountAdvicePhase,
     type AccountAdviceState,
@@ -24,11 +24,13 @@ export interface AdviceViews {
 
 export function useAdviceViews({
     adviceState,
+    limits,
     phase,
     plan,
     riskUnit,
 }: {
     readonly adviceState: AccountAdviceState;
+    readonly limits: PersonalLimits;
     readonly phase: null | TradingPhase;
     readonly plan: Plan;
     readonly riskUnit: RiskDisplayUnit;
@@ -55,7 +57,7 @@ export function useAdviceViews({
         });
         return {
             valueView,
-            view: adviceViewModel(adviceWithValues(advice, valueView)),
+            view: adviceViewModel(adviceWithValues(advice, valueView), limits),
         };
-    }, [advice, outcome, phase, plan, riskUnit]);
+    }, [advice, limits, outcome, phase, plan, riskUnit]);
 }

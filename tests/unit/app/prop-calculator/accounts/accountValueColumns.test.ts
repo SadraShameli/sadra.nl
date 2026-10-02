@@ -14,7 +14,6 @@ import {
     type AccountValueModeledInput,
     type AccountValueOptions,
     AtRiskKind,
-    DEFAULT_NEXT_PAYOUT_HIGHLIGHT_DAYS,
     EvPerAttemptKind,
     ExpectedPayoutsKind,
     expectedValueOf,
@@ -43,6 +42,9 @@ import {
     type Advice,
     AdviceStalenessReason,
     DEFAULT_RULEBOOK,
+    NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
+    NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+    NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
     type NextPayoutProjection,
     PayoutRequestDecisionKind,
     RetainedCushionBasis,
@@ -232,6 +234,13 @@ function fundedAccount(
     return modeled({ fromState: fromStateSlot(valueOf(valueNow), nextPayout) });
 }
 
+function fundedEligibleNow(): AccountValueModeledInput {
+    return fundedAccount(1800, {
+        ...projection(0, 2000, 0),
+        alreadyEligible: true,
+    });
+}
+
 function modeled(
     overrides: Partial<AccountValueModeledInput> = {},
 ): AccountValueModeledInput {
@@ -268,6 +277,7 @@ function projection(
     return {
         accountLostBeforeFirstPayoutProbability: 0.1,
         accountLostBeforeFirstPayoutStandardError: 0.01,
+        alreadyEligible: false,
         expectedCalendarDaysToFirstPayout: { standardError, value: days },
         expectedResetFeeBeforeFirstPayout: { standardError: 1, value: 0 },
         expectedSessionDaysToFirstPayout: {
@@ -579,23 +589,74 @@ describe('accountValueColumnsOf: next payout and its highlight', () => {
         ).toMatchObject({ isSoon: false });
     });
 
-    it('has a default highlight window of seven calendar days', () => {
-        expect(DEFAULT_NEXT_PAYOUT_HIGHLIGHT_DAYS).toBe(7);
+    it('takes its default highlight window from the rulebook, not from a second constant', () => {
+        expect(DEFAULT_RULEBOOK.display.nextPayoutHighlightDays).toBe(7);
     });
 
-    it('says now, highlighted, when every trial is already eligible', () => {
-        const { nextPayout } = columnsOf(funded(0, 2000, 0));
+    it('names the highlight window and the paying share floor in the note, so the user can see why a row is or is not highlighted', () => {
+        const near = columnsOf(funded(3.4), { highlightWithinDays: 10 });
+        expect(near.nextPayout.note).toContain(
+            'Highlighted when the first payout is expected within 10 calendar days and at least 50.0% of the simulated trials reach one.',
+        );
+        const far = columnsOf(funded(20, 1200), { highlightWithinDays: 3 });
+        expect(far.nextPayout.isSoon).toBe(false);
+        expect(far.nextPayout.note).toContain(
+            'within 3 calendar days and at least 50.0% of the simulated trials',
+        );
+    });
+
+    it('says now, not highlighted, when the projection reports the account already eligible, because the live trigger and payout count are not checked (PT-68d review)', () => {
+        const { nextPayout } = columnsOf(fundedEligibleNow());
         expect(nextPayout).toMatchObject({
             days: 0,
-            isSoon: true,
+            isSoon: false,
             kind: NextPayoutKind.Now,
-            text: 'Eligible now',
+            text: NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
         });
         expect(nextPayout.note).toContain("the engine's payout check");
     });
 
-    it('keeps an eligible account highlighted even though every trial pays on day zero', () => {
-        expect(columnsOf(funded(0, 2000, 0)).nextPayout.payingShare).toBe(1);
+    it('says which assumptions the eligible now figure rests on and what it leaves out, and points at the payout readiness on the advice panel', () => {
+        const { note } = columnsOf(fundedEligibleNow()).nextPayout;
+        expect(note).toContain('retained cushion');
+        expect(note).toContain('payout request');
+        expect(note).toContain('personal rules');
+        expect(note).toContain('live trigger');
+        expect(note).toContain('payout count');
+        expect(note).toContain('payout readiness on the advice panel');
+    });
+
+    it('puts the shared eligible-now caveat in the note of an eligible account (PT-68e, F-V18)', () => {
+        expect(columnsOf(fundedEligibleNow()).nextPayout.note).toContain(
+            NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
+        );
+    });
+
+    it('reports a paying share of one for an eligible account even though every trial pays on day zero', () => {
+        expect(columnsOf(fundedEligibleNow()).nextPayout.payingShare).toBe(1);
+    });
+
+    it('reads eligibility from the projection, never from every trial paying on day zero with no spread (PT-68b, F-V18)', () => {
+        const { nextPayout } = columnsOf(funded(0, 2000, 0));
+        expect(nextPayout.kind).toBe(NextPayoutKind.InDays);
+        expect(nextPayout.text).toBe('0.0 calendar days (SE 0.0)');
+    });
+
+    it('says eligible now for an eligible projection that has no standard error, never 0.0 calendar days', () => {
+        const account = fundedAccount(1800, {
+            ...projection(0),
+            alreadyEligible: true,
+            expectedCalendarDaysToFirstPayout: {
+                standardError: null,
+                value: 0,
+            },
+        });
+        const { nextPayout } = columnsOf(account);
+        expect(nextPayout).toMatchObject({
+            kind: NextPayoutKind.Now,
+            text: NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+        });
+        expect(nextPayout.text).not.toContain('0.0 calendar days');
     });
 
     it('says no payout, never highlighted, when no trial reached one', () => {
@@ -605,7 +666,7 @@ describe('accountValueColumnsOf: next payout and its highlight', () => {
             kind: NextPayoutKind.NoPayout,
             note: null,
             payingShare: 0,
-            text: 'No simulated payout within the horizon',
+            text: NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
         });
     });
 

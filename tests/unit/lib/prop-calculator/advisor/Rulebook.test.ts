@@ -251,9 +251,9 @@ describe('DEFAULT_RULEBOOK', () => {
     });
 
     it('shows risk in account dollars', () => {
-        expect(DEFAULT_RULEBOOK.display).toEqual({
-            riskUnit: RiskDisplayUnit.AccountDollars,
-        });
+        expect(DEFAULT_RULEBOOK.display.riskUnit).toBe(
+            RiskDisplayUnit.AccountDollars,
+        );
         expect(Object.values(RiskDisplayUnit).toSorted(byName)).toEqual(
             ['account-dollars', 'ev-at-stake', 'fee-equivalent'].toSorted(
                 byName,
@@ -952,6 +952,7 @@ describe('the documented rule label and the v2 sections', () => {
         ['alerts', 'firmProfitConcentrationCount', 3],
         ['alerts', 'firmProfitConcentrationShare', 0.5],
         ['display', 'riskUnit', RiskDisplayUnit.FeeEquivalent],
+        ['display', 'nextPayoutHighlightDays', 14],
         ['liveTransfer', 'hazardPerPaidPayoutByFirm', { [FirmId.Mffu]: 0.1 }],
     ];
 
@@ -967,6 +968,43 @@ describe('the documented rule label and the v2 sections', () => {
             );
         },
     );
+});
+
+describe('display.nextPayoutHighlightDays (PT-68b, F-V18)', () => {
+    it('defaults to a seven calendar day window', () => {
+        expect(DEFAULT_RULEBOOK.display.nextPayoutHighlightDays).toBe(7);
+    });
+
+    it.each([1, 7, 14, 365])('accepts a window of %s days', (days) => {
+        expect(
+            rulebookSchema.parse(
+                withSection('display', { nextPayoutHighlightDays: days }),
+            ).display.nextPayoutHighlightDays,
+        ).toBe(days);
+    });
+
+    it.each([0, -1, 1.5, 366, null, '7'])(
+        'rejects a window of %s',
+        (days) => {
+            expect(
+                isValid(
+                    withSection('display', { nextPayoutHighlightDays: days }),
+                ),
+            ).toBe(false);
+        },
+    );
+
+    it('fills the window for a stored rulebook whose display section predates it', () => {
+        const stored = {
+            ...structuredClone(DEFAULT_RULEBOOK),
+            display: { riskUnit: RiskDisplayUnit.FeeEquivalent },
+        };
+        const merged = rulebookSchema.parse(withRulebookDefaults(stored));
+        expect(merged.display).toEqual({
+            nextPayoutHighlightDays: 7,
+            riskUnit: RiskDisplayUnit.FeeEquivalent,
+        });
+    });
 });
 
 describe('rulebookSchema typing', () => {

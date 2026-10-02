@@ -52,6 +52,7 @@ import {
     PayoutSizeSweepResultKind,
     RebuyLagBasis,
     ReconstructedLiveKind,
+    RiskDisplayUnit,
     runNextPayoutProjection,
     runPayoutSizeSweep,
     SizingStage,
@@ -308,6 +309,36 @@ describe('overviewRequestKey', () => {
         expect(parsed).toMatchObject({
             policy: enginePolicyKey(documented.spec.enginePolicy),
         });
+    });
+
+    it('ignores the display preferences of the rulebook, so changing the highlight window or the risk unit never re-runs a request (PT-68c)', () => {
+        const base = documentedOf(requestsFor());
+        const withDisplay = (display: typeof base.spec.rulebook.display) => ({
+            ...base,
+            spec: {
+                ...base.spec,
+                rulebook: { ...base.spec.rulebook, display },
+            },
+        });
+        const { display } = base.spec.rulebook;
+        expect(
+            overviewRequestKey(
+                withDisplay({
+                    ...display,
+                    nextPayoutHighlightDays: display.nextPayoutHighlightDays + 1,
+                }),
+            ),
+        ).toBe(overviewRequestKey(base));
+        expect(overviewRequestKey(withDisplay({ ...display }))).toBe(
+            overviewRequestKey(base),
+        );
+        const otherUnit =
+            display.riskUnit === RiskDisplayUnit.AccountDollars
+                ? RiskDisplayUnit.EvAtStake
+                : RiskDisplayUnit.AccountDollars;
+        expect(
+            overviewRequestKey(withDisplay({ ...display, riskUnit: otherUnit })),
+        ).toBe(overviewRequestKey(base));
     });
 
     it('puts the instrument and stop in the key, and differs from the unsized basis', () => {
@@ -977,6 +1008,22 @@ describe('the projection timeline gaps come from the one shared rule', () => {
         );
         expect(source).not.toContain('FUNDED_RR_TOLERANCE');
         expect(source).not.toContain('timelineGapsOf');
+    });
+
+    it('leaves the sizing refusal to the timeline inputs, with no second check of its own (PT-68g)', () => {
+        const source = readFileSync(
+            path.join(
+                process.cwd(),
+                'src',
+                'app',
+                '(app)',
+                'prop-calculator',
+                '_workers',
+                'overviewWorkerMessages.ts',
+            ),
+            'utf8',
+        );
+        expect(source).not.toContain('simInputsSizingIssue');
     });
 });
 
@@ -1868,5 +1915,88 @@ describe('a value chain step that throws fails only the steps that depend on it 
             ValueChainStepKind.FirstPayoutEligible,
             ValueChainStepKind.PostFirstPayout,
         ]);
+    });
+});
+
+describe('the overview chain is the lib value chain (PT-67e, F-V17, F-V18)', () => {
+    const MFF_RAPID_EOD_50K = requirePlan(
+        findFirm(FirmId.Mffu)?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Mffu,
+            variant: MffuVariant.RapidEod,
+        }),
+        'expected the MFF Rapid EOD 50K plan to resolve',
+    );
+    const UNKEEPABLE_CUSHION = 200_000;
+
+    function unkeepableRequestFor(plan: Plan): OverviewRequest {
+        const request = chainRequestFor(plan);
+        return {
+            ...request,
+            spec: {
+                ...request.spec,
+                enginePolicy: {
+                    ...request.spec.enginePolicy,
+                    retainedCushionRequest: UNKEEPABLE_CUSHION,
+                },
+            },
+        };
+    }
+
+    it('carries every built step with the assumptions the lib chain gives it, the eligible step included', () => {
+        const request = chainRequestFor(MFF_RAPID_EOD_50K);
+        const figures = chainFigures(request);
+        const direct = valueChain(MFF_RAPID_EOD_50K, request.spec);
+        expect(direct.failedSteps).toEqual([]);
+        expect(
+            figures.steps.map((step) => [step.kind, step.assumptions]),
+        ).toEqual(direct.steps.map((step) => [step.kind, step.assumptions]));
+        const eligible = figures.steps.find(
+            (step) => step.kind === ValueChainStepKind.FirstPayoutEligible,
+        );
+        expect(eligible?.assumptions.length).toBeGreaterThan(1);
+        expect(structuredClone(figures)).toEqual(figures);
+    });
+
+    it('reports a failed step with the lib reason and no assumptions, in the fixed step order', () => {
+        const request = unkeepableRequestFor(MFF_RAPID_EOD_50K);
+        const figures = chainFigures(request);
+        const direct = valueChain(MFF_RAPID_EOD_50K, request.spec);
+        expect(direct.failedSteps.length).toBeGreaterThan(0);
+        expect(figures.steps.map((step) => step.kind)).toEqual([
+            ValueChainStepKind.EvalStart,
+            ValueChainStepKind.FreshFunded,
+            ValueChainStepKind.FirstPayoutEligible,
+            ValueChainStepKind.PostFirstPayout,
+        ]);
+        for (const failure of direct.failedSteps) {
+            const step = figures.steps.find(
+                (candidate) => candidate.kind === failure.kind,
+            );
+            expect(step?.assumptions).toEqual([]);
+            expect(step?.outcome).toEqual({
+                kind: ValueChainStepOutcomeKind.Unavailable,
+                reason: failure.reason,
+            });
+        }
+    });
+
+    it('assembles no chain step of its own: the worker messages call the lib valueChain and none of the step builders', () => {
+        const source = readFileSync(
+            path.join(
+                process.cwd(),
+                'src',
+                'app',
+                '(app)',
+                'prop-calculator',
+                '_workers',
+                'overviewWorkerMessages.ts',
+            ),
+            'utf8',
+        );
+        expect(source).toMatch(/\bvalueChain\(/u);
+        expect(source).not.toContain('firstPayoutEligibleAccount');
+        expect(source).not.toContain('postFirstPayoutAccount');
+        expect(source).not.toContain('lazily');
     });
 });

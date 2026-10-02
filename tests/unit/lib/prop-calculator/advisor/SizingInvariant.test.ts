@@ -13,6 +13,7 @@ import {
 } from '~/lib/prop-calculator';
 import {
     assertSizingInvariant,
+    assertTradeInvariant,
     type CappedAmount,
     createDocumentedRule,
     type DailyProfitCap,
@@ -36,6 +37,7 @@ import {
     type NextTrade,
     NextTradeKind,
     NO_PERSONAL_CAPS,
+    type PersonalCaps,
     type RulebookParameters,
     type RuleContext,
     SizingInvariantBreach,
@@ -77,6 +79,15 @@ function breachOf(sizing: DocumentedSizing, ruleContext: RuleContext) {
         throw error;
     }
     return null;
+}
+
+function dayWithTrades(trades: number): DayProgress {
+    return {
+        dayPnL: dollars(0),
+        losses: 0,
+        runningLoss: dollars(0),
+        wins: trades,
+    };
 }
 
 function evalContext(
@@ -177,6 +188,15 @@ function withDailyCap(
 const CUSHIONS = [0, 30, 200, 900, 1500, 1550, 1730, 2000, 4000, 8000];
 const DLL_ROOMS = [null, 0, 300, 600, 1000];
 const PERSONAL_DLLS = [null, 600];
+const PERSONAL_CAP_SETS: readonly PersonalCaps[] = [
+    NO_PERSONAL_CAPS,
+    { ...NO_PERSONAL_CAPS, maxRiskPerTrade: dollars(150) },
+    {
+        dailyProfitCap: dollars(400),
+        maxRiskPerTrade: dollars(260),
+        maxTradesPerDay: 2,
+    },
+];
 const CONSISTENCY_CAPS = [null, 250, 600, 900];
 const REMAINING_TARGETS = [0, 500, 3000];
 const RRS = [1.5, 2, 3];
@@ -255,16 +275,18 @@ function lossSides(): Pick<
     for (const cushion of CUSHIONS) {
         for (const dll of DLL_ROOMS) {
             for (const personal of PERSONAL_DLLS) {
-                sides.push({
-                    ceiling: null,
-                    contractLimit: contracts(3),
-                    cushion: dollars(cushion),
-                    dayStartDllRoom: nullableDollars(dll),
-                    instrument: InstrumentSymbol.NQ,
-                    personalCaps: NO_PERSONAL_CAPS,
-                    personalDll: nullableDollars(personal),
-                    placeableMinimum: ONE_CENT,
-                });
+                for (const personalCaps of PERSONAL_CAP_SETS) {
+                    sides.push({
+                        ceiling: null,
+                        contractLimit: contracts(3),
+                        cushion: dollars(cushion),
+                        dayStartDllRoom: nullableDollars(dll),
+                        instrument: InstrumentSymbol.NQ,
+                        personalCaps,
+                        personalDll: nullableDollars(personal),
+                        placeableMinimum: ONE_CENT,
+                    });
+                }
             }
         }
     }
@@ -275,7 +297,11 @@ function nullableDollars(amount: null | number): Dollars | null {
     return amount === null ? null : dollars(amount);
 }
 
-const LOSS_SIDES = CUSHIONS.length * DLL_ROOMS.length * PERSONAL_DLLS.length;
+const LOSS_SIDES =
+    CUSHIONS.length *
+    DLL_ROOMS.length *
+    PERSONAL_DLLS.length *
+    PERSONAL_CAP_SETS.length;
 const EVAL_CASES =
     RRS.length *
     LOSS_SIDES *
@@ -324,12 +350,14 @@ const SWEEPS: readonly (readonly [string, () => SweepCase[], number])[] = [
 ];
 
 function ceilingOf(context: RuleContext, sizing: DocumentedSizing): number {
-    if (context.stage !== SizingStage.Eval) return Infinity;
+    const personal = context.personalCaps.dailyProfitCap ?? Infinity;
+    if (context.stage !== SizingStage.Eval) return personal;
     const cap = sizing.dailyProfitCap;
     return Math.min(
         context.consistencyDailyCap ?? Infinity,
         context.remainingProfitToTarget,
         cap?.kind === DailyProfitCapKind.HardCeiling ? cap.ceiling : Infinity,
+        personal,
     );
 }
 
@@ -354,6 +382,9 @@ function walkEveryPath({ context, rule }: SweepCase): number {
         }
         const { risk, takeProfit } = trade.rung;
         expect(risk).toBeGreaterThan(0);
+        expect(risk).toBeLessThanOrEqual(
+            (context.personalCaps.maxRiskPerTrade ?? Infinity) + CENT,
+        );
         expect(day.runningLoss + risk).toBeLessThanOrEqual(lossRoom + CENT);
         expect(day.dayPnL + takeProfit).toBeLessThanOrEqual(ceiling + CENT);
         explore({
@@ -386,6 +417,15 @@ describe('assertSizingInvariant (PD-33)', () => {
             for (const sweepCase of table) {
                 const sizing = sweepCase.rule.size(sweepCase.context);
                 expect(breachOf(sizing, sweepCase.context)).toBeNull();
+                expect(sizing.rungs.length).toBeLessThanOrEqual(
+                    sweepCase.context.personalCaps.maxTradesPerDay ?? Infinity,
+                );
+                for (const rung of sizing.rungs) {
+                    expect(rung.risk).toBeLessThanOrEqual(
+                        (sweepCase.context.personalCaps.maxRiskPerTrade ??
+                            Infinity) + CENT,
+                    );
+                }
                 paths += walkEveryPath(sweepCase);
             }
             expect(table).toHaveLength(expectedCases);
@@ -423,6 +463,116 @@ describe('assertSizingInvariant (PD-33)', () => {
         expect(breachOf(handBuilt([400, 600]), personalContext)).toEqual({
             breach: SizingInvariantBreach.RunningLossAboveRoom,
             rungIndex: 1,
+        });
+    });
+
+    it('fails a rung above the personal max risk per trade that every other limit allows', () => {
+        const personal = fundedContext({
+            personalCaps: {
+                ...NO_PERSONAL_CAPS,
+                maxRiskPerTrade: dollars(300),
+            },
+        });
+
+        expect(breachOf(handBuilt([300]), personal)).toBeNull();
+        expect(breachOf(handBuilt([300, 400]), personal)).toEqual({
+            breach: SizingInvariantBreach.RungAbovePersonalCap,
+            rungIndex: 1,
+        });
+        expect(breachOf(handBuilt([300.01]), personal)).toEqual({
+            breach: SizingInvariantBreach.RungAbovePersonalCap,
+            rungIndex: 0,
+        });
+    });
+
+    it('fails a win above the personal daily profit cap on the all-loss path', () => {
+        const personal = fundedContext({
+            personalCaps: {
+                ...NO_PERSONAL_CAPS,
+                dailyProfitCap: dollars(500),
+            },
+        });
+
+        expect(breachOf(handBuilt([250]), personal)).toBeNull();
+        expect(breachOf(handBuilt([300]), personal)).toEqual({
+            breach: SizingInvariantBreach.WinAboveCeiling,
+            rungIndex: 0,
+        });
+        expect(breachOf(handBuilt([200, 400]), personal)).toEqual({
+            breach: SizingInvariantBreach.WinAboveCeiling,
+            rungIndex: 1,
+        });
+    });
+
+    it('fails a ladder with more trades than the personal max trades per day', () => {
+        const personal = fundedContext({
+            personalCaps: { ...NO_PERSONAL_CAPS, maxTradesPerDay: 2 },
+        });
+
+        expect(breachOf(handBuilt([100, 100]), personal)).toBeNull();
+        expect(breachOf(handBuilt([100, 100, 100]), personal)).toEqual({
+            breach: SizingInvariantBreach.TradesAbovePersonalCap,
+            rungIndex: 2,
+        });
+    });
+
+    it('fails a trade placed once the day already holds the personal max trades', () => {
+        const personal = evalContext({
+            personalCaps: { ...NO_PERSONAL_CAPS, maxTradesPerDay: 2 },
+        });
+        const terms = handBuilt([1]);
+        const [rung] = handBuilt([100]).rungs;
+        if (rung === undefined) throw new Error('no rung');
+        const trade: NextTrade = { kind: NextTradeKind.Trade, rung };
+
+        expect(
+            thrownBreach(() =>
+                assertTradeInvariant(trade, terms, personal, dayWithTrades(1)),
+            ),
+        ).toBeNull();
+        expect(
+            thrownBreach(() =>
+                assertTradeInvariant(trade, terms, personal, dayWithTrades(2)),
+            ),
+        ).toEqual({
+            breach: SizingInvariantBreach.TradesAbovePersonalCap,
+            rungIndex: 2,
+        });
+    });
+
+    it('fails a trade checked against the day that skips a personal cap', () => {
+        const personal = evalContext({
+            personalCaps: {
+                dailyProfitCap: dollars(500),
+                maxRiskPerTrade: dollars(200),
+                maxTradesPerDay: null,
+            },
+        });
+        const day = {
+            dayPnL: dollars(0),
+            losses: 0,
+            runningLoss: dollars(0),
+            wins: 0,
+        };
+        const tradeOf = (risk: number): NextTrade => {
+            const [rung] = handBuilt([risk]).rungs;
+            if (rung === undefined) throw new Error('no rung');
+            return { kind: NextTradeKind.Trade, rung };
+        };
+        const terms = handBuilt([1]);
+
+        expect(
+            thrownBreach(() =>
+                assertTradeInvariant(tradeOf(200), terms, personal, day),
+            ),
+        ).toBeNull();
+        expect(
+            thrownBreach(() =>
+                assertTradeInvariant(tradeOf(220), terms, personal, day),
+            ),
+        ).toEqual({
+            breach: SizingInvariantBreach.RungAbovePersonalCap,
+            rungIndex: 0,
         });
     });
 

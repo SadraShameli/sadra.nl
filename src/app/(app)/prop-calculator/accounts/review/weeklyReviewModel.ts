@@ -1,3 +1,8 @@
+import {
+    buildSizingAdvisor,
+    personalAdvisorOptionsOf,
+    SizingAdvisorBuildKind,
+} from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import { type ViolationFormValues } from '~/app/(app)/prop-calculator/accounts/_components/detail/violationForm';
 import { type SnapshotFieldIssue } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
 import {
@@ -13,6 +18,8 @@ import {
     type DashboardBalanceConvention,
     describeAccountReadIssue,
     missingSnapshotFields,
+    optionalDollars,
+    personalMaxRiskOf,
     type PersonalRules,
     type PlanKeyInput,
     PlanKeyResolutionKind,
@@ -29,13 +36,18 @@ import {
     usdCentsFromDollars,
     usdCentsToDollars,
 } from '~/lib/prop-accounts';
+import { isActualRiskAboveAccepted } from '~/lib/prop-accounts/conduct';
+import {
+    type AdherenceDecision,
+    type DecisionAdherence,
+    decisionAdherenceOf,
+    isDecisionFollowed,
+} from '~/lib/prop-accounts/metrics';
 import { type Plan, type PlanOptIns } from '~/lib/prop-calculator';
 import {
     AccountReconstruction,
     AccountReconstructionError,
     type AccountSnapshotInput,
-    createSizingAdvisor,
-    InstantFundedEvalAdvisorError,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 import { MAX_ACCEPTED_RUNGS } from '~/lib/schemas/propAccounts';
@@ -44,6 +56,12 @@ export enum DecisionAdherenceKind {
     Followed = 'followed',
     NotFollowed = 'not-followed',
     NotRecorded = 'not-recorded',
+}
+
+export enum ViolationOfferKind {
+    AlreadyLogged = 'already-logged',
+    Available = 'available',
+    None = 'none',
 }
 
 export enum WeeklyReviewSizingKind {
@@ -68,13 +86,6 @@ export interface WeeklyReviewAccountInput {
     readonly stage: AccountStage;
     readonly status: AccountStatus;
     readonly tracking: AccountTracking;
-}
-
-export interface WeeklyReviewAdherence {
-    readonly followed: number;
-    readonly measured: number;
-    readonly notRecorded: number;
-    readonly rate: null | number;
 }
 
 export interface WeeklyReviewCorruptRow {
@@ -106,6 +117,7 @@ export interface WeeklyReviewLastDecision {
     readonly adherence: DecisionAdherenceKind;
     readonly decidedOn: string;
     readonly id: string;
+    readonly isAboveAccepted: boolean;
     readonly isViolationLogged: boolean;
 }
 
@@ -120,7 +132,8 @@ export interface WeeklyReviewModelInput {
 }
 
 export interface WeeklyReviewResult {
-    readonly adherence: WeeklyReviewAdherence;
+    readonly adherence: DecisionAdherence;
+    readonly adherenceStepCents: number;
     readonly asOf: string;
     readonly corruptRows: readonly WeeklyReviewCorruptRow[];
     readonly ledgerOnlyExcludedCount: number;
@@ -140,11 +153,11 @@ export interface WeeklyReviewRow {
     readonly isBlocked: boolean;
     readonly label: string;
     readonly lastDecision: null | WeeklyReviewLastDecision;
-    readonly logViolation: null | ViolationFormValues;
     readonly missingFieldLabels: readonly string[];
     readonly previousAcceptedRiskCents: null | number;
     readonly sizing: WeeklyReviewSizing;
     readonly stage: AccountStage;
+    readonly violationOffer: WeeklyReviewViolationOffer;
     readonly violations: readonly WeeklyReviewViolationRow[];
 }
 
@@ -190,6 +203,15 @@ export interface WeeklyReviewSubmitPayload {
     readonly snapshots: readonly WeeklyReviewSnapshotSubmitEntry[];
 }
 
+export type WeeklyReviewViolationOffer =
+    | {
+          readonly decision: Pick<WeeklyReviewDecisionRow, 'decidedOn' | 'id'>;
+          readonly initial: ViolationFormValues;
+          readonly kind: ViolationOfferKind.Available;
+      }
+    | { readonly kind: ViolationOfferKind.AlreadyLogged }
+    | { readonly kind: ViolationOfferKind.None };
+
 export interface WeeklyReviewViolationRow {
     readonly accountId: string;
     readonly costCents: null | number;
@@ -198,6 +220,11 @@ export interface WeeklyReviewViolationRow {
     readonly kind: RuleViolationKind;
     readonly note: null | string;
     readonly occurredOn: string;
+}
+
+export interface WeeklyReviewWindow {
+    readonly asOf: string;
+    readonly weekStart: string;
 }
 
 const WEEK_DAYS = 7;
@@ -222,11 +249,11 @@ const EMPTY_DRAFT: WeeklyReviewSnapshotValues = {
 export function buildWeeklyReview(
     input: WeeklyReviewModelInput,
 ): WeeklyReviewResult {
-    const asOf = TradingSessionCalendar.latestWeekdayOnOrBefore(
+    const { asOf, weekStart } = weeklyReviewWindowOf(
         input.today,
-        input.rulebook.review.weekday,
+        input.rulebook,
     );
-    const weekStart = TradingSessionCalendar.addDays(asOf, 1 - WEEK_DAYS);
+    const stepCents = input.rulebook.eval.roundingStepCents;
     const corruptRows: WeeklyReviewCorruptRow[] = [];
     const rows: WeeklyReviewRow[] = [];
     for (const account of input.accounts) {
@@ -244,7 +271,8 @@ export function buildWeeklyReview(
         rows.push(reviewRowFor(account, asOf, weekStart, input));
     }
     return {
-        adherence: adherenceOf(rows),
+        adherence: adherenceOf(rows, stepCents),
+        adherenceStepCents: stepCents,
         asOf,
         corruptRows,
         ledgerOnlyExcludedCount:
@@ -286,34 +314,89 @@ export function reviewSubmitPayload(
     };
 }
 
-function adherenceKindOf(
-    decision: WeeklyReviewDecisionRow,
-): DecisionAdherenceKind {
-    if (decision.actualRiskCents === null) {
-        return DecisionAdherenceKind.NotRecorded;
+export function violationsFromOf(
+    input: Pick<
+        WeeklyReviewModelInput,
+        'accounts' | 'latestDecisions' | 'rulebook' | 'today'
+    >,
+): string {
+    const { weekStart } = weeklyReviewWindowOf(input.today, input.rulebook);
+    let earliest = weekStart;
+    for (const account of input.accounts) {
+        if (!isReviewedAccount(account) || account.readIssues.length > 0) {
+            continue;
+        }
+        const decision = input.latestDecisions.get(account.id);
+        if (decision === undefined) continue;
+        const lastDecision = lastDecisionOf(
+            account.id,
+            decision,
+            [],
+            input.rulebook.eval.roundingStepCents,
+        );
+        if (
+            isViolationOfferable(lastDecision) &&
+            compareText(decision.decidedOn, earliest) < 0
+        ) {
+            earliest = decision.decidedOn;
+        }
     }
-    return decision.actualRiskCents <= decision.acceptedRiskCents
+    return earliest;
+}
+
+export function weeklyReviewWindowOf(
+    today: string,
+    rulebook: RulebookParameters,
+): WeeklyReviewWindow {
+    const asOf = TradingSessionCalendar.latestWeekdayOnOrBefore(
+        today,
+        rulebook.review.weekday,
+    );
+    return { asOf, weekStart: TradingSessionCalendar.addDays(asOf, 1 - WEEK_DAYS) };
+}
+
+function adherenceDecisionOf(
+    accountId: string,
+    decision: Pick<
+        WeeklyReviewDecisionRow,
+        'acceptedRiskCents' | 'actualRiskCents' | 'decidedOn'
+    >,
+): AdherenceDecision {
+    return {
+        acceptedRiskCents: usdCents(decision.acceptedRiskCents),
+        accountId,
+        actualRiskCents: brandedCentsOrNull(decision.actualRiskCents),
+        decidedOn: decision.decidedOn,
+    };
+}
+
+function adherenceKindOf(
+    accountId: string,
+    decision: WeeklyReviewDecisionRow,
+    stepCents: number,
+): DecisionAdherenceKind {
+    const verdict = isDecisionFollowed(
+        adherenceDecisionOf(accountId, decision),
+        stepCents,
+    );
+    if (verdict === null) return DecisionAdherenceKind.NotRecorded;
+    return verdict
         ? DecisionAdherenceKind.Followed
         : DecisionAdherenceKind.NotFollowed;
 }
 
-function adherenceOf(rows: readonly WeeklyReviewRow[]): WeeklyReviewAdherence {
-    const kinds = rows.flatMap((row) =>
-        row.lastDecision === null ? [] : [row.lastDecision.adherence],
+function adherenceOf(
+    rows: readonly WeeklyReviewRow[],
+    stepCents: number,
+): DecisionAdherence {
+    return decisionAdherenceOf(
+        rows.flatMap((row) =>
+            row.lastDecision === null
+                ? []
+                : [adherenceDecisionOf(row.accountId, row.lastDecision)],
+        ),
+        stepCents,
     );
-    const followed = kinds.filter(
-        (kind) => kind === DecisionAdherenceKind.Followed,
-    ).length;
-    const notRecorded = kinds.filter(
-        (kind) => kind === DecisionAdherenceKind.NotRecorded,
-    ).length;
-    const measured = kinds.length - notRecorded;
-    return {
-        followed,
-        measured,
-        notRecorded,
-        rate: measured === 0 ? null : followed / measured,
-    };
 }
 
 function brandedCentsOrNull(cents: null | number) {
@@ -404,38 +487,33 @@ function isReviewedAccount(account: WeeklyReviewAccountInput): boolean {
     );
 }
 
+function isViolationOfferable(
+    decision: Pick<WeeklyReviewLastDecision, 'adherence' | 'isAboveAccepted'>,
+): boolean {
+    return (
+        decision.adherence === DecisionAdherenceKind.NotFollowed &&
+        decision.isAboveAccepted
+    );
+}
+
 function lastDecisionOf(
-    decision: undefined | WeeklyReviewDecisionRow,
+    accountId: string,
+    decision: WeeklyReviewDecisionRow,
     violations: readonly WeeklyReviewViolationRow[],
-): null | WeeklyReviewLastDecision {
-    if (decision === undefined) return null;
+    stepCents: number,
+): WeeklyReviewLastDecision {
     return {
         acceptedRiskCents: decision.acceptedRiskCents,
         actualRiskCents: decision.actualRiskCents,
-        adherence: adherenceKindOf(decision),
+        adherence: adherenceKindOf(accountId, decision, stepCents),
         decidedOn: decision.decidedOn,
         id: decision.id,
+        isAboveAccepted: isActualRiskAboveAccepted(
+            adherenceDecisionOf(accountId, decision),
+        ),
         isViolationLogged: violations.some(
             (violation) => violation.decisionId === decision.id,
         ),
-    };
-}
-
-function logViolationFor(
-    decision: null | WeeklyReviewLastDecision,
-): null | ViolationFormValues {
-    if (
-        decision?.adherence !== DecisionAdherenceKind.NotFollowed ||
-        decision.isViolationLogged
-    ) {
-        return null;
-    }
-    return {
-        costCents: '',
-        decisionId: decision.id,
-        kind: RuleViolationKind.Oversize,
-        note: '',
-        occurredOn: decision.decidedOn,
     };
 }
 
@@ -459,12 +537,6 @@ function missingFieldLabelsFor(
             ),
         ),
     ];
-}
-
-function optionalDollars(cents: null | number | undefined) {
-    return cents === null || cents === undefined
-        ? undefined
-        : usdCentsToDollars(usdCents(cents));
 }
 
 function planKeyOf(account: WeeklyReviewAccountInput): PlanKeyInput {
@@ -562,12 +634,18 @@ function reviewRowFor(
         sizing.kind === WeeklyReviewSizingKind.Ready
             ? sizing.headlineRiskCents - previousAccepted
             : null;
-    const lastDecision = lastDecisionOf(
-        input.latestDecisions.get(account.id),
-        input.violations.filter(
-            (violation) => violation.accountId === account.id,
-        ),
-    );
+    const latestDecision = input.latestDecisions.get(account.id);
+    const lastDecision =
+        latestDecision === undefined
+            ? null
+            : lastDecisionOf(
+                  account.id,
+                  latestDecision,
+                  input.violations.filter(
+                      (violation) => violation.accountId === account.id,
+                  ),
+                  input.rulebook.eval.roundingStepCents,
+              );
     return {
         accountId: account.id,
         asOf,
@@ -579,11 +657,11 @@ function reviewRowFor(
         isBlocked,
         label: account.label,
         lastDecision,
-        logViolation: logViolationFor(lastDecision),
         missingFieldLabels: missingFieldLabelsList,
         previousAcceptedRiskCents: previousAccepted,
         sizing,
         stage: account.stage,
+        violationOffer: violationOfferFor(lastDecision),
         violations: violationsOf(
             account.id,
             weekStart,
@@ -623,20 +701,30 @@ function sizingFor(
         stage: account.stage,
         tradingDays: snapshot.tradingDays ?? undefined,
     };
-    const personalMaxRiskPerTrade = optionalDollars(
-        account.personalRules?.maxRiskPerTradeCents ?? null,
-    );
+    const personalMaxRiskPerTrade = personalMaxRiskOf(account.personalRules);
     try {
         const reconstructed = AccountReconstruction.rebuild(
             accountSnapshotInput,
             plan,
             personalMaxRiskPerTrade,
         );
-        const advisor = createSizingAdvisor(reconstructed, {
-            rulebook: input.rulebook,
-            snapshotAsOf: asOf,
-            today: input.today,
-        });
+        const build = buildSizingAdvisor(
+            reconstructed,
+            personalAdvisorOptionsOf({
+                account: reconstructed,
+                measuredRebuyLag: null,
+                personalRules: account.personalRules,
+                plan,
+                rulebook: input.rulebook,
+                snapshotAsOf: asOf,
+                status: account.status,
+                today: input.today,
+            }),
+        );
+        if (build.kind === SizingAdvisorBuildKind.NotModeled) {
+            return { kind: WeeklyReviewSizingKind.NoEvalAdvice };
+        }
+        const { advisor } = build;
         if (advisor.staleness().kind === 'stale') {
             return { kind: WeeklyReviewSizingKind.Stale };
         }
@@ -655,9 +743,6 @@ function sizingFor(
                   rungsCents,
               };
     } catch (error) {
-        if (error instanceof InstantFundedEvalAdvisorError) {
-            return { kind: WeeklyReviewSizingKind.NoEvalAdvice };
-        }
         if (error instanceof AccountReconstructionError) {
             return { kind: WeeklyReviewSizingKind.ReconstructionFailed };
         }
@@ -700,6 +785,28 @@ function toSnapshotEntryValues(
         payoutsTaken: snapshot.payoutsTaken,
         qualifyingDaysSinceLastPayout: snapshot.qualifyingDaysSinceLastPayout,
         tradingDays: snapshot.tradingDays,
+    };
+}
+
+function violationOfferFor(
+    decision: null | WeeklyReviewLastDecision,
+): WeeklyReviewViolationOffer {
+    if (decision === null || !isViolationOfferable(decision)) {
+        return { kind: ViolationOfferKind.None };
+    }
+    if (decision.isViolationLogged) {
+        return { kind: ViolationOfferKind.AlreadyLogged };
+    }
+    return {
+        decision: { decidedOn: decision.decidedOn, id: decision.id },
+        initial: {
+            costCents: '',
+            decisionId: decision.id,
+            kind: RuleViolationKind.Oversize,
+            note: '',
+            occurredOn: decision.decidedOn,
+        },
+        kind: ViolationOfferKind.Available,
     };
 }
 

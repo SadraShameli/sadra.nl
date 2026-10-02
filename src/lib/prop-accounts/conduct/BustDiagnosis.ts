@@ -66,10 +66,7 @@ export function bustDiagnosisOf(input: BustDiagnosisInput): BustDiagnosis {
         });
     }
     for (const decision of input.decisions) {
-        if (
-            decision.actualRiskCents !== null &&
-            decision.actualRiskCents > decision.acceptedRiskCents
-        ) {
+        if (isActualRiskAboveAccepted(decision)) {
             evidence.push({
                 detail: `Actual risk ${String(decision.actualRiskCents)}c exceeded the accepted risk ${String(decision.acceptedRiskCents)}c`,
                 kind: BustEvidenceKind.RiskAboveAccepted,
@@ -80,9 +77,7 @@ export function bustDiagnosisOf(input: BustDiagnosisInput): BustDiagnosis {
         return { evidence, kind: BustDiagnosisKind.Structural };
     }
     const isDecisionsFollowed = input.decisions.every(
-        (decision) =>
-            decision.actualRiskCents === null ||
-            decision.actualRiskCents <= decision.acceptedRiskCents,
+        (decision) => !isActualRiskAboveAccepted(decision),
     );
     const isWithinPlan =
         input.decisions.length > 0 &&
@@ -91,4 +86,13 @@ export function bustDiagnosisOf(input: BustDiagnosisInput): BustDiagnosis {
     return isWithinPlan
         ? { evidence: [], kind: BustDiagnosisKind.WithinPlan }
         : { evidence: [], kind: BustDiagnosisKind.Unknown };
+}
+
+export function isActualRiskAboveAccepted(
+    decision: BustDiagnosisDecision,
+): boolean {
+    return (
+        decision.actualRiskCents !== null &&
+        decision.actualRiskCents > decision.acceptedRiskCents
+    );
 }

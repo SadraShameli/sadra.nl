@@ -5,13 +5,16 @@ import { describe, expect, it, vi } from 'vitest';
 
 import optimizeDp, {
     bundleRenewalNote,
+    CYCLE_OBJECTIVE_NOT_SIZING_NOTE,
     dpArguments,
     dpGridSettingsLine,
+    dpObjectiveSolverConfig,
     dpPayoutSettingsLine,
     dpSolverConfig,
     EMPIRICAL_MAX_ATTEMPTS,
     empiricalSimInputs,
     empiricalSummaryLines,
+    evalPassCrossCheckLine,
     fundedConsistencyGridNote,
     fundedCycleBaselineGapWarning,
     fundedDpModelGapWarning,
@@ -30,6 +33,7 @@ import optimizeDp, {
 } from '~/cli/commands/prop/optimize/dp/command';
 import {
     commonSimArguments,
+    ObjectiveFlag,
     payoutRequestPolicyArgument,
     tradingArguments,
 } from '~/cli/commands/prop/shared';
@@ -55,6 +59,7 @@ import {
     TopStepVariant,
     TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import {
     DayStopRuleKind,
     FtmoFuturesVariant,
@@ -87,6 +92,8 @@ import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { TakeProfitTrader } from '~/lib/prop-calculator/firms/tpt/TakeProfitTrader';
+
+import { flagsNamedButNotAccepted } from './helpFlags';
 
 vi.mock(
     import('~/lib/prop-calculator/core/AverageRewardSolver'),
@@ -320,15 +327,17 @@ describe('fundedConsistencyGridNote (N-65)', () => {
         expect(note).not.toContain('coarse tail');
     });
 
-    it('discloses that a best day past the largest possible one-day swing is clamped, which understates it and can let the DP allow a payout the real rule denies (WP58d review)', () => {
+    it('discloses that a best day past the largest possible one-day swing fails closed: it moves to an overflow bucket that denies every payout, never clamped down to the cap (WP58e)', () => {
         const note = fundedConsistencyGridNote(
             mffBuilderPlan(),
             cushionGridOf({ fineTop: 6, tailTop: 30 }),
         );
         expect(note).toContain('largest swing one trading day can produce');
-        expect(note).toContain('clamped down to that cap');
-        expect(note).toContain('understates the best day');
-        expect(note).toContain('allow a payout the real rule denies');
+        expect(note).toContain('overflow bucket');
+        expect(note).toContain('denies every payout');
+        expect(note).toContain('never more than the real account');
+        expect(note).not.toContain('clamped down to that cap');
+        expect(note).not.toContain('understates the best day');
     });
 });
 
@@ -662,6 +671,24 @@ describe('fundedDpModelGapWarning discloses the ReleaseFloor prediction gap (N-8
         expect(warning).not.toContain('\u{2014}');
     });
 
+    it('says the eval DP no longer interpolates cushion values, gives the default-grid gap re-measured after that change, points at the eval pass line, and says the funded half is not fixed yet (N89-m)', () => {
+        const warning =
+            fundedDpModelGapWarning(topStepNoFeeStandardPlan()) ?? '';
+        expect(warning).toContain('interpolating between cushion nodes');
+        expect(warning).toContain('no longer');
+        expect(warning).toContain(
+            'Re-measured after that change (2026-10-02, default grid)',
+        );
+        expect(warning).toContain(
+            '20% on TopStep No-fee Standard and 5% on FTMO Growth',
+        );
+        expect(warning).not.toContain('not been re-measured');
+        expect(warning).not.toContain('is fixed');
+        expect(warning).toContain('eval pass line below');
+        expect(warning).toContain('funded half');
+        expect(warning).toContain('not fixed yet');
+    });
+
     it('tells the reader to trust the empirical replay line, says the predicted rate overstated the replay at the default grid, and does not claim the policy fails', () => {
         const warning =
             fundedDpModelGapWarning(topStepNoFeeStandardPlan()) ?? '';
@@ -726,6 +753,9 @@ describe('fundedDpModelGapWarning discloses the ReleaseFloor prediction gap (N-8
         const plan = topStepNoFeeStandardPlan();
 
         expect(stdout).toContain('N-89');
+        expect(stdout).toMatch(
+            /eval pass per attempt: the eval DP's own estimate for its policy is \d+\.\d%, the simulator realises \d+\.\d% at that policy/,
+        );
         expect(stdout.split('ReleaseFloor').length - 1).toBe(1);
         const warning = fundedDpModelGapWarning(plan);
         expect(warning).not.toBeNull();
@@ -1787,6 +1817,24 @@ describe('optimize dp empirical summary (D2)', () => {
     });
 });
 
+describe('optimize dp eval pass cross-check line (N-89)', () => {
+    it('prints the eval DP pass estimate beside the simulator per-attempt pass rate and the signed gap in points', () => {
+        const line = evalPassCrossCheckLine(0.612, 0.6);
+
+        expect(line).toContain('eval pass per attempt');
+        expect(line).toContain('61.2%');
+        expect(line).toContain('60.0%');
+        expect(line).toContain('simulator minus DP: -1.2 points');
+        expect(line).not.toContain('\u{2014}');
+    });
+
+    it('prints a positive gap when the simulator passes more often than the DP estimates', () => {
+        expect(evalPassCrossCheckLine(0.4, 0.45)).toContain(
+            'simulator minus DP: 5.0 points',
+        );
+    });
+});
+
 describe('optimize dp prices the empirical cross-check like the DP (N-62)', () => {
     const plan = topStepNoFeeStandardPlan();
     const inputs = parseDpInputs([
@@ -2180,3 +2228,192 @@ describe('optimize dp funded solve keeps the WP17c shared day skeleton and day-c
         expect(riskLists.mock.calls.length).toBeLessThanOrEqual(47);
     });
 });
+
+
+describe('optimize dp --objective (PT-63, F-V15)', () => {
+    const smallArgv = [
+        '--firm',
+        'topstep',
+        '--variant',
+        'no-fee-standard',
+        '--eval-days',
+        '2',
+        '--funded-days',
+        '2',
+        '--trials',
+        '10',
+        '--max-tail-cushion-multiple',
+        '6',
+    ];
+
+    it('offers every objective flag value', () => {
+        const objective = dpArguments.objective;
+        expect(objective.type).toBe('enum');
+        expect(objective.options).toStrictEqual(Object.values(ObjectiveFlag));
+    });
+
+    it('stops the rate search at its rate-0 solve for the cycle objective, without a solver change', () => {
+        const plan = topStepNoFeeStandardPlan();
+        const inputs = parseDpInputs(['--iterations', '12']);
+        const config = dpSolverConfig(inputs, renewalObjective(inputs, plan));
+        const cycle = dpObjectiveSolverConfig(config, SizingObjective.CycleCash);
+        expect(cycle.maxSolves).toBe(1);
+        expect(cycle.startRatePerDay).toBe(0);
+        expect(cycle.objective).toBe(config.objective);
+        expect(cycle.rrRatio).toBe(config.rrRatio);
+    });
+
+    it('says the rate-0 eval policy is not the Hard Rule 3 speed policy and must not be used as sizing', () => {
+        expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).toContain('Hard Rule 3');
+        expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).toContain('Hard Rule 5');
+        expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).toContain('not sizing');
+        expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).not.toContain('\u{2014}');
+    });
+
+    it('leaves the config alone for the monthly objective', () => {
+        const plan = topStepNoFeeStandardPlan();
+        const inputs = parseDpInputs(['--iterations', '12']);
+        const config = dpSolverConfig(inputs, renewalObjective(inputs, plan));
+        expect(
+            dpObjectiveSolverConfig(config, SizingObjective.MonthlyNet),
+        ).toStrictEqual(config);
+    });
+
+    it('refuses ruin-first as not applicable before any solve starts', async () => {
+        vi.mocked(solveAverageRewardPolicy).mockClear();
+        const { exitCode, stderr } = await capturedRun([
+            ...smallArgv,
+            '--objective',
+            'ruin-first',
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain(
+            'RuinFirst only ranks which plan to buy; eval rungs and funded risk stay on Hard Rules 3 and 5',
+        );
+        expect(solveAverageRewardPolicy).not.toHaveBeenCalled();
+    });
+
+    it('prints the monthly objective and the rate by default', async () => {
+        const { stdout } = await capturedRun([
+            ...smallArgv,
+            '--iterations',
+            '1',
+        ]);
+        expect(stdout).toContain('objective: monthly net');
+        expect(stdout).toContain('/month per account slot');
+        expect(stdout).toContain('sample risk at the very first day');
+        expect(stdout).not.toContain(CYCLE_OBJECTIVE_NOT_SIZING_NOTE);
+    }, 600_000);
+
+    it('reports the rate-0 cycle value for --objective cycle and never the rate-search warning', async () => {
+        vi.mocked(solveAverageRewardPolicy).mockClear();
+        const { exitCode, stdout } = await capturedRun([
+            ...smallArgv,
+            '--iterations',
+            '12',
+            '--objective',
+            'cycle',
+        ]);
+        expect(exitCode).toBeUndefined();
+        expect(stdout).toContain('objective: cycle cash');
+        expect(stdout).toContain(
+            'cycle value at a rate of $0.00/day (no time cost)',
+        );
+        expect(stdout).not.toContain('/month per account slot');
+        expect(stdout).not.toContain('rate search did not converge');
+        expect(stdout).not.toContain('gap vs DP-predicted monthly rate');
+        expect(stdout).not.toContain('solve-cap-reached');
+        expect(stdout).toContain('status: rate-0 solve only');
+        expect(stdout).toContain(CYCLE_OBJECTIVE_NOT_SIZING_NOTE);
+        expect(stdout).not.toContain('sample risk at the very first day');
+        expect(stdout).not.toContain('eval, day 1, trade');
+        expect(stdout).not.toContain('funded, day 1, trade');
+        const [config] = vi.mocked(solveAverageRewardPolicy).mock.calls[0] ?? [];
+        expect(config?.maxSolves).toBe(1);
+    }, 600_000);
+});
+
+
+describe('prop optimize dp --help names only flags it accepts (PT-63)', () => {
+    it('names no flag the command lacks, with --objective declared', async () => {
+        expect(await flagsNamedButNotAccepted(optimizeDp)).toStrictEqual([]);
+    });
+});
+
+async function capturedDpPreamble(argv: string[]): Promise<string> {
+    const written: string[] = [];
+    const capture = (chunk: string | Uint8Array) => {
+        written.push(String(chunk));
+        return true;
+    };
+    const write = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation(capture);
+    const writeError = vi
+        .spyOn(process.stderr, 'write')
+        .mockImplementation(capture);
+    vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(() => {
+        throw new Error('stop after the preamble');
+    });
+    const exitCode = process.exitCode;
+    try {
+        await optimizeDp.run?.({
+            args: parseArgs<typeof dpArguments>(argv, dpArguments),
+            cmd: optimizeDp,
+            rawArgs: argv,
+        });
+    } finally {
+        write.mockRestore();
+        writeError.mockRestore();
+        process.exitCode = exitCode;
+    }
+    return written.join('');
+}
+
+describe('optimize dp does not model the live-transfer hazard (PT-73, B-V3)', () => {
+    const alphaZeroArgv = ['--firm', 'alphafutures', '--variant', 'zero'];
+
+    it('accepts --live-transfer-hazard so the flag is never silently dropped', async () => {
+        expect(Object.keys(dpArguments)).toContain('live-transfer-hazard');
+        expect(await flagsNamedButNotAccepted(optimizeDp)).toStrictEqual([]);
+    });
+
+    it('says the hazard is not modeled in the DP before the solve starts', async () => {
+        const stdout = await capturedDpPreamble([
+            ...alphaZeroArgv,
+            '--live-transfer-hazard',
+            '0.2',
+        ]);
+        expect(stdout).toContain('not modeled in the DP');
+        expect(stdout).toContain('20.0% per paid payout');
+        expect(stdout).toContain('your assumption, not a firm rule');
+    });
+
+    it('says nothing without the flag', async () => {
+        const stdout = await capturedDpPreamble(alphaZeroArgv);
+        expect(stdout).not.toContain('not modeled in the DP');
+    });
+
+    it('keeps the empirical replay free of the hazard', () => {
+        const parsed = parseArgs<typeof dpArguments>(
+            [...alphaZeroArgv, '--live-transfer-hazard', '0.2'],
+            dpArguments,
+        );
+        const plan = resolveDpPlan(parsed);
+        const inputs = readDpInputs(parsed);
+        const replay = empiricalSimInputs(inputs, plan, {
+            evalDayPolicy: flatPolicyForTest(),
+            fundedDayPolicy: flatPolicyForTest(),
+        });
+        expect(replay.liveTransferHazard).toBeUndefined();
+    });
+});
+
+function flatPolicyForTest(): DayPolicy {
+    return {
+        ladder: [100],
+        maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
+        stopRule: { kind: DayStopRuleKind.None },
+    };
+}

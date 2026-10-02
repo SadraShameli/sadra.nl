@@ -1,5 +1,8 @@
 import { type UsdCents } from '~/lib/prop-accounts/core';
 
+export const ADHERENCE_STEP_REASON =
+    'one rounding step, because a decision records no stop';
+
 export interface AdherenceDecision {
     readonly acceptedRiskCents: UsdCents;
     readonly accountId: string;
@@ -42,8 +45,8 @@ export function isDecisionFollowed(
             `the adherence step must be a non-negative number of cents, got ${String(stepCents)}`,
         );
     }
-    return decision.actualRiskCents === null ? null : (
-        Math.abs(decision.actualRiskCents - decision.acceptedRiskCents) <=
-        stepCents
-    );
+    return decision.actualRiskCents === null
+        ? null
+        : Math.abs(decision.actualRiskCents - decision.acceptedRiskCents) <=
+              stepCents;
 }

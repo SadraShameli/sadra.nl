@@ -164,6 +164,17 @@ vi.mock('sonner', () => ({
     toast: { error: harness.toastError, success: harness.toastSuccess },
 }));
 
+class StubWorker {
+    static instances: StubWorker[] = [];
+    addEventListener = vi.fn();
+    postMessage = vi.fn<(message: unknown) => void>();
+    terminate = vi.fn();
+
+    constructor() {
+        StubWorker.instances.push(this);
+    }
+}
+
 const FIRM = firstModeledFirm();
 const USER_ID = 'user-a';
 const TODAY = '2026-09-26';
@@ -443,6 +454,7 @@ describe('CopyGroupsView', () => {
             toFake: ['Date'],
         });
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        StubWorker.instances = [];
         harness.queries.clear();
         harness.outcomes.clear();
         harness.calls.length = 0;
@@ -1234,6 +1246,54 @@ describe('CopyGroupsView', () => {
                 expect(text).toContain(SIZING_ASSUMPTION_TEXT[assumption]);
             }
             expect(text).toContain(section.result.sizing.sources.join(', '));
+        });
+
+        it('offers the group simulation at the documented group size and starts no worker until it is run', () => {
+            vi.stubGlobal('Worker', StubWorker);
+            const accounts = [loose(), tight()];
+            answerWithSizing(accounts);
+            const section = expectedSection(accounts);
+            if (section.result.kind !== CopyGroupSizingResultKind.Sized) {
+                throw new Error('expected the group to be sized');
+            }
+            const groupRisk = section.result.sizing.rungs[0]?.risk ?? 0;
+            render();
+            const group = groupSection('Main copy');
+            expect(group.textContent).toContain(
+                'Correlated bust risk and payouts',
+            );
+            expect(group.textContent).toContain(
+                `Every copy trades ${formatCurrency(groupRisk)} per trade`,
+            );
+            expect(StubWorker.instances).toHaveLength(0);
+
+            click(button('Simulate group', group));
+            expect(StubWorker.instances).toHaveLength(1);
+            const [worker] = StubWorker.instances;
+            const posted = worker?.postMessage.mock.calls[0]?.[0];
+            expect(posted).toMatchObject({ runId: 1 });
+        });
+
+        it('says why the group is not simulated when it could not be sized', () => {
+            const drained = sizingAccount('funded-drained', MAIN.id);
+            const roomy = tight();
+            answerWith([MAIN], [drained, roomy]);
+            const drainedCents = Math.round(SIZING_THRESHOLD * 100);
+            const snapshots = [
+                sizingSnapshot(drained.id, drainedCents),
+                sizingSnapshot(roomy.id, LOOSE_BALANCE_CENTS),
+            ];
+            harness.queries.set('snapshot.latestForAll', answer(snapshots));
+            render();
+            const group = groupSection('Main copy');
+            expect(group.textContent).toContain('Not simulated:');
+            expect(group.textContent).toContain('no cushion room left');
+            const buttons = [...group.querySelectorAll('button')];
+            expect(
+                buttons.some((candidate) =>
+                    /simulat/i.test(candidate.textContent),
+                ),
+            ).toBe(false);
         });
 
         it('shows a loading state for sizing while a required query is still pending, never a stale number', () => {

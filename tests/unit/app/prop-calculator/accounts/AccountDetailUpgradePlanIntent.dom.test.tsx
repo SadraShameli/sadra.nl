@@ -118,6 +118,7 @@ vi.mock('~/trpc/react', () => ({
             bankroll: { list: harness.query('bankroll.list') },
             copyGroup: { list: harness.query('copyGroup.list') },
             decision: {
+                latestForAll: harness.query('decision.latestForAll'),
                 list: harness.query('decision.list'),
                 listForAccount: harness.query('decision.listForAccount'),
             },
@@ -143,6 +144,7 @@ vi.mock('~/trpc/react', () => ({
             snapshot: {
                 create: harness.mutation('snapshot.create'),
                 latestForAll: harness.query('snapshot.latestForAll'),
+                latestTwoForAll: harness.query('snapshot.latestForAll'),
                 listForAccount: harness.query('snapshot.listForAccount'),
                 remove: harness.mutation('snapshot.remove'),
             },

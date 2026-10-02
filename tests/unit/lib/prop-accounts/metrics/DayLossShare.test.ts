@@ -7,6 +7,7 @@ import {
     usdCentsFromDollars,
 } from '~/lib/prop-accounts/core';
 import {
+    AccountStateKind,
     AccountStateUnavailableKind,
     type DayLossAccount,
     DayLossBasis,
@@ -14,6 +15,15 @@ import {
     DayLossUnmeasuredReason,
     fundedWithdrawableDollarsOf,
 } from '~/lib/prop-accounts/metrics';
+import {
+    E8FuturesVariant,
+    findFirm,
+    FirmId,
+    type Plan,
+    type PlanId,
+    TopStepVariant,
+    TradeifyVariant,
+} from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
 import {
@@ -27,11 +37,55 @@ import {
 
 const AVAILABLE = usdCents(1_000_000);
 
+function capBoundAccount(id: PlanId, paidFraction: number) {
+    const plan = findFirm(id.firm)?.findPlan(id);
+    if (!plan) throw new Error('fixture plan missing from the registry');
+    const previous = eligibleFundedOf(plan, plan.accountSize + 12_000);
+    const withdrawable = fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, previous);
+    const paid = withdrawable * paidFraction;
+    const latest = fundedReconstructed(plan, {
+        balance: plan.accountSize,
+        cumulativePayout: paid,
+        cycleBestDayProfit: 0,
+        lastPayoutBalance: plan.accountSize,
+        payoutsIssued: 2,
+    });
+    return {
+        account: {
+            accountId: 'capped',
+            events: [],
+            paidPayouts: [payoutOf(usdCentsFromDollars(paid))],
+            state: reconstructedEntry('capped', plan, latest, {
+                asOf: '2026-09-23',
+                previous,
+                previousAsOf: '2026-09-22',
+            }).state,
+        } satisfies DayLossAccount,
+        paid,
+        withdrawable,
+    };
+}
+
+function eligibleFundedOf(plan: Plan, balance: number) {
+    const funded = fundedReconstructed(plan, {
+        balance,
+        cumulativePayout: 0,
+        cycleBestDayProfit: balance - plan.accountSize,
+        lastPayoutBalance: plan.accountSize,
+        payoutsIssued: 1,
+    });
+    if (funded.fundedTracker === null) throw new Error('expected a tracker');
+    funded.fundedTracker.sessionDaysSinceAnchor = 999;
+    funded.state.qualifyingDays = 999;
+    return funded;
+}
+
 function evalAccount(
     accountId: string,
     previousBalanceDelta: number,
     latestBalanceDelta: number,
     asOf = '2026-09-23',
+    previousAsOf = '2026-09-22',
 ): DayLossAccount {
     const plan = mffProPlan();
     return {
@@ -49,7 +103,7 @@ function evalAccount(
                 previous: evalReconstructed(plan, {
                     balance: plan.accountSize + previousBalanceDelta,
                 }),
-                previousAsOf: '2026-09-22',
+                previousAsOf,
             },
         ).state,
     };
@@ -91,6 +145,14 @@ function fundedAt(extraProfit: number) {
     if (funded.fundedTracker === null) throw new Error('expected a tracker');
     funded.fundedTracker.sessionDaysSinceAnchor = 999;
     return funded;
+}
+
+function payoutOf(grossCents: number) {
+    return {
+        grossCents: usdCents(grossCents),
+        paidOn: '2026-09-23',
+        status: PayoutStatus.Paid,
+    };
 }
 
 function withdrawableDropCents(
@@ -149,24 +211,110 @@ describe('dayLossShareOf', () => {
     });
 
     it('does not count a payout paid between the snapshots as a loss', () => {
+        const plan = mffProPlan();
+        const previous = fundedAt(20_000);
+        const withdrawable = fundedWithdrawableDollarsOf(
+            DEFAULT_RULEBOOK,
+            previous,
+        );
+        expect(withdrawable).toBeGreaterThan(0);
+        const afterPayout = fundedReconstructed(plan, {
+            balance: plan.accountSize + 20_000 - withdrawable,
+            cumulativePayout: withdrawable,
+            cycleBestDayProfit: 0,
+            lastPayoutBalance: plan.accountSize + 20_000 - withdrawable,
+            payoutsIssued: 2,
+        });
         const result = dayLossShareOf({
             ...BASE,
             accounts: [
-                fundedAccount('f1', 20_000, 1000, {
-                    paidPayouts: [
-                        {
-                            grossCents: usdCents(
-                                withdrawableDropCents(20_000, 1000),
-                            ),
-                            paidOn: '2026-09-23',
-                            status: PayoutStatus.Paid,
-                        },
-                    ],
-                }),
+                {
+                    accountId: 'f1',
+                    events: [],
+                    paidPayouts: [payoutOf(usdCentsFromDollars(withdrawable))],
+                    state: reconstructedEntry('f1', plan, afterPayout, {
+                        asOf: '2026-09-23',
+                        previous,
+                        previousAsOf: '2026-09-22',
+                    }).state,
+                },
             ],
         });
         expect(result.days).toEqual([]);
         expect(result.worstDay).toBeNull();
+    });
+
+    it('does not count the banked payout as a loss when a loss larger than the withdrawable follows it on an uncapped plan', () => {
+        const plan = mffProPlan();
+        const previous = fundedAt(20_000);
+        const withdrawable = fundedWithdrawableDollarsOf(
+            DEFAULT_RULEBOOK,
+            previous,
+        );
+        const tradingLoss = 3000;
+        expect(withdrawable).toBeGreaterThan(tradingLoss);
+        const balance = plan.accountSize + 20_000 - withdrawable - tradingLoss;
+        const afterLoss = fundedReconstructed(plan, {
+            balance,
+            cumulativePayout: withdrawable,
+            cycleBestDayProfit: 0,
+            lastPayoutBalance: plan.accountSize + 20_000 - withdrawable,
+            payoutsIssued: 2,
+        });
+        expect(fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, afterLoss)).toBe(0);
+        const result = dayLossShareOf({
+            ...BASE,
+            accounts: [
+                {
+                    accountId: 'f1',
+                    events: [],
+                    paidPayouts: [payoutOf(usdCentsFromDollars(withdrawable))],
+                    state: reconstructedEntry('f1', plan, afterLoss, {
+                        asOf: '2026-09-23',
+                        previous,
+                        previousAsOf: '2026-09-22',
+                    }).state,
+                },
+            ],
+        });
+        expect(result.days).toEqual([]);
+    });
+
+    it('counts only the withdrawable that was left after a partial payout when the rest is then lost on an uncapped plan', () => {
+        const plan = mffProPlan();
+        const previous = fundedAt(20_000);
+        const withdrawable = fundedWithdrawableDollarsOf(
+            DEFAULT_RULEBOOK,
+            previous,
+        );
+        const paid = withdrawable / 2;
+        const balance = plan.accountSize + 20_000 - paid - withdrawable;
+        const afterLoss = fundedReconstructed(plan, {
+            balance,
+            cumulativePayout: paid,
+            cycleBestDayProfit: 0,
+            lastPayoutBalance: plan.accountSize + 20_000 - paid,
+            payoutsIssued: 2,
+        });
+        expect(fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, afterLoss)).toBe(0);
+        const result = dayLossShareOf({
+            ...BASE,
+            accounts: [
+                {
+                    accountId: 'f1',
+                    events: [],
+                    paidPayouts: [payoutOf(usdCentsFromDollars(paid))],
+                    state: reconstructedEntry('f1', plan, afterLoss, {
+                        asOf: '2026-09-23',
+                        previous,
+                        previousAsOf: '2026-09-22',
+                    }).state,
+                },
+            ],
+        });
+        expect(result.days[0]?.lossCents).toBe(
+            usdCentsFromDollars(withdrawable - paid),
+        );
     });
 
     it('does not count a gain as a loss but still counts the account as measured', () => {
@@ -304,6 +452,69 @@ describe('dayLossShareOf', () => {
         }
     });
 
+    it('lists snapshots more than one trading day apart as unmeasured, never as a one-day loss', () => {
+        const result = dayLossShareOf({
+            ...BASE,
+            accounts: [
+                fundedAccount('funded', 20_000, 1000, {
+                    previousAsOf: '2026-09-02',
+                }),
+                evalAccount('eval', 0, -500, '2026-09-23', '2026-09-02'),
+            ],
+        });
+        expect(result.days).toEqual([]);
+        expect(result.worstDay).toBeNull();
+        expect(result.measuredAccounts).toBe(0);
+        expect(result.unmeasured).toEqual([
+            {
+                accountId: 'funded',
+                reason: DayLossUnmeasuredReason.SpansSeveralDays,
+            },
+            {
+                accountId: 'eval',
+                reason: DayLossUnmeasuredReason.SpansSeveralDays,
+            },
+        ]);
+    });
+
+    it('counts a Friday to Monday pair and a same-day pair as one trading day at most', () => {
+        const result = dayLossShareOf({
+            ...BASE,
+            accounts: [
+                fundedAccount('weekend', 20_000, 1000, {
+                    asOf: '2026-09-21',
+                    previousAsOf: '2026-09-18',
+                }),
+                fundedAccount('same-day', 20_000, 1000, {
+                    asOf: '2026-09-23',
+                    previousAsOf: '2026-09-23',
+                }),
+            ],
+        });
+        expect(result.unmeasured).toEqual([]);
+        expect(result.measuredAccounts).toBe(2);
+        expect(result.days.map((day) => day.date)).toEqual([
+            '2026-09-23',
+            '2026-09-21',
+        ]);
+    });
+
+    it('refuses a pair two trading days apart', () => {
+        const result = dayLossShareOf({
+            ...BASE,
+            accounts: [
+                fundedAccount('two', 20_000, 1000, {
+                    asOf: '2026-09-23',
+                    previousAsOf: '2026-09-21',
+                }),
+            ],
+        });
+        expect(result.days).toEqual([]);
+        expect(result.unmeasured[0]?.reason).toBe(
+            DayLossUnmeasuredReason.SpansSeveralDays,
+        );
+    });
+
     it('lists an account with no previous snapshot as unmeasured, not as zero', () => {
         const plan = mffProPlan();
         const result = dayLossShareOf({
@@ -402,5 +613,86 @@ describe('dayLossShareOf', () => {
             ],
         });
         expect(result.days.map((day) => day.date)).toEqual(['2026-09-20']);
+    });
+
+    describe.each([
+        {
+            id: {
+                accountSize: 50_000,
+                firm: FirmId.TopStep,
+                variant: TopStepVariant.StandardStandard,
+            } satisfies PlanId,
+            name: 'TopStep standard',
+        },
+        {
+            id: {
+                accountSize: 50_000,
+                firm: FirmId.E8Futures,
+                variant: E8FuturesVariant.ZeroMax80,
+            } satisfies PlanId,
+            name: 'E8 zero max 80',
+        },
+        {
+            id: {
+                accountSize: 50_000,
+                firm: FirmId.Tradeify,
+                variant: TradeifyVariant.SelectDaily,
+            } satisfies PlanId,
+            name: 'Tradeify select daily',
+        },
+    ])('a payout on the cap-bound $name plan', ({ id }) => {
+        it('counts the withdrawable lost after the payout as a loss, not the drop net of the payout', () => {
+            const { account, paid, withdrawable } = capBoundAccount(id, 1);
+            expect(withdrawable).toBeGreaterThan(0);
+            const result = dayLossShareOf({ ...BASE, accounts: [account] });
+            const lostTradingProfit = 12_000 - paid;
+            expect(result.days).toHaveLength(1);
+            expect(result.days[0]?.lossCents).toBe(
+                usdCentsFromDollars(Math.min(withdrawable, lostTradingProfit)),
+            );
+        });
+
+        it('counts nothing when the payout is the only change', () => {
+            const { account } = capBoundAccount(id, 1);
+            const { state } = account;
+            if (state.kind !== AccountStateKind.Reconstructed)
+                throw new Error('expected a reconstructed state');
+            const plan = state.plan;
+            const kept = eligibleFundedOf(plan, plan.accountSize + 12_000);
+            const withdrawable = fundedWithdrawableDollarsOf(
+                DEFAULT_RULEBOOK,
+                kept,
+            );
+            const afterPayout = fundedReconstructed(plan, {
+                balance: plan.accountSize + 12_000 - withdrawable,
+                cumulativePayout: withdrawable,
+                cycleBestDayProfit: 0,
+                lastPayoutBalance: plan.accountSize + 12_000 - withdrawable,
+                payoutsIssued: 2,
+            });
+            const result = dayLossShareOf({
+                ...BASE,
+                accounts: [
+                    {
+                        accountId: 'capped',
+                        events: [],
+                        paidPayouts: [
+                            payoutOf(usdCentsFromDollars(withdrawable)),
+                        ],
+                        state: reconstructedEntry(
+                            'capped',
+                            plan,
+                            afterPayout,
+                            {
+                                asOf: '2026-09-23',
+                                previous: kept,
+                                previousAsOf: '2026-09-22',
+                            },
+                        ).state,
+                    },
+                ],
+            });
+            expect(result.days).toEqual([]);
+        });
     });
 });

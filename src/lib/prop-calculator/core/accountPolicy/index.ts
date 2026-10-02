@@ -71,4 +71,7 @@ export {
     PayoutCountPerAccountTrigger,
     PayoutCountTotalTrigger,
     SingleDayProfitTrigger,
+    tightestVerifiedCumulativeTrigger,
+    verifiedCumulativePayoutLimit,
+    type VerifiedCumulativeTrigger,
 } from './LiveTransitionTrigger';

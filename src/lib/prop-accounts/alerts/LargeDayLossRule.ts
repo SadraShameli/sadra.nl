@@ -5,7 +5,8 @@ import {
     AccountStateUnavailableKind,
     type DayLoss,
     type DayLossAccount,
-    DayLossBasis,
+    dayLossBasisNotes,
+    dayLossBreakdownText,
     type DayLossShare,
     dayLossShareOf,
 } from '~/lib/prop-accounts/metrics';
@@ -23,11 +24,49 @@ import { AlertSeverity } from './AlertSeverity';
 
 export const LARGE_DAY_LOSS_WINDOW_DAYS = 7;
 
-const HEURISTIC_NOTE =
-    'an eval loss is an approximation scaled to the retry fee (valid near a fresh eval), never the fees already paid';
-
 export class LargeDayLossRule extends AlertRule {
     readonly kind = AlertKind.LargeDayLoss;
+
+    private alertOf(
+        day: DayLoss,
+        severity: AlertSeverity,
+        message: string,
+    ): AccountAlert {
+        return {
+            disclosures: [],
+            kind: this.kind,
+            message,
+            severity,
+            subject: {
+                accountIds: day.entries.map((entry) => entry.accountId),
+                kind: AlertSubjectKind.Portfolio,
+            },
+        };
+    }
+
+    private uncheckedAlertOf(
+        recent: readonly DayLoss[],
+        fraction: number,
+    ): readonly AccountAlert[] {
+        const worst = recent
+            .filter((day) => day.share === null)
+            .reduce<DayLoss | null>(
+                (current, day) =>
+                    current === null || day.lossCents > current.lossCents
+                        ? day
+                        : current,
+                null,
+            );
+        return worst === null
+            ? []
+            : [
+                  this.alertOf(
+                      worst,
+                      AlertSeverity.Info,
+                      `On ${worst.date} your accounts lost ${formatUsdCents(worst.lossCents)}, ${dayLossBreakdownText(worst)}, but there is no available bankroll to compare it with your ${formatPercent(fraction)} limit; record a deposit so the limit can be checked${notesOf(worst)}`,
+                  ),
+              ];
+    }
 
     evaluate(context: AlertContext): readonly AccountAlert[] {
         const fraction = context.rulebook.alerts.dayLossBankrollFraction;
@@ -36,11 +75,11 @@ export class LargeDayLossRule extends AlertRule {
             context.today,
             -LARGE_DAY_LOSS_WINDOW_DAYS,
         );
-        const flagged = dayLossShareOfContext(context).days.filter(
-            (day) =>
-                day.share !== null &&
-                day.share > fraction &&
-                compareText(day.date, windowStart) >= 0,
+        const recent = dayLossShareOfContext(context).days.filter(
+            (day) => compareText(day.date, windowStart) >= 0,
+        );
+        const flagged = recent.filter(
+            (day) => day.share !== null && day.share > fraction,
         );
         const worst = flagged.reduce<DayLoss | null>(
             (current, day) =>
@@ -49,25 +88,17 @@ export class LargeDayLossRule extends AlertRule {
                     : current,
             null,
         );
-        if (worst === null) return [];
-        const heuristic = worst.entries.some(
-            (entry) => entry.basis === DayLossBasis.EvalFeeHeuristic,
-        );
+        if (worst === null) return this.uncheckedAlertOf(recent, fraction);
         const repeated =
             flagged.length > 1
                 ? ` (${String(flagged.length)} recent days exceeded it; this is the worst)`
                 : '';
         return [
-            {
-                disclosures: [],
-                kind: this.kind,
-                message: `On ${worst.date} your accounts lost ${formatUsdCents(worst.lossCents)} of expected value, ${formatPercent(worst.share ?? 0)} of your available bankroll, above your ${formatPercent(fraction)} limit${repeated}${heuristic ? `; ${HEURISTIC_NOTE}` : ''}`,
-                severity: AlertSeverity.Warning,
-                subject: {
-                    accountIds: worst.entries.map((entry) => entry.accountId),
-                    kind: AlertSubjectKind.Portfolio,
-                },
-            },
+            this.alertOf(
+                worst,
+                AlertSeverity.Warning,
+                `On ${worst.date} your accounts lost ${formatUsdCents(worst.lossCents)}, ${dayLossBreakdownText(worst)}, ${formatPercent(worst.share ?? 0)} of your available bankroll, above your ${formatPercent(fraction)} limit${repeated}${notesOf(worst)}`,
+            ),
         ];
     }
 }
@@ -93,4 +124,9 @@ export function dayLossShareOfContext(context: AlertContext): DayLossShare {
         availableBankrollCents: context.availableBankrollCents,
         rulebook: context.rulebook,
     });
+}
+
+function notesOf(day: DayLoss): string {
+    const notes = dayLossBasisNotes(day);
+    return notes.length === 0 ? '' : `; ${notes.join('; ')}`;
 }

@@ -1,11 +1,10 @@
 import { resetForNewDay } from '~/lib/prop-calculator/core/AccountState';
 import {
-    computedDayPolicy,
     type DayPolicy,
     DayStopRuleKind,
     flatDayPolicy,
+    percentCushionDayPolicy,
     policySizingOf,
-    resolveFundedTradeRisk,
     shouldStopDay,
 } from '~/lib/prop-calculator/core/DayPolicy';
 import { IntradayTrailingDrawdown } from '~/lib/prop-calculator/core/DrawdownStrategy';
@@ -53,13 +52,8 @@ export function resolveDayPolicy(
         : inputs.tradesPerDay;
     const stopRule = inputs.dayStop ?? { kind: DayStopRuleKind.None };
     if (isFunded && inputs.fundedCushionPercent !== undefined) {
-        const cushionPercent = inputs.fundedCushionPercent;
-        return computedDayPolicy(
-            (state) =>
-                resolveFundedTradeRisk(
-                    state.balance - state.threshold,
-                    cushionPercent,
-                ),
+        return percentCushionDayPolicy(
+            inputs.fundedCushionPercent,
             tradesPerDay,
             stopRule,
             sizing,

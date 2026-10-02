@@ -10,6 +10,9 @@ import {
     differenceReasonHeadline,
     differenceReasonText,
     DpNotValidatedCause,
+    LiveTriggerScope,
+    personalPayoutOverrideWarningText,
+    RetainedCushionBasis,
     RuleSource,
     SIZING_ASSUMPTION_TEXT,
     SIZING_CONSTRAINT_TEXT,
@@ -49,6 +52,32 @@ describe('differenceReasonText (F-124, PD-32 sentinel test)', () => {
         expect(digitsOf(text)).toBe('123456725');
     });
 
+    it('says a suspended account is not sized, with no number in the text (PT-19i, F-118)', () => {
+        const text = differenceReasonText({ kind: DifferenceReason.Suspended });
+        expect(text).toContain('suspended');
+        expect(digitsOf(text)).toBe('');
+    });
+
+    it('builds the DocumentedLadderNeverFunded text only from the typed simulation count (PT-19i, F-119)', () => {
+        const text = differenceReasonText({
+            kind: DifferenceReason.DocumentedLadderNeverFunded,
+            sims: 4321,
+        });
+        expect(digitsOf(text)).toBe('4321');
+        expect(text).toContain('documented ladder');
+        expect(text).toContain('never');
+    });
+
+    it('builds the DocumentedLadderNotScored text only from the typed simulation count (PT-19i, F-119)', () => {
+        const text = differenceReasonText({
+            kind: DifferenceReason.DocumentedLadderNotScored,
+            sims: 987,
+        });
+        expect(digitsOf(text)).toBe('987');
+        expect(text).toContain('documented ladder');
+        expect(text).toContain('not scored');
+    });
+
     it('builds the CeilingCap text only from the typed ceiling field (PT-36b F-154)', () => {
         const text = differenceReasonText({
             ceiling: dollars(9950.5),
@@ -57,14 +86,32 @@ describe('differenceReasonText (F-124, PD-32 sentinel test)', () => {
         expect(digitsOf(text)).toBe('995050');
     });
 
-    it("pins the WouldTriggerLive text on today's string-only trigger field (PT-36b: not typed numeric fields; PayoutRequestRule/PayoutReadiness carry the numbers separately)", () => {
+    it('builds the WouldTriggerLive text only from the typed count, limit and scope fields (PT-36d)', () => {
         const text = differenceReasonText({
             kind: DifferenceReason.WouldTriggerLive,
-            trigger: '2 of 3 payouts taken',
+            trigger: {
+                payoutsTaken: 2,
+                scope: LiveTriggerScope.Account,
+                triggerAtPayoutCount: 3,
+            },
         });
         expect(text).toBe(
-            'This would trigger a live-account transition: 2 of 3 payouts taken',
+            'This would trigger a live-account transition: 2 of 3 payouts taken on this account.',
         );
+        expect(digitsOf(text)).toBe('23');
+    });
+
+    it('names the firm scope in the WouldTriggerLive text (PT-36d)', () => {
+        const text = differenceReasonText({
+            kind: DifferenceReason.WouldTriggerLive,
+            trigger: {
+                payoutsTaken: 9,
+                scope: LiveTriggerScope.Firm,
+                triggerAtPayoutCount: 10,
+            },
+        });
+        expect(text).toContain("across the firm's accounts");
+        expect(digitsOf(text)).toBe('910');
     });
 
     it('reports the DpNotValidated cause including SolveCapReached', () => {
@@ -176,5 +223,49 @@ describe('differenceReasonText: FlatRiskIgnoresState (PT-67b step 4)', () => {
 
     it('builds the text only from its typed fields: the sentinel numbers appear and no others', () => {
         expect(digitsOf(text)).toBe('25000913502500042');
+    });
+});
+
+describe('personalPayoutOverrideWarningText (PT-19i review, one text for every surface)', () => {
+    const warning = {
+        horizonDays: 252,
+        optimumBustProbability: 0.12,
+        optimumMonthlyNet: 4321,
+        optimumRequestSize: 2000,
+        overrideBustProbability: 0.34,
+        overrideMonthlyNet: 1234,
+        overrideRequestSize: 750,
+        retainedCushion: 2750,
+        retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+    };
+
+    it('names both request sizes, the funded horizon, both figures and the retained cushion with its basis', () => {
+        const text = personalPayoutOverrideWarningText(warning);
+        expect(text).toContain('payout-size sweep over 252 funded days');
+        expect(text).toContain('$1,234 at a $750 request');
+        expect(text).toContain('$4,321 at $2,000');
+        expect(text).toContain('34.0% against 12.0%');
+        expect(text).toContain('retaining $2,750 (your rulebook size)');
+    });
+
+    it('names Hard Rule 2 and the personal override as the basis in their own words', () => {
+        expect(
+            personalPayoutOverrideWarningText({
+                ...warning,
+                retainedCushionBasis: RetainedCushionBasis.HardRule2Default,
+            }),
+        ).toContain("(Hard Rule 2's default)");
+        expect(
+            personalPayoutOverrideWarningText({
+                ...warning,
+                retainedCushionBasis: RetainedCushionBasis.PersonalOverride,
+            }),
+        ).toContain('(your personal override)');
+    });
+
+    it('builds the text only from its typed fields: the sentinel numbers appear and no others', () => {
+        expect(digitsOf(personalPayoutOverrideWarningText(warning))).toBe(
+            '2521234750432120003401202750',
+        );
     });
 });

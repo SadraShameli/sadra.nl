@@ -24,8 +24,10 @@ import {
 export enum SizingInvariantBreach {
     InvalidRung = 'invalid-rung',
     RungAboveAffordable = 'rung-above-affordable',
+    RungAbovePersonalCap = 'rung-above-personal-cap',
     RunningLossAboveRoom = 'running-loss-above-room',
     RunningLossColumnMismatch = 'running-loss-column-mismatch',
+    TradesAbovePersonalCap = 'trades-above-personal-cap',
     WinAboveCeiling = 'win-above-ceiling',
 }
 
@@ -104,6 +106,25 @@ function assertRung(
             `${label} risks ${rung.risk} but only ${affordable} is affordable after a running loss of ${runningLoss}`,
         );
     }
+    const { dailyProfitCap, maxRiskPerTrade, maxTradesPerDay } =
+        context.personalCaps;
+    if (maxTradesPerDay !== null && index >= maxTradesPerDay) {
+        throw new SizingInvariantError(
+            SizingInvariantBreach.TradesAbovePersonalCap,
+            index,
+            `${label} is past your personal limit of ${maxTradesPerDay} trades per day`,
+        );
+    }
+    if (
+        maxRiskPerTrade !== null &&
+        !isAtOrBelowWithinCentTolerance(rung.risk, maxRiskPerTrade)
+    ) {
+        throw new SizingInvariantError(
+            SizingInvariantBreach.RungAbovePersonalCap,
+            index,
+            `${label} risks ${rung.risk}, above your personal limit of ${maxRiskPerTrade} per trade`,
+        );
+    }
     const lossAfter = runningLoss + rung.risk;
     if (!isSameCents(rung.runningLossAfter, lossAfter)) {
         throw new SizingInvariantError(
@@ -121,9 +142,13 @@ function assertRung(
         );
     }
     const ceiling = tighterOf(
-        profitCeiling(context),
-        hardProfitCeiling(terms.dailyProfitCap),
-        SizingConstraint.DailyProfitCap,
+        tighterOf(
+            profitCeiling(context),
+            hardProfitCeiling(terms.dailyProfitCap),
+            SizingConstraint.DailyProfitCap,
+        ),
+        dailyProfitCap,
+        SizingConstraint.PersonalCap,
     );
     if (
         ceiling !== null &&

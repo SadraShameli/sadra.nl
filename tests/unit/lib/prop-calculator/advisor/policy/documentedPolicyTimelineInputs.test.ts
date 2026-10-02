@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -9,17 +11,21 @@ import {
     effectivePayoutRequest,
     FirmId,
     fraction,
+    InstrumentSymbol,
     LucidVariant,
     PayoutRequestPolicy,
     type Plan,
     type PlanId,
+    points,
     RungSizing,
     serializePlanId,
+    SIM_INPUTS_REFUSAL_PREFIX,
     TopStepVariant,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
+    NO_PERSONAL_CAPS,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -280,6 +286,9 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
         const differs = {
             ...DEFAULT_RULEBOOK,
             funded: { ...funded, takeProfitCents: funded.riskCents * 3 },
+            liveTransfer: {
+                hazardPerPaidPayoutByFirm: { [FirmId.Mffu]: 0.3 },
+            },
             strategy: { ...strategy, rr: 1 },
         };
         expect(
@@ -313,5 +322,90 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
                 1,
             ),
         ).toThrow(/apex-50000-intraday/);
+    });
+});
+
+function cappedSpec(
+    maxRiskPerTrade: ReturnType<typeof dollars>,
+    sizing: Partial<EnginePolicy> = {},
+) {
+    return specOf({
+        ...sizing,
+        personalCaps: { ...NO_PERSONAL_CAPS, maxRiskPerTrade },
+    });
+}
+
+describe('documentedPolicyTimelineInputs sizes the funded phase at the personal max risk (PT-68g, F-V16)', () => {
+    it('sets the timeline risk per trade to the capped funded risk, the same one toSimInputs simulates', () => {
+        const spec = cappedSpec(dollars(100));
+        const timeline = documentedPolicyTimelineInputs(apexEod, spec, 1);
+
+        expect(timeline.riskPerTrade).toBe(100);
+        expect(timeline.riskPerTrade).toBe(
+            toSimInputs(apexEod, spec).riskPerTrade,
+        );
+    });
+
+    it('keeps the rulebook funded risk when no personal cap is set or the cap sits above it', () => {
+        const plain = documentedPolicyTimelineInputs(apexEod, specOf(), 1);
+        const loose = documentedPolicyTimelineInputs(
+            apexEod,
+            cappedSpec(dollars(5000)),
+            1,
+        );
+        const rulebookRisk = DEFAULT_RULEBOOK.funded.riskCents / CENTS_PER_DOLLAR;
+
+        expect(plain.riskPerTrade).toBe(rulebookRisk);
+        expect(loose.riskPerTrade).toBe(rulebookRisk);
+    });
+
+    it('refuses a personal max risk of $30 at a $40 one-contract stop with the reason the simulator gives', () => {
+        const spec = cappedSpec(dollars(30), {
+            instrument: InstrumentSymbol.MNQ,
+            stopPoints: points(20),
+        });
+        let simulatorReason = '';
+        try {
+            toSimInputs(apexEod, spec);
+        } catch (error) {
+            simulatorReason = error instanceof Error ? error.message : '';
+        }
+        const build = () => documentedPolicyTimelineInputs(apexEod, spec, 1);
+
+        expect(simulatorReason.startsWith(SIM_INPUTS_REFUSAL_PREFIX)).toBe(
+            true,
+        );
+        expect(build).toThrow(simulatorReason);
+    });
+
+    it('still builds the timeline when the capped risk places at least one contract at the stop', () => {
+        const spec = cappedSpec(dollars(40), {
+            instrument: InstrumentSymbol.MNQ,
+            stopPoints: points(20),
+        });
+
+        expect(
+            documentedPolicyTimelineInputs(apexEod, spec, 1).riskPerTrade,
+        ).toBe(40);
+    });
+});
+
+describe('the timeline inputs size the funded risk through the shared helper (PT-68g)', () => {
+    it('reads the funded risk from documentedSizedFundedRisk, never from the rulebook cents directly', () => {
+        const source = readFileSync(
+            path.join(
+                process.cwd(),
+                'src',
+                'lib',
+                'prop-calculator',
+                'advisor',
+                'policy',
+                'documentedPolicyTimelineInputs.ts',
+            ),
+            'utf8',
+        );
+
+        expect(source).toContain('documentedSizedFundedRisk(');
+        expect(source).not.toContain('CENTS_PER_DOLLAR');
     });
 });

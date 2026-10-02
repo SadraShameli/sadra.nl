@@ -14,7 +14,6 @@ import {
     AccountCreator,
     AccountEditor,
 } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
-import { AccountsTable } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
 import {
     AccountStage,
@@ -35,6 +34,8 @@ import {
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
+
+import { AccountsTable } from './AccountsTableWithData';
 
 interface FakeQuery {
     data: unknown;

@@ -1,21 +1,30 @@
 import {
     type AccountState,
+    CENTS_PER_DOLLAR,
     DayStopRuleKind,
     defaultLadderGridMax,
     dollars,
     type Dollars,
+    type FirmAccountPolicy,
+    GRID_COUNT_TOLERANCE,
     type InstrumentSymbol,
     type LadderGridConfig,
     ladderGridSize,
+    type LadderScore,
     MAX_LADDER_GRID_SIZE,
-    ONE_CENT,
-    oneContractRisk,
     resolvePositionSizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
+import {
+    NOISE_STANDARD_ERRORS,
+    noiseVerdict,
+    NoiseVerdict,
+    type UncertainValue,
+} from '~/lib/prop-calculator/stats';
 
+import { type AccountSubstate } from './AccountSubstate';
 import { type Advice } from './Advice';
 import { adviceProvenance } from './AdviceProvenance';
 import { AdviceSource } from './AdviceSource';
@@ -25,11 +34,15 @@ import {
     type PlanRulesFingerprintCheck,
 } from './AdviceStaleness';
 import {
+    aggressiveOptimumChurnReasons,
+    documentedPeakRiskOf,
+    peakRiskOf,
+} from './AggressiveOptimumChurn';
+import {
     type Assumption,
     AssumptionBias,
-    inputAssumption,
+    ladderStepWidenedAssumption,
 } from './Assumption';
-import { AssumptionKind } from './AssumptionKind';
 import { createDocumentedRule } from './createDocumentedRule';
 import {
     DifferenceReason,
@@ -39,9 +52,16 @@ import { NO_COMMISSION } from './DocumentedSizing';
 import {
     type EngineLadderScoreConfig,
     type EngineOptimumRequest,
+    type LadderSearchRequest,
 } from './EngineOptimumRequest';
-import { type EngineOptimumRunnerResult } from './EngineOptimumRunner';
+import {
+    type EngineOptimumRunnerResult,
+    LadderEngineOptimumResultKind,
+    type LadderScoredEngineOptimumResult,
+} from './EngineOptimumRunner';
 import { NO_PERSONAL_CAPS, type PersonalCaps } from './PersonalCaps';
+import { advisorPlaceableMinimum } from './PlaceableMinimum';
+import { personalDayLimitsOf } from './policy';
 import { type ReconstructedFundedOrEvalAccount } from './ReconstructedAccount';
 import { contractLimitOf, riskCaps, type RiskCaps } from './RiskCaps';
 import { type RulebookParameters } from './Rulebook';
@@ -61,6 +81,7 @@ const EVAL_LADDER_DEFAULT_SEED = 42;
 
 export interface EvalSizingAdvisorInput {
     readonly account: ReconstructedFundedOrEvalAccount;
+    readonly accountPolicy?: FirmAccountPolicy;
     readonly maxEvalDays: number;
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
@@ -73,6 +94,7 @@ export interface EvalSizingAdvisorInput {
     readonly seed?: number;
     readonly sims?: number;
     readonly snapshotAsOf: string;
+    readonly substate: AccountSubstate.Suspended | null;
     readonly today: string;
 }
 
@@ -84,25 +106,39 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
             SizingStage.Eval,
             input.rulebook,
             createDocumentedRule(SizingStage.Eval, input.rulebook),
+            input.substate,
         );
         this.input = input;
     }
 
     private assumptions(): readonly Assumption[] {
         const { account } = this.input;
-        return evalLadderGrid(account.cushion).step > EVAL_LADDER_GRID_STEP
+        const { step } = this.ladderGrid();
+        return step > EVAL_LADDER_GRID_STEP
             ? [
                   ...account.assumptions,
-                  inputAssumption(
-                      AssumptionKind.LadderStepWidened,
-                      AssumptionBias.Conservative,
-                  ),
+                  ladderStepWidenedAssumption(step, AssumptionBias.Neutral),
               ]
             : account.assumptions;
     }
 
-    private differenceReasons(): readonly DifferenceReasonDetail[] {
-        const { resolvedDailyLossLimit } = this.input.account;
+    private differenceReasons(
+        results: readonly EngineOptimumRunnerResult[],
+    ): readonly DifferenceReasonDetail[] {
+        const withinNoise = this.withinNoiseReason(results);
+        const { account, accountPolicy } = this.input;
+        const { resolvedDailyLossLimit } = account;
+        const personalMaxRisk = this.input.personalCaps?.maxRiskPerTrade ?? null;
+        const slots = this.ladderSlots();
+        const churn = aggressiveOptimumChurnReasons({
+            accountPolicy,
+            documentedPeakRisk: documentedPeakRiskOf(this.documented()),
+            optimumPeakRisk: peakRiskOf(
+                results.find(isScoredLadderResult)?.ladder.bySpeed[0]?.ladder ??
+                    [],
+            ),
+            plan: account.plan,
+        });
         return [
             { kind: DifferenceReason.ObjectiveSpeedVsMonthlyNet },
             ...(resolvedDailyLossLimit === null
@@ -113,22 +149,154 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
                           kind: DifferenceReason.DailyLossCap,
                       } as const,
                   ]),
+            ...(personalMaxRisk !== null &&
+            isLadderGridNarrowed(account.cushion, personalMaxRisk, slots)
+                ? [
+                      {
+                          cap: personalMaxRisk,
+                          kind: DifferenceReason.PersonalCap,
+                      } as const,
+                  ]
+                : []),
+            ...(withinNoise === null ? [] : [withinNoise]),
+            ...churn,
         ];
     }
 
-    private placeableMinimum(): Dollars {
-        const { positionSizing } = this.input;
-        if (positionSizing) {
-            const resolved = resolvePositionSizing(
-                positionSizing.instrument,
-                positionSizing.stopPoints,
-            );
-            if (resolved) return dollars(oneContractRisk(resolved));
-        }
-        return ONE_CENT;
+    private documentedLadder(): null | readonly number[] {
+        const documented = this.documented();
+        return documented === null || documented.rungs.length === 0
+            ? null
+            : documented.rungs.map((rung) => rung.risk);
     }
 
-    assemble(results: readonly EngineOptimumRunnerResult[]): Advice {
+    private ladderGrid(): LadderGridConfig {
+        const { account, personalCaps } = this.input;
+        return evalLadderGrid(
+            account.cushion,
+            personalCaps?.maxRiskPerTrade ?? null,
+            this.ladderSlots(),
+        );
+    }
+
+    private ladderRequest(): LadderSearchRequest {
+        const documentedLadder = this.documentedLadder();
+        const {
+            account,
+            maxEvalDays,
+            personalCaps,
+            personalDll,
+            positionSizing,
+            rulebook,
+            seed,
+        } = this.input;
+        const dayLimits = personalDayLimitsOf(personalCaps, personalDll);
+        const elapsedDays = elapsedDaysOf(account);
+        const isFromState = elapsedDays > 0;
+        const score: EngineLadderScoreConfig = {
+            commission: NO_COMMISSION,
+            cushion: account.cushion,
+            maxDays: maxEvalDays,
+            positionSizing: positionSizing
+                ? resolvePositionSizing(
+                      positionSizing.instrument,
+                      positionSizing.stopPoints,
+                  )
+                : null,
+            rrRatio: rulebook.strategy.rr,
+            rungSizing: RungSizing.CapToCushion,
+            seedOffset: 0,
+            sims: this.scoredSims(),
+            stopRule: { kind: DayStopRuleKind.DayGreen },
+            winrate: rulebook.strategy.winrate,
+            ...(isFromState && {
+                startState: account.state,
+                subscriptionElapsedDays: elapsedDays,
+            }),
+        };
+        return {
+            ...(dayLimits !== null && { dayLimits }),
+            ...(documentedLadder !== null && { documentedLadder }),
+            grid: this.ladderGrid(),
+            maxGridSize: EVAL_LADDER_MAX_GRID_SIZE,
+            score,
+            seed: seed ?? EVAL_LADDER_DEFAULT_SEED,
+            source: isFromState
+                ? AdviceSource.LadderSearchFromState
+                : AdviceSource.LadderSearchFresh,
+        };
+    }
+
+    private ladderSlots(): number {
+        const maxTrades = this.input.personalCaps?.maxTradesPerDay ?? null;
+        return maxTrades === null
+            ? EVAL_LADDER_GRID_SLOTS
+            : Math.min(EVAL_LADDER_GRID_SLOTS, maxTrades);
+    }
+
+    private scoredSims(): number {
+        return this.input.sims ?? EVAL_LADDER_DEFAULT_SIMS;
+    }
+
+    private withinNoiseReason(
+        results: readonly EngineOptimumRunnerResult[],
+    ): DifferenceReasonDetail | null {
+        const scored = results.find(isScoredLadderResult);
+        if (scored === undefined) return null;
+        const { documentedScore } = scored;
+        if (documentedScore === undefined) {
+            return this.documentedLadder() === null
+                ? null
+                : {
+                      kind: DifferenceReason.DocumentedLadderNotScored,
+                      sims: this.scoredSims(),
+                  };
+        }
+        if (!isFundedScore(documentedScore)) {
+            return {
+                kind: DifferenceReason.DocumentedLadderNeverFunded,
+                sims: this.scoredSims(),
+            };
+        }
+        const optimum = scored.ladder.bySpeed[0];
+        if (optimum === undefined || !isFundedScore(optimum)) return null;
+        const cost = measuredPair(
+            documentedScore.costPerFunded,
+            documentedScore.costPerFundedStandardError,
+            optimum.costPerFunded,
+            optimum.costPerFundedStandardError,
+        );
+        const days = measuredPair(
+            documentedScore.expectedDaysToFunded,
+            documentedScore.expectedDaysToFundedStandardError,
+            optimum.expectedDaysToFunded,
+            optimum.expectedDaysToFundedStandardError,
+        );
+        if (cost === null || days === null) return null;
+        const isWithinNoise = [cost, days].every(
+            ([documentedValue, optimumValue]) =>
+                noiseVerdict(documentedValue, optimumValue, {
+                    sharedSeed: false,
+                }) === NoiseVerdict.WithinNoise,
+        );
+        if (!isWithinNoise) return null;
+        const [documentedCost, optimumCost] = cost;
+        return {
+            gap: dollars(Math.abs(documentedCost.value - optimumCost.value)),
+            kind: DifferenceReason.WithinNoise,
+            threshold: dollars(
+                NOISE_STANDARD_ERRORS *
+                    Math.hypot(
+                        documentedCost.standardError ?? 0,
+                        optimumCost.standardError ?? 0,
+                    ),
+            ),
+        };
+    }
+
+    protected override assembleAdvice(
+        results: readonly EngineOptimumRunnerResult[],
+    ): Advice {
         const { account, snapshotAsOf, today } = this.input;
         const staleness = this.staleness();
         const documented = this.documented();
@@ -139,7 +307,7 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
         return {
             assumptions: this.assumptions(),
             dailyPlanCard: this.dailyPlanCard(),
-            differenceReasons: this.differenceReasons(),
+            differenceReasons: this.differenceReasons(results),
             documented,
             headline: documentedRuleLabel(rulebookDeviation(this.rulebook)),
             optima: results,
@@ -164,7 +332,7 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
         };
     }
 
-    caps(): RiskCaps {
+    protected override sizedCaps(): RiskCaps {
         const { account, personalCaps } = this.input;
         return riskCaps(
             dollars(
@@ -179,43 +347,8 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
         );
     }
 
-    optimumRequests(): readonly EngineOptimumRequest[] {
-        const { account, maxEvalDays, positionSizing, rulebook, seed, sims } =
-            this.input;
-        const elapsedDays = elapsedDaysOf(account);
-        const isFromState = elapsedDays > 0;
-        const score: EngineLadderScoreConfig = {
-            commission: NO_COMMISSION,
-            cushion: account.cushion,
-            maxDays: maxEvalDays,
-            positionSizing: positionSizing
-                ? resolvePositionSizing(
-                      positionSizing.instrument,
-                      positionSizing.stopPoints,
-                  )
-                : null,
-            rrRatio: rulebook.strategy.rr,
-            rungSizing: RungSizing.CapToCushion,
-            seedOffset: 0,
-            sims: sims ?? EVAL_LADDER_DEFAULT_SIMS,
-            stopRule: { kind: DayStopRuleKind.DayGreen },
-            winrate: rulebook.strategy.winrate,
-            ...(isFromState && {
-                startState: account.state,
-                subscriptionElapsedDays: elapsedDays,
-            }),
-        };
-        return [
-            {
-                grid: evalLadderGrid(account.cushion),
-                maxGridSize: EVAL_LADDER_MAX_GRID_SIZE,
-                score,
-                seed: seed ?? EVAL_LADDER_DEFAULT_SEED,
-                source: isFromState
-                    ? AdviceSource.LadderSearchFromState
-                    : AdviceSource.LadderSearchFresh,
-            },
-        ];
+    protected override engineRequests(): readonly EngineOptimumRequest[] {
+        return [this.ladderRequest()];
     }
 
     staleness(): AdviceStaleness {
@@ -238,36 +371,140 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
             instrument: positionSizing?.instrument ?? null,
             personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
             personalDll: personalDll ?? null,
-            placeableMinimum: this.placeableMinimum(),
+            placeableMinimum: advisorPlaceableMinimum(positionSizing),
         });
     }
+}
+
+function defaultEvalLadderGrid(
+    cushion: number,
+    slots: number,
+): LadderGridConfig {
+    const span =
+        Math.max(EVAL_LADDER_GRID_LO, defaultLadderGridMax(cushion)) -
+        EVAL_LADDER_GRID_LO;
+    const baseRungCount = Math.floor(span / EVAL_LADDER_GRID_STEP) + 1;
+    let grid = gridWithRungCount(baseRungCount, EVAL_LADDER_GRID_STEP, slots);
+    for (
+        let rungCount = baseRungCount - 1;
+        ladderGridSize(grid) > EVAL_LADDER_MAX_GRID_SIZE && rungCount >= 2;
+        rungCount--
+    ) {
+        grid = gridWithRungCount(
+            rungCount,
+            Math.ceil(span / (rungCount - 1)),
+            slots,
+        );
+    }
+    return grid;
 }
 
 function elapsedDaysOf(account: { readonly state: AccountState }): number {
     return account.state.elapsedDays ?? 0;
 }
 
-function evalLadderGrid(cushion: number): LadderGridConfig {
-    const span =
-        Math.max(EVAL_LADDER_GRID_LO, defaultLadderGridMax(cushion)) -
-        EVAL_LADDER_GRID_LO;
-    const baseRungCount = Math.floor(span / EVAL_LADDER_GRID_STEP) + 1;
-    let grid = gridWithRungCount(baseRungCount, EVAL_LADDER_GRID_STEP);
-    for (
-        let rungCount = baseRungCount - 1;
-        ladderGridSize(grid) > EVAL_LADDER_MAX_GRID_SIZE && rungCount >= 2;
-        rungCount--
-    ) {
-        grid = gridWithRungCount(rungCount, Math.ceil(span / (rungCount - 1)));
-    }
-    return grid;
+function evalLadderGrid(
+    cushion: number,
+    maxRiskPerTrade: Dollars | null,
+    slots: number,
+): LadderGridConfig {
+    const grid = defaultEvalLadderGrid(cushion, slots);
+    return maxRiskPerTrade === null || maxRiskPerTrade >= grid.max
+        ? grid
+        : gridWithin(grid, maxRiskPerTrade);
 }
 
-function gridWithRungCount(rungCount: number, step: number): LadderGridConfig {
+function gridWithin(grid: LadderGridConfig, cap: number): LadderGridConfig {
+    if (cap < grid.lo) return { ...grid, lo: cap, max: cap };
+    const span = cap - grid.lo;
+    const minimumLevels =
+        Math.ceil(span / grid.step - GRID_COUNT_TOLERANCE) + 1;
+    if (minimumLevels <= 1) return { ...grid, max: cap };
+    const defaultLevels = Math.round((grid.max - grid.lo) / grid.step) + 1;
+    const levels = wholeCentLevels(span, minimumLevels, defaultLevels);
+    if (levels !== null) return { ...grid, max: cap, step: span / (levels - 1) };
+    const stepCents = Math.max(
+        1,
+        Math.floor(
+            Math.round(span * CENTS_PER_DOLLAR) / (minimumLevels - 1),
+        ),
+    );
+    return {
+        ...grid,
+        max: grid.lo + ((minimumLevels - 1) * stepCents) / CENTS_PER_DOLLAR,
+        step: stepCents / CENTS_PER_DOLLAR,
+    };
+}
+
+function gridWithRungCount(
+    rungCount: number,
+    step: number,
+    slots: number,
+): LadderGridConfig {
     return {
         lo: EVAL_LADDER_GRID_LO,
         max: EVAL_LADDER_GRID_LO + (rungCount - 1) * step,
-        slots: EVAL_LADDER_GRID_SLOTS,
+        slots,
         step,
     };
+}
+
+function isFundedScore(score: LadderScore): boolean {
+    return (
+        Number.isFinite(score.costPerFunded) &&
+        Number.isFinite(score.expectedDaysToFunded)
+    );
+}
+
+function isLadderGridNarrowed(
+    cushion: number,
+    cap: number,
+    slots: number,
+): boolean {
+    return cap < defaultEvalLadderGrid(cushion, slots).max;
+}
+
+function isScoredLadderResult(
+    result: EngineOptimumRunnerResult,
+): result is LadderScoredEngineOptimumResult {
+    return (
+        (result.source === AdviceSource.LadderSearchFresh ||
+            result.source === AdviceSource.LadderSearchFromState) &&
+        result.kind === LadderEngineOptimumResultKind.Scored
+    );
+}
+
+function measuredPair(
+    documentedValue: number,
+    documentedStandardError: number,
+    optimumValue: number,
+    optimumStandardError: number,
+): null | readonly [UncertainValue, UncertainValue] {
+    const measurements = [
+        documentedValue,
+        documentedStandardError,
+        optimumValue,
+        optimumStandardError,
+    ];
+    return measurements.every(Number.isFinite)
+        ? [
+              {
+                  standardError: documentedStandardError,
+                  value: documentedValue,
+              },
+              { standardError: optimumStandardError, value: optimumValue },
+          ]
+        : null;
+}
+
+function wholeCentLevels(
+    span: number,
+    minimumLevels: number,
+    maximumLevels: number,
+): null | number {
+    const spanCents = Math.round(span * CENTS_PER_DOLLAR);
+    for (let levels = minimumLevels; levels <= maximumLevels; levels++) {
+        if (spanCents % (levels - 1) === 0) return levels;
+    }
+    return null;
 }

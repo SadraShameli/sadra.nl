@@ -1,5 +1,5 @@
 import { parseArgs } from 'citty';
-import { describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { liveArguments } from '~/cli/commands/prop/live/command';
 import optimizeFunded from '~/cli/commands/prop/optimize/funded/command';
@@ -7,6 +7,7 @@ import {
     bankrollArguments,
     type BankrollInputs,
     edgePlausibilityNote,
+    liveTransferHazardArgument,
     pathGranularityComparisonArgument,
     planArguments,
     planResolver,
@@ -33,6 +34,7 @@ import {
     ALL_FIRMS,
     ApexVariant,
     buildApexLivePlan,
+    CumulativeAmountTrigger,
     DailyLossLimitBreachEffect,
     dollars,
     FirmId,
@@ -44,6 +46,8 @@ import {
     placeWholeContractTrade,
     type Plan,
     PolicySizing,
+    PolicySourceKind,
+    PolicyVerification,
     type PositionSizingConfig,
     resolveAffordableRoomWithin,
     resolveDailyLossRoom,
@@ -664,6 +668,7 @@ describe('sim --path-granularity help (R1-26)', () => {
                     ...tradingArguments,
                     ...pathGranularityComparisonArgument,
                     ...bankrollArguments,
+                    ...liveTransferHazardArgument,
                 }),
             ),
         );
@@ -1175,5 +1180,91 @@ describe('prop sim prints the economics after the existing lines (PT-54)', () =>
             edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ??
                 'missing note',
         );
+    });
+});
+
+describe('prop sim prices the live-transfer hazard as your own assumption (PT-73)', () => {
+    it('accepts --live-transfer-hazard and names it in its help', async () => {
+        expect(await acceptedFlags(simCommand)).toContain(
+            'live-transfer-hazard',
+        );
+        expect(await flagsNamedButNotAccepted(simCommand)).toStrictEqual([]);
+    });
+
+    it('prints no live-transfer line when the flag is absent', async () => {
+        const stdout = await capturedSimRun(SMALL_SIM);
+        expect(stdout).not.toContain('live transfer');
+    });
+
+    it('labels the hazard as your assumption and reports the share sent live', async () => {
+        const stdout = await capturedSimRun([
+            ...SMALL_SIM,
+            '--live-transfer-hazard',
+            '0.5',
+            '--winrate',
+            '0.6',
+            '--funded-days',
+            '60',
+        ]);
+        expect(stdout).toContain('live transfer: 50.0% per paid payout');
+        expect(stdout).toContain('your assumption, not a firm rule');
+        expect(stdout).toContain('valued at $0');
+    });
+
+    it('says the modeled live plan continues the account when sizing is set', async () => {
+        const stdout = await capturedSimRun([
+            ...SMALL_SIM,
+            '--live-transfer-hazard',
+            '0.5',
+            '--winrate',
+            '0.6',
+            '--funded-days',
+            '60',
+            '--stop-points',
+            '10',
+        ]);
+        expect(stdout).toContain('modeled live plan');
+    });
+});
+
+describe('prop sim names a verified firm trigger it enforces (PT-73)', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('prints the verified threshold line only when the firm has one', async () => {
+        const plain = await capturedSimRun(SMALL_SIM);
+        expect(plain).not.toContain('verified firm trigger');
+        const firm = findFirm(FirmId.Mffu);
+        if (!firm) throw new Error('MFFU not registered');
+        vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue([
+            new CumulativeAmountTrigger(dollars(1500), {
+                fetchedOn: '2026-09-26',
+                quote: 'quote',
+                sourceKind: PolicySourceKind.LiveFetch,
+                url: 'https://example.invalid/rule',
+                verification: PolicyVerification.Confirmed,
+            }),
+        ]);
+        const enforced = await capturedSimRun(SMALL_SIM);
+        expect(enforced).toContain('verified firm trigger');
+        expect(enforced).toContain('$1,500');
+    });
+
+    it('says the rest of the account is valued at $0 for a trigger-only run with no modeled live plan', async () => {
+        const firm = findFirm(FirmId.Mffu);
+        if (!firm) throw new Error('MFFU not registered');
+        vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue([
+            new CumulativeAmountTrigger(dollars(1500), {
+                fetchedOn: '2026-09-26',
+                quote: 'quote',
+                sourceKind: PolicySourceKind.LiveFetch,
+                url: 'https://example.invalid/rule',
+                verification: PolicyVerification.Confirmed,
+            }),
+        ]);
+        const stdout = await capturedSimRun(SMALL_SIM);
+        expect(stdout).not.toContain('live transfer:');
+        expect(stdout).toContain('valued at $0');
     });
 });

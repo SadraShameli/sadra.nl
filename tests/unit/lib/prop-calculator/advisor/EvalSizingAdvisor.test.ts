@@ -81,6 +81,7 @@ function advisorAt(
         maxEvalDays: 150,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
     });
 }
@@ -110,6 +111,7 @@ describe('EvalSizingAdvisor (PT-19f, F-118, F-119, F-120)', () => {
             personalDll: dollars(300),
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
         });
 
@@ -125,6 +127,34 @@ describe('EvalSizingAdvisor (PT-19f, F-118, F-119, F-120)', () => {
         ).toBeLessThanOrEqual(300);
     });
 
+    it('documents no eval rung above the trader personal max risk per trade (PT-68d, F-V16)', () => {
+        const uncapped = advisorAt(account()).documented();
+        const advisor = new EvalSizingAdvisor({
+            account: account(),
+            maxEvalDays: 150,
+            personalCaps: {
+                ...NO_PERSONAL_CAPS,
+                maxRiskPerTrade: dollars(120),
+            },
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-09-26',
+            substate: null,
+            today: '2026-09-26',
+        });
+
+        const documented = advisor.documented();
+
+        expect(
+            Math.max(...(uncapped?.rungs ?? []).map((rung) => rung.risk)),
+        ).toBeGreaterThan(120);
+        const rungs = documented?.rungs ?? [];
+        expect(rungs.length).toBeGreaterThan(0);
+        for (const rung of rungs) {
+            expect(rung.risk).toBeLessThanOrEqual(120);
+        }
+        expect(documented?.constraints).toContain(SizingConstraint.PersonalCap);
+    });
+
     it('caps() reports the affordable room and the personal caps passed through', () => {
         const advisor = new EvalSizingAdvisor({
             account: account(),
@@ -135,6 +165,7 @@ describe('EvalSizingAdvisor (PT-19f, F-118, F-119, F-120)', () => {
             },
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
         });
 
@@ -191,6 +222,7 @@ describe('EvalSizingAdvisor (PT-19f, F-118, F-119, F-120)', () => {
             planRulesFingerprint: { atAdvice: 'old-hash', current: 'new-hash' },
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
         }).assemble([]);
 

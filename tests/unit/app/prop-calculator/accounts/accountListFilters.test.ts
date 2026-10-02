@@ -63,6 +63,7 @@ import {
 } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
+    LiveTriggerCoverage,
     PayoutBlockReasonKind,
     PayoutWaitBasis,
 } from '~/lib/prop-calculator/advisor';
@@ -949,6 +950,7 @@ describe('buildAccountListRows with the cushion and payout readiness boards (F-8
             asOf,
             firmMinimumNotice: null,
             kind: PayoutReadinessRowKind.Eligible,
+            liveTriggerCoverage: LiveTriggerCoverage.NotChecked,
             requestedAmountCents: usdCents(50_000),
             traderReceivesCents: usdCents(40_000),
         };
@@ -1201,5 +1203,56 @@ describe('expected value ordering (F-V18, PT-68)', () => {
             key: AccountSortKey.ExpectedValue,
         });
         expect(ids(rows)).toEqual(before);
+    });
+});
+
+function portfolioAlert(
+    accountIds: readonly string[],
+    message: string,
+    kind = AlertKind.LargeDayLoss,
+) {
+    return {
+        disclosures: [],
+        kind,
+        message,
+        severity: AlertSeverity.Warning,
+        subject: { accountIds, kind: AlertSubjectKind.Portfolio },
+    } as const;
+}
+
+describe('alertSubjectView keys for portfolio alerts (PT-69b)', () => {
+    it('gives two same-kind portfolio alerts over different accounts distinct keys', () => {
+        const first = portfolioAlert(['alpha', 'bravo'], 'one');
+        const second = portfolioAlert(['charlie'], 'one');
+        expect(alertSubjectView(first).key).not.toBe(
+            alertSubjectView(second).key,
+        );
+    });
+
+    it('gives two same-kind portfolio alerts over the same accounts distinct keys when their messages differ', () => {
+        const first = portfolioAlert(['alpha', 'bravo'], 'by count');
+        const second = portfolioAlert(['alpha', 'bravo'], 'by share');
+        expect(alertSubjectView(first).key).not.toBe(
+            alertSubjectView(second).key,
+        );
+    });
+
+    it('keeps a portfolio key stable when the same accounts are listed in another order', () => {
+        const first = portfolioAlert(['alpha', 'bravo'], 'same');
+        const second = portfolioAlert(['bravo', 'alpha'], 'same');
+        expect(alertSubjectView(first).key).toBe(alertSubjectView(second).key);
+    });
+
+    it('gives portfolio alerts of different kinds distinct keys and keeps the Portfolio label', () => {
+        const first = portfolioAlert(['alpha'], 'same');
+        const second = portfolioAlert(
+            ['alpha'],
+            'same',
+            AlertKind.ConcentratedFirmProfit,
+        );
+        expect(alertSubjectView(first).key).not.toBe(
+            alertSubjectView(second).key,
+        );
+        expect(alertSubjectView(first).label).toBe('Portfolio');
     });
 });

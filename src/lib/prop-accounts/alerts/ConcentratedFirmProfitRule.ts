@@ -24,12 +24,14 @@ import {
     type AlertContext,
     isActive,
     isModeledMonitored,
+    type MonitoredAccount,
     type ResolvedFirmAccount,
     resolvedFirmAccountsOf,
 } from './AlertContext';
 import { AlertKind } from './AlertKind';
 import { AlertRule } from './AlertRule';
 import { AlertSeverity } from './AlertSeverity';
+import { TradingSessionCalendar } from './TradingSessionCalendar';
 
 export const FIRM_CONCENTRATION_RECENT_PAYOUT_DAYS = 30;
 
@@ -106,6 +108,7 @@ export function firmProfitConcentrationOfContext(
                 accountId: monitored.account.id,
                 firmId: monitored.planKey.firmId,
                 isActive: isActive(monitored),
+                isStale: isStaleSnapshot(monitored, context),
                 movedLiveOn: monitored.movedLiveOn,
                 paidPayouts: monitored.payouts,
                 state: monitored.accountState ?? {
@@ -118,6 +121,40 @@ export function firmProfitConcentrationOfContext(
             rulebook: context.rulebook,
             today: context.today,
         },
+    );
+}
+
+function caveatOf(firm: FirmConcentration): string {
+    const caveats = [
+        firm.staleAccounts === 0
+            ? null
+            : `${plural(firm.staleAccounts, 'funded account has', 'funded accounts have')} a stale snapshot`,
+        firm.unreadableAccounts === 0
+            ? null
+            : `${plural(firm.unreadableAccounts, 'active account', 'active accounts')} could not be read from a snapshot`,
+    ].filter((caveat): caveat is string => caveat !== null);
+    return caveats.length === 0
+        ? ''
+        : ` Withdrawable may be out of date: ${caveats.join(' and ')}.`;
+}
+
+function isConfirmed(source: FirmPolicySource | undefined): boolean {
+    return source?.verification === PolicyVerification.Confirmed;
+}
+
+function isStaleSnapshot(
+    monitored: MonitoredAccount,
+    context: AlertContext,
+): boolean {
+    const { accountState } = monitored;
+    return (
+        accountState?.kind === AccountStateKind.Reconstructed &&
+        TradingSessionCalendar.isStale(
+            monitored.account.stage,
+            accountState.latest.asOf,
+            context.today,
+            context.rulebook.review.fundedStaleDays,
+        )
     );
 }
 
@@ -142,7 +179,11 @@ function messageOf(
         since.since === null
             ? 'in total (no move live is recorded for this firm)'
             : `since the last move live on ${since.since}`;
-    return `${label}: ${accounts} in profit with ${formatUsdCents(firm.withdrawableCents)} withdrawable${share}; ${String(recentPayouts.count)} paid in the last ${String(FIRM_CONCENTRATION_RECENT_PAYOUT_DAYS)} days (${formatUsdCents(usdCents(recentPayouts.cents))}), ${String(since.count)} paid ${sinceText} (${formatUsdCents(usdCents(since.cents))}). ${STANCE_TEXT[stanceOf(entries)]}`;
+    return `${label}: ${accounts} in profit with ${formatUsdCents(firm.withdrawableCents)} withdrawable${share}; ${String(recentPayouts.count)} paid in the last ${String(FIRM_CONCENTRATION_RECENT_PAYOUT_DAYS)} days (${formatUsdCents(usdCents(recentPayouts.cents))}), ${String(since.count)} paid ${sinceText} (${formatUsdCents(usdCents(since.cents))}).${caveatOf(firm)} ${STANCE_TEXT[stanceOf(entries)]}`;
+}
+
+function plural(count: number, singular: string, many: string): string {
+    return `${String(count)} ${count === 1 ? singular : many}`;
 }
 
 function stanceOf(
@@ -151,8 +192,6 @@ function stanceOf(
     const triggers = entries.flatMap((entry) =>
         entry.firm.accountPolicy.liveTriggersFor(entry.plan),
     );
-    const isConfirmed = (source: FirmPolicySource | undefined): boolean =>
-        source?.verification === PolicyVerification.Confirmed;
     if (
         triggers.some(
             (trigger) =>

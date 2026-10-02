@@ -16,8 +16,9 @@ import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { SCALE_GATE_STATUS_VARIANT } from '~/app/(app)/prop-calculator/accounts/_components/scaleGateBadge';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge, type BadgeProperties } from '~/components/ui/Badge';
+import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import {
@@ -62,6 +63,7 @@ import {
     todayIsoDate,
 } from '~/lib/prop-accounts';
 import {
+    SCALE_GATE_STATUS_TEXT,
     type ScaleGate,
     ScaleGateStatus,
     ScaleGateUnmetCondition,
@@ -85,22 +87,6 @@ type FirmEngagementRow = z.infer<typeof propFirmEngagementOutputSchema>;
 const EMPTY_EXTERNAL_FIRMS: readonly ExternalFirmName[] = [];
 const EMPTY_ENGAGEMENTS: readonly FirmEngagementRow[] = [];
 const NOT_APPLICABLE = 'n/a';
-
-const SCALE_GATE_STATUS_LABEL: Readonly<Record<ScaleGateStatus, string>> = {
-    [ScaleGateStatus.NotEnoughSample]: 'Not enough sample',
-    [ScaleGateStatus.NotPositiveAfterCost]: 'Not positive after cost',
-    [ScaleGateStatus.Ready]: 'Ready to scale',
-    [ScaleGateStatus.ThresholdsNotSet]: 'Sample thresholds not set',
-};
-
-const SCALE_GATE_STATUS_VARIANT: Readonly<
-    Record<ScaleGateStatus, BadgeProperties['variant']>
-> = {
-    [ScaleGateStatus.NotEnoughSample]: 'warning',
-    [ScaleGateStatus.NotPositiveAfterCost]: 'warning',
-    [ScaleGateStatus.Ready]: 'outline',
-    [ScaleGateStatus.ThresholdsNotSet]: 'secondary',
-};
 
 const SCALE_GATE_UNMET_LABEL: Readonly<
     Record<ScaleGateUnmetCondition, string>
@@ -578,7 +564,7 @@ function ScaleGateCard({ scaleGate }: { readonly scaleGate: ScaleGate }) {
                     <Badge
                         variant={SCALE_GATE_STATUS_VARIANT[scaleGate.status]}
                     >
-                        {SCALE_GATE_STATUS_LABEL[scaleGate.status]}
+                        {SCALE_GATE_STATUS_TEXT[scaleGate.status]}
                     </Badge>
                 </CardTitle>
             </CardHeader>

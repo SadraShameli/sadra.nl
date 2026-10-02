@@ -41,6 +41,7 @@ export function StrategyLabView() {
                         fundedHorizonDays={state.fundedHorizonDays}
                         labLink={state.labLink}
                         linkActivationDiscount={state.linkActivationDiscount}
+                        liveTransferHazard={state.liveTransferHazard}
                         maxEvalDays={state.maxEvalDays}
                         minRetainedCushion={simInputs.minRetainedCushion}
                         monthlySubscriptionDiscountPercent={

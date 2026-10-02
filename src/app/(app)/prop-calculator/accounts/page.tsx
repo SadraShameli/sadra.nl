@@ -29,7 +29,7 @@ export default async function PropAccountsPage() {
     }
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
     void api.propAccounts.externalFirm.list.prefetch();
-    void api.propAccounts.snapshot.latestForAll.prefetch();
+    void api.propAccounts.snapshot.latestTwoForAll.prefetch();
     void api.propAccounts.copyGroup.list.prefetch();
     void api.propAccounts.rulebook.get.prefetch();
     void api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT);

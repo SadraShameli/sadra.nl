@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { usdCentsFromDollars } from '~/lib/prop-accounts/core';
@@ -10,7 +12,10 @@ import {
 } from '~/lib/prop-accounts/metrics';
 import { dollars, TradingPhase } from '~/lib/prop-calculator';
 import {
+    buildEnginePolicy,
     DEFAULT_RULEBOOK,
+    documentedFundedRisk,
+    NO_PERSONAL_CAPS,
     RetainedCushionBasis,
 } from '~/lib/prop-calculator/advisor';
 
@@ -180,5 +185,59 @@ describe('cushionBoardOf', () => {
         ]);
         const [row] = board.rows;
         expect(row?.cushionCents).toBe(usdCentsFromDollars(funded.cushion));
+    });
+});
+
+describe('the cushion board counts the funded risk the way the engine places it (PT-68g, F-V16)', () => {
+    it.each([
+        ['no personal max risk', null],
+        ['a personal max risk below the rulebook risk', 100],
+        ['a personal max risk above the rulebook risk', 5000],
+    ])('uses the documented funded risk of the engine policy as the funded basis with %s', (_name, personalMaxRiskPerTrade) => {
+        const plan = mffProPlan();
+        const { policy } = buildEnginePolicy({
+            fundedHorizonDays: 40,
+            plan,
+            rulebook: DEFAULT_RULEBOOK,
+        });
+        const enginePolicy =
+            personalMaxRiskPerTrade === null
+                ? policy
+                : {
+                      ...policy,
+                      personalCaps: {
+                          ...NO_PERSONAL_CAPS,
+                          maxRiskPerTrade: dollars(personalMaxRiskPerTrade),
+                      },
+                  };
+        const funded = {
+            ...fundedReconstructed(plan, {
+                balance: plan.accountSize + 1000,
+            }),
+            personalMaxRiskPerTrade,
+        };
+        const [row] = cushionBoardOf(DEFAULT_RULEBOOK, [
+            reconstructedEntry('a1', plan, funded),
+        ]).rows;
+
+        expect(row?.ratio.basisAmount).toBe(
+            documentedFundedRisk(DEFAULT_RULEBOOK, enginePolicy),
+        );
+    });
+
+    it('reads no rulebook cents of its own for the funded risk', () => {
+        const source = readFileSync(
+            path.join(
+                process.cwd(),
+                'src',
+                'lib',
+                'prop-accounts',
+                'metrics',
+                'CushionBoard.ts',
+            ),
+            'utf8',
+        );
+
+        expect(source).not.toContain('funded.riskCents');
     });
 });

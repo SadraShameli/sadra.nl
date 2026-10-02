@@ -1,91 +1,62 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import {
-    advisorInputsFrom,
-    type AdvisorPersonalInputs,
-} from '~/lib/prop-accounts/advice/AdvisorInputsAdapter';
-import {
-    AccountEventKind,
-    AccountStatus,
-    type PersonalRules,
-    usdCents,
-} from '~/lib/prop-accounts/core';
-import { RebuyLagBasis, replacementStats } from '~/lib/prop-accounts/metrics';
-import { dollars } from '~/lib/prop-calculator';
+import { optionalDollars, usdCents } from '~/lib/prop-accounts';
 
-import {
-    account,
-    EVAL_PLAN,
-    event,
-    INSTANT_PLAN,
-    ledger,
-    purchased,
-} from '../metrics/ledgerFixtures';
+const SOURCE_ROOT = path.join(process.cwd(), 'src');
+const TEST_ROOT = path.join(process.cwd(), 'tests');
+const SOURCE_FILE = /\.tsx?$/;
 
-function statsWithMeasuredLag() {
-    const bustedMonday = account(EVAL_PLAN, { status: AccountStatus.Busted });
-    const afterMonday = account(EVAL_PLAN, {
-        purchasedOn: '2026-09-10',
-        replacesAccountId: bustedMonday.id,
-    });
-    return replacementStats(
-        ledger({
-            accounts: [bustedMonday, afterMonday],
-            events: [
-                purchased(bustedMonday),
-                event(bustedMonday, AccountEventKind.Busted, '2026-09-07'),
-                purchased(afterMonday),
-            ],
-        }),
-    );
+function filesMatching(root: string, pattern: RegExp): string[] {
+    return sourceFiles(root)
+        .filter((file) => pattern.test(readFileSync(file, 'utf8')))
+        .map((file) => path.relative(process.cwd(), file));
 }
 
-describe('advisorInputsFrom', () => {
-    it('maps every PersonalRules cents field to its Dollars counterpart', () => {
-        const personalRules: PersonalRules = {
-            dailyLossLimitCents: usdCents(30_000),
-            dailyProfitCapCents: usdCents(50_000),
-            maxRiskPerTradeCents: usdCents(10_000),
-            maxTradesPerDay: 5,
-            payoutRequestOverrideCents: usdCents(75_000),
-            retainedCushionCents: usdCents(250_000),
-        };
-        const result = advisorInputsFrom(
-            personalRules,
-            statsWithMeasuredLag(),
-            EVAL_PLAN.serial,
-        );
-        expect(result).toEqual<AdvisorPersonalInputs>({
-            payoutRequestOverride: dollars(750),
-            personalCaps: {
-                dailyProfitCap: dollars(500),
-                maxRiskPerTrade: dollars(100),
-                maxTradesPerDay: 5,
-            },
-            personalDll: dollars(300),
-            rebuyLagBasis: RebuyLagBasis.Measured,
-            rebuyLagDays: 2,
-            retainedCushionRequest: dollars(2500),
-        });
+function sourceFiles(directory: string): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        const full = path.join(directory, entry.name);
+        if (entry.isDirectory()) return sourceFiles(full);
+        return SOURCE_FILE.test(entry.name) ? [full] : [];
+    });
+}
+
+describe('optionalDollars (PT-68d)', () => {
+    it('converts a stored cents amount to dollars', () => {
+        expect(optionalDollars(usdCents(75_000))).toBe(750);
+        expect(optionalDollars(usdCents(1999))).toBe(19.99);
+        expect(optionalDollars(usdCents(0))).toBe(0);
     });
 
-    it('maps every absent field to null, with no measured lag falling back to assumed zero', () => {
-        const result = advisorInputsFrom(
-            {},
-            statsWithMeasuredLag(),
-            INSTANT_PLAN.serial,
-        );
-        expect(result).toEqual<AdvisorPersonalInputs>({
-            payoutRequestOverride: null,
-            personalCaps: {
-                dailyProfitCap: null,
-                maxRiskPerTrade: null,
-                maxTradesPerDay: null,
-            },
-            personalDll: null,
-            rebuyLagBasis: RebuyLagBasis.AssumedZero,
-            rebuyLagDays: 0,
-            retainedCushionRequest: null,
-        });
+    it('reads a missing amount as undefined, never as zero dollars', () => {
+        expect(optionalDollars(null)).toBeUndefined();
+        expect(optionalDollars(undefined)).toBeUndefined();
+    });
+
+    it('accepts a plain stored cents number and refuses a fractional cent amount', () => {
+        expect(optionalDollars(12_300)).toBe(123);
+        expect(() => optionalDollars(10.5)).toThrow(RangeError);
+    });
+});
+
+describe('one optional-dollars helper and no unused advisor inputs adapter (PT-68d)', () => {
+    it('defines optionalDollars once across src', () => {
+        expect(
+            filesMatching(SOURCE_ROOT, /function optionalDollars\b/),
+        ).toEqual([
+            path.join(
+                'src',
+                'lib',
+                'prop-accounts',
+                'advice',
+                'AdvisorInputsAdapter.ts',
+            ),
+        ]);
+    });
+
+    it('has no advisorInputsFrom left in src or tests beyond this guard', () => {
+        expect(filesMatching(SOURCE_ROOT, /advisorInputsFrom/)).toEqual([]);
+        expect(filesMatching(TEST_ROOT, /advisorInputsFrom\(/)).toEqual([]);
     });
 });

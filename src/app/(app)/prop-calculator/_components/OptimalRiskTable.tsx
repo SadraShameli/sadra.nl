@@ -15,21 +15,32 @@ import {
     formatStreak,
 } from '~/lib/format';
 import {
+    type Dollars,
     type Plan,
     type SimInputs,
     type SimOutputs,
     simulate,
 } from '~/lib/prop-calculator';
+import {
+    type BankrollRiskFigures,
+    bankrollRiskFigures,
+} from '~/lib/prop-calculator/advisor/policy';
 import { cn } from '~/lib/utilities';
 
 import {
     AppliedEvalLadderNotice,
     EvalLadderScope,
 } from './AppliedEvalLadderNotice';
+import { useCalculatorInputs } from './CalculatorProvider';
 import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
+import { CalculatorObjectiveChip } from './ObjectiveChip';
+import {
+    riskRowFigures,
+    riskTableObjective,
+    starredRows,
+} from './objectiveRanking';
 import { riskPercentToDollars } from './riskConversion';
-import { bestExpectedMonthlyNet } from './scoring';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
 import { partitionBySizing } from './simulationFailure';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
@@ -41,23 +52,27 @@ const MAX_TRIALS = 500;
 
 export interface Row {
     accountSize: number;
-    isBest: boolean;
+    bankroll: BankrollRiskFigures | null;
     out: SimOutputs;
     riskPct: number;
 }
 
 interface OptimalRiskTableProperties {
+    bankroll?: Dollars | null;
     baseInputs: Omit<SimInputs, 'riskPerTrade'>;
     currentRiskPercent: number;
     plan: Plan;
 }
 
 export default function OptimalRiskTable({
+    bankroll = null,
     baseInputs,
     currentRiskPercent,
     plan,
 }: OptimalRiskTableProperties) {
-    const key = buildCacheKey(baseInputs);
+    const { state } = useCalculatorInputs();
+    const objectiveView = riskTableObjective(state.objective);
+    const key = buildCacheKey(baseInputs, bankroll);
     const accountSize = plan.accountSize;
     const levels = partitionBySizing(RISK_LEVELS, (riskPct) => ({
         ...baseInputs,
@@ -73,7 +88,7 @@ export default function OptimalRiskTable({
         DEBOUNCE_MS,
         () => {
             const trials = Math.min(MAX_TRIALS, baseInputs.trials);
-            const partial = levels.accepted.map((riskPct) => {
+            return levels.accepted.map((riskPct): Row => {
                 const riskDollars = riskPercentToDollars(riskPct, accountSize);
                 const out = simulate({
                     ...baseInputs,
@@ -81,20 +96,37 @@ export default function OptimalRiskTable({
                     riskPerTrade: riskDollars,
                     trials,
                 });
-                return { accountSize, out, riskPct };
+                return {
+                    accountSize,
+                    bankroll:
+                        bankroll === null
+                            ? null
+                            : bankrollRiskFigures(
+                                  out,
+                                  bankroll,
+                                  baseInputs.seed,
+                              ),
+                    out,
+                    riskPct,
+                };
             });
-            const bestNet = bestExpectedMonthlyNet(partial);
-            return partial.map((r) => ({
-                ...r,
-                isBest: r.out.expectedMonthlyNet === bestNet,
-            }));
         },
         [],
     );
 
     const cardReference = useRef<HTMLDivElement>(null);
 
-    const bestRow = useMemo(() => rows.find((r) => r.isBest) ?? null, [rows]);
+    const starred = useMemo(
+        () =>
+            starredRows(rows, objectiveView.effective, (row) =>
+                riskRowFigures(row.out),
+            ),
+        [objectiveView.effective, rows],
+    );
+    const bestRow = useMemo(
+        () => rows.find((r) => starred.has(r)) ?? null,
+        [rows, starred],
+    );
 
     const closestRiskPct = nearestRisk(currentRiskPercent);
 
@@ -111,7 +143,7 @@ export default function OptimalRiskTable({
                         <span className="ml-1 text-muted-foreground">
                             ({row.original.riskPct}%)
                         </span>
-                        {row.original.isBest &&
+                        {starred.has(row.original) &&
                             row.original.riskPct !== closestRiskPct && (
                                 <span className="ml-1 text-emerald-400">★</span>
                             )}
@@ -155,6 +187,13 @@ export default function OptimalRiskTable({
                 id: 'monthlyNet',
             },
             {
+                accessorFn: (r) => r.out.expectedNet,
+                cell: ({ row }) => formatCurrency(row.original.out.expectedNet),
+                header: 'Cycle net',
+                id: 'cycleNet',
+            },
+            ...(bankroll === null ? [] : bankrollColumns()),
+            {
                 accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
                 cell: ({ row }) =>
                     formatOptionalPercent(row.original.out.roiOnCost.value),
@@ -170,7 +209,7 @@ export default function OptimalRiskTable({
                 id: 'streak',
             },
         ],
-        [closestRiskPct],
+        [bankroll, closestRiskPct, starred],
     );
 
     return (
@@ -194,12 +233,21 @@ export default function OptimalRiskTable({
                 <span className="text-xs text-muted-foreground">
                     {pending
                         ? 'computing…'
-                        : `best monthly net at ${formatPercent(
+                        : `best ${riskTableObjective(objectiveView.effective).label} at ${formatPercent(
                               (bestRow?.riskPct ?? 0) / 100,
                               2,
                           )}`}
                 </span>
             </div>
+            <CalculatorObjectiveChip className="mt-2" />
+            {bankroll !== null && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Bankroll figures are priced at {formatCurrency(bankroll)}:
+                    attempts affordable are the bankroll over the cost per
+                    attempt, P(no payout) is across those attempts and P(batch
+                    &lt; 0) is the chance they end below zero.
+                </p>
+            )}
             <AppliedEvalLadderNotice
                 onCleared={() => cardReference.current?.focus()}
                 scope={EvalLadderScope.NotUsedHere}
@@ -233,10 +281,38 @@ export default function OptimalRiskTable({
     );
 }
 
-function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
-    return simInputsCacheKey(inputs, {
+function bankrollColumns(): DataTableColumn<Row>[] {
+    return [
+        {
+            accessorFn: (r) => r.bankroll?.noPayoutProbability ?? undefined,
+            cell: ({ row }) =>
+                formatOptionalPercent(
+                    row.original.bankroll?.noPayoutProbability ?? null,
+                ),
+            header: 'P(no payout)',
+            id: 'noPayout',
+            sortUndefined: 'last',
+        },
+        {
+            accessorFn: (r) => r.bankroll?.lossProbability ?? undefined,
+            cell: ({ row }) =>
+                formatOptionalPercent(
+                    row.original.bankroll?.lossProbability ?? null,
+                ),
+            header: 'P(batch < 0)',
+            id: 'batchLoss',
+            sortUndefined: 'last',
+        },
+    ];
+}
+
+function buildCacheKey(
+    inputs: Omit<SimInputs, 'riskPerTrade'>,
+    bankroll: Dollars | null,
+): string {
+    return `${simInputsCacheKey(inputs, {
         omit: [SimInputsKeyField.EvalDayPolicy, SimInputsKeyField.RiskPerTrade],
-    });
+    })}|bankroll=${bankroll ?? ''}`;
 }
 
 function describeRefusedLevels(riskPercents: readonly number[]): null | string {

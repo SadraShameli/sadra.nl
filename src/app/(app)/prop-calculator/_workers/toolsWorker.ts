@@ -14,6 +14,10 @@ import {
 } from '~/lib/prop-calculator';
 import { applyEnginePolicy } from '~/lib/prop-calculator/advisor';
 import {
+    type CopySplitResult,
+    runCopySplit,
+} from '~/lib/prop-calculator/advisor/policy';
+import {
     fundedValueEstimate,
     type FundedValueEstimateResult,
     valueChain,
@@ -45,6 +49,7 @@ import {
     type BankrollPlanVariantInputs,
     type BatchToolsRequest,
     type BatchToolsSummary,
+    type CopySplitToolsRequest,
     type FundedValueEstimateToolsRequest,
     type LeversToolsRequest,
     type NextRoundToolsRequest,
@@ -71,6 +76,9 @@ export function computeToolsResult(rawRequest: unknown): ToolsWorkerResult {
     switch (request.kind) {
         case ToolsRequestKind.Batch: {
             return finishBatch(request);
+        }
+        case ToolsRequestKind.CopySplit: {
+            return finishCopySplit(request);
         }
         case ToolsRequestKind.FundedValueEstimate: {
             return finishFundedValueEstimate(request);
@@ -135,6 +143,19 @@ function computeBatch(request: BatchToolsRequest): BatchToolsSummary | null {
             outcome.value?.lossProbability.standardError ?? null,
         meanNet: outcome.value?.meanNet ?? null,
     };
+}
+
+function computeCopySplit(
+    request: CopySplitToolsRequest,
+): CopySplitResult | null {
+    const plan = resolvePlanReference(request.variant.plan);
+    return plan === null ? null : runCopySplit(
+        { ...request.variant.base, plan },
+        request.variant.policy,
+        request.totalRisk,
+        request.splits,
+        request.objective,
+    );
 }
 
 function computeFundedValueEstimate(
@@ -278,6 +299,24 @@ function finishBatch(request: BatchToolsRequest): ToolsWorkerResult {
     if (result === null) return fail(request.runId, PLAN_NOT_FOUND_REASON);
     return parseToolsResult({
         kind: ToolsResponseKind.Batch,
+        result,
+        runId: request.runId,
+    });
+}
+
+function finishCopySplit(request: CopySplitToolsRequest): ToolsWorkerResult {
+    let result: CopySplitResult | null;
+    try {
+        result = computeCopySplit(request);
+    } catch (error) {
+        if (error instanceof RangeError) {
+            return fail(request.runId, error.message);
+        }
+        throw error;
+    }
+    if (result === null) return fail(request.runId, PLAN_NOT_FOUND_REASON);
+    return parseToolsResult({
+        kind: ToolsResponseKind.CopySplit,
         result,
         runId: request.runId,
     });

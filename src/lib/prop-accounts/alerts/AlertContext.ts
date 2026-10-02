@@ -93,7 +93,12 @@ export type AlertCopyGroupRow = Pick<PropCopyGroupRow, 'id' | 'name'>;
 
 export type AlertDecisionRow = Pick<
     PropSizingDecisionRow,
-    'acceptedRiskCents' | 'accountId' | 'actualRiskCents' | 'decidedOn'
+    | 'acceptedRiskCents'
+    | 'accountId'
+    | 'actualRiskCents'
+    | 'createdAt'
+    | 'decidedOn'
+    | 'id'
 >;
 
 export interface AlertRoundRow {

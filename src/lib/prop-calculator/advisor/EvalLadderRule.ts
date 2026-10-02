@@ -16,12 +16,14 @@ import {
 import {
     type DailyProfitCap,
     DailyProfitCapKind,
+    type DocumentedRung,
     type DocumentedSizing,
     type PlannedRisk,
     SizingConstraint,
     SizingProvenance,
     type SizingTerms,
 } from './DocumentedSizing';
+import { NO_PERSONAL_CAPS } from './PersonalCaps';
 import {
     EvalSizingMode,
     LadderFractionSource,
@@ -33,6 +35,7 @@ import {
     evalRuleContextSchema,
     lossBudget,
     profitCeiling,
+    tighterOf,
 } from './RuleContext';
 import { RuleSource } from './RuleSource';
 
@@ -122,18 +125,10 @@ export class EvalLadderRule extends DocumentedRule<EvalRuleContext> {
         }
     }
 
-    protected plannedRisk(
-        _context: EvalRuleContext,
-        day: DayProgress,
-        sizing: DocumentedSizing,
-    ): null | PlannedRisk {
-        const rung = sizing.rungs[day.wins + day.losses];
-        return rung === undefined
-            ? null
-            : { amount: rung.risk, cappedBy: rung.cappedBy };
-    }
-
-    protected sizeWithin(context: EvalRuleContext): DocumentedSizing {
+    private ladderWithin(
+        context: EvalRuleContext,
+        documented: DocumentedSizing | null,
+    ): DocumentedSizing {
         const terms = this.terms(context);
         const sequence = new RungSequence();
         if (context.cushion <= 0) {
@@ -146,23 +141,51 @@ export class EvalLadderRule extends DocumentedRule<EvalRuleContext> {
                 ? []
                 : [budget.constraint];
         for (const constraint of budgetCaps) sequence.note(constraint);
-        const ceiling = terms.profitCeiling;
+        const { maxRiskPerTrade, maxTradesPerDay } = context.personalCaps;
+        const slots =
+            maxTradesPerDay === null
+                ? terms.maxTrades
+                : Math.min(terms.maxTrades, maxTradesPerDay);
+        const ceiling = tighterOf(
+            terms.profitCeiling,
+            context.personalCaps.dailyProfitCap,
+            SizingConstraint.PersonalCap,
+        );
         const stepCents = this.rulebook.eval.roundingStepCents;
         const step = stepCents / CENTS_PER_DOLLAR;
-        for (let index = 0; index < terms.maxTrades; index++) {
+        for (let index = 0; index < slots; index++) {
             const room = budget.amount - sequence.runningLoss;
             if (room < ONE_CENT) break;
             const cappedBy: SizingConstraint[] = [...budgetCaps];
             const isFinal = index === terms.maxTrades - 1;
-            let risk = isFinal
-                ? room
-                : roundRung(
-                      this.rungTarget(index, budget.amount, sequence.lastRisk),
-                      stepCents,
-                  );
-            if (!isAtOrBelowWithinCentTolerance(risk, room)) {
-                cappedBy.push(budget.constraint);
-                risk = room;
+            let risk: number;
+            let natural: DocumentedRung | undefined;
+            if (documented === null) {
+                risk = isFinal
+                    ? room
+                    : roundRung(
+                          this.rungTarget(
+                              index,
+                              budget.amount,
+                              sequence.lastRisk,
+                          ),
+                          stepCents,
+                      );
+                if (!isAtOrBelowWithinCentTolerance(risk, room)) {
+                    cappedBy.push(budget.constraint);
+                    risk = room;
+                }
+            } else {
+                natural = documented.rungs[index];
+                if (natural === undefined) break;
+                risk = natural.risk;
+            }
+            if (
+                maxRiskPerTrade !== null &&
+                !isAtOrBelowWithinCentTolerance(risk, maxRiskPerTrade)
+            ) {
+                cappedBy.push(SizingConstraint.PersonalCap);
+                risk = maxRiskPerTrade;
             }
             if (ceiling !== null) {
                 const ceilingRoom =
@@ -176,6 +199,12 @@ export class EvalLadderRule extends DocumentedRule<EvalRuleContext> {
                             ? floorToStep(capped, stepCents)
                             : capped;
                 }
+            }
+            if (
+                natural !== undefined &&
+                isAtOrBelowWithinCentTolerance(natural.risk, risk)
+            ) {
+                cappedBy.push(...natural.cappedBy);
             }
             const placed = floorToWholeCents(risk);
             if (placed < ONE_CENT) {
@@ -192,6 +221,34 @@ export class EvalLadderRule extends DocumentedRule<EvalRuleContext> {
             );
         }
         return sequence.toSizing(context, terms);
+    }
+
+    protected plannedRisk(
+        _context: EvalRuleContext,
+        day: DayProgress,
+        sizing: DocumentedSizing,
+    ): null | PlannedRisk {
+        const rung = sizing.rungs[day.wins + day.losses];
+        return rung === undefined
+            ? null
+            : { amount: rung.risk, cappedBy: rung.cappedBy };
+    }
+
+    protected sizeWithin(context: EvalRuleContext): DocumentedSizing {
+        const { dailyProfitCap, maxRiskPerTrade, maxTradesPerDay } =
+            context.personalCaps;
+        if (
+            dailyProfitCap === null &&
+            maxRiskPerTrade === null &&
+            maxTradesPerDay === null
+        ) {
+            return this.ladderWithin(context, null);
+        }
+        const documented = this.ladderWithin(
+            { ...context, personalCaps: NO_PERSONAL_CAPS },
+            null,
+        );
+        return this.ladderWithin(context, documented);
     }
 }
 

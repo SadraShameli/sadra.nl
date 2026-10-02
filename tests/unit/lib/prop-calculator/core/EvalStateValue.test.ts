@@ -252,7 +252,9 @@ describe(
                 "the same ladder scored in ladderSearch.test.ts's golden " +
                 "values) by well over the plan's own 3-percentage-point " +
                 'adopt threshold, at matched seed/trial count, an explicit ' +
-                'adopt verdict, not an assumed one',
+                'adopt verdict, not an assumed one (N-89: the DP policy passes ' +
+                '0.705 of trials, up from 0.662, once no pass-bearing value is ' +
+                'read through an interpolated table, and the DP predicts 0.702)',
             () => {
                 const plan = rapidEodPlan();
                 const maxEvalDays = 30;
@@ -304,10 +306,10 @@ describe(
 
                 expect(dpOut.evalPassProbability).toBeCloseTo(
                     dp.initialValue,
-                    1,
+                    2,
                 );
                 expect(ladderOut.evalPassProbability).toBeCloseTo(0.429, 2);
-                expect(dpOut.evalPassProbability).toBeCloseTo(0.662, 2);
+                expect(dpOut.evalPassProbability).toBeCloseTo(0.705, 2);
                 expect(
                     dpOut.evalPassProbability - ladderOut.evalPassProbability,
                 ).toBeGreaterThan(ADOPT_THRESHOLD_PP);
@@ -432,7 +434,10 @@ describe('idle-days DP state dimension', () => {
             "the existing hand-derived 'two linked days' toy case above), " +
             'asserting those exact, previously-measured figures here pins ' +
             'the post-change engine to produce identical output for every ' +
-            'plan that never sets the field',
+            'plan that never sets the field (N-89 lowered reachedStateCount ' +
+            'from 17 to 12: the DP now solves only the day starts its ' +
+            'within-day search reaches, not every cushion node; the value ' +
+            'and the first risk are unchanged)',
         () => {
             const plan = toyPlan(250).withOverrides({
                 maxConsecutiveIdleDays: undefined,
@@ -442,7 +447,7 @@ describe('idle-days DP state dimension', () => {
             const result = computeEvalStateValue(toyDpConfig(plan, 2, 100));
 
             expect(result.initialValue).toBeCloseTo(0.25, 10);
-            expect(result.reachedStateCount).toBe(17);
+            expect(result.reachedStateCount).toBe(12);
 
             const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
             expect(risk).toBe(50);

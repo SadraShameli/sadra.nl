@@ -7,14 +7,26 @@ import {
     ToolsRequestKind,
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { findFirm, FirmId, serializePlanId } from '~/lib/prop-calculator';
 import {
+    findFirm,
+    FirmId,
+    InstrumentSymbol,
+    serializePlanId,
+    simulate,
+} from '~/lib/prop-calculator';
+import {
+    applyEnginePolicy,
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
     type DocumentedPolicySpec,
     LifetimePayoutCapBasis,
     RebuyLagBasis,
+    SizingObjective,
 } from '~/lib/prop-calculator/advisor';
+import {
+    CopySplitRowKind,
+    copySplitTrials,
+} from '~/lib/prop-calculator/advisor/policy';
 import { ValueChainStepKind } from '~/lib/prop-calculator/advisor/value';
 import { MffuVariant, TopStepVariant } from '~/lib/prop-calculator/core';
 import { EconomicsReason } from '~/lib/prop-calculator/economics';
@@ -393,5 +405,130 @@ describe('resolving the requested plan', () => {
     it('resolves the same TopStep 50K plan the catalog exposes', () => {
         const firm = findFirm(FirmId.TopStep);
         expect(firm?.findPlanBySerial(TOPSTEP_50K_SERIAL)).not.toBeNull();
+    });
+});
+
+
+function copySplit(
+    overrides: Partial<{
+        objective: SizingObjective;
+        splits: number[];
+        variant: BankrollPlanVariantInputs;
+    }> = {},
+) {
+    return computeToolsResult({
+        kind: ToolsRequestKind.CopySplit,
+        objective: SizingObjective.MonthlyNet,
+        runId: 1,
+        splits: [1, 2],
+        totalRisk: 2000,
+        variant: variant({ riskPerTrade: 2000, trials: 130 }),
+        ...overrides,
+    });
+}
+
+describe('computeToolsResult: CopySplit (thin call into runCopySplit, PT-63, F-V24)', () => {
+    it('runs one row per split for the whole group, off the main thread', () => {
+        const result = copySplit();
+        expect(result.kind).toBe(ToolsResponseKind.CopySplit);
+        if (result.kind !== ToolsResponseKind.CopySplit) {
+            throw new Error('unreachable');
+        }
+        expect(result.result.rows.map((row) => row.splitCount).toSorted((a, b) => a - b)).toStrictEqual(
+            [1, 2],
+        );
+        expect(result.result.trialsPerSplit).toBe(
+            copySplitTrials(130, [1, 2]),
+        );
+        expect(result.result.objective).toBe(SizingObjective.MonthlyNet);
+    });
+
+    it('matches a plain engine run of the same split on the same seed', () => {
+        const theVariant = variant({ riskPerTrade: 2000, trials: 130 });
+        const result = copySplit({ variant: theVariant });
+        if (result.kind !== ToolsResponseKind.CopySplit) {
+            throw new Error('unreachable');
+        }
+        const two = result.result.rows.find((row) => row.splitCount === 2);
+        if (two?.kind !== CopySplitRowKind.Simulated) {
+            throw new Error('expected a simulated row');
+        }
+        const plan = findFirm(FirmId.TopStep)?.findPlanBySerial(
+            TOPSTEP_50K_SERIAL,
+        );
+        if (!plan) throw new Error('plan missing');
+        const out = simulate(
+            applyEnginePolicy(plan, theVariant.policy, {
+                ...theVariant.base,
+                copyAccounts: 2,
+                fundedRiskPerTrade: 250,
+                plan,
+                riskPerTrade: 1000,
+                trials: copySplitTrials(130, [1, 2]),
+            }),
+        );
+        expect(two.totalMonthlyNet.value).toBe(out.expectedMonthlyNet);
+        expect(two.cycleNet.value).toBe(out.expectedNet);
+    });
+
+    it('carries the basis lines, including the funded risk used and the correlation of the copies', () => {
+        const result = copySplit();
+        if (result.kind !== ToolsResponseKind.CopySplit) {
+            throw new Error('unreachable');
+        }
+        const text = result.result.basisLines.join('\n');
+        expect(text).toContain('funded risk $250 per account');
+        expect(text).toContain('identical trades');
+        expect(result.result.indistinguishableSplits).toBeInstanceOf(Array);
+    });
+
+    it('returns a refused row for a split below one contract at the stop', () => {
+        const result = copySplit({
+            splits: [1, 10],
+            variant: variant({
+                fundedRiskPerTrade: 800,
+                instrument: InstrumentSymbol.NQ,
+                riskPerTrade: 2000,
+                stopPoints: 20,
+                trials: 130,
+            }),
+        });
+        if (result.kind !== ToolsResponseKind.CopySplit) {
+            throw new Error('unreachable');
+        }
+        const ten = result.result.rows.find((row) => row.splitCount === 10);
+        expect(ten?.kind).toBe(CopySplitRowKind.Refused);
+    });
+
+    it('falls back to MonthlyNet with a note under RuinFirst', () => {
+        const result = copySplit({ objective: SizingObjective.RuinFirst });
+        if (result.kind !== ToolsResponseKind.CopySplit) {
+            throw new Error('unreachable');
+        }
+        expect(result.result.objective).toBe(SizingObjective.MonthlyNet);
+        expect(result.result.requestedObjective).toBe(
+            SizingObjective.RuinFirst,
+        );
+        expect(result.result.note).not.toBeNull();
+    });
+
+    it('fails with a named reason when the plan does not resolve', () => {
+        const base = variant({ riskPerTrade: 2000, trials: 130 });
+        const result = copySplit({
+            variant: {
+                ...base,
+                plan: { ...base.plan, planSerial: 'no-such-plan' },
+            },
+        });
+        expect(result.kind).toBe(ToolsResponseKind.Failed);
+    });
+
+    it('fails with the engine reason instead of throwing for a repeated split', () => {
+        const result = copySplit({ splits: [2, 2] });
+        expect(result.kind).toBe(ToolsResponseKind.Failed);
+        if (result.kind !== ToolsResponseKind.Failed) {
+            throw new Error('unreachable');
+        }
+        expect(result.reason).toMatch(/more than once/);
     });
 });

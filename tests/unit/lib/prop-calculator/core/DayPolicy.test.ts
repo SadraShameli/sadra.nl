@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
@@ -21,6 +23,7 @@ import {
     InstrumentSymbol,
     ladderRungSchema,
     ladderRungsSchema,
+    percentCushionDayPolicy,
     placeWholeContractTrade,
     type Plan,
     type PlanId,
@@ -42,7 +45,9 @@ import { type Rng } from '~/lib/prop-calculator/rng';
 import {
     LossStreak,
     newPhaseStats,
+    resolveDayPolicy,
     runDay,
+    type SimInputs,
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
@@ -127,6 +132,105 @@ describe('computedDayPolicy', () => {
             percent * cushionAtStart,
             8,
         );
+    });
+});
+
+function cushionOf(state: AccountState): number {
+    return state.balance - state.threshold;
+}
+
+describe('percentCushionDayPolicy is the one percent-of-cushion day policy (PT-68g)', () => {
+    const stopRule = { kind: DayStopRuleKind.None } as const;
+
+    it('sizes every trade at exactly the percent of the live cushion, with one slot per trade of the day', () => {
+        const policy = percentCushionDayPolicy(
+            fraction(0.1),
+            3,
+            stopRule,
+            PolicySizing.ContractCapped,
+        );
+        const state = apexEod.initialState();
+
+        expect(policy.ladder).toHaveLength(3);
+        expect(policy.sizing).toBe(PolicySizing.ContractCapped);
+        expect(policy.stopRule).toEqual(stopRule);
+        expect(policy.computeRisk?.(state, 0)).toBe(
+            resolveFundedTradeRisk(cushionOf(state), fraction(0.1)),
+        );
+    });
+
+    it('caps the percent risk at the personal max risk and leaves a looser cap bit-identical to no cap', () => {
+        const state = apexEod.initialState();
+        const uncapped = percentCushionDayPolicy(
+            fraction(0.1),
+            2,
+            stopRule,
+            PolicySizing.ContractCapped,
+        );
+        const capped = percentCushionDayPolicy(
+            fraction(0.1),
+            2,
+            stopRule,
+            PolicySizing.ContractCapped,
+            dollars(50),
+        );
+        const loose = percentCushionDayPolicy(
+            fraction(0.1),
+            2,
+            stopRule,
+            PolicySizing.ContractCapped,
+            dollars(1_000_000),
+        );
+
+        expect(uncapped.computeRisk?.(state, 0)).toBeGreaterThan(50);
+        expect(capped.computeRisk?.(state, 0)).toBe(50);
+        expect(loose.computeRisk?.(state, 0)).toBe(
+            uncapped.computeRisk?.(state, 0),
+        );
+    });
+
+    it('is the policy the simulator resolves for a funded cushion percent', () => {
+        const state = apexEod.initialState();
+        const inputs: SimInputs = {
+            commissionPerRoundTrip: 0,
+            fundedCushionPercent: fraction(0.1),
+            fundedHorizonDays: 252,
+            instrument: InstrumentSymbol.MNQ,
+            maxEvalDays: 150,
+            plan: apexEod,
+            riskPerTrade: 250,
+            rrRatio: 2,
+            seed: 42,
+            stopPoints: 10,
+            tradesPerDay: 3,
+            trials: 10,
+            winrate: 0.4,
+        };
+
+        const resolved = resolveDayPolicy(inputs, TradingPhase.Funded);
+        const direct = percentCushionDayPolicy(
+            fraction(0.1),
+            3,
+            stopRule,
+            policySizingOf(TradingPhase.Funded),
+        );
+
+        expect(resolved.ladder).toEqual(direct.ladder);
+        expect(resolved.computeRisk?.(state, 0)).toBe(
+            direct.computeRisk?.(state, 0),
+        );
+    });
+
+    it('is the only place that turns a cushion percent into a trade risk, outside the core domain', () => {
+        const root = path.join(process.cwd(), 'src', 'lib', 'prop-calculator');
+        for (const file of [
+            path.join('simulator', 'day.ts'),
+            path.join('advisor', 'EnginePolicyBuilder.ts'),
+        ]) {
+            expect(readFileSync(path.join(root, file), 'utf8')).not.toContain(
+                'resolveFundedTradeRisk',
+            );
+        }
     });
 });
 
@@ -289,16 +393,22 @@ describe('both dynamic programs cap the first trade at the daily loss limit minu
     });
 
     function evalFirstTradeRisk(commission: number): number {
+        const fullCapWin = 3.2 * (500 - commission) - commission;
+        const evalPlan = plan.withOverrides({
+            consistency: null,
+            minTradingDays: 0,
+            profitTarget: dollars(Math.floor(fullCapWin) - 1),
+        });
         const result = computeEvalStateValue({
             commission: dollars(commission),
             maxActionDollars: 800,
-            maxEvalDays: 2,
-            plan,
+            maxEvalDays: 1,
+            plan: evalPlan,
             rrRatio: 3.2,
             tradesPerDay: 1,
             winrate: fraction(0.95),
         });
-        return result.dayPolicy.computeRisk?.(plan.initialState(), 0) ?? 0;
+        return result.dayPolicy.computeRisk?.(evalPlan.initialState(), 0) ?? 0;
     }
 
     function fundedFirstTradeRisk(commission: number): number {
@@ -323,7 +433,7 @@ describe('both dynamic programs cap the first trade at the daily loss limit minu
         return result.dayPolicy.computeRisk?.(state, 0) ?? 0;
     }
 
-    it('the eval DP sizes a first trade that must win the target in two days at $500 - $5 = $495, and at $500 with no commission', () => {
+    it('the eval DP sizes a first trade that only the full cap can win the target with at $500 - $5 = $495, and at $500 with no commission', () => {
         expect(evalFirstTradeRisk(5)).toBe(495);
         expect(evalFirstTradeRisk(0)).toBe(500);
     });
@@ -373,7 +483,7 @@ describe('both dynamic programs keep every later trade of the day inside the rem
                 commission: dollars(COMMISSION),
                 cushionStepDollars: 50,
                 maxActionDollars: 800,
-                maxEvalDays: 6,
+                maxEvalDays: 3,
                 plan,
                 rrRatio: 3.2,
                 tradesPerDay: 2,

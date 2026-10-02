@@ -4,6 +4,8 @@ import {
     NextTradeKind,
     SizingConstraint,
 } from '~/lib/prop-calculator/advisor/DocumentedSizing';
+import { NO_PERSONAL_CAPS } from '~/lib/prop-calculator/advisor/PersonalCaps';
+import { placeableMinimumFor } from '~/lib/prop-calculator/advisor/PlaceableMinimum';
 import { type RulebookParameters } from '~/lib/prop-calculator/advisor/Rulebook';
 import {
     type DayProgress,
@@ -23,15 +25,21 @@ import {
     ONE_CENT,
     oneContractRisk,
     type Plan,
+    policySizingOf,
     resolvePositionSizing,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
 
 import { type EnginePolicy } from './EnginePolicy';
 
+export {
+    placeableMinimumFor,
+    type SizingPlacement,
+} from '~/lib/prop-calculator/advisor/PlaceableMinimum';
+
 export enum DocumentedPolicyDisclosure {
     CommissionCoveredTarget = 'commission-covered-target',
     DayStartContext = 'day-start-context',
-    PersonalCapsNotSimulated = 'personal-caps-not-simulated',
     PostTargetSmallestPlaceableRisk = 'post-target-smallest-placeable-risk',
 }
 
@@ -44,8 +52,6 @@ export const DOCUMENTED_POLICY_DISCLOSURE_TEXT: Readonly<
         'With a commission above zero, a simulated evaluation trade capped by the target left is sized so that its win also pays the commission of every trade placed that day plus a cent of rounding, so the net profit reaches the target; this trade can be a few dollars above the commission-free documented rung.',
     [DocumentedPolicyDisclosure.DayStartContext]:
         'Each simulated day sizes from the cushion, daily loss room and target left at the day start, then follows the rule through that day; an intraday-trailing floor that moves during the day is not re-read until the next day.',
-    [DocumentedPolicyDisclosure.PersonalCapsNotSimulated]:
-        'Simulated documented numbers use the rulebook only; personal caps such as a personal daily loss limit are not applied to them.',
     [DocumentedPolicyDisclosure.PostTargetSmallestPlaceableRisk]:
         'Once the evaluation target is reached but the pass is still waiting on days or consistency, the simulation places one trade a day at the smallest placeable risk: one contract of the engine instrument at its stop, or $1 without one.',
 };
@@ -53,9 +59,44 @@ export const DOCUMENTED_POLICY_DISCLOSURE_TEXT: Readonly<
 interface DayMemo {
     readonly context: EvalRuleContext | FundedRuleContext;
     readonly isPastTarget: boolean;
-    lastTodayPnL: number;
-    progress: DayProgress;
-    tradesSeen: number;
+    readonly ledger: DayLedger;
+}
+
+export class DayLedger {
+    private lastTodayPnL: number;
+    progress: DayProgress = {
+        dayPnL: dollars(0),
+        losses: 0,
+        runningLoss: dollars(0),
+        wins: 0,
+    };
+    tradesSeen = 0;
+
+    constructor(todayPnL: number) {
+        this.lastTodayPnL = todayPnL;
+    }
+
+    record(todayPnL: number, commission: number): void {
+        const rawGross = todayPnL - this.lastTodayPnL + commission;
+        const gross = floorToWholeCents(rawGross);
+        const { dayPnL, losses, runningLoss, wins } = this.progress;
+        this.progress =
+            rawGross > 0
+                ? {
+                      dayPnL: dollars(dayPnL + gross),
+                      losses,
+                      runningLoss,
+                      wins: wins + 1,
+                  }
+                : {
+                      dayPnL: dollars(dayPnL + gross),
+                      losses: losses + 1,
+                      runningLoss: dollars(runningLoss - gross),
+                      wins,
+                  };
+        this.lastTodayPnL = todayPnL;
+        this.tradesSeen += 1;
+    }
 }
 
 export function documentedDayRisk(
@@ -67,7 +108,16 @@ export function documentedDayRisk(
     const rule = createDocumentedRule(stage, rulebook);
     const caps: RuleContextCaps = {
         instrument: policy.instrument ?? null,
-        personalDll: null,
+        personalCaps: policy.personalCaps ?? NO_PERSONAL_CAPS,
+        personalDll: policy.personalDll ?? null,
+        placeableMinimum: placeableMinimumFor(
+            policySizingOf(
+                stage === SizingStage.Funded
+                    ? TradingPhase.Funded
+                    : TradingPhase.Eval,
+            ),
+            policy,
+        ),
     };
     const commission = policy.commissionPerRoundTrip;
     const roundingPad = rulebook.strategy.rr * ONE_CENT;
@@ -76,49 +126,38 @@ export function documentedDayRisk(
     const coveredTrade = (memo: DayMemo, first?: NextTrade): number => {
         const cover =
             commission > 0
-                ? commission * (memo.tradesSeen + 1) + roundingPad
+                ? commission * (memo.ledger.tradesSeen + 1) + roundingPad
                 : 0;
         const trade =
             cover === 0 && first !== undefined
                 ? first
                 : rule.nextTrade(
                       withTargetCover(memo.context, cover),
-                      memo.progress,
+                      memo.ledger.progress,
                   );
         return riskOf(trade);
     };
     return (state, tradeIndexToday) => {
         if (tradeIndexToday === 0) {
             const context = ruleContextAt(plan, stage, state, caps);
-            const progress = freshDay();
-            const first = rule.nextTrade(context, progress);
+            const ledger = new DayLedger(state.todayPnL);
+            const first = rule.nextTrade(context, ledger.progress);
             const memo: DayMemo = {
                 context,
                 isPastTarget: isTargetReached(first),
-                lastTodayPnL: state.todayPnL,
-                progress,
-                tradesSeen: 0,
+                ledger,
             };
             memos.set(state, memo);
             return memo.isPastTarget ? smallestRisk : coveredTrade(memo, first);
         }
         const memo = memos.get(state);
-        if (memo?.tradesSeen !== tradeIndexToday - 1) {
+        if (memo?.ledger.tradesSeen !== tradeIndexToday - 1) {
             throw new Error(
                 `documented day risk: trade index ${tradeIndexToday} arrived without trade index ${tradeIndexToday - 1} of the same day`,
             );
         }
-        recordTrade(memo, state.todayPnL, commission);
+        memo.ledger.record(state.todayPnL, commission);
         return memo.isPastTarget ? 0 : coveredTrade(memo);
-    };
-}
-
-function freshDay(): DayProgress {
-    return {
-        dayPnL: dollars(0),
-        losses: 0,
-        runningLoss: dollars(0),
-        wins: 0,
     };
 }
 
@@ -127,32 +166,6 @@ function isTargetReached(trade: NextTrade): boolean {
         trade.kind === NextTradeKind.Stop &&
         trade.cappedBy.includes(SizingConstraint.RemainingTargetCap)
     );
-}
-
-function recordTrade(
-    memo: DayMemo,
-    todayPnL: number,
-    commission: number,
-): void {
-    const rawGross = todayPnL - memo.lastTodayPnL + commission;
-    const gross = floorToWholeCents(rawGross);
-    const { dayPnL, losses, runningLoss, wins } = memo.progress;
-    memo.progress =
-        rawGross > 0
-            ? {
-                  dayPnL: dollars(dayPnL + gross),
-                  losses,
-                  runningLoss,
-                  wins: wins + 1,
-              }
-            : {
-                  dayPnL: dollars(dayPnL + gross),
-                  losses: losses + 1,
-                  runningLoss: dollars(runningLoss - gross),
-                  wins,
-              };
-    memo.lastTodayPnL = todayPnL;
-    memo.tradesSeen += 1;
 }
 
 function riskOf(trade: NextTrade): number {

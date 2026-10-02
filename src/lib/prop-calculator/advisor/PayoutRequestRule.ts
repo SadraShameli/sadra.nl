@@ -8,7 +8,6 @@ import {
     type Dollars,
     DrawdownKind,
     type DrawdownState,
-    effectivePayoutRequest,
     FundedCycleTracker,
     isAtOrBelowWithinCentTolerance,
     type LiveAccountState,
@@ -22,15 +21,18 @@ import {
     postPayoutThreshold,
 } from '~/lib/prop-calculator/core';
 
+import { documentedPayoutRequest } from './DocumentedPayoutRequest';
 import { RulebookRule } from './DocumentedRule';
 import {
     type PayoutBlockReason,
     payoutBlockReasonFromGate,
     payoutPendingBlockReason,
+    type PolicyCitation,
 } from './PayoutBlockReason';
 import {
     dayGateProgressOf,
     evaluateDocumentedPayout,
+    isCycleEndingGate,
     liveTriggerBlockReasonFor,
     type PayoutWait,
     PayoutWaitBasis,
@@ -54,7 +56,9 @@ const MAX_SHORTFALL_SEARCH_CENTS = 100_000_000;
 
 export interface FundedPayoutRuleContext {
     readonly liveTriggerFirmTotalCap?: null | number;
+    readonly liveTriggerFirmTotalSource?: null | PolicyCitation;
     readonly liveTriggerPerAccountCap?: null | number;
+    readonly liveTriggerPerAccountSource?: null | PolicyCitation;
     readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly pendingPayouts: Dollars;
     readonly personalRequestOverride: Dollars | null;
@@ -89,6 +93,15 @@ const paidPayoutsSinceLastLiveAccountSchema = z
 
 const liveTriggerCapSchema = z.number().int().positive().nullable().optional();
 
+const liveTriggerSourceSchema = z
+    .strictObject({
+        fetchedOn: z.string().min(1),
+        quote: z.string().min(1),
+        url: z.string().min(1),
+    })
+    .nullable()
+    .optional();
+
 const personalRequestOverrideSchema = payoutRequestSizeSchema
     .transform(dollars)
     .nullable();
@@ -111,7 +124,9 @@ const fundedCycleTrackerSchema = z.instanceof(FundedCycleTracker);
 
 const fundedPayoutRuleContextSchema = z.strictObject({
     liveTriggerFirmTotalCap: liveTriggerCapSchema,
+    liveTriggerFirmTotalSource: liveTriggerSourceSchema,
     liveTriggerPerAccountCap: liveTriggerCapSchema,
+    liveTriggerPerAccountSource: liveTriggerSourceSchema,
     paidPayoutsSinceLastLiveAccount: paidPayoutsSinceLastLiveAccountSchema,
     pendingPayouts: nonNegativeDollarsSchema,
     personalRequestOverride: personalRequestOverrideSchema,
@@ -150,10 +165,12 @@ export class PayoutRequestRule extends RulebookRule<PayoutRuleContext> {
             this.rulebook,
             context,
         );
-        const rawRequest =
-            context.personalRequestOverride ??
-            this.rulebook.payout.requestCents / CENTS_PER_DOLLAR;
-        const requestedAmount = effectivePayoutRequest(plan, rawRequest);
+        const { effective: requestedAmount, requested: rawRequest } =
+            documentedPayoutRequest(
+                plan,
+                context.personalRequestOverride,
+                this.rulebook.payout,
+            );
         const notice = firmMinimumNotice(
             rawRequest,
             minimumPayoutRequest(plan),
@@ -181,27 +198,25 @@ export class PayoutRequestRule extends RulebookRule<PayoutRuleContext> {
                 const isPending =
                     netState !== state &&
                     evaluate(state).kind === PayoutEvaluationKind.Eligible;
-                return isPending
-                    ? notEligible(payoutPendingBlockReason(), sources)
-                    : this.decideBlockedFunded(
+                if (isPending) {
+                    return notEligible(payoutPendingBlockReason(), sources);
+                }
+                const liveTriggerReason = isCycleEndingGate(evaluation.gate)
+                    ? null
+                    : liveTriggerReasonOf(context);
+                return liveTriggerReason === null
+                    ? this.decideBlockedFunded(
                           context,
                           netState,
                           evaluation.gate,
                           retainedCushion,
                           requestedAmount,
                           sources,
-                      );
+                      )
+                    : notEligible(liveTriggerReason, sources);
             }
             case PayoutEvaluationKind.Eligible: {
-                const liveTriggerReason = liveTriggerBlockReasonFor(
-                    tracker.payoutsIssued,
-                    {
-                        firmTotalCap: context.liveTriggerFirmTotalCap ?? null,
-                        paidPayoutsSinceLastLiveAccount:
-                            context.paidPayoutsSinceLastLiveAccount,
-                        perAccountCap: context.liveTriggerPerAccountCap ?? null,
-                    },
-                );
+                const liveTriggerReason = liveTriggerReasonOf(context);
                 if (liveTriggerReason !== null) {
                     return notEligible(liveTriggerReason, sources);
                 }
@@ -330,10 +345,12 @@ export class PayoutRequestRule extends RulebookRule<PayoutRuleContext> {
             return unreachable(sources);
         }
         const resolution = retainedCushionForStage(this.rulebook, context);
-        const rawRequest =
-            context.personalRequestOverride ??
-            this.rulebook.payout.requestCents / CENTS_PER_DOLLAR;
-        const requestedAmount = effectivePayoutRequest(livePlan, rawRequest);
+        const { effective: requestedAmount, requested: rawRequest } =
+            documentedPayoutRequest(
+                livePlan,
+                context.personalRequestOverride,
+                this.rulebook.payout,
+            );
         const notice = firmMinimumNotice(
             rawRequest,
             minimumPayoutRequest(livePlan),
@@ -463,6 +480,18 @@ function hasUnretainableLiveLock(livePlan: LivePlan): boolean {
         liveDrawdown.kind !== DrawdownKind.Static &&
         liveDrawdown.lock === undefined
     );
+}
+
+function liveTriggerReasonOf(
+    context: FundedPayoutRuleContext,
+): null | PayoutBlockReason {
+    return liveTriggerBlockReasonFor(context.tracker.payoutsIssued, {
+        firmTotalCap: context.liveTriggerFirmTotalCap ?? null,
+        firmTotalSource: context.liveTriggerFirmTotalSource ?? null,
+        paidPayoutsSinceLastLiveAccount: context.paidPayoutsSinceLastLiveAccount,
+        perAccountCap: context.liveTriggerPerAccountCap ?? null,
+        perAccountSource: context.liveTriggerPerAccountSource ?? null,
+    });
 }
 
 function notEligible(

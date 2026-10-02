@@ -45,6 +45,16 @@ const mff = new EvalLadderRule(
     withEval({ ladderFractionSource: LadderFractionSource.MffRapidEodSearch }),
 );
 
+function capped(
+    patch: Partial<EvalRuleContext['personalCaps']>,
+    overrides: Partial<EvalRuleContext> = {},
+): EvalRuleContext {
+    return evalContext({
+        ...overrides,
+        personalCaps: { ...NO_PERSONAL_CAPS, ...patch },
+    });
+}
+
 function day(
     dayPnL: number,
     runningLoss: number,
@@ -452,7 +462,7 @@ describe('EvalLadderRule, personal caps on the next trade (PT-19 step 2, F-62)',
         });
     });
 
-    it('does not reflect personal caps in the documented ladder table, unlike Funded/Live (PT-19f followup, known asymmetry)', () => {
+    it('caps every documented rung at a personal max risk per trade, tagged PersonalCap (PT-68d, F-V16)', () => {
         const context = evalContext({
             personalCaps: {
                 dailyProfitCap: null,
@@ -463,22 +473,239 @@ describe('EvalLadderRule, personal caps on the next trade (PT-19 step 2, F-62)',
 
         const sizing = general.size(context);
 
-        expect(risks(sizing)).toEqual([400, 600, 900, 100]);
-        expect(
-            sizing.rungs.some((rung) =>
-                rung.cappedBy.includes(SizingConstraint.PersonalCap),
-            ),
-        ).toBe(false);
+        expect(risks(sizing)).toEqual([50, 50, 50, 50]);
+        expect(sizing.rungs[0]?.cappedBy).toEqual([
+            SizingConstraint.PersonalCap,
+        ]);
+        expect(sizing.constraints).toEqual([SizingConstraint.PersonalCap]);
+        expect(sizing.rungs.map((rung) => rung.takeProfit)).toEqual([
+            100, 100, 100, 100,
+        ]);
+        expect(sizing.rungs.map((rung) => rung.runningLossAfter)).toEqual([
+            50, 100, 150, 200,
+        ]);
         expect(general.nextTrade(context, day(0, 0, 0, 0))).toEqual({
             kind: NextTradeKind.Trade,
-            rung: {
-                cappedBy: [SizingConstraint.PersonalCap],
-                risk: 50,
-                runningLossAfter: 50,
-                runningLossBefore: 0,
-                takeProfit: 100,
+            rung: sizing.rungs[0],
+        });
+    });
+
+    it('caps only the rungs above a personal max risk per trade and keeps the lower rungs as documented (PT-68d, F-V16)', () => {
+        const sizing = general.size(
+            evalContext({
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: dollars(500),
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(risks(sizing)).toEqual([400, 500, 500, 100]);
+        expect(sizing.rungs.map((rung) => rung.cappedBy)).toEqual([
+            [],
+            [SizingConstraint.PersonalCap],
+            [SizingConstraint.PersonalCap],
+            [],
+        ]);
+    });
+
+    it('leaves the documented ladder alone when the personal max risk per trade is above every rung (PT-68d, F-V16)', () => {
+        const sizing = general.size(
+            evalContext({
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: dollars(5000),
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(risks(sizing)).toEqual([400, 600, 900, 100]);
+        expect(sizing.constraints).toEqual([]);
+    });
+
+    it('caps the MFF search ladder at a personal max risk per trade too (PT-68d, F-V16)', () => {
+        const uncapped = mff.size(evalContext());
+        const personalCap = dollars(
+            Math.floor((uncapped.rungs[0]?.risk ?? 0) / 2),
+        );
+        const sizing = mff.size(
+            evalContext({
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: personalCap,
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(personalCap).toBeGreaterThan(0);
+        expect(sizing.rungs.length).toBeGreaterThan(0);
+        for (const rung of sizing.rungs) {
+            expect(rung.risk).toBeLessThanOrEqual(personalCap);
+        }
+        expect(sizing.constraints).toContain(SizingConstraint.PersonalCap);
+    });
+
+    it('keeps a documented rung at the personal cap in whole cents, not floored to the rounding step (PT-68d, F-V16)', () => {
+        const sizing = general.size(
+            evalContext({
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: dollars(75),
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(sizing.rungs[0]?.risk).toBe(75);
+        expect(risks(sizing)).toEqual([75, 75, 75, 75]);
+    });
+
+    it('fits every documented rung inside a personal daily profit cap, tagged PersonalCap (PT-68d, F-V16)', () => {
+        const personalCap = 300;
+        const context = evalContext({
+            personalCaps: {
+                dailyProfitCap: dollars(personalCap),
+                maxRiskPerTrade: null,
+                maxTradesPerDay: null,
             },
         });
+
+        const sizing = general.size(context);
+
+        expect(sizing.rungs[0]?.cappedBy).toEqual([
+            SizingConstraint.PersonalCap,
+        ]);
+        expect(sizing.rungs[0]?.risk).toBe(150);
+        expect(sizing.rungs[0]?.takeProfit).toBe(300);
+        for (const rung of sizing.rungs) {
+            expect(
+                rung.takeProfit - rung.runningLossBefore,
+            ).toBeLessThanOrEqual(personalCap);
+        }
+        expect(sizing.constraints).toContain(SizingConstraint.PersonalCap);
+        expect(general.nextTrade(context, day(0, 0, 0, 0))).toEqual({
+            kind: NextTradeKind.Trade,
+            rung: sizing.rungs[0],
+        });
+    });
+
+    it('keeps the consistency cap when it is tighter than the personal daily profit cap (PT-68d, F-V16)', () => {
+        const sizing = general.size(
+            evalContext({
+                consistencyDailyCap: dollars(200),
+                personalCaps: {
+                    dailyProfitCap: dollars(900),
+                    maxRiskPerTrade: null,
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(sizing.rungs[0]?.cappedBy).toEqual([
+            SizingConstraint.ConsistencyCap,
+        ]);
+        expect(sizing.rungs[0]?.risk).toBe(100);
+    });
+
+    it('applies both personal caps together, the tighter one naming the rung (PT-68d, F-V16)', () => {
+        const sizing = general.size(
+            evalContext({
+                personalCaps: {
+                    dailyProfitCap: dollars(300),
+                    maxRiskPerTrade: dollars(100),
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(sizing.rungs[0]?.risk).toBe(100);
+        expect(sizing.rungs[0]?.cappedBy).toEqual([
+            SizingConstraint.PersonalCap,
+        ]);
+        for (const rung of sizing.rungs) {
+            expect(rung.risk).toBeLessThanOrEqual(100);
+            expect(
+                rung.takeProfit - rung.runningLossBefore,
+            ).toBeLessThanOrEqual(300);
+        }
+    });
+});
+
+describe('EvalLadderRule, personal caps only tighten the documented ladder (PT-68d review)', () => {
+    it('never lists a rung above the same rung without the personal caps', () => {
+        const uncapped = risks(general.size(evalContext()));
+        const cases = [
+            capped({ dailyProfitCap: dollars(200) }),
+            capped({ dailyProfitCap: dollars(300) }),
+            capped({ maxRiskPerTrade: dollars(500) }),
+            capped({ maxRiskPerTrade: dollars(60) }),
+            capped({
+                dailyProfitCap: dollars(250),
+                maxRiskPerTrade: dollars(120),
+            }),
+        ];
+
+        for (const context of cases) {
+            const sizing = risks(general.size(context));
+            expect(sizing.length).toBeGreaterThan(0);
+            for (const [index, risk] of sizing.entries()) {
+                expect(risk).toBeLessThanOrEqual(uncapped[index] ?? 0);
+            }
+        }
+    });
+
+    it('keeps the final rung at the uncapped final rung under a $200 personal daily profit cap', () => {
+        const sizing = general.size(capped({ dailyProfitCap: dollars(200) }));
+
+        expect(risks(sizing)).toEqual([100, 150, 200, 100]);
+    });
+
+    it('sizes every rung at a personal cap between the rounding step and 1.5 x the first rung', () => {
+        const sizing = general.size(capped({ maxRiskPerTrade: dollars(60) }));
+
+        expect(risks(sizing)).toEqual([60, 60, 60, 60]);
+    });
+
+    it('chains each rung from the documented target, not from the capped rung before it', () => {
+        const sizing = general.size(capped({ maxRiskPerTrade: dollars(450) }));
+
+        expect(risks(sizing)).toEqual([400, 450, 450, 100]);
+    });
+
+    it('lists only as many rungs as a personal max trades per day allows, without growing the last one', () => {
+        const sizing = general.size(capped({ maxTradesPerDay: 2 }));
+
+        expect(risks(sizing)).toEqual([400, 600]);
+    });
+
+    it('lists one rung under a personal max of one trade per day', () => {
+        const sizing = general.size(capped({ maxTradesPerDay: 1 }));
+
+        expect(risks(sizing)).toEqual([400]);
+    });
+
+    it('leaves the ladder alone under a personal max trades per day above the rulebook count', () => {
+        const sizing = general.size(capped({ maxTradesPerDay: 20 }));
+
+        expect(risks(sizing)).toEqual([400, 600, 900, 100]);
+    });
+
+    it('lets a day-start DLL room tighten the capped ladder as it tightens the uncapped one', () => {
+        const dayStartDllRoom = dollars(1000);
+        const uncapped = risks(general.size(evalContext({ dayStartDllRoom })));
+        const context = capped(
+            { maxRiskPerTrade: dollars(300) },
+            { dayStartDllRoom },
+        );
+        const sizing = risks(general.size(context));
+
+        for (const [index, risk] of sizing.entries()) {
+            expect(risk).toBeLessThanOrEqual(uncapped[index] ?? 0);
+            expect(risk).toBeLessThanOrEqual(300);
+        }
     });
 });
 

@@ -23,10 +23,15 @@ import {
 import {
     accountEventKindLabel,
     accountStatesFromLoad,
+    alertExtrasOf,
     alertsFor,
+    availableBankrollCentsFor,
     buildOverview,
+    combinedNote,
+    decisionsCaveatFor,
     ExpectedNetStatus,
     feeKindLabel,
+    hubPortfolioOf,
     KpiTone,
     ledgerOrDateFailure,
     NO_OVERVIEW_ENGINE,
@@ -66,11 +71,13 @@ import {
     AccountEventKind,
     AccountReadIssueKind,
     AccountStage,
+    AccountStateKind,
     AccountStatus,
     AccountTracking,
     AlertEvaluator,
     AlertKind,
     alertKindLabel,
+    AlertSeverity,
     AlertSubjectKind,
     BankrollTransferKind,
     BustCause,
@@ -84,6 +91,7 @@ import {
     firmKeyId,
     FirmKeyKind,
     formatUsdCents,
+    fundedWithdrawableDollarsOf,
     IsoDateError,
     type LedgerAccountRow,
     payoutReadinessBoardOf,
@@ -92,6 +100,7 @@ import {
     PortfolioLedger,
     rebuyLagDefault,
     replacementStats,
+    roundCents,
     RuleViolationKind,
     SampleLevel,
     setupChecklistOf,
@@ -101,6 +110,7 @@ import {
     usdCentsFromDollars,
     ViolationSource,
 } from '~/lib/prop-accounts';
+import { bankrollOf } from '~/lib/prop-accounts/bankroll';
 import {
     AccountCapPolicyKind,
     CENTS_PER_DOLLAR,
@@ -121,10 +131,15 @@ import {
     serializePlanId,
     type SharedPoolPolicy,
     SingleDayProfitTrigger,
+    TradingPhase,
 } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
     LifetimePayoutCapBasis,
+    NEXT_PAYOUT_ELIGIBILITY_CHECK_TEXT,
+    NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
+    NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+    NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
     PayoutBlockReasonKind,
     RebuyLagBasis,
     SizingStage,
@@ -270,7 +285,9 @@ function decisionRow(
         acceptedRiskCents: usdCents(2500),
         accountId: pinnedRows().accounts[0]?.id ?? '',
         actualRiskCents: null,
+        createdAt: new Date('2026-07-05T10:00:00Z'),
         decidedOn: '2026-07-05',
+        id: 'decision-1',
         ...overrides,
     };
 }
@@ -2190,6 +2207,16 @@ describe('buildOverview alerts', () => {
         );
     });
 
+    it('discloses that the risk-above-the-rung alert could not be checked when the sizing decisions fail or still load, only while that alert is on', () => {
+        const failed = { data: undefined, error: new Error('down') };
+        const loading = { data: undefined, error: null };
+        expect(decisionsCaveatOf(5000, failed)).toContain('sizing decisions');
+        expect(decisionsCaveatOf(5000, failed)).toContain('could not be loaded');
+        expect(decisionsCaveatOf(5000, loading)).toContain('still loading');
+        expect(decisionsCaveatOf(null, failed)).toBeNull();
+        expect(decisionsCaveatOf(5000, { data: [], error: null })).toBeNull();
+    });
+
     it('keeps the alerts that do not need account history but discloses that the rest could not be checked when events fail', () => {
         const rows = pinnedRows();
         const eventsFailed = inputs(rows, {
@@ -2732,56 +2759,99 @@ describe('accountStatesFromLoad', () => {
     });
 });
 
-describe('buildOverview realized loss risk (PT-58a3 leftover)', () => {
-    it('wires a real realizedLossRisk from the ledger so BankrollLossRiskAboveThreshold can fire', () => {
-        const losers = Array.from({ length: 5 }, (_, index) =>
-            account(EVAL_PLAN, {
-                fundedOn: '2026-06-01',
-                label: `Loser ${String(index)}`,
-                purchasedOn: '2026-05-01',
-                stage: AccountStage.Funded,
-                status: AccountStatus.Active,
-            }),
-        );
-        const winner = account(EVAL_PLAN, {
+function thresholdedLossRiskRows(lossRiskThreshold: null | number) {
+    const losers = Array.from({ length: 5 }, (_, index) =>
+        account(EVAL_PLAN, {
             fundedOn: '2026-06-01',
-            label: 'Winner',
+            label: `Loser ${String(index)}`,
             purchasedOn: '2026-05-01',
             stage: AccountStage.Funded,
             status: AccountStatus.Active,
-        });
-        const every = [...losers, winner];
-        const rows = rowsOf({
-            accounts: every.map(overviewAccount),
-            events: every.flatMap((entry) => [
-                purchased(entry),
-                event(entry, AccountEventKind.EvalPassed, '2026-06-01'),
-            ]),
-            fees: every.map((entry) =>
-                fee(entry, FeeKind.EvalPurchase, 20_000, '2026-05-01'),
-            ),
-            payouts: [
-                payout(winner, 150_000, {
-                    netCents: 150_000,
-                    paidOn: '2026-06-15',
-                    status: PayoutStatus.Paid,
-                }),
-            ],
-            rulebook: {
-                ...DEFAULT_RULEBOOK,
-                bankroll: {
-                    ...DEFAULT_RULEBOOK.bankroll,
-                    lossRiskThreshold: 0.3,
-                },
-                samples: { ...DEFAULT_RULEBOOK.samples, minEvalAttempts: 1 },
-            },
-        });
+        }),
+    );
+    const winner = account(EVAL_PLAN, {
+        fundedOn: '2026-06-01',
+        label: 'Winner',
+        purchasedOn: '2026-05-01',
+        stage: AccountStage.Funded,
+        status: AccountStatus.Active,
+    });
+    const every = [...losers, winner];
+    return rowsOf({
+        accounts: every.map(overviewAccount),
+        events: every.flatMap((entry) => [
+            purchased(entry),
+            event(entry, AccountEventKind.EvalPassed, '2026-06-01'),
+        ]),
+        fees: every.map((entry) =>
+            fee(entry, FeeKind.EvalPurchase, 20_000, '2026-05-01'),
+        ),
+        payouts: [
+            payout(winner, 150_000, {
+                netCents: 150_000,
+                paidOn: '2026-06-15',
+                status: PayoutStatus.Paid,
+            }),
+        ],
+        rulebook: {
+            ...DEFAULT_RULEBOOK,
+            bankroll: { ...DEFAULT_RULEBOOK.bankroll, lossRiskThreshold },
+            samples: { ...DEFAULT_RULEBOOK.samples, minEvalAttempts: 1 },
+        },
+    });
+}
+
+describe('buildOverview realized loss risk (PT-58a3 leftover)', () => {
+    it('wires a real realizedLossRisk from the ledger so BankrollLossRiskAboveThreshold can fire', () => {
+        const rows = thresholdedLossRiskRows(0.3);
         const model = buildOverview(inputs(rows));
         const alerts = readyAlerts(model.alerts);
         const label = alertKindLabel(AlertKind.BankrollLossRiskAboveThreshold);
         const alert = alerts.find((entry) => entry.kindLabel === label);
         expect(alert).toBeDefined();
         expect(alert?.message).toContain('above your 30.0% threshold');
+    });
+
+    it('counts the bankroll loss risk alert on the hub the same as the overview lists it', () => {
+        const rows = thresholdedLossRiskRows(0.3);
+        const overviewAlerts = readyAlerts(buildOverview(inputs(rows)).alerts);
+        const label = alertKindLabel(AlertKind.BankrollLossRiskAboveThreshold);
+        expect(overviewAlerts.some((entry) => entry.kindLabel === label)).toBe(
+            true,
+        );
+        const hub = hubPortfolioOf({
+            accounts: rows.accounts,
+            copyGroups: rows.copyGroups,
+            decisions: rows.decisions,
+            events: rows.events,
+            fees: rows.fees,
+            payouts: rows.payouts,
+            rulebook: rows.rulebook,
+            snapshots: rows.snapshots,
+            today: TODAY,
+            transfers: rows.transfers,
+            userId: USER_ID,
+        });
+        expect(hub.alertCount).toBe(overviewAlerts.length);
+    });
+
+    it('counts no bankroll loss risk alert on the hub when the rulebook sets no threshold', () => {
+        const rows = thresholdedLossRiskRows(null);
+        const overviewAlerts = readyAlerts(buildOverview(inputs(rows)).alerts);
+        const hub = hubPortfolioOf({
+            accounts: rows.accounts,
+            copyGroups: rows.copyGroups,
+            decisions: rows.decisions,
+            events: rows.events,
+            fees: rows.fees,
+            payouts: rows.payouts,
+            rulebook: rows.rulebook,
+            snapshots: rows.snapshots,
+            today: TODAY,
+            transfers: rows.transfers,
+            userId: USER_ID,
+        });
+        expect(hub.alertCount).toBe(overviewAlerts.length);
     });
 
     it('carries no bankroll loss risk alert when the rulebook sets no threshold', () => {
@@ -5644,6 +5714,7 @@ function accountFromStateFigures(
         nextPayout: {
             accountLostBeforeFirstPayoutProbability: 0.04,
             accountLostBeforeFirstPayoutStandardError: 0.0044,
+            alreadyEligible: false,
             expectedCalendarDaysToFirstPayout: {
                 standardError: 0.5,
                 value: 14,
@@ -5685,6 +5756,12 @@ function activeEvalFixture(label = 'Eval account') {
             tradingDays: 3,
         }),
     };
+}
+
+function baseNextPayout(): NonNullable<AccountFromStateFigures['nextPayout']> {
+    const { nextPayout } = accountFromStateFigures();
+    if (nextPayout === null) throw new Error('the fixture has no next payout');
+    return nextPayout;
 }
 
 function fromStateInputs(
@@ -5732,6 +5809,18 @@ function readyNextPayout(nextPayout: OverviewNextPayout) {
         throw new Error(`next payout not ready: ${nextPayout.kind}`);
     }
     return nextPayout.model;
+}
+
+function singleAccountRequestsOf(
+    row: OverviewAccountRow,
+    snapshot: OverviewSnapshotRow,
+) {
+    const rows = rowsOf({ accounts: [row], snapshots: [snapshot] });
+    return overviewAccountRequestsOf(
+        portfolioLoad(answered(rows)),
+        USER_ID,
+        TODAY,
+    );
 }
 
 function valueFigure(amount: number, standardError: number) {
@@ -5822,6 +5911,27 @@ describe('overviewAccountRequestsOf (PT-37, F-87)', () => {
         );
         expect(request?.spec.enginePolicy).toEqual(
             documented?.spec.enginePolicy,
+        );
+    });
+
+    it('carries the personal max risk of the account on its from-state request, and no cap for an account that sets none (PT-68g, F-V16)', () => {
+        const capped = mffFundedAccount('Capped', 1800);
+        const plain = mffFundedAccount('Plain', 1800);
+        const cappedRow: OverviewAccountRow = {
+            ...capped.row,
+            personalRules: { maxRiskPerTradeCents: usdCents(10_000) },
+        };
+        const [request] = singleAccountRequestsOf(cappedRow, capped.snapshot);
+        const [plainRequest] = singleAccountRequestsOf(
+            plain.row,
+            plain.snapshot,
+        );
+
+        expect(request?.spec.enginePolicy.personalCaps?.maxRiskPerTrade).toBe(
+            100,
+        );
+        expect(plainRequest?.spec.enginePolicy).not.toHaveProperty(
+            'personalCaps',
         );
     });
 
@@ -5982,7 +6092,7 @@ describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
         );
         expect(nextPayout?.resetFee).toBe('$12 (SE $3)');
         expect(nextPayout?.payingTrials).toBe(
-            '1,800 of 2,000 trials reached a payout',
+            `1,800 of 2,000 trials reached a payout (${formatPercent(0.9)})`,
         );
     });
 
@@ -5994,6 +6104,7 @@ describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
                 nextPayout: {
                     accountLostBeforeFirstPayoutProbability: 0.3,
                     accountLostBeforeFirstPayoutStandardError: 0.01,
+                    alreadyEligible: false,
                     expectedCalendarDaysToFirstPayout: {
                         standardError: null,
                         value: 0,
@@ -6017,12 +6128,14 @@ describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
             throw new Error('expected a ready view');
         }
         const { nextPayout } = row.view.model;
-        expect(nextPayout?.calendarDays).toContain('No simulated trial');
-        expect(nextPayout?.sessionDays).toContain('No simulated trial');
-        expect(nextPayout?.breachAtFirstPayout).toContain('No simulated trial');
+        expect(nextPayout?.calendarDays).toBe(NEXT_PAYOUT_NO_TRIAL_PAID_TEXT);
+        expect(nextPayout?.sessionDays).toBe(NEXT_PAYOUT_NO_TRIAL_PAID_TEXT);
+        expect(nextPayout?.breachAtFirstPayout).toBe(
+            NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
+        );
         expect(nextPayout?.calendarDays).not.toContain('0.0');
         expect(nextPayout?.payingTrials).toBe(
-            '0 of 2,000 trials reached a payout',
+            `0 of 2,000 trials reached a payout (${formatPercent(0)})`,
         );
     });
 
@@ -6035,6 +6148,7 @@ describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
                 nextPayout: {
                     accountLostBeforeFirstPayoutProbability: 0,
                     accountLostBeforeFirstPayoutStandardError: 0,
+                    alreadyEligible: true,
                     expectedCalendarDaysToFirstPayout: zero,
                     expectedResetFeeBeforeFirstPayout: zero,
                     expectedSessionDaysToFirstPayout: zero,
@@ -6049,7 +6163,68 @@ describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
             throw new Error('expected a ready view');
         }
         expect(row.view.model.nextPayout?.calendarDays).toBe(
-            'Already eligible now',
+            NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+        );
+        expect(row.view.model.nextPayout?.sessionDays).toBe(
+            NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+        );
+        expect(row.view.model.nextPayout?.payingTrials).toBe(
+            NEXT_PAYOUT_ELIGIBILITY_CHECK_TEXT,
+        );
+        expect(row.view.model.nextPayout?.payingTrials).toContain(
+            NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
+        );
+    });
+
+    it('reads eligible now from the projection, so a missing standard error never prints 0.0 calendar days (PT-68b, F-V18)', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const { row } = readyFromStateView(
+            { accounts: [funded.row], snapshots: [funded.snapshot] },
+            accountFromStateFigures({
+                nextPayout: {
+                    ...baseNextPayout(),
+                    alreadyEligible: true,
+                    expectedCalendarDaysToFirstPayout: {
+                        standardError: null,
+                        value: 0,
+                    },
+                    payingTrials: 2000,
+                },
+            }),
+        );
+        if (row.view.kind !== AccountFromStateViewKind.Ready) {
+            throw new Error('expected a ready view');
+        }
+        expect(row.view.model.nextPayout?.calendarDays).toBe(
+            NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+        );
+        expect(row.view.model.nextPayout?.sessionDays).toBe(
+            NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+        );
+        expect(row.view.model.nextPayout?.payingTrials).toBe(
+            NEXT_PAYOUT_ELIGIBILITY_CHECK_TEXT,
+        );
+    });
+
+    it('does not call an account eligible now only because every trial paid on day zero with no spread (PT-68b, F-V18)', () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const zero = { standardError: 0, value: 0 };
+        const { row } = readyFromStateView(
+            { accounts: [funded.row], snapshots: [funded.snapshot] },
+            accountFromStateFigures({
+                nextPayout: {
+                    ...baseNextPayout(),
+                    alreadyEligible: false,
+                    expectedCalendarDaysToFirstPayout: zero,
+                    payingTrials: 2000,
+                },
+            }),
+        );
+        if (row.view.kind !== AccountFromStateViewKind.Ready) {
+            throw new Error('expected a ready view');
+        }
+        expect(row.view.model.nextPayout?.calendarDays).not.toBe(
+            NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
         );
     });
 
@@ -6290,32 +6465,62 @@ describe('a failed request group stays in its own cards (PT-37b)', () => {
     });
 });
 
-function evalWithTwoSnapshots(label: string, drop: number) {
+function decisionsCaveatOf(
+    threshold: null | number,
+    decisions: PortfolioQueries[PortfolioSource.Decisions],
+) {
+    const model = buildOverview(
+        inputs(
+            {
+                ...pinnedRows(),
+                rulebook: rulebookWithRungThreshold(threshold),
+            },
+            { [PortfolioSource.Decisions]: decisions },
+        ),
+    );
+    return model.alerts.kind === OverviewSectionStatus.Ready
+        ? model.alerts.accountStatesCaveat
+        : 'not ready';
+}
+
+function evalWithTwoSnapshots(
+    label: string,
+    drop: number,
+    previousAsOf = '2026-09-25',
+) {
     const owner = account(EVAL_PLAN, { label, purchasedOn: '2026-09-01' });
     const start = EVAL_PLAN.plan.accountSize;
-    const snapshotAt = (asOf: string, balance: number, tradingDays: number) =>
-        snapshotRow(owner, {
+    const snapshotAt = (asOf: string, balance: number, tradingDays: number) => {
+        const peak = Math.max(balance, start + 600) * CENTS_PER_DOLLAR;
+        const highest = usdCents(Math.round(peak));
+        return snapshotRow(owner, {
             asOf,
             balanceCents: usdCents(Math.round(balance * CENTS_PER_DOLLAR)),
             createdAt: new Date(`${asOf}T00:00:00Z`),
             dashboardFloorCents: null,
-            highestEodBalanceCents: usdCents(
-                Math.round(Math.max(balance, start + 600) * CENTS_PER_DOLLAR),
-            ),
-            highestIntradayBalanceCents: usdCents(
-                Math.round(Math.max(balance, start + 600) * CENTS_PER_DOLLAR),
-            ),
+            highestEodBalanceCents: highest,
+            highestIntradayBalanceCents: highest,
             id: `snapshot-${asOf}-${owner.id}`,
             tradingDays,
         });
+    };
     return {
         owner,
         row: overviewAccount(owner),
         snapshots: [
-            snapshotAt('2026-09-22', start + 600, 3),
+            snapshotAt(previousAsOf, start + 600, 3),
             snapshotAt(TODAY, start + 600 - drop, 4),
         ],
     };
+}
+
+function fundedMffRows() {
+    const funded = mffFundedAccount('Funded', 1800);
+    const rows = rowsOf({
+        accounts: [funded.row],
+        snapshots: [funded.snapshot],
+    });
+    return { funded, rows, serial: mffProEntry().serial };
 }
 
 function kpiOf(model: ReturnType<typeof buildOverview>, kind: OverviewKpiKind) {
@@ -6324,6 +6529,10 @@ function kpiOf(model: ReturnType<typeof buildOverview>, kind: OverviewKpiKind) {
     );
     if (found === undefined) throw new Error(`no ${kind} KPI`);
     return found;
+}
+
+function pinnedModelWith(overrides: Partial<PortfolioQueries>) {
+    return buildOverview(inputs(pinnedRows(), overrides));
 }
 
 function planValuesFigures(
@@ -6357,6 +6566,17 @@ function readySetup(model: ReturnType<typeof buildOverview>) {
         throw new Error(`setup not ready: ${model.setup.kind}`);
     }
     return model.setup.model;
+}
+
+function rulebookWithRungThreshold(cents: null | number) {
+    return {
+        ...DEFAULT_RULEBOOK,
+        alerts: {
+            ...DEFAULT_RULEBOOK.alerts,
+            payoutReadyRiskAboveRungCents:
+                cents === null ? null : usdCents(cents),
+        },
+    };
 }
 
 function valueEngineFor(
@@ -6434,20 +6654,16 @@ describe('overviewValueRequestsOf (PT-69, F-V28)', () => {
 
 describe('buildOverview setup checklist (PT-69, F-V28)', () => {
     it('is pending while the ledger rows load and failed when one cannot load', () => {
-        const pending = buildOverview(
-            inputs(pinnedRows(), {
-                [PortfolioSource.Events]: { data: undefined, error: null },
-            }),
-        );
+        const pending = pinnedModelWith({
+            [PortfolioSource.Events]: { data: undefined, error: null },
+        });
         expect(pending.setup).toEqual({ kind: OverviewSectionStatus.Pending });
-        const failed = buildOverview(
-            inputs(pinnedRows(), {
-                [PortfolioSource.Events]: {
-                    data: undefined,
-                    error: new Error('down'),
-                },
-            }),
-        );
+        const failed = pinnedModelWith({
+            [PortfolioSource.Events]: {
+                data: undefined,
+                error: new Error('down'),
+            },
+        });
         expect(failed.setup.kind).toBe(OverviewSectionStatus.Failed);
     });
 
@@ -6554,10 +6770,44 @@ describe('setupChecklistCardOf (PT-69, F-V28)', () => {
         );
         expect(labels.get(SetupStepStatus.Done)).toBe('Done');
         expect(labels.get(SetupStepStatus.Missing)).toBe('Missing');
-        expect(labels.get(SetupStepStatus.NotChecked)).toBe(
-            'Not checked yet',
-        );
+        expect(labels.get(SetupStepStatus.NotChecked)).toBe('Not checked yet');
         expect(card.doneCount).toBe(2);
+    });
+
+    it('counts the hub setup against the steps it can check and is complete when only the engine step is unchecked', () => {
+        const rows = pinnedRows();
+        const alpha = rows.accounts[0];
+        if (alpha === undefined) throw new Error('expected an account');
+        const hubInputs = {
+            accounts: rows.accounts,
+            copyGroups: rows.copyGroups,
+            decisions: rows.decisions,
+            events: rows.events,
+            fees: rows.fees,
+            payouts: rows.payouts,
+            rulebook: DEFAULT_RULEBOOK,
+            snapshots: [snapshotRow(alpha, { asOf: TODAY })],
+            today: TODAY,
+            transfers: [
+                transfer(BankrollTransferKind.Deposit, 500_000, '2026-06-01'),
+            ],
+            userId: USER_ID,
+        };
+        const complete = hubPortfolioOf(hubInputs).setup;
+        expect(complete?.steps.map((step) => step.status)).toEqual([
+            SetupStepStatus.Done,
+            SetupStepStatus.Done,
+            SetupStepStatus.Done,
+            SetupStepStatus.NotChecked,
+            SetupStepStatus.Done,
+        ]);
+        expect(complete?.isComplete).toBe(true);
+        expect(complete?.doneCount).toBe(4);
+        expect(complete?.totalSteps).toBe(4);
+        const incomplete = hubPortfolioOf({ ...hubInputs, transfers: [] }).setup;
+        expect(incomplete?.isComplete).toBe(false);
+        expect(incomplete?.doneCount).toBe(3);
+        expect(incomplete?.totalSteps).toBe(4);
     });
 
     it('is the same card the hub teaser builds from a checklist of its own', () => {
@@ -6583,17 +6833,8 @@ describe('setupChecklistCardOf (PT-69, F-V28)', () => {
 });
 
 describe('buildOverview where EV comes from (PT-69, F-V28)', () => {
-    function fundedRows() {
-        const funded = mffFundedAccount('Funded', 1800);
-        const rows = rowsOf({
-            accounts: [funded.row],
-            snapshots: [funded.snapshot],
-        });
-        return { funded, rows, serial: mffProEntry().serial };
-    }
-
     it('is pending until the engine answers and shows nothing computed', () => {
-        const { rows } = fundedRows();
+        const { rows } = fundedMffRows();
         const card = readyEvSources(buildOverview(inputs(rows)));
         expect(card.plans).toHaveLength(1);
         expect(card.plans[0]?.modeledConversionEv).toBe('Pending');
@@ -6601,7 +6842,7 @@ describe('buildOverview where EV comes from (PT-69, F-V28)', () => {
     });
 
     it('splits conversion EV per attempt from value held in funded progress, on the credit-free basis with the one attempt cost', () => {
-        const { rows, serial } = fundedRows();
+        const { rows, serial } = fundedMffRows();
         const engine = valueEngineFor(rows, {
             documented: { [serial]: documentedFigures() },
             funded: accountFromStateFigures({
@@ -6609,15 +6850,15 @@ describe('buildOverview where EV comes from (PT-69, F-V28)', () => {
             }),
             values: { [serial]: planValuesFigures() },
         });
-        const card = readyEvSources(
-            buildOverview({ ...inputs(rows), engine }),
-        );
+        const card = readyEvSources(buildOverview({ ...inputs(rows), engine }));
         const [plan] = card.plans;
         expect(plan?.plan).toBe(planName(mffProEntry()));
         expect(plan?.attemptCost).toBe('$120 (SE $1)');
         expect(plan?.passRate).toBe('30.0% (SE 2.0%)');
         expect(plan?.freshFundedValue).toBe('$10,000 (SE $200)');
-        expect(plan?.modeledConversionEv).toBe(formatCurrency(0.3 * 10_000 - 120));
+        expect(plan?.modeledConversionEv).toBe(
+            formatCurrency(0.3 * 10_000 - 120),
+        );
         const [account] = card.accounts;
         expect(account?.account).toBe('Funded');
         expect(account?.valueNow).toBe('$12,500 (SE $70)');
@@ -6625,11 +6866,13 @@ describe('buildOverview where EV comes from (PT-69, F-V28)', () => {
         expect(account?.heldInFundedProgress).toBe(formatCurrency(2500));
         expect(card.heldLabel).toBe('payout money at risk');
         expect(card.disclosures.join(' ')).toContain('credit-free');
-        expect(card.disclosures.join(' ')).toContain('not the ranking objective');
+        expect(card.disclosures.join(' ')).toContain(
+            'not the ranking objective',
+        );
     });
 
     it('lists no funded account row while the account values are pending', () => {
-        const { rows, serial } = fundedRows();
+        const { rows, serial } = fundedMffRows();
         const engine = valueEngineFor(rows, {
             documented: { [serial]: documentedFigures() },
             values: { [serial]: planValuesFigures() },
@@ -6650,20 +6893,18 @@ describe('buildOverview where EV comes from (PT-69, F-V28)', () => {
     });
 
     it('fails when the ledger cannot load, and is pending while it loads', () => {
-        const pending = buildOverview(
-            inputs(pinnedRows(), {
-                [PortfolioSource.Fees]: { data: undefined, error: null },
-            }),
-        );
-        expect(pending.evSources).toEqual({ kind: OverviewSectionStatus.Pending });
-        const failed = buildOverview(
-            inputs(pinnedRows(), {
-                [PortfolioSource.Fees]: {
-                    data: undefined,
-                    error: new Error('down'),
-                },
-            }),
-        );
+        const pending = pinnedModelWith({
+            [PortfolioSource.Fees]: { data: undefined, error: null },
+        });
+        expect(pending.evSources).toEqual({
+            kind: OverviewSectionStatus.Pending,
+        });
+        const failed = pinnedModelWith({
+            [PortfolioSource.Fees]: {
+                data: undefined,
+                error: new Error('down'),
+            },
+        });
         expect(failed.evSources.kind).toBe(OverviewSectionStatus.Failed);
     });
 });
@@ -6686,6 +6927,50 @@ describe('buildOverview profit concentration (PT-69, F-V26)', () => {
         expect(card.thresholdNote).toContain('rulebook');
     });
 
+    it('labels the figure as the room above the retained cushion, names the cushion and says what it ignores', () => {
+        const first = mffFundedAccount('First', 1800);
+        const rows = rowsOf({
+            accounts: [first.row],
+            snapshots: [first.snapshot],
+        });
+        const card = readyConcentration(buildOverview(inputs(rows)));
+        const text = card.disclosures.join(' ');
+        expect(text).toContain('room above the retained cushion');
+        expect(text).toContain(
+            formatCurrency(DEFAULT_RULEBOOK.payout.retainedCushionCents / 100),
+        );
+        expect(text).toContain('ignores payout eligibility');
+        expect(text).toContain('latest snapshot');
+        expect(text).not.toContain('take now');
+    });
+
+    it('lists the firms whose figures rest on a stale snapshot or an account that could not be read', () => {
+        const fresh = mffFundedAccount('Fresh', 1800);
+        const stale = mffFundedAccount('Stale', 1500, '2026-08-01');
+        const noSnapshot = mffFundedAccount('Unread', 1500);
+        const rows = rowsOf({
+            accounts: [fresh.row, stale.row, noSnapshot.row],
+            snapshots: [fresh.snapshot, stale.snapshot],
+        });
+        const card = readyConcentration(buildOverview(inputs(rows)));
+        expect(card.caveats).toHaveLength(1);
+        expect(card.caveats[0]).toContain(mffProEntry().firm.displayName);
+        expect(card.caveats[0]).toContain('1 funded account has a stale snapshot');
+        expect(card.caveats[0]).toContain(
+            '1 active account could not be read from a snapshot',
+        );
+    });
+
+    it('has no caveat when every account is fresh and readable', () => {
+        const first = mffFundedAccount('First', 1800);
+        const rows = rowsOf({
+            accounts: [first.row],
+            snapshots: [first.snapshot],
+        });
+        const card = readyConcentration(buildOverview(inputs(rows)));
+        expect(card.caveats).toEqual([]);
+    });
+
     it('says the limits are on once the rulebook sets one', () => {
         const first = mffFundedAccount('First', 1800);
         const rows = rowsOf({
@@ -6704,23 +6989,19 @@ describe('buildOverview profit concentration (PT-69, F-V26)', () => {
     });
 
     it('is pending while the alert rows load and failed when one cannot load', () => {
-        expect(
-            buildOverview(
-                inputs(pinnedRows(), {
-                    [PortfolioSource.Payouts]: { data: undefined, error: null },
-                }),
-            ).concentration,
-        ).toEqual({ kind: OverviewSectionStatus.Pending });
-        expect(
-            buildOverview(
-                inputs(pinnedRows(), {
-                    [PortfolioSource.Payouts]: {
-                        data: undefined,
-                        error: new Error('down'),
-                    },
-                }),
-            ).concentration.kind,
-        ).toBe(OverviewSectionStatus.Failed);
+        const pending = pinnedModelWith({
+            [PortfolioSource.Payouts]: { data: undefined, error: null },
+        });
+        expect(pending.concentration).toEqual({
+            kind: OverviewSectionStatus.Pending,
+        });
+        const failed = pinnedModelWith({
+            [PortfolioSource.Payouts]: {
+                data: undefined,
+                error: new Error('down'),
+            },
+        });
+        expect(failed.concentration.kind).toBe(OverviewSectionStatus.Failed);
     });
 });
 
@@ -6753,7 +7034,10 @@ describe('buildOverview worst day and followed recommendations KPIs (PT-69, F-V2
                 transfer(BankrollTransferKind.Deposit, 1_000_000, '2026-08-01'),
             ],
         });
-        const kpi = kpiOf(buildOverview(inputs(rows)), OverviewKpiKind.WorstDay);
+        const kpi = kpiOf(
+            buildOverview(inputs(rows)),
+            OverviewKpiKind.WorstDay,
+        );
         const expected = usdCentsFromDollars(
             Math.min(600 / EVAL_PLAN.plan.drawdown.amount, 1) *
                 EVAL_PLAN.plan.retryFee(),
@@ -6766,13 +7050,49 @@ describe('buildOverview worst day and followed recommendations KPIs (PT-69, F-V2
         expect(kpi.note).toContain('approximation');
     });
 
+    it('does not call a loss across several weeks a day loss and says why the account was not compared', () => {
+        const losing = evalWithTwoSnapshots('Losing eval', 600, '2026-09-02');
+        const rows = rowsOf({
+            accounts: [losing.row],
+            snapshots: [...losing.snapshots],
+            transfers: [
+                transfer(BankrollTransferKind.Deposit, 1_000_000, '2026-08-01'),
+            ],
+        });
+        const kpi = kpiOf(
+            buildOverview(inputs(rows)),
+            OverviewKpiKind.WorstDay,
+        );
+        expect(kpi.value).toBe(NOT_APPLICABLE);
+        expect(kpi.note).toContain('more than one trading day apart');
+    });
+
+    it('names the eval basis of the day loss in the detail', () => {
+        const losing = evalWithTwoSnapshots('Losing eval', 600);
+        const rows = rowsOf({
+            accounts: [losing.row],
+            snapshots: [...losing.snapshots],
+            transfers: [
+                transfer(BankrollTransferKind.Deposit, 1_000_000, '2026-08-01'),
+            ],
+        });
+        const kpi = kpiOf(
+            buildOverview(inputs(rows)),
+            OverviewKpiKind.WorstDay,
+        );
+        expect(kpi.detail).toContain('of estimated eval value');
+    });
+
     it('shows no loss, not a missing figure, when every compared account gained', () => {
         const gaining = evalWithTwoSnapshots('Gaining eval', -300);
         const rows = rowsOf({
             accounts: [gaining.row],
             snapshots: [...gaining.snapshots],
         });
-        const kpi = kpiOf(buildOverview(inputs(rows)), OverviewKpiKind.WorstDay);
+        const kpi = kpiOf(
+            buildOverview(inputs(rows)),
+            OverviewKpiKind.WorstDay,
+        );
         expect(kpi.value).toBe(formatUsdCents(usdCents(0)));
         expect(kpi.detail).toBe(
             'No loss measured on any account since its previous snapshot',
@@ -6808,37 +7128,32 @@ describe('buildOverview worst day and followed recommendations KPIs (PT-69, F-V2
         expect(kpi.value).toBe(formatPercent(2 / 3));
         expect(kpi.detail).toContain('n = 3');
         expect(kpi.detail).toContain(
-            formatUsdCents(
-                usdCents(DEFAULT_RULEBOOK.eval.roundingStepCents),
-            ),
+            formatUsdCents(usdCents(DEFAULT_RULEBOOK.eval.roundingStepCents)),
         );
         expect(kpi.detail).toContain('1 without an actual risk');
+        expect(kpi.note).toContain('accepted risk, not the documented rung');
+        expect(kpi.note).toContain('less than the accepted risk');
         expect(kpi.tone).toBe(KpiTone.Neutral);
     });
 
     it('is pending while the decisions load and says why when they cannot load', () => {
+        const pendingModel = pinnedModelWith({
+            [PortfolioSource.Decisions]: { data: undefined, error: null },
+        });
         const pending = kpiOf(
-            buildOverview(
-                inputs(pinnedRows(), {
-                    [PortfolioSource.Decisions]: {
-                        data: undefined,
-                        error: null,
-                    },
-                }),
-            ),
+            pendingModel,
             OverviewKpiKind.FollowedRecommendations,
         );
         expect(pending.value).toBe('Pending');
         expect(pending.tone).toBe(KpiTone.Pending);
+        const failedModel = pinnedModelWith({
+            [PortfolioSource.Decisions]: {
+                data: undefined,
+                error: new Error('down'),
+            },
+        });
         const failed = kpiOf(
-            buildOverview(
-                inputs(pinnedRows(), {
-                    [PortfolioSource.Decisions]: {
-                        data: undefined,
-                        error: new Error('down'),
-                    },
-                }),
-            ),
+            failedModel,
             OverviewKpiKind.FollowedRecommendations,
         );
         expect(failed.value).toBe(NOT_APPLICABLE);
@@ -6874,7 +7189,10 @@ describe('buildOverview protection, concentration and capacity alerts (PT-69, F-
             ...multiSlotRows(),
             rulebook: {
                 ...DEFAULT_RULEBOOK,
-                bankroll: { ...DEFAULT_RULEBOOK.bankroll, dailyAccountCapacity: 1 },
+                bankroll: {
+                    ...DEFAULT_RULEBOOK.bankroll,
+                    dailyAccountCapacity: 1,
+                },
             },
         });
         const labels = readyAlerts(buildOverview(inputs(rows)).alerts).map(
@@ -6916,10 +7234,9 @@ describe('buildOverview protection, concentration and capacity alerts (PT-69, F-
                 transfer(BankrollTransferKind.Deposit, 1_000_000, '2026-08-01'),
             ],
         });
+        const { alerts } = buildOverview(inputs(rows));
         const labels = new Set(
-            readyAlerts(buildOverview(inputs(rows)).alerts).map(
-                (alert) => alert.kindLabel,
-            ),
+            readyAlerts(alerts).map((alert) => alert.kindLabel),
         );
         for (const kind of [
             AlertKind.CapacityExceeded,
@@ -6965,8 +7282,193 @@ describe('buildOverview protection, concentration and capacity alerts (PT-69, F-
             accountStatesFromLoad(USER_ID, TODAY, load),
             load.ledger,
         );
-        expect(
-            readyAlerts(without).map((alert) => alert.kindLabel),
-        ).not.toContain(alertKindLabel(AlertKind.LargeDayLoss));
+        const unchecked = readyAlerts(without).find(
+            (alert) => alert.kindLabel === alertKindLabel(AlertKind.LargeDayLoss),
+        );
+        expect(unchecked?.severity).toBe(AlertSeverity.Info);
+        expect(unchecked?.message).toContain('no available bankroll');
+    });
+});
+
+describe('buildOverview payout-ready withdrawable drop across two snapshots (PT-69c, F-V19)', () => {
+    const lossRulebook = {
+        ...DEFAULT_RULEBOOK,
+        alerts: {
+            ...DEFAULT_RULEBOOK.alerts,
+            payoutReadyLossFraction: 0.2,
+        },
+    };
+
+    function eligibleThenDrop() {
+        const entry = mffProEntry();
+        const size = entry.plan.accountSize;
+        const owner = account(entry, {
+            fundedOn: '2026-08-01',
+            label: 'Eligible funded',
+            purchasedOn: '2026-07-01',
+            stage: AccountStage.Funded,
+        });
+        const snapshotAt = (asOf: string, balance: number, cycleBest: number) =>
+            snapshotRow(owner, {
+                asOf,
+                balanceAtLastPayoutCents: usdCents(size * CENTS_PER_DOLLAR),
+                balanceCents: usdCents(balance * CENTS_PER_DOLLAR),
+                createdAt: new Date(`${asOf}T00:00:00Z`),
+                cycleBestDayProfitCents: usdCents(cycleBest * CENTS_PER_DOLLAR),
+                dashboardFloorCents: null,
+                highestEodBalanceCents: usdCents(
+                    (size + 20_000) * CENTS_PER_DOLLAR,
+                ),
+                highestIntradayBalanceCents: usdCents(
+                    (size + 20_000) * CENTS_PER_DOLLAR,
+                ),
+                id: `snapshot-${asOf}-${owner.id}`,
+                lastPayoutOn: '2026-08-20',
+                payoutsTaken: 1,
+                qualifyingDaysSinceLastPayout: 999,
+                tradingDays: 40,
+            });
+        const previous = snapshotAt('2026-09-20', size + 20_000, 20_000);
+        const latest = snapshotAt(TODAY, size + 1000, 1000);
+        const rows = {
+            accounts: [
+                { ...overviewAccount(owner), firstFundedTradeOn: '2026-08-01' },
+            ],
+            events: [purchased(owner)],
+            rulebook: lossRulebook,
+            snapshots: [previous, latest],
+        };
+        const load = portfolioLoad(answered(rowsOf(rows)));
+        const states = accountStatesFromLoad(USER_ID, TODAY, load);
+        const [entryState] = states;
+        if (
+            entryState?.state.kind !== AccountStateKind.Reconstructed ||
+            entryState.state.previous === null
+        ) {
+            throw new Error('expected two reconstructed snapshots');
+        }
+        const previousAccount = entryState.state.previous.reconstructed;
+        const latestAccount = entryState.state.latest.reconstructed;
+        if (
+            previousAccount.kind !== TradingPhase.Funded ||
+            latestAccount.kind !== TradingPhase.Funded
+        ) {
+            throw new Error('expected two funded reconstructions');
+        }
+        const droppedCents = Math.round(
+            (fundedWithdrawableDollarsOf(lossRulebook, previousAccount) -
+                fundedWithdrawableDollarsOf(lossRulebook, latestAccount)) *
+                CENTS_PER_DOLLAR,
+        );
+        return { droppedCents, owner, rows };
+    }
+
+    const dropLabel = alertKindLabel(AlertKind.PayoutReadyWithdrawableDrop);
+
+    it('raises the critical drop alert from the previous and latest snapshots when nothing was paid in between', () => {
+        const { rows } = eligibleThenDrop();
+        const labels = readyAlerts(buildOverview(inputs(rows)).alerts).map(
+            (alert) => alert.kindLabel,
+        );
+        expect(labels).toContain(dropLabel);
+    });
+
+    it('raises no drop alert when the withdrawable fell because a payout was paid between the two snapshots', () => {
+        const { droppedCents, owner, rows } = eligibleThenDrop();
+        expect(droppedCents).toBeGreaterThan(0);
+        const paidInBetween = payout(owner, droppedCents, {
+            netCents: usdCents(droppedCents),
+            paidOn: '2026-09-22',
+            requestedOn: '2026-09-21',
+        });
+        const labels = readyAlerts(
+            buildOverview(inputs({ ...rows, payouts: [paidInBetween] })).alerts,
+        ).map((alert) => alert.kindLabel);
+        expect(labels).not.toContain(dropLabel);
+    });
+});
+
+describe('the alert-extras assembly shared with the detail page (PT-69c, F-V29)', () => {
+    const decisionsRulebook = {
+        ...DEFAULT_RULEBOOK,
+        alerts: {
+            ...DEFAULT_RULEBOOK.alerts,
+            payoutReadyRiskAboveRungCents: usdCents(5000),
+        },
+    };
+
+    it('combines the present notes with a space and gives null when there are none', () => {
+        expect(combinedNote(null, 'First.', null, 'Second.')).toBe(
+            'First. Second.',
+        );
+        expect(combinedNote(null, null)).toBeNull();
+        expect(combinedNote()).toBeNull();
+    });
+
+    it('computes the available bankroll from the loaded ledger and gives null while it loads', () => {
+        const rows = rowsOf({
+            transfers: [
+                transfer(BankrollTransferKind.Deposit, 1_000_000, '2026-08-01'),
+            ],
+        });
+        const ready = availableBankrollCentsFor(
+            portfolioLoad(answered(rows)),
+            TODAY,
+            USER_ID,
+        );
+        const ledger = PortfolioLedger.fromRows(USER_ID, {
+            accounts: rows.accounts,
+            events: rows.events,
+            fees: rows.fees,
+            payouts: rows.payouts,
+            transfers: rows.transfers,
+        });
+        const expected = bankrollOf(ledger, TODAY).availableCents;
+        expect(ready).toBe(roundCents(expected));
+        expect(ready).toBeGreaterThan(0);
+        const pending = portfolioLoad({
+            ...answered(rows),
+            [PortfolioSource.Transfers]: { data: undefined, error: null },
+        });
+        expect(availableBankrollCentsFor(pending, TODAY, USER_ID)).toBeNull();
+    });
+
+    it('says why the risk-above-the-rung alert is unchecked only while its threshold is set', () => {
+        const failed = portfolioLoad({
+            ...answered(rowsOf({ rulebook: decisionsRulebook })),
+            [PortfolioSource.Decisions]: {
+                data: undefined,
+                error: new Error('down'),
+            },
+        });
+        expect(decisionsCaveatFor(failed)).toContain('could not be loaded');
+        const pending = portfolioLoad({
+            ...answered(rowsOf({ rulebook: decisionsRulebook })),
+            [PortfolioSource.Decisions]: { data: undefined, error: null },
+        });
+        expect(decisionsCaveatFor(pending)).toContain('still loading');
+        const off = portfolioLoad({
+            ...answered(rowsOf({})),
+            [PortfolioSource.Decisions]: { data: undefined, error: null },
+        });
+        expect(decisionsCaveatFor(off)).toBeNull();
+    });
+
+    it('assembles the bankroll, the loaded decisions and the caveat in one place', () => {
+        const decision = decisionRow();
+        const rows = rowsOf({
+            decisions: [decision],
+            transfers: [
+                transfer(BankrollTransferKind.Deposit, 1_000_000, '2026-08-01'),
+            ],
+        });
+        const extras = alertExtrasOf(
+            portfolioLoad(answered(rows)),
+            TODAY,
+            USER_ID,
+        );
+        expect(extras.decisions).toEqual([decision]);
+        expect(extras.availableBankrollCents).toBeGreaterThan(0);
+        expect(extras.decisionsCaveat).toBeNull();
     });
 });

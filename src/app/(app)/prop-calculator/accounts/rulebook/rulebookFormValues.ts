@@ -2,11 +2,13 @@ import { z } from 'zod';
 
 import {
     EntryTextKind,
+    FirmKeyKind,
     formatUsdCents,
     parseMoneyText,
     usdCents,
     usdCentsToText,
 } from '~/lib/prop-accounts';
+import { type LiveTransferRate } from '~/lib/prop-accounts/firms';
 import { DayStopRuleKind, findFirm, FirmId } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
@@ -38,6 +40,13 @@ export interface FormIssue {
 export type HazardFieldName =
     `liveTransfer.hazardPerPaidPayoutByFirm.${FirmId}`;
 
+export interface MeasuredHazard {
+    readonly movedLiveCount: number;
+    readonly paidPayouts: number;
+    readonly rate: number;
+    readonly suggestedText: null | string;
+}
+
 export interface RulebookDraft {
     readonly candidate: unknown;
     readonly issues: readonly FormIssue[];
@@ -61,6 +70,7 @@ export type TextFieldName =
     | 'bankroll.objectiveSwitchCents'
     | 'bankroll.roundGapDays'
     | 'bankroll.sessionHoursPerDay'
+    | 'display.nextPayoutHighlightDays'
     | 'eval.generalDerivation.escalation'
     | 'eval.generalDerivation.firstRungFraction'
     | 'eval.maxRiskDailyCapMultiple'
@@ -160,7 +170,10 @@ const rulebookFormTextSchema = z.object({
         payoutReadyRiskAboveRungCents: z.string(),
     }),
     bankroll: bankrollFormTextSchema,
-    display: z.object({ riskUnit: z.enum(RiskDisplayUnit) }),
+    display: z.object({
+        nextPayoutHighlightDays: z.string(),
+        riskUnit: z.enum(RiskDisplayUnit),
+    }),
     eval: evalFormTextSchema,
     execution: z.object({ maxTradesPerWindow: z.string() }),
     funded: fundedFormTextSchema,
@@ -316,6 +329,14 @@ export const TEXT_FIELDS: Readonly<Record<TextFieldName, TextFieldSpec>> = {
         kind: FieldKind.Decimal,
         label: 'Screen hours per day',
         read: (v) => v.bankroll.sessionHoursPerDay,
+        source: null,
+    },
+    'display.nextPayoutHighlightDays': {
+        hint: 'A funded account whose next payout is expected within this many calendar days is highlighted on the account list. It also needs most simulated trials to reach a payout.',
+        isOptional: false,
+        kind: FieldKind.Count,
+        label: 'Highlight a next payout within (days)',
+        read: (v) => v.display.nextPayoutHighlightDays,
         source: null,
     },
     'eval.generalDerivation.escalation': {
@@ -617,6 +638,34 @@ export function hazardFieldSpec(firmId: FirmId): TextFieldSpec {
     };
 }
 
+export function measuredHazardsOf(
+    rate: LiveTransferRate,
+): Partial<Record<FirmId, MeasuredHazard>> {
+    const measured: Partial<Record<FirmId, MeasuredHazard>> = {};
+    for (const { firmKey, movedLiveCount, perPaidPayout } of rate.perFirm) {
+        if (perPaidPayout === null || firmKey.kind !== FirmKeyKind.Modeled) {
+            continue;
+        }
+        const firmId = z.enum(FirmId).safeParse(firmKey.firmId);
+        if (!firmId.success) continue;
+        const suggestedPercent = Number(
+            (perPaidPayout.value * PERCENT).toFixed(2),
+        );
+        const isAcceptedHazard =
+            perPaidPayout.value > 0 &&
+            perPaidPayout.value < 1 &&
+            suggestedPercent > 0 &&
+            suggestedPercent < PERCENT;
+        measured[firmId.data] = {
+            movedLiveCount,
+            paidPayouts: perPaidPayout.n,
+            rate: perPaidPayout.value,
+            suggestedText: isAcceptedHazard ? String(suggestedPercent) : null,
+        };
+    }
+    return measured;
+}
+
 export function parseText(kind: FieldKind, text: string): TextParse {
     const trimmed = text.trim();
     switch (kind) {
@@ -730,7 +779,12 @@ export function readRulebookDraft(values: RulebookFormValues): RulebookDraft {
                 roundGapDays: numberAt('bankroll.roundGapDays'),
                 sessionHoursPerDay: optionalAt('bankroll.sessionHoursPerDay'),
             },
-            display: { riskUnit: values.display.riskUnit },
+            display: {
+                nextPayoutHighlightDays: numberAt(
+                    'display.nextPayoutHighlightDays',
+                ),
+                riskUnit: values.display.riskUnit,
+            },
             eval: {
                 generalDerivation: {
                     escalation: numberAt('eval.generalDerivation.escalation'),
@@ -867,7 +921,12 @@ export function rulebookToFormValues(
                 String,
             ),
         },
-        display: { riskUnit: rulebook.display.riskUnit },
+        display: {
+            nextPayoutHighlightDays: String(
+                rulebook.display.nextPayoutHighlightDays,
+            ),
+            riskUnit: rulebook.display.riskUnit,
+        },
         eval: {
             generalDerivation: {
                 escalation: String(rulebook.eval.generalDerivation.escalation),

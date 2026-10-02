@@ -28,7 +28,7 @@ import {
     EngineOptimumRowKind,
 } from './EngineOptimum';
 import { applyEnginePolicy } from './EnginePolicyBuilder';
-import { type EnginePolicy } from './policy';
+import { applyPersonalDayLimits, type EnginePolicy } from './policy';
 
 export enum FundedFromStateOptimumResultKind {
     NoCandidates = 'no-candidates',
@@ -157,7 +157,13 @@ function applyEnginePolicyFromState(
     policy: EnginePolicy,
     base: FromStateSimInputs,
 ): FromStateSimInputs {
-    return { ...applyEnginePolicy(plan, policy, base), start: base.start };
+    return {
+        ...applyPersonalDayLimits(
+            policy,
+            applyEnginePolicy(plan, policy, base),
+        ),
+        start: base.start,
+    };
 }
 
 function flatBelowOneContractRefusal(dollar: number): EngineOptimumRefusal {

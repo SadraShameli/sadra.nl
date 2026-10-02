@@ -8,3 +8,7 @@ export const VALUE_CHAIN_STEP_LABEL: Readonly<
     [ValueChainStepKind.FreshFunded]: 'Fresh funded',
     [ValueChainStepKind.PostFirstPayout]: 'Post first payout',
 };
+
+export function stepAssumptionsHeading(kind: ValueChainStepKind): string {
+    return `${VALUE_CHAIN_STEP_LABEL[kind]} assumptions`;
+}

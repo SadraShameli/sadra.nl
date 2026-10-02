@@ -11,15 +11,19 @@ import optimizeFunded, {
     printTakeProfitWhatIf,
     readFundedCandidates,
     readTakeProfitWhatIfRequest,
+    resolveFundedSort,
     TakeProfitWhatIfError,
     type TakeProfitWhatIfRequest,
 } from '~/cli/commands/prop/optimize/funded/command';
 import {
     edgePlausibilityNote,
+    ObjectiveFlag,
+    ObjectiveNotApplicable,
     payoutRequestPolicyArgument,
     planResolver,
     readNumberList,
     singlePathGranularityArgument,
+    SortObjectiveConflict,
     TradingInputs,
 } from '~/cli/commands/prop/shared';
 import { formatCurrency, formatPercent } from '~/lib/format';
@@ -55,6 +59,8 @@ import {
     survivorCount,
 } from '~/lib/prop-calculator/optimize';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
+
+import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
 
 async function resolveArguments(): Promise<ArgsDef> {
     const resolvable = optimizeFunded.args;
@@ -1487,5 +1493,166 @@ describe('optimize funded --payout-policy (PT-32 step 8)', () => {
             '500',
         ]);
         expect(result.exitCode).toBeUndefined();
+    });
+});
+
+
+function ruinFirstFundedSort(): FundedSortKey {
+    return resolveFundedSort(
+        { objective: 'ruin-first', sort: 'monthly' },
+        false,
+    );
+}
+
+describe('optimize funded --objective is an alias over --sort (PT-63, F-V15)', () => {
+    it('maps monthly to the Monthly sort and cycle to the Cycle sort', () => {
+        expect(
+            resolveFundedSort({ objective: 'monthly', sort: 'monthly' }, false),
+        ).toBe(FundedSortKey.Monthly);
+        expect(
+            resolveFundedSort({ objective: 'cycle', sort: 'monthly' }, false),
+        ).toBe(FundedSortKey.Cycle);
+    });
+
+    it('keeps --sort as is without --objective', () => {
+        expect(resolveFundedSort({ sort: 'cycle' }, true)).toBe(
+            FundedSortKey.Cycle,
+        );
+        expect(resolveFundedSort({ sort: 'monthly' }, false)).toBe(
+            FundedSortKey.Monthly,
+        );
+    });
+
+    it('accepts an explicit --sort that agrees with --objective', () => {
+        expect(
+            resolveFundedSort({ objective: 'cycle', sort: 'cycle' }, true),
+        ).toBe(FundedSortKey.Cycle);
+    });
+
+    it('refuses an explicit --sort that disagrees with --objective, as a typed error', () => {
+        expect(() =>
+            resolveFundedSort({ objective: 'cycle', sort: 'monthly' }, true),
+        ).toThrow(SortObjectiveConflict);
+    });
+
+    it('refuses ruin-first as not applicable to a funded risk sweep', () => {
+        expect(ruinFirstFundedSort).toThrow(ObjectiveNotApplicable);
+        expect(ruinFirstFundedSort).toThrow(
+            'RuinFirst only ranks which plan to buy; eval rungs and funded risk stay on Hard Rules 3 and 5',
+        );
+    });
+
+    it('offers every objective flag value', async () => {
+        const arguments_ = await resolveArguments();
+        const objective = arguments_.objective;
+        if (objective?.type !== 'enum') {
+            throw new Error('objective is not an enum');
+        }
+        expect(objective.options).toStrictEqual(Object.values(ObjectiveFlag));
+    });
+
+    it('prints the monthly objective in the header by default', async () => {
+        const { exitCode, stdout } = await capturedRun([
+            ...SMALL_RUN,
+            '--flat',
+            '150',
+        ]);
+        expect(exitCode).toBeUndefined();
+        expect(stdout).toContain('objective: monthly net');
+    });
+
+    it('prints the cycle objective and ranks by cycle under --objective cycle', async () => {
+        const { exitCode, stdout } = await capturedRun([
+            ...SMALL_RUN,
+            '--flat',
+            '150',
+            '--objective',
+            'cycle',
+        ]);
+        expect(exitCode).toBeUndefined();
+        expect(stdout).toContain('objective: cycle cash');
+        expect(stdout).toContain('ranked by per-cycle expected net for THIS run only');
+    });
+
+    it('fails with ObjectiveNotApplicable text for --objective ruin-first', async () => {
+        const { exitCode, stderr } = await capturedRun([
+            ...SMALL_RUN,
+            '--flat',
+            '150',
+            '--objective',
+            'ruin-first',
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain('RuinFirst only ranks which plan to buy');
+    });
+});
+
+
+describe('prop optimize funded --help names only flags it accepts (PT-63)', () => {
+    it('names no flag the command lacks, with --objective declared', async () => {
+        expect(await flagsNamedButNotAccepted(optimizeFunded)).toStrictEqual([]);
+    });
+});
+
+describe('optimize funded prices the live-transfer hazard as your own assumption (PT-73)', () => {
+    const PAYING_RUN = [
+        '--firm',
+        'mffu',
+        '--variant',
+        'rapid-eod',
+        '--trials',
+        '60',
+        '--eval-days',
+        '30',
+        '--funded-days',
+        '60',
+        '--winrate',
+        '0.6',
+        '--flat',
+        '150',
+        '--percent',
+        '',
+    ];
+
+    it('accepts --live-transfer-hazard and names it in its help', async () => {
+        expect(await acceptedFlags(optimizeFunded)).toContain(
+            'live-transfer-hazard',
+        );
+        expect(await flagsNamedButNotAccepted(optimizeFunded)).toStrictEqual(
+            [],
+        );
+    });
+
+    it('prints no live-transfer line when the flag is absent', async () => {
+        const { stdout } = await capturedRun(PAYING_RUN);
+        expect(stdout).not.toContain('live transfer');
+    });
+
+    it('labels the hazard as your assumption and prices it into every row', async () => {
+        const none = await capturedRun(PAYING_RUN);
+        const priced = await capturedRun([
+            ...PAYING_RUN,
+            '--live-transfer-hazard',
+            '1',
+        ]);
+        expect(priced.stdout).toContain(
+            'live transfer: 100.0% per paid payout (your assumption, not a firm rule)',
+        );
+        expect(priced.stdout).not.toBe(none.stdout);
+    });
+
+    it('prints the hazard assumption above the take-profit what-if table too', async () => {
+        const { stdout } = await capturedRun([
+            ...PAYING_RUN,
+            '--edge-model',
+            'drift',
+            '--rr-candidates',
+            '1,2',
+            '--live-transfer-hazard',
+            '0.3',
+        ]);
+        expect(stdout).toContain(
+            'live transfer: 30.0% per paid payout (your assumption, not a firm rule)',
+        );
     });
 });

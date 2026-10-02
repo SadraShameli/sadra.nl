@@ -5,6 +5,7 @@ import {
 } from '~/lib/prop-calculator/core';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
 
+import { type AccountSubstate } from './AccountSubstate';
 import { type Advice } from './Advice';
 import { adviceProvenance } from './AdviceProvenance';
 import { AdviceSource } from './AdviceSource';
@@ -41,6 +42,7 @@ export interface LiveSizingAdvisorInput {
     readonly planRulesFingerprint?: null | PlanRulesFingerprintCheck;
     readonly rulebook: RulebookParameters;
     readonly snapshotAsOf: string;
+    readonly substate: AccountSubstate.Suspended | null;
     readonly today: string;
 }
 
@@ -52,6 +54,7 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
             SizingStage.Live,
             input.rulebook,
             createDocumentedRule(SizingStage.Live, input.rulebook),
+            input.substate,
         );
         this.input = input;
     }
@@ -67,7 +70,9 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
             personalPayoutOverride,
             personalRetainedCushion,
         } = this.input;
-        if (account.livePlan === null || account.state === null) return null;
+        if (account.livePlan === null || account.state === null) {
+            return null;
+        }
         return {
             livePlan: account.livePlan,
             paidPayoutsSinceLastLiveAccount:
@@ -79,7 +84,9 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
         };
     }
 
-    assemble(results: readonly EngineOptimumRunnerResult[]): Advice {
+    protected override assembleAdvice(
+        results: readonly EngineOptimumRunnerResult[],
+    ): Advice {
         const { account, rulebook, snapshotAsOf, today } = this.input;
         const staleness = this.staleness();
         const payoutRuleContext = this.payoutRuleContext();
@@ -111,7 +118,7 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
         };
     }
 
-    caps(): RiskCaps {
+    protected override sizedCaps(): RiskCaps {
         const { account, personalCaps } = this.input;
         const personal = personalCaps ?? NO_PERSONAL_CAPS;
         if (account.livePlan === null || account.state === null) {
@@ -127,7 +134,7 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
         return riskCaps(dollars(room.room), null, personal);
     }
 
-    optimumRequests(): readonly EngineOptimumRequest[] {
+    protected override engineRequests(): readonly EngineOptimumRequest[] {
         return [];
     }
 

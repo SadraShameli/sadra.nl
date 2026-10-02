@@ -9,13 +9,19 @@ import {
     ConsistencyScope,
     ConsistencyViolationEffect,
     DailyLossLimitKind,
+    type DayPolicy,
     dollars,
+    type EvalStateValueConfig,
     type EvalStateValueResult,
+    FirmId,
     fraction,
     type Plan,
     PolicySizing,
+    TopStepVariant,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
+import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
+import { simulate } from '~/lib/prop-calculator/simulator';
 
 import { toyDpConfig, toyPlan } from '../evalStateValueToy';
 
@@ -62,6 +68,44 @@ function dayOneAfterWin(plan: Plan): AccountState {
     };
 }
 
+function dayStartNullShare(
+    config: EvalStateValueConfig,
+    trials: number,
+): { nullCount: number; startCount: number } {
+    const result = computeEvalStateValue(config);
+    const { computeRisk } = result.dayPolicy;
+    if (!computeRisk) throw new Error('eval DP day policy has no computeRisk');
+    const tradesPerDay = config.tradesPerDay ?? 1;
+    const dayCap = config.plan.evalDayCap(config.maxEvalDays);
+    let nullCount = 0;
+    let startCount = 0;
+    const observed: DayPolicy = {
+        ...result.dayPolicy,
+        computeRisk: (state, tradeIndex, fundedCycle) => {
+            if (tradeIndex === 0 && (state.elapsedDays ?? 0) < dayCap) {
+                startCount += 1;
+                if (result.riskAtReachedState(state, 0) === null) {
+                    nullCount += 1;
+                }
+            }
+            return computeRisk(state, tradeIndex, fundedCycle);
+        },
+    };
+    simulate({
+        evalDayPolicy: observed,
+        fundedHorizonDays: 1,
+        maxEvalDays: config.maxEvalDays,
+        plan: config.plan,
+        riskPerTrade: 50,
+        rrRatio: config.rrRatio,
+        seed: 7,
+        tradesPerDay,
+        trials,
+        winrate: config.winrate,
+    });
+    return { nullCount, startCount };
+}
+
 function midDayOf(dayStart: AccountState, todayPnL: number): AccountState {
     const balance = dayStart.balance + todayPnL;
     const intradayProfit = Math.max(
@@ -104,13 +148,23 @@ function solveTwoTradeToy(plan: Plan): EvalStateValueResult {
     });
 }
 
+function topStepNoFeeStandardPlan(): Plan {
+    const plan = new TopStep().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.TopStep,
+        variant: TopStepVariant.NoFeeStandard,
+    });
+    if (!plan) throw new Error('TopStep no-fee-standard 50K plan not found');
+    return plan;
+}
+
 describe('computeEvalStateValue working-tree pins on toyPlan(250), 2-day cap, max action 100 (PD-31)', () => {
     const plan = toyPlan(250);
     const result = solveToy(plan);
 
-    it('pins initialValue and reachedStateCount', () => {
+    it('pins initialValue and reachedStateCount (N-89: 15 day starts, down from 43, because the DP solves only the day starts its within-day search reaches, not every cushion node)', () => {
         expect(result.initialValue).toBeCloseTo(0.25, 10);
-        expect(result.reachedStateCount).toBe(43);
+        expect(result.reachedStateCount).toBe(15);
     });
 
     it('pins computeRisk at the initial state, trade 0', () => {
@@ -442,5 +496,162 @@ describe('computeEvalStateValue riskAtReachedState reads a pass only at day clos
         expect(
             result.riskAtReachedState(busted, MID_DAY_TRADE_INDEX),
         ).toBeNull();
+    });
+});
+
+describe('computeEvalStateValue answers a live day-start state the DP never reached by solving it from its exact state, so a reachable state never idles silently (N-89)', () => {
+    const offGridConfig: EvalStateValueConfig = {
+        actionStepDollars: 50,
+        cushionStepDollars: 100,
+        maxActionDollars: 100,
+        maxEvalDays: 3,
+        plan: toyPlan(250),
+        profitStepDollars: 30,
+        rrRatio: 2,
+        tradesPerDay: 1,
+        winrate: fraction(0.5),
+    };
+
+    it('returns a risk, not null, for a live day-1 state at cushion 50 whose floor cushion node is the cushion-0 cell the DP never solves', () => {
+        const plan = offGridConfig.plan;
+        const result = computeEvalStateValue(offGridConfig);
+        const state = dayOneAfterLoss(plan);
+        expect(state.balance - state.threshold).toBe(50);
+        expect(plan.isBust(state, TradingPhase.Eval)).toBe(false);
+
+        const risk = result.riskAtReachedState(state, 0);
+
+        expect(risk).not.toBeNull();
+        expect(risk).toBe(computedRisk(result, state, 0));
+    });
+
+    it('returns a risk for the day-2 state after two $100 winning days, whose trailing floor $200 is not a multiple of the $30 profit step', () => {
+        const plan = offGridConfig.plan;
+        const result = computeEvalStateValue(offGridConfig);
+        const state: AccountState = {
+            ...plan.initialState(),
+            balance: 1200,
+            bestDayProfit: 100,
+            elapsedDays: 2,
+            intradayHighProfit: 200,
+            peakDayCloseProfit: 200,
+            peakIntradayProfit: 200,
+            threshold: 1100,
+            tradingDays: 2,
+        };
+        expect(plan.isPassed(state)).toBe(false);
+
+        const risk = result.riskAtReachedState(state, 0);
+
+        expect(risk).not.toBeNull();
+        expect(risk).toBe(computedRisk(result, state, 0));
+    });
+
+    it('answers every state the same before and after it is asked about states the DP never reached, in any order', () => {
+        const plan = offGridConfig.plan;
+        const probes: readonly [AccountState, number][] = [
+            [plan.initialState(), 0],
+            [dayOneAfterWin(plan), 0],
+            [dayOneAfterLoss(plan), 0],
+            [dayOneAfterLoss(plan), 1],
+        ];
+        const fresh = computeEvalStateValue(offGridConfig);
+        const expected = probes.map(([state, tradeIndex]) =>
+            fresh.riskAtReachedState(state, tradeIndex),
+        );
+
+        const reused = computeEvalStateValue(offGridConfig);
+        const policyPassBefore = reused.policyPassProbability();
+        for (const [state, tradeIndex] of probes.toReversed()) {
+            reused.riskAtReachedState(state, tradeIndex);
+        }
+        const actual = probes.map(([state, tradeIndex]) =>
+            reused.riskAtReachedState(state, tradeIndex),
+        );
+
+        expect(actual).toStrictEqual(expected);
+        expect(reused.policyPassProbability()).toBe(policyPassBefore);
+    });
+
+    it('finds no replay day start without a policy on the off-grid toy', () => {
+        const { nullCount, startCount } = dayStartNullShare(offGridConfig, 600);
+
+        expect(startCount).toBeGreaterThan(1000);
+        expect(nullCount).toBe(0);
+    });
+
+    it('finds no replay day start without a policy on TopStep No-fee Standard at a $100 action step on $500 cushion cells', () => {
+        const { nullCount, startCount } = dayStartNullShare(
+            {
+                actionStepDollars: 100,
+                cushionStepDollars: 500,
+                maxActionDollars: 800,
+                maxEvalDays: 6,
+                plan: topStepNoFeeStandardPlan(),
+                profitStepDollars: 300,
+                rrRatio: 2,
+                tradesPerDay: 4,
+                winrate: fraction(0.4),
+            },
+            400,
+        );
+
+        expect(startCount).toBeGreaterThan(500);
+        expect(nullCount).toBe(0);
+    }, 120_000);
+});
+
+describe('computeEvalStateValue sizes a replay day from the exact day-start state, not from a twin whose threshold offset is floored to the profit step (N-89)', () => {
+    const plan = toyPlan(250);
+    const offsetOffGrid: AccountState = {
+        ...plan.initialState(),
+        balance: 1150,
+        bestDayProfit: 150,
+        elapsedDays: 2,
+        intradayHighProfit: 150,
+        peakDayCloseProfit: 150,
+        peakIntradayProfit: 150,
+        threshold: 1050,
+        tradingDays: 2,
+    };
+
+    function solveAtProfitStep(
+        profitStepDollars: number,
+    ): EvalStateValueResult {
+        return computeEvalStateValue({
+            ...toyDpConfig(plan, 3, MAX_ACTION_DOLLARS),
+            profitStepDollars,
+        });
+    }
+
+    it('starts from a real state whose trailing offset $150 is on a $50 profit step and off a $100 one', () => {
+        expect(offsetOffGrid.threshold - plan.initialState().threshold).toBe(
+            150,
+        );
+        expect(plan.isPassed(offsetOffGrid)).toBe(false);
+    });
+
+    it('sizes the $150-profit day to the $50 that passes on a win, on the grid where the offset is exact', () => {
+        expect(computedRisk(solveAtProfitStep(50), offsetOffGrid, 0)).toBe(50);
+    });
+
+    it('sizes the same real state identically on a profit step that does not divide its trailing offset', () => {
+        expect(computedRisk(solveAtProfitStep(100), offsetOffGrid, 0)).toBe(
+            computedRisk(solveAtProfitStep(50), offsetOffGrid, 0),
+        );
+    });
+
+    it('values day 0 identically on every profit step, because the trailing offset is carried exactly and the step only buckets the best day', () => {
+        const exact = solveAtProfitStep(50).initialValue;
+
+        expect(exact).toBeGreaterThan(0);
+        expect(solveAtProfitStep(100).initialValue).toBeCloseTo(exact, 12);
+        expect(solveAtProfitStep(30).initialValue).toBeCloseTo(exact, 12);
+    });
+
+    it('returns that same risk from riskAtReachedState on the off-grid profit step', () => {
+        expect(
+            solveAtProfitStep(100).riskAtReachedState(offsetOffGrid, 0),
+        ).toBe(computedRisk(solveAtProfitStep(50), offsetOffGrid, 0));
     });
 });

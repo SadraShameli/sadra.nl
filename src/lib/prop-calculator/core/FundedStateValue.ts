@@ -44,6 +44,7 @@ import {
     type FundedCushionGridSummary,
 } from './FundedCushionGrid';
 import { FundedCycleBaselineGrid } from './FundedCycleBaselineGrid';
+import { FundedCycleBestDayGrid } from './FundedCycleBestDayGrid';
 import {
     DEFAULT_ACTION_STEP_MULTIPLE,
     DEFAULT_CUSHION_STEP_MULTIPLE,
@@ -345,8 +346,7 @@ interface FundedSolveContext {
     readonly cushionGrid: FundedCushionGrid;
     readonly cushionStepDollars: number;
     readonly cycleBaselineGrid: FundedCycleBaselineGrid;
-    readonly cycleBestDayKeyRadix: number;
-    readonly cycleBestDayStepDollars: number;
+    readonly cycleBestDayGrid: FundedCycleBestDayGrid;
     readonly dayCost: number;
     readonly daySkeletons: FundedDaySkeletonCache;
     readonly drawdown: Plan['fundedDrawdown'];
@@ -875,24 +875,25 @@ function buildFundedSolveContext(
                 plan.fundedConsistencyRule(regime)?.maxBestDayShare ?? 0,
         ),
     );
-    const cycleBestDayGrid = isTrackingFundedConsistency
-        ? resolveCycleBestDayGrid({
-              cushionStepDollars,
-              relevantBestDayDollars: Math.min(
+    const maxCycleProfit = maxDayCloseBalance - minCycleBaselineBalance;
+    const cycleBestDayGrid = new FundedCycleBestDayGrid({
+        cushionStepDollars,
+        overflowDollars: maxBestDayShare * maxCycleProfit + cushionStepDollars,
+        relevantBestDayDollars: isTrackingFundedConsistency
+            ? Math.min(
                   Math.max(lockedTopDollars, unlockedWorkingTopDollars) +
                       maxWinDollars,
-                  maxBestDayShare *
-                      (maxDayCloseBalance - minCycleBaselineBalance),
+                  maxBestDayShare * maxCycleProfit,
                   maxDailySwingDollars + slots * cushionStepDollars,
-              ),
-              requestedBucketCount: config.cycleBestDayBucketCount,
-          })
-        : { keyRadix: 1, stepDollars: cushionStepDollars };
+              )
+            : 0,
+        requestedBucketCount: isTrackingFundedConsistency
+            ? config.cycleBestDayBucketCount
+            : 1,
+    });
 
     const regimeKeyRadix = payoutRegimeCap + 1;
     const idleKeyRadix = idleDaysBucketCount;
-    const cycleBestDayKeyRadix = cycleBestDayGrid.keyRadix;
-    const cycleBestDayStepDollars = cycleBestDayGrid.stepDollars;
     const keyLayout = buildKeyLayout({
         cycleBaselineGridSize: cycleBaselineGrid.size,
         isSkipped: (regime, isLocked) =>
@@ -906,7 +907,7 @@ function buildFundedSolveContext(
         offsetBucketCount,
         pairCountWithoutBaseline:
             idleKeyRadix *
-            cycleBestDayKeyRadix *
+            cycleBestDayGrid.keyRadix *
             qualifyingDayKeyRadix *
             peakRatchet.radix,
         payoutRegimeCap,
@@ -922,8 +923,7 @@ function buildFundedSolveContext(
         cushionGrid,
         cushionStepDollars,
         cycleBaselineGrid,
-        cycleBestDayKeyRadix,
-        cycleBestDayStepDollars,
+        cycleBestDayGrid,
         dayCost,
         daySkeletons: {
             closeCellCount: 0,
@@ -1328,11 +1328,7 @@ function cycleBestDayIndex(
     context: FundedSolveContext,
     dollarsValue: number,
 ): number {
-    if (context.cycleBestDayKeyRadix <= 1) return 0;
-    const raw = Math.ceil(
-        (dollarsValue - BUCKET_EPSILON) / context.cycleBestDayStepDollars,
-    );
-    return Math.min(context.cycleBestDayKeyRadix - 1, Math.max(0, raw));
+    return context.cycleBestDayGrid.indexAtOrAbove(dollarsValue);
 }
 
 function dayCloseOutcome(
@@ -1377,8 +1373,9 @@ function dayCloseOutcome(
         return terminalOutcome(context.bustTerminalValue);
     }
 
-    const cycleBestDayAtStartDollars =
-        dayStart.cycleBestDay * context.cycleBestDayStepDollars;
+    const cycleBestDayAtStartDollars = context.cycleBestDayGrid.dollarsAt(
+        dayStart.cycleBestDay,
+    );
     const cycleBestDayAtEndDollars = Math.max(
         cycleBestDayAtStartDollars,
         todayPnL,
@@ -1597,9 +1594,9 @@ function decodePair(
     );
     return {
         cycleBaseline,
-        cycleBestDay: withoutQualifyingDays % context.cycleBestDayKeyRadix,
+        cycleBestDay: withoutQualifyingDays % context.cycleBestDayGrid.keyRadix,
         idleDays: Math.floor(
-            withoutQualifyingDays / context.cycleBestDayKeyRadix,
+            withoutQualifyingDays / context.cycleBestDayGrid.keyRadix,
         ),
         qualifyingDays,
         ratchet,
@@ -1648,7 +1645,7 @@ function fundedResetLayerCountOf(plan: Plan, payoutRegimeCap: number): number {
 
 function groupCountAt(context: FundedSolveContext, regime: number): number {
     return (
-        context.cycleBestDayKeyRadix *
+        context.cycleBestDayGrid.keyRadix *
         context.qualifyingDayKeyRadix *
         context.peakRatchet.radix *
         cycleBaselineRadixAt(context, regime)
@@ -1901,7 +1898,7 @@ function pairOrdinal(
     pair: FundedPair,
 ): number {
     const withCycleBestDay =
-        pair.idleDays * context.cycleBestDayKeyRadix + pair.cycleBestDay;
+        pair.idleDays * context.cycleBestDayGrid.keyRadix + pair.cycleBestDay;
     const withQualifyingDays =
         withCycleBestDay * context.qualifyingDayKeyRadix + pair.qualifyingDays;
     const withRatchet =
@@ -2022,32 +2019,6 @@ function resetLayerContext(
                 ? (values[key] ?? 0)
                 : (regimeZeroValues[range.copyOffset + key - range.base] ?? 0);
         },
-    };
-}
-
-function resolveCycleBestDayGrid(options: {
-    readonly cushionStepDollars: number;
-    readonly relevantBestDayDollars: number;
-    readonly requestedBucketCount: number | undefined;
-}): { keyRadix: number; stepDollars: number } {
-    const { cushionStepDollars, requestedBucketCount } = options;
-    const exactBucketCount =
-        Math.floor(
-            Math.max(0, options.relevantBestDayDollars) / cushionStepDollars +
-                BUCKET_EPSILON,
-        ) + 2;
-    if (requestedBucketCount === undefined) {
-        return { keyRadix: exactBucketCount, stepDollars: cushionStepDollars };
-    }
-    const keyRadix = Math.max(1, Math.floor(requestedBucketCount));
-    if (keyRadix === 1) {
-        return { keyRadix, stepDollars: cushionStepDollars };
-    }
-    return {
-        keyRadix,
-        stepDollars:
-            cushionStepDollars *
-            Math.max(1, Math.ceil((exactBucketCount - 1) / (keyRadix - 1))),
     };
 }
 

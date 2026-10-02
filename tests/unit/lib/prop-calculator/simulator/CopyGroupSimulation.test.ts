@@ -735,6 +735,76 @@ describe('simulateCopyGroup drives cross-plan members from one shared outcome st
     });
 });
 
+describe('simulateCopyGroup counts the payouts it simulated, not the payouts already taken', () => {
+    it('reports zero expected payouts for a seed with 2 past payouts that earns none inside the horizon', () => {
+        const plan = payoutCapToyPlan().withOverrides({ maxLifetimePayouts: 10 });
+        const base = memberFor('veteran', plan, 40);
+        const start = fundedStartFor(plan);
+        const result = simulatedOf(
+            simulateCopyGroup({
+                commission: dollars(0),
+                fundedHorizonDays: 1,
+                members: [
+                    {
+                        ...base,
+                        start: {
+                            ...start,
+                            seed: {
+                                ...start.seed,
+                                cumulativePayout: 300,
+                                payoutsIssued: 2,
+                            },
+                        },
+                    },
+                ],
+                rrRatio: 1,
+                seed: 5,
+                trials: 20,
+                winrate: fraction(0),
+            }),
+        );
+        const [outcome] = result.memberOutcomes;
+        if (outcome === undefined)
+            throw new Error('expected one member outcome');
+        expect(outcome.expectedRealizedPayout.value).toBe(0);
+        expect(outcome.expectedPayoutCount.value).toBe(0);
+    });
+
+    it('counts each simulated payout once on top of the past ones', () => {
+        const plan = payoutCapToyPlan().withOverrides({ maxLifetimePayouts: 10 });
+        const base = memberFor('veteran', plan, 40);
+        const start = fundedStartFor(plan);
+        const withPast = simulatedOf(
+            simulateCopyGroup({
+                commission: dollars(0),
+                fundedHorizonDays: 40,
+                members: [
+                    {
+                        ...base,
+                        start: {
+                            ...start,
+                            seed: {
+                                ...start.seed,
+                                cumulativePayout: 300,
+                                payoutsIssued: 2,
+                            },
+                        },
+                    },
+                ],
+                rrRatio: 1,
+                seed: 5,
+                trials: 200,
+                winrate: fraction(1),
+            }),
+        );
+        const [outcome] = withPast.memberOutcomes;
+        if (outcome === undefined)
+            throw new Error('expected one member outcome');
+        expect(outcome.expectedPayoutCount.value).toBeGreaterThan(0);
+        expect(outcome.expectedPayoutCount.value).toBeLessThanOrEqual(8);
+    });
+});
+
 describe('simulateCopyGroup refuses a member it cannot simulate honestly', () => {
     const baseInputs = {
         commission: dollars(0),

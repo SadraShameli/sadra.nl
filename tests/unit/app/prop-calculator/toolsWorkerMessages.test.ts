@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     type BankrollPlanVariantInputs,
+    type CopySplitToolsResult,
     parseToolsRequest,
     parseToolsResult,
     ToolsRequestKind,
@@ -15,7 +16,9 @@ import {
     type DocumentedPolicySpec,
     LifetimePayoutCapBasis,
     RebuyLagBasis,
+    SizingObjective,
 } from '~/lib/prop-calculator/advisor';
+import { CopySplitRowKind } from '~/lib/prop-calculator/advisor/policy';
 import {
     FUNDED_VALUE_SAMPLE_RANGE_LABEL,
     ValueChainStepKind,
@@ -586,5 +589,159 @@ describe('toolsResultSchema (VD-24)', () => {
         if (parsed.kind !== ToolsResponseKind.Levers)
             throw new Error('unreachable');
         expect(parsed.rows[0]?.deltaAttemptPaysProbability).toBe(0.125);
+    });
+});
+
+function copySplitRequest(
+    overrides: Partial<{
+        objective: SizingObjective;
+        splits: number[];
+        totalRisk: number;
+    }> = {},
+): ToolsWorkerRequest {
+    return {
+        kind: ToolsRequestKind.CopySplit,
+        objective: SizingObjective.MonthlyNet,
+        runId: 11,
+        splits: [1, 2, 10],
+        totalRisk: 2000,
+        variant: baseVariant(),
+        ...overrides,
+    };
+}
+
+describe('toolsRequestSchema CopySplit kind (PT-63, F-V24, VD-24)', () => {
+    it('parses the request and survives a structuredClone round trip', () => {
+        const request = copySplitRequest();
+        expect(parseToolsRequest(structuredClone(request))).toEqual(request);
+    });
+
+    it('carries every objective, including RuinFirst, which the engine ranks as MonthlyNet', () => {
+        for (const objective of Object.values(SizingObjective)) {
+            const request = copySplitRequest({ objective });
+            expect(parseToolsRequest(request)).toEqual(request);
+        }
+    });
+
+    it('rejects an unknown objective, an empty or oversized split list and bad splits', () => {
+        expect(() =>
+            parseToolsRequest({ ...copySplitRequest(), objective: 'fast' }),
+        ).toThrow();
+        expect(() =>
+            parseToolsRequest(copySplitRequest({ splits: [] })),
+        ).toThrow();
+        expect(() =>
+            parseToolsRequest(copySplitRequest({ splits: [1.5] })),
+        ).toThrow();
+        expect(() =>
+            parseToolsRequest(copySplitRequest({ splits: [0] })),
+        ).toThrow();
+        expect(() =>
+            parseToolsRequest(copySplitRequest({ splits: [21] })),
+        ).toThrow();
+        expect(() =>
+            parseToolsRequest(
+                copySplitRequest({
+                    splits: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+                }),
+            ),
+        ).toThrow();
+    });
+
+    it('rejects a non-positive total risk', () => {
+        expect(() =>
+            parseToolsRequest(copySplitRequest({ totalRisk: 0 })),
+        ).toThrow();
+        expect(() =>
+            parseToolsRequest(copySplitRequest({ totalRisk: -5 })),
+        ).toThrow();
+    });
+});
+
+describe('toolsResultSchema CopySplit kind (PT-63, F-V24)', () => {
+    const result: CopySplitToolsResult = {
+        kind: ToolsResponseKind.CopySplit,
+        result: {
+            basisLines: ['funded risk $250 per account'],
+            indistinguishableSplits: [2],
+            note: null,
+            objective: SizingObjective.MonthlyNet,
+            requestedObjective: SizingObjective.MonthlyNet,
+            rows: [
+                {
+                    cycleNet: { standardError: 20, value: 150 },
+                    daysToPassP50: 8,
+                    kind: CopySplitRowKind.Simulated,
+                    netPerFeeDollar: 1.5,
+                    passRate: 0.4,
+                    placement: { contracts: 2, placedRiskPerAccount: 800 },
+                    riskPerAccount: 1000,
+                    splitCount: 2,
+                    totalFees: 100,
+                    totalMonthlyNet: { standardError: null, value: 300 },
+                    trials: 150,
+                },
+                {
+                    kind: CopySplitRowKind.Refused,
+                    reason: 'below one contract',
+                    riskPerAccount: 200,
+                    splitCount: 10,
+                },
+            ],
+            trialsPerSplit: 150,
+        },
+        runId: 11,
+    };
+
+    it('round trips a simulated and a refused row', () => {
+        expect(parseToolsResult(structuredClone(result))).toEqual(result);
+    });
+
+    it('rejects a result without its basis lines or its indistinguishable splits', () => {
+        const withoutBasis: Record<string, unknown> = { ...result.result };
+        delete withoutBasis.basisLines;
+        expect(() =>
+            parseToolsResult({ ...result, result: withoutBasis }),
+        ).toThrow();
+        const withoutNoise: Record<string, unknown> = { ...result.result };
+        delete withoutNoise.indistinguishableSplits;
+        expect(() =>
+            parseToolsResult({ ...result, result: withoutNoise }),
+        ).toThrow();
+    });
+
+    it('rejects a non-integer indistinguishable split', () => {
+        expect(() =>
+            parseToolsResult({
+                ...result,
+                result: { ...result.result, indistinguishableSplits: [1.5] },
+            }),
+        ).toThrow();
+    });
+
+    it('rejects a row with a pass rate outside [0, 1]', () => {
+        const [first, ...rest] = result.result.rows;
+        if (first?.kind !== CopySplitRowKind.Simulated) throw new Error('row');
+        expect(() =>
+            parseToolsResult({
+                ...result,
+                result: {
+                    ...result.result,
+                    rows: [{ ...first, passRate: 1.5 }, ...rest],
+                },
+            }),
+        ).toThrow();
+    });
+
+    it('rejects a row of an unknown kind', () => {
+        expect(() =>
+            parseToolsResult({
+                ...result,
+                result: {
+                    ...result.result,
+                    rows: [{ kind: 'mystery', splitCount: 1 }],
+                },
+            }),
+        ).toThrow();
     });
 });

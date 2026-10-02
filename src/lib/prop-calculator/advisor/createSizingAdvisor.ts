@@ -5,6 +5,7 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 
+import { type AccountSubstate } from './AccountSubstate';
 import { type PlanRulesFingerprintCheck } from './AdviceStaleness';
 import { type MeasuredRebuyLag } from './EnginePolicyBuilder';
 import { EvalSizingAdvisor } from './EvalSizingAdvisor';
@@ -41,6 +42,7 @@ export interface SizingAdvisorCreateOptions {
     readonly seed?: number;
     readonly sims?: number;
     readonly snapshotAsOf: string;
+    readonly substate: AccountSubstate.Suspended | null;
     readonly today: string;
     readonly trials?: number;
 }

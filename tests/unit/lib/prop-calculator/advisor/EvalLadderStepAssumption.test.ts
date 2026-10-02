@@ -15,6 +15,7 @@ import {
     DEFAULT_RULEBOOK,
     EvalSizingAdvisor,
     inputAssumption,
+    ladderStepWidenedAssumption,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
 
@@ -66,6 +67,7 @@ function advisorAt(
         maxEvalDays: 150,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
     });
 }
@@ -85,7 +87,7 @@ function widenedAssumptionsOf(advisor: EvalSizingAdvisor) {
 }
 
 describe('EvalSizingAdvisor lists a widened ladder step as an assumption (PT-24d, F-133)', () => {
-    it('lists it as a conservative input assumption at a $2,000 cushion, where the step is widened', () => {
+    it('lists it as a neutral input assumption at a $2,000 cushion, where the step is widened, because a coarser grid gives no safety guarantee', () => {
         const advisor = advisorAt(2000);
         const [request] = advisor.optimumRequests();
         if (request === undefined || !('grid' in request)) {
@@ -94,10 +96,17 @@ describe('EvalSizingAdvisor lists a widened ladder step as an assumption (PT-24d
 
         expect(request.grid.step).toBeGreaterThan(BASE_STEP);
         expect(widenedAssumptionsOf(advisor)).toStrictEqual([
-            inputAssumption(
-                AssumptionKind.LadderStepWidened,
-                AssumptionBias.Conservative,
+            ladderStepWidenedAssumption(
+                request.grid.step,
+                AssumptionBias.Neutral,
             ),
+        ]);
+        expect(widenedAssumptionsOf(advisor)).toStrictEqual([
+            {
+                bias: AssumptionBias.Neutral,
+                kind: AssumptionKind.LadderStepWidened,
+                step: 140,
+            },
         ]);
     });
 

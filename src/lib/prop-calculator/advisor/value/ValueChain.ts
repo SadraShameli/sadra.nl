@@ -1,10 +1,13 @@
 import { formatConjunctionList, formatCurrency } from '~/lib/format';
-import { RetainedCushionBasis } from '~/lib/prop-calculator/advisor/PayoutRequestDecision';
 import {
     firmMinimumNotice,
     fundedRetainedCushionResolution,
-} from '~/lib/prop-calculator/advisor/PayoutRequestRule';
+} from '~/lib/prop-calculator/advisor';
+import { RetainedCushionBasis } from '~/lib/prop-calculator/advisor/PayoutRequestDecision';
 import {
+    documentedFundedRisk,
+    documentedFundedTakeProfit,
+    documentedFundedTrades,
     type DocumentedPolicySpec,
     RebuyLagBasis,
     resolveDocumentedPayoutRequestSize,
@@ -585,17 +588,20 @@ function sizingComparisonOf(
     build: FirstPayoutEligibleBuild,
     spec: DocumentedPolicySpec,
 ): string {
-    const { funded, strategy } = spec.rulebook;
-    const takeProfitCents = funded.riskCents * strategy.rr;
+    const { enginePolicy, rulebook } = spec;
+    const tradesPerDay = documentedFundedTrades(rulebook, enginePolicy);
+    const takeProfitCents = Math.round(
+        documentedFundedTakeProfit(rulebook, enginePolicy) * CENTS_PER_DOLLAR,
+    );
     const sessionCents = Math.round(
         (build.totalProfit / build.sessions) * CENTS_PER_DOLLAR,
     );
     const totalCents = Math.round(build.totalProfit * CENTS_PER_DOLLAR);
     const winsPerSession = Math.ceil(sessionCents / takeProfitCents);
     const tradingDays = Math.ceil(
-        Math.ceil(totalCents / takeProfitCents) / funded.tradesPerDayMax,
+        Math.ceil(totalCents / takeProfitCents) / tradesPerDay,
     );
-    return `At your funded sizing each session's ${formatCurrency(sessionCents / CENTS_PER_DOLLAR, 2)} would need ${winsPerSession} take-profit ${winsPerSession === 1 ? 'win' : 'wins'} of ${formatCurrency(takeProfitCents / CENTS_PER_DOLLAR, 2)}, ${winsPerSession > funded.tradesPerDayMax ? 'above' : 'within'} your cap of ${funded.tradesPerDayMax} trades per day, and the whole profit needs at least ${tradingDays} trading ${tradingDays === 1 ? 'day' : 'days'} at that cap`;
+    return `At your funded sizing each session's ${formatCurrency(sessionCents / CENTS_PER_DOLLAR, 2)} would need ${winsPerSession} take-profit ${winsPerSession === 1 ? 'win' : 'wins'} of ${formatCurrency(takeProfitCents / CENTS_PER_DOLLAR, 2)}, ${winsPerSession > tradesPerDay ? 'above' : 'within'} your cap of ${tradesPerDay} trades per day, and the whole profit needs at least ${tradingDays} trading ${tradingDays === 1 ? 'day' : 'days'} at that cap`;
 }
 
 function valueBasisAssumptions(
@@ -603,15 +609,16 @@ function valueBasisAssumptions(
     spec: DocumentedPolicySpec,
 ): readonly string[] {
     const { enginePolicy, rulebook, run } = spec;
-    const { funded, strategy } = rulebook;
-    const risk = funded.riskCents / CENTS_PER_DOLLAR;
+    const { strategy } = rulebook;
+    const risk = documentedFundedRisk(rulebook, enginePolicy);
+    const takeProfit = documentedFundedTakeProfit(rulebook, enginePolicy);
     const rebuyLag =
         enginePolicy.rebuyLagBasis === RebuyLagBasis.Measured
             ? `measured at ${enginePolicy.rebuyLagDays} days`
             : 'assumed zero days';
     return [
         `Expected cash from each state over ${enginePolicy.fundedHorizonDays} funded days, ${run.trials} trials with seed ${run.seed}, shown with its standard error; the eval stage is capped at ${run.maxEvalDays} days`,
-        `Strategy from your rulebook: win rate ${Number((strategy.winrate * 100).toFixed(PERCENT_DIGITS))}%, R:R ${strategy.rr}, funded risk ${formatCurrency(risk, 2)} and take-profit ${formatCurrency(risk * strategy.rr, 2)} per trade, at most ${funded.tradesPerDayMax} trades per day`,
+        `Strategy from your rulebook: win rate ${Number((strategy.winrate * 100).toFixed(PERCENT_DIGITS))}%, R:R ${strategy.rr}, funded risk ${formatCurrency(risk, 2)} and take-profit ${formatCurrency(takeProfit, 2)} per trade, at most ${documentedFundedTrades(rulebook, enginePolicy)} trades per day`,
         payoutRequestAssumption(plan, spec),
         retainedCushionAssumption(plan, spec),
         `Rebuy lag between accounts ${rebuyLag}`,

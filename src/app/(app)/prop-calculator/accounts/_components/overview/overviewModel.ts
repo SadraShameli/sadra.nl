@@ -12,7 +12,6 @@ import {
 import {
     type AccountFromStateFigures,
     type DocumentedRunFigures,
-    overviewAccountRequestsFor,
     overviewPlanOptInsOf,
     overviewPlanValueRequestsFor,
     type OverviewProjectionPlanInput,
@@ -27,7 +26,14 @@ import {
     type PortfolioProjectionFigures,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { alertSubjectView } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
-import { accountStateUnavailableText } from '~/app/(app)/prop-calculator/accounts/_components/accountStateReasonText';
+import {
+    accountStateUnavailableText,
+    exposureUnavailableText,
+} from '~/app/(app)/prop-calculator/accounts/_components/accountStateReasonText';
+import {
+    accountFromStateRequestOf,
+    readinessOverridesOf,
+} from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import { firmsModelOf } from '~/app/(app)/prop-calculator/accounts/firms/firmsModel';
 import { errorMessage } from '~/lib/errorMessage';
 import {
@@ -40,7 +46,6 @@ import {
     type AccountAlert,
     AccountEventKind,
     type AccountExposure,
-    type AccountExposureUnavailableReason,
     AccountReadIssueKind,
     AccountStage,
     accountStageLabel,
@@ -49,14 +54,16 @@ import {
     AccountStateKind,
     type AccountStateSnapshotRow,
     accountStatesOf,
-    AccountStatus,
+    ADHERENCE_STEP_REASON,
     type AlertAccountRow,
     type AlertContext,
     type AlertCopyGroupRow,
+    type AlertDecisionRow,
     AlertDisclosure,
     AlertEvaluator,
     type AlertEventRow,
     type AlertInputs,
+    AlertKind,
     alertKindLabel,
     type AlertPayoutRow,
     type AlertSeverity,
@@ -71,13 +78,14 @@ import {
     type CopyGroupExposure,
     costAnalytics,
     createAlertContext,
-    DayLossBasis,
-    dayLossShareOfContext,
-    decisionAdherenceOf,
     type CushionBoardRow as CushionBoardEntry,
     cushionBoardOf,
     type CushionRatio,
     CushionRatioBasis,
+    dayLossBasisNotes,
+    dayLossBreakdownText,
+    dayLossShareOfContext,
+    decisionAdherenceOf,
     DEFAULT_ALERT_RULES,
     DEFAULT_PAYOUT_HISTOGRAM_BUCKET_CENTS,
     diversification,
@@ -85,21 +93,22 @@ import {
     ExposureBasis,
     type ExposureEntry,
     exposureOf,
-    ExposureUnavailableKind,
     type ExternalFirmName,
     FeeKind,
     feeReconciliation,
+    type FirmConcentration,
     type FirmDiscountCapture,
     type FirmKey,
     firmKeyId,
     FirmKeyKind,
     firmKeyLabel,
     firmKeyOf,
-    firmProfitConcentrationOfContext,
     type FirmProfitConcentration,
+    firmProfitConcentrationOfContext,
     type FirmReturn,
     firmReturns,
     type FirmShare,
+    type FirmVerificationDate,
     formatUsdCents,
     fundedPayoutDistribution,
     FundedRiskBasis,
@@ -135,7 +144,6 @@ import {
     paidPayoutCash,
     PAYOUT_COUNT_CAP,
     payoutMultiple,
-    type PayoutReadinessAccountOverride,
     type PayoutReadinessBoard,
     payoutReadinessBoardOf,
     PayoutReadinessNotApplicableKind,
@@ -175,7 +183,6 @@ import {
     type SampledEstimate,
     SampleKind,
     SampleLevel,
-    type SingleDayTriggerFact,
     type SetupChecklist,
     setupChecklistOf,
     type SetupMissingItem,
@@ -183,6 +190,7 @@ import {
     SetupStep,
     type SetupStepResult,
     SetupStepStatus,
+    type SingleDayTriggerFact,
     snapshotInputFrom,
     spendAndPayouts,
     stageFunnel,
@@ -193,17 +201,17 @@ import {
     type UsdCents,
     usdCents,
     usdCentsFromDollars,
-    usdCentsToDollars,
     type ViolationSource,
 } from '~/lib/prop-accounts';
 import {
     bankrollOf,
     type RealizedLossRisk,
     realizedLossRisk,
+    SCALE_GATE_STATUS_TEXT,
     scaleAtMeasuredMultiple,
     type ScaleAtMultiple,
     ScaleAtMultipleReason,
-    ScaleGateStatus,
+    type ScaleGateStatus,
 } from '~/lib/prop-accounts/bankroll';
 import {
     type NetCashBucket,
@@ -469,6 +477,25 @@ export interface FunnelCardModel {
     readonly weaknesses: readonly FunnelWeaknessRow[];
 }
 
+export interface HubPortfolio {
+    readonly alertCount: number;
+    readonly setup: null | SetupChecklistCardModel;
+}
+
+export interface HubPortfolioInputs {
+    readonly accounts: readonly OverviewAccountRow[];
+    readonly copyGroups: readonly AlertCopyGroupRow[];
+    readonly decisions: readonly OverviewDecisionRow[];
+    readonly events: readonly LedgerEventRow[] | undefined;
+    readonly fees: readonly LedgerFeeRow[];
+    readonly payouts: readonly OverviewPayoutRow[];
+    readonly rulebook: RulebookParameters;
+    readonly snapshots: readonly OverviewSnapshotRow[];
+    readonly today: string;
+    readonly transfers: readonly LedgerTransferRow[];
+    readonly userId: string;
+}
+
 export interface LiveProximityCardModel {
     readonly accounts: readonly LiveProximityAccountRow[];
     readonly disclosure: string;
@@ -538,12 +565,7 @@ export type OverviewConcentration =
           readonly model: ProfitConcentrationCardModel;
       };
 
-export interface OverviewDecisionRow {
-    readonly acceptedRiskCents: UsdCents;
-    readonly accountId: string;
-    readonly actualRiskCents: null | UsdCents;
-    readonly decidedOn: string;
-}
+export type OverviewDecisionRow = AlertDecisionRow;
 
 export type OverviewEngine = SlotEngine;
 
@@ -741,6 +763,7 @@ export interface PortfolioRows {
 }
 
 export interface ProfitConcentrationCardModel {
+    readonly caveats: readonly string[];
     readonly disclosures: readonly string[];
     readonly rows: readonly ProfitConcentrationRow[];
     readonly thresholdNote: string;
@@ -1478,8 +1501,6 @@ const EXPOSURE_DISCLOSURES: readonly string[] = [
     'Live accounts and accounts without a usable balance snapshot are not computed and are listed below with the reason.',
 ];
 
-const LIVE_EXPOSURE_NOT_MODELED = 'sizing is not modeled yet for live accounts';
-
 const CUSHION_BASIS_LABEL: Readonly<Record<CushionRatioBasis, string>> = {
     [CushionRatioBasis.Eval]: 'Eval',
     [CushionRatioBasis.Funded]: 'Funded',
@@ -1511,32 +1532,21 @@ const SETUP_STATUS_LABEL: Readonly<Record<SetupStepStatus, string>> = {
     [SetupStepStatus.NotChecked]: 'Not checked yet',
 };
 
-const SCALE_GATE_STATUS_TEXT: Readonly<Record<ScaleGateStatus, string>> = {
-    [ScaleGateStatus.NotEnoughSample]: 'Not enough sample',
-    [ScaleGateStatus.NotPositiveAfterCost]: 'Not positive after cost',
-    [ScaleGateStatus.Ready]: 'Ready to scale',
-    [ScaleGateStatus.ThresholdsNotSet]: 'Sample thresholds not set',
-};
-
 const EV_FUNDED_PROGRESS_LABEL = 'payout money at risk';
 
 const EV_SOURCES_DISCLOSURES: readonly string[] = [
-    'Conversion EV per attempt is the pass probability times the value of a fresh funded account, minus the attempt cost. The attempt cost is the engine\'s one definition: all fees per attempt, the activation fee on a pass included. It is per attempt, ignores time, and is not the ranking objective: expected monthly net per slot stays the first figure.',
-    'Value held in funded progress is each funded account\'s value from its own state minus the value of a fresh funded account, both credit-free (no end-of-horizon credit): the payout money at risk in that account compared with replacing it by a fresh funded one.',
+    "Conversion EV per attempt is the pass probability times the value of a fresh funded account, minus the attempt cost. The attempt cost is the engine's one definition: all fees per attempt, the activation fee on a pass included. It is per attempt, ignores time, and is not the ranking objective: expected monthly net per slot stays the first figure.",
+    "Value held in funded progress is each funded account's value from its own state minus the value of a fresh funded account, both credit-free (no end-of-horizon credit): the payout money at risk in that account compared with replacing it by a fresh funded one.",
     'The realized conversion EV comes from your own ledger and is shown beside the modeled one; the two are not merged.',
 ];
 
 const CONCENTRATION_DISCLOSURES: readonly string[] = [
-    'A funded account counts as in profit when its account profit is above zero; withdrawable is what the plan\'s payout rules would let you take now, never the horizon credit.',
     'A firm that publishes no threshold for moving accounts live can still do so at its discretion, so this card shows where your withdrawable profit sits. A firm with a verified published trigger is tracked on the live proximity card and by the live trigger alert.',
     'Only accounts at firms the engine models are counted.',
 ];
 
-const DAY_LOSS_HEURISTIC_NOTE =
-    'an eval loss is an approximation scaled to the retry fee, valid near a fresh eval; the fees already paid are never counted';
-
-const ADHERENCE_NO_STOP_NOTE =
-    'one rounding step, because a decision records no stop';
+const ADHERENCE_BASIS_NOTE =
+    'Measured against the accepted risk, not the documented rung: an accepted risk above the rung that was then traded counts as followed, and trading less than the accepted risk by more than the step counts as not followed.';
 
 const NO_ALERT_EXTRAS: AlertExtras = {};
 
@@ -1568,12 +1578,13 @@ interface AccountFromStateEntry {
     readonly request: OverviewRequest;
 }
 
-type AlertRows = Pick<PortfolioRows, (typeof ALERT_SOURCES)[number]>;
-
 interface AlertExtras {
     readonly availableBankrollCents?: null | UsdCents;
     readonly decisions?: readonly OverviewDecisionRow[];
+    readonly decisionsCaveat?: null | string;
 }
+
+type AlertRows = Pick<PortfolioRows, (typeof ALERT_SOURCES)[number]>;
 
 interface Counted {
     readonly count: number;
@@ -1671,6 +1682,21 @@ export function accountStatesFromLoad(
     );
 }
 
+export function alertExtrasOf(
+    load: PortfolioLoad,
+    today: string,
+    userId: string,
+): AlertExtras {
+    return {
+        availableBankrollCents: availableBankrollCentsFor(load, today, userId),
+        decisions:
+            load.decisions.status === OverviewSectionStatus.Ready
+                ? load.decisions.rows
+                : [],
+        decisionsCaveat: decisionsCaveatFor(load),
+    };
+}
+
 export function alertsFor(
     section: PortfolioLoad['alerts'],
     today: string,
@@ -1693,8 +1719,10 @@ export function alertsFor(
         }
         case OverviewSectionStatus.Ready: {
             return {
-                accountStatesCaveat:
+                accountStatesCaveat: combinedNote(
                     accountStatesCaveatFor(accountStatesSource),
+                    extras.decisionsCaveat ?? null,
+                ),
                 alerts: portfolioAlerts(
                     alertInputsOf(
                         section.rows,
@@ -1712,6 +1740,21 @@ export function alertsFor(
             };
         }
     }
+}
+
+export function availableBankrollCentsFor(
+    load: PortfolioLoad,
+    today: string,
+    userId: string,
+): null | UsdCents {
+    if (load.ledger.status !== OverviewSectionStatus.Ready) return null;
+    const { rows } = load.ledger;
+    const computed = ledgerOrDateFailure(() =>
+        availableCentsOf(PortfolioLedger.fromRows(userId, rows), today),
+    );
+    return computed.kind === OverviewSectionStatus.Ready
+        ? computed.value
+        : null;
 }
 
 export function buildOverview({
@@ -1792,6 +1835,30 @@ export function buildOverview({
     };
 }
 
+export function combinedNote(
+    ...notes: readonly (null | string)[]
+): null | string {
+    const present = notes.filter((note): note is string => note !== null);
+    return present.length === 0 ? null : present.join(' ');
+}
+
+export function decisionsCaveatFor(load: PortfolioLoad): null | string {
+    const threshold =
+        load.rulebook?.alerts.payoutReadyRiskAboveRungCents ?? null;
+    if (threshold === null) return null;
+    switch (load.decisions.status) {
+        case OverviewSectionStatus.Failed: {
+            return `The alert for risk above the documented rung on a payout-ready account could not be checked because your ${sourceList(load.decisions.failed)} could not be loaded.`;
+        }
+        case OverviewSectionStatus.Pending: {
+            return 'The alert for risk above the documented rung on a payout-ready account is not yet available because your sizing decisions are still loading.';
+        }
+        case OverviewSectionStatus.Ready: {
+            return null;
+        }
+    }
+}
+
 export function feeKindLabel(kind: FeeKind): string {
     return FEE_KIND_LABEL[kind];
 }
@@ -1807,6 +1874,83 @@ export function firmsTileModelOf(
         scaleGateStatus: scaleGate.status,
         sentLive: roster.totalSentLive,
         unmetConditions: scaleGate.unmetConditions.length,
+    };
+}
+
+export function hubPortfolioOf(inputs: HubPortfolioInputs): HubPortfolio {
+    const { events, today, userId } = inputs;
+    const accountStates =
+        events === undefined
+            ? NO_ACCOUNT_STATES
+            : accountStatesForRows(
+                  userId,
+                  today,
+                  inputs.accounts,
+                  events,
+                  inputs.payouts,
+                  inputs.snapshots,
+              );
+    const computed =
+        events === undefined
+            ? null
+            : ledgerOrDateFailure(() => {
+                  const ledger = PortfolioLedger.fromRows(userId, {
+                      accounts: inputs.accounts,
+                      events,
+                      fees: inputs.fees,
+                      payouts: inputs.payouts,
+                      transfers: inputs.transfers,
+                  });
+                  const { lossRiskThreshold } = inputs.rulebook.bankroll;
+                  return {
+                      available: availableCentsOf(ledger, today),
+                      ledger,
+                      realizedLossRisk:
+                          lossRiskThreshold === null
+                              ? null
+                              : realizedLossRiskOf(
+                                    ledger,
+                                    today,
+                                    lossRiskThreshold,
+                                ),
+                  };
+              });
+    const ledgerFigures =
+        computed?.kind === OverviewSectionStatus.Ready ? computed.value : null;
+    const alerts = portfolioAlerts(
+        alertInputsOf(
+            {
+                accounts: inputs.accounts,
+                copyGroups: inputs.copyGroups,
+                payouts: inputs.payouts,
+                rulebook: inputs.rulebook,
+                snapshots: inputs.snapshots,
+            },
+            today,
+            accountStates,
+            null,
+            ledgerFigures?.realizedLossRisk ?? null,
+            events,
+            {
+                availableBankrollCents: ledgerFigures?.available ?? null,
+                decisions: inputs.decisions,
+            },
+        ),
+    );
+    return {
+        alertCount: alerts.length,
+        setup:
+            ledgerFigures === null
+                ? null
+                : hubSetupCardOf(
+                      setupChecklistOf({
+                          expectedValuePlanSerials: null,
+                          ledger: ledgerFigures.ledger,
+                          rulebook: inputs.rulebook,
+                          staleSnapshotAccountIds:
+                              staleSnapshotAccountIdsOf(alerts),
+                      }),
+                  ),
     };
 }
 
@@ -2013,7 +2157,7 @@ function accountFromStateEntriesOf(
                 .map(accountStateSnapshotRowOf),
         );
         const { plan } = state;
-        const { input } = snapshotInputFrom(
+        const { input, personalMaxRiskPerTrade } = snapshotInputFrom(
             plan,
             tracked,
             latest,
@@ -2028,20 +2172,16 @@ function accountFromStateEntriesOf(
             state.latest.asOf,
         );
         const planSerial = serializePlanId(plan.id);
-        const [request] = overviewAccountRequestsFor(
-            [
-                {
-                    account: input,
-                    firmId: plan.id.firm,
-                    measuredRebuyLag: measuredRebuyLagOfDefault(
-                        rebuyLagDefault(stats, planSerial),
-                    ),
-                    optIns: overviewPlanOptInsOf(plan),
-                    planSerial,
-                },
-            ],
+        const request = accountFromStateRequestOf({
+            account: input,
+            measuredRebuyLag: measuredRebuyLagOfDefault(
+                rebuyLagDefault(stats, planSerial),
+            ),
+            personalMaxRiskPerTrade,
+            personalRules: row.personalRules,
+            plan,
             rulebook,
-        );
+        });
         if (request === undefined) continue;
         entries.push({
             accountId,
@@ -2137,20 +2277,6 @@ function activeSlotsOf(usage: PlanCapUsage): ReadonlyMap<string, number> {
     return new Map(
         usage.plans.map((row) => [row.planSerial, row.used - row.suspended]),
     );
-}
-
-function alertExtrasOf(
-    load: PortfolioLoad,
-    today: string,
-    userId: string,
-): AlertExtras {
-    return {
-        availableBankrollCents: availableBankrollCentsFor(load, today, userId),
-        decisions:
-            load.decisions.status === OverviewSectionStatus.Ready
-                ? load.decisions.rows
-                : [],
-    };
 }
 
 function alertInputsOf(
@@ -2322,21 +2448,8 @@ function attemptThroughputMonthRows(
     }));
 }
 
-function availableBankrollCentsFor(
-    load: PortfolioLoad,
-    today: string,
-    userId: string,
-): null | UsdCents {
-    if (load.ledger.status !== OverviewSectionStatus.Ready) return null;
-    try {
-        return roundCents(
-            bankrollOf(PortfolioLedger.fromRows(userId, load.ledger.rows), today)
-                .availableCents,
-        );
-    } catch (error) {
-        if (error instanceof IsoDateError) return null;
-        throw error;
-    }
+function availableCentsOf(ledger: PortfolioLedger, today: string): UsdCents {
+    return roundCents(bankrollOf(ledger, today).availableCents);
 }
 
 function averagePayoutOf(figures: DocumentedRunFigures): null | number {
@@ -2542,9 +2655,14 @@ function capUsageCard(
     };
 }
 
-function combinedNote(...notes: readonly (null | string)[]): null | string {
-    const present = notes.filter((note): note is string => note !== null);
-    return present.length === 0 ? null : present.join(' ');
+function concentrationBasisDisclosure(
+    retainedCushionDollars: null | number,
+): string {
+    const cushion =
+        retainedCushionDollars === null
+            ? ''
+            : ` of ${formatCurrency(retainedCushionDollars)}, the larger of Hard Rule 2's minimum and the rulebook's retained cushion size,`;
+    return `A funded account counts as in profit when its account profit is above zero. Withdrawable is the room above the retained cushion${cushion} within the plan's payout request caps and after the floor a payout would set, never the horizon credit. It ignores payout eligibility (qualifying days, the minimum profit, the payout day gate, pending payouts and personal cushion or request entries) and uses each account's latest snapshot as is.`;
 }
 
 function concentrationCard(
@@ -2553,7 +2671,13 @@ function concentrationCard(
     firms: FirmNames,
 ): ProfitConcentrationCardModel {
     return {
-        disclosures: CONCENTRATION_DISCLOSURES,
+        caveats: concentration.firms.flatMap((firm) =>
+            concentrationCaveatOf(firm, firms),
+        ),
+        disclosures: [
+            concentrationBasisDisclosure(concentration.retainedCushionDollars),
+            ...CONCENTRATION_DISCLOSURES,
+        ],
         rows: concentration.firms.map((firm) => {
             const firmKey: FirmKey = {
                 firmId: firm.firmId,
@@ -2575,6 +2699,25 @@ function concentrationCard(
         }),
         thresholdNote: concentrationThresholdNote(rulebook),
     };
+}
+
+function concentrationCaveatOf(
+    firm: FirmConcentration,
+    firms: FirmNames,
+): readonly string[] {
+    const parts = [
+        firm.staleAccounts === 0
+            ? null
+            : `${counted({ count: firm.staleAccounts, plural: 'funded accounts have', singular: 'funded account has' })} a stale snapshot`,
+        firm.unreadableAccounts === 0
+            ? null
+            : `${counted({ count: firm.unreadableAccounts, plural: 'active accounts', singular: 'active account' })} could not be read from a snapshot`,
+    ].filter((part): part is string => part !== null);
+    return parts.length === 0
+        ? []
+        : [
+              `${firms.of({ firmId: firm.firmId, kind: FirmKeyKind.Modeled })}: ${joinWithAnd(parts)}, so its withdrawable may be out of date.`,
+          ];
 }
 
 function concentrationFor(
@@ -2608,8 +2751,10 @@ function concentrationFor(
 }
 
 function concentrationThresholdNote(rulebook: RulebookParameters): string {
-    const { firmProfitConcentrationCount: count, firmProfitConcentrationShare: share } =
-        rulebook.alerts;
+    const {
+        firmProfitConcentrationCount: count,
+        firmProfitConcentrationShare: share,
+    } = rulebook.alerts;
     const limits = [
         count === null
             ? null
@@ -2839,6 +2984,10 @@ function cushionBoardRow(
                 ? NOT_APPLICABLE
                 : `${ratio.ratio.toFixed(1)} x ${formatCurrency(ratio.basisAmount)} ${cushionBasisText(ratio)}`,
     };
+}
+
+function dayLossNoteSentence(note: string): string {
+    return asSentence(`${note.charAt(0).toUpperCase()}${note.slice(1)}`);
 }
 
 function decisionsLoad(
@@ -3341,19 +3490,10 @@ function expectedValuePlanSerialsOf(
     const answered = new Set<string>();
     for (const group of heldPlanGroupsOf(ledger)) {
         const slot = view.plans.get(group.planSerial)?.documented;
-        switch (slot?.kind) {
-            case EngineSlotKind.Ready: {
-                answered.add(group.planSerial);
-                break;
-            }
-            case EngineSlotKind.Refused: {
-                break;
-            }
-            case EngineSlotKind.Failed:
-            case EngineSlotKind.Pending:
-            case undefined: {
-                return null;
-            }
+        if (slot?.kind === EngineSlotKind.Ready) {
+            answered.add(group.planSerial);
+        } else if (slot?.kind !== EngineSlotKind.Refused) {
+            return null;
         }
     }
     return answered;
@@ -3456,20 +3596,6 @@ function exposureGroupRow(
     };
 }
 
-function exposureUnavailableText(
-    account: OverviewAccountRow | undefined,
-    reason: AccountExposureUnavailableReason,
-): string {
-    switch (reason.kind) {
-        case ExposureUnavailableKind.LiveNotModeled: {
-            return LIVE_EXPOSURE_NOT_MODELED;
-        }
-        case ExposureUnavailableKind.Reconstruction: {
-            return accountStateUnavailableText(account, reason.reason);
-        }
-    }
-}
-
 function firmActiveMonthWindow(
     months: AttemptThroughput['perFirm'][number]['months'],
 ): AttemptThroughput['perFirm'][number]['months'] {
@@ -3495,6 +3621,14 @@ function firmAttemptThroughputRow(
         meanPerMonth: monthlyMean.toFixed(2),
         months: attemptThroughputMonthRows(row.months),
     };
+}
+
+function firmDateText(entry: FirmVerificationDate): string {
+    const label = firmKeyLabel(
+        { firmId: entry.firmId, kind: FirmKeyKind.Modeled },
+        [],
+    );
+    return `${label} ${entry.verifiedOn}`;
 }
 
 function firmDiscountRow(
@@ -3625,7 +3759,8 @@ function followedRecommendationsKpi(load: PortfolioLoad): OverviewKpi {
                     : `; ${String(adherence.notRecorded)} without an actual risk entered, not counted`;
             return {
                 ...base,
-                detail: `n = ${String(adherence.measured)}; the actual risk within ${formatUsdCents(usdCents(stepCents))} of the accepted risk (${ADHERENCE_NO_STOP_NOTE})${unrecorded}`,
+                detail: `n = ${String(adherence.measured)}; the actual risk within ${formatUsdCents(usdCents(stepCents))} of the accepted risk (${ADHERENCE_STEP_REASON})${unrecorded}`,
+                note: ADHERENCE_BASIS_NOTE,
                 tone: KpiTone.Neutral,
                 value: formatPercent(adherence.rate),
             };
@@ -3974,7 +4109,9 @@ function heldInFundedProgressText(
         fromState.kind === EngineSlotKind.Ready
     ) {
         const progress = fundedProgressValue({
-            freshFundedValue: dollars(values.figures.freshFundedValue.creditFree.value),
+            freshFundedValue: dollars(
+                values.figures.freshFundedValue.creditFree.value,
+            ),
             valueNow: dollars(fromState.figures.valueNow.creditFree.value),
         });
         return progress.value === null
@@ -4014,6 +4151,22 @@ function householdNoteOf(
         ),
     );
     return `${labels} ${firmIds.length === 1 ? 'counts' : 'count'} a household's accounts together; accounts held by others in your household are not in these figures.`;
+}
+
+function hubSetupCardOf(checklist: SetupChecklist): SetupChecklistCardModel {
+    const card = setupChecklistCardOf(checklist);
+    const unchecked = card.steps.filter(
+        (step) => step.status === SetupStepStatus.NotChecked,
+    ).length;
+    return {
+        ...card,
+        isComplete: card.steps.every(
+            (step) =>
+                step.status === SetupStepStatus.Done ||
+                step.status === SetupStepStatus.NotChecked,
+        ),
+        totalSteps: card.totalSteps - unchecked,
+    };
 }
 
 function isAccountTriggerUnverified(group: PlanGroup): boolean {
@@ -5281,31 +5434,6 @@ function readinessBoardCard(
     };
 }
 
-function readinessOverridesOf(
-    accounts: readonly OverviewAccountRow[],
-): ReadonlyMap<string, PayoutReadinessAccountOverride> {
-    return new Map(
-        accounts.map((account) => {
-            const rules = account.personalRules;
-            return [
-                account.id,
-                {
-                    personalRequestOverride:
-                        rules?.payoutRequestOverrideCents === undefined
-                            ? null
-                            : usdCentsToDollars(
-                                  rules.payoutRequestOverrideCents,
-                              ),
-                    personalRetainedCushion:
-                        rules?.retainedCushionCents === undefined
-                            ? null
-                            : usdCentsToDollars(rules.retainedCushionCents),
-                },
-            ];
-        }),
-    );
-}
-
 function readinessRow(
     row: PayoutReadinessBoard['rows'][number],
     account: string,
@@ -5456,23 +5584,34 @@ function realizedLossRiskFor(
 ): null | RealizedLossRisk {
     if (load.ledger.status !== OverviewSectionStatus.Ready) return null;
     try {
-        const ledger = PortfolioLedger.fromRows(userId, load.ledger.rows);
-        const attemptCostCents = pooledAttemptCostCentsOf(ledger);
-        if (attemptCostCents === null || attemptCostCents <= 0) return null;
-        return realizedLossRisk({
-            asOfDate: today,
-            attemptCostCents,
-            availableCents: bankrollOf(ledger, today).availableCents,
-            draws: REALIZED_LOSS_RISK_DRAWS,
-            ledger,
-            lossRiskThreshold: load.bankrollParameters.lossRiskThreshold,
-            seed: REALIZED_LOSS_RISK_SEED,
-            toFirstPayoutFallbackDays: TO_FIRST_PAYOUT_FALLBACK_DAYS,
-        });
+        return realizedLossRiskOf(
+            PortfolioLedger.fromRows(userId, load.ledger.rows),
+            today,
+            load.bankrollParameters.lossRiskThreshold,
+        );
     } catch (error) {
         if (error instanceof IsoDateError) return null;
         throw error;
     }
+}
+
+function realizedLossRiskOf(
+    ledger: PortfolioLedger,
+    today: string,
+    lossRiskThreshold: null | number,
+): null | RealizedLossRisk {
+    const attemptCostCents = pooledAttemptCostCentsOf(ledger);
+    if (attemptCostCents === null || attemptCostCents <= 0) return null;
+    return realizedLossRisk({
+        asOfDate: today,
+        attemptCostCents,
+        availableCents: bankrollOf(ledger, today).availableCents,
+        draws: REALIZED_LOSS_RISK_DRAWS,
+        ledger,
+        lossRiskThreshold,
+        seed: REALIZED_LOSS_RISK_SEED,
+        toFirstPayoutFallbackDays: TO_FIRST_PAYOUT_FALLBACK_DAYS,
+    });
 }
 
 function refusalOf<Figures>(
@@ -5556,6 +5695,7 @@ function setupFor(
             engineRequestsOfLedger(ledger, load.rulebook),
             load.rulebook !== null,
         );
+        const staleAlerts = new StaleSnapshotRule().evaluate(context);
         return setupChecklistCardOf(
             setupChecklistOf({
                 expectedValuePlanSerials: expectedValuePlanSerialsOf(
@@ -5564,7 +5704,7 @@ function setupFor(
                 ),
                 ledger,
                 rulebook: ready.alerts.rulebook,
-                staleSnapshotAccountIds: staleSnapshotAccountIdsOf(context),
+                staleSnapshotAccountIds: staleSnapshotAccountIdsOf(staleAlerts),
             }),
         );
     });
@@ -5612,62 +5752,52 @@ function setupItemRows(item: SetupMissingItem): readonly SetupItemRow[] {
 }
 
 function setupStepDetail(result: SetupStepResult): null | string {
+    const { status } = result;
     switch (result.step) {
         case SetupStep.BudgetSet: {
-            return result.status === SetupStepStatus.Missing
+            return status === SetupStepStatus.Missing
                 ? 'Add a bankroll deposit, or set a bankroll limit in the rulebook, so the budget figures have a base.'
                 : null;
         }
         case SetupStep.CostsEntered: {
-            return result.status === SetupStepStatus.Missing
+            return status === SetupStepStatus.Missing
                 ? 'These active accounts have no purchase fee recorded: an evaluation purchase, or the activation fee for an instant-funded plan.'
                 : null;
         }
         case SetupStep.ExpectedValueComputed: {
-            switch (result.status) {
-                case SetupStepStatus.Missing: {
-                    return 'The engine has no expected net for these plans.';
-                }
-                case SetupStepStatus.NotChecked: {
-                    return 'Computed on the overview once the engine has answered.';
-                }
-                case SetupStepStatus.Done:
-                case SetupStepStatus.NotApplicable: {
-                    return null;
-                }
+            if (status === SetupStepStatus.Missing) {
+                return 'The engine has no expected net for these plans.';
             }
-            break;
+            return status === SetupStepStatus.NotChecked
+                ? 'Computed on the overview once the engine has answered.'
+                : null;
         }
         case SetupStep.FirmRulesVerified: {
-            if (result.status === SetupStepStatus.Done) {
-                return `Verified on: ${result.firmDates
-                    .map(
-                        (entry) =>
-                            `${firmKeyLabel({ firmId: entry.firmId, kind: FirmKeyKind.Modeled }, [])} ${entry.verifiedOn}`,
-                    )
-                    .join(', ')}`;
+            if (status === SetupStepStatus.Done) {
+                return `Verified on: ${result.firmDates.map(firmDateText).join(', ')}`;
             }
-            return result.status === SetupStepStatus.Missing
+            return status === SetupStepStatus.Missing
                 ? 'These firms have no verification date for their rules.'
                 : null;
         }
         case SetupStep.StagesCaptured: {
-            return result.status === SetupStepStatus.Missing
+            return status === SetupStepStatus.Missing
                 ? 'These active accounts have no snapshot the stale-snapshot check accepts; enter their current balance.'
                 : null;
         }
     }
 }
 
-function staleSnapshotAccountIdsOf(context: AlertContext): ReadonlySet<string> {
+function staleSnapshotAccountIdsOf(
+    alerts: readonly AccountAlert[],
+): ReadonlySet<string> {
     return new Set(
-        new StaleSnapshotRule()
-            .evaluate(context)
-            .flatMap((alert) =>
-                alert.subject.kind === AlertSubjectKind.Account
-                    ? [alert.subject.accountId]
-                    : [],
-            ),
+        alerts.flatMap((alert) =>
+            alert.kind === AlertKind.StaleSnapshot &&
+            alert.subject.kind === AlertSubjectKind.Account
+                ? [alert.subject.accountId]
+                : [],
+        ),
     );
 }
 
@@ -5720,6 +5850,24 @@ function unmodeledFundedNote({
         : `${counted({ count, plural, singular })} have ${reasons}, so their distance to going live is not measured.`;
 }
 
+function valueRequestsOfLedger(
+    ledger: PortfolioLedger,
+    rulebook: null | RulebookParameters,
+): readonly OverviewRequest[] {
+    return rulebook === null
+        ? []
+        : overviewPlanValueRequestsFor(heldPlanInputsOf(ledger), rulebook);
+}
+
+function violationsLoad(
+    queries: PortfolioQueries,
+): SectionLoad<readonly OverviewViolationRow[]> {
+    const violations = queries[PortfolioSource.Violations].data;
+    return violations === undefined
+        ? loadGap(queries, [PortfolioSource.Violations])
+        : { rows: violations, status: OverviewSectionStatus.Ready };
+}
+
 function worstDayKpi(
     load: PortfolioLoad,
     context: AlertContext | null,
@@ -5749,20 +5897,18 @@ function worstDayKpi(
     const unmeasured =
         dayLoss.unmeasured.length === 0
             ? null
-            : `${counted({ count: dayLoss.unmeasured.length, plural: 'accounts', singular: 'account' })} not compared (no previous snapshot, a funded reset, a stage change or not modeled)`;
+            : `${counted({ count: dayLoss.unmeasured.length, plural: 'accounts', singular: 'account' })} not compared (no previous snapshot, more than one trading day apart, a funded reset, a stage change or not modeled)`;
     const { worstDay } = dayLoss;
     if (worstDay !== null) {
-        const heuristic = worstDay.entries.some(
-            (entry) => entry.basis === DayLossBasis.EvalFeeHeuristic,
-        );
+        const breakdown = dayLossBreakdownText(worstDay);
         return {
             ...base,
             detail:
                 worstDay.share === null
-                    ? `On ${worstDay.date}; no available bankroll to compare it with`
-                    : `On ${worstDay.date}: ${formatPercent(worstDay.share)} of your available bankroll`,
+                    ? `On ${worstDay.date}, ${breakdown}; no available bankroll to compare it with`
+                    : `On ${worstDay.date}, ${breakdown}: ${formatPercent(worstDay.share)} of your available bankroll`,
             note: combinedNote(
-                heuristic ? DAY_LOSS_HEURISTIC_NOTE : null,
+                ...dayLossBasisNotes(worstDay).map(dayLossNoteSentence),
                 unmeasured,
             ),
             tone: KpiTone.Negative,
@@ -5784,24 +5930,6 @@ function worstDayKpi(
               tone: KpiTone.Neutral,
               value: NOT_APPLICABLE,
           };
-}
-
-function valueRequestsOfLedger(
-    ledger: PortfolioLedger,
-    rulebook: null | RulebookParameters,
-): readonly OverviewRequest[] {
-    return rulebook === null
-        ? []
-        : overviewPlanValueRequestsFor(heldPlanInputsOf(ledger), rulebook);
-}
-
-function violationsLoad(
-    queries: PortfolioQueries,
-): SectionLoad<readonly OverviewViolationRow[]> {
-    const violations = queries[PortfolioSource.Violations].data;
-    return violations === undefined
-        ? loadGap(queries, [PortfolioSource.Violations])
-        : { rows: violations, status: OverviewSectionStatus.Ready };
 }
 
 const PER_SLOT_TARGET_NOTE =

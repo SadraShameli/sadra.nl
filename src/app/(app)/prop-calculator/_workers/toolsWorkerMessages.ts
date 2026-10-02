@@ -12,7 +12,14 @@ import {
     documentedPolicySpecSchema,
     type EnginePolicy,
     enginePolicySchema,
+    SizingObjective,
 } from '~/lib/prop-calculator/advisor';
+import {
+    type CopySplitRefusedRow,
+    type CopySplitResult,
+    CopySplitRowKind,
+    type CopySplitSimulatedRow,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     FUNDED_VALUE_SAMPLE_RANGE_LABEL,
     type FundedValueEstimateResult,
@@ -40,6 +47,7 @@ import { dayStopRuleSchema } from '~/lib/schemas/url';
 
 export enum ToolsRequestKind {
     Batch = 'batch',
+    CopySplit = 'copy-split',
     FundedValueEstimate = 'funded-value-estimate',
     Levers = 'levers',
     NextRound = 'next-round',
@@ -52,6 +60,7 @@ export enum ToolsRequestKind {
 
 export enum ToolsResponseKind {
     Batch = 'batch',
+    CopySplit = 'copy-split',
     Failed = 'failed',
     FundedValueEstimate = 'funded-value-estimate',
     Levers = 'levers',
@@ -129,6 +138,21 @@ export interface BatchToolsSummary {
     readonly lossProbabilityReason: EconomicsReason | null;
     readonly lossProbabilityStandardError: null | number;
     readonly meanNet: null | number;
+}
+
+export interface CopySplitToolsRequest {
+    readonly kind: ToolsRequestKind.CopySplit;
+    readonly objective: SizingObjective;
+    readonly runId: number;
+    readonly splits: readonly number[];
+    readonly totalRisk: number;
+    readonly variant: BankrollPlanVariantInputs;
+}
+
+export interface CopySplitToolsResult {
+    readonly kind: ToolsResponseKind.CopySplit;
+    readonly result: CopySplitResult;
+    readonly runId: number;
 }
 
 export interface FundedValueEstimateToolsRequest {
@@ -247,6 +271,7 @@ export interface ToolsWorkerFailure {
 
 export type ToolsWorkerRequest =
     | BatchToolsRequest
+    | CopySplitToolsRequest
     | FundedValueEstimateToolsRequest
     | LeversToolsRequest
     | NextRoundToolsRequest
@@ -258,6 +283,7 @@ export type ToolsWorkerRequest =
 
 export type ToolsWorkerResult =
     | BatchToolsResult
+    | CopySplitToolsResult
     | FundedValueEstimateToolsResult
     | LeversToolsResult
     | NextRoundToolsResult
@@ -389,6 +415,55 @@ const valueChainResultSchema = z.object({
     steps: z.array(valueChainStepSchema),
 }) satisfies z.ZodType<ValueChainResult>;
 
+const copySplitSimulatedRowSchema = z.object({
+    cycleNet: uncertainValueSchema,
+    daysToPassP50: finiteNumberSchema.nonnegative(),
+    kind: z.literal(CopySplitRowKind.Simulated),
+    netPerFeeDollar: nullableFiniteNumberSchema,
+    passRate: fractionSchema,
+    placement: z
+        .object({
+            contracts: z.number().int().nonnegative(),
+            placedRiskPerAccount: finiteNumberSchema.nonnegative(),
+        })
+        .nullable(),
+    riskPerAccount: positiveNumberSchema,
+    splitCount: positiveIntSchema,
+    totalFees: finiteNumberSchema,
+    totalMonthlyNet: uncertainValueSchema,
+    trials: positiveIntSchema,
+}) satisfies z.ZodType<CopySplitSimulatedRow>;
+
+const copySplitRefusedRowSchema = z.object({
+    kind: z.literal(CopySplitRowKind.Refused),
+    reason: z.string(),
+    riskPerAccount: positiveNumberSchema,
+    splitCount: positiveIntSchema,
+}) satisfies z.ZodType<CopySplitRefusedRow>;
+
+const copySplitRowSchema = z.discriminatedUnion('kind', [
+    copySplitSimulatedRowSchema,
+    copySplitRefusedRowSchema,
+]);
+
+const copySplitResultSchema = z.object({
+    basisLines: z.array(z.string()),
+    indistinguishableSplits: z.array(positiveIntSchema),
+    note: z.string().nullable(),
+    objective: z.enum(SizingObjective),
+    requestedObjective: z.enum(SizingObjective),
+    rows: z.array(copySplitRowSchema),
+    trialsPerSplit: positiveIntSchema,
+}) satisfies z.ZodType<CopySplitResult>;
+
+const MAX_COPY_SPLIT_ACCOUNTS = 20;
+const MAX_COPY_SPLITS = 12;
+
+const copySplitCountsSchema = z
+    .array(z.number().int().min(1).max(MAX_COPY_SPLIT_ACCOUNTS))
+    .min(1)
+    .max(MAX_COPY_SPLITS);
+
 const fundedValueSampleRangeSchema = z.object({
     label: z.literal(FUNDED_VALUE_SAMPLE_RANGE_LABEL),
     lower: finiteNumberSchema,
@@ -410,6 +485,14 @@ export const toolsRequestSchema = z.discriminatedUnion('kind', [
         attempts: z.number().int().positive(),
         kind: z.literal(ToolsRequestKind.Batch),
         runId: z.number().int(),
+        variant: bankrollPlanVariantInputsSchema,
+    }),
+    z.object({
+        kind: z.literal(ToolsRequestKind.CopySplit),
+        objective: z.enum(SizingObjective),
+        runId: z.number().int(),
+        splits: copySplitCountsSchema,
+        totalRisk: positiveNumberSchema,
         variant: bankrollPlanVariantInputsSchema,
     }),
     z.object({
@@ -540,6 +623,11 @@ export const toolsResultSchema = z.discriminatedUnion('kind', [
             lossProbabilityStandardError: nullableFiniteNumberSchema,
             meanNet: nullableFiniteNumberSchema,
         }),
+        runId: z.number().int(),
+    }),
+    z.object({
+        kind: z.literal(ToolsResponseKind.CopySplit),
+        result: copySplitResultSchema,
         runId: z.number().int(),
     }),
     z.object({

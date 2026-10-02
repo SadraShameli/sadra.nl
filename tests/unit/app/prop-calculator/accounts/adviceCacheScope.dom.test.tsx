@@ -334,7 +334,7 @@ describe('the advice cache scope (PT-34c review)', () => {
         leavePage();
     });
 
-    it('reuses the same worker run and shows fresh advice after the trades per day cap changes', () => {
+    it('runs the worker again and shows fresh advice after the trades per day cap changes, because the ladder grid slots follow the cap (PT-68f)', () => {
         answerAll({ maxTradesPerDay: 3 });
         mountPage();
         expect(container.textContent).toContain('$300.00$600.00$500.00');
@@ -346,13 +346,13 @@ describe('the advice cache scope (PT-34c review)', () => {
         answerAll({ maxTradesPerDay: 1 });
         mountPage();
 
-        expect(engineWorkers()).toHaveLength(1);
+        expect(engineWorkers()).toHaveLength(2);
         expect(container.textContent).toContain('$200.00$400.00$200.00');
         expect(container.textContent).not.toContain('$300.00$600.00$500.00');
         leavePage();
     });
 
-    it('reuses the same worker run and shows the new first rung and personal cap after the personal daily loss limit changes', () => {
+    it('runs a new worker run, because the ladder search runs under the limit, and shows the new first rung and personal cap after the personal daily loss limit changes', () => {
         answerAll({});
         mountPage();
         expect(container.textContent).toContain('first rung $200.00');
@@ -364,7 +364,7 @@ describe('the advice cache scope (PT-34c review)', () => {
         answerAll({ dailyLossLimitCents: 30_000 });
         mountPage();
 
-        expect(engineWorkers()).toHaveLength(1);
+        expect(engineWorkers()).toHaveLength(2);
         expect(container.textContent).toContain('first rung $50.00');
         expect(container.textContent).toContain(
             '1$50.00$100.00$50.00Capped by a personal risk limit.',
@@ -375,7 +375,7 @@ describe('the advice cache scope (PT-34c review)', () => {
         leavePage();
     });
 
-    it('reuses the same worker run and shows the capped daily plan after the personal daily profit cap changes', () => {
+    it('runs a new worker run, because the ladder search runs under the cap, and shows the capped daily plan after the personal daily profit cap changes', () => {
         answerAll({});
         mountPage();
         expect(container.textContent).toContain('1$200.00$400.00$200.00');
@@ -384,11 +384,11 @@ describe('the advice cache scope (PT-34c review)', () => {
         answerAll({ dailyProfitCapCents: 20_000 });
         mountPage();
 
-        expect(engineWorkers()).toHaveLength(1);
+        expect(engineWorkers()).toHaveLength(2);
         expect(container.textContent).toContain(
             '1$100.00$200.00$100.00Capped by the daily loss limit., Capped by a personal risk limit.',
         );
-        expect(container.textContent).toContain('3$225.00$450.00$475.00');
+        expect(container.textContent).toContain('3$200.00$400.00$450.00');
         leavePage();
     });
 

@@ -1,11 +1,17 @@
 import {
     compareText,
+    formatUsdCents,
     sumUsdCents,
     type UsdCents,
     usdCents,
     usdCentsFromDollars,
 } from '~/lib/prop-accounts/core';
-import { dollars, TradingPhase } from '~/lib/prop-calculator';
+import {
+    dayNumberOf,
+    dollars,
+    TradingPhase,
+    weekdaysInRange,
+} from '~/lib/prop-calculator';
 import {
     ReconstructedLiveKind,
     type RulebookParameters,
@@ -14,6 +20,7 @@ import { feeEquivalentTradeRisk } from '~/lib/prop-calculator/economics';
 
 import { AccountStateKind, type AccountStateResult } from './AccountStates';
 import { fundedWithdrawableDollarsOf } from './FirmProfitConcentration';
+import { fundedWithdrawableLossCents } from './FundedWithdrawableLoss';
 import {
     PerformanceComparabilityKind,
     type PerformanceEventRow,
@@ -33,9 +40,18 @@ export enum DayLossUnmeasuredReason {
     LiveNotModeled = 'live-not-modeled',
     NoPreviousSnapshot = 'no-previous-snapshot',
     NoReconstruction = 'no-reconstruction',
+    SpansSeveralDays = 'spans-several-days',
     StageChange = 'stage-change',
     Unpriceable = 'unpriceable',
 }
+
+export const DAY_LOSS_MAX_WEEKDAYS_APART = 1;
+
+export const DAY_LOSS_EVAL_NOTE =
+    'an eval loss is an approximation scaled to the retry fee, valid near a fresh eval; the fees already paid are never counted';
+
+export const DAY_LOSS_FUNDED_NOTE =
+    'a funded loss is the withdrawable above the retained cushion that was lost, so a loss that stays below the cushion shows as zero';
 
 export interface DayLoss {
     readonly date: string;
@@ -99,6 +115,37 @@ const INCOMPARABLE_REASON: Readonly<
         DayLossUnmeasuredReason.StageChange,
 };
 
+export function dayLossBasisNotes(day: DayLoss): readonly string[] {
+    const bases = new Set(day.entries.map((entry) => entry.basis));
+    return [
+        ...(bases.has(DayLossBasis.FundedWithdrawable)
+            ? [DAY_LOSS_FUNDED_NOTE]
+            : []),
+        ...(bases.has(DayLossBasis.EvalFeeHeuristic) ? [DAY_LOSS_EVAL_NOTE] : []),
+    ];
+}
+
+export function dayLossBreakdownText(day: DayLoss): string {
+    const funded = sumUsdCents(
+        day.entries
+            .filter((entry) => entry.basis === DayLossBasis.FundedWithdrawable)
+            .map((entry) => entry.lossCents),
+    );
+    const evaluation = sumUsdCents(
+        day.entries
+            .filter((entry) => entry.basis !== DayLossBasis.FundedWithdrawable)
+            .map((entry) => entry.lossCents),
+    );
+    return [
+        ...(funded > 0
+            ? [`${formatUsdCents(funded)} of withdrawable on funded accounts`]
+            : []),
+        ...(evaluation > 0
+            ? [`${formatUsdCents(evaluation)} of estimated eval value`]
+            : []),
+    ].join(' and ');
+}
+
 export function dayLossShareOf(inputs: DayLossShareInputs): DayLossShare {
     const { availableBankrollCents } = inputs;
     const hasBankroll =
@@ -134,8 +181,9 @@ export function dayLossShareOf(inputs: DayLossShareInputs): DayLossShare {
     return {
         availableBankrollCents,
         days,
-        measuredAccounts: losses.filter(({ loss }) => loss.kind !== 'unmeasured')
-            .length,
+        measuredAccounts: losses.filter(
+            ({ loss }) => loss.kind !== 'unmeasured',
+        ).length,
         unmeasured,
         worstDay: worstOf(days),
     };
@@ -174,23 +222,33 @@ function accountLossOf(
             reason: DayLossUnmeasuredReason.LiveNotModeled,
         };
     }
+    if (previous !== null && isSpanningSeveralDays(previous.asOf, latest.asOf)) {
+        return {
+            kind: 'unmeasured',
+            reason: DayLossUnmeasuredReason.SpansSeveralDays,
+        };
+    }
     const previousAccount = previous?.reconstructed ?? null;
     if (
         reconstructed.kind === TradingPhase.Funded &&
         previousAccount?.kind === TradingPhase.Funded
     ) {
-        const before = usdCentsFromDollars(
-            fundedWithdrawableDollarsOf(inputs.rulebook, previousAccount),
-        );
         const after = usdCentsFromDollars(
             fundedWithdrawableDollarsOf(inputs.rulebook, reconstructed),
         );
-        const paid = usdCentsFromDollars(performance.payoutsPaidGross);
         return lossOf(
             account.accountId,
             latest.asOf,
             DayLossBasis.FundedWithdrawable,
-            before - after - paid,
+            fundedWithdrawableLossCents({
+                latestWithdrawableCents: after,
+                payoutsPaidGrossCents: usdCentsFromDollars(
+                    performance.payoutsPaidGross,
+                ),
+                previous: previousAccount,
+                profitSinceSnapshotDollars: performance.profitSinceSnapshot,
+                rulebook: inputs.rulebook,
+            }),
         );
     }
     if (reconstructed.kind !== TradingPhase.Eval) return { kind: 'none' };
@@ -218,6 +276,15 @@ function accountLossOf(
               DayLossBasis.EvalFeeHeuristic,
               usdCentsFromDollars(heuristic.value),
           );
+}
+
+function isSpanningSeveralDays(previousAsOf: string, latestAsOf: string): boolean {
+    return (
+        weekdaysInRange(
+            dayNumberOf(previousAsOf) + 1,
+            dayNumberOf(latestAsOf) + 1,
+        ) > DAY_LOSS_MAX_WEEKDAYS_APART
+    );
 }
 
 function lossOf(

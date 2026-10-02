@@ -167,18 +167,69 @@ describe('ConcentratedFirmProfitRule', () => {
         });
         expect(alerts).toHaveLength(1);
         expect(alerts[0]?.message).toContain(
-            firmKeyLabel({ firmId: FirmId.Mffu, kind: FirmKeyKind.Modeled }, []),
+            firmKeyLabel(
+                { firmId: FirmId.Mffu, kind: FirmKeyKind.Modeled },
+                [],
+            ),
         );
         expect(alerts[0]?.message).toContain(
-            firmKeyLabel({ firmId: FirmId.Apex, kind: FirmKeyKind.Modeled }, []),
+            firmKeyLabel(
+                { firmId: FirmId.Apex, kind: FirmKeyKind.Modeled },
+                [],
+            ),
         );
         const subject = alerts[0]?.subject;
         expect(subject?.kind).toBe(AlertSubjectKind.Portfolio);
-        expect(
+        const named =
             subject !== undefined && 'accountIds' in subject
-                ? subject.accountIds.toSorted()
-                : [],
-        ).toEqual(all.map((item) => item.account.id).toSorted());
+                ? subject.accountIds
+                : [];
+        const expected = all.map((item) => item.account.id);
+        expect(new Set(named)).toEqual(new Set(expected));
+        expect(named).toHaveLength(expected.length);
+    });
+
+    it('says how many funded accounts rest on a stale snapshot and how many accounts could not be read, because the withdrawable may be out of date', () => {
+        const fresh = fundedAccount();
+        const plan = mffProPlan();
+        const staleAccount = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Funded },
+        );
+        const stale = {
+            account: staleAccount,
+            entry: reconstructedEntry(
+                staleAccount.id,
+                plan,
+                inProfit(20_000),
+                { asOf: '2026-08-01' },
+            ),
+        };
+        const unread = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Funded },
+        );
+        const [alert] = alertsOf(rule, {
+            accounts: [fresh.account, stale.account, unread],
+            accountStates: [fresh.entry, stale.entry],
+            rulebook: rulebookWith(2, null),
+        });
+        expect(alert?.message).toContain(
+            '1 funded account has a stale snapshot',
+        );
+        expect(alert?.message).toContain('1 active account could not be read');
+    });
+
+    it('adds no caveat when every snapshot is fresh and readable', () => {
+        const first = fundedAccount();
+        const second = fundedAccount();
+        const [alert] = alertsOf(rule, {
+            accounts: [first.account, second.account],
+            accountStates: [first.entry, second.entry],
+            rulebook: rulebookWith(2, null),
+        });
+        expect(alert?.message).not.toContain('stale snapshot');
+        expect(alert?.message).not.toContain('could not be read');
     });
 
     it('is silent just below the count', () => {

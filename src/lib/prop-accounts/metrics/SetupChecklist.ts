@@ -239,7 +239,11 @@ function hasPurchaseFee(entry: LedgerAccount): boolean {
     const wanted =
         entry.plan === null
             ? [FeeKind.Activation, FeeKind.EvalPurchase]
-            : [entry.plan.plan.isInstantFunded ? FeeKind.Activation : FeeKind.EvalPurchase];
+            : [
+                  entry.plan.plan.isInstantFunded
+                      ? FeeKind.Activation
+                      : FeeKind.EvalPurchase,
+              ];
     return entry.fees.some((fee) => wanted.includes(fee.kind));
 }
 

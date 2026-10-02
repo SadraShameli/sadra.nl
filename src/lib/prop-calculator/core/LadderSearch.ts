@@ -148,6 +148,7 @@ export interface LadderSearchOptions {
     score: LadderScoreConfig;
     seed: number;
     topN?: number;
+    transformLadder?: (ladder: readonly number[]) => readonly number[];
 }
 
 export interface LadderSearchProgress {
@@ -173,7 +174,7 @@ export const MAX_LADDER_SLOTS = 20;
 
 const DEFAULT_MAX_RUNG_SHARE_OF_CUSHION = 0.4;
 const GRID_VALUE_PRECISION = 12;
-const GRID_COUNT_TOLERANCE = 1e-9;
+export const GRID_COUNT_TOLERANCE = 1e-9;
 
 export const ladderGridConfigSchema = z
     .object({
@@ -969,10 +970,15 @@ export function runLadderSearch(
         score,
         seed,
         topN = DEFAULT_TOP_N,
+        transformLadder,
     } = options;
 
     const raw = buildLadderGrid(grid, maxGridSize);
-    const ladders = canonicaliseGrid(raw);
+    const ladders = canonicaliseGrid(
+        transformLadder === undefined
+            ? raw
+            : raw.map((ladder) => [...transformLadder(ladder)]),
+    );
     const total = ladders.length;
     const scores: LadderScore[] = [];
 

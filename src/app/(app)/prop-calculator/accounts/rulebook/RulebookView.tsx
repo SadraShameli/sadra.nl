@@ -43,6 +43,7 @@ import {
 import { Skeleton } from '~/components/ui/Skeleton';
 import { Switch } from '~/components/ui/Switch';
 import { errorMessage } from '~/lib/errorMessage';
+import { formatPercent } from '~/lib/format';
 import { formatUsdCents, usdCents } from '~/lib/prop-accounts';
 import { DayStopRuleKind, FirmId, fraction } from '~/lib/prop-calculator';
 import {
@@ -73,6 +74,7 @@ import {
     type HazardFieldName,
     hazardFieldName,
     hazardFieldSpec,
+    type MeasuredHazard,
     parseText,
     rulebookFormSchema,
     type RulebookFormValues,
@@ -89,6 +91,7 @@ import {
     type TradingPlanSource,
     TradingPlanSourceKind,
 } from './rulebookFromTradingPlan';
+import { useMeasuredHazards } from './useMeasuredHazards';
 
 type StoredRulebook = RouterOutputs['propAccounts']['rulebook']['get'];
 
@@ -364,6 +367,7 @@ function DisplayCard({ control }: { control: Control<RulebookFormValues> }) {
                     </FormItem>
                 )}
             />
+            <TextField control={control} name="display.nextPayoutHighlightDays" />
         </SectionCard>
     );
 }
@@ -528,14 +532,25 @@ function FundedCard({ control }: { control: Control<RulebookFormValues> }) {
 function HazardField({
     control,
     firmId,
+    measured,
 }: {
     control: Control<RulebookFormValues>;
     firmId: FirmId;
+    measured: MeasuredHazard | undefined;
 }) {
     return (
         <SpecField
             control={control}
             name={hazardFieldName(firmId)}
+            renderFooter={(setText) =>
+                measured === undefined ? null : (
+                    <MeasuredHazardNote
+                        firmName={hazardFieldSpec(firmId).label}
+                        measured={measured}
+                        setText={setText}
+                    />
+                )
+            }
             spec={hazardFieldSpec(firmId)}
         />
     );
@@ -752,17 +767,83 @@ function LiveTransferCard({
 }: {
     control: Control<RulebookFormValues>;
 }) {
+    const { failed, measured, pending } = useMeasuredHazards();
     return (
         <SectionCard title="Live transfer (your assumption, not a firm rule)">
             <p className="text-xs text-muted-foreground md:col-span-2">
                 Your estimate of the chance, per paid payout, that a firm moves
-                a funded account to live. No firm publishes this number. Leave a
-                firm empty to keep its transfers unpriced, as today.
+                a funded account to live. No firm publishes this number. A rate
+                entered for a firm is applied to every simulation built from
+                your rulebook for that firm&apos;s accounts: the
+                advisor&apos;s account value runs, the payout planner and its
+                withdrawal-size table, the overview projections and next-payout
+                figures, retire comparisons, risk candidates and copy-group
+                runs. Only the advisor&apos;s run note states it beside its
+                figures; the other surfaces apply it without repeating it. A
+                firm with no rate is priced with none. The portfolio timeline
+                does not price transfers, and the calculator takes its own
+                single hazard in its advanced settings.
             </p>
+            {pending && (
+                <p
+                    className="text-xs text-muted-foreground md:col-span-2"
+                    role="status"
+                >
+                    Loading your measured rates from your ledger.
+                </p>
+            )}
+            {failed && (
+                <p
+                    className="text-xs text-destructive md:col-span-2"
+                    role="status"
+                >
+                    Measured rates unavailable: your ledger could not be
+                    loaded, so no measured rate is suggested.
+                </p>
+            )}
             {Object.values(FirmId).map((firmId) => (
-                <HazardField control={control} firmId={firmId} key={firmId} />
+                <HazardField
+                    control={control}
+                    firmId={firmId}
+                    key={firmId}
+                    measured={measured[firmId]}
+                />
             ))}
         </SectionCard>
+    );
+}
+
+function MeasuredHazardNote({
+    firmName,
+    measured,
+    setText,
+}: {
+    firmName: string;
+    measured: MeasuredHazard;
+    setText: (text: string) => void;
+}) {
+    const { suggestedText } = measured;
+    return (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>
+                Measured: {formatPercent(measured.rate)} per paid payout (
+                {measured.movedLiveCount} sent live in {measured.paidPayouts}{' '}
+                paid payouts), from your own ledger. History, not a firm rule.
+            </span>
+            {suggestedText !== null && (
+                <Button
+                    aria-label={`Use ${suggestedText}% for ${firmName}`}
+                    onClick={() => {
+                        setText(suggestedText);
+                    }}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                >
+                    Use {suggestedText}%
+                </Button>
+            )}
+        </div>
     );
 }
 
@@ -1126,10 +1207,12 @@ function settingNote(spec: TextFieldSpec): string {
 function SpecField({
     control,
     name,
+    renderFooter,
     spec,
 }: {
     control: Control<RulebookFormValues>;
     name: HazardFieldName | TextFieldName;
+    renderFooter?: (setText: (text: string) => void) => ReactNode;
     spec: TextFieldSpec;
 }) {
     const defaultComparable = comparableText(
@@ -1170,6 +1253,7 @@ function SpecField({
                         <FormDescription>
                             {spec.hint} {settingNote(spec)}
                         </FormDescription>
+                        {renderFooter?.(field.onChange)}
                         <FormMessage />
                     </FormItem>
                 );

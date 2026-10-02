@@ -80,9 +80,9 @@ import {
     ledgerOnlyFirmOptions,
 } from './externalFirmOptions';
 import {
+    type AccountValues,
     expectedValuesOf,
     hasPendingValues,
-    useAccountValues,
 } from './useAccountValues';
 
 const ALL = 'all';
@@ -113,10 +113,14 @@ interface FilterOptions {
     readonly tags: readonly FilterOption[];
 }
 
-export function AccountsTable({ userId }: { readonly userId?: string }) {
+export function AccountsTableWithValues({
+    values,
+}: {
+    readonly values: AccountValues;
+}) {
     const accountsQuery =
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const snapshotsQuery = api.propAccounts.snapshot.latestForAll.useQuery();
+    const snapshotsQuery = api.propAccounts.snapshot.latestTwoForAll.useQuery();
     const groupsQuery = api.propAccounts.copyGroup.list.useQuery();
     const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
     const [filters, setFilters] = useState<AccountListFilters>(
@@ -126,7 +130,6 @@ export function AccountsTable({ userId }: { readonly userId?: string }) {
         DEFAULT_ACCOUNT_LIST_SORT,
     );
 
-    const values = useAccountValues({ userId });
     const isComputing = hasPendingValues(values);
 
     const accounts = accountsQuery.data;

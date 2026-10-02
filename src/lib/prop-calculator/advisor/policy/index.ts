@@ -1,11 +1,44 @@
 export {
+    type BankrollRiskFigures,
+    bankrollRiskFigures,
+} from './BankrollRiskFigures';
+export {
+    COPY_SPLIT_CORRELATION_NOTE,
+    COPY_SPLIT_MIN_TRIALS,
+    COPY_SPLIT_NOISE_SIGMAS,
+    copySplitBasisLines,
+    type CopySplitCandidate,
+    copySplitCandidates,
+    type CopySplitPlacement,
+    type CopySplitRefusedCandidate,
+    type CopySplitRefusedRow,
+    type CopySplitResult,
+    type CopySplitRow,
+    CopySplitRowKind,
+    type CopySplitSimulatedCandidate,
+    type CopySplitSimulatedRow,
+    copySplitTrials,
+    rankCopySplitRows,
+    type RankedCopySplitRows,
+    runCopySplit,
+    SIZING_OBJECTIVE_LABEL,
+} from './CopySplit';
+export {
+    DayLedger,
     DOCUMENTED_POLICY_DISCLOSURE_TEXT,
     documentedDayRisk,
     DocumentedPolicyDisclosure,
 } from './DocumentedDayRisk';
 export {
     buildDocumentedDayPolicies,
+    cappedFundedRisk,
+    cappedRisk,
     type DocumentedDayPolicies,
+    documentedFundedRisk,
+    documentedFundedTakeProfit,
+    documentedFundedTrades,
+    documentedLiveTransferHazard,
+    documentedSizedFundedRisk,
     resolveDocumentedPayoutRequestSize,
     resolveDocumentedPlan,
     resolveDocumentedRetainedCushion,
@@ -26,8 +59,18 @@ export {
 export {
     type EnginePolicy,
     enginePolicySchema,
+    hasDayLimits,
+    hasPersonalCaps,
     LifetimePayoutCapBasis,
     MAX_COMMISSION_PER_ROUND_TRIP,
     MAX_INTRADAY_PATH_STEPS_PER_R,
     RebuyLagBasis,
 } from './EnginePolicy';
+export {
+    applyPersonalDayLimits,
+    ladderUnderPersonalDayLimits,
+    type PersonalDayLimits,
+    personalDayLimitsOf,
+    personalDayLimitsOfPolicy,
+    withPersonalDayLimits,
+} from './PersonalDayLimits';

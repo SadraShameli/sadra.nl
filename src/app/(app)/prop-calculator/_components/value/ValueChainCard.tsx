@@ -19,7 +19,10 @@ import {
     valueChainCardSteps,
     valueChainToolsRequest,
 } from './valueCardsModel';
-import { VALUE_CHAIN_STEP_LABEL } from './valueChainStepLabels';
+import {
+    stepAssumptionsHeading,
+    VALUE_CHAIN_STEP_LABEL,
+} from './valueChainStepLabels';
 
 export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
     const settledInput = useDebouncedValue(cards, SIM_DEBOUNCE_MS);
@@ -120,11 +123,12 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                                     key={step.kind}
                                 >
                                     <h4 className="text-xs font-semibold text-white">
-                                        {VALUE_CHAIN_STEP_LABEL[step.kind]}{' '}
-                                        assumptions
+                                        {stepAssumptionsHeading(step.kind)}
                                     </h4>
                                     <ul
-                                        aria-label={`${VALUE_CHAIN_STEP_LABEL[step.kind]} assumptions`}
+                                        aria-label={stepAssumptionsHeading(
+                                            step.kind,
+                                        )}
                                         className="list-disc pl-4 text-xs text-muted-foreground"
                                     >
                                         {step.assumptions.map((assumption) => (

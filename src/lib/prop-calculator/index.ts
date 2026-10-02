@@ -35,6 +35,7 @@ export {
     type FundedSimStart,
     type LiveOutputs,
     type LiveSimInputs,
+    LiveTransferContinuationKind,
     type MultiAccountResult,
     oneOffLiveCredit,
     payoutRequestPolicyIssue,

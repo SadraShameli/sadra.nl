@@ -50,6 +50,7 @@ function evalAdvisor(): EvalSizingAdvisor {
         rulebook: DEFAULT_RULEBOOK,
         sims: 20,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
     });
 }

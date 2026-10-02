@@ -27,7 +27,6 @@ import {
     AccountReconstructionError,
     type AccountSnapshotInput,
     AssumptionKind,
-    type InputAssumptionKind,
     isLiveModelApproximation,
     LiveApplicabilityKind,
     livePlanApplicability,
@@ -105,54 +104,6 @@ export type StateCardView =
           readonly reason: ReconstructionErrorReason;
       }
     | { readonly kind: StateCardKind.NoSnapshot };
-
-const INPUT_ASSUMPTION_LABEL: Readonly<Record<InputAssumptionKind, string>> = {
-    [AssumptionKind.CalendarAnchorMissing]:
-        'No firm trade or payout date was recorded, so the payout day gate starts from zero.',
-    [AssumptionKind.ContractCapInstrumentAssumed]:
-        'The contract cap is estimated at the plan default instrument.',
-    [AssumptionKind.CumulativeQualifyingDaysAssumed]:
-        'Qualifying days since the last payout were entered directly, not derived from trade dates.',
-    [AssumptionKind.CycleBestDayProfitAssumedWorstCase]:
-        "No cycle best day was entered, so the worst case (today's profit since the last payout) is assumed.",
-    [AssumptionKind.DashboardFloorMismatch]:
-        'The entered dashboard floor was higher than the reconstructed floor, so the higher, safer floor is used.',
-    [AssumptionKind.ElapsedDaysApproximatedFromTradingDays]:
-        'Elapsed days were approximated from trading days, not the real attempt start date.',
-    [AssumptionKind.FundedResetsFromEvents]:
-        'The funded reset count comes from recorded reset events.',
-    [AssumptionKind.GrossOnlyPayouts]:
-        'At least one paid payout has no net amount, so its gross amount is counted as received.',
-    [AssumptionKind.LadderStepWidened]:
-        'The ladder search uses a coarser risk step than the default grid so it stays within its size cap.',
-    [AssumptionKind.LastPayoutBalanceAssumedCurrent]:
-        'No balance at the last payout was entered, so the current balance is assumed.',
-    [AssumptionKind.LiveModelApproximation]:
-        'Only a firm-level live model exists for this plan, so its live rules are an approximation.',
-    [AssumptionKind.LiveNotModeled]: 'No live stage is modeled for this plan.',
-    [AssumptionKind.LiveTriggersNotChecked]:
-        'Live triggers on the lifetime payout cap are not checked yet.',
-    [AssumptionKind.NoHolidayCalendar]:
-        'Calendar-day gates use weekdays only; holidays are not excluded.',
-    [AssumptionKind.PeakOrderAssumed]:
-        'Without a floor at the last payout, the conservative, higher floor order is assumed.',
-    [AssumptionKind.PendingPayoutDeducted]:
-        'A pending payout request was deducted from the balance.',
-    [AssumptionKind.PercentCandidatesLeftOut]:
-        'Some engine candidates were left out of this figure.',
-    [AssumptionKind.PositionSizingUnspecified]:
-        'Position sizing (instrument and stop) was not specified.',
-    [AssumptionKind.RebuyLagAssumed]:
-        'The rebuy lag is assumed rather than measured.',
-    [AssumptionKind.TopStepLfaProgressDefaulted]:
-        "TopStep's LFA progress is defaulted, not stored.",
-    [AssumptionKind.TopStepLiveReserveDefaulted]:
-        "TopStep's live reserve progress is defaulted, not stored.",
-};
-
-export function assumptionLabel(kind: InputAssumptionKind): string {
-    return INPUT_ASSUMPTION_LABEL[kind];
-}
 
 export function liveAccountOf(
     view: StateCardView,

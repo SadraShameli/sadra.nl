@@ -146,6 +146,7 @@ interface MemberRuntime {
     fundedResetsUsed: number;
     horizonCredit: number;
     readonly member: FundedMember;
+    payoutCount: number;
     realizedPayout: number;
     resetFeesPaid: number;
     readonly state: AccountState;
@@ -258,7 +259,7 @@ export function simulateCopyGroup(
             }
             record(moments.realizedPayout, runtime.realizedPayout);
             record(moments.horizonCredit, runtime.horizonCredit);
-            record(moments.payoutCount, runtime.tracker.payoutsIssued);
+            record(moments.payoutCount, runtime.payoutCount);
             record(moments.resetFees, runtime.resetFeesPaid);
             groupRealizedPayout += runtime.realizedPayout;
             groupHorizonCredit += runtime.horizonCredit;
@@ -322,7 +323,9 @@ function addPayout(
     runtime: MemberRuntime,
     payout: FundedPayoutResult | null,
 ): void {
-    if (payout !== null) runtime.realizedPayout += payout.traderReceives;
+    if (payout === null) return;
+    runtime.payoutCount += 1;
+    runtime.realizedPayout += payout.traderReceives;
 }
 
 function estimateOf(moments: Moments): Estimate {
@@ -376,6 +379,7 @@ function initMemberRuntime(member: FundedMember): MemberRuntime {
         fundedResetsUsed: start.seed.fundedResetsUsed,
         horizonCredit: 0,
         member,
+        payoutCount: 0,
         realizedPayout: 0,
         resetFeesPaid: 0,
         state,

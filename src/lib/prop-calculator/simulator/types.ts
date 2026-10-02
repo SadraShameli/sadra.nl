@@ -42,6 +42,13 @@ export enum CorrelationMode {
     Independent = 'independent',
 }
 
+export enum LiveTransferContinuationKind {
+    Modeled = 'modeled',
+    ModeledApproximate = 'modeled-approximate',
+    NotModeled = 'not-modeled',
+    Off = 'off',
+}
+
 export interface AtLeastProbabilities {
     k1: number;
     kAll: number;
@@ -147,6 +154,10 @@ export interface FinishTrialArguments {
     fundedResetsUsed: number;
     horizonCredit: number;
     isAliveAtHorizon: boolean;
+    isTransferredLive: boolean;
+    liveSlotDays: number;
+    liveTransferCash: number;
+    liveTransferOneOff: LiveTransferOneOffCash;
     outcome: TrialOutcome;
     payoutCount: number;
     resetFeesPaid: number;
@@ -220,6 +231,7 @@ export interface FundedHorizonOptions {
     fundedHorizonDays: number;
     idleDayProbability?: number;
     intradayPathStepsPerR?: number;
+    liveTransfer?: LiveTransferOptions;
     minRetainedCushion: Dollars;
     payoutRequestPolicy?: PayoutRequestPolicy;
     payoutRequestSize: Dollars | undefined;
@@ -240,6 +252,10 @@ export interface FundedHorizonResult {
     horizonCredit: number;
     isAliveAtHorizon: boolean;
     isBustedFunded: boolean;
+    isTransferredLive: boolean;
+    liveSlotDays: number;
+    liveTransferCash: number;
+    liveTransferOneOff: LiveTransferOneOffCash;
     payoutCount: number;
     totalPayout: number;
 }
@@ -292,7 +308,33 @@ export interface LiveSimInputs {
     winrate: number;
 }
 
+export interface LiveTransferContinuation {
+    readonly commission: Dollars;
+    readonly idleDayProbability?: number;
+    readonly livePlanAt: (state: AccountState) => LivePlan;
+    readonly payoutRequestSize?: Dollars;
+    readonly positionSizing: PositionSizingConfig;
+    readonly retainedCushion?: number;
+    readonly rrRatio: number;
+    readonly tradesPerDay: number;
+    readonly winrate: Fraction0to1;
+}
+
+export interface LiveTransferOneOffCash {
+    readonly capitalReturned: number;
+    readonly liquidationPayout: number;
+    readonly transitionCredit: number;
+}
+
+export interface LiveTransferOptions {
+    readonly continuation: LiveTransferContinuation | null;
+    readonly cumulativePayoutLimit: Dollars | null;
+    readonly hazard: Fraction0to1;
+    readonly rng: Rng;
+}
+
 export interface MultiAccountResult {
+    accountsLiveTransferDistribution: number[];
     accountsPassDistribution: number[];
     expectedAccountsPass: number;
     expectedDaysToPass: number;
@@ -300,6 +342,8 @@ export interface MultiAccountResult {
     expectedMonthlyNet: number;
     expectedMonthlyRealizedNet: number;
     expectedNet: number;
+    liveTransferContinuation: LiveTransferContinuationKind;
+    liveTransferProbability: number;
     meanTradesPerDay: number;
     pAtLeast: AtLeastProbabilities;
     pAtLeastFundedSurvival: AtLeastProbabilities;
@@ -349,6 +393,7 @@ export interface SimInputs {
     idleDayProbability?: number;
     instrument?: InstrumentSymbol;
     intradayPathStepsPerR?: number;
+    liveTransferHazard?: Fraction0to1;
     maxAttempts?: number;
     maxEvalDays: number;
     minRetainedCushion?: number;
@@ -363,6 +408,7 @@ export interface SimInputs {
     stopPoints?: number;
     tradesPerDay: number;
     trials: number;
+    verifiedCumulativePayoutTrigger?: number;
     winrate: number;
 }
 
@@ -398,6 +444,10 @@ export interface SimOutputs {
     expectedGrossPayout: number;
     expectedGrossSpend: number;
     expectedHorizonCredit: number;
+    expectedLiveTransferCapitalReturned: number;
+    expectedLiveTransferCash: number;
+    expectedLiveTransferLiquidationPayout: number;
+    expectedLiveTransferTransitionCredit: number;
     expectedMonthlyNet: number;
     expectedMonthlyRealizedNet: number;
     expectedNet: number;
@@ -418,6 +468,8 @@ export interface SimOutputs {
     fundedSurvivalProbability: number;
     inactivityClosureProbability: number;
     initialThreshold: number;
+    liveTransferContinuation: LiveTransferContinuationKind;
+    liveTransferProbability: number;
     maxDrawdownP50: number;
     maxDrawdownP95: number;
     maxLosingStreakP50: number;
@@ -445,6 +497,7 @@ export interface TrialOptions {
     fundedRrRatio?: number;
     idleDayProbability?: number;
     intradayPathStepsPerR?: number;
+    liveTransfer?: LiveTransferOptions;
     maxAttempts: number;
     maxEvalDays: number;
     minRetainedCushion: Dollars;
@@ -483,6 +536,10 @@ export interface TrialResult {
     had10LossStreak: boolean;
     horizonCredit: number;
     isAliveAtHorizon: boolean;
+    isTransferredLive: boolean;
+    liveSlotDays: number;
+    liveTransferCash: number;
+    liveTransferOneOff: LiveTransferOneOffCash;
     maxDrawdown: number;
     maxLosingStreak: number;
     net: number;

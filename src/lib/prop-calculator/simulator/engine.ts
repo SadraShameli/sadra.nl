@@ -35,6 +35,12 @@ import {
 
 import { resolveDayPolicy } from './day';
 import { SIM_INPUTS_REFUSAL_PREFIX } from './dayPolicyValidation';
+import {
+    liveTransferContinuationKindOf,
+    liveTransferOptionsFor,
+    type LiveTransferSetup,
+    resolveLiveTransferSetup,
+} from './LiveTransfer';
 import { resolveCopyAccounts, SIM_DEFAULTS } from './SimDefaults';
 import { assertPayoutRequestPolicy, simStartIssue } from './simStartValidation';
 import { hasPassedEval, simulateTrial } from './trial';
@@ -45,6 +51,7 @@ import {
     type CostBreakdownArguments,
     type FromStateSimInputs,
     type FromStateSimOutputs,
+    type LiveTransferContinuationKind,
     type MultiAccountResult,
     type PortfolioSimInputs,
     type SimEstimates,
@@ -79,6 +86,11 @@ export function fromStateCashSamples(
     for (const r of trialResults) {
         if (r.isAliveAtHorizon) {
             cash.push(r.net + r.horizonCredit);
+            realizedCash.push(r.net);
+            continue;
+        }
+        if (r.isTransferredLive) {
+            cash.push(r.net);
             realizedCash.push(r.net);
             continue;
         }
@@ -133,6 +145,11 @@ export function simulate(inputs: SimInputs): SimOutputs {
     const rebuyLagDays = resolveRebuyLagDays(inputs.rebuyLagDays);
     const evalDayPolicy = resolveDayPolicy(inputs, TradingPhase.Eval);
     const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
+    const liveTransfer = liveTransferSetupOf(
+        inputs,
+        commission,
+        fundedDayPolicy.ladder.length,
+    );
     const accountMultiplier = resolveCopyAccounts(copyAccounts);
     const purchaseDiscounts = plan.purchaseDiscounts(
         discounts,
@@ -155,6 +172,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
                 fundedRrRatio: inputs.fundedRrRatio,
                 idleDayProbability,
                 intradayPathStepsPerR,
+                liveTransfer: liveTransferOptionsFor(liveTransfer, index, 0),
                 maxAttempts,
                 maxEvalDays,
                 minRetainedCushion: cushion,
@@ -177,6 +195,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         purchaseDiscounts,
         accountMultiplier,
         rebuyLagDays,
+        liveTransferContinuationKindOf(liveTransfer),
     );
 }
 
@@ -221,6 +240,11 @@ export function simulateFromState(
     const winrate = fraction(inputs.winrate);
     const evalDayPolicy = resolveDayPolicy(inputs, TradingPhase.Eval);
     const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
+    const liveTransfer = liveTransferSetupOf(
+        inputs,
+        commission,
+        fundedDayPolicy.ladder.length,
+    );
     const positionSizing = resolvePositionSizing(instrument, stopPoints);
     const rng = mulberry32(seed);
     const trialStart = toTrialStart(plan, start, maxEvalDays);
@@ -240,6 +264,7 @@ export function simulateFromState(
                 fundedRrRatio: inputs.fundedRrRatio,
                 idleDayProbability,
                 intradayPathStepsPerR,
+                liveTransfer: liveTransferOptionsFor(liveTransfer, index, 0),
                 maxAttempts,
                 maxEvalDays,
                 minRetainedCushion: cushion,
@@ -263,6 +288,7 @@ export function simulateFromState(
         purchaseDiscounts,
         1,
         resolveRebuyLagDays(inputs.rebuyLagDays),
+        liveTransferContinuationKindOf(liveTransfer),
         true,
     );
 
@@ -273,6 +299,7 @@ export function simulateFromState(
         idleDayProbability,
         instrument,
         intradayPathStepsPerR,
+        liveTransferHazard: inputs.liveTransferHazard,
         maxAttempts,
         maxEvalDays,
         minRetainedCushion,
@@ -287,6 +314,7 @@ export function simulateFromState(
         stopPoints,
         tradesPerDay: inputs.tradesPerDay,
         trials,
+        verifiedCumulativePayoutTrigger: inputs.verifiedCumulativePayoutTrigger,
         winrate: inputs.winrate,
     });
 
@@ -364,6 +392,11 @@ export function simulatePortfolio(
     const rebuyLagDays = resolveRebuyLagDays(inputs.rebuyLagDays);
     const evalDayPolicy = resolveDayPolicy(inputs, TradingPhase.Eval);
     const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
+    const liveTransfer = liveTransferSetupOf(
+        inputs,
+        commission,
+        fundedDayPolicy.ladder.length,
+    );
     const positionSizing = resolvePositionSizing(instrument, stopPoints);
 
     const N = accounts;
@@ -378,6 +411,8 @@ export function simulatePortfolio(
 
     const distribution = Array.from({ length: N + 1 }, () => 0);
     const survivalDistribution = Array.from({ length: N + 1 }, () => 0);
+    const liveTransferDistribution = Array.from({ length: N + 1 }, () => 0);
+    let totalAccountTransfers = 0;
     let netSum = 0;
     let creditSum = 0;
     let dayElapsedSum = 0;
@@ -394,6 +429,7 @@ export function simulatePortfolio(
     for (let index = 0; index < trials; index++) {
         let trialPasses = 0;
         let trialSurvivals = 0;
+        let trialTransfers = 0;
         let trialNet = 0;
         let trialCredit = 0;
         let trialDayElapsed = 0;
@@ -418,6 +454,7 @@ export function simulatePortfolio(
                 fundedRrRatio: inputs.fundedRrRatio,
                 idleDayProbability,
                 intradayPathStepsPerR,
+                liveTransfer: liveTransferOptionsFor(liveTransfer, index, g),
                 maxAttempts,
                 maxEvalDays,
                 minRetainedCushion: cushion,
@@ -435,6 +472,7 @@ export function simulatePortfolio(
                 trialPasses += size;
                 if (r.outcome === 'pass-clean') trialSurvivals += size;
             }
+            if (r.isTransferredLive) trialTransfers += size;
             if (r.outcome === 'bust-eval' || r.outcome === 'bust-funded')
                 isAnyBust = true;
             const rawGroupPayout = r.grossPayout * size;
@@ -450,7 +488,7 @@ export function simulatePortfolio(
             }
             trialNet += r.net * size - (rawGroupPayout - clampedGroupPayout);
             trialCredit += r.horizonCredit * size;
-            trialDayElapsed += r.daysElapsed * size;
+            trialDayElapsed += (r.daysElapsed + r.liveSlotDays) * size;
             trialAttempts += r.attemptsUsed * size;
             if (r.daysToPass !== null) {
                 trialDaysToPassSum += r.daysToPass * size;
@@ -465,6 +503,9 @@ export function simulatePortfolio(
         distribution[trialPasses] = (distribution[trialPasses] ?? 0) + 1;
         survivalDistribution[trialSurvivals] =
             (survivalDistribution[trialSurvivals] ?? 0) + 1;
+        liveTransferDistribution[trialTransfers] =
+            (liveTransferDistribution[trialTransfers] ?? 0) + 1;
+        totalAccountTransfers += trialTransfers;
         netSum += trialNet;
         creditSum += trialCredit;
         dayElapsedSum += trialDayElapsed;
@@ -482,6 +523,8 @@ export function simulatePortfolio(
     for (let k = 0; k <= N; k++) {
         distribution[k] = (distribution[k] ?? 0) / trials;
         survivalDistribution[k] = (survivalDistribution[k] ?? 0) / trials;
+        liveTransferDistribution[k] =
+            (liveTransferDistribution[k] ?? 0) / trials;
     }
 
     const perAccountPass = totalAccountPasses / (trials * N);
@@ -507,6 +550,7 @@ export function simulatePortfolio(
         activeDaysSum > 0 ? tradesTakenSum / activeDaysSum : 0;
 
     return {
+        accountsLiveTransferDistribution: liveTransferDistribution,
         accountsPassDistribution: distribution,
         expectedAccountsPass,
         expectedDaysToPass,
@@ -514,6 +558,8 @@ export function simulatePortfolio(
         expectedMonthlyNet,
         expectedMonthlyRealizedNet,
         expectedNet,
+        liveTransferContinuation: liveTransferContinuationKindOf(liveTransfer),
+        liveTransferProbability: totalAccountTransfers / (trials * N),
         meanTradesPerDay,
         pAtLeast: atLeastProbabilities(distribution),
         pAtLeastFundedSurvival: atLeastProbabilities(survivalDistribution),
@@ -590,6 +636,7 @@ function buildSimOutputs(
     purchaseDiscounts: CouponDiscounts | undefined,
     accountMultiplier: number,
     rebuyLagDays: number,
+    liveTransferContinuation: LiveTransferContinuationKind,
     isFromState = false,
 ): SimOutputs {
     const trials = trialResults.length;
@@ -601,6 +648,11 @@ function buildSimOutputs(
     };
     let netSum = 0;
     let creditSum = 0;
+    let liveTransferCashSum = 0;
+    let liveTransferCapitalReturnedSum = 0;
+    let liveTransferLiquidationSum = 0;
+    let liveTransferTransitionSum = 0;
+    let liveTransferCount = 0;
     let costSum = 0;
     let payoutSum = 0;
     let payoutCountSum = 0;
@@ -650,10 +702,15 @@ function buildSimOutputs(
         counts[r.outcome] += 1;
         netSum += r.net;
         creditSum += r.horizonCredit;
+        liveTransferCashSum += r.liveTransferCash;
+        liveTransferCapitalReturnedSum += r.liveTransferOneOff.capitalReturned;
+        liveTransferLiquidationSum += r.liveTransferOneOff.liquidationPayout;
+        liveTransferTransitionSum += r.liveTransferOneOff.transitionCredit;
+        if (r.isTransferredLive) liveTransferCount += 1;
         costSum += r.totalCost;
         payoutSum += r.grossPayout;
         payoutCountSum += r.payoutCount;
-        dayElapsedSum += r.daysElapsed;
+        dayElapsedSum += r.daysElapsed + r.liveSlotDays;
         failedAttemptDaysSum += r.evalDays - (r.daysToPass ?? 0);
         if (r.daysToPass !== null) {
             daysToPassSum += r.daysToPass;
@@ -702,7 +759,9 @@ function buildSimOutputs(
             fundedPayoutCounts[bucket] = (fundedPayoutCounts[bucket] ?? 0) + 1;
         }
         creditInclusiveNets.push(r.net + r.horizonCredit);
-        slotDays.push(r.daysElapsed + rebuyLagDays * r.attemptsUsed);
+        slotDays.push(
+            r.daysElapsed + r.liveSlotDays + rebuyLagDays * r.attemptsUsed,
+        );
         trialNets.push(r.net);
     }
 
@@ -945,6 +1004,13 @@ function buildSimOutputs(
         expectedGrossPayout: expectedGrossPayout * m,
         expectedGrossSpend: expectedGrossSpend * m,
         expectedHorizonCredit: expectedHorizonCredit * m,
+        expectedLiveTransferCapitalReturned:
+            (liveTransferCapitalReturnedSum / trials) * m,
+        expectedLiveTransferCash: (liveTransferCashSum / trials) * m,
+        expectedLiveTransferLiquidationPayout:
+            (liveTransferLiquidationSum / trials) * m,
+        expectedLiveTransferTransitionCredit:
+            (liveTransferTransitionSum / trials) * m,
         expectedMonthlyNet: expectedMonthlyNet * m,
         expectedMonthlyRealizedNet: expectedMonthlyRealizedNet * m,
         expectedNet: expectedNet * m,
@@ -965,6 +1031,8 @@ function buildSimOutputs(
         fundedSurvivalProbability,
         inactivityClosureProbability: inactivityClosureCount / trials,
         initialThreshold: plan.drawdown.initialThreshold(plan.accountSize),
+        liveTransferContinuation,
+        liveTransferProbability: liveTransferCount / trials,
         maxDrawdownP50: percentile(maxDrawdowns, 50),
         maxDrawdownP95: percentile(maxDrawdowns, 95),
         maxLosingStreakP50: percentile(maxLosingStreaks, 50),
@@ -980,6 +1048,28 @@ function buildSimOutputs(
         timeoutProbability: counts['timeout-eval'] / trials,
         tradesPerSuccessfulAttempt,
     };
+}
+
+function liveTransferSetupOf(
+    inputs: SimInputs,
+    commission: Dollars,
+    fundedTradesPerDay: number,
+): LiveTransferSetup | null {
+    return resolveLiveTransferSetup({
+        commission,
+        fundedRrRatio: inputs.fundedRrRatio ?? inputs.rrRatio,
+        fundedTradesPerDay,
+        idleDayProbability: inputs.idleDayProbability,
+        instrument: inputs.instrument,
+        liveTransferHazard: inputs.liveTransferHazard,
+        minRetainedCushion: inputs.minRetainedCushion,
+        payoutRequestSize: inputs.payoutRequestSize,
+        plan: inputs.plan,
+        seed: inputs.seed,
+        stopPoints: inputs.stopPoints,
+        verifiedCumulativePayoutTrigger: inputs.verifiedCumulativePayoutTrigger,
+        winrate: fraction(inputs.winrate),
+    });
 }
 
 function meanEstimate(

@@ -21,6 +21,7 @@ import {
 } from '~/lib/prop-calculator/portfolioTimeline';
 import {
     CorrelationMode,
+    type MultiAccountResult,
     SIM_INPUTS_REFUSAL_PREFIX,
     type SimInputs,
     type SimOutputs,
@@ -94,14 +95,18 @@ function pinnedFields(out: SimOutputs): Record<string, number> {
     };
 }
 
-function portfolioPin(plan: Plan) {
-    return simulatePortfolio({
+function portfolioPin(plan: Plan): Partial<MultiAccountResult> {
+    const out: Partial<MultiAccountResult> = simulatePortfolio({
         ...pinInputs(plan),
         accounts: 3,
         correlation: CorrelationMode.Independent,
         groups: 1,
         trials: 60,
     });
+    Reflect.deleteProperty(out, 'accountsLiveTransferDistribution');
+    Reflect.deleteProperty(out, 'liveTransferContinuation');
+    Reflect.deleteProperty(out, 'liveTransferProbability');
+    return out;
 }
 
 function timelinePin() {

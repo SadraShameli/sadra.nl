@@ -15,6 +15,11 @@ const PlanComparisonTable = dynamic(
     { loading: () => <PanelSkeleton /> },
 );
 
+const CopySplitSection = dynamic(
+    () => import('~/app/(app)/prop-calculator/_components/CopySplitSection'),
+    { loading: () => <PanelSkeleton /> },
+);
+
 const FirmComparisonTable = dynamic(
     () => import('~/app/(app)/prop-calculator/_components/FirmComparisonTable'),
     { loading: () => <PanelSkeleton /> },
@@ -50,6 +55,7 @@ export function CompareView() {
                         targetAccountSize={state.plan.accountSize}
                     />
                 </ToolSection>
+                <CopySplitSection />
             </div>
         </>
     );

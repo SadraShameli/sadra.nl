@@ -1,15 +1,11 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
+import { keepPreviousData, skipToken } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { z } from 'zod';
 
-import {
-    violationFormSchema,
-    type ViolationFormValues,
-} from '~/app/(app)/prop-calculator/accounts/_components/detail/violationForm';
+import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
+import { ViolationForm } from '~/app/(app)/prop-calculator/accounts/_components/detail/ViolationsSection';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import {
     emptySnapshotFormValues,
@@ -22,36 +18,21 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
-import { Textarea } from '~/components/ui/Textarea';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
     AccountTracking,
     formatUsdCents,
-    RuleViolationKind,
     ruleViolationKindLabel,
     SnapshotField,
     snapshotFieldRules,
-    todayIsoDate,
     usdCents,
 } from '~/lib/prop-accounts';
+import {
+    ADHERENCE_STEP_REASON,
+    type DecisionAdherence,
+} from '~/lib/prop-accounts/metrics';
 import { type Plan } from '~/lib/prop-calculator';
 import { api } from '~/trpc/react';
 
@@ -60,14 +41,16 @@ import {
     DecisionAdherenceKind,
     planOf,
     reviewSubmitPayload,
+    ViolationOfferKind,
+    violationsFromOf,
     type WeeklyReviewAccountInput,
-    type WeeklyReviewAdherence,
     type WeeklyReviewDecisionRow,
     type WeeklyReviewDraft,
     type WeeklyReviewLastDecision,
     WeeklyReviewSizingKind,
     type WeeklyReviewSnapshotRow,
     type WeeklyReviewSnapshotValues,
+    type WeeklyReviewViolationOffer,
     type WeeklyReviewViolationRow,
 } from './weeklyReviewModel';
 
@@ -104,7 +87,7 @@ export function WeeklyReviewView() {
     const snapshotsQuery = api.propAccounts.snapshot.latestForAll.useQuery();
     const decisionsQuery = api.propAccounts.decision.latestForAll.useQuery();
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    const violationsQuery = api.propAccounts.violation.list.useQuery({});
+    const today = useTodayIsoDate();
     const utilities = api.useUtils();
     const submission = api.propAccounts.review.submit.useMutation();
 
@@ -165,6 +148,32 @@ export function WeeklyReviewView() {
         [decisionsQuery.data],
     );
 
+    const rulebook = rulebookQuery.data;
+    const violationsFrom = useMemo(
+        () =>
+            rulebook === undefined ||
+            accountsQuery.data === undefined ||
+            decisionsQuery.data === undefined
+                ? null
+                : violationsFromOf({
+                      accounts,
+                      latestDecisions,
+                      rulebook,
+                      today,
+                  }),
+        [
+            accounts,
+            accountsQuery.data,
+            decisionsQuery.data,
+            latestDecisions,
+            rulebook,
+            today,
+        ],
+    );
+    const violationsQuery = api.propAccounts.violation.list.useQuery(
+        violationsFrom === null ? skipToken : { occurredFrom: violationsFrom },
+        { placeholderData: keepPreviousData },
+    );
     const violations = violationsQuery.data ?? EMPTY_VIOLATIONS;
 
     const drafts = useMemo(() => {
@@ -184,7 +193,6 @@ export function WeeklyReviewView() {
         return map;
     }, [accounts, plansById, valuesByAccount]);
 
-    const rulebook = rulebookQuery.data;
     const result = useMemo(() => {
         if (rulebook === undefined) return null;
         return buildWeeklyReview({
@@ -193,7 +201,7 @@ export function WeeklyReviewView() {
             latestDecisions,
             latestSnapshots,
             rulebook,
-            today: todayIsoDate(new Date()),
+            today,
             violations,
         });
     }, [
@@ -202,6 +210,7 @@ export function WeeklyReviewView() {
         latestDecisions,
         latestSnapshots,
         rulebook,
+        today,
         violations,
     ]);
 
@@ -309,7 +318,10 @@ export function WeeklyReviewView() {
             <p className="text-sm text-muted-foreground">
                 Reviewing as of {result.asOf}.
             </p>
-            <AdherenceSummary adherence={result.adherence} />
+            <AdherenceSummary
+                adherence={result.adherence}
+                stepCents={result.adherenceStepCents}
+            />
             <p className="text-sm text-muted-foreground">
                 {ledgerOnlyText(result.ledgerOnlyExcludedCount)}
             </p>
@@ -372,22 +384,18 @@ export function WeeklyReviewView() {
                                 weekStart={result.weekStart}
                                 windowEnd={result.windowEnd}
                             />
-                            {row.lastDecision?.adherence ===
-                                DecisionAdherenceKind.NotFollowed && (
-                                <LogViolationSection
-                                    accountId={row.accountId}
-                                    decision={row.lastDecision}
-                                    initial={row.logViolation}
-                                    isOpen={loggingAccountId === row.accountId}
-                                    label={row.label}
-                                    onClose={() => {
-                                        setLoggingAccountId(null);
-                                    }}
-                                    onOpen={() => {
-                                        setLoggingAccountId(row.accountId);
-                                    }}
-                                />
-                            )}
+                            <LogViolationSection
+                                accountId={row.accountId}
+                                isOpen={loggingAccountId === row.accountId}
+                                label={row.label}
+                                offer={row.violationOffer}
+                                onClose={() => {
+                                    setLoggingAccountId(null);
+                                }}
+                                onOpen={() => {
+                                    setLoggingAccountId(row.accountId);
+                                }}
+                            />
                             {row.sizing.kind ===
                                 WeeklyReviewSizingKind.Ready && (
                                 <div className="flex items-center gap-2 text-sm">
@@ -429,8 +437,10 @@ export function WeeklyReviewView() {
 
 function AdherenceSummary({
     adherence,
+    stepCents,
 }: {
-    readonly adherence: WeeklyReviewAdherence;
+    readonly adherence: DecisionAdherence;
+    readonly stepCents: number;
 }) {
     return (
         <div className="flex flex-col gap-1 text-sm">
@@ -441,6 +451,9 @@ function AdherenceSummary({
             </p>
             <p className="text-muted-foreground">
                 Based on each account latest decision, whatever its date.
+                Followed means the actual risk is within{' '}
+                {formatUsdCents(usdCents(stepCents))} of the accepted risk (
+                {ADHERENCE_STEP_REASON}), the same rule as the overview.
             </p>
             {adherence.notRecorded > 0 && (
                 <p className="text-muted-foreground">
@@ -488,6 +501,9 @@ function LastDecisionLine({
         <p className="text-sm">
             Last decision on {decision.decidedOn}:{' '}
             {ADHERENCE_LABEL[decision.adherence]}
+            {decision.adherence === DecisionAdherenceKind.NotFollowed &&
+                !decision.isAboveAccepted &&
+                ' (traded below the accepted risk)'}
             <span className="ml-2 text-muted-foreground">
                 (accepted {accepted}
                 {actual})
@@ -509,177 +525,26 @@ function ledgerOnlyText(count: number): string {
     return `${subject} left out of this review. ${reason}`;
 }
 
-function LogViolationForm({
-    accountId,
-    decision,
-    initial,
-    onDone,
-}: {
-    readonly accountId: string;
-    readonly decision: WeeklyReviewLastDecision;
-    readonly initial: ViolationFormValues;
-    readonly onDone: () => void;
-}) {
-    const utilities = api.useUtils();
-    const create = api.propAccounts.violation.create.useMutation();
-    const schema = violationFormSchema(accountId);
-    const form = useForm<ViolationFormValues>({
-        defaultValues: initial,
-        resolver: zodResolver(schema, undefined, { raw: true }),
-    });
-    const { setFocus } = form;
-
-    useEffect(() => {
-        setFocus('kind');
-    }, [setFocus]);
-
-    const save = async (values: ViolationFormValues) => {
-        const parsed = schema.safeParse({
-            ...values,
-            decisionId: initial.decisionId,
-        });
-        if (!parsed.success) return;
-        try {
-            await create.mutateAsync(parsed.data);
-            toast.success('Violation recorded');
-            onDone();
-        } catch (error) {
-            toast.error(errorTextOf(error));
-        } finally {
-            await utilities.propAccounts.invalidate();
-        }
-    };
-
-    return (
-        <Form {...form}>
-            <form
-                aria-label="Log a violation"
-                className="grid gap-4 sm:grid-cols-2"
-                noValidate
-                onSubmit={(event) => {
-                    void form.handleSubmit(save)(event);
-                }}
-            >
-                <p className="text-sm text-muted-foreground sm:col-span-2">
-                    Linked decision: Decision on {decision.decidedOn}
-                </p>
-                <FormField
-                    control={form.control}
-                    name="kind"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Kind</FormLabel>
-                            <Select
-                                onValueChange={(next) => {
-                                    const kind = z
-                                        .enum(RuleViolationKind)
-                                        .safeParse(next).data;
-                                    if (kind !== undefined)
-                                        field.onChange(kind);
-                                }}
-                                value={field.value}
-                            >
-                                <FormControl>
-                                    <SelectTrigger ref={field.ref}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {Object.values(RuleViolationKind).map(
-                                        (candidate) => (
-                                            <SelectItem
-                                                key={candidate}
-                                                value={candidate}
-                                            >
-                                                {ruleViolationKindLabel(
-                                                    candidate,
-                                                )}
-                                            </SelectItem>
-                                        ),
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="occurredOn"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Date</FormLabel>
-                            <FormControl>
-                                <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="costCents"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Cost</FormLabel>
-                            <FormControl>
-                                <Input
-                                    inputMode="decimal"
-                                    placeholder="0.00"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="note"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Note</FormLabel>
-                            <FormControl>
-                                <Textarea rows={2} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
-                    <Button disabled={create.isPending} type="submit">
-                        Add violation
-                    </Button>
-                    <Button onClick={onDone} type="button" variant="ghost">
-                        Cancel
-                    </Button>
-                </div>
-            </form>
-        </Form>
-    );
-}
-
 function LogViolationSection({
     accountId,
-    decision,
-    initial,
     isOpen,
     label,
+    offer,
     onClose,
     onOpen,
 }: {
     readonly accountId: string;
-    readonly decision: WeeklyReviewLastDecision;
-    readonly initial: null | ViolationFormValues;
     readonly isOpen: boolean;
     readonly label: string;
+    readonly offer: WeeklyReviewViolationOffer;
     readonly onClose: () => void;
     readonly onOpen: () => void;
 }) {
     const buttonRef = useRef<HTMLButtonElement>(null);
     const noticeRef = useRef<HTMLParagraphElement>(null);
     const wasOpenRef = useRef(false);
-    const wasLoggedRef = useRef(decision.isViolationLogged);
+    const isLogged = offer.kind === ViolationOfferKind.AlreadyLogged;
+    const wasLoggedRef = useRef(isLogged);
 
     useEffect(() => {
         if (!isOpen && wasOpenRef.current) buttonRef.current?.focus();
@@ -687,47 +552,56 @@ function LogViolationSection({
     }, [isOpen]);
 
     useEffect(() => {
-        if (!wasLoggedRef.current && decision.isViolationLogged) {
-            noticeRef.current?.focus();
-        }
-        wasLoggedRef.current = decision.isViolationLogged;
-    }, [decision.isViolationLogged]);
+        if (isLogged && !wasLoggedRef.current) noticeRef.current?.focus();
+        wasLoggedRef.current = isLogged;
+    }, [isLogged]);
 
-    if (initial !== null && isOpen) {
-        return (
-            <LogViolationForm
-                accountId={accountId}
-                decision={decision}
-                initial={initial}
-                onDone={onClose}
-            />
-        );
+    switch (offer.kind) {
+        case ViolationOfferKind.AlreadyLogged: {
+            return (
+                <p
+                    className="text-sm text-muted-foreground"
+                    ref={noticeRef}
+                    role="status"
+                    tabIndex={-1}
+                >
+                    Violation already logged for this decision.
+                </p>
+            );
+        }
+        case ViolationOfferKind.Available: {
+            if (isOpen) {
+                return (
+                    <ViolationForm
+                        accountId={accountId}
+                        decisions={[offer.decision]}
+                        initial={offer.initial}
+                        isDecisionLocked
+                        onDone={onClose}
+                        onFailure={(error) => {
+                            toast.error(errorTextOf(error));
+                        }}
+                    />
+                );
+            }
+            return (
+                <div>
+                    <Button
+                        aria-label={`Log violation for ${label}`}
+                        onClick={onOpen}
+                        ref={buttonRef}
+                        type="button"
+                        variant="outline"
+                    >
+                        Log violation
+                    </Button>
+                </div>
+            );
+        }
+        case ViolationOfferKind.None: {
+            return null;
+        }
     }
-    if (initial === null) {
-        return (
-            <p
-                className="text-sm text-muted-foreground"
-                ref={noticeRef}
-                role="status"
-                tabIndex={-1}
-            >
-                Violation already logged for this decision.
-            </p>
-        );
-    }
-    return (
-        <div>
-            <Button
-                aria-label={`Log violation for ${label}`}
-                onClick={onOpen}
-                ref={buttonRef}
-                type="button"
-                variant="outline"
-            >
-                Log violation
-            </Button>
-        </div>
-    );
 }
 
 function SizingSummary({

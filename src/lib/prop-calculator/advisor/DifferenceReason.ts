@@ -1,5 +1,7 @@
 import { type ConductPattern, type Dollars } from '~/lib/prop-calculator/core';
 
+import { type LiveTriggerInfo } from './PayoutBlockReason';
+
 export enum DifferenceReason {
     AggressiveOptimumChurn = 'aggressive-optimum-churn',
     AssumedInputs = 'assumed-inputs',
@@ -9,6 +11,8 @@ export enum DifferenceReason {
     ConsistencyNotEvaluated = 'consistency-not-evaluated',
     CushionCap = 'cushion-cap',
     DailyLossCap = 'daily-loss-cap',
+    DocumentedLadderNeverFunded = 'documented-ladder-never-funded',
+    DocumentedLadderNotScored = 'documented-ladder-not-scored',
     DpGridMisaligned = 'dp-grid-misaligned',
     DpGridSaturation = 'dp-grid-saturation',
     DpIneligible = 'dp-ineligible',
@@ -33,6 +37,7 @@ export enum DifferenceReason {
     RemainingTargetCap = 'remaining-target-cap',
     RetainedCushionBasis = 'retained-cushion-basis',
     StaleAdvice = 'stale-advice',
+    Suspended = 'suspended',
     WholeContractPlacement = 'whole-contract-placement',
     WithinNoise = 'within-noise',
     WouldTriggerLive = 'would-trigger-live',
@@ -58,6 +63,7 @@ export type DifferenceReasonDetail =
     | BareDifferenceReasonDetail<DifferenceReason.NoCushion>
     | BareDifferenceReasonDetail<DifferenceReason.ObjectiveSpeedVsMonthlyNet>
     | BareDifferenceReasonDetail<DifferenceReason.PlanRulesChanged>
+    | BareDifferenceReasonDetail<DifferenceReason.Suspended>
     | { readonly cap: Dollars; readonly kind: DifferenceReason.PersonalCap }
     | {
           readonly cause: DpNotValidatedCause;
@@ -121,6 +127,14 @@ export type DifferenceReasonDetail =
           readonly kind: DifferenceReason.ConsistencyCap;
           readonly maxDayProfit: Dollars;
       }
+    | {
+          readonly kind: DifferenceReason.DocumentedLadderNeverFunded;
+          readonly sims: number;
+      }
+    | {
+          readonly kind: DifferenceReason.DocumentedLadderNotScored;
+          readonly sims: number;
+      }
     | { readonly kind: DifferenceReason.DpIneligible; readonly reason: string }
     | {
           readonly kind: DifferenceReason.FirmMinimumAboveRequest;
@@ -137,7 +151,7 @@ export type DifferenceReasonDetail =
       }
     | {
           readonly kind: DifferenceReason.WouldTriggerLive;
-          readonly trigger: string;
+          readonly trigger: LiveTriggerInfo;
       };
 
 type BareDifferenceReasonDetail<Kind extends DifferenceReason> = {

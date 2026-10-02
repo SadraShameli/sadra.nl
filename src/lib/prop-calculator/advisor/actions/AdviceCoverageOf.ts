@@ -53,6 +53,7 @@ export function adviceCoverageOf(
         advisor = createSizingAdvisor(reconstructed, {
             rulebook: DEFAULT_RULEBOOK,
             snapshotAsOf: today,
+            substate: null,
             today,
         });
     } catch (error) {

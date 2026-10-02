@@ -13,7 +13,6 @@ import {
     ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { LiveTransitionPreviewCard } from '~/app/(app)/prop-calculator/accounts/_components/detail/LiveTransitionPreviewCard';
-import { NextPayoutSection } from '~/app/(app)/prop-calculator/accounts/_components/detail/NextPayoutSection';
 import { SimulateAccountLink } from '~/app/(app)/prop-calculator/accounts/_components/detail/SimulateAccountLink';
 import {
     AccountFromStateViewKind,
@@ -21,6 +20,7 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
 import { NextPayoutCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/NextPayoutCard';
 import { type NextPayoutCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { usdCents } from '~/lib/prop-accounts';
 import {
     dollars,
     findFirm,
@@ -43,6 +43,8 @@ import {
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
 import { routes } from '~/lib/site/routes';
+
+import { NextPayoutSectionWithWorker } from './NextPayoutSectionWithWorker';
 
 vi.mock('next/navigation', () => ({
     usePathname: () => '/prop-calculator/accounts/x',
@@ -74,6 +76,22 @@ const FUNDED: AccountSnapshotInput = {
     stage: SizingStage.Funded,
     tradingDays: 12,
 };
+
+function accountRequestOf(requests: readonly OverviewRequest[]) {
+    return requests.find(
+        (request) => request.kind === OverviewRequestKind.AccountFromState,
+    );
+}
+
+function keysOfKind(
+    requests: readonly OverviewRequest[],
+    kind: OverviewRequestKind,
+) {
+    return requests
+        .filter((request) => request.kind === kind)
+        .map((request) => overviewRequestKey(request))
+        .toSorted((left, right) => left.localeCompare(right));
+}
 
 function readyView(request: OverviewRequest) {
     const outcome: OverviewOutcome = {
@@ -311,7 +329,7 @@ describe('from-state views', () => {
             vi.stubGlobal('Worker', FakeWorker);
             const account = AccountReconstruction.rebuild(FUNDED, PLAN);
             render(
-                <NextPayoutSection
+                <NextPayoutSectionWithWorker
                     account={account}
                     input={FUNDED}
                     measuredRebuyLag={null}
@@ -343,12 +361,119 @@ describe('from-state views', () => {
             }
         });
 
+        it('shows the first payout eligible step assumptions in the chain position, the lines the tools card shows (PT-67e)', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            render(
+                <NextPayoutSectionWithWorker
+                    account={account}
+                    input={FUNDED}
+                    measuredRebuyLag={null}
+                    plan={PLAN}
+                    rulebook={DEFAULT_RULEBOOK}
+                    rulebookError={null}
+                />,
+            );
+            await settle();
+            const list = container.querySelector(
+                'ul[aria-label="First payout eligible assumptions"]',
+            );
+            expect(list).not.toBeNull();
+            expect(list?.querySelectorAll('li').length).toBeGreaterThan(1);
+            expect(container.textContent).toContain(
+                'First payout eligible assumptions',
+            );
+        });
+
+        it('carries the personal payout override and retained cushion into the account request and the payout path, as the header figures do (PT-68b)', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const props = {
+                account,
+                input: FUNDED,
+                measuredRebuyLag: null,
+                plan: PLAN,
+                rulebook: DEFAULT_RULEBOOK,
+                rulebookError: null,
+            };
+            render(<NextPayoutSectionWithWorker {...props} />);
+            await settle();
+            const pathWithoutRules = container.textContent;
+            const withoutRules = posted.flatMap((entry) => entry.requests);
+            posted.length = 0;
+            render(
+                <NextPayoutSectionWithWorker
+                    {...props}
+                    personalRules={{
+                        payoutRequestOverrideCents: usdCents(40_000),
+                        retainedCushionCents: usdCents(900_000),
+                    }}
+                />,
+            );
+            await settle();
+            const withRules = posted.flatMap((entry) => entry.requests);
+            const personal = accountRequestOf(withRules);
+            expect(personal?.spec.enginePolicy.payoutRequestOverride).toBe(400);
+            expect(
+                personal?.spec.enginePolicy.retainedCushionRequest,
+            ).toBeGreaterThanOrEqual(9000);
+            expect(
+                accountRequestOf(withoutRules)?.spec.enginePolicy
+                    .payoutRequestOverride,
+            ).not.toBe(400);
+            expect(container.textContent).not.toBe(pathWithoutRules);
+        });
+
+        it('keeps the retire request on the rulebook policy and gives the value chain request the account personal rules (PT-67e)', async () => {
+            vi.stubGlobal('Worker', FakeWorker);
+            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const props = {
+                account,
+                input: FUNDED,
+                measuredRebuyLag: null,
+                plan: PLAN,
+                rulebook: DEFAULT_RULEBOOK,
+                rulebookError: null,
+            };
+            render(<NextPayoutSectionWithWorker {...props} />);
+            await settle();
+            const baseline = posted.flatMap((entry) => entry.requests);
+            render(null);
+            posted.length = 0;
+            render(
+                <NextPayoutSectionWithWorker
+                    {...props}
+                    personalRules={{
+                        retainedCushionCents: usdCents(900_000),
+                    }}
+                />,
+            );
+            await settle();
+            const withRules = posted.flatMap((entry) => entry.requests);
+            expect(
+                keysOfKind(withRules, OverviewRequestKind.RetireComparison),
+            ).toEqual(
+                keysOfKind(baseline, OverviewRequestKind.RetireComparison),
+            );
+            const chainOf = (requests: readonly OverviewRequest[]) =>
+                requests.find(
+                    (request) =>
+                        request.kind === OverviewRequestKind.ValueChain,
+                );
+            expect(
+                chainOf(withRules)?.spec.enginePolicy.retainedCushionRequest,
+            ).toBeGreaterThanOrEqual(9000);
+            expect(
+                chainOf(baseline)?.spec.enginePolicy.retainedCushionRequest,
+            ).toBeLessThan(9000);
+        });
+
         it('keeps the account figures when the group of fresh-chain requests fails, and says only the chain is unavailable', async () => {
             posted.length = 0;
             vi.stubGlobal('Worker', ChainFailingWorker);
             const account = AccountReconstruction.rebuild(FUNDED, PLAN);
             render(
-                <NextPayoutSection
+                <NextPayoutSectionWithWorker
                     account={account}
                     input={FUNDED}
                     measuredRebuyLag={null}
@@ -375,7 +500,7 @@ describe('from-state views', () => {
             };
             const account = AccountReconstruction.rebuild(nearThreshold, PLAN);
             render(
-                <NextPayoutSection
+                <NextPayoutSectionWithWorker
                     account={account}
                     input={nearThreshold}
                     measuredRebuyLag={null}
@@ -398,7 +523,7 @@ describe('from-state views', () => {
             vi.stubGlobal('Worker', SilentWorker);
             const account = AccountReconstruction.rebuild(FUNDED, PLAN);
             render(
-                <NextPayoutSection
+                <NextPayoutSectionWithWorker
                     account={account}
                     input={FUNDED}
                     measuredRebuyLag={null}
@@ -422,7 +547,7 @@ describe('from-state views', () => {
             vi.stubGlobal('Worker', FakeWorker);
             const account = AccountReconstruction.rebuild(FUNDED, PLAN);
             render(
-                <NextPayoutSection
+                <NextPayoutSectionWithWorker
                     account={account}
                     input={FUNDED}
                     measuredRebuyLag={null}
@@ -448,7 +573,7 @@ describe('from-state views', () => {
             }) as Plan;
             const account = AccountReconstruction.rebuild(FUNDED, PLAN);
             render(
-                <NextPayoutSection
+                <NextPayoutSectionWithWorker
                     account={account}
                     input={FUNDED}
                     measuredRebuyLag={null}
@@ -468,7 +593,7 @@ describe('from-state views', () => {
             vi.stubGlobal('Worker', FakeWorker);
             const account = AccountReconstruction.rebuild(FUNDED, PLAN);
             render(
-                <NextPayoutSection
+                <NextPayoutSectionWithWorker
                     account={account}
                     input={FUNDED}
                     measuredRebuyLag={null}
@@ -486,7 +611,7 @@ describe('from-state views', () => {
             const liveInput = { ...FUNDED, stage: SizingStage.Live };
             const account = AccountReconstruction.rebuild(liveInput, PLAN);
             render(
-                <NextPayoutSection
+                <NextPayoutSectionWithWorker
                     account={account}
                     input={liveInput}
                     measuredRebuyLag={null}
@@ -505,7 +630,7 @@ describe('from-state views', () => {
             vi.stubGlobal('Worker', undefined);
             const account = AccountReconstruction.rebuild(FUNDED, PLAN);
             render(
-                <NextPayoutSection
+                <NextPayoutSectionWithWorker
                     account={account}
                     input={FUNDED}
                     measuredRebuyLag={null}

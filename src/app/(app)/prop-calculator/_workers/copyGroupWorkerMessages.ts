@@ -1,27 +1,32 @@
 import { describeSimulationFailure } from '~/app/(app)/prop-calculator/_components/simulationFailure';
 import {
-    type AccountState,
-    type CouponDiscounts,
-    type DayStopRule,
+    DEFAULT_RUNG_SIZING,
+    dollars,
     type Dollars,
     findFirm,
-    flatDayPolicy,
+    type FirmId,
+    fraction,
     type Fraction0to1,
-    type FundedCycleSeed,
-    type InstrumentSymbol,
-    type PayoutRequestPolicy,
-    type PlanId,
-    PolicySizing,
+    type PlanOptIns,
     resolvePositionSizing,
-    type RungSizing,
     TradingPhase,
+    withPlanOptIns,
 } from '~/lib/prop-calculator';
+import {
+    type DocumentedPolicySpec,
+    toSimInputs,
+} from '~/lib/prop-calculator/advisor';
 import {
     type CopyGroupSimulationMember,
     type CopyGroupSimulationOutputs,
     type CopyGroupSimulationRejection,
+    CopyGroupSimulationRejectionKind,
     CopyGroupSimulationResultKind,
-    type FundedSimStart,
+    resolveDayPolicy,
+    SIM_DEFAULTS,
+    SIM_INPUTS_REFUSAL_PREFIX,
+    type SimInputs,
+    type SimStart,
     simulateCopyGroup,
 } from '~/lib/prop-calculator/simulator';
 import { stableJson } from '~/lib/stableJson';
@@ -32,33 +37,27 @@ export enum CopyGroupWorkerOutcomeKind {
     Simulated = 'simulated',
 }
 
+enum MemberBuildKind {
+    Built = 'built',
+    Refused = 'refused',
+}
+
 export interface CopyGroupWorkerFailure {
     readonly kind: CopyGroupWorkerOutcomeKind.Failed;
     readonly reason: string;
 }
 
 export interface CopyGroupWorkerMember {
-    readonly discounts?: CouponDiscounts;
+    readonly firmId: FirmId;
     readonly id: string;
-    readonly minRetainedCushion: Dollars;
-    readonly payoutRequestPolicy?: PayoutRequestPolicy;
-    readonly payoutRequestSize: Dollars | undefined;
-    readonly planId: PlanId;
-    readonly riskPerTrade: Dollars;
-    readonly rungSizing: RungSizing;
-    readonly seed: FundedCycleSeed;
-    readonly state: AccountState;
-    readonly stopRule: DayStopRule;
-    readonly tradesPerDay: number;
+    readonly optIns: PlanOptIns;
+    readonly planSerial: string;
+    readonly spec: DocumentedPolicySpec;
+    readonly start: SimStart;
 }
 
 export type CopyGroupWorkerOutcome =
     CopyGroupWorkerFailure | CopyGroupWorkerRejected | CopyGroupWorkerSimulated;
-
-export interface CopyGroupWorkerPositionSizing {
-    readonly instrument: InstrumentSymbol;
-    readonly stopPoints: number;
-}
 
 export interface CopyGroupWorkerRejected {
     readonly kind: CopyGroupWorkerOutcomeKind.Rejected;
@@ -66,22 +65,44 @@ export interface CopyGroupWorkerRejected {
 }
 
 export interface CopyGroupWorkerRequest {
-    readonly commission: Dollars;
-    readonly fundedHorizonDays: number;
-    readonly idleDayProbability?: number;
-    readonly intradayPathStepsPerR?: number;
     readonly members: readonly CopyGroupWorkerMember[];
-    readonly positionSizing: CopyGroupWorkerPositionSizing | null;
-    readonly rrRatio: number;
     readonly seed: number;
     readonly trials: number;
-    readonly winrate: Fraction0to1;
 }
 
 export interface CopyGroupWorkerSimulated {
     readonly kind: CopyGroupWorkerOutcomeKind.Simulated;
     readonly result: CopyGroupSimulationOutputs;
 }
+
+interface MemberBuild {
+    readonly inputs: SimInputs;
+    readonly kind: MemberBuildKind.Built;
+    readonly member: CopyGroupSimulationMember;
+}
+
+type MemberBuildResult =
+    | MemberBuild
+    | {
+          readonly kind: MemberBuildKind.Refused;
+          readonly rejection: CopyGroupSimulationRejection;
+      };
+
+interface SharedBasis {
+    readonly commission: Dollars;
+    readonly fundedHorizonDays: number;
+    readonly intradayPathStepsPerR: number | undefined;
+    readonly rrRatio: number;
+    readonly winrate: Fraction0to1;
+}
+
+const SHARED_BASIS_LABEL: Readonly<Record<keyof SharedBasis, string>> = {
+    commission: 'commission per round trip',
+    fundedHorizonDays: 'funded horizon',
+    intradayPathStepsPerR: 'intraday path resolution',
+    rrRatio: 'reward to risk ratio',
+    winrate: 'win rate',
+};
 
 export function copyGroupRequestCacheKey(
     request: CopyGroupWorkerRequest,
@@ -93,20 +114,27 @@ export function simulateGroupOutcomeOf(
     request: CopyGroupWorkerRequest,
 ): CopyGroupWorkerOutcome {
     try {
-        const positionSizing = positionSizingOf(request.positionSizing);
-        const members = request.members.map((member) =>
-            copyGroupSimulationMemberOf(member, positionSizing),
-        );
+        const builds: MemberBuild[] = [];
+        for (const member of request.members) {
+            const build = memberBuildOf(member);
+            if (build.kind === MemberBuildKind.Refused) {
+                return {
+                    kind: CopyGroupWorkerOutcomeKind.Rejected,
+                    rejection: build.rejection,
+                };
+            }
+            builds.push(build);
+        }
+        const basis = sharedBasisOf(builds.map((build) => build.inputs));
         const result = simulateCopyGroup({
-            commission: request.commission,
-            fundedHorizonDays: request.fundedHorizonDays,
-            idleDayProbability: request.idleDayProbability,
-            intradayPathStepsPerR: request.intradayPathStepsPerR,
-            members,
-            rrRatio: request.rrRatio,
+            commission: basis.commission,
+            fundedHorizonDays: basis.fundedHorizonDays,
+            intradayPathStepsPerR: basis.intradayPathStepsPerR,
+            members: builds.map((build) => build.member),
+            rrRatio: basis.rrRatio,
             seed: request.seed,
             trials: request.trials,
-            winrate: request.winrate,
+            winrate: basis.winrate,
         });
         return result.kind === CopyGroupSimulationResultKind.Rejected
             ? {
@@ -125,36 +153,77 @@ export function simulateGroupOutcomeOf(
     }
 }
 
-function copyGroupSimulationMemberOf(
-    member: CopyGroupWorkerMember,
-    positionSizing: ReturnType<typeof resolvePositionSizing>,
-): CopyGroupSimulationMember {
-    const plan = findFirm(member.planId.firm)?.findPlan(member.planId);
-    if (!plan) {
-        throw new Error(`Plan not found for firm "${member.planId.firm}".`);
-    }
-    const start: FundedSimStart = {
-        phase: TradingPhase.Funded,
-        seed: member.seed,
-        state: member.state,
-    };
+function basisOf(inputs: SimInputs): SharedBasis {
     return {
-        dayPolicy: flatDayPolicy(
-            member.riskPerTrade,
-            member.tradesPerDay,
-            member.stopRule,
-            PolicySizing.WholeContracts,
+        commission: dollars(
+            inputs.commissionPerRoundTrip ??
+                SIM_DEFAULTS.commissionPerRoundTrip,
         ),
-        discounts: member.discounts,
-        id: member.id,
-        minRetainedCushion: member.minRetainedCushion,
-        payoutRequestPolicy: member.payoutRequestPolicy,
-        payoutRequestSize: member.payoutRequestSize,
-        plan,
-        positionSizing,
-        rungSizing: member.rungSizing,
-        start,
+        fundedHorizonDays: inputs.fundedHorizonDays,
+        intradayPathStepsPerR: inputs.intradayPathStepsPerR,
+        rrRatio: inputs.fundedRrRatio ?? inputs.rrRatio,
+        winrate: fraction(inputs.winrate),
     };
+}
+
+function distinctDefined<Value>(values: readonly (undefined | Value)[]) {
+    return [
+        ...new Set(values.filter((value): value is Value => value !== undefined)),
+    ];
+}
+
+function memberBuildOf(member: CopyGroupWorkerMember): MemberBuildResult {
+    const resolved = findFirm(member.firmId)?.findPlanBySerial(
+        member.planSerial,
+    );
+    if (resolved === undefined || resolved === null) {
+        throw new Error(
+            `Plan "${member.planSerial}" not found for firm "${member.firmId}".`,
+        );
+    }
+    const plan = withPlanOptIns(resolved, member.optIns);
+    try {
+        const inputs = toSimInputs(plan, member.spec);
+        const dayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
+        const { payoutRequestPolicy, payoutRequestSize } = inputs;
+        return {
+            inputs,
+            kind: MemberBuildKind.Built,
+            member: {
+                dayPolicy,
+                discounts: inputs.discounts,
+                id: member.id,
+                minRetainedCushion: dollars(inputs.minRetainedCushion ?? 0),
+                payoutRequestPolicy,
+                payoutRequestSize:
+                    payoutRequestSize === undefined
+                        ? undefined
+                        : dollars(payoutRequestSize),
+                plan: inputs.plan,
+                positionSizing: resolvePositionSizing(
+                    inputs.instrument,
+                    inputs.stopPoints,
+                ),
+                rungSizing: inputs.rungSizing ?? DEFAULT_RUNG_SIZING,
+                start: member.start,
+            },
+        };
+    } catch (error) {
+        if (
+            error instanceof Error &&
+            error.message.startsWith(SIM_INPUTS_REFUSAL_PREFIX)
+        ) {
+            return {
+                kind: MemberBuildKind.Refused,
+                rejection: {
+                    kind: CopyGroupSimulationRejectionKind.MemberRefused,
+                    memberId: member.id,
+                    message: describeSimulationFailure(error),
+                },
+            };
+        }
+        throw error;
+    }
 }
 
 function outputsOf(
@@ -167,18 +236,26 @@ function outputsOf(
     return copy;
 }
 
-function positionSizingOf(
-    requested: CopyGroupWorkerPositionSizing | null,
-): ReturnType<typeof resolvePositionSizing> {
-    if (requested === null) return null;
-    const positionSizing = resolvePositionSizing(
-        requested.instrument,
-        requested.stopPoints,
-    );
-    if (positionSizing === null) {
-        throw new Error(
-            `stopPoints must be a positive number, received ${requested.stopPoints}.`,
-        );
+function sharedBasisOf(inputs: readonly SimInputs[]): SharedBasis {
+    const bases = inputs.map(basisOf);
+    const [first] = bases;
+    if (first === undefined) {
+        throw new RangeError('a copy group needs at least one member');
     }
-    return positionSizing;
+    for (const field of Object.keys(SHARED_BASIS_LABEL) as (keyof SharedBasis)[]) {
+        const distinct = distinctDefined<unknown>(
+            bases.map((basis) => basis[field]),
+        );
+        if (distinct.length > 1) {
+            throw new Error(
+                `Copy-group members must share one ${SHARED_BASIS_LABEL[field]} to trade one outcome stream, but they differ: ${distinct.map(String).join(', ')}.`,
+            );
+        }
+    }
+    return {
+        ...first,
+        intradayPathStepsPerR: distinctDefined(
+            bases.map((basis) => basis.intradayPathStepsPerR),
+        )[0],
+    };
 }

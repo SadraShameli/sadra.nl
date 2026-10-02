@@ -23,31 +23,25 @@ import {
     isModeledAccount,
     latestTwoSnapshots,
     PlanKeyResolutionKind,
-    readPersonalRulesOrNull,
     resolvePlanKey,
     trackedAccountOf,
-    type UsdCents,
     usdCentsFromDollars,
-    usdCentsToDollars,
 } from '~/lib/prop-accounts';
 import {
-    findFirm,
     type Plan,
     type TierProfitContext,
     type TradingPhase,
 } from '~/lib/prop-calculator';
 import {
     AccountAction,
-    createSizingAdvisor,
     DAY_STOP_REASON_TEXT,
     type MeasuredRebuyLag,
-    type PersonalCaps,
+    type ReconstructedAccount,
     ReconstructedLiveKind,
     type RiskDisplayUnit,
     type RulebookParameters,
-    type SizingAdvisor,
+    type SizingAdvisorCreateOptions,
 } from '~/lib/prop-calculator/advisor';
-import { dollars } from '~/lib/prop-calculator/core';
 import { MAX_ACCEPTED_RUNGS } from '~/lib/schemas/propAccounts';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -55,12 +49,14 @@ import { ACCOUNT_ACTION_TEXT } from './accountActionModel';
 import {
     AdviceValueRequestKind,
     adviceValueRequestOf,
+    type AdviceValueRequestResult,
     valueRunNoteOf,
 } from './adviceValueModel';
 import {
     AdviceDisplayKind,
     type adviceViewModel,
     leftOutOptimumRow,
+    type PersonalLimits,
 } from './adviceViewModel';
 import { AssumptionsList } from './AssumptionsList';
 import { DailyPlanCardView } from './DailyPlanCardView';
@@ -69,6 +65,13 @@ import { HeadlineCard } from './HeadlineCard';
 import { OptimaTable } from './OptimaTable';
 import { PayoutAdviceCard } from './PayoutAdviceCard';
 import { PayoutReadyBanner } from './PayoutReadyBanner';
+import {
+    buildSizingAdvisor,
+    personalAdvisorOptionsOf,
+    personalLimitsOf,
+    type SizingAdvisorBuild,
+    SizingAdvisorBuildKind,
+} from './personalRuleOptions';
 import { ProposedRiskCheck } from './ProposedRiskCheck';
 import { ProvenanceLine } from './ProvenanceLine';
 import { ReasonsList } from './ReasonsList';
@@ -96,6 +99,7 @@ type Built =
     | {
           readonly input: UseAccountAdviceInput;
           readonly kind: BuiltKind.Ready;
+          readonly limits: PersonalLimits;
           readonly phase: null | TradingPhase;
           readonly plan: Plan;
           readonly riskUnit: RiskDisplayUnit;
@@ -137,6 +141,9 @@ type SnapshotRow =
     RouterOutputs['propAccounts']['snapshot']['listForAccount'][number];
 
 const EMPTY_DECISIONS: DecisionRows = [];
+
+const SUSPENDED_ACCOUNT_TEXT =
+    "No sizing, daily plan, payout advice, value figures or risk check is shown for a suspended account. Set the account's status back to Active to see advice again.";
 
 export function AdvicePanel({ id }: { readonly id: string }) {
     const session = useSession();
@@ -338,6 +345,20 @@ export function AdvicePanel({ id }: { readonly id: string }) {
     );
 }
 
+function advisorBuildOf(
+    account: ReconstructedAccount,
+    options: SizingAdvisorCreateOptions,
+): SizingAdvisorBuild {
+    try {
+        return buildSizingAdvisor(account, options);
+    } catch (error) {
+        return {
+            kind: SizingAdvisorBuildKind.NotModeled,
+            reason: error instanceof Error ? error.message : String(error),
+        };
+    }
+}
+
 function buildAdvisorInput(args: {
     readonly account: AccountRow | undefined;
     readonly events: readonly EventRow[] | undefined;
@@ -397,52 +418,36 @@ function buildAdvisorInput(args: {
                     : view.message,
         };
     }
-    const personalRules = readPersonalRulesOrNull(account.personalRules);
-    const personalCaps: PersonalCaps = {
-        dailyProfitCap: optionalDollars(personalRules?.dailyProfitCapCents),
-        maxRiskPerTrade:
-            view.account.kind === ReconstructedLiveKind.Live ||
-            view.account.personalMaxRiskPerTrade == null
-                ? null
-                : dollars(view.account.personalMaxRiskPerTrade),
-        maxTradesPerDay: personalRules?.maxTradesPerDay ?? null,
-    };
-    const accountPolicy = findFirm(plan.id.firm)?.accountPolicy;
-    const personalPayoutOverride = optionalDollars(
-        personalRules?.payoutRequestOverrideCents,
-    );
-    const personalRetainedCushion = optionalDollars(
-        personalRules?.retainedCushionCents,
-    );
-    let advisor: SizingAdvisor;
-    try {
-        advisor = createSizingAdvisor(view.account, {
-            accountPolicy,
-            measuredRebuyLag,
-            personalCaps,
-            personalDll: optionalDollars(personalRules?.dailyLossLimitCents),
-            personalPayoutOverride,
-            personalRetainedCushion,
-            rulebook,
-            snapshotAsOf: view.input.asOf,
-            today,
-        });
-    } catch (error) {
-        return {
-            kind: BuiltKind.NotModeled,
-            reason: error instanceof Error ? error.message : String(error),
-        };
-    }
-    const valueRequest = adviceValueRequestOf({
+    const options = personalAdvisorOptionsOf({
         account: view.account,
-        accountPolicy,
-        advice: advisor.assemble([]),
         measuredRebuyLag,
-        personalPayoutOverride,
-        personalRetainedCushion,
+        personalRules: account.personalRules,
         plan,
         rulebook,
+        snapshotAsOf: view.input.asOf,
+        status: account.status,
+        today,
     });
+    const build = advisorBuildOf(view.account, options);
+    if (build.kind === SizingAdvisorBuildKind.NotModeled) {
+        return { kind: BuiltKind.NotModeled, reason: build.reason };
+    }
+    const { advisor } = build;
+    const limits = personalLimitsOf(options);
+    const valueRequest: AdviceValueRequestResult = advisor.isSuspended()
+        ? { kind: AdviceValueRequestKind.NotRequested }
+        : adviceValueRequestOf({
+              account: view.account,
+              accountPolicy: options.accountPolicy,
+              advice: advisor.assemble([]),
+              measuredRebuyLag,
+              personalCaps: limits.caps,
+              personalDll: limits.dailyLossLimit,
+              personalPayoutOverride: options.personalPayoutOverride,
+              personalRetainedCushion: options.personalRetainedCushion,
+              plan,
+              rulebook,
+          });
     return {
         input: {
             advisor,
@@ -459,6 +464,7 @@ function buildAdvisorInput(args: {
                     : null,
         },
         kind: BuiltKind.Ready,
+        limits,
         phase:
             view.account.kind === ReconstructedLiveKind.Live
                 ? null
@@ -502,6 +508,7 @@ function ComputedAdvice({
     });
     const views = useAdviceViews({
         adviceState,
+        limits: built.limits,
         phase: built.phase,
         plan: built.plan,
         riskUnit: built.riskUnit,
@@ -532,6 +539,23 @@ function ComputedAdvice({
     if (views === null) return <LoadingAdvice label="Computing the advice" />;
 
     const { valueView, view } = views;
+
+    if (advisor.isSuspended()) {
+        return (
+            <div className="flex flex-col gap-2">
+                <h2 className="text-lg font-semibold">Sizing advice</h2>
+                {refreshFailureAlert}
+                {rebuyLagFailureAlert}
+                <Alert variant="warning">
+                    <AlertTitle>This account is suspended</AlertTitle>
+                    <AlertDescription>
+                        {SUSPENDED_ACCOUNT_TEXT}
+                    </AlertDescription>
+                </Alert>
+                <ProvenanceLine provenance={view.provenance} />
+            </div>
+        );
+    }
 
     if (view.kind === AdviceDisplayKind.Stale) {
         return (
@@ -639,6 +663,7 @@ function ComputedAdvice({
                 </h3>
                 <ValuesNotice
                     isLive={built.phase === null}
+                    runNote={runNote}
                     values={adviceState.values}
                 >
                     <RiskCandidates valueView={valueView} />
@@ -672,6 +697,11 @@ function ComputedAdvice({
                 <section className="flex flex-col gap-2">
                     <h3 className="text-sm font-medium">Payout advice</h3>
                     <PayoutAdviceCard view={view.payoutAdvice} />
+                    {view.payoutAdvice.personalOverrideWarningText !== null && (
+                        <p className="text-sm text-destructive" role="alert">
+                            {view.payoutAdvice.personalOverrideWarningText}
+                        </p>
+                    )}
                 </section>
             )}
             <ProvenanceLine provenance={view.provenance} />
@@ -720,10 +750,6 @@ function namedInputQueries(queries: {
         { label: 'rulebook', query: queries.rulebookQuery },
         { label: 'snapshots', query: queries.snapshotsQuery },
     ];
-}
-
-function optionalDollars(cents: undefined | UsdCents) {
-    return cents === undefined ? null : usdCentsToDollars(cents);
 }
 
 function suggestionFrom(

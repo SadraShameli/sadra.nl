@@ -14,12 +14,17 @@ import {
 } from '~/lib/prop-accounts';
 import {
     ApexVariant,
+    type Dollars,
+    dollars,
     findFirm,
     FirmId,
     serializePlanId,
 } from '~/lib/prop-calculator';
 import * as advisorLib from '~/lib/prop-calculator/advisor';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    RetainedCushionBasis,
+} from '~/lib/prop-calculator/advisor';
 import * as advisorValue from '~/lib/prop-calculator/advisor/value';
 
 const USER_ID = 'user-a';
@@ -258,6 +263,12 @@ function account(overrides: Record<string, unknown> = {}) {
     };
 }
 
+function accountWith(personalRules: Record<string, unknown>) {
+    answerEverything({
+        'account.get': answer(account({ personalRules })),
+    });
+}
+
 function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };
 }
@@ -289,6 +300,80 @@ function failed(message: string, refetch = vi.fn()): FakeQuery {
 
 function pendingQuery(): FakeQuery {
     return { data: undefined, error: null, isError: false, isPending: true };
+}
+
+function readyAdviceWithProjection(personalDll: Dollars | null): unknown {
+    const advisor = new FundedSizingAdvisor({
+        account: {
+            assumptions: [],
+            contractLimit: null,
+            cushion: 3500,
+            fundedTracker: newFundedCycleTracker({
+                balance: 50_000,
+                bestDayProfit: 0,
+                consecutiveIdleDays: 0,
+                intradayHighProfit: 0,
+                peakDayCloseProfit: 0,
+                peakIntradayProfit: 0,
+                qualifyingDays: 0,
+                startingBalance: 50_000,
+                threshold: 48_000,
+                thresholdLocked: false,
+                todayPnL: 0,
+                tradingDays: 0,
+            }),
+            kind: TradingPhase.Funded,
+            plan: PLAN,
+            resolvedDailyLossLimit: null,
+            state: {
+                balance: 51_500,
+                bestDayProfit: 0,
+                consecutiveIdleDays: 0,
+                intradayHighProfit: 0,
+                peakDayCloseProfit: 0,
+                peakIntradayProfit: 0,
+                qualifyingDays: 20,
+                startingBalance: 50_000,
+                threshold: 48_000,
+                thresholdLocked: false,
+                todayPnL: 0,
+                tradingDays: 20,
+            },
+        },
+        fundedHorizonDays: 252,
+        personalDll,
+        rulebook: DEFAULT_RULEBOOK,
+        snapshotAsOf: '2026-09-26',
+        substate: null,
+        today: '2026-09-26',
+        trials: 20,
+    });
+    return advisor.assemble([
+        {
+            projection: {
+                accountLostBeforeFirstPayoutProbability: 0.1,
+                accountLostBeforeFirstPayoutStandardError: 0.01,
+                alreadyEligible: false,
+                expectedCalendarDaysToFirstPayout: {
+                    standardError: 0.5,
+                    value: 12.3,
+                },
+                expectedResetFeeBeforeFirstPayout: {
+                    standardError: 0,
+                    value: 0,
+                },
+                expectedSessionDaysToFirstPayout: {
+                    standardError: 0.4,
+                    value: 9,
+                },
+                firstPayoutCausedBreachProbability: 0,
+                firstPayoutCausedBreachStandardError: 0,
+                payingTrials: 150,
+                trials: 200,
+            },
+            source: advisorLib.AdviceSource.NextPayoutProjection,
+        },
+    ]);
 }
 
 function realFundedAdvice() {
@@ -324,6 +409,7 @@ function realFundedAdvice() {
         fundedHorizonDays: 252,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
         trials: 20,
     });
@@ -357,6 +443,20 @@ function snapshot(overrides: Record<string, unknown> = {}) {
 }
 
 const VIDEO_FIGURES = ['600', '350', '466'];
+
+function advisorOfLastInput(): {
+    documented: () => unknown;
+    optimumRequests: () => readonly unknown[];
+} {
+    return (
+        lastInput() as unknown as {
+            advisor: {
+                documented: () => unknown;
+                optimumRequests: () => readonly unknown[];
+            };
+        }
+    ).advisor;
+}
 
 function decisionOf(id: string, actualRiskCents: null | number) {
     return {
@@ -632,6 +732,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             rulebook: DEFAULT_RULEBOOK,
             sims: 20,
             snapshotAsOf: '2026-01-01',
+            substate: null,
             today: '2026-09-26',
         });
         adviceBox.state = {
@@ -735,6 +836,19 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         const options = spy.mock.calls[0]?.[1];
         expect(options?.accountPolicy).toBe(
             findFirm(FirmId.Apex)?.accountPolicy,
+        );
+    });
+
+    it('shows the message of an unexpected advisor error as a not-modeled state instead of unmounting the panel', () => {
+        vi.spyOn(advisorLib, 'createSizingAdvisor').mockImplementation(() => {
+            throw new Error('the stored rulebook is inconsistent');
+        });
+        answerEverything();
+        render();
+
+        expect(container.textContent).toContain('not modeled');
+        expect(container.textContent).toContain(
+            'the stored rulebook is inconsistent',
         );
     });
 
@@ -1869,6 +1983,254 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             for (const figure of VIDEO_FIGURES) {
                 expect(text).not.toContain(figure);
             }
+        });
+    });
+
+    describe('the panel passes the personal limits (PT-68g, F-V16)', () => {
+        const NOT_CHECKED_TEXT = 'not checked against your personal limits';
+
+        it('sends the personal max risk, max trades, daily profit cap and daily loss limit in the spec of the value request', () => {
+            accountWith({
+                dailyLossLimitCents: 60_000,
+                dailyProfitCapCents: 50_000,
+                maxRiskPerTradeCents: 15_000,
+                maxTradesPerDay: 2,
+            });
+            render();
+
+            const policy = lastInput().values?.spec.enginePolicy as
+                | undefined
+                | {
+                      personalCaps?: Record<string, null | number>;
+                      personalDll?: number;
+                  };
+            expect(policy?.personalCaps).toEqual({
+                dailyProfitCap: 500,
+                maxRiskPerTrade: 150,
+                maxTradesPerDay: 2,
+            });
+            expect(policy?.personalDll).toBe(600);
+            const rungs = lastInput().values?.rungs ?? [];
+            for (const rung of rungs) {
+                expect(rung.risk).toBeLessThanOrEqual(150);
+            }
+        });
+
+        it('leaves the value spec without any personal limit for an account that sets none', () => {
+            answerEverything();
+            render();
+
+            const policy = lastInput().values?.spec.enginePolicy;
+            expect(policy).not.toHaveProperty('personalCaps');
+            expect(policy).not.toHaveProperty('personalDll');
+        });
+
+        it('shows the run note with the applied personal max risk beside the value figures', () => {
+            const risk = documentedRisk();
+            accountWith({ maxRiskPerTradeCents: 15_000 });
+            readyWith(valuesFor(risk));
+
+            expect(
+                sectionOf('What the next trade does to value').textContent,
+            ).toContain('max risk per trade $150.00');
+        });
+
+        it('shows no limits note for an account that sets no personal limit', () => {
+            answerEverything();
+            adviceBox.state = {
+                advice: readyAdviceWithProjection(null),
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            render();
+
+            expect(container.textContent).not.toContain(NOT_CHECKED_TEXT);
+            expect(container.textContent).not.toContain('do not apply your');
+        });
+
+        it('shows no not-applied note for a daily loss limit in the rendered panel, because the engine rows simulate it', () => {
+            accountWith({ dailyLossLimitCents: 60_000 });
+            adviceBox.state = {
+                advice: readyAdviceWithProjection(dollars(600)),
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            render();
+
+            expect(container.textContent).not.toContain(NOT_CHECKED_TEXT);
+            expect(container.textContent).not.toContain('do not apply your');
+        });
+    });
+
+    describe('PT-19h: the Suspended gate, the override warning and the run note', () => {
+        const PAYOUT_WARNING = {
+            horizonDays: 252,
+            optimumBustProbability: 0.12,
+            optimumMonthlyNet: 4321,
+            optimumRequestSize: 2000,
+            overrideBustProbability: 0.34,
+            overrideMonthlyNet: 1234,
+            overrideRequestSize: 750,
+            retainedCushion: 2750,
+            retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+        };
+
+        it('builds the advisor of a Suspended account with the Suspended substate, so it is never sized (F-118)', () => {
+            answerEverything({
+                'account.get': answer(
+                    account({ status: AccountStatus.Suspended }),
+                ),
+            });
+            render();
+
+            const advisor = advisorOfLastInput();
+            expect(advisor.documented()).toBeNull();
+            expect(advisor.optimumRequests()).toEqual([]);
+        });
+
+        it('asks for no value request for a Suspended account, so no value worker can start (F-118 review)', () => {
+            answerEverything({
+                'account.get': answer(
+                    account({ status: AccountStatus.Suspended }),
+                ),
+            });
+            render();
+
+            expect(lastInput().values).toBeNull();
+            expect(lastInput().valuesUnavailableReason).toBeNull();
+        });
+
+        it('renders an explicit Suspended notice and none of the sizing, value or risk sections for a Suspended account', () => {
+            answerEverything({
+                'account.get': answer(
+                    account({ status: AccountStatus.Suspended }),
+                ),
+            });
+            adviceBox.adjust = (derived) => derived;
+            adviceBox.state = {
+                advice: null,
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            render();
+
+            const text = container.textContent;
+            expect(text).toContain('This account is suspended');
+            expect(text).not.toContain('The engine refused');
+            expect(text).not.toContain('Not modeled for this account');
+            expect(text).not.toContain('No documented sizing applies');
+            const headings = [...container.querySelectorAll('h3')].map(
+                (heading) => heading.textContent,
+            );
+            expect(headings).toEqual([]);
+        });
+
+        it('still renders the sizing sections for an Active account', () => {
+            answerEverything();
+            adviceBox.adjust = (derived) => derived;
+            adviceBox.state = {
+                advice: null,
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            render();
+
+            expect(container.textContent).not.toContain(
+                'This account is suspended',
+            );
+            expect(
+                [...container.querySelectorAll('h3')].map(
+                    (heading) => heading.textContent,
+                ),
+            ).toContain('What the next trade does to value');
+        });
+
+        it('still sizes an Active account', () => {
+            answerEverything();
+            render();
+
+            const advisor = advisorOfLastInput();
+            expect(advisor.documented()).not.toBeNull();
+            expect(advisor.optimumRequests().length).toBeGreaterThan(0);
+        });
+
+        it('shows the non-monotonic payout-size warning of the payout advice with its typed figures (F-128)', () => {
+            const base = realFundedAdvice();
+            if (base.payoutAdvice === null) {
+                throw new Error('expected payout advice');
+            }
+            answerEverything();
+            adviceBox.state = {
+                advice: {
+                    ...base,
+                    payoutAdvice: {
+                        ...base.payoutAdvice,
+                        personalOverrideWarning: PAYOUT_WARNING,
+                    },
+                },
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            render();
+
+            const text = sectionOf('Payout advice').textContent;
+            expect(text).toContain('$1,234');
+            expect(text).toContain('$4,321');
+            expect(text).toContain('34');
+            expect(text).toContain('12');
+            expect(text).toContain('payout request underperforms');
+            expect(text).toContain('payout-size sweep');
+        });
+
+        it('names the request sizes, the horizon and the retained cushion with its basis in the override warning (F-128)', () => {
+            const base = realFundedAdvice();
+            if (base.payoutAdvice === null) {
+                throw new Error('expected payout advice');
+            }
+            answerEverything();
+            adviceBox.state = {
+                advice: {
+                    ...base,
+                    payoutAdvice: {
+                        ...base.payoutAdvice,
+                        personalOverrideWarning: PAYOUT_WARNING,
+                    },
+                },
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            render();
+
+            const text = sectionOf('Payout advice').textContent;
+            expect(text).toContain('$1,234 at a $750 request');
+            expect(text).toContain('$4,321 at $2,000');
+            expect(text).toContain('252 funded days');
+            expect(text).toContain('retaining $2,750 (your rulebook size)');
+        });
+
+        it('shows no payout override warning when the payout advice carries none', () => {
+            const base = realFundedAdvice();
+            answerEverything();
+            adviceBox.state = {
+                advice: base,
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            render();
+
+            expect(sectionOf('Payout advice').textContent).not.toContain(
+                'underperforms',
+            );
+        });
+
+        it('shows the value run note beside the one-step risk candidates too (F-V16)', () => {
+            const risk = documentedRisk();
+            accountWith({ maxRiskPerTradeCents: 15_000 });
+            readyWith(valuesFor(risk));
+
+            expect(
+                sectionOf('One-step risk candidates').textContent,
+            ).toContain('max risk per trade $150.00');
         });
     });
 });

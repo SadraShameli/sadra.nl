@@ -2,6 +2,15 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+    type AccountFromStateFigures,
+    type OverviewOutcome,
+    OverviewOutcomeKind,
+    type OverviewRequest,
+    overviewRequestKey,
+    OverviewRequestKind,
+    ValueChainStepOutcomeKind,
+} from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
 import {
     type EventPreviewer,
@@ -13,6 +22,7 @@ import {
     AccountStage,
     AccountStatus,
     AccountTracking,
+    BankrollTransferKind,
     BustCause,
     DashboardBalanceConvention,
     FeeKind,
@@ -35,13 +45,23 @@ import {
     type Plan,
     serializePlanId,
 } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    SizingStage,
+    StartBasis,
+} from '~/lib/prop-calculator/advisor';
+import {
+    MilestoneKind,
+    ValueResultKind,
+} from '~/lib/prop-calculator/advisor/value';
 import {
     PropRecord,
     type PropRejection,
     PropStoredRecordRejection,
 } from '~/lib/schemas/propAccountOutputs';
 import { routes } from '~/lib/site/routes';
+
+import { transfer } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
 
 interface FakeQuery {
     data: unknown;
@@ -63,6 +83,7 @@ const GROUP_ID = '8b0d2f4a-6c8e-4a1b-9d3f-5e7a9c1b3d5f';
 
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
+    const requested = new Set<string>();
     const mutate = new Map<string, ReturnType<typeof vi.fn>>();
     const mutateAsync = new Map<string, ReturnType<typeof vi.fn>>();
     const invalidate = vi.fn(() => Promise.resolve());
@@ -99,10 +120,15 @@ const harness = vi.hoisted(() => {
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            useQuery: () => {
+                requested.add(name);
+                return queries.get(name) ?? pending;
+            },
         }),
+        requested,
         reset() {
             queries.clear();
+            requested.clear();
             mutate.clear();
             mutateAsync.clear();
             invalidate.mockClear();
@@ -134,6 +160,7 @@ vi.mock('~/trpc/react', () => ({
             bankroll: { list: harness.query('bankroll.list') },
             copyGroup: { list: harness.query('copyGroup.list') },
             decision: {
+                latestForAll: harness.query('decision.latestForAll'),
                 list: harness.query('decision.list'),
                 listForAccount: harness.query('decision.listForAccount'),
             },
@@ -162,6 +189,7 @@ vi.mock('~/trpc/react', () => ({
             snapshot: {
                 create: harness.mutation('snapshot.create'),
                 latestForAll: harness.query('snapshot.latestForAll'),
+                latestTwoForAll: harness.query('snapshot.latestTwoForAll'),
                 listForAccount: harness.query('snapshot.listForAccount'),
                 remove: harness.mutation('snapshot.remove'),
             },
@@ -295,8 +323,15 @@ function answerEverything(overrides: Record<string, FakeQuery> = {}) {
     harness.queries.set('event.list', answer(ALL_EVENTS));
     harness.queries.set('rulebook.get', answer(DEFAULT_RULEBOOK));
     harness.queries.set('copyGroup.list', answer([]));
+    harness.queries.set('bankroll.list', answer([]));
+    harness.queries.set('decision.latestForAll', answer([]));
+    harness.queries.set('decision.list', answer([]));
     harness.queries.set(
         'snapshot.latestForAll',
+        answer([snapshot('s2', '2026-09-20', 5_100_000)]),
+    );
+    harness.queries.set(
+        'snapshot.latestTwoForAll',
         answer([snapshot('s2', '2026-09-20', 5_100_000)]),
     );
     for (const [name, query] of Object.entries(overrides)) {
@@ -365,6 +400,30 @@ async function flush() {
     });
 }
 
+function fromStateFigures(valueNow: number): AccountFromStateFigures {
+    const value = {
+        creditFree: { standardError: 70, value: valueNow },
+        creditInclusive: { standardError: 70, value: valueNow + 150 },
+        kind: ValueResultKind.Value as const,
+        seed: 42,
+        trials: 2000,
+    };
+    return {
+        milestone: {
+            debited: 1000,
+            kind: MilestoneKind.Funded,
+            received: 400,
+            unmetGates: [],
+            value: { kind: ValueChainStepOutcomeKind.Value, value },
+        },
+        nextPayout: null,
+        stage: SizingStage.Eval,
+        startBasis: StartBasis.FromState,
+        trials: 2000,
+        valueNow: value,
+    };
+}
+
 function inputLabelled(scope: ParentNode, label: string): HTMLElement {
     const labelElement = [...scope.querySelectorAll('label')].find(
         (candidate) => candidate.textContent.trim() === label,
@@ -428,6 +487,14 @@ async function pickOption(trigger: HTMLElement, optionText: string) {
 function rejectionError(message: string, rejection: PropRejection): Error {
     return Object.assign(new Error(message), {
         data: { propRejection: rejection },
+    });
+}
+
+async function settle() {
+    await act(async () => {
+        await new Promise((resolve) => {
+            setTimeout(resolve, 30);
+        });
     });
 }
 
@@ -1253,7 +1320,7 @@ describe('AccountDetailView', () => {
     it('checks the snapshot against the new day after the page stays open past midnight, without a remount', () => {
         const fridaySnapshot = snapshot('s3', '2026-09-25', 5_100_000);
         answerEverything({
-            'snapshot.latestForAll': answer([fridaySnapshot]),
+            'snapshot.latestTwoForAll': answer([fridaySnapshot]),
             'snapshot.listForAccount': answer([fridaySnapshot]),
         });
         render();
@@ -1748,5 +1815,309 @@ describe('AccountDetailView', () => {
         expect(container.textContent).toContain(
             'Mark Apex Trader Funding as sent live?',
         );
+    });
+    describe('one account-from-state run per page and the personal rules (PT-68c, F-V16)', () => {
+        const posted: { requests: OverviewRequest[] }[] = [];
+
+        class FakeWorker {
+            private listener: ((event: { data: unknown }) => void) | null =
+                null;
+
+            addEventListener(
+                type: string,
+                listener: (event: { data: unknown }) => void,
+            ) {
+                if (type === 'message') this.listener = listener;
+            }
+
+            postMessage(message: {
+                request: { requests: OverviewRequest[] };
+                runId: number;
+            }) {
+                posted.push(message.request);
+                const outcomes: OverviewOutcome[] =
+                    message.request.requests.map((request) =>
+                        request.kind === OverviewRequestKind.AccountFromState
+                            ? {
+                                  key: overviewRequestKey(request),
+                                  kind: OverviewOutcomeKind.Succeeded,
+                                  result: {
+                                      figures: fromStateFigures(1777),
+                                      kind: OverviewRequestKind.AccountFromState,
+                                  },
+                              }
+                            : {
+                                  key: overviewRequestKey(request),
+                                  kind: OverviewOutcomeKind.Failed,
+                                  reason: 'not run in this test',
+                              },
+                    );
+                queueMicrotask(() => {
+                    this.listener?.({
+                        data: {
+                            kind: 'done',
+                            result: { outcomes },
+                            runId: 1,
+                        },
+                    });
+                });
+            }
+
+            terminate() {
+                this.listener = null;
+            }
+        }
+
+        const READY_SNAPSHOTS = [
+            snapshot('s2', '2026-09-20', 5_100_000, {
+                highestEodBalanceCents: 5_200_000,
+            }),
+        ];
+
+        function postedAccountRequests(): OverviewRequest[] {
+            return posted
+                .flatMap((message) => message.requests)
+                .filter(
+                    (request) =>
+                        request.kind === OverviewRequestKind.AccountFromState,
+                );
+        }
+
+        function answerReadyState(personalRules: Record<string, unknown> = {}) {
+            const bravo = { ...BRAVO, personalRules };
+            answerEverything({
+                'account.get': answer(bravo),
+                'account.list': answer([ALPHA, bravo]),
+                'snapshot.latestTwoForAll': answer(READY_SNAPSHOTS),
+                'snapshot.listForAccount': answer(READY_SNAPSHOTS),
+            });
+        }
+
+        beforeEach(() => {
+            posted.length = 0;
+            vi.stubGlobal('Worker', FakeWorker);
+        });
+
+        it('runs one account-from-state request for the page, the header and the value section sharing it', async () => {
+            answerReadyState();
+            render();
+            await settle();
+            expect(postedAccountRequests()).toHaveLength(1);
+        });
+
+        it('shows the same value in the header and in the value section', async () => {
+            answerReadyState();
+            render();
+            await settle();
+            const header = container.querySelector(
+                'dl[aria-label="Value and next action"]',
+            );
+            expect(header?.textContent).toContain('$1,777');
+            expect(sectionTitled('Account state').textContent).toContain(
+                '$1,777',
+            );
+        });
+
+        it('carries the personal payout override and retained cushion into the one request, so the header and the section value the account with its personal payout request and cushion', async () => {
+            answerReadyState({
+                payoutRequestOverrideCents: usdCents(40_000),
+                retainedCushionCents: usdCents(900_000),
+            });
+            render();
+            await settle();
+            const requests = postedAccountRequests();
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.spec.enginePolicy.payoutRequestOverride).toBe(
+                400,
+            );
+            expect(
+                requests[0]?.spec.enginePolicy.retainedCushionRequest,
+            ).toBeGreaterThanOrEqual(9000);
+            const header = container.querySelector(
+                'dl[aria-label="Value and next action"]',
+            );
+            expect(header?.textContent).toContain('$1,777');
+            expect(sectionTitled('Account state').textContent).toContain(
+                '$1,777',
+            );
+        });
+
+        it('says on the header and the section which personal rules the one run simulates', async () => {
+            answerReadyState({ maxRiskPerTradeCents: usdCents(5000) });
+            render();
+            await settle();
+            const header = container.querySelector(
+                'dl[aria-label="Value and next action"]',
+            );
+            const note =
+                'These figures simulate your personal payout request, retained cushion, max risk per trade, max trades per day, daily loss limit and daily profit cap.';
+            expect(header?.parentElement?.textContent).toContain(note);
+            expect(sectionTitled('Account state').textContent).toContain(note);
+        });
+
+        it('still values the from-state section of an account that is no longer active, without the header figures or the plan value runs', async () => {
+            const closed = { ...BRAVO, status: AccountStatus.Closed };
+            answerEverything({
+                'account.get': answer(closed),
+                'account.list': answer([ALPHA, closed]),
+                'snapshot.latestTwoForAll': answer(READY_SNAPSHOTS),
+                'snapshot.listForAccount': answer(READY_SNAPSHOTS),
+            });
+            render();
+            await settle();
+            expect(
+                container.querySelector(
+                    'dl[aria-label="Value and next action"]',
+                ),
+            ).toBeNull();
+            expect(sectionTitled('Account state').textContent).toContain(
+                '$1,777',
+            );
+            const kinds = posted.flatMap((message) =>
+                message.requests.map((request) => request.kind),
+            );
+            expect(kinds).toContain(OverviewRequestKind.AccountFromState);
+            expect(kinds).not.toContain(OverviewRequestKind.DocumentedRun);
+            expect(kinds).not.toContain(OverviewRequestKind.PlanValues);
+        });
+
+        it('posts no value request for a suspended account and says it is neither sized nor valued (PT-19i, F-118)', async () => {
+            const suspended = { ...BRAVO, status: AccountStatus.Suspended };
+            answerEverything({
+                'account.get': answer(suspended),
+                'account.list': answer([ALPHA, suspended]),
+                'snapshot.latestTwoForAll': answer(READY_SNAPSHOTS),
+                'snapshot.listForAccount': answer(READY_SNAPSHOTS),
+            });
+            render();
+            await settle();
+            const kinds = posted.flatMap((message) =>
+                message.requests.map((request) => request.kind),
+            );
+            expect(kinds).toEqual([]);
+            expect(container.textContent).toContain(
+                'A suspended account is neither sized nor valued.',
+            );
+        });
+
+        it('still posts the retire and value chain requests of the section, once each', async () => {
+            answerReadyState();
+            render();
+            await settle();
+            const kinds = posted.flatMap((message) =>
+                message.requests.map((request) => request.kind),
+            );
+            expect(
+                kinds.filter((kind) => kind === OverviewRequestKind.ValueChain),
+            ).toHaveLength(1);
+            expect(
+                kinds.filter(
+                    (kind) => kind === OverviewRequestKind.RetireComparison,
+                ),
+            ).toHaveLength(1);
+        });
+    });
+
+    describe('the alerts of the detail page read the two-snapshot ledger (PT-68c, PT-69b leftover)', () => {
+        const DAY_LOSS_RULEBOOK = {
+            ...DEFAULT_RULEBOOK,
+            alerts: {
+                ...DEFAULT_RULEBOOK.alerts,
+                dayLossBankrollFraction: 0.0001,
+            },
+        };
+        const NOT_LOADED =
+            'is not checked here because your fees and bankroll deposits and withdrawals are not loaded on this page';
+        const LOSING_DAYS = [
+            snapshot('s-prev', '2026-09-25', 5_060_000, {
+                highestEodBalanceCents: 5_060_000,
+                tradingDays: 3,
+            }),
+            snapshot('s-last', '2026-09-26', 4_910_000, {
+                highestEodBalanceCents: 5_060_000,
+                tradingDays: 4,
+            }),
+        ];
+
+        function answerDayLoss() {
+            answerEverything({
+                'bankroll.list': answer([
+                    transfer(
+                        BankrollTransferKind.Deposit,
+                        1_000_000,
+                        '2026-08-01',
+                    ),
+                ]),
+                'rulebook.get': answer(DAY_LOSS_RULEBOOK),
+                'snapshot.latestForAll': answer([LOSING_DAYS[1]]),
+                'snapshot.latestTwoForAll': answer(LOSING_DAYS),
+                'snapshot.listForAccount': answer([LOSING_DAYS[1]]),
+            });
+        }
+
+        it('requests the latest two snapshots, the decision ledger list, the fees and the bankroll transfers, and not the single-snapshot list or the latest-decisions list (PT-68e, one decision query)', () => {
+            answerEverything();
+            render();
+            expect(harness.requested).toContain('snapshot.latestTwoForAll');
+            expect(harness.requested).toContain('decision.list');
+            expect(harness.requested).not.toContain('decision.latestForAll');
+            expect(harness.requested).toContain('fee.list');
+            expect(harness.requested).toContain('bankroll.list');
+            expect(harness.requested).not.toContain('snapshot.latestForAll');
+        });
+
+        it('reads the decisions of its alerts from the decision ledger list, so a failing list says the risk-above-rung alert could not be checked (PT-68e)', () => {
+            answerEverything({
+                'decision.list': {
+                    data: undefined,
+                    error: new Error('decisions down'),
+                    isError: true,
+                    isPending: false,
+                },
+                'rulebook.get': answer({
+                    ...DEFAULT_RULEBOOK,
+                    alerts: {
+                        ...DEFAULT_RULEBOOK.alerts,
+                        payoutReadyRiskAboveRungCents: 10_000,
+                    },
+                }),
+            });
+            render();
+            expect(sectionTitled('Alerts').textContent).toContain(
+                'sizing decisions could not be loaded',
+            );
+        });
+
+        it('shows the large day loss alert when its threshold is set and the ledger is loaded, instead of the not-loaded disclosure', () => {
+            answerDayLoss();
+            render();
+            const alerts = sectionTitled('Alerts').textContent;
+            expect(alerts).toContain('of your available bankroll');
+            expect(alerts).not.toContain(NOT_LOADED);
+        });
+
+        it('says why the day loss alert is not checked while the bankroll transfers are still loading', () => {
+            answerDayLoss();
+            harness.queries.delete('bankroll.list');
+            render();
+            const alerts = sectionTitled('Alerts').textContent;
+            expect(alerts).not.toContain('of your available bankroll');
+            expect(alerts).not.toContain(NOT_LOADED);
+            expect(alerts).toContain('still loading');
+        });
+
+        it('says so when the bankroll transfers failed to load, instead of staying silent about the day loss alert', () => {
+            answerDayLoss();
+            harness.queries.set('bankroll.list', {
+                data: undefined,
+                error: new Error('transfers down'),
+                isError: true,
+                isPending: false,
+            });
+            render();
+            const alerts = sectionTitled('Alerts').textContent;
+            expect(alerts).not.toContain('of your available bankroll');
+            expect(alerts).toContain('could not be loaded');
+        });
     });
 });

@@ -3,9 +3,11 @@ import {
     type Dollars,
     dollars,
     DrawdownKind,
+    findFirm,
     minimumPayoutRequest,
     PayoutGate,
     type Plan,
+    tightestVerifiedCumulativeTrigger,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
@@ -22,6 +24,7 @@ import {
     firmMinimumNotice,
     fundedCycleSeedFromTracker,
     ImplausibleSnapshotError,
+    liveTriggerCountText,
     type NextPayoutProjection,
     type PayoutBlockReason,
     PayoutBlockReasonKind,
@@ -79,6 +82,7 @@ export interface PayoutPlannerBlockedResult {
     readonly kind: PayoutPlannerResultKind.Blocked;
     readonly path: readonly PayoutPathStep[];
     readonly readiness: BlockedPayoutReadiness;
+    readonly simStayCeiling: null | SimStayCeiling;
     readonly waitText: string;
 }
 
@@ -112,6 +116,7 @@ export interface PayoutPlannerReadyResult {
     readonly readiness: EligiblePayoutReadiness;
     readonly retainedCushion: PayoutPlannerRetainedCushion;
     readonly ruleCappedWithdrawable: Dollars;
+    readonly simStayCeiling: null | SimStayCeiling;
 }
 
 export type PayoutPlannerResult =
@@ -124,6 +129,12 @@ export interface PayoutPlannerRetainedCushion {
     readonly basis: RetainedCushionBasis;
 }
 
+export interface SimStayCeiling {
+    readonly cumulativePayoutLimit: Dollars;
+    readonly fetchedOn: string;
+    readonly sourceUrl: string;
+}
+
 export function payoutBlockReasonText(reason: PayoutBlockReason): string {
     switch (reason.kind) {
         case PayoutBlockReasonKind.Gate: {
@@ -133,7 +144,7 @@ export function payoutBlockReasonText(reason: PayoutBlockReason): string {
             return 'a payout request is already pending';
         }
         case PayoutBlockReasonKind.WouldTriggerLive: {
-            return `this payout would trigger a live-account transition (${String(reason.trigger.paidPayoutsSinceLastLiveAccount)} of ${String(reason.trigger.triggerAtPayoutCount)} payouts since the last live account)`;
+            return `this payout would trigger a live-account transition (${liveTriggerCountText(reason.trigger)})`;
         }
     }
 }
@@ -313,6 +324,7 @@ export function planPayoutReadiness(
                 kind: PayoutPlannerResultKind.Blocked,
                 path,
                 readiness,
+                simStayCeiling: simStayCeilingOf(input.plan),
                 waitText: payoutWaitText(readiness.wait, readiness.reason),
             };
         }
@@ -331,6 +343,7 @@ export function planPayoutReadiness(
                     state,
                     retainedCushion.amount,
                 ),
+                simStayCeiling: simStayCeilingOf(input.plan),
             };
         }
     }
@@ -366,6 +379,10 @@ export function reconstructPayoutPlannerAccount(
     });
 
     return { account, retainedCushion };
+}
+
+export function simStayCeilingText(ceiling: SimStayCeiling): string {
+    return `This planner's simulations do not apply the verified firm trigger that moves an account live once cumulative payouts reach ${money(ceiling.cumulativePayoutLimit)} (${ceiling.sourceUrl}, fetched ${ceiling.fetchedOn}), so a withdrawal size it favors can cross it. Keep your total paid below it to stay simulated. The firm may count gross payouts rather than what you receive after the split and fees, which would put the ceiling lower in what you receive. This tool cannot subtract your past payouts, so compare the trigger with your own payout history.`;
 }
 
 function countText(count: number, noun: string): string {
@@ -409,6 +426,21 @@ function peakFieldsFor(
             return {};
         }
     }
+}
+
+function simStayCeilingOf(plan: Plan): null | SimStayCeiling {
+    const triggers = findFirm(plan.id.firm)?.accountPolicy.liveTriggersFor(plan);
+    const verified =
+        triggers === undefined
+            ? null
+            : tightestVerifiedCumulativeTrigger(triggers);
+    return verified === null
+        ? null
+        : {
+              cumulativePayoutLimit: verified.amount,
+              fetchedOn: verified.source.fetchedOn,
+              sourceUrl: verified.source.url,
+          };
 }
 
 function unmeasuredWaitFor(reason: PayoutBlockReason): null | PayoutWait {

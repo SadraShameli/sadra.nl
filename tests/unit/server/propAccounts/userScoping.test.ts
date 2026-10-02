@@ -243,6 +243,7 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
         tradingDays: 4,
     },
     'snapshot.latestForAll': undefined,
+    'snapshot.latestTwoForAll': undefined,
     'snapshot.listForAccount': { id: IDS.account },
     'snapshot.remove': { id: IDS.snapshot },
     'violation.create': {

@@ -222,7 +222,15 @@ export function alertSubjectView(alert: AccountAlert): AccountAlertSubjectView {
             };
         }
         case AlertSubjectKind.Portfolio: {
-            return { key: `${alert.kind}-${subject.kind}`, label: 'Portfolio' };
+            return {
+                key: [
+                    alert.kind,
+                    subject.kind,
+                    subject.accountIds.toSorted(compareText).join('+'),
+                    alert.message,
+                ].join('-'),
+                label: 'Portfolio',
+            };
         }
     }
 }

@@ -4,6 +4,11 @@ import { z } from 'zod';
 import {
     type EdgeModelArguments,
     edgeModelArguments,
+    liveTransferHazardArgument,
+    liveTransferSweepLines,
+    objectiveArgument,
+    objectiveHeadingLine,
+    ObjectiveNotApplicable,
     payoutRequestPolicyArgument,
     planArguments,
     planResolver,
@@ -11,11 +16,15 @@ import {
     readEdgeModelSpec,
     readLadder,
     readNumberList,
+    readObjective,
+    RUIN_FIRST_NOT_APPLICABLE_MESSAGE,
     singlePathGranularityArgument,
+    SortObjectiveConflict,
     TablePrinter,
     tradingArguments,
     tradingEdgeNotes,
     TradingInputs,
+    verifiedTriggerLines,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
@@ -24,6 +33,7 @@ import {
     edgeModelFromSpec,
     EdgeModelKind,
     type EdgeModelSpec,
+    LiveTransferContinuationKind,
     PayoutRequestPolicy,
     type Plan,
     type PositionSizingConfig,
@@ -32,6 +42,8 @@ import {
     simulate,
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
 import {
     TAKE_PROFIT_WHAT_IF_LABEL,
     takeProfitCandidateInputs,
@@ -66,6 +78,11 @@ export interface FundedCandidateArguments {
     percent?: string;
 }
 
+export interface FundedSortArguments {
+    objective?: string;
+    sort: string;
+}
+
 export interface TakeProfitWhatIfArguments extends EdgeModelArguments {
     'rr-candidates'?: string;
 }
@@ -88,6 +105,8 @@ export default defineCommand({
         ...singlePathGranularityArgument,
         ...edgeModelArguments,
         ...payoutRequestPolicyArgument,
+        ...objectiveArgument,
+        ...liveTransferHazardArgument,
         flat: {
             default: DEFAULT_FUNDED_FLAT_CANDIDATES.join(','),
             description:
@@ -138,7 +157,10 @@ export default defineCommand({
                     .enum(PayoutRequestPolicy)
                     .parse(context.args['payout-policy']),
             };
-            const sort = z.enum(FundedSortKey).parse(context.args.sort);
+            const sort = resolveFundedSort(
+                context.args,
+                context.rawArgs.some(isSortFlag),
+            );
             const takeProfitRequest = readTakeProfitWhatIfRequest(
                 context.args,
                 inputs,
@@ -173,6 +195,11 @@ export default defineCommand({
             spinner.succeed(fundedSweepSummary(plan.label, rows.length));
 
             ui.heading(plan.label);
+            ui.muted(`  ${objectiveHeadingLine(objectiveOfSort(sort))}`);
+            printLiveTransferLines(
+                base,
+                rows[0]?.out.liveTransferContinuation,
+            );
             for (const note of fundedSizingNotes(
                 context.args,
                 build,
@@ -252,6 +279,8 @@ export function printTakeProfitWhatIf(
     );
 
     ui.heading(plan.label);
+    ui.muted(`  ${objectiveHeadingLine(objectiveOfSort(sort))}`);
+    printLiveTransferLines(base, outputs[0]?.liveTransferContinuation);
     ui.warn(TAKE_PROFIT_WHAT_IF_LABEL);
     ui.muted(fundedSortDescription(sort, base));
 
@@ -312,6 +341,23 @@ export function readTakeProfitWhatIfRequest(
     return { edgeSpec, rrCandidates };
 }
 
+export function resolveFundedSort(
+    arguments_: FundedSortArguments,
+    isSortExplicit: boolean,
+): FundedSortKey {
+    const sort = z.enum(FundedSortKey).parse(arguments_.sort);
+    if (arguments_.objective === undefined) return sort;
+    const objectiveSort = sortOfObjective(
+        readObjective(arguments_, RankingSurface.FundedRiskSweep),
+    );
+    if (isSortExplicit && sort !== objectiveSort) {
+        throw new SortObjectiveConflict(
+            `--sort ${sort} and --objective ${arguments_.objective} rank differently: --objective is an alias over --sort, so pass only one`,
+        );
+    }
+    return objectiveSort;
+}
+
 function fundedCandidateRefusalMessage(
     refusal: FundedCandidateRefusalDetail,
     arguments_: FundedCandidateArguments,
@@ -351,6 +397,38 @@ function fundedSizingNotes(
             : [];
     }
     return fundedPlacementNotes(build, positionSizing, plan);
+}
+
+function isSortFlag(argument: string): boolean {
+    return argument === '--sort' || argument.startsWith('--sort=');
+}
+
+function objectiveOfSort(sort: FundedSortKey): SizingObjective {
+    switch (sort) {
+        case FundedSortKey.Cycle: {
+            return SizingObjective.CycleCash;
+        }
+        case FundedSortKey.Monthly: {
+            return SizingObjective.MonthlyNet;
+        }
+    }
+}
+
+function printLiveTransferLines(
+    base: SimInputs,
+    continuation: LiveTransferContinuationKind | undefined,
+): void {
+    const lines = [
+        ...verifiedTriggerLines(base.verifiedCumulativePayoutTrigger),
+        ...liveTransferSweepLines(
+            base.liveTransferHazard,
+            continuation ?? LiveTransferContinuationKind.Off,
+            base.verifiedCumulativePayoutTrigger !== undefined,
+        ),
+    ];
+    for (const line of lines) {
+        ui.muted(line);
+    }
 }
 
 function readCandidateFamily(
@@ -409,6 +487,20 @@ function readFundedCandidateBuild(
                     positionSizing,
                 ),
             );
+        }
+    }
+}
+
+function sortOfObjective(objective: SizingObjective): FundedSortKey {
+    switch (objective) {
+        case SizingObjective.CycleCash: {
+            return FundedSortKey.Cycle;
+        }
+        case SizingObjective.MonthlyNet: {
+            return FundedSortKey.Monthly;
+        }
+        case SizingObjective.RuinFirst: {
+            throw new ObjectiveNotApplicable(RUIN_FIRST_NOT_APPLICABLE_MESSAGE);
         }
     }
 }

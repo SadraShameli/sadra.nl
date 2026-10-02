@@ -306,6 +306,49 @@ describe('propAccounts.violation', () => {
     );
 
     it.each(WRITES_WITH_REFERENCES)(
+        '$name dated before the linked decision is rejected with a typed reason and writes nothing, and the decision day itself is accepted',
+        async ({ call }) => {
+            const { caller, queries } = callerFor(
+                SIGNED_IN,
+                tableResponder({
+                    [TABLES.decision]: [
+                        decisionRow({ decided_on: '2026-09-21' }),
+                    ],
+                }),
+            );
+            const shape = errorShapeOf(
+                await rejectionOf(call(caller, { occurredOn: '2026-09-20' })),
+            );
+            expect(shape.data.code).toBe('BAD_REQUEST');
+            expect(shape.message).toContain('2026-09-21');
+            expect(shape.data.propRejection).toEqual(
+                mutationRejection(PropMutationRejection.OutOfOrderEvent),
+            );
+            expect(propWrites(queries)).toHaveLength(0);
+            await expect(
+                call(caller, { occurredOn: '2026-09-21' }),
+            ).resolves.toBeDefined();
+        },
+    );
+
+    it.each(WRITES_WITH_REFERENCES)(
+        '$name without a linked decision is not bound by any decision date',
+        async ({ call }) => {
+            const { caller } = callerFor(
+                SIGNED_IN,
+                tableResponder({
+                    [TABLES.decision]: [
+                        decisionRow({ decided_on: '2026-09-21' }),
+                    ],
+                }),
+            );
+            await expect(
+                call(caller, { decisionId: null, occurredOn: '2026-09-02' }),
+            ).resolves.toBeDefined();
+        },
+    );
+
+    it.each(WRITES_WITH_REFERENCES)(
         '$name dated before the account purchase date is rejected with a typed reason and writes nothing',
         async ({ call }) => {
             const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
@@ -429,6 +472,38 @@ describe('propAccounts.violation', () => {
         expect(all?.text).toMatch(/ limit \$\d+$/);
         assertUserScopedWhere(defined(one), USER_ID);
         expect(one?.params).toContain(IDS.account);
+    });
+
+    it('list bounds the query from the occurred-from date on top of the user scope, with and without an account', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.violation.list({ occurredFrom: '2026-09-15' });
+        await caller.violation.list({
+            accountId: IDS.account,
+            occurredFrom: '2026-09-15',
+        });
+        const [all, one] = queries;
+        assertUserScopedWhere(defined(all), USER_ID);
+        expect(all?.text).toMatch(/"occurred_on" >= \$\d+/);
+        expect(all?.params).toContain('2026-09-15');
+        expect(all?.text).not.toMatch(/"account_id" = /);
+        assertUserScopedWhere(defined(one), USER_ID);
+        expect(one?.text).toMatch(/"occurred_on" >= \$\d+/);
+        expect(one?.params).toContain('2026-09-15');
+        expect(one?.params).toContain(IDS.account);
+    });
+
+    it('list without an occurred-from date adds no date bound', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.violation.list({});
+        expect(defined(queries[0]).text).not.toMatch(/"occurred_on" >= /);
+    });
+
+    it('list refuses a malformed occurred-from date before reading anything', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await expect(
+            caller.violation.list({ occurredFrom: 'last week' }),
+        ).rejects.toThrow();
+        expect(queries).toEqual([]);
     });
 
     it('remove deletes the owned violation by id and user id', async () => {

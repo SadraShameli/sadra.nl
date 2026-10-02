@@ -14,6 +14,7 @@ import {
     describeLedgerOnlyLifecycleRejection,
     describeLifecycleRejection,
     exclusivityAccountsOf,
+    type ExclusivitySibling,
     LEDGER_ONLY_LIFECYCLE_FACTS,
     LifecycleOutcomeKind,
     liveExclusivityEffectsOf,
@@ -118,14 +119,19 @@ export const propEventRouter = createTRPCRouter({
                     await impliedPassBound(repo, stored, facts),
                     input.occurredOn,
                 );
+                const movedLive: MovedLiveAccount = {
+                    account: stored,
+                    plan,
+                    state: outcome.state,
+                };
                 const suspensions = await suspensionsOf({
-                    movedLive: {
-                        account: stored,
-                        plan,
-                        state: outcome.state,
-                    },
+                    movedLive,
                     occurredOn: input.occurredOn,
                     repo,
+                    required:
+                        input.kind === AccountEventKind.MovedLive
+                            ? await requiredSuspensionsOf(repo, movedLive)
+                            : new Map(),
                     siblings,
                 });
                 await quotas.assertWithin(
@@ -208,6 +214,10 @@ export const propEventRouter = createTRPCRouter({
         ),
 });
 
+type ListedSiblingRow = Awaited<
+    ReturnType<PropAccountRepo['listAccounts']>
+>[number];
+
 interface LockedSibling {
     readonly account: OwnedAccount;
     readonly facts: PlanLifecycleFacts;
@@ -269,6 +279,31 @@ function lifecyclePlanOf(stored: OwnedAccount): null | Plan {
     }
 }
 
+function listedSiblingOf(
+    account: ListedSiblingRow,
+    firmId: FirmId,
+): ExclusivitySibling {
+    return {
+        firmId,
+        id: account.id,
+        isArchived: account.archivedAt !== null,
+        plan: null,
+        stage: account.stage,
+        status: account.status,
+    };
+}
+
+function lockedSiblingOf(sibling: LockedSibling): ExclusivitySibling {
+    return {
+        firmId: sibling.firmId,
+        id: sibling.account.id,
+        isArchived: sibling.account.archivedAt !== null,
+        plan: sibling.plan,
+        stage: sibling.account.stage,
+        status: sibling.account.status,
+    };
+}
+
 async function lockedSiblingsOf(
     repo: PropAccountRepo,
     ids: readonly string[],
@@ -290,13 +325,37 @@ async function lockedSiblingsOf(
     return siblings;
 }
 
+async function requiredSuspensionsOf(
+    repo: PropAccountRepo,
+    movedLive: MovedLiveAccount,
+): Promise<ReadonlyMap<string, string>> {
+    const { plan } = movedLive;
+    if (plan === null) return new Map();
+    const listed = await repo.listAccounts({
+        firmId: plan.id.firm,
+        includeArchived: false,
+    });
+    const others = listed.filter(
+        (account) => account.id !== movedLive.account.id,
+    );
+    const suspendedIds = suspendSetOf(
+        movedLive,
+        others.map((account) => listedSiblingOf(account, plan.id.firm)),
+    );
+    return new Map(
+        others
+            .filter((account) => suspendedIds.has(account.id))
+            .map((account) => [account.id, account.label] as const),
+    );
+}
+
 function storedFirmIdOf(account: OwnedAccount): FirmId | undefined {
     return account.firmId === null ? undefined : parseFirmId(account.firmId);
 }
 
 function suspendSetOf(
     movedLive: MovedLiveAccount,
-    siblings: readonly LockedSibling[],
+    siblings: readonly ExclusivitySibling[],
 ): ReadonlySet<string> {
     const { plan } = movedLive;
     if (plan === null) return new Set();
@@ -307,14 +366,7 @@ function suspendSetOf(
             stage: movedLive.state.stage,
             status: movedLive.state.status,
         },
-        siblings.map((sibling) => ({
-            firmId: sibling.firmId,
-            id: sibling.account.id,
-            isArchived: sibling.account.archivedAt !== null,
-            plan: sibling.plan,
-            stage: sibling.account.stage,
-            status: sibling.account.status,
-        })),
+        siblings,
     );
     const outcome = liveExclusivityEffectsOf(accounts, movedLive.account.id);
     return new Set(suspendedAccountIdsOf(outcome));
@@ -324,13 +376,34 @@ async function suspensionsOf({
     movedLive,
     occurredOn,
     repo,
+    required,
     siblings,
 }: {
     readonly movedLive: MovedLiveAccount;
     readonly occurredOn: string;
     readonly repo: PropAccountRepo;
+    readonly required: ReadonlyMap<string, string>;
     readonly siblings: readonly LockedSibling[];
 }): Promise<readonly Suspension[]> {
+    const suspendedIds = suspendSetOf(movedLive, siblings.map(lockedSiblingOf));
+    const outside = siblings.find(
+        (sibling) => !suspendedIds.has(sibling.account.id),
+    );
+    if (outside !== undefined) {
+        throw exclusivityRejection(
+            `Account "${outside.account.label}" (${outside.account.id}) is not one of the accounts the firm's verified policy suspends when an account moves live`,
+        );
+    }
+    const confirmedIds = new Set(siblings.map((sibling) => sibling.account.id));
+    const [leftOutId, leftOutLabel] =
+        required
+            .entries()
+            .find(([accountId]) => !confirmedIds.has(accountId)) ?? [];
+    if (leftOutId !== undefined) {
+        throw exclusivityRejection(
+            `Account "${leftOutLabel ?? leftOutId}" (${leftOutId}) is one of the accounts the firm's verified policy suspends when an account moves live; confirm it too, or leave this move live unrecorded`,
+        );
+    }
     if (siblings.length === 0) return [];
     for (const sibling of siblings) {
         const outcome = applyLifecycleEvent(
@@ -353,15 +426,6 @@ async function suspensionsOf({
                 outcome.reason,
             );
         }
-    }
-    const suspendedIds = suspendSetOf(movedLive, siblings);
-    const outside = siblings.find(
-        (sibling) => !suspendedIds.has(sibling.account.id),
-    );
-    if (outside !== undefined) {
-        throw exclusivityRejection(
-            `Account "${outside.account.label}" (${outside.account.id}) is not one of the accounts the firm's verified policy suspends when an account moves live`,
-        );
     }
     for (const sibling of siblings) {
         assertInOrder(

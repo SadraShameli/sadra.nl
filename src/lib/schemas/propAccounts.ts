@@ -925,6 +925,10 @@ const violationEditableShape = {
     occurredOn: accountDateSchema,
 };
 
+export const violationListSchema = ledgerListSchema.extend({
+    occurredFrom: accountDateSchema.optional(),
+});
+
 export const violationCreateSchema = z.strictObject({
     ...violationEditableShape,
     accountId: idSchema,

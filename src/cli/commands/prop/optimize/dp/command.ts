@@ -6,6 +6,10 @@ import {
     type CouponDiscountArguments,
     couponDiscountArguments,
     edgePlausibilityNote,
+    liveTransferHazardArgument,
+    type LiveTransferHazardArguments,
+    objectiveArgument,
+    objectiveHeadingLine,
     payoutRequestPolicyArgument,
     planArguments,
     planResolver,
@@ -13,7 +17,9 @@ import {
     readCouponDiscountPercents,
     readFraction,
     readInteger,
+    readLiveTransferHazard,
     readNonNegativeNumber,
+    readObjective,
     readPositiveInteger,
     readPositiveNumber,
     readRebuyLagDays,
@@ -54,6 +60,8 @@ import {
     TRADING_DAYS_PER_YEAR,
     TradingPhase,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
 import {
     type AverageRewardConfig,
     RateSearchStatus,
@@ -75,6 +83,7 @@ import {
 export interface DpArguments
     extends
         CouponDiscountArguments,
+        LiveTransferHazardArguments,
         Pick<
             TradingArguments,
             | 'early-withdrawal'
@@ -157,6 +166,18 @@ export function bundleRenewalNote(
         : `${objective.plan.label}: with ${objective.copyAccounts} copy-traded accounts, this DP and its simulate() cross-check re-buy all of them together at every renewal and apply the ${formatPercent(bundlePercent / 100)} bundle discount to each renewal cycle's first eval fee and activation fee. The cash-flow timeline instead runs each account slot on its own and gives the bundle discount only to each slot's first purchase, so the two differ on repeat purchases. Which one matches the firm's checkout for a re-purchase is an open question.`;
 }
 
+export const CYCLE_OBJECTIVE_NOT_SIZING_NOTE =
+    'the rate-0 eval policy has no time cost, so it favours the conservative eval sizing that Hard Rule 3 rejects (risk the max the constraints allow, speed to funded) and its funded risk is not the Hard Rule 5 fixed amount: read it as an eval-stage proxy for cycle cash, not sizing, and size from the documented rungs and the fixed funded risk instead';
+
+export function cycleObjectiveLine(cycleValue: number | undefined): string {
+    if (cycleValue === undefined) {
+        throw new Error(
+            'the cycle objective needs the rate-0 solve, but the solver returned no trace',
+        );
+    }
+    return `cycle value at a rate of ${formatCurrency(0, 2)}/day (no time cost): ${formatCurrency(cycleValue)} expected net cash per eval-to-funded cycle, an eval-stage proxy that ignores how long the cycle takes`;
+}
+
 export function dpGridSettingsLine(
     plan: Plan,
     inputs: DpInputs,
@@ -187,6 +208,21 @@ export function dpGridSettingsLine(
         );
     }
     return [`funded cushion grid: ${grid}`, ...disclosures].join('; ');
+}
+
+export function dpObjectiveSolverConfig(
+    config: AverageRewardConfig,
+    sizingObjective: SizingObjective,
+): AverageRewardConfig {
+    switch (sizingObjective) {
+        case SizingObjective.CycleCash: {
+            return { ...config, maxSolves: 1, startRatePerDay: 0 };
+        }
+        case SizingObjective.MonthlyNet:
+        case SizingObjective.RuinFirst: {
+            return config;
+        }
+    }
 }
 
 export function dpPayoutSettingsLine(plan: Plan, inputs: DpInputs): string {
@@ -268,18 +304,31 @@ export function empiricalSimInputs(
 
 export function empiricalSummaryLines(
     out: SimOutputs,
-    predictedMonthlyRate: number,
+    predictedMonthlyRate: null | number,
     copyAccounts: number,
 ): string[] {
     const monthlyNetPerSlot = out.expectedMonthlyNet / copyAccounts;
-    return [
+    const lines = [
         `eventual eval pass within the ${EMPIRICAL_MAX_ATTEMPTS}-attempt retry cap: ${formatPercent(out.evalPassProbability)}`,
         `funded survive: ${formatPercent(out.fundedSurvivalProbability)}`,
         `funded bust probability: ${formatPercent(out.fundedBustProbability)}`,
         `expected monthly net per account slot: ${formatCurrency(monthlyNetPerSlot)}`,
         `expected horizon credit per cycle: ${formatCurrency(out.expectedHorizonCredit / copyAccounts)}`,
-        `gap vs DP-predicted monthly rate: ${formatCurrency(monthlyNetPerSlot - predictedMonthlyRate)}`,
     ];
+    if (predictedMonthlyRate !== null) {
+        lines.push(
+            `gap vs DP-predicted monthly rate: ${formatCurrency(monthlyNetPerSlot - predictedMonthlyRate)}`,
+        );
+    }
+    return lines;
+}
+
+export function evalPassCrossCheckLine(
+    predictedPerAttempt: number,
+    realisedPerAttempt: number,
+): string {
+    const gapPoints = (realisedPerAttempt - predictedPerAttempt) * 100;
+    return `eval pass per attempt: the eval DP's own estimate for its policy is ${formatPercent(predictedPerAttempt)}, the simulator realises ${formatPercent(realisedPerAttempt)} at that policy (simulator minus DP: ${gapPoints.toFixed(1)} points)`;
 }
 
 export function fundedConsistencyGridNote(
@@ -294,7 +343,7 @@ export function fundedConsistencyGridNote(
         lockedTop > fineTop
             ? `a fine grid up to ${fineTop}, then a coarse tail past it`
             : `a uniform grid up to ${lockedTop}`;
-    return `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${lockedTop} drawdowns (${gridShape}) and truncates any balance above that. The best day is tracked on the cushion grid and rounded up between grid steps, but a day that ends above the grid top is truncated like the balance, which shrinks both that day's P&L and the cycle profit the rule compares it with. In those states the DP can pay out less than the real account, and it can also allow a payout the real rule denies or deny one it allows: neither direction is guaranteed there, so trust the empirical run below over the DP-predicted rate. The best day is also capped at the largest swing one trading day can produce on this grid (trades per day times the largest position times the reward-to-risk ratio, at least 1, plus one cushion step per trade for grid rounding), and a day that rounds past that is clamped down to that cap, which understates the best day and so can let the DP allow a payout the real rule denies.`;
+    return `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${lockedTop} drawdowns (${gridShape}) and truncates any balance above that. The best day is tracked on the cushion grid and rounded up between grid steps, but a day that ends above the grid top is truncated like the balance, which shrinks both that day's P&L and the cycle profit the rule compares it with. In those states the DP can pay out less than the real account, and it can also allow a payout the real rule denies or deny one it allows: neither direction is guaranteed there, so trust the empirical run below over the DP-predicted rate. The best day is also capped at the largest swing one trading day can produce on this grid (trades per day times the largest position times the reward-to-risk ratio, at least 1, plus one cushion step per trade for grid rounding), and a day that rounds past that cap is not clamped down to it: it moves the account into an overflow bucket whose best day exceeds what any reachable cycle profit can cover, so the rule denies every payout from then on. That can only make the DP pay out less, never more than the real account, for any day that passes the cap.`;
 }
 
 export function fundedCycleBaselineGapWarning(
@@ -364,6 +413,10 @@ export function instrumentFundedDayPolicyForSaturation(
             return computeRisk(state, tradeIndexToday, fundedCycle);
         },
     };
+}
+
+export function liveTransferNotModeledInDpLine(hazard: number): string {
+    return `the live-transfer hazard (${formatPercent(hazard)} per paid payout, your assumption, not a firm rule) is not modeled in the DP: its values and the simulate() cross-check below both assume the account is never sent live`;
 }
 
 export function readDpInputs(arguments_: DpArguments): DpInputs {
@@ -508,7 +561,7 @@ function describeFundedDpModelGap(gap: FundedDpModelGap): string {
             return `has a payout-count-tiered payout cap tier starting at payout #${gap.fromPayoutIndex + 1}, beyond this DP's payout-count regime cap of ${gap.payoutRegimeCap}, and payout counts past the cap saturate at the cap bucket inside it, so that tier is not modeled exactly`;
         }
         case FundedDpModelGapKind.PayoutFloorReleaseUnvalidated: {
-            return "resets its funded drawdown floor to breakeven on every payout (PayoutFloorEffect.ReleaseFloor), and at this DP's default grid its predicted rate overstated its own empirical replay on TopStep plans (audit N-89): trust the empirical replay line below over the predicted rate, and compare the result against the best flat row from optimize funded";
+            return "resets its funded drawdown floor to breakeven on every payout (PayoutFloorEffect.ReleaseFloor), and at this DP's default grid its predicted rate overstated its own empirical replay on TopStep plans (audit N-89). The eval half of that gap, the eval DP crediting a pass by interpolating between cushion nodes, is no longer present: the eval DP values every cushion exactly and the eval pass line below shows its own pass estimate beside the simulator's. Re-measured after that change (2026-10-02, default grid), the predicted rate still overstated the replay by 20% on TopStep No-fee Standard and 5% on FTMO Growth, all of it in the funded half, which is not fixed yet: trust the empirical replay line below over the predicted rate, and compare the result against the best flat row from optimize funded";
         }
         case FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates: {
             return `locks its funded drawdown only on the first payout (no profit trigger), so its floor can trail without bound before that payout while this DP's pre-lock offset grid stops at a fixed multiple of the drawdown. Offsets past it saturate at the top bucket, so the DP understates the balance (and the first payout) in those rare high-profit states before the first payout, making it slightly pessimistic`;
@@ -587,7 +640,7 @@ export const dpArguments = {
         type: 'string',
     },
     'cushion-step-multiple': {
-        description: `Funded and eval DP cushion-step grid size, as a multiple of the plan's own drawdown amount (default ${DEFAULT_CUSHION_STEP_MULTIPLE}). The funded DP interpolates between adjacent cushion cells at every day close, so coarsening this trades precision for solve time rather than introducing the old floor-rounding bias (N-86).`,
+        description: `Funded DP cushion-step grid size, as a multiple of the plan's own drawdown amount (default ${DEFAULT_CUSHION_STEP_MULTIPLE}). The funded DP interpolates between adjacent cushion cells at every day close, so coarsening this trades precision for solve time rather than introducing the old floor-rounding bias (N-86). The eval DP values every state at its exact cushion (N-89), so this flag does not change it.`,
         type: 'string',
     },
     'early-withdrawal': tradingArguments['early-withdrawal'],
@@ -605,6 +658,7 @@ export const dpArguments = {
     },
     'funded-reset': tradingArguments['funded-reset'],
     instrument: commonSimArguments.instrument,
+    ...liveTransferHazardArgument,
     iterations: {
         default: '12',
         description:
@@ -623,6 +677,7 @@ export const dpArguments = {
         description: `Funded DP cushion grid top, as a multiple of the plan's own drawdown amount (default ${DEFAULT_MAX_TAIL_CUSHION_MULTIPLE}). Must be at least --max-cushion-multiple; equal to it turns the coarse tail off.`,
         type: 'string',
     },
+    ...objectiveArgument,
     ...payoutRequestPolicyArgument,
     ...rebuyLagDaysArgument,
     'request-size': commonSimArguments['request-size'],
@@ -664,6 +719,10 @@ export default defineCommand({
     async run(context) {
         let spinner: ReturnType<typeof ui.spinner> | undefined;
         try {
+            const sizingObjective = readObjective(
+                context.args,
+                RankingSurface.Dp,
+            );
             const warmUpFailure = await warmFirmsRegistryCache();
             if (warmUpFailure !== null) {
                 ui.fail(registryWarmUpFailureWarning(warmUpFailure));
@@ -694,6 +753,12 @@ export default defineCommand({
                 ui.muted(`${resetNote}\n`);
             }
             const inputs = readDpInputs(context.args);
+            const liveTransferHazard = readLiveTransferHazard(
+                context.args['live-transfer-hazard'],
+            );
+            if (liveTransferHazard !== undefined && liveTransferHazard > 0) {
+                ui.warn(liveTransferNotModeledInDpLine(liveTransferHazard));
+            }
             printEdgePlausibilityNotes([
                 edgePlausibilityNote({
                     rrRatio: inputs.rrRatio,
@@ -713,7 +778,10 @@ export default defineCommand({
                 .start();
             const started = performance.now();
             const solution = solveAverageRewardPolicy(
-                dpSolverConfig(inputs, objective),
+                dpObjectiveSolverConfig(
+                    dpSolverConfig(inputs, objective),
+                    sizingObjective,
+                ),
             );
             const elapsed = (performance.now() - started) / 1000;
             const solvesUsed = solution.trace.length;
@@ -734,16 +802,34 @@ export default defineCommand({
                 ui.muted(`${consistencyNote}\n`);
             }
 
-            const monthlyRate = objective.monthlyRate(solution.ratePerDay);
+            const isCycleObjective =
+                sizingObjective === SizingObjective.CycleCash;
+            const monthlyRate = isCycleObjective
+                ? null
+                : objective.monthlyRate(solution.ratePerDay);
 
             ui.heading(plan.label);
+            ui.muted(`  ${objectiveHeadingLine(sizingObjective)}`);
             ui.muted(
                 '  DP-predicted average reward (from the value-iteration solver itself; the geometric horizon hazard is an approximation, see empirical run below)\n',
             );
-            ui.note(`  status: ${solution.status}`);
             ui.note(
-                `  rate: ${formatCurrency(solution.ratePerDay, 2)}/day, ${formatCurrency(monthlyRate)}/month per account slot`,
+                isCycleObjective
+                    ? '  status: rate-0 solve only (cycle objective, no rate search)'
+                    : `  status: ${solution.status}`,
             );
+            if (isCycleObjective) {
+                ui.note(
+                    `  ${cycleObjectiveLine(solution.trace[0]?.cycleValue)}`,
+                );
+            } else if (monthlyRate !== null) {
+                ui.note(
+                    `  rate: ${formatCurrency(solution.ratePerDay, 2)}/day, ${formatCurrency(monthlyRate)}/month per account slot`,
+                );
+            }
+            if (isCycleObjective) {
+                ui.warn(`  ${CYCLE_OBJECTIVE_NOT_SIZING_NOTE}`);
+            }
             ui.note(`  solves used: ${solvesUsed}`);
             ui.note(`  ${fundedValueIterationLine(solution.fundedResult)}`);
             const cycleBaselineGapWarning = fundedCycleBaselineGapWarning(
@@ -753,13 +839,15 @@ export default defineCommand({
             if (cycleBaselineGapWarning !== null) {
                 ui.warn(cycleBaselineGapWarning);
             }
-            ui.muted(
-                '  rate-search trace (rate per day tried -> cycle value h at that rate):\n',
-            );
-            for (const point of solution.trace) {
-                ui.note(
-                    `    ${formatCurrency(point.ratePerDay, 2)}/day -> h = ${formatCurrency(point.cycleValue)}`,
+            if (!isCycleObjective) {
+                ui.muted(
+                    '  rate-search trace (rate per day tried -> cycle value h at that rate):\n',
                 );
+                for (const point of solution.trace) {
+                    ui.note(
+                        `    ${formatCurrency(point.ratePerDay, 2)}/day -> h = ${formatCurrency(point.cycleValue)}`,
+                    );
+                }
             }
 
             const gridSaturationTally: FundedGridSaturationTally = {
@@ -787,6 +875,12 @@ export default defineCommand({
             )) {
                 ui.note(`  ${line}`);
             }
+            ui.note(
+                `  ${evalPassCrossCheckLine(
+                    solution.evalResult.policyPassProbability(),
+                    out.attemptPassProbability,
+                )}`,
+            );
             const gridSaturationShare =
                 shareAtOrAboveGridTop(gridSaturationTally);
             ui.note(`  ${fundedGridSaturationLine(gridSaturationShare)}`);
@@ -798,32 +892,35 @@ export default defineCommand({
                 ui.warn(gridSaturationWarning);
             }
 
-            const evalSampleState = plan.initialState();
-            const fundedSampleState = plan.initialState();
-            plan.beginFundedPhase(fundedSampleState);
+            if (!isCycleObjective) {
+                const evalSampleState = plan.initialState();
+                const fundedSampleState = plan.initialState();
+                plan.beginFundedPhase(fundedSampleState);
 
-            ui.muted(
-                '\n  sample risk at the very first day (this is NOT a fixed ladder: it is one snapshot of a function that changes with balance/profit/day; re-run this command’s dashboard mentally as your account moves)\n',
-            );
-            ui.note(
-                `  eval, day 1, trade 1-${solution.evalResult.dayPolicy.ladder.length}: ${sampleRisks(
-                    solution.evalResult.dayPolicy,
-                    evalSampleState,
-                )
-                    .map((r) => `$${r}`)
-                    .join(' / ')}`,
-            );
-            ui.note(
-                `  funded, day 1, trade 1-${solution.fundedResult.dayPolicy.ladder.length}: ${sampleRisks(
-                    solution.fundedResult.dayPolicy,
-                    fundedSampleState,
-                )
-                    .map((r) => `$${r}`)
-                    .join(' / ')}`,
-            );
+                ui.muted(
+                    '\n  sample risk at the very first day (this is NOT a fixed ladder: it is one snapshot of a function that changes with balance/profit/day; re-run this command’s dashboard mentally as your account moves)\n',
+                );
+                ui.note(
+                    `  eval, day 1, trade 1-${solution.evalResult.dayPolicy.ladder.length}: ${sampleRisks(
+                        solution.evalResult.dayPolicy,
+                        evalSampleState,
+                    )
+                        .map((r) => `$${r}`)
+                        .join(' / ')}`,
+                );
+                ui.note(
+                    `  funded, day 1, trade 1-${solution.fundedResult.dayPolicy.ladder.length}: ${sampleRisks(
+                        solution.fundedResult.dayPolicy,
+                        fundedSampleState,
+                    )
+                        .map((r) => `$${r}`)
+                        .join(' / ')}`,
+                );
+            }
 
             if (
-                solution.status !== RateSearchStatus.Converged ||
+                (!isCycleObjective &&
+                    solution.status !== RateSearchStatus.Converged) ||
                 solution.fundedResult.unconvergedLevelCount > 0
             ) {
                 ui.warn(

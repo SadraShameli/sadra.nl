@@ -25,6 +25,7 @@ import {
     newFundedCycleTracker,
 } from '~/lib/prop-calculator';
 import {
+    AccountSubstate,
     AdviceSource,
     DEFAULT_RULEBOOK,
     FundedSizingAdvisor,
@@ -78,7 +79,10 @@ class FakeWorker {
     }
 }
 
-function fundedAdvisorInput(trials = 20): UseAccountAdviceInput {
+function fundedAdvisorInput(
+    trials = 20,
+    substate: AccountSubstate.Suspended | null = null,
+): UseAccountAdviceInput {
     const state = {
         balance: 51_500,
         bestDayProfit: 0,
@@ -111,6 +115,7 @@ function fundedAdvisorInput(trials = 20): UseAccountAdviceInput {
         fundedHorizonDays: 252,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate,
         today: '2026-09-26',
         trials,
     });
@@ -200,6 +205,27 @@ describe('useAccountAdvice (PT-34b)', () => {
         });
 
         expect(FakeWorker.instances).toHaveLength(2);
+    });
+
+    it('starts no worker for a Suspended account and is ready at once with no sizing and no payout advice (PT-19h, F-118)', () => {
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+
+        renderHarness(
+            root,
+            fundedAdvisorInput(20, AccountSubstate.Suspended),
+            latest,
+        );
+
+        expect(FakeWorker.instances).toHaveLength(0);
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) {
+            throw new Error('expected a ready state');
+        }
+        const { advice } = latest.current;
+        expect(advice.documented).toBeNull();
+        expect(advice.payoutAdvice).toBeNull();
+        expect(advice.requests).toEqual([]);
     });
 
     it('caches a computed advice through the shared ComputationCache under ComputationId.Advice', () => {
@@ -478,6 +504,29 @@ describe('useAccountAdvice value requests (PT-67)', () => {
         expect(latest.current.values).toEqual({
             phase: AdviceValuesPhase.Ready,
             result: FAILED_VALUES,
+        });
+    });
+
+    it('starts no value worker for a Suspended advisor even when a value request is passed, and keeps the value state idle (PT-19h review)', () => {
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+
+        renderHarness(
+            root,
+            {
+                ...fundedAdvisorInput(20, AccountSubstate.Suspended),
+                values: valueRequest(500),
+            },
+            latest,
+        );
+
+        expect(FakeWorker.instances).toHaveLength(0);
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) {
+            throw new Error('expected a ready state');
+        }
+        expect(latest.current.values).toEqual({
+            phase: AdviceValuesPhase.Idle,
         });
     });
 

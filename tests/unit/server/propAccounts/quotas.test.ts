@@ -264,6 +264,14 @@ const LIST_CASES: readonly ListCase[] = [
         table: TABLES.snapshot,
     },
     {
+        call: (caller) => caller.snapshot.latestTwoForAll(),
+        limit: PROP_QUOTA_LIMITS[PropQuota.Accounts] * 2,
+        name: 'snapshot.latestTwoForAll',
+        record: PropRecord.Snapshot,
+        row: snapshotRow,
+        table: TABLES.snapshot,
+    },
+    {
         call: (caller) => caller.snapshot.listForAccount({ id: IDS.account }),
         limit: PROP_QUOTA_LIMITS[PropQuota.Snapshots],
         name: 'snapshot.listForAccount',

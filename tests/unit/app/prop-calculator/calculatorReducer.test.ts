@@ -17,6 +17,7 @@ import {
     MffuVariant,
     RungSizing,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
 function apex() {
@@ -457,5 +458,55 @@ describe('calculatorReducer rungSizing (H4)', () => {
             value: RungSizing.SkipIfUnaffordable,
         });
         expect(next.rungSizing).toBe(RungSizing.SkipIfUnaffordable);
+    });
+});
+
+
+describe('calculatorReducer objective (PT-63, F-V15)', () => {
+    it('starts on MonthlyNet (Q1)', () => {
+        expect(defaultCalculatorState().objective).toBe(
+            SizingObjective.MonthlyNet,
+        );
+    });
+
+    it('keeps the chosen objective through an applied state and drops it on reset', () => {
+        const chosen = {
+            ...defaultCalculatorState(),
+            objective: SizingObjective.CycleCash,
+        };
+        const applied = reduce(defaultCalculatorState(), {
+            state: chosen,
+            type: CalculatorActionType.ApplyState,
+        });
+        expect(applied.objective).toBe(SizingObjective.CycleCash);
+        expect(
+            reduce(applied, { type: CalculatorActionType.Reset }).objective,
+        ).toBe(SizingObjective.MonthlyNet);
+    });
+
+    it('sets only the objective on the current state, so a newer edit is never overwritten (SetObjective)', () => {
+        const edited = reduce(defaultCalculatorState(), {
+            type: CalculatorActionType.SetRiskDollars,
+            value: 321,
+        });
+        const next = reduce(edited, {
+            objective: SizingObjective.CycleCash,
+            type: CalculatorActionType.SetObjective,
+        });
+        expect(next).toStrictEqual({
+            ...edited,
+            objective: SizingObjective.CycleCash,
+        });
+        expect(next.riskDollars).toBe(321);
+    });
+
+    it('does not clamp or reset anything else for SetObjective', () => {
+        const state = defaultCalculatorState();
+        const next = reduce(state, {
+            objective: SizingObjective.RuinFirst,
+            type: CalculatorActionType.SetObjective,
+        });
+        expect(next.objective).toBe(SizingObjective.RuinFirst);
+        expect({ ...next, objective: state.objective }).toStrictEqual(state);
     });
 });

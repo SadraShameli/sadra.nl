@@ -48,7 +48,7 @@ import {
     riskCheckViewOf,
     todaysDecisionsOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/riskCheckModel';
-import { formatCurrency } from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import { usdCentsFromDollars } from '~/lib/prop-accounts';
 import {
     type AccountState,
@@ -61,12 +61,14 @@ import {
     newFundedCycleTracker,
     type Plan,
     points,
+    serializePlanId,
     TierBasis,
     TopStepVariant,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
     AccountAction,
+    AccountSubstate,
     type Advice,
     AdviceSource,
     AdviceStalenessReason,
@@ -74,8 +76,12 @@ import {
     DayStopReason,
     DEFAULT_RULEBOOK,
     DifferenceReason,
+    type DocumentedPolicySpec,
+    type EnginePolicy,
     FundedSizingAdvisor,
+    LiveApplicabilityNote,
     NextTradeRiskVerdict,
+    NO_PERSONAL_CAPS,
     PayoutBlockReasonKind,
     PayoutRequestDecisionKind,
     type ReconstructedAccount,
@@ -83,7 +89,10 @@ import {
     ReconstructedLiveKind,
     RetainedCushionBasis,
     RiskDisplayUnit,
+    type RulebookParameters,
     RuleSource,
+    SIZING_ASSUMPTION_TEXT,
+    SizingAssumption,
     SizingObjective,
     SizingProvenance,
     SizingStage,
@@ -109,6 +118,13 @@ import {
     DayStopRuleKind,
     PayoutGate,
 } from '~/lib/prop-calculator/core';
+import {
+    LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
+    LIVE_TRANSFER_CONTINUATION_TEXT,
+    LIVE_TRANSFER_NOTE_TEXT,
+    LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT,
+    LiveTransferContinuationKind,
+} from '~/lib/prop-calculator/simulator';
 import { routes } from '~/lib/site/routes';
 
 const plan = topStep50k();
@@ -154,6 +170,7 @@ function fundedAdvisor(): FundedSizingAdvisor {
         fundedHorizonDays: 252,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today: '2026-09-26',
         trials: 20,
     });
@@ -1121,6 +1138,8 @@ function valueRequestInputOf(
     return {
         account,
         advice: advisor.assemble([]),
+        personalCaps: NO_PERSONAL_CAPS,
+        personalDll: null,
         plan,
         rulebook: DEFAULT_RULEBOOK,
         ...overrides,
@@ -1158,6 +1177,32 @@ describe('adviceValueRequestOf (PT-67 steps 1 and 2)', () => {
         ).toEqual({
             kind: AdviceValueRequestKind.NotRequested,
         });
+    });
+
+    it('does not request values for advice with no documented sizing, so a suspended account is never valued (PT-19i, F-118)', () => {
+        const suspended = new FundedSizingAdvisor({
+            account: fundedAccount(),
+            fundedHorizonDays: 252,
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-09-26',
+            substate: AccountSubstate.Suspended,
+            today: '2026-09-26',
+            trials: 20,
+        }).assemble([]);
+
+        expect(suspended.documented).toBeNull();
+        expect(
+            adviceValueRequestOf({
+                ...valueRequestInputOf(),
+                advice: suspended,
+            }),
+        ).toEqual({ kind: AdviceValueRequestKind.NotRequested });
+        expect(
+            adviceValueRequestOf({
+                ...valueRequestInputOf(),
+                advice: adviceFixture({ documented: null }),
+            }),
+        ).toEqual({ kind: AdviceValueRequestKind.NotRequested });
     });
 
     it('states why a funded account that cannot start a value run has no request, instead of going quiet', () => {
@@ -1200,6 +1245,7 @@ describe('adviceValueRequestOf (PT-67 steps 1 and 2)', () => {
             fundedHorizonDays: 252,
             rulebook,
             snapshotAsOf: '2026-09-26',
+            substate: null,
             today: '2026-09-26',
             trials: 20,
         });
@@ -1306,6 +1352,97 @@ describe('valueRunNoteOf (PT-67 review)', () => {
 
         expect(valueRunNoteOf(request)).toContain(
             'rebuy lag measured at 4 days',
+        );
+    });
+});
+
+function eligibleValueRequestInputOf(
+    overrides: Partial<Parameters<typeof adviceValueRequestOf>[0]> = {},
+) {
+    return {
+        ...valueRequestInputOf(),
+        advice: { ...valueRequestInputOf().advice, ...eligibleAdvice() },
+        ...overrides,
+    };
+}
+
+describe('the value request carries the personal limits (PT-68f, F-V16)', () => {
+    it('halves the personal max risk, not the rulebook funded risk, for the reduced-risk what-if when the cap is lower', () => {
+        const request = readyRequestOf(
+            eligibleValueRequestInputOf({
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: dollars(100),
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(request.payoutStake).toEqual({ reducedRiskDollars: 50 });
+    });
+
+    it('keeps half the rulebook funded risk when the personal max risk sits above it', () => {
+        const request = readyRequestOf(
+            eligibleValueRequestInputOf({
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: dollars(5000),
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(request.payoutStake).toEqual({
+            reducedRiskDollars: DEFAULT_RULEBOOK.funded.riskCents / 100 / 2,
+        });
+    });
+
+    it('names no personal limit in the value run note when none is set', () => {
+        const note = valueRunNoteOf(readyRequestOf(valueRequestInputOf()));
+
+        expect(note).not.toContain('Personal limits');
+        expect(note).not.toContain(
+            SIZING_ASSUMPTION_TEXT[SizingAssumption.WinsAddNoLossRoom],
+        );
+    });
+
+    it('names the applied limits in the value run note', () => {
+        const request = readyRequestOf(
+            valueRequestInputOf({
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: dollars(100),
+                    maxTradesPerDay: 2,
+                },
+            }),
+        );
+        const note = valueRunNoteOf(request);
+
+        expect(note).toContain('max risk per trade $100.00');
+        expect(note).toContain('max 2 trades per day');
+        expect(note).not.toContain('daily loss limit');
+        expect(note).not.toContain(
+            SIZING_ASSUMPTION_TEXT[SizingAssumption.WinsAddNoLossRoom],
+        );
+    });
+
+    it('states the wins-add-no-loss-room assumption when a daily limit moves the funded day to the documented rule', () => {
+        const request = readyRequestOf(
+            valueRequestInputOf({
+                personalCaps: {
+                    dailyProfitCap: dollars(700),
+                    maxRiskPerTrade: null,
+                    maxTradesPerDay: null,
+                },
+                personalDll: dollars(600),
+            }),
+        );
+        const note = valueRunNoteOf(request);
+
+        expect(note).toContain('daily loss limit $600.00');
+        expect(note).toContain('daily profit cap $700.00');
+        expect(note).toContain(
+            SIZING_ASSUMPTION_TEXT[SizingAssumption.WinsAddNoLossRoom],
         );
     });
 });
@@ -2091,5 +2228,142 @@ describe('ACCOUNT_ACTION_TEXT', () => {
         for (const action of Object.values(AccountAction)) {
             expect(ACCOUNT_ACTION_TEXT[action].length).toBeGreaterThan(0);
         }
+    });
+});
+
+function hazardNoteOf(
+    hazards: Partial<Record<FirmId, number>>,
+    enginePolicy: Partial<EnginePolicy> = {},
+): string {
+    const request = readyRequestOf({
+        ...valueRequestInputOf(),
+        rulebook: rulebookWithHazard(hazards),
+    });
+    return valueRunNoteOf({
+        ...request,
+        spec: {
+            ...request.spec,
+            enginePolicy: { ...request.spec.enginePolicy, ...enginePolicy },
+        },
+    });
+}
+
+function rulebookWithHazard(
+    hazards: Partial<Record<FirmId, number>>,
+): RulebookParameters {
+    return {
+        ...DEFAULT_RULEBOOK,
+        liveTransfer: { hazardPerPaidPayoutByFirm: hazards },
+    };
+}
+
+function withoutPlanSerial(spec: DocumentedPolicySpec): DocumentedPolicySpec {
+    const copy = { ...spec };
+    delete copy.planSerial;
+    return copy;
+}
+
+describe('the value run note names the live-transfer hazard the run priced (PT-73b, QV-11)', () => {
+    it('carries the plan serial so the note knows the account firm', () => {
+        const request = readyRequestOf(valueRequestInputOf());
+
+        expect(request.spec.planSerial).toBe(serializePlanId(plan.id));
+    });
+
+    it('says nothing about a transfer when no hazard is entered for the account firm', () => {
+        expect(hazardNoteOf({})).not.toContain('ive transfer');
+        expect(hazardNoteOf({ [FirmId.Apex]: 0.3 })).toBe(hazardNoteOf({}));
+    });
+
+    it('names the hazard as the user assumption, not a firm rule, per paid payout', () => {
+        const note = hazardNoteOf({ [FirmId.TopStep]: 0.3 });
+
+        expect(note).toContain(
+            `Live transfer: ${formatPercent(0.3)} per paid payout (your assumption, not a firm rule)`,
+        );
+        expect(note).not.toContain('\u{2014}');
+    });
+
+    it('words a hazard below one tenth of a percent with the digits it was entered with', () => {
+        const note = hazardNoteOf({ [FirmId.TopStep]: 0.0004 });
+
+        expect(note).toContain('Live transfer: 0.04% per paid payout');
+        expect(note).not.toContain('0.0% per paid payout');
+    });
+
+    it('says the payout that concludes an account is also a transfer chance', () => {
+        expect(hazardNoteOf({ [FirmId.TopStep]: 0.3 })).toContain(
+            LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
+        );
+    });
+
+    it('says the plan could not be identified when a hazard is entered and the spec carries no plan serial', () => {
+        const request = readyRequestOf({
+            ...valueRequestInputOf(),
+            rulebook: rulebookWithHazard({ [FirmId.TopStep]: 0.3 }),
+        });
+
+        const note = valueRunNoteOf({
+            ...request,
+            spec: withoutPlanSerial(request.spec),
+        });
+
+        expect(note).toContain('Live transfer: a hazard is entered in your rulebook');
+        expect(note).toContain('could not be identified');
+        expect(note).toContain('cannot say whether it was priced');
+    });
+
+    it('says the plan could not be identified when the serial resolves to no plan', () => {
+        const request = readyRequestOf({
+            ...valueRequestInputOf(),
+            rulebook: rulebookWithHazard({ [FirmId.TopStep]: 0.3 }),
+        });
+
+        const note = valueRunNoteOf({
+            ...request,
+            spec: { ...request.spec, planSerial: 'no-such-plan-serial' },
+        });
+
+        expect(note).toContain('could not be identified');
+    });
+
+    it('stays silent about a missing plan serial when no hazard is entered for any firm', () => {
+        const request = readyRequestOf(valueRequestInputOf());
+
+        expect(
+            valueRunNoteOf({
+                ...request,
+                spec: withoutPlanSerial(request.spec),
+            }),
+        ).not.toContain('ive transfer');
+    });
+
+    it('says the rest of the account is valued at $0 when no live plan is modeled for the run', () => {
+        const note = hazardNoteOf({ [FirmId.TopStep]: 0.3 });
+
+        expect(note).toContain(
+            LIVE_TRANSFER_CONTINUATION_TEXT[
+                LiveTransferContinuationKind.NotModeled
+            ],
+        );
+    });
+
+    it('names the continuation kind and its disclosures once the run sets an instrument and stop', () => {
+        const note = hazardNoteOf(
+            { [FirmId.TopStep]: 0.3 },
+            { instrument: InstrumentSymbol.MNQ, stopPoints: 10 },
+        );
+
+        expect(note).toContain(
+            LIVE_TRANSFER_CONTINUATION_TEXT[
+                LiveTransferContinuationKind.ModeledApproximate
+            ],
+        );
+        expect(note).toContain(LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT);
+        expect(note).toContain(
+            LIVE_TRANSFER_NOTE_TEXT[
+                LiveApplicabilityNote.TopStepLfaEligibleJurisdictionAssumed
+            ],
+        );
     });
 });

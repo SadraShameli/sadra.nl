@@ -2,14 +2,14 @@
 
 **Sources:** Topstep Help Center, multiple articles (Trading Combine® Parameters, Express Funded Account® Parameters/Activation, Consistency at Topstep, Topstep Payout Policy, What is the Scaling Plan?, What is the Maximum Loss Limit?, plus firm-wide eligibility/prohibited-trading-strategies/risk-adjustment articles). Full list with exact URLs and each article's own stated update date is in the Sources section below.
 
-**Last Verified:** `2026-09-24`
-**Last Updated:** `2026-09-24`
+**Last Verified:** `2026-10-02` (articles 8284233, 14289835, 8284197, 8284217, 8284128 and 13613539 re-fetched live 2026-10-02 and every quote below that cites them checked against the page text; every other help-center article cited here has a schema.org dateModified, read 2026-10-02, equal to the date recorded for it in this file, and its quotes were not re-diffed this pass)
+**Last Updated:** `2026-10-02`
 
 ## Overview
 
 This file documents Topstep's Trading Combine® (evaluation) followed by the Express Funded Account® (XFA) under its **Consistency** Payout path, across all three account sizes Topstep currently sells: $50K, $100K, and $150K. The Trading Combine itself, its pricing paths, its Scaling Plan, and its Maximum Loss Limit (MLL) mechanic are identical no matter which Payout path a trader later chooses; Standard vs. Consistency is selected only at XFA activation, and changes both the funded-stage Payout eligibility Objective and the Max Payout per Cycle dollar cap (see Payouts below). The Consistency path requires 3 trading days with at least 1 trade each and a 40% consistency target (Largest Single-Day Net Profit ÷ Total Net Profit), in exchange for reaching Payout eligibility faster than the sibling Standard path's 5-winning-days-of-$150+ requirement (documented in `standard.md`). Passing the Trading Combine earns the XFA; taking Payouts and building a track record in the XFA works toward a call-up to the Live Funded Account (see Live Transition below).
 
-**Engine cross-check (`src/lib/prop-calculator/firms/topstep/TopStep.ts`):** the simulator's `TopStep` class only builds plans at `ACCOUNT_SIZE = 50_000` (hardcoded). Every dollar-denominated figure it models, Maximum Loss Limit, Profit Target, the tiered funded contract-limit table, monthly subscription/reset pricing, and Payout request caps, is the $50K-tier figure only. The $100K and $150K columns throughout this file are confirmed by Topstep's own sources below but are not yet reflected anywhere in the engine; this is a scope gap, not a data error, everywhere the engine's own $50K figure matches this file's $50K column. Separately, the engine's `minPayoutProfitPerCycle` (a flat $0.01-positive-net-profit-since-last-Payout floor) is applied uniformly to every `TopStepVariant` in `buildPlan`, including the Consistency-path variants built here. Topstep's own Payout Policy article states that requirement only under the Standard path's own two-item requirements list; the Consistency path's own two-item list is "3 trading days with at least 1 trade per day" and "Stay at or below the 40% consistency target." with no separate profit-since-last-Payout item. It is not stated by the source whether the engine's shared constant is harmless here (the 40% ratio already requires positive total net profit to be computable) or an extra restriction the Consistency path doesn't actually have. Flagged, not resolved.
+**Engine cross-check (`src/lib/prop-calculator/firms/topstep/TopStep.ts`):** the simulator's `TopStep` class only builds plans at `ACCOUNT_SIZE = 50_000` (hardcoded). Every dollar-denominated figure it models, Maximum Loss Limit, Profit Target, the tiered funded contract-limit table, monthly subscription/reset pricing, and Payout request caps, is the $50K-tier figure only. The $100K and $150K columns throughout this file are confirmed by Topstep's own sources below but are not yet reflected anywhere in the engine; this is a scope gap, not a data error, everywhere the engine's own $50K figure matches this file's $50K column. Separately, the engine's `minPayoutProfitPerCycle` (a flat $0.01-positive-net-profit-since-last-Payout floor) is applied uniformly to every `TopStepVariant` in `buildPlan`, including the Consistency-path variants built here. Topstep's own Payout Policy article states that requirement only under the Standard path's own two-item requirements list; the Consistency path's own two-item list is "3 trading days with at least 1 trade per day" and "Stay at or below the 40% consistency target." with no separate profit-since-last-Payout item. It is not stated by the source whether the engine's shared constant is harmless here (the 40% ratio already requires positive total net profit to be computable) or an extra restriction the Consistency path doesn't actually have. Flagged, not resolved. Separately (checked 2026-10-02), the engine's `INACTIVITY_CLOSURE_DAYS = 30` closes an idle account when `consecutiveIdleDays >= 30` (`simulator/day.ts` lines 186 to 188), one day earlier than the source's "XFAs with no trading activity for more than 30 days may be closed" (Express Funded Account Parameters), which the Inactivity Rule row below restates; see the same note in `standard.md`.
 
 ## Evaluation
 
@@ -93,7 +93,7 @@ Re-derived: $0 + $500 + $1,500 + $1,000 + $1,500 = $4,500. Matches Day 4's state
 
 ## Other Confirmed Rules
 
-**A real, unresolved conflict on whether the double-payout-cap DLL must be added at original Trading Combine checkout.** The Payout Policy article (used for the Max Payout per Cycle row above) restricts the double-cap benefit to a DLL added at the original Trading Combine checkout only, explicitly stating that adding one later, at XFA activation or Reactivation, "does not unlock this." The firm's own, separately-published, still-active Double Payout Caps Terms & Conditions instead state: "traders who add a Daily Loss Limit (DLL) to their Topstep account will unlock double the standard payout caps across every account size in which a DLL is active. Offer is available to all active Topstep account holders in good standing, including existing traders and new signups," with no checkout-only restriction anywhere in the promo's own terms. Whether an existing trader can unlock the double cap by adding a DLL later is answered oppositely by these two sources; not resolved here.
+**A real, unresolved conflict on whether the double-payout-cap DLL must be added at original Trading Combine checkout.** The Payout Policy article (used for the Max Payout per Cycle row above) restricts the double-cap benefit to a DLL added at the original Trading Combine checkout only, explicitly stating, in its FAQ, that "Only if you already added the DLL when you purchased your Trading Combine. Adding it at the XFA stage doesn't unlock the higher cap." The firm's own, separately-published, still-active Double Payout Caps Terms & Conditions instead state: "traders who add a Daily Loss Limit (DLL) to their Topstep account will unlock double the standard payout caps across every account size in which a DLL is active. Offer is available to all active Topstep account holders in good standing, including existing traders and new signups," with no checkout-only restriction anywhere in the promo's own terms. Whether an existing trader can unlock the double cap by adding a DLL later is answered oppositely by these two sources; not resolved here.
 
 **A purchased Trading Combine must be activated within 30 calendar days or access is suspended, a deadline not stated in any help-center source.** The Terms of Use state: "If you do not activate the Trading Combine® within 30 calendar days of the date on which it was made available to you, your access to it will be suspended. You can request the renewal of access via the User Section or by contacting Support within 6 months of the initial suspension, otherwise we will terminate the provision of the Services without any right to a refund of the fee." This is a genuine, undisclosed forfeiture risk for a trader who purchases a Combine and does not start trading it promptly.
 
@@ -121,19 +121,19 @@ Topstep's stated path is: pass the Trading Combine, take Payouts and build a tra
 
 ---
 
-**Last Updated:** `2026-09-24`
+**Last Updated:** `2026-10-02`
 **Sources:**
 
 - `https://help.topstep.com/en/articles/8284121-trading-combine-subscriptions` (updated 2026-09-04)
-- `https://help.topstep.com/en/articles/8284197-trading-combine-parameters` (updated 2026-09-10)
+- `https://help.topstep.com/en/articles/8284197-trading-combine-parameters` (dateModified 2026-09-24; re-fetched 2026-10-02)
 - `https://help.topstep.com/en/articles/8284208-consistency-at-topstep` (updated 2026-09-17)
 - `https://help.topstep.com/en/articles/8284215-express-funded-account-parameters` (updated 2026-08-05)
-- `https://help.topstep.com/en/articles/8284217-express-funded-account-activation` (updated 2026-08-24)
+- `https://help.topstep.com/en/articles/8284217-express-funded-account-activation` (dateModified 2026-09-24; re-fetched 2026-10-02)
 - `https://help.topstep.com/en/articles/8284223-what-is-the-scaling-plan` (updated 2026-07-16; contract-table figures sourced from this article's own linked chart image, not its body text)
-- `https://help.topstep.com/en/articles/8284233-topstep-payout-policy` (updated 2026-09-03)
+- `https://help.topstep.com/en/articles/8284233-topstep-payout-policy` (dateModified 2026-09-30; re-fetched 2026-10-02, every figure and quote cited from it in this file re-checked and present)
 - `https://help.topstep.com/en/articles/10490293-daily-loss-limit-in-the-trading-combine-and-express-funded-account` (updated 2026-06-30)
-- `https://help.topstep.com/en/articles/14289835-topstep-pricing-and-payment-questions` (updated 2026-09-23; re-verified live 2026-09-24, the article's own stated update date advanced from 2026-07-20 since the last pass with no change to the figures cited here; also source of the N-53 finding, see Not Confirmed)
-- `https://help.topstep.com/en/articles/8284128-what-is-a-reset` (updated 2026-06-18)
+- `https://help.topstep.com/en/articles/14289835-topstep-pricing-and-payment-questions` (dateModified 2026-09-25; re-verified live 2026-09-24 and again 2026-10-02, the article's own stated update date advanced from 2026-07-20 to 2026-09-23 to 2026-09-25 with no change to the figures cited here; also source of the N-53 finding, see Not Confirmed)
+- `https://help.topstep.com/en/articles/8284128-what-is-a-reset` (dateModified 2026-09-25; re-fetched 2026-10-02)
 - `https://help.topstep.com/en/articles/10370307-reset-purchase-limits` (updated 2026-06-18)
 - `https://help.topstep.com/en/articles/8284204-what-is-the-maximum-loss-limit` (updated 2026-09-18)
 - `https://help.topstep.com/en/articles/8284099-topstep-program-overview` (updated 2026-09-10)
@@ -141,6 +141,6 @@ Topstep's stated path is: pass the Trading Combine, take Payouts and build a tra
 - `https://help.topstep.com/en/articles/8284116-am-i-eligible-to-trade-with-topstep` (updated 2026-09-04)
 - `https://help.topstep.com/en/articles/8765442-order-types-fills-and-slippage` (updated 2026-09-16)
 - `https://help.topstep.com/en/articles/10305426-prohibited-trading-strategies-at-topstep` (updated 2026-06-10)
-- `https://help.topstep.com/en/articles/13613539-risk-adjustments-high-risk-high-volatility` (updated 2026-09-17)
+- `https://help.topstep.com/en/articles/13613539-risk-adjustments-high-risk-high-volatility` (dateModified 2026-10-01; re-fetched 2026-10-02)
 
-Every URL above was independently confirmed against `help.topstep.com/sitemap.xml`'s own article list (56 of 56 sitemap articles fetched and read for this documentation pass; see `SOURCES.md`), not reconstructed from a title.
+Every URL above was independently confirmed against `help.topstep.com/sitemap.xml`'s own article list (57 of 57 sitemap articles fetched on 2026-10-02 and their own dateModified read; see `SOURCES.md` for how many were read in full), not reconstructed from a title.

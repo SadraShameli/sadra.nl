@@ -165,6 +165,7 @@ export {
 } from './PayoutTolerance';
 export {
     MAX_PERSONAL_TRADES_PER_DAY,
+    personalMaxRiskOf,
     type PersonalRules,
     personalRulesSchema,
 } from './PersonalRules';

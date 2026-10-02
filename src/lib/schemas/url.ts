@@ -8,12 +8,19 @@ import {
     stopLossCountSchema,
     stopTargetDollarsSchema,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { DayStopRuleKind } from '~/lib/prop-calculator/core';
 
 export {
     CalculatorUrlParameter,
     UrlFlag,
 } from '~/lib/schemas/calculatorUrlParameter';
+
+export const OBJECTIVE_URL_PARAMETER = 'obj';
+
+export const objectiveUrlSchema = z
+    .enum(SizingObjective)
+    .catch(SizingObjective.MonthlyNet);
 
 export const PROFILE_TAB_VALUES = [
     'account',
@@ -121,6 +128,7 @@ export const CALCULATOR_SCALAR_BOUNDS = {
     eval: bound(0, 0, 100, false),
     fundedDays: bound(60, 1, 3650, true),
     idle: bound(0, 0, 1, false),
+    lth: bound(0, 0, 1, false),
     maxDays: bound(60, 10, 365, true),
     msub: bound(0, 0, 100, false),
     pr: bound(0, 0, 1_000_000, false),
@@ -224,6 +232,7 @@ export const calculatorScalarFieldsSchema = z.object({
     eval: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.eval),
     fundedDays: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.fundedDays),
     idle: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.idle),
+    lth: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.lth),
     maxDays: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.maxDays),
     msub: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.msub),
     rd: schemaFromBound(RISK_DOLLARS_URL_CEILING),

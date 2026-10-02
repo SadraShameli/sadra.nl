@@ -2,10 +2,15 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
     AdviceSource,
+    AssumptionKind,
+    assumptionKindText,
     type LadderEngineOptimumResult,
+    LadderEngineOptimumResultKind,
     type LadderGridRefusal,
     LadderRefusalKind,
+    ladderRefusalText,
     type LadderSearchRequestSource,
+    ladderStepWidenedText,
     runEngineOptimum,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -74,6 +79,7 @@ describe('runEngineOptimum ladder grid refusal (PT-24c step 1)', () => {
                 throw new Error('expected a refused ladder result');
             const ladderResult: LadderEngineOptimumResult = result;
             expect(ladderResult).toStrictEqual({
+                kind: LadderEngineOptimumResultKind.Refused,
                 refusal: {
                     kind: LadderRefusalKind.GridTooLarge,
                     limit: 2000,
@@ -96,6 +102,7 @@ describe('runEngineOptimum ladder grid refusal (PT-24c step 1)', () => {
         );
 
         if (!('ladder' in result)) throw new Error('expected a ladder result');
+        expect(result.kind).toBe(LadderEngineOptimumResultKind.Scored);
         expect('refusal' in result).toBe(false);
         expect(result.ladder.laddersScored).toBeGreaterThan(0);
     });
@@ -103,14 +110,20 @@ describe('runEngineOptimum ladder grid refusal (PT-24c step 1)', () => {
     it('the result is exactly scored or refused, never both and never an empty ladder beside a refusal', () => {
         type Refused = Extract<
             LadderEngineOptimumResult,
-            { readonly refusal: unknown }
+            { readonly kind: LadderEngineOptimumResultKind.Refused }
         >;
-        type Scored = Exclude<LadderEngineOptimumResult, Refused>;
+        type Scored = Extract<
+            LadderEngineOptimumResult,
+            { readonly kind: LadderEngineOptimumResultKind.Scored }
+        >;
 
         expectTypeOf<Refused['refusal']>().toEqualTypeOf<LadderGridRefusal>();
         expectTypeOf<Refused>().not.toHaveProperty('ladder');
         expectTypeOf<Scored>().toHaveProperty('ladder');
         expectTypeOf<Scored>().not.toHaveProperty('refusal');
+        expectTypeOf<
+            Refused | Scored
+        >().toEqualTypeOf<LadderEngineOptimumResult>();
     });
 
     it('an invalid grid that is not about size still throws', () => {
@@ -124,5 +137,28 @@ describe('runEngineOptimum ladder grid refusal (PT-24c step 1)', () => {
                 ),
             ),
         ).toThrow(LadderGridFieldError);
+    });
+});
+
+describe('the shared ladder wording (PT-24d review)', () => {
+    it('words a refusal once, with both numbers grouped', () => {
+        expect(
+            ladderRefusalText({
+                kind: LadderRefusalKind.GridTooLarge,
+                limit: 2000,
+                size: 4680,
+            }),
+        ).toBe(
+            'ladder search not run: grid too large (4,680 ladders, above the 2,000 limit)',
+        );
+    });
+
+    it('states the coarser step with the grid step, and the kind text alone states it without the step', () => {
+        const base = assumptionKindText(AssumptionKind.LadderStepWidened);
+
+        expect(base).toContain('coarser');
+        expect(base).not.toContain('searched');
+        expect(base).not.toContain('grid step is');
+        expect(ladderStepWidenedText(140)).toBe(`${base} The grid step is $140.`);
     });
 });

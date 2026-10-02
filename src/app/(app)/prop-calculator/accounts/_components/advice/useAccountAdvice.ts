@@ -94,7 +94,7 @@ export function useAccountAdvice(
     const firmId = input?.firmId;
     const optIns = input?.optIns;
     const planSerial = input?.planSerial;
-    const values = input?.values ?? null;
+    const values = advisor?.isSuspended() ? null : (input?.values ?? null);
     const valuesUnavailableReason = input?.valuesUnavailableReason ?? null;
     const requests = useMemo(() => advisor?.optimumRequests(), [advisor]);
     const engineJob = useMemo(() => {

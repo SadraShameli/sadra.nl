@@ -29,6 +29,7 @@ import {
     firmMinimumNotice,
     type FundedPayoutRuleContext,
     type LivePayoutRuleContext,
+    LiveTriggerScope,
     PayoutBlockReasonKind,
     PayoutRequestDecisionKind,
     PayoutRequestNotice,
@@ -990,7 +991,8 @@ describe('PayoutRequestRule funded: live-trigger count limit (PT-36b)', () => {
         expect(decision.reason).toEqual({
             kind: PayoutBlockReasonKind.WouldTriggerLive,
             trigger: {
-                paidPayoutsSinceLastLiveAccount: 2,
+                payoutsTaken: 2,
+                scope: LiveTriggerScope.Account,
                 triggerAtPayoutCount: 3,
             },
         });
@@ -1017,7 +1019,8 @@ describe('PayoutRequestRule funded: live-trigger count limit (PT-36b)', () => {
         expect(decision.reason).toEqual({
             kind: PayoutBlockReasonKind.WouldTriggerLive,
             trigger: {
-                paidPayoutsSinceLastLiveAccount: 9,
+                payoutsTaken: 9,
+                scope: LiveTriggerScope.Firm,
                 triggerAtPayoutCount: 10,
             },
         });

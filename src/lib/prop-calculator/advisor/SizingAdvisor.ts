@@ -1,5 +1,6 @@
-import { type Dollars } from '~/lib/prop-calculator/core';
+import { dollars, type Dollars } from '~/lib/prop-calculator/core';
 
+import { AccountSubstate } from './AccountSubstate';
 import {
     nextTradeRiskCheck,
     type NextTradeRiskCheckResult,
@@ -9,6 +10,10 @@ import { type AdviceStaleness } from './AdviceStaleness';
 import { type Assumption, AssumptionBias, inputAssumption } from './Assumption';
 import { AssumptionKind } from './AssumptionKind';
 import { type DailyPlanCard, dailyPlanCard } from './DailyPlanCard';
+import {
+    DifferenceReason,
+    type DifferenceReasonDetail,
+} from './DifferenceReason';
 import { type DocumentedRule } from './DocumentedRule';
 import { type DocumentedSizing } from './DocumentedSizing';
 import { type EngineOptimumRequest } from './EngineOptimumRequest';
@@ -28,17 +33,39 @@ export abstract class SizingAdvisor<
         readonly stage: SizingStage,
         protected readonly rulebook: RulebookParameters,
         protected readonly rule: DocumentedRule<TContext>,
+        protected readonly substate: AccountSubstate.Suspended | null,
     ) {}
 
     private currentContext(): null | TContext {
-        return this.staleness().kind === 'stale'
+        return this.isSuspended() || this.staleness().kind === 'stale'
             ? null
             : this.buildContextOrNull();
     }
 
-    abstract assemble(results: readonly EngineOptimumRunnerResult[]): Advice;
+    private suspendedAdvice(advice: Advice): Advice {
+        const reason: DifferenceReasonDetail = {
+            kind: DifferenceReason.Suspended,
+        };
+        return {
+            ...advice,
+            dailyPlanCard: null,
+            differenceReasons: [reason],
+            documented: null,
+            optima: [],
+            payoutAdvice: null,
+            requests: [],
+        };
+    }
 
-    abstract caps(): RiskCaps;
+    assemble(results: readonly EngineOptimumRunnerResult[]): Advice {
+        const advice = this.assembleAdvice(results);
+        return this.isSuspended() ? this.suspendedAdvice(advice) : advice;
+    }
+
+    caps(): RiskCaps {
+        const caps = this.sizedCaps();
+        return this.isSuspended() ? { ...caps, affordable: dollars(0) } : caps;
+    }
 
     checkNextTradeRisk(
         proposedRisk: Dollars,
@@ -68,15 +95,27 @@ export abstract class SizingAdvisor<
         return context === null ? null : this.rule.size(context);
     }
 
-    abstract optimumRequests(): readonly EngineOptimumRequest[];
+    isSuspended(): boolean {
+        return this.substate === AccountSubstate.Suspended;
+    }
+
+    optimumRequests(): readonly EngineOptimumRequest[] {
+        return this.isSuspended() ? [] : this.engineRequests();
+    }
 
     abstract staleness(): AdviceStaleness;
+
+    protected abstract assembleAdvice(
+        results: readonly EngineOptimumRunnerResult[],
+    ): Advice;
 
     protected abstract buildContext(): TContext;
 
     protected buildContextOrNull(): null | TContext {
         return this.buildContext();
     }
+
+    protected abstract engineRequests(): readonly EngineOptimumRequest[];
 
     protected isPayoutRequestDecision(
         context: null | PayoutRuleContext,
@@ -91,6 +130,8 @@ export abstract class SizingAdvisor<
     protected payoutEligibleForRiskCheck(): boolean {
         return false;
     }
+
+    protected abstract sizedCaps(): RiskCaps;
 
     protected withLiveTriggersNotChecked(
         base: readonly Assumption[],

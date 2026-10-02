@@ -8,21 +8,29 @@ import { describe, expect, it, vi } from 'vitest';
 import compare, {
     compareColumns,
     compareOutputs,
+    compareRankingHeadingLine,
     compareRow,
     compareRowCells,
     CompareSortKey,
     describeColumnBasis,
     describeEconomicsColumns,
     describeExcludedPlans,
+    nonPositiveEvPlanLines,
     rankRows,
     requireScreenTimeForSort,
+    resolveCompareRanking,
+    ruinFirstWarning,
     SORT_KEYS,
+    SPLIT_COLUMNS,
+    splitTableRow,
 } from '~/cli/commands/prop/compare/command';
 import {
     edgePlausibilityNote,
     planResolver,
     planVariant,
+    RuinFirstNeedsBankroll,
     singlePathGranularityArgument,
+    SortObjectiveConflict,
 } from '~/cli/commands/prop/shared';
 import {
     formatCurrency,
@@ -30,6 +38,7 @@ import {
     formatPercent,
 } from '~/lib/format';
 import {
+    dollars,
     FirmId,
     fraction,
     FundedNextVariant,
@@ -42,7 +51,20 @@ import {
     TopStepVariant,
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator';
-import { noPayoutProbabilityFromDistribution } from '~/lib/prop-calculator/economics';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import {
+    bankrollRiskFigures,
+    COPY_SPLIT_CORRELATION_NOTE,
+    type CopySplitRow,
+    CopySplitRowKind,
+} from '~/lib/prop-calculator/advisor/policy';
+import {
+    attemptsAffordable,
+    cohortOutcome,
+    LOSS_RISK_DRAWS,
+    noPayoutProbability,
+    noPayoutProbabilityFromDistribution,
+} from '~/lib/prop-calculator/economics';
 import { findFirm } from '~/lib/prop-calculator/firms';
 
 import {
@@ -96,14 +118,16 @@ const NEVER_PASSES: Partial<SimOutputs> = {
 };
 
 describe('compare --sort keys', () => {
-    it('lists every CompareSortKey member: cost, days, hour, net, pass and spend', () => {
+    it('lists every CompareSortKey member: cost, cycle, days, hour, net, pass, ruin-first and spend', () => {
         expect(SORT_KEYS).toStrictEqual(Object.values(CompareSortKey));
         expect(SORT_KEYS).toStrictEqual([
             'cost',
+            'cycle',
             'days',
             'hour',
             'net',
             'pass',
+            'ruin-first',
             'spend',
         ]);
     });
@@ -273,6 +297,8 @@ describe("the 'best by' plan is the first ranked row for every key (TG-2)", () =
             daysToPassValues: [30],
             evalPassProbability: 0.2,
             expectedMonthlyNet: 50,
+            expectedNet: 1,
+            expectedNetPerAttempt: 10,
             expectedTotalCost: 10,
         }),
         row('best net', {
@@ -281,6 +307,8 @@ describe("the 'best by' plan is the first ranked row for every key (TG-2)", () =
             daysToPassValues: [25],
             evalPassProbability: 0.3,
             expectedMonthlyNet: 900,
+            expectedNet: 2,
+            expectedNetPerAttempt: 10,
             expectedTotalCost: 500,
         }),
         row('best pass', {
@@ -289,6 +317,8 @@ describe("the 'best by' plan is the first ranked row for every key (TG-2)", () =
             daysToPassValues: [20],
             evalPassProbability: 0.9,
             expectedMonthlyNet: 100,
+            expectedNet: 3,
+            expectedNetPerAttempt: 10,
             expectedTotalCost: 400,
         }),
         row('fastest', {
@@ -297,15 +327,19 @@ describe("the 'best by' plan is the first ranked row for every key (TG-2)", () =
             daysToPassValues: [3],
             evalPassProbability: 0.4,
             expectedMonthlyNet: 60,
+            expectedNet: 999,
+            expectedNetPerAttempt: 10,
             expectedTotalCost: 300,
         }),
     ];
     const expectedBest: Record<CompareSortKey, string> = {
         [CompareSortKey.Cost]: 'best pass',
+        [CompareSortKey.Cycle]: 'fastest',
         [CompareSortKey.Days]: 'fastest',
         [CompareSortKey.Hour]: 'best net',
         [CompareSortKey.Net]: 'best net',
         [CompareSortKey.Pass]: 'best pass',
+        [CompareSortKey.RuinFirst]: 'best net',
         [CompareSortKey.Spend]: 'lowest spend',
     };
 
@@ -705,7 +739,12 @@ describe('compare --sort hour (PT-54, F-V25)', () => {
     });
 });
 
-async function capturedCompareRun(argv: string[]): Promise<string> {
+interface CapturedCompare {
+    exitCode: number | string | undefined;
+    output: string;
+}
+
+async function capturedCompare(argv: string[]): Promise<CapturedCompare> {
     const arguments_ = await compareArguments();
     const written: string[] = [];
     const write = vi
@@ -716,20 +755,31 @@ async function capturedCompareRun(argv: string[]): Promise<string> {
         });
     const writeError = vi
         .spyOn(process.stderr, 'write')
-        .mockImplementation(() => true);
-    const exitCode = process.exitCode;
+        .mockImplementation((chunk: string | Uint8Array) => {
+            written.push(String(chunk));
+            return true;
+        });
+    const previousExitCode = process.exitCode;
+    process.exitCode = undefined;
+    let exitCode: CapturedCompare['exitCode'];
     try {
         await compare.run?.({
             args: parseArgs(argv, arguments_) as never,
             cmd: compare,
             rawArgs: argv,
         });
+        exitCode = process.exitCode;
     } finally {
         write.mockRestore();
         writeError.mockRestore();
-        process.exitCode = exitCode;
+        process.exitCode = previousExitCode;
     }
-    return written.join('');
+    return { exitCode, output: written.join('') };
+}
+
+async function capturedCompareRun(argv: string[]): Promise<string> {
+    const captured = await capturedCompare(argv);
+    return captured.output;
 }
 
 const SMALL_COMPARE = [
@@ -798,5 +848,579 @@ describe('P(no payout) is one definition, shared by the web tables (PT-61e, F-V2
         );
         expect(source).toContain('noPayoutProbabilityFromDistribution');
         expect(source).not.toMatch(/distribution\[0\]/);
+    });
+});
+
+function conflictingRanking(): void {
+    resolveCompareRanking({ objective: 'cycle', sort: 'net' });
+}
+
+describe('compare objectives map onto the sort keys (PT-63, F-V15, A-20)', () => {
+    it('defaults to MonthlyNet ranked by net (Q1)', () => {
+        expect(resolveCompareRanking({})).toStrictEqual({
+            objective: SizingObjective.MonthlyNet,
+            sort: CompareSortKey.Net,
+        });
+    });
+
+    it('maps --objective monthly to Net and cycle to the new Cycle key', () => {
+        expect(resolveCompareRanking({ objective: 'monthly' })).toStrictEqual({
+            objective: SizingObjective.MonthlyNet,
+            sort: CompareSortKey.Net,
+        });
+        expect(resolveCompareRanking({ objective: 'cycle' })).toStrictEqual({
+            objective: SizingObjective.CycleCash,
+            sort: CompareSortKey.Cycle,
+        });
+    });
+
+    it('maps --objective ruin-first to the RuinFirst key and needs a bankroll', () => {
+        expect(
+            resolveCompareRanking({
+                bankroll: '5000',
+                objective: 'ruin-first',
+            }),
+        ).toStrictEqual({
+            objective: SizingObjective.RuinFirst,
+            sort: CompareSortKey.RuinFirst,
+        });
+        expect(() =>
+            resolveCompareRanking({ objective: 'ruin-first' }),
+        ).toThrow(RuinFirstNeedsBankroll);
+    });
+
+    it('reads --sort cycle, --sort ruin-first and --sort net as their objectives', () => {
+        expect(resolveCompareRanking({ sort: 'cycle' }).objective).toBe(
+            SizingObjective.CycleCash,
+        );
+        expect(
+            resolveCompareRanking({ bankroll: '5000', sort: 'ruin-first' })
+                .objective,
+        ).toBe(SizingObjective.RuinFirst);
+        expect(() => resolveCompareRanking({ sort: 'ruin-first' })).toThrow(
+            RuinFirstNeedsBankroll,
+        );
+        expect(resolveCompareRanking({ sort: 'net' })).toStrictEqual({
+            objective: SizingObjective.MonthlyNet,
+            sort: CompareSortKey.Net,
+        });
+    });
+
+    it('names no objective for the sort keys that are not an objective ranking', () => {
+        for (const key of ['cost', 'days', 'hour', 'pass', 'spend']) {
+            expect(resolveCompareRanking({ sort: key })).toStrictEqual({
+                objective: null,
+                sort: key,
+            });
+        }
+    });
+
+    it('refuses --sort together with --objective, as a typed error', () => {
+        expect(conflictingRanking).toThrow(SortObjectiveConflict);
+        expect(conflictingRanking).toThrow(/mutually exclusive/);
+        expect(() =>
+            resolveCompareRanking({ objective: 'monthly', sort: 'net' }),
+        ).toThrow(SortObjectiveConflict);
+    });
+});
+
+describe('compare --sort cycle (PT-63)', () => {
+    it('ranks by expected net of the whole cycle, highest first', () => {
+        const rows = [
+            row('100', { expectedMonthlyNet: 900, expectedNet: 100 }),
+            row('300', { expectedMonthlyNet: 100, expectedNet: 300 }),
+            row('200', { expectedMonthlyNet: 500, expectedNet: 200 }),
+        ];
+        expect(labels(rankRows(rows, CompareSortKey.Cycle))).toStrictEqual([
+            '300',
+            '200',
+            '100',
+        ]);
+    });
+});
+
+const ruinRow = (
+    label: string,
+    expectedNetPerAttempt: number,
+    batchLossProbability: null | number,
+    expectedMonthlyNet: number,
+) => ({
+    batchLossProbability,
+    label,
+    out: { ...BASE, expectedMonthlyNet, expectedNetPerAttempt },
+});
+
+describe('compare --sort ruin-first (PT-63, T-4)', () => {
+    it('ranks plans with EV per attempt above zero by lower P(batch net < 0), then monthly net', () => {
+        const rows = [
+            ruinRow('riskier', 50, 0.4, 900),
+            ruinRow('safer', 10, 0.1, 100),
+            ruinRow('tie low net', 20, 0.25, 200),
+            ruinRow('tie high net', 20, 0.25, 500),
+        ];
+        expect(
+            rankRows(rows, CompareSortKey.RuinFirst).map(
+                (entry) => entry.label,
+            ),
+        ).toStrictEqual(['safer', 'tie high net', 'tie low net', 'riskier']);
+    });
+
+    it('lists non-positive EV plans last, even with a lower loss probability', () => {
+        const rows = [
+            ruinRow('negative', -5, 0.01, 300),
+            ruinRow('positive', 10, 0.9, 100),
+            ruinRow('zero', 0, 0.02, 800),
+        ];
+        expect(
+            rankRows(rows, CompareSortKey.RuinFirst).map(
+                (entry) => entry.label,
+            ),
+        ).toStrictEqual(['positive', 'zero', 'negative']);
+    });
+
+    it('puts a positive plan with an unknown loss probability after the known ones', () => {
+        const rows = [
+            ruinRow('unknown', 10, null, 900),
+            ruinRow('known', 10, 0.8, 100),
+        ];
+        expect(
+            rankRows(rows, CompareSortKey.RuinFirst).map(
+                (entry) => entry.label,
+            ),
+        ).toStrictEqual(['known', 'unknown']);
+    });
+
+    it('explains why the non-positive plans were listed last', () => {
+        const rows = [
+            ruinRow('negative', -5, 0.01, 900),
+            ruinRow('positive', 10, 0.9, 100),
+        ];
+        const lines = nonPositiveEvPlanLines(
+            rows.map((entry) => ({
+                out: entry.out,
+                plan: { label: entry.label },
+            })),
+        );
+        expect(lines).toHaveLength(1);
+        expect(lines[0]).toContain('negative');
+        expect(lines[0]).not.toContain('positive,');
+        expect(lines[0]).toContain('EV per attempt');
+        expect(lines[0]).not.toContain('\u{2014}');
+        expect(
+            nonPositiveEvPlanLines([
+                { out: rows[1]?.out ?? BASE, plan: { label: 'positive' } },
+            ]),
+        ).toStrictEqual([]);
+    });
+});
+
+describe('compare bankroll columns (PT-63, F-V15)', () => {
+    it('adds P(no payout) and P(batch net < 0) columns at the bankroll only when one is set', () => {
+        const without = compareColumns(1).map((column) => column.label);
+        const withBankroll = compareColumns(1, null, true).map(
+            (column) => column.label,
+        );
+        expect(withBankroll).toStrictEqual([
+            ...without,
+            'P(no payout, bankroll)',
+            'P(batch < 0)',
+        ]);
+    });
+
+    it('prints the two figures as the last cells, n/a when unknown', () => {
+        const cells = compareRowCells(BASE, null, {
+            lossProbability: 0.2,
+            noPayoutProbability: null,
+        });
+        expect(cells.slice(-2)).toStrictEqual(['n/a', formatPercent(0.2)]);
+    });
+
+    it('prices them at the attempts the bankroll affords, on the plan seed', () => {
+        const figures = bankrollRiskFigures(BASE, dollars(5000), 1);
+        const attempts = attemptsAffordable(
+            dollars(5000),
+            dollars(BASE.costPerAttempt),
+        ).value;
+        expect(attempts).not.toBeNull();
+        if (attempts === null) throw new Error('no attempts');
+        expect(figures.lossProbability).toBe(
+            cohortOutcome(BASE.netValues, attempts, LOSS_RISK_DRAWS, 1).value
+                ?.lossProbability.value ?? null,
+        );
+        expect(figures.noPayoutProbability).toBe(
+            noPayoutProbability(fraction(BASE.attemptPaysProbability), attempts)
+                .value ?? null,
+        );
+    });
+
+    it('has no figures when the bankroll affords no attempt', () => {
+        expect(bankrollRiskFigures(BASE, dollars(1), 1)).toStrictEqual({
+            lossProbability: null,
+            noPayoutProbability: null,
+        });
+    });
+});
+
+describe('compare heading names the objective only when it drives the ranking (VD-6)', () => {
+    it('says there is no objective for a sort key that is not an objective ranking', () => {
+        for (const sort of [
+            CompareSortKey.Cost,
+            CompareSortKey.Days,
+            CompareSortKey.Hour,
+            CompareSortKey.Pass,
+            CompareSortKey.Spend,
+        ]) {
+            const line = compareRankingHeadingLine({ objective: null, sort });
+            expect(line).toContain('objective: none');
+            expect(line).toContain(`sorted by ${sort}`);
+            expect(line).toContain('not an objective ranking');
+            expect(line).not.toContain('monthly net');
+            expect(line).not.toContain('\u{2014}');
+        }
+    });
+
+    it('names the objective for an objective ranking', () => {
+        const line = compareRankingHeadingLine({
+            objective: SizingObjective.CycleCash,
+            sort: CompareSortKey.Cycle,
+        });
+        expect(line).toContain('objective: cycle cash');
+    });
+
+    it('does not claim monthly net in the heading of a run sorted by pass', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--sort',
+            'pass',
+        ]);
+        expect(stdout).toContain('sorted by pass');
+        expect(stdout).toContain('objective: none');
+        expect(stdout).not.toContain('objective: monthly net');
+    });
+});
+
+describe('compare has one RuinFirst ordering (compareOutputs and rankRows)', () => {
+    it('orders two outputs by positive EV, then monthly net, as rankRows does when no loss figure is known', () => {
+        const positiveLow = ruinRow('positive low', 10, null, 100);
+        const positiveHigh = ruinRow('positive high', 10, null, 900);
+        const negative = ruinRow('negative', -1, null, 5000);
+        expect(
+            compareOutputs(
+                positiveHigh.out,
+                positiveLow.out,
+                CompareSortKey.RuinFirst,
+            ),
+        ).toBeLessThan(0);
+        expect(
+            compareOutputs(
+                negative.out,
+                positiveLow.out,
+                CompareSortKey.RuinFirst,
+            ),
+        ).toBeGreaterThan(0);
+        expect(
+            rankRows(
+                [negative, positiveLow, positiveHigh],
+                CompareSortKey.RuinFirst,
+            ).map((entry) => entry.label),
+        ).toStrictEqual(['positive high', 'positive low', 'negative']);
+    });
+
+    it('is not duplicated: the command has a single positive EV test and a single RuinFirst ordering', () => {
+        const source = readFileSync(
+            path.join(REPO_ROOT, 'src/cli/commands/prop/compare/command.ts'),
+            'utf8',
+        );
+        expect(source.match(/expectedNetPerAttempt > 0/g)).toHaveLength(1);
+        expect(source.match(/function compareRuinFirst/g)).toHaveLength(1);
+        expect(source).not.toMatch(
+            /case CompareSortKey\.RuinFirst: \{\s*return \(\s*ascending/,
+        );
+    });
+});
+
+describe('compare ruin-first never reads as a lowest-ruin pick without a ruin figure', () => {
+    it('warns when the bankroll affords no attempt of any plan with EV per attempt above zero', () => {
+        const rows = [ruinRow('a', 10, null, 900), ruinRow('b', 20, null, 100)];
+        const warning = ruinFirstWarning(rows);
+        expect(warning).toContain('bankroll affords no attempt');
+        expect(warning).toContain('fell back to monthly net');
+        expect(warning).not.toContain('\u{2014}');
+    });
+
+    it('says nothing when a positive EV plan has a ruin figure', () => {
+        const rows = [ruinRow('a', 10, 0.3, 900), ruinRow('b', 20, null, 100)];
+        expect(ruinFirstWarning(rows)).toBeNull();
+    });
+
+    it('keeps the no positive EV message when no plan has EV per attempt above zero', () => {
+        expect(ruinFirstWarning([ruinRow('a', -1, null, 900)])).toBe(
+            'no plan has EV per attempt above zero, so ruin-first ranks none',
+        );
+    });
+
+    it('has nothing to say for no rows', () => {
+        expect(ruinFirstWarning([])).toBeNull();
+    });
+
+    it('prints the warning and no best line for a bankroll below every cost per attempt', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--objective',
+            'ruin-first',
+            '--bankroll',
+            '1',
+            '--winrate',
+            '0.6',
+        ]);
+        expect(stdout).toContain('bankroll affords no attempt');
+        expect(stdout).not.toContain('best by ruin-first');
+    });
+});
+
+const simulatedSplitRow = (
+    overrides: Partial<
+        Extract<CopySplitRow, { kind: CopySplitRowKind.Simulated }>
+    > = {},
+): CopySplitRow => ({
+    cycleNet: { standardError: 10, value: 100 },
+    daysToPassP50: 12,
+    kind: CopySplitRowKind.Simulated,
+    netPerFeeDollar: 1.5,
+    passRate: 0.5,
+    placement: { contracts: 2, placedRiskPerAccount: 800 },
+    riskPerAccount: 1000,
+    splitCount: 2,
+    totalFees: 300,
+    totalMonthlyNet: { standardError: 20, value: 400 },
+    trials: 50,
+    ...overrides,
+});
+
+describe('split table rows (PT-63, F-V24)', () => {
+    it('labels the contracts as the eval placement and adds placed risk columns', () => {
+        const labels = SPLIT_COLUMNS.map((column) => column.label);
+        expect(labels).toContain('eval contracts');
+        expect(labels).toContain('placed/account');
+        expect(labels).toContain('placed group');
+        expect(labels).toContain('vs best');
+    });
+
+    it('prints the requested risk, the contracts, the placed risk per account and for the group', () => {
+        const cells = splitTableRow(simulatedSplitRow(), false);
+        expect(cells).toHaveLength(SPLIT_COLUMNS.length);
+        expect(cells.slice(0, 5)).toStrictEqual([
+            '2',
+            '$1,000.00',
+            '2',
+            '$800.00',
+            '$1,600.00',
+        ]);
+    });
+
+    it('marks a row within the noise of the best row', () => {
+        expect(splitTableRow(simulatedSplitRow(), true).at(-1)).toBe(
+            'within noise',
+        );
+        expect(splitTableRow(simulatedSplitRow(), false).at(-1)).toBe('');
+    });
+
+    it('prints n/a for the placement without an instrument and stop', () => {
+        const cells = splitTableRow(
+            simulatedSplitRow({ placement: null }),
+            false,
+        );
+        expect(cells.slice(2, 5)).toStrictEqual(['n/a', 'n/a', 'n/a']);
+    });
+
+    it('prints a refused row with its reason', () => {
+        const cells = splitTableRow(
+            {
+                kind: CopySplitRowKind.Refused,
+                reason: 'below one contract',
+                riskPerAccount: 200,
+                splitCount: 10,
+            },
+            false,
+        );
+        expect(cells).toStrictEqual([
+            '10',
+            '$200.00',
+            'refused',
+            'below one contract',
+        ]);
+    });
+});
+
+describe('prop compare names the objective and runs split vs concentrate (PT-63, F-V15, F-V24)', () => {
+    it('prints the active objective in the header, MonthlyNet by default', async () => {
+        const stdout = await capturedCompareRun(SMALL_COMPARE);
+        expect(stdout).toContain('objective: monthly net');
+        expect(stdout).toContain('sorted by net');
+    });
+
+    it('ranks by cycle under --objective cycle and names it', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--objective',
+            'cycle',
+        ]);
+        expect(stdout).toContain('objective: cycle cash');
+        expect(stdout).toContain('sorted by cycle');
+    });
+
+    it('fails with the typed conflict when --sort and --objective are both given', async () => {
+        const { exitCode, output } = await capturedCompare([
+            ...SMALL_COMPARE,
+            '--sort',
+            'net',
+            '--objective',
+            'cycle',
+        ]);
+        expect(exitCode).toBe(1);
+        expect(output).toContain('mutually exclusive');
+    });
+
+    it('prints the bankroll columns with --bankroll', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--bankroll',
+            '5000',
+        ]);
+        expect(stdout).toContain('P(batch < 0)');
+        expect(stdout).toContain('P(no payout, bankroll)');
+    });
+
+    it('ranks by RuinFirst with a bankroll and names it', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--objective',
+            'ruin-first',
+            '--bankroll',
+            '5000',
+        ]);
+        expect(stdout).toContain('objective: ruin first');
+        expect(stdout).toContain('sorted by ruin-first');
+    });
+
+    it('says no plan is ranked instead of naming a best one when none has EV per attempt above zero', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--objective',
+            'ruin-first',
+            '--bankroll',
+            '3000',
+            '--winrate',
+            '0.3',
+        ]);
+        expect(stdout).toContain(
+            'no plan has EV per attempt above zero, so ruin-first ranks none',
+        );
+        expect(stdout).not.toContain('best by ruin-first');
+    });
+
+    it('prints one row per split on the same seed for --total-risk and --splits', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--total-risk',
+            '2000',
+            '--splits',
+            '1,2,10',
+        ]);
+        expect(stdout).toContain('objective: monthly net');
+        expect(stdout).toContain('total risk $2,000');
+        expect(stdout).toContain('seed 42');
+        const lines = stdout
+            .split('\n')
+            .filter((line) => /^•\s+(?:1|2|10)\s+\$/.test(line));
+        expect(lines).toHaveLength(3);
+    });
+
+    it('prints a refused row for a split below one contract at the stop', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--instrument',
+            'NQ',
+            '--stop-points',
+            '20',
+            '--total-risk',
+            '2000',
+            '--splits',
+            '1,10',
+        ]);
+        expect(stdout).toContain('refused');
+        expect(stdout).toContain('below one NQ contract');
+    });
+
+    it('prints the funded risk used, the win rate, the correlation and the assumptions under the split table', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--total-risk',
+            '2000',
+            '--splits',
+            '1,2',
+        ]);
+        expect(stdout).toContain('win rate 40% at 1:2');
+        expect(stdout).toContain('10 funded days');
+        expect(stdout).toContain('funded risk $250 per account');
+        expect(stdout).toContain('Hard Rule 5');
+        expect(stdout).toContain('payout request');
+        expect(stdout).toContain('rebuy lag is assumed zero');
+        expect(stdout).toContain(COPY_SPLIT_CORRELATION_NOTE);
+    });
+
+    it('prints the explicit funded risk per account, not divided by the split', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--funded-risk',
+            '300',
+            '--total-risk',
+            '2000',
+            '--splits',
+            '1,2',
+        ]);
+        expect(stdout).toContain('funded risk $300 per account as given');
+    });
+
+    it('shows the placed risk per account and for the group at the eval contract limit', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--instrument',
+            'NQ',
+            '--stop-points',
+            '20',
+            '--funded-risk',
+            '800',
+            '--total-risk',
+            '2000',
+            '--splits',
+            '1,2',
+        ]);
+        expect(stdout).toContain('placed/account');
+        expect(stdout).toContain('placed group');
+        expect(stdout).toContain('$1,200.00');
+        expect(stdout).toContain('$1,600.00');
+    });
+
+    it('needs --total-risk and --splits together', async () => {
+        const { exitCode, output } = await capturedCompare([
+            ...SMALL_COMPARE,
+            '--total-risk',
+            '2000',
+        ]);
+        expect(exitCode).toBe(1);
+        expect(output).toContain('--total-risk and --splits go together');
+    });
+
+    it('declares the new flags and names only flags it accepts', async () => {
+        expect(await acceptedFlags(compare)).toEqual(
+            expect.arrayContaining([
+                'bankroll',
+                'objective',
+                'splits',
+                'total-risk',
+            ]),
+        );
+        expect(await flagsNamedButNotAccepted(compare)).toStrictEqual([]);
     });
 });

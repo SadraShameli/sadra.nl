@@ -174,6 +174,81 @@ describe('EvalMaxRiskRule (Hard Rules 3 and 4, opt-in)', () => {
         expect(sizing.constraints).toContain(SizingConstraint.PersonalCap);
     });
 
+    it('caps every documented trade at a personal max risk per trade, tagged PersonalCap (PT-68d, F-V16)', () => {
+        const sizing = maxRisk.size(
+            evalContext({
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: dollars(300),
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(sizing.rungs.length).toBeGreaterThan(0);
+        for (const rung of sizing.rungs) {
+            expect(rung.risk).toBeLessThanOrEqual(300);
+            expect(rung.cappedBy).toContain(SizingConstraint.PersonalCap);
+        }
+        expect(sizing.constraints).toContain(SizingConstraint.PersonalCap);
+    });
+
+    it('derives the daily profit cap and the after-target stop from the personally capped first risk (PT-68d review)', () => {
+        const sizing = maxRisk.size(
+            evalContext({
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: dollars(100),
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(sizing.rungs[0]?.risk).toBe(100);
+        expect(sizing.dailyProfitCap).toEqual({
+            ceiling: 200,
+            kind: DailyProfitCapKind.HardCeiling,
+        });
+        expect(sizing.stopRule).toEqual({
+            dollars: 200,
+            kind: DayStopRuleKind.AfterTarget,
+        });
+    });
+
+    it('keeps the uncapped daily profit cap when the personal max risk per trade is above the first risk (PT-68d review)', () => {
+        const sizing = maxRisk.size(
+            evalContext({
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: dollars(5000),
+                    maxTradesPerDay: null,
+                },
+            }),
+        );
+
+        expect(sizing.rungs[0]?.risk).toBe(2000);
+        expect(sizing.dailyProfitCap).toEqual({
+            ceiling: 4000,
+            kind: DailyProfitCapKind.HardCeiling,
+        });
+    });
+
+    it('stops the day after one win under a personal max risk per trade (PT-68d review)', () => {
+        const context = evalContext({
+            personalCaps: {
+                dailyProfitCap: null,
+                maxRiskPerTrade: dollars(100),
+                maxTradesPerDay: null,
+            },
+        });
+
+        expect(maxRisk.nextTrade(context, day(200, 0, 1, 0))).toEqual({
+            cappedBy: [],
+            kind: NextTradeKind.Stop,
+            reason: DayStopReason.StopRule,
+        });
+    });
+
     it('keeps each green-day outcome within the consistency cap at rr 3 with a 3 x daily cap', () => {
         const rule = new EvalMaxRiskRule(maxRiskRulebook(3, 3));
 

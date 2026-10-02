@@ -15,6 +15,7 @@ import {
     AccountStatus,
     AccountTracking,
     AlertKind,
+    BankrollTransferKind,
     DashboardBalanceConvention,
     FeeKind,
     formatUsdCents,
@@ -37,6 +38,13 @@ import {
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
+
+import {
+    EVAL_PLAN,
+    account as ledgerAccount,
+    purchased,
+    transfer,
+} from '../../lib/prop-accounts/metrics/ledgerFixtures';
 
 interface FakeQuery {
     data: unknown;
@@ -106,12 +114,17 @@ vi.mock('~/trpc/react', () => ({
     api: {
         propAccounts: {
             account: { list: harness.query('account.list') },
+            bankroll: { list: harness.query('bankroll.list') },
             copyGroup: { list: harness.query('copyGroup.list') },
+            decision: { list: harness.query('decision.list') },
             event: { list: harness.query('event.list') },
             fee: { list: harness.query('fee.list') },
             payout: { list: harness.query('payout.list') },
             rulebook: { get: harness.query('rulebook.get') },
-            snapshot: { latestForAll: harness.query('snapshot.latestForAll') },
+            snapshot: {
+                latestForAll: harness.query('snapshot.latestForAll'),
+                latestTwoForAll: harness.query('snapshot.latestTwoForAll'),
+            },
         },
     },
 }));
@@ -287,9 +300,108 @@ describe('HubAccountsTeaser', () => {
             harness.queries.set('account.list', answer(ACCOUNTS));
             harness.queries.set('fee.list', answer(FEES));
             harness.queries.set('payout.list', answer(PAYOUTS));
+            harness.queries.set('bankroll.list', answer([]));
             harness.queries.set('copyGroup.list', answer([]));
+            harness.queries.set('decision.list', answer([]));
             harness.queries.set('rulebook.get', answer(DEFAULT_RULEBOOK));
-            harness.queries.set('snapshot.latestForAll', answer([]));
+            harness.queries.set('snapshot.latestTwoForAll', answer([]));
+        });
+
+        it('reads the latest two snapshots per account and never the latest-only list', () => {
+            harness.queries.set('event.list', answer([]));
+            render();
+            expect(harness.queryCalls).toContain('snapshot.latestTwoForAll');
+            expect(harness.queryCalls).not.toContain('snapshot.latestForAll');
+        });
+
+        it('counts the large day loss alert that needs the previous snapshot (PT-69c)', () => {
+            const owner = ledgerAccount(EVAL_PLAN, {
+                label: 'Losing eval',
+                purchasedOn: '2026-09-01',
+            });
+            const row = {
+                ...owner,
+                dashboardConvention: DashboardBalanceConvention.Nominal,
+                firstFundedTradeOn: null,
+                liveStartBalanceCents: null,
+            };
+            const start = EVAL_PLAN.plan.accountSize;
+            const peak = usdCents(Math.round((start + 600) * CENTS_PER_DOLLAR));
+            const snapshotAt = (
+                asOf: string,
+                balance: number,
+                tradingDays: number,
+            ) =>
+                ({
+                    accountId: owner.id,
+                    asOf,
+                    balanceAtLastPayoutCents: null,
+                    balanceCents: usdCents(
+                        Math.round(balance * CENTS_PER_DOLLAR),
+                    ),
+                    createdAt: new Date(`${asOf}T00:00:00Z`),
+                    cumulativePayoutCents: null,
+                    cycleBestDayProfitCents: null,
+                    dashboardFloorCents: null,
+                    evalBestDayProfitCents: null,
+                    floorAtLastPayoutCents: null,
+                    highestEodBalanceCents: peak,
+                    highestIntradayBalanceCents: peak,
+                    id: `snapshot-${asOf}`,
+                    lastPayoutOn: null,
+                    lastTradedOn: null,
+                    payoutsTaken: null,
+                    qualifyingDaysSinceLastPayout: null,
+                    tradingDays,
+                    userId: USER_ID,
+                }) as unknown as OverviewSnapshotRow;
+            const previous = snapshotAt('2026-09-25', start + 600, 3);
+            const latest = snapshotAt(TODAY, start - 900, 4);
+            const rulebook = {
+                ...DEFAULT_RULEBOOK,
+                alerts: {
+                    ...DEFAULT_RULEBOOK.alerts,
+                    dayLossBankrollFraction: 0.0001,
+                },
+            };
+            const transfers = [
+                transfer(BankrollTransferKind.Deposit, 1_000_000, '2026-08-01'),
+            ];
+            harness.queries.set('account.list', answer([row]));
+            harness.queries.set('fee.list', answer([]));
+            harness.queries.set('payout.list', answer([]));
+            harness.queries.set('event.list', answer([purchased(owner)]));
+            harness.queries.set('bankroll.list', answer(transfers));
+            harness.queries.set('rulebook.get', answer(rulebook));
+            harness.queries.set(
+                'snapshot.latestTwoForAll',
+                answer([previous, latest]),
+            );
+            render();
+            const accountStates = accountStatesForRows(
+                USER_ID,
+                TODAY,
+                [row],
+                [purchased(owner)],
+                [],
+                [previous, latest],
+            );
+            const listed = portfolioAlerts({
+                accounts: [row],
+                accountStates,
+                availableBankrollCents: usdCents(1_000_000),
+                copyGroups: [],
+                decisions: [],
+                events: [purchased(owner)],
+                payouts: [],
+                rulebook,
+                snapshots: [previous, latest],
+                today: TODAY,
+            });
+            expect(
+                listed.some((alert) => alert.kind === AlertKind.LargeDayLoss),
+            ).toBe(true);
+            expect(statValue('Alerts')).toBe(String(listed.length));
         });
 
         it('shows spend, payouts received, net and active accounts from the ledger rows', () => {
@@ -385,7 +497,7 @@ describe('HubAccountsTeaser', () => {
             harness.queries.set('account.list', answer(accountsWithNearFloor));
             harness.queries.set('event.list', answer([]));
             harness.queries.set(
-                'snapshot.latestForAll',
+                'snapshot.latestTwoForAll',
                 answer([nearFloorSnapshot]),
             );
             render();
@@ -467,6 +579,70 @@ describe('HubAccountsTeaser', () => {
             const withEvent = Number(statValue('Alerts'));
 
             expect(withEvent).toBe(withoutEvent - 1);
+        });
+
+        it('shows a compact setup checklist with the done count and a link to the overview once the ledger rows are loaded (PT-69, F-V28)', () => {
+            harness.queries.set('event.list', answer([]));
+            render();
+            expect(container.textContent).toContain(
+                'Setup: 1 of 4 steps done.',
+            );
+            expect(container.textContent).toContain('Budget set: Missing');
+            expect(container.textContent).toContain(
+                'Expected value computed: Not checked yet',
+            );
+            expect(
+                [...container.querySelectorAll('a')]
+                    .find((anchor) => anchor.textContent === 'Finish the setup')
+                    ?.getAttribute('href'),
+            ).toBe(routes.propCalculator.accounts.index);
+        });
+
+        it('shows no setup checklist until the events are loaded, and still shows the totals', () => {
+            render();
+            expect(container.textContent).not.toContain('Setup:');
+            expect(statValue('Spend')).toBe(formatUsdCents(usdCents(20_000)));
+        });
+
+        it('counts the new capacity alert in the same count the overview lists (PT-69, F-V27)', () => {
+            const rulebook = {
+                ...DEFAULT_RULEBOOK,
+                bankroll: {
+                    ...DEFAULT_RULEBOOK.bankroll,
+                    dailyAccountCapacity: 1,
+                },
+            };
+            harness.queries.set('rulebook.get', answer(rulebook));
+            render();
+            const listed = portfolioAlerts({
+                accounts: ACCOUNTS,
+                accountStates: NO_ACCOUNT_STATES,
+                copyGroups: [],
+                payouts: PAYOUTS,
+                rulebook,
+                snapshots: [],
+                today: TODAY,
+            });
+            expect(
+                listed.some(
+                    (alert) => alert.kind === AlertKind.CapacityExceeded,
+                ),
+            ).toBe(true);
+            expect(statValue('Alerts')).toBe(String(listed.length));
+        });
+
+        it('keeps the totals and marks only the alert count unavailable when the bankroll transfers fail to load', () => {
+            harness.queries.set('bankroll.list', {
+                data: undefined,
+                error: { message: 'transfers down' },
+                isError: true,
+            });
+            render();
+            expect(statValue('Spend')).toBe(formatUsdCents(usdCents(20_000)));
+            expect(statValue('Alerts')).toBe('n/a');
+            expect(container.textContent).toContain(
+                'The alert count could not be checked: transfers down',
+            );
         });
 
         it('waits for the alert inputs before showing totals', () => {

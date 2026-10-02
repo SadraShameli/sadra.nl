@@ -11,27 +11,24 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
 import {
-    accountStatesForRows,
     EVENT_LIST_INPUT,
+    type HubPortfolio,
+    hubPortfolioOf,
     LEDGER_LIST_INPUT,
-    type OverviewSnapshotRow,
-    portfolioAlerts,
+    type SetupChecklistCardModel,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { SetupChecklistCompact } from '~/app/(app)/prop-calculator/accounts/_components/overview/SetupChecklistCard';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader } from '~/components/ui/Card';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { useSession } from '~/lib/auth/client';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
-    type AccountStateEntry,
-    type AlertInputs,
     formatUsdCents,
     isActiveAccount,
     type LedgerAccountRow,
-    type LedgerEventRow,
     type LedgerFeeRow,
     type LedgerPayoutRow,
-    NO_ACCOUNT_STATES,
     summarizeCash,
     todayIsoDate,
     type UsdCents,
@@ -43,9 +40,9 @@ import { api } from '~/trpc/react';
 
 interface HubAccountsInputs {
     readonly accounts: readonly (AccountListAccount & LedgerAccountRow)[];
-    readonly alerts: AlertInputs | null;
     readonly fees: readonly LedgerFeeRow[];
     readonly payouts: readonly LedgerPayoutRow[];
+    readonly portfolio: HubPortfolio | null;
 }
 
 interface HubAccountsSummary {
@@ -54,6 +51,7 @@ interface HubAccountsSummary {
     readonly grossOnlyPayouts: number;
     readonly net: UsdCents;
     readonly payouts: UsdCents;
+    readonly setup: null | SetupChecklistCardModel;
     readonly spend: UsdCents;
 }
 
@@ -85,39 +83,17 @@ export function HubAccountsTeaser() {
     );
 }
 
-function accountStatesOrNone(
-    userId: string,
-    today: string,
-    accounts: HubAccountsInputs['accounts'],
-    events: readonly LedgerEventRow[] | undefined,
-    payouts: readonly LedgerPayoutRow[],
-    snapshots: readonly OverviewSnapshotRow[],
-): readonly AccountStateEntry[] {
-    return events === undefined
-        ? NO_ACCOUNT_STATES
-        : accountStatesForRows(
-              userId,
-              today,
-              accounts,
-              events,
-              payouts,
-              snapshots,
-          );
-}
-
 function hubAccountsSummary(inputs: HubAccountsInputs): HubAccountsSummary {
     const cash = summarizeCash(inputs.fees, inputs.payouts);
     return {
         activeAccounts: inputs.accounts.filter((account) =>
             isActiveAccount(account),
         ).length,
-        alertCount:
-            inputs.alerts === null
-                ? null
-                : portfolioAlerts(inputs.alerts).length,
+        alertCount: inputs.portfolio?.alertCount ?? null,
         grossOnlyPayouts: cash.grossOnlyPayouts,
         net: cash.net,
         payouts: cash.payouts,
+        setup: inputs.portfolio?.setup ?? null,
         spend: cash.spend,
     };
 }
@@ -125,21 +101,29 @@ function hubAccountsSummary(inputs: HubAccountsInputs): HubAccountsSummary {
 function SignedInTeaser({ userId }: { readonly userId: string }) {
     const accountsQuery =
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
+    const decisionsQuery =
+        api.propAccounts.decision.list.useQuery(LEDGER_LIST_INPUT);
     const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
     const feesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
     const payoutsQuery =
         api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
     const copyGroupsQuery = api.propAccounts.copyGroup.list.useQuery();
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    const snapshotsQuery = api.propAccounts.snapshot.latestForAll.useQuery();
+    const snapshotsQuery = api.propAccounts.snapshot.latestTwoForAll.useQuery();
+    const transfersQuery = api.propAccounts.bankroll.list.useQuery();
 
     const failed = [accountsQuery, feesQuery, payoutsQuery].find(
         (query) => query.isError,
     );
     const alertFailure =
-        [eventsQuery, copyGroupsQuery, rulebookQuery, snapshotsQuery].find(
-            (query) => query.isError,
-        )?.error ?? null;
+        [
+            copyGroupsQuery,
+            decisionsQuery,
+            eventsQuery,
+            rulebookQuery,
+            snapshotsQuery,
+            transfersQuery,
+        ].find((query) => query.isError)?.error ?? null;
     const isAlertCountUnavailable = alertFailure !== null;
 
     const accounts = accountsQuery.data;
@@ -147,8 +131,10 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
     const fees = feesQuery.data;
     const payouts = payoutsQuery.data;
     const copyGroups = copyGroupsQuery.data;
+    const decisions = decisionsQuery.data;
     const rulebook = rulebookQuery.data;
     const snapshots = snapshotsQuery.data;
+    const transfers = transfersQuery.data;
     const summary = useMemo(() => {
         if (
             accounts === undefined ||
@@ -160,51 +146,46 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
         if (isAlertCountUnavailable) {
             return hubAccountsSummary({
                 accounts,
-                alerts: null,
                 fees,
                 payouts,
+                portfolio: null,
             });
         }
         if (
             copyGroups === undefined ||
+            decisions === undefined ||
             rulebook === undefined ||
-            snapshots === undefined
+            snapshots === undefined ||
+            transfers === undefined
         ) {
             return null;
         }
-        const today = todayIsoDate(new Date());
-        return hubAccountsSummary({
+        const portfolio = hubPortfolioOf({
             accounts,
-            alerts: {
-                accounts,
-                accountStates: accountStatesOrNone(
-                    userId,
-                    today,
-                    accounts,
-                    events,
-                    payouts,
-                    snapshots,
-                ),
-                copyGroups,
-                events,
-                payouts,
-                rulebook,
-                snapshots,
-                today,
-            },
+            copyGroups,
+            decisions,
+            events,
             fees,
             payouts,
+            rulebook,
+            snapshots,
+            today: todayIsoDate(new Date()),
+            transfers,
+            userId,
         });
+        return hubAccountsSummary({ accounts, fees, payouts, portfolio });
     }, [
         accounts,
-        isAlertCountUnavailable,
         copyGroups,
+        decisions,
         events,
         fees,
+        isAlertCountUnavailable,
         payouts,
         rulebook,
-        userId,
         snapshots,
+        transfers,
+        userId,
     ]);
 
     if (failed?.error) {
@@ -258,6 +239,12 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
                 </p>
             )}
             <GrossOnlyPayoutsNote count={summary.grossOnlyPayouts} />
+            {summary.setup !== null && !summary.setup.isComplete && (
+                <SetupChecklistCompact
+                    href={routes.propCalculator.accounts.index}
+                    model={summary.setup}
+                />
+            )}
             <Button asChild className="self-start" size="sm" variant="outline">
                 <Link href={routes.propCalculator.accounts.index}>
                     Open your accounts

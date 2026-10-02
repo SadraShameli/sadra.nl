@@ -14,6 +14,7 @@ import {
     type PayoutPlannerAccountInput,
     PayoutPlannerResultKind,
     planPayoutReadiness,
+    simStayCeilingText,
 } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
 import {
     decodePayoutPlannerUrlState,
@@ -45,7 +46,6 @@ import {
 } from '~/app/(app)/prop-calculator/_workers/payoutSweepWorkerMessages';
 import { type AssumptionView } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceViewModel';
 import { AssumptionsList } from '~/app/(app)/prop-calculator/accounts/_components/advice/AssumptionsList';
-import { assumptionLabel } from '~/app/(app)/prop-calculator/accounts/_components/detail/detailState';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { useSession } from '~/lib/auth/client';
@@ -62,18 +62,24 @@ import {
 import {
     type Assumption,
     AssumptionBias,
-    AssumptionKind,
+    assumptionText,
     buildEnginePolicy,
     DEFAULT_MAX_EVAL_DAYS,
     DEFAULT_RULEBOOK,
     type DocumentedPolicySpec,
     HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
+    NEXT_PAYOUT_AMONG_PAYING_TEXT,
+    NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+    NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
+    nextPayoutEvidenceText,
+    type NextPayoutProjection,
+    NextPayoutTimingKind,
+    nextPayoutTimingOf,
     type PayoutSizeSweepOptimum,
     PayoutSizeSweepResultKind,
     type PayoutSizeSweepRow,
     RetainedCushionBasis,
     type RulebookParameters,
-    SIZING_ASSUMPTION_TEXT,
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -414,10 +420,7 @@ function accountInputFor(
 function assumptionViewOf(assumption: Assumption): AssumptionView {
     return {
         bias: assumption.bias,
-        text:
-            assumption.kind === AssumptionKind.SizingRule
-                ? SIZING_ASSUMPTION_TEXT[assumption.sizingAssumption]
-                : assumptionLabel(assumption.kind),
+        text: assumptionText(assumption),
     };
 }
 
@@ -465,6 +468,24 @@ function midSizeNotes(
               `Mid-size requests (${formatGateCurrency(MID_SIZE_BAND_MIN)} to ${formatGateCurrency(MID_SIZE_BAND_MAX)}) keep the balance pinned near the retained cushion and carried very high bust rates in the historical sweep.`,
           ]
         : [];
+}
+
+function nextPayoutDaysText(projection: NextPayoutProjection): string {
+    const timing = nextPayoutTimingOf(projection);
+    switch (timing.kind) {
+        case NextPayoutTimingKind.AlreadyEligible: {
+            return NEXT_PAYOUT_ELIGIBLE_NOW_TEXT;
+        }
+        case NextPayoutTimingKind.InDays: {
+            const { standardError, value } = timing.calendarDays;
+            return `${value.toFixed(1)} days${
+                standardError === null ? '' : ` (±${standardError.toFixed(1)})`
+            }`;
+        }
+        case NextPayoutTimingKind.NoTrialPaid: {
+            return NEXT_PAYOUT_NO_TRIAL_PAID_TEXT;
+        }
+    }
 }
 
 function noticeStatusOf(
@@ -770,39 +791,42 @@ function PayoutPlannerOutlookOffThread({
         return <PanelSkeleton />;
     }
     const { projection, stakeComparison } = task.result;
+    const timingKind = nextPayoutTimingOf(projection).kind;
     return (
         <div className="flex flex-col gap-3">
             <div>
                 <div className="text-xs text-muted-foreground">
                     Expected days to the next payout
+                    {timingKind === NextPayoutTimingKind.InDays
+                        ? ` ${NEXT_PAYOUT_AMONG_PAYING_TEXT}`
+                        : ''}
                 </div>
                 <div className="tabular-nums">
-                    {projection.expectedCalendarDaysToFirstPayout.value.toFixed(
-                        1,
-                    )}{' '}
-                    days
-                    {projection.expectedCalendarDaysToFirstPayout
-                        .standardError === null
-                        ? ''
-                        : ` (±${projection.expectedCalendarDaysToFirstPayout.standardError.toFixed(1)})`}
+                    {nextPayoutDaysText(projection)}
                 </div>
-            </div>
-            <div>
                 <div className="text-xs text-muted-foreground">
-                    P(account lost before the next payout)
-                </div>
-                <div className="tabular-nums">
-                    {projection.accountLostBeforeFirstPayoutProbability === null
-                        ? 'not applicable'
-                        : formatPercent(
-                              projection.accountLostBeforeFirstPayoutProbability,
-                          )}
-                    {projection.accountLostBeforeFirstPayoutStandardError ===
-                    null
-                        ? ''
-                        : ` (±${formatPercent(projection.accountLostBeforeFirstPayoutStandardError)})`}
+                    {nextPayoutEvidenceText(projection)}
                 </div>
             </div>
+            {timingKind === NextPayoutTimingKind.AlreadyEligible ? null : (
+                <div>
+                    <div className="text-xs text-muted-foreground">
+                        P(account lost before the next payout)
+                    </div>
+                    <div className="tabular-nums">
+                        {projection.accountLostBeforeFirstPayoutProbability ===
+                        null
+                            ? 'not applicable'
+                            : formatPercent(
+                                  projection.accountLostBeforeFirstPayoutProbability,
+                              )}
+                        {projection.accountLostBeforeFirstPayoutStandardError ===
+                        null
+                            ? ''
+                            : ` (±${formatPercent(projection.accountLostBeforeFirstPayoutStandardError)})`}
+                    </div>
+                </div>
+            )}
             {stakeComparison === null ? null : (
                 <PayoutStakeComparisonSummary
                     stakeComparison={stakeComparison}
@@ -865,6 +889,11 @@ function PayoutPlannerReadinessSummary({
                     {result.firmMinimumNotice !== null && (
                         <p className="text-amber-400">
                             {payoutFirmMinimumMessage(result.firmMinimumNotice)}
+                        </p>
+                    )}
+                    {result.simStayCeiling !== null && (
+                        <p className="text-xs text-muted-foreground">
+                            {simStayCeilingText(result.simStayCeiling)}
                         </p>
                     )}
                 </div>
@@ -937,6 +966,11 @@ function PayoutPlannerReadinessSummary({
                         ceiling, not a recommendation: draining it is the
                         mid-size danger zone).
                     </p>
+                    {result.simStayCeiling !== null && (
+                        <p className="text-xs text-muted-foreground">
+                            {simStayCeilingText(result.simStayCeiling)}
+                        </p>
+                    )}
                 </div>
             );
         }

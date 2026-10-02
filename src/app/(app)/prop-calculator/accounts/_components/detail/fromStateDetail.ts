@@ -1,7 +1,9 @@
 import { payoutPathStepText } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
-import { VALUE_CHAIN_STEP_LABEL } from '~/app/(app)/prop-calculator/_components/value/valueChainStepLabels';
 import {
-    overviewAccountRequestsFor,
+    stepAssumptionsHeading,
+    VALUE_CHAIN_STEP_LABEL,
+} from '~/app/(app)/prop-calculator/_components/value/valueChainStepLabels';
+import {
     overviewPlanOptInsOf,
     type OverviewRequest,
     OverviewRequestKind,
@@ -11,13 +13,19 @@ import {
     ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
+    accountFromStateRequestOf,
+    personalAccountRequestOf,
+} from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
+import {
     type EngineSlot,
     EngineSlotKind,
     engineSlotOf,
     type SlotEngine,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import { formatCurrency } from '~/lib/format';
+import { type PersonalRules } from '~/lib/prop-accounts';
 import {
+    type Dollars,
     type Plan,
     serializePlanId,
     TradingPhase,
@@ -37,9 +45,16 @@ import {
     RetireComparisonReason,
     type RetireComparisonResult,
     RetireComparisonVerdict,
+    ValueChainStepKind,
     type ValueResult,
 } from '~/lib/prop-calculator/advisor/value';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
+
+export const FROM_STATE_NOT_MODELED_TEXT =
+    'The plan of this account is not modeled by the engine, so no figures from this state can be computed.';
+
+export const FROM_STATE_PERSONAL_RULES_NOTE =
+    'These figures simulate your personal payout request, retained cushion, max risk per trade, max trades per day, daily loss limit and daily profit cap.';
 
 const RETIRE_NOTE =
     'Information only. This comparison never changes the next action on this account.';
@@ -76,6 +91,12 @@ export enum ChainPositionViewKind {
     Unavailable = 'unavailable',
 }
 
+export enum FromStateDetailKind {
+    Pending = 'pending',
+    Ready = 'ready',
+    Unavailable = 'unavailable',
+}
+
 export enum RetireViewKind {
     Failed = 'failed',
     Pending = 'pending',
@@ -94,9 +115,23 @@ export type ChainPositionView =
           readonly reason: string;
       };
 
+export type FromStateDetail =
+    | {
+          readonly engine: SlotEngine;
+          readonly kind: FromStateDetailKind.Ready;
+          readonly requests: FromStateDetailRequests;
+      }
+    | { readonly kind: FromStateDetailKind.Pending }
+    | {
+          readonly kind: FromStateDetailKind.Unavailable;
+          readonly reason: string;
+      };
+
 export interface FromStateDetailInput {
     readonly input: AccountSnapshotInput;
     readonly measuredRebuyLag: MeasuredRebuyLag | null;
+    readonly personalMaxRiskPerTrade: Dollars | null;
+    readonly personalRules: null | PersonalRules | undefined;
     readonly plan: Plan;
     readonly rulebook: RulebookParameters;
 }
@@ -116,6 +151,10 @@ export type RetireView =
 export interface ValueChainPositionModel {
     readonly above: readonly string[];
     readonly below: readonly string[];
+    readonly eligibleAssumptions: null | {
+        readonly heading: string;
+        readonly lines: readonly string[];
+    };
     readonly unavailable: readonly string[];
 }
 
@@ -182,12 +221,33 @@ export function fromStateDetailRequestsOf(
         optIns: overviewPlanOptInsOf(plan),
         planSerial: serializePlanId(plan.id),
     };
-    const [account] = overviewAccountRequestsFor([planInput], rulebook);
-    const [retire] = overviewRetireRequestsFor([planInput], rulebook);
-    const [chain] = overviewValueChainRequestsFor([planInput], rulebook);
-    return account === undefined || chain === undefined || retire === undefined
+    const account = accountFromStateRequestOf({
+        account: input.input,
+        measuredRebuyLag,
+        personalMaxRiskPerTrade: input.personalMaxRiskPerTrade,
+        personalRules: input.personalRules,
+        plan,
+        rulebook,
+    });
+    const [retireRequest] = overviewRetireRequestsFor([planInput], rulebook);
+    const [chainRequest] = overviewValueChainRequestsFor([planInput], rulebook);
+    return account === undefined ||
+        chainRequest === undefined ||
+        retireRequest === undefined
         ? null
-        : { account, chain, retire };
+        : {
+              account,
+              chain: personalAccountRequestOf(
+                  chainRequest,
+                  input.personalRules,
+                  input.personalMaxRiskPerTrade,
+              ),
+              retire: personalAccountRequestOf(
+                  retireRequest,
+                  input.personalRules,
+                  input.personalMaxRiskPerTrade,
+              ),
+          };
 }
 
 export function payoutPathLinesOf(
@@ -249,18 +309,31 @@ export function valueChainPositionOf(
     const above: string[] = [];
     const below: string[] = [];
     const unavailable: string[] = [];
+    let eligibleAssumptions: ValueChainPositionModel['eligibleAssumptions'] =
+        null;
     for (const step of chain.steps) {
         const label = VALUE_CHAIN_STEP_LABEL[step.kind];
         const { outcome } = step;
         if (outcome.kind === ValueChainStepOutcomeKind.Unavailable) {
             unavailable.push(`${label}: ${outcome.reason}`);
-        } else if (valueNow.creditFree.value > outcome.value.creditFree.value) {
+            continue;
+        }
+        if (
+            step.kind === ValueChainStepKind.FirstPayoutEligible &&
+            step.assumptions.length > 0
+        ) {
+            eligibleAssumptions = {
+                heading: stepAssumptionsHeading(step.kind),
+                lines: step.assumptions,
+            };
+        }
+        if (valueNow.creditFree.value > outcome.value.creditFree.value) {
             above.push(label);
         } else {
             below.push(label);
         }
     }
-    return { above, below, unavailable };
+    return { above, below, eligibleAssumptions, unavailable };
 }
 
 function perDayText(rate: UncertainValue): string {

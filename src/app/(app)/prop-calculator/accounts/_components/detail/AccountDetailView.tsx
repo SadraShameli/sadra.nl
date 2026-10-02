@@ -35,6 +35,7 @@ import {
     OverviewSectionStatus,
     PortfolioSource,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { useAccountDetailValues } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -101,6 +102,7 @@ import {
 } from './detailState';
 import { EventsSection } from './EventsSection';
 import { FeesSection } from './FeesSection';
+import { type FromStateDetail } from './fromStateDetail';
 import { LedgerOnlySnapshotForm } from './LedgerOnlySnapshotForm';
 import { LiveRulesCard } from './LiveRulesCard';
 import { LiveTransitionPreviewCard } from './LiveTransitionPreviewCard';
@@ -183,7 +185,11 @@ export function AccountDetailView({
         api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
     const copyGroupsQuery = api.propAccounts.copyGroup.list.useQuery();
     const latestSnapshotsQuery =
-        api.propAccounts.snapshot.latestForAll.useQuery();
+        api.propAccounts.snapshot.latestTwoForAll.useQuery();
+    const ledgerDecisionsQuery =
+        api.propAccounts.decision.list.useQuery(LEDGER_LIST_INPUT);
+    const ledgerFeesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
+    const transfersQuery = api.propAccounts.bankroll.list.useQuery();
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
     const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
     const [storedIssue, setStoredIssue] = useState<null | StoredRecordIssue>(
@@ -206,6 +212,8 @@ export function AccountDetailView({
             ? undefined
             : trackedAccountOf(accountQuery.data);
     const today = useTodayIsoDate();
+    const { detail: fromStateDetail, values: accountValues } =
+        useAccountDetailValues({ accountId: id, userId });
     const alerts = useMemo<OverviewAlerts>(
         () =>
             accountAlerts({
@@ -219,9 +227,17 @@ export function AccountDetailView({
                         data: copyGroupsQuery.data,
                         error: copyGroupsQuery.error,
                     },
+                    [PortfolioSource.Decisions]: {
+                        data: ledgerDecisionsQuery.data,
+                        error: ledgerDecisionsQuery.error,
+                    },
                     [PortfolioSource.Events]: {
                         data: allEventsQuery.data,
                         error: allEventsQuery.error,
+                    },
+                    [PortfolioSource.Fees]: {
+                        data: ledgerFeesQuery.data,
+                        error: ledgerFeesQuery.error,
                     },
                     [PortfolioSource.Payouts]: {
                         data: allPayoutsQuery.data,
@@ -234,6 +250,10 @@ export function AccountDetailView({
                     [PortfolioSource.Snapshots]: {
                         data: latestSnapshotsQuery.data,
                         error: latestSnapshotsQuery.error,
+                    },
+                    [PortfolioSource.Transfers]: {
+                        data: transfersQuery.data,
+                        error: transfersQuery.error,
                     },
                 },
                 today,
@@ -248,11 +268,17 @@ export function AccountDetailView({
             copyGroupsQuery.data,
             copyGroupsQuery.error,
             id,
+            ledgerDecisionsQuery.data,
+            ledgerDecisionsQuery.error,
             latestSnapshotsQuery.data,
             latestSnapshotsQuery.error,
+            ledgerFeesQuery.data,
+            ledgerFeesQuery.error,
             rulebookQuery.data,
             rulebookQuery.error,
             today,
+            transfersQuery.data,
+            transfersQuery.error,
         ],
     );
 
@@ -329,7 +355,10 @@ export function AccountDetailView({
                 />
             )}
             {isActiveAccount(account) && (
-                <DetailHeaderFigures accountId={account.id} userId={userId} />
+                <DetailHeaderFigures
+                    accountId={account.id}
+                    values={accountValues}
+                />
             )}
             <DetailSection id="rules" title="Plan rules">
                 {account.tracking === AccountTracking.LedgerOnly ? (
@@ -364,8 +393,7 @@ export function AccountDetailView({
                     <AccountStateSection
                         account={account}
                         eventsQuery={eventsQuery}
-                        ledgerAccounts={accountsQuery.data}
-                        ledgerEvents={allEventsQuery.data}
+                        fromStateDetail={fromStateDetail}
                         payoutsQuery={payoutsQuery}
                         plan={plan}
                         rulebook={rulebookQuery.data}
@@ -376,7 +404,6 @@ export function AccountDetailView({
                         }
                         snapshotsQuery={snapshotsQuery}
                         today={today}
-                        userId={userId}
                     />
                 </DetailSection>
             )}
@@ -464,7 +491,16 @@ function AccountAlerts({ alerts }: { readonly alerts: OverviewAlerts }) {
             );
         }
         case OverviewSectionStatus.Ready: {
-            return <AlertsCenter alerts={alerts.alerts} />;
+            return (
+                <>
+                    {alerts.accountStatesCaveat !== null && (
+                        <p className="mb-3 text-sm text-muted-foreground">
+                            {alerts.accountStatesCaveat}
+                        </p>
+                    )}
+                    <AlertsCenter alerts={alerts.alerts} />
+                </>
+            );
         }
     }
 }
@@ -564,37 +600,24 @@ function AccountStateQueryErrors({
 function AccountStateSection({
     account,
     eventsQuery,
-    ledgerAccounts,
-    ledgerEvents,
+    fromStateDetail,
     payoutsQuery,
     plan,
     rulebook,
     rulebookError,
     snapshotsQuery,
     today,
-    userId,
 }: {
     readonly account: ModeledAccountRow<SnapshotAccountRow>;
     readonly eventsQuery: ListQuery<AccountEventRow>;
-    readonly ledgerAccounts: readonly ListedAccount[] | undefined;
-    readonly ledgerEvents: readonly AccountEventRow[] | undefined;
+    readonly fromStateDetail: FromStateDetail;
     readonly payoutsQuery: ListQuery<PayoutRow>;
     readonly plan: Plan;
     readonly rulebook: RulebookParameters | undefined;
     readonly rulebookError: null | string;
     readonly snapshotsQuery: ListQuery<SnapshotRow>;
     readonly today: string;
-    readonly userId: string;
 }) {
-    const rebuyLag = useMemo(() => {
-        const line = measuredRebuyLagOf({
-            accounts: ledgerAccounts,
-            events: ledgerEvents,
-            planSerial: account.planSerial,
-            userId,
-        });
-        return line?.kind === RebuyLagLineKind.Measured ? line.value : null;
-    }, [account.planSerial, ledgerAccounts, ledgerEvents, userId]);
     const events = eventsQuery.data;
     const payouts = payoutsQuery.data;
     const snapshots = snapshotsQuery.data;
@@ -690,9 +713,8 @@ function AccountStateSection({
                         </h3>
                         <NextPayoutSection
                             account={view.state.account}
+                            detail={fromStateDetail}
                             input={view.state.input}
-                            measuredRebuyLag={rebuyLag}
-                            plan={plan}
                             rulebook={rulebook}
                             rulebookError={rulebookError}
                         />

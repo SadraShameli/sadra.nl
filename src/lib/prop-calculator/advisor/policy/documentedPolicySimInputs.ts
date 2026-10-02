@@ -1,3 +1,4 @@
+import { documentedPayoutRequest } from '~/lib/prop-calculator/advisor/DocumentedPayoutRequest';
 import {
     fundedStopRuleToDayStopRule,
     type PayoutParameters,
@@ -9,8 +10,12 @@ import {
     computedDayPolicy,
     type DayPolicy,
     DayStopRuleKind,
-    effectivePayoutRequest,
+    dollars,
+    type Dollars,
+    type FirmId,
     flatDayPolicy,
+    fraction,
+    type Fraction0to1,
     PayoutRequestPolicy,
     type Plan,
     policySizingOf,
@@ -29,7 +34,7 @@ import {
     type DocumentedPolicySpec,
     documentedPolicySpecSchema,
 } from './DocumentedPolicySpec';
-import { type EnginePolicy } from './EnginePolicy';
+import { type EnginePolicy, hasDayLimits } from './EnginePolicy';
 
 export interface DocumentedDayPolicies {
     evalDayPolicy: DayPolicy;
@@ -42,7 +47,7 @@ export function buildDocumentedDayPolicies(
     enginePolicy: EnginePolicy,
 ): DocumentedDayPolicies {
     const { funded, strategy } = rulebook;
-    const fundedRisk = funded.riskCents / CENTS_PER_DOLLAR;
+    const fundedStopRule = fundedStopRuleToDayStopRule(funded.stopRule);
     return {
         evalDayPolicy: computedDayPolicy(
             documentedDayRisk(plan, SizingStage.Eval, rulebook, enginePolicy),
@@ -50,13 +55,95 @@ export function buildDocumentedDayPolicies(
             { kind: DayStopRuleKind.None },
             policySizingOf(TradingPhase.Eval),
         ),
-        fundedDayPolicy: flatDayPolicy(
-            fundedRisk,
-            funded.tradesPerDayMax,
-            fundedStopRuleToDayStopRule(funded.stopRule),
-            policySizingOf(TradingPhase.Funded),
-        ),
+        fundedDayPolicy: hasDayLimits(enginePolicy)
+            ? computedDayPolicy(
+                  documentedDayRisk(
+                      plan,
+                      SizingStage.Funded,
+                      rulebook,
+                      enginePolicy,
+                  ),
+                  funded.tradesPerDayMax,
+                  fundedStopRule,
+                  policySizingOf(TradingPhase.Funded),
+              )
+            : flatDayPolicy(
+                  documentedFundedRisk(rulebook, enginePolicy),
+                  documentedFundedTrades(rulebook, enginePolicy),
+                  fundedStopRule,
+                  policySizingOf(TradingPhase.Funded),
+              ),
     };
+}
+
+export function cappedFundedRisk(
+    rulebook: RulebookParameters,
+    maxRiskPerTrade: null | number,
+): number {
+    return cappedRisk(
+        rulebook.funded.riskCents / CENTS_PER_DOLLAR,
+        maxRiskPerTrade === null ? null : dollars(maxRiskPerTrade),
+    );
+}
+
+export function cappedRisk(risk: number, cap: Dollars | null): number {
+    return cap === null ? risk : Math.min(risk, cap);
+}
+
+export function documentedFundedRisk(
+    rulebook: RulebookParameters,
+    enginePolicy: EnginePolicy,
+): number {
+    return cappedFundedRisk(
+        rulebook,
+        enginePolicy.personalCaps?.maxRiskPerTrade ?? null,
+    );
+}
+
+export function documentedFundedTakeProfit(
+    rulebook: RulebookParameters,
+    enginePolicy: EnginePolicy,
+): number {
+    const { funded } = rulebook;
+    const riskCents =
+        documentedFundedRisk(rulebook, enginePolicy) * CENTS_PER_DOLLAR;
+    return (
+        Math.round((riskCents * funded.takeProfitCents) / funded.riskCents) /
+        CENTS_PER_DOLLAR
+    );
+}
+
+export function documentedFundedTrades(
+    rulebook: RulebookParameters,
+    enginePolicy: EnginePolicy,
+): number {
+    const maxTrades = enginePolicy.personalCaps?.maxTradesPerDay ?? null;
+    return maxTrades === null
+        ? rulebook.funded.tradesPerDayMax
+        : Math.min(rulebook.funded.tradesPerDayMax, maxTrades);
+}
+
+export function documentedLiveTransferHazard(
+    rulebook: RulebookParameters,
+    firm: FirmId,
+): Fraction0to1 | undefined {
+    const hazard = rulebook.liveTransfer.hazardPerPaidPayoutByFirm[firm];
+    return hazard === undefined ? undefined : fraction(hazard);
+}
+
+export function documentedSizedFundedRisk(
+    rulebook: RulebookParameters,
+    enginePolicy: EnginePolicy,
+): number {
+    const fundedRisk = documentedFundedRisk(rulebook, enginePolicy);
+    const { instrument, stopPoints } = enginePolicy;
+    const issue = simInputsSizingIssue({
+        instrument,
+        riskPerTrade: fundedRisk,
+        stopPoints,
+    });
+    if (issue !== null) throw new Error(`${SIM_INPUTS_REFUSAL_PREFIX}${issue}`);
+    return fundedRisk;
 }
 
 export function resolveDocumentedPayoutRequestSize(
@@ -64,11 +151,11 @@ export function resolveDocumentedPayoutRequestSize(
     enginePolicy: EnginePolicy,
     payout: PayoutParameters,
 ): number {
-    return effectivePayoutRequest(
+    return documentedPayoutRequest(
         plan,
-        enginePolicy.payoutRequestOverride ??
-            payout.requestCents / CENTS_PER_DOLLAR,
-    );
+        enginePolicy.payoutRequestOverride,
+        payout,
+    ).effective;
 }
 
 export function resolveDocumentedPlan(
@@ -101,15 +188,13 @@ export function toSimInputs(plan: Plan, spec: DocumentedPolicySpec): SimInputs {
         );
     }
     const { funded, payout, strategy } = rulebook;
-    const fundedRisk = funded.riskCents / CENTS_PER_DOLLAR;
+    const fundedRisk = documentedSizedFundedRisk(rulebook, enginePolicy);
     const { instrument, stopPoints } = enginePolicy;
-    const issue = simInputsSizingIssue({
-        instrument,
-        riskPerTrade: fundedRisk,
-        stopPoints,
-    });
-    if (issue !== null) throw new Error(`${SIM_INPUTS_REFUSAL_PREFIX}${issue}`);
     const simulatedPlan = resolveDocumentedPlan(plan, enginePolicy);
+    const liveTransferHazard = documentedLiveTransferHazard(
+        rulebook,
+        simulatedPlan.id.firm,
+    );
     const { evalDayPolicy, fundedDayPolicy } = buildDocumentedDayPolicies(
         simulatedPlan,
         rulebook,
@@ -123,6 +208,7 @@ export function toSimInputs(plan: Plan, spec: DocumentedPolicySpec): SimInputs {
         fundedRrRatio: funded.takeProfitCents / funded.riskCents,
         instrument,
         intradayPathStepsPerR: enginePolicy.intradayPathStepsPerR,
+        ...(liveTransferHazard !== undefined && { liveTransferHazard }),
         maxAttempts: run.maxAttempts,
         maxEvalDays: run.maxEvalDays,
         minRetainedCushion: resolveDocumentedRetainedCushion(

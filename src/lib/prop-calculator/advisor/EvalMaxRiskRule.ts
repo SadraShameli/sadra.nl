@@ -68,6 +68,13 @@ export class EvalMaxRiskRule extends FlatRiskRule<EvalRuleContext> {
                 constraint: SizingConstraint.ConsistencyCap,
             });
         }
+        const { maxRiskPerTrade } = context.personalCaps;
+        if (maxRiskPerTrade !== null) {
+            candidates.push({
+                amount: maxRiskPerTrade,
+                constraint: SizingConstraint.PersonalCap,
+            });
+        }
         return candidates.reduce((tightest, candidate) =>
             candidate.amount < tightest.amount ? candidate : tightest,
         );

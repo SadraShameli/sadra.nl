@@ -15,6 +15,7 @@ import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 
 import { runEvalWithRetries } from './evalPhase';
 import { runFundedFromState, runFundedHorizon } from './fundedPhase';
+import { NO_LIVE_TRANSFER_CASH } from './livePhase';
 import { LossStreak, newPhaseStats, TradeTotals } from './PhaseStats';
 import {
     type FinishTrialArguments,
@@ -38,6 +39,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         fundedRrRatio,
         idleDayProbability,
         intradayPathStepsPerR,
+        liveTransfer,
         maxAttempts,
         maxEvalDays,
         minRetainedCushion,
@@ -99,6 +101,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             fundedHorizonDays,
             idleDayProbability,
             intradayPathStepsPerR,
+            liveTransfer,
             minRetainedCushion,
             payoutRequestPolicy,
             payoutRequestSize,
@@ -142,6 +145,10 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             fundedResetsUsed: fundedHorizon.fundedResetsUsed,
             horizonCredit: fundedHorizon.horizonCredit,
             isAliveAtHorizon: fundedHorizon.isAliveAtHorizon,
+            isTransferredLive: fundedHorizon.isTransferredLive,
+            liveSlotDays: fundedHorizon.liveSlotDays,
+            liveTransferCash: fundedHorizon.liveTransferCash,
+            liveTransferOneOff: fundedHorizon.liveTransferOneOff,
             outcome,
             payoutCount: fundedHorizon.payoutCount,
             resetFeesPaid,
@@ -173,6 +180,10 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         fundedResetsUsed: 0,
         horizonCredit: 0,
         isAliveAtHorizon: false,
+        isTransferredLive: false,
+        liveSlotDays: 0,
+        liveTransferCash: 0,
+        liveTransferOneOff: NO_LIVE_TRANSFER_CASH.oneOff,
         outcome: finalOutcome,
         payoutCount: 0,
         resetFeesPaid,
@@ -198,6 +209,10 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         fundedResetsUsed,
         horizonCredit,
         isAliveAtHorizon,
+        isTransferredLive,
+        liveSlotDays,
+        liveTransferCash,
+        liveTransferOneOff,
         outcome,
         payoutCount,
         resetFeesPaid,
@@ -206,7 +221,7 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
     } = arguments_;
     const grossPayout = totalPayout;
     const totalCost = evalCost + fundedResetFeesPaid;
-    const net = grossPayout - totalCost;
+    const net = grossPayout + liveTransferCash - totalCost;
     return {
         attemptsUsed,
         closedForInactivity,
@@ -227,6 +242,10 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         had10LossStreak: totals.maxLosingStreak >= 10,
         horizonCredit,
         isAliveAtHorizon,
+        isTransferredLive,
+        liveSlotDays,
+        liveTransferCash,
+        liveTransferOneOff,
         maxDrawdown: totals.maxDrawdown,
         maxLosingStreak: totals.maxLosingStreak,
         net,
@@ -294,6 +313,7 @@ function simulateFundedStartTrial(
         fundedRrRatio,
         idleDayProbability,
         intradayPathStepsPerR,
+        liveTransfer,
         minRetainedCushion,
         payoutRequestPolicy,
         payoutRequestSize,
@@ -318,6 +338,7 @@ function simulateFundedStartTrial(
         idleDayProbability,
         initialTracker,
         intradayPathStepsPerR,
+        liveTransfer,
         minRetainedCushion,
         payoutRequestPolicy,
         payoutRequestSize,
@@ -348,6 +369,10 @@ function simulateFundedStartTrial(
         fundedResetsUsed: fundedHorizon.fundedResetsUsed,
         horizonCredit: fundedHorizon.horizonCredit,
         isAliveAtHorizon: fundedHorizon.isAliveAtHorizon,
+        isTransferredLive: fundedHorizon.isTransferredLive,
+        liveSlotDays: fundedHorizon.liveSlotDays,
+        liveTransferCash: fundedHorizon.liveTransferCash,
+        liveTransferOneOff: fundedHorizon.liveTransferOneOff,
         outcome: fundedHorizon.isBustedFunded ? 'bust-funded' : 'pass-clean',
         payoutCount: fundedHorizon.payoutCount,
         resetFeesPaid: 0,

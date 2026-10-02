@@ -1,10 +1,7 @@
 import { type UsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
+import { type Plan, TradingPhase } from '~/lib/prop-calculator';
 import {
-    CENTS_PER_DOLLAR,
-    type Plan,
-    TradingPhase,
-} from '~/lib/prop-calculator';
-import {
+    cappedFundedRisk,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     type ReconstructedLiveAccount,
@@ -114,7 +111,7 @@ export function cushionRatioOf(
 }
 
 export function documentedFundedRiskOf(rulebook: RulebookParameters): number {
-    return rulebook.funded.riskCents / CENTS_PER_DOLLAR;
+    return cappedFundedRisk(rulebook, null);
 }
 
 function evalDrawdownAmountOf(plan: Plan): number {
@@ -155,16 +152,13 @@ function fundedRiskBasisOf(
     personalMaxRiskPerTrade: null | number,
 ): { readonly basis: FundedRiskBasis; readonly basisAmount: number } {
     const documented = documentedFundedRiskOf(rulebook);
-    if (
-        personalMaxRiskPerTrade !== null &&
-        personalMaxRiskPerTrade < documented
-    ) {
-        return {
-            basis: FundedRiskBasis.PersonalMaxRiskPerTrade,
-            basisAmount: personalMaxRiskPerTrade,
-        };
-    }
-    return { basis: FundedRiskBasis.RulebookFunded, basisAmount: documented };
+    const capped = cappedFundedRisk(rulebook, personalMaxRiskPerTrade);
+    return capped < documented
+        ? {
+              basis: FundedRiskBasis.PersonalMaxRiskPerTrade,
+              basisAmount: capped,
+          }
+        : { basis: FundedRiskBasis.RulebookFunded, basisAmount: documented };
 }
 
 function liveRatio(

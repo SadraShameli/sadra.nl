@@ -62,6 +62,7 @@ export function CalculatorInputsForm({
                         idleDayProbability={state.idleDayProbability}
                         instrument={state.instrument}
                         linkActivationDiscount={state.linkActivationDiscount}
+                        liveTransferHazard={state.liveTransferHazard}
                         maxAttempts={state.maxAttempts}
                         maxCopyAccounts={state.firm.maxFundedAccounts(
                             state.plan,
@@ -87,6 +88,9 @@ export function CalculatorInputsForm({
                         onInstrumentChange={actions.setInstrument}
                         onLinkActivationDiscountChange={
                             actions.setLinkActivationDiscount
+                        }
+                        onLiveTransferHazardChange={
+                            actions.setLiveTransferHazard
                         }
                         onMaxAttemptsChange={actions.setMaxAttempts}
                         onMaxEvalDaysChange={actions.setMaxEvalDays}

@@ -131,13 +131,14 @@ describe('the funded day loop hands the day policy how many funded resets were u
 });
 
 describe('the funded phase has no payout budget besides the plan rules (N-14)', () => {
-    it('ends a funded run only by a bust, a concluded account or the horizon', () => {
+    it('ends a funded run only by a bust, a concluded account, a transfer to live or the horizon', () => {
         expect(
             Object.values(FundedStage).toSorted((a, b) => a.localeCompare(b)),
         ).toStrictEqual([
             FundedStage.Busted,
             FundedStage.Concluded,
             FundedStage.HorizonReached,
+            FundedStage.TransferredLive,
         ]);
     });
 

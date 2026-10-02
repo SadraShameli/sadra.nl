@@ -1,7 +1,5 @@
-export {
-    advisorInputsFrom,
-    type AdvisorPersonalInputs,
-} from './AdvisorInputsAdapter';
+export { accountSubstateOf } from './AccountSubstateOf';
+export { optionalDollars } from './AdvisorInputsAdapter';
 export {
     type FirmPayoutCount,
     firmPayoutCounts,

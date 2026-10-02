@@ -31,13 +31,17 @@ function decisionFor(
     acceptedRiskCents: number,
     actualRiskCents: null | number,
     decidedOn = WEDNESDAY,
+    createdAt = new Date('2026-09-23T10:00:00Z'),
+    id = `decision-${accountId}-${createdAt.toISOString()}`,
 ) {
     return {
         acceptedRiskCents: usdCents(acceptedRiskCents),
         accountId,
         actualRiskCents:
             actualRiskCents === null ? null : usdCents(actualRiskCents),
+        createdAt,
         decidedOn,
+        id,
     };
 }
 
@@ -46,6 +50,7 @@ function documentedRungCents(): number {
     const rung = createSizingAdvisor(funded, {
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: WEDNESDAY,
+        substate: null,
         today: WEDNESDAY,
     }).documented()?.rungs[0];
     if (rung === undefined) throw new Error('expected a documented rung');
@@ -184,20 +189,90 @@ describe('PayoutReadyOpenRiskRule', () => {
         ).toEqual([]);
     });
 
-    it('uses the latest decision of the day, which is first in the list', () => {
+    it('judges the newest decision of the day whatever order the list arrives in', () => {
         const { account, entry } = setup();
         const rung = documentedRungCents();
-        expect(
-            alertsOf(rule, {
-                accounts: [account],
-                accountStates: [entry],
-                decisions: [
-                    decisionFor(account.id, rung, rung),
-                    decisionFor(account.id, rung, rung + 10_000),
-                ],
-                rulebook: rulebookWithThreshold(5000),
-            }),
-        ).toEqual([]);
+        const older = decisionFor(
+            account.id,
+            rung,
+            rung + 10_000,
+            WEDNESDAY,
+            new Date('2026-09-23T09:00:00Z'),
+        );
+        const newer = decisionFor(
+            account.id,
+            rung,
+            rung,
+            WEDNESDAY,
+            new Date('2026-09-23T11:00:00Z'),
+        );
+        for (const decisions of [
+            [older, newer],
+            [newer, older],
+        ]) {
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toEqual([]);
+        }
+        const flipped = [
+            decisionFor(
+                account.id,
+                rung,
+                rung,
+                WEDNESDAY,
+                new Date('2026-09-23T09:00:00Z'),
+            ),
+            decisionFor(
+                account.id,
+                rung,
+                rung + 10_000,
+                WEDNESDAY,
+                new Date('2026-09-23T11:00:00Z'),
+            ),
+        ];
+        for (const decisions of [flipped, flipped.toReversed()]) {
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toHaveLength(1);
+        }
+    });
+
+    it('breaks a tie on the creation time by the id', () => {
+        const { account, entry } = setup();
+        const rung = documentedRungCents();
+        const sameTime = new Date('2026-09-23T10:00:00Z');
+        const low = decisionFor(
+            account.id,
+            rung,
+            rung + 10_000,
+            WEDNESDAY,
+            sameTime,
+            'a',
+        );
+        const high = decisionFor(account.id, rung, rung, WEDNESDAY, sameTime, 'b');
+        for (const decisions of [
+            [low, high],
+            [high, low],
+        ]) {
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toEqual([]);
+        }
     });
 
     it('is silent when the account is not payout-eligible per the readiness board', () => {
@@ -226,16 +301,15 @@ describe('PayoutReadyOpenRiskRule', () => {
             { firmId: plan.id.firm, plan },
             { stage: AccountStage.Eval },
         );
+        const evalEntry = reconstructedEntry(
+            account.id,
+            plan,
+            evalReconstructed(plan),
+        );
         expect(
             alertsOf(rule, {
                 accounts: [account],
-                accountStates: [
-                    reconstructedEntry(
-                        account.id,
-                        plan,
-                        evalReconstructed(plan),
-                    ),
-                ],
+                accountStates: [evalEntry],
                 decisions: [decisionFor(account.id, 500_000, 500_000)],
                 rulebook: rulebookWithThreshold(1),
             }),

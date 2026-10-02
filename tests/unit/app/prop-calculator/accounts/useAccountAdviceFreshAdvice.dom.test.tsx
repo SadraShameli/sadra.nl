@@ -113,6 +113,7 @@ function fundedAdvisorInput(today: string): UseAccountAdviceInput {
         fundedHorizonDays: 252,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
+        substate: null,
         today,
         trials: 20,
     });

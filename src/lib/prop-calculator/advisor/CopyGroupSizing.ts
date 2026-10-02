@@ -1,12 +1,12 @@
 import {
     type Dollars,
     dollars,
+    type FirmAccountPolicy,
     floorToWholeCents,
     fundedStartContractLimit,
     type InstrumentSymbol,
     isAtOrBelowWithinCentTolerance,
     isBelowOneContract,
-    ONE_CENT,
     oneContractRisk,
     type PlacedFundedRisk,
     placedFundedRiskAt,
@@ -24,8 +24,15 @@ import {
     type DocumentedSizing,
     type SizingConstraint,
 } from './DocumentedSizing';
-import { fundedConsistencyCeiling } from './FundedSizingAdvisor';
+import { fundedConsistencyCeiling } from './FundedConsistencyCeiling';
+import {
+    LiveTriggerCoverage,
+    type LiveTriggerLimits,
+    liveTriggerLimitsFor,
+    liveTriggerRuleCaps,
+} from './PayoutAdvice';
 import { NO_PERSONAL_CAPS, type PersonalCaps } from './PersonalCaps';
+import { advisorPlaceableMinimum } from './PlaceableMinimum';
 import {
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
@@ -81,8 +88,10 @@ export interface CopyGroupSizingInput {
 
 export interface CopyGroupSizingMember {
     readonly account: ReconstructedAccount;
+    readonly accountPolicy?: FirmAccountPolicy;
     readonly id: string;
     readonly label: string;
+    readonly paidPayoutsSinceLastLiveAccount?: null | number;
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
 }
@@ -112,6 +121,7 @@ export type CopyGroupSizingResult =
           readonly contractPlacement: CopyGroupContractPlacement | null;
           readonly divergences: readonly CopyGroupDivergence[];
           readonly kind: CopyGroupSizingResultKind.Sized;
+          readonly liveTriggerCoverage: LiveTriggerCoverage | null;
           readonly memberIds: readonly string[];
           readonly sizing: DocumentedSizing;
           readonly stage: SizingStage.Eval | SizingStage.Funded;
@@ -125,13 +135,24 @@ const CENT_TOLERANCE = 0.005;
 
 export interface DocumentedSizingOf {
     readonly context: RuleContext;
+    readonly liveTriggerCoverage: LiveTriggerCoverage | null;
     readonly sizing: DocumentedSizing;
 }
 
 export interface DocumentedSizingOfOptions {
+    readonly accountPolicy?: FirmAccountPolicy;
     readonly instrument?: InstrumentSymbol | null;
+    readonly paidPayoutsSinceLastLiveAccount?: null | number;
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
+    readonly stopPoints?: number;
+}
+
+interface RuleContextOptions {
+    readonly instrument: InstrumentSymbol | null;
+    readonly liveTriggerLimits: LiveTriggerLimits;
+    readonly personalDll: Dollars | null;
+    readonly stopPoints: number | undefined;
 }
 
 export function copyGroupSizing(
@@ -175,12 +196,27 @@ export function copyGroupSizing(
                 'copy-group sizing expected a non-live account after stage validation',
             );
         }
-        const { context, sizing } = documentedSizingOf(account, rulebook, {
-            instrument: positionSizing?.instrument ?? null,
-            personalCaps: personalCapsFromAccount(account, member.personalCaps),
-            personalDll: member.personalDll ?? null,
-        });
-        return { account, context, member, sizing };
+        const { context, liveTriggerCoverage, sizing } = documentedSizingOf(
+            account,
+            rulebook,
+            {
+                ...(member.accountPolicy !== undefined && {
+                    accountPolicy: member.accountPolicy,
+                }),
+                instrument: positionSizing?.instrument ?? null,
+                paidPayoutsSinceLastLiveAccount:
+                    member.paidPayoutsSinceLastLiveAccount ?? null,
+                personalCaps: personalCapsFromAccount(
+                    account,
+                    member.personalCaps,
+                ),
+                personalDll: member.personalDll ?? null,
+                ...(positionSizing && {
+                    stopPoints: positionSizing.stopPoints,
+                }),
+            },
+        );
+        return { account, context, liveTriggerCoverage, member, sizing };
     });
 
     const [firstEntry] = entries;
@@ -267,6 +303,9 @@ export function copyGroupSizing(
         contractPlacement,
         divergences,
         kind: CopyGroupSizingResultKind.Sized,
+        liveTriggerCoverage: groupCoverageOf(
+            entries.map((entry) => entry.liveTriggerCoverage),
+        ),
         memberIds: members.map((member) => member.id),
         sizing,
         stage,
@@ -281,15 +320,24 @@ export function documentedSizingOf(
     const stage = stageOfPhase(account.kind);
     const personalCaps =
         options.personalCaps ?? personalCapsFromAccount(account);
-    const context = ruleContextFor(
-        account,
-        stage,
-        personalCaps,
-        options.instrument ?? null,
-        options.personalDll ?? null,
+    const liveTriggerLimits = liveTriggerLimitsFor(
+        options.accountPolicy,
+        account.plan,
+        options.paidPayoutsSinceLastLiveAccount ?? null,
     );
+    const context = ruleContextFor(account, stage, personalCaps, {
+        instrument: options.instrument ?? null,
+        liveTriggerLimits,
+        personalDll: options.personalDll ?? null,
+        stopPoints: options.stopPoints,
+    });
     const sizing = createDocumentedRule(stage, rulebook).size(context);
-    return { context, sizing };
+    return {
+        context,
+        liveTriggerCoverage:
+            stage === SizingStage.Funded ? liveTriggerLimits.coverage : null,
+        sizing,
+    };
 }
 
 export function personalCapsFromAccount(
@@ -385,6 +433,18 @@ function firstDivergenceOf(
     return null;
 }
 
+function groupCoverageOf(
+    coverages: readonly (LiveTriggerCoverage | null)[],
+): LiveTriggerCoverage | null {
+    const checked = coverages.filter(
+        (coverage): coverage is LiveTriggerCoverage => coverage !== null,
+    );
+    if (checked.length === 0) return null;
+    return checked.every((coverage) => coverage === LiveTriggerCoverage.Enforced)
+        ? LiveTriggerCoverage.Enforced
+        : LiveTriggerCoverage.NotChecked;
+}
+
 function rejected(rejection: CopyGroupSizingRejection): CopyGroupSizingResult {
     return { kind: CopyGroupSizingResultKind.Rejected, rejection };
 }
@@ -393,10 +453,10 @@ function ruleContextFor(
     account: ReconstructedFundedOrEvalAccount,
     stage: SizingStage.Eval | SizingStage.Funded,
     personalCaps: PersonalCaps,
-    instrument: InstrumentSymbol | null,
-    personalDll: Dollars | null,
+    options: RuleContextOptions,
 ): RuleContext {
-    const placeableMinimum = ONE_CENT;
+    const { instrument, liveTriggerLimits, personalDll, stopPoints } = options;
+    const placement = instrument === null ? null : { instrument, stopPoints };
     switch (stage) {
         case SizingStage.Eval: {
             return ruleContextAt(
@@ -408,7 +468,7 @@ function ruleContextFor(
                     instrument,
                     personalCaps,
                     personalDll,
-                    placeableMinimum,
+                    placeableMinimum: advisorPlaceableMinimum(placement),
                 },
             );
         }
@@ -418,11 +478,14 @@ function ruleContextFor(
                 SizingStage.Funded,
                 account.state,
                 {
-                    ceiling: fundedConsistencyCeiling(account),
+                    ...liveTriggerRuleCaps(
+                        fundedConsistencyCeiling(account),
+                        liveTriggerLimits,
+                        placement,
+                    ),
                     instrument,
                     personalCaps,
                     personalDll,
-                    placeableMinimum,
                 },
             );
         }

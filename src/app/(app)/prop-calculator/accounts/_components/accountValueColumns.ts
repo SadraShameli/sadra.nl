@@ -28,7 +28,13 @@ import {
     AccountAction,
     type Advice,
     type DocumentedSizing,
+    NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
+    NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+    NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
+    nextPayoutEvidenceText,
     type NextPayoutProjection,
+    NextPayoutTimingKind,
+    nextPayoutTimingOf,
     PayoutRequestDecisionKind,
     type SampleThresholds,
     SIZING_ASSUMPTION_TEXT,
@@ -191,8 +197,6 @@ interface RealizedFigure {
     readonly value: number;
 }
 
-export const DEFAULT_NEXT_PAYOUT_HIGHLIGHT_DAYS = 7;
-
 export const MIN_PAYING_SHARE_FOR_NEXT_PAYOUT_HIGHLIGHT = 0.5;
 
 const AT_RISK_LABEL = 'At risk if busted: ';
@@ -202,8 +206,7 @@ const AT_RISK_UNAVAILABLE_LABEL = 'At risk if busted is not available: ';
 const AVERAGED_OVER_PAYING_TRIALS_TEXT =
     'Days are averaged over the trials that reached a payout.';
 
-const ELIGIBLE_NOW_NOTE =
-    "By the engine's payout check on the latest snapshot.";
+const ELIGIBLE_NOW_NOTE = `By the engine's payout check on the latest snapshot, at the retained cushion and payout request of your rulebook or personal rules; ${NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT}.`;
 
 const EV_LABEL = 'EV per attempt: ';
 
@@ -216,8 +219,6 @@ const NO_DOCUMENTED_SIZING_TEXT =
     'The engine documents no sizing for this account.';
 
 const NO_NEXT_PAYOUT_TEXT = 'No next payout figure for this account.';
-
-const NO_PAYOUT_TEXT = 'No simulated payout within the horizon';
 
 const NOT_FUNDED_TEXT = 'Not funded yet';
 
@@ -497,11 +498,12 @@ function moneyText(amount: number): string {
 function nextPayoutDisclosureOf(
     projection: NextPayoutProjection,
     payingShare: number,
+    options: AccountValueOptions,
 ): string {
     const lost = projection.accountLostBeforeFirstPayoutProbability;
     const breach = projection.firstPayoutCausedBreachProbability;
     return [
-        `${projection.payingTrials.toLocaleString('en-US')} of ${projection.trials.toLocaleString('en-US')} trials reached a payout (${formatPercent(payingShare)}).`,
+        `${nextPayoutEvidenceText(projection)}.`,
         lost === null
             ? null
             : `Account lost before the first payout: ${estimatePercent({ standardError: projection.accountLostBeforeFirstPayoutStandardError, value: lost })}.`,
@@ -509,6 +511,7 @@ function nextPayoutDisclosureOf(
             ? null
             : `The first payout caused a breach: ${estimatePercent({ standardError: projection.firstPayoutCausedBreachStandardError, value: breach })}.`,
         payingShare < 1 ? AVERAGED_OVER_PAYING_TRIALS_TEXT : null,
+        `Highlighted when the first payout is expected within ${String(options.highlightWithinDays)} calendar days and at least ${formatPercent(MIN_PAYING_SHARE_FOR_NEXT_PAYOUT_HIGHLIGHT)} of the simulated trials reach one.`,
     ]
         .filter((sentence) => sentence !== null)
         .join(' ');
@@ -639,38 +642,50 @@ function readyNextPayoutOf(
         return nextPayoutView(NextPayoutKind.NotValued, NO_NEXT_PAYOUT_TEXT);
     }
     const payingShare = nextPayout.payingTrials / nextPayout.trials;
-    if (nextPayout.payingTrials === 0) {
-        return nextPayoutView(NextPayoutKind.NoPayout, NO_PAYOUT_TEXT, {
-            payingShare,
-        });
+    const timing = nextPayoutTimingOf(nextPayout);
+    switch (timing.kind) {
+        case NextPayoutTimingKind.AlreadyEligible: {
+            return nextPayoutView(
+                NextPayoutKind.Now,
+                NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+                {
+                    days: 0,
+                    isSoon: false,
+                    note: ELIGIBLE_NOW_NOTE,
+                    payingShare,
+                },
+            );
+        }
+        case NextPayoutTimingKind.InDays: {
+            const days = timing.calendarDays;
+            const standardError =
+                days.standardError === null
+                    ? NOT_APPLICABLE
+                    : days.standardError.toFixed(1);
+            return nextPayoutView(
+                NextPayoutKind.InDays,
+                `${days.value.toFixed(1)} calendar days (SE ${standardError})`,
+                {
+                    days: days.value,
+                    isSoon:
+                        days.value <= options.highlightWithinDays &&
+                        payingShare >=
+                            MIN_PAYING_SHARE_FOR_NEXT_PAYOUT_HIGHLIGHT,
+                    note: nextPayoutDisclosureOf(
+                        nextPayout,
+                        payingShare,
+                        options,
+                    ),
+                    payingShare,
+                },
+            );
+        }
+        case NextPayoutTimingKind.NoTrialPaid: {
+            return nextPayoutView(
+                NextPayoutKind.NoPayout,
+                NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
+                { payingShare },
+            );
+        }
     }
-    const days = nextPayout.expectedCalendarDaysToFirstPayout;
-    if (
-        nextPayout.payingTrials === nextPayout.trials &&
-        days.value === 0 &&
-        days.standardError === 0
-    ) {
-        return nextPayoutView(NextPayoutKind.Now, 'Eligible now', {
-            days: 0,
-            isSoon: true,
-            note: ELIGIBLE_NOW_NOTE,
-            payingShare,
-        });
-    }
-    const standardError =
-        days.standardError === null
-            ? NOT_APPLICABLE
-            : days.standardError.toFixed(1);
-    return nextPayoutView(
-        NextPayoutKind.InDays,
-        `${days.value.toFixed(1)} calendar days (SE ${standardError})`,
-        {
-            days: days.value,
-            isSoon:
-                days.value <= options.highlightWithinDays &&
-                payingShare >= MIN_PAYING_SHARE_FOR_NEXT_PAYOUT_HIGHLIGHT,
-            note: nextPayoutDisclosureOf(nextPayout, payingShare),
-            payingShare,
-        },
-    );
 }

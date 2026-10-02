@@ -6,7 +6,12 @@ import {
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
 import {
+    NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
+    NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
+    nextPayoutEvidenceText,
     type NextPayoutProjection,
+    NextPayoutTimingKind,
+    nextPayoutTimingOf,
     type SizingStage,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -23,10 +28,6 @@ import {
     estimatePercent,
     formatTrials,
 } from './uncertainText';
-
-const ALREADY_ELIGIBLE_NOW = 'Already eligible now';
-const NO_TRIAL_REACHED_A_PAYOUT =
-    'No simulated trial reached a payout within the horizon';
 
 const CREDIT_BASIS_TEXT =
     'Headline is credit-free (no end-of-horizon credit); the credit-inclusive figure, which books one capped payout request for each surviving account, is shown beside it.';
@@ -229,24 +230,27 @@ function modelOf(
 function nextPayoutModelOf(
     projection: NextPayoutProjection,
 ): AccountFromStateNextPayoutModel {
-    const hasPayingTrials = projection.payingTrials > 0;
-    const isAlreadyEligible =
-        hasPayingTrials &&
-        projection.payingTrials === projection.trials &&
-        projection.expectedCalendarDaysToFirstPayout.value === 0 &&
-        projection.expectedCalendarDaysToFirstPayout.standardError === 0;
+    const timing = nextPayoutTimingOf(projection);
     const timed = (estimate: UncertainValue, unit: string): string => {
-        if (!hasPayingTrials) return NO_TRIAL_REACHED_A_PAYOUT;
-        if (isAlreadyEligible) return ALREADY_ELIGIBLE_NOW;
-        const standardError =
-            estimate.standardError === null
-                ? NOT_APPLICABLE
-                : estimate.standardError.toFixed(1);
-        return `${estimate.value.toFixed(1)} ${unit} (SE ${standardError})`;
+        switch (timing.kind) {
+            case NextPayoutTimingKind.AlreadyEligible: {
+                return NEXT_PAYOUT_ELIGIBLE_NOW_TEXT;
+            }
+            case NextPayoutTimingKind.InDays: {
+                const standardError =
+                    estimate.standardError === null
+                        ? NOT_APPLICABLE
+                        : estimate.standardError.toFixed(1);
+                return `${estimate.value.toFixed(1)} ${unit} (SE ${standardError})`;
+            }
+            case NextPayoutTimingKind.NoTrialPaid: {
+                return NEXT_PAYOUT_NO_TRIAL_PAID_TEXT;
+            }
+        }
     };
     const breach =
         projection.firstPayoutCausedBreachProbability === null
-            ? NO_TRIAL_REACHED_A_PAYOUT
+            ? NEXT_PAYOUT_NO_TRIAL_PAID_TEXT
             : estimatePercent({
                   standardError:
                       projection.firstPayoutCausedBreachStandardError,
@@ -267,10 +271,13 @@ function nextPayoutModelOf(
             projection.expectedCalendarDaysToFirstPayout,
             'calendar days',
         ),
-        payingTrials: `${projection.payingTrials.toLocaleString('en-US')} of ${projection.trials.toLocaleString('en-US')} trials reached a payout`,
-        resetFee: hasPayingTrials
-            ? estimateCurrency(projection.expectedResetFeeBeforeFirstPayout)
-            : NO_TRIAL_REACHED_A_PAYOUT,
+        payingTrials: nextPayoutEvidenceText(projection),
+        resetFee:
+            timing.kind === NextPayoutTimingKind.NoTrialPaid
+                ? NEXT_PAYOUT_NO_TRIAL_PAID_TEXT
+                : estimateCurrency(
+                      projection.expectedResetFeeBeforeFirstPayout,
+                  ),
         sessionDays: timed(
             projection.expectedSessionDaysToFirstPayout,
             'sessions',

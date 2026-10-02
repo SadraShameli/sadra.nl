@@ -1,5 +1,8 @@
 import { didCalendarWeekCloseForInactivity } from '~/lib/prop-calculator/core';
-import { resetForNewDay } from '~/lib/prop-calculator/core/AccountState';
+import {
+    type AccountState,
+    resetForNewDay,
+} from '~/lib/prop-calculator/core/AccountState';
 import { TRADING_DAYS_PER_YEAR } from '~/lib/prop-calculator/core/constants';
 import {
     dollars,
@@ -9,6 +12,7 @@ import {
 } from '~/lib/prop-calculator/core/lib/units';
 import { type LiveAccountState } from '~/lib/prop-calculator/core/LiveAccountState';
 import { type LivePlan } from '~/lib/prop-calculator/core/LivePlan';
+import { effectivePayoutRequest } from '~/lib/prop-calculator/core/PayoutRequestPolicy';
 import { type PositionSizingConfig } from '~/lib/prop-calculator/core/PositionSizing';
 import { resolveLiveRiskAt } from '~/lib/prop-calculator/core/TradeRiskResolution';
 import { mulberry32, type Rng } from '~/lib/prop-calculator/rng';
@@ -23,8 +27,24 @@ import {
     type LiveDayRunOptions,
     type LiveOutputs,
     type LiveSimInputs,
+    type LiveTransferContinuation,
+    type LiveTransferOneOffCash,
 } from './types';
 import { assertPositiveSafeInteger } from './validation';
+
+export interface LiveTransferCash {
+    readonly oneOff: LiveTransferOneOffCash;
+    readonly recurring: number;
+}
+
+export const NO_LIVE_TRANSFER_CASH: LiveTransferCash = Object.freeze({
+    oneOff: Object.freeze({
+        capitalReturned: 0,
+        liquidationPayout: 0,
+        transitionCredit: 0,
+    }),
+    recurring: 0,
+});
 
 interface LiveHorizonOptions {
     commission: Dollars;
@@ -50,6 +70,7 @@ interface LiveHorizonResult {
     liquidationPayout: number;
     recurringWithdrawn: number;
     totalWithdrawn: number;
+    transitionCredit: number;
 }
 
 class LiveWithdrawalLedger {
@@ -121,6 +142,7 @@ class LiveWithdrawalLedger {
             liquidationPayout: this.liquidationPayout,
             recurringWithdrawn: this.recurringWithdrawn,
             totalWithdrawn: this.totalWithdrawn,
+            transitionCredit: this.oneOffCredit,
         };
     }
 }
@@ -275,6 +297,42 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
         daysToBust: null,
         daysToFirstWithdrawal,
     });
+}
+
+export function runLiveTransferContinuation(
+    continuation: LiveTransferContinuation,
+    fundedState: AccountState,
+    remainingDays: number,
+    rng: Rng,
+): LiveTransferCash {
+    const plan = continuation.livePlanAt(fundedState);
+    const { payoutRequestSize } = continuation;
+    const result = runLiveHorizon({
+        commission: continuation.commission,
+        horizonDays: remainingDays,
+        idleDayProbability: continuation.idleDayProbability,
+        payoutRequestSize:
+            payoutRequestSize === undefined
+                ? undefined
+                : effectivePayoutRequest(plan, payoutRequestSize),
+        plan,
+        positionSizing: continuation.positionSizing,
+        retainedCushion: plan.resolveRetainedCushion(
+            continuation.retainedCushion,
+        ),
+        rng,
+        rrRatio: continuation.rrRatio,
+        tradesPerDay: continuation.tradesPerDay,
+        winrate: continuation.winrate,
+    });
+    return {
+        oneOff: {
+            capitalReturned: result.capitalReturned,
+            liquidationPayout: result.liquidationPayout,
+            transitionCredit: result.transitionCredit,
+        },
+        recurring: result.recurringWithdrawn,
+    };
 }
 
 export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {

@@ -14,7 +14,6 @@ import {
     AccountCreator,
     AccountEditor,
 } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
-import { AccountsTable } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
 import { OverviewView } from '~/app/(app)/prop-calculator/accounts/_components/overview/OverviewView';
 import { LEDGER_ONLY_SNAPSHOT_NOTICE } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
@@ -36,6 +35,8 @@ import {
     UNLISTED_FIRM_LABEL,
 } from '~/lib/prop-accounts';
 import { ALL_FIRMS, NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
+
+import { AccountsTable } from './AccountsTableWithData';
 
 interface FakeQuery {
     data: unknown;
@@ -153,6 +154,7 @@ const DETAIL_QUERIES = [
     'propAccounts.event.list',
     'propAccounts.copyGroup.list',
     'propAccounts.snapshot.latestForAll',
+    'propAccounts.snapshot.latestTwoForAll',
 ];
 
 function answer(data: unknown): FakeQuery {
@@ -533,6 +535,10 @@ describe('ledger-only accounts across the accounts pages', () => {
     it('names a firm of your own in the account list', () => {
         harness.queries.set('propAccounts.account.list', answer([atHola()]));
         harness.queries.set('propAccounts.snapshot.latestForAll', answer([]));
+        harness.queries.set(
+            'propAccounts.snapshot.latestTwoForAll',
+            answer([]),
+        );
         harness.queries.set('propAccounts.copyGroup.list', answer([]));
         render(<AccountsTable />);
         const [row] = container.querySelectorAll(':scope tbody tr');
@@ -569,6 +575,10 @@ describe('ledger-only accounts across the accounts pages', () => {
         harness.queries.set('propAccounts.fee.list', answer([holaFee()]));
         harness.queries.set('propAccounts.payout.list', answer([]));
         harness.queries.set('propAccounts.snapshot.latestForAll', answer([]));
+        harness.queries.set(
+            'propAccounts.snapshot.latestTwoForAll',
+            answer([]),
+        );
         harness.queries.set('propAccounts.bankroll.list', answer([]));
         harness.queries.set('propAccounts.rulebook.get', {
             data: undefined,
@@ -587,6 +597,10 @@ describe('ledger-only accounts across the accounts pages', () => {
     it('checks a ledger-only import row against your own firms', async () => {
         harness.queries.set('propAccounts.account.list', answer([]));
         harness.queries.set('propAccounts.snapshot.latestForAll', answer([]));
+        harness.queries.set(
+            'propAccounts.snapshot.latestTwoForAll',
+            answer([]),
+        );
         render(<ImportView />);
         typeInto(
             inputLabelled(container, 'CSV text'),

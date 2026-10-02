@@ -5,8 +5,8 @@
 - <https://helpfutures.fundednext.com/en/articles/14283903-road-to-live-trading-legacy-challenge-rapid-challenge-former> (updated 2026-08-29): "Road To Live Trading - Legacy Challenge & Rapid Challenge (Former)"
 - <https://helpfutures.fundednext.com/en/articles/14284453-what-are-the-data-fees-in-the-fundednext-live-trading-program> (updated 2026-04-08): "What are the data fees in the FundedNext Live Trading Program?"
 
-**Last Verified:** 2026-09-19
-**Last Updated:** 2026-09-19
+**Last Verified:** 2026-10-02 (both cited articles re-fetched and read in full: 14283903 updated 2026-08-29 and 14284453 updated 2026-04-08, IDs and text unchanged, so no figure in this file changed; the one wording fix is that the trailing 20%-of-deposit threshold now says "falls below", as the source does; the note in 14283903 still links the Rapid live article by its old ID 15900277)
+**Last Updated:** 2026-10-02
 
 ## Overview
 
@@ -53,7 +53,7 @@ Per the same source article, once a trader is selected: all active FundedNext Ac
 
 The source states the threshold locks "in two scenarios," and these are two materially different events, not one number:
 
-**Trigger 1: equity trails to the 80% drawdown level.** Before any withdrawal, the threshold is "set at 20% of your initial Live Deposit," which the source frames as allowing "up to 80% drawdown from your starting balance" (examples given verbatim: "$20,000 deposit → Threshold at $4,000", "$40,000 deposit → Threshold at $8,000", "$50,000 deposit → Threshold at $10,000"). If equity ever falls to or below this 20%-of-deposit level, the source states the account "is automatically liquidated" and "permanently closed": so reaching this trigger does not leave an open account with a newly "locked" floor; it ends the account. The source does not state whether this 20%-of-deposit floor itself moves upward as the account's equity grows before this point (it only ever describes it as "20% of your initial Live Deposit," a fixed reference to the starting deposit, not to a running high-water mark): this is flagged below, not resolved.
+**Trigger 1: equity trails to the 80% drawdown level.** Before any withdrawal, the threshold is "set at 20% of your initial Live Deposit," which the source frames as allowing "up to 80% drawdown from your starting balance" (examples given verbatim: "$20,000 deposit → Threshold at $4,000", "$40,000 deposit → Threshold at $8,000", "$50,000 deposit → Threshold at $10,000"). If equity ever falls below this 20%-of-deposit level (the source's wording is "falls below this level"; it states no inclusive at-or-below boundary for the trailing threshold), the source states the account "is automatically liquidated" and "permanently closed": so reaching this trigger does not leave an open account with a newly "locked" floor; it ends the account. The source does not state whether this 20%-of-deposit floor itself moves upward as the account's equity grows before this point (it only ever describes it as "20% of your initial Live Deposit," a fixed reference to the starting deposit, not to a running high-water mark): this is flagged below, not resolved.
 
 **Trigger 2: the first withdrawal.** "After your first withdrawal, the threshold locks permanently at your initial Live Deposit amount" (100% of the deposit, not 20%) and "does not trail or increase, even if your account balance grows." Unlike a typical trailing drawdown, this lock event makes the floor stricter, not looser: it jumps from 20% of the deposit up to the full 100% of the deposit, and stays there for the life of the account regardless of subsequent growth or Reserve refills.
 
@@ -137,7 +137,7 @@ This file is itself the terminal live-account stage, entered from the Legacy Cha
 
 ---
 
-**Last Updated:** 2026-09-19
+**Last Updated:** 2026-10-02
 **Sources:**
 
 - <https://helpfutures.fundednext.com/en/articles/14283903-road-to-live-trading-legacy-challenge-rapid-challenge-former> (updated 2026-08-29)
