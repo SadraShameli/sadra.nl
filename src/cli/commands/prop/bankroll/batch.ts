@@ -20,6 +20,7 @@ import {
 } from '~/lib/prop-calculator/economics';
 
 import {
+    assertSingleAttemptPricing,
     bankrollBatchArguments,
     type BankrollBatchInputs,
     readBankrollBatchInputs,
@@ -42,6 +43,7 @@ export default defineCommand({
         try {
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
+            assertSingleAttemptPricing(inputs);
             const batch = readBankrollBatchInputs(context.args);
             const simInputs = inputs.toSimInputs(plan);
             const out = simulate(simInputs);

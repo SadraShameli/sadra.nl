@@ -1158,9 +1158,9 @@ describe('AccountReconstruction.rebuild: a live account is rebuilt from its live
         expect(account.state.threshold).toBe(50_500);
         expect(account.state.thresholdLocked).toBe(false);
         expect(account.cushion).toBe(2500);
-        expect(account.livePlan.liveContractLimitsFor(account.state).minis).toBe(
-            10,
-        );
+        expect(
+            account.livePlan.liveContractLimitsFor(account.state).minis,
+        ).toBe(10);
     });
 
     it('starts a Lucid live account at the entered live start', () => {
@@ -1178,9 +1178,9 @@ describe('AccountReconstruction.rebuild: a live account is rebuilt from its live
         expect(account.state.startingBalance).toBe(52_000);
         expect(account.state.threshold).toBe(51_000);
         expect(account.state.thresholdLocked).toBe(false);
-        expect(account.livePlan.liveContractLimitsFor(account.state).minis).toBe(
-            2,
-        );
+        expect(
+            account.livePlan.liveContractLimitsFor(account.state).minis,
+        ).toBe(2);
     });
 
     it('names the builder default start, as optimistic, when no live start was entered, and not when one was', () => {
@@ -1306,7 +1306,9 @@ describe('AccountReconstruction.rebuild: an entered dashboard floor on a live ac
         });
         expect(account.state.threshold).toBe(51_000);
         expect(account.cushion).toBe(2000);
-        expect(kindsOf(account)).toContain(AssumptionKind.DashboardFloorMismatch);
+        expect(kindsOf(account)).toContain(
+            AssumptionKind.DashboardFloorMismatch,
+        );
     });
 
     it('raises no mismatch when the entered live floor is at or below the engine floor', () => {
@@ -1345,7 +1347,9 @@ describe('AccountReconstruction.rebuild: the dashboard floor check covers the ev
         });
         expect(account.state.threshold).toBe(50_800);
         expect(account.cushion).toBe(1000);
-        expect(kindsOf(account)).toContain(AssumptionKind.DashboardFloorMismatch);
+        expect(kindsOf(account)).toContain(
+            AssumptionKind.DashboardFloorMismatch,
+        );
     });
 
     it('raises no mismatch on an eval whose entered floor is at or below the engine floor', () => {
@@ -1434,6 +1438,58 @@ describe('AccountReconstruction.rebuild: a payout request the balance may not sh
             ]),
         );
         expect(account.state.balance).toBe(51_700);
+    });
+});
+
+describe('AccountReconstruction.rebuild: a live account discloses a payout request the balance may not show (F-138 (1), Q23)', () => {
+    const apex = registryPlan(APEX_EOD_ID);
+    const lucid = registryPlan(LUCID_FLEX_ID);
+
+    it('names the request assumed to be in the balance, as optimistic, on a modeled live account', () => {
+        const account = liveOf(
+            baseInput({
+                balance: dollars(53_000),
+                highestEodBalance: dollars(53_000),
+                liveStartBalance: dollars(52_000),
+                requestedPayoutsAssumedInBalance: 1,
+            }),
+            apex,
+        );
+        expect(account.assumptions).toContainEqual({
+            bias: 'optimistic',
+            kind: AssumptionKind.PendingPayoutAssumedInBalance,
+        });
+    });
+
+    it('names it on a live account whose live stage is not modeled', () => {
+        const account = liveOf(
+            baseInput({
+                balance: dollars(52_000),
+                dashboardFloor: dollars(50_000),
+                requestedPayoutsAssumedInBalance: 1,
+            }),
+            registryPlan(FUNDEDNEXT_LEGACY_ID),
+        );
+        expect(kindsOf(account)).toContain(
+            AssumptionKind.PendingPayoutAssumedInBalance,
+        );
+    });
+
+    it('names no such assumption without such a request', () => {
+        for (const requestedPayoutsAssumedInBalance of [undefined, 0]) {
+            const account = liveOf(
+                baseInput({
+                    balance: dollars(53_000),
+                    highestEodBalance: dollars(53_000),
+                    liveStartBalance: dollars(52_000),
+                    requestedPayoutsAssumedInBalance,
+                }),
+                lucid,
+            );
+            expect(kindsOf(account)).not.toContain(
+                AssumptionKind.PendingPayoutAssumedInBalance,
+            );
+        }
     });
 });
 

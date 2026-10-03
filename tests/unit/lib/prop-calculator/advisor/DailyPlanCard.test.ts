@@ -8,6 +8,7 @@ import {
     ONE_CENT,
 } from '~/lib/prop-calculator';
 import {
+    ConsistencyCeilingNote,
     dailyPlanCard,
     DayStopReason,
     DEFAULT_RULEBOOK,
@@ -38,7 +39,7 @@ function fundedContext(
 }
 
 describe('dailyPlanCard (PT-19f, F-127, F-146, F-154)', () => {
-    it('walks the flat funded rungs with TP and running loss until Hard Rule 6 max-trades stops the day', () => {
+    it('walks the flat funded rungs with TP and running loss until the daily trade count from tradesPerDayMax stops the day', () => {
         const card = dailyPlanCard(funded, fundedContext());
 
         expect(card.rungs.map((rung) => rung.risk)).toEqual([
@@ -78,18 +79,101 @@ describe('dailyPlanCard (PT-19f, F-127, F-146, F-154)', () => {
         expect(card.stopCappedBy).toEqual([SizingConstraint.CeilingCap]);
     });
 
-    it('sources a funded-consistency ceiling from ConsistencyRule.maxDayProfitBeforeViolation, exhausted on a fresh cycle', () => {
+    it('sources a funded-consistency ceiling from ConsistencyRule.maxDayProfitBeforeViolation and names it ConsistencyCap', () => {
+        const rule = new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.4),
+        );
+        const consistencyCeiling = rule.maxDayProfitBeforeViolation(600);
+        expect(consistencyCeiling).toBe(400);
+
+        const card = dailyPlanCard(
+            funded,
+            fundedContext({ consistencyCeiling }),
+        );
+
+        expect(card.profitCeiling).toEqual({
+            amount: 400,
+            constraint: SizingConstraint.ConsistencyCap,
+        });
+        expect(card.rungs[0]?.risk).toBe(200);
+        expect(card.rungs[0]?.takeProfit).toBe(400);
+        expect(card.rungs[0]?.cappedBy).toEqual([
+            SizingConstraint.ConsistencyCap,
+        ]);
+        expect(card.rungs[1]?.risk).toBe(250);
+        expect(card.rungs[1]?.cappedBy).toEqual([]);
+    });
+
+    it('keeps a live single-day trigger ceiling named CeilingCap when it is tighter than the consistency ceiling', () => {
+        const card = dailyPlanCard(
+            funded,
+            fundedContext({
+                ceiling: dollars(250),
+                consistencyCeiling: dollars(400),
+            }),
+        );
+
+        expect(card.profitCeiling).toEqual({
+            amount: 250,
+            constraint: SizingConstraint.CeilingCap,
+        });
+        expect(card.rungs[0]?.cappedBy).toEqual([SizingConstraint.CeilingCap]);
+    });
+
+    it('names the consistency ceiling when it is tighter than the trigger ceiling', () => {
+        const card = dailyPlanCard(
+            funded,
+            fundedContext({
+                ceiling: dollars(900),
+                consistencyCeiling: dollars(400),
+            }),
+        );
+
+        expect(card.profitCeiling).toEqual({
+            amount: 400,
+            constraint: SizingConstraint.ConsistencyCap,
+        });
+    });
+
+    it('stops with ConsistencyCap and no rungs when the consistency ceiling is below the placeable minimum', () => {
+        const card = dailyPlanCard(
+            funded,
+            fundedContext({ consistencyCeiling: dollars(0) }),
+        );
+
+        expect(card.rungs).toEqual([]);
+        expect(card.stopReason).toBe(DayStopReason.CeilingReached);
+        expect(card.stopCappedBy).toEqual([SizingConstraint.ConsistencyCap]);
+    });
+
+    it('keeps the documented rungs on a fresh cycle, where the ceiling is absent, and carries the fresh-cycle note (was: no rungs and CeilingReached from a ceiling of 0)', () => {
         const rule = new ConsistencyRule(
             ConsistencyScope.Funded,
             fraction(0.3),
         );
-        const ceiling = rule.maxDayProfitBeforeViolation(0);
-        expect(ceiling).toBe(0);
+        expect(rule.maxDayProfitBeforeViolation(0)).toBe(0);
 
-        const card = dailyPlanCard(funded, fundedContext({ ceiling }));
+        const card = dailyPlanCard(
+            funded,
+            fundedContext({
+                consistencyCeiling: null,
+                consistencyNote: ConsistencyCeilingNote.FreshCycle,
+            }),
+        );
 
-        expect(card.rungs).toEqual([]);
-        expect(card.stopReason).toBe(DayStopReason.CeilingReached);
+        expect(card.rungs.map((rung) => rung.risk)).toEqual([
+            250, 250, 250, 250,
+        ]);
+        expect(card.stopReason).toBe(DayStopReason.MaxTrades);
+        expect(card.profitCeiling).toBeNull();
+        expect(card.consistencyNote).toBe(ConsistencyCeilingNote.FreshCycle);
+    });
+
+    it('carries no consistency note when the context has none', () => {
+        expect(
+            dailyPlanCard(funded, fundedContext()).consistencyNote,
+        ).toBeNull();
     });
 
     it('caps every rung at a personal daily profit cap, naming PersonalCap', () => {

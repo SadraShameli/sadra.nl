@@ -209,9 +209,13 @@ export function nextSlotModelOf(inputs: NextSlotModelInputs): NextSlotModel {
         ledger.transfers.length > 0
             ? bankrollOf(ledger, today).availableCents
             : null;
-    const automaticObjective = chooseObjective(availableCents, rulebook.bankroll);
+    const automaticObjective = chooseObjective(
+        availableCents,
+        rulebook.bankroll,
+    );
     const isRuinFirstWithoutBankroll =
-        inputs.objective === SizingObjective.RuinFirst && availableCents === null;
+        inputs.objective === SizingObjective.RuinFirst &&
+        availableCents === null;
     const isChosen =
         inputs.objective !== undefined && !isRuinFirstWithoutBankroll;
     const objective = isRuinFirstWithoutBankroll
@@ -450,12 +454,18 @@ function liveTransferNotesOf(
         optimumFiguresOf,
     );
     return [
-        ...labelledAssumptionLines('Documented policy', documented?.liveTransfer),
+        ...labelledAssumptionLines(
+            'Documented policy',
+            documented?.liveTransfer,
+        ),
         ...labelledAssumptionLines(
             'Documented policy',
             documented?.cumulativePayoutTrigger,
         ),
-        ...labelledAssumptionLines('Payout-size optimum', optimum?.liveTransfer),
+        ...labelledAssumptionLines(
+            'Payout-size optimum',
+            optimum?.liveTransfer,
+        ),
         ...labelledAssumptionLines(
             'Payout-size optimum',
             optimum?.cumulativePayoutTrigger,

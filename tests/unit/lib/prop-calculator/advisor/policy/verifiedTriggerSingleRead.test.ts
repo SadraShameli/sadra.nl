@@ -5,14 +5,17 @@ import { describe, expect, it } from 'vitest';
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
 const SOURCE_FILE = /\.tsx?$/;
 const CORE_DEFINITION = 'lib/prop-calculator/core/accountPolicy/';
-const ONE_READER = 'lib/prop-calculator/advisor/policy/documentedPolicySimInputs.ts';
+const ONE_READER =
+    'lib/prop-calculator/advisor/policy/documentedPolicySimInputs.ts';
 const TIGHTEST_CALL = /(?<![.\w])tightestVerifiedCumulativeTrigger\(/;
 const LIMIT_CALL = /(?<![.\w])verifiedCumulativePayoutLimit\(/;
 
 function filesCalling(pattern: RegExp): readonly string[] {
     return filesUnder(SOURCE_ROOT)
         .filter((full) => pattern.test(readFileSync(full, 'utf8')))
-        .map((full) => path.relative(SOURCE_ROOT, full).split(path.sep).join('/'))
+        .map((full) =>
+            path.relative(SOURCE_ROOT, full).split(path.sep).join('/'),
+        )
         .filter((file) => !file.startsWith(CORE_DEFINITION))
         .toSorted((left, right) => left.localeCompare(right));
 }

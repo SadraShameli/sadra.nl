@@ -83,8 +83,7 @@ describe('the horizon cohort predicates', () => {
     it('are exactly two, each defined once', () => {
         const sources = allMetricsSources();
         const named = sources.flatMap(
-            (source) =>
-                source.match(/export function is\w*Cohort\(/g) ?? [],
+            (source) => source.match(/export function is\w*Cohort\(/g) ?? [],
         );
         expect(named.toSorted((a, b) => a.localeCompare(b))).toEqual(
             PREDICATE_NAMES.map((name) => `export function ${name}(`),

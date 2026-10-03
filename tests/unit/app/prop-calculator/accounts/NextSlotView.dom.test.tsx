@@ -78,7 +78,10 @@ vi.mock('~/trpc/react', () => ({
 vi.mock(
     '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker',
     () => {
-        const engines = new WeakMap<readonly OverviewRequest[], OverviewEngine>();
+        const engines = new WeakMap<
+            readonly OverviewRequest[],
+            OverviewEngine
+        >();
         return {
             useOverviewWorker: (
                 requests: readonly OverviewRequest[],
@@ -267,7 +270,8 @@ describe('NextSlotView', () => {
         const select = [...container.querySelectorAll('select')].find(
             (candidate) => candidate.getAttribute('aria-label') === label,
         );
-        if (select === undefined) throw new Error(`no select labelled ${label}`);
+        if (select === undefined)
+            throw new Error(`no select labelled ${label}`);
         return select;
     }
 
@@ -451,14 +455,17 @@ describe('NextSlotView', () => {
         answerEverything();
         verifyFirms(FEW_FIRMS);
         harness.answer.current = gradedAnswer();
-        harness.queries.set('rulebook.get', answered({
-            ...DEFAULT_RULEBOOK,
-            bankroll: {
-                ...DEFAULT_RULEBOOK.bankroll,
-                accountsPerSession: 2,
-                sessionHoursPerDay: null,
-            },
-        }));
+        harness.queries.set(
+            'rulebook.get',
+            answered({
+                ...DEFAULT_RULEBOOK,
+                bankroll: {
+                    ...DEFAULT_RULEBOOK.bankroll,
+                    accountsPerSession: 2,
+                    sessionHoursPerDay: null,
+                },
+            }),
+        );
         render();
         expect(selectOf('Sort by').disabled).toBe(true);
         expect(selectOf('Sort by').value).toBe('objective');
@@ -469,14 +476,17 @@ describe('NextSlotView', () => {
         answerEverything();
         verifyFirms(FEW_FIRMS);
         harness.answer.current = gradedAnswer();
-        harness.queries.set('rulebook.get', answered({
-            ...DEFAULT_RULEBOOK,
-            bankroll: {
-                ...DEFAULT_RULEBOOK.bankroll,
-                accountsPerSession: 2,
-                sessionHoursPerDay: 4,
-            },
-        }));
+        harness.queries.set(
+            'rulebook.get',
+            answered({
+                ...DEFAULT_RULEBOOK,
+                bankroll: {
+                    ...DEFAULT_RULEBOOK.bankroll,
+                    accountsPerSession: 2,
+                    sessionHoursPerDay: 4,
+                },
+            }),
+        );
         render();
         expect(selectOf('Sort by').disabled).toBe(false);
         chooseSelectValue('Ranking objective', 'cycle-cash');
@@ -486,7 +496,9 @@ describe('NextSlotView', () => {
         chooseSelectValue('Sort by', 'hour');
         expect(selectOf('Sort by').value).toBe('hour');
         expect(rankedPlans()).toEqual(byObjective.toReversed());
-        expect(container.textContent).toContain('Ranked by net per screen hour');
+        expect(container.textContent).toContain(
+            'Ranked by net per screen hour',
+        );
         expect(container.textContent).not.toContain('Ranked by the cycle net');
         expect(container.textContent).toContain(
             'cycle cash objective above is not applied',

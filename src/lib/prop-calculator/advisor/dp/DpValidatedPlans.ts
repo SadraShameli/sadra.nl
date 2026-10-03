@@ -1,4 +1,9 @@
-import { type DpGateRun, type DpValidationVerdict } from './DpValidationGate';
+import {
+    DpGateFailure,
+    type DpGateRun,
+    type DpValidationVerdict,
+    evaluateDpGateRun,
+} from './DpValidationGate';
 
 export const DP_G2_RECORDED_ON: null | string = null;
 
@@ -10,8 +15,20 @@ export interface DpValidationLookup {
 }
 
 export function dpValidationFor(
-    _planSerial: string,
-    _lookup?: DpValidationLookup,
+    planSerial: string,
+    lookup: DpValidationLookup = {},
 ): DpValidationVerdict {
-    throw new Error('not implemented');
+    const { g2RecordedOn = DP_G2_RECORDED_ON, runs = DP_GATE_RUNS } = lookup;
+    const latest = runs
+        .filter((run) => run.planSerial === planSerial)
+        .toSorted((a, b) => b.ranOn.localeCompare(a.ranOn))
+        .at(0);
+    return latest === undefined
+        ? {
+              citation: null,
+              failure: DpGateFailure.NoGateRun,
+              result: null,
+              validated: false,
+          }
+        : evaluateDpGateRun(latest, g2RecordedOn);
 }

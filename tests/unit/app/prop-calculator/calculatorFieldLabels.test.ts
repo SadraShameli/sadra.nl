@@ -32,6 +32,25 @@ describe('calculator field labels (PT-67b step 5)', () => {
         expect(CALCULATOR_FIELD_LABELS.stopPoints).toBe(
             'Stop distance (points)',
         );
+        expect(CALCULATOR_FIELD_LABELS.rebuyLagDays).toBe(
+            'Rebuy lag (trading days)',
+        );
+    });
+
+    it('renders the rebuy lag label of the visible input from the shared labels', () => {
+        const form = readFileSync(
+            path.join(
+                SOURCE_ROOT,
+                'app/(app)/prop-calculator/_components/CalculatorInputsForm.tsx',
+            ),
+            'utf8',
+        );
+        expect(
+            /htmlFor="rebuy-lag-days"\s*>\s*\{CALCULATOR_FIELD_LABELS\.rebuyLagDays\}\s*<\/label>/.test(
+                form,
+            ),
+        ).toBe(true);
+        expect(form).not.toContain(CALCULATOR_FIELD_LABELS.rebuyLagDays);
     });
 
     it('renders the funded horizon label of the visible input from the shared labels', () => {
@@ -62,7 +81,7 @@ describe('calculator field labels (PT-67b step 5)', () => {
         );
     });
 
-    it('spells the payout request, retained cushion, instrument and funded horizon labels in one source file only', () => {
+    it('spells the payout request, retained cushion, instrument, funded horizon and rebuy lag labels in one source file only', () => {
         const files = sourceFiles(SOURCE_ROOT).map((file) => ({
             file: path.relative(SOURCE_ROOT, file).split(path.sep).join('/'),
             text: readFileSync(file, 'utf8'),
@@ -72,6 +91,7 @@ describe('calculator field labels (PT-67b step 5)', () => {
             CALCULATOR_FIELD_LABELS.retainedCushionRequest,
             CALCULATOR_FIELD_LABELS.instrument,
             CALCULATOR_FIELD_LABELS.fundedHorizonDays,
+            CALCULATOR_FIELD_LABELS.rebuyLagDays,
         ]) {
             expect(
                 files

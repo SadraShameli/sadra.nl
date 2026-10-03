@@ -1,16 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { captureError } from '~/lib/observability/logger';
+import { AccountEventKind, readAccountEventDetail } from '~/lib/prop-accounts';
+
 import {
     assertUserScopedWhere,
     type FakeRow,
+    insertedColumnValues,
     type IssuedQuery,
 } from '../fakeDatabase';
 import {
     accountRow,
     accountUpdateInput,
     callerFor,
+    defined,
     IDS,
+    insertsInto,
     SIGNED_IN,
     tableResponder,
     TABLES,
@@ -32,15 +37,25 @@ vi.mock('~/lib/observability/rate-limit', () => ({
 
 const CORRUPT_TAGS = { mff: true };
 
-let versionClock = Date.UTC(2026, 8, 2);
+const versionClock = { ms: Date.UTC(2026, 8, 2) };
 
 function corruptRow(overrides: FakeRow = {}): FakeRow {
-    versionClock += 60_000;
+    versionClock.ms += 60_000;
     return accountRow({
         tags: CORRUPT_TAGS,
-        updated_at: new Date(versionClock),
+        updated_at: new Date(versionClock.ms),
         ...overrides,
     });
+}
+
+function eventDetails(queries: readonly IssuedQuery[]) {
+    return insertsInto(queries, TABLES.event).flatMap((query) =>
+        insertedColumnValues(query, 'detail').map((raw) =>
+            readAccountEventDetail(
+                typeof raw === 'string' ? JSON.parse(raw) : raw,
+            ),
+        ),
+    );
 }
 
 function isAccountWrite(query: IssuedQuery): boolean {
@@ -60,10 +75,7 @@ describe('propAccounts.account: a corrupt stored tags value is read tolerantly a
     it('update repairs an account whose stored tags are corrupt by writing valid tags', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,
-            repairingResponder(
-                corruptRow(),
-                accountRow({ tags: ['mff'] }),
-            ),
+            repairingResponder(corruptRow(), accountRow({ tags: ['mff'] })),
         );
         const updated = await caller.account.update(
             accountUpdateInput({ tags: ['mff'] }),
@@ -72,6 +84,47 @@ describe('propAccounts.account: a corrupt stored tags value is read tolerantly a
         expect(updated.readIssues).toEqual([]);
         expect(updated.hasCorruptTags).toBeUndefined();
         expect(updatesOf(queries, TABLES.account)).toHaveLength(1);
+    });
+
+    it('update with empty tags repairs a corrupt stored value and the event records the repair', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            repairingResponder(corruptRow(), accountRow({ tags: [] })),
+        );
+        const updated = await caller.account.update(
+            accountUpdateInput({ tags: [] }),
+        );
+        expect(updatesOf(queries, TABLES.account)).toHaveLength(1);
+        expect(updated.hasCorruptTags).toBeUndefined();
+        expect(updated.tags).toEqual([]);
+        const [eventInsert] = insertsInto(queries, TABLES.event);
+        expect(insertedColumnValues(defined(eventInsert), 'kind')).toEqual([
+            AccountEventKind.Edited,
+        ]);
+        expect(eventDetails(queries).map((detail) => detail.changes)).toEqual([
+            [{ field: 'tags', from: 'unreadable', to: '[]' }],
+        ]);
+    });
+
+    it('update with new tags on a corrupt row records the repair as the tags change', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            repairingResponder(corruptRow(), accountRow({ tags: ['mff'] })),
+        );
+        await caller.account.update(accountUpdateInput({ tags: ['mff'] }));
+        expect(eventDetails(queries).map((detail) => detail.changes)).toEqual([
+            [{ field: 'tags', from: 'unreadable', to: '["mff"]' }],
+        ]);
+    });
+
+    it('update with empty tags on a row with valid empty tags still writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.account]: [accountRow({ tags: [] })] }),
+        );
+        await caller.account.update(accountUpdateInput({ tags: [] }));
+        expect(updatesOf(queries, TABLES.account)).toHaveLength(0);
+        expect(insertsInto(queries, TABLES.event)).toHaveLength(0);
     });
 
     it('get returns an account with corrupt tags as no tags and names the issue', async () => {
@@ -123,7 +176,7 @@ describe('propAccounts.account: a corrupt stored tags value is read tolerantly a
     it('reports a corrupt value to the error log once per stored row version, not once per read', async () => {
         vi.mocked(captureError).mockClear();
         const stored = corruptRow();
-        for (const _read of [1, 2, 3]) {
+        for (let read = 0; read < 3; read += 1) {
             const { caller } = callerFor(
                 SIGNED_IN,
                 tableResponder({ [TABLES.account]: [stored] }),
@@ -177,10 +230,7 @@ describe('propAccounts.account: a corrupt stored tags value is read tolerantly a
     it('scopes every account query of the repair by the signed-in user', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,
-            repairingResponder(
-                corruptRow(),
-                accountRow({ tags: ['mff'] }),
-            ),
+            repairingResponder(corruptRow(), accountRow({ tags: ['mff'] })),
         );
         await caller.account.update(accountUpdateInput({ tags: ['mff'] }));
         const accountQueries = queries.filter(

@@ -3,20 +3,23 @@ import { describe, expect, it } from 'vitest';
 import { DpNotValidatedCause } from '~/lib/prop-calculator/advisor';
 import {
     DP_GATE_MIN_ITERATIONS,
-    type DpGateBasis,
     DpEvalObjective,
+    type DpGateBasis,
     DpGateFailure,
     type DpGateRun,
     dpNotValidatedCauseOf,
     evaluateDpGateRun,
 } from '~/lib/prop-calculator/advisor/dp';
-import { InstrumentSymbol, PayoutRequestPolicy } from '~/lib/prop-calculator/core';
+import {
+    InstrumentSymbol,
+    PayoutRequestPolicy,
+} from '~/lib/prop-calculator/core';
 import { RateSearchStatus } from '~/lib/prop-calculator/core/AverageRewardSolver';
 
 const G2 = '2026-10-01';
 
 const BASIS: DpGateBasis = {
-    instrument: InstrumentSymbol.MES,
+    instrument: InstrumentSymbol.MNQ,
     payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
     payoutRequestSize: 500,
     retainedCushion: 2000,
@@ -158,13 +161,10 @@ describe('evaluateDpGateRun', () => {
     );
 
     it('requires at least 12 iterations', () => {
+        const atMinimum = run({ solve: { ...run().solve, iterations: 12 } });
+
         expect(DP_GATE_MIN_ITERATIONS).toBe(12);
-        expect(
-            evaluateDpGateRun(
-                run({ solve: { ...run().solve, iterations: 12 } }),
-                G2,
-            ).validated,
-        ).toBe(true);
+        expect(evaluateDpGateRun(atMinimum, G2).validated).toBe(true);
     });
 
     it('is not validated when the DP and the flat baseline used different retained cushions (the 2026-09-23 TopStep case)', () => {
@@ -224,7 +224,7 @@ describe('evaluateDpGateRun', () => {
     });
 
     it('is not validated without an engine commit or content hash', () => {
-        for (const engineRef of ['', '   ']) {
+        for (const engineRef of ['', ' '.repeat(3)]) {
             expect(evaluateDpGateRun(run({ engineRef }), G2)).toMatchObject({
                 failure: DpGateFailure.StaleTree,
                 validated: false,

@@ -99,6 +99,33 @@ describe('firmsModelOf', () => {
         );
     });
 
+    it('counts a funded ledger-only account toward the funded threshold as well as the attempts', () => {
+        const ledgerOnlyFunded = account(EVAL_PLAN, {
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            stage: AccountStage.Funded,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const result = firmsModelOf({
+            asOf: '2026-10-01',
+            ledger: ledger({ accounts: [ledgerOnlyFunded] }),
+            thresholds: {
+                minClosedRounds: null,
+                minEndedAccounts: null,
+                minEvalAttempts: 1,
+                minFundedAccounts: 1,
+                minTrades: 5,
+            },
+            trades: 5,
+        });
+        expect(result.scaleGate.unmetConditions).not.toContain(
+            ScaleGateUnmetCondition.EvalAttemptsBelowThreshold,
+        );
+        expect(result.scaleGate.unmetConditions).not.toContain(
+            ScaleGateUnmetCondition.FundedAccountsBelowThreshold,
+        );
+    });
+
     it('builds the page for two transfers against one paid payout, with the reason instead of a throw', () => {
         const first = account(EVAL_PLAN, {
             purchasedOn: '2026-01-01',

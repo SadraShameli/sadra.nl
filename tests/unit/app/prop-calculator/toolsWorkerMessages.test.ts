@@ -28,7 +28,10 @@ import {
     ValueChainStepKind,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
-import { BankrollLeverKind } from '~/lib/prop-calculator/economics';
+import {
+    BankrollLeverKind,
+    EconomicsReason,
+} from '~/lib/prop-calculator/economics';
 
 function bankrollPolicy(startingBankroll = 5000) {
     return {
@@ -90,6 +93,18 @@ function projectionRequest(): ToolsWorkerRequest {
         kind: ToolsRequestKind.Projection,
         runId: 1,
         variant: baseVariant(),
+    };
+}
+
+function spendPayoutCurveRequest(
+    overrides: Partial<{ budgets: readonly number[] }> = {},
+): ToolsWorkerRequest {
+    return {
+        budgets: [5000, 10_000, 20_000],
+        kind: ToolsRequestKind.SpendPayoutCurve,
+        runId: 11,
+        variant: baseVariant(),
+        ...overrides,
     };
 }
 
@@ -157,6 +172,7 @@ describe('toolsRequestSchema (VD-24)', () => {
                 runId: 7,
                 variant: baseVariant(),
             },
+            spendPayoutCurveRequest(),
             {
                 kind: ToolsRequestKind.ValueChain,
                 plan: baseVariant().plan,
@@ -224,6 +240,35 @@ describe('toolsRequestSchema (VD-24)', () => {
     });
 });
 
+describe('spendPayoutCurveRequestSchema (PT-82)', () => {
+    it.each([
+        { budgets: [] },
+        { budgets: [0] },
+        { budgets: [-500] },
+        { budgets: [5000, NaN] },
+        {
+            budgets: Array.from(
+                { length: 11 },
+                (_, index) => 1000 * (index + 1),
+            ),
+        },
+    ])('rejects budgets %j', (overrides) => {
+        expect(() =>
+            parseToolsRequest(spendPayoutCurveRequest(overrides)),
+        ).toThrow();
+    });
+
+    it('accepts the largest allowed list of budgets', () => {
+        const budgets = Array.from(
+            { length: 10 },
+            (_, index) => 1000 * (index + 1),
+        );
+        expect(parseToolsRequest(spendPayoutCurveRequest({ budgets }))).toEqual(
+            spendPayoutCurveRequest({ budgets }),
+        );
+    });
+});
+
 describe('takeProfitRowsRequestSchema (PT-64c)', () => {
     it('rejects an empty candidate list', () => {
         expect(() =>
@@ -243,6 +288,29 @@ describe('takeProfitRowsRequestSchema (PT-64c)', () => {
         ).toThrow();
     });
 });
+
+function monthEndRows() {
+    return [
+        {
+            cashP10: 4800,
+            cashP50: 5200,
+            cashP90: 5600,
+            day: 21,
+            month: 1,
+            payoutsP50: 900,
+            spendP50: 495,
+        },
+        {
+            cashP10: 4500,
+            cashP50: 6100,
+            cashP90: 7900,
+            day: 42,
+            month: 2,
+            payoutsP50: 1500,
+            spendP50: 330,
+        },
+    ];
+}
 
 function timelineResult() {
     return {
@@ -279,6 +347,7 @@ describe('toolsResultSchema (VD-24)', () => {
         const results: ToolsWorkerResult[] = [
             {
                 kind: ToolsResponseKind.Projection,
+                monthEnds: monthEndRows(),
                 result: timelineResult(),
                 runId: 1,
             },
@@ -329,6 +398,31 @@ describe('toolsResultSchema (VD-24)', () => {
                 runId: 6,
             },
             { kind: ToolsResponseKind.Failed, reason: 'boom', runId: 7 },
+            {
+                kind: ToolsResponseKind.SpendPayoutCurve,
+                rows: [
+                    {
+                        budget: 5000,
+                        figures: {
+                            attempts: 30,
+                            expectedNet: 1200,
+                            expectedPayouts: 6150,
+                            expectedSpend: 4950,
+                            lossProbability: 0.31,
+                            lossProbabilityStandardError: 0.0046,
+                            netP10: -3000,
+                            netP90: 5200,
+                        },
+                        reason: null,
+                    },
+                    {
+                        budget: 100,
+                        figures: null,
+                        reason: EconomicsReason.InvalidInput,
+                    },
+                ],
+                runId: 12,
+            },
             {
                 kind: ToolsResponseKind.TakeProfitRows,
                 rows: [
@@ -410,6 +504,25 @@ describe('toolsResultSchema (VD-24)', () => {
                     trials: 500,
                 },
                 runId: 11,
+            },
+            {
+                kind: ToolsResponseKind.FundedValueEstimate,
+                result: {
+                    dollarSampleRange: {
+                        label: FUNDED_VALUE_SAMPLE_RANGE_LABEL,
+                        lower: 2100,
+                        sampleSize: 10,
+                        upper: 6900,
+                    },
+                    fundedValue: { standardError: 300, value: 4500 },
+                    meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
+                    payoutCountDistribution: [0.1, 0.4, 0.3, 0.2],
+                    probabilityZeroPayouts: { standardError: 0.02, value: 0.1 },
+                    sampleRange: null,
+                    seed: 1,
+                    trials: 500,
+                },
+                runId: 13,
             },
         ];
 
@@ -565,6 +678,121 @@ describe('toolsResultSchema (VD-24)', () => {
                 runId: 1,
             }),
         ).toThrow();
+    });
+
+    it('rejects a projection result without its month-end rows', () => {
+        expect(() =>
+            parseToolsResult({
+                kind: ToolsResponseKind.Projection,
+                result: timelineResult(),
+                runId: 1,
+            }),
+        ).toThrow();
+    });
+
+    it('keeps the month-end rows of a projection in order through the schema', () => {
+        const response = {
+            kind: ToolsResponseKind.Projection,
+            monthEnds: monthEndRows(),
+            result: timelineResult(),
+            runId: 1,
+        };
+        const parsed = parseToolsResult(structuredClone(response));
+        if (parsed.kind !== ToolsResponseKind.Projection) {
+            throw new Error('unreachable');
+        }
+        expect(parsed.monthEnds.map((row) => row.month)).toEqual([1, 2]);
+        expect(parsed.monthEnds[1]).toEqual(monthEndRows()[1]);
+    });
+
+    it.each([
+        { month: 0 },
+        { month: 1.5 },
+        { day: -1 },
+        { cashP50: NaN },
+    ])('rejects a month-end row with %j', (patch) => {
+        expect(() =>
+            parseToolsResult({
+                kind: ToolsResponseKind.Projection,
+                monthEnds: [{ ...monthEndRows()[0], ...patch }],
+                result: timelineResult(),
+                runId: 1,
+            }),
+        ).toThrow();
+    });
+
+    it('rejects a spend-vs-payout row whose loss probability is outside [0, 1]', () => {
+        expect(() =>
+            parseToolsResult({
+                kind: ToolsResponseKind.SpendPayoutCurve,
+                rows: [
+                    {
+                        budget: 5000,
+                        figures: {
+                            attempts: 30,
+                            expectedNet: 1200,
+                            expectedPayouts: 6150,
+                            expectedSpend: 4950,
+                            lossProbability: 1.4,
+                            lossProbabilityStandardError: null,
+                            netP10: -3000,
+                            netP90: 5200,
+                        },
+                        reason: null,
+                    },
+                ],
+                runId: 12,
+            }),
+        ).toThrow();
+    });
+
+    it('rejects a funded value dollar range under another label', () => {
+        expect(() =>
+            parseToolsResult({
+                kind: ToolsResponseKind.FundedValueEstimate,
+                result: {
+                    dollarSampleRange: {
+                        label: 'a guaranteed range',
+                        lower: 2100,
+                        sampleSize: 10,
+                        upper: 6900,
+                    },
+                    fundedValue: { standardError: 300, value: 4500 },
+                    meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
+                    payoutCountDistribution: [1],
+                    probabilityZeroPayouts: { standardError: 0.02, value: 0.1 },
+                    sampleRange: null,
+                    seed: 1,
+                    trials: 500,
+                },
+                runId: 13,
+            }),
+        ).toThrow();
+    });
+
+    it('round trips a lever row that carries a loss-risk delta, and a null one', () => {
+        for (const deltaLossProbability of [-0.04, null]) {
+            const result: ToolsWorkerResult = {
+                kind: ToolsResponseKind.Levers,
+                rows: [
+                    {
+                        deltaEvPerAttempt: 10,
+                        deltaLossProbability,
+                        deltaMonthlyNet: 50,
+                        deltaPassProbability: 0.05,
+                        evPerAttempt: 40,
+                        kind: BankrollLeverKind.Risk,
+                        label: null,
+                        lossRisk: 0.2,
+                        monthlyNet: 300,
+                        passProbability: 0.5,
+                        value: 500,
+                    },
+                ],
+                runId: 9,
+            };
+            expect(parseToolsResult(structuredClone(result))).toEqual(result);
+        }
     });
 
     it('round trips a lever row that carries a P(attempt pays) delta', () => {

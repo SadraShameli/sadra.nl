@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
     overviewPlanOptInsOf,
@@ -15,8 +15,10 @@ import {
     personalAccountRequestOf,
     personalAdvisorOptionsOf,
     personalLimitsOf,
+    planRulesFingerprintCheckOf,
     readinessBoardInputsOf,
     readinessOverridesOf,
+    reconstructedMaxRiskOf,
     SizingAdvisorBuildKind,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import {
@@ -27,6 +29,7 @@ import {
     usdCents,
 } from '~/lib/prop-accounts';
 import {
+    type Dollars,
     dollars,
     FirmId,
     serializePlanId,
@@ -332,8 +335,8 @@ describe('the copy-group member caps (PT-68g, F-V16)', () => {
     });
 });
 
-describe('readinessOverridesOf nulls a Live account max risk as the advice does (PT-42c, PT-68g addendum)', () => {
-    it('keeps the personal max risk of a funded account and drops it for a Live one', () => {
+describe('readinessOverridesOf keeps the personal max risk of a Live account too (PT-108 step 13, F-62 (4), QF-2; was: nulled it as the advice did, PT-42c, PT-68g addendum)', () => {
+    it('keeps the personal max risk of a funded account and of a Live one', () => {
         const personalRules = { maxRiskPerTradeCents: usdCents(7500) };
         const overrides = readinessOverridesOf(
             [
@@ -346,9 +349,9 @@ describe('readinessOverridesOf nulls a Live account max risk as the advice does 
         expect(
             overrides.get('funded')?.policy.personalCaps.maxRiskPerTrade,
         ).toBe(75);
-        expect(
-            overrides.get('live')?.policy.personalCaps.maxRiskPerTrade,
-        ).toBeNull();
+        expect(overrides.get('live')?.policy.personalCaps.maxRiskPerTrade).toBe(
+            75,
+        );
     });
 });
 
@@ -424,8 +427,8 @@ describe('memberPolicyOverridesOf (PT-42c, PT-68g addendum)', () => {
     });
 });
 
-describe('readinessBoardInputsOf carries the stage of each account into its personal caps (PT-42c review)', () => {
-    it('drops the personal max risk of a Live account and keeps it for a funded one', () => {
+describe('readinessBoardInputsOf applies the personal max risk to every stage (PT-108 step 13, F-62 (4); was: dropped it for Live, PT-42c review)', () => {
+    it('keeps the personal max risk of a Live account and of a funded one', () => {
         const personalRules = { maxRiskPerTradeCents: usdCents(7500) };
         const row = {
             firmId: null,
@@ -444,15 +447,145 @@ describe('readinessBoardInputsOf carries the stage of each account into its pers
         expect(
             overrides.get('funded')?.policy.personalCaps.maxRiskPerTrade,
         ).toBe(75);
+        expect(overrides.get('live')?.policy.personalCaps.maxRiskPerTrade).toBe(
+            75,
+        );
+    });
+});
+
+describe('a Live account personal max risk per trade sizes the advice (PT-108 step 13, F-62 (4), QF-2)', () => {
+    const LIVE_SNAPSHOT: AccountSnapshotInput = {
+        asOf: '2026-03-02',
+        balance: dollars(51_000),
+        dashboardConvention: DashboardBalanceConvention.Nominal,
+        payoutsTaken: 1,
+        stage: SizingStage.Live,
+        tradingDays: 12,
+    };
+
+    function liveAccountWithCap(cap: Dollars | null) {
+        return AccountReconstruction.rebuild(
+            LIVE_SNAPSHOT,
+            plan(),
+            cap,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
+    }
+
+    it('reads the cap from the reconstructed Live account', () => {
+        expect(reconstructedMaxRiskOf(liveAccountWithCap(dollars(75)))).toBe(
+            75,
+        );
+        expect(reconstructedMaxRiskOf(liveAccountWithCap(null))).toBeNull();
+    });
+
+    it('puts the Live cap into the personal caps of the advisor options', () => {
+        const account = liveAccountWithCap(dollars(75));
+        const options = personalAdvisorOptionsOf({
+            account,
+            measuredRebuyLag: null,
+            paidPayoutsSinceLastLiveAccount: null,
+            personalRules: null,
+            plan: plan(),
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: LIVE_SNAPSHOT.asOf,
+            status: AccountStatus.Active,
+            today: LIVE_SNAPSHOT.asOf,
+        });
+
+        expect(options.personalCaps?.maxRiskPerTrade).toBe(75);
+    });
+
+    it('sizes no Live rung above the $75 cap', () => {
+        const account = liveAccountWithCap(dollars(75));
+        const build = buildSizingAdvisor(
+            account,
+            personalAdvisorOptionsOf({
+                account,
+                measuredRebuyLag: null,
+                paidPayoutsSinceLastLiveAccount: null,
+                personalRules: null,
+                plan: plan(),
+                rulebook: DEFAULT_RULEBOOK,
+                snapshotAsOf: LIVE_SNAPSHOT.asOf,
+                status: AccountStatus.Active,
+                today: LIVE_SNAPSHOT.asOf,
+            }),
+        );
+        if (build.kind !== SizingAdvisorBuildKind.Ready) {
+            throw new Error('expected an advisor');
+        }
+
+        const rungs = build.advisor.dailyPlanCard()?.rungs ?? [];
+
+        expect(rungs.length).toBeGreaterThan(0);
+        for (const rung of rungs) {
+            expect(rung.risk).toBeLessThanOrEqual(75);
+        }
+    });
+});
+
+describe('the plan rules fingerprint check reaches the advisor options (PT-108 step 6, F-98, F-126)', () => {
+    it('builds the check from the stamp and the current fingerprint', () => {
         expect(
-            overrides.get('live')?.policy.personalCaps.maxRiskPerTrade,
+            planRulesFingerprintCheckOf({
+                currentPlanRulesFingerprint: 'bbb',
+                planRulesFingerprint: 'aaa',
+            }),
+        ).toEqual({ atAdvice: 'aaa', current: 'bbb' });
+    });
+
+    it('passes a null stamp as null, so the advice is never marked stale for it', () => {
+        expect(
+            planRulesFingerprintCheckOf({
+                currentPlanRulesFingerprint: 'bbb',
+                planRulesFingerprint: null,
+            }),
+        ).toEqual({ atAdvice: null, current: 'bbb' });
+    });
+
+    it('builds no check when the plan cannot be fingerprinted', () => {
+        expect(
+            planRulesFingerprintCheckOf({
+                currentPlanRulesFingerprint: null,
+                planRulesFingerprint: 'aaa',
+            }),
         ).toBeNull();
     });
 
-    it('requires the stage on every account, so a caller cannot silently keep a Live max risk', () => {
-        expectTypeOf<
-            Parameters<typeof readinessOverridesOf>[0][number]['stage']
-        >().toEqualTypeOf<AccountStage>();
+    it('forwards the check into the advisor options', () => {
+        const account = AccountReconstruction.rebuild(
+            {
+                asOf: '2026-03-02',
+                balance: dollars(51_000),
+                dashboardConvention: DashboardBalanceConvention.Nominal,
+                highestEodBalance: dollars(51_000),
+                highestIntradayBalance: dollars(51_000),
+                payoutsTaken: 0,
+                purchasedOn: '2026-02-01',
+                stage: SizingStage.Eval,
+                tradingDays: 10,
+            },
+            plan(),
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
+        const check = { atAdvice: 'aaa', current: 'bbb' };
+
+        const options = personalAdvisorOptionsOf({
+            account,
+            measuredRebuyLag: null,
+            paidPayoutsSinceLastLiveAccount: null,
+            personalRules: null,
+            plan: plan(),
+            planRulesFingerprint: check,
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-03-02',
+            status: AccountStatus.Active,
+            today: '2026-03-02',
+        });
+
+        expect(options.planRulesFingerprint).toEqual(check);
     });
 });
 

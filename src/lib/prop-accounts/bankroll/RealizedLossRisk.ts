@@ -1,17 +1,12 @@
 import {
-    compareText,
-    isoDaysBetween,
-    paidPayoutCash,
-} from '~/lib/prop-accounts/core';
-import {
+    attemptsOf,
     fundedSince,
-    isHorizonMaturedCohort,
-    type LedgerAccount,
+    isCohortEndedAttempt,
     paidCountWithinHorizon,
+    payoutTiming,
     perAttemptNetCents,
     type PortfolioLedger,
     type SampledEstimate,
-    sampledMean,
     sampledRate,
 } from '~/lib/prop-accounts/metrics';
 import { type Dollars, dollars, fraction } from '~/lib/prop-calculator';
@@ -19,12 +14,8 @@ import {
     bankrollAttemptsAt,
     bankrollCohortRisk,
     bankrollNoPayoutAt,
-    batchLossClosedForm,
+    compoundMinimumBudget,
     EconomicsReason,
-    empiricalPayingStatsOf,
-    LossSampleUnit,
-    MAX_LOSS_TARGET_CAP,
-    minimumBudgetForLossTarget,
     type Quantity,
 } from '~/lib/prop-calculator/economics';
 import { clamp, mean } from '~/lib/prop-calculator/stats';
@@ -59,9 +50,11 @@ export interface RealizedLossRiskInputs {
 export function realizedLossRisk(
     inputs: RealizedLossRiskInputs,
 ): RealizedLossRisk {
-    const measuredDays = measuredMeanDaysToFirstPayout(inputs.ledger);
-    const toFirstPayoutDays =
-        measuredDays?.value ?? inputs.toFirstPayoutFallbackDays;
+    const measuredDays = measuredMeanDaysToFirstPayout(
+        inputs.ledger,
+        inputs.asOfDate,
+    );
+    const toFirstPayoutDays = measuredDays ?? inputs.toFirstPayoutFallbackDays;
     const netValuesCents = perAttemptNetCents(
         inputs.ledger,
         inputs.asOfDate,
@@ -109,27 +102,14 @@ export function realizedLossRisk(
                   inputs.draws,
                   inputs.seed,
               );
-    const empirical = empiricalPayingStatsOf(
-        netValuesDollars,
-        attemptCostDollars,
-    );
-    const minimumBudget = minimumBudgetForLossTarget({
-        cap: MAX_LOSS_TARGET_CAP,
-        costPerSample: dollars(attemptCostDollars),
-        costUnit: LossSampleUnit.Attempt,
-        lossProbability: (attemptCount) =>
-            batchLossClosedForm({
-                attemptCost: dollars(attemptCostDollars),
-                attempts: attemptCount,
-                pAttemptPays: empirical.pAttemptPays,
-                valuePerPayingAttempt: empirical.valuePerPayingAttempt,
-            }).value ?? 1,
-        meanNetPerSample: dollars(meanNetCents / 100),
-        sampleUnit: LossSampleUnit.Attempt,
-        threshold:
+    const minimumBudget = compoundMinimumBudget({
+        costPerAttempt: dollars(attemptCostDollars),
+        lossThreshold:
             inputs.lossRiskThreshold === null
                 ? null
                 : fraction(inputs.lossRiskThreshold),
+        netValues: netValuesDollars,
+        seed: inputs.seed,
     });
     return {
         ...base,
@@ -169,18 +149,16 @@ function batchLossProbabilityOf(
 
 function measuredMeanDaysToFirstPayout(
     ledger: PortfolioLedger,
-): null | SampledEstimate {
-    const days = ledger.resolvedAccounts.flatMap((entry) => {
-        const funded = fundedSince(entry);
-        if (funded === null) return [];
-        const paidDates = entry.payouts
-            .map((row) => paidPayoutCash(row))
-            .flatMap((paid) => (paid?.paidOn ? [paid.paidOn] : []))
-            .toSorted(compareText);
-        const first = paidDates[0];
-        return first === undefined ? [] : [isoDaysBetween(funded.on, first)];
-    });
-    return sampledMean(days);
+    asOfDate: string,
+): null | number {
+    let weightedDays = 0;
+    let samples = 0;
+    for (const plan of payoutTiming(ledger, asOfDate).perPlan) {
+        if (plan.toFirstPayout === null) continue;
+        weightedDays += plan.toFirstPayout.value * plan.toFirstPayout.n;
+        samples += plan.toFirstPayout.n;
+    }
+    return samples === 0 ? null : weightedDays / samples;
 }
 
 function pooledAttemptPaysRate(
@@ -189,19 +167,19 @@ function pooledAttemptPaysRate(
     horizonDays: number,
 ): null | SampledEstimate {
     let successes = 0;
-    let decided = 0;
-    for (const entry of ledger.resolvedAccounts as readonly LedgerAccount[]) {
+    let attempts = 0;
+    for (const entry of ledger.resolvedAccounts) {
+        if (!isCohortEndedAttempt(entry, asOfDate, horizonDays)) continue;
+        const entryAttempts = attemptsOf(entry);
+        if (entryAttempts <= 0) continue;
+        attempts += entryAttempts;
         const funded = fundedSince(entry);
         if (
-            funded === null ||
-            !isHorizonMaturedCohort(entry, funded.on, asOfDate, horizonDays)
+            funded !== null &&
+            paidCountWithinHorizon(entry, funded.on, horizonDays) > 0
         ) {
-            continue;
-        }
-        decided += 1;
-        if (paidCountWithinHorizon(entry, funded.on, horizonDays) > 0) {
             successes += 1;
         }
     }
-    return sampledRate(successes, decided);
+    return sampledRate(successes, attempts);
 }

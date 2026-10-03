@@ -298,8 +298,12 @@ describe('N-45 aggregate explanation: under a lifetime payout cap the loss-exemp
     });
 
     it('aggregate under flat sizing: with the cap both rules take the same number of payouts and the strict rule takes larger ones, and removing the cap widens the gap, so the cap is not its cause (PT-T1c: 1,000 trials a run instead of 20,000; the capped gap is $95 to $101 and the uncapped gap $2,900 to $3,190 from 1,500 to 20,000 trials, against the bounds of 50 and the capped gap)', () => {
-        const { cappedLossExempt, cappedStrict, uncappedLossExempt, uncappedStrict } =
-            flatToyRuns();
+        const {
+            cappedLossExempt,
+            cappedStrict,
+            uncappedLossExempt,
+            uncappedStrict,
+        } = flatToyRuns();
         const cappedGap =
             cappedStrict.expectedGrossPayout -
             cappedLossExempt.expectedGrossPayout;

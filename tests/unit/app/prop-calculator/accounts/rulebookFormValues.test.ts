@@ -451,6 +451,10 @@ describe('rulebook form values for the v2 sections', () => {
     });
 });
 
+function hazardsOfRate(rate: LiveTransferRate) {
+    return measuredHazardsOf(rate, ledger({}));
+}
+
 function rateOf(
     firmId: string,
     movedLiveCount: number,
@@ -470,10 +474,6 @@ function rateOf(
                 ? LiveTransferRateUnavailable.NoPaidPayouts
                 : null,
     };
-}
-
-function hazardsOfRate(rate: LiveTransferRate) {
-    return measuredHazardsOf(rate, ledger({}));
 }
 
 describe('measuredHazardsOf: the measured transfer rate offered next to each firm hazard field (PT-73, F-V26)', () => {

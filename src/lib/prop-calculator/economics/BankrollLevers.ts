@@ -39,6 +39,7 @@ export interface BankrollLeverRow {
     attemptPaysProbability: EconomicsEstimate<Fraction0to1>;
     deltaAttemptPaysProbability: number;
     deltaEvPerAttempt: Dollars;
+    deltaLossProbability: null | number;
     deltaMonthlyNet: Dollars;
     deltaPassProbability: number;
     evPerAttempt: EconomicsEstimate<Dollars>;
@@ -70,13 +71,14 @@ export function bankrollLevers(
     bankroll: Dollars,
     seed: number,
 ): BankrollLeverRow[] {
+    const baseLossRisk = lossRiskOf(base, bankroll, seed);
     const baseRow = leverRow(
         BankrollLeverKind.Base,
         null,
         base,
         base,
-        bankroll,
-        seed,
+        baseLossRisk,
+        baseLossRisk,
         null,
     );
     return [
@@ -87,8 +89,8 @@ export function bankrollLevers(
                 variant.value,
                 variant.outputs,
                 base,
-                bankroll,
-                seed,
+                lossRiskOf(variant.outputs, bankroll, seed),
+                baseLossRisk,
                 labelFor(variant.kind),
             ),
         ),
@@ -129,23 +131,10 @@ function leverRow(
     value: null | number,
     outputs: BankrollLeverOutputs,
     base: BankrollLeverOutputs,
-    bankroll: Dollars,
-    seed: number,
+    lossRisk: BankrollLeverRow['lossRisk'],
+    baseLossRisk: BankrollLeverRow['lossRisk'],
     label: BankrollLeverLabel | null,
 ): BankrollLeverRow {
-    const { lossProbability } = bankrollRisk(
-        {
-            attemptPaysProbability: outputs.attemptPaysProbability.value,
-            costPerAttempt: outputs.costPerAttempt,
-            netValues: outputs.netValues,
-        },
-        bankroll,
-        seed,
-    );
-    const lossRisk =
-        lossProbability === null
-            ? missingQuantity(EconomicsReason.InvalidInput)
-            : quantityOf(lossProbability);
     return {
         attemptPaysProbability: outputs.attemptPaysProbability,
         deltaAttemptPaysProbability:
@@ -155,6 +144,10 @@ function leverRow(
             outputs.expectedNetPerAttempt.value -
                 base.expectedNetPerAttempt.value,
         ),
+        deltaLossProbability:
+            lossRisk.value === null || baseLossRisk.value === null
+                ? null
+                : lossRisk.value.value - baseLossRisk.value.value,
         deltaMonthlyNet: dollars(
             outputs.expectedMonthlyNet.value - base.expectedMonthlyNet.value,
         ),
@@ -168,4 +161,23 @@ function leverRow(
         passProbability: outputs.passProbability,
         value,
     };
+}
+
+function lossRiskOf(
+    outputs: BankrollLeverOutputs,
+    bankroll: Dollars,
+    seed: number,
+): BankrollLeverRow['lossRisk'] {
+    const { lossProbability } = bankrollRisk(
+        {
+            attemptPaysProbability: outputs.attemptPaysProbability.value,
+            costPerAttempt: outputs.costPerAttempt,
+            netValues: outputs.netValues,
+        },
+        bankroll,
+        seed,
+    );
+    return lossProbability === null
+        ? missingQuantity(EconomicsReason.InvalidInput)
+        : quantityOf(lossProbability);
 }

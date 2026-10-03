@@ -2,7 +2,9 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const synthetic = vi.hoisted(() => ({ rows: null as null | readonly unknown[] }));
+const synthetic = vi.hoisted(() => ({
+    rows: null as null | readonly unknown[],
+}));
 
 vi.mock(
     '~/app/(app)/prop-calculator/_components/useDebouncedSimulation',

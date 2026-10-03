@@ -13,6 +13,7 @@ import { ProjectionCard } from '~/app/(app)/prop-calculator/_components/bankroll
 import { RulebookSourceNotice } from '~/app/(app)/prop-calculator/_components/bankroll/RulebookSourceNotice';
 import { SameEvCard } from '~/app/(app)/prop-calculator/_components/bankroll/SameEvCard';
 import { SetupCard } from '~/app/(app)/prop-calculator/_components/bankroll/SetupCard';
+import { SpendPayoutCurveCard } from '~/app/(app)/prop-calculator/_components/bankroll/SpendPayoutCurveCard';
 import { TwoStrategiesCard } from '~/app/(app)/prop-calculator/_components/bankroll/TwoStrategiesCard';
 import { useBankrollVariant } from '~/app/(app)/prop-calculator/_components/bankroll/useBankrollVariant';
 import { InputsSummary } from '~/app/(app)/prop-calculator/_components/InputsSummary';
@@ -40,10 +41,11 @@ export function BankrollView() {
                 <RulebookSourceNotice source={rulebookSource} />
                 <SetupCard onChange={change} state={state} />
                 <ProjectionCard onChange={change} state={state} />
-                <TwoStrategiesCard />
+                <TwoStrategiesCard onChange={change} state={state} />
                 <BatchCard />
                 <SameEvCard />
                 <LeversCard />
+                <SpendPayoutCurveCard />
             </div>
         </>
     );

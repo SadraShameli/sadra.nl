@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { dollars, FundedDpModelGapKind } from '~/lib/prop-calculator/core';
 import {
     DP_ADVICE_SOLVER_VERSION,
     DpAdviceGap,
@@ -11,11 +10,12 @@ import {
     dpAdviceSamplesSchema,
     dpAdviceStaleness,
     DpAdviceStalenessReason,
-    DpSampleStage,
     DpSamplesKind,
+    DpSampleStage,
     DpSamplesUnavailableReason,
 } from '~/lib/prop-calculator/advisor/DpAdviceRow';
 import { SizingObjective } from '~/lib/prop-calculator/advisor/SizingObjective';
+import { dollars, FundedDpModelGapKind } from '~/lib/prop-calculator/core';
 
 const FINGERPRINT = 'a'.repeat(64);
 const OTHER_FINGERPRINT = 'b'.repeat(64);
@@ -41,6 +41,13 @@ const SAMPLED: DpAdviceSamples = {
     stage: DpSampleStage.Funded,
 };
 
+function fresh() {
+    return {
+        currentPlanRulesFingerprint: FINGERPRINT,
+        latestSnapshotId: 'snapshot-1',
+    };
+}
+
 function row(overrides: Partial<DpAdviceRow> = {}): DpAdviceRow {
     return {
         configKey: 'c'.repeat(64),
@@ -58,13 +65,6 @@ function row(overrides: Partial<DpAdviceRow> = {}): DpAdviceRow {
         validated: false,
         validationRef: null,
         ...overrides,
-    };
-}
-
-function fresh() {
-    return {
-        currentPlanRulesFingerprint: FINGERPRINT,
-        latestSnapshotId: 'snapshot-1',
     };
 }
 
@@ -244,7 +244,7 @@ describe('dpAdviceSamplesSchema', () => {
 
 describe('DP_ADVICE_SOLVER_VERSION', () => {
     it('is a positive integer (the solver_version column is an integer)', () => {
-        expect(Number.isInteger(DP_ADVICE_SOLVER_VERSION)).toBe(true);
+        expect(Number.isSafeInteger(DP_ADVICE_SOLVER_VERSION)).toBe(true);
         expect(DP_ADVICE_SOLVER_VERSION).toBeGreaterThan(0);
     });
 });

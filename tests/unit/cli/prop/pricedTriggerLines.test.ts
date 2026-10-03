@@ -10,10 +10,7 @@ import leversCommand, {
 import riskCommand, { riskArguments } from '~/cli/commands/prop/bankroll/risk';
 import compareCommand from '~/cli/commands/prop/compare/command';
 import optimizeFundedCommand from '~/cli/commands/prop/optimize/funded/command';
-import {
-    pricedTriggerLines,
-    TradingInputs,
-} from '~/cli/commands/prop/shared';
+import { pricedTriggerLines, TradingInputs } from '~/cli/commands/prop/shared';
 import simCommand, { simArguments } from '~/cli/commands/prop/sim/command';
 import {
     CumulativeAmountTrigger,
@@ -235,13 +232,7 @@ describe('the CLI prints the one priced-trigger wording (PT-36r, F-145)', () => 
     it('prints it above the split table in prop compare --splits', async () => {
         stubTrigger();
         const arguments_ = await compareArguments();
-        const argv = [
-            ...SMALL_SIM,
-            '--total-risk',
-            '2000',
-            '--splits',
-            '1,2',
-        ];
+        const argv = [...SMALL_SIM, '--total-risk', '2000', '--splits', '1,2'];
         const stdout = await capturedRun(
             compareCommand as never,
             parseArgs(argv, arguments_),

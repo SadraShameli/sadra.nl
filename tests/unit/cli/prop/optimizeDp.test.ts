@@ -2412,7 +2412,9 @@ describe('optimize dp run() solves the registered plan itself when the solver is
             vi.mocked(solveAverageRewardPolicy).mock.calls[0] ?? [];
         const plan = config?.objective.plan;
         expect(plan?.label).toBe('$50K · Zero MAX (80% payout)');
-        expect(plan === undefined ? null : findRegistryPlanId(plan)).not.toBeNull();
+        expect(
+            plan === undefined ? null : findRegistryPlanId(plan),
+        ).not.toBeNull();
         expect(stdout).toContain('objective: monthly net');
         expect(stdout).toContain('/month per account slot');
         expect(stdout).toContain('sample risk at the very first day');

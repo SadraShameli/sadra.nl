@@ -45,6 +45,7 @@ import { Switch } from '~/components/ui/Switch';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatPercent } from '~/lib/format';
 import { formatUsdCents, usdCents } from '~/lib/prop-accounts';
+import { recordedAtLiveText } from '~/lib/prop-accounts/firms';
 import { DayStopRuleKind, FirmId, fraction } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
@@ -76,7 +77,6 @@ import {
     hazardFieldSpec,
     type MeasuredHazard,
     parseText,
-    recordedAtLiveText,
     rulebookFormSchema,
     type RulebookFormValues,
     rulebookToFormValues,

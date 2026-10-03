@@ -26,6 +26,7 @@ import { reconstructedMaxRiskOf } from '~/app/(app)/prop-calculator/accounts/_co
 import { DeleteAccountDialog } from '~/app/(app)/prop-calculator/accounts/_components/DeleteAccountDialog';
 import {
     measuredRebuyLagOf,
+    type RebuyLagLine,
     RebuyLagLineKind,
 } from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
 import { AlertsCenter } from '~/app/(app)/prop-calculator/accounts/_components/overview/AlertsCenter';
@@ -74,7 +75,10 @@ import {
     upgradeChangeText,
 } from '~/lib/prop-accounts';
 import { type Plan } from '~/lib/prop-calculator';
-import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
+import {
+    type MeasuredRebuyLag,
+    type RulebookParameters,
+} from '~/lib/prop-calculator/advisor';
 import {
     PropRecord,
     type PropRejection,
@@ -218,6 +222,20 @@ export function AccountDetailView({
             ? undefined
             : trackedAccountOf(accountQuery.data);
     const today = useTodayIsoDate();
+    const rebuyLagPlanSerial =
+        account === undefined || account.tracking === AccountTracking.LedgerOnly
+            ? null
+            : account.planSerial;
+    const rebuyLag = useMemo(
+        () =>
+            measuredRebuyLagOf({
+                accounts: accountsQuery.data,
+                events: allEventsQuery.data,
+                planSerial: rebuyLagPlanSerial,
+                userId,
+            }),
+        [accountsQuery.data, allEventsQuery.data, rebuyLagPlanSerial, userId],
+    );
     const ledgerFailure = ledgerQueryFailureOf([
         {
             data: accountsQuery.data,
@@ -443,6 +461,11 @@ export function AccountDetailView({
                         firmPayoutCount={firmPayoutCount}
                         firmPayoutCountAt={firmPayoutCountAt}
                         fromStateDetail={fromStateDetail}
+                        measuredRebuyLag={
+                            rebuyLag?.kind === RebuyLagLineKind.Measured
+                                ? rebuyLag.value
+                                : null
+                        }
                         payoutsQuery={payoutsQuery}
                         plan={plan}
                         rulebook={rulebookQuery.data}
@@ -520,7 +543,7 @@ export function AccountDetailView({
                     account={account}
                     accountsQuery={accountsQuery}
                     eventsQuery={allEventsQuery}
-                    userId={userId}
+                    rebuyLag={rebuyLag}
                 />
             </DetailSection>
         </div>
@@ -652,6 +675,7 @@ function AccountStateSection({
     firmPayoutCount,
     firmPayoutCountAt,
     fromStateDetail,
+    measuredRebuyLag,
     payoutsQuery,
     plan,
     rulebook,
@@ -664,6 +688,7 @@ function AccountStateSection({
     readonly firmPayoutCount: FirmPayoutCountOutcome;
     readonly firmPayoutCountAt: (asOf: string) => FirmPayoutCountOutcome;
     readonly fromStateDetail: FromStateDetail;
+    readonly measuredRebuyLag: MeasuredRebuyLag | null;
     readonly payoutsQuery: ListQuery<PayoutRow>;
     readonly plan: Plan;
     readonly rulebook: RulebookParameters | undefined;
@@ -820,6 +845,7 @@ function AccountStateSection({
                             Simulate this account
                         </h3>
                         <SimulateAccountLink
+                            measuredRebuyLag={measuredRebuyLag}
                             personalMaxRiskPerTrade={reconstructedMaxRiskOf(
                                 view.state.account,
                             )}
@@ -860,21 +886,7 @@ function BustDiagnosisSubsection({
     );
 }
 
-function measuredLag(
-    accounts: readonly ListedAccount[],
-    events: readonly AccountEventRow[],
-    account: StoredAccount,
-    userId: string,
-): LagLine | null {
-    const line = measuredRebuyLagOf({
-        accounts,
-        events,
-        planSerial:
-            account.tracking === AccountTracking.LedgerOnly
-                ? null
-                : account.planSerial,
-        userId,
-    });
+function lagLineOf(line: null | RebuyLagLine): LagLine | null {
     if (line === null) return null;
     return line.kind === RebuyLagLineKind.Failed
         ? {
@@ -891,12 +903,12 @@ function ReplacementChain({
     account,
     accountsQuery,
     eventsQuery,
-    userId,
+    rebuyLag,
 }: {
     readonly account: StoredAccount;
     readonly accountsQuery: ListQuery<ListedAccount>;
     readonly eventsQuery: ListQuery<AccountEventRow>;
-    readonly userId: string;
+    readonly rebuyLag: null | RebuyLagLine;
 }) {
     const accounts = accountsQuery.data;
     const events = eventsQuery.data;
@@ -905,7 +917,7 @@ function ReplacementChain({
             accounts === undefined || events === undefined
                 ? null
                 : {
-                      lag: measuredLag(accounts, events, account, userId),
+                      lag: lagLineOf(rebuyLag),
                       replacedBy: accounts.filter(
                           (candidate) =>
                               candidate.replacesAccountId === account.id,
@@ -916,7 +928,7 @@ function ReplacementChain({
                                   candidate.id === account.replacesAccountId,
                           ) ?? null,
                   },
-        [account, accounts, events, userId],
+        [account, accounts, events, rebuyLag],
     );
     return (
         <>

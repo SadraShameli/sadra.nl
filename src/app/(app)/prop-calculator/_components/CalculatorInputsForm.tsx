@@ -4,6 +4,7 @@ import { type ReactNode } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { Input } from '~/components/ui/Input';
+import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 import { cn } from '~/lib/utilities';
 
 import {
@@ -19,6 +20,8 @@ import FirmPlanPicker from './FirmPlanPicker';
 import PlanStatsBadges from './PlanStatsBadges';
 import { tradingInputBounds } from './tradingInputBounds';
 import TradingInputs from './TradingInputs';
+
+const REBUY_LAG_STEP = 0.5;
 
 interface CalculatorInputsFormProperties {
     aside?: ReactNode;
@@ -165,6 +168,32 @@ export function CalculatorInputsForm({
                             Funded trading days simulated after a pass. Funded
                             survival, payouts and the horizon credit in monthly
                             net are measured over this window.
+                        </p>
+                        <label
+                            className="mt-4 mb-1 block text-xs font-medium text-muted-foreground"
+                            htmlFor="rebuy-lag-days"
+                        >
+                            {CALCULATOR_FIELD_LABELS.rebuyLagDays}
+                        </label>
+                        <Input
+                            id="rebuy-lag-days"
+                            max={CALCULATOR_SCALAR_BOUNDS.rebuyLag.max}
+                            min={CALCULATOR_SCALAR_BOUNDS.rebuyLag.min}
+                            onChange={(event) =>
+                                actions.setRebuyLagDays(
+                                    Number(event.target.value),
+                                )
+                            }
+                            step={REBUY_LAG_STEP}
+                            type="number"
+                            value={state.rebuyLagDays}
+                        />
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            Trading days an account slot sits empty before each
+                            eval attempt, the first included: rebuy, credential
+                            delivery, activation review. Zero is the engine
+                            default; the account page offers the lag measured
+                            from your own replacements.
                         </p>
                     </div>
                 </Card>

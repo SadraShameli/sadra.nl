@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -87,5 +88,52 @@ describe('SizingAdvisor context template method (review MEDIUM)', () => {
         expect(sourceOf(LIVE_PATH)).toMatch(
             /buildContextOrNull\(\): LiveRuleContext \| null/,
         );
+    });
+});
+
+const NON_NEGATIVE_DOLLARS_SCHEMA_DEFINITION =
+    /^(?:export )?const nonNegativeDollarsSchema\b/m;
+const NON_NEGATIVE_DOLLARS_SCHEMA_HOME = path.join(
+    'src',
+    'lib',
+    'prop-calculator',
+    'core',
+    'lib',
+    'units.ts',
+);
+
+function sourceFilesUnder(relativeDirectory: string): string[] {
+    return readdirSync(path.join(REPO_ROOT, relativeDirectory), {
+        recursive: true,
+    })
+        .map((entry) => path.join(relativeDirectory, entry.toString()))
+        .filter((file) => /\.tsx?$/.test(file));
+}
+
+describe('one non-negative dollars schema (PT-105 step 8, F-103)', () => {
+    it('defines nonNegativeDollarsSchema once in src/lib, in core/lib/units.ts', async () => {
+        const files = sourceFilesUnder(path.join('src', 'lib'));
+        const texts = await Promise.all(
+            files.map((file) => readFile(path.join(REPO_ROOT, file), 'utf8')),
+        );
+
+        const definitions = files.filter((_, index) =>
+            NON_NEGATIVE_DOLLARS_SCHEMA_DEFINITION.test(texts[index] ?? ''),
+        );
+
+        expect(definitions).toStrictEqual([NON_NEGATIVE_DOLLARS_SCHEMA_HOME]);
+    });
+
+    it('imports it into RuleContext instead of declaring its own', () => {
+        const text = readFileSync(
+            path.join(
+                REPO_ROOT,
+                'src/lib/prop-calculator/advisor/RuleContext.ts',
+            ),
+            'utf8',
+        );
+
+        expect(text).not.toMatch(NON_NEGATIVE_DOLLARS_SCHEMA_DEFINITION);
+        expect(text).toMatch(/\bnonNegativeDollarsSchema,/);
     });
 });

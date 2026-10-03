@@ -74,7 +74,8 @@ const LIVE_SNAPSHOT: AccountSnapshotInput = {
 
 function optionsFor(
     snapshot: AccountSnapshotInput,
-    positionSizing: null | typeof NQ_AT_20_POINTS | typeof NQ_AT_500_POINTS | undefined,
+    positionSizing:
+        null | typeof NQ_AT_20_POINTS | typeof NQ_AT_500_POINTS | undefined,
 ) {
     const plan = topStepPlan();
     const account = AccountReconstruction.rebuild(

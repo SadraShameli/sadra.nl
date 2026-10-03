@@ -1,11 +1,43 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../../..');
 
+interface SourceFile {
+    file: string;
+    text: string;
+}
+
+function filesCalling(sources: readonly SourceFile[], call: RegExp): string[] {
+    return sources
+        .filter(({ text }) => call.test(text))
+        .map(({ file }) => file)
+        .toSorted((a, b) => a.localeCompare(b));
+}
+
 function occurrences(text: string, pattern: RegExp): number {
     return (text.match(new RegExp(pattern, 'g')) ?? []).length;
+}
+
+async function readSourceFiles(): Promise<SourceFile[]> {
+    const entries = readdirSync(path.join(REPO_ROOT, 'src'), {
+        recursive: true,
+        withFileTypes: true,
+    }).filter((entry) => entry.isFile() && /\.tsx?$/.test(entry.name));
+    return Promise.all(
+        entries.map(async (entry) => {
+            const absolute = path.join(entry.parentPath, entry.name);
+            return {
+                file: path
+                    .relative(REPO_ROOT, absolute)
+                    .split(path.sep)
+                    .join('/'),
+                text: await readFile(absolute, 'utf8'),
+            };
+        }),
+    );
 }
 
 function textOf(relativePath: string): string {
@@ -68,16 +100,16 @@ describe('bankroll risk helper duplication (PT-62d)', () => {
     });
 
     it('reuses the shared mean helper instead of redeclaring meanOf across the bankroll risk summary and the page model', () => {
-        const summaryText = textOf(
-            'src/lib/prop-calculator/economics/BankrollRiskSummary.ts',
+        const curveText = textOf(
+            'src/lib/prop-calculator/economics/BankrollCurve.ts',
         );
         const modelText = textOf(
             'src/app/(app)/prop-calculator/_components/bankroll/bankrollModel.ts',
         );
-        for (const text of [summaryText, modelText]) {
+        for (const text of [curveText, modelText]) {
             expect(occurrences(text, /function meanOf\(/)).toBe(0);
         }
-        expect(summaryText).toMatch(
+        expect(curveText).toMatch(
             /import\s*{[^}]*mean[^}]*}\s*from\s*'~\/lib\/prop-calculator\/stats'/,
         );
         expect(modelText).toMatch(
@@ -87,7 +119,8 @@ describe('bankroll risk helper duplication (PT-62d)', () => {
 });
 
 describe('one bankroll loss-risk helper (PT-63b, PT-63d)', () => {
-    const ASSEMBLING_CALLS = /\b(attemptsAffordable|cohortOutcome|noPayoutProbability)\(/;
+    const ASSEMBLING_CALLS =
+        /\b(attemptsAffordable|cohortOutcome|noPayoutProbability)\(/;
     const HELPER = 'src/lib/prop-calculator/economics/BankrollRiskFigures.ts';
     const DEFINITIONS = [
         'src/lib/prop-calculator/economics/CohortOutcome.ts',
@@ -104,6 +137,7 @@ describe('one bankroll loss-risk helper (PT-63b, PT-63d)', () => {
         'src/lib/prop-accounts/bankroll/RealizedLossRisk.ts',
         'src/lib/prop-accounts/bankroll/RoundReturns.ts',
         'src/lib/prop-accounts/planning/NextSlotAllocation.ts',
+        'src/lib/prop-calculator/economics/BankrollCurve.ts',
         'src/lib/prop-calculator/economics/BankrollLevers.ts',
     ];
 
@@ -163,7 +197,58 @@ describe('one bankroll loss-risk helper (PT-63b, PT-63d)', () => {
         const workerText = textOf(
             'src/app/(app)/prop-calculator/_workers/toolsWorker.ts',
         );
-        expect(workerText).not.toMatch(/\b(attemptsAffordable|noPayoutProbability)\(/);
+        expect(workerText).not.toMatch(
+            /\b(attemptsAffordable|noPayoutProbability)\(/,
+        );
         expect(workerText).toMatch(/bankrollRisk\(/);
+    });
+});
+
+describe('one compound loss-risk curve (PT-80)', () => {
+    const CURVE = 'src/lib/prop-calculator/economics/BankrollCurve.ts';
+    let sources: SourceFile[] = [];
+
+    beforeAll(async () => {
+        sources = await readSourceFiles();
+    });
+
+    it('is the only place that scans a loss-target budget, and only on the compound curve', () => {
+        expect(
+            filesCalling(sources, /\bminimumBudgetForLossTarget\(/),
+        ).toStrictEqual([
+            CURVE,
+            'src/lib/prop-calculator/economics/LossRisk.ts',
+        ]);
+        expect(textOf(CURVE)).not.toMatch(/\bbatchLossClosedForm\(/);
+    });
+
+    it('builds the loss curve in one helper and reaches it only through compoundMinimumBudget', () => {
+        expect(filesCalling(sources, /\blossProbabilityCurve\(/)).toStrictEqual(
+            [CURVE],
+        );
+        expect(
+            filesCalling(sources, /\bcompoundMinimumBudget\(/),
+        ).toStrictEqual([
+            'src/lib/prop-accounts/bankroll/RealizedLossRisk.ts',
+            CURVE,
+            'src/lib/prop-calculator/economics/BankrollRiskSummary.ts',
+        ]);
+    });
+
+    it('keeps the one-value binomial in the summary only as the cross-check', () => {
+        const summaryText = textOf(
+            'src/lib/prop-calculator/economics/BankrollRiskSummary.ts',
+        );
+        expect(occurrences(summaryText, /\bbatchLossClosedForm\(/)).toBe(1);
+        expect(summaryText).toMatch(/closedFormCrossCheck/);
+        expect(
+            textOf('src/lib/prop-accounts/bankroll/RealizedLossRisk.ts'),
+        ).not.toMatch(/batchLossClosedForm/);
+    });
+
+    it('prices the spend-vs-payout curve through bankrollCohortRisk', () => {
+        const text = textOf(CURVE);
+        expect(text).toMatch(/\bbankrollCohortRisk\(/);
+        expect(text).not.toMatch(/\bcohortOutcome\(/);
     });
 });

@@ -86,9 +86,9 @@ describe('PayoutTimingCard', () => {
         const cells = [...container.querySelectorAll(':scope tbody td')].map(
             (cell) => cell.textContent,
         );
-        expect(
-            container.querySelector(':scope tbody th')?.textContent,
-        ).toBe('Plan A');
+        expect(container.querySelector(':scope tbody th')?.textContent).toBe(
+            'Plan A',
+        );
         expect(cells[0]).toContain('25.0 days');
         expect(cells[0]).toContain('SE 5.0 days');
         expect(cells[0]).toContain('n = 2');

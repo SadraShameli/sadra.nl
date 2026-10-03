@@ -10,7 +10,8 @@ type SetupStepModel = SetupChecklistCardModel['steps'][number];
 const NOT_CHECKED_TEXT: Readonly<Record<SetupStep, string>> = {
     [SetupStep.BudgetSet]: 'Budget: checked on the overview',
     [SetupStep.CostsEntered]: 'Costs: checked on the overview',
-    [SetupStep.ExpectedValueComputed]: 'Expected value: checked on the overview',
+    [SetupStep.ExpectedValueComputed]:
+        'Expected value: checked on the overview',
     [SetupStep.FirmRulesVerified]: 'Firm rules: checked on the overview',
     [SetupStep.StagesCaptured]: 'Stages: checked on the overview',
 };
@@ -65,7 +66,8 @@ export function SetupChecklistCompact({
                 steps done.{' '}
                 {hasUncheckedStep && (
                     <>
-                        The count leaves out the steps checked on the overview.{' '}
+                        The count leaves out the steps checked on the
+                        overview.{' '}
                     </>
                 )}
                 <Link className="underline underline-offset-4" href={href}>

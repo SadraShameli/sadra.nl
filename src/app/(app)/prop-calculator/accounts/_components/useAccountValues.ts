@@ -605,7 +605,10 @@ function modeledPrepared(inputs: ModeledPreparationInputs): PreparedAccount {
                 accountId,
                 events: inputs.events,
                 firmCountAt: (asOf) =>
-                    firmPayoutCountOrNull(inputs.firmCountsAt(asOf), plan.id.firm),
+                    firmPayoutCountOrNull(
+                        inputs.firmCountsAt(asOf),
+                        plan.id.firm,
+                    ),
                 payouts: inputs.payouts,
                 plan,
                 rulebook: inputs.rulebook,

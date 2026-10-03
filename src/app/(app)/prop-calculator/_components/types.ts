@@ -60,6 +60,7 @@ export interface CalculatorState {
     payoutRequestSize: null | number;
     plan: Plan;
     portfolio: PortfolioEntry[];
+    rebuyLagDays: number;
     resetDiscountPercent: number;
     retainedCushion: null | number;
     riskDollars: number;

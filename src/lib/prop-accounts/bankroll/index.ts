@@ -18,11 +18,7 @@ export {
     realizedLossRisk,
     type RealizedLossRiskInputs,
 } from './RealizedLossRisk';
-export {
-    type RoundBudgetStatus,
-    roundBudgetStatus,
-    willExceedRoundBudget,
-} from './RoundBudget';
+export { type RoundBudgetStatus, roundBudgetStatus } from './RoundBudget';
 export { roundCycle, type RoundCycleStats } from './RoundCycle';
 export {
     type RoundBootstrapInterval,

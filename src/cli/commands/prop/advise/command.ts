@@ -3,12 +3,14 @@ import { z } from 'zod';
 
 import {
     commissionArgument,
+    describeStopRule,
     formatCurrencyWithSe,
     formatNumberWithSe,
     formatPercentWithSe,
     monteCarloArguments,
     planArguments,
     planResolver,
+    planVariant,
     readNonNegativeInteger,
     readNonNegativeNumber,
     readPositiveInteger,
@@ -34,6 +36,7 @@ import {
 } from '~/lib/prop-accounts/snapshots';
 import {
     ALL_FIRMS,
+    CENTS_PER_DOLLAR,
     dollars,
     type Dollars,
     findFirm,
@@ -54,12 +57,15 @@ import {
     type Advice,
     type AdviceProvenance,
     AdviceSource,
+    AdviceStalenessKind,
     AdviceStalenessReason,
     assertPlausibleSnapshot,
     assumptionText,
     BELOW_ONE_CONTRACT_TEXT,
     buildEnginePolicy,
+    ConsistencyCeilingNote,
     createSizingAdvisor,
+    type DailyPlanCard,
     DailyProfitCapKind,
     DashboardBalanceConvention,
     DAY_STOP_REASON_TEXT,
@@ -69,12 +75,15 @@ import {
     DifferenceReason,
     differenceReasonText,
     type DocumentedSizing,
+    type EngineOptimum,
     type EngineOptimumRequest,
     type EngineOptimumRunnerResult,
     EvalSizingMode,
     FundedFromStateOptimumResultKind,
     type FundedSweepOptimumResult,
     FundedSweepOptimumResultKind,
+    FundedWinnerPolicyKind,
+    fundedWinnerRiskAt,
     ImplausibleSnapshotError,
     isPlacementChecked,
     type LadderEngineOptimumResult,
@@ -82,6 +91,8 @@ import {
     LadderFractionSource,
     ladderRefusalText,
     type LadderSearchRequest,
+    type LedgerLadderRow,
+    ledgerRecordedLadderFor,
     liveTriggerCountText,
     liveTriggerLimitsFor,
     NEXT_PAYOUT_AMONG_PAYING_TEXT,
@@ -95,6 +106,8 @@ import {
     type PayoutAdvice,
     type PayoutBlockReason,
     PayoutBlockReasonKind,
+    type PayoutCap,
+    PayoutCapKind,
     type PayoutRequestDecision,
     PayoutRequestDecisionKind,
     type PayoutSizeSweepResult,
@@ -105,6 +118,7 @@ import {
     type PersonalPayoutOverrideResult,
     personalPayoutOverrideWarningText,
     type ReconstructedAccount,
+    RETAINED_CUSHION_BASIS_TEXT,
     type RulebookParameters,
     rulebookSchema,
     runEngineOptimum,
@@ -115,6 +129,7 @@ import {
     type SizingAdvisor,
     type SizingAdvisorCreateOptions,
     SizingAssumption,
+    SizingConstraint,
     sizingObjectiveText,
     type SizingPlacement,
     SizingStage,
@@ -140,6 +155,10 @@ import {
     valueGap,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
+import {
+    firmDataProvenance,
+    planRulesFingerprint,
+} from '~/lib/prop-calculator/describe';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
 export enum NextTradeRiskReportKind {
@@ -489,13 +508,19 @@ export function adviceReportLines(
     advice: Advice,
     enteredStopPoints: null | number = null,
     enteredInstrument: InstrumentSymbol | null = null,
+    plan: null | Plan = null,
 ): string[] {
     const lines: string[] = [advice.headline];
-    if (advice.staleness.kind === 'stale') {
+    const openItems =
+        plan === null
+            ? []
+            : firmOpenItemLines(firmDataProvenance(plan.id.firm).openItems);
+    if (advice.staleness.kind === AdviceStalenessKind.Stale) {
         return [
             ...lines,
             `Stale as of ${advice.staleness.snapshotAsOf} (${staleReasonWords(advice.staleness.reasons)}): ${staleRemedy(advice.staleness.reasons)}.`,
             provenanceLine(advice.provenance),
+            ...openItems,
         ];
     }
     if (advice.documented !== null) {
@@ -516,17 +541,30 @@ export function adviceReportLines(
             ),
         );
     }
+    if (advice.dailyPlanCard !== null) {
+        lines.push(...dailyPlanCardLines(advice.dailyPlanCard));
+    }
     if (advice.payoutAdvice !== null) {
         lines.push(...payoutAdviceLines(advice.payoutAdvice));
     }
-    lines.push(...engineOptimaLines(advice.optima, advice.requests));
+    lines.push(
+        ...engineOptimaLines(
+            advice.optima,
+            advice.requests,
+            advice.dailyPlanCard?.cushion ?? null,
+        ),
+    );
+    if (plan !== null && advice.stage === SizingStage.Eval) {
+        const row = ledgerRecordedLadderFor(plan.id.firm, variantKeyOf(plan));
+        if (row !== null) lines.push(ledgerLadderLine(row));
+    }
     for (const reason of advice.differenceReasons) {
         lines.push(differenceReasonText(reason));
     }
     for (const assumption of advice.assumptions) {
         lines.push(assumptionText(assumption));
     }
-    lines.push(provenanceLine(advice.provenance));
+    lines.push(provenanceLine(advice.provenance), ...openItems);
     return lines;
 }
 
@@ -558,7 +596,7 @@ export function engineResultsFor(
     advisor: SizingAdvisor,
     plan: Plan,
 ): EngineOptimumRunnerResult[] {
-    return advisor.staleness().kind === 'stale'
+    return advisor.staleness().kind === AdviceStalenessKind.Stale
         ? []
         : advisor
               .optimumRequests()
@@ -572,7 +610,7 @@ export default defineCommand({
             'Advise sizing for one reconstructed account (--firm, --variant, --stage) from a snapshot: eval ladder, funded flat risk, or live percent of cushion',
         name: 'advise',
     },
-    run(context) {
+    async run(context) {
         let spinner: ReturnType<typeof ui.spinner> | undefined;
         try {
             if (context.args.matrix) {
@@ -602,7 +640,10 @@ export default defineCommand({
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
             );
-            const advisor = createSizingAdvisor(account, options);
+            const advisor = createSizingAdvisor(
+                account,
+                await withCurrentPlanRulesFingerprint(options, plan),
+            );
             const advice = advisor.assemble(engineResultsFor(advisor, plan));
             const riskReport =
                 riskInputs === null
@@ -621,6 +662,7 @@ export default defineCommand({
                     advice,
                     enteredStopPoints,
                     options.positionSizing?.instrument ?? null,
+                    plan,
                 ),
                 ...firmPayoutCountLines(plan, stage, options),
             ];
@@ -879,6 +921,14 @@ function checkRequiredSnapshotFields(
     }
 }
 
+const CONSISTENCY_NOTE_TEXT: Readonly<Record<ConsistencyCeilingNote, string>> =
+    {
+        [ConsistencyCeilingNote.AlreadyPushedOut]:
+            "consistency: the best day of this payout cycle already exceeds what today's profit could dilute, so the payout is already pushed out and no rung is capped for it",
+        [ConsistencyCeilingNote.FreshCycle]:
+            'consistency: this cycle has no profit yet, so no ceiling applies today; on the first profitable day its best day is all of the cycle profit, and the rule is checked at the payout request',
+    };
+
 const RISK_CHECK_NO_RUNG_REASON =
     'no documented rung applies to this account, so there is nothing to check the proposed risk against';
 
@@ -915,7 +965,7 @@ export function documentedSizingLines(
     placement: null | SizingPlacement = null,
 ): string[] {
     const lines: string[] = [
-        `provenance: ${sizing.provenance}, reward multiple ${sizing.rewardMultiple}, stop ${JSON.stringify(sizing.stopRule)}`,
+        `provenance: ${sizing.provenance}, reward multiple ${sizing.rewardMultiple}, stop ${describeStopRule(sizing.stopRule)}`,
     ];
     let rungIndex = 0;
     for (const rung of sizing.rungs) {
@@ -955,6 +1005,12 @@ export function documentedSizingLines(
     return lines;
 }
 
+export function firmOpenItemLines(openItems: readonly string[]): string[] {
+    return openItems.length === 0
+        ? ['firm data: no open items']
+        : openItems.map((item) => `firm data open item: ${item}`);
+}
+
 export function firmPayoutCountLines(
     plan: Plan,
     stage: SizingStage,
@@ -985,6 +1041,13 @@ export function firmPayoutCountLines(
     ];
 }
 
+export function ledgerLadderLine(row: LedgerLadderRow): string {
+    const stale = row.stale
+        ? ' (stale: the ledger index no longer marks this run current)'
+        : '';
+    return `ledger-recorded ladder (eval, fastest to funded) [${row.ladder.join(', ')}]: days to funded ${row.daysToFunded.toFixed(1)}, pass rate ${formatPercent(row.passRate)}, cost/funded ${formatCurrency(row.costPerFundedAccount)}; source ${row.provenance.file}, row "${row.provenance.row}", section "${row.provenance.section}"${stale}`;
+}
+
 export function nextTradeRiskCheckLines(
     result: NextTradeRiskCheckResult,
     day?: DayProgress,
@@ -1007,7 +1070,7 @@ export function nextTradeRiskCheckLines(
     }
     if (result.excessCents > 0) {
         lines.push(
-            `excess above the cap: ${formatCurrency(result.excessCents / 100)}`,
+            `excess above the cap: ${formatCurrency(result.excessCents / CENTS_PER_DOLLAR)}`,
         );
     }
     if (result.payoutEligibleAboveRung) {
@@ -1082,6 +1145,38 @@ function coverageLineFor(
         : `${label}: unsupported (${COVERAGE_UNSUPPORTED_REASON_TEXT[outcome.reason]})`;
 }
 
+function dailyPlanCardLines(card: DailyPlanCard): string[] {
+    const lines = [
+        card.maxTradesPerWindow === 1
+            ? 'window rule: one trade per window'
+            : `window rule: ${card.maxTradesPerWindow} trades per window`,
+        `daily loss cap: ${formatCurrency(card.dailyLossCap.amount, 2)} (${SIZING_CONSTRAINT_TEXT[card.dailyLossCap.constraint]})`,
+    ];
+    if (card.dailyLossRoom !== null) {
+        lines.push(
+            `daily loss room at the start of the day: ${formatCurrency(card.dailyLossRoom, 2)}`,
+        );
+    }
+    if (card.profitCeiling !== null) {
+        lines.push(
+            `profit ceiling today: ${formatCurrency(card.profitCeiling.amount, 2)} (${SIZING_CONSTRAINT_TEXT[card.profitCeiling.constraint]})`,
+        );
+    }
+    if (
+        card.dailyProfitCeiling !== null &&
+        card.dailyProfitCeiling.constraint === SizingConstraint.PersonalCap
+    ) {
+        lines.push(
+            `personal daily profit cap: ${formatCurrency(card.dailyProfitCeiling.amount, 2)}`,
+        );
+    }
+    if (card.consistencyNote !== null) {
+        lines.push(CONSISTENCY_NOTE_TEXT[card.consistencyNote]);
+    }
+    lines.push(DAY_STOP_REASON_TEXT[card.stopReason]);
+    return lines;
+}
+
 function documentedPolicySpecFor(
     account: ReconstructedAccount,
     plan: Plan,
@@ -1115,11 +1210,16 @@ function documentedPolicySpecFor(
 function engineOptimaLines(
     results: readonly EngineOptimumRunnerResult[],
     requests: readonly EngineOptimumRequest[],
+    cushion: null | number,
 ): string[] {
     return results.flatMap((result): string[] => {
         switch (result.source) {
             case AdviceSource.FundedSweepFresh: {
-                return fundedSweepLines('fresh funded sweep', result.sweep);
+                return fundedSweepLines(
+                    'fresh funded sweep',
+                    result.sweep,
+                    cushion,
+                );
             }
             case AdviceSource.FundedSweepFromState: {
                 if (
@@ -1158,14 +1258,25 @@ function engineOptimaLines(
 function fundedSweepLines(
     label: string,
     sweep: FundedSweepOptimumResult,
+    cushion: null | number,
 ): string[] {
     if (sweep.kind === FundedSweepOptimumResultKind.NoCandidates) {
         return [`${label}: no candidates (${sweep.refusal.kind})`];
     }
     const { optimum } = sweep;
     return [
-        `${label}: ${optimum.label}, monthly net ${formatCurrencyWithSe(optimum.expectedMonthlyNet, optimum.expectedMonthlyNetStandardError)}, monthly ex-credit ${formatCurrencyWithSe(optimum.expectedMonthlyRealizedNet, optimum.expectedMonthlyRealizedNetStandardError)}, survivors ${optimum.survivors}`,
+        `${label}: ${fundedWinnerText(optimum, cushion)}, monthly net ${formatCurrencyWithSe(optimum.expectedMonthlyNet, optimum.expectedMonthlyNetStandardError)}, monthly ex-credit ${formatCurrencyWithSe(optimum.expectedMonthlyRealizedNet, optimum.expectedMonthlyRealizedNetStandardError)}, survivors ${optimum.survivors}`,
     ];
+}
+
+function fundedWinnerText(
+    optimum: EngineOptimum,
+    cushion: null | number,
+): string {
+    return cushion !== null &&
+        optimum.policy.kind === FundedWinnerPolicyKind.PercentOfCushion
+        ? `${optimum.label} = ${formatCurrency(fundedWinnerRiskAt(optimum.policy, cushion), 2)} at your cushion of ${formatCurrency(cushion, 2)}`
+        : optimum.label;
 }
 
 function ladderGridLine(request: LadderSearchRequest): string {
@@ -1195,6 +1306,10 @@ function ladderSearchLines(
         ...gridLines,
         `  fastest-to-funded ladder (eval-stage proxy for MonthlyNet, Hard Rule 3) [${winner.ladder.join(', ')}]: days to funded ${formatNumberWithSe(winner.expectedDaysToFunded, winner.expectedDaysToFundedStandardError, 1)}, pass rate ${formatPercentWithSe(winner.passRate, winner.passRateStandardError)}, cost/funded ${formatCurrencyWithSe(winner.costPerFunded, winner.costPerFundedStandardError)}`,
     ];
+}
+
+function limitsWithdrawableText(isLimiting: boolean): string {
+    return isLimiting ? ', limits the withdrawable' : '';
 }
 
 function nextPayoutProjectionLine(projection: NextPayoutProjection): string {
@@ -1229,7 +1344,26 @@ function nextPayoutTimingText(projection: NextPayoutProjection): string {
 }
 
 function payoutAdviceLines(advice: PayoutAdvice): string[] {
-    return payoutDecisionLines(advice.documented);
+    const lines = payoutDecisionLines(advice.documented);
+    if (advice.ruleCappedWithdrawable !== null) {
+        lines.push(
+            `rule-capped withdrawable: ${formatCurrency(advice.ruleCappedWithdrawable, 2)}`,
+        );
+    }
+    for (const cap of advice.caps) {
+        lines.push(payoutCapLine(cap));
+    }
+    if (advice.engineHorizonCredit !== null) {
+        lines.push(
+            `engine horizon credit: ${formatCurrency(advice.engineHorizonCredit, 2)}`,
+        );
+    }
+    if (advice.netAfterSplit !== null) {
+        lines.push(
+            `net after the payout split: ${formatCurrency(advice.netAfterSplit, 2)}`,
+        );
+    }
+    return lines;
 }
 
 function payoutBlockReasonLines(reason: PayoutBlockReason): string[] {
@@ -1248,6 +1382,20 @@ function payoutBlockReasonLines(reason: PayoutBlockReason): string[] {
     }
 }
 
+function payoutCapLine(cap: PayoutCap): string {
+    switch (cap.kind) {
+        case PayoutCapKind.BalanceShare: {
+            return `payout cap: ${formatPercent(cap.share)} of the account profit, ${formatCurrency(cap.amount, 2)}${limitsWithdrawableText(cap.limitsWithdrawable)}`;
+        }
+        case PayoutCapKind.RemainingPayouts: {
+            return `payouts left before the lifetime cap: ${cap.remaining}`;
+        }
+        case PayoutCapKind.RequestCap: {
+            return `payout cap: ${formatCurrency(cap.amount, 2)} per request${limitsWithdrawableText(cap.limitsWithdrawable)}`;
+        }
+    }
+}
+
 function payoutDecisionLines(decision: PayoutRequestDecision): string[] {
     switch (decision.kind) {
         case PayoutRequestDecisionKind.NotEligible: {
@@ -1255,7 +1403,7 @@ function payoutDecisionLines(decision: PayoutRequestDecision): string[] {
         }
         case PayoutRequestDecisionKind.Request: {
             const lines = [
-                `payout: request ${formatCurrency(decision.requestAmount)}, retained cushion ${formatCurrency(decision.retainedCushion)} (${decision.retainedCushionBasis})`,
+                `payout: request ${formatCurrency(decision.requestAmount, 2)}, retained cushion ${formatCurrency(decision.retainedCushion, 2)} (${RETAINED_CUSHION_BASIS_TEXT[decision.retainedCushionBasis]})`,
             ];
             if (decision.notice !== null) {
                 lines.push(
@@ -1279,9 +1427,8 @@ function payoutSizeSweepLines(sweep: PayoutSizeSweepResult): string[] {
     }
     const { optimum } = sweep;
     const { winner } = optimum;
-    const winnerValue = payoutSweepRowValue(winner);
     const lines = [
-        `payout-size sweep: $${winner.requestSize} requested, credit-sensitive ${String(optimum.creditSensitive)}, monthly net ${formatCurrencyWithSe(winnerValue.value, winnerValue.standardError)}`,
+        `payout-size sweep: ${formatCurrency(winner.requestSize)} requested, credit-sensitive ${String(optimum.creditSensitive)}, ${payoutSweepRowFigures(winner)}`,
     ];
     if (optimum.personalOverride !== null) {
         lines.push(...personalPayoutOverrideLines(optimum.personalOverride));
@@ -1289,17 +1436,24 @@ function payoutSizeSweepLines(sweep: PayoutSizeSweepResult): string[] {
     return lines;
 }
 
-function payoutSweepRowValue(row: PayoutSizeSweepRow): UncertainValue {
-    return row.kind === StartBasis.Fresh
-        ? {
-              standardError: row.out.estimates.expectedMonthlyNet.standardError,
-              value: row.out.expectedMonthlyNet,
-          }
-        : {
-              standardError:
-                  row.out.estimates.fromStateExpectedCash.standardError,
-              value: row.out.fromStateExpectedCash,
-          };
+function payoutSweepRowFigures(row: PayoutSizeSweepRow): string {
+    const bust = `bust rate ${formatPercentWithSe(row.out.fundedBustProbability, row.out.estimates.fundedBustProbability.standardError)}`;
+    if (row.kind === StartBasis.Fresh) {
+        const { estimates, expectedMonthlyNet, expectedMonthlyRealizedNet } =
+            row.out;
+        return [
+            `monthly net ${formatCurrencyWithSe(expectedMonthlyNet, estimates.expectedMonthlyNet.standardError)}`,
+            `monthly ex-credit ${formatCurrencyWithSe(expectedMonthlyRealizedNet, estimates.expectedMonthlyRealizedNet.standardError)}`,
+            bust,
+        ].join(', ');
+    }
+    const { estimates, fromStateExpectedCash, fromStateExpectedRealizedCash } =
+        row.out;
+    return [
+        `expected cash from here ${formatCurrencyWithSe(fromStateExpectedCash, estimates.fromStateExpectedCash.standardError)}`,
+        `ex-credit ${formatCurrencyWithSe(fromStateExpectedRealizedCash, estimates.fromStateExpectedRealizedCash.standardError)}`,
+        bust,
+    ].join(', ');
 }
 
 function payoutWaitLine(wait: PayoutWait): string {
@@ -1322,9 +1476,8 @@ function payoutWaitLine(wait: PayoutWait): string {
 function personalPayoutOverrideLines(
     override: PersonalPayoutOverrideResult,
 ): string[] {
-    const overrideValue = payoutSweepRowValue(override.row);
     const lines = [
-        `payout-size sweep personal override: $${override.row.requestSize} requested, monthly net ${formatCurrencyWithSe(overrideValue.value, overrideValue.standardError)}`,
+        `payout-size sweep personal override: ${formatCurrency(override.row.requestSize)} requested, ${payoutSweepRowFigures(override.row)}`,
     ];
     if (override.warning !== null) {
         lines.push(personalPayoutOverrideWarningText(override.warning));
@@ -1344,7 +1497,7 @@ function provenanceLine(provenance: AdviceProvenance): string {
         parts.push(`firm data verified ${provenance.firmDataDate}`);
     }
     if (provenance.planRulesFingerprint !== null) {
-        parts.push(`plan rules ${provenance.planRulesFingerprint}`);
+        parts.push(`plan rules fingerprint ${provenance.planRulesFingerprint}`);
     }
     if (provenance.seed !== null) parts.push(`seed ${provenance.seed}`);
     if (provenance.trials !== null) parts.push(`trials ${provenance.trials}`);
@@ -1382,7 +1535,7 @@ function readRulebook(arguments_: AdviseArguments): RulebookParameters {
                     ? DEFAULT_RULEBOOK.payout.requestCents
                     : Math.round(
                           readPositiveNumber(requestSizeRaw, 'request-size') *
-                              100,
+                              CENTS_PER_DOLLAR,
                       ),
             retainedCushionCents:
                 retainCushionRaw === undefined
@@ -1391,7 +1544,7 @@ function readRulebook(arguments_: AdviseArguments): RulebookParameters {
                           readNonNegativeNumber(
                               retainCushionRaw,
                               'retain-cushion',
-                          ) * 100,
+                          ) * CENTS_PER_DOLLAR,
                       ),
         },
         strategy: {
@@ -1502,7 +1655,7 @@ function riskCheckNotRunReason(advisor: SizingAdvisor): string {
         return differenceReasonText({ kind: DifferenceReason.Suspended });
     }
     const staleness = advisor.staleness();
-    return staleness.kind === 'stale'
+    return staleness.kind === AdviceStalenessKind.Stale
         ? `the advice is stale as of ${staleness.snapshotAsOf} (${staleReasonWords(staleness.reasons)}), so there is no documented rung to check against: ${staleRemedy(staleness.reasons)}`
         : RISK_CHECK_NO_RUNG_REASON;
 }
@@ -1598,4 +1751,22 @@ function uncertainCurrency(value: UncertainValue): string {
     return value.standardError === null
         ? formatCurrency(value.value)
         : `${formatCurrency(value.value)} (SE ${formatCurrency(value.standardError)})`;
+}
+
+function variantKeyOf(plan: Plan): null | string {
+    const variant = planVariant(plan);
+    return variant === '' ? null : variant;
+}
+
+async function withCurrentPlanRulesFingerprint(
+    options: SizingAdvisorCreateOptions,
+    plan: Plan,
+): Promise<SizingAdvisorCreateOptions> {
+    return {
+        ...options,
+        planRulesFingerprint: {
+            atAdvice: null,
+            current: await planRulesFingerprint(plan),
+        },
+    };
 }

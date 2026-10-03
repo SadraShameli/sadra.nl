@@ -152,9 +152,7 @@ export function resolveRiskAt(options: TradeRiskOptions): TradeRiskResult {
     return { ...sized, affordable: affordable.room, maxContracts };
 }
 
-function isCushionCappedLossShortOfFloor(
-    options: CappedLossOptions,
-): boolean {
+function isCushionCappedLossShortOfFloor(options: CappedLossOptions): boolean {
     const { commission, placed, plan, roomKind, state } = options;
     const isCappedToCushion =
         roomKind === AffordableRoomKind.BustsAccount &&

@@ -1,4 +1,8 @@
-import HistogramChartView from '~/app/(app)/prop-calculator/_components/charts/HistogramChartView';
+'use client';
+
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+
+import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import {
     Table,
     TableBody,
@@ -12,19 +16,9 @@ import { type HistogramBin } from '~/lib/prop-calculator/stats';
 
 import { type PayoutSizesCardModel } from './overviewModel';
 
-export function payoutHistogramValues(
-    histogram: readonly HistogramBin[],
-): number[] {
-    return histogram.flatMap((bin, index) => {
-        const points = Array.from({ length: bin.count }, () => bin.binCenter);
-        if (points.length === 0) return points;
-        if (index === 0) points[0] = bin.binStart;
-        if (index === histogram.length - 1) {
-            points[points.length - 1] = bin.binEnd;
-        }
-        return points;
-    });
-}
+const histogramConfig: ChartConfig = {
+    count: { color: 'var(--chart-1)', label: 'Payouts' },
+};
 
 export function PayoutSizesCard({
     model,
@@ -36,7 +30,6 @@ export function PayoutSizesCard({
             <p className="text-sm text-muted-foreground">No paid payout yet.</p>
         );
     }
-    const histogramValues = payoutHistogramValues(model.histogram);
     return (
         <div className="flex flex-col gap-6">
             <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
@@ -45,19 +38,12 @@ export function PayoutSizesCard({
                 <Stat label="p10" value={model.p10} />
                 <Stat label="p90" value={model.p90} />
             </dl>
-            <HistogramChartView
-                aspectClassName="aspect-[16/9]"
-                barColor="var(--chart-1)"
-                barLabel="Payouts"
-                binCount={Math.max(1, model.histogram.length)}
-                emptyMessage="No paid payout yet."
-                values={histogramValues}
-                wrapperClassName="w-full"
-                xAxisLabel="Net payout"
-                xAxisTickFormatter={(value) =>
-                    formatCompactCurrency(value / 100)
-                }
-            />
+            <div className="flex flex-col gap-2">
+                <PayoutHistogram bins={model.histogram} />
+                <p className="text-xs text-muted-foreground">
+                    Bucket width {model.bucketWidth}
+                </p>
+            </div>
             <PayoutSizeTable
                 columnLabel="Account size"
                 rows={model.byAccountSize.map((row) => ({
@@ -88,6 +74,18 @@ export function PayoutSizesCard({
                 }))}
                 title="By stage at payout"
             />
+            <PayoutSizeTable
+                columnLabel="Balance at payout"
+                medianLabel="Median payout"
+                rows={model.byBalance.map((row) => ({
+                    count: row.count,
+                    key: row.key,
+                    label: row.label,
+                    mean: row.mean,
+                    median: row.median,
+                }))}
+                title="By balance at payout"
+            />
             {model.disclosures.length > 0 && (
                 <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                     {model.disclosures.map((disclosure) => (
@@ -99,17 +97,73 @@ export function PayoutSizesCard({
     );
 }
 
+function PayoutHistogram({ bins }: { readonly bins: readonly HistogramBin[] }) {
+    const data = bins.map((bin) => ({
+        center: bin.binCenter,
+        count: bin.count,
+    }));
+    return (
+        <ChartContainer
+            className="aspect-[16/9] w-full"
+            config={histogramConfig}
+        >
+            <BarChart
+                data={data}
+                margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
+            >
+                <CartesianGrid stroke="#ccc" strokeDasharray="3 3" />
+                <XAxis
+                    axisLine={false}
+                    dataKey="center"
+                    label={{
+                        fontSize: 11,
+                        offset: 12,
+                        position: 'bottom',
+                        value: 'Net payout',
+                    }}
+                    tickFormatter={(value: number) =>
+                        formatCompactCurrency(value / 100)
+                    }
+                    tickLine={false}
+                    tickMargin={6}
+                />
+                <YAxis
+                    allowDecimals={false}
+                    axisLine={false}
+                    label={{
+                        angle: -90,
+                        fontSize: 11,
+                        position: 'insideLeft',
+                        value: 'Payouts',
+                    }}
+                    tickLine={false}
+                    width={40}
+                />
+                <Bar
+                    dataKey="count"
+                    fill="var(--color-count)"
+                    fillOpacity={0.75}
+                    isAnimationActive={false}
+                />
+            </BarChart>
+        </ChartContainer>
+    );
+}
+
 function PayoutSizeTable({
     columnLabel,
+    medianLabel,
     rows,
     title,
 }: {
     readonly columnLabel: string;
+    readonly medianLabel?: string;
     readonly rows: readonly {
         readonly count: string;
         readonly key: string;
         readonly label: string;
         readonly mean: string;
+        readonly median?: string;
     }[];
     readonly title: string;
 }) {
@@ -125,6 +179,11 @@ function PayoutSizeTable({
                         <TableHead className="text-right">
                             Mean payout
                         </TableHead>
+                        {medianLabel !== undefined && (
+                            <TableHead className="text-right">
+                                {medianLabel}
+                            </TableHead>
+                        )}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -137,6 +196,11 @@ function PayoutSizeTable({
                             <TableCell className="text-right tabular-nums">
                                 {row.mean}
                             </TableCell>
+                            {row.median !== undefined && (
+                                <TableCell className="text-right tabular-nums">
+                                    {row.median}
+                                </TableCell>
+                            )}
                         </TableRow>
                     ))}
                 </TableBody>

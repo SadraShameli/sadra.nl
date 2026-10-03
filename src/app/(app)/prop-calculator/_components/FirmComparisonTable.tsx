@@ -38,7 +38,7 @@ import { cn } from '~/lib/utilities';
 import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
 import {
-    priceBatchLoss,
+    BatchLossCache,
     type PricedComparisonRow,
     rankComparison,
     type RankedComparison,
@@ -521,6 +521,7 @@ export function useComparisonView<Row extends PricedComparisonRow>(
     const [hoursPerDayInput, setHoursPerDayInput] = useState('');
     const [accountsPerSessionInput, setAccountsPerSessionInput] = useState('');
     const [topLimitInput, setTopLimitInput] = useState(TOP_LIMIT_ALL);
+    const [batchLossCache] = useState(() => new BatchLossCache());
     const hoursPerDay = parsePositiveNumber(hoursPerDayInput);
     const accountsPerSession = parseAccountsPerSession(accountsPerSessionInput);
     const hasScreenHourInputs =
@@ -529,11 +530,18 @@ export function useComparisonView<Row extends PricedComparisonRow>(
         const result = rankComparison(rows, {
             bankrollCents,
             batchLoss: (row, bankroll) =>
-                priceBatchLoss(row.out, bankroll, seed),
+                batchLossCache.pricing(row.out, bankroll, seed),
             objective,
         });
         return isBankrollPending ? { ...result, note: null } : result;
-    }, [bankrollCents, isBankrollPending, objective, rows, seed]);
+    }, [
+        bankrollCents,
+        batchLossCache,
+        isBankrollPending,
+        objective,
+        rows,
+        seed,
+    ]);
     const shownRows = limitRows(
         ranked.rows,
         hasScreenHourInputs ? parseTopLimit(topLimitInput) : null,

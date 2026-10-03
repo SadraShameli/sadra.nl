@@ -65,11 +65,12 @@ function inputsOf(overrides: Partial<SimInputs> = {}): SimInputs {
 function oracleOf(inputs: SimInputs, trials: number) {
     const setup = resolveLiveTransferSetup({
         commission: dollars(
-            inputs.commissionPerRoundTrip ?? SIM_DEFAULTS.commissionPerRoundTrip,
+            inputs.commissionPerRoundTrip ??
+                SIM_DEFAULTS.commissionPerRoundTrip,
         ),
         fundedRrRatio: inputs.fundedRrRatio ?? inputs.rrRatio,
-        fundedTradesPerDay: resolveDayPolicy(inputs, TradingPhase.Funded)
-            .ladder.length,
+        fundedTradesPerDay: resolveDayPolicy(inputs, TradingPhase.Funded).ladder
+            .length,
         idleDayProbability: inputs.idleDayProbability,
         instrument: inputs.instrument,
         liveTransferHazard: inputs.liveTransferHazard,

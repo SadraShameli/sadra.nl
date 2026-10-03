@@ -9,6 +9,7 @@ import {
 import {
     CENTS_PER_DOLLAR,
     type ConsistencyRule,
+    type Plan,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
@@ -27,6 +28,8 @@ import {
 import { AlertKind } from './AlertKind';
 import { AccountAlertRule } from './AlertRule';
 import { AlertSeverity } from './AlertSeverity';
+
+const DOUBLE_TARGET_BEST_DAY_MULTIPLE = 2;
 
 type EvaluatedConsistencyStatus = Extract<
     ConsistencyStatus,
@@ -54,21 +57,15 @@ export class ConsistencyNearBreachRule extends AccountAlertRule {
             return this.alertFor(
                 monitored,
                 AlertSeverity.Critical,
-                violationText(reconstructed.kind, status),
+                violationText(reconstructed, status),
             );
         }
         const documentedWin = documentedWinningDayOf(reconstructed, context);
         if (documentedWin === null) return null;
-        const room = status.rule.maxDayProfitBeforeViolation(
-            status.totalProfit,
-        );
-        return room < documentedWin
-            ? this.alertFor(
-                  monitored,
-                  AlertSeverity.Warning,
-                  `One documented winning ${reconstructed.kind === TradingPhase.Eval ? 'eval ' : ''}day of ${dollarText(documentedWin)} would break the ${status.rule.shareLabel()} consistency rule (${dollarText(room)} of room left before violation)`,
-              )
-            : null;
+        const warning = warningTextOf(reconstructed, status, documentedWin);
+        return warning === null
+            ? null
+            : this.alertFor(monitored, AlertSeverity.Warning, warning);
     }
 }
 
@@ -126,6 +123,18 @@ function dollarText(amount: number): string {
     return formatUsdCents(usdCentsFromDollars(amount));
 }
 
+function doubledTargetText(
+    plan: Plan,
+    status: EvaluatedConsistencyStatus,
+): string {
+    const doubledBestDay =
+        DOUBLE_TARGET_BEST_DAY_MULTIPLE * status.bestDayProfit;
+    const isTargetBinding = plan.profitTarget > doubledBestDay;
+    const required = Math.max(plan.profitTarget, doubledBestDay);
+    const more = Math.max(0, required - status.totalProfit);
+    return `${status.violationEffectLabel}, so the account needs ${isTargetBinding ? 'its' : 'more than'} ${dollarText(required)} of profit${isTargetBinding ? ' (the profit target)' : ` (twice the ${dollarText(status.bestDayProfit)} best day)`}, ${dollarText(more)} more, to pass`;
+}
+
 function moreCycleProfitNeeded(
     rule: ConsistencyRule,
     bestDayProfit: number,
@@ -137,7 +146,7 @@ function moreCycleProfitNeeded(
 }
 
 function violationText(
-    phase: TradingPhase,
+    account: ReconstructedFundedOrEvalAccount,
     status: EvaluatedConsistencyStatus,
 ): string {
     const needed = moreCycleProfitNeeded(
@@ -146,10 +155,42 @@ function violationText(
         status.totalProfit,
     );
     const lead = `Consistency already violated (max ${status.rule.shareLabel()} best day share)`;
-    if (phase === TradingPhase.Funded) {
-        return `${lead}: ${dollarText(needed)} more cycle profit needed to bring the best day back within the rule`;
+    switch (account.kind) {
+        case TradingPhase.Eval: {
+            return status.violationEffectLabel === null
+                ? `${lead}: ${dollarText(needed)} more profit needed to bring the best day back within the rule`
+                : `${lead}: ${doubledTargetText(account.plan, status)}`;
+        }
+        case TradingPhase.Funded: {
+            return `${lead}: ${dollarText(needed)} more cycle profit needed to bring the best day back within the rule`;
+        }
     }
-    return status.violationEffectLabel === null
-        ? `${lead}: ${dollarText(needed)} more profit needed to bring the best day back within the rule`
-        : `${lead}: ${status.violationEffectLabel}, so the account needs more than ${dollarText(status.totalProfit + needed)} of profit (${dollarText(needed)} more) to pass`;
+}
+
+function warningTextOf(
+    account: ReconstructedFundedOrEvalAccount,
+    status: EvaluatedConsistencyStatus,
+    documentedWin: number,
+): null | string {
+    const share = status.rule.shareLabel();
+    switch (account.kind) {
+        case TradingPhase.Eval: {
+            const bestDay = Math.max(status.bestDayProfit, documentedWin);
+            const profitAtPass = Math.max(
+                status.totalProfit + documentedWin,
+                account.plan.profitTarget,
+            );
+            return status.rule.isViolated(bestDay, profitAtPass)
+                ? `One documented winning eval day of ${dollarText(documentedWin)} would break the ${share} consistency rule once the account holds ${dollarText(profitAtPass)} of profit (the profit target or more), with a best day of ${dollarText(bestDay)}`
+                : null;
+        }
+        case TradingPhase.Funded: {
+            const room = status.rule.maxDayProfitBeforeViolation(
+                status.totalProfit,
+            );
+            return room < documentedWin
+                ? `One documented winning day of ${dollarText(documentedWin)} would break the ${share} consistency rule (${dollarText(room)} of room left before violation)`
+                : null;
+        }
+    }
 }

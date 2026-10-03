@@ -19,6 +19,7 @@ import {
     PolicySizing,
     RetryKind,
     SIM_DEFAULTS,
+    simulate,
     TRADING_DAYS_PER_MONTH,
     withFundedResetTaken,
 } from '~/lib/prop-calculator';
@@ -137,7 +138,7 @@ describe('monthlyNet tooltip matches the engine for every plan and form input (T
 
     it('is the capped one-request horizon credit, the pool since funding, a funded reset or the last payout, and the per-account formula over the trial duration times the copy-traded accounts', () => {
         expect(kpiDescriptions.monthlyNet).toBe(
-            `Expected $ profit per month after all fees, averaged across every trial, whether it passed, busted or timed out, plus a horizon credit: one more payout request for each account still open at the funded horizon end, net of the split and the payout method fee, and capped like a real request by the payout ladder step, request size, profit share and request caps, and by the plan's payout profit pool (the profit made since funding, a funded reset or the last payout, or the whole account profit on plans that pay from account profit) only on plans with no payout ladder and no profit share. The credit is $0 when those caps leave nothing to request (for example an emptied payout profit pool, or, on a plan whose ladder denies an unaffordable step, a step above what the account could withdraw: its withdrawable balance, or its profit share if lower), once a lifetime payout cap is reached or once the payout ladder is exhausted; the payout day, qualifying-day, consistency, minimum profit and minimum request gates are not applied to the credit, since continued trading would clear them. = (avg net + avg horizon credit) per account × ${TRADING_DAYS_PER_MONTH} ÷ avg trial duration in trading days, from the first eval day to the trial's end, times the number of copy-traded accounts when the form sets more than one.`,
+            `Expected $ profit per month after all fees, averaged across every trial, whether it passed, busted or timed out, plus a horizon credit: one more payout request for each account still open at the funded horizon end, net of the split and the payout method fee, and capped like a real request by the payout ladder step, request size, profit share and request caps, and by the plan's payout profit pool (the profit made since funding, a funded reset or the last payout, or the whole account profit on plans that pay from account profit) only on plans with no payout ladder and no profit share. The credit is $0 when those caps leave nothing to request (for example an emptied payout profit pool, or, on a plan whose ladder denies an unaffordable step, a step above what the account could withdraw: its withdrawable balance, or its profit share if lower), once a lifetime payout cap is reached or once the payout ladder is exhausted; the payout day, qualifying-day, consistency, minimum profit and minimum request gates are not applied to the credit, since continued trading would clear them. = (avg net + avg horizon credit) per account × ${TRADING_DAYS_PER_MONTH} ÷ avg trial duration in trading days, from the first eval day to the trial's end, plus the rebuy lag times the average number of attempts a trial takes when the form sets a rebuy lag above 0 (at 0, the default, the duration alone), times the number of copy-traded accounts when the form sets more than one.`,
         );
     });
 
@@ -155,12 +156,42 @@ describe('monthlyNet tooltip matches the engine for every plan and form input (T
         );
     });
 
-    it('divides by the trial duration alone because the calculator form sets no rebuy lag, so the engine default of 0 applies', () => {
-        expect(
-            buildSimInputs(defaultCalculatorState()).rebuyLagDays,
-        ).toBeUndefined();
+    it('says the denominator adds the rebuy lag per attempt when one is set and is the duration alone at 0, the default the calculator form passes', () => {
+        expect(buildSimInputs(defaultCalculatorState()).rebuyLagDays).toBe(0);
         expect(SIM_DEFAULTS.rebuyLagDays).toBe(0);
-        expect(kpiDescriptions.monthlyNet).not.toContain('rebuy lag');
+        expect(kpiDescriptions.monthlyNet).toContain(
+            "÷ avg trial duration in trading days, from the first eval day to the trial's end, plus the rebuy lag times the average number of attempts a trial takes when the form sets a rebuy lag above 0 (at 0, the default, the duration alone), times the number of copy-traded accounts",
+        );
+    });
+
+    it('matches the simulator: the denominator is the duration at 0 and the duration plus the rebuy lag times the average attempts at a lag above 0', () => {
+        const rebuyLagDays = 4;
+        const base = buildSimInputs({
+            ...defaultCalculatorState(),
+            maxAttempts: 3,
+            trials: 200,
+            winrate: 0.3,
+        });
+        const withoutLag = simulate(base);
+        const withLag = simulate({ ...base, rebuyLagDays });
+        const creditInclusiveNet =
+            withoutLag.expectedNet + withoutLag.expectedHorizonCredit;
+        expect(withoutLag.expectedAttempts).toBeGreaterThan(1);
+        expect(creditInclusiveNet).not.toBe(0);
+        expect(withLag.expectedNet).toBe(withoutLag.expectedNet);
+        expect(withLag.expectedAttempts).toBe(withoutLag.expectedAttempts);
+        const durationAtZero =
+            (creditInclusiveNet * TRADING_DAYS_PER_MONTH) /
+            withoutLag.expectedMonthlyNet;
+        expect(withLag.expectedMonthlyNet).toBeCloseTo(
+            (creditInclusiveNet * TRADING_DAYS_PER_MONTH) /
+                (durationAtZero + rebuyLagDays * withoutLag.expectedAttempts),
+            6,
+        );
+        expect(withLag.expectedMonthlyNet).not.toBeCloseTo(
+            withoutLag.expectedMonthlyNet,
+            6,
+        );
     });
 
     it('a funded reset restarts the cycle profit pool at the reset balance, as the gloss says', () => {

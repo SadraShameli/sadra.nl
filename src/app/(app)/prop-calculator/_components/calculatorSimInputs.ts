@@ -21,6 +21,7 @@ export type SimInputsSource = Pick<
     | 'monthlySubscriptionDiscountPercent'
     | 'payoutRequestSize'
     | 'plan'
+    | 'rebuyLagDays'
     | 'resetDiscountPercent'
     | 'retainedCushion'
     | 'riskDollars'
@@ -66,6 +67,7 @@ export function buildSimInputs(source: SimInputsSource): SimInputs {
             takesFundedReset: source.takesFundedReset,
             takesOneTimeEarlyWithdrawal: source.takesOneTimeEarlyWithdrawal,
         }),
+        rebuyLagDays: source.rebuyLagDays,
         riskPerTrade,
         rrRatio: source.rrRatio,
         rungSizing: source.rungSizing,

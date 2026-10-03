@@ -4,6 +4,7 @@ import { Layers, Pencil, Trash2, TriangleAlert, UserMinus } from 'lucide-react';
 import { useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
     type CopyGroupMember,
@@ -37,7 +38,6 @@ import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { formatConjunctionList } from '~/lib/format';
-import { todayIsoDate } from '~/lib/prop-accounts';
 import {
     PropMutationRejection,
     propRejectionOf,
@@ -70,6 +70,7 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
     const snapshotsQuery = api.propAccounts.snapshot.latestForAll.useQuery();
     const headingReference = useRef<HTMLHeadingElement>(null);
+    const today = useTodayIsoDate();
     const groups = groupsQuery.data;
     const accounts = accountsQuery.data;
     const overview = useMemo(
@@ -102,7 +103,7 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
             ? copyGroupSizingSectionsOf(
                   rulebookQuery.data,
                   userId,
-                  todayIsoDate(new Date()),
+                  today,
                   accounts,
                   eventsQuery.data,
                   payoutsQuery.data,
@@ -118,6 +119,7 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
         payoutsQuery.data,
         rulebookQuery.data,
         snapshotsQuery.data,
+        today,
         userId,
     ]);
     const sizingViewFor = (groupId: string): GroupSizingView => {

@@ -24,11 +24,7 @@ const RISK_DOLLARS = 100;
 const RR_RATIO = 2;
 const WINRATE = 0.5;
 
-function dayStartAt(
-    plan: Plan,
-    bestDay: number,
-    profit: number,
-): AccountState {
+function dayStartAt(plan: Plan, bestDay: number, profit: number): AccountState {
     return {
         ...plan.initialState(),
         balance: plan.initialState().startingBalance + profit,

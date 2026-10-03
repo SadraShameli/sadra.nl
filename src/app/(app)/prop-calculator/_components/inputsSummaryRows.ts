@@ -5,7 +5,11 @@ import {
     formatRatio,
 } from '~/lib/format';
 import { describePlanOptIn, PlanOptIn } from '~/lib/prop-accounts';
-import { DEFAULT_RUNG_SIZING, type RungSizing } from '~/lib/prop-calculator';
+import {
+    DEFAULT_RUNG_SIZING,
+    type RungSizing,
+    SIM_DEFAULTS,
+} from '~/lib/prop-calculator';
 
 import { DayStopRuleStyle, describeDayStopRule } from './describeDayStopRule';
 import { riskPercentToDollars } from './riskConversion';
@@ -20,6 +24,7 @@ export enum InputsSummaryField {
     FundedHorizon = 'funded-horizon',
     OptIns = 'opt-ins',
     Plan = 'plan',
+    RebuyLag = 'rebuy-lag',
     RewardToRisk = 'reward-to-risk',
     Risk = 'risk',
     RungSizing = 'rung-sizing',
@@ -99,6 +104,13 @@ export function inputsSummaryRows(state: CalculatorState): InputsSummaryRow[] {
             value: formatDays(state.fundedHorizonDays),
         },
     ];
+    if (state.rebuyLagDays > SIM_DEFAULTS.rebuyLagDays) {
+        rows.push({
+            field: InputsSummaryField.RebuyLag,
+            label: 'Rebuy lag',
+            value: formatDays(state.rebuyLagDays),
+        });
+    }
     const rungSizing = describeNonDefaultRungSizing(state.rungSizing);
     if (rungSizing !== null) {
         rows.push({

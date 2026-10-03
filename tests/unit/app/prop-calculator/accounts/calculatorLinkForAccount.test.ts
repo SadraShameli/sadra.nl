@@ -28,10 +28,12 @@ import {
     type EnginePolicyPositionSizing,
     EvalSizingMode,
     fundedStopRuleToDayStopRule,
+    type MeasuredRebuyLag,
     type RulebookParameters,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 import { evalStartAccount } from '~/lib/prop-calculator/advisor/value';
+import { CalculatorUrlParameter } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 
 interface FirmPlan {
@@ -83,6 +85,7 @@ function decoded(href: string) {
 function linkOf(
     { plan }: FirmPlan,
     overrides: {
+        readonly measuredRebuyLag?: MeasuredRebuyLag | null;
         readonly optIns?: PlanOptIns;
         readonly personalMaxRiskPerTrade?: Dollars | null;
         readonly positionSizing?: EnginePolicyPositionSizing | null;
@@ -92,6 +95,7 @@ function linkOf(
 ) {
     const link = calculatorLinkForAccount({
         firmId: plan.id.firm,
+        measuredRebuyLag: overrides.measuredRebuyLag ?? null,
         optIns: overrides.optIns ?? NO_PLAN_OPT_INS,
         personalMaxRiskPerTrade: overrides.personalMaxRiskPerTrade ?? null,
         planSerial: serializePlanId(plan.id),
@@ -263,6 +267,32 @@ describe('calculatorLinkForAccount', () => {
         const { state } = decoded(sized.href);
         expect(state.instrument).toBe(InstrumentSymbol.MNQ);
         expect(state.stopPoints).toBe(20);
+    });
+
+    it('carries the measured rebuy lag of the plan when it rests on at least one replacement (PT-111, F-76)', () => {
+        const link = linkOf(MFF_PRO, {
+            measuredRebuyLag: { days: 2, samples: 1 },
+        });
+        expect(decoded(link.href).state.rebuyLagDays).toBe(2);
+        const fractional = linkOf(MFF_PRO, {
+            measuredRebuyLag: { days: 2.5, samples: 4 },
+        });
+        expect(decoded(fractional.href).state.rebuyLagDays).toBe(2.5);
+    });
+
+    it('carries no lag when none was measured or the measurement has no samples (PT-111, F-76)', () => {
+        for (const measuredRebuyLag of [
+            null,
+            { days: 3, samples: 0 },
+        ] satisfies (MeasuredRebuyLag | null)[]) {
+            const link = linkOf(MFF_PRO, { measuredRebuyLag });
+            expect(
+                new URLSearchParams(link.href.split('?', 2)[1]).has(
+                    CalculatorUrlParameter.RebuyLagDays,
+                ),
+            ).toBe(false);
+            expect(decoded(link.href).state.rebuyLagDays).toBe(0);
+        }
     });
 
     it('says in its label that it is a fresh start', () => {

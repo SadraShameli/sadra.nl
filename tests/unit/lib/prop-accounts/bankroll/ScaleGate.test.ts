@@ -194,4 +194,61 @@ describe('scaleGateFromLedger', () => {
             ).unmetConditions,
         ).toContain(ScaleGateUnmetCondition.EvalAttemptsBelowThreshold);
     });
+
+    it('counts a funded ledger-only account in both the attempts and the funded figures', () => {
+        const ledgerOnlyFunded = account(EVAL_PLAN, {
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            stage: AccountStage.Funded,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const built = ledger({ accounts: [ledgerOnlyFunded] });
+        const thresholds = {
+            minClosedRounds: null,
+            minEndedAccounts: null,
+            minEvalAttempts: 1,
+            minFundedAccounts: 1,
+            minTrades: 5,
+        };
+        const met = scaleGateFromLedger(built, '2026-10-01', thresholds, 5);
+        expect(met.unmetConditions).not.toContain(
+            ScaleGateUnmetCondition.EvalAttemptsBelowThreshold,
+        );
+        expect(met.unmetConditions).not.toContain(
+            ScaleGateUnmetCondition.FundedAccountsBelowThreshold,
+        );
+        const needsTwo = scaleGateFromLedger(
+            built,
+            '2026-10-01',
+            { ...thresholds, minFundedAccounts: 2 },
+            5,
+        );
+        expect(needsTwo.unmetConditions).toContain(
+            ScaleGateUnmetCondition.FundedAccountsBelowThreshold,
+        );
+    });
+
+    it('never counts more funded accounts than attempts for the same ledger', () => {
+        const ledgerOnlyFunded = account(EVAL_PLAN, {
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            stage: AccountStage.Funded,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const built = ledger({ accounts: [ledgerOnlyFunded] });
+        const thresholds = {
+            minClosedRounds: null,
+            minEndedAccounts: null,
+            minEvalAttempts: 2,
+            minFundedAccounts: 2,
+            minTrades: 5,
+        };
+        const result = scaleGateFromLedger(built, '2026-10-01', thresholds, 5);
+        expect(result.unmetConditions).toEqual(
+            expect.arrayContaining([
+                ScaleGateUnmetCondition.EvalAttemptsBelowThreshold,
+                ScaleGateUnmetCondition.FundedAccountsBelowThreshold,
+            ]),
+        );
+    });
 });

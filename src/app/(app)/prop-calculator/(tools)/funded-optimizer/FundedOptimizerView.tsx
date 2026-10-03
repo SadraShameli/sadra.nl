@@ -19,17 +19,14 @@ import { PanelSkeleton } from '~/app/(app)/prop-calculator/_components/PanelSkel
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
+import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
 import { WorkerTaskPhase } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import {
     type FundedSweepProgress,
     type FundedSweepRequest,
     type FundedSweepResult,
 } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
-import { useSession } from '~/lib/auth/client';
-import {
-    DEFAULT_RULEBOOK,
-    LifetimePayoutCapBasis,
-} from '~/lib/prop-calculator/advisor';
+import { LifetimePayoutCapBasis } from '~/lib/prop-calculator/advisor';
 import { type Plan } from '~/lib/prop-calculator/core';
 import {
     FUNDED_ROW_HEADERS,
@@ -41,7 +38,6 @@ import {
     fundedSurvivorsNote,
 } from '~/lib/prop-calculator/optimize';
 import { type SimInputs } from '~/lib/prop-calculator/simulator';
-import { api } from '~/trpc/react';
 
 const RESULT_HEADING_ID = 'funded-optimizer-result-heading';
 
@@ -61,15 +57,7 @@ const LIFETIME_PAYOUT_CAP_BASIS_LABELS: Record<LifetimePayoutCapBasis, string> =
 
 export function FundedOptimizerView() {
     const { state } = useCalculatorInputs();
-    const session = useSession();
-    const hasSession = session.data?.user.id !== undefined;
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
-        enabled: hasSession,
-    });
-    const rulebook =
-        hasSession && rulebookQuery.data !== undefined
-            ? rulebookQuery.data
-            : DEFAULT_RULEBOOK;
+    const { rulebook } = useToolRulebook();
     const ranking = fundedOptimizerRanking(state.objective);
 
     const request = useMemo(
@@ -168,9 +156,9 @@ function FundedOptimizerResult({
     if (reason !== null) return <SimulationFailureNotice message={reason} />;
     if (result === null || state === WorkerTaskPhase.Running) {
         return (
-            <div className="flex flex-col gap-2">
+            <div aria-busy="true" className="flex flex-col gap-2">
                 {progress !== null && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground" role="status">
                         {`${progress.completed} of ${progress.total} policies`}
                     </p>
                 )}

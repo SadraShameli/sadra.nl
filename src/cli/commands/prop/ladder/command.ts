@@ -436,6 +436,7 @@ export default defineCommand({
             printEdgePlausibilityNotes([
                 edgePlausibilityNote({
                     rrRatio: score.rrRatio,
+                    tradesPerDay: grid.slots,
                     winrate: fraction(score.winrate),
                 }),
             ]);

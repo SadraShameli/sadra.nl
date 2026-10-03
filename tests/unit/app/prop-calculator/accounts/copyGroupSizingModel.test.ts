@@ -559,19 +559,19 @@ describe('the copy group sizing is withheld for a stale balance (PT-101)', () =>
     });
 });
 
+function evalAccountRow(id: string) {
+    return accountRow(id, {
+        firstFundedTradeOn: null,
+        fundedOn: null,
+        stage: AccountStage.Eval,
+    });
+}
+
 describe('the copy group sizing is withheld for a stale eval balance (PT-101b, F-130)', () => {
     const WEDNESDAY = '2026-09-23';
     const TUESDAY = '2026-09-22';
     const MONDAY = '2026-09-21';
     const EVAL_BALANCE_CENTS = (PLAN.accountSize + 1000) * CENTS_PER_DOLLAR;
-
-    function evalAccountRow(id: string) {
-        return accountRow(id, {
-            firstFundedTradeOn: null,
-            fundedOn: null,
-            stage: AccountStage.Eval,
-        });
-    }
 
     function evalSection(
         dates: Readonly<Record<string, string>>,

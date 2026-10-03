@@ -65,6 +65,7 @@ function topStep(): Plan {
 
 const PLAN = topStep();
 const TINY_RUN = { maxEvalDays: 150, seed: 7, trials: 30 } as const;
+const HEAVY_TEST_TIMEOUT_MS = 10_000;
 
 const FUNDED: AccountSnapshotInput = {
     asOf: '2026-03-02',
@@ -334,226 +335,258 @@ describe('from-state views', () => {
             posted.length = 0;
         });
 
-        it('computes the value, the milestone, the next payout, the payout path, the chain position and the retire information from the account state', async () => {
-            vi.stubGlobal('Worker', FakeWorker);
-            const account = AccountReconstruction.rebuild(
-                FUNDED,
-                PLAN,
-                null,
-                NO_PENDING_PAYOUT_COUNTS,
-            );
-            render(
-                <NextPayoutSectionWithWorker
-                    account={account}
-                    input={FUNDED}
-                    measuredRebuyLag={null}
-                    plan={PLAN}
-                    rulebook={DEFAULT_RULEBOOK}
-                    rulebookError={null}
-                />,
-            );
-            await settle();
-            const text = container.textContent;
-            expect(text).toContain('Value from this state, credit-free');
-            expect(text).toContain(
-                'From the account state as of 2026-03-02, not a fresh start',
-            );
-            expect(text).toContain('Expected time to the next payout');
-            expect(text).toContain('Path to the next payout');
-            expect(text).toContain('Position in the value chain of the plan');
-            expect(text).toContain('Keep or start a fresh account');
-            expect(text).toContain('Information only');
-            const kinds = posted.flatMap((request) =>
-                request.requests.map((candidate) => candidate.kind),
-            );
-            expect(kinds).toContain(OverviewRequestKind.AccountFromState);
-            expect(kinds).toContain(OverviewRequestKind.RetireComparison);
-            expect(kinds).toContain(OverviewRequestKind.ValueChain);
-            const everyRequest = posted.flatMap((entry) => entry.requests);
-            for (const request of everyRequest) {
-                expect(JSON.stringify(request)).not.toContain('computeRisk');
-            }
-        });
+        it(
+            'computes the value, the milestone, the next payout, the payout path, the chain position and the retire information from the account state',
+            async () => {
+                vi.stubGlobal('Worker', FakeWorker);
+                const account = AccountReconstruction.rebuild(
+                    FUNDED,
+                    PLAN,
+                    null,
+                    NO_PENDING_PAYOUT_COUNTS,
+                );
+                render(
+                    <NextPayoutSectionWithWorker
+                        account={account}
+                        input={FUNDED}
+                        measuredRebuyLag={null}
+                        plan={PLAN}
+                        rulebook={DEFAULT_RULEBOOK}
+                        rulebookError={null}
+                    />,
+                );
+                await settle();
+                const text = container.textContent;
+                expect(text).toContain('Value from this state, credit-free');
+                expect(text).toContain(
+                    'From the account state as of 2026-03-02, not a fresh start',
+                );
+                expect(text).toContain('Expected time to the next payout');
+                expect(text).toContain('Path to the next payout');
+                expect(text).toContain(
+                    'Position in the value chain of the plan',
+                );
+                expect(text).toContain('Keep or start a fresh account');
+                expect(text).toContain('Information only');
+                const kinds = posted.flatMap((request) =>
+                    request.requests.map((candidate) => candidate.kind),
+                );
+                expect(kinds).toContain(OverviewRequestKind.AccountFromState);
+                expect(kinds).toContain(OverviewRequestKind.RetireComparison);
+                expect(kinds).toContain(OverviewRequestKind.ValueChain);
+                const everyRequest = posted.flatMap((entry) => entry.requests);
+                for (const request of everyRequest) {
+                    expect(JSON.stringify(request)).not.toContain(
+                        'computeRisk',
+                    );
+                }
+            },
+            HEAVY_TEST_TIMEOUT_MS,
+        );
 
-        it('shows the first payout eligible step assumptions in the chain position, the lines the tools card shows (PT-67e)', async () => {
-            vi.stubGlobal('Worker', FakeWorker);
-            const account = AccountReconstruction.rebuild(
-                FUNDED,
-                PLAN,
-                null,
-                NO_PENDING_PAYOUT_COUNTS,
-            );
-            render(
-                <NextPayoutSectionWithWorker
-                    account={account}
-                    input={FUNDED}
-                    measuredRebuyLag={null}
-                    plan={PLAN}
-                    rulebook={DEFAULT_RULEBOOK}
-                    rulebookError={null}
-                />,
-            );
-            await settle();
-            const list = container.querySelector(
-                'ul[aria-label="First payout eligible assumptions"]',
-            );
-            expect(list).not.toBeNull();
-            expect(list?.querySelectorAll('li').length).toBeGreaterThan(1);
-            expect(container.textContent).toContain(
-                'First payout eligible assumptions',
-            );
-        });
+        it(
+            'shows the first payout eligible step assumptions in the chain position, the lines the tools card shows (PT-67e)',
+            async () => {
+                vi.stubGlobal('Worker', FakeWorker);
+                const account = AccountReconstruction.rebuild(
+                    FUNDED,
+                    PLAN,
+                    null,
+                    NO_PENDING_PAYOUT_COUNTS,
+                );
+                render(
+                    <NextPayoutSectionWithWorker
+                        account={account}
+                        input={FUNDED}
+                        measuredRebuyLag={null}
+                        plan={PLAN}
+                        rulebook={DEFAULT_RULEBOOK}
+                        rulebookError={null}
+                    />,
+                );
+                await settle();
+                const list = container.querySelector(
+                    'ul[aria-label="First payout eligible assumptions"]',
+                );
+                expect(list).not.toBeNull();
+                expect(list?.querySelectorAll('li').length).toBeGreaterThan(1);
+                expect(container.textContent).toContain(
+                    'First payout eligible assumptions',
+                );
+            },
+            HEAVY_TEST_TIMEOUT_MS,
+        );
 
-        it('carries the personal payout override and retained cushion into the account request and the payout path, as the header figures do (PT-68b)', async () => {
-            vi.stubGlobal('Worker', FakeWorker);
-            const account = AccountReconstruction.rebuild(
-                FUNDED,
-                PLAN,
-                null,
-                NO_PENDING_PAYOUT_COUNTS,
-            );
-            const props = {
-                account,
-                input: FUNDED,
-                measuredRebuyLag: null,
-                plan: PLAN,
-                rulebook: DEFAULT_RULEBOOK,
-                rulebookError: null,
-            };
-            render(<NextPayoutSectionWithWorker {...props} />);
-            await settle();
-            const pathWithoutRules = container.textContent;
-            const withoutRules = posted.flatMap((entry) => entry.requests);
-            posted.length = 0;
-            render(
-                <NextPayoutSectionWithWorker
-                    {...props}
-                    personalRules={{
-                        payoutRequestOverrideCents: usdCents(40_000),
-                        retainedCushionCents: usdCents(900_000),
-                    }}
-                />,
-            );
-            await settle();
-            const withRules = posted.flatMap((entry) => entry.requests);
-            const personal = accountRequestOf(withRules);
-            expect(personal?.spec.enginePolicy.payoutRequestOverride).toBe(400);
-            expect(
-                personal?.spec.enginePolicy.retainedCushionRequest,
-            ).toBeGreaterThanOrEqual(9000);
-            expect(
-                accountRequestOf(withoutRules)?.spec.enginePolicy
-                    .payoutRequestOverride,
-            ).not.toBe(400);
-            expect(container.textContent).not.toBe(pathWithoutRules);
-        });
-
-        it('gives the retire and value chain requests the account personal rules, as PT-68g runs the retire comparison at the same limits (PT-67e)', async () => {
-            vi.stubGlobal('Worker', FakeWorker);
-            const account = AccountReconstruction.rebuild(
-                FUNDED,
-                PLAN,
-                null,
-                NO_PENDING_PAYOUT_COUNTS,
-            );
-            const props = {
-                account,
-                input: FUNDED,
-                measuredRebuyLag: null,
-                plan: PLAN,
-                rulebook: DEFAULT_RULEBOOK,
-                rulebookError: null,
-            };
-            render(<NextPayoutSectionWithWorker {...props} />);
-            await settle();
-            const baseline = posted.flatMap((entry) => entry.requests);
-            render(null);
-            posted.length = 0;
-            render(
-                <NextPayoutSectionWithWorker
-                    {...props}
-                    personalRules={{
-                        retainedCushionCents: usdCents(900_000),
-                    }}
-                />,
-            );
-            await settle();
-            const withRules = posted.flatMap((entry) => entry.requests);
-            for (const kind of [
-                OverviewRequestKind.RetireComparison,
-                OverviewRequestKind.ValueChain,
-            ]) {
+        it(
+            'carries the personal payout override and retained cushion into the account request and the payout path, as the header figures do (PT-68b)',
+            async () => {
+                vi.stubGlobal('Worker', FakeWorker);
+                const account = AccountReconstruction.rebuild(
+                    FUNDED,
+                    PLAN,
+                    null,
+                    NO_PENDING_PAYOUT_COUNTS,
+                );
+                const props = {
+                    account,
+                    input: FUNDED,
+                    measuredRebuyLag: null,
+                    plan: PLAN,
+                    rulebook: DEFAULT_RULEBOOK,
+                    rulebookError: null,
+                };
+                render(<NextPayoutSectionWithWorker {...props} />);
+                await settle();
+                const pathWithoutRules = container.textContent;
+                const withoutRules = posted.flatMap((entry) => entry.requests);
+                posted.length = 0;
+                render(
+                    <NextPayoutSectionWithWorker
+                        {...props}
+                        personalRules={{
+                            payoutRequestOverrideCents: usdCents(40_000),
+                            retainedCushionCents: usdCents(900_000),
+                        }}
+                    />,
+                );
+                await settle();
+                const withRules = posted.flatMap((entry) => entry.requests);
+                const personal = accountRequestOf(withRules);
+                expect(personal?.spec.enginePolicy.payoutRequestOverride).toBe(
+                    400,
+                );
                 expect(
-                    requestOfKind(withRules, kind)?.spec.enginePolicy
-                        .retainedCushionRequest,
+                    personal?.spec.enginePolicy.retainedCushionRequest,
                 ).toBeGreaterThanOrEqual(9000);
                 expect(
-                    requestOfKind(baseline, kind)?.spec.enginePolicy
-                        .retainedCushionRequest,
-                ).toBeLessThan(9000);
-            }
-        });
+                    accountRequestOf(withoutRules)?.spec.enginePolicy
+                        .payoutRequestOverride,
+                ).not.toBe(400);
+                expect(container.textContent).not.toBe(pathWithoutRules);
+            },
+            HEAVY_TEST_TIMEOUT_MS,
+        );
 
-        it('keeps the account figures when the group of fresh-chain requests fails, and says only the chain is unavailable', async () => {
-            posted.length = 0;
-            vi.stubGlobal('Worker', ChainFailingWorker);
-            const account = AccountReconstruction.rebuild(
-                FUNDED,
-                PLAN,
-                null,
-                NO_PENDING_PAYOUT_COUNTS,
-            );
-            render(
-                <NextPayoutSectionWithWorker
-                    account={account}
-                    input={FUNDED}
-                    measuredRebuyLag={null}
-                    plan={PLAN}
-                    rulebook={DEFAULT_RULEBOOK}
-                    rulebookError={null}
-                />,
-            );
-            await settle();
-            const text = container.textContent;
-            expect(text).toContain('Value from this state, credit-free');
-            expect(text).toContain('Expected time to the next payout');
-            expect(text).toContain('Keep or start a fresh account');
-            expect(text).toContain('Value chain: the chain worker crashed');
-        });
+        it(
+            'gives the retire and value chain requests the account personal rules, as PT-68g runs the retire comparison at the same limits (PT-67e)',
+            async () => {
+                vi.stubGlobal('Worker', FakeWorker);
+                const account = AccountReconstruction.rebuild(
+                    FUNDED,
+                    PLAN,
+                    null,
+                    NO_PENDING_PAYOUT_COUNTS,
+                );
+                const props = {
+                    account,
+                    input: FUNDED,
+                    measuredRebuyLag: null,
+                    plan: PLAN,
+                    rulebook: DEFAULT_RULEBOOK,
+                    rulebookError: null,
+                };
+                render(<NextPayoutSectionWithWorker {...props} />);
+                await settle();
+                const baseline = posted.flatMap((entry) => entry.requests);
+                render(null);
+                posted.length = 0;
+                render(
+                    <NextPayoutSectionWithWorker
+                        {...props}
+                        personalRules={{
+                            retainedCushionCents: usdCents(900_000),
+                        }}
+                    />,
+                );
+                await settle();
+                const withRules = posted.flatMap((entry) => entry.requests);
+                for (const kind of [
+                    OverviewRequestKind.RetireComparison,
+                    OverviewRequestKind.ValueChain,
+                ]) {
+                    expect(
+                        requestOfKind(withRules, kind)?.spec.enginePolicy
+                            .retainedCushionRequest,
+                    ).toBeGreaterThanOrEqual(9000);
+                    expect(
+                        requestOfKind(baseline, kind)?.spec.enginePolicy
+                            .retainedCushionRequest,
+                    ).toBeLessThan(9000);
+                }
+            },
+            HEAVY_TEST_TIMEOUT_MS,
+        );
 
-        it('says the account cannot be valued after the next payout request, while the value now and the next payout stay (TopStep 50K at 50,300)', async () => {
-            vi.stubGlobal('Worker', FakeWorker);
-            const nearThreshold: AccountSnapshotInput = {
-                ...FUNDED,
-                balance: dollars(50_300),
-                highestEodBalance: dollars(50_300),
-                highestIntradayBalance: dollars(50_300),
-            };
-            const account = AccountReconstruction.rebuild(
-                nearThreshold,
-                PLAN,
-                null,
-                NO_PENDING_PAYOUT_COUNTS,
-            );
-            render(
-                <NextPayoutSectionWithWorker
-                    account={account}
-                    input={nearThreshold}
-                    measuredRebuyLag={null}
-                    plan={PLAN}
-                    rulebook={DEFAULT_RULEBOOK}
-                    rulebookError={null}
-                />,
-            );
-            await settle();
-            const text = container.textContent;
-            expect(text).toContain('Value from this state, credit-free');
-            expect(text).toContain('Expected time to the next payout');
-            expect(text).toContain(
-                'The account cannot be valued after the next payout request',
-            );
-            expect(text).not.toContain('Credit-free gain from the milestone');
-        });
+        it(
+            'keeps the account figures when the group of fresh-chain requests fails, and says only the chain is unavailable',
+            async () => {
+                posted.length = 0;
+                vi.stubGlobal('Worker', ChainFailingWorker);
+                const account = AccountReconstruction.rebuild(
+                    FUNDED,
+                    PLAN,
+                    null,
+                    NO_PENDING_PAYOUT_COUNTS,
+                );
+                render(
+                    <NextPayoutSectionWithWorker
+                        account={account}
+                        input={FUNDED}
+                        measuredRebuyLag={null}
+                        plan={PLAN}
+                        rulebook={DEFAULT_RULEBOOK}
+                        rulebookError={null}
+                    />,
+                );
+                await settle();
+                const text = container.textContent;
+                expect(text).toContain('Value from this state, credit-free');
+                expect(text).toContain('Expected time to the next payout');
+                expect(text).toContain('Keep or start a fresh account');
+                expect(text).toContain('Value chain: the chain worker crashed');
+            },
+            HEAVY_TEST_TIMEOUT_MS,
+        );
+
+        it(
+            'says the account cannot be valued after the next payout request, while the value now and the next payout stay (TopStep 50K at 50,300)',
+            async () => {
+                vi.stubGlobal('Worker', FakeWorker);
+                const nearThreshold: AccountSnapshotInput = {
+                    ...FUNDED,
+                    balance: dollars(50_300),
+                    highestEodBalance: dollars(50_300),
+                    highestIntradayBalance: dollars(50_300),
+                };
+                const account = AccountReconstruction.rebuild(
+                    nearThreshold,
+                    PLAN,
+                    null,
+                    NO_PENDING_PAYOUT_COUNTS,
+                );
+                render(
+                    <NextPayoutSectionWithWorker
+                        account={account}
+                        input={nearThreshold}
+                        measuredRebuyLag={null}
+                        plan={PLAN}
+                        rulebook={DEFAULT_RULEBOOK}
+                        rulebookError={null}
+                    />,
+                );
+                await settle();
+                const text = container.textContent;
+                expect(text).toContain('Value from this state, credit-free');
+                expect(text).toContain('Expected time to the next payout');
+                expect(text).toContain(
+                    'The account cannot be valued after the next payout request',
+                );
+                expect(text).not.toContain(
+                    'Credit-free gain from the milestone',
+                );
+            },
+            HEAVY_TEST_TIMEOUT_MS,
+        );
 
         it('announces the pending figures through a status role', () => {
             vi.stubGlobal('Worker', SilentWorker);

@@ -235,3 +235,114 @@ describe('FundedValueCard live-transfer hazard lines (PT-73f)', () => {
         expect(container.querySelector(TRIGGER_LIST)).toBeNull();
     });
 });
+
+describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
+    let root: Root;
+    let container: HTMLElement;
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        toolsWorkerBox.instances = [];
+        toolsWorkerBox.renders = 0;
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => root.unmount());
+        container.remove();
+        vi.unstubAllGlobals();
+    });
+
+    function succeedWith(
+        result: object,
+        rulebookSampleThreshold: null | number,
+    ) {
+        act(() => {
+            root.render(
+                <FundedValueCard
+                    cards={ready(fakeCards())}
+                    rulebookSampleThreshold={rulebookSampleThreshold}
+                />,
+            );
+        });
+        const instance = toolsWorkerBox.instances[0];
+        const [request] = instance?.runSpy.mock.calls[0] as [{ runId: number }];
+        act(() => {
+            instance?.setState({
+                phase: RealToolsWorkerPhase.Succeeded,
+                result: {
+                    kind: ToolsResponseKind.FundedValueEstimate,
+                    result,
+                    runId: request.runId,
+                },
+            });
+        });
+    }
+
+    it('leads with the funded value in dollars and shows the dollar range n accounts could show under the existing label', () => {
+        succeedWith(
+            {
+                ...fundedValueResult(),
+                dollarSampleRange: {
+                    label: 'what your own n accounts could show by chance',
+                    lower: 2100,
+                    sampleSize: 10,
+                    upper: 6900,
+                },
+                fundedValue: { standardError: 300, value: 4500 },
+            },
+            10,
+        );
+
+        const text = container.textContent ?? '';
+        expect(text).toContain('$4,500 ± $300');
+        expect(text).toContain('$2,100 to $6,900');
+        expect(text).toContain(
+            'what your own n accounts could show by chance, n = 10',
+        );
+        expect(text.indexOf('$4,500 ± $300')).toBeLessThan(
+            text.indexOf('Mean payouts per funded account'),
+        );
+        expect(text).toContain('Mean payouts per funded account');
+    });
+
+    it('shows no dollar cards for a result without a funded value, keeping the payout counts', () => {
+        succeedWith(fundedValueResult(), null);
+
+        const text = container.textContent ?? '';
+        expect(text).not.toContain('Expected payout per funded account');
+        expect(text).toContain('Mean payouts per funded account');
+    });
+
+    it('asks for a sample size under the dollar range until one exists', () => {
+        succeedWith(
+            {
+                ...fundedValueResult(),
+                dollarSampleRange: null,
+                fundedValue: { standardError: 300, value: 4500 },
+            },
+            null,
+        );
+
+        const text = container.textContent ?? '';
+        expect(text).toContain('$4,500 ± $300');
+        expect(text).toContain('enter a sample size');
+    });
+
+    it('says why there is no dollar range when n is set but the run gave no standard error', () => {
+        succeedWith(
+            {
+                ...fundedValueResult(),
+                dollarSampleRange: null,
+                fundedValue: { standardError: null, value: 4500 },
+            },
+            10,
+        );
+
+        const text = container.textContent ?? '';
+        expect(text).toContain('$4,500');
+        expect(text).toContain('too few funded trials for a standard error');
+    });
+});

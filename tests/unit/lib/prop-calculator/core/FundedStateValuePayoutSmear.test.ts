@@ -147,10 +147,7 @@ describe('the funded DP never credits a payout-bearing outcome by interpolating 
             const result = computeFundedStateValue(config);
 
             expect(result.initialValue).toBeCloseTo(12.5, 9);
-            expect(exactFundedPolicyValue(config, result)).toBeCloseTo(
-                12.5,
-                9,
-            );
+            expect(exactFundedPolicyValue(config, result)).toBeCloseTo(12.5, 9);
         });
 
         it('equals the exact value of its own policy enumerated on real account state at winrate one half', () => {
@@ -207,7 +204,10 @@ describe('the funded DP never credits a payout-bearing outcome by interpolating 
         const plan = winningDayToyPlan();
         const coarse = computeFundedStateValue(toyConfig(plan));
         const fine = computeFundedStateValue(
-            toyConfig(plan, { convergenceTolerance: 1e-9, cushionStepMultiple: 0.125 }),
+            toyConfig(plan, {
+                convergenceTolerance: 1e-9,
+                cushionStepMultiple: 0.125,
+            }),
         );
 
         it.each(DAY_START_CUSHIONS)(

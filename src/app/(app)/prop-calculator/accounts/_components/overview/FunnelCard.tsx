@@ -96,6 +96,48 @@ export function FunnelCard({ model }: { readonly model: FunnelCardModel }) {
                     </TableBody>
                 </Table>
             )}
+            {model.stageDollars.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium text-white">
+                        Dollars per stage (fees of the accounts that reached
+                        this stage)
+                    </h3>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Firm</TableHead>
+                                <TableHead>Stage</TableHead>
+                                <TableHead className="text-right">
+                                    Fees
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Net payouts
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Net
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {model.stageDollars.map((row) => (
+                                <TableRow key={row.key}>
+                                    <TableCell>{row.firm}</TableCell>
+                                    <TableCell>{row.stage}</TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.fees}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.netPayouts}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.net}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
             {model.unresolvedNote !== null && (
                 <p className="text-xs text-muted-foreground">
                     {model.unresolvedNote}
@@ -112,6 +154,30 @@ export function FunnelCard({ model }: { readonly model: FunnelCardModel }) {
                     {model.weaknesses.map((weakness) => (
                         <li key={weakness.key}>
                             Biggest weakness, {weakness.plan}: {weakness.text}
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {model.untestedWeaknesses.length > 0 && (
+                <ul
+                    aria-label="Untested stages by plan"
+                    className="flex flex-col gap-1 text-sm"
+                >
+                    {model.untestedWeaknesses.map((weakness) => (
+                        <li key={weakness.key}>
+                            {weakness.plan}: {weakness.text}
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {model.diagnosticIssues.length > 0 && (
+                <ul
+                    aria-label="Funnel diagnostic issues by plan"
+                    className="flex flex-col gap-1 text-sm text-amber-400"
+                >
+                    {model.diagnosticIssues.map((issue) => (
+                        <li key={issue.key}>
+                            {issue.plan}: {issue.text}
                         </li>
                     ))}
                 </ul>

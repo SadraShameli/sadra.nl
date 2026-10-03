@@ -210,7 +210,9 @@ function builderArgumentFor(
     return documented !== undefined &&
         liveStart !== undefined &&
         liveStart >= documented.lowest &&
-        liveStart < documented.highest ? liveStart : applicability.reconstructionDefault;
+        liveStart < documented.highest
+        ? liveStart
+        : applicability.reconstructionDefault;
 }
 
 function buildLivePlanFor(
@@ -289,9 +291,7 @@ function calendarSeedFor(
 function isTieredOnPeak(
     breakpointsFor: (isMicro: boolean) => readonly number[],
 ): boolean {
-    return [false, true].some(
-        (isMicro) => breakpointsFor(isMicro).length > 0,
-    );
+    return [false, true].some((isMicro) => breakpointsFor(isMicro).length > 0);
 }
 
 function nominalOf(
@@ -300,6 +300,18 @@ function nominalOf(
 ): (amount: Dollars) => Dollars {
     return (amount) =>
         nominalBalanceOf(amount, input.dashboardConvention, accountSize);
+}
+
+function noteRequestsAssumedInBalance(
+    input: AccountSnapshotInput,
+    assumptions: Assumption[],
+): void {
+    if ((input.requestedPayoutsAssumedInBalance ?? 0) <= 0) return;
+    addAssumption(
+        assumptions,
+        AssumptionKind.PendingPayoutAssumedInBalance,
+        AssumptionBias.Optimistic,
+    );
 }
 
 function rebuildEval(
@@ -454,13 +466,7 @@ function rebuildFunded(
             ),
         );
     }
-    if ((input.requestedPayoutsAssumedInBalance ?? 0) > 0) {
-        addAssumption(
-            assumptions,
-            AssumptionKind.PendingPayoutAssumedInBalance,
-            AssumptionBias.Optimistic,
-        );
-    }
+    noteRequestsAssumedInBalance(input, assumptions);
 
     if (input.qualifyingDaysSinceLastPayout !== undefined) {
         assumptions.push(
@@ -592,6 +598,7 @@ function rebuildLive(
     const assumptions: Assumption[] = [];
     const nominal = nominalOf(input, plan.accountSize);
     const applicability: LivePlanApplicability = livePlanApplicability(plan.id);
+    noteRequestsAssumedInBalance(input, assumptions);
     switch (applicability.kind) {
         case LiveApplicabilityKind.Builder:
         case LiveApplicabilityKind.TransitionBuilder: {

@@ -32,6 +32,7 @@ export interface BankrollCompareArguments {
     'horizon-days': string;
     multiples?: string;
     risks?: string;
+    'round-budget'?: string;
     start: string;
 }
 
@@ -39,7 +40,16 @@ export interface BankrollCompareInputs {
     horizonDays: number;
     multiples: null | { cycleDays: number; multiple: number }[];
     risks: null | number[];
+    roundBudget: Dollars | null;
     start: Dollars;
+}
+
+export interface BankrollCurveArguments {
+    budgets: string;
+}
+
+export interface BankrollCurveInputs {
+    budgets: Dollars[];
 }
 
 export interface BankrollLeversArguments {
@@ -62,6 +72,7 @@ export interface BankrollProjectArguments {
     'monthly-budget'?: string;
     'payout-lag-days': string;
     reinvest: string;
+    'round-budget'?: string;
     start: string;
     trials: string;
 }
@@ -72,6 +83,7 @@ export interface BankrollProjectInputs {
     monthlyBudget: Dollars | null;
     payoutLagDays: number;
     reinvest: Fraction0to1;
+    roundBudget: Dollars | null;
     start: Dollars;
     trials: number;
 }
@@ -89,6 +101,16 @@ export interface BankrollRiskInputs {
     passRateOverride: Fraction0to1 | null;
     payoutRateOverride: Fraction0to1 | null;
 }
+
+export class BankrollMaxAttemptsRefused extends Error {}
+
+const roundBudgetArgument = {
+    'round-budget': {
+        description:
+            'Cap on cumulative spend for the whole run (one round); a card that would push spend past it is not bought; omit for no cap',
+        type: 'string',
+    },
+} satisfies ArgsDef;
 
 export const bankrollBatchArguments = {
     attempts: {
@@ -114,9 +136,19 @@ export const bankrollCompareArguments = {
             'Eval risk per trade values to compare, comma separated (e.g. 250,500); each is a what-if, priced on the same seed',
         type: 'string',
     },
+    ...roundBudgetArgument,
     start: {
         default: '5000',
         description: 'Starting bankroll',
+        type: 'string',
+    },
+} satisfies ArgsDef;
+
+export const bankrollCurveArguments = {
+    budgets: {
+        default: '5000,10000,20000',
+        description:
+            'Bankroll budgets to price, comma separated (e.g. 5000,10000,20000)',
         type: 'string',
     },
 } satisfies ArgsDef;
@@ -169,6 +201,7 @@ export const bankrollProjectArguments = {
             'Fraction [0,1] of each payout reinvested; the rest is withdrawn',
         type: 'string',
     },
+    ...roundBudgetArgument,
     start: {
         default: '5000',
         description: 'Starting bankroll',
@@ -203,6 +236,16 @@ export const bankrollRiskArguments = {
         type: 'string',
     },
 } satisfies ArgsDef;
+
+export function assertSingleAttemptPricing(
+    inputs: Pick<TradingInputs, 'maxAttempts'>,
+): void {
+    if (inputs.maxAttempts > 1) {
+        throw new BankrollMaxAttemptsRefused(
+            `prop bankroll prices every trial as one attempt at the attempt cost, but --max-attempts is ${String(inputs.maxAttempts)}. Leave --max-attempts at 1 and price retries through the plan's retry fee.`,
+        );
+    }
+}
 
 export function readBankrollBatchInputs(
     arguments_: BankrollBatchArguments,
@@ -240,7 +283,18 @@ export function readBankrollCompareInputs(
             arguments_.risks === undefined
                 ? null
                 : parsePositiveNumberList(arguments_.risks, 'risks'),
+        roundBudget: readRoundBudget(arguments_['round-budget']),
         start: dollars(readPositiveNumber(arguments_.start, 'start')),
+    };
+}
+
+export function readBankrollCurveInputs(
+    arguments_: BankrollCurveArguments,
+): BankrollCurveInputs {
+    return {
+        budgets: parsePositiveNumberList(arguments_.budgets, 'budgets').map(
+            (budget) => dollars(budget),
+        ),
     };
 }
 
@@ -293,6 +347,7 @@ export function readBankrollProjectInputs(
             'payout-lag-days',
         ),
         reinvest: fraction(readFraction(arguments_.reinvest, 'reinvest')),
+        roundBudget: readRoundBudget(arguments_['round-budget']),
         start: dollars(readPositiveNumber(arguments_.start, 'start')),
         trials: readPositiveInteger(arguments_.trials, 'trials'),
     };
@@ -365,4 +420,10 @@ function parsePositiveNumberList(raw: string, name: string): number[] {
         }
         return value;
     });
+}
+
+function readRoundBudget(raw: string | undefined): Dollars | null {
+    return raw === undefined
+        ? null
+        : dollars(readPositiveNumber(raw, 'round-budget'));
 }

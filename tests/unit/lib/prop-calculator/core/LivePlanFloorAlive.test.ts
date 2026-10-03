@@ -91,9 +91,9 @@ describe('LivePlan.isFloorAlive is the one floor-alive check (WP62d, N-94)', () 
     });
 
     it('has no floor to be alive on a plan with only a daily loss limit', () => {
-        expect(dailyLimitOnly.isFloorAlive(stateAt(dailyLimitOnly, 10_000))).toBe(
-            false,
-        );
+        expect(
+            dailyLimitOnly.isFloorAlive(stateAt(dailyLimitOnly, 10_000)),
+        ).toBe(false);
         expect(dailyLimitOnly.isFloorAlive(stateAt(dailyLimitOnly, 0))).toBe(
             false,
         );

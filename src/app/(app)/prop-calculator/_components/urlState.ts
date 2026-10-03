@@ -490,6 +490,7 @@ export function decodeState(
         payoutRequestSize,
         plan: resolvedPlan,
         portfolio: valueOr(portfolioLink, fallback.portfolio),
+        rebuyLagDays: scalarFields.rebuyLag,
         resetDiscountPercent: scalarFields.rstd,
         retainedCushion,
         riskDollars: scalarFields.rd,
@@ -541,6 +542,9 @@ export function encodeState(
     );
     if (state.liveTransferHazard > 0) {
         p.set('lth', String(state.liveTransferHazard));
+    }
+    if (state.rebuyLagDays > 0) {
+        p.set(CalculatorUrlParameter.RebuyLagDays, String(state.rebuyLagDays));
     }
     p.set('rung', state.rungSizing);
     p.set(

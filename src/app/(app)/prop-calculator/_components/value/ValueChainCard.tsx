@@ -143,7 +143,8 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                             ),
                         )}
                         {cardSteps.map((step) =>
-                            step.cumulativePayoutTrigger === undefined ? null : (
+                            step.cumulativePayoutTrigger ===
+                            undefined ? null : (
                                 <div
                                     className="flex flex-col gap-1"
                                     key={step.kind}

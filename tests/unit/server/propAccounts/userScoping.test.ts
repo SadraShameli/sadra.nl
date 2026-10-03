@@ -104,6 +104,8 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
     'decision.list': { accountId: IDS.account },
     'decision.listForAccount': { id: IDS.account },
     'decision.recordActual': { actualRiskCents: 30_000, id: IDS.decision },
+    'dpAdvice.latestForAll': undefined,
+    'dpAdvice.listForAccount': { id: IDS.account },
     'edge.summary': {},
     'event.list': { from: '2026-01-01', to: '2026-09-30' },
     'event.listForAccount': { id: IDS.account },
@@ -280,6 +282,21 @@ const SCOPED_ROWS: Readonly<
     'round.remove': { [TABLES.account]: [] },
 };
 
+const OTHER_VIOLATION_OF_DECISION = /"id" <> \$\d+/;
+
+const SCOPED_RESPONDERS: Readonly<
+    Record<string, () => (query: IssuedQuery) => FakeRow[]>
+> = {
+    'violation.update': () => {
+        const base = tableResponder();
+        return (query) =>
+            readTable(query) === VIDEO_TABLES.violation &&
+            OTHER_VIOLATION_OF_DECISION.test(query.text)
+                ? []
+                : base(query);
+    },
+};
+
 const MUTATIONS_BY_ID = [
     'account.archive',
     'account.remove',
@@ -384,7 +401,8 @@ describe('propAccounts user scoping', () => {
         async (path) => {
             const { caller, queries } = callerFor(
                 SIGNED_IN,
-                tableResponder(SCOPED_ROWS[path]),
+                SCOPED_RESPONDERS[path]?.() ??
+                    tableResponder(SCOPED_ROWS[path]),
             );
             await procedureAt(caller, path)(VALID_INPUTS[path]);
             assertScoped(queries);

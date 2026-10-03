@@ -16,11 +16,3 @@ export function roundBudgetStatus(
         spentCents,
     };
 }
-
-export function willExceedRoundBudget(
-    budgetCents: null | number,
-    spentCents: number,
-    additionalCents: number,
-): boolean {
-    return budgetCents !== null && spentCents + additionalCents > budgetCents;
-}

@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
 
+import AccountsPassedDistributionChart from '~/app/(app)/prop-calculator/_components/AccountsPassedDistributionChart';
 import {
     Table,
     TableBody,
@@ -10,6 +11,8 @@ import {
 } from '~/components/ui/Table';
 
 import { type FundedPayoutsCardModel } from './overviewModel';
+
+const PAYOUT_COUNT_CAPTION = '# payouts per funded account';
 
 export function FundedPayoutsCard({
     model,
@@ -98,11 +101,55 @@ export function FundedPayoutsCard({
                     ))}
                 </TableBody>
             </Table>
+            <div className="flex flex-col gap-4">
+                {model.rows.map((row) => (
+                    <DistributionPair key={row.key} row={row} />
+                ))}
+            </div>
             <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {model.disclosures.map((disclosure) => (
                     <li key={disclosure}>{disclosure}</li>
                 ))}
             </ul>
+        </div>
+    );
+}
+
+function DistributionPair({
+    row,
+}: {
+    readonly row: FundedPayoutsCardModel['rows'][number];
+}) {
+    return (
+        <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium text-white">
+                {row.plan}: payout-count distribution
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+                {row.realizedProbabilities.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                        No fully observed funded account yet, so there is no
+                        realized distribution.
+                    </p>
+                ) : (
+                    <AccountsPassedDistributionChart
+                        caption={`${PAYOUT_COUNT_CAPTION}, realized`}
+                        distribution={[...row.realizedProbabilities]}
+                        halfThreshold={false}
+                    />
+                )}
+                {row.modeledProbabilities === null ? (
+                    <p className="text-sm text-muted-foreground">
+                        The modeled distribution is pending the engine cards.
+                    </p>
+                ) : (
+                    <AccountsPassedDistributionChart
+                        caption={`${PAYOUT_COUNT_CAPTION}, modeled`}
+                        distribution={[...row.modeledProbabilities]}
+                        halfThreshold={false}
+                    />
+                )}
+            </div>
         </div>
     );
 }

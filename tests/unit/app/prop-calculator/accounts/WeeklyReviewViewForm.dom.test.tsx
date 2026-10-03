@@ -1,6 +1,7 @@
 import { skipToken } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WeeklyReviewView } from '~/app/(app)/prop-calculator/accounts/review/WeeklyReviewView';
@@ -249,6 +250,10 @@ function seed() {
     );
 }
 
+function snapshotIdOf(accountId: string, field: string): string {
+    return `snapshot-${accountId}-${field}`;
+}
+
 function submitted(): {
     decisions: readonly Record<string, unknown>[];
     snapshots: readonly Record<string, unknown>[];
@@ -306,6 +311,19 @@ describe('WeeklyReviewView form', () => {
         return card;
     }
 
+    function recordFirstAccountOnReviewDate() {
+        harness.queries.set(
+            'snapshot.latestForAll',
+            answer([
+                { ...previousSnapshot(FIRST_ID), asOf: REVIEW_ON },
+                previousSnapshot(SECOND_ID),
+            ]),
+        );
+        act(() => {
+            root.render(<WeeklyReviewView />);
+        });
+    }
+
     async function submit() {
         act(() => {
             buttonLabelled(container, SUBMIT_LABEL).click();
@@ -322,11 +340,16 @@ describe('WeeklyReviewView form', () => {
 
     it('prefills money fields in dollars and counts as plain numbers from the previous snapshot', () => {
         const first = cardOf('Eval one');
-        expect(fieldIn(first, 'snapshot-balanceCents').value).toBe('50400');
-        expect(fieldIn(first, 'snapshot-highestEodBalanceCents').value).toBe(
-            '50600',
-        );
-        expect(fieldIn(first, 'snapshot-tradingDays').value).toBe('3');
+        expect(
+            fieldIn(first, snapshotIdOf(FIRST_ID, 'balanceCents')).value,
+        ).toBe('50400');
+        expect(
+            fieldIn(first, snapshotIdOf(FIRST_ID, 'highestEodBalanceCents'))
+                .value,
+        ).toBe('50600');
+        expect(
+            fieldIn(first, snapshotIdOf(FIRST_ID, 'tradingDays')).value,
+        ).toBe('3');
     });
 
     it('leaves untouched rows out of the submission until one is ticked as unchanged, then posts its previous values', async () => {
@@ -363,7 +386,7 @@ describe('WeeklyReviewView form', () => {
 
     it('shows the parse issue when Balance is typed as text and leaves that row out of the submission', async () => {
         const first = cardOf('Eval one');
-        typeInto(fieldIn(first, 'snapshot-balanceCents'), 'abc');
+        typeInto(fieldIn(first, snapshotIdOf(FIRST_ID, 'balanceCents')), 'abc');
         expect(cardOf('Eval one').textContent).toContain(MONEY_ENTRY_MESSAGE);
         expect(cardOf('Eval one').textContent).toContain(
             'Fix the entry above to size it',
@@ -374,15 +397,16 @@ describe('WeeklyReviewView form', () => {
         expect(snapshots.map((snapshot) => snapshot.accountId)).toEqual([
             SECOND_ID,
         ]);
-        expect(fieldIn(cardOf('Eval one'), 'snapshot-balanceCents').value).toBe(
-            'abc',
-        );
+        expect(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'balanceCents'))
+                .value,
+        ).toBe('abc');
         expect(cardOf('Eval one').textContent).toContain(MONEY_ENTRY_MESSAGE);
     });
 
     it('blocks a row whose required field was emptied and never posts last week values for it', async () => {
         const first = cardOf('Eval one');
-        typeInto(fieldIn(first, 'snapshot-tradingDays'), '');
+        typeInto(fieldIn(first, snapshotIdOf(FIRST_ID, 'tradingDays')), '');
         expect(cardOf('Eval one').textContent).toContain(
             'Fix the entry above to size it',
         );
@@ -394,7 +418,10 @@ describe('WeeklyReviewView form', () => {
     });
 
     it('shows the plausibility message beside a blocked entry and does not post it', async () => {
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-balanceCents'), '2400');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'balanceCents')),
+            '2400',
+        );
         expect(cardOf('Eval one').textContent).toContain(
             'set the dashboard convention to $0-based',
         );
@@ -406,7 +433,10 @@ describe('WeeklyReviewView form', () => {
     });
 
     it('posts an edited row with its size change versus last week and the accepted size', async () => {
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-tradingDays'), '5');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
         expect(cardOf('Eval one').textContent).toContain('vs last week');
         tick(cardOf('Eval one'), `accept-${FIRST_ID}`);
         await submit();
@@ -446,7 +476,10 @@ describe('WeeklyReviewView form', () => {
         expect(
             cardOf('Eval one').querySelector(`#accept-${FIRST_ID}`),
         ).toBeNull();
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-tradingDays'), '5');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
         expect(
             cardOf('Eval one').querySelector(`#accept-${FIRST_ID}`),
         ).not.toBeNull();
@@ -489,15 +522,24 @@ describe('WeeklyReviewView form', () => {
             /Documented headline: \$[\d,]+/.exec(
                 cardOf('Eval one').textContent,
             )?.[0];
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-tradingDays'), '5');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
         tick(cardOf('Eval one'), `accept-${FIRST_ID}`);
         const before = headline();
         expect(before).toBeDefined();
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-balanceCents'), 'abc');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'balanceCents')),
+            'abc',
+        );
         expect(
             cardOf('Eval one').querySelector(`#accept-${FIRST_ID}`),
         ).toBeNull();
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-balanceCents'), '48900');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'balanceCents')),
+            '48900',
+        );
         expect(headline()).toBeDefined();
         expect(headline()).not.toBe(before);
         expect(acceptStateOf(cardOf('Eval one'), FIRST_ID)).toBe('unchecked');
@@ -507,17 +549,29 @@ describe('WeeklyReviewView form', () => {
     });
 
     it('keeps the accept tick when the row goes through an invalid entry and comes back at the same size', async () => {
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-tradingDays'), '5');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
         tick(cardOf('Eval one'), `accept-${FIRST_ID}`);
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-balanceCents'), 'abc');
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-balanceCents'), '50400');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'balanceCents')),
+            'abc',
+        );
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'balanceCents')),
+            '50400',
+        );
         expect(acceptStateOf(cardOf('Eval one'), FIRST_ID)).toBe('checked');
         await submit();
         expect(submitted().decisions).toHaveLength(1);
     });
 
     it('keeps what was typed while the submission is being reloaded and clears it once the reload lands, with the recorded row then reading as already recorded', async () => {
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-tradingDays'), '5');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
         const reload = Promise.withResolvers<boolean>();
         harness.invalidate.mockImplementationOnce(async () => {
             await reload.promise;
@@ -527,7 +581,8 @@ describe('WeeklyReviewView form', () => {
         });
         await flush();
         expect(
-            fieldIn(cardOf('Eval one'), 'snapshot-tradingDays').value,
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays'))
+                .value,
         ).toBe('5');
         expect(cardOf('Eval one').textContent).not.toContain(
             `Unchanged since ${PREVIOUS_ON}`,
@@ -561,15 +616,22 @@ describe('WeeklyReviewView form', () => {
         harness
             .mutateAsyncOf('review.submit')
             .mockRejectedValueOnce(new Error('rejected'));
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-tradingDays'), '5');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
         await submit();
         expect(
-            fieldIn(cardOf('Eval one'), 'snapshot-tradingDays').value,
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays'))
+                .value,
         ).toBe('5');
     });
 
     it('labels the headline as documented for the default rulebook and states what the review does not check', () => {
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-tradingDays'), '5');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
         const text = cardOf('Eval one').textContent;
         expect(text).toContain('Documented headline:');
         expect(text).toContain(
@@ -594,7 +656,10 @@ describe('WeeklyReviewView form', () => {
         act(() => {
             root.render(<WeeklyReviewView />);
         });
-        typeInto(fieldIn(cardOf('Eval one'), 'snapshot-tradingDays'), '5');
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
         const text = cardOf('Eval one').textContent;
         expect(text).toContain('your custom rule (differs from');
         expect(text).not.toContain('Documented headline:');
@@ -687,5 +752,128 @@ describe('WeeklyReviewView form', () => {
             root.render(<WeeklyReviewView />);
         });
         expect(container.textContent).toContain('Could not load');
+    });
+
+    it('gives every field of every account card its own id, so a label focuses the input of its own account', () => {
+        const ids = [...container.querySelectorAll('[id]')].map(
+            (element) => element.id,
+        );
+        expect(new Set(ids).size).toBe(ids.length);
+        for (const [label, accountId] of [
+            ['Eval one', FIRST_ID],
+            ['Eval two', SECOND_ID],
+        ] as const) {
+            const card = cardOf(label);
+            const balanceLabel = [...card.querySelectorAll('label')].find(
+                (candidate) => candidate.textContent.startsWith('Balance'),
+            );
+            expect(balanceLabel?.control).toBe(
+                fieldIn(card, snapshotIdOf(accountId, 'balanceCents')),
+            );
+        }
+    });
+
+    describe('a row already recorded for the review date', () => {
+        it('is read-only and an edit typed into it is never posted, so the batch cannot be rejected as a duplicate', async () => {
+            recordFirstAccountOnReviewDate();
+            const balance = fieldIn(
+                cardOf('Eval one'),
+                snapshotIdOf(FIRST_ID, 'balanceCents'),
+            );
+            expect(balance.readOnly).toBe(true);
+            typeInto(balance, '49000');
+            tick(cardOf('Eval two'), `unchanged-${SECOND_ID}`);
+            await submit();
+            expect(
+                submitted().snapshots.map((snapshot) => snapshot.accountId),
+            ).toEqual([SECOND_ID]);
+            expect(cardOf('Eval one').textContent).toContain(
+                `Already recorded for ${REVIEW_ON}`,
+            );
+        });
+
+        it('keeps showing the recorded values and offers no accept tick after an edit attempt', () => {
+            recordFirstAccountOnReviewDate();
+            typeInto(
+                fieldIn(
+                    cardOf('Eval one'),
+                    snapshotIdOf(FIRST_ID, 'balanceCents'),
+                ),
+                '49000',
+            );
+            expect(
+                fieldIn(
+                    cardOf('Eval one'),
+                    snapshotIdOf(FIRST_ID, 'balanceCents'),
+                ).value,
+            ).toBe('50400');
+            expect(
+                cardOf('Eval one').querySelector(`#accept-${FIRST_ID}`),
+            ).toBeNull();
+        });
+
+        it('leaves the rows that are not recorded yet editable', () => {
+            recordFirstAccountOnReviewDate();
+            expect(
+                fieldIn(
+                    cardOf('Eval two'),
+                    snapshotIdOf(SECOND_ID, 'balanceCents'),
+                ).readOnly,
+            ).toBe(false);
+        });
+    });
+
+    it('keeps the submit button disabled until the reload after a save ends, so a second click cannot post the same payload', async () => {
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
+        const reload = Promise.withResolvers<boolean>();
+        harness.invalidate.mockImplementationOnce(async () => {
+            await reload.promise;
+        });
+        act(() => {
+            buttonLabelled(container, SUBMIT_LABEL).click();
+        });
+        await flush();
+        expect(buttonLabelled(container, SUBMIT_LABEL).disabled).toBe(true);
+        act(() => {
+            buttonLabelled(container, SUBMIT_LABEL).click();
+        });
+        await flush();
+        expect(harness.mutateAsyncOf('review.submit')).toHaveBeenCalledTimes(1);
+        await act(async () => {
+            reload.resolve(true);
+            await new Promise((resolve) => {
+                setTimeout(resolve, 0);
+            });
+        });
+        expect(buttonLabelled(container, SUBMIT_LABEL).disabled).toBe(false);
+        expect(harness.mutateAsyncOf('review.submit')).toHaveBeenCalledTimes(1);
+    });
+
+    it('enables the submit button again after a rejected save and its reload', async () => {
+        harness
+            .mutateAsyncOf('review.submit')
+            .mockRejectedValueOnce(new Error('rejected'));
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
+        await submit();
+        expect(buttonLabelled(container, SUBMIT_LABEL).disabled).toBe(false);
+    });
+
+    it('enables the submit button again when the reload itself fails', async () => {
+        harness.invalidate.mockImplementationOnce(() =>
+            Promise.reject(new Error('reload failed')),
+        );
+        typeInto(
+            fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'tradingDays')),
+            '5',
+        );
+        await submit();
+        expect(buttonLabelled(container, SUBMIT_LABEL).disabled).toBe(false);
+        expect(vi.mocked(toast.error)).toHaveBeenCalledWith('reload failed');
     });
 });

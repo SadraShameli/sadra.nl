@@ -17,6 +17,7 @@ function row(
         accountsWithPayout: '0',
         attempts: '1',
         attemptsSampleLevel: null,
+        coverageNote: null,
         firstPayoutOn: 'n/a',
         fundedAccounts: '0',
         fundedSampleLevel: null,
@@ -100,5 +101,25 @@ describe('FirmReturnsCard', () => {
         });
         expect(container.textContent).toContain('Low sample');
         expect(container.textContent).toContain('Adequate sample');
+    });
+
+    it('discloses the accounts of a firm that have no timeline', () => {
+        const model: FirmReturnsCardModel = {
+            rows: [
+                row({
+                    coverageNote:
+                        '1 account with a plan that is no longer modeled and 1 ledger-only account have no timeline in this firm row.',
+                    firm: 'Mixed firm',
+                    key: 'mixed',
+                    multiple: '1.00x',
+                }),
+            ],
+        };
+        act(() => {
+            root.render(<FirmReturnsCard model={model} />);
+        });
+        expect(container.textContent).toContain(
+            'Mixed firm: 1 account with a plan that is no longer modeled and 1 ledger-only account have no timeline in this firm row.',
+        );
     });
 });

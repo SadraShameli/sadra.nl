@@ -136,7 +136,10 @@ describe('repeatability', () => {
         const statement = monthlyStatement(portfolio, '2026-09-01', NO_TARGETS);
         const slots = realizedNetPerSlot(portfolio, '2026-09-01');
         const result = repeatability(statement, slots, 15_000);
-        expect(result.overall?.shareAtOrAboveTarget?.value).toBeCloseTo(2 / 3, 6);
+        expect(result.overall?.shareAtOrAboveTarget?.value).toBeCloseTo(
+            2 / 3,
+            6,
+        );
     });
 
     it('counts a slot month at target when its measured payouts reach the portfolio target', () => {

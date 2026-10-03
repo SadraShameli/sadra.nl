@@ -64,11 +64,14 @@ export default function CopySplitSection() {
     });
     const parsed = useMemo(() => parseCopySplitInputs(text), [text]);
     const totalRiskIssue = useMemo(
-        () => parseCopySplitInputs({ splits: '1', totalRisk: text.totalRisk }).issue,
+        () =>
+            parseCopySplitInputs({ splits: '1', totalRisk: text.totalRisk })
+                .issue,
         [text.totalRisk],
     );
     const splitsIssue = useMemo(
-        () => parseCopySplitInputs({ splits: text.splits, totalRisk: '1' }).issue,
+        () =>
+            parseCopySplitInputs({ splits: text.splits, totalRisk: '1' }).issue,
         [text.splits],
     );
     const funded = useMemo<CopySplitFundedSizing>(
@@ -150,7 +153,10 @@ export default function CopySplitSection() {
                         Total risk per trade
                     </label>
                     <Input
-                        {...invalidFieldProps(totalRiskIssue !== null, totalRiskIssueId)}
+                        {...invalidFieldProps(
+                            totalRiskIssue !== null,
+                            totalRiskIssueId,
+                        )}
                         className="h-8 w-32"
                         id={totalRiskId}
                         inputMode="decimal"
@@ -171,7 +177,10 @@ export default function CopySplitSection() {
                         Splits (accounts, comma separated)
                     </label>
                     <Input
-                        {...invalidFieldProps(splitsIssue !== null, splitsIssueId)}
+                        {...invalidFieldProps(
+                            splitsIssue !== null,
+                            splitsIssueId,
+                        )}
                         className="h-8 w-48"
                         id={splitsId}
                         onChange={(event) =>

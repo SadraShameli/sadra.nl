@@ -10,7 +10,6 @@ import {
     useState,
 } from 'react';
 
-import { useSession } from '~/lib/auth/client';
 import {
     ALL_FIRMS,
     type PlanOptIns,
@@ -39,6 +38,7 @@ import {
     useCalculator,
 } from './useCalculator';
 import { ComputationCacheContext } from './useDebouncedSimulation';
+import { useToolRulebook } from './useToolRulebook';
 
 export enum ObjectiveQueryFailure {
     BankrollSummary = 'bankroll-summary',
@@ -48,6 +48,11 @@ export enum ObjectiveQueryFailure {
 export interface AutomaticObjectiveBasis {
     availableCents: number;
     switchCents: null | number;
+}
+
+export interface AvailableBankroll {
+    availableCents: null | number;
+    isPending: boolean;
 }
 
 export interface CalculatorInputs {
@@ -85,6 +90,11 @@ interface CalculatorProviderProperties {
     children: ReactNode;
 }
 
+const NO_AVAILABLE_BANKROLL: AvailableBankroll = {
+    availableCents: null,
+    isPending: false,
+};
+
 const NO_OBJECTIVE_CHOICE: ObjectiveChoice = {
     automaticBasis: null,
     queryFailure: null,
@@ -95,7 +105,11 @@ const BaseResultContext = createContext<BaseSimulationRun | null>(null);
 const LabSlotsContext = createContext<CalculatorLabSlots | null>(null);
 const CalculatorActionsContext =
     createContext<CalculatorProviderActions | null>(null);
-const ObjectiveChoiceContext = createContext<ObjectiveChoice>(NO_OBJECTIVE_CHOICE);
+const AvailableBankrollContext = createContext<AvailableBankroll>(
+    NO_AVAILABLE_BANKROLL,
+);
+const ObjectiveChoiceContext =
+    createContext<ObjectiveChoice>(NO_OBJECTIVE_CHOICE);
 
 export function CalculatorProvider({ children }: CalculatorProviderProperties) {
     const calculator = useCalculator();
@@ -130,20 +144,27 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
     const hasChosenObjectiveReference = useRef(false);
     const [automaticBasis, setAutomaticBasis] =
         useState<AutomaticObjectiveBasis | null>(null);
-    const session = useSession();
-    const hasSession = session.data?.user.id !== undefined;
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
-        enabled: hasSession,
-    });
+    const {
+        hasSession,
+        isQueryError: isRulebookError,
+        userRulebook: rulebook,
+    } = useToolRulebook();
     const summaryQuery = api.propAccounts.bankroll.summary.useQuery(undefined, {
         enabled: hasSession,
         refetchOnWindowFocus: false,
         staleTime: Infinity,
     });
-    const rulebook = rulebookQuery.data;
     const availableCents = summaryQuery.data?.availableCents;
+    const isSummaryPending = summaryQuery.isPending;
+    const availableBankroll = useMemo<AvailableBankroll>(
+        () => ({
+            availableCents: hasSession ? (availableCents ?? null) : null,
+            isPending: hasSession && isSummaryPending,
+        }),
+        [availableCents, hasSession, isSummaryPending],
+    );
     useEffect(() => {
-        if (!hasSession || availableCents === undefined || rulebook === undefined) {
+        if (!hasSession || availableCents === undefined || rulebook === null) {
             rememberAutomaticObjective(null);
             setAutomaticBasis(null);
             return;
@@ -166,7 +187,7 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
         if (
             !hasSession ||
             availableCents === undefined ||
-            rulebook === undefined ||
+            rulebook === null ||
             hasChosenObjectiveReference.current
         ) {
             return;
@@ -200,17 +221,14 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
                     ? automaticBasis
                     : null,
             queryFailure: isAwaitingObjectiveChoice
-                ? objectiveQueryFailure(
-                      summaryQuery.isError,
-                      rulebookQuery.isError,
-                  )
+                ? objectiveQueryFailure(summaryQuery.isError, isRulebookError)
                 : null,
         }),
         [
             automaticBasis,
             isAwaitingObjectiveChoice,
+            isRulebookError,
             objectiveOrigin,
-            rulebookQuery.isError,
             summaryQuery.isError,
         ],
     );
@@ -263,17 +281,25 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
                 <CalculatorInputsContext.Provider value={inputs}>
                     <BaseResultContext.Provider value={baseResult}>
                         <LabSlotsContext.Provider value={labSlots}>
-                            <ObjectiveChoiceContext.Provider
-                                value={objectiveChoice}
+                            <AvailableBankrollContext.Provider
+                                value={availableBankroll}
                             >
-                                {children}
-                            </ObjectiveChoiceContext.Provider>
+                                <ObjectiveChoiceContext.Provider
+                                    value={objectiveChoice}
+                                >
+                                    {children}
+                                </ObjectiveChoiceContext.Provider>
+                            </AvailableBankrollContext.Provider>
                         </LabSlotsContext.Provider>
                     </BaseResultContext.Provider>
                 </CalculatorInputsContext.Provider>
             </CalculatorActionsContext.Provider>
         </ComputationCacheContext.Provider>
     );
+}
+
+export function useAvailableBankroll(): AvailableBankroll {
+    return useContext(AvailableBankrollContext);
 }
 
 export function useBaseResult(): BaseSimulationRun {

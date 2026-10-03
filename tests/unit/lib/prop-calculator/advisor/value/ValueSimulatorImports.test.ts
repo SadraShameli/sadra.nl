@@ -38,11 +38,14 @@ describe('the value layer reaches the simulator through its barrel only (PT-73g 
         expect(deep).toEqual([]);
     });
 
-    it.each(FILES)('%s keeps no copy of the live-transfer setup mapping', (name) => {
-        const source = readFileSync(path.join(VALUE_ROOT, name), 'utf8');
+    it.each(FILES)(
+        '%s keeps no copy of the live-transfer setup mapping',
+        (name) => {
+            const source = readFileSync(path.join(VALUE_ROOT, name), 'utf8');
 
-        for (const marker of LIVE_SETUP_COPY_MARKERS) {
-            expect(source).not.toContain(marker);
-        }
-    });
+            for (const marker of LIVE_SETUP_COPY_MARKERS) {
+                expect(source).not.toContain(marker);
+            }
+        },
+    );
 });

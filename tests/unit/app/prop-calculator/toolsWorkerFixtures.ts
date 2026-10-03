@@ -95,6 +95,7 @@ export function projectionRequest(runId: number): ToolsWorkerRequest {
 export function projectionResult(runId: number): ToolsWorkerResult {
     return {
         kind: ToolsResponseKind.Projection,
+        monthEnds: [],
         result: {
             cardsBoughtP50: 1,
             cashP10: [5000],

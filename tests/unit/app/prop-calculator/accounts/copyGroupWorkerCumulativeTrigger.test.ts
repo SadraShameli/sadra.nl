@@ -168,7 +168,11 @@ describe('the copy-group simulation says it does not price the trigger (PT-36r, 
     });
 
     it('skips a member whose plan cannot be resolved instead of throwing', () => {
-        const unresolved = { ...MEMBER, id: 'gone', planSerial: 'no-such-plan' };
+        const unresolved = {
+            ...MEMBER,
+            id: 'gone',
+            planSerial: 'no-such-plan',
+        };
         expect(() =>
             copyGroupUnpricedTriggerNoteOf({
                 ...request,
@@ -184,7 +188,11 @@ describe('the copy-group simulation says it does not price the trigger (PT-36r, 
     });
 
     it('still names the trigger of the members that resolve beside one that does not', () => {
-        const unresolved = { ...MEMBER, id: 'gone', planSerial: 'no-such-plan' };
+        const unresolved = {
+            ...MEMBER,
+            id: 'gone',
+            planSerial: 'no-such-plan',
+        };
         const note = withTriggers(
             [new CumulativeAmountTrigger(dollars(100_000), CONFIRMED_SOURCE)],
             () =>

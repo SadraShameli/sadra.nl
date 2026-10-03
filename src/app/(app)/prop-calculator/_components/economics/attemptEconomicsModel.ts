@@ -4,6 +4,8 @@ import {
     attemptEconomicsOfRun,
     ECONOMICS_REASON_TEXT,
     type EconomicsReason,
+    filledEvFormulaText,
+    paidFundedPayoutStatsOf,
     type RunAttemptEconomics,
     type RunAttemptOutputs,
 } from '~/lib/prop-calculator/economics';
@@ -58,14 +60,8 @@ export function attemptEconomicsCardModel(
         };
     }
     const economics = decomposition.value;
-    const payoutsPerPaidFunded = ratioOf(
-        outputs.payoutsPerFundedAccount,
-        outputs.anyPayoutGivenFundedProbability,
-    );
-    const averagePayout = ratioOf(
-        outputs.expectedPayoutPerFundedAccount,
-        outputs.payoutsPerFundedAccount,
-    );
+    const { averagePayout, payoutsPerPaidFunded } =
+        paidFundedPayoutStatsOf(outputs);
     const trialCount = outputs.netValues.length;
     const fundedCount = outputs.fundedPayoutValues.length;
     const fundedTrials = nCountText(fundedCount, 'funded trials');
@@ -148,26 +144,21 @@ export function attemptEconomicsCardModel(
             },
         ],
         economics,
-        formula: formulaTextOf(economics),
+        formula: `EV per attempt = ${filledEvFormulaText(
+            economics,
+            withStandardError(
+                formatCurrency(economics.expectedNetPerAttempt.value),
+                economics.expectedNetPerAttempt.standardError,
+                formatCurrency,
+            ),
+        )}`,
         reason: null,
         reasonCode: null,
     };
 }
 
-function formulaTextOf(economics: RunAttemptEconomics): string {
-    const liveTransferTerm =
-        economics.liveTransferCashPerAttempt === 0
-            ? ''
-            : ` + live transfer cash per attempt ${formatCurrency(economics.liveTransferCashPerAttempt)}`;
-    return `EV per attempt = pass ${formatPercent(economics.passProbability)} × funded value ${formatCurrency(economics.fundedValue)}${liveTransferTerm} − attempt cost ${formatCurrency(economics.attemptCost)} = ${formatCurrency(economics.expectedNetPerAttempt.value)}${standardErrorSuffix(economics.expectedNetPerAttempt.standardError, formatCurrency)}`;
-}
-
 function nCountText(count: number, noun: string): string {
     return `(n = ${String(count)} ${noun})`;
-}
-
-function ratioOf(numerator: number, denominator: number): null | number {
-    return denominator > 0 ? numerator / denominator : null;
 }
 
 function standardErrorSuffix(

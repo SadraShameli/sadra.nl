@@ -29,7 +29,6 @@ import {
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
-
 interface FakeQuery {
     data: unknown;
     error: Error | null;

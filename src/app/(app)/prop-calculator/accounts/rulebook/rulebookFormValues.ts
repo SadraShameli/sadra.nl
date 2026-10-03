@@ -1,22 +1,17 @@
 import { z } from 'zod';
 
 import {
-    AccountTracking,
     EntryTextKind,
     type FirmKey,
     firmKeyId,
     FirmKeyKind,
-    firmKeyOf,
     formatUsdCents,
     parseMoneyText,
     type PortfolioLedger,
     usdCents,
     usdCentsToText,
 } from '~/lib/prop-accounts';
-import {
-    type LiveTransferRate,
-    movedLiveCountOf,
-} from '~/lib/prop-accounts/firms';
+import { firmRosterOf, type LiveTransferRate } from '~/lib/prop-accounts/firms';
 import { DayStopRuleKind, findFirm, FirmId } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
@@ -654,7 +649,7 @@ export function hazardFieldSpec(firmId: FirmId): TextFieldSpec {
 
 export function measuredHazardsOf(
     rate: LiveTransferRate,
-    ledger?: PortfolioLedger,
+    ledger: PortfolioLedger,
 ): Partial<Record<FirmId, MeasuredHazard>> {
     const recordedAtLive = recordedAtLiveByFirm(ledger);
     const measured: Partial<Record<FirmId, MeasuredHazard>> = {};
@@ -885,8 +880,15 @@ export function readRulebookDraft(values: RulebookFormValues): RulebookDraft {
     };
 }
 
-export function recordedAtLiveText(count: number): string {
-    return `includes ${String(count)} account${count === 1 ? '' : 's'} recorded straight at Live`;
+export function recordedAtLiveByFirm(
+    ledger: PortfolioLedger,
+): ReadonlyMap<string, number> {
+    return new Map(
+        firmRosterOf(ledger).firms.map((entry) => [
+            firmKeyId(entry.firmKey),
+            entry.recordedAtLiveCount,
+        ]),
+    );
 }
 
 export function rulebookToFormValues(
@@ -1108,24 +1110,6 @@ function optionalText(
 
 function percentText(fraction: number): string {
     return String(Number((fraction * PERCENT).toPrecision(PERCENT_PRECISION)));
-}
-
-function recordedAtLiveByFirm(
-    ledger: PortfolioLedger | undefined,
-): ReadonlyMap<string, number> {
-    const counts = new Map<string, number>();
-    const accounts = ledger?.accounts ?? [];
-    for (const entry of accounts) {
-        if (
-            entry.row.tracking !== AccountTracking.LedgerOnly ||
-            movedLiveCountOf(entry) === 0
-        ) {
-            continue;
-        }
-        const key = firmKeyId(firmKeyOf(entry.row));
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-    return counts;
 }
 
 function specAt(name: string): TextFieldSpec | undefined {

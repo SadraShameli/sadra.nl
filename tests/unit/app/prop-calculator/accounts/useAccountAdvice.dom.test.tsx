@@ -27,6 +27,7 @@ import {
 import {
     AccountSubstate,
     AdviceSource,
+    AdviceStalenessKind,
     DEFAULT_RULEBOOK,
     FundedSizingAdvisor,
     NO_PENDING_PAYOUT_COUNTS,
@@ -83,6 +84,7 @@ class FakeWorker {
 function fundedAdvisorInput(
     trials = 20,
     substate: AccountSubstate.Suspended | null = null,
+    snapshotAsOf = '2026-09-26',
 ): UseAccountAdviceInput {
     const state = {
         balance: 51_500,
@@ -116,7 +118,7 @@ function fundedAdvisorInput(
         },
         fundedHorizonDays: 252,
         rulebook: DEFAULT_RULEBOOK,
-        snapshotAsOf: '2026-09-26',
+        snapshotAsOf,
         substate,
         today: '2026-09-26',
         trials,
@@ -652,5 +654,86 @@ describe('useAccountAdvice value requests (PT-67)', () => {
             throw new Error('expected a ready state');
         }
         expect(latest.current.values.phase).toBe(AdviceValuesPhase.Failed);
+    });
+});
+
+describe('useAccountAdvice runs no engine request for stale advice (PT-108 step 11, F-141)', () => {
+    let root: Root;
+    let container: HTMLElement;
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        FakeWorker.instances = [];
+        vi.stubGlobal('Worker', FakeWorker);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => root.unmount());
+        container.remove();
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it('never starts a worker for a stale snapshot and is ready at once with the stale advice', () => {
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+
+        renderHarness(root, fundedAdvisorInput(20, null, '2026-01-01'), latest);
+
+        expect(FakeWorker.instances).toHaveLength(0);
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) {
+            throw new Error('expected a ready state');
+        }
+        const { advice } = latest.current;
+        expect(advice.staleness.kind).toBe(AdviceStalenessKind.Stale);
+        expect(advice.requests).toEqual([]);
+        expect(latest.current.failedOptima).toEqual([]);
+    });
+
+    it('starts no value worker for a stale snapshot either, even when a value request is passed', () => {
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+
+        renderHarness(
+            root,
+            {
+                ...fundedAdvisorInput(20, null, '2026-01-01'),
+                values: valueRequest(500),
+            },
+            latest,
+        );
+
+        expect(FakeWorker.instances).toHaveLength(0);
+        if (latest.current?.phase !== AccountAdvicePhase.Ready) {
+            throw new Error('expected a ready state');
+        }
+        expect(latest.current.values.phase).toBe(AdviceValuesPhase.Idle);
+    });
+
+    it('still runs the engine for a fresh snapshot', () => {
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+
+        renderHarness(root, fundedAdvisorInput(), latest);
+
+        expect(FakeWorker.instances).toHaveLength(1);
+    });
+
+    it('starts the worker once a stale account gets a fresh snapshot', () => {
+        const latest: { current: AccountAdviceState | null } = {
+            current: null,
+        };
+        renderHarness(root, fundedAdvisorInput(20, null, '2026-01-01'), latest);
+        expect(FakeWorker.instances).toHaveLength(0);
+
+        renderHarness(root, fundedAdvisorInput(), latest);
+
+        expect(FakeWorker.instances).toHaveLength(1);
     });
 });

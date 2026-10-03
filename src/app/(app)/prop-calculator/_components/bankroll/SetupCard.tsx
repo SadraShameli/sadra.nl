@@ -1,8 +1,11 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { useBaseResult } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
+import {
+    useBaseResult,
+    useCalculatorInputs,
+} from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
@@ -13,14 +16,24 @@ import {
     formatPercent,
     NOT_APPLICABLE,
 } from '~/lib/format';
-import { fraction } from '~/lib/prop-calculator';
+import {
+    type Dollars,
+    fraction,
+    type Fraction0to1,
+} from '~/lib/prop-calculator';
 import {
     ECONOMICS_REASON_TEXT,
     EconomicsReason,
+    type Quantity,
 } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
 import { api } from '~/trpc/react';
 
+import {
+    bankrollBudgetCheck,
+    BankrollBudgetCheckKind,
+    bankrollBudgetShortText,
+} from './bankrollBudgetCheck';
 import {
     bankrollBatchRequest,
     bankrollBudgetPricing,
@@ -34,7 +47,18 @@ import {
     parseBankrollLossThresholdField,
 } from './bankrollUrlState';
 import { useBankrollVariant } from './useBankrollVariant';
+import {
+    RealizedBankrollRiskStatus,
+    useRealizedBankrollRisk,
+} from './useRealizedBankrollRisk';
 import { useToolsRequest } from './useToolsRequest';
+
+interface RealizedRiskSectionProperties {
+    budget: Dollars | null;
+    costPerAttempt: number;
+    lossThreshold: Fraction0to1 | null;
+    userId: string;
+}
 
 interface SetupCardProperties {
     onChange: (patch: Partial<BankrollUrlState>) => void;
@@ -44,8 +68,10 @@ interface SetupCardProperties {
 export function SetupCard({ onChange, state }: SetupCardProperties) {
     const { rulebook, variant } = useBankrollVariant();
     const baseResult = useBaseResult();
+    const { state: calculatorState } = useCalculatorInputs();
     const session = useSession();
-    const hasSession = session.data?.user.id !== undefined;
+    const userId = session.data?.user.id;
+    const hasSession = userId !== undefined;
     const bankrollSummaryQuery = api.propAccounts.bankroll.summary.useQuery(
         undefined,
         {
@@ -58,10 +84,16 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
     const lossThreshold =
         state.lossThreshold ??
         (rulebookThreshold === null ? null : fraction(rulebookThreshold));
-    const summary =
-        out === null ? null : bankrollSetupSummary(out, lossThreshold);
+    const summary = useMemo(
+        () => (out === null ? null : bankrollSetupSummary(out, lossThreshold)),
+        [lossThreshold, out],
+    );
 
     const budget = state.budget;
+    const budgetCheck =
+        summary?.status === BankrollSetupStatus.Priced
+            ? bankrollBudgetCheck(budget, summary.minimumBudget)
+            : null;
     const canPrice =
         out !== null &&
         !baseResult.isPending &&
@@ -171,6 +203,11 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                     }
                 />
             </div>
+            {calculatorState.maxAttempts > 1 ? (
+                <p className="text-xs text-amber-400">
+                    {`the calculator's max attempts is ${String(calculatorState.maxAttempts)}; the figures below treat each trial as one attempt, set it to 1 for per-attempt pricing`}
+                </p>
+            ) : null}
             {summary === null ? null : summary.status ===
               BankrollSetupStatus.NoPositiveEdge ? (
                 <p className="text-sm text-amber-400">
@@ -236,11 +273,134 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                     />
                 </div>
             )}
+            {budgetCheck?.kind === BankrollBudgetCheckKind.Short ? (
+                <p className="text-sm text-rose-400" role="alert">
+                    {bankrollBudgetShortText(budgetCheck)}
+                </p>
+            ) : null}
             {failureReason === null ? null : (
                 <p className="text-xs text-rose-400" role="alert">
                     {failureReason}
                 </p>
             )}
+            {out === null || userId === undefined ? null : (
+                <RealizedRiskSection
+                    budget={budget}
+                    costPerAttempt={out.costPerAttempt}
+                    lossThreshold={lossThreshold}
+                    userId={userId}
+                />
+            )}
         </section>
     );
+}
+
+function realizedMinimumBudgetText(
+    minimumBudget: Quantity<Dollars>,
+    costPerAttempt: number,
+): string {
+    if (minimumBudget.value !== null) {
+        return `${formatGateCurrency(minimumBudget.value)} (${String(Math.round(minimumBudget.value / costPerAttempt))} attempts)`;
+    }
+    return minimumBudget.reason === EconomicsReason.ThresholdNotSet
+        ? 'threshold not set'
+        : NOT_APPLICABLE;
+}
+
+function RealizedRiskSection({
+    budget,
+    costPerAttempt,
+    lossThreshold,
+    userId,
+}: RealizedRiskSectionProperties) {
+    const realized = useRealizedBankrollRisk({
+        budget,
+        costPerAttempt,
+        lossThreshold,
+        userId,
+    });
+
+    switch (realized.status) {
+        case RealizedBankrollRiskStatus.Failed: {
+            return (
+                <p className="text-xs text-rose-400" role="alert">
+                    Your realized figures could not be loaded.
+                </p>
+            );
+        }
+        case RealizedBankrollRiskStatus.Loading: {
+            return (
+                <p className="text-xs text-muted-foreground">
+                    Loading your realized figures.
+                </p>
+            );
+        }
+        case RealizedBankrollRiskStatus.Ready: {
+            const { risk } = realized;
+            if (risk.sampleCount === 0) {
+                return (
+                    <p className="text-xs text-amber-400">
+                        Realized figures: no ended attempts in your ledger yet.
+                    </p>
+                );
+            }
+            return (
+                <div className="flex flex-col gap-3">
+                    <h3 className="text-sm font-semibold text-white">
+                        Realized, from your ledger
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                        {`Based on ${String(risk.sampleCount)} ended attempts, priced at this plan's attempt cost.`}
+                    </p>
+                    {risk.reason === EconomicsReason.NoPositiveEdge ? (
+                        <p className="text-xs text-amber-400">
+                            Realized: no positive edge in your ended attempts,
+                            so no budget makes this safe.
+                        </p>
+                    ) : null}
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <StatCard
+                            label="Realized P(attempt pays)"
+                            sub={
+                                risk.attemptPaysRate === null
+                                    ? undefined
+                                    : `n = ${String(risk.attemptPaysRate.n)}`
+                            }
+                            value={
+                                risk.attemptPaysRate === null
+                                    ? NOT_APPLICABLE
+                                    : formatPercent(risk.attemptPaysRate.value)
+                            }
+                        />
+                        <StatCard
+                            label="Realized P(batch net < 0)"
+                            value={
+                                risk.batchLossProbability === null
+                                    ? NOT_APPLICABLE
+                                    : formatPercent(
+                                          risk.batchLossProbability.value,
+                                      )
+                            }
+                        />
+                        <StatCard
+                            label={`Realized P(no payout from ${String(risk.attempts ?? 0)} attempts)`}
+                            sub="ignores payout size"
+                            value={
+                                risk.noPayoutProbability === null
+                                    ? NOT_APPLICABLE
+                                    : formatPercent(risk.noPayoutProbability, 3)
+                            }
+                        />
+                        <StatCard
+                            label="Realized minimum budget"
+                            value={realizedMinimumBudgetText(
+                                risk.minimumBudget,
+                                costPerAttempt,
+                            )}
+                        />
+                    </div>
+                </div>
+            );
+        }
+    }
 }

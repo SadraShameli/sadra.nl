@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../../..');
 const SIMULATOR_DIR = path.join(REPO_ROOT, 'src/lib/prop-calculator/simulator');
 const ADVISOR_DIR = path.join(REPO_ROOT, 'src/lib/prop-calculator/advisor');
-const ADVISOR_IMPORT = /from\s+'(?:~\/lib\/prop-calculator\/advisor|[./]+\/advisor)/;
+const ADVISOR_IMPORT =
+    /from\s+'(?:~\/lib\/prop-calculator\/advisor|[./]+\/advisor)/;
 
 function sourceFilesUnder(directory: string): string[] {
     return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

@@ -909,3 +909,23 @@ describe('prop ladder --objective (PT-63, F-V15)', () => {
         expect(output).not.toContain('FASTEST TO FUNDED');
     });
 });
+
+describe('prop ladder plausibility note carries the pace (F-V22, PT-94b)', () => {
+    it('prints the Kelly growth and the pace at one trade per rung, since the ladder length is the trades per day', async () => {
+        const { exitCode, output } = await capturedLadder([
+            ...smallRun,
+            '--winrate',
+            '0.7',
+            '--rr',
+            '1',
+        ]);
+        expect(exitCode).toBeUndefined();
+        expect(output).toContain('Full Kelly would grow a bankroll');
+        expect(output).toContain('at 2 trades per day over 21 trading days');
+    });
+
+    it('prints no note at a typical edge', async () => {
+        const { output } = await capturedLadder(smallRun);
+        expect(output).not.toContain('Full Kelly');
+    });
+});

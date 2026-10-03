@@ -208,14 +208,19 @@ describe('FundedSizingAdvisor: a rung below one contract stays disclosed on the 
 });
 
 describe('FundedSizingAdvisor: the funded-consistency ceiling alone rounds to whole contracts (PT-36f review)', () => {
-    it('rounds the ceiling-capped rung down to whole contracts at an entered MNQ stop (400 of ceiling is $200 of risk, $180 at $60 a contract)', () => {
+    it('rounds the ConsistencyCap rung (was CeilingCap before PT-105 step 3) down to whole contracts at an entered MNQ stop (400 of ceiling is $200 of risk, $180 at $60 a contract)', () => {
         const card = consistencyAdvisor({
             instrument: InstrumentSymbol.MNQ,
             stopPoints: 30,
         }).dailyPlanCard();
 
         expect(card?.rungs[0]?.risk).toBe(180);
-        expect(card?.rungs[0]?.cappedBy).toContain(SizingConstraint.CeilingCap);
+        expect(card?.rungs[0]?.cappedBy).toContain(
+            SizingConstraint.ConsistencyCap,
+        );
+        expect(card?.rungs[0]?.cappedBy).not.toContain(
+            SizingConstraint.CeilingCap,
+        );
     });
 
     it('leaves the ceiling-capped rung at whole cents without an entered stop', () => {

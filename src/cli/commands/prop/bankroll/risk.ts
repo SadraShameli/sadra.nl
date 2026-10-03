@@ -17,6 +17,7 @@ import {
     simulate,
 } from '~/lib/prop-calculator';
 import {
+    type BankrollLossRiskSummary,
     bankrollLossRiskSummary,
     type BankrollRisk,
     bankrollRisk,
@@ -24,6 +25,7 @@ import {
 } from '~/lib/prop-calculator/economics';
 
 import {
+    assertSingleAttemptPricing,
     bankrollRiskArguments,
     type BankrollRiskInputs,
     readBankrollRiskInputs,
@@ -49,6 +51,7 @@ export default defineCommand({
         try {
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
+            assertSingleAttemptPricing(inputs);
             const risk = readBankrollRiskInputs(context.args);
             const simInputs = inputs.toSimInputs(plan);
             const out = simulate(simInputs);
@@ -78,10 +81,8 @@ export function riskRows(
     risk: BankrollRiskInputs,
     seed: number,
 ): readonly (readonly [string, string])[] {
-    const passRate =
-        risk.passRateOverride ?? fraction(out.attemptPassProbability);
-    const payoutRate =
-        risk.payoutRateOverride ?? fraction(out.attemptPaysProbability);
+    const modeledPassRate = fraction(out.attemptPassProbability);
+    const modeledPayoutRate = fraction(out.attemptPaysProbability);
     const exposure = bankrollRisk(
         out,
         risk.budget,
@@ -90,25 +91,30 @@ export function riskRows(
     );
     const { attempts } = exposure;
 
+    const summary = bankrollLossRiskSummary(
+        out.netValues,
+        out.costPerAttempt,
+        risk.lossThreshold,
+        seed,
+    );
+
     const rows: (readonly [string, string])[] = [
         ['attempt cost', formatCurrency(out.costPerAttempt)],
         ['attempts affordable', attempts === null ? 'n/a' : String(attempts)],
-        ['P(attempt pays)', rateLine(payoutRate, risk.payoutRateOverride)],
         [
-            'P(batch net < 0)',
-            batchLossLine(exposure),
+            'P(attempt pays)',
+            rateLine(modeledPayoutRate, risk.payoutRateOverride),
         ],
-        [
-            `P(no payout from ${attempts ?? 0} attempts)`,
-            noPayoutLine(exposure),
-        ],
-        ['minimum budget for the loss target', minimumBudgetLine(out, risk)],
+        ['P(batch net < 0)', batchLossLine(exposure)],
+        [`P(no payout from ${attempts ?? 0} attempts)`, noPayoutLine(exposure)],
+        ['minimum budget for the loss target', minimumBudgetLine(summary)],
+        ...crossCheckRows(summary),
     ];
 
     if (risk.passRateOverride !== null) {
         rows.splice(1, 0, [
             'P(pass per attempt)',
-            rateLine(passRate, risk.passRateOverride),
+            rateLine(modeledPassRate, risk.passRateOverride),
         ]);
     }
 
@@ -123,12 +129,21 @@ function batchLossLine(exposure: BankrollRisk): string {
         : `${formatPercent(value)} (SE ${formatPercent(standardError)})`;
 }
 
-function minimumBudgetLine(out: SimOutputs, risk: BankrollRiskInputs): string {
-    const summary = bankrollLossRiskSummary(
-        out.netValues,
-        out.costPerAttempt,
-        risk.lossThreshold,
-    );
+function crossCheckRows(
+    summary: BankrollLossRiskSummary,
+): readonly (readonly [string, string])[] {
+    const probability = summary.closedFormCrossCheck?.value;
+    return probability === null || probability === undefined
+        ? []
+        : [
+              [
+                  'cross-check at that budget',
+                  `${formatPercent(probability)} (assumes one value per paying attempt)`,
+              ],
+          ];
+}
+
+function minimumBudgetLine(summary: BankrollLossRiskSummary): string {
     if (summary.minimumBudget.reason === EconomicsReason.NoPositiveEdge) {
         return 'no positive edge';
     }
@@ -146,8 +161,11 @@ function noPayoutLine(exposure: BankrollRisk): string {
         : `${formatPercent(exposure.noPayoutProbability, 3)} (ignores payout size)`;
 }
 
-function rateLine(rate: Fraction0to1, override: Fraction0to1 | null): string {
+function rateLine(
+    modeled: Fraction0to1,
+    override: Fraction0to1 | null,
+): string {
     return override === null
-        ? formatPercent(rate)
-        : `${formatPercent(rate)} (${OVERRIDE_NOTE})`;
+        ? formatPercent(modeled)
+        : `${formatPercent(override)} (${OVERRIDE_NOTE}; modeled ${formatPercent(modeled)})`;
 }

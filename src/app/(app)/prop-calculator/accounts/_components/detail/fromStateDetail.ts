@@ -378,7 +378,10 @@ function retireLiveTransferLinesOf(
     figures: RetireComparisonResult,
 ): readonly string[] {
     return [
-        ...labelledAssumptionLines('Keeping this account', figures.liveTransfer),
+        ...labelledAssumptionLines(
+            'Keeping this account',
+            figures.liveTransfer,
+        ),
         ...(figures.isSlotRateHazardFree === true
             ? [RETIRE_SLOT_RATE_HAZARD_FREE_TEXT]
             : []),
@@ -419,9 +422,7 @@ function retireModelOf(figures: RetireComparisonResult): RetireModel {
     };
 }
 
-function retireNotComparableVerdictOf(
-    figures: RetireComparisonResult,
-): string {
+function retireNotComparableVerdictOf(figures: RetireComparisonResult): string {
     if (figures.isSlotRateHazardFree !== true) {
         return RETIRE_NOT_COMPARABLE_TRIGGER_VERDICT_TEXT;
     }

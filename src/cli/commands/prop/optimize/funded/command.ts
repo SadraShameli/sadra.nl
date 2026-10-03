@@ -155,7 +155,9 @@ export default defineCommand({
             printEdgePlausibilityNotes(
                 tradingEdgeNotes({
                     fundedRrRatio: inputs.fundedRrRatio,
+                    fundedTradesPerDay: inputs.fundedTradesPerDay,
                     rrRatio: inputs.rrRatio,
+                    tradesPerDay: inputs.tradesPerDay,
                     winrate: inputs.winrate,
                 }),
             );
@@ -226,12 +228,13 @@ export default defineCommand({
             );
             const table = new TablePrinter(
                 FUNDED_ROW_HEADERS.map((label, index) => ({
-                    ...((index === 0) && { align: 'left' as const }),
+                    ...(index === 0 && { align: 'left' as const }),
                     label,
                     width:
                         index === 0
                             ? policyColumnWidth
-                            : (FUNDED_VALUE_COLUMN_WIDTHS[index - 1] ?? label.length),
+                            : (FUNDED_VALUE_COLUMN_WIDTHS[index - 1] ??
+                              label.length),
                 })),
             );
             table.printHeader();

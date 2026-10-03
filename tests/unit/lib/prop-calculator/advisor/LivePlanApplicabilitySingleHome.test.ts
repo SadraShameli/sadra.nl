@@ -20,12 +20,9 @@ const APPLICABILITY_NAMES = [
 ] as const;
 
 describe('the live applicability surface has one public home, the firms barrel (PT-73c)', () => {
-    it.each(APPLICABILITY_NAMES)(
-        'exports %s from the firms barrel',
-        (name) => {
-            expect(firms).toHaveProperty(name);
-        },
-    );
+    it.each(APPLICABILITY_NAMES)('exports %s from the firms barrel', (name) => {
+        expect(firms).toHaveProperty(name);
+    });
 
     it.each(APPLICABILITY_NAMES)(
         'does not re-export %s from the advisor barrel',

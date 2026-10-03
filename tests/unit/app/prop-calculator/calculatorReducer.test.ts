@@ -8,6 +8,7 @@ import {
     calculatorReducer,
     defaultCalculatorState,
 } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/calculatorSimInputs';
 import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
 import {
     ApexVariant,
@@ -19,6 +20,7 @@ import {
 } from '~/lib/prop-calculator';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
+import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 
 function apex() {
     const firm = ALL_FIRMS.find((f) => f.id === FirmId.Apex);
@@ -84,6 +86,58 @@ describe('calculatorReducer scalar setters', () => {
             value: NaN,
         });
         expect(next.trials).toBe(3000);
+    });
+});
+
+describe('calculatorReducer rebuy lag (PT-111, F-76)', () => {
+    it('starts at zero trading days, the engine default', () => {
+        expect(defaultCalculatorState().rebuyLagDays).toBe(0);
+    });
+
+    it('SET_REBUY_LAG_DAYS keeps a fractional lag of 2.5 days', () => {
+        const next = reduce(defaultCalculatorState(), {
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: 2.5,
+        });
+        expect(next.rebuyLagDays).toBe(2.5);
+    });
+
+    it('SET_REBUY_LAG_DAYS clamps to the shared schema bounds and falls back to the current value on invalid input', () => {
+        const state = { ...defaultCalculatorState(), rebuyLagDays: 4 };
+        const negative = reduce(state, {
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: -3,
+        });
+        expect(negative.rebuyLagDays).toBe(
+            CALCULATOR_SCALAR_BOUNDS.rebuyLag.min,
+        );
+        const huge = reduce(state, {
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: 1_000_000,
+        });
+        expect(huge.rebuyLagDays).toBe(CALCULATOR_SCALAR_BOUNDS.rebuyLag.max);
+        const invalid = reduce(state, {
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: NaN,
+        });
+        expect(invalid.rebuyLagDays).toBe(4);
+    });
+
+    it('reaches the simulation inputs, and a zero lag stays the engine default', () => {
+        const state = reduce(defaultCalculatorState(), {
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: 2.5,
+        });
+        expect(buildSimInputs(state).rebuyLagDays).toBe(2.5);
+        expect(buildSimInputs(defaultCalculatorState()).rebuyLagDays).toBe(0);
+    });
+
+    it('RESET returns the lag to zero', () => {
+        const next = reduce(
+            { ...defaultCalculatorState(), rebuyLagDays: 5 },
+            { type: CalculatorActionType.Reset },
+        );
+        expect(next.rebuyLagDays).toBe(0);
     });
 });
 

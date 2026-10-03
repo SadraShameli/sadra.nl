@@ -102,7 +102,8 @@ const SLOT_RATE_TRIGGER_TEXT =
 function accountModelOf(
     valueNow: ReturnType<typeof valueOf>,
     milestoneValue: ReturnType<typeof valueOf>,
-    milestoneKind: MilestoneKind.Eval | MilestoneKind.Funded = MilestoneKind.Funded,
+    milestoneKind:
+        MilestoneKind.Eval | MilestoneKind.Funded = MilestoneKind.Funded,
 ) {
     const { account } = requests();
     const key = overviewRequestKey(account);

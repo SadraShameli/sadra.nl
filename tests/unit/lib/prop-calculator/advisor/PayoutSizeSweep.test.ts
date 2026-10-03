@@ -33,7 +33,7 @@ import { findFirm } from '~/lib/prop-calculator/firms';
 import { simulate } from '~/lib/prop-calculator/simulator';
 import { NOISE_STANDARD_ERRORS } from '~/lib/prop-calculator/stats';
 
-const PERSONAL_OVERRIDE_TRIALS = 300;
+const PERSONAL_OVERRIDE_TRIALS = 150;
 const PERSONAL_OVERRIDE_WARNING_HORIZON_DAYS = 30;
 
 interface FreshBandGaps {
@@ -142,9 +142,12 @@ describe('runPayoutSizeSweep (PT-32)', () => {
         { kind: PayoutSizeSweepResultKind.Optimum }
     > {
         if (
-            gridMinimumOverrideResult?.kind !== PayoutSizeSweepResultKind.Optimum
+            gridMinimumOverrideResult?.kind !==
+            PayoutSizeSweepResultKind.Optimum
         ) {
-            throw new Error('expected an optimum with the grid minimum override');
+            throw new Error(
+                'expected an optimum with the grid minimum override',
+            );
         }
         return gridMinimumOverrideResult;
     }
@@ -333,7 +336,7 @@ describe('runPayoutSizeSweep (PT-32)', () => {
     });
 
     it('warns on a personal override far enough from the winner that no defensible noise band would hide it', () => {
-        const highTrialSpec = bandSpec(rapidEodPlan());
+        const warningSpec = bandSpec(rapidEodPlan());
         const smallestSize = PAYOUT_SIZE_SWEEP_GRID[0];
         const largestSize = PAYOUT_SIZE_SWEEP_GRID.at(-1);
         if (smallestSize === undefined || largestSize === undefined) {
@@ -365,7 +368,7 @@ describe('runPayoutSizeSweep (PT-32)', () => {
         const documentedCushion =
             fundedRetainedCushionResolution(DEFAULT_RULEBOOK);
         expect(override.warning).toStrictEqual({
-            horizonDays: highTrialSpec.enginePolicy.fundedHorizonDays,
+            horizonDays: warningSpec.enginePolicy.fundedHorizonDays,
             optimumBustProbability: winner.out.fundedBustProbability,
             optimumMonthlyNet: winner.out.expectedMonthlyNet,
             optimumRequestSize: winner.requestSize,

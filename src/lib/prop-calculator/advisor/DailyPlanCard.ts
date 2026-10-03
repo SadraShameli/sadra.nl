@@ -9,10 +9,12 @@ import {
 import { isConfirmedTrigger } from './ConfirmedTrigger';
 import { type DocumentedRule } from './DocumentedRule';
 import {
+    type CappedAmount,
+    type ConsistencyCeilingNote,
     type DayStopReason,
     type DocumentedRung,
     NextTradeKind,
-    type SizingConstraint,
+    SizingConstraint,
 } from './DocumentedSizing';
 import {
     isPlacementChecked,
@@ -20,7 +22,15 @@ import {
     rungPlacementOf,
     type SizingPlacement,
 } from './PlaceableMinimum';
-import { type DayProgress, type RuleContext } from './RuleContext';
+import {
+    dailyLossRoom,
+    type DayProgress,
+    lossBudget,
+    profitCeiling,
+    type RuleContext,
+    tighterOf,
+} from './RuleContext';
+import { SizingStage } from './SizingStage';
 
 export const BELOW_ONE_CONTRACT_TEXT =
     'cannot be placed: it is below one contract at the entered stop';
@@ -28,7 +38,14 @@ export const BELOW_ONE_CONTRACT_TEXT =
 export const LIVE_TRIGGER_CEILING_MARGIN_DOLLARS = 50;
 
 export interface DailyPlanCard {
+    readonly consistencyNote: ConsistencyCeilingNote | null;
+    readonly cushion: Dollars;
+    readonly dailyLossCap: CappedAmount;
+    readonly dailyLossRoom: Dollars | null;
+    readonly dailyProfitCeiling: CappedAmount | null;
+    readonly maxTradesPerWindow: number;
     readonly oneContractRisk: Dollars | null;
+    readonly profitCeiling: CappedAmount | null;
     readonly rungPlacements: readonly RungPlacement[];
     readonly rungs: readonly DocumentedRung[];
     readonly stopCappedBy: readonly SizingConstraint[];
@@ -68,8 +85,23 @@ export function dailyPlanCard<TContext extends RuleContext>(
         day = dayAfterLoss(day, trade.rung);
         trade = rule.nextTrade(context, day);
     }
+    const loss = lossBudget(context);
     return {
+        consistencyNote:
+            context.stage === SizingStage.Funded
+                ? (context.consistencyNote ?? null)
+                : null,
+        cushion: context.cushion,
+        dailyLossCap: { ...loss, amount: dollars(Math.max(0, loss.amount)) },
+        dailyLossRoom: dailyLossRoom(context)?.amount ?? null,
+        dailyProfitCeiling: tighterOf(
+            rule.size(context).profitCeiling,
+            context.personalCaps.dailyProfitCap,
+            SizingConstraint.PersonalCap,
+        ),
+        maxTradesPerWindow: rule.rulebook.execution.maxTradesPerWindow,
         oneContractRisk: oneContractRiskOf(context, placement),
+        profitCeiling: profitCeiling(context),
         rungPlacements: rungs.map((rung) =>
             isPlacementChecked(context.stage)
                 ? rungPlacementOf(rung.risk, placement)

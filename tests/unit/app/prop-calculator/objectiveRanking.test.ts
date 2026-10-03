@@ -3,12 +3,9 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-    type BatchLossPricing,
-    BatchLossStatus,
     ladderObjectiveStar,
     ladderRungPlacements,
     OBJECTIVE_OPTIONS,
-    priceBatchLoss,
     rankComparison,
     riskRowFigures,
     riskTableObjective,
@@ -19,6 +16,7 @@ import {
     RUIN_FIRST_UNPRICED_NOTE,
     starredRows,
 } from '~/app/(app)/prop-calculator/_components/objectiveRanking';
+import { CompareSortKey, rankRows } from '~/cli/commands/prop/compare/command';
 import { ladderRankingsFor } from '~/cli/commands/prop/ladder/command';
 import { dpObjectiveSolverConfig } from '~/cli/commands/prop/optimize/dp/command';
 import { resolveFundedSort } from '~/cli/commands/prop/optimize/funded/command';
@@ -67,10 +65,21 @@ import {
 import {
     attemptsAffordable,
     bankrollRiskFigures,
+    type BatchLossPricing,
+    BatchLossStatus,
     cohortOutcome,
     LOSS_RISK_DRAWS,
     noPayoutProbability,
+    priceBatchLoss,
 } from '~/lib/prop-calculator/economics';
+
+import {
+    RUIN_FIXTURE_BANKROLL_CENTS,
+    RUIN_FIXTURE_RUIN_FIRST_ORDER,
+    RUIN_FIXTURE_SPECS,
+    type RuinFixtureKey,
+    ruinFixtureOut,
+} from './ruinFirstRowFixtures';
 
 const ADVISOR_ROOT = path.join(
     process.cwd(),
@@ -499,10 +508,11 @@ describe('RuinFirst never changes sizing: every consumer that takes an objective
         );
     });
 
-    it('lets no advisor module read RuinFirst: only the applicability, choice and copy-split ranking name it', () => {
+    it('lets no advisor module read RuinFirst: only the applicability, choice, copy-split ranking and the DP config key switch name it', () => {
         const allowed = new Set([
             path.join('actions', 'ChooseObjective.ts'),
             path.join('actions', 'ObjectiveApplicability.ts'),
+            path.join('dp', 'DpConfigKey.ts'),
             path.join('policy', 'CopySplit.ts'),
             'SizingObjective.ts',
         ]);
@@ -775,40 +785,98 @@ describe('rankComparison orders the compare tables by the objective (PT-83, F-V1
     });
 });
 
-describe('priceBatchLoss separates no affordable attempt from a batch too large to price (PT-83 review)', () => {
-    const NET_VALUES = [-500, 1500];
-    const base = {
-        attemptPaysProbability: 0.5,
-        costPerAttempt: 500,
-        netValues: NET_VALUES,
-    };
-    const SEED = 7;
+function keysOf(rows: readonly { key: RuinFixtureKey }[]): RuinFixtureKey[] {
+    return rows.map((row) => row.key);
+}
 
-    it('prices a small affordable batch', () => {
-        const pricing = priceBatchLoss(base, 100_000, SEED);
-        expect(pricing.status).toBe(BatchLossStatus.Priced);
-        if (pricing.status !== BatchLossStatus.Priced) return;
-        expect(pricing.probability).toBeGreaterThan(0.2);
-        expect(pricing.probability).toBeLessThan(0.3);
+describe('the CLI compare table and the web tables rank RuinFirst with one comparator (PT-83b)', () => {
+    const SEED = 11;
+    const base = simulate({
+        fundedHorizonDays: 20,
+        maxEvalDays: 20,
+        plan: topStepPlan(),
+        riskPerTrade: 250,
+        rrRatio: 2,
+        seed: SEED,
+        tradesPerDay: 1,
+        trials: 40,
+        winrate: 0.4,
+    });
+    const fixtureRows = RUIN_FIXTURE_SPECS.map((spec) => ({
+        key: spec.key,
+        out: ruinFixtureOut(base, spec),
+    }));
+
+    function webRanking(bankrollCents: number) {
+        return rankComparison(fixtureRows, {
+            bankrollCents,
+            batchLoss: (row, bankroll) =>
+                priceBatchLoss(row.out, bankroll, SEED),
+            objective: SizingObjective.RuinFirst,
+        });
+    }
+
+    function cliRanking(bankrollCents: number) {
+        const bankroll = dollars(bankrollCents / 100);
+        return rankRows(
+            fixtureRows.map((row) => ({
+                ...row,
+                batchLoss: priceBatchLoss(row.out, bankroll, SEED),
+            })),
+            CompareSortKey.RuinFirst,
+            null,
+            bankroll,
+        );
+    }
+
+    it('orders the fixture rows ruin first on both surfaces', () => {
+        expect(
+            keysOf(webRanking(RUIN_FIXTURE_BANKROLL_CENTS).rows),
+        ).toStrictEqual(RUIN_FIXTURE_RUIN_FIRST_ORDER);
+        expect(
+            keysOf(cliRanking(RUIN_FIXTURE_BANKROLL_CENTS).rows),
+        ).toStrictEqual(RUIN_FIXTURE_RUIN_FIRST_ORDER);
     });
 
-    it('reports no attempt when the bankroll is below one attempt cost', () => {
-        expect(priceBatchLoss(base, 49_999, SEED).status).toBe(
-            BatchLossStatus.NoAttempt,
+    it.each([
+        [
+            'a bankroll that prices every affordable plan',
+            RUIN_FIXTURE_BANKROLL_CENTS,
+        ],
+        ['a bankroll below one attempt', 100],
+        ['a bankroll too large to price a batch', 500_000_000],
+    ])('gives the same order and note for %s', (_name, bankrollCents) => {
+        const web = webRanking(bankrollCents);
+        const cli = cliRanking(bankrollCents);
+        expect(keysOf(cli.rows)).toStrictEqual(keysOf(web.rows));
+        expect(cli.note).toBe(web.note);
+        expect(cli.fallback === null).toBe(
+            web.effective === SizingObjective.RuinFirst,
         );
     });
 
-    it('reports unpriced, not no attempt, when the bankroll affords more attempts than a batch can simulate', () => {
-        const cheap = { ...base, costPerAttempt: 1 };
-        expect(priceBatchLoss(cheap, 5_000_000_000, SEED).status).toBe(
-            BatchLossStatus.Unpriced,
-        );
+    it('names the typed fallback when no plan can be priced, on both surfaces', () => {
+        const web = webRanking(100);
+        const cli = cliRanking(100);
+        expect(web.note).toBe(RUIN_FIRST_NO_ATTEMPT_NOTE);
+        expect(cli.note).toBe(RUIN_FIRST_NO_ATTEMPT_NOTE);
+        expect(web.effective).toBe(SizingObjective.MonthlyNet);
     });
 
-    it('still prices a bankroll that affords a thousand attempts', () => {
-        const cheap = { ...base, costPerAttempt: 10 };
-        expect(priceBatchLoss(cheap, 1_000_000, SEED).status).toBe(
-            BatchLossStatus.Priced,
+    it('gives the CLI the bankroll the web gets, in dollars', () => {
+        const batchLoss = vi.fn(
+            (_row: unknown, _bankroll: number): BatchLossPricing => ({
+                status: BatchLossStatus.NoAttempt,
+            }),
         );
+        rankComparison(fixtureRows, {
+            bankrollCents: 123_456,
+            batchLoss,
+            objective: SizingObjective.RuinFirst,
+        });
+        expect(batchLoss).toHaveBeenCalled();
+        expect(
+            batchLoss.mock.calls.every(([, bankroll]) => bankroll === 1234.56),
+        ).toBe(true);
     });
 });

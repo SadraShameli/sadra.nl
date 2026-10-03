@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LiveView } from '~/app/(app)/prop-calculator/(tools)/live/LiveView';
+import { EvalLadderScope } from '~/app/(app)/prop-calculator/_components/AppliedEvalLadderNotice';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import {
     LIVE_APPROXIMATION_NOTE,
@@ -63,8 +64,15 @@ vi.mock('~/app/(app)/prop-calculator/_components/ToolPageHeading', () => ({
     ToolPageHeading: renderNothing,
 }));
 
+const inputsSummaryProps = vi.hoisted(() => ({
+    calls: [] as { evalLadderScope?: unknown }[],
+}));
+
 vi.mock('~/app/(app)/prop-calculator/_components/InputsSummary', () => ({
-    InputsSummary: renderNothing,
+    InputsSummary: (props: { evalLadderScope?: unknown }) => {
+        inputsSummaryProps.calls.push(props);
+        return null;
+    },
 }));
 
 const currentState = vi.hoisted(() => ({
@@ -139,6 +147,7 @@ describe('LiveView (PT-31b)', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        inputsSummaryProps.calls.length = 0;
         rulebookQueryMock.mockClear();
         rulebookQueryMock.mockReturnValue({ data: undefined });
         sessionMock.mockReturnValue({
@@ -166,6 +175,19 @@ describe('LiveView (PT-31b)', () => {
         const source = readLiveViewSource();
         expect(firstJsxTagAfterReturn(source)).toBe('ToolPageHeading');
         expect(source).toContain('<ToolPageHeading toolId={ToolId.Live} />');
+    });
+
+    it('tells the inputs summary the eval ladder is not used here, because the live result ignores it (PT-97 review)', () => {
+        currentState.state = stateWith({
+            instrument: InstrumentSymbol.NQ,
+            plan: apexPlan(),
+            stopPoints: 10,
+        });
+        render(<LiveView />);
+        expect(inputsSummaryProps.calls.length).toBeGreaterThan(0);
+        for (const props of inputsSummaryProps.calls) {
+            expect(props.evalLadderScope).toBe(EvalLadderScope.NotUsedHere);
+        }
     });
 
     it('shows a "no live stage modeled" notice for a firm with no live program, not a SimulationFailureNotice', () => {

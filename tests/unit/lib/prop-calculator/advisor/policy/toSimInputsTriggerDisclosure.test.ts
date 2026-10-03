@@ -178,7 +178,8 @@ describe('every toSimInputs consumer discloses the cumulative trigger it prices 
                 .filter((entry) => !entry.printsTriggerLines)
                 .map((entry) => entry.file)
                 .filter(
-                    (file) => !CLI_CONSUMERS_WITHOUT_TRIGGER_LINES.includes(file),
+                    (file) =>
+                        !CLI_CONSUMERS_WITHOUT_TRIGGER_LINES.includes(file),
                 )
                 .toSorted((left, right) => left.localeCompare(right));
             expect(silent).toStrictEqual([]);

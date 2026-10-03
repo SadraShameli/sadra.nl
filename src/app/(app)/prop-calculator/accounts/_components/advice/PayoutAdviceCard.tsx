@@ -13,6 +13,14 @@ export function PayoutAdviceCard({
             {view.noticeText !== null && (
                 <p className="text-muted-foreground">{view.noticeText}</p>
             )}
+            {view.withdrawableText !== null && <p>{view.withdrawableText}</p>}
+            {view.capTexts.length > 0 && (
+                <ul className="list-disc pl-4 text-muted-foreground">
+                    {view.capTexts.map((text) => (
+                        <li key={text}>{text}</li>
+                    ))}
+                </ul>
+            )}
             {view.engineHorizonCredit !== null && (
                 <p>
                     Engine horizon credit{' '}

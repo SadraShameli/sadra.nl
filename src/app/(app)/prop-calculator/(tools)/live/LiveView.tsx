@@ -1,5 +1,6 @@
 'use client';
 
+import { EvalLadderScope } from '~/app/(app)/prop-calculator/_components/AppliedEvalLadderNotice';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
 import { InputsSummary } from '~/app/(app)/prop-calculator/_components/InputsSummary';
@@ -14,26 +15,16 @@ import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useDebouncedComputation } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
-import { useSession } from '~/lib/auth/client';
+import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import { type LiveOutputs, simulateLiveAccount } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
-import { api } from '~/trpc/react';
 
 const LIVE_DEBOUNCE_MS = 550;
 const RESULT_HEADING_ID = 'live-result-heading';
 
 export function LiveView() {
     const { state } = useCalculatorInputs();
-    const session = useSession();
-    const hasSession = session.data?.user.id !== undefined;
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
-        enabled: hasSession,
-    });
-    const rulebook =
-        hasSession && rulebookQuery.data !== undefined
-            ? rulebookQuery.data
-            : DEFAULT_RULEBOOK;
+    const { rulebook } = useToolRulebook();
 
     const modelInputs: LiveToolCalculatorInputs = {
         instrument: state.instrument,
@@ -69,7 +60,7 @@ export function LiveView() {
         <>
             <ToolPageHeading toolId={ToolId.Live} />
             <div className="app-prop-calculator__live mb-10 flex flex-col gap-6">
-                <InputsSummary />
+                <InputsSummary evalLadderScope={EvalLadderScope.NotUsedHere} />
                 <section
                     aria-labelledby={RESULT_HEADING_ID}
                     className="flex flex-col gap-4"

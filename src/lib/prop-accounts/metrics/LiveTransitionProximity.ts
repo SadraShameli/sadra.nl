@@ -91,7 +91,8 @@ export function liveTransitionProximity(
     const groupsByFirm = Map.groupBy(groups, (group) => group.firmId);
 
     return {
-        byAccount: groups.flatMap((group) => accountRowsOf(group, asOf, reportedPayoutsTaken),
+        byAccount: groups.flatMap((group) =>
+            accountRowsOf(group, asOf, reportedPayoutsTaken),
         ),
         byFirm: groupsByFirm
             .values()

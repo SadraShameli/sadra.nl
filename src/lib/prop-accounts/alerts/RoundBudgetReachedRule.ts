@@ -34,9 +34,5 @@ export class RoundBudgetReachedRule extends AlertRule {
 }
 
 function hasReachedBudget(round: AlertRoundRow): boolean {
-    return (
-        round.status === RoundStatus.Open &&
-        round.budget.budgetCents !== null &&
-        round.budget.spentCents >= round.budget.budgetCents
-    );
+    return round.status === RoundStatus.Open && round.budget.isSpent;
 }

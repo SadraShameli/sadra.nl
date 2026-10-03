@@ -282,7 +282,11 @@ describe('scaleAtMeasuredMultiple', () => {
     });
 
     it('is unavailable with a reason when no budget is set', () => {
-        const result = scaleAtMeasuredMultiple(MULTIPLE, NO_BUDGETS, THRESHOLDS);
+        const result = scaleAtMeasuredMultiple(
+            MULTIPLE,
+            NO_BUDGETS,
+            THRESHOLDS,
+        );
         expect(result).toEqual({
             kind: ScaleAtMultipleKind.Unavailable,
             reason: ScaleAtMultipleReason.CapacityNotSet,

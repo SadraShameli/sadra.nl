@@ -38,6 +38,7 @@ import {
 } from '~/lib/format';
 import {
     CENTS_PER_DOLLAR,
+    type Dollars,
     dollars,
     findFirm,
     FirmId,
@@ -65,10 +66,16 @@ import {
 } from '~/lib/prop-calculator/advisor/policy';
 import {
     bankrollAttempts,
+    bankrollNoPayout,
     type BankrollRiskFigures,
-    bankrollRiskFigures,
+    type BatchLossPricing,
+    BatchLossStatus,
+    hasPositiveEvPerAttempt,
     netPerScreenHour,
     noPayoutProbabilityFromDistribution,
+    priceBatchLoss,
+    rankRuinFirst,
+    type RuinFirstFallback,
 } from '~/lib/prop-calculator/economics';
 
 export enum CompareSortKey {
@@ -93,9 +100,10 @@ export interface CompareRankingArguments {
     sort?: string;
 }
 
+export type OrderedSortKey = Exclude<CompareSortKey, CompareSortKey.RuinFirst>;
+
 export interface RankableRow {
-    readonly affordableAttempts?: null | number;
-    readonly batchLossProbability?: null | number;
+    readonly batchLoss?: BatchLossPricing | null;
     readonly out: RankedMetrics;
 }
 
@@ -110,12 +118,20 @@ export type RankedMetrics = Pick<
     | 'expectedTotalCost'
 >;
 
+export interface RankedRows<T> {
+    readonly fallback: null | RuinFirstFallback;
+    readonly note: null | string;
+    readonly rows: T[];
+}
+
 export interface TopLimitArguments {
     top?: string;
 }
 
 export const SORT_KEYS: readonly CompareSortKey[] =
     Object.values(CompareSortKey);
+
+const ABSENT_PRICING: BatchLossPricing = { status: BatchLossStatus.NoAttempt };
 
 const UNIT_SCREEN_TIME: ScreenTime = {
     accountsPerSession: 1,
@@ -200,17 +216,16 @@ export default defineCommand({
             const simulated = plans.map((plan) => {
                 const simInputs = inputs.toSimInputs(plan);
                 const out = simulate(simInputs);
-                const figures =
+                const batchLoss =
                     bankroll === null
                         ? null
-                        : bankrollRiskFigures(out, bankroll, inputs.seed);
+                        : priceBatchLoss(out, bankroll, inputs.seed);
                 return {
-                    affordableAttempts:
-                        bankroll === null
+                    batchLoss,
+                    figures:
+                        bankroll === null || batchLoss === null
                             ? null
-                            : bankrollAttempts(out, bankroll),
-                    batchLossProbability: figures?.lossProbability ?? null,
-                    figures,
+                            : bankrollFiguresOf(out, bankroll, batchLoss),
                     out,
                     plan,
                     simInputs,
@@ -220,8 +235,8 @@ export default defineCommand({
                 `simulated ${plans.length} plan(s) x ${inputs.trials} trials`,
             );
 
-            const ranked = rankRows(simulated, sort, screenTime);
-            const rows = top === null ? ranked : ranked.slice(0, top);
+            const ranked = rankRows(simulated, sort, screenTime, bankroll);
+            const rows = top === null ? ranked.rows : ranked.rows.slice(0, top);
 
             ui.heading(
                 `${plans.length} plan(s) · ${(inputs.winrate * 100).toFixed(0)}% WR · 1:${inputs.rrRatio} · ${inputs.fundedHorizonDays} funded days · sorted by ${sort}`,
@@ -235,7 +250,9 @@ export default defineCommand({
             printEdgePlausibilityNotes(
                 tradingEdgeNotes({
                     fundedRrRatio: inputs.fundedRrRatio,
+                    fundedTradesPerDay: inputs.fundedTradesPerDay,
                     rrRatio: inputs.rrRatio,
+                    tradesPerDay: inputs.tradesPerDay,
                     winrate: inputs.winrate,
                 }),
             );
@@ -261,10 +278,10 @@ export default defineCommand({
             }
             if (top !== null) {
                 ui.muted(
-                    `showing the top ${rows.length} of ${ranked.length} plan(s) for your hours, after ranking by ${sort}`,
+                    `showing the top ${rows.length} of ${ranked.rows.length} plan(s) for your hours, after ranking by ${sort}`,
                 );
             }
-            if (sort === CompareSortKey.RuinFirst) {
+            if (sort === CompareSortKey.RuinFirst && ranked.fallback === null) {
                 for (const line of nonPositiveEvPlanLines(rows)) {
                     ui.muted(line);
                 }
@@ -275,16 +292,12 @@ export default defineCommand({
 
             const best = rows[0];
             if (best) {
-                const warning =
-                    sort === CompareSortKey.RuinFirst
-                        ? ruinFirstWarning(rows)
-                        : null;
-                if (warning === null) {
+                if (ranked.note === null) {
                     ui.success(
                         `best by ${sort}: ${best.plan.label} (${best.plan.id.firm})`,
                     );
                 } else {
-                    ui.warn(warning);
+                    ui.warn(ranked.note);
                 }
             }
         } catch (error) {
@@ -348,7 +361,7 @@ export function compareColumns(
 export function compareOutputs(
     a: RankedMetrics,
     b: RankedMetrics,
-    sort: CompareSortKey,
+    sort: OrderedSortKey,
     screenTime: null | ScreenTime = null,
 ): number {
     return compareRows({ out: a }, { out: b }, sort, screenTime);
@@ -443,7 +456,7 @@ export function nonPositiveEvPlanLines(
     }[],
 ): string[] {
     const labels = rows
-        .filter((row) => !hasPositiveEv(row.out))
+        .filter((row) => !hasPositiveEvPerAttempt(row.out))
         .map((row) => row.plan.label);
     return labels.length === 0
         ? []
@@ -456,8 +469,19 @@ export function rankRows<T extends RankableRow>(
     rows: readonly T[],
     sort: CompareSortKey,
     screenTime: null | ScreenTime = null,
-): T[] {
-    return rows.toSorted((a, b) => compareRows(a, b, sort, screenTime));
+    bankroll: Dollars | null = null,
+): RankedRows<T> {
+    if (sort === CompareSortKey.RuinFirst) {
+        return rankRuinFirst(rows, {
+            bankroll,
+            batchLoss: (row) => row.batchLoss ?? ABSENT_PRICING,
+        });
+    }
+    return {
+        fallback: null,
+        note: null,
+        rows: rows.toSorted((a, b) => compareRows(a, b, sort, screenTime)),
+    };
 }
 
 export function readSplitRequest(
@@ -532,18 +556,6 @@ export function resolveCompareRanking(
     };
 }
 
-export function ruinFirstWarning(rows: readonly RankableRow[]): null | string {
-    if (rows.length === 0) return null;
-    const positive = rows.filter((row) => hasPositiveEv(row.out));
-    if (positive.length === 0) {
-        return 'no plan has EV per attempt above zero, so ruin-first ranks none';
-    }
-    if (positive.some((row) => row.batchLossProbability != null)) return null;
-    return positive.some((row) => (row.affordableAttempts ?? 0) >= 1)
-        ? 'bankroll affords more attempts than a batch can be simulated for, so ruin-first could not price the chance a batch ends below zero and fell back to monthly net'
-        : 'bankroll affords no attempt of any ranked plan, so ruin-first fell back to monthly net';
-}
-
 export function splitTableRow(
     row: CopySplitRow,
     isIndistinguishable: boolean,
@@ -604,6 +616,24 @@ export const SPLIT_COLUMNS: readonly TableColumn[] = [
     { align: 'left', label: 'vs best', width: 12 },
 ];
 
+export function bankrollFiguresOf(
+    out: SimOutputs,
+    bankroll: Dollars,
+    batchLoss: BatchLossPricing,
+): BankrollRiskFigures {
+    const attempts = bankrollAttempts(out, bankroll);
+    return {
+        lossProbability:
+            batchLoss.status === BatchLossStatus.Priced
+                ? batchLoss.probability
+                : null,
+        noPayoutProbability:
+            attempts === null || attempts < 1
+                ? null
+                : bankrollNoPayout(out, attempts),
+    };
+}
+
 function ascending(a: number, b: number): number {
     if (a === b) return 0;
     return a < b ? -1 : 1;
@@ -641,7 +671,7 @@ function compareOptionalAscending(a: null | number, b: null | number): number {
 function compareRows(
     a: RankableRow,
     b: RankableRow,
-    sort: CompareSortKey,
+    sort: OrderedSortKey,
     screenTime: null | ScreenTime = null,
 ): number {
     switch (sort) {
@@ -681,30 +711,10 @@ function compareRows(
                 a.out.evalPassProbability,
             );
         }
-        case CompareSortKey.RuinFirst: {
-            return compareRuinFirst(a, b);
-        }
         case CompareSortKey.Spend: {
             return ascending(a.out.expectedTotalCost, b.out.expectedTotalCost);
         }
     }
-}
-
-function compareRuinFirst(a: RankableRow, b: RankableRow): number {
-    const positivity = ascending(
-        Number(!hasPositiveEv(a.out)),
-        Number(!hasPositiveEv(b.out)),
-    );
-    if (positivity !== 0) return positivity;
-    const loss = hasPositiveEv(a.out)
-        ? compareOptionalAscending(
-              a.batchLossProbability ?? null,
-              b.batchLossProbability ?? null,
-          )
-        : 0;
-    return (
-        loss || ascending(b.out.expectedMonthlyNet, a.out.expectedMonthlyNet)
-    );
 }
 
 function formatNoPayoutProbability(
@@ -735,12 +745,6 @@ function formatUncertainCurrency(value: {
     return value.standardError === null
         ? formatCurrency(value.value)
         : `${formatCurrency(value.value)} (SE ${formatCurrency(value.standardError)})`;
-}
-
-function hasPositiveEv(
-    out: Pick<SimOutputs, 'expectedNetPerAttempt'>,
-): boolean {
-    return out.expectedNetPerAttempt > 0;
 }
 
 function negated(value: null | number): null | number {

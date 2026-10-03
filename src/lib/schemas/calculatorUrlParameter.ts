@@ -5,6 +5,7 @@ export enum CalculatorUrlParameter {
     IdleDayProbability = 'idle',
     LegacyIdleDayProbability = 'idp',
     Plan = 'plan',
+    RebuyLagDays = 'rebuyLag',
 }
 
 export enum UrlFlag {

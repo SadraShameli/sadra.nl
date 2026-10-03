@@ -28,6 +28,7 @@ export function RepeatabilityCard({
                     stats={model.perSlot}
                 />
             </div>
+            <p className="text-xs text-muted-foreground">{model.basisNote}</p>
             {model.perSlotTargetNote !== null && (
                 <p className="text-xs text-muted-foreground">
                     {model.perSlotTargetNote}
@@ -54,16 +55,19 @@ function RepeatabilityGroup({
             ) : (
                 <dl className="grid grid-cols-2 gap-2 text-sm">
                     <Stat label="Months" value={stats.count} />
-                    <Stat label="Mean" value={stats.mean} />
+                    <Stat label="Mean (net per month)" value={stats.mean} />
                     <Stat
-                        label="Standard deviation"
+                        label="Standard deviation (net per month)"
                         value={stats.standardDeviation}
                     />
-                    <Stat label="Worst" value={stats.worst} />
-                    <Stat label="Best" value={stats.best} />
-                    <Stat label="Share positive" value={stats.sharePositive} />
+                    <Stat label="Worst (net per month)" value={stats.worst} />
+                    <Stat label="Best (net per month)" value={stats.best} />
                     <Stat
-                        label="Share at or above target"
+                        label="Share positive (net per month)"
+                        value={stats.sharePositive}
+                    />
+                    <Stat
+                        label="Share at or above target (payouts per month)"
                         value={stats.shareAtOrAboveTarget ?? NOT_APPLICABLE}
                     />
                 </dl>

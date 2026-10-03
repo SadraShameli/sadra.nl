@@ -4,20 +4,18 @@ import {
     type Fraction0to1,
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator/core';
-import { mean } from '~/lib/prop-calculator/stats';
 
 import { compoundedBankroll } from './BankrollCompounding';
+import { compoundMinimumBudget } from './BankrollCurve';
 import { empiricalPayingStatsOf } from './BankrollLevers';
 import { type Quantity } from './EdgeMath';
-import {
-    batchLossClosedForm,
-    LossSampleUnit,
-    MAX_LOSS_TARGET_CAP,
-    minimumBudgetForLossTarget,
-} from './LossRisk';
+import { batchLossClosedForm } from './LossRisk';
+
+const DEFAULT_CURVE_SEED = 1;
 
 export interface BankrollLossRiskSummary {
     readonly attemptCost: Dollars;
+    readonly closedFormCrossCheck: null | Quantity<Fraction0to1>;
     readonly minimumBudget: Quantity<BankrollMinimumBudget>;
     readonly pAttemptPays: Fraction0to1;
     readonly valuePerPayingAttempt: Dollars;
@@ -53,29 +51,34 @@ export function bankrollLossRiskSummary(
     netValues: readonly number[],
     costPerAttempt: number,
     lossThreshold: Fraction0to1 | null,
+    seed: number = DEFAULT_CURVE_SEED,
 ): BankrollLossRiskSummary {
     const attemptCost = dollars(costPerAttempt);
     const { pAttemptPays, valuePerPayingAttempt } = empiricalPayingStatsOf(
         netValues,
         costPerAttempt,
     );
-    const budget = minimumBudgetForLossTarget({
-        cap: MAX_LOSS_TARGET_CAP,
-        costPerSample: attemptCost,
-        costUnit: LossSampleUnit.Attempt,
-        lossProbability: (samples) =>
-            batchLossClosedForm({
-                attemptCost,
-                attempts: samples,
-                pAttemptPays,
-                valuePerPayingAttempt,
-            }).value ?? 1,
-        meanNetPerSample: dollars(mean(netValues)),
-        sampleUnit: LossSampleUnit.Attempt,
-        threshold: lossThreshold,
+    const budget = compoundMinimumBudget({
+        costPerAttempt: attemptCost,
+        lossThreshold,
+        netValues,
+        seed,
     });
+    const minimumAttempts =
+        budget.value !== null && attemptCost > 0
+            ? Math.round(budget.value / attemptCost)
+            : null;
     return {
         attemptCost,
+        closedFormCrossCheck:
+            budget.value === null
+                ? null
+                : batchLossClosedForm({
+                      attemptCost,
+                      attempts: minimumAttempts ?? 0,
+                      pAttemptPays,
+                      valuePerPayingAttempt,
+                  }),
         minimumBudget:
             budget.value === null
                 ? budget
@@ -83,10 +86,7 @@ export function bankrollLossRiskSummary(
                       disclosures: budget.disclosures,
                       reason: null,
                       value: {
-                          attempts:
-                              attemptCost > 0
-                                  ? Math.round(budget.value / attemptCost)
-                                  : 0,
+                          attempts: minimumAttempts ?? 0,
                           budget: budget.value,
                       },
                   },

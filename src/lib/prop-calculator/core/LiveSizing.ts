@@ -5,10 +5,7 @@ import {
     resolveAffordableRoomWithin,
     resolveDailyLossRoom,
 } from './DayPolicy';
-import {
-    type Fraction0to1,
-    isAtOrBelowWithinCentTolerance,
-} from './lib/units';
+import { type Fraction0to1, isAtOrBelowWithinCentTolerance } from './lib/units';
 
 export function capRiskToRemainingDailyLoss(
     risk: number,

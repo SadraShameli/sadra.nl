@@ -8,6 +8,11 @@ import { type RuleSource } from './RuleSource';
 
 export const NO_COMMISSION = 0;
 
+export enum ConsistencyCeilingNote {
+    AlreadyPushedOut = 'already-pushed-out',
+    FreshCycle = 'fresh-cycle',
+}
+
 export enum DailyProfitCapKind {
     HardCeiling = 'hard-ceiling',
     StopTrigger = 'stop-trigger',

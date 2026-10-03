@@ -6,6 +6,7 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import compare, {
+    bankrollFiguresOf,
     compareColumns,
     compareOutputs,
     compareRankingHeadingLine,
@@ -16,11 +17,11 @@ import compare, {
     describeEconomicsColumns,
     describeExcludedPlans,
     nonPositiveEvPlanLines,
+    type OrderedSortKey,
     rankRows,
     readTopLimit,
     requireScreenTimeForSort,
     resolveCompareRanking,
-    ruinFirstWarning,
     SORT_KEYS,
     SPLIT_COLUMNS,
     splitTableRow,
@@ -40,6 +41,7 @@ import {
     formatPercent,
 } from '~/lib/format';
 import {
+    type Dollars,
     dollars,
     FirmId,
     fraction,
@@ -62,10 +64,19 @@ import {
 import {
     attemptsAffordable,
     bankrollRiskFigures,
+    type BatchLossPricing,
+    BatchLossStatus,
     cohortOutcome,
     LOSS_RISK_DRAWS,
     noPayoutProbability,
     noPayoutProbabilityFromDistribution,
+    priceBatchLoss,
+    RUIN_FIRST_FALLBACK_NOTE,
+    RUIN_FIRST_NEEDS_BANKROLL_NOTE,
+    RUIN_FIRST_NO_ATTEMPT_NOTE,
+    RUIN_FIRST_NO_POSITIVE_EV_NOTE,
+    RUIN_FIRST_UNPRICED_NOTE,
+    RuinFirstFallback,
 } from '~/lib/prop-calculator/economics';
 import { findFirm } from '~/lib/prop-calculator/firms';
 
@@ -154,7 +165,7 @@ describe('rankRows direction per sort key (TG-2)', () => {
             row('300', { expectedMonthlyNet: 300 }),
             row('200', { expectedMonthlyNet: 200 }),
         ];
-        expect(labels(rankRows(rows, CompareSortKey.Net))).toStrictEqual([
+        expect(labels(rankRows(rows, CompareSortKey.Net).rows)).toStrictEqual([
             '300',
             '200',
             '100',
@@ -170,7 +181,7 @@ describe('rankRows direction per sort key (TG-2)', () => {
             }),
             row('300', { costPerFundedAccount: 300, expectedTotalCost: 900 }),
         ];
-        expect(labels(rankRows(rows, CompareSortKey.Cost))).toStrictEqual([
+        expect(labels(rankRows(rows, CompareSortKey.Cost).rows)).toStrictEqual([
             '300',
             '500',
             'never',
@@ -192,11 +203,9 @@ describe('rankRows direction per sort key (TG-2)', () => {
             }),
             row('200', { costPerFundedAccount: 50, expectedTotalCost: 200 }),
         ];
-        expect(labels(rankRows(rows, CompareSortKey.Spend))).toStrictEqual([
-            '100',
-            '200',
-            '300',
-        ]);
+        expect(labels(rankRows(rows, CompareSortKey.Spend).rows)).toStrictEqual(
+            ['100', '200', '300'],
+        );
     });
 
     it('pass ranks by eval pass, not funded survival', () => {
@@ -214,7 +223,7 @@ describe('rankRows direction per sort key (TG-2)', () => {
                 fundedSurvivalProbability: 0.3,
             }),
         ];
-        expect(labels(rankRows(rows, CompareSortKey.Pass))).toStrictEqual([
+        expect(labels(rankRows(rows, CompareSortKey.Pass).rows)).toStrictEqual([
             'passes more',
             'middle',
             'survives more',
@@ -235,7 +244,7 @@ describe('rankRows direction per sort key (TG-2)', () => {
                 evalPassProbability: 0.5,
             }),
         ];
-        expect(labels(rankRows(rows, CompareSortKey.Days))).toStrictEqual([
+        expect(labels(rankRows(rows, CompareSortKey.Days).rows)).toStrictEqual([
             'B',
             'A',
             'C',
@@ -248,7 +257,7 @@ describe('rankRows direction per sort key (TG-2)', () => {
             row('second', { expectedMonthlyNet: 100 }),
             row('third', { expectedMonthlyNet: 100 }),
         ];
-        expect(labels(rankRows(rows, CompareSortKey.Net))).toStrictEqual([
+        expect(labels(rankRows(rows, CompareSortKey.Net).rows)).toStrictEqual([
             'first',
             'second',
             'third',
@@ -265,6 +274,10 @@ describe('rankRows direction per sort key (TG-2)', () => {
     });
 });
 
+const ORDERED_SORT_KEYS = SORT_KEYS.filter(
+    (sort): sort is OrderedSortKey => sort !== CompareSortKey.RuinFirst,
+);
+
 describe('compareOutputs never returns NaN (TG-2)', () => {
     const outputs = [
         row('never', NEVER_PASSES).out,
@@ -276,7 +289,7 @@ describe('compareOutputs never returns NaN (TG-2)', () => {
         }).out,
     ];
 
-    it.each([...SORT_KEYS])('%s', (sort: CompareSortKey) => {
+    it.each(ORDERED_SORT_KEYS)('%s', (sort) => {
         for (const a of outputs) {
             for (const b of outputs) {
                 expect(Number.isNaN(compareOutputs(a, b, sort))).toBe(false);
@@ -346,7 +359,7 @@ describe("the 'best by' plan is the first ranked row for every key (TG-2)", () =
     };
 
     it.each([...SORT_KEYS])('%s', (sort: CompareSortKey) => {
-        expect(rankRows(rows, sort)[0]?.label).toBe(expectedBest[sort]);
+        expect(rankRows(rows, sort).rows[0]?.label).toBe(expectedBest[sort]);
     });
 });
 
@@ -704,7 +717,7 @@ describe('compare --sort hour (PT-54, F-V25)', () => {
             row('300', { expectedMonthlyNet: 300 }),
             row('200', { expectedMonthlyNet: 200 }),
         ];
-        const ranked = rankRows(rows, CompareSortKey.Hour);
+        const ranked = rankRows(rows, CompareSortKey.Hour).rows;
         expect(labels(ranked)).toStrictEqual(['300', '200', '100']);
         const hourly = ranked.map((entry) =>
             perScreenHour(entry.out.expectedMonthlyNet),
@@ -830,9 +843,44 @@ describe('prop compare run (PT-54)', () => {
             '1',
         ]);
         expect(stdout).toContain(
-            edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ??
-                'missing note',
+            edgePlausibilityNote({
+                rrRatio: 1,
+                tradesPerDay: 4,
+                winrate: fraction(0.7),
+            }) ?? 'missing note',
         );
+    });
+
+    it('prints the Kelly growth and the pace at the run trades per day (F-V22, PT-94b)', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--winrate',
+            '0.7',
+            '--rr',
+            '1',
+            '--tpd',
+            '4',
+        ]);
+        expect(stdout).toContain('Full Kelly would grow a bankroll');
+        expect(stdout).toContain('at 4 trades per day over 21 trading days');
+    });
+
+    it('prints the funded note at the funded trades per day (F-V22, PT-94b)', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--funded-rr',
+            '3',
+            '--funded-tpd',
+            '2',
+        ]);
+        expect(stdout).toContain(
+            edgePlausibilityNote({
+                rrRatio: 3,
+                tradesPerDay: 2,
+                winrate: fraction(0.4),
+            }) ?? 'missing note',
+        );
+        expect(stdout).toContain('at 2 trades per day over 21 trading days');
     });
 });
 
@@ -937,13 +985,18 @@ describe('compare --sort cycle (PT-63)', () => {
             row('300', { expectedMonthlyNet: 100, expectedNet: 300 }),
             row('200', { expectedMonthlyNet: 500, expectedNet: 200 }),
         ];
-        expect(labels(rankRows(rows, CompareSortKey.Cycle))).toStrictEqual([
-            '300',
-            '200',
-            '100',
-        ]);
+        expect(labels(rankRows(rows, CompareSortKey.Cycle).rows)).toStrictEqual(
+            ['300', '200', '100'],
+        );
     });
 });
+
+const RUIN_BANKROLL = dollars(5000);
+
+const pricingOf = (batchLossProbability: null | number): BatchLossPricing =>
+    batchLossProbability === null
+        ? { status: BatchLossStatus.Unpriced }
+        : { probability: batchLossProbability, status: BatchLossStatus.Priced };
 
 const ruinRow = (
     label: string,
@@ -951,10 +1004,15 @@ const ruinRow = (
     batchLossProbability: null | number,
     expectedMonthlyNet: number,
 ) => ({
-    batchLossProbability,
+    batchLoss: pricingOf(batchLossProbability),
     label,
     out: { ...BASE, expectedMonthlyNet, expectedNetPerAttempt },
 });
+
+const rankedRuinLabels = (rows: readonly ReturnType<typeof ruinRow>[]) =>
+    rankRows(rows, CompareSortKey.RuinFirst, null, RUIN_BANKROLL).rows.map(
+        (entry) => entry.label,
+    );
 
 describe('compare --sort ruin-first (PT-63, T-4)', () => {
     it('ranks plans with EV per attempt above zero by lower P(batch net < 0), then monthly net', () => {
@@ -964,11 +1022,12 @@ describe('compare --sort ruin-first (PT-63, T-4)', () => {
             ruinRow('tie low net', 20, 0.25, 200),
             ruinRow('tie high net', 20, 0.25, 500),
         ];
-        expect(
-            rankRows(rows, CompareSortKey.RuinFirst).map(
-                (entry) => entry.label,
-            ),
-        ).toStrictEqual(['safer', 'tie high net', 'tie low net', 'riskier']);
+        expect(rankedRuinLabels(rows)).toStrictEqual([
+            'safer',
+            'tie high net',
+            'tie low net',
+            'riskier',
+        ]);
     });
 
     it('lists non-positive EV plans last, even with a lower loss probability', () => {
@@ -977,11 +1036,11 @@ describe('compare --sort ruin-first (PT-63, T-4)', () => {
             ruinRow('positive', 10, 0.9, 100),
             ruinRow('zero', 0, 0.02, 800),
         ];
-        expect(
-            rankRows(rows, CompareSortKey.RuinFirst).map(
-                (entry) => entry.label,
-            ),
-        ).toStrictEqual(['positive', 'zero', 'negative']);
+        expect(rankedRuinLabels(rows)).toStrictEqual([
+            'positive',
+            'zero',
+            'negative',
+        ]);
     });
 
     it('puts a positive plan with an unknown loss probability after the known ones', () => {
@@ -989,11 +1048,7 @@ describe('compare --sort ruin-first (PT-63, T-4)', () => {
             ruinRow('unknown', 10, null, 900),
             ruinRow('known', 10, 0.8, 100),
         ];
-        expect(
-            rankRows(rows, CompareSortKey.RuinFirst).map(
-                (entry) => entry.label,
-            ),
-        ).toStrictEqual(['known', 'unknown']);
+        expect(rankedRuinLabels(rows)).toStrictEqual(['known', 'unknown']);
     });
 
     it('explains why the non-positive plans were listed last', () => {
@@ -1065,6 +1120,39 @@ describe('compare bankroll columns (PT-63, F-V15)', () => {
             noPayoutProbability: null,
         });
     });
+
+    it('prints the figures the ranking priced, equal to the library figures while a batch is fully simulated', () => {
+        const bankroll = dollars(5000);
+        const attempts = attemptsAffordable(
+            bankroll,
+            dollars(BASE.costPerAttempt),
+        ).value;
+        expect(attempts).toBeGreaterThanOrEqual(1);
+        expect(attempts).toBeLessThanOrEqual(200);
+        expect(
+            bankrollFiguresOf(
+                BASE,
+                bankroll,
+                priceBatchLoss(BASE, bankroll, 1),
+            ),
+        ).toStrictEqual(bankrollRiskFigures(BASE, bankroll, 1));
+    });
+
+    it('prints no figures when the bankroll affords no attempt, and no loss figure when the batch is too large to price', () => {
+        const small = dollars(1);
+        expect(
+            bankrollFiguresOf(BASE, small, priceBatchLoss(BASE, small, 1)),
+        ).toStrictEqual({ lossProbability: null, noPayoutProbability: null });
+        const cheap = { ...BASE, costPerAttempt: 1 };
+        const huge = dollars(50_000_000);
+        const figures = bankrollFiguresOf(
+            cheap,
+            huge,
+            priceBatchLoss(cheap, huge, 1),
+        );
+        expect(figures.lossProbability).toBeNull();
+        expect(figures.noPayoutProbability).not.toBeNull();
+    });
 });
 
 describe('compare heading names the objective only when it drives the ranking (VD-6)', () => {
@@ -1105,88 +1193,78 @@ describe('compare heading names the objective only when it drives the ranking (V
     });
 });
 
-describe('compare has one RuinFirst ordering (compareOutputs and rankRows)', () => {
-    it('orders two outputs by positive EV, then monthly net, as rankRows does when no loss figure is known', () => {
-        const positiveLow = ruinRow('positive low', 10, null, 100);
-        const positiveHigh = ruinRow('positive high', 10, null, 900);
-        const negative = ruinRow('negative', -1, null, 5000);
-        expect(
-            compareOutputs(
-                positiveHigh.out,
-                positiveLow.out,
-                CompareSortKey.RuinFirst,
-            ),
-        ).toBeLessThan(0);
-        expect(
-            compareOutputs(
-                negative.out,
-                positiveLow.out,
-                CompareSortKey.RuinFirst,
-            ),
-        ).toBeGreaterThan(0);
-        expect(
-            rankRows(
-                [negative, positiveLow, positiveHigh],
-                CompareSortKey.RuinFirst,
-            ).map((entry) => entry.label),
-        ).toStrictEqual(['positive high', 'positive low', 'negative']);
-    });
-
-    it('is not duplicated: the command has a single positive EV test and a single RuinFirst ordering', () => {
+describe('compare has one RuinFirst ordering, shared with the web tables (PT-83b)', () => {
+    it('is not duplicated: the command has no positive EV test, no RuinFirst comparator and no fallback note of its own', () => {
         const source = readFileSync(
             path.join(REPO_ROOT, 'src/cli/commands/prop/compare/command.ts'),
             'utf8',
         );
-        expect(source.match(/expectedNetPerAttempt > 0/g)).toHaveLength(1);
-        expect(source.match(/function compareRuinFirst/g)).toHaveLength(1);
-        expect(source).not.toMatch(
-            /case CompareSortKey\.RuinFirst: \{\s*return \(\s*ascending/,
-        );
+        expect(source).not.toContain('expectedNetPerAttempt > 0');
+        expect(source).not.toContain('function compareRuinFirst');
+        expect(source).not.toContain('function ruinFirstWarning');
+        expect(source).not.toContain('enum BatchLossStatus');
+        for (const note of Object.values(RUIN_FIRST_FALLBACK_NOTE)) {
+            expect(source).not.toContain(note);
+        }
     });
 });
 
+const rankedNote = (
+    rows: readonly ReturnType<typeof ruinRow>[],
+    bankroll: Dollars | null = RUIN_BANKROLL,
+) => rankRows(rows, CompareSortKey.RuinFirst, null, bankroll);
+
 describe('compare ruin-first never reads as a lowest-ruin pick without a ruin figure', () => {
-    it('warns when the bankroll affords no attempt of any plan with EV per attempt above zero', () => {
-        const rows = [ruinRow('a', 10, null, 900), ruinRow('b', 20, null, 100)];
-        const warning = ruinFirstWarning(rows);
-        expect(warning).toContain('bankroll affords no attempt');
-        expect(warning).toContain('fell back to monthly net');
-        expect(warning).not.toContain('\u{2014}');
+    it('names the no-attempt fallback when the bankroll affords no attempt of any plan with EV per attempt above zero', () => {
+        const ranked = rankedNote([
+            {
+                ...ruinRow('a', 10, null, 900),
+                batchLoss: { status: BatchLossStatus.NoAttempt },
+            },
+            {
+                ...ruinRow('b', 20, null, 100),
+                batchLoss: { status: BatchLossStatus.NoAttempt },
+            },
+        ]);
+        expect(ranked.fallback).toBe(RuinFirstFallback.NoAttempt);
+        expect(ranked.note).toBe(RUIN_FIRST_NO_ATTEMPT_NOTE);
+        expect(ranked.note).toContain('bankroll affords no attempt');
+        expect(ranked.note).toContain('fell back to monthly net');
+        expect(labels(ranked.rows)).toStrictEqual(['a', 'b']);
     });
 
     it('says nothing when a positive EV plan has a ruin figure', () => {
-        const rows = [ruinRow('a', 10, 0.3, 900), ruinRow('b', 20, null, 100)];
-        expect(ruinFirstWarning(rows)).toBeNull();
+        const ranked = rankedNote([
+            ruinRow('a', 10, 0.3, 900),
+            ruinRow('b', 20, null, 100),
+        ]);
+        expect(ranked.fallback).toBeNull();
+        expect(ranked.note).toBeNull();
     });
 
     it('keeps the no positive EV message when no plan has EV per attempt above zero', () => {
-        expect(ruinFirstWarning([ruinRow('a', -1, null, 900)])).toBe(
-            'no plan has EV per attempt above zero, so ruin-first ranks none',
-        );
+        const ranked = rankedNote([ruinRow('a', -1, null, 900)]);
+        expect(ranked.fallback).toBe(RuinFirstFallback.NoPositiveEv);
+        expect(ranked.note).toBe(RUIN_FIRST_NO_POSITIVE_EV_NOTE);
     });
 
-    it('has nothing to say for no rows', () => {
-        expect(ruinFirstWarning([])).toBeNull();
+    it('returns no rows for no rows', () => {
+        expect(rankedNote([]).rows).toStrictEqual([]);
     });
 
     it('says the risk could not be priced, not that no attempt is affordable, when attempts are affordable but no loss figure exists', () => {
-        const rows = [{ ...ruinRow('a', 10, null, 900), affordableAttempts: 5000 }];
-        const warning = ruinFirstWarning(rows);
-        expect(warning).toContain('could not price');
-        expect(warning).toContain('fell back to monthly net');
-        expect(warning).not.toContain('affords no attempt');
-        expect(warning).not.toContain('\u{2014}');
+        const ranked = rankedNote([ruinRow('a', 10, null, 900)]);
+        expect(ranked.fallback).toBe(RuinFirstFallback.Unpriced);
+        expect(ranked.note).toBe(RUIN_FIRST_UNPRICED_NOTE);
+        expect(ranked.note).toContain('could not price');
+        expect(ranked.note).not.toContain('affords no attempt');
     });
 
-    it.each([0, null])(
-        'keeps the no-attempt wording when %j attempts are affordable',
-        (affordableAttempts) => {
-            const rows = [
-                { ...ruinRow('a', 10, null, 900), affordableAttempts },
-            ];
-            expect(ruinFirstWarning(rows)).toContain('bankroll affords no attempt');
-        },
-    );
+    it('needs a bankroll to rank ruin first at all', () => {
+        const ranked = rankedNote([ruinRow('a', 10, 0.1, 900)], null);
+        expect(ranked.fallback).toBe(RuinFirstFallback.NeedsBankroll);
+        expect(ranked.note).toBe(RUIN_FIRST_NEEDS_BANKROLL_NOTE);
+    });
 
     it('prints the could-not-price warning for a bankroll far above every cost per attempt', async () => {
         const stdout = await capturedCompareRun([
@@ -1352,9 +1430,7 @@ describe('prop compare names the objective and runs split vs concentrate (PT-63,
             '--winrate',
             '0.3',
         ]);
-        expect(stdout).toContain(
-            'no plan has EV per attempt above zero, so ruin-first ranks none',
-        );
+        expect(stdout).toContain(RUIN_FIRST_NO_POSITIVE_EV_NOTE);
         expect(stdout).not.toContain('best by ruin-first');
     });
 
@@ -1530,7 +1606,7 @@ describe('compare prints cycle net and ROI for every row (PT-83, F-V15)', () => 
             row('high', { expectedMonthlyNet: 100, expectedNet: 900 }),
             row('mid', { expectedMonthlyNet: 500, expectedNet: 500 }),
         ];
-        const ranked = rankRows(rows, CompareSortKey.Cycle);
+        const ranked = rankRows(rows, CompareSortKey.Cycle).rows;
         expect(labels(ranked)).toStrictEqual(['high', 'mid', 'low']);
         expect(
             ranked.map((entry) => compareRowCells(entry.out)[7]),
@@ -1556,7 +1632,7 @@ describe('compare --sort hour ranks by the printed $/screen hour with its own co
             row('300', { expectedMonthlyNet: 300 }),
             row('200', { expectedMonthlyNet: 200 }),
         ];
-        const ranked = rankRows(rows, CompareSortKey.Hour, SCREEN_TIME);
+        const ranked = rankRows(rows, CompareSortKey.Hour, SCREEN_TIME).rows;
         expect(labels(ranked)).toStrictEqual(['300', '200', '100', 'nan']);
         const printed = ranked.map(
             (entry) => compareRowCells(entry.out, SCREEN_TIME).at(-1) ?? '',
@@ -1576,7 +1652,7 @@ describe('compare --sort hour ranks by the printed $/screen hour with its own co
             row('nan-b', { expectedMonthlyNet: NaN }),
         ];
         expect(
-            labels(rankRows(rows, CompareSortKey.Hour, SCREEN_TIME)),
+            labels(rankRows(rows, CompareSortKey.Hour, SCREEN_TIME).rows),
         ).toStrictEqual(['50', 'nan-a', 'nan-b']);
     });
 
@@ -1628,12 +1704,7 @@ describe('compare --top N keeps the best N plans for your hours (PT-83, F-V25)',
     });
 
     it('prints exactly N rows in a real run, in ranking order, and says how many were hidden', async () => {
-        const hours = [
-            '--hours-per-day',
-            '2',
-            '--accounts-per-session',
-            '3',
-        ];
+        const hours = ['--hours-per-day', '2', '--accounts-per-session', '3'];
         const full = await capturedCompareRun([
             ...SMALL_COMPARE.slice(0, 2),
             ...SMALL_COMPARE.slice(4),

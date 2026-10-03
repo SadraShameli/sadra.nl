@@ -17,9 +17,14 @@ import { errorMessage } from '~/lib/errorMessage';
 import { formatCurrency } from '~/lib/format';
 import {
     type AccountStage,
+    usdCents,
     usdCentsFromDollars,
     usdCentsToDollars,
 } from '~/lib/prop-accounts';
+import {
+    decisionAdherenceOf,
+    isDecisionFollowed,
+} from '~/lib/prop-accounts/metrics';
 import { type AdviceSource } from '~/lib/prop-calculator/advisor';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -39,11 +44,13 @@ export function DecisionLog({
     accountId,
     decidedOn,
     decisions,
+    stepCents,
     suggestion,
 }: {
     readonly accountId: string;
     readonly decidedOn: string;
     readonly decisions: readonly DecisionRow[];
+    readonly stepCents: number;
     readonly suggestion: DecisionSuggestion | null;
 }) {
     const utilities = api.useUtils();
@@ -57,10 +64,16 @@ export function DecisionLog({
         },
     });
 
+    const adherence = decisionAdherenceOf(decisions, stepCents);
+    const isAlreadyAccepted =
+        suggestion !== null && isSuggestionAccepted(suggestion, decisions);
+
     return (
         <div className="flex flex-col gap-4">
             <Button
-                disabled={suggestion === null || create.isPending}
+                disabled={
+                    suggestion === null || isAlreadyAccepted || create.isPending
+                }
                 onClick={() => {
                     if (suggestion === null) return;
                     create.mutate({
@@ -77,8 +90,17 @@ export function DecisionLog({
                 }}
                 variant="outline"
             >
-                Accept size
+                {isAlreadyAccepted ? 'Already accepted' : 'Accept size'}
             </Button>
+            {adherence.rate !== null && (
+                <p className="text-sm">
+                    Followed {String(adherence.followed)} of{' '}
+                    {String(adherence.measured)} decisions with an actual risk
+                    recorded, within{' '}
+                    {formatCurrency(usdCentsToDollars(usdCents(stepCents)), 2)}{' '}
+                    of the accepted size.
+                </p>
+            )}
             {decisions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No sizing decisions have been logged yet.
@@ -103,6 +125,7 @@ export function DecisionLog({
                             <DecisionRowView
                                 decision={decision}
                                 key={decision.id}
+                                stepCents={stepCents}
                             />
                         ))}
                     </TableBody>
@@ -112,14 +135,22 @@ export function DecisionLog({
     );
 }
 
-function adherenceText(decision: DecisionRow): string {
-    if (decision.actualRiskCents === null) return '';
-    if (decision.acceptedRiskCents === 0) return 'n/a';
+function adherenceText(decision: DecisionRow, stepCents: number): string {
+    const followed = isDecisionFollowed(decision, stepCents);
+    if (followed === null || decision.actualRiskCents === null) return '';
+    const verdict = followed ? 'followed' : 'not followed';
+    if (decision.acceptedRiskCents === 0) return `n/a, ${verdict}`;
     const ratio = decision.actualRiskCents / decision.acceptedRiskCents;
-    return `${(ratio * 100).toFixed(0)}% of the accepted size`;
+    return `${(ratio * 100).toFixed(0)}% of the accepted size, ${verdict}`;
 }
 
-function DecisionRowView({ decision }: { readonly decision: DecisionRow }) {
+function DecisionRowView({
+    decision,
+    stepCents,
+}: {
+    readonly decision: DecisionRow;
+    readonly stepCents: number;
+}) {
     const [draft, setDraft] = useState('');
     const utilities = api.useUtils();
     const recordActual = api.propAccounts.decision.recordActual.useMutation({
@@ -186,7 +217,26 @@ function DecisionRowView({ decision }: { readonly decision: DecisionRow }) {
                     )
                 )}
             </TableCell>
-            <TableCell>{adherenceText(decision)}</TableCell>
+            <TableCell>{adherenceText(decision, stepCents)}</TableCell>
         </TableRow>
+    );
+}
+
+function isSuggestionAccepted(
+    suggestion: DecisionSuggestion,
+    decisions: readonly DecisionRow[],
+): boolean {
+    return (
+        suggestion.snapshotId !== null &&
+        decisions.some(
+            (decision) =>
+                decision.snapshotId === suggestion.snapshotId &&
+                decision.acceptedRungsCents.length ===
+                    suggestion.acceptedRungsCents.length &&
+                decision.acceptedRungsCents.every(
+                    (cents, index) =>
+                        cents === suggestion.acceptedRungsCents[index],
+                ),
+        )
     );
 }

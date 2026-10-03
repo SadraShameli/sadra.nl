@@ -12,6 +12,7 @@ import {
     INSTRUMENTS,
     InstrumentSymbol,
     isAtOrBelowWithinCentTolerance,
+    nonNegativeDollarsSchema,
     ONE_CENT,
     type Plan,
     resolveDailyLossLimit,
@@ -19,7 +20,11 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 
-import { type CappedAmount, SizingConstraint } from './DocumentedSizing';
+import {
+    type CappedAmount,
+    ConsistencyCeilingNote,
+    SizingConstraint,
+} from './DocumentedSizing';
 import {
     NO_PERSONAL_CAPS,
     type PersonalCaps,
@@ -43,6 +48,8 @@ export interface EvalRuleContext extends SharedRuleContext {
 }
 
 export interface FundedRuleContext extends SharedRuleContext {
+    readonly consistencyCeiling?: Dollars | null;
+    readonly consistencyNote?: ConsistencyCeilingNote | null;
     readonly stage: SizingStage.Funded;
 }
 
@@ -59,6 +66,8 @@ export type RuleContext = EvalRuleContext | FundedRuleContext | LiveRuleContext;
 
 export interface RuleContextCaps {
     readonly ceiling?: Dollars | null;
+    readonly consistencyCeiling?: Dollars | null;
+    readonly consistencyNote?: ConsistencyCeilingNote | null;
     readonly instrument: InstrumentSymbol | null;
     readonly personalCaps?: PersonalCaps;
     readonly personalDll: Dollars | null;
@@ -75,10 +84,6 @@ interface SharedRuleContext {
     readonly personalDll: Dollars | null;
     readonly placeableMinimum: Dollars;
 }
-
-const nonNegativeDollarsSchema = dollarsSchema.refine((amount) => amount >= 0, {
-    message: 'must be zero or more',
-});
 
 const sharedRuleContextShape = {
     ceiling: dollarsSchema.nullable(),
@@ -100,6 +105,8 @@ export const evalRuleContextSchema = z.strictObject({
 
 export const fundedRuleContextSchema = z.strictObject({
     ...sharedRuleContextShape,
+    consistencyCeiling: dollarsSchema.nullable().optional(),
+    consistencyNote: z.enum(ConsistencyCeilingNote).nullable().optional(),
     stage: z.literal(SizingStage.Funded),
 }) satisfies z.ZodType<FundedRuleContext>;
 
@@ -178,14 +185,19 @@ export function profitCeiling(context: RuleContext): CappedAmount | null {
                 SizingConstraint.RemainingTargetCap,
             );
         }
-        case SizingStage.Funded:
+        case SizingStage.Funded: {
+            return tighterOf(
+                tighterOf(null, context.ceiling, SizingConstraint.CeilingCap),
+                context.consistencyCeiling ?? null,
+                SizingConstraint.ConsistencyCap,
+            );
+        }
         case SizingStage.Live: {
-            return context.ceiling === null
-                ? null
-                : {
-                      amount: context.ceiling,
-                      constraint: SizingConstraint.CeilingCap,
-                  };
+            return tighterOf(
+                null,
+                context.ceiling,
+                SizingConstraint.CeilingCap,
+            );
         }
     }
 }
@@ -255,7 +267,12 @@ export function ruleContextAt(
             };
         }
         case SizingStage.Funded: {
-            return { ...shared, stage };
+            return {
+                ...shared,
+                consistencyCeiling: caps.consistencyCeiling,
+                consistencyNote: caps.consistencyNote,
+                stage,
+            };
         }
     }
 }

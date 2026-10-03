@@ -263,9 +263,7 @@ describe('the copy-group sizing view words a verified live trigger and a sub-con
 
         setStop('100');
 
-        expect(container.textContent).toContain(
-            'cannot be sized at this stop',
-        );
+        expect(container.textContent).toContain('cannot be sized at this stop');
         expect(container.textContent).toContain(
             'One contract at this stop risks more than the size allowed for a and b.',
         );

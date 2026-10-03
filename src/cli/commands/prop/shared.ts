@@ -70,9 +70,7 @@ import {
     edgePlausibilityNoteText,
     type PlausibilityThresholds,
 } from '~/lib/prop-calculator/economics';
-import {
-    liveTransferDisclosureLines,
-} from '~/lib/prop-calculator/simulator';
+import { liveTransferDisclosureLines } from '~/lib/prop-calculator/simulator';
 
 export enum ObjectiveFlag {
     CycleCash = 'cycle',
@@ -103,7 +101,9 @@ export interface CouponDiscountPercents {
 }
 
 export interface EdgeInputs {
+    readonly compoundStartDollars?: number;
     readonly rrRatio: number;
+    readonly tradesPerDay?: number;
     readonly winrate: Fraction0to1;
 }
 
@@ -166,6 +166,11 @@ export interface TradingArguments
     trials: string;
     unaffordable: RungSizing;
     winrate: string;
+}
+
+export interface TradingEdgeNoteInputs extends EdgeInputs {
+    readonly fundedRrRatio: number | undefined;
+    readonly fundedTradesPerDay?: number | undefined;
 }
 
 export interface TradingInputsInit {
@@ -831,6 +836,14 @@ export const bankrollArguments = {
     },
 } satisfies ArgsDef;
 
+export const compoundStartArgument = {
+    'compound-start': {
+        description:
+            'Starting bankroll in account currency for the edge plausibility note: shows what it would become at full Kelly over a month of trades (information, not sizing); omit to skip',
+        type: 'string',
+    },
+} satisfies ArgsDef;
+
 export const objectiveArgument = {
     objective: {
         description:
@@ -934,6 +947,17 @@ export function readBankrollInputs(
         bankroll: readBankroll(arguments_.bankroll),
         lossThreshold: readLossThreshold(arguments_['loss-threshold']),
     };
+}
+
+export function readCompoundStart(raw: string | undefined): number | undefined {
+    return raw === undefined || raw === ''
+        ? undefined
+        : parseFlag(
+              bankrollDollarSchema,
+              raw,
+              'compound-start',
+              'a dollar amount > 0',
+          );
 }
 
 export function readEdgeModelSpec(
@@ -1053,12 +1077,13 @@ export function readScreenTime(
     return { accountsPerSession, sessionHoursPerDay };
 }
 
-export function tradingEdgeNotes(
-    inputs: EdgeInputs & { readonly fundedRrRatio: number | undefined },
-): string[] {
+export function tradingEdgeNotes(inputs: TradingEdgeNoteInputs): string[] {
     const notes: string[] = [];
+    const { compoundStartDollars } = inputs;
     const evalNote = edgePlausibilityNote({
+        compoundStartDollars,
         rrRatio: inputs.rrRatio,
+        tradesPerDay: inputs.tradesPerDay,
         winrate: inputs.winrate,
     });
     if (evalNote !== null) notes.push(evalNote);
@@ -1067,7 +1092,9 @@ export function tradingEdgeNotes(
         inputs.fundedRrRatio !== inputs.rrRatio
     ) {
         const fundedNote = edgePlausibilityNote({
+            compoundStartDollars,
             rrRatio: inputs.fundedRrRatio,
+            tradesPerDay: inputs.fundedTradesPerDay ?? inputs.tradesPerDay,
             winrate: inputs.winrate,
         });
         if (fundedNote !== null) notes.push(fundedNote);

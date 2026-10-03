@@ -224,9 +224,7 @@ function rapidEodSimulation(
     });
 }
 
-const rapidEodDpRun = memoise(() =>
-    rapidEodSimulation(rapidEodDp().dayPolicy),
-);
+const rapidEodDpRun = memoise(() => rapidEodSimulation(rapidEodDp().dayPolicy));
 
 const rapidEodLadderRun = memoise(() =>
     rapidEodSimulation({
@@ -252,7 +250,10 @@ const rapidEodLongDp = memoise(() =>
 );
 
 const rapidEodLongDpRun = memoise(() =>
-    rapidEodSimulation(rapidEodLongDp().dayPolicy, RAPID_EOD_LONG_MAX_EVAL_DAYS),
+    rapidEodSimulation(
+        rapidEodLongDp().dayPolicy,
+        RAPID_EOD_LONG_MAX_EVAL_DAYS,
+    ),
 );
 
 const rapidEodLongLadderRun = memoise(() =>

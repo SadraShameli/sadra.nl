@@ -13,7 +13,7 @@ function textOf(relativePath: string): string {
 }
 
 describe('bankroll leftovers duplication (PT-55b)', () => {
-    it('defines empiricalPayingStatsOf in exactly one place, the shared economics helper', () => {
+    it('defines empiricalPayingStatsOf in exactly one place and reaches it from the command through bankrollLossRiskSummary', () => {
         const commandText = textOf('src/cli/commands/prop/sim/command.ts');
         const leversText = textOf(
             'src/lib/prop-calculator/economics/BankrollLevers.ts',
@@ -25,7 +25,7 @@ describe('bankroll leftovers duplication (PT-55b)', () => {
             1,
         );
         expect(commandText).toMatch(
-            /import\s*{[^}]*empiricalPayingStatsOf[^}]*}\s*from\s*'~\/lib\/prop-calculator\/economics'/,
+            /import\s*{[^}]*bankrollLossRiskSummary[^}]*}\s*from\s*'~\/lib\/prop-calculator\/economics'/,
         );
     });
 

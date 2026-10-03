@@ -234,10 +234,7 @@ describe('fundedSweepCacheKey carries every input the sweep now honors (F-27 (1)
 describe('the funded sweep worker streams one Progress event per candidate (F-27 (10))', () => {
     type Posted = WorkerTaskMessage<FundedSweepProgress, FundedSweepResult>;
 
-    function runTask(
-        built: FundedSweepRequest,
-        runId: number,
-    ): Posted[] {
+    function runTask(built: FundedSweepRequest, runId: number): Posted[] {
         const posted: Posted[] = [];
         runFundedSweepTask({ request: built, runId }, (message) => {
             posted.push(message);

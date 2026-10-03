@@ -6,7 +6,7 @@ import {
     withPersonalPolicy,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
-    AccountStage,
+    type AccountStage,
     type AccountStateEntry,
     type AccountStatus,
     accountSubstateOf,
@@ -35,8 +35,8 @@ import {
     type MeasuredRebuyLag,
     NO_PERSONAL_CAPS,
     type PersonalCaps,
+    type PlanRulesFingerprintCheck,
     type ReconstructedAccount,
-    ReconstructedLiveKind,
     type RulebookParameters,
     type SizingAdvisor,
     type SizingAdvisorCreateOptions,
@@ -69,6 +69,7 @@ interface PersonalAdvisorOptionsInput {
     readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly personalRules: unknown;
     readonly plan: Plan;
+    readonly planRulesFingerprint?: null | PlanRulesFingerprintCheck;
     readonly positionSizing?: SizingAdvisorCreateOptions['positionSizing'];
     readonly rulebook: RulebookParameters;
     readonly snapshotAsOf: string;
@@ -188,6 +189,9 @@ export function personalAdvisorOptionsOf(
         personalDll: policy.personalDll,
         personalPayoutOverride: policy.payoutRequestOverride,
         personalRetainedCushion: policy.retainedCushionRequest,
+        ...(input.planRulesFingerprint !== undefined && {
+            planRulesFingerprint: input.planRulesFingerprint,
+        }),
         positionSizing:
             account.kind === TradingPhase.Eval
                 ? null
@@ -239,6 +243,18 @@ export function personalPolicyOverridesOfOptions(
     };
 }
 
+export function planRulesFingerprintCheckOf(account: {
+    readonly currentPlanRulesFingerprint: null | string;
+    readonly planRulesFingerprint: null | string;
+}): null | PlanRulesFingerprintCheck {
+    return account.currentPlanRulesFingerprint === null
+        ? null
+        : {
+              atAdvice: account.planRulesFingerprint,
+              current: account.currentPlanRulesFingerprint,
+          };
+}
+
 export function readinessBoardInputsOf(
     accounts: readonly ReadinessBoardAccount[],
     states: readonly AccountStateEntry[],
@@ -264,9 +280,7 @@ export function readinessOverridesOf(
             const rules = readPersonalRulesOrNull(account.personalRules);
             const policy = personalPolicyOverridesOf(
                 rules,
-                account.stage === AccountStage.Live
-                    ? null
-                    : personalMaxRiskOf(rules),
+                personalMaxRiskOf(rules),
             );
             return [
                 account.id,
@@ -290,7 +304,5 @@ export function readinessOverridesOf(
 export function reconstructedMaxRiskOf(
     account: ReconstructedAccount,
 ): Dollars | null {
-    return account.kind === ReconstructedLiveKind.Live
-        ? null
-        : dollarsOrNull(account.personalMaxRiskPerTrade);
+    return dollarsOrNull(account.personalMaxRiskPerTrade);
 }

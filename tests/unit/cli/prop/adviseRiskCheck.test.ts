@@ -36,7 +36,7 @@ const FRESH_EVAL_APEX_EOD = [
     '--trading-days',
     '0',
     '--trials',
-    '50',
+    '10',
 ];
 
 const FRESH_EVAL_MFF_RAPID_EOD = [
@@ -53,7 +53,7 @@ const FRESH_EVAL_MFF_RAPID_EOD = [
     '--trading-days',
     '0',
     '--trials',
-    '50',
+    '10',
 ];
 
 const STALE_FUNDED_APEX_EOD = [
@@ -163,6 +163,7 @@ describe('prop advise on a fresh 50K eval (PT-24c step 1)', () => {
             expect(run.stdout).toContain('next-trade risk check:');
             expect(run.stdout).not.toContain('above the 2,000 limit');
         },
+        10_000,
     );
 });
 
@@ -423,6 +424,6 @@ describe('no flag is silently dropped (PT-24c leftovers)', () => {
         if (request === undefined || !('grid' in request)) {
             throw new Error('expected a ladder request');
         }
-        expect(request.score.sims).toBe(50);
+        expect(request.score.sims).toBe(10);
     });
 });

@@ -58,8 +58,7 @@ function days(value: number): string {
 
 function endedSentenceOf(plan: PlanPayoutTiming): null | string {
     if (plan.endedWithoutPayout === 0) return null;
-    const account =
-        plan.endedWithoutPayout === 1 ? 'account' : 'accounts';
+    const account = plan.endedWithoutPayout === 1 ? 'account' : 'accounts';
     return `${String(plan.endedWithoutPayout)} funded ${account} ended without a payout, not in the mean`;
 }
 

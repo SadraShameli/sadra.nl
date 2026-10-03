@@ -4,8 +4,8 @@ import {
     calculatorReducer,
     defaultCalculatorState,
 } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import { simulatorHref } from '~/app/(app)/prop-calculator/_components/simulatorHref';
 import { openInSimulatorActions } from '~/app/(app)/prop-calculator/_components/toolNavigation';
-import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
 import {
     CENTS_PER_DOLLAR,
     type Dollars,
@@ -21,11 +21,11 @@ import {
     type EnginePolicyPositionSizing,
     EvalSizingMode,
     fundedStopRuleToDayStopRule,
+    type MeasuredRebuyLag,
     type RulebookParameters,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 import { evalStartAccount } from '~/lib/prop-calculator/advisor/value';
-import { routes } from '~/lib/site/routes';
 
 export enum AccountCalculatorLinkFlag {
     EvalSizingApproximatedByLadder = 'eval-sizing-approximated-by-ladder',
@@ -40,6 +40,7 @@ export interface AccountCalculatorLink {
 
 export interface AccountCalculatorLinkInput {
     readonly firmId: FirmId;
+    readonly measuredRebuyLag?: MeasuredRebuyLag | null;
     readonly optIns: PlanOptIns;
     readonly personalMaxRiskPerTrade: Dollars | null;
     readonly planSerial: string;
@@ -64,6 +65,7 @@ export function calculatorLinkForAccount(
     input: AccountCalculatorLinkInput,
 ): AccountCalculatorLink | null {
     const {
+        measuredRebuyLag,
         optIns,
         personalMaxRiskPerTrade,
         planSerial,
@@ -107,6 +109,16 @@ export function calculatorLinkForAccount(
             ),
         },
     ];
+    if (
+        measuredRebuyLag !== null &&
+        measuredRebuyLag !== undefined &&
+        measuredRebuyLag.samples > 0
+    ) {
+        actions.push({
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: measuredRebuyLag.days,
+        });
+    }
     const flags: AccountCalculatorLinkFlag[] = [];
 
     if (positionSizing === null || positionSizing === undefined) {
@@ -150,7 +162,7 @@ export function calculatorLinkForAccount(
     const state = actions.reduce(calculatorReducer, defaultCalculatorState());
     return {
         flags,
-        href: `${routes.propCalculator.simulator}?${encodeState(state).toString()}`,
+        href: simulatorHref(state),
         label: ACCOUNT_CALCULATOR_LINK_LABEL,
     };
 }

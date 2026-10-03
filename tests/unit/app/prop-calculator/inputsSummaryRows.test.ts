@@ -59,6 +59,30 @@ describe('inputsSummaryRows', () => {
         }
     });
 
+    it('adds a rebuy lag row after the funded horizon only when the lag is not the default', () => {
+        expect(
+            inputsSummaryRows(defaultCalculatorState()).some(
+                (row) => row.field === InputsSummaryField.RebuyLag,
+            ),
+        ).toBe(false);
+        const fields = inputsSummaryRows({
+            ...defaultCalculatorState(),
+            rebuyLagDays: 2.5,
+        }).map((row) => row.field);
+        expect(fields.indexOf(InputsSummaryField.RebuyLag)).toBe(
+            fields.indexOf(InputsSummaryField.FundedHorizon) + 1,
+        );
+    });
+
+    it('formats the rebuy lag with the same day formatter as the funded horizon', () => {
+        const state = { ...defaultCalculatorState(), rebuyLagDays: 2.5 };
+        const row = inputsSummaryRows(state).find(
+            (candidate) => candidate.field === InputsSummaryField.RebuyLag,
+        );
+        expect(row?.label).toBe('Rebuy lag');
+        expect(row?.value).toBe(formatDays(2.5));
+    });
+
     it('shows the firm display name and the plan label', () => {
         const state = defaultCalculatorState();
         expect(valueOf(state, InputsSummaryField.Firm)).toBe(

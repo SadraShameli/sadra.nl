@@ -5,7 +5,9 @@ import {
     bankrollBatchRequest,
     bankrollBudgetPricing,
     type BankrollCalculatorInputs,
-    bankrollClosedFormIllustration,
+    bankrollCycleDescription,
+    bankrollCycleFigures,
+    bankrollCycleInput,
     bankrollExplicitBatchRequest,
     bankrollLeversRequest,
     bankrollMinimumBudgetForThreshold,
@@ -14,6 +16,7 @@ import {
     bankrollSameEvRequest,
     BankrollSetupStatus,
     bankrollSetupSummary,
+    bankrollSpendPayoutCurveRequest,
     bankrollTwoStrategiesRequest,
     bankrollTwoStrategiesSummary,
     bankrollVariantFor,
@@ -272,7 +275,7 @@ describe('bankrollBudgetPricing', () => {
 });
 
 describe('bankrollProjectionRequest', () => {
-    it('maps the projection fields onto a BankrollPolicy with no round budget', () => {
+    it('maps the projection fields onto a BankrollPolicy, with no round budget when none is entered', () => {
         const variant = variantFor();
         const request = bankrollProjectionRequest(
             variant,
@@ -282,6 +285,7 @@ describe('bankrollProjectionRequest', () => {
                 monthlyBudget: dollars(2000),
                 payoutLagDays: 10,
                 reinvestFraction: fraction(0.5),
+                roundBudget: null,
                 start: dollars(5000),
             },
             9,
@@ -300,6 +304,23 @@ describe('bankrollProjectionRequest', () => {
             runId: 9,
             variant,
         });
+    });
+
+    it('carries an entered round budget into the policy', () => {
+        const request = bankrollProjectionRequest(
+            variantFor(),
+            {
+                capacity: null,
+                horizonDays: 180,
+                monthlyBudget: null,
+                payoutLagDays: 0,
+                reinvestFraction: fraction(1),
+                roundBudget: dollars(1000),
+                start: dollars(5000),
+            },
+            9,
+        );
+        expect(request.bankroll.roundBudget).toBe(1000);
     });
 });
 
@@ -360,26 +381,72 @@ describe('bankrollProjectionSummary', () => {
     });
 });
 
-describe('bankrollClosedFormIllustration (labelled, never the headline)', () => {
+describe('the closed-form cycle illustration (labelled, never the headline)', () => {
     it('has a label distinct from the modeled projection', () => {
         expect(BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL).toBe(
             'deterministic illustration, not a forecast',
         );
     });
 
-    it('compounds at 1 + reinvestFraction every 21 days', () => {
-        const quantity = bankrollClosedFormIllustration(
-            dollars(5000),
-            fraction(1),
-            42,
-        );
-        expect(quantity?.value).toBe(5000 * 2 ** 2);
+    it('prices one 5x cycle of 60 days against chained 3x cycles of 30 days from the same start and horizon', () => {
+        const [single, chained] = bankrollCycleFigures(dollars(5000), 60, [
+            { cycleDays: 60, multiple: 5 },
+            { cycleDays: 30, multiple: 3 },
+        ]);
+        expect(single?.quantity.value).toBe(25_000);
+        expect(chained?.quantity.value).toBe(45_000);
+        expect(single?.multiple).toBe(5);
+        expect(single?.cycleDays).toBe(60);
+        expect(chained?.multiple).toBe(3);
+        expect(chained?.cycleDays).toBe(30);
     });
 
-    it('gives no illustration when reinvestFraction is 0 (no compounding cycle)', () => {
+    it('uses the entered cycle for one figure, never an invented one', () => {
+        const [figure] = bankrollCycleFigures(dollars(5000), 42, [
+            { cycleDays: 21, multiple: 2 },
+        ]);
+        expect(figure?.quantity.value).toBe(5000 * 2 ** 2);
+    });
+
+    it('carries the reason for a cycle that cannot be priced', () => {
+        const [figure] = bankrollCycleFigures(dollars(5000), 60, [
+            { cycleDays: 0, multiple: 3 },
+        ]);
+        expect(figure?.quantity.value).toBeNull();
+        expect(figure?.quantity.reason).toBe(EconomicsReason.InvalidInput);
+    });
+
+    it('gives a cycle only when both the multiple and the days are entered', () => {
+        expect(bankrollCycleInput(3, 30)).toEqual({
+            cycleDays: 30,
+            multiple: 3,
+        });
+        expect(bankrollCycleInput(null, 30)).toBeNull();
+        expect(bankrollCycleInput(3, null)).toBeNull();
+        expect(bankrollCycleInput(null, null)).toBeNull();
+    });
+
+    it('names the multiple and the days it assumed', () => {
+        expect(bankrollCycleDescription({ cycleDays: 30, multiple: 3 })).toBe(
+            '3x every 30 trading days',
+        );
+        expect(bankrollCycleDescription({ cycleDays: 60, multiple: 1.5 })).toBe(
+            '1.5x every 60 trading days',
+        );
+    });
+});
+
+describe('bankrollSpendPayoutCurveRequest (PT-82)', () => {
+    it('builds a SpendPayoutCurve request on the same variant, carrying the budgets in order', () => {
+        const variant = variantFor();
         expect(
-            bankrollClosedFormIllustration(dollars(5000), fraction(0), 42),
-        ).toBeNull();
+            bankrollSpendPayoutCurveRequest(variant, [5000, 10_000], 12),
+        ).toEqual({
+            budgets: [5000, 10_000],
+            kind: ToolsRequestKind.SpendPayoutCurve,
+            runId: 12,
+            variant,
+        });
     });
 });
 
@@ -484,6 +551,7 @@ describe('bankrollTwoStrategiesRequest and bankrollTwoStrategiesSummary (PT-62b)
                 monthlyBudget: null,
                 payoutLagDays: 0,
                 reinvestFraction: fraction(0.5),
+                roundBudget: null,
                 start: dollars(5000),
             },
             4,
@@ -501,6 +569,31 @@ describe('bankrollTwoStrategiesRequest and bankrollTwoStrategiesSummary (PT-62b)
             kind: ToolsRequestKind.TwoStrategies,
             runId: 4,
             variants: [variantA, variantB],
+        });
+    });
+
+    it('carries an entered capacity, monthly budget, payout lag and round budget instead of null, null, 0 and null', () => {
+        const variantA = variantFor();
+        const request = bankrollTwoStrategiesRequest(
+            [variantA, bankrollVariantWithRisk(variantA, 500)],
+            {
+                capacity: 4,
+                horizonDays: 120,
+                monthlyBudget: dollars(1500),
+                payoutLagDays: 7,
+                reinvestFraction: fraction(0.5),
+                roundBudget: dollars(900),
+                start: dollars(5000),
+            },
+            4,
+        );
+        expect(request.bankroll).toEqual({
+            maxConcurrentAccounts: 4,
+            monthlyBudget: dollars(1500),
+            payoutLagDays: 7,
+            reinvestFraction: fraction(0.5),
+            roundBudget: dollars(900),
+            startingBankroll: dollars(5000),
         });
     });
 

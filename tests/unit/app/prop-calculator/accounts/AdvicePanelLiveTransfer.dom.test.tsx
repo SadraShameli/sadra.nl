@@ -474,6 +474,7 @@ const PAYOUT_ADVICE = (derived: unknown) => ({
     ...(derived as object),
     payoutAdvice: {
         assumptions: [],
+        caps: [],
         documented: {
             kind: 'request',
             notice: null,
@@ -484,6 +485,7 @@ const PAYOUT_ADVICE = (derived: unknown) => ({
         },
         engineHorizonCredit: null,
         netAfterSplit: 450,
+        ruleCappedWithdrawable: null,
     },
 });
 

@@ -10,10 +10,7 @@ import {
     SetupChecklistCard,
     SetupChecklistCompact,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/SetupChecklistCard';
-import {
-    BankrollTransferKind,
-    FeeKind,
-} from '~/lib/prop-accounts/core';
+import { BankrollTransferKind, FeeKind } from '~/lib/prop-accounts/core';
 import { setupChecklistOf, SetupStep } from '~/lib/prop-accounts/metrics';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { routes } from '~/lib/site/routes';
@@ -54,9 +51,7 @@ function modelOf(options: {
         staleSnapshotAccountIds: new Set(),
     });
     const card = setupChecklistCardOf(checklist);
-    return options.hub
-        ? { ...card, totalSteps: card.totalSteps - 1 }
-        : card;
+    return options.hub ? { ...card, totalSteps: card.totalSteps - 1 } : card;
 }
 
 describe('SetupChecklistCard', () => {

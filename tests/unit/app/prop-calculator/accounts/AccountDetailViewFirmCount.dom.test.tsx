@@ -37,7 +37,6 @@ interface FakeQuery {
     isPending: boolean;
 }
 
-
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
     const requested = new Set<string>();
@@ -95,7 +94,9 @@ const harness = vi.hoisted(() => {
                 requested.add(name);
                 return (
                     queries.get(
-                        input?.accountId === undefined ? `${name}.ledger` : name,
+                        input?.accountId === undefined
+                            ? `${name}.ledger`
+                            : name,
                     ) ?? pending
                 );
             },
@@ -178,7 +179,6 @@ vi.mock('~/trpc/react', () => ({
         }),
     },
 }));
-
 
 vi.mock(
     '~/app/(app)/prop-calculator/accounts/_components/detail/detailState',

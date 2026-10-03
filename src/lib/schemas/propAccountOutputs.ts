@@ -31,13 +31,22 @@ import {
     usdCentsSchema,
     ViolationSource,
 } from '~/lib/prop-accounts';
-import { AdviceSource } from '~/lib/prop-calculator/advisor';
+import {
+    AdviceSource,
+    DpAdviceStalenessReason,
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
+import {
+    dpAdviceGapsSchema,
+    dpAdviceSamplesSchema,
+} from '~/lib/prop-calculator/advisor/DpAdviceRow';
 import {
     propAccount,
     propAccountEvent,
     propAccountSnapshot,
     propBankrollTransfer,
     propCopyGroup,
+    propDpAdvice,
     propExternalFirm,
     propFee,
     propFirmEngagement,
@@ -48,6 +57,13 @@ import {
     propSavedScenario,
     propSizingDecision,
 } from '~/server/db/schemas/prop';
+
+export enum DpValueStateKind {
+    AfterLoss = 'after-loss',
+    AfterWin = 'after-win',
+    Candidate = 'candidate',
+    Current = 'current',
+}
 
 export enum PropLimitRejection {
     ListTooLarge = 'list-too-large',
@@ -115,6 +131,8 @@ export enum PropRecord {
 export enum PropStoredRecordRejection {
     InvalidStoredRecord = 'invalid-stored-record',
 }
+
+export const MAX_DP_VALUE_SAMPLES = 256;
 
 export const MAX_SAVED_SCENARIOS = 100;
 
@@ -277,6 +295,26 @@ export const propSizingDecisionOutputSchema = createSelectSchema(
         stage: z.enum(AccountStage),
     },
 );
+
+const dpValueSampleSchema = z.strictObject({
+    kind: z.enum(DpValueStateKind),
+    rateAdjustedValueCents: z.number().int().nullable(),
+    riskCents: z.number().int().nonnegative().nullable(),
+    valueCents: z.number().int(),
+});
+
+export type DpValueSample = z.infer<typeof dpValueSampleSchema>;
+
+export const dpValueSamplesSchema = z
+    .array(dpValueSampleSchema)
+    .max(MAX_DP_VALUE_SAMPLES);
+
+export const propDpAdviceOutputSchema = createSelectSchema(propDpAdvice, {
+    gaps: dpAdviceGapsSchema,
+    objective: z.enum(SizingObjective),
+    samples: dpAdviceSamplesSchema,
+    valueSamples: dpValueSamplesSchema,
+}).extend({ staleness: z.array(z.enum(DpAdviceStalenessReason)) });
 
 export const propSavedScenarioOutputSchema =
     createSelectSchema(propSavedScenario);

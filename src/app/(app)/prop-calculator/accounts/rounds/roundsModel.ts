@@ -9,6 +9,7 @@ import {
     type NextRoundToolsRequest,
     ToolsRequestKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { measuredRebuyLagFromStats } from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
 import { DEFAULT_REALIZED_HORIZON_DAYS } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
@@ -25,6 +26,7 @@ import {
     perAttemptNetCents,
     type PortfolioLedger,
     realizedOutcomes,
+    replacementStats,
     RoundStatus,
     roundStatusLabel,
     type SampledEstimate,
@@ -60,6 +62,7 @@ import {
     buildEnginePolicy,
     type EnginePolicy,
     enginePolicySchema,
+    type MeasuredRebuyLag,
     type RulebookParameters,
     type SampleThresholds,
 } from '~/lib/prop-calculator/advisor';
@@ -104,6 +107,7 @@ export interface NextRoundCardModel {
         readonly n: number;
         readonly value: number;
     };
+    readonly rebuyLagNote: string;
     readonly request: NextRoundToolsRequest;
     readonly roundId: string;
     readonly roundLabel: string;
@@ -252,6 +256,10 @@ export function nextRoundCardModelOf(
         availableCents,
     );
     const capacity = rulebook.bankroll.dailyAccountCapacity;
+    const measuredRebuyLag = measuredRebuyLagFromStats(
+        replacementStats(ledger),
+        eligibility.planReference.planSerial,
+    );
     const request: NextRoundToolsRequest = {
         dayBudget,
         kind: ToolsRequestKind.NextRound,
@@ -259,7 +267,7 @@ export function nextRoundCardModelOf(
         optionB: nextRoundBankrollPolicy(optionBCents, capacity),
         runId,
         trials: NEXT_ROUND_TRIALS,
-        variant: nextRoundVariantFor(eligibility, rulebook),
+        variant: nextRoundVariantFor(eligibility, rulebook, measuredRebuyLag),
     };
 
     const scaleGate = scaleGateFromLedger(
@@ -285,6 +293,7 @@ export function nextRoundCardModelOf(
             realizedPassRate == null
                 ? null
                 : { n: realizedPassRate.n, value: realizedPassRate.value },
+        rebuyLagNote: rebuyLagNoteOf(measuredRebuyLag),
         request,
         roundId: eligibility.round.id,
         roundLabel: eligibility.round.label,
@@ -493,11 +502,12 @@ function nextRoundOptionSummary(
 function nextRoundVariantFor(
     eligibility: NextRoundEligibility,
     rulebook: RulebookParameters,
+    measuredRebuyLag: MeasuredRebuyLag | null,
 ): BankrollPlanVariantInputs {
     const { policy: builtPolicy } = buildEnginePolicy({
         accountPolicy: findFirm(eligibility.plan.id.firm)?.accountPolicy,
         fundedHorizonDays: DEFAULT_FUNDED_HORIZON_DAYS,
-        measuredRebuyLag: null,
+        measuredRebuyLag,
         plan: eligibility.plan,
         positionSizing: null,
         rulebook,
@@ -527,6 +537,12 @@ function normalizedPlanOptIns(raw: Partial<PlanOptIns>): PlanOptIns {
         takesFundedReset: raw.takesFundedReset === true,
         takesOneTimeEarlyWithdrawal: raw.takesOneTimeEarlyWithdrawal === true,
     };
+}
+
+function rebuyLagNoteOf(measuredRebuyLag: MeasuredRebuyLag | null): string {
+    return measuredRebuyLag === null
+        ? 'Rebuy lag: assumed zero, because no replacement on this plan has been measured.'
+        : `Rebuy lag: ${measuredRebuyLag.days.toFixed(1)} sessions on this plan, measured from ${String(measuredRebuyLag.samples)} of your replacements.`;
 }
 
 function roundFirmSummaryRow(

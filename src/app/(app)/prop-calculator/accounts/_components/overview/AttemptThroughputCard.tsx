@@ -60,6 +60,48 @@ export function AttemptThroughputCard({
             {model.perFirm.length > 0 && (
                 <div className="flex flex-col gap-2">
                     <h3 className="text-sm font-medium text-white">
+                        Attempts per month by firm
+                    </h3>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Month</TableHead>
+                                {model.perFirm.map((firm) => (
+                                    <TableHead
+                                        className="text-right"
+                                        key={firm.key}
+                                    >
+                                        {firm.firm}
+                                    </TableHead>
+                                ))}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {model.months.map((month) => (
+                                <TableRow key={month.key}>
+                                    <TableCell className="tabular-nums">
+                                        {month.month}
+                                    </TableCell>
+                                    {model.perFirm.map((firm) => (
+                                        <TableCell
+                                            className="text-right tabular-nums"
+                                            key={firm.key}
+                                        >
+                                            {firm.months.find(
+                                                (entry) =>
+                                                    entry.month === month.month,
+                                            )?.attempts ?? '0'}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
+            {model.perFirm.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium text-white">
                         Mean attempts per month by firm
                     </h3>
                     <Table>
@@ -84,6 +126,9 @@ export function AttemptThroughputCard({
                     </Table>
                 </div>
             )}
+            <p className="text-xs text-muted-foreground">
+                {model.countingNote}
+            </p>
         </div>
     );
 }

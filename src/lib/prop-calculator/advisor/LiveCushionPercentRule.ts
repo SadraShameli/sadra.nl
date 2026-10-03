@@ -41,8 +41,7 @@ export class LiveCushionPercentRule extends FlatRiskRule<LiveRuleContext> {
     ): PlannedRisk {
         if (context.floorTradeRisk > 0) {
             return {
-                amount:
-                    runningLoss <= 0 ? context.floorTradeRisk : dollars(0),
+                amount: runningLoss <= 0 ? context.floorTradeRisk : dollars(0),
                 cappedBy: [],
             };
         }
@@ -57,7 +56,9 @@ export class LiveCushionPercentRule extends FlatRiskRule<LiveRuleContext> {
         };
     }
 
-    protected override sizingContext(context: LiveRuleContext): LiveRuleContext {
+    protected override sizingContext(
+        context: LiveRuleContext,
+    ): LiveRuleContext {
         return {
             ...context,
             cushion: dollars(

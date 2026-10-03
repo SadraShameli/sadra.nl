@@ -32,6 +32,7 @@ import {
     dailyLossRoom,
     type DayProgress,
     dayProgressSchema,
+    profitCeiling,
     type RuleContext,
     tighterOf,
 } from './RuleContext';
@@ -260,7 +261,7 @@ export function resolveNextTrade(
             ? Infinity
             : (ceiling.amount - day.dayPnL) / terms.rewardMultiple;
     const isFlatRungPlacedAsPlanned =
-        context.stage === SizingStage.Funded && context.ceiling !== null;
+        context.stage === SizingStage.Funded && profitCeiling(context) !== null;
     const ceilingMinimum =
         isFlatRungPlacedAsPlanned &&
         planned !== null &&

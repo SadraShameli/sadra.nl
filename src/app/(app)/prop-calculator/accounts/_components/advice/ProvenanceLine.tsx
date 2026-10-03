@@ -1,29 +1,36 @@
-import { sizingObjectiveText } from '~/lib/prop-calculator/advisor';
+import { type FirmId } from '~/lib/prop-calculator';
+import { firmDataProvenance } from '~/lib/prop-calculator/describe';
 
-import { type ProvenanceView } from './adviceViewModel';
+import { provenanceTextOf, type ProvenanceView } from './adviceViewModel';
 
 export function ProvenanceLine({
+    firmId,
     provenance,
 }: {
+    readonly firmId: FirmId;
     readonly provenance: ProvenanceView;
 }) {
-    const parts = [
-        `source ${provenance.source}`,
-        `${provenance.startBasis} start`,
-        sizingObjectiveText(provenance.objective),
-        `computed ${provenance.computedAt}`,
-        `snapshot ${provenance.snapshotDate}`,
-        provenance.trials === null ? null : `n=${String(provenance.trials)}`,
-        provenance.seed === null ? null : `seed ${String(provenance.seed)}`,
-        provenance.solverVersion === null
-            ? null
-            : `solver ${provenance.solverVersion}`,
-        provenance.planRulesFingerprint === null
-            ? null
-            : `plan rules fingerprint ${provenance.planRulesFingerprint}`,
-        provenance.firmDataDate === null
-            ? 'firm data unverified'
-            : `firm data verified ${provenance.firmDataDate}`,
-    ].filter((part): part is string => part !== null);
-    return <p className="text-xs text-muted-foreground">{parts.join(' · ')}</p>;
+    const text = provenanceTextOf(
+        provenance,
+        firmDataProvenance(firmId).openItems,
+    );
+    return (
+        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <p>{text.parts.join(' · ')}</p>
+            {text.openItems.length === 0 ? (
+                <p>{text.openItemsSummary}</p>
+            ) : (
+                <details>
+                    <summary className="cursor-pointer">
+                        {text.openItemsSummary}
+                    </summary>
+                    <ul className="list-disc pl-4">
+                        {text.openItems.map((item) => (
+                            <li key={item}>{item}</li>
+                        ))}
+                    </ul>
+                </details>
+            )}
+        </div>
+    );
 }

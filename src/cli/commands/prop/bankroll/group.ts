@@ -3,7 +3,7 @@ import { defineCommand } from 'citty';
 export default defineCommand({
     meta: {
         description:
-            'Bankroll engine path: risk, projections, compares, batches and levers',
+            'Bankroll engine path: risk, projections, compares, batches, levers and the spend-vs-payout curve',
         name: 'bankroll',
     },
     subCommands: {
@@ -13,6 +13,10 @@ export default defineCommand({
         },
         compare: async () => {
             const commandModule = await import('./compare');
+            return commandModule.default;
+        },
+        curve: async () => {
+            const commandModule = await import('./curve');
             return commandModule.default;
         },
         levers: async () => {

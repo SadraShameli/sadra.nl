@@ -387,17 +387,21 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
         });
     });
 
-    it('runs simulatePortfolioTimeline on the built inputs without error', () => {
-        const spec = specOf();
-        const inputs = documentedPolicyTimelineInputs(
-            apexEod,
-            { ...spec, run: { ...spec.run, trials: TIMELINE_RUN_TRIALS } },
-            3,
-        );
+    it(
+        'runs simulatePortfolioTimeline on the built inputs without error',
+        () => {
+            const spec = specOf();
+            const inputs = documentedPolicyTimelineInputs(
+                apexEod,
+                { ...spec, run: { ...spec.run, trials: TIMELINE_RUN_TRIALS } },
+                3,
+            );
 
-        expect(inputs.trials).toBe(TIMELINE_RUN_TRIALS);
-        expect(() => simulatePortfolioTimeline(inputs)).not.toThrow();
-    }, HEAVY_TEST_TIMEOUT_MS);
+            expect(inputs.trials).toBe(TIMELINE_RUN_TRIALS);
+            expect(() => simulatePortfolioTimeline(inputs)).not.toThrow();
+        },
+        HEAVY_TEST_TIMEOUT_MS,
+    );
 
     it('throws on a plan serial mismatch', () => {
         expect(() =>

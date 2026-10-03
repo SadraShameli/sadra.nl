@@ -19,6 +19,7 @@ import {
 import { CENTS_PER_DOLLAR, TradingPhase } from '~/lib/prop-calculator';
 import {
     type AccountPendingPayoutCounts,
+    fundedRetainedCushionResolution,
     grossStateOf,
     type LiveTriggerLimits,
     payoutReadiness,
@@ -37,6 +38,7 @@ import {
     liveTriggerLimitsIn,
     type MonitoredAccount,
     pendingPayoutCountsIn,
+    personalCushionSourceOf,
     personalPolicyIn,
     personalRulebookOf,
 } from './AlertContext';
@@ -78,10 +80,8 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
         ) {
             return null;
         }
-        const rulebook = personalRulebookOf(
-            context.rulebook,
-            personalPolicyIn(context, monitored.account.id),
-        );
+        const policy = personalPolicyIn(context, monitored.account.id);
+        const rulebook = personalRulebookOf(context.rulebook, policy);
         const previous = state.previous.reconstructed;
         const latest = state.latest.reconstructed;
         if (
@@ -138,12 +138,19 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
             loss.paidCents > 0
                 ? ` after the ${formatUsdCents(loss.paidCents)} paid out in between`
                 : '';
+        const cushionSource = personalCushionSourceOf(
+            fundedRetainedCushionResolution(
+                context.rulebook,
+                policy.retainedCushionRequest ?? 0,
+            ),
+        );
+        const sourceText = cushionSource === null ? '' : ` (${cushionSource})`;
         return this.alertFor(
             monitored,
             AlertSeverity.Critical,
             loss.isReset
-                ? `The account was reset after it was payout-ready, so ${formatUsdCents(loss.lostCents)} of the ${formatUsdCents(previousCents)} withdrawable was lost${afterPayout}`
-                : `The withdrawable amount fell from ${formatUsdCents(previousCents)} to ${formatUsdCents(latestCents)} since the account was last payout-ready${loss.paidCents > 0 ? `, ${formatUsdCents(loss.lostCents)} of it lost trading${afterPayout}` : ''}`,
+                ? `The account was reset after it was payout-ready, so ${formatUsdCents(loss.lostCents)} of the ${formatUsdCents(previousCents)} withdrawable was lost${afterPayout}${sourceText}`
+                : `The withdrawable amount fell from ${formatUsdCents(previousCents)} to ${formatUsdCents(latestCents)} since the account was last payout-ready${loss.paidCents > 0 ? `, ${formatUsdCents(loss.lostCents)} of it lost trading${afterPayout}` : ''}${sourceText}`,
             liveTriggerDisclosuresOf(liveTrigger.coverage, pendingPayoutCounts),
         );
     }

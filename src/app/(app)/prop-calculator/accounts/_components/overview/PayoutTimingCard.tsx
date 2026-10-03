@@ -30,7 +30,13 @@ export function PayoutTimingCard({
     return (
         <div className="flex flex-col gap-3">
             <p className="text-xs text-muted-foreground">{model.explanation}</p>
-            <Table containerProps={{ 'aria-label': PAYOUT_TIMING_LABEL }}>
+            <Table
+                containerProps={{
+                    'aria-label': PAYOUT_TIMING_LABEL,
+                    role: 'region',
+                    tabIndex: 0,
+                }}
+            >
                 <TableHeader>
                     <TableRow>
                         <TableHead>Plan</TableHead>

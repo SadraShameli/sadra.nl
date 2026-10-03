@@ -51,6 +51,9 @@ export function RealizedOutcomesCard({
                                 <TableCell>{row.plan}</TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.passRate}
+                                    <span className="block text-xs text-muted-foreground">
+                                        {row.passRateCounts}
+                                    </span>
                                 </TableCell>
                                 <TableCell className="text-right text-muted-foreground tabular-nums">
                                     {row.modeledPassRate}
@@ -60,6 +63,9 @@ export function RealizedOutcomesCard({
                                 </TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.fundedSurvival}
+                                    <span className="block text-xs text-muted-foreground">
+                                        {row.fundedSurvivalCounts}
+                                    </span>
                                 </TableCell>
                                 <TableCell className="text-right text-muted-foreground tabular-nums">
                                     {row.modeledFundedSurvival}

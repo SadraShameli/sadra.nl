@@ -280,6 +280,14 @@ function errorOf(control: HTMLElement): string | undefined {
         : document.querySelector(`#${CSS.escape(id)}`)?.textContent;
 }
 
+function evalSizingAccount(id: string) {
+    return sizingAccount(id, MAIN.id, {
+        firstFundedTradeOn: null,
+        fundedOn: null,
+        stage: AccountStage.Eval,
+    });
+}
+
 function field(label: string): HTMLInputElement | HTMLSelectElement {
     const labelElement = [...document.querySelectorAll('label')].find(
         (candidate) => candidate.textContent.trim() === label,
@@ -1580,18 +1588,10 @@ describe('CopyGroupsView', () => {
                 const EVAL_BALANCE_CENTS =
                     (SIZING_PLAN.accountSize + 1000) * CENTS_PER_DOLLAR;
 
-                function evalAccountRow(id: string) {
-                    return sizingAccount(id, MAIN.id, {
-                        firstFundedTradeOn: null,
-                        fundedOn: null,
-                        stage: AccountStage.Eval,
-                    });
-                }
-
                 function answerWithEval(oldAsOf: string) {
                     const accounts = [
-                        evalAccountRow('eval-fresh'),
-                        evalAccountRow('eval-old'),
+                        evalSizingAccount('eval-fresh'),
+                        evalSizingAccount('eval-old'),
                     ];
                     vi.setSystemTime(new Date(`${EVAL_TODAY}T12:00:00Z`));
                     answerWith([MAIN], accounts);
@@ -1604,9 +1604,8 @@ describe('CopyGroupsView', () => {
                                         entry.id === 'eval-old'
                                             ? oldAsOf
                                             : EVAL_TODAY,
-                                    highestEodBalanceCents: usdCents(
-                                        EVAL_BALANCE_CENTS,
-                                    ),
+                                    highestEodBalanceCents:
+                                        usdCents(EVAL_BALANCE_CENTS),
                                 }),
                             ),
                         ),

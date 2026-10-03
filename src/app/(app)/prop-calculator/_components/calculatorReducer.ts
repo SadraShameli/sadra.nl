@@ -10,6 +10,7 @@ import {
     type InstrumentSymbol,
     type Plan,
     type RungSizing,
+    SIM_DEFAULTS,
     type TradingFirm,
 } from '~/lib/prop-calculator';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
@@ -79,6 +80,7 @@ export enum CalculatorActionType {
     SetPayoutRequestSize = 'set-payout-request-size',
     SetPlan = 'set-plan',
     SetPortfolio = 'set-portfolio',
+    SetRebuyLagDays = 'set-rebuy-lag-days',
     SetResetDiscountPercent = 'set-reset-discount-percent',
     SetRetainedCushion = 'set-retained-cushion',
     SetRiskDollars = 'set-risk-dollars',
@@ -164,6 +166,7 @@ export type CalculatorAction =
           type: CalculatorActionType.SetPayoutRequestSize;
           value: null | number;
       }
+    | { type: CalculatorActionType.SetRebuyLagDays; value: number }
     | { type: CalculatorActionType.SetResetDiscountPercent; value: number }
     | {
           type: CalculatorActionType.SetRetainedCushion;
@@ -276,6 +279,7 @@ export function defaultCalculatorState(): CalculatorState {
                 stopPoints: null,
             },
         ],
+        rebuyLagDays: SIM_DEFAULTS.rebuyLagDays,
         resetDiscountPercent: 0,
         retainedCushion: null,
         riskDollars: 250,
@@ -588,6 +592,17 @@ function reduceCalculator(
             return {
                 ...withLinkParameterCleared(state, LinkParameter.Portfolio),
                 portfolio: action.entries,
+            };
+        }
+        case CalculatorActionType.SetRebuyLagDays: {
+            return {
+                ...state,
+                rebuyLagDays: clampNumber(
+                    action.value,
+                    CALCULATOR_SCALAR_BOUNDS.rebuyLag.min,
+                    CALCULATOR_SCALAR_BOUNDS.rebuyLag.max,
+                    state.rebuyLagDays,
+                ),
             };
         }
         case CalculatorActionType.SetResetDiscountPercent: {

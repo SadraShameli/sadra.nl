@@ -115,7 +115,9 @@ vi.mock('~/trpc/react', () => ({
             externalFirm: { list: harness.query('externalFirm.list') },
             fee: { list: harness.query('fee.list') },
             firmEngagement: { list: harness.query('firmEngagement.list') },
+            firmStatement: { list: harness.query('firmStatement.list') },
             payout: { list: harness.query('payout.list') },
+            round: { list: harness.query('round.list') },
             rulebook: { get: harness.query('rulebook.get') },
             snapshot: {
                 latestForAll: harness.query('snapshot.latestForAll'),
@@ -169,6 +171,7 @@ const CARD_HEADINGS = [
     'Monthly statement',
     'Attempt throughput',
     'Repeatability',
+    'Payout timing',
     'Timeline',
 ];
 
@@ -201,7 +204,9 @@ function answerEverything(accounts: readonly OverviewAccount[]) {
     harness.queries.set('event.list', answer(events));
     harness.queries.set('fee.list', answer(fees));
     harness.queries.set('firmEngagement.list', answer([]));
+    harness.queries.set('firmStatement.list', answer([]));
     harness.queries.set('payout.list', answer([]));
+    harness.queries.set('round.list', answer([]));
     harness.queries.set('rulebook.get', answer(DEFAULT_RULEBOOK));
     harness.queries.set('snapshot.latestForAll', answer([]));
     harness.queries.set('snapshot.latestTwoForAll', answer([]));
@@ -524,6 +529,77 @@ describe('OverviewView', () => {
             'Account events are loaded for the last 3 years only',
         );
         expect(container.textContent).toContain('Unresolvable plan');
+    });
+
+    it('mounts the payout timing card after the repeatability card, as a named focusable region with its rows', () => {
+        const alpha = overviewAccount('alpha', {
+            fundedOn: '2026-08-01',
+            purchasedOn: '2026-06-01',
+            stage: AccountStage.Funded,
+        });
+        answerEverything([alpha]);
+        harness.queries.set(
+            'payout.list',
+            answer([
+                {
+                    accountId: alpha.id,
+                    approvedOn: null,
+                    grossCents: usdCents(30_000),
+                    id: 'payout-alpha',
+                    netCents: usdCents(30_000),
+                    paidOn: '2026-08-21',
+                    requestedOn: '2026-08-20',
+                    status: PayoutStatus.Paid,
+                    userId: USER_ID,
+                } satisfies LedgerPayoutRow,
+            ]),
+        );
+        render();
+        const titles = labelledSections().map(
+            (section) => headingOf(section)?.textContent,
+        );
+        expect(titles.indexOf('Payout timing')).toBe(
+            titles.indexOf('Repeatability') + 1,
+        );
+        const region = sectionNamed(
+            'Payout timing',
+        )?.querySelector<HTMLElement>(
+            '[role="region"][aria-label="Payout timing per plan"]',
+        );
+        expect(region?.getAttribute('tabindex')).toBe('0');
+        expect(region?.textContent).toContain('20.0 days');
+    });
+
+    it('reads the firm statements and the rounds for the alerts', () => {
+        answerEverything([overviewAccount('alpha')]);
+        render();
+        expect(harness.queryCalls).toContain('firmStatement.list');
+        expect(harness.queryCalls).toContain('round.list');
+    });
+
+    it('keeps the alerts section loading while the firm statements load, not empty', () => {
+        answerEverything([overviewAccount('alpha')]);
+        harness.queries.delete('firmStatement.list');
+        render();
+        const alerts = sectionNamed('Alerts');
+        expect(
+            alerts?.querySelector(
+                '[aria-busy="true"][aria-label="Loading the alerts"]',
+            ),
+        ).not.toBeNull();
+        expect(alerts?.textContent).not.toContain('No alerts');
+    });
+
+    it('says which source failed when the rounds cannot load, in the alerts section', () => {
+        answerEverything([overviewAccount('alpha')]);
+        harness.queries.set('round.list', failure('Failed to fetch'));
+        render();
+        expect(container.textContent).toContain(
+            'Your rounds could not be loaded',
+        );
+        expect(sectionNamed('Alerts')?.textContent).toContain(
+            'Alerts could not be checked because your rounds could not be loaded.',
+        );
     });
 
     it('shows the payout multiple KPI beside ROI and the firm returns and repeatability cards', () => {

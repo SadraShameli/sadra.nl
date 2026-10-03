@@ -88,6 +88,15 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                                     Decided spend
                                 </TableHead>
                                 <TableHead className="text-right">
+                                    Attempts
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Cost per attempt
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Implied attempts
+                                </TableHead>
+                                <TableHead className="text-right">
                                     Funded
                                 </TableHead>
                                 <TableHead className="text-right">
@@ -113,6 +122,20 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                                     <TableCell>{row.plan}</TableCell>
                                     <TableCell className="text-right tabular-nums">
                                         {row.acquisitionSpend}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        <span className="inline-flex items-center gap-1.5">
+                                            {row.attempts}
+                                            <SampleBadge
+                                                level={row.attemptsSampleLevel}
+                                            />
+                                        </span>
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.costPerAttempt}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.impliedAttempts}
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums">
                                         <span className="inline-flex items-center gap-1.5">
@@ -205,6 +228,9 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                                     Cost per attempt
                                 </TableHead>
                                 <TableHead className="text-right">
+                                    Implied attempts
+                                </TableHead>
+                                <TableHead className="text-right">
                                     Resets and rebuys
                                 </TableHead>
                             </TableRow>
@@ -225,6 +251,9 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                                         {row.costPerAttempt}
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums">
+                                        {row.impliedAttempts}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
                                         {row.retryFeeAttempts}
                                     </TableCell>
                                 </TableRow>
@@ -233,37 +262,45 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                     </Table>
                 </div>
             )}
-            {model.discountsByFirm.length > 0 && (
+            {(model.discountsByFirm.length > 0 ||
+                model.discountsNote !== null) && (
                 <div className="flex flex-col gap-2">
                     <h3 className="text-sm font-medium text-white">
                         Discounts captured by firm
                     </h3>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Firm</TableHead>
-                                <TableHead className="text-right">
-                                    Discount vs list price
-                                </TableHead>
-                                <TableHead className="text-right">
-                                    Fees checked
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {model.discountsByFirm.map((row) => (
-                                <TableRow key={row.key}>
-                                    <TableCell>{row.firm}</TableCell>
-                                    <TableCell className="text-right tabular-nums">
-                                        {row.discount}
-                                    </TableCell>
-                                    <TableCell className="text-right tabular-nums">
-                                        {row.feesChecked}
-                                    </TableCell>
+                    {model.discountsByFirm.length > 0 && (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Firm</TableHead>
+                                    <TableHead className="text-right">
+                                        Discount vs list price
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Fees checked
+                                    </TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {model.discountsByFirm.map((row) => (
+                                    <TableRow key={row.key}>
+                                        <TableCell>{row.firm}</TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {row.discount}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {row.feesChecked}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                    {model.discountsNote !== null && (
+                        <p className="text-xs text-muted-foreground">
+                            {model.discountsNote}
+                        </p>
+                    )}
                 </div>
             )}
             <Disclosures items={model.disclosures} />

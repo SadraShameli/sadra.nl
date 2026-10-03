@@ -235,6 +235,38 @@ describe('PayoutEligibleRule', () => {
             expect(alerts[0]?.message).toContain(
                 `Eligible to request ${requested}`,
             );
+            expect(alerts[0]?.message).toContain(
+                'your personal payout request',
+            );
+            expect(alerts[0]?.message).toContain(
+                `retaining ${formatUsdCents(usdCentsFromDollars(3000))} as your personal retained cushion`,
+            );
+        });
+
+        it('names no personal rule when the account has no personal policy', () => {
+            const { account, entry } = eligibleFixtures();
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+            });
+            expect(alerts).toHaveLength(1);
+            expect(alerts[0]?.message).not.toContain('personal');
+        });
+
+        it('names only the personal request when the cushion is not personal', () => {
+            const { account, entry } = eligibleFixtures();
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                personalPolicies: personalPoliciesFor(account, {
+                    payoutRequestOverride: dollars(2000),
+                }),
+            });
+            expect(alerts).toHaveLength(1);
+            expect(alerts[0]?.message).toContain(
+                'your personal payout request',
+            );
+            expect(alerts[0]?.message).not.toContain('retained cushion');
         });
 
         it('stays silent when the personal retained cushion blocks the board row', () => {

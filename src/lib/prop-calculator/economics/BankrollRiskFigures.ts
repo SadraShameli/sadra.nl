@@ -18,8 +18,12 @@ import { attemptsAffordable, noPayoutProbability } from './LossRisk';
 
 export interface BankrollCohortRisk {
     readonly attempts: number;
+    readonly expectedFees: Dollars | null;
+    readonly expectedPayouts: Dollars | null;
     readonly lossProbability: EconomicsEstimate<Fraction0to1>;
     readonly meanNet: Dollars;
+    readonly netP10: Dollars;
+    readonly netP90: Dollars;
 }
 
 export interface BankrollRisk {
@@ -57,16 +61,21 @@ export function bankrollCohortRisk(
     attempts: number,
     draws: number,
     seed: number,
+    feeValues?: readonly number[],
 ): Quantity<BankrollCohortRisk> {
     if (!(attempts >= 1)) return missingQuantity(EconomicsReason.InvalidInput);
-    const outcome = cohortOutcome(netValues, attempts, draws, seed);
+    const outcome = cohortOutcome(netValues, attempts, draws, seed, feeValues);
     return outcome.value === null
         ? outcome
         : quantityOf(
               {
                   attempts,
+                  expectedFees: outcome.value.expectedFees,
+                  expectedPayouts: outcome.value.expectedPayouts,
                   lossProbability: outcome.value.lossProbability,
                   meanNet: outcome.value.meanNet,
+                  netP10: outcome.value.netP10,
+                  netP90: outcome.value.netP90,
               },
               outcome.disclosures,
           );

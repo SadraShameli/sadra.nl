@@ -17,7 +17,7 @@ export interface NetCashBucket {
 }
 
 export interface TiltVarianceInput {
-    readonly firmKeyByAccount?: ReadonlyMap<string, FirmKey>;
+    readonly firmKeyByAccount: ReadonlyMap<string, FirmKey>;
     readonly netCashByBucket: readonly NetCashBucket[];
     readonly violations: readonly TiltVarianceViolation[];
 }

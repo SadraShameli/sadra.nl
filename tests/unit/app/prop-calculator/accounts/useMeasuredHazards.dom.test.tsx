@@ -65,6 +65,15 @@ vi.mock('~/trpc/react', () => ({
     },
 }));
 
+function ledgerOnlyLive() {
+    return account(EVAL_PLAN, {
+        planLabel: 'Imported live',
+        planSerial: null,
+        stage: AccountStage.Live,
+        tracking: AccountTracking.LedgerOnly,
+    });
+}
+
 function ledgerRows() {
     const moved = account(EVAL_PLAN, {
         purchasedOn: '2026-01-01',
@@ -77,22 +86,13 @@ function ledgerRows() {
             event(moved, AccountEventKind.EvalPassed, '2026-01-05'),
             event(moved, AccountEventKind.MovedLive, '2026-03-10'),
         ],
+        moved,
         payouts: [
             payout(moved, 5000, { paidOn: '2026-02-01' }),
             payout(moved, 5000, { paidOn: '2026-02-20' }),
         ],
-        moved,
         userId: moved.userId,
     };
-}
-
-function ledgerOnlyLive() {
-    return account(EVAL_PLAN, {
-        planLabel: 'Imported live',
-        planSerial: null,
-        stage: AccountStage.Live,
-        tracking: AccountTracking.LedgerOnly,
-    });
 }
 
 describe('useMeasuredHazards (PT-73, F-V26)', () => {

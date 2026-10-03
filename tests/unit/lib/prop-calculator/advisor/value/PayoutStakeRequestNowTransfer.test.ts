@@ -260,82 +260,87 @@ describe('the request-now figure prices the requested payout own transfer draw (
             );
         });
 
-        it('values the live continuation like an independent live-account simulation of the same plan and horizon', () => {
-            const oracleSpec = {
-                ...spec,
-                run: { ...spec.run, trials: PRICED_TRIALS },
-            };
-            const priced = stakeOf(account, oracleSpec);
-            const afterOracle = postPayoutOf(account, oracleSpec);
-            const base = toSimInputs(plan, oracleSpec);
-            const applicability = livePlanApplicability(plan.id);
-            if (applicability.kind !== LiveApplicabilityKind.Builder) {
-                throw new Error('expected a builder live plan');
-            }
-            const { instrument, stopPoints } = base;
-            if (instrument === undefined || stopPoints === undefined) {
-                throw new Error('expected a sized run');
-            }
-            const livePlan = applicability.builder(
-                applicability.defaultCushionPercent,
-            );
-            const tradesPerDay = resolveDayPolicy(base, TradingPhase.Funded)
-                .ladder.length;
-            const oracleRecurring = Array.from(
-                { length: ORACLE_TRIALS },
-                (_, trial) =>
-                    (simulateLiveAccount({
-                        commissionPerRoundTrip: base.commissionPerRoundTrip,
-                        horizonDays: base.fundedHorizonDays,
-                        idleDayProbability: base.idleDayProbability,
-                        instrument,
-                        payoutRequestSize: base.payoutRequestSize,
-                        plan: livePlan,
-                        retainedCushion: base.minRetainedCushion,
-                        rrRatio: base.fundedRrRatio ?? base.rrRatio,
-                        seed: ORACLE_SEED + trial * ORACLE_SEED_STRIDE,
-                        stopPoints,
-                        tradesPerDay,
-                        trials: 1,
-                        winrate: base.winrate,
-                    }).expectedAnnualWithdrawalRate *
-                        base.fundedHorizonDays) /
-                    TRADING_DAYS_PER_YEAR,
-            );
-            const oracleValue =
-                oracleRecurring.reduce((sum, value) => sum + value, 0) /
-                ORACLE_TRIALS;
-            const oracleError = Math.sqrt(
-                oracleRecurring.reduce(
-                    (sum, value) => sum + (value - oracleValue) ** 2,
-                    0,
-                ) /
-                    (ORACLE_TRIALS - 1) /
-                    ORACLE_TRIALS,
-            );
-            const pricedValue =
-                (priced.requestNow.creditFree.value -
-                    afterOracle.traderReceives -
-                    (1 - HAZARD) * afterOracle.continuation.creditFree.value) /
-                HAZARD;
-            const requestError = priced.requestNow.creditFree.standardError;
-            const continuationError =
-                afterOracle.continuation.creditFree.standardError;
-            expect(requestError).not.toBeNull();
-            expect(continuationError).not.toBeNull();
-            const liveError =
-                Math.sqrt(
-                    (requestError ?? 0) ** 2 -
-                        ((1 - HAZARD) * (continuationError ?? 0)) ** 2,
-                ) / HAZARD;
+        it(
+            'values the live continuation like an independent live-account simulation of the same plan and horizon',
+            () => {
+                const oracleSpec = {
+                    ...spec,
+                    run: { ...spec.run, trials: PRICED_TRIALS },
+                };
+                const priced = stakeOf(account, oracleSpec);
+                const afterOracle = postPayoutOf(account, oracleSpec);
+                const base = toSimInputs(plan, oracleSpec);
+                const applicability = livePlanApplicability(plan.id);
+                if (applicability.kind !== LiveApplicabilityKind.Builder) {
+                    throw new Error('expected a builder live plan');
+                }
+                const { instrument, stopPoints } = base;
+                if (instrument === undefined || stopPoints === undefined) {
+                    throw new Error('expected a sized run');
+                }
+                const livePlan = applicability.builder(
+                    applicability.defaultCushionPercent,
+                );
+                const tradesPerDay = resolveDayPolicy(base, TradingPhase.Funded)
+                    .ladder.length;
+                const oracleRecurring = Array.from(
+                    { length: ORACLE_TRIALS },
+                    (_, trial) =>
+                        (simulateLiveAccount({
+                            commissionPerRoundTrip: base.commissionPerRoundTrip,
+                            horizonDays: base.fundedHorizonDays,
+                            idleDayProbability: base.idleDayProbability,
+                            instrument,
+                            payoutRequestSize: base.payoutRequestSize,
+                            plan: livePlan,
+                            retainedCushion: base.minRetainedCushion,
+                            rrRatio: base.fundedRrRatio ?? base.rrRatio,
+                            seed: ORACLE_SEED + trial * ORACLE_SEED_STRIDE,
+                            stopPoints,
+                            tradesPerDay,
+                            trials: 1,
+                            winrate: base.winrate,
+                        }).expectedAnnualWithdrawalRate *
+                            base.fundedHorizonDays) /
+                        TRADING_DAYS_PER_YEAR,
+                );
+                const oracleValue =
+                    oracleRecurring.reduce((sum, value) => sum + value, 0) /
+                    ORACLE_TRIALS;
+                const oracleError = Math.sqrt(
+                    oracleRecurring.reduce(
+                        (sum, value) => sum + (value - oracleValue) ** 2,
+                        0,
+                    ) /
+                        (ORACLE_TRIALS - 1) /
+                        ORACLE_TRIALS,
+                );
+                const pricedValue =
+                    (priced.requestNow.creditFree.value -
+                        afterOracle.traderReceives -
+                        (1 - HAZARD) *
+                            afterOracle.continuation.creditFree.value) /
+                    HAZARD;
+                const requestError = priced.requestNow.creditFree.standardError;
+                const continuationError =
+                    afterOracle.continuation.creditFree.standardError;
+                expect(requestError).not.toBeNull();
+                expect(continuationError).not.toBeNull();
+                const liveError =
+                    Math.sqrt(
+                        (requestError ?? 0) ** 2 -
+                            ((1 - HAZARD) * (continuationError ?? 0)) ** 2,
+                    ) / HAZARD;
 
-            expect(liveError).toBeGreaterThan(0);
-            expect(oracleError).toBeGreaterThan(0);
-            expect(oracleValue).toBeGreaterThan(0);
-            expect(Math.abs(pricedValue - oracleValue)).toBeLessThan(
-                5 * Math.hypot(liveError, oracleError) + 0.05 * oracleValue,
-            );
-        }, HEAVY_TEST_TIMEOUT_MS);
+                expect(liveError).toBeGreaterThan(0);
+                expect(oracleError).toBeGreaterThan(0);
+                expect(oracleValue).toBeGreaterThan(0);
+                expect(Math.abs(pricedValue - oracleValue)).toBeLessThan(
+                    5 * Math.hypot(liveError, oracleError) + 0.05 * oracleValue,
+                );
+            },
+            HEAVY_TEST_TIMEOUT_MS,
+        );
 
         it('gives a finite standard error for the priced figure', () => {
             expect(

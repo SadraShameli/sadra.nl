@@ -82,7 +82,10 @@ vi.mock('~/trpc/react', () => ({
 vi.mock(
     '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker',
     () => {
-        const engines = new WeakMap<readonly OverviewRequest[], OverviewEngine>();
+        const engines = new WeakMap<
+            readonly OverviewRequest[],
+            OverviewEngine
+        >();
         return {
             useOverviewWorker: (
                 requests: readonly OverviewRequest[],

@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -11,6 +13,11 @@ import { RoundStatus } from '~/lib/prop-accounts/core';
 import { alertsOf } from './alertFixtures';
 
 const rule = new RoundBudgetReachedRule();
+
+const SRC = path.resolve(
+    import.meta.dirname,
+    '../../../../../src/lib/prop-accounts',
+);
 
 describe('RoundBudgetReachedRule', () => {
     it('is silent below the budget', () => {
@@ -115,5 +122,56 @@ describe('RoundBudgetReachedRule', () => {
                 ],
             }),
         ).toEqual([]);
+    });
+});
+
+function budgetWith(isSpent: boolean) {
+    return {
+        budgetCents: 100_000,
+        isSpent,
+        remainingCents: 0,
+        spentCents: 100_000,
+    };
+}
+
+describe('RoundBudgetReachedRule follows the shared spent predicate', () => {
+    it('fires exactly when the open round budget reports isSpent', () => {
+        const round = { id: 'round-1', label: 'September round' };
+        expect(
+            alertsOf(rule, {
+                rounds: [
+                    {
+                        ...round,
+                        budget: budgetWith(false),
+                        status: RoundStatus.Open,
+                    },
+                ],
+            }),
+        ).toEqual([]);
+        expect(
+            alertsOf(rule, {
+                rounds: [
+                    {
+                        ...round,
+                        budget: budgetWith(true),
+                        status: RoundStatus.Open,
+                    },
+                ],
+            }),
+        ).toHaveLength(1);
+    });
+
+    it('derives spent from the cents once across prop-accounts, in roundBudgetStatus', () => {
+        const files = readdirSync(SRC, { recursive: true, withFileTypes: true })
+            .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+            .map((entry) => path.join(entry.parentPath, entry.name));
+        const derivations = files
+            .filter((file) =>
+                /spentCents\s*>=\s*(?:round\.budget\.)?budgetCents/u.test(
+                    readFileSync(file, 'utf8'),
+                ),
+            )
+            .map((file) => path.relative(SRC, file).replaceAll('\\', '/'));
+        expect(derivations).toEqual(['bankroll/RoundBudget.ts']);
     });
 });

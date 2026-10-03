@@ -3,10 +3,10 @@ import { defineCommand } from 'citty';
 import {
     bankrollArguments,
     type BankrollInputs,
+    compoundStartArgument,
     describeStopRule,
     formatCurrencyWithSe,
     formatDaysToPass,
-    formatNumberWithSe,
     formatPercentWithSe,
     liveTransferHazardArgument,
     liveTransferRunLines,
@@ -17,6 +17,7 @@ import {
     pricedTriggerLines,
     printEdgePlausibilityNotes,
     readBankrollInputs,
+    readCompoundStart,
     type TableColumn,
     TablePrinter,
     tradingArguments,
@@ -42,23 +43,23 @@ import {
 import {
     attemptEconomicsOfRun,
     bankrollAttempts,
+    type BankrollLossRiskSummary,
+    bankrollLossRiskSummary,
     bankrollNoPayout,
     type BankrollRisk,
     bankrollRisk,
-    batchLossClosedForm,
     ECONOMICS_REASON_TEXT,
     EconomicsReason,
-    empiricalPayingStatsOf,
     evalPace,
     expectancyPerTradeR,
+    filledEvFormulaText,
     LossSampleUnit,
     MAX_LOSS_TARGET_CAP,
-    minimumAttemptsForLossTarget,
-    type Quantity,
+    paidFundedPayoutStatsOf,
     requiredR,
+    type RunAttemptEconomics,
 } from '~/lib/prop-calculator/economics';
 import { liveTransferContinuationNotes } from '~/lib/prop-calculator/simulator';
-import { mean } from '~/lib/prop-calculator/stats';
 
 export interface GranularityRow {
     out: SimOutputs;
@@ -81,6 +82,7 @@ export const simArguments = {
     ...tradingArguments,
     ...pathGranularityComparisonArgument,
     ...bankrollArguments,
+    ...compoundStartArgument,
     ...liveTransferHazardArgument,
 };
 
@@ -97,6 +99,9 @@ export default defineCommand({
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
             const bankroll = readBankrollInputs(context.args);
+            const compoundStartDollars = readCompoundStart(
+                context.args['compound-start'],
+            );
             const label = simSpinnerLabel(plan.label, inputs.trials);
             spinner = ui.spinner(label).start();
 
@@ -127,8 +132,11 @@ export default defineCommand({
             }
             printEdgePlausibilityNotes(
                 tradingEdgeNotes({
+                    compoundStartDollars,
                     fundedRrRatio: inputs.fundedRrRatio,
+                    fundedTradesPerDay: inputs.fundedTradesPerDay,
                     rrRatio: inputs.rrRatio,
+                    tradesPerDay: inputs.tradesPerDay,
                     winrate: inputs.winrate,
                 }),
             );
@@ -221,6 +229,8 @@ export function simHeaderLines(
 const NO_SINGLE_RISK_LADDER =
     'n/a (an eval ladder has no single risk per trade)';
 const NO_EVAL_INSTANT_FUNDED = 'n/a (instant funded: no eval)';
+const NO_PAID_FUNDED_ACCOUNT = 'n/a (no funded account was paid)';
+const LIVE_TRANSFER_SUFFIX = ' (incl. live transfer cash)';
 const WALK_LABEL = 'P(pass) and expected trades (random-walk approximation)';
 const EV_PER_ATTEMPT_LABEL =
     'EV per attempt (ignores time; not the ranking objective)';
@@ -237,7 +247,7 @@ export function simBankrollRows(
         bankroll.bankroll === null
             ? []
             : [...bankrollAffordabilityRows(out, inputs, bankroll.bankroll)];
-    rows.push(minimumBudgetRow(out, inputs, bankroll.lossThreshold));
+    rows.push(...minimumBudgetRows(out, inputs, bankroll.lossThreshold));
     return rows;
 }
 
@@ -247,45 +257,32 @@ export function simEconomicsRows(
     plan: Plan,
 ): readonly SummaryRow[] {
     const decomposition = attemptEconomicsOfRun(out, inputs.fundedHorizonDays);
+    const economicsText = (
+        render: (economics: RunAttemptEconomics) => string,
+    ): string =>
+        decomposition.value === null
+            ? formatQuantityReason(decomposition.reason)
+            : render(decomposition.value);
+    const liveTransferSuffix =
+        decomposition.value === null ||
+        decomposition.value.liveTransferCashPerAttempt === 0
+            ? ''
+            : LIVE_TRANSFER_SUFFIX;
     const fundedValueSe =
         out.estimates.expectedPayoutPerFundedAccount.standardError === null
             ? null
             : out.estimates.expectedPayoutPerFundedAccount.standardError *
               out.copyAccounts;
-    const fundedValueText =
-        decomposition.value === null
-            ? formatQuantityReason(decomposition.reason)
-            : formatCurrencyWithSe(
-                  decomposition.value.fundedValue,
-                  fundedValueSe,
-              );
-    const breakevenText =
-        decomposition.value === null
-            ? formatQuantityReason(decomposition.reason)
-            : decomposition.value.breakevenPassRate.value === null
-              ? formatQuantityReason(
-                    decomposition.value.breakevenPassRate.reason,
-                )
-              : formatPercent(decomposition.value.breakevenPassRate.value);
-    const fundedValueToAttemptCostText =
-        decomposition.value === null
-            ? formatQuantityReason(decomposition.reason)
-            : decomposition.value.fundedValueToAttemptCost.value === null
-              ? formatQuantityReason(
-                    decomposition.value.fundedValueToAttemptCost.reason,
-                )
-              : `${decomposition.value.fundedValueToAttemptCost.value.ratio.toFixed(2)}x (net ${decomposition.value.fundedValueToAttemptCost.value.netToOne.toLocaleString(
-                    'en-US',
-                    { maximumFractionDigits: 2 },
-                )}:1)`;
-    const evText =
-        decomposition.value === null
-            ? formatQuantityReason(decomposition.reason)
-            : formatCurrencyWithSe(
-                  decomposition.value.expectedNetPerAttempt.value,
-                  decomposition.value.expectedNetPerAttempt.standardError,
-              );
+    const fundedTrials = `(n = ${out.fundedPayoutValues.length} funded trials)`;
+    const { averagePayout, payoutsPerPaidFunded } =
+        paidFundedPayoutStatsOf(out);
     return [
+        [
+            'attempt price',
+            economicsText(({ attemptCost, attemptCostStandardError }) =>
+                formatCurrencyWithSe(attemptCost, attemptCostStandardError),
+            ),
+        ],
         [
             'eval pass per attempt',
             formatPercentWithSe(
@@ -301,20 +298,67 @@ export function simEconomicsRows(
             ),
         ],
         [
-            'payouts per funded account',
-            formatNumberWithSe(
-                out.payoutsPerFundedAccount,
-                out.estimates.payoutsPerFundedAccount.standardError,
-            ),
+            'payouts per paid funded account',
+            payoutsPerPaidFunded === null
+                ? NO_PAID_FUNDED_ACCOUNT
+                : `${payoutsPerPaidFunded.toFixed(2)} ${fundedTrials}`,
+        ],
+        [
+            'average payout per payout',
+            averagePayout === null
+                ? NO_PAID_FUNDED_ACCOUNT
+                : `${formatCurrency(averagePayout)} ${fundedTrials}`,
         ],
         [
             'P(k payouts | funded)',
             payoutDistributionLine(out.fundedPayoutCountDistribution),
         ],
-        [fundedValueLabel(inputs.fundedHorizonDays), fundedValueText],
-        [EV_PER_ATTEMPT_LABEL, evText],
-        ['breakeven pass rate', breakevenText],
-        ['funded value / attempt cost', fundedValueToAttemptCostText],
+        [
+            fundedValueLabel(inputs.fundedHorizonDays),
+            economicsText(({ fundedValue }) =>
+                formatCurrencyWithSe(fundedValue, fundedValueSe),
+            ),
+        ],
+        [
+            EV_PER_ATTEMPT_LABEL,
+            economicsText(({ expectedNetPerAttempt }) =>
+                formatCurrencyWithSe(
+                    expectedNetPerAttempt.value,
+                    expectedNetPerAttempt.standardError,
+                ),
+            ),
+        ],
+        [
+            'EV per attempt formula',
+            economicsText((economics) =>
+                filledEvFormulaText(
+                    economics,
+                    formatCurrencyWithSe(
+                        economics.expectedNetPerAttempt.value,
+                        economics.expectedNetPerAttempt.standardError,
+                    ),
+                ),
+            ),
+        ],
+        [
+            `breakeven pass rate${liveTransferSuffix}`,
+            economicsText(({ breakevenPassRate }) =>
+                breakevenPassRate.value === null
+                    ? formatQuantityReason(breakevenPassRate.reason)
+                    : formatPercent(breakevenPassRate.value),
+            ),
+        ],
+        [
+            `funded value / attempt cost${liveTransferSuffix}`,
+            economicsText(({ fundedValueToAttemptCost }) =>
+                fundedValueToAttemptCost.value === null
+                    ? formatQuantityReason(fundedValueToAttemptCost.reason)
+                    : `${fundedValueToAttemptCost.value.ratio.toFixed(2)}x (net ${fundedValueToAttemptCost.value.netToOne.toLocaleString(
+                          'en-US',
+                          { maximumFractionDigits: 2 },
+                      )}:1)`,
+            ),
+        ],
         ...evalPaceRows(out, inputs, plan),
         [
             'attempt pays (any payout)',
@@ -409,7 +453,9 @@ function bankrollAffordabilityRows(
             `P(no payout from ${attemptsAffordableCount ?? 0} attempts)`,
             attemptsAffordableCount === null
                 ? invalidInput
-                : formatNoPayout(bankrollNoPayout(out, attemptsAffordableCount)),
+                : formatNoPayout(
+                      bankrollNoPayout(out, attemptsAffordableCount),
+                  ),
         ],
     ];
 }
@@ -471,25 +517,24 @@ function formatBatchLoss(risk: BankrollRisk): string {
 }
 
 function formatMinimumBudget(
-    quantity: Quantity<number>,
-    costPerSample: Dollars,
+    summary: BankrollLossRiskSummary,
     threshold: Fraction0to1 | null,
     unit: LossSampleUnit,
 ): string {
-    if (threshold !== null && quantity.value !== null) {
-        const samples = quantity.value;
-        const budget = dollars(samples * costPerSample);
-        return `${formatCurrency(budget)} (${samples} ${unitWord(unit, samples)}, P(batch net < 0) at or below ${formatPercent(threshold)} from there up to ${MAX_LOSS_TARGET_CAP} ${unitWord(unit, MAX_LOSS_TARGET_CAP)})`;
+    const { minimumBudget } = summary;
+    if (threshold !== null && minimumBudget.value !== null) {
+        const { attempts, budget } = minimumBudget.value;
+        return `${formatCurrency(budget)} (${attempts} ${unitWord(unit, attempts)}, P(batch net < 0) at or below ${formatPercent(threshold)} from there up to ${MAX_LOSS_TARGET_CAP} ${unitWord(unit, MAX_LOSS_TARGET_CAP)})`;
     }
-    if (quantity.value !== null) {
+    if (minimumBudget.value !== null) {
         return formatQuantityReason(EconomicsReason.InvalidInput);
     }
-    if (quantity.reason === EconomicsReason.NoPositiveEdge) {
+    if (minimumBudget.reason === EconomicsReason.NoPositiveEdge) {
         return 'no positive edge';
     }
-    return quantity.reason === EconomicsReason.ThresholdNotSet
+    return minimumBudget.reason === EconomicsReason.ThresholdNotSet
         ? 'threshold not set'
-        : formatQuantityReason(quantity.reason);
+        : formatQuantityReason(minimumBudget.reason);
 }
 
 function formatNoPayout(probability: null | number): string {
@@ -506,39 +551,33 @@ function fundedValueLabel(fundedHorizonDays: number): string {
     return `funded value (engine, ${fundedHorizonDays} funded days, credit-free)`;
 }
 
-function minimumBudgetRow(
+function minimumBudgetRows(
     out: SimOutputs,
     inputs: TradingInputs,
     threshold: Fraction0to1 | null,
-): SummaryRow {
+): readonly SummaryRow[] {
     const isTrialUnit = inputs.maxAttempts > 1;
     const unit = isTrialUnit ? LossSampleUnit.Trial : LossSampleUnit.Attempt;
-    const costPerSample = dollars(
-        isTrialUnit ? out.expectedTotalCost : out.costPerAttempt,
-    );
-    const { pAttemptPays, valuePerPayingAttempt } = empiricalPayingStatsOf(
+    const summary = bankrollLossRiskSummary(
         out.netValues,
-        costPerSample,
-    );
-    const quantity = minimumAttemptsForLossTarget({
-        cap: MAX_LOSS_TARGET_CAP,
-        lossProbability: (samples) => {
-            const result = batchLossClosedForm({
-                attemptCost: costPerSample,
-                attempts: samples,
-                pAttemptPays,
-                valuePerPayingAttempt,
-            });
-            return result.value ?? 1;
-        },
-        meanNetPerSample: dollars(mean(out.netValues)),
-        sampleUnit: unit,
+        isTrialUnit ? out.expectedTotalCost : out.costPerAttempt,
         threshold,
-    });
-    return [
-        'minimum budget for the loss target',
-        formatMinimumBudget(quantity, costPerSample, threshold, unit),
+        inputs.seed,
+    );
+    const rows: SummaryRow[] = [
+        [
+            'minimum budget for the loss target',
+            formatMinimumBudget(summary, threshold, unit),
+        ],
     ];
+    const crossCheck = summary.closedFormCrossCheck?.value;
+    if (crossCheck !== null && crossCheck !== undefined) {
+        rows.push([
+            'cross-check at that budget',
+            `${formatPercent(crossCheck)} (assumes one value per paying attempt)`,
+        ]);
+    }
+    return rows;
 }
 
 function payoutDistributionLine(distribution: readonly number[]): string {

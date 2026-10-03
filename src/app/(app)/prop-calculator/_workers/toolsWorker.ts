@@ -41,6 +41,10 @@ import {
     batchLossClosedForm,
     empiricalPayingStatsOf,
     LOSS_RISK_DRAWS,
+    projectionMonthEnds,
+    type Quantity,
+    spendPayoutCurve,
+    type SpendPayoutPoint,
     takeProfitCandidateInputs,
     takeProfitRows,
     type TakeProfitWhatIfRow,
@@ -70,6 +74,8 @@ import {
     runIdOf,
     type SameEvOutcome,
     type SameEvToolsRequest,
+    type SpendPayoutCurveRow,
+    type SpendPayoutCurveToolsRequest,
     type TakeProfitRowsToolsRequest,
     type TakeProfitRowSummary,
     ToolsRequestKind,
@@ -116,6 +122,9 @@ export function computeToolsResult(rawRequest: unknown): ToolsWorkerResult {
         }
         case ToolsRequestKind.SameEv: {
             return finishSameEv(request);
+        }
+        case ToolsRequestKind.SpendPayoutCurve: {
+            return finishSpendPayoutCurve(request);
         }
         case ToolsRequestKind.TakeProfitRows: {
             return finishTakeProfitRows(request);
@@ -350,6 +359,26 @@ function computeSameEvOutcome(
     };
 }
 
+function computeSpendPayoutCurve(
+    request: SpendPayoutCurveToolsRequest,
+): null | readonly SpendPayoutCurveRow[] {
+    const resolved = resolveVariant(request.variant);
+    if (resolved === null) return null;
+    const { simInputs } = resolved;
+    const out = simulate(simInputs);
+    const budgets = request.budgets.map((budget) => dollars(budget));
+    const points = spendPayoutCurve(
+        out.netValues,
+        out.netValues.map(() => out.costPerAttempt),
+        dollars(out.costPerAttempt),
+        budgets,
+        simInputs.seed,
+    );
+    return points.map((point, index) =>
+        toSpendPayoutCurveRow(budgets[index] ?? dollars(0), point),
+    );
+}
+
 function computeTakeProfitRows(
     request: TakeProfitRowsToolsRequest,
 ): null | readonly TakeProfitRowSummary[] {
@@ -465,6 +494,7 @@ function finishProjection(request: ProjectionToolsRequest): ToolsWorkerResult {
     if (result === null) return fail(request.runId, PLAN_NOT_FOUND_REASON);
     return parseToolsResult({
         kind: ToolsResponseKind.Projection,
+        monthEnds: projectionMonthEnds(result),
         result,
         runId: request.runId,
     });
@@ -488,6 +518,18 @@ function finishSameEv(request: SameEvToolsRequest): ToolsWorkerResult {
     return parseToolsResult({
         kind: ToolsResponseKind.SameEv,
         results: [first, second],
+        runId: request.runId,
+    });
+}
+
+function finishSpendPayoutCurve(
+    request: SpendPayoutCurveToolsRequest,
+): ToolsWorkerResult {
+    const rows = computeSpendPayoutCurve(request);
+    if (rows === null) return fail(request.runId, PLAN_NOT_FOUND_REASON);
+    return parseToolsResult({
+        kind: ToolsResponseKind.SpendPayoutCurve,
+        rows,
         runId: request.runId,
     });
 }
@@ -654,6 +696,7 @@ function toLeverRowSummary(row: BankrollLeverRow): BankrollLeverRowSummary {
     return {
         deltaAttemptPaysProbability: row.deltaAttemptPaysProbability,
         deltaEvPerAttempt: row.deltaEvPerAttempt,
+        deltaLossProbability: row.deltaLossProbability,
         deltaMonthlyNet: row.deltaMonthlyNet,
         deltaPassProbability: row.deltaPassProbability,
         evPerAttempt: row.evPerAttempt.value,
@@ -663,6 +706,31 @@ function toLeverRowSummary(row: BankrollLeverRow): BankrollLeverRowSummary {
         monthlyNet: row.monthlyNet.value,
         passProbability: row.passProbability.value,
         value: row.value,
+    };
+}
+
+function toSpendPayoutCurveRow(
+    budget: number,
+    point: Quantity<SpendPayoutPoint>,
+): SpendPayoutCurveRow {
+    const figures = point.value;
+    return {
+        budget,
+        figures:
+            figures === null
+                ? null
+                : {
+                      attempts: figures.attempts,
+                      expectedNet: figures.expectedNet,
+                      expectedPayouts: figures.expectedPayouts,
+                      expectedSpend: figures.expectedSpend,
+                      lossProbability: figures.lossProbability.value,
+                      lossProbabilityStandardError:
+                          figures.lossProbability.standardError,
+                      netP10: figures.netP10,
+                      netP90: figures.netP90,
+                  },
+        reason: point.reason,
     };
 }
 

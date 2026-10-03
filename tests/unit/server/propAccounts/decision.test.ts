@@ -78,7 +78,9 @@ describe('propAccounts.decision', () => {
         async (stage) => {
             const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
             const shape = errorShapeOf(
-                await rejectionOf(caller.decision.create({ ...DECISION, stage })),
+                await rejectionOf(
+                    caller.decision.create({ ...DECISION, stage }),
+                ),
             );
             expect(shape.data.code).toBe('CONFLICT');
             expect(shape.message).toContain('Eval');

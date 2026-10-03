@@ -75,9 +75,7 @@ describe('Plan.payoutBufferBalance (PT-73c)', () => {
         expect(plan.payoutBalanceFloor(state, 0)).toBe(
             plan.payoutBufferBalance(),
         );
-        expect(plan.payoutBalanceFloor(state, 3000)).toBe(
-            dollars(53_100),
-        );
+        expect(plan.payoutBalanceFloor(state, 3000)).toBe(dollars(53_100));
     });
 });
 

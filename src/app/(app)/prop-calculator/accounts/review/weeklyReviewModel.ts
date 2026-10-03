@@ -918,9 +918,7 @@ function stageOnAsOfOf(
     return stage;
 }
 
-function submitEntryFor(
-    row: WeeklyReviewRow,
-): WeeklyReviewSnapshotSubmitEntry {
+function submitEntryFor(row: WeeklyReviewRow): WeeklyReviewSnapshotSubmitEntry {
     const { balanceCents } = row.draft;
     if (balanceCents === null) {
         throw new Error(`recorded account ${row.accountId} has no balance`);

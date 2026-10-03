@@ -244,7 +244,7 @@ describe('FundedSizingAdvisor: funded-consistency ceiling (PT-19f, F-146, F-154)
         };
     }
 
-    it("sources the ceiling from the plan's own fundedConsistencyRule against the real cycle profit, capping the daily plan card", () => {
+    it("sources the ceiling from the plan's own fundedConsistencyRule against the real cycle profit, capping the daily plan card named ConsistencyCap (was CeilingCap before PT-105 step 3)", () => {
         const advisor = new FundedSizingAdvisor({
             account: consistencyAccount(),
             fundedHorizonDays: 252,
@@ -262,7 +262,12 @@ describe('FundedSizingAdvisor: funded-consistency ceiling (PT-19f, F-146, F-154)
 
         expect(card?.rungs[0]?.risk).toBe(200);
         expect(card?.rungs[0]?.takeProfit).toBe(400);
-        expect(card?.rungs[0]?.cappedBy).toContain(SizingConstraint.CeilingCap);
+        expect(card?.rungs[0]?.cappedBy).toContain(
+            SizingConstraint.ConsistencyCap,
+        );
+        expect(card?.rungs[0]?.cappedBy).not.toContain(
+            SizingConstraint.CeilingCap,
+        );
     });
 });
 

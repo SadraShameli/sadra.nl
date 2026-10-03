@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as ContractsSizingModule from '~/app/(app)/prop-calculator/accounts/_components/advice/contractsSizingModel';
 import type * as UseAccountAdviceModule from '~/app/(app)/prop-calculator/accounts/_components/advice/useAccountAdvice';
 
 import { AdvisorRequestOutcomeKind } from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
@@ -228,8 +229,21 @@ vi.mock(
     },
 );
 
+vi.mock(
+    '~/app/(app)/prop-calculator/accounts/_components/advice/contractsSizingModel',
+    async (importOriginal) => {
+        const actual = await importOriginal<typeof ContractsSizingModule>();
+        return {
+            ...actual,
+            contractsSizingOf: vi.fn(actual.contractsSizingOf),
+        };
+    },
+);
+
 const { AccountAdvicePhase } =
     await import('~/app/(app)/prop-calculator/accounts/_components/advice/useAccountAdvice');
+const { contractsSizingOf } =
+    await import('~/app/(app)/prop-calculator/accounts/_components/advice/contractsSizingModel');
 const { AdvicePanel } =
     await import('~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel');
 const { EvalSizingAdvisor, FundedSizingAdvisor } =
@@ -1758,6 +1772,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
                     ...(derived as object),
                     payoutAdvice: {
                         assumptions: [],
+                        caps: [],
                         documented: {
                             kind: 'request',
                             notice: null,
@@ -1768,6 +1783,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
                         },
                         engineHorizonCredit: null,
                         netAfterSplit: 450,
+                        ruleCappedWithdrawable: null,
                     },
                 }),
             );
@@ -2249,6 +2265,154 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             expect(sectionOf('One-step risk candidates').textContent).toContain(
                 'max risk per trade $150.00',
             );
+        });
+    });
+
+    describe('PT-108: the payout card states the withdrawable and the caps (F-128)', () => {
+        function payoutAdviceWith(overrides: Record<string, unknown>) {
+            const base = realFundedAdvice();
+            if (base.payoutAdvice === null) {
+                throw new Error('expected payout advice');
+            }
+            answerEverything();
+            adviceBox.state = {
+                advice: {
+                    ...base,
+                    payoutAdvice: { ...base.payoutAdvice, ...overrides },
+                },
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            render();
+            return sectionOf('Payout advice').textContent;
+        }
+
+        it('names the rule-capped withdrawable and the cap that limits it beside the engine horizon credit and the net after the split', () => {
+            const text = payoutAdviceWith({
+                caps: [
+                    {
+                        amount: dollars(2000),
+                        kind: advisorLib.PayoutCapKind.RequestCap,
+                        limitsWithdrawable: true,
+                    },
+                    {
+                        amount: dollars(4000),
+                        kind: advisorLib.PayoutCapKind.BalanceShare,
+                        limitsWithdrawable: false,
+                        share: 0.5,
+                    },
+                    {
+                        kind: advisorLib.PayoutCapKind.RemainingPayouts,
+                        remaining: 2,
+                    },
+                ],
+                engineHorizonCredit: dollars(1500),
+                netAfterSplit: dollars(1800),
+                ruleCappedWithdrawable: dollars(2000),
+            });
+
+            expect(text).toContain(
+                'Rule-capped withdrawable $2,000.00, limited by the per-request cap of $2,000.00',
+            );
+            expect(text).toContain(
+                'Per-request cap $2,000.00 (limits the withdrawable)',
+            );
+            expect(text).toContain(
+                'Balance-share cap 50% of profit, $4,000.00',
+            );
+            expect(text).toContain('2 payouts remaining');
+            expect(text).toContain('Engine horizon credit $1,500.00');
+            expect(text).toContain('Net after the payout split $1,800.00');
+        });
+
+        it('names the post-payout floor and the retained cushion when no cap limits the withdrawable', () => {
+            const text = payoutAdviceWith({
+                caps: [],
+                ruleCappedWithdrawable: dollars(900),
+            });
+
+            expect(text).toContain(
+                'Rule-capped withdrawable $900.00, limited by the post-payout floor and your retained cushion',
+            );
+        });
+
+        it('says one payout remaining in the singular', () => {
+            const text = payoutAdviceWith({
+                caps: [
+                    {
+                        kind: advisorLib.PayoutCapKind.RemainingPayouts,
+                        remaining: 1,
+                    },
+                ],
+                ruleCappedWithdrawable: dollars(900),
+            });
+
+            expect(text).toContain('1 payout remaining');
+            expect(text).not.toContain('1 payouts remaining');
+        });
+
+        it('shows no withdrawable line when the advice carries none', () => {
+            const text = payoutAdviceWith({
+                caps: [],
+                ruleCappedWithdrawable: null,
+            });
+
+            expect(text).not.toContain('Rule-capped withdrawable');
+        });
+    });
+
+    describe('PT-108: the card gets the day-start cushion and the daily loss room (PT-92 addendum, F-V31)', () => {
+        it("sizes the contracts against the card's own cushion and daily loss room", () => {
+            answerEverything();
+            adviceBox.adjust = (derived) => {
+                const advice = derived as {
+                    dailyPlanCard: Record<string, unknown>;
+                };
+                return {
+                    ...advice,
+                    dailyPlanCard: {
+                        ...advice.dailyPlanCard,
+                        cushion: dollars(1234),
+                        dailyLossRoom: dollars(321),
+                    },
+                };
+            };
+            adviceBox.state = {
+                advice: null,
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            render();
+
+            const input = vi.mocked(contractsSizingOf).mock.calls.at(-1)?.[0];
+            expect(input?.cushionLeft).toBe(1234);
+            expect(input?.dailyLossRoom).toBe(321);
+        });
+
+        it('passes no daily loss room when the card carries none', () => {
+            answerEverything();
+            adviceBox.adjust = (derived) => {
+                const advice = derived as {
+                    dailyPlanCard: Record<string, unknown>;
+                };
+                return {
+                    ...advice,
+                    dailyPlanCard: {
+                        ...advice.dailyPlanCard,
+                        dailyLossRoom: null,
+                    },
+                };
+            };
+            adviceBox.state = {
+                advice: null,
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            render();
+
+            const input = vi.mocked(contractsSizingOf).mock.calls.at(-1)?.[0];
+            expect(input?.dailyLossRoom).toBeNull();
+            expect(typeof input?.cushionLeft).toBe('number');
         });
     });
 });

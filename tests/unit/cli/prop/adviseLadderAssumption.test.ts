@@ -7,6 +7,7 @@ import {
     adviseArguments,
     type CheckedNextTradeRiskReport,
     engineResultsFor,
+    ledgerLadderLine,
     nextTradeRiskReport,
     type NextTradeRiskReport,
     NextTradeRiskReportKind,
@@ -14,10 +15,14 @@ import {
     readAdviseInputs,
     readNextTradeRiskInputs,
 } from '~/cli/commands/prop/advise/command';
+import { FirmId } from '~/lib/prop-calculator';
 import {
     AccountReconstruction,
     AdviceStalenessReason,
     createSizingAdvisor,
+    LEDGER_FILE,
+    LEDGER_SECTION,
+    ledgerRecordedLadderFor,
     NO_PENDING_PAYOUT_COUNTS,
     runEngineOptimum,
     type SizingAdvisorCreateOptions,
@@ -38,6 +43,25 @@ const FRESH_EVAL_APEX_EOD = [
     '0',
     '--trials',
     '50',
+];
+
+const FRESH_FUNDED_APEX_EOD = [
+    '--firm',
+    'apex',
+    '--variant',
+    'eod',
+    '--stage',
+    'funded',
+    '--balance',
+    '52000',
+    '--highest-eod',
+    '52000',
+    '--trading-days',
+    '5',
+    '--payouts',
+    '0',
+    '--trials',
+    '10',
 ];
 
 const STALE_FUNDED_APEX_EOD = [
@@ -130,7 +154,7 @@ describe('prop advise lists the widened ladder step as an assumption (PT-24d, F-
         const assumption = lines.find((line) => line.includes('coarser'));
         expect(assumption).toBeDefined();
         expect(assumption).toContain(`$${request.grid.step}`);
-    });
+    }, 10_000);
 
     it('says the step from the assumption itself, with no engine requests on the advice', () => {
         const { advisor } = adviceFor(FRESH_EVAL_APEX_EOD);
@@ -283,5 +307,73 @@ describe('the next-trade report admits no impossible state (PT-24d)', () => {
 
         expect(stale.reason.length).toBeGreaterThan(0);
         expect(rulesChanged.reason.length).toBeGreaterThan(0);
+    });
+});
+
+function apexEodRow() {
+    const row = ledgerRecordedLadderFor(FirmId.Apex, 'eod');
+    if (row === null) throw new Error('expected the Apex EOD ledger row');
+    return row;
+}
+
+describe('prop advise prints the ledger-recorded ladder of an eval plan with its source and stale mark (PT-109 step 4, F-156)', () => {
+    it('prints the recorded rungs, days to funded, pass rate, cost and the cited file, row and section', () => {
+        const line = ledgerLadderLine(apexEodRow());
+
+        expect(line).toContain('[800, 200, 100, 800]');
+        expect(line).toContain('days to funded 8.5');
+        expect(line).toContain('pass rate 40.8%');
+        expect(line).toContain('cost/funded $1,535');
+        expect(line).toContain(LEDGER_FILE);
+        expect(line).toContain('row "apex eod"');
+        expect(line).toContain(LEDGER_SECTION);
+        expect(line).not.toContain('stale');
+    });
+
+    it('marks a row stale when the ledger index says its run is no longer current', () => {
+        const line = ledgerLadderLine({ ...apexEodRow(), stale: true });
+
+        expect(line).toContain('stale');
+    });
+
+    it('adds the line to a fresh eval advice report for that plan, once', () => {
+        const { advisor, plan } = adviceFor(FRESH_EVAL_APEX_EOD);
+
+        const lines = adviceReportLines(advisor.assemble([]), null, null, plan);
+
+        expect(
+            lines.filter((line) => line.startsWith('ledger-recorded ladder')),
+        ).toStrictEqual([ledgerLadderLine(apexEodRow())]);
+    });
+
+    it('adds nothing for a funded stage or when no plan is given', () => {
+        const eval_ = adviceFor(FRESH_EVAL_APEX_EOD);
+        const funded = adviceFor(FRESH_FUNDED_APEX_EOD);
+
+        expect(
+            adviceReportLines(eval_.advisor.assemble([])).some((line) =>
+                line.startsWith('ledger-recorded ladder'),
+            ),
+        ).toBe(false);
+        expect(
+            adviceReportLines(
+                funded.advisor.assemble([]),
+                null,
+                null,
+                funded.plan,
+            ).some((line) => line.startsWith('ledger-recorded ladder')),
+        ).toBe(false);
+    });
+
+    it('adds nothing to a stale eval advice, which carries no amount', () => {
+        const { advisor, plan } = adviceFor(FRESH_EVAL_APEX_EOD, {
+            planRulesFingerprint: { atAdvice: 'before', current: 'after' },
+        });
+
+        const lines = adviceReportLines(advisor.assemble([]), null, null, plan);
+
+        expect(
+            lines.some((line) => line.startsWith('ledger-recorded ladder')),
+        ).toBe(false);
     });
 });

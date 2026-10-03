@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-    roundBudgetStatus,
-    willExceedRoundBudget,
-} from '~/lib/prop-accounts/bankroll';
+import * as bankroll from '~/lib/prop-accounts/bankroll';
+import { roundBudgetStatus } from '~/lib/prop-accounts/bankroll';
 
 describe('roundBudgetStatus', () => {
     it('is null remaining with no budget set', () => {
@@ -47,20 +45,9 @@ describe('roundBudgetStatus isSpent', () => {
     });
 });
 
-describe('willExceedRoundBudget', () => {
-    it('never exceeds when no budget is set', () => {
-        expect(willExceedRoundBudget(null, 1_000_000, 1_000_000)).toBe(false);
-    });
-
-    it('is false exactly at the budget', () => {
-        expect(willExceedRoundBudget(10_000, 5000, 5000)).toBe(false);
-    });
-
-    it('is true just past the budget', () => {
-        expect(willExceedRoundBudget(10_000, 5000, 5001)).toBe(true);
-    });
-
-    it('is true when already over budget before the new spend', () => {
-        expect(willExceedRoundBudget(10_000, 11_000, 0)).toBe(true);
+describe('the bankroll barrel', () => {
+    it('exports one round budget predicate, isSpent, and no looser look-ahead variant', () => {
+        expect(Object.keys(bankroll)).not.toContain('willExceedRoundBudget');
+        expect(Object.keys(bankroll)).toContain('roundBudgetStatus');
     });
 });

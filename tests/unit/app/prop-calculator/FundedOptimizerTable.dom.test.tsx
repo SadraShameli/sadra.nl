@@ -215,9 +215,9 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
                 if (error === null) continue;
                 expect(cells[column]).toContain(`(SE ${error})`);
             }
-            expect(
-                cells.filter((cell) => cell.includes('(SE ')),
-            ).toHaveLength(FUNDED_ROW_HEADERS.length - 1);
+            expect(cells.filter((cell) => cell.includes('(SE '))).toHaveLength(
+                FUNDED_ROW_HEADERS.length - 1,
+            );
         }
     });
 
@@ -245,7 +245,9 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
                 tradesPerDay: 4,
                 trials: TRIALS,
                 winrate: 0.5,
-            }).trim().slice(0, 40),
+            })
+                .trim()
+                .slice(0, 40),
         );
     });
 
@@ -294,6 +296,22 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
         expect(container.textContent).not.toContain('policies');
     });
 
+    it('announces the progress count politely and marks the running region busy', () => {
+        sweepBox.progress = { completed: 2, total: 6 };
+        render({}, null);
+        const status = container.querySelector('[role="status"]');
+        expect(status?.textContent).toBe('2 of 6 policies');
+        expect(
+            container.querySelector('[aria-busy="true"]')?.contains(status),
+        ).toBe(true);
+    });
+
+    it('leaves the busy mark and the status role off the finished table', () => {
+        render();
+        expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+        expect(container.querySelector('[role="status"]')).toBeNull();
+    });
+
     it.each([
         [
             {
@@ -313,17 +331,20 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
             { kind: FundedCandidateRefusal.PercentNeedsStop, percent: [10] },
             'Percent-of-cushion candidates need an instrument and a stop.',
         ],
-    ] as const)('says why a refused sweep has no table (%#)', (refusal, text) => {
-        render(
-            {},
-            {
-                kind: FundedCandidateBuildKind.Refused,
-                refusal: refusal as never,
-            },
-        );
-        expect(container.textContent).toContain(text);
-        expect(container.querySelector('table')).toBeNull();
-    });
+    ] as const)(
+        'says why a refused sweep has no table (%#)',
+        (refusal, text) => {
+            render(
+                {},
+                {
+                    kind: FundedCandidateBuildKind.Refused,
+                    refusal: refusal as never,
+                },
+            );
+            expect(container.textContent).toContain(text);
+            expect(container.querySelector('table')).toBeNull();
+        },
+    );
 
     it('shows a worker failure as the failure notice', () => {
         currentState.state = stateWith();

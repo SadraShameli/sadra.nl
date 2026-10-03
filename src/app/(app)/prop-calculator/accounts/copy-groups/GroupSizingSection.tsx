@@ -39,6 +39,9 @@ import {
     withPositionSizing,
 } from './copyGroupSizingModel';
 
+const NO_GROUP_SIZE_TEXT =
+    "No rung fits the group's room today, so the group has no size.";
+
 export enum GroupSizingViewKind {
     Failed = 'failed',
     Pending = 'pending',
@@ -144,7 +147,9 @@ function ReadyGroupSizing({
             <RefreshFailure message={refreshFailure} />
             {result.kind === CopyGroupSizingResultKind.Sized ? (
                 <>
-                    {firstRung !== undefined && (
+                    {firstRung === undefined ? (
+                        <p>{NO_GROUP_SIZE_TEXT}</p>
+                    ) : (
                         <>
                             <p>
                                 Documented size for every copy:{' '}

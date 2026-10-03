@@ -26,6 +26,7 @@ import {
     liveTriggerLimitsIn,
     type MonitoredAccount,
     pendingPayoutCountsIn,
+    personalCushionSourceOf,
     personalPolicyIn,
 } from './AlertContext';
 import { AlertKind } from './AlertKind';
@@ -49,11 +50,12 @@ export class PayoutEligibleRule extends AccountAlertRule {
             context.today,
         );
         const counts = pendingPayoutCountsIn(context, monitored, context.today);
+        const policy = personalPolicyIn(context, monitored.account.id);
         const ruleContext = payoutRuleContextOf(
             state.latest.reconstructed,
             liveTrigger,
             counts,
-            personalPolicyIn(context, monitored.account.id),
+            policy,
         );
         if (ruleContext === null) return null;
         const decision = new PayoutRequestRule(context.rulebook).decide(
@@ -67,14 +69,27 @@ export class PayoutEligibleRule extends AccountAlertRule {
         const amount = formatUsdCents(
             usdCentsFromDollars(decision.requestAmount),
         );
-        const noticeText =
-            decision.notice === null
-                ? ''
-                : ` (the firm's minimum payout request; your target of ${formatUsdCents(usdCentsFromDollars(decision.notice.requestedAmount))} is below it)`;
+        const qualifiers = [
+            ...(decision.notice === null
+                ? []
+                : [
+                      `the firm's minimum payout request; your target of ${formatUsdCents(usdCentsFromDollars(decision.notice.requestedAmount))} is below it`,
+                  ]),
+            ...(decision.notice === null &&
+            policy.payoutRequestOverride !== null
+                ? ['your personal payout request']
+                : []),
+            personalCushionSourceOf({
+                amount: decision.retainedCushion,
+                basis: decision.retainedCushionBasis,
+            }),
+        ].filter((qualifier) => qualifier !== null);
+        const qualifierText =
+            qualifiers.length === 0 ? '' : ` (${qualifiers.join('; ')})`;
         return this.alertFor(
             monitored,
             AlertSeverity.Info,
-            `Eligible to request ${amount}${noticeText}`,
+            `Eligible to request ${amount}${qualifierText}`,
             disclosures,
         );
     }

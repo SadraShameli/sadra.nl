@@ -4,6 +4,7 @@ import { propAccountRouter } from './account';
 import { propBankrollRouter } from './bankroll';
 import { propCopyGroupRouter } from './copyGroup';
 import { propDecisionRouter } from './decision';
+import { propDpAdviceRouter } from './dpAdvice';
 import { propEdgeRouter } from './edge';
 import { propEventRouter } from './event';
 import { propExternalFirmRouter } from './externalFirm';
@@ -23,6 +24,7 @@ export const propAccountsRouter = createTRPCRouter({
     bankroll: propBankrollRouter,
     copyGroup: propCopyGroupRouter,
     decision: propDecisionRouter,
+    dpAdvice: propDpAdviceRouter,
     edge: propEdgeRouter,
     event: propEventRouter,
     externalFirm: propExternalFirmRouter,

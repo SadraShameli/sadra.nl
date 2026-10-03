@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import {
     calculatorFieldLabelOf,
+    dollarRangeSubText,
+    dollarRangeText,
     fundedValueEstimateToolsRequest,
     fundedValueSampleSize,
     isInvalidSampleSizeField,
@@ -491,6 +493,49 @@ describe('value figure text (PT-66)', () => {
             }),
         ).toBe('0.50 to 1.75');
         expect(sampleRangeText(null)).toBeNull();
+    });
+});
+
+describe('dollar sample range text (F-V17, PT-82)', () => {
+    const range = {
+        label: 'what your own n accounts could show by chance',
+        lower: 2100,
+        sampleSize: 10,
+        upper: 6900,
+    } as const;
+
+    it('shows the range in dollars from lower to upper', () => {
+        expect(dollarRangeText(range)).toBe('$2,100 to $6,900');
+    });
+
+    it('keeps a lower bound below zero as it is, signed', () => {
+        expect(dollarRangeText({ ...range, lower: -300 })).toBe(
+            '-$300 to $6,900',
+        );
+    });
+
+    it('shows nothing without a range', () => {
+        expect(dollarRangeText(null)).toBeNull();
+        expect(dollarRangeText(undefined)).toBeNull();
+    });
+
+    it('names the label and n under a range', () => {
+        expect(dollarRangeSubText(range, 10)).toBe(
+            'what your own n accounts could show by chance, n = 10',
+        );
+    });
+
+    it('asks for a sample size when none is set', () => {
+        expect(dollarRangeSubText(null, null)).toBe('enter a sample size');
+    });
+
+    it('says why there is no range when n is set but the run had too few funded trials for a standard error', () => {
+        expect(dollarRangeSubText(null, 10)).toBe(
+            'too few funded trials for a standard error',
+        );
+        expect(dollarRangeSubText(undefined, 10)).toBe(
+            'too few funded trials for a standard error',
+        );
     });
 });
 

@@ -286,7 +286,9 @@ function evalDayLossCandidateIdsOf(
     return [
         ...share.days.flatMap((day) =>
             day.entries
-                .filter((entry) => entry.basis === DayLossBasis.EvalFeeHeuristic)
+                .filter(
+                    (entry) => entry.basis === DayLossBasis.EvalFeeHeuristic,
+                )
                 .map((entry) => entry.accountId),
         ),
         ...share.unmeasured

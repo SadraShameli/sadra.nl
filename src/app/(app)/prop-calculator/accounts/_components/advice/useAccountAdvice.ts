@@ -20,6 +20,7 @@ import {
 import { type FirmId, type PlanOptIns } from '~/lib/prop-calculator';
 import {
     type Advice,
+    AdviceStalenessKind,
     type EngineOptimumRunnerResult,
     type SizingAdvisor,
 } from '~/lib/prop-calculator/advisor';
@@ -94,9 +95,16 @@ export function useAccountAdvice(
     const firmId = input?.firmId;
     const optIns = input?.optIns;
     const planSerial = input?.planSerial;
-    const values = advisor?.isSuspended() ? null : (input?.values ?? null);
+    const isStale = advisor?.staleness().kind === AdviceStalenessKind.Stale;
+    const values =
+        isStale || advisor?.isSuspended() === true
+            ? null
+            : (input?.values ?? null);
     const valuesUnavailableReason = input?.valuesUnavailableReason ?? null;
-    const requests = useMemo(() => advisor?.optimumRequests(), [advisor]);
+    const requests = useMemo(
+        () => (isStale ? [] : advisor?.optimumRequests()),
+        [advisor, isStale],
+    );
     const engineJob = useMemo(() => {
         if (
             firmId === undefined ||

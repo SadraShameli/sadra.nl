@@ -433,7 +433,8 @@ describe('the advice panel passes the entered instrument and stop to the advisor
         render();
         setField('#daily-card-stop', '20');
         settle();
-        const field = container.querySelector<HTMLInputElement>('#daily-card-stop');
+        const field =
+            container.querySelector<HTMLInputElement>('#daily-card-stop');
         if (field === null) throw new Error('no stop field');
         act(() => {
             field.focus();
@@ -443,7 +444,8 @@ describe('the advice panel passes the entered instrument and stop to the advisor
         setField('#daily-card-stop', '20.5');
         settle();
 
-        const after = container.querySelector<HTMLInputElement>('#daily-card-stop');
+        const after =
+            container.querySelector<HTMLInputElement>('#daily-card-stop');
         expect(after).toBe(field);
         expect(after?.value).toBe('20.5');
         expect(document.activeElement).toBe(field);
@@ -502,7 +504,9 @@ describe('the advice panel passes the entered instrument and stop to the advisor
         render();
 
         setField('#daily-card-stop', '20');
-        expect(container.textContent).not.toContain('No whole NQ contract fits');
+        expect(container.textContent).not.toContain(
+            'No whole NQ contract fits',
+        );
 
         settle();
         expect(container.textContent).toContain('No whole NQ contract fits');
@@ -546,7 +550,8 @@ describe('an evaluation account is told its placement is not checked (PT-36k rev
         act(() => {
             root.render(<AdvicePanel id={ACCOUNT_ID} />);
         });
-        const field = container.querySelector<HTMLInputElement>('#daily-card-stop');
+        const field =
+            container.querySelector<HTMLInputElement>('#daily-card-stop');
         if (field === null) throw new Error('no stop field');
         act(() => {
             Object.getOwnPropertyDescriptor(

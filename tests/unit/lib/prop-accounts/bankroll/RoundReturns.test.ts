@@ -382,9 +382,7 @@ describe('roundReturns', () => {
                     event(free, AccountEventKind.Purchased, '2026-01-01'),
                     event(free, AccountEventKind.Busted, '2026-01-05'),
                 ],
-                fees: [
-                    fee(paying, FeeKind.EvalPurchase, 10_000, '2026-01-01'),
-                ],
+                fees: [fee(paying, FeeKind.EvalPurchase, 10_000, '2026-01-01')],
                 payouts: [
                     payout(paying, 30_000, {
                         netCents: 30_000,
@@ -472,7 +470,12 @@ describe('roundReturns', () => {
             ledger: ledger({
                 accounts: [winnerMember, ...openMembers],
                 fees: [
-                    fee(winnerMember, FeeKind.EvalPurchase, 50_000, '2026-01-01'),
+                    fee(
+                        winnerMember,
+                        FeeKind.EvalPurchase,
+                        50_000,
+                        '2026-01-01',
+                    ),
                     ...openMembers.map((member, index) =>
                         fee(
                             member,
@@ -580,12 +583,7 @@ describe('roundReturns', () => {
                         10_000,
                         '2026-01-05',
                     ),
-                    fee(
-                        openMember,
-                        FeeKind.EvalPurchase,
-                        10_000,
-                        '2026-01-05',
-                    ),
+                    fee(openMember, FeeKind.EvalPurchase, 10_000, '2026-01-05'),
                     fee(
                         unpaidMember,
                         FeeKind.EvalPurchase,

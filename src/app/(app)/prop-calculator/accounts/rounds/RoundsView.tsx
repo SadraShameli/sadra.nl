@@ -326,8 +326,8 @@ export function RoundsView() {
                         {model.perFirm.length > 0 && (
                             <p className="text-xs text-muted-foreground">
                                 Multiples and share positive use closed rounds
-                                only; open rounds count in Rounds but not in
-                                the spread or its n.
+                                only; open rounds count in Rounds but not in the
+                                spread or its n.
                             </p>
                         )}
                         {model.unassignedRoundCount > 0 && (
@@ -497,6 +497,9 @@ function NextRoundCard({
                         payouts are left out: {model.leftOutLabels.join(', ')}.
                     </p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                    {model.rebuyLagNote}
+                </p>
                 {failureReason !== null && (
                     <p className="text-xs text-destructive">{failureReason}</p>
                 )}

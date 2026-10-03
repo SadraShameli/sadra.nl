@@ -317,54 +317,68 @@ describe('valueSpecOf simulates the value figures at the personal limits (PT-68f
         expect(spec.enginePolicy.personalDll).toBe(600);
     });
 
-    it('prices an eval account at the capped rungs: a cap above every rung changes nothing, a cap of $150 does', () => {
-        const account = evalAccount();
-        const uncapped = valueAtState(account, valueSpec(NO_PERSONAL_CAPS));
-        const loose = valueAtState(
-            account,
-            valueSpec({ ...NO_PERSONAL_CAPS, maxRiskPerTrade: dollars(5000) }),
-        );
-        const capped = valueAtState(
-            account,
-            valueSpec({ ...NO_PERSONAL_CAPS, maxRiskPerTrade: dollars(150) }),
-        );
+    it(
+        'prices an eval account at the capped rungs: a cap above every rung changes nothing, a cap of $150 does',
+        () => {
+            const account = evalAccount();
+            const uncapped = valueAtState(account, valueSpec(NO_PERSONAL_CAPS));
+            const loose = valueAtState(
+                account,
+                valueSpec({
+                    ...NO_PERSONAL_CAPS,
+                    maxRiskPerTrade: dollars(5000),
+                }),
+            );
+            const capped = valueAtState(
+                account,
+                valueSpec({
+                    ...NO_PERSONAL_CAPS,
+                    maxRiskPerTrade: dollars(150),
+                }),
+            );
 
-        expect(loose).toEqual(uncapped);
-        expect(capped).not.toEqual(uncapped);
-    }, HEAVY_TEST_TIMEOUT_MS);
+            expect(loose).toEqual(uncapped);
+            expect(capped).not.toEqual(uncapped);
+        },
+        HEAVY_TEST_TIMEOUT_MS,
+    );
 
-    it('prices a funded account exactly as a $100 rulebook funded risk when the personal max risk is $100', () => {
-        const account = fundedAccount();
-        const hundredRulebook = {
-            ...DEFAULT_RULEBOOK,
-            funded: {
-                ...DEFAULT_RULEBOOK.funded,
-                riskCents: 10_000,
-                takeProfitCents: 20_000,
-            },
-        };
-        const capped = valueAtState(
-            account,
-            fundedValueSpec(DEFAULT_RULEBOOK, {
-                ...NO_PERSONAL_CAPS,
-                maxRiskPerTrade: dollars(100),
-            }),
-        );
-        const handCapped = valueAtState(
-            account,
-            fundedValueSpec(hundredRulebook, {
-                ...NO_PERSONAL_CAPS,
-                maxRiskPerTrade: dollars(100),
-            }),
-        );
-        const uncapped = valueAtState(
-            account,
-            fundedValueSpec(DEFAULT_RULEBOOK, NO_PERSONAL_CAPS),
-        );
+    it(
+        'prices a funded account exactly as a $100 rulebook funded risk when the personal max risk is $100',
+        () => {
+            const account = fundedAccount();
+            const hundredRulebook = {
+                ...DEFAULT_RULEBOOK,
+                funded: {
+                    ...DEFAULT_RULEBOOK.funded,
+                    riskCents: 10_000,
+                    takeProfitCents: 20_000,
+                },
+            };
+            const capped = valueAtState(
+                account,
+                fundedValueSpec(DEFAULT_RULEBOOK, {
+                    ...NO_PERSONAL_CAPS,
+                    maxRiskPerTrade: dollars(100),
+                }),
+            );
+            const handCapped = valueAtState(
+                account,
+                fundedValueSpec(hundredRulebook, {
+                    ...NO_PERSONAL_CAPS,
+                    maxRiskPerTrade: dollars(100),
+                }),
+            );
+            const uncapped = valueAtState(
+                account,
+                fundedValueSpec(DEFAULT_RULEBOOK, NO_PERSONAL_CAPS),
+            );
 
-        expect(capped).toEqual(handCapped);
-        expect(capped).not.toEqual(uncapped);
-    }, HEAVY_TEST_TIMEOUT_MS);
+            expect(capped).toEqual(handCapped);
+            expect(capped).not.toEqual(uncapped);
+        },
+        HEAVY_TEST_TIMEOUT_MS,
+    );
 
     it('prices a funded account with a max risk above the rulebook risk exactly as the account with no limit', () => {
         const account = fundedAccount();

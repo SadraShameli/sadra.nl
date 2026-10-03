@@ -7,6 +7,7 @@ import type * as UseToolsWorkerModule from '~/app/(app)/prop-calculator/_compone
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { RoundsView } from '~/app/(app)/prop-calculator/accounts/rounds/RoundsView';
 import {
+    AccountEventKind,
     AccountStage,
     AccountStatus,
     AccountTracking,
@@ -656,6 +657,92 @@ describe('RoundsView', () => {
         expect(container.textContent).toContain('Recommended');
     });
 
+    it('prices the "Next round" request at the measured rebuy lag and states it on the card (PT-111, F-76)', () => {
+        harness.queries.set(
+            'round.list',
+            answer([
+                roundListRow(ROUND_ID, 'Q1 push', {
+                    closedOn: '2026-07-01',
+                    status: RoundStatus.Closed,
+                }),
+            ]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([
+                account(ALPHA_ID, 'Alpha', {
+                    purchasedOn: '2026-05-04',
+                    status: AccountStatus.Busted,
+                }),
+                account(BRAVO_ID, 'Bravo', {
+                    purchasedOn: '2026-06-05',
+                    replacesAccountId: ALPHA_ID,
+                    roundId: ROUND_ID,
+                }),
+            ]),
+        );
+        const eventRow = (
+            id: string,
+            accountId: string,
+            kind: AccountEventKind,
+            occurredOn: string,
+        ) => ({
+            accountId,
+            createdAt: new Date(`${occurredOn}T12:00:00Z`),
+            id,
+            kind,
+            occurredOn,
+            userId: USER_ID,
+        });
+        harness.queries.set(
+            'event.list',
+            answer([
+                eventRow(
+                    'e1',
+                    ALPHA_ID,
+                    AccountEventKind.Purchased,
+                    '2026-05-04',
+                ),
+                eventRow('e2', ALPHA_ID, AccountEventKind.Busted, '2026-06-01'),
+                eventRow(
+                    'e3',
+                    BRAVO_ID,
+                    AccountEventKind.Purchased,
+                    '2026-06-05',
+                ),
+            ]),
+        );
+        render();
+        const instance = toolsWorkerBox.instances[0];
+        const calls = (instance?.runSpy as unknown as ReturnType<typeof vi.fn>)
+            .mock.calls;
+        const [request] = calls.at(-1) as [
+            { variant: { policy: { rebuyLagDays: number } } },
+        ];
+        expect(request.variant.policy.rebuyLagDays).toBe(3);
+        expect(container.textContent).toContain(
+            'Rebuy lag: 3.0 sessions on this plan',
+        );
+    });
+
+    it('says the "Next round" card assumes a zero rebuy lag when none was measured (PT-111, F-76)', () => {
+        harness.queries.set(
+            'round.list',
+            answer([
+                roundListRow(ROUND_ID, 'Q1 push', {
+                    closedOn: '2026-07-01',
+                    status: RoundStatus.Closed,
+                }),
+            ]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha', { roundId: ROUND_ID })]),
+        );
+        render();
+        expect(container.textContent).toContain('Rebuy lag: assumed zero');
+    });
+
     it(
         'does not double-fire the next-round worker request when a query refetch returns ' +
             'a referentially new but content-identical array (PT-62e CRITICAL runId-in-key fix)',
@@ -916,9 +1003,7 @@ describe('RoundsView', () => {
         );
         harness.queries.set(
             'payout.list',
-            answer([
-                payoutFor(ALPHA_ID, 'payout-alpha', 30_000, '2026-07-12'),
-            ]),
+            answer([payoutFor(ALPHA_ID, 'payout-alpha', 30_000, '2026-07-12')]),
         );
         render();
         const table = element(container, 'table[aria-label="Rounds"]');

@@ -1,45 +1,14 @@
 import {
+    type FundedDpModelGap,
+    FundedDpModelGapKind,
+} from './FundedDpModelGapKind';
+import {
     defaultPayoutRegimeCap,
     fundedCalendarWeekInactivityDpGap,
 } from './FundedStateValue';
-import { type Dollars } from './lib/units';
 import { PayoutCountTieredPayoutCap } from './PayoutCap';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
 import { type Plan } from './Plan';
-
-export enum FundedDpModelGapKind {
-    CalendarWeekInactivityIgnored = 'calendar-week-inactivity-ignored',
-    FundedGridSaturationHigh = 'funded-grid-saturation-high',
-    LifetimeDollarCapIgnored = 'lifetime-dollar-cap-ignored',
-    PayoutCountTierBeyondRegimeCap = 'payout-count-tier-beyond-regime-cap',
-    PayoutFloorReleaseUnvalidated = 'payout-floor-release-unvalidated',
-    PayoutTriggeredLockPreLockOffsetSaturates = 'payout-triggered-lock-pre-lock-offset-saturates',
-}
-
-export type FundedDpModelGap =
-    | {
-          readonly fromPayoutIndex: number;
-          readonly kind: FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap;
-          readonly payoutRegimeCap: number;
-      }
-    | {
-          readonly kind: FundedDpModelGapKind.CalendarWeekInactivityIgnored;
-          readonly message: string;
-      }
-    | {
-          readonly kind: FundedDpModelGapKind.FundedGridSaturationHigh;
-          readonly shareAtOrAboveTop: number;
-      }
-    | {
-          readonly kind: FundedDpModelGapKind.LifetimeDollarCapIgnored;
-          readonly maxLifetimePayoutDollars: Dollars;
-      }
-    | {
-          readonly kind: FundedDpModelGapKind.PayoutFloorReleaseUnvalidated;
-      }
-    | {
-          readonly kind: FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates;
-      };
 
 export const FUNDED_GRID_SATURATION_WARNING_SHARE = 0.01;
 
@@ -101,3 +70,8 @@ function withoutLeadingPlanLabel(plan: Plan, message: string): string {
         ? message.slice(planLabelPrefix.length)
         : message;
 }
+
+export {
+    type FundedDpModelGap,
+    FundedDpModelGapKind,
+} from './FundedDpModelGapKind';

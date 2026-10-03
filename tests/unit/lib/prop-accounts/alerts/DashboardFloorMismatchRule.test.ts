@@ -146,7 +146,9 @@ describe('DashboardFloorMismatchRule', () => {
                 reconstructedEntry(
                     account.id,
                     plan,
-                    evalReconstructed(plan, { balance: plan.accountSize + 900 }),
+                    evalReconstructed(plan, {
+                        balance: plan.accountSize + 900,
+                    }),
                 ),
             ],
         });

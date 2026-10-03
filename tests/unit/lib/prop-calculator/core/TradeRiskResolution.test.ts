@@ -364,7 +364,10 @@ function floorLivePlan(
         liveDailyLossLimit:
             dailyLossLimit === null
                 ? null
-                : { amount: dollars(dailyLossLimit), kind: DailyLossLimitKind.Flat },
+                : {
+                      amount: dollars(dailyLossLimit),
+                      kind: DailyLossLimitKind.Flat,
+                  },
         liveDrawdown: drawdown,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(1) },

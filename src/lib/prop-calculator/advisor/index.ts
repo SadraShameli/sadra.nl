@@ -140,6 +140,7 @@ export {
 export { DocumentedRule, RulebookRule } from './DocumentedRule';
 export {
     type CappedAmount,
+    ConsistencyCeilingNote,
     type DailyProfitCap,
     DailyProfitCapKind,
     DayStopReason,
@@ -154,6 +155,20 @@ export {
     SizingProvenance,
     type SizingTerms,
 } from './DocumentedSizing';
+export {
+    DP_ADVICE_SOLVER_VERSION,
+    DpAdviceGap,
+    type DpAdviceGapEntry,
+    type DpAdviceRow,
+    type DpAdviceSamples,
+    dpAdviceStaleness,
+    type DpAdviceStalenessInput,
+    DpAdviceStalenessReason,
+    type DpRiskSample,
+    DpSamplesKind,
+    DpSampleStage,
+    DpSamplesUnavailableReason,
+} from './DpAdviceRow';
 export {
     type EngineOptimum,
     type EngineOptimumPlacedRow,
@@ -211,7 +226,10 @@ export {
     EvalSizingAdvisor,
     type EvalSizingAdvisorInput,
 } from './EvalSizingAdvisor';
-export { fundedConsistencyCeiling } from './FundedConsistencyCeiling';
+export {
+    fundedConsistencyCeiling,
+    fundedConsistencyNote,
+} from './FundedConsistencyCeiling';
 export { FundedFixedRiskRule } from './FundedFixedRiskRule';
 export {
     fundedCycleSeedFromTracker,
@@ -282,6 +300,8 @@ export {
     liveTriggerRuleCaps,
     type PayoutAdvice,
     payoutAdvice,
+    type PayoutCap,
+    PayoutCapKind,
 } from './PayoutAdvice';
 export {
     type GatePayoutBlockReason,

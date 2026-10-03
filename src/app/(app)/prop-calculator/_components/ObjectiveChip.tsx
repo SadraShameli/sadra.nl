@@ -105,6 +105,7 @@ export function ObjectiveChip({
 export function objectiveChoiceNotes(
     choice: ObjectiveChoice,
     objective: SizingObjective,
+    effective: SizingObjective = riskTableObjective(objective).effective,
 ): readonly string[] {
     const notes: string[] = [];
     if (choice.automaticBasis !== null) {
@@ -114,7 +115,7 @@ export function objectiveChoiceNotes(
                 ? 'objective threshold'
                 : `${formatCurrency(switchCents / CENTS_PER_DOLLAR)} objective threshold`;
         notes.push(
-            `Chosen automatically: your available bankroll ${formatCurrency(availableCents / CENTS_PER_DOLLAR)} is below your ${threshold}, ${automaticScope(objective)}. Pick another objective here to override it.`,
+            `Chosen automatically: your available bankroll ${formatCurrency(availableCents / CENTS_PER_DOLLAR)} is below your ${threshold}, ${automaticScope(objective, effective)}. Pick another objective here to override it.`,
         );
     }
     if (choice.queryFailure !== null) {
@@ -123,8 +124,10 @@ export function objectiveChoiceNotes(
     return notes;
 }
 
-function automaticScope(objective: SizingObjective): string {
-    const { effective } = riskTableObjective(objective);
+function automaticScope(
+    objective: SizingObjective,
+    effective: SizingObjective,
+): string {
     return effective === objective
         ? `so this page ranks by ${SIZING_OBJECTIVE_LABEL[objective]}`
         : `so your bankroll selected ${SIZING_OBJECTIVE_LABEL[objective]}, which ranks which plan to buy; this page's sizing stays on ${SIZING_OBJECTIVE_LABEL[effective]}`;

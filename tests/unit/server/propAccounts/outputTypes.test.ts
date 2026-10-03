@@ -28,6 +28,7 @@ import {
     propAccountSnapshotOutputSchema,
     propBankrollTransferOutputSchema,
     propCopyGroupOutputSchema,
+    propDpAdviceOutputSchema,
     propExternalFirmOutputSchema,
     propFeeOutputSchema,
     propFirmEngagementOutputSchema,
@@ -68,6 +69,8 @@ import {
     type PropBankrollTransferRow,
     propCopyGroup,
     type PropCopyGroupRow,
+    propDpAdvice,
+    type PropDpAdviceRow,
     propExternalFirm,
     type PropExternalFirmRow,
     propFee,
@@ -92,6 +95,7 @@ import {
     accountRow,
     copyGroupRow,
     decisionRow,
+    dpAdviceRow,
     eventRow,
     feeRow,
     payoutRow,
@@ -232,6 +236,15 @@ const CASES: readonly OutputCase[] = [
         row: decisionRow(),
         schema: propSizingDecisionOutputSchema,
         table: propSizingDecision,
+    },
+    {
+        derived: { staleness: [] },
+        enumColumns: ['objective'],
+        jsonbColumns: ['gaps', 'samples', 'valueSamples'],
+        name: 'dp advice',
+        row: dpAdviceRow(),
+        schema: propDpAdviceOutputSchema,
+        table: propDpAdvice,
     },
     {
         enumColumns: ['kind'],
@@ -508,6 +521,9 @@ describe('propAccounts output schemas', () => {
         expectTypeOf<
             z.infer<typeof propSizingDecisionOutputSchema>
         >().toExtend<PropSizingDecisionRow>();
+        expectTypeOf<
+            z.infer<typeof propDpAdviceOutputSchema>
+        >().toExtend<PropDpAdviceRow>();
         expectTypeOf<
             z.infer<typeof propSavedScenarioOutputSchema>
         >().toExtend<PropSavedScenarioRow>();

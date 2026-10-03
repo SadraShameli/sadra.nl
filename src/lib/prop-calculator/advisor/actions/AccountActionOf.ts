@@ -1,5 +1,6 @@
 import { AccountAction } from '~/lib/prop-calculator/advisor/AccountAction';
 import { type Advice } from '~/lib/prop-calculator/advisor/Advice';
+import { AdviceStalenessKind } from '~/lib/prop-calculator/advisor/AdviceStaleness';
 import {
     type PayoutReadiness,
     PayoutReadinessKind,
@@ -21,7 +22,7 @@ export function accountActionOf(
     retireVerdict: null | RetireComparisonVerdict,
     settings: AccountActionSettings,
 ): AccountActionResult {
-    if (advice.staleness.kind === 'stale') {
+    if (advice.staleness.kind === AdviceStalenessKind.Stale) {
         return { action: AccountAction.EnterSnapshot, retireVerdict };
     }
     if (advice.documented === null) {

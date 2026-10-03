@@ -359,8 +359,16 @@ function runOf(): WorkerRun {
         throw new Error('expected an account-from-state result');
     }
     const { figures } = outcome.result;
-    const direct = (input: typeof latest.input, counts: typeof NO_PENDING_PAYOUT_COUNTS) => {
-        const account = AccountReconstruction.rebuild(input, PLAN, null, counts);
+    const direct = (
+        input: typeof latest.input,
+        counts: typeof NO_PENDING_PAYOUT_COUNTS,
+    ) => {
+        const account = AccountReconstruction.rebuild(
+            input,
+            PLAN,
+            null,
+            counts,
+        );
         if (account.kind === ReconstructedLiveKind.Live) {
             throw new Error('expected an eval account');
         }
@@ -421,7 +429,10 @@ describe('the eval day loss is the change in the from-state value (PT-90, F-V29)
     it('leaves out an account whose worker result is still pending, refused or failed', () => {
         const entries = [{ accountId: ACCOUNT_ID, request: run.request }];
         const pending: SlotEngine = { failure: null, outcomes: new Map() };
-        const failed: SlotEngine = { failure: 'worker crashed', outcomes: new Map() };
+        const failed: SlotEngine = {
+            failure: 'worker crashed',
+            outcomes: new Map(),
+        };
         const refused: SlotEngine = {
             failure: null,
             outcomes: new Map([
@@ -448,10 +459,7 @@ describe('the eval day loss is the change in the from-state value (PT-90, F-V29)
         expect(unused).toBeDefined();
         const losses = evalValueLossDollarsOf(
             [{ accountId: ACCOUNT_ID, request }],
-            engineWithFigures(
-                { ...run, request },
-                withoutPrevious,
-            ),
+            engineWithFigures({ ...run, request }, withoutPrevious),
         );
         expect(losses.size).toBe(0);
     });
@@ -524,7 +532,11 @@ describe('the accounts pages send the previous snapshot through the one shared b
     );
 
     it('keeps no second day-loss gate of its own', () => {
-        expect(SOURCE).not.toMatch(/performanceSinceSnapshot|profitSinceSnapshot/);
-        expect(SOURCE).not.toMatch(/weekdaysInRange|DAY_LOSS_MAX_WEEKDAYS_APART/);
+        expect(SOURCE).not.toMatch(
+            /performanceSinceSnapshot|profitSinceSnapshot/,
+        );
+        expect(SOURCE).not.toMatch(
+            /weekdaysInRange|DAY_LOSS_MAX_WEEKDAYS_APART/,
+        );
     });
 });

@@ -89,15 +89,15 @@ function valueOf(creditFree: number, isPriced: boolean) {
 
 describe('the advice values name the cumulative trigger they priced (PT-36r, F-145)', () => {
     it('lists the trigger behind the payout stake comparison, with no hazard entered', () => {
-        expect(payoutStakeViewOf(stakeOf(true)).liveTransferNotes).toStrictEqual(
-            [assumptionText(TRIGGER)],
-        );
+        expect(
+            payoutStakeViewOf(stakeOf(true)).liveTransferNotes,
+        ).toStrictEqual([assumptionText(TRIGGER)]);
     });
 
     it('lists none for a payout stake that priced no trigger', () => {
-        expect(payoutStakeViewOf(stakeOf(false)).liveTransferNotes).toStrictEqual(
-            [],
-        );
+        expect(
+            payoutStakeViewOf(stakeOf(false)).liveTransferNotes,
+        ).toStrictEqual([]);
     });
 
     it('lists the trigger behind the risk candidates', () => {

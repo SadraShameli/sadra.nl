@@ -110,6 +110,7 @@ export interface CalculatorActions {
     setPayoutRequestSize: (n: null | number) => void;
     setPlan: (plan: Plan) => void;
     setPortfolio: (entries: PortfolioEntry[]) => void;
+    setRebuyLagDays: (n: number) => void;
     setResetDiscountPercent: (n: number) => void;
     setRetainedCushion: (n: null | number) => void;
     setRiskDollars: (n: number) => void;
@@ -251,6 +252,8 @@ export function createCalculatorActions(
             dispatch({ plan, type: CalculatorActionType.SetPlan }),
         setPortfolio: (entries) =>
             dispatch({ entries, type: CalculatorActionType.SetPortfolio }),
+        setRebuyLagDays: (n) =>
+            dispatch({ type: CalculatorActionType.SetRebuyLagDays, value: n }),
         setResetDiscountPercent: (n) =>
             dispatch({
                 type: CalculatorActionType.SetResetDiscountPercent,
@@ -489,7 +492,13 @@ export function useCalculator(): UseCalculatorReturn {
         );
         if (url !== null) window.history.replaceState(null, '', url);
         writeLastToolQuery(encodeState(state, encodeOptions).toString());
-    }, [encodeOptions, hasSettledLegacyHash, pathname, searchParameters, state]);
+    }, [
+        encodeOptions,
+        hasSettledLegacyHash,
+        pathname,
+        searchParameters,
+        state,
+    ]);
 
     const {
         activationDiscountPercent,
@@ -507,6 +516,7 @@ export function useCalculator(): UseCalculatorReturn {
         monthlySubscriptionDiscountPercent,
         payoutRequestSize,
         plan,
+        rebuyLagDays,
         resetDiscountPercent,
         retainedCushion,
         riskDollars,
@@ -546,6 +556,7 @@ export function useCalculator(): UseCalculatorReturn {
                 monthlySubscriptionDiscountPercent,
                 payoutRequestSize,
                 plan,
+                rebuyLagDays,
                 resetDiscountPercent,
                 retainedCushion,
                 riskDollars,
@@ -577,6 +588,7 @@ export function useCalculator(): UseCalculatorReturn {
             monthlySubscriptionDiscountPercent,
             payoutRequestSize,
             plan,
+            rebuyLagDays,
             resetDiscountPercent,
             retainedCushion,
             riskDollars,

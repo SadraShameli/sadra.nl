@@ -1,7 +1,10 @@
 import {
+    type AccountState,
     dollars,
     type Dollars,
     type FirmAccountPolicy,
+    type Fraction0to1,
+    isAtOrBelowWithinCentTolerance,
     LifetimePayoutCapOverrideKind,
     type LiveTransitionTrigger,
     LiveTriggerKind,
@@ -25,7 +28,12 @@ import {
     type PayoutRequestDecision,
     PayoutRequestDecisionKind,
 } from './PayoutRequestDecision';
-import { PayoutRequestRule, type PayoutRuleContext } from './PayoutRequestRule';
+import {
+    type FundedPayoutRuleContext,
+    PayoutRequestRule,
+    type PayoutRuleContext,
+    ruleCappedWithdrawable,
+} from './PayoutRequestRule';
 import { type PersonalPayoutOverrideWarning } from './PayoutSizeSweep';
 import {
     advisorPlaceableMinimum,
@@ -39,6 +47,12 @@ export enum LiveTriggerCoverage {
     NotChecked = 'not-checked',
 }
 
+export enum PayoutCapKind {
+    BalanceShare = 'balance-share',
+    RemainingPayouts = 'remaining-payouts',
+    RequestCap = 'request-cap',
+}
+
 export interface LiveTriggerLimits extends LiveTriggerCountLimit {
     readonly coverage: LiveTriggerCoverage;
     readonly singleDayCeiling: Dollars | null;
@@ -46,16 +60,36 @@ export interface LiveTriggerLimits extends LiveTriggerCountLimit {
 
 export interface LiveTriggerRuleCaps {
     readonly ceiling: Dollars | null;
+    readonly consistencyCeiling: Dollars | null;
     readonly placeableMinimum: Dollars;
 }
 
 export interface PayoutAdvice {
     readonly assumptions: readonly Assumption[];
+    readonly caps: readonly PayoutCap[];
     readonly documented: PayoutRequestDecision;
     readonly engineHorizonCredit: Dollars | null;
     readonly netAfterSplit: Dollars | null;
     readonly personalOverrideWarning?: PersonalPayoutOverrideWarning;
+    readonly ruleCappedWithdrawable: Dollars | null;
 }
+
+export type PayoutCap =
+    | {
+          readonly amount: Dollars;
+          readonly kind: PayoutCapKind.BalanceShare;
+          readonly limitsWithdrawable: boolean;
+          readonly share: Fraction0to1;
+      }
+    | {
+          readonly amount: Dollars;
+          readonly kind: PayoutCapKind.RequestCap;
+          readonly limitsWithdrawable: boolean;
+      }
+    | {
+          readonly kind: PayoutCapKind.RemainingPayouts;
+          readonly remaining: number;
+      };
 
 interface CappedBySource {
     readonly cap: number;
@@ -67,6 +101,20 @@ interface LiveTriggerHandling {
     readonly isEnforcedByRule: boolean;
     readonly isEnginePriced: boolean;
 }
+
+interface PayoutNumbers {
+    readonly caps: readonly PayoutCap[];
+    readonly engineHorizonCredit: Dollars | null;
+    readonly netAfterSplit: Dollars | null;
+    readonly ruleCappedWithdrawable: Dollars | null;
+}
+
+const NO_PAYOUT_NUMBERS: PayoutNumbers = {
+    caps: [],
+    engineHorizonCredit: null,
+    netAfterSplit: null,
+    ruleCappedWithdrawable: null,
+};
 
 export const LIVE_TRIGGER_NOT_CHECKED: LiveTriggerLimits = {
     coverage: LiveTriggerCoverage.NotChecked,
@@ -113,7 +161,8 @@ export function liveTriggerLimitsFor(
             : [];
     });
     const firmTotalCaps = triggers.flatMap((trigger) =>
-        trigger instanceof PayoutCountTotalTrigger && isConfirmedTrigger(trigger)
+        trigger instanceof PayoutCountTotalTrigger &&
+        isConfirmedTrigger(trigger)
             ? [
                   {
                       cap: trigger.cap,
@@ -157,16 +206,15 @@ export function liveTriggerRuleCaps(
     limits: LiveTriggerLimits,
     positionSizing: null | SizingPlacement | undefined,
 ): LiveTriggerRuleCaps {
-    const ceiling = combinedProfitCeiling(
-        consistencyCeiling,
-        limits.singleDayCeiling,
-    );
+    const hasCeiling =
+        combinedProfitCeiling(consistencyCeiling, limits.singleDayCeiling) !==
+        null;
     return {
-        ceiling,
-        placeableMinimum:
-            ceiling === null
-                ? ONE_CENT
-                : advisorPlaceableMinimum(positionSizing),
+        ceiling: limits.singleDayCeiling,
+        consistencyCeiling,
+        placeableMinimum: hasCeiling
+            ? advisorPlaceableMinimum(positionSizing)
+            : ONE_CENT,
     };
 }
 
@@ -177,10 +225,6 @@ export function payoutAdvice(
 ): PayoutAdvice {
     const rule = new PayoutRequestRule(rulebook);
     const documented = rule.decide(context);
-    const { engineHorizonCredit, netAfterSplit } = numbersFor(
-        context,
-        documented,
-    );
     return {
         assumptions:
             coverage === LiveTriggerCoverage.Enforced
@@ -192,8 +236,7 @@ export function payoutAdvice(
                       ),
                   ],
         documented,
-        engineHorizonCredit,
-        netAfterSplit,
+        ...numbersFor(context, documented),
     };
 }
 
@@ -249,17 +292,33 @@ function liveTriggerHandlingOf(
     }
 }
 
+function netStateOf(context: FundedPayoutRuleContext): AccountState {
+    return context.pendingPayouts > 0
+        ? {
+              ...context.state,
+              balance: dollars(context.state.balance - context.pendingPayouts),
+          }
+        : context.state;
+}
+
 function numbersFor(
     context: PayoutRuleContext,
     documented: PayoutRequestDecision,
-): { engineHorizonCredit: Dollars | null; netAfterSplit: Dollars | null } {
+): PayoutNumbers {
     if (documented.kind !== PayoutRequestDecisionKind.Request) {
-        return { engineHorizonCredit: null, netAfterSplit: null };
+        return NO_PAYOUT_NUMBERS;
     }
     switch (context.stage) {
         case SizingStage.Funded: {
             const { plan, state, tracker } = context;
+            const withdrawable = ruleCappedWithdrawable(
+                plan,
+                tracker,
+                netStateOf(context),
+                documented.retainedCushion,
+            );
             return {
+                caps: payoutCapsOf(context, withdrawable),
                 engineHorizonCredit: dollars(
                     tracker.closeoutCredit({
                         minRetainedCushion: documented.retainedCushion,
@@ -274,17 +333,58 @@ function numbersFor(
                         tracker.payoutsIssued,
                     ),
                 ),
+                ruleCappedWithdrawable: withdrawable,
             };
         }
         case SizingStage.Live: {
             return {
-                engineHorizonCredit: null,
+                ...NO_PAYOUT_NUMBERS,
                 netAfterSplit: dollars(
                     context.livePlan.payoutFromProfit(documented.requestAmount),
                 ),
             };
         }
     }
+}
+
+function payoutCapsOf(
+    context: FundedPayoutRuleContext,
+    withdrawable: Dollars,
+): readonly PayoutCap[] {
+    const { plan, tracker } = context;
+    const netState = netStateOf(context);
+    const regime = plan.resolvedPayoutCap(netState, tracker.payoutsIssued);
+    const isLimiting = (amount: number): boolean =>
+        isAtOrBelowWithinCentTolerance(amount, withdrawable);
+    const caps: PayoutCap[] = [];
+    if (regime.requestCap !== null) {
+        caps.push({
+            amount: regime.requestCap,
+            kind: PayoutCapKind.RequestCap,
+            limitsWithdrawable: isLimiting(regime.requestCap),
+        });
+    }
+    if (regime.balanceShareCap !== null) {
+        const amount = dollars(
+            regime.balanceShareCap * Math.max(0, plan.accountProfit(netState)),
+        );
+        caps.push({
+            amount,
+            kind: PayoutCapKind.BalanceShare,
+            limitsWithdrawable: isLimiting(amount),
+            share: regime.balanceShareCap,
+        });
+    }
+    if (plan.maxLifetimePayouts !== null) {
+        caps.push({
+            kind: PayoutCapKind.RemainingPayouts,
+            remaining: Math.max(
+                0,
+                plan.maxLifetimePayouts - tracker.payoutsIssued,
+            ),
+        });
+    }
+    return caps;
 }
 
 function tightestOf(caps: readonly CappedBySource[]): CappedBySource | null {

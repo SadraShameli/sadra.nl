@@ -11,17 +11,20 @@ import {
     payoutReadinessBoardOf,
     PayoutReadinessRowKind,
 } from '~/lib/prop-accounts/metrics';
-import { findFirm, TradingPhase } from '~/lib/prop-calculator';
+import { type Dollars, findFirm, TradingPhase } from '~/lib/prop-calculator';
 import {
     createSizingAdvisor,
     NextTradeRiskVerdict,
+    NO_PERSONAL_CAPS,
     pendingPayoutCountsOf,
     pendingPayoutCountsOr,
+    type PersonalCaps,
 } from '~/lib/prop-calculator/advisor';
 import { dayProgressFromCounts } from '~/lib/prop-calculator/advisor/actions';
 
 import { type AccountAlert } from './AccountAlert';
 import {
+    type AccountPersonalPolicy,
     type AlertContext,
     type AlertDecisionRow,
     isActive,
@@ -91,22 +94,28 @@ export class PayoutReadyOpenRiskRule extends AccountAlertRule {
         if (decision === null) return null;
         const riskCents =
             decision.actualRiskCents ?? decision.acceptedRiskCents;
-        const advisor = createSizingAdvisor(state.latest.reconstructed, {
-            accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
-            paidPayoutsSinceLastLiveAccount,
-            personalCaps: policy.personalCaps,
-            personalDll: policy.personalDll,
-            personalPayoutOverride: policy.payoutRequestOverride,
-            personalRetainedCushion: policy.retainedCushionRequest,
-            rulebook: context.rulebook,
-            snapshotAsOf: state.latest.asOf,
-            substate: accountSubstateOf(monitored.account.status),
-            today: context.today,
-        });
-        const check = advisor.checkNextTradeRisk(
-            usdCentsToDollars(riskCents),
-            dayProgressFromCounts(advisor, 0, 0),
-        );
+        const checkWith = (
+            personalCaps: PersonalCaps,
+            personalDll: Dollars | null,
+        ) => {
+            const advisor = createSizingAdvisor(state.latest.reconstructed, {
+                accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
+                paidPayoutsSinceLastLiveAccount,
+                personalCaps,
+                personalDll,
+                personalPayoutOverride: policy.payoutRequestOverride,
+                personalRetainedCushion: policy.retainedCushionRequest,
+                rulebook: context.rulebook,
+                snapshotAsOf: state.latest.asOf,
+                substate: accountSubstateOf(monitored.account.status),
+                today: context.today,
+            });
+            return advisor.checkNextTradeRisk(
+                usdCentsToDollars(riskCents),
+                dayProgressFromCounts(advisor, 0, 0),
+            );
+        };
+        const check = checkWith(policy.personalCaps, policy.personalDll);
         if (
             check?.verdict !== NextTradeRiskVerdict.AboveDocumented ||
             check.excessCents <= thresholdCents
@@ -116,20 +125,28 @@ export class PayoutReadyOpenRiskRule extends AccountAlertRule {
         const basis =
             decision.actualRiskCents === null ? 'accepted' : 'recorded';
         const excess = formatUsdCents(usdCents(check.excessCents));
-        const rung =
-            check.documentedRung === null
-                ? ' (the documented plan has stopped for the day)'
-                : ` of ${formatUsdCents(usdCentsFromDollars(check.documentedRung))}`;
+        const documentedRung = hasPersonalLimits(policy)
+            ? (checkWith(NO_PERSONAL_CAPS, null)?.documentedRung ?? null)
+            : check.documentedRung;
         return this.alertFor(
             monitored,
             AlertSeverity.Warning,
-            `A payout is available on this account and the ${basis} risk of ${formatUsdCents(riskCents)} is ${excess} above the documented rung${rung}; requesting the payout leaves the documented rung unchanged`,
+            `A payout is available on this account and the ${basis} risk of ${formatUsdCents(riskCents)} is ${excess} above ${rungClauseOf(check.documentedRung, documentedRung)}; requesting the payout leaves the documented rung unchanged`,
             liveTriggerDisclosuresOf(
                 row.liveTriggerCoverage,
                 pendingPayoutCounts,
             ),
         );
     }
+}
+
+function hasPersonalLimits(policy: AccountPersonalPolicy): boolean {
+    return (
+        policy.personalDll !== null ||
+        policy.personalCaps.dailyProfitCap !== null ||
+        policy.personalCaps.maxRiskPerTrade !== null ||
+        policy.personalCaps.maxTradesPerDay !== null
+    );
 }
 
 function isNewerDecision(
@@ -162,4 +179,26 @@ function latestDecisionOf(
                     : newest,
             null,
         );
+}
+
+function rungClauseOf(
+    appliedRung: Dollars | null,
+    documentedRung: Dollars | null,
+): string {
+    if (appliedRung === documentedRung) {
+        return appliedRung === null
+            ? 'the documented rung (the documented plan has stopped for the day)'
+            : `the documented rung of ${rungText(appliedRung)}`;
+    }
+    const documented =
+        documentedRung === null
+            ? 'the documented plan has stopped for the day'
+            : `documented rung ${rungText(documentedRung)}`;
+    return appliedRung === null
+        ? `your personal limits (they stopped the plan for the day; ${documented})`
+        : `your personal rung of ${rungText(appliedRung)} (${documented})`;
+}
+
+function rungText(rung: Dollars): string {
+    return formatUsdCents(usdCentsFromDollars(rung));
 }

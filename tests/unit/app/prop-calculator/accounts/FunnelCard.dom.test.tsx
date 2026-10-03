@@ -10,9 +10,12 @@ type FunnelRow = FunnelCardModel['rows'][number];
 function model(overrides: Partial<FunnelCardModel> = {}): FunnelCardModel {
     return {
         biggestWeakness: 'pending',
+        diagnosticIssues: [],
         disclosures: [],
         rows: [],
+        stageDollars: [],
         unresolvedNote: null,
+        untestedWeaknesses: [],
         weaknesses: [],
         ...overrides,
     };
@@ -192,5 +195,121 @@ describe('FunnelCard', () => {
                 ':scope ul[aria-label="Biggest weakness by plan"]',
             ),
         ).toHaveLength(0);
+    });
+
+    it('shows three copies as raw and independent counts per stage', () => {
+        act(() => {
+            root.render(
+                <FunnelCard
+                    model={model({
+                        rows: [
+                            row({
+                                firm: 'Alpha Prop',
+                                funded: '3 accounts, 1 independent',
+                                key: 'alpha',
+                                passed: '3 accounts, 1 independent',
+                                purchased: '3 accounts, 1 independent',
+                            }),
+                        ],
+                    })}
+                />,
+            );
+        });
+        expect(container.textContent).toContain('3 accounts, 1 independent');
+    });
+
+    it('shows fees, net payouts and net per stage under the label of the cohort they cover', () => {
+        act(() => {
+            root.render(
+                <FunnelCard
+                    model={model({
+                        rows: [row({ firm: 'Alpha Prop', key: 'alpha' })],
+                        stageDollars: [
+                            {
+                                fees: '$450.00',
+                                firm: 'Alpha Prop',
+                                key: 'alpha-purchased',
+                                net: '-$150.00',
+                                netPayouts: '$300.00',
+                                stage: 'Purchased',
+                            },
+                            {
+                                fees: '$450.00',
+                                firm: 'Alpha Prop',
+                                key: 'alpha-funded',
+                                net: '-$150.00',
+                                netPayouts: '$300.00',
+                                stage: 'Funded',
+                            },
+                        ],
+                    })}
+                />,
+            );
+        });
+        const title = [...container.querySelectorAll('h3')].find(
+            (heading) =>
+                heading.textContent ===
+                'Dollars per stage (fees of the accounts that reached this stage)',
+        );
+        const rows = [
+            ...(title?.parentElement?.querySelectorAll(':scope tbody tr') ?? []),
+        ].map((tableRow) =>
+            [...tableRow.querySelectorAll('td')].map(
+                (cell) => cell.textContent,
+            ),
+        );
+        expect(rows).toEqual([
+            ['Alpha Prop', 'Purchased', '$450.00', '$300.00', '-$150.00'],
+            ['Alpha Prop', 'Funded', '$450.00', '$300.00', '-$150.00'],
+        ]);
+    });
+
+    it('lists the untested stage gaps of every plan', () => {
+        act(() => {
+            root.render(
+                <FunnelCard
+                    model={model({
+                        rows: [row({ firm: 'Alpha Prop', key: 'alpha' })],
+                        untestedWeaknesses: [
+                            {
+                                key: 'plan-a-payouts',
+                                plan: 'Alpha Prop $50K',
+                                text: 'Payouts per paid funded account: -$20.00 per attempt, -$40.00 per month versus the engine; not tested for noise.',
+                            },
+                        ],
+                    })}
+                />,
+            );
+        });
+        const items = [
+            ...container.querySelectorAll(
+                ':scope ul[aria-label="Untested stages by plan"] li',
+            ),
+        ].map((item) => item.textContent);
+        expect(items).toEqual([
+            'Alpha Prop $50K: Payouts per paid funded account: -$20.00 per attempt, -$40.00 per month versus the engine; not tested for noise.',
+        ]);
+    });
+
+    it('says why the diagnostic could not run for a plan', () => {
+        act(() => {
+            root.render(
+                <FunnelCard
+                    model={model({
+                        diagnosticIssues: [
+                            {
+                                key: 'plan-a',
+                                plan: 'Alpha Prop $50K',
+                                text: 'The funnel diagnostic could not be computed: a modeled or realized figure is outside its valid range.',
+                            },
+                        ],
+                        rows: [row({ firm: 'Alpha Prop', key: 'alpha' })],
+                    })}
+                />,
+            );
+        });
+        expect(container.textContent).toContain(
+            'Alpha Prop $50K: The funnel diagnostic could not be computed',
+        );
     });
 });

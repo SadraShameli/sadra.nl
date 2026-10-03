@@ -25,6 +25,7 @@ import {
     accountShapeProblem,
     AccountTracking,
     findStoredFirm,
+    formatUsdCents,
     isAccountDate,
     isPaidOnOrBefore,
     latestEventOn,
@@ -65,6 +66,7 @@ import {
     type PendingPayoutCountsOutcome,
     PendingPayoutCountsStatus,
     type PersonalCaps,
+    RetainedCushionBasis,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 
@@ -408,6 +410,15 @@ export function pendingPayoutCountsIn(
         },
         status: PendingPayoutCountsStatus.Counted,
     };
+}
+
+export function personalCushionSourceOf(cushion: {
+    readonly amount: Dollars;
+    readonly basis: RetainedCushionBasis;
+}): null | string {
+    return cushion.basis === RetainedCushionBasis.PersonalOverride
+        ? `retaining ${formatUsdCents(usdCentsFromDollars(cushion.amount))} as your personal retained cushion`
+        : null;
 }
 
 export function personalPolicyIn(

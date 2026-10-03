@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -601,5 +603,51 @@ describe('propAccounts.review.stagesOn', () => {
         ).toEqual(
             mutationRejection(PropMutationRejection.MissingSnapshotField),
         );
+    });
+});
+
+describe('the stage starts loader of the review and snapshot routers', () => {
+    const ROUTERS_DIRECTORY = path.resolve(
+        import.meta.dirname,
+        '../../../../src/server/api/routers/propAccounts',
+    );
+    const LOADER_MODULE = 'stageStarts.ts';
+    const LOADER_NAMES = ['ledgerStageStarts', 'loadStageStarts'];
+
+    function sources() {
+        return readdirSync(ROUTERS_DIRECTORY)
+            .filter((file) => file.endsWith('.ts'))
+            .map((file) => ({
+                file,
+                text: readFileSync(path.join(ROUTERS_DIRECTORY, file), 'utf8'),
+            }));
+    }
+
+    it.each(LOADER_NAMES)('defines %s in exactly one module', (name) => {
+        const definers = sources()
+            .filter(({ text }) =>
+                new RegExp(String.raw`function\s+${name}\b`).test(text),
+            )
+            .map(({ file }) => file);
+        expect(definers).toEqual([LOADER_MODULE]);
+    });
+
+    it.each(['review.ts', 'snapshot.ts'])(
+        'reads the stage starts in %s through the shared module',
+        (file) => {
+            const text = readFileSync(
+                path.join(ROUTERS_DIRECTORY, file),
+                'utf8',
+            );
+            expect(text).toMatch(/from '\.\/stageStarts'/);
+        },
+    );
+
+    it('scopes the shared event query by the user id', () => {
+        const text = readFileSync(
+            path.join(ROUTERS_DIRECTORY, LOADER_MODULE),
+            'utf8',
+        );
+        expect(text).toMatch(/eq\(propAccountEvent\.userId, userId\)/);
     });
 });

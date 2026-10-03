@@ -1,4 +1,6 @@
-import { act } from 'react';
+import type * as Recharts from 'recharts';
+
+import { act, cloneElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -23,6 +25,15 @@ const toolsWorkerBox = vi.hoisted(() => ({
         setState: (state: unknown) => void;
     }[],
 }));
+
+vi.mock('recharts', async (importOriginal) => {
+    const actual = await importOriginal<typeof Recharts>();
+    return {
+        ...actual,
+        ResponsiveContainer: ({ children }: { children: ReactElement }) =>
+            cloneElement(children, { height: 200, width: 400 } as never),
+    };
+});
 
 vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(),
@@ -116,6 +127,38 @@ function fakeSimOutputs(): SimOutputs {
     } as unknown as SimOutputs;
 }
 
+function monthEndRows() {
+    return [
+        {
+            cashP10: 4100,
+            cashP50: 5300,
+            cashP90: 6100,
+            day: 21,
+            month: 1,
+            payoutsP50: 910,
+            spendP50: 495,
+        },
+        {
+            cashP10: 3900,
+            cashP50: 6200,
+            cashP90: 7700,
+            day: 42,
+            month: 2,
+            payoutsP50: 1440,
+            spendP50: 330,
+        },
+        {
+            cashP10: 4000,
+            cashP50: 7000,
+            cashP90: 9000,
+            day: 63,
+            month: 3,
+            payoutsP50: 1275,
+            spendP50: 165,
+        },
+    ];
+}
+
 function requireInput(element: Element | null): HTMLInputElement {
     if (element === null) throw new Error('expected the input to exist');
     return element as HTMLInputElement;
@@ -127,6 +170,28 @@ function setInputValue(input: HTMLInputElement, value: string): void {
         'value',
     )?.set?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function timelineResult(finalCashP50 = 7000) {
+    return {
+        cardsBoughtP50: 2,
+        cashP10: [5000, 4000],
+        cashP50: [5000, finalCashP50],
+        cashP90: [5000, 9000],
+        cumulativeSpendP10: [0, 495],
+        cumulativeSpendP50: [0, 495],
+        cumulativeSpendP90: [0, 495],
+        days: [0, 180],
+        measuredCycleDays: 42,
+        pathRuin: 0.05,
+        payoutP10: [0, 0],
+        payoutP50: [0, 0],
+        payoutP90: [0, 0],
+        pFinalNetNegative: 0.1,
+        withdrawnP10: [0, 0],
+        withdrawnP50: [0, 0],
+        withdrawnP90: [0, 0],
+    };
 }
 
 describe('BankrollView (PT-62a): no video figure renders unless the user typed the inputs', () => {
@@ -232,68 +297,169 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         expect(container.textContent).toContain('18.0%');
     });
 
-    it('never renders a closed-form projection figure without its label', () => {
+    function enterProjectionInputs(): void {
         act(() => {
-            root.render(<BankrollView />);
-        });
-        const startInput = requireInput(
-            container.querySelector('#bankroll-start'),
-        );
-        const horizonInput = requireInput(
-            container.querySelector('#bankroll-horizon'),
-        );
-        const reinvestInput = requireInput(
-            container.querySelector('#bankroll-reinvest'),
-        );
-        act(() => {
-            setInputValue(startInput, '5000');
+            setInputValue(
+                requireInput(container.querySelector('#bankroll-start')),
+                '5000',
+            );
         });
         act(() => {
-            setInputValue(horizonInput, '180');
+            setInputValue(
+                requireInput(container.querySelector('#bankroll-horizon')),
+                '180',
+            );
         });
         act(() => {
-            setInputValue(reinvestInput, '1');
+            setInputValue(
+                requireInput(container.querySelector('#bankroll-reinvest')),
+                '1',
+            );
         });
+    }
 
-        expect(container.textContent).toContain(
-            'deterministic illustration, not a forecast',
-        );
-        const projectionInstance = toolsWorkerBox.instances[1];
-        expect(projectionInstance).toBeDefined();
-
+    function succeedProjection(runId = 1): void {
         act(() => {
-            projectionInstance?.setState({
+            toolsWorkerBox.instances[1]?.setState({
                 phase: RealToolsWorkerPhase.Succeeded,
                 result: {
                     kind: ToolsResponseKind.Projection,
-                    result: {
-                        cardsBoughtP50: 2,
-                        cashP10: [5000, 4000],
-                        cashP50: [5000, 7000],
-                        cashP90: [5000, 9000],
-                        cumulativeSpendP10: [0, 495],
-                        cumulativeSpendP50: [0, 495],
-                        cumulativeSpendP90: [0, 495],
-                        days: [0, 180],
-                        measuredCycleDays: 42,
-                        pathRuin: 0.05,
-                        payoutP10: [0, 0],
-                        payoutP50: [0, 0],
-                        payoutP90: [0, 0],
-                        pFinalNetNegative: 0.1,
-                        withdrawnP10: [0, 0],
-                        withdrawnP50: [0, 0],
-                        withdrawnP90: [0, 0],
-                    },
-                    runId: 1,
+                    monthEnds: monthEndRows(),
+                    result: timelineResult(),
+                    runId,
                 },
             });
         });
+    }
+
+    it('shows no closed-form figure without bands, even with a cycle entered (PT-82 step 5)', () => {
+        act(() => {
+            root.render(<BankrollView />);
+        });
+        enterProjectionInputs();
+        act(() => {
+            setInputValue(
+                requireInput(
+                    container.querySelector('#bankroll-cycle-multiple'),
+                ),
+                '3',
+            );
+        });
+        act(() => {
+            setInputValue(
+                requireInput(container.querySelector('#bankroll-cycle-days')),
+                '30',
+            );
+        });
+
+        expect(container.textContent).not.toContain(
+            'deterministic illustration, not a forecast',
+        );
+        expect(container.textContent).not.toContain('3,645,000');
+    });
+
+    it('shows no closed-form figure beside bands until a cycle is entered, not one built from the reinvest fraction (PT-82 step 5)', () => {
+        act(() => {
+            root.render(<BankrollView />);
+        });
+        enterProjectionInputs();
+        succeedProjection();
 
         expect(container.textContent).toContain('1.40x');
+        expect(container.textContent).not.toContain(
+            'deterministic illustration, not a forecast',
+        );
+        expect(container.textContent).not.toContain('2x every 21 trading days');
+    });
+
+    it('shows the closed-form figure of the entered cycle beside bands, with the multiple and days it assumed (PT-82 step 5)', () => {
+        act(() => {
+            root.render(<BankrollView />);
+        });
+        enterProjectionInputs();
+        act(() => {
+            setInputValue(
+                requireInput(
+                    container.querySelector('#bankroll-cycle-multiple'),
+                ),
+                '3',
+            );
+        });
+        act(() => {
+            setInputValue(
+                requireInput(container.querySelector('#bankroll-cycle-days')),
+                '30',
+            );
+        });
+        succeedProjection();
+
         expect(container.textContent).toContain(
             'deterministic illustration, not a forecast',
         );
+        expect(container.textContent).toContain('3x every 30 trading days');
+        expect(container.textContent).toContain('$3,645,000');
+        expect(container.textContent).not.toContain('2x every 21 trading days');
+    });
+
+    it('draws the month-end bands and a table with a row per month in place of one final-day figure (PT-82 step 1)', () => {
+        act(() => {
+            root.render(<BankrollView />);
+        });
+        enterProjectionInputs();
+        expect(
+            container.querySelector('table[aria-label="Month-end projection"]'),
+        ).toBeNull();
+        succeedProjection();
+
+        const table = container.querySelector(
+            'table[aria-label="Month-end projection"]',
+        );
+        expect(table).not.toBeNull();
+        const rows = [...(table?.querySelectorAll('tbody tr') ?? [])];
+        expect(rows).toHaveLength(3);
+        expect(rows[0]?.textContent).toContain('1 (day 21)');
+        expect(rows[0]?.textContent).toContain('$4,100');
+        expect(rows[0]?.textContent).toContain('$5,300');
+        expect(rows[0]?.textContent).toContain('$6,100');
+        expect(rows[0]?.textContent).toContain('$910');
+        expect(rows[0]?.textContent).toContain('$495');
+        expect(rows[2]?.textContent).toContain('3 (day 63)');
+        expect(rows[2]?.textContent).toContain('$1,275');
+        expect(rows[2]?.textContent).toContain('$165');
+        expect(
+            container.querySelector(
+                '.app-prop-calculator__bankroll-month-end-chart',
+            ),
+        ).not.toBeNull();
+        expect(container.querySelectorAll('.recharts-area').length).toBe(2);
+        expect(container.textContent).not.toContain(
+            'Final bankroll (P10 / P50 / P90)',
+        );
+    });
+
+    it('sends the entered round budget in the projection request (PT-82 step 3)', () => {
+        act(() => {
+            root.render(<BankrollView />);
+        });
+        enterProjectionInputs();
+        const instance = toolsWorkerBox.instances[1];
+        const runSpy = vi.fn();
+        if (instance) instance.runSpy = runSpy;
+        act(() => {
+            setInputValue(
+                requireInput(container.querySelector('#bankroll-round-budget')),
+                '1000',
+            );
+        });
+
+        const [request] = runSpy.mock.calls.at(-1) as [
+            {
+                bankroll: { roundBudget: null | number };
+                kind: ToolsRequestKind;
+            },
+        ];
+        expect(request.kind).toBe(ToolsRequestKind.Projection);
+        expect(request.bankroll.roundBudget).toBe(1000);
     });
 
     it('shows the worker failure reason on the Setup card instead of a bare n/a when the Batch request fails', () => {
@@ -588,9 +754,144 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
 
             expect(container.textContent).toContain('1.20x');
             expect(container.textContent).toContain('1.80x');
-            expect(container.textContent).toContain(
+            expect(container.textContent).not.toContain(
                 'deterministic illustration, not a forecast',
             );
+        });
+
+        function enterTwoStrategiesInputs(horizon: string): void {
+            for (const [id, value] of [
+                ['#bankroll-two-strategies-start', '5000'],
+                ['#bankroll-two-strategies-horizon', horizon],
+                ['#bankroll-two-strategies-risk-b', '500'],
+            ] as const) {
+                act(() => {
+                    setInputValue(
+                        requireInput(container.querySelector(id)),
+                        value,
+                    );
+                });
+            }
+        }
+
+        function succeedTwoStrategies(): void {
+            const [first, second] = [
+                timelineResult(6000),
+                timelineResult(9000),
+            ];
+            act(() => {
+                toolsWorkerBox.instances[2]?.setState({
+                    phase: RealToolsWorkerPhase.Succeeded,
+                    result: {
+                        kind: ToolsResponseKind.TwoStrategies,
+                        results: [first, second],
+                        runId: 1,
+                    },
+                });
+            });
+        }
+
+        function enterCycles(): void {
+            for (const [id, value] of [
+                ['#bankroll-two-strategies-cycle-multiple-a', '5'],
+                ['#bankroll-two-strategies-cycle-days-a', '60'],
+                ['#bankroll-two-strategies-cycle-multiple-b', '3'],
+                ['#bankroll-two-strategies-cycle-days-b', '30'],
+            ] as const) {
+                act(() => {
+                    setInputValue(
+                        requireInput(container.querySelector(id)),
+                        value,
+                    );
+                });
+            }
+        }
+
+        it('prints one 5x cycle of 60 days against chained 3x cycles of 30 days as 25,000 against 45,000, labelled with the cycles it assumed (PT-82 step 4)', () => {
+            act(() => {
+                root.render(<BankrollView />);
+            });
+            enterTwoStrategiesInputs('60');
+            enterCycles();
+            succeedTwoStrategies();
+
+            const list = container.querySelector(
+                'ul[aria-label="Closed-form cycle illustration"]',
+            );
+            expect(list).not.toBeNull();
+            const items = [...(list?.querySelectorAll('li') ?? [])].map(
+                (item) => item.textContent,
+            );
+            expect(items).toEqual([
+                'deterministic illustration, not a forecast, strategy A (5x every 60 trading days): $25,000',
+                'deterministic illustration, not a forecast, strategy B (3x every 30 trading days): $45,000',
+            ]);
+        });
+
+        it('hides the closed-form figures without bands or while either cycle is incomplete (PT-82 step 5)', () => {
+            act(() => {
+                root.render(<BankrollView />);
+            });
+            enterTwoStrategiesInputs('60');
+            enterCycles();
+            expect(container.textContent).not.toContain('$25,000');
+
+            act(() => {
+                setInputValue(
+                    requireInput(
+                        container.querySelector(
+                            '#bankroll-two-strategies-cycle-days-b',
+                        ),
+                    ),
+                    '',
+                );
+            });
+            succeedTwoStrategies();
+            expect(
+                container.querySelector(
+                    'ul[aria-label="Closed-form cycle illustration"]',
+                ),
+            ).toBeNull();
+        });
+
+        it('sends the entered capacity, monthly budget, payout lag and round budget with the two-strategies request instead of null, null, 0 and null (PT-82 step 4)', () => {
+            act(() => {
+                root.render(<BankrollView />);
+            });
+            enterTwoStrategiesInputs('60');
+            const instance = toolsWorkerBox.instances[2];
+            const runSpy = vi.fn();
+            if (instance) instance.runSpy = runSpy;
+            for (const [id, value] of [
+                ['#bankroll-capacity', '3'],
+                ['#bankroll-monthly-budget', '1500'],
+                ['#bankroll-payout-lag', '7'],
+                ['#bankroll-round-budget', '900'],
+            ] as const) {
+                act(() => {
+                    setInputValue(
+                        requireInput(container.querySelector(id)),
+                        value,
+                    );
+                });
+            }
+
+            const [request] = runSpy.mock.calls.at(-1) as [
+                {
+                    bankroll: {
+                        maxConcurrentAccounts: null | number;
+                        monthlyBudget: null | number;
+                        payoutLagDays: number;
+                        roundBudget: null | number;
+                    };
+                    kind: ToolsRequestKind;
+                },
+            ];
+            expect(request.kind).toBe(ToolsRequestKind.TwoStrategies);
+            expect(request.bankroll.maxConcurrentAccounts).toBe(3);
+            expect(request.bankroll.monthlyBudget).toBe(1500);
+            expect(request.bankroll.payoutLagDays).toBe(7);
+            expect(request.bankroll.roundBudget).toBe(900);
         });
 
         it('does not double-fire the worker request when run() itself triggers a Running re-render (PT-62b CRITICAL runId-in-key fix)', () => {

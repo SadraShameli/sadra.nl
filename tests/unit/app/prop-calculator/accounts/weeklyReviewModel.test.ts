@@ -1588,7 +1588,9 @@ describe('buildWeeklyReview stage on the review date', () => {
 
 describe('buildWeeklyReview headline label', () => {
     it('calls the headline the documented one while the rulebook is the default', () => {
-        expect(readyHeadlineLabel(DEFAULT_RULEBOOK)).toBe('Documented headline');
+        expect(readyHeadlineLabel(DEFAULT_RULEBOOK)).toBe(
+            'Documented headline',
+        );
     });
 
     it('names the custom rule and the hard rule it differs from once the rulebook deviates', () => {

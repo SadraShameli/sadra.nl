@@ -1,4 +1,4 @@
-import { type z } from 'zod';
+import { z } from 'zod';
 
 import type {
     PropAccountRow,
@@ -25,6 +25,7 @@ import {
     type PayoutSizeOptimumFigures,
     type PlanValuesFigures,
     type PortfolioProjectionFigures,
+    withPreviousAccount,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { alertSubjectView } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
@@ -67,6 +68,7 @@ import {
     AlertKind,
     alertKindLabel,
     type AlertPayoutRow,
+    type AlertRoundRow,
     type AlertSeverity,
     type AlertSnapshotRow,
     AlertSubjectKind,
@@ -77,6 +79,7 @@ import {
     type CohortMultiple,
     compareText,
     type CopyGroupExposure,
+    type CostAnalytics,
     costAnalytics,
     createAlertContext,
     type CushionBoardRow as CushionBoardEntry,
@@ -99,15 +102,19 @@ import {
     feeReconciliation,
     type FirmConcentration,
     type FirmDiscountCapture,
+    type FirmFunnel,
     type FirmKey,
     firmKeyId,
     FirmKeyKind,
     firmKeyLabel,
     firmKeyOf,
+    type FirmPayoutCount,
     firmPayoutCountOrNull,
     firmPayoutCounts,
     type FirmProfitConcentration,
     firmProfitConcentrationOfContext,
+    firmReconciliation,
+    type FirmReconciliationEntry,
     type FirmReturn,
     firmReturns,
     type FirmShare,
@@ -117,7 +124,9 @@ import {
     FundedRiskBasis,
     fundingTotals,
     funnelDiagnostic,
+    FunnelDiagnosticReason,
     FunnelStage,
+    type FunnelStageDiagnosis,
     type FunnelStageFigures,
     heldPlanGroupsOf,
     isActiveAccount,
@@ -130,7 +139,9 @@ import {
     type LedgerAccountRow,
     type LedgerEventRow,
     type LedgerFeeRow,
+    type LedgerFirmStatementRow,
     type LedgerPayoutRow,
+    type LedgerRoundRow,
     ledgerTimeline,
     type LedgerTransferRow,
     LiveProximityCountStatus,
@@ -161,6 +172,7 @@ import {
     payoutSizeStats,
     type PayoutSizeStatsOptions,
     PayoutStatus,
+    payoutTiming,
     PendingFeeAttribution,
     type PlanAttemptEconomics,
     planCapUsage,
@@ -200,6 +212,7 @@ import {
     spendAndPayouts,
     stageFunnel,
     StaleSnapshotRule,
+    summarizeCash,
     type TimelineEntry,
     TimelineEntryKind,
     trackedAccountOf,
@@ -212,6 +225,7 @@ import {
     bankrollOf,
     type RealizedLossRisk,
     realizedLossRisk,
+    roundBudgetStatus,
     SCALE_GATE_STATUS_TEXT,
     scaleAtMeasuredMultiple,
     type ScaleAtMultiple,
@@ -266,6 +280,8 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import {
     conversionEvPerAttempt,
+    ECONOMICS_REASON_TEXT,
+    EconomicsReason,
     fundedProgressValue,
 } from '~/lib/prop-calculator/economics';
 import { type PortfolioTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
@@ -286,6 +302,8 @@ import { routes } from '~/lib/site/routes';
 import {
     type AccountFromStateView,
     accountFromStateViewOf,
+    evalValueLossDollarsOf,
+    previousAccountOf,
 } from './accountFromStateModel';
 import {
     type EngineSlot,
@@ -296,10 +314,19 @@ import {
     uniformSlotEngine,
 } from './engineSlot';
 import {
+    type PayoutTimingCardModel,
+    payoutTimingCardOf,
+} from './payoutTimingModel';
+import {
     estimateCurrency,
     estimatePercent,
     formatTrials,
 } from './uncertainText';
+
+export enum BankrollLossRiskKind {
+    Ready = 'ready',
+    Unavailable = 'unavailable',
+}
 
 export enum ExpectedNetStatus {
     Failed = 'failed',
@@ -330,6 +357,7 @@ export enum OverviewKpiKind {
 }
 
 export enum OverviewNoticeKind {
+    CorruptTags = 'corrupt-tags',
     EventWindow = 'event-window',
     LedgerOnlyAccounts = 'ledger-only-accounts',
     ReadIssues = 'read-issues',
@@ -348,6 +376,12 @@ export enum OverviewSectionStatus {
     Ready = 'ready',
 }
 
+export enum PayoutBalanceBandKey {
+    AboveCushion = 'above-cushion',
+    LowBalance = 'low-balance',
+    NoSnapshot = 'no-snapshot',
+}
+
 export enum PooledCapScope {
     CapScopeUnverified = 'Cap scope unverified',
     PerPlan = 'Per plan',
@@ -360,11 +394,21 @@ export enum PortfolioSource {
     Decisions = 'decisions',
     Events = 'events',
     Fees = 'fees',
+    FirmStatements = 'firmStatements',
     Payouts = 'payouts',
+    Rounds = 'rounds',
     Rulebook = 'rulebook',
     Snapshots = 'snapshots',
     Transfers = 'transfers',
     Violations = 'violations',
+}
+
+enum FunnelCohortStage {
+    FirstPayout = 'firstPayout',
+    Funded = 'funded',
+    MovedLive = 'movedLive',
+    Passed = 'passed',
+    Purchased = 'purchased',
 }
 
 export interface AttemptEconomicsCardModel {
@@ -374,6 +418,7 @@ export interface AttemptEconomicsCardModel {
 }
 
 export interface AttemptThroughputCardModel {
+    readonly countingNote: string;
     readonly meanPerActiveFirmPerMonth: null | string;
     readonly meanPerMonth: string;
     readonly months: readonly AttemptThroughputMonthRow[];
@@ -384,11 +429,36 @@ export interface BankrollCardModel {
     readonly available: string;
     readonly deposits: string;
     readonly grownFromText: null | string;
+    readonly lossRisk: BankrollLossRiskModel;
     readonly moneyWeightedReturn: string;
     readonly reinvestedPayouts: string;
     readonly scale: ScaleAtMultipleModel;
+    readonly scaleInputs: BankrollScaleInputs;
     readonly undatedPaidPayoutsCaveat: null | string;
     readonly withdrawals: string;
+}
+
+export type BankrollLossRiskModel =
+    | {
+          readonly attemptPays: string;
+          readonly attemptsAtBankroll: string;
+          readonly batchLoss: string;
+          readonly kind: BankrollLossRiskKind.Ready;
+          readonly minimumBudget: string;
+          readonly minimumBudgetNote: null | string;
+          readonly noPayout: string;
+          readonly sampleNote: string;
+      }
+    | {
+          readonly kind: BankrollLossRiskKind.Unavailable;
+          readonly reason: string;
+      };
+
+export interface BankrollScaleInputs {
+    readonly capacityFillCents: null | number;
+    readonly cohortMultiple: CohortMultiple | null;
+    readonly planLimitCents: null | number;
+    readonly sampleThresholds: SampleThresholds;
 }
 
 export interface CapUsageCardModel {
@@ -404,6 +474,7 @@ export interface CostCardModel {
     readonly byKind: readonly FeeKindAmountRow[];
     readonly disclosures: readonly string[];
     readonly discountsByFirm: readonly FirmDiscountRow[];
+    readonly discountsNote: null | string;
     readonly perPlan: readonly PlanCostRow[];
 }
 
@@ -487,9 +558,12 @@ export interface FundedPayoutsCardModel {
 
 export interface FunnelCardModel {
     readonly biggestWeakness: string;
+    readonly diagnosticIssues: readonly FunnelWeaknessRow[];
     readonly disclosures: readonly string[];
     readonly rows: readonly FunnelRow[];
+    readonly stageDollars: readonly FunnelStageDollarsRow[];
     readonly unresolvedNote: null | string;
+    readonly untestedWeaknesses: readonly FunnelWeaknessRow[];
     readonly weaknesses: readonly FunnelWeaknessRow[];
 }
 
@@ -504,7 +578,9 @@ export interface HubPortfolioInputs {
     readonly decisions: readonly OverviewDecisionRow[];
     readonly events: readonly LedgerEventRow[] | undefined;
     readonly fees: readonly LedgerFeeRow[];
+    readonly firmStatements?: readonly LedgerFirmStatementRow[];
     readonly payouts: readonly OverviewPayoutRow[];
+    readonly rounds?: readonly LedgerRoundRow[];
     readonly rulebook: RulebookParameters;
     readonly snapshots: readonly OverviewSnapshotRow[];
     readonly today: string;
@@ -546,6 +622,7 @@ export type OverviewAccountRow = AlertAccountRow &
         PropAccountRow,
         'dashboardConvention' | 'firstFundedTradeOn' | 'liveStartBalanceCents'
     > & {
+        readonly hasCorruptTags?: boolean;
         readonly personalRules?: null | PropAccountRow['personalRules'];
     };
 
@@ -636,6 +713,7 @@ export interface OverviewLedgerCards {
     readonly notices: readonly OverviewNotice[];
     readonly outcomes: OutcomesCardModel;
     readonly payoutSizes: PayoutSizesCardModel;
+    readonly payoutTiming: PayoutTimingCardModel;
     readonly pooledCaps: PooledCapCardModel;
     readonly repeatability: RepeatabilityCardModel;
     readonly replacement: ReplacementCardModel;
@@ -718,7 +796,9 @@ export type OverviewViolations =
       };
 
 export interface PayoutSizesCardModel {
+    readonly bucketWidth: string;
     readonly byAccountSize: readonly PayoutSizeGroupRow[];
+    readonly byBalance: readonly PayoutSizeBalanceRow[];
     readonly byFirm: readonly PayoutSizeFirmRow[];
     readonly byStage: readonly PayoutSizeStageRow[];
     readonly count: number;
@@ -744,6 +824,7 @@ export interface PortfolioLoad {
     readonly accounts: SectionLoad<readonly OverviewAccountRow[]>;
     readonly alerts: SectionLoad<AlertRows>;
     readonly bankrollParameters: BankrollParameters;
+    readonly checks: SectionLoad<PortfolioCheckRows>;
     readonly decisions: SectionLoad<readonly OverviewDecisionRow[]>;
     readonly failures: readonly PortfolioLoadIssue[];
     readonly ledger: SectionLoad<LedgerRows>;
@@ -762,7 +843,13 @@ export interface PortfolioLoadIssue {
 }
 
 export type PortfolioQueries = {
-    readonly [Source in PortfolioSource]: PortfolioQuery<PortfolioRows[Source]>;
+    readonly [Source in CheckPortfolioSource]?: PortfolioQuery<
+        PortfolioRows[Source]
+    >;
+} & {
+    readonly [Source in RequiredPortfolioSource]: PortfolioQuery<
+        PortfolioRows[Source]
+    >;
 };
 
 export interface PortfolioRows {
@@ -771,7 +858,9 @@ export interface PortfolioRows {
     readonly [PortfolioSource.Decisions]: readonly OverviewDecisionRow[];
     readonly [PortfolioSource.Events]: readonly LedgerEventRow[];
     readonly [PortfolioSource.Fees]: readonly LedgerFeeRow[];
+    readonly [PortfolioSource.FirmStatements]: readonly LedgerFirmStatementRow[];
     readonly [PortfolioSource.Payouts]: readonly OverviewPayoutRow[];
+    readonly [PortfolioSource.Rounds]: readonly LedgerRoundRow[];
     readonly [PortfolioSource.Rulebook]: RulebookParameters;
     readonly [PortfolioSource.Snapshots]: readonly OverviewSnapshotRow[];
     readonly [PortfolioSource.Transfers]: readonly LedgerTransferRow[];
@@ -850,6 +939,7 @@ export interface ReadinessBoardCardModel {
 }
 
 export interface RepeatabilityCardModel {
+    readonly basisNote: string;
     readonly overall: null | RepeatabilityStatsRow;
     readonly perSlot: null | RepeatabilityStatsRow;
     readonly perSlotTargetNote: null | string;
@@ -901,6 +991,7 @@ export interface StatementChartPoint {
 
 export interface TiltVarianceCardModel {
     readonly disclosure: string;
+    readonly droppedNote: null | string;
     readonly rows: readonly TiltVarianceCardRow[];
 }
 
@@ -923,7 +1014,9 @@ interface AttemptEconomicsRow {
     readonly attempts: string;
     readonly averagePayout: string;
     readonly breakevenPassRate: string;
+    readonly formula: string;
     readonly fundedValue: string;
+    readonly fundedValueToAttemptCost: string;
     readonly key: string;
     readonly marginAboveBreakeven: string;
     readonly modeledEvPerAttempt: string;
@@ -952,6 +1045,9 @@ interface CapUsageRow {
     readonly plan: string;
     readonly used: string;
 }
+
+type CheckPortfolioSource =
+    PortfolioSource.FirmStatements | PortfolioSource.Rounds;
 
 interface CushionBoardRow {
     readonly account: string;
@@ -1036,6 +1132,7 @@ interface FirmAttemptCostRow {
     readonly attemptsSampleLevel: null | SampleLevel;
     readonly costPerAttempt: string;
     readonly firm: string;
+    readonly impliedAttempts: string;
     readonly key: string;
     readonly retryFeeAttempts: string;
 }
@@ -1059,6 +1156,7 @@ interface FirmReturnRow {
     readonly accountsWithPayout: string;
     readonly attempts: string;
     readonly attemptsSampleLevel: null | SampleLevel;
+    readonly coverageNote: null | string;
     readonly firm: string;
     readonly firstPayoutOn: string;
     readonly fundedAccounts: string;
@@ -1078,9 +1176,11 @@ interface FundedPayoutsRow {
     readonly key: string;
     readonly modeledCounts: null | readonly string[];
     readonly modeledFundedValue: string;
+    readonly modeledProbabilities: null | readonly number[];
     readonly openAccounts: string;
     readonly plan: string;
     readonly realizedFundedValue: string;
+    readonly realizedProbabilities: readonly number[];
 }
 
 interface FunnelRow {
@@ -1100,9 +1200,20 @@ interface FunnelRow {
     readonly withinPlanBusts: string;
 }
 
+interface FunnelStageDollarsRow {
+    readonly fees: string;
+    readonly firm: string;
+    readonly key: string;
+    readonly net: string;
+    readonly netPayouts: string;
+    readonly stage: string;
+}
+
 interface FunnelWeaknessAnalysis {
+    readonly issues: readonly FunnelWeaknessRow[];
     readonly rows: readonly FunnelWeaknessRow[];
     readonly untested: readonly UntestedFunnelGap[];
+    readonly untestedRows: readonly FunnelWeaknessRow[];
 }
 
 interface FunnelWeaknessRow {
@@ -1136,13 +1247,23 @@ interface LiveProximityFirmRow {
 
 interface OutcomesRow {
     readonly fundedSurvival: string;
+    readonly fundedSurvivalCounts: string;
     readonly key: string;
     readonly modeledFundedSurvival: string;
     readonly modeledPassRate: string;
     readonly openFunded: string;
     readonly passRate: string;
+    readonly passRateCounts: string;
     readonly plan: string;
     readonly sessionsToFunded: string;
+}
+
+interface PayoutSizeBalanceRow {
+    readonly count: string;
+    readonly key: PayoutBalanceBandKey;
+    readonly label: string;
+    readonly mean: string;
+    readonly median: string;
 }
 
 interface PayoutSizeFirmRow {
@@ -1168,15 +1289,27 @@ interface PayoutSizeStageRow {
 
 interface PlanCostRow {
     readonly acquisitionSpend: string;
+    readonly attempts: string;
+    readonly attemptsSampleLevel: null | SampleLevel;
+    readonly costPerAttempt: string;
     readonly costPerFunded: string;
     readonly fundedAccounts: string;
     readonly fundedSampleLevel: null | SampleLevel;
+    readonly impliedAttempts: string;
     readonly key: string;
     readonly modeled: string;
     readonly pendingEvalAccounts: string;
     readonly pendingSpend: string;
     readonly plan: string;
     readonly realizedMinusModeled: string;
+}
+
+interface PlanFunnelFinding {
+    readonly dollarChangePerMonth: number;
+    readonly issue: FunnelWeaknessRow | null;
+    readonly row: FunnelWeaknessRow | null;
+    readonly untested: null | UntestedFunnelGap;
+    readonly untestedRows: readonly FunnelWeaknessRow[];
 }
 
 interface PooledCapRow {
@@ -1188,6 +1321,11 @@ interface PooledCapRow {
     readonly poolFreeSlots: string;
     readonly scope: PooledCapScope;
     readonly used: string;
+}
+
+interface PortfolioCheckRows {
+    readonly firmStatements: readonly LedgerFirmStatementRow[];
+    readonly rounds: readonly LedgerRoundRow[];
 }
 
 interface PortfolioQuery<Data> {
@@ -1237,6 +1375,8 @@ interface ReplacementRow {
     readonly rebuyLag: string;
     readonly unmeasured: string;
 }
+
+type RequiredPortfolioSource = Exclude<PortfolioSource, CheckPortfolioSource>;
 
 interface SetupItemRow {
     readonly href: string;
@@ -1401,12 +1541,25 @@ const SOURCE_LABEL: Readonly<Record<PortfolioSource, string>> = {
     [PortfolioSource.Decisions]: 'sizing decisions',
     [PortfolioSource.Events]: 'account events',
     [PortfolioSource.Fees]: 'fees',
+    [PortfolioSource.FirmStatements]: 'firm statements',
     [PortfolioSource.Payouts]: 'payouts',
+    [PortfolioSource.Rounds]: 'rounds',
     [PortfolioSource.Rulebook]: 'rulebook',
     [PortfolioSource.Snapshots]: 'latest balances',
     [PortfolioSource.Transfers]: 'bankroll deposits and withdrawals',
     [PortfolioSource.Violations]: 'rule violations',
 };
+
+const FUNNEL_COHORT_STAGES: readonly {
+    readonly label: string;
+    readonly stage: FunnelCohortStage;
+}[] = [
+    { label: 'Purchased', stage: FunnelCohortStage.Purchased },
+    { label: 'Passed', stage: FunnelCohortStage.Passed },
+    { label: 'Funded', stage: FunnelCohortStage.Funded },
+    { label: 'First payout', stage: FunnelCohortStage.FirstPayout },
+    { label: 'Moved live', stage: FunnelCohortStage.MovedLive },
+];
 
 const PENDING_FEE_ATTRIBUTION_TEXT: Readonly<
     Record<PendingFeeAttribution, string>
@@ -1450,7 +1603,7 @@ export const DEFAULT_REALIZED_HORIZON_DAYS = 365;
 const REALIZED_LOSS_RISK_DRAWS = 2000;
 const REALIZED_LOSS_RISK_SEED = 42;
 const TO_FIRST_PAYOUT_FALLBACK_DAYS = 30;
-const REALIZED_HORIZON_DISCLOSURE = `No engine run is being compared, so this counts a funded account as decided once it is at least ${String(DEFAULT_REALIZED_HORIZON_DAYS)} calendar days past funding (an approximation of the simulator's default funded horizon of roughly one trading year); younger funded accounts are shown separately, not counted as failures.`;
+const REALIZED_HORIZON_DISCLOSURE = `No engine run is being compared, so this counts a funded account as decided once it has ended or is at least ${String(DEFAULT_REALIZED_HORIZON_DAYS)} calendar days past funding (an approximation of the simulator's default funded horizon of roughly one trading year); a younger funded account that is still open is listed open and left out of the payout counts, the realized funded value, the payouts per paid funded account and the average payout, while the payout rate counts an account that has already been paid as decided at once.`;
 const MODELED_PAYOUT_DISTRIBUTION_READY =
     "The modeled payout-count distribution is the engine's share of funded accounts by number of payouts within its funded horizon.";
 const MODELED_PAYOUT_DISTRIBUTION_PENDING =
@@ -1458,16 +1611,27 @@ const MODELED_PAYOUT_DISTRIBUTION_PENDING =
 const LOW_BALANCE_MONITORING_NOT_WIRED_DISCLOSURE =
     'Low-balance monitoring against the retained cushion is not wired to a stored account balance yet, so no payout is ever flagged here; a clean result is not verified.';
 const LOW_BALANCE_APPROXIMATED_DISCLOSURE =
-    'Low-balance monitoring compares each payout to the latest recorded snapshot balance, not the balance on the day the payout was paid, so a payout made before the most recent snapshot can be misclassified.';
+    'Low-balance monitoring compares each payout to the latest snapshot on or before the payout date, not the balance on the day the payout was paid, so a payout made long after its last earlier snapshot can be misclassified.';
 const FUNNEL_DIAGNOSTIC_PENDING_TEXT =
     'The biggest-weakness ranking is pending the engine cards: no modeled run is compared against these realized numbers yet.';
 const FUNNEL_STAGE_LABEL: Readonly<Record<FunnelStage, string>> = {
+    [FunnelStage.AttemptCost]: 'Attempt cost',
     [FunnelStage.AveragePayout]: 'Average payout',
     [FunnelStage.PassRate]: 'Pass rate',
     [FunnelStage.PayoutRate]: 'Payout rate',
     [FunnelStage.PayoutsPerPaidFunded]: 'Payouts per paid funded account',
 };
 const STATEMENT_MULTIPLE_CAVEAT = 'calendar months mix purchase cohorts';
+const MAJORITY_VOTE_RULE =
+    'Accounts bought together in one copy group count once: the group counts as a success only when more than half of its accounts succeeded, and a tie counts as a failure.';
+const ATTEMPT_COUNTING_NOTE =
+    'Attempt throughput counts started attempts; cost per attempt counts decided attempts only, so the two rates do not cover the same attempts.';
+const FUNNEL_DIAGNOSTIC_INVALID_TEXT =
+    'The funnel diagnostic could not be computed: a modeled or realized figure is outside its valid range, such as a rate above 100 percent or a negative amount.';
+const REPEATABILITY_BASIS_NOTE =
+    'Mean, standard deviation, worst, best and share positive are net per month. The share at or above target compares payouts per month with your monthly payout target.';
+const NO_ATTEMPT_COST_TEXT =
+    'No attempt cost is recorded yet, so the realized loss risk cannot be computed.';
 const SENTENCE_END = /[.!?]$/u;
 
 const NOT_AVAILABLE = 'Not available';
@@ -1522,7 +1686,6 @@ const REQUEST_RUN_LABEL: Readonly<Record<OverviewRequestKind, string>> = {
 
 const EXPOSURE_BASIS_LABEL: Readonly<Record<ExposureBasis, string>> = {
     [ExposureBasis.DocumentedDollars]: 'Documented dollars',
-    [ExposureBasis.PlacedContracts]: 'Placed contracts',
 };
 
 const EXPOSURE_DISCLOSURES: readonly string[] = [
@@ -1580,6 +1743,15 @@ const ADHERENCE_BASIS_NOTE =
 
 const NO_ALERT_EXTRAS: AlertExtras = {};
 
+const NO_EVAL_LOSSES: ReadonlyMap<string, number> = new Map();
+
+const ENTERED_MONTHLY_BUDGET_SCHEMA = z
+    .string()
+    .trim()
+    .regex(/^\d{1,9}(?:\.\d{1,2})?$/u)
+    .transform((text) => Math.round(Number(text) * CENTS_PER_DOLLAR))
+    .pipe(z.number().int().positive());
+
 const PORTFOLIO_EVALUATOR = new AlertEvaluator(DEFAULT_ALERT_RULES);
 
 const ALERT_SOURCES = [
@@ -1588,6 +1760,11 @@ const ALERT_SOURCES = [
     PortfolioSource.Payouts,
     PortfolioSource.Rulebook,
     PortfolioSource.Snapshots,
+] as const;
+
+const CHECK_SOURCES = [
+    PortfolioSource.FirmStatements,
+    PortfolioSource.Rounds,
 ] as const;
 
 const LEDGER_SOURCES = [
@@ -1610,8 +1787,12 @@ interface AccountFromStateEntry {
 
 interface AlertExtras {
     readonly availableBankrollCents?: null | UsdCents;
+    readonly checksGap?: SectionLoadGap;
     readonly decisions?: readonly OverviewDecisionRow[];
     readonly decisionsCaveat?: null | string;
+    readonly evalValueLossDollars?: ReadonlyMap<string, number>;
+    readonly firmReconciliation?: readonly FirmReconciliationEntry[];
+    readonly rounds?: readonly AlertRoundRow[];
 }
 
 type AlertRows = Pick<PortfolioRows, (typeof ALERT_SOURCES)[number]>;
@@ -1716,15 +1897,17 @@ export function alertExtrasOf(
     load: PortfolioLoad,
     today: string,
     userId: string,
+    engine?: OverviewEngine,
 ): AlertExtras {
-    return {
-        availableBankrollCents: availableBankrollCentsFor(load, today, userId),
-        decisions:
-            load.decisions.status === OverviewSectionStatus.Ready
-                ? load.decisions.rows
-                : [],
-        decisionsCaveat: decisionsCaveatFor(load),
-    };
+    return alertExtrasWith(
+        load,
+        today,
+        userId,
+        engine,
+        engine === undefined
+            ? NO_ACCOUNT_STATES
+            : accountStatesFromLoad(userId, today, load),
+    );
 }
 
 export function alertsFor(
@@ -1748,6 +1931,9 @@ export function alertsFor(
             return { kind: OverviewSectionStatus.Pending };
         }
         case OverviewSectionStatus.Ready: {
+            if (extras.checksGap !== undefined) {
+                return checksGapAlerts(extras.checksGap);
+            }
             return {
                 accountStatesCaveat: combinedNote(
                     accountStatesCaveatFor(accountStatesSource),
@@ -1795,7 +1981,7 @@ export function buildOverview({
     userId,
 }: OverviewInputs): OverviewModel {
     const accountStates = accountStatesFromLoad(userId, today, load);
-    const extras = alertExtrasOf(load, today, userId);
+    const extras = alertExtrasWith(load, today, userId, engine, accountStates);
     const realizedRisk = realizedLossRiskFor(load, today, userId);
     const firms = firmNames(externalFirms);
     const context =
@@ -1825,6 +2011,7 @@ export function buildOverview({
         load.decisions,
         engine,
         load.rulebook,
+        realizedRisk,
     );
     return {
         alerts: alertsFor(
@@ -1860,7 +2047,7 @@ export function buildOverview({
         setup: setupFor(load, userId, context, engine),
         violations: violationsFor(
             load.violations,
-            netCashCentsFor(load, userId),
+            netCashCentsFor(load, userId, today),
         ),
     };
 }
@@ -1887,6 +2074,11 @@ export function decisionsCaveatFor(load: PortfolioLoad): null | string {
             return null;
         }
     }
+}
+
+export function enteredMonthlyBudgetCentsOf(text: string): null | number {
+    const parsed = ENTERED_MONTHLY_BUDGET_SCHEMA.safeParse(text);
+    return parsed.success ? parsed.data : null;
 }
 
 export function feeKindLabel(kind: FeeKind): string {
@@ -1928,7 +2120,9 @@ export function hubPortfolioOf(inputs: HubPortfolioInputs): HubPortfolio {
                       accounts: inputs.accounts,
                       events,
                       fees: inputs.fees,
+                      firmStatements: inputs.firmStatements ?? [],
                       payouts: inputs.payouts,
+                      rounds: inputs.rounds ?? [],
                       transfers: inputs.transfers,
                   });
                   const { lossRiskThreshold } = inputs.rulebook.bankroll;
@@ -1964,6 +2158,8 @@ export function hubPortfolioOf(inputs: HubPortfolioInputs): HubPortfolio {
             {
                 availableBankrollCents: ledgerFigures?.available ?? null,
                 decisions: inputs.decisions,
+                ...(ledgerFigures !== null &&
+                    reconciliationExtrasOfLedger(ledgerFigures.ledger)),
             },
         ),
     );
@@ -2078,16 +2274,17 @@ export function portfolioAlerts(inputs: AlertInputs): readonly AccountAlert[] {
 }
 
 export function portfolioLoad(queries: PortfolioQueries): PortfolioLoad {
-    const sources = Object.values(PortfolioSource);
+    const supplied = suppliedQueriesOf(queries);
     return {
         accounts: accountsLoad(queries),
         alerts: alertsLoad(queries),
         bankrollParameters: bankrollParametersOf(queries),
+        checks: checksLoad(queries),
         decisions: decisionsLoad(queries),
-        failures: sources
-            .filter((source) => isFailed(queries[source]))
-            .map((source) => ({
-                message: readableError(queries[source].error),
+        failures: supplied
+            .filter(([, query]) => isFailed(query))
+            .map(([source, query]) => ({
+                message: readableError(query.error),
                 source,
                 title: `Your ${SOURCE_LABEL[source]} could not be loaded`,
             })),
@@ -2095,10 +2292,10 @@ export function portfolioLoad(queries: PortfolioQueries): PortfolioLoad {
         retainedCushionCents: retainedCushionCentsOf(queries),
         rulebook: queries[PortfolioSource.Rulebook].data ?? null,
         sampleThresholds: sampleThresholdsOf(queries),
-        stale: sources
-            .filter((source) => isStale(queries[source]))
-            .map((source) => ({
-                message: `${readableError(queries[source].error)} The figures below use the last loaded ${SOURCE_LABEL[source]}.`,
+        stale: supplied
+            .filter(([, query]) => isStale(query))
+            .map(([source, query]) => ({
+                message: `${readableError(query.error)} The figures below use the last loaded ${SOURCE_LABEL[source]}.`,
                 source,
                 title: `Your ${SOURCE_LABEL[source]} could not be refreshed`,
             })),
@@ -2135,6 +2332,23 @@ export function scaleAtMultipleModel(
                 : 'projected monthly',
         sampleLevel: scale.sampleLevel,
     };
+}
+
+export function scaleModelAtBudget(
+    inputs: BankrollScaleInputs,
+    enteredMonthlyCents: null | number,
+): ScaleAtMultipleModel {
+    return scaleAtMultipleModel(
+        scaleAtMeasuredMultiple(
+            inputs.cohortMultiple,
+            {
+                capacityFillCents: inputs.capacityFillCents,
+                enteredMonthlyCents,
+                planLimitCents: inputs.planLimitCents,
+            },
+            inputs.sampleThresholds,
+        ),
+    );
 }
 
 export function setupChecklistCardOf(
@@ -2197,6 +2411,16 @@ function accountFromStateEntriesOf(
     const names = planNames(ledger);
     const stats = replacementStats(ledger);
     const firmCounts = firmPayoutCounts(ledger, today);
+    const firmCountsByDate = new Map<string, readonly FirmPayoutCount[]>([
+        [today, firmCounts],
+    ]);
+    const firmCountsAt = (asOf: string): readonly FirmPayoutCount[] => {
+        const known = firmCountsByDate.get(asOf);
+        if (known !== undefined) return known;
+        const counts = firmPayoutCounts(ledger, asOf);
+        firmCountsByDate.set(asOf, counts);
+        return counts;
+    };
     const { accounts, payouts, snapshots } = alerts.rows;
     const entries: AccountFromStateEntry[] = [];
     for (const { accountId, state } of accountStates) {
@@ -2210,48 +2434,61 @@ function accountFromStateEntriesOf(
         if (row === undefined || !isActiveAccount(row)) continue;
         const tracked = trackedAccountOf(accountStateAccountRowOf(row));
         if (!isModeledAccount(tracked)) continue;
-        const { latest } = latestTwoSnapshots(
-            snapshots
-                .filter(
-                    (snapshot) =>
-                        snapshot.accountId === accountId &&
-                        snapshot.userId === userId,
-                )
-                .map(accountStateSnapshotRowOf),
-        );
+        const accountSnapshots = snapshots
+            .filter(
+                (snapshot) =>
+                    snapshot.accountId === accountId &&
+                    snapshot.userId === userId,
+            )
+            .map(accountStateSnapshotRowOf);
+        const { latest } = latestTwoSnapshots(accountSnapshots);
         const { plan } = state;
         const firmCount = firmPayoutCountOrNull(firmCounts, plan.id.firm);
         if (firmCount === null) continue;
+        const accountEvents = section.rows.events.filter(
+            (event) => event.accountId === accountId && event.userId === userId,
+        );
+        const accountPayouts = payouts.filter(
+            (payout) =>
+                payout.accountId === accountId && payout.userId === userId,
+        );
         const { input, pendingPayoutCounts, personalMaxRiskPerTrade } =
             snapshotInputFrom(
                 plan,
                 tracked,
                 latest,
-                section.rows.events.filter(
-                    (event) =>
-                        event.accountId === accountId &&
-                        event.userId === userId,
-                ),
-                payouts.filter(
-                    (payout) =>
-                        payout.accountId === accountId &&
-                        payout.userId === userId,
-                ),
+                accountEvents,
+                accountPayouts,
                 today,
                 firmCount,
             );
         const planSerial = serializePlanId(plan.id);
-        const request = accountFromStateRequestOf({
-            account: input,
-            measuredRebuyLag: measuredRebuyLagOfDefault(
-                rebuyLagDefault(stats, planSerial),
-            ),
-            pendingPayoutCounts,
-            personalMaxRiskPerTrade,
-            personalRules: row.personalRules,
-            plan,
-            rulebook,
-        });
+        const measuredRebuyLag = measuredRebuyLagOfDefault(
+            rebuyLagDefault(stats, planSerial),
+        );
+        const request = withPreviousAccount(
+            accountFromStateRequestOf({
+                account: input,
+                measuredRebuyLag,
+                pendingPayoutCounts,
+                personalMaxRiskPerTrade,
+                personalRules: row.personalRules,
+                plan,
+                rulebook,
+            }),
+            previousAccountOf({
+                accountId,
+                events: accountEvents,
+                firmCountAt: (asOf) =>
+                    firmPayoutCountOrNull(firmCountsAt(asOf), plan.id.firm),
+                payouts: accountPayouts,
+                plan,
+                rulebook,
+                snapshots: accountSnapshots,
+                state,
+                tracked,
+            }),
+        );
         if (request === undefined) continue;
         entries.push({
             accountId,
@@ -2349,6 +2586,36 @@ function activeSlotsOf(usage: PlanCapUsage): ReadonlyMap<string, number> {
     );
 }
 
+function alertExtrasWith(
+    load: PortfolioLoad,
+    today: string,
+    userId: string,
+    engine: OverviewEngine | undefined,
+    accountStates: readonly AccountStateEntry[],
+): AlertExtras {
+    return {
+        availableBankrollCents: availableBankrollCentsFor(load, today, userId),
+        ...(load.checks.status !== OverviewSectionStatus.Ready && {
+            checksGap: load.checks,
+        }),
+        decisions:
+            load.decisions.status === OverviewSectionStatus.Ready
+                ? load.decisions.rows
+                : [],
+        decisionsCaveat: decisionsCaveatFor(load),
+        ...(engine !== undefined && {
+            evalValueLossDollars: evalValueLossDollarsFor(
+                load,
+                userId,
+                today,
+                accountStates,
+                engine,
+            ),
+        }),
+        ...reconciliationExtrasFor(load, userId),
+    };
+}
+
 function alertInputsOf(
     rows: AlertRows,
     today: string,
@@ -2365,12 +2632,32 @@ function alertInputsOf(
         availableBankrollCents: extras.availableBankrollCents ?? null,
         copyGroups,
         decisions: extras.decisions ?? [],
+        evalValueLossDollars: extras.evalValueLossDollars ?? NO_EVAL_LOSSES,
         events: eventsOverride ?? eventsFrom(accountStatesSource),
+        firmReconciliation: extras.firmReconciliation ?? [],
         payouts,
         realizedLossRisk: realizedLossRiskInput,
+        rounds: extras.rounds ?? [],
         rulebook,
         snapshots,
         today,
+    };
+}
+
+function alertRoundOf(
+    ledger: PortfolioLedger,
+    round: LedgerRoundRow,
+): AlertRoundRow {
+    const members = ledger.membersOfRound(round.id);
+    const { spend } = summarizeCash(
+        members.flatMap((entry) => entry.fees),
+        [],
+    );
+    return {
+        budget: roundBudgetStatus(round.budgetCents, spend),
+        id: round.id,
+        label: round.label,
+        status: round.status,
     };
 }
 
@@ -2444,10 +2731,14 @@ function attemptEconomicsRow(
             decomposition === null
                 ? NOT_APPLICABLE
                 : formatOptionalPercent(decomposition.breakevenPassRate.value),
-        fundedValue:
+        formula:
             decomposition === null
                 ? NOT_APPLICABLE
-                : formatCurrency(decomposition.fundedValue),
+                : `Pass rate ${formatPercent(decomposition.passProbability)} x funded value ${formatCurrency(decomposition.fundedValue)} - attempt cost ${formatCurrency(decomposition.attemptCost)} = ${formatCurrency(decomposition.expectedNetPerAttempt)} per attempt`,
+        fundedValue: formatSampledCents(row.fundedValue),
+        fundedValueToAttemptCost:
+            decomposition?.fundedValueToAttemptCost.value?.label ??
+            NOT_APPLICABLE,
         key: row.planSerial,
         marginAboveBreakeven: marginAboveBreakevenLabel(
             row.marginAboveBreakeven,
@@ -2478,10 +2769,9 @@ function attemptEconomicsRow(
             SampleKind.FundedAccounts,
             sampleThresholds,
         ),
-        payoutsPerPaidFunded:
-            row.payoutsPerPaidFunded === null
-                ? NOT_APPLICABLE
-                : row.payoutsPerPaidFunded.toFixed(2),
+        payoutsPerPaidFunded: formatSampledCount(
+            row.payoutsPerPaidFundedEstimate,
+        ),
         plan: names.of(row.planSerial),
         realizedEvPerAttempt:
             row.realizedEvPerAttempt === null
@@ -2497,6 +2787,7 @@ function attemptThroughputCard(
 ): AttemptThroughputCardModel {
     const throughput = attemptThroughput(ledger, today);
     return {
+        countingNote: ATTEMPT_COUNTING_NOTE,
         meanPerActiveFirmPerMonth: formatOptionalMeanAttempts(
             throughput.meanPerActiveFirmPerMonth,
         ),
@@ -2535,6 +2826,7 @@ function bankrollCard(
     sampleThresholds: SampleThresholds,
     bankrollParameters: BankrollParameters,
     capUsage: PlanCapUsage,
+    realizedRisk: null | RealizedLossRisk,
 ): BankrollCardModel {
     const bankroll = bankrollOf(ledger, today);
     const { dailyAccountCapacity } = bankrollParameters;
@@ -2546,18 +2838,15 @@ function bankrollCard(
         cheapestAttemptCents,
         dailyAccountCapacity,
     );
-    const scale = scaleAtMeasuredMultiple(
-        pooledEndedCohortMultiple(ledger),
-        {
-            capacityFillCents,
-            enteredMonthlyCents: null,
-            planLimitCents:
-                capacityFillCents === null
-                    ? null
-                    : planLimitBudgetCentsOf(cheapestAttemptCents, capUsage),
-        },
+    const scaleInputs: BankrollScaleInputs = {
+        capacityFillCents,
+        cohortMultiple: pooledEndedCohortMultiple(ledger),
+        planLimitCents:
+            capacityFillCents === null
+                ? null
+                : planLimitBudgetCentsOf(cheapestAttemptCents, capUsage),
         sampleThresholds,
-    );
+    };
     return {
         available: formatUsdCents(usdCents(bankroll.availableCents)),
         deposits: formatUsdCents(usdCents(bankroll.depositsCents)),
@@ -2565,6 +2854,7 @@ function bankrollCard(
             bankroll.depositsCents === 0
                 ? null
                 : `Grown from ${formatUsdCents(usdCents(bankroll.depositsCents))} injected.`,
+        lossRisk: bankrollLossRiskModelOf(realizedRisk),
         moneyWeightedReturn:
             bankroll.moneyWeightedReturn === null
                 ? NOT_APPLICABLE
@@ -2572,11 +2862,50 @@ function bankrollCard(
         reinvestedPayouts: formatUsdCents(
             usdCents(bankroll.reinvestedPayoutsCents),
         ),
-        scale: scaleAtMultipleModel(scale),
+        scale: scaleModelAtBudget(scaleInputs, null),
+        scaleInputs,
         undatedPaidPayoutsCaveat: undatedPaidPayoutsCaveatOf(
             bankroll.undatedPaidPayouts,
         ),
         withdrawals: formatUsdCents(usdCents(bankroll.withdrawalsCents)),
+    };
+}
+
+function bankrollLossRiskModelOf(
+    risk: null | RealizedLossRisk,
+): BankrollLossRiskModel {
+    if (risk === null) {
+        return {
+            kind: BankrollLossRiskKind.Unavailable,
+            reason: NO_ATTEMPT_COST_TEXT,
+        };
+    }
+    const { batchLossProbability, minimumBudget } = risk;
+    return {
+        attemptPays:
+            risk.attemptPaysRate === null
+                ? NOT_APPLICABLE
+                : formatSampledRateWithoutLevel(risk.attemptPaysRate),
+        attemptsAtBankroll:
+            risk.attempts === null ? NOT_APPLICABLE : String(risk.attempts),
+        batchLoss:
+            batchLossProbability === null
+                ? NOT_APPLICABLE
+                : `${formatPercent(batchLossProbability.value)}${batchLossProbability.standardError === null ? '' : ` (SE ${formatPercent(batchLossProbability.standardError)})`}`,
+        kind: BankrollLossRiskKind.Ready,
+        minimumBudget:
+            minimumBudget.value === null
+                ? NOT_APPLICABLE
+                : formatCurrency(minimumBudget.value),
+        minimumBudgetNote:
+            minimumBudget.value === null
+                ? minimumBudgetNoteOf(minimumBudget.reason)
+                : null,
+        noPayout:
+            risk.noPayoutProbability === null
+                ? NOT_APPLICABLE
+                : formatPercent(risk.noPayoutProbability),
+        sampleNote: `Measured from ${counted({ count: risk.sampleCount, plural: 'attempts', singular: 'attempt' })} decided within ${risk.toFirstPayoutDays.toFixed(1)} days of funding (${risk.toFirstPayoutMeasured ? 'measured' : 'assumed'}).`,
     };
 }
 
@@ -2768,6 +3097,43 @@ function checkedCount(status: LiveProximityCountStatus, count: number): string {
     return status === LiveProximityCountStatus.NotChecked
         ? COUNT_NOT_CHECKED_TEXT
         : String(count);
+}
+
+function checksGapAlerts(gap: SectionLoadGap): OverviewAlerts {
+    switch (gap.status) {
+        case OverviewSectionStatus.Failed: {
+            return {
+                kind: OverviewSectionStatus.Failed,
+                message: `Alerts could not be checked because your ${sourceList(gap.failed)} could not be loaded.`,
+            };
+        }
+        case OverviewSectionStatus.Pending: {
+            return { kind: OverviewSectionStatus.Pending };
+        }
+    }
+}
+
+function checksLoad(
+    queries: PortfolioQueries,
+): SectionLoad<PortfolioCheckRows> {
+    const statements = queries[PortfolioSource.FirmStatements];
+    const rounds = queries[PortfolioSource.Rounds];
+    const supplied = CHECK_SOURCES.filter(
+        (source) => queries[source] !== undefined,
+    );
+    if (
+        (statements !== undefined && statements.data === undefined) ||
+        (rounds !== undefined && rounds.data === undefined)
+    ) {
+        return loadGap(queries, supplied);
+    }
+    return {
+        rows: {
+            firmStatements: statements?.data ?? [],
+            rounds: rounds?.data ?? [],
+        },
+        status: OverviewSectionStatus.Ready,
+    };
 }
 
 function concentrationBasisDisclosure(
@@ -2965,6 +3331,7 @@ function costCard(
             ),
             costPerAttempt: optionalCents(row.costPerAttempt),
             firm: firms.of(row.firmKey),
+            impliedAttempts: firmImpliedAttemptsText(row),
             key: firmKeyId(row.firmKey),
             retryFeeAttempts: String(row.retryFeeAttempts),
         })),
@@ -2991,8 +3358,16 @@ function costCard(
         discountsByFirm: reconciliation.byFirm
             .filter((row) => row.discountCents !== 0)
             .map((row) => firmDiscountRow(row, firms)),
+        discountsNote: excludedFeeRowsNoteOf(reconciliation.excludedFeeRows),
         perPlan: analytics.perPlan.map((row) => ({
             acquisitionSpend: formatUsdCents(row.acquisitionSpend),
+            attempts: String(row.attempts),
+            attemptsSampleLevel: sampleAdequacy(
+                SampleKind.EvalAttempts,
+                row.attempts,
+                sampleThresholds,
+            ),
+            costPerAttempt: optionalCents(row.costPerAttempt),
             costPerFunded: optionalCents(row.costPerFundedAccount),
             fundedAccounts: String(row.fundedAccounts),
             fundedSampleLevel: sampleAdequacy(
@@ -3000,6 +3375,10 @@ function costCard(
                 row.fundedAccounts,
                 sampleThresholds,
             ),
+            impliedAttempts:
+                row.impliedAttempts === null
+                    ? NOT_APPLICABLE
+                    : row.impliedAttempts.toFixed(2),
             key: row.planSerial,
             modeled: modeledCostText(
                 row.modeledCostPerFundedAccount,
@@ -3028,6 +3407,7 @@ function costCardDisclosures(
     const ready = readyDocumentedFigures(engine);
     return [
         PENDING_FEE_ATTRIBUTION_TEXT[analytics.pendingFeeAttribution],
+        ATTEMPT_COUNTING_NOTE,
         ready === null
             ? engine.failure === null
                 ? MODELED_COST_PENDING
@@ -3212,6 +3592,21 @@ function engineViewOf(
     };
 }
 
+function evalValueLossDollarsFor(
+    load: PortfolioLoad,
+    userId: string,
+    today: string,
+    accountStates: readonly AccountStateEntry[],
+    engine: OverviewEngine,
+): ReadonlyMap<string, number> {
+    const computed = ledgerOrDateFailure(() =>
+        accountFromStateEntriesOf(load, userId, today, accountStates),
+    );
+    return computed.kind === OverviewSectionStatus.Ready
+        ? evalValueLossDollarsOf(computed.value, engine)
+        : NO_EVAL_LOSSES;
+}
+
 function eventsFrom(
     accountStatesSource: null | PortfolioLoad['ledger'],
 ): readonly LedgerEventRow[] | undefined {
@@ -3367,6 +3762,11 @@ function evSourcesFor(
               kind: OverviewSectionStatus.Failed,
               message: `Where EV comes from could not be computed: ${computed.message} Fix the stored date listed in the alerts.`,
           };
+}
+
+function excludedFeeRowsNoteOf(excludedFeeRows: number): null | string {
+    if (excludedFeeRows === 0) return null;
+    return `${counted({ count: excludedFeeRows, plural: 'fee rows', singular: 'fee row' })} of ledger-only and unmodeled accounts ${excludedFeeRows === 1 ? 'has' : 'have'} no plan to price against and ${excludedFeeRows === 1 ? 'is' : 'are'} not in this table.`;
 }
 
 function expectedNetCard(
@@ -3750,31 +4150,38 @@ function exposureGroupRow(
     };
 }
 
-function firmActiveMonthWindow(
-    months: AttemptThroughput['perFirm'][number]['months'],
-): AttemptThroughput['perFirm'][number]['months'] {
-    const firstActive = months.findIndex((month) => month.attempts > 0);
-    if (firstActive === -1) return [];
-    const lastActive = months.findLastIndex((month) => month.attempts > 0);
-    return months.slice(firstActive, lastActive + 1);
-}
-
 function firmAttemptThroughputRow(
     row: AttemptThroughput['perFirm'][number],
     firms: FirmNames,
 ): FirmAttemptThroughputRow {
-    const activeWindow = firmActiveMonthWindow(row.months);
-    const monthlyMean =
-        activeWindow.length === 0
-            ? 0
-            : activeWindow.reduce((sum, month) => sum + month.attempts, 0) /
-              activeWindow.length;
     return {
         firm: firms.of(row.firmKey),
         key: firmKeyId(row.firmKey),
-        meanPerMonth: monthlyMean.toFixed(2),
+        meanPerMonth: row.meanPerMonth.toFixed(2),
         months: attemptThroughputMonthRows(row.months),
     };
+}
+
+function firmCoverageNoteOf(row: FirmReturn): null | string {
+    const parts = [
+        row.unresolvedAccounts === 0
+            ? null
+            : counted({
+                  count: row.unresolvedAccounts,
+                  plural: 'accounts with a plan that is no longer modeled',
+                  singular: 'account with a plan that is no longer modeled',
+              }),
+        row.ledgerOnlyAccounts === 0
+            ? null
+            : counted({
+                  count: row.ledgerOnlyAccounts,
+                  plural: 'ledger-only accounts',
+                  singular: 'ledger-only account',
+              }),
+    ].filter((part): part is string => part !== null);
+    if (parts.length === 0) return null;
+    const total = row.unresolvedAccounts + row.ledgerOnlyAccounts;
+    return `${joinWithAnd(parts)} ${total === 1 ? 'has' : 'have'} no timeline in this firm row.`;
 }
 
 function firmDateText(entry: FirmVerificationDate): string {
@@ -3797,6 +4204,31 @@ function firmDiscountRow(
     };
 }
 
+function firmImpliedAttemptsText(
+    row: CostAnalytics['byFirmAttemptCost'][number],
+): string {
+    const leftOut = [
+        row.plansWithoutListPrice === 0
+            ? null
+            : counted({
+                  count: row.plansWithoutListPrice,
+                  plural: 'plans without a list price',
+                  singular: 'plan without a list price',
+              }),
+        row.accountsWithoutPlan === 0
+            ? null
+            : counted({
+                  count: row.accountsWithoutPlan,
+                  plural: 'accounts without a plan',
+                  singular: 'account without a plan',
+              }),
+    ].filter((part): part is string => part !== null);
+    const implied = row.impliedAttempts.toFixed(2);
+    return leftOut.length === 0
+        ? implied
+        : `${implied} (leaves out ${joinWithAnd(leftOut)})`;
+}
+
 function firmNames(externalFirms: readonly ExternalFirmName[]): FirmNames {
     return { of: (firmKey) => firmKeyLabel(firmKey, externalFirms) };
 }
@@ -3815,6 +4247,7 @@ function firmReturnRow(
             row.attempts,
             sampleThresholds,
         ),
+        coverageNote: firmCoverageNoteOf(row),
         firm: firms.of(row.firmKey),
         firstPayoutOn: row.firstPayoutOn ?? NOT_APPLICABLE,
         fundedAccounts: String(row.fundedAccounts),
@@ -3940,15 +4373,24 @@ function formatSampledCents(estimate: null | SampledEstimate): string {
     return `${value}${ciText}, n = ${String(estimate.n)}`;
 }
 
+function formatSampledCount(estimate: null | SampledEstimate): string {
+    return estimate === null
+        ? NOT_APPLICABLE
+        : `${estimate.value.toFixed(2)}, n = ${String(estimate.n)}`;
+}
+
 function formatSampledRate(
     estimate: null | SampledEstimate,
     kind: SampleKind,
     thresholds: SampleThresholds,
 ): string {
-    if (estimate === null) return NOT_APPLICABLE;
-    const level = sampleAdequacy(kind, estimate.n, thresholds);
+    const level = sampleAdequacy(kind, estimate?.n ?? 0, thresholds);
     const levelText = level === null ? '' : `, ${SAMPLE_LEVEL_LABEL[level]}`;
-    return `${formatSampledRateWithoutLevel(estimate)}${levelText}`;
+    const figure =
+        estimate === null
+            ? `${NOT_APPLICABLE} (n = 0)`
+            : formatSampledRateWithoutLevel(estimate);
+    return `${figure}${levelText}`;
 }
 
 function formatSampledRateWithoutLevel(estimate: SampledEstimate): string {
@@ -4012,11 +4454,17 @@ function fundedPayoutsCard(
                 modeledFundedValue: engineText(modeled, (figures) =>
                     estimateCurrency(figures.expectedPayoutPerFundedAccount),
                 ),
+                modeledProbabilities:
+                    ready === null ||
+                    ready.fundedPayoutCountDistribution.length === 0
+                        ? null
+                        : ready.fundedPayoutCountDistribution,
                 openAccounts: String(row.openAccounts),
                 plan: names.of(row.planSerial),
                 realizedFundedValue: formatSampledCents(
                     row.realizedFundedValue,
                 ),
+                realizedProbabilities: row.probabilities,
             };
         }),
     };
@@ -4067,9 +4515,11 @@ function funnelCard(
             : null;
     return {
         biggestWeakness: biggestWeaknessLine(weaknessAnalysis, engine),
+        diagnosticIssues: weaknessAnalysis.issues,
         disclosures: [
             realizedHorizonDisclosureOf(engine),
             bustSplitDisclosureFor(violations, decisions),
+            ...(funnel.byFirm.length === 0 ? [] : [MAJORITY_VOTE_RULE]),
         ],
         rows: funnel.byFirm.map((row) => {
             const payoutRate =
@@ -4085,19 +4535,19 @@ function funnelCard(
             return {
                 fees: formatUsdCents(row.feesCents),
                 firm: firms.of(row.firmKey),
-                firstPayout: String(row.firstPayout),
-                funded: String(row.funded),
+                firstPayout: stageCountText(row, FunnelCohortStage.FirstPayout),
+                funded: stageCountText(row, FunnelCohortStage.Funded),
                 key: firmKeyId(row.firmKey),
-                movedLive: String(row.movedLive),
+                movedLive: stageCountText(row, FunnelCohortStage.MovedLive),
                 net: formatUsdCents(row.netCents),
                 netPayouts: formatUsdCents(row.netPayoutsCents),
-                passed: String(row.passed),
+                passed: stageCountText(row, FunnelCohortStage.Passed),
                 payoutRate: formatSampledRate(
                     payoutRate,
                     SampleKind.FundedAccounts,
                     sampleThresholds,
                 ),
-                purchased: String(row.purchased),
+                purchased: stageCountText(row, FunnelCohortStage.Purchased),
                 structuralBusts:
                     bustSplit === null
                         ? NOT_APPLICABLE
@@ -4112,11 +4562,46 @@ function funnelCard(
                         : String(busts.withinPlanBusts),
             };
         }),
+        stageDollars: funnel.byFirm.flatMap((row) =>
+            FUNNEL_COHORT_STAGES.map(({ label, stage }) => ({
+                fees: formatUsdCents(row.stages[stage].feesCents),
+                firm: firms.of(row.firmKey),
+                key: `${firmKeyId(row.firmKey)}-${stage}`,
+                net: formatUsdCents(row.stages[stage].netCents),
+                netPayouts: formatUsdCents(row.stages[stage].netPayoutsCents),
+                stage: label,
+            })),
+        ),
         unresolvedNote: combinedNote(
             unresolvedNote(funnel.unresolvedAccounts),
             ledgerOnlyFunnelNote(funnel.ledgerOnlyAccounts),
         ),
+        untestedWeaknesses: weaknessAnalysis.untestedRows,
         weaknesses: weaknessAnalysis.rows,
+    };
+}
+
+function funnelNoiseVerdictsOf(
+    row: PlanAttemptEconomics,
+    figures: DocumentedRunFigures,
+): Readonly<
+    Partial<Record<FunnelStage.PassRate | FunnelStage.PayoutRate, boolean>>
+> {
+    return {
+        ...(row.passRate !== null && {
+            [FunnelStage.PassRate]: isBeyondNoise(
+                row.passRate,
+                figures.attemptPassProbability,
+                { sharedSeed: false },
+            ),
+        }),
+        ...(row.payoutRate !== null && {
+            [FunnelStage.PayoutRate]: isBeyondNoise(
+                row.payoutRate,
+                figures.anyPayoutGivenFundedProbability,
+                { sharedSeed: false },
+            ),
+        }),
     };
 }
 
@@ -4155,35 +4640,8 @@ function funnelStageFiguresOf(
     };
 }
 
-function funnelStageNoiseVerdict(
-    stage: FunnelStage,
-    row: PlanAttemptEconomics,
-    figures: DocumentedRunFigures,
-): boolean | null {
-    switch (stage) {
-        case FunnelStage.AveragePayout:
-        case FunnelStage.PayoutsPerPaidFunded: {
-            return null;
-        }
-        case FunnelStage.PassRate: {
-            return (
-                row.passRate !== null &&
-                isBeyondNoise(row.passRate, figures.attemptPassProbability, {
-                    sharedSeed: false,
-                })
-            );
-        }
-        case FunnelStage.PayoutRate: {
-            return (
-                row.payoutRate !== null &&
-                isBeyondNoise(
-                    row.payoutRate,
-                    figures.anyPayoutGivenFundedProbability,
-                    { sharedSeed: false },
-                )
-            );
-        }
-    }
+function funnelStageGapText(stage: FunnelStageDiagnosis): string {
+    return `${FUNNEL_STAGE_LABEL[stage.stage]}: ${formatCurrency(stage.dollarChangePerAttempt, 2)} per attempt, ${formatCurrency(stage.dollarChangePerMonth, 2)} per month versus the engine`;
 }
 
 function funnelWeaknessesOf(
@@ -4197,59 +4655,81 @@ function funnelWeaknessesOf(
         today,
         realizedHorizonDaysOf(engine),
     );
-    const found = economics.perPlan.flatMap((row) => {
+    const found = economics.perPlan.flatMap((row): PlanFunnelFinding[] => {
         const slot = documentedSlotOf(engine, row.planSerial);
         if (slot?.kind !== EngineSlotKind.Ready) return [];
         const stageFigures = funnelStageFiguresOf(row, slot.figures);
         if (stageFigures === null) return [];
+        const plan = names.of(row.planSerial);
         const diagnostic = funnelDiagnostic(
             stageFigures.realized,
             stageFigures.modeled,
             planAttemptsPerMonth(ledger, row.planSerial, today),
+            funnelNoiseVerdictsOf(row, slot.figures),
         );
-        const largest = diagnostic.stages?.find(
+        if (diagnostic.stages === null) {
+            return diagnostic.reason === FunnelDiagnosticReason.InvalidFigures
+                ? [
+                      {
+                          dollarChangePerMonth: 0,
+                          issue: {
+                              key: row.planSerial,
+                              plan,
+                              text: FUNNEL_DIAGNOSTIC_INVALID_TEXT,
+                          },
+                          row: null,
+                          untested: null,
+                          untestedRows: [],
+                      },
+                  ]
+                : [];
+        }
+        const losing = diagnostic.stages.filter(
             (stage) => stage.dollarChangePerAttempt < 0,
         );
-        const worst = diagnostic.stages?.find(
-            (stage) =>
-                stage.dollarChangePerAttempt < 0 &&
-                funnelStageNoiseVerdict(stage.stage, row, slot.figures) ===
-                    true,
-        );
+        const worst = losing.find((stage) => stage.isBeyondNoise === true);
+        const [largest] = losing;
         return [
             {
                 dollarChangePerMonth: worst?.dollarChangePerMonth ?? 0,
+                issue: null,
                 row:
                     worst === undefined
                         ? null
                         : {
                               key: row.planSerial,
-                              plan: names.of(row.planSerial),
-                              text: `${FUNNEL_STAGE_LABEL[worst.stage]}: ${formatCurrency(worst.dollarChangePerAttempt, 2)} per attempt, ${formatCurrency(worst.dollarChangePerMonth, 2)} per month versus the engine.`,
+                              plan,
+                              text: `${funnelStageGapText(worst)}.`,
                           },
                 untested:
-                    largest !== undefined &&
-                    funnelStageNoiseVerdict(
-                        largest.stage,
-                        row,
-                        slot.figures,
-                    ) === null
+                    largest?.isBeyondNoise === null
                         ? {
                               key: row.planSerial,
-                              plan: names.of(row.planSerial),
+                              plan,
                               stage: FUNNEL_STAGE_LABEL[largest.stage],
                           }
                         : null,
+                untestedRows: losing
+                    .filter((stage) => stage.isBeyondNoise === null)
+                    .map((stage) => ({
+                        key: `${row.planSerial}-${stage.stage}`,
+                        plan,
+                        text: `${funnelStageGapText(stage)}; not tested for noise.`,
+                    })),
             },
         ];
     });
     return {
+        issues: found.flatMap((entry) =>
+            entry.issue === null ? [] : [entry.issue],
+        ),
         rows: found
             .toSorted((a, b) => a.dollarChangePerMonth - b.dollarChangePerMonth)
             .flatMap((entry) => (entry.row === null ? [] : [entry.row])),
         untested: found.flatMap((entry) =>
             entry.untested === null ? [] : [entry.untested],
         ),
+        untestedRows: found.flatMap((entry) => entry.untestedRows),
     };
 }
 
@@ -4313,18 +4793,30 @@ function householdNoteOf(
 
 function hubSetupCardOf(checklist: SetupChecklist): SetupChecklistCardModel {
     const card = setupChecklistCardOf(checklist);
-    const unchecked = card.steps.filter(
-        (step) => step.status === SetupStepStatus.NotChecked,
-    ).length;
+    const shown = card.steps.filter(
+        (step) =>
+            step.status !== SetupStepStatus.NotChecked &&
+            step.status !== SetupStepStatus.NotApplicable,
+    );
     return {
         ...card,
-        isComplete: card.steps.every(
-            (step) =>
-                step.status === SetupStepStatus.Done ||
-                step.status === SetupStepStatus.NotChecked,
-        ),
-        totalSteps: card.totalSteps - unchecked,
+        isComplete:
+            shown.every((step) => step.status !== SetupStepStatus.Missing) &&
+            shown.some(
+                (step) =>
+                    step.key !== SetupStep.BudgetSet &&
+                    step.status === SetupStepStatus.Done,
+            ),
+        totalSteps: shown.length,
     };
+}
+
+function independentCountsText(
+    raw: number,
+    independent: number,
+    unit: Pick<Counted, 'plural' | 'singular'>,
+): string {
+    return `${counted({ count: raw, ...unit })}, ${String(independent)} independent`;
 }
 
 function isAccountTriggerUnverified(group: PlanGroup): boolean {
@@ -4336,8 +4828,10 @@ function isAccountTriggerUnverified(group: PlanGroup): boolean {
     );
 }
 
-function isFailed(query: PortfolioQuery<unknown>): boolean {
-    return query.data === undefined && hasError(query.error);
+function isFailed(query: PortfolioQuery<unknown> | undefined): boolean {
+    return (
+        query !== undefined && query.data === undefined && hasError(query.error)
+    );
 }
 
 function isFirmTriggerUnverified(groups: readonly PlanGroup[]): boolean {
@@ -4360,8 +4854,8 @@ function isLiveTriggerListChecked(
     );
 }
 
-function isStale(query: PortfolioQuery<unknown>): boolean {
-    return query.data !== undefined && hasError(query.error);
+function isStale(query: PortfolioQuery<unknown> | undefined): boolean {
+    return query?.data !== undefined && hasError(query.error);
 }
 
 function kpiRow(
@@ -4370,8 +4864,12 @@ function kpiRow(
     perSlot: RealizedNetPerSlot,
     expectedNet: OverviewKpi,
 ): OverviewKpi[] {
-    const cash = spendAndPayouts(ledger).allTime;
     const roi = portfolioRoi(ledger, today);
+    const { cash } = roi;
+    const cashNote = combinedNote(
+        futureDatedRowsNoteOf(roi.futureDatedRows),
+        undatedPaidPayoutsCaveatOf(roi.undatedPaidPayouts),
+    );
     const funding = fundingTotals(ledger);
     const pooled = perSlot.pooled;
     const averagePayout = payoutSizeStats(ledger).mean;
@@ -4387,7 +4885,7 @@ function kpiRow(
                     : `After ${formatUsdCents(cash.refunds)} in refunds`,
             kind: OverviewKpiKind.Spend,
             label: 'Spend',
-            note: null,
+            note: cashNote,
             tone: KpiTone.Neutral,
             value: formatUsdCents(cash.spend),
         },
@@ -4395,7 +4893,7 @@ function kpiRow(
             detail: paidPayoutsDetail(cash.paidPayouts, cash.grossOnlyPayouts),
             kind: OverviewKpiKind.PayoutsReceived,
             label: 'Payouts received',
-            note: null,
+            note: cashNote,
             tone: KpiTone.Neutral,
             value: formatUsdCents(cash.payouts),
         },
@@ -4403,7 +4901,7 @@ function kpiRow(
             detail: 'Payouts received minus spend',
             kind: OverviewKpiKind.Net,
             label: 'Net',
-            note: null,
+            note: cashNote,
             tone: toneOf(cash.net),
             value: formatUsdCents(cash.net),
         },
@@ -4432,7 +4930,7 @@ function kpiRow(
                     : `${ROI_BASIS_LABEL[roi.annualised.basis]}: ${formatOptionalPercent(roi.annualised.value)}`,
             kind: OverviewKpiKind.Roi,
             label: ROI_BASIS_LABEL[roi.total.basis],
-            note: undatedPaidPayoutsCaveatOf(roi.undatedPaidPayouts),
+            note: cashNote,
             tone: toneOf(roi.total.value ?? 0),
             value: formatOptionalPercent(roi.total.value),
         },
@@ -4443,7 +4941,7 @@ function kpiRow(
                     : 'Payouts received divided by spend',
             kind: OverviewKpiKind.PayoutMultiple,
             label: 'Payout multiple',
-            note: null,
+            note: cashNote,
             tone:
                 cash.spend === 0
                     ? KpiTone.Neutral
@@ -4503,6 +5001,8 @@ function ledgerCards(
     violations: PortfolioLoad['violations'],
     decisions: PortfolioLoad['decisions'],
     engine: EngineView,
+    realizedRisk: null | RealizedLossRisk,
+    unreadableTagAccounts: readonly OverviewAccountRow[],
 ): OverviewLedgerCards {
     const names = planNames(ledger);
     const statement = monthlyStatement(ledger, today, statementTargets);
@@ -4524,6 +5024,7 @@ function ledgerCards(
             sampleThresholds,
             bankrollParameters,
             capUsage,
+            realizedRisk,
         ),
         capUsage: capUsageCard(capUsage, names),
         cost: costCard(ledger, names, firms, sampleThresholds, engine),
@@ -4549,13 +5050,18 @@ function ledgerCards(
             firms,
             snapshots,
         ),
-        notices: ledgerNotices(ledger, today),
+        notices: ledgerNotices(ledger, today, unreadableTagAccounts),
         outcomes: outcomesCard(ledger, names, sampleThresholds, engine),
         payoutSizes: payoutSizesCard(
             ledger,
             firms,
             snapshots,
             retainedCushionCents,
+        ),
+        payoutTiming: payoutTimingCardOf(
+            payoutTiming(ledger, today),
+            names,
+            sampleThresholds,
         ),
         pooledCaps: pooledCapCard(ledger, names, firms),
         repeatability: repeatabilityCard(
@@ -4598,6 +5104,7 @@ function ledgerLoad(queries: PortfolioQueries): SectionLoad<LedgerRows> {
 function ledgerNotices(
     ledger: PortfolioLedger,
     today: string,
+    unreadableTagAccounts: readonly OverviewAccountRow[],
 ): OverviewNotice[] {
     const mismatched = ledger.resolvedAccounts.filter(
         (entry) => !entry.timelineMatchesRow,
@@ -4657,11 +5164,18 @@ function ledgerNotices(
             message: `${counted({ count: unreadable.length, plural: 'accounts', singular: 'account' })} ${isSingular ? 'has' : 'have'} saved caps and limits that cannot be read (${labelsOf(unreadable)}), so ${isSingular ? 'it is' : 'they are'} read-only and ${isSingular ? 'gets' : 'get'} no sizing advice until the stored data is repaired.`,
         });
     }
+    if (unreadableTagAccounts.length > 0) {
+        const isSingular = unreadableTagAccounts.length === 1;
+        notices.push({
+            kind: OverviewNoticeKind.CorruptTags,
+            message: `${counted({ count: unreadableTagAccounts.length, plural: 'accounts', singular: 'account' })} ${isSingular ? 'has' : 'have'} saved tags that cannot be read (${unreadableTagAccounts.map((account) => account.label).join(', ')}), so they show as none; ${isSingular ? 'saving the account' : 'saving each account'} with at least one tag replaces them.`,
+        });
+    }
     if (undatedPaidPayouts > 0) {
         const isSingular = undatedPaidPayouts === 1;
         notices.push({
             kind: OverviewNoticeKind.UndatedPaidPayouts,
-            message: `${counted({ count: undatedPaidPayouts, plural: 'paid payouts', singular: 'paid payout' })} ${isSingular ? 'has' : 'have'} no paid date; ${isSingular ? 'it counts' : 'they count'} in the all-time totals but in no month.`,
+            message: `${counted({ count: undatedPaidPayouts, plural: 'paid payouts', singular: 'paid payout' })} ${isSingular ? 'has' : 'have'} no paid date; ${isSingular ? 'it is' : 'they are'} left out of the as-of cash totals and of every month, while the firm and plan tables still count ${isSingular ? 'it' : 'them'}.`,
         });
     }
     if (perSlot.unmeasuredFundedAccounts > 0) {
@@ -4936,6 +5450,13 @@ function marginAboveBreakevenLabel(margin: boolean | null): string {
     return margin ? 'Above breakeven' : 'Not above breakeven';
 }
 
+function minimumBudgetNoteOf(reason: EconomicsReason): string {
+    const base = `The minimum budget is not shown: ${ECONOMICS_REASON_TEXT[reason]}.`;
+    return reason === EconomicsReason.ThresholdNotSet
+        ? `${base} Set a loss-risk threshold in the rulebook.`
+        : base;
+}
+
 function modeledCostMap(
     engine: EngineView,
 ): ReadonlyMap<string, ModeledFundedCost> {
@@ -4976,11 +5497,15 @@ function modeledOutcomesDisclosure(engine: EngineView): string {
         : `The modeled pass rate and survival are not available: ${asSentence(engine.failure)}`;
 }
 
-function netCashCentsFor(load: PortfolioLoad, userId: string): null | UsdCents {
+function netCashCentsFor(
+    load: PortfolioLoad,
+    userId: string,
+    today: string,
+): null | UsdCents {
     if (load.ledger.status !== OverviewSectionStatus.Ready) return null;
     try {
         const ledger = PortfolioLedger.fromRows(userId, load.ledger.rows);
-        return spendAndPayouts(ledger).allTime.net;
+        return portfolioRoi(ledger, today).cash.net;
     } catch (error) {
         if (error instanceof IsoDateError) return null;
         throw error;
@@ -5077,6 +5602,7 @@ function outcomesCard(
                 : [
                       `Funded survival counts every account that reached funded; ${String(open)} still open ${isSingular ? 'is' : 'are'} counted as ${isSingular ? 'a survivor' : 'survivors'}, so the rate is an upper bound until ${isSingular ? 'it closes' : 'they close'}.`,
                   ]),
+            ...(outcomes.perPlan.length === 0 ? [] : [MAJORITY_VOTE_RULE]),
             ...(outcomes.ledgerOnlyAccounts === 0
                 ? []
                 : [
@@ -5090,6 +5616,11 @@ function outcomesCard(
                 row.fundedSurvival,
                 SampleKind.FundedAccounts,
                 sampleThresholds,
+            ),
+            fundedSurvivalCounts: independentCountsText(
+                row.fundedSurvivalAccounts,
+                row.fundedSurvival?.n ?? 0,
+                { plural: 'accounts', singular: 'account' },
             ),
             key: row.planSerial,
             modeledFundedSurvival: engineText(
@@ -5111,6 +5642,13 @@ function outcomesCard(
                       row.passRate,
                       SampleKind.EvalAttempts,
                       sampleThresholds,
+                  ),
+            passRateCounts: row.instantFunded
+                ? 'Instant funded'
+                : independentCountsText(
+                      row.passRateAttempts,
+                      row.passRate?.n ?? 0,
+                      { plural: 'attempts', singular: 'attempt' },
                   ),
             plan: names.of(row.planSerial),
             sessionsToFunded: row.instantFunded
@@ -5147,6 +5685,7 @@ function overviewLedger(
     decisions: PortfolioLoad['decisions'],
     engine: OverviewEngine,
     rulebook: null | RulebookParameters,
+    realizedRisk: null | RealizedLossRisk,
 ): OverviewLedger {
     switch (section.status) {
         case OverviewSectionStatus.Failed: {
@@ -5172,6 +5711,7 @@ function overviewLedger(
                 decisions,
                 engine,
                 rulebook,
+                realizedRisk,
             );
         }
     }
@@ -5192,6 +5732,20 @@ function payoutPolicyLabel(requestSize: null | number): string {
     return requestSize === null
         ? 'Full request only, request size not resolved because the plan is not modeled'
         : `Full request only, ${formatCurrency(requestSize)} request`;
+}
+
+function payoutSizeBalanceRow(
+    key: PayoutBalanceBandKey,
+    label: string,
+    band: PayoutSizeStats['byBalance'][keyof PayoutSizeStats['byBalance']],
+): PayoutSizeBalanceRow {
+    return {
+        count: String(band.count),
+        key,
+        label,
+        mean: formatSampledCents(band.mean),
+        median: optionalCents(band.median),
+    };
 }
 
 function payoutSizeDisclosures(
@@ -5255,9 +5809,27 @@ function payoutSizesCard(
     );
     const hasCushion = retainedCushionCents !== null && snapshots.length > 0;
     return {
+        bucketWidth: formatUsdCents(roundCents(stats.bucketWidthCents)),
         byAccountSize: stats.byAccountSize.map((row) =>
             payoutSizeGroupRow(row),
         ),
+        byBalance: [
+            payoutSizeBalanceRow(
+                PayoutBalanceBandKey.LowBalance,
+                'Low balance at payout',
+                stats.byBalance.lowBalance,
+            ),
+            payoutSizeBalanceRow(
+                PayoutBalanceBandKey.AboveCushion,
+                'Above the retained cushion',
+                stats.byBalance.aboveCushion,
+            ),
+            payoutSizeBalanceRow(
+                PayoutBalanceBandKey.NoSnapshot,
+                'No snapshot on or before the payout',
+                stats.byBalance.noSnapshot,
+            ),
+        ],
         byFirm: stats.byFirm.map((row) => payoutSizeFirmRow(row, firms)),
         byStage: stats.byStage.map((row) => payoutSizeStageRow(row)),
         count: stats.count,
@@ -5733,6 +6305,7 @@ function readyLedger(
     decisions: PortfolioLoad['decisions'],
     engine: OverviewEngine,
     rulebook: null | RulebookParameters,
+    realizedRisk: null | RealizedLossRisk,
 ): OverviewLedger {
     const computed = ledgerOrDateFailure(() => {
         const ledger = PortfolioLedger.fromRows(userId, rows);
@@ -5752,6 +6325,8 @@ function readyLedger(
                 engineRequestsOfLedger(ledger, rulebook),
                 rulebook !== null,
             ),
+            realizedRisk,
+            rows.accounts.filter((row) => row.hasCorruptTags === true),
         );
     });
     switch (computed.kind) {
@@ -5808,7 +6383,7 @@ function realizedHorizonDisclosureOf(engine: EngineView): string {
     const tradingDays = engineHorizonTradingDaysOf(engine);
     return tradingDays === null
         ? REALIZED_HORIZON_DISCLOSURE
-        : `Realized figures use the engine's funded horizon of ${String(tradingDays)} trading days (about ${String(calendarHorizonDaysOf(tradingDays))} calendar days), so each funded account is compared over the same window as the modeled run; younger funded accounts are shown separately, not counted as failures.`;
+        : `Realized figures use the engine's funded horizon of ${String(tradingDays)} trading days (about ${String(calendarHorizonDaysOf(tradingDays))} calendar days), so each funded account is compared over the same window as the modeled run; a younger funded account that is still open is listed open and left out of the payout counts, the realized funded value, the payouts per paid funded account and the average payout, while the payout rate counts an account that has already been paid as decided at once.`;
 }
 
 function realizedLossRiskFor(
@@ -5846,6 +6421,39 @@ function realizedLossRiskOf(
         seed: REALIZED_LOSS_RISK_SEED,
         toFirstPayoutFallbackDays: TO_FIRST_PAYOUT_FALLBACK_DAYS,
     });
+}
+
+function reconciliationExtrasFor(
+    load: PortfolioLoad,
+    userId: string,
+): Pick<AlertExtras, 'firmReconciliation' | 'rounds'> {
+    if (
+        load.ledger.status !== OverviewSectionStatus.Ready ||
+        load.checks.status !== OverviewSectionStatus.Ready
+    ) {
+        return {};
+    }
+    const { firmStatements, rounds } = load.checks.rows;
+    const { rows } = load.ledger;
+    const computed = ledgerOrDateFailure(() =>
+        reconciliationExtrasOfLedger(
+            PortfolioLedger.fromRows(userId, {
+                ...rows,
+                firmStatements,
+                rounds,
+            }),
+        ),
+    );
+    return computed.kind === OverviewSectionStatus.Ready ? computed.value : {};
+}
+
+function reconciliationExtrasOfLedger(
+    ledger: PortfolioLedger,
+): Required<Pick<AlertExtras, 'firmReconciliation' | 'rounds'>> {
+    return {
+        firmReconciliation: firmReconciliation(ledger),
+        rounds: ledger.rounds.map((round) => alertRoundOf(ledger, round)),
+    };
 }
 
 function refusalOf<Figures>(
@@ -6037,6 +6645,13 @@ function setupStepDetail(result: SetupStepResult): null | string {
     }
 }
 
+function stageCountText(row: FirmFunnel, stage: FunnelCohortStage): string {
+    return independentCountsText(row[stage], row.independent[stage], {
+        plural: 'accounts',
+        singular: 'account',
+    });
+}
+
 function staleSnapshotAccountIdsOf(
     alerts: readonly AccountAlert[],
 ): ReadonlySet<string> {
@@ -6048,6 +6663,15 @@ function staleSnapshotAccountIdsOf(
                 : [],
         ),
     );
+}
+
+function suppliedQueriesOf(
+    queries: PortfolioQueries,
+): readonly (readonly [PortfolioSource, PortfolioQuery<unknown>])[] {
+    return Object.values(PortfolioSource).flatMap((source) => {
+        const query: PortfolioQuery<unknown> | undefined = queries[source];
+        return query === undefined ? [] : [[source, query] as const];
+    });
 }
 
 function survivalBasisDisclosure(engine: EngineView): readonly string[] {
@@ -6205,11 +6829,23 @@ const MIN_MONTHS_FOR_DEVIATION = 2;
 const PER_SLOT_TARGET_NOTE =
     'The per-slot target divides the portfolio-wide monthly target evenly across the funded slots active that month.';
 
+function droppedViolationsNoteOf(count: number): null | string {
+    if (count === 0) return null;
+    const isSingular = count === 1;
+    return `${counted({ count, plural: 'recorded violations', singular: 'recorded violation' })} ${isSingular ? 'belongs' : 'belong'} to no listed account and ${isSingular ? 'is' : 'are'} not in this split.`;
+}
+
 function formatCohortMultiple(cohort: CohortMultiple | null): string {
     if (cohort === null) return NOT_APPLICABLE;
     return cohort.value === null
         ? `${NOT_APPLICABLE}, n = ${String(cohort.n)}`
         : `${formatMultiple(cohort.value)} (P10-P90 ${cohort.interval.lower.toFixed(2)}x to ${cohort.interval.upper.toFixed(2)}x), n = ${String(cohort.n)}`;
+}
+
+function futureDatedRowsNoteOf(count: number): null | string {
+    if (count === 0) return null;
+    const isSingular = count === 1;
+    return `${counted({ count, plural: 'fee or paid payout rows', singular: 'fee or paid payout row' })} ${isSingular ? 'is' : 'are'} dated after today and ${isSingular ? 'is' : 'are'} left out of the as-of cash.`;
 }
 
 function netCashBucketsOf(ledger: PortfolioLedger): readonly NetCashBucket[] {
@@ -6245,6 +6881,12 @@ function readyTiltVarianceCard(
     violations: readonly OverviewViolationRow[],
 ): TiltVarianceCardModel {
     const split = tiltVarianceSplitOf({
+        firmKeyByAccount: new Map(
+            ledger.accounts.map((entry) => [
+                entry.row.id,
+                firmKeyOf(entry.row),
+            ]),
+        ),
         netCashByBucket: netCashBucketsOf(ledger),
         violations,
     });
@@ -6274,6 +6916,7 @@ function readyTiltVarianceCard(
     }
     return {
         disclosure: split.disclosure,
+        droppedNote: droppedViolationsNoteOf(split.droppedViolations),
         rows: byFirmMonth
             .values()
             .toArray()
@@ -6302,6 +6945,7 @@ function repeatabilityCard(
 ): RepeatabilityCardModel {
     const stats = repeatability(statement, slots, target);
     return {
+        basisNote: REPEATABILITY_BASIS_NOTE,
         overall: repeatabilityStatsRow(stats.overall),
         perSlot: repeatabilityStatsRow(stats.perSlot),
         perSlotTargetNote: target === null ? null : PER_SLOT_TARGET_NOTE,
@@ -6323,9 +6967,7 @@ function repeatabilityStatsRow(
                       : formatSampledRateWithoutLevel(
                             stats.shareAtOrAboveTarget,
                         ),
-              sharePositive: formatSampledRateWithoutLevel(
-                  stats.sharePositive,
-              ),
+              sharePositive: formatSampledRateWithoutLevel(stats.sharePositive),
               standardDeviation:
                   stats.count < MIN_MONTHS_FOR_DEVIATION
                       ? NOT_APPLICABLE
@@ -6500,11 +7142,16 @@ function tiltVarianceCard(
         case OverviewSectionStatus.Failed: {
             return {
                 disclosure: `Tilt vs variance could not be split because your ${sourceList(violations.failed)} could not be loaded.`,
+                droppedNote: null,
                 rows: [],
             };
         }
         case OverviewSectionStatus.Pending: {
-            return { disclosure: TILT_VARIANCE_LOADING_DISCLOSURE, rows: [] };
+            return {
+                disclosure: TILT_VARIANCE_LOADING_DISCLOSURE,
+                droppedNote: null,
+                rows: [],
+            };
         }
         case OverviewSectionStatus.Ready: {
             return readyTiltVarianceCard(ledger, firms, violations.rows);

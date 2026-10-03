@@ -7,14 +7,14 @@ import {
     AVERAGE_REWARD_FIELD_KEYING,
     buildDpSolverCall,
     DP_CONFIG_KEY_LENGTH,
+    dpConfigKey,
     type DpEvalGrid,
     type DpFundedGrid,
     type DpSolveConfig,
-    dpConfigKey,
     EVAL_GRID_FIELD_KEYING,
     FieldKeying,
     FUNDED_GRID_FIELD_KEYING,
-    RENEWAL_OBJECTIVE_FIELD_KEYING,
+    type RENEWAL_OBJECTIVE_FIELD_KEYING,
 } from '~/lib/prop-calculator/advisor/dp';
 import {
     dollars,
@@ -60,9 +60,7 @@ const EVAL_ALTERNATES: Readonly<Record<keyof DpEvalGrid, unknown>> = {
     rungSizing: RungSizing.SkipIfUnaffordable,
 };
 
-const TOP_LEVEL_ALTERNATES: Readonly<
-    Record<keyof DpSolveConfig, unknown>
-> = {
+const TOP_LEVEL_ALTERNATES: Readonly<Record<keyof DpSolveConfig, unknown>> = {
     commission: 2.5,
     copyAccounts: 3,
     discounts: {
@@ -79,7 +77,7 @@ const TOP_LEVEL_ALTERNATES: Readonly<
     optIns: { ...NO_PLAN_OPT_INS, takesFundedReset: true },
     planRulesFingerprint: 'e'.repeat(64),
     planSerial: 'another:plan:serial',
-    positionSizing: { instrument: InstrumentSymbol.MES, stopPoints: 12 },
+    positionSizing: { instrument: InstrumentSymbol.MNQ, stopPoints: 12 },
     rateTolerancePerDay: 0.01,
     rebuyLagDays: 4,
     rrRatio: 3,
@@ -88,13 +86,15 @@ const TOP_LEVEL_ALTERNATES: Readonly<
     winrate: 0.45,
 };
 
-function keyedFields(
-    table: Readonly<Record<string, FieldKeying>>,
-): string[] {
+function keyedFields(table: Readonly<Record<string, FieldKeying>>): string[] {
     return Object.entries(table)
         .filter(([, keying]) => keying === FieldKeying.Keyed)
         .map(([field]) => field)
-        .toSorted();
+        .toSorted((a, b) => a.localeCompare(b));
+}
+
+function sortedKeysOf(record: Readonly<Record<string, unknown>>): string[] {
+    return Object.keys(record).toSorted((a, b) => a.localeCompare(b));
 }
 
 describe('dpConfigKey', () => {
@@ -128,7 +128,7 @@ describe('dpConfigKey', () => {
     it.each(Object.entries(TOP_LEVEL_ALTERNATES))(
         'changes when the top-level field %s changes',
         (field, alternate) => {
-            const changed = { ...base, [field]: alternate } as DpSolveConfig;
+            const changed = { ...base, [field]: alternate };
 
             expect(dpConfigKey(changed)).not.toBe(dpConfigKey(base));
         },
@@ -159,10 +159,10 @@ describe('dpConfigKey', () => {
     );
 
     it('keys every field the grids and the solver honour: the alternates cover exactly the keyed fields', () => {
-        expect(Object.keys(FUNDED_ALTERNATES).toSorted()).toEqual(
+        expect(sortedKeysOf(FUNDED_ALTERNATES)).toEqual(
             keyedFields(FUNDED_GRID_FIELD_KEYING),
         );
-        expect(Object.keys(EVAL_ALTERNATES).toSorted()).toEqual(
+        expect(sortedKeysOf(EVAL_ALTERNATES)).toEqual(
             keyedFields(EVAL_GRID_FIELD_KEYING),
         );
     });
@@ -279,7 +279,7 @@ describe('buildDpSolverCall', () => {
         const call = buildDpSolverCall(
             toyDpConfig(plan, {
                 positionSizing: {
-                    instrument: InstrumentSymbol.MES,
+                    instrument: InstrumentSymbol.MNQ,
                     stopPoints: 20,
                 },
             }),
@@ -290,7 +290,7 @@ describe('buildDpSolverCall', () => {
             call.evalGrid?.positionSizing,
         );
         expect(call.fundedGrid?.positionSizing).toMatchObject({
-            instrument: { symbol: InstrumentSymbol.MES },
+            instrument: { symbol: InstrumentSymbol.MNQ },
             stopPoints: 20,
         });
     });
@@ -322,20 +322,17 @@ describe('buildDpSolverCall', () => {
         SizingObjective.CycleCash,
         SizingObjective.MonthlyNet,
         SizingObjective.RuinFirst,
-    ])(
-        'matches the optimize dp objective handling for %s',
-        (objective) => {
-            const config = toyDpConfig(plan, {
-                maxSolves: 12,
-                startRatePerDay: 5,
-                objective,
-            });
+    ])('matches the optimize dp objective handling for %s', (objective) => {
+        const config = toyDpConfig(plan, {
+            maxSolves: 12,
+            objective,
+            startRatePerDay: 5,
+        });
 
-            const call = buildDpSolverCall(config, plan);
-            const cli = dpObjectiveSolverConfig(call, objective);
+        const call = buildDpSolverCall(config, plan);
+        const cli = dpObjectiveSolverConfig(call, objective);
 
-            expect(call.maxSolves).toBe(cli.maxSolves);
-            expect(call.startRatePerDay).toBe(cli.startRatePerDay);
-        },
-    );
+        expect(call.maxSolves).toBe(cli.maxSolves);
+        expect(call.startRatePerDay).toBe(cli.startRatePerDay);
+    });
 });

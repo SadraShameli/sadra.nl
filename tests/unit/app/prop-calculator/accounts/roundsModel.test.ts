@@ -26,7 +26,7 @@ import {
     ScaleGateUnmetCondition,
 } from '~/lib/prop-accounts/bankroll';
 import { findFirm, FirmId, fraction } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import { DEFAULT_RULEBOOK, RebuyLagBasis } from '~/lib/prop-calculator/advisor';
 import { type BankrollTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
 
 import {
@@ -37,6 +37,7 @@ import {
     ledger,
     OTHER_FIRM_EVAL_PLAN,
     payout,
+    purchased,
     round,
     SAME_FIRM_SECOND_EVAL_PLAN,
 } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
@@ -294,7 +295,12 @@ describe('roundsPageModel', () => {
             ledger({
                 accounts: [winnerMember, ...openMembers],
                 fees: [
-                    fee(winnerMember, FeeKind.EvalPurchase, 50_000, '2026-01-01'),
+                    fee(
+                        winnerMember,
+                        FeeKind.EvalPurchase,
+                        50_000,
+                        '2026-01-01',
+                    ),
                     ...openMembers.map((member, index) =>
                         fee(
                             member,
@@ -424,6 +430,43 @@ describe('roundsPageModel', () => {
     });
 });
 
+function measuredLagCard() {
+    const closedRound = round(
+        EVAL_PLAN,
+        'Q1 push',
+        '2026-06-01',
+        RoundStatus.Closed,
+        { closedOn: '2026-07-01' },
+    );
+    const replaced = account(EVAL_PLAN, {
+        purchasedOn: '2026-05-04',
+        status: AccountStatus.Busted,
+    });
+    const member = account(EVAL_PLAN, {
+        purchasedOn: '2026-06-05',
+        replacesAccountId: replaced.id,
+        roundId: closedRound.id,
+    });
+    const model = nextRoundCardModelOf({
+        availableCents: null,
+        ledger: ledger({
+            accounts: [replaced, member],
+            events: [
+                purchased(replaced),
+                event(replaced, AccountEventKind.Busted, '2026-06-01'),
+                purchased(member),
+            ],
+            rounds: [closedRound],
+        }),
+        rulebook: DEFAULT_RULEBOOK,
+        runId: 1,
+        today: TODAY,
+        trades: 0,
+    });
+    if (model === null) throw new Error('expected a next-round card model');
+    return model;
+}
+
 describe('nextRoundCardModelOf', () => {
     it('returns null when there is no closed round', () => {
         const openRound = round(
@@ -546,6 +589,47 @@ describe('nextRoundCardModelOf', () => {
             expect(model.request.optionB.startingBankroll).toBeCloseTo(100);
         },
     );
+
+    describe('the measured rebuy lag of the plan (PT-111, F-76 (2))', () => {
+        it('prices the next round at the lag measured on the plan, not at the assumed zero', () => {
+            const model = measuredLagCard();
+            const { policy } = model.request.variant;
+            expect(policy.rebuyLagDays).toBe(3);
+            expect(policy.rebuyLagBasis).toBe(RebuyLagBasis.Measured);
+            expect(model.rebuyLagNote).toContain('3.0 sessions');
+            expect(model.rebuyLagNote).toContain(
+                'measured from 1 of your replacements',
+            );
+        });
+
+        it('keeps the assumed zero, and says so, when no replacement on the plan could be measured', () => {
+            const closedRound = round(
+                EVAL_PLAN,
+                'Q1 push',
+                '2026-06-01',
+                RoundStatus.Closed,
+                { closedOn: '2026-07-01' },
+            );
+            const member = account(EVAL_PLAN, {
+                purchasedOn: '2026-06-01',
+                roundId: closedRound.id,
+            });
+            const model = nextRoundCardModelOf({
+                availableCents: null,
+                ledger: ledger({ accounts: [member], rounds: [closedRound] }),
+                rulebook: DEFAULT_RULEBOOK,
+                runId: 1,
+                today: TODAY,
+                trades: 0,
+            });
+            if (model === null)
+                throw new Error('expected a next-round card model');
+            const { policy } = model.request.variant;
+            expect(policy.rebuyLagDays).toBe(0);
+            expect(policy.rebuyLagBasis).toBe(RebuyLagBasis.AssumedZero);
+            expect(model.rebuyLagNote).toContain('assumed zero');
+        });
+    });
 
     it('returns null when the closed round mixes members on different plans', () => {
         const closedRound = round(

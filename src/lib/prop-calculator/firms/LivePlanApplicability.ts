@@ -213,7 +213,8 @@ const TOPSTEP_LFA = modeled({
     documentedStart: topStepLfaStart,
     isVerified: true,
     note: LiveApplicabilityNote.TopStepLfaEligibleJurisdictionAssumed,
-    reconstructionDefaultAssumption: LiveReconstructionAssumption.TopStepLiveReserveDefaulted,
+    reconstructionDefaultAssumption:
+        LiveReconstructionAssumption.TopStepLiveReserveDefaulted,
 });
 
 const TRADEIFY_ELITE_LIVE = modeled({

@@ -25,6 +25,7 @@ import { NOT_APPLICABLE } from '~/lib/format';
 import {
     type AccountStage,
     AccountTracking,
+    compareText,
     formatUsdCents,
     ruleViolationKindLabel,
     SnapshotField,
@@ -62,6 +63,7 @@ import {
 } from './weeklyReviewModel';
 
 const EMPTY_ACCOUNTS: WeeklyReviewAccountInput[] = [];
+const EMPTY_IDS: ReadonlySet<string> = new Set();
 const EMPTY_MAP = new Map();
 const EMPTY_STAGES: { accountId: string; stage: AccountStage }[] = [];
 const EMPTY_VIOLATIONS: WeeklyReviewViolationRow[] = [];
@@ -104,12 +106,13 @@ export function WeeklyReviewView() {
 
     const [valuesByAccount, setValuesByAccount] =
         useState<ReadonlyMap<string, SnapshotFormValues>>(EMPTY_MAP);
-    const [acceptedHeadlines, setAcceptedHeadlines] = useState<
-        ReadonlyMap<string, number>
-    >(EMPTY_MAP);
+    const [acceptedHeadlines, setAcceptedHeadlines] =
+        useState<ReadonlyMap<string, number>>(EMPTY_MAP);
     const [confirmedUnchanged, setConfirmedUnchanged] = useState<
         ReadonlySet<string>
     >(new Set());
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSubmittingReference = useRef(false);
     const [loggingAccountId, setLoggingAccountId] = useState<null | string>(
         null,
     );
@@ -167,6 +170,21 @@ export function WeeklyReviewView() {
         rulebook === undefined
             ? null
             : weeklyReviewWindowOf(today, rulebook).asOf;
+    const alreadyRecordedIds = useMemo(
+        () =>
+            reviewAsOf === null
+                ? EMPTY_IDS
+                : new Set(
+                      latestSnapshots
+                          .entries()
+                          .filter(
+                              ([, snapshot]) =>
+                                  compareText(snapshot.asOf, reviewAsOf) >= 0,
+                          )
+                          .map(([accountId]) => accountId),
+                  ),
+        [latestSnapshots, reviewAsOf],
+    );
     const stagesQuery = api.propAccounts.review.stagesOn.useQuery(
         reviewAsOf === null ? skipToken : { asOf: reviewAsOf },
     );
@@ -221,7 +239,8 @@ export function WeeklyReviewView() {
             if (
                 account === undefined ||
                 plan === undefined ||
-                stage === undefined
+                stage === undefined ||
+                alreadyRecordedIds.has(accountId)
             ) {
                 continue;
             }
@@ -234,7 +253,13 @@ export function WeeklyReviewView() {
             }
         }
         return { drafts: validDrafts, invalidEntries: invalid };
-    }, [accounts, plansById, stagesOnAsOf, valuesByAccount]);
+    }, [
+        accounts,
+        alreadyRecordedIds,
+        plansById,
+        stagesOnAsOf,
+        valuesByAccount,
+    ]);
 
     const hasEveryStage = plansById.keys().every((id) => stagesOnAsOf.has(id));
 
@@ -310,7 +335,9 @@ export function WeeklyReviewView() {
 
     const valuesFor = (accountId: string): SnapshotFormValues => {
         const existing = valuesByAccount.get(accountId);
-        if (existing !== undefined) return existing;
+        if (existing !== undefined && !alreadyRecordedIds.has(accountId)) {
+            return existing;
+        }
         const row = result.rows.find((entry) => entry.accountId === accountId);
         const plan = plansById.get(accountId);
         const values = emptySnapshotFormValues(result.asOf);
@@ -334,6 +361,7 @@ export function WeeklyReviewView() {
     };
 
     const submit = async () => {
+        if (isSubmittingReference.current) return;
         const payload = reviewSubmitPayload(result, acceptedAccountIds);
         if (payload.snapshots.length === 0) {
             toast.error(
@@ -344,32 +372,47 @@ export function WeeklyReviewView() {
         const recordedIds = new Set(
             payload.snapshots.map((snapshot) => snapshot.accountId),
         );
-        let isSaved = false;
+        isSubmittingReference.current = true;
+        setIsSubmitting(true);
         try {
-            await submission.mutateAsync({
-                asOf: payload.asOf,
-                decisions: payload.decisions.map((decision) => ({
-                    ...decision,
-                    acceptedRungsCents: [...decision.acceptedRungsCents],
-                })),
-                snapshots: [...payload.snapshots],
-            });
-            isSaved = true;
-            toast.success(`Recorded ${payload.snapshots.length} snapshots`);
-        } catch (error) {
-            toast.error(errorTextOf(error));
+            let isSaved = false;
+            try {
+                await submission.mutateAsync({
+                    asOf: payload.asOf,
+                    decisions: payload.decisions.map((decision) => ({
+                        ...decision,
+                        acceptedRungsCents: [...decision.acceptedRungsCents],
+                    })),
+                    snapshots: [...payload.snapshots],
+                });
+                isSaved = true;
+                toast.success(`Recorded ${payload.snapshots.length} snapshots`);
+            } catch (error) {
+                toast.error(errorTextOf(error));
+            }
+            try {
+                await utilities.propAccounts.invalidate();
+            } catch (error) {
+                toast.error(errorTextOf(error));
+            }
+            if (!isSaved) return;
+            setValuesByAccount(
+                (current) =>
+                    new Map(
+                        [...current].filter(([id]) => !recordedIds.has(id)),
+                    ),
+            );
+            setAcceptedHeadlines(
+                (current) =>
+                    new Map(
+                        [...current].filter(([id]) => !recordedIds.has(id)),
+                    ),
+            );
+            setConfirmedUnchanged((current) => current.difference(recordedIds));
+        } finally {
+            isSubmittingReference.current = false;
+            setIsSubmitting(false);
         }
-        await utilities.propAccounts.invalidate();
-        if (!isSaved) return;
-        setValuesByAccount(
-            (current) =>
-                new Map([...current].filter(([id]) => !recordedIds.has(id))),
-        );
-        setAcceptedHeadlines(
-            (current) =>
-                new Map([...current].filter(([id]) => !recordedIds.has(id))),
-        );
-        setConfirmedUnchanged((current) => current.difference(recordedIds));
     };
 
     return (
@@ -425,6 +468,7 @@ export function WeeklyReviewView() {
                               (rule) => rule.field !== SnapshotField.AsOf,
                           );
                 const isAccepted = acceptedAccountIds.has(row.accountId);
+                const isAlreadyRecorded = alreadyRecordedIds.has(row.accountId);
                 const { sizing } = row;
                 return (
                     <Card key={row.accountId}>
@@ -436,6 +480,8 @@ export function WeeklyReviewView() {
                                 fieldWarnings={row.fieldWarnings}
                                 formIssues={row.blockedMessages}
                                 formWarnings={row.formWarnings}
+                                idPrefix={row.accountId}
+                                isReadOnly={isAlreadyRecorded}
                                 issues={row.parseIssues}
                                 onChange={(field, value) => {
                                     onFieldChange(row.accountId, field, value);
@@ -500,7 +546,8 @@ export function WeeklyReviewView() {
                                 }}
                             />
                             {row.isRecorded &&
-                                sizing.kind === WeeklyReviewSizingKind.Ready && (
+                                sizing.kind ===
+                                    WeeklyReviewSizingKind.Ready && (
                                     <div className="flex items-center gap-2 text-sm">
                                         <Checkbox
                                             checked={isAccepted}
@@ -533,7 +580,7 @@ export function WeeklyReviewView() {
                 );
             })}
             <Button
-                disabled={submission.isPending}
+                disabled={isSubmitting || submission.isPending}
                 onClick={() => {
                     void submit();
                 }}

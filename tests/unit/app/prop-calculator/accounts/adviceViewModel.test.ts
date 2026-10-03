@@ -232,32 +232,38 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         ).toBe(true);
     });
 
-    it('reports every optimum by source with a standard error, including the from-state sweep and the payout-size sweep', () => {
-        const { advisor, results } = fundedOptimumResults();
+    it(
+        'reports every optimum by source with a standard error, including the from-state sweep and the payout-size sweep',
+        () => {
+            const { advisor, results } = fundedOptimumResults();
 
-        const advice = advisor.assemble(results);
-        const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
+            const advice = advisor.assemble(results);
+            const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
 
-        if (view.kind !== AdviceDisplayKind.Ready) {
-            throw new Error('expected ready advice');
-        }
-        expect(view.optima.length).toBe(results.length);
-        const fresh = view.optima.find(
-            (row) => row.source === AdviceSource.FundedSweepFresh,
-        );
-        expect(fresh?.status).toBe(OptimumRowStatus.Ready);
-        expect(fresh?.text).toContain('capped end-of-horizon request credit');
-        expect(fresh?.value).not.toBeNull();
-        const fromState = view.optima.find(
-            (row) => row.source === AdviceSource.FundedSweepFromState,
-        );
-        expect(fromState?.status).toBe(OptimumRowStatus.Ready);
-        const payoutSweep = view.optima.find(
-            (row) => row.source === AdviceSource.PayoutSizeSweep,
-        );
-        expect(payoutSweep?.status).toBe(OptimumRowStatus.Ready);
-        expect(payoutSweep?.value).not.toBeNull();
-    }, HEAVY_TEST_TIMEOUT_MS);
+            if (view.kind !== AdviceDisplayKind.Ready) {
+                throw new Error('expected ready advice');
+            }
+            expect(view.optima.length).toBe(results.length);
+            const fresh = view.optima.find(
+                (row) => row.source === AdviceSource.FundedSweepFresh,
+            );
+            expect(fresh?.status).toBe(OptimumRowStatus.Ready);
+            expect(fresh?.text).toContain(
+                'capped end-of-horizon request credit',
+            );
+            expect(fresh?.value).not.toBeNull();
+            const fromState = view.optima.find(
+                (row) => row.source === AdviceSource.FundedSweepFromState,
+            );
+            expect(fromState?.status).toBe(OptimumRowStatus.Ready);
+            const payoutSweep = view.optima.find(
+                (row) => row.source === AdviceSource.PayoutSizeSweep,
+            );
+            expect(payoutSweep?.status).toBe(OptimumRowStatus.Ready);
+            expect(payoutSweep?.value).not.toBeNull();
+        },
+        HEAVY_TEST_TIMEOUT_MS,
+    );
 
     it('shows a left-out row when a funded sweep has no candidates', () => {
         const advisor = fundedAdvisor();
@@ -297,26 +303,31 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         }
     });
 
-    it('renders a non-empty reason line for every DifferenceReason produced by a real advisor', () => {
-        const { advisor, results } = fundedOptimumResults();
-        const advice = advisor.assemble(results);
+    it(
+        'renders a non-empty reason line for every DifferenceReason produced by a real advisor',
+        () => {
+            const { advisor, results } = fundedOptimumResults();
+            const advice = advisor.assemble(results);
 
-        const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
+            const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
 
-        if (view.kind !== AdviceDisplayKind.Ready) {
-            throw new Error('expected ready advice');
-        }
-        expect(view.reasons.length).toBeGreaterThan(0);
-        expect(
-            view.reasons.some(
-                (reason) =>
-                    reason.kind === DifferenceReason.HorizonCreditOneRequest,
-            ),
-        ).toBe(true);
-        for (const reason of view.reasons) {
-            expect(reason.text.length).toBeGreaterThan(0);
-        }
-    }, HEAVY_TEST_TIMEOUT_MS);
+            if (view.kind !== AdviceDisplayKind.Ready) {
+                throw new Error('expected ready advice');
+            }
+            expect(view.reasons.length).toBeGreaterThan(0);
+            expect(
+                view.reasons.some(
+                    (reason) =>
+                        reason.kind ===
+                        DifferenceReason.HorizonCreditOneRequest,
+                ),
+            ).toBe(true);
+            for (const reason of view.reasons) {
+                expect(reason.text.length).toBeGreaterThan(0);
+            }
+        },
+        HEAVY_TEST_TIMEOUT_MS,
+    );
 
     it('renders a non-empty text for every assumption, including live-triggers-not-checked', () => {
         const advisor = fundedAdvisor();
@@ -438,21 +449,29 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         expect(steps).toBe(view.dailyPlanCard.rungs.length);
     });
 
-    it('never mentions Kelly in the funded or eval advice view model', () => {
-        const fundedView = adviceViewModel(
-            fundedAdvisor().assemble(fundedOptimumResults().results),
-            NO_PERSONAL_LIMITS,
-        );
+    it(
+        'never mentions Kelly in the funded or eval advice view model',
+        () => {
+            const fundedView = adviceViewModel(
+                fundedAdvisor().assemble(fundedOptimumResults().results),
+                NO_PERSONAL_LIMITS,
+            );
 
-        const evalResults = smallLadderResults(evalAdvisor());
-        const evalView = adviceViewModel(
-            evalAdvisor().assemble(evalResults),
-            NO_PERSONAL_LIMITS,
-        );
+            const evalResults = smallLadderResults(evalAdvisor());
+            const evalView = adviceViewModel(
+                evalAdvisor().assemble(evalResults),
+                NO_PERSONAL_LIMITS,
+            );
 
-        expect(JSON.stringify(fundedView).toLowerCase()).not.toContain('kelly');
-        expect(JSON.stringify(evalView).toLowerCase()).not.toContain('kelly');
-    }, HEAVY_TEST_TIMEOUT_MS);
+            expect(JSON.stringify(fundedView).toLowerCase()).not.toContain(
+                'kelly',
+            );
+            expect(JSON.stringify(evalView).toLowerCase()).not.toContain(
+                'kelly',
+            );
+        },
+        HEAVY_TEST_TIMEOUT_MS,
+    );
 
     it('reports the ladder search optimum by source for an eval account', () => {
         const advisor = evalAdvisor();
@@ -868,24 +887,30 @@ describe('the engine figures name the personal limits they do not apply (PT-68f,
         },
     );
 
-    it('names no day limit on the next-payout, payout-size or fresh sweep rows: the engine simulates each of them', () => {
-        const limits = limitsOf(
-            { ...NO_PERSONAL_CAPS, dailyProfitCap: dollars(700) },
-            dollars(600),
-        );
-        const view = readyView(
-            fundedAdviceWith(limits.caps, dollars(600)),
-            limits,
-        );
+    it(
+        'names no day limit on the next-payout, payout-size or fresh sweep rows: the engine simulates each of them',
+        () => {
+            const limits = limitsOf(
+                { ...NO_PERSONAL_CAPS, dailyProfitCap: dollars(700) },
+                dollars(600),
+            );
+            const view = readyView(
+                fundedAdviceWith(limits.caps, dollars(600)),
+                limits,
+            );
 
-        expect(view.optima.length).toBeGreaterThan(0);
-        for (const row of view.optima) {
-            expect(row.text).not.toContain('do not apply');
-        }
-        expect(
-            view.assumptions.some((item) => item.text.includes('do not apply')),
-        ).toBe(false);
-    }, HEAVY_TEST_TIMEOUT_MS);
+            expect(view.optima.length).toBeGreaterThan(0);
+            for (const row of view.optima) {
+                expect(row.text).not.toContain('do not apply');
+            }
+            expect(
+                view.assumptions.some((item) =>
+                    item.text.includes('do not apply'),
+                ),
+            ).toBe(false);
+        },
+        HEAVY_TEST_TIMEOUT_MS,
+    );
 
     it('names no limit on the fresh funded sweep row either', () => {
         const limits = limitsOf(NO_PERSONAL_CAPS, dollars(600));
@@ -989,19 +1014,23 @@ describe('the engine figures name the personal limits they do not apply (PT-68f,
             expect(text).not.toContain('daily profit cap');
         });
 
-        it('names the limits on the next-payout projection and the payout-size sweep rows', () => {
-            const view = readyView(
-                fundedAdviceWith(BOTH.caps, dollars(600)),
-                BOTH,
-            );
+        it(
+            'names the limits on the next-payout projection and the payout-size sweep rows',
+            () => {
+                const view = readyView(
+                    fundedAdviceWith(BOTH.caps, dollars(600)),
+                    BOTH,
+                );
 
-            expect(
-                rowOf(view, AdviceSource.NextPayoutProjection).text,
-            ).toContain(APPLIED);
-            expect(rowOf(view, AdviceSource.PayoutSizeSweep).text).toContain(
-                APPLIED,
-            );
-        }, HEAVY_TEST_TIMEOUT_MS);
+                expect(
+                    rowOf(view, AdviceSource.NextPayoutProjection).text,
+                ).toContain(APPLIED);
+                expect(
+                    rowOf(view, AdviceSource.PayoutSizeSweep).text,
+                ).toContain(APPLIED);
+            },
+            HEAVY_TEST_TIMEOUT_MS,
+        );
 
         it('names the limits on the ladder row with the ladder rule: cut rungs, every day path inside both limits, no grid rounding', () => {
             const view = readyView(

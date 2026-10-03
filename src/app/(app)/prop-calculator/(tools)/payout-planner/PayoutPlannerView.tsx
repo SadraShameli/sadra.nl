@@ -37,6 +37,10 @@ import {
 } from '~/app/(app)/prop-calculator/_components/useCachedWorkerTask';
 import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalculator';
 import {
+    ToolRulebookStatus,
+    useToolRulebook,
+} from '~/app/(app)/prop-calculator/_components/useToolRulebook';
+import {
     WorkerTaskPhase,
     type WorkerTaskState,
 } from '~/app/(app)/prop-calculator/_components/workerTaskState';
@@ -53,7 +57,6 @@ import { type AssumptionView } from '~/app/(app)/prop-calculator/accounts/_compo
 import { AssumptionsList } from '~/app/(app)/prop-calculator/accounts/_components/advice/AssumptionsList';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
-import { useSession } from '~/lib/auth/client';
 import { formatGateCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_FIRMS,
@@ -70,7 +73,6 @@ import {
     assumptionText,
     buildEnginePolicy,
     DEFAULT_MAX_EVAL_DAYS,
-    DEFAULT_RULEBOOK,
     type DocumentedPolicySpec,
     HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
     NEXT_PAYOUT_AMONG_PAYING_TEXT,
@@ -97,7 +99,6 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import { noiseVerdict, NoiseVerdict } from '~/lib/prop-calculator/stats';
 import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';
-import { api } from '~/trpc/react';
 
 const INPUTS_HEADING_ID = 'payout-planner-inputs-heading';
 const OUTLOOK_HEADING_ID = 'payout-planner-outlook-heading';
@@ -122,18 +123,12 @@ const PEAK_ASSUMED_VIEW: AssumptionView = {
     text: 'No peak balance was entered, so the current balance is assumed to be the peak, the most generous trailing-drawdown state.',
 };
 
-enum RulebookStatus {
-    Failed = 'failed',
-    Loading = 'loading',
-    Ready = 'ready',
-}
-
 const RULEBOOK_NOTICE_TEXT: Readonly<
-    Record<RulebookStatus.Failed | RulebookStatus.Loading, string>
+    Record<ToolRulebookStatus.Failed | ToolRulebookStatus.Loading, string>
 > = {
-    [RulebookStatus.Failed]:
+    [ToolRulebookStatus.Failed]:
         'Your rulebook could not be loaded, so no payout figures are shown.',
-    [RulebookStatus.Loading]: 'Loading your rulebook.',
+    [ToolRulebookStatus.Loading]: 'Loading your rulebook.',
 };
 
 const NOISE_VERDICT_TEXT: Readonly<Record<NoiseVerdict, string>> = {
@@ -160,15 +155,6 @@ interface PayoutPolicy {
 
 type PayoutReadinessResult = ReturnType<typeof planPayoutReadiness>;
 
-type RulebookState =
-    | {
-          readonly rulebook: RulebookParameters;
-          readonly status: RulebookStatus.Ready;
-      }
-    | {
-          readonly status: RulebookStatus.Failed | RulebookStatus.Loading;
-      };
-
 export function PayoutPlannerView() {
     const searchParameters = useSearchParams();
     const [initialParameters] = useState(
@@ -187,22 +173,10 @@ export function PayoutPlannerView() {
     const isRequestSizeValid = !invalidFields.has(
         PayoutPlannerUrlParameter.RequestSize,
     );
-    const session = useSession();
-    const hasSession = session.data?.user.id !== undefined;
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
-        enabled: hasSession,
-    });
-    const rulebookState = rulebookStateOf({
-        hasSession,
-        isQueryFailed: rulebookQuery.isError,
-        isSessionFailed: session.error !== null,
-        isSessionPending: session.isPending,
-        rulebook: rulebookQuery.data,
-    });
+    const { rulebook: toolRulebook, status: rulebookStatus } =
+        useToolRulebook();
     const rulebook =
-        rulebookState.status === RulebookStatus.Ready
-            ? rulebookState.rulebook
-            : null;
+        rulebookStatus === ToolRulebookStatus.Ready ? toolRulebook : null;
     const rulebookRequest =
         rulebook === null ? null : payoutPlannerRulebookRequest(rulebook);
     const state = useMemo(
@@ -335,7 +309,7 @@ export function PayoutPlannerView() {
                         </h2>
                         {rulebook === null || result === null ? (
                             <RulebookStatusNotice
-                                status={noticeStatusOf(rulebookState)}
+                                status={noticeStatusOf(rulebookStatus)}
                             />
                         ) : isInputValid ? (
                             <PayoutPlannerReadinessSummary
@@ -360,7 +334,7 @@ export function PayoutPlannerView() {
                         </h2>
                         {result === null ? (
                             <RulebookStatusNotice
-                                status={noticeStatusOf(rulebookState)}
+                                status={noticeStatusOf(rulebookStatus)}
                             />
                         ) : isInputValid ? (
                             <PayoutPlannerOutlookSection
@@ -385,7 +359,7 @@ export function PayoutPlannerView() {
                         </h2>
                         {rulebook === null ? (
                             <RulebookStatusNotice
-                                status={noticeStatusOf(rulebookState)}
+                                status={noticeStatusOf(rulebookStatus)}
                             />
                         ) : isRequestSizeValid ? (
                             <PayoutSweepTable
@@ -577,11 +551,11 @@ function nextPayoutDaysText(projection: NextPayoutProjection): string {
 }
 
 function noticeStatusOf(
-    rulebookState: RulebookState,
-): RulebookStatus.Failed | RulebookStatus.Loading {
-    return rulebookState.status === RulebookStatus.Ready
-        ? RulebookStatus.Loading
-        : rulebookState.status;
+    status: ToolRulebookStatus,
+): ToolRulebookStatus.Failed | ToolRulebookStatus.Loading {
+    return status === ToolRulebookStatus.Ready
+        ? ToolRulebookStatus.Loading
+        : status;
 }
 
 function outlookRequestFor(
@@ -1429,42 +1403,15 @@ function policyFor(plan: Plan, rulebook: RulebookParameters): PayoutPolicy {
     };
 }
 
-function rulebookStateOf({
-    hasSession,
-    isQueryFailed,
-    isSessionFailed,
-    isSessionPending,
-    rulebook,
-}: {
-    hasSession: boolean;
-    isQueryFailed: boolean;
-    isSessionFailed: boolean;
-    isSessionPending: boolean;
-    rulebook: RulebookParameters | undefined;
-}): RulebookState {
-    if (!hasSession) {
-        if (isSessionPending) return { status: RulebookStatus.Loading };
-        return isSessionFailed
-            ? { status: RulebookStatus.Failed }
-            : { rulebook: DEFAULT_RULEBOOK, status: RulebookStatus.Ready };
-    }
-    if (rulebook !== undefined) {
-        return { rulebook, status: RulebookStatus.Ready };
-    }
-    return {
-        status: isQueryFailed ? RulebookStatus.Failed : RulebookStatus.Loading,
-    };
-}
-
 function RulebookStatusNotice({
     status,
 }: {
-    status: RulebookStatus.Failed | RulebookStatus.Loading;
+    status: ToolRulebookStatus.Failed | ToolRulebookStatus.Loading;
 }) {
     return (
         <p
             className={
-                status === RulebookStatus.Failed
+                status === ToolRulebookStatus.Failed
                     ? 'text-sm text-amber-400'
                     : 'text-sm text-muted-foreground'
             }

@@ -72,6 +72,7 @@ function fallbackState(): CalculatorState {
         payoutRequestSize: null,
         plan,
         portfolio: [],
+        rebuyLagDays: 0,
         resetDiscountPercent: 0,
         retainedCushion: null,
         riskDollars: 250,
@@ -203,6 +204,43 @@ describe('instrument/stopPoints round-trip through the URL (contract-limit enfor
 
         expect(state.instrument).toBe(InstrumentSymbol.NQ);
         expect(state.stopPoints).toBe(10_000);
+    });
+});
+
+describe('rebuyLagDays round-trip through the URL (PT-111, F-76)', () => {
+    it('round-trips a lag of 2.5 trading days through encode then decode', () => {
+        const state = { ...fallbackState(), rebuyLagDays: 2.5 };
+        const encoded = encodeState(state);
+        expect(encoded.get(CalculatorUrlParameter.RebuyLagDays)).toBe('2.5');
+        expect(
+            decodeState(encoded, ALL_FIRMS, fallbackState()).rebuyLagDays,
+        ).toBe(2.5);
+    });
+
+    it('omits the key from the URL while the lag is zero', () => {
+        expect(
+            encodeState(fallbackState()).has(
+                CalculatorUrlParameter.RebuyLagDays,
+            ),
+        ).toBe(false);
+    });
+
+    it('decodes a link without the key to 0, so old links keep their meaning', () => {
+        const withLag = { ...fallbackState(), rebuyLagDays: 3 };
+        const old = encodeState(withLag);
+        old.delete(CalculatorUrlParameter.RebuyLagDays);
+        expect(decodeState(old, ALL_FIRMS, withLag).rebuyLagDays).toBe(0);
+    });
+
+    it('falls back to 0 for a negative or unreadable lag', () => {
+        for (const raw of ['-2', 'soon']) {
+            const parameters = encodeState(fallbackState());
+            parameters.set(CalculatorUrlParameter.RebuyLagDays, raw);
+            expect(
+                decodeState(parameters, ALL_FIRMS, fallbackState())
+                    .rebuyLagDays,
+            ).toBe(0);
+        }
     });
 });
 

@@ -467,9 +467,10 @@ describe('realizedAttemptEconomics', () => {
         expect(distributed?.realizedFundedValue?.value).toBe(40_000);
         expect(plan?.fundedValue).toEqual(distributed?.realizedFundedValue);
         expect(plan?.decomposition?.value?.fundedValue).toBeCloseTo(400, 9);
-        expect(
-            plan?.decomposition?.value?.breakevenPassRate.value,
-        ).toBeCloseTo(100 / 400, 9);
+        expect(plan?.decomposition?.value?.breakevenPassRate.value).toBeCloseTo(
+            100 / 400,
+            9,
+        );
         expect(plan?.fundedValue?.n).toBe(3);
         expect(plan?.passRate?.n).toBe(3);
         expect(plan?.payoutRate?.n).toBeGreaterThan(0);

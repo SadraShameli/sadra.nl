@@ -222,8 +222,7 @@ describe('copySplitCandidates', () => {
         );
         const stops = candidates.map((candidate) =>
             candidate.kind === CopySplitRowKind.Simulated
-                ? resolveDayPolicy(candidate.inputs, TradingPhase.Eval)
-                      .stopRule
+                ? resolveDayPolicy(candidate.inputs, TradingPhase.Eval).stopRule
                 : null,
         );
         expect(stops).toStrictEqual([
@@ -345,7 +344,9 @@ describe('copySplitCandidates', () => {
             POLICY,
             2000,
             [1, 4],
-            userFunded({ stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses } }),
+            userFunded({
+                stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
+            }),
         );
         const stops = candidates.map((candidate) =>
             candidate.kind === CopySplitRowKind.Simulated
@@ -370,7 +371,9 @@ describe('copySplitCandidates', () => {
             POLICY,
             2000,
             [4],
-            userFunded({ stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses } }),
+            userFunded({
+                stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
+            }),
         );
         if (candidate?.kind !== CopySplitRowKind.Simulated) {
             throw new Error('expected a simulated candidate');
@@ -385,11 +388,15 @@ describe('copySplitCandidates', () => {
 
     it('leaves the eval day policy unset when the entered stop already equals the funded stop and is not a cap', () => {
         const [candidate] = copySplitCandidates(
-            baseInputs({ dayStop: { k: 2, kind: DayStopRuleKind.AfterKLosses } }),
+            baseInputs({
+                dayStop: { k: 2, kind: DayStopRuleKind.AfterKLosses },
+            }),
             POLICY,
             2000,
             [4],
-            userFunded({ stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses } }),
+            userFunded({
+                stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
+            }),
         );
         if (candidate?.kind !== CopySplitRowKind.Simulated) {
             throw new Error('expected a simulated candidate');
@@ -911,7 +918,9 @@ describe('copySplitBasisLines', () => {
         const firstWin = copySplitBasisLines(
             baseInputs({ dayStop: { kind: DayStopRuleKind.FirstWin } }),
             POLICY,
-            userFunded({ stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses } }),
+            userFunded({
+                stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
+            }),
         ).join('\n');
         expect(none).toContain(
             'the funded phase uses the default rulebook funded stop (none) per account',
@@ -987,8 +996,11 @@ describe('CopySplit is never used by the headline, the rulebook or advice', () =
 describe('the funded stop stopgap is gone (PT-63d)', () => {
     it('exports no funded stop notice, because the funded phase runs on the rulebook funded stop', () => {
         expect(copySplitModule).not.toHaveProperty('copySplitFundedStopNotice');
-        expect(readFileSync(path.join(ADVISOR_ROOT, 'policy', 'CopySplit.ts'), 'utf8')).not.toContain(
-            'is not applied to this split yet',
-        );
+        expect(
+            readFileSync(
+                path.join(ADVISOR_ROOT, 'policy', 'CopySplit.ts'),
+                'utf8',
+            ),
+        ).not.toContain('is not applied to this split yet');
     });
 });

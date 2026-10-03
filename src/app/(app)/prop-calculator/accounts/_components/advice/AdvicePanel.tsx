@@ -85,6 +85,7 @@ import {
     buildSizingAdvisor,
     personalAdvisorOptionsOf,
     personalLimitsOf,
+    planRulesFingerprintCheckOf,
     type SizingAdvisorBuild,
     SizingAdvisorBuildKind,
 } from './personalRuleOptions';
@@ -123,6 +124,7 @@ type Built =
           readonly riskUnit: RiskDisplayUnit;
           readonly snapshotId: null | string;
           readonly stage: AccountStage;
+          readonly stepCents: number;
           readonly tierContext: null | TierProfitContext;
           readonly today: string;
       }
@@ -556,6 +558,7 @@ function buildAdvisorInput(args: {
                 : null,
         personalRules: account.personalRules,
         plan,
+        planRulesFingerprint: planRulesFingerprintCheckOf(account),
         positionSizing,
         rulebook,
         snapshotAsOf: view.input.asOf,
@@ -567,7 +570,10 @@ function buildAdvisorInput(args: {
         return { kind: BuiltKind.NotModeled, reason: build.reason };
     }
     const { advisor } = build;
-    const limits = personalLimitsOf(options);
+    const limits: PersonalLimits = {
+        ...personalLimitsOf(options),
+        viewContext: { placement: positionSizing, plan },
+    };
     const valueRequest: AdviceValueRequestResult = adviceValueRequestOf({
         account: view.account,
         accountPolicy: options.accountPolicy,
@@ -605,6 +611,7 @@ function buildAdvisorInput(args: {
         riskUnit: rulebook.display.riskUnit,
         snapshotId: latest?.id ?? null,
         stage: account.stage,
+        stepCents: rulebook.eval.roundingStepCents,
         tierContext:
             view.account.kind === ReconstructedLiveKind.Live
                 ? null
@@ -715,7 +722,10 @@ function ComputedAdvice({
                         {SUSPENDED_ACCOUNT_TEXT}
                     </AlertDescription>
                 </Alert>
-                <ProvenanceLine provenance={view.provenance} />
+                <ProvenanceLine
+                    firmId={built.input.firmId}
+                    provenance={view.provenance}
+                />
             </div>
         );
     }
@@ -736,7 +746,10 @@ function ComputedAdvice({
                         </ul>
                     </AlertDescription>
                 </Alert>
-                <ProvenanceLine provenance={view.provenance} />
+                <ProvenanceLine
+                    firmId={built.input.firmId}
+                    provenance={view.provenance}
+                />
             </div>
         );
     }
@@ -799,7 +812,10 @@ function ComputedAdvice({
             </section>
             <section className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium">Assumptions</h3>
-                <AssumptionsList assumptions={view.assumptions} />
+                <AssumptionsList
+                    assumptions={view.assumptions}
+                    isFirmDataUnverified={view.provenance.firmDataDate === null}
+                />
             </section>
             {view.dailyPlanCard !== null && (
                 <section className="flex flex-col gap-2">
@@ -810,6 +826,9 @@ function ComputedAdvice({
                             built.phase === null
                                 ? null
                                 : {
+                                      cushionLeft: view.dailyPlanCard.cushion,
+                                      dailyLossRoom:
+                                          view.dailyPlanCard.dailyLossRoom,
                                       entry: isRecomputing
                                           ? { ...entry, isSettled: false }
                                           : entry,
@@ -886,7 +905,10 @@ function ComputedAdvice({
                     )}
                 </section>
             )}
-            <ProvenanceLine provenance={view.provenance} />
+            <ProvenanceLine
+                firmId={built.input.firmId}
+                provenance={view.provenance}
+            />
             <section className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium">Decision log</h3>
                 {decisionsError !== null && (
@@ -899,6 +921,7 @@ function ComputedAdvice({
                     accountId={accountId}
                     decidedOn={built.today}
                     decisions={decisions ?? []}
+                    stepCents={built.stepCents}
                     suggestion={suggestion}
                 />
             </section>

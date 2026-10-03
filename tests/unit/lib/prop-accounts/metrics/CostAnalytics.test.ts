@@ -19,11 +19,7 @@ import {
     PendingFeeAttribution,
     type PlanFundedCost,
 } from '~/lib/prop-accounts/metrics';
-import {
-    ALL_FIRMS,
-    type FirmId,
-    serializePlanId,
-} from '~/lib/prop-calculator';
+import { ALL_FIRMS, type FirmId, serializePlanId } from '~/lib/prop-calculator';
 
 import {
     account,

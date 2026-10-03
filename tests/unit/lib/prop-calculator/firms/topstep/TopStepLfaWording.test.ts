@@ -201,7 +201,9 @@ describe('TopStep Trading Combine carries no inactivity rule, N-94 (b) and WP62b
     it.each(tradingCombinePlans.map((plan) => [plan.label, plan] as const))(
         'leaves the Combine of %s without an idle limit and keeps the XFA at 31 sessions',
         (_label, plan) => {
-            expect(plan.maxConsecutiveIdleDaysFor(TradingPhase.Eval)).toBeNull();
+            expect(
+                plan.maxConsecutiveIdleDaysFor(TradingPhase.Eval),
+            ).toBeNull();
             expect(plan.maxConsecutiveIdleDaysFor(TradingPhase.Funded)).toBe(
                 FIRM_IDLE_GRACE_DAYS + 1,
             );
@@ -214,7 +216,8 @@ describe('TopStep Trading Combine carries no inactivity rule, N-94 (b) and WP62b
             firm: FirmId.TopStep,
             variant: TopStepVariant.NoFeeStandard,
         });
-        if (!plan) throw new Error('TopStep No-fee Standard 50K plan not found');
+        if (!plan)
+            throw new Error('TopStep No-fee Standard 50K plan not found');
         const state = plan.initialState();
         const totals = new TradeTotals();
         const stats = newPhaseStats(
@@ -313,7 +316,7 @@ describe('TopStep LFA start under a $10,000 capped balance (article 13747178, da
 
 describe('TopStep LFA start never sits at or under the $1,000 liquidation floor, N-94 (c)', () => {
     it.each([0, 500, LFA_FLOOR])(
-        'rejects a capped XFA balance of $%d as the tool\'s conservative bound, since a start at or under the floor has no cushion',
+        "rejects a capped XFA balance of $%d as the tool's conservative bound, since a start at or under the floor has no cushion",
         (capped) => {
             expect(() =>
                 buildTopStepLivePlan(undefined, dollars(capped)),
@@ -362,20 +365,26 @@ describe('TopStep LFA note cites the 2026-10-01 revision of article 10657969, N-
     });
 });
 
-describe('TopStep LFA note discloses the liquidation wording conflict and states the start bound as the tool\'s own', () => {
+describe("TopStep LFA note discloses the liquidation wording conflict and states the start bound as the tool's own", () => {
     it('names the may and will wordings of the same $1,000 trigger and calls the certain liquidation the tool assumption', () => {
         const notes = new TopStep().notes.join('\n');
 
         expect(notes).toContain("'may be' in the callout");
         expect(notes).toContain("'will be liquidated immediately");
-        expect(notes).toContain('Do not let your Account Balance reach or go below $0');
-        expect(notes).toContain("the engine treats the liquidation at the $1,000 floor as certain, which is the tool's assumption");
+        expect(notes).toContain(
+            'Do not let your Account Balance reach or go below $0',
+        );
+        expect(notes).toContain(
+            "the engine treats the liquidation at the $1,000 floor as certain, which is the tool's assumption",
+        );
     });
 
     it('describes the rejected start at or under the floor as a conservative bound, not an LFA the page says opens liquidated', () => {
         const notes = new TopStep().notes.join('\n');
 
-        expect(notes).toContain("rejected by buildTopStepLivePlan as the tool's conservative bound");
+        expect(notes).toContain(
+            "rejected by buildTopStepLivePlan as the tool's conservative bound",
+        );
         expect(notes).not.toContain('already liquidated');
     });
 });

@@ -16,7 +16,6 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 import { planRulesFingerprint } from '~/lib/prop-calculator/describe';
-import { findFirm } from '~/lib/prop-calculator/firms';
 
 import {
     assertUserScopedWhere,
@@ -66,7 +65,9 @@ function registryEntry(isMatch: (plan: Plan) => boolean): Entry {
 }
 
 function resolvedPlan(firmId: string, planSerial: string): Plan {
-    const plan = findFirm(firmId as FirmId)?.findPlanBySerial(planSerial);
+    const plan = ALL_FIRMS.find(
+        (firm) => (firm.id as string) === firmId,
+    )?.findPlanBySerial(planSerial);
     if (plan === null || plan === undefined) {
         throw new Error(`plan not found: ${firmId} ${planSerial}`);
     }
@@ -412,7 +413,9 @@ describe('propAccounts.account: both plan-rule fingerprints on the row (PT-110)'
         const { caller } = callerFor(
             SIGNED_IN,
             tableResponder({
-                [TABLES.account]: [accountRow({ plan_rules_fingerprint: null })],
+                [TABLES.account]: [
+                    accountRow({ plan_rules_fingerprint: null }),
+                ],
             }),
         );
         const [listed] = await caller.account.list({});
@@ -479,19 +482,16 @@ describe('propAccounts.account: corrupt stored tags (PT-110)', () => {
         'list still returns every account when one stores tags as %s, and reports the corrupt row',
         async (_name, tags) => {
             vi.mocked(captureError).mockClear();
+            const corrupt = accountRow({
+                id: CORRUPT_TAGS_ID,
+                tags,
+                updated_at: rewrittenAt(),
+            });
             const { caller } = callerFor(
                 SIGNED_IN,
-                tableResponder({
-                    [TABLES.account]: [
-                        accountRow(),
-                        accountRow({
-                            id: CORRUPT_TAGS_ID,
-                            tags,
-                            updated_at: rewrittenAt(),
-                        }),
-                    ],
-                }),
+                tableResponder({ [TABLES.account]: [accountRow(), corrupt] }),
             );
+            const isCorrupt = tags !== null;
             const listed = await caller.account.list({});
             expect(listed.map((account) => account.id)).toEqual([
                 IDS.account,
@@ -504,23 +504,20 @@ describe('propAccounts.account: corrupt stored tags (PT-110)', () => {
             ]);
             expect(listed.map((account) => account.hasCorruptTags)).toEqual([
                 undefined,
-                tags === null ? undefined : true,
+                isCorrupt || undefined,
             ]);
-            expect(captureError).toHaveBeenCalledTimes(tags === null ? 0 : 1);
+            expect(captureError).toHaveBeenCalledTimes(Number(isCorrupt));
         },
     );
 
-    it('get reads a non-array tags value as no tags and names the issue (QF-8)', async () => {
+    it('get reads a non-array tags value as no tags and flags it without a read issue (QF-8)', async () => {
+        const corrupt = accountRow({
+            tags: { mff: true },
+            updated_at: rewrittenAt(),
+        });
         const { caller } = callerFor(
             SIGNED_IN,
-            tableResponder({
-                [TABLES.account]: [
-                    accountRow({
-                        tags: { mff: true },
-                        updated_at: rewrittenAt(),
-                    }),
-                ],
-            }),
+            tableResponder({ [TABLES.account]: [corrupt] }),
         );
         const account = await caller.account.get({ id: IDS.account });
         expect(account.tags).toEqual([]);

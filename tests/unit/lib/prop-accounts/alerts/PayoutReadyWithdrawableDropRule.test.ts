@@ -748,6 +748,22 @@ describe('PayoutReadyWithdrawableDropRule', () => {
             expect(alerts).toHaveLength(1);
             const beforeText = formatUsdCents(usdCentsFromDollars(before));
             expect(alerts[0]?.message).toContain(beforeText);
+            expect(alerts[0]?.message).toContain(
+                `retaining ${formatUsdCents(usdCentsFromDollars(cushion))} as your personal retained cushion`,
+            );
+        });
+
+        it('names no personal rule when the account has no personal policy', () => {
+            const { account, latest, plan, previous } = paidBetweenFixtures();
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [
+                    reconstructedEntry(account.id, plan, latest, { previous }),
+                ],
+                rulebook: rulebookWithLossFraction(0.2),
+            });
+            expect(alerts).toHaveLength(1);
+            expect(alerts[0]?.message).not.toContain('personal');
         });
 
         it('is silent when the personal retained cushion means the account was never payout-ready', () => {

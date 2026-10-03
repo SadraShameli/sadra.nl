@@ -487,6 +487,16 @@ async function pickOption(trigger: HTMLElement, optionText: string) {
     });
 }
 
+function rebuyLagOfLink(anchor: HTMLAnchorElement | undefined): number {
+    const query = anchor?.getAttribute('href')?.split('?', 2)[1];
+    if (query === undefined) throw new Error('no simulator link');
+    return decodeState(
+        new URLSearchParams(query),
+        ALL_FIRMS,
+        defaultCalculatorState(),
+    ).rebuyLagDays;
+}
+
 function rejectionError(message: string, rejection: PropRejection): Error {
     return Object.assign(new Error(message), {
         data: { propRejection: rejection },
@@ -1136,6 +1146,54 @@ describe('AccountDetailView', () => {
                 ?.startsWith(`${routes.propCalculator.simulator}?`),
         ).toBe(true);
         expect(state.textContent.toLowerCase()).toContain('fresh start');
+    });
+
+    it("offers to open the simulator with this plan's measured rebuy lag, next to the fresh-start link (PT-111, F-76)", () => {
+        answerEverything({
+            'snapshot.listForAccount': answer([
+                snapshot('s2', '2026-09-20', 5_100_000, {
+                    highestEodBalanceCents: 5_200_000,
+                }),
+            ]),
+        });
+        render();
+        const state = sectionTitled('Account state');
+        const anchors = [...state.querySelectorAll('a')];
+        const measured = anchors.find(
+            (anchor) =>
+                anchor.textContent ===
+                "Open in the simulator with this plan's measured lag",
+        );
+        const fresh = anchors.find(
+            (anchor) => anchor.textContent === 'Simulate this account',
+        );
+        expect(rebuyLagOfLink(measured)).toBe(2);
+        expect(rebuyLagOfLink(fresh)).toBe(0);
+    });
+
+    it('offers no measured-lag link when no replacement on the plan could be measured (PT-111, F-76)', () => {
+        const alone = { ...BRAVO, replacesAccountId: null };
+        answerEverything({
+            'account.get': answer(alone),
+            'account.list': answer([ALPHA, alone]),
+            'snapshot.listForAccount': answer([
+                snapshot('s2', '2026-09-20', 5_100_000, {
+                    highestEodBalanceCents: 5_200_000,
+                }),
+            ]),
+        });
+        render();
+        const state = sectionTitled('Account state');
+        expect(
+            [...state.querySelectorAll('a')].some((anchor) =>
+                anchor.textContent.includes('measured lag'),
+            ),
+        ).toBe(false);
+        expect(
+            [...state.querySelectorAll('a')].some(
+                (anchor) => anchor.textContent === 'Simulate this account',
+            ),
+        ).toBe(true);
     });
 
     it('shows no simulator link for a live-stage account and says the simulator cannot start from it (PT-37)', () => {

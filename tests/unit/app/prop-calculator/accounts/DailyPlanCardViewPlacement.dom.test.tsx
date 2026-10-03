@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +16,11 @@ import {
     MffuVariant,
     TradingPhase,
 } from '~/lib/prop-calculator';
-import { RiskDisplayUnit, RungPlacement } from '~/lib/prop-calculator/advisor';
+import {
+    RiskDisplayUnit,
+    RungPlacement,
+    SizingConstraint,
+} from '~/lib/prop-calculator/advisor';
 
 function mffProPlan() {
     const plan = findFirm(FirmId.Mffu)?.findPlan({
@@ -27,7 +33,19 @@ function mffProPlan() {
 }
 
 const CARD: DailyPlanCardViewModel = {
+    consistencyNoteText: null,
+    cushion: 3500,
+    dailyLossCap: {
+        amount: 3500,
+        constraint: SizingConstraint.CushionCap,
+        text: 'Capped so the retained cushion stays intact.',
+    },
+    dailyLossRoom: null,
+    dailyProfitCeiling: null,
+    emptyText: 'No trade is placeable today.',
+    maxTradesPerWindow: 1,
     oneContractRisk: null,
+    profitCeiling: null,
     rungPlacements: [RungPlacement.NotChecked, RungPlacement.NotChecked],
     rungs: [
         {
@@ -48,6 +66,7 @@ const CARD: DailyPlanCardViewModel = {
     valueAfterLoss: null,
     valueAfterWin: null,
     valueNow: null,
+    windowRuleText: 'Hard Rule 6: at most one trade per trading window',
 };
 
 const onInstrumentChange = vi.fn();
@@ -69,6 +88,8 @@ function sizingFor(
     isSettled = true,
 ): DailyCardSizing {
     return {
+        cushionLeft: null,
+        dailyLossRoom: null,
         entry: {
             instrument: InstrumentSymbol.NQ,
             isSettled,
@@ -397,5 +418,87 @@ describe('the daily plan card judges the sibling instrument mismatch against the
         const text = container.textContent;
         expect(text).toContain("plan's full drawdown budget");
         expect(text).not.toContain('room left today');
+    });
+});
+
+describe('the daily plan card renders its rungs through the one shared rung table (PT-101 addendum)', () => {
+    const COMPONENTS = path.join(
+        process.cwd(),
+        'src',
+        'app',
+        '(app)',
+        'prop-calculator',
+        'accounts',
+        '_components',
+    );
+
+    function sourcesUnder(directory: string): string[] {
+        return readdirSync(directory, { withFileTypes: true }).flatMap(
+            (entry) => {
+                const full = path.join(directory, entry.name);
+                if (entry.isDirectory()) return sourcesUnder(full);
+                return /\.tsx?$/.test(entry.name) ? [full] : [];
+            },
+        );
+    }
+
+    it('keeps one rung table component under accounts/_components', () => {
+        const withRungHeader = sourcesUnder(COMPONENTS).filter((file) =>
+            readFileSync(file, 'utf8').includes('Running loss after'),
+        );
+
+        expect(withRungHeader.map((file) => path.basename(file))).toEqual([
+            'RungTable.tsx',
+        ]);
+    });
+
+    it('prints the card rungs under the shared table caption', () => {
+        const container = document.createElement('div');
+        document.body.append(container);
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        const root = createRoot(container);
+        act(() => {
+            root.render(<DailyPlanCardView card={CARD} sizing={null} />);
+        });
+
+        expect(container.querySelector('caption')?.textContent).toBe(
+            "Today's plan rungs",
+        );
+        expect(container.querySelectorAll('tbody tr')).toHaveLength(2);
+
+        act(() => {
+            root.unmount();
+        });
+        document.body.replaceChildren();
+        vi.unstubAllGlobals();
+    });
+
+    it('shows the empty text when the card has no rung, not a table', () => {
+        const container = document.createElement('div');
+        document.body.append(container);
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        const root = createRoot(container);
+        act(() => {
+            root.render(
+                <DailyPlanCardView
+                    card={{
+                        ...CARD,
+                        emptyText: 'No trade is placeable today.',
+                        rungPlacements: [],
+                        rungs: [],
+                    }}
+                    sizing={null}
+                />,
+            );
+        });
+
+        expect(container.querySelector('table')).toBeNull();
+        expect(container.textContent).toContain('No trade is placeable today.');
+
+        act(() => {
+            root.unmount();
+        });
+        document.body.replaceChildren();
+        vi.unstubAllGlobals();
     });
 });

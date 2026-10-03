@@ -2,18 +2,50 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { fundedIneligibilityMessage } from '~/cli/commands/prop/optimize/dp/command';
 import {
+    DEFAULT_RULEBOOK,
+    DifferenceReason,
+    DpNotValidatedCause,
+    type RulebookParameters,
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
+import {
+    buildDpSolverCall,
+    type DpAdvice,
+    type DpAdviceAccount,
+    dpAdviceFor,
+    dpConfigKey,
+    dpEligibility,
+    dpEvalDayIndex,
+    DpEvalObjective,
+    DpGateFailure,
+    type DpSolutionView,
+    type DpSolveConfig,
+    dpSolveConfigFor,
+    type DpSolveConfigInput,
+    type DpValidationVerdict,
+    EVAL_CUSHION_STEP_DOLLARS_DEFAULT,
+    ineligibleDpAdvice,
+} from '~/lib/prop-calculator/advisor/dp';
+import {
+    DP_ADVICE_SOLVER_VERSION,
+    DpAdviceGap,
+    DpSamplesKind,
+    DpSampleStage,
+    DpSamplesUnavailableReason,
+} from '~/lib/prop-calculator/advisor/DpAdviceRow';
+import {
     ConductCategory,
     type ConductPattern,
     ConsistencyRule,
     ConsistencyScope,
-    DEFAULT_RUNG_SIZING,
-    contracts,
     ContractLimitKind,
+    contracts,
+    DEFAULT_RUNG_SIZING,
     dollars,
     EodTrailingDrawdown,
     FirmAccountPolicy,
-    FundedDpModelGapKind,
     fraction,
+    FundedDpModelGapKind,
     InstrumentSymbol,
     IntradayTrailingDrawdown,
     newFundedCycleTracker,
@@ -24,41 +56,12 @@ import {
     PolicyVerification,
     resolvePositionSizing,
     resolveRiskAt,
+    serializePlanId,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
-import {
-    DEFAULT_RULEBOOK,
-    DifferenceReason,
-    DpNotValidatedCause,
-    type RulebookParameters,
-    SizingObjective,
-} from '~/lib/prop-calculator/advisor';
-import {
-    DP_ADVICE_SOLVER_VERSION,
-    DpAdviceGap,
-    DpSampleStage,
-    DpSamplesKind,
-    DpSamplesUnavailableReason,
-} from '~/lib/prop-calculator/advisor/DpAdviceRow';
-import {
-    buildDpSolverCall,
-    type DpAdviceAccount,
-    dpAdviceFor,
-    dpConfigKey,
-    dpEligibility,
-    dpEvalDayIndex,
-    DpEvalObjective,
-    DpGateFailure,
-    ineligibleDpAdvice,
-    type DpSolutionView,
-    dpSolveConfigFor,
-    type DpSolveConfigInput,
-    type DpValidationVerdict,
-    EVAL_CUSHION_STEP_DOLLARS_DEFAULT,
-} from '~/lib/prop-calculator/advisor/dp';
-import { fundedDpModelGaps } from '~/lib/prop-calculator/core/FundedDpModelGaps';
 import { solveAverageRewardPolicy } from '~/lib/prop-calculator/core/AverageRewardSolver';
-import { RateSearchStatus } from '~/lib/prop-calculator/core/AverageRewardSolver';
+import { type RateSearchStatus } from '~/lib/prop-calculator/core/AverageRewardSolver';
+import { fundedDpModelGaps } from '~/lib/prop-calculator/core/FundedDpModelGaps';
 
 import { TOY_FINGERPRINT, toyDpConfig, toyDpPlan } from './dpFixtures';
 
@@ -111,35 +114,11 @@ class StubConductPolicy extends FirmAccountPolicy {
     }
 }
 
-function fundedAccount(plan: Plan): DpAdviceAccount {
-    const state = plan.initialState();
-    plan.beginFundedPhase(state);
-    return {
-        fundedTracker: newFundedCycleTracker(state),
-        kind: TradingPhase.Funded,
-        plan,
-        state,
-    };
-}
-
-function evalAccount(
+function configFor(
     plan: Plan,
-    elapsedDays: number | undefined,
-    overrides: Partial<ReturnType<Plan['initialState']>> = {},
-): DpAdviceAccount {
-    const state = { ...plan.initialState(), ...overrides };
-    if (elapsedDays === undefined) delete state.elapsedDays;
-    else state.elapsedDays = elapsedDays;
-    return { fundedTracker: null, kind: TradingPhase.Eval, plan, state };
-}
-
-function rulebookWithPayout(
-    payout: Partial<RulebookParameters['payout']>,
-): RulebookParameters {
-    return {
-        ...DEFAULT_RULEBOOK,
-        payout: { ...DEFAULT_RULEBOOK.payout, ...payout },
-    };
+    overrides: Partial<DpSolveConfigInput> = {},
+): ReturnType<typeof dpSolveConfigFor> {
+    return dpSolveConfigFor(configInput(plan, overrides));
 }
 
 function configInput(
@@ -174,11 +153,39 @@ function configInput(
     };
 }
 
+function evalAccount(
+    plan: Plan,
+    elapsedDays: number | undefined,
+    overrides: Partial<ReturnType<Plan['initialState']>> = {},
+): DpAdviceAccount {
+    const state = { ...plan.initialState(), ...overrides };
+    if (elapsedDays === undefined) delete state.elapsedDays;
+    else state.elapsedDays = elapsedDays;
+    return { fundedTracker: null, kind: TradingPhase.Eval, plan, state };
+}
+
+function fundedAccount(plan: Plan): DpAdviceAccount {
+    const state = plan.initialState();
+    plan.beginFundedPhase(state);
+    return {
+        fundedTracker: newFundedCycleTracker(state),
+        kind: TradingPhase.Funded,
+        plan,
+        state,
+    };
+}
+
+function isChurn(reason: { kind: DifferenceReason }): boolean {
+    return reason.kind === DifferenceReason.AggressiveOptimumChurn;
+}
+
 function lossOf(
     plan: Plan,
     state: ReturnType<Plan['initialState']>,
     intendedRisk: number,
-    positionSizing = null as Parameters<typeof resolveRiskAt>[0]['positionSizing'],
+    positionSizing = null as Parameters<
+        typeof resolveRiskAt
+    >[0]['positionSizing'],
 ): number {
     return resolveRiskAt({
         commission: 0,
@@ -190,6 +197,39 @@ function lossOf(
         sizing: PolicySizing.WholeContracts,
         state,
     }).risk;
+}
+
+function rulebookWithPayout(
+    payout: Partial<RulebookParameters['payout']>,
+): RulebookParameters {
+    return {
+        ...DEFAULT_RULEBOOK,
+        payout: { ...DEFAULT_RULEBOOK.payout, ...payout },
+    };
+}
+
+function sampledOf(advice: DpAdvice) {
+    if (advice.samples.kind !== DpSamplesKind.Sampled) {
+        throw new Error(
+            `expected sampled advice, got ${advice.samples.reason}`,
+        );
+    }
+    return advice.samples.samples;
+}
+
+function validatedEvalAdvice(
+    account: DpAdviceAccount,
+    config: DpSolveConfig,
+    solution: DpSolutionView,
+): DpAdvice {
+    return dpAdviceFor({
+        account,
+        config,
+        documentedPeakRisk: null,
+        documentedRungDollars: RUNG_DOLLARS,
+        solution,
+        validation: VALIDATED,
+    });
 }
 
 describe('dpEligibility', () => {
@@ -240,10 +280,12 @@ describe('dpEligibility', () => {
             isInstantFunded: true,
         });
 
-        expect(dpEligibility(everything)).toMatchObject({
-            eligible: false,
-            reason: expect.stringContaining('is instant-funded'),
-        });
+        const eligibility = dpEligibility(everything);
+
+        expect(eligibility.eligible).toBe(false);
+        expect(eligibility.eligible ? '' : eligibility.reason).toContain(
+            'is instant-funded',
+        );
     });
 });
 
@@ -261,57 +303,46 @@ describe('dpSolveConfigFor', () => {
     });
 
     it('holds the Hard Rule 2 floor unless the rulebook allows going below it', () => {
-        expect(
-            dpSolveConfigFor(
-                configInput(plan, {
-                    rulebook: rulebookWithPayout({
-                        allowBelowHardRule2: false,
-                        retainedCushionCents: 50_000,
-                    }),
-                }),
-            ).fundedGrid.minRetainedCushion,
-        ).toBe(2000);
-        expect(
-            dpSolveConfigFor(
-                configInput(plan, {
-                    rulebook: rulebookWithPayout({
-                        allowBelowHardRule2: true,
-                        retainedCushionCents: 50_000,
-                    }),
-                }),
-            ).fundedGrid.minRetainedCushion,
-        ).toBe(500);
+        const floored = configFor(plan, {
+            rulebook: rulebookWithPayout({
+                allowBelowHardRule2: false,
+                retainedCushionCents: 50_000,
+            }),
+        });
+        const allowed = configFor(plan, {
+            rulebook: rulebookWithPayout({
+                allowBelowHardRule2: true,
+                retainedCushionCents: 50_000,
+            }),
+        });
+
+        expect(floored.fundedGrid.minRetainedCushion).toBe(2000);
+        expect(allowed.fundedGrid.minRetainedCushion).toBe(500);
     });
 
     it('lets a personal retained cushion above the rulebook win', () => {
-        expect(
-            dpSolveConfigFor(
-                configInput(plan, { personalRetainedCushion: 4200 }),
-            ).fundedGrid.minRetainedCushion,
-        ).toBe(4200);
+        const config = configFor(plan, { personalRetainedCushion: 4200 });
+
+        expect(config.fundedGrid.minRetainedCushion).toBe(4200);
     });
 
     it('sends the effective payout request under FullRequestOnly', () => {
-        const withMinimum = plan.withOverrides({ minPayoutRequest: dollars(750) });
+        const withMinimum = plan.withOverrides({
+            minPayoutRequest: dollars(750),
+        });
+        const rulebook = rulebookWithPayout({ requestCents: 50_000 });
 
-        const config = dpSolveConfigFor(
-            configInput(withMinimum, {
-                rulebook: rulebookWithPayout({ requestCents: 50_000 }),
-            }),
-        );
+        const config = configFor(withMinimum, { rulebook });
+        const personal = configFor(plan, {
+            personalPayoutRequest: 900,
+            rulebook,
+        });
 
         expect(config.fundedGrid.payoutRequestSize).toBe(750);
         expect(config.fundedGrid.payoutRequestPolicy).toBe(
             PayoutRequestPolicy.FullRequestOnly,
         );
-        expect(
-            dpSolveConfigFor(
-                configInput(plan, {
-                    personalPayoutRequest: 900,
-                    rulebook: rulebookWithPayout({ requestCents: 50_000 }),
-                }),
-            ).fundedGrid.payoutRequestSize,
-        ).toBe(900);
+        expect(personal.fundedGrid.payoutRequestSize).toBe(900);
     });
 
     it('never passes the documented stop rule: the funded DP cannot model one', () => {
@@ -335,7 +366,7 @@ describe('dpSolveConfigFor', () => {
             }),
         );
 
-        expect(config.planSerial).toBe('mffu:50000:rapid-eod');
+        expect(config.planSerial).toBe(serializePlanId(plan.id));
         expect(config.optIns.takesFundedReset).toBe(true);
         expect(config.planRulesFingerprint).toBe(TOY_FINGERPRINT);
         expect(config.fundedGrid.actionStepMultiple).toBe(0.5);
@@ -364,9 +395,9 @@ describe('dpAdviceFor on a toy plan solved once', () => {
     const plan = toyDpPlan();
     const config = toyDpConfig(plan, {
         fundedGrid: {
-            actionStepMultiple: 1,
-            cushionStepMultiple: 1,
-            maxActionMultiple: 1,
+            actionStepMultiple: 0.5,
+            cushionStepMultiple: 0.5,
+            maxActionMultiple: 0.5,
         },
         maxEvalDays: EVAL_DAYS,
         tradesPerDay: SLOTS,
@@ -393,15 +424,6 @@ describe('dpAdviceFor on a toy plan solved once', () => {
         });
     }
 
-    function sampledOf(advice: ReturnType<typeof dpAdviceFor>) {
-        if (advice.samples.kind !== DpSamplesKind.Sampled) {
-            throw new Error(
-                `expected sampled advice, got ${advice.samples.reason}`,
-            );
-        }
-        return advice.samples.samples;
-    }
-
     describe('funded samples', () => {
         it('samples every trade slot of the all-loss path at the rebuilt state and at plus or minus one and two documented rungs, each equal to computeRisk with the rebuilt cycle snapshot', () => {
             const account = fundedAccount(plan);
@@ -417,9 +439,9 @@ describe('dpAdviceFor on a toy plan solved once', () => {
             const samples = sampledOf(fundedAdvice({ account }));
 
             expect(
-                [...new Set(samples.map((sample) => sample.rungOffset))].toSorted(
-                    (a, b) => a - b,
-                ),
+                [
+                    ...new Set(samples.map((sample) => sample.rungOffset)),
+                ].toSorted((a, b) => a - b),
             ).toEqual([-2, -1, 0, 1, 2]);
             expect(
                 samples.filter((sample) => sample.rungOffset === 0),
@@ -450,9 +472,13 @@ describe('dpAdviceFor on a toy plan solved once', () => {
                         sample.rungOffset === rungOffset &&
                         sample.tradeIndex === 1,
                 );
-                expect(second?.riskCents).toBe(
-                    Math.round(computeRisk(afterLoss, 1, cycle) * 100),
-                );
+                if (afterLoss.balance > afterLoss.threshold) {
+                    expect(second?.riskCents).toBe(
+                        Math.round(computeRisk(afterLoss, 1, cycle) * 100),
+                    );
+                } else {
+                    expect(second).toBeUndefined();
+                }
             }
         });
 
@@ -488,11 +514,13 @@ describe('dpAdviceFor on a toy plan solved once', () => {
             const advice = fundedAdvice();
             const samples = sampledOf(advice);
 
-            expect(samples.every((sample) => sample.placedRiskCents === null)).toBe(
-                true,
-            );
             expect(
-                samples.every((sample) => Number.isInteger(sample.riskCents)),
+                samples.every((sample) => sample.placedRiskCents === null),
+            ).toBe(true);
+            expect(
+                samples.every((sample) =>
+                    Number.isSafeInteger(sample.riskCents),
+                ),
             ).toBe(true);
             expect(advice.gaps).toContainEqual({
                 kind: DpAdviceGap.ContinuousRiskAssumed,
@@ -565,7 +593,7 @@ describe('dpAdviceFor on a toy plan solved once', () => {
     });
 
     describe('gaps', () => {
-        it('lists the plan model gaps, the day stop rule that the funded DP cannot model, and nothing for an aligned toy', () => {
+        it('lists the plan model gaps and the day stop rule the funded DP cannot model, with no consistency-grid gap for a plan without the rule', () => {
             const advice = fundedAdvice();
 
             for (const gap of fundedDpModelGaps(plan)) {
@@ -579,9 +607,20 @@ describe('dpAdviceFor on a toy plan solved once', () => {
                     (gap) => gap.kind === DpAdviceGap.ConsistencyGridTruncates,
                 ),
             ).toBe(false);
+        });
+
+        it('reports a state at the grid top exactly when the solved grid says it is saturated there', () => {
+            const account = fundedAccount(plan);
+            const cycle = account.fundedTracker?.cycleSnapshot(
+                plan,
+                account.state,
+            );
+
             expect(
-                advice.gaps.some((gap) => gap.kind === DpAdviceGap.StateAtGridTop),
-            ).toBe(false);
+                fundedAdvice({ account }).gaps.some(
+                    (gap) => gap.kind === DpAdviceGap.StateAtGridTop,
+                ),
+            ).toBe(solution.fundedResult.isGridSaturated(account.state, cycle));
         });
 
         it('adds the consistency-grid truncation with the locked grid top in cents for a plan with a funded consistency rule', () => {
@@ -656,7 +695,9 @@ describe('dpAdviceFor on a toy plan solved once', () => {
         });
 
         it('names the gate result and cites the ledger row for a run below the best flat, without borrowing a wrong cause', () => {
-            const advice = fundedAdvice({ validation: NOT_VALIDATED_BELOW_FLAT });
+            const advice = fundedAdvice({
+                validation: NOT_VALIDATED_BELOW_FLAT,
+            });
 
             expect(advice.notValidated).toEqual({
                 citation: CITATION,
@@ -675,7 +716,9 @@ describe('dpAdviceFor on a toy plan solved once', () => {
 
             expect(advice.validated).toBe(true);
             expect(advice.notValidated).toBeNull();
-            expect(advice.validationRef).toBe(`${CITATION.file}#${CITATION.row}`);
+            expect(advice.validationRef).toBe(
+                `${CITATION.file}#${CITATION.row}`,
+            );
             expect(
                 advice.reasons.some(
                     (reason) => reason.kind === DifferenceReason.DpNotValidated,
@@ -691,6 +734,32 @@ describe('dpAdviceFor on a toy plan solved once', () => {
             expect(advice.solverVersion).toBe(DP_ADVICE_SOLVER_VERSION);
         });
 
+        it('pins the toy solve samples to the solver version: a changed value means bumping DP_ADVICE_SOLVER_VERSION', () => {
+            const samples = sampledOf(fundedAdvice()).filter(
+                (sample) => sample.rungOffset === 0,
+            );
+
+            expect(
+                {
+                    samples: samples.map(
+                        ({ cushionCents, riskCents, tradeIndex }) => [
+                            tradeIndex,
+                            cushionCents,
+                            riskCents,
+                        ],
+                    ),
+                    solverVersion: DP_ADVICE_SOLVER_VERSION,
+                },
+                'the funded DP samples on the toy plan changed: bump DP_ADVICE_SOLVER_VERSION in DpAdviceRow.ts, then update this pin',
+            ).toEqual({
+                samples: [
+                    [0, 10_000, 5000],
+                    [1, 5000, 5000],
+                ],
+                solverVersion: 1,
+            });
+        });
+
         it('attaches AggressiveOptimumChurn with the verified pattern when the DP peak risk exceeds the documented peak', () => {
             const advice = fundedAdvice({
                 accountPolicy: new StubConductPolicy(),
@@ -704,9 +773,6 @@ describe('dpAdviceFor on a toy plan solved once', () => {
         });
 
         it('stays silent about churn without a verified pattern source or a documented peak', () => {
-            const isChurn = (reason: { kind: DifferenceReason }) =>
-                reason.kind === DifferenceReason.AggressiveOptimumChurn;
-
             expect(
                 fundedAdvice({ documentedPeakRisk: 1 }).reasons.some(isChurn),
             ).toBe(false);
@@ -788,7 +854,7 @@ describe('dpAdviceFor on a toy plan solved once', () => {
             expect(base?.riskCents).toBe(
                 Math.round(
                     (solution.evalResult.riskAtReachedState(account.state, 0) ??
-                        Number.NaN) * 100,
+                        NaN) * 100,
                 ),
             );
             expect(advice.validated).toBe(true);
@@ -892,25 +958,27 @@ describe('dpAdviceFor on a toy plan solved once', () => {
 
         it('use the default cushion step when the config sets none', () => {
             expect(EVAL_CUSHION_STEP_DOLLARS_DEFAULT).toBe(100);
-            const adviceFor = (account: DpAdviceAccount) =>
-                dpAdviceFor({
-                    account,
-                    config: { ...config, evalGrid: {} },
-                    documentedPeakRisk: null,
-                    documentedRungDollars: RUNG_DOLLARS,
-                    solution,
-                    validation: VALIDATED,
-                });
+            const defaultStep = { ...config, evalGrid: {} };
             const oddDrawdown = plan.withOverrides({
                 drawdown: new EodTrailingDrawdown({ amount: dollars(175) }),
             });
+            const aligned = validatedEvalAdvice(
+                evalAccount(plan, 0),
+                defaultStep,
+                solution,
+            );
+            const misaligned = validatedEvalAdvice(
+                evalAccount(oddDrawdown, 0),
+                defaultStep,
+                solution,
+            );
 
             expect(
-                adviceFor(evalAccount(plan, 0)).gaps.some(
+                aligned.gaps.some(
                     (gap) => gap.kind === DpAdviceGap.EvalGridMisaligned,
                 ),
             ).toBe(false);
-            expect(adviceFor(evalAccount(oddDrawdown, 0)).gaps).toContainEqual({
+            expect(misaligned.gaps).toContainEqual({
                 drawdownCents: 17_500,
                 kind: DpAdviceGap.EvalGridMisaligned,
                 stepCents: 10_000,
@@ -963,7 +1031,7 @@ describe('dpAdviceFor with position sizing and a funded tier limit', () => {
         },
     });
     const positionSizing = {
-        instrument: InstrumentSymbol.MES,
+        instrument: InstrumentSymbol.MNQ,
         stopPoints: 10,
     } as const;
     const config = toyDpConfig(plan, {
@@ -1005,8 +1073,8 @@ describe('dpAdviceFor with position sizing and a funded tier limit', () => {
             (sample) => sample.rungOffset === 0 && sample.tradeIndex === 0,
         );
         const { computeRisk } = solution.fundedResult.dayPolicy;
-        const cycle = account.fundedTracker?.cycleSnapshot(plan, account.state);
         if (computeRisk === undefined) throw new Error('no computeRisk');
+        const cycle = account.fundedTracker?.cycleSnapshot(plan, account.state);
         const expectedPlaced = resolveRiskAt({
             commission: 0,
             intendedRisk: computeRisk(account.state, 0, cycle),
@@ -1022,7 +1090,7 @@ describe('dpAdviceFor with position sizing and a funded tier limit', () => {
         });
 
         expect(first?.placedRiskCents).not.toBeNull();
-        expect(Number.isInteger(first?.placedRiskCents)).toBe(true);
+        expect(Number.isSafeInteger(first?.placedRiskCents)).toBe(true);
         expect(first?.placedRiskCents ?? 0).toBeLessThanOrEqual(5000);
         expect(expectedPlaced.rewardRisk * 100).toBe(first?.placedRiskCents);
         expect(

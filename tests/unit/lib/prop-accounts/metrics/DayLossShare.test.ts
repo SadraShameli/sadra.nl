@@ -718,9 +718,7 @@ function dayOf(valueLoss: ReadonlyMap<string, number> | undefined) {
 describe('an eval day loss names the basis each entry used (PT-90, F-V29)', () => {
     it('names the from-state value change for an entry priced from the account state, and not the retry fee', () => {
         const day = dayOf(new Map([['e1', 42.5]]));
-        expect(dayLossBasisNotes(day)).toEqual([
-            DAY_LOSS_EVAL_FROM_STATE_NOTE,
-        ]);
+        expect(dayLossBasisNotes(day)).toEqual([DAY_LOSS_EVAL_FROM_STATE_NOTE]);
         expect(DAY_LOSS_EVAL_FROM_STATE_NOTE).toContain('from-state');
         expect(DAY_LOSS_EVAL_FROM_STATE_NOTE).not.toContain('retry fee');
         expect(dayLossBreakdownText(day)).toContain(

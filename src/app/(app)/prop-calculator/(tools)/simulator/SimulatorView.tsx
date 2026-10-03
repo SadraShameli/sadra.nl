@@ -23,16 +23,14 @@ import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
+import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
 import { FundedValueCard } from '~/app/(app)/prop-calculator/_components/value/FundedValueCard';
 import { valueCardsInputFor } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import { ValueChainCard } from '~/app/(app)/prop-calculator/_components/value/ValueChainCard';
 import { accountPrefillHref } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
 import { Button } from '~/components/ui/Button';
-import { useSession } from '~/lib/auth/client';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
-import { api } from '~/trpc/react';
 
 const ResultsPanel = dynamic(
     () => import('~/app/(app)/prop-calculator/_components/ResultsPanel'),
@@ -57,15 +55,7 @@ export function SimulatorView() {
     const { chartType, pinned } = useLabSlots();
     const actions = useCalculatorActions();
 
-    const session = useSession();
-    const hasSession = session.data?.user.id !== undefined;
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
-        enabled: hasSession,
-    });
-    const rulebook =
-        hasSession && rulebookQuery.data !== undefined
-            ? rulebookQuery.data
-            : DEFAULT_RULEBOOK;
+    const { rulebook } = useToolRulebook();
     const valueCards = useMemo(
         () => valueCardsInputFor(state, rulebook),
         [state, rulebook],

@@ -120,6 +120,8 @@ const PLAN_KEY_FIELDS: ReadonlySet<string> = new Set<
     (typeof EDITABLE_FIELDS)[number]
 >(['accountSize', 'firmId', 'optIns', 'planSerial']);
 
+const CORRUPT_TAGS_EVENT_VALUE = 'unreadable';
+
 const COPY_GROUP_NOT_OWNED =
     'The copy group you picked is not one of your copy groups';
 const REPLACED_ACCOUNT_NOT_OWNED =
@@ -382,7 +384,11 @@ export const propAccountRouter = createTRPCRouter({
                     );
                 }
                 const values = editableValues(input);
-                const changes = accountChanges(stored, values);
+                const changes = withCorruptTagsRepair(
+                    stored,
+                    values,
+                    accountChanges(stored, values),
+                );
                 if (changes.length === 0) return stored;
                 if (
                     changes.some((change) =>
@@ -847,4 +853,20 @@ function upgradedValues(upgraded: OwnedAccount): EditableValues {
         tags: upgraded.tags,
         tracking: upgraded.tracking,
     };
+}
+
+function withCorruptTagsRepair(
+    stored: OwnedAccount,
+    values: EditableValues,
+    changes: readonly AccountEventChange[],
+): AccountEventChange[] {
+    if (stored.hasCorruptTags !== true) return [...changes];
+    return [
+        ...changes.filter((change) => change.field !== 'tags'),
+        {
+            field: 'tags',
+            from: CORRUPT_TAGS_EVENT_VALUE,
+            to: changeValue(values.tags),
+        },
+    ];
 }

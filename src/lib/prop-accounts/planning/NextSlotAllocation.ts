@@ -338,7 +338,10 @@ type Placement =
       };
 
 export function isNextSlotHourKeyAvailable(
-    bankroll: Pick<BankrollParameters, 'accountsPerSession' | 'sessionHoursPerDay'>,
+    bankroll: Pick<
+        BankrollParameters,
+        'accountsPerSession' | 'sessionHoursPerDay'
+    >,
 ): boolean {
     return (
         bankroll.accountsPerSession !== null &&
@@ -365,8 +368,7 @@ export function nextSlotAllocation(inputs: NextSlotInputs): NextSlotAllocation {
             : NextSlotSortKey.Objective;
     const ordered = rankable.toSorted((a, b) =>
         sortKey === NextSlotSortKey.Hour
-            ? compareByHour(a, b) ||
-              compareByObjective(a, b, inputs.objective)
+            ? compareByHour(a, b) || compareByObjective(a, b, inputs.objective)
             : compareByObjective(a, b, inputs.objective),
     );
     const isOptimumComparable = ordered.every(

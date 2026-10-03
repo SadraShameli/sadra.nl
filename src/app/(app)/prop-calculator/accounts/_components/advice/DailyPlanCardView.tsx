@@ -5,14 +5,6 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/Table';
-import {
     formatConjunctionList,
     formatCurrency,
     formatGateCurrency,
@@ -28,9 +20,13 @@ import {
     RungPlacement,
 } from '~/lib/prop-calculator/advisor';
 
-import { type DailyPlanCardViewModel } from './adviceViewModel';
+import {
+    type CappedAmountView,
+    type DailyPlanCardViewModel,
+} from './adviceViewModel';
 import { contractsSizingOf } from './contractsSizingModel';
 import { InstrumentStopEntry } from './InstrumentStopEntry';
+import { RungTable } from './RungTable';
 
 export interface DailyCardEntry {
     readonly instrument: InstrumentSymbol;
@@ -42,8 +38,8 @@ export interface DailyCardEntry {
 }
 
 export interface DailyCardSizing {
-    readonly cushionLeft?: null | number;
-    readonly dailyLossRoom?: null | number;
+    readonly cushionLeft: null | number;
+    readonly dailyLossRoom: null | number;
     readonly entry: DailyCardEntry;
     readonly phase: TradingPhase;
     readonly plan: Plan;
@@ -69,44 +65,12 @@ export function DailyPlanCardView({
             {card.rungs.length === 0 ? (
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Lock aria-hidden="true" className="size-4" />
-                    No trade is placeable today.
+                    {card.emptyText}
                 </p>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Trade</TableHead>
-                            <TableHead className="text-right">Risk</TableHead>
-                            <TableHead className="text-right">
-                                Take profit
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Running loss after
-                            </TableHead>
-                            <TableHead>Capped by</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {card.rungs.map((rung, index) => (
-                            <TableRow key={String(index)}>
-                                <TableCell>{index + 1}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {formatCurrency(rung.risk, 2)}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {formatCurrency(rung.takeProfit, 2)}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {formatCurrency(rung.runningLossAfter, 2)}
-                                </TableCell>
-                                <TableCell>
-                                    {rung.cappedByText.join(', ')}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                <RungTable label="Today's plan rungs" rungs={card.rungs} />
             )}
+            <CardLimits card={card} />
             <p className="text-sm">
                 {card.stopReasonText}
                 {card.stopCappedByText.length > 0 &&
@@ -156,6 +120,36 @@ export function DailyPlanCardView({
     );
 }
 
+function cappedLine(label: string, capped: CappedAmountView): string {
+    return `${label} ${formatCurrency(capped.amount, 2)}. ${capped.text}`;
+}
+
+function CardLimits({ card }: { readonly card: DailyPlanCardViewModel }) {
+    const { dailyProfitCeiling, profitCeiling } = card;
+    const isRuleCeilingShown =
+        profitCeiling !== null &&
+        !isSameCeiling(dailyProfitCeiling, profitCeiling);
+    return (
+        <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
+            <li>{card.windowRuleText}</li>
+            <li>{cappedLine('Daily loss cap', card.dailyLossCap)}</li>
+            {dailyProfitCeiling !== null && (
+                <li>
+                    {cappedLine('Daily profit ceiling', dailyProfitCeiling)}
+                </li>
+            )}
+            {isRuleCeilingShown && (
+                <li>
+                    {cappedLine('Profit ceiling from the rules', profitCeiling)}
+                </li>
+            )}
+            {card.consistencyNoteText !== null && (
+                <li>{card.consistencyNoteText}</li>
+            )}
+        </ul>
+    );
+}
+
 function ContractsSizing({
     risk,
     sizing,
@@ -171,8 +165,7 @@ function ContractsSizing({
         stopInput,
         stopPoints,
     } = sizing.entry;
-    const cushionLeft = sizing.cushionLeft ?? null;
-    const dailyLossRoom = sizing.dailyLossRoom ?? null;
+    const { cushionLeft, dailyLossRoom } = sizing;
     const result = useMemo(
         () =>
             contractsSizingOf({
@@ -230,5 +223,15 @@ function ContractsSizing({
                 </div>
             )}
         </div>
+    );
+}
+
+function isSameCeiling(
+    first: CappedAmountView | null,
+    second: CappedAmountView,
+): boolean {
+    return (
+        first?.amount === second.amount &&
+        first.constraint === second.constraint
     );
 }

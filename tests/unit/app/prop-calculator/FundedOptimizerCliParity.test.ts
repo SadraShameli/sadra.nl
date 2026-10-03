@@ -191,9 +191,7 @@ function cliCells(): string[][] {
 }
 
 function cliSimInputs(): SimInputs {
-    const inputs = TradingInputs.parse(
-        parseArgs(CLI_ARGV, CLI_ARGS) as never,
-    );
+    const inputs = TradingInputs.parse(parseArgs(CLI_ARGV, CLI_ARGS) as never);
     return {
         ...inputs.toSimInputs(TOPSTEP_50K),
         payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
@@ -247,15 +245,15 @@ describe('the funded optimizer page runs the inputs the CLI runs (F-27 (1), (2),
     });
 
     it('moves the page rows with the applied eval ladder', () => {
-        expect(webCells(calculatorInputs({ evalDayPolicy: null }))).not.toStrictEqual(
-            webCells(calculatorInputs()),
-        );
+        expect(
+            webCells(calculatorInputs({ evalDayPolicy: null })),
+        ).not.toStrictEqual(webCells(calculatorInputs()));
     });
 
     it('moves the page rows with the live-transfer hazard', () => {
-        expect(webCells(calculatorInputs({ liveTransferHazard: 0 }))).not.toStrictEqual(
-            webCells(calculatorInputs()),
-        );
+        expect(
+            webCells(calculatorInputs({ liveTransferHazard: 0 })),
+        ).not.toStrictEqual(webCells(calculatorInputs()));
     });
 
     it('builds its base through the one buildSimInputs mapping, which the hook module re-exports', () => {
@@ -286,14 +284,17 @@ describe('the CLI and the page give the same sort for every objective (PT-83 re-
     it.each([
         ['monthly', SizingObjective.MonthlyNet],
         ['cycle', SizingObjective.CycleCash],
-    ] as const)('maps --objective %s to the sort the page gives %s', (flag, objective) => {
-        const cliSort = resolveFundedSort(
-            { objective: flag, sort: FundedSortKey.Monthly },
-            false,
-        );
-        expect(cliSort).toBe(fundedOptimizerRanking(objective).sort);
-        expect(cliSort).toBe(fundedSortOfObjective(objective));
-    });
+    ] as const)(
+        'maps --objective %s to the sort the page gives %s',
+        (flag, objective) => {
+            const cliSort = resolveFundedSort(
+                { objective: flag, sort: FundedSortKey.Monthly },
+                false,
+            );
+            expect(cliSort).toBe(fundedOptimizerRanking(objective).sort);
+            expect(cliSort).toBe(fundedSortOfObjective(objective));
+        },
+    );
 
     it('refuses ruin-first in the CLI and keeps the monthly sort on the page', () => {
         expect(() =>

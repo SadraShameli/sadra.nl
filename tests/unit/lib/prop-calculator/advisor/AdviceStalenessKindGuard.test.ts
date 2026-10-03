@@ -17,9 +17,6 @@ const ADVISOR_ROOT = path.join(
 );
 const KIND_LITERAL = /['"](?:stale|fresh)['"]/;
 const ENUM_MEMBER_DECLARATION = /^\s*\w+ = ['"](?:stale|fresh)['"],?\s*$/;
-const FILES_OWNED_BY_ANOTHER_PACKAGE: ReadonlySet<string> = new Set([
-    path.join('actions', 'AccountActionOf.ts'),
-]);
 
 function filesUnder(directory: string): string[] {
     return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -61,7 +58,6 @@ describe('the advice staleness kind is an enum (PT-104, F-118, F-133)', () => {
     it("leaves no 'stale' or 'fresh' literal comparison under src/lib/prop-calculator/advisor", () => {
         const offenders = filesUnder(ADVISOR_ROOT)
             .map((file) => path.relative(ADVISOR_ROOT, file))
-            .filter((file) => !FILES_OWNED_BY_ANOTHER_PACKAGE.has(file))
             .flatMap((file) =>
                 readFileSync(path.join(ADVISOR_ROOT, file), 'utf8')
                     .split('\n')

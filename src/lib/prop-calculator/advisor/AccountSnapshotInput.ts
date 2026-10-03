@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 import {
-    dollars,
     type Dollars,
     dollarsSchema,
+    nonNegativeDollarsSchema,
 } from '~/lib/prop-calculator/core';
 
 import { DashboardBalanceConvention } from './DashboardBalanceConvention';
@@ -66,8 +66,6 @@ export const PENDING_PAYOUT_COUNTS_NOT_CHECKED: PendingPayoutCountsOutcome =
 const isoDateSchema = z.iso.date();
 
 const countSchema = z.number().int().nonnegative();
-
-const nonNegativeDollarsSchema = z.number().nonnegative().transform(dollars);
 
 export const accountPendingPayoutCountsSchema = z.strictObject({
     otherAccountsPendingPayoutCount: countSchema,

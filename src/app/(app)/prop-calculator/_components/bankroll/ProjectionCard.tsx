@@ -1,28 +1,43 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import {
+    Area,
+    CartesianGrid,
+    ComposedChart,
+    Line,
+    XAxis,
+    YAxis,
+} from 'recharts';
 
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { Input } from '~/components/ui/Input';
 import {
+    formatCompactCurrency,
     formatGateCurrency,
     formatPercent,
     NOT_APPLICABLE,
 } from '~/lib/format';
 import { fraction } from '~/lib/prop-calculator';
+import { type ProjectionMonthEnd } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
+import { cn } from '~/lib/utilities';
 
 import {
     BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL,
-    bankrollClosedFormIllustration,
+    bankrollCycleDescription,
+    bankrollCycleFigures,
+    bankrollCycleInput,
     bankrollProjectionRequest,
     bankrollProjectionSummary,
 } from './bankrollModel';
 import {
     type BankrollUrlState,
     parseBankrollDollarsField,
+    parseBankrollMultipleField,
     parseBankrollNonNegativeIntField,
     parseBankrollPositiveIntField,
     parseBankrollReinvestFractionField,
@@ -34,6 +49,11 @@ interface ProjectionCardProperties {
     onChange: (patch: Partial<BankrollUrlState>) => void;
     state: BankrollUrlState;
 }
+
+const monthEndChartConfig: ChartConfig = {
+    band: { color: 'hsl(142 76% 45% / 0.18)', label: 'P10 to P90' },
+    median: { color: 'hsl(142 76% 45%)', label: 'Median bankroll' },
+};
 
 export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
     const { variant } = useBankrollVariant();
@@ -48,6 +68,7 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                       monthlyBudget: state.monthlyBudget,
                       payoutLagDays: state.payoutLagDays ?? 0,
                       reinvestFraction: state.reinvestFraction ?? fraction(0),
+                      roundBudget: state.roundBudget,
                       start: state.start,
                   },
         [
@@ -56,6 +77,7 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
             state.monthlyBudget,
             state.payoutLagDays,
             state.reinvestFraction,
+            state.roundBudget,
             state.start,
         ],
     );
@@ -70,25 +92,28 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
     );
     const worker = useToolsRequest(requestKey, buildRequest);
 
-    const result =
+    const projection =
         worker.state.phase === ToolsWorkerPhase.Succeeded &&
         worker.state.result.kind === ToolsResponseKind.Projection
-            ? worker.state.result.result
+            ? worker.state.result
             : null;
-    const summary = result === null ? null : bankrollProjectionSummary(result);
+    const summary =
+        projection === null
+            ? null
+            : bankrollProjectionSummary(projection.result);
     const failureReason =
         worker.state.phase === ToolsWorkerPhase.Failed
             ? worker.state.reason
             : null;
 
+    const cycle = bankrollCycleInput(state.cycleMultiple, state.cycleDays);
     const illustration =
-        state.start === null || state.horizonDays === null
+        projection === null ||
+        cycle === null ||
+        state.start === null ||
+        state.horizonDays === null
             ? null
-            : bankrollClosedFormIllustration(
-                  state.start,
-                  state.reinvestFraction ?? fraction(0),
-                  state.horizonDays,
-              );
+            : bankrollCycleFigures(state.start, state.horizonDays, [cycle])[0];
 
     return (
         <section
@@ -162,6 +187,36 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                     testId="bankroll-horizon"
                     value={state.horizonDays}
                 />
+                <NumberField
+                    label="Round budget ($, optional)"
+                    onChange={(raw) =>
+                        onChange({
+                            roundBudget: parseBankrollDollarsField(raw),
+                        })
+                    }
+                    testId="bankroll-round-budget"
+                    value={state.roundBudget}
+                />
+                <NumberField
+                    label="Cycle multiple for the illustration (optional)"
+                    onChange={(raw) =>
+                        onChange({
+                            cycleMultiple: parseBankrollMultipleField(raw),
+                        })
+                    }
+                    testId="bankroll-cycle-multiple"
+                    value={state.cycleMultiple}
+                />
+                <NumberField
+                    label="Cycle length for the illustration (trading days, optional)"
+                    onChange={(raw) =>
+                        onChange({
+                            cycleDays: parseBankrollPositiveIntField(raw),
+                        })
+                    }
+                    testId="bankroll-cycle-days"
+                    value={state.cycleDays}
+                />
             </div>
             {summary === null ? (
                 failureReason === null ? (
@@ -175,10 +230,6 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                 )
             ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatCard
-                        label="Final bankroll (P10 / P50 / P90)"
-                        value={`${formatGateCurrency(summary.finalCashP10)} / ${formatGateCurrency(summary.finalCashP50)} / ${formatGateCurrency(summary.finalCashP90)}`}
-                    />
                     <StatCard
                         label="Path ruin"
                         value={formatPercent(summary.pathRuin)}
@@ -209,15 +260,148 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                     />
                 </div>
             )}
-            {illustration === null ? null : (
+            {projection === null ? null : (
+                <MonthEndBands monthEnds={projection.monthEnds} />
+            )}
+            {illustration === undefined || illustration === null ? null : (
                 <p className="text-xs text-muted-foreground">
-                    {BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL}:{' '}
-                    {illustration.value === null
+                    {BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL} (
+                    {bankrollCycleDescription(illustration)}):{' '}
+                    {illustration.quantity.value === null
                         ? NOT_APPLICABLE
-                        : formatGateCurrency(illustration.value)}
+                        : formatGateCurrency(illustration.quantity.value)}
                 </p>
             )}
         </section>
+    );
+}
+
+function MonthEndBands({
+    monthEnds,
+}: {
+    monthEnds: readonly ProjectionMonthEnd[];
+}) {
+    if (monthEnds.length === 0) return null;
+    const data = monthEnds.map((row) => ({
+        low: row.cashP10,
+        median: row.cashP50,
+        month: row.month,
+        range: row.cashP90 - row.cashP10,
+    }));
+    return (
+        <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-semibold text-white">
+                Bankroll at each month end (P10 to P90)
+            </h3>
+            <ChartContainer
+                className={cn(
+                    'app-prop-calculator__bankroll-month-end-chart',
+                    'aspect-16/7 min-h-64 w-full',
+                )}
+                config={monthEndChartConfig}
+            >
+                <ComposedChart
+                    data={data}
+                    margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
+                >
+                    <CartesianGrid
+                        opacity={0.2}
+                        stroke="#ccc"
+                        strokeDasharray="3 3"
+                    />
+                    <XAxis
+                        axisLine={false}
+                        dataKey="month"
+                        label={{
+                            fontSize: 11,
+                            offset: 12,
+                            position: 'bottom',
+                            value: 'Months',
+                        }}
+                        tickFormatter={(value: number) => `${String(value)}mo`}
+                        tickLine={false}
+                        tickMargin={6}
+                    />
+                    <YAxis
+                        axisLine={false}
+                        tickFormatter={(value: number) =>
+                            formatCompactCurrency(value)
+                        }
+                        tickLine={false}
+                        width={60}
+                    />
+                    <Area
+                        dataKey="low"
+                        fill="transparent"
+                        isAnimationActive={false}
+                        legendType="none"
+                        stackId="band"
+                        stroke="none"
+                    />
+                    <Area
+                        dataKey="range"
+                        fill="hsl(142 76% 45%)"
+                        fillOpacity={0.18}
+                        isAnimationActive={false}
+                        legendType="none"
+                        stackId="band"
+                        stroke="none"
+                    />
+                    <Line
+                        dataKey="median"
+                        dot={false}
+                        isAnimationActive={false}
+                        stroke="hsl(142 76% 45%)"
+                        strokeWidth={2.5}
+                        type="monotone"
+                    />
+                </ComposedChart>
+            </ChartContainer>
+            <div className="overflow-x-auto">
+                <table
+                    aria-label="Month-end projection"
+                    className="w-full text-left text-xs"
+                >
+                    <thead>
+                        <tr className="text-muted-foreground">
+                            <th className="py-1 pr-3">Month</th>
+                            <th className="py-1 pr-3">Bankroll P10</th>
+                            <th className="py-1 pr-3">Bankroll P50</th>
+                            <th className="py-1 pr-3">Bankroll P90</th>
+                            <th className="py-1 pr-3">Payouts (P50)</th>
+                            <th className="py-1 pr-3">Spend (P50)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {monthEnds.map((row) => (
+                            <tr
+                                className="border-t border-white/10"
+                                key={row.month}
+                            >
+                                <td className="py-1 pr-3">
+                                    {row.month} (day {row.day})
+                                </td>
+                                <td className="py-1 pr-3 font-mono">
+                                    {formatGateCurrency(row.cashP10)}
+                                </td>
+                                <td className="py-1 pr-3 font-mono">
+                                    {formatGateCurrency(row.cashP50)}
+                                </td>
+                                <td className="py-1 pr-3 font-mono">
+                                    {formatGateCurrency(row.cashP90)}
+                                </td>
+                                <td className="py-1 pr-3 font-mono">
+                                    {formatGateCurrency(row.payoutsP50)}
+                                </td>
+                                <td className="py-1 pr-3 font-mono">
+                                    {formatGateCurrency(row.spendP50)}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     );
 }
 

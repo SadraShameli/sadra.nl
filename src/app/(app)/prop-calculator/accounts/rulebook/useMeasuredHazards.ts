@@ -8,12 +8,13 @@ import {
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { useSession } from '~/lib/auth/client';
-import { PortfolioLedger, todayIsoDate } from '~/lib/prop-accounts';
+import { firmKeyId, PortfolioLedger, todayIsoDate } from '~/lib/prop-accounts';
 import {
     type LiveTransferRate,
     liveTransferRate,
     type LiveTransferRateUnavailable,
     liveTransferUnavailableText,
+    recordedAtLiveText,
 } from '~/lib/prop-accounts/firms';
 import { type FirmId } from '~/lib/prop-calculator';
 import { api } from '~/trpc/react';
@@ -22,6 +23,7 @@ import {
     type MeasuredHazard,
     measuredHazardsOf,
     modeledFirmRows,
+    recordedAtLiveByFirm,
 } from './rulebookFormValues';
 
 export interface MeasuredHazardsState {
@@ -97,7 +99,7 @@ export function useMeasuredHazards(): MeasuredHazardsState {
             failed: false,
             measured: measuredHazardsOf(rate, ledger),
             pending: false,
-            unavailable: unavailableHazardsOf(rate),
+            unavailable: unavailableHazardsOf(rate, ledger),
         };
     }, [
         accounts,
@@ -127,16 +129,23 @@ function ledgerOf(
 
 function unavailableHazardsOf(
     rate: LiveTransferRate,
+    ledger: PortfolioLedger,
 ): Partial<Record<FirmId, UnavailableHazard>> {
+    const recordedAtLive = recordedAtLiveByFirm(ledger);
     const unavailable: Partial<Record<FirmId, UnavailableHazard>> = {};
     for (const { firmId, row } of modeledFirmRows(rate.perFirm)) {
         if (row.perPaidPayoutUnavailable === null) continue;
+        const recordedCount = recordedAtLive.get(firmKeyId(row.firmKey)) ?? 0;
+        const reasonText = liveTransferUnavailableText(
+            row.perPaidPayoutUnavailable,
+            row,
+        );
         unavailable[firmId] = {
             reason: row.perPaidPayoutUnavailable,
-            text: liveTransferUnavailableText(
-                row.perPaidPayoutUnavailable,
-                row,
-            ),
+            text:
+                recordedCount > 0
+                    ? `${reasonText}, ${recordedAtLiveText(recordedCount)}`
+                    : reasonText,
         };
     }
     return unavailable;

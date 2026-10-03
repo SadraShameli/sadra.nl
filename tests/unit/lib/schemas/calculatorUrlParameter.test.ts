@@ -45,6 +45,7 @@ describe('the calculator URL parameter leaf module (PT-11h)', () => {
             IdleDayProbability: 'idle',
             LegacyIdleDayProbability: 'idp',
             Plan: 'plan',
+            RebuyLagDays: 'rebuyLag',
         });
         expect({ ...leaf.UrlFlag }).toEqual({ Off: '0', On: '1' });
     });

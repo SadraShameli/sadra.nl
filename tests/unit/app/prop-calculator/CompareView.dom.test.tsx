@@ -21,14 +21,12 @@ interface Harness {
     userId: null | string;
 }
 
-const harness = vi.hoisted(
-    (): Harness => ({
-        availableCents: null,
-        isSummaryPending: false,
-        rulebook: null,
-        userId: null,
-    }),
-);
+const harness = vi.hoisted((): Harness => ({
+    availableCents: null,
+    isSummaryPending: false,
+    rulebook: null,
+    userId: null,
+}));
 
 vi.mock('next/dynamic', async () => {
     const { lazy: lazyComponent } = await import('react');
@@ -102,14 +100,12 @@ function stubTable(testId: string) {
     };
 }
 
-vi.mock(
-    '~/app/(app)/prop-calculator/_components/PlanComparisonTable',
-    () => stubTable('plan-table'),
+vi.mock('~/app/(app)/prop-calculator/_components/PlanComparisonTable', () =>
+    stubTable('plan-table'),
 );
 
-vi.mock(
-    '~/app/(app)/prop-calculator/_components/FirmComparisonTable',
-    () => stubTable('firm-table'),
+vi.mock('~/app/(app)/prop-calculator/_components/FirmComparisonTable', () =>
+    stubTable('firm-table'),
 );
 
 vi.mock('~/app/(app)/prop-calculator/_components/CopySplitSection', () => ({

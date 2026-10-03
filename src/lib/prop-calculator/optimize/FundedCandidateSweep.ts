@@ -38,7 +38,9 @@ export function fundedSortOfObjective(
     }
 }
 
-export function objectiveOfFundedSort(sort: FundedSortKey): FundedSortObjective {
+export function objectiveOfFundedSort(
+    sort: FundedSortKey,
+): FundedSortObjective {
     switch (sort) {
         case FundedSortKey.Cycle: {
             return SizingObjective.CycleCash;

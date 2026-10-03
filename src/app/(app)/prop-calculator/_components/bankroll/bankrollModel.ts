@@ -9,6 +9,7 @@ import {
     type LeversToolsRequest,
     type ProjectionToolsRequest,
     type SameEvToolsRequest,
+    type SpendPayoutCurveToolsRequest,
     ToolsRequestKind,
     type TwoStrategiesToolsRequest,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
@@ -34,10 +35,10 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import {
     bankrollAttempts,
-    bankrollCompoundingIllustration,
     bankrollLossRiskSummary,
     type BankrollMinimumBudget,
     bankrollNoPayout,
+    compareCycles,
     type EconomicsEstimate,
     type EconomicsReason,
     type Quantity,
@@ -91,6 +92,15 @@ export type BankrollCalculatorInputs = Pick<
     | 'winrate'
 >;
 
+export interface BankrollCycleFigure extends BankrollCycleInput {
+    readonly quantity: Quantity<Dollars>;
+}
+
+export interface BankrollCycleInput {
+    readonly cycleDays: number;
+    readonly multiple: number;
+}
+
 export interface BankrollLeverCandidates {
     readonly requestSizes: null | readonly number[];
     readonly risks: null | readonly number[];
@@ -103,6 +113,7 @@ export interface BankrollProjectionFields {
     readonly monthlyBudget: Dollars | null;
     readonly payoutLagDays: number;
     readonly reinvestFraction: Fraction0to1;
+    readonly roundBudget: Dollars | null;
     readonly start: Dollars;
 }
 
@@ -166,15 +177,29 @@ export function bankrollBudgetPricing(
     };
 }
 
-export function bankrollClosedFormIllustration(
+export function bankrollCycleDescription(cycle: BankrollCycleInput): string {
+    return `${String(cycle.multiple)}x every ${String(cycle.cycleDays)} trading days`;
+}
+
+export function bankrollCycleFigures(
     start: Dollars,
-    reinvestFraction: Fraction0to1,
     horizonDays: number,
-): null | Quantity<Dollars> {
-    return (
-        bankrollCompoundingIllustration(start, reinvestFraction, horizonDays)
-            ?.quantity ?? null
-    );
+    cycles: readonly BankrollCycleInput[],
+): readonly BankrollCycleFigure[] {
+    const quantities = compareCycles(start, cycles, horizonDays);
+    return cycles.flatMap((cycle, index) => {
+        const quantity = quantities[index];
+        return quantity === undefined ? [] : [{ ...cycle, quantity }];
+    });
+}
+
+export function bankrollCycleInput(
+    multiple: null | number,
+    cycleDays: null | number,
+): BankrollCycleInput | null {
+    return multiple === null || cycleDays === null
+        ? null
+        : { cycleDays, multiple };
 }
 
 export function bankrollExplicitBatchRequest(
@@ -269,6 +294,19 @@ export function bankrollSetupSummary(
         },
         minimumBudget: bankrollMinimumBudgetForThreshold(out, lossThreshold),
         status,
+    };
+}
+
+export function bankrollSpendPayoutCurveRequest(
+    variant: BankrollPlanVariantInputs,
+    budgets: readonly number[],
+    runId: number,
+): SpendPayoutCurveToolsRequest {
+    return {
+        budgets,
+        kind: ToolsRequestKind.SpendPayoutCurve,
+        runId,
+        variant,
     };
 }
 
@@ -410,7 +448,7 @@ function bankrollPolicyFromProjectionFields(
         monthlyBudget: fields.monthlyBudget,
         payoutLagDays: fields.payoutLagDays,
         reinvestFraction: fields.reinvestFraction,
-        roundBudget: null,
+        roundBudget: fields.roundBudget,
         startingBankroll: fields.start,
     };
 }

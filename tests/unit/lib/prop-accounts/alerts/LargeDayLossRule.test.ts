@@ -316,7 +316,9 @@ describe('LargeDayLossRule from-state eval losses (PT-90, F-V29)', () => {
         });
         expect(alerts).toHaveLength(1);
         const message = alerts[0]?.message ?? '';
-        expect(message).toContain('of eval value lost between the two snapshots');
+        expect(message).toContain(
+            'of eval value lost between the two snapshots',
+        );
         expect(message).toContain('from-state');
         expect(message).not.toContain('retry fee');
         expect(message).not.toContain('of estimated eval value');

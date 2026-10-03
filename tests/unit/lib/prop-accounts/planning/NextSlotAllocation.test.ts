@@ -1032,7 +1032,9 @@ describe('nextSlotAllocation exclusions', () => {
         ).toBe(true);
         expect(
             allocation.disclosures.some((text) =>
-                text.includes('not counted in the slots in use or in your capacity'),
+                text.includes(
+                    'not counted in the slots in use or in your capacity',
+                ),
             ),
         ).toBe(false);
     });
@@ -1375,7 +1377,9 @@ describe('nextSlotAllocation objective', () => {
         expect(byHour.sortKey).toBe(NextSlotSortKey.Hour);
         expect(byHour.objective).toBe(SizingObjective.CycleCash);
         expect(byHour.ranked.map((row) => row.rank)).toEqual([1, 2, 3]);
-        const perHour = byHour.ranked.map((row) => row.figures.netPerScreenHour);
+        const perHour = byHour.ranked.map(
+            (row) => row.figures.netPerScreenHour,
+        );
         for (const [index, net] of [900, 500, 300].entries()) {
             expect(perHour[index]).toBeCloseTo(
                 (net * 2) / (TRADING_DAYS_PER_MONTH * 4),
@@ -1464,7 +1468,9 @@ describe('nextSlotAllocation objective', () => {
             SAME_FIRM_SECOND_EVAL_PLAN.serial,
             EVAL_PLAN.serial,
         ]);
-        expect(rankedRow(byHour, EVAL_PLAN).figures.netPerScreenHour).toBeNull();
+        expect(
+            rankedRow(byHour, EVAL_PLAN).figures.netPerScreenHour,
+        ).toBeNull();
     });
 
     it('keeps the objective order and reports the objective key when the hour key is chosen without both hours set', () => {

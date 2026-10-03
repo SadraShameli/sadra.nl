@@ -28,6 +28,7 @@ describe('calculatorScalarFieldsSchema rejects out-of-range values', () => {
             maxDays: '90',
             msub: '40',
             rd: '500',
+            rebuyLag: '2.5',
             rp: '1.5',
             rr: '3',
             rstd: '25',
@@ -48,6 +49,7 @@ describe('calculatorScalarFieldsSchema rejects out-of-range values', () => {
             maxDays: 90,
             msub: 40,
             rd: 500,
+            rebuyLag: 2.5,
             rp: 1.5,
             rr: 3,
             rstd: 25,
@@ -65,5 +67,17 @@ describe('calculatorScalarFieldsSchema rejects out-of-range values', () => {
         expect(calculatorScalarFieldsSchema.parse({ rrRatio: 'nope' }).rr).toBe(
             2,
         );
+    });
+});
+
+describe('calculatorScalarFieldsSchema rebuy lag (PT-111)', () => {
+    it('defaults to 0 when the key is absent and for negative or oversized input', () => {
+        expect(calculatorScalarFieldsSchema.parse({}).rebuyLag).toBe(0);
+        expect(
+            calculatorScalarFieldsSchema.parse({ rebuyLag: '-1' }).rebuyLag,
+        ).toBe(0);
+        expect(
+            calculatorScalarFieldsSchema.parse({ rebuyLag: '99999' }).rebuyLag,
+        ).toBe(0);
     });
 });

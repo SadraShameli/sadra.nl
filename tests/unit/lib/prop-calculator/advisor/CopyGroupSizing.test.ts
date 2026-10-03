@@ -77,6 +77,34 @@ function evalAccount(threshold: number): ReconstructedFundedOrEvalAccount {
     };
 }
 
+function freshCycleFundedAccount(plan: Plan): ReconstructedFundedOrEvalAccount {
+    const state: AccountState = {
+        balance: 50_000,
+        bestDayProfit: 0,
+        consecutiveIdleDays: 0,
+        intradayHighProfit: 0,
+        peakDayCloseProfit: 0,
+        peakIntradayProfit: 0,
+        qualifyingDays: 20,
+        startingBalance: 50_000,
+        threshold: 48_000,
+        thresholdLocked: false,
+        todayPnL: 0,
+        tradingDays: 20,
+    };
+    return {
+        assumptions: [],
+        contractLimit: null,
+        cushion: state.balance - state.threshold,
+        fundedTracker: tracker(state),
+        kind: TradingPhase.Funded,
+        plan,
+        resolvedDailyLossLimit: null,
+        state,
+        ...NO_PENDING_PAYOUT_COUNTS,
+    };
+}
+
 function fundedAccount(
     cushion: number,
     plan: Plan = topStepPlan,
@@ -299,6 +327,27 @@ describe('copyGroupSizing (PT-26b, F-130)', () => {
         expect(result.sizing.assumptions).not.toContain(
             SizingAssumption.NoProfitCeiling,
         );
+    });
+
+    it('sizes a fresh-cycle consistency member instead of refusing it (was: a ceiling of 0 left no rungs and rejected the group)', () => {
+        const result = copyGroupSizing({
+            members: [
+                member(
+                    'fresh',
+                    'Fresh',
+                    freshCycleFundedAccount(topStepConsistencyPlan),
+                ),
+            ],
+            rulebook: DEFAULT_RULEBOOK,
+        });
+
+        expect(result.kind).toBe(CopyGroupSizingResultKind.Sized);
+        if (result.kind !== CopyGroupSizingResultKind.Sized) return;
+        expect(result.sizing.rungs.length).toBeGreaterThan(0);
+        expect(result.sizing.rungs[0]?.risk).toBe(
+            DEFAULT_RULEBOOK.funded.riskCents / 100,
+        );
+        expect(result.sizing.profitCeiling).toBeNull();
     });
 
     it('lets a caller thread a per-member personal daily-loss-limit override into the ladder', () => {

@@ -30,7 +30,10 @@ import {
 } from '~/lib/prop-calculator/advisor/policy';
 import { ValueChainStepKind } from '~/lib/prop-calculator/advisor/value';
 import { MffuVariant, TopStepVariant } from '~/lib/prop-calculator/core';
-import { EconomicsReason } from '~/lib/prop-calculator/economics';
+import {
+    EconomicsReason,
+    projectionMonthEnds,
+} from '~/lib/prop-calculator/economics';
 
 const MFFU_RAPID_EOD_50K_SERIAL = serializePlanId({
     accountSize: 50_000,
@@ -103,6 +106,32 @@ describe('computeToolsResult: Projection (thin call into simulateBankrollTimelin
         expect(result.result.days.length).toBeGreaterThan(0);
         expect(result.result.cashP50[0]).toBe(5000);
         expect(result.runId).toBe(1);
+    });
+
+    it('carries the month-end rows of the timeline, the last one equal to its final day', () => {
+        const result = computeToolsResult({
+            bankroll: {
+                maxConcurrentAccounts: null,
+                monthlyBudget: null,
+                payoutLagDays: 0,
+                reinvestFraction: 1,
+                roundBudget: null,
+                startingBankroll: 5000,
+            },
+            dayBudget: 60,
+            kind: ToolsRequestKind.Projection,
+            runId: 12,
+            variant: variant(),
+        });
+        if (result.kind !== ToolsResponseKind.Projection)
+            throw new Error('unreachable');
+        expect(result.monthEnds).toEqual(projectionMonthEnds(result.result));
+        expect(result.monthEnds.length).toBeGreaterThanOrEqual(2);
+        const last = result.monthEnds.at(-1);
+        const lastIndex = result.result.days.length - 1;
+        expect(last?.cashP50).toBe(result.result.cashP50[lastIndex]);
+        expect(last?.cashP10).toBe(result.result.cashP10[lastIndex]);
+        expect(last?.cashP90).toBe(result.result.cashP90[lastIndex]);
     });
 
     it('fails with a named reason when the plan does not resolve', () => {
@@ -220,6 +249,96 @@ describe('computeToolsResult: Levers (thin call into bankrollLevers)', () => {
         expect(typeof result.rows[2]?.deltaAttemptPaysProbability).toBe(
             'number',
         );
+    });
+
+    it('carries the change in loss risk against the base row', () => {
+        const result = computeToolsResult({
+            bankroll: 2000,
+            kind: ToolsRequestKind.Levers,
+            requestSizes: null,
+            risks: [125, 375],
+            runId: 6,
+            tradesPerDay: null,
+            variant: variant(),
+        });
+        if (result.kind !== ToolsResponseKind.Levers)
+            throw new Error('unreachable');
+        const [base, ...variants] = result.rows;
+        expect(base?.lossRisk).not.toBeNull();
+        expect(base?.deltaLossProbability).toBe(0);
+        for (const row of variants) {
+            expect(row.lossRisk).not.toBeNull();
+            expect(row.deltaLossProbability).toBeCloseTo(
+                (row.lossRisk ?? 0) - (base?.lossRisk ?? 0),
+                10,
+            );
+        }
+    });
+});
+
+describe('computeToolsResult: SpendPayoutCurve (thin call into spendPayoutCurve)', () => {
+    function curveRows(budgets: readonly number[]) {
+        const result = computeToolsResult({
+            budgets,
+            kind: ToolsRequestKind.SpendPayoutCurve,
+            runId: 15,
+            variant: variant(),
+        });
+        if (result.kind !== ToolsResponseKind.SpendPayoutCurve)
+            throw new Error('unreachable');
+        return result.rows;
+    }
+
+    it('prices every budget on the same variant and seed, spend rising by one attempt cost per attempt', () => {
+        const rows = curveRows([2000, 4000, 8000]);
+        expect(rows.map((row) => row.budget)).toEqual([2000, 4000, 8000]);
+        const figures = rows.map((row) => row.figures);
+        for (const row of rows) {
+            expect(row.reason).toBeNull();
+            expect(row.figures).not.toBeNull();
+        }
+        const [first, second, third] = figures;
+        if (!first || !second || !third) throw new Error('expected figures');
+        const cost = first.expectedSpend / first.attempts;
+        expect(second.expectedSpend).toBeCloseTo(second.attempts * cost, 6);
+        expect(third.expectedSpend).toBeCloseTo(third.attempts * cost, 6);
+        expect(second.attempts).toBeGreaterThan(first.attempts);
+        expect(third.attempts).toBeGreaterThan(second.attempts);
+        expect(Math.floor(2000 / cost)).toBe(first.attempts);
+        for (const point of figures) {
+            if (!point) continue;
+            expect(point.expectedPayouts - point.expectedSpend).toBeCloseTo(
+                point.expectedNet,
+                6,
+            );
+            expect(point.netP10).toBeLessThanOrEqual(point.netP90);
+            expect(point.lossProbability).toBeGreaterThanOrEqual(0);
+            expect(point.lossProbability).toBeLessThanOrEqual(1);
+        }
+    });
+
+    it('gives a reason instead of a silent gap when the budget buys no attempt', () => {
+        const rows = curveRows([1, 4000]);
+        expect(rows[0]?.figures).toBeNull();
+        expect(rows[0]?.reason).toBe(EconomicsReason.InvalidInput);
+        expect(rows[1]?.figures).not.toBeNull();
+    });
+
+    it('is deterministic per seed', () => {
+        expect(curveRows([3000])).toEqual(curveRows([3000]));
+    });
+
+    it('fails with a named reason when the plan does not resolve', () => {
+        const result = computeToolsResult({
+            budgets: [3000],
+            kind: ToolsRequestKind.SpendPayoutCurve,
+            runId: 16,
+            variant: {
+                ...variant(),
+                plan: { ...variant().plan, planSerial: 'no-such-plan' },
+            },
+        });
+        expect(result.kind).toBe(ToolsResponseKind.Failed);
     });
 });
 
@@ -388,6 +507,40 @@ describe('computeToolsResult: FundedValueEstimate (thin call into fundedValueEst
         if (result.kind !== ToolsResponseKind.FundedValueEstimate)
             throw new Error('unreachable');
         expect(result.result.sampleRange).not.toBeNull();
+    });
+
+    it('returns the funded value in dollars, and its n-account dollar range once a sample size is given', () => {
+        const withSize = computeToolsResult({
+            kind: ToolsRequestKind.FundedValueEstimate,
+            plan: valueChainPlanReference(),
+            runId: 17,
+            sampleSize: 10,
+            spec: documentedPolicySpec(),
+        });
+        const withoutSize = computeToolsResult({
+            kind: ToolsRequestKind.FundedValueEstimate,
+            plan: valueChainPlanReference(),
+            runId: 18,
+            sampleSize: null,
+            spec: documentedPolicySpec(),
+        });
+        if (
+            withSize.kind !== ToolsResponseKind.FundedValueEstimate ||
+            withoutSize.kind !== ToolsResponseKind.FundedValueEstimate
+        )
+            throw new Error('unreachable');
+        expect(withSize.result.fundedValue?.value).toBeGreaterThan(0);
+        expect(withSize.result.dollarSampleRange?.sampleSize).toBe(10);
+        expect(withSize.result.dollarSampleRange?.lower).toBeLessThan(
+            withSize.result.fundedValue?.value ?? 0,
+        );
+        expect(withSize.result.dollarSampleRange?.upper).toBeGreaterThan(
+            withSize.result.fundedValue?.value ?? 0,
+        );
+        expect(withoutSize.result.fundedValue).toEqual(
+            withSize.result.fundedValue,
+        );
+        expect(withoutSize.result.dollarSampleRange).toBeNull();
     });
 
     it('fails with a named reason when the plan does not resolve', () => {

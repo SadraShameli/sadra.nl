@@ -39,13 +39,17 @@ const LABEL_THEN_TEXT = /\.\s\$\{assumptionText\(/;
 
 describe('labelledAssumptionLines (PT-73g step 5)', () => {
     it('is the label, a full stop, a space and the assumption text', () => {
-        expect(labelledAssumptionLines('Documented policy', LIVE_TRANSFER)).toStrictEqual(
-            [`Documented policy. ${assumptionText(LIVE_TRANSFER)}`],
-        );
+        expect(
+            labelledAssumptionLines('Documented policy', LIVE_TRANSFER),
+        ).toStrictEqual([
+            `Documented policy. ${assumptionText(LIVE_TRANSFER)}`,
+        ]);
     });
 
     it('is empty for an absent assumption', () => {
-        expect(labelledAssumptionLines('Documented policy', undefined)).toStrictEqual([]);
+        expect(
+            labelledAssumptionLines('Documented policy', undefined),
+        ).toStrictEqual([]);
     });
 
     it('labels any assumption kind, not only the live-transfer one', () => {
@@ -61,16 +65,25 @@ describe('labelledAssumptionLines (PT-73g step 5)', () => {
 });
 
 describe('one labelled-assumption line construction (PT-73g step 5)', () => {
-    it.each(CALLERS.map((file) => ({ file, name: path.basename(file) })))('$name builds its labelled lines through the helper', ({ file }) => {
-        const source = readFileSync(file, 'utf8');
+    it.each(CALLERS.map((file) => ({ file, name: path.basename(file) })))(
+        '$name builds its labelled lines through the helper',
+        ({ file }) => {
+            const source = readFileSync(file, 'utf8');
 
-        expect(source).toContain('labelledAssumptionLines');
-        expect(source).not.toMatch(LABEL_THEN_TEXT);
-    });
+            expect(source).toContain('labelledAssumptionLines');
+            expect(source).not.toMatch(LABEL_THEN_TEXT);
+        },
+    );
 
     it('keeps the label-then-text template in Assumption.ts only', () => {
         const home = readFileSync(
-            path.join(SRC, 'lib', 'prop-calculator', 'advisor', 'Assumption.ts'),
+            path.join(
+                SRC,
+                'lib',
+                'prop-calculator',
+                'advisor',
+                'Assumption.ts',
+            ),
             'utf8',
         );
 

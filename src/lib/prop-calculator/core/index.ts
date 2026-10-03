@@ -137,6 +137,10 @@ export {
 export { FirmId, parseFirmId } from './FirmId';
 export { FixedWinRateEdge } from './FixedWinRateEdge';
 export {
+    type FundedDpModelGap,
+    FundedDpModelGapKind,
+} from './FundedDpModelGapKind';
+export {
     DEFAULT_ACTION_STEP_MULTIPLE,
     DEFAULT_CUSHION_STEP_MULTIPLE,
     DEFAULT_MAX_ACTION_MULTIPLE,

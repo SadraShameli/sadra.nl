@@ -71,7 +71,7 @@ describe('the firm-columns row type', () => {
         );
     });
 
-    it('is never redeclared inline anywhere else in src', () => {
+    it('is never redeclared inline anywhere else in src', async () => {
         const firmKeyPath = path.join(
             process.cwd(),
             'src/lib/prop-accounts/core/FirmKey.ts',
@@ -79,8 +79,11 @@ describe('the firm-columns row type', () => {
         const files = collectSourceFiles(
             path.join(process.cwd(), 'src'),
         ).filter((file) => file !== firmKeyPath);
-        const offenders = files.filter((file) =>
-            FIRM_COLUMNS_ROW_SHAPE_PATTERN.test(fs.readFileSync(file, 'utf8')),
+        const sources = await Promise.all(
+            files.map((file) => fs.promises.readFile(file, 'utf8')),
+        );
+        const offenders = files.filter((_, index) =>
+            FIRM_COLUMNS_ROW_SHAPE_PATTERN.test(sources[index] ?? ''),
         );
         expect(offenders).toEqual([]);
     });

@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../../..');
 const ADVISOR_DIR = 'src/lib/prop-calculator/advisor';
-const ADVISOR_IMPORT = /from\s*'~\/lib\/prop-calculator\/advisor\/PlaceableMinimum'/;
+const ADVISOR_IMPORT =
+    /from\s*'~\/lib\/prop-calculator\/advisor\/PlaceableMinimum'/;
 
 function sourcesUnder(directory: string): string[] {
     return readdirSync(path.join(REPO_ROOT, directory), {

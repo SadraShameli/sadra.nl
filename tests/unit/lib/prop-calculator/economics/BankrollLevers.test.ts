@@ -36,6 +36,7 @@ describe('bankrollLevers (PT-55)', () => {
         expect(rows[0]?.deltaEvPerAttempt).toBe(0);
         expect(rows[0]?.deltaMonthlyNet).toBe(0);
         expect(rows[0]?.deltaAttemptPaysProbability).toBe(0);
+        expect(rows[0]?.deltaLossProbability).toBe(0);
         expect(rows[0]?.passProbability).toEqual(base.passProbability);
     });
 
@@ -102,6 +103,49 @@ describe('bankrollLevers (PT-55)', () => {
         expect(row?.deltaEvPerAttempt).toBeCloseTo(15, 9);
         expect(row?.deltaMonthlyNet).toBeCloseTo(60, 9);
         expect(row?.deltaAttemptPaysProbability).toBeCloseTo(0.15, 9);
+    });
+
+    it('reports the change in loss risk as the variant loss risk minus the base loss risk at the same bankroll and seed', () => {
+        const base = outputsFor({});
+        const riskier = outputsFor({
+            netValues: [2000, -600, -600, -600, -600, -600, -600, -600],
+        });
+        const rows = bankrollLevers(
+            base,
+            [
+                {
+                    kind: BankrollLeverKind.Risk,
+                    outputs: riskier,
+                    value: 500,
+                },
+            ],
+            dollars(1000),
+            7,
+        );
+        const [baseRow, riskRow] = rows;
+        const baseLoss = baseRow?.lossRisk.value?.value;
+        const riskLoss = riskRow?.lossRisk.value?.value;
+        if (baseLoss === undefined || riskLoss === undefined) {
+            throw new Error('unreachable');
+        }
+        expect(riskLoss).not.toBe(baseLoss);
+        expect(riskRow?.deltaLossProbability).toBeCloseTo(
+            riskLoss - baseLoss,
+            12,
+        );
+    });
+
+    it('has no loss-risk change when the bankroll affords no attempt, since there is no loss risk to compare', () => {
+        const base = outputsFor({});
+        const rows = bankrollLevers(
+            base,
+            [{ kind: BankrollLeverKind.Risk, outputs: base, value: 500 }],
+            dollars(50),
+            7,
+        );
+        expect(rows[0]?.lossRisk.value).toBeNull();
+        expect(rows[0]?.deltaLossProbability).toBeNull();
+        expect(rows[1]?.deltaLossProbability).toBeNull();
     });
 
     it('carries a loss risk at the bankroll with a standard error, over the attempts the bankroll affords', () => {

@@ -1256,6 +1256,7 @@ describe('optimize funded prints the plausibility note (PT-54 step 4, F-V22)', (
     it('flags 70% at 1:1 with the shared note text', async () => {
         const note = edgePlausibilityNote({
             rrRatio: 1,
+            tradesPerDay: 4,
             winrate: fraction(0.7),
         });
         expect(note).not.toBeNull();
@@ -1272,6 +1273,7 @@ describe('optimize funded prints the plausibility note (PT-54 step 4, F-V22)', (
     it('flags a funded reward:risk whose edge is implausible even when the eval one is typical', async () => {
         const note = edgePlausibilityNote({
             rrRatio: 3,
+            tradesPerDay: 4,
             winrate: fraction(0.4),
         });
         expect(note).not.toBeNull();
@@ -1281,6 +1283,38 @@ describe('optimize funded prints the plausibility note (PT-54 step 4, F-V22)', (
             '3',
         ]);
         expect(stdout).toContain(note ?? '');
+    });
+
+    it('prints the Kelly growth and the pace at the run trades per day (F-V22, PT-94b)', async () => {
+        const { stdout } = await capturedRun([
+            ...SMALL_RUN,
+            '--winrate',
+            '0.7',
+            '--rr',
+            '1',
+            '--tpd',
+            '4',
+        ]);
+        expect(stdout).toContain('Full Kelly would grow a bankroll');
+        expect(stdout).toContain('at 4 trades per day over 21 trading days');
+    });
+
+    it('prints the funded note at the funded trades per day (F-V22, PT-94b)', async () => {
+        const note = edgePlausibilityNote({
+            rrRatio: 3,
+            tradesPerDay: 2,
+            winrate: fraction(0.4),
+        });
+        expect(note).not.toBeNull();
+        const { stdout } = await capturedRun([
+            ...SMALL_RUN,
+            '--funded-rr',
+            '3',
+            '--funded-tpd',
+            '2',
+        ]);
+        expect(stdout).toContain(note ?? '');
+        expect(stdout).toContain('at 2 trades per day over 21 trading days');
     });
 
     it('stays silent at the typical 40% at 1:2', async () => {

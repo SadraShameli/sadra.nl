@@ -35,7 +35,9 @@ describe('bankrollAttempts', () => {
     });
 
     it('is null for a free attempt or a negative bankroll', () => {
-        expect(bankrollAttempts({ ...RUN, costPerAttempt: 0 }, dollars(1000))).toBeNull();
+        expect(
+            bankrollAttempts({ ...RUN, costPerAttempt: 0 }, dollars(1000)),
+        ).toBeNull();
         expect(bankrollAttempts(RUN, dollars(-1))).toBeNull();
     });
 });
@@ -154,10 +156,43 @@ describe('bankrollCohortRisk (PT-63d)', () => {
         const risk = bankrollCohortRisk(RUN.netValues, 6, LOSS_RISK_DRAWS, 11);
         expect(risk.value).toStrictEqual({
             attempts: 6,
+            expectedFees: null,
+            expectedPayouts: null,
             lossProbability: outcome.value?.lossProbability,
             meanNet: outcome.value?.meanNet,
+            netP10: outcome.value?.netP10,
+            netP90: outcome.value?.netP90,
         });
         expect(risk.reason).toBeNull();
+    });
+
+    it('carries the net band and, given the fee values, the expected spend and payouts of the cohort', () => {
+        const feeValues = RUN.netValues.map(() => RUN.costPerAttempt);
+        const outcome = cohortOutcome(
+            RUN.netValues,
+            6,
+            LOSS_RISK_DRAWS,
+            11,
+            feeValues,
+        ).value;
+        const risk = bankrollCohortRisk(
+            RUN.netValues,
+            6,
+            LOSS_RISK_DRAWS,
+            11,
+            feeValues,
+        ).value;
+        expect(risk?.netP10).toBe(outcome?.netP10);
+        expect(risk?.netP90).toBe(outcome?.netP90);
+        expect(risk?.expectedFees).toBe(6 * RUN.costPerAttempt);
+        expect(risk?.expectedFees).toBe(outcome?.expectedFees);
+        expect(risk?.expectedPayouts).toBe(outcome?.expectedPayouts);
+    });
+
+    it('is invalid input when the fee values do not match the net values', () => {
+        const risk = bankrollCohortRisk(RUN.netValues, 6, 100, 11, [150]);
+        expect(risk.value).toBeNull();
+        expect(risk.reason).toBe(EconomicsReason.InvalidInput);
     });
 
     it('honours a smaller draw count and a different seed', () => {
@@ -190,9 +225,7 @@ describe('bankrollCohortRisk (PT-63d)', () => {
     );
 
     it('has nothing without net values or with a non-finite one', () => {
-        expect(
-            bankrollCohortRisk([], 6, LOSS_RISK_DRAWS, 11).value,
-        ).toBeNull();
+        expect(bankrollCohortRisk([], 6, LOSS_RISK_DRAWS, 11).value).toBeNull();
         expect(
             bankrollCohortRisk([1, NaN], 6, LOSS_RISK_DRAWS, 11).reason,
         ).toBe(EconomicsReason.InvalidInput);

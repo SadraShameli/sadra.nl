@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -157,6 +157,38 @@ describe('one capacity definition (PT-84, F-V27)', () => {
             return source.includes('function isActiveAccountRow(');
         });
         expect(definitions).toEqual([
+            'src/lib/prop-accounts/core/DailyCapacityUnits.ts',
+        ]);
+    });
+});
+
+describe('one active-account rule (PT-75b, F-V25)', () => {
+    it('has a single body that tests status Active together with the archived date across the accounts code', () => {
+        const sourceFiles = [
+            'src/lib/prop-accounts',
+            'src/app/(app)/prop-calculator',
+            'src/server/api/routers/propAccounts',
+        ].flatMap((folder) =>
+            readdirSync(path.resolve(ROOT, folder), {
+                recursive: true,
+                withFileTypes: true,
+            })
+                .filter(
+                    (entry) =>
+                        entry.isFile() &&
+                        (entry.name.endsWith('.ts') ||
+                            entry.name.endsWith('.tsx')),
+                )
+                .map((entry) => path.join(entry.parentPath, entry.name)),
+        );
+        const bodies = sourceFiles
+            .filter((file) =>
+                /status\s*===\s*AccountStatus\.Active[\s\S]{0,40}archivedAt\s*===\s*null/u.test(
+                    readFileSync(file, 'utf8'),
+                ),
+            )
+            .map((file) => path.relative(ROOT, file).replaceAll('\\', '/'));
+        expect(bodies).toEqual([
             'src/lib/prop-accounts/core/DailyCapacityUnits.ts',
         ]);
     });

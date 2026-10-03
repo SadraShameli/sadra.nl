@@ -216,7 +216,10 @@ describe('payoutSizeStats', () => {
     it('breaks payouts into low-balance, above-cushion and no-snapshot bands with count, mean and median', () => {
         const owner = account(EVAL_PLAN);
         const balances: Readonly<
-            Record<string, { balanceCents: number; dashboardFloorCents: number }>
+            Record<
+                string,
+                { balanceCents: number; dashboardFloorCents: number }
+            >
         > = {
             '2026-01-10': { balanceCents: 51_000, dashboardFloorCents: 50_000 },
             '2026-01-20': {

@@ -540,9 +540,9 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         expect(notes.some((note) => note.includes('Coupon code "E8"'))).toBe(
             true,
         );
-        expect(
-            notes.some((note) => note.includes('5% on a first order')),
-        ).toBe(true);
+        expect(notes.some((note) => note.includes('5% on a first order'))).toBe(
+            true,
+        );
         expect(notes.some((note) => note.includes('$160 -> $120'))).toBe(false);
         expect(
             notes.some((note) => note.includes('hard 5-payout lifetime cap')),

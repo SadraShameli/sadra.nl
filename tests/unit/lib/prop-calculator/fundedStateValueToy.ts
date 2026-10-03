@@ -2,8 +2,15 @@ import {
     type AccountState,
     applyTrade,
     closeTradingDay,
+    DailyLossLimitKind,
+    dollars,
+    EodTrailingDrawdown,
+    FirmId,
+    fraction,
     type FundedCycleTracker,
+    MffuVariant,
     newFundedCycleTracker,
+    type Plan,
     resetForNewDay,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -11,8 +18,10 @@ import {
     type FundedStateValueConfig,
     type FundedStateValueResult,
 } from '~/lib/prop-calculator/core/FundedStateValue';
+import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
 const DAY_DEPTH = 48;
+export const TOY_DRAWDOWN = 100;
 
 interface ExactState {
     state: AccountState;
@@ -97,7 +106,9 @@ export function exactFundedPolicyValue(
         const { state, tracker } = branchOf(from);
         applyTrade(plan, TradingPhase.Funded, state, pnl);
         if (plan.isBust(state, TradingPhase.Funded)) return bustValue;
-        return plan.isDayLockedOut(state, TradingPhase.Funded) ? closeDay({ state, tracker }, true, depth) : walkTrades({ state, tracker }, tradeIndex + 1, depth);
+        return plan.isDayLockedOut(state, TradingPhase.Funded)
+            ? closeDay({ state, tracker }, true, depth)
+            : walkTrades({ state, tracker }, tradeIndex + 1, depth);
     }
 
     function walkTrades(
@@ -118,10 +129,12 @@ export function exactFundedPolicyValue(
             commission,
         ).room;
         const risk = Math.min(intended, room);
-        return risk <= 0 ? closeDay(from, tradeIndex > 0, depth) : (
-            winrate * trade(from, tradeIndex, rrRatio * risk - commission, depth) +
-            (1 - winrate) * trade(from, tradeIndex, -risk - commission, depth)
-        );
+        return risk <= 0
+            ? closeDay(from, tradeIndex > 0, depth)
+            : winrate *
+                  trade(from, tradeIndex, rrRatio * risk - commission, depth) +
+                  (1 - winrate) *
+                      trade(from, tradeIndex, -risk - commission, depth);
     }
 
     function walkDay(from: ExactState, depth: number): number {
@@ -142,4 +155,54 @@ export function exactFundedPolicyValue(
         { state: initial, tracker: newFundedCycleTracker(initial) },
         dayDepth,
     );
+}
+
+export function lockAtOneFiftyToyPlan(): Plan {
+    return paysTheFirstWinningCloseToyPlan().withOverrides({
+        fundedDrawdown: new EodTrailingDrawdown({
+            amount: dollars(TOY_DRAWDOWN),
+            lock: { atProfit: dollars(150), lockedThreshold: () => 1000 },
+        }),
+        minRetainedCushionOverride: undefined,
+    });
+}
+
+export function paysTheFirstWinningCloseToyPlan(): Plan {
+    const rapidEod = new MyFundedFutures().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.RapidEod,
+    });
+    if (!rapidEod) throw new Error('MFF Rapid EOD 50K plan not found');
+    return rapidEod.withOverrides({
+        accountSize: dollars(1000),
+        consistency: null,
+        contractLimits: undefined,
+        drawdown: new EodTrailingDrawdown({ amount: dollars(TOY_DRAWDOWN) }),
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fundedConsistency: { kind: 'set', rule: null },
+        fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fundedDrawdown: new EodTrailingDrawdown({
+            amount: dollars(TOY_DRAWDOWN),
+            lock: {
+                atProfit: dollars(-1000),
+                lockedThreshold: (startingBalance) =>
+                    startingBalance - TOY_DRAWDOWN,
+            },
+        }),
+        isInstantFunded: true,
+        maxLifetimePayouts: 1,
+        minDaysAfterPassForPayout: 0,
+        minPayoutProfit: dollars(0),
+        minPayoutProfitPerCycle: dollars(0),
+        minPayoutRequest: dollars(0),
+        minQualifyingDayProfit: null,
+        minRetainedCushionOverride: dollars(0),
+        minTradingDays: 0,
+        payoutBalanceShareCap: undefined,
+        payoutRequestCap: undefined,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(1) },
+        ],
+    });
 }

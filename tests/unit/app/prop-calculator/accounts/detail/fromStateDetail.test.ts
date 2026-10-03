@@ -305,39 +305,44 @@ describe('fromStateDetailRequestsOf (PT-37, F-87)', () => {
         );
     });
 
-    it('builds the chain assumptions on the personal basis when personal rules are set, and on the rulebook basis when they are not', () => {
-        const eligibleAssumptionsOf = (
-            requests: ReturnType<typeof requestsFor>,
-        ): readonly string[] => {
-            if (requests === null) throw new Error('no requests');
-            const outcome = overviewOutcomeOf({
-                ...requests.chain,
-                spec: {
-                    ...requests.chain.spec,
-                    run: { ...requests.chain.spec.run, trials: 20 },
-                },
-            });
-            if (
-                outcome.kind !== OverviewOutcomeKind.Succeeded ||
-                outcome.result.kind !== OverviewRequestKind.ValueChain
-            ) {
-                throw new Error('expected a value chain result');
-            }
-            const eligible = outcome.result.figures.steps.find(
-                (step) => step.kind === ValueChainStepKind.FirstPayoutEligible,
+    it(
+        'builds the chain assumptions on the personal basis when personal rules are set, and on the rulebook basis when they are not',
+        () => {
+            const eligibleAssumptionsOf = (
+                requests: ReturnType<typeof requestsFor>,
+            ): readonly string[] => {
+                if (requests === null) throw new Error('no requests');
+                const outcome = overviewOutcomeOf({
+                    ...requests.chain,
+                    spec: {
+                        ...requests.chain.spec,
+                        run: { ...requests.chain.spec.run, trials: 20 },
+                    },
+                });
+                if (
+                    outcome.kind !== OverviewOutcomeKind.Succeeded ||
+                    outcome.result.kind !== OverviewRequestKind.ValueChain
+                ) {
+                    throw new Error('expected a value chain result');
+                }
+                const eligible = outcome.result.figures.steps.find(
+                    (step) =>
+                        step.kind === ValueChainStepKind.FirstPayoutEligible,
+                );
+                if (eligible === undefined) throw new Error('no eligible step');
+                return eligible.assumptions;
+            };
+            const personal = eligibleAssumptionsOf(
+                requestsFor(FUNDED, null, PERSONAL_RULES),
             );
-            if (eligible === undefined) throw new Error('no eligible step');
-            return eligible.assumptions;
-        };
-        const personal = eligibleAssumptionsOf(
-            requestsFor(FUNDED, null, PERSONAL_RULES),
-        );
-        const plain = eligibleAssumptionsOf(requestsFor(FUNDED));
-        expect(personal.join('\n')).toContain('your payout request entry');
-        expect(personal.join('\n')).toContain('your personal override');
-        expect(plain.join('\n')).toContain("the rulebook's payout size");
-        expect(plain.join('\n')).not.toContain('your personal override');
-    }, HEAVY_TEST_TIMEOUT_MS);
+            const plain = eligibleAssumptionsOf(requestsFor(FUNDED));
+            expect(personal.join('\n')).toContain('your payout request entry');
+            expect(personal.join('\n')).toContain('your personal override');
+            expect(plain.join('\n')).toContain("the rulebook's payout size");
+            expect(plain.join('\n')).not.toContain('your personal override');
+        },
+        HEAVY_TEST_TIMEOUT_MS,
+    );
 
     it('asks for nothing for an account that is already live: there is no live from-state model', () => {
         expect(requestsFor({ ...FUNDED, stage: SizingStage.Live })).toBeNull();
@@ -468,26 +473,35 @@ function projectionOf(rules: null | PersonalRules) {
 }
 
 describe('the from-state next payout projection applies the personal daily loss limit (PT-68g)', () => {
-    it('gives a different projection with a tight personal daily loss limit than without one', () => {
-        const without = projectionOf(null);
-        const tight = projectionOf({ dailyLossLimitCents: usdCents(6000) });
-        const gap =
-            tight.expectedSessionDaysToFirstPayout.value -
-            without.expectedSessionDaysToFirstPayout.value;
-        const tightError = tight.expectedSessionDaysToFirstPayout.standardError;
-        const withoutError =
-            without.expectedSessionDaysToFirstPayout.standardError;
-        if (tightError === null || withoutError === null) {
-            throw new Error('expected a standard error on both projections');
-        }
-        const combinedStandardError = Math.hypot(tightError, withoutError);
+    it(
+        'gives a different projection with a tight personal daily loss limit than without one',
+        () => {
+            const without = projectionOf(null);
+            const tight = projectionOf({ dailyLossLimitCents: usdCents(6000) });
+            const gap =
+                tight.expectedSessionDaysToFirstPayout.value -
+                without.expectedSessionDaysToFirstPayout.value;
+            const tightError =
+                tight.expectedSessionDaysToFirstPayout.standardError;
+            const withoutError =
+                without.expectedSessionDaysToFirstPayout.standardError;
+            if (tightError === null || withoutError === null) {
+                throw new Error(
+                    'expected a standard error on both projections',
+                );
+            }
+            const combinedStandardError = Math.hypot(tightError, withoutError);
 
-        expect(tight.payingTrials).toBeGreaterThanOrEqual(MIN_PAYING_TRIALS);
-        expect(without.payingTrials).toBeGreaterThanOrEqual(
-            MIN_PAYING_TRIALS,
-        );
-        expect(gap).toBeGreaterThan(3 * combinedStandardError);
-    }, HEAVY_TEST_TIMEOUT_MS);
+            expect(tight.payingTrials).toBeGreaterThanOrEqual(
+                MIN_PAYING_TRIALS,
+            );
+            expect(without.payingTrials).toBeGreaterThanOrEqual(
+                MIN_PAYING_TRIALS,
+            );
+            expect(gap).toBeGreaterThan(3 * combinedStandardError);
+        },
+        HEAVY_TEST_TIMEOUT_MS,
+    );
 
     it('does not tell the trader that the next payout projection ignores the daily loss limit or the daily profit cap', () => {
         expect(FROM_STATE_PERSONAL_RULES_NOTE).not.toMatch(/does not apply/i);

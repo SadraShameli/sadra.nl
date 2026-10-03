@@ -76,6 +76,7 @@ import {
     AccountSubstate,
     type Advice,
     AdviceSource,
+    AdviceStalenessKind,
     AdviceStalenessReason,
     AssumptionBias,
     AssumptionKind,
@@ -143,6 +144,11 @@ import {
     liveTransferSentLiveText,
 } from '~/lib/prop-calculator/simulator';
 import { routes } from '~/lib/site/routes';
+
+import {
+    dailyPlanCardOf,
+    payoutAdviceOf,
+} from '../../../lib/prop-calculator/fixtures/advisorCardFixtures';
 
 const plan = topStep50k();
 
@@ -657,16 +663,7 @@ describe('a loss that busts the account (PT-67 review)', () => {
 
     it('fills the daily card loss value net of the replacement fee', () => {
         const filled = filledDailyPlanCard(
-            {
-                oneContractRisk: null,
-                rungPlacements: [],
-                rungs: [],
-                stopCappedBy: [],
-                stopReason: DayStopReason.MaxTrades,
-                valueAfterLoss: null,
-                valueAfterWin: null,
-                valueNow: null,
-            },
+            dailyPlanCardOf(),
             bustSwing,
             REPLACEMENT_FEE,
         );
@@ -843,16 +840,7 @@ describe('candidateRiskGridOf', () => {
 });
 
 describe('filledDailyPlanCard (PT-67 step 1)', () => {
-    const card: DailyPlanCard = {
-        oneContractRisk: null,
-        rungPlacements: [],
-        rungs: [],
-        stopCappedBy: [],
-        stopReason: DayStopReason.MaxTrades,
-        valueAfterLoss: null,
-        valueAfterWin: null,
-        valueNow: null,
-    };
+    const card: DailyPlanCard = dailyPlanCardOf();
 
     it('fills valueNow, valueAfterWin and valueAfterLoss from the next trade swing on the credit-free basis', () => {
         const filled = filledDailyPlanCard(
@@ -931,8 +919,7 @@ describe('flatRiskReasonOf (PT-67 step 1, QV-8)', () => {
 function adviceFixture(overrides: Partial<Advice> = {}): Advice {
     return {
         assumptions: [],
-        dailyPlanCard: {
-            oneContractRisk: null,
+        dailyPlanCard: dailyPlanCardOf({
             rungPlacements: [RungPlacement.NotChecked],
             rungs: [
                 {
@@ -943,12 +930,7 @@ function adviceFixture(overrides: Partial<Advice> = {}): Advice {
                     takeProfit: dollars(500),
                 },
             ],
-            stopCappedBy: [],
-            stopReason: DayStopReason.MaxTrades,
-            valueAfterLoss: null,
-            valueAfterWin: null,
-            valueNow: null,
-        },
+        }),
         differenceReasons: [],
         documented: {
             assumptions: [],
@@ -988,7 +970,7 @@ function adviceFixture(overrides: Partial<Advice> = {}): Advice {
         },
         requests: [],
         stage: SizingStage.Funded,
-        staleness: { kind: 'fresh' },
+        staleness: { kind: AdviceStalenessKind.Fresh },
         ...overrides,
     };
 }
@@ -1004,12 +986,10 @@ const REQUEST_DECISION = {
 
 function eligibleAdvice(): Advice {
     return adviceFixture({
-        payoutAdvice: {
-            assumptions: [],
+        payoutAdvice: payoutAdviceOf({
             documented: REQUEST_DECISION,
-            engineHorizonCredit: null,
             netAfterSplit: dollars(450),
-        },
+        }),
     });
 }
 
@@ -1025,15 +1005,12 @@ describe('accountActionFor (PT-67 step 2)', () => {
 
     it('is Trade when the payout decision is not a request and the day has a rung', () => {
         const advice = adviceFixture({
-            payoutAdvice: {
-                assumptions: [],
+            payoutAdvice: payoutAdviceOf({
                 documented: {
                     kind: PayoutRequestDecisionKind.Unreachable,
                     sources: [],
                 },
-                engineHorizonCredit: null,
-                netAfterSplit: null,
-            },
+            }),
         });
 
         expect(accountActionFor(advice).action).toBe(AccountAction.Trade);
@@ -1046,7 +1023,7 @@ describe('accountActionFor (PT-67 step 2)', () => {
         const advice = {
             ...eligibleAdvice(),
             staleness: {
-                kind: 'stale' as const,
+                kind: AdviceStalenessKind.Stale,
                 noHolidayCalendarDisclosure: false,
                 reasons: [AdviceStalenessReason.FundedSnapshotStale],
                 snapshotAsOf: '2026-01-01',
@@ -1060,16 +1037,9 @@ describe('accountActionFor (PT-67 step 2)', () => {
 
     it('is StopForToday when the day has no rung', () => {
         const advice = adviceFixture({
-            dailyPlanCard: {
-                oneContractRisk: null,
-                rungPlacements: [],
-                rungs: [],
-                stopCappedBy: [],
+            dailyPlanCard: dailyPlanCardOf({
                 stopReason: DayStopReason.NoLossRoom,
-                valueAfterLoss: null,
-                valueAfterWin: null,
-                valueNow: null,
-            },
+            }),
         });
 
         expect(accountActionFor(advice).action).toBe(
@@ -1089,12 +1059,7 @@ describe('accountActionFor (PT-67 step 2)', () => {
             documented: NonNullable<Advice['payoutAdvice']>['documented'],
         ) =>
             adviceFixture({
-                payoutAdvice: {
-                    assumptions: [],
-                    documented,
-                    engineHorizonCredit: null,
-                    netAfterSplit: null,
-                },
+                payoutAdvice: payoutAdviceOf({ documented }),
             });
         const blocked = withDecision({
             kind: PayoutRequestDecisionKind.NotEligible,
@@ -1230,7 +1195,7 @@ describe('adviceValueRequestOf (PT-67 steps 1 and 2)', () => {
     it('does not request values for stale advice, which shows no amounts', () => {
         const advice = adviceFixture({
             staleness: {
-                kind: 'stale',
+                kind: AdviceStalenessKind.Stale,
                 noHolidayCalendarDisclosure: false,
                 reasons: [AdviceStalenessReason.FundedSnapshotStale],
                 snapshotAsOf: '2026-01-01',

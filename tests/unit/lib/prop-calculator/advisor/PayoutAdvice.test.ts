@@ -22,6 +22,7 @@ import {
     payoutAdvice,
     PayoutRequestDecisionKind,
     type RulebookParameters,
+    ruleCappedWithdrawable,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
@@ -118,12 +119,21 @@ describe('payoutAdvice (PT-19f, F-128)', () => {
         expect(advice.netAfterSplit).toBe(450);
     });
 
-    it('reports the engine horizon credit via closeoutCredit, never above balance minus the post-payout floor minus the retained cushion', () => {
-        const advice = payoutAdvice(rulebook, fundedContext());
+    it('reports the engine horizon credit via closeoutCredit beside the rule-capped withdrawable, the credit never above the withdrawable after the split', () => {
+        const context = fundedContext();
 
+        const advice = payoutAdvice(rulebook, context);
+
+        const withdrawable = ruleCappedWithdrawable(
+            basePlan,
+            context.tracker,
+            context.state,
+            0,
+        );
+        expect(advice.ruleCappedWithdrawable).toBe(withdrawable);
         expect(advice.engineHorizonCredit).not.toBeNull();
         expect(advice.engineHorizonCredit).toBeLessThanOrEqual(
-            (52_000 - 50_000 - 0) * 0.9,
+            withdrawable * 0.9,
         );
     });
 
@@ -139,6 +149,7 @@ describe('payoutAdvice (PT-19f, F-128)', () => {
         );
         expect(advice.engineHorizonCredit).toBeNull();
         expect(advice.netAfterSplit).toBeNull();
+        expect(advice.ruleCappedWithdrawable).toBeNull();
     });
 
     it('always discloses that live-transition triggers are not yet checked (F-145)', () => {

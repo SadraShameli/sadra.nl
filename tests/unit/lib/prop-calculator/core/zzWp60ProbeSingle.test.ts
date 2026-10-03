@@ -57,94 +57,146 @@ function consistencyToyPlan(): Plan {
 }
 
 describe('probe', () => {
-    it.each([1, undefined])('bucketcount %s', (bucketCount) => {
-        const cfg = {
-            actionStepMultiple: 1,
-            convergenceTolerance: 1e-9,
-            cushionStepMultiple: 0.5,
-            cycleBestDayBucketCount: bucketCount,
-            evalInitialValue: 0,
-            feePerAttempt: dollars(0),
-            maxActionMultiple: 1,
-            maxCushionMultiple: 6,
-            maxTailCushionMultiple: 12,
-            meanHorizonDays: 3,
-            plan: consistencyToyPlan(),
-            rrRatio: 2,
-            tradesPerDay: 2,
-            winrate: 0.5,
-        };
-        const r = computeFundedStateValue(cfg);
-        const exact = exactFundedPolicyValue(cfg, r, 14);
-        const out = simulate({
-            fundedDayPolicy: r.dayPolicy,
-            fundedHorizonDays: 200,
-            maxEvalDays: 1,
-            plan: cfg.plan,
-            riskPerTrade: 100,
-            rrRatio: 2,
-            seed: 7,
-            tradesPerDay: 2,
-            trials: 20000,
-            winrate: 0.5,
-        });
-        console.log('PROBE single', bucketCount, 'dp', r.initialValue, 'exact', exact, 'sim', out.expectedGrossPayout, 'payouts', out.expectedPayoutCount, 'states', r.reachedStateCount);
-        expect(1).toBe(1);
-    }, 200000);
+    it.each([1, undefined])(
+        'bucketcount %s',
+        (bucketCount) => {
+            const cfg = {
+                actionStepMultiple: 1,
+                convergenceTolerance: 1e-9,
+                cushionStepMultiple: 0.5,
+                cycleBestDayBucketCount: bucketCount,
+                evalInitialValue: 0,
+                feePerAttempt: dollars(0),
+                maxActionMultiple: 1,
+                maxCushionMultiple: 6,
+                maxTailCushionMultiple: 12,
+                meanHorizonDays: 3,
+                plan: consistencyToyPlan(),
+                rrRatio: 2,
+                tradesPerDay: 2,
+                winrate: 0.5,
+            };
+            const r = computeFundedStateValue(cfg);
+            const exact = exactFundedPolicyValue(cfg, r, 14);
+            const out = simulate({
+                fundedDayPolicy: r.dayPolicy,
+                fundedHorizonDays: 200,
+                maxEvalDays: 1,
+                plan: cfg.plan,
+                riskPerTrade: 100,
+                rrRatio: 2,
+                seed: 7,
+                tradesPerDay: 2,
+                trials: 20_000,
+                winrate: 0.5,
+            });
+            console.log(
+                'PROBE single',
+                bucketCount,
+                'dp',
+                r.initialValue,
+                'exact',
+                exact,
+                'sim',
+                out.expectedGrossPayout,
+                'payouts',
+                out.expectedPayoutCount,
+                'states',
+                r.reachedStateCount,
+            );
+            expect(1).toBe(1);
+        },
+        200_000,
+    );
 
-    it.each([1, undefined])('testconfig bucketcount %s', (bucketCount) => {
-        const r = computeFundedStateValue({
-            actionStepMultiple: 1,
-            convergenceTolerance: 0.01,
-            cushionStepMultiple: 0.5,
-            cycleBestDayBucketCount: bucketCount,
-            evalInitialValue: 0,
-            feePerAttempt: dollars(0),
-            maxActionMultiple: 1,
-            maxCushionMultiple: 6,
-            maxTailCushionMultiple: 12,
-            plan: consistencyToyPlan(),
-            rrRatio: 2,
-            tradesPerDay: 2,
-            winrate: 0.5,
-        });
-        console.log('PROBE testconfig', bucketCount, 'dp', r.initialValue, 'states', r.reachedStateCount, 'sweeps', r.sweepCount);
-        expect(1).toBe(1);
-    }, 200000);
+    it.each([1, undefined])(
+        'testconfig bucketcount %s',
+        (bucketCount) => {
+            const r = computeFundedStateValue({
+                actionStepMultiple: 1,
+                convergenceTolerance: 0.01,
+                cushionStepMultiple: 0.5,
+                cycleBestDayBucketCount: bucketCount,
+                evalInitialValue: 0,
+                feePerAttempt: dollars(0),
+                maxActionMultiple: 1,
+                maxCushionMultiple: 6,
+                maxTailCushionMultiple: 12,
+                plan: consistencyToyPlan(),
+                rrRatio: 2,
+                tradesPerDay: 2,
+                winrate: 0.5,
+            });
+            console.log(
+                'PROBE testconfig',
+                bucketCount,
+                'dp',
+                r.initialValue,
+                'states',
+                r.reachedStateCount,
+                'sweeps',
+                r.sweepCount,
+            );
+            expect(1).toBe(1);
+        },
+        200_000,
+    );
 
-    it.each([1, undefined])('exact infinite %s', (bucketCount) => {
-        const cfg = {
-            actionStepMultiple: 1,
-            convergenceTolerance: 0.01,
-            cushionStepMultiple: 0.5,
-            cycleBestDayBucketCount: bucketCount,
-            evalInitialValue: 0,
-            feePerAttempt: dollars(0),
-            maxActionMultiple: 1,
-            maxCushionMultiple: 6,
-            maxTailCushionMultiple: 12,
-            plan: consistencyToyPlan(),
-            rrRatio: 2,
-            tradesPerDay: 2,
-            winrate: 0.5,
-        };
-        const r = computeFundedStateValue(cfg);
-        for (const depth of [3, 6, 10, 14]) {
-            console.log('PROBE exactInfinite', bucketCount, 'depth', depth, 'dp', r.initialValue, 'exact', exactFundedPolicyValue(cfg, r, depth));
-        }
-        const out = simulate({
-            fundedDayPolicy: r.dayPolicy,
-            fundedHorizonDays: 400,
-            maxEvalDays: 1,
-            plan: cfg.plan,
-            riskPerTrade: 100,
-            rrRatio: 2,
-            seed: 7,
-            tradesPerDay: 2,
-            trials: 20000,
-            winrate: 0.5,
-        });
-        console.log('PROBE simInfinite', bucketCount, 'sim', out.expectedGrossPayout, 'payouts', out.expectedPayoutCount, 'bust', out.fundedBustProbability);
-        expect(1).toBe(1);
-    }, 200000);
+    it.each([1, undefined])(
+        'exact infinite %s',
+        (bucketCount) => {
+            const cfg = {
+                actionStepMultiple: 1,
+                convergenceTolerance: 0.01,
+                cushionStepMultiple: 0.5,
+                cycleBestDayBucketCount: bucketCount,
+                evalInitialValue: 0,
+                feePerAttempt: dollars(0),
+                maxActionMultiple: 1,
+                maxCushionMultiple: 6,
+                maxTailCushionMultiple: 12,
+                plan: consistencyToyPlan(),
+                rrRatio: 2,
+                tradesPerDay: 2,
+                winrate: 0.5,
+            };
+            const r = computeFundedStateValue(cfg);
+            for (const depth of [3, 6, 10, 14]) {
+                console.log(
+                    'PROBE exactInfinite',
+                    bucketCount,
+                    'depth',
+                    depth,
+                    'dp',
+                    r.initialValue,
+                    'exact',
+                    exactFundedPolicyValue(cfg, r, depth),
+                );
+            }
+            const out = simulate({
+                fundedDayPolicy: r.dayPolicy,
+                fundedHorizonDays: 400,
+                maxEvalDays: 1,
+                plan: cfg.plan,
+                riskPerTrade: 100,
+                rrRatio: 2,
+                seed: 7,
+                tradesPerDay: 2,
+                trials: 20_000,
+                winrate: 0.5,
+            });
+            console.log(
+                'PROBE simInfinite',
+                bucketCount,
+                'sim',
+                out.expectedGrossPayout,
+                'payouts',
+                out.expectedPayoutCount,
+                'bust',
+                out.fundedBustProbability,
+            );
+            expect(1).toBe(1);
+        },
+        200_000,
+    );
 });

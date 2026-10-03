@@ -7,6 +7,7 @@ import {
 } from '~/lib/prop-accounts/alerts';
 import {
     AccountStage,
+    formatUsdCents,
     usdCents,
     usdCentsFromDollars,
 } from '~/lib/prop-accounts/core';
@@ -147,6 +148,10 @@ describe('PayoutReadyOpenRiskRule', () => {
         expect(alert?.severity).toBe(AlertSeverity.Warning);
         expect(alert?.message).toContain('payout');
         expect(alert?.message).toContain('$100');
+        expect(alert?.message).toContain(
+            `above the documented rung of ${formatUsdCents(usdCents(rung))}`,
+        );
+        expect(alert?.message).not.toContain('personal');
     });
 
     it('is silent when the excess equals the threshold and fires one cent above it', () => {
@@ -411,15 +416,20 @@ describe('PayoutReadyOpenRiskRule', () => {
                     maxRiskPerTrade: dollars(10),
                 },
             });
-            expect(
-                alertsOf(rule, {
-                    accounts: [account],
-                    accountStates: [entry],
-                    decisions,
-                    personalPolicies,
-                    rulebook: rulebookWithThreshold(5000),
-                }),
-            ).toHaveLength(1);
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions,
+                personalPolicies,
+                rulebook: rulebookWithThreshold(5000),
+            });
+            expect(alerts).toHaveLength(1);
+            expect(alerts[0]?.message).toContain(
+                `your personal rung of ${formatUsdCents(usdCents(1000))} (documented rung ${formatUsdCents(usdCents(rung))})`,
+            );
+            expect(alerts[0]?.message).not.toContain(
+                `above the documented rung of ${formatUsdCents(usdCents(1000))}`,
+            );
         });
 
         it('still fires when the personal override and cushion leave the board eligible', () => {

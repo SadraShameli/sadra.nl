@@ -181,10 +181,7 @@ function fromStateRequestAt(
     );
 }
 
-function modeledAccount(
-    id: string,
-    overrides: Record<string, unknown> = {},
-) {
+function modeledAccount(id: string, overrides: Record<string, unknown> = {}) {
     return {
         accountSize: PLAN.id.accountSize,
         archivedAt: null,

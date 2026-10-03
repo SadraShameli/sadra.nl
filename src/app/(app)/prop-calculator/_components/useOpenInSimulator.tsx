@@ -18,12 +18,13 @@ import {
     useCalculatorInputs,
 } from './CalculatorProvider';
 import { calculatorReducer } from './calculatorReducer';
+import { simulatorHref } from './simulatorHref';
 import {
     classifyToolLink,
     openInSimulatorActions,
     ToolLinkKind,
 } from './toolNavigation';
-import { encodeState, type EncodeStateOptions } from './urlState';
+import { type EncodeStateOptions } from './urlState';
 
 export type OpenInSimulator = (firm: TradingFirm, plan: Plan) => void;
 
@@ -69,7 +70,7 @@ export function useOpenInSimulator(planOptIns: PlanOptIns): OpenInSimulator {
                 calculatorReducer,
                 stateReference.current,
             );
-            const href = `${target}?${encodeState(next, encodeOptionsReference.current).toString()}`;
+            const href = simulatorHref(next, encodeOptionsReference.current);
             if (classifyToolLink(pathname, target) === ToolLinkKind.Boundary) {
                 router.push(href);
                 return;

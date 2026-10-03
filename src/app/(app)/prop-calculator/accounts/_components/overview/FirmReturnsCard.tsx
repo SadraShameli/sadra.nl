@@ -49,117 +49,136 @@ export function FirmReturnsCard({
             </p>
         );
     }
+    const noted = rows.filter((row) => row.coverageNote !== null);
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <SortableHead
-                        activeKey={sortKey}
-                        onSort={setSortKey}
-                        sortKey="firm"
-                    >
-                        Firm
-                    </SortableHead>
-                    <SortableHead
-                        activeKey={sortKey}
-                        align="right"
-                        onSort={setSortKey}
-                        sortKey="spend"
-                    >
-                        Spend
-                    </SortableHead>
-                    <SortableHead
-                        activeKey={sortKey}
-                        align="right"
-                        onSort={setSortKey}
-                        sortKey="payouts"
-                    >
-                        Payouts
-                    </SortableHead>
-                    <SortableHead
-                        activeKey={sortKey}
-                        align="right"
-                        onSort={setSortKey}
-                        sortKey="net"
-                    >
-                        Net
-                    </SortableHead>
-                    <SortableHead
-                        activeKey={sortKey}
-                        align="right"
-                        onSort={setSortKey}
-                        sortKey="multiple"
-                    >
-                        Multiple
-                    </SortableHead>
-                    <SortableHead
-                        activeKey={sortKey}
-                        align="right"
-                        onSort={setSortKey}
-                        sortKey="attempts"
-                    >
-                        Attempts
-                    </SortableHead>
-                    <SortableHead
-                        activeKey={sortKey}
-                        align="right"
-                        onSort={setSortKey}
-                        sortKey="fundedAccounts"
-                    >
-                        Funded
-                    </SortableHead>
-                    <TableHead className="text-right">
-                        Accounts with a payout
-                    </TableHead>
-                    <TableHead>First payout</TableHead>
-                    <TableHead>Last payout</TableHead>
-                    <TableHead>Noise verdict</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {rows.map((row) => (
-                    <TableRow key={row.key}>
-                        <TableCell>{row.firm}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.spend}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.payouts}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.net}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.multiple}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            <span className="inline-flex items-center gap-1.5">
-                                {row.attempts}
-                                <SampleBadge level={row.attemptsSampleLevel} />
-                            </span>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            <span className="inline-flex items-center gap-1.5">
-                                {row.fundedAccounts}
-                                <SampleBadge level={row.fundedSampleLevel} />
-                            </span>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.accountsWithPayout}
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                            {row.firstPayoutOn}
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                            {row.lastPayoutOn}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                            {row.verdict}
-                        </TableCell>
+        <div className="flex flex-col gap-3">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <SortableHead
+                            activeKey={sortKey}
+                            onSort={setSortKey}
+                            sortKey="firm"
+                        >
+                            Firm
+                        </SortableHead>
+                        <SortableHead
+                            activeKey={sortKey}
+                            align="right"
+                            onSort={setSortKey}
+                            sortKey="spend"
+                        >
+                            Spend
+                        </SortableHead>
+                        <SortableHead
+                            activeKey={sortKey}
+                            align="right"
+                            onSort={setSortKey}
+                            sortKey="payouts"
+                        >
+                            Payouts
+                        </SortableHead>
+                        <SortableHead
+                            activeKey={sortKey}
+                            align="right"
+                            onSort={setSortKey}
+                            sortKey="net"
+                        >
+                            Net
+                        </SortableHead>
+                        <SortableHead
+                            activeKey={sortKey}
+                            align="right"
+                            onSort={setSortKey}
+                            sortKey="multiple"
+                        >
+                            Multiple
+                        </SortableHead>
+                        <SortableHead
+                            activeKey={sortKey}
+                            align="right"
+                            onSort={setSortKey}
+                            sortKey="attempts"
+                        >
+                            Attempts
+                        </SortableHead>
+                        <SortableHead
+                            activeKey={sortKey}
+                            align="right"
+                            onSort={setSortKey}
+                            sortKey="fundedAccounts"
+                        >
+                            Funded
+                        </SortableHead>
+                        <TableHead className="text-right">
+                            Accounts with a payout
+                        </TableHead>
+                        <TableHead>First payout</TableHead>
+                        <TableHead>Last payout</TableHead>
+                        <TableHead>Noise verdict</TableHead>
                     </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+                </TableHeader>
+                <TableBody>
+                    {rows.map((row) => (
+                        <TableRow key={row.key}>
+                            <TableCell>{row.firm}</TableCell>
+                            <TableCell className="text-right tabular-nums">
+                                {row.spend}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                                {row.payouts}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                                {row.net}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                                {row.multiple}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                                <span className="inline-flex items-center gap-1.5">
+                                    {row.attempts}
+                                    <SampleBadge
+                                        level={row.attemptsSampleLevel}
+                                    />
+                                </span>
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                                <span className="inline-flex items-center gap-1.5">
+                                    {row.fundedAccounts}
+                                    <SampleBadge
+                                        level={row.fundedSampleLevel}
+                                    />
+                                </span>
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                                {row.accountsWithPayout}
+                            </TableCell>
+                            <TableCell className="tabular-nums">
+                                {row.firstPayoutOn}
+                            </TableCell>
+                            <TableCell className="tabular-nums">
+                                {row.lastPayoutOn}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                                {row.verdict}
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+            {noted.length > 0 && (
+                <ul
+                    aria-label="Firm coverage"
+                    className="flex flex-col gap-1 text-xs text-muted-foreground"
+                >
+                    {noted.map((row) => (
+                        <li key={row.key}>
+                            {row.firm}: {row.coverageNote}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
     );
 }
 

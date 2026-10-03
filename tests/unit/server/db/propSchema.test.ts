@@ -185,7 +185,7 @@ function uniqueConstraintLists(config: TableConfig): string[] {
 }
 
 describe('prop schema', () => {
-    it('defines exactly the 15 prop tables', () => {
+    it('defines exactly the 16 prop tables', () => {
         expect(CONFIGS.map((config) => config.name).toSorted(byName)).toEqual(
             [
                 'sadranl_prop_account',
@@ -193,6 +193,7 @@ describe('prop schema', () => {
                 'sadranl_prop_account_snapshot',
                 BANKROLL_TABLE,
                 'sadranl_prop_copy_group',
+                'sadranl_prop_dp_advice',
                 EXTERNAL_FIRM_TABLE,
                 'sadranl_prop_fee',
                 ENGAGEMENT_TABLE,
@@ -533,6 +534,7 @@ describe('prop schema', () => {
             'propAccountSnapshot',
             'propBankrollTransfer',
             'propCopyGroup',
+            'propDpAdvice',
             'propExternalFirm',
             'propFee',
             'propFirmEngagement',

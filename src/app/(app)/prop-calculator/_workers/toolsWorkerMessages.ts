@@ -50,6 +50,7 @@ import {
     BankrollLeverKind,
     BankrollLeverLabel,
     EconomicsReason,
+    type ProjectionMonthEnd,
 } from '~/lib/prop-calculator/economics';
 import {
     type BankrollPolicy,
@@ -67,6 +68,7 @@ export enum ToolsRequestKind {
     NextRound = 'next-round',
     Projection = 'projection',
     SameEv = 'same-ev',
+    SpendPayoutCurve = 'spend-payout-curve',
     TakeProfitRows = 'take-profit-rows',
     TwoStrategies = 'two-strategies',
     ValueChain = 'value-chain',
@@ -82,6 +84,7 @@ export enum ToolsResponseKind {
     NextRound = 'next-round',
     Projection = 'projection',
     SameEv = 'same-ev',
+    SpendPayoutCurve = 'spend-payout-curve',
     TakeProfitRows = 'take-profit-rows',
     TwoStrategies = 'two-strategies',
     ValueChain = 'value-chain',
@@ -110,6 +113,7 @@ export interface BankrollBaseInputs {
 export interface BankrollLeverRowSummary {
     readonly deltaAttemptPaysProbability?: number;
     readonly deltaEvPerAttempt: number;
+    readonly deltaLossProbability?: null | number;
     readonly deltaMonthlyNet: number;
     readonly deltaPassProbability: number;
     readonly evPerAttempt: number;
@@ -287,6 +291,7 @@ export interface ProjectionToolsRequest {
 
 export interface ProjectionToolsResult {
     readonly kind: ToolsResponseKind.Projection;
+    readonly monthEnds: readonly ProjectionMonthEnd[];
     readonly result: BankrollTimelineResult;
     readonly runId: number;
 }
@@ -311,6 +316,36 @@ export interface SameEvToolsRequest {
 export interface SameEvToolsResult {
     readonly kind: ToolsResponseKind.SameEv;
     readonly results: readonly [SameEvOutcome, SameEvOutcome];
+    readonly runId: number;
+}
+
+export interface SpendPayoutCurveFigures {
+    readonly attempts: number;
+    readonly expectedNet: number;
+    readonly expectedPayouts: number;
+    readonly expectedSpend: number;
+    readonly lossProbability: number;
+    readonly lossProbabilityStandardError: null | number;
+    readonly netP10: number;
+    readonly netP90: number;
+}
+
+export interface SpendPayoutCurveRow {
+    readonly budget: number;
+    readonly figures: null | SpendPayoutCurveFigures;
+    readonly reason: EconomicsReason | null;
+}
+
+export interface SpendPayoutCurveToolsRequest {
+    readonly budgets: readonly number[];
+    readonly kind: ToolsRequestKind.SpendPayoutCurve;
+    readonly runId: number;
+    readonly variant: BankrollPlanVariantInputs;
+}
+
+export interface SpendPayoutCurveToolsResult {
+    readonly kind: ToolsResponseKind.SpendPayoutCurve;
+    readonly rows: readonly SpendPayoutCurveRow[];
     readonly runId: number;
 }
 
@@ -353,6 +388,7 @@ export type ToolsWorkerRequest =
     | NextRoundToolsRequest
     | ProjectionToolsRequest
     | SameEvToolsRequest
+    | SpendPayoutCurveToolsRequest
     | TakeProfitRowsToolsRequest
     | TwoStrategiesToolsRequest
     | ValueChainToolsRequest;
@@ -366,6 +402,7 @@ export type ToolsWorkerResult =
     | NextRoundToolsResult
     | ProjectionToolsResult
     | SameEvToolsResult
+    | SpendPayoutCurveToolsResult
     | TakeProfitRowsToolsResult
     | ToolsWorkerFailure
     | TwoStrategiesToolsResult
@@ -620,6 +657,7 @@ const labScenarioResultSchema = z.union([
     }),
 ]) satisfies z.ZodType<LabScenarioResult>;
 
+const MAX_SPEND_PAYOUT_BUDGETS = 10;
 const MAX_COPY_SPLIT_ACCOUNTS = 20;
 const MAX_COPY_SPLITS = 12;
 
@@ -637,6 +675,8 @@ const fundedValueSampleRangeSchema = z.object({
 
 const fundedValueEstimateResultSchema = z.object({
     cumulativePayoutTrigger: cumulativePayoutTriggerAssumptionSchema.optional(),
+    dollarSampleRange: fundedValueSampleRangeSchema.nullable().optional(),
+    fundedValue: uncertainValueSchema.optional(),
     liveTransfer: liveTransferAssumptionSchema.optional(),
     meanPayoutsPerAccount: uncertainValueSchema,
     payoutCountDistribution: z.array(fractionSchema),
@@ -710,6 +750,15 @@ export const toolsRequestSchema = z.discriminatedUnion('kind', [
         ]),
     }),
     z.object({
+        budgets: z
+            .array(positiveNumberSchema)
+            .min(1)
+            .max(MAX_SPEND_PAYOUT_BUDGETS),
+        kind: z.literal(ToolsRequestKind.SpendPayoutCurve),
+        runId: z.number().int(),
+        variant: bankrollPlanVariantInputsSchema,
+    }),
+    z.object({
         anchorRrRatio: positiveNumberSchema,
         kind: z.literal(ToolsRequestKind.TakeProfitRows),
         rrCandidates: z.array(positiveNumberSchema).min(1).max(20),
@@ -754,9 +803,37 @@ const bankrollTimelineResultSchema = z.object({
     withdrawnP90: z.array(finiteNumberSchema),
 }) satisfies z.ZodType<BankrollTimelineResult>;
 
+const projectionMonthEndSchema = z.object({
+    cashP10: finiteNumberSchema,
+    cashP50: finiteNumberSchema,
+    cashP90: finiteNumberSchema,
+    day: z.number().int().nonnegative(),
+    month: positiveIntSchema,
+    payoutsP50: finiteNumberSchema,
+    spendP50: finiteNumberSchema,
+}) satisfies z.ZodType<ProjectionMonthEnd>;
+
+const spendPayoutCurveFiguresSchema = z.object({
+    attempts: positiveIntSchema,
+    expectedNet: finiteNumberSchema,
+    expectedPayouts: finiteNumberSchema,
+    expectedSpend: finiteNumberSchema,
+    lossProbability: fractionSchema,
+    lossProbabilityStandardError: nullableFiniteNumberSchema,
+    netP10: finiteNumberSchema,
+    netP90: finiteNumberSchema,
+}) satisfies z.ZodType<SpendPayoutCurveFigures>;
+
+const spendPayoutCurveRowSchema = z.object({
+    budget: positiveNumberSchema,
+    figures: spendPayoutCurveFiguresSchema.nullable(),
+    reason: economicsReasonSchema,
+}) satisfies z.ZodType<SpendPayoutCurveRow>;
+
 const leverRowSummarySchema = z.object({
     deltaAttemptPaysProbability: finiteNumberSchema.optional(),
     deltaEvPerAttempt: finiteNumberSchema,
+    deltaLossProbability: nullableFiniteNumberSchema.optional(),
     deltaMonthlyNet: finiteNumberSchema,
     deltaPassProbability: finiteNumberSchema,
     evPerAttempt: finiteNumberSchema,
@@ -831,12 +908,18 @@ export const toolsResultSchema = z.discriminatedUnion('kind', [
     }),
     z.object({
         kind: z.literal(ToolsResponseKind.Projection),
+        monthEnds: z.array(projectionMonthEndSchema),
         result: bankrollTimelineResultSchema,
         runId: z.number().int(),
     }),
     z.object({
         kind: z.literal(ToolsResponseKind.SameEv),
         results: z.tuple([sameEvOutcomeSchema, sameEvOutcomeSchema]),
+        runId: z.number().int(),
+    }),
+    z.object({
+        kind: z.literal(ToolsResponseKind.SpendPayoutCurve),
+        rows: z.array(spendPayoutCurveRowSchema),
         runId: z.number().int(),
     }),
     z.object({

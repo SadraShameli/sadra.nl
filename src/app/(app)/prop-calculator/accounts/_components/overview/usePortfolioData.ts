@@ -8,10 +8,16 @@ import {
     LEDGER_LIST_INPUT,
     type PortfolioLoad,
     portfolioLoad,
+    type PortfolioQueries,
     PortfolioSource,
 } from './overviewModel';
 
 export function usePortfolioData(): PortfolioLoad {
+    const queries = usePortfolioQueries();
+    return useMemo(() => portfolioLoad(queries), [queries]);
+}
+
+export function usePortfolioQueries(): PortfolioQueries {
     const { data: accounts, error: accountsError } =
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
     const { data: copyGroups, error: copyGroupsError } =
@@ -33,43 +39,42 @@ export function usePortfolioData(): PortfolioLoad {
     const { data: violations, error: violationsError } =
         api.propAccounts.violation.list.useQuery(LEDGER_LIST_INPUT);
     return useMemo(
-        () =>
-            portfolioLoad({
-                [PortfolioSource.Accounts]: {
-                    data: accounts,
-                    error: accountsError,
-                },
-                [PortfolioSource.CopyGroups]: {
-                    data: copyGroups,
-                    error: copyGroupsError,
-                },
-                [PortfolioSource.Decisions]: {
-                    data: decisions,
-                    error: decisionsError,
-                },
-                [PortfolioSource.Events]: { data: events, error: eventsError },
-                [PortfolioSource.Fees]: { data: fees, error: feesError },
-                [PortfolioSource.Payouts]: {
-                    data: payouts,
-                    error: payoutsError,
-                },
-                [PortfolioSource.Rulebook]: {
-                    data: rulebook,
-                    error: rulebookError,
-                },
-                [PortfolioSource.Snapshots]: {
-                    data: snapshots,
-                    error: snapshotsError,
-                },
-                [PortfolioSource.Transfers]: {
-                    data: transfers,
-                    error: transfersError,
-                },
-                [PortfolioSource.Violations]: {
-                    data: violations,
-                    error: violationsError,
-                },
-            }),
+        () => ({
+            [PortfolioSource.Accounts]: {
+                data: accounts,
+                error: accountsError,
+            },
+            [PortfolioSource.CopyGroups]: {
+                data: copyGroups,
+                error: copyGroupsError,
+            },
+            [PortfolioSource.Decisions]: {
+                data: decisions,
+                error: decisionsError,
+            },
+            [PortfolioSource.Events]: { data: events, error: eventsError },
+            [PortfolioSource.Fees]: { data: fees, error: feesError },
+            [PortfolioSource.Payouts]: {
+                data: payouts,
+                error: payoutsError,
+            },
+            [PortfolioSource.Rulebook]: {
+                data: rulebook,
+                error: rulebookError,
+            },
+            [PortfolioSource.Snapshots]: {
+                data: snapshots,
+                error: snapshotsError,
+            },
+            [PortfolioSource.Transfers]: {
+                data: transfers,
+                error: transfersError,
+            },
+            [PortfolioSource.Violations]: {
+                data: violations,
+                error: violationsError,
+            },
+        }),
         [
             accounts,
             accountsError,

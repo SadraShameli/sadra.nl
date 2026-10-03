@@ -1,5 +1,6 @@
 import {
     AccountEventKind,
+    AccountTracking,
     compareText,
     type FirmColumnsRow,
     FirmEngagementReason,
@@ -37,6 +38,7 @@ export interface FirmRosterEntry {
     readonly lifetimeAccounts: number;
     readonly movedLiveCount: number;
     readonly reason: FirmEngagementReason | null;
+    readonly recordedAtLiveCount: number;
     readonly status: FirmEngagementStatus;
 }
 
@@ -69,6 +71,10 @@ export function firmRosterOf(ledger: PortfolioLedger): FirmRoster {
             (firm) => firm.reason === FirmEngagementReason.SentLive,
         ).length,
     };
+}
+
+export function recordedAtLiveText(count: number): string {
+    return `includes ${String(count)} account${count === 1 ? '' : 's'} recorded straight at Live`;
 }
 
 function firmRosterEntry(
@@ -108,6 +114,14 @@ function firmRosterEntry(
             0,
         ),
         reason: engagement?.reason ?? null,
+        recordedAtLiveCount: accounts.filter(isRecordedStraightAtLive).length,
         status: engagement?.status ?? FirmEngagementStatus.Active,
     };
+}
+
+function isRecordedStraightAtLive(entry: LedgerAccount): boolean {
+    return (
+        entry.row.tracking === AccountTracking.LedgerOnly &&
+        movedLiveCountOf(entry) > 0
+    );
 }

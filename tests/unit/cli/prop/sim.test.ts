@@ -6,6 +6,7 @@ import optimizeFunded from '~/cli/commands/prop/optimize/funded/command';
 import {
     bankrollArguments,
     type BankrollInputs,
+    compoundStartArgument,
     edgePlausibilityNote,
     liveTransferHazardArgument,
     pathGranularityComparisonArgument,
@@ -58,6 +59,13 @@ import {
     simulate,
     type SizedTrade,
 } from '~/lib/prop-calculator';
+import {
+    attemptEconomicsOfRun,
+    batchLossClosedForm,
+    empiricalPayingStatsOf,
+    LossSampleUnit,
+    minimumAttemptsForLossTarget,
+} from '~/lib/prop-calculator/economics';
 import { findFirm } from '~/lib/prop-calculator/firms';
 import { runLiveDay } from '~/lib/prop-calculator/simulator';
 
@@ -668,6 +676,7 @@ describe('sim --path-granularity help (R1-26)', () => {
                     ...tradingArguments,
                     ...pathGranularityComparisonArgument,
                     ...bankrollArguments,
+                    ...compoundStartArgument,
                     ...liveTransferHazardArgument,
                 }),
             ),
@@ -722,15 +731,28 @@ const EV_PER_ATTEMPT_LABEL =
     'EV per attempt (ignores time; not the ranking objective)';
 const WALK_LABEL = 'P(pass) and expected trades (random-walk approximation)';
 
+const ATTEMPT_PRICE_LABEL = 'attempt price';
+const PAYOUTS_PER_PAID_LABEL = 'payouts per paid funded account';
+const AVERAGE_PAYOUT_LABEL = 'average payout per payout';
+const FORMULA_LABEL = 'EV per attempt formula';
+const BREAKEVEN_LABEL = 'breakeven pass rate';
+const FUNDED_VALUE_RATIO_LABEL = 'funded value / attempt cost';
+const LIVE_TRANSFER_SUFFIX = ' (incl. live transfer cash)';
+const MINIMUM_BUDGET_LABEL = 'minimum budget for the loss target';
+const CROSS_CHECK_LABEL = 'cross-check at that budget';
+
 const ECONOMICS_LABELS = [
+    ATTEMPT_PRICE_LABEL,
     'eval pass per attempt',
     'P(payout | funded)',
-    'payouts per funded account',
+    PAYOUTS_PER_PAID_LABEL,
+    AVERAGE_PAYOUT_LABEL,
     'P(k payouts | funded)',
     FUNDED_VALUE_LABEL,
     EV_PER_ATTEMPT_LABEL,
-    'breakeven pass rate',
-    'funded value / attempt cost',
+    FORMULA_LABEL,
+    BREAKEVEN_LABEL,
+    FUNDED_VALUE_RATIO_LABEL,
     'net R to pass',
     WALK_LABEL,
     'attempt pays (any payout)',
@@ -773,6 +795,7 @@ function economicsFixture(overrides: Partial<SimOutputs> = {}): SimOutputs {
         fundedPayoutCountDistribution: [
             0.5, 0.25, 0.25, 0, 0, 0, 0, 0, 0, 0, 0,
         ],
+        fundedPayoutValues: Array.from({ length: 8 }, () => 500),
         payoutsPerFundedAccount: 1.5,
         profitTarget: 3000,
         tradesPerSuccessfulAttempt: 120,
@@ -808,9 +831,7 @@ describe('sim attempt economics lines (PT-54, F-V8, F-V9, F-V22)', () => {
         expect(economicsValue(rows, 'P(payout | funded)')).toBe(
             '50.0% (SE 2.0%)',
         );
-        expect(economicsValue(rows, 'payouts per funded account')).toBe(
-            '1.50 (SE 0.10)',
-        );
+        expect(economicsValue(rows, ATTEMPT_PRICE_LABEL)).toBe('$100 (SE $2)');
         expect(economicsValue(rows, 'attempt pays (any payout)')).toBe(
             '10.0% (SE 0.5%)',
         );
@@ -942,6 +963,93 @@ describe('sim attempt economics lines (PT-54, F-V8, F-V9, F-V22)', () => {
         expect(economicsValue(instantRows, WALK_LABEL)).toBe(
             'n/a (instant funded: no eval)',
         );
+    });
+
+    it('prints the payouts per paid funded account and the average payout per payout with the funded trials they come from (F-V9)', () => {
+        expect(economicsValue(rows, PAYOUTS_PER_PAID_LABEL)).toBe(
+            '3.00 (n = 8 funded trials)',
+        );
+        expect(economicsValue(rows, AVERAGE_PAYOUT_LABEL)).toBe(
+            `${formatCurrency(1000 / 1.5)} (n = 8 funded trials)`,
+        );
+        expect(rows.map(([label]) => label)).not.toContain(
+            'payouts per funded account',
+        );
+    });
+
+    it('says why the paid-account figures are missing when no funded account paid', () => {
+        const none = simEconomicsRows(
+            economicsFixture({
+                anyPayoutGivenFundedProbability: 0,
+                payoutsPerFundedAccount: 0,
+            }),
+            inputs,
+            apexEodPlan(),
+        );
+        expect(economicsValue(none, PAYOUTS_PER_PAID_LABEL)).toMatch(/^n\/a/);
+        expect(economicsValue(none, AVERAGE_PAYOUT_LABEL)).toMatch(/^n\/a/);
+    });
+
+    it('prints the filled EV formula from the library numbers', () => {
+        expect(economicsValue(rows, FORMULA_LABEL)).toBe(
+            `pass 25.0% × funded value $1,000 − attempt cost $100 = $150 (SE $10)`,
+        );
+    });
+
+    it('explains an invalid decomposition on the price and formula rows too', () => {
+        const invalid = simEconomicsRows(
+            economicsFixture({ expectedNetPerAttempt: NaN }),
+            inputs,
+            apexEodPlan(),
+        );
+        const reason = economicsValue(invalid, EV_PER_ATTEMPT_LABEL);
+        expect(economicsValue(invalid, ATTEMPT_PRICE_LABEL)).toBe(reason);
+        expect(economicsValue(invalid, FORMULA_LABEL)).toBe(reason);
+    });
+
+    describe('with a live transfer (PT-93 fold)', () => {
+        const liveOut = economicsFixture({
+            expectedAttempts: 2,
+            expectedLiveTransferCash: 50,
+            expectedNetPerAttempt: 175,
+        });
+        const liveRows = simEconomicsRows(liveOut, inputs, apexEodPlan());
+        const library = attemptEconomicsOfRun(liveOut, 20).value;
+
+        it('prints the library breakeven, which folds the live transfer cash per attempt', () => {
+            expect(library?.liveTransferCashPerAttempt).toBe(25);
+            expect(library?.breakevenPassRate.value).toBeCloseTo(
+                100 / 1100,
+                10,
+            );
+            expect(
+                economicsValue(
+                    liveRows,
+                    `${BREAKEVEN_LABEL}${LIVE_TRANSFER_SUFFIX}`,
+                ),
+            ).toBe(formatPercent(100 / 1100));
+            expect(
+                economicsValue(
+                    liveRows,
+                    `${FUNDED_VALUE_RATIO_LABEL}${LIVE_TRANSFER_SUFFIX}`,
+                ),
+            ).toBe('11.00x (net 10:1)');
+        });
+
+        it('adds the live transfer term to the filled formula', () => {
+            expect(economicsValue(liveRows, FORMULA_LABEL)).toBe(
+                `pass 25.0% × funded value $1,000 + live transfer cash per attempt $25 − attempt cost $100 = $175 (SE $10)`,
+            );
+        });
+
+        it('keeps the plain labels when there is no live transfer cash', () => {
+            expect(economicsValue(rows, BREAKEVEN_LABEL)).toBe('10.0%');
+            expect(
+                rows
+                    .map(([label]) => label)
+                    .filter((label) => label.includes(LIVE_TRANSFER_SUFFIX)),
+            ).toStrictEqual([]);
+        });
     });
 });
 
@@ -1083,6 +1191,10 @@ describe('sim bankroll lines (PT-54, F-V13)', () => {
                 'minimum budget for the loss target',
                 '$100 (1 attempt, P(batch net < 0) at or below 5.0% from there up to 1000 attempts)',
             ],
+            [
+                'cross-check at that budget',
+                '0.0% (assumes one value per paying attempt)',
+            ],
         ]);
     });
 
@@ -1099,7 +1211,125 @@ describe('sim bankroll lines (PT-54, F-V13)', () => {
             'minimum budget for the loss target',
         ]);
     });
+
+    describe('minimum budget from the compound distribution (F-V13)', () => {
+        const COST = 100;
+        const THREE_POINT_NETS: number[] = Array.from(
+            { length: 100 },
+            (_, index) => {
+                if (index < 60) return -COST;
+                return (index < 90 ? 400 : 5000) - COST;
+            },
+        );
+        const threePoint = twoPointFixture({
+            costPerAttempt: COST,
+            expectedNetPerAttempt: 520,
+            expectedTotalCost: COST,
+            netValues: THREE_POINT_NETS,
+        });
+        const threshold = 0.05;
+
+        function closedFormMinimumAttempts(): null | number {
+            const { pAttemptPays, valuePerPayingAttempt } =
+                empiricalPayingStatsOf(THREE_POINT_NETS, dollars(COST));
+            return minimumAttemptsForLossTarget({
+                cap: 1000,
+                lossProbability: (attempts) =>
+                    batchLossClosedForm({
+                        attemptCost: dollars(COST),
+                        attempts,
+                        pAttemptPays,
+                        valuePerPayingAttempt,
+                    }).value ?? 1,
+                meanNetPerSample: dollars(520),
+                sampleUnit: LossSampleUnit.Attempt,
+                threshold: fraction(threshold),
+            }).value;
+        }
+
+        it('asks for more attempts than the one-value closed form, which understates dispersed payouts', () => {
+            const rows = simBankrollRows(
+                threePoint,
+                inputs,
+                bankrollInputs(null, threshold),
+            );
+            const closedForm = closedFormMinimumAttempts();
+            expect(closedForm).not.toBeNull();
+            expect(
+                attemptsIn(economicsValue(rows, MINIMUM_BUDGET_LABEL)),
+            ).toBeGreaterThan(closedForm ?? Infinity);
+        });
+
+        it('prints the closed form at that budget as a labelled cross-check, below the target the compound figure only just meets', () => {
+            const rows = simBankrollRows(
+                threePoint,
+                inputs,
+                bankrollInputs(null, threshold),
+            );
+            const attempts = attemptsIn(
+                economicsValue(rows, MINIMUM_BUDGET_LABEL),
+            );
+            const { pAttemptPays, valuePerPayingAttempt } =
+                empiricalPayingStatsOf(THREE_POINT_NETS, dollars(COST));
+            const closedFormAtBudget = batchLossClosedForm({
+                attemptCost: dollars(COST),
+                attempts,
+                pAttemptPays,
+                valuePerPayingAttempt,
+            }).value;
+            expect(rows.map(([label]) => label)).toStrictEqual([
+                MINIMUM_BUDGET_LABEL,
+                CROSS_CHECK_LABEL,
+            ]);
+            expect(economicsValue(rows, CROSS_CHECK_LABEL)).toBe(
+                `${formatPercent(closedFormAtBudget ?? NaN)} (assumes one value per paying attempt)`,
+            );
+            expect(closedFormAtBudget).toBeLessThan(threshold);
+        });
+
+        it('prints no cross-check when there is no minimum budget to cross-check', () => {
+            const unset = simBankrollRows(
+                threePoint,
+                inputs,
+                bankrollInputs(5000, null),
+            );
+            expect(unset.map(([label]) => label)).not.toContain(
+                CROSS_CHECK_LABEL,
+            );
+            const noEdge = simBankrollRows(
+                twoPointFixture({ netValues: [-100] }),
+                inputs,
+                bankrollInputs(5000, threshold),
+            );
+            expect(economicsValue(noEdge, MINIMUM_BUDGET_LABEL)).toBe(
+                'no positive edge',
+            );
+            expect(noEdge.map(([label]) => label)).not.toContain(
+                CROSS_CHECK_LABEL,
+            );
+        });
+
+        it('keeps whole trials priced at the spend per trial for --max-attempts above 1', () => {
+            const rows = simBankrollRows(
+                twoPointFixture({ expectedTotalCost: 250 }),
+                parseSimInputs(['--seed', '42', '--max-attempts', '3']),
+                bankrollInputs(null, threshold),
+            );
+            const text = economicsValue(rows, MINIMUM_BUDGET_LABEL) ?? '';
+            const match = /^\$([\d,]+) \((\d+) trials?,/.exec(text);
+            expect(match).not.toBeNull();
+            expect(Number(match?.[1]?.replaceAll(',', ''))).toBe(
+                Number(match?.[2]) * 250,
+            );
+        });
+    });
 });
+
+function attemptsIn(text: string | undefined): number {
+    const match = /^\$[\d,]+ \((\d+) attempts?,/.exec(text ?? '');
+    if (!match?.[1]) throw new Error(`no attempts in "${String(text)}"`);
+    return Number(match[1]);
+}
 
 async function capturedSimRun(argv: string[]): Promise<string> {
     const written: string[] = [];
@@ -1168,18 +1398,54 @@ describe('prop sim prints the economics after the existing lines (PT-54)', () =>
         );
     });
 
-    it('prints the plausibility note for 70% at 1:1', async () => {
+    it('prints the plausibility note for 70% at 1:1 with the Kelly growth and the pace at the run trades per day (F-V22)', async () => {
         const stdout = await capturedSimRun([
             ...SMALL_SIM,
             '--winrate',
             '0.7',
             '--rr',
             '1',
+            '--tpd',
+            '4',
         ]);
         expect(stdout).toContain(
-            edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ??
-                'missing note',
+            edgePlausibilityNote({
+                rrRatio: 1,
+                tradesPerDay: 4,
+                winrate: fraction(0.7),
+            }) ?? 'missing note',
         );
+        expect(stdout).toContain('at 4 trades per day over 21 trading days');
+    });
+
+    it('accepts --compound-start and prints what it becomes in the note (F-V22)', async () => {
+        expect(await acceptedFlags(simCommand)).toContain('compound-start');
+        expect(await flagsNamedButNotAccepted(simCommand)).toStrictEqual([]);
+        const stdout = await capturedSimRun([
+            ...SMALL_SIM,
+            '--winrate',
+            '0.7',
+            '--rr',
+            '1',
+            '--tpd',
+            '4',
+            '--compound-start',
+            '5000',
+        ]);
+        expect(stdout).toContain('so $5,000 becomes $5,020,073');
+    });
+
+    it('prints no plausibility note at a typical edge even with --compound-start (F-V22)', async () => {
+        const stdout = await capturedSimRun([
+            ...SMALL_SIM,
+            '--winrate',
+            '0.52',
+            '--rr',
+            '1',
+            '--compound-start',
+            '5000',
+        ]);
+        expect(stdout).not.toContain('Full Kelly');
     });
 });
 

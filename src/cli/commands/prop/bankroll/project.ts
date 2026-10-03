@@ -11,7 +11,10 @@ import {
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
-import { bankrollCompoundingIllustration } from '~/lib/prop-calculator/economics';
+import {
+    bankrollCompoundingIllustration,
+    projectionMonthEnds,
+} from '~/lib/prop-calculator/economics';
 import {
     type BankrollTimelineResult,
     simulateBankrollTimeline,
@@ -51,7 +54,7 @@ export default defineCommand({
                     monthlyBudget: project.monthlyBudget,
                     payoutLagDays: project.payoutLagDays,
                     reinvestFraction: project.reinvest,
-                    roundBudget: null,
+                    roundBudget: project.roundBudget,
                     startingBankroll: project.start,
                 },
                 project.horizonDays,
@@ -62,12 +65,14 @@ export default defineCommand({
 
             ui.heading(`${plan.label}: bankroll projection`);
             ui.muted(
-                `  start ${formatCurrency(project.start)} | reinvest ${formatPercent(project.reinvest)} | horizon ${project.horizonDays} days | payout lag ${project.payoutLagDays} days | ${project.trials} trials\n`,
+                `  start ${formatCurrency(project.start)} | reinvest ${formatPercent(project.reinvest)} | horizon ${project.horizonDays} days | payout lag ${project.payoutLagDays} days | round budget ${project.roundBudget === null ? 'none' : formatCurrency(project.roundBudget)} | ${project.trials} trials\n`,
             );
             printEdgePlausibilityNotes(
                 tradingEdgeNotes({
                     fundedRrRatio: inputs.fundedRrRatio,
+                    fundedTradesPerDay: inputs.fundedTradesPerDay,
                     rrRatio: inputs.rrRatio,
+                    tradesPerDay: inputs.tradesPerDay,
                     winrate: inputs.winrate,
                 }),
             );
@@ -78,6 +83,21 @@ export default defineCommand({
             ]);
             for (const row of projectSummaryRows(out)) {
                 table.printRow(row);
+            }
+
+            ui.muted('\n  month ends (spend and payouts are P50 per month):');
+            const monthTable = new TablePrinter([
+                { align: 'right', label: 'month', width: 6 },
+                { align: 'right', label: 'day', width: 5 },
+                { align: 'right', label: 'bankroll P10', width: 14 },
+                { align: 'right', label: 'bankroll P50', width: 14 },
+                { align: 'right', label: 'bankroll P90', width: 14 },
+                { align: 'right', label: 'payouts', width: 12 },
+                { align: 'right', label: 'spend', width: 12 },
+            ]);
+            monthTable.printHeader();
+            for (const row of projectMonthEndCells(out)) {
+                monthTable.printRow(row);
             }
 
             ui.muted(
@@ -105,7 +125,21 @@ export function closedFormIllustration(
     }
     return illustration.quantity.value === null
         ? 'n/a'
-        : `${formatCurrency(illustration.quantity.value)} at a ${illustration.multiple.toFixed(2)}x / ${illustration.cycleDays}-day illustrative cycle`;
+        : `${formatCurrency(illustration.quantity.value)} at a ${illustration.multiple.toFixed(2)}x / ${illustration.cycleDays}-day illustrative cycle (assumed: multiple = 1 + the reinvest fraction, cycle = one trading month)`;
+}
+
+export function projectMonthEndCells(
+    out: BankrollTimelineResult,
+): readonly (readonly string[])[] {
+    return projectionMonthEnds(out).map((row) => [
+        String(row.month),
+        String(row.day),
+        formatCurrency(row.cashP10),
+        formatCurrency(row.cashP50),
+        formatCurrency(row.cashP90),
+        formatCurrency(row.payoutsP50),
+        formatCurrency(row.spendP50),
+    ]);
 }
 
 export function projectSummaryRows(
@@ -120,6 +154,10 @@ export function projectSummaryRows(
         [
             'cumulative spend (P50)',
             formatCurrency(out.cumulativeSpendP50[lastIndex] ?? 0),
+        ],
+        [
+            'cumulative spend (P90)',
+            formatCurrency(out.cumulativeSpendP90[lastIndex] ?? 0),
         ],
         [
             'cumulative payouts (P50)',

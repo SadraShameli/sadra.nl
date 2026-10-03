@@ -1,3 +1,5 @@
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import { type DpSolveConfig } from '~/lib/prop-calculator/advisor/dp';
 import {
     DailyLossLimitKind,
     dollars,
@@ -10,8 +12,6 @@ import {
     RetryKind,
     serializePlanId,
 } from '~/lib/prop-calculator/core';
-import { SizingObjective } from '~/lib/prop-calculator/advisor';
-import { type DpSolveConfig } from '~/lib/prop-calculator/advisor/dp';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
 export const TOY_FINGERPRINT = 'f'.repeat(64);

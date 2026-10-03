@@ -35,6 +35,7 @@ import { formatRiskDisplay } from '~/app/(app)/prop-calculator/_components/riskD
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
+import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
 import { Input } from '~/components/ui/Input';
 import {
     Select,
@@ -43,7 +44,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
-import { useSession } from '~/lib/auth/client';
 import { formatGateCurrency, NOT_APPLICABLE } from '~/lib/format';
 import {
     ALL_FIRMS,
@@ -53,7 +53,6 @@ import {
 } from '~/lib/prop-calculator';
 import { RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
-import { api } from '~/trpc/react';
 
 const START_TIER = 'start';
 const LABEL_CLASS = 'text-xs font-medium text-muted-foreground';
@@ -85,14 +84,8 @@ type PositionSizeChange = (patch: Partial<PositionSizeInput>) => void;
 
 export function PositionSizeView() {
     const searchParameters = useSearchParams();
-    const session = useSession();
-    const hasSession = session.data?.user.id !== undefined;
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
-        enabled: hasSession,
-    });
-    const savedUnit = hasSession
-        ? (rulebookQuery.data?.display.riskUnit ?? null)
-        : null;
+    const { userRulebook } = useToolRulebook();
+    const savedUnit = userRulebook?.display.riskUnit ?? null;
     const [isUnitChosen, setIsUnitChosen] = useState(
         () =>
             parsePositionSizeUnit(

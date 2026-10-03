@@ -1,22 +1,15 @@
-import { and, asc, eq, inArray, ne } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
 import {
-    AccountEventKind,
-    AccountStage,
     accountStageOn,
-    type AccountStageStarts,
     AccountTracking,
-    fundedSince,
     isLedgerOnlySnapshotField,
-    type LedgerAccount,
     NO_RECORDED_STAGE_STARTS,
-    PortfolioLedger,
 } from '~/lib/prop-accounts';
 import {
     type OwnedAccount,
-    PROP_QUOTA_LIMITS,
     PropAccountRepo,
     type PropDatabase,
     PropQuotaGuard,
@@ -36,7 +29,6 @@ import {
 } from '~/lib/schemas/propAccounts';
 import { createTRPCRouter } from '~/server/api/trpc';
 import {
-    propAccountEvent,
     propAccountSnapshot,
     propSizingDecision,
 } from '~/server/db/schemas/prop';
@@ -56,6 +48,7 @@ import {
     assertRequiredFields,
     type StagedSnapshot,
 } from './snapshotGuards';
+import { loadStageStarts } from './stageStarts';
 
 type SnapshotInput = z.output<typeof snapshotCreateSchema>;
 
@@ -128,60 +121,6 @@ async function assertStorable(
     const staged = await stagedSnapshots(database, userId, input, accounts);
     assertRequiredFields(staged, NEW_SNAPSHOT_REMEDY);
     assertPlausible(staged, NEW_SNAPSHOT_REMEDY);
-}
-
-function ledgerStageStarts(entry: LedgerAccount): AccountStageStarts {
-    return {
-        evalPassedOn: fundedSince(entry)?.on ?? null,
-        movedLiveOn:
-            entry.transitions.find(
-                (transition) => transition.to.stage === AccountStage.Live,
-            )?.on ?? null,
-    };
-}
-
-async function loadStageStarts(
-    database: PropDatabase,
-    userId: string,
-    accounts: ReadonlyMap<string, OwnedAccount>,
-): Promise<ReadonlyMap<string, AccountStageStarts>> {
-    const staged = accounts
-        .values()
-        .filter((account) => account.stage !== AccountStage.Eval)
-        .toArray();
-    if (staged.length === 0) return new Map();
-    const stagedIds = staged.map((account) => account.id);
-    const events = await database
-        .select({
-            accountId: propAccountEvent.accountId,
-            createdAt: propAccountEvent.createdAt,
-            id: propAccountEvent.id,
-            kind: propAccountEvent.kind,
-            occurredOn: propAccountEvent.occurredOn,
-            userId: propAccountEvent.userId,
-        })
-        .from(propAccountEvent)
-        .where(
-            and(
-                eq(propAccountEvent.userId, userId),
-                inArray(propAccountEvent.accountId, stagedIds),
-                ne(propAccountEvent.kind, AccountEventKind.Edited),
-            ),
-        )
-        .orderBy(asc(propAccountEvent.occurredOn))
-        .limit(PROP_QUOTA_LIMITS[PropQuota.Events]);
-    const ledger = PortfolioLedger.fromRows(userId, {
-        accounts: staged,
-        events,
-        fees: [],
-        payouts: [],
-    });
-    return new Map(
-        ledger.accounts.map((entry) => [
-            entry.row.id,
-            ledgerStageStarts(entry),
-        ]),
-    );
 }
 
 async function stagedSnapshots(

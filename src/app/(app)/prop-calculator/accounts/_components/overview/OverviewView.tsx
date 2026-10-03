@@ -57,10 +57,12 @@ import {
     overviewValueRequestsOf,
     type OverviewViolations,
     type PortfolioLoad,
+    portfolioLoad,
     type PortfolioLoadIssue,
     PortfolioSource,
 } from './overviewModel';
 import { PayoutSizesCard } from './PayoutSizesCard';
+import { PayoutTimingCard } from './PayoutTimingCard';
 import { PooledCapCard } from './PooledCapCard';
 import { ProfitConcentrationCard } from './ProfitConcentrationCard';
 import { ProjectionCard } from './ProjectionCard';
@@ -72,11 +74,11 @@ import { SetupChecklistCard } from './SetupChecklistCard';
 import { StatementCard } from './StatementCard';
 import { TiltVarianceCard } from './TiltVarianceCard';
 import { TimelineCard } from './TimelineCard';
-import { usePortfolioData } from './usePortfolioData';
+import { usePortfolioQueries } from './usePortfolioData';
 import { ViolationsCard } from './ViolationsCard';
 
 export function OverviewView({ userId }: { readonly userId: string }) {
-    const load = usePortfolioData();
+    const load = useOverviewPortfolioData();
     const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
     const externalFirms = externalFirmsQuery.data;
     const today = useTodayIsoDate();
@@ -389,6 +391,9 @@ function LedgerSections({
             <OverviewSection id="repeatability" title="Repeatability">
                 <RepeatabilityCard model={cards.repeatability} />
             </OverviewSection>
+            <OverviewSection id="payout-timing" title="Payout timing">
+                <PayoutTimingCard model={cards.payoutTiming} />
+            </OverviewSection>
             <OverviewSection id="timeline" title="Timeline">
                 <TimelineCard model={cards.timeline} />
             </OverviewSection>
@@ -572,6 +577,26 @@ function SetupSection({ setup }: { readonly setup: OverviewSetup }) {
         <OverviewSection id="setup" title="Setup checklist">
             <SetupChecklistCard model={setup.model} />
         </OverviewSection>
+    );
+}
+
+function useOverviewPortfolioData(): PortfolioLoad {
+    const queries = usePortfolioQueries();
+    const { data: firmStatements, error: firmStatementsError } =
+        api.propAccounts.firmStatement.list.useQuery();
+    const { data: rounds, error: roundsError } =
+        api.propAccounts.round.list.useQuery();
+    return useMemo(
+        () =>
+            portfolioLoad({
+                ...queries,
+                [PortfolioSource.FirmStatements]: {
+                    data: firmStatements,
+                    error: firmStatementsError,
+                },
+                [PortfolioSource.Rounds]: { data: rounds, error: roundsError },
+            }),
+        [firmStatements, firmStatementsError, queries, rounds, roundsError],
     );
 }
 

@@ -215,11 +215,10 @@ describe('the live sizing advisor feeds its entered instrument and stop to the c
     it('puts the one-contract risk and a placeable floor rung on the card of a Topstep LFA on its floor', () => {
         const livePlan = buildTopStepLivePlan();
 
-        const card = advisorFor(
-            livePlan,
-            stateOnFloor(livePlan),
-            { instrument: InstrumentSymbol.NQ, stopPoints: 22.5 },
-        ).dailyPlanCard();
+        const card = advisorFor(livePlan, stateOnFloor(livePlan), {
+            instrument: InstrumentSymbol.NQ,
+            stopPoints: 22.5,
+        }).dailyPlanCard();
 
         expect(card?.oneContractRisk).toBe(450);
         expect(card?.rungs.map((rung) => rung.risk)).toStrictEqual([450]);

@@ -24,6 +24,8 @@ interface SnapshotFieldsEntry {
     readonly fieldWarnings: readonly SnapshotFieldIssue[];
     readonly formIssues: readonly string[];
     readonly formWarnings: readonly string[];
+    readonly idPrefix?: string;
+    readonly isReadOnly?: boolean;
     readonly issues: readonly SnapshotFieldIssue[];
     readonly onChange: (field: SnapshotField, value: string) => void;
     readonly values: SnapshotFormValues;
@@ -53,10 +55,13 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
         fieldWarnings,
         formIssues,
         formWarnings,
+        idPrefix,
+        isReadOnly = false,
         issues,
         onChange,
         values,
     } = properties;
+    const idRoot = idPrefix === undefined ? 'snapshot' : `snapshot-${idPrefix}`;
     const isLedgerOnly = properties.tracking === AccountTracking.LedgerOnly;
     const rules = isLedgerOnly ? ledgerOnlySnapshotRules() : properties.rules;
     const issueByField = new Map(
@@ -110,7 +115,7 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                 </Alert>
             )}
             {visible.map((rule) => {
-                const id = `snapshot-${rule.field}`;
+                const id = `${idRoot}-${rule.field}`;
                 const issue = issueByField.get(rule.field);
                 const warning = warningByField.get(rule.field);
                 const hintId = `${id}-hint`;
@@ -140,8 +145,10 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                             id={id}
                             inputMode={inputModeOf(rule.input)}
                             onChange={(event) => {
+                                if (isReadOnly) return;
                                 onChange(rule.field, event.target.value);
                             }}
+                            readOnly={isReadOnly}
                             type={
                                 rule.input === SnapshotInputKind.Date
                                     ? 'date'

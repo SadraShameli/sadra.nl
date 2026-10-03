@@ -7,7 +7,7 @@ import {
     attemptsOf,
     type CentsEstimate,
     type CohortMultiple,
-    fundedSince,
+    isFundedAccount,
     pooledEndedCohortMultiple,
     type PortfolioLedger,
     realizedNetPerSlot,
@@ -70,9 +70,7 @@ export function scaleGateFromLedger(
         (sum, entry) => sum + attemptsOf(entry),
         0,
     );
-    const fundedAccounts = ledger.resolvedAccounts.filter(
-        (entry) => fundedSince(entry) !== null,
-    ).length;
+    const fundedAccounts = ledger.accounts.filter(isFundedAccount).length;
     return scaleGateOf({
         cohortMultiple: pooledEndedCohortMultiple(ledger),
         evalAttempts,

@@ -92,7 +92,9 @@ describe('ShareLinkButton', () => {
         });
         expect(container.textContent).toContain('Share link');
         expect(container.textContent).not.toContain('Could not copy');
-        expect(container.querySelector('[role="status"]')?.textContent).toBe('');
+        expect(container.querySelector('[role="status"]')?.textContent).toBe(
+            '',
+        );
     });
 
     it('says the copy failed when the clipboard is unavailable', async () => {

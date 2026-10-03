@@ -287,6 +287,13 @@ describe('the account tag readers follow the barrel rule (PT-110b)', () => {
     const REPO_ROOT = path.resolve(import.meta.dirname, '../../../../..');
     const CORE_DIR = 'src/lib/prop-accounts/core';
     const READERS_MODULE = 'JsonbReaders';
+    const SCANNED_DIRECTORIES = [
+        'src/lib/prop-accounts',
+        'src/lib/schemas',
+        'src/server/api/routers/propAccounts',
+        'src/app/(app)/prop-calculator/accounts',
+        'tests/unit/lib/prop-accounts',
+    ];
     const DEEP_IMPORT = `'~/lib/prop-accounts/core/${READERS_MODULE}'`;
 
     async function deepImportersUnder(directory: string): Promise<string[]> {
@@ -298,7 +305,10 @@ describe('the account tag readers follow the barrel rule (PT-110b)', () => {
             .filter((entry) => entry.isFile() && /\.tsx?$/.test(entry.name))
             .map((entry) =>
                 path
-                    .relative(REPO_ROOT, path.join(entry.parentPath, entry.name))
+                    .relative(
+                        REPO_ROOT,
+                        path.join(entry.parentPath, entry.name),
+                    )
                     .replaceAll('\\', '/'),
             )
             .filter((file) => !file.startsWith(`${CORE_DIR}/`));
@@ -312,10 +322,9 @@ describe('the account tag readers follow the barrel rule (PT-110b)', () => {
     }
 
     it('has no importer outside the core folder reaching into JsonbReaders.ts', async () => {
-        const found = await Promise.all([
-            deepImportersUnder('src'),
-            deepImportersUnder('tests/unit/lib/prop-accounts'),
-        ]);
+        const found = await Promise.all(
+            SCANNED_DIRECTORIES.map(deepImportersUnder),
+        );
         const deepImporters = found.flat();
 
         expect(deepImporters).toStrictEqual([]);

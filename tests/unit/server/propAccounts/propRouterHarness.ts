@@ -74,6 +74,7 @@ export const IDS = {
     account: '11111111-1111-4111-8111-111111111111',
     copyGroup: '22222222-2222-4222-8222-222222222222',
     decision: '33333333-3333-4333-8333-333333333333',
+    dpAdvice: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     event: '44444444-4444-4444-8444-444444444444',
     fee: '55555555-5555-4555-8555-555555555555',
     otherAccount: '66666666-6666-4666-8666-666666666666',
@@ -86,6 +87,7 @@ export const TABLES = {
     account: 'sadranl_prop_account',
     copyGroup: 'sadranl_prop_copy_group',
     decision: 'sadranl_prop_sizing_decision',
+    dpAdvice: 'sadranl_prop_dp_advice',
     event: 'sadranl_prop_account_event',
     fee: 'sadranl_prop_fee',
     payout: 'sadranl_prop_payout',
@@ -203,6 +205,43 @@ export function decisionRow(overrides: FakeRow = {}): FakeRow {
         stage: AccountStage.Eval,
         updated_at: CREATED_AT,
         user_id: USER_ID,
+        ...overrides,
+    };
+}
+
+export function dpAdviceRow(overrides: FakeRow = {}): FakeRow {
+    return {
+        account_id: IDS.account,
+        config_key: 'ab'.repeat(32),
+        created_at: CREATED_AT,
+        eligible: true,
+        gaps: [],
+        id: IDS.dpAdvice,
+        ineligible_reason: null,
+        objective: 'monthly-net',
+        plan_rules_fingerprint: null,
+        plan_serial: planKeyFields(EVAL_ENTRY).planSerial,
+        runtime_ms: 120_000,
+        samples: {
+            kind: 'sampled',
+            samples: [
+                {
+                    cushionCents: 250_000,
+                    placedRiskCents: null,
+                    riskCents: 40_000,
+                    rungOffset: 0,
+                    tradeIndex: 0,
+                },
+            ],
+            stage: 'funded',
+        },
+        snapshot_id: IDS.snapshot,
+        solved_at: CREATED_AT,
+        solver_version: 1,
+        user_id: USER_ID,
+        validated: false,
+        validation_ref: null,
+        value_samples: [],
         ...overrides,
     };
 }
@@ -328,6 +367,7 @@ const DEFAULT_ROWS: Readonly<Record<string, () => FakeRow>> = {
     [TABLES.account]: accountRow,
     [TABLES.copyGroup]: copyGroupRow,
     [TABLES.decision]: decisionRow,
+    [TABLES.dpAdvice]: dpAdviceRow,
     [TABLES.event]: eventRow,
     [TABLES.fee]: feeRow,
     [TABLES.payout]: payoutRow,

@@ -14,6 +14,7 @@ import optimizeDp, {
 } from '~/cli/commands/prop/optimize/dp/command';
 import {
     bankrollArguments,
+    compoundStartArgument,
     copyAccountsArgument,
     describeStopRule,
     type EdgeModelArguments,
@@ -34,6 +35,7 @@ import {
     readAccountsPerSession,
     readBankroll,
     readBankrollInputs,
+    readCompoundStart,
     readEdgeModelSpec,
     readFraction,
     readGranularityList,
@@ -1013,6 +1015,89 @@ describe('edgePlausibilityNote (PT-54, F-V22)', () => {
             }),
         ).toStrictEqual([]);
     });
+
+    it('carries the Kelly growth per trade and the compounded multiple when the trades per day are known (F-V22)', () => {
+        const [note, ...rest] = tradingEdgeNotes({
+            fundedRrRatio: undefined,
+            rrRatio: 1,
+            tradesPerDay: 4,
+            winrate: fraction(0.7),
+        });
+        expect(rest).toStrictEqual([]);
+        expect(note).toContain('Implausible edge');
+        expect(note).toContain(
+            'Full Kelly would grow a bankroll 8.58% per trade; at 4 trades per day over 21 trading days that compounds to 1,004.01x',
+        );
+        expect(note).not.toContain('becomes');
+    });
+
+    it('names what the compound start becomes when it is given', () => {
+        const [note] = tradingEdgeNotes({
+            compoundStartDollars: 5000,
+            fundedRrRatio: undefined,
+            rrRatio: 1,
+            tradesPerDay: 4,
+            winrate: fraction(0.7),
+        });
+        expect(note).toContain('so $5,000 becomes $5,020,073');
+    });
+
+    it('prints the growth without a pace sentence when the trades per day are not given, and nothing at a typical edge', () => {
+        const [note] = tradingEdgeNotes({
+            fundedRrRatio: undefined,
+            rrRatio: 1,
+            winrate: fraction(0.7),
+        });
+        expect(note).toContain(
+            'Full Kelly would grow a bankroll 8.58% per trade (',
+        );
+        expect(note).not.toContain('trading days');
+        expect(
+            tradingEdgeNotes({
+                compoundStartDollars: 5000,
+                fundedRrRatio: undefined,
+                rrRatio: 1,
+                tradesPerDay: 4,
+                winrate: fraction(0.52),
+            }),
+        ).toStrictEqual([]);
+    });
+
+    it('paces the funded note with the funded trades per day', () => {
+        const notes = tradingEdgeNotes({
+            fundedRrRatio: 3,
+            fundedTradesPerDay: 2,
+            rrRatio: 2,
+            tradesPerDay: 4,
+            winrate: fraction(0.4),
+        });
+        expect(notes).toHaveLength(1);
+        expect(notes[0]).toContain('at 2 trades per day over 21 trading days');
+    });
+});
+
+describe('--compound-start (F-V22)', () => {
+    it('is an optional string flag with no default, so absent means no starting bankroll', () => {
+        expect(compoundStartArgument['compound-start'].type).toBe('string');
+        expect(compoundStartArgument['compound-start']).not.toHaveProperty(
+            'default',
+        );
+        expect(compoundStartArgument['compound-start'].description).toContain(
+            'information',
+        );
+    });
+
+    it('reads a positive dollar amount and treats absent or empty as undefined', () => {
+        expect(readCompoundStart('5000')).toBe(5000);
+        expect(readCompoundStart(undefined)).toBeUndefined();
+        expect(readCompoundStart('')).toBeUndefined();
+    });
+
+    it.each(['0', '-5', 'abc'])('rejects %s naming the flag', (raw) => {
+        expect(() => readCompoundStart(raw)).toThrow(
+            `--compound-start must be a dollar amount > 0, got "${raw}"`,
+        );
+    });
 });
 
 async function capturedStdout(run: () => Promise<unknown>): Promise<string> {
@@ -1360,12 +1445,10 @@ describe('--live-transfer-hazard (PT-73, VD-17)', () => {
         };
 
         it('prints nothing without a hazard', () => {
-            expect(
-                liveTransferRunLines(undefined, modeled, []),
-            ).toStrictEqual([]);
-            expect(liveTransferRunLines(0, modeled, [])).toStrictEqual(
+            expect(liveTransferRunLines(undefined, modeled, [])).toStrictEqual(
                 [],
             );
+            expect(liveTransferRunLines(0, modeled, [])).toStrictEqual([]);
         });
 
         it('labels the rate as your assumption and gives the share sent live', () => {
@@ -1435,24 +1518,18 @@ describe('--live-transfer-hazard (PT-73, VD-17)', () => {
         });
 
         it('says the live plan continues the account where one is modeled', () => {
-            const text = liveTransferRunLines(0.2, modeled, []).join(
-                '\n',
-            );
+            const text = liveTransferRunLines(0.2, modeled, []).join('\n');
             expect(text).toContain('modeled live plan');
             expect(text).not.toContain('valued at $0');
         });
 
         it('says the rest is valued at $0 where no live plan is modeled', () => {
-            const text = liveTransferRunLines(0.2, notModeled, []).join(
-                '\n',
-            );
+            const text = liveTransferRunLines(0.2, notModeled, []).join('\n');
             expect(text).toContain('valued at $0');
         });
 
         it('never uses an em dash', () => {
-            const text = liveTransferRunLines(0.2, notModeled, []).join(
-                '\n',
-            );
+            const text = liveTransferRunLines(0.2, notModeled, []).join('\n');
             expect(text).not.toContain('\u{2014}');
         });
 

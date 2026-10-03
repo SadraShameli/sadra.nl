@@ -17,14 +17,18 @@ import { stableJson } from '~/lib/stableJson';
 
 import {
     BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL,
-    bankrollClosedFormIllustration,
+    bankrollCycleDescription,
+    bankrollCycleFigures,
+    bankrollCycleInput,
     type BankrollProjectionSummary,
     bankrollTwoStrategiesRequest,
     bankrollTwoStrategiesSummary,
     bankrollVariantWithRisk,
 } from './bankrollModel';
 import {
+    type BankrollUrlState,
     parseBankrollDollarsField,
+    parseBankrollMultipleField,
     parseBankrollPositiveIntField,
     parseBankrollReinvestFractionField,
 } from './bankrollUrlState';
@@ -33,7 +37,15 @@ import { useToolsRequest } from './useToolsRequest';
 
 const RISK_B_CONFLICT_MESSAGE_ID = 'bankroll-two-strategies-risk-b-conflict';
 
-export function TwoStrategiesCard() {
+interface TwoStrategiesCardProperties {
+    onChange: (patch: Partial<BankrollUrlState>) => void;
+    state: BankrollUrlState;
+}
+
+export function TwoStrategiesCard({
+    onChange,
+    state,
+}: TwoStrategiesCardProperties) {
     const { variant: variantA } = useBankrollVariant();
 
     const [riskB, setRiskB] = useState<Dollars | null>(null);
@@ -48,8 +60,12 @@ export function TwoStrategiesCard() {
     const canRun = variantB !== null && start !== null && horizonDays !== null;
     const requestKey = canRun
         ? stableJson({
+              capacity: state.capacity,
               horizonDays,
+              monthlyBudget: state.monthlyBudget,
+              payoutLagDays: state.payoutLagDays,
               reinvestFraction,
+              roundBudget: state.roundBudget,
               start,
               variantA,
               variantB,
@@ -63,16 +79,27 @@ export function TwoStrategiesCard() {
                 : bankrollTwoStrategiesRequest(
                       [variantA, variantB],
                       {
-                          capacity: null,
+                          capacity: state.capacity,
                           horizonDays,
-                          monthlyBudget: null,
-                          payoutLagDays: 0,
+                          monthlyBudget: state.monthlyBudget,
+                          payoutLagDays: state.payoutLagDays ?? 0,
                           reinvestFraction: reinvestFraction ?? fraction(0),
+                          roundBudget: state.roundBudget,
                           start,
                       },
                       runId,
                   ),
-        [horizonDays, reinvestFraction, start, variantA, variantB],
+        [
+            horizonDays,
+            reinvestFraction,
+            start,
+            state.capacity,
+            state.monthlyBudget,
+            state.payoutLagDays,
+            state.roundBudget,
+            variantA,
+            variantB,
+        ],
     );
     const worker = useToolsRequest(requestKey, buildRequest);
 
@@ -88,14 +115,22 @@ export function TwoStrategiesCard() {
             ? worker.state.reason
             : null;
 
-    const illustration =
-        start === null || horizonDays === null
+    const cycleA = bankrollCycleInput(
+        state.compareMultipleA,
+        state.compareCycleDaysA,
+    );
+    const cycleB = bankrollCycleInput(
+        state.compareMultipleB,
+        state.compareCycleDaysB,
+    );
+    const figures =
+        summaries === null ||
+        cycleA === null ||
+        cycleB === null ||
+        start === null ||
+        horizonDays === null
             ? null
-            : bankrollClosedFormIllustration(
-                  start,
-                  reinvestFraction ?? fraction(0),
-                  horizonDays,
-              );
+            : bankrollCycleFigures(start, horizonDays, [cycleA, cycleB]);
 
     return (
         <section
@@ -142,6 +177,48 @@ export function TwoStrategiesCard() {
                     label="Strategy B risk per trade ($)"
                     onChange={(raw) => setRiskB(parseBankrollDollarsField(raw))}
                 />
+                <NumberField
+                    id="bankroll-two-strategies-cycle-multiple-a"
+                    initial={state.compareMultipleA}
+                    label="Strategy A cycle multiple (optional)"
+                    onChange={(raw) =>
+                        onChange({
+                            compareMultipleA: parseBankrollMultipleField(raw),
+                        })
+                    }
+                />
+                <NumberField
+                    id="bankroll-two-strategies-cycle-days-a"
+                    initial={state.compareCycleDaysA}
+                    label="Strategy A cycle length (trading days, optional)"
+                    onChange={(raw) =>
+                        onChange({
+                            compareCycleDaysA:
+                                parseBankrollPositiveIntField(raw),
+                        })
+                    }
+                />
+                <NumberField
+                    id="bankroll-two-strategies-cycle-multiple-b"
+                    initial={state.compareMultipleB}
+                    label="Strategy B cycle multiple (optional)"
+                    onChange={(raw) =>
+                        onChange({
+                            compareMultipleB: parseBankrollMultipleField(raw),
+                        })
+                    }
+                />
+                <NumberField
+                    id="bankroll-two-strategies-cycle-days-b"
+                    initial={state.compareCycleDaysB}
+                    label="Strategy B cycle length (trading days, optional)"
+                    onChange={(raw) =>
+                        onChange({
+                            compareCycleDaysB:
+                                parseBankrollPositiveIntField(raw),
+                        })
+                    }
+                />
             </div>
             {riskB === null ? null : (
                 <p
@@ -163,14 +240,22 @@ export function TwoStrategiesCard() {
                     <StrategySummaryColumn label="B" summary={summaries[1]} />
                 </div>
             )}
-            {illustration === null ? null : (
-                <p className="text-xs text-muted-foreground">
-                    {BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL} (shared by both
-                    strategies):{' '}
-                    {illustration.value === null
-                        ? NOT_APPLICABLE
-                        : formatGateCurrency(illustration.value)}
-                </p>
+            {figures === null ? null : (
+                <ul
+                    aria-label="Closed-form cycle illustration"
+                    className="flex flex-col gap-1 text-xs text-muted-foreground"
+                >
+                    {figures.map((figure, index) => (
+                        <li key={index === 0 ? 'A' : 'B'}>
+                            {BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL}, strategy{' '}
+                            {index === 0 ? 'A' : 'B'} (
+                            {bankrollCycleDescription(figure)}):{' '}
+                            {figure.quantity.value === null
+                                ? NOT_APPLICABLE
+                                : formatGateCurrency(figure.quantity.value)}
+                        </li>
+                    ))}
+                </ul>
             )}
         </section>
     );
@@ -179,15 +264,19 @@ export function TwoStrategiesCard() {
 function NumberField({
     describedBy,
     id,
+    initial = null,
     label,
     onChange,
 }: {
     describedBy?: string;
     id: string;
+    initial?: null | number;
     label: string;
     onChange: (raw: string) => void;
 }) {
-    const [text, setText] = useState('');
+    const [text, setText] = useState(() =>
+        initial === null ? '' : String(initial),
+    );
     return (
         <div className="flex flex-col gap-1">
             <label

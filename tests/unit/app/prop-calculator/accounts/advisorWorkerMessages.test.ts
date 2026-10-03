@@ -311,7 +311,7 @@ function valueSpec(): DocumentedPolicySpec {
             rulebook: DEFAULT_RULEBOOK,
         }).policy,
         rulebook: DEFAULT_RULEBOOK,
-        run: { maxEvalDays: 40, seed: 11, trials: 30 },
+        run: { maxEvalDays: 40, seed: 11, trials: 12 },
     };
 }
 

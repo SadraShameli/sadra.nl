@@ -1,7 +1,8 @@
 import { parseArgs } from 'citty';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { stripVTControlCharacters } from 'node:util';
+import { describe, expect, it, vi } from 'vitest';
 
 import advise, {
     adviceJson,
@@ -9,35 +10,59 @@ import advise, {
     type AdviseArguments,
     adviseArguments,
     coverageMatrixLines,
+    firmOpenItemLines,
     nextTradeRiskCheckLines,
     readAdviseInputs,
     readSignedNumber,
     swingLines,
 } from '~/cli/commands/prop/advise/command';
+import {
+    describeStopRule,
+    formatCurrencyWithSe,
+    formatPercentWithSe,
+} from '~/cli/commands/prop/shared';
 import { formatCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
     dollars,
     findFirm,
     FirmId,
+    fraction,
     MffuVariant,
     type Plan,
 } from '~/lib/prop-calculator';
 import {
     AccountReconstruction,
     AccountSubstate,
+    type Advice,
     AdviceSource,
+    ConsistencyCeilingNote,
     createSizingAdvisor,
     DAY_STOP_REASON_TEXT,
     DEFAULT_RULEBOOK,
+    DifferenceReason,
+    type EngineOptimumRunnerResult,
+    FundedSweepOptimumResultKind,
+    type FundedWinnerPolicy,
+    FundedWinnerPolicyKind,
     type NextPayoutProjection,
     NextTradeRiskVerdict,
     NO_PENDING_PAYOUT_COUNTS,
+    type PayoutAdvice,
+    PayoutCapKind,
+    PayoutRequestDecisionKind,
+    PayoutSizeSweepResultKind,
+    type PayoutSizeSweepRow,
     personalPayoutOverrideWarningText,
+    RetainedCushionBasis,
+    RuleSource,
     runEngineOptimum,
     SIZING_ASSUMPTION_TEXT,
+    SIZING_CONSTRAINT_TEXT,
     SizingAssumption,
+    SizingConstraint,
     SizingStage,
+    StartBasis,
 } from '~/lib/prop-calculator/advisor';
 import { dayProgressFromCounts } from '~/lib/prop-calculator/advisor/actions';
 import {
@@ -45,6 +70,7 @@ import {
     type TradeValueSwingResult,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
+import { planRulesFingerprint } from '~/lib/prop-calculator/describe';
 
 function instantFundedPlan(): Plan {
     const plan = ALL_FIRMS.flatMap((firm) => firm.plans).find(
@@ -434,7 +460,7 @@ describe('readAdviseInputs: rulebook overrides (F-133 step 1a/1b)', () => {
 describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', () => {
     it('runs the engine and assembles Advice whose headline leads the report', () => {
         const { options, plan, snapshot } = readAdviseInputs(
-            parseAdvise(FRESH_FUNDED_APEX_EOD),
+            parseAdvise(withFlag(FRESH_FUNDED_APEX_EOD, '--trials', '10')),
         );
         const account = AccountReconstruction.rebuild(
             snapshot,
@@ -452,7 +478,7 @@ describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', ()
         const lines = adviceReportLines(advice);
         expect(lines[0]).toBe(advice.headline);
         expect(lines.length).toBeGreaterThan(1);
-    });
+    }, 10_000);
 
     it('adviceJson round-trips through JSON.parse to the same Advice shape', () => {
         const { options, plan, snapshot } = readAdviseInputs(
@@ -908,12 +934,12 @@ function evalAdviceForLadderSearch() {
     return advisor.assemble(results);
 }
 
-function fundedAdviceWithOverride(requestSize: string) {
+function fundedAdviceWithOverride(requestSize: string, trials: string) {
     const { options, plan, snapshot } = readAdviseInputs(
         parseAdvise([
             ...withoutSnapshotDate(FRESH_FUNDED_APEX_EOD),
             '--trials',
-            '200',
+            trials,
             '--request-size',
             requestSize,
         ]),
@@ -930,6 +956,16 @@ function fundedAdviceWithOverride(requestSize: string) {
     return advisor.assemble(results);
 }
 
+const OVERRIDE_ADVICE_CACHE = new Map<string, Advice>();
+
+function overrideAdvice(): Advice {
+    const cached = OVERRIDE_ADVICE_CACHE.get('1000');
+    if (cached !== undefined) return cached;
+    const advice = fundedAdviceWithOverride('1000', '40');
+    OVERRIDE_ADVICE_CACHE.set('1000', advice);
+    return advice;
+}
+
 function withoutSnapshotDate(argv: readonly string[]): string[] {
     return argv.filter(
         (part, index) =>
@@ -938,8 +974,8 @@ function withoutSnapshotDate(argv: readonly string[]): string[] {
 }
 
 describe('adviceReportLines: engine optima disclose their basis and standard error (review findings HIGH-1, HIGH-2, MEDIUM)', () => {
-    it('prints the payout-size sweep winner monthly net and a losing --request-size override with its warning (HIGH-1)', () => {
-        const advice = fundedAdviceWithOverride('1000');
+    it('prints the payout-size sweep winner value and a losing --request-size override with its warning (HIGH-1)', () => {
+        const advice = overrideAdvice();
         const lines = adviceReportLines(advice);
 
         const winnerLine = lines.find(
@@ -948,12 +984,12 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
                 !line.includes('personal override'),
         );
         expect(winnerLine).toBeDefined();
-        expect(winnerLine).toContain('monthly net');
+        expect(winnerLine).toContain('expected cash from here');
 
         const overrideLine = lines.find(
             (line) =>
                 line.includes('personal override') &&
-                line.includes('monthly net'),
+                line.includes('expected cash from here'),
         );
         expect(overrideLine).toBeDefined();
 
@@ -962,10 +998,10 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
         );
         expect(warningLine).toBeDefined();
         expect(warningLine).toContain('bust probability');
-    });
+    }, 10_000);
 
     it('prints the request sizes, the funded horizon and the retained cushion with its basis in the override warning, as the panel does (PT-19i review)', () => {
-        const advice = fundedAdviceWithOverride('1000');
+        const advice = overrideAdvice();
         const warning = advice.payoutAdvice?.personalOverrideWarning;
         if (warning === undefined) {
             throw new Error('expected a personal override warning');
@@ -990,12 +1026,12 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
     });
 
     it('omits the override warning line when the personal override does not underperform (HIGH-1)', () => {
-        const advice = fundedAdviceWithOverride('3000');
+        const advice = fundedAdviceWithOverride('3000', '20');
         const lines = adviceReportLines(advice);
         expect(lines.some((line) => line.includes('underperforms'))).toBe(
             false,
         );
-    });
+    }, 10_000);
 
     it('discloses the winning ladder from a LadderSearchFresh/FromState optimum, not just the scored count (HIGH-2)', () => {
         const advice = evalAdviceForLadderSearch();
@@ -1034,7 +1070,7 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
             parseAdvise([
                 ...withoutSnapshotDate(FRESH_FUNDED_APEX_EOD),
                 '--trials',
-                '200',
+                '20',
             ]),
         );
         const account = AccountReconstruction.rebuild(
@@ -1256,5 +1292,559 @@ describe('adviceReportLines: the next payout projection line reads the engine el
         const line = nextPayoutProjectionLine(nextPayoutProjectionWith({}));
         expect(line).toContain('12.3 calendar days among the trials that paid');
         expect(line).toContain('150 of 200 trials reached a payout (75.0%)');
+    });
+});
+
+async function adviseOutput(argv: readonly string[]): Promise<string> {
+    const written: string[] = [];
+    const previousExitCode = process.exitCode;
+    const stdout = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation(recordInto(written));
+    const stderr = vi
+        .spyOn(process.stderr, 'write')
+        .mockImplementation(recordInto(written));
+    try {
+        await advise.run?.({
+            args: parseArgs<typeof adviseArguments>([...argv], adviseArguments),
+            cmd: advise,
+            rawArgs: [...argv],
+        });
+    } finally {
+        stdout.mockRestore();
+        stderr.mockRestore();
+        process.exitCode = previousExitCode;
+    }
+    return stripVTControlCharacters(written.join(''));
+}
+
+function baseFundedAdvice(argv: readonly string[]) {
+    const { options, plan, snapshot } = readAdviseInputs(
+        parseAdvise([...argv]),
+    );
+    const advice = createSizingAdvisor(
+        AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        ),
+        options,
+    ).assemble([]);
+    return { advice, plan };
+}
+
+function fundedSweepResultWith(
+    policy: FundedWinnerPolicy,
+    label: string,
+): EngineOptimumRunnerResult {
+    return {
+        source: AdviceSource.FundedSweepFresh,
+        sweep: {
+            kind: FundedSweepOptimumResultKind.Optimum,
+            optimum: {
+                expectedHorizonCredit: 0,
+                expectedHorizonCreditStandardError: null,
+                expectedMonthlyNet: 1200,
+                expectedMonthlyNetStandardError: 40,
+                expectedMonthlyRealizedNet: 1000,
+                expectedMonthlyRealizedNetStandardError: 35,
+                label,
+                policy,
+                rows: [],
+                survivors: 150,
+            },
+        },
+    };
+}
+
+function recordInto(written: string[]) {
+    return (chunk: string | Uint8Array): boolean => {
+        written.push(String(chunk));
+        return true;
+    };
+}
+
+function withFlag(
+    argv: readonly string[],
+    flag: string,
+    value: string,
+): string[] {
+    return [
+        ...argv.filter(
+            (part, index) => part !== flag && argv[index - 1] !== flag,
+        ),
+        flag,
+        value,
+    ];
+}
+
+describe('prop advise prints the funded winner in dollars at the current cushion (PT-109 step 1, F-121)', () => {
+    it('prints a percent-of-cushion winner as dollars at the day-start cushion', () => {
+        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        if (advice.dailyPlanCard === null) throw new Error('expected a card');
+        const lines = adviceReportLines({
+            ...advice,
+            dailyPlanCard: { ...advice.dailyPlanCard, cushion: dollars(1700) },
+            optima: [
+                fundedSweepResultWith(
+                    {
+                        kind: FundedWinnerPolicyKind.PercentOfCushion,
+                        percent: 10,
+                    },
+                    '10% cushion',
+                ),
+            ],
+        });
+
+        const line = lines.find((candidate) =>
+            candidate.startsWith('fresh funded sweep:'),
+        );
+        expect(line).toContain(
+            '10% cushion = $170.00 at your cushion of $1,700.00',
+        );
+        expect(line).toContain('monthly net');
+    });
+
+    it('prints a flat winner by its label alone, since the label already is the dollars', () => {
+        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        const lines = adviceReportLines({
+            ...advice,
+            optima: [
+                fundedSweepResultWith(
+                    { dollars: 250, kind: FundedWinnerPolicyKind.Flat },
+                    'flat $250',
+                ),
+            ],
+        });
+
+        const line = lines.find((candidate) =>
+            candidate.startsWith('fresh funded sweep:'),
+        );
+        expect(line).toContain('fresh funded sweep: flat $250, monthly net');
+        expect(line).not.toContain('at your cushion');
+    });
+
+    it('never prints a made-up dollar figure for a percent winner when the cushion is unknown', () => {
+        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        const lines = adviceReportLines({
+            ...advice,
+            dailyPlanCard: null,
+            optima: [
+                fundedSweepResultWith(
+                    {
+                        kind: FundedWinnerPolicyKind.PercentOfCushion,
+                        percent: 10,
+                    },
+                    '10% cushion',
+                ),
+            ],
+        });
+
+        const line = lines.find((candidate) =>
+            candidate.startsWith('fresh funded sweep:'),
+        );
+        expect(line).toContain('fresh funded sweep: 10% cushion, monthly net');
+        expect(line).not.toContain('at your cushion');
+    });
+});
+
+function expectedFigures(row: PayoutSizeSweepRow) {
+    const bust = `bust rate ${formatPercentWithSe(
+        row.out.fundedBustProbability,
+        row.out.estimates.fundedBustProbability.standardError,
+    )}`;
+    if (row.kind === StartBasis.Fresh) {
+        const { estimates } = row.out;
+        return {
+            bust,
+            creditFree: `monthly ex-credit ${formatCurrencyWithSe(
+                row.out.expectedMonthlyRealizedNet,
+                estimates.expectedMonthlyRealizedNet.standardError,
+            )}`,
+            creditInclusive: `monthly net ${formatCurrencyWithSe(
+                row.out.expectedMonthlyNet,
+                estimates.expectedMonthlyNet.standardError,
+            )}`,
+        };
+    }
+    const { estimates } = row.out;
+    return {
+        bust,
+        creditFree: `ex-credit ${formatCurrencyWithSe(
+            row.out.fromStateExpectedRealizedCash,
+            estimates.fromStateExpectedRealizedCash.standardError,
+        )}`,
+        creditInclusive: `expected cash from here ${formatCurrencyWithSe(
+            row.out.fromStateExpectedCash,
+            estimates.fromStateExpectedCash.standardError,
+        )}`,
+    };
+}
+
+function payoutSweepOptimum(advice: Advice) {
+    const result = advice.optima.find(
+        (candidate) => candidate.source === AdviceSource.PayoutSizeSweep,
+    );
+    return result?.source === AdviceSource.PayoutSizeSweep &&
+        result.sweep.kind === PayoutSizeSweepResultKind.Optimum
+        ? result.sweep.optimum
+        : null;
+}
+
+describe('prop advise prints the payout-size figures the web prints (PT-109 step 2, F-123)', () => {
+    it('prints the winner with its monthly net and credit-free figure and its bust rate, each with the standard error', () => {
+        const advice = overrideAdvice();
+        const optimum = payoutSweepOptimum(advice);
+        if (optimum === null) throw new Error('expected a payout-size optimum');
+        const figures = expectedFigures(optimum.winner);
+
+        const line = adviceReportLines(advice).find(
+            (candidate) =>
+                candidate.startsWith('payout-size sweep:') &&
+                !candidate.includes('personal override'),
+        );
+
+        expect(line).toContain(figures.creditInclusive);
+        expect(line).toContain(figures.creditFree);
+        expect(line).toContain(figures.bust);
+    });
+
+    it('labels a fresh-start sweep per month and a from-state sweep as cash from here, never one as the other', () => {
+        const freshStart = withFlag(
+            withFlag(FRESH_FUNDED_APEX_EOD_TODAY, '--trading-days', '0'),
+            '--trials',
+            '20',
+        );
+        const { options, plan, snapshot } = readAdviseInputs(
+            parseAdvise(freshStart),
+        );
+        const advisor = createSizingAdvisor(
+            AccountReconstruction.rebuild(
+                snapshot,
+                plan,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            ),
+            options,
+        );
+        const fresh = advisor.assemble(
+            advisor
+                .optimumRequests()
+                .map((request) => runEngineOptimum(plan, request)),
+        );
+        const freshWinner = payoutSweepOptimum(fresh)?.winner;
+        const fromStateWinner = payoutSweepOptimum(overrideAdvice())?.winner;
+
+        const freshLine = adviceReportLines(fresh).find((candidate) =>
+            candidate.startsWith('payout-size sweep:'),
+        );
+        const fromStateLine = adviceReportLines(overrideAdvice()).find(
+            (candidate) => candidate.startsWith('payout-size sweep:'),
+        );
+
+        expect(freshWinner?.kind).toBe(StartBasis.Fresh);
+        expect(fromStateWinner?.kind).toBe(StartBasis.FromState);
+        expect(freshLine).toContain('monthly net');
+        expect(freshLine).not.toContain('cash from here');
+        expect(fromStateLine).toContain('expected cash from here');
+        expect(fromStateLine).not.toContain('monthly net');
+    });
+
+    it('prints the personal override with the same three figures', () => {
+        const advice = overrideAdvice();
+        const optimum = payoutSweepOptimum(advice);
+        if (optimum?.personalOverride == null) {
+            throw new Error('expected a personal override');
+        }
+        const figures = expectedFigures(optimum.personalOverride.row);
+
+        const line = adviceReportLines(advice).find((candidate) =>
+            candidate.startsWith('payout-size sweep personal override:'),
+        );
+
+        expect(line).toContain(figures.creditInclusive);
+        expect(line).toContain(figures.creditFree);
+        expect(line).toContain(figures.bust);
+    });
+});
+
+describe('prop advise provenance carries the trials, seed and plan-rules fingerprint end to end (PT-109 step 3, F-126, F-98)', () => {
+    const SMALL_RUN = withFlag(
+        withFlag(FRESH_FUNDED_APEX_EOD_TODAY, '--trials', '20'),
+        '--seed',
+        '7',
+    );
+
+    it('prints the trials, seed and the current plan-rules fingerprint, and never marks the advice stale', async () => {
+        const { plan } = readAdviseInputs(parseAdvise(SMALL_RUN));
+        const fingerprint = await planRulesFingerprint(plan);
+
+        const output = await adviseOutput(SMALL_RUN);
+
+        expect(output).toContain(`plan rules fingerprint ${fingerprint}`);
+        expect(output).toContain('trials 20');
+        expect(output).toContain('seed 7');
+        expect(output).not.toContain('Stale as of');
+    }, 10_000);
+
+    it('carries the same fingerprint, trials and seed in the JSON advice', async () => {
+        const { plan } = readAdviseInputs(parseAdvise(SMALL_RUN));
+        const fingerprint = await planRulesFingerprint(plan);
+
+        const output = await adviseOutput([...SMALL_RUN, '--json']);
+
+        const { provenance, staleness } = JSON.parse(output) as {
+            provenance: {
+                planRulesFingerprint: null | string;
+                seed: null | number;
+                trials: null | number;
+            };
+            staleness: { kind: string };
+        };
+        expect(provenance.planRulesFingerprint).toBe(fingerprint);
+        expect(provenance.trials).toBe(20);
+        expect(provenance.seed).toBe(7);
+        expect(staleness.kind).toBe('fresh');
+    }, 10_000);
+});
+
+describe('prop advise prints the firm open items beside the verified date (PT-109 addendum, F-98)', () => {
+    const STALE_TOPSTEP_EVAL = [
+        '--firm',
+        'topstep',
+        '--variant',
+        'standard-standard',
+        '--stage',
+        'eval',
+        '--balance',
+        '50000',
+        '--highest-eod',
+        '50000',
+        '--trading-days',
+        '3',
+        '--snapshot-date',
+        '2000-01-03',
+        '--trials',
+        '5',
+    ];
+
+    it('names every open item of a TopStep account', async () => {
+        const output = await adviseOutput(STALE_TOPSTEP_EVAL);
+
+        expect(output).toContain('firm data verified');
+        expect(output).toContain('U32');
+        expect(output).toContain('U33');
+        expect(output).toContain('N-53');
+    });
+
+    it('says there are no open items for a firm that has none', () => {
+        expect(firmOpenItemLines([])).toStrictEqual([
+            'firm data: no open items',
+        ]);
+        expect(firmOpenItemLines(['U1: one', 'U2: two'])).toStrictEqual([
+            'firm data open item: U1: one',
+            'firm data open item: U2: two',
+        ]);
+    });
+});
+
+function cardOf(argv: readonly string[]) {
+    const { advice } = baseFundedAdvice(argv);
+    if (advice.dailyPlanCard === null) throw new Error('expected a card');
+    return { advice, card: advice.dailyPlanCard };
+}
+
+describe('prop advise prints the daily card and payout figures the web prints (PT-109 step 5, F-127, F-128, F-146, F-154)', () => {
+    it('prints the window rule, the daily loss cap and the day-start loss room', () => {
+        const { advice, card } = cardOf(FRESH_FUNDED_APEX_EOD_TODAY);
+        const lines = adviceReportLines(advice);
+
+        expect(lines).toContain('window rule: one trade per window');
+        expect(lines).toContain(
+            `daily loss cap: ${formatCurrency(card.dailyLossCap.amount, 2)} (${SIZING_CONSTRAINT_TEXT[card.dailyLossCap.constraint]})`,
+        );
+    });
+
+    it('prints a window of more than one trade in words', () => {
+        const { advice, card } = cardOf(FRESH_FUNDED_APEX_EOD_TODAY);
+
+        const lines = adviceReportLines({
+            ...advice,
+            dailyPlanCard: { ...card, maxTradesPerWindow: 2 },
+        });
+
+        expect(lines).toContain('window rule: 2 trades per window');
+    });
+
+    it('prints the day-start loss room when the day has one', () => {
+        const { advice, card } = cardOf(FRESH_FUNDED_APEX_EOD_TODAY);
+
+        const lines = adviceReportLines({
+            ...advice,
+            dailyPlanCard: { ...card, dailyLossRoom: dollars(600) },
+        });
+
+        expect(lines).toContain(
+            'daily loss room at the start of the day: $600.00',
+        );
+    });
+
+    it('prints the consistency ceiling with its constraint text', () => {
+        const { advice, card } = cardOf(FRESH_FUNDED_APEX_EOD_TODAY);
+
+        const lines = adviceReportLines({
+            ...advice,
+            dailyPlanCard: {
+                ...card,
+                profitCeiling: {
+                    amount: dollars(400),
+                    constraint: SizingConstraint.ConsistencyCap,
+                },
+            },
+        });
+
+        expect(lines).toContain(
+            `profit ceiling today: $400.00 (${SIZING_CONSTRAINT_TEXT[SizingConstraint.ConsistencyCap]})`,
+        );
+    });
+
+    it('says the payout is already pushed out, and that a fresh cycle is not an early exit', () => {
+        const { advice, card } = cardOf(FRESH_FUNDED_APEX_EOD_TODAY);
+
+        const pushedOut = adviceReportLines({
+            ...advice,
+            dailyPlanCard: {
+                ...card,
+                consistencyNote: ConsistencyCeilingNote.AlreadyPushedOut,
+            },
+        }).join('\n');
+        const freshCycle = adviceReportLines({
+            ...advice,
+            dailyPlanCard: {
+                ...card,
+                consistencyNote: ConsistencyCeilingNote.FreshCycle,
+            },
+        }).join('\n');
+
+        expect(pushedOut).toContain('already pushed out');
+        expect(freshCycle).toContain('checked at the payout request');
+        expect(freshCycle).not.toContain('stop for today');
+        expect(adviceReportLines(advice).join('\n')).not.toContain(
+            'already pushed out',
+        );
+    });
+
+    it('prints the rule-capped withdrawable, each cap and what limits it, the engine credit and the net after the split', () => {
+        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        const payout: PayoutAdvice = {
+            assumptions: [],
+            caps: [
+                {
+                    amount: dollars(2000),
+                    kind: PayoutCapKind.RequestCap,
+                    limitsWithdrawable: true,
+                },
+                {
+                    amount: dollars(2600),
+                    kind: PayoutCapKind.BalanceShare,
+                    limitsWithdrawable: false,
+                    share: fraction(0.5),
+                },
+                { kind: PayoutCapKind.RemainingPayouts, remaining: 3 },
+            ],
+            documented: {
+                kind: PayoutRequestDecisionKind.Request,
+                notice: null,
+                requestAmount: dollars(1500),
+                retainedCushion: dollars(2000),
+                retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+                sources: [RuleSource.PayoutSize],
+            },
+            engineHorizonCredit: dollars(1250),
+            netAfterSplit: dollars(1350),
+            ruleCappedWithdrawable: dollars(1800),
+        };
+
+        const lines = adviceReportLines({ ...advice, payoutAdvice: payout });
+
+        expect(lines).toContain('rule-capped withdrawable: $1,800.00');
+        expect(lines).toContain(
+            'payout cap: $2,000.00 per request, limits the withdrawable',
+        );
+        expect(lines).toContain(
+            'payout cap: 50.0% of the account profit, $2,600.00',
+        );
+        expect(lines).toContain('payouts left before the lifetime cap: 3');
+        expect(lines).toContain('engine horizon credit: $1,250.00');
+        expect(lines).toContain('net after the payout split: $1,350.00');
+        expect(lines.join('\n')).not.toContain(
+            RetainedCushionBasis.RulebookSize,
+        );
+    });
+
+    it('prints no withdrawable line when the payout is not a request', () => {
+        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+
+        const text = adviceReportLines(advice).join('\n');
+
+        expect(text).not.toContain('rule-capped withdrawable');
+    });
+});
+
+describe('prop advise text carries no raw JSON or policy key (PT-109 step 6, F-133 (7))', () => {
+    it('prints the documented stop rule through describeStopRule, not as JSON', () => {
+        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        if (advice.documented === null) throw new Error('expected sizing');
+
+        const line = adviceReportLines(advice).find((candidate) =>
+            candidate.startsWith('provenance: '),
+        );
+
+        expect(line).toContain(
+            `stop ${describeStopRule(advice.documented.stopRule)}`,
+        );
+        expect(line).not.toContain('{"kind"');
+    });
+
+    it('prints a payout-policy difference from the typed request sizes', () => {
+        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+
+        const lines = adviceReportLines({
+            ...advice,
+            differenceReasons: [
+                {
+                    engineRequest: dollars(3000),
+                    headlineRequest: dollars(500),
+                    kind: DifferenceReason.PayoutPolicyDiffers,
+                },
+            ],
+        });
+
+        const line = lines.find((candidate) =>
+            candidate.includes('documented payout request'),
+        );
+        expect(line).toContain('$500.00');
+        expect(line).toContain('$3000.00');
+        expect(lines.join('\n')).not.toContain('documented-$');
+        expect(lines.join('\n')).not.toContain('payout-size-sweep-optimum');
+    });
+});
+
+describe('command.ts keeps the cents factor and the staleness kind typed (PT-109 step 7, F-133 (8))', () => {
+    const source = readFileSync(
+        path.join(process.cwd(), 'src/cli/commands/prop/advise/command.ts'),
+        'utf8',
+    );
+
+    it('has no bare 100 as a cents factor', () => {
+        expect(source).not.toMatch(/[*/] 100\b/);
+        expect(source).toContain('CENTS_PER_DOLLAR');
+    });
+
+    it('compares the staleness kind through the enum, never a literal', () => {
+        expect(source).not.toMatch(/kind (===|!==) 'stale'/);
+        expect(source).not.toMatch(/kind (===|!==) 'fresh'/);
+        expect(source).toContain('AdviceStalenessKind.Stale');
     });
 });

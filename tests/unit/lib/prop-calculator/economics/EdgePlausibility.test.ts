@@ -135,7 +135,9 @@ describe('edgePlausibilityNoteText Kelly growth and pace (F-V22, PT-86)', () => 
     it('appends the full-Kelly growth per trade, labelled information, to an Implausible note', () => {
         const note = edgePlausibilityNoteText(inputs, plannerThresholds);
         expect(note).toContain('Implausible edge');
-        expect(note).toContain(`${formatPercent(Math.expm1(growth), 2)} per trade`);
+        expect(note).toContain(
+            `${formatPercent(Math.expm1(growth), 2)} per trade`,
+        );
         expect(note).toContain(INFORMATION_LABEL);
     });
 
@@ -190,7 +192,9 @@ describe('edgePlausibilityNoteText Kelly growth and pace (F-V22, PT-86)', () => 
             { ...inputs, compoundStartDollars: 5000 },
             plannerThresholds,
         );
-        expect(note).toContain(`${formatPercent(Math.expm1(growth), 2)} per trade`);
+        expect(note).toContain(
+            `${formatPercent(Math.expm1(growth), 2)} per trade`,
+        );
         expect(note).not.toContain('trades per day');
         expect(note).not.toContain('compounds to');
         expect(note).not.toContain(formatCurrency(5000));

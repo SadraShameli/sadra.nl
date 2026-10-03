@@ -26,6 +26,8 @@ export const FUNDED_VALUE_SAMPLE_RANGE_LABEL =
 
 export interface FundedValueEstimateResult {
     readonly cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption;
+    readonly dollarSampleRange?: FundedValueSampleRange | null;
+    readonly fundedValue?: UncertainValue;
     readonly liveTransfer?: LiveTransferHazardAssumption;
     readonly meanPayoutsPerAccount: UncertainValue;
     readonly payoutCountDistribution: readonly number[];
@@ -64,6 +66,7 @@ export function fundedValueEstimate(
     const out = simulateFromState(inputs);
     const distribution = out.fundedPayoutCountDistribution;
     const mean = out.estimates.payoutsPerFundedAccount.value;
+    const fundedValue = out.estimates.expectedPayoutPerFundedAccount;
     const anyPayoutGivenFunded = out.estimates.anyPayoutGivenFundedProbability;
     const liveTransfer = liveTransferAssumptionOf(
         base,
@@ -74,6 +77,15 @@ export function fundedValueEstimate(
         ...(cumulativePayoutTrigger !== undefined && {
             cumulativePayoutTrigger,
         }),
+        dollarSampleRange:
+            sampleSize === null || fundedValue.standardError === null
+                ? null
+                : sampleRangeFor(
+                      fundedValue.value,
+                      fundedValue.standardError * Math.sqrt(spec.run.trials),
+                      sampleSize,
+                  ),
+        fundedValue,
         ...(liveTransfer !== undefined && { liveTransfer }),
         meanPayoutsPerAccount: out.estimates.payoutsPerFundedAccount,
         payoutCountDistribution: distribution,

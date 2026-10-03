@@ -25,6 +25,7 @@ import {
     type FirmKey,
     firmKeyOf,
     impliedEvalPassOn,
+    isActiveAccountRow,
     type LedgerOnlyAccountRow,
     LifecycleOutcomeKind,
     type ModeledAccountRow,
@@ -455,7 +456,7 @@ export function hasUnreversedFundedBust(account: LedgerAccount): boolean {
 export function isActiveAccount(
     row: Pick<PropAccountRow, 'archivedAt' | 'status'>,
 ): boolean {
-    return row.status === AccountStatus.Active && row.archivedAt === null;
+    return isActiveAccountRow(row);
 }
 
 export function isTransitionDateKnown(

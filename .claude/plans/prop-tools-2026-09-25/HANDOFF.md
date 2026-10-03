@@ -64,9 +64,13 @@ Order: public tool pages first, then the signed-in accounts area. Every tool pag
 
 If a link in the accounts subnav 404s, tell me which one. The tracker lists every accounts entry as `hasPage: true`, and a guard test is supposed to catch a missing page.
 
+## 1b. Git index note (for your next commit)
+
+`tests/unit/lib/prop-accounts/alerts/zzProbe.test.ts` is staged as added but deleted on disk (status AD), a probe an agent created and removed after you staged the tree. Unstage it with `git rm --cached tests/unit/lib/prop-accounts/alerts/zzProbe.test.ts` (agents never touch the index).
+
 ## 2. Database migrations not yet applied
 
-Per the trackers (U3 and the FINAL-REPORT housekeeping section), none of these was applied by any agent. I did not query your database, so the tracker is the only evidence. All seven were generated with drizzle-kit and inspected. None drops a table or deletes data. Run in this order:
+Per the trackers (U3 and the FINAL-REPORT housekeeping section), none of these was applied by any agent. I did not query your database, so the tracker is the only evidence. All eight were generated with drizzle-kit and inspected. None drops a table or deletes data. Run in this order:
 
 ```
 bun run db:migrate
@@ -81,12 +85,13 @@ bun run db:migrate
 | 5 | `drizzle/0011_overrated_mastermind.sql` | Rebuilds one index (sizing decisions by user, account, decided date descending) so the latest decision per account is not a sort of every row. |
 | 6 | `drizzle/0012_stormy_silverclaw.sql` | One index on rule violations by user and date, for the weekly review. |
 | 7 | `drizzle/0013_tough_pandemic.sql` | One unique partial index on rule violations (user, sizing decision, kind) where a decision is set, so the same violation is never recorded twice for one decision (PT-85). Created before any row exists if you run it with the others. If the violations table already holds rows (0008 applied earlier), first run the read-only check `SELECT user_id, decision_id, kind, count(*) FROM sadranl_prop_rule_violation WHERE decision_id IS NOT NULL GROUP BY 1, 2, 3 HAVING count(*) > 1`: any row it returns would make the index fail, so resolve those duplicates in the app first (the catch-up database review, SEC-1). |
+| 8 | `drizzle/0014_shiny_rhodey.sql` | One table `sadranl_prop_dp_advice` for stored DP advice (PT-30b): composite same-owner foreign keys to accounts and snapshots (deleting a snapshot deletes its advice, which can be regenerated), CHECKs on the config key, solver version, eligibility and the jsonb sample sizes, one list index and one unique idempotency key. Needs 0007 first. |
 
 Notes:
 
-- Never `db:push` for these (project rule). The journal (`drizzle/meta/_journal.json`) lists 0000 to 0013.
+- Never `db:push` for these (project rule). The journal (`drizzle/meta/_journal.json`) lists 0000 to 0014.
 - Migrations 0001 to 0005 do not replay on an empty database. This is old and recorded in the FINAL-REPORT. A fresh setup would fail. A database that already has them is fine.
-- A later migration is still expected: PT-30b adds a DP-advice table (`prop_dp_advice`, with `value_samples_cents`). It has not been generated yet, because PT-30a to PT-30d have not started (section 5). Question Q42 asks whether the agent should only generate it.
+- The DP-advice table (PT-30b) is now 0014 above; following Q42's default it was generated and inspected only, never applied.
 - Pages that read these tables fail until the migrations run: every accounts page, the hub teaser, saved-scenario sync.
 
 ## 3. Open questions

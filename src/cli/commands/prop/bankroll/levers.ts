@@ -24,9 +24,11 @@ import {
     type BankrollLeverRow,
     bankrollLevers,
     type BankrollLeverVariant,
+    type EconomicsEstimate,
 } from '~/lib/prop-calculator/economics';
 
 import {
+    assertSingleAttemptPricing,
     bankrollLeversArguments,
     type BankrollLeversInputs,
     readBankrollLeversInputs,
@@ -49,6 +51,7 @@ export default defineCommand({
         try {
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
+            assertSingleAttemptPricing(inputs);
             const levers = readBankrollLeversInputs(context.args);
 
             const baseInputs = inputs.toSimInputs(plan);
@@ -70,10 +73,14 @@ export default defineCommand({
 
             const table = new TablePrinter([
                 { align: 'left', label: 'lever', width: 18 },
-                { align: 'right', label: 'P(pass)', width: 10 },
+                { align: 'right', label: 'P(pass)', width: 20 },
+                { align: 'right', label: 'P(pass) chg', width: 12 },
+                { align: 'right', label: 'P(pays)', width: 20 },
+                { align: 'right', label: 'P(pays) chg', width: 12 },
                 { align: 'right', label: 'EV/attempt', width: 12 },
                 { align: 'right', label: 'monthly net', width: 14 },
-                { align: 'right', label: 'loss risk', width: 12 },
+                { align: 'right', label: 'loss risk', width: 20 },
+                { align: 'right', label: 'loss risk chg', width: 14 },
                 { align: 'left', label: 'note', width: 44 },
             ]);
             table.printHeader();
@@ -92,12 +99,14 @@ export function leverRowCells(row: BankrollLeverRow): readonly string[] {
         row.kind === BankrollLeverKind.Base
             ? 'base'
             : `${row.kind} ${row.value ?? ''}`.trim(),
-        formatPercent(row.passProbability.value),
+        estimateCell(row.passProbability),
+        changeCell(row.deltaPassProbability),
+        estimateCell(row.attemptPaysProbability),
+        changeCell(row.deltaAttemptPaysProbability),
         formatCurrency(row.evPerAttempt.value),
         formatCurrency(row.monthlyNet.value),
-        row.lossRisk.value === null
-            ? 'n/a'
-            : formatPercent(row.lossRisk.value.value),
+        row.lossRisk.value === null ? 'n/a' : estimateCell(row.lossRisk.value),
+        changeCell(row.deltaLossProbability),
         row.label ?? '',
     ];
 }
@@ -144,6 +153,18 @@ export function leverVariants(
     }
 
     return variants;
+}
+
+function changeCell(delta: null | number): string {
+    if (delta === null) return 'n/a';
+    const points = (delta * 100).toFixed(1);
+    return delta > 0 ? `+${points} pts` : `${points} pts`;
+}
+
+function estimateCell(estimate: EconomicsEstimate): string {
+    return estimate.standardError === null
+        ? formatPercent(estimate.value)
+        : `${formatPercent(estimate.value)} (SE ${formatPercent(estimate.standardError)})`;
 }
 
 function toBankrollLeverOutputs(out: SimOutputs): BankrollLeverOutputs {

@@ -14,10 +14,27 @@ export {
     type RunAttemptOutputs,
 } from './AttemptEconomics';
 export {
+    filledEvFormulaText,
+    paidFundedPayoutStatsOf,
+} from './AttemptEconomicsFormula';
+export {
     compareCycles,
     compoundedBankroll,
     type CompoundingCycle,
 } from './BankrollCompounding';
+export {
+    compoundMinimumBudget,
+    type CompoundMinimumBudgetInputs,
+    impliedCycleMultiple,
+    lossProbabilityAt,
+    lossProbabilityCurve,
+    type LossProbabilityCurve,
+    type ProjectionMonthEnd,
+    projectionMonthEnds,
+    type ProjectionMonthEndsInput,
+    spendPayoutCurve,
+    type SpendPayoutPoint,
+} from './BankrollCurve';
 export {
     BankrollLeverKind,
     BankrollLeverLabel,
@@ -121,6 +138,22 @@ export {
     noPayoutProbability,
     noPayoutProbabilityFromDistribution,
 } from './LossRisk';
+export {
+    type BatchLossPricing,
+    BatchLossStatus,
+    hasPositiveEvPerAttempt,
+    priceBatchLoss,
+    rankRuinFirst,
+    RUIN_FIRST_FALLBACK_NOTE,
+    RUIN_FIRST_NEEDS_BANKROLL_NOTE,
+    RUIN_FIRST_NO_ATTEMPT_NOTE,
+    RUIN_FIRST_NO_POSITIVE_EV_NOTE,
+    RUIN_FIRST_UNPRICED_NOTE,
+    RuinFirstFallback,
+    type RuinFirstRankable,
+    type RuinFirstRanking,
+    type RuinFirstRequest,
+} from './RuinFirstRanking';
 export {
     TAKE_PROFIT_WHAT_IF_LABEL,
     takeProfitCandidateInputs,

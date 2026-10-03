@@ -83,8 +83,7 @@ export interface ValueChainCardStep {
     readonly creditFree: UncertainValue;
     readonly creditInclusive: UncertainValue;
     readonly cumulativePayoutTrigger:
-        | CumulativePayoutTriggerAssumption
-        | undefined;
+        CumulativePayoutTriggerAssumption | undefined;
     readonly gapFromPrevious: null | UncertainValue;
     readonly kind: ValueChainStepKind;
     readonly liveTransfer: LiveTransferHazardAssumption | undefined;
@@ -101,6 +100,24 @@ export function calculatorFieldLabelOf(path: readonly PropertyKey[]): string {
         ([field]) => field === key,
     );
     return labelled?.[1] ?? path.map(String).join('.');
+}
+
+export function dollarRangeSubText(
+    range: FundedValueSampleRange | null | undefined,
+    sampleSize: null | number,
+): string {
+    if (range !== null && range !== undefined) return sampleRangeSubText(range);
+    return sampleSize === null
+        ? sampleRangeSubText(null)
+        : 'too few funded trials for a standard error';
+}
+
+export function dollarRangeText(
+    range: FundedValueSampleRange | null | undefined,
+): null | string {
+    return range === null || range === undefined
+        ? null
+        : `${formatGateCurrency(range.lower)} to ${formatGateCurrency(range.upper)}`;
 }
 
 export function fundedValueEstimateToolsRequest(

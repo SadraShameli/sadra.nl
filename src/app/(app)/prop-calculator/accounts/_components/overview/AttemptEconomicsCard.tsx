@@ -6,6 +6,7 @@ import {
     TableHeader,
     TableRow,
 } from '~/components/ui/Table';
+import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type AttemptEconomicsCardModel } from './overviewModel';
 
@@ -43,6 +44,9 @@ export function AttemptEconomicsCard({
                         </TableHead>
                         <TableHead className="text-right">
                             Funded value
+                        </TableHead>
+                        <TableHead className="text-right">
+                            Funded value / attempt cost
                         </TableHead>
                         <TableHead className="text-right">
                             Breakeven pass rate
@@ -96,6 +100,9 @@ export function AttemptEconomicsCard({
                                 {row.fundedValue}
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
+                                {row.fundedValueToAttemptCost}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
                                 {row.breakevenPassRate}
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
@@ -123,6 +130,18 @@ export function AttemptEconomicsCard({
                     ))}
                 </TableBody>
             </Table>
+            <ul
+                aria-label="Realized formula by plan"
+                className="flex flex-col gap-1 text-xs text-muted-foreground"
+            >
+                {model.rows
+                    .filter((row) => row.formula !== NOT_APPLICABLE)
+                    .map((row) => (
+                        <li key={row.key}>
+                            {row.plan}: {row.formula}
+                        </li>
+                    ))}
+            </ul>
             <p className="text-xs text-muted-foreground">
                 Realized EV per attempt: ignores time.
             </p>

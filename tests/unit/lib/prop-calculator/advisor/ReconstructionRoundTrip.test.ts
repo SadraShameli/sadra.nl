@@ -672,7 +672,8 @@ function expectEvalRoundTrip(
     capture: EvalCapture,
 ): void {
     const label = labelOf(plan, seed, capture);
-    const hasWeekRule = plan.calendarWeekInactivityFor(TradingPhase.Eval) !== null;
+    const hasWeekRule =
+        plan.calendarWeekInactivityFor(TradingPhase.Eval) !== null;
     if (hasWeekRule && !capture.isWeekAligned) return;
     const account = AccountReconstruction.rebuild(
         capture.input,
@@ -710,7 +711,8 @@ function expectFundedRoundTrip(
     capture: FundedCapture,
 ): void {
     const label = labelOf(plan, seed, capture);
-    const hasWeekRule = plan.calendarWeekInactivityFor(TradingPhase.Funded) !== null;
+    const hasWeekRule =
+        plan.calendarWeekInactivityFor(TradingPhase.Funded) !== null;
     if (hasWeekRule && !capture.isWeekAligned) return;
     const account = AccountReconstruction.rebuild(
         capture.input,
@@ -718,7 +720,10 @@ function expectFundedRoundTrip(
         null,
         NO_PENDING_PAYOUT_COUNTS,
     );
-    if (account.kind !== TradingPhase.Funded || account.fundedTracker === null) {
+    if (
+        account.kind !== TradingPhase.Funded ||
+        account.fundedTracker === null
+    ) {
         throw new Error(`${label}: expected a funded reconstruction`);
     }
     const qualifyingAtLastPayout =
@@ -745,10 +750,10 @@ function expectFundedRoundTrip(
             PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout &&
         !capture.isCalendarAligned
     ) {
-        expect(
-            { ...cycle, dayGateProgress: 0 },
-            `${label} cycle`,
-        ).toEqual({ ...expectedCycle, dayGateProgress: 0 });
+        expect({ ...cycle, dayGateProgress: 0 }, `${label} cycle`).toEqual({
+            ...expectedCycle,
+            dayGateProgress: 0,
+        });
     } else {
         expect(cycle, `${label} cycle`).toEqual(expectedCycle);
     }
@@ -908,7 +913,9 @@ function fundedCaptures(
                 highestEodBalance: dollars(highestEod),
                 highestIntradayBalance: dollars(stats.highestBalance),
                 lastPayoutOn:
-                    payoutsTaken > 0 ? sessionDate(lastPayoutSession) : undefined,
+                    payoutsTaken > 0
+                        ? sessionDate(lastPayoutSession)
+                        : undefined,
                 payoutsTaken,
                 qualifyingDaysSinceLastPayout:
                     state.qualifyingDays - tracker.qualifyingDaysAtLastPayout,
@@ -916,7 +923,8 @@ function fundedCaptures(
             },
             isCalendarAligned:
                 (session - calendarAnchor) % SESSIONS_PER_WEEK === 0,
-            isWeekAligned: (session - weekStartSession) % SESSIONS_PER_WEEK === 0,
+            isWeekAligned:
+                (session - weekStartSession) % SESSIONS_PER_WEEK === 0,
             qualifyingDaysAtLastPayout: tracker.qualifyingDaysAtLastPayout,
             session,
             state: engineState,
@@ -1054,7 +1062,8 @@ function liveCaptures(
                 stage: SizingStage.Live,
             },
             isCalendarAligned: true,
-            isWeekAligned: (session - weekStartSession) % SESSIONS_PER_WEEK === 0,
+            isWeekAligned:
+                (session - weekStartSession) % SESSIONS_PER_WEEK === 0,
             session,
             state: engineState,
         });
@@ -1118,7 +1127,12 @@ describe('ReconstructionRoundTrip: states captured from seeded engine funded run
         const plan = lateLockPlan();
         let withPayout = 0;
         for (const seed of PLAN_SEEDS) {
-            for (const capture of fundedCaptures(plan, seed, GROWTH_RISK, 0.62)) {
+            for (const capture of fundedCaptures(
+                plan,
+                seed,
+                GROWTH_RISK,
+                0.62,
+            )) {
                 expectFundedRoundTrip(plan, seed, capture);
                 if ((capture.input.payoutsTaken ?? 0) > 0) withPayout += 1;
             }
@@ -1133,7 +1147,12 @@ describe('ReconstructionRoundTrip: states captured from seeded engine funded run
         });
         let captured = 0;
         for (const seed of PLAN_SEEDS) {
-            for (const capture of fundedCaptures(plan, seed, GROWTH_RISK, 0.62)) {
+            for (const capture of fundedCaptures(
+                plan,
+                seed,
+                GROWTH_RISK,
+                0.62,
+            )) {
                 expectFundedRoundTrip(plan, seed, capture);
                 captured += 1;
             }

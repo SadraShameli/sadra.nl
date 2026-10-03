@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    BankrollProjectionUrlParameter,
     type BankrollUrlState,
     decodeBankrollUrlState,
     defaultBankrollUrlState,
     encodeBankrollUrlState,
     parseBankrollDollarsField,
     parseBankrollLossThresholdField,
+    parseBankrollMultipleField,
     parseBankrollNonNegativeIntField,
     parseBankrollPositiveIntField,
     parseBankrollReinvestFractionField,
@@ -14,17 +16,27 @@ import {
 import { dollars, fraction } from '~/lib/prop-calculator';
 import { BankrollUrlParameter } from '~/lib/schemas/bankrollUrlParameter';
 
-const BANKROLL_KEYS: readonly string[] = Object.values(BankrollUrlParameter);
+const BANKROLL_KEYS: readonly string[] = [
+    ...Object.values(BankrollUrlParameter),
+    ...Object.values(BankrollProjectionUrlParameter),
+];
 
 function richState(): BankrollUrlState {
     return {
         budget: dollars(5000),
         capacity: 3,
+        compareCycleDaysA: 60,
+        compareCycleDaysB: 30,
+        compareMultipleA: 5,
+        compareMultipleB: 3,
+        cycleDays: 45,
+        cycleMultiple: 1.5,
         horizonDays: 180,
         lossThreshold: fraction(0.1),
         monthlyBudget: dollars(2000),
         payoutLagDays: 10,
         reinvestFraction: fraction(0.5),
+        roundBudget: dollars(1000),
         start: dollars(5000),
     };
 }
@@ -145,8 +157,106 @@ describe('decodeBankrollUrlState drops each invalid value on its own', () => {
 });
 
 describe('the bankroll query keys', () => {
-    it('are unique', () => {
+    it('are unique across the setup keys and the projection keys', () => {
         expect(new Set(BANKROLL_KEYS).size).toBe(BANKROLL_KEYS.length);
+    });
+});
+
+describe('the round budget and cycle query keys (PT-82)', () => {
+    it('round-trips the round budget and every cycle field through their own keys', () => {
+        const state = richState();
+        const query = new URLSearchParams(encodeBankrollUrlState(state));
+        expect(query.get(BankrollProjectionUrlParameter.RoundBudget)).toBe(
+            '1000',
+        );
+        expect(query.get(BankrollProjectionUrlParameter.CycleMultiple)).toBe(
+            '1.5',
+        );
+        expect(query.get(BankrollProjectionUrlParameter.CycleDays)).toBe('45');
+        expect(query.get(BankrollProjectionUrlParameter.CompareMultipleA)).toBe(
+            '5',
+        );
+        expect(query.get(BankrollProjectionUrlParameter.CompareDaysA)).toBe(
+            '60',
+        );
+        expect(query.get(BankrollProjectionUrlParameter.CompareMultipleB)).toBe(
+            '3',
+        );
+        expect(query.get(BankrollProjectionUrlParameter.CompareDaysB)).toBe(
+            '30',
+        );
+        expect(roundTrip(state)).toEqual(state);
+    });
+
+    it('writes no key for a field left empty', () => {
+        const state: BankrollUrlState = {
+            ...defaultBankrollUrlState(),
+            roundBudget: dollars(750),
+        };
+        expect(
+            new URLSearchParams(encodeBankrollUrlState(state)).keys().toArray(),
+        ).toEqual([BankrollProjectionUrlParameter.RoundBudget]);
+    });
+
+    it('leaves out the given projection keys', () => {
+        const query = encodeBankrollUrlState(richState(), [
+            BankrollProjectionUrlParameter.RoundBudget,
+            BankrollProjectionUrlParameter.CycleMultiple,
+        ]);
+        const decoded = decodeBankrollUrlState(new URLSearchParams(query));
+        expect(decoded.roundBudget).toBeNull();
+        expect(decoded.cycleMultiple).toBeNull();
+        expect(decoded.cycleDays).toBe(45);
+    });
+
+    it.each(['abc', '-5', '0', 'NaN', 'Infinity', '', '1e400'])(
+        'drops an invalid round budget %j',
+        (raw) => {
+            const parameters = new URLSearchParams();
+            parameters.set(BankrollProjectionUrlParameter.RoundBudget, raw);
+            expect(decodeBankrollUrlState(parameters).roundBudget).toBeNull();
+        },
+    );
+
+    it.each(['abc', '-1', '0', 'NaN', 'Infinity', '', '1e400'])(
+        'drops an invalid cycle multiple %j (must be a positive number)',
+        (raw) => {
+            const parameters = new URLSearchParams();
+            parameters.set(BankrollProjectionUrlParameter.CycleMultiple, raw);
+            parameters.set(
+                BankrollProjectionUrlParameter.CompareMultipleA,
+                raw,
+            );
+            parameters.set(
+                BankrollProjectionUrlParameter.CompareMultipleB,
+                raw,
+            );
+            const decoded = decodeBankrollUrlState(parameters);
+            expect(decoded.cycleMultiple).toBeNull();
+            expect(decoded.compareMultipleA).toBeNull();
+            expect(decoded.compareMultipleB).toBeNull();
+        },
+    );
+
+    it.each(['0', '-1', '1.5', 'abc', ''])(
+        'drops invalid cycle days %j (must be a positive integer)',
+        (raw) => {
+            const parameters = new URLSearchParams();
+            parameters.set(BankrollProjectionUrlParameter.CycleDays, raw);
+            parameters.set(BankrollProjectionUrlParameter.CompareDaysA, raw);
+            parameters.set(BankrollProjectionUrlParameter.CompareDaysB, raw);
+            const decoded = decodeBankrollUrlState(parameters);
+            expect(decoded.cycleDays).toBeNull();
+            expect(decoded.compareCycleDaysA).toBeNull();
+            expect(decoded.compareCycleDaysB).toBeNull();
+        },
+    );
+
+    it('accepts a fractional multiple, as 1.5x every 30 days', () => {
+        expect(parseBankrollMultipleField('1.5')).toBe(1.5);
+        expect(parseBankrollMultipleField('0')).toBeNull();
+        expect(parseBankrollMultipleField('abc')).toBeNull();
+        expect(parseBankrollMultipleField('-3')).toBeNull();
     });
 });
 

@@ -3,16 +3,12 @@
 import { useMemo } from 'react';
 
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
+import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
 import { type BankrollPlanVariantInputs } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { useSession } from '~/lib/auth/client';
-import {
-    DEFAULT_RULEBOOK,
-    type RulebookParameters,
-} from '~/lib/prop-calculator/advisor';
-import { api } from '~/trpc/react';
+import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
 
 import { bankrollVariantFor } from './bankrollModel';
-import { type RulebookSource, rulebookSourceOf } from './rulebookSource';
+import { type RulebookSource } from './rulebookSource';
 
 export interface BankrollVariant {
     readonly rulebook: RulebookParameters;
@@ -22,20 +18,7 @@ export interface BankrollVariant {
 
 export function useBankrollVariant(): BankrollVariant {
     const { state: calculatorState } = useCalculatorInputs();
-    const session = useSession();
-    const hasSession = session.data?.user.id !== undefined;
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
-        enabled: hasSession,
-    });
-    const userRulebook = hasSession ? rulebookQuery.data : undefined;
-    const rulebookSource = rulebookSourceOf({
-        hasRulebook: userRulebook !== undefined,
-        hasSession,
-        isFailed: rulebookQuery.isError,
-        isSessionFailed: session.error !== null,
-        isSessionPending: session.isPending,
-    });
-    const rulebook = userRulebook ?? DEFAULT_RULEBOOK;
+    const { rulebook, source: rulebookSource } = useToolRulebook();
     const variant = useMemo(
         () => bankrollVariantFor(calculatorState, rulebook),
         [calculatorState, rulebook],

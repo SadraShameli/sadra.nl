@@ -16,7 +16,17 @@ const LABEL_IMPORTERS = [
 ];
 const RISK_FIGURES_IMPORTERS = [
     'src/app/(app)/prop-calculator/_components/OptimalRiskTable.tsx',
+];
+const ECONOMICS_SPECIFIER = '~/lib/prop-calculator/economics';
+const SHARED_PRICING_IMPORTERS = [
+    'src/app/(app)/prop-calculator/_components/objectiveRanking.ts',
     'src/cli/commands/prop/compare/command.ts',
+];
+const SHARED_PRICING_NAMES = ['priceBatchLoss', 'rankRuinFirst'];
+const POLICY_PRICING_NAMES = [
+    ...SHARED_PRICING_NAMES,
+    'bankrollRiskFigures',
+    'BankrollRiskFigures',
 ];
 
 function namesImportedFrom(relativePath: string, specifier: string): string[] {
@@ -60,12 +70,23 @@ describe('the advisor policy barrel drops its compatibility re-exports (PT-63c)'
             const fromPolicy = namesImportedFrom(file, POLICY_SPECIFIER);
             expect(fromPolicy).not.toContain('bankrollRiskFigures');
             expect(fromPolicy).not.toContain('BankrollRiskFigures');
-            const fromEconomics = namesImportedFrom(
-                file,
-                '~/lib/prop-calculator/economics',
-            );
+            const fromEconomics = namesImportedFrom(file, ECONOMICS_SPECIFIER);
             expect(fromEconomics).toContain('bankrollRiskFigures');
             expect(fromEconomics).toContain('BankrollRiskFigures');
+        },
+    );
+
+    it.each(SHARED_PRICING_IMPORTERS)(
+        '%s prices and ranks ruin-first through the economics barrel',
+        (file) => {
+            const fromPolicy = namesImportedFrom(file, POLICY_SPECIFIER);
+            for (const name of POLICY_PRICING_NAMES) {
+                expect(fromPolicy).not.toContain(name);
+            }
+            const fromEconomics = namesImportedFrom(file, ECONOMICS_SPECIFIER);
+            for (const name of SHARED_PRICING_NAMES) {
+                expect(fromEconomics).toContain(name);
+            }
         },
     );
 });

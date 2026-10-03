@@ -2,7 +2,9 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const synthetic = vi.hoisted(() => ({ rows: null as null | readonly unknown[] }));
+const synthetic = vi.hoisted(() => ({
+    rows: null as null | readonly unknown[],
+}));
 
 vi.mock(
     '~/app/(app)/prop-calculator/_components/useDebouncedSimulation',
@@ -395,9 +397,7 @@ describe('PlanComparisonTable ranks RuinFirst by the batch loss risk at a known 
     const state = defaultCalculatorState();
     const baseInputs = buildSimInputs({ ...state, trials: COMPARE_TRIALS });
     const seenLabels = new Set<string>();
-    const plans = ALL_FIRMS.flatMap((firm) =>
-        rankablePlans(firm.plans, false),
-    )
+    const plans = ALL_FIRMS.flatMap((firm) => rankablePlans(firm.plans, false))
         .filter((plan) => {
             if (seenLabels.has(plan.label)) return false;
             seenLabels.add(plan.label);

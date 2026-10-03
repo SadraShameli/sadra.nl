@@ -5,6 +5,7 @@ import {
     AccountAction,
     type Advice,
     AdviceSource,
+    AdviceStalenessKind,
     AdviceStalenessReason,
     dailyPlanCard as buildDailyPlanCard,
     type DailyPlanCard,
@@ -24,6 +25,8 @@ import {
 import { accountActionOf } from '~/lib/prop-calculator/advisor/actions';
 import { RungPlacement } from '~/lib/prop-calculator/advisor/PlaceableMinimum';
 import { RetireComparisonVerdict } from '~/lib/prop-calculator/advisor/value';
+
+import { dailyPlanCardOf } from '../../fixtures/advisorCardFixtures';
 
 function adviceFixture(overrides: Partial<Advice> = {}): Advice {
     return {
@@ -48,25 +51,20 @@ function adviceFixture(overrides: Partial<Advice> = {}): Advice {
         },
         requests: [],
         stage: SizingStage.Funded,
-        staleness: { kind: 'fresh' },
+        staleness: { kind: AdviceStalenessKind.Fresh },
         ...overrides,
     };
 }
 
 function dailyPlanCardFixture(hasRungs: boolean): DailyPlanCard {
     const rungs = hasRungs ? documentedSizingFixture().rungs : [];
-    return {
-        oneContractRisk: null,
+    return dailyPlanCardOf({
         rungPlacements: rungs.map(() => RungPlacement.NotChecked),
         rungs,
-        stopCappedBy: [],
         stopReason: hasRungs
             ? DayStopReason.MaxTrades
             : DayStopReason.NoLossRoom,
-        valueAfterLoss: null,
-        valueAfterWin: null,
-        valueNow: null,
-    };
+    });
 }
 
 function documentedSizingFixture(): DocumentedSizing {
@@ -112,7 +110,7 @@ describe('accountActionOf (F-V18, F-V19, F-V20, PT-74b step 3)', () => {
     it('gives EnterSnapshot when the advice is stale, even when payout-eligible', () => {
         const advice = adviceFixture({
             staleness: {
-                kind: 'stale',
+                kind: AdviceStalenessKind.Stale,
                 noHolidayCalendarDisclosure: false,
                 reasons: [AdviceStalenessReason.FundedSnapshotStale],
                 snapshotAsOf: '2026-01-01',

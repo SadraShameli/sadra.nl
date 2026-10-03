@@ -6,6 +6,7 @@ import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToo
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { Input } from '~/components/ui/Input';
 import {
+    formatDelta,
     formatGateCurrency,
     formatPercent,
     NOT_APPLICABLE,
@@ -71,6 +72,9 @@ export function LeversCard() {
         worker.state.result.kind === ToolsResponseKind.Levers
             ? worker.state.result.rows
             : null;
+    const baseLossRisk =
+        rows?.find((row) => row.kind === BankrollLeverKind.Base)?.lossRisk ??
+        null;
     const failureReason =
         canRun && worker.state.phase === ToolsWorkerPhase.Failed
             ? worker.state.reason
@@ -172,6 +176,7 @@ export function LeversCard() {
                                 <th className="py-1 pr-3">Δ P(pass)</th>
                                 <th className="py-1 pr-3">Δ P(pays)</th>
                                 <th className="py-1 pr-3">Loss risk</th>
+                                <th className="py-1 pr-3">Δ Loss risk</th>
                                 <th className="py-1 pr-3">Note</th>
                             </tr>
                         </thead>
@@ -198,22 +203,38 @@ export function LeversCard() {
                                         )}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
-                                        {formatPercent(
-                                            row.deltaPassProbability,
-                                        )}
+                                        {
+                                            formatDelta(
+                                                row.deltaPassProbability,
+                                                0,
+                                                'percent',
+                                            ).text
+                                        }
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
                                         {row.deltaAttemptPaysProbability ===
                                         undefined
                                             ? NOT_APPLICABLE
-                                            : formatPercent(
+                                            : formatDelta(
                                                   row.deltaAttemptPaysProbability,
-                                              )}
+                                                  0,
+                                                  'percent',
+                                              ).text}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
                                         {row.lossRisk === null
                                             ? NOT_APPLICABLE
                                             : formatPercent(row.lossRisk)}
+                                    </td>
+                                    <td className="py-1 pr-3 font-mono">
+                                        {baseLossRisk === null ||
+                                        row.lossRisk === null
+                                            ? NOT_APPLICABLE
+                                            : formatDelta(
+                                                  row.lossRisk,
+                                                  baseLossRisk,
+                                                  'percent',
+                                              ).text}
                                     </td>
                                     <td className="py-1 pr-3 text-amber-400">
                                         {row.label ?? ''}

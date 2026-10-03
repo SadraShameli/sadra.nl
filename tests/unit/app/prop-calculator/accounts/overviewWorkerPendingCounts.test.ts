@@ -228,7 +228,10 @@ describe('the overview worker message carries the pending payout counts (PT-36m,
         };
         const base = accountRequest(COUNTS);
         const request = withPreviousAccount(
-            { ...base, spec: { ...base.spec, run: { ...base.spec.run, trials: 30 } } },
+            {
+                ...base,
+                spec: { ...base.spec, run: { ...base.spec.run, trials: 30 } },
+            },
             { account: previousSnapshot, pendingPayoutCounts: previousCounts },
         );
         if (request === undefined) throw new Error('no request');

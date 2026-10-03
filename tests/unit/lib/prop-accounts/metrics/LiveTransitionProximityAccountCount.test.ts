@@ -18,13 +18,7 @@ import {
     PolicyVerification,
 } from '~/lib/prop-calculator';
 
-import {
-    account,
-    EVAL_PLAN,
-    event,
-    ledger,
-    payout,
-} from './ledgerFixtures';
+import { account, EVAL_PLAN, event, ledger, payout } from './ledgerFixtures';
 
 const CONFIRMED_SOURCE = {
     fetchedOn: '2026-09-01',

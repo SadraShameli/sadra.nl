@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    DailyLossLimitKind,
     dollars,
-    EodTrailingDrawdown,
-    FirmId,
-    fraction,
     InstrumentSymbol,
-    MffuVariant,
     type Plan,
     resolvePositionSizing,
 } from '~/lib/prop-calculator/core';
 import { computeFundedStateValue } from '~/lib/prop-calculator/core/FundedStateValue';
-import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { simulate } from '~/lib/prop-calculator/simulator';
+
+import {
+    lockAtOneFiftyToyPlan,
+    paysTheFirstWinningCloseToyPlan,
+    TOY_DRAWDOWN,
+} from '../fundedStateValueToy';
 
 const COARSE_GRID = {
     actionStepMultiple: 0.5,
@@ -30,7 +30,6 @@ const COARSE_GRID = {
     winrate: 0.5,
 } as const;
 
-const TOY_DRAWDOWN = 100;
 const TOY_CUSHION_STEP_MULTIPLE = 0.2;
 const REPLAY_TRIALS = 20_000;
 const REPLAY_RELATIVE_TOLERANCE = 0.03;
@@ -66,16 +65,6 @@ function fundedStartSolve(symbol: InstrumentSymbol, stopPoints: number) {
     };
 }
 
-function lockAtOneFiftyToyPlan(): Plan {
-    return paysTheFirstWinningCloseToyPlan().withOverrides({
-        fundedDrawdown: new EodTrailingDrawdown({
-            amount: dollars(TOY_DRAWDOWN),
-            lock: { atProfit: dollars(150), lockedThreshold: () => 1000 },
-        }),
-        minRetainedCushionOverride: undefined,
-    });
-}
-
 function oneTradeToyValue(options: {
     actionStepMultiple: number;
     maxActionMultiple: number;
@@ -92,46 +81,6 @@ function oneTradeToyValue(options: {
         plan: paysTheFirstWinningCloseToyPlan(),
         tradesPerDay: 1,
     }).initialValue;
-}
-
-function paysTheFirstWinningCloseToyPlan(): Plan {
-    const rapidEod = new MyFundedFutures().findPlan({
-        accountSize: 50_000,
-        firm: FirmId.Mffu,
-        variant: MffuVariant.RapidEod,
-    });
-    if (!rapidEod) throw new Error('MFF Rapid EOD 50K plan not found');
-    return rapidEod.withOverrides({
-        accountSize: dollars(1000),
-        consistency: null,
-        contractLimits: undefined,
-        drawdown: new EodTrailingDrawdown({ amount: dollars(TOY_DRAWDOWN) }),
-        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
-        fundedConsistency: { kind: 'set', rule: null },
-        fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
-        fundedDrawdown: new EodTrailingDrawdown({
-            amount: dollars(TOY_DRAWDOWN),
-            lock: {
-                atProfit: dollars(-1000),
-                lockedThreshold: (startingBalance) =>
-                    startingBalance - TOY_DRAWDOWN,
-            },
-        }),
-        isInstantFunded: true,
-        maxLifetimePayouts: 1,
-        minDaysAfterPassForPayout: 0,
-        minPayoutProfit: dollars(0),
-        minPayoutProfitPerCycle: dollars(0),
-        minPayoutRequest: dollars(0),
-        minQualifyingDayProfit: null,
-        minRetainedCushionOverride: dollars(0),
-        minTradingDays: 0,
-        payoutBalanceShareCap: undefined,
-        payoutRequestCap: undefined,
-        payoutTiers: [
-            { thresholdProfit: dollars(0), traderShare: fraction(1) },
-        ],
-    });
 }
 
 function topStepFirstPlan(): Plan {

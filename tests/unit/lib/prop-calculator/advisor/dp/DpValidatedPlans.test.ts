@@ -10,7 +10,10 @@ import {
     type DpGateRun,
     dpValidationFor,
 } from '~/lib/prop-calculator/advisor/dp';
-import { InstrumentSymbol, PayoutRequestPolicy } from '~/lib/prop-calculator/core';
+import {
+    InstrumentSymbol,
+    PayoutRequestPolicy,
+} from '~/lib/prop-calculator/core';
 import { RateSearchStatus } from '~/lib/prop-calculator/core/AverageRewardSolver';
 
 const LEDGER_ROOT = path.join(
@@ -22,7 +25,7 @@ const LEDGER_ROOT = path.join(
 );
 
 const BASIS = {
-    instrument: InstrumentSymbol.MES,
+    instrument: InstrumentSymbol.MNQ,
     payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
     payoutRequestSize: 500,
     retainedCushion: 2000,
@@ -68,7 +71,10 @@ describe('dpValidationFor', () => {
 
     it('validates a plan from its own run and ignores the runs of other plans', () => {
         const runs = [
-            run({ planSerial: 'plan-b', solve: { ...run({}).solve, exitCode: 1 } }),
+            run({
+                planSerial: 'plan-b',
+                solve: { ...run({}).solve, exitCode: 1 },
+            }),
             run({ planSerial: 'plan-a' }),
         ];
 
@@ -83,7 +89,10 @@ describe('dpValidationFor', () => {
     });
 
     it('judges a plan by its latest run, not by an older passing one', () => {
-        const older = run({ citation: { ...run({}).citation, row: 'older' }, ranOn: '2026-10-05' });
+        const older = run({
+            citation: { ...run({}).citation, row: 'older' },
+            ranOn: '2026-10-05',
+        });
         const newer = run({
             citation: { ...run({}).citation, row: 'newer' },
             dp: { creditFree: 3000, creditInclusive: 3100 },
@@ -120,7 +129,9 @@ describe('dpValidationFor', () => {
         );
 
         for (const { citation } of DP_GATE_RUNS) {
-            expect(existsSync(path.join(LEDGER_ROOT, citation.file))).toBe(true);
+            expect(existsSync(path.join(LEDGER_ROOT, citation.file))).toBe(
+                true,
+            );
             expect(index).toContain(citation.file);
         }
     });

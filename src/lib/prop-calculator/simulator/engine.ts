@@ -121,7 +121,8 @@ export function liveTransferValueAfterPayout(
     const setup = liveTransferSetupOf(
         inputs,
         dollars(
-            inputs.commissionPerRoundTrip ?? SIM_DEFAULTS.commissionPerRoundTrip,
+            inputs.commissionPerRoundTrip ??
+                SIM_DEFAULTS.commissionPerRoundTrip,
         ),
         resolveDayPolicy(inputs, TradingPhase.Funded).ladder.length,
     );

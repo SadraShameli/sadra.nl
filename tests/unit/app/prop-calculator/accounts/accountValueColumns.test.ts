@@ -40,6 +40,7 @@ import {
     AccountAction,
     AccountSubstate,
     type Advice,
+    AdviceStalenessKind,
     AdviceStalenessReason,
     DEFAULT_RULEBOOK,
     NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
@@ -66,6 +67,8 @@ import {
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
 import { findFirm } from '~/lib/prop-calculator/firms';
+
+import { payoutAdviceOf } from '../../../lib/prop-calculator/fixtures/advisorCardFixtures';
 
 const TODAY = '2026-09-28';
 
@@ -98,8 +101,7 @@ function adviceOf(stage: SizingStage, substate: AccountSubstate): Advice {
 function payoutEligibleAdvice(): Advice {
     return {
         ...adviceOf(SizingStage.Funded, AccountSubstate.Fresh),
-        payoutAdvice: {
-            assumptions: [],
+        payoutAdvice: payoutAdviceOf({
             documented: {
                 kind: PayoutRequestDecisionKind.Request,
                 notice: null,
@@ -108,9 +110,8 @@ function payoutEligibleAdvice(): Advice {
                 retainedCushionBasis: RetainedCushionBasis.RulebookSize,
                 sources: [RuleSource.PayoutSize],
             },
-            engineHorizonCredit: null,
             netAfterSplit: dollars(450),
-        },
+        }),
     };
 }
 
@@ -365,7 +366,7 @@ describe('nextActionOf (F-V18, PT-74 accountActionOf)', () => {
         const advice: Advice = {
             ...payoutEligibleAdvice(),
             staleness: {
-                kind: 'stale',
+                kind: AdviceStalenessKind.Stale,
                 noHolidayCalendarDisclosure: false,
                 reasons: [AdviceStalenessReason.FundedSnapshotStale],
                 snapshotAsOf: '2026-08-01',

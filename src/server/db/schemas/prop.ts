@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
     type AnyPgColumn,
+    boolean,
     check,
     foreignKey,
     index,
@@ -40,8 +41,15 @@ import type {
 import type { PlanOptIns } from '~/lib/prop-calculator';
 import type {
     AdviceSource,
+    DpAdviceGapEntry,
+    DpAdviceSamples,
     RulebookParameters,
+    SizingObjective,
 } from '~/lib/prop-calculator/advisor';
+import type {
+    DpValueSample,
+    MAX_DP_VALUE_SAMPLES,
+} from '~/lib/schemas/propAccountOutputs';
 import type { MAX_ACCEPTED_RUNGS } from '~/lib/schemas/propAccounts';
 
 import { user } from './auth';
@@ -58,6 +66,13 @@ const PLAN_SERIAL_LENGTH: typeof MAX_PLAN_SERIAL_LENGTH = 64;
 const ENUM_LENGTH = 32;
 const LABEL_LENGTH = 64;
 const MAX_RUNGS: typeof MAX_ACCEPTED_RUNGS = 20;
+const DP_CONFIG_KEY_LENGTH = 64;
+const DP_REASON_LENGTH = 1024;
+const DP_VALIDATION_REF_LENGTH = 256;
+const MAX_DP_GAPS = 64;
+const MAX_DP_RISK_SAMPLES = 512;
+const MAX_VALUE_SAMPLES: typeof MAX_DP_VALUE_SAMPLES = 256;
+const DP_CONFIG_KEY_PATTERN = `^[0-9a-f]{${String(DP_CONFIG_KEY_LENGTH)}}$`;
 const PAID_STATUS: `${PayoutStatus.Paid}` = 'paid';
 const CLOSED_ROUND_STATUS: `${RoundStatus.Closed}` = 'closed';
 const ACTIVE_ENGAGEMENT_STATUS: `${FirmEngagementStatus.Active}` = 'active';
@@ -616,6 +631,110 @@ export const propSizingDecision = createTable(
     ],
 );
 
+export const propDpAdvice = createTable(
+    'prop_dp_advice',
+    {
+        accountId: uuid('account_id').notNull(),
+        configKey: varchar('config_key', {
+            length: DP_CONFIG_KEY_LENGTH,
+        }).notNull(),
+        createdAt: createdAt(),
+        eligible: boolean('eligible').notNull(),
+        gaps: jsonb('gaps')
+            .$type<StoredJsonb<readonly DpAdviceGapEntry[]>>()
+            .default(sql`'[]'::jsonb`)
+            .notNull(),
+        id: uuid('id').primaryKey().defaultRandom(),
+        ineligibleReason: varchar('ineligible_reason', {
+            length: DP_REASON_LENGTH,
+        }),
+        objective: varchar('objective', { length: ENUM_LENGTH })
+            .$type<SizingObjective>()
+            .notNull(),
+        planRulesFingerprint: varchar('plan_rules_fingerprint', {
+            length: LABEL_LENGTH,
+        }),
+        planSerial: varchar('plan_serial', {
+            length: PLAN_SERIAL_LENGTH,
+        }).notNull(),
+        runtimeMs: integer('runtime_ms').notNull(),
+        samples: jsonb('samples')
+            .$type<StoredJsonb<DpAdviceSamples>>()
+            .notNull(),
+        snapshotId: uuid('snapshot_id').notNull(),
+        solvedAt: timestamp('solved_at', { withTimezone: true }).notNull(),
+        solverVersion: integer('solver_version').notNull(),
+        userId: ownerId(),
+        validated: boolean('validated').notNull(),
+        validationRef: varchar('validation_ref', {
+            length: DP_VALIDATION_REF_LENGTH,
+        }),
+        valueSamples: jsonb('value_samples')
+            .$type<StoredJsonb<readonly DpValueSample[]>>()
+            .default(sql`'[]'::jsonb`)
+            .notNull(),
+    },
+    (t) => [
+        foreignKey({
+            columns: [t.accountId, t.userId],
+            foreignColumns: [propAccount.id, propAccount.userId],
+            name: 'prop_dp_advice_account_fk',
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [t.snapshotId, t.accountId, t.userId],
+            foreignColumns: [
+                propAccountSnapshot.id,
+                propAccountSnapshot.accountId,
+                propAccountSnapshot.userId,
+            ],
+            name: 'prop_dp_advice_snapshot_fk',
+        }).onDelete('cascade'),
+        index('prop_dp_advice_user_account_solved_idx').on(
+            t.userId,
+            t.accountId,
+            t.solvedAt.desc().nullsFirst(),
+            t.id.desc().nullsFirst(),
+        ),
+        uniqueIndex('prop_dp_advice_user_account_key_idx').on(
+            t.userId,
+            t.accountId,
+            t.snapshotId,
+            t.configKey,
+            t.solverVersion,
+        ),
+        nonNegative('prop_dp_advice_runtime_ms_ck', t.runtimeMs),
+        check('prop_dp_advice_solver_version_ck', sql`${t.solverVersion} >= 1`),
+        check(
+            'prop_dp_advice_config_key_ck',
+            sql`${t.configKey} ~ ${sql.raw(`'${DP_CONFIG_KEY_PATTERN}'`)}`,
+        ),
+        check(
+            'prop_dp_advice_ineligible_reason_ck',
+            sql`${t.eligible} = (${t.ineligibleReason} IS NULL)`,
+        ),
+        check(
+            'prop_dp_advice_validation_ref_ck',
+            sql`${t.validated} = (${t.validationRef} IS NOT NULL)`,
+        ),
+        check(
+            'prop_dp_advice_validated_eligible_ck',
+            sql`${t.eligible} OR NOT ${t.validated}`,
+        ),
+        check(
+            'prop_dp_advice_gaps_shape_ck',
+            sql`CASE WHEN jsonb_typeof(${t.gaps}) = 'array' THEN jsonb_array_length(${t.gaps}) <= ${sql.raw(String(MAX_DP_GAPS))} ELSE false END`,
+        ),
+        check(
+            'prop_dp_advice_samples_shape_ck',
+            sql`jsonb_typeof(${t.samples}) = 'object' AND CASE WHEN jsonb_typeof(${t.samples} -> 'samples') = 'array' THEN jsonb_array_length(${t.samples} -> 'samples') <= ${sql.raw(String(MAX_DP_RISK_SAMPLES))} ELSE (${t.samples} -> 'samples') IS NULL END`,
+        ),
+        check(
+            'prop_dp_advice_value_samples_shape_ck',
+            sql`CASE WHEN jsonb_typeof(${t.valueSamples}) = 'array' THEN jsonb_array_length(${t.valueSamples}) <= ${sql.raw(String(MAX_VALUE_SAMPLES))} ELSE false END`,
+        ),
+    ],
+);
+
 export const propBankrollTransfer = createTable(
     'prop_bankroll_transfer',
     {
@@ -815,6 +934,7 @@ export type PropAccountRow = typeof propAccount.$inferSelect;
 export type PropAccountSnapshotRow = typeof propAccountSnapshot.$inferSelect;
 export type PropBankrollTransferRow = typeof propBankrollTransfer.$inferSelect;
 export type PropCopyGroupRow = typeof propCopyGroup.$inferSelect;
+export type PropDpAdviceRow = typeof propDpAdvice.$inferSelect;
 export type PropExternalFirmRow = typeof propExternalFirm.$inferSelect;
 export type PropFeeRow = typeof propFee.$inferSelect;
 export type PropFirmEngagementRow = typeof propFirmEngagement.$inferSelect;

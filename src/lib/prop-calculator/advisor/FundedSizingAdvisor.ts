@@ -76,7 +76,10 @@ import {
     type EnginePolicyBuild,
     type MeasuredRebuyLag,
 } from './EnginePolicyBuilder';
-import { fundedConsistencyCeiling } from './FundedConsistencyCeiling';
+import {
+    fundedConsistencyCeiling,
+    fundedConsistencyNote,
+} from './FundedConsistencyCeiling';
 import {
     fundedCycleSeedFromTracker,
     type FundedFromStateOptimum,
@@ -780,6 +783,7 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
                 this.liveTriggerLimits(),
                 positionSizing,
             ),
+            consistencyNote: fundedConsistencyNote(account),
             instrument: positionSizing?.instrument ?? null,
             personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
             personalDll: personalDll ?? null,

@@ -7,7 +7,7 @@ import {
     TableRow,
 } from '~/components/ui/Table';
 
-import { type OptimumRowView } from './adviceViewModel';
+import { figureTextOf, type OptimumRowView } from './adviceViewModel';
 
 export function OptimaTable({
     rows,
@@ -27,18 +27,24 @@ export function OptimaTable({
                 <TableRow>
                     <TableHead>Source</TableHead>
                     <TableHead>Result</TableHead>
-                    <TableHead className="text-right">Standard error</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {rows.map((row) => (
                     <TableRow key={`${row.source}-${row.label}`}>
                         <TableCell>{row.label}</TableCell>
-                        <TableCell>{row.text}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.standardError === null
-                                ? ''
-                                : row.standardError.toFixed(2)}
+                        <TableCell>
+                            <p>{row.text}</p>
+                            {row.figures.length > 0 && (
+                                <ul className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground tabular-nums">
+                                    {row.figures.map((figure) => (
+                                        <li key={figure.kind}>
+                                            {figure.label}{' '}
+                                            {figureTextOf(figure)}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </TableCell>
                     </TableRow>
                 ))}

@@ -18,6 +18,8 @@ import {
 import { stableJson } from '~/lib/stableJson';
 
 import {
+    dollarRangeSubText,
+    dollarRangeText,
     fundedValueEstimateToolsRequest,
     fundedValueSampleSize,
     isInvalidSampleSizeField,
@@ -27,6 +29,7 @@ import {
     toolsWorkerFailureReason,
     toolsWorkerPendingText,
     uncertainCountText,
+    uncertainCurrencyText,
     type ValueCardsInput,
     ValueCardsInputKind,
 } from './valueCardsModel';
@@ -153,6 +156,29 @@ export function FundedValueCard({
                 )}
                 {result === null ? null : (
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {result.fundedValue === undefined ? null : (
+                            <>
+                                <StatCard
+                                    label="Expected payout per funded account"
+                                    sub={`${String(result.trials)} trials`}
+                                    value={uncertainCurrencyText(
+                                        result.fundedValue,
+                                    )}
+                                />
+                                <StatCard
+                                    label="Range n accounts could show ($)"
+                                    sub={dollarRangeSubText(
+                                        result.dollarSampleRange,
+                                        settled.sampleSize,
+                                    )}
+                                    value={
+                                        dollarRangeText(
+                                            result.dollarSampleRange,
+                                        ) ?? NOT_APPLICABLE
+                                    }
+                                />
+                            </>
+                        )}
                         <StatCard
                             label="Mean payouts per funded account"
                             sub={`${String(result.trials)} trials`}
@@ -167,7 +193,7 @@ export function FundedValueCard({
                             )}
                         />
                         <StatCard
-                            label="Range n accounts could show"
+                            label="Range n accounts could show (payouts)"
                             sub={sampleRangeSubText(result.sampleRange)}
                             value={
                                 sampleRangeText(result.sampleRange) ??
@@ -193,7 +219,9 @@ export function FundedValueCard({
                         aria-label="Cumulative payout trigger behind the funded value"
                         className="flex flex-col gap-1 text-xs text-muted-foreground"
                     >
-                        <li>{assumptionText(result.cumulativePayoutTrigger)}</li>
+                        <li>
+                            {assumptionText(result.cumulativePayoutTrigger)}
+                        </li>
                     </ul>
                 )}
             </div>

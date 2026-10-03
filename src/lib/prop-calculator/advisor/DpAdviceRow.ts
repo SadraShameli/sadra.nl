@@ -1,6 +1,10 @@
-import { type z } from 'zod';
+import { z } from 'zod';
 
-import { type FundedDpModelGap } from '~/lib/prop-calculator/core';
+import {
+    dollarsSchema,
+    type FundedDpModelGap,
+    FundedDpModelGapKind,
+} from '~/lib/prop-calculator/core';
 
 import { type SizingObjective } from './SizingObjective';
 
@@ -20,14 +24,14 @@ export enum DpAdviceStalenessReason {
     SolverVersionChanged = 'solver-version-changed',
 }
 
-export enum DpSampleStage {
-    Eval = 'eval',
-    Funded = 'funded',
-}
-
 export enum DpSamplesKind {
     Sampled = 'sampled',
     Unavailable = 'unavailable',
+}
+
+export enum DpSampleStage {
+    Eval = 'eval',
+    Funded = 'funded',
 }
 
 export enum DpSamplesUnavailableReason {
@@ -75,12 +79,6 @@ export interface DpAdviceRow {
     readonly validationRef: null | string;
 }
 
-export interface DpAdviceStalenessInput {
-    readonly currentPlanRulesFingerprint: string;
-    readonly currentSolverVersion?: number;
-    readonly latestSnapshotId: string;
-}
-
 export type DpAdviceSamples =
     | {
           readonly kind: DpSamplesKind.Sampled;
@@ -93,6 +91,12 @@ export type DpAdviceSamples =
           readonly stage: DpSampleStage;
       };
 
+export interface DpAdviceStalenessInput {
+    readonly currentPlanRulesFingerprint: string;
+    readonly currentSolverVersion?: number;
+    readonly latestSnapshotId: string;
+}
+
 export interface DpRiskSample {
     readonly cushionCents: number;
     readonly placedRiskCents: null | number;
@@ -101,32 +105,103 @@ export interface DpRiskSample {
     readonly tradeIndex: number;
 }
 
-const NOT_IMPLEMENTED = 'not implemented';
+const wholeNumberSchema = z.number().int();
 
-export const dpAdviceGapsSchema = {
-    parse(): never {
-        throw new Error(NOT_IMPLEMENTED);
-    },
-    safeParse(): never {
-        throw new Error(NOT_IMPLEMENTED);
-    },
-} as unknown as z.ZodType<readonly DpAdviceGapEntry[]>;
+const dpFundedModelGapSchema = z.discriminatedUnion('kind', [
+    z.strictObject({
+        fromPayoutIndex: z.number().int().nonnegative(),
+        kind: z.literal(FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap),
+        payoutRegimeCap: z.number().int().nonnegative(),
+    }),
+    z.strictObject({
+        kind: z.literal(FundedDpModelGapKind.CalendarWeekInactivityIgnored),
+        message: z.string(),
+    }),
+    z.strictObject({
+        kind: z.literal(FundedDpModelGapKind.FundedGridSaturationHigh),
+        shareAtOrAboveTop: z.number().min(0).max(1),
+    }),
+    z.strictObject({
+        kind: z.literal(FundedDpModelGapKind.LifetimeDollarCapIgnored),
+        maxLifetimePayoutDollars: dollarsSchema,
+    }),
+    z.strictObject({
+        kind: z.literal(FundedDpModelGapKind.PayoutFloorReleaseUnvalidated),
+    }),
+    z.strictObject({
+        kind: z.literal(
+            FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
+        ),
+    }),
+]);
 
-export const dpAdviceSamplesSchema = {
-    parse(): never {
-        throw new Error(NOT_IMPLEMENTED);
-    },
-    safeParse(): never {
-        throw new Error(NOT_IMPLEMENTED);
-    },
-} as unknown as z.ZodType<DpAdviceSamples>;
+const dpAdviceOwnGapSchema = z.discriminatedUnion('kind', [
+    z.strictObject({
+        kind: z.literal(DpAdviceGap.ConsistencyGridTruncates),
+        lockedTopCents: wholeNumberSchema,
+    }),
+    z.strictObject({ kind: z.literal(DpAdviceGap.ContinuousRiskAssumed) }),
+    z.strictObject({ kind: z.literal(DpAdviceGap.DayStopRuleNotModeled) }),
+    z.strictObject({
+        drawdownCents: wholeNumberSchema,
+        kind: z.literal(DpAdviceGap.EvalGridMisaligned),
+        stepCents: wholeNumberSchema,
+    }),
+    z.strictObject({ kind: z.literal(DpAdviceGap.StateAtGridTop) }),
+]);
+
+const dpAdviceGapSchema = z.union([
+    dpFundedModelGapSchema,
+    dpAdviceOwnGapSchema,
+]);
+
+export const dpAdviceGapsSchema = z.array(
+    dpAdviceGapSchema,
+) satisfies z.ZodType<readonly DpAdviceGapEntry[]>;
+
+const dpRiskSampleSchema = z.strictObject({
+    cushionCents: wholeNumberSchema,
+    placedRiskCents: wholeNumberSchema.nullable(),
+    riskCents: wholeNumberSchema,
+    rungOffset: wholeNumberSchema,
+    tradeIndex: z.number().int().nonnegative(),
+}) satisfies z.ZodType<DpRiskSample>;
+
+export const dpAdviceSamplesSchema = z.discriminatedUnion('kind', [
+    z.strictObject({
+        kind: z.literal(DpSamplesKind.Sampled),
+        samples: z.array(dpRiskSampleSchema),
+        stage: z.enum(DpSampleStage),
+    }),
+    z.strictObject({
+        kind: z.literal(DpSamplesKind.Unavailable),
+        reason: z.enum(DpSamplesUnavailableReason),
+        stage: z.enum(DpSampleStage),
+    }),
+]) satisfies z.ZodType<DpAdviceSamples>;
 
 export function dpAdviceStaleness(
-    _row: Pick<
+    row: Pick<
         DpAdviceRow,
         'planRulesFingerprint' | 'snapshotId' | 'solverVersion'
     >,
-    _input: DpAdviceStalenessInput,
+    input: DpAdviceStalenessInput,
 ): readonly DpAdviceStalenessReason[] {
-    throw new Error(NOT_IMPLEMENTED);
+    const reasons: DpAdviceStalenessReason[] = [];
+    if (row.snapshotId !== input.latestSnapshotId) {
+        reasons.push(DpAdviceStalenessReason.NewerSnapshot);
+    }
+    if (
+        row.solverVersion !==
+        (input.currentSolverVersion ?? DP_ADVICE_SOLVER_VERSION)
+    ) {
+        reasons.push(DpAdviceStalenessReason.SolverVersionChanged);
+    }
+    if (
+        row.planRulesFingerprint !== null &&
+        row.planRulesFingerprint !== input.currentPlanRulesFingerprint
+    ) {
+        reasons.push(DpAdviceStalenessReason.PlanRulesChanged);
+    }
+    return reasons;
 }

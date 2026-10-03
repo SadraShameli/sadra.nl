@@ -111,6 +111,10 @@ const LADDER_READING_PAGES_OUTSIDE_PAGES = [
     { folder: 'bankroll', view: 'BankrollView' },
 ] as const;
 
+const LADDER_IGNORING_PAGES_OUTSIDE_PAGES = [
+    { folder: 'live', view: 'LiveView' },
+] as const;
+
 interface ToolPageSpec {
     consumesBaseResult: boolean;
     folder: string;
@@ -1064,6 +1068,20 @@ describe('the applied eval ladder notice (F-14)', () => {
         'never says the ladder is applied to the $folder page results',
         (spec) => {
             expect(isPlainNoticeShown(viewPath(spec), new Set())).toBe(false);
+        },
+    );
+
+    it.each(LADDER_IGNORING_PAGES_OUTSIDE_PAGES)(
+        'never says the ladder is applied to the $folder page results, which ignore it',
+        ({ folder, view }) => {
+            const file = path.join(
+                CALCULATOR_ROOT,
+                '(tools)',
+                folder,
+                `${view}.tsx`,
+            );
+            expect(isPlainNoticeShown(file, new Set())).toBe(false);
+            expect(sourceText(file)).not.toContain('evalDayPolicy');
         },
     );
 
