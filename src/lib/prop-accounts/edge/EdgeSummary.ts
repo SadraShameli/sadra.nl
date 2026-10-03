@@ -6,6 +6,8 @@ import { expectancyPerTradeR } from '~/lib/prop-calculator/economics';
 import {
     binomialStandardError,
     NOISE_STANDARD_ERRORS,
+    wilsonInterval,
+    type WilsonInterval,
 } from '~/lib/prop-calculator/stats';
 import { accountDateSchema } from '~/lib/schemas/propAccounts';
 import { expectancyR, type LightAssessment } from '~/lib/trading/analytics';
@@ -44,6 +46,7 @@ export interface EdgeSummary {
     readonly rewardToRisk: number;
     readonly sampleSize: number;
     readonly winRate: EdgeMetric;
+    readonly winRateInterval: null | WilsonInterval;
 }
 
 export interface MeasuredRewardToRisk {
@@ -57,6 +60,11 @@ const edgeMetricSchema = z.object({
     observed: z.number().nullable(),
     standardError: z.number().nonnegative().nullable(),
 }) satisfies z.ZodType<EdgeMetric>;
+
+const winRateIntervalSchema = z.object({
+    lower: z.number().min(0).max(1),
+    upper: z.number().min(0).max(1),
+}) satisfies z.ZodType<WilsonInterval>;
 
 const measuredRewardToRiskSchema = z.object({
     sampleSize: z.number().int().positive(),
@@ -87,6 +95,7 @@ export const edgeSummarySchema = z.object({
     rewardToRisk: z.number().positive(),
     sampleSize: z.number().int().nonnegative(),
     winRate: edgeMetricSchema,
+    winRateInterval: winRateIntervalSchema.nullable(),
 }) satisfies z.ZodType<EdgeSummary>;
 
 export function checkEdgeRange(range: EdgeRange): EdgeRangeCheck {
@@ -135,6 +144,7 @@ export function edgeSummary(
             n,
             isSampleEnough,
         ),
+        winRateInterval: wilsonInterval(Math.round(journal.winRate * n), n),
     };
 }
 

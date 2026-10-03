@@ -1,6 +1,7 @@
 import {
     type FeeKind,
     feePrefillCents,
+    type FeePrefillPlan,
     type FirmKey,
     firmKeyOf,
     groupByFirmKey,
@@ -8,11 +9,7 @@ import {
     usdCents,
 } from '~/lib/prop-accounts/core';
 
-import {
-    type LedgerAccount,
-    type LedgerFeeRow,
-    type PortfolioLedger,
-} from './PortfolioLedger';
+import { type LedgerFeeRow, type PortfolioLedger } from './PortfolioLedger';
 
 export enum FeePriceCheck {
     AboveList = 'above-list',
@@ -20,6 +17,11 @@ export enum FeePriceCheck {
     Discounted = 'discounted',
     NoListPrice = 'no-list-price',
 }
+
+export type FeeCheckInput = Pick<
+    LedgerFeeRow,
+    'accountId' | 'amountCents' | 'id' | 'kind'
+>;
 
 export interface FeeCheckRow {
     readonly accountId: string;
@@ -33,6 +35,7 @@ export interface FeeCheckRow {
 
 export interface FeeReconciliation {
     readonly byFirm: readonly FirmDiscountCapture[];
+    readonly excludedFeeRows: number;
     readonly rows: readonly FeeCheckRow[];
 }
 
@@ -42,10 +45,29 @@ export interface FirmDiscountCapture {
     readonly firmKey: FirmKey;
 }
 
+export function feeCheckRowOf(
+    plan: FeePrefillPlan | null,
+    fee: FeeCheckInput,
+): FeeCheckRow {
+    const listCents = plan === null ? null : feePrefillCents(plan, fee.kind);
+    return {
+        accountId: fee.accountId,
+        check: priceCheck(fee.amountCents, listCents),
+        differenceCents:
+            listCents === null ? null : usdCents(fee.amountCents - listCents),
+        feeId: fee.id,
+        kind: fee.kind,
+        listCents,
+        paidCents: fee.amountCents,
+    };
+}
+
 export function feeReconciliation(ledger: PortfolioLedger): FeeReconciliation {
     const perAccountRows = ledger.resolvedAccounts.map((entry) => ({
         entry,
-        rows: entry.fees.map((fee) => feeCheckRow(entry, fee)),
+        rows: entry.fees.map((fee) =>
+            feeCheckRowOf(entry.plan?.plan ?? null, fee),
+        ),
     }));
     return {
         byFirm: groupByFirmKey(perAccountRows, ({ entry }) =>
@@ -68,22 +90,10 @@ export function feeReconciliation(ledger: PortfolioLedger): FeeReconciliation {
                 firmKey,
             };
         }),
+        excludedFeeRows: ledger.accounts
+            .filter((entry) => entry.plan === null)
+            .reduce((sum, entry) => sum + entry.fees.length, 0),
         rows: perAccountRows.flatMap((item) => item.rows),
-    };
-}
-
-function feeCheckRow(entry: LedgerAccount, fee: LedgerFeeRow): FeeCheckRow {
-    const plan = entry.plan?.plan ?? null;
-    const listCents = plan === null ? null : feePrefillCents(plan, fee.kind);
-    return {
-        accountId: fee.accountId,
-        check: priceCheck(fee.amountCents, listCents),
-        differenceCents:
-            listCents === null ? null : usdCents(fee.amountCents - listCents),
-        feeId: fee.id,
-        kind: fee.kind,
-        listCents,
-        paidCents: fee.amountCents,
     };
 }
 

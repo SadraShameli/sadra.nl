@@ -13,12 +13,19 @@ import {
 } from '~/lib/prop-calculator';
 import {
     AdviceSource,
+    AssumptionKind,
+    buildEnginePolicy,
     DEFAULT_RULEBOOK,
+    DifferenceReason,
+    enginePolicyKey,
     EvalSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     type ReconstructedFundedOrEvalAccount,
     SizingConstraint,
+    SizingObjective,
     SizingProvenance,
+    SpeedObjective,
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
@@ -51,6 +58,7 @@ function account(
         resolvedDailyLossLimit: null,
         state,
         ...overrides,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -231,3 +239,125 @@ describe('EvalSizingAdvisor (PT-19f, F-118, F-119, F-120)', () => {
         );
     });
 });
+
+describe('EvalSizingAdvisor (PT-104: objective, live triggers, engine policy)', () => {
+    it('names speed to funded as the objective of a ladder-sourced advice, not monthly net (F-126)', () => {
+        const advice = advisorAt(account()).assemble([]);
+
+        expect(advice.provenance.source).toBe(AdviceSource.LadderSearchFresh);
+        expect(advice.provenance.objective).toBe(SpeedObjective.SpeedToFunded);
+        expect(advice.provenance.objective).not.toBe(
+            SizingObjective.MonthlyNet,
+        );
+    });
+
+    it('lists that live triggers were not checked, as the funded and live advice do (F-125)', () => {
+        const advice = advisorAt(account()).assemble([]);
+
+        expect(
+            advice.assumptions.filter(
+                (assumption) =>
+                    assumption.kind === AssumptionKind.LiveTriggersNotChecked,
+            ),
+        ).toHaveLength(1);
+    });
+
+    it('carries the engine policy built for this plan and rulebook on the ladder request (F-118)', () => {
+        const advisor = advisorAt(account());
+
+        const [request] = advisor.optimumRequests();
+
+        if (request?.source !== AdviceSource.LadderSearchFresh) {
+            throw new Error('expected a fresh ladder request');
+        }
+        expect(request.policy).toStrictEqual(
+            buildEnginePolicy({
+                fundedHorizonDays: request.policy.fundedHorizonDays,
+                plan,
+                rulebook: DEFAULT_RULEBOOK,
+            }).policy,
+        );
+    });
+
+    it('changes the ladder request policy with the measured rebuy lag and the retained cushion', () => {
+        const baseKey = policyKeyOf(advisorAt(account()));
+        const laggedKey = policyKeyOf(
+            new EvalSizingAdvisor({
+                account: account(),
+                maxEvalDays: 150,
+                measuredRebuyLag: { days: 3, samples: 5 },
+                rulebook: DEFAULT_RULEBOOK,
+                snapshotAsOf: '2026-09-26',
+                substate: null,
+                today: '2026-09-26',
+            }),
+        );
+        const retainedKey = policyKeyOf(
+            new EvalSizingAdvisor({
+                account: account(),
+                maxEvalDays: 150,
+                rulebook: {
+                    ...DEFAULT_RULEBOOK,
+                    payout: {
+                        ...DEFAULT_RULEBOOK.payout,
+                        retainedCushionCents: 400_000,
+                    },
+                },
+                snapshotAsOf: '2026-09-26',
+                substate: null,
+                today: '2026-09-26',
+            }),
+        );
+
+        expect(laggedKey).not.toBe(baseKey);
+        expect(retainedKey).not.toBe(baseKey);
+    });
+});
+
+describe('EvalSizingAdvisor staleness (PT-104, F-141)', () => {
+    it('is stale with no documented sizing or daily plan when the snapshot is two sessions old', () => {
+        const advisor = new EvalSizingAdvisor({
+            account: account(),
+            maxEvalDays: 150,
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-09-21',
+            substate: null,
+            today: '2026-09-23',
+        });
+
+        expect(advisor.documented()).toBeNull();
+        expect(advisor.dailyPlanCard()).toBeNull();
+        expect(advisor.assemble([]).differenceReasons).toContainEqual({
+            kind: DifferenceReason.StaleAdvice,
+            snapshotDate: '2026-09-21',
+        });
+    });
+
+    it('is fresh when the snapshot is one session old', () => {
+        const advisor = new EvalSizingAdvisor({
+            account: account(),
+            maxEvalDays: 150,
+            rulebook: DEFAULT_RULEBOOK,
+            snapshotAsOf: '2026-09-22',
+            substate: null,
+            today: '2026-09-23',
+        });
+
+        expect(advisor.documented()).not.toBeNull();
+        expect(
+            advisor
+                .assemble([])
+                .differenceReasons.some(
+                    (reason) => reason.kind === DifferenceReason.StaleAdvice,
+                ),
+        ).toBe(false);
+    });
+});
+
+function policyKeyOf(advisor: EvalSizingAdvisor): string {
+    const [request] = advisor.optimumRequests();
+    if (request?.source !== AdviceSource.LadderSearchFresh) {
+        throw new Error('expected a fresh ladder request');
+    }
+    return enginePolicyKey(request.policy);
+}

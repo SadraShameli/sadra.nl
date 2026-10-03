@@ -10,6 +10,7 @@ import {
 } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import {
     copyGroupRequestCacheKey,
+    copyGroupUnpricedTriggerNoteOf,
     type CopyGroupWorkerOutcome,
     CopyGroupWorkerOutcomeKind,
     type CopyGroupWorkerRequest,
@@ -138,6 +139,10 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
         () => copyGroupRequestCacheKey(plan.request),
         [plan.request],
     );
+    const unpricedTriggerNote = useMemo(
+        () => copyGroupUnpricedTriggerNoteOf(plan.request),
+        [plan.request],
+    );
     const isStale = ranKey !== null && ranKey !== key;
     const state: WorkerTaskState<never, CopyGroupWorkerOutcome> = isStale
         ? IDLE_WORKER_TASK
@@ -161,6 +166,9 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
                     Left out of the simulation because they could not be sized:{' '}
                     {plan.leftOutLabels.join(', ')}.
                 </p>
+            )}
+            {unpricedTriggerNote !== null && (
+                <p className="text-muted-foreground">{unpricedTriggerNote}</p>
             )}
             {plan.assumptions.length > 0 && (
                 <ul className="list-disc pl-5 text-muted-foreground">

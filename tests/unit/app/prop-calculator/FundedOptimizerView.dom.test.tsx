@@ -2,11 +2,17 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { FundedSweepResult } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
 import type * as PropCalculatorModule from '~/lib/prop-calculator';
 
-import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import {
+    CalculatorActionType,
+    defaultCalculatorState,
+} from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import { RUIN_FIRST_RISK_TABLE_NOTE } from '~/app/(app)/prop-calculator/_components/objectiveRanking';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 import { WorkerTaskPhase } from '~/app/(app)/prop-calculator/_components/workerTaskState';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 
 const box = vi.hoisted(() => ({
     accountPolicy: null as null | PropCalculatorModule.FirmAccountPolicy,
@@ -63,19 +69,45 @@ const currentState = vi.hoisted(() => ({
     state: null as CalculatorState | null,
 }));
 
+const dispatched = vi.hoisted(() => ({
+    actions: [] as unknown[],
+}));
+
 vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
+    ObjectiveQueryFailure: {
+        BankrollSummary: 'bankroll-summary',
+        Rulebook: 'rulebook',
+    },
+    useCalculatorActions: () => ({
+        dispatch: (action: unknown) => {
+            dispatched.actions.push(action);
+        },
+    }),
     useCalculatorInputs: () => ({ state: currentState.state }),
+    useObjectiveChoice: () => ({ automaticBasis: null, queryFailure: null }),
+}));
+
+const sweepBox = vi.hoisted(() => ({
+    result: null as FundedSweepResult | null,
 }));
 
 vi.mock(
     '~/app/(app)/prop-calculator/_components/fundedOptimizer/useFundedSweep',
     () => ({
-        useFundedSweep: () => ({
-            phase: WorkerTaskPhase.Running,
-            progress: null,
-            reason: null,
-            result: null,
-        }),
+        useFundedSweep: () =>
+            sweepBox.result === null
+                ? {
+                      phase: WorkerTaskPhase.Running,
+                      progress: null,
+                      reason: null,
+                      result: null,
+                  }
+                : {
+                      phase: WorkerTaskPhase.Done,
+                      progress: null,
+                      reason: null,
+                      result: sweepBox.result,
+                  },
     }),
 );
 
@@ -90,6 +122,9 @@ const {
     LifetimePayoutCapOverrideKind,
     serializePlanId,
 } = await import('~/lib/prop-calculator');
+const { FundedCandidateBuildKind } =
+    await import('~/lib/prop-calculator/optimize');
+const { simulate } = await import('~/lib/prop-calculator/simulator');
 const { TopStepVariant } = await import('~/lib/prop-calculator/core');
 const { FundedOptimizerView } =
     await import('~/app/(app)/prop-calculator/(tools)/funded-optimizer/FundedOptimizerView');
@@ -171,5 +206,128 @@ describe('FundedOptimizerView names the lifetime payout cap basis (PT-25c)', () 
         expect(container.textContent).toContain(
             'lifetime payout cap: a verified no-count trigger',
         );
+    });
+});
+
+describe('FundedOptimizerView follows and names the shared objective (PT-83, F-V15)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+    const swept = stateWith({ plan: topStepPlan(), trials: 20 });
+    const sweptOutputs = simulate({
+        fundedHorizonDays: 20,
+        maxEvalDays: 20,
+        plan: topStepPlan(),
+        riskPerTrade: 250,
+        rrRatio: 2,
+        seed: 1,
+        tradesPerDay: 4,
+        trials: 20,
+        winrate: 0.5,
+    });
+    const sweep: FundedSweepResult = {
+        kind: FundedCandidateBuildKind.Built,
+        notes: [],
+        rows: [
+            ['high-monthly', 300, 100],
+            ['high-cycle', 100, 300],
+            ['middle', 200, 200],
+        ].map(([label, monthly, cycle]) => ({
+            candidate: { label: String(label), overrides: {} },
+            out: {
+                ...sweptOutputs,
+                expectedMonthlyNet: Number(monthly),
+                expectedNet: Number(cycle),
+            },
+        })),
+    };
+    const monthlyOrder = ['high-monthly', 'middle', 'high-cycle'];
+    const cycleOrder = ['high-cycle', 'middle', 'high-monthly'];
+
+    function renderView(objective: SizingObjective): void {
+        currentState.state = { ...swept, objective };
+        act(() => {
+            root.render(<FundedOptimizerView />);
+        });
+    }
+
+    function shownLabels(): string[] {
+        return [...container.querySelectorAll(':scope tbody tr')].map(
+            (row) => row.querySelector(':scope td')?.textContent ?? '',
+        );
+    }
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        sessionMock.mockReturnValue({
+            data: null,
+            error: null,
+            isPending: false,
+        });
+        sweepBox.result = sweep;
+        dispatched.actions = [];
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+        currentState.state = null;
+        sweepBox.result = null;
+        vi.unstubAllGlobals();
+    });
+
+    it('sorts by monthly net and names it under MonthlyNet', () => {
+        renderView(SizingObjective.MonthlyNet);
+        expect(container.querySelector('h2')?.textContent).toBe(
+            'Funded optimizer, ranked by monthly net',
+        );
+        expect(shownLabels()).toStrictEqual(monthlyOrder);
+    });
+
+    it('sorts by cycle net and names it under CycleCash', () => {
+        renderView(SizingObjective.CycleCash);
+        expect(container.querySelector('h2')?.textContent).toBe(
+            'Funded optimizer, ranked by cycle cash',
+        );
+        expect(shownLabels()).toStrictEqual(cycleOrder);
+    });
+
+    it('keeps monthly net under RuinFirst and shows the typed not-applicable note', () => {
+        renderView(SizingObjective.RuinFirst);
+        expect(container.querySelector('h2')?.textContent).toBe(
+            'Funded optimizer, ranked by monthly net',
+        );
+        expect(shownLabels()).toStrictEqual(monthlyOrder);
+        expect(container.textContent).toContain(RUIN_FIRST_RISK_TABLE_NOTE);
+    });
+
+    it('mounts the shared objective chip in place of the old Monthly or Cycle toggle', () => {
+        renderView(SizingObjective.MonthlyNet);
+        const chip = container.querySelector<HTMLSelectElement>(
+            'select[aria-label="Ranking objective"]',
+        );
+        if (chip === null) throw new Error('objective chip missing');
+        expect(chip.value).toBe(SizingObjective.MonthlyNet);
+        expect(container.textContent).not.toContain('This run only');
+        expect(container.textContent).not.toContain('Steady state');
+        act(() => {
+            Reflect.set(
+                HTMLSelectElement.prototype,
+                'value',
+                SizingObjective.CycleCash,
+                chip,
+            );
+            chip.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        expect(dispatched.actions).toStrictEqual([
+            {
+                objective: SizingObjective.CycleCash,
+                type: CalculatorActionType.SetObjective,
+            },
+        ]);
     });
 });

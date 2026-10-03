@@ -3,6 +3,7 @@ import {
     type FirmKey,
     firmKeyId,
     isEndedStatus,
+    RoundStatus,
     sampleAdequacy,
     SampleKind,
     type SampleLevel,
@@ -17,19 +18,21 @@ import {
     type PortfolioLedger,
     roundFirmKeyOf,
     type SampledEstimate,
+    sampledRate,
     summarizeCash,
 } from '~/lib/prop-accounts/metrics';
 import { dollars } from '~/lib/prop-calculator';
 import { type SampleThresholds } from '~/lib/prop-calculator/advisor';
 import {
+    bankrollCohortRisk,
     batchLossClosedForm,
-    cohortOutcome,
     empiricalPayingStatsOf,
 } from '~/lib/prop-calculator/economics';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
 import { percentile } from '~/lib/prop-calculator/stats';
 
 import { roundBudgetStatus, type RoundBudgetStatus } from './RoundBudget';
+import { roundCycleDaysOf } from './RoundCycle';
 
 const BOOTSTRAP_INTERVAL_LOWER_PERCENTILE = 10;
 const BOOTSTRAP_INTERVAL_UPPER_PERCENTILE = 90;
@@ -41,13 +44,14 @@ export interface RoundBootstrapInterval {
 }
 
 export interface RoundFirmSummary {
+    readonly closedRounds: number;
     readonly firmKey: FirmKey;
     readonly max: null | number;
     readonly mean: null | number;
     readonly min: null | number;
     readonly rounds: number;
     readonly sampleLevel: null | SampleLevel;
-    readonly sharePositive: null | number;
+    readonly sharePositive: null | SampledEstimate;
 }
 
 export interface RoundMultiple {
@@ -59,6 +63,7 @@ export interface RoundMultiple {
 export interface RoundReturn {
     readonly budget: RoundBudgetStatus;
     readonly closedOn: null | string;
+    readonly cycleDays: null | number;
     readonly firmKey: FirmKey | null;
     readonly id: string;
     readonly label: string;
@@ -116,6 +121,7 @@ function bootstrapMultiple(
         usdCents(cash.reduce((sum, c) => sum + c.payouts, 0)),
         usdCents(cash.reduce((sum, c) => sum + c.spend, 0)),
     );
+    if (value === null) return null;
     const rng = mulberry32(seed);
     const resamples: number[] = [];
     for (let sample = 0; sample < MULTIPLE_BOOTSTRAP_RESAMPLES; sample += 1) {
@@ -128,7 +134,7 @@ function bootstrapMultiple(
             (sum, pick) => sum + (pick?.payouts ?? 0),
             0,
         );
-        resamples.push(spend === 0 ? 0 : payouts / spend);
+        if (spend !== 0) resamples.push(payouts / spend);
     }
     return {
         interval: {
@@ -171,15 +177,20 @@ function likeThisEndsNetNegativeOf(
     seed: number,
 ): null | { readonly attempts: number; readonly value: SampledEstimate } {
     if (attempts === 0 || poolNetValuesDollars.length === 0) return null;
-    const outcome = cohortOutcome(poolNetValuesDollars, attempts, draws, seed);
-    if (outcome.value === null) return null;
+    const outcome = bankrollCohortRisk(
+        poolNetValuesDollars,
+        attempts,
+        draws,
+        seed,
+    ).value;
+    if (outcome === null) return null;
     return {
         attempts,
         value: {
             interval: null,
             n: draws,
-            standardError: outcome.value.lossProbability.standardError,
-            value: outcome.value.lossProbability.value,
+            standardError: outcome.lossProbability.standardError,
+            value: outcome.lossProbability.value,
         },
     };
 }
@@ -205,10 +216,14 @@ function perFirmSummaries(
     return byFirm
         .values()
         .map(({ firmKey, rounds: group }) => {
-            const multiples = group.flatMap((round) =>
+            const closed = group.filter(
+                (round) => round.status === RoundStatus.Closed,
+            );
+            const multiples = closed.flatMap((round) =>
                 round.toDateMultiple === null ? [] : [round.toDateMultiple],
             );
             return {
+                closedRounds: closed.length,
                 firmKey,
                 max: multiples.length === 0 ? null : Math.max(...multiples),
                 mean:
@@ -220,14 +235,13 @@ function perFirmSummaries(
                 rounds: group.length,
                 sampleLevel: sampleAdequacy(
                     SampleKind.ClosedRounds,
-                    group.length,
+                    closed.length,
                     sampleThresholds,
                 ),
-                sharePositive:
-                    multiples.length === 0
-                        ? null
-                        : multiples.filter((value) => value > 1).length /
-                          multiples.length,
+                sharePositive: sampledRate(
+                    multiples.filter((value) => value > 1).length,
+                    multiples.length,
+                ),
             };
         })
         .toArray()
@@ -251,6 +265,7 @@ function roundReturnOf(
     return {
         budget: roundBudgetStatus(round.budgetCents, cash.spend),
         closedOn: round.closedOn,
+        cycleDays: roundCycleDaysOf(inputs.ledger, round),
         firmKey: roundFirmKeyOf(round),
         id: round.id,
         label: round.label,

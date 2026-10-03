@@ -8,6 +8,9 @@ import {
     type ValueSection,
     ValueSectionKind,
 } from './adviceValueModel';
+import { LiveTransferNotesList } from './LiveTransferNotesList';
+
+const PAYOUT_HAZARD_LABEL = 'Live-transfer and payout-trigger assumptions behind the payout request';
 
 export function PayoutReadyBanner({
     flag,
@@ -84,6 +87,10 @@ function StakeLines({
                             {uncertainCurrencyText(view.whatIf.value)}.
                         </p>
                     )}
+                    <LiveTransferNotesList
+                        label={PAYOUT_HAZARD_LABEL}
+                        notes={view.liveTransferNotes}
+                    />
                 </div>
             );
         }

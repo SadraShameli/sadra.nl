@@ -788,6 +788,9 @@ export const propRuleViolation = createTable(
         index('prop_rule_violation_decision_idx')
             .on(t.decisionId, t.accountId, t.userId)
             .where(sql`decision_id IS NOT NULL`),
+        uniqueIndex('prop_rule_violation_user_decision_kind_idx')
+            .on(t.userId, t.decisionId, t.kind)
+            .where(sql`decision_id IS NOT NULL`),
         accountDateCheck('prop_rule_violation_occurred_on_ck', t.occurredOn),
     ],
 );

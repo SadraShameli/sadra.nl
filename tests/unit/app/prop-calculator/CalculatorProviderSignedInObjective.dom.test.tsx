@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
     CalculatorProvider,
+    type CalculatorProviderActions,
+    useCalculatorActions,
     useCalculatorInputs,
 } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
@@ -21,14 +23,12 @@ interface Harness {
     userId: null | string;
 }
 
-const harness = vi.hoisted(
-    (): Harness => ({
-        availableCents: null,
-        queryOptions: {},
-        rulebook: null,
-        userId: null,
-    }),
-);
+const harness = vi.hoisted((): Harness => ({
+    availableCents: null,
+    queryOptions: {},
+    rulebook: null,
+    userId: null,
+}));
 
 vi.mock('next/navigation', () => ({
     usePathname: () => '/',
@@ -58,7 +58,10 @@ vi.mock('~/trpc/react', () => ({
                             data:
                                 harness.availableCents === null
                                     ? undefined
-                                    : { availableCents: harness.availableCents },
+                                    : {
+                                          availableCents:
+                                              harness.availableCents,
+                                      },
                         };
                     },
                 },
@@ -76,9 +79,22 @@ vi.mock('~/trpc/react', () => ({
 
 const SWITCH_CENTS = 500_000;
 
+const probed: { actions: CalculatorProviderActions | null; query: string } = {
+    actions: null,
+    query: '',
+};
+
 function ObjectiveProbe() {
-    const { state } = useCalculatorInputs();
+    const { encodeOptions, state } = useCalculatorInputs();
+    probed.actions = useCalculatorActions();
+    probed.query = JSON.stringify(encodeOptions);
     return <output data-testid="objective">{state.objective}</output>;
+}
+
+function reset() {
+    act(() => {
+        probed.actions?.reset();
+    });
 }
 
 function withSwitch(objectiveSwitchCents: null | number): RulebookParameters {
@@ -116,6 +132,7 @@ describe('CalculatorProvider signed-in default objective (PT-63b, F-V15, QV-5)',
         harness.queryOptions = {};
         harness.rulebook = null;
         harness.userId = null;
+        probed.actions = null;
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -193,5 +210,143 @@ describe('CalculatorProvider signed-in default objective (PT-63b, F-V15, QV-5)',
         harness.availableCents = 100_000;
         open('');
         expect(shown()).toBe(SizingObjective.RuinFirst);
+    });
+
+    describe('Reset (PT-63d, F-V15)', () => {
+        it('runs the signed-in automatic objective again, so a reset and a reload agree', () => {
+            harness.userId = 'user-1';
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            harness.availableCents = 100_000;
+            open('');
+            expect(shown()).toBe(SizingObjective.RuinFirst);
+            reset();
+            expect(shown()).toBe(SizingObjective.RuinFirst);
+            expect(probed.query).toBe(
+                JSON.stringify({ objectiveUrl: 'omitted' }),
+            );
+        });
+
+        it('replaces an objective the user picked after the automatic one with the automatic one again', () => {
+            harness.userId = 'user-1';
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            harness.availableCents = 100_000;
+            open('');
+            act(() => {
+                probed.actions?.setObjective(SizingObjective.CycleCash);
+            });
+            expect(shown()).toBe(SizingObjective.CycleCash);
+            reset();
+            expect(shown()).toBe(SizingObjective.RuinFirst);
+        });
+
+        it('goes back to MonthlyNet when the bankroll chose nothing automatically', () => {
+            harness.userId = 'user-1';
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            harness.availableCents = SWITCH_CENTS;
+            open('');
+            act(() => {
+                probed.actions?.setObjective(SizingObjective.CycleCash);
+            });
+            reset();
+            expect(shown()).toBe(SizingObjective.MonthlyNet);
+        });
+
+        it('goes back to MonthlyNet for a signed-out visitor', () => {
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            harness.availableCents = 100_000;
+            open('');
+            act(() => {
+                probed.actions?.setObjective(SizingObjective.CycleCash);
+            });
+            reset();
+            expect(shown()).toBe(SizingObjective.MonthlyNet);
+        });
+    });
+
+    describe('Reset remembers the signed-in automatic objective without applying it (PT-63e, F-V15)', () => {
+        const LINK_WITH_CYCLE_CASH = `?${encodeState({
+            ...defaultCalculatorState(),
+            objective: SizingObjective.CycleCash,
+        }).toString()}`;
+
+        it('gives RuinFirst on Reset after a link carried its own objective, as a reload without the link does', () => {
+            harness.userId = 'user-1';
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            harness.availableCents = 100_000;
+            open(LINK_WITH_CYCLE_CASH);
+            expect(shown()).toBe(SizingObjective.CycleCash);
+            reset();
+            expect(shown()).toBe(SizingObjective.RuinFirst);
+            expect(probed.query).toBe(
+                JSON.stringify({ objectiveUrl: 'omitted' }),
+            );
+        });
+
+        it('keeps the link objective when it opens, the remembered automatic one is never applied', () => {
+            harness.userId = 'user-1';
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            harness.availableCents = 100_000;
+            open(LINK_WITH_CYCLE_CASH);
+            expect(shown()).toBe(SizingObjective.CycleCash);
+            expect(probed.query).toBe(
+                JSON.stringify({ objectiveUrl: 'explicit' }),
+            );
+        });
+
+        it('gives RuinFirst on Reset after the user picked an objective before the bankroll arrived', () => {
+            harness.userId = 'user-1';
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            open('');
+            act(() => {
+                probed.actions?.setObjective(SizingObjective.CycleCash);
+            });
+            harness.availableCents = 100_000;
+            open('');
+            expect(shown()).toBe(SizingObjective.CycleCash);
+            reset();
+            expect(shown()).toBe(SizingObjective.RuinFirst);
+        });
+
+        it('gives MonthlyNet on Reset once the session ended, forgetting the remembered objective', () => {
+            harness.userId = 'user-1';
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            harness.availableCents = 100_000;
+            open(LINK_WITH_CYCLE_CASH);
+            harness.userId = null;
+            open('');
+            reset();
+            expect(shown()).toBe(SizingObjective.MonthlyNet);
+        });
+
+        it('gives MonthlyNet on Reset once the bankroll passed the threshold, forgetting the remembered objective', () => {
+            harness.userId = 'user-1';
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            harness.availableCents = 100_000;
+            open(LINK_WITH_CYCLE_CASH);
+            harness.availableCents = 900_000;
+            open('');
+            reset();
+            expect(shown()).toBe(SizingObjective.MonthlyNet);
+        });
+
+        it('gives RuinFirst on Reset when the bankroll moved to another amount that is still below the threshold', () => {
+            harness.userId = 'user-1';
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            harness.availableCents = 100_000;
+            open(LINK_WITH_CYCLE_CASH);
+            harness.availableCents = 200_000;
+            open('');
+            reset();
+            expect(shown()).toBe(SizingObjective.RuinFirst);
+        });
+
+        it('gives MonthlyNet on Reset when the link carried an objective and the bankroll chose nothing', () => {
+            harness.userId = 'user-1';
+            harness.rulebook = withSwitch(SWITCH_CENTS);
+            harness.availableCents = SWITCH_CENTS;
+            open(LINK_WITH_CYCLE_CASH);
+            reset();
+            expect(shown()).toBe(SizingObjective.MonthlyNet);
+        });
     });
 });

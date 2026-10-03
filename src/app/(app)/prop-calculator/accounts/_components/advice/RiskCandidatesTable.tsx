@@ -14,10 +14,14 @@ import {
     type RiskCandidateRowView,
     type RiskCandidatesView,
 } from './adviceValueModel';
+import { LiveTransferNotesList } from './LiveTransferNotesList';
 
 export const DOCUMENTED_RUNG_MARK = 'Documented rung';
 
 export const ENGINE_OPTIMUM_MARK = 'Engine optimum for this one step';
+
+const CANDIDATES_HAZARD_LABEL =
+    'Live-transfer and payout-trigger assumptions behind the risk candidates';
 
 const DOCUMENTED_RUNG_STAYS_TEXT =
     'The documented rung stays your plan: this table compares one trade and does not change it.';
@@ -82,6 +86,10 @@ export function RiskCandidatesTable({
                     ))}
                 </TableBody>
             </Table>
+            <LiveTransferNotesList
+                label={CANDIDATES_HAZARD_LABEL}
+                notes={view.liveTransferNotes}
+            />
         </div>
     );
 }

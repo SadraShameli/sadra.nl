@@ -22,7 +22,7 @@ import {
 import {
     LiveApplicabilityKind,
     livePlanApplicability,
-} from '~/lib/prop-calculator/advisor';
+} from '~/lib/prop-calculator/firms';
 import { PropMutationRejection } from '~/lib/schemas/propAccountOutputs';
 
 import {

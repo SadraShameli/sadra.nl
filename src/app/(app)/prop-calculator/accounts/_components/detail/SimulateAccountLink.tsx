@@ -8,18 +8,20 @@ import {
     calculatorLinkForAccount,
 } from '~/app/(app)/prop-calculator/accounts/_components/calculatorLinkForAccount';
 import { Button } from '~/components/ui/Button';
-import { type Plan, serializePlanId } from '~/lib/prop-calculator';
+import { type Dollars, type Plan, serializePlanId } from '~/lib/prop-calculator';
 import {
     type RulebookParameters,
     type SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
 export function SimulateAccountLink({
+    personalMaxRiskPerTrade,
     plan,
     rulebook,
     rulebookError,
     stage,
 }: {
+    readonly personalMaxRiskPerTrade: Dollars | null;
     readonly plan: Plan;
     readonly rulebook: RulebookParameters | undefined;
     readonly rulebookError: null | string;
@@ -32,11 +34,12 @@ export function SimulateAccountLink({
                 : calculatorLinkForAccount({
                       firmId: plan.id.firm,
                       optIns: overviewPlanOptInsOf(plan),
+                      personalMaxRiskPerTrade,
                       planSerial: serializePlanId(plan.id),
                       rulebook,
                       stage,
                   }),
-        [plan, rulebook, stage],
+        [personalMaxRiskPerTrade, plan, rulebook, stage],
     );
     if (rulebook === undefined) {
         return rulebookError === null ? (

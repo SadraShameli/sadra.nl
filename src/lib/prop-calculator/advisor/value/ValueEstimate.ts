@@ -1,3 +1,7 @@
+import {
+    type CumulativePayoutTriggerAssumption,
+    type LiveTransferHazardAssumption,
+} from '~/lib/prop-calculator/advisor/Assumption';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
 export enum CreditBasis {
@@ -30,7 +34,9 @@ export interface ValueNotModeledResult {
 export type ValueOutcome = ValueNotModeledResult | ValueResult;
 
 export interface ValueResult extends DualValueEstimate {
+    readonly cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption;
     readonly kind: ValueResultKind.Value;
+    readonly liveTransfer?: LiveTransferHazardAssumption;
     readonly seed: number;
     readonly trials: number;
 }
@@ -72,8 +78,15 @@ export function valueResult(
     estimate: DualValueEstimate,
     seed: number,
     trials: number,
+    liveTransfer?: LiveTransferHazardAssumption,
 ): ValueResult {
-    return { ...estimate, kind: ValueResultKind.Value, seed, trials };
+    return {
+        ...estimate,
+        kind: ValueResultKind.Value,
+        ...(liveTransfer !== undefined && { liveTransfer }),
+        seed,
+        trials,
+    };
 }
 
 export function withCashAdded(value: ValueResult, cash: number): ValueResult {

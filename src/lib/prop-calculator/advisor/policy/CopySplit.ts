@@ -176,18 +176,6 @@ export function copySplitCandidates(
     );
 }
 
-export function copySplitFundedStopNotice(
-    rulebookFunded: FundedSizingParameters,
-): null | string {
-    const own = fundedStopRuleToDayStopRule(rulebookFunded.stopRule);
-    const applied = fundedStopRuleToDayStopRule(
-        DEFAULT_COPY_SPLIT_FUNDED.parameters.stopRule,
-    );
-    return stableJson(own) === stableJson(applied)
-        ? null
-        : `your rulebook funded stop (${fundedStopText(own)}) is not applied to this split yet: the funded phase runs on the default rulebook funded stop (${fundedStopText(applied)})`;
-}
-
 export function copySplitTrials(
     trialBudget: number,
     splits: readonly number[],

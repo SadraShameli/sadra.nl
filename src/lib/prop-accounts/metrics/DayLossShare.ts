@@ -50,6 +50,9 @@ export const DAY_LOSS_MAX_WEEKDAYS_APART = 1;
 export const DAY_LOSS_EVAL_NOTE =
     'an eval loss is an approximation scaled to the retry fee, valid near a fresh eval; the fees already paid are never counted';
 
+export const DAY_LOSS_EVAL_FROM_STATE_NOTE =
+    'an eval loss priced from the account state is the drop in its from-state value between the two snapshots, from the same simulated trials and seed';
+
 export const DAY_LOSS_FUNDED_NOTE =
     'a funded loss is the withdrawable above the retained cushion that was lost, so a loss that stays below the cushion shows as zero';
 
@@ -124,26 +127,33 @@ export function dayLossBasisNotes(day: DayLoss): readonly string[] {
         ...(bases.has(DayLossBasis.EvalFeeHeuristic)
             ? [DAY_LOSS_EVAL_NOTE]
             : []),
+        ...(bases.has(DayLossBasis.EvalFromStateValue)
+            ? [DAY_LOSS_EVAL_FROM_STATE_NOTE]
+            : []),
     ];
 }
 
 export function dayLossBreakdownText(day: DayLoss): string {
-    const funded = sumUsdCents(
-        day.entries
-            .filter((entry) => entry.basis === DayLossBasis.FundedWithdrawable)
-            .map((entry) => entry.lossCents),
-    );
-    const evaluation = sumUsdCents(
-        day.entries
-            .filter((entry) => entry.basis !== DayLossBasis.FundedWithdrawable)
-            .map((entry) => entry.lossCents),
-    );
+    const totalOf = (basis: DayLossBasis): UsdCents =>
+        sumUsdCents(
+            day.entries
+                .filter((entry) => entry.basis === basis)
+                .map((entry) => entry.lossCents),
+        );
+    const funded = totalOf(DayLossBasis.FundedWithdrawable);
+    const heuristic = totalOf(DayLossBasis.EvalFeeHeuristic);
+    const fromState = totalOf(DayLossBasis.EvalFromStateValue);
     return [
         ...(funded > 0
             ? [`${formatUsdCents(funded)} of withdrawable on funded accounts`]
             : []),
-        ...(evaluation > 0
-            ? [`${formatUsdCents(evaluation)} of estimated eval value`]
+        ...(heuristic > 0
+            ? [`${formatUsdCents(heuristic)} of estimated eval value`]
+            : []),
+        ...(fromState > 0
+            ? [
+                  `${formatUsdCents(fromState)} of eval value lost between the two snapshots`,
+              ]
             : []),
     ].join(' and ');
 }

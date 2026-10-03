@@ -8,6 +8,7 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    type AccountPendingPayoutCounts,
     firmMinimumNotice,
     fundedPayoutRuleContextOf,
     type LiveTriggerCoverage,
@@ -17,6 +18,7 @@ import {
     payoutReadiness,
     PayoutReadinessKind,
     type PayoutWait,
+    pendingPayoutCountsOf,
     type ReconstructedFundedOrEvalAccount,
     retainedCushionForStage,
     type RulebookParameters,
@@ -45,6 +47,7 @@ export interface FirmMinimumNotice {
 
 export interface PayoutReadinessAccountOverride {
     readonly paidPayoutsSinceLastLiveAccount?: null | number;
+    readonly pendingPayoutCounts?: AccountPendingPayoutCounts;
     readonly personalRequestOverride?: null | number;
     readonly personalRetainedCushion?: null | number;
 }
@@ -165,7 +168,10 @@ function fundedRowOf(
         plan,
         override?.paidPayoutsSinceLastLiveAccount ?? null,
     );
+    const pendingPayoutCounts =
+        override?.pendingPayoutCounts ?? pendingPayoutCountsOf(account);
     const ruleContext = fundedPayoutRuleContextOf({
+        ...pendingPayoutCounts,
         liveTrigger: liveTriggerLimits,
         pendingPayouts: pendingPayouts ?? 0,
         personalRequestOverride: null,
@@ -186,6 +192,7 @@ function fundedRowOf(
         rulebook.payout.requestCents / CENTS_PER_DOLLAR;
     const grossPendingPayouts = pendingPayouts ?? 0;
     const readiness = payoutReadiness(plan, ruleContext.state, tracker, {
+        ...pendingPayoutCounts,
         liveTrigger: liveTriggerLimits,
         minRetainedCushion,
         payoutRequestSize: rawRequest,

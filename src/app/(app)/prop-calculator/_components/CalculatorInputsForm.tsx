@@ -6,7 +6,10 @@ import { Card } from '~/components/ui/Card';
 import { Input } from '~/components/ui/Input';
 import { cn } from '~/lib/utilities';
 
-import { AppliedEvalLadderNotice } from './AppliedEvalLadderNotice';
+import {
+    AppliedEvalLadderNotice,
+    EvalLadderScope,
+} from './AppliedEvalLadderNotice';
 import { CALCULATOR_FIELD_LABELS } from './calculatorFieldLabels';
 import {
     useCalculatorActions,
@@ -19,10 +22,12 @@ import TradingInputs from './TradingInputs';
 
 interface CalculatorInputsFormProperties {
     aside?: ReactNode;
+    evalLadderScope?: EvalLadderScope;
 }
 
 export function CalculatorInputsForm({
     aside,
+    evalLadderScope = EvalLadderScope.Applied,
 }: CalculatorInputsFormProperties) {
     const { firms, state } = useCalculatorInputs();
     const actions = useCalculatorActions();
@@ -30,7 +35,7 @@ export function CalculatorInputsForm({
 
     return (
         <>
-            <AppliedEvalLadderNotice />
+            <AppliedEvalLadderNotice scope={evalLadderScope} />
             <Card className="flex flex-col gap-4 px-6 py-6">
                 <FirmPlanPicker
                     firm={state.firm}

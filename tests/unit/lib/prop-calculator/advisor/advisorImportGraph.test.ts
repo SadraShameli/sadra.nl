@@ -1,9 +1,20 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+    mkdirSync,
+    mkdtempSync,
+    readdirSync,
+    readFileSync,
+    rmSync,
+    writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { moduleGraphFrom } from '../../../importSpecifiers';
+import {
+    importSpecifiersOf,
+    moduleGraphFrom,
+    resolveLocalSpecifier,
+} from '../../../importSpecifiers';
 
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
 const ADVISOR_ROOT = path.join(
@@ -20,6 +31,44 @@ const FORBIDDEN_CORE_FILES = new Set([
     path.join(CORE_ROOT, 'FundedDpModelGaps.ts'),
     path.join(CORE_ROOT, 'FundedStateValue.ts'),
 ]);
+const GAP_KIND_LEAF = path.join(CORE_ROOT, 'FundedDpModelGapKind.ts');
+const DP_ADVICE_ROW = path.join(ADVISOR_ROOT, 'DpAdviceRow.ts');
+const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx']);
+
+function dpImportersOutsideCli(sourceRoot: string): string[] {
+    const dpPrefix = `${path.join(sourceRoot, 'lib', 'prop-calculator', 'advisor', 'dp')}${path.sep}`;
+    const cliPrefix = `${path.join(sourceRoot, 'cli')}${path.sep}`;
+    const offenders: string[] = [];
+    const visit = (directory: string): void => {
+        for (const entry of readdirSync(directory, { withFileTypes: true })) {
+            const entryPath = path.join(directory, entry.name);
+            if (entry.isDirectory()) {
+                visit(entryPath);
+                continue;
+            }
+            if (
+                !SOURCE_EXTENSIONS.has(path.extname(entry.name)) ||
+                entryPath.startsWith(dpPrefix) ||
+                entryPath.startsWith(cliPrefix)
+            ) {
+                continue;
+            }
+            const importsDp = importSpecifiersOf(
+                readFileSync(entryPath, 'utf8'),
+            ).some(({ specifier }) => {
+                const resolved = resolveLocalSpecifier(
+                    entryPath,
+                    specifier,
+                    sourceRoot,
+                );
+                return resolved !== null && resolved.startsWith(dpPrefix);
+            });
+            if (importsDp) offenders.push(entryPath);
+        }
+    };
+    visit(sourceRoot);
+    return offenders;
+}
 
 describe('advisor/index.ts stays browser-safe (F-147)', () => {
     const graph = moduleGraphFrom(ADVISOR_INDEX, SOURCE_ROOT);
@@ -48,6 +97,100 @@ describe('advisor/index.ts stays browser-safe (F-147)', () => {
         expect(graph.files).toContain(
             path.join(ADVISOR_ROOT, 'policy', 'index.ts'),
         );
+    });
+});
+
+describe('the gap-kind leaf stays browser-safe (F-147)', () => {
+    it('exists and reaches no DP solver file and no node: module', () => {
+        const graph = moduleGraphFrom(GAP_KIND_LEAF, SOURCE_ROOT);
+
+        expect(
+            graph.files.filter((file) => FORBIDDEN_CORE_FILES.has(file)),
+        ).toEqual([]);
+        expect(graph.externalSpecifiers).toEqual([]);
+    });
+
+    it('is reached from the advisor barrel through the core barrel', () => {
+        const graph = moduleGraphFrom(ADVISOR_INDEX, SOURCE_ROOT);
+
+        expect(graph.files).toContain(GAP_KIND_LEAF);
+    });
+});
+
+describe('advisor/DpAdviceRow.ts stays browser-safe (F-147)', () => {
+    const graph = moduleGraphFrom(DP_ADVICE_ROW, SOURCE_ROOT);
+
+    it('never reaches FundedStateValue, AverageRewardSolver or FundedDpModelGaps', () => {
+        expect(
+            graph.files.filter((file) => FORBIDDEN_CORE_FILES.has(file)),
+        ).toEqual([]);
+    });
+
+    it('never reaches a node: module', () => {
+        expect(graph.externalSpecifiers).toEqual([]);
+    });
+
+    it('never reaches advisor/dp', () => {
+        expect(
+            graph.files.some((file) => file.startsWith(ADVISOR_DP_PREFIX)),
+        ).toBe(false);
+    });
+
+    it('reaches the gap-kind leaf', () => {
+        expect(graph.files).toContain(GAP_KIND_LEAF);
+    });
+});
+
+describe('advisor/dp is Node-only and CLI-only (PD-16)', () => {
+    let fixtureRoot: null | string = null;
+
+    afterEach(() => {
+        if (fixtureRoot !== null)
+            rmSync(fixtureRoot, { force: true, recursive: true });
+        fixtureRoot = null;
+    });
+
+    it('has a barrel the CLI imports through', () => {
+        expect(
+            moduleGraphFrom(
+                path.join(ADVISOR_ROOT, 'dp', 'index.ts'),
+                SOURCE_ROOT,
+            ).files,
+        ).toContain(path.join(ADVISOR_ROOT, 'dp', 'DpAdviceSource.ts'));
+    });
+
+    it('is imported by nothing outside src/cli and itself', () => {
+        expect(dpImportersOutsideCli(SOURCE_ROOT)).toEqual([]);
+    });
+
+    it('the importer scan flags a planted importer outside the CLI and spares the CLI (fixture)', () => {
+        fixtureRoot = mkdtempSync(path.join(tmpdir(), 'advisor-dp-importers-'));
+        const dpDirectory = path.join(
+            fixtureRoot,
+            'lib',
+            'prop-calculator',
+            'advisor',
+            'dp',
+        );
+        mkdirSync(dpDirectory, { recursive: true });
+        mkdirSync(path.join(fixtureRoot, 'cli'));
+        mkdirSync(path.join(fixtureRoot, 'app'));
+        writeFileSync(
+            path.join(dpDirectory, 'index.ts'),
+            'export const thing = 1;\n',
+        );
+        writeFileSync(
+            path.join(fixtureRoot, 'cli', 'ok.ts'),
+            "import { thing } from '~/lib/prop-calculator/advisor/dp';\nexport { thing };\n",
+        );
+        writeFileSync(
+            path.join(fixtureRoot, 'app', 'bad.ts'),
+            "import { thing } from '~/lib/prop-calculator/advisor/dp';\nexport { thing };\n",
+        );
+
+        expect(dpImportersOutsideCli(fixtureRoot)).toEqual([
+            path.join(fixtureRoot, 'app', 'bad.ts'),
+        ]);
     });
 });
 

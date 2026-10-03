@@ -1,4 +1,5 @@
 export {
+    isNextSlotHourKeyAvailable,
     nextSlotAllocation,
     type NextSlotAllocation,
     type NextSlotCandidate,
@@ -25,4 +26,5 @@ export {
     NextSlotScaleMark,
     type NextSlotScaleMarkDetail,
     NextSlotSizingBasis,
+    NextSlotSortKey,
 } from './NextSlotAllocation';

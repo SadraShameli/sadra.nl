@@ -27,6 +27,7 @@ export enum DifferenceReason {
     FlatRiskIgnoresState = 'flat-risk-ignores-state',
     FreshStartApproximation = 'fresh-start-approximation',
     HorizonCreditOneRequest = 'horizon-credit-one-request',
+    LiveFloorMinimumTrade = 'live-floor-minimum-trade',
     LiveModelApproximation = 'live-model-approximation',
     LiveNotModeled = 'live-not-modeled',
     LiveTriggersNotChecked = 'live-triggers-not-checked',
@@ -51,6 +52,12 @@ export enum DpNotValidatedCause {
     StaleTree = 'stale-tree',
 }
 
+export enum EngineInputsRefusalKind {
+    FlatBelowOneContract = 'flat-below-one-contract',
+    NoCandidates = 'no-candidates',
+    PayoutOverrideRejected = 'payout-override-rejected',
+}
+
 export type DifferenceReasonDetail =
     | BareDifferenceReasonDetail<DifferenceReason.AssumedInputs>
     | BareDifferenceReasonDetail<DifferenceReason.ConsistencyNotEvaluated>
@@ -65,6 +72,12 @@ export type DifferenceReasonDetail =
     | BareDifferenceReasonDetail<DifferenceReason.ObjectiveSpeedVsMonthlyNet>
     | BareDifferenceReasonDetail<DifferenceReason.PlanRulesChanged>
     | BareDifferenceReasonDetail<DifferenceReason.Suspended>
+    | {
+          readonly affordableRisk: Dollars;
+          readonly isPlacedAtEnteredStop: boolean;
+          readonly kind: DifferenceReason.LiveFloorMinimumTrade;
+          readonly minimumTradeRisk: Dollars;
+      }
     | { readonly cap: Dollars; readonly kind: DifferenceReason.PersonalCap }
     | {
           readonly cause: DpNotValidatedCause;
@@ -98,8 +111,8 @@ export type DifferenceReasonDetail =
           readonly step: Dollars;
       }
     | {
-          readonly enginePolicyLabel: string;
-          readonly headlinePolicyLabel: string;
+          readonly engineRequest: Dollars;
+          readonly headlineRequest: Dollars;
           readonly kind: DifferenceReason.PayoutPolicyDiffers;
       }
     | {
@@ -111,10 +124,6 @@ export type DifferenceReasonDetail =
     | {
           readonly horizonDays: number;
           readonly kind: DifferenceReason.HorizonCreditOneRequest;
-      }
-    | {
-          readonly issue: string;
-          readonly kind: DifferenceReason.EngineInputsRefused;
       }
     | {
           readonly kind: DifferenceReason.AggressiveOptimumChurn;
@@ -137,6 +146,10 @@ export type DifferenceReasonDetail =
           readonly sims: number;
       }
     | { readonly kind: DifferenceReason.DpIneligible; readonly reason: string }
+    | {
+          readonly kind: DifferenceReason.EngineInputsRefused;
+          readonly refusal: EngineInputsRefusalKind;
+      }
     | {
           readonly kind: DifferenceReason.EngineLadderNeverFunded;
           readonly sims: number;

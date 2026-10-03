@@ -85,6 +85,8 @@ function specFor(
     };
 }
 
+const SWEEP_MECHANISM_TRIALS = 20;
+
 const RULEBOOK_VARIANTS: readonly (readonly [string, RulebookParameters])[] = [
     [
         'strategy win rate',
@@ -200,9 +202,13 @@ describe('payoutSweepCacheKey', () => {
 
 describe('the sweep runs over PAYOUT_SIZE_SWEEP_GRID under the full EnginePolicy', () => {
     it('produces one row per distinct effective request size on the grid', () => {
+        const spec = specFor(2000);
         const result = runPayoutSizeSweep(TOPSTEP_50K, {
             source: AdviceSource.PayoutSizeSweep,
-            spec: specFor(2000),
+            spec: {
+                ...spec,
+                run: { ...spec.run, trials: SWEEP_MECHANISM_TRIALS },
+            },
         });
         expect(result.kind).toBe(PayoutSizeSweepResultKind.Optimum);
         if (result.kind !== PayoutSizeSweepResultKind.Optimum) return;

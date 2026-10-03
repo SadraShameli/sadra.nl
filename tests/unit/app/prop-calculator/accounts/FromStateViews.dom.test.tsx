@@ -35,6 +35,7 @@ import {
     type AccountSnapshotInput,
     DashboardBalanceConvention,
     DEFAULT_RULEBOOK,
+    NO_PENDING_PAYOUT_COUNTS,
     SizingStage,
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
@@ -83,16 +84,6 @@ function accountRequestOf(requests: readonly OverviewRequest[]) {
     );
 }
 
-function keysOfKind(
-    requests: readonly OverviewRequest[],
-    kind: OverviewRequestKind,
-) {
-    return requests
-        .filter((request) => request.kind === kind)
-        .map((request) => overviewRequestKey(request))
-        .toSorted((left, right) => left.localeCompare(right));
-}
-
 function readyView(request: OverviewRequest) {
     const outcome: OverviewOutcome = {
         key: overviewRequestKey(request),
@@ -122,6 +113,13 @@ function readyView(request: OverviewRequest) {
         { failure: null, outcomes: new Map([[outcome.key, outcome]]) },
         request,
     );
+}
+
+function requestOfKind(
+    requests: readonly OverviewRequest[],
+    kind: OverviewRequestKind,
+) {
+    return requests.find((request) => request.kind === kind);
 }
 
 async function settle() {
@@ -171,6 +169,7 @@ describe('from-state views', () => {
         it('links to the simulator with the plan and says it is a fresh start with the unsized funded risk caveat', () => {
             render(
                 <SimulateAccountLink
+                    personalMaxRiskPerTrade={null}
                     plan={PLAN}
                     rulebook={DEFAULT_RULEBOOK}
                     rulebookError={null}
@@ -193,6 +192,7 @@ describe('from-state views', () => {
         it('says the rulebook could not be loaded, with the error, and links nothing', () => {
             render(
                 <SimulateAccountLink
+                    personalMaxRiskPerTrade={null}
                     plan={PLAN}
                     rulebook={undefined}
                     rulebookError="the rulebook query failed"
@@ -211,6 +211,7 @@ describe('from-state views', () => {
         it('says so when the rulebook has not loaded or the account is live, and links nothing', () => {
             render(
                 <SimulateAccountLink
+                    personalMaxRiskPerTrade={null}
                     plan={PLAN}
                     rulebook={undefined}
                     rulebookError={null}
@@ -221,6 +222,7 @@ describe('from-state views', () => {
             expect(container.textContent).toContain('rulebook has not loaded');
             render(
                 <SimulateAccountLink
+                    personalMaxRiskPerTrade={null}
                     plan={PLAN}
                     rulebook={DEFAULT_RULEBOOK}
                     rulebookError={null}
@@ -233,11 +235,18 @@ describe('from-state views', () => {
     });
 
     describe('LiveTransitionPreviewCard', () => {
-        it('shows the TopStep live start with the always-the-same note', () => {
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+        it('shows the TopStep live start with its range, since a capped balance under $10,000 starts lower (N-94)', () => {
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(<LiveTransitionPreviewCard account={account} plan={PLAN} />);
             expect(container.textContent).toContain('$10,000');
-            expect(container.textContent).toContain('always $10,000');
+            expect(container.textContent).toContain(
+                'Between $1,000 and $10,000, depending on the reserve balance carried into the live account.',
+            );
         });
     });
 
@@ -327,7 +336,12 @@ describe('from-state views', () => {
 
         it('computes the value, the milestone, the next payout, the payout path, the chain position and the retire information from the account state', async () => {
             vi.stubGlobal('Worker', FakeWorker);
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(
                 <NextPayoutSectionWithWorker
                     account={account}
@@ -363,7 +377,12 @@ describe('from-state views', () => {
 
         it('shows the first payout eligible step assumptions in the chain position, the lines the tools card shows (PT-67e)', async () => {
             vi.stubGlobal('Worker', FakeWorker);
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(
                 <NextPayoutSectionWithWorker
                     account={account}
@@ -387,7 +406,12 @@ describe('from-state views', () => {
 
         it('carries the personal payout override and retained cushion into the account request and the payout path, as the header figures do (PT-68b)', async () => {
             vi.stubGlobal('Worker', FakeWorker);
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             const props = {
                 account,
                 input: FUNDED,
@@ -424,9 +448,14 @@ describe('from-state views', () => {
             expect(container.textContent).not.toBe(pathWithoutRules);
         });
 
-        it('keeps the retire request on the rulebook policy and gives the value chain request the account personal rules (PT-67e)', async () => {
+        it('gives the retire and value chain requests the account personal rules, as PT-68g runs the retire comparison at the same limits (PT-67e)', async () => {
             vi.stubGlobal('Worker', FakeWorker);
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             const props = {
                 account,
                 input: FUNDED,
@@ -450,28 +479,30 @@ describe('from-state views', () => {
             );
             await settle();
             const withRules = posted.flatMap((entry) => entry.requests);
-            expect(
-                keysOfKind(withRules, OverviewRequestKind.RetireComparison),
-            ).toEqual(
-                keysOfKind(baseline, OverviewRequestKind.RetireComparison),
-            );
-            const chainOf = (requests: readonly OverviewRequest[]) =>
-                requests.find(
-                    (request) =>
-                        request.kind === OverviewRequestKind.ValueChain,
-                );
-            expect(
-                chainOf(withRules)?.spec.enginePolicy.retainedCushionRequest,
-            ).toBeGreaterThanOrEqual(9000);
-            expect(
-                chainOf(baseline)?.spec.enginePolicy.retainedCushionRequest,
-            ).toBeLessThan(9000);
+            for (const kind of [
+                OverviewRequestKind.RetireComparison,
+                OverviewRequestKind.ValueChain,
+            ]) {
+                expect(
+                    requestOfKind(withRules, kind)?.spec.enginePolicy
+                        .retainedCushionRequest,
+                ).toBeGreaterThanOrEqual(9000);
+                expect(
+                    requestOfKind(baseline, kind)?.spec.enginePolicy
+                        .retainedCushionRequest,
+                ).toBeLessThan(9000);
+            }
         });
 
         it('keeps the account figures when the group of fresh-chain requests fails, and says only the chain is unavailable', async () => {
             posted.length = 0;
             vi.stubGlobal('Worker', ChainFailingWorker);
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(
                 <NextPayoutSectionWithWorker
                     account={account}
@@ -498,7 +529,12 @@ describe('from-state views', () => {
                 highestEodBalance: dollars(50_300),
                 highestIntradayBalance: dollars(50_300),
             };
-            const account = AccountReconstruction.rebuild(nearThreshold, PLAN);
+            const account = AccountReconstruction.rebuild(
+                nearThreshold,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(
                 <NextPayoutSectionWithWorker
                     account={account}
@@ -521,7 +557,12 @@ describe('from-state views', () => {
 
         it('announces the pending figures through a status role', () => {
             vi.stubGlobal('Worker', SilentWorker);
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(
                 <NextPayoutSectionWithWorker
                     account={account}
@@ -545,7 +586,12 @@ describe('from-state views', () => {
 
         it('says the rulebook could not be loaded, with the error, instead of saying it has not loaded', () => {
             vi.stubGlobal('Worker', FakeWorker);
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(
                 <NextPayoutSectionWithWorker
                     account={account}
@@ -571,7 +617,12 @@ describe('from-state views', () => {
             const unlisted = Object.create(PLAN, {
                 id: { value: { ...PLAN.id, accountSize: 12_345 } },
             }) as Plan;
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(
                 <NextPayoutSectionWithWorker
                     account={account}
@@ -591,7 +642,12 @@ describe('from-state views', () => {
 
         it('says the rulebook has not loaded instead of computing', () => {
             vi.stubGlobal('Worker', FakeWorker);
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(
                 <NextPayoutSectionWithWorker
                     account={account}
@@ -609,7 +665,12 @@ describe('from-state views', () => {
         it('says a live account has no from-state value model and posts nothing', () => {
             vi.stubGlobal('Worker', FakeWorker);
             const liveInput = { ...FUNDED, stage: SizingStage.Live };
-            const account = AccountReconstruction.rebuild(liveInput, PLAN);
+            const account = AccountReconstruction.rebuild(
+                liveInput,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(
                 <NextPayoutSectionWithWorker
                     account={account}
@@ -628,7 +689,12 @@ describe('from-state views', () => {
 
         it('explains that web workers are missing instead of showing a blank section', () => {
             vi.stubGlobal('Worker', undefined);
-            const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+            const account = AccountReconstruction.rebuild(
+                FUNDED,
+                PLAN,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             render(
                 <NextPayoutSectionWithWorker
                     account={account}
@@ -654,6 +720,7 @@ describe('from-state views', () => {
                         firmId: FirmId.TopStep,
                         measuredRebuyLag: null,
                         optIns: NO_PLAN_OPT_INS,
+                        pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
                         planSerial: serializePlanId(PLAN.id),
                     },
                 ],

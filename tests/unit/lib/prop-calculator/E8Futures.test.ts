@@ -100,8 +100,8 @@ describe('E8 Futures Signature 50K', () => {
         expect(plan.drawdown.lock?.atProfit).toBe(2000);
         expect(plan.drawdown.lock?.lockedThreshold(50_000)).toBe(50_000);
         expect(plan.profitTarget).toBe(3000);
-        expect(plan.fees.oneTimeEval).toBe(160);
-        expect(plan.fees.reset).toBe(160);
+        expect(plan.fees.oneTimeEval).toBe(170);
+        expect(plan.fees.reset).toBe(170);
         expect(plan.minPayoutProfit).toBe(2000);
     });
 
@@ -443,14 +443,14 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
 });
 
 describe('E8 Futures fee basis across Signature and Zero', () => {
-    it('ranks all five plans by list eval fee: Signature 160 < Starter80 178 < Starter100 228 < Max80 328 < Max100 428', () => {
+    it('ranks all five plans by list eval fee: Signature 170 < Starter80 178 < Starter100 228 < Max80 328 < Max100 428', () => {
         const ranked = new E8Futures().plans
             .toSorted((a, b) => a.fees.oneTimeEval - b.fees.oneTimeEval)
             .map((p) => [serializePlanId(p.id), p.fees.oneTimeEval]);
         expect(ranked).toStrictEqual(
             (
                 [
-                    [E8FuturesVariant.Signature, 160],
+                    [E8FuturesVariant.Signature, 170],
                     [E8FuturesVariant.ZeroStarter80, 178],
                     [E8FuturesVariant.ZeroStarter100, 228],
                     [E8FuturesVariant.ZeroMax80, 328],

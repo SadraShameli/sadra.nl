@@ -36,7 +36,11 @@ import {
     TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator';
 import * as firms from '~/lib/prop-calculator/firms';
-import { buildLucidDailyLivePlan } from '~/lib/prop-calculator/firms';
+import {
+    buildLucidDailyLivePlan,
+    LiveApplicabilityNote,
+} from '~/lib/prop-calculator/firms';
+import { LIVE_TRANSFER_NOTE_TEXT } from '~/lib/prop-calculator/simulator';
 
 import { flagsNamedButNotAccepted } from './helpFlags';
 
@@ -339,7 +343,13 @@ describe('readLiveWithdrawal (D4: keep one drawdown of cushion unless --request-
     it("documents the default policy and the 'all' option in the --request-size help text, without em dashes", () => {
         const description = liveArguments['request-size'].description;
         expect(description).toContain("'all'");
-        expect(description).toContain('one cent above the drawdown floor');
+        expect(description).toContain(
+            'everything down to the lowest balance that stays alive',
+        );
+        expect(description).toContain(
+            'exactly the floor on a strictly-below floor such as the Topstep LFA, one cent above it on the others',
+        );
+        expect(description).not.toContain('one cent above the drawdown floor');
         expect(description).toContain('one full drawdown of cushion');
         expect(description).not.toContain('\u{2014}');
     });
@@ -367,7 +377,7 @@ describe('describeLiveWithdrawal', () => {
         {
             argv: ['--request-size', 'all'],
             expected:
-                'withdraw: everything down to one cent above the floor (--request-size all)',
+                'withdraw: everything down to the lowest balance that stays alive (--request-size all)',
         },
     ])('describes $argv as "$expected"', ({ argv, expected }) => {
         const inputs = parseSizedLive(argv, mffuBuilder());
@@ -390,7 +400,7 @@ describe('describeLiveWithdrawal on a live plan with a seed Reserve (TopStep LFA
         {
             argv: ['--request-size', 'all'],
             expected:
-                'withdraw: everything down to one cent above the floor (--request-size all), seed included as capital returned; released seed Reserve is held back until all 4 increments are out',
+                'withdraw: everything down to the lowest balance that stays alive (--request-size all), seed included as capital returned; released seed Reserve is held back until all 4 increments are out',
         },
     ])('describes $argv as "$expected"', ({ argv, expected }) => {
         const inputs = parseSizedLive(argv, topStepBuilder());
@@ -1217,5 +1227,47 @@ describe('prop live needs --stop-points: live percent-of-cushion risk is placed 
         expect(description).toContain('--instrument');
         expect(description).not.toContain('\u{2014}');
         expect(usage).not.toContain('Omit to leave risk uncapped');
+    });
+});
+
+const LUCID_DAILY_CREDIT_NOTE =
+    LIVE_TRANSFER_NOTE_TEXT[
+        LiveApplicabilityNote.LucidDailyTransitionPayoutIsPastCash
+    ];
+
+describe('prop live states the Lucid Daily credit caveats where it shows the credit (N-92)', () => {
+    const LUCID_RUN = [
+        '--firm',
+        'lucid',
+        ...HAND_COMPUTED_APEX_RUN,
+        ...ONE_NQ_AT_100,
+        '--horizon-days',
+        '25',
+    ];
+
+    it('prints the shared engine note beside the credit when --transition-profit is given', async () => {
+        const { stdout } = await capturedLiveRun([
+            ...LUCID_RUN,
+            '--transition-profit',
+            '14000',
+        ]);
+
+        expect(stdout).toContain('one-off transition credit (not annualized)');
+        expect(stdout).toContain(LUCID_DAILY_CREDIT_NOTE);
+    });
+
+    it('prints no credit note without --transition-profit', async () => {
+        const { stdout } = await capturedLiveRun(LUCID_RUN);
+
+        expect(stdout).not.toContain('one-off transition credit');
+        expect(stdout).not.toContain(LUCID_DAILY_CREDIT_NOTE);
+    });
+
+    it('says in the --transition-profit help that the split is the tool own reading and the credit may wait on KYC, through the same shared text', () => {
+        const description = liveArguments['transition-profit'].description;
+
+        expect(description).toContain(LUCID_DAILY_CREDIT_NOTE);
+        expect(description).toContain('at the 90% split');
+        expect(description).not.toContain('\u{2014}');
     });
 });

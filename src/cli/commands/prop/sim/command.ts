@@ -9,11 +9,12 @@ import {
     formatNumberWithSe,
     formatPercentWithSe,
     liveTransferHazardArgument,
-    liveTransferHazardLines,
+    liveTransferRunLines,
     pathGranularityComparisonArgument,
     placedFundedRiskNote,
     planArguments,
     planResolver,
+    pricedTriggerLines,
     printEdgePlausibilityNotes,
     readBankrollInputs,
     type TableColumn,
@@ -21,7 +22,7 @@ import {
     tradingArguments,
     tradingEdgeNotes,
     TradingInputs,
-    verifiedTriggerLines,
+    unrestatedLines,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import {
@@ -33,7 +34,6 @@ import {
 import {
     dollars,
     type Dollars,
-    fraction,
     type Fraction0to1,
     type Plan,
     type SimOutputs,
@@ -41,22 +41,23 @@ import {
 } from '~/lib/prop-calculator';
 import {
     attemptEconomicsOfRun,
-    attemptsAffordable,
+    bankrollAttempts,
+    bankrollNoPayout,
+    type BankrollRisk,
+    bankrollRisk,
     batchLossClosedForm,
-    cohortOutcome,
     ECONOMICS_REASON_TEXT,
     EconomicsReason,
     empiricalPayingStatsOf,
     evalPace,
     expectancyPerTradeR,
-    LOSS_RISK_DRAWS,
     LossSampleUnit,
     MAX_LOSS_TARGET_CAP,
     minimumAttemptsForLossTarget,
-    noPayoutProbability,
     type Quantity,
     requiredR,
 } from '~/lib/prop-calculator/economics';
+import { liveTransferContinuationNotes } from '~/lib/prop-calculator/simulator';
 import { mean } from '~/lib/prop-calculator/stats';
 
 export interface GranularityRow {
@@ -107,14 +108,19 @@ export default defineCommand({
             const [riskLine, runLine] = simHeaderLines(inputs, plan);
             ui.muted(riskLine);
             ui.muted(`${runLine}\n`);
+            const pricedLines = pricedTriggerLines(simInputs);
             for (const line of [
-                ...verifiedTriggerLines(
-                    simInputs.verifiedCumulativePayoutTrigger,
-                ),
-                ...liveTransferHazardLines(
-                    inputs.liveTransferHazard,
-                    out,
-                    simInputs.verifiedCumulativePayoutTrigger !== undefined,
+                ...pricedLines,
+                ...unrestatedLines(
+                    liveTransferRunLines(
+                        inputs.liveTransferHazard,
+                        out,
+                        liveTransferContinuationNotes(
+                            plan,
+                            out.liveTransferContinuation,
+                        ),
+                    ),
+                    pricedLines,
                 ),
             ]) {
                 ui.muted(line);
@@ -372,46 +378,38 @@ function bankrollAffordabilityRows(
     inputs: TradingInputs,
     bankroll: Dollars,
 ): readonly SummaryRow[] {
-    const attemptsQuantity = attemptsAffordable(
-        bankroll,
-        dollars(out.costPerAttempt),
-    );
-    const attemptsAffordableCount = attemptsQuantity.value;
-
+    const attemptsAffordableCount = bankrollAttempts(out, bankroll);
     const isTrialUnit = inputs.maxAttempts > 1;
-    const sampleCostBasis = isTrialUnit
-        ? out.expectedTotalCost
-        : out.costPerAttempt;
-    const sampleQuantity = attemptsAffordable(
+    const sampleRisk = bankrollRisk(
+        isTrialUnit
+            ? {
+                  attemptPaysProbability: out.attemptPaysProbability,
+                  costPerAttempt: out.expectedTotalCost,
+                  netValues: out.netValues,
+              }
+            : out,
         bankroll,
-        dollars(sampleCostBasis),
+        inputs.seed,
     );
-    const sampleCount = sampleQuantity.value;
+    const sampleCount = sampleRisk.attempts;
     const batchLabel = isTrialUnit
         ? `P(batch net < 0) over ${sampleCount ?? 0} trials of up to ${inputs.maxAttempts} attempts`
         : `P(batch net < 0) over ${sampleCount ?? 0} attempts`;
+    const invalidInput = formatQuantityReason(EconomicsReason.InvalidInput);
 
     return [
         [
             'attempts affordable',
             attemptsAffordableCount === null
-                ? formatQuantityReason(attemptsQuantity.reason)
+                ? invalidInput
                 : `${attemptsAffordableCount} at ${formatCurrency(out.costPerAttempt)} per attempt`,
         ],
-        [
-            batchLabel,
-            sampleCount === null
-                ? formatQuantityReason(sampleQuantity.reason)
-                : formatBatchLoss(out.netValues, sampleCount, inputs.seed),
-        ],
+        [batchLabel, formatBatchLoss(sampleRisk)],
         [
             `P(no payout from ${attemptsAffordableCount ?? 0} attempts)`,
             attemptsAffordableCount === null
-                ? formatQuantityReason(attemptsQuantity.reason)
-                : formatNoPayout(
-                      out.attemptPaysProbability,
-                      attemptsAffordableCount,
-                  ),
+                ? invalidInput
+                : formatNoPayout(bankrollNoPayout(out, attemptsAffordableCount)),
         ],
     ];
 }
@@ -464,19 +462,11 @@ function evalPaceRows(
     ];
 }
 
-function formatBatchLoss(
-    netValues: readonly number[],
-    sampleCount: number,
-    seed: number,
-): string {
-    const outcome = cohortOutcome(
-        netValues,
-        sampleCount,
-        LOSS_RISK_DRAWS,
-        seed,
-    );
-    if (outcome.value === null) return formatQuantityReason(outcome.reason);
-    const { standardError, value } = outcome.value.lossProbability;
+function formatBatchLoss(risk: BankrollRisk): string {
+    if (risk.lossProbability === null) {
+        return formatQuantityReason(EconomicsReason.InvalidInput);
+    }
+    const { standardError, value } = risk.lossProbability;
     return formatPercentWithSe(value, standardError);
 }
 
@@ -502,11 +492,10 @@ function formatMinimumBudget(
         : formatQuantityReason(quantity.reason);
 }
 
-function formatNoPayout(pAttemptPays: number, attempts: number): string {
-    const quantity = noPayoutProbability(fraction(pAttemptPays), attempts);
-    return quantity.value === null
-        ? formatQuantityReason(quantity.reason)
-        : `${formatPercent(quantity.value, 3)} (ignores payout size)`;
+function formatNoPayout(probability: null | number): string {
+    return probability === null
+        ? formatQuantityReason(EconomicsReason.InvalidInput)
+        : `${formatPercent(probability, 3)} (ignores payout size)`;
 }
 
 function formatQuantityReason(reason: EconomicsReason): string {

@@ -14,9 +14,11 @@ import {
     ONE_CENT,
 } from '~/lib/prop-calculator';
 import {
+    BELOW_ONE_CONTRACT_TEXT,
     DAY_STOP_REASON_TEXT,
     type DayStopReason,
     NextTradeRiskVerdict,
+    RungPlacement,
     type SizingAdvisor,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -71,6 +73,7 @@ export interface RiskCheckView {
     readonly excess: number;
     readonly isViolationOffered: boolean;
     readonly payoutEligibleAboveRung: boolean;
+    readonly placementText: null | string;
     readonly stopText: null | string;
     readonly verdict: NextTradeRiskVerdict;
     readonly verdictText: string;
@@ -238,6 +241,10 @@ export function riskCheckViewOf(
             result.verdict === NextTradeRiskVerdict.AboveDocumented &&
             losses > 0,
         payoutEligibleAboveRung: result.payoutEligibleAboveRung,
+        placementText:
+            result.documentedRungPlacement === RungPlacement.BelowOneContract
+                ? `The documented rung ${BELOW_ONE_CONTRACT_TEXT}.`
+                : null,
         stopText,
         verdict: result.verdict,
         verdictText: verdictTextOf(result, excess, stopText),

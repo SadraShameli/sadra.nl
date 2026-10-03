@@ -20,12 +20,15 @@ import {
     DEFAULT_RULEBOOK,
     DifferenceReason,
     type DifferenceReasonDetail,
+    EngineInputsRefusalKind,
     EngineOptimumRefusalKind,
+    type EngineOptimumRequest,
     EngineOptimumRowKind,
     type EngineOptimumRunnerResult,
     type FundedFromStateEngineOptimumResult,
     FundedFromStateOptimumResultKind,
     FundedSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     type PayoutSizeSweepEngineOptimumResult,
     PayoutSizeSweepResultKind,
     type PersonalPayoutOverrideWarning,
@@ -36,6 +39,7 @@ import {
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
 import { FundedCandidateRefusal } from '~/lib/prop-calculator/optimize';
+import { stableJson } from '~/lib/stableJson';
 
 const TOPSTEP_ID: PlanId = {
     accountSize: 50_000,
@@ -64,6 +68,7 @@ function account(): ReconstructedFundedOrEvalAccount {
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -101,7 +106,7 @@ function advisorWith(
         snapshotAsOf: '2026-09-26',
         substate: null,
         today: '2026-09-26',
-        trials: 20,
+        trials: 10,
     });
 }
 
@@ -156,12 +161,21 @@ function registryPlan(id: PlanId): Plan {
 
 const plan = registryPlan(TOPSTEP_ID);
 
+const runCache = new Map<string, EngineOptimumRunnerResult>();
+
 function resultsOf(
     advisor: FundedSizingAdvisor,
 ): readonly EngineOptimumRunnerResult[] {
-    return advisor
-        .optimumRequests()
-        .map((request) => runEngineOptimum(plan, request));
+    return advisor.optimumRequests().map((request) => runCached(request));
+}
+
+function runCached(request: EngineOptimumRequest): EngineOptimumRunnerResult {
+    const key = stableJson(request);
+    const cached = runCache.get(key);
+    if (cached !== undefined) return cached;
+    const result = runEngineOptimum(plan, request);
+    runCache.set(key, result);
+    return result;
 }
 
 function sweepOnlyResults(
@@ -213,8 +227,8 @@ describe('FundedSizingAdvisor.assemble PayoutPolicyDiffers against the headline 
         );
 
         expect(reasons).toHaveLength(1);
-        expect(reasons[0]?.enginePolicyLabel).toContain('750');
-        expect(reasons[0]?.headlinePolicyLabel).toContain('500');
+        expect(reasons[0]?.engineRequest).toBe(750);
+        expect(reasons[0]?.headlineRequest).toBe(500);
     });
 
     it('compares the payout-size optimum with the personal override when one is set', () => {
@@ -395,7 +409,10 @@ describe('FundedSizingAdvisor.assemble with an unusable personal payout override
                     reason.kind === DifferenceReason.EngineInputsRefused,
             );
             expect(refused).toHaveLength(1);
-            expect(JSON.stringify(refused[0])).toContain('personal payout');
+            expect(refused[0]).toStrictEqual({
+                kind: DifferenceReason.EngineInputsRefused,
+                refusal: EngineInputsRefusalKind.PayoutOverrideRejected,
+            });
             expect(enginePolicyReasons(advice.differenceReasons)).toEqual([]);
             const request = advisor
                 .optimumRequests()

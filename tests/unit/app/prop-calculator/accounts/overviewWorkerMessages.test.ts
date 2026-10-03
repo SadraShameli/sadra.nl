@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
     type AccountFromStateFigures,
@@ -10,6 +10,7 @@ import {
     overviewOutcomeOf,
     overviewPlanKey,
     overviewPlanValueRequestsFor,
+    type OverviewPreviousAccount,
     overviewProjectionRequestsFor,
     type OverviewRequest,
     OverviewRequestGroup,
@@ -25,18 +26,24 @@ import {
     type PortfolioProjectionFigures,
     type ValueChainFigures,
     ValueChainStepOutcomeKind,
+    withPreviousAccount,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
     CENTS_PER_DOLLAR,
+    CumulativeAmountTrigger,
     dollars,
     effectivePayoutRequest,
     findFirm,
+    FirmAccountPolicy,
     FirmId,
     InstrumentSymbol,
+    type LiveTransitionTrigger,
     MffuVariant,
     NO_PLAN_OPT_INS,
     PayoutRequestPolicy,
     type Plan,
+    PolicySourceKind,
+    PolicyVerification,
     serializePlanId,
     TopStepVariant,
     TradingPhase,
@@ -49,6 +56,7 @@ import {
     DEFAULT_RULEBOOK,
     enginePolicyKey,
     LifetimePayoutCapBasis,
+    NO_PENDING_PAYOUT_COUNTS,
     PayoutSizeSweepResultKind,
     RebuyLagBasis,
     ReconstructedLiveKind,
@@ -113,6 +121,40 @@ const MFF_PRO_50K = requirePlan(
     }),
     'expected the MFF Pro 50K plan to resolve',
 );
+
+const CONFIRMED_SOURCE = {
+    fetchedOn: '2026-09-01',
+    quote: 'a synthetic test quote',
+    sourceKind: PolicySourceKind.LiveFetch,
+    url: 'https://example.test/policy',
+    verification: PolicyVerification.Confirmed,
+} as const;
+
+class StubTriggerPolicy extends FirmAccountPolicy {
+    constructor(private readonly triggers: readonly LiveTransitionTrigger[]) {
+        super();
+    }
+
+    override liveTriggersFor(): readonly LiveTransitionTrigger[] {
+        return this.triggers;
+    }
+}
+
+function withTopStepTriggers<T>(
+    triggers: readonly LiveTransitionTrigger[],
+    run: () => T,
+): T {
+    const firm = findFirm(FirmId.TopStep) as unknown as {
+        accountPolicy: FirmAccountPolicy;
+    };
+    const original = firm.accountPolicy;
+    firm.accountPolicy = new StubTriggerPolicy(triggers);
+    try {
+        return run();
+    } finally {
+        firm.accountPolicy = original;
+    }
+}
 
 const TOPSTEP_SERIAL = serializePlanId(TOPSTEP_50K.id);
 const MFF_SERIAL = serializePlanId(MFF_PRO_50K.id);
@@ -209,7 +251,7 @@ describe('overviewRequestsFor', () => {
         const rulebookRequest =
             DEFAULT_RULEBOOK.payout.requestCents / CENTS_PER_DOLLAR;
         expect(effectivePayoutRequest(MFF_PRO_50K, rulebookRequest)).toBe(1000);
-        expect(request.spec.enginePolicy.payoutRequestOverride).toBe(1000);
+        expect(request.spec.enginePolicy.payoutRequestOverride).toBeNull();
         const inputs = toSimInputs(MFF_PRO_50K, request.spec);
         expect(inputs.payoutRequestPolicy).toBe(
             PayoutRequestPolicy.FullRequestOnly,
@@ -1061,6 +1103,7 @@ function accountPlanInput(
         firmId: plan.id.firm,
         measuredRebuyLag: null,
         optIns: NO_PLAN_OPT_INS,
+        pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
         planSerial: serializePlanId(plan.id),
     };
 }
@@ -1105,7 +1148,12 @@ function rebuiltAccount(
     snapshot: AccountSnapshotInput,
     plan: Plan = TOPSTEP_50K,
 ) {
-    return AccountReconstruction.rebuild(snapshot, plan);
+    return AccountReconstruction.rebuild(
+        snapshot,
+        plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
+    );
 }
 
 function succeededAccount(request: OverviewRequest): AccountFromStateFigures {
@@ -1434,10 +1482,7 @@ describe('overviewOutcomeOf account requests (PT-37, F-87, F-88)', () => {
                     ...account,
                     cushion:
                         milestone.state.balance - milestone.state.threshold,
-                    fundedTracker: fundedTrackerAfterMilestonePayout(
-                        account,
-                        milestone,
-                    ),
+                    fundedTracker: fundedTrackerAfterMilestonePayout(milestone),
                     state: milestone.state,
                 },
                 request.spec,
@@ -1961,6 +2006,23 @@ describe('the overview chain is the lib value chain (PT-67e, F-V17, F-V18)', () 
         expect(structuredClone(figures)).toEqual(figures);
     });
 
+    it('says the firm minimum raised the request on a plan whose minimum is above the rulebook size, instead of calling it your own entry (PT-42c, F-136)', () => {
+        const request = chainRequestFor(MFF_PRO_50K);
+        const direct = valueChain(MFF_PRO_50K, {
+            ...request.spec,
+            run: TINY_RUN,
+        });
+        const eligible = direct.steps.find(
+            (step) => step.kind === ValueChainStepKind.FirstPayoutEligible,
+        );
+        const text = (eligible?.assumptions ?? []).join('\n');
+
+        expect(text).toContain(
+            "Documented request $1,000.00 from the rulebook's payout size, raised from $500.00 to the firm minimum",
+        );
+        expect(text).not.toContain('your payout request entry');
+    });
+
     it('reports a failed step with the lib reason and no assumptions, in the fixed step order', () => {
         const request = unkeepableRequestFor(MFF_RAPID_EOD_50K);
         const figures = chainFigures(request);
@@ -2001,5 +2063,251 @@ describe('the overview chain is the lib value chain (PT-67e, F-V17, F-V18)', () 
         expect(source).not.toContain('firstPayoutEligibleAccount');
         expect(source).not.toContain('postFirstPayoutAccount');
         expect(source).not.toContain('lazily');
+    });
+});
+
+describe('the documented run names the cumulative trigger it priced (PT-36p, F-145)', () => {
+    const request = {
+        ...documentedOf(requestsFor()),
+        spec: { ...documentedOf(requestsFor()).spec, run: TINY_RUN },
+    };
+
+    it('carries the typed priced-trigger assumption with the amount and the firm source', () => {
+        const figures = withTopStepTriggers(
+            [new CumulativeAmountTrigger(dollars(100_000), CONFIRMED_SOURCE)],
+            () => succeededDocumented(request),
+        );
+        expect(figures.cumulativePayoutTrigger).toMatchObject({
+            amount: 100_000,
+            source: {
+                fetchedOn: CONFIRMED_SOURCE.fetchedOn,
+                quote: CONFIRMED_SOURCE.quote,
+                url: CONFIRMED_SOURCE.url,
+            },
+        });
+    });
+
+    it('carries none for a firm with no confirmed cumulative trigger', () => {
+        expect(succeededDocumented(request)).not.toHaveProperty(
+            'cumulativePayoutTrigger',
+        );
+    });
+});
+
+describe('the payout-size optimum names the cumulative trigger it priced (PT-36r, F-145)', () => {
+    const request = {
+        ...optimumOf(requestsFor()),
+        spec: { ...optimumOf(requestsFor()).spec, run: TINY_RUN },
+    };
+
+    it('carries the typed priced-trigger assumption with the amount and the firm source', () => {
+        const figures = withTopStepTriggers(
+            [new CumulativeAmountTrigger(dollars(100_000), CONFIRMED_SOURCE)],
+            () => succeededOptimum(request),
+        );
+        expect(figures.cumulativePayoutTrigger).toMatchObject({
+            amount: 100_000,
+            source: {
+                fetchedOn: CONFIRMED_SOURCE.fetchedOn,
+                quote: CONFIRMED_SOURCE.quote,
+                url: CONFIRMED_SOURCE.url,
+            },
+        });
+    });
+
+    it('carries none for a firm with no confirmed cumulative trigger', () => {
+        expect(succeededOptimum(request)).not.toHaveProperty(
+            'cumulativePayoutTrigger',
+        );
+    });
+});
+
+const PREVIOUS_EVAL_SNAPSHOT: AccountSnapshotInput = {
+    ...EVAL_SNAPSHOT,
+    asOf: '2026-03-01',
+    balance: dollars(51_300),
+    highestEodBalance: dollars(51_300),
+    highestIntradayBalance: dollars(51_300),
+    tradingDays: 4,
+};
+
+const PREVIOUS_EVAL: OverviewPreviousAccount = {
+    account: PREVIOUS_EVAL_SNAPSHOT,
+    pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
+};
+
+function accountRequestWithPrevious(
+    previous: null | OverviewPreviousAccount = PREVIOUS_EVAL,
+): OverviewRequest {
+    const [first] = overviewAccountRequestsFor(
+        [
+            {
+                ...accountPlanInput(EVAL_SNAPSHOT),
+                ...(previous !== null && { previous }),
+            },
+        ],
+        DEFAULT_RULEBOOK,
+    );
+    if (first === undefined) throw new Error('no account request');
+    return { ...first, spec: { ...first.spec, run: TINY_RUN } };
+}
+
+describe('the account-from-state request carries the previous snapshot (PT-90, F-V29)', () => {
+    it('copies the previous account onto the account-from-state request and survives structuredClone and the schema', () => {
+        const request = accountRequestWithPrevious();
+        expect(request.previous).toEqual(PREVIOUS_EVAL);
+        expect(structuredClone(request)).toEqual(request);
+        expect(overviewRequestSchema.parse(structuredClone(request))).toEqual(
+            request,
+        );
+    });
+
+    it('leaves the previous account off a request built without one', () => {
+        expect('previous' in accountRequestWithPrevious(null)).toBe(false);
+    });
+
+    it('never puts the previous account on the retire comparison request of the same input', () => {
+        const [retire] = overviewRetireRequestsFor(
+            [{ ...accountPlanInput(EVAL_SNAPSHOT), previous: PREVIOUS_EVAL }],
+            DEFAULT_RULEBOOK,
+        );
+        expect(retire?.kind).toBe(OverviewRequestKind.RetireComparison);
+        expect(retire !== undefined && 'previous' in retire).toBe(false);
+    });
+
+    it('keys the request by the previous account and its counts', () => {
+        const without = overviewRequestKey(accountRequestWithPrevious(null));
+        const withPrevious = overviewRequestKey(accountRequestWithPrevious());
+        expect(withPrevious).not.toBe(without);
+        expect(withPrevious).toBe(
+            overviewRequestKey(
+                accountRequestWithPrevious({
+                    account: { ...PREVIOUS_EVAL_SNAPSHOT },
+                    pendingPayoutCounts: { ...NO_PENDING_PAYOUT_COUNTS },
+                }),
+            ),
+        );
+        const movedBalance = accountRequestWithPrevious({
+            ...PREVIOUS_EVAL,
+            account: { ...PREVIOUS_EVAL_SNAPSHOT, balance: dollars(51_000) },
+        });
+        expect(overviewRequestKey(movedBalance)).not.toBe(withPrevious);
+        const otherCounts = accountRequestWithPrevious({
+            ...PREVIOUS_EVAL,
+            pendingPayoutCounts: {
+                otherAccountsPendingPayoutCount: 1,
+                pendingPayoutCount: 1,
+            },
+        });
+        expect(overviewRequestKey(otherCounts)).not.toBe(withPrevious);
+    });
+
+    it('attaches the previous account with withPreviousAccount and returns the request itself for none', () => {
+        const plain = accountRequestWithPrevious(null);
+        expect(withPreviousAccount(plain, null)).toBe(plain);
+        expect(withPreviousAccount(undefined, PREVIOUS_EVAL)).toBeUndefined();
+        expect(withPreviousAccount(plain, PREVIOUS_EVAL)).toEqual({
+            ...plain,
+            previous: PREVIOUS_EVAL,
+        });
+    });
+
+    it('accepts a previous account only on the account-from-state kind', () => {
+        const withPrevious = accountRequestWithPrevious();
+        expect(overviewRequestSchema.safeParse(withPrevious).success).toBe(
+            true,
+        );
+        expect(
+            overviewRequestSchema.safeParse({
+                ...withPrevious,
+                kind: OverviewRequestKind.RetireComparison,
+            }).success,
+        ).toBe(false);
+        const documented = documentedOf(requestsFor());
+        expect(
+            overviewRequestSchema.safeParse({
+                ...documented,
+                previous: PREVIOUS_EVAL,
+            }).success,
+        ).toBe(false);
+    });
+
+    it('rejects a previous account with no counts, an unknown key or a bad stage', () => {
+        const request = accountRequestWithPrevious();
+        expect(
+            overviewRequestSchema.safeParse({
+                ...request,
+                previous: { account: PREVIOUS_EVAL_SNAPSHOT },
+            }).success,
+        ).toBe(false);
+        expect(
+            overviewRequestSchema.safeParse({
+                ...request,
+                previous: { ...PREVIOUS_EVAL, extra: 1 },
+            }).success,
+        ).toBe(false);
+        expect(
+            overviewRequestSchema.safeParse({
+                ...request,
+                previous: {
+                    ...PREVIOUS_EVAL,
+                    account: { ...PREVIOUS_EVAL_SNAPSHOT, stage: 'retired' },
+                },
+            }).success,
+        ).toBe(false);
+    });
+});
+
+describe('overviewOutcomeOf values the previous snapshot beside the latest (PT-90, F-V29)', () => {
+    const request = accountRequestWithPrevious();
+    const unvaluablePrevious = accountRequestWithPrevious({
+        ...PREVIOUS_EVAL,
+        account: { ...PREVIOUS_EVAL_SNAPSHOT, stage: SizingStage.Live },
+    });
+    let outcome: ReturnType<typeof overviewOutcomeOf>;
+    let figures: AccountFromStateFigures;
+    let plain: AccountFromStateFigures;
+    let unvaluable: AccountFromStateFigures;
+
+    beforeAll(() => {
+        outcome = overviewOutcomeOf(request);
+        figures = succeededAccount(request);
+        plain = succeededAccount(accountRequestWithPrevious(null));
+        unvaluable = succeededAccount(unvaluablePrevious);
+    }, 10_000);
+
+    it('reports the value at the previous snapshot with the same trials and seed as the latest value, from the same spec', () => {
+        const { valueAtPrevious } = figures;
+        if (valueAtPrevious?.kind !== ValueChainStepOutcomeKind.Value) {
+            throw new Error('expected a value at the previous snapshot');
+        }
+        expect(valueAtPrevious.value.trials).toBe(figures.valueNow.trials);
+        expect(valueAtPrevious.value.seed).toBe(figures.valueNow.seed);
+        expect(valueAtPrevious.value).toEqual(
+            valueAtState(rebuiltAccount(PREVIOUS_EVAL_SNAPSHOT), request.spec),
+        );
+        expect(figures.valueNow).toEqual(
+            valueAtState(rebuiltAccount(EVAL_SNAPSHOT), request.spec),
+        );
+    });
+
+    it('leaves every other figure as it is without the previous account, and runs no previous value', () => {
+        expect('valueAtPrevious' in plain).toBe(false);
+        const { valueAtPrevious: ignored, ...rest } = figures;
+        expect(ignored).toBeDefined();
+        expect(rest).toEqual(plain);
+    });
+
+    it('keeps a previous snapshot the engine cannot value as a failure for that account, with the latest value intact', () => {
+        expect(unvaluable.valueNow.kind).toBe(ValueResultKind.Value);
+        const { valueAtPrevious } = unvaluable;
+        if (valueAtPrevious?.kind !== ValueChainStepOutcomeKind.Unavailable) {
+            throw new Error('expected an unavailable previous value');
+        }
+        expect(valueAtPrevious.reason.length).toBeGreaterThan(0);
+    });
+
+    it('returns a result that survives structuredClone', () => {
+        expect(structuredClone(outcome)).toEqual(outcome);
     });
 });

@@ -1,7 +1,9 @@
 'use client';
 
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
+import { z } from 'zod';
 
+import { ObjectiveChip } from '~/app/(app)/prop-calculator/_components/ObjectiveChip';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
@@ -19,8 +21,9 @@ import {
     TableHeader,
     TableRow,
 } from '~/components/ui/Table';
-import { PortfolioLedger } from '~/lib/prop-accounts';
+import { NextSlotSortKey, PortfolioLedger } from '~/lib/prop-accounts';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
+import { type SizingObjective } from '~/lib/prop-calculator/advisor';
 import { api } from '~/trpc/react';
 
 import {
@@ -31,8 +34,12 @@ import {
     nextSlotRequestsOf,
 } from './nextSlotModel';
 
+const sortKeySchema = z.enum(NextSlotSortKey);
+
 export function NextSlotView({ userId }: { readonly userId: string }) {
     const today = useTodayIsoDate();
+    const [objective, setObjective] = useState<null | SizingObjective>(null);
+    const [sortKey, setSortKey] = useState(NextSlotSortKey.Objective);
     const accountsQuery =
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
     const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
@@ -88,12 +95,24 @@ export function NextSlotView({ userId }: { readonly userId: string }) {
                 : nextSlotModelOf({
                       engine,
                       ledger,
+                      objective: objective ?? undefined,
                       requests,
                       rulebook,
+                      sortKey,
                       today,
                       trades,
                   }),
-        [engine, isJournalPending, ledger, requests, rulebook, today, trades],
+        [
+            engine,
+            isJournalPending,
+            ledger,
+            objective,
+            requests,
+            rulebook,
+            sortKey,
+            today,
+            trades,
+        ],
     );
 
     const failed = [
@@ -136,7 +155,12 @@ export function NextSlotView({ userId }: { readonly userId: string }) {
             )}
             <Progress model={model} />
             <Section id="ranked" title="Ranked">
-                <RankedTable model={model} />
+                <RankedTable
+                    model={model}
+                    onObjectiveChange={setObjective}
+                    onSortKeyChange={setSortKey}
+                    pickedObjective={objective}
+                />
             </Section>
             <ListedSection
                 description="A firm with an unverified cap scope or live trigger is listed here with its optimistic figures and never ranked."
@@ -267,6 +291,16 @@ function RankedRow({ row }: { readonly row: NextSlotRankedViewRow }) {
                         {note}
                     </span>
                 ))}
+                {row.liveTransferNotes.length > 0 && (
+                    <ul
+                        aria-label="Live-transfer and payout-trigger assumptions behind this plan"
+                        className="mt-1 flex flex-col gap-1 text-xs text-muted-foreground"
+                    >
+                        {row.liveTransferNotes.map((note) => (
+                            <li key={note}>{note}</li>
+                        ))}
+                    </ul>
+                )}
             </TableCell>
             <TableCell className="text-right tabular-nums">
                 {row.documentedNet}
@@ -314,12 +348,40 @@ function RankedRow({ row }: { readonly row: NextSlotRankedViewRow }) {
     );
 }
 
-function RankedTable({ model }: { readonly model: NextSlotModel }) {
+function RankedTable({
+    model,
+    onObjectiveChange,
+    onSortKeyChange,
+    pickedObjective,
+}: {
+    readonly model: NextSlotModel;
+    readonly onObjectiveChange: (objective: SizingObjective) => void;
+    readonly onSortKeyChange: (sortKey: NextSlotSortKey) => void;
+    readonly pickedObjective: null | SizingObjective;
+}) {
     return (
         <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">
-                {model.objectiveNote}
-            </p>
+            <ObjectiveChip
+                choiceNotes={[
+                    ...(model.objectiveChoiceNote === null
+                        ? []
+                        : [model.objectiveChoiceNote]),
+                    ...(model.objectiveFallbackNote === null
+                        ? []
+                        : [model.objectiveFallbackNote]),
+                    ...(model.objectiveNotAppliedNote === null
+                        ? []
+                        : [model.objectiveNotAppliedNote]),
+                ]}
+                objective={pickedObjective ?? model.automaticObjective}
+                onChange={onObjectiveChange}
+            />
+            <SortKeySelect
+                isHourKeyAvailable={model.isHourKeyAvailable}
+                onChange={onSortKeyChange}
+                sortKey={model.sortKey}
+            />
+            <p className="text-sm text-muted-foreground">{model.sortNote}</p>
             {model.capacityNote !== null && (
                 <p className="text-sm text-muted-foreground">
                     {model.capacityNote}
@@ -424,5 +486,36 @@ function Section({
             </h2>
             {children}
         </section>
+    );
+}
+
+function SortKeySelect({
+    isHourKeyAvailable,
+    onChange,
+    sortKey,
+}: {
+    readonly isHourKeyAvailable: boolean;
+    readonly onChange: (sortKey: NextSlotSortKey) => void;
+    readonly sortKey: NextSlotSortKey;
+}) {
+    return (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Sort by</span>
+            <select
+                aria-label="Sort by"
+                className="h-7 rounded-md border bg-transparent px-2 text-xs disabled:opacity-50"
+                disabled={!isHourKeyAvailable}
+                onChange={(event) => {
+                    const chosen = sortKeySchema.safeParse(event.target.value);
+                    if (chosen.success) onChange(chosen.data);
+                }}
+                value={sortKey}
+            >
+                <option value={NextSlotSortKey.Objective}>Objective</option>
+                <option value={NextSlotSortKey.Hour}>
+                    Net per screen hour
+                </option>
+            </select>
+        </div>
     );
 }

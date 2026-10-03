@@ -1,18 +1,23 @@
 import { describe, expect, it } from 'vitest';
 
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
-import { type LabScenario } from '~/app/(app)/prop-calculator/_components/types';
 import {
-    type LabRun,
     lifetimeCapPoolingGapNote,
-    simulateLabScenarios,
-} from '~/app/(app)/prop-calculator/_components/useLabSimulation';
+    simulateLabScenario,
+} from '~/app/(app)/prop-calculator/_workers/toolsWorker';
+import {
+    type LabRunInputs,
+    type LabScenarioInputs,
+    type LabScenarioResult,
+} from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import {
     CorrelationMode,
     DayStopRuleKind,
     FirmId,
     LifetimeCapScope,
     MffuVariant,
+    type Plan,
+    serializePlanId,
     simulatePortfolio,
 } from '~/lib/prop-calculator';
 import { findFirm } from '~/lib/prop-calculator/firms';
@@ -24,6 +29,8 @@ const mffPro = findFirm(FirmId.Mffu)?.findPlan({
 });
 
 if (mffPro === undefined) throw new Error('MFF Pro plan not found');
+
+const mffProPlan: Plan = mffPro;
 
 describe('lifetimeCapPoolingGapNote (PT-12h, F-110 REV-5)', () => {
     it('discloses the per-user cap gap on a multi-account MFF Pro scenario', () => {
@@ -56,14 +63,17 @@ describe('lifetimeCapPoolingGapNote (PT-12h, F-110 REV-5)', () => {
     });
 });
 
-const labScenario: LabScenario = {
+interface NamedScenario extends LabScenarioInputs {
+    id: string;
+}
+
+const labScenario: NamedScenario = {
     accounts: 1,
     correlation: CorrelationMode.Copy,
     dayStop: { kind: DayStopRuleKind.None },
     groups: 1,
     id: 'one',
     instrument: null,
-    label: 'One',
     riskPerTrade: 250,
     rrRatio: 2,
     stopPoints: null,
@@ -71,7 +81,7 @@ const labScenario: LabScenario = {
     winrate: 0.55,
 };
 
-const labRun: LabRun = {
+const labRun: LabRunInputs = {
     activationDiscountPercent: 0,
     commissionPerRoundTrip: 0,
     discountPercent: 0,
@@ -82,7 +92,14 @@ const labRun: LabRun = {
     minRetainedCushion: undefined,
     monthlySubscriptionDiscountPercent: 0,
     payoutRequestSize: undefined,
-    plan: mffPro,
+    plan: {
+        firmId: FirmId.Mffu,
+        optIns: {
+            takesFundedReset: false,
+            takesOneTimeEarlyWithdrawal: false,
+        },
+        planSerial: serializePlanId(mffPro.id),
+    },
     resetDiscountPercent: 0,
     rungSizing: undefined,
     seed: 7,
@@ -97,6 +114,24 @@ function countingSimulator() {
             return simulatePortfolio(inputs);
         }) satisfies typeof simulatePortfolio,
     };
+}
+
+function scenarioAt(index: number): LabScenarioInputs {
+    return { ...labScenario, winrate: 0.5 + index / 1000 };
+}
+
+function simulateLabScenarios(
+    run: LabRunInputs,
+    scenarios: readonly NamedScenario[],
+    baselines: Map<string, number>,
+    simulate: typeof simulatePortfolio,
+): Map<string, LabScenarioResult> {
+    return new Map(
+        scenarios.map(({ id, ...scenario }) => [
+            id,
+            simulateLabScenario(run, mffProPlan, scenario, baselines, simulate),
+        ]),
+    );
 }
 
 describe('simulateLabScenarios simulates once per scenario (PT-73b)', () => {
@@ -193,5 +228,58 @@ describe('simulateLabScenarios simulates once per scenario (PT-73b)', () => {
         );
 
         expect(counter.calls()).toBe(4);
+    });
+});
+
+describe('simulateLabScenario bounds the baselines it remembers (PT-73e)', () => {
+    it('drops the oldest baseline once more than sixty-four scenarios are remembered', () => {
+        const template = simulatePortfolio({
+            accounts: 1,
+            correlation: CorrelationMode.Copy,
+            fundedHorizonDays: 30,
+            groups: 1,
+            maxEvalDays: 30,
+            plan: mffPro,
+            riskPerTrade: 250,
+            rrRatio: 2,
+            seed: 7,
+            tradesPerDay: 1,
+            trials: 10,
+            winrate: 0.55,
+        });
+        let calls = 0;
+        const simulate = (() => {
+            calls += 1;
+            return template;
+        }) satisfies typeof simulatePortfolio;
+        const baselines = new Map<string, number>();
+        const priced = { ...labRun, liveTransferHazard: 0.5 };
+        const plan = mffProPlan;
+        const scenarioCount = 70;
+
+        for (let index = 0; index < scenarioCount; index++) {
+            simulateLabScenario(
+                priced,
+                plan,
+                scenarioAt(index),
+                baselines,
+                simulate,
+            );
+        }
+        expect(baselines.size).toBeLessThanOrEqual(64);
+
+        calls = 0;
+        simulateLabScenario(
+            priced,
+            plan,
+            scenarioAt(scenarioCount - 1),
+            baselines,
+            simulate,
+        );
+        expect(calls).toBe(1);
+
+        calls = 0;
+        simulateLabScenario(priced, plan, scenarioAt(0), baselines, simulate);
+        expect(calls).toBe(2);
     });
 });

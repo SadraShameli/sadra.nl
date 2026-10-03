@@ -2,14 +2,17 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-import { FirmId } from '~/lib/prop-calculator';
+import { findFirm, FirmId } from '~/lib/prop-calculator';
 import {
+    LEDGER_CITED_RUN,
     LEDGER_CONTENT_HASH,
     LEDGER_FILE,
     LEDGER_RECORDED_LADDERS,
     LEDGER_SECTION,
+    ledgerIndexConflicts,
     LedgerLadderSelection,
     ledgerRecordedLadderFor,
+    LedgerRunStatus,
 } from '~/lib/prop-calculator/advisor/LedgerRecordedLadders';
 import { StartBasis } from '~/lib/prop-calculator/advisor/StartBasis';
 
@@ -100,5 +103,103 @@ describe('LEDGER_RECORDED_LADDERS', () => {
 
     it('detects drift: LEDGER_CONTENT_HASH matches a fresh hash of the cited section today', () => {
         expect(LEDGER_CONTENT_HASH).toBe(citedSectionHash());
+    });
+});
+
+const RUN_FILE_NAME = LEDGER_FILE.split('/').at(-1) ?? '';
+
+function indexWith(statusCell: string): string {
+    return [
+        '## Runs',
+        '',
+        '| Run file | Date | Engine commit | Question | Status |',
+        '|---|---|---|---|---|',
+        `| [\`engine-results/${RUN_FILE_NAME}\`](engine-results/${RUN_FILE_NAME}) | 2026-09-26 | \`7ce5d7b\` | a question | ${statusCell} |`,
+        '',
+    ].join('\n');
+}
+
+describe('ledger staleness is a checked mechanism (PT-104, F-156)', () => {
+    const INDEX_FILE =
+        '.claude/skills/prop-firm-trading/references/engine-results.md';
+
+    it('derives stale from the typed status of the cited run', () => {
+        expect(LEDGER_CITED_RUN.file).toBe(LEDGER_FILE);
+        expect(LEDGER_CITED_RUN.status).toBe(LedgerRunStatus.Current);
+        for (const row of LEDGER_RECORDED_LADDERS) {
+            expect(row.stale).toBe(
+                LEDGER_CITED_RUN.status !== LedgerRunStatus.Current,
+            );
+        }
+    });
+
+    it('finds no conflict between the typed status and the real Runs table', () => {
+        expect(
+            ledgerIndexConflicts(readFileSync(INDEX_FILE, 'utf8'), [
+                LEDGER_CITED_RUN,
+            ]),
+        ).toStrictEqual([]);
+    });
+
+    it('fails when the index marks the cited run Superseded and the typed status says Current', () => {
+        const conflicts = ledgerIndexConflicts(
+            indexWith('SUPERSEDED as of 2026-09-27 by a newer run'),
+            [{ ...LEDGER_CITED_RUN, status: LedgerRunStatus.Current }],
+        );
+
+        expect(conflicts).toHaveLength(1);
+        expect(conflicts[0]).toContain(RUN_FILE_NAME);
+    });
+
+    it('fails when the index marks the cited run Stale and the typed status says Current', () => {
+        expect(
+            ledgerIndexConflicts(indexWith('STALE as of 2026-09-27'), [
+                LEDGER_CITED_RUN,
+            ]),
+        ).toHaveLength(1);
+    });
+
+    it('accepts a Superseded run whose cited stage the index states is still current', () => {
+        expect(
+            ledgerIndexConflicts(
+                indexWith(
+                    `SUPERSEDED as of 2026-09-26 by a newer run for stages B and C; its ${LEDGER_CITED_RUN.citedStage} stay CURRENT`,
+                ),
+                [LEDGER_CITED_RUN],
+            ),
+        ).toStrictEqual([]);
+    });
+
+    it('accepts a typed Superseded status that matches the index', () => {
+        expect(
+            ledgerIndexConflicts(indexWith('SUPERSEDED as of 2026-09-27'), [
+                { ...LEDGER_CITED_RUN, status: LedgerRunStatus.Superseded },
+            ]),
+        ).toStrictEqual([]);
+    });
+
+    it('fails when the cited run has no row in the index', () => {
+        expect(
+            ledgerIndexConflicts(
+                '## Runs\n\n| Run file | Status |\n|---|---|\n',
+                [LEDGER_CITED_RUN],
+            ),
+        ).toHaveLength(1);
+    });
+
+    it('resolves every row to a plan in the firm registry', () => {
+        for (const row of LEDGER_RECORDED_LADDERS) {
+            const plans = findFirm(row.planKey.firmId)?.plans ?? [];
+            const matches = plans.filter((candidate) =>
+                'variant' in candidate.id
+                    ? candidate.id.variant === row.planKey.variant
+                    : row.planKey.variant === null,
+            );
+
+            expect(
+                matches.length,
+                `${row.planKey.firmId} ${row.planKey.variant ?? '(none)'}`,
+            ).toBeGreaterThan(0);
+        }
     });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { FeeKind } from '~/lib/prop-accounts/core';
+import { FeeKind, PayoutStatus } from '~/lib/prop-accounts/core';
 import {
     AVERAGE_DAYS_PER_MONTH,
     portfolioRoi,
@@ -140,5 +140,101 @@ describe('portfolioRoi', () => {
         expect(empty.since).toBeNull();
         expect(empty.elapsedDays).toBe(0);
         expect(empty.total.value).toBeNull();
+    });
+
+    it('returns the as-of cash summary and counts the rows dated after the as-of date', () => {
+        const result = portfolioRoi(
+            ledger({
+                accounts: [owner],
+                fees: [
+                    fee(owner, FeeKind.EvalPurchase, 10_000, '2026-07-01'),
+                    fee(owner, FeeKind.Reset, 5000, '2026-10-01'),
+                ],
+                payouts: [
+                    payout(owner, 20_000, {
+                        netCents: 16_000,
+                        paidOn: '2026-09-01',
+                    }),
+                    payout(owner, 20_000, {
+                        netCents: 20_000,
+                        paidOn: '2026-10-02',
+                    }),
+                    payout(owner, 9000, {
+                        paidOn: null,
+                        status: PayoutStatus.Requested,
+                    }),
+                ],
+            }),
+            '2026-09-28',
+        );
+        expect(result.cash).toMatchObject({
+            net: 6000,
+            payouts: 16_000,
+            spend: 10_000,
+        });
+        expect(result.futureDatedRows).toBe(2);
+        expect(result.payoutMultiple).toBe(
+            result.cash.payouts / result.cash.spend,
+        );
+        expect(result.netSpend).toBe(result.cash.spend);
+        expect(result.net).toBe(result.cash.net);
+    });
+
+    it('counts no future rows when every fee and Paid payout is dated on or before the as-of date', () => {
+        const result = portfolioRoi(
+            ledger({
+                accounts: [owner],
+                fees: [fee(owner, FeeKind.EvalPurchase, 10_000, '2026-09-28')],
+                payouts: [
+                    payout(owner, 20_000, {
+                        netCents: 16_000,
+                        paidOn: '2026-09-28',
+                    }),
+                ],
+            }),
+            '2026-09-28',
+        );
+        expect(result.futureDatedRows).toBe(0);
+    });
+
+    it('counts a Paid payout with no paid date as undated and keeps it out of the as-of cash', () => {
+        const result = portfolioRoi(
+            ledger({
+                accounts: [owner],
+                fees: [fee(owner, FeeKind.EvalPurchase, 10_000, '2026-07-01')],
+                payouts: [
+                    payout(owner, 16_000, {
+                        netCents: 16_000,
+                        paidOn: '2026-09-01',
+                    }),
+                    payout(owner, 50_000, { netCents: 50_000, paidOn: null }),
+                    payout(owner, 70_000, {
+                        netCents: 70_000,
+                        paidOn: null,
+                        status: PayoutStatus.Requested,
+                    }),
+                ],
+            }),
+            '2026-09-28',
+        );
+        expect(result.undatedPaidPayouts).toBe(1);
+        expect(result.cash.payouts).toBe(16_000);
+        expect(result.futureDatedRows).toBe(0);
+    });
+
+    it('counts no undated Paid payout when every Paid payout has a date', () => {
+        const result = portfolioRoi(
+            ledger({
+                accounts: [owner],
+                payouts: [
+                    payout(owner, 16_000, {
+                        netCents: 16_000,
+                        paidOn: '2026-09-01',
+                    }),
+                ],
+            }),
+            '2026-09-28',
+        );
+        expect(result.undatedPaidPayouts).toBe(0);
     });
 });

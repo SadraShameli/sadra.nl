@@ -136,7 +136,7 @@ describe('web daily loss limit badge label for every registry plan (PT-31a pin)'
             ],
             "fundednext $50K · FNL:003 Instant": [
               null,
-              null,
+              "$1,000",
             ],
             "fundednext $50K · Flex": [
               null,

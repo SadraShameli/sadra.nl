@@ -122,6 +122,7 @@ export function dayLossShareOfContext(context: AlertContext): DayLossShare {
                 },
             })),
         availableBankrollCents: context.availableBankrollCents,
+        evalValueLossDollars: context.evalValueLossDollars,
         rulebook: context.rulebook,
     });
 }

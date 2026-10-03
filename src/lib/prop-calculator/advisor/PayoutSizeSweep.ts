@@ -9,11 +9,17 @@ import {
 import { noiseVerdict, NoiseVerdict } from '~/lib/prop-calculator/stats';
 
 import { type AdviceSource } from './AdviceSource';
+import {
+    type CumulativePayoutTriggerAssumption,
+    liveTransferAssumptionOf,
+    type LiveTransferHazardAssumption,
+} from './Assumption';
 import { documentedRetainedCushionResolution } from './DocumentedRetainedCushion';
 import { type RetainedCushionBasis } from './PayoutRequestDecision';
 import {
     type DocumentedPolicySpec,
     documentedPolicySpecSchema,
+    pricedCumulativeTriggerAssumptionOf,
     toSimInputs,
 } from './policy';
 import { StartBasis } from './StartBasis';
@@ -71,6 +77,8 @@ export interface PayoutSizeSweepNoOptimumResult {
 
 export interface PayoutSizeSweepOptimum {
     readonly creditSensitive: boolean;
+    readonly cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption;
+    readonly liveTransfer?: LiveTransferHazardAssumption;
     readonly objective: PayoutSizeSweepObjective;
     readonly personalOverride: null | PersonalPayoutOverrideResult;
     readonly rows: readonly PayoutSizeSweepRow[];
@@ -165,10 +173,20 @@ export function runPayoutSizeSweep(
         };
     }
 
+    const base = toSimInputs(plan, spec);
+    const liveTransfer = liveTransferAssumptionOf(
+        base,
+        winner.out.liveTransferProbability,
+    );
+    const cumulativePayoutTrigger = pricedCumulativeTriggerAssumptionOf(base);
     return {
         kind: PayoutSizeSweepResultKind.Optimum,
         optimum: {
             creditSensitive: isCreditSensitive,
+            ...(cumulativePayoutTrigger !== undefined && {
+                cumulativePayoutTrigger,
+            }),
+            ...(liveTransfer !== undefined && { liveTransfer }),
             objective: PAYOUT_SIZE_SWEEP_OBJECTIVE,
             personalOverride,
             rows,

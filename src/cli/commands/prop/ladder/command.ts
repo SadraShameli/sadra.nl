@@ -51,9 +51,11 @@ import {
     runLadderSearch,
     validateLadderGrid,
 } from '~/lib/prop-calculator';
-import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import {
+    SIZING_OBJECTIVE_LABEL,
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
 import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
-import { SIZING_OBJECTIVE_LABEL } from '~/lib/prop-calculator/advisor/policy';
 import { describeShare } from '~/lib/prop-calculator/describe';
 
 type LadderArguments = LadderGridArguments &

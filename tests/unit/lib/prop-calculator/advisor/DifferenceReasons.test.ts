@@ -125,6 +125,67 @@ describe('differenceReasonText (F-124, PD-32 sentinel test)', () => {
         expect(digitsOf(text)).toBe('910');
     });
 
+    it('says a live account on its still-alive floor is offered one contract at the entered stop, and that any loss breaches the floor, from its typed fields only (PT-73h)', () => {
+        const text = differenceReasonText({
+            affordableRisk: dollars(450),
+            isPlacedAtEnteredStop: true,
+            kind: DifferenceReason.LiveFloorMinimumTrade,
+            minimumTradeRisk: dollars(450),
+        });
+        expect(text).toContain('one contract at your entered stop');
+        expect(text).toContain('$450.00');
+        expect(text).toContain('Any loss breaches the live floor');
+        expect(digitsOf(text)).toBe('45000');
+    });
+
+    it('names the minimum-trade convention and that a live account cannot be repurchased (PT-73h)', () => {
+        const text = differenceReasonText({
+            affordableRisk: dollars(450),
+            isPlacedAtEnteredStop: true,
+            kind: DifferenceReason.LiveFloorMinimumTrade,
+            minimumTradeRisk: dollars(450),
+        });
+        expect(text).toContain('minimum-trade convention, not a firm rule');
+        expect(text).toContain('cannot be repurchased');
+        expect(text).toContain('not trading is the alternative');
+        expect(text).not.toContain('caps beside it');
+    });
+
+    it('says the caps leave less than the minimum trade, with the bounded risk from its typed field (PT-73h)', () => {
+        const text = differenceReasonText({
+            affordableRisk: dollars(200),
+            isPlacedAtEnteredStop: true,
+            kind: DifferenceReason.LiveFloorMinimumTrade,
+            minimumTradeRisk: dollars(450),
+        });
+        expect(text).toContain('leave only $200.00 of risk');
+        expect(digitsOf(text)).toBe('4500020000');
+    });
+
+    it('says no trade is offered when the caps leave no room (PT-73h)', () => {
+        const text = differenceReasonText({
+            affordableRisk: dollars(0),
+            isPlacedAtEnteredStop: true,
+            kind: DifferenceReason.LiveFloorMinimumTrade,
+            minimumTradeRisk: dollars(450),
+        });
+        expect(text).toContain('so no trade is offered');
+        expect(digitsOf(text)).toBe('45000');
+    });
+
+    it('says the floor trade is one cent when no instrument and stop are entered (PT-73h)', () => {
+        const text = differenceReasonText({
+            affordableRisk: dollars(0.01),
+            isPlacedAtEnteredStop: false,
+            kind: DifferenceReason.LiveFloorMinimumTrade,
+            minimumTradeRisk: dollars(0.01),
+        });
+        expect(text).toContain('one cent');
+        expect(text).toContain('no instrument and stop are entered');
+        expect(text).toContain('Any loss breaches the live floor');
+        expect(digitsOf(text)).toBe('001');
+    });
+
     it('reports the DpNotValidated cause including SolveCapReached', () => {
         const text = differenceReasonText({
             cause: DpNotValidatedCause.SolveCapReached,
@@ -256,7 +317,9 @@ describe('personalPayoutOverrideWarningText (PT-19i review, one text for every s
         expect(text).toContain('$1,234 at a $750 request');
         expect(text).toContain('$4,321 at $2,000');
         expect(text).toContain('34.0% against 12.0%');
-        expect(text).toContain('retaining $2,750 (your rulebook size)');
+        expect(text).toContain(
+            "retaining $2,750 (your rulebook's retained cushion)",
+        );
     });
 
     it('names Hard Rule 2 and the personal override as the basis in their own words', () => {
@@ -265,7 +328,7 @@ describe('personalPayoutOverrideWarningText (PT-19i review, one text for every s
                 ...warning,
                 retainedCushionBasis: RetainedCushionBasis.HardRule2Default,
             }),
-        ).toContain("(Hard Rule 2's default)");
+        ).toContain("(Hard Rule 2's minimum)");
         expect(
             personalPayoutOverrideWarningText({
                 ...warning,

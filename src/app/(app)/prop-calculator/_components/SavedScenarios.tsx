@@ -57,6 +57,7 @@ import {
 import {
     decodeState,
     encodeState,
+    type EncodeStateOptions,
     loadScenarios,
     persistScenarios,
     type SavedScenarioRecord,
@@ -86,6 +87,7 @@ interface ClearAllButtonProperties {
 }
 
 interface SavedScenariosProperties {
+    encodeOptions: EncodeStateOptions;
     firms: readonly TradingFirm[];
     onLoad: (next: CalculatorState) => void;
     state: CalculatorState;
@@ -110,11 +112,13 @@ interface ScenarioStoreErrorProperties {
 }
 
 interface ScenarioStoreProperties {
+    encodeOptions: EncodeStateOptions;
     onLoad: (record: SavedScenarioRecord) => void;
     state: CalculatorState;
 }
 
 export default function SavedScenarios({
+    encodeOptions,
     firms,
     onLoad,
     state,
@@ -141,13 +145,18 @@ export default function SavedScenarios({
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80">
-                <ScenarioStores onLoad={handleLoad} state={state} />
+                <ScenarioStores
+                    encodeOptions={encodeOptions}
+                    onLoad={handleLoad}
+                    state={state}
+                />
             </PopoverContent>
         </Popover>
     );
 }
 
 function AccountScenarios({
+    encodeOptions,
     onLoad,
     state,
     userId,
@@ -207,7 +216,7 @@ function AccountScenarios({
     const handleSave = async (name: string) => {
         const validation = validateAccountScenario(
             name,
-            encodeState(state).toString(),
+            encodeState(state, encodeOptions).toString(),
         );
         if (!validation.ok) return validation.error;
         try {
@@ -222,7 +231,7 @@ function AccountScenarios({
     const handleReplace = async (record: AccountScenarioRecord) => {
         const validation = validateAccountScenario(
             record.name,
-            encodeState(state).toString(),
+            encodeState(state, encodeOptions).toString(),
         );
         if (!validation.ok) {
             toast.error(validation.error);
@@ -332,7 +341,11 @@ function isSettledScenarioStore(store: ScenarioStore): boolean {
     return store === ScenarioStore.Account || store === ScenarioStore.Local;
 }
 
-function LocalScenarios({ onLoad, state }: ScenarioStoreProperties) {
+function LocalScenarios({
+    encodeOptions,
+    onLoad,
+    state,
+}: ScenarioStoreProperties) {
     const [scenarios, setScenarios] = useState<SavedScenarioRecord[]>([]);
 
     useEffect(() => {
@@ -340,7 +353,7 @@ function LocalScenarios({ onLoad, state }: ScenarioStoreProperties) {
     }, []);
 
     const handleSave = (name: string) => {
-        const parameters = encodeState(state).toString();
+        const parameters = encodeState(state, encodeOptions).toString();
         const filtered = scenarios.filter((s) => s.name !== name);
         const next: SavedScenarioRecord[] = [
             ...filtered,
@@ -352,7 +365,7 @@ function LocalScenarios({ onLoad, state }: ScenarioStoreProperties) {
     };
 
     const handleReplace = (record: SavedScenarioRecord) => {
-        const parameters = encodeState(state).toString();
+        const parameters = encodeState(state, encodeOptions).toString();
         const next = scenarios.map((s) =>
             s.name === record.name
                 ? { ...s, params: parameters, savedAt: Date.now() }
@@ -571,7 +584,11 @@ function ScenarioStoreLoading() {
     );
 }
 
-function ScenarioStores({ onLoad, state }: ScenarioStoreProperties) {
+function ScenarioStores({
+    encodeOptions,
+    onLoad,
+    state,
+}: ScenarioStoreProperties) {
     const session = useSession();
     const userId = session.data?.user.id ?? null;
     const store = scenarioStoreFor({
@@ -589,6 +606,7 @@ function ScenarioStores({ onLoad, state }: ScenarioStoreProperties) {
         case ScenarioStore.Account: {
             return userId === null ? null : (
                 <AccountScenarios
+                    encodeOptions={encodeOptions}
                     onLoad={onLoad}
                     state={state}
                     userId={userId}
@@ -596,7 +614,13 @@ function ScenarioStores({ onLoad, state }: ScenarioStoreProperties) {
             );
         }
         case ScenarioStore.Local: {
-            return <LocalScenarios onLoad={onLoad} state={state} />;
+            return (
+                <LocalScenarios
+                    encodeOptions={encodeOptions}
+                    onLoad={onLoad}
+                    state={state}
+                />
+            );
         }
         case ScenarioStore.Pending: {
             return <ScenarioStoreLoading />;

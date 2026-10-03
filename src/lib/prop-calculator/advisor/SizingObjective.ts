@@ -4,6 +4,10 @@ export enum SizingObjective {
     RuinFirst = 'ruin-first',
 }
 
+export enum SpeedObjective {
+    SpeedToFunded = 'speed-to-funded',
+}
+
 export const SIZING_OBJECTIVE_LABEL: Readonly<Record<SizingObjective, string>> =
     {
         [SizingObjective.CycleCash]: 'cycle cash',
@@ -11,7 +15,9 @@ export const SIZING_OBJECTIVE_LABEL: Readonly<Record<SizingObjective, string>> =
         [SizingObjective.RuinFirst]: 'ruin first',
     };
 
-export function sizingObjectiveText(objective: SizingObjective): string {
+export function sizingObjectiveText(
+    objective: SizingObjective | SpeedObjective,
+): string {
     switch (objective) {
         case SizingObjective.CycleCash: {
             return 'Ranks by expected cash per eval-to-funded cycle, an eval-stage proxy.';
@@ -21,6 +27,9 @@ export function sizingObjectiveText(objective: SizingObjective): string {
         }
         case SizingObjective.RuinFirst: {
             return 'Ranks which plan to buy only; it never sizes eval rungs or funded risk.';
+        }
+        case SpeedObjective.SpeedToFunded: {
+            return 'Ranks by speed to funded, not by expected monthly net.';
         }
     }
 }

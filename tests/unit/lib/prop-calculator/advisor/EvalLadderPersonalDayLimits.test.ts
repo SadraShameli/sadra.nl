@@ -16,6 +16,7 @@ import {
     DEFAULT_RULEBOOK,
     EvalSizingAdvisor,
     type LadderSearchRequest,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     type PersonalCaps,
     type ReconstructedFundedOrEvalAccount,
@@ -52,6 +53,7 @@ function accountWithCushion(cushion: number): ReconstructedFundedOrEvalAccount {
         plan: registryPlan(),
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

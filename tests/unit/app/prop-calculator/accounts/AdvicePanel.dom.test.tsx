@@ -23,6 +23,7 @@ import {
 import * as advisorLib from '~/lib/prop-calculator/advisor';
 import {
     DEFAULT_RULEBOOK,
+    NO_PENDING_PAYOUT_COUNTS,
     RetainedCushionBasis,
 } from '~/lib/prop-calculator/advisor';
 import * as advisorValue from '~/lib/prop-calculator/advisor/value';
@@ -346,6 +347,7 @@ function readyAdviceWithProjection(personalDll: Dollars | null): unknown {
                 todayPnL: 0,
                 tradingDays: 20,
             },
+            ...NO_PENDING_PAYOUT_COUNTS,
         },
         fundedHorizonDays: 252,
         personalDll,
@@ -412,6 +414,7 @@ function realFundedAdvice() {
             plan: PLAN,
             resolvedDailyLossLimit: null,
             state,
+            ...NO_PENDING_PAYOUT_COUNTS,
         },
         fundedHorizonDays: 252,
         rulebook: DEFAULT_RULEBOOK,
@@ -734,6 +737,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
                     todayPnL: 0,
                     tradingDays: 10,
                 },
+                ...NO_PENDING_PAYOUT_COUNTS,
             },
             maxEvalDays: 150,
             rulebook: DEFAULT_RULEBOOK,
@@ -1805,8 +1809,12 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         it('shows the whole contracts inline once a stop is entered', () => {
             const risk = documentedRisk();
             readyWith(valuesFor(risk));
+            vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 
             setField('daily-card-stop', '7.5');
+            act(() => {
+                vi.advanceTimersByTime(5000);
+            });
 
             expect(sectionOf("Today's plan").textContent).toMatch(/\d+ NQ/);
         });
@@ -2213,7 +2221,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             expect(text).toContain('$1,234 at a $750 request');
             expect(text).toContain('$4,321 at $2,000');
             expect(text).toContain('252 funded days');
-            expect(text).toContain('retaining $2,750 (your rulebook size)');
+            expect(text).toContain(
+                "retaining $2,750 (your rulebook's retained cushion)",
+            );
         });
 
         it('shows no payout override warning when the payout advice carries none', () => {

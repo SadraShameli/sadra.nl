@@ -32,6 +32,7 @@ import {
     FundedSizingAdvisor,
     FundedSweepOptimumResultKind,
     LadderEngineOptimumResultKind,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     runEngineOptimum,
 } from '~/lib/prop-calculator/advisor';
@@ -104,6 +105,7 @@ function evalAccount(): ReconstructedFundedOrEvalAccount {
         plan: apexPlan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -149,6 +151,7 @@ function fundedAccount(): ReconstructedFundedOrEvalAccount {
         plan: topStepPlan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

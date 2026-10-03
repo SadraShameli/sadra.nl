@@ -23,6 +23,7 @@ import {
     DEFAULT_RULEBOOK,
     DifferenceReason,
     differenceReasonText,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedAccount,
     ReconstructedLiveKind,
     type SizingAdvisor,
@@ -71,6 +72,7 @@ function evalAccount(): ReconstructedAccount {
         plan: evalPlan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -96,6 +98,7 @@ function fundedAccount(): ReconstructedAccount {
         plan: fundedPlan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

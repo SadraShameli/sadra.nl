@@ -1,15 +1,21 @@
 /// <reference lib="webworker" />
 
+import { toCouponDiscounts } from '~/app/(app)/prop-calculator/_components/couponDiscounts';
+import { formatCurrency } from '~/lib/format';
 import {
+    CorrelationMode,
     dollars,
     DriftEdge,
     DriftEdgeFitError,
     findFirm,
     fraction,
+    LifetimeCapScope,
     type Plan,
+    type PortfolioSimInputs,
     type SimInputs,
     type SimOutputs,
     simulate,
+    simulatePortfolio,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 import { applyEnginePolicy } from '~/lib/prop-calculator/advisor';
@@ -25,6 +31,7 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import {
     attemptEconomicsOfRun,
+    bankrollCohortRisk,
     BankrollLeverKind,
     type BankrollLeverOutputs,
     type BankrollLeverRow,
@@ -32,12 +39,12 @@ import {
     type BankrollLeverVariant,
     bankrollRisk,
     batchLossClosedForm,
-    cohortOutcome,
     empiricalPayingStatsOf,
     LOSS_RISK_DRAWS,
     takeProfitCandidateInputs,
     takeProfitRows,
     type TakeProfitWhatIfRow,
+    walkPassProbability,
 } from '~/lib/prop-calculator/economics';
 import { simulateBankrollTimeline } from '~/lib/prop-calculator/portfolioTimeline';
 import { type BankrollTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
@@ -50,11 +57,17 @@ import {
     type BatchToolsSummary,
     type CopySplitToolsRequest,
     type FundedValueEstimateToolsRequest,
+    type LabRunInputs,
+    type LabScenarioInputs,
+    type LabScenarioResult,
+    type LabTheoreticalPass,
+    type LabToolsRequest,
     type LeversToolsRequest,
     type NextRoundToolsRequest,
     parseToolsRequest,
     parseToolsResult,
     type ProjectionToolsRequest,
+    runIdOf,
     type SameEvOutcome,
     type SameEvToolsRequest,
     type TakeProfitRowsToolsRequest,
@@ -66,9 +79,16 @@ import {
     type ValueChainToolsRequest,
 } from './toolsWorkerMessages';
 
+type PortfolioSimulator = typeof simulatePortfolio;
+
 interface ResolvedVariant {
     readonly simInputs: SimInputs;
 }
+
+const LAB_TRIALS_COPY_AND_GROUPED = 400;
+const LAB_TRIALS_INDEPENDENT = 250;
+const MAX_REMEMBERED_LAB_BASELINES = 64;
+const labBaselines = new Map<string, number>();
 
 export function computeToolsResult(rawRequest: unknown): ToolsWorkerResult {
     const request = parseToolsRequest(rawRequest);
@@ -81,6 +101,9 @@ export function computeToolsResult(rawRequest: unknown): ToolsWorkerResult {
         }
         case ToolsRequestKind.FundedValueEstimate: {
             return finishFundedValueEstimate(request);
+        }
+        case ToolsRequestKind.Lab: {
+            return finishLab(request);
         }
         case ToolsRequestKind.Levers: {
             return finishLevers(request);
@@ -106,12 +129,80 @@ export function computeToolsResult(rawRequest: unknown): ToolsWorkerResult {
     }
 }
 
+export function handleToolsMessage(data: unknown): ToolsWorkerResult {
+    try {
+        return computeToolsResult(data);
+    } catch (error) {
+        return fail(
+            runIdOf(data) ?? -1,
+            error instanceof Error ? error.message : String(error),
+        );
+    }
+}
+
+export function lifetimeCapPoolingGapNote(
+    plan: Plan,
+    accounts: number,
+): null | string {
+    const cap = plan.maxLifetimePayoutDollars;
+    return cap === null ||
+        accounts <= 1 ||
+        plan.lifetimeConclusion.dollarCapScope !==
+            LifetimeCapScope.PerUserAcrossVariant
+        ? null
+        : `${plan.label}'s ${formatCurrency(cap)} lifetime cap is per user; this projection pools it across your accounts, so combined payouts here never exceed ${formatCurrency(cap)}.`;
+}
+
+export function simulateLabScenario(
+    run: LabRunInputs,
+    plan: Plan,
+    scenario: LabScenarioInputs,
+    baselines: Map<string, number>,
+    simulate: PortfolioSimulator = simulatePortfolio,
+): LabScenarioResult {
+    const hazard =
+        run.liveTransferHazard !== undefined && run.liveTransferHazard > 0
+            ? fraction(run.liveTransferHazard)
+            : undefined;
+    const portfolioInputs = labPortfolioInputs(run, plan, scenario);
+    const baselineKey = JSON.stringify({
+        run: { ...run, liveTransferHazard: undefined },
+        scenario,
+    });
+    const result = simulate(
+        hazard === undefined
+            ? portfolioInputs
+            : { ...portfolioInputs, liveTransferHazard: hazard },
+    );
+    if (hazard === undefined) {
+        rememberLabBaseline(baselines, baselineKey, result.expectedMonthlyNet);
+    }
+    const noTransferMonthlyNet =
+        hazard === undefined
+            ? null
+            : (baselines.get(baselineKey) ??
+              rememberLabBaseline(
+                  baselines,
+                  baselineKey,
+                  simulate(portfolioInputs).expectedMonthlyNet,
+              ));
+    return {
+        ...result,
+        ...labTheoreticalPass(plan, scenario),
+        lifetimeCapPoolingGap: lifetimeCapPoolingGapNote(
+            plan,
+            scenario.accounts,
+        ),
+        noTransferMonthlyNet,
+    };
+}
+
 function computeBatch(request: BatchToolsRequest): BatchToolsSummary | null {
     const resolved = resolveVariant(request.variant);
     if (resolved === null) return null;
     const { simInputs } = resolved;
     const out = simulate(simInputs);
-    const outcome = cohortOutcome(
+    const outcome = bankrollCohortRisk(
         out.netValues,
         request.attempts,
         LOSS_RISK_DRAWS,
@@ -156,6 +247,7 @@ function computeCopySplit(
               request.totalRisk,
               request.splits,
               request.objective,
+              request.funded,
           );
 }
 
@@ -166,6 +258,18 @@ function computeFundedValueEstimate(
     return plan === null
         ? null
         : fundedValueEstimate(plan, request.spec, request.sampleSize);
+}
+
+function computeLab(request: LabToolsRequest): LabScenarioResult | null {
+    const plan = resolvePlanReference(request.run.plan);
+    return plan === null
+        ? null
+        : simulateLabScenario(
+              request.run,
+              plan,
+              request.scenario,
+              labBaselines,
+          );
 }
 
 function computeLevers(
@@ -316,6 +420,16 @@ function finishFundedValueEstimate(
     });
 }
 
+function finishLab(request: LabToolsRequest): ToolsWorkerResult {
+    const result = computeLab(request);
+    if (result === null) return fail(request.runId, PLAN_NOT_FOUND_REASON);
+    return parseToolsResult({
+        kind: ToolsResponseKind.Lab,
+        result,
+        runId: request.runId,
+    });
+}
+
 function finishLevers(request: LeversToolsRequest): ToolsWorkerResult {
     const rows = computeLevers(request);
     if (rows === null) return fail(request.runId, PLAN_NOT_FOUND_REASON);
@@ -424,6 +538,77 @@ function finishValueChain(request: ValueChainToolsRequest): ToolsWorkerResult {
     });
 }
 
+function labPortfolioInputs(
+    run: LabRunInputs,
+    plan: Plan,
+    scenario: LabScenarioInputs,
+): PortfolioSimInputs {
+    return {
+        accounts: scenario.accounts,
+        commissionPerRoundTrip: run.commissionPerRoundTrip,
+        correlation: scenario.correlation,
+        dayStop: scenario.dayStop,
+        discounts: toCouponDiscounts({
+            activationDiscountPercent: run.activationDiscountPercent,
+            evalDiscountPercent: run.discountPercent,
+            linkActivationDiscount: run.linkActivationDiscount,
+            monthlySubscriptionDiscountPercent:
+                run.monthlySubscriptionDiscountPercent,
+            resetDiscountPercent: run.resetDiscountPercent,
+        }),
+        fundedHorizonDays: run.fundedHorizonDays,
+        groups: scenario.groups,
+        instrument: scenario.instrument ?? undefined,
+        maxAttempts: 1,
+        maxEvalDays: run.maxEvalDays,
+        minRetainedCushion: run.minRetainedCushion,
+        payoutRequestSize: run.payoutRequestSize,
+        plan,
+        riskPerTrade: scenario.riskPerTrade,
+        rrRatio: scenario.rrRatio,
+        rungSizing: run.rungSizing,
+        seed: run.seed,
+        stopPoints: scenario.stopPoints ?? undefined,
+        tradesPerDay: scenario.tradesPerDay,
+        trials:
+            scenario.correlation === CorrelationMode.Independent
+                ? LAB_TRIALS_INDEPENDENT
+                : LAB_TRIALS_COPY_AND_GROUPED,
+        winrate: scenario.winrate,
+    };
+}
+
+function labTheoreticalPass(
+    plan: Plan,
+    scenario: LabScenarioInputs,
+): LabTheoreticalPass {
+    const pass = walkPassProbability({
+        drawdown: dollars(plan.drawdown.amount),
+        riskPerTrade: dollars(scenario.riskPerTrade),
+        rrRatio: scenario.rrRatio,
+        target: dollars(plan.profitTarget),
+        winrate: fraction(scenario.winrate),
+    });
+    return pass.value === null
+        ? { theoreticalPassProb: undefined, theoreticalPassReason: pass.reason }
+        : { theoreticalPassProb: pass.value, theoreticalPassReason: undefined };
+}
+
+function rememberLabBaseline(
+    baselines: Map<string, number>,
+    key: string,
+    monthlyNet: number,
+): number {
+    baselines.delete(key);
+    baselines.set(key, monthlyNet);
+    while (baselines.size > MAX_REMEMBERED_LAB_BASELINES) {
+        const oldest = baselines.keys().next();
+        if (oldest.done === true) break;
+        baselines.delete(oldest.value);
+    }
+    return monthlyNet;
+}
+
 function resolvePlanReference(reference: BankrollPlanReference): null | Plan {
     const firm = findFirm(reference.firmId);
     const rawPlan = firm?.findPlanBySerial(reference.planSerial) ?? null;
@@ -497,22 +682,6 @@ function toTakeProfitRowSummary(
 
 if (typeof self !== 'undefined' && 'addEventListener' in self) {
     self.addEventListener('message', (event: MessageEvent<unknown>) => {
-        try {
-            self.postMessage(computeToolsResult(event.data));
-        } catch (error) {
-            const runId =
-                typeof event.data === 'object' &&
-                event.data !== null &&
-                'runId' in event.data &&
-                typeof event.data.runId === 'number'
-                    ? event.data.runId
-                    : -1;
-            self.postMessage(
-                fail(
-                    runId,
-                    error instanceof Error ? error.message : String(error),
-                ),
-            );
-        }
+        self.postMessage(handleToolsMessage(event.data));
     });
 }

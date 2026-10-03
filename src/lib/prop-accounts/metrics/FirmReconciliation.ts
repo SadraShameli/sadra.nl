@@ -64,8 +64,12 @@ function entriesForFirm(
         (a, b) => compareText(a.asOf, b.asOf) || compareText(a.id, b.id),
     );
     const entries: FirmReconciliationEntry[] = [];
-    let previous: LedgerFirmStatementRow | null = null;
+    const previousByBasis = new Map<
+        ReportedPayoutBasis,
+        LedgerFirmStatementRow
+    >();
     for (const statement of sorted) {
+        const previous = previousByBasis.get(statement.basis);
         const firmKey = firmKeyOf(firmColumnsOf(statement));
         const ledgerTotal = paidTotalThrough(
             ledger,
@@ -79,12 +83,12 @@ function entriesForFirm(
             asOf: statement.asOf,
             basis: statement.basis,
             changeFromPreviousCents:
-                previous === null
+                previous === undefined
                     ? null
                     : statement.reportedPayoutCents -
                       previous.reportedPayoutCents,
             decreasedFromPrevious:
-                previous !== null &&
+                previous !== undefined &&
                 statement.reportedPayoutCents < previous.reportedPayoutCents,
             differenceCents,
             firmKey,
@@ -94,7 +98,7 @@ function entriesForFirm(
             reportedPayoutCents: usdCents(statement.reportedPayoutCents),
             withinTolerance: isWithinPayoutTolerance(differenceCents),
         });
-        previous = statement;
+        previousByBasis.set(statement.basis, statement);
     }
     return entries;
 }

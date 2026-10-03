@@ -5,7 +5,7 @@ import {
     type Fraction0to1,
 } from '~/lib/prop-calculator/core';
 
-import { cohortOutcome, LOSS_RISK_DRAWS } from './CohortOutcome';
+import { bankrollRisk } from './BankrollRiskFigures';
 import {
     type EconomicsEstimate,
     EconomicsReason,
@@ -13,7 +13,6 @@ import {
     type Quantity,
     quantityOf,
 } from './EdgeMath';
-import { attemptsAffordable } from './LossRisk';
 
 export enum BankrollLeverKind {
     Base = 'base',
@@ -134,14 +133,19 @@ function leverRow(
     seed: number,
     label: BankrollLeverLabel | null,
 ): BankrollLeverRow {
-    const attempts = attemptsAffordable(
+    const { lossProbability } = bankrollRisk(
+        {
+            attemptPaysProbability: outputs.attemptPaysProbability.value,
+            costPerAttempt: outputs.costPerAttempt,
+            netValues: outputs.netValues,
+        },
         bankroll,
-        dollars(outputs.costPerAttempt),
+        seed,
     );
     const lossRisk =
-        attempts.value === null
-            ? missingQuantity(attempts.reason)
-            : lossRiskOf(outputs.netValues, attempts.value, seed);
+        lossProbability === null
+            ? missingQuantity(EconomicsReason.InvalidInput)
+            : quantityOf(lossProbability);
     return {
         attemptPaysProbability: outputs.attemptPaysProbability,
         deltaAttemptPaysProbability:
@@ -164,19 +168,4 @@ function leverRow(
         passProbability: outputs.passProbability,
         value,
     };
-}
-
-function lossRiskOf(
-    netValues: readonly number[],
-    attempts: number,
-    seed: number,
-): Quantity<EconomicsEstimate<Fraction0to1>> {
-    const outcome = cohortOutcome(netValues, attempts, LOSS_RISK_DRAWS, seed);
-    if (outcome.value === null) {
-        return missingQuantity(EconomicsReason.InvalidInput);
-    }
-    return quantityOf({
-        standardError: outcome.value.lossProbability.standardError,
-        value: fraction(outcome.value.lossProbability.value),
-    });
 }

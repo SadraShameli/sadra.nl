@@ -2,6 +2,7 @@ import {
     type Dollars,
     dollars,
     type FirmAccountPolicy,
+    type FirmId,
     floorToWholeCents,
     fundedStartContractLimit,
     type InstrumentSymbol,
@@ -31,9 +32,17 @@ import {
     liveTriggerLimitsFor,
     liveTriggerRuleCaps,
 } from './PayoutAdvice';
+import { type PayoutBlockReason } from './PayoutBlockReason';
+import { liveTriggerBlockReasonFor } from './PayoutReadiness';
+import { PayoutRequestDecisionKind } from './PayoutRequestDecision';
+import {
+    fundedPayoutRuleContextOf,
+    PayoutRequestRule,
+} from './PayoutRequestRule';
 import { NO_PERSONAL_CAPS, type PersonalCaps } from './PersonalCaps';
 import { advisorPlaceableMinimum } from './PlaceableMinimum';
 import {
+    pendingPayoutCountsOf,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
@@ -78,6 +87,17 @@ export interface CopyGroupMemberContractPlacement {
     readonly placed: PlacedFundedRisk;
 }
 
+export interface CopyGroupPayoutCountBlock {
+    readonly firm: FirmId;
+    readonly memberIds: readonly string[];
+    readonly reason: PayoutBlockReason;
+}
+
+export interface CopyGroupPayoutCountNotChecked {
+    readonly firm: FirmId;
+    readonly memberIds: readonly string[];
+}
+
 export interface CopyGroupSizingInput {
     readonly members: readonly CopyGroupSizingMember[];
     readonly positionSizing?: null | {
@@ -95,6 +115,8 @@ export interface CopyGroupSizingMember {
     readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
+    readonly personalRequestOverride: Dollars | null;
+    readonly personalRetainedCushion: Dollars | null;
 }
 
 export type CopyGroupSizingRejection =
@@ -129,6 +151,8 @@ export type CopyGroupSizingResult =
           readonly kind: CopyGroupSizingResultKind.Sized;
           readonly liveTriggerCoverage: LiveTriggerCoverage | null;
           readonly memberIds: readonly string[];
+          readonly payoutCountBlocks: readonly CopyGroupPayoutCountBlock[];
+          readonly payoutCountNotChecked: readonly CopyGroupPayoutCountNotChecked[];
           readonly sizing: DocumentedSizing;
           readonly stage: SizingStage.Eval | SizingStage.Funded;
       }
@@ -152,6 +176,11 @@ export interface DocumentedSizingOfOptions {
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
     readonly stopPoints?: number;
+}
+
+interface PayoutCountMember {
+    readonly account: ReconstructedFundedOrEvalAccount;
+    readonly member: CopyGroupSizingMember;
 }
 
 interface RuleContextOptions {
@@ -310,6 +339,10 @@ export function copyGroupSizing(
     }
 
     const divergences = divergencesOf(entries, sizing);
+    const payoutCountMembers = entries.map(({ account, member }) => ({
+        account,
+        member,
+    }));
     const groupRisk = sizing.rungs[0]?.risk ?? null;
     const contractPlacement =
         groupRisk !== null &&
@@ -326,6 +359,14 @@ export function copyGroupSizing(
             entries.map((entry) => entry.liveTriggerCoverage),
         ),
         memberIds: members.map((member) => member.id),
+        payoutCountBlocks:
+            stage === SizingStage.Funded
+                ? payoutCountBlocksOf(payoutCountMembers, rulebook)
+                : [],
+        payoutCountNotChecked:
+            stage === SizingStage.Funded
+                ? payoutCountNotCheckedOf(payoutCountMembers)
+                : [],
         sizing,
         stage,
     };
@@ -480,6 +521,112 @@ function isBoundByPlaceableMinimum(
         placeableMinimum: unplacedMinimum,
     });
     return withoutMinimum.rungs.length > 0;
+}
+
+function isReadyToRequest(
+    { account, member }: PayoutCountMember,
+    rulebook: RulebookParameters,
+): boolean {
+    const { fundedTracker } = account;
+    if (fundedTracker === null) return false;
+    const decision = new PayoutRequestRule(rulebook).decide(
+        fundedPayoutRuleContextOf({
+            ...pendingPayoutCountsOf(account),
+            liveTrigger: liveTriggerLimitsFor(undefined, account.plan, null),
+            pendingPayouts: account.pendingPayouts ?? 0,
+            personalRequestOverride: member.personalRequestOverride,
+            personalRetainedCushion: member.personalRetainedCushion,
+            plan: account.plan,
+            state: account.state,
+            tracker: fundedTracker,
+        }),
+    );
+    return decision.kind === PayoutRequestDecisionKind.Request;
+}
+
+function payoutCountBlockReasonOf(
+    group: readonly PayoutCountMember[],
+    rulebook: RulebookParameters,
+): null | PayoutBlockReason {
+    const paidCounts = group.map(
+        ({ member }) => member.paidPayoutsSinceLastLiveAccount,
+    );
+    if (paidCounts.includes(null)) return null;
+    const paid = Math.max(...paidCounts.map((count) => count ?? 0));
+    const counts = group.map(({ account }) => pendingPayoutCountsOf(account));
+    const firmPending = Math.max(
+        ...counts.map(
+            (entry) =>
+                entry.pendingPayoutCount +
+                entry.otherAccountsPendingPayoutCount,
+        ),
+    );
+    const concurrentRequests = group.filter(
+        (entry, index) =>
+            counts[index]?.pendingPayoutCount === 0 &&
+            isReadyToRequest(entry, rulebook),
+    ).length;
+    if (concurrentRequests === 0) return null;
+    for (const { account, member } of group) {
+        const limits = liveTriggerLimitsFor(
+            member.accountPolicy ?? undefined,
+            account.plan,
+            paid,
+        );
+        const reason = liveTriggerBlockReasonFor(
+            0,
+            { ...limits, perAccountCap: null, perAccountSource: null },
+            firmPending + concurrentRequests - 1,
+            0,
+        );
+        if (reason !== null) return reason;
+    }
+    return null;
+}
+
+function payoutCountBlocksOf(
+    members: readonly PayoutCountMember[],
+    rulebook: RulebookParameters,
+): readonly CopyGroupPayoutCountBlock[] {
+    return payoutCountFirmGroupsOf(members).flatMap(([firm, group]) => {
+        const reason = payoutCountBlockReasonOf(group, rulebook);
+        return reason === null
+            ? []
+            : [
+                  {
+                      firm,
+                      memberIds: group.map(({ member }) => member.id),
+                      reason,
+                  },
+              ];
+    });
+}
+
+function payoutCountFirmGroupsOf(
+    members: readonly PayoutCountMember[],
+): readonly (readonly [FirmId, readonly PayoutCountMember[]])[] {
+    return [...Map.groupBy(members, ({ account }) => account.plan.id.firm)];
+}
+
+function payoutCountNotCheckedOf(
+    members: readonly PayoutCountMember[],
+): readonly CopyGroupPayoutCountNotChecked[] {
+    return payoutCountFirmGroupsOf(members).flatMap(([firm, group]) => {
+        const isPaidCountUnknown = group.some(
+            ({ member }) => member.paidPayoutsSinceLastLiveAccount === null,
+        );
+        const hasFirmTotalCap = group.some(
+            ({ account, member }) =>
+                liveTriggerLimitsFor(
+                    member.accountPolicy ?? undefined,
+                    account.plan,
+                    null,
+                ).firmTotalCap !== null,
+        );
+        return isPaidCountUnknown && hasFirmTotalCap
+            ? [{ firm, memberIds: group.map(({ member }) => member.id) }]
+            : [];
+    });
 }
 
 function rejected(rejection: CopyGroupSizingRejection): CopyGroupSizingResult {

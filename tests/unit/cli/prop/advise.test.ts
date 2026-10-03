@@ -32,6 +32,7 @@ import {
     DEFAULT_RULEBOOK,
     type NextPayoutProjection,
     NextTradeRiskVerdict,
+    NO_PENDING_PAYOUT_COUNTS,
     personalPayoutOverrideWarningText,
     runEngineOptimum,
     SIZING_ASSUMPTION_TEXT,
@@ -435,7 +436,12 @@ describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', ()
         const { options, plan, snapshot } = readAdviseInputs(
             parseAdvise(FRESH_FUNDED_APEX_EOD),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
         const requests = advisor.optimumRequests();
         const results = requests.map((request) =>
@@ -452,7 +458,12 @@ describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', ()
         const { options, plan, snapshot } = readAdviseInputs(
             parseAdvise(FRESH_FUNDED_APEX_EOD),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
         const advice = advisor.assemble([]);
 
@@ -474,7 +485,12 @@ describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', ()
                 '2000-01-03',
             ]),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
         const advice = advisor.assemble([]);
 
@@ -628,7 +644,12 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
         const { options, plan, snapshot } = readAdviseInputs(
             parseAdvise(FRESH_FUNDED_APEX_EOD_TODAY),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
         const rungs = advisor.dailyPlanCard()?.rungs ?? [];
         if (rungs.length < 2) {
@@ -651,7 +672,12 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
         const { options, plan, snapshot } = readAdviseInputs(
             parseAdvise(FRESH_FUNDED_APEX_EOD_TODAY),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
 
         const day = dayProgressFromCounts(advisor, 0, 0);
@@ -668,7 +694,12 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
         const { options, plan, snapshot } = readAdviseInputs(
             parseAdvise(FRESH_FUNDED_APEX_EOD_TODAY),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
         const day = dayProgressFromCounts(advisor, 1, 1);
         const result = advisor.checkNextTradeRisk(dollars(600), day);
@@ -686,7 +717,12 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
         const { options, plan, snapshot } = readAdviseInputs(
             parseAdvise(FRESH_FUNDED_APEX_EOD_TODAY),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
         const rungs = advisor.dailyPlanCard()?.rungs ?? [];
         if (rungs.length === 0) {
@@ -709,7 +745,12 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
         const { options, plan, snapshot } = readAdviseInputs(
             parseAdvise(FRESH_FUNDED_APEX_EOD_TODAY),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
         const rungs = advisor.dailyPlanCard()?.rungs ?? [];
 
@@ -739,7 +780,12 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
         const { options, plan, snapshot } = readAdviseInputs(
             parseAdvise(FRESH_FUNDED_APEX_EOD_TODAY),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
         const activeDay = dayProgressFromCounts(advisor, 1, 1);
         const activeResult = advisor.checkNextTradeRisk(
@@ -850,7 +896,12 @@ function evalAdviceForLadderSearch() {
             '1',
         ]),
     );
-    const account = AccountReconstruction.rebuild(snapshot, plan);
+    const account = AccountReconstruction.rebuild(
+        snapshot,
+        plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
+    );
     const advisor = createSizingAdvisor(account, options);
     const requests = advisor.optimumRequests();
     const results = requests.map((request) => runEngineOptimum(plan, request));
@@ -867,7 +918,12 @@ function fundedAdviceWithOverride(requestSize: string) {
             requestSize,
         ]),
     );
-    const account = AccountReconstruction.rebuild(snapshot, plan);
+    const account = AccountReconstruction.rebuild(
+        snapshot,
+        plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
+    );
     const advisor = createSizingAdvisor(account, options);
     const requests = advisor.optimumRequests();
     const results = requests.map((request) => runEngineOptimum(plan, request));
@@ -981,7 +1037,12 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
                 '200',
             ]),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
         const requests = advisor.optimumRequests();
         const results = requests.map((request) =>
@@ -1056,7 +1117,12 @@ describe('adviceReportLines: minStopPointsAtCap flagged only above the entered s
                 stopPoints,
             ]),
         );
-        const account = AccountReconstruction.rebuild(snapshot, plan);
+        const account = AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const advisor = createSizingAdvisor(account, options);
         const requests = advisor.optimumRequests();
         const results = requests.map((request) =>
@@ -1100,7 +1166,12 @@ function nextPayoutProjectionLine(value: NextPayoutProjection): string {
     const { options, plan, snapshot } = readAdviseInputs(
         parseAdvise(FRESH_FUNDED_APEX_EOD_TODAY),
     );
-    const account = AccountReconstruction.rebuild(snapshot, plan);
+    const account = AccountReconstruction.rebuild(
+        snapshot,
+        plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
+    );
     const advice = createSizingAdvisor(account, options).assemble([
         { projection: value, source: AdviceSource.NextPayoutProjection },
     ]);

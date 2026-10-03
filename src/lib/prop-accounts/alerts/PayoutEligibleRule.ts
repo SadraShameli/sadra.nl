@@ -5,9 +5,13 @@ import {
     type FundedPayoutRuleContext,
     fundedPayoutRuleContextOf,
     type LivePayoutRuleContext,
+    liveTriggerBlockReasonFor,
     type LiveTriggerLimits,
     PayoutRequestDecisionKind,
     PayoutRequestRule,
+    pendingPayoutCountsOf,
+    pendingPayoutCountsOr,
+    type PendingPayoutCountsOutcome,
     type ReconstructedAccount,
     ReconstructedLiveKind,
     SizingStage,
@@ -15,11 +19,14 @@ import {
 
 import { type AccountAlert, AlertDisclosure } from './AccountAlert';
 import {
+    type AccountPersonalPolicy,
     type AlertContext,
     isActive,
     liveTriggerDisclosuresOf,
     liveTriggerLimitsIn,
     type MonitoredAccount,
+    pendingPayoutCountsIn,
+    personalPolicyIn,
 } from './AlertContext';
 import { AlertKind } from './AlertKind';
 import { AccountAlertRule } from './AlertRule';
@@ -41,9 +48,12 @@ export class PayoutEligibleRule extends AccountAlertRule {
             state.plan,
             context.today,
         );
+        const counts = pendingPayoutCountsIn(context, monitored, context.today);
         const ruleContext = payoutRuleContextOf(
             state.latest.reconstructed,
             liveTrigger,
+            counts,
+            personalPolicyIn(context, monitored.account.id),
         );
         if (ruleContext === null) return null;
         const decision = new PayoutRequestRule(context.rulebook).decide(
@@ -53,7 +63,7 @@ export class PayoutEligibleRule extends AccountAlertRule {
         const disclosures =
             ruleContext.stage === SizingStage.Live
                 ? [AlertDisclosure.LiveTriggersNotChecked]
-                : liveTriggerDisclosuresOf(liveTrigger.coverage);
+                : liveTriggerDisclosuresOf(liveTrigger.coverage, counts);
         const amount = formatUsdCents(
             usdCentsFromDollars(decision.requestAmount),
         );
@@ -73,6 +83,8 @@ export class PayoutEligibleRule extends AccountAlertRule {
 function payoutRuleContextOf(
     account: ReconstructedAccount,
     liveTrigger: LiveTriggerLimits,
+    countsOutcome: PendingPayoutCountsOutcome,
+    policy: AccountPersonalPolicy,
 ): FundedPayoutRuleContext | LivePayoutRuleContext | null {
     switch (account.kind) {
         case ReconstructedLiveKind.Live: {
@@ -83,8 +95,8 @@ function payoutRuleContextOf(
                 livePlan: account.livePlan,
                 paidPayoutsSinceLastLiveAccount:
                     liveTrigger.paidPayoutsSinceLastLiveAccount,
-                personalRequestOverride: null,
-                personalRetainedCushion: null,
+                personalRequestOverride: policy.payoutRequestOverride,
+                personalRetainedCushion: policy.retainedCushionRequest,
                 stage: SizingStage.Live,
                 state: account.state,
             };
@@ -93,13 +105,27 @@ function payoutRuleContextOf(
             return null;
         }
         case TradingPhase.Funded: {
-            return account.fundedTracker === null
+            if (account.fundedTracker === null) return null;
+            const pendingPayouts = account.pendingPayouts ?? 0;
+            const counts = pendingPayoutCountsOr(
+                countsOutcome,
+                pendingPayoutCountsOf(account),
+            );
+            const isBlockedByLiveTrigger =
+                liveTriggerBlockReasonFor(
+                    account.fundedTracker.payoutsIssued,
+                    liveTrigger,
+                    counts.pendingPayoutCount,
+                    counts.otherAccountsPendingPayoutCount,
+                ) !== null;
+            return isBlockedByLiveTrigger
                 ? null
                 : fundedPayoutRuleContextOf({
+                      ...counts,
                       liveTrigger,
-                      pendingPayouts: account.pendingPayouts ?? 0,
-                      personalRequestOverride: null,
-                      personalRetainedCushion: null,
+                      pendingPayouts,
+                      personalRequestOverride: policy.payoutRequestOverride,
+                      personalRetainedCushion: policy.retainedCushionRequest,
                       plan: account.plan,
                       state: account.state,
                       tracker: account.fundedTracker,

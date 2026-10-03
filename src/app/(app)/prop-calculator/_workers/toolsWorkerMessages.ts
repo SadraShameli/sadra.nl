@@ -1,20 +1,33 @@
 import { z } from 'zod';
 
 import {
+    CorrelationMode,
     dollarsSchema,
     FirmId,
     fraction,
+    type Fraction0to1,
     InstrumentSymbol,
+    LiveTransferContinuationKind,
+    type MultiAccountResult,
     type PlanOptIns,
+    RungSizing,
 } from '~/lib/prop-calculator';
 import {
+    type Assumption,
+    AssumptionKind,
+    assumptionSchema,
+    type CumulativePayoutTriggerAssumption,
     type DocumentedPolicySpec,
     documentedPolicySpecSchema,
     type EnginePolicy,
     enginePolicySchema,
+    type LiveTransferHazardAssumption,
+    rulebookSchema,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 import {
+    type CopySplitFundedSizing,
+    CopySplitFundedSource,
     type CopySplitRefusedRow,
     type CopySplitResult,
     CopySplitRowKind,
@@ -49,6 +62,7 @@ export enum ToolsRequestKind {
     Batch = 'batch',
     CopySplit = 'copy-split',
     FundedValueEstimate = 'funded-value-estimate',
+    Lab = 'lab',
     Levers = 'levers',
     NextRound = 'next-round',
     Projection = 'projection',
@@ -63,6 +77,7 @@ export enum ToolsResponseKind {
     CopySplit = 'copy-split',
     Failed = 'failed',
     FundedValueEstimate = 'funded-value-estimate',
+    Lab = 'lab',
     Levers = 'levers',
     NextRound = 'next-round',
     Projection = 'projection',
@@ -141,6 +156,7 @@ export interface BatchToolsSummary {
 }
 
 export interface CopySplitToolsRequest {
+    readonly funded: CopySplitFundedSizing;
     readonly kind: ToolsRequestKind.CopySplit;
     readonly objective: SizingObjective;
     readonly runId: number;
@@ -166,6 +182,65 @@ export interface FundedValueEstimateToolsRequest {
 export interface FundedValueEstimateToolsResult {
     readonly kind: ToolsResponseKind.FundedValueEstimate;
     readonly result: FundedValueEstimateResult;
+    readonly runId: number;
+}
+
+export interface LabRunInputs {
+    readonly activationDiscountPercent: number;
+    readonly commissionPerRoundTrip: number;
+    readonly discountPercent: number;
+    readonly fundedHorizonDays: number;
+    readonly linkActivationDiscount: boolean;
+    readonly liveTransferHazard?: number;
+    readonly maxEvalDays: number;
+    readonly minRetainedCushion?: number;
+    readonly monthlySubscriptionDiscountPercent: number;
+    readonly payoutRequestSize?: number;
+    readonly plan: BankrollPlanReference;
+    readonly resetDiscountPercent: number;
+    readonly rungSizing?: RungSizing;
+    readonly seed: number;
+}
+
+export interface LabScenarioInputs {
+    readonly accounts: number;
+    readonly correlation: CorrelationMode;
+    readonly dayStop: z.infer<typeof dayStopRuleSchema>;
+    readonly groups: number;
+    readonly instrument: InstrumentSymbol | null;
+    readonly riskPerTrade: number;
+    readonly rrRatio: number;
+    readonly stopPoints: null | number;
+    readonly tradesPerDay: number;
+    readonly winrate: number;
+}
+
+export type LabScenarioResult = LabTheoreticalPass &
+    MultiAccountResult & {
+        lifetimeCapPoolingGap: null | string;
+        noTransferMonthlyNet: null | number;
+    };
+
+export type LabTheoreticalPass =
+    | {
+          theoreticalPassProb: Fraction0to1;
+          theoreticalPassReason: undefined;
+      }
+    | {
+          theoreticalPassProb: undefined;
+          theoreticalPassReason: EconomicsReason;
+      };
+
+export interface LabToolsRequest {
+    readonly kind: ToolsRequestKind.Lab;
+    readonly run: LabRunInputs;
+    readonly runId: number;
+    readonly scenario: LabScenarioInputs;
+}
+
+export interface LabToolsResult {
+    readonly kind: ToolsResponseKind.Lab;
+    readonly result: LabScenarioResult;
     readonly runId: number;
 }
 
@@ -273,6 +348,7 @@ export type ToolsWorkerRequest =
     | BatchToolsRequest
     | CopySplitToolsRequest
     | FundedValueEstimateToolsRequest
+    | LabToolsRequest
     | LeversToolsRequest
     | NextRoundToolsRequest
     | ProjectionToolsRequest
@@ -285,6 +361,7 @@ export type ToolsWorkerResult =
     | BatchToolsResult
     | CopySplitToolsResult
     | FundedValueEstimateToolsResult
+    | LabToolsResult
     | LeversToolsResult
     | NextRoundToolsResult
     | ProjectionToolsResult
@@ -366,6 +443,36 @@ const bankrollPlanVariantInputsSchema = z.object({
     policy: enginePolicySchema,
 }) satisfies z.ZodType<BankrollPlanVariantInputs>;
 
+const labRunInputsSchema = z.object({
+    activationDiscountPercent: finiteNumberSchema,
+    commissionPerRoundTrip: finiteNumberSchema,
+    discountPercent: finiteNumberSchema,
+    fundedHorizonDays: finiteNumberSchema,
+    linkActivationDiscount: z.boolean(),
+    liveTransferHazard: fractionSchema.optional(),
+    maxEvalDays: finiteNumberSchema,
+    minRetainedCushion: finiteNumberSchema.optional(),
+    monthlySubscriptionDiscountPercent: finiteNumberSchema,
+    payoutRequestSize: finiteNumberSchema.optional(),
+    plan: bankrollPlanReferenceSchema,
+    resetDiscountPercent: finiteNumberSchema,
+    rungSizing: z.enum(RungSizing).optional(),
+    seed: z.number().int(),
+}) satisfies z.ZodType<LabRunInputs>;
+
+const labScenarioInputsSchema = z.object({
+    accounts: finiteNumberSchema,
+    correlation: z.enum(CorrelationMode),
+    dayStop: dayStopRuleSchema,
+    groups: finiteNumberSchema,
+    instrument: z.enum(InstrumentSymbol).nullable(),
+    riskPerTrade: finiteNumberSchema,
+    rrRatio: finiteNumberSchema,
+    stopPoints: nullableFiniteNumberSchema,
+    tradesPerDay: finiteNumberSchema,
+    winrate: finiteNumberSchema,
+}) satisfies z.ZodType<LabScenarioInputs>;
+
 const bankrollPolicySchema = z.object({
     maxConcurrentAccounts: z.number().int().positive().nullable(),
     monthlyBudget: dollarsSchema.nullable(),
@@ -380,10 +487,22 @@ const uncertainValueSchema = z.object({
     value: finiteNumberSchema,
 }) satisfies z.ZodType<UncertainValue>;
 
+const liveTransferAssumptionSchema = assumptionSchema.refine(
+    (assumption: Assumption): assumption is LiveTransferHazardAssumption =>
+        assumption.kind === AssumptionKind.LiveTransferHazard,
+);
+
+const cumulativePayoutTriggerAssumptionSchema = assumptionSchema.refine(
+    (assumption: Assumption): assumption is CumulativePayoutTriggerAssumption =>
+        assumption.kind === AssumptionKind.CumulativePayoutTriggerPriced,
+);
+
 const valueResultSchema = z.object({
     creditFree: uncertainValueSchema,
     creditInclusive: uncertainValueSchema,
+    cumulativePayoutTrigger: cumulativePayoutTriggerAssumptionSchema.optional(),
     kind: z.literal(ValueResultKind.Value),
+    liveTransfer: liveTransferAssumptionSchema.optional(),
     seed: z.number().int(),
     trials: positiveIntSchema,
 }) satisfies z.ZodType<ValueResult>;
@@ -446,6 +565,11 @@ const copySplitRowSchema = z.discriminatedUnion('kind', [
     copySplitRefusedRowSchema,
 ]);
 
+const copySplitFundedSizingSchema = z.object({
+    parameters: rulebookSchema.shape.funded,
+    source: z.enum(CopySplitFundedSource),
+}) satisfies z.ZodType<CopySplitFundedSizing>;
+
 const copySplitResultSchema = z.object({
     basisLines: z.array(z.string()),
     indistinguishableSplits: z.array(positiveIntSchema),
@@ -455,6 +579,46 @@ const copySplitResultSchema = z.object({
     rows: z.array(copySplitRowSchema),
     trialsPerSplit: positiveIntSchema,
 }) satisfies z.ZodType<CopySplitResult>;
+
+const atLeastProbabilitiesSchema = z.object({
+    k1: finiteNumberSchema,
+    kAll: finiteNumberSchema,
+    kHalf: finiteNumberSchema,
+});
+
+const labResultFields = {
+    accountsLiveTransferDistribution: z.array(finiteNumberSchema),
+    accountsPassDistribution: z.array(finiteNumberSchema),
+    expectedAccountsPass: finiteNumberSchema,
+    expectedDaysToPass: finiteNumberSchema,
+    expectedMaxLossStreak: finiteNumberSchema,
+    expectedMonthlyNet: finiteNumberSchema,
+    expectedMonthlyRealizedNet: finiteNumberSchema,
+    expectedNet: finiteNumberSchema,
+    lifetimeCapPoolingGap: z.string().nullable(),
+    liveTransferContinuation: z.enum(LiveTransferContinuationKind),
+    liveTransferProbability: finiteNumberSchema,
+    meanTradesPerDay: finiteNumberSchema,
+    noTransferMonthlyNet: nullableFiniteNumberSchema,
+    pAtLeast: atLeastProbabilitiesSchema,
+    pAtLeastFundedSurvival: atLeastProbabilitiesSchema,
+    perAccountFundedSurvival: finiteNumberSchema,
+    perAccountPass: finiteNumberSchema,
+    pHitDDLimit: finiteNumberSchema,
+};
+
+const labScenarioResultSchema = z.union([
+    z.object({
+        ...labResultFields,
+        theoreticalPassProb: fractionSchema.transform(fraction),
+        theoreticalPassReason: z.undefined(),
+    }),
+    z.object({
+        ...labResultFields,
+        theoreticalPassProb: z.undefined(),
+        theoreticalPassReason: z.enum(EconomicsReason),
+    }),
+]) satisfies z.ZodType<LabScenarioResult>;
 
 const MAX_COPY_SPLIT_ACCOUNTS = 20;
 const MAX_COPY_SPLITS = 12;
@@ -472,6 +636,8 @@ const fundedValueSampleRangeSchema = z.object({
 }) satisfies z.ZodType<FundedValueSampleRange>;
 
 const fundedValueEstimateResultSchema = z.object({
+    cumulativePayoutTrigger: cumulativePayoutTriggerAssumptionSchema.optional(),
+    liveTransfer: liveTransferAssumptionSchema.optional(),
     meanPayoutsPerAccount: uncertainValueSchema,
     payoutCountDistribution: z.array(fractionSchema),
     probabilityZeroPayouts: uncertainValueSchema,
@@ -488,6 +654,7 @@ export const toolsRequestSchema = z.discriminatedUnion('kind', [
         variant: bankrollPlanVariantInputsSchema,
     }),
     z.object({
+        funded: copySplitFundedSizingSchema,
         kind: z.literal(ToolsRequestKind.CopySplit),
         objective: z.enum(SizingObjective),
         runId: z.number().int(),
@@ -501,6 +668,12 @@ export const toolsRequestSchema = z.discriminatedUnion('kind', [
         runId: z.number().int(),
         sampleSize: positiveIntSchema.nullable(),
         spec: documentedPolicySpecSchema,
+    }),
+    z.object({
+        kind: z.literal(ToolsRequestKind.Lab),
+        run: labRunInputsSchema,
+        runId: z.number().int(),
+        scenario: labScenarioInputsSchema,
     }),
     z.object({
         bankroll: finiteNumberSchema.positive(),
@@ -641,6 +814,11 @@ export const toolsResultSchema = z.discriminatedUnion('kind', [
         runId: z.number().int(),
     }),
     z.object({
+        kind: z.literal(ToolsResponseKind.Lab),
+        result: labScenarioResultSchema,
+        runId: z.number().int(),
+    }),
+    z.object({
         kind: z.literal(ToolsResponseKind.Levers),
         rows: z.array(leverRowSummarySchema),
         runId: z.number().int(),
@@ -687,4 +865,13 @@ export function parseToolsRequest(value: unknown): ToolsWorkerRequest {
 
 export function parseToolsResult(value: unknown): ToolsWorkerResult {
     return toolsResultSchema.parse(value);
+}
+
+export function runIdOf(value: unknown): null | number {
+    return typeof value === 'object' &&
+        value !== null &&
+        'runId' in value &&
+        typeof value.runId === 'number'
+        ? value.runId
+        : null;
 }

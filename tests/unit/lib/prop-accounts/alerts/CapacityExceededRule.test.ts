@@ -116,4 +116,25 @@ describe('CapacityExceededRule', () => {
             alertsOf(rule, { accounts, rulebook: rulebookWithCapacity(1) }),
         ).toHaveLength(1);
     });
+
+    it('counts two modeled accounts and an active ledger-only account as three units, the same as the next-slot ranking', () => {
+        const accounts = [
+            accountFor(ANY_EVAL_PLAN),
+            accountFor(ANY_EVAL_PLAN),
+            accountFor(ANY_EVAL_PLAN, {
+                planLabel: 'Hola 100K',
+                planSerial: null,
+                tracking: AccountTracking.LedgerOnly,
+            }),
+        ];
+        expect(
+            alertsOf(rule, { accounts, rulebook: rulebookWithCapacity(3) }),
+        ).toEqual([]);
+        const [alert] = alertsOf(rule, {
+            accounts,
+            rulebook: rulebookWithCapacity(2),
+        });
+        expect(alert?.message).toContain('You hold 3 accounts to manage a day');
+        expect(alert?.message).toContain('3 active accounts');
+    });
 });

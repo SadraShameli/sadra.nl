@@ -21,7 +21,7 @@ import {
 } from '~/lib/prop-calculator/core/FundedStateValue';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
-const FTMO_GROWTH_COARSE_FIXED_POINT = 60_708.764374278806;
+const FTMO_GROWTH_COARSE_FIXED_POINT = 9708.771989763492;
 const HORIZON_DAYS = 252;
 const PRE_WP17E_FTMO_SWEEPS = 2152;
 const TIGHT_TOLERANCE = 1e-7;
@@ -100,7 +100,7 @@ describe('computeFundedStateValue converges to its fixed point within the stated
         },
     );
 
-    it('values FTMO Futures Growth 50K at the coarse probe grid within $1 of the fixed point the solver reaches at tolerance 0.0001 ($60,708.76), in under half the 2,152 sweeps the pre-WP17e default took. Re-derived for T32: the end-of-horizon credit is one capped request, not the whole balance above the floor; with only the pre-T32 credit restored the tolerance 0.0001 run reproduces the old $61,833.38 fixed point exactly, so the credit is the only move. Pinned back to the 6 drawdown fine top for WP58d (the WP58c re-pin to the default 30 drawdown coarse tail took reachedStateCount from 81,000 to 502,200 and this file from 8.8 s to 102 s, 11x, and it studies convergence, not the grid, so the cushion tail is pinned off and the pre-tail pins are restored; the tail-on solve is covered by FundedStateValueGridSaturation.test.ts and FundedStateValueBestDayBound.test.ts)', async () => {
+    it('values FTMO Futures Growth 50K at the coarse probe grid within $1 of the fixed point the solver reaches at tolerance 0.0001 ($9,708.77), in under half the 2,152 sweeps the pre-WP17e default took. Re-derived for T32: the end-of-horizon credit is one capped request, not the whole balance above the floor; with only the pre-T32 credit restored the tolerance 0.0001 run reproduces the old $61,833.38 fixed point exactly, so the credit is the only move. Pinned back to the 6 drawdown fine top for WP58d (it studies convergence, not the grid, so the cushion tail is pinned off; the tail-on solve is covered by FundedStateValueGridSaturation.test.ts and FundedStateValueBestDayBound.test.ts). Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown instead of 0.25, which took reachedStateCount from 81,000 to 14,850 and the fixed point from $60,708.76 to $9,708.77 (the 252 day horizon, two trades a day and two payout regimes are unchanged) and the solve from 75 s to about 1 s; it takes 273 sweeps against the 2,152 of the pre-WP17e default', async () => {
         await warmFirmsRegistryCache();
         const plan = ALL_FIRMS.find(
             (firm) => firm.id === FirmId.FtmoFutures,
@@ -112,27 +112,27 @@ describe('computeFundedStateValue converges to its fixed point within the stated
         if (!plan) throw new Error('FTMO Futures Growth 50K plan not found');
 
         const result = computeFundedStateValue({
-            actionStepMultiple: 0.25,
-            cushionStepMultiple: 0.25,
+            actionStepMultiple: 1,
+            cushionStepMultiple: 1,
             evalInitialValue: 0,
             feePerAttempt: dollars(0),
             maxActionMultiple: 1,
             maxTailCushionMultiple: 6,
             meanHorizonDays: HORIZON_DAYS,
             payoutRegimeCap: 2,
-            plan,
+            plan: plan.withOverrides({}),
             rrRatio: 2,
             tradesPerDay: 2,
             winrate: 0.5,
         });
 
         expect(result.unconvergedLevelCount).toBe(0);
-        expect(result.reachedStateCount).toBe(81_000);
+        expect(result.reachedStateCount).toBe(14_850);
         expect(
             Math.abs(result.initialValue - FTMO_GROWTH_COARSE_FIXED_POINT),
         ).toBeLessThanOrEqual(Math.min(1, result.valueErrorBound));
         expect(result.sweepCount).toBeLessThan(PRE_WP17E_FTMO_SWEEPS / 2);
-    }, 600_000);
+    });
 });
 
 describe('ValueIterationMonitor states an explicit stopping rule and error bound', () => {

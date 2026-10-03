@@ -34,7 +34,13 @@ export type ToolsWorkerState =
       };
 
 const IDLE: ToolsWorkerState = { phase: ToolsWorkerPhase.Idle };
-const WORKER_FAILURE_REASON = 'The tools worker failed.';
+export const WORKER_FAILURE_REASON = 'The tools worker failed.';
+
+export function createToolsWorker(): Worker {
+    return new Worker(new URL('../_workers/toolsWorker.ts', import.meta.url), {
+        type: 'module',
+    });
+}
 
 export function useToolsWorker(): ToolsWorker {
     const [state, setState] = useState<ToolsWorkerState>(IDLE);
@@ -114,8 +120,3 @@ export function useToolsWorker(): ToolsWorker {
     return { cancel, run, state };
 }
 
-function createToolsWorker(): Worker {
-    return new Worker(new URL('../_workers/toolsWorker.ts', import.meta.url), {
-        type: 'module',
-    });
-}

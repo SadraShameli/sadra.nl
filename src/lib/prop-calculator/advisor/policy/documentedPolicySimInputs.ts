@@ -1,3 +1,8 @@
+import {
+    cumulativePayoutTriggerAssumption,
+    type CumulativePayoutTriggerAssumption,
+    type CumulativePayoutTriggerInputs,
+} from '~/lib/prop-calculator/advisor/Assumption';
 import { documentedPayoutRequest } from '~/lib/prop-calculator/advisor/DocumentedPayoutRequest';
 import {
     fundedStopRuleToDayStopRule,
@@ -12,6 +17,7 @@ import {
     DayStopRuleKind,
     dollars,
     type Dollars,
+    type FirmAccountPolicy,
     type FirmId,
     flatDayPolicy,
     fraction,
@@ -21,8 +27,11 @@ import {
     policySizingOf,
     RungSizing,
     serializePlanId,
+    tightestVerifiedCumulativeTrigger,
     TradingPhase,
+    type VerifiedCumulativeTrigger,
 } from '~/lib/prop-calculator/core';
+import { findFirm } from '~/lib/prop-calculator/firms';
 import {
     SIM_INPUTS_REFUSAL_PREFIX,
     type SimInputs,
@@ -146,6 +155,22 @@ export function documentedSizedFundedRisk(
     return fundedRisk;
 }
 
+export function pricedCumulativeTriggerAssumptionOf(
+    inputs: CumulativePayoutTriggerInputs & {
+        readonly verifiedCumulativePayoutTrigger?: number | undefined;
+    },
+): CumulativePayoutTriggerAssumption | undefined {
+    const { plan, verifiedCumulativePayoutTrigger } = inputs;
+    if (verifiedCumulativePayoutTrigger === undefined) return undefined;
+    const trigger = verifiedCumulativeTriggerOf(
+        findFirm(plan.id.firm)?.accountPolicy,
+        plan,
+    );
+    return trigger?.amount === verifiedCumulativePayoutTrigger
+        ? cumulativePayoutTriggerAssumption(trigger, inputs)
+        : undefined;
+}
+
 export function resolveDocumentedPayoutRequestSize(
     plan: Plan,
     enginePolicy: EnginePolicy,
@@ -195,6 +220,10 @@ export function toSimInputs(plan: Plan, spec: DocumentedPolicySpec): SimInputs {
         rulebook,
         simulatedPlan.id.firm,
     );
+    const verifiedCumulativePayoutTrigger = verifiedCumulativeTriggerOf(
+        findFirm(simulatedPlan.id.firm)?.accountPolicy,
+        simulatedPlan,
+    )?.amount;
     const { evalDayPolicy, fundedDayPolicy } = buildDocumentedDayPolicies(
         simulatedPlan,
         rulebook,
@@ -230,6 +259,18 @@ export function toSimInputs(plan: Plan, spec: DocumentedPolicySpec): SimInputs {
         stopPoints,
         tradesPerDay: funded.tradesPerDayMax,
         trials: run.trials,
+        ...(verifiedCumulativePayoutTrigger !== undefined && {
+            verifiedCumulativePayoutTrigger,
+        }),
         winrate: strategy.winrate,
     };
+}
+
+export function verifiedCumulativeTriggerOf(
+    accountPolicy: FirmAccountPolicy | undefined,
+    plan: Plan,
+): null | VerifiedCumulativeTrigger {
+    return tightestVerifiedCumulativeTrigger(
+        accountPolicy?.liveTriggersFor(plan) ?? [],
+    );
 }

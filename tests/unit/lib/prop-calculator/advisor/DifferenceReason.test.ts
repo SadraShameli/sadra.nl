@@ -27,6 +27,7 @@ const EXPECTED_MEMBERS = [
     'FlatRiskIgnoresState',
     'FreshStartApproximation',
     'HorizonCreditOneRequest',
+    'LiveFloorMinimumTrade',
     'LiveModelApproximation',
     'LiveNotModeled',
     'LiveTriggersNotChecked',

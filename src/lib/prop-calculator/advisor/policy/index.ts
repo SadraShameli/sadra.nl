@@ -7,7 +7,6 @@ export {
     copySplitCandidates,
     type CopySplitFundedSizing,
     CopySplitFundedSource,
-    copySplitFundedStopNotice,
     type CopySplitPlacement,
     type CopySplitRefusedCandidate,
     type CopySplitRefusedRow,
@@ -38,10 +37,12 @@ export {
     documentedFundedTrades,
     documentedLiveTransferHazard,
     documentedSizedFundedRisk,
+    pricedCumulativeTriggerAssumptionOf,
     resolveDocumentedPayoutRequestSize,
     resolveDocumentedPlan,
     resolveDocumentedRetainedCushion,
     toSimInputs,
+    verifiedCumulativeTriggerOf,
 } from './documentedPolicySimInputs';
 export {
     type DocumentedPolicyRun,
@@ -73,8 +74,3 @@ export {
     personalDayLimitsOfPolicy,
     withPersonalDayLimits,
 } from './PersonalDayLimits';
-export { SIZING_OBJECTIVE_LABEL } from '~/lib/prop-calculator/advisor/SizingObjective';
-export {
-    type BankrollRiskFigures,
-    bankrollRiskFigures,
-} from '~/lib/prop-calculator/economics';

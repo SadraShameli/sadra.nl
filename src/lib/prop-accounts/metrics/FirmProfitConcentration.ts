@@ -1,4 +1,4 @@
-import { isPaidSinceLastLive } from '~/lib/prop-accounts/advice/FirmPayoutCount';
+import { isPaidSinceLastLive } from '~/lib/prop-accounts/advice';
 import {
     compareText,
     isPaidOnOrBefore,

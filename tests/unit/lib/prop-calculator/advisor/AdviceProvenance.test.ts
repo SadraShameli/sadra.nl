@@ -4,6 +4,7 @@ import {
     adviceProvenance,
     AdviceSource,
     SizingObjective,
+    SpeedObjective,
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
 
@@ -48,5 +49,19 @@ describe('adviceProvenance (PT-19f, F-126)', () => {
 
         expect(provenance.trials).toBe(4000);
         expect(provenance.seed).toBe(42);
+    });
+
+    it('carries the speed objective of a ladder-sourced advice', () => {
+        const provenance = adviceProvenance({
+            computedAt: '2026-09-27T00:00:00.000Z',
+            firmDataDate: null,
+            objective: SpeedObjective.SpeedToFunded,
+            planRulesFingerprint: null,
+            snapshotDate: '2026-09-26',
+            source: AdviceSource.LadderSearchFresh,
+            startBasis: StartBasis.Fresh,
+        });
+
+        expect(provenance.objective).toBe(SpeedObjective.SpeedToFunded);
     });
 });

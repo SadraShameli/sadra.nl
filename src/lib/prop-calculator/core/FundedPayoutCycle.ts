@@ -247,35 +247,6 @@ export class FundedCycleTracker {
         };
     }
 
-    private settle(
-        payout: EligiblePayout,
-        plan: Plan,
-        state: AccountState,
-    ): FundedPayoutResult {
-        const { causesHardBreach, debited, traderReceives } = payout;
-        const fundedConsistency = plan.fundedConsistencyRule(
-            this.payoutsIssued,
-        );
-
-        state.balance -= debited;
-        applyPayoutFloorEffect(
-            plan.fundedDrawdown,
-            state,
-            plan.payoutFloorEffect,
-            plan.accountSize,
-        );
-        this.lastPayoutBalance = state.balance;
-        this.qualifyingDaysAtLastPayout = state.qualifyingDays;
-        this.sessionDaysSinceAnchor = 0;
-        if (!fundedConsistency?.isPerpetual()) {
-            this.cycleBestDayProfit = 0;
-        }
-        this.cumulativePayout += traderReceives;
-        this.payoutsIssued += 1;
-
-        return { causesHardBreach, debited, traderReceives };
-    }
-
     private settleableAmount(
         options: FundedPayoutOptions,
         available: number,
@@ -433,6 +404,38 @@ export class FundedCycleTracker {
                   dollarCappedWithdrawable,
                   cap.balanceShareCap * Math.max(0, plan.accountProfit(state)),
               );
+    }
+
+    settle(
+        payout: Pick<
+            EligiblePayout,
+            'causesHardBreach' | 'debited' | 'traderReceives'
+        >,
+        plan: Plan,
+        state: AccountState,
+    ): FundedPayoutResult {
+        const { causesHardBreach, debited, traderReceives } = payout;
+        const fundedConsistency = plan.fundedConsistencyRule(
+            this.payoutsIssued,
+        );
+
+        state.balance -= debited;
+        applyPayoutFloorEffect(
+            plan.fundedDrawdown,
+            state,
+            plan.payoutFloorEffect,
+            plan.accountSize,
+        );
+        this.lastPayoutBalance = state.balance;
+        this.qualifyingDaysAtLastPayout = state.qualifyingDays;
+        this.sessionDaysSinceAnchor = 0;
+        if (!fundedConsistency?.isPerpetual()) {
+            this.cycleBestDayProfit = 0;
+        }
+        this.cumulativePayout += traderReceives;
+        this.payoutsIssued += 1;
+
+        return { causesHardBreach, debited, traderReceives };
     }
 
     tryPayout(options: FundedPayoutOptions): FundedPayoutResult | null {

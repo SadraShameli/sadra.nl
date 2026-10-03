@@ -81,20 +81,20 @@ describe('the funded DP interpolates the unlocked pre-lock threshold offset inst
             ON_GRID_LOCKED_VALUE,
             0,
         );
-    }, 60_000);
+    });
 
     it('values an off-grid pre-lock offset just below the next offset cell above the value the old code floors it to', () => {
         const justBelowTheNextCell = initialValueAtOffsetExcess(
             CUSHION_STEP_DOLLARS - 1,
         );
         expect(justBelowTheNextCell).toBeGreaterThan(1900);
-    }, 60_000);
+    });
 
     it('keeps the pre-lock offset path continuous approaching an offset-grid boundary instead of collapsing to the lower cell value', () => {
         const atTheBoundary = initialValueAtOffsetExcess(CUSHION_STEP_DOLLARS);
         const justBelow = initialValueAtOffsetExcess(CUSHION_STEP_DOLLARS - 1);
         expect(atTheBoundary - justBelow).toBeLessThan(0.1 * atTheBoundary);
-    }, 60_000);
+    });
 
     it('keeps the same near-boundary continuity across two resolutions that straddle an offset-bucket boundary', () => {
         const coarseStep = CUSHION_STEP_DOLLARS;
@@ -107,5 +107,5 @@ describe('the funded DP interpolates the unlocked pre-lock threshold offset inst
             initialValueAtOffsetExcess(fineStep - 1, fineStep);
         expect(coarseGap).toBeLessThan(0.1 * ON_GRID_LOCKED_VALUE);
         expect(fineGap).toBeLessThan(0.1 * ON_GRID_LOCKED_VALUE);
-    }, 60_000);
+    });
 });

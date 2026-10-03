@@ -8,12 +8,13 @@ import {
     overviewPlanOptInsOf,
     type OverviewRequest,
     OverviewRequestKind,
+    overviewRequestsFor,
+    withPersonalPolicy,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { valueSpecOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
 import {
     accountFromStateRequestOf,
     personalAccountRequestOf,
-    withPersonalPolicy,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import { usdCents } from '~/lib/prop-accounts';
 import {
@@ -35,6 +36,7 @@ import {
     type DocumentedPolicySpec,
     EvalSizingAdvisor,
     FundedSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     type PersonalCaps,
     type ReconstructedFundedOrEvalAccount,
@@ -90,6 +92,7 @@ function evalAccount(): ReconstructedFundedOrEvalAccount {
         plan: apexEod(),
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -171,6 +174,7 @@ describe('the personal limits reach the engine policy of every request the panel
         const request = accountFromStateRequestOf({
             account: FUNDED,
             measuredRebuyLag: null,
+            pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
             personalMaxRiskPerTrade: dollars(150),
             personalRules: PERSONAL_RULES,
             plan: apexEod(),
@@ -219,6 +223,7 @@ function fundedAccount(): ReconstructedFundedOrEvalAccount {
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -227,22 +232,24 @@ function fundedValueSpec(
     personalCaps: PersonalCaps,
 ) {
     const account = fundedAccount();
-    return valueSpecOf({
-        account,
-        advice: new FundedSizingAdvisor({
+    return withValueTestTrials(
+        valueSpecOf({
             account,
-            fundedHorizonDays: 40,
+            advice: new FundedSizingAdvisor({
+                account,
+                fundedHorizonDays: 40,
+                rulebook,
+                snapshotAsOf: '2026-09-26',
+                substate: null,
+                today: '2026-09-26',
+                trials: 20,
+            }).assemble([]),
+            personalCaps,
+            personalDll: null,
+            plan: apexEod(),
             rulebook,
-            snapshotAsOf: '2026-09-26',
-            substate: null,
-            today: '2026-09-26',
-            trials: 20,
-        }).assemble([]),
-        personalCaps,
-        personalDll: null,
-        plan: apexEod(),
-        rulebook,
-    });
+        }),
+    );
 }
 
 function valueSpec(
@@ -250,15 +257,54 @@ function valueSpec(
     personalDll: Parameters<typeof valueSpecOf>[0]['personalDll'] = null,
 ) {
     const account = evalAccount();
-    return valueSpecOf({
-        account,
-        advice: adviceOf(account),
-        personalCaps,
-        personalDll,
-        plan: apexEod(),
-        rulebook: DEFAULT_RULEBOOK,
-    });
+    return withValueTestTrials(
+        valueSpecOf({
+            account,
+            advice: adviceOf(account),
+            personalCaps,
+            personalDll,
+            plan: apexEod(),
+            rulebook: DEFAULT_RULEBOOK,
+        }),
+    );
 }
+
+const HEAVY_TEST_TIMEOUT_MS = 10_000;
+const VALUE_TEST_TRIALS = 50;
+
+function withValueTestTrials(spec: DocumentedPolicySpec): DocumentedPolicySpec {
+    return { ...spec, run: { ...spec.run, trials: VALUE_TEST_TRIALS } };
+}
+
+describe('one documented engine policy across the overview and the advice panel (PT-42c, F-136)', () => {
+    it('gives the advice panel value spec and the overview documented spec the same engine policy for one plan', () => {
+        const plan = apexEod();
+        const account = evalAccount();
+        const panel = valueSpecOf({
+            account,
+            accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
+            advice: adviceOf(account),
+            personalCaps: NO_PERSONAL_CAPS,
+            personalDll: null,
+            plan,
+            rulebook: DEFAULT_RULEBOOK,
+        });
+        const [overview] = overviewRequestsFor(
+            [
+                {
+                    firmId: plan.id.firm,
+                    measuredRebuyLag: null,
+                    optIns: overviewPlanOptInsOf(plan),
+                    planSerial: serializePlanId(plan.id),
+                },
+            ],
+            DEFAULT_RULEBOOK,
+        );
+
+        expect(panel.enginePolicy).toEqual(overview?.spec.enginePolicy);
+        expect(panel.enginePolicy.payoutRequestOverride).toBeNull();
+    });
+});
 
 describe('valueSpecOf simulates the value figures at the personal limits (PT-68f, F-V16)', () => {
     it('puts the caps and the personal daily loss limit on the value spec', () => {
@@ -285,7 +331,7 @@ describe('valueSpecOf simulates the value figures at the personal limits (PT-68f
 
         expect(loose).toEqual(uncapped);
         expect(capped).not.toEqual(uncapped);
-    });
+    }, HEAVY_TEST_TIMEOUT_MS);
 
     it('prices a funded account exactly as a $100 rulebook funded risk when the personal max risk is $100', () => {
         const account = fundedAccount();
@@ -306,7 +352,10 @@ describe('valueSpecOf simulates the value figures at the personal limits (PT-68f
         );
         const handCapped = valueAtState(
             account,
-            fundedValueSpec(hundredRulebook, NO_PERSONAL_CAPS),
+            fundedValueSpec(hundredRulebook, {
+                ...NO_PERSONAL_CAPS,
+                maxRiskPerTrade: dollars(100),
+            }),
         );
         const uncapped = valueAtState(
             account,
@@ -315,7 +364,7 @@ describe('valueSpecOf simulates the value figures at the personal limits (PT-68f
 
         expect(capped).toEqual(handCapped);
         expect(capped).not.toEqual(uncapped);
-    });
+    }, HEAVY_TEST_TIMEOUT_MS);
 
     it('prices a funded account with a max risk above the rulebook risk exactly as the account with no limit', () => {
         const account = fundedAccount();
@@ -364,6 +413,7 @@ describe('the advisor worker cache key includes the personal limits (PT-68f, F-V
                     ...NO_PERSONAL_CAPS,
                     maxRiskPerTrade: dollars(150),
                 },
+                personalDll: null,
                 retainedCushionRequest: null,
             }),
             withPersonalPolicy(base, {
@@ -372,15 +422,18 @@ describe('the advisor worker cache key includes the personal limits (PT-68f, F-V
                     ...NO_PERSONAL_CAPS,
                     dailyProfitCap: dollars(500),
                 },
+                personalDll: null,
                 retainedCushionRequest: null,
             }),
             withPersonalPolicy(base, {
                 payoutRequestOverride: null,
                 personalCaps: { ...NO_PERSONAL_CAPS, maxTradesPerDay: 2 },
+                personalDll: null,
                 retainedCushionRequest: null,
             }),
             withPersonalPolicy(base, {
                 payoutRequestOverride: null,
+                personalCaps: NO_PERSONAL_CAPS,
                 personalDll: dollars(600),
                 retainedCushionRequest: null,
             }),

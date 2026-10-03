@@ -31,8 +31,9 @@ import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFuture
 import { simulate } from '~/lib/prop-calculator/simulator';
 
 const CUSHIONS = [5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 100];
-const REPLAY_TRIALS = 200_000;
+const REPLAY_TRIALS = 20_000;
 const REPLAY_RELATIVE_TOLERANCE = 0.02;
+const REPLAY_SIGMAS = 3;
 const MNQ_FORTY_DOLLAR_STOP_POINTS = 20;
 const TWO_TRADE_TOY_GRID = {
     actionStepMultiple: 0.5,
@@ -132,6 +133,7 @@ function policyRisks(
 
 function roomBelowOneContractReplay(plan: Plan = onePayoutToyPlan()): {
     dpValue: number;
+    replayToleranceDollars: number;
     replayValue: number;
 } {
     const positionSizing = sizing(
@@ -160,6 +162,9 @@ function roomBelowOneContractReplay(plan: Plan = onePayoutToyPlan()): {
     });
     return {
         dpValue: result.initialValue,
+        replayToleranceDollars:
+            REPLAY_RELATIVE_TOLERANCE * out.expectedGrossPayout +
+            REPLAY_SIGMAS * out.estimates.expectedGrossPayout.standardError,
         replayValue: out.expectedGrossPayout,
     };
 }
@@ -222,7 +227,7 @@ describe('the funded DP values its candidates in whole contracts when position s
         }
     });
 
-    it('models a trade whose room is below one contract as simulate places it: the loss is the room and the win pays on one full contract', () => {
+    it('models a trade whose room is below one contract as simulate places it: the loss is the room and the win pays on one full contract (PT-T1b: the replay runs 20,000 trials and agrees within 2 percent plus three standard errors of the replay, where 200,000 trials and 2 percent took 27 s; the 20,000 trial replay earns 134.31 against the DP value of 132.67)', () => {
         const mnqAtTwenty = sizing(
             InstrumentSymbol.MNQ,
             MNQ_FORTY_DOLLAR_STOP_POINTS,
@@ -238,12 +243,13 @@ describe('the funded DP values its candidates in whole contracts when position s
                 rungSizing: DEFAULT_RUNG_SIZING,
             }),
         ).toStrictEqual({ rewardRisk: 40, risk: 20 });
-        const { dpValue, replayValue } = roomBelowOneContractReplay();
+        const { dpValue, replayToleranceDollars, replayValue } =
+            roomBelowOneContractReplay();
         expect(dpValue).toBeGreaterThan(50);
         expect(Math.abs(replayValue - dpValue)).toBeLessThan(
-            REPLAY_RELATIVE_TOLERANCE * replayValue,
+            replayToleranceDollars,
         );
-    }, 600_000);
+    });
 
     it('leaves the unsized DP unchanged: fractional risks on its action grid, capped at the cushion', () => {
         expect(policyRisks(null)).toStrictEqual(
@@ -300,15 +306,16 @@ describe('the funded DP skips a whole-contract candidate whose day-locking room 
         expect(secondTradeRiskAfterMnqLoss(onePayoutToyPlan())).toBe(40);
     });
 
-    it('agrees with simulate on the value of a $60 lockout daily loss limit plan within the replay tolerance', () => {
-        const { dpValue, replayValue } = roomBelowOneContractReplay(
-            dailyLossLimitToyPlan(DailyLossLimitBreachEffect.Lockout),
-        );
+    it('agrees with simulate on the value of a $60 lockout daily loss limit plan within the replay tolerance (PT-T1b: 20,000 trials, 2 percent plus three standard errors; the replay earns 134.31 against the DP value of 132.76)', () => {
+        const { dpValue, replayToleranceDollars, replayValue } =
+            roomBelowOneContractReplay(
+                dailyLossLimitToyPlan(DailyLossLimitBreachEffect.Lockout),
+            );
         expect(dpValue).toBeGreaterThan(50);
         expect(Math.abs(replayValue - dpValue)).toBeLessThan(
-            REPLAY_RELATIVE_TOLERANCE * replayValue,
+            replayToleranceDollars,
         );
-    }, 600_000);
+    });
 
     it('caches the candidates of a day-locking and an account-busting room of the same size apart', () => {
         for (const order of [

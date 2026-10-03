@@ -7,8 +7,20 @@ import {
 import { type SimOutputs } from '~/lib/prop-calculator/simulator';
 
 import { cohortOutcome, LOSS_RISK_DRAWS } from './CohortOutcome';
-import { type EconomicsEstimate } from './EdgeMath';
+import {
+    type EconomicsEstimate,
+    EconomicsReason,
+    missingQuantity,
+    type Quantity,
+    quantityOf,
+} from './EdgeMath';
 import { attemptsAffordable, noPayoutProbability } from './LossRisk';
+
+export interface BankrollCohortRisk {
+    readonly attempts: number;
+    readonly lossProbability: EconomicsEstimate<Fraction0to1>;
+    readonly meanNet: Dollars;
+}
 
 export interface BankrollRisk {
     readonly attempts: null | number;
@@ -23,20 +35,54 @@ export interface BankrollRiskFigures {
 
 export type BankrollRiskOutputs = Pick<
     SimOutputs,
-    'attemptPaysProbability' | 'costPerAttempt' | 'netValues'
->;
+    'attemptPaysProbability' | 'costPerAttempt'
+> & { readonly netValues: readonly number[] };
 
 export function bankrollAttempts(
     out: BankrollRiskOutputs,
     bankroll: Dollars,
 ): null | number {
-    return attemptsAffordable(bankroll, dollars(out.costPerAttempt)).value;
+    return bankrollAttemptsAt(bankroll, dollars(out.costPerAttempt));
+}
+
+export function bankrollAttemptsAt(
+    bankroll: Dollars,
+    costPerAttempt: Dollars,
+): null | number {
+    return attemptsAffordable(bankroll, costPerAttempt).value;
+}
+
+export function bankrollCohortRisk(
+    netValues: readonly number[],
+    attempts: number,
+    draws: number,
+    seed: number,
+): Quantity<BankrollCohortRisk> {
+    if (!(attempts >= 1)) return missingQuantity(EconomicsReason.InvalidInput);
+    const outcome = cohortOutcome(netValues, attempts, draws, seed);
+    return outcome.value === null
+        ? outcome
+        : quantityOf(
+              {
+                  attempts,
+                  lossProbability: outcome.value.lossProbability,
+                  meanNet: outcome.value.meanNet,
+              },
+              outcome.disclosures,
+          );
 }
 
 export function bankrollNoPayout(
     out: BankrollRiskOutputs,
     attempts: number,
     payoutRate: Fraction0to1 = fraction(out.attemptPaysProbability),
+): null | number {
+    return bankrollNoPayoutAt(payoutRate, attempts);
+}
+
+export function bankrollNoPayoutAt(
+    payoutRate: Fraction0to1,
+    attempts: number,
 ): null | number {
     return noPayoutProbability(payoutRate, attempts).value;
 }
@@ -54,8 +100,8 @@ export function bankrollRisk(
     return {
         attempts,
         lossProbability:
-            cohortOutcome(out.netValues, attempts, LOSS_RISK_DRAWS, seed).value
-                ?.lossProbability ?? null,
+            bankrollCohortRisk(out.netValues, attempts, LOSS_RISK_DRAWS, seed)
+                .value?.lossProbability ?? null,
         noPayoutProbability: bankrollNoPayout(out, attempts, payoutRate),
     };
 }

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -152,6 +154,22 @@ function account(
     };
 }
 
+function accountEvent(
+    accountId: string,
+    kind: string,
+    occurredOn: string,
+    id: string,
+) {
+    return {
+        accountId,
+        createdAt: new Date(`${occurredOn}T12:00:00Z`),
+        id,
+        kind,
+        occurredOn,
+        userId: USER_ID,
+    };
+}
+
 function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };
 }
@@ -204,6 +222,20 @@ function failed(message: string): FakeQuery {
 
 function loading(): FakeQuery {
     return { data: undefined, error: null, isError: false, isPending: true };
+}
+
+function paidPayoutRow(accountId: string, paidOn: string, id: string) {
+    return {
+        accountId,
+        approvedOn: null,
+        grossCents: 5000,
+        id,
+        netCents: null,
+        paidOn,
+        requestedOn: paidOn,
+        status: 'paid',
+        userId: USER_ID,
+    };
 }
 
 async function submitForm(scope: ParentNode, label: string) {
@@ -433,5 +465,132 @@ describe('FirmsView', () => {
         render();
         expect(container.textContent).toContain('journal down');
         expect(container.textContent).toContain('Scale gate');
+    });
+
+    it('prints why the transfer rate is unavailable instead of crashing when more accounts moved live than paid payouts exist', () => {
+        const firstId = '3b5d7f9a-2c4e-4a6b-8d0f-1e3a5c7e9b2d';
+        const secondId = '4c6e8a0b-3d5f-4b7c-9e1a-2f4b6d8f0c3e';
+        harness.queries.set(
+            'account.list',
+            answer([
+                account(firstId, 'First', {
+                    purchasedOn: '2026-01-01',
+                    stage: AccountStage.Funded,
+                }),
+                account(secondId, 'Second', {
+                    purchasedOn: '2026-01-02',
+                    stage: AccountStage.Funded,
+                }),
+            ]),
+        );
+        harness.queries.set(
+            'event.list',
+            answer([
+                accountEvent(firstId, 'purchased', '2026-01-01', 'e1'),
+                accountEvent(firstId, 'eval-passed', '2026-01-05', 'e2'),
+                accountEvent(firstId, 'moved-live', '2026-03-10', 'e3'),
+                accountEvent(secondId, 'purchased', '2026-01-02', 'e4'),
+                accountEvent(secondId, 'eval-passed', '2026-01-06', 'e5'),
+                accountEvent(secondId, 'moved-live', '2026-03-12', 'e6'),
+            ]),
+        );
+        harness.queries.set(
+            'payout.list',
+            answer([paidPayoutRow(firstId, '2026-02-01', 'p1')]),
+        );
+        render();
+        expect(container.textContent).toContain(
+            'n/a: 2 transfers against 1 paid payout',
+        );
+        expect(container.querySelector('.animate-pulse')).toBeNull();
+    });
+
+    it('gives a ledger-only firm a transfer-rate row stating why no rate exists', () => {
+        harness.queries.set(
+            'account.list',
+            answer([
+                account(ALPHA_ID, 'Hola', {
+                    externalFirmId: '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b',
+                    firmId: null,
+                    planLabel: 'Hola Prime 100K',
+                    planSerial: null,
+                    stage: AccountStage.Live,
+                    tracking: AccountTracking.LedgerOnly,
+                }),
+            ]),
+        );
+        render();
+        const row = element(container, 'tbody tr');
+        expect(row.textContent).toContain('n/a: no paid payouts yet');
+        expect(row.textContent).toContain('n/a: no funded account-months yet');
+    });
+
+    it('shows a loading note instead of an unmet condition while the rulebook is still loading', () => {
+        harness.queries.set('rulebook.get', loading());
+        render();
+        expect(container.textContent).toContain('Scale gate');
+        expect(container.textContent).toContain(
+            'Checking your thresholds and journal',
+        );
+        expect(container.textContent).not.toContain(
+            'Sample thresholds not set',
+        );
+    });
+
+    it('shows a loading note instead of an unmet journal-trades condition while the journal is still loading, then the gate once it settles', () => {
+        harness.queries.set(
+            'rulebook.get',
+            answer({
+                ...DEFAULT_RULEBOOK,
+                samples: {
+                    ...DEFAULT_RULEBOOK.samples,
+                    minEvalAttempts: 1,
+                    minFundedAccounts: 1,
+                    minTrades: 5,
+                },
+            }),
+        );
+        harness.queries.set('edge.summary', loading());
+        render();
+        expect(container.textContent).toContain(
+            'Checking your thresholds and journal',
+        );
+        expect(container.textContent).not.toContain(
+            'Journal trades are below your threshold',
+        );
+
+        harness.queries.set(
+            'edge.summary',
+            answer({ summary: { sampleSize: 0 }, truncated: false }),
+        );
+        render();
+        expect(container.textContent).not.toContain(
+            'Checking your thresholds and journal',
+        );
+        expect(container.textContent).toContain(
+            'Journal trades are below your threshold',
+        );
+    });
+
+    it('shows no loading note once both the rulebook and the journal have answered', () => {
+        render();
+        expect(container.textContent).not.toContain(
+            'Checking your thresholds and journal',
+        );
+        expect(container.textContent).toContain('Sample thresholds not set');
+    });
+
+    it('imports the not-applicable text from the shared formatter instead of redeclaring it', () => {
+        const source = readFileSync(
+            path.join(
+                process.cwd(),
+                'src/app/(app)/prop-calculator/accounts/firms/FirmsView.tsx',
+            ),
+            'utf8',
+        );
+        expect(source).not.toMatch(/const NOT_APPLICABLE\b/);
+        expect(source).toMatch(
+            /import \{[^}]*\bNOT_APPLICABLE\b[^}]*\} from '~\/lib\/format'/,
+        );
     });
 });

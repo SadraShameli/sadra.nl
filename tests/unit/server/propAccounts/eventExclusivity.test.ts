@@ -9,6 +9,7 @@ import {
     AccountStage,
     AccountStatus,
     AccountTracking,
+    compareText,
     readAccountEventDetail,
 } from '~/lib/prop-accounts';
 import {
@@ -133,6 +134,21 @@ function eventInserts(queries: readonly IssuedQuery[]) {
     }));
 }
 
+function hasOppositeLockOrder(
+    first: readonly string[],
+    second: readonly string[],
+): boolean {
+    return first.some((left) =>
+        first.some(
+            (right) =>
+                first.indexOf(left) < first.indexOf(right) &&
+                second.includes(left) &&
+                second.includes(right) &&
+                second.indexOf(left) > second.indexOf(right),
+        ),
+    );
+}
+
 function isAccountListQuery(query: IssuedQuery): boolean {
     return (
         readTable(query) === TABLES.account &&
@@ -154,6 +170,52 @@ function lockedAccountIds(queries: readonly IssuedQuery[]): string[] {
                 (id) => query.params.includes(id),
             ),
         );
+}
+
+function lockOrderingResponder(
+    accounts: readonly FakeRow[],
+    locked: string[],
+): Responder {
+    const base = responderFor(accounts);
+    return (query) => {
+        const rows = base(query);
+        const isAccountRead =
+            readTable(query) === TABLES.account && !isCount(query);
+        if (!isAccountRead || !query.text.includes(' order by ')) {
+            if (isAccountRead && query.text.endsWith(' for update')) {
+                locked.push(...rows.map((row) => String(row.id)));
+            }
+            return rows;
+        }
+        const isLabelOrdered = / order by [^)]*"label"/.test(query.text);
+        const ordered = rows.toSorted((left, right) =>
+            isLabelOrdered
+                ? compareText(String(left.label), String(right.label)) ||
+                  compareText(String(left.id), String(right.id))
+                : compareText(String(left.id), String(right.id)),
+        );
+        if (query.text.endsWith(' for update')) {
+            locked.push(...ordered.map((row) => String(row.id)));
+        }
+        return ordered;
+    };
+}
+
+async function lockSequenceOf(
+    accounts: readonly FakeRow[],
+    movedId: string,
+): Promise<string[]> {
+    const locked: string[] = [];
+    const { caller } = callerFor(
+        SIGNED_IN,
+        lockOrderingResponder(accounts, locked),
+    );
+    await caller.event.record({
+        accountId: movedId,
+        kind: AccountEventKind.MovedLive,
+        occurredOn: '2026-09-21',
+    });
+    return [...new Set(locked)];
 }
 
 function movedAccount(overrides: FakeRow = {}): FakeRow {
@@ -984,5 +1046,64 @@ describe('the preview and the router agree on which siblings a MovedLive suspend
         const offered = offeredByName.values().toArray();
         expect(offered.filter(Boolean)).toHaveLength(3);
         expect(offered.filter((isOffered) => !isOffered)).toHaveLength(7);
+    });
+});
+
+describe('propAccounts.event.record locks the firm accounts in one canonical order (PT-36i)', () => {
+    it('takes the row locks of two concurrent live moves at one firm in the same account order, so neither can wait on the other', async () => {
+        const accounts = [
+            movedAccount({ id: IDS.account, label: 'Zed' }),
+            movedAccount({ id: FIRST_SIBLING, label: 'Alpha' }),
+            movedAccount({ id: SECOND_SIBLING, label: 'Middle' }),
+        ];
+        const movesFirst = await lockSequenceOf(accounts, IDS.account);
+        const movesSecond = await lockSequenceOf(accounts, FIRST_SIBLING);
+        const movesThird = await lockSequenceOf(accounts, SECOND_SIBLING);
+        for (const sequence of [movesFirst, movesSecond, movesThird]) {
+            expect(new Set(sequence)).toEqual(
+                new Set([FIRST_SIBLING, IDS.account, SECOND_SIBLING]),
+            );
+        }
+        expect(hasOppositeLockOrder(movesFirst, movesSecond)).toBe(false);
+        expect(hasOppositeLockOrder(movesFirst, movesThird)).toBe(false);
+        expect(hasOppositeLockOrder(movesSecond, movesThird)).toBe(false);
+    });
+
+    it('locks the firm accounts by id before anything else and before any write', async () => {
+        const locked: string[] = [];
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            lockOrderingResponder(
+                [
+                    movedAccount({ id: IDS.account, label: 'Zed' }),
+                    movedAccount({ id: FIRST_SIBLING, label: 'Alpha' }),
+                ],
+                locked,
+            ),
+        );
+        await caller.event.record({
+            accountId: IDS.account,
+            kind: AccountEventKind.MovedLive,
+            occurredOn: '2026-09-21',
+        });
+        expect(locked.slice(0, 2)).toEqual([IDS.account, FIRST_SIBLING]);
+        const firstLock = queries.findIndex(
+            (query) =>
+                readTable(query) === TABLES.account &&
+                !isCount(query) &&
+                query.text.endsWith(' for update'),
+        );
+        expect(defined(queries[firstLock]).text).toMatch(
+            / order by "\w+"\."id" asc /,
+        );
+        expect(defined(queries[firstLock]).text).not.toMatch(
+            / order by [^)]*"label"/,
+        );
+        const firstWrite = queries.findIndex(
+            (query) =>
+                query.text.startsWith('update') ||
+                query.text.startsWith('insert'),
+        );
+        expect(firstLock).toBeLessThan(firstWrite);
     });
 });

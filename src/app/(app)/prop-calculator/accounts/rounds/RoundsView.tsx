@@ -15,6 +15,7 @@ import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { SampleBadge } from '~/app/(app)/prop-calculator/accounts/_components/overview/SampleBadge';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
@@ -258,6 +259,87 @@ export function RoundsView() {
                     result={nextRoundResult}
                 />
             )}
+            {(model.perFirm.length > 0 || model.unassignedRoundCount > 0) && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Rounds by firm</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-3">
+                        {model.perFirm.length > 0 && (
+                            <Table aria-label="Rounds by firm">
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Firm</TableHead>
+                                        <TableHead className="text-right">
+                                            Rounds
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            Closed
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            Min multiple
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            Mean multiple
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            Max multiple
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            Share positive
+                                        </TableHead>
+                                        <TableHead>Sample</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {model.perFirm.map((row) => (
+                                        <TableRow key={row.key}>
+                                            <TableCell>{row.firm}</TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                                {row.rounds}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                                {row.closedRounds}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                                {row.min}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                                {row.mean}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                                {row.max}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                                {row.sharePositive}
+                                            </TableCell>
+                                            <TableCell>
+                                                <SampleBadge
+                                                    level={row.sampleLevel}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                        {model.perFirm.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                Multiples and share positive use closed rounds
+                                only; open rounds count in Rounds but not in
+                                the spread or its n.
+                            </p>
+                        )}
+                        {model.unassignedRoundCount > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                Rounds without a firm:{' '}
+                                {model.unassignedRoundCount} (left out of this
+                                table)
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
             <Card>
                 <CardHeader>
                     <CardTitle>Rounds</CardTitle>
@@ -269,7 +351,7 @@ export function RoundsView() {
                             suggestion above.
                         </p>
                     ) : (
-                        <Table>
+                        <Table aria-label="Rounds">
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Label</TableHead>
@@ -280,13 +362,19 @@ export function RoundsView() {
                                         Net
                                     </TableHead>
                                     <TableHead className="text-right">
+                                        Payouts
+                                    </TableHead>
+                                    <TableHead className="text-right">
                                         Realized multiple
                                     </TableHead>
                                     <TableHead className="text-right">
                                         To-date multiple
                                     </TableHead>
                                     <TableHead className="text-right">
-                                        Open members
+                                        In progress
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Cycle
                                     </TableHead>
                                     <TableHead className="text-right">
                                         P(round like this net negative)
@@ -318,13 +406,19 @@ export function RoundsView() {
                                             {row.netCents}
                                         </TableCell>
                                         <TableCell className="text-right tabular-nums">
+                                            {row.payoutsCents}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
                                             {row.realizedMultiple}
                                         </TableCell>
                                         <TableCell className="text-right tabular-nums">
                                             {row.toDateMultiple}
                                         </TableCell>
                                         <TableCell className="text-right tabular-nums">
-                                            {row.openMemberCount}
+                                            {row.inProgressText}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {row.cycleDays}
                                         </TableCell>
                                         <TableCell className="text-right tabular-nums">
                                             <div>

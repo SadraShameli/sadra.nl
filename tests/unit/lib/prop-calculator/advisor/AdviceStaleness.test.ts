@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     ADVICE_STALE_SESSION_THRESHOLD,
     adviceStaleness,
+    AdviceStalenessKind,
     AdviceStalenessReason,
     isSnapshotStale,
     sessionsSinceSnapshot,
@@ -80,7 +81,7 @@ describe('adviceStaleness', () => {
                 stage: SizingStage.Eval,
                 today: WEDNESDAY,
             }),
-        ).toEqual({ kind: 'fresh' });
+        ).toEqual({ kind: AdviceStalenessKind.Fresh });
     });
 
     it('flags a stale eval or live snapshot with the no-holiday disclosure and the snapshot date', () => {
@@ -93,7 +94,7 @@ describe('adviceStaleness', () => {
                 today: WEDNESDAY,
             }),
         ).toEqual({
-            kind: 'stale',
+            kind: AdviceStalenessKind.Stale,
             noHolidayCalendarDisclosure: true,
             reasons: [AdviceStalenessReason.SessionSnapshotStale],
             snapshotAsOf: MONDAY,
@@ -110,7 +111,7 @@ describe('adviceStaleness', () => {
                 today: '2026-09-23',
             }),
         ).toEqual({
-            kind: 'stale',
+            kind: AdviceStalenessKind.Stale,
             noHolidayCalendarDisclosure: false,
             reasons: [AdviceStalenessReason.FundedSnapshotStale],
             snapshotAsOf: '2026-09-15',
@@ -127,7 +128,7 @@ describe('adviceStaleness', () => {
                 today: WEDNESDAY,
             }),
         ).toEqual({
-            kind: 'stale',
+            kind: AdviceStalenessKind.Stale,
             noHolidayCalendarDisclosure: true,
             reasons: [AdviceStalenessReason.PlanRulesChanged],
             snapshotAsOf: TUESDAY,
@@ -143,7 +144,7 @@ describe('adviceStaleness', () => {
                 stage: SizingStage.Eval,
                 today: WEDNESDAY,
             }).kind,
-        ).toBe('fresh');
+        ).toBe(AdviceStalenessKind.Fresh);
     });
 
     it('reports both reasons when the snapshot is stale and the plan rules changed', () => {
@@ -154,11 +155,46 @@ describe('adviceStaleness', () => {
             stage: SizingStage.Eval,
             today: WEDNESDAY,
         });
-        expect(result.kind).toBe('stale');
-        expect(result.kind === 'stale' && result.reasons).toEqual([
+        expect(result.kind).toBe(AdviceStalenessKind.Stale);
+        expect(
+            result.kind === AdviceStalenessKind.Stale && result.reasons,
+        ).toEqual([
             AdviceStalenessReason.SessionSnapshotStale,
             AdviceStalenessReason.PlanRulesChanged,
         ]);
+    });
+
+    it('never marks an advice stale when no fingerprint was recorded at advice time (PT-104, F-98)', () => {
+        const result = adviceStaleness({
+            asOf: TUESDAY,
+            fundedStaleDays: 7,
+            planRulesFingerprint: { atAdvice: null, current: 'v2' },
+            stage: SizingStage.Eval,
+            today: WEDNESDAY,
+        });
+
+        expect(result.kind).toBe(AdviceStalenessKind.Fresh);
+    });
+
+    it('marks the advice stale on a fingerprint mismatch for every stage (PT-104, F-98)', () => {
+        for (const stage of [
+            SizingStage.Eval,
+            SizingStage.Funded,
+            SizingStage.Live,
+        ]) {
+            const result = adviceStaleness({
+                asOf: TUESDAY,
+                fundedStaleDays: 7,
+                planRulesFingerprint: { atAdvice: 'v1', current: 'v2' },
+                stage,
+                today: WEDNESDAY,
+            });
+
+            expect(result.kind).toBe(AdviceStalenessKind.Stale);
+            expect(
+                result.kind === AdviceStalenessKind.Stale && result.reasons,
+            ).toStrictEqual([AdviceStalenessReason.PlanRulesChanged]);
+        }
     });
 
     it('keeps the threshold constant at 2 sessions', () => {

@@ -3,12 +3,14 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
     type Dispatch,
+    useCallback,
     useEffect,
     useMemo,
     useReducer,
     useRef,
     useState,
 } from 'react';
+import { z } from 'zod';
 
 import {
     ALL_FIRMS,
@@ -21,7 +23,6 @@ import {
     type SimInputs,
     type SimOutputs,
     type TradingFirm,
-    withPlanOptIns,
 } from '~/lib/prop-calculator';
 import {
     type BankrollParameters,
@@ -40,6 +41,7 @@ import {
     calculatorReducer,
     defaultCalculatorState,
 } from './calculatorReducer';
+import { buildSimInputs } from './calculatorSimInputs';
 import {
     isLegacyHashSettled,
     type LegacyHashReplacement,
@@ -47,10 +49,8 @@ import {
     nextUrl,
     stillPendingLegacyHash,
 } from './calculatorUrlSync';
-import { toCouponDiscounts } from './couponDiscounts';
 import { writeLastToolQuery } from './lastToolQuery';
 import { watchLegacyFragmentScroll } from './legacyFragmentScroll';
-import { riskPercentToDollars } from './riskConversion';
 import { isCalculatorInputsPath } from './toolCatalog';
 import { tradingInputBounds } from './tradingInputBounds';
 import {
@@ -58,12 +58,29 @@ import {
     type LabScenario,
     LinkParameter,
     type PortfolioEntry,
-    SizingMode,
+    type SizingMode,
 } from './types';
-import { decodeState, encodeState, withSharedLab } from './urlState';
+import {
+    decodeState,
+    encodeState,
+    type EncodeStateOptions,
+    ObjectiveUrlMode,
+    withSharedLab,
+} from './urlState';
 import { useDebouncedValue } from './useDebouncedSimulation';
 
+export { buildSimInputs } from './calculatorSimInputs';
+
 export const SIM_DEBOUNCE_MS = 180;
+
+const objectiveInLinkSchema = z.enum(SizingObjective);
+
+export enum ObjectiveOrigin {
+    Automatic = 'automatic',
+    Chosen = 'chosen',
+    Default = 'default',
+    Link = 'link',
+}
 
 export interface CalculatorActions {
     addLabScenario: () => void;
@@ -114,20 +131,27 @@ export interface PinnedScenario {
     result: SimOutputs;
 }
 
-export interface SignedInObjectiveInputs {
+export interface SignedInAutomaticObjectiveInputs {
     availableCents: null | number;
     bankroll: BankrollParameters;
+}
+
+export interface SignedInObjectiveInputs extends SignedInAutomaticObjectiveInputs {
     hasLinkObjective: boolean;
     isObjectiveChanged: boolean;
 }
 
 export interface UseCalculatorReturn {
     actions: CalculatorActions;
+    applyAutomaticObjective: (objective: SizingObjective) => void;
     debouncedQuery: string;
+    encodeOptions: EncodeStateOptions;
     hasLinkObjective: boolean;
     legacyHashSettled: boolean;
     mounted: boolean;
+    objectiveOrigin: ObjectiveOrigin;
     planOptIns: PlanOptIns;
+    rememberAutomaticObjective: (objective: null | SizingObjective) => void;
     simInputs: SimInputs;
     state: CalculatorState;
 }
@@ -137,77 +161,9 @@ interface MountState {
     pendingLegacyHash: LegacyHashReplacement | null;
 }
 
-type SimInputsSource = Pick<
-    CalculatorState,
-    | 'activationDiscountPercent'
-    | 'commissionPerRoundTrip'
-    | 'copyAccounts'
-    | 'dayStop'
-    | 'evalDayPolicy'
-    | 'evalDiscountPercent'
-    | 'fundedHorizonDays'
-    | 'idleDayProbability'
-    | 'instrument'
-    | 'linkActivationDiscount'
-    | 'maxAttempts'
-    | 'maxEvalDays'
-    | 'monthlySubscriptionDiscountPercent'
-    | 'payoutRequestSize'
-    | 'plan'
-    | 'resetDiscountPercent'
-    | 'retainedCushion'
-    | 'riskDollars'
-    | 'riskPercent'
-    | 'rrRatio'
-    | 'rungSizing'
-    | 'seed'
-    | 'sizingMode'
-    | 'stopPoints'
-    | 'takesFundedReset'
-    | 'takesOneTimeEarlyWithdrawal'
-    | 'tradesPerDay'
-    | 'trials'
-    | 'winrate'
->;
-
-export function buildSimInputs(source: SimInputsSource): SimInputs {
-    const riskPerTrade =
-        source.sizingMode === SizingMode.Dollar
-            ? source.riskDollars
-            : riskPercentToDollars(source.riskPercent, source.plan.accountSize);
-    return {
-        commissionPerRoundTrip: source.commissionPerRoundTrip,
-        copyAccounts: source.copyAccounts,
-        dayStop: source.dayStop,
-        discounts: toCouponDiscounts({
-            activationDiscountPercent: source.activationDiscountPercent,
-            evalDiscountPercent: source.evalDiscountPercent,
-            linkActivationDiscount: source.linkActivationDiscount,
-            monthlySubscriptionDiscountPercent:
-                source.monthlySubscriptionDiscountPercent,
-            resetDiscountPercent: source.resetDiscountPercent,
-        }),
-        evalDayPolicy: source.evalDayPolicy ?? undefined,
-        fundedHorizonDays: source.fundedHorizonDays,
-        idleDayProbability: source.idleDayProbability,
-        instrument: source.instrument ?? undefined,
-        maxAttempts: source.maxAttempts,
-        maxEvalDays: source.maxEvalDays,
-        minRetainedCushion: source.retainedCushion ?? undefined,
-        payoutRequestSize: source.payoutRequestSize ?? undefined,
-        plan: withPlanOptIns(source.plan, {
-            takesFundedReset: source.takesFundedReset,
-            takesOneTimeEarlyWithdrawal: source.takesOneTimeEarlyWithdrawal,
-        }),
-        riskPerTrade,
-        rrRatio: source.rrRatio,
-        rungSizing: source.rungSizing,
-        seed: source.seed,
-        stopPoints: source.stopPoints ?? undefined,
-        tradesPerDay: source.tradesPerDay,
-        trials: source.trials,
-        winrate: source.winrate,
-    };
+interface ObjectiveOriginState {
+    automaticObjective: null | SizingObjective;
+    origin: ObjectiveOrigin;
 }
 
 export function createCalculatorActions(
@@ -344,37 +300,64 @@ export function createCalculatorActions(
     };
 }
 
-export function initialStateFromSearch(search: string): CalculatorState {
+export function initialStateFromSearch(
+    search: string,
+    decode: typeof decodeState = decodeState,
+): CalculatorState {
     const parameters = new URLSearchParams(search);
     const defaults = defaultCalculatorState();
     if (!parameters.has(CalculatorUrlParameter.Firm)) {
         try {
-            return withSharedLinkParameters(defaults, parameters);
+            return withSharedLinkParameters(defaults, parameters, decode);
         } catch {
             return withSharedLab(defaults, parameters);
         }
     }
     try {
-        return decodeState(parameters, ALL_FIRMS, defaults);
+        return decode(parameters, ALL_FIRMS, defaults);
     } catch {
         return withSharedLab(defaults, parameters);
     }
 }
 
 export function isObjectiveInSearch(search: string): boolean {
-    return new URLSearchParams(search).has(OBJECTIVE_URL_PARAMETER);
+    return objectiveInLinkSchema.safeParse(
+        new URLSearchParams(search).get(OBJECTIVE_URL_PARAMETER) ?? undefined,
+    ).success;
+}
+
+export function objectiveUrlModeOf(origin: ObjectiveOrigin): ObjectiveUrlMode {
+    switch (origin) {
+        case ObjectiveOrigin.Automatic: {
+            return ObjectiveUrlMode.Omitted;
+        }
+        case ObjectiveOrigin.Chosen:
+        case ObjectiveOrigin.Link: {
+            return ObjectiveUrlMode.Explicit;
+        }
+        case ObjectiveOrigin.Default: {
+            return ObjectiveUrlMode.Natural;
+        }
+    }
 }
 
 export function pinScenario(result: SimOutputs): PinnedScenario {
     return { result };
 }
 
+export function signedInAutomaticObjective(
+    inputs: SignedInAutomaticObjectiveInputs,
+): null | SizingObjective {
+    const chosen = chooseObjective(inputs.availableCents, inputs.bankroll);
+    return chosen === SizingObjective.MonthlyNet ? null : chosen;
+}
+
 export function signedInDefaultObjective(
     inputs: SignedInObjectiveInputs,
 ): null | SizingObjective {
-    if (inputs.hasLinkObjective || inputs.isObjectiveChanged) return null;
-    const chosen = chooseObjective(inputs.availableCents, inputs.bankroll);
-    return chosen === SizingObjective.MonthlyNet ? null : chosen;
+    return inputs.hasLinkObjective || inputs.isObjectiveChanged
+        ? null
+        : signedInAutomaticObjective(inputs);
 }
 
 export function useCalculator(): UseCalculatorReturn {
@@ -394,6 +377,71 @@ export function useCalculator(): UseCalculatorReturn {
     const [hasLinkObjective] = useState(() =>
         isObjectiveInSearch(searchParameters.toString()),
     );
+    const [originState, setOriginState] = useState<ObjectiveOriginState>(
+        () => ({
+            automaticObjective: null,
+            origin: hasLinkObjective
+                ? ObjectiveOrigin.Link
+                : ObjectiveOrigin.Default,
+        }),
+    );
+    const objectiveOrigin =
+        originState.origin === ObjectiveOrigin.Automatic &&
+        state.objective !== originState.automaticObjective
+            ? ObjectiveOrigin.Chosen
+            : originState.origin;
+    const encodeOptions = useMemo<EncodeStateOptions>(
+        () => ({ objectiveUrl: objectiveUrlModeOf(objectiveOrigin) }),
+        [objectiveOrigin],
+    );
+    const automaticObjectiveReference = useRef<null | SizingObjective>(null);
+    const trackedDispatch = useCallback<Dispatch<CalculatorAction>>(
+        (action) => {
+            if (action.type === CalculatorActionType.SetObjective) {
+                setOriginState({
+                    automaticObjective: null,
+                    origin: ObjectiveOrigin.Chosen,
+                });
+            }
+            if (action.type === CalculatorActionType.Reset) {
+                const automatic = automaticObjectiveReference.current;
+                setOriginState({
+                    automaticObjective: automatic,
+                    origin:
+                        automatic === null
+                            ? ObjectiveOrigin.Default
+                            : ObjectiveOrigin.Automatic,
+                });
+                dispatch(action);
+                if (automatic !== null) {
+                    dispatch({
+                        objective: automatic,
+                        type: CalculatorActionType.SetObjective,
+                    });
+                }
+                return;
+            }
+            dispatch(action);
+        },
+        [],
+    );
+    const applyAutomaticObjective = useCallback(
+        (objective: SizingObjective) => {
+            automaticObjectiveReference.current = objective;
+            setOriginState({
+                automaticObjective: objective,
+                origin: ObjectiveOrigin.Automatic,
+            });
+            dispatch({ objective, type: CalculatorActionType.SetObjective });
+        },
+        [],
+    );
+    const rememberAutomaticObjective = useCallback(
+        (objective: null | SizingObjective) => {
+            automaticObjectiveReference.current = objective;
+        },
+        [],
+    );
     const hasSettledLegacyHash = isLegacyHashSettled(
         mount.mounted,
         mount.pendingLegacyHash,
@@ -410,11 +458,16 @@ export function useCalculator(): UseCalculatorReturn {
                 fragmentTarget.fragment,
                 fragmentTarget.route,
             );
-        const pendingLegacyHash = legacyHashReplacement(state, pathname, hash);
+        const pendingLegacyHash = legacyHashReplacement(
+            state,
+            pathname,
+            hash,
+            encodeOptions,
+        );
         if (pendingLegacyHash !== null)
             router.replace(pendingLegacyHash.target);
         setMount({ mounted: true, pendingLegacyHash });
-    }, [pathname, router, state]);
+    }, [encodeOptions, pathname, router, state]);
 
     useEffect(() => {
         const pendingLegacyHash = stillPendingLegacyHash(
@@ -432,10 +485,11 @@ export function useCalculator(): UseCalculatorReturn {
             pathname,
             searchParameters.toString(),
             window.location.hash,
+            encodeOptions,
         );
         if (url !== null) window.history.replaceState(null, '', url);
-        writeLastToolQuery(encodeState(state).toString());
-    }, [hasSettledLegacyHash, pathname, searchParameters, state]);
+        writeLastToolQuery(encodeState(state, encodeOptions).toString());
+    }, [encodeOptions, hasSettledLegacyHash, pathname, searchParameters, state]);
 
     const {
         activationDiscountPercent,
@@ -540,17 +594,27 @@ export function useCalculator(): UseCalculatorReturn {
         ],
     );
 
-    const query = useMemo(() => encodeState(state).toString(), [state]);
+    const query = useMemo(
+        () => encodeState(state, encodeOptions).toString(),
+        [encodeOptions, state],
+    );
     const debouncedQuery = useDebouncedValue(query, SIM_DEBOUNCE_MS);
-    const actions = useMemo(() => createCalculatorActions(dispatch), []);
+    const actions = useMemo(
+        () => createCalculatorActions(trackedDispatch),
+        [trackedDispatch],
+    );
 
     return {
         actions,
+        applyAutomaticObjective,
         debouncedQuery,
+        encodeOptions,
         hasLinkObjective,
         legacyHashSettled: hasSettledLegacyHash,
         mounted: mount.mounted,
+        objectiveOrigin,
         planOptIns,
+        rememberAutomaticObjective,
         simInputs,
         state,
     };
@@ -582,8 +646,9 @@ const SHARED_LINK_FIELDS = [
 function withSharedLinkParameters(
     defaults: CalculatorState,
     parameters: URLSearchParams,
+    decode: typeof decodeState,
 ): CalculatorState {
-    const decoded = decodeState(parameters, ALL_FIRMS, defaults);
+    const decoded = decode(parameters, ALL_FIRMS, defaults);
     const shared = Object.fromEntries(
         SHARED_LINK_FIELDS.map((field) => [field, decoded[field]]),
     ) as Pick<CalculatorState, (typeof SHARED_LINK_FIELDS)[number]>;

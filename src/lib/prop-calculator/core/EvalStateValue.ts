@@ -1,6 +1,7 @@
 import { type AccountState } from './AccountState';
 import { ConsistencyViolationEffect } from './ConsistencyRule';
 import {
+    DailyLossLimitKind,
     describeDailyLossLimit,
     hasPeakShareDependency,
 } from './DailyLossLimit';
@@ -18,10 +19,17 @@ import {
 } from './DayPolicy';
 import { DrawdownKind } from './DrawdownStrategy';
 import {
+    centsOf,
+    EvalDayTopology,
+    EvalTradeOutcomeKind,
+    type EvalTradeResult,
+} from './EvalDayTopology';
+import {
     type CushionGridSplit,
     type FundedCushionGrid,
 } from './FundedCushionGrid';
 import {
+    CENTS_PER_DOLLAR,
     type ContractCount,
     dollars,
     type Dollars,
@@ -67,6 +75,11 @@ export interface EvalStateValueResult {
     ) => null | number;
 }
 
+interface DayBuffers {
+    readonly nodeValues: Float64Array;
+    readonly stopValues: Float64Array;
+}
+
 interface DayRecursion {
     readonly decisions: readonly Map<number, number>[];
     readonly outerState: null | OuterState;
@@ -96,7 +109,6 @@ interface ReplayDay {
     readonly recursion: DayRecursion;
 }
 
-const CENTS_PER_DOLLAR = 100;
 const DEFAULT_ACTION_STEP_DOLLARS = 50;
 const DEFAULT_PROFIT_STEP_DOLLARS = 300;
 const DEFAULT_TERMINAL_VALUE_AT_FAIL = 0;
@@ -158,10 +170,6 @@ function ceilStep(dollarAmount: number, stepDollars: number): number {
         ? dollarAmount
         : (Math.ceil(centsOf(dollarAmount) / stepCents) * stepCents) /
               CENTS_PER_DOLLAR;
-}
-
-function centsOf(dollarAmount: number): number {
-    return Math.round(dollarAmount * CENTS_PER_DOLLAR);
 }
 
 function clampRange(value: number, max: number): number {
@@ -264,6 +272,30 @@ function solveEvalDp(
 
     const memo = new Map<string, number>();
     const replayDays = new Map<string, ReplayDay>();
+    const dayTopologies = new Map<number, EvalDayTopology>();
+    const dayBuffers: DayBuffers[] = [];
+    const isTopologySolve =
+        policyOracle === null &&
+        stopRule.kind === DayStopRuleKind.None &&
+        plan.dailyLossLimitFor(TradingPhase.Eval).kind ===
+            DailyLossLimitKind.None;
+    let scratchState: AccountState | null = null;
+    let scratchOwner: AccountState | null = null;
+
+    function scratchStateAt(
+        dayStartState: AccountState,
+        balance: number,
+        todayPnL: number,
+    ): AccountState {
+        if (scratchState === null || scratchOwner !== dayStartState) {
+            scratchState = { ...dayStartState };
+            scratchOwner = dayStartState;
+        }
+        scratchState.balance = balance;
+        scratchState.todayPnL = todayPnL;
+        return scratchState;
+    }
+
     const peakRatchet = plan.peakRatchetFor(TradingPhase.Eval, null);
 
     function resolveThreshold(
@@ -308,11 +340,11 @@ function solveEvalDp(
     ): readonly number[] {
         return candidateRisks(
             plan.affordableRisk(
-                {
-                    ...dayStartState,
-                    balance: dayStartState.threshold + cushionNow,
-                    todayPnL: pnlSoFarNow,
-                },
+                scratchStateAt(
+                    dayStartState,
+                    dayStartState.threshold + cushionNow,
+                    pnlSoFarNow,
+                ),
                 TradingPhase.Eval,
                 commission,
             ),
@@ -440,6 +472,26 @@ function solveEvalDp(
         return value;
     }
 
+    function outcomeAfterTrade(
+        dayStartState: AccountState,
+        trade: EvalTradeResult,
+    ): EvalTradeOutcomeKind {
+        const state = scratchStateAt(
+            dayStartState,
+            dayStartState.threshold + trade.cushion,
+            trade.pnl,
+        );
+        drawdown.onTrade(state, trade.pnlDelta);
+        if (plan.isBust(state, TradingPhase.Eval)) {
+            return EvalTradeOutcomeKind.Fail;
+        }
+        return trade.nextTradeIndex >= slots ||
+            plan.isDayLockedOut(state, TradingPhase.Eval) ||
+            shouldStopDay(stopRule, trade.hasWon, 0, trade.pnl)
+            ? EvalTradeOutcomeKind.Stop
+            : EvalTradeOutcomeKind.Decide;
+    }
+
     function continuationValue(
         cushionExact: number,
         pnlSoFarExact: number,
@@ -451,34 +503,39 @@ function solveEvalDp(
         recursion: DayRecursion,
     ): number {
         if (cushionExact <= 0) return terminalValueAtFail(day + 1);
-        const state: AccountState = {
-            ...dayStartState,
-            balance: dayStartState.threshold + cushionExact,
-            todayPnL: pnlSoFarExact,
-        };
-        drawdown.onTrade(state, pnlDelta);
-        if (plan.isBust(state, TradingPhase.Eval)) {
-            return terminalValueAtFail(day + 1);
+        switch (
+            outcomeAfterTrade(dayStartState, {
+                cushion: cushionExact,
+                hasWon: hasWonThisTrade,
+                nextTradeIndex,
+                pnl: pnlSoFarExact,
+                pnlDelta,
+            })
+        ) {
+            case EvalTradeOutcomeKind.Decide: {
+                return decisionValueAt(
+                    nextTradeIndex,
+                    cushionExact,
+                    pnlSoFarExact,
+                    dayStartState,
+                    day,
+                    recursion,
+                );
+            }
+            case EvalTradeOutcomeKind.Fail: {
+                return terminalValueAtFail(day + 1);
+            }
+            case EvalTradeOutcomeKind.Stop: {
+                return exactStopAt(
+                    cushionExact,
+                    pnlSoFarExact,
+                    false,
+                    dayStartState,
+                    day,
+                    recursion,
+                );
+            }
         }
-        return nextTradeIndex >= slots ||
-            plan.isDayLockedOut(state, TradingPhase.Eval) ||
-            shouldStopDay(stopRule, hasWonThisTrade, 0, pnlSoFarExact)
-            ? exactStopAt(
-                  cushionExact,
-                  pnlSoFarExact,
-                  false,
-                  dayStartState,
-                  day,
-                  recursion,
-              )
-            : decisionValueAt(
-                  nextTradeIndex,
-                  cushionExact,
-                  pnlSoFarExact,
-                  dayStartState,
-                  day,
-                  recursion,
-              );
     }
 
     function valueOfRisk(
@@ -593,6 +650,75 @@ function solveEvalDp(
         return bestValue;
     }
 
+    function dayBuffersAt(day: number, topology: EvalDayTopology): DayBuffers {
+        const known = dayBuffers[day];
+        if (
+            known !== undefined &&
+            known.stopValues.length >= topology.stopCount &&
+            known.nodeValues.length >= topology.nodeCount
+        ) {
+            return known;
+        }
+        const grown: DayBuffers = {
+            nodeValues: new Float64Array(
+                Math.max(topology.nodeCount, known?.nodeValues.length ?? 0),
+            ),
+            stopValues: new Float64Array(
+                Math.max(topology.stopCount, known?.stopValues.length ?? 0),
+            ),
+        };
+        dayBuffers[day] = grown;
+        return grown;
+    }
+
+    function topologyAt(cushion: number): EvalDayTopology {
+        const known = dayTopologies.get(cushion);
+        if (known !== undefined) return known;
+        const dayStartState = dayStartStateOf({
+            bestDay: 0,
+            cushion,
+            day: 0,
+            idleDays: 0,
+            isLocked: false,
+            peakBand: 0,
+            thresholdOffset: 0,
+            tradingDays: 0,
+        });
+        const built = EvalDayTopology.build(cushion, {
+            candidateRisks: (cushionNow, pnlNow) =>
+                risksAt(dayStartState, cushionNow, pnlNow),
+            commission,
+            outcomeAfterTrade: (trade) =>
+                outcomeAfterTrade(dayStartState, trade),
+            rrRatio,
+            slots,
+        });
+        dayTopologies.set(cushion, built);
+        return built;
+    }
+
+    function topologyDayValue(outerState: OuterState): number {
+        const { day } = outerState;
+        const topology = topologyAt(outerState.cushion);
+        const dayStartState = dayStartStateOf(outerState);
+        const { nodeValues, stopValues } = dayBuffersAt(day, topology);
+        for (let stop = 0; stop < topology.stopCount; stop++) {
+            stopValues[stop] = onDayComplete(
+                topology.stopCushions[stop] ?? 0,
+                topology.stopPnls[stop] ?? 0,
+                dayStartState,
+                day,
+                topology.stopWasIdle[stop] === 1,
+            );
+        }
+        return topology.evaluate(
+            stopValues,
+            terminalValueAtFail(day + 1),
+            winrate,
+            nodeValues,
+        );
+    }
+
     function dayCloseValue(outerState: OuterState): number {
         const key = outerKey(outerState);
         const cached = memo.get(key);
@@ -604,14 +730,16 @@ function solveEvalDp(
             return timeoutValue;
         }
 
-        const value = decisionValueAt(
-            0,
-            outerState.cushion,
-            0,
-            dayStartStateOf(outerState),
-            day,
-            newDayRecursion(outerState),
-        );
+        const value = isTopologySolve
+            ? topologyDayValue(outerState)
+            : decisionValueAt(
+                  0,
+                  outerState.cushion,
+                  0,
+                  dayStartStateOf(outerState),
+                  day,
+                  newDayRecursion(outerState),
+              );
 
         const charged = value - dayCost(day);
         memo.set(key, charged);

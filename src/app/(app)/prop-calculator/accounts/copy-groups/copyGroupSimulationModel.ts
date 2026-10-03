@@ -2,33 +2,39 @@ import {
     type CopyGroupWorkerMember,
     type CopyGroupWorkerRequest,
 } from '~/app/(app)/prop-calculator/_workers/copyGroupWorkerMessages';
-import { overviewPlanOptInsOf } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
+import {
+    buildDocumentedSpec,
+    type DocumentedSpecBuild,
+    overviewPlanOptInsOf,
+} from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
     type MemberPersonalOverride,
-    withPersonalPolicy,
+    memberPolicyOverridesOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     CENTS_PER_DOLLAR,
     type Dollars,
-    dollars,
     findFirm,
     type Plan,
     serializePlanId,
 } from '~/lib/prop-calculator';
 import {
     type Assumption,
+    AssumptionBias,
+    AssumptionKind,
     assumptionText,
-    buildEnginePolicy,
     type CopyGroupSizingResult,
     CopyGroupSizingResultKind,
     DEFAULT_FUNDED_HORIZON_DAYS,
     DEFAULT_MAX_EVAL_DAYS,
-    type DocumentedPolicySpec,
+    inputAssumption,
+    type MeasuredRebuyLag,
     type ReconstructedFundedOrEvalAccount,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
+import { documentedLiveTransferHazard } from '~/lib/prop-calculator/advisor/policy';
 import { startStateOf } from '~/lib/prop-calculator/advisor/value';
 import { type CopyGroupSimulationOutputs } from '~/lib/prop-calculator/simulator';
 
@@ -50,6 +56,7 @@ export interface CopyGroupSimulationMemberInput {
     readonly account: ReconstructedFundedOrEvalAccount;
     readonly id: string;
     readonly label: string;
+    readonly measuredRebuyLag: MeasuredRebuyLag | null;
     readonly override: MemberPersonalOverride | undefined;
     readonly plan: Plan;
 }
@@ -91,11 +98,6 @@ interface CopyGroupFigureRow {
     readonly label: string;
     readonly note: string;
     readonly value: string;
-}
-
-interface DocumentedSpecBuild {
-    readonly assumptions: readonly Assumption[];
-    readonly spec: DocumentedPolicySpec;
 }
 
 export const COPY_GROUP_SIMULATION_SEED = 42;
@@ -195,9 +197,10 @@ export function copyGroupSimulationPlanOf(
             workerMemberOf(member, rulebook, groupRiskCents),
         );
         return {
-            assumptions: uniqueAssumptionsOf(
-                built.flatMap(({ assumptions }) => assumptions),
-            ),
+            assumptions: uniqueAssumptionsOf([
+                ...built.flatMap(({ assumptions }) => assumptions),
+                ...unpricedLiveTransferAssumptionsOf(members, rulebook),
+            ]),
             groupRisk,
             horizonDays: DEFAULT_FUNDED_HORIZON_DAYS,
             kind: CopyGroupSimulationPlanKind.Ready,
@@ -224,52 +227,30 @@ function documentedSpecOf(
     groupRiskCents: number,
 ): DocumentedSpecBuild {
     const { plan } = member;
-    const { assumptions, policy } = buildEnginePolicy({
+    const { funded } = rulebook;
+    return buildDocumentedSpec({
         accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
         fundedHorizonDays: DEFAULT_FUNDED_HORIZON_DAYS,
-        measuredRebuyLag: null,
+        measuredRebuyLag: member.measuredRebuyLag,
+        overrides: memberPolicyOverridesOf(member.override),
         plan,
-        positionSizing: null,
-        rulebook,
+        rulebook: {
+            ...rulebook,
+            funded: {
+                ...funded,
+                riskCents: groupRiskCents,
+                takeProfitCents: Math.round(
+                    (groupRiskCents * funded.takeProfitCents) /
+                        funded.riskCents,
+                ),
+            },
+        },
+        run: {
+            maxEvalDays: DEFAULT_MAX_EVAL_DAYS,
+            seed: COPY_GROUP_SIMULATION_SEED,
+            trials: COPY_GROUP_SIMULATION_TRIALS,
+        },
     });
-    const { funded } = rulebook;
-    const spec = withPersonalPolicy(
-        {
-            enginePolicy: policy,
-            planSerial: serializePlanId(plan.id),
-            rulebook: {
-                ...rulebook,
-                funded: {
-                    ...funded,
-                    riskCents: groupRiskCents,
-                    takeProfitCents: Math.round(
-                        (groupRiskCents * funded.takeProfitCents) /
-                            funded.riskCents,
-                    ),
-                },
-            },
-            run: {
-                maxEvalDays: DEFAULT_MAX_EVAL_DAYS,
-                seed: COPY_GROUP_SIMULATION_SEED,
-                trials: COPY_GROUP_SIMULATION_TRIALS,
-            },
-        },
-        {
-            payoutRequestOverride: dollarsOrNull(
-                member.override?.personalRequestOverride,
-            ),
-            personalCaps: member.override?.personalCaps,
-            personalDll: member.override?.personalDll,
-            retainedCushionRequest: dollarsOrNull(
-                member.override?.personalRetainedCushion,
-            ),
-        },
-    );
-    return { assumptions, spec };
-}
-
-function dollarsOrNull(amount: null | number | undefined): Dollars | null {
-    return amount === null || amount === undefined ? null : dollars(amount);
 }
 
 function unavailable(reason: string): CopyGroupSimulationPlan {
@@ -285,6 +266,23 @@ function uniqueAssumptionsOf(
         if (!byText.has(text)) byText.set(text, assumption);
     }
     return byText.values().toArray();
+}
+
+function unpricedLiveTransferAssumptionsOf(
+    members: readonly CopyGroupSimulationMemberInput[],
+    rulebook: RulebookParameters,
+): readonly Assumption[] {
+    return members.some(
+        ({ plan }) =>
+            (documentedLiveTransferHazard(rulebook, plan.id.firm) ?? 0) > 0,
+    )
+        ? [
+              inputAssumption(
+                  AssumptionKind.LiveTransferHazardNotPriced,
+                  AssumptionBias.Neutral,
+              ),
+          ]
+        : [];
 }
 
 function withStandardError(

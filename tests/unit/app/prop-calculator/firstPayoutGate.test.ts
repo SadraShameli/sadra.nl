@@ -32,13 +32,25 @@ const mffPro = planFor({
 describe('describeFirstPayoutGate', () => {
     it("shows MFF Pro's calendar-day gate in its own unit and the first-payout profit gate (N-7)", () => {
         expect(describeFirstPayoutGate(mffPro)).toBe(
-            '14 calendar days from first trade, restarting at each payout · $2.1K buffer',
+            '14 calendar days from first trade, restarting at each payout · $2.1K profit',
         );
     });
 
-    it("shows FundedNext Legacy's $500 per-cycle gate, which a $0 first-payout gate alone hides (N-42)", () => {
+    it("shows FundedNext Legacy's $500 gate on the first payout and on every cycle as profit, not a buffer (N-42, N-93)", () => {
         expect(describeFirstPayoutGate(legacy)).toBe(
-            '5 qualifying days · $0 buffer · $500/cycle',
+            '5 qualifying days · $500 profit · $500/cycle',
+        );
+    });
+
+    it('appends the payout buffer balance gate for FundedNext Rapid Daily (PT-73c)', () => {
+        const rapidDaily = planFor({
+            accountSize: 50_000,
+            firm: FirmId.FundedNext,
+            variant: FundedNextVariant.RapidDaily,
+        });
+
+        expect(describeFirstPayoutGate(rapidDaily)).toMatch(
+            / · balance at least \$52\.1K$/,
         );
     });
 
@@ -48,7 +60,7 @@ describe('describeFirstPayoutGate', () => {
         });
 
         expect(describeFirstPayoutGate(centGate)).toBe(
-            '5 qualifying days · $0 buffer · $0.01/cycle',
+            '5 qualifying days · $500 profit · $0.01/cycle',
         );
     });
 });

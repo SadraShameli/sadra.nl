@@ -10,6 +10,8 @@ import {
     vi,
 } from 'vitest';
 
+import { RulebookSource } from '~/app/(app)/prop-calculator/_components/bankroll/rulebookSource';
+import { type ObjectiveChoice } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import {
     type CalculatorAction,
     CalculatorActionType,
@@ -25,18 +27,29 @@ import {
     PolicySizing,
     type SimOutputs,
 } from '~/lib/prop-calculator';
-import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    EvalSizingMode,
+    type RulebookParameters,
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
 
 interface TableHarness {
+    choice: ObjectiveChoice;
     dispatch: Mock<(action: CalculatorAction) => void>;
     rows: readonly unknown[];
+    rulebook: RulebookParameters;
+    rulebookSource: null | RulebookSource;
     setEvalDayPolicy: Mock<(policy: DayPolicy | null) => void>;
     state: CalculatorState | null;
 }
 
 const harness = vi.hoisted((): TableHarness => ({
+    choice: { automaticBasis: null, queryFailure: null },
     dispatch: vi.fn(),
     rows: [],
+    rulebook: null as unknown as RulebookParameters,
+    rulebookSource: null,
     setEvalDayPolicy: vi.fn(),
     state: null,
 }));
@@ -47,7 +60,20 @@ vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
         setEvalDayPolicy: harness.setEvalDayPolicy,
     }),
     useCalculatorInputs: () => ({ state: harness.state }),
+    useObjectiveChoice: () => harness.choice,
 }));
+
+vi.mock(
+    '~/app/(app)/prop-calculator/_components/bankroll/useBankrollVariant',
+    () => ({
+        useBankrollVariant: () => ({
+            rulebook: harness.rulebook,
+            rulebookSource:
+                harness.rulebookSource ?? RulebookSource.DefaultSignedOut,
+            variant: null,
+        }),
+    }),
+);
 
 vi.mock(
     '~/app/(app)/prop-calculator/_components/useDebouncedSimulation',
@@ -107,6 +133,9 @@ describe('OptimalRiskTable applied eval ladder notice', () => {
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.setEvalDayPolicy.mockReset();
+        harness.rulebook = DEFAULT_RULEBOOK;
+        harness.rulebookSource = RulebookSource.DefaultSignedOut;
+        harness.choice = { automaticBasis: null, queryFailure: null };
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -221,6 +250,9 @@ describe('OptimalRiskTable objective ranking (PT-63, F-V15)', () => {
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.dispatch.mockReset();
+        harness.rulebook = DEFAULT_RULEBOOK;
+        harness.rulebookSource = RulebookSource.DefaultSignedOut;
+        harness.choice = { automaticBasis: null, queryFailure: null };
         harness.rows = [
             sweepRow(0.5, 100, 900),
             sweepRow(2, 300, 100),
@@ -348,5 +380,98 @@ describe('OptimalRiskTable objective ranking (PT-63, F-V15)', () => {
         );
         expect(headers).not.toContain('P(no payout)');
         expect(headers).not.toContain('P(batch < 0)');
+    });
+
+    it('never says this page ranks by ruin first when the bankroll chose ruin first automatically', () => {
+        harness.choice = {
+            automaticBasis: { availableCents: 100_000, switchCents: 500_000 },
+            queryFailure: null,
+        };
+        render(SizingObjective.RuinFirst);
+        const text = container.textContent;
+        expect(text).toContain('Chosen automatically');
+        expect(text).toContain('which plan to buy');
+        expect(text).toContain("this page's sizing stays on monthly net");
+        expect(text).not.toMatch(/page ranks by ruin first/i);
+        expect(starredRiskTexts()[0]).toContain('(2%)');
+    });
+
+    it('labels the star as the engine optimum for the sweep and not as the best sizing', () => {
+        render(SizingObjective.MonthlyNet);
+        const text = container.textContent;
+        expect(text).toContain('engine optimum for monthly net at 2.00%');
+        expect(text).not.toMatch(/\bbest monthly net\b/);
+    });
+
+    it('states the sweep assumptions: no day cap, one risk for both phases, objectives leave documented sizing alone', () => {
+        render(SizingObjective.MonthlyNet);
+        const text = container.textContent;
+        expect(text).toContain('not the documented sizing');
+        expect(text).toContain('no daily profit cap in the eval');
+        expect(text).toContain(
+            'one risk per trade for both the eval and funded phases',
+        );
+        expect(text).toContain(
+            'Ruin first and cycle cash do not change documented sizing',
+        );
+    });
+
+    it('headlines the documented ladder rule as the default rulebook for a signed-out visitor, never as the user rulebook', () => {
+        render(SizingObjective.MonthlyNet);
+        const text = container.textContent;
+        expect(text).toContain(
+            'Documented sizing: eval risk follows the default rulebook ladder rungs',
+        );
+        expect(text).not.toContain('your rulebook');
+        expect(text).toContain('funded risk is a fixed $250 per trade');
+    });
+
+    it('headlines the documented ladder rule as the user rulebook when the signed-in rulebook loaded, even if it is the shared default object', () => {
+        harness.rulebookSource = RulebookSource.User;
+        render(SizingObjective.MonthlyNet);
+        const text = container.textContent;
+        expect(text).toContain(
+            'Documented sizing: eval risk follows your rulebook ladder rungs',
+        );
+        expect(text).not.toContain('the default rulebook');
+        expect(text).not.toContain('could not be loaded');
+    });
+
+    it('says the signed-in rulebook failed to load and headlines the default rulebook', () => {
+        harness.rulebookSource = RulebookSource.DefaultFailed;
+        render(SizingObjective.MonthlyNet);
+        const text = container.textContent;
+        expect(text).toContain('Your rulebook could not be loaded');
+        expect(text).toContain('follows the default rulebook ladder rungs');
+    });
+
+    it('headlines the max risk rule with its daily cap multiple and the rulebook funded risk', () => {
+        harness.rulebookSource = RulebookSource.User;
+        harness.rulebook = {
+            ...DEFAULT_RULEBOOK,
+            eval: {
+                ...DEFAULT_RULEBOOK.eval,
+                maxRiskDailyCapMultiple: 3,
+                mode: EvalSizingMode.MaxRisk,
+            },
+            funded: { ...DEFAULT_RULEBOOK.funded, riskCents: 40_000 },
+        };
+        render(SizingObjective.MonthlyNet);
+        const text = container.textContent;
+        expect(text).toContain(
+            'eval risk is the maximum the constraints allow in your rulebook, with a daily profit cap of 3x that risk',
+        );
+        expect(text).toContain('funded risk is a fixed $400 per trade');
+    });
+
+    it('headlines the max risk rule as the default rulebook for a signed-out visitor', () => {
+        harness.rulebook = {
+            ...DEFAULT_RULEBOOK,
+            eval: { ...DEFAULT_RULEBOOK.eval, mode: EvalSizingMode.MaxRisk },
+        };
+        render(SizingObjective.MonthlyNet);
+        expect(container.textContent).toContain(
+            'eval risk is the maximum the constraints allow in the default rulebook',
+        );
     });
 });

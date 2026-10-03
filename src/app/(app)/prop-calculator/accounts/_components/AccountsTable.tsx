@@ -87,6 +87,8 @@ import {
 
 const ALL = 'all';
 
+const OPTION_PREFIX = 'option:';
+
 const SORT_LABEL: Readonly<Record<AccountSortKey, string>> = {
     [AccountSortKey.Cushion]: 'Cushion',
     [AccountSortKey.ExpectedValue]: 'Expected payouts',
@@ -655,6 +657,10 @@ function AccountRow({
     );
 }
 
+function encodeOption(value: string): string {
+    return `${OPTION_PREFIX}${value}`;
+}
+
 function FilterSelect({
     id,
     label,
@@ -673,9 +679,11 @@ function FilterSelect({
             <Label htmlFor={id}>{label}</Label>
             <Select
                 onValueChange={(next) => {
-                    onChange(next === ALL ? null : next);
+                    onChange(
+                        next === ALL ? null : next.slice(OPTION_PREFIX.length),
+                    );
                 }}
-                value={value ?? ALL}
+                value={value === null ? ALL : encodeOption(value)}
             >
                 <SelectTrigger id={id}>
                     <SelectValue />
@@ -683,7 +691,10 @@ function FilterSelect({
                 <SelectContent>
                     <SelectItem value={ALL}>All</SelectItem>
                     {options.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
+                        <SelectItem
+                            key={option.value}
+                            value={encodeOption(option.value)}
+                        >
                             {option.label}
                         </SelectItem>
                     ))}

@@ -70,6 +70,7 @@ export enum PropMutationRejection {
     ReferenceNotOwned = 'reference-not-owned',
     RoundBudgetExceeded = 'round-budget-exceeded',
     RoundClosed = 'round-closed',
+    StageMismatch = 'stage-mismatch',
     StageNotOfferedByPlan = 'stage-not-offered-by-plan',
     TrackingChange = 'tracking-change',
     UnresolvablePlan = 'unresolvable-plan',
@@ -210,6 +211,8 @@ const propAccountStoredSchema = createSelectSchema(propAccount, {
     tags: z.array(z.string()),
     tracking: z.enum(AccountTracking),
 }).extend({
+    currentPlanRulesFingerprint: z.string().nullable().default(null),
+    hasCorruptTags: z.boolean().optional(),
     planRulesChanged: z.boolean().nullable().default(null),
     readIssues: z.array(accountReadIssueSchema).readonly(),
 });
@@ -289,8 +292,9 @@ export const propBankrollTransferOutputSchema = createSelectSchema(
 export const propBankrollSummaryOutputSchema = z.object({
     availableCents: usdCentsSchema,
     depositsCents: nonNegativeUsdCentsSchema,
-    grownFromCents: nonNegativeUsdCentsSchema,
     moneyWeightedReturn: z.number().nullable(),
+    reinvestedPayoutsCents: nonNegativeUsdCentsSchema,
+    undatedPaidPayouts: z.number().int().nonnegative(),
     withdrawalsCents: nonNegativeUsdCentsSchema,
 });
 

@@ -113,7 +113,19 @@ export function setupChecklistOf(inputs: SetupChecklistInputs): SetupChecklist {
     const doneCount = steps.filter(
         (step) => step.status === SetupStepStatus.Done,
     ).length;
-    return { doneCount, isComplete: doneCount === steps.length, steps };
+    const hasAccountStepDone = steps.some(
+        (step) =>
+            step.step !== SetupStep.BudgetSet &&
+            step.status === SetupStepStatus.Done,
+    );
+    const isComplete =
+        hasAccountStepDone &&
+        steps.every(
+            (step) =>
+                step.status === SetupStepStatus.Done ||
+                step.status === SetupStepStatus.NotApplicable,
+        );
+    return { doneCount, isComplete, steps };
 }
 
 function activeAccountsOf(ledger: PortfolioLedger): readonly LedgerAccount[] {

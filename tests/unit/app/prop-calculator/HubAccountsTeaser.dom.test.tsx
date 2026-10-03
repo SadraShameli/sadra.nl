@@ -588,14 +588,45 @@ describe('HubAccountsTeaser', () => {
                 'Setup: 1 of 4 steps done.',
             );
             expect(container.textContent).toContain('Budget set: Missing');
-            expect(container.textContent).toContain(
+            expect(container.textContent).not.toContain(
                 'Expected value computed: Not checked yet',
+            );
+            expect(container.textContent).toContain(
+                'Expected value: checked on the overview',
+            );
+            expect(container.textContent).toContain(
+                'The count leaves out the steps checked on the overview.',
             );
             expect(
                 [...container.querySelectorAll('a')]
                     .find((anchor) => anchor.textContent === 'Finish the setup')
                     ?.getAttribute('href'),
             ).toBe(routes.propCalculator.accounts.index);
+        });
+
+        it('links each setup step to the overview target and each missing item to its fix (PT-89, F-V28)', () => {
+            harness.queries.set('event.list', answer([]));
+            render();
+            const hrefs = [...container.querySelectorAll('a')].map((anchor) =>
+                anchor.getAttribute('href'),
+            );
+            expect(hrefs).toContain(routes.propCalculator.accounts.ledger);
+            expect(hrefs).toContain(routes.propCalculator.rules);
+            expect(hrefs).toContain(routes.propCalculator.accounts.review);
+            const budget = [...container.querySelectorAll('a')].find(
+                (anchor) => anchor.textContent === 'Budget set',
+            );
+            expect(budget?.getAttribute('href')).toBe(
+                routes.propCalculator.accounts.ledger,
+            );
+            const evLink = [...container.querySelectorAll('a')].find(
+                (anchor) =>
+                    anchor.textContent ===
+                    'Expected value: checked on the overview',
+            );
+            expect(evLink?.getAttribute('href')).toContain(
+                routes.propCalculator.accounts.index,
+            );
         });
 
         it('shows no setup checklist until the events are loaded, and still shows the totals', () => {

@@ -73,7 +73,9 @@ function fundedContext(override: null | number): {
             liveTriggerFirmTotalSource: null,
             liveTriggerPerAccountCap: null,
             liveTriggerPerAccountSource: null,
+            otherAccountsPendingPayoutCount: 0,
             paidPayoutsSinceLastLiveAccount: null,
+            pendingPayoutCount: 0,
             pendingPayouts: dollars(0),
             personalRequestOverride:
                 override === null ? null : dollars(override),

@@ -8,14 +8,15 @@ import { dollars, type FirmId, fraction } from '~/lib/prop-calculator';
 import {
     type AttemptEconomics,
     attemptEconomics,
-    fundedValueFrom,
     type Quantity,
 } from '~/lib/prop-calculator/economics';
 import { clamp } from '~/lib/prop-calculator/stats';
 
 import { attemptsOf } from './Attempts';
+import { attemptCostOf } from './CostAnalytics';
 import {
-    isHorizonMaturedCohort,
+    fundedPayoutDistribution,
+    isFullyObservedFundedCohort,
     paidCountWithinHorizon,
     PAYOUT_COUNT_CAP,
 } from './FundedPayoutDistribution';
@@ -42,10 +43,12 @@ export interface PlanAttemptEconomics {
     readonly averagePayout: null | SampledEstimate;
     readonly decomposition: null | Quantity<AttemptEconomics>;
     readonly firmId: FirmId;
+    readonly fundedValue: null | SampledEstimate;
     readonly marginAboveBreakeven: boolean | null;
     readonly passRate: null | SampledEstimate;
     readonly payoutRate: null | SampledEstimate;
     readonly payoutsPerPaidFunded: null | number;
+    readonly payoutsPerPaidFundedEstimate: null | SampledEstimate;
     readonly planSerial: string;
     readonly realizedEvPerAttempt: null | number;
 }
@@ -65,7 +68,7 @@ export function isCohortEndedAttempt(
         const status = finalState(entry)?.status;
         return status !== undefined && isEndedStatus(status);
     }
-    return isHorizonMaturedCohort(entry, funded.on, asOfDate, horizonDays);
+    return isFullyObservedFundedCohort(entry, funded.on, asOfDate, horizonDays);
 }
 
 export function perAttemptNetCents(
@@ -89,6 +92,11 @@ export function realizedAttemptEconomics(
 ): RealizedAttemptEconomics {
     const outcomes = realizedOutcomes(ledger);
     const payoutRates = realizedPayoutRates(ledger, asOfDate, horizonDays);
+    const distribution = fundedPayoutDistribution(
+        ledger,
+        asOfDate,
+        horizonDays,
+    );
     return {
         horizonDays,
         perPlan: ledger
@@ -104,6 +112,9 @@ export function realizedAttemptEconomics(
                     payoutRates.perPlan.find(
                         (plan) => plan.planSerial === group.planSerial,
                     )?.payoutRate ?? null,
+                    distribution.perPlan.find(
+                        (plan) => plan.planSerial === group.planSerial,
+                    )?.realizedFundedValue ?? null,
                 ),
             ),
     };
@@ -129,30 +140,14 @@ function averagePayoutOf(
 function decompositionOf(
     attemptCost: null | number,
     passRate: null | SampledEstimate,
-    payoutRate: null | SampledEstimate,
-    payoutsPerPaidFunded: null | number,
-    averagePayout: null | SampledEstimate,
+    fundedValue: null | SampledEstimate,
 ): null | Quantity<AttemptEconomics> {
-    if (
-        attemptCost === null ||
-        passRate === null ||
-        payoutRate === null ||
-        payoutsPerPaidFunded === null ||
-        averagePayout === null
-    ) {
+    if (attemptCost === null || passRate === null || fundedValue === null) {
         return null;
-    }
-    const fundedValueQuantity = fundedValueFrom({
-        averagePayout: usdCentsToDollars(roundCents(averagePayout.value)),
-        payoutProbabilityGivenFunded: fraction(clamp(payoutRate.value, 0, 1)),
-        payoutsPerPaidFunded,
-    });
-    if (fundedValueQuantity.value === null) {
-        return { ...fundedValueQuantity, value: null };
     }
     return attemptEconomics({
         attemptCost: dollars(attemptCost / 100),
-        fundedValue: fundedValueQuantity.value,
+        fundedValue: usdCentsToDollars(roundCents(fundedValue.value)),
         passProbability: fraction(clamp(passRate.value, 0, 1)),
     });
 }
@@ -171,16 +166,15 @@ function marginAboveBreakevenOf(
 function payoutsPerPaidFundedOf(
     cohortAccounts: readonly LedgerAccount[],
     horizonDays: number,
-): null | number {
-    const paidCounts = cohortAccounts.flatMap((entry) => {
-        const funded = fundedSince(entry);
-        if (funded === null) return [];
-        const count = paidCountWithinHorizon(entry, funded.on, horizonDays);
-        return count > 0 ? [Math.min(count, PAYOUT_COUNT_CAP)] : [];
-    });
-    return paidCounts.length === 0
-        ? null
-        : paidCounts.reduce((sum, count) => sum + count, 0) / paidCounts.length;
+): null | SampledEstimate {
+    return sampledMean(
+        cohortAccounts.flatMap((entry) => {
+            const funded = fundedSince(entry);
+            if (funded === null) return [];
+            const count = paidCountWithinHorizon(entry, funded.on, horizonDays);
+            return count > 0 ? [Math.min(count, PAYOUT_COUNT_CAP)] : [];
+        }),
+    );
 }
 
 function planEconomics(
@@ -189,6 +183,7 @@ function planEconomics(
     horizonDays: number,
     passRate: null | SampledEstimate,
     payoutRate: null | SampledEstimate,
+    fundedValue: null | SampledEstimate,
 ): PlanAttemptEconomics {
     const cohortAccounts = group.accounts.filter((entry) =>
         isCohortEndedAttempt(entry, asOfDate, horizonDays),
@@ -201,29 +196,25 @@ function planEconomics(
         cohortAccounts.flatMap((entry) => entry.fees),
         cohortAccounts.flatMap((entry) => entry.payouts),
     );
-    const attemptCost = attempts === 0 ? null : cash.spend / attempts;
-    const payoutsPerPaidFunded = payoutsPerPaidFundedOf(
+    const attemptCost = attemptCostOf(group.accounts).costPerAttempt;
+    const payoutsPerPaidFundedEstimate = payoutsPerPaidFundedOf(
         cohortAccounts,
         horizonDays,
     );
     const averagePayout = averagePayoutOf(cohortAccounts, horizonDays);
-    const decomposition = decompositionOf(
-        attemptCost,
-        passRate,
-        payoutRate,
-        payoutsPerPaidFunded,
-        averagePayout,
-    );
+    const decomposition = decompositionOf(attemptCost, passRate, fundedValue);
     return {
         attemptCost,
         attempts,
         averagePayout,
         decomposition,
         firmId: group.firmId,
+        fundedValue,
         marginAboveBreakeven: marginAboveBreakevenOf(decomposition, passRate),
         passRate,
         payoutRate,
-        payoutsPerPaidFunded,
+        payoutsPerPaidFunded: payoutsPerPaidFundedEstimate?.value ?? null,
+        payoutsPerPaidFundedEstimate,
         planSerial: group.planSerial,
         realizedEvPerAttempt: attempts === 0 ? null : cash.net / attempts,
     };

@@ -1279,7 +1279,7 @@ describe('runLiveHorizon on TopStep numbers ($1,000 auto-liquidation floor, Rese
         expect(result.totalWithdrawn).toBe(0);
     });
 
-    it('reaches the $1,000 floor on day 20 of a commission-free loss streak: the one-contract minimum loses $450 a day from the $9,000 cushion, where fractional sizing shrank each loss to 5% of the distance and never reached it (N-76)', () => {
+    it('sits exactly on the $1,000 floor after day 20 of a commission-free loss streak, alive because the firm busts only strictly below $1,000, and busts on day 21 when the one-contract minimum loses $450 more from the zero cushion (N-76, WP62b)', () => {
         const result = runLiveHorizon({
             commission: dollars(0),
             horizonDays: 500,
@@ -1294,8 +1294,9 @@ describe('runLiveHorizon on TopStep numbers ($1,000 auto-liquidation floor, Rese
         });
 
         expect(result.busted).toBe(true);
-        expect(result.daysToBust).toBe(20);
-        expect(result.liquidationPayout).toBeCloseTo(0.9 * 1000, 9);
+        expect(result.closedForInactivity).toBe(false);
+        expect(result.daysToBust).toBe(21);
+        expect(result.liquidationPayout).toBeCloseTo(0.9 * 550, 9);
     });
 
     it('locks the trading day out for the rest of the day once losses reach the current Daily Loss Limit tier: five one-contract $400 NQ losses reach -$2,000', () => {
@@ -1605,7 +1606,7 @@ describe('WP18f R-12: an auto-liquidation pays the remaining balance as a final 
         });
 
         expect(result.closedForInactivity).toBe(true);
-        expect(result.daysToBust).toBe(30);
+        expect(result.daysToBust).toBe(31);
         expect(result.liquidationPayout).toBe(0);
         expect(result.totalWithdrawn).toBe(0);
     });

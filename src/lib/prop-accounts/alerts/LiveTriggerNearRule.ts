@@ -5,13 +5,19 @@ import {
     PayoutCountTotalTrigger,
     PolicyVerification,
 } from '~/lib/prop-calculator';
+import { PendingPayoutCountsStatus } from '~/lib/prop-calculator/advisor';
 
-import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
+import {
+    type AccountAlert,
+    AlertDisclosure,
+    AlertSubjectKind,
+} from './AccountAlert';
 import {
     type AlertContext,
+    firmPayoutCountIn,
     isActive,
-    paidPayoutsSinceLastLiveAccountOf,
     payoutsTakenOf,
+    pendingPayoutCountsIn,
     type ResolvedFirmAccount,
     resolvedFirmAccountsOf,
 } from './AlertContext';
@@ -24,6 +30,7 @@ export class LiveTriggerNearRule extends AlertRule {
 
     private perAccountAlert(
         entry: ResolvedFirmAccount,
+        context: AlertContext,
     ): readonly AccountAlert[] {
         const trigger = entry.firm.accountPolicy
             .liveTriggersFor(entry.plan)
@@ -32,7 +39,31 @@ export class LiveTriggerNearRule extends AlertRule {
                     candidate instanceof PayoutCountPerAccountTrigger,
             );
         if (trigger === undefined || !isConfirmed(trigger.source)) return [];
-        const taken = payoutsTakenOf(entry.monitored);
+        const pending = pendingPayoutCountsIn(
+            context,
+            entry.monitored,
+            context.today,
+        );
+        if (pending.status === PendingPayoutCountsStatus.NotChecked) {
+            return [
+                {
+                    disclosures: [AlertDisclosure.LiveTriggersNotChecked],
+                    kind: this.kind,
+                    message: unreadableAccountCountMessage(
+                        trigger.cap,
+                        trigger.source,
+                    ),
+                    severity: AlertSeverity.Warning,
+                    subject: {
+                        accountId: entry.monitored.account.id,
+                        kind: AlertSubjectKind.Account,
+                        label: entry.monitored.account.label,
+                    },
+                },
+            ];
+        }
+        const requested = pending.counts.pendingPayoutCount;
+        const taken = payoutsTakenOf(entry.monitored) + requested;
         if (taken < trigger.cap - 1) return [];
         return [
             {
@@ -43,6 +74,7 @@ export class LiveTriggerNearRule extends AlertRule {
                     trigger.cap,
                     'this account',
                     trigger.source,
+                    requested,
                 ),
                 severity: severityFor(taken, trigger.cap),
                 subject: {
@@ -73,16 +105,35 @@ export class LiveTriggerNearRule extends AlertRule {
                         candidate instanceof PayoutCountTotalTrigger,
                 );
             if (trigger === undefined || !isConfirmed(trigger.source)) continue;
-            const taken = paidPayoutsSinceLastLiveAccountOf(
-                context,
-                first.monitored,
-                context.today,
-            );
-            if (taken === null || taken < trigger.cap - 1) continue;
             const activeAccountIds = group
                 .filter((entry) => isActive(entry.monitored))
                 .map((entry) => entry.monitored.account.id);
             if (activeAccountIds.length === 0) continue;
+            const firmCount = firmPayoutCountIn(
+                context,
+                first.monitored.planKey.firmId,
+                context.today,
+            );
+            const subject = {
+                accountIds: activeAccountIds,
+                kind: AlertSubjectKind.Portfolio,
+            } as const;
+            if (firmCount === null) {
+                alerts.push({
+                    disclosures: [AlertDisclosure.LiveTriggersNotChecked],
+                    kind: this.kind,
+                    message: unreadableCountMessage(
+                        trigger.cap,
+                        trigger.source,
+                    ),
+                    severity: AlertSeverity.Warning,
+                    subject,
+                });
+                continue;
+            }
+            const requested = firmCount.requestedPayoutsSinceLastLiveAccount;
+            const taken = firmCount.paidPayoutsSinceLastLiveAccount + requested;
+            if (taken < trigger.cap - 1) continue;
             alerts.push({
                 disclosures: [],
                 kind: this.kind,
@@ -91,12 +142,10 @@ export class LiveTriggerNearRule extends AlertRule {
                     trigger.cap,
                     "this firm's accounts",
                     trigger.source,
+                    requested,
                 ),
                 severity: severityFor(taken, trigger.cap),
-                subject: {
-                    accountIds: activeAccountIds,
-                    kind: AlertSubjectKind.Portfolio,
-                },
+                subject,
             });
         }
         return alerts;
@@ -107,7 +156,7 @@ export class LiveTriggerNearRule extends AlertRule {
         return [
             ...resolved
                 .filter((entry) => isActive(entry.monitored))
-                .flatMap((entry) => this.perAccountAlert(entry)),
+                .flatMap((entry) => this.perAccountAlert(entry, context)),
             ...this.perFirmAlerts(resolved, context),
         ];
     }
@@ -124,14 +173,33 @@ function liveTriggerMessage(
     cap: number,
     scope: string,
     source: ConfirmedFirmPolicySource,
+    requested = 0,
 ): string {
+    const breakdown =
+        requested > 0
+            ? ` (${String(taken - requested)} paid, ${String(requested)} requested)`
+            : '';
     const outcome =
         taken < cap
             ? 'the next payout would trigger the move to live'
             : 'a further payout has already triggered the move to live';
-    return `${taken} of ${cap} payouts taken toward the verified live-transition trigger for ${scope}; ${outcome} (quote: "${source.quote}")`;
+    return `${taken} of ${cap} payouts taken${breakdown} toward the verified live-transition trigger for ${scope}; ${outcome} (quote: "${source.quote}")`;
 }
 
 function severityFor(taken: number, cap: number): AlertSeverity {
     return taken >= cap ? AlertSeverity.Critical : AlertSeverity.Warning;
+}
+
+function unreadableAccountCountMessage(
+    cap: number,
+    source: ConfirmedFirmPolicySource,
+): string {
+    return `The verified live-transition trigger for this account (cap ${String(cap)}) is not checked: a payout or an account at this firm cannot be read, so the requested payouts it counts are unknown (quote: "${source.quote}")`;
+}
+
+function unreadableCountMessage(
+    cap: number,
+    source: ConfirmedFirmPolicySource,
+): string {
+    return `The verified live-transition trigger for this firm's accounts (cap ${String(cap)}) is not checked: a payout or an account at this firm cannot be read, so its payout count is unknown (quote: "${source.quote}")`;
 }

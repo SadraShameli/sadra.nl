@@ -13,13 +13,17 @@ import {
     type InstrumentSpec,
     type LiveAccountState,
     type LiveCushionPercent,
+    ONE_CENT,
     type ReserveLiveAccountState,
     ReserveLivePlan,
-    StaticDrawdown,
+    StrictlyBelowStaticDrawdown,
     TierBasis,
     type UntrackedTierProfitContext,
 } from '~/lib/prop-calculator/core';
-import { TOPSTEP_PAYOUT_POLICY } from '~/lib/prop-calculator/firms/topstep/TopStep';
+import {
+    TOPSTEP_INACTIVITY_CLOSURE_DAYS,
+    TOPSTEP_PAYOUT_POLICY,
+} from '~/lib/prop-calculator/firms/topstep/TopStep';
 
 export const TOPSTEP_LIVE_DEFAULT_CUSHION_PERCENT: LiveCushionPercent = {
     postLock: fraction(0.05),
@@ -29,8 +33,10 @@ export const TOPSTEP_LIVE_DEFAULT_CUSHION_PERCENT: LiveCushionPercent = {
 const ACCOUNT_SIZE_TIER = dollars(50_000);
 const MIN_STARTING_BALANCE = dollars(10_000);
 const STARTING_BALANCE_SHARE = fraction(0.2);
-const INACTIVITY_CLOSURE_DAYS = 30;
 const AUTO_LIQUIDATION_BALANCE = dollars(1000);
+export const TOPSTEP_LIVE_LOWEST_CAPPED_BALANCE = dollars(
+    AUTO_LIQUIDATION_BALANCE + ONE_CENT,
+);
 const RESERVE_INCREMENTS = 4;
 const RESERVE_PROFIT_TARGET = dollars(3000);
 const SESSIONS_PER_WEEK = 5;
@@ -226,6 +232,11 @@ export function buildTopStepLivePlan(
         cumulativeXfaBalance,
         ACCOUNT_SIZE_TIER,
     );
+    if (startingBalance <= AUTO_LIQUIDATION_BALANCE) {
+        throw new Error(
+            `TopStep LFA: a capped XFA balance of $${cumulativeXfaBalance} starts at $${startingBalance}, at or under the $${AUTO_LIQUIDATION_BALANCE} liquidation floor; the tool requires a start above the floor, since a start with no cushion cannot absorb a loss and the firm states no minimum capped balance`,
+        );
+    }
     return new TopStepLivePlan({
         contractLimits: {
             micros: EXPANSION_POSITION_LIMITS,
@@ -234,10 +245,10 @@ export function buildTopStepLivePlan(
         cushionPercent,
         label: 'TopStep Live Funded Account (LFA)',
         liveDailyLossLimit: TOPSTEP_LIVE_DAILY_LOSS_LIMIT,
-        liveDrawdown: new StaticDrawdown({
+        liveDrawdown: new StrictlyBelowStaticDrawdown({
             amount: dollars(startingBalance - AUTO_LIQUIDATION_BALANCE),
         }),
-        maxConsecutiveIdleDays: INACTIVITY_CLOSURE_DAYS,
+        maxConsecutiveIdleDays: TOPSTEP_INACTIVITY_CLOSURE_DAYS,
         minPayoutRequest: TOPSTEP_PAYOUT_POLICY.minPayoutRequest,
         payoutTiers: [
             {
@@ -265,11 +276,17 @@ export function computeTopStepLiveStartingBalance(
     cumulativeXfaBalance: Dollars,
     accountSizeTier: Dollars,
 ): Dollars {
+    const cappedBalance = Math.max(
+        0,
+        Math.min(cumulativeXfaBalance, accountSizeTier),
+    );
     return dollars(
-        Math.max(
-            MIN_STARTING_BALANCE,
-            STARTING_BALANCE_SHARE *
-                Math.min(cumulativeXfaBalance, accountSizeTier),
+        Math.min(
+            cappedBalance,
+            Math.max(
+                MIN_STARTING_BALANCE,
+                STARTING_BALANCE_SHARE * cappedBalance,
+            ),
         ),
     );
 }

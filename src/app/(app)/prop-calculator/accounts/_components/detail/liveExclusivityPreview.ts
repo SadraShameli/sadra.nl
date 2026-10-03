@@ -4,22 +4,18 @@ import {
     AccountStatus,
     AccountTracking,
     exclusivityAccountsOf,
+    exclusivityFirmIdOf,
+    exclusivityPlanOf,
     type ExclusivitySibling,
     isConfirmedPolicySource,
+    isExclusivitySiblingReadable,
     LiveExclusivityAction,
     liveExclusivityEffectsOf,
-    PlanKeyResolutionKind,
-    resolvePlanKey,
     suspendedAccountIdsOf,
     trackedAccountOf,
     type TrackedAccountRow,
 } from '~/lib/prop-accounts';
-import {
-    findFirm,
-    type FirmId,
-    parseFirmId,
-    type Plan,
-} from '~/lib/prop-calculator';
+import { findFirm } from '~/lib/prop-calculator';
 
 export interface LiveExclusivityPreview {
     readonly confirmedAccountIds: readonly string[];
@@ -63,7 +59,7 @@ export function liveExclusivityPreviewOf(
     const rows = accounts.map((account) => trackedAccountOf(account));
     const moved = rows.find((row) => row.id === movedLiveAccountId);
     if (moved === undefined) return null;
-    const movedPlan = resolvedPlanOf(moved);
+    const movedPlan = exclusivityPlanOf(moved);
     const firm = movedPlan === null ? undefined : findFirm(movedPlan.id.firm);
     if (movedPlan === null || firm === undefined) return null;
     const policy = firm.accountPolicy.liveExclusivityFor(movedPlan);
@@ -73,9 +69,8 @@ export function liveExclusivityPreviewOf(
     let unreadable = 0;
     for (const row of rows) {
         if (row.id === moved.id || row.archivedAt !== null) continue;
-        const sibling = siblingOf(row);
-        if (sibling.firmId !== undefined) {
-            siblings.push(sibling);
+        if (isExclusivitySiblingReadable(row)) {
+            siblings.push(siblingOf(row));
         } else if (
             row.tracking === AccountTracking.Modeled &&
             row.firmId === moved.firmId
@@ -132,37 +127,12 @@ function effectLine(effect: LiveExclusivityPreviewEffect): string {
     }
 }
 
-function resolvedPlanOf(row: PreviewRow): null | Plan {
-    switch (row.tracking) {
-        case AccountTracking.LedgerOnly: {
-            return null;
-        }
-        case AccountTracking.Modeled: {
-            const resolution = resolvePlanKey(row);
-            return resolution.kind === PlanKeyResolutionKind.Resolved
-                ? resolution.plan
-                : null;
-        }
-    }
-}
-
-function siblingFirmIdOf(row: PreviewRow): FirmId | undefined {
-    switch (row.tracking) {
-        case AccountTracking.LedgerOnly: {
-            return row.firmId === null ? undefined : parseFirmId(row.firmId);
-        }
-        case AccountTracking.Modeled: {
-            return resolvedPlanOf(row)?.id.firm;
-        }
-    }
-}
-
 function siblingOf(row: PreviewRow): ExclusivitySibling {
     return {
-        firmId: siblingFirmIdOf(row),
+        firmId: exclusivityFirmIdOf(row),
         id: row.id,
         isArchived: false,
-        plan: resolvedPlanOf(row),
+        plan: exclusivityPlanOf(row),
         stage: row.stage,
         status: row.status,
     };

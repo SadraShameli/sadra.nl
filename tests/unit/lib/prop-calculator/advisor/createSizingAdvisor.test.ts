@@ -12,12 +12,16 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    AdviceStalenessKind,
+    AdviceStalenessReason,
     createSizingAdvisor,
     DEFAULT_RULEBOOK,
+    DifferenceReason,
     EvalSizingAdvisor,
     FundedSizingAdvisor,
     InstantFundedEvalAdvisorError,
     LiveSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
 } from '~/lib/prop-calculator/advisor';
@@ -64,6 +68,7 @@ function evalAccount(plan: Plan): ReconstructedFundedOrEvalAccount {
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -103,6 +108,7 @@ describe('createSizingAdvisor (PT-19f, F-118, step 15)', () => {
                 plan: registryPlan(TOPSTEP_STANDARD_ID),
                 resolvedDailyLossLimit: null,
                 state,
+                ...NO_PENDING_PAYOUT_COUNTS,
             },
             { fundedHorizonDays: 252, ...commonOptions },
         );
@@ -135,5 +141,74 @@ describe('createSizingAdvisor (PT-19f, F-118, step 15)', () => {
         expect(() =>
             createSizingAdvisor(evalAccount(instantFunded), commonOptions),
         ).toThrow(InstantFundedEvalAdvisorError);
+    });
+
+    it.each([
+        ['eval', 'old-hash'],
+        ['eval', null],
+    ])(
+        'passes the plan-rules fingerprint check through to a %s advisor (atAdvice %s)',
+        (_stage, atAdvice) => {
+            const advisor = createSizingAdvisor(
+                evalAccount(registryPlan(APEX_EOD_ID)),
+                {
+                    ...commonOptions,
+                    planRulesFingerprint: { atAdvice, current: 'new-hash' },
+                },
+            );
+
+            const advice = advisor.assemble([]);
+
+            expect(advice.provenance.planRulesFingerprint).toBe('new-hash');
+            expect(advice.staleness.kind).toBe(
+                atAdvice === null
+                    ? AdviceStalenessKind.Fresh
+                    : AdviceStalenessKind.Stale,
+            );
+        },
+    );
+
+    it('marks funded and live advice stale on a changed fingerprint and carries the current one', () => {
+        const state = accountState();
+        const planRulesFingerprint = {
+            atAdvice: 'old-hash',
+            current: 'new-hash',
+        };
+        const funded = createSizingAdvisor(
+            {
+                assumptions: [],
+                contractLimit: null,
+                cushion: state.balance - state.threshold,
+                fundedTracker: null,
+                kind: TradingPhase.Funded,
+                plan: registryPlan(TOPSTEP_STANDARD_ID),
+                resolvedDailyLossLimit: null,
+                state,
+                ...NO_PENDING_PAYOUT_COUNTS,
+            },
+            { fundedHorizonDays: 252, ...commonOptions, planRulesFingerprint },
+        ).assemble([]);
+        const live = createSizingAdvisor(
+            {
+                assumptions: [],
+                cushion: null,
+                kind: ReconstructedLiveKind.Live,
+                livePlan: null,
+                plan: registryPlan(TOPSTEP_STANDARD_ID),
+                state: null,
+            },
+            { ...commonOptions, planRulesFingerprint },
+        ).assemble([]);
+
+        for (const advice of [funded, live]) {
+            expect(advice.provenance.planRulesFingerprint).toBe('new-hash');
+            expect(advice.staleness).toMatchObject({
+                kind: AdviceStalenessKind.Stale,
+                reasons: [AdviceStalenessReason.PlanRulesChanged],
+            });
+            expect(
+                advice.differenceReasons.map((reason) => reason.kind),
+            ).toContain(DifferenceReason.PlanRulesChanged);
+        }
     });
 });

@@ -5,8 +5,15 @@ export {
     ReconstructionErrorReason,
 } from './AccountReconstruction';
 export {
+    type AccountPendingPayoutCounts,
+    accountPendingPayoutCountsSchema,
     type AccountSnapshotInput,
     accountSnapshotInputSchema,
+    NO_PENDING_PAYOUT_COUNTS,
+    PENDING_PAYOUT_COUNTS_NOT_CHECKED,
+    pendingPayoutCountsOr,
+    type PendingPayoutCountsOutcome,
+    PendingPayoutCountsStatus,
 } from './AccountSnapshotInput';
 export { AccountSubstate } from './AccountSubstate';
 export { type Advice } from './Advice';
@@ -14,6 +21,8 @@ export {
     type AdviceProvenance,
     adviceProvenance,
     type AdviceProvenanceInput,
+    type EngineRun,
+    engineRunOf,
 } from './AdviceProvenance';
 export { AdviceSource } from './AdviceSource';
 export {
@@ -21,6 +30,7 @@ export {
     type AdviceStaleness,
     adviceStaleness,
     type AdviceStalenessInput,
+    AdviceStalenessKind,
     AdviceStalenessReason,
     type FreshAdviceStaleness,
     isSnapshotStale,
@@ -41,12 +51,20 @@ export {
     assumptionSchema,
     assumptionText,
     type AssumptionTextKind,
+    cumulativePayoutTriggerAssumption,
+    type CumulativePayoutTriggerAssumption,
+    type CumulativePayoutTriggerInputs,
     type InputAssumption,
     inputAssumption,
     type InputAssumptionKind,
+    labelledAssumptionLines,
     ladderStepWidenedAssumption,
     type LadderStepWidenedAssumption,
     ladderStepWidenedText,
+    type LiveTransferAssumptionInputs,
+    liveTransferAssumptionLines,
+    liveTransferAssumptionOf,
+    type LiveTransferHazardAssumption,
     type SizingRuleAssumption,
     sizingRuleAssumption,
 } from './Assumption';
@@ -62,6 +80,8 @@ export {
     type CopyGroupContractPlacement,
     type CopyGroupDivergence,
     type CopyGroupMemberContractPlacement,
+    type CopyGroupPayoutCountBlock,
+    type CopyGroupPayoutCountNotChecked,
     copyGroupSizing,
     type CopyGroupSizingInput,
     type CopyGroupSizingMember,
@@ -77,12 +97,12 @@ export {
 export { createDocumentedRule } from './createDocumentedRule';
 export {
     createSizingAdvisor,
-    DEFAULT_FUNDED_HORIZON_DAYS,
     DEFAULT_MAX_EVAL_DAYS,
     InstantFundedEvalAdvisorError,
     type SizingAdvisorCreateOptions,
 } from './createSizingAdvisor';
 export {
+    BELOW_ONE_CONTRACT_TEXT,
     combinedProfitCeiling,
     type DailyPlanCard,
     dailyPlanCard,
@@ -97,11 +117,13 @@ export {
     DifferenceReason,
     type DifferenceReasonDetail,
     DpNotValidatedCause,
+    EngineInputsRefusalKind,
 } from './DifferenceReason';
 export {
     DAY_STOP_REASON_TEXT,
     differenceReasonHeadline,
     differenceReasonText,
+    ENGINE_INPUTS_REFUSAL_TEXT,
     personalPayoutOverrideWarningText,
     RETAINED_CUSHION_BASIS_TEXT,
     SIZING_ASSUMPTION_TEXT,
@@ -144,6 +166,9 @@ export {
     type FundedSweepOptimumFoundResult,
     type FundedSweepOptimumResult,
     FundedSweepOptimumResultKind,
+    type FundedWinnerPolicy,
+    FundedWinnerPolicyKind,
+    fundedWinnerRiskAt,
 } from './EngineOptimum';
 export {
     type EngineLadderScoreConfig,
@@ -204,32 +229,23 @@ export {
     type FundedSizingAdvisorInput,
 } from './FundedSizingAdvisor';
 export {
+    LEDGER_CITED_RUN,
     LEDGER_CONTENT_HASH,
     LEDGER_FILE,
     LEDGER_RECORDED_LADDERS,
     LEDGER_SECTION,
+    type LedgerCitedRun,
+    ledgerIndexConflicts,
     type LedgerLadderPlanKey,
     type LedgerLadderProvenance,
     type LedgerLadderRow,
     LedgerLadderSelection,
     ledgerRecordedLadderFor,
+    LedgerRunStatus,
 } from './LedgerRecordedLadders';
 export { LiveCushionPercentRule } from './LiveCushionPercentRule';
 export {
-    type DocumentedLiveStart,
-    isLiveModelApproximation,
-    LiveApplicabilityKind,
-    LiveApplicabilityNote,
-    type LiveNotModeled,
-    LiveNotModeledReason,
-    type LivePlanApplicability,
-    livePlanApplicability,
-    type LiveStartRange,
-    LiveStateApproximation,
-    type ModeledLiveBuilder,
-    type ModeledLiveTransition,
-} from './LivePlanApplicability';
-export {
+    dollarsOrNull,
     LiveSizingAdvisor,
     type LiveSizingAdvisorInput,
 } from './LiveSizingAdvisor';
@@ -291,6 +307,7 @@ export {
 export {
     type BlockedPayoutReadiness,
     type EligiblePayoutReadiness,
+    liveTriggerBlockReasonFor,
     type LiveTriggerCountLimit,
     payoutPath,
     type PayoutPathStep,
@@ -350,11 +367,15 @@ export {
 export {
     advisorPlaceableMinimum,
     floorToPlaceableUnit,
+    isPlacementChecked,
     placeableMinimumFor,
+    RungPlacement,
+    rungPlacementOf,
     type SizingPlacement,
 } from './PlaceableMinimum';
 export * from './policy';
 export {
+    pendingPayoutCountsOf,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     type ReconstructedLiveAccount,
@@ -411,7 +432,7 @@ export {
     tighterOf,
 } from './RuleContext';
 export { RuleSource } from './RuleSource';
-export { SizingAdvisor } from './SizingAdvisor';
+export { DEFAULT_FUNDED_HORIZON_DAYS, SizingAdvisor } from './SizingAdvisor';
 export {
     assertSizingInvariant,
     assertTradeInvariant,
@@ -422,6 +443,7 @@ export {
     SIZING_OBJECTIVE_LABEL,
     SizingObjective,
     sizingObjectiveText,
+    SpeedObjective,
 } from './SizingObjective';
 export { SizingStage } from './SizingStage';
 export { SnapshotInputField } from './SnapshotInputField';

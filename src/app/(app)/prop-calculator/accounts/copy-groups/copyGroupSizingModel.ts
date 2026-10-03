@@ -1,6 +1,8 @@
+import { payoutBlockReasonText } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
 import { exposureUnavailableText } from '~/app/(app)/prop-calculator/accounts/_components/accountStateReasonText';
 import { readinessOverridesOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import { type CopyGroupRow } from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
+import { measuredRebuyLagFromStats } from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
 import {
     accountStatesForRows,
     ledgerOrDateFailure,
@@ -9,6 +11,7 @@ import {
     OverviewSectionStatus,
     type OverviewSnapshotRow,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { formatConjunctionList, formatCurrency } from '~/lib/format';
 import {
     type AccountExposureUnavailableReason,
     AccountStateKind,
@@ -20,16 +23,30 @@ import {
     type LedgerEventRow,
     NO_FIRM_PAYOUT_COUNTS,
     PortfolioLedger,
+    replacementStats,
 } from '~/lib/prop-accounts';
-import { findFirm } from '~/lib/prop-calculator';
 import {
+    DayStopRuleKind,
+    findFirm,
+    serializePlanId,
+    TradingPhase,
+} from '~/lib/prop-calculator';
+import {
+    type CopyGroupPayoutCountBlock,
     copyGroupSizing,
     type CopyGroupSizingInput,
     type CopyGroupSizingMember,
     type CopyGroupSizingResult,
     CopyGroupSizingResultKind,
+    type DailyProfitCap,
+    DailyProfitCapKind,
+    type DocumentedSizing,
+    isSnapshotStale,
+    type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
     type RulebookParameters,
+    SIZING_CONSTRAINT_TEXT,
+    SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
 import {
@@ -40,6 +57,12 @@ import {
 
 export const COPY_GROUP_LIVE_TRIGGERS_ENFORCED_TEXT =
     "The group size applies each member firm's verified live-account triggers.";
+
+export const COPY_GROUP_PAYOUT_COUNT_CONCURRENT_TEXT =
+    'This counts the members ready to request a payout, with no request pending, as filing together.';
+
+export const COPY_GROUP_PAYOUT_COUNT_NOT_CHECKED_TEXT =
+    "Firm payout limit not checked: the firm's paid payout count is unknown for this group, so whether the members filing together would reach the verified firm limit was not checked.";
 
 export const COPY_GROUP_LIVE_TRIGGERS_NOT_CHECKED_TEXT =
     "Live triggers not checked: this group's firm rules for moving an account live are not all verified here, or its firm-wide payout count is unknown, so the group size may be one the firm moves live.";
@@ -61,7 +84,14 @@ export interface CopyGroupSizingSection {
     readonly inputs: CopyGroupSizingInputs;
     readonly result: CopyGroupSizingResult;
     readonly simulation: CopyGroupSimulationPlan;
+    readonly staleMembers: readonly StaleCopyGroupMember[];
     readonly unsizedMembers: readonly UnsizedCopyGroupMember[];
+}
+
+export interface StaleCopyGroupMember {
+    readonly asOf: string;
+    readonly label: string;
+    readonly memberId: string;
 }
 
 export interface UnsizedCopyGroupMember {
@@ -80,6 +110,31 @@ export function bindingMemberIdsOf(
             .map((divergence) => divergence.memberId),
     );
     return result.memberIds.filter((id) => !divergentAtFirstRung.has(id));
+}
+
+export function copyGroupPayoutCountBlockText(
+    block: CopyGroupPayoutCountBlock,
+    labelOf: (memberId: string) => string,
+): string {
+    return `Requesting from ${formatConjunctionList(block.memberIds.map(labelOf))} together: ${payoutBlockReasonText(block.reason)}.`;
+}
+
+export function copyGroupRuleTermsOf(
+    sizing: DocumentedSizing,
+): readonly string[] {
+    const { dailyProfitCap, maxTrades, profitCeiling, stopRule } = sizing;
+    return [
+        ...(dailyProfitCap === null
+            ? []
+            : [dailyProfitCapTermOf(dailyProfitCap)]),
+        ...(profitCeiling === null
+            ? []
+            : [
+                  `Profit ceiling today: ${formatCurrency(profitCeiling.amount, 2)}. ${SIZING_CONSTRAINT_TEXT[profitCeiling.constraint]}`,
+              ]),
+        `At most ${String(maxTrades)} ${maxTrades === 1 ? 'trade' : 'trades'} a day.`,
+        stopRuleTermOf(stopRule),
+    ];
 }
 
 export function copyGroupSizingSectionsOf(
@@ -106,35 +161,45 @@ export function copyGroupSizingSectionsOf(
     const accountById = new Map(
         accounts.map((account) => [account.id, account]),
     );
+    const ledger = ledgerOrDateFailure(() => {
+        const portfolio = PortfolioLedger.fromRows(userId, {
+            accounts,
+            events,
+            fees: [],
+            payouts,
+        });
+        return {
+            firmCounts: firmPayoutCounts(portfolio, today),
+            replacements: replacementStats(portfolio),
+        };
+    });
+    const ledgerFigures =
+        ledger.kind === OverviewSectionStatus.Ready ? ledger.value : null;
+    const overrides = readinessOverridesOf(
+        accounts,
+        ledgerFigures?.firmCounts ?? NO_FIRM_PAYOUT_COUNTS,
+    );
     const exposure = exposureOf(
         rulebook,
         accountStates.map((entry): ExposureEntry => {
             const account = accountById.get(entry.accountId);
+            const override = overrides.get(entry.accountId);
             return {
                 ...entry,
+                accountPolicy:
+                    entry.state.kind === AccountStateKind.Reconstructed
+                        ? findFirm(entry.state.plan.id.firm)?.accountPolicy
+                        : undefined,
                 copyGroupId:
                     account !== undefined && isActiveAccount(account)
                         ? account.copyGroupId
                         : null,
+                paidPayoutsSinceLastLiveAccount:
+                    override?.paidPayoutsSinceLastLiveAccount ?? null,
+                personalCaps: override?.policy.personalCaps,
+                personalDll: override?.policy.personalDll ?? null,
             };
         }),
-    );
-    const counted = ledgerOrDateFailure(() =>
-        firmPayoutCounts(
-            PortfolioLedger.fromRows(userId, {
-                accounts,
-                events,
-                fees: [],
-                payouts,
-            }),
-            today,
-        ),
-    );
-    const overrides = readinessOverridesOf(
-        accounts,
-        counted.kind === OverviewSectionStatus.Ready
-            ? counted.value
-            : NO_FIRM_PAYOUT_COUNTS,
     );
     const unavailableByAccountId = new Map(
         exposure.unavailable.map((row) => [row.accountId, row.reason]),
@@ -143,7 +208,9 @@ export function copyGroupSizingSectionsOf(
     const sections = new Map<string, CopyGroupSizingSection>();
     for (const group of groups) {
         const members: CopyGroupSizingMember[] = [];
+        const memberDates: string[] = [];
         const simulationMembers: CopyGroupSimulationMemberInput[] = [];
+        const staleMembers: StaleCopyGroupMember[] = [];
         const unsizedMembers: UnsizedCopyGroupMember[] = [];
         for (const member of group.members) {
             const state = stateByAccountId.get(member.id);
@@ -166,7 +233,23 @@ export function copyGroupSizingSectionsOf(
             }
             const account = state.state.latest.reconstructed;
             const { plan } = state.state;
+            const { asOf } = state.state.latest;
             const override = overrides.get(member.id);
+            memberDates.push(asOf);
+            if (
+                isSnapshotStale(
+                    sizingStageOf(account),
+                    asOf,
+                    today,
+                    rulebook.review.fundedStaleDays,
+                )
+            ) {
+                staleMembers.push({
+                    asOf,
+                    label: member.label,
+                    memberId: member.id,
+                });
+            }
             members.push({
                 account,
                 accountPolicy: findFirm(plan.id.firm)?.accountPolicy ?? null,
@@ -174,13 +257,24 @@ export function copyGroupSizingSectionsOf(
                 label: member.label,
                 paidPayoutsSinceLastLiveAccount:
                     override?.paidPayoutsSinceLastLiveAccount ?? null,
-                personalCaps: override?.personalCaps,
-                personalDll: override?.personalDll ?? null,
+                personalCaps: override?.policy.personalCaps,
+                personalDll: override?.policy.personalDll ?? null,
+                personalRequestOverride:
+                    override?.policy.payoutRequestOverride ?? null,
+                personalRetainedCushion:
+                    override?.policy.retainedCushionRequest ?? null,
             });
             simulationMembers.push({
                 account,
                 id: member.id,
                 label: member.label,
+                measuredRebuyLag:
+                    ledgerFigures === null
+                        ? null
+                        : measuredRebuyLagFromStats(
+                              ledgerFigures.replacements,
+                              serializePlanId(plan.id),
+                          ),
                 override,
                 plan,
             });
@@ -195,12 +289,13 @@ export function copyGroupSizingSectionsOf(
             group.group.id,
             withPositionSizing(
                 {
-                    asOf: today,
+                    asOf: oldestDateOf(memberDates) ?? today,
                     exposure:
                         exposure.groups.find(
                             (row) => row.copyGroupId === group.group.id,
                         ) ?? null,
                     inputs,
+                    staleMembers,
                     unsizedMembers,
                 },
                 null,
@@ -230,6 +325,52 @@ export function withPositionSizing(
             rulebook: inputs.rulebook,
         }),
     };
+}
+
+function dailyProfitCapTermOf(cap: DailyProfitCap): string {
+    switch (cap.kind) {
+        case DailyProfitCapKind.HardCeiling: {
+            return `Daily profit ceiling: ${formatCurrency(cap.ceiling, 2)}.`;
+        }
+        case DailyProfitCapKind.StopTrigger: {
+            return `Daily stop trigger: ${formatCurrency(cap.stopAfter, 2)}.`;
+        }
+    }
+}
+
+function oldestDateOf(dates: readonly string[]): null | string {
+    return dates.reduce<null | string>(
+        (oldest, date) => (oldest === null || date < oldest ? date : oldest),
+        null,
+    );
+}
+
+function sizingStageOf(
+    account: ReconstructedFundedOrEvalAccount,
+): SizingStage.Eval | SizingStage.Funded {
+    return account.kind === TradingPhase.Funded
+        ? SizingStage.Funded
+        : SizingStage.Eval;
+}
+
+function stopRuleTermOf(rule: DocumentedSizing['stopRule']): string {
+    switch (rule.kind) {
+        case DayStopRuleKind.AfterKLosses: {
+            return `Stop rule: stop after ${String(rule.k)} ${rule.k === 1 ? 'loss' : 'losses'}.`;
+        }
+        case DayStopRuleKind.AfterTarget: {
+            return `Stop rule: stop after ${formatCurrency(rule.dollars, 2)} of profit.`;
+        }
+        case DayStopRuleKind.DayGreen: {
+            return 'Stop rule: stop once the day is green.';
+        }
+        case DayStopRuleKind.FirstWin: {
+            return 'Stop rule: stop after the first win.';
+        }
+        case DayStopRuleKind.None: {
+            return 'Stop rule: none.';
+        }
+    }
 }
 
 function unsizedReasonOf(

@@ -27,16 +27,21 @@ export function CalculatorToolbar({ ownQuery }: CalculatorToolbarProperties) {
 }
 
 function CalculatorStateToolbar() {
-    const { firms, state } = useCalculatorInputs();
+    const { encodeOptions, firms, state } = useCalculatorInputs();
     const { applyState } = useCalculatorActions();
     return (
         <div className="flex items-center justify-end gap-2">
             <ShareLinkButton
                 buildLink={(origin, pathname) =>
-                    buildShareLink(origin, pathname, state)
+                    buildShareLink(origin, pathname, state, encodeOptions)
                 }
             />
-            <SavedScenarios firms={firms} onLoad={applyState} state={state} />
+            <SavedScenarios
+                encodeOptions={encodeOptions}
+                firms={firms}
+                onLoad={applyState}
+                state={state}
+            />
         </div>
     );
 }

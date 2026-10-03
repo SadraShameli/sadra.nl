@@ -96,6 +96,21 @@ export {
     FUNDEDNEXT_LIVE_DEFAULT_CUSHION_PERCENT,
 } from './fundednext/FundedNextLive';
 export {
+    type DocumentedLiveStart,
+    isLiveModelApproximation,
+    LiveApplicabilityKind,
+    LiveApplicabilityNote,
+    type LiveNotModeled,
+    LiveNotModeledReason,
+    type LivePlanApplicability,
+    livePlanApplicability,
+    LiveReconstructionAssumption,
+    type LiveStartRange,
+    LiveStateApproximation,
+    type ModeledLiveBuilder,
+    type ModeledLiveTransition,
+} from './LivePlanApplicability';
+export {
     buildLucidDailyLivePlan,
     buildLucidLivePlan,
     LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP,
@@ -112,6 +127,7 @@ export {
     buildTopStepLivePlan,
     computeTopStepLiveStartingBalance,
     TOPSTEP_LIVE_DEFAULT_CUSHION_PERCENT,
+    TOPSTEP_LIVE_LOWEST_CAPPED_BALANCE,
 } from './topstep/TopStepLive';
 export { TakeProfitTrader } from './tpt/TakeProfitTrader';
 export {

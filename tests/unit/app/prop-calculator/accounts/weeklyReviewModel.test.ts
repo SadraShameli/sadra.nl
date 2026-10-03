@@ -9,6 +9,7 @@ import {
     type WeeklyReviewAccountInput,
     type WeeklyReviewDecisionRow,
     type WeeklyReviewDraft,
+    WeeklyReviewEntryKind,
     WeeklyReviewSizingKind,
     type WeeklyReviewSnapshotRow,
     type WeeklyReviewViolationRow,
@@ -19,8 +20,10 @@ import {
     AccountStage,
     AccountStatus,
     AccountTracking,
+    compareText,
     DashboardBalanceConvention,
     RuleViolationKind,
+    SnapshotField,
     UnresolvedPlanReason,
     usdCents,
 } from '~/lib/prop-accounts';
@@ -28,12 +31,14 @@ import { isDecisionFollowed } from '~/lib/prop-accounts/metrics';
 import {
     ALL_FIRMS,
     DrawdownKind,
+    fraction,
     NO_PLAN_OPT_INS,
     type Plan,
     serializePlanId,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import { weeklyReviewSnapshotEntrySchema } from '~/lib/schemas/propAccounts';
 
 const ACCOUNT_SIZE = 50_000;
 const MONDAY = '2026-09-21';
@@ -111,6 +116,7 @@ function plausibleSnapshotRow(
 }
 
 const EMPTY_MAP = new Map();
+const EMPTY_SET: ReadonlySet<string> = new Set();
 
 function decisionRow(
     overrides: Partial<WeeklyReviewDecisionRow> = {},
@@ -124,6 +130,27 @@ function decisionRow(
     };
 }
 
+function readyHeadlineLabel(rulebook: typeof DEFAULT_RULEBOOK) {
+    const account = accountFor(evalEodTrailingPlan());
+    const result = buildWeeklyReview({
+        accounts: [account],
+        confirmedUnchanged: EMPTY_SET,
+        drafts: new Map([[account.id, plausibleSnapshotRow(MONDAY)]]),
+        invalidEntries: EMPTY_MAP,
+        latestDecisions: EMPTY_MAP,
+        latestSnapshots: EMPTY_MAP,
+        rulebook,
+        stagesOnAsOf: stagesOf([account]),
+        today: MONDAY,
+        violations: [],
+    });
+    const sizing = result.rows[0]?.sizing;
+    if (sizing?.kind !== WeeklyReviewSizingKind.Ready) {
+        throw new Error('the row is not ready');
+    }
+    return sizing.headlineLabel;
+}
+
 function reviewWith(
     accounts: readonly WeeklyReviewAccountInput[],
     options: {
@@ -134,13 +161,22 @@ function reviewWith(
 ) {
     return buildWeeklyReview({
         accounts,
+        confirmedUnchanged: EMPTY_SET,
         drafts: EMPTY_MAP,
+        invalidEntries: EMPTY_MAP,
         latestDecisions: options.latestDecisions ?? EMPTY_MAP,
         latestSnapshots: EMPTY_MAP,
         rulebook: DEFAULT_RULEBOOK,
+        stagesOnAsOf: stagesOf(accounts),
         today: options.today ?? MONDAY,
         violations: options.violations ?? [],
     });
+}
+
+function stagesOf(
+    accounts: readonly WeeklyReviewAccountInput[],
+): ReadonlyMap<string, AccountStage> {
+    return new Map(accounts.map((account) => [account.id, account.stage]));
 }
 
 function violationRow(
@@ -182,19 +218,23 @@ describe('buildWeeklyReview', () => {
             id: 'ledger-only',
             tracking: AccountTracking.LedgerOnly,
         });
+        const everyAccount = [
+            active,
+            suspended,
+            busted,
+            concluded,
+            closed,
+            ledgerOnly,
+        ];
         const result = buildWeeklyReview({
-            accounts: [
-                active,
-                suspended,
-                busted,
-                concluded,
-                closed,
-                ledgerOnly,
-            ],
+            accounts: everyAccount,
+            confirmedUnchanged: EMPTY_SET,
             drafts: EMPTY_MAP,
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf(everyAccount),
             today: MONDAY,
             violations: [],
         });
@@ -215,10 +255,13 @@ describe('buildWeeklyReview', () => {
         });
         const result = buildWeeklyReview({
             accounts: [corrupt],
+            confirmedUnchanged: EMPTY_SET,
             drafts: EMPTY_MAP,
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([corrupt]),
             today: MONDAY,
             violations: [],
         });
@@ -232,10 +275,13 @@ describe('buildWeeklyReview', () => {
         const plan = evalEodTrailingPlan();
         const result = buildWeeklyReview({
             accounts: [accountFor(plan)],
+            confirmedUnchanged: EMPTY_SET,
             drafts: EMPTY_MAP,
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([accountFor(plan)]),
             today: LATE_SAME_WEEK,
             violations: [],
         });
@@ -248,10 +294,13 @@ describe('buildWeeklyReview', () => {
         const snapshot = plausibleSnapshotRow(MONDAY, { tradingDays: 5 });
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: EMPTY_MAP,
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: new Map([[account.id, snapshot]]),
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -264,10 +313,13 @@ describe('buildWeeklyReview', () => {
         const account = accountFor(plan);
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([[account.id, { balanceCents: 5_040_000 }]]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -284,6 +336,7 @@ describe('buildWeeklyReview', () => {
         const account = accountFor(plan);
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([
                 [
                     account.id,
@@ -294,9 +347,11 @@ describe('buildWeeklyReview', () => {
                     },
                 ],
             ]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -319,6 +374,7 @@ describe('buildWeeklyReview', () => {
         });
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([
                 [
                     account.id,
@@ -329,9 +385,11 @@ describe('buildWeeklyReview', () => {
                     },
                 ],
             ]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -357,6 +415,7 @@ describe('buildWeeklyReview', () => {
         const aboveCeilingCents = Math.round((ceiling + 200) * 100);
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([
                 [
                     account.id,
@@ -367,9 +426,11 @@ describe('buildWeeklyReview', () => {
                     },
                 ],
             ]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -390,10 +451,13 @@ describe('buildWeeklyReview', () => {
         const draft = plausibleSnapshotRow(MONDAY);
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([[account.id, draft]]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -417,10 +481,13 @@ describe('buildWeeklyReview', () => {
         const sizingOf = (account: WeeklyReviewAccountInput) => {
             const result = buildWeeklyReview({
                 accounts: [account],
+                confirmedUnchanged: EMPTY_SET,
                 drafts: new Map([[account.id, draft]]),
+                invalidEntries: EMPTY_MAP,
                 latestDecisions: EMPTY_MAP,
                 latestSnapshots: EMPTY_MAP,
                 rulebook: DEFAULT_RULEBOOK,
+                stagesOnAsOf: stagesOf([account]),
                 today: MONDAY,
                 violations: [],
             });
@@ -453,10 +520,13 @@ describe('buildWeeklyReview', () => {
         const sizingOf = (account: WeeklyReviewAccountInput) => {
             const result = buildWeeklyReview({
                 accounts: [account],
+                confirmedUnchanged: EMPTY_SET,
                 drafts: new Map([[account.id, draft]]),
+                invalidEntries: EMPTY_MAP,
                 latestDecisions: EMPTY_MAP,
                 latestSnapshots: EMPTY_MAP,
                 rulebook: DEFAULT_RULEBOOK,
+                stagesOnAsOf: stagesOf([account]),
                 today: MONDAY,
                 violations: [],
             });
@@ -487,10 +557,13 @@ describe('buildWeeklyReview', () => {
         const sizingOf = (account: WeeklyReviewAccountInput) => {
             const result = buildWeeklyReview({
                 accounts: [account],
+                confirmedUnchanged: EMPTY_SET,
                 drafts: new Map([[account.id, draft]]),
+                invalidEntries: EMPTY_MAP,
                 latestDecisions: EMPTY_MAP,
                 latestSnapshots: EMPTY_MAP,
                 rulebook: DEFAULT_RULEBOOK,
+                stagesOnAsOf: stagesOf([account]),
                 today: MONDAY,
                 violations: [],
             });
@@ -519,10 +592,13 @@ describe('buildWeeklyReview', () => {
         });
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([[account.id, draft]]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -538,10 +614,13 @@ describe('buildWeeklyReview', () => {
         const draft = plausibleSnapshotRow(LATE_SAME_WEEK);
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([[account.id, draft]]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: LATE_SAME_WEEK,
             violations: [],
         });
@@ -557,12 +636,15 @@ describe('buildWeeklyReview', () => {
         const draft = plausibleSnapshotRow(MONDAY);
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([[account.id, draft]]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: new Map([
                 [account.id, decisionRow({ acceptedRiskCents: 1 })],
             ]),
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -581,10 +663,13 @@ describe('buildWeeklyReview', () => {
         const draft = plausibleSnapshotRow(MONDAY, { tradingDays: 4 });
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([[account.id, draft]]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: new Map([[account.id, previous]]),
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -600,10 +685,13 @@ describe('buildWeeklyReview', () => {
         const draft = plausibleSnapshotRow(MONDAY);
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([[account.id, draft]]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: new Map([[account.id, staleForPrevious]]),
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -620,13 +708,16 @@ describe('reviewSubmitPayload', () => {
         const blocked = accountFor(plan, { id: 'blocked' });
         const result = buildWeeklyReview({
             accounts: [ready, blocked],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map<string, WeeklyReviewDraft>([
                 [blocked.id, { balanceCents: 5_040_000 }],
                 [ready.id, plausibleSnapshotRow(MONDAY)],
             ]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([ready, blocked]),
             today: MONDAY,
             violations: [],
         });
@@ -647,10 +738,13 @@ describe('reviewSubmitPayload', () => {
         const account = accountFor(plan);
         const result = buildWeeklyReview({
             accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
             drafts: new Map([[account.id, plausibleSnapshotRow(MONDAY)]]),
+            invalidEntries: EMPTY_MAP,
             latestDecisions: EMPTY_MAP,
             latestSnapshots: EMPTY_MAP,
             rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
             today: MONDAY,
             violations: [],
         });
@@ -1174,5 +1268,341 @@ describe('buildWeeklyReview ledger-only accounts', () => {
         );
         expect(result.ledgerOnlyExcludedCount).toBe(1);
         expect(result.rows.map((row) => row.accountId)).toEqual(['modeled']);
+    });
+});
+
+describe('buildWeeklyReview invalid entries (F-63)', () => {
+    const PREVIOUS_ON = '2026-09-14';
+    const BALANCE_ISSUE = {
+        field: SnapshotField.Balance,
+        message: 'Enter the balance as a dollar amount',
+    };
+
+    function reviewWithInvalid(
+        issues: readonly { field: SnapshotField; message: string }[],
+    ) {
+        const account = accountFor(evalEodTrailingPlan());
+        const result = buildWeeklyReview({
+            accounts: [account],
+            confirmedUnchanged: new Set([account.id]),
+            drafts: EMPTY_MAP,
+            invalidEntries: new Map([[account.id, issues]]),
+            latestDecisions: EMPTY_MAP,
+            latestSnapshots: new Map([
+                [account.id, plausibleSnapshotRow(PREVIOUS_ON)],
+            ]),
+            rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
+            today: MONDAY,
+            violations: [],
+        });
+        return { account, result };
+    }
+
+    it('blocks a row whose balance was typed as text, with the parse issues, and never sizes it from last week', () => {
+        const { result } = reviewWithInvalid([BALANCE_ISSUE]);
+        const row = result.rows[0];
+        expect(row?.isBlocked).toBe(true);
+        expect(row?.entryKind).toBe(WeeklyReviewEntryKind.Edited);
+        expect(row?.parseIssues).toEqual([BALANCE_ISSUE]);
+        expect(row?.sizing).toEqual({
+            kind: WeeklyReviewSizingKind.NotModeled,
+        });
+        expect(row?.isRecorded).toBe(false);
+    });
+
+    it('blocks a row whose required field was emptied and does not list every field as missing besides the issue', () => {
+        const emptied = {
+            field: SnapshotField.HighestEodBalance,
+            message: 'Highest end-of-day balance is required',
+        };
+        const { result } = reviewWithInvalid([emptied]);
+        const row = result.rows[0];
+        expect(row?.isBlocked).toBe(true);
+        expect(row?.parseIssues).toEqual([emptied]);
+        expect(row?.missingFieldLabels).toEqual([]);
+        expect(row?.diffCents).toBeNull();
+    });
+
+    it('leaves an invalid row out of the payload, with no snapshot and no decision, even when accepted and ticked as unchanged', () => {
+        const { account, result } = reviewWithInvalid([BALANCE_ISSUE]);
+        const payload = reviewSubmitPayload(result, new Set([account.id]));
+        expect(payload.snapshots).toEqual([]);
+        expect(payload.decisions).toEqual([]);
+    });
+
+    it('does not carry last week values into the draft of an invalid row', () => {
+        const { result } = reviewWithInvalid([BALANCE_ISSUE]);
+        expect(result.rows[0]?.draft.balanceCents).toBeNull();
+        expect(result.rows[0]?.draft.highestEodBalanceCents).toBeNull();
+    });
+});
+
+describe('buildWeeklyReview untouched rows (F-63, QF-5)', () => {
+    const PREVIOUS_ON = '2026-09-14';
+    const FRESH_PREVIOUS_ON = '2026-09-19';
+
+    function untouchedReview(
+        options: { confirmed?: boolean; previousOn?: string } = {},
+    ) {
+        const account = accountFor(evalEodTrailingPlan());
+        const previous = {
+            ...plausibleSnapshotRow(options.previousOn ?? PREVIOUS_ON),
+            id: 'stored-snapshot',
+            source: 'manual',
+            userId: 'user-a',
+        };
+        const result = buildWeeklyReview({
+            accounts: [account],
+            confirmedUnchanged: new Set(
+                options.confirmed === true ? [account.id] : [],
+            ),
+            drafts: EMPTY_MAP,
+            invalidEntries: EMPTY_MAP,
+            latestDecisions: EMPTY_MAP,
+            latestSnapshots: new Map([[account.id, previous]]),
+            rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
+            today: MONDAY,
+            violations: [],
+        });
+        return { account, result };
+    }
+
+    it('marks a row nobody edited as unchanged since the previous snapshot date and counts it as not updated', () => {
+        const { result } = untouchedReview();
+        const row = result.rows[0];
+        expect(row?.entryKind).toBe(WeeklyReviewEntryKind.Unchanged);
+        expect(row?.unchangedSince).toBe(PREVIOUS_ON);
+        expect(row?.isRecorded).toBe(false);
+        expect(result.notUpdatedCount).toBe(1);
+    });
+
+    it('leaves an untouched row out of the snapshots and the decisions even when its size is accepted', () => {
+        const { account, result } = untouchedReview();
+        const payload = reviewSubmitPayload(result, new Set([account.id]));
+        expect(payload.snapshots).toEqual([]);
+        expect(payload.decisions).toEqual([]);
+    });
+
+    it('posts the previous values dated at the review date once the row is ticked as unchanged, and no longer counts it as not updated', () => {
+        const { account, result } = untouchedReview({ confirmed: true });
+        const row = result.rows[0];
+        expect(row?.entryKind).toBe(WeeklyReviewEntryKind.Unchanged);
+        expect(row?.isRecorded).toBe(true);
+        expect(result.notUpdatedCount).toBe(0);
+        const payload = reviewSubmitPayload(result, new Set());
+        expect(payload.asOf).toBe(MONDAY);
+        expect(payload.snapshots).toHaveLength(1);
+        expect(payload.snapshots[0]).toMatchObject({
+            accountId: account.id,
+            balanceCents: 5_040_000,
+            highestEodBalanceCents: 5_060_000,
+            tradingDays: 3,
+        });
+    });
+
+    it('sizes an untouched row from the date of its snapshot, so an old eval snapshot is stale and offers no size to accept even once ticked', () => {
+        const { account, result } = untouchedReview({ confirmed: true });
+        expect(result.rows[0]?.sizing).toEqual({
+            kind: WeeklyReviewSizingKind.Stale,
+        });
+        const payload = reviewSubmitPayload(result, new Set([account.id]));
+        expect(payload.snapshots).toHaveLength(1);
+        expect(payload.decisions).toEqual([]);
+    });
+
+    it('offers a size to accept on a ticked untouched row whose snapshot is still fresh', () => {
+        const { account, result } = untouchedReview({
+            confirmed: true,
+            previousOn: FRESH_PREVIOUS_ON,
+        });
+        expect(result.rows[0]?.sizing.kind).toBe(WeeklyReviewSizingKind.Ready);
+        const payload = reviewSubmitPayload(result, new Set([account.id]));
+        expect(payload.decisions).toHaveLength(1);
+    });
+
+    it('posts only the snapshot fields of the weekly review schema, not the stored row id, user or source', () => {
+        const { account, result } = untouchedReview({ confirmed: true });
+        const payload = reviewSubmitPayload(result, new Set());
+        expect(
+            Object.keys(payload.snapshots[0] ?? {}).toSorted(compareText),
+        ).toEqual(
+            Object.keys(weeklyReviewSnapshotEntrySchema.shape).toSorted(
+                compareText,
+            ),
+        );
+        expect(payload.snapshots[0]?.accountId).toBe(account.id);
+        expect(result.rows[0]?.draft).not.toHaveProperty('asOf');
+    });
+
+    it('fails loudly when a recorded row has no balance instead of dropping it from the payload', () => {
+        const { result } = untouchedReview({ confirmed: true });
+        const [row] = result.rows;
+        if (row === undefined) throw new Error('no row');
+        const broken = {
+            ...result,
+            rows: [{ ...row, draft: { ...row.draft, balanceCents: null } }],
+        };
+        expect(() => reviewSubmitPayload(broken, new Set())).toThrow(
+            /no balance/,
+        );
+    });
+
+    it('records an edited row without any tick', () => {
+        const account = accountFor(evalEodTrailingPlan());
+        const result = buildWeeklyReview({
+            accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
+            drafts: new Map([[account.id, plausibleSnapshotRow(MONDAY)]]),
+            invalidEntries: EMPTY_MAP,
+            latestDecisions: EMPTY_MAP,
+            latestSnapshots: new Map([
+                [account.id, plausibleSnapshotRow(PREVIOUS_ON)],
+            ]),
+            rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
+            today: MONDAY,
+            violations: [],
+        });
+        expect(result.rows[0]?.entryKind).toBe(WeeklyReviewEntryKind.Edited);
+        expect(result.rows[0]?.isRecorded).toBe(true);
+        expect(result.notUpdatedCount).toBe(0);
+        expect(
+            reviewSubmitPayload(result, EMPTY_SET).snapshots.map(
+                (entry) => entry.accountId,
+            ),
+        ).toEqual([account.id]);
+    });
+
+    it('says an account with no previous snapshot and no entry has nothing to record, and counts it as not updated', () => {
+        const account = accountFor(evalEodTrailingPlan());
+        const result = buildWeeklyReview({
+            accounts: [account],
+            confirmedUnchanged: new Set([account.id]),
+            drafts: EMPTY_MAP,
+            invalidEntries: EMPTY_MAP,
+            latestDecisions: EMPTY_MAP,
+            latestSnapshots: EMPTY_MAP,
+            rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
+            today: MONDAY,
+            violations: [],
+        });
+        const row = result.rows[0];
+        expect(row?.entryKind).toBe(WeeklyReviewEntryKind.NoPrevious);
+        expect(row?.unchangedSince).toBeNull();
+        expect(row?.isBlocked).toBe(true);
+        expect(row?.isRecorded).toBe(false);
+        expect(result.notUpdatedCount).toBe(1);
+        expect(reviewSubmitPayload(result, EMPTY_SET).snapshots).toEqual([]);
+    });
+
+    it.each([MONDAY, '2026-09-23'])(
+        'treats a row whose latest snapshot is dated %s, on or after the review date, as already recorded: not counted as not updated, never posted again, even when ticked',
+        (previousOn) => {
+            const { account, result } = untouchedReview({
+                confirmed: true,
+                previousOn,
+            });
+            const row = result.rows[0];
+            expect(row?.entryKind).toBe(WeeklyReviewEntryKind.AlreadyRecorded);
+            expect(row?.unchangedSince).toBeNull();
+            expect(row?.isRecorded).toBe(false);
+            expect(result.notUpdatedCount).toBe(0);
+            const payload = reviewSubmitPayload(result, new Set([account.id]));
+            expect(payload.snapshots).toEqual([]);
+            expect(payload.decisions).toEqual([]);
+        },
+    );
+
+    it('still records an edit on a row that is already recorded for the review date, leaving the server to reject the duplicate loudly', () => {
+        const account = accountFor(evalEodTrailingPlan());
+        const result = buildWeeklyReview({
+            accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
+            drafts: new Map([[account.id, plausibleSnapshotRow(MONDAY)]]),
+            invalidEntries: EMPTY_MAP,
+            latestDecisions: EMPTY_MAP,
+            latestSnapshots: new Map([
+                [account.id, plausibleSnapshotRow(MONDAY)],
+            ]),
+            rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf: stagesOf([account]),
+            today: MONDAY,
+            violations: [],
+        });
+        expect(result.rows[0]?.entryKind).toBe(WeeklyReviewEntryKind.Edited);
+        expect(result.rows[0]?.isRecorded).toBe(true);
+    });
+});
+
+describe('buildWeeklyReview stage on the review date', () => {
+    const WITHOUT_PEAK: WeeklyReviewDraft = {
+        balanceCents: 5_050_000,
+        dashboardFloorCents: 4_900_000,
+        payoutsTaken: 0,
+        tradingDays: 4,
+    };
+
+    function reviewAs(stageOnAsOf: AccountStage | null) {
+        const account = accountFor(evalEodTrailingPlan(), {
+            stage: AccountStage.Live,
+        });
+        const result = buildWeeklyReview({
+            accounts: [account],
+            confirmedUnchanged: EMPTY_SET,
+            drafts: new Map([[account.id, WITHOUT_PEAK]]),
+            invalidEntries: EMPTY_MAP,
+            latestDecisions: EMPTY_MAP,
+            latestSnapshots: EMPTY_MAP,
+            rulebook: DEFAULT_RULEBOOK,
+            stagesOnAsOf:
+                stageOnAsOf === null
+                    ? EMPTY_MAP
+                    : new Map([[account.id, stageOnAsOf]]),
+            today: MONDAY,
+            violations: [],
+        });
+        return result;
+    }
+
+    it('asks for the fields of the stage the account had on the review date, not the stage it has today', () => {
+        const row = reviewAs(AccountStage.Funded).rows[0];
+        expect(row?.stage).toBe(AccountStage.Live);
+        expect(row?.stageOnAsOf).toBe(AccountStage.Funded);
+        expect(row?.isBlocked).toBe(true);
+        expect(row?.missingFieldLabels).toContain('Highest end-of-day balance');
+    });
+
+    it('accepts the same entry for a live account when it was live on the review date too', () => {
+        const row = reviewAs(AccountStage.Live).rows[0];
+        expect(row?.stageOnAsOf).toBe(AccountStage.Live);
+        expect(row?.missingFieldLabels).toEqual([]);
+    });
+
+    it('fails loudly when the stage on the review date was not loaded for a reviewed account', () => {
+        expect(() => reviewAs(null)).toThrow(/stage .* on 2026-09-21/);
+    });
+});
+
+describe('buildWeeklyReview headline label', () => {
+    it('calls the headline the documented one while the rulebook is the default', () => {
+        expect(readyHeadlineLabel(DEFAULT_RULEBOOK)).toBe('Documented headline');
+    });
+
+    it('names the custom rule and the hard rule it differs from once the rulebook deviates', () => {
+        const label = readyHeadlineLabel({
+            ...DEFAULT_RULEBOOK,
+            live: {
+                ...DEFAULT_RULEBOOK.live,
+                cushionPercent: {
+                    ...DEFAULT_RULEBOOK.live.cushionPercent,
+                    postLock: fraction(0.2),
+                },
+            },
+        });
+        expect(label).toContain('your custom rule (differs from');
+        expect(label).not.toBe('Documented headline');
     });
 });

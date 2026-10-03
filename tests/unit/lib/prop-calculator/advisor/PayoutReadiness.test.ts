@@ -16,6 +16,7 @@ import {
 } from '~/lib/prop-calculator';
 import {
     LIVE_TRIGGER_NOT_CHECKED,
+    NO_PENDING_PAYOUT_COUNTS,
     PayoutBlockReasonKind,
     payoutPath,
     type PayoutPathStep,
@@ -85,6 +86,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const state = fundedState(53_000);
         const tracker = metCalendarTracker(state);
         const readiness = payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
@@ -95,6 +97,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const state = fundedState(53_000);
         const tracker = metCalendarTracker(state);
         const withoutPending = payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
@@ -103,6 +106,8 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const withPending = payoutReadiness(plan, state, tracker, {
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
+            otherAccountsPendingPayoutCount: 0,
+            pendingPayoutCount: 1,
             pendingPayouts: 2900,
             statePendingPayoutsNetted: false,
         });
@@ -121,6 +126,8 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const readiness = payoutReadiness(plan, state, tracker, {
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
+            otherAccountsPendingPayoutCount: 0,
+            pendingPayoutCount: 1,
             pendingPayouts: 100,
             statePendingPayoutsNetted: false,
         });
@@ -137,6 +144,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const tracker = metCalendarTracker(alreadyNettedState);
 
         const trusted = payoutReadiness(plan, alreadyNettedState, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
@@ -149,6 +157,8 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
             {
                 liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
                 minRetainedCushion: 0,
+                otherAccountsPendingPayoutCount: 0,
+                pendingPayoutCount: 1,
                 pendingPayouts: 2000,
                 statePendingPayoutsNetted: false,
             },
@@ -165,6 +175,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
         tracker.restoreCalendarDayGateProgress(11);
         const readiness = payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
@@ -185,6 +196,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
         tracker.restoreCalendarDayGateProgress(1);
         const readiness = payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
@@ -202,6 +214,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
         tracker.restoreCalendarDayGateProgress(10);
         const readiness = payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
@@ -228,6 +241,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
         const before = { ...state };
         const trackerBefore = trackerSnapshotOf(tracker);
         payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });

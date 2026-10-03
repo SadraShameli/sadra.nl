@@ -205,7 +205,7 @@ describe('scoreLadder agrees with the simulator on intraday trailing plans', () 
         expect(
             Math.abs(score.passRate - simEvalPassRate(plan, ladder)),
         ).toBeLessThan(0.02);
-    }, 60_000);
+    });
 
     it('Apex EOD 50K control stays within 2pp of prop sim', () => {
         const plan = apexPlan(ApexVariant.Eod);
@@ -217,7 +217,7 @@ describe('scoreLadder agrees with the simulator on intraday trailing plans', () 
         expect(
             Math.abs(score.passRate - simEvalPassRate(plan, ladder)),
         ).toBeLessThan(0.02);
-    }, 60_000);
+    });
 });
 
 describe('scoreLadder passes through Plan.isPassed', () => {

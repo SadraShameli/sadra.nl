@@ -76,6 +76,7 @@ import {
     hazardFieldSpec,
     type MeasuredHazard,
     parseText,
+    recordedAtLiveText,
     rulebookFormSchema,
     type RulebookFormValues,
     rulebookToFormValues,
@@ -536,24 +537,33 @@ function HazardField({
     control,
     firmId,
     measured,
+    unavailableText,
 }: {
     control: Control<RulebookFormValues>;
     firmId: FirmId;
     measured: MeasuredHazard | undefined;
+    unavailableText: string | undefined;
 }) {
     return (
         <SpecField
             control={control}
             name={hazardFieldName(firmId)}
-            renderFooter={(setText) =>
-                measured === undefined ? null : (
-                    <MeasuredHazardNote
-                        firmName={hazardFieldSpec(firmId).label}
-                        measured={measured}
-                        setText={setText}
-                    />
-                )
-            }
+            renderFooter={(setText) => {
+                if (measured !== undefined) {
+                    return (
+                        <MeasuredHazardNote
+                            firmName={hazardFieldSpec(firmId).label}
+                            measured={measured}
+                            setText={setText}
+                        />
+                    );
+                }
+                return unavailableText === undefined ? null : (
+                    <p className="text-xs text-muted-foreground">
+                        n/a: {unavailableText}
+                    </p>
+                );
+            }}
             spec={hazardFieldSpec(firmId)}
         />
     );
@@ -770,7 +780,7 @@ function LiveTransferCard({
 }: {
     control: Control<RulebookFormValues>;
 }) {
-    const { failed, measured, pending } = useMeasuredHazards();
+    const { failed, measured, pending, unavailable } = useMeasuredHazards();
     return (
         <SectionCard title="Live transfer (your assumption, not a firm rule)">
             <p className="text-xs text-muted-foreground md:col-span-2">
@@ -810,6 +820,7 @@ function LiveTransferCard({
                     firmId={firmId}
                     key={firmId}
                     measured={measured[firmId]}
+                    unavailableText={unavailable[firmId]?.text}
                 />
             ))}
         </SectionCard>
@@ -831,7 +842,10 @@ function MeasuredHazardNote({
             <span>
                 Measured: {formatPercent(measured.rate)} per paid payout (
                 {measured.movedLiveCount} sent live in {measured.paidPayouts}{' '}
-                paid payouts), from your own ledger. History, not a firm rule.
+                paid payouts
+                {measured.recordedAtLiveCount > 0 &&
+                    `, ${recordedAtLiveText(measured.recordedAtLiveCount)}`}
+                ), from your own ledger. History, not a firm rule.
             </span>
             {suggestedText !== null && (
                 <Button
@@ -1016,7 +1030,9 @@ function rulebookEdgePlausibilityNote(
     rrText: string,
     typicalText: string,
     strongText: string,
+    tradesPerDayText: string,
 ): null | string {
+    const tradesPerDayParsed = parseText(FieldKind.Count, tradesPerDayText);
     const winrateParsed = parseText(FieldKind.Percent, winrateText);
     const rrParsed = parseText(FieldKind.Decimal, rrText);
     const typicalParsed = parseText(FieldKind.Decimal, typicalText);
@@ -1034,7 +1050,15 @@ function rulebookEdgePlausibilityNote(
         return null;
     }
     return edgePlausibilityNoteText(
-        { rrRatio: rrParsed.value, winrate: fraction(winrateParsed.value) },
+        {
+            rrRatio: rrParsed.value,
+            tradesPerDay:
+                tradesPerDayParsed.ok &&
+                typeof tradesPerDayParsed.value === 'number'
+                    ? tradesPerDayParsed.value
+                    : undefined,
+            winrate: fraction(winrateParsed.value),
+        },
         {
             strongMaxExpectancyR: strongParsed.value,
             typicalMaxExpectancyR: typicalParsed.value,
@@ -1276,11 +1300,16 @@ function StrategyCard({ control }: { control: Control<RulebookFormValues> }) {
         control,
         name: 'plausibility.strongMaxExpectancyR',
     });
+    const tradesPerDayText = useWatch({
+        control,
+        name: 'strategy.tradesPerDayMax',
+    });
     const note = rulebookEdgePlausibilityNote(
         winrateText,
         rrText,
         typicalText,
         strongText,
+        tradesPerDayText,
     );
     return (
         <SectionCard title="Strategy">

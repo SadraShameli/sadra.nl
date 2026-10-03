@@ -18,6 +18,7 @@ import {
     DEFAULT_RULEBOOK,
     FundedSizingAdvisor,
     type FundedSweepFreshRequest,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -59,6 +60,7 @@ function flatCandidatesFor(maxRisk: Dollars | null): readonly number[] {
             plan: plan(),
             resolvedDailyLossLimit: null,
             state,
+            ...NO_PENDING_PAYOUT_COUNTS,
         },
         fundedHorizonDays: 252,
         personalCaps: { ...NO_PERSONAL_CAPS, maxRiskPerTrade: maxRisk },

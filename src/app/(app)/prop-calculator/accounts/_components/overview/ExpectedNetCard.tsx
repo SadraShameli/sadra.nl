@@ -126,6 +126,20 @@ export function ExpectedNetCard({
                     </p>
                 ))}
             </div>
+            {model.rows.some((row) => row.liveTransferNotes.length > 0) && (
+                <ul
+                    aria-label="Live-transfer and payout-trigger assumptions behind the figures"
+                    className="flex flex-col gap-1 text-xs text-muted-foreground"
+                >
+                    {model.rows.flatMap((row) =>
+                        row.liveTransferNotes.map((note) => (
+                            <li key={`${row.key}-${note}`}>
+                                {row.plan}: {note}
+                            </li>
+                        )),
+                    )}
+                </ul>
+            )}
             {model.refused.length > 0 && (
                 <ul
                     aria-label="Runs the engine refused"

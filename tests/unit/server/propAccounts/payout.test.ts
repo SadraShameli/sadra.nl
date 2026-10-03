@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { PayoutStatus } from '~/lib/prop-accounts';
+import { PropMutationRejection } from '~/lib/schemas/propAccountOutputs';
 
 import {
     assertUserScopedWhere,
@@ -17,6 +18,8 @@ import {
     IDS,
     insertsInto,
     isCount,
+    mutationRejection,
+    payoutRow,
     propWrites,
     rejectionOf,
     SIGNED_IN,
@@ -201,4 +204,98 @@ describe('propAccounts.payout', () => {
             expect(shape.message).toBe(message);
         },
     );
+
+    describe('update against the stored approval date', () => {
+        const STORED_APPROVAL = '2026-09-09';
+        const withStoredApproval = () =>
+            tableResponder({
+                [TABLES.payout]: [
+                    payoutRow({
+                        approved_on: STORED_APPROVAL,
+                        paid_on: '2026-09-10',
+                    }),
+                ],
+            });
+
+        it('rejects a paid date before the stored approval date with the typed out-of-order error and writes nothing', async () => {
+            const { caller, queries } = callerFor(
+                SIGNED_IN,
+                withStoredApproval(),
+            );
+            const shape = errorShapeOf(
+                await rejectionOf(
+                    caller.payout.update({
+                        ...PAID,
+                        id: IDS.payout,
+                        paidOn: '2026-09-08',
+                    }),
+                ),
+            );
+            expect(shape.data.code).toBe('BAD_REQUEST');
+            expect(shape.message).toBe(
+                'a payout cannot be paid before it was approved',
+            );
+            expect(shape.data.propRejection).toEqual(
+                mutationRejection(PropMutationRejection.OutOfOrderEvent),
+            );
+            expect(updatesOf(queries, TABLES.payout)).toHaveLength(0);
+        });
+
+        it('rejects a request date after the stored approval date with the typed out-of-order error', async () => {
+            const { caller, queries } = callerFor(
+                SIGNED_IN,
+                withStoredApproval(),
+            );
+            const shape = errorShapeOf(
+                await rejectionOf(
+                    caller.payout.update({
+                        ...PAID,
+                        id: IDS.payout,
+                        requestedOn: '2026-09-10',
+                    }),
+                ),
+            );
+            expect(shape.data.code).toBe('BAD_REQUEST');
+            expect(shape.message).toBe(
+                'a payout cannot be approved before it was requested',
+            );
+            expect(shape.data.propRejection).toEqual(
+                mutationRejection(PropMutationRejection.OutOfOrderEvent),
+            );
+            expect(updatesOf(queries, TABLES.payout)).toHaveLength(0);
+        });
+
+        it('accepts an explicit consistent approval date and a paid date on or after the stored one', async () => {
+            const explicit = callerFor(SIGNED_IN, withStoredApproval());
+            await expect(
+                explicit.caller.payout.update({
+                    ...PAID,
+                    approvedOn: '2026-09-08',
+                    id: IDS.payout,
+                    paidOn: '2026-09-08',
+                }),
+            ).resolves.toBeDefined();
+            expect(updatesOf(explicit.queries, TABLES.payout)).toHaveLength(1);
+            const kept = callerFor(SIGNED_IN, withStoredApproval());
+            await expect(
+                kept.caller.payout.update({
+                    ...PAID,
+                    id: IDS.payout,
+                    paidOn: STORED_APPROVAL,
+                }),
+            ).resolves.toBeDefined();
+            expect(updatesOf(kept.queries, TABLES.payout)).toHaveLength(1);
+        });
+
+        it('keeps the where clause on id and user id when it writes', async () => {
+            const { caller, queries } = callerFor(
+                SIGNED_IN,
+                withStoredApproval(),
+            );
+            await caller.payout.update({ ...PAID, id: IDS.payout });
+            const [update] = updatesOf(queries, TABLES.payout);
+            assertUserScopedWhere(defined(update), USER_ID);
+            expect(update?.params).toContain(IDS.payout);
+        });
+    });
 });

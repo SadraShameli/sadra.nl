@@ -4,6 +4,7 @@ import { formatCurrency } from '~/lib/format';
 import {
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     type PersonalCaps,
     type ReconstructedFundedOrEvalAccount,
@@ -219,6 +220,7 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
             plan,
             resolvedDailyLossLimit: null,
             state,
+            ...NO_PENDING_PAYOUT_COUNTS,
         };
 
         const result = valueChain(plan, spec, account);
@@ -290,10 +292,7 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
         const priorTracker = firstPayoutEligible.fundedTracker;
         if (priorTracker === null) throw new Error('expected a funded tracker');
 
-        const advanced = fundedTrackerAfterMilestonePayout(
-            firstPayoutEligible,
-            milestone,
-        );
+        const advanced = fundedTrackerAfterMilestonePayout(milestone);
 
         expect(advanced.fundedResetsUsed).toBe(priorTracker.fundedResetsUsed);
         expect(advanced.cumulativePayout).toBe(
@@ -425,25 +424,68 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
     });
 
     describe('requestNowValue (the one request-now construction)', () => {
-        it('values the account after the payout with the advanced cycle tracker, never the stale one', () => {
-            const { account, milestone, spec } = eligibleFundedMilestone();
-
-            const result = requestNowValue(account, milestone, spec);
-
-            const expected = valueAtState(
-                {
-                    ...account,
-                    fundedTracker: fundedTrackerAfterMilestonePayout(
-                        account,
-                        milestone,
+        it.each([
+            ['MFF Rapid EOD 50K', rapidEodPlan],
+            ['MFF Pro 50K', mffuProPlan],
+        ])(
+            'values the account after the payout from the state and tracker the engine own settle leaves, %s',
+            (_label, planOf) => {
+                const plan = planOf();
+                const spec = specFor(plan);
+                const account = firstPayoutEligibleAccount(
+                    plan,
+                    freshFundedAccount(plan),
+                    spec,
+                );
+                const milestone = milestoneState(account, spec);
+                if (milestone.kind !== MilestoneKind.Funded) {
+                    throw new Error('expected a funded milestone');
+                }
+                const engineAccount = firstPayoutEligibleAccount(
+                    plan,
+                    freshFundedAccount(plan),
+                    spec,
+                );
+                const documentedPlan = resolveDocumentedPlan(
+                    plan,
+                    spec.enginePolicy,
+                );
+                const engineState = { ...engineAccount.state };
+                const payout = engineAccount.fundedTracker?.tryPayout({
+                    minRetainedCushion: plan.resolveRetainedCushion(
+                        resolveDocumentedRetainedCushion(
+                            spec.enginePolicy,
+                            spec.rulebook.payout,
+                        ),
                     ),
-                    state: milestone.state,
-                },
-                spec,
-            );
-            if (!isValueResult(expected)) throw new Error('expected a value');
-            expect(result.continuation).toEqual(expected);
-        });
+                    payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
+                    payoutRequestSize: resolveDocumentedPayoutRequestSize(
+                        documentedPlan,
+                        spec.enginePolicy,
+                        spec.rulebook.payout,
+                    ),
+                    plan: documentedPlan,
+                    state: engineState,
+                });
+                if (payout === null || payout === undefined) {
+                    throw new Error('expected the engine to settle a payout');
+                }
+
+                const result = requestNowValue(account, milestone, spec);
+
+                const expected = valueAtState(
+                    {
+                        ...engineAccount,
+                        cushion: engineState.balance - engineState.threshold,
+                        state: engineState,
+                    },
+                    spec,
+                );
+                if (!isValueResult(expected))
+                    throw new Error('expected a value');
+                expect(result.continuation).toEqual(expected);
+            },
+        );
 
         it('adds the cash the trader receives to both credit bases and leaves the standard errors unchanged', () => {
             const { account, milestone, plan, spec } =
@@ -473,18 +515,6 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
             );
             expect(result.requestNow.seed).toBe(spec.run.seed);
             expect(result.requestNow.trials).toBe(spec.run.trials);
-        });
-
-        it('refuses an account without its funded cycle tracker', () => {
-            const { account, milestone, spec } = eligibleFundedMilestone();
-
-            expect(() =>
-                requestNowValue(
-                    { ...account, fundedTracker: null },
-                    milestone,
-                    spec,
-                ),
-            ).toThrow(/funded cycle tracker/);
         });
     });
 
@@ -1023,9 +1053,9 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
             expect(text).toContain(
                 `Retained cushion ${formatCurrency(cushion, 2)}`,
             );
-            expect(text).toContain("the rulebook's retained cushion size");
+            expect(text).toContain("your rulebook's retained cushion");
             expect(text).not.toContain('Hard Rule 2');
-            expect(text).not.toContain('your retained cushion entry');
+            expect(text).not.toContain('your personal override');
         });
 
         it('names your own retained cushion entry as the source when you set one', () => {
@@ -1045,7 +1075,7 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
 
             const text = step?.assumptions.join('\n') ?? '';
             expect(text).toContain('Retained cushion $3,000.00');
-            expect(text).toContain('your retained cushion entry');
+            expect(text).toContain('your personal override');
         });
 
         it('attributes a $3,000 rulebook cushion to the rulebook size, not Hard Rule 2', () => {
@@ -1074,7 +1104,7 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
 
             const text = step?.assumptions.join('\n') ?? '';
             expect(text).toContain('Retained cushion $3,000.00');
-            expect(text).toContain("the rulebook's retained cushion size");
+            expect(text).toContain("your rulebook's retained cushion");
             expect(text).not.toContain('Hard Rule 2');
         });
 
@@ -1105,7 +1135,7 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
 
             const text = step?.assumptions.join('\n') ?? '';
             expect(text).toContain('Retained cushion $2,000.00');
-            expect(text).toContain("the rulebook's retained cushion size");
+            expect(text).toContain("your rulebook's retained cushion");
             expect(text).toContain(
                 "raised to the plan's own floor from $1,000.00",
             );

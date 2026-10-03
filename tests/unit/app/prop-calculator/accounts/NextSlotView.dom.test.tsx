@@ -33,6 +33,7 @@ interface FakeQuery {
 
 const TODAY = '2026-09-30';
 const USER_ID = 'user-a';
+const FEW_FIRMS = ALL_FIRMS.slice(0, 2);
 
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
@@ -55,6 +56,10 @@ const harness = vi.hoisted(() => {
     };
 });
 
+vi.mock('~/lib/auth/client', () => ({
+    useSession: () => ({ data: null, error: null, isPending: false }),
+}));
+
 vi.mock('~/trpc/react', () => ({
     api: {
         propAccounts: {
@@ -72,20 +77,27 @@ vi.mock('~/trpc/react', () => ({
 
 vi.mock(
     '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker',
-    () => ({
-        useOverviewWorker: (
-            requests: readonly OverviewRequest[],
-        ): OverviewEngine => {
-            const outcomes = new Map<string, OverviewOutcome>();
-            for (const request of requests) {
-                const outcome = harness.answer.current?.(request);
-                if (outcome !== undefined) {
-                    outcomes.set(overviewRequestKey(request), outcome);
+    () => {
+        const engines = new WeakMap<readonly OverviewRequest[], OverviewEngine>();
+        return {
+            useOverviewWorker: (
+                requests: readonly OverviewRequest[],
+            ): OverviewEngine => {
+                const cached = engines.get(requests);
+                if (cached !== undefined) return cached;
+                const outcomes = new Map<string, OverviewOutcome>();
+                for (const request of requests) {
+                    const outcome = harness.answer.current?.(request);
+                    if (outcome !== undefined) {
+                        outcomes.set(overviewRequestKey(request), outcome);
+                    }
                 }
-            }
-            return { failure: null, outcomes };
-        },
-    }),
+                const engine: OverviewEngine = { failure: null, outcomes };
+                engines.set(requests, engine);
+                return engine;
+            },
+        };
+    },
 );
 
 class VerifiedPolicy extends FirmAccountPolicy {
@@ -171,6 +183,42 @@ function documentedFigures(): DocumentedRunFigures {
     };
 }
 
+function gradedAnswer(): (request: OverviewRequest) => OverviewOutcome {
+    const order = new Map<string, number>();
+    return (request) => {
+        const index = order.get(request.planSerial) ?? order.size;
+        order.set(request.planSerial, index);
+        const base = answerAll(request);
+        if (
+            base.kind !== OverviewOutcomeKind.Succeeded ||
+            base.result.kind !== OverviewRequestKind.DocumentedRun
+        ) {
+            return base;
+        }
+        return {
+            ...base,
+            result: {
+                figures: {
+                    ...base.result.figures,
+                    expectedMonthlyNet: {
+                        standardError: 1,
+                        value: 300 + index,
+                    },
+                    expectedMonthlyRealizedNet: {
+                        standardError: 1,
+                        value: 280 + index,
+                    },
+                    expectedNetPerAttempt: {
+                        standardError: 1,
+                        value: 500 - index,
+                    },
+                },
+                kind: OverviewRequestKind.DocumentedRun,
+            },
+        };
+    };
+}
+
 describe('NextSlotView', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -185,10 +233,42 @@ describe('NextSlotView', () => {
     }
 
     function verifyEveryFirm() {
-        for (const firm of ALL_FIRMS) {
+        verifyFirms(ALL_FIRMS);
+    }
+
+    function verifyFirms(firms: readonly (typeof ALL_FIRMS)[number][]) {
+        for (const firm of firms) {
             (firm as { accountPolicy: FirmAccountPolicy }).accountPolicy =
                 new VerifiedPolicy();
         }
+    }
+
+    function chooseSelectValue(label: string, value: string) {
+        const select = selectOf(label);
+        act(() => {
+            Object.getOwnPropertyDescriptor(
+                HTMLSelectElement.prototype,
+                'value',
+            )?.set?.call(select, value);
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
+
+    function rankedPlans(): string[] {
+        const region = container.querySelector(
+            '[role="region"][aria-labelledby="next-slot-ranked"]',
+        );
+        return [...(region?.querySelectorAll(':scope tbody tr') ?? [])].map(
+            (row) => row.querySelectorAll('td')[1]?.textContent ?? '',
+        );
+    }
+
+    function selectOf(label: string): HTMLSelectElement {
+        const select = [...container.querySelectorAll('select')].find(
+            (candidate) => candidate.getAttribute('aria-label') === label,
+        );
+        if (select === undefined) throw new Error(`no select labelled ${label}`);
+        return select;
     }
 
     function headings(): string[] {
@@ -334,5 +414,82 @@ describe('NextSlotView', () => {
         render();
         expect(container.textContent).toContain('journal down');
         expect(container.querySelectorAll('h2').length).toBeGreaterThan(0);
+    });
+
+    it('mounts the objective chip with the three objectives and reorders the ranked rows when CycleCash is picked', () => {
+        answerEverything();
+        verifyFirms(FEW_FIRMS);
+        harness.answer.current = gradedAnswer();
+        render();
+        const chip = selectOf('Ranking objective');
+        expect([...chip.options].map((option) => option.value)).toEqual([
+            'cycle-cash',
+            'monthly-net',
+            'ruin-first',
+        ]);
+        expect(chip.value).toBe('monthly-net');
+        const before = rankedPlans();
+        expect(before.length).toBeGreaterThan(1);
+        chooseSelectValue('Ranking objective', 'cycle-cash');
+        expect(selectOf('Ranking objective').value).toBe('cycle-cash');
+        expect(rankedPlans()).toEqual(before.toReversed());
+        expect(container.textContent).toContain('Chosen by you.');
+    });
+
+    it('keeps monthly net with a note when RuinFirst is picked without a bankroll', () => {
+        answerEverything();
+        verifyFirms(FEW_FIRMS);
+        harness.answer.current = gradedAnswer();
+        render();
+        const before = rankedPlans();
+        chooseSelectValue('Ranking objective', 'ruin-first');
+        expect(rankedPlans()).toEqual(before);
+        expect(container.textContent).toContain('no bankroll deposits');
+    });
+
+    it('disables the sort-by select and keeps the order until both hours inputs are set', () => {
+        answerEverything();
+        verifyFirms(FEW_FIRMS);
+        harness.answer.current = gradedAnswer();
+        harness.queries.set('rulebook.get', answered({
+            ...DEFAULT_RULEBOOK,
+            bankroll: {
+                ...DEFAULT_RULEBOOK.bankroll,
+                accountsPerSession: 2,
+                sessionHoursPerDay: null,
+            },
+        }));
+        render();
+        expect(selectOf('Sort by').disabled).toBe(true);
+        expect(selectOf('Sort by').value).toBe('objective');
+        expect(container.textContent).not.toContain('net per screen hour (');
+    });
+
+    it('sorts by net per screen hour once both hours inputs are set and names that one key for the whole table', () => {
+        answerEverything();
+        verifyFirms(FEW_FIRMS);
+        harness.answer.current = gradedAnswer();
+        harness.queries.set('rulebook.get', answered({
+            ...DEFAULT_RULEBOOK,
+            bankroll: {
+                ...DEFAULT_RULEBOOK.bankroll,
+                accountsPerSession: 2,
+                sessionHoursPerDay: 4,
+            },
+        }));
+        render();
+        expect(selectOf('Sort by').disabled).toBe(false);
+        chooseSelectValue('Ranking objective', 'cycle-cash');
+        const byObjective = rankedPlans();
+        expect(container.textContent).toContain('Ranked by the cycle net');
+        expect(container.textContent).not.toContain('is not applied');
+        chooseSelectValue('Sort by', 'hour');
+        expect(selectOf('Sort by').value).toBe('hour');
+        expect(rankedPlans()).toEqual(byObjective.toReversed());
+        expect(container.textContent).toContain('Ranked by net per screen hour');
+        expect(container.textContent).not.toContain('Ranked by the cycle net');
+        expect(container.textContent).toContain(
+            'cycle cash objective above is not applied',
+        );
     });
 });

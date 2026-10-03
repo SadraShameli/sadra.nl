@@ -72,6 +72,9 @@ describe('routes.propCalculator', () => {
         expect(routes.propCalculator.fundedOptimizer).toBe(
             '/prop-calculator/funded-optimizer',
         );
+        expect(routes.propCalculator.bankroll).toBe(
+            '/prop-calculator/bankroll',
+        );
         expect(routes.propCalculator.live).toBe('/prop-calculator/live');
         expect(routes.propCalculator.rules).toBe('/prop-calculator/rules');
         expect(routes.propCalculator.payoutPlanner).toBe(

@@ -21,6 +21,7 @@ import {
     sessionDaysForCalendarDays,
 } from '~/lib/prop-calculator/core';
 
+import { type AccountPendingPayoutCounts } from './AccountSnapshotInput';
 import {
     LiveTriggerScope,
     type PayoutBlockReason,
@@ -90,13 +91,15 @@ export interface PayoutPathStep {
 export type PayoutReadiness = BlockedPayoutReadiness | EligiblePayoutReadiness;
 
 export type PayoutReadinessOptions =
-    | (PayoutReadinessCommonOptions & {
-          readonly pendingPayouts: number;
-          readonly statePendingPayoutsNetted: false;
-      })
-    | (PayoutReadinessCommonOptions & {
-          readonly statePendingPayoutsNetted?: true;
-      });
+    | (AccountPendingPayoutCounts &
+          PayoutReadinessCommonOptions & {
+              readonly pendingPayouts: number;
+              readonly statePendingPayoutsNetted: false;
+          })
+    | (AccountPendingPayoutCounts &
+          PayoutReadinessCommonOptions & {
+              readonly statePendingPayoutsNetted?: true;
+          });
 
 export type PayoutWait =
     CalendarDaysWait | NoClosedFormWait | ProfitWait | QualifyingDaysWait;
@@ -205,6 +208,7 @@ export function liveTriggerBlockReasonFor(
     payoutsIssued: number,
     limit: LiveTriggerCountLimit,
     pendingPayoutCount: number,
+    otherAccountsPendingPayoutCount: number,
 ): null | PayoutBlockReason {
     const accountPayoutsTaken = payoutsIssued + pendingPayoutCount;
     if (
@@ -223,7 +227,9 @@ export function liveTriggerBlockReasonFor(
         limit.paidPayoutsSinceLastLiveAccount !== null
     ) {
         const firmPayoutsTaken =
-            limit.paidPayoutsSinceLastLiveAccount + pendingPayoutCount;
+            limit.paidPayoutsSinceLastLiveAccount +
+            pendingPayoutCount +
+            otherAccountsPendingPayoutCount;
         if (firmPayoutsTaken + 1 >= limit.firmTotalCap) {
             return wouldTriggerLiveBlockReason({
                 payoutsTaken: firmPayoutsTaken,
@@ -410,10 +416,7 @@ export function payoutReadiness(
             state: evalState,
             tracker,
         });
-    const pendingPayoutCount =
-        options.statePendingPayoutsNetted === false
-            ? pendingPayoutCountOf(options.pendingPayouts)
-            : 0;
+    const { otherAccountsPendingPayoutCount, pendingPayoutCount } = options;
     const evaluation = evaluate(netState);
     switch (evaluation.kind) {
         case PayoutEvaluationKind.Blocked: {
@@ -434,6 +437,7 @@ export function payoutReadiness(
                       tracker.payoutsIssued,
                       options.liveTrigger,
                       pendingPayoutCount,
+                      otherAccountsPendingPayoutCount,
                   );
             return {
                 kind: PayoutReadinessKind.Blocked,
@@ -448,6 +452,7 @@ export function payoutReadiness(
                 tracker.payoutsIssued,
                 options.liveTrigger,
                 pendingPayoutCount,
+                otherAccountsPendingPayoutCount,
             );
             if (liveTriggerReason !== null) {
                 return {
@@ -463,10 +468,6 @@ export function payoutReadiness(
             };
         }
     }
-}
-
-export function pendingPayoutCountOf(pendingPayouts: number): number {
-    return pendingPayouts > 0 ? 1 : 0;
 }
 
 export function poolProfitOf(

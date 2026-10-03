@@ -46,6 +46,8 @@ import {
     SizingConstraint,
 } from '~/lib/prop-calculator/advisor';
 
+import { soloRungSumOf } from './copyGroupSizedRungs';
+
 const USER_ID = 'user-a';
 const TODAY = '2026-09-26';
 const GROUP = {
@@ -245,6 +247,17 @@ describe('the copy-group page prices a verified live trigger (PT-36h, F-145, F-1
 
         expect(rung?.risk).toBe(100);
         expect(rung?.cappedBy).toContain(SizingConstraint.CeilingCap);
+    });
+
+    it("prices the firm's verified single-day ceiling into the exposure, so it equals the members sized rungs", () => {
+        const priced = withPolicy([singleDay], () => sectionFor(['a', 'b']));
+        const unpriced = sectionFor(['a', 'b']);
+
+        expect(priced.exposure?.maxDailyLoss).toBe(soloRungSumOf(priced));
+        expect(priced.exposure?.maxDailyLoss).toBeGreaterThan(0);
+        expect(priced.exposure?.maxDailyLoss).toBeLessThan(
+            unpriced.exposure?.maxDailyLoss ?? 0,
+        );
     });
 
     it('leaves the group rung at the documented size when the firm has no verified trigger', () => {

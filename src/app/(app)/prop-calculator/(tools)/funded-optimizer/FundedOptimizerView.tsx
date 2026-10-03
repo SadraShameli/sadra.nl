@@ -1,22 +1,27 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import {
+    fundedOptimizerLiveTransferLines,
     fundedOptimizerPolicyBasis,
+    fundedOptimizerRanking,
     fundedOptimizerRequest,
     fundedOptimizerRows,
+    fundedOptimizerTrialsNote,
     FundedPolicyBasis,
 } from '~/app/(app)/prop-calculator/_components/fundedOptimizer/fundedOptimizerModel';
 import { useFundedSweep } from '~/app/(app)/prop-calculator/_components/fundedOptimizer/useFundedSweep';
 import { InputsSummary } from '~/app/(app)/prop-calculator/_components/InputsSummary';
+import { CalculatorObjectiveChip } from '~/app/(app)/prop-calculator/_components/ObjectiveChip';
 import { PanelSkeleton } from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { WorkerTaskPhase } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import {
+    type FundedSweepProgress,
     type FundedSweepRequest,
     type FundedSweepResult,
 } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
@@ -25,22 +30,20 @@ import {
     DEFAULT_RULEBOOK,
     LifetimePayoutCapBasis,
 } from '~/lib/prop-calculator/advisor';
+import { type Plan } from '~/lib/prop-calculator/core';
 import {
+    FUNDED_ROW_HEADERS,
     FundedCandidateBuildKind,
     FundedCandidateRefusal,
     type FundedCandidateRefusalDetail,
     fundedSortDescription,
-    FundedSortKey,
+    type FundedSortKey,
+    fundedSurvivorsNote,
 } from '~/lib/prop-calculator/optimize';
 import { type SimInputs } from '~/lib/prop-calculator/simulator';
 import { api } from '~/trpc/react';
 
 const RESULT_HEADING_ID = 'funded-optimizer-result-heading';
-
-const SORT_LABELS: Record<FundedSortKey, string> = {
-    [FundedSortKey.Cycle]: 'This run only (per-cycle)',
-    [FundedSortKey.Monthly]: 'Steady state (per month)',
-};
 
 const POLICY_BASIS_LABELS: Record<FundedPolicyBasis, string> = {
     [FundedPolicyBasis.CalculatorOverride]: 'your override',
@@ -56,16 +59,6 @@ const LIFETIME_PAYOUT_CAP_BASIS_LABELS: Record<LifetimePayoutCapBasis, string> =
             'a verified no-count trigger',
     };
 
-const HEADER_CELLS = [
-    'funded policy',
-    'per-cycle net',
-    'horizon credit',
-    'monthly net',
-    'monthly ex-credit',
-    'bust when funded',
-    'survivors',
-];
-
 export function FundedOptimizerView() {
     const { state } = useCalculatorInputs();
     const session = useSession();
@@ -77,7 +70,7 @@ export function FundedOptimizerView() {
         hasSession && rulebookQuery.data !== undefined
             ? rulebookQuery.data
             : DEFAULT_RULEBOOK;
-    const [sort, setSort] = useState(FundedSortKey.Monthly);
+    const ranking = fundedOptimizerRanking(state.objective);
 
     const request = useMemo(
         () => fundedOptimizerRequest(state, rulebook),
@@ -102,37 +95,25 @@ export function FundedOptimizerView() {
                     aria-labelledby={RESULT_HEADING_ID}
                     className="flex flex-col gap-4"
                 >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <h2
-                            className="text-lg font-semibold tracking-tight text-white"
-                            id={RESULT_HEADING_ID}
-                        >
-                            Funded optimizer
-                        </h2>
-                        <div className="flex gap-2" role="group">
-                            {[FundedSortKey.Monthly, FundedSortKey.Cycle].map(
-                                (key) => (
-                                    <button
-                                        aria-pressed={sort === key}
-                                        className="rounded-md border border-white/10 px-3 py-1 text-xs text-muted-foreground aria-pressed:bg-white/10 aria-pressed:text-white"
-                                        key={key}
-                                        onClick={() => setSort(key)}
-                                        type="button"
-                                    >
-                                        {SORT_LABELS[key]}
-                                    </button>
-                                ),
-                            )}
-                        </div>
-                    </div>
+                    <h2
+                        className="text-lg font-semibold tracking-tight text-white"
+                        id={RESULT_HEADING_ID}
+                    >
+                        {ranking.heading}
+                    </h2>
+                    <CalculatorObjectiveChip />
                     <p className="text-xs text-muted-foreground">
                         {`cushion: ${POLICY_BASIS_LABELS[policyBasis.cushion]}, payout request: ${POLICY_BASIS_LABELS[policyBasis.payoutRequest]}, lifetime payout cap: ${LIFETIME_PAYOUT_CAP_BASIS_LABELS[request.policy.lifetimePayoutCapBasis]}`}
                     </p>
                     <FundedOptimizerResult
+                        hazard={state.liveTransferHazard}
+                        plan={state.plan}
+                        progress={sweep.progress}
                         reason={sweep.reason}
                         request={request}
+                        requestedTrials={state.trials}
                         result={sweep.result}
-                        sort={sort}
+                        sort={ranking.sort}
                         sortDescriptionInputs={sortDescriptionInputs}
                         state={sweep.phase}
                     />
@@ -162,15 +143,23 @@ function describeFundedSweepRefusal(
 }
 
 function FundedOptimizerResult({
+    hazard,
+    plan,
+    progress,
     reason,
     request,
+    requestedTrials,
     result,
     sort,
     sortDescriptionInputs,
     state,
 }: {
+    hazard: number;
+    plan: Plan;
+    progress: FundedSweepProgress | null;
     reason: null | string;
     request: FundedSweepRequest;
+    requestedTrials: number;
     result: FundedSweepResult | null;
     sort: FundedSortKey;
     sortDescriptionInputs: SimInputs;
@@ -178,7 +167,16 @@ function FundedOptimizerResult({
 }) {
     if (reason !== null) return <SimulationFailureNotice message={reason} />;
     if (result === null || state === WorkerTaskPhase.Running) {
-        return <PanelSkeleton />;
+        return (
+            <div className="flex flex-col gap-2">
+                {progress !== null && (
+                    <p className="text-xs text-muted-foreground">
+                        {`${progress.completed} of ${progress.total} policies`}
+                    </p>
+                )}
+                <PanelSkeleton />
+            </div>
+        );
     }
     if (result.kind === FundedCandidateBuildKind.Refused) {
         return (
@@ -188,11 +186,17 @@ function FundedOptimizerResult({
         );
     }
     const rows = fundedOptimizerRows(result.rows, sort, request.base.trials);
+    const trialsNote = fundedOptimizerTrialsNote(requestedTrials);
+    const notes = [
+        ...(trialsNote === null ? [] : [trialsNote]),
+        ...fundedOptimizerLiveTransferLines(plan, hazard, result.rows),
+        ...result.notes,
+    ];
     return (
         <div className="flex flex-col gap-3">
-            {result.notes.length > 0 && (
+            {notes.length > 0 && (
                 <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                    {result.notes.map((note) => (
+                    {notes.map((note) => (
                         <li key={note}>{note}</li>
                     ))}
                 </ul>
@@ -200,11 +204,14 @@ function FundedOptimizerResult({
             <p className="text-xs whitespace-pre-line text-muted-foreground">
                 {fundedSortDescription(sort, sortDescriptionInputs)}
             </p>
+            <p className="text-xs whitespace-pre-line text-muted-foreground">
+                {fundedSurvivorsNote(request.base.trials)}
+            </p>
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead>
                         <tr>
-                            {HEADER_CELLS.map((label) => (
+                            {FUNDED_ROW_HEADERS.map((label) => (
                                 <th
                                     className="px-2 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground"
                                     key={label}
@@ -220,18 +227,20 @@ function FundedOptimizerResult({
                                 className="border-t border-white/5"
                                 key={row.cells[0]}
                             >
-                                {row.cells.map((cell, index) => (
-                                    <td
-                                        className="px-2 py-1 whitespace-nowrap tabular-nums"
-                                        key={`${row.cells[0]}-${index}`}
-                                    >
-                                        {cell}
-                                        {index === 3 &&
-                                            row.monthlyNetStandardError !==
-                                                null &&
-                                            ` (SE ${row.monthlyNetStandardError.toFixed(2)})`}
-                                    </td>
-                                ))}
+                                {row.cells.map((cell, index) => {
+                                    const standardError =
+                                        row.standardErrors[index] ?? null;
+                                    return (
+                                        <td
+                                            className="px-2 py-1 whitespace-nowrap tabular-nums"
+                                            key={`${row.cells[0]}-${index}`}
+                                        >
+                                            {cell}
+                                            {standardError !== null &&
+                                                ` (SE ${standardError})`}
+                                        </td>
+                                    );
+                                })}
                             </tr>
                         ))}
                     </tbody>

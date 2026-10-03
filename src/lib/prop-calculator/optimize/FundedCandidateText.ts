@@ -27,6 +27,16 @@ import {
 } from './FundedCandidate';
 import { FundedSortKey, survivorCount } from './FundedCandidateSweep';
 
+export const FUNDED_ROW_HEADERS: readonly string[] = [
+    'funded policy',
+    'per-cycle net',
+    'horizon credit',
+    'monthly net',
+    'monthly ex-credit',
+    'bust when funded',
+    'survivors',
+];
+
 export function belowOneContractClause(
     positionSizing: PositionSizingConfig,
 ): string {
@@ -74,6 +84,22 @@ export function fundedRowCells(
     ];
 }
 
+export function fundedRowStandardErrors(
+    out: Pick<SimOutputs, 'estimates'>,
+    trials: number,
+): (null | string)[] {
+    const { estimates } = out;
+    return [
+        null,
+        formatCurrency(estimates.expectedNet.standardError),
+        formatCurrency(estimates.expectedHorizonCredit.standardError),
+        formatCurrency(estimates.expectedMonthlyNet.standardError),
+        formatCurrency(estimates.expectedMonthlyRealizedNet.standardError),
+        formatPercent(estimates.fundedBustProbability.standardError),
+        (estimates.fundedSurvivalProbability.standardError * trials).toFixed(1),
+    ];
+}
+
 export function fundedSortDescription(
     sort: FundedSortKey,
     base: SimInputs,
@@ -92,6 +118,10 @@ export function fundedSortDescription(
             return `  ranked by steady-state expected net per month for ${slots}: monthly net = (per-cycle net + horizon credit) x ${TRADING_DAYS_PER_MONTH} / slot days, where slot days are the expected days per run (slot refilled after every failed eval, funded bust or ${base.fundedHorizonDays}-day horizon end, plus ${rebuyLagDays} rebuy-lag-days of empty slot time per eval attempt); the horizon credit is one more payout request for an account still open at the horizon, net of the split and the payout method fee: its withdrawable balance capped by the ladder step, request size, profit share and request caps, and capped by the payout profit pool (cycle profit since funding, a funded reset or the last payout on cycle-pool plans, account profit on account-profit plans) only when there is no payout ladder and no payout profit share; a payout ladder that denies an unaffordable step credits 0 when the step is above what the account could withdraw (its withdrawable balance, or its profit share if lower), and the credit is 0 once a lifetime payout cap is reached or the payout ladder is exhausted; the credit ignores the payout day and qualifying-day gate, the consistency rule, the minimum payout profit and the minimum request, since continued trading would clear them; monthly ex-credit = per-cycle net x ${TRADING_DAYS_PER_MONTH} / slot days, leaving the horizon credit out\n`;
         }
     }
+}
+
+export function fundedSurvivorsNote(trials: number): string {
+    return `  survivors = trials (out of ${trials}) that passed eval and never busted funded (reached the horizon or the account concluded) -- a result backed by very few survivors is driven by a small, noisy sample and should not be trusted at face value\n`;
 }
 
 export function ladderRungsBelowOneContractText(

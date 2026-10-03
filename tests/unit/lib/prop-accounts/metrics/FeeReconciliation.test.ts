@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { FeeKind, feePrefillCents } from '~/lib/prop-accounts/core';
-import { FeePriceCheck, feeReconciliation } from '~/lib/prop-accounts/metrics';
+import {
+    AccountTracking,
+    FeeKind,
+    feePrefillCents,
+} from '~/lib/prop-accounts/core';
+import {
+    feeCheckRowOf,
+    FeePriceCheck,
+    feeReconciliation,
+} from '~/lib/prop-accounts/metrics';
 
 import { account, EVAL_PLAN, fee, ledger, purchased } from './ledgerFixtures';
 
@@ -84,6 +92,71 @@ describe('feeReconciliation', () => {
         expect(result.byFirm[0]).toMatchObject({
             discountCents: 1500,
             feesChecked: 1,
+        });
+    });
+
+    it('counts the fee rows it cannot price because the account has no plan', () => {
+        const ledgerOnly = account(EVAL_PLAN, {
+            externalFirmId: 'lucid-1',
+            firmId: null,
+            planLabel: 'External plan',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const lost = account(EVAL_PLAN, { planSerial: 'retired-plan' });
+        const result = feeReconciliation(
+            ledger({
+                accounts: [ledgerOnly, lost],
+                events: [purchased(ledgerOnly)],
+                fees: [
+                    fee(ledgerOnly, FeeKind.EvalPurchase, 9000, '2026-09-01'),
+                    fee(ledgerOnly, FeeKind.Other, 500, '2026-09-02'),
+                    fee(lost, FeeKind.EvalPurchase, 7000, '2026-09-03'),
+                ],
+            }),
+        );
+        expect(result.excludedFeeRows).toBe(3);
+        expect(result.rows).toEqual([]);
+        expect(result.byFirm).toEqual([]);
+    });
+
+    it('reports no excluded rows when every fee belongs to an account with a plan', () => {
+        const owner = account(EVAL_PLAN, { purchasedOn: '2026-06-01' });
+        const result = feeReconciliation(
+            ledger({
+                accounts: [owner],
+                events: [purchased(owner)],
+                fees: [
+                    fee(owner, FeeKind.EvalPurchase, listCents, '2026-06-01'),
+                ],
+            }),
+        );
+        expect(result.excludedFeeRows).toBe(0);
+    });
+
+    it('exposes the row of one fee through feeCheckRowOf', () => {
+        const priced = feeCheckRowOf(
+            EVAL_PLAN.plan,
+            fee(
+                account(EVAL_PLAN),
+                FeeKind.EvalPurchase,
+                listCents - 1000,
+                '2026-06-01',
+            ),
+        );
+        expect(priced).toMatchObject({
+            check: FeePriceCheck.Discounted,
+            differenceCents: -1000,
+            listCents,
+        });
+        const unpriced = feeCheckRowOf(
+            null,
+            fee(account(EVAL_PLAN), FeeKind.Other, 500, '2026-06-01'),
+        );
+        expect(unpriced).toMatchObject({
+            check: FeePriceCheck.NoListPrice,
+            differenceCents: null,
+            listCents: null,
         });
     });
 });

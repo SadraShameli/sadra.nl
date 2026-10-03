@@ -1,5 +1,11 @@
 import {
+    type CumulativePayoutTriggerAssumption,
+    liveTransferAssumptionOf,
+    type LiveTransferHazardAssumption,
+} from '~/lib/prop-calculator/advisor/Assumption';
+import {
     type DocumentedPolicySpec,
+    pricedCumulativeTriggerAssumptionOf,
     toSimInputs,
 } from '~/lib/prop-calculator/advisor/policy';
 import { type Plan } from '~/lib/prop-calculator/core';
@@ -19,6 +25,8 @@ export const FUNDED_VALUE_SAMPLE_RANGE_LABEL =
     'what your own n accounts could show by chance';
 
 export interface FundedValueEstimateResult {
+    readonly cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption;
+    readonly liveTransfer?: LiveTransferHazardAssumption;
     readonly meanPayoutsPerAccount: UncertainValue;
     readonly payoutCountDistribution: readonly number[];
     readonly probabilityZeroPayouts: UncertainValue;
@@ -57,7 +65,16 @@ export function fundedValueEstimate(
     const distribution = out.fundedPayoutCountDistribution;
     const mean = out.estimates.payoutsPerFundedAccount.value;
     const anyPayoutGivenFunded = out.estimates.anyPayoutGivenFundedProbability;
+    const liveTransfer = liveTransferAssumptionOf(
+        base,
+        out.liveTransferProbability,
+    );
+    const cumulativePayoutTrigger = pricedCumulativeTriggerAssumptionOf(base);
     return {
+        ...(cumulativePayoutTrigger !== undefined && {
+            cumulativePayoutTrigger,
+        }),
+        ...(liveTransfer !== undefined && { liveTransfer }),
         meanPayoutsPerAccount: out.estimates.payoutsPerFundedAccount,
         payoutCountDistribution: distribution,
         probabilityZeroPayouts: {

@@ -116,11 +116,11 @@ describe('FundedNext Rapid Daily buffer', () => {
         expect(requestPayout(BUFFER_LEVEL)).toBeNull();
     });
 
-    it("requires $2,600 total cycle profit before the FIRST payout (buffer delta $2,100 + the live-documented '$500 above the buffer' rule), not the pre-fix $500", () => {
-        expect(requestPayout(50_000 + 2599)).toBeNull();
-        const payout = requestPayout(50_000 + 2600);
-        expect(payout?.debited).toBe(500);
-        expect(payout?.traderReceives).toBe(450);
+    it('requires the balance to sit $250 above the buffer before the FIRST payout (current article 17229779: EOD balance at or above the buffer, $500 of cycle profit, $250 minimum), not the superseded $2,600 reading of 15878210', () => {
+        expect(requestPayout(BUFFER_LEVEL + 249)).toBeNull();
+        const payout = requestPayout(BUFFER_LEVEL + 250);
+        expect(payout?.debited).toBe(250);
+        expect(payout?.traderReceives).toBe(225);
     });
 
     it('denies a payout on a later cycle (gated by minPayoutProfitPerCycle) when the room above the buffer is under the $250 minimum', () => {

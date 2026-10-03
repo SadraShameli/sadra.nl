@@ -12,6 +12,7 @@ import {
     payoutRequestPolicyArgument,
     planArguments,
     planResolver,
+    pricedTriggerLines,
     printEdgePlausibilityNotes,
     readEdgeModelSpec,
     readLadder,
@@ -24,7 +25,7 @@ import {
     tradingArguments,
     tradingEdgeNotes,
     TradingInputs,
-    verifiedTriggerLines,
+    unrestatedLines,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
@@ -56,6 +57,7 @@ import {
     DEFAULT_FUNDED_FLAT_CANDIDATES,
     DEFAULT_FUNDED_PERCENT_CANDIDATES,
     flatsBelowOneContractNote,
+    FUNDED_ROW_HEADERS,
     FUNDED_SORT_KEYS,
     type FundedCandidate,
     FundedCandidateBuildKind,
@@ -67,10 +69,14 @@ import {
     fundedRowCells,
     fundedSortDescription,
     FundedSortKey,
+    fundedSortOfObjective,
+    fundedSurvivorsNote,
     ladderRungsBelowOneContractText,
+    objectiveOfFundedSort,
     runFundedCandidateSweep,
     sortFundedResults,
 } from '~/lib/prop-calculator/optimize';
+import { liveTransferContinuationNotes } from '~/lib/prop-calculator/simulator';
 
 export interface FundedCandidateArguments {
     flat: string;
@@ -97,6 +103,8 @@ export class TakeProfitWhatIfError extends Error {}
 const DEFAULT_PERCENT_CANDIDATES = DEFAULT_FUNDED_PERCENT_CANDIDATES.join(',');
 
 const MIN_POLICY_COLUMN_WIDTH = 16;
+
+const FUNDED_VALUE_COLUMN_WIDTHS: readonly number[] = [14, 15, 13, 18, 18, 14];
 
 export default defineCommand({
     args: {
@@ -195,8 +203,12 @@ export default defineCommand({
             spinner.succeed(fundedSweepSummary(plan.label, rows.length));
 
             ui.heading(plan.label);
-            ui.muted(`  ${objectiveHeadingLine(objectiveOfSort(sort))}`);
-            printLiveTransferLines(base, rows[0]?.out.liveTransferContinuation);
+            ui.muted(`  ${objectiveHeadingLine(objectiveOfFundedSort(sort))}`);
+            printLiveTransferLines(
+                plan,
+                base,
+                rows[0]?.out.liveTransferContinuation,
+            );
             for (const note of fundedSizingNotes(
                 context.args,
                 build,
@@ -206,26 +218,22 @@ export default defineCommand({
                 ui.note(note);
             }
             ui.muted(fundedSortDescription(sort, base));
-            ui.muted(
-                `  survivors = trials (out of ${inputs.trials}) that passed eval and never busted funded (reached the horizon or the account concluded) -- a result backed by very few survivors is driven by a small, noisy sample and should not be trusted at face value\n`,
-            );
+            ui.muted(fundedSurvivorsNote(inputs.trials));
 
-            const table = new TablePrinter([
-                {
-                    align: 'left',
-                    label: 'funded policy',
-                    width: Math.max(
-                        MIN_POLICY_COLUMN_WIDTH,
-                        ...rows.map((row) => row.candidate.label.length),
-                    ),
-                },
-                { label: 'per-cycle net', width: 14 },
-                { label: 'horizon credit', width: 15 },
-                { label: 'monthly net', width: 13 },
-                { label: 'monthly ex-credit', width: 18 },
-                { label: 'bust when funded', width: 18 },
-                { label: 'survivors', width: 14 },
-            ]);
+            const policyColumnWidth = Math.max(
+                MIN_POLICY_COLUMN_WIDTH,
+                ...rows.map((row) => row.candidate.label.length),
+            );
+            const table = new TablePrinter(
+                FUNDED_ROW_HEADERS.map((label, index) => ({
+                    ...((index === 0) && { align: 'left' as const }),
+                    label,
+                    width:
+                        index === 0
+                            ? policyColumnWidth
+                            : (FUNDED_VALUE_COLUMN_WIDTHS[index - 1] ?? label.length),
+                })),
+            );
             table.printHeader();
             for (const row of rows) {
                 table.printRow(
@@ -276,8 +284,8 @@ export function printTakeProfitWhatIf(
     );
 
     ui.heading(plan.label);
-    ui.muted(`  ${objectiveHeadingLine(objectiveOfSort(sort))}`);
-    printLiveTransferLines(base, outputs[0]?.liveTransferContinuation);
+    ui.muted(`  ${objectiveHeadingLine(objectiveOfFundedSort(sort))}`);
+    printLiveTransferLines(plan, base, outputs[0]?.liveTransferContinuation);
     ui.warn(TAKE_PROFIT_WHAT_IF_LABEL);
     ui.muted(fundedSortDescription(sort, base));
 
@@ -400,27 +408,22 @@ function isSortFlag(argument: string): boolean {
     return argument === '--sort' || argument.startsWith('--sort=');
 }
 
-function objectiveOfSort(sort: FundedSortKey): SizingObjective {
-    switch (sort) {
-        case FundedSortKey.Cycle: {
-            return SizingObjective.CycleCash;
-        }
-        case FundedSortKey.Monthly: {
-            return SizingObjective.MonthlyNet;
-        }
-    }
-}
-
 function printLiveTransferLines(
+    plan: Plan,
     base: SimInputs,
     continuation: LiveTransferContinuationKind | undefined,
 ): void {
+    const kind = continuation ?? LiveTransferContinuationKind.Off;
+    const pricedLines = pricedTriggerLines(base);
     const lines = [
-        ...verifiedTriggerLines(base.verifiedCumulativePayoutTrigger),
-        ...liveTransferSweepLines(
-            base.liveTransferHazard,
-            continuation ?? LiveTransferContinuationKind.Off,
-            base.verifiedCumulativePayoutTrigger !== undefined,
+        ...pricedLines,
+        ...unrestatedLines(
+            liveTransferSweepLines(
+                base.liveTransferHazard,
+                kind,
+                liveTransferContinuationNotes(plan, kind),
+            ),
+            pricedLines,
         ),
     ];
     for (const line of lines) {
@@ -490,11 +493,9 @@ function readFundedCandidateBuild(
 
 function sortOfObjective(objective: SizingObjective): FundedSortKey {
     switch (objective) {
-        case SizingObjective.CycleCash: {
-            return FundedSortKey.Cycle;
-        }
+        case SizingObjective.CycleCash:
         case SizingObjective.MonthlyNet: {
-            return FundedSortKey.Monthly;
+            return fundedSortOfObjective(objective);
         }
         case SizingObjective.RuinFirst: {
             throw new ObjectiveNotApplicable(RUIN_FIRST_NOT_APPLICABLE_MESSAGE);

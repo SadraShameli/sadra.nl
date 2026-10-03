@@ -34,7 +34,7 @@ function firstTradeRiskFor(
 ): (state: AccountState, payoutsIssued?: number) => number {
     const result = computeFundedStateValue({
         actionStepMultiple: 0.25,
-        cushionStepMultiple: 0.1,
+        cushionStepMultiple: 0.5,
         evalInitialValue: 0,
         feePerAttempt: dollars(0),
         maxActionMultiple: 1,
@@ -95,7 +95,7 @@ function sessionOpenAfterLosingDay(
 }
 
 describe.each(SELECT_VARIANTS)(
-    'funded DP for Tradeify %s keeps the cumulative contract tier after a losing day (R1-54 DP half, WP17 step 10; WP58d: firstTradeRiskFor pins the cushion tail off at its 2 drawdown fine top, because the default 30 drawdown tail took the post-payout test from 11.8 s to 73 s and these tests read contract tiers, not the grid)',
+    'funded DP for Tradeify %s keeps the cumulative contract tier after a losing day (R1-54 DP half, WP17 step 10; WP58d: firstTradeRiskFor pins the cushion tail off at its 2 drawdown fine top, because the default 30 drawdown tail took the post-payout test from 11.8 s to 73 s and these tests read contract tiers, not the grid; PT-T1b: firstTradeRiskFor solves at cushion step 0.5 drawdown instead of 0.1, under 1 s where the 0.1 solves took 10 to 47 s, and the sizes read back are the same)',
     (variant) => {
         const plan = selectPlan(variant);
 
@@ -114,7 +114,6 @@ describe.each(SELECT_VARIANTS)(
                     riskAt(sessionOpenAfterLosingDay(plan, 1200, 2000)),
                 ).toBe(contractRisk(symbol, contracts));
             },
-            120_000,
         );
 
         it('stays on the 2-mini bottom tier from the same open when the peak close never reached 1,500 profit', () => {
@@ -122,11 +121,11 @@ describe.each(SELECT_VARIANTS)(
             expect(riskAt(sessionOpenAfterLosingDay(plan, 1200, 1400))).toBe(
                 contractRisk(InstrumentSymbol.NQ, 2),
             );
-        }, 120_000);
+        });
     },
 );
 
-describe('funded DP for Tradeify Select Flex keeps the cumulative contract tier after a payout (help article 12853966; WP58d: the cushion tail is pinned off at the 2 drawdown fine top, 11.8 s instead of 73 s with the default 30 drawdown tail, since this reads a contract tier, not the grid)', () => {
+describe('funded DP for Tradeify Select Flex keeps the cumulative contract tier after a payout (help article 12853966; WP58d: the cushion tail is pinned off at the 2 drawdown fine top, 11.8 s instead of 73 s with the default 30 drawdown tail, since this reads a contract tier, not the grid; PT-T1b: firstTradeRiskFor solves at cushion step 0.5 drawdown instead of 0.1, under 1 s where the 0.1 solves took 10 to 47 s, and the sizes read back are the same 100 dollar tiers)', () => {
     const plan = selectPlan(TradeifyVariant.SelectFlex);
 
     it('sizes NQ at 4 contracts in the first post-payout session after a 2,000 peak close and a payout down to 1,000 profit', () => {
@@ -134,5 +133,5 @@ describe('funded DP for Tradeify Select Flex keeps the cumulative contract tier 
         const state = selectFlexSessionOpenAfterPayout(plan);
         expect(state.thresholdLocked).toBe(true);
         expect(riskAt(state, 1)).toBe(contractRisk(InstrumentSymbol.NQ, 4));
-    }, 120_000);
+    });
 });

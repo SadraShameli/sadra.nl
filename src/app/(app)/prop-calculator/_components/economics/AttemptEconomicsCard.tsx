@@ -1,4 +1,5 @@
 import { Card, CardContent } from '~/components/ui/Card';
+import InfoPopover from '~/components/ui/InfoPopover';
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type AttemptEconomicsCardModel } from './attemptEconomicsModel';
@@ -27,8 +28,13 @@ export default function AttemptEconomicsCard({
                                     className="col-span-2 flex items-center justify-between gap-3"
                                     key={row.label}
                                 >
-                                    <dt className="text-muted-foreground">
+                                    <dt className="flex items-center gap-1 text-muted-foreground">
                                         {row.label}
+                                        {row.infoText && (
+                                            <InfoPopover title={row.label}>
+                                                {row.infoText}
+                                            </InfoPopover>
+                                        )}
                                     </dt>
                                     <dd className="text-foreground">
                                         {row.valueText}

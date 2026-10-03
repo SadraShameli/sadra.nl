@@ -13,6 +13,8 @@ import {
     InstrumentSymbol,
 } from '~/lib/prop-calculator';
 
+import { FakeWorker } from './toolsWorkerFixtures';
+
 vi.mock('next/navigation', () => ({
     usePathname: () => '/',
     useRouter: () => ({ replace: vi.fn() }),
@@ -132,6 +134,7 @@ describe('a shared strategy lab link reaches the rendered lab page (PT-53f)', ()
     beforeEach(() => {
         vi.useFakeTimers();
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.stubGlobal('Worker', FakeWorker);
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);

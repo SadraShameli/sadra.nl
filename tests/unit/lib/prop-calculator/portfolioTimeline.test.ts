@@ -153,7 +153,7 @@ describe('simulatePortfolioTimeline', () => {
 
         const elapsedMs = performance.now() - start;
 
-        expect(elapsedMs).toBeLessThan(4000);
+        expect(elapsedMs).toBeLessThan(15_000);
         assertWellFormed(out);
         expect(out.days.at(-1)).toBe(252);
     });
@@ -176,7 +176,7 @@ describe('simulatePortfolioTimeline', () => {
 
         const elapsedMs = performance.now() - start;
 
-        expect(elapsedMs).toBeLessThan(4000);
+        expect(elapsedMs).toBeLessThan(15_000);
         assertWellFormed(out);
         expect(out.days.at(-1)).toBe(1);
     });

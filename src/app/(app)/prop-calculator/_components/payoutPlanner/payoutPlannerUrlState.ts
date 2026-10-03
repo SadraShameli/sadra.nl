@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import {
     ALL_FIRMS,
+    CENTS_PER_DOLLAR,
     dollars,
     type Dollars,
     floorToWholeCents,
@@ -10,7 +11,11 @@ import {
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
-import { SizingStage } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    type RulebookParameters,
+    SizingStage,
+} from '~/lib/prop-calculator/advisor';
 import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';
 
 export interface PayoutPlannerUrlState {
@@ -24,8 +29,6 @@ export interface PayoutPlannerUrlState {
     readonly requestSize: Dollars;
     readonly stage: SizingStage.Funded;
 }
-
-const DEFAULT_REQUEST_SIZE = dollars(500);
 
 const finiteNumberSchema = z.string().trim().min(1).pipe(z.coerce.number());
 
@@ -50,8 +53,9 @@ const stageSchema = z.literal(SizingStage.Funded);
 export function decodePayoutPlannerUrlState(
     parameters: URLSearchParams,
     firms: readonly TradingFirm[] = ALL_FIRMS,
+    rulebook: RulebookParameters = DEFAULT_RULEBOOK,
 ): PayoutPlannerUrlState {
-    const fallback = defaultPayoutPlannerUrlState();
+    const fallback = defaultPayoutPlannerUrlState(rulebook);
     const plan =
         planOf(parameters.get(PayoutPlannerUrlParameter.Plan), firms) ??
         fallback.plan;
@@ -87,11 +91,7 @@ export function decodePayoutPlannerUrlState(
             parameters.get(PayoutPlannerUrlParameter.QualifyingDays),
             fallback.qualifyingDaysSinceLastPayout,
         ),
-        requestSize: parsed(
-            positiveDollarsSchema,
-            parameters.get(PayoutPlannerUrlParameter.RequestSize),
-            fallback.requestSize,
-        ),
+        requestSize: urlRequestOf(parameters) ?? fallback.requestSize,
         stage: parsed(
             stageSchema,
             parameters.get(PayoutPlannerUrlParameter.Stage),
@@ -100,7 +100,9 @@ export function decodePayoutPlannerUrlState(
     };
 }
 
-export function defaultPayoutPlannerUrlState(): PayoutPlannerUrlState {
+export function defaultPayoutPlannerUrlState(
+    rulebook: RulebookParameters = DEFAULT_RULEBOOK,
+): PayoutPlannerUrlState {
     const { plan } = defaultCalculatorState();
     return {
         balance: dollars(plan.accountSize),
@@ -110,7 +112,7 @@ export function defaultPayoutPlannerUrlState(): PayoutPlannerUrlState {
         peak: null,
         plan,
         qualifyingDaysSinceLastPayout: 0,
-        requestSize: DEFAULT_REQUEST_SIZE,
+        requestSize: payoutPlannerRulebookRequest(rulebook),
         stage: SizingStage.Funded,
     };
 }
@@ -157,6 +159,12 @@ export function encodePayoutPlannerUrlState(
     return parameters.toString();
 }
 
+export function hasPayoutPlannerUrlRequest(
+    parameters: URLSearchParams,
+): boolean {
+    return urlRequestOf(parameters) !== null;
+}
+
 export function parsePayoutPlannerBalance(raw: string): Dollars | null {
     return parsed(positiveDollarsSchema, raw, null);
 }
@@ -171,6 +179,12 @@ export function parsePayoutPlannerDate(raw: string): null | string {
 
 export function parsePayoutPlannerOptionalDollars(raw: string): Dollars | null {
     return parsed(dollarsSchema, raw, null);
+}
+
+export function payoutPlannerRulebookRequest(
+    rulebook: RulebookParameters,
+): Dollars {
+    return dollars(rulebook.payout.requestCents / CENTS_PER_DOLLAR);
 }
 
 function parsed<T, F>(
@@ -192,4 +206,12 @@ function planOf(
         if (plan !== null) return plan;
     }
     return null;
+}
+
+function urlRequestOf(parameters: URLSearchParams): Dollars | null {
+    return parsed(
+        positiveDollarsSchema,
+        parameters.get(PayoutPlannerUrlParameter.RequestSize),
+        null,
+    );
 }

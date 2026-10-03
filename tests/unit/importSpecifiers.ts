@@ -68,16 +68,16 @@ export function resolveLocalSpecifier(
     const aliased = aliasPathOf(specifier, sourceRoot);
     if (aliased !== null) {
         return (
-            LOCAL_CANDIDATES.map((suffix) => `${aliased}${suffix}`).find(
-                (option) => existsSync(option),
-            ) ?? null
+            LOCAL_CANDIDATES.map((suffix) =>
+                path.normalize(`${aliased}${suffix}`),
+            ).find((option) => existsSync(option)) ?? null
         );
     }
     if (!specifier.startsWith('.')) return null;
     const base = path.resolve(path.dirname(fromFile), specifier);
     return (
-        LOCAL_CANDIDATES.map((suffix) => `${base}${suffix}`).find((option) =>
-            existsSync(option),
-        ) ?? null
+        LOCAL_CANDIDATES.map((suffix) =>
+            path.normalize(`${base}${suffix}`),
+        ).find((option) => existsSync(option)) ?? null
     );
 }

@@ -40,7 +40,7 @@ export function InputsSummary({
                         </div>
                     ))}
                 </dl>
-                <EditInputsDialog />
+                <EditInputsDialog evalLadderScope={evalLadderScope} />
             </div>
             <AppliedEvalLadderNotice
                 onCleared={() => summaryReference.current?.focus()}

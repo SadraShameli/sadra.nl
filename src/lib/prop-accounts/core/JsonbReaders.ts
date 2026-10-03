@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import { type PlanOptIns } from '~/lib/prop-calculator';
 import {
     type RulebookParameters,
@@ -12,8 +14,21 @@ import {
 import { type PersonalRules, personalRulesSchema } from './PersonalRules';
 import { storedPlanOptInsSchema } from './PlanKey';
 
+const storedAccountTagsSchema = z
+    .array(z.string())
+    .nullish()
+    .transform((stored) => stored ?? []);
+
 export function readAccountEventDetail(raw: unknown): AccountEventDetail {
     return accountEventDetailSchema.parse(raw);
+}
+
+export function readAccountTags(raw: unknown): string[] {
+    return storedAccountTagsSchema.parse(raw);
+}
+
+export function readAccountTagsOrNull(raw: unknown): null | string[] {
+    return storedAccountTagsSchema.safeParse(raw).data ?? null;
 }
 
 export function readPersonalRules(raw: unknown): PersonalRules {

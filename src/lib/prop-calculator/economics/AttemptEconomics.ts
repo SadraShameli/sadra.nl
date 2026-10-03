@@ -51,8 +51,10 @@ export interface FundedValueInputs {
 
 export interface FundedValueToAttemptCost {
     label: string;
+    netText: string;
     netToOne: number;
     ratio: number;
+    ratioText: string;
 }
 
 export interface RunAttemptEconomics extends Omit<
@@ -65,6 +67,8 @@ export interface RunAttemptEconomics extends Omit<
     copyAccounts: number;
     expectedNetPerAttempt: EconomicsEstimate<Dollars>;
     fundedHorizonDays: number;
+    fundedValueWithLiveTransfer: Dollars;
+    liveTransferCashPerAttempt: Dollars;
     passProbabilityStandardError: number;
 }
 
@@ -73,6 +77,8 @@ export type RunAttemptOutputs = Pick<
     | 'attemptPassProbability'
     | 'copyAccounts'
     | 'costPerAttempt'
+    | 'expectedAttempts'
+    | 'expectedLiveTransferCash'
     | 'expectedNetPerAttempt'
     | 'expectedPayoutPerFundedAccount'
 > & {
@@ -119,6 +125,10 @@ export function attemptEconomicsOfRun(
     ) {
         return missingQuantity(EconomicsReason.InvalidInput);
     }
+    const liveTransferCashPerAttempt = liveTransferCashPerAttemptOf(outputs);
+    if (liveTransferCashPerAttempt === null) {
+        return missingQuantity(EconomicsReason.InvalidInput);
+    }
     const decomposition = attemptEconomics({
         attemptCost: dollars(outputs.costPerAttempt),
         fundedValue: dollars(
@@ -127,17 +137,42 @@ export function attemptEconomicsOfRun(
         passProbability: fraction(outputs.attemptPassProbability),
     });
     if (decomposition.value === null) return decomposition;
+    const fundedValueWithLiveTransfer = fundedValueWithLiveTransferOf(
+        decomposition.value,
+        liveTransferCashPerAttempt,
+    );
+    if (fundedValueWithLiveTransfer === null) {
+        return missingQuantity(EconomicsReason.InvalidInput);
+    }
+    const breakevenPassRate = breakevenPassRateOf(
+        decomposition.value.attemptCost,
+        fundedValueWithLiveTransfer,
+    );
     return quantityOf({
         ...decomposition.value,
         accountBasis: AccountBasis.CopyGroup,
         attemptCostStandardError: estimates.costPerAttempt.standardError,
         basis: NetBasis.CreditFree,
+        breakevenPassRate,
         copyAccounts,
         expectedNetPerAttempt: {
             standardError: estimates.expectedNetPerAttempt.standardError,
             value: dollars(outputs.expectedNetPerAttempt),
         },
         fundedHorizonDays,
+        fundedValueToAttemptCost: fundedValueToAttemptCostOf(
+            decomposition.value.attemptCost,
+            fundedValueWithLiveTransfer,
+        ),
+        fundedValueWithLiveTransfer,
+        liveTransferCashPerAttempt,
+        passMargin:
+            breakevenPassRate.value === null
+                ? breakevenPassRate
+                : quantityOf(
+                      decomposition.value.passProbability -
+                          breakevenPassRate.value,
+                  ),
         passProbabilityStandardError:
             estimates.attemptPassProbability.standardError,
     });
@@ -174,7 +209,7 @@ export function fundedValueFrom(inputs: FundedValueInputs): Quantity<Dollars> {
 }
 
 export function fundedValueToAttemptCostLabel(netToOne: number): string {
-    return `funded value / attempt cost; net ${netToOne.toLocaleString('en-US', { maximumFractionDigits: 2 })}:1`;
+    return `funded value / attempt cost; net ${ratioToOneText(netToOne)}`;
 }
 
 function breakevenPassRateOf(
@@ -201,7 +236,37 @@ function fundedValueToAttemptCostOf(
     const netToOne = ratio - 1;
     return quantityOf({
         label: fundedValueToAttemptCostLabel(netToOne),
+        netText: ratioToOneText(netToOne),
         netToOne,
         ratio,
+        ratioText: ratioToOneText(ratio),
     });
+}
+
+function fundedValueWithLiveTransferOf(
+    decomposition: AttemptEconomics,
+    liveTransferCashPerAttempt: Dollars,
+): Dollars | null {
+    if (liveTransferCashPerAttempt === 0) return decomposition.fundedValue;
+    return decomposition.passProbability > 0
+        ? dollars(
+              decomposition.fundedValue +
+                  liveTransferCashPerAttempt / decomposition.passProbability,
+          )
+        : null;
+}
+
+function liveTransferCashPerAttemptOf(
+    outputs: RunAttemptOutputs,
+): Dollars | null {
+    const { expectedAttempts, expectedLiveTransferCash } = outputs;
+    if (!Number.isFinite(expectedLiveTransferCash)) return null;
+    if (expectedLiveTransferCash === 0) return dollars(0);
+    return Number.isFinite(expectedAttempts) && expectedAttempts > 0
+        ? dollars(expectedLiveTransferCash / expectedAttempts)
+        : null;
+}
+
+function ratioToOneText(ratio: number): string {
+    return `${ratio.toLocaleString('en-US', { maximumFractionDigits: 2 })}:1`;
 }

@@ -1,4 +1,5 @@
 import { describeSimulationFailure } from '~/app/(app)/prop-calculator/_components/simulationFailure';
+import { formatCurrency } from '~/lib/format';
 import {
     DEFAULT_RUNG_SIZING,
     dollars,
@@ -7,6 +8,7 @@ import {
     type FirmId,
     fraction,
     type Fraction0to1,
+    type Plan,
     type PlanOptIns,
     resolvePositionSizing,
     TradingPhase,
@@ -15,6 +17,7 @@ import {
 import {
     type DocumentedPolicySpec,
     toSimInputs,
+    verifiedCumulativeTriggerOf,
 } from '~/lib/prop-calculator/advisor';
 import {
     type CopyGroupSimulationMember,
@@ -96,6 +99,9 @@ interface SharedBasis {
     readonly winrate: Fraction0to1;
 }
 
+export const COPY_GROUP_TRIGGER_NOT_PRICED_TEXT =
+    "This group simulation does not price the firm's confirmed cumulative payout trigger: every account keeps collecting payouts past it, so the payout figures are optimistic once the trigger would have sent an account live.";
+
 const SHARED_BASIS_LABEL: Readonly<Record<keyof SharedBasis, string>> = {
     commission: 'commission per round trip',
     fundedHorizonDays: 'funded horizon',
@@ -108,6 +114,27 @@ export function copyGroupRequestCacheKey(
     request: CopyGroupWorkerRequest,
 ): string {
     return stableJson(request);
+}
+
+export function copyGroupUnpricedTriggerNoteOf(
+    request: CopyGroupWorkerRequest,
+): null | string {
+    const triggers = new Set<string>();
+    for (const member of request.members) {
+        const plan = findMemberPlan(member);
+        if (plan === null) continue;
+        const trigger = verifiedCumulativeTriggerOf(
+            findFirm(member.firmId)?.accountPolicy,
+            plan,
+        );
+        if (trigger === null) continue;
+        triggers.add(
+            `${formatCurrency(trigger.amount, 0)} (source: ${trigger.source.url}, fetched ${trigger.source.fetchedOn})`,
+        );
+    }
+    return triggers.size === 0
+        ? null
+        : `${COPY_GROUP_TRIGGER_NOT_PRICED_TEXT} Confirmed trigger: ${triggers.values().toArray().join('; ')}.`;
 }
 
 export function simulateGroupOutcomeOf(
@@ -174,16 +201,17 @@ function distinctDefined<Value>(values: readonly (undefined | Value)[]) {
     ];
 }
 
-function memberBuildOf(member: CopyGroupWorkerMember): MemberBuildResult {
+function findMemberPlan(member: CopyGroupWorkerMember): null | Plan {
     const resolved = findFirm(member.firmId)?.findPlanBySerial(
         member.planSerial,
     );
-    if (resolved === undefined || resolved === null) {
-        throw new Error(
-            `Plan "${member.planSerial}" not found for firm "${member.firmId}".`,
-        );
-    }
-    const plan = withPlanOptIns(resolved, member.optIns);
+    return resolved === undefined || resolved === null
+        ? null
+        : withPlanOptIns(resolved, member.optIns);
+}
+
+function memberBuildOf(member: CopyGroupWorkerMember): MemberBuildResult {
+    const plan = resolvedPlanOf(member);
     try {
         const inputs = toSimInputs(plan, member.spec);
         const dayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
@@ -236,6 +264,16 @@ function outputsOf(
     const copy = { ...result };
     Reflect.deleteProperty(copy, 'kind');
     return copy;
+}
+
+function resolvedPlanOf(member: CopyGroupWorkerMember): Plan {
+    const resolved = findMemberPlan(member);
+    if (resolved === null) {
+        throw new Error(
+            `Plan "${member.planSerial}" not found for firm "${member.firmId}".`,
+        );
+    }
+    return resolved;
 }
 
 function sharedBasisOf(inputs: readonly SimInputs[]): SharedBasis {

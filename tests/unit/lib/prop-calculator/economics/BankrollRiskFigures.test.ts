@@ -4,10 +4,14 @@ import { dollars, fraction } from '~/lib/prop-calculator/core';
 import {
     attemptsAffordable,
     bankrollAttempts,
+    bankrollAttemptsAt,
+    bankrollCohortRisk,
     bankrollNoPayout,
+    bankrollNoPayoutAt,
     bankrollRisk,
     bankrollRiskFigures,
     cohortOutcome,
+    EconomicsReason,
     LOSS_RISK_DRAWS,
     noPayoutProbability,
 } from '~/lib/prop-calculator/economics';
@@ -111,5 +115,98 @@ describe('bankrollRiskFigures', () => {
             lossProbability: null,
             noPayoutProbability: null,
         });
+    });
+});
+
+describe('bankrollAttemptsAt (PT-63d)', () => {
+    it('is the whole attempts a bankroll affords at a given cost, as bankrollAttempts prices them from a run', () => {
+        expect(bankrollAttemptsAt(dollars(1000), dollars(150))).toBe(6);
+        expect(bankrollAttemptsAt(dollars(1000), dollars(150))).toBe(
+            bankrollAttempts(RUN, dollars(1000)),
+        );
+    });
+
+    it('is zero below one attempt and null for a free attempt or a negative bankroll', () => {
+        expect(bankrollAttemptsAt(dollars(149.99), dollars(150))).toBe(0);
+        expect(bankrollAttemptsAt(dollars(1000), dollars(0))).toBeNull();
+        expect(bankrollAttemptsAt(dollars(-1), dollars(150))).toBeNull();
+    });
+});
+
+describe('bankrollNoPayoutAt (PT-63d)', () => {
+    it('is (1 - P(attempt pays)) to the attempts, for a rate that does not come from a run', () => {
+        expect(bankrollNoPayoutAt(fraction(0.3), 6)).toBe(
+            noPayoutProbability(fraction(0.3), 6).value,
+        );
+        expect(bankrollNoPayoutAt(fraction(0.3), 6)).toBe(
+            bankrollNoPayout(RUN, 6),
+        );
+    });
+
+    it('is null for an invalid attempt count', () => {
+        expect(bankrollNoPayoutAt(fraction(0.3), -1)).toBeNull();
+    });
+});
+
+describe('bankrollCohortRisk (PT-63d)', () => {
+    it('prices the batch loss and the mean net of exactly the attempts given, on the draws and seed given', () => {
+        const outcome = cohortOutcome(RUN.netValues, 6, LOSS_RISK_DRAWS, 11);
+        const risk = bankrollCohortRisk(RUN.netValues, 6, LOSS_RISK_DRAWS, 11);
+        expect(risk.value).toStrictEqual({
+            attempts: 6,
+            lossProbability: outcome.value?.lossProbability,
+            meanNet: outcome.value?.meanNet,
+        });
+        expect(risk.reason).toBeNull();
+    });
+
+    it('honours a smaller draw count and a different seed', () => {
+        const outcome = cohortOutcome(RUN.netValues, 4, 500, 3).value;
+        const risk = bankrollCohortRisk(RUN.netValues, 4, 500, 3).value;
+        expect(risk?.lossProbability).toStrictEqual(outcome?.lossProbability);
+        expect(risk?.meanNet).toBe(outcome?.meanNet);
+    });
+
+    it('is what bankrollRisk reports for the attempts the bankroll affords', () => {
+        const risk = bankrollRisk(RUN, dollars(1000), 11);
+        expect(
+            bankrollCohortRisk(RUN.netValues, 6, LOSS_RISK_DRAWS, 11).value
+                ?.lossProbability,
+        ).toStrictEqual(risk.lossProbability);
+    });
+
+    it.each([0, -3, 0.5, NaN, Infinity])(
+        'has nothing for %s attempts, because a batch needs at least one whole attempt, and says the input is invalid',
+        (attempts) => {
+            const risk = bankrollCohortRisk(
+                RUN.netValues,
+                attempts,
+                LOSS_RISK_DRAWS,
+                11,
+            );
+            expect(risk.value).toBeNull();
+            expect(risk.reason).toBe(EconomicsReason.InvalidInput);
+        },
+    );
+
+    it('has nothing without net values or with a non-finite one', () => {
+        expect(
+            bankrollCohortRisk([], 6, LOSS_RISK_DRAWS, 11).value,
+        ).toBeNull();
+        expect(
+            bankrollCohortRisk([1, NaN], 6, LOSS_RISK_DRAWS, 11).reason,
+        ).toBe(EconomicsReason.InvalidInput);
+    });
+
+    it('reads a frozen net value list and never copies or changes it', () => {
+        const frozen = Object.freeze([...RUN.netValues]);
+        const before = [...frozen];
+        const risk = bankrollCohortRisk(frozen, 6, LOSS_RISK_DRAWS, 11);
+        expect(risk.value).not.toBeNull();
+        expect([...frozen]).toStrictEqual(before);
+        expect(
+            bankrollRisk({ ...RUN, netValues: frozen }, dollars(1000), 11)
+                .lossProbability,
+        ).toStrictEqual(risk.value?.lossProbability);
     });
 });

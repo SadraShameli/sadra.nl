@@ -10,9 +10,11 @@ import {
     usdCents,
     usdCentsFromDollars,
 } from '~/lib/prop-accounts/core';
+import { dollars } from '~/lib/prop-calculator';
 import {
     createSizingAdvisor,
     DEFAULT_RULEBOOK,
+    NO_PERSONAL_CAPS,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 
@@ -22,7 +24,12 @@ import {
     mffProPlan,
     reconstructedEntry,
 } from '../reconstructionFixtures';
-import { accountFor, alertsOf, WEDNESDAY } from './alertFixtures';
+import {
+    accountFor,
+    alertsOf,
+    personalPoliciesFor,
+    WEDNESDAY,
+} from './alertFixtures';
 
 const rule = new PayoutReadyOpenRiskRule();
 
@@ -357,5 +364,78 @@ describe('PayoutReadyOpenRiskRule', () => {
                 rulebook: rulebookWithThreshold(1),
             }),
         ).toEqual([]);
+    });
+
+    describe('an account with personal payout rules', () => {
+        it('is silent when the personal retained cushion makes the readiness board blocked', () => {
+            const { account, entry } = setup();
+            const rung = documentedRungCents();
+            const decisions = [decisionFor(account.id, rung + 10_000, null)];
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toHaveLength(1);
+            const personalPolicies = personalPoliciesFor(account, {
+                retainedCushionRequest: dollars(30_000),
+            });
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    personalPolicies,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toEqual([]);
+        });
+
+        it('judges the recorded risk against the rung under the personal risk cap', () => {
+            const { account, entry } = setup();
+            const rung = documentedRungCents();
+            const decisions = [decisionFor(account.id, rung, rung)];
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toEqual([]);
+            const personalPolicies = personalPoliciesFor(account, {
+                personalCaps: {
+                    ...NO_PERSONAL_CAPS,
+                    maxRiskPerTrade: dollars(10),
+                },
+            });
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    personalPolicies,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toHaveLength(1);
+        });
+
+        it('still fires when the personal override and cushion leave the board eligible', () => {
+            const { account, entry } = setup();
+            const rung = documentedRungCents();
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions: [decisionFor(account.id, rung + 10_000, null)],
+                personalPolicies: personalPoliciesFor(account, {
+                    payoutRequestOverride: dollars(2000),
+                    retainedCushionRequest: dollars(3000),
+                }),
+                rulebook: rulebookWithThreshold(5000),
+            });
+            expect(alerts).toHaveLength(1);
+        });
     });
 });

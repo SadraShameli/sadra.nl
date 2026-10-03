@@ -17,6 +17,7 @@ export interface NetCashBucket {
 }
 
 export interface TiltVarianceInput {
+    readonly firmKeyByAccount?: ReadonlyMap<string, FirmKey>;
     readonly netCashByBucket: readonly NetCashBucket[];
     readonly violations: readonly TiltVarianceViolation[];
 }
@@ -32,6 +33,7 @@ export interface TiltVarianceRow {
 
 export interface TiltVarianceSplit {
     readonly disclosure: string;
+    readonly droppedViolations: number;
     readonly rows: readonly TiltVarianceRow[];
 }
 
@@ -43,32 +45,72 @@ export interface TiltVarianceViolation {
     readonly source: ViolationSource;
 }
 
+interface ViolationBucket {
+    readonly accountId: string;
+    readonly firmKey: FirmKey;
+    readonly month: string;
+}
+
 export function tiltVarianceSplitOf(
     input: TiltVarianceInput,
 ): TiltVarianceSplit {
+    const firmByAccount = new Map(input.firmKeyByAccount);
+    for (const bucket of input.netCashByBucket) {
+        if (!firmByAccount.has(bucket.accountId)) {
+            firmByAccount.set(bucket.accountId, bucket.firmKey);
+        }
+    }
+    const cashByBucket = new Map<string, NetCashBucket>();
+    for (const bucket of input.netCashByBucket) {
+        cashByBucket.set(bucketKey(bucket.accountId, bucket.month), bucket);
+    }
     const costByBucket = new Map<string, number>();
+    const violationOnlyBuckets = new Map<string, ViolationBucket>();
+    let droppedViolations = 0;
     for (const violation of input.violations) {
+        const month = isoMonthOf(violation.occurredOn);
+        const key = bucketKey(violation.accountId, month);
+        const firmKey = firmByAccount.get(violation.accountId);
+        if (firmKey === undefined) {
+            droppedViolations += 1;
+            continue;
+        }
+        if (!cashByBucket.has(key) && !violationOnlyBuckets.has(key)) {
+            violationOnlyBuckets.set(key, {
+                accountId: violation.accountId,
+                firmKey,
+                month,
+            });
+        }
         if (violation.costCents === null) continue;
-        const key = `${violation.accountId}|${isoMonthOf(violation.occurredOn)}`;
         costByBucket.set(
             key,
             (costByBucket.get(key) ?? 0) + violation.costCents,
         );
     }
+    const buckets: readonly ViolationBucket[] = [
+        ...cashByBucket.values(),
+        ...violationOnlyBuckets.values(),
+    ];
     return {
         disclosure: NOT_PATH_ADJUSTED_DISCLOSURE,
-        rows: input.netCashByBucket.map((bucket) => {
-            const violationCostCents =
-                costByBucket.get(`${bucket.accountId}|${bucket.month}`) ?? 0;
+        droppedViolations,
+        rows: buckets.map((bucket) => {
+            const key = bucketKey(bucket.accountId, bucket.month);
+            const netCashCents = cashByBucket.get(key)?.netCashCents ?? 0;
+            const violationCostCents = costByBucket.get(key) ?? 0;
             return {
                 accountId: bucket.accountId,
                 firmKey: bucket.firmKey,
                 month: bucket.month,
-                netCashCents: bucket.netCashCents,
-                netWithoutViolationsCents:
-                    bucket.netCashCents + violationCostCents,
+                netCashCents,
+                netWithoutViolationsCents: netCashCents + violationCostCents,
                 violationCostCents,
             };
         }),
     };
+}
+
+function bucketKey(accountId: string, month: string): string {
+    return `${accountId}|${month}`;
 }

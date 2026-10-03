@@ -1,18 +1,21 @@
 import { formatConjunctionList, formatCurrency } from '~/lib/format';
 import {
+    documentedRetainedCushionResolution,
     firmMinimumNotice,
-    fundedRetainedCushionResolution,
+    NO_PENDING_PAYOUT_COUNTS,
+    RETAINED_CUSHION_BASIS_TEXT,
 } from '~/lib/prop-calculator/advisor';
-import { RetainedCushionBasis } from '~/lib/prop-calculator/advisor/PayoutRequestDecision';
 import {
     documentedFundedRisk,
     documentedFundedTakeProfit,
     documentedFundedTrades,
     type DocumentedPolicySpec,
+    pricedCumulativeTriggerAssumptionOf,
     RebuyLagBasis,
     resolveDocumentedPayoutRequestSize,
     resolveDocumentedPlan,
     resolveDocumentedRetainedCushion,
+    toSimInputs,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
     type ReconstructedAccount,
@@ -23,7 +26,6 @@ import {
     type FundedCycleTracker,
     minimumPayoutRequest,
     newFundedCycleTracker,
-    newFundedCycleTrackerAfterReset,
     ONE_CENT,
     PayoutDayGateBasis,
     PayoutEvaluationKind,
@@ -33,9 +35,12 @@ import {
     sessionDaysForCalendarDays,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
+import { liveTransferValueAfterPayout } from '~/lib/prop-calculator/simulator';
+import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
 import {
     accountAfterClosedSession,
+    copiedFundedTracker,
     documentedPayoutEvaluation,
     documentedRetainedCushion,
     type FundedMilestone,
@@ -61,14 +66,7 @@ const ONE_DOLLAR = 1;
 
 const PERCENT_DIGITS = 2;
 
-const RETAINED_CUSHION_BASIS_TEXT: Readonly<
-    Record<RetainedCushionBasis, string>
-> = {
-    [RetainedCushionBasis.HardRule2Default]: "Hard Rule 2's minimum",
-    [RetainedCushionBasis.LiveOneDrawdown]: 'one live drawdown',
-    [RetainedCushionBasis.PersonalOverride]: 'your retained cushion entry',
-    [RetainedCushionBasis.RulebookSize]: "the rulebook's retained cushion size",
-};
+export const REQUEST_NOW_LIVE_TRIAL_CAP = 500;
 
 export enum ValueChainStepKind {
     EvalStart = 'eval-start',
@@ -139,6 +137,7 @@ export function evalStartAccount(plan: Plan): ReconstructedFundedOrEvalAccount {
         cushion: state.balance - state.threshold,
         fundedTracker: null,
         kind: TradingPhase.Eval,
+        ...NO_PENDING_PAYOUT_COUNTS,
         plan,
         resolvedDailyLossLimit: null,
         state,
@@ -231,6 +230,7 @@ export function freshFundedAccount(
         cushion: state.balance - state.threshold,
         fundedTracker: newFundedCycleTracker(state),
         kind: TradingPhase.Funded,
+        ...NO_PENDING_PAYOUT_COUNTS,
         plan,
         resolvedDailyLossLimit: null,
         state,
@@ -238,32 +238,13 @@ export function freshFundedAccount(
 }
 
 export function fundedTrackerAfterMilestonePayout(
-    account: ReconstructedFundedOrEvalAccount,
     milestone: FundedMilestone,
 ): FundedCycleTracker {
-    const priorTracker = account.fundedTracker;
-    if (priorTracker === null) {
-        throw new Error(
-            'value/ValueChain: a funded account needs its funded cycle tracker',
-        );
-    }
-    const consistency = account.plan.fundedConsistencyRule(
-        priorTracker.payoutsIssued,
+    return copiedFundedTracker(
+        milestone.plan,
+        milestone.state,
+        milestone.tracker,
     );
-    const tracker =
-        priorTracker.fundedResetsUsed === 0
-            ? newFundedCycleTracker(milestone.state)
-            : newFundedCycleTrackerAfterReset(
-                  milestone.state,
-                  priorTracker.fundedResetsUsed,
-              );
-    tracker.payoutsIssued = priorTracker.payoutsIssued + 1;
-    tracker.cumulativePayout =
-        priorTracker.cumulativePayout + milestone.traderReceives;
-    tracker.cycleBestDayProfit = consistency?.isPerpetual()
-        ? priorTracker.cycleBestDayProfit
-        : 0;
-    return tracker;
 }
 
 export function postFirstPayoutAccount(
@@ -278,10 +259,7 @@ export function postFirstPayoutAccount(
     }
     return {
         ...firstPayoutEligible,
-        fundedTracker: fundedTrackerAfterMilestonePayout(
-            firstPayoutEligible,
-            milestone,
-        ),
+        fundedTracker: fundedTrackerAfterMilestonePayout(milestone),
         state: milestone.state,
     };
 }
@@ -296,19 +274,65 @@ export function requestNowValue(
             {
                 ...account,
                 cushion: milestone.state.balance - milestone.state.threshold,
-                fundedTracker: fundedTrackerAfterMilestonePayout(
-                    account,
-                    milestone,
-                ),
+                fundedTracker: fundedTrackerAfterMilestonePayout(milestone),
                 state: milestone.state,
             },
             spec,
         ),
     );
+    const { traderReceives } = milestone;
+    const { liveTransfer } = continuation;
+    const base = toSimInputs(account.plan, spec);
+    const cumulativePayoutTrigger = pricedCumulativeTriggerAssumptionOf(base);
+    const disclosed = (value: ValueResult): ValueResult => ({
+        ...value,
+        ...(cumulativePayoutTrigger !== undefined && {
+            cumulativePayoutTrigger,
+        }),
+    });
+    if (liveTransfer === undefined) {
+        return {
+            continuation,
+            requestNow: disclosed(withCashAdded(continuation, traderReceives)),
+            traderReceives,
+        };
+    }
+    const liveTrials = Math.min(base.trials, REQUEST_NOW_LIVE_TRIAL_CAP);
+    const live = liveTransferValueAfterPayout(
+        base,
+        milestone.state,
+        liveTrials,
+    );
+    const { hazard } = liveTransfer;
     return {
         continuation,
-        requestNow: withCashAdded(continuation, milestone.traderReceives),
-        traderReceives: milestone.traderReceives,
+        requestNow: disclosed({
+            ...continuation,
+            creditFree: mixedWithLiveValue(
+                continuation.creditFree,
+                live,
+                hazard,
+                traderReceives,
+            ),
+            creditInclusive: mixedWithLiveValue(
+                continuation.creditInclusive,
+                live,
+                hazard,
+                traderReceives,
+            ),
+            liveTransfer: {
+                ...liveTransfer,
+                notes: [
+                    ...liveTransfer.notes,
+                    ...requestNowLiveTrialsNotes(liveTrials, base.trials),
+                ],
+                sentLiveShare: sentLiveShareWithOwnDraw(
+                    liveTransfer.sentLiveShare,
+                    hazard,
+                ),
+            },
+        }),
+        traderReceives,
     };
 }
 
@@ -470,6 +494,24 @@ function guarded<T>(compute: () => T): ChainStepFailure | T {
     }
 }
 
+function mixedWithLiveValue(
+    afterPayout: UncertainValue,
+    live: UncertainValue,
+    hazard: number,
+    cash: number,
+): UncertainValue {
+    return {
+        standardError:
+            afterPayout.standardError === null || live.standardError === null
+                ? null
+                : Math.hypot(
+                      (1 - hazard) * afterPayout.standardError,
+                      hazard * live.standardError,
+                  ),
+        value: cash + (1 - hazard) * afterPayout.value + hazard * live.value,
+    };
+}
+
 function payoutBlockerOf(
     account: ReconstructedFundedOrEvalAccount,
     spec: DocumentedPolicySpec,
@@ -526,6 +568,17 @@ function postFirstPayoutAssumption(
     return `Assumes the first payout taken from the first-payout-eligible state: ${formatCurrency(milestone.debited, 2)} leaves the account and you receive ${formatCurrency(milestone.traderReceives, 2)}, balance after ${formatCurrency(milestone.state.balance, 2)}`;
 }
 
+function requestNowLiveTrialsNotes(
+    liveTrials: number,
+    trials: number,
+): readonly string[] {
+    return liveTrials < trials
+        ? [
+              `The requested payout's own transfer chance is priced from ${liveTrials} runs, fewer than the ${trials} behind the rest of this figure, so that part carries a wider error.`,
+          ]
+        : [];
+}
+
 function retainedCushionAssumption(
     plan: Plan,
     spec: DocumentedPolicySpec,
@@ -535,12 +588,7 @@ function retainedCushionAssumption(
         enginePolicy,
         rulebook.payout,
     );
-    const rulebookCushion =
-        rulebook.payout.retainedCushionCents / CENTS_PER_DOLLAR;
-    const basis =
-        requested === rulebookCushion
-            ? fundedRetainedCushionResolution(rulebook).basis
-            : RetainedCushionBasis.PersonalOverride;
+    const { basis } = documentedRetainedCushionResolution(spec);
     const cushion = documentedRetainedCushion(
         resolveDocumentedPlan(plan, enginePolicy),
         spec,
@@ -565,6 +613,15 @@ function retainedCushionShortfallOf(
         ONE_CENT,
     );
     return required - (milestone.state.balance - milestone.state.threshold);
+}
+
+function sentLiveShareWithOwnDraw(
+    shareAfterPayout: null | number,
+    hazard: number,
+): null | number {
+    return shareAfterPayout === null
+        ? null
+        : hazard + (1 - hazard) * shareAfterPayout;
 }
 
 function sessionReasonOf(build: FirstPayoutEligibleBuild): string {

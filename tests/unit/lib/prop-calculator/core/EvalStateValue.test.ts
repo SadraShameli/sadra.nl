@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
     ApexVariant,
@@ -27,6 +27,7 @@ import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { simulate } from '~/lib/prop-calculator/simulator';
 
+import { memoise } from '../../../memoise';
 import { baseBuilderPlan, toyDpConfig, toyPlan } from '../evalStateValueToy';
 
 function apexIntradayPlan(): Plan {
@@ -183,6 +184,93 @@ describe('computeEvalStateValue backward induction, hand-computable toy cases', 
     );
 });
 
+const RAPID_EOD_MAX_EVAL_DAYS = 6;
+const RAPID_EOD_LONG_MAX_EVAL_DAYS = 20;
+const RAPID_EOD_TRIALS = 6000;
+const RAPID_EOD_RR_RATIO = 2;
+const RAPID_EOD_WINRATE = 0.4;
+const RAPID_EOD_TRADES_PER_DAY = 4;
+const RAPID_EOD_STOP_RULE = { kind: DayStopRuleKind.DayGreen } as const;
+
+const rapidEodDp = memoise(() =>
+    computeEvalStateValue({
+        actionStepDollars: 100,
+        cushionStepDollars: 200,
+        maxEvalDays: RAPID_EOD_MAX_EVAL_DAYS,
+        plan: rapidEodPlan(),
+        profitStepDollars: 1000,
+        rrRatio: RAPID_EOD_RR_RATIO,
+        stopRule: RAPID_EOD_STOP_RULE,
+        tradesPerDay: RAPID_EOD_TRADES_PER_DAY,
+        winrate: fraction(RAPID_EOD_WINRATE),
+    }),
+);
+
+function rapidEodSimulation(
+    evalDayPolicy: DayPolicy,
+    maxEvalDays = RAPID_EOD_MAX_EVAL_DAYS,
+) {
+    return simulate({
+        evalDayPolicy,
+        fundedHorizonDays: 1,
+        maxEvalDays,
+        plan: rapidEodPlan(),
+        riskPerTrade: 250,
+        rrRatio: RAPID_EOD_RR_RATIO,
+        seed: 42,
+        tradesPerDay: RAPID_EOD_TRADES_PER_DAY,
+        trials: RAPID_EOD_TRIALS,
+        winrate: RAPID_EOD_WINRATE,
+    });
+}
+
+const rapidEodDpRun = memoise(() =>
+    rapidEodSimulation(rapidEodDp().dayPolicy),
+);
+
+const rapidEodLadderRun = memoise(() =>
+    rapidEodSimulation({
+        ladder: [400, 600, 800, 200],
+        maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
+        stopRule: RAPID_EOD_STOP_RULE,
+    }),
+);
+
+const rapidEodLongDp = memoise(() =>
+    computeEvalStateValue({
+        actionStepDollars: 200,
+        cushionStepDollars: 400,
+        maxEvalDays: RAPID_EOD_LONG_MAX_EVAL_DAYS,
+        plan: rapidEodPlan(),
+        profitStepDollars: 1000,
+        rrRatio: RAPID_EOD_RR_RATIO,
+        stopRule: RAPID_EOD_STOP_RULE,
+        tradesPerDay: RAPID_EOD_TRADES_PER_DAY,
+        winrate: fraction(RAPID_EOD_WINRATE),
+    }),
+);
+
+const rapidEodLongDpRun = memoise(() =>
+    rapidEodSimulation(rapidEodLongDp().dayPolicy, RAPID_EOD_LONG_MAX_EVAL_DAYS),
+);
+
+const rapidEodLongLadderRun = memoise(() =>
+    rapidEodSimulation(
+        {
+            ladder: [400, 600, 800, 200],
+            maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
+            stopRule: RAPID_EOD_STOP_RULE,
+        },
+        RAPID_EOD_LONG_MAX_EVAL_DAYS,
+    ),
+);
+
+function passRateStandardError(rate: number): number {
+    return Math.sqrt((rate * (1 - rate)) / RAPID_EOD_TRIALS);
+}
+
 describe(
     'computeEvalStateValue vs simulate(), real-plan integration ' +
         "(pass-probability level: L1's terminalValueAtPass defaults to 1, " +
@@ -190,51 +278,32 @@ describe(
         'dollar-valued expectedNet, that requires wiring V(pass) to ' +
         "V_funded, which is L2's job per the plan's own sequencing note)",
     () => {
+        beforeAll(() => {
+            rapidEodDp();
+        });
+
         it(
             "a DP-driven run's empirical simulate() pass rate matches the " +
                 "DP's own predicted V(initial state) within Monte Carlo " +
                 'tolerance, for a real registered plan (MFF Rapid EOD 50K, ' +
                 'not a synthetic toy), a short horizon and coarser grid ' +
-                'steps keep this fast; the toy suite above already proves ' +
-                'the backward induction itself is exact at fine resolution, ' +
-                'so this test only has to prove the DP-to-simulate() wiring ' +
-                'is faithful, which holds at any discretisation',
+                'steps keep this fast (6 eval days, $100 action step, $1,000 ' +
+                'profit step, 6,000 trials, down from 10 days, a $600 ' +
+                'profit step and 20,000 trials); the toy suite above already ' +
+                'proves the backward induction itself is exact at fine ' +
+                'resolution, so this test only has to prove the DP-to-' +
+                'simulate() wiring is faithful, which holds at any ' +
+                'discretisation',
             () => {
-                const plan = rapidEodPlan();
-                const maxEvalDays = 10;
-                const rrRatio = 2;
-                const winrate = 0.4;
-                const tradesPerDay = 4;
-                const stopRule = { kind: DayStopRuleKind.DayGreen } as const;
+                const dp = rapidEodDp();
+                const dpOut = rapidEodDpRun();
 
-                const dp = computeEvalStateValue({
-                    actionStepDollars: 100,
-                    cushionStepDollars: 200,
-                    maxEvalDays,
-                    plan,
-                    profitStepDollars: 600,
-                    rrRatio,
-                    stopRule,
-                    tradesPerDay,
-                    winrate: fraction(winrate),
-                });
-
-                const out = simulate({
-                    evalDayPolicy: dp.dayPolicy,
-                    fundedHorizonDays: 1,
-                    maxEvalDays,
-                    plan,
-                    riskPerTrade: 250,
-                    rrRatio,
-                    seed: 42,
-                    tradesPerDay,
-                    trials: 20_000,
-                    winrate,
-                });
-
-                expect(out.evalPassProbability).toBeCloseTo(dp.initialValue, 1);
+                expect(
+                    Math.abs(dpOut.evalPassProbability - dp.initialValue),
+                ).toBeLessThan(
+                    3 * passRateStandardError(dpOut.evalPassProbability),
+                );
             },
-            120_000,
         );
     },
 );
@@ -246,76 +315,65 @@ describe(
         "rate metric only at this L1 stage; L2's expectedNet comparison " +
         'is a separate, later job)',
     () => {
+        beforeAll(() => {
+            rapidEodDp();
+        });
+
         it(
-            'MFF Rapid EOD 50K, at a 30-day eval cap: the DP beats the ' +
+            'MFF Rapid EOD 50K, at a 6-day eval cap: the DP beats the ' +
                 'documented speed-optimal static ladder ([400, 600, 800, 200], ' +
                 "the same ladder scored in ladderSearch.test.ts's golden " +
-                "values) by well over the plan's own 3-percentage-point " +
+                "values) by more than the plan's own 3-percentage-point " +
                 'adopt threshold, at matched seed/trial count, an explicit ' +
-                'adopt verdict, not an assumed one (N-89: the DP policy passes ' +
-                '0.705 of trials, up from 0.662, once no pass-bearing value is ' +
-                'read through an interpolated table, and the DP predicts 0.702)',
+                'adopt verdict, not an assumed one (re-pinned from the 30-day ' +
+                'cap, where the ladder passed 0.429 and the DP 0.705 of ' +
+                '20,000 trials, to the 6-day cap with 6,000 trials, so the ' +
+                'solve takes seconds instead of minutes: the ladder passes ' +
+                '0.361 of trials and the DP 0.403, a 4.2-point gap that is ' +
+                'only 1.2 points over the threshold, so the 20-day test below ' +
+                'checks the advantage where it is large)',
             () => {
-                const plan = rapidEodPlan();
-                const maxEvalDays = 30;
-                const rrRatio = 2;
-                const winrate = 0.4;
-                const tradesPerDay = 4;
-                const stopRule = { kind: DayStopRuleKind.DayGreen } as const;
+                const dp = rapidEodDp();
+                const dpOut = rapidEodDpRun();
+                const ladderOut = rapidEodLadderRun();
                 const ADOPT_THRESHOLD_PP = 0.03;
 
-                const staticLadderPolicy: DayPolicy = {
-                    ladder: [400, 600, 800, 200],
-                    maxLossesPerDay: null,
-                    sizing: PolicySizing.ContractCapped,
-                    stopRule,
-                };
-
-                const dp = computeEvalStateValue({
-                    actionStepDollars: 100,
-                    cushionStepDollars: 200,
-                    maxEvalDays,
-                    plan,
-                    profitStepDollars: 600,
-                    rrRatio,
-                    stopRule,
-                    tradesPerDay,
-                    winrate: fraction(winrate),
-                });
-
-                const simConfig = {
-                    fundedHorizonDays: 1,
-                    maxEvalDays,
-                    plan,
-                    riskPerTrade: 250,
-                    rrRatio,
-                    seed: 42,
-                    tradesPerDay,
-                    trials: 20_000,
-                    winrate,
-                };
-
-                const ladderOut = simulate({
-                    ...simConfig,
-                    evalDayPolicy: staticLadderPolicy,
-                });
-                const dpOut = simulate({
-                    ...simConfig,
-                    evalDayPolicy: dp.dayPolicy,
-                });
-
-                expect(dpOut.evalPassProbability).toBeCloseTo(
-                    dp.initialValue,
-                    2,
+                expect(
+                    Math.abs(dpOut.evalPassProbability - dp.initialValue),
+                ).toBeLessThan(
+                    3 * passRateStandardError(dpOut.evalPassProbability),
                 );
-                expect(ladderOut.evalPassProbability).toBeCloseTo(0.429, 2);
-                expect(dpOut.evalPassProbability).toBeCloseTo(0.705, 2);
+                expect(ladderOut.evalPassProbability).toBeCloseTo(0.361, 2);
+                expect(dpOut.evalPassProbability).toBeCloseTo(0.403, 2);
                 expect(
                     dpOut.evalPassProbability - ladderOut.evalPassProbability,
                 ).toBeGreaterThan(ADOPT_THRESHOLD_PP);
             },
-            200_000,
         );
+    },
+);
+
+describe(
+    'L1 validation harness at a 20-day eval cap, where the DP advantage over ' +
+        'the documented ladder is large (a $200 action step, a $400 cushion ' +
+        'step and a $1,000 profit step, 6,000 trials: the DP-driven pass rate ' +
+        'is about 0.60 against 0.43 for the ladder, 17 points; at a 12-day cap ' +
+        'with a $200 action step and a $1,500 profit step the DP did not beat ' +
+        'the ladder, so this grid is part of the claim, and the DP-to-' +
+        'simulate() agreement is left to the 6-day test above)',
+    () => {
+        beforeAll(() => {
+            rapidEodLongDp();
+        });
+
+        it('MFF Rapid EOD 50K: the DP-driven policy beats the documented ladder by more than 10 percentage points at a 20-day cap', () => {
+            const dpOut = rapidEodLongDpRun();
+            const ladderOut = rapidEodLongLadderRun();
+
+            expect(
+                dpOut.evalPassProbability - ladderOut.evalPassProbability,
+            ).toBeGreaterThan(0.1);
+        });
     },
 );
 
@@ -806,7 +864,7 @@ describe('computeEvalStateValue tracks the peak session close for a peak-based e
         });
         expect(dp.initialValue).toBeCloseTo(0.375, 9);
         expect(out.evalPassProbability).toBeCloseTo(dp.initialValue, 1);
-    }, 60_000);
+    });
 });
 
 describe('computeEvalStateValue error messages use no em dash (WP21b handoff)', () => {

@@ -4,7 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import SavedScenarios from '~/app/(app)/prop-calculator/_components/SavedScenarios';
+import {
+    type EncodeStateOptions,
+    ObjectiveUrlMode,
+} from '~/app/(app)/prop-calculator/_components/urlState';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
+import { OBJECTIVE_URL_PARAMETER } from '~/lib/schemas/url';
 
 interface FakeSession {
     data: null | { user: { id: string } };
@@ -157,6 +163,19 @@ function panelText(): string {
     return document.body.textContent;
 }
 
+async function saveNamed(name: string) {
+    typeName(name);
+    const save = [...document.body.querySelectorAll('button')].find(
+        (button) => button.textContent === 'Save',
+    );
+    if (save === undefined) throw new Error('no Save button');
+    await act(async () => {
+        save.click();
+        await Promise.resolve();
+    });
+    await flush();
+}
+
 function sectionHeadings(): string[] {
     return [...document.body.querySelectorAll('span')]
         .map((span) => span.textContent)
@@ -211,10 +230,11 @@ describe('SavedScenarios session stores', () => {
         vi.unstubAllGlobals();
     });
 
-    async function openPanel() {
+    async function openPanel(encodeOptions: EncodeStateOptions = {}) {
         act(() => {
             root.render(
                 <SavedScenarios
+                    encodeOptions={encodeOptions}
                     firms={ALL_FIRMS}
                     onLoad={vi.fn()}
                     state={defaultCalculatorState()}
@@ -439,5 +459,43 @@ describe('SavedScenarios session stores', () => {
         expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
         expect(scenarioApi.removeAll).not.toHaveBeenCalled();
         expect(scenarioApi.remove).not.toHaveBeenCalled();
+    });
+
+    it('saves a deliberately chosen MonthlyNet in the browser store, so loading it later keeps the choice (PT-63d, F-V15)', async () => {
+        await openPanel({ objectiveUrl: ObjectiveUrlMode.Explicit });
+        await saveNamed('Chosen');
+        const stored = JSON.parse(
+            window.localStorage.getItem('propCalc.scenarios.v1') ?? '[]',
+        ) as { name: string; params: string }[];
+        expect(
+            new URLSearchParams(stored[0]?.params).get(OBJECTIVE_URL_PARAMETER),
+        ).toBe(SizingObjective.MonthlyNet);
+    });
+
+    it('saves no objective in the browser store when nothing was chosen (PT-63d)', async () => {
+        await openPanel();
+        await saveNamed('Plain');
+        const stored = JSON.parse(
+            window.localStorage.getItem('propCalc.scenarios.v1') ?? '[]',
+        ) as { name: string; params: string }[];
+        expect(
+            new URLSearchParams(stored[0]?.params).has(OBJECTIVE_URL_PARAMETER),
+        ).toBe(false);
+    });
+
+    it('saves a deliberately chosen MonthlyNet to the account store (PT-63d, F-V15)', async () => {
+        harness.store.session = {
+            ...harness.store.session,
+            data: { user: { id: 'user-1' } },
+        };
+        await openPanel({ objectiveUrl: ObjectiveUrlMode.Explicit });
+        await saveNamed('Account choice');
+        expect(scenarioApi.save).toHaveBeenCalledTimes(1);
+        const [saved] = scenarioApi.save.mock.calls[0] as unknown as [
+            { query: string },
+        ];
+        expect(
+            new URLSearchParams(saved.query).get(OBJECTIVE_URL_PARAMETER),
+        ).toBe(SizingObjective.MonthlyNet);
     });
 });

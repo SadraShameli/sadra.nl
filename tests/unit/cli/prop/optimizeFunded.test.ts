@@ -1627,7 +1627,7 @@ describe('optimize funded prices the live-transfer hazard as your own assumption
 
     it('prints no live-transfer line when the flag is absent', async () => {
         const { stdout } = await capturedRun(PAYING_RUN);
-        expect(stdout).not.toContain('live transfer');
+        expect(stdout).not.toContain('Live transfer');
     });
 
     it('labels the hazard as your assumption and prices it into every row', async () => {
@@ -1638,7 +1638,7 @@ describe('optimize funded prices the live-transfer hazard as your own assumption
             '1',
         ]);
         expect(priced.stdout).toContain(
-            'live transfer: 100.0% per paid payout (your assumption, not a firm rule)',
+            'Live transfer: 100.0% per paid payout (your assumption, not a firm rule)',
         );
         expect(priced.stdout).not.toBe(none.stdout);
     });
@@ -1654,7 +1654,7 @@ describe('optimize funded prices the live-transfer hazard as your own assumption
             '0.3',
         ]);
         expect(stdout).toContain(
-            'live transfer: 30.0% per paid payout (your assumption, not a firm rule)',
+            'Live transfer: 30.0% per paid payout (your assumption, not a firm rule)',
         );
     });
 });

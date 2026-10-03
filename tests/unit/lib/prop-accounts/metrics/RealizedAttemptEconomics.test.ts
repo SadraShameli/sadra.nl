@@ -7,6 +7,8 @@ import {
     PayoutStatus,
 } from '~/lib/prop-accounts/core';
 import {
+    costAnalytics,
+    fundedPayoutDistribution,
     MARGIN_ABOVE_BREAKEVEN_HELP_TEXT,
     perAttemptNetCents,
     realizedAttemptEconomics,
@@ -198,7 +200,7 @@ describe('realizedAttemptEconomics', () => {
         );
     });
 
-    it('counts a young funded account that already paid within the horizon, without waiting for the full horizon to elapse', () => {
+    it('lists a young funded account that already paid within the horizon as open, not as an observed attempt (was attempts 1 and averagePayout 100,000 under the any-payout rule)', () => {
         const owner = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
         const result = realizedAttemptEconomics(
             ledger({
@@ -221,8 +223,37 @@ describe('realizedAttemptEconomics', () => {
         const plan = result.perPlan.find(
             (p) => p.planSerial === EVAL_PLAN.serial,
         );
-        expect(plan?.attempts).toBe(1);
-        expect(plan?.averagePayout?.value).toBe(100_000);
+        expect(plan?.attempts).toBe(0);
+        expect(plan?.averagePayout).toBeNull();
+        expect(plan?.fundedValue).toBeNull();
+        expect(plan?.realizedEvPerAttempt).toBeNull();
+    });
+
+    it('counts a funded account once it is H days old, and a young one that ended', () => {
+        const old = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const youngEnded = account(EVAL_PLAN, { purchasedOn: '2026-08-20' });
+        const result = realizedAttemptEconomics(
+            ledger({
+                accounts: [old, youngEnded],
+                events: [
+                    purchased(old),
+                    event(old, AccountEventKind.EvalPassed, '2026-07-01'),
+                    purchased(youngEnded),
+                    event(
+                        youngEnded,
+                        AccountEventKind.EvalPassed,
+                        '2026-08-25',
+                    ),
+                    event(youngEnded, AccountEventKind.Busted, '2026-08-27'),
+                ],
+            }),
+            '2026-09-01',
+            60,
+        );
+        const plan = result.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(plan?.attempts).toBe(2);
     });
 
     it('scopes payoutsPerPaidFunded to the same horizon window as averagePayout', () => {
@@ -254,6 +285,7 @@ describe('realizedAttemptEconomics', () => {
             (p) => p.planSerial === EVAL_PLAN.serial,
         );
         expect(plan?.payoutsPerPaidFunded).toBe(1);
+        expect(plan?.payoutsPerPaidFundedEstimate?.value).toBe(1);
         expect(plan?.averagePayout?.value).toBe(100_000);
     });
 
@@ -281,5 +313,167 @@ describe('realizedAttemptEconomics', () => {
         expect(plan?.marginAboveBreakeven).toBeNull();
         expect(plan?.attempts).toBe(0);
         expect(plan?.realizedEvPerAttempt).toBeNull();
+    });
+
+    it('shows the same attempt cost as the cost analytics for a plan whose accounts all ended, a funded reset fee in the fixture and an open attempt fee left out of both', () => {
+        const fundedThenBusted = account(EVAL_PLAN, {
+            purchasedOn: '2026-01-01',
+        });
+        const bustedEval = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const openEval = account(EVAL_PLAN, { purchasedOn: '2026-08-20' });
+        const book = ledger({
+            accounts: [fundedThenBusted, bustedEval, openEval],
+            events: [
+                purchased(fundedThenBusted),
+                event(
+                    fundedThenBusted,
+                    AccountEventKind.EvalPassed,
+                    '2026-01-05',
+                ),
+                event(fundedThenBusted, AccountEventKind.Busted, '2026-02-01'),
+                purchased(bustedEval),
+                event(bustedEval, AccountEventKind.Busted, '2026-01-10'),
+                purchased(openEval),
+            ],
+            fees: [
+                fee(
+                    fundedThenBusted,
+                    FeeKind.EvalPurchase,
+                    10_000,
+                    '2026-01-01',
+                ),
+                fee(fundedThenBusted, FeeKind.FundedReset, 4000, '2026-01-20'),
+                fee(bustedEval, FeeKind.EvalPurchase, 10_000, '2026-01-01'),
+                fee(openEval, FeeKind.EvalPurchase, 9000, '2026-08-20'),
+            ],
+        });
+        const realized = realizedAttemptEconomics(book, '2026-09-01', 30);
+        const costs = costAnalytics(book, new Map());
+        const realizedPlan = realized.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        const costPlan = costs.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(realizedPlan?.attemptCost).toBe(12_000);
+        expect(costPlan?.costPerAttempt).toBe(realizedPlan?.attemptCost);
+    });
+
+    it('keeps one attempt cost per plan even with a young funded account the cohort leaves open', () => {
+        const ended = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const young = account(EVAL_PLAN, { purchasedOn: '2026-08-20' });
+        const book = ledger({
+            accounts: [ended, young],
+            events: [
+                purchased(ended),
+                event(ended, AccountEventKind.Busted, '2026-01-10'),
+                purchased(young),
+                event(young, AccountEventKind.EvalPassed, '2026-08-25'),
+            ],
+            fees: [
+                fee(ended, FeeKind.EvalPurchase, 10_000, '2026-01-01'),
+                fee(young, FeeKind.EvalPurchase, 16_000, '2026-08-20'),
+            ],
+        });
+        const realized = realizedAttemptEconomics(book, '2026-09-01', 30);
+        const costs = costAnalytics(book, new Map());
+        const realizedPlan = realized.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        const costPlan = costs.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(realizedPlan?.attemptCost).toBe(13_000);
+        expect(costPlan?.costPerAttempt).toBe(13_000);
+    });
+
+    it('scopes attempts and realized EV per attempt to the horizon cohort while the attempt cost covers every account, a young paying funded account left out of the first two', () => {
+        const ended = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const young = account(EVAL_PLAN, { purchasedOn: '2026-08-20' });
+        const book = ledger({
+            accounts: [ended, young],
+            events: [
+                purchased(ended),
+                event(ended, AccountEventKind.Busted, '2026-01-10'),
+                purchased(young),
+                event(young, AccountEventKind.EvalPassed, '2026-08-25'),
+            ],
+            fees: [
+                fee(ended, FeeKind.EvalPurchase, 10_000, '2026-01-01'),
+                fee(young, FeeKind.EvalPurchase, 16_000, '2026-08-20'),
+            ],
+            payouts: [
+                payout(young, 50_000, {
+                    netCents: 50_000,
+                    paidOn: '2026-08-28',
+                    status: PayoutStatus.Paid,
+                }),
+            ],
+        });
+        const realized = realizedAttemptEconomics(book, '2026-09-01', 30);
+        const costs = costAnalytics(book, new Map());
+        const plan = realized.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        const costPlan = costs.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(costPlan?.attempts).toBe(2);
+        expect(plan?.attemptCost).toBe(13_000);
+        expect(plan?.attempts).toBe(1);
+        expect(plan?.realizedEvPerAttempt).toBe(-10_000);
+    });
+
+    it('builds the decomposition from the one realized funded value of the payout distribution, every factor carrying its n', () => {
+        const first = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const second = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const third = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const book = ledger({
+            accounts: [first, second, third],
+            events: [
+                purchased(first),
+                event(first, AccountEventKind.EvalPassed, '2026-01-05'),
+                purchased(second),
+                event(second, AccountEventKind.EvalPassed, '2026-01-05'),
+                purchased(third),
+                event(third, AccountEventKind.EvalPassed, '2026-01-05'),
+            ],
+            fees: [
+                fee(first, FeeKind.EvalPurchase, 10_000, '2026-01-01'),
+                fee(second, FeeKind.EvalPurchase, 10_000, '2026-01-01'),
+                fee(third, FeeKind.EvalPurchase, 10_000, '2026-01-01'),
+            ],
+            payouts: [
+                payout(first, 90_000, {
+                    netCents: 90_000,
+                    paidOn: '2026-01-20',
+                    status: PayoutStatus.Paid,
+                }),
+                payout(second, 30_000, {
+                    netCents: 30_000,
+                    paidOn: '2026-01-20',
+                    status: PayoutStatus.Paid,
+                }),
+            ],
+        });
+        const result = realizedAttemptEconomics(book, '2026-09-01', 30);
+        const distribution = fundedPayoutDistribution(book, '2026-09-01', 30);
+        const plan = result.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        const distributed = distribution.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(distributed?.realizedFundedValue?.value).toBe(40_000);
+        expect(plan?.fundedValue).toEqual(distributed?.realizedFundedValue);
+        expect(plan?.decomposition?.value?.fundedValue).toBeCloseTo(400, 9);
+        expect(
+            plan?.decomposition?.value?.breakevenPassRate.value,
+        ).toBeCloseTo(100 / 400, 9);
+        expect(plan?.fundedValue?.n).toBe(3);
+        expect(plan?.passRate?.n).toBe(3);
+        expect(plan?.payoutRate?.n).toBeGreaterThan(0);
+        expect(plan?.payoutsPerPaidFundedEstimate?.n).toBe(2);
+        expect(plan?.averagePayout?.n).toBe(2);
     });
 });

@@ -152,7 +152,7 @@ describe('scaleGateFromLedger', () => {
         expect(result.status).toBe(ScaleGateStatus.ThresholdsNotSet);
     });
 
-    it('counts eval attempts only from resolved accounts, matching the input assembly the firms and rounds pages used to duplicate', () => {
+    it('counts a ledger-only account as one eval attempt, the same rule as every other attempts figure', () => {
         const funded = account(EVAL_PLAN, { stage: AccountStage.Funded });
         const ledgerOnlyAccount = account(EVAL_PLAN, {
             planLabel: 'Rapid 150K',
@@ -174,20 +174,24 @@ describe('scaleGateFromLedger', () => {
             fees: [fee(funded, FeeKind.EvalPurchase, 10_000, '2026-09-01')],
             payouts: [payout(funded, 60_000, { paidOn: '2026-09-20' })],
         });
-        const result = scaleGateFromLedger(
-            built,
-            '2026-10-01',
-            {
-                minClosedRounds: null,
-                minEndedAccounts: null,
-                minEvalAttempts: 2,
-                minFundedAccounts: 1,
-                minTrades: 5,
-            },
-            5,
-        );
-        expect(result.unmetConditions).toContain(
-            ScaleGateUnmetCondition.EvalAttemptsBelowThreshold,
-        );
+        const thresholds = {
+            minClosedRounds: null,
+            minEndedAccounts: null,
+            minEvalAttempts: 2,
+            minFundedAccounts: 1,
+            minTrades: 5,
+        };
+        expect(
+            scaleGateFromLedger(built, '2026-10-01', thresholds, 5)
+                .unmetConditions,
+        ).not.toContain(ScaleGateUnmetCondition.EvalAttemptsBelowThreshold);
+        expect(
+            scaleGateFromLedger(
+                built,
+                '2026-10-01',
+                { ...thresholds, minEvalAttempts: 3 },
+                5,
+            ).unmetConditions,
+        ).toContain(ScaleGateUnmetCondition.EvalAttemptsBelowThreshold);
     });
 });

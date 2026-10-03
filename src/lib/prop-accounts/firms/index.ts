@@ -9,4 +9,7 @@ export {
     type FirmLiveTransferRate,
     type LiveTransferRate,
     liveTransferRate,
+    LiveTransferRateUnavailable,
+    liveTransferUnavailableText,
+    movedLiveCountOf,
 } from './LiveTransferRate';

@@ -1,8 +1,11 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { compareText } from '~/lib/prop-accounts/core';
+
+import { posixPath } from '../../../posixPath';
 
 const SOURCE_ROOT = path.join(import.meta.dirname, '../../../../../src');
 
@@ -11,10 +14,12 @@ const DIAGNOSIS_CALL_OWNERS: readonly string[] = [
     'lib/prop-accounts/metrics/StageFunnel.ts',
 ];
 
+const sources = new Map<string, string>();
+
 function filesMatching(pattern: RegExp): string[] {
-    return sourceFiles(SOURCE_ROOT)
-        .filter((file) => pattern.test(readFileSync(file, 'utf8')))
-        .map((file) => path.relative(SOURCE_ROOT, file))
+    return [...sources]
+        .filter(([, text]) => pattern.test(text))
+        .map(([file]) => file)
         .toSorted(compareText);
 }
 
@@ -27,6 +32,17 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('the per-account bust diagnosis', () => {
+    beforeAll(async () => {
+        await Promise.all(
+            sourceFiles(SOURCE_ROOT).map(async (file) => {
+                sources.set(
+                    posixPath(path.relative(SOURCE_ROOT, file)),
+                    await readFile(file, 'utf8'),
+                );
+            }),
+        );
+    });
+
     it('is called only by the rule itself and the funnel module, so the detail page uses the funnel helper', () => {
         expect(filesMatching(/\bbustDiagnosisOf\(/)).toEqual(
             DIAGNOSIS_CALL_OWNERS,

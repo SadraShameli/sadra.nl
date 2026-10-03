@@ -13,8 +13,7 @@ import {
     type PlanId,
     TopStepVariant,
 } from '~/lib/prop-calculator';
-import { LiveApplicabilityNote } from '~/lib/prop-calculator/advisor';
-import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
+import { ALL_FIRMS, LiveApplicabilityNote } from '~/lib/prop-calculator/firms';
 import {
     LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
     LIVE_TRANSFER_CONTINUATION_TEXT,

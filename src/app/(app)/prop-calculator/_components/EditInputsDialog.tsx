@@ -12,9 +12,16 @@ import {
     DialogTrigger,
 } from '~/components/ui/Dialog';
 
+import { EvalLadderScope } from './AppliedEvalLadderNotice';
 import { CalculatorInputsForm } from './CalculatorInputsForm';
 
-export function EditInputsDialog() {
+interface EditInputsDialogProperties {
+    evalLadderScope?: EvalLadderScope;
+}
+
+export function EditInputsDialog({
+    evalLadderScope = EvalLadderScope.Applied,
+}: EditInputsDialogProperties) {
     return (
         <Dialog>
             <DialogTrigger asChild>
@@ -35,7 +42,7 @@ export function EditInputsDialog() {
                         Changes apply to this page as you type.
                     </DialogDescription>
                 </DialogHeader>
-                <CalculatorInputsForm />
+                <CalculatorInputsForm evalLadderScope={evalLadderScope} />
             </DialogContent>
         </Dialog>
     );

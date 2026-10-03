@@ -48,6 +48,10 @@ import {
     AccountReconstruction,
     AccountReconstructionError,
     type AccountSnapshotInput,
+    AdviceStalenessKind,
+    documentedRuleLabel,
+    NO_PENDING_PAYOUT_COUNTS,
+    rulebookDeviation,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 import { MAX_ACCEPTED_RUNGS } from '~/lib/schemas/propAccounts';
@@ -62,6 +66,13 @@ export enum ViolationOfferKind {
     AlreadyLogged = 'already-logged',
     Available = 'available',
     None = 'none',
+}
+
+export enum WeeklyReviewEntryKind {
+    AlreadyRecorded = 'already-recorded',
+    Edited = 'edited',
+    NoPrevious = 'no-previous',
+    Unchanged = 'unchanged',
 }
 
 export enum WeeklyReviewSizingKind {
@@ -123,10 +134,13 @@ export interface WeeklyReviewLastDecision {
 
 export interface WeeklyReviewModelInput {
     readonly accounts: readonly WeeklyReviewAccountInput[];
+    readonly confirmedUnchanged: ReadonlySet<string>;
     readonly drafts: ReadonlyMap<string, WeeklyReviewDraft>;
+    readonly invalidEntries: ReadonlyMap<string, readonly SnapshotFieldIssue[]>;
     readonly latestDecisions: ReadonlyMap<string, WeeklyReviewDecisionRow>;
     readonly latestSnapshots: ReadonlyMap<string, WeeklyReviewSnapshotRow>;
     readonly rulebook: RulebookParameters;
+    readonly stagesOnAsOf: ReadonlyMap<string, AccountStage>;
     readonly today: string;
     readonly violations: readonly WeeklyReviewViolationRow[];
 }
@@ -137,6 +151,7 @@ export interface WeeklyReviewResult {
     readonly asOf: string;
     readonly corruptRows: readonly WeeklyReviewCorruptRow[];
     readonly ledgerOnlyExcludedCount: number;
+    readonly notUpdatedCount: number;
     readonly rows: readonly WeeklyReviewRow[];
     readonly weekStart: string;
     readonly windowEnd: string;
@@ -148,21 +163,27 @@ export interface WeeklyReviewRow {
     readonly blockedMessages: readonly string[];
     readonly diffCents: null | number;
     readonly draft: WeeklyReviewSnapshotValues;
+    readonly entryKind: WeeklyReviewEntryKind;
     readonly fieldWarnings: readonly SnapshotFieldIssue[];
     readonly formWarnings: readonly string[];
     readonly isBlocked: boolean;
+    readonly isRecorded: boolean;
     readonly label: string;
     readonly lastDecision: null | WeeklyReviewLastDecision;
     readonly missingFieldLabels: readonly string[];
+    readonly parseIssues: readonly SnapshotFieldIssue[];
     readonly previousAcceptedRiskCents: null | number;
     readonly sizing: WeeklyReviewSizing;
     readonly stage: AccountStage;
+    readonly stageOnAsOf: AccountStage;
+    readonly unchangedSince: null | string;
     readonly violationOffer: WeeklyReviewViolationOffer;
     readonly violations: readonly WeeklyReviewViolationRow[];
 }
 
 export type WeeklyReviewSizing =
     | {
+          readonly headlineLabel: string;
           readonly headlineRiskCents: number;
           readonly kind: WeeklyReviewSizingKind.Ready;
           readonly rungsCents: readonly number[];
@@ -176,8 +197,12 @@ export interface WeeklyReviewSnapshotRow extends WeeklyReviewSnapshotValues {
     readonly asOf: string;
 }
 
-export interface WeeklyReviewSnapshotSubmitEntry extends WeeklyReviewSnapshotValues {
+export interface WeeklyReviewSnapshotSubmitEntry extends Omit<
+    WeeklyReviewSnapshotValues,
+    'balanceCents'
+> {
     readonly accountId: string;
+    readonly balanceCents: number;
 }
 
 export interface WeeklyReviewSnapshotValues {
@@ -229,6 +254,17 @@ export interface WeeklyReviewWindow {
 
 const WEEK_DAYS = 7;
 
+const DOCUMENTED_HEADLINE_LABEL = 'Documented headline';
+
+interface ReviewEntry {
+    readonly draft: WeeklyReviewSnapshotValues;
+    readonly entryKind: WeeklyReviewEntryKind;
+    readonly isInvalid: boolean;
+    readonly parseIssues: readonly SnapshotFieldIssue[];
+    readonly sizedAsOf: string;
+    readonly unchangedSince: null | string;
+}
+
 const EMPTY_DRAFT: WeeklyReviewSnapshotValues = {
     balanceAtLastPayoutCents: null,
     balanceCents: null,
@@ -277,6 +313,7 @@ export function buildWeeklyReview(
         corruptRows,
         ledgerOnlyExcludedCount:
             input.accounts.filter(isActiveLedgerOnly).length,
+        notUpdatedCount: rows.filter(isNotUpdated).length,
         rows,
         weekStart,
         windowEnd: input.today,
@@ -301,16 +338,13 @@ export function reviewSubmitPayload(
     result: WeeklyReviewResult,
     acceptedAccountIds: ReadonlySet<string>,
 ): WeeklyReviewSubmitPayload {
-    const unblocked = result.rows.filter((row) => !row.isBlocked);
+    const recorded = result.rows.filter((row) => row.isRecorded);
     return {
         asOf: result.asOf,
-        decisions: unblocked.flatMap((row) =>
+        decisions: recorded.flatMap((row) =>
             decisionEntryFor(row, acceptedAccountIds),
         ),
-        snapshots: unblocked.map((row) => ({
-            accountId: row.accountId,
-            ...row.draft,
-        })),
+        snapshots: recorded.map(submitEntryFor),
     };
 }
 
@@ -423,6 +457,64 @@ function decisionEntryFor(
     ];
 }
 
+function entryOf(
+    account: WeeklyReviewAccountInput,
+    asOf: string,
+    input: WeeklyReviewModelInput,
+): ReviewEntry {
+    const invalidIssues = input.invalidEntries.get(account.id);
+    if (invalidIssues !== undefined) {
+        return {
+            draft: EMPTY_DRAFT,
+            entryKind: WeeklyReviewEntryKind.Edited,
+            isInvalid: true,
+            parseIssues: invalidIssues,
+            sizedAsOf: asOf,
+            unchangedSince: null,
+        };
+    }
+    const edited = input.drafts.get(account.id);
+    if (edited !== undefined) {
+        return {
+            draft: materialize(edited),
+            entryKind: WeeklyReviewEntryKind.Edited,
+            isInvalid: false,
+            parseIssues: [],
+            sizedAsOf: asOf,
+            unchangedSince: null,
+        };
+    }
+    const previous = input.latestSnapshots.get(account.id);
+    if (previous === undefined) {
+        return {
+            draft: EMPTY_DRAFT,
+            entryKind: WeeklyReviewEntryKind.NoPrevious,
+            isInvalid: false,
+            parseIssues: [],
+            sizedAsOf: asOf,
+            unchangedSince: null,
+        };
+    }
+    const isAlreadyRecorded = compareText(previous.asOf, asOf) >= 0;
+    return {
+        draft: materialize(previous),
+        entryKind: isAlreadyRecorded
+            ? WeeklyReviewEntryKind.AlreadyRecorded
+            : WeeklyReviewEntryKind.Unchanged,
+        isInvalid: false,
+        parseIssues: [],
+        sizedAsOf: previous.asOf,
+        unchangedSince: isAlreadyRecorded ? null : previous.asOf,
+    };
+}
+
+function headlineLabelOf(rulebook: RulebookParameters): string {
+    const deviation = rulebookDeviation(rulebook);
+    return deviation.length === 0
+        ? DOCUMENTED_HEADLINE_LABEL
+        : `Headline from ${documentedRuleLabel(deviation)}`;
+}
+
 function isActiveLedgerOnly(account: WeeklyReviewAccountInput): boolean {
     return (
         account.status === AccountStatus.Active &&
@@ -483,6 +575,14 @@ function isFieldFilled(
     }
 }
 
+function isNotUpdated(row: WeeklyReviewRow): boolean {
+    return (
+        (row.entryKind === WeeklyReviewEntryKind.NoPrevious ||
+            row.entryKind === WeeklyReviewEntryKind.Unchanged) &&
+        !row.isRecorded
+    );
+}
+
 function isReviewedAccount(account: WeeklyReviewAccountInput): boolean {
     return (
         account.status === AccountStatus.Active &&
@@ -521,7 +621,23 @@ function lastDecisionOf(
 }
 
 function materialize(draft: WeeklyReviewDraft): WeeklyReviewSnapshotValues {
-    return { ...EMPTY_DRAFT, ...draft };
+    return {
+        balanceAtLastPayoutCents: draft.balanceAtLastPayoutCents ?? null,
+        balanceCents: draft.balanceCents ?? null,
+        cumulativePayoutCents: draft.cumulativePayoutCents ?? null,
+        cycleBestDayProfitCents: draft.cycleBestDayProfitCents ?? null,
+        dashboardFloorCents: draft.dashboardFloorCents ?? null,
+        evalBestDayProfitCents: draft.evalBestDayProfitCents ?? null,
+        floorAtLastPayoutCents: draft.floorAtLastPayoutCents ?? null,
+        highestEodBalanceCents: draft.highestEodBalanceCents ?? null,
+        highestIntradayBalanceCents: draft.highestIntradayBalanceCents ?? null,
+        lastPayoutOn: draft.lastPayoutOn ?? null,
+        lastTradedOn: draft.lastTradedOn ?? null,
+        payoutsTaken: draft.payoutsTaken ?? null,
+        qualifyingDaysSinceLastPayout:
+            draft.qualifyingDaysSinceLastPayout ?? null,
+        tradingDays: draft.tradingDays ?? null,
+    };
 }
 
 function missingFieldLabelsFor(
@@ -565,15 +681,23 @@ function planKeyTextOf(
 function previousAcceptedRiskCents(
     account: WeeklyReviewAccountInput,
     plan: Plan,
+    stage: AccountStage,
     input: WeeklyReviewModelInput,
 ): null | number {
     const decision = input.latestDecisions.get(account.id);
     if (decision !== undefined) return decision.acceptedRiskCents;
     const previous = input.latestSnapshots.get(account.id);
     if (previous === undefined) return null;
-    const rules = snapshotFieldRules(plan, account.stage);
+    const rules = snapshotFieldRules(plan, stage);
     if (missingFieldLabelsFor(rules, previous).length > 0) return null;
-    const sizing = sizingFor(account, plan, previous, previous.asOf, input);
+    const sizing = sizingFor(
+        account,
+        plan,
+        stage,
+        previous,
+        previous.asOf,
+        input,
+    );
     return sizing.kind === WeeklyReviewSizingKind.Ready
         ? sizing.headlineRiskCents
         : null;
@@ -596,13 +720,19 @@ function reviewRowFor(
     input: WeeklyReviewModelInput,
 ): WeeklyReviewRow {
     const plan = resolvedPlanOf(account);
-    const draft = materialize(
-        input.drafts.get(account.id) ??
-            input.latestSnapshots.get(account.id) ??
-            EMPTY_DRAFT,
-    );
-    const rules = snapshotFieldRules(plan, account.stage);
-    const missingFieldLabelsList = missingFieldLabelsFor(rules, draft);
+    const stageOnAsOf = stageOnAsOfOf(account, asOf, input);
+    const {
+        draft,
+        entryKind,
+        isInvalid,
+        parseIssues,
+        sizedAsOf,
+        unchangedSince,
+    } = entryOf(account, asOf, input);
+    const rules = snapshotFieldRules(plan, stageOnAsOf);
+    const missingFieldLabelsList = isInvalid
+        ? []
+        : missingFieldLabelsFor(rules, draft);
     const accountEntry: SnapshotEntryAccount = {
         accountSize: account.accountSize,
         dashboardConvention: account.dashboardConvention,
@@ -611,7 +741,7 @@ function reviewRowFor(
         ),
     };
     const messages: SnapshotPlausibilityMessages =
-        missingFieldLabelsList.length > 0
+        isInvalid || missingFieldLabelsList.length > 0
             ? {
                   fieldIssues: [],
                   fieldWarnings: [],
@@ -619,7 +749,7 @@ function reviewRowFor(
                   formWarnings: [],
               }
             : snapshotPlausibilityIssues(
-                  { account: accountEntry, plan, stage: account.stage },
+                  { account: accountEntry, plan, stage: stageOnAsOf },
                   toSnapshotEntryValues(draft),
               );
     const blockedMessages = [
@@ -627,11 +757,23 @@ function reviewRowFor(
         ...messages.fieldIssues.map((issue) => issue.message),
     ];
     const isBlocked =
-        missingFieldLabelsList.length > 0 || blockedMessages.length > 0;
+        isInvalid ||
+        missingFieldLabelsList.length > 0 ||
+        blockedMessages.length > 0;
+    const isRecorded =
+        !isBlocked &&
+        (entryKind === WeeklyReviewEntryKind.Edited ||
+            (entryKind === WeeklyReviewEntryKind.Unchanged &&
+                input.confirmedUnchanged.has(account.id)));
     const sizing = isBlocked
         ? { kind: WeeklyReviewSizingKind.NotModeled as const }
-        : sizingFor(account, plan, draft, asOf, input);
-    const previousAccepted = previousAcceptedRiskCents(account, plan, input);
+        : sizingFor(account, plan, stageOnAsOf, draft, sizedAsOf, input);
+    const previousAccepted = previousAcceptedRiskCents(
+        account,
+        plan,
+        stageOnAsOf,
+        input,
+    );
     const diffCents =
         previousAccepted !== null &&
         sizing.kind === WeeklyReviewSizingKind.Ready
@@ -655,15 +797,20 @@ function reviewRowFor(
         blockedMessages,
         diffCents,
         draft,
+        entryKind,
         fieldWarnings: messages.fieldWarnings,
         formWarnings: messages.formWarnings,
         isBlocked,
+        isRecorded,
         label: account.label,
         lastDecision,
         missingFieldLabels: missingFieldLabelsList,
+        parseIssues,
         previousAcceptedRiskCents: previousAccepted,
         sizing,
         stage: account.stage,
+        stageOnAsOf,
+        unchangedSince,
         violationOffer: violationOfferFor(lastDecision),
         violations: violationsOf(
             account.id,
@@ -677,12 +824,13 @@ function reviewRowFor(
 function sizingFor(
     account: WeeklyReviewAccountInput,
     plan: Plan,
+    stage: AccountStage,
     snapshot: WeeklyReviewSnapshotValues,
-    asOf: string,
+    snapshotAsOf: string,
     input: WeeklyReviewModelInput,
 ): WeeklyReviewSizing {
     const accountSnapshotInput: AccountSnapshotInput = {
-        asOf,
+        asOf: snapshotAsOf,
         balance: usdCentsToDollars(usdCents(snapshot.balanceCents ?? 0)),
         balanceAtLastPayout: optionalDollars(snapshot.balanceAtLastPayoutCents),
         cumulativePayout: optionalDollars(snapshot.cumulativePayoutCents),
@@ -701,7 +849,7 @@ function sizingFor(
         payoutsTaken: snapshot.payoutsTaken ?? undefined,
         qualifyingDaysSinceLastPayout:
             snapshot.qualifyingDaysSinceLastPayout ?? undefined,
-        stage: account.stage,
+        stage,
         tradingDays: snapshot.tradingDays ?? undefined,
     };
     const personalMaxRiskPerTrade = personalMaxRiskOf(account.personalRules);
@@ -710,6 +858,7 @@ function sizingFor(
             accountSnapshotInput,
             plan,
             personalMaxRiskPerTrade,
+            NO_PENDING_PAYOUT_COUNTS,
         );
         const build = buildSizingAdvisor(
             reconstructed,
@@ -720,7 +869,7 @@ function sizingFor(
                 personalRules: account.personalRules,
                 plan,
                 rulebook: input.rulebook,
-                snapshotAsOf: asOf,
+                snapshotAsOf,
                 status: account.status,
                 today: input.today,
             }),
@@ -729,7 +878,7 @@ function sizingFor(
             return { kind: WeeklyReviewSizingKind.NoEvalAdvice };
         }
         const { advisor } = build;
-        if (advisor.staleness().kind === 'stale') {
+        if (advisor.staleness().kind === AdviceStalenessKind.Stale) {
             return { kind: WeeklyReviewSizingKind.Stale };
         }
         const documented = advisor.documented();
@@ -742,6 +891,7 @@ function sizingFor(
         return headlineRiskCents === undefined
             ? { kind: WeeklyReviewSizingKind.ReconstructionFailed }
             : {
+                  headlineLabel: headlineLabelOf(input.rulebook),
                   headlineRiskCents,
                   kind: WeeklyReviewSizingKind.Ready,
                   rungsCents,
@@ -752,6 +902,30 @@ function sizingFor(
         }
         throw error;
     }
+}
+
+function stageOnAsOfOf(
+    account: WeeklyReviewAccountInput,
+    asOf: string,
+    input: WeeklyReviewModelInput,
+): AccountStage {
+    const stage = input.stagesOnAsOf.get(account.id);
+    if (stage === undefined) {
+        throw new Error(
+            `the stage account ${account.id} had on ${asOf} was not loaded`,
+        );
+    }
+    return stage;
+}
+
+function submitEntryFor(
+    row: WeeklyReviewRow,
+): WeeklyReviewSnapshotSubmitEntry {
+    const { balanceCents } = row.draft;
+    if (balanceCents === null) {
+        throw new Error(`recorded account ${row.accountId} has no balance`);
+    }
+    return { ...row.draft, accountId: row.accountId, balanceCents };
 }
 
 function toSnapshotEntryValues(

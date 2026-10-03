@@ -10,6 +10,7 @@ import {
     vi,
 } from 'vitest';
 
+import { EvalLadderScope } from '~/app/(app)/prop-calculator/_components/AppliedEvalLadderNotice';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import { InputsSummary } from '~/app/(app)/prop-calculator/_components/InputsSummary';
 import {
@@ -29,12 +30,14 @@ import {
 } from '~/lib/prop-calculator';
 
 interface SummaryHarness {
+    dialogScope: EvalLadderScope | undefined;
     setEvalDayPolicy: Mock<(policy: DayPolicy | null) => void>;
     setRungSizing: Mock<(rungSizing: RungSizing) => void>;
     state: CalculatorState | null;
 }
 
 const harness = vi.hoisted((): SummaryHarness => ({
+    dialogScope: undefined,
     setEvalDayPolicy: vi.fn(),
     setRungSizing: vi.fn(),
     state: null,
@@ -49,7 +52,14 @@ vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
 }));
 
 vi.mock('~/app/(app)/prop-calculator/_components/EditInputsDialog', () => ({
-    EditInputsDialog: () => null,
+    EditInputsDialog: ({
+        evalLadderScope,
+    }: {
+        evalLadderScope?: EvalLadderScope;
+    }) => {
+        harness.dialogScope = evalLadderScope;
+        return null;
+    },
 }));
 
 const LADDER: DayPolicy = {
@@ -167,10 +177,16 @@ describe('InputsSummary', () => {
     let container: HTMLDivElement;
     let root: Root;
 
-    function render(state: CalculatorState) {
+    function render(state: CalculatorState, evalLadderScope?: EvalLadderScope) {
         harness.state = state;
         act(() => {
-            root.render(<InputsSummary />);
+            root.render(
+                evalLadderScope === undefined ? (
+                    <InputsSummary />
+                ) : (
+                    <InputsSummary evalLadderScope={evalLadderScope} />
+                ),
+            );
         });
     }
 
@@ -182,6 +198,7 @@ describe('InputsSummary', () => {
 
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.dialogScope = undefined;
         harness.setEvalDayPolicy.mockClear();
         harness.setRungSizing.mockClear();
         container = document.createElement('div');
@@ -235,5 +252,15 @@ describe('InputsSummary', () => {
         render(stateWith(null));
         expect(clearButton()).toBeUndefined();
         expect(container.textContent).not.toContain('Eval ladder');
+    });
+
+    it('hands the edit dialog the Applied scope by default', () => {
+        render(stateWith(LADDER));
+        expect(harness.dialogScope).toBe(EvalLadderScope.Applied);
+    });
+
+    it('hands the edit dialog the scope of its own page', () => {
+        render(stateWith(LADDER), EvalLadderScope.NotUsedHere);
+        expect(harness.dialogScope).toBe(EvalLadderScope.NotUsedHere);
     });
 });

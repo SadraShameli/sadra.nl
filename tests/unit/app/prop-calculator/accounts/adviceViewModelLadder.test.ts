@@ -20,6 +20,7 @@ import {
     DEFAULT_RULEBOOK,
     EvalSizingAdvisor,
     ladderStepWidenedAssumption,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     runEngineOptimum,
 } from '~/lib/prop-calculator/advisor';
@@ -57,6 +58,7 @@ function freshEvalAdvisor(cushion: number): EvalSizingAdvisor {
         plan: registryPlan(),
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
     return new EvalSizingAdvisor({
         account,

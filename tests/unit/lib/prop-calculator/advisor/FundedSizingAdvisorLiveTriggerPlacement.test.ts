@@ -22,6 +22,7 @@ import {
     DayStopReason,
     DEFAULT_RULEBOOK,
     FundedSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     SizingConstraint,
 } from '~/lib/prop-calculator/advisor';
@@ -86,6 +87,7 @@ function advisorWith(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
     const trigger = new SingleDayProfitTrigger(
         dollars(triggerAmount),

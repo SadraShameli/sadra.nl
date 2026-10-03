@@ -6,6 +6,7 @@ import {
     type AccountStateUnavailableReason,
     describeUnresolvedPlan,
     ExposureUnavailableKind,
+    FirmCountUnknownReason,
 } from '~/lib/prop-accounts';
 import { ReconstructionErrorReason } from '~/lib/prop-calculator/advisor';
 
@@ -22,6 +23,9 @@ export function accountStateUnavailableText(
     reason: AccountStateUnavailableReason,
 ): string {
     switch (reason.kind) {
+        case AccountStateUnavailableKind.FirmCountUnknown: {
+            return firmCountUnknownText(reason.reason);
+        }
         case AccountStateUnavailableKind.ImplausibleSnapshot: {
             return reason.issues
                 .map((issue) => issue.message.replace(/\.+$/u, ''))
@@ -61,6 +65,17 @@ export function exposureUnavailableText(
         }
         case ExposureUnavailableKind.Reconstruction: {
             return accountStateUnavailableText(account, reason.reason);
+        }
+    }
+}
+
+function firmCountUnknownText(reason: FirmCountUnknownReason): string {
+    switch (reason) {
+        case FirmCountUnknownReason.InvalidDate: {
+            return "a payout or live-move date at its firm is not a valid date, so the firm's payout count is unknown";
+        }
+        case FirmCountUnknownReason.UnreadableAccount: {
+            return "an account at its firm cannot be read, so the firm's payout count is unknown";
         }
     }
 }

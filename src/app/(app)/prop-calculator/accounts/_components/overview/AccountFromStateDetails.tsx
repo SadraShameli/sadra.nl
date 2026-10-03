@@ -103,6 +103,16 @@ export function AccountFromStateDetails({
                     ))}
                 </ul>
             )}
+            {model.liveTransferNotes.length > 0 && (
+                <ul
+                    aria-label="Live-transfer and payout-trigger assumptions behind the figures from this state"
+                    className="flex flex-col gap-1 text-xs text-muted-foreground"
+                >
+                    {model.liveTransferNotes.map((note) => (
+                        <li key={note}>{note}</li>
+                    ))}
+                </ul>
+            )}
             <p className="text-xs text-muted-foreground">
                 {model.startBasis}; {model.trials}. {model.creditBasis}
             </p>

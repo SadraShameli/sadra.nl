@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
@@ -44,6 +45,7 @@ function evalAccount(
         plan,
         resolvedDailyLossLimit: null,
         state: { ...plan.initialState(), ...overrides },
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -63,6 +65,7 @@ function fundedAccount(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

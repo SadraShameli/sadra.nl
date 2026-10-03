@@ -31,6 +31,8 @@ import {
     MAX_LAB_SCENARIOS,
 } from '~/lib/schemas/url';
 
+import { InlineToolsWorker } from './labWorkerFixtures';
+
 vi.mock('next/dynamic', () => ({ default: () => renderNothing }));
 
 vi.mock('next/navigation', () => ({
@@ -134,6 +136,7 @@ describe('StrategyLabPanel editors read CALCULATOR_SCALAR_BOUNDS (PT-53e)', () =
     beforeEach(() => {
         vi.useFakeTimers();
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.stubGlobal('Worker', InlineToolsWorker);
         onUpdate = vi.fn<LabUpdate>();
         container = document.createElement('div');
         document.body.append(container);

@@ -246,6 +246,17 @@ export function assertModeledForOperation(
     throw notModeledError(account.label, operation);
 }
 
+export function assertStageMatchesAccount(
+    account: { readonly label: string; readonly stage: AccountStage },
+    stage: AccountStage,
+): void {
+    if (account.stage === stage) return;
+    throw new PropMutationRejectionError(
+        PropMutationRejection.StageMismatch,
+        `Account "${account.label}" is ${accountStageLabel(account.stage)} now, but this decision was made for ${accountStageLabel(stage)}; reload the account and size it again`,
+    );
+}
+
 export async function impliedPassBound(
     repo: PropAccountRepo,
     account: Pick<OwnedAccount, 'fundedOn' | 'id' | 'purchasedOn' | 'stage'>,
@@ -416,6 +427,7 @@ function fromRejection(error: PropMutationRejectionError): TRPCError {
         case PropMutationRejection.RecordInUse:
         case PropMutationRejection.RoundBudgetExceeded:
         case PropMutationRejection.RoundClosed:
+        case PropMutationRejection.StageMismatch:
         case PropMutationRejection.TrackingChange:
         case PropMutationRejection.UpgradeChangesAccount: {
             return new TRPCError({

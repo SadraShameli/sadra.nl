@@ -10,14 +10,19 @@ import {
 } from '~/lib/prop-calculator/core';
 import {
     buildFundedCandidates,
+    type FundedCandidate,
     FundedCandidateBuildKind,
     FundedSortKey,
     sortFundedResults,
     survivorCount,
 } from '~/lib/prop-calculator/optimize';
-import { simulate } from '~/lib/prop-calculator/simulator';
+import { type SimInputs, simulate } from '~/lib/prop-calculator/simulator';
 
 import { AdviceSource } from './AdviceSource';
+import {
+    liveTransferAssumptionOf,
+    type LiveTransferHazardAssumption,
+} from './Assumption';
 import {
     type EngineOptimum,
     type EngineOptimumPlacedRow,
@@ -26,6 +31,8 @@ import {
     EngineOptimumRowKind,
     type FundedSweepOptimumResult,
     FundedSweepOptimumResultKind,
+    type FundedWinnerPolicy,
+    FundedWinnerPolicyKind,
 } from './EngineOptimum';
 import {
     type EngineOptimumRequest,
@@ -49,6 +56,8 @@ import {
 import { applyPersonalDayLimits, ladderUnderPersonalDayLimits } from './policy';
 
 const DOCUMENTED_LADDER_SEED_OFFSET = 1;
+const PERCENT_PER_FRACTION = 100;
+const PERCENT_SIGNIFICANT_DIGITS = 12;
 
 export enum LadderEngineOptimumResultKind {
     Refused = 'refused',
@@ -72,6 +81,7 @@ export interface FundedFromStateEngineOptimumResult {
 }
 
 export interface FundedSweepEngineOptimumResult {
+    readonly liveTransfer?: LiveTransferHazardAssumption;
     readonly source: AdviceSource.FundedSweepFresh;
     readonly sweep: FundedSweepOptimumResult;
 }
@@ -118,9 +128,14 @@ export function runEngineOptimum(
 ): EngineOptimumRunnerResult {
     switch (request.source) {
         case AdviceSource.FundedSweepFresh: {
+            const { liveTransfer, sweep } = runFundedSweepOptimum(
+                plan,
+                request,
+            );
             return {
+                ...(liveTransfer !== undefined && { liveTransfer }),
                 source: request.source,
-                sweep: runFundedSweepOptimum(plan, request),
+                sweep,
             };
         }
         case AdviceSource.FundedSweepFromState: {
@@ -167,6 +182,42 @@ function documentedLadderScoreOf(
         { ...request.score, plan },
         ladderTrialStreams(request.seed + DOCUMENTED_LADDER_SEED_OFFSET),
     );
+}
+
+function fundedWinnerPolicyOf(
+    candidates: readonly FundedCandidate[],
+    label: string,
+): FundedWinnerPolicy {
+    const overrides = candidates.find(
+        (candidate) => candidate.label === label,
+    )?.overrides;
+    if (overrides === undefined) {
+        throw new Error(
+            `runEngineOptimum: the winning candidate "${label}" is not among the built candidates`,
+        );
+    }
+    const { fundedCushionPercent, fundedDayPolicy, fundedRiskPerTrade } =
+        overrides;
+    if (fundedRiskPerTrade !== undefined) {
+        return {
+            dollars: fundedRiskPerTrade,
+            kind: FundedWinnerPolicyKind.Flat,
+        };
+    }
+    if (fundedCushionPercent !== undefined) {
+        return {
+            kind: FundedWinnerPolicyKind.PercentOfCushion,
+            percent: Number(
+                (fundedCushionPercent * PERCENT_PER_FRACTION).toPrecision(
+                    PERCENT_SIGNIFICANT_DIGITS,
+                ),
+            ),
+        };
+    }
+    return {
+        kind: FundedWinnerPolicyKind.Ladder,
+        rungs: fundedDayPolicy?.ladder ?? [],
+    };
 }
 
 function ladderSearchOf(
@@ -218,30 +269,39 @@ function refusedLadderSearch(
 function runFundedSweepOptimum(
     plan: Plan,
     request: FundedSweepFreshRequest,
-): FundedSweepOptimumResult {
+): {
+    readonly liveTransfer?: LiveTransferHazardAssumption;
+    readonly sweep: FundedSweepOptimumResult;
+} {
     const build = buildFundedCandidates({ ...request.candidates, plan });
     if (build.kind === FundedCandidateBuildKind.Refused) {
         return {
-            kind: FundedSweepOptimumResultKind.NoCandidates,
-            refusal: build.refusal,
+            sweep: {
+                kind: FundedSweepOptimumResultKind.NoCandidates,
+                refusal: build.refusal,
+            },
         };
     }
 
+    const inputsByRow = new Map<EngineOptimumPlacedRow, SimInputs>();
     const placedRows: EngineOptimumPlacedRow[] = build.candidates.map(
-        (candidate): EngineOptimumPlacedRow => ({
-            kind: EngineOptimumRowKind.Placed,
-            label: candidate.label,
-            out: simulate(
-                applyPersonalDayLimits(
-                    request.policy,
-                    applyEnginePolicy(plan, request.policy, {
-                        ...request.base,
-                        plan,
-                        ...candidate.overrides,
-                    }),
-                ),
-            ),
-        }),
+        (candidate): EngineOptimumPlacedRow => {
+            const inputs = applyPersonalDayLimits(
+                request.policy,
+                applyEnginePolicy(plan, request.policy, {
+                    ...request.base,
+                    plan,
+                    ...candidate.overrides,
+                }),
+            );
+            const row: EngineOptimumPlacedRow = {
+                kind: EngineOptimumRowKind.Placed,
+                label: candidate.label,
+                out: simulate(inputs),
+            };
+            inputsByRow.set(row, inputs);
+            return row;
+        },
     );
     const refusedRows: EngineOptimumRefusedRow[] =
         build.flatsBelowOneContract.map((dollar): EngineOptimumRefusedRow => ({
@@ -272,10 +332,22 @@ function runFundedSweepOptimum(
         expectedMonthlyRealizedNetStandardError:
             winner.out.estimates.expectedMonthlyRealizedNet.standardError,
         label: winner.label,
+        policy: fundedWinnerPolicyOf(build.candidates, winner.label),
         rows: [...ranked, ...refusedRows],
         survivors: survivorCount(winner.out, request.base.trials),
     };
-    return { kind: FundedSweepOptimumResultKind.Optimum, optimum };
+    const winnerInputs = inputsByRow.get(winner);
+    const liveTransfer =
+        winnerInputs === undefined
+            ? undefined
+            : liveTransferAssumptionOf(
+                  winnerInputs,
+                  winner.out.liveTransferProbability,
+              );
+    return {
+        ...(liveTransfer !== undefined && { liveTransfer }),
+        sweep: { kind: FundedSweepOptimumResultKind.Optimum, optimum },
+    };
 }
 
 function runLadderOptimum(

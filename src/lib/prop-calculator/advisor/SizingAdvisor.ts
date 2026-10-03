@@ -6,7 +6,13 @@ import {
     type NextTradeRiskCheckResult,
 } from './actions/NextTradeRiskCheck';
 import { type Advice } from './Advice';
-import { type AdviceStaleness } from './AdviceStaleness';
+import { engineRunOf } from './AdviceProvenance';
+import {
+    type AdviceStaleness,
+    AdviceStalenessKind,
+    AdviceStalenessReason,
+    type StaleAdviceStaleness,
+} from './AdviceStaleness';
 import { type Assumption, AssumptionBias, inputAssumption } from './Assumption';
 import { AssumptionKind } from './AssumptionKind';
 import { type DailyPlanCard, dailyPlanCard } from './DailyPlanCard';
@@ -21,10 +27,13 @@ import { type EngineOptimumRunnerResult } from './EngineOptimumRunner';
 import { payoutAdvice } from './PayoutAdvice';
 import { PayoutRequestDecisionKind } from './PayoutRequestDecision';
 import { type PayoutRuleContext } from './PayoutRequestRule';
+import { type SizingPlacement } from './PlaceableMinimum';
 import { type RiskCaps } from './RiskCaps';
 import { type RulebookParameters } from './Rulebook';
 import { type DayProgress, type RuleContext } from './RuleContext';
 import { type SizingStage } from './SizingStage';
+
+export const DEFAULT_FUNDED_HORIZON_DAYS = 252;
 
 export abstract class SizingAdvisor<
     TContext extends RuleContext = RuleContext,
@@ -37,9 +46,33 @@ export abstract class SizingAdvisor<
     ) {}
 
     private currentContext(): null | TContext {
-        return this.isSuspended() || this.staleness().kind === 'stale'
+        return this.isSuspended() ||
+            this.staleness().kind === AdviceStalenessKind.Stale
             ? null
             : this.buildContextOrNull();
+    }
+
+    private staleAdvice(
+        advice: Advice,
+        staleness: StaleAdviceStaleness,
+    ): Advice {
+        const staleReason: DifferenceReasonDetail = {
+            kind: DifferenceReason.StaleAdvice,
+            snapshotDate: staleness.snapshotAsOf,
+        };
+        const rulesReason: readonly DifferenceReasonDetail[] =
+            staleness.reasons.includes(AdviceStalenessReason.PlanRulesChanged)
+                ? [{ kind: DifferenceReason.PlanRulesChanged }]
+                : [];
+        return {
+            ...advice,
+            dailyPlanCard: null,
+            differenceReasons: [staleReason, ...rulesReason],
+            documented: null,
+            optima: [],
+            payoutAdvice: null,
+            requests: [],
+        };
     }
 
     private suspendedAdvice(advice: Advice): Advice {
@@ -59,7 +92,19 @@ export abstract class SizingAdvisor<
 
     assemble(results: readonly EngineOptimumRunnerResult[]): Advice {
         const advice = this.assembleAdvice(results);
-        return this.isSuspended() ? this.suspendedAdvice(advice) : advice;
+        const { staleness } = advice;
+        const final = this.isSuspended()
+            ? this.suspendedAdvice(advice)
+            : staleness.kind === AdviceStalenessKind.Stale
+              ? this.staleAdvice(advice, staleness)
+              : advice;
+        return {
+            ...final,
+            provenance: {
+                ...final.provenance,
+                ...engineRunOf(final.requests),
+            },
+        };
     }
 
     caps(): RiskCaps {
@@ -80,6 +125,7 @@ export abstract class SizingAdvisor<
                   day,
                   dpRisk,
                   isPayoutEligible: this.payoutEligibleForRiskCheck(),
+                  placement: this.enteredPlacement(),
                   proposedRisk,
                   rule: this.rule,
               });
@@ -87,7 +133,9 @@ export abstract class SizingAdvisor<
 
     dailyPlanCard(): DailyPlanCard | null {
         const context = this.currentContext();
-        return context === null ? null : dailyPlanCard(this.rule, context);
+        return context === null
+            ? null
+            : dailyPlanCard(this.rule, context, this.enteredPlacement());
     }
 
     documented(): DocumentedSizing | null {
@@ -116,6 +164,10 @@ export abstract class SizingAdvisor<
     }
 
     protected abstract engineRequests(): readonly EngineOptimumRequest[];
+
+    protected enteredPlacement(): null | SizingPlacement {
+        return null;
+    }
 
     protected isPayoutRequestDecision(
         context: null | PayoutRuleContext,

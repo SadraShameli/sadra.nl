@@ -1034,15 +1034,19 @@ export abstract class Plan {
         minRetainedCushion: number,
     ): number {
         const cushionFloor = state.threshold + Math.max(0, minRetainedCushion);
-        return this.payoutBuffer === null
+        const bufferBalance = this.payoutBufferBalance();
+        return bufferBalance === null
             ? cushionFloor
-            : Math.max(
-                  cushionFloor,
-                  this.payoutBuffer.requiredBalance(
-                      this.accountSize,
-                      this.fundedDrawdown.amount,
-                  ),
-              );
+            : Math.max(cushionFloor, bufferBalance);
+    }
+
+    payoutBufferBalance(): Dollars | null {
+        return (
+            this.payoutBuffer?.requiredBalance(
+                this.accountSize,
+                this.fundedDrawdown.amount,
+            ) ?? null
+        );
     }
 
     payoutCapSchedule(): PayoutCapSchedule {

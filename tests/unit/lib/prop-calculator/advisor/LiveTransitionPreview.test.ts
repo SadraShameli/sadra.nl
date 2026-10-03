@@ -16,21 +16,23 @@ import {
     AccountReconstruction,
     type AccountSnapshotInput,
     DashboardBalanceConvention,
-    LiveApplicabilityKind,
-    LiveApplicabilityNote,
-    LiveNotModeledReason,
-    livePlanApplicability,
     liveTransitionPreview,
     LiveTransitionPreviewGap,
     LiveTransitionPreviewKind,
+    NO_PENDING_PAYOUT_COUNTS,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 import {
     buildLucidDailyLivePlan,
     buildTopStepLivePlan,
     computeTopStepLiveStartingBalance,
+    LiveApplicabilityKind,
+    LiveApplicabilityNote,
+    LiveNotModeledReason,
+    livePlanApplicability,
     LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP,
     LUCID_LIVE_DEFAULT_CUSHION_PERCENT,
+    TOPSTEP_LIVE_LOWEST_CAPPED_BALANCE,
 } from '~/lib/prop-calculator/firms';
 
 const TOPSTEP_ID: PlanId = {
@@ -91,6 +93,8 @@ function lucidFundedAt(balance: number) {
             highestIntradayBalance: dollars(balance),
         }),
         plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
     );
 }
 
@@ -103,7 +107,7 @@ function planOf(id: PlanId): Plan {
 describe('liveTransitionPreview: TopStep', () => {
     const plan = planOf(TOPSTEP_ID);
 
-    it('reads the live start from the builder and says it is inert at 50K', () => {
+    it('reads the live start from the builder and says it is not inert at 50K, since a capped XFA balance under $10,000 starts lower', () => {
         const preview = liveTransitionPreview(plan, null);
         if (preview.kind !== LiveTransitionPreviewKind.DocumentedLiveStart) {
             throw new Error('expected a documented live start preview');
@@ -118,11 +122,11 @@ describe('liveTransitionPreview: TopStep', () => {
                 dollars(50_000),
             ),
             lowest: computeTopStepLiveStartingBalance(
-                dollars(0),
+                TOPSTEP_LIVE_LOWEST_CAPPED_BALANCE,
                 dollars(50_000),
             ),
         });
-        expect(preview.isInertAtAccountSize).toBe(true);
+        expect(preview.isInertAtAccountSize).toBe(false);
         expect(preview.note).toBe(
             LiveApplicabilityNote.TopStepLfaEligibleJurisdictionAssumed,
         );
@@ -136,6 +140,8 @@ describe('liveTransitionPreview: TopStep', () => {
                 highestEodBalance: dollars(53_000),
             }),
             plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
         );
         expect(liveTransitionPreview(plan, funded)).toEqual(
             liveTransitionPreview(plan, null),
@@ -146,6 +152,8 @@ describe('liveTransitionPreview: TopStep', () => {
         const live = AccountReconstruction.rebuild(
             inputOf({ stage: SizingStage.Live }),
             plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
         );
         expect(liveTransitionPreview(plan, live)).toEqual({
             kind: LiveTransitionPreviewKind.NotModeled,
@@ -228,6 +236,8 @@ describe('liveTransitionPreview: LucidDaily', () => {
                 stage: SizingStage.Eval,
             }),
             plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
         );
         for (const account of [null, evalAccount]) {
             expect(liveTransitionPreview(plan, account)).toEqual({

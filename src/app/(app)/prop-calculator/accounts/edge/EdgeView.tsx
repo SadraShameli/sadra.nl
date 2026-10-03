@@ -42,6 +42,7 @@ import {
     DEFAULT_RULEBOOK,
     type SampleThresholds,
 } from '~/lib/prop-calculator/advisor';
+import { type WilsonInterval } from '~/lib/prop-calculator/stats';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -198,12 +199,14 @@ function EdgeMetricCard({
     description,
     format,
     formatError,
+    intervalText,
     metric,
     title,
 }: {
     readonly description: string;
     readonly format: (value: number) => string;
     readonly formatError: (value: number) => string;
+    readonly intervalText?: null | string;
     readonly metric: EdgeMetric;
     readonly title: string;
 }) {
@@ -232,6 +235,12 @@ function EdgeMetricCard({
                                 {formatError(metric.standardError)}
                             </dd>
                         )}
+                        {intervalText !== undefined &&
+                            intervalText !== null && (
+                                <dd className="text-xs text-muted-foreground tabular-nums">
+                                    {intervalText}
+                                </dd>
+                            )}
                     </div>
                     <div>
                         <dt className="text-muted-foreground">
@@ -322,6 +331,10 @@ function EdgeResult({
                     description="Share of counted trades that were wins."
                     format={(value) => formatPercent(value)}
                     formatError={(value) => formatPercent(value)}
+                    intervalText={winRateIntervalText(
+                        summary.winRateInterval,
+                        summary.sampleSize,
+                    )}
                     metric={summary.winRate}
                     title="Win rate"
                 />
@@ -391,4 +404,13 @@ function measuredRewardToRiskWithinCalculatorBounds(
         measuredRewardToRisk.value <= max
         ? measuredRewardToRisk
         : null;
+}
+
+function winRateIntervalText(
+    interval: null | WilsonInterval,
+    sampleSize: number,
+): null | string {
+    return interval === null
+        ? null
+        : `95% CI ${formatPercent(interval.lower)} to ${formatPercent(interval.upper)}, n = ${String(sampleSize)}`;
 }

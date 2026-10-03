@@ -51,10 +51,10 @@ describe('buildStressScenarios', () => {
         expect(safetyNetPlan(mffPro).minPayoutProfit).toBe(3150);
     });
 
-    it("also raises FundedNext Legacy's $500 per-cycle gate to $750, so the scenario is not a no-op on a $0 first-payout gate (N-42)", () => {
+    it("also raises FundedNext Legacy's $500 first-payout and per-cycle gates to $750 (N-42, N-93)", () => {
         const stressed = safetyNetPlan(legacy);
 
-        expect(stressed.minPayoutProfit).toBe(0);
+        expect(stressed.minPayoutProfit).toBe(750);
         expect(stressed.minPayoutProfitPerCycle).toBe(750);
     });
 

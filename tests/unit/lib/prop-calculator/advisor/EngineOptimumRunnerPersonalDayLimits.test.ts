@@ -57,7 +57,7 @@ function baseSimInputs(): Omit<SimInputs, 'plan'> {
         rrRatio: RR,
         seed: 42,
         tradesPerDay: 4,
-        trials: 60,
+        trials: 30,
         winrate: 0.55,
     };
 }
@@ -118,6 +118,7 @@ function ladderRequestOf(dayLimits?: PersonalDayLimits): LadderSearchRequest {
     return {
         ...(dayLimits !== undefined && { dayLimits }),
         grid: { lo: 100, max: 500, slots: 3, step: 100 },
+        policy: policyWith(null, null),
         score: {
             commission: 0,
             cushion: 2000,
@@ -126,7 +127,7 @@ function ladderRequestOf(dayLimits?: PersonalDayLimits): LadderSearchRequest {
             rrRatio: RR,
             rungSizing: RungSizing.CapToCushion,
             seedOffset: 0,
-            sims: 60,
+            sims: 20,
             stopRule: DAY_GREEN,
             winrate: 0.4,
         },

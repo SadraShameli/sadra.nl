@@ -15,6 +15,7 @@ import {
     parsePositionSizePhase,
     parsePositionSizeRetryFee,
     parsePositionSizeRisk,
+    parsePositionSizeRoom,
     parsePositionSizeStop,
     parsePositionSizeUnit,
     PositionSizeUrlParameter,
@@ -93,6 +94,7 @@ function tieredState(): PositionSizeInput {
         plan: TIERED_PLAN,
         retryFee: dollars(TIERED_PLAN.retryFee()),
         risk: dollars(333.5),
+        roomDollars: dollars(412.5),
         stopPoints: points(12.25),
         tierProfit: second,
         unit: RiskDisplayUnit.FeeEquivalent,
@@ -290,6 +292,63 @@ describe('decodePositionSize drops each invalid value on its own', () => {
             ...base,
             unit: defaults.unit,
         });
+    });
+});
+
+describe('the room left (F-V31)', () => {
+    it('round-trips a room left', () => {
+        const state = { ...tieredState(), roomDollars: dollars(300) };
+        expect(roundTrip(state)).toEqual(state);
+        expect(
+            new URLSearchParams(encodePositionSize(state)).get(
+                PositionSizeUrlParameter.Room,
+            ),
+        ).toBe('300');
+    });
+
+    it('writes no room key and decodes to null when no room is known', () => {
+        const state = { ...tieredState(), roomDollars: null };
+        const query = new URLSearchParams(encodePositionSize(state));
+        expect(query.has(PositionSizeUrlParameter.Room)).toBe(false);
+        expect(decodePositionSize(query).roomDollars).toBeNull();
+        expect(defaultPositionSize().roomDollars).toBeNull();
+    });
+
+    it('leaves the room key out when asked', () => {
+        const query = new URLSearchParams(
+            encodePositionSize(tieredState(), [PositionSizeUrlParameter.Room]),
+        );
+        expect(query.has(PositionSizeUrlParameter.Room)).toBe(false);
+    });
+
+    it.each(['abc', '-5', '-0.01', 'Infinity', 'NaN', '', '1e400'])(
+        'drops the room %j',
+        (raw) => {
+            expect(
+                decodedWith(tieredState(), PositionSizeUrlParameter.Room, raw)
+                    .roomDollars,
+            ).toBeNull();
+        },
+    );
+
+    it('floors a sub-cent room to whole cents, never up', () => {
+        expect(parsePositionSizeRoom('100.009')).toBe(100);
+        expect(parsePositionSizeRoom(' 300 ')).toBe(300);
+        for (const raw of ['', 'abc', '-1', 'Infinity']) {
+            expect(parsePositionSizeRoom(raw)).toBeNull();
+        }
+    });
+
+    it('keeps a spent room of zero instead of falling back to no room', () => {
+        const state = { ...tieredState(), roomDollars: dollars(0) };
+        expect(roundTrip(state)).toEqual(state);
+        expect(
+            new URLSearchParams(encodePositionSize(state)).get(
+                PositionSizeUrlParameter.Room,
+            ),
+        ).toBe('0');
+        expect(parsePositionSizeRoom('0')).toBe(0);
+        expect(parsePositionSizeRoom('0.004')).toBe(0);
     });
 });
 

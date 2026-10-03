@@ -12,7 +12,7 @@ export {
     type AccountStateUnavailableReason,
     type ReconstructedSnapshotState,
 } from './AccountStates';
-export { attemptsOf } from './Attempts';
+export { attemptsOf, isFundedAccount } from './Attempts';
 export {
     type AttemptThroughput,
     attemptThroughput,
@@ -50,6 +50,7 @@ export {
     FundedRiskBasis,
 } from './CushionBoard';
 export {
+    DAY_LOSS_EVAL_FROM_STATE_NOTE,
     DAY_LOSS_EVAL_NOTE,
     DAY_LOSS_FUNDED_NOTE,
     DAY_LOSS_MAX_WEEKDAYS_APART,
@@ -90,6 +91,7 @@ export {
 } from './Exposure';
 export {
     type FeeCheckRow,
+    feeCheckRowOf,
     FeePriceCheck,
     type FeeReconciliation,
     feeReconciliation,
@@ -151,6 +153,7 @@ export {
 export {
     type AccountLiveTriggerProximity,
     type FirmLiveTriggerProximity,
+    LiveProximityCountStatus,
     LiveProximityStatus,
     type LiveTransitionProximity,
     liveTransitionProximity,

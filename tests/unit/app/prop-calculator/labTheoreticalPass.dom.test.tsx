@@ -20,7 +20,6 @@ import {
     CorrelationMode,
     DayStopRuleKind,
     type Fraction0to1,
-    type MultiAccountResult,
     simulatePortfolio,
 } from '~/lib/prop-calculator';
 import {
@@ -31,13 +30,13 @@ import {
     walkPassProbability,
 } from '~/lib/prop-calculator/economics';
 
+import { InlineToolsWorker } from './labWorkerFixtures';
+
 vi.mock(import('~/lib/prop-calculator'), async (importOriginal) => {
     const actual = await importOriginal();
     return {
         ...actual,
-        simulatePortfolio: vi.fn(
-            () => ({ theoreticalPassProb: 0 }) as unknown as MultiAccountResult,
-        ),
+        simulatePortfolio: vi.fn(actual.simulatePortfolio),
     };
 });
 
@@ -107,6 +106,7 @@ describe('the lab renders the library walk pass probability and never computes t
     beforeEach(() => {
         vi.useFakeTimers();
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.stubGlobal('Worker', InlineToolsWorker);
         vi.mocked(walkPassProbability).mockClear();
         vi.mocked(evalPace).mockClear();
         vi.mocked(twoBarrierPassProbability).mockClear();

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
     AdviceSource,
@@ -10,7 +10,9 @@ import {
     PAYOUT_SIZE_SWEEP_GRID,
     PAYOUT_SIZE_SWEEP_OBJECTIVE,
     type PayoutSizeSweepRequest,
+    type PayoutSizeSweepResult,
     PayoutSizeSweepResultKind,
+    type PayoutSizeSweepRow,
     RetainedCushionBasis,
     runPayoutSizeSweep,
     StartBasis,
@@ -29,6 +31,56 @@ import {
 } from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
 import { simulate } from '~/lib/prop-calculator/simulator';
+import { NOISE_STANDARD_ERRORS } from '~/lib/prop-calculator/stats';
+
+const PERSONAL_OVERRIDE_TRIALS = 300;
+const PERSONAL_OVERRIDE_WARNING_HORIZON_DAYS = 30;
+
+interface FreshBandGaps {
+    readonly bustGap: number;
+    readonly bustThreshold: number;
+    readonly monthlyGap: number;
+    readonly monthlyThreshold: number;
+}
+
+function bandSpec(plan: Plan): DocumentedPolicySpec {
+    return specFor(plan, {
+        fundedHorizonDays: PERSONAL_OVERRIDE_WARNING_HORIZON_DAYS,
+        trials: PERSONAL_OVERRIDE_TRIALS,
+    });
+}
+
+function freshBandGaps(
+    overrideRow: PayoutSizeSweepRow,
+    winner: PayoutSizeSweepRow,
+): FreshBandGaps {
+    if (
+        overrideRow.kind !== StartBasis.Fresh ||
+        winner.kind !== StartBasis.Fresh
+    ) {
+        throw new Error('expected fresh rows');
+    }
+    return {
+        bustGap:
+            overrideRow.out.fundedBustProbability -
+            winner.out.fundedBustProbability,
+        bustThreshold:
+            NOISE_STANDARD_ERRORS *
+            Math.max(
+                overrideRow.out.estimates.fundedBustProbability.standardError,
+                winner.out.estimates.fundedBustProbability.standardError,
+            ),
+        monthlyGap: Math.abs(
+            overrideRow.out.expectedMonthlyNet - winner.out.expectedMonthlyNet,
+        ),
+        monthlyThreshold:
+            NOISE_STANDARD_ERRORS *
+            Math.max(
+                overrideRow.out.estimates.expectedMonthlyNet.standardError,
+                winner.out.estimates.expectedMonthlyNet.standardError,
+            ),
+    };
+}
 
 function mffProPlan(): Plan {
     const plan = findFirm(FirmId.Mffu)?.findPlan({
@@ -53,13 +105,14 @@ function rapidEodPlan(): Plan {
 function specFor(
     plan: Plan,
     overrides: {
+        fundedHorizonDays?: number;
         positionSizing?: { instrument: InstrumentSymbol; stopPoints: number };
         seed?: number;
         trials?: number;
     } = {},
 ): DocumentedPolicySpec {
     const { policy } = buildEnginePolicy({
-        fundedHorizonDays: 90,
+        fundedHorizonDays: overrides.fundedHorizonDays ?? 90,
         plan,
         positionSizing:
             overrides.positionSizing === undefined
@@ -82,6 +135,29 @@ function specFor(
 }
 
 describe('runPayoutSizeSweep (PT-32)', () => {
+    let gridMinimumOverrideResult: null | PayoutSizeSweepResult = null;
+
+    function gridMinimumOverride(): Extract<
+        PayoutSizeSweepResult,
+        { kind: PayoutSizeSweepResultKind.Optimum }
+    > {
+        if (
+            gridMinimumOverrideResult?.kind !== PayoutSizeSweepResultKind.Optimum
+        ) {
+            throw new Error('expected an optimum with the grid minimum override');
+        }
+        return gridMinimumOverrideResult;
+    }
+
+    beforeAll(() => {
+        const plan = rapidEodPlan();
+        gridMinimumOverrideResult = runPayoutSizeSweep(plan, {
+            personalOverrideRequest: PAYOUT_SIZE_SWEEP_GRID[0],
+            source: AdviceSource.PayoutSizeSweep,
+            spec: bandSpec(plan),
+        });
+    });
+
     it('dedupes grid sizes below the plan minimum into one row and notes the raise (MFF Pro, $1000 minimum)', () => {
         const plan = mffProPlan();
         const request: PayoutSizeSweepRequest = {
@@ -225,69 +301,55 @@ describe('runPayoutSizeSweep (PT-32)', () => {
         );
     });
 
-    it('leaves the personal override warning null when the override matches the winner exactly', () => {
+    it('leaves the personal override warning null for a neighbouring grid size whose monthly gap and bust rate sit inside the 2 standard error band', () => {
         const plan = rapidEodPlan();
-        const baseline = runPayoutSizeSweep(plan, {
-            source: AdviceSource.PayoutSizeSweep,
-            spec: specFor(plan, { trials: 400 }),
-        });
-        if (baseline.kind !== PayoutSizeSweepResultKind.Optimum) {
-            throw new Error('expected an optimum');
-        }
-        const winnerSize = baseline.optimum.winner.requestSize;
-        const result = runPayoutSizeSweep(plan, {
-            personalOverrideRequest: winnerSize,
-            source: AdviceSource.PayoutSizeSweep,
-            spec: specFor(plan, { trials: 400 }),
-        });
-        if (result.kind !== PayoutSizeSweepResultKind.Optimum) {
-            throw new Error('expected an optimum');
-        }
-        expect(result.optimum.personalOverride?.row.requestSize).toBe(
-            winnerSize,
-        );
-        expect(result.optimum.personalOverride?.warning).toBeNull();
-    });
-
-    it('warns on a personal override far enough from the winner that no defensible noise band would hide it', () => {
-        const plan = rapidEodPlan();
-        const highTrialSpec = specFor(plan, { trials: 3000 });
-        const baseline = runPayoutSizeSweep(plan, {
-            source: AdviceSource.PayoutSizeSweep,
-            spec: highTrialSpec,
-        });
-        if (baseline.kind !== PayoutSizeSweepResultKind.Optimum) {
-            throw new Error('expected an optimum');
-        }
-        const winnerSize = baseline.optimum.winner.requestSize;
-        const gridExtremes = [
-            PAYOUT_SIZE_SWEEP_GRID[0],
-            PAYOUT_SIZE_SWEEP_GRID.at(-1),
-        ];
-        const farthestExtreme = gridExtremes.reduce((farthest, candidate) =>
-            candidate !== undefined &&
-            (farthest === undefined ||
-                Math.abs(candidate - winnerSize) >
-                    Math.abs(farthest - winnerSize))
-                ? candidate
-                : farthest,
-        );
-        if (farthestExtreme === undefined) {
-            throw new Error('expected a grid extreme');
+        const spec = bandSpec(plan);
+        const winnerSize = gridMinimumOverride().optimum.winner.requestSize;
+        const neighbourSize = PAYOUT_SIZE_SWEEP_GRID.toSorted(
+            (a, b) => b - a,
+        ).find((size) => size < winnerSize);
+        if (neighbourSize === undefined) {
+            throw new Error('expected a grid size below the winner');
         }
 
         const result = runPayoutSizeSweep(plan, {
-            personalOverrideRequest: farthestExtreme,
+            personalOverrideRequest: neighbourSize,
             source: AdviceSource.PayoutSizeSweep,
-            spec: highTrialSpec,
+            spec,
         });
         if (result.kind !== PayoutSizeSweepResultKind.Optimum) {
             throw new Error('expected an optimum');
         }
         const override = result.optimum.personalOverride;
         if (!override) throw new Error('expected a personal override result');
+        const gaps = freshBandGaps(override.row, result.optimum.winner);
+
+        expect(override.row.requestSize).toBe(neighbourSize);
+        expect(override.row.requestSize).not.toBe(winnerSize);
+        expect(gaps.monthlyGap).toBeGreaterThan(0);
+        expect(gaps.monthlyGap).toBeLessThanOrEqual(gaps.monthlyThreshold);
+        expect(gaps.bustGap).toBeLessThanOrEqual(gaps.bustThreshold);
+        expect(override.warning).toBeNull();
+    });
+
+    it('warns on a personal override far enough from the winner that no defensible noise band would hide it', () => {
+        const highTrialSpec = bandSpec(rapidEodPlan());
+        const smallestSize = PAYOUT_SIZE_SWEEP_GRID[0];
+        const largestSize = PAYOUT_SIZE_SWEEP_GRID.at(-1);
+        if (smallestSize === undefined || largestSize === undefined) {
+            throw new Error('expected a grid extreme');
+        }
+
+        const { optimum } = gridMinimumOverride();
+        expect(
+            Math.abs(smallestSize - optimum.winner.requestSize),
+        ).toBeGreaterThanOrEqual(
+            Math.abs(largestSize - optimum.winner.requestSize),
+        );
+        const override = optimum.personalOverride;
+        if (!override) throw new Error('expected a personal override result');
         const overrideRow = override.row;
-        const winner = result.optimum.winner;
+        const winner = optimum.winner;
         if (
             overrideRow.kind !== StartBasis.Fresh ||
             winner.kind !== StartBasis.Fresh
@@ -295,6 +357,11 @@ describe('runPayoutSizeSweep (PT-32)', () => {
             throw new Error('expected fresh rows');
         }
         expect(overrideRow.requestSize).not.toBe(winner.requestSize);
+        const gaps = freshBandGaps(overrideRow, winner);
+        expect(
+            gaps.monthlyGap > gaps.monthlyThreshold ||
+                gaps.bustGap > gaps.bustThreshold,
+        ).toBe(true);
         const documentedCushion =
             fundedRetainedCushionResolution(DEFAULT_RULEBOOK);
         expect(override.warning).toStrictEqual({
@@ -308,32 +375,47 @@ describe('runPayoutSizeSweep (PT-32)', () => {
             retainedCushion: documentedCushion.amount,
             retainedCushionBasis: documentedCushion.basis,
         });
-    }, 60_000);
+    });
 
     it('names the personal override as the retained-cushion basis when the policy retains more than the rulebook', () => {
         const plan = rapidEodPlan();
-        const personalCushion = 9000;
-        const base = specFor(plan, { trials: 3000 });
-        const spec: DocumentedPolicySpec = {
-            ...base,
-            enginePolicy: {
-                ...base.enginePolicy,
-                retainedCushionRequest: personalCushion,
+        const personalCushion = 2000;
+        const rulebook = {
+            ...DEFAULT_RULEBOOK,
+            payout: {
+                ...DEFAULT_RULEBOOK.payout,
+                allowBelowHardRule2: true,
+                retainedCushionCents: 50_000,
             },
         };
-        const firstSize = PAYOUT_SIZE_SWEEP_GRID[0];
-        const lastSize = PAYOUT_SIZE_SWEEP_GRID.at(-1);
-        const warnings = [firstSize, lastSize].flatMap((size) => {
-            const result = runPayoutSizeSweep(plan, {
-                personalOverrideRequest: size,
-                source: AdviceSource.PayoutSizeSweep,
-                spec,
-            });
-            return result.kind === PayoutSizeSweepResultKind.Optimum &&
-                result.optimum.personalOverride?.warning
+        const { policy } = buildEnginePolicy({
+            fundedHorizonDays: PERSONAL_OVERRIDE_WARNING_HORIZON_DAYS,
+            plan,
+            positionSizing: null,
+            rulebook,
+        });
+        const spec: DocumentedPolicySpec = {
+            enginePolicy: {
+                ...policy,
+                retainedCushionRequest: personalCushion,
+            },
+            rulebook,
+            run: {
+                maxEvalDays: 40,
+                seed: 42,
+                trials: PERSONAL_OVERRIDE_TRIALS,
+            },
+        };
+        const result = runPayoutSizeSweep(plan, {
+            personalOverrideRequest: PAYOUT_SIZE_SWEEP_GRID[0],
+            source: AdviceSource.PayoutSizeSweep,
+            spec,
+        });
+        const warnings =
+            result.kind === PayoutSizeSweepResultKind.Optimum &&
+            result.optimum.personalOverride?.warning
                 ? [result.optimum.personalOverride.warning]
                 : [];
-        });
 
         expect(warnings.length).toBeGreaterThan(0);
         for (const warning of warnings) {
@@ -345,7 +427,7 @@ describe('runPayoutSizeSweep (PT-32)', () => {
                 spec.enginePolicy.fundedHorizonDays,
             );
         }
-    }, 60_000);
+    });
 
     it('names the personal override as the retained-cushion basis when the policy retains less than the rulebook (PT-19i review)', () => {
         const plan = rapidEodPlan();
@@ -355,7 +437,7 @@ describe('runPayoutSizeSweep (PT-32)', () => {
             payout: { ...DEFAULT_RULEBOOK.payout, retainedCushionCents },
         };
         const { policy } = buildEnginePolicy({
-            fundedHorizonDays: 90,
+            fundedHorizonDays: PERSONAL_OVERRIDE_WARNING_HORIZON_DAYS,
             plan,
             positionSizing: null,
             rulebook,
@@ -367,23 +449,23 @@ describe('runPayoutSizeSweep (PT-32)', () => {
                 retainedCushionRequest: policyCushion,
             },
             rulebook,
-            run: { maxEvalDays: 40, seed: 42, trials: 3000 },
+            run: {
+                maxEvalDays: 40,
+                seed: 42,
+                trials: PERSONAL_OVERRIDE_TRIALS,
+            },
         };
 
-        const warnings = [
-            PAYOUT_SIZE_SWEEP_GRID[0],
-            PAYOUT_SIZE_SWEEP_GRID.at(-1),
-        ].flatMap((size) => {
-            const result = runPayoutSizeSweep(plan, {
-                personalOverrideRequest: size,
-                source: AdviceSource.PayoutSizeSweep,
-                spec,
-            });
-            return result.kind === PayoutSizeSweepResultKind.Optimum &&
-                result.optimum.personalOverride?.warning
+        const result = runPayoutSizeSweep(plan, {
+            personalOverrideRequest: PAYOUT_SIZE_SWEEP_GRID[0],
+            source: AdviceSource.PayoutSizeSweep,
+            spec,
+        });
+        const warnings =
+            result.kind === PayoutSizeSweepResultKind.Optimum &&
+            result.optimum.personalOverride?.warning
                 ? [result.optimum.personalOverride.warning]
                 : [];
-        });
 
         expect(warnings.length).toBeGreaterThan(0);
         for (const warning of warnings) {
@@ -392,7 +474,7 @@ describe('runPayoutSizeSweep (PT-32)', () => {
                 RetainedCushionBasis.PersonalOverride,
             );
         }
-    }, 60_000);
+    });
 
     it('propagates a non-refusal error instead of masking it as a no-optimum result', () => {
         const plan = rapidEodPlan();

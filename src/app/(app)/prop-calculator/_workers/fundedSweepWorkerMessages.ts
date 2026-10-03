@@ -1,3 +1,5 @@
+import { type z } from 'zod';
+
 import { simInputsCacheKey } from '~/app/(app)/prop-calculator/_components/simInputsCacheKey';
 import { type FirmId, type PlanOptIns } from '~/lib/prop-calculator';
 import {
@@ -10,8 +12,11 @@ import {
     type FundedSweepRow,
 } from '~/lib/prop-calculator/optimize';
 import { type SimInputs } from '~/lib/prop-calculator/simulator';
+import { type dayPolicySchema } from '~/lib/schemas/url';
 
 export const MAX_FUNDED_SWEEP_TRIALS = 5000;
+
+export type FundedEvalLadder = z.infer<typeof dayPolicySchema>;
 
 export type FundedSweepBaseInputs = Omit<
     SimInputs,
@@ -36,6 +41,7 @@ export interface FundedSweepRefusedResult {
 
 export interface FundedSweepRequest {
     readonly base: FundedSweepBaseInputs;
+    readonly evalLadder: FundedEvalLadder | null;
     readonly firmId: FirmId;
     readonly optIns: PlanOptIns;
     readonly planSerial: string;
@@ -52,6 +58,7 @@ export function clampFundedSweepTrials(trials: number): number {
 export function fundedSweepCacheKey(request: FundedSweepRequest): string {
     return simInputsCacheKey(request.base, {
         extra: {
+            evalLadder: request.evalLadder,
             firmId: request.firmId,
             optIns: request.optIns,
             planSerial: request.planSerial,

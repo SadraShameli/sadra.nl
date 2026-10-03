@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { type FieldPathValue } from 'react-hook-form';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
@@ -15,8 +17,18 @@ import {
     TEXT_FIELDS,
     type TextFieldName,
 } from '~/app/(app)/prop-calculator/accounts/rulebook/rulebookFormValues';
-import { FirmKeyKind } from '~/lib/prop-accounts';
-import { type LiveTransferRate } from '~/lib/prop-accounts/firms';
+import {
+    AccountStage,
+    AccountTracking,
+    FirmKeyKind,
+    type PortfolioLedger,
+} from '~/lib/prop-accounts';
+import {
+    type LiveTransferRate,
+    liveTransferRate,
+    LiveTransferRateUnavailable,
+    recordedAtLiveText,
+} from '~/lib/prop-accounts/firms';
 import { sampledRate } from '~/lib/prop-accounts/metrics';
 import { FirmId } from '~/lib/prop-calculator';
 import {
@@ -25,6 +37,13 @@ import {
     type RulebookParameters,
     rulebookSchema,
 } from '~/lib/prop-calculator/advisor';
+
+import {
+    account,
+    EVAL_PLAN,
+    ledger,
+    payout,
+} from '../../../lib/prop-accounts/metrics/ledgerFixtures';
 
 const EM_DASH = String.fromCodePoint(0x20_14);
 const VIDEO_AUTHOR_LABEL = "the video author's choice, not a default";
@@ -439,53 +458,67 @@ function rateOf(
 ): LiveTransferRate['perFirm'][number] {
     return {
         firmKey: { firmId, kind: FirmKeyKind.Modeled },
+        fundedAccountMonths: 0,
         movedLiveCount,
+        paidPayoutCount: paidPayouts,
         perFundedAccountMonth: null,
+        perFundedAccountMonthUnavailable:
+            LiveTransferRateUnavailable.NoFundedMonths,
         perPaidPayout: sampledRate(movedLiveCount, paidPayouts),
+        perPaidPayoutUnavailable:
+            paidPayouts === 0
+                ? LiveTransferRateUnavailable.NoPaidPayouts
+                : null,
     };
+}
+
+function hazardsOfRate(rate: LiveTransferRate) {
+    return measuredHazardsOf(rate, ledger({}));
 }
 
 describe('measuredHazardsOf: the measured transfer rate offered next to each firm hazard field (PT-73, F-V26)', () => {
     it('offers the measured per paid payout rate as the form text, with its counts', () => {
-        const measured = measuredHazardsOf({
+        const measured = hazardsOfRate({
             perFirm: [rateOf(FirmId.Mffu, 3, 20)],
         });
         expect(measured[FirmId.Mffu]).toStrictEqual({
             movedLiveCount: 3,
             paidPayouts: 20,
             rate: 0.15,
+            recordedAtLiveCount: 0,
             suggestedText: '15',
         });
     });
 
     it('rounds the suggested text to two decimals of a percent', () => {
-        const measured = measuredHazardsOf({
+        const measured = hazardsOfRate({
             perFirm: [rateOf(FirmId.Apex, 1, 3)],
         });
         expect(measured[FirmId.Apex]?.suggestedText).toBe('33.33');
     });
 
     it('shows a firm that never sent an account live but offers no text, since 0 is not a hazard the rulebook accepts', () => {
-        const measured = measuredHazardsOf({
+        const measured = hazardsOfRate({
             perFirm: [rateOf(FirmId.Lucid, 0, 12)],
         });
         expect(measured[FirmId.Lucid]).toStrictEqual({
             movedLiveCount: 0,
             paidPayouts: 12,
             rate: 0,
+            recordedAtLiveCount: 0,
             suggestedText: null,
         });
     });
 
     it('offers no text for a rate of 1, which the rulebook does not accept either', () => {
-        const measured = measuredHazardsOf({
+        const measured = hazardsOfRate({
             perFirm: [rateOf(FirmId.Tpt, 2, 2)],
         });
         expect(measured[FirmId.Tpt]?.suggestedText).toBeNull();
     });
 
     it('offers no text for a rate that rounds to 0% or 100%, which the rulebook does not accept', () => {
-        const measured = measuredHazardsOf({
+        const measured = hazardsOfRate({
             perFirm: [
                 rateOf(FirmId.Apex, 1, 25_000),
                 rateOf(FirmId.Mffu, 24_999, 25_000),
@@ -496,7 +529,7 @@ describe('measuredHazardsOf: the measured transfer rate offered next to each fir
     });
 
     it('still offers the smallest and largest rates that round inside the open interval', () => {
-        const measured = measuredHazardsOf({
+        const measured = hazardsOfRate({
             perFirm: [
                 rateOf(FirmId.Apex, 1, 10_000),
                 rateOf(FirmId.Mffu, 9999, 10_000),
@@ -507,7 +540,7 @@ describe('measuredHazardsOf: the measured transfer rate offered next to each fir
     });
 
     it('leaves out a firm with no paid payouts, an unlisted firm and an unknown stored firm', () => {
-        const measured = measuredHazardsOf({
+        const measured = hazardsOfRate({
             perFirm: [
                 rateOf(FirmId.TopStep, 0, 0),
                 {
@@ -515,9 +548,14 @@ describe('measuredHazardsOf: the measured transfer rate offered next to each fir
                         externalFirmId: 'ext-1',
                         kind: FirmKeyKind.External,
                     },
+                    fundedAccountMonths: 0,
                     movedLiveCount: 1,
+                    paidPayoutCount: 4,
                     perFundedAccountMonth: null,
+                    perFundedAccountMonthUnavailable:
+                        LiveTransferRateUnavailable.NoFundedMonths,
                     perPaidPayout: sampledRate(1, 4),
+                    perPaidPayoutUnavailable: null,
                 },
                 rateOf('not-a-firm', 1, 4),
             ],
@@ -526,9 +564,109 @@ describe('measuredHazardsOf: the measured transfer rate offered next to each fir
     });
 
     it('never uses an em dash in the suggested text', () => {
-        const measured = measuredHazardsOf({
+        const measured = hazardsOfRate({
             perFirm: [rateOf(FirmId.Mffu, 3, 20)],
         });
         expect(JSON.stringify(measured)).not.toContain(EM_DASH);
+    });
+});
+
+function ledgerOnlyLive() {
+    return account(EVAL_PLAN, {
+        planLabel: 'Imported live',
+        planSerial: null,
+        stage: AccountStage.Live,
+        tracking: AccountTracking.LedgerOnly,
+    });
+}
+
+describe('measuredHazardsOf: the count of accounts recorded straight at Live (PT-87b, QF-7)', () => {
+    it('counts a ledger-only Live account as a transfer and discloses it in the hazard text', () => {
+        const recorded = ledgerOnlyLive();
+        const built = ledger({
+            accounts: [recorded],
+            payouts: [payout(recorded, 5000, { paidOn: '2026-02-01' })],
+        });
+        const measured = measuredHazardsOf(
+            liveTransferRate(built, '2026-04-01'),
+            built,
+        );
+        const hazard = measured[EVAL_PLAN.firm.id];
+        expect(hazard).toMatchObject({
+            movedLiveCount: 1,
+            recordedAtLiveCount: 1,
+        });
+        expect(recordedAtLiveText(1)).toBe(
+            'includes 1 account recorded straight at Live',
+        );
+    });
+
+    it('counts two such accounts and says accounts', () => {
+        const first = ledgerOnlyLive();
+        const second = ledgerOnlyLive();
+        const built = ledger({
+            accounts: [first, second],
+            payouts: [
+                payout(first, 5000, { paidOn: '2026-02-01' }),
+                payout(second, 5000, { paidOn: '2026-02-02' }),
+                payout(second, 5000, { paidOn: '2026-02-03' }),
+            ],
+        });
+        const measured = measuredHazardsOf(
+            liveTransferRate(built, '2026-04-01'),
+            built,
+        );
+        expect(measured[EVAL_PLAN.firm.id]?.recordedAtLiveCount).toBe(2);
+        expect(recordedAtLiveText(2)).toBe(
+            'includes 2 accounts recorded straight at Live',
+        );
+    });
+
+    it('counts none for a firm with only modeled accounts, or a ledger-only account that is not Live', () => {
+        const funded = account(EVAL_PLAN, {
+            planLabel: 'Imported funded',
+            planSerial: null,
+            stage: AccountStage.Funded,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const built = ledger({
+            accounts: [funded],
+            payouts: [payout(funded, 5000, { paidOn: '2026-02-01' })],
+        });
+        const rate = liveTransferRate(built, '2026-04-01');
+        expect(
+            measuredHazardsOf(rate, built)[EVAL_PLAN.firm.id]
+                ?.recordedAtLiveCount,
+        ).toBe(0);
+    });
+
+    it('requires the ledger, so the disclosure cannot be dropped by leaving it out', () => {
+        expectTypeOf(measuredHazardsOf).parameters.toEqualTypeOf<
+            [LiveTransferRate, PortfolioLedger]
+        >();
+    });
+
+    it('never uses an em dash in the disclosure', () => {
+        expect(recordedAtLiveText(3)).not.toContain(EM_DASH);
+    });
+});
+
+describe('the modeled-firm loop of the measured hazards (PT-87b)', () => {
+    const RULEBOOK_DIR = path.join(
+        process.cwd(),
+        'src/app/(app)/prop-calculator/accounts/rulebook',
+    );
+
+    it('parses a stored firm id against the FirmId enum in exactly one place', () => {
+        const sources = ['rulebookFormValues.ts', 'useMeasuredHazards.ts'].map(
+            (file) => fs.readFileSync(path.join(RULEBOOK_DIR, file), 'utf8'),
+        );
+        const count = sources.reduce(
+            (total, source) =>
+                total +
+                (source.match(/z\.enum\(FirmId\)\.safeParse/g) ?? []).length,
+            0,
+        );
+        expect(count).toBe(1);
     });
 });

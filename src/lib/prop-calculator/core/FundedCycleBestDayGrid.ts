@@ -2,6 +2,7 @@ import { BUCKET_EPSILON } from './constants';
 
 interface FundedCycleBestDayGridOptions {
     readonly cushionStepDollars: number;
+    readonly isTracked: boolean;
     readonly overflowDollars: number;
     readonly relevantBestDayDollars: number;
     readonly requestedBucketCount: number | undefined;
@@ -17,6 +18,7 @@ export class FundedCycleBestDayGrid {
     constructor(options: FundedCycleBestDayGridOptions) {
         const {
             cushionStepDollars,
+            isTracked,
             overflowDollars,
             relevantBestDayDollars,
             requestedBucketCount,
@@ -36,14 +38,22 @@ export class FundedCycleBestDayGrid {
                 Math.max(0, relevantBestDayDollars) / cushionStepDollars +
                     BUCKET_EPSILON,
             ) + 2;
-        if (requestedBucketCount === undefined) {
+        if (!isTracked) {
+            this.realBucketCount = 1;
+            this.stepDollars = cushionStepDollars;
+        } else if (requestedBucketCount === undefined) {
             this.realBucketCount = exactBucketCount;
             this.stepDollars = cushionStepDollars;
         } else {
-            this.realBucketCount = Math.max(
-                1,
-                Math.floor(requestedBucketCount),
-            );
+            if (
+                !Number.isFinite(requestedBucketCount) ||
+                Math.floor(requestedBucketCount) < 1
+            ) {
+                throw new Error(
+                    `FundedCycleBestDayGrid: a tracked best day needs a finite bucket count of at least 1, got ${requestedBucketCount}`,
+                );
+            }
+            this.realBucketCount = Math.floor(requestedBucketCount);
             this.stepDollars =
                 this.realBucketCount === 1
                     ? cushionStepDollars
@@ -56,8 +66,7 @@ export class FundedCycleBestDayGrid {
                           ),
                       );
         }
-        this.keyRadix =
-            this.realBucketCount === 1 ? 1 : this.realBucketCount + 1;
+        this.keyRadix = isTracked ? this.realBucketCount + 1 : 1;
         this.overflowBucketDollars = Math.max(
             overflowDollars,
             (this.realBucketCount - 1) * this.stepDollars + this.stepDollars,

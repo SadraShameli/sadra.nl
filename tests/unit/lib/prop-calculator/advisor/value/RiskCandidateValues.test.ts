@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
@@ -46,6 +47,7 @@ function fundedAccount(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -204,6 +206,7 @@ describe('riskCandidateValues (F-V17, PT-65a step 4)', () => {
                 elapsedDays: 2,
                 tradingDays: 2,
             },
+            ...NO_PENDING_PAYOUT_COUNTS,
         };
 
         const outcome = riskCandidateValues(account, spec, {

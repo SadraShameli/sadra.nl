@@ -142,7 +142,6 @@ export function runNextPayoutProjection(
         });
 
         const firstPayoutDay = sink.firstPayoutDay;
-        const payoutCount = sink.count;
         if (firstPayoutDay !== null) {
             payingTrials += 1;
             sessionDaysSum += firstPayoutDay;
@@ -155,7 +154,10 @@ export function runNextPayoutProjection(
                 .reduce((sum, reset) => sum + reset.fee, 0);
             resetFeeSum += feeBeforeFirstPayout;
             resetFeeSquaredSum += feeBeforeFirstPayout * feeBeforeFirstPayout;
-            if (payoutCount === 1 && result.stage === FundedStage.Busted) {
+            if (
+                result.stage === FundedStage.Busted &&
+                firstPayoutDay === result.daysElapsed
+            ) {
                 breachedAtFirstPayoutTrials += 1;
             }
         } else if (result.stage === FundedStage.Busted) {

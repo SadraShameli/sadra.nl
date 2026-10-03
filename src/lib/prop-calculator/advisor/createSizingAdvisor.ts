@@ -17,9 +17,11 @@ import {
     ReconstructedLiveKind,
 } from './ReconstructedAccount';
 import { type RulebookParameters } from './Rulebook';
-import { type SizingAdvisor } from './SizingAdvisor';
+import {
+    DEFAULT_FUNDED_HORIZON_DAYS,
+    type SizingAdvisor,
+} from './SizingAdvisor';
 
-export const DEFAULT_FUNDED_HORIZON_DAYS = 252;
 export const DEFAULT_MAX_EVAL_DAYS = 150;
 
 export interface SizingAdvisorCreateOptions {
@@ -28,7 +30,6 @@ export interface SizingAdvisorCreateOptions {
     readonly maxEvalDays?: number;
     readonly measuredRebuyLag?: MeasuredRebuyLag | null;
     readonly paidPayoutsSinceLastLiveAccount?: null | number;
-    readonly pendingPayouts?: Dollars;
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
     readonly personalPayoutOverride?: Dollars | null;

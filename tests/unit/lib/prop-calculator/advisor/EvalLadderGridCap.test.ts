@@ -15,6 +15,7 @@ import {
     DEFAULT_RULEBOOK,
     DifferenceReason,
     EvalSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
 
@@ -52,6 +53,7 @@ function accountWithCushion(
         cushion,
         fundedTracker: null,
         kind: TradingPhase.Eval,
+        ...NO_PENDING_PAYOUT_COUNTS,
         plan: registryPlan(),
         resolvedDailyLossLimit,
         state,

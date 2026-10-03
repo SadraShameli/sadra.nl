@@ -16,15 +16,15 @@ import {
 } from '~/lib/prop-accounts/metrics';
 import { type Dollars, dollars, fraction } from '~/lib/prop-calculator';
 import {
-    attemptsAffordable,
+    bankrollAttemptsAt,
+    bankrollCohortRisk,
+    bankrollNoPayoutAt,
     batchLossClosedForm,
-    cohortOutcome,
     EconomicsReason,
     empiricalPayingStatsOf,
     LossSampleUnit,
     MAX_LOSS_TARGET_CAP,
     minimumBudgetForLossTarget,
-    noPayoutProbability as noPayoutProbabilityOf,
     type Quantity,
 } from '~/lib/prop-calculator/economics';
 import { clamp, mean } from '~/lib/prop-calculator/stats';
@@ -96,16 +96,16 @@ export function realizedLossRisk(
         };
     }
     const attemptCostDollars = inputs.attemptCostCents / 100;
-    const attempts = attemptsAffordable(
+    const attempts = bankrollAttemptsAt(
         dollars(inputs.availableCents / 100),
         dollars(attemptCostDollars),
     );
     const batchLossProbability =
-        attempts.value === null
+        attempts === null
             ? null
             : batchLossProbabilityOf(
                   netValuesDollars,
-                  attempts.value,
+                  attempts,
                   inputs.draws,
                   inputs.seed,
               );
@@ -133,16 +133,16 @@ export function realizedLossRisk(
     });
     return {
         ...base,
-        attempts: attempts.value,
+        attempts,
         batchLossProbability,
         minimumBudget,
         noPayoutProbability:
-            attemptPaysRate === null || attempts.value === null
+            attemptPaysRate === null || attempts === null
                 ? null
-                : (noPayoutProbabilityOf(
+                : bankrollNoPayoutAt(
                       fraction(clamp(attemptPaysRate.value, 0, 1)),
-                      attempts.value,
-                  ).value ?? null),
+                      attempts,
+                  ),
         reason: null,
     };
 }
@@ -153,12 +153,17 @@ function batchLossProbabilityOf(
     draws: number,
     seed: number,
 ): null | { readonly standardError: null | number; readonly value: number } {
-    const outcome = cohortOutcome(netValuesDollars, attempts, draws, seed);
-    return outcome.value === null
+    const outcome = bankrollCohortRisk(
+        netValuesDollars,
+        attempts,
+        draws,
+        seed,
+    ).value;
+    return outcome === null
         ? null
         : {
-              standardError: outcome.value.lossProbability.standardError,
-              value: outcome.value.lossProbability.value,
+              standardError: outcome.lossProbability.standardError,
+              value: outcome.lossProbability.value,
           };
 }
 

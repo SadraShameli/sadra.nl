@@ -580,13 +580,13 @@ describe('computeEvalStateValue answers a live day-start state the DP never reac
         expect(nullCount).toBe(0);
     });
 
-    it('finds no replay day start without a policy on TopStep No-fee Standard at a $100 action step on $500 cushion cells', () => {
+    it('finds no replay day start without a policy on TopStep No-fee Standard at a $100 action step on $500 cushion cells, over a 3 day eval cap (PT-T1c: down from 6 days, which took 53 s; the replay still reaches more than 500 day starts)', () => {
         const { nullCount, startCount } = dayStartNullShare(
             {
                 actionStepDollars: 100,
                 cushionStepDollars: 500,
                 maxActionDollars: 800,
-                maxEvalDays: 6,
+                maxEvalDays: 3,
                 plan: topStepNoFeeStandardPlan(),
                 profitStepDollars: 300,
                 rrRatio: 2,
@@ -598,7 +598,7 @@ describe('computeEvalStateValue answers a live day-start state the DP never reac
 
         expect(startCount).toBeGreaterThan(500);
         expect(nullCount).toBe(0);
-    }, 120_000);
+    });
 });
 
 describe('computeEvalStateValue sizes a replay day from the exact day-start state, not from a twin whose threshold offset is floored to the profit step (N-89)', () => {

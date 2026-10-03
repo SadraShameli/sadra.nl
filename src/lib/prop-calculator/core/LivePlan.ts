@@ -263,9 +263,13 @@ export class LivePlan {
             );
         }
         if (this.requiresLockForWithdrawal && !state.thresholdLocked) return 0;
+        const withdrawalFloor = this.floorAfterWithdrawal(state);
         const cushionFloor =
-            this.floorAfterWithdrawal(state) +
-            Math.max(retainedCushion, ONE_CENT);
+            withdrawalFloor +
+            Math.max(
+                retainedCushion,
+                this.isAliveOn(state, withdrawalFloor) ? 0 : ONE_CENT,
+            );
         const floor =
             this.payoutFloor === null
                 ? cushionFloor
@@ -280,6 +284,14 @@ export class LivePlan {
             this.payoutFloorEffect,
             this.startingBalance,
         );
+    }
+
+    private isAliveOn(state: LiveAccountState, floor: number): boolean {
+        return this.isFloorAlive({
+            ...state,
+            balance: floor,
+            threshold: floor,
+        });
     }
 
     private restrictedPayoutGate(
@@ -332,6 +344,10 @@ export class LivePlan {
 
     isBust(state: LiveAccountState): boolean {
         return this.liveDrawdown?.isBreached(state) ?? false;
+    }
+
+    isFloorAlive(state: LiveAccountState): boolean {
+        return this.liveDrawdown !== null && !this.isBust(state);
     }
 
     isDayLockedOut(state: LiveAccountState): boolean {

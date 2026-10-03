@@ -13,13 +13,14 @@ import {
     type LadderScore,
     type LadderSearchResult,
     MAX_LADDER_GRID_SIZE,
+    points,
     resolvePositionSizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
 import {
-    NOISE_STANDARD_ERRORS,
+    noiseThreshold,
     noiseVerdict,
     NoiseVerdict,
     type UncertainValue,
@@ -60,16 +61,20 @@ import {
     LadderEngineOptimumResultKind,
     type LadderScoredEngineOptimumResult,
 } from './EngineOptimumRunner';
+import {
+    buildEnginePolicy,
+    type MeasuredRebuyLag,
+} from './EnginePolicyBuilder';
 import { NO_PERSONAL_CAPS, type PersonalCaps } from './PersonalCaps';
 import { advisorPlaceableMinimum } from './PlaceableMinimum';
-import { personalDayLimitsOf } from './policy';
+import { type EnginePolicy, personalDayLimitsOf } from './policy';
 import { type ReconstructedFundedOrEvalAccount } from './ReconstructedAccount';
 import { contractLimitOf, riskCaps, type RiskCaps } from './RiskCaps';
 import { type RulebookParameters } from './Rulebook';
 import { documentedRuleLabel, rulebookDeviation } from './RulebookDeviation';
 import { type EvalRuleContext, ruleContextAt } from './RuleContext';
-import { SizingAdvisor } from './SizingAdvisor';
-import { SizingObjective } from './SizingObjective';
+import { DEFAULT_FUNDED_HORIZON_DAYS, SizingAdvisor } from './SizingAdvisor';
+import { SpeedObjective } from './SizingObjective';
 import { SizingStage } from './SizingStage';
 import { StartBasis } from './StartBasis';
 
@@ -83,9 +88,12 @@ const EVAL_LADDER_DEFAULT_SEED = 42;
 export interface EvalSizingAdvisorInput {
     readonly account: ReconstructedFundedOrEvalAccount;
     readonly accountPolicy?: FirmAccountPolicy;
+    readonly fundedHorizonDays?: number;
     readonly maxEvalDays: number;
+    readonly measuredRebuyLag?: MeasuredRebuyLag | null;
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
+    readonly personalRetainedCushion?: Dollars | null;
     readonly planRulesFingerprint?: null | PlanRulesFingerprintCheck;
     readonly positionSizing?: null | {
         readonly instrument: InstrumentSymbol;
@@ -115,12 +123,45 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
     private assumptions(): readonly Assumption[] {
         const { account } = this.input;
         const { step } = this.ladderGrid();
-        return step > EVAL_LADDER_GRID_STEP
-            ? [
-                  ...account.assumptions,
-                  ladderStepWidenedAssumption(step, AssumptionBias.Neutral),
-              ]
-            : account.assumptions;
+        return this.withLiveTriggersNotChecked(
+            step > EVAL_LADDER_GRID_STEP
+                ? [
+                      ...account.assumptions,
+                      ladderStepWidenedAssumption(step, AssumptionBias.Neutral),
+                  ]
+                : account.assumptions,
+        );
+    }
+
+    private enginePolicy(): EnginePolicy {
+        const {
+            account,
+            accountPolicy,
+            fundedHorizonDays,
+            measuredRebuyLag,
+            personalCaps,
+            personalDll,
+            personalRetainedCushion,
+            positionSizing,
+            rulebook,
+        } = this.input;
+        return buildEnginePolicy({
+            accountPolicy,
+            fundedHorizonDays: fundedHorizonDays ?? DEFAULT_FUNDED_HORIZON_DAYS,
+            measuredRebuyLag,
+            personalCaps,
+            personalDll,
+            personalRetainedCushion,
+            plan: account.plan,
+            positionSizing:
+                positionSizing === null || positionSizing === undefined
+                    ? null
+                    : {
+                          instrument: positionSizing.instrument,
+                          stopPoints: points(positionSizing.stopPoints),
+                      },
+            rulebook,
+        }).policy;
     }
 
     private differenceReasons(
@@ -221,6 +262,7 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
             ...(documentedLadder !== null && { documentedLadder }),
             grid: this.ladderGrid(),
             maxGridSize: EVAL_LADDER_MAX_GRID_SIZE,
+            policy: this.enginePolicy(),
             score,
             seed: seed ?? EVAL_LADDER_DEFAULT_SEED,
             source: isFromState
@@ -293,11 +335,9 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
             gap: dollars(Math.abs(documentedCost.value - optimumCost.value)),
             kind: DifferenceReason.WithinNoise,
             threshold: dollars(
-                NOISE_STANDARD_ERRORS *
-                    Math.hypot(
-                        documentedCost.standardError ?? 0,
-                        optimumCost.standardError ?? 0,
-                    ),
+                noiseThreshold(documentedCost, optimumCost, {
+                    sharedSeed: false,
+                }) ?? 0,
             ),
         };
     }
@@ -324,7 +364,7 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
                 computedAt: today,
                 firmDataDate: firmDataProvenance(account.plan.id.firm)
                     .verifiedOn,
-                objective: SizingObjective.MonthlyNet,
+                objective: SpeedObjective.SpeedToFunded,
                 planRulesFingerprint:
                     this.input.planRulesFingerprint?.current ?? null,
                 snapshotDate: snapshotAsOf,

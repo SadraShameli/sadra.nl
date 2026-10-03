@@ -2,6 +2,7 @@ import { riskPercentToDollars } from '~/app/(app)/prop-calculator/_components/ri
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
 import {
+    type BankrollPlanReference,
     type BankrollPlanVariantInputs,
     type BatchToolsRequest,
     type BatchToolsSummary,
@@ -19,6 +20,8 @@ import {
     floorToWholeCents,
     fraction,
     type Fraction0to1,
+    type Plan,
+    type PlanOptIns,
     points,
     serializePlanId,
     withPlanOptIns,
@@ -343,14 +346,7 @@ export function bankrollVariantFor(
             trials: inputs.trials,
             winrate: inputs.winrate,
         },
-        plan: {
-            firmId: plan.id.firm,
-            optIns: {
-                takesFundedReset: inputs.takesFundedReset,
-                takesOneTimeEarlyWithdrawal: inputs.takesOneTimeEarlyWithdrawal,
-            },
-            planSerial: serializePlanId(plan.id),
-        },
+        plan: planReferenceOf(plan),
         policy,
     };
 }
@@ -390,6 +386,20 @@ export function parseBankrollDollarCandidateList(
     if (values === null) return null;
     const rounded = values.map(floorToWholeCents);
     return rounded.every((value) => value > 0) ? rounded : null;
+}
+
+export function planReferenceOf(
+    plan: Plan,
+    optIns?: PlanOptIns,
+): BankrollPlanReference {
+    return {
+        firmId: plan.id.firm,
+        optIns: optIns ?? {
+            takesFundedReset: plan.takesFundedReset,
+            takesOneTimeEarlyWithdrawal: plan.takesOneTimeEarlyWithdrawal,
+        },
+        planSerial: serializePlanId(plan.id),
+    };
 }
 
 function bankrollPolicyFromProjectionFields(

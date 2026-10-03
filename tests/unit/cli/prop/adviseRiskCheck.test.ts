@@ -17,6 +17,7 @@ import {
     AccountReconstruction,
     createSizingAdvisor,
     NextTradeRiskVerdict,
+    NO_PENDING_PAYOUT_COUNTS,
     runEngineOptimum,
     type SizingAdvisorCreateOptions,
 } from '~/lib/prop-calculator/advisor';
@@ -96,7 +97,12 @@ function adviceFor(
     overrides: Partial<SizingAdvisorCreateOptions> = {},
 ) {
     const { options, plan, snapshot } = readAdviseInputs(parseAdvise(argv));
-    const account = AccountReconstruction.rebuild(snapshot, plan);
+    const account = AccountReconstruction.rebuild(
+        snapshot,
+        plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
+    );
     const advisor = createSizingAdvisor(account, { ...options, ...overrides });
     return { advisor, plan };
 }
@@ -157,7 +163,6 @@ describe('prop advise on a fresh 50K eval (PT-24c step 1)', () => {
             expect(run.stdout).toContain('next-trade risk check:');
             expect(run.stdout).not.toContain('above the 2,000 limit');
         },
-        60_000,
     );
 });
 
@@ -233,7 +238,7 @@ describe('the next-trade risk check says when it was not run (PT-24c step 2)', (
 
         expect(run.exitCode).toBeUndefined();
         expect(run.stdout).toContain('next-trade risk check: not run');
-    }, 60_000);
+    });
 
     it('a fresh snapshot reports the verdict instead', () => {
         const { advisor } = adviceFor(FRESH_EVAL_APEX_EOD);
@@ -304,7 +309,7 @@ describe('--json carries the risk check result (PT-24c step 3)', () => {
             result: { verdict: NextTradeRiskVerdict.AboveDocumented },
         });
         expect(parsed.nextTradeRiskCheck).not.toHaveProperty('reason');
-    }, 60_000);
+    });
 
     it('carries the not-run kind and the reason, with no result, on a stale snapshot', async () => {
         const run = await runAdvise([
@@ -321,7 +326,7 @@ describe('--json carries the risk check result (PT-24c step 3)', () => {
         );
         expect(parsed.nextTradeRiskCheck?.reason).toContain('stale');
         expect(parsed.nextTradeRiskCheck).not.toHaveProperty('result');
-    }, 60_000);
+    });
 
     it('adds no key when --proposed-risk is absent, keeping the exact Advice shape', () => {
         const { advisor } = adviceFor(FRESH_EVAL_APEX_EOD);

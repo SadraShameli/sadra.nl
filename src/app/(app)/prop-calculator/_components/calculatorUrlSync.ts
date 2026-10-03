@@ -5,7 +5,7 @@ import {
 
 import { isCalculatorInputsPath } from './toolCatalog';
 import { type CalculatorState } from './types';
-import { encodeState } from './urlState';
+import { encodeState, type EncodeStateOptions } from './urlState';
 
 export interface LegacyHashNavigation extends LegacySectionTarget {
     target: string;
@@ -27,13 +27,14 @@ export function legacyHashNavigation(
     state: CalculatorState,
     pathname: string,
     hash: string,
+    options?: EncodeStateOptions,
 ): LegacyHashNavigation | null {
     const section = legacySectionRoute(hash, pathname);
     return section === null
         ? null
         : {
               ...section,
-              target: `${section.route}?${encodeState(state).toString()}#${section.fragment}`,
+              target: `${section.route}?${encodeState(state, options).toString()}#${section.fragment}`,
           };
 }
 
@@ -41,8 +42,9 @@ export function legacyHashReplacement(
     state: CalculatorState,
     pathname: string,
     hash: string,
+    options?: EncodeStateOptions,
 ): LegacyHashReplacement | null {
-    const navigation = legacyHashNavigation(state, pathname, hash);
+    const navigation = legacyHashNavigation(state, pathname, hash, options);
     return navigation === null ? null : { ...navigation, from: pathname };
 }
 
@@ -51,9 +53,10 @@ export function nextUrl(
     pathname: string,
     currentSearch: string,
     currentHash: string,
+    options?: EncodeStateOptions,
 ): null | string {
     if (!isCalculatorInputsPath(pathname)) return null;
-    const encoded = encodeState(state).toString();
+    const encoded = encodeState(state, options).toString();
     return canonicalSearch(currentSearch) === canonicalSearch(encoded)
         ? null
         : `${pathname}?${encoded}${currentHash}`;

@@ -29,7 +29,7 @@ import {
     InstrumentSymbol,
     ladderRungSchema,
     ladderRungsSchema,
-    LiveTransferContinuationKind,
+    type LiveTransferContinuationKind,
     PayoutRequestPolicy,
     type Percent0to100,
     percentSchema,
@@ -46,14 +46,16 @@ import {
     stopTargetDollarsSchema,
     TRADING_DAYS_PER_YEAR,
     type TradingFirm,
-    verifiedCumulativePayoutLimit,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 import {
+    assumptionText,
     DEFAULT_RULEBOOK,
     rulebookSchema,
+    SIZING_OBJECTIVE_LABEL,
     SizingObjective,
     sizingObjectiveText,
+    verifiedCumulativeTriggerOf,
 } from '~/lib/prop-calculator/advisor';
 import {
     objectiveApplicability,
@@ -62,12 +64,15 @@ import {
 } from '~/lib/prop-calculator/advisor/actions';
 import {
     MAX_INTRADAY_PATH_STEPS_PER_R,
-    SIZING_OBJECTIVE_LABEL,
+    pricedCumulativeTriggerAssumptionOf,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
     edgePlausibilityNoteText,
     type PlausibilityThresholds,
 } from '~/lib/prop-calculator/economics';
+import {
+    liveTransferDisclosureLines,
+} from '~/lib/prop-calculator/simulator';
 
 export enum ObjectiveFlag {
     CycleCash = 'cycle',
@@ -855,39 +860,35 @@ export function edgePlausibilityNote(
     return edgePlausibilityNoteText(inputs, thresholds);
 }
 
-export function liveTransferHazardLines(
+export function liveTransferRunLines(
     hazard: number | undefined,
     out: Pick<
         SimOutputs,
         'liveTransferContinuation' | 'liveTransferProbability'
     >,
-    hasVerifiedTrigger = false,
+    notes: readonly string[],
 ): readonly string[] {
-    if (hazard === undefined || hazard <= 0) {
-        return hasVerifiedTrigger
-            ? [liveTransferContinuationText(out.liveTransferContinuation)]
-            : [];
-    }
-    return [
-        `${liveTransferAssumptionText(hazard)}; ${formatPercent(out.liveTransferProbability)} of runs are sent live within the funded horizon`,
-        liveTransferContinuationText(out.liveTransferContinuation),
-    ];
+    if (hazard === undefined || hazard <= 0) return [];
+    return liveTransferDisclosureLines({
+        continuation: out.liveTransferContinuation,
+        hazard,
+        notes,
+        sentLiveShare: out.liveTransferProbability,
+    });
 }
 
 export function liveTransferSweepLines(
     hazard: number | undefined,
     continuation: LiveTransferContinuationKind,
-    hasVerifiedTrigger = false,
+    notes: readonly string[],
 ): readonly string[] {
-    if (hazard === undefined || hazard <= 0) {
-        return hasVerifiedTrigger
-            ? [liveTransferContinuationText(continuation)]
-            : [];
-    }
-    return [
-        liveTransferAssumptionText(hazard),
-        liveTransferContinuationText(continuation),
-    ];
+    if (hazard === undefined || hazard <= 0) return [];
+    return liveTransferDisclosureLines({
+        continuation,
+        hazard,
+        notes,
+        sentLiveShare: null,
+    });
 }
 
 export function objectiveHeadingLine(objective: SizingObjective): string {
@@ -1155,6 +1156,16 @@ export function planVariant(plan: Plan): string {
     return 'variant' in plan.id ? plan.id.variant : '';
 }
 
+export function pricedTriggerLines(
+    inputs: SimInputs,
+    label?: string,
+): readonly string[] {
+    const assumption = pricedCumulativeTriggerAssumptionOf(inputs);
+    if (assumption === undefined) return [];
+    const text = assumptionText(assumption);
+    return [label === undefined ? `  ${text}` : `  ${label}: ${text}`];
+}
+
 export function readFraction(raw: unknown, name: string): Fraction0to1 {
     return parseFlag(
         numericFlagSchema.pipe(fractionSchema),
@@ -1258,14 +1269,11 @@ export function readRebuyLagDays(raw: unknown): number {
     return readNonNegativeNumber(raw, 'rebuy-lag-days');
 }
 
-export function verifiedTriggerLines(
-    limit: number | undefined,
+export function unrestatedLines(
+    lines: readonly string[],
+    stated: readonly string[],
 ): readonly string[] {
-    return limit === undefined
-        ? []
-        : [
-              `  verified firm trigger: simulated payouts end once the cumulative amount the trader receives reaches ${formatCurrency(limit)} per account, the threshold the firm itself publishes`,
-          ];
+    return lines.filter((line) => stated.every((text) => !text.includes(line)));
 }
 
 export const MAX_PATH_GRANULARITY = MAX_INTRADAY_PATH_STEPS_PER_R;
@@ -1412,27 +1420,6 @@ export function readStopRule(raw: string): DayStopRule {
     }
 }
 
-function liveTransferAssumptionText(hazard: number): string {
-    return `  live transfer: ${formatPercent(hazard)} per paid payout (your assumption, not a firm rule)`;
-}
-
-function liveTransferContinuationText(
-    continuation: LiveTransferContinuationKind,
-): string {
-    switch (continuation) {
-        case LiveTransferContinuationKind.Modeled: {
-            return '  after a transfer the account continues through the modeled live plan; only its recurring withdrawals count in net and monthly net, while a transition credit, capital returned and a liquidation payout are separate and not annualized';
-        }
-        case LiveTransferContinuationKind.ModeledApproximate: {
-            return '  after a transfer the account continues through the modeled live plan, an approximation of the firm live terms (part of the live state is assumed); only its recurring withdrawals count in net and monthly net, while a transition credit, capital returned and a liquidation payout are separate and not annualized';
-        }
-        case LiveTransferContinuationKind.NotModeled:
-        case LiveTransferContinuationKind.Off: {
-            return '  no verified live plan is modeled here (or --instrument and --stop-points are unset), so after a transfer the rest of the account is valued at $0';
-        }
-    }
-}
-
 function parseFlag<T>(
     schema: z.ZodType<T>,
     raw: unknown,
@@ -1449,10 +1436,8 @@ function parseFlag<T>(
 }
 
 function verifiedPayoutTriggerOf(plan: Plan): number | undefined {
-    const triggers = findFirm(plan.id.firm)?.accountPolicy.liveTriggersFor(
-        plan,
+    return (
+        verifiedCumulativeTriggerOf(findFirm(plan.id.firm)?.accountPolicy, plan)
+            ?.amount ?? undefined
     );
-    return triggers === undefined
-        ? undefined
-        : (verifiedCumulativePayoutLimit(triggers) ?? undefined);
 }

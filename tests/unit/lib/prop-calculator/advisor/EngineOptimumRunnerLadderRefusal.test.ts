@@ -4,6 +4,8 @@ import {
     AdviceSource,
     AssumptionKind,
     assumptionKindText,
+    buildEnginePolicy,
+    DEFAULT_RULEBOOK,
     type LadderEngineOptimumResult,
     LadderEngineOptimumResultKind,
     type LadderGridRefusal,
@@ -46,6 +48,11 @@ function ladderRequest(
     return {
         grid,
         maxGridSize,
+        policy: buildEnginePolicy({
+            fundedHorizonDays: 60,
+            plan: apexEodPlan(),
+            rulebook: DEFAULT_RULEBOOK,
+        }).policy,
         score: {
             commission: 0,
             cushion: 2000,

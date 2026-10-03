@@ -140,7 +140,7 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         expect(notes.some((note) => note.includes('before/after'))).toBe(true);
     });
 
-    it('AlphaFutures documents the TRADINGVIEW code at its confirmed 50% and the lower-confidence DIRECT35 secondary offer with its percentage and $50K scoping', () => {
+    it('AlphaFutures documents the TRADINGVIEW code at its confirmed 50% and the lower-confidence DIRECT35 secondary offer with its percentage and all-four-sizes scoping', () => {
         const notes = findFirm(FirmId.AlphaFutures)?.notes ?? [];
         expect(
             notes.some((note) => note.includes('50% off all evaluations')),
@@ -150,7 +150,7 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         );
         expect(
             notes.some((note) =>
-                note.includes('$50K "Direct Qualified" account'),
+                note.includes('all four Direct Qualified sizes'),
             ),
         ).toBe(true);
     });
@@ -540,7 +540,10 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         expect(notes.some((note) => note.includes('Coupon code "E8"'))).toBe(
             true,
         );
-        expect(notes.some((note) => note.includes('$160 -> $120'))).toBe(true);
+        expect(
+            notes.some((note) => note.includes('5% on a first order')),
+        ).toBe(true);
+        expect(notes.some((note) => note.includes('$160 -> $120'))).toBe(false);
         expect(
             notes.some((note) => note.includes('hard 5-payout lifetime cap')),
         ).toBe(true);
@@ -669,10 +672,10 @@ describe('firm notes match the current engine (WP26 notes audit)', () => {
         ).map((firm) => firm.id);
 
         expect(offenders).toStrictEqual([]);
-        for (const [firmId, idleDays] of [
-            [FirmId.Apex, 30],
-            [FirmId.TopStep, 30],
-            [FirmId.Tradeify, 7],
+        for (const [firmId, evalIdleDays, fundedIdleDays] of [
+            [FirmId.Apex, 30, 30],
+            [FirmId.TopStep, null, 31],
+            [FirmId.Tradeify, 7, 7],
         ] as const) {
             expect(
                 hasNoteContaining(firmId, 'evalMaxConsecutiveIdleDays'),
@@ -683,11 +686,11 @@ describe('firm notes match the current engine (WP26 notes audit)', () => {
             expect(plans.length).toBeGreaterThan(0);
             for (const plan of plans) {
                 expect(plan.maxConsecutiveIdleDaysFor(TradingPhase.Eval)).toBe(
-                    idleDays,
+                    evalIdleDays,
                 );
                 expect(
                     plan.maxConsecutiveIdleDaysFor(TradingPhase.Funded),
-                ).toBe(idleDays);
+                ).toBe(fundedIdleDays);
             }
         }
     });

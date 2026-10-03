@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
     type CalculatorAction,
@@ -29,23 +29,9 @@ import {
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { MAX_LAB_SCENARIOS } from '~/lib/schemas/url';
 
-const decodeFailure = vi.hoisted(() => ({ isThrowing: false }));
-
-vi.mock(
-    import('~/app/(app)/prop-calculator/_components/urlState'),
-    async (importOriginal) => {
-        const actual = await importOriginal();
-        return {
-            ...actual,
-            decodeState: (
-                ...arguments_: Parameters<typeof actual.decodeState>
-            ) => {
-                if (decodeFailure.isThrowing) throw new Error('decode failed');
-                return actual.decodeState(...arguments_);
-            },
-        };
-    },
-);
+function throwingDecode(): never {
+    throw new Error('decode failed');
+}
 
 const REJECTED: LabLinkOutcome = {
     issue: 'scenario 1: win rate must be between 5% and 95%',
@@ -95,10 +81,6 @@ function sharedLink(payload: unknown): URLSearchParams {
     parameters.set('lab', labParameter(payload));
     return parameters;
 }
-
-afterEach(() => {
-    decodeFailure.isThrowing = false;
-});
 
 describe('CalculatorState carries the shared lab link outcome (PT-53f)', () => {
     it('starts with no lab link', () => {
@@ -245,18 +227,18 @@ describe('initialStateFromSearch keeps the shared lab link outcome (PT-53f)', ()
     });
 
     it('keeps the lab outcome when the rest of the link cannot be decoded', () => {
-        decodeFailure.isThrowing = true;
         const state = initialStateFromSearch(
             sharedLink([{ ...sharedScenario, winrate: 2 }]).toString(),
+            throwingDecode,
         );
         expect(state.labLink).toEqual(REJECTED);
         expect(state.firm).toBe(defaultCalculatorState().firm);
     });
 
     it('applies valid lab scenarios when the rest of the link cannot be decoded', () => {
-        decodeFailure.isThrowing = true;
         const state = initialStateFromSearch(
             sharedLink([sharedScenario]).toString(),
+            throwingDecode,
         );
         expect(state.labLink).toEqual({ status: LabLinkStatus.Accepted });
         expect(state.labScenarios).toEqual([sharedScenario]);
@@ -394,12 +376,12 @@ describe('a lab-only link reports its other parameters too (PT-53h)', () => {
     );
 
     it('degrades to defaults for every link parameter, without crashing, when even the lab-only decode throws', () => {
-        decodeFailure.isThrowing = true;
         const state = initialStateFromSearch(
             new URLSearchParams({
                 ds: 'not-json!',
                 lab: labParameter([sharedScenario]),
             }).toString(),
+            throwingDecode,
         );
         expect(state.labLink).toEqual({ status: LabLinkStatus.Accepted });
         expect(state.labScenarios).toEqual([sharedScenario]);

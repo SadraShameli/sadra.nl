@@ -2,6 +2,7 @@ import { parseArgs } from 'citty';
 import { describe, expect, it } from 'vitest';
 
 import {
+    adviceJson,
     adviceReportLines,
     type AdviseArguments,
     adviseArguments,
@@ -25,6 +26,7 @@ import {
     AccountReconstruction,
     createSizingAdvisor,
     LiveTriggerCoverage,
+    NO_PENDING_PAYOUT_COUNTS,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
@@ -88,7 +90,12 @@ const MNQ_AT_20_POINTS = ['--instrument', 'MNQ', '--stop-points', '20'];
 function advisorFor(argv: string[]) {
     const { options, plan, snapshot } = readAdviseInputs(parseAdvise(argv));
     return createSizingAdvisor(
-        AccountReconstruction.rebuild(snapshot, plan),
+        AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        ),
         options,
     );
 }
@@ -151,7 +158,12 @@ describe('prop advise takes the firm-wide payout count since the last live accou
                 parseAdvise([...FUNDED_APEX_EOD, ...extra]),
             );
             const advisor = createSizingAdvisor(
-                AccountReconstruction.rebuild(snapshot, plan),
+                AccountReconstruction.rebuild(
+                    snapshot,
+                    plan,
+                    null,
+                    NO_PENDING_PAYOUT_COUNTS,
+                ),
                 { ...options, accountPolicy: policy },
             );
             return advisor.assemble([]).payoutAdvice?.assumptions.length === 0
@@ -279,12 +291,11 @@ describe('prop advise flags a funded rung below one contract at the entered stop
 
     it('carries the typed flag and the words on the next-trade risk check', () => {
         const argv = [...FUNDED_APEX_EOD, ...NQ_AT_20_POINTS];
-        const { options } = readAdviseInputs(parseAdvise(argv));
-        const report = nextTradeRiskReport(
-            advisorFor(argv),
-            { losses: 0, proposedRisk: dollars(200), wins: 0 },
-            options.positionSizing ?? null,
-        );
+        const report = nextTradeRiskReport(advisorFor(argv), {
+            losses: 0,
+            proposedRisk: dollars(200),
+            wins: 0,
+        });
 
         expect(report.kind).toBe(NextTradeRiskReportKind.Checked);
         if (report.kind !== NextTradeRiskReportKind.Checked) return;
@@ -296,14 +307,30 @@ describe('prop advise flags a funded rung below one contract at the entered stop
         );
     });
 
+    it('carries the typed flag per rung in the --json output (PT-36j)', () => {
+        const advice = advisorFor([
+            ...FUNDED_APEX_EOD,
+            ...NQ_AT_20_POINTS,
+        ]).assemble([]);
+
+        const parsed = JSON.parse(adviceJson(advice)) as {
+            dailyPlanCard: { rungPlacements: string[] };
+        };
+
+        expect(parsed.dailyPlanCard.rungPlacements.length).toBeGreaterThan(0);
+        expect(new Set(parsed.dailyPlanCard.rungPlacements)).toEqual(
+            new Set(['below-one-contract']),
+        );
+    });
+
     it('does not flag the risk check when a contract fits', () => {
         const argv = [...FUNDED_APEX_EOD, ...MNQ_AT_20_POINTS];
         const { options } = readAdviseInputs(parseAdvise(argv));
-        const report = nextTradeRiskReport(
-            advisorFor(argv),
-            { losses: 0, proposedRisk: dollars(200), wins: 0 },
-            options.positionSizing ?? null,
-        );
+        const report = nextTradeRiskReport(advisorFor(argv), {
+            losses: 0,
+            proposedRisk: dollars(200),
+            wins: 0,
+        });
 
         expect(nextTradeRiskReportLines(report).join('\n')).not.toContain(
             'cannot be placed',

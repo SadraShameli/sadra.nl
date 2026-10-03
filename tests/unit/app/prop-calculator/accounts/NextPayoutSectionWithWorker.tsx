@@ -13,6 +13,7 @@ import { type Plan } from '~/lib/prop-calculator';
 import {
     type AccountSnapshotInput,
     type MeasuredRebuyLag,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedAccount,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
@@ -41,6 +42,7 @@ export function NextPayoutSectionWithWorker({
                 : fromStateDetailRequestsOf({
                       input,
                       measuredRebuyLag,
+                      pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
                       personalMaxRiskPerTrade: null,
                       personalRules,
                       plan,

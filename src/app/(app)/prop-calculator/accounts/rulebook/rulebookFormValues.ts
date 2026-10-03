@@ -1,14 +1,22 @@
 import { z } from 'zod';
 
 import {
+    AccountTracking,
     EntryTextKind,
+    type FirmKey,
+    firmKeyId,
     FirmKeyKind,
+    firmKeyOf,
     formatUsdCents,
     parseMoneyText,
+    type PortfolioLedger,
     usdCents,
     usdCentsToText,
 } from '~/lib/prop-accounts';
-import { type LiveTransferRate } from '~/lib/prop-accounts/firms';
+import {
+    type LiveTransferRate,
+    movedLiveCountOf,
+} from '~/lib/prop-accounts/firms';
 import { DayStopRuleKind, findFirm, FirmId } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
@@ -44,7 +52,13 @@ export interface MeasuredHazard {
     readonly movedLiveCount: number;
     readonly paidPayouts: number;
     readonly rate: number;
+    readonly recordedAtLiveCount: number;
     readonly suggestedText: null | string;
+}
+
+export interface ModeledFirmRow<Row> {
+    readonly firmId: FirmId;
+    readonly row: Row;
 }
 
 export interface RulebookDraft {
@@ -640,14 +654,13 @@ export function hazardFieldSpec(firmId: FirmId): TextFieldSpec {
 
 export function measuredHazardsOf(
     rate: LiveTransferRate,
+    ledger?: PortfolioLedger,
 ): Partial<Record<FirmId, MeasuredHazard>> {
+    const recordedAtLive = recordedAtLiveByFirm(ledger);
     const measured: Partial<Record<FirmId, MeasuredHazard>> = {};
-    for (const { firmKey, movedLiveCount, perPaidPayout } of rate.perFirm) {
-        if (perPaidPayout === null || firmKey.kind !== FirmKeyKind.Modeled) {
-            continue;
-        }
-        const firmId = z.enum(FirmId).safeParse(firmKey.firmId);
-        if (!firmId.success) continue;
+    for (const { firmId, row } of modeledFirmRows(rate.perFirm)) {
+        const { movedLiveCount, perPaidPayout } = row;
+        if (perPaidPayout === null) continue;
         const suggestedPercent = Number(
             (perPaidPayout.value * PERCENT).toFixed(2),
         );
@@ -656,14 +669,26 @@ export function measuredHazardsOf(
             perPaidPayout.value < 1 &&
             suggestedPercent > 0 &&
             suggestedPercent < PERCENT;
-        measured[firmId.data] = {
+        measured[firmId] = {
             movedLiveCount,
             paidPayouts: perPaidPayout.n,
             rate: perPaidPayout.value,
+            recordedAtLiveCount:
+                recordedAtLive.get(firmKeyId(row.firmKey)) ?? 0,
             suggestedText: isAcceptedHazard ? String(suggestedPercent) : null,
         };
     }
     return measured;
+}
+
+export function modeledFirmRows<Row extends { readonly firmKey: FirmKey }>(
+    rows: readonly Row[],
+): readonly ModeledFirmRow<Row>[] {
+    return rows.flatMap((row) => {
+        if (row.firmKey.kind !== FirmKeyKind.Modeled) return [];
+        const firmId = z.enum(FirmId).safeParse(row.firmKey.firmId);
+        return firmId.success ? [{ firmId: firmId.data, row }] : [];
+    });
 }
 
 export function parseText(kind: FieldKind, text: string): TextParse {
@@ -858,6 +883,10 @@ export function readRulebookDraft(values: RulebookFormValues): RulebookDraft {
         },
         issues,
     };
+}
+
+export function recordedAtLiveText(count: number): string {
+    return `includes ${String(count)} account${count === 1 ? '' : 's'} recorded straight at Live`;
 }
 
 export function rulebookToFormValues(
@@ -1079,6 +1108,24 @@ function optionalText(
 
 function percentText(fraction: number): string {
     return String(Number((fraction * PERCENT).toPrecision(PERCENT_PRECISION)));
+}
+
+function recordedAtLiveByFirm(
+    ledger: PortfolioLedger | undefined,
+): ReadonlyMap<string, number> {
+    const counts = new Map<string, number>();
+    const accounts = ledger?.accounts ?? [];
+    for (const entry of accounts) {
+        if (
+            entry.row.tracking !== AccountTracking.LedgerOnly ||
+            movedLiveCountOf(entry) === 0
+        ) {
+            continue;
+        }
+        const key = firmKeyId(firmKeyOf(entry.row));
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
 }
 
 function specAt(name: string): TextFieldSpec | undefined {

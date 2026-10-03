@@ -40,6 +40,8 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
+import { memoise } from '../../memoise';
+
 function freshStats(startingBalance: number) {
     const totals = new TradeTotals();
     return newPhaseStats(startingBalance, totals, new LossStreak(totals));
@@ -286,7 +288,7 @@ describe('scoreLadder charges commission as the simulator does', () => {
         expect(withCommission.passRate).toBeLessThan(
             withoutCommission.passRate - 0.02,
         );
-    }, 60_000);
+    });
 });
 
 describe('scoreLadder golden values (MFF Rapid EOD 50K, 40% WR, 1:2 R:R)', () => {
@@ -567,26 +569,27 @@ describe('ladderFrontier', () => {
 });
 
 describe('runLadderSearch', () => {
-    it('rediscovers the documented speed-optimal ladder from a full grid', () => {
+    it('rediscovers the documented speed-optimal ladder prefix from a $200-step grid of 340 ladders (the $100-step grid of 4,680 ladders at 20,000 sims took 400 s; this grid scores 1,000 sims a ladder)', () => {
         const result = runLadderSearch({
-            grid: { lo: 100, max: 800, slots: 4, step: 100 },
-            score: { ...config(), sims: 20_000 },
+            grid: { lo: 200, max: 800, slots: 4, step: 200 },
+            score: { ...config(), sims: 1000 },
             seed: 90_210,
             topN: 5,
         });
 
         const winner = result.bySpeed[0];
         if (!winner) throw new Error('no speed winner');
+        expect(result.gridSize).toBe(340);
         expect(winner.ladder.slice(0, 3)).toEqual([400, 600, 800]);
         expect(winner.expectedDaysToFunded).toBeGreaterThan(8);
-        expect(winner.expectedDaysToFunded).toBeLessThan(8.6);
-        expect(result.byCost[0]?.ladder).toEqual([100, 100, 100, 100]);
-    }, 400_000);
+        expect(winner.expectedDaysToFunded).toBeLessThan(9);
+        expect(new Set(result.byCost[0]?.ladder)).toEqual(new Set([200]));
+    });
 
     it('reports zero dropped aliases for a grid-search grid, since buildLadderGrid never emits a raw ladder with a literal <=0 rung (aliasing only ever collapses that exact case)', () => {
         const result = runLadderSearch({
-            grid: { lo: 100, max: 800, slots: 4, step: 100 },
-            score: { ...config(), sims: 200 },
+            grid: { lo: 200, max: 800, slots: 4, step: 200 },
+            score: { ...config(), sims: 100 },
             seed: 90_210,
         });
         expect(result.gridSize).toBe(result.laddersScored);
@@ -595,10 +598,11 @@ describe('runLadderSearch', () => {
 
     it('returns a frontier that is strictly improving on both axes', () => {
         const result = runLadderSearch({
-            grid: { lo: 100, max: 600, slots: 3, step: 100 },
+            grid: { lo: 200, max: 600, slots: 3, step: 200 },
             score: { ...config(), sims: 1000 },
             seed: 90_210,
         });
+        expect(result.frontier.length).toBeGreaterThan(1);
         for (let index = 1; index < result.frontier.length; index++) {
             const previous = result.frontier[index - 1];
             const current = result.frontier[index];
@@ -652,20 +656,28 @@ function runPhaseSim(overrides: Partial<Parameters<typeof simulate>[0]>) {
     });
 }
 
+const phaseRuns = {
+    bothPhases: memoise(() =>
+        runPhaseSim({
+            evalDayPolicy: aggressiveLadder,
+            fundedDayPolicy: aggressiveLadder,
+        }),
+    ),
+    evalLadder: memoise(() => runPhaseSim({ evalDayPolicy: aggressiveLadder })),
+    flat: memoise(() => runPhaseSim({})),
+};
+
 describe('eval and funded day policies are independent', () => {
     it('leaves the funded phase on flat risk when only an eval ladder is set', () => {
-        const flat = runPhaseSim({});
-        const evalLadder = runPhaseSim({ evalDayPolicy: aggressiveLadder });
-
-        expect(condFundedBust(evalLadder)).toBeCloseTo(condFundedBust(flat), 2);
+        expect(condFundedBust(phaseRuns.evalLadder())).toBeCloseTo(
+            condFundedBust(phaseRuns.flat()),
+            2,
+        );
     });
 
     it('does not collapse the pass rate the way a funded-phase ladder does', () => {
-        const evalOnly = runPhaseSim({ evalDayPolicy: aggressiveLadder });
-        const bothPhases = runPhaseSim({
-            evalDayPolicy: aggressiveLadder,
-            fundedDayPolicy: aggressiveLadder,
-        });
+        const evalOnly = phaseRuns.evalLadder();
+        const bothPhases = phaseRuns.bothPhases();
 
         expect(condFundedBust(bothPhases)).toBeGreaterThan(
             condFundedBust(evalOnly) + 0.2,
@@ -676,9 +688,9 @@ describe('eval and funded day policies are independent', () => {
     });
 
     it('changes the eval phase without touching funded risk', () => {
-        const flat = runPhaseSim({});
-        const evalLadder = runPhaseSim({ evalDayPolicy: aggressiveLadder });
-        expect(evalLadder.daysToPassP50).not.toBe(flat.daysToPassP50);
+        expect(phaseRuns.evalLadder().daysToPassP50).not.toBe(
+            phaseRuns.flat().daysToPassP50,
+        );
     });
 });
 

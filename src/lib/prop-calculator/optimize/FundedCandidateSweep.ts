@@ -1,3 +1,4 @@
+import { SizingObjective } from '~/lib/prop-calculator/advisor/SizingObjective';
 import {
     type SimInputs,
     type SimOutputs,
@@ -11,6 +12,9 @@ export enum FundedSortKey {
     Monthly = 'monthly',
 }
 
+export type FundedSortObjective =
+    SizingObjective.CycleCash | SizingObjective.MonthlyNet;
+
 export interface FundedSweepRow {
     candidate: FundedCandidate;
     out: SimOutputs;
@@ -20,6 +24,30 @@ export const FUNDED_SORT_KEYS: readonly FundedSortKey[] = [
     FundedSortKey.Monthly,
     FundedSortKey.Cycle,
 ];
+
+export function fundedSortOfObjective(
+    objective: FundedSortObjective,
+): FundedSortKey {
+    switch (objective) {
+        case SizingObjective.CycleCash: {
+            return FundedSortKey.Cycle;
+        }
+        case SizingObjective.MonthlyNet: {
+            return FundedSortKey.Monthly;
+        }
+    }
+}
+
+export function objectiveOfFundedSort(sort: FundedSortKey): FundedSortObjective {
+    switch (sort) {
+        case FundedSortKey.Cycle: {
+            return SizingObjective.CycleCash;
+        }
+        case FundedSortKey.Monthly: {
+            return SizingObjective.MonthlyNet;
+        }
+    }
+}
 
 export function runFundedCandidateSweep(
     base: SimInputs,

@@ -4,8 +4,6 @@ import {
     type Plan,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
-import { LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP } from '~/lib/prop-calculator/firms';
-
 import {
     isLiveModelApproximation,
     LiveApplicabilityKind,
@@ -14,9 +12,11 @@ import {
     livePlanApplicability,
     type LiveStartRange,
     type LiveStateApproximation,
+    LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP,
     type ModeledLiveBuilder,
     type ModeledLiveTransition,
-} from './LivePlanApplicability';
+} from '~/lib/prop-calculator/firms';
+
 import {
     type ReconstructedAccount,
     ReconstructedLiveKind,
@@ -117,13 +117,10 @@ function lucidDailyCreditPreview(
     if (account?.kind !== TradingPhase.Funded) {
         return notModeled(LiveTransitionPreviewGap.NoFundedState);
     }
-    if (plan.payoutBuffer === null) {
+    const buffer = plan.payoutBufferBalance();
+    if (buffer === null) {
         return notModeled(LiveTransitionPreviewGap.NoPayoutBuffer);
     }
-    const buffer = plan.payoutBuffer.requiredBalance(
-        plan.accountSize,
-        plan.fundedDrawdown.amount,
-    );
     const simProfitAboveBuffer = dollars(
         Math.max(0, account.state.balance - buffer),
     );

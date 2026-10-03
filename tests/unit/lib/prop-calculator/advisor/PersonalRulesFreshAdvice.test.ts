@@ -25,6 +25,7 @@ import {
     DEFAULT_RULEBOOK,
     EvalSizingAdvisor,
     FundedSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     PayoutRequestDecisionKind,
     type ReconstructedFundedOrEvalAccount,
@@ -77,6 +78,7 @@ function evalAccount(): ReconstructedFundedOrEvalAccount {
         plan: apexPlan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -128,6 +130,7 @@ function fundedAccount(): ReconstructedFundedOrEvalAccount {
         plan: topStepPlan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

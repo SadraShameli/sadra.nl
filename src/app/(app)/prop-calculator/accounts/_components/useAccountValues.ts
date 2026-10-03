@@ -13,6 +13,7 @@ import {
     OverviewRequestKind,
     overviewRequestsFor,
     type PlanValuesFigures,
+    withPreviousAccount,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { type AccountListBoards } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { accountStateUnavailableText } from '~/app/(app)/prop-calculator/accounts/_components/accountStateReasonText';
@@ -45,6 +46,7 @@ import {
     fromStateDetailRequestsOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/detail/fromStateDetail';
 import { measuredRebuyLagFromStats } from '~/app/(app)/prop-calculator/accounts/_components/measuredRebuyLag';
+import { previousAccountOf } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
 import {
     type EngineSlot,
     engineSlotOf,
@@ -71,6 +73,7 @@ import {
     accountSubstateOf,
     cushionBoardOf,
     type FirmPayoutCount,
+    firmPayoutCountOrNull,
     firmPayoutCounts,
     isActiveAccount,
     isLedgerOnlyAccount,
@@ -135,6 +138,7 @@ interface ModeledPreparationInputs {
     readonly accountId: string;
     readonly events: readonly AccountStateEventRow[];
     readonly firmCounts: readonly FirmPayoutCount[];
+    readonly firmCountsAt: (asOf: string) => readonly FirmPayoutCount[];
     readonly includeFromStateDetail: boolean;
     readonly isActive: boolean;
     readonly payouts: readonly AccountStatePayoutRow[];
@@ -180,6 +184,9 @@ const NO_REQUESTS: readonly OverviewRequest[] = [];
 
 const FROM_STATE_UNAVAILABLE_PREFIX =
     'The figures from this state cannot be computed: ';
+
+const FIRM_COUNT_UNKNOWN_TEXT =
+    'The firm payout count is unknown, so no figures from this state are computed.';
 
 const LIVE_NOT_VALUED_TEXT = 'A live account has no from-state value model.';
 
@@ -453,7 +460,15 @@ function ledgerOnlyPrepared(
     accountId: string,
     today: string,
 ): PreparedAccount {
-    const adapted = snapshotAdviceInputFor(null, tracked, null, [], [], today);
+    const adapted = snapshotAdviceInputFor(
+        null,
+        tracked,
+        null,
+        [],
+        [],
+        today,
+        null,
+    );
     switch (adapted.kind) {
         case SnapshotAdviceInputKind.LedgerOnly: {
             return {
@@ -534,15 +549,29 @@ function modeledPrepared(inputs: ModeledPreparationInputs): PreparedAccount {
             kind: PreparedKind.Final,
         };
     }
+    const firmCount = firmPayoutCountOrNull(inputs.firmCounts, plan.id.firm);
+    if (firmCount === null) {
+        return {
+            accountId,
+            input: {
+                action,
+                kind: AccountValueInputKind.NotValued,
+                reason: FIRM_COUNT_UNKNOWN_TEXT,
+            },
+            kind: PreparedKind.Final,
+        };
+    }
     const { latest: snapshot } = latestTwoSnapshots(inputs.snapshots);
-    const { input, personalMaxRiskPerTrade } = snapshotInputFrom(
-        plan,
-        inputs.tracked,
-        snapshot,
-        inputs.events,
-        inputs.payouts,
-        latest.asOf,
-    );
+    const { input, pendingPayoutCounts, personalMaxRiskPerTrade } =
+        snapshotInputFrom(
+            plan,
+            inputs.tracked,
+            snapshot,
+            inputs.events,
+            inputs.payouts,
+            inputs.today,
+            firmCount,
+        );
     const planInput = {
         firmId: plan.id.firm,
         measuredRebuyLag,
@@ -553,6 +582,7 @@ function modeledPrepared(inputs: ModeledPreparationInputs): PreparedAccount {
         ? fromStateDetailRequestsOf({
               input,
               measuredRebuyLag,
+              pendingPayoutCounts,
               personalMaxRiskPerTrade,
               personalRules: row.personalRules,
               plan,
@@ -561,14 +591,29 @@ function modeledPrepared(inputs: ModeledPreparationInputs): PreparedAccount {
         : null;
     const accountRequest =
         detail?.account ??
-        accountFromStateRequestOf({
-            account: input,
-            measuredRebuyLag,
-            personalMaxRiskPerTrade,
-            personalRules: row.personalRules,
-            plan,
-            rulebook: inputs.rulebook,
-        });
+        withPreviousAccount(
+            accountFromStateRequestOf({
+                account: input,
+                measuredRebuyLag,
+                pendingPayoutCounts,
+                personalMaxRiskPerTrade,
+                personalRules: row.personalRules,
+                plan,
+                rulebook: inputs.rulebook,
+            }),
+            previousAccountOf({
+                accountId,
+                events: inputs.events,
+                firmCountAt: (asOf) =>
+                    firmPayoutCountOrNull(inputs.firmCountsAt(asOf), plan.id.firm),
+                payouts: inputs.payouts,
+                plan,
+                rulebook: inputs.rulebook,
+                snapshots: inputs.snapshots,
+                state: state.state,
+                tracked: inputs.tracked,
+            }),
+        );
     const isEval = latest.reconstructed.kind === TradingPhase.Eval;
     const isValued = isEval && inputs.isActive;
     const [planValuesRequest] = isValued
@@ -630,17 +675,27 @@ function preparationOf({
     }
     const ledger = PortfolioLedger.fromRows(owner, section.rows);
     const firmCounts = firmPayoutCounts(ledger, today);
+    const firmCountsByDate = new Map<string, readonly FirmPayoutCount[]>([
+        [today, firmCounts],
+    ]);
+    const firmCountsAt = (asOf: string): readonly FirmPayoutCount[] => {
+        const known = firmCountsByDate.get(asOf);
+        if (known !== undefined) return known;
+        const counts = firmPayoutCounts(ledger, asOf);
+        firmCountsByDate.set(asOf, counts);
+        return counts;
+    };
     const stats = replacementStats(ledger);
     const { accounts, payouts, snapshots } = alerts.rows;
-    const isRequested = (row: { readonly accountId: string }) =>
-        accountId === undefined || row.accountId === accountId;
     const states = accountStatesForRows(
         owner,
         today,
-        accounts.filter((row) => isRequested({ accountId: row.id })),
-        section.rows.events.filter((event) => isRequested(event)),
-        payouts.filter((payout) => isRequested(payout)),
-        snapshots.filter((snapshot) => isRequested(snapshot)),
+        accounts,
+        section.rows.events,
+        payouts,
+        snapshots,
+    ).filter(
+        (entry) => accountId === undefined || entry.accountId === accountId,
     );
     const stateById = new Map(states.map((entry) => [entry.accountId, entry]));
     const realizedByPlan = realizedFiguresOf(ledger, today);
@@ -665,6 +720,7 @@ function preparationOf({
                         event.accountId === row.id && event.userId === owner,
                 ),
                 firmCounts,
+                firmCountsAt,
                 includeFromStateDetail,
                 isActive,
                 payouts: payouts.filter(
@@ -804,14 +860,15 @@ function unavailableActionKind(
     reason: AccountStateUnavailableReason,
 ): NextActionSourceKind.EnterSnapshot | NextActionSourceKind.NotModeled {
     switch (reason.kind) {
+        case AccountStateUnavailableKind.FirmCountUnknown:
+        case AccountStateUnavailableKind.LedgerOnly:
+        case AccountStateUnavailableKind.UnresolvedPlan: {
+            return NextActionSourceKind.NotModeled;
+        }
         case AccountStateUnavailableKind.ImplausibleSnapshot:
         case AccountStateUnavailableKind.NoSnapshot:
         case AccountStateUnavailableKind.ReconstructionError: {
             return NextActionSourceKind.EnterSnapshot;
-        }
-        case AccountStateUnavailableKind.LedgerOnly:
-        case AccountStateUnavailableKind.UnresolvedPlan: {
-            return NextActionSourceKind.NotModeled;
         }
     }
 }

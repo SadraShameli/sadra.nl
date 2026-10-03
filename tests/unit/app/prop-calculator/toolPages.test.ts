@@ -1,6 +1,6 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
     hubCardHref,
@@ -23,6 +23,12 @@ import {
 import { indexableRoutes, routes } from '~/lib/site/routes';
 
 import { aliasPathOf } from '../../importSpecifiers';
+import {
+    collapsedSourceText,
+    preloadSourceTexts,
+    sourceFilesUnder,
+    sourceText,
+} from './toolPageFiles';
 
 const CALCULATOR_ROOT = path.join(
     process.cwd(),
@@ -100,6 +106,11 @@ const EVAL_DAY_POLICY_PAGES = [
     'planner',
 ];
 
+const LADDER_READING_PAGES_OUTSIDE_PAGES = [
+    { folder: 'funded-optimizer', view: 'FundedOptimizerView' },
+    { folder: 'bankroll', view: 'BankrollView' },
+] as const;
+
 interface ToolPageSpec {
     consumesBaseResult: boolean;
     folder: string;
@@ -107,7 +118,6 @@ interface ToolPageSpec {
     innerSections: readonly LegacySection[];
     panels: readonly string[];
     route: string;
-    showsInputsSummary: boolean;
     toolId: ToolId;
     toolIdMember: string;
     view: string;
@@ -121,7 +131,6 @@ const PAGES: readonly ToolPageSpec[] = [
         innerSections: [],
         panels: ['ResultsPanel', 'PercentileBar', 'ChartPanel'],
         route: routes.propCalculator.simulator,
-        showsInputsSummary: false,
         toolId: ToolId.Simulator,
         toolIdMember: 'Simulator',
         view: 'SimulatorView',
@@ -139,7 +148,6 @@ const PAGES: readonly ToolPageSpec[] = [
             'RuleStressTestPanel',
         ],
         route: routes.propCalculator.analysis,
-        showsInputsSummary: true,
         toolId: ToolId.Analysis,
         toolIdMember: 'Analysis',
         view: 'AnalysisView',
@@ -151,7 +159,6 @@ const PAGES: readonly ToolPageSpec[] = [
         innerSections: [],
         panels: ['OptimalRiskTable', 'SensitivityHeatmap'],
         route: routes.propCalculator.sizing,
-        showsInputsSummary: true,
         toolId: ToolId.Sizing,
         toolIdMember: 'Sizing',
         view: 'SizingView',
@@ -163,7 +170,6 @@ const PAGES: readonly ToolPageSpec[] = [
         innerSections: [],
         panels: ['PlanComparisonTable', 'FirmComparisonTable'],
         route: routes.propCalculator.compare,
-        showsInputsSummary: true,
         toolId: ToolId.Compare,
         toolIdMember: 'Compare',
         view: 'CompareView',
@@ -175,7 +181,6 @@ const PAGES: readonly ToolPageSpec[] = [
         innerSections: [],
         panels: ['CashFlowPanel'],
         route: routes.propCalculator.cashFlow,
-        showsInputsSummary: true,
         toolId: ToolId.CashFlow,
         toolIdMember: 'CashFlow',
         view: 'CashFlowView',
@@ -187,7 +192,6 @@ const PAGES: readonly ToolPageSpec[] = [
         innerSections: [LegacySection.LadderLab],
         panels: ['LadderLabPanel'],
         route: routes.propCalculator.ladderLab,
-        showsInputsSummary: true,
         toolId: ToolId.LadderLab,
         toolIdMember: 'LadderLab',
         view: 'LadderLabView',
@@ -199,7 +203,6 @@ const PAGES: readonly ToolPageSpec[] = [
         innerSections: [],
         panels: ['StrategyLabPanel'],
         route: routes.propCalculator.strategyLab,
-        showsInputsSummary: true,
         toolId: ToolId.StrategyLab,
         toolIdMember: 'StrategyLab',
         view: 'StrategyLabView',
@@ -211,7 +214,6 @@ const PAGES: readonly ToolPageSpec[] = [
         innerSections: [],
         panels: ['PortfolioPanel'],
         route: routes.propCalculator.planner,
-        showsInputsSummary: true,
         toolId: ToolId.Planner,
         toolIdMember: 'Planner',
         view: 'PlannerView',
@@ -268,7 +270,7 @@ const PINNED_PANEL_PROPS: Readonly<Record<string, readonly string[]>> = {
     ],
     DrawdownDurationPanel: ['result={result}'],
     FirmComparisonTable: [
-        'activeFirmId={state.firm.id}baseInputs={simInputs}firms={firms}planOptIns={planOptIns}targetAccountSize={state.plan.accountSize}',
+        'activeFirmId={state.firm.id}bankrollCents={bankrollCents}baseInputs={simInputs}firms={firms}isBankrollPending={isBankrollPending}objective={state.objective}planOptIns={planOptIns}targetAccountSize={state.plan.accountSize}',
     ],
     LadderLabPanel: [
         'activePolicy={state.evalDayPolicy}baseInputs={simInputs}onApply={setEvalDayPolicy}',
@@ -281,7 +283,7 @@ const PINNED_PANEL_PROPS: Readonly<Record<string, readonly string[]>> = {
         'description={kpiDescriptions.daysToPass}formatValue={formatDays}label="Daystopassdistribution"p5={result.daysToPassP5}p25={result.daysToPassP25}p50={result.daysToPassP50}p75={result.daysToPassP75}p95={result.daysToPassP95}',
     ],
     PlanComparisonTable: [
-        'activePlan={state.plan}baseInputs={simInputs}firm={state.firm}planOptIns={planOptIns}',
+        'activePlan={state.plan}bankrollCents={bankrollCents}baseInputs={simInputs}firm={state.firm}isBankrollPending={isBankrollPending}objective={state.objective}planOptIns={planOptIns}',
     ],
     PortfolioPanel: [
         'baseInputs={simInputs}currentFirm={state.firm}currentPlan={state.plan}firms={firms}onPortfolioChange={setPortfolio}planOptIns={planOptIns}portfolio={state.portfolio}',
@@ -301,6 +303,9 @@ const PINNED_PANEL_PROPS: Readonly<Record<string, readonly string[]>> = {
     TailRiskPanel: ['result={result}'],
 };
 
+const RESOLVED_IMPORTS = new Map<string, null | string>();
+const STATIC_IMPORTS = new Map<string, string[]>();
+
 const PANEL_SKELETON_IMPORT =
     /^import \{[^}]*\bPanelSkeleton\b[^}]*\} from '~\/app\/\(app\)\/prop-calculator\/_components\/PanelSkeleton';$/m;
 
@@ -315,7 +320,7 @@ function byText(a: string, b: string): number {
     return a.localeCompare(b);
 }
 
-function calculatorFiles(): string[] {
+function calculatorFiles(): readonly string[] {
     return sourceFiles(CALCULATOR_ROOT);
 }
 
@@ -338,9 +343,7 @@ function dynamicImports(source: string): string[] {
 
 function filesWriting(text: string): string[] {
     return calculatorFiles()
-        .filter((file) =>
-            readFileSync(file, 'utf8').replaceAll(/\s+/g, ' ').includes(text),
-        )
+        .filter((file) => collapsedSourceText(file).includes(text))
         .map((file) => path.relative(CALCULATOR_ROOT, file))
         .toSorted(byText);
 }
@@ -360,7 +363,7 @@ function importClosure(
         const file = queue.pop();
         if (file === undefined || seen.has(file)) continue;
         seen.add(file);
-        const source = readFileSync(file, 'utf8');
+        const source = sourceText(file);
         const specifiers = [
             ...staticImports(source),
             ...(shouldFollowDynamic ? dynamicImports(source) : []),
@@ -375,10 +378,7 @@ function importClosure(
 
 function isEvalDayPolicyDropped(component: string): boolean {
     const file = path.join(COMPONENTS_ROOT, `${component}.tsx`);
-    return (
-        existsSync(file) &&
-        readFileSync(file, 'utf8').includes(DROPS_EVAL_DAY_POLICY)
-    );
+    return existsSync(file) && sourceText(file).includes(DROPS_EVAL_DAY_POLICY);
 }
 
 function isEvalDayPolicyReader(view: string): boolean {
@@ -392,7 +392,7 @@ function isEvalDayPolicyReader(view: string): boolean {
 function isPlainNoticeShown(file: string, seen: Set<string>): boolean {
     if (seen.has(file)) return false;
     seen.add(file);
-    const source = readFileSync(file, 'utf8');
+    const source = sourceText(file);
     if (jsxAttributes(source, NOTICE_COMPONENT).some(isPlainScope)) {
         return true;
     }
@@ -460,17 +460,26 @@ function pageSpec(toolId: ToolId): ToolPageSpec {
 }
 
 function popoverBody(): string {
-    const source = readFileSync(LADDER_LAB_PANEL_PATH, 'utf8');
+    const source = sourceText(LADDER_LAB_PANEL_PATH);
     const start = source.indexOf(LADDER_LAB_POPOVER_OPENER);
     const end = source.indexOf('</InfoPopover>', start);
     return source.slice(start, end).replaceAll(/\s+/g, ' ');
 }
 
 function readSource(...segments: string[]): string {
-    return readFileSync(path.join(CALCULATOR_ROOT, ...segments), 'utf8');
+    return sourceText(path.join(CALCULATOR_ROOT, ...segments));
 }
 
 function resolveImport(from: string, specifier: string): null | string {
+    const key = `${path.dirname(from)}|${specifier}`;
+    const known = RESOLVED_IMPORTS.get(key);
+    if (known !== undefined) return known;
+    const resolved = resolveImportUncached(from, specifier);
+    RESOLVED_IMPORTS.set(key, resolved);
+    return resolved;
+}
+
+function resolveImportUncached(from: string, specifier: string): null | string {
     let base: string;
     const aliased = aliasPathOf(specifier, SRC_ROOT);
     if (aliased !== null) {
@@ -538,23 +547,14 @@ function skeletonIndex(source: string, from: number): number {
     return match === null ? -1 : from + match.index;
 }
 
-function sourceFiles(root: string): string[] {
-    const files: string[] = [];
-    const walk = (directory: string) => {
-        for (const entry of readdirSync(directory)) {
-            const full = path.join(directory, entry);
-            if (statSync(full).isDirectory()) walk(full);
-            else if (/\.tsx?$/.test(entry)) files.push(full);
-        }
-    };
-    walk(root);
-    return files;
+function sourceFiles(root: string): readonly string[] {
+    return sourceFilesUnder(root);
 }
 
 function staticImportersOf(target: string): string[] {
     return calculatorFiles()
         .filter((file) =>
-            staticImports(readFileSync(file, 'utf8')).some(
+            staticImports(sourceText(file)).some(
                 (specifier) => resolveImport(file, specifier) === target,
             ),
         )
@@ -563,12 +563,16 @@ function staticImportersOf(target: string): string[] {
 }
 
 function staticImports(source: string): string[] {
-    return source
+    const known = STATIC_IMPORTS.get(source);
+    if (known !== undefined) return known;
+    const found = source
         .matchAll(
             /^\s*(?:import|export)\s+(?!type\s)(?:[^'";]*?\sfrom\s+)?'([^']+)';?$/gm,
         )
         .map((match) => match[1] ?? '')
         .toArray();
+    STATIC_IMPORTS.set(source, found);
+    return found;
 }
 
 function viewPath(spec: ToolPageSpec): string {
@@ -581,8 +585,12 @@ function viewPath(spec: ToolPageSpec): string {
 }
 
 function viewSource(spec: ToolPageSpec): string {
-    return readFileSync(viewPath(spec), 'utf8');
+    return sourceText(viewPath(spec));
 }
+
+beforeAll(async () => {
+    await preloadSourceTexts(SRC_ROOT);
+});
 
 describe.each(PAGES)('the $folder tool page', (spec) => {
     it('exports metadata from buildToolMetadata for its ToolId and renders its view', () => {
@@ -750,10 +758,11 @@ describe.each(PAGES)('the $folder tool page', (spec) => {
         expect(view).not.toContain("from '~/components/ui/Skeleton'");
     });
 
-    it(`${spec.showsInputsSummary ? 'shows' : 'does not show'} the inputs summary with the edit dialog`, () => {
+    it('shows the inputs summary with the edit dialog exactly when the catalog says it uses the calculator inputs and the page does not own the form', () => {
+        const entry = toolCatalogEntry(spec.toolId);
         expect(
             jsxAttributes(viewSource(spec), 'InputsSummary').length > 0,
-        ).toBe(spec.showsInputsSummary);
+        ).toBe(entry.usesCalculatorInputs && spec.toolId !== ToolId.Simulator);
     });
 });
 
@@ -915,7 +924,7 @@ describe('the funded sweep worker (PT-25b)', () => {
     it('is referenced only from the funded sweep hook', () => {
         const referencing = calculatorFiles()
             .filter((file) =>
-                FUNDED_SWEEP_WORKER_REFERENCE.test(readFileSync(file, 'utf8')),
+                FUNDED_SWEEP_WORKER_REFERENCE.test(sourceText(file)),
             )
             .map((file) => path.relative(CALCULATOR_ROOT, file));
         expect(referencing).toEqual([
@@ -934,7 +943,7 @@ describe('the ladder worker (F-21)', () => {
     const ladderPage = pageSpec(ToolId.LadderLab);
 
     it('keeps the ladder run types in a worker-free module', () => {
-        const source = readFileSync(LADDER_SEARCH_TYPES_PATH, 'utf8');
+        const source = sourceText(LADDER_SEARCH_TYPES_PATH);
         expect(source).not.toMatch(/^'use client';/m);
         expect(source).not.toMatch(/\bWorker\b/);
         expect(source).not.toContain('_workers');
@@ -965,9 +974,7 @@ describe('the ladder worker (F-21)', () => {
 
     it('is referenced only from the ladder search hook', () => {
         const referencing = calculatorFiles()
-            .filter((file) =>
-                LADDER_WORKER_REFERENCE.test(readFileSync(file, 'utf8')),
-            )
+            .filter((file) => LADDER_WORKER_REFERENCE.test(sourceText(file)))
             .map((file) => path.relative(CALCULATOR_ROOT, file));
         expect(referencing).toEqual([
             path.relative(CALCULATOR_ROOT, LADDER_SEARCH_PATH),
@@ -1038,6 +1045,19 @@ describe('the applied eval ladder notice (F-14)', () => {
         expect(isPlainNoticeShown(viewPath(spec), new Set())).toBe(true);
     });
 
+    it.each(LADDER_READING_PAGES_OUTSIDE_PAGES)(
+        'is shown on the $folder page, whose results read the eval ladder',
+        ({ folder, view }) => {
+            const file = path.join(
+                CALCULATOR_ROOT,
+                '(tools)',
+                folder,
+                `${view}.tsx`,
+            );
+            expect(isPlainNoticeShown(file, new Set())).toBe(true);
+        },
+    );
+
     it.each(
         PAGES.filter((spec) => !EVAL_DAY_POLICY_PAGES.includes(spec.folder)),
     )(
@@ -1049,9 +1069,7 @@ describe('the applied eval ladder notice (F-14)', () => {
 
     it.each(
         calculatorFiles()
-            .filter((file) =>
-                readFileSync(file, 'utf8').includes(DROPS_EVAL_DAY_POLICY),
-            )
+            .filter((file) => sourceText(file).includes(DROPS_EVAL_DAY_POLICY))
             .map((file) => path.relative(CALCULATOR_ROOT, file)),
     )('%s says the applied ladder is not used in its results', (file) => {
         const source = readSource(file);
@@ -1076,7 +1094,7 @@ describe('the applied eval ladder notice (F-14)', () => {
 
     it('has one source for its wording', () => {
         const writers = calculatorFiles()
-            .filter((file) => readFileSync(file, 'utf8').includes(NOTICE_LEAD))
+            .filter((file) => sourceText(file).includes(NOTICE_LEAD))
             .map((file) => path.relative(CALCULATOR_ROOT, file));
         expect(writers).toEqual([path.relative(CALCULATOR_ROOT, NOTICE_PATH)]);
     });
@@ -1122,7 +1140,7 @@ describe('the stop-rule and rung-sizing labels', () => {
 describe('the ladder lab InfoPopover', () => {
     it('finds the popover', () => {
         expect(
-            readFileSync(LADDER_LAB_PANEL_PATH, 'utf8').indexOf(
+            sourceText(LADDER_LAB_PANEL_PATH).indexOf(
                 LADDER_LAB_POPOVER_OPENER,
             ),
         ).toBeGreaterThan(-1);
@@ -1142,7 +1160,7 @@ describe('the ladder lab InfoPopover', () => {
 
 describe('the hub page (F-8)', () => {
     it('exports the hub metadata and renders its own <main> with one <h1>', () => {
-        const page = readFileSync(HUB_PAGE_PATH, 'utf8');
+        const page = sourceText(HUB_PAGE_PATH);
         expect(page).toContain(
             'export const metadata: Metadata = buildHubMetadata();',
         );
@@ -1161,7 +1179,7 @@ describe('the hub page (F-8)', () => {
     });
 
     it('renders an <h2> per tool group', () => {
-        expect(readFileSync(HUB_CARDS_PATH, 'utf8')).toMatch(/<h2[\s>]/);
+        expect(sourceText(HUB_CARDS_PATH)).toMatch(/<h2[\s>]/);
     });
 });
 
@@ -1250,9 +1268,7 @@ describe('the retired shell (F-22)', () => {
                 false,
             );
             const referencing = sourceFiles(SRC_ROOT).filter((file) =>
-                new RegExp(String.raw`\b${name}\b`).test(
-                    readFileSync(file, 'utf8'),
-                ),
+                new RegExp(String.raw`\b${name}\b`).test(sourceText(file)),
             );
             expect(referencing).toEqual([]);
         },
@@ -1260,9 +1276,7 @@ describe('the retired shell (F-22)', () => {
 
     it('leaves one component that portals into the navbar subnav slot', () => {
         const portals = sourceFiles(SRC_ROOT)
-            .filter((file) =>
-                readFileSync(file, 'utf8').includes(SUBNAV_SLOT_QUERY),
-            )
+            .filter((file) => sourceText(file).includes(SUBNAV_SLOT_QUERY))
             .map((file) => path.relative(SRC_ROOT, file));
         expect(portals).toEqual([
             path.join('app', '(app)', '_components', 'RouteSubnav.tsx'),

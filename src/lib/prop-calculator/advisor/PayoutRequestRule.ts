@@ -21,6 +21,7 @@ import {
     postPayoutThreshold,
 } from '~/lib/prop-calculator/core';
 
+import { type AccountPendingPayoutCounts } from './AccountSnapshotInput';
 import { documentedPayoutRequest } from './DocumentedPayoutRequest';
 import { RulebookRule } from './DocumentedRule';
 import {
@@ -37,7 +38,6 @@ import {
     type LiveTriggerCountLimit,
     type PayoutWait,
     PayoutWaitBasis,
-    pendingPayoutCountOf,
     poolProfitOf,
 } from './PayoutReadiness';
 import {
@@ -61,7 +61,9 @@ export interface FundedPayoutRuleContext {
     readonly liveTriggerFirmTotalSource: null | PolicyCitation;
     readonly liveTriggerPerAccountCap: null | number;
     readonly liveTriggerPerAccountSource: null | PolicyCitation;
+    readonly otherAccountsPendingPayoutCount: number;
     readonly paidPayoutsSinceLastLiveAccount: null | number;
+    readonly pendingPayoutCount: number;
     readonly pendingPayouts: Dollars;
     readonly personalRequestOverride: Dollars | null;
     readonly personalRetainedCushion: Dollars | null;
@@ -82,7 +84,7 @@ export interface LivePayoutRuleContext {
 
 export type PayoutRuleContext = FundedPayoutRuleContext | LivePayoutRuleContext;
 
-interface FundedPayoutRuleInputs {
+interface FundedPayoutRuleInputs extends AccountPendingPayoutCounts {
     readonly liveTrigger: LiveTriggerCountLimit;
     readonly pendingPayouts: number;
     readonly personalRequestOverride: Dollars | null;
@@ -102,6 +104,8 @@ const paidPayoutsSinceLastLiveAccountSchema = z
     .int()
     .nonnegative()
     .nullable();
+
+const pendingPayoutCountSchema = z.number().int().nonnegative();
 
 const liveTriggerCapSchema = z.number().int().positive().nullable();
 
@@ -138,7 +142,9 @@ const fundedPayoutRuleContextSchema = z.strictObject({
     liveTriggerFirmTotalSource: liveTriggerSourceSchema,
     liveTriggerPerAccountCap: liveTriggerCapSchema,
     liveTriggerPerAccountSource: liveTriggerSourceSchema,
+    otherAccountsPendingPayoutCount: pendingPayoutCountSchema,
     paidPayoutsSinceLastLiveAccount: paidPayoutsSinceLastLiveAccountSchema,
+    pendingPayoutCount: pendingPayoutCountSchema,
     pendingPayouts: nonNegativeDollarsSchema,
     personalRequestOverride: personalRequestOverrideSchema,
     personalRetainedCushion: nonNegativeDollarsSchema.nullable(),
@@ -430,6 +436,8 @@ export function fundedPayoutRuleContextOf(
 ): FundedPayoutRuleContext {
     return {
         ...fundedLiveTriggerFieldsOf(inputs.liveTrigger),
+        otherAccountsPendingPayoutCount: inputs.otherAccountsPendingPayoutCount,
+        pendingPayoutCount: inputs.pendingPayoutCount,
         pendingPayouts: dollars(inputs.pendingPayouts),
         personalRequestOverride: inputs.personalRequestOverride,
         personalRetainedCushion: inputs.personalRetainedCushion,
@@ -549,7 +557,8 @@ function liveTriggerReasonOf(
             perAccountCap: context.liveTriggerPerAccountCap,
             perAccountSource: context.liveTriggerPerAccountSource,
         },
-        pendingPayoutCountOf(context.pendingPayouts),
+        context.pendingPayoutCount,
+        context.otherAccountsPendingPayoutCount,
     );
 }
 

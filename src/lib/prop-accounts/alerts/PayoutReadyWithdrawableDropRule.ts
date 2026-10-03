@@ -18,10 +18,13 @@ import {
 } from '~/lib/prop-accounts/metrics';
 import { CENTS_PER_DOLLAR, TradingPhase } from '~/lib/prop-calculator';
 import {
+    type AccountPendingPayoutCounts,
     grossStateOf,
     type LiveTriggerLimits,
     payoutReadiness,
     PayoutReadinessKind,
+    pendingPayoutCountsOf,
+    pendingPayoutCountsOr,
     type ReconstructedFundedOrEvalAccount,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
@@ -33,6 +36,9 @@ import {
     liveTriggerDisclosuresOf,
     liveTriggerLimitsIn,
     type MonitoredAccount,
+    pendingPayoutCountsIn,
+    personalPolicyIn,
+    personalRulebookOf,
 } from './AlertContext';
 import { AlertKind } from './AlertKind';
 import { AccountAlertRule } from './AlertRule';
@@ -72,6 +78,10 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
         ) {
             return null;
         }
+        const rulebook = personalRulebookOf(
+            context.rulebook,
+            personalPolicyIn(context, monitored.account.id),
+        );
         const previous = state.previous.reconstructed;
         const latest = state.latest.reconstructed;
         if (
@@ -86,13 +96,30 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
             previous.plan,
             state.previous.asOf,
         );
-        if (!wasPayoutEligible(context, previous, liveTrigger)) return null;
+        const pendingPayoutCounts = pendingPayoutCountsIn(
+            context,
+            monitored,
+            state.previous.asOf,
+        );
+        if (
+            !wasPayoutEligible(
+                rulebook,
+                previous,
+                liveTrigger,
+                pendingPayoutCountsOr(
+                    pendingPayoutCounts,
+                    pendingPayoutCountsOf(previous),
+                ),
+            )
+        ) {
+            return null;
+        }
         const previousCents = usdCentsFromDollars(
-            fundedWithdrawableDollarsOf(context.rulebook, previous),
+            fundedWithdrawableDollarsOf(rulebook, previous),
         );
         if (previousCents <= 0) return null;
         const latestCents = usdCentsFromDollars(
-            fundedWithdrawableDollarsOf(context.rulebook, latest),
+            fundedWithdrawableDollarsOf(rulebook, latest),
         );
         const loss = lossBetween({
             latest,
@@ -102,7 +129,7 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
             previous,
             previousAsOf: state.previous.asOf,
             previousCents,
-            rulebook: context.rulebook,
+            rulebook,
         });
         if (loss === null || loss.lostCents / previousCents <= lossFraction) {
             return null;
@@ -117,7 +144,7 @@ export class PayoutReadyWithdrawableDropRule extends AccountAlertRule {
             loss.isReset
                 ? `The account was reset after it was payout-ready, so ${formatUsdCents(loss.lostCents)} of the ${formatUsdCents(previousCents)} withdrawable was lost${afterPayout}`
                 : `The withdrawable amount fell from ${formatUsdCents(previousCents)} to ${formatUsdCents(latestCents)} since the account was last payout-ready${loss.paidCents > 0 ? `, ${formatUsdCents(loss.lostCents)} of it lost trading${afterPayout}` : ''}`,
-            liveTriggerDisclosuresOf(liveTrigger.coverage),
+            liveTriggerDisclosuresOf(liveTrigger.coverage, pendingPayoutCounts),
         );
     }
 }
@@ -202,22 +229,24 @@ function paidGrossBeforeReset(inputs: WithdrawableLossInputs): UsdCents {
 }
 
 function wasPayoutEligible(
-    context: AlertContext,
+    rulebook: RulebookParameters,
     account: ReconstructedFundedOrEvalAccount,
     liveTrigger: LiveTriggerLimits,
+    pendingPayoutCounts: AccountPendingPayoutCounts,
 ): boolean {
     if (account.fundedTracker === null) return false;
     const minRetainedCushion = fundedRetainedCushionDollarsOf(
-        context.rulebook,
+        rulebook,
         account,
     );
-    const rawRequest = context.rulebook.payout.requestCents / CENTS_PER_DOLLAR;
+    const rawRequest = rulebook.payout.requestCents / CENTS_PER_DOLLAR;
     const pendingPayouts = account.pendingPayouts ?? 0;
     const readiness = payoutReadiness(
         account.plan,
         grossStateOf(account.state, pendingPayouts),
         account.fundedTracker,
         {
+            ...pendingPayoutCounts,
             liveTrigger,
             minRetainedCushion,
             payoutRequestSize: rawRequest,

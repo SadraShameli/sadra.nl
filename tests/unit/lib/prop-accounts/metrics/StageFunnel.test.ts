@@ -73,7 +73,7 @@ describe('stageFunnel', () => {
             result.byFirm.find(
                 (f) => firmKeyId(f.firmKey) === modeledKeyId(EVAL_PLAN.firm.id),
             ),
-        ).toEqual({
+        ).toMatchObject({
             attempts: 4,
             feesCents: 0,
             firmKey: modeledFirm(EVAL_PLAN.firm.id),
@@ -91,7 +91,7 @@ describe('stageFunnel', () => {
                     firmKeyId(f.firmKey) ===
                     modeledKeyId(OTHER_FIRM_EVAL_PLAN.firm.id),
             ),
-        ).toEqual({
+        ).toMatchObject({
             attempts: 0,
             feesCents: 0,
             firmKey: modeledFirm(OTHER_FIRM_EVAL_PLAN.firm.id),
@@ -165,7 +165,7 @@ describe('stageFunnel', () => {
                 events: [purchased(instant), purchased(lost)],
             }),
         );
-        expect(result.byFirm).toEqual([
+        expect(result.byFirm).toMatchObject([
             {
                 attempts: 1,
                 feesCents: 0,
@@ -235,7 +235,7 @@ describe('stageFunnel', () => {
                 ],
             }),
         );
-        expect(result.byFirm).toEqual([
+        expect(result.byFirm).toMatchObject([
             {
                 attempts: 1,
                 feesCents: 0,
@@ -250,5 +250,166 @@ describe('stageFunnel', () => {
             },
         ]);
         expect(result.unresolvedAccounts).toBe(1);
+    });
+
+    it('shows independent counts beside account counts, merging copies bought together on one date', () => {
+        const copies = [
+            account(EVAL_PLAN, {
+                copyGroupId: 'group-1',
+                stage: AccountStage.Funded,
+            }),
+            account(EVAL_PLAN, {
+                copyGroupId: 'group-1',
+                stage: AccountStage.Funded,
+            }),
+            account(EVAL_PLAN, {
+                copyGroupId: 'group-1',
+                stage: AccountStage.Funded,
+            }),
+        ];
+        const alone = account(EVAL_PLAN);
+        const result = stageFunnel(
+            ledger({
+                accounts: [...copies, alone],
+                events: [
+                    ...copies.flatMap((entry) => [
+                        purchased(entry),
+                        event(entry, AccountEventKind.EvalPassed, '2026-09-10'),
+                    ]),
+                    purchased(alone),
+                ],
+                payouts: copies.map((entry) => payout(entry, 40_000)),
+            }),
+        );
+        const firm = result.byFirm.find(
+            (f) => firmKeyId(f.firmKey) === modeledKeyId(EVAL_PLAN.firm.id),
+        );
+        expect(firm?.purchased).toBe(4);
+        expect(firm?.passed).toBe(3);
+        expect(firm?.independent).toEqual({
+            firstPayout: 1,
+            funded: 1,
+            movedLive: 0,
+            passed: 1,
+            purchased: 2,
+        });
+    });
+
+    it('carries fees, net payouts and net for the accounts that reached each stage', () => {
+        const passedFunded = account(EVAL_PLAN, { stage: AccountStage.Funded });
+        const passedOnly = account(EVAL_PLAN, { stage: AccountStage.Funded });
+        const bought = account(EVAL_PLAN);
+        const ledgerOnly = account(EVAL_PLAN, {
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            stage: AccountStage.Funded,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const result = stageFunnel(
+            ledger({
+                accounts: [passedFunded, passedOnly, bought, ledgerOnly],
+                events: [
+                    purchased(passedFunded),
+                    event(
+                        passedFunded,
+                        AccountEventKind.EvalPassed,
+                        '2026-09-10',
+                    ),
+                    purchased(passedOnly),
+                    event(
+                        passedOnly,
+                        AccountEventKind.EvalPassed,
+                        '2026-09-10',
+                    ),
+                    purchased(bought),
+                    purchased(ledgerOnly),
+                ],
+                fees: [
+                    ...[passedFunded, passedOnly, bought, ledgerOnly].map(
+                        (entry) =>
+                            fee(
+                                entry,
+                                FeeKind.EvalPurchase,
+                                15_000,
+                                '2026-09-01',
+                            ),
+                    ),
+                    fee(passedFunded, FeeKind.Activation, 10_000, '2026-09-11'),
+                    fee(passedOnly, FeeKind.Activation, 10_000, '2026-09-11'),
+                ],
+                payouts: [
+                    payout(passedFunded, 40_000),
+                    payout(passedFunded, 50_000),
+                ],
+            }),
+        );
+        const firm = result.byFirm.find(
+            (f) => firmKeyId(f.firmKey) === modeledKeyId(EVAL_PLAN.firm.id),
+        );
+        expect(firm?.stages).toEqual({
+            firstPayout: {
+                feesCents: 25_000,
+                netCents: 65_000,
+                netPayoutsCents: 90_000,
+            },
+            funded: {
+                feesCents: 65_000,
+                netCents: 25_000,
+                netPayoutsCents: 90_000,
+            },
+            movedLive: { feesCents: 0, netCents: 0, netPayoutsCents: 0 },
+            passed: {
+                feesCents: 50_000,
+                netCents: 40_000,
+                netPayoutsCents: 90_000,
+            },
+            purchased: {
+                feesCents: 80_000,
+                netCents: 10_000,
+                netPayoutsCents: 90_000,
+            },
+        });
+        expect(firm?.feesCents).toBe(80_000);
+        expect(firm?.netPayoutsCents).toBe(90_000);
+    });
+
+    it('counts a modeled account with no recorded purchase event as purchased through the implied purchase, so the purchased stage covers the firm total', () => {
+        const noPurchaseEvent = account(EVAL_PLAN, {
+            stage: AccountStage.Funded,
+        });
+        const bought = account(EVAL_PLAN);
+        const result = stageFunnel(
+            ledger({
+                accounts: [noPurchaseEvent, bought],
+                events: [
+                    event(
+                        noPurchaseEvent,
+                        AccountEventKind.EvalPassed,
+                        '2026-09-10',
+                    ),
+                    purchased(bought),
+                ],
+                fees: [
+                    fee(
+                        noPurchaseEvent,
+                        FeeKind.EvalPurchase,
+                        15_000,
+                        '2026-09-01',
+                    ),
+                    fee(bought, FeeKind.EvalPurchase, 15_000, '2026-09-01'),
+                ],
+                payouts: [payout(noPurchaseEvent, 40_000)],
+            }),
+        );
+        const firm = result.byFirm.find(
+            (f) => firmKeyId(f.firmKey) === modeledKeyId(EVAL_PLAN.firm.id),
+        );
+        expect(firm?.purchased).toBe(2);
+        expect(firm?.feesCents).toBe(30_000);
+        expect(firm?.stages.purchased.feesCents).toBe(firm?.feesCents);
+        expect(firm?.stages.purchased.netPayoutsCents).toBe(
+            firm?.netPayoutsCents,
+        );
+        expect(firm?.stages.funded.feesCents).toBe(15_000);
     });
 });

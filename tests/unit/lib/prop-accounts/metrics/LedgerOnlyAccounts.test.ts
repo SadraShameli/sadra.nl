@@ -17,6 +17,7 @@ import {
 import {
     costAnalytics,
     diversification,
+    firmReturns,
     fundingTotals,
     type LedgerAccountRow,
     modeledEntries,
@@ -94,6 +95,41 @@ function portfolio() {
         ],
     });
     return { atExternalFirm, atModeledFirm, book, modeled, otherFirm };
+}
+
+function returnsBook() {
+    const base = portfolio();
+    const lost = account(OTHER_FIRM_EVAL_PLAN, {
+        planSerial: 'retired-plan',
+    });
+    const book = ledger({
+        accounts: [
+            base.modeled,
+            base.atModeledFirm,
+            base.atExternalFirm,
+            base.otherFirm,
+            lost,
+        ],
+        events: [purchased(base.modeled), purchased(base.otherFirm)],
+        fees: [
+            fee(base.modeled, FeeKind.EvalPurchase, 10_000, '2026-09-01'),
+            fee(base.atModeledFirm, FeeKind.EvalPurchase, 30_000, '2026-09-01'),
+            fee(
+                base.atExternalFirm,
+                FeeKind.EvalPurchase,
+                15_000,
+                '2026-09-02',
+            ),
+            fee(base.otherFirm, FeeKind.EvalPurchase, 5000, '2026-09-03'),
+            fee(lost, FeeKind.EvalPurchase, 7000, '2026-09-04'),
+        ],
+        payouts: [
+            payout(base.modeled, 50_000, { netCents: 40_000 }),
+            payout(base.atModeledFirm, 200_000, { netCents: 180_000 }),
+            payout(base.atExternalFirm, 40_000, { netCents: 40_000 }),
+        ],
+    });
+    return { book, lost };
 }
 
 describe('ledger-only accounts in the portfolio ledger', () => {
@@ -312,5 +348,76 @@ describe('ledger-only accounts in plan-keyed metrics', () => {
                 perSlot.unallocatedNet +
                 perSlot.unmeasuredNet,
         ).toBe(modeledNet);
+    });
+});
+
+describe('ledger-only and unresolvable accounts in the per-firm returns', () => {
+    it('gives a firm that only has a ledger-only account its own row', () => {
+        const { book } = returnsBook();
+        const row = firmReturns(book).firms.find(
+            (candidate) =>
+                firmKeyId(candidate.firmKey) === firmKeyId(EXTERNAL_FIRM_KEY),
+        );
+        expect(row).toMatchObject({
+            accounts: 1,
+            accountsWithPayout: 1,
+            attempts: 1,
+            fundedAccounts: 1,
+            ledgerOnlyAccounts: 1,
+            multiple: 40_000 / 15_000,
+            net: 25_000,
+            payouts: 40_000,
+            spend: 15_000,
+            unresolvedAccounts: 0,
+        });
+    });
+
+    it('counts a ledger-only 150,000 account at a modeled firm with that firm', () => {
+        const { book } = returnsBook();
+        const row = firmReturns(book).firms.find(
+            (candidate) =>
+                firmKeyId(candidate.firmKey) === firmKeyId(MODELED_FIRM_KEY),
+        );
+        expect(row).toMatchObject({
+            accounts: 2,
+            accountsWithPayout: 2,
+            ledgerOnlyAccounts: 1,
+            net: 220_000 - 40_000,
+            payouts: 220_000,
+            spend: 40_000,
+            unresolvedAccounts: 0,
+        });
+    });
+
+    it('counts an unresolvable modeled account under its own firm and says how many have no timeline', () => {
+        const { book, lost } = returnsBook();
+        const row = firmReturns(book).firms.find(
+            (candidate) =>
+                firmKeyId(candidate.firmKey) ===
+                firmKeyId({
+                    firmId: OTHER_FIRM_EVAL_PLAN.firm.id,
+                    kind: FirmKeyKind.Modeled,
+                }),
+        );
+        expect(lost.tracking).toBe(AccountTracking.Modeled);
+        expect(row).toMatchObject({
+            accounts: 2,
+            ledgerOnlyAccounts: 0,
+            spend: 12_000,
+            unresolvedAccounts: 1,
+        });
+    });
+
+    it('sums per-firm spend and payouts to the cash totals', () => {
+        const { book } = returnsBook();
+        const { firms } = firmReturns(book);
+        const cash = spendAndPayouts(book).allTime;
+        expect(firms.reduce((sum, row) => sum + row.spend, 0)).toBe(cash.spend);
+        expect(firms.reduce((sum, row) => sum + row.payouts, 0)).toBe(
+            cash.payouts,
+        );
+        expect(firms.reduce((sum, row) => sum + row.accounts, 0)).toBe(
+            book.accounts.length,
+        );
     });
 });

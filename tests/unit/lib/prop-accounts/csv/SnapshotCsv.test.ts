@@ -35,7 +35,7 @@ import {
 import {
     LiveApplicabilityKind,
     livePlanApplicability,
-} from '~/lib/prop-calculator/advisor';
+} from '~/lib/prop-calculator/firms';
 
 const ALPHA_ID = '11111111-1111-4111-8111-111111111111';
 const BRAVO_ID = '22222222-2222-4222-8222-222222222222';

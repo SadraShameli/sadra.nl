@@ -35,6 +35,7 @@ import {
     DifferenceReason,
     differenceReasonText,
     FundedSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
 
@@ -121,6 +122,7 @@ function reportLinesFor(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
     const advice = new FundedSizingAdvisor({
         account,
@@ -185,7 +187,12 @@ describe('the suspended risk-check reason is the typed Suspended text (PT-36f, P
             parseAdvise([...FRESH_FUNDED_APEX_EOD, '--suspended']),
         );
         const advisor = createSizingAdvisor(
-            AccountReconstruction.rebuild(snapshot, plan),
+            AccountReconstruction.rebuild(
+                snapshot,
+                plan,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            ),
             options,
         );
         expect(options.substate).toBe(AccountSubstate.Suspended);

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
     type DocumentedRunFigures,
@@ -20,11 +20,15 @@ import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     AccountEventKind,
     AccountStatus,
+    AccountTracking,
     BankrollTransferKind,
     FirmEngagementReason,
     FirmEngagementStatus,
 } from '~/lib/prop-accounts/core';
-import { NextSlotListingKind } from '~/lib/prop-accounts/planning';
+import {
+    NextSlotListingKind,
+    NextSlotSortKey,
+} from '~/lib/prop-accounts/planning';
 import {
     ALL_FIRMS,
     CumulativeAmountTrigger,
@@ -35,7 +39,15 @@ import {
     serializePlanId,
     UnverifiedFirmAccountPolicy,
 } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    AssumptionBias,
+    AssumptionKind,
+    assumptionText,
+    type CumulativePayoutTriggerAssumption,
+    DEFAULT_RULEBOOK,
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
+import { LiveTransferContinuationKind } from '~/lib/prop-calculator/simulator';
 
 import {
     account,
@@ -120,23 +132,49 @@ function estimate(value: number) {
     return { standardError: 1, value };
 }
 
+function gradedAnswer(): Answer {
+    const order = new Map<string, number>();
+    return (request) => {
+        const index = order.get(request.planSerial) ?? order.size;
+        order.set(request.planSerial, index);
+        if (request.kind !== OverviewRequestKind.DocumentedRun) {
+            return answerAll()(request);
+        }
+        return answerAll({
+            expectedMonthlyNet: estimate(300 + index),
+            expectedMonthlyRealizedNet: estimate(280 + index),
+            expectedNetPerAttempt: estimate(500 - index),
+        })(request);
+    };
+}
+
+function keysOf(model: ReturnType<typeof modelFor>): readonly string[] {
+    return model.ranked.map((row) => row.key);
+}
+
 function modelFor(
     options: {
         readonly answer?: Answer;
         readonly ledger?: ReturnType<typeof ledger>;
+        readonly objective?: SizingObjective;
+        readonly requests?: readonly OverviewRequest[];
         readonly rulebook?: typeof DEFAULT_RULEBOOK;
+        readonly sortKey?: NextSlotSortKey;
         readonly trades?: number;
     } = {},
 ) {
     return withAllFirmsVerified(() => {
         const portfolio = options.ledger ?? ledger({});
         const rulebook = options.rulebook ?? DEFAULT_RULEBOOK;
-        const requests = nextSlotRequestsOf(portfolio, rulebook, TODAY);
+        const requests =
+            options.requests ?? nextSlotRequestsOf(portfolio, rulebook, TODAY);
         return nextSlotModelOf({
             engine: engineOf(requests, options.answer ?? answerAll()),
             ledger: portfolio,
+            objective: options.objective,
             requests,
             rulebook,
+            sortKey: options.sortKey,
             today: TODAY,
             trades: options.trades ?? 0,
         });
@@ -152,6 +190,12 @@ function optimumFigures(): PayoutSizeOptimumFigures {
         fundedBustProbability: estimate(0.4),
         requestSize: 750,
     };
+}
+
+function perHourOf(model: ReturnType<typeof modelFor>): readonly number[] {
+    return model.ranked.map((row) =>
+        Number(row.perScreenHour.replaceAll(/[^\d.]/gu, '')),
+    );
 }
 
 function withAllFirmsVerified<T>(run: () => T): T {
@@ -414,14 +458,15 @@ describe('nextSlotModelOf ranked rows', () => {
                 },
             },
         });
-        expect(switching.objectiveNote).toContain('ruin first');
+        expect(switching.objective).toBe(SizingObjective.RuinFirst);
+        expect(switching.objectiveChoiceNote).toContain('Chosen automatically');
         expect(switching.ranked.length).toBeGreaterThan(0);
         expect(switching.ranked.every((row) => row.batchLoss !== 'n/a')).toBe(
             true,
         );
-        expect(modelFor({ ledger: funded }).objectiveNote).toContain(
-            'Objective: monthly net',
-        );
+        const plain = modelFor({ ledger: funded });
+        expect(plain.objective).toBe(SizingObjective.MonthlyNet);
+        expect(plain.objectiveChoiceNote).toBeNull();
         const broke = modelFor({
             ledger: ledger({
                 transfers: [
@@ -630,6 +675,322 @@ describe('nextSlotModelOf ranked rows', () => {
     });
 });
 
+function requestsFor(rulebook: typeof DEFAULT_RULEBOOK) {
+    return withAllFirmsVerified(() =>
+        nextSlotRequestsOf(ledger({}), rulebook, TODAY),
+    );
+}
+
+describe('nextSlotModelOf objective override (PT-84, F-V15)', () => {
+    const FUNDED_LEDGER = ledger({
+        transfers: [
+            transfer(BankrollTransferKind.Deposit, 1_000_000, '2026-08-01'),
+        ],
+    });
+    const SWITCHING_RULEBOOK = {
+        ...DEFAULT_RULEBOOK,
+        bankroll: {
+            ...DEFAULT_RULEBOOK.bankroll,
+            objectiveSwitchCents: 5_000_000,
+        },
+    };
+    let requests: ReturnType<typeof requestsFor>;
+    let automatic: ReturnType<typeof modelFor>;
+
+    beforeAll(() => {
+        requests = requestsFor(DEFAULT_RULEBOOK);
+        automatic = modelFor({ answer: gradedAnswer(), requests });
+    });
+
+    it('orders plans by cycle net under a CycleCash override and says the objective was chosen by the user', () => {
+        const cycle = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.CycleCash,
+            requests,
+        });
+        expect(automatic.objective).toBe(SizingObjective.MonthlyNet);
+        expect(automatic.automaticObjective).toBe(SizingObjective.MonthlyNet);
+        expect(cycle.objective).toBe(SizingObjective.CycleCash);
+        expect(cycle.allocation.objective).toBe(SizingObjective.CycleCash);
+        expect(cycle.objectiveChoiceNote).toBe(
+            'Chosen by you. Your bankroll would choose monthly net automatically.',
+        );
+        expect(automatic.objectiveChoiceNote).toBeNull();
+        expect(keysOf(cycle)).toEqual(keysOf(automatic).toReversed());
+    });
+
+    it('keeps the automatic objective when none is chosen and says it is automatic', () => {
+        const switching = modelFor({
+            ledger: FUNDED_LEDGER,
+            requests,
+            rulebook: SWITCHING_RULEBOOK,
+        });
+        expect(switching.objective).toBe(SizingObjective.RuinFirst);
+        expect(switching.automaticObjective).toBe(SizingObjective.RuinFirst);
+        expect(switching.objectiveChoiceNote).toContain('Chosen automatically');
+        expect(switching.objectiveChoiceNote).not.toContain('Chosen by you');
+        expect(switching.objectiveFallbackNote).toBeNull();
+    });
+
+    it('lets the user override the automatic RuinFirst with MonthlyNet and names the automatic choice', () => {
+        const overridden = modelFor({
+            ledger: FUNDED_LEDGER,
+            objective: SizingObjective.MonthlyNet,
+            requests,
+            rulebook: SWITCHING_RULEBOOK,
+        });
+        expect(overridden.objective).toBe(SizingObjective.MonthlyNet);
+        expect(overridden.automaticObjective).toBe(SizingObjective.RuinFirst);
+        expect(overridden.objectiveChoiceNote).toBe(
+            'Chosen by you. Your bankroll would choose ruin first automatically.',
+        );
+    });
+
+    it('keeps monthly net with a typed note when RuinFirst is chosen without a bankroll', () => {
+        const ruin = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.RuinFirst,
+            requests,
+        });
+        expect(ruin.objective).toBe(SizingObjective.MonthlyNet);
+        expect(ruin.allocation.objective).toBe(SizingObjective.MonthlyNet);
+        expect(keysOf(ruin)).toEqual(keysOf(automatic));
+        expect(ruin.objectiveFallbackNote).toContain('bankroll');
+        expect(ruin.objectiveFallbackNote).toContain('monthly net');
+        expect(automatic.objectiveFallbackNote).toBeNull();
+    });
+
+    it('ranks by batch loss risk when RuinFirst is chosen with a bankroll recorded', () => {
+        const ruin = modelFor({
+            ledger: FUNDED_LEDGER,
+            objective: SizingObjective.RuinFirst,
+            requests,
+        });
+        expect(ruin.objective).toBe(SizingObjective.RuinFirst);
+        expect(ruin.objectiveFallbackNote).toBeNull();
+        expect(ruin.ranked.every((row) => row.batchLoss !== 'n/a')).toBe(true);
+    });
+});
+
+describe('nextSlotModelOf sort key (PT-84, F-V25)', () => {
+    const HOURS_RULEBOOK = {
+        ...DEFAULT_RULEBOOK,
+        bankroll: {
+            ...DEFAULT_RULEBOOK.bankroll,
+            accountsPerSession: 2,
+            sessionHoursPerDay: 4,
+        },
+    };
+    const PARTIAL_HOURS_RULEBOOK = {
+        ...DEFAULT_RULEBOOK,
+        bankroll: {
+            ...DEFAULT_RULEBOOK.bankroll,
+            accountsPerSession: 2,
+            sessionHoursPerDay: null,
+        },
+    };
+    let requests: ReturnType<typeof requestsFor>;
+
+    beforeAll(() => {
+        requests = requestsFor(DEFAULT_RULEBOOK);
+    });
+
+    it('ranks by net per screen hour when the hour key is chosen and both hours are set', () => {
+        const model = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.CycleCash,
+            requests,
+            rulebook: HOURS_RULEBOOK,
+            sortKey: NextSlotSortKey.Hour,
+        });
+        expect(model.isHourKeyAvailable).toBe(true);
+        expect(model.sortKey).toBe(NextSlotSortKey.Hour);
+        expect(model.sortNote).toContain('net per screen hour');
+        const perHour = perHourOf(model);
+        expect(perHour.length).toBeGreaterThan(1);
+        expect(perHour).toEqual(perHour.toSorted((a, b) => b - a));
+        const byObjective = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.CycleCash,
+            requests,
+            rulebook: HOURS_RULEBOOK,
+        });
+        expect(byObjective.sortKey).toBe(NextSlotSortKey.Objective);
+        expect(keysOf(model)).toEqual(keysOf(byObjective).toReversed());
+    });
+
+    it('offers no hour key and keeps the objective order while either hours input is missing', () => {
+        const requested = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.CycleCash,
+            requests,
+            rulebook: PARTIAL_HOURS_RULEBOOK,
+            sortKey: NextSlotSortKey.Hour,
+        });
+        const plain = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.CycleCash,
+            requests,
+            rulebook: PARTIAL_HOURS_RULEBOOK,
+        });
+        expect(requested.isHourKeyAvailable).toBe(false);
+        expect(requested.sortKey).toBe(NextSlotSortKey.Objective);
+        expect(keysOf(requested)).toEqual(keysOf(plain));
+        expect(requested.sortNote).not.toContain('net per screen hour');
+    });
+});
+
+describe('nextSlotModelOf ranking basis disclosure (PT-84, F-V15, F-V25)', () => {
+    const CREDIT_BASIS = 'Ranked by the credit-inclusive monthly net';
+    const FUNDED_LEDGER = ledger({
+        transfers: [
+            transfer(BankrollTransferKind.Deposit, 1_000_000, '2026-08-01'),
+        ],
+    });
+    const HOURS_RULEBOOK = {
+        ...DEFAULT_RULEBOOK,
+        bankroll: {
+            ...DEFAULT_RULEBOOK.bankroll,
+            accountsPerSession: 2,
+            sessionHoursPerDay: 4,
+        },
+    };
+    let requests: ReturnType<typeof requestsFor>;
+
+    beforeAll(() => {
+        requests = requestsFor(DEFAULT_RULEBOOK);
+    });
+
+    function basisOf(model: ReturnType<typeof modelFor>): string {
+        const basis = model.disclosures.find((text) =>
+            text.startsWith('Ranked by'),
+        );
+        if (basis === undefined) throw new Error('expected a ranking basis');
+        return basis;
+    }
+
+    it('says the order is the credit-inclusive monthly net only under MonthlyNet with the objective key', () => {
+        const model = modelFor({ requests });
+        expect(model.objective).toBe(SizingObjective.MonthlyNet);
+        expect(model.sortKey).toBe(NextSlotSortKey.Objective);
+        expect(basisOf(model)).toContain(CREDIT_BASIS);
+        expect(basisOf(model)).toContain('command line');
+    });
+
+    it('describes the cycle net order under CycleCash instead of the monthly net order', () => {
+        const model = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.CycleCash,
+            requests,
+        });
+        expect(basisOf(model)).toContain('cycle net');
+        expect(basisOf(model)).not.toContain(CREDIT_BASIS);
+        expect(basisOf(model)).not.toContain('command line');
+    });
+
+    it('describes the batch loss risk order under RuinFirst instead of the monthly net order', () => {
+        const model = modelFor({
+            ledger: FUNDED_LEDGER,
+            objective: SizingObjective.RuinFirst,
+            requests,
+        });
+        expect(model.objective).toBe(SizingObjective.RuinFirst);
+        expect(basisOf(model)).toContain('batch loss risk');
+        expect(basisOf(model)).not.toContain(CREDIT_BASIS);
+    });
+
+    it('keeps the monthly net description when RuinFirst falls back without a bankroll', () => {
+        const model = modelFor({
+            objective: SizingObjective.RuinFirst,
+            requests,
+        });
+        expect(model.objective).toBe(SizingObjective.MonthlyNet);
+        expect(basisOf(model)).toContain(CREDIT_BASIS);
+    });
+
+    it('describes the screen hour order under the Hour key, whatever the objective', () => {
+        const model = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.CycleCash,
+            requests,
+            rulebook: HOURS_RULEBOOK,
+            sortKey: NextSlotSortKey.Hour,
+        });
+        expect(model.sortKey).toBe(NextSlotSortKey.Hour);
+        expect(basisOf(model)).toContain('net per screen hour');
+        expect(basisOf(model)).not.toContain(CREDIT_BASIS);
+        expect(basisOf(model)).not.toContain('cycle net');
+    });
+
+    it('describes the objective order when the Hour key is requested but unavailable', () => {
+        const model = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.CycleCash,
+            requests,
+            sortKey: NextSlotSortKey.Hour,
+        });
+        expect(model.sortKey).toBe(NextSlotSortKey.Objective);
+        expect(basisOf(model)).toContain('cycle net');
+    });
+
+    it('marks the objective as not applied while the Hour key orders the table, only when the objective differs from monthly net', () => {
+        const cycle = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.CycleCash,
+            requests,
+            rulebook: HOURS_RULEBOOK,
+            sortKey: NextSlotSortKey.Hour,
+        });
+        expect(cycle.objectiveNotAppliedNote).toContain('cycle cash');
+        expect(cycle.objectiveNotAppliedNote).toContain('monthly net');
+        const monthly = modelFor({
+            answer: gradedAnswer(),
+            requests,
+            rulebook: HOURS_RULEBOOK,
+            sortKey: NextSlotSortKey.Hour,
+        });
+        expect(monthly.objectiveNotAppliedNote).toBeNull();
+        const objectiveKey = modelFor({
+            answer: gradedAnswer(),
+            objective: SizingObjective.CycleCash,
+            requests,
+            rulebook: HOURS_RULEBOOK,
+        });
+        expect(objectiveKey.objectiveNotAppliedNote).toBeNull();
+    });
+});
+
+describe('nextSlotModelOf capacity (PT-84, F-V27)', () => {
+    it('counts an active ledger-only account in the capacity note and no longer says it is not counted', () => {
+        const model = modelFor({
+            ledger: ledger({
+                accounts: [
+                    account(EVAL_PLAN),
+                    account(EVAL_PLAN),
+                    account(EVAL_PLAN, {
+                        planLabel: 'Hola 100K',
+                        planSerial: null,
+                        tracking: AccountTracking.LedgerOnly,
+                    }),
+                ],
+            }),
+            rulebook: {
+                ...DEFAULT_RULEBOOK,
+                bankroll: {
+                    ...DEFAULT_RULEBOOK.bankroll,
+                    dailyAccountCapacity: 5,
+                },
+            },
+        });
+        expect(model.capacityNote).toBe(
+            'Capacity: 3 of 5 daily accounts in use (a copy group counts once), 2 left.',
+        );
+        expect(model.disclosures.join(' ')).not.toContain(
+            'not counted in the slots in use or in your capacity',
+        );
+    });
+});
+
 describe('nextSlotModelOf assumptions', () => {
     it('states the strategy, funded phase, run size, commission and the shared rebuy lag basis behind every figure', () => {
         const { assumptions } = modelFor();
@@ -662,5 +1023,54 @@ describe('nextSlotModelOf assumptions', () => {
         expect(assumptions.join('\n')).toContain(
             'sample-weighted average measured across your plans',
         );
+    });
+});
+
+describe('nextSlotModelOf names the cumulative trigger it priced (PT-36r, F-145)', () => {
+    const TRIGGER: CumulativePayoutTriggerAssumption = {
+        amount: 100_000,
+        bias: AssumptionBias.Neutral,
+        continuation: LiveTransferContinuationKind.NotModeled,
+        kind: AssumptionKind.CumulativePayoutTriggerPriced,
+        notes: [],
+        source: {
+            fetchedOn: '2026-09-01',
+            quote: 'a synthetic test quote',
+            url: 'https://example.test/policy',
+        },
+    };
+
+    const answerWithTrigger: Answer = (request) => ({
+        key: overviewRequestKey(request),
+        kind: OverviewOutcomeKind.Succeeded,
+        result:
+            request.kind === OverviewRequestKind.DocumentedRun
+                ? {
+                      figures: {
+                          ...documentedFigures(),
+                          cumulativePayoutTrigger: TRIGGER,
+                      },
+                      kind: OverviewRequestKind.DocumentedRun,
+                  }
+                : {
+                      figures: {
+                          ...optimumFigures(),
+                          cumulativePayoutTrigger: TRIGGER,
+                      },
+                      kind: OverviewRequestKind.PayoutSizeOptimum,
+                  },
+    });
+
+    it('lists the trigger behind the documented and the optimum figure of a ranked row', () => {
+        const [first] = modelFor({ answer: answerWithTrigger }).ranked;
+        expect(first?.liveTransferNotes).toStrictEqual([
+            `Documented policy. ${assumptionText(TRIGGER)}`,
+            `Payout-size optimum. ${assumptionText(TRIGGER)}`,
+        ]);
+    });
+
+    it('lists none when no figure priced a trigger', () => {
+        const [first] = modelFor().ranked;
+        expect(first?.liveTransferNotes).toStrictEqual([]);
     });
 });

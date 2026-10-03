@@ -30,7 +30,11 @@ export {
 } from './BankrollLevers';
 export {
     bankrollAttempts,
+    bankrollAttemptsAt,
+    type BankrollCohortRisk,
+    bankrollCohortRisk,
     bankrollNoPayout,
+    bankrollNoPayoutAt,
     type BankrollRisk,
     bankrollRisk,
     type BankrollRiskFigures,

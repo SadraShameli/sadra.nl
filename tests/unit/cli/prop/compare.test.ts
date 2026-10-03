@@ -17,6 +17,7 @@ import compare, {
     describeExcludedPlans,
     nonPositiveEvPlanLines,
     rankRows,
+    readTopLimit,
     requireScreenTimeForSort,
     resolveCompareRanking,
     ruinFirstWarning,
@@ -35,6 +36,7 @@ import {
 import {
     formatCurrency,
     formatFiniteCurrency,
+    formatOptionalPercent,
     formatPercent,
 } from '~/lib/format';
 import {
@@ -53,13 +55,13 @@ import {
 } from '~/lib/prop-calculator';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import {
-    bankrollRiskFigures,
     COPY_SPLIT_CORRELATION_NOTE,
     type CopySplitRow,
     CopySplitRowKind,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
     attemptsAffordable,
+    bankrollRiskFigures,
     cohortOutcome,
     LOSS_RISK_DRAWS,
     noPayoutProbability,
@@ -367,7 +369,7 @@ describe('compare table cells (D2 and TG-2)', () => {
         );
         expect(cells[3]).toBe(formatCurrency(1234));
         expect(cells[4]).toBe(formatCurrency(420));
-        expect(cells).toHaveLength(9);
+        expect(cells).toHaveLength(11);
     });
 
     it("prints 'n/a' cost per funded account when no eval ever passed", () => {
@@ -417,6 +419,8 @@ describe('compare column basis at --copy-accounts (R1-2 review)', () => {
             'spend',
             'payout',
             'monthly',
+            'cycle net',
+            'ROI',
             'bustF',
             'P(no payout)',
         ]);
@@ -435,6 +439,8 @@ describe('compare column basis at --copy-accounts (R1-2 review)', () => {
             'spend x5',
             'payout x5',
             'monthly x5',
+            'cycle net x5',
+            'ROI',
             'bustF',
             'P(no payout)',
         ]);
@@ -442,7 +448,7 @@ describe('compare column basis at --copy-accounts (R1-2 review)', () => {
             expect(column.width).toBeGreaterThanOrEqual(column.label.length);
         }
         expect(describeColumnBasis(5)).toBe(
-            'spend, payout and monthly total all 5 copies; eval pass, survive, days, $/funded, bustF and P(no payout) are per account',
+            'spend, payout, monthly and cycle net total all 5 copies; eval pass, survive, days, $/funded, ROI, bustF and P(no payout) are per account',
         );
     });
 });
@@ -653,7 +659,7 @@ describe('compare firm, P(no payout) and $/screen hour columns (PT-54, F-V8, F-V
                 ],
             }).out,
         );
-        expect(cells[8]).toBe(formatPercent(0.35));
+        expect(cells[10]).toBe(formatPercent(0.35));
     });
 
     it("prints 'n/a' P(no payout) when no trial reached funded", () => {
@@ -661,7 +667,7 @@ describe('compare firm, P(no payout) and $/screen hour columns (PT-54, F-V8, F-V
             row('never', { ...NEVER_PASSES, fundedPayoutCountDistribution: [] })
                 .out,
         );
-        expect(cells[8]).toBe('n/a');
+        expect(cells[10]).toBe('n/a');
     });
 
     it('adds a $/screen hour column only with the screen time', () => {
@@ -675,9 +681,9 @@ describe('compare firm, P(no payout) and $/screen hour columns (PT-54, F-V8, F-V
             row('x', { expectedMonthlyNet: 2100 }).out,
             SCREEN_TIME,
         );
-        expect(cells).toHaveLength(10);
-        expect(cells[9]).toBe(formatCurrency(perScreenHour(2100)));
-        expect(cells[9]).toBe('$150');
+        expect(cells).toHaveLength(12);
+        expect(cells[11]).toBe(formatCurrency(perScreenHour(2100)));
+        expect(cells[11]).toBe('$150');
     });
 
     it('explains the new columns, with the trading days constant and the copy group rule', () => {
@@ -838,7 +844,7 @@ describe('P(no payout) is one definition, shared by the web tables (PT-61e, F-V2
         );
         const expected = noPayoutProbabilityFromDistribution(distribution);
         expect(expected).not.toBeNull();
-        expect(cells[8]).toBe(formatPercent(expected ?? 0));
+        expect(cells[10]).toBe(formatPercent(expected ?? 0));
     });
 
     it('calls the shared engine helper instead of re-deriving the value from the distribution array', () => {
@@ -1163,6 +1169,39 @@ describe('compare ruin-first never reads as a lowest-ruin pick without a ruin fi
         expect(ruinFirstWarning([])).toBeNull();
     });
 
+    it('says the risk could not be priced, not that no attempt is affordable, when attempts are affordable but no loss figure exists', () => {
+        const rows = [{ ...ruinRow('a', 10, null, 900), affordableAttempts: 5000 }];
+        const warning = ruinFirstWarning(rows);
+        expect(warning).toContain('could not price');
+        expect(warning).toContain('fell back to monthly net');
+        expect(warning).not.toContain('affords no attempt');
+        expect(warning).not.toContain('\u{2014}');
+    });
+
+    it.each([0, null])(
+        'keeps the no-attempt wording when %j attempts are affordable',
+        (affordableAttempts) => {
+            const rows = [
+                { ...ruinRow('a', 10, null, 900), affordableAttempts },
+            ];
+            expect(ruinFirstWarning(rows)).toContain('bankroll affords no attempt');
+        },
+    );
+
+    it('prints the could-not-price warning for a bankroll far above every cost per attempt', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--objective',
+            'ruin-first',
+            '--bankroll',
+            '5000000000',
+            '--winrate',
+            '0.6',
+        ]);
+        expect(stdout).toContain('could not price');
+        expect(stdout).not.toContain('bankroll affords no attempt');
+    });
+
     it('prints the warning and no best line for a bankroll below every cost per attempt', async () => {
         const stdout = await capturedCompareRun([
             ...SMALL_COMPARE,
@@ -1438,6 +1477,230 @@ describe('prop compare names the objective and runs split vs concentrate (PT-63,
                 'splits',
                 'total-risk',
             ]),
+        );
+        expect(await flagsNamedButNotAccepted(compare)).toStrictEqual([]);
+    });
+});
+
+function columnLabels(copies: number): string[] {
+    return compareColumns(copies).map((column) => column.label);
+}
+
+function printedPlanRows(output: string): string[] {
+    return output
+        .split('\n')
+        .filter((line) => line.includes('$50K') && line.includes('mffu '));
+}
+
+describe('compare prints cycle net and ROI for every row (PT-83, F-V15)', () => {
+    it('adds cycle net and ROI right after monthly, with the copy group total on cycle net', () => {
+        expect(columnLabels(1).slice(8, 11)).toStrictEqual([
+            'monthly',
+            'cycle net',
+            'ROI',
+        ]);
+        expect(columnLabels(3).slice(8, 11)).toStrictEqual([
+            'monthly x3',
+            'cycle net x3',
+            'ROI',
+        ]);
+    });
+
+    it('prints the cycle net the --sort cycle key ranks by, and the ROI on cost', () => {
+        const cells = compareRowCells(
+            row('x', {
+                expectedNet: 1234,
+                roiOnCost: { ...BASE.roiOnCost, value: 0.5 },
+            }).out,
+        );
+        expect(cells[7]).toBe(formatCurrency(1234));
+        expect(cells[8]).toBe(formatOptionalPercent(0.5));
+    });
+
+    it("prints 'n/a' ROI when there is no spend to return on", () => {
+        const cells = compareRowCells(
+            row('free', { roiOnCost: { ...BASE.roiOnCost, value: null } }).out,
+        );
+        expect(cells[8]).toBe('n/a');
+    });
+
+    it('--sort cycle orders the rows by the cycle net they print', () => {
+        const rows = [
+            row('low', { expectedMonthlyNet: 900, expectedNet: 100 }),
+            row('high', { expectedMonthlyNet: 100, expectedNet: 900 }),
+            row('mid', { expectedMonthlyNet: 500, expectedNet: 500 }),
+        ];
+        const ranked = rankRows(rows, CompareSortKey.Cycle);
+        expect(labels(ranked)).toStrictEqual(['high', 'mid', 'low']);
+        expect(
+            ranked.map((entry) => compareRowCells(entry.out)[7]),
+        ).toStrictEqual([
+            formatCurrency(900),
+            formatCurrency(500),
+            formatCurrency(100),
+        ]);
+    });
+
+    it('prints both columns in a real run', async () => {
+        const stdout = await capturedCompareRun(SMALL_COMPARE);
+        expect(stdout).toContain('cycle net');
+        expect(stdout).toContain('ROI');
+    });
+});
+
+describe('compare --sort hour ranks by the printed $/screen hour with its own comparator (PT-83, F-V25)', () => {
+    it('lists a row without a value last, wherever it started', () => {
+        const rows = [
+            row('nan', { expectedMonthlyNet: NaN }),
+            row('100', { expectedMonthlyNet: 100 }),
+            row('300', { expectedMonthlyNet: 300 }),
+            row('200', { expectedMonthlyNet: 200 }),
+        ];
+        const ranked = rankRows(rows, CompareSortKey.Hour, SCREEN_TIME);
+        expect(labels(ranked)).toStrictEqual(['300', '200', '100', 'nan']);
+        const printed = ranked.map(
+            (entry) => compareRowCells(entry.out, SCREEN_TIME).at(-1) ?? '',
+        );
+        expect(printed.at(-1)).toBe('n/a');
+        expect(printed.slice(0, -1)).toStrictEqual([
+            formatCurrency(perScreenHour(300)),
+            formatCurrency(perScreenHour(200)),
+            formatCurrency(perScreenHour(100)),
+        ]);
+    });
+
+    it('keeps two rows without a value in their input order, after every valued row', () => {
+        const rows = [
+            row('nan-a', { expectedMonthlyNet: NaN }),
+            row('50', { expectedMonthlyNet: 50 }),
+            row('nan-b', { expectedMonthlyNet: NaN }),
+        ];
+        expect(
+            labels(rankRows(rows, CompareSortKey.Hour, SCREEN_TIME)),
+        ).toStrictEqual(['50', 'nan-a', 'nan-b']);
+    });
+
+    it('compareOutputs agrees with rankRows on the hour key', () => {
+        const valued = row('v', { expectedMonthlyNet: 10 }).out;
+        const missing = row('m', { expectedMonthlyNet: NaN }).out;
+        expect(
+            compareOutputs(valued, missing, CompareSortKey.Hour, SCREEN_TIME),
+        ).toBeLessThan(0);
+        expect(
+            compareOutputs(missing, valued, CompareSortKey.Hour, SCREEN_TIME),
+        ).toBeGreaterThan(0);
+    });
+
+    it('does not share the net comparator branch', () => {
+        const source = readFileSync(
+            path.join(REPO_ROOT, 'src/cli/commands/prop/compare/command.ts'),
+            'utf8',
+        );
+        expect(source).not.toMatch(
+            /case CompareSortKey\.Hour:\s*case CompareSortKey\.Net:/,
+        );
+    });
+});
+
+describe('compare --top N keeps the best N plans for your hours (PT-83, F-V25)', () => {
+    it('reads nothing when --top is absent', () => {
+        expect(readTopLimit({}, null)).toBeNull();
+        expect(readTopLimit({}, SCREEN_TIME)).toBeNull();
+    });
+
+    it('reads a positive whole number with the screen time set', () => {
+        expect(readTopLimit({ top: '2' }, SCREEN_TIME)).toBe(2);
+    });
+
+    it.each(['0', '-1', '1.5', 'abc', ''])(
+        'rejects --top %j with a typed message',
+        (value) => {
+            expect(() => readTopLimit({ top: value }, SCREEN_TIME)).toThrow(
+                /--top must be a whole number >= 1/,
+            );
+        },
+    );
+
+    it('needs both screen-time flags, naming them', () => {
+        expect(() => readTopLimit({ top: '3' }, null)).toThrow(
+            /--top needs --hours-per-day and --accounts-per-session/,
+        );
+    });
+
+    it('prints exactly N rows in a real run, in ranking order, and says how many were hidden', async () => {
+        const hours = [
+            '--hours-per-day',
+            '2',
+            '--accounts-per-session',
+            '3',
+        ];
+        const full = await capturedCompareRun([
+            ...SMALL_COMPARE.slice(0, 2),
+            ...SMALL_COMPARE.slice(4),
+            ...hours,
+        ]);
+        const top = await capturedCompareRun([
+            ...SMALL_COMPARE.slice(0, 2),
+            ...SMALL_COMPARE.slice(4),
+            ...hours,
+            '--top',
+            '2',
+        ]);
+        const fullRows = printedPlanRows(full);
+        expect(fullRows.length).toBeGreaterThan(2);
+        expect(printedPlanRows(top)).toStrictEqual(fullRows.slice(0, 2));
+        expect(top).toContain(`top 2 of ${fullRows.length} plan(s)`);
+    });
+
+    it('errors without the hours flags', async () => {
+        const { exitCode, output } = await capturedCompare([
+            ...SMALL_COMPARE,
+            '--top',
+            '2',
+        ]);
+        expect(exitCode).toBe(1);
+        expect(output).toContain(
+            '--top needs --hours-per-day and --accounts-per-session',
+        );
+    });
+
+    it('errors on a bad value', async () => {
+        const { exitCode, output } = await capturedCompare([
+            ...SMALL_COMPARE,
+            '--hours-per-day',
+            '2',
+            '--accounts-per-session',
+            '3',
+            '--top',
+            '0',
+        ]);
+        expect(exitCode).toBe(1);
+        expect(output).toContain('--top must be a whole number >= 1');
+    });
+
+    it('is refused with --splits, which ranks splits and not plans', async () => {
+        const { exitCode, output } = await capturedCompare([
+            ...SMALL_COMPARE,
+            '--hours-per-day',
+            '2',
+            '--accounts-per-session',
+            '3',
+            '--top',
+            '1',
+            '--total-risk',
+            '2000',
+            '--splits',
+            '1,2',
+        ]);
+        expect(exitCode).toBe(1);
+        expect(output).toContain('--top ranks plans');
+    });
+
+    it('is declared, described and accepted', async () => {
+        const arguments_ = await compareArguments();
+        expect(arguments_.top?.description).toContain('best N plans');
+        expect(await acceptedFlags(compare)).toEqual(
+            expect.arrayContaining(['top']),
         );
         expect(await flagsNamedButNotAccepted(compare)).toStrictEqual([]);
     });

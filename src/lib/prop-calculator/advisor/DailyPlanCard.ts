@@ -1,6 +1,8 @@
 import {
     type Dollars,
     dollars,
+    oneContractRisk,
+    resolvePositionSizing,
     type SingleDayProfitTrigger,
 } from '~/lib/prop-calculator/core';
 
@@ -13,16 +15,20 @@ import {
     type SizingConstraint,
 } from './DocumentedSizing';
 import {
+    isPlacementChecked,
     RungPlacement,
     rungPlacementOf,
     type SizingPlacement,
 } from './PlaceableMinimum';
 import { type DayProgress, type RuleContext } from './RuleContext';
-import { SizingStage } from './SizingStage';
+
+export const BELOW_ONE_CONTRACT_TEXT =
+    'cannot be placed: it is below one contract at the entered stop';
 
 export const LIVE_TRIGGER_CEILING_MARGIN_DOLLARS = 50;
 
 export interface DailyPlanCard {
+    readonly oneContractRisk: Dollars | null;
     readonly rungPlacements: readonly RungPlacement[];
     readonly rungs: readonly DocumentedRung[];
     readonly stopCappedBy: readonly SizingConstraint[];
@@ -63,8 +69,9 @@ export function dailyPlanCard<TContext extends RuleContext>(
         trade = rule.nextTrade(context, day);
     }
     return {
+        oneContractRisk: oneContractRiskOf(context, placement),
         rungPlacements: rungs.map((rung) =>
-            context.stage === SizingStage.Funded
+            isPlacementChecked(context.stage)
                 ? rungPlacementOf(rung.risk, placement)
                 : RungPlacement.NotChecked,
         ),
@@ -94,4 +101,16 @@ function dayAfterLoss(day: DayProgress, rung: DocumentedRung): DayProgress {
         runningLoss: rung.runningLossAfter,
         wins: day.wins,
     };
+}
+
+function oneContractRiskOf(
+    context: RuleContext,
+    placement: null | SizingPlacement,
+): Dollars | null {
+    if (!placement || !isPlacementChecked(context.stage)) return null;
+    const resolved = resolvePositionSizing(
+        placement.instrument,
+        placement.stopPoints,
+    );
+    return resolved === null ? null : dollars(oneContractRisk(resolved));
 }

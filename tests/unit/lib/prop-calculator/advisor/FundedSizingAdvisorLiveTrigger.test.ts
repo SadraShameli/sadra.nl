@@ -4,6 +4,7 @@ import {
     type AccountState,
     ALL_FIRMS,
     CumulativeAmountTrigger,
+    DiscretionaryTrigger,
     dollars,
     findFirm,
     FirmAccountPolicy,
@@ -34,6 +35,7 @@ import {
     LiveTriggerCoverage,
     liveTriggerLimitsFor,
     LiveTriggerScope,
+    NO_PENDING_PAYOUT_COUNTS,
     PayoutBlockReasonKind,
     PayoutRequestDecisionKind,
     type ReconstructedFundedOrEvalAccount,
@@ -99,6 +101,7 @@ function accountFor(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -311,9 +314,39 @@ describe('FundedSizingAdvisor: verified live-trigger count limits (PT-36d, F-145
         );
     });
 
-    it('keeps the advice-level engine disclosure for a verified firm, since the engine cannot enforce every trigger', () => {
+    it('keeps the advice-level disclosure when a verified cumulative trigger sits beside the enforced count but no sweep priced it (PT-36p)', () => {
         const policy = new StubTriggerPolicy([
             new PayoutCountPerAccountTrigger(3, CONFIRMED_SOURCE),
+            new CumulativeAmountTrigger(dollars(50_000), CONFIRMED_SOURCE),
+        ]);
+        const advice = advisorFor(accountFor(plan, 1), {
+            accountPolicy: policy,
+        }).assemble([]);
+        expect(advice.assumptions).toContainEqual(
+            expect.objectContaining({
+                kind: AssumptionKind.LiveTriggersNotChecked,
+            }),
+        );
+    });
+
+    it('drops the advice-level disclosure when every trigger is verified and enforced (PT-36j)', () => {
+        const policy = new StubTriggerPolicy([
+            new PayoutCountPerAccountTrigger(3, CONFIRMED_SOURCE),
+        ]);
+        const advice = advisorFor(accountFor(plan, 1), {
+            accountPolicy: policy,
+        }).assemble([]);
+        expect(advice.assumptions).not.toContainEqual(
+            expect.objectContaining({
+                kind: AssumptionKind.LiveTriggersNotChecked,
+            }),
+        );
+    });
+
+    it('keeps the advice-level disclosure while a verified trigger kind is neither enforced nor priced (PT-36j, PT-36p)', () => {
+        const policy = new StubTriggerPolicy([
+            new PayoutCountPerAccountTrigger(3, CONFIRMED_SOURCE),
+            new DiscretionaryTrigger(CONFIRMED_SOURCE),
         ]);
         const advice = advisorFor(accountFor(plan, 1), {
             accountPolicy: policy,

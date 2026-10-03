@@ -27,6 +27,7 @@ import {
     nextSlotPlansNeedingOptimum,
     NextSlotScaleMark,
     NextSlotSizingBasis,
+    NextSlotSortKey,
 } from '~/lib/prop-accounts/planning';
 import {
     ALL_FIRMS,
@@ -62,6 +63,7 @@ import {
     LifetimePayoutCapBasis,
     PayoutRequestNotice,
     RebuyLagBasis,
+    type RulebookParameters,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 import { batchLossClosedForm } from '~/lib/prop-calculator/economics';
@@ -995,7 +997,7 @@ describe('nextSlotAllocation exclusions', () => {
         expect(unknown.ranked).toHaveLength(2);
     });
 
-    it('does not count a ledger-only account in slots or capacity, discloses it and does not throw', () => {
+    it('counts a ledger-only account in capacity but not in slots, discloses it and does not throw', () => {
         const ledgerOnly = account(EVAL_PLAN, {
             accountSize: 150_000,
             planLabel: 'Hola Prime 150K',
@@ -1018,15 +1020,91 @@ describe('nextSlotAllocation exclusions', () => {
             EVAL_PLAN.firm.maxFundedAccounts(EVAL_PLAN.plan),
         );
         expect(allocation.capacity).toEqual({
-            activeUnits: 0,
+            activeUnits: 1,
             limit: 1,
-            remaining: 1,
+            remaining: 0,
         });
+        expect(rankedRow(allocation, EVAL_PLAN).allocatableSlots).toBe(0);
         expect(
             allocation.disclosures.some((text) =>
                 text.includes('1 ledger-only account'),
             ),
         ).toBe(true);
+        expect(
+            allocation.disclosures.some((text) =>
+                text.includes('not counted in the slots in use or in your capacity'),
+            ),
+        ).toBe(false);
+    });
+});
+
+function disclosureOf(allocation: NextSlotAllocation): string | undefined {
+    return allocation.disclosures.find((text) => text.includes('ledger-only'));
+}
+
+function ledgerOnlyAccount(overrides: Parameters<typeof account>[1] = {}) {
+    return account(EVAL_PLAN, {
+        planLabel: 'Hola Prime 150K',
+        planSerial: null,
+        tracking: AccountTracking.LedgerOnly,
+        ...overrides,
+    });
+}
+
+describe('nextSlotAllocation ledger-only disclosure (PT-84, F-V27)', () => {
+    const capped: RulebookParameters['bankroll'] = {
+        ...DEFAULT_RULEBOOK.bankroll,
+        dailyAccountCapacity: 5,
+    };
+
+    function ledgerOnlyAllocation(
+        accounts: ReturnType<typeof ledgerOnlyAccount>[],
+        bankroll: RulebookParameters['bankroll'] = capped,
+    ): NextSlotAllocation {
+        return verified([EVAL_PLAN], () =>
+            allocate({
+                bankroll,
+                candidates: [candidateOf(EVAL_PLAN)],
+                ledger: ledger({ accounts }),
+            }),
+        );
+    }
+
+    it('counts only the active ledger-only accounts, as the capacity does, when some have ended or are archived', () => {
+        const allocation = ledgerOnlyAllocation([
+            ledgerOnlyAccount(),
+            ledgerOnlyAccount({ status: AccountStatus.Busted }),
+            ledgerOnlyAccount({ status: AccountStatus.Closed }),
+            ledgerOnlyAccount({ archivedAt: new Date('2026-09-01') }),
+        ]);
+        expect(allocation.ledgerOnlyAccounts).toBe(1);
+        expect(allocation.capacity?.activeUnits).toBe(1);
+        expect(disclosureOf(allocation)).toContain(
+            '1 ledger-only account counts in your capacity',
+        );
+    });
+
+    it('prints no ledger-only line when every ledger-only account has ended', () => {
+        const allocation = ledgerOnlyAllocation([
+            ledgerOnlyAccount({ status: AccountStatus.Busted }),
+            ledgerOnlyAccount({ archivedAt: new Date('2026-09-01') }),
+        ]);
+        expect(allocation.ledgerOnlyAccounts).toBe(0);
+        expect(allocation.capacity?.activeUnits).toBe(0);
+        expect(disclosureOf(allocation)).toBeUndefined();
+    });
+
+    it('does not talk about a capacity when none is set', () => {
+        const allocation = ledgerOnlyAllocation(
+            [ledgerOnlyAccount(), ledgerOnlyAccount()],
+            { ...DEFAULT_RULEBOOK.bankroll, dailyAccountCapacity: null },
+        );
+        expect(allocation.capacity).toBeNull();
+        expect(allocation.ledgerOnlyAccounts).toBe(2);
+        const text = disclosureOf(allocation) ?? '';
+        expect(text).toContain('2 ledger-only accounts');
+        expect(text).toContain('slots in use');
+        expect(text).not.toContain('capacity');
     });
 });
 
@@ -1085,6 +1163,49 @@ describe('nextSlotAllocation capacity', () => {
         const [row] = allocation.ranked;
         expect(row?.allocatableSlots).toBe(0);
         expect(row?.limitedBy).toBe(NextSlotExclusionReason.Capacity);
+    });
+
+    it('counts two modeled accounts and an active ledger-only account as three units, the same figure the capacity alert uses', () => {
+        const ledgerOnly = account(EVAL_PLAN, {
+            planLabel: 'Hola Prime 150K',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const allocation = verified(THREE_PLANS, () =>
+            allocate({
+                bankroll,
+                candidates: [candidateOf(SAME_FIRM_SECOND_EVAL_PLAN)],
+                ledger: ledger({
+                    accounts: [
+                        account(EVAL_PLAN),
+                        account(OTHER_FIRM_EVAL_PLAN),
+                        ledgerOnly,
+                    ],
+                }),
+            }),
+        );
+        expect(allocation.capacity).toEqual({
+            activeUnits: 3,
+            limit: 4,
+            remaining: 1,
+        });
+    });
+
+    it('counts a copy group of three as one unit', () => {
+        const allocation = verified(THREE_PLANS, () =>
+            allocate({
+                bankroll,
+                candidates: [candidateOf(SAME_FIRM_SECOND_EVAL_PLAN)],
+                ledger: ledger({
+                    accounts: [
+                        account(EVAL_PLAN, { copyGroupId: 'group-a' }),
+                        account(EVAL_PLAN, { copyGroupId: 'group-a' }),
+                        account(EVAL_PLAN, { copyGroupId: 'group-a' }),
+                    ],
+                }),
+            }),
+        );
+        expect(allocation.capacity?.activeUnits).toBe(1);
     });
 
     it('leaves recommendations at the free slots when no capacity is set', () => {
@@ -1217,6 +1338,154 @@ describe('nextSlotAllocation objective', () => {
             SAME_FIRM_SECOND_EVAL_PLAN.serial,
             OTHER_FIRM_EVAL_PLAN.serial,
         ]);
+    });
+
+    it('ranks by net per screen hour, which is the monthly net order, when the hour key is chosen with both hours set, whatever the objective', () => {
+        const hours = {
+            ...DEFAULT_RULEBOOK.bankroll,
+            accountsPerSession: 2,
+            sessionHoursPerDay: 4,
+        };
+        const byObjective = verified(THREE_PLANS, () =>
+            allocate({
+                bankroll: hours,
+                candidates: candidates(),
+                objective: SizingObjective.CycleCash,
+            }),
+        );
+        expect(rankedSerials(byObjective)).toEqual([
+            EVAL_PLAN.serial,
+            SAME_FIRM_SECOND_EVAL_PLAN.serial,
+            OTHER_FIRM_EVAL_PLAN.serial,
+        ]);
+        expect(byObjective.sortKey).toBe(NextSlotSortKey.Objective);
+        const byHour = verified(THREE_PLANS, () =>
+            allocate({
+                bankroll: hours,
+                candidates: candidates(),
+                objective: SizingObjective.CycleCash,
+                sortKey: NextSlotSortKey.Hour,
+            }),
+        );
+        expect(rankedSerials(byHour)).toEqual([
+            OTHER_FIRM_EVAL_PLAN.serial,
+            EVAL_PLAN.serial,
+            SAME_FIRM_SECOND_EVAL_PLAN.serial,
+        ]);
+        expect(byHour.sortKey).toBe(NextSlotSortKey.Hour);
+        expect(byHour.objective).toBe(SizingObjective.CycleCash);
+        expect(byHour.ranked.map((row) => row.rank)).toEqual([1, 2, 3]);
+        const perHour = byHour.ranked.map((row) => row.figures.netPerScreenHour);
+        for (const [index, net] of [900, 500, 300].entries()) {
+            expect(perHour[index]).toBeCloseTo(
+                (net * 2) / (TRADING_DAYS_PER_MONTH * 4),
+                10,
+            );
+        }
+    });
+
+    it('gives the same order under the hour key as under monthly net, since every plan shares the hours', () => {
+        const hours = {
+            ...DEFAULT_RULEBOOK.bankroll,
+            accountsPerSession: 3,
+            sessionHoursPerDay: 5,
+        };
+        const byMonthly = verified(THREE_PLANS, () =>
+            allocate({
+                bankroll: hours,
+                candidates: candidates(),
+                objective: SizingObjective.MonthlyNet,
+            }),
+        );
+        for (const objective of [
+            SizingObjective.CycleCash,
+            SizingObjective.MonthlyNet,
+            SizingObjective.RuinFirst,
+        ]) {
+            const byHour = verified(THREE_PLANS, () =>
+                allocate({
+                    bankroll: hours,
+                    candidates: candidates(),
+                    objective,
+                    sortKey: NextSlotSortKey.Hour,
+                }),
+            );
+            expect(rankedSerials(byHour)).toEqual(rankedSerials(byMonthly));
+        }
+    });
+
+    it('falls back to the objective order when no plan has a net per screen hour', () => {
+        const invalidHours = verified(THREE_PLANS, () =>
+            allocate({
+                bankroll: {
+                    ...DEFAULT_RULEBOOK.bankroll,
+                    accountsPerSession: 2,
+                    sessionHoursPerDay: 0,
+                },
+                candidates: candidates(),
+                objective: SizingObjective.CycleCash,
+                sortKey: NextSlotSortKey.Hour,
+            }),
+        );
+        expect(invalidHours.sortKey).toBe(NextSlotSortKey.Hour);
+        expect(
+            invalidHours.ranked.map((row) => row.figures.netPerScreenHour),
+        ).toEqual([null, null, null]);
+        expect(rankedSerials(invalidHours)).toEqual([
+            EVAL_PLAN.serial,
+            SAME_FIRM_SECOND_EVAL_PLAN.serial,
+            OTHER_FIRM_EVAL_PLAN.serial,
+        ]);
+    });
+
+    it('puts a plan without a net per screen hour last under the hour key', () => {
+        const byHour = verified(THREE_PLANS, () =>
+            allocate({
+                bankroll: {
+                    ...DEFAULT_RULEBOOK.bankroll,
+                    accountsPerSession: 2,
+                    sessionHoursPerDay: 4,
+                },
+                candidates: [
+                    candidateOf(EVAL_PLAN, {
+                        monthlyNet: Infinity,
+                    }),
+                    candidateOf(SAME_FIRM_SECOND_EVAL_PLAN, {
+                        monthlyNet: 100,
+                    }),
+                    candidateOf(OTHER_FIRM_EVAL_PLAN, { monthlyNet: 200 }),
+                ],
+                objective: SizingObjective.MonthlyNet,
+                sortKey: NextSlotSortKey.Hour,
+            }),
+        );
+        expect(rankedSerials(byHour)).toEqual([
+            OTHER_FIRM_EVAL_PLAN.serial,
+            SAME_FIRM_SECOND_EVAL_PLAN.serial,
+            EVAL_PLAN.serial,
+        ]);
+        expect(rankedRow(byHour, EVAL_PLAN).figures.netPerScreenHour).toBeNull();
+    });
+
+    it('keeps the objective order and reports the objective key when the hour key is chosen without both hours set', () => {
+        const withoutHours = verified(THREE_PLANS, () =>
+            allocate({
+                bankroll: {
+                    ...DEFAULT_RULEBOOK.bankroll,
+                    accountsPerSession: 2,
+                    sessionHoursPerDay: null,
+                },
+                candidates: candidates(),
+                objective: SizingObjective.CycleCash,
+                sortKey: NextSlotSortKey.Hour,
+            }),
+        );
+        expect(rankedSerials(withoutHours)).toEqual([
+            EVAL_PLAN.serial,
+            SAME_FIRM_SECOND_EVAL_PLAN.serial,
+            OTHER_FIRM_EVAL_PLAN.serial,
+        ]);
+        expect(withoutHours.sortKey).toBe(NextSlotSortKey.Objective);
     });
 
     it('shows no batch loss risk without a bankroll and falls back to monthly net among positive-EV plans under RuinFirst', () => {

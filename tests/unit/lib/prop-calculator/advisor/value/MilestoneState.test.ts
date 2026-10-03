@@ -3,9 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
-    LiveApplicabilityKind,
-    LiveNotModeledReason,
-    livePlanApplicability,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
@@ -37,7 +35,12 @@ import {
     TopStepVariant,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
-import { findFirm } from '~/lib/prop-calculator/firms';
+import {
+    findFirm,
+    LiveApplicabilityKind,
+    LiveNotModeledReason,
+    livePlanApplicability,
+} from '~/lib/prop-calculator/firms';
 
 function e8SignaturePlan(): Plan {
     const plan = findFirm(FirmId.E8Futures)?.findPlan({
@@ -62,6 +65,7 @@ function evalAccount(
         plan,
         resolvedDailyLossLimit: null,
         state: { ...plan.initialState(), ...overrides },
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -81,6 +85,7 @@ function fundedAccount(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

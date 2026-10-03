@@ -19,6 +19,7 @@ export interface UnknownFlagIssue {
 
 const BUILTIN_FLAG_NAMES = new Set(['h', 'help', 'v', 'version']);
 const NEGATION_PREFIX = 'no-';
+const SUGGESTION_DISTANCE_DIVISOR = 3;
 
 export async function findUnknownFlag(
     rawArgs: readonly string[],
@@ -66,7 +67,14 @@ function closestDeclaredFlag(flag: string, argsDef: ArgsDef): null | string {
     for (const [name, def] of Object.entries(argsDef)) {
         if (def.type === 'positional') continue;
         const distance = levenshteinDistance(flag, name);
-        if (distance >= bestDistance) continue;
+        const threshold = Math.max(
+            1,
+            Math.floor(
+                Math.max(flag.length, name.length) /
+                    SUGGESTION_DISTANCE_DIVISOR,
+            ),
+        );
+        if (distance > threshold || distance >= bestDistance) continue;
         bestDistance = distance;
         best = name;
     }
@@ -239,7 +247,13 @@ async function walkCommand(
             argsDef,
             knownUnsupportedFlags,
         );
-        if (index === -1) return null;
+        const leadingIssue = findUnknownFlagInLeafArgs(
+            index === -1 ? remainingArgs : remainingArgs.slice(0, index),
+            argsDef,
+            commandPath,
+            knownUnsupportedFlags,
+        );
+        if (leadingIssue !== null || index === -1) return leadingIssue;
         const name = remainingArgs[index];
         if (name === undefined) return null;
         const subCommand = subCommands[name];

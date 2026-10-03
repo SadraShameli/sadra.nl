@@ -22,6 +22,7 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
 import { AccountPlanPicker } from '~/app/(app)/prop-calculator/accounts/_components/AccountPlanPicker';
 import { ArchiveAccountButton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
+import { reconstructedMaxRiskOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import { DeleteAccountDialog } from '~/app/(app)/prop-calculator/accounts/_components/DeleteAccountDialog';
 import {
     measuredRebuyLagOf,
@@ -93,6 +94,10 @@ import {
     RemoveRecordDialog,
 } from './DetailParts';
 import {
+    FirmPayoutCountKind,
+    type FirmPayoutCountOutcome,
+    firmPayoutCountOutcomeOf,
+    ledgerQueryFailureOf,
     liveAccountOf,
     liveRulesCardOf,
     performanceCardOf,
@@ -213,6 +218,47 @@ export function AccountDetailView({
             ? undefined
             : trackedAccountOf(accountQuery.data);
     const today = useTodayIsoDate();
+    const ledgerFailure = ledgerQueryFailureOf([
+        {
+            data: accountsQuery.data,
+            error: accountsQuery.error,
+            label: 'accounts list',
+        },
+        {
+            data: allEventsQuery.data,
+            error: allEventsQuery.error,
+            label: 'ledger events',
+        },
+        {
+            data: allPayoutsQuery.data,
+            error: allPayoutsQuery.error,
+            label: 'firm payouts',
+        },
+    ]);
+    const firmPayoutCountAt = useCallback(
+        (asOf: string) =>
+            firmPayoutCountOutcomeOf({
+                accounts: accountsQuery.data,
+                events: allEventsQuery.data,
+                failure: ledgerFailure,
+                firmId: account?.firmId ?? null,
+                payouts: allPayoutsQuery.data,
+                today: asOf,
+                userId,
+            }),
+        [
+            account?.firmId,
+            accountsQuery.data,
+            allEventsQuery.data,
+            allPayoutsQuery.data,
+            ledgerFailure,
+            userId,
+        ],
+    );
+    const firmPayoutCount = useMemo(
+        () => firmPayoutCountAt(today),
+        [firmPayoutCountAt, today],
+    );
     const { detail: fromStateDetail, values: accountValues } =
         useAccountDetailValues({ accountId: id, userId });
     const alerts = useMemo<OverviewAlerts>(
@@ -394,6 +440,8 @@ export function AccountDetailView({
                     <AccountStateSection
                         account={account}
                         eventsQuery={eventsQuery}
+                        firmPayoutCount={firmPayoutCount}
+                        firmPayoutCountAt={firmPayoutCountAt}
                         fromStateDetail={fromStateDetail}
                         payoutsQuery={payoutsQuery}
                         plan={plan}
@@ -601,6 +649,8 @@ function AccountStateQueryErrors({
 function AccountStateSection({
     account,
     eventsQuery,
+    firmPayoutCount,
+    firmPayoutCountAt,
     fromStateDetail,
     payoutsQuery,
     plan,
@@ -611,6 +661,8 @@ function AccountStateSection({
 }: {
     readonly account: ModeledAccountRow<SnapshotAccountRow>;
     readonly eventsQuery: ListQuery<AccountEventRow>;
+    readonly firmPayoutCount: FirmPayoutCountOutcome;
+    readonly firmPayoutCountAt: (asOf: string) => FirmPayoutCountOutcome;
     readonly fromStateDetail: FromStateDetail;
     readonly payoutsQuery: ListQuery<PayoutRow>;
     readonly plan: Plan;
@@ -626,7 +678,8 @@ function AccountStateSection({
         if (
             events === undefined ||
             payouts === undefined ||
-            snapshots === undefined
+            snapshots === undefined ||
+            firmPayoutCount.kind !== FirmPayoutCountKind.Ready
         ) {
             return null;
         }
@@ -638,15 +691,23 @@ function AccountStateSection({
             events,
             payouts,
             today,
+            firmPayoutCount.count,
         );
-        const previousReconstruction = previousReconstructionOf(
-            plan,
-            account,
-            previous,
-            events,
-            payouts,
-            today,
-        );
+        const previousCount =
+            previous === null ? null : firmPayoutCountAt(previous.asOf);
+        const previousReconstruction =
+            previous === null ||
+            previousCount?.kind !== FirmPayoutCountKind.Ready
+                ? null
+                : previousReconstructionOf(
+                      plan,
+                      account,
+                      previous,
+                      events,
+                      payouts,
+                      previous.asOf,
+                      previousCount.count,
+                  );
         const liveRules = liveRulesCardOf(plan, liveAccountOf(state));
         const performance =
             state.kind === StateCardKind.Ready
@@ -662,7 +723,16 @@ function AccountStateSection({
                   )
                 : null;
         return { liveRules, performance, state };
-    }, [account, events, payouts, plan, snapshots, today]);
+    }, [
+        account,
+        events,
+        firmPayoutCount,
+        firmPayoutCountAt,
+        payouts,
+        plan,
+        snapshots,
+        today,
+    ]);
 
     const hasQueryError =
         eventsQuery.error !== null ||
@@ -676,17 +746,33 @@ function AccountStateSection({
         />
     );
 
+    const firmCountFailure = firmPayoutCount.kind ===
+        FirmPayoutCountKind.Failed && (
+        <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertTitle>The firm payout count could not be loaded</AlertTitle>
+            <AlertDescription>
+                {firmPayoutCount.message} The account state is not shown,
+                because it counts the payouts the whole firm has paid or
+                requested toward a firm-wide live trigger.
+            </AlertDescription>
+        </Alert>
+    );
+
     if (view === null) {
-        return (
-            queryErrors || (
-                <div
-                    aria-busy="true"
-                    aria-label="Loading the account state"
-                    role="status"
-                >
-                    <Skeleton className="h-24 w-full" />
-                </div>
-            )
+        return hasQueryError || firmCountFailure ? (
+            <>
+                {queryErrors}
+                {firmCountFailure}
+            </>
+        ) : (
+            <div
+                aria-busy="true"
+                aria-label="Loading the account state"
+                role="status"
+            >
+                <Skeleton className="h-24 w-full" />
+            </div>
         );
     }
 
@@ -734,6 +820,9 @@ function AccountStateSection({
                             Simulate this account
                         </h3>
                         <SimulateAccountLink
+                            personalMaxRiskPerTrade={reconstructedMaxRiskOf(
+                                view.state.account,
+                            )}
                             plan={plan}
                             rulebook={rulebook}
                             rulebookError={rulebookError}

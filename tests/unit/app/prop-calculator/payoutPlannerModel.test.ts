@@ -1,19 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-    PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
     payoutBlockReasonText,
     payoutFirmMinimumMessage,
     payoutPathStepText,
     type PayoutPlannerAccountInput,
+    type PayoutPlannerImplausibleResult,
     PayoutPlannerResultKind,
+    type PayoutPlannerUnreadableResult,
     payoutWaitText,
+    PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
     planPayoutOutlook,
     planPayoutReadiness,
     simStayCeilingText,
 } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
 import {
     CumulativeAmountTrigger,
+    type Dollars,
     dollars,
     findFirm,
     FirmId,
@@ -23,9 +26,13 @@ import {
     PayoutGate,
     PolicySourceKind,
     PolicyVerification,
+    postPayoutThreshold,
     serializePlanId,
 } from '~/lib/prop-calculator';
 import {
+    AccountReconstruction,
+    AccountReconstructionError,
+    AssumptionKind,
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
     type DocumentedPolicySpec,
@@ -34,6 +41,7 @@ import {
     PayoutBlockReasonKind,
     type PayoutPathStep,
     PayoutWaitBasis,
+    ReconstructionErrorReason,
     RetainedCushionBasis,
     wouldTriggerLiveBlockReason,
 } from '~/lib/prop-calculator/advisor';
@@ -42,7 +50,59 @@ import {
     MffuVariant,
     type Plan,
     TopStepVariant,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
+
+function isUnplanned(
+    result: ReturnType<typeof planPayoutReadiness>,
+): result is PayoutPlannerImplausibleResult | PayoutPlannerUnreadableResult {
+    return (
+        result.kind === PayoutPlannerResultKind.Implausible ||
+        result.kind === PayoutPlannerResultKind.Unreadable
+    );
+}
+
+function lowerFundedThresholdTo(threshold: number) {
+    const rebuild = AccountReconstruction.rebuild.bind(AccountReconstruction);
+    vi.spyOn(AccountReconstruction, 'rebuild').mockImplementation((...args) => {
+        const account = rebuild(...args);
+        return account.kind === TradingPhase.Funded
+            ? {
+                  ...account,
+                  state: { ...account.state, threshold },
+              }
+            : account;
+    });
+}
+
+function plausible(result: ReturnType<typeof planPayoutReadiness>) {
+    if (isUnplanned(result)) {
+        throw new Error('expected a plausible snapshot');
+    }
+    return result;
+}
+
+function readyCeilingCase(
+    plan: Plan,
+    input: Partial<PayoutPlannerAccountInput>,
+) {
+    const result = planPayoutReadiness(baseInput(plan, input));
+    if (result.kind !== PayoutPlannerResultKind.Ready) {
+        throw new Error(`expected a ready result, got ${result.kind}`);
+    }
+    const { state } = result.account;
+    const postThreshold = postPayoutThreshold(
+        plan.fundedDrawdown,
+        state,
+        plan.payoutFloorEffect,
+        plan.accountSize,
+    );
+    const postFloor = plan.payoutBalanceFloor(
+        { ...state, threshold: postThreshold },
+        result.retainedCushion.amount,
+    );
+    return { postFloor, postThreshold, result, state };
+}
 
 function requirePlan(value: null | Plan | undefined, message: string): Plan {
     if (value === null || value === undefined) throw new Error(message);
@@ -146,12 +206,15 @@ describe('planPayoutReadiness: implausible snapshots (both mis-entry directions)
 });
 
 describe('planPayoutReadiness: readiness at the effective request', () => {
-    it('is eligible well past every gate, with the rule-capped withdrawable as the primary number and a net after split', () => {
+    it('is eligible well past every gate, with the rule-capped withdrawable as a ceiling above the request and a net after split', () => {
         const result = planPayoutReadiness(baseInput(TOPSTEP_50K));
         expect(result.kind).toBe(PayoutPlannerResultKind.Ready);
         if (result.kind !== PayoutPlannerResultKind.Ready) return;
         expect(result.readiness.requestedAmount).toBeGreaterThan(0);
         expect(result.ruleCappedWithdrawable).toBeGreaterThan(0);
+        expect(result.ruleCappedWithdrawable).toBeGreaterThanOrEqual(
+            result.readiness.requestedAmount,
+        );
         expect(result.netAfterSplit).toBeGreaterThan(0);
         expect(result.netAfterSplit).toBeLessThan(
             result.readiness.requestedAmount,
@@ -201,15 +264,57 @@ describe('planPayoutReadiness: readiness at the effective request', () => {
     });
 });
 
+describe('planPayoutReadiness: the ceiling never breaches the post-payout floor', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('keeps the ceiling at or below balance minus the post-payout floor and retained cushion on TopStep', () => {
+        const { postFloor, result, state } = readyCeilingCase(TOPSTEP_50K, {});
+
+        expect(result.ruleCappedWithdrawable).toBeGreaterThan(0);
+        expect(result.ruleCappedWithdrawable).toBeLessThanOrEqual(
+            state.balance - postFloor,
+        );
+    });
+
+    it('keeps the ceiling at or below balance minus the post-payout floor when the release moves the floor above the current one', () => {
+        lowerFundedThresholdTo(TOPSTEP_50K.accountSize - 1500);
+        const { postFloor, postThreshold, result, state } = readyCeilingCase(
+            TOPSTEP_50K,
+            { balance: dollars(TOPSTEP_50K.accountSize + 3000) },
+        );
+
+        const { fundedTracker } = result.account;
+        if (fundedTracker === null) throw new Error('expected a tracker');
+        const engineRoom = fundedTracker.withdrawableNow({
+            minRetainedCushion: result.retainedCushion.amount,
+            plan: TOPSTEP_50K,
+            state,
+        });
+
+        expect(postThreshold).toBeGreaterThan(state.threshold);
+        expect(engineRoom).toBeGreaterThan(state.balance - postFloor);
+        expect(result.ruleCappedWithdrawable).toBeGreaterThan(0);
+        expect(result.ruleCappedWithdrawable).toBeLessThanOrEqual(
+            state.balance - postFloor,
+        );
+        expect(result.ruleCappedWithdrawable).toBeLessThan(
+            state.balance -
+                TOPSTEP_50K.payoutBalanceFloor(
+                    state,
+                    result.retainedCushion.amount,
+                ),
+        );
+    });
+});
+
 describe('planPayoutReadiness: firm minimum above the request (MFF Pro $1,000)', () => {
     it('flags a $500 request against the $1,000 firm minimum', () => {
         const result = planPayoutReadiness(
             baseInput(MFF_PRO_50K, { requestSize: dollars(500) }),
         );
-        const notice =
-            result.kind === PayoutPlannerResultKind.Implausible
-                ? null
-                : result.firmMinimumNotice;
+        const notice = isUnplanned(result) ? null : result.firmMinimumNotice;
         expect(notice).not.toBeNull();
         if (notice === null) return;
         expect(notice.minimumRequestAmount).toBe(1000);
@@ -223,10 +328,7 @@ describe('planPayoutReadiness: firm minimum above the request (MFF Pro $1,000)',
         const result = planPayoutReadiness(
             baseInput(MFF_PRO_50K, { requestSize: dollars(1500) }),
         );
-        const notice =
-            result.kind === PayoutPlannerResultKind.Implausible
-                ? null
-                : result.firmMinimumNotice;
+        const notice = isUnplanned(result) ? null : result.firmMinimumNotice;
         expect(notice).toBeNull();
     });
 });
@@ -433,7 +535,7 @@ describe('planPayoutOutlook: PT-32 projection and payoutStakeComparison (F-V19)'
         const outlook = planPayoutOutlook({
             account: result.account,
             isEligible: true,
-            spec: specFor(TOPSTEP_50K, 200),
+            spec: specFor(TOPSTEP_50K, 20),
         });
         expect(
             outlook.projection.expectedCalendarDaysToFirstPayout.value,
@@ -450,7 +552,7 @@ describe('planPayoutOutlook: PT-32 projection and payoutStakeComparison (F-V19)'
         const outlook = planPayoutOutlook({
             account: result.account,
             isEligible: true,
-            spec: specFor(TOPSTEP_50K, 200),
+            spec: specFor(TOPSTEP_50K, 20),
         });
         expect(outlook.stakeComparison).not.toBeNull();
         if (outlook.stakeComparison === null) return;
@@ -474,9 +576,66 @@ describe('planPayoutOutlook: PT-32 projection and payoutStakeComparison (F-V19)'
         const outlook = planPayoutOutlook({
             account: result.account,
             isEligible: false,
-            spec: specFor(TOPSTEP_50K, 200),
+            spec: specFor(TOPSTEP_50K, 20),
         });
         expect(outlook.stakeComparison).toBeNull();
+    });
+});
+
+function pricedOutlookOf() {
+    const result = planPayoutReadiness(baseInput(TOPSTEP_50K));
+    if (result.kind !== PayoutPlannerResultKind.Ready) {
+        throw new Error('expected a ready result');
+    }
+    return planPayoutOutlook({
+        account: result.account,
+        isEligible: false,
+        spec: specFor(TOPSTEP_50K, 20),
+    });
+}
+
+describe('planPayoutOutlook: the priced cumulative trigger is said (PT-36q, F-145)', () => {
+    const confirmed = {
+        fetchedOn: '2026-09-26',
+        quote: 'quote',
+        sourceKind: PolicySourceKind.LiveFetch,
+        url: 'https://example.invalid/rule',
+        verification: PolicyVerification.Confirmed as const,
+    };
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('names the confirmed trigger the outlook simulations priced', () => {
+        stubTriggers(TOPSTEP_50K, [
+            new CumulativeAmountTrigger(dollars(20_000), confirmed),
+        ]);
+        expect(pricedOutlookOf().cumulativePayoutTrigger).toMatchObject({
+            amount: 20_000,
+            kind: AssumptionKind.CumulativePayoutTriggerPriced,
+            source: {
+                fetchedOn: '2026-09-26',
+                quote: 'quote',
+                url: 'https://example.invalid/rule',
+            },
+        });
+    });
+
+    it('says payouts already taken are not counted, because the planner never supplies them', () => {
+        stubTriggers(TOPSTEP_50K, [
+            new CumulativeAmountTrigger(dollars(20_000), confirmed),
+        ]);
+        const note = pricedOutlookOf().pastPayoutsNote;
+        expect(note).toContain('already took are not counted');
+        expect(note).toContain('$0 paid');
+        expect(note).not.toContain('\u{2014}');
+    });
+
+    it('says nothing for a firm with no confirmed cumulative trigger', () => {
+        const outlook = pricedOutlookOf();
+        expect(outlook).not.toHaveProperty('cumulativePayoutTrigger');
+        expect(outlook).not.toHaveProperty('pastPayoutsNote');
     });
 });
 
@@ -499,7 +658,7 @@ describe('planPayoutReadiness: the payout ceiling to stay simulated from verifie
             baseInput(TOPSTEP_50K, { qualifyingDaysSinceLastPayout: 0 }),
         );
         for (const result of [ready, blocked]) {
-            if (result.kind === PayoutPlannerResultKind.Implausible) {
+            if (isUnplanned(result)) {
                 throw new Error('expected a plausible snapshot');
             }
             expect(result.simStayCeiling).toBeNull();
@@ -517,7 +676,7 @@ describe('planPayoutReadiness: the payout ceiling to stay simulated from verifie
         expect(ready.kind).toBe(PayoutPlannerResultKind.Ready);
         expect(blocked.kind).toBe(PayoutPlannerResultKind.Blocked);
         for (const result of [ready, blocked]) {
-            if (result.kind === PayoutPlannerResultKind.Implausible) {
+            if (isUnplanned(result)) {
                 throw new Error('expected a plausible snapshot');
             }
             expect(result.simStayCeiling).toStrictEqual({
@@ -537,7 +696,7 @@ describe('planPayoutReadiness: the payout ceiling to stay simulated from verifie
             }),
         ]);
         const result = planPayoutReadiness(baseInput(TOPSTEP_50K));
-        if (result.kind === PayoutPlannerResultKind.Implausible) {
+        if (isUnplanned(result)) {
             throw new Error('expected a plausible snapshot');
         }
         expect(result.simStayCeiling).toBeNull();
@@ -560,14 +719,18 @@ describe('planPayoutReadiness: the payout ceiling to stay simulated from verifie
         expect(text).not.toContain('\u{2014}');
     });
 
-    it('says the planner simulations do not apply the trigger, so a favored size can cross it', () => {
+    it('says the planner simulations send an account live at the trigger and pay the crossing payout, so a favored size can cross it', () => {
         const text = simStayCeilingText({
             cumulativePayoutLimit: dollars(20_000),
             fetchedOn: '2026-09-26',
             sourceUrl: 'https://example.invalid/rule',
         });
-        expect(text).toContain('simulations do not apply');
+        expect(text).toContain('simulations send an account live');
+        expect(text).toContain('counted after the profit split');
+        expect(text).toContain('is still paid');
         expect(text).toContain('can cross it');
+        expect(text).toContain('not checked against this trigger');
+        expect(text).not.toContain('do not apply');
         expect(text).not.toContain('the simulator compares it');
     });
 
@@ -643,13 +806,6 @@ describe('planPayoutReadiness: the live-trigger coverage the planner cannot chec
         vi.restoreAllMocks();
     });
 
-    function plausible(result: ReturnType<typeof planPayoutReadiness>) {
-        if (result.kind === PayoutPlannerResultKind.Implausible) {
-            throw new Error('expected a plausible snapshot');
-        }
-        return result;
-    }
-
     it('says the firm-wide count is not checked on a ready and a blocked result when a verified firm total exists', () => {
         stubTriggers(TOPSTEP_50K, [new PayoutCountTotalTrigger(10, confirmed)]);
         const ready = plausible(planPayoutReadiness(baseInput(TOPSTEP_50K)));
@@ -684,9 +840,52 @@ describe('planPayoutReadiness: the live-trigger coverage the planner cannot chec
     });
 
     it('words the note in plain words without an em dash', () => {
-        expect(PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT).not.toContain('\u2014');
-        expect(PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT).toContain(
-            'not checked',
+        expect(PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT).not.toContain(
+            '\u{2014}',
+        );
+        expect(PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT).toContain('not checked');
+    });
+});
+
+describe('planPayoutReadiness: a snapshot that cannot be rebuilt (PT-98, F-30)', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('returns the typed Unreadable result with the reason for a NaN balance instead of throwing', () => {
+        const input = baseInput(TOPSTEP_50K, {
+            balance: NaN as Dollars,
+        });
+        expect(() => planPayoutReadiness(input)).not.toThrow();
+        const result = planPayoutReadiness(input);
+        if (result.kind !== PayoutPlannerResultKind.Unreadable) {
+            throw new Error('expected an unreadable result');
+        }
+        expect(result.reason).toContain('balance');
+    });
+
+    it('returns the typed Unreadable result with the error message for an AccountReconstructionError', () => {
+        const message =
+            'an EOD trailing drawdown needs the highest EOD balance';
+        vi.spyOn(AccountReconstruction, 'rebuild').mockImplementation(() => {
+            throw new AccountReconstructionError(
+                ReconstructionErrorReason.EodPeakRequired,
+                message,
+            );
+        });
+        const result = planPayoutReadiness(baseInput(TOPSTEP_50K));
+        expect(result).toEqual({
+            kind: PayoutPlannerResultKind.Unreadable,
+            reason: message,
+        });
+    });
+
+    it('still throws an error that is not a bad snapshot', () => {
+        vi.spyOn(AccountReconstruction, 'rebuild').mockImplementation(() => {
+            throw new TypeError('a bug, not a bad snapshot');
+        });
+        expect(() => planPayoutReadiness(baseInput(TOPSTEP_50K))).toThrow(
+            'a bug, not a bad snapshot',
         );
     });
 });

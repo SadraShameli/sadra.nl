@@ -1,7 +1,13 @@
 import {
+    ledgerOrDateFailure,
+    OverviewSectionStatus,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import {
     type ConsistencyStatus,
     ConsistencyStatusKind,
     evalConsistencyStatus,
+    type FirmPayoutCount,
+    firmPayoutCounts,
     fundedConsistencyStatus,
     type ModeledAccountRow,
     type OrderedSnapshot,
@@ -9,11 +15,15 @@ import {
     type PerformancePayoutRow,
     performanceSinceSnapshot,
     type PerformanceSinceSnapshot,
+    PortfolioLedger,
+    type PortfolioLedgerRows,
     type SnapshotAccountRow,
     type SnapshotEventRow,
+    type SnapshotFirmCount,
     snapshotInputFrom,
     type SnapshotPayoutRow,
     type SnapshotSnapshotRow,
+    type StoredFirmId,
 } from '~/lib/prop-accounts';
 import {
     type DrawdownKind,
@@ -26,10 +36,8 @@ import {
     AccountReconstruction,
     AccountReconstructionError,
     type AccountSnapshotInput,
+    type Assumption,
     AssumptionKind,
-    isLiveModelApproximation,
-    LiveApplicabilityKind,
-    livePlanApplicability,
     type ReconstructedAccount,
     type ReconstructedLiveAccount,
     ReconstructedLiveKind,
@@ -38,6 +46,17 @@ import {
     SnapshotIssueSeverity,
     type SnapshotPlausibilityIssue,
 } from '~/lib/prop-calculator/advisor';
+import {
+    isLiveModelApproximation,
+    LiveApplicabilityKind,
+    livePlanApplicability,
+} from '~/lib/prop-calculator/firms';
+
+export enum FirmPayoutCountKind {
+    Failed = 'failed',
+    Pending = 'pending',
+    Ready = 'ready',
+}
 
 export enum LiveRulesCardKind {
     Modeled = 'modeled',
@@ -52,6 +71,14 @@ export enum StateCardKind {
 }
 
 export type DetailSnapshotRow = OrderedSnapshot & SnapshotSnapshotRow;
+
+export type FirmPayoutCountOutcome =
+    | {
+          readonly count: FirmPayoutCount;
+          readonly kind: FirmPayoutCountKind.Ready;
+      }
+    | { readonly kind: FirmPayoutCountKind.Failed; readonly message: string }
+    | { readonly kind: FirmPayoutCountKind.Pending };
 
 export interface LiveRulesCardModeled {
     readonly contractLimit: LiveContractCaps;
@@ -104,6 +131,66 @@ export type StateCardView =
           readonly reason: ReconstructionErrorReason;
       }
     | { readonly kind: StateCardKind.NoSnapshot };
+
+export function firmPayoutCountOutcomeOf(args: {
+    readonly accounts: PortfolioLedgerRows['accounts'] | undefined;
+    readonly events: PortfolioLedgerRows['events'] | undefined;
+    readonly failure: null | string;
+    readonly firmId: null | StoredFirmId;
+    readonly payouts: PortfolioLedgerRows['payouts'] | undefined;
+    readonly today: string;
+    readonly userId: string | undefined;
+}): FirmPayoutCountOutcome {
+    const { accounts, events, failure, firmId, payouts, today, userId } = args;
+    if (failure !== null) {
+        return { kind: FirmPayoutCountKind.Failed, message: failure };
+    }
+    if (
+        accounts === undefined ||
+        events === undefined ||
+        firmId === null ||
+        payouts === undefined ||
+        userId === undefined
+    ) {
+        return { kind: FirmPayoutCountKind.Pending };
+    }
+    const computed = ledgerOrDateFailure(() =>
+        firmPayoutCounts(
+            PortfolioLedger.fromRows(userId, {
+                accounts,
+                events,
+                fees: [],
+                payouts,
+            }),
+            today,
+        ).find((entry) => entry.firmId === firmId),
+    );
+    if (computed.kind !== OverviewSectionStatus.Ready) {
+        return { kind: FirmPayoutCountKind.Failed, message: computed.message };
+    }
+    return computed.value === undefined
+        ? {
+              kind: FirmPayoutCountKind.Failed,
+              message:
+                  'The accounts list holds no account of this firm, so its payout count could not be computed.',
+          }
+        : { count: computed.value, kind: FirmPayoutCountKind.Ready };
+}
+
+export function ledgerQueryFailureOf(
+    queries: readonly {
+        readonly data: unknown;
+        readonly error: null | { readonly message: string };
+        readonly label: string;
+    }[],
+): null | string {
+    const failed = queries.find(
+        ({ data, error }) => error !== null && data === undefined,
+    );
+    return failed?.error == null
+        ? null
+        : `The ${failed.label} could not be loaded: ${failed.error.message}`;
+}
 
 export function liveAccountOf(
     view: StateCardView,
@@ -179,16 +266,19 @@ export function previousReconstructionOf(
     events: readonly SnapshotEventRow[],
     payouts: readonly SnapshotPayoutRow[],
     asOf: string,
+    firmCount: SnapshotFirmCount,
 ): null | PreviousReconstruction {
     if (snapshot === null) return null;
-    const { input, personalMaxRiskPerTrade } = snapshotInputFrom(
-        plan,
-        account,
-        snapshot,
-        events,
-        payouts,
-        asOf,
-    );
+    const { input, pendingPayoutCounts, personalMaxRiskPerTrade } =
+        snapshotInputFrom(
+            plan,
+            account,
+            snapshot,
+            events,
+            payouts,
+            asOf,
+            firmCount,
+        );
     const isBlocked = snapshotInputIssues(plan, input).some(
         (issue) => issue.severity === SnapshotIssueSeverity.Impossible,
     );
@@ -199,6 +289,7 @@ export function previousReconstructionOf(
                 input,
                 plan,
                 personalMaxRiskPerTrade,
+                pendingPayoutCounts,
             ),
             asOf: input.asOf,
         };
@@ -215,23 +306,30 @@ export function stateCardOf(
     events: readonly SnapshotEventRow[],
     payouts: readonly SnapshotPayoutRow[],
     asOf: string,
+    firmCount: SnapshotFirmCount,
 ): StateCardView {
     if (snapshot === null) return { kind: StateCardKind.NoSnapshot };
-    const { input, personalMaxRiskPerTrade } = snapshotInputFrom(
-        plan,
-        account,
-        snapshot,
-        events,
-        payouts,
-        asOf,
-    );
+    const { assumptions, input, pendingPayoutCounts, personalMaxRiskPerTrade } =
+        snapshotInputFrom(
+            plan,
+            account,
+            snapshot,
+            events,
+            payouts,
+            asOf,
+            firmCount,
+        );
     const issues = snapshotInputIssues(plan, input);
     try {
         return {
-            account: AccountReconstruction.rebuild(
-                input,
-                plan,
-                personalMaxRiskPerTrade,
+            account: withFirmCountAssumptions(
+                AccountReconstruction.rebuild(
+                    input,
+                    plan,
+                    personalMaxRiskPerTrade,
+                    pendingPayoutCounts,
+                ),
+                assumptions,
             ),
             asOf: input.asOf,
             input,
@@ -283,4 +381,20 @@ function consistencyOf(
             );
         }
     }
+}
+
+function withFirmCountAssumptions(
+    account: ReconstructedAccount,
+    assumptions: readonly Assumption[],
+): ReconstructedAccount {
+    const unknownCount = assumptions.filter(
+        (assumption) =>
+            assumption.kind === AssumptionKind.FirmPayoutCountNotChecked,
+    );
+    return unknownCount.length === 0
+        ? account
+        : {
+              ...account,
+              assumptions: [...account.assumptions, ...unknownCount],
+          };
 }

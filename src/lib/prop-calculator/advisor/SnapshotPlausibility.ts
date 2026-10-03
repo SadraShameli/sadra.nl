@@ -12,17 +12,17 @@ import {
     type Plan,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
+import {
+    LiveApplicabilityKind,
+    type LivePlanApplicability,
+    livePlanApplicability,
+} from '~/lib/prop-calculator/firms';
 
 import { type AccountSnapshotInput } from './AccountSnapshotInput';
 import {
     DashboardBalanceConvention,
     nominalBalanceOf,
 } from './DashboardBalanceConvention';
-import {
-    LiveApplicabilityKind,
-    type LivePlanApplicability,
-    livePlanApplicability,
-} from './LivePlanApplicability';
 import { SizingStage } from './SizingStage';
 import { SnapshotInputField } from './SnapshotInputField';
 

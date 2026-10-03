@@ -23,7 +23,7 @@ import {
     openInSimulatorActions,
     ToolLinkKind,
 } from './toolNavigation';
-import { encodeState } from './urlState';
+import { encodeState, type EncodeStateOptions } from './urlState';
 
 export type OpenInSimulator = (firm: TradingFirm, plan: Plan) => void;
 
@@ -53,12 +53,14 @@ export function useOpenInSimulator(planOptIns: PlanOptIns): OpenInSimulator {
     const router = useRouter();
     const pathname = usePathname();
     const { applyState } = useCalculatorActions();
-    const { state } = useCalculatorInputs();
+    const { encodeOptions, state } = useCalculatorInputs();
     const stateReference = useRef(state);
+    const encodeOptionsReference = useRef<EncodeStateOptions>(encodeOptions);
 
     useEffect(() => {
         stateReference.current = state;
-    }, [state]);
+        encodeOptionsReference.current = encodeOptions;
+    }, [encodeOptions, state]);
 
     return useCallback(
         (firm: TradingFirm, plan: Plan) => {
@@ -67,7 +69,7 @@ export function useOpenInSimulator(planOptIns: PlanOptIns): OpenInSimulator {
                 calculatorReducer,
                 stateReference.current,
             );
-            const href = `${target}?${encodeState(next).toString()}`;
+            const href = `${target}?${encodeState(next, encodeOptionsReference.current).toString()}`;
             if (classifyToolLink(pathname, target) === ToolLinkKind.Boundary) {
                 router.push(href);
                 return;

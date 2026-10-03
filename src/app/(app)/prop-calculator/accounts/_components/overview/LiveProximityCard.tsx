@@ -36,6 +36,9 @@ export function LiveProximityCard({
                             <TableHead className="text-right">
                                 Paid payouts since
                             </TableHead>
+                            <TableHead className="text-right">
+                                Requested payouts
+                            </TableHead>
                             <TableHead>Since</TableHead>
                             <TableHead className="text-right">
                                 Firm-wide trigger
@@ -52,6 +55,9 @@ export function LiveProximityCard({
                                 <TableCell>{row.firm}</TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.paidSinceLastLive}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {row.requestedSinceLastLive}
                                 </TableCell>
                                 <TableCell>{row.since}</TableCell>
                                 <TableCell className="text-right tabular-nums">
@@ -78,6 +84,9 @@ export function LiveProximityCard({
                                 Paid payouts
                             </TableHead>
                             <TableHead className="text-right">
+                                Requested payouts
+                            </TableHead>
+                            <TableHead className="text-right">
                                 Per-account trigger
                             </TableHead>
                             <TableHead className="text-right">
@@ -93,6 +102,9 @@ export function LiveProximityCard({
                                 <TableCell>{row.plan}</TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.paidPayouts}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {row.requestedPayouts}
                                 </TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.trigger}

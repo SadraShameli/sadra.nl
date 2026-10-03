@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
@@ -6,6 +6,7 @@ import {
     compareText,
     latestIsoDateAnywhere,
     type RuleViolationKind,
+    ruleViolationKindLabel,
     ViolationSource,
 } from '~/lib/prop-accounts';
 import {
@@ -122,6 +123,18 @@ export const propViolationRouter = createTRPCRouter({
                     true,
                 );
                 await assertViolationLinks(repo, account, input);
+                const duplicate = await existingDecisionViolation(
+                    tx,
+                    ctx.userId,
+                    { ...input, accountId: violation.accountId },
+                    violation.id,
+                );
+                if (duplicate !== null) {
+                    throw new PropMutationRejectionError(
+                        PropMutationRejection.RecordInUse,
+                        `Another ${ruleViolationKindLabel(input.kind)} violation is already recorded for this sizing decision; edit that one, or pick another kind or decision`,
+                    );
+                }
                 const [row] = await tx
                     .update(propRuleViolation)
                     .set({
@@ -183,6 +196,7 @@ async function existingDecisionViolation(
         readonly accountId: string;
         readonly kind: RuleViolationKind;
     },
+    excludingId?: string,
 ): Promise<null | PropRuleViolationRow> {
     const { decisionId } = violation;
     if (decisionId === null) return null;
@@ -195,6 +209,9 @@ async function existingDecisionViolation(
                 eq(propRuleViolation.accountId, violation.accountId),
                 eq(propRuleViolation.decisionId, decisionId),
                 eq(propRuleViolation.kind, violation.kind),
+                excludingId === undefined
+                    ? undefined
+                    : ne(propRuleViolation.id, excludingId),
             ),
         )
         .limit(1);

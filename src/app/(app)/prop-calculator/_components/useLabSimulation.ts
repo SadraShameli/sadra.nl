@@ -1,46 +1,36 @@
 'use client';
 
-import { useRef } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 
-import { formatCurrency } from '~/lib/format';
+import { planReferenceOf } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollModel';
 import {
-    CorrelationMode,
-    dollars,
-    fraction,
-    type Fraction0to1,
-    LifetimeCapScope,
-    type MultiAccountResult,
-    type Plan,
-    type RungSizing,
-    simulatePortfolio,
-} from '~/lib/prop-calculator';
-import {
-    type EconomicsReason,
-    walkPassProbability,
-} from '~/lib/prop-calculator/economics';
+    type LabRunInputs,
+    type LabScenarioInputs,
+    type LabScenarioResult,
+    type LabToolsRequest,
+    parseToolsResult,
+    runIdOf,
+    ToolsRequestKind,
+    ToolsResponseKind,
+    type ToolsWorkerResult,
+} from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { type Plan, type RungSizing } from '~/lib/prop-calculator';
 
+import { ComputationCache, initialFor } from './computationCache';
 import { ComputationId } from './ComputationId';
-import { toCouponDiscounts } from './couponDiscounts';
-import { partitionBySizing, type SizingRefusal } from './simulationFailure';
+import {
+    describeSimulationFailure,
+    partitionBySizing,
+    type SizingRefusal,
+} from './simulationFailure';
 import { type LabScenario } from './types';
-import { useDebouncedComputation } from './useDebouncedSimulation';
+import {
+    ComputationCacheContext,
+    useDebouncedValue,
+} from './useDebouncedSimulation';
+import { createToolsWorker, WORKER_FAILURE_REASON } from './useToolsWorker';
 
-export interface LabRun {
-    activationDiscountPercent: number;
-    commissionPerRoundTrip: number;
-    discountPercent: number;
-    fundedHorizonDays: number;
-    linkActivationDiscount: boolean;
-    liveTransferHazard: number | undefined;
-    maxEvalDays: number;
-    minRetainedCushion: number | undefined;
-    monthlySubscriptionDiscountPercent: number;
-    payoutRequestSize: number | undefined;
-    plan: Plan;
-    resetDiscountPercent: number;
-    rungSizing: RungSizing | undefined;
-    seed: number;
-}
+export type LabResult = LabScenarioResult;
 
 interface Arguments {
     activationDiscountPercent?: number;
@@ -60,119 +50,15 @@ interface Arguments {
     seed: number;
 }
 
+interface LabListener {
+    onError: () => void;
+    onMessage: (data: unknown) => void;
+}
+
 const DEBOUNCE_MS = 600;
-const TRIALS_BASE = 400;
-const TRIALS_INDEPENDENT = 250;
-const MAX_REMEMBERED_BASELINES = 64;
+const UNEXPECTED_RESPONSE_REASON =
+    'The tools worker answered the strategy lab with an unexpected response.';
 const EMPTY_RESULTS = new Map<string, LabResult>();
-
-export type LabResult = MultiAccountResult &
-    TheoreticalPass & {
-        lifetimeCapPoolingGap: null | string;
-        noTransferMonthlyNet: null | number;
-    };
-
-type TheoreticalPass =
-    | {
-          theoreticalPassProb: Fraction0to1;
-          theoreticalPassReason: undefined;
-      }
-    | {
-          theoreticalPassProb: undefined;
-          theoreticalPassReason: EconomicsReason;
-      };
-
-export function lifetimeCapPoolingGapNote(
-    plan: Plan,
-    accounts: number,
-): null | string {
-    const cap = plan.maxLifetimePayoutDollars;
-    return cap === null ||
-        accounts <= 1 ||
-        plan.lifetimeConclusion.dollarCapScope !==
-            LifetimeCapScope.PerUserAcrossVariant
-        ? null
-        : `${plan.label}'s ${formatCurrency(cap)} lifetime cap is per user; this projection pools it across your accounts, so combined payouts here never exceed ${formatCurrency(cap)}.`;
-}
-
-export function simulateLabScenarios(
-    run: LabRun,
-    scenarios: readonly LabScenario[],
-    baselines: Map<string, number>,
-    simulate: typeof simulatePortfolio = simulatePortfolio,
-): Map<string, LabResult> {
-    const { plan } = run;
-    const hazard =
-        run.liveTransferHazard !== undefined && run.liveTransferHazard > 0
-            ? fraction(run.liveTransferHazard)
-            : undefined;
-    const results = new Map<string, LabResult>();
-    for (const sc of scenarios) {
-        const trials =
-            sc.correlation === CorrelationMode.Independent
-                ? TRIALS_INDEPENDENT
-                : TRIALS_BASE;
-        const portfolioInputs = {
-            accounts: sc.accounts,
-            commissionPerRoundTrip: run.commissionPerRoundTrip,
-            correlation: sc.correlation,
-            dayStop: sc.dayStop,
-            discounts: toCouponDiscounts({
-                activationDiscountPercent: run.activationDiscountPercent,
-                evalDiscountPercent: run.discountPercent,
-                linkActivationDiscount: run.linkActivationDiscount,
-                monthlySubscriptionDiscountPercent:
-                    run.monthlySubscriptionDiscountPercent,
-                resetDiscountPercent: run.resetDiscountPercent,
-            }),
-            fundedHorizonDays: run.fundedHorizonDays,
-            groups: sc.groups,
-            instrument: sc.instrument ?? undefined,
-            maxAttempts: 1,
-            maxEvalDays: run.maxEvalDays,
-            minRetainedCushion: run.minRetainedCushion,
-            payoutRequestSize: run.payoutRequestSize,
-            plan,
-            riskPerTrade: sc.riskPerTrade,
-            rrRatio: sc.rrRatio,
-            rungSizing: run.rungSizing,
-            seed: run.seed,
-            stopPoints: sc.stopPoints ?? undefined,
-            tradesPerDay: sc.tradesPerDay,
-            trials,
-            winrate: sc.winrate,
-        };
-        const baselineKey = buildCacheKey({
-            ...run,
-            liveTransferHazard: undefined,
-            scenarios: [sc],
-        });
-        const r = simulate(
-            hazard === undefined
-                ? portfolioInputs
-                : { ...portfolioInputs, liveTransferHazard: hazard },
-        );
-        if (hazard === undefined) {
-            rememberBaseline(baselines, baselineKey, r.expectedMonthlyNet);
-        }
-        const baseline =
-            hazard === undefined
-                ? null
-                : (baselines.get(baselineKey) ??
-                  rememberBaseline(
-                      baselines,
-                      baselineKey,
-                      simulate(portfolioInputs).expectedMonthlyNet,
-                  ));
-        results.set(sc.id, {
-            ...r,
-            ...theoreticalPass(plan, sc),
-            lifetimeCapPoolingGap: lifetimeCapPoolingGapNote(plan, sc.accounts),
-            noTransferMonthlyNet: baseline,
-        });
-    }
-    return results;
-}
 
 export function useLabSimulation(arguments_: Arguments): {
     error: null | string;
@@ -198,7 +84,7 @@ export function useLabSimulation(arguments_: Arguments): {
         seed,
     } = arguments_;
 
-    const run: LabRun = {
+    const run: LabRunInputs = {
         activationDiscountPercent,
         commissionPerRoundTrip,
         discountPercent,
@@ -209,14 +95,12 @@ export function useLabSimulation(arguments_: Arguments): {
         minRetainedCushion,
         monthlySubscriptionDiscountPercent,
         payoutRequestSize,
-        plan,
+        plan: planReferenceOf(plan),
         resetDiscountPercent,
         rungSizing,
         seed,
     };
-    const key = buildCacheKey({ ...run, scenarios });
-
-    const baselines = useRef(new Map<string, number>());
+    const key = buildCacheKey(run, scenarios);
 
     const sizing = partitionBySizing(scenarios, (sc) => ({
         instrument: sc.instrument ?? undefined,
@@ -224,84 +108,194 @@ export function useLabSimulation(arguments_: Arguments): {
         stopPoints: sc.stopPoints ?? undefined,
     }));
 
-    const computation = useDebouncedComputation(
-        ComputationId.StrategyLab,
-        key,
-        DEBOUNCE_MS,
-        () => simulateLabScenarios(run, sizing.accepted, baselines.current),
-        EMPTY_RESULTS,
+    const sharedCache = useContext(ComputationCacheContext);
+    const [localCache] = useState(() => new ComputationCache());
+    const cache = sharedCache ?? localCache;
+    const debouncedKey = useDebouncedValue(key, DEBOUNCE_MS);
+    const keyReference = useRef(key);
+    keyReference.current = key;
+    const runReference = useRef(run);
+    runReference.current = run;
+    const acceptedReference = useRef(sizing.accepted);
+    acceptedReference.current = sizing.accepted;
+    const [initialState] = useState(() =>
+        initialFor(ComputationId.StrategyLab, key, cache),
     );
-    const isPending = scenarios.length > 0 && computation.pending;
-    const results = scenarios.length === 0 ? EMPTY_RESULTS : computation.result;
+    const [results, setResults] = useState<Map<string, LabResult>>(
+        initialState.shouldCompute ? EMPTY_RESULTS : initialState.result,
+    );
+    const [pending, setPending] = useState(initialState.pending);
+    const [error, setError] = useState<null | string>(null);
+    const resultKeyReference = useRef<null | string>(
+        initialState.shouldCompute ? null : key,
+    );
+    const settledErrorReference = useRef<null | string>(null);
+    const workerReference = useRef<null | Worker>(null);
+    const listenerReference = useRef<LabListener | null>(null);
+    const requestIdReference = useRef(0);
+
+    useEffect(
+        () => () => {
+            workerReference.current?.terminate();
+            workerReference.current = null;
+        },
+        [],
+    );
+
+    useEffect(() => {
+        if (resultKeyReference.current === debouncedKey) {
+            setPending(false);
+            setError(settledErrorReference.current);
+            return;
+        }
+        setPending(true);
+        setError(null);
+        const computedKey = keyReference.current;
+        const labRun = runReference.current;
+        const queue = [...acceptedReference.current];
+        const collected = new Map<string, LabResult>();
+        let inFlight: null | { requestId: number; scenarioId: string } = null;
+
+        const fail = (reason: string) => {
+            inFlight = null;
+            detach();
+            const message = describeSimulationFailure(reason);
+            resultKeyReference.current = computedKey;
+            settledErrorReference.current = message;
+            setResults(EMPTY_RESULTS);
+            setError(message);
+            setPending(false);
+        };
+
+        const advance = () => {
+            const scenario = queue.shift();
+            if (scenario === undefined) {
+                detach();
+                resultKeyReference.current = computedKey;
+                settledErrorReference.current = null;
+                cache.set(ComputationId.StrategyLab, computedKey, collected);
+                setResults(collected);
+                setPending(false);
+                return;
+            }
+            const requestId = requestIdReference.current + 1;
+            requestIdReference.current = requestId;
+            inFlight = { requestId, scenarioId: scenario.id };
+            const request: LabToolsRequest = {
+                kind: ToolsRequestKind.Lab,
+                run: labRun,
+                runId: requestId,
+                scenario: scenarioInputsOf(scenario),
+            };
+            ensureWorker(workerReference, listenerReference).postMessage(
+                request,
+            );
+        };
+
+        const listener: LabListener = {
+            onError: () => {
+                fail(WORKER_FAILURE_REASON);
+            },
+            onMessage: (data) => {
+                if (inFlight === null) return;
+                const answeredId = runIdOf(data);
+                if (answeredId !== null && answeredId !== inFlight.requestId) {
+                    return;
+                }
+                let result: ToolsWorkerResult;
+                try {
+                    result = parseToolsResult(data);
+                } catch {
+                    fail(UNEXPECTED_RESPONSE_REASON);
+                    return;
+                }
+                if (result.runId !== inFlight.requestId) return;
+                if (result.kind === ToolsResponseKind.Failed) {
+                    fail(result.reason);
+                    return;
+                }
+                if (result.kind !== ToolsResponseKind.Lab) {
+                    fail(UNEXPECTED_RESPONSE_REASON);
+                    return;
+                }
+                collected.set(inFlight.scenarioId, result.result);
+                inFlight = null;
+                advance();
+            },
+        };
+
+        function detach() {
+            if (listenerReference.current === listener) {
+                listenerReference.current = null;
+            }
+        }
+
+        listenerReference.current = listener;
+        advance();
+        return () => {
+            detach();
+            if (inFlight === null) return;
+            inFlight = null;
+            workerReference.current?.terminate();
+            workerReference.current = null;
+        };
+    }, [cache, debouncedKey]);
+
+    const isPending = scenarios.length > 0 && pending;
+    const visibleResults = scenarios.length === 0 ? EMPTY_RESULTS : results;
 
     return {
-        error: computation.error,
+        error,
         pending: isPending,
         refused: sizing.refused,
-        results,
+        results: visibleResults,
     };
 }
 
 function buildCacheKey(
-    fields: LabRun & { scenarios: readonly LabScenario[] },
+    run: LabRunInputs,
+    scenarios: readonly LabScenario[],
 ): string {
     return JSON.stringify({
-        actDiscount: fields.activationDiscountPercent,
-        commission: fields.commissionPerRoundTrip,
-        earlyWithdrawal: fields.plan.takesOneTimeEarlyWithdrawal,
-        evalDiscount: fields.discountPercent,
-        fundedHorizonDays: fields.fundedHorizonDays,
-        fundedReset: fields.plan.takesFundedReset,
-        linkAct: fields.linkActivationDiscount,
-        liveTransferHazard: fields.liveTransferHazard ?? null,
-        maxEvalDays: fields.maxEvalDays,
-        minRetainedCushion: fields.minRetainedCushion ?? null,
-        msubDiscount: fields.monthlySubscriptionDiscountPercent,
-        payoutRequestSize: fields.payoutRequestSize ?? null,
-        planId: fields.plan.id,
-        resetDiscount: fields.resetDiscountPercent,
-        rungSizing: fields.rungSizing ?? null,
-        scenarios: fields.scenarios.map((s) => ({
-            a: s.accounts,
-            c: s.correlation,
-            ds: s.dayStop,
-            g: s.groups,
+        run: { ...run, liveTransferHazard: run.liveTransferHazard ?? null },
+        scenarios: scenarios.map((s) => ({
             id: s.id,
-            instrument: s.instrument,
-            risk: s.riskPerTrade,
-            rr: s.rrRatio,
-            sp: s.stopPoints,
-            tpd: s.tradesPerDay,
-            wr: s.winrate,
+            ...scenarioInputsOf(s),
         })),
-        seed: fields.seed,
     });
 }
 
-function rememberBaseline(
-    baselines: Map<string, number>,
-    key: string,
-    monthlyNet: number,
-): number {
-    baselines.delete(key);
-    baselines.set(key, monthlyNet);
-    while (baselines.size > MAX_REMEMBERED_BASELINES) {
-        const oldest = baselines.keys().next();
-        if (oldest.done === true) break;
-        baselines.delete(oldest.value);
-    }
-    return monthlyNet;
+function ensureWorker(
+    workerReference: { current: null | Worker },
+    listenerReference: { current: LabListener | null },
+): Worker {
+    if (workerReference.current !== null) return workerReference.current;
+    const worker = createToolsWorker();
+    workerReference.current = worker;
+    worker.addEventListener('message', (event: MessageEvent<unknown>) => {
+        listenerReference.current?.onMessage(event.data);
+    });
+    worker.addEventListener('error', () => {
+        if (workerReference.current === worker) {
+            workerReference.current = null;
+        }
+        worker.terminate();
+        listenerReference.current?.onError();
+    });
+    return worker;
 }
 
-function theoreticalPass(plan: Plan, scenario: LabScenario): TheoreticalPass {
-    const pass = walkPassProbability({
-        drawdown: dollars(plan.drawdown.amount),
-        riskPerTrade: dollars(scenario.riskPerTrade),
+function scenarioInputsOf(scenario: LabScenario): LabScenarioInputs {
+    return {
+        accounts: scenario.accounts,
+        correlation: scenario.correlation,
+        dayStop: scenario.dayStop,
+        groups: scenario.groups,
+        instrument: scenario.instrument,
+        riskPerTrade: scenario.riskPerTrade,
         rrRatio: scenario.rrRatio,
-        target: dollars(plan.profitTarget),
-        winrate: fraction(scenario.winrate),
-    });
-    return pass.value === null
-        ? { theoreticalPassProb: undefined, theoreticalPassReason: pass.reason }
-        : { theoreticalPassProb: pass.value, theoreticalPassReason: undefined };
+        stopPoints: scenario.stopPoints,
+        tradesPerDay: scenario.tradesPerDay,
+        winrate: scenario.winrate,
+    };
 }

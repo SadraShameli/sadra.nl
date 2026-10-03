@@ -11,8 +11,11 @@ import {
     AccountEventKind,
     AccountStage,
     AccountTracking,
+    compareText,
     FeeKind,
+    firmKeyId,
 } from '~/lib/prop-accounts/core';
+import { LiveTransferRateUnavailable } from '~/lib/prop-accounts/firms';
 import { type SampleThresholds } from '~/lib/prop-calculator/advisor';
 
 import {
@@ -57,7 +60,7 @@ describe('firmsModelOf', () => {
         expect(result.scaleGate.status).toBe(ScaleGateStatus.ThresholdsNotSet);
     });
 
-    it('counts eval attempts only from resolved accounts, not ledger-only ones', () => {
+    it('counts a ledger-only account as one eval attempt, the same rule as every other attempts figure', () => {
         const funded = account(EVAL_PLAN, { stage: AccountStage.Funded });
         const ledgerOnlyAccount = account(EVAL_PLAN, {
             planLabel: 'Rapid 150K',
@@ -91,8 +94,74 @@ describe('firmsModelOf', () => {
             },
             trades: 5,
         });
-        expect(result.scaleGate.unmetConditions).toContain(
+        expect(result.scaleGate.unmetConditions).not.toContain(
             ScaleGateUnmetCondition.EvalAttemptsBelowThreshold,
+        );
+    });
+
+    it('builds the page for two transfers against one paid payout, with the reason instead of a throw', () => {
+        const first = account(EVAL_PLAN, {
+            purchasedOn: '2026-01-01',
+            stage: AccountStage.Funded,
+        });
+        const second = account(EVAL_PLAN, {
+            purchasedOn: '2026-01-02',
+            stage: AccountStage.Funded,
+        });
+        const built = ledger({
+            accounts: [first, second],
+            events: [
+                purchased(first),
+                event(first, AccountEventKind.EvalPassed, '2026-01-05'),
+                event(first, AccountEventKind.MovedLive, '2026-03-10'),
+                purchased(second),
+                event(second, AccountEventKind.EvalPassed, '2026-01-06'),
+                event(second, AccountEventKind.MovedLive, '2026-03-12'),
+            ],
+            payouts: [payout(first, 5000, { paidOn: '2026-02-01' })],
+        });
+        const inputs = {
+            asOf: '2026-04-01',
+            ledger: built,
+            thresholds: NO_THRESHOLDS,
+            trades: 0,
+        };
+        expect(() => firmsModelOf(inputs)).not.toThrow();
+        const [row] = firmsModelOf(inputs).transferRate.perFirm;
+        expect(row?.perPaidPayout).toBeNull();
+        expect(row?.perPaidPayoutUnavailable).toBe(
+            LiveTransferRateUnavailable.MoreTransfersThanPayouts,
+        );
+    });
+
+    it('gives every firm the roster lists a transfer-rate row, ledger-only firms included', () => {
+        const modeled = account(EVAL_PLAN, { stage: AccountStage.Funded });
+        const ledgerOnlyExternal = account(EVAL_PLAN, {
+            externalFirmId: '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b',
+            firmId: null,
+            planLabel: 'Hola Prime 100K',
+            planSerial: null,
+            stage: AccountStage.Live,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const result = firmsModelOf({
+            asOf: '2026-10-01',
+            ledger: ledger({
+                accounts: [modeled, ledgerOnlyExternal],
+                events: [purchased(modeled)],
+            }),
+            thresholds: NO_THRESHOLDS,
+            trades: 0,
+        });
+        const rosterKeys = result.roster.firms.map((entry) =>
+            firmKeyId(entry.firmKey),
+        );
+        const rateKeys = result.transferRate.perFirm.map((row) =>
+            firmKeyId(row.firmKey),
+        );
+        expect(rosterKeys).toHaveLength(2);
+        expect(rateKeys.toSorted(compareText)).toStrictEqual(
+            rosterKeys.toSorted(compareText),
         );
     });
 

@@ -142,6 +142,69 @@ describe('propAccounts.round', () => {
         ).resolves.toMatchObject({ id: IDS.account });
     });
 
+    it('assign refuses a round whose spend equals its budget exactly, and accepts it one cent below or with the override', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 100_000 })],
+            }),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(
+                caller.round.assign({
+                    accountId: IDS.account,
+                    roundId: VIDEO_IDS.round,
+                }),
+            ),
+        );
+        expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.RoundBudgetExceeded),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+        const { caller: belowCaller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 99_999 })],
+            }),
+        );
+        await expect(
+            belowCaller.round.assign({
+                accountId: IDS.account,
+                roundId: VIDEO_IDS.round,
+            }),
+        ).resolves.toMatchObject({ id: IDS.account });
+        const { caller: overrideCaller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 100_000 })],
+            }),
+        );
+        await expect(
+            overrideCaller.round.assign({
+                accountId: IDS.account,
+                overrideRoundBudget: true,
+                roundId: VIDEO_IDS.round,
+            }),
+        ).resolves.toMatchObject({ id: IDS.account });
+    });
+
+    it('assign never blocks a round with no budget, however much it has spent', async () => {
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 5_000_000 })],
+                [VIDEO_TABLES.round]: [roundRow({ budget_cents: null })],
+            }),
+        );
+        await expect(
+            caller.round.assign({
+                accountId: IDS.account,
+                roundId: VIDEO_IDS.round,
+            }),
+        ).resolves.toMatchObject({ id: IDS.account });
+    });
+
     it('assign records an Edited event with the old and new round', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,

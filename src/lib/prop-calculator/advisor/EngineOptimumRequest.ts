@@ -32,6 +32,7 @@ export interface LadderSearchRequest {
     readonly documentedLadder?: readonly number[];
     readonly grid: LadderGridConfig;
     readonly maxGridSize?: number;
+    readonly policy: EnginePolicy;
     readonly score: EngineLadderScoreConfig;
     readonly seed: number;
     readonly source: LadderSearchRequestSource;

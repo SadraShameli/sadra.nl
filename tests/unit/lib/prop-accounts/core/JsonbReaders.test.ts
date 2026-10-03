@@ -1,3 +1,5 @@
+import { readdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { type z } from 'zod';
 
@@ -7,6 +9,8 @@ import {
     type PersonalRules,
     personalRulesSchema,
     readAccountEventDetail,
+    readAccountTags,
+    readAccountTagsOrNull,
     readPersonalRules,
     readPersonalRulesOrNull,
     readPlanOptIns,
@@ -72,6 +76,25 @@ describe('readPersonalRules', () => {
 
     it('fails loud on a non-positive cap', () => {
         expect(() => readPersonalRules({ maxRiskPerTradeCents: 0 })).toThrow();
+    });
+});
+
+describe('readAccountTags', () => {
+    it('reads a missing or null value as no tags', () => {
+        expect(readAccountTags(null)).toEqual([]);
+        expect(readAccountTags(undefined)).toEqual([]);
+    });
+
+    it('reads a list of strings as it is stored', () => {
+        expect(readAccountTags([])).toEqual([]);
+        expect(readAccountTags(['mff', 'swing'])).toEqual(['mff', 'swing']);
+    });
+
+    it('fails loud on a value that is not a list of strings instead of guessing', () => {
+        expect(() => readAccountTags({ mff: true })).toThrow();
+        expect(() => readAccountTags('mff')).toThrow();
+        expect(() => readAccountTags(42)).toThrow();
+        expect(() => readAccountTags(['mff', 1])).toThrow();
     });
 });
 
@@ -235,6 +258,16 @@ describe('the null-returning readers', () => {
         ).toEqual(readPersonalRules({ maxTradesPerDay: 3, unknownCap: 1 }));
     });
 
+    it('readAccountTagsOrNull reads what readAccountTags reads and returns null on a corrupt value', () => {
+        expect(readAccountTagsOrNull(['mff'])).toEqual(
+            readAccountTags(['mff']),
+        );
+        expect(readAccountTagsOrNull(null)).toEqual([]);
+        for (const raw of [{ mff: true }, 'mff', 42, ['mff', 1]]) {
+            expect(readAccountTagsOrNull(raw)).toBeNull();
+        }
+    });
+
     it('return null on a corrupt value instead of throwing or guessing', () => {
         for (const raw of [{ takesFundedReset: 'yes' }, '[]', null, 42]) {
             expect(readPlanOptInsOrNull(raw)).toBeNull();
@@ -247,5 +280,44 @@ describe('the null-returning readers', () => {
         ]) {
             expect(readPersonalRulesOrNull(raw)).toBeNull();
         }
+    });
+});
+
+describe('the account tag readers follow the barrel rule (PT-110b)', () => {
+    const REPO_ROOT = path.resolve(import.meta.dirname, '../../../../..');
+    const CORE_DIR = 'src/lib/prop-accounts/core';
+    const READERS_MODULE = 'JsonbReaders';
+    const DEEP_IMPORT = `'~/lib/prop-accounts/core/${READERS_MODULE}'`;
+
+    async function deepImportersUnder(directory: string): Promise<string[]> {
+        const entries = await readdir(path.join(REPO_ROOT, directory), {
+            recursive: true,
+            withFileTypes: true,
+        });
+        const files = entries
+            .filter((entry) => entry.isFile() && /\.tsx?$/.test(entry.name))
+            .map((entry) =>
+                path
+                    .relative(REPO_ROOT, path.join(entry.parentPath, entry.name))
+                    .replaceAll('\\', '/'),
+            )
+            .filter((file) => !file.startsWith(`${CORE_DIR}/`));
+        const importers = await Promise.all(
+            files.map(async (file) => {
+                const text = await readFile(path.join(REPO_ROOT, file), 'utf8');
+                return text.includes(DEEP_IMPORT) ? file : null;
+            }),
+        );
+        return importers.filter((file) => file !== null);
+    }
+
+    it('has no importer outside the core folder reaching into JsonbReaders.ts', async () => {
+        const found = await Promise.all([
+            deepImportersUnder('src'),
+            deepImportersUnder('tests/unit/lib/prop-accounts'),
+        ]);
+        const deepImporters = found.flat();
+
+        expect(deepImporters).toStrictEqual([]);
     });
 });

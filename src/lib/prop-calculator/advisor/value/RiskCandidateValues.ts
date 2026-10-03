@@ -1,5 +1,11 @@
 import {
+    type CumulativePayoutTriggerAssumption,
+    liveTransferAssumptionOf,
+    type LiveTransferHazardAssumption,
+} from '~/lib/prop-calculator/advisor/Assumption';
+import {
     type DocumentedPolicySpec,
+    pricedCumulativeTriggerAssumptionOf,
     toSimInputs,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
@@ -33,6 +39,8 @@ export enum RiskCandidateBasis {
     Simulator = 'simulator',
 }
 
+const NO_AGGREGATE_SENT_LIVE_SHARE = null;
+
 export const RISK_CANDIDATE_LABEL =
     'one-step comparison, documented sizing afterwards';
 
@@ -60,8 +68,10 @@ export type RiskCandidateValuesOutcome =
 
 export interface RiskCandidateValuesResult {
     readonly basis: RiskCandidateBasis;
+    readonly cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption;
     readonly kind: ValueResultKind.Candidates;
     readonly label: typeof RISK_CANDIDATE_LABEL;
+    readonly liveTransfer?: LiveTransferHazardAssumption;
     readonly rows: readonly RiskCandidateRow[];
 }
 
@@ -114,10 +124,20 @@ export function riskCandidateValues(
         };
     });
 
+    const base = toSimInputs(account.plan, spec);
+    const liveTransfer = liveTransferAssumptionOf(
+        base,
+        NO_AGGREGATE_SENT_LIVE_SHARE,
+    );
+    const cumulativePayoutTrigger = pricedCumulativeTriggerAssumptionOf(base);
     return {
         basis: RiskCandidateBasis.Simulator,
+        ...(cumulativePayoutTrigger !== undefined && {
+            cumulativePayoutTrigger,
+        }),
         kind: ValueResultKind.Candidates,
         label: RISK_CANDIDATE_LABEL,
+        ...(liveTransfer !== undefined && { liveTransfer }),
         rows: rows.toSorted(
             (a, b) => b.netOfDurationCharge - a.netOfDurationCharge,
         ),

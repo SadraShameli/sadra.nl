@@ -1,5 +1,8 @@
 import { AccountReconstruction } from '~/lib/prop-calculator/advisor/AccountReconstruction';
-import { type AccountSnapshotInput } from '~/lib/prop-calculator/advisor/AccountSnapshotInput';
+import {
+    type AccountSnapshotInput,
+    NO_PENDING_PAYOUT_COUNTS,
+} from '~/lib/prop-calculator/advisor/AccountSnapshotInput';
 import { AccountSubstate } from '~/lib/prop-calculator/advisor/AccountSubstate';
 import { type Advice } from '~/lib/prop-calculator/advisor/Advice';
 import { AssumptionKind } from '~/lib/prop-calculator/advisor/AssumptionKind';
@@ -47,7 +50,12 @@ export function adviceCoverageOf(
         };
     }
     const snapshot = coverageSnapshotFor(plan, stage, substate, today);
-    const reconstructed = AccountReconstruction.rebuild(snapshot, plan);
+    const reconstructed = AccountReconstruction.rebuild(
+        snapshot,
+        plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
+    );
     let advisor;
     try {
         advisor = createSizingAdvisor(reconstructed, {

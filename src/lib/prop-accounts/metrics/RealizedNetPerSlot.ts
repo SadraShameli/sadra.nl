@@ -34,6 +34,8 @@ export interface MonthlySlotNet {
     readonly month: string;
     readonly net: UsdCents;
     readonly netPerSlot: UsdCents;
+    readonly payouts: UsdCents;
+    readonly payoutsPerSlot: UsdCents;
     readonly slotMonths: number;
 }
 
@@ -72,16 +74,17 @@ export function realizedNetPerSlot(
             addSpanDays(slotDays, span);
         }
     }
-    const netByMonth = new Map(
-        cashOnOrBefore(measured, asOf).map((cash) => [cash.month, cash.net]),
+    const cashByMonth = new Map(
+        cashOnOrBefore(measured, asOf).map((cash) => [cash.month, cash]),
     );
     const months: MonthlySlotNet[] = [];
     let unallocatedNet = 0;
     let unallocatedMonths = 0;
     for (const month of [
-        ...new Set([...netByMonth.keys(), ...slotDays.keys()]),
+        ...new Set([...cashByMonth.keys(), ...slotDays.keys()]),
     ].toSorted(compareText)) {
-        const net = netByMonth.get(month) ?? usdCents(0);
+        const net = cashByMonth.get(month)?.net ?? usdCents(0);
+        const payouts = cashByMonth.get(month)?.payouts ?? usdCents(0);
         const days = slotDays.get(month) ?? 0;
         if (days === 0) {
             unallocatedNet += net;
@@ -93,6 +96,8 @@ export function realizedNetPerSlot(
             month,
             net,
             netPerSlot: roundCents(net / slotMonths),
+            payouts,
+            payoutsPerSlot: roundCents(payouts / slotMonths),
             slotMonths,
         });
     }

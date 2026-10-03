@@ -24,18 +24,22 @@ import {
 import {
     type BankrollRiskFigures,
     bankrollRiskFigures,
-} from '~/lib/prop-calculator/advisor/policy';
+} from '~/lib/prop-calculator/economics';
 import { cn } from '~/lib/utilities';
 
 import {
     AppliedEvalLadderNotice,
     EvalLadderScope,
 } from './AppliedEvalLadderNotice';
+import { RulebookSourceNotice } from './bankroll/RulebookSourceNotice';
+import { useBankrollVariant } from './bankroll/useBankrollVariant';
 import { useCalculatorInputs } from './CalculatorProvider';
 import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
 import { CalculatorObjectiveChip } from './ObjectiveChip';
 import {
+    documentedSizingHeadline,
+    ENGINE_OPTIMUM_NOTE,
     riskRowFigures,
     riskTableObjective,
     starredRows,
@@ -71,6 +75,7 @@ export default function OptimalRiskTable({
     plan,
 }: OptimalRiskTableProperties) {
     const { state } = useCalculatorInputs();
+    const { rulebook, rulebookSource } = useBankrollVariant();
     const objectiveView = riskTableObjective(state.objective);
     const key = buildCacheKey(baseInputs, bankroll);
     const accountSize = plan.accountSize;
@@ -233,12 +238,21 @@ export default function OptimalRiskTable({
                 <span className="text-xs text-muted-foreground">
                     {pending
                         ? 'computing…'
-                        : `best ${riskTableObjective(objectiveView.effective).label} at ${formatPercent(
+                        : `engine optimum for ${riskTableObjective(objectiveView.effective).label} at ${formatPercent(
                               (bestRow?.riskPct ?? 0) / 100,
                               2,
                           )}`}
                 </span>
             </div>
+            <p className="mt-2 text-xs font-medium text-foreground">
+                {documentedSizingHeadline(rulebook, rulebookSource)}
+            </p>
+            <div className="mt-1 empty:hidden">
+                <RulebookSourceNotice source={rulebookSource} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+                {ENGINE_OPTIMUM_NOTE}
+            </p>
             <CalculatorObjectiveChip className="mt-2" />
             {bankroll !== null && (
                 <p className="mt-2 text-xs text-muted-foreground">

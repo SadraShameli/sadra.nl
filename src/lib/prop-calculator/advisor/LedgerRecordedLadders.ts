@@ -7,6 +7,18 @@ export enum LedgerLadderSelection {
     BySpeed = 'by-speed',
 }
 
+export enum LedgerRunStatus {
+    Current = 'current',
+    Stale = 'stale',
+    Superseded = 'superseded',
+}
+
+export interface LedgerCitedRun {
+    readonly citedStage: string;
+    readonly file: string;
+    readonly status: LedgerRunStatus;
+}
+
 export interface LedgerLadderPlanKey {
     readonly firmId: FirmId;
     readonly variant: null | string;
@@ -35,6 +47,9 @@ const LADDER_CELL_PATTERN =
     /^(\d+(?:\/\d+)*) \((\d+(?:\.\d+)?)%, (\d+(?:\.\d+)?)d, \$([\d,]+)\)$/;
 
 const INSTANT_FUNDED_CELL = 'instant';
+const INDEX_CURRENT_PREFIX = 'CURRENT';
+const INDEX_SUPERSEDED_PREFIX = 'SUPERSEDED';
+const INDEX_STAGE_CURRENT_CLAUSE = 'stay CURRENT';
 
 export const LEDGER_FILE =
     '.claude/skills/prop-firm-trading/references/engine-results/2026-09-26-post-audit-rerun.md';
@@ -42,6 +57,12 @@ export const LEDGER_SECTION =
     'Result 1: eval ladders (Stage A, 20,000 simulations per ladder)';
 export const LEDGER_CONTENT_HASH =
     '8bda3e5e29dcb857e85487a16b65bf3c95df338d38ba6c6c24b93a450f2d22e6';
+
+export const LEDGER_CITED_RUN: LedgerCitedRun = {
+    citedStage: 'Stage A eval ladders',
+    file: LEDGER_FILE,
+    status: LedgerRunStatus.Current,
+};
 
 const RAW_ROWS: readonly (readonly [string, string])[] = [
     ['alphafutures advanced', '700/700/700/700 (33.2%, 9.2d, $601)'],
@@ -110,7 +131,7 @@ function parseLadderCell(
         ladder: rungs.split('/').map(Number),
         passRate: Number(passPercent) / 100,
         selection: LedgerLadderSelection.BySpeed,
-        stale: false,
+        stale: LEDGER_CITED_RUN.status !== LedgerRunStatus.Current,
         startBasis: StartBasis.Fresh,
     };
 }
@@ -142,6 +163,24 @@ export const LEDGER_RECORDED_LADDERS: readonly LedgerLadderRow[] = RAW_ROWS.map(
     },
 ).filter((row): row is LedgerLadderRow => row !== null);
 
+export function ledgerIndexConflicts(
+    indexMarkdown: string,
+    runs: readonly LedgerCitedRun[],
+): readonly string[] {
+    return runs.flatMap((run) => {
+        const cell = indexStatusCellOf(indexMarkdown, run.file);
+        if (cell === null) {
+            return [`${run.file}: no row in the Runs table`];
+        }
+        const indexed = indexStatusOf(cell, run.citedStage);
+        return indexed === run.status
+            ? []
+            : [
+                  `${run.file}: the index says ${indexed}, the typed status says ${run.status}`,
+              ];
+    });
+}
+
 export function ledgerRecordedLadderFor(
     firmId: FirmId,
     variant: null | string,
@@ -153,4 +192,29 @@ export function ledgerRecordedLadderFor(
                 row.planKey.variant === (variant ?? null),
         ) ?? null
     );
+}
+
+function indexStatusCellOf(indexMarkdown: string, file: string): null | string {
+    const name = file.split('/').at(-1) ?? file;
+    for (const line of indexMarkdown.split('\n')) {
+        if (!line.startsWith('|')) continue;
+        const cells = line
+            .split('|')
+            .slice(1, -1)
+            .map((cell) => cell.trim());
+        if (cells[0]?.includes(name) === true) return cells.at(-1) ?? null;
+    }
+    return null;
+}
+
+function indexStatusOf(cell: string, citedStage: string): LedgerRunStatus {
+    if (
+        cell.startsWith(INDEX_CURRENT_PREFIX) ||
+        cell.includes(`${citedStage} ${INDEX_STAGE_CURRENT_CLAUSE}`)
+    ) {
+        return LedgerRunStatus.Current;
+    }
+    return cell.startsWith(INDEX_SUPERSEDED_PREFIX)
+        ? LedgerRunStatus.Superseded
+        : LedgerRunStatus.Stale;
 }

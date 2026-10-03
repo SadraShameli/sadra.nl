@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     buildEnginePolicy,
     DEFAULT_RULEBOOK,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
@@ -46,6 +47,7 @@ function evalAccount(plan: Plan): ReconstructedFundedOrEvalAccount {
         plan,
         resolvedDailyLossLimit: null,
         state: plan.initialState(),
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -65,6 +67,7 @@ function fundedAccount(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -149,10 +152,7 @@ describe('payoutStakeComparison (F-V19, PT-65b step 7)', () => {
         }
         const shared = requestNowValue(account, milestone, spec);
 
-        expect(outcome.requestNow).toEqual({
-            creditFree: shared.requestNow.creditFree,
-            creditInclusive: shared.requestNow.creditInclusive,
-        });
+        expect(outcome.requestNow).toEqual(shared.requestNow);
         expect(outcome.traderReceivesNow).toBe(shared.traderReceives);
     });
 

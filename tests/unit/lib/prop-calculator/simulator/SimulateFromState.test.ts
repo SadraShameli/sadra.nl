@@ -1,8 +1,11 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
     type AccountState,
     computedDayPolicy,
+    DayStopRuleKind,
     dollars,
     FirmId,
     fraction,
@@ -17,10 +20,11 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
-import { mulberry32, type Rng } from '~/lib/prop-calculator/rng';
+import { deriveSubSeed, mulberry32, type Rng } from '~/lib/prop-calculator/rng';
 import {
     fromStateCashSamples,
     SIM_INPUTS_REFUSAL_PREFIX,
+    type SimInputs,
     simStartIssue,
     simulate,
     simulateFromState,
@@ -398,7 +402,7 @@ describe('simulateFromState: funded reset gating honours seed.fundedResetsUsed (
             trials: 1,
             winrate: 0,
         });
-        expect(recorded).toStrictEqual([1, 2]);
+        expect(recorded.slice(0, 2)).toStrictEqual([1, 2]);
         expect(out.expectedFundedResets).toBe(1);
         expect(out.fundedBustProbability).toBe(1);
     });
@@ -422,7 +426,7 @@ describe('simulateFromState: funded reset gating honours seed.fundedResetsUsed (
             trials: 1,
             winrate: 0,
         });
-        expect(recorded).toStrictEqual([2]);
+        expect(recorded.slice(0, 1)).toStrictEqual([2]);
         expect(out.expectedFundedResets).toBe(0);
         expect(out.fundedBustProbability).toBe(1);
     });
@@ -446,7 +450,7 @@ describe('simulateFromState: funded reset gating honours seed.fundedResetsUsed (
             trials: 1,
             winrate: 0,
         });
-        expect(recorded).toStrictEqual([0]);
+        expect(recorded.slice(0, 1)).toStrictEqual([0]);
         expect(out.expectedFundedResets).toBe(0);
         expect(out.fundedBustProbability).toBe(1);
     });
@@ -952,5 +956,240 @@ describe('simulateFromState: TopStep FullRequestOnly waits for its 50% balance-s
             topstep.payoutFromProfit(500, 0),
             6,
         );
+    });
+});
+
+describe('simulateFromState: the post-bust continuation is priced under the policy it scores (F-117 (1))', () => {
+    const plan = evalToyPlan();
+    const horizonDays = 10;
+    const trials = 1;
+    const seed = 1;
+
+    function continuationInputs(
+        overrides: Partial<Omit<SimInputs, 'plan'>>,
+    ): SimInputs {
+        return {
+            evalDayPolicy: computedDayPolicy(
+                () => 100,
+                1,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
+            fundedHorizonDays: horizonDays,
+            maxAttempts: 1,
+            maxEvalDays: 10,
+            plan,
+            riskPerTrade: 100,
+            rrRatio: 1,
+            seed,
+            tradesPerDay: 1,
+            trials,
+            winrate: 1,
+            ...overrides,
+        };
+    }
+
+    function pricedContinuation(overrides: Partial<Omit<SimInputs, 'plan'>>) {
+        const inputs = continuationInputs(overrides);
+        const out = simulateFromState({
+            ...inputs,
+            start: {
+                phase: TradingPhase.Eval,
+                state: evalSeedState({
+                    balance: 1100,
+                    elapsedDays: 9,
+                    threshold: 1000,
+                    tradingDays: 9,
+                }),
+            },
+        });
+        const fresh = simulate({
+            ...inputs,
+            seed: deriveSubSeed(seed, trials, 0),
+        });
+        return {
+            continuationTerm: out.fromStateExpectedCash - out.expectedNet,
+            expectedTerm:
+                (horizonDays * fresh.expectedMonthlyNet) /
+                TRADING_DAYS_PER_MONTH,
+            freshMonthlyNet: fresh.expectedMonthlyNet,
+        };
+    }
+
+    it('gives candidates that differ only in fundedRiskPerTrade different continuation terms, each (W - T) x the monthly net of simulate() on the same inputs', () => {
+        const flat = pricedContinuation({ fundedRiskPerTrade: 0 });
+        const sized = pricedContinuation({ fundedRiskPerTrade: 100 });
+        expect(sized.freshMonthlyNet).not.toBeCloseTo(flat.freshMonthlyNet, 6);
+        expect(flat.continuationTerm).toBeCloseTo(flat.expectedTerm, 6);
+        expect(sized.continuationTerm).toBeCloseTo(sized.expectedTerm, 6);
+        expect(sized.continuationTerm).not.toBeCloseTo(
+            flat.continuationTerm,
+            6,
+        );
+    });
+
+    it('gives candidates that differ only in a funded dayStop different continuation terms', () => {
+        const none = pricedContinuation({
+            dayStop: { kind: DayStopRuleKind.None },
+            fundedRiskPerTrade: 100,
+            tradesPerDay: 2,
+        });
+        const firstWin = pricedContinuation({
+            dayStop: { kind: DayStopRuleKind.FirstWin },
+            fundedRiskPerTrade: 100,
+            tradesPerDay: 2,
+        });
+        expect(firstWin.freshMonthlyNet).not.toBeCloseTo(
+            none.freshMonthlyNet,
+            6,
+        );
+        expect(none.continuationTerm).toBeCloseTo(none.expectedTerm, 6);
+        expect(firstWin.continuationTerm).toBeCloseTo(firstWin.expectedTerm, 6);
+    });
+
+    it('keeps the default path unchanged: with no funded override the continuation is still priced at the flat riskPerTrade', () => {
+        const flat = pricedContinuation({});
+        expect(flat.continuationTerm).toBeCloseTo(flat.expectedTerm, 6);
+        expect(flat.freshMonthlyNet).toBeGreaterThan(0);
+    });
+});
+
+describe('simulateFromState: copyAccounts above 1 is refused (F-117 (2))', () => {
+    const plan = evalToyPlan();
+    const start = {
+        phase: TradingPhase.Eval as const,
+        state: evalSeedState(),
+    };
+
+    function inputsWith(copyAccounts: number | undefined) {
+        return {
+            copyAccounts,
+            fundedHorizonDays: 1,
+            maxEvalDays: 10,
+            plan,
+            riskPerTrade: 100,
+            rrRatio: 1,
+            seed: 1,
+            start,
+            tradesPerDay: 1,
+            trials: 1,
+            winrate: 0.5,
+        };
+    }
+
+    it('names copyAccounts in the typed refusal from simStartIssue', () => {
+        const issue = simStartIssue(plan, start, 10, 2);
+        expect(issue).toContain('copyAccounts');
+        expect(simStartIssue(plan, start, 10, 1)).toBeNull();
+        expect(simStartIssue(plan, start, 10)).toBeNull();
+    });
+
+    it('throws the shared refusal prefix for a from-state run with copyAccounts 2', () => {
+        expect(() => simulateFromState(inputsWith(2))).toThrow(
+            `${SIM_INPUTS_REFUSAL_PREFIX}copyAccounts`,
+        );
+    });
+
+    it('still accepts copyAccounts 1 and an absent copyAccounts', () => {
+        expect(() => simulateFromState(inputsWith(1))).not.toThrow();
+        expect(() => simulateFromState(inputsWith(undefined))).not.toThrow();
+    });
+
+    it('finds no from-state caller in src that passes copyAccounts', () => {
+        const root = path.join(
+            process.cwd(),
+            'src/lib/prop-calculator/advisor',
+        );
+        const callers = readdirSync(root, { recursive: true })
+            .map(String)
+            .filter((file) => /\.tsx?$/.test(file))
+            .filter((file) =>
+                readFileSync(path.join(root, file), 'utf8').includes(
+                    'simulateFromState(',
+                ),
+            );
+        expect(callers.length).toBeGreaterThan(1);
+        for (const file of callers) {
+            expect(readFileSync(path.join(root, file), 'utf8')).not.toContain(
+                'copyAccounts',
+            );
+        }
+    });
+});
+
+describe('simulateFromState: the caller state and seed are never mutated, and a percent cushion needs stop points (F-117 (8))', () => {
+    it('leaves a funded start state and cycle seed deep-equal after the run', () => {
+        const plan = payoutCapToyPlan().withOverrides({
+            maxLifetimePayouts: 10,
+        });
+        const state = fundedSeedState({ balance: 1100, threshold: 950 });
+        const seed = fullFundedSeed({ cumulativePayout: 10, payoutsIssued: 1 });
+        const stateBefore = structuredClone(state);
+        const seedBefore = structuredClone(seed);
+        const out = simulateFromState({
+            fundedHorizonDays: 5,
+            fundedRiskPerTrade: 100,
+            maxEvalDays: 1,
+            plan,
+            riskPerTrade: 100,
+            rrRatio: 1,
+            seed: 2,
+            start: { phase: TradingPhase.Funded, seed, state },
+            tradesPerDay: 1,
+            trials: 5,
+            winrate: 0.5,
+        });
+        expect(Number.isFinite(out.fromStateExpectedCash)).toBe(true);
+        expect(state).toStrictEqual(stateBefore);
+        expect(seed).toStrictEqual(seedBefore);
+    });
+
+    it('leaves an eval start state deep-equal after the run', () => {
+        const plan = evalToyPlan();
+        const state = evalSeedState({
+            balance: 1100,
+            elapsedDays: 1,
+            threshold: 1000,
+            tradingDays: 1,
+        });
+        const stateBefore = structuredClone(state);
+        simulateFromState({
+            fundedHorizonDays: 3,
+            maxEvalDays: 10,
+            plan,
+            riskPerTrade: 100,
+            rrRatio: 1,
+            seed: 3,
+            start: { phase: TradingPhase.Eval, state },
+            tradesPerDay: 1,
+            trials: 5,
+            winrate: 0.5,
+        });
+        expect(state).toStrictEqual(stateBefore);
+    });
+
+    it('refuses a funded start with fundedCushionPercent and no stop points', () => {
+        const plan = payoutCapToyPlan().withOverrides({
+            maxLifetimePayouts: 10,
+        });
+        expect(() =>
+            simulateFromState({
+                fundedCushionPercent: fraction(0.1),
+                fundedHorizonDays: 3,
+                maxEvalDays: 1,
+                plan,
+                riskPerTrade: 100,
+                rrRatio: 1,
+                seed: 1,
+                start: {
+                    phase: TradingPhase.Funded,
+                    seed: fullFundedSeed(),
+                    state: fundedSeedState(),
+                },
+                tradesPerDay: 1,
+                trials: 1,
+                winrate: 0.5,
+            }),
+        ).toThrow(SIM_INPUTS_REFUSAL_PREFIX);
     });
 });

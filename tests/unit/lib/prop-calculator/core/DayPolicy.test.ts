@@ -53,6 +53,7 @@ import {
 
 import { freshFundedCycle } from '../dayRunOptions';
 import { dayRunOptionsFor } from '../dayRunOptions';
+import { withoutPayoutStructure } from '../withoutPayoutStructure';
 
 function freshStats(startingBalance: number) {
     const totals = new TradeTotals();
@@ -391,6 +392,7 @@ describe('both dynamic programs cap the first trade at the daily loss limit minu
         evalDailyLossLimit: flatLimit,
         fundedDailyLossLimit: flatLimit,
     });
+    const fundedPlan = withoutPayoutStructure(plan);
 
     function evalFirstTradeRisk(commission: number): number {
         const fullCapWin = 3.2 * (500 - commission) - commission;
@@ -423,13 +425,13 @@ describe('both dynamic programs cap the first trade at the daily loss limit minu
             maxCushionMultiple: 1.5,
             maxPreLockOffsetMultiple: 1,
             payoutRegimeCap: 0,
-            plan,
+            plan: fundedPlan,
             rrRatio: 3,
             tradesPerDay: 1,
             winrate: 0.95,
         });
-        const state = plan.initialState();
-        plan.beginFundedPhase(state);
+        const state = fundedPlan.initialState();
+        fundedPlan.beginFundedPhase(state);
         return result.dayPolicy.computeRisk?.(state, 0) ?? 0;
     }
 
@@ -438,16 +440,10 @@ describe('both dynamic programs cap the first trade at the daily loss limit minu
         expect(evalFirstTradeRisk(0)).toBe(500);
     });
 
-    it(
-        'the funded DP sizes a full-edge first trade at $500 - $5 = $495, and at $500 with no commission',
-        {
-            timeout: 120_000,
-        },
-        () => {
-            expect(fundedFirstTradeRisk(5)).toBe(495);
-            expect(fundedFirstTradeRisk(0)).toBe(500);
-        },
-    );
+    it('the funded DP sizes a full-edge first trade at $500 - $5 = $495, and at $500 with no commission (PT-T1c: on the plan with one lifetime payout and no payout gates or consistency rule)', () => {
+        expect(fundedFirstTradeRisk(5)).toBe(495);
+        expect(fundedFirstTradeRisk(0)).toBe(500);
+    });
 });
 
 describe('both dynamic programs keep every later trade of the day inside the remaining daily loss limit minus the commission (N-56)', () => {
@@ -473,71 +469,61 @@ describe('both dynamic programs keep every later trade of the day inside the rem
         return DAILY_LOSS_LIMIT - COMMISSION + state.todayPnL;
     }
 
-    it(
-        'the eval DP never sizes a second trade whose loss plus commission breaches the limit',
-        {
-            timeout: 60_000,
-        },
-        () => {
-            const result = computeEvalStateValue({
-                commission: dollars(COMMISSION),
-                cushionStepDollars: 50,
-                maxActionDollars: 800,
-                maxEvalDays: 3,
-                plan,
-                rrRatio: 3.2,
-                tradesPerDay: 2,
-                winrate: fraction(0.95),
-            });
-            const risks = EVAL_FIRST_TRADE_RISKS.map((firstRisk) => {
-                const state = afterFirstLoss(plan.initialState(), firstRisk);
-                const risk = result.dayPolicy.computeRisk?.(state, 1) ?? 0;
-                expect(risk).toBeLessThanOrEqual(
-                    remainingAfterCommission(state) + 1e-9,
-                );
-                return risk;
-            });
+    it('the eval DP never sizes a second trade whose loss plus commission breaches the limit (PT-T1c: at a $100 action step)', () => {
+        const result = computeEvalStateValue({
+            actionStepDollars: 100,
+            commission: dollars(COMMISSION),
+            cushionStepDollars: 50,
+            maxActionDollars: 800,
+            maxEvalDays: 3,
+            plan,
+            rrRatio: 3.2,
+            tradesPerDay: 2,
+            winrate: fraction(0.95),
+        });
+        const risks = EVAL_FIRST_TRADE_RISKS.map((firstRisk) => {
+            const state = afterFirstLoss(plan.initialState(), firstRisk);
+            const risk = result.dayPolicy.computeRisk?.(state, 1) ?? 0;
+            expect(risk).toBeLessThanOrEqual(
+                remainingAfterCommission(state) + 1e-9,
+            );
+            return risk;
+        });
 
-            expect(risks.some((risk) => risk > 0)).toBe(true);
-        },
-    );
+        expect(risks.some((risk) => risk > 0)).toBe(true);
+    });
 
-    it(
-        'the funded DP never sizes a second trade whose loss plus commission breaches the limit',
-        {
-            timeout: 120_000,
-        },
-        () => {
-            const result = computeFundedStateValue({
-                actionStepMultiple: 0.25,
-                commission: dollars(COMMISSION),
-                cushionStepMultiple: 0.05,
-                cycleBestDayBucketCount: 1,
-                evalInitialValue: 0,
-                feePerAttempt: dollars(0),
-                maxActionMultiple: 0.5,
-                maxCushionMultiple: 1.5,
-                maxPreLockOffsetMultiple: 1,
-                payoutRegimeCap: 0,
-                plan,
-                rrRatio: 3,
-                tradesPerDay: 2,
-                winrate: 0.95,
-            });
-            const fundedStart = plan.initialState();
-            plan.beginFundedPhase(fundedStart);
-            const risks = FUNDED_FIRST_TRADE_RISKS.map((firstRisk) => {
-                const state = afterFirstLoss(fundedStart, firstRisk);
-                const risk = result.dayPolicy.computeRisk?.(state, 1) ?? 0;
-                expect(risk).toBeLessThanOrEqual(
-                    remainingAfterCommission(state) + 1e-9,
-                );
-                return risk;
-            });
+    it('the funded DP never sizes a second trade whose loss plus commission breaches the limit (PT-T1c: on the plan with one lifetime payout and no payout gates or consistency rule, which the daily loss limit cap does not depend on, at a 0.1 drawdown cushion step instead of 0.05; the file took 37 s)', () => {
+        const fundedPlan = withoutPayoutStructure(plan);
+        const result = computeFundedStateValue({
+            actionStepMultiple: 0.25,
+            commission: dollars(COMMISSION),
+            cushionStepMultiple: 0.1,
+            cycleBestDayBucketCount: 1,
+            evalInitialValue: 0,
+            feePerAttempt: dollars(0),
+            maxActionMultiple: 0.5,
+            maxCushionMultiple: 1.5,
+            maxPreLockOffsetMultiple: 1,
+            payoutRegimeCap: 0,
+            plan: fundedPlan,
+            rrRatio: 3,
+            tradesPerDay: 2,
+            winrate: 0.95,
+        });
+        const fundedStart = fundedPlan.initialState();
+        fundedPlan.beginFundedPhase(fundedStart);
+        const risks = FUNDED_FIRST_TRADE_RISKS.map((firstRisk) => {
+            const state = afterFirstLoss(fundedStart, firstRisk);
+            const risk = result.dayPolicy.computeRisk?.(state, 1) ?? 0;
+            expect(risk).toBeLessThanOrEqual(
+                remainingAfterCommission(state) + 1e-9,
+            );
+            return risk;
+        });
 
-            expect(risks.some((risk) => risk > 0)).toBe(true);
-        },
-    );
+        expect(risks.some((risk) => risk > 0)).toBe(true);
+    });
 });
 
 describe('ComputeRisk takes the funded cycle as one named snapshot', () => {

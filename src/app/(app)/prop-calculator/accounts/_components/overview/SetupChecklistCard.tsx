@@ -1,11 +1,19 @@
 import Link from 'next/link';
 
 import { Badge, type BadgeProperties } from '~/components/ui/Badge';
-import { SetupStepStatus } from '~/lib/prop-accounts';
+import { SetupStep, SetupStepStatus } from '~/lib/prop-accounts';
 
 import { type SetupChecklistCardModel } from './overviewModel';
 
 type SetupStepModel = SetupChecklistCardModel['steps'][number];
+
+const NOT_CHECKED_TEXT: Readonly<Record<SetupStep, string>> = {
+    [SetupStep.BudgetSet]: 'Budget: checked on the overview',
+    [SetupStep.CostsEntered]: 'Costs: checked on the overview',
+    [SetupStep.ExpectedValueComputed]: 'Expected value: checked on the overview',
+    [SetupStep.FirmRulesVerified]: 'Firm rules: checked on the overview',
+    [SetupStep.StagesCaptured]: 'Stages: checked on the overview',
+};
 
 export function SetupChecklistCard({
     model,
@@ -47,25 +55,54 @@ export function SetupChecklistCompact({
     readonly href: string;
     readonly model: SetupChecklistCardModel;
 }) {
+    const hasUncheckedStep = model.steps.some(
+        (step) => step.status === SetupStepStatus.NotChecked,
+    );
     return (
         <div className="flex flex-col gap-2">
             <p className="text-sm text-muted-foreground">
                 Setup: {String(model.doneCount)} of {String(model.totalSteps)}{' '}
                 steps done.{' '}
+                {hasUncheckedStep && (
+                    <>
+                        The count leaves out the steps checked on the overview.{' '}
+                    </>
+                )}
                 <Link className="underline underline-offset-4" href={href}>
                     Finish the setup
                 </Link>
             </p>
-            <ul className="flex flex-wrap gap-2">
+            <ul className="flex flex-col gap-2">
                 {model.steps.map((step) => (
-                    <li key={step.key}>
-                        <Badge variant={statusVariant(step.status)}>
-                            {step.label}: {step.statusLabel}
-                        </Badge>
+                    <li className="flex flex-col gap-1" key={step.key}>
+                        <CompactStepBadge step={step} />
+                        <StepDetail step={step} />
                     </li>
                 ))}
             </ul>
         </div>
+    );
+}
+
+function CompactStepBadge({ step }: { readonly step: SetupStepModel }) {
+    const linkClassName =
+        'underline-offset-4 hover:underline text-xs font-medium';
+    if (step.status === SetupStepStatus.NotChecked) {
+        return (
+            <Badge variant={statusVariant(step.status)}>
+                <Link className={linkClassName} href={step.href}>
+                    {NOT_CHECKED_TEXT[step.key]}
+                </Link>
+            </Badge>
+        );
+    }
+    return (
+        <Badge variant={statusVariant(step.status)}>
+            <Link className={linkClassName} href={step.href}>
+                {step.label}
+            </Link>
+            : {step.statusLabel}
+        </Badge>
     );
 }
 

@@ -26,6 +26,7 @@ import {
     parsePositionSizePhase,
     parsePositionSizeRetryFee,
     parsePositionSizeRisk,
+    parsePositionSizeRoom,
     parsePositionSizeStop,
     parsePositionSizeUnit,
     PositionSizeUrlParameter,
@@ -42,6 +43,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
+import { useSession } from '~/lib/auth/client';
 import { formatGateCurrency, NOT_APPLICABLE } from '~/lib/format';
 import {
     ALL_FIRMS,
@@ -51,12 +53,15 @@ import {
 } from '~/lib/prop-calculator';
 import { RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
+import { api } from '~/trpc/react';
 
 const START_TIER = 'start';
 const LABEL_CLASS = 'text-xs font-medium text-muted-foreground';
 const INPUTS_HEADING_ID = 'position-size-inputs-heading';
 const RESULT_HEADING_ID = 'position-size-result-heading';
 const FIX_FIELD_TEXT = 'Fix the highlighted field to see the position.';
+const EV_AT_STAKE_NEEDS_ACCOUNT_TEXT =
+    'EV at stake needs an account; see the account pages.';
 
 type FieldValidityChange = (
     field: PositionSizeUrlParameter,
@@ -68,27 +73,54 @@ interface NumberFieldProperties<T extends number> {
     id: string;
     invalidText: string;
     label: string;
+    onClear?: () => void;
     onValid: (value: T) => void;
     onValidityChange: FieldValidityChange;
     parse: (raw: string) => null | T;
     step: number;
-    value: T;
+    value: '' | T;
 }
 
 type PositionSizeChange = (patch: Partial<PositionSizeInput>) => void;
 
 export function PositionSizeView() {
     const searchParameters = useSearchParams();
-    const [state, setState] = useState(() =>
+    const session = useSession();
+    const hasSession = session.data?.user.id !== undefined;
+    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
+        enabled: hasSession,
+    });
+    const savedUnit = hasSession
+        ? (rulebookQuery.data?.display.riskUnit ?? null)
+        : null;
+    const [isUnitChosen, setIsUnitChosen] = useState(
+        () =>
+            parsePositionSizeUnit(
+                searchParameters.get(PositionSizeUrlParameter.Unit) ?? '',
+            ) !== null,
+    );
+    const [inputs, setInputs] = useState(() =>
         decodePositionSize(new URLSearchParams(searchParameters.toString())),
+    );
+    const state = useMemo(
+        () => ({
+            ...inputs,
+            unit: isUnitChosen || savedUnit === null ? inputs.unit : savedUnit,
+        }),
+        [inputs, isUnitChosen, savedUnit],
     );
     const [invalidFields, setInvalidFields] = useState<
         ReadonlySet<PositionSizeUrlParameter>
     >(() => new Set());
     const result = useMemo(() => positionSizeFor(state), [state]);
     const isInputValid = invalidFields.size === 0;
+    const omittedFromLink = [
+        ...invalidFields,
+        ...(isUnitChosen ? [] : [PositionSizeUrlParameter.Unit]),
+    ];
     const change: PositionSizeChange = (patch) => {
-        setState((current) => {
+        if (patch.unit !== undefined) setIsUnitChosen(true);
+        setInputs((current) => {
             const withPlanRetryFee: Partial<PositionSizeInput> =
                 patch.plan !== undefined && patch.retryFee === undefined
                     ? { ...patch, retryFee: dollars(patch.plan.retryFee()) }
@@ -112,7 +144,7 @@ export function PositionSizeView() {
     return (
         <>
             <ToolPageHeading
-                ownQuery={encodePositionSize(state, [...invalidFields])}
+                ownQuery={encodePositionSize(state, omittedFromLink)}
                 toolId={ToolId.PositionSize}
             />
             <div className="app-prop-calculator__position-size mb-10 grid gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
@@ -163,6 +195,7 @@ function NumberField<T extends number>({
     id,
     invalidText,
     label,
+    onClear,
     onValid,
     onValidityChange,
     parse,
@@ -170,7 +203,8 @@ function NumberField<T extends number>({
     value,
 }: NumberFieldProperties<T>) {
     const [text, setText] = useState(() => String(value));
-    const isInvalid = parse(text) === null;
+    const isBlank = onClear !== undefined && text.trim() === '';
+    const isInvalid = !isBlank && parse(text) === null;
     const hintId = `${id}-hint`;
     return (
         <div className="flex flex-col gap-1">
@@ -184,6 +218,14 @@ function NumberField<T extends number>({
                 inputMode="decimal"
                 onChange={(event) => {
                     setText(event.target.value);
+                    if (
+                        onClear !== undefined &&
+                        event.target.value.trim() === ''
+                    ) {
+                        onValidityChange(field, true);
+                        onClear();
+                        return;
+                    }
                     const parsed = parse(event.target.value);
                     onValidityChange(field, parsed !== null);
                     if (parsed !== null) onValid(parsed);
@@ -363,6 +405,22 @@ function PositionSizeInputs({
                     </div>
                 )}
             </div>
+            <NumberField
+                field={PositionSizeUrlParameter.Room}
+                id="position-size-room"
+                invalidText="Enter a room of $0 or more, or leave it blank."
+                label="Room left today (cushion or daily loss limit)"
+                onClear={() => {
+                    onChange({ roomDollars: null });
+                }}
+                onValid={(roomDollars) => {
+                    onChange({ roomDollars });
+                }}
+                onValidityChange={onValidityChange}
+                parse={parsePositionSizeRoom}
+                step={1}
+                value={state.roomDollars ?? ''}
+            />
             <div className="grid gap-4 sm:grid-cols-2">
                 {state.phase === TradingPhase.Eval ? (
                     <NumberField
@@ -470,6 +528,16 @@ function PositionSizeSummary({
                     value={result.riskDisplay.text}
                 />
             </div>
+            {result.riskDisplay.disclosure === null ? null : (
+                <p className="text-sm text-muted-foreground">
+                    Fee equivalent: {result.riskDisplay.disclosure}.
+                </p>
+            )}
+            {result.riskDisplay.isFallback ? (
+                <p className="text-sm text-muted-foreground">
+                    {EV_AT_STAKE_NEEDS_ACCOUNT_TEXT}
+                </p>
+            ) : null}
             {result.refusal === null ? null : (
                 <p className="text-sm text-amber-400">{result.refusal}</p>
             )}

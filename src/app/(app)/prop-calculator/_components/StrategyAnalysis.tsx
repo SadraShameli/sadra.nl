@@ -18,7 +18,11 @@ import {
     type SimInputs,
     type SimOutputs,
 } from '~/lib/prop-calculator';
-import { requiredR } from '~/lib/prop-calculator/economics';
+import {
+    ECONOMICS_DISCLOSURE_TEXT,
+    EconomicsDisclosure,
+    requiredR,
+} from '~/lib/prop-calculator/economics';
 import { standardDeviation } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
@@ -44,9 +48,20 @@ export default function StrategyAnalysis({
     const { copyAccounts, fundedHorizonDays, plan, rrRatio, winrate } =
         baseInputs;
     const accounts = resolveCopyAccounts(copyAccounts);
+    const drawdownAmount = plan.drawdown.amount;
+    const drawdownBasis = `of the ${formatCurrency(drawdownAmount)} eval drawdown`;
+    const averageRiskBasis = `${drawdownBasis}, averaged over eval and funded trades`;
+    const kellyFractionText = (fractionOfDrawdown: number) =>
+        fractionOfDrawdown > 0
+            ? `${formatPercent(fractionOfDrawdown)} (${formatCurrency(fractionOfDrawdown * drawdownAmount)} per trade)`
+            : 'no edge';
     const kelly = useMemo(
-        () => kellySizing(baseInputs, result),
-        [baseInputs, result],
+        () =>
+            kellySizing(baseInputs, {
+                averageRiskPerTrade: result.averageRiskPerTrade,
+                riskBasis: drawdownAmount,
+            }),
+        [baseInputs, drawdownAmount, result.averageRiskPerTrade],
     );
     const averageTrade = useMemo(
         () => averageTradeSize(baseInputs, result),
@@ -544,26 +559,31 @@ export default function StrategyAnalysis({
                         </div>
                         <div className="flex flex-col gap-3">
                             <p className="text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
-                                Kelly sizing
+                                Kelly (information only)
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                                Size by the documented eval and funded rules
+                                (Hard Rules 3 and 5).{' '}
+                                {
+                                    ECONOMICS_DISCLOSURE_TEXT[
+                                        EconomicsDisclosure.KellyNotPropSizing
+                                    ]
+                                }
+                                .
                             </p>
                             <Metric
                                 label="Full Kelly"
-                                value={
-                                    kelly.fullKelly > 0
-                                        ? formatPercent(kelly.fullKelly)
-                                        : 'no edge'
-                                }
+                                sub={drawdownBasis}
+                                value={kellyFractionText(kelly.fullKelly)}
                             />
                             <Metric
-                                label="Half Kelly (rec.)"
-                                value={
-                                    kelly.halfKelly > 0
-                                        ? formatPercent(kelly.halfKelly)
-                                        : 'no edge'
-                                }
+                                label="Half Kelly"
+                                sub={drawdownBasis}
+                                value={kellyFractionText(kelly.halfKelly)}
                             />
                             <Metric
                                 label="Average risk"
+                                sub={averageRiskBasis}
                                 value={
                                     kelly.currentRiskFraction === null
                                         ? NOT_APPLICABLE
@@ -572,7 +592,10 @@ export default function StrategyAnalysis({
                                           )
                                 }
                             />
-                            <KellyIndexMetric index={kelly.kellyIndex} />
+                            <KellyIndexMetric
+                                basis={`average risk over full Kelly, both ${drawdownBasis}`}
+                                index={kelly.kellyIndex}
+                            />
                         </div>
                     </div>
                 </section>
@@ -599,13 +622,13 @@ function gainToPainColor(v: number): string {
     return v > 1 ? 'text-amber-400' : 'text-rose-400';
 }
 
-function kellyColor(index: number): string {
-    if (index > 1) return 'text-rose-400';
-    if (index > 0.75) return 'text-amber-400';
-    return index >= 0.25 ? 'text-emerald-400' : 'text-amber-400';
-}
-
-function KellyIndexMetric({ index }: { index: KellyIndex }) {
+function KellyIndexMetric({
+    basis,
+    index,
+}: {
+    basis: string;
+    index: KellyIndex;
+}) {
     switch (index.status) {
         case KellyIndexStatus.NoEdge: {
             return <Metric label="Kelly index" value="no edge" />;
@@ -621,31 +644,16 @@ function KellyIndexMetric({ index }: { index: KellyIndex }) {
         }
         case KellyIndexStatus.Sized: {
             return (
-                <div className="flex flex-col gap-0.5">
-                    <span className="text-[11px] text-muted-foreground">
-                        Kelly index
-                    </span>
-                    <span
-                        className={cn(
-                            'font-mono text-sm font-semibold tabular-nums',
-                            kellyColor(index.value),
-                        )}
-                    >
-                        {index.value.toFixed(2)}×{' '}
-                        <span className="text-[11px] font-normal">
-                            ({kellyLabel(index.value)})
-                        </span>
-                    </span>
-                </div>
+                <Metric
+                    label="Kelly index"
+                    sub={basis}
+                    value={`${index.value.toFixed(2)}× full Kelly`}
+                />
             );
         }
     }
 }
-function kellyLabel(index: number): string {
-    if (index > 1) return 'over-betting';
-    if (index > 0.75) return 'high variance';
-    return index >= 0.25 ? 'optimal zone' : 'under-betting';
-}
+
 function Metric({
     label,
     sub,

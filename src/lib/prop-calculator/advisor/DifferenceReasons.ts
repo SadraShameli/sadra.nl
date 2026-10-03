@@ -8,6 +8,7 @@ import {
     DifferenceReason,
     type DifferenceReasonDetail,
     DpNotValidatedCause,
+    EngineInputsRefusalKind,
 } from './DifferenceReason';
 import {
     DayStopReason,
@@ -36,13 +37,24 @@ export const SIZING_CONSTRAINT_TEXT: Readonly<
         'Capped by the profit remaining to the target.',
 };
 
+export const ENGINE_INPUTS_REFUSAL_TEXT: Readonly<
+    Record<EngineInputsRefusalKind, string>
+> = {
+    [EngineInputsRefusalKind.FlatBelowOneContract]:
+        'the documented flat risk places below one contract at the entered stop',
+    [EngineInputsRefusalKind.NoCandidates]:
+        'no funded candidate could be built for this plan and stop',
+    [EngineInputsRefusalKind.PayoutOverrideRejected]:
+        'the personal payout request is not a positive whole-cent amount, so it was ignored and the rulebook request was used',
+};
+
 export const RETAINED_CUSHION_BASIS_TEXT: Readonly<
     Record<RetainedCushionBasis, string>
 > = {
-    [RetainedCushionBasis.HardRule2Default]: "Hard Rule 2's default",
+    [RetainedCushionBasis.HardRule2Default]: "Hard Rule 2's minimum",
     [RetainedCushionBasis.LiveOneDrawdown]: 'one live drawdown',
     [RetainedCushionBasis.PersonalOverride]: 'your personal override',
-    [RetainedCushionBasis.RulebookSize]: 'your rulebook size',
+    [RetainedCushionBasis.RulebookSize]: "your rulebook's retained cushion",
 };
 
 export const DAY_STOP_REASON_TEXT: Readonly<Record<DayStopReason, string>> = {
@@ -131,7 +143,7 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
             return `Day ${detail.day} is past this DP solve's horizon; the state was never reached.`;
         }
         case DifferenceReason.EngineInputsRefused: {
-            return `The engine refused these inputs: ${detail.issue}`;
+            return `The engine refused these inputs: ${ENGINE_INPUTS_REFUSAL_TEXT[detail.refusal]}.`;
         }
         case DifferenceReason.EngineLadderNeverFunded: {
             return `The engine's best ladder never funded the account in ${detail.sims} simulated attempts, so no cost or speed to funded can be compared here.`;
@@ -152,6 +164,18 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
         case DifferenceReason.HorizonCreditOneRequest: {
             return `Over the ${detail.horizonDays}-day horizon, the credit reflects only one payout request.`;
         }
+        case DifferenceReason.LiveFloorMinimumTrade: {
+            const minimum = detail.isPlacedAtEnteredStop
+                ? 'one contract at your entered stop'
+                : 'one cent, since no instrument and stop are entered';
+            const limit =
+                detail.affordableRisk >= detail.minimumTradeRisk
+                    ? ''
+                    : detail.affordableRisk > 0
+                      ? ` The caps beside it (the daily loss room and any personal max risk per trade) leave only $${detail.affordableRisk.toFixed(2)} of risk.`
+                      : ' The caps beside it (the daily loss room and any personal max risk per trade) leave no room for it, so no trade is offered.';
+            return `This account sits on its live floor, which is still alive. The smallest placeable trade is ${minimum}, $${detail.minimumTradeRisk.toFixed(2)} of risk. Any loss breaches the live floor, and a live account cannot be repurchased. Offering that one trade is this tool's minimum-trade convention, not a firm rule; not trading is the alternative.${limit}`;
+        }
         case DifferenceReason.LiveModelApproximation: {
             return 'No account-level live model exists for this firm; the firm-level rule is used instead.';
         }
@@ -168,7 +192,7 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
             return 'This optimum ranks by speed to funded, not by expected monthly net.';
         }
         case DifferenceReason.PayoutPolicyDiffers: {
-            return `This number used the "${detail.enginePolicyLabel}" payout policy, not the headline's "${detail.headlinePolicyLabel}".`;
+            return `The headline's documented payout request is $${detail.headlineRequest.toFixed(2)}, but this number used the payout-size optimum of $${detail.engineRequest.toFixed(2)}.`;
         }
         case DifferenceReason.PersonalCap: {
             return `Capped by your personal max risk per trade of $${detail.cap.toFixed(2)}.`;
@@ -203,7 +227,7 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
 export function personalPayoutOverrideWarningText(
     warning: PersonalPayoutOverrideWarning,
 ): string {
-    return `In the payout-size sweep over ${String(warning.horizonDays)} funded days, your payout request underperforms the engine's best payout size: monthly net ${formatCurrency(warning.overrideMonthlyNet, 0)} at a ${formatCurrency(warning.overrideRequestSize, 0)} request against ${formatCurrency(warning.optimumMonthlyNet, 0)} at ${formatCurrency(warning.optimumRequestSize, 0)}, bust probability ${formatPercent(warning.overrideBustProbability)} against ${formatPercent(warning.optimumBustProbability)}, retaining ${formatCurrency(warning.retainedCushion, 0)} (${RETAINED_CUSHION_BASIS_TEXT[warning.retainedCushionBasis]}).`;
+    return `In the payout-size sweep over ${String(warning.horizonDays)} funded days, ${overrideComparisonClause(warning)}: credit-inclusive monthly net ${formatCurrency(warning.overrideMonthlyNet, 0)} at a ${formatCurrency(warning.overrideRequestSize, 0)} request against ${formatCurrency(warning.optimumMonthlyNet, 0)} at ${formatCurrency(warning.optimumRequestSize, 0)}, bust probability ${formatPercent(warning.overrideBustProbability)} against ${formatPercent(warning.optimumBustProbability)}, retaining ${formatCurrency(warning.retainedCushion, 0)} (${RETAINED_CUSHION_BASIS_TEXT[warning.retainedCushionBasis]}).`;
 }
 
 function conductPatternQuote(pattern: ConductPattern): string {
@@ -235,4 +259,15 @@ function dpNotValidatedCauseText(cause: DpNotValidatedCause): string {
             return 'the gate ran on a stale tree';
         }
     }
+}
+
+function overrideComparisonClause(
+    warning: PersonalPayoutOverrideWarning,
+): string {
+    if (warning.overrideMonthlyNet < warning.optimumMonthlyNet) {
+        return "your payout request underperforms the engine's best payout size";
+    }
+    return warning.overrideBustProbability > warning.optimumBustProbability
+        ? "your payout request earns more than the engine's best payout size but with a higher bust probability"
+        : "your payout request earns more than the engine's best payout size beyond the sweep's noise band, so the sweep's best row is not the best size";
 }

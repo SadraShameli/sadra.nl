@@ -1,6 +1,8 @@
+import { liveTransferAssumptionOf } from '~/lib/prop-calculator/advisor/Assumption';
 import { fundedCycleSeedFromTracker } from '~/lib/prop-calculator/advisor/FundedFromStateSweep';
 import {
     type DocumentedPolicySpec,
+    pricedCumulativeTriggerAssumptionOf,
     toSimInputs,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
@@ -58,12 +60,19 @@ export function valueAtState(
         start: startStateOf(base.plan, account),
     };
     const out = simulateFromState(inputs);
-    return valueResult(
-        {
-            creditFree: out.estimates.fromStateExpectedRealizedCash,
-            creditInclusive: out.estimates.fromStateExpectedCash,
-        },
-        spec.run.seed,
-        spec.run.trials,
-    );
+    const cumulativePayoutTrigger = pricedCumulativeTriggerAssumptionOf(base);
+    return {
+        ...valueResult(
+            {
+                creditFree: out.estimates.fromStateExpectedRealizedCash,
+                creditInclusive: out.estimates.fromStateExpectedCash,
+            },
+            spec.run.seed,
+            spec.run.trials,
+            liveTransferAssumptionOf(base, out.liveTransferProbability),
+        ),
+        ...(cumulativePayoutTrigger !== undefined && {
+            cumulativePayoutTrigger,
+        }),
+    };
 }

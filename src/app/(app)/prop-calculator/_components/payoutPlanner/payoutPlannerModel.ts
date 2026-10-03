@@ -1,3 +1,5 @@
+import { ZodError } from 'zod';
+
 import { formatGateCurrency } from '~/lib/format';
 import {
     type Dollars,
@@ -7,16 +9,17 @@ import {
     minimumPayoutRequest,
     PayoutGate,
     type Plan,
-    tightestVerifiedCumulativeTrigger,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
     AccountReconstruction,
+    AccountReconstructionError,
     type AccountSnapshotInput,
     accountSnapshotInputSchema,
     AdviceSource,
     assertPlausibleSnapshot,
     type BlockedPayoutReadiness,
+    type CumulativePayoutTriggerAssumption,
     DashboardBalanceConvention,
     type DocumentedPolicySpec,
     type EligiblePayoutReadiness,
@@ -30,6 +33,7 @@ import {
     LiveTriggerCoverage,
     liveTriggerLimitsFor,
     type NextPayoutProjection,
+    NO_PENDING_PAYOUT_COUNTS,
     type PayoutBlockReason,
     PayoutBlockReasonKind,
     payoutPath,
@@ -39,6 +43,7 @@ import {
     PayoutReadinessKind,
     type PayoutWait,
     PayoutWaitBasis,
+    pricedCumulativeTriggerAssumptionOf,
     type ReconstructedFundedOrEvalAccount,
     type RetainedCushionBasis,
     retainedCushionForStage,
@@ -48,6 +53,7 @@ import {
     SizingStage,
     type SnapshotPlausibilityIssue,
     toSimInputs,
+    verifiedCumulativeTriggerOf,
 } from '~/lib/prop-calculator/advisor';
 import {
     payoutStakeComparison,
@@ -56,6 +62,9 @@ import {
 
 export const PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT =
     "Live triggers are not checked here: this planner does not know how many payouts your accounts at the firm have been paid, so a payout that moves an account live is not flagged. Compare the firm's live-transition rule with your own payout history before you request.";
+
+export const PAST_PAYOUTS_NOT_COUNTED_TEXT =
+    'Payouts you already took are not counted: the outlook simulations start from $0 paid toward this trigger, so an account that has paid out before reaches it sooner than shown. Compare the trigger with your own payout history.';
 
 const TERMINAL_GATES: ReadonlySet<PayoutGate> = new Set([
     PayoutGate.AccountConcluded,
@@ -67,6 +76,7 @@ export enum PayoutPlannerResultKind {
     Blocked = 'blocked',
     Implausible = 'implausible',
     Ready = 'ready',
+    Unreadable = 'unreadable',
 }
 
 export interface PayoutPlannerAccountInput {
@@ -105,6 +115,8 @@ export interface PayoutPlannerImplausibleResult {
 }
 
 export interface PayoutPlannerOutlook {
+    readonly cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption;
+    readonly pastPayoutsNote?: string;
     readonly projection: NextPayoutProjection;
     readonly stakeComparison: null | PayoutStakeComparisonOutcome;
 }
@@ -131,11 +143,17 @@ export interface PayoutPlannerReadyResult {
 export type PayoutPlannerResult =
     | PayoutPlannerBlockedResult
     | PayoutPlannerImplausibleResult
-    | PayoutPlannerReadyResult;
+    | PayoutPlannerReadyResult
+    | PayoutPlannerUnreadableResult;
 
 export interface PayoutPlannerRetainedCushion {
     readonly amount: Dollars;
     readonly basis: RetainedCushionBasis;
+}
+
+export interface PayoutPlannerUnreadableResult {
+    readonly kind: PayoutPlannerResultKind.Unreadable;
+    readonly reason: string;
 }
 
 export interface SimStayCeiling {
@@ -273,7 +291,12 @@ export function planPayoutOutlook(
             state: account.state,
         },
     });
+    const cumulativePayoutTrigger = pricedCumulativeTriggerAssumptionOf(base);
     return {
+        ...(cumulativePayoutTrigger !== undefined && {
+            cumulativePayoutTrigger,
+            pastPayoutsNote: PAST_PAYOUTS_NOT_COUNTED_TEXT,
+        }),
         projection,
         stakeComparison: isEligible
             ? payoutStakeComparison(account, spec)
@@ -292,6 +315,18 @@ export function planPayoutReadiness(
             return {
                 issues: error.issues,
                 kind: PayoutPlannerResultKind.Implausible,
+            };
+        }
+        if (error instanceof ZodError) {
+            return {
+                kind: PayoutPlannerResultKind.Unreadable,
+                reason: schemaErrorText(error),
+            };
+        }
+        if (error instanceof AccountReconstructionError) {
+            return {
+                kind: PayoutPlannerResultKind.Unreadable,
+                reason: error.message,
             };
         }
         throw error;
@@ -315,6 +350,7 @@ export function planPayoutReadiness(
             ? PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT
             : null;
     const readiness = payoutReadiness(input.plan, state, fundedTracker, {
+        ...NO_PENDING_PAYOUT_COUNTS,
         liveTrigger,
         minRetainedCushion: retainedCushion.amount,
         payoutRequestSize: input.requestSize,
@@ -378,7 +414,12 @@ export function reconstructPayoutPlannerAccount(
     );
     assertPlausibleSnapshot(input.plan, snapshot);
 
-    const account = AccountReconstruction.rebuild(snapshot, input.plan);
+    const account = AccountReconstruction.rebuild(
+        snapshot,
+        input.plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
+    );
     if (
         account.kind !== TradingPhase.Funded ||
         account.fundedTracker === null
@@ -390,6 +431,7 @@ export function reconstructPayoutPlannerAccount(
 
     const retainedCushion = retainedCushionForStage(input.rulebook, {
         ...fundedLiveTriggerFieldsOf(LIVE_TRIGGER_NOT_CHECKED),
+        ...NO_PENDING_PAYOUT_COUNTS,
         pendingPayouts: dollars(0),
         personalRequestOverride: null,
         personalRetainedCushion: null,
@@ -403,7 +445,7 @@ export function reconstructPayoutPlannerAccount(
 }
 
 export function simStayCeilingText(ceiling: SimStayCeiling): string {
-    return `This planner's simulations do not apply the verified firm trigger that moves an account live once cumulative payouts reach ${money(ceiling.cumulativePayoutLimit)} (${ceiling.sourceUrl}, fetched ${ceiling.fetchedOn}), so a withdrawal size it favors can cross it. Keep your total paid below it to stay simulated. The firm may count gross payouts rather than what you receive after the split and fees, which would put the ceiling lower in what you receive. This tool cannot subtract your past payouts, so compare the trigger with your own payout history.`;
+    return `This planner's simulations send an account live once the payouts it receives, counted after the profit split, reach ${money(ceiling.cumulativePayoutLimit)} (${ceiling.sourceUrl}, fetched ${ceiling.fetchedOn}), and the payout that reaches it is still paid, so a withdrawal size it favors can cross it. The size you type here is not checked against this trigger. Keep your total paid below it to stay simulated. The firm may count gross payouts rather than what you receive after the split and fees, which would put the ceiling lower in what you receive. This tool cannot subtract your past payouts, so compare the trigger with your own payout history.`;
 }
 
 function countText(count: number, noun: string): string {
@@ -449,14 +491,21 @@ function peakFieldsFor(
     }
 }
 
+function schemaErrorText(error: ZodError): string {
+    return error.issues
+        .map((issue) =>
+            issue.path.length === 0
+                ? issue.message
+                : `${issue.path.join('.')}: ${issue.message}`,
+        )
+        .join('; ');
+}
+
 function simStayCeilingOf(plan: Plan): null | SimStayCeiling {
-    const triggers = findFirm(plan.id.firm)?.accountPolicy.liveTriggersFor(
+    const verified = verifiedCumulativeTriggerOf(
+        findFirm(plan.id.firm)?.accountPolicy,
         plan,
     );
-    const verified =
-        triggers === undefined
-            ? null
-            : tightestVerifiedCumulativeTrigger(triggers);
     return verified === null
         ? null
         : {

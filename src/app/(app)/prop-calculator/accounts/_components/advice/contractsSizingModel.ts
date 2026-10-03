@@ -16,6 +16,7 @@ import {
     contractLimitAt,
     type Dollars,
     dollars,
+    floorToWholeCents,
     INSTRUMENTS,
     type InstrumentSymbol,
     type Plan,
@@ -27,6 +28,8 @@ import { type RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 import { routes } from '~/lib/site/routes';
 
 export interface ContractsSizingInput {
+    readonly cushionLeft: null | number;
+    readonly dailyLossRoom: null | number;
     readonly instrument: InstrumentSymbol;
     readonly phase: TradingPhase;
     readonly plan: Plan;
@@ -59,6 +62,7 @@ export function contractsSizingOf(
         plan: input.plan,
         retryFee: dollars(input.plan.retryFee()),
         risk: dollars(input.risk),
+        roomDollars: roomLeftOf(input),
         stopPoints: stopPoints ?? defaultPositionSize().stopPoints,
         tierProfit: tierProfitOf(input),
         unit: input.unit,
@@ -79,6 +83,15 @@ export function contractsSizingOf(
             statusText: positionSizeStatusText(state, result),
         },
     };
+}
+
+function roomLeftOf(input: ContractsSizingInput): Dollars | null {
+    const known = [input.cushionLeft, input.dailyLossRoom].filter(
+        (room) => room !== null,
+    );
+    if (known.length === 0) return null;
+    const room = Math.max(0, Math.min(...known));
+    return dollars(floorToWholeCents(room));
 }
 
 function tierProfitOf(input: ContractsSizingInput): Dollars | null {

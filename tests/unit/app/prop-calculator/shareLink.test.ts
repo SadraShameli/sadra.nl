@@ -9,7 +9,13 @@ import {
     buildShareLink,
     shareLinkForQuery,
 } from '~/app/(app)/prop-calculator/_components/shareLink';
-import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
+import {
+    encodeState,
+    type EncodeStateOptions,
+    ObjectiveUrlMode,
+} from '~/app/(app)/prop-calculator/_components/urlState';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import { OBJECTIVE_URL_PARAMETER } from '~/lib/schemas/url';
 
 describe('buildShareLink', () => {
     it('is origin plus pathname plus the encoded state', () => {
@@ -22,6 +28,7 @@ describe('buildShareLink', () => {
                 'https://sadra.nl',
                 '/prop-calculator/analysis',
                 state,
+                {},
             ),
         ).toBe(
             `https://sadra.nl/prop-calculator/analysis?${encodeState(state).toString()}`,
@@ -34,10 +41,51 @@ describe('buildShareLink', () => {
             'https://sadra.nl',
             '/prop-calculator',
             state,
+            {},
         );
         expect(link).not.toContain('#');
         expect(link.split('?')).toHaveLength(2);
         expect(new URL(link).searchParams.get('wr')).toBe('0.400');
+    });
+});
+
+function objectiveOf(
+    objective: SizingObjective,
+    options: EncodeStateOptions = {},
+): null | string {
+    const state = { ...defaultCalculatorState(), objective };
+    return new URL(
+        buildShareLink(
+            'https://sadra.nl',
+            '/prop-calculator/sizing',
+            state,
+            options,
+        ),
+    ).searchParams.get(OBJECTIVE_URL_PARAMETER);
+}
+
+describe('buildShareLink objective (PT-63d, F-V15)', () => {
+    it('writes a deliberately chosen MonthlyNet, so the recipient and a reload keep it', () => {
+        expect(
+            objectiveOf(SizingObjective.MonthlyNet, {
+                objectiveUrl: ObjectiveUrlMode.Explicit,
+            }),
+        ).toBe(SizingObjective.MonthlyNet);
+    });
+
+    it('leaves out an objective the bankroll chose automatically, so the link chooses again for its reader', () => {
+        expect(
+            objectiveOf(SizingObjective.RuinFirst, {
+                objectiveUrl: ObjectiveUrlMode.Omitted,
+            }),
+        ).toBeNull();
+    });
+
+    it('writes only a non-default objective when nothing says it was chosen', () => {
+        expect(objectiveOf(SizingObjective.MonthlyNet)).toBeNull();
+        expect(objectiveOf(SizingObjective.CycleCash)).toBe(
+            SizingObjective.CycleCash,
+        );
     });
 });
 

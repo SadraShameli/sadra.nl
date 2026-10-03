@@ -18,6 +18,8 @@ import type {
     ToolsWorkerResult,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 
+import { RulebookSource } from '~/app/(app)/prop-calculator/_components/bankroll/rulebookSource';
+import { type ObjectiveChoice } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import {
     type CalculatorAction,
     defaultCalculatorState,
@@ -36,26 +38,33 @@ import {
     type RulebookParameters,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
-import { CopySplitRowKind } from '~/lib/prop-calculator/advisor/policy';
+import {
+    CopySplitFundedSource,
+    CopySplitRowKind,
+} from '~/lib/prop-calculator/advisor/policy';
 
 interface SectionHarness {
     buildRequest: ((runId: number) => null | ToolsWorkerRequest) | null;
+    choice: ObjectiveChoice;
     dispatch: Mock<(action: CalculatorAction) => void>;
     objective: null | SizingObjective;
     phase: null | ToolsWorkerPhase;
     requestKey: null | string;
     result: null | ToolsWorkerResult;
     rulebook: null | RulebookParameters;
+    rulebookSource: null | RulebookSource;
 }
 
 const harness = vi.hoisted((): SectionHarness => ({
     buildRequest: null,
+    choice: { automaticBasis: null, queryFailure: null },
     dispatch: vi.fn(),
     objective: null,
     phase: null,
     requestKey: null,
     result: null,
     rulebook: null,
+    rulebookSource: null,
 }));
 
 const VARIANT: BankrollPlanVariantInputs = {
@@ -98,6 +107,7 @@ vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
             objective: harness.objective ?? SizingObjective.MonthlyNet,
         },
     }),
+    useObjectiveChoice: () => harness.choice,
 }));
 
 vi.mock(
@@ -105,6 +115,8 @@ vi.mock(
     () => ({
         useBankrollVariant: () => ({
             rulebook: harness.rulebook ?? DEFAULT_RULEBOOK,
+            rulebookSource:
+                harness.rulebookSource ?? RulebookSource.DefaultSignedOut,
             variant: VARIANT,
         }),
     }),
@@ -237,15 +249,20 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
 
     function describedAlert(input: HTMLInputElement | null): string {
         const id = input?.getAttribute('aria-describedby') ?? '';
-        return container.querySelector(`[id="${CSS.escape(id)}"]`)?.textContent ?? '';
+        return (
+            container.querySelector(`[id="${CSS.escape(id)}"]`)?.textContent ??
+            ''
+        );
     }
 
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.dispatch.mockReset();
+        harness.choice = { automaticBasis: null, queryFailure: null };
         harness.objective = SizingObjective.MonthlyNet;
         harness.result = null;
         harness.rulebook = null;
+        harness.rulebookSource = RulebookSource.DefaultSignedOut;
         harness.phase = null;
         harness.requestKey = null;
         harness.buildRequest = null;
@@ -308,7 +325,8 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
         );
     });
 
-    it('warns next to the funded risk input when the rulebook funded stop is not carried to the worker', () => {
+    it('sends the signed-in rulebook funded sizing to the worker and shows no stopgap warning', () => {
+        harness.rulebookSource = RulebookSource.User;
         harness.rulebook = {
             ...DEFAULT_RULEBOOK,
             funded: {
@@ -317,14 +335,93 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
             },
         };
         render();
-        expect(container.textContent).toContain(
-            'your rulebook funded stop (after 2 losses) is not applied to this split yet',
+        const request = harness.buildRequest?.(4);
+        if (request?.kind !== ToolsRequestKind.CopySplit) {
+            throw new Error('expected a CopySplit request');
+        }
+        expect(request.funded).toStrictEqual({
+            parameters: harness.rulebook.funded,
+            source: CopySplitFundedSource.UserRulebook,
+        });
+        expect(container.textContent).not.toContain(
+            'is not applied to this split yet',
         );
     });
 
-    it('shows no funded stop warning for the default rulebook', () => {
+    it('never says this page ranks by ruin first when the bankroll chose ruin first automatically', () => {
+        harness.objective = SizingObjective.RuinFirst;
+        harness.choice = {
+            automaticBasis: { availableCents: 100_000, switchCents: 500_000 },
+            queryFailure: null,
+        };
         render();
-        expect(container.textContent).not.toContain('is not applied to this split yet');
+        const text = container.textContent;
+        expect(text).toContain('Chosen automatically');
+        expect(text).toContain('which plan to buy');
+        expect(text).toContain("this page's sizing stays on monthly net");
+        expect(text).not.toMatch(/page ranks by ruin first/i);
+    });
+
+    it('names the default rulebook as the funded sizing source for a signed-out visitor', () => {
+        render();
+        const request = harness.buildRequest?.(5);
+        if (request?.kind !== ToolsRequestKind.CopySplit) {
+            throw new Error('expected a CopySplit request');
+        }
+        expect(request.funded).toStrictEqual({
+            parameters: DEFAULT_RULEBOOK.funded,
+            source: CopySplitFundedSource.DefaultRulebook,
+        });
+    });
+
+    it('names the user rulebook as the source even when it is the very object of the default rulebook', () => {
+        harness.rulebookSource = RulebookSource.User;
+        harness.rulebook = DEFAULT_RULEBOOK;
+        render();
+        const request = harness.buildRequest?.(6);
+        if (request?.kind !== ToolsRequestKind.CopySplit) {
+            throw new Error('expected a CopySplit request');
+        }
+        expect(request.funded.source).toBe(CopySplitFundedSource.UserRulebook);
+        expect(container.textContent).not.toContain('could not be loaded');
+    });
+
+    it('names the default rulebook as the source for a copy of it when the signed-in query failed, and says the rulebook failed to load', () => {
+        harness.rulebookSource = RulebookSource.DefaultFailed;
+        harness.rulebook = structuredClone(DEFAULT_RULEBOOK);
+        render();
+        const request = harness.buildRequest?.(7);
+        if (request?.kind !== ToolsRequestKind.CopySplit) {
+            throw new Error('expected a CopySplit request');
+        }
+        expect(request.funded.source).toBe(
+            CopySplitFundedSource.DefaultRulebook,
+        );
+        const alert = [...container.querySelectorAll('[role="alert"]')].find(
+            (entry) =>
+                entry.textContent.includes('Your rulebook could not be loaded'),
+        );
+        expect(alert?.textContent).toContain('default rulebook');
+    });
+
+    it('says the rulebook is still loading and runs on the default rulebook meanwhile', () => {
+        harness.rulebookSource = RulebookSource.DefaultLoading;
+        harness.rulebook = structuredClone(DEFAULT_RULEBOOK);
+        render();
+        const request = harness.buildRequest?.(8);
+        if (request?.kind !== ToolsRequestKind.CopySplit) {
+            throw new Error('expected a CopySplit request');
+        }
+        expect(request.funded.source).toBe(
+            CopySplitFundedSource.DefaultRulebook,
+        );
+        expect(container.textContent).toContain('Loading your rulebook');
+    });
+
+    it('says nothing about a rulebook load for a signed-out visitor', () => {
+        render();
+        expect(container.textContent).not.toContain('could not be loaded');
+        expect(container.textContent).not.toContain('Loading your rulebook');
     });
 
     it('ties each invalid input to its alert and marks only the failing input invalid', () => {
@@ -338,10 +435,14 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
         typeInto(splits, '2,2');
         expect(splits?.getAttribute('aria-invalid')).toBe('true');
         expect(total?.getAttribute('aria-invalid')).toBeNull();
-        expect(describedAlert(splits)).toContain('a split appears more than once');
+        expect(describedAlert(splits)).toContain(
+            'a split appears more than once',
+        );
         typeInto(total, 'abc');
         expect(total?.getAttribute('aria-invalid')).toBe('true');
-        expect(describedAlert(total)).toContain('total risk must be a positive dollar amount');
+        expect(describedAlert(total)).toContain(
+            'total risk must be a positive dollar amount',
+        );
         typeInto(fundedRiskInput(), 'abc');
         expect(fundedRiskInput()?.getAttribute('aria-invalid')).toBe('true');
         expect(describedAlert(fundedRiskInput())).toContain(

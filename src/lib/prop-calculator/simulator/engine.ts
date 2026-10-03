@@ -1,3 +1,4 @@
+import { type AccountState } from '~/lib/prop-calculator/core/AccountState';
 import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator/core/constants';
 import { DEFAULT_RUNG_SIZING } from '~/lib/prop-calculator/core/DayPolicy';
 import {
@@ -35,6 +36,7 @@ import {
 
 import { resolveDayPolicy } from './day';
 import { SIM_INPUTS_REFUSAL_PREFIX } from './dayPolicyValidation';
+import { runLiveTransferContinuation } from './livePhase';
 import {
     liveTransferContinuationKindOf,
     liveTransferOptionsFor,
@@ -108,6 +110,43 @@ export function fromStateCashSamples(
         );
     }
     return { cash, realizedCash };
+}
+
+export function liveTransferValueAfterPayout(
+    inputs: SimInputs,
+    state: AccountState,
+    trials: number,
+): UncertainValue {
+    assertPositiveSafeInteger(trials, 'trials');
+    const setup = liveTransferSetupOf(
+        inputs,
+        dollars(
+            inputs.commissionPerRoundTrip ?? SIM_DEFAULTS.commissionPerRoundTrip,
+        ),
+        resolveDayPolicy(inputs, TradingPhase.Funded).ladder.length,
+    );
+    const continuation = setup?.continuation ?? null;
+    if (setup === null || continuation === null) {
+        return { standardError: 0, value: 0 };
+    }
+    let sum = 0;
+    let squaredSum = 0;
+    for (let trial = 0; trial < trials; trial++) {
+        const options = liveTransferOptionsFor(setup, trial, 0);
+        if (options === undefined) return { standardError: 0, value: 0 };
+        const { recurring } = runLiveTransferContinuation(
+            continuation,
+            state,
+            inputs.fundedHorizonDays,
+            options.rng,
+        );
+        sum += recurring;
+        squaredSum += recurring * recurring;
+    }
+    return {
+        standardError: meanStandardError(sum, squaredSum, trials),
+        value: sum / trials,
+    };
 }
 
 export function simulate(inputs: SimInputs): SimOutputs {
@@ -204,6 +243,7 @@ export function simulateFromState(
 ): FromStateSimOutputs {
     const {
         commissionPerRoundTrip = SIM_DEFAULTS.commissionPerRoundTrip,
+        copyAccounts,
         discounts,
         fundedHorizonDays,
         idleDayProbability,
@@ -226,7 +266,7 @@ export function simulateFromState(
     assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
     assertPositiveSafeInteger(maxAttempts, 'maxAttempts');
     assertPayoutRequestPolicy(plan, payoutRequestPolicy, payoutRequestSize);
-    const startIssue = simStartIssue(plan, start, maxEvalDays);
+    const startIssue = simStartIssue(plan, start, maxEvalDays, copyAccounts);
     if (startIssue !== null) {
         throw new Error(`${SIM_INPUTS_REFUSAL_PREFIX}${startIssue}`);
     }
@@ -293,29 +333,8 @@ export function simulateFromState(
     );
 
     const freshOutputs = simulate({
-        commissionPerRoundTrip,
-        discounts,
-        fundedHorizonDays,
-        idleDayProbability,
-        instrument,
-        intradayPathStepsPerR,
-        liveTransferHazard: inputs.liveTransferHazard,
-        maxAttempts,
-        maxEvalDays,
-        minRetainedCushion,
-        payoutRequestPolicy,
-        payoutRequestSize,
-        plan,
-        rebuyLagDays: inputs.rebuyLagDays,
-        riskPerTrade: inputs.riskPerTrade,
-        rrRatio,
-        rungSizing,
+        ...withoutKeys(inputs, ['start']),
         seed: deriveSubSeed(seed, trials, 0),
-        stopPoints,
-        tradesPerDay: inputs.tradesPerDay,
-        trials,
-        verifiedCumulativePayoutTrigger: inputs.verifiedCumulativePayoutTrigger,
-        winrate: inputs.winrate,
     });
 
     const windowDays = fundedHorizonDays;

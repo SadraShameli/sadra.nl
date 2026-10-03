@@ -6,6 +6,10 @@ import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalc
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import {
+    assumptionText,
+    liveTransferAssumptionLines,
+} from '~/lib/prop-calculator/advisor';
 import { stableJson } from '~/lib/stableJson';
 
 import {
@@ -115,6 +119,52 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                                 />
                             ))}
                         </div>
+                        {cardSteps.map((step) =>
+                            step.liveTransfer === undefined ? null : (
+                                <div
+                                    className="flex flex-col gap-1"
+                                    key={step.kind}
+                                >
+                                    <h4 className="text-xs font-semibold text-white">
+                                        {VALUE_CHAIN_STEP_LABEL[step.kind]}{' '}
+                                        hazard
+                                    </h4>
+                                    <ul
+                                        aria-label={`Live-transfer and payout-trigger assumptions behind the ${VALUE_CHAIN_STEP_LABEL[step.kind]} value`}
+                                        className="flex flex-col gap-1 text-xs text-muted-foreground"
+                                    >
+                                        {liveTransferAssumptionLines(
+                                            step.liveTransfer,
+                                        ).map((line) => (
+                                            <li key={line}>{line}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ),
+                        )}
+                        {cardSteps.map((step) =>
+                            step.cumulativePayoutTrigger === undefined ? null : (
+                                <div
+                                    className="flex flex-col gap-1"
+                                    key={step.kind}
+                                >
+                                    <h4 className="text-xs font-semibold text-white">
+                                        {VALUE_CHAIN_STEP_LABEL[step.kind]}{' '}
+                                        cumulative payout trigger
+                                    </h4>
+                                    <ul
+                                        aria-label={`Cumulative payout trigger behind the ${VALUE_CHAIN_STEP_LABEL[step.kind]} value`}
+                                        className="flex flex-col gap-1 text-xs text-muted-foreground"
+                                    >
+                                        <li>
+                                            {assumptionText(
+                                                step.cumulativePayoutTrigger,
+                                            )}
+                                        </li>
+                                    </ul>
+                                </div>
+                            ),
+                        )}
                         {cardSteps
                             .filter((step) => step.assumptions.length > 0)
                             .map((step) => (

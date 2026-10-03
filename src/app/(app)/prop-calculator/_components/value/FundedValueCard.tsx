@@ -11,6 +11,10 @@ import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWor
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import {
+    assumptionText,
+    liveTransferAssumptionLines,
+} from '~/lib/prop-calculator/advisor';
 import { stableJson } from '~/lib/stableJson';
 
 import {
@@ -171,6 +175,26 @@ export function FundedValueCard({
                             }
                         />
                     </div>
+                )}
+                {result?.liveTransfer === undefined ? null : (
+                    <ul
+                        aria-label="Live-transfer and payout-trigger assumptions behind the funded value"
+                        className="flex flex-col gap-1 text-xs text-muted-foreground"
+                    >
+                        {liveTransferAssumptionLines(result.liveTransfer).map(
+                            (line) => (
+                                <li key={line}>{line}</li>
+                            ),
+                        )}
+                    </ul>
+                )}
+                {result?.cumulativePayoutTrigger === undefined ? null : (
+                    <ul
+                        aria-label="Cumulative payout trigger behind the funded value"
+                        className="flex flex-col gap-1 text-xs text-muted-foreground"
+                    >
+                        <li>{assumptionText(result.cumulativePayoutTrigger)}</li>
+                    </ul>
                 )}
             </div>
         </section>

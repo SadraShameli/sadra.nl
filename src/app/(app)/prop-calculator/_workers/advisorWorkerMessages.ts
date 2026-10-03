@@ -12,6 +12,7 @@ import {
     type EngineOptimumRequest,
     type EngineOptimumRunnerResult,
     enginePolicyKey,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     runEngineOptimum,
 } from '~/lib/prop-calculator/advisor';
@@ -172,6 +173,7 @@ export function reconstructedAccountOf(
 ): ReconstructedFundedOrEvalAccount {
     const { state } = start;
     const shared = {
+        ...NO_PENDING_PAYOUT_COUNTS,
         assumptions: [],
         contractLimit: null,
         cushion: state.balance - state.threshold,
@@ -208,12 +210,10 @@ function canonicalEngineOptimumRequest(request: EngineOptimumRequest): unknown {
     switch (request.source) {
         case AdviceSource.FundedSweepFresh:
         case AdviceSource.FundedSweepFromState:
+        case AdviceSource.LadderSearchFresh:
+        case AdviceSource.LadderSearchFromState:
         case AdviceSource.NextPayoutProjection: {
             return { ...request, policy: enginePolicyKey(request.policy) };
-        }
-        case AdviceSource.LadderSearchFresh:
-        case AdviceSource.LadderSearchFromState: {
-            return request;
         }
         case AdviceSource.PayoutSizeSweep: {
             return {

@@ -2,7 +2,7 @@ import { ALL_FIRMS, type Plan, type TradingFirm } from '~/lib/prop-calculator';
 import {
     LiveApplicabilityKind,
     livePlanApplicability,
-} from '~/lib/prop-calculator/advisor';
+} from '~/lib/prop-calculator/firms';
 
 export interface DocumentedLiveStartEntry {
     readonly firm: TradingFirm;

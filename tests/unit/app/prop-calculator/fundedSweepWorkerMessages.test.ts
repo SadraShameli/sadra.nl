@@ -6,9 +6,16 @@ import {
     fundedOptimizerRequest,
 } from '~/app/(app)/prop-calculator/_components/fundedOptimizer/fundedOptimizerModel';
 import {
+    WorkerTaskEventKind,
+    type WorkerTaskMessage,
+} from '~/app/(app)/prop-calculator/_components/workerTaskState';
+import { runFundedSweepTask } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorker';
+import {
     clampFundedSweepTrials,
     fundedSweepCacheKey,
+    type FundedSweepProgress,
     type FundedSweepRequest,
+    type FundedSweepResult,
     MAX_FUNDED_SWEEP_TRIALS,
 } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
 import {
@@ -17,6 +24,8 @@ import {
     FirmId,
     InstrumentSymbol,
     PayoutRequestPolicy,
+    PolicySizing,
+    RungSizing,
     serializePlanId,
 } from '~/lib/prop-calculator';
 import {
@@ -24,6 +33,7 @@ import {
     DEFAULT_RULEBOOK,
 } from '~/lib/prop-calculator/advisor';
 import { type Plan, TopStepVariant } from '~/lib/prop-calculator/core';
+import { FundedCandidateBuildKind } from '~/lib/prop-calculator/optimize';
 
 function requirePlan(value: null | Plan | undefined, message: string): Plan {
     if (value === null || value === undefined) throw new Error(message);
@@ -180,6 +190,96 @@ describe('fundedSweepCacheKey', () => {
             request({ dayStop: { kind: DayStopRuleKind.DayGreen } }),
         );
         expect(a).not.toBe(b);
+    });
+});
+
+describe('fundedSweepCacheKey carries every input the sweep now honors (F-27 (1), (2))', () => {
+    it('changes with each coupon discount', () => {
+        const none = fundedSweepCacheKey(request());
+        for (const patch of [
+            { evalDiscountPercent: 20 },
+            { activationDiscountPercent: 20 },
+            { monthlySubscriptionDiscountPercent: 20 },
+            { resetDiscountPercent: 20 },
+        ]) {
+            expect(fundedSweepCacheKey(request(patch))).not.toBe(none);
+        }
+    });
+
+    it('changes with the rung sizing, the live-transfer hazard and the applied eval ladder', () => {
+        const none = fundedSweepCacheKey(request());
+        expect(
+            fundedSweepCacheKey(
+                request({ rungSizing: RungSizing.SkipIfUnaffordable }),
+            ),
+        ).not.toBe(none);
+        expect(
+            fundedSweepCacheKey(request({ liveTransferHazard: 0.25 })),
+        ).not.toBe(none);
+        expect(
+            fundedSweepCacheKey(
+                request({
+                    evalDayPolicy: {
+                        ladder: [300, 500],
+                        maxLossesPerDay: null,
+                        sizing: PolicySizing.ContractCapped,
+                        stopRule: { kind: DayStopRuleKind.DayGreen },
+                    },
+                }),
+            ),
+        ).not.toBe(none);
+    });
+});
+
+describe('the funded sweep worker streams one Progress event per candidate (F-27 (10))', () => {
+    type Posted = WorkerTaskMessage<FundedSweepProgress, FundedSweepResult>;
+
+    function runTask(
+        built: FundedSweepRequest,
+        runId: number,
+    ): Posted[] {
+        const posted: Posted[] = [];
+        runFundedSweepTask({ request: built, runId }, (message) => {
+            posted.push(message);
+        });
+        return posted;
+    }
+
+    it('posts Progress for every candidate in order, then Done, all under the run id', () => {
+        const posted = runTask(request({ trials: 10 }), 4);
+        const done = posted.at(-1);
+        if (done?.kind !== WorkerTaskEventKind.Done) {
+            throw new Error('expected Done last');
+        }
+        if (done.result.kind !== FundedCandidateBuildKind.Built) {
+            throw new Error('expected a built sweep');
+        }
+        const total = done.result.rows.length;
+        const progress = posted.slice(0, -1);
+        expect(progress.every((m) => m.runId === 4 && done.runId === 4)).toBe(
+            true,
+        );
+        expect(
+            progress.map((message) =>
+                message.kind === WorkerTaskEventKind.Progress
+                    ? message.progress
+                    : null,
+            ),
+        ).toStrictEqual(
+            Array.from({ length: total }, (_, index) => ({
+                completed: index + 1,
+                total,
+            })),
+        );
+    });
+
+    it('posts Failed for a request whose plan does not resolve', () => {
+        const posted = runTask({ ...request(), planSerial: 'no-such-plan' }, 9);
+        expect(posted).toHaveLength(1);
+        expect(posted[0]).toMatchObject({
+            kind: WorkerTaskEventKind.Failed,
+            runId: 9,
+        });
     });
 });
 

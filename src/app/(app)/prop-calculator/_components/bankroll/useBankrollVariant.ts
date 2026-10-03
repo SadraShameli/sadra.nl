@@ -12,9 +12,11 @@ import {
 import { api } from '~/trpc/react';
 
 import { bankrollVariantFor } from './bankrollModel';
+import { type RulebookSource, rulebookSourceOf } from './rulebookSource';
 
 export interface BankrollVariant {
     readonly rulebook: RulebookParameters;
+    readonly rulebookSource: RulebookSource;
     readonly variant: BankrollPlanVariantInputs;
 }
 
@@ -25,13 +27,18 @@ export function useBankrollVariant(): BankrollVariant {
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
         enabled: hasSession,
     });
-    const rulebook =
-        hasSession && rulebookQuery.data !== undefined
-            ? rulebookQuery.data
-            : DEFAULT_RULEBOOK;
+    const userRulebook = hasSession ? rulebookQuery.data : undefined;
+    const rulebookSource = rulebookSourceOf({
+        hasRulebook: userRulebook !== undefined,
+        hasSession,
+        isFailed: rulebookQuery.isError,
+        isSessionFailed: session.error !== null,
+        isSessionPending: session.isPending,
+    });
+    const rulebook = userRulebook ?? DEFAULT_RULEBOOK;
     const variant = useMemo(
         () => bankrollVariantFor(calculatorState, rulebook),
         [calculatorState, rulebook],
     );
-    return { rulebook, variant };
+    return { rulebook, rulebookSource, variant };
 }

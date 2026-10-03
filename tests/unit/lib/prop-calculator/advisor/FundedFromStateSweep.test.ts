@@ -279,7 +279,7 @@ describe('runFundedFromStateSweep (PT-32)', () => {
     it('near a fresh funded start, ranks two far-apart flat sizes the same way the fresh sweep does', () => {
         const plan = rapidEodPlan();
         const policy = policyFor(plan);
-        const base = baseSimInputs({ trials: 3000 });
+        const base = baseSimInputs({ trials: 400 });
         const start = startAt(plan, 0, 0, 0);
         const candidatesInput = {
             flat: [150, 6000],

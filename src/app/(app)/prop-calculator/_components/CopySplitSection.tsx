@@ -4,6 +4,8 @@ import { useCallback, useId, useMemo, useState } from 'react';
 
 import { bankrollVariantWithFundedRisk } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollModel';
 import { parseBankrollDollarsField } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollUrlState';
+import { copySplitFundedSourceOf } from '~/app/(app)/prop-calculator/_components/bankroll/rulebookSource';
+import { RulebookSourceNotice } from '~/app/(app)/prop-calculator/_components/bankroll/RulebookSourceNotice';
 import { useBankrollVariant } from '~/app/(app)/prop-calculator/_components/bankroll/useBankrollVariant';
 import { useToolsRequest } from '~/app/(app)/prop-calculator/_components/bankroll/useToolsRequest';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
@@ -13,7 +15,7 @@ import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToo
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { Input } from '~/components/ui/Input';
 import { CENTS_PER_DOLLAR } from '~/lib/prop-calculator';
-import { copySplitFundedStopNotice } from '~/lib/prop-calculator/advisor/policy';
+import { type CopySplitFundedSizing } from '~/lib/prop-calculator/advisor/policy';
 import { stableJson } from '~/lib/stableJson';
 
 import {
@@ -32,14 +34,13 @@ interface FieldAccessibilityProps {
 
 export default function CopySplitSection() {
     const { state: calculatorState } = useCalculatorInputs();
-    const { rulebook, variant } = useBankrollVariant();
+    const { rulebook, rulebookSource, variant } = useBankrollVariant();
     const totalRiskId = useId();
     const splitsId = useId();
     const fundedRiskId = useId();
     const totalRiskIssueId = useId();
     const splitsIssueId = useId();
     const fundedRiskIssueId = useId();
-    const fundedStopNoticeId = useId();
     const [fundedRiskText, setFundedRiskText] = useState<null | string>(null);
     const fundedRiskShown =
         fundedRiskText ?? String(rulebook.funded.riskCents / CENTS_PER_DOLLAR);
@@ -70,13 +71,20 @@ export default function CopySplitSection() {
         () => parseCopySplitInputs({ splits: text.splits, totalRisk: '1' }).issue,
         [text.splits],
     );
-    const fundedStopNotice = copySplitFundedStopNotice(rulebook.funded);
+    const funded = useMemo<CopySplitFundedSizing>(
+        () => ({
+            parameters: rulebook.funded,
+            source: copySplitFundedSourceOf(rulebookSource),
+        }),
+        [rulebook, rulebookSource],
+    );
     const { objective } = calculatorState;
 
     const requestKey =
         fundedVariant === null || parsed.inputs === null
             ? null
             : stableJson({
+                  funded,
                   inputs: parsed.inputs,
                   objective,
                   variant: fundedVariant,
@@ -90,9 +98,10 @@ export default function CopySplitSection() {
                       fundedVariant,
                       parsed.inputs,
                       objective,
+                      funded,
                       runId,
                   ),
-        [fundedVariant, objective, parsed.inputs],
+        [funded, fundedVariant, objective, parsed.inputs],
     );
     const worker = useToolsRequest(debouncedRequestKey, buildRequest);
 
@@ -131,6 +140,7 @@ export default function CopySplitSection() {
                 comparison unit is the whole group of accounts.
             </p>
             <CalculatorObjectiveChip />
+            <RulebookSourceNotice source={rulebookSource} />
             <div className="flex flex-wrap items-end gap-4">
                 <div className="flex flex-col gap-1">
                     <label
@@ -181,12 +191,9 @@ export default function CopySplitSection() {
                         Funded risk per trade, per account
                     </label>
                     <Input
-                        {...fundedRiskFieldProps(
+                        {...invalidFieldProps(
                             fundedRisk === null,
                             fundedRiskIssueId,
-                            fundedStopNotice === null
-                                ? null
-                                : fundedStopNoticeId,
                         )}
                         className="h-8 w-32"
                         id={fundedRiskId}
@@ -223,14 +230,6 @@ export default function CopySplitSection() {
                     role="alert"
                 >
                     funded risk must be a positive dollar amount
-                </p>
-            )}
-            {fundedStopNotice !== null && (
-                <p
-                    className="text-xs text-amber-400"
-                    id={fundedStopNoticeId}
-                >
-                    {fundedStopNotice}
                 </p>
             )}
             {isComputing && (
@@ -335,15 +334,6 @@ export default function CopySplitSection() {
             )}
         </section>
     );
-}
-
-function fundedRiskFieldProps(
-    isInvalid: boolean,
-    issueId: string,
-    noticeId: null | string,
-): FieldAccessibilityProps {
-    if (isInvalid) return invalidFieldProps(true, issueId);
-    return noticeId === null ? {} : { 'aria-describedby': noticeId };
 }
 
 function invalidFieldProps(

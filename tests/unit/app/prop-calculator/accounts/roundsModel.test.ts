@@ -10,6 +10,7 @@ import {
     nextRoundResultSummaryOf,
     roundsPageModel,
 } from '~/app/(app)/prop-calculator/accounts/rounds/roundsModel';
+import { NOT_APPLICABLE } from '~/lib/format';
 import {
     AccountEventKind,
     AccountStatus,
@@ -148,6 +149,201 @@ describe('roundsPageModel', () => {
             status: RoundStatus.Open,
             statusLabel: 'Open',
         });
+    });
+
+    it('carries payouts, cycle days and the in-progress text on each round row', () => {
+        const closedRound = round(
+            EVAL_PLAN,
+            'Closed push',
+            '2026-01-01',
+            RoundStatus.Closed,
+            { closedOn: '2026-03-01' },
+        );
+        const openRound = round(
+            EVAL_PLAN,
+            'Open push',
+            '2026-04-01',
+            RoundStatus.Open,
+        );
+        const closedMember = account(EVAL_PLAN, {
+            purchasedOn: '2026-01-05',
+            roundId: closedRound.id,
+        });
+        const busted = account(EVAL_PLAN, {
+            purchasedOn: '2026-04-01',
+            roundId: openRound.id,
+        });
+        const stillOpen = account(EVAL_PLAN, {
+            purchasedOn: '2026-04-01',
+            roundId: openRound.id,
+        });
+        const model = roundsPageModel(
+            ledger({
+                accounts: [closedMember, busted, stillOpen],
+                events: [
+                    event(closedMember, AccountEventKind.Busted, '2026-02-20'),
+                    event(busted, AccountEventKind.Purchased, '2026-04-01'),
+                    event(busted, AccountEventKind.Busted, '2026-04-05'),
+                    event(stillOpen, AccountEventKind.Purchased, '2026-04-01'),
+                ],
+                fees: [
+                    fee(
+                        closedMember,
+                        FeeKind.EvalPurchase,
+                        10_000,
+                        '2026-01-05',
+                    ),
+                ],
+                payouts: [
+                    payout(closedMember, 30_000, {
+                        netCents: 30_000,
+                        paidOn: '2026-02-15',
+                    }),
+                ],
+                rounds: [closedRound, openRound],
+            }),
+            THRESHOLDS,
+            14,
+            [],
+            TODAY,
+        );
+        const rowOf = (label: string) =>
+            model.rounds.find((row) => row.label === label);
+        expect(rowOf('Closed push')).toMatchObject({
+            cycleDays: '41 days',
+            inProgressText: 'none',
+            payoutsCents: '$300',
+        });
+        expect(rowOf('Open push')).toMatchObject({
+            cycleDays: NOT_APPLICABLE,
+            inProgressText: '1 in progress',
+            payoutsCents: '$0',
+        });
+    });
+
+    it('states each firm spread with its rounds, multiples and the share positive with its interval and n', () => {
+        const rounds = ['A', 'B', 'C'].map((name, index) =>
+            round(
+                EVAL_PLAN,
+                `Round ${name}`,
+                `2026-0${String(index + 1)}-01`,
+                RoundStatus.Closed,
+                { closedOn: `2026-0${String(index + 1)}-20` },
+            ),
+        );
+        const members = rounds.map((r) =>
+            account(EVAL_PLAN, { roundId: r.id }),
+        );
+        const payoutCents = [100_000, 25_000, 100_000];
+        const model = roundsPageModel(
+            ledger({
+                accounts: members,
+                fees: members.map((member, index) =>
+                    fee(
+                        member,
+                        FeeKind.EvalPurchase,
+                        50_000,
+                        `2026-0${String(index + 1)}-01`,
+                    ),
+                ),
+                payouts: members.map((member, index) =>
+                    payout(member, payoutCents[index] ?? 0, {
+                        netCents: payoutCents[index] ?? 0,
+                        paidOn: `2026-0${String(index + 1)}-10`,
+                    }),
+                ),
+                rounds,
+            }),
+            THRESHOLDS,
+            14,
+            [],
+            TODAY,
+        );
+        expect(model.perFirm).toHaveLength(1);
+        expect(model.perFirm[0]).toMatchObject({
+            closedRounds: '3',
+            firm: EVAL_PLAN.firm.displayName,
+            max: '2.00x',
+            min: '0.50x',
+            rounds: '3',
+            sharePositive: '66.7% (95% CI 20.8% to 93.9%, n = 3)',
+        });
+    });
+
+    it('states a firm spread from its closed rounds only and shows how many rounds that leaves out', () => {
+        const closedWinner = round(
+            EVAL_PLAN,
+            'Closed winner',
+            '2026-01-01',
+            RoundStatus.Closed,
+            { closedOn: '2026-02-01' },
+        );
+        const openRounds = ['A', 'B'].map((name, index) =>
+            round(
+                EVAL_PLAN,
+                `Open ${name}`,
+                `2026-0${String(index + 3)}-01`,
+                RoundStatus.Open,
+            ),
+        );
+        const winnerMember = account(EVAL_PLAN, { roundId: closedWinner.id });
+        const openMembers = openRounds.map((r) =>
+            account(EVAL_PLAN, { roundId: r.id }),
+        );
+        const model = roundsPageModel(
+            ledger({
+                accounts: [winnerMember, ...openMembers],
+                fees: [
+                    fee(winnerMember, FeeKind.EvalPurchase, 50_000, '2026-01-01'),
+                    ...openMembers.map((member, index) =>
+                        fee(
+                            member,
+                            FeeKind.EvalPurchase,
+                            50_000,
+                            `2026-0${String(index + 3)}-01`,
+                        ),
+                    ),
+                ],
+                payouts: [
+                    payout(winnerMember, 100_000, {
+                        netCents: 100_000,
+                        paidOn: '2026-01-10',
+                    }),
+                ],
+                rounds: [closedWinner, ...openRounds],
+            }),
+            THRESHOLDS,
+            14,
+            [],
+            TODAY,
+        );
+        expect(model.perFirm[0]).toMatchObject({
+            closedRounds: '1',
+            max: '2.00x',
+            mean: '2.00x',
+            min: '2.00x',
+            rounds: '3',
+            sharePositive: '100.0% (95% CI 20.7% to 100.0%, n = 1)',
+        });
+    });
+
+    it('counts a round without a firm in the unassigned count', () => {
+        const unassigned = round(
+            EVAL_PLAN,
+            'Loose round',
+            '2026-01-01',
+            RoundStatus.Open,
+            { externalFirmId: null, firmId: null },
+        );
+        const model = roundsPageModel(
+            ledger({ rounds: [unassigned] }),
+            THRESHOLDS,
+            14,
+            [],
+            TODAY,
+        );
+        expect(model.unassignedRoundCount).toBe(1);
+        expect(model.perFirm).toEqual([]);
     });
 
     it("feeds the user's own realized outcomes into the modeled P(round net negative), instead of leaving it stuck at N/A", () => {

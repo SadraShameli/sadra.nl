@@ -164,9 +164,11 @@ describe('propAccounts.bankroll', () => {
         expect(summary).toMatchObject({
             availableCents: 528_500,
             depositsCents: 500_000,
-            grownFromCents: 500_000,
+            reinvestedPayoutsCents: 0,
+            undatedPaidPayouts: 0,
             withdrawalsCents: 0,
         });
+        expect(summary).not.toHaveProperty('grownFromCents');
         const reads = queries.filter((query) => !isCount(query));
         expect(reads.length).toBeGreaterThan(0);
         for (const read of reads) {

@@ -9,12 +9,17 @@ import {
 import {
     AccountStateKind,
     AccountStateUnavailableKind,
+    DAY_LOSS_EVAL_NOTE,
+    DAY_LOSS_FUNDED_NOTE,
     type DayLossAccount,
     DayLossBasis,
+    dayLossBasisNotes,
+    dayLossBreakdownText,
     dayLossShareOf,
     DayLossUnmeasuredReason,
     fundedWithdrawableDollarsOf,
 } from '~/lib/prop-accounts/metrics';
+import { DAY_LOSS_EVAL_FROM_STATE_NOTE } from '~/lib/prop-accounts/metrics/DayLossShare';
 import {
     E8FuturesVariant,
     findFirm,
@@ -696,5 +701,72 @@ describe('dayLossShareOf', () => {
             });
             expect(result.days).toEqual([]);
         });
+    });
+});
+
+function dayOf(valueLoss: ReadonlyMap<string, number> | undefined) {
+    const result = dayLossShareOf({
+        ...BASE,
+        accounts: [evalAccount('e1', 0, -500)],
+        ...(valueLoss !== undefined && { evalValueLossDollars: valueLoss }),
+    });
+    const [day] = result.days;
+    if (day === undefined) throw new Error('expected a day loss');
+    return day;
+}
+
+describe('an eval day loss names the basis each entry used (PT-90, F-V29)', () => {
+    it('names the from-state value change for an entry priced from the account state, and not the retry fee', () => {
+        const day = dayOf(new Map([['e1', 42.5]]));
+        expect(dayLossBasisNotes(day)).toEqual([
+            DAY_LOSS_EVAL_FROM_STATE_NOTE,
+        ]);
+        expect(DAY_LOSS_EVAL_FROM_STATE_NOTE).toContain('from-state');
+        expect(DAY_LOSS_EVAL_FROM_STATE_NOTE).not.toContain('retry fee');
+        expect(dayLossBreakdownText(day)).toContain(
+            '$42.50 of eval value lost between the two snapshots',
+        );
+        expect(dayLossBreakdownText(day)).not.toContain('estimated');
+    });
+
+    it('names the retry-fee heuristic for an entry the engine did not price', () => {
+        const day = dayOf(undefined);
+        expect(dayLossBasisNotes(day)).toEqual([DAY_LOSS_EVAL_NOTE]);
+        expect(dayLossBreakdownText(day)).toContain('of estimated eval value');
+        expect(dayLossBreakdownText(day)).not.toContain('between the two');
+    });
+
+    it('names both when one day mixes a priced and an unpriced eval account', () => {
+        const result = dayLossShareOf({
+            ...BASE,
+            accounts: [evalAccount('e1', 0, -500), evalAccount('e2', 0, -500)],
+            evalValueLossDollars: new Map([['e1', 42.5]]),
+        });
+        const [day] = result.days;
+        if (day === undefined) throw new Error('expected a day loss');
+        expect(dayLossBasisNotes(day)).toEqual([
+            DAY_LOSS_EVAL_NOTE,
+            DAY_LOSS_EVAL_FROM_STATE_NOTE,
+        ]);
+        const text = dayLossBreakdownText(day);
+        expect(text).toContain('of eval value lost between the two snapshots');
+        expect(text).toContain('of estimated eval value');
+    });
+
+    it('lets a funded entry and a from-state eval entry share one day with their own notes', () => {
+        const result = dayLossShareOf({
+            ...BASE,
+            accounts: [
+                fundedAccount('f1', 20_000, 1000),
+                evalAccount('e1', 0, -500),
+            ],
+            evalValueLossDollars: new Map([['e1', 42.5]]),
+        });
+        const [day] = result.days;
+        if (day === undefined) throw new Error('expected a day loss');
+        expect(dayLossBasisNotes(day)).toEqual([
+            DAY_LOSS_FUNDED_NOTE,
+            DAY_LOSS_EVAL_FROM_STATE_NOTE,
+        ]);
     });
 });

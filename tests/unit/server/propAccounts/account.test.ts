@@ -224,7 +224,8 @@ function isCorruptJsonbCase(entry: Pick<UnreadableCase, 'readIssues'>) {
     return entry.readIssues.some(
         (issue) =>
             issue.kind === AccountReadIssueKind.CorruptPersonalRules ||
-            issue.reason === UnresolvedPlanReason.CorruptOptIns,
+            (issue.kind === AccountReadIssueKind.UnresolvablePlan &&
+                issue.reason === UnresolvedPlanReason.CorruptOptIns),
     );
 }
 
@@ -443,6 +444,64 @@ describe('propAccounts.account', () => {
                     roundId: VIDEO_IDS.round,
                 }),
             ),
+        ).resolves.toMatchObject({ id: IDS.account });
+    });
+
+    it('create rejects a round whose spend equals its budget exactly, and accepts one cent below, with the override, or with no budget', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 100_000 })],
+            }),
+        );
+        const error = await rejectionOf(
+            caller.account.create(
+                accountCreateInput({ roundId: VIDEO_IDS.round }),
+            ),
+        );
+        const shape = errorShapeOf(error);
+        expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.RoundBudgetExceeded),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+        const { caller: belowCaller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 99_999 })],
+            }),
+        );
+        await expect(
+            belowCaller.account.create(
+                accountCreateInput({ roundId: VIDEO_IDS.round }),
+            ),
+        ).resolves.toMatchObject({ id: IDS.account });
+        const { caller: overrideCaller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 100_000 })],
+            }),
+        );
+        await expect(
+            overrideCaller.account.create(
+                accountCreateInput({
+                    overrideRoundBudget: true,
+                    roundId: VIDEO_IDS.round,
+                }),
+            ),
+        ).resolves.toMatchObject({ id: IDS.account });
+        const { caller: unbudgetedCaller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.fee]: [feeRow({ amount_cents: 5_000_000 })],
+                [VIDEO_TABLES.round]: [roundRow({ budget_cents: null })],
+            }),
+        );
+        const unbudgetedInput = accountCreateInput({
+            roundId: VIDEO_IDS.round,
+        });
+        await expect(
+            unbudgetedCaller.account.create(unbudgetedInput),
         ).resolves.toMatchObject({ id: IDS.account });
     });
 

@@ -16,6 +16,7 @@ import {
     EvalSizingAdvisor,
     inputAssumption,
     ladderStepWidenedAssumption,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
 
@@ -55,6 +56,7 @@ function accountWithCushion(
         plan: registryPlan(),
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

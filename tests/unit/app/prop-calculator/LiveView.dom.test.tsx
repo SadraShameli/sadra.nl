@@ -20,10 +20,12 @@ import {
 } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
-    LiveApplicabilityKind,
-    livePlanApplicability,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
+import {
+    LiveApplicabilityKind,
+    livePlanApplicability,
+} from '~/lib/prop-calculator/firms';
 
 interface RulebookQueryResult {
     data: RulebookParameters | undefined;

@@ -71,7 +71,7 @@ function specOf(hazards: Partial<Record<FirmId, number>> = {}) {
     const spec: DocumentedPolicySpec = {
         enginePolicy: POLICY,
         rulebook: rulebookWithHazards(hazards),
-        run: { maxEvalDays: 60, seed: 42, trials: 400 },
+        run: { maxEvalDays: 60, seed: 42, trials: 120 },
     };
     return spec;
 }

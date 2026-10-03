@@ -1,9 +1,4 @@
 import { fundedCycleSeedFromTracker } from '~/lib/prop-calculator/advisor/FundedFromStateSweep';
-import {
-    LiveApplicabilityKind,
-    LiveNotModeledReason,
-    livePlanApplicability,
-} from '~/lib/prop-calculator/advisor/LivePlanApplicability';
 import { evaluateDocumentedPayout } from '~/lib/prop-calculator/advisor/PayoutReadiness';
 import {
     type DocumentedPolicySpec,
@@ -23,17 +18,22 @@ import {
     applyClosedTrade,
     closeTradingDay,
     dollars,
+    type EligiblePayout,
     type FundedCycleTracker,
     type LiveAccountState,
     type PayoutEvaluation,
     PayoutEvaluationKind,
     type Plan,
-    postPayoutThreshold,
     recordBestDay,
     resetForNewDay,
     restoreFundedCycleTracker,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
+import {
+    LiveApplicabilityKind,
+    LiveNotModeledReason,
+    livePlanApplicability,
+} from '~/lib/prop-calculator/firms';
 
 import { ValueResultKind } from './ValueEstimate';
 
@@ -63,7 +63,9 @@ export interface EvalMilestone {
 export interface FundedMilestone {
     readonly debited: number;
     readonly kind: MilestoneKind.Funded;
+    readonly plan: Plan;
     readonly state: AccountState;
+    readonly tracker: FundedCycleTracker;
     readonly traderReceives: number;
 }
 
@@ -130,6 +132,17 @@ export function closedSessionOf(
     };
 }
 
+export function copiedFundedTracker(
+    plan: Plan,
+    state: AccountState,
+    tracker: FundedCycleTracker,
+): FundedCycleTracker {
+    return restoreFundedCycleTracker(
+        { ...state },
+        fundedCycleSeedFromTracker(plan, state, tracker),
+    );
+}
+
 export function documentedPayoutEvaluation(
     account: ReconstructedFundedOrEvalAccount,
     spec: DocumentedPolicySpec,
@@ -179,6 +192,26 @@ export function milestoneState(
         : fundedMilestone(account, validatedSpec);
 }
 
+function documentedRequestPayout(
+    plan: Plan,
+    spec: DocumentedPolicySpec,
+    state: AccountState,
+    payoutsIssued: number,
+): Pick<EligiblePayout, 'causesHardBreach' | 'debited' | 'traderReceives'> {
+    const debited = resolveDocumentedPayoutRequestSize(
+        plan,
+        spec.enginePolicy,
+        spec.rulebook.payout,
+    );
+    return {
+        causesHardBreach:
+            plan.fullWithdrawalHardBreach &&
+            debited >= plan.accountProfit(state),
+        debited,
+        traderReceives: plan.payoutFromProfit(debited, payoutsIssued),
+    };
+}
+
 function evalMilestone(
     account: ReconstructedFundedOrEvalAccount,
     spec: DocumentedPolicySpec,
@@ -213,33 +246,29 @@ function fundedMilestone(
         );
     }
     const evaluation = documentedPayoutEvaluation(account, spec);
-    const debited =
+    const tracker = copiedFundedTracker(
+        plan,
+        account.state,
+        account.fundedTracker,
+    );
+    const state: AccountState = { ...account.state };
+    const payout =
         evaluation.kind === PayoutEvaluationKind.Eligible
-            ? evaluation.debited
-            : resolveDocumentedPayoutRequestSize(
+            ? evaluation
+            : documentedRequestPayout(
                   plan,
-                  spec.enginePolicy,
-                  spec.rulebook.payout,
+                  spec,
+                  account.state,
+                  tracker.payoutsIssued,
               );
-    const balanceAfter = account.state.balance - debited;
-    const state: AccountState = {
-        ...account.state,
-        balance: balanceAfter,
-        threshold: postPayoutThreshold(
-            plan.fundedDrawdown,
-            { ...account.state, balance: balanceAfter },
-            plan.payoutFloorEffect,
-            plan.accountSize,
-        ),
-    };
+    const { debited, traderReceives } = tracker.settle(payout, plan, state);
     return {
         debited,
         kind: MilestoneKind.Funded,
+        plan,
         state,
-        traderReceives: plan.payoutFromProfit(
-            debited,
-            account.fundedTracker.payoutsIssued,
-        ),
+        tracker,
+        traderReceives,
     };
 }
 
@@ -287,10 +316,7 @@ function trackerAfterClosedSession(
             'value/MilestoneState: a funded account needs its funded cycle tracker',
         );
     }
-    const tracker = restoreFundedCycleTracker(
-        { ...state },
-        fundedCycleSeedFromTracker(account.plan, account.state, prior),
-    );
+    const tracker = copiedFundedTracker(account.plan, account.state, prior);
     tracker.cycleBestDayProfit = Math.max(
         tracker.cycleBestDayProfit,
         state.todayPnL,

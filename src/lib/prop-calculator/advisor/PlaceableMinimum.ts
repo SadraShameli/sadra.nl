@@ -10,6 +10,8 @@ import {
     resolvePositionSizing,
 } from '~/lib/prop-calculator/core';
 
+import { SizingStage } from './SizingStage';
+
 const UNIT_COUNT_TOLERANCE = 1e-9;
 
 export enum RungPlacement {
@@ -40,6 +42,10 @@ export function floorToPlaceableUnit(amount: number, unit: number): number {
     return floorToWholeCents(
         Math.floor(amount / unit + UNIT_COUNT_TOLERANCE) * unit,
     );
+}
+
+export function isPlacementChecked(stage: SizingStage): boolean {
+    return stage === SizingStage.Funded || stage === SizingStage.Live;
 }
 
 export function placeableMinimumFor(

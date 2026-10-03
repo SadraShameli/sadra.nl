@@ -12,6 +12,7 @@ import {
 import {
     type AccountFromStateFigures,
     type DocumentedRunFigures,
+    overviewDocumentedRequestOf,
     overviewPlanOptInsOf,
     overviewPlanValueRequestsFor,
     type OverviewProjectionPlanInput,
@@ -103,6 +104,7 @@ import {
     FirmKeyKind,
     firmKeyLabel,
     firmKeyOf,
+    firmPayoutCountOrNull,
     firmPayoutCounts,
     type FirmProfitConcentration,
     firmProfitConcentrationOfContext,
@@ -131,6 +133,7 @@ import {
     type LedgerPayoutRow,
     ledgerTimeline,
     type LedgerTransferRow,
+    LiveProximityCountStatus,
     LiveProximityStatus,
     liveTransitionProximity,
     MARGIN_ABOVE_BREAKEVEN_HELP_TEXT,
@@ -212,7 +215,10 @@ import {
     SCALE_GATE_STATUS_TEXT,
     scaleAtMeasuredMultiple,
     type ScaleAtMultiple,
+    ScaleAtMultipleKind,
     ScaleAtMultipleReason,
+    ScaleBudgetBasis,
+    ScaleCappedBy,
     type ScaleGateStatus,
 } from '~/lib/prop-accounts/bankroll';
 import {
@@ -225,6 +231,7 @@ import {
     CENTS_PER_DOLLAR,
     CumulativeAmountTrigger,
     dollars,
+    findFirm,
     type FirmId,
     fraction,
     type LiveTransitionTrigger,
@@ -240,10 +247,13 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    applicableTimelineGaps,
     type BankrollParameters,
     DEFAULT_RULEBOOK,
     DOCUMENTED_POLICY_TIMELINE_GAP_TEXT,
+    DOCUMENTED_POLICY_TIMELINE_GAPS,
     type EnginePolicy,
+    labelledAssumptionLines,
     LifetimePayoutCapBasis,
     LiveTriggerCoverage,
     payoutPolicySensitivity,
@@ -373,9 +383,11 @@ export interface AttemptThroughputCardModel {
 export interface BankrollCardModel {
     readonly available: string;
     readonly deposits: string;
-    readonly grownFrom: string;
+    readonly grownFromText: null | string;
     readonly moneyWeightedReturn: string;
+    readonly reinvestedPayouts: string;
     readonly scale: ScaleAtMultipleModel;
+    readonly undatedPaidPayoutsCaveat: null | string;
     readonly withdrawals: string;
 }
 
@@ -410,6 +422,7 @@ export interface EvSourcesCardModel {
     readonly accounts: readonly EvSourceAccountRow[];
     readonly disclosures: readonly string[];
     readonly heldLabel: string;
+    readonly liveTransferNotes: readonly string[];
     readonly plans: readonly EvSourcePlanRow[];
 }
 
@@ -848,15 +861,22 @@ export interface ReplacementCardModel {
 
 export type ScaleAtMultipleModel =
     | {
+          readonly budget: string;
+          readonly budgetLabel: string;
+          readonly cappedNote: null | string;
           readonly intervalLower: string;
           readonly intervalUpper: string;
-          readonly kind: 'available';
+          readonly kind: ScaleAtMultipleKind.Available;
           readonly multiple: string;
           readonly n: number;
-          readonly projectedMonthly: string;
+          readonly projected: string;
+          readonly projectionLabel: string;
           readonly sampleLevel: null | SampleLevel;
       }
-    | { readonly kind: 'unavailable'; readonly reason: string };
+    | {
+          readonly kind: ScaleAtMultipleKind.Unavailable;
+          readonly reason: string;
+      };
 
 export interface SetupChecklistCardModel {
     readonly doneCount: number;
@@ -991,6 +1011,7 @@ interface ExpectedNetRow {
     readonly documented: ExpectedNetFigure;
     readonly key: string;
     readonly labels: ExpectedNetLabels;
+    readonly liveTransferNotes: readonly string[];
     readonly optimum: ExpectedNetFigure;
     readonly plan: string;
     readonly policySensitiveNote: null | string;
@@ -1096,6 +1117,7 @@ interface LiveProximityAccountRow {
     readonly paidPayouts: string;
     readonly plan: string;
     readonly remaining: string;
+    readonly requestedPayouts: string;
     readonly sourceText: string;
     readonly trigger: string;
 }
@@ -1106,6 +1128,7 @@ interface LiveProximityFirmRow {
     readonly key: string;
     readonly paidSinceLastLive: string;
     readonly remaining: string;
+    readonly requestedSinceLastLive: string;
     readonly since: string;
     readonly sourceText: string;
     readonly trigger: string;
@@ -1416,11 +1439,12 @@ const LIVE_TRIGGERS_NOT_CHECKED_NOTE =
     "Live triggers not checked: this firm's rules for moving an account live are not all verified here, or its firm-wide payout count is unknown, so this payout may be one the firm moves live.";
 
 const LIVE_PROXIMITY_DISCLOSURE =
-    'Distances to going live come only from a trigger a firm source confirms. A firm whose triggers are unverified or in conflict shows unverified, never a number. Only paid payouts are counted, so a payout that is requested or approved but not yet paid leaves payouts left one too high. A firm-wide count covers every account you hold at the firm and starts after your latest move live. Accounts held by others in a household are not tracked.';
+    'Distances to going live come only from a trigger a firm source confirms. A firm whose triggers are unverified or in conflict shows unverified, never a number. Paid payouts are the larger of the ledger paid count and the payouts taken on the latest snapshot, the same count the alerts use, and requested payouts are added, so a payout that is requested but not yet paid already lowers payouts left. A count that cannot be read, such as one with a malformed payout date, shows not checked, never zero. A firm-wide count covers every account you hold at the firm and starts after your latest move live. Accounts held by others in a household are not tracked.';
 const POOLED_CAPS_COUNTING_NOTE =
     'Active and suspended funded accounts count toward a cap; accounts that moved live, ended or archived accounts and accounts held by others in a household do not.';
 const NO_CONFIRMED_SOURCE_TEXT = 'No confirmed source';
 const UNVERIFIED_TEXT = 'Unverified';
+const COUNT_NOT_CHECKED_TEXT = 'Not checked';
 const ALL_TIME_TEXT = 'all time';
 export const DEFAULT_REALIZED_HORIZON_DAYS = 365;
 const REALIZED_LOSS_RISK_DRAWS = 2000;
@@ -1831,7 +1855,7 @@ export function buildOverview({
                       ],
                   }
                 : ledger,
-        nextPayout: nextPayoutFor(load, userId, accountStates, engine),
+        nextPayout: nextPayoutFor(load, userId, today, accountStates, engine),
         projection: projectionFor(load, userId, engine),
         setup: setupFor(load, userId, context, engine),
         violations: violationsFor(
@@ -1985,6 +2009,7 @@ export function overviewAccountRequestsOf(
         accountFromStateEntriesOf(
             load,
             userId,
+            today,
             accountStatesFromLoad(userId, today, load),
         ),
     );
@@ -2082,6 +2107,36 @@ export function portfolioLoad(queries: PortfolioQueries): PortfolioLoad {
     };
 }
 
+export function scaleAtMultipleModel(
+    scale: ScaleAtMultiple,
+): ScaleAtMultipleModel {
+    if (scale.kind === ScaleAtMultipleKind.Unavailable) {
+        return {
+            kind: ScaleAtMultipleKind.Unavailable,
+            reason: scaleAtMultipleReasonLabel(scale.reason),
+        };
+    }
+    return {
+        budget: formatUsdCents(usdCents(scale.budgetCents)),
+        budgetLabel: scaleBudgetBasisLabel(scale.budgetBasis),
+        cappedNote:
+            scale.cappedBy === null
+                ? null
+                : `Your entered monthly budget is above ${scaleCappedByLabel(scale.cappedBy)}, so it is capped at ${formatUsdCents(usdCents(scale.budgetCents))}.`,
+        intervalLower: formatMultiple(scale.interval.lower),
+        intervalUpper: formatMultiple(scale.interval.upper),
+        kind: ScaleAtMultipleKind.Available,
+        multiple: formatMultiple(scale.multiple),
+        n: scale.n,
+        projected: formatUsdCents(usdCents(scale.projectedCents)),
+        projectionLabel:
+            scale.projectedMonthlyCents === null
+                ? 'projected for one fill, not a monthly budget'
+                : 'projected monthly',
+        sampleLevel: scale.sampleLevel,
+    };
+}
+
 export function setupChecklistCardOf(
     checklist: SetupChecklist,
 ): SetupChecklistCardModel {
@@ -2127,6 +2182,7 @@ export function violationsFor(
 function accountFromStateEntriesOf(
     load: PortfolioLoad,
     userId: string,
+    today: string,
     accountStates: readonly AccountStateEntry[],
 ): readonly AccountFromStateEntry[] {
     const { alerts, ledger: section, rulebook } = load;
@@ -2140,6 +2196,7 @@ function accountFromStateEntriesOf(
     const ledger = PortfolioLedger.fromRows(userId, section.rows);
     const names = planNames(ledger);
     const stats = replacementStats(ledger);
+    const firmCounts = firmPayoutCounts(ledger, today);
     const { accounts, payouts, snapshots } = alerts.rows;
     const entries: AccountFromStateEntry[] = [];
     for (const { accountId, state } of accountStates) {
@@ -2163,26 +2220,33 @@ function accountFromStateEntriesOf(
                 .map(accountStateSnapshotRowOf),
         );
         const { plan } = state;
-        const { input, personalMaxRiskPerTrade } = snapshotInputFrom(
-            plan,
-            tracked,
-            latest,
-            section.rows.events.filter(
-                (event) =>
-                    event.accountId === accountId && event.userId === userId,
-            ),
-            payouts.filter(
-                (payout) =>
-                    payout.accountId === accountId && payout.userId === userId,
-            ),
-            state.latest.asOf,
-        );
+        const firmCount = firmPayoutCountOrNull(firmCounts, plan.id.firm);
+        if (firmCount === null) continue;
+        const { input, pendingPayoutCounts, personalMaxRiskPerTrade } =
+            snapshotInputFrom(
+                plan,
+                tracked,
+                latest,
+                section.rows.events.filter(
+                    (event) =>
+                        event.accountId === accountId &&
+                        event.userId === userId,
+                ),
+                payouts.filter(
+                    (payout) =>
+                        payout.accountId === accountId &&
+                        payout.userId === userId,
+                ),
+                today,
+                firmCount,
+            );
         const planSerial = serializePlanId(plan.id);
         const request = accountFromStateRequestOf({
             account: input,
             measuredRebuyLag: measuredRebuyLagOfDefault(
                 rebuyLagDefault(stats, planSerial),
             ),
+            pendingPayoutCounts,
             personalMaxRiskPerTrade,
             personalRules: row.personalRules,
             plan,
@@ -2470,26 +2534,48 @@ function bankrollCard(
     today: string,
     sampleThresholds: SampleThresholds,
     bankrollParameters: BankrollParameters,
+    capUsage: PlanCapUsage,
 ): BankrollCardModel {
     const bankroll = bankrollOf(ledger, today);
+    const { dailyAccountCapacity } = bankrollParameters;
+    const cheapestAttemptCents =
+        dailyAccountCapacity === null || dailyAccountCapacity <= 0
+            ? null
+            : cheapestAttemptCostCentsOf(ledger, today);
+    const capacityFillCents = capacityFillBudgetCentsOf(
+        cheapestAttemptCents,
+        dailyAccountCapacity,
+    );
     const scale = scaleAtMeasuredMultiple(
         pooledEndedCohortMultiple(ledger),
-        capacityFillBudgetCentsOf(
-            ledger,
-            today,
-            bankrollParameters.dailyAccountCapacity,
-        ),
+        {
+            capacityFillCents,
+            enteredMonthlyCents: null,
+            planLimitCents:
+                capacityFillCents === null
+                    ? null
+                    : planLimitBudgetCentsOf(cheapestAttemptCents, capUsage),
+        },
         sampleThresholds,
     );
     return {
         available: formatUsdCents(usdCents(bankroll.availableCents)),
         deposits: formatUsdCents(usdCents(bankroll.depositsCents)),
-        grownFrom: formatUsdCents(usdCents(bankroll.grownFromCents)),
+        grownFromText:
+            bankroll.depositsCents === 0
+                ? null
+                : `Grown from ${formatUsdCents(usdCents(bankroll.depositsCents))} injected.`,
         moneyWeightedReturn:
             bankroll.moneyWeightedReturn === null
                 ? NOT_APPLICABLE
                 : formatPercent(bankroll.moneyWeightedReturn),
+        reinvestedPayouts: formatUsdCents(
+            usdCents(bankroll.reinvestedPayoutsCents),
+        ),
         scale: scaleAtMultipleModel(scale),
+        undatedPaidPayoutsCaveat: undatedPaidPayoutsCaveatOf(
+            bankroll.undatedPaidPayouts,
+        ),
         withdrawals: formatUsdCents(usdCents(bankroll.withdrawalsCents)),
     };
 }
@@ -2624,24 +2710,14 @@ function calendarHorizonDaysOf(tradingDays: number): number {
 }
 
 function capacityFillBudgetCentsOf(
-    ledger: PortfolioLedger,
-    today: string,
+    cheapestAttemptCents: null | number,
     dailyAccountCapacity: null | number,
 ): null | number {
-    if (dailyAccountCapacity === null || dailyAccountCapacity <= 0) {
-        return null;
-    }
-    const economics = realizedAttemptEconomics(
-        ledger,
-        today,
-        DEFAULT_REALIZED_HORIZON_DAYS,
-    );
-    const costs = economics.perPlan
-        .map((row) => row.attemptCost)
-        .filter((cost): cost is number => cost !== null && cost > 0);
-    return costs.length === 0
+    return cheapestAttemptCents === null ||
+        dailyAccountCapacity === null ||
+        dailyAccountCapacity <= 0
         ? null
-        : Math.round(dailyAccountCapacity * Math.min(...costs));
+        : Math.round(dailyAccountCapacity * cheapestAttemptCents);
 }
 
 function capNote(used: number, cap: number, suspended: number): null | string {
@@ -2672,6 +2748,26 @@ function capUsageCard(
             ledgerOnlyCapNote(usage.ledgerOnlyAccounts),
         ),
     };
+}
+
+function cheapestAttemptCostCentsOf(
+    ledger: PortfolioLedger,
+    today: string,
+): null | number {
+    const costs = realizedAttemptEconomics(
+        ledger,
+        today,
+        DEFAULT_REALIZED_HORIZON_DAYS,
+    )
+        .perPlan.map((row) => row.attemptCost)
+        .filter((cost): cost is number => cost !== null && cost > 0);
+    return costs.length === 0 ? null : Math.min(...costs);
+}
+
+function checkedCount(status: LiveProximityCountStatus, count: number): string {
+    return status === LiveProximityCountStatus.NotChecked
+        ? COUNT_NOT_CHECKED_TEXT
+        : String(count);
 }
 
 function concentrationBasisDisclosure(
@@ -3144,37 +3240,74 @@ function evSourcesCard(
         documented: view.plans.get(planSerial)?.documented,
         values: view.values.get(planSerial),
     });
+    const fundedEntries = entries.filter((entry) => entry.isFunded);
+    const fromStateOf = (entry: AccountFromStateEntry) =>
+        engineSlotOf(engine, entry.request, (result) =>
+            result.kind === OverviewRequestKind.AccountFromState
+                ? result.figures
+                : null,
+        );
+    const planNotes = heldPlanGroupsOf(ledger).flatMap((group) => {
+        const { values } = slotOfPlan(group.planSerial);
+        if (values?.kind !== EngineSlotKind.Ready) return [];
+        const plan = names.of(group.planSerial);
+        return [
+            ...labelledAssumptionLines(
+                `${plan}, fresh funded value`,
+                values.figures.freshFundedValue.liveTransfer,
+            ),
+            ...labelledAssumptionLines(
+                `${plan}, fresh funded value`,
+                values.figures.freshFundedValue.cumulativePayoutTrigger,
+            ),
+            ...labelledAssumptionLines(
+                `${plan}, fresh eval value`,
+                values.figures.valueFreshEval.liveTransfer,
+            ),
+            ...labelledAssumptionLines(
+                `${plan}, fresh eval value`,
+                values.figures.valueFreshEval.cumulativePayoutTrigger,
+            ),
+        ];
+    });
+    const accountNotes = fundedEntries.flatMap((entry) => {
+        const fromState = fromStateOf(entry);
+        return fromState.kind === EngineSlotKind.Ready
+            ? [
+                  ...labelledAssumptionLines(
+                      `${entry.label}, value from its own state`,
+                      fromState.figures.valueNow.liveTransfer,
+                  ),
+                  ...labelledAssumptionLines(
+                      `${entry.label}, value from its own state`,
+                      fromState.figures.valueNow.cumulativePayoutTrigger,
+                  ),
+              ]
+            : [];
+    });
     return {
-        accounts: entries
-            .filter((entry) => entry.isFunded)
-            .map((entry) => {
-                const { values } = slotOfPlan(entry.planSerial);
-                const fromState = engineSlotOf(
-                    engine,
-                    entry.request,
-                    (result) =>
-                        result.kind === OverviewRequestKind.AccountFromState
-                            ? result.figures
-                            : null,
-                );
-                return {
-                    account: entry.label,
-                    freshFundedValue: engineText(values, (figures) =>
-                        estimateCurrency(figures.freshFundedValue.creditFree),
-                    ),
-                    heldInFundedProgress: heldInFundedProgressText(
-                        values,
-                        fromState,
-                    ),
-                    key: entry.accountId,
-                    plan: entry.plan,
-                    valueNow: engineText(fromState, (figures) =>
-                        estimateCurrency(figures.valueNow.creditFree),
-                    ),
-                };
-            }),
+        accounts: fundedEntries.map((entry) => {
+            const { values } = slotOfPlan(entry.planSerial);
+            const fromState = fromStateOf(entry);
+            return {
+                account: entry.label,
+                freshFundedValue: engineText(values, (figures) =>
+                    estimateCurrency(figures.freshFundedValue.creditFree),
+                ),
+                heldInFundedProgress: heldInFundedProgressText(
+                    values,
+                    fromState,
+                ),
+                key: entry.accountId,
+                plan: entry.plan,
+                valueNow: engineText(fromState, (figures) =>
+                    estimateCurrency(figures.valueNow.creditFree),
+                ),
+            };
+        }),
         disclosures: EV_SOURCES_DISCLOSURES,
         heldLabel: EV_FUNDED_PROGRESS_LABEL,
+        liveTransferNotes: [...planNotes, ...accountNotes],
         plans: heldPlanGroupsOf(ledger).map((group) => {
             const { documented, values } = slotOfPlan(group.planSerial);
             const realizedEv = realized.get(group.planSerial) ?? null;
@@ -3225,7 +3358,7 @@ function evSourcesFor(
             today,
             view,
             engine,
-            accountFromStateEntriesOf(load, userId, accountStates),
+            accountFromStateEntriesOf(load, userId, today, accountStates),
         );
     });
     return computed.kind === OverviewSectionStatus.Ready
@@ -3452,7 +3585,8 @@ function expectedNetLabels(plan: PlanEngine): ExpectedNetLabels {
             enginePolicy.lifetimePayoutCapOverride,
         ),
         payoutPolicy: payoutPolicyLabel(
-            ready?.payoutRequestSize ?? enginePolicy.payoutRequestOverride ?? 0,
+            ready?.payoutRequestSize ??
+                overviewDocumentedRequestOf(plan.documentedRequest),
         ),
         retainedCushion: retainedCushionLabel(
             enginePolicy,
@@ -3481,6 +3615,7 @@ function expectedNetRow(
         ),
         key: serial,
         labels: expectedNetLabels(plan),
+        liveTransferNotes: liveTransferNotesOf(plan),
         optimum: expectedNetFigure(
             plan.optimum,
             slotCount,
@@ -3811,15 +3946,19 @@ function formatSampledRate(
     thresholds: SampleThresholds,
 ): string {
     if (estimate === null) return NOT_APPLICABLE;
+    const level = sampleAdequacy(kind, estimate.n, thresholds);
+    const levelText = level === null ? '' : `, ${SAMPLE_LEVEL_LABEL[level]}`;
+    return `${formatSampledRateWithoutLevel(estimate)}${levelText}`;
+}
+
+function formatSampledRateWithoutLevel(estimate: SampledEstimate): string {
     const ciText =
         estimate.interval === null
             ? ''
             : ` (95% CI ${formatPercent(estimate.interval.lower)} to ${formatPercent(estimate.interval.upper)}, n = ${String(estimate.n)})`;
     const nText =
         estimate.interval === null ? ` (n = ${String(estimate.n)})` : '';
-    const level = sampleAdequacy(kind, estimate.n, thresholds);
-    const levelText = level === null ? '' : `, ${SAMPLE_LEVEL_LABEL[level]}`;
-    return `${formatPercent(estimate.value)}${ciText}${nText}${levelText}`;
+    return `${formatPercent(estimate.value)}${ciText}${nText}`;
 }
 
 function formatSessions(estimate: null | SampledEstimate): string {
@@ -4293,7 +4432,7 @@ function kpiRow(
                     : `${ROI_BASIS_LABEL[roi.annualised.basis]}: ${formatOptionalPercent(roi.annualised.value)}`,
             kind: OverviewKpiKind.Roi,
             label: ROI_BASIS_LABEL[roi.total.basis],
-            note: null,
+            note: undatedPaidPayoutsCaveatOf(roi.undatedPaidPayouts),
             tone: toneOf(roi.total.value ?? 0),
             value: formatOptionalPercent(roi.total.value),
         },
@@ -4384,6 +4523,7 @@ function ledgerCards(
             today,
             sampleThresholds,
             bankrollParameters,
+            capUsage,
         ),
         capUsage: capUsageCard(capUsage, names),
         cost: costCard(ledger, names, firms, sampleThresholds, engine),
@@ -4402,7 +4542,13 @@ function ledgerCards(
             engine,
         ),
         kpis: kpiRow(ledger, today, perSlot, expectedNetKpi(engine, slots)),
-        liveProximity: liveProximityCard(ledger, today, names, firms),
+        liveProximity: liveProximityCard(
+            ledger,
+            today,
+            names,
+            firms,
+            snapshots,
+        ),
         notices: ledgerNotices(ledger, today),
         outcomes: outcomesCard(ledger, names, sampleThresholds, engine),
         payoutSizes: payoutSizesCard(
@@ -4579,8 +4725,13 @@ function liveProximityCard(
     today: string,
     names: PlanNames,
     firms: FirmNames,
+    snapshots: readonly OverviewSnapshotRow[],
 ): LiveProximityCardModel {
-    const proximity = liveTransitionProximity(ledger, today);
+    const proximity = liveTransitionProximity(
+        ledger,
+        today,
+        reportedPayoutsTakenOf(snapshots),
+    );
     const groups = ledger.planGroups();
     const located = new Map(
         groups.flatMap((group) =>
@@ -4619,9 +4770,20 @@ function liveProximityCard(
                       {
                           account: found.entry.row.label,
                           key: row.accountId,
-                          paidPayouts: String(row.paidPayouts),
+                          paidPayouts: checkedCount(
+                              row.countStatus,
+                              row.paidPayouts,
+                          ),
                           plan: names.of(row.planSerial),
-                          remaining: optionalCount(row.remaining),
+                          remaining:
+                              row.countStatus ===
+                              LiveProximityCountStatus.NotChecked
+                                  ? COUNT_NOT_CHECKED_TEXT
+                                  : optionalCount(row.remaining),
+                          requestedPayouts: checkedCount(
+                              row.countStatus,
+                              row.requestedPayouts,
+                          ),
                           sourceText: policySourceText(
                               confirmedTriggerSource(
                                   liveTriggersOf(found.group),
@@ -4659,11 +4821,22 @@ function liveProximityCard(
                     firm: firms.of(firmKey),
                     isVerified: row.status === LiveProximityStatus.Verified,
                     key: firmKeyId(firmKey),
-                    paidSinceLastLive: String(
+                    paidSinceLastLive: checkedCount(
+                        row.countStatus,
                         row.paidPayoutsSinceLastLiveAccount,
                     ),
-                    remaining: optionalCount(row.remaining),
-                    since: row.sinceOn ?? ALL_TIME_TEXT,
+                    remaining:
+                        row.countStatus === LiveProximityCountStatus.NotChecked
+                            ? COUNT_NOT_CHECKED_TEXT
+                            : optionalCount(row.remaining),
+                    requestedSinceLastLive: checkedCount(
+                        row.countStatus,
+                        row.requestedPayoutsSinceLastLiveAccount,
+                    ),
+                    since:
+                        row.countStatus === LiveProximityCountStatus.NotChecked
+                            ? COUNT_NOT_CHECKED_TEXT
+                            : (row.sinceOn ?? ALL_TIME_TEXT),
                     sourceText:
                         row.status === LiveProximityStatus.Verified
                             ? policySourceText(
@@ -4713,6 +4886,35 @@ function liveProximityCard(
         ),
         unmeasuredNote: unmeasuredTriggerNote([...openGroups], names),
     };
+}
+
+function liveTransferNotesOf(plan: PlanEngine): readonly string[] {
+    return [
+        ...labelledAssumptionLines(
+            'Documented policy',
+            plan.documented.kind === EngineSlotKind.Ready
+                ? plan.documented.figures.liveTransfer
+                : undefined,
+        ),
+        ...labelledAssumptionLines(
+            'Documented policy',
+            plan.documented.kind === EngineSlotKind.Ready
+                ? plan.documented.figures.cumulativePayoutTrigger
+                : undefined,
+        ),
+        ...labelledAssumptionLines(
+            'Payout-size optimum',
+            plan.optimum.kind === EngineSlotKind.Ready
+                ? plan.optimum.figures.liveTransfer
+                : undefined,
+        ),
+        ...labelledAssumptionLines(
+            'Payout-size optimum',
+            plan.optimum.kind === EngineSlotKind.Ready
+                ? plan.optimum.figures.cumulativePayoutTrigger
+                : undefined,
+        ),
+    ];
 }
 
 function liveTriggersOf(group: PlanGroup): readonly LiveTransitionTrigger[] {
@@ -4788,6 +4990,7 @@ function netCashCentsFor(load: PortfolioLoad, userId: string): null | UsdCents {
 function nextPayoutFor(
     load: PortfolioLoad,
     userId: string,
+    today: string,
     accountStates: readonly AccountStateEntry[],
     engine: OverviewEngine,
 ): OverviewNextPayout {
@@ -4805,7 +5008,7 @@ function nextPayoutFor(
         return { kind: OverviewSectionStatus.Pending };
     }
     const computed = ledgerOrDateFailure(() =>
-        accountFromStateEntriesOf(load, userId, accountStates),
+        accountFromStateEntriesOf(load, userId, today, accountStates),
     );
     switch (computed.kind) {
         case OverviewSectionStatus.Failed: {
@@ -4985,8 +5188,10 @@ function paidPayoutsDetail(paid: number, grossOnly: number): string {
     return `${paidText}; ${String(grossOnly)} ${isSingular ? 'has' : 'have'} no net amount, so ${isSingular ? 'its' : 'their'} gross is counted`;
 }
 
-function payoutPolicyLabel(requestSize: number): string {
-    return `Full request only, ${formatCurrency(requestSize)} request`;
+function payoutPolicyLabel(requestSize: null | number): string {
+    return requestSize === null
+        ? 'Full request only, request size not resolved because the plan is not modeled'
+        : `Full request only, ${formatCurrency(requestSize)} request`;
 }
 
 function payoutSizeDisclosures(
@@ -5115,6 +5320,16 @@ function planAttemptsPerMonth(
         payouts: group.accounts.flatMap((entry) => entry.payouts),
     });
     return attemptThroughput(planLedger, today).meanPerMonth;
+}
+
+function planLimitBudgetCentsOf(
+    cheapestAttemptCents: null | number,
+    usage: PlanCapUsage,
+): null | number {
+    const freeSlots = usage.plans.reduce((sum, row) => sum + row.freeSlots, 0);
+    return cheapestAttemptCents === null || freeSlots === 0
+        ? null
+        : Math.round(freeSlots * cheapestAttemptCents);
 }
 
 function planNames(ledger: PortfolioLedger): PlanNames {
@@ -5341,9 +5556,7 @@ function projectionLabels(
             enginePolicy.lifetimePayoutCapOverride,
         ),
         payoutPolicy: payoutPolicyLabel(
-            figures?.payoutRequestSize ??
-                enginePolicy.payoutRequestOverride ??
-                0,
+            figures?.payoutRequestSize ?? overviewDocumentedRequestOf(request),
         ),
         retainedCushion: retainedCushionLabel(
             enginePolicy,
@@ -5392,9 +5605,7 @@ function projectionRow(
         labels: projectionLabels(request, slot),
         notHonoured:
             slot.kind === EngineSlotKind.Ready
-                ? slot.figures.timelineGaps.map(
-                      (gap) => DOCUMENTED_POLICY_TIMELINE_GAP_TEXT[gap],
-                  )
+                ? timelineGapTexts(request, slot.figures)
                 : [],
         plan: names.of(request.planSerial),
         probabilityEverPositive: projectionFigureText(slot, (figures) =>
@@ -5655,6 +5866,21 @@ function refusalOf<Figures>(
         : [];
 }
 
+function reportedPayoutsTakenOf(
+    snapshots: readonly OverviewSnapshotRow[],
+): ReadonlyMap<string, number> {
+    return new Map(
+        Map.groupBy(snapshots, (snapshot) => snapshot.accountId)
+            .entries()
+            .flatMap(([accountId, rows]) => {
+                const taken = latestTwoSnapshots(rows).latest?.payoutsTaken;
+                return taken === null || taken === undefined
+                    ? []
+                    : [[accountId, taken] as const];
+            }),
+    );
+}
+
 function retainedCushionLabel(
     enginePolicy: EnginePolicy,
     resolved: null | number,
@@ -5833,6 +6059,25 @@ function survivalBasisDisclosure(engine: EngineView): readonly string[] {
           ];
 }
 
+function timelineGapTexts(
+    request: OverviewRequest,
+    figures: PortfolioProjectionFigures,
+): readonly string[] {
+    const plan = findFirm(request.firmId)?.findPlanBySerial(request.planSerial);
+    if (plan === null || plan === undefined) {
+        throw new Error(
+            `overviewModel: cannot resolve the plan ${request.planSerial} of a ready projection`,
+        );
+    }
+    const gaps = new Set([
+        ...figures.timelineGaps,
+        ...applicableTimelineGaps(request.spec, plan),
+    ]);
+    return DOCUMENTED_POLICY_TIMELINE_GAPS.filter((gap) => gaps.has(gap)).map(
+        (gap) => DOCUMENTED_POLICY_TIMELINE_GAP_TEXT[gap],
+    );
+}
+
 function unavailableAccountRow(
     accountId: string,
     accounts: ReadonlyMap<string, OverviewAccountRow>,
@@ -5955,6 +6200,8 @@ function worstDayKpi(
           };
 }
 
+const MIN_MONTHS_FOR_DEVIATION = 2;
+
 const PER_SLOT_TARGET_NOTE =
     'The per-slot target divides the portfolio-wide monthly target evenly across the funded slots active that month.';
 
@@ -6073,9 +6320,16 @@ function repeatabilityStatsRow(
               shareAtOrAboveTarget:
                   stats.shareAtOrAboveTarget === null
                       ? null
-                      : formatPercent(stats.shareAtOrAboveTarget),
-              sharePositive: formatPercent(stats.sharePositive),
-              standardDeviation: formatUsdCents(stats.standardDeviation),
+                      : formatSampledRateWithoutLevel(
+                            stats.shareAtOrAboveTarget,
+                        ),
+              sharePositive: formatSampledRateWithoutLevel(
+                  stats.sharePositive,
+              ),
+              standardDeviation:
+                  stats.count < MIN_MONTHS_FOR_DEVIATION
+                      ? NOT_APPLICABLE
+                      : formatUsdCents(stats.standardDeviation),
               worst: formatUsdCents(stats.worst),
           };
 }
@@ -6125,24 +6379,6 @@ function sampleThresholdsOf(queries: PortfolioQueries): SampleThresholds {
     return rulebook?.samples ?? DEFAULT_RULEBOOK.samples;
 }
 
-function scaleAtMultipleModel(scale: ScaleAtMultiple): ScaleAtMultipleModel {
-    if (scale.kind === 'unavailable') {
-        return {
-            kind: 'unavailable',
-            reason: scaleAtMultipleReasonLabel(scale.reason),
-        };
-    }
-    return {
-        intervalLower: formatMultiple(scale.interval.lower),
-        intervalUpper: formatMultiple(scale.interval.upper),
-        kind: 'available',
-        multiple: formatMultiple(scale.multiple),
-        n: scale.n,
-        projectedMonthly: formatUsdCents(usdCents(scale.projectedMonthlyCents)),
-        sampleLevel: scale.sampleLevel,
-    };
-}
-
 function scaleAtMultipleReasonLabel(reason: ScaleAtMultipleReason): string {
     switch (reason) {
         case ScaleAtMultipleReason.CapacityNotSet: {
@@ -6150,6 +6386,31 @@ function scaleAtMultipleReasonLabel(reason: ScaleAtMultipleReason): string {
         }
         case ScaleAtMultipleReason.NoEndedAccounts: {
             return 'No account has ended yet, so there is no measured multiple to scale.';
+        }
+    }
+}
+
+function scaleBudgetBasisLabel(basis: ScaleBudgetBasis): string {
+    switch (basis) {
+        case ScaleBudgetBasis.CapacityFill: {
+            return 'one capacity fill (daily account capacity x cheapest measured attempt cost)';
+        }
+        case ScaleBudgetBasis.EnteredMonthly: {
+            return 'your entered monthly budget';
+        }
+        case ScaleBudgetBasis.PlanLimit: {
+            return 'one plan-limit fill (free funded slots x cheapest measured attempt cost)';
+        }
+    }
+}
+
+function scaleCappedByLabel(cappedBy: ScaleCappedBy): string {
+    switch (cappedBy) {
+        case ScaleCappedBy.Capacity: {
+            return 'your daily account capacity fill';
+        }
+        case ScaleCappedBy.PlanLimits: {
+            return 'your plan limits';
         }
     }
 }
@@ -6306,6 +6567,12 @@ function timelineRow(entry: TimelineEntry): TimelineRow {
 function toneOf(value: number): KpiTone {
     if (value > 0) return KpiTone.Positive;
     return value < 0 ? KpiTone.Negative : KpiTone.Neutral;
+}
+
+function undatedPaidPayoutsCaveatOf(count: number): null | string {
+    if (count === 0) return null;
+    const isSingular = count === 1;
+    return `${counted({ count, plural: 'paid payouts', singular: 'paid payout' })} ${isSingular ? 'has' : 'have'} no paid date; ${isSingular ? 'it is' : 'they are'} left out of the as-of cash, the available bankroll and ROI.`;
 }
 
 function unmeasuredTriggerNote(

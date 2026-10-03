@@ -385,6 +385,129 @@ describe('setupChecklistOf', () => {
         });
         expect(incomplete.isComplete).toBe(false);
     });
+
+    describe('isComplete with steps that do not apply', () => {
+        it('is complete for a ledger-only portfolio whose stages step does not apply', () => {
+            const ledgerOnly = account(EVAL_PLAN, {
+                planLabel: 'Hola 100K',
+                planSerial: null,
+                tracking: AccountTracking.LedgerOnly,
+            });
+            const result = checklistOf({
+                expectedValuePlanSerials: new Set([EVAL_PLAN.serial]),
+                ledger: ledger({
+                    accounts: [ledgerOnly],
+                    fees: [purchaseFee(ledgerOnly, FeeKind.EvalPurchase)],
+                    transfers: [deposit()],
+                }),
+            });
+            const stages = result.steps.find(
+                (step) => step.step === SetupStep.StagesCaptured,
+            );
+            expect(stages?.status).toBe(SetupStepStatus.NotApplicable);
+            expect(result.steps.map((step) => step.status)).toEqual([
+                SetupStepStatus.Done,
+                SetupStepStatus.NotApplicable,
+                SetupStepStatus.NotApplicable,
+                SetupStepStatus.NotApplicable,
+                SetupStepStatus.Done,
+            ]);
+            expect(result.doneCount).toBe(2);
+            expect(result.isComplete).toBe(true);
+        });
+
+        it('is not complete while one step is missing, even beside not applicable steps', () => {
+            const ledgerOnly = account(EVAL_PLAN, {
+                planLabel: 'Hola 100K',
+                planSerial: null,
+                tracking: AccountTracking.LedgerOnly,
+            });
+            const result = checklistOf({
+                expectedValuePlanSerials: new Set([EVAL_PLAN.serial]),
+                ledger: ledger({
+                    accounts: [ledgerOnly],
+                    transfers: [deposit()],
+                }),
+            });
+            expect(
+                result.steps.some(
+                    (step) => step.status === SetupStepStatus.Missing,
+                ),
+            ).toBe(true);
+            expect(result.isComplete).toBe(false);
+        });
+
+        it('is not complete while a step is not checked', () => {
+            const held = account(EVAL_PLAN);
+            const result = checklistOf({
+                expectedValuePlanSerials: null,
+                ledger: ledger({
+                    accounts: [held],
+                    fees: [purchaseFee(held, FeeKind.EvalPurchase)],
+                    transfers: [deposit()],
+                }),
+            });
+            expect(
+                result.steps.some(
+                    (step) => step.status === SetupStepStatus.NotChecked,
+                ),
+            ).toBe(true);
+            expect(result.isComplete).toBe(false);
+        });
+
+        it('is not complete for an empty portfolio with nothing done', () => {
+            const result = checklistOf({ ledger: ledger({}) });
+            expect(result.doneCount).toBe(0);
+            expect(result.isComplete).toBe(false);
+        });
+
+        it('is not complete for a deposit with no active account, which still needs its first account', () => {
+            const result = checklistOf({
+                ledger: ledger({ transfers: [deposit()] }),
+            });
+            expect(result.steps.map((step) => step.status)).toEqual([
+                SetupStepStatus.Done,
+                SetupStepStatus.NotApplicable,
+                SetupStepStatus.NotApplicable,
+                SetupStepStatus.NotApplicable,
+                SetupStepStatus.NotApplicable,
+            ]);
+            expect(result.doneCount).toBe(1);
+            expect(result.isComplete).toBe(false);
+        });
+
+        it('is not complete for bankroll settings alone with only ended accounts', () => {
+            const ended = account(EVAL_PLAN, { status: AccountStatus.Busted });
+            const result = checklistOf({
+                ledger: ledger({ accounts: [ended] }),
+                rulebook: {
+                    ...DEFAULT_RULEBOOK,
+                    bankroll: {
+                        ...DEFAULT_RULEBOOK.bankroll,
+                        dailyAccountCapacity: 3,
+                    },
+                },
+            });
+            expect(result.doneCount).toBe(1);
+            expect(result.isComplete).toBe(false);
+        });
+
+        it('is not complete when only not applicable steps remain beside a missing budget', () => {
+            const ledgerOnly = account(EVAL_PLAN, {
+                planLabel: 'Hola 100K',
+                planSerial: null,
+                tracking: AccountTracking.LedgerOnly,
+            });
+            const result = checklistOf({
+                ledger: ledger({
+                    accounts: [ledgerOnly],
+                    fees: [purchaseFee(ledgerOnly, FeeKind.EvalPurchase)],
+                }),
+            });
+            expect(result.doneCount).toBe(1);
+            expect(result.isComplete).toBe(false);
+        });
+    });
 });
 
 describe('heldPlanGroupsOf', () => {

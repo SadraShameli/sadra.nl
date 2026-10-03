@@ -3,22 +3,27 @@ import { z } from 'zod';
 import { describeSimulationFailure } from '~/app/(app)/prop-calculator/_components/simulationFailure';
 import { planOptInsSchema } from '~/lib/prop-accounts/core';
 import {
-    CENTS_PER_DOLLAR,
-    effectivePayoutRequest,
+    type Dollars,
     findFirm,
+    type FirmAccountPolicy,
     FirmId,
     type Plan,
     type PlanOptIns,
+    serializePlanId,
     TradingPhase,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 import {
+    type AccountPendingPayoutCounts,
+    accountPendingPayoutCountsSchema,
     AccountReconstruction,
     type AccountSnapshotInput,
     accountSnapshotInputSchema,
     AdviceSource,
     applicableTimelineGaps,
+    type Assumption,
     buildEnginePolicy,
+    type CumulativePayoutTriggerAssumption,
     DEFAULT_FUNDED_HORIZON_DAYS,
     DEFAULT_MAX_EVAL_DAYS,
     type DocumentedPolicyRun,
@@ -26,14 +31,19 @@ import {
     documentedPolicySpecSchema,
     type DocumentedPolicyTimelineGap,
     documentedPolicyTimelineInputs,
-    type EnginePolicy,
     enginePolicyKey,
-    enginePolicySchema,
+    hasPersonalCaps,
+    liveTransferAssumptionOf,
+    type LiveTransferHazardAssumption,
     type MeasuredRebuyLag,
     type NextPayoutProjection,
+    NO_PERSONAL_CAPS,
     PayoutSizeSweepResultKind,
+    type PersonalCaps,
+    pricedCumulativeTriggerAssumptionOf,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
+    resolveDocumentedPayoutRequestSize,
     type RulebookParameters,
     runEngineOptimum,
     runPayoutSizeSweep,
@@ -107,6 +117,7 @@ export interface AccountFromStateFigures {
     readonly stage: SizingStage.Eval | SizingStage.Funded;
     readonly startBasis: StartBasis.FromState;
     readonly trials: number;
+    readonly valueAtPrevious?: ValueChainStepOutcome;
     readonly valueNow: ValueResult;
 }
 
@@ -115,6 +126,7 @@ export interface DocumentedRunFigures {
     readonly attemptPassProbability: Estimate;
     readonly costPerAttempt: Estimate;
     readonly costPerFundedAccount: number;
+    readonly cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption;
     readonly expectedMonthlyNet: Estimate;
     readonly expectedMonthlyRealizedNet: Estimate;
     readonly expectedNetPerAttempt: Estimate;
@@ -123,14 +135,22 @@ export interface DocumentedRunFigures {
     readonly fundedHorizonDays: number;
     readonly fundedPayoutCountDistribution: readonly number[];
     readonly fundedSurvivalProbability: Estimate;
+    readonly liveTransfer?: LiveTransferHazardAssumption;
     readonly minRetainedCushion: number;
     readonly payoutRequestSize: number;
     readonly payoutsPerFundedAccount: UncertainValue;
     readonly trials: number;
 }
 
+export interface DocumentedSpecBuild {
+    readonly assumptions: readonly Assumption[];
+    readonly spec: DocumentedPolicySpec;
+}
+
 export interface OverviewAccountPlanInput extends OverviewPlanInput {
     readonly account: AccountSnapshotInput;
+    readonly pendingPayoutCounts: AccountPendingPayoutCounts;
+    readonly previous?: OverviewPreviousAccount;
 }
 
 export type OverviewOutcome =
@@ -158,6 +178,11 @@ export interface OverviewPlanKeyInput {
     readonly planSerial: string;
 }
 
+export interface OverviewPreviousAccount {
+    readonly account: AccountSnapshotInput;
+    readonly pendingPayoutCounts: AccountPendingPayoutCounts;
+}
+
 export interface OverviewProjectionPlanInput extends OverviewPlanInput {
     readonly accounts: number;
 }
@@ -168,7 +193,9 @@ export interface OverviewRequest {
     readonly firmId: FirmId;
     readonly kind: OverviewRequestKind;
     readonly optIns: PlanOptIns;
+    readonly pendingPayoutCounts?: AccountPendingPayoutCounts;
     readonly planSerial: string;
+    readonly previous?: OverviewPreviousAccount;
     readonly spec: DocumentedPolicySpec;
 }
 
@@ -212,11 +239,20 @@ export interface OverviewWorkerResult {
 
 export interface PayoutSizeOptimumFigures {
     readonly creditSensitive: boolean;
+    readonly cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption;
     readonly evaluatedSizes: number;
     readonly expectedMonthlyNet: Estimate;
     readonly expectedMonthlyRealizedNet: Estimate;
     readonly fundedBustProbability: Estimate;
+    readonly liveTransfer?: LiveTransferHazardAssumption;
     readonly requestSize: number;
+}
+
+export interface PersonalPolicyOverrides {
+    readonly payoutRequestOverride: Dollars | null;
+    readonly personalCaps: PersonalCaps;
+    readonly personalDll: Dollars | null;
+    readonly retainedCushionRequest: Dollars | null;
 }
 
 export interface PlanValuesFigures {
@@ -256,6 +292,16 @@ interface AccountMilestoneFigures {
     readonly value: ValueChainStepOutcome;
 }
 
+interface DocumentedSpecInput {
+    readonly accountPolicy?: FirmAccountPolicy;
+    readonly fundedHorizonDays: number;
+    readonly measuredRebuyLag?: MeasuredRebuyLag | null;
+    readonly overrides: PersonalPolicyOverrides;
+    readonly plan: Plan;
+    readonly rulebook: RulebookParameters;
+    readonly run: DocumentedPolicyRun;
+}
+
 type ValueChainStepOutcome =
     | {
           readonly kind: ValueChainStepOutcomeKind.Unavailable;
@@ -267,6 +313,13 @@ type ValueChainStepOutcome =
       };
 
 const OVERVIEW_FUNDED_HORIZON_DAYS = DEFAULT_FUNDED_HORIZON_DAYS;
+
+const NO_PERSONAL_POLICY_OVERRIDES: PersonalPolicyOverrides = {
+    payoutRequestOverride: null,
+    personalCaps: NO_PERSONAL_CAPS,
+    personalDll: null,
+    retainedCushionRequest: null,
+};
 
 const REQUEST_GROUP: Readonly<
     Record<OverviewRequestKind, OverviewRequestGroup>
@@ -303,6 +356,11 @@ const OVERVIEW_PROJECTION_RUN: DocumentedPolicyRun = {
     trials: 500,
 };
 
+const overviewPreviousAccountSchema = z.strictObject({
+    account: accountSnapshotInputSchema,
+    pendingPayoutCounts: accountPendingPayoutCountsSchema,
+}) satisfies z.ZodType<OverviewPreviousAccount>;
+
 export const overviewRequestSchema = z
     .strictObject({
         account: accountSnapshotInputSchema.optional(),
@@ -310,7 +368,9 @@ export const overviewRequestSchema = z
         firmId: z.enum(FirmId),
         kind: z.enum(OverviewRequestKind),
         optIns: planOptInsSchema,
+        pendingPayoutCounts: accountPendingPayoutCountsSchema.optional(),
         planSerial: z.string().min(1),
+        previous: overviewPreviousAccountSchema.optional(),
         spec: documentedPolicySpecSchema.refine(
             (spec) => spec.start === undefined,
             {
@@ -333,6 +393,26 @@ export const overviewRequestSchema = z
             });
         }
         const isAccountRequest = ACCOUNT_REQUEST_KINDS.has(request.kind);
+        if (isAccountRequest !== (request.pendingPayoutCounts !== undefined)) {
+            context.addIssue({
+                code: 'custom',
+                message: isAccountRequest
+                    ? 'an account request needs the pending payout counts it was built with'
+                    : 'only an account request carries pending payout counts',
+                path: ['pendingPayoutCounts'],
+            });
+        }
+        if (
+            request.previous !== undefined &&
+            request.kind !== OverviewRequestKind.AccountFromState
+        ) {
+            context.addIssue({
+                code: 'custom',
+                message:
+                    'only an account-from-state request carries a previous account state',
+                path: ['previous'],
+            });
+        }
         if (isAccountRequest === (request.account !== undefined)) return;
         context.addIssue({
             code: 'custom',
@@ -347,6 +427,32 @@ export const overviewWorkerRequestSchema = z.strictObject({
     requests: z.array(overviewRequestSchema),
 }) satisfies z.ZodType<OverviewWorkerRequest>;
 
+export function buildDocumentedSpec(
+    input: DocumentedSpecInput,
+): DocumentedSpecBuild {
+    const { overrides, plan, rulebook, run } = input;
+    const { assumptions, policy } = buildEnginePolicy({
+        accountPolicy: input.accountPolicy,
+        fundedHorizonDays: input.fundedHorizonDays,
+        measuredRebuyLag: input.measuredRebuyLag,
+        plan,
+        positionSizing: null,
+        rulebook,
+    });
+    return {
+        assumptions,
+        spec: withPersonalPolicy(
+            {
+                enginePolicy: policy,
+                planSerial: serializePlanId(plan.id),
+                rulebook,
+                run,
+            },
+            overrides,
+        ),
+    };
+}
+
 export function overviewAccountRequestsFor(
     accounts: readonly OverviewAccountPlanInput[],
     rulebook: RulebookParameters,
@@ -356,6 +462,19 @@ export function overviewAccountRequestsFor(
         accounts,
         rulebook,
     );
+}
+
+export function overviewDocumentedRequestOf(
+    request: OverviewRequest,
+): null | number {
+    const plan = resolvedPlanOf(request);
+    return plan === null
+        ? null
+        : resolveDocumentedPayoutRequestSize(
+              plan,
+              request.spec.enginePolicy,
+              request.spec.rulebook.payout,
+          );
 }
 
 export function overviewOutcomeOf(request: OverviewRequest): OverviewOutcome {
@@ -441,8 +560,10 @@ export function overviewRequestKey(request: OverviewRequest): string {
         firmId: request.firmId,
         kind: request.kind,
         optIns: request.optIns,
+        pendingPayoutCounts: request.pendingPayoutCounts ?? null,
         planSerial: request.planSerial,
         policy: enginePolicyKey(spec.enginePolicy),
+        previous: request.previous ?? null,
         rulebook: engineRulebookOf(spec.rulebook),
         run: spec.run,
         start: spec.start ?? null,
@@ -519,6 +640,54 @@ export function overviewValueChainRequestsFor(
     return planRequestsOf(OverviewRequestKind.ValueChain, plans, rulebook);
 }
 
+export function withPersonalPolicy(
+    spec: DocumentedPolicySpec,
+    overrides: PersonalPolicyOverrides,
+): DocumentedPolicySpec {
+    const {
+        payoutRequestOverride,
+        personalCaps,
+        personalDll,
+        retainedCushionRequest,
+    } = overrides;
+    const hasCaps = hasPersonalCaps(personalCaps);
+    if (
+        payoutRequestOverride === null &&
+        retainedCushionRequest === null &&
+        !hasCaps &&
+        personalDll === null
+    ) {
+        return spec;
+    }
+    const { enginePolicy } = spec;
+    return {
+        ...spec,
+        enginePolicy: {
+            ...enginePolicy,
+            ...(hasCaps && { personalCaps }),
+            ...(personalDll !== null && { personalDll }),
+            payoutRequestOverride:
+                payoutRequestOverride ?? enginePolicy.payoutRequestOverride,
+            retainedCushionRequest:
+                retainedCushionRequest === null
+                    ? enginePolicy.retainedCushionRequest
+                    : Math.max(
+                          enginePolicy.retainedCushionRequest ?? 0,
+                          retainedCushionRequest,
+                      ),
+        },
+    };
+}
+
+export function withPreviousAccount(
+    request: OverviewRequest | undefined,
+    previous: null | OverviewPreviousAccount,
+): OverviewRequest | undefined {
+    return request === undefined || previous === null
+        ? request
+        : { ...request, previous };
+}
+
 function accountFromStateResultOf(
     plan: Plan,
     request: OverviewRequest,
@@ -538,6 +707,13 @@ function accountFromStateResultOf(
                     : SizingStage.Funded,
             startBasis: StartBasis.FromState,
             trials: spec.run.trials,
+            ...(request.previous !== undefined && {
+                valueAtPrevious: previousValueOutcomeOf(
+                    plan,
+                    request.previous,
+                    spec,
+                ),
+            }),
             valueNow: requireValue(valueAtState(account, spec)),
         },
         kind: OverviewRequestKind.AccountFromState,
@@ -561,7 +737,10 @@ function accountRequestsOf(
             firmId: input.firmId,
             kind,
             optIns: input.optIns,
+            pendingPayoutCounts: input.pendingPayoutCounts,
             planSerial: input.planSerial,
+            ...(kind === OverviewRequestKind.AccountFromState &&
+                input.previous !== undefined && { previous: input.previous }),
             spec: documentedSpecFor(plan, input, rulebook),
         };
         requests.set(overviewRequestKey(request), request);
@@ -576,6 +755,11 @@ function documentedRunResultOf(
     const inputs = toSimInputs(plan, spec);
     const out = simulate(inputs);
     const { estimates } = out;
+    const liveTransfer = liveTransferAssumptionOf(
+        inputs,
+        out.liveTransferProbability,
+    );
+    const cumulativePayoutTrigger = pricedCumulativeTriggerAssumptionOf(inputs);
     return {
         figures: {
             anyPayoutGivenFundedProbability:
@@ -583,6 +767,9 @@ function documentedRunResultOf(
             attemptPassProbability: estimates.attemptPassProbability,
             costPerAttempt: estimates.costPerAttempt,
             costPerFundedAccount: out.costPerFundedAccount,
+            ...(cumulativePayoutTrigger !== undefined && {
+                cumulativePayoutTrigger,
+            }),
             expectedMonthlyNet: estimates.expectedMonthlyNet,
             expectedMonthlyRealizedNet: estimates.expectedMonthlyRealizedNet,
             expectedNetPerAttempt: estimates.expectedNetPerAttempt,
@@ -592,6 +779,7 @@ function documentedRunResultOf(
             fundedHorizonDays: inputs.fundedHorizonDays,
             fundedPayoutCountDistribution: out.fundedPayoutCountDistribution,
             fundedSurvivalProbability: estimates.fundedSurvivalProbability,
+            ...(liveTransfer !== undefined && { liveTransfer }),
             minRetainedCushion: requiredInput(inputs, 'minRetainedCushion'),
             payoutRequestSize: requiredInput(inputs, 'payoutRequestSize'),
             payoutsPerFundedAccount: estimates.payoutsPerFundedAccount,
@@ -607,27 +795,15 @@ function documentedSpecFor(
     rulebook: RulebookParameters,
     run: DocumentedPolicyRun = OVERVIEW_RUN,
 ): DocumentedPolicySpec {
-    const { policy: built } = buildEnginePolicy({
+    return buildDocumentedSpec({
         accountPolicy: findFirm(input.firmId)?.accountPolicy,
         fundedHorizonDays: OVERVIEW_FUNDED_HORIZON_DAYS,
         measuredRebuyLag: input.measuredRebuyLag,
+        overrides: NO_PERSONAL_POLICY_OVERRIDES,
         plan,
-        positionSizing: null,
-        rulebook,
-    });
-    const enginePolicy: EnginePolicy = enginePolicySchema.parse({
-        ...built,
-        payoutRequestOverride: effectivePayoutRequest(
-            plan,
-            rulebook.payout.requestCents / CENTS_PER_DOLLAR,
-        ),
-    });
-    return {
-        enginePolicy,
-        planSerial: input.planSerial,
         rulebook,
         run,
-    };
+    }).spec;
 }
 
 function engineRulebookOf(
@@ -664,7 +840,18 @@ function fromStateAccountOf(
             'overviewWorker: an account request has no account state',
         );
     }
-    const account = AccountReconstruction.rebuild(snapshot, plan);
+    const { pendingPayoutCounts } = request;
+    if (pendingPayoutCounts === undefined) {
+        throw new Error(
+            'overviewWorker: an account request has no pending payout counts',
+        );
+    }
+    const account = AccountReconstruction.rebuild(
+        snapshot,
+        plan,
+        null,
+        pendingPayoutCounts,
+    );
     if (account.kind === ReconstructedLiveKind.Live) {
         throw new Error(
             'overviewWorker: a live account has no from-state value model',
@@ -755,11 +942,17 @@ function payoutSizeOptimumResultOf(
     return {
         figures: {
             creditSensitive: optimum.creditSensitive,
+            ...(optimum.cumulativePayoutTrigger !== undefined && {
+                cumulativePayoutTrigger: optimum.cumulativePayoutTrigger,
+            }),
             evaluatedSizes: optimum.rows.length,
             expectedMonthlyNet: winner.out.estimates.expectedMonthlyNet,
             expectedMonthlyRealizedNet:
                 winner.out.estimates.expectedMonthlyRealizedNet,
             fundedBustProbability: winner.out.estimates.fundedBustProbability,
+            ...(optimum.liveTransfer !== undefined && {
+                liveTransfer: optimum.liveTransfer,
+            }),
             requestSize: winner.requestSize,
         },
         kind: OverviewRequestKind.PayoutSizeOptimum,
@@ -847,6 +1040,27 @@ function portfolioProjectionResultOf(
         },
         kind: OverviewRequestKind.PortfolioProjection,
     };
+}
+
+function previousValueOutcomeOf(
+    plan: Plan,
+    previous: OverviewPreviousAccount,
+    spec: DocumentedPolicySpec,
+): ValueChainStepOutcome {
+    return valueOutcomeOf(() => {
+        const account = AccountReconstruction.rebuild(
+            previous.account,
+            plan,
+            null,
+            previous.pendingPayoutCounts,
+        );
+        if (account.kind === ReconstructedLiveKind.Live) {
+            throw new Error(
+                'overviewWorker: a live account has no from-state value model',
+            );
+        }
+        return requireValue(valueAtState(account, spec));
+    });
 }
 
 function requestsOfGroup(

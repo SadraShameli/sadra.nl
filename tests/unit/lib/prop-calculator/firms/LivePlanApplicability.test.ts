@@ -17,16 +17,6 @@ import {
     TradeifyVariant,
 } from '~/lib/prop-calculator';
 import {
-    AssumptionKind,
-    isLiveModelApproximation,
-    LiveApplicabilityKind,
-    LiveApplicabilityNote,
-    LiveNotModeledReason,
-    type LivePlanApplicability,
-    livePlanApplicability,
-    LiveStateApproximation,
-} from '~/lib/prop-calculator/advisor';
-import {
     ALL_FIRMS,
     ALPHAFUTURES_LIVE_DEFAULT_CUSHION_PERCENT,
     APEX_LIVE_DEFAULT_CUSHION_PERCENT,
@@ -41,11 +31,20 @@ import {
     buildTradeifyLivePlan,
     computeTopStepLiveStartingBalance,
     FUNDEDNEXT_LIVE_DEFAULT_CUSHION_PERCENT,
+    isLiveModelApproximation,
     LIVE_PLAN_BUILDERS,
+    LiveApplicabilityKind,
+    LiveApplicabilityNote,
+    LiveNotModeledReason,
+    type LivePlanApplicability,
+    livePlanApplicability,
     type LivePlanBuilder,
+    LiveReconstructionAssumption,
+    LiveStateApproximation,
     LUCID_LIVE_DEFAULT_CUSHION_PERCENT,
     MFFU_RAPID_LIVE_DEFAULT_CUSHION_PERCENT,
     TOPSTEP_LIVE_DEFAULT_CUSHION_PERCENT,
+    TOPSTEP_LIVE_LOWEST_CAPPED_BALANCE,
     TPT_LIVE_DEFAULT_CUSHION_PERCENT,
     TRADEIFY_LIVE_DEFAULT_CUSHION_PERCENT,
 } from '~/lib/prop-calculator/firms';
@@ -59,7 +58,7 @@ function builder(
     note: LiveApplicabilityNote | null = null,
     approximation: LiveStateApproximation | null = null,
     documentedStart: unknown = null,
-    reconstructionDefaultAssumption: AssumptionKind | null = null,
+    reconstructionDefaultAssumption: LiveReconstructionAssumption | null = null,
 ): LivePlanApplicability {
     return {
         approximation,
@@ -113,7 +112,7 @@ const TOPSTEP_XFA = builder(
     LiveApplicabilityNote.TopStepLfaEligibleJurisdictionAssumed,
     LiveStateApproximation.ReserveAndLfaProgressDefaulted,
     expect.any(Function),
-    AssumptionKind.TopStepLiveReserveDefaulted,
+    LiveReconstructionAssumption.TopStepLiveReserveDefaulted,
 );
 
 const SIZE = 50_000;
@@ -356,7 +355,7 @@ describe('LivePlanApplicability (F-151, PD-41, PT-04 item (i))', () => {
                         plan.accountSize,
                     ),
                     lowest: computeTopStepLiveStartingBalance(
-                        dollars(0),
+                        TOPSTEP_LIVE_LOWEST_CAPPED_BALANCE,
                         plan.accountSize,
                     ),
                 });
@@ -427,7 +426,7 @@ describe('LivePlanApplicability (F-151, PD-41, PT-04 item (i))', () => {
             expect(applicability.reconstructionDefault).toBeNull();
             expect(applicability.reconstructionDefaultAssumption).toBe(
                 plan.id.firm === FirmId.TopStep
-                    ? AssumptionKind.TopStepLiveReserveDefaulted
+                    ? LiveReconstructionAssumption.TopStepLiveReserveDefaulted
                     : null,
             );
         }

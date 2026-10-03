@@ -17,6 +17,7 @@ import {
     simulate,
 } from '~/lib/prop-calculator/simulator';
 
+const ROW_CHUNK_COUNT = 16;
 const COVERAGE_ARITY = 3;
 const MEANINGFUL_FUNDED_FRACTION = 0.2;
 const PAYOUT_REQUEST_TINY = 50;
@@ -386,143 +387,154 @@ describe(`combinatorial coverage: every ${COVERAGE_ARITY}-wise interaction of en
         expect(rows.length).toBeLessThan(fullCrossProduct);
     });
 
-    it(`every one of the ${rows.length} generated combinations produces structurally valid SimOutputs, a row whose funded flat risk is below one contract at its stop is refused with the simInputsSizingIssue text and then run at one contract (T33)`, () => {
-        const failures: string[] = [];
+    const rowChunkSize = Math.ceil(rows.length / ROW_CHUNK_COUNT);
 
-        for (const [index, row] of rows.entries()) {
-            const inputs = placeableSimInputs(
-                buildSimInputs(row, 1000 + index),
-                (message) => {
+    for (let chunk = 0; chunk < ROW_CHUNK_COUNT; chunk += 1) {
+        const firstRow = chunk * rowChunkSize;
+        const lastRow = Math.min(rows.length, firstRow + rowChunkSize) - 1;
+
+        it(`every one of the ${rows.length} generated combinations produces structurally valid SimOutputs, a row whose funded flat risk is below one contract at its stop is refused with the simInputsSizingIssue text and then run at one contract (T33), rows ${firstRow} to ${lastRow}`, () => {
+            const failures: string[] = [];
+
+            const chunkRows = rows.slice(firstRow, lastRow + 1);
+
+            for (const [offset, row] of chunkRows.entries()) {
+                const index = firstRow + offset;
+                const inputs = placeableSimInputs(
+                    buildSimInputs(row, 1000 + index),
+                    (message) => {
+                        failures.push(
+                            `row ${index} (${describeRow(row)}): ${message}`,
+                        );
+                    },
+                );
+                let out;
+                try {
+                    out = simulate(inputs);
+                } catch (error) {
                     failures.push(
-                        `row ${index} (${describeRow(row)}): ${message}`,
+                        `row ${index} (${describeRow(row)}) threw: ${String(error)}`,
                     );
-                },
-            );
-            let out;
-            try {
-                out = simulate(inputs);
-            } catch (error) {
-                failures.push(
-                    `row ${index} (${describeRow(row)}) threw: ${String(error)}`,
-                );
-                continue;
-            }
+                    continue;
+                }
 
-            const outcomeSum =
-                out.bustProbability +
-                out.timeoutProbability +
-                out.fundedSurvivalProbability +
-                out.fundedBustProbability;
-            if (Math.abs(outcomeSum - 1) > 1e-6) {
-                failures.push(
-                    `row ${index} (${describeRow(row)}): outcome probabilities summed to ${outcomeSum}, not 1`,
-                );
-            }
-
-            const probabilityFields = Object.entries({
-                bustProbability: out.bustProbability,
-                evalPassProbability: out.evalPassProbability,
-                fundedBustProbability: out.fundedBustProbability,
-                fundedSurvivalProbability: out.fundedSurvivalProbability,
-                inactivityClosureProbability: out.inactivityClosureProbability,
-                timeoutProbability: out.timeoutProbability,
-            });
-            for (const [key, value] of probabilityFields) {
-                if (!Number.isFinite(value) || value < 0 || value > 1) {
+                const outcomeSum =
+                    out.bustProbability +
+                    out.timeoutProbability +
+                    out.fundedSurvivalProbability +
+                    out.fundedBustProbability;
+                if (Math.abs(outcomeSum - 1) > 1e-6) {
                     failures.push(
-                        `row ${index} (${describeRow(row)}): ${key}=${value} is not a finite probability in [0,1]`,
+                        `row ${index} (${describeRow(row)}): outcome probabilities summed to ${outcomeSum}, not 1`,
                     );
                 }
-            }
 
-            if (
-                out.inactivityClosureProbability >
-                out.bustProbability + out.fundedBustProbability + 1e-9
-            ) {
-                failures.push(
-                    `row ${index} (${describeRow(row)}): inactivityClosureProbability exceeds bust+fundedBust`,
-                );
-            }
-
-            const maxAttempts = inputs.maxAttempts ?? 1;
-            if (
-                out.expectedAttempts < 1 - 1e-9 ||
-                out.expectedAttempts > maxAttempts + 1e-9
-            ) {
-                failures.push(
-                    `row ${index} (${describeRow(row)}): expectedAttempts=${out.expectedAttempts} outside [1, ${maxAttempts}]`,
-                );
-            }
-
-            const nonNegativeFields = Object.entries({
-                expectedGrossPayout: out.expectedGrossPayout,
-                expectedPayoutCount: out.expectedPayoutCount,
-                expectedPayoutPerFundedAccount:
-                    out.expectedPayoutPerFundedAccount,
-                expectedTotalCost: out.expectedTotalCost,
-                maxDrawdownP50: out.maxDrawdownP50,
-                maxDrawdownP95: out.maxDrawdownP95,
-            });
-            for (const [key, value] of nonNegativeFields) {
-                if (!Number.isFinite(value) || value < 0) {
-                    failures.push(
-                        `row ${index} (${describeRow(row)}): ${key}=${value} is not a finite, non-negative value`,
-                    );
+                const probabilityFields = Object.entries({
+                    bustProbability: out.bustProbability,
+                    evalPassProbability: out.evalPassProbability,
+                    fundedBustProbability: out.fundedBustProbability,
+                    fundedSurvivalProbability: out.fundedSurvivalProbability,
+                    inactivityClosureProbability:
+                        out.inactivityClosureProbability,
+                    timeoutProbability: out.timeoutProbability,
+                });
+                for (const [key, value] of probabilityFields) {
+                    if (!Number.isFinite(value) || value < 0 || value > 1) {
+                        failures.push(
+                            `row ${index} (${describeRow(row)}): ${key}=${value} is not a finite probability in [0,1]`,
+                        );
+                    }
                 }
-            }
 
-            const infinityOnlyWhenNoPassFields = Object.entries({
-                costPerDrawdownDollar: out.costPerDrawdownDollar,
-                costPerFundedAccount: out.costPerFundedAccount,
-            });
-            for (const [key, value] of infinityOnlyWhenNoPassFields) {
-                if (Number.isNaN(value) || value < 0) {
-                    failures.push(
-                        `row ${index} (${describeRow(row)}): ${key}=${value} is NaN or negative`,
-                    );
-                } else if (
-                    !Number.isFinite(value) &&
-                    out.evalPassProbability !== 0
+                if (
+                    out.inactivityClosureProbability >
+                    out.bustProbability + out.fundedBustProbability + 1e-9
                 ) {
                     failures.push(
-                        `row ${index} (${describeRow(row)}): ${key}=${value} is infinite despite evalPassProbability=${out.evalPassProbability} (only allowed when evalPassProbability is 0)`,
+                        `row ${index} (${describeRow(row)}): inactivityClosureProbability exceeds bust+fundedBust`,
                     );
                 }
-            }
 
-            const reachedFundedProbability = out.evalPassProbability;
-            if (
-                out.expectedPayoutCount === 0 &&
-                reachedFundedProbability >= MEANINGFUL_FUNDED_FRACTION &&
-                (inputs.payoutRequestSize === PAYOUT_REQUEST_TINY ||
-                    inputs.payoutRequestSize === PAYOUT_REQUEST_SMALL) &&
-                inputs.payoutRequestSize >= inputs.plan.minPayoutRequest
-            ) {
-                const unconstrained = simulate({
-                    ...inputs,
-                    payoutRequestSize: undefined,
-                });
-                if (unconstrained.expectedPayoutCount > 0) {
+                const maxAttempts = inputs.maxAttempts ?? 1;
+                if (
+                    out.expectedAttempts < 1 - 1e-9 ||
+                    out.expectedAttempts > maxAttempts + 1e-9
+                ) {
                     failures.push(
-                        `row ${index} (${describeRow(row)}): payoutRequestSize=${inputs.payoutRequestSize} is at/above plan.minPayoutRequest=${inputs.plan.minPayoutRequest} and ${(reachedFundedProbability * 100).toFixed(1)}% of trials reached funded, but expectedPayoutCount=0, while an otherwise-identical unconstrained-payout-size run pays out ${unconstrained.expectedPayoutCount.toFixed(2)} times, proving the small request size is the actual blocker, not some other confound`,
+                        `row ${index} (${describeRow(row)}): expectedAttempts=${out.expectedAttempts} outside [1, ${maxAttempts}]`,
+                    );
+                }
+
+                const nonNegativeFields = Object.entries({
+                    expectedGrossPayout: out.expectedGrossPayout,
+                    expectedPayoutCount: out.expectedPayoutCount,
+                    expectedPayoutPerFundedAccount:
+                        out.expectedPayoutPerFundedAccount,
+                    expectedTotalCost: out.expectedTotalCost,
+                    maxDrawdownP50: out.maxDrawdownP50,
+                    maxDrawdownP95: out.maxDrawdownP95,
+                });
+                for (const [key, value] of nonNegativeFields) {
+                    if (!Number.isFinite(value) || value < 0) {
+                        failures.push(
+                            `row ${index} (${describeRow(row)}): ${key}=${value} is not a finite, non-negative value`,
+                        );
+                    }
+                }
+
+                const infinityOnlyWhenNoPassFields = Object.entries({
+                    costPerDrawdownDollar: out.costPerDrawdownDollar,
+                    costPerFundedAccount: out.costPerFundedAccount,
+                });
+                for (const [key, value] of infinityOnlyWhenNoPassFields) {
+                    if (Number.isNaN(value) || value < 0) {
+                        failures.push(
+                            `row ${index} (${describeRow(row)}): ${key}=${value} is NaN or negative`,
+                        );
+                    } else if (
+                        !Number.isFinite(value) &&
+                        out.evalPassProbability !== 0
+                    ) {
+                        failures.push(
+                            `row ${index} (${describeRow(row)}): ${key}=${value} is infinite despite evalPassProbability=${out.evalPassProbability} (only allowed when evalPassProbability is 0)`,
+                        );
+                    }
+                }
+
+                const reachedFundedProbability = out.evalPassProbability;
+                if (
+                    out.expectedPayoutCount === 0 &&
+                    reachedFundedProbability >= MEANINGFUL_FUNDED_FRACTION &&
+                    (inputs.payoutRequestSize === PAYOUT_REQUEST_TINY ||
+                        inputs.payoutRequestSize === PAYOUT_REQUEST_SMALL) &&
+                    inputs.payoutRequestSize >= inputs.plan.minPayoutRequest
+                ) {
+                    const unconstrained = simulate({
+                        ...inputs,
+                        payoutRequestSize: undefined,
+                    });
+                    if (unconstrained.expectedPayoutCount > 0) {
+                        failures.push(
+                            `row ${index} (${describeRow(row)}): payoutRequestSize=${inputs.payoutRequestSize} is at/above plan.minPayoutRequest=${inputs.plan.minPayoutRequest} and ${(reachedFundedProbability * 100).toFixed(1)}% of trials reached funded, but expectedPayoutCount=0, while an otherwise-identical unconstrained-payout-size run pays out ${unconstrained.expectedPayoutCount.toFixed(2)} times, proving the small request size is the actual blocker, not some other confound`,
+                        );
+                    }
+                }
+
+                if (Number.isNaN(out.profitFactor)) {
+                    failures.push(
+                        `row ${index} (${describeRow(row)}): profitFactor is NaN`,
+                    );
+                }
+                if (Number.isNaN(out.expectancyDollars)) {
+                    failures.push(
+                        `row ${index} (${describeRow(row)}): expectancyDollars is NaN`,
                     );
                 }
             }
 
-            if (Number.isNaN(out.profitFactor)) {
-                failures.push(
-                    `row ${index} (${describeRow(row)}): profitFactor is NaN`,
-                );
-            }
-            if (Number.isNaN(out.expectancyDollars)) {
-                failures.push(
-                    `row ${index} (${describeRow(row)}): expectancyDollars is NaN`,
-                );
-            }
-        }
-
-        expect(failures).toEqual([]);
-    }, 30_000);
+            expect(failures).toEqual([]);
+        });
+    }
 });
 
 function describeRow(row: readonly number[]): string {

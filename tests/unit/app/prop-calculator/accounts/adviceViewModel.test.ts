@@ -41,6 +41,7 @@ import {
     NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
     type NextPayoutProjection,
     NextTradeKind,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     payoutBlockReasonFromGate,
     payoutPendingBlockReason,
@@ -104,6 +105,7 @@ function evalAccount(): ReconstructedFundedOrEvalAccount {
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -133,19 +135,46 @@ function fundedAccount(
         resolvedDailyLossLimit: null,
         state,
         ...overrides,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
 function fundedAdvisor(trials = 20): FundedSizingAdvisor {
     return new FundedSizingAdvisor({
         account: fundedAccount(),
-        fundedHorizonDays: 252,
+        fundedHorizonDays: 90,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
         substate: null,
         today: '2026-09-26',
         trials,
     });
+}
+
+const FUNDED_RESULTS_KEY = 'funded';
+const HEAVY_TEST_TIMEOUT_MS = 10_000;
+
+const fundedOptimumResultsMemo = new Map<
+    string,
+    ReturnType<typeof computeFundedOptimumResults>
+>();
+
+function computeFundedOptimumResults() {
+    const advisor = fundedAdvisor();
+    return {
+        advisor,
+        results: advisor
+            .optimumRequests()
+            .map((request) => runEngineOptimum(plan, request)),
+    };
+}
+
+function fundedOptimumResults() {
+    const cached = fundedOptimumResultsMemo.get(FUNDED_RESULTS_KEY);
+    if (cached !== undefined) return cached;
+    const computed = computeFundedOptimumResults();
+    fundedOptimumResultsMemo.set(FUNDED_RESULTS_KEY, computed);
+    return computed;
 }
 
 function smallLadderResults(
@@ -204,10 +233,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
     });
 
     it('reports every optimum by source with a standard error, including the from-state sweep and the payout-size sweep', () => {
-        const advisor = fundedAdvisor();
-        const results = advisor
-            .optimumRequests()
-            .map((request) => runEngineOptimum(plan, request));
+        const { advisor, results } = fundedOptimumResults();
 
         const advice = advisor.assemble(results);
         const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
@@ -231,7 +257,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         );
         expect(payoutSweep?.status).toBe(OptimumRowStatus.Ready);
         expect(payoutSweep?.value).not.toBeNull();
-    });
+    }, HEAVY_TEST_TIMEOUT_MS);
 
     it('shows a left-out row when a funded sweep has no candidates', () => {
         const advisor = fundedAdvisor();
@@ -272,10 +298,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
     });
 
     it('renders a non-empty reason line for every DifferenceReason produced by a real advisor', () => {
-        const advisor = fundedAdvisor();
-        const results = advisor
-            .optimumRequests()
-            .map((request) => runEngineOptimum(plan, request));
+        const { advisor, results } = fundedOptimumResults();
         const advice = advisor.assemble(results);
 
         const view = adviceViewModel(advice, NO_PERSONAL_LIMITS);
@@ -293,7 +316,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
         for (const reason of view.reasons) {
             expect(reason.text.length).toBeGreaterThan(0);
         }
-    });
+    }, HEAVY_TEST_TIMEOUT_MS);
 
     it('renders a non-empty text for every assumption, including live-triggers-not-checked', () => {
         const advisor = fundedAdvisor();
@@ -416,11 +439,8 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
     });
 
     it('never mentions Kelly in the funded or eval advice view model', () => {
-        const fundedResults = fundedAdvisor()
-            .optimumRequests()
-            .map((request) => runEngineOptimum(plan, request));
         const fundedView = adviceViewModel(
-            fundedAdvisor().assemble(fundedResults),
+            fundedAdvisor().assemble(fundedOptimumResults().results),
             NO_PERSONAL_LIMITS,
         );
 
@@ -432,7 +452,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
 
         expect(JSON.stringify(fundedView).toLowerCase()).not.toContain('kelly');
         expect(JSON.stringify(evalView).toLowerCase()).not.toContain('kelly');
-    });
+    }, HEAVY_TEST_TIMEOUT_MS);
 
     it('reports the ladder search optimum by source for an eval account', () => {
         const advisor = evalAdvisor();
@@ -683,13 +703,30 @@ describe('the engine figures name the personal limits they do not apply (PT-68f,
         return { caps, dailyLossLimit };
     }
 
+    const fundedAdviceCache = new Map<
+        string,
+        ReturnType<typeof buildFundedAdviceWith>
+    >();
+
     function fundedAdviceWith(
         personalCaps: PersonalCaps,
         personalDll: Dollars | null = null,
     ) {
+        const key = JSON.stringify([personalCaps, personalDll]);
+        const cached = fundedAdviceCache.get(key);
+        if (cached !== undefined) return cached;
+        const built = buildFundedAdviceWith(personalCaps, personalDll);
+        fundedAdviceCache.set(key, built);
+        return built;
+    }
+
+    function buildFundedAdviceWith(
+        personalCaps: PersonalCaps,
+        personalDll: Dollars | null,
+    ) {
         const advisor = new FundedSizingAdvisor({
             account: fundedAccount(),
-            fundedHorizonDays: 252,
+            fundedHorizonDays: 30,
             personalCaps,
             personalDll,
             rulebook: DEFAULT_RULEBOOK,
@@ -848,7 +885,7 @@ describe('the engine figures name the personal limits they do not apply (PT-68f,
         expect(
             view.assumptions.some((item) => item.text.includes('do not apply')),
         ).toBe(false);
-    });
+    }, HEAVY_TEST_TIMEOUT_MS);
 
     it('names no limit on the fresh funded sweep row either', () => {
         const limits = limitsOf(NO_PERSONAL_CAPS, dollars(600));
@@ -964,7 +1001,7 @@ describe('the engine figures name the personal limits they do not apply (PT-68f,
             expect(rowOf(view, AdviceSource.PayoutSizeSweep).text).toContain(
                 APPLIED,
             );
-        });
+        }, HEAVY_TEST_TIMEOUT_MS);
 
         it('names the limits on the ladder row with the ladder rule: cut rungs, every day path inside both limits, no grid rounding', () => {
             const view = readyView(

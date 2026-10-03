@@ -6,6 +6,12 @@ import type {
 } from '~/server/db/schemas/prop';
 
 import {
+    type FirmCountMember,
+    type FirmCountUnknownReason,
+    type FirmPayoutCount,
+    type FirmPayoutCountResult,
+    FirmPayoutCountResultKind,
+    firmPayoutCountResultOf,
     type SnapshotAccountRow,
     type SnapshotEventRow,
     snapshotInputFrom,
@@ -19,6 +25,7 @@ import {
     type ModeledAccountRow,
     PlanKeyResolutionKind,
     resolvePlanKey,
+    type StoredFirmId,
     trackedAccountOf,
     type UnresolvedPlanReason,
 } from '~/lib/prop-accounts/core';
@@ -39,6 +46,7 @@ export enum AccountStateKind {
 }
 
 export enum AccountStateUnavailableKind {
+    FirmCountUnknown = 'firm-count-unknown',
     ImplausibleSnapshot = 'implausible-snapshot',
     LedgerOnly = 'ledger-only',
     NoSnapshot = 'no-snapshot',
@@ -101,6 +109,10 @@ export type AccountStateUnavailableReason =
           readonly issues: readonly SnapshotPlausibilityIssue[];
           readonly kind: AccountStateUnavailableKind.ImplausibleSnapshot;
       }
+    | {
+          readonly kind: AccountStateUnavailableKind.FirmCountUnknown;
+          readonly reason: FirmCountUnknownReason;
+      }
     | { readonly kind: AccountStateUnavailableKind.LedgerOnly }
     | { readonly kind: AccountStateUnavailableKind.NoSnapshot }
     | {
@@ -117,6 +129,11 @@ export interface ReconstructedSnapshotState {
     readonly reconstructed: ReconstructedAccount;
 }
 
+type FirmCountAt = (
+    firmId: StoredFirmId,
+    asOf: string,
+) => FirmPayoutCountResult;
+
 interface OwnedRow {
     readonly accountId: string;
     readonly userId: string;
@@ -131,24 +148,42 @@ export function accountStatesOf(
     asOf: string,
     rows: AccountStatesRows,
 ): readonly AccountStateEntry[] {
-    const ownedAccounts = rows.accounts.filter(
-        (account) => account.userId === userId && account.archivedAt === null,
+    const userAccounts = rows.accounts.filter(
+        (account) => account.userId === userId,
     );
-    const ownedIds = new Set(ownedAccounts.map((account) => account.id));
-    const eventsByAccount = groupOwnedRows(rows.events, userId, ownedIds);
-    const payoutsByAccount = groupOwnedRows(rows.payouts, userId, ownedIds);
-    const snapshotsByAccount = groupOwnedRows(rows.snapshots, userId, ownedIds);
-
-    return ownedAccounts.map((account) => ({
-        accountId: account.id,
-        state: stateFor(
+    const userAccountIds = new Set(userAccounts.map((account) => account.id));
+    const eventsByAccount = groupOwnedRows(rows.events, userId, userAccountIds);
+    const payoutsByAccount = groupOwnedRows(
+        rows.payouts,
+        userId,
+        userAccountIds,
+    );
+    const snapshotsByAccount = groupOwnedRows(
+        rows.snapshots,
+        userId,
+        userAccountIds,
+    );
+    const firmCountAt = firmCountAtOf(
+        userAccounts.map((account): FirmCountMember => ({
             account,
-            eventsByAccount.get(account.id) ?? [],
-            payoutsByAccount.get(account.id) ?? [],
-            snapshotsByAccount.get(account.id) ?? [],
-            asOf,
-        ),
-    }));
+            events: eventsByAccount.get(account.id) ?? [],
+            payouts: payoutsByAccount.get(account.id) ?? [],
+        })),
+    );
+
+    return userAccounts
+        .filter((account) => account.archivedAt === null)
+        .map((account) => ({
+            accountId: account.id,
+            state: stateFor(
+                account,
+                eventsByAccount.get(account.id) ?? [],
+                payoutsByAccount.get(account.id) ?? [],
+                snapshotsByAccount.get(account.id) ?? [],
+                asOf,
+                firmCountAt,
+            ),
+        }));
 }
 
 function attemptSnapshot(
@@ -158,15 +193,18 @@ function attemptSnapshot(
     events: readonly AccountStateEventRow[],
     payouts: readonly AccountStatePayoutRow[],
     asOf: string,
+    firmCount: FirmPayoutCount,
 ): SnapshotAttempt {
-    const { input, personalMaxRiskPerTrade } = snapshotInputFrom(
-        plan,
-        account,
-        snapshot,
-        events,
-        payouts,
-        asOf,
-    );
+    const { input, pendingPayoutCounts, personalMaxRiskPerTrade } =
+        snapshotInputFrom(
+            plan,
+            account,
+            snapshot,
+            events,
+            payouts,
+            asOf,
+            firmCount,
+        );
     const blocking = snapshotInputIssues(plan, input).filter(
         (issue) => issue.severity === SnapshotIssueSeverity.Impossible,
     );
@@ -188,6 +226,7 @@ function attemptSnapshot(
                     input,
                     plan,
                     personalMaxRiskPerTrade,
+                    pendingPayoutCounts,
                 ),
             },
         };
@@ -203,6 +242,18 @@ function attemptSnapshot(
         }
         throw error;
     }
+}
+
+function firmCountAtOf(members: readonly FirmCountMember[]): FirmCountAt {
+    const results = new Map<string, FirmPayoutCountResult>();
+    return (firmId, asOf) => {
+        const key = `${firmId}|${asOf}`;
+        const known = results.get(key);
+        if (known !== undefined) return known;
+        const result = firmPayoutCountResultOf(firmId, members, asOf);
+        results.set(key, result);
+        return result;
+    };
 }
 
 function groupOwnedRows<Row extends OwnedRow>(
@@ -229,6 +280,7 @@ function stateFor(
     payouts: readonly AccountStatePayoutRow[],
     snapshots: readonly AccountStateSnapshotRow[],
     asOf: string,
+    firmCountAt: FirmCountAt,
 ): AccountStateResult {
     const tracked = trackedAccountOf(account);
     if (isLedgerOnlyAccount(tracked)) {
@@ -252,6 +304,13 @@ function stateFor(
     if (latest === null) {
         return unavailable({ kind: AccountStateUnavailableKind.NoSnapshot });
     }
+    const latestCount = firmCountAt(tracked.firmId, asOf);
+    if (latestCount.kind === FirmPayoutCountResultKind.Unknown) {
+        return unavailable({
+            kind: AccountStateUnavailableKind.FirmCountUnknown,
+            reason: latestCount.reason,
+        });
+    }
     const latestAttempt = attemptSnapshot(
         plan,
         tracked,
@@ -259,14 +318,26 @@ function stateFor(
         events,
         payouts,
         asOf,
+        latestCount.count,
     );
     if (!latestAttempt.ok) {
         return unavailable(latestAttempt.reason);
     }
+    const previousCount =
+        previous === null ? null : firmCountAt(tracked.firmId, previous.asOf);
     const previousAttempt =
-        previous === null
+        previous === null ||
+        previousCount?.kind !== FirmPayoutCountResultKind.Known
             ? null
-            : attemptSnapshot(plan, tracked, previous, events, payouts, asOf);
+            : attemptSnapshot(
+                  plan,
+                  tracked,
+                  previous,
+                  events,
+                  payouts,
+                  previous.asOf,
+                  previousCount.count,
+              );
     return {
         kind: AccountStateKind.Reconstructed,
         latest: latestAttempt.value,

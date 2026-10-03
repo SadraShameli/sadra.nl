@@ -22,6 +22,7 @@ export {
 export {
     fromStateCashSamples,
     FUNDED_PAYOUT_COUNT_TAIL_BUCKET,
+    liveTransferValueAfterPayout,
     simulate,
     simulateFromState,
     simulatePortfolio,
@@ -52,8 +53,11 @@ export {
     LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT,
     liveTransferContinuationKindFor,
     liveTransferContinuationNotes,
+    type LiveTransferDisclosure,
+    liveTransferDisclosureLines,
     liveTransferHazardLines,
     liveTransferHazardPercentText,
+    liveTransferSentLiveText,
 } from './LiveTransfer';
 export {
     DrawdownTracker,

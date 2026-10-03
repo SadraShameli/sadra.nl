@@ -1,6 +1,8 @@
 import type { ArgsDef } from 'citty';
 
 import { parseArgs } from 'citty';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
@@ -20,7 +22,7 @@ import {
     formatDaysToPass,
     hasEvalPass,
     liveTransferHazardArgument,
-    liveTransferHazardLines,
+    liveTransferRunLines,
     liveTransferSweepLines,
     MAX_PATH_GRANULARITY,
     objectiveArgument,
@@ -58,7 +60,7 @@ import {
     tradingArguments,
     tradingEdgeNotes,
     TradingInputs,
-    verifiedTriggerLines,
+    unrestatedLines,
 } from '~/cli/commands/prop/shared';
 import * as sharedModule from '~/cli/commands/prop/shared';
 import { NOT_APPLICABLE } from '~/lib/format';
@@ -94,9 +96,9 @@ import {
 import {
     DEFAULT_RULEBOOK,
     rulebookSchema,
+    SIZING_OBJECTIVE_LABEL,
 } from '~/lib/prop-calculator/advisor';
 import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
-import { SIZING_OBJECTIVE_LABEL } from '~/lib/prop-calculator/advisor/policy';
 import { solveAverageRewardPolicy } from '~/lib/prop-calculator/core/AverageRewardSolver';
 import {
     ContractUnit,
@@ -104,6 +106,10 @@ import {
     describeFundedContracts,
     describeShare,
 } from '~/lib/prop-calculator/describe';
+import {
+    LIVE_TRANSFER_CONTINUATION_TEXT,
+    liveTransferDisclosureLines,
+} from '~/lib/prop-calculator/simulator';
 
 vi.mock(
     import('~/lib/prop-calculator/core/AverageRewardSolver'),
@@ -1343,7 +1349,7 @@ describe('--live-transfer-hazard (PT-73, VD-17)', () => {
         expect(readLiveTransferHazard('')).toBeUndefined();
     });
 
-    describe('liveTransferHazardLines', () => {
+    describe('liveTransferRunLines', () => {
         const modeled = {
             liveTransferContinuation: LiveTransferContinuationKind.Modeled,
             liveTransferProbability: 0.413,
@@ -1354,67 +1360,167 @@ describe('--live-transfer-hazard (PT-73, VD-17)', () => {
         };
 
         it('prints nothing without a hazard', () => {
-            expect(liveTransferHazardLines(undefined, modeled)).toStrictEqual(
+            expect(
+                liveTransferRunLines(undefined, modeled, []),
+            ).toStrictEqual([]);
+            expect(liveTransferRunLines(0, modeled, [])).toStrictEqual(
                 [],
             );
-            expect(liveTransferHazardLines(0, modeled)).toStrictEqual([]);
         });
 
         it('labels the rate as your assumption and gives the share sent live', () => {
-            const [line] = liveTransferHazardLines(0.2, modeled);
-            expect(line).toContain('your assumption, not a firm rule');
-            expect(line).toContain('20.0% per paid payout');
-            expect(line).toContain('41.3%');
+            const lines = liveTransferRunLines(0.2, modeled, []);
+            expect(lines[0]).toContain('your assumption, not a firm rule');
+            expect(lines[0]).toContain('20.0% per paid payout');
+            expect(lines.join('\n')).toContain('41.3%');
+        });
+
+        it('is the one hazard wording the web surfaces print (PT-73d step 3)', () => {
+            for (const kind of [
+                LiveTransferContinuationKind.Modeled,
+                LiveTransferContinuationKind.ModeledApproximate,
+                LiveTransferContinuationKind.NotModeled,
+            ]) {
+                expect(
+                    liveTransferRunLines(
+                        0.2,
+                        {
+                            liveTransferContinuation: kind,
+                            liveTransferProbability: 0.413,
+                        },
+                        [],
+                    ),
+                ).toEqual(
+                    liveTransferDisclosureLines({
+                        continuation: kind,
+                        hazard: 0.2,
+                        notes: [],
+                        sentLiveShare: 0.413,
+                    }),
+                );
+            }
+        });
+
+        it('adds the plan notes it is given after the continuation line', () => {
+            const notes = ['A plan note.'];
+            const lines = liveTransferRunLines(0.2, modeled, notes);
+
+            expect(lines.at(-1)).toBe('A plan note.');
+            expect(lines).toEqual(
+                liveTransferDisclosureLines({
+                    continuation: LiveTransferContinuationKind.Modeled,
+                    hazard: 0.2,
+                    notes,
+                    sentLiveShare: 0.413,
+                }),
+            );
+        });
+
+        it('keeps no continuation wording of its own', () => {
+            const source = readFileSync(
+                path.join(
+                    process.cwd(),
+                    'src',
+                    'cli',
+                    'commands',
+                    'prop',
+                    'shared.ts',
+                ),
+                'utf8',
+            );
+
+            expect(source).not.toContain('after a transfer the account');
+            expect(source).not.toContain('valued at $0');
+            expect(source).not.toContain('per paid payout (your assumption');
         });
 
         it('says the live plan continues the account where one is modeled', () => {
-            const text = liveTransferHazardLines(0.2, modeled).join('\n');
+            const text = liveTransferRunLines(0.2, modeled, []).join(
+                '\n',
+            );
             expect(text).toContain('modeled live plan');
             expect(text).not.toContain('valued at $0');
         });
 
         it('says the rest is valued at $0 where no live plan is modeled', () => {
-            const text = liveTransferHazardLines(0.2, notModeled).join('\n');
+            const text = liveTransferRunLines(0.2, notModeled, []).join(
+                '\n',
+            );
             expect(text).toContain('valued at $0');
         });
 
         it('never uses an em dash', () => {
-            const text = liveTransferHazardLines(0.2, notModeled).join('\n');
+            const text = liveTransferRunLines(0.2, notModeled, []).join(
+                '\n',
+            );
             expect(text).not.toContain('\u{2014}');
         });
 
         it('says the live model is an approximation when part of it is assumed', () => {
-            const text = liveTransferHazardLines(0.2, {
-                liveTransferContinuation:
-                    LiveTransferContinuationKind.ModeledApproximate,
-                liveTransferProbability: 0.413,
-            }).join('\n');
+            const text = liveTransferRunLines(
+                0.2,
+                {
+                    liveTransferContinuation:
+                        LiveTransferContinuationKind.ModeledApproximate,
+                    liveTransferProbability: 0.413,
+                },
+                [],
+            ).join('\n');
             expect(text).toContain('modeled live plan');
             expect(text).toContain('approximation');
             expect(text).not.toContain('valued at $0');
         });
 
-        it('prints the continuation line for a trigger-only run with no hazard', () => {
-            const lines = liveTransferHazardLines(undefined, notModeled, true);
-            expect(lines).toHaveLength(1);
-            expect(lines.join('\n')).toContain('valued at $0');
-            expect(lines.join('\n')).not.toContain('your assumption');
+        it('prints no continuation line without a hazard, the priced-trigger line carries it', () => {
             expect(
-                liveTransferHazardLines(0, modeled, true).join('\n'),
-            ).toContain('modeled live plan');
+                liveTransferRunLines(undefined, notModeled, []),
+            ).toStrictEqual([]);
+            expect(liveTransferRunLines(0, modeled, [])).toStrictEqual([]);
         });
 
-        it('prints the continuation line of a sweep for a trigger-only run too', () => {
-            const lines = liveTransferSweepLines(
-                undefined,
-                LiveTransferContinuationKind.NotModeled,
-                true,
+        it('words a sweep with the same lines, without a share', () => {
+            expect(
+                liveTransferSweepLines(
+                    0.2,
+                    LiveTransferContinuationKind.NotModeled,
+                    [],
+                ),
+            ).toEqual(
+                liveTransferDisclosureLines({
+                    continuation: LiveTransferContinuationKind.NotModeled,
+                    hazard: 0.2,
+                    notes: [],
+                    sentLiveShare: null,
+                }),
             );
-            expect(lines.join('\n')).toContain('valued at $0');
+        });
+
+        it('drops the hazard lines the priced-trigger line already states and keeps the rest', () => {
+            const lines = liveTransferRunLines(0.2, notModeled, [
+                'A plan note.',
+            ]);
+            const stated = [
+                `  Priced trigger. ${LIVE_TRANSFER_CONTINUATION_TEXT[LiveTransferContinuationKind.NotModeled]} A plan note.`,
+            ];
+            const kept = unrestatedLines(lines, stated);
+            expect(kept).toStrictEqual(lines.slice(0, 3));
+            expect(kept[0]).toContain('per paid payout');
+            expect(kept).not.toContain('A plan note.');
+        });
+
+        it('keeps every hazard line when nothing is stated before them', () => {
+            const lines = liveTransferRunLines(0.2, notModeled, [
+                'A plan note.',
+            ]);
+            expect(unrestatedLines(lines, [])).toStrictEqual(lines);
+        });
+
+        it('prints no continuation line of a sweep without a hazard', () => {
             expect(
                 liveTransferSweepLines(
                     undefined,
                     LiveTransferContinuationKind.NotModeled,
+                    [],
                 ),
             ).toStrictEqual([]);
         });
@@ -1463,19 +1569,5 @@ describe('verified cumulative payout triggers reach the simulation inputs (PT-73
             parseTradingInputs([]).toSimInputs(plan)
                 .verifiedCumulativePayoutTrigger,
         ).toBeUndefined();
-    });
-
-    it('prints nothing without a verified trigger and names the threshold with one', () => {
-        expect(verifiedTriggerLines(undefined)).toStrictEqual([]);
-        const [line] = verifiedTriggerLines(20_000);
-        expect(line).toContain('$20,000');
-        expect(line).toContain('verified firm trigger');
-        expect(line).not.toContain('\u{2014}');
-    });
-
-    it('states that the amount is compared per account on what the trader receives', () => {
-        const [line] = verifiedTriggerLines(20_000);
-        expect(line).toContain('per account');
-        expect(line).toContain('trader receives');
     });
 });

@@ -20,6 +20,7 @@ describe('RoundBudgetReachedRule', () => {
                     {
                         budget: {
                             budgetCents: 100_000,
+                            isSpent: false,
                             remainingCents: 10_000,
                             spentCents: 90_000,
                         },
@@ -38,6 +39,7 @@ describe('RoundBudgetReachedRule', () => {
                 {
                     budget: {
                         budgetCents: 100_000,
+                        isSpent: true,
                         remainingCents: 0,
                         spentCents: 100_000,
                     },
@@ -62,6 +64,7 @@ describe('RoundBudgetReachedRule', () => {
                     {
                         budget: {
                             budgetCents: 100_000,
+                            isSpent: true,
                             remainingCents: -10_000,
                             spentCents: 110_000,
                         },
@@ -81,6 +84,7 @@ describe('RoundBudgetReachedRule', () => {
                     {
                         budget: {
                             budgetCents: null,
+                            isSpent: false,
                             remainingCents: null,
                             spentCents: 100_000,
                         },
@@ -100,6 +104,7 @@ describe('RoundBudgetReachedRule', () => {
                     {
                         budget: {
                             budgetCents: 100_000,
+                            isSpent: true,
                             remainingCents: 0,
                             spentCents: 100_000,
                         },

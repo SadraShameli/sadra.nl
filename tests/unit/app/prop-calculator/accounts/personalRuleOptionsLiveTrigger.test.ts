@@ -8,6 +8,7 @@ import {
     SizingAdvisorBuildKind,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import {
+    AccountStage,
     AccountStatus,
     type FirmPayoutCount,
     payoutReadinessBoardOf,
@@ -32,6 +33,7 @@ import {
     DEFAULT_RULEBOOK,
     LiveTriggerCoverage,
     LiveTriggerScope,
+    NO_PENDING_PAYOUT_COUNTS,
     PayoutBlockReasonKind,
     PayoutRequestDecisionKind,
     SizingStage,
@@ -104,7 +106,12 @@ const FUNDED_SNAPSHOT: AccountSnapshotInput = {
 
 function payoutDecisionFor(paidPayoutsSinceLastLiveAccount: null | number) {
     const plan = topStepPlan();
-    const account = AccountReconstruction.rebuild(FUNDED_SNAPSHOT, plan);
+    const account = AccountReconstruction.rebuild(
+        FUNDED_SNAPSHOT,
+        plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
+    );
     const build = buildSizingAdvisor(
         account,
         personalAdvisorOptionsOf({
@@ -161,8 +168,10 @@ describe('personalAdvisorOptionsOf passes the firm payout count to the advisor (
 describe('readinessOverridesOf carries the firm payout count of each account (PT-36g, F-145)', () => {
     const counts: readonly FirmPayoutCount[] = [
         {
+            asOf: '2026-09-28',
             firmId: FirmId.TopStep,
             paidPayoutsSinceLastLiveAccount: 4,
+            requestedPayoutsSinceLastLiveAccount: 0,
             sinceOn: null,
         },
     ];
@@ -170,9 +179,24 @@ describe('readinessOverridesOf carries the firm payout count of each account (PT
     it('looks the count up by the account firm and leaves an unknown firm unset', () => {
         const overrides = readinessOverridesOf(
             [
-                { firmId: FirmId.TopStep, id: 'topstep', personalRules: null },
-                { firmId: FirmId.Mffu, id: 'mffu', personalRules: null },
-                { firmId: null, id: 'external', personalRules: null },
+                {
+                    firmId: FirmId.TopStep,
+                    id: 'topstep',
+                    personalRules: null,
+                    stage: AccountStage.Funded,
+                },
+                {
+                    firmId: FirmId.Mffu,
+                    id: 'mffu',
+                    personalRules: null,
+                    stage: AccountStage.Funded,
+                },
+                {
+                    firmId: null,
+                    id: 'external',
+                    personalRules: null,
+                    stage: AccountStage.Funded,
+                },
             ],
             counts,
         );
@@ -209,12 +233,14 @@ describe('readinessBoardInputsOf (PT-36g, F-145 and the PT-19i suspended addendu
             firmId: plan.id.firm,
             id: 'active',
             personalRules: null,
+            stage: AccountStage.Funded,
             status: AccountStatus.Active,
         },
         {
             firmId: plan.id.firm,
             id: 'suspended',
             personalRules: null,
+            stage: AccountStage.Funded,
             status: AccountStatus.Suspended,
         },
     ];
@@ -240,8 +266,10 @@ describe('readinessBoardInputsOf (PT-36g, F-145 and the PT-19i suspended addendu
         const known = withPolicy(plan, triggers, () =>
             boardWith([
                 {
+                    asOf: '2026-09-28',
                     firmId: plan.id.firm,
                     paidPayoutsSinceLastLiveAccount: 9,
+                    requestedPayoutsSinceLastLiveAccount: 0,
                     sinceOn: null,
                 },
             ]),

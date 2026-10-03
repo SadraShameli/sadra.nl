@@ -32,7 +32,7 @@ describe('fundedRetainedCushionResolution on the advisor barrel (PT-67e)', () =>
             ),
         ).toBe(false);
         expect(
-            /import \{[^}]*\bfundedRetainedCushionResolution\b[^}]*\} from '~\/lib\/prop-calculator\/advisor';/u.test(
+            /import \{[^}]*\bdocumentedRetainedCushionResolution\b[^}]*\} from '~\/lib\/prop-calculator\/advisor';/u.test(
                 VALUE_CHAIN_SOURCE,
             ),
         ).toBe(true);

@@ -155,7 +155,7 @@ describe('ladder scores use common random numbers', () => {
         expect(standardDeviation(common)).toBeLessThan(
             0.8 * standardDeviation(independent),
         );
-    }, 60_000);
+    });
 });
 
 describe('ladder scores carry standard errors', () => {
@@ -171,7 +171,7 @@ describe('ladder scores carry standard errors', () => {
         );
         expect(s.passRateStandardError).toBeGreaterThan(0.003);
         expect(s.passRateStandardError).toBeLessThan(0.004);
-    }, 60_000);
+    });
 
     it('reports cost and days standard errors that match the seed-to-seed spread', () => {
         const scores = seeds(30).map((seed) =>
@@ -191,7 +191,7 @@ describe('ladder scores carry standard errors', () => {
         expect(costRatio).toBeLessThan(1.6);
         expect(daysRatio).toBeGreaterThan(0.6);
         expect(daysRatio).toBeLessThan(1.6);
-    }, 60_000);
+    });
 
     it('keeps the cost standard error smooth across neighbouring ladders on a subscription plan', () => {
         const errors = [460, 465, 470, 475, 480, 485, 490, 495, 500].map(
@@ -203,7 +203,7 @@ describe('ladder scores carry standard errors', () => {
                 ).costPerFundedStandardError,
         );
         expect(Math.max(...errors) / Math.min(...errors)).toBeLessThan(4);
-    }, 60_000);
+    });
 
     it('prices the days-to-funded noise at the subscription rate in the cost standard error of every neighbouring ladder', () => {
         const scores = topStepSubscriptionScores();
@@ -215,7 +215,7 @@ describe('ladder scores carry standard errors', () => {
                 !(score.costPerFundedStandardError > costNoiseFloor(score)),
         );
         expect(belowFloor.map((score) => score.ladder)).toStrictEqual([]);
-    }, 60_000);
+    });
 
     it('reports a subscription plan cost standard error that matches the seed-to-seed spread', () => {
         const scores = seeds(30).map((seed) =>
@@ -226,7 +226,7 @@ describe('ladder scores carry standard errors', () => {
             mean(scores.map((s) => s.costPerFundedStandardError));
         expect(costRatio).toBeGreaterThan(0.6);
         expect(costRatio).toBeLessThan(1.6);
-    }, 60_000);
+    });
 
     it('reports Infinity standard errors for an unscorable ladder', () => {
         const s = scoreLadder(

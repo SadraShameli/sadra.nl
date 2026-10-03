@@ -427,9 +427,9 @@ function payoutLineOf(planId: PlanId): string {
 }
 
 describe('planRuleLines: per-cycle payout profit gate (N-42)', () => {
-    it("shows FundedNext Legacy's $500 per-cycle gate next to its $0 first-payout gate", () => {
+    it("shows FundedNext Legacy's $500 per-cycle gate next to its $500 first-payout gate (N-93)", () => {
         expect(payoutLineOf(legacy)).toContain(
-            'first $0 | per cycle $500 | min request $250',
+            'first $500 | per cycle $500 | min request $250',
         );
     });
 

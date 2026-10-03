@@ -1,9 +1,4 @@
-import {
-    isLiveModelApproximation,
-    LiveApplicabilityKind,
-    LiveApplicabilityNote,
-    livePlanApplicability,
-} from '~/lib/prop-calculator/advisor/LivePlanApplicability';
+import { formatPercent } from '~/lib/format';
 import { type AccountState } from '~/lib/prop-calculator/core/AccountState';
 import { type InstrumentSymbol } from '~/lib/prop-calculator/core/Instruments';
 import {
@@ -18,6 +13,12 @@ import {
     type PositionSizingConfig,
     resolvePositionSizing,
 } from '~/lib/prop-calculator/core/PositionSizing';
+import {
+    isLiveModelApproximation,
+    LiveApplicabilityKind,
+    LiveApplicabilityNote,
+    livePlanApplicability,
+} from '~/lib/prop-calculator/firms';
 import { deriveSubSeed, mulberry32 } from '~/lib/prop-calculator/rng';
 
 import {
@@ -48,7 +49,7 @@ export const LIVE_TRANSFER_NOTE_TEXT: Readonly<
     Record<LiveApplicabilityNote, string>
 > = {
     [LiveApplicabilityNote.AlphaPrimeNotModeled]:
-        'This tool models the Alpha Futures Live Program path for the live plan and does not model the Alpha Prime Program path.',
+        'This tool models the Alpha Futures Live Program path for the live plan and does not model the Alpha Prime Program path. It also does not model the Scaling Daily Loss Limit (30% of account) that the firm lists for both live programs.',
     [LiveApplicabilityNote.ApexUserPasteOnly]:
         'The Apex live terms this tool models rest on a pasted copy of the firm page and were not re-fetched live.',
     [LiveApplicabilityNote.FundedNextFlexTriggerConflict]:
@@ -56,7 +57,7 @@ export const LIVE_TRANSFER_NOTE_TEXT: Readonly<
     [LiveApplicabilityNote.FundedNextTwoQuoteInference]:
         'This tool marks the FundedNext live plan as inferred from two separate firm quotes, not from one stated rule.',
     [LiveApplicabilityNote.LucidDailyTransitionPayoutIsPastCash]:
-        'This tool treats the Lucid Daily transition credit as profit the simulated account already earned, not income the live account will make.',
+        "This tool treats the Lucid Daily transition credit as profit the simulated account already earned, not income the live account will make. It pays the credit net of the 90/10 split, which is this tool's own reading: the firm live page does not state a split for it, and the Lucid Daily Payouts and Funded Account articles state 90/10, for funded account payouts. The firm says the credit may be paid only after KYC with its broker partner and sub account approval.",
     [LiveApplicabilityNote.MffuRapidEodLiveContractLimitDisputed]:
         'This tool marks the MFFU Rapid EOD live contract limit as disputed between firm sources, so the live contract limit it models may be wrong.',
     [LiveApplicabilityNote.TopStepLfaEligibleJurisdictionAssumed]:
@@ -70,6 +71,13 @@ export const LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT =
 
 const HAZARD_PERCENT_MAX_DIGITS = 8;
 const HAZARD_PERCENT_TOLERANCE = 1e-9;
+
+export interface LiveTransferDisclosure {
+    readonly continuation: LiveTransferContinuationKind;
+    readonly hazard: number;
+    readonly notes: readonly string[];
+    readonly sentLiveShare: null | number;
+}
 
 export interface LiveTransferSetup {
     readonly continuation: LiveTransferContinuation | null;
@@ -127,11 +135,29 @@ export function liveTransferContinuationNotes(
                 ...(note === null ? [] : [LIVE_TRANSFER_NOTE_TEXT[note]]),
             ];
         }
-        case LiveTransferContinuationKind.NotModeled:
+        case LiveTransferContinuationKind.NotModeled: {
+            const note = unverifiedApplicabilityNoteOf(plan);
+            return note === null ? [] : [LIVE_TRANSFER_NOTE_TEXT[note]];
+        }
         case LiveTransferContinuationKind.Off: {
             return [];
         }
     }
+}
+
+export function liveTransferDisclosureLines(
+    disclosure: LiveTransferDisclosure,
+): readonly string[] {
+    const { continuation, hazard, notes, sentLiveShare } = disclosure;
+    return [
+        `Live transfer: ${liveTransferHazardPercentText(hazard)} per paid payout (your assumption, not a firm rule).`,
+        ...(sentLiveShare === null
+            ? []
+            : [liveTransferSentLiveText(sentLiveShare)]),
+        LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
+        LIVE_TRANSFER_CONTINUATION_TEXT[continuation],
+        ...notes,
+    ];
 }
 
 export function liveTransferHazardLines(
@@ -139,14 +165,19 @@ export function liveTransferHazardLines(
     hazard: Fraction0to1,
     instrument: InstrumentSymbol | undefined,
     stopPoints: number | undefined,
+    sentLiveShare: null | number = null,
 ): readonly string[] {
-    const kind = liveTransferContinuationKindFor(plan, instrument, stopPoints);
-    return [
-        `Live transfer: ${liveTransferHazardPercentText(hazard)} per paid payout (your assumption, not a firm rule).`,
-        LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
-        LIVE_TRANSFER_CONTINUATION_TEXT[kind],
-        ...liveTransferContinuationNotes(plan, kind),
-    ];
+    const continuation = liveTransferContinuationKindFor(
+        plan,
+        instrument,
+        stopPoints,
+    );
+    return liveTransferDisclosureLines({
+        continuation,
+        hazard,
+        notes: liveTransferContinuationNotes(plan, continuation),
+        sentLiveShare,
+    });
 }
 
 export function liveTransferHazardPercentText(hazard: number): string {
@@ -174,6 +205,10 @@ export function liveTransferOptionsFor(
         hazard: setup.hazard,
         rng: mulberry32(deriveSubSeed(setup.seed, trialIndex, groupIndex)),
     };
+}
+
+export function liveTransferSentLiveText(share: number): string {
+    return `${formatPercent(share)} of runs are sent live within the funded horizon.`;
 }
 
 export function resolveLiveTransferSetup(
@@ -273,12 +308,8 @@ function livePlanResolverFor(plan: Plan): null | ResolvedLivePlan {
             return null;
         }
         case LiveApplicabilityKind.TransitionBuilder: {
-            const { payoutBuffer } = plan;
-            if (payoutBuffer === null || !applicability.isVerified) return null;
-            const buffer = payoutBuffer.requiredBalance(
-                plan.accountSize,
-                plan.fundedDrawdown.amount,
-            );
+            const buffer = plan.payoutBufferBalance();
+            if (buffer === null || !applicability.isVerified) return null;
             return {
                 isApproximate: isLiveModelApproximation(applicability),
                 livePlanAt: (state) =>
@@ -304,4 +335,19 @@ function modeledLiveOf(
     return positionSizing === null || livePlan === null
         ? null
         : { livePlan, positionSizing };
+}
+
+function unverifiedApplicabilityNoteOf(
+    plan: Plan,
+): LiveApplicabilityNote | null {
+    const applicability = livePlanApplicability(plan.id);
+    switch (applicability.kind) {
+        case LiveApplicabilityKind.Builder:
+        case LiveApplicabilityKind.TransitionBuilder: {
+            return applicability.isVerified ? null : applicability.note;
+        }
+        case LiveApplicabilityKind.NotModeled: {
+            return null;
+        }
+    }
 }

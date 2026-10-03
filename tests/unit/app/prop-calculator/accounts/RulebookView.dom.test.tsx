@@ -7,7 +7,13 @@ import {
     TradingPlanSourceKind,
 } from '~/app/(app)/prop-calculator/accounts/rulebook/rulebookFromTradingPlan';
 import { RulebookView } from '~/app/(app)/prop-calculator/accounts/rulebook/RulebookView';
+import { LiveTransferRateUnavailable } from '~/lib/prop-accounts/firms';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import { fraction, TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator/core';
+import {
+    compoundedMultiple,
+    kellyGrowthPerTrade,
+} from '~/lib/prop-calculator/economics';
 import {
     PropRecord,
     type PropRejection,
@@ -39,6 +45,7 @@ const harness = vi.hoisted(() => {
         rulebookQuery,
         toastError: vi.fn(),
         toastSuccess: vi.fn(),
+        unavailable: {},
         upsert: vi.fn((input: unknown) => Promise.resolve(input)),
     };
 });
@@ -80,6 +87,7 @@ vi.mock(
         useMeasuredHazards: () => ({
             ...harness.measuredStatus,
             measured: harness.measured,
+            unavailable: harness.unavailable,
         }),
     }),
 );
@@ -694,6 +702,40 @@ describe('RulebookView v2 sections', () => {
         expect(note?.textContent).toContain('1:2.00');
     });
 
+    it('adds the full-Kelly growth and the one-month multiple at the strategy trades per day to the note (F-V22, PT-86)', () => {
+        typeInto(inputLabelled('Win rate'), '90');
+        const growth =
+            kellyGrowthPerTrade(fraction(0.9), DEFAULT_RULEBOOK.strategy.rr)
+                .value ?? NaN;
+        const multiple =
+            compoundedMultiple(
+                growth,
+                DEFAULT_RULEBOOK.strategy.tradesPerDayMax *
+                    TRADING_DAYS_PER_MONTH,
+            ).value ?? NaN;
+        const text = container.querySelector('[role="status"]')?.textContent;
+        expect(text).toContain(
+            `${(Math.expm1(growth) * 100).toFixed(2)}% per trade`,
+        );
+        expect(text).toContain(
+            `${String(DEFAULT_RULEBOOK.strategy.tradesPerDayMax)} trades per day`,
+        );
+        expect(text).toContain(
+            `compounds to ${multiple.toLocaleString('en-US', { maximumFractionDigits: 2 })}x`,
+        );
+        expect(text).toContain(
+            'information, not sizing; Kelly is not prop-firm sizing',
+        );
+    });
+
+    it('leaves the pace sentence out while the trades per day is not a number', () => {
+        typeInto(inputLabelled('Win rate'), '90');
+        typeInto(inputLabelled('Trades per day'), '');
+        const text = container.querySelector('[role="status"]')?.textContent;
+        expect(text).toContain('Implausible edge');
+        expect(text).not.toContain('compounds to');
+    });
+
     it('follows a live-edited plausibility threshold, not just the strategy fields', () => {
         expect(container.querySelector('[role="status"]')?.textContent).toBe(
             '',
@@ -814,6 +856,7 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         harness.rulebookQuery = answered(DEFAULT_RULEBOOK);
         harness.measured = {};
         harness.measuredStatus = { failed: false, pending: false };
+        harness.unavailable = {};
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -827,6 +870,7 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         vi.unstubAllGlobals();
         harness.measured = {};
         harness.measuredStatus = { failed: false, pending: false };
+        harness.unavailable = {};
     });
 
     function render() {
@@ -985,6 +1029,58 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         expect(container.textContent).not.toContain(
             'Measured rates unavailable',
         );
+    });
+
+    it('says why a firm has no measured rate under that firm only', () => {
+        harness.unavailable = {
+            mffu: {
+                reason: LiveTransferRateUnavailable.MoreTransfersThanPayouts,
+                text: '2 transfers against 1 paid payout',
+            },
+        };
+        render();
+        expect(hazardItem('My Funded Futures').textContent).toContain(
+            'n/a: 2 transfers against 1 paid payout',
+        );
+        expect(hazardItem('Apex').textContent).not.toContain('n/a:');
+        expect(container.textContent).not.toContain(
+            'Measured rates unavailable',
+        );
+    });
+
+    it('shows no n/a line when every rate was measured', () => {
+        render();
+        expect(container.textContent).not.toContain('n/a:');
+    });
+
+    it('discloses how many measured transfers are accounts recorded straight at Live', () => {
+        harness.measured = {
+            mffu: {
+                movedLiveCount: 3,
+                paidPayouts: 20,
+                rate: 0.15,
+                recordedAtLiveCount: 2,
+                suggestedText: '15',
+            },
+        };
+        render();
+        expect(hazardItem('My Funded Futures').textContent).toContain(
+            'includes 2 accounts recorded straight at Live',
+        );
+    });
+
+    it('says nothing about accounts recorded straight at Live when there are none', () => {
+        harness.measured = {
+            mffu: {
+                movedLiveCount: 3,
+                paidPayouts: 20,
+                rate: 0.15,
+                recordedAtLiveCount: 0,
+                suggestedText: '15',
+            },
+        };
+        render();
+        expect(container.textContent).not.toContain('straight at Live');
     });
 
     it('shows neither notice when the rates were read', () => {

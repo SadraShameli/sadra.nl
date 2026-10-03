@@ -15,6 +15,10 @@ import {
     copyGroupSizingSectionsOf,
 } from '~/app/(app)/prop-calculator/accounts/copy-groups/copyGroupSizingModel';
 import { CopyGroupsView } from '~/app/(app)/prop-calculator/accounts/copy-groups/CopyGroupsView';
+import {
+    GroupSizingSection,
+    GroupSizingViewKind,
+} from '~/app/(app)/prop-calculator/accounts/copy-groups/GroupSizingSection';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     AccountStage,
@@ -1134,6 +1138,50 @@ describe('CopyGroupsView', () => {
             }
         });
 
+        it('lists every rung the group uses, not only the first', () => {
+            const accounts = [loose(), tight()];
+            answerWithSizing(accounts);
+            const section = expectedSection(accounts);
+            if (section.result.kind !== CopyGroupSizingResultKind.Sized) {
+                throw new Error('expected the group to be sized');
+            }
+            const { rungs } = section.result.sizing;
+            expect(rungs.length).toBeGreaterThan(1);
+
+            render();
+            const rows = [
+                ...groupSection('Main copy').querySelectorAll(
+                    ':scope tbody tr',
+                ),
+            ].map((tableRow) =>
+                [...tableRow.querySelectorAll('td')].map(
+                    (cell) => cell.textContent,
+                ),
+            );
+            expect(rows.map((cells) => cells[1])).toEqual(
+                rungs.map((rung) => formatCurrency(rung.risk, 2)),
+            );
+            expect(rows.map((cells) => cells[0])).toEqual(
+                rungs.map((_, index) => String(index + 1)),
+            );
+        });
+
+        it('names the members the exposure leaves out', () => {
+            const accounts = [loose(), tight(), unresolvable()];
+            answerWithSizing(accounts);
+            render();
+            const text = groupSection('Main copy').textContent;
+            expect(text).toContain(`1 member not included: ${UNRESOLVABLE_ID}`);
+        });
+
+        it('says nothing about left-out members when the whole group is in the exposure', () => {
+            answerWithSizing([loose(), tight()]);
+            render();
+            expect(groupSection('Main copy').textContent).not.toContain(
+                'not included',
+            );
+        });
+
         it('explains which members could not be sized and why', () => {
             const accounts = [loose(), tight(), unresolvable()];
             answerWithSizing(accounts);
@@ -1321,6 +1369,284 @@ describe('CopyGroupsView', () => {
             expect(text).toContain('could not be checked');
             expect(text).toContain('rulebook down');
             expect(container.textContent).toContain('Main copy');
+        });
+
+        it('announces the loading state as a status and the failure as an alert', () => {
+            const accounts = [loose(), tight()];
+            answerWith([MAIN], accounts);
+            harness.queries.delete('snapshot.latestForAll');
+            render();
+            const status =
+                groupSection('Main copy').querySelector('[role="status"]');
+            expect(status?.textContent).toContain('still loading');
+
+            harness.queries.set('rulebook.get', {
+                data: undefined,
+                error: new Error('rulebook down'),
+                isError: true,
+                isPending: false,
+            });
+            render();
+            const alert =
+                groupSection('Main copy').querySelector('[role="alert"]');
+            expect(alert?.textContent).toContain('rulebook down');
+        });
+
+        it('keeps the sizing and the typed stop when a background refetch fails, and shows the error beside it', () => {
+            const accounts = [loose(), tight()];
+            answerWithSizing(accounts);
+            render();
+            const stopInput = container.querySelector<HTMLInputElement>(
+                `#copy-group-stop-${MAIN.id}`,
+            );
+            if (stopInput === null) throw new Error('no stop input');
+            typeInto(stopInput, '20');
+            expect(
+                container.querySelector<HTMLInputElement>(
+                    `#copy-group-stop-${MAIN.id}`,
+                )?.value,
+            ).toBe('20');
+
+            harness.queries.set('event.list', {
+                data: [],
+                error: new Error('events refetch failed'),
+                isError: true,
+                isPending: false,
+            });
+            render();
+
+            const group = groupSection('Main copy');
+            expect(group.textContent).toContain('Documented size');
+            expect(
+                container.querySelector<HTMLInputElement>(
+                    `#copy-group-stop-${MAIN.id}`,
+                )?.value,
+            ).toBe('20');
+            expect(
+                group.querySelector('[role="alert"]')?.textContent,
+            ).toContain('events refetch failed');
+        });
+
+        it('says why there is no group size when the ladder is empty, and keeps the exposure line and the stop entry', () => {
+            const accounts = [loose(), tight()];
+            const section = expectedSection(accounts);
+            if (section.result.kind !== CopyGroupSizingResultKind.Sized) {
+                throw new Error('expected the group to be sized');
+            }
+            const emptied = {
+                ...section,
+                result: {
+                    ...section.result,
+                    sizing: { ...section.result.sizing, rungs: [] },
+                },
+            };
+            const [row] = copyGroupRows([MAIN], accounts).groups;
+            if (row === undefined) throw new Error('no row for the group');
+            act(() => {
+                root.render(
+                    <GroupSizingSection
+                        row={row}
+                        sizing={{
+                            kind: GroupSizingViewKind.Ready,
+                            section: emptied,
+                        }}
+                    />,
+                );
+            });
+            const text = container.textContent;
+            expect(text).toContain("No rung fits the group's room today");
+            expect(text).not.toContain('Documented size for every copy');
+            expect(container.querySelector('table')).toBeNull();
+            expect(text).toContain('Combined exposure');
+            expect(
+                container.querySelector(`#copy-group-stop-${MAIN.id}`),
+            ).not.toBeNull();
+        });
+
+        it('does not say there is no room when the ladder has rungs', () => {
+            answerWithSizing([loose(), tight()]);
+            render();
+            expect(groupSection('Main copy').textContent).not.toContain(
+                "No rung fits the group's room today",
+            );
+        });
+
+        it('names the rung table after its group', () => {
+            answerWithSizing([loose(), tight()]);
+            render();
+            const table = groupSection('Main copy').querySelector('table');
+            expect(table?.caption?.textContent).toBe(
+                'Documented ladder for Main copy',
+            );
+        });
+
+        it('says the combined exposure is an upper bound on what the group sizing allows', () => {
+            answerWithSizing([loose(), tight()]);
+            render();
+            expect(groupSection('Main copy').textContent).toContain(
+                'an upper bound on the group worst case',
+            );
+        });
+
+        describe('a stale balance', () => {
+            const STALE_DAY = '2026-09-10';
+
+            function answerWithStaleMember() {
+                const accounts = [loose(), tight()];
+                answerWith([MAIN], accounts);
+                harness.queries.set(
+                    'snapshot.latestForAll',
+                    answer([
+                        sizingSnapshot(LOOSE_ID, LOOSE_BALANCE_CENTS),
+                        sizingSnapshot(TIGHT_ID, LOOSE_BALANCE_CENTS, {
+                            asOf: STALE_DAY,
+                        }),
+                    ]),
+                );
+            }
+
+            it('withholds every rung amount and asks for the stale member balance', () => {
+                answerWithStaleMember();
+                render();
+                const group = groupSection('Main copy');
+                const text = group.textContent;
+                expect(text).toContain(
+                    `The balance for ${TIGHT_ID} is from ${STALE_DAY}`,
+                );
+                expect(text).toContain("Enter today's balance");
+                expect(group.querySelector('table')).toBeNull();
+                expect(text).not.toContain('Documented size');
+                expect(text).not.toContain('Combined exposure');
+                expect(text).not.toContain('$');
+            });
+
+            it('does not name a member whose balance is fresh', () => {
+                answerWithStaleMember();
+                render();
+                expect(groupSection('Main copy').textContent).not.toContain(
+                    `The balance for ${LOOSE_ID}`,
+                );
+            });
+            it('withholds the amounts of a group that turns stale when the date rolls over, with no reload', () => {
+                const accounts = [loose(), tight()];
+                answerWith([MAIN], accounts);
+                harness.queries.set(
+                    'snapshot.latestForAll',
+                    answer(
+                        accounts.map((entry) =>
+                            sizingSnapshot(entry.id, LOOSE_BALANCE_CENTS),
+                        ),
+                    ),
+                );
+                render();
+                expect(groupSection('Main copy').textContent).toContain(
+                    'Documented size',
+                );
+                const stopInput = container.querySelector<HTMLInputElement>(
+                    `#copy-group-stop-${MAIN.id}`,
+                );
+                if (stopInput === null) throw new Error('no stop input');
+                typeInto(stopInput, '20');
+
+                vi.setSystemTime(new Date('2026-10-20T12:00:00Z'));
+                act(() => {
+                    document.dispatchEvent(new Event('visibilitychange'));
+                });
+
+                const text = groupSection('Main copy').textContent;
+                expect(text).toContain(
+                    `The balance for ${TIGHT_ID} is from ${TODAY}`,
+                );
+                expect(text).not.toContain('Documented size');
+                expect(text).not.toContain('Combined exposure');
+                expect(
+                    groupSection('Main copy').querySelector('table'),
+                ).toBeNull();
+
+                vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`));
+                act(() => {
+                    document.dispatchEvent(new Event('visibilitychange'));
+                });
+                expect(
+                    container.querySelector<HTMLInputElement>(
+                        `#copy-group-stop-${MAIN.id}`,
+                    )?.value,
+                ).toBe('20');
+            });
+
+            describe('an eval member', () => {
+                const EVAL_TODAY = '2026-09-23';
+                const TWO_SESSIONS_OLD = '2026-09-21';
+                const EVAL_BALANCE_CENTS =
+                    (SIZING_PLAN.accountSize + 1000) * CENTS_PER_DOLLAR;
+
+                function evalAccountRow(id: string) {
+                    return sizingAccount(id, MAIN.id, {
+                        firstFundedTradeOn: null,
+                        fundedOn: null,
+                        stage: AccountStage.Eval,
+                    });
+                }
+
+                function answerWithEval(oldAsOf: string) {
+                    const accounts = [
+                        evalAccountRow('eval-fresh'),
+                        evalAccountRow('eval-old'),
+                    ];
+                    vi.setSystemTime(new Date(`${EVAL_TODAY}T12:00:00Z`));
+                    answerWith([MAIN], accounts);
+                    harness.queries.set(
+                        'snapshot.latestForAll',
+                        answer(
+                            accounts.map((entry) =>
+                                sizingSnapshot(entry.id, EVAL_BALANCE_CENTS, {
+                                    asOf:
+                                        entry.id === 'eval-old'
+                                            ? oldAsOf
+                                            : EVAL_TODAY,
+                                    highestEodBalanceCents: usdCents(
+                                        EVAL_BALANCE_CENTS,
+                                    ),
+                                }),
+                            ),
+                        ),
+                    );
+                }
+
+                it('shows the group size while every eval balance is at most a session old', () => {
+                    answerWithEval('2026-09-22');
+                    render();
+                    expect(groupSection('Main copy').textContent).toContain(
+                        'Documented size',
+                    );
+                });
+
+                it('withholds the amounts, the exposure and the simulation once a member is two weekday sessions old', () => {
+                    answerWithEval(EVAL_TODAY);
+                    render();
+                    expect(groupSection('Main copy').textContent).toContain(
+                        'Documented size',
+                    );
+
+                    answerWithEval(TWO_SESSIONS_OLD);
+                    render();
+                    const group = groupSection('Main copy');
+                    const text = group.textContent;
+                    expect(text).toContain(
+                        `The balance for eval-old is from ${TWO_SESSIONS_OLD}`,
+                    );
+                    expect(text).not.toContain('eval-fresh is from');
+                    expect(text).not.toContain('Documented size');
+                    expect(text).not.toContain('Combined exposure');
+                    expect(text).not.toContain('$');
+                    expect(group.querySelector('table')).toBeNull();
+                    expect(
+                        [...group.querySelectorAll('button')].some((entry) =>
+                            entry.textContent.includes('Simulate'),
+                        ),
+                    ).toBe(false);
+                });
+            });
         });
     });
 });

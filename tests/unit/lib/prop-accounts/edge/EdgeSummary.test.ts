@@ -19,6 +19,7 @@ import {
     type RulebookParameters,
     type StrategyAssumptions,
 } from '~/lib/prop-calculator/advisor';
+import { wilsonInterval } from '~/lib/prop-calculator/stats';
 import {
     COUNTED_OUTCOMES as ANALYTICS_COUNTED_OUTCOMES,
     expectancyR,
@@ -26,9 +27,12 @@ import {
 } from '~/lib/trading/analytics';
 import { OUTCOME_VALUES } from '~/lib/trading/types';
 
+import { posixPath } from '../../../posixPath';
+
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../../..');
 const EDGE_MODULE = /['"]~\/lib\/prop-accounts\/edge(?:\/[\w.]+)?['"]/;
 const EDGE_IMPORTERS = [
+    'src/app/(app)/prop-calculator/accounts/_components/overview/FirmsTile.tsx',
     'src/app/(app)/prop-calculator/accounts/edge/EdgeView.tsx',
     'src/app/(app)/prop-calculator/accounts/edge/page.tsx',
     'src/app/(app)/prop-calculator/accounts/firms/FirmsView.tsx',
@@ -54,8 +58,13 @@ function sourceFiles(directory: string): string[] {
     return readdirSync(path.join(REPO_ROOT, directory), { recursive: true })
         .map(String)
         .filter((name) => /\.tsx?$/.test(name))
-        .map((name) => path.join(directory, name));
+        .map((name) => posixPath(path.join(directory, name)));
 }
+
+const SCAN_SLICES = Array.from({ length: 32 }, (_, slice) => slice);
+const EDGE_SCAN_FILES = sourceFiles('src').filter(
+    (file) => !file.startsWith('src/lib/prop-accounts/edge'),
+);
 
 function trade(
     outcome: null | string,
@@ -362,18 +371,74 @@ describe('the edge summary is display only', () => {
         }
     });
 
-    it('is imported only by the edge router, the edge page, the rounds view and the trade count behind the scale gate on the firms and next slot pages', () => {
-        const importers = sourceFiles('src')
-            .filter(
-                (file) =>
-                    !file.startsWith(path.join('src/lib/prop-accounts/edge')),
+    it.each(SCAN_SLICES)(
+        'is imported by no file outside the edge router, the edge page, the rounds view and the trade count behind the scale gate on the firms tile and the firms and next slot pages, in slice %d of src',
+        (slice) => {
+            const unexpected = EDGE_SCAN_FILES.filter(
+                (_, position) => position % SCAN_SLICES.length === slice,
             )
-            .filter((file) =>
-                EDGE_MODULE.test(
-                    readFileSync(path.join(REPO_ROOT, file), 'utf8'),
-                ),
-            )
-            .toSorted((left, right) => left.localeCompare(right));
+                .filter((file) => !EDGE_IMPORTERS.includes(file))
+                .filter((file) =>
+                    EDGE_MODULE.test(
+                        readFileSync(path.join(REPO_ROOT, file), 'utf8'),
+                    ),
+                );
+            expect(unexpected).toEqual([]);
+        },
+    );
+
+    it('is still imported by every one of those files', () => {
+        const importers = EDGE_IMPORTERS.filter((file) =>
+            EDGE_MODULE.test(readFileSync(path.join(REPO_ROOT, file), 'utf8')),
+        );
         expect(importers).toEqual(EDGE_IMPORTERS);
+    });
+});
+
+describe('winRateInterval (F-V10, PT-86)', () => {
+    it('pins the 95% Wilson interval of 6 wins in 10 trades', () => {
+        const summary = edgeSummary(journal(6, 4), DEFAULT_RULEBOOK.strategy);
+        expect(summary.winRateInterval).not.toBeNull();
+        expect(summary.winRateInterval?.lower).toBeCloseTo(0.3127, 4);
+        expect(summary.winRateInterval?.upper).toBeCloseTo(0.8318, 4);
+        expect(summary.winRateInterval).toEqual(wilsonInterval(6, 10));
+    });
+
+    it('counts only the trades the win rate counts', () => {
+        const rows = [
+            ...journal(3, 4),
+            trade('breakeven', 0),
+            trade(null, null),
+            trade('win', null),
+            trade('open', 2),
+        ];
+        const summary = edgeSummary(rows, DEFAULT_RULEBOOK.strategy);
+        expect(summary.sampleSize).toBe(8);
+        expect(summary.winRateInterval).toEqual(wilsonInterval(3, 8));
+    });
+
+    it('stays inside 0 to 1 for a streak of wins and for a streak of losses', () => {
+        const wins = edgeSummary(journal(5, 0), DEFAULT_RULEBOOK.strategy);
+        expect(wins.winRateInterval?.upper).toBe(1);
+        expect(wins.winRateInterval?.lower).toBeGreaterThan(0);
+        const losses = edgeSummary(journal(0, 5), DEFAULT_RULEBOOK.strategy);
+        expect(losses.winRateInterval?.lower).toBe(0);
+        expect(losses.winRateInterval?.upper).toBeLessThan(1);
+    });
+
+    it('is null with no counted trade, not a zero-width interval', () => {
+        expect(
+            edgeSummary([], DEFAULT_RULEBOOK.strategy).winRateInterval,
+        ).toBeNull();
+    });
+
+    it('contains the observed win rate and round-trips through the output schema', () => {
+        const summary = edgeSummary(journal(6, 4), DEFAULT_RULEBOOK.strategy);
+        const observed = summary.winRate.observed ?? NaN;
+        expect(summary.winRateInterval?.lower).toBeLessThan(observed);
+        expect(summary.winRateInterval?.upper).toBeGreaterThan(observed);
+        expect(edgeSummarySchema.parse(summary)).toEqual(summary);
+        const empty = edgeSummary([], DEFAULT_RULEBOOK.strategy);
+        expect(edgeSummarySchema.parse(empty)).toEqual(empty);
     });
 });

@@ -1,6 +1,7 @@
 import { type AccountState } from './AccountState';
 import {
     type AffordableRoom,
+    AffordableRoomKind,
     placeWholeContractTrade,
     PolicySizing,
     resolveTradeRisk,
@@ -10,11 +11,16 @@ import {
 import { type ContractCount, type Dollars } from './lib/units';
 import { type LiveAccountState } from './LiveAccountState';
 import { type LivePlan } from './LivePlan';
-import { resolveLiveAffordableRoom, resolveLiveTradeRisk } from './LiveSizing';
+import {
+    resolveLiveAffordableRoom,
+    resolveLiveFloorTradeRisk,
+    resolveLiveTradeRisk,
+} from './LiveSizing';
 import { type Plan } from './Plan';
 import {
     capRiskToContractLimit,
     contractLimitAt,
+    oneContractRisk,
     type PositionSizingConfig,
 } from './PositionSizing';
 import { applyTrade } from './TradingDayLedger';
@@ -43,6 +49,14 @@ export interface TradeRiskResult extends SizedTrade {
     readonly maxContracts: ContractCount | null;
 }
 
+interface CappedLossOptions {
+    readonly commission: Dollars;
+    readonly placed: SizedTrade;
+    readonly plan: LivePlan;
+    readonly roomKind: AffordableRoomKind;
+    readonly state: LiveAccountState;
+}
+
 interface TradeSizingOptions {
     readonly affordable: AffordableRoom;
     readonly intendedRisk: number;
@@ -66,14 +80,23 @@ export function resolveLiveRiskAt(options: LiveTradeRiskOptions): SizedTrade {
     const { commission, plan, positionSizing, state } = options;
     const cushion = state.balance - state.threshold;
     const cushionPercent = plan.cushionPercentFor(state);
-    const intendedRisk = resolveLiveTradeRisk(cushion, cushionPercent);
+    const floorTradeRisk = resolveLiveFloorTradeRisk(
+        cushion,
+        plan.isFloorAlive(state),
+        oneContractRisk(positionSizing),
+    );
+    const intendedRisk =
+        floorTradeRisk > 0
+            ? floorTradeRisk
+            : resolveLiveTradeRisk(cushion, cushionPercent);
     const { kind: roomKind, room } = resolveLiveAffordableRoom(
         cushion,
         plan.dailyLossLimitFor(state),
         state.todayPnL,
         commission,
+        floorTradeRisk,
     );
-    return placeWholeContractTrade({
+    const placed = placeWholeContractTrade({
         intendedRisk,
         maxContracts: plan.maxContractsFor(state, positionSizing.instrument),
         positionSizing,
@@ -81,6 +104,15 @@ export function resolveLiveRiskAt(options: LiveTradeRiskOptions): SizedTrade {
         roomKind,
         rungSizing: RungSizing.CapToCushion,
     });
+    return isCushionCappedLossShortOfFloor({
+        commission,
+        placed,
+        plan,
+        roomKind,
+        state,
+    })
+        ? { rewardRisk: placed.rewardRisk, risk: placed.rewardRisk }
+        : placed;
 }
 
 export function resolveRiskAt(options: TradeRiskOptions): TradeRiskResult {
@@ -118,6 +150,23 @@ export function resolveRiskAt(options: TradeRiskOptions): TradeRiskResult {
                   sizing,
               });
     return { ...sized, affordable: affordable.room, maxContracts };
+}
+
+function isCushionCappedLossShortOfFloor(
+    options: CappedLossOptions,
+): boolean {
+    const { commission, placed, plan, roomKind, state } = options;
+    const isCappedToCushion =
+        roomKind === AffordableRoomKind.BustsAccount &&
+        placed.risk > 0 &&
+        placed.risk < placed.rewardRisk;
+    return (
+        isCappedToCushion &&
+        plan.isFloorAlive({
+            ...state,
+            balance: state.balance - placed.risk - commission,
+        })
+    );
 }
 
 function sizeTrade(options: TradeSizingOptions): SizedTrade {

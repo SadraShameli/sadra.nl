@@ -1,7 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { AccountStage, SnapshotSource } from '~/lib/prop-accounts';
+import {
+    AccountEventKind,
+    AccountStage,
+    AccountTracking,
+    SnapshotSource,
+} from '~/lib/prop-accounts';
 import { PROP_MUTATIONS_PER_WINDOW } from '~/lib/prop-accounts/server';
+import {
+    ALL_FIRMS,
+    DrawdownKind,
+    type Plan,
+    TradingPhase,
+} from '~/lib/prop-calculator';
 import { AdviceSource } from '~/lib/prop-calculator/advisor';
 import { PropMutationRejection } from '~/lib/schemas/propAccountOutputs';
 
@@ -17,9 +28,11 @@ import {
     callerFor,
     defined,
     errorShapeOf,
+    eventRow,
     IDS,
     insertsInto,
     mutationRejection,
+    planKeyFields,
     propWrites,
     rejectionOf,
     SIGNED_IN,
@@ -67,6 +80,19 @@ function reviewSubmitInput(overrides: Record<string, unknown> = {}) {
 
 const MAX_REVIEW_ACCOUNTS = 200;
 
+function eodTrailingEntry() {
+    for (const firm of ALL_FIRMS) {
+        const plan = firm.plans.find(
+            (candidate: Plan) =>
+                !candidate.isInstantFunded &&
+                candidate.drawdownFor(TradingPhase.Eval).kind ===
+                    DrawdownKind.EodTrailing,
+        );
+        if (plan !== undefined) return { firm, plan };
+    }
+    throw new Error('no eval plan with an end-of-day trailing drawdown');
+}
+
 function fullReviewInput() {
     const indexes = Array.from({ length: MAX_REVIEW_ACCOUNTS }, (_, i) => i);
     return reviewSubmitInput({
@@ -87,12 +113,31 @@ function fullReviewInput() {
     });
 }
 
+function movedLiveOn(day: string) {
+    return eventRow({
+        kind: AccountEventKind.MovedLive,
+        occurred_on: day,
+    });
+}
+
 function reviewAccountId(index: number): string {
     return `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
 }
 
 function reviewSnapshotId(index: number): string {
     return `00000000-0000-4000-9000-${String(index).padStart(12, '0')}`;
+}
+
+function stagedAccountRow(overrides: Record<string, unknown> = {}) {
+    const key = planKeyFields(eodTrailingEntry());
+    return accountRow({
+        account_size: key.accountSize,
+        firm_id: key.firmId,
+        funded_on: '2026-09-10',
+        plan_serial: key.planSerial,
+        stage: AccountStage.Live,
+        ...overrides,
+    });
 }
 
 describe('propAccounts.review', () => {
@@ -354,5 +399,207 @@ describe('propAccounts.review', () => {
         expect(
             insertedColumnValues(defined(decisionInsert), 'snapshot_id'),
         ).toEqual(indexes.map(reviewSnapshotId));
+    });
+
+    it('checks a snapshot against the stage the account had on the review date, not its stage today', async () => {
+        const key = planKeyFields(eodTrailingEntry());
+        const liveToday = accountRow({
+            account_size: key.accountSize,
+            firm_id: key.firmId,
+            funded_on: '2026-09-10',
+            plan_serial: key.planSerial,
+            stage: AccountStage.Live,
+        });
+        const movedLiveAfterReview = eventRow({
+            kind: AccountEventKind.MovedLive,
+            occurred_on: '2026-09-25',
+        });
+        const withoutPeak = {
+            accountId: IDS.account,
+            balanceCents: 5_050_000,
+            dashboardFloorCents: 4_900_000,
+            payoutsTaken: 0,
+            tradingDays: 4,
+        };
+        const responder = tableResponder({
+            [TABLES.account]: [liveToday],
+            [TABLES.event]: [movedLiveAfterReview],
+            [TABLES.snapshot]: [
+                snapshotRow({ account_id: IDS.account, id: IDS.snapshot }),
+            ],
+        });
+        const fundedEra = callerFor(SIGNED_IN, responder);
+        const rejection = fundedEra.caller.review.submit(
+            reviewSubmitInput({ decisions: [], snapshots: [withoutPeak] }),
+        );
+        const shape = errorShapeOf(await rejectionOf(rejection));
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.MissingSnapshotField),
+        );
+        expect(shape.message).toContain('Highest end-of-day balance');
+        expect(propWrites(fundedEra.queries)).toHaveLength(0);
+    });
+
+    it('still accepts a live-stage snapshot dated on or after the move live', async () => {
+        const key = planKeyFields(eodTrailingEntry());
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    accountRow({
+                        account_size: key.accountSize,
+                        firm_id: key.firmId,
+                        funded_on: '2026-09-10',
+                        plan_serial: key.planSerial,
+                        stage: AccountStage.Live,
+                    }),
+                ],
+                [TABLES.event]: [
+                    eventRow({
+                        kind: AccountEventKind.MovedLive,
+                        occurred_on: '2026-09-15',
+                    }),
+                ],
+                [TABLES.snapshot]: [
+                    snapshotRow({ account_id: IDS.account, id: IDS.snapshot }),
+                ],
+            }),
+        );
+        await caller.review.submit(
+            reviewSubmitInput({
+                decisions: [],
+                snapshots: [
+                    {
+                        accountId: IDS.account,
+                        balanceCents: 5_050_000,
+                        dashboardFloorCents: 4_900_000,
+                        payoutsTaken: 0,
+                        tradingDays: 4,
+                    },
+                ],
+            }),
+        );
+        expect(insertsInto(queries, TABLES.snapshot)).toHaveLength(1);
+    });
+});
+
+describe('propAccounts.review.stagesOn', () => {
+    it('gives the stage a live account had on the review date, funded when it moved live afterwards', async () => {
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [stagedAccountRow()],
+                [TABLES.event]: [movedLiveOn('2026-09-25')],
+            }),
+        );
+        await expect(
+            caller.review.stagesOn({ asOf: '2026-09-21' }),
+        ).resolves.toEqual([
+            { accountId: IDS.account, stage: AccountStage.Funded },
+        ]);
+    });
+
+    it('gives live once the account moved live on or before the review date', async () => {
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [stagedAccountRow()],
+                [TABLES.event]: [movedLiveOn('2026-09-21')],
+            }),
+        );
+        await expect(
+            caller.review.stagesOn({ asOf: '2026-09-21' }),
+        ).resolves.toEqual([
+            { accountId: IDS.account, stage: AccountStage.Live },
+        ]);
+    });
+
+    it('keeps an eval account in the eval stage without reading its events', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await expect(
+            caller.review.stagesOn({ asOf: '2026-09-21' }),
+        ).resolves.toEqual([
+            { accountId: IDS.account, stage: AccountStage.Eval },
+        ]);
+        expect(
+            queries.filter((query) => readTable(query) === TABLES.event),
+        ).toHaveLength(0);
+    });
+
+    it('leaves out a ledger-only account, which has no plan stage', async () => {
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    accountRow({
+                        plan_label: 'Custom plan',
+                        plan_serial: null,
+                        tracking: AccountTracking.LedgerOnly,
+                    }),
+                ],
+            }),
+        );
+        await expect(
+            caller.review.stagesOn({ asOf: '2026-09-21' }),
+        ).resolves.toEqual([]);
+    });
+
+    it('scopes the account and event reads by the session user', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [stagedAccountRow()],
+                [TABLES.event]: [movedLiveOn('2026-09-15')],
+            }),
+        );
+        await caller.review.stagesOn({ asOf: '2026-09-21' });
+        const scopedTables = new Set<string>([TABLES.account, TABLES.event]);
+        const reads = queries.filter((query) =>
+            scopedTables.has(readTable(query) ?? ''),
+        );
+        expect(reads.map(readTable)).toEqual([TABLES.account, TABLES.event]);
+        for (const read of reads) assertUserScopedWhere(read, USER_ID);
+    });
+
+    it('rejects a date that is not a calendar date', async () => {
+        const { caller } = callerFor(SIGNED_IN, tableResponder());
+        await expect(
+            caller.review.stagesOn({ asOf: '2026-13-45' }),
+        ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    });
+
+    it('agrees with the stage review.submit checks the same account against on that date', async () => {
+        const rows = {
+            [TABLES.account]: [stagedAccountRow()],
+            [TABLES.event]: [movedLiveOn('2026-09-25')],
+            [TABLES.snapshot]: [
+                snapshotRow({ account_id: IDS.account, id: IDS.snapshot }),
+            ],
+        };
+        const { caller } = callerFor(SIGNED_IN, tableResponder(rows));
+        const [entry] = await caller.review.stagesOn({ asOf: '2026-09-21' });
+        expect(entry?.stage).toBe(AccountStage.Funded);
+        const rejection = callerFor(
+            SIGNED_IN,
+            tableResponder(rows),
+        ).caller.review.submit(
+            reviewSubmitInput({
+                decisions: [],
+                snapshots: [
+                    {
+                        accountId: IDS.account,
+                        balanceCents: 5_050_000,
+                        dashboardFloorCents: 4_900_000,
+                        payoutsTaken: 0,
+                        tradingDays: 4,
+                    },
+                ],
+            }),
+        );
+        expect(
+            errorShapeOf(await rejectionOf(rejection)).data.propRejection,
+        ).toEqual(
+            mutationRejection(PropMutationRejection.MissingSnapshotField),
+        );
     });
 });

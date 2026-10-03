@@ -17,6 +17,8 @@ import {
     type PortfolioLedger,
 } from '~/lib/prop-accounts/metrics';
 
+import { movedLiveCountOf } from './LiveTransferRate';
+
 export type FirmEngagementColumns = FirmColumnsRow;
 
 export interface FirmRoster {
@@ -101,7 +103,10 @@ function firmRosterEntry(
         lastActivityOn: activityDates.at(-1) ?? null,
         lastMovedLiveOn: movedLiveDates.at(-1) ?? null,
         lifetimeAccounts: accounts.length,
-        movedLiveCount: movedLiveDates.length,
+        movedLiveCount: accounts.reduce(
+            (sum, entry) => sum + movedLiveCountOf(entry),
+            0,
+        ),
         reason: engagement?.reason ?? null,
         status: engagement?.status ?? FirmEngagementStatus.Active,
     };

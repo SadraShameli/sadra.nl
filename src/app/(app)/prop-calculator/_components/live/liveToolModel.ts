@@ -10,13 +10,13 @@ import {
     serializePlanId,
     TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator';
+import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
 import {
     isLiveModelApproximation,
     LiveApplicabilityKind,
     LiveNotModeledReason,
     livePlanApplicability,
-    type RulebookParameters,
-} from '~/lib/prop-calculator/advisor';
+} from '~/lib/prop-calculator/firms';
 
 export enum LiveToolStatus {
     Modeled = 'modeled',

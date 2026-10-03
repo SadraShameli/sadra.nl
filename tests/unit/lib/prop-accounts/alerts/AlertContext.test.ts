@@ -12,8 +12,11 @@ import {
 import {
     grossDisclosureOf,
     isActive,
+    NO_PERSONAL_POLICY,
     paidLedgerTotal,
     payoutsTakenOf,
+    personalPolicyIn,
+    personalRulebookOf,
     requestedLedgerTotal,
 } from '~/lib/prop-accounts/alerts/AlertContext';
 import {
@@ -34,7 +37,8 @@ import {
     AccountStateKind,
     AccountStateUnavailableKind,
 } from '~/lib/prop-accounts/metrics';
-import { type FirmId, NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
+import { dollars, type FirmId, NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
+import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { type PropAccountRow } from '~/server/db/schemas/prop';
 
 import {
@@ -47,6 +51,7 @@ import {
     MONDAY,
     movedLiveEvent,
     paidPayout,
+    personalPoliciesFor,
     snapshotFor,
     TUESDAY,
     WEDNESDAY,
@@ -547,5 +552,83 @@ describe('the shared paid-ledger helpers', () => {
                 .map((pattern) => `${file}: ${String(pattern)}`);
         });
         expect(copies).toEqual([]);
+    });
+});
+
+describe('the eval value loss map of the alert context (PT-90, F-V29)', () => {
+    it('is empty when the inputs carry none', () => {
+        expect(contextOf({}).evalValueLossDollars.size).toBe(0);
+    });
+
+    it('carries the map the inputs were given, keyed by account id', () => {
+        const losses = new Map([['account-1', 42.5]]);
+        const context = contextOf({ evalValueLossDollars: losses });
+        expect(context.evalValueLossDollars.get('account-1')).toBe(42.5);
+        expect(context.evalValueLossDollars.size).toBe(1);
+    });
+
+    it('does not share one default map between two contexts', () => {
+        expect(contextOf({}).evalValueLossDollars).not.toBe(
+            contextOf({ evalValueLossDollars: new Map() }).evalValueLossDollars,
+        );
+    });
+});
+
+describe('the personal policies of the alert context (PT-102, F-84)', () => {
+    it('is empty when the inputs carry none, and an account then has no personal rules', () => {
+        const context = contextOf({});
+        expect(context.personalPolicies.size).toBe(0);
+        expect(personalPolicyIn(context, 'account-1')).toEqual(
+            NO_PERSONAL_POLICY,
+        );
+    });
+
+    it('does not share one default map between two contexts', () => {
+        expect(contextOf({}).personalPolicies).not.toBe(
+            contextOf({}).personalPolicies,
+        );
+    });
+
+    it('returns the policy the inputs gave an account and no rules for any other', () => {
+        const account = accountFor(ANY_EVAL_PLAN);
+        const other = accountFor(ANY_EVAL_PLAN);
+        const context = contextOf({
+            personalPolicies: personalPoliciesFor(account, {
+                payoutRequestOverride: dollars(1000),
+                retainedCushionRequest: dollars(3000),
+            }),
+        });
+        expect(personalPolicyIn(context, account.id)).toEqual({
+            ...NO_PERSONAL_POLICY,
+            payoutRequestOverride: 1000,
+            retainedCushionRequest: 3000,
+        });
+        expect(personalPolicyIn(context, other.id)).toEqual(NO_PERSONAL_POLICY);
+    });
+
+    it('leaves the rulebook untouched for an account with no personal rules', () => {
+        expect(
+            personalRulebookOf(DEFAULT_RULEBOOK, NO_PERSONAL_POLICY),
+        ).toEqual(DEFAULT_RULEBOOK);
+    });
+
+    it('takes the personal request, and the larger of the personal and rulebook retained cushion', () => {
+        const above = personalRulebookOf(DEFAULT_RULEBOOK, {
+            ...NO_PERSONAL_POLICY,
+            payoutRequestOverride: dollars(1000),
+            retainedCushionRequest: dollars(3000),
+        });
+        expect(above.payout.requestCents).toBe(100_000);
+        expect(above.payout.retainedCushionCents).toBe(300_000);
+        const below = personalRulebookOf(DEFAULT_RULEBOOK, {
+            ...NO_PERSONAL_POLICY,
+            retainedCushionRequest: dollars(1),
+        });
+        expect(below.payout.retainedCushionCents).toBe(
+            DEFAULT_RULEBOOK.payout.retainedCushionCents,
+        );
+        expect(below.payout.requestCents).toBe(
+            DEFAULT_RULEBOOK.payout.requestCents,
+        );
     });
 });

@@ -43,9 +43,11 @@ export interface FirmPayoutRate {
 export interface PlanOutcomes {
     readonly firmId: FirmId;
     readonly fundedSurvival: null | SampledEstimate;
+    readonly fundedSurvivalAccounts: number;
     readonly instantFunded: boolean;
     readonly openFundedAccounts: number;
     readonly passRate: null | SampledEstimate;
+    readonly passRateAttempts: number;
     readonly planSerial: string;
     readonly sessionsToFunded: null | SampledEstimate;
 }
@@ -69,8 +71,15 @@ export interface RealizedPayoutRates {
     readonly perPlan: readonly PlanPayoutRate[];
 }
 
+interface CollapsedRate {
+    readonly attempts: number;
+    readonly rate: null | SampledEstimate;
+}
+
+type DecidedOutcome = CohortOutcomeKind.Failure | CohortOutcomeKind.Success;
+
 interface DecidedSample extends CopyGroupKey {
-    readonly outcome: CohortOutcomeKind.Failure | CohortOutcomeKind.Success;
+    readonly outcome: DecidedOutcome;
 }
 
 export function realizedOutcomes(ledger: PortfolioLedger): RealizedOutcomes {
@@ -108,6 +117,32 @@ export function realizedPayoutRates(
     return { horizonDays, perFirm, perPlan };
 }
 
+function attemptOutcomesOf(entry: LedgerAccount): readonly DecidedOutcome[] {
+    const outcomes: DecidedOutcome[] = [];
+    let settled = { fails: 0, passes: 0 };
+    for (let cut = 1; cut <= entry.transitions.length; cut += 1) {
+        if (entry.transitions[cut]?.kind === AccountEventKind.BustReversed) {
+            continue;
+        }
+        const tally = evalAttemptTally({
+            ...entry,
+            transitions: entry.transitions.slice(0, cut),
+        });
+        outcomes.push(
+            ...Array.from(
+                { length: tally.passes - settled.passes },
+                () => CohortOutcomeKind.Success as const,
+            ),
+            ...Array.from(
+                { length: tally.fails - settled.fails },
+                () => CohortOutcomeKind.Failure as const,
+            ),
+        );
+        settled = tally;
+    }
+    return outcomes;
+}
+
 function cohortOutcomeOf(
     entry: ModeledLedgerAccount,
     asOfDate: string,
@@ -141,7 +176,13 @@ function isStillOpen(entry: LedgerAccount): boolean {
     return status !== undefined && !isEndedStatus(status);
 }
 
-function majorityOutcome(group: readonly DecidedSample[]): CohortOutcomeKind {
+function majorities(
+    samples: readonly DecidedSample[],
+): readonly DecidedOutcome[] {
+    return independentSamples(samples).map((group) => majorityOutcome(group));
+}
+
+function majorityOutcome(group: readonly DecidedSample[]): DecidedOutcome {
     if (group.length === 0) {
         throw new RangeError('an independent-sample group cannot be empty');
     }
@@ -153,17 +194,25 @@ function majorityOutcome(group: readonly DecidedSample[]): CohortOutcomeKind {
         : CohortOutcomeKind.Failure;
 }
 
-function passRateOf(
-    accounts: readonly LedgerAccount[],
-): null | SampledEstimate {
-    let passes = 0;
-    let decided = 0;
-    for (const entry of accounts) {
-        const tally = evalAttemptTally(entry);
-        passes += tally.passes;
-        decided += tally.passes + tally.fails;
-    }
-    return sampledRate(passes, decided);
+function passRateOf(accounts: readonly LedgerAccount[]): CollapsedRate {
+    const outcomesByAccount = accounts.map((entry) => attemptOutcomesOf(entry));
+    const mostAttempts = Math.max(
+        0,
+        ...outcomesByAccount.map((outcomes) => outcomes.length),
+    );
+    const samples = Array.from({ length: mostAttempts }, (_, attempt) =>
+        accounts.flatMap((entry, index) => {
+            const outcome = outcomesByAccount[index]?.[attempt];
+            return outcome === undefined ? [] : [sampleOf(entry, outcome)];
+        }),
+    );
+    return {
+        attempts: outcomesByAccount.reduce(
+            (total, outcomes) => total + outcomes.length,
+            0,
+        ),
+        rate: rateOfMajorities(samples.flatMap((group) => majorities(group))),
+    };
 }
 
 function payoutRateOf(
@@ -183,19 +232,12 @@ function payoutRateOf(
             openAccounts += 1;
             continue;
         }
-        decided.push({
-            copyGroupId: entry.row.copyGroupId,
-            outcome,
-            purchasedOn: entry.row.purchasedOn,
-        });
+        decided.push(sampleOf(entry, outcome));
     }
-    const samples = independentSamples(decided).map((group) =>
-        majorityOutcome(group),
-    );
-    const successes = samples.filter(
-        (outcome) => outcome === CohortOutcomeKind.Success,
-    ).length;
-    return { openAccounts, payoutRate: sampledRate(successes, samples.length) };
+    return {
+        openAccounts,
+        payoutRate: rateOfMajorities(majorities(decided)),
+    };
 }
 
 function planOutcomes(group: PlanGroup): PlanOutcomes {
@@ -204,16 +246,50 @@ function planOutcomes(group: PlanGroup): PlanOutcomes {
         (entry) => fundedSince(entry) !== null,
     );
     const survived = funded.filter((entry) => !hasUnreversedFundedBust(entry));
+    const passRate = isInstantFunded ? null : passRateOf(group.accounts);
     return {
         firmId: group.firmId,
-        fundedSurvival: sampledRate(survived.length, funded.length),
+        fundedSurvival: rateOfMajorities(
+            majorities(
+                funded.map((entry) =>
+                    sampleOf(
+                        entry,
+                        hasUnreversedFundedBust(entry)
+                            ? CohortOutcomeKind.Failure
+                            : CohortOutcomeKind.Success,
+                    ),
+                ),
+            ),
+        ),
+        fundedSurvivalAccounts: funded.length,
         instantFunded: isInstantFunded,
         openFundedAccounts: survived.filter(isStillOpen).length,
-        passRate: isInstantFunded ? null : passRateOf(group.accounts),
+        passRate: passRate?.rate ?? null,
+        passRateAttempts: passRate?.attempts ?? 0,
         planSerial: group.planSerial,
         sessionsToFunded: isInstantFunded
             ? null
             : sessionsToFundedOf(group.accounts),
+    };
+}
+
+function rateOfMajorities(
+    outcomes: readonly DecidedOutcome[],
+): null | SampledEstimate {
+    const successes = outcomes.filter(
+        (outcome) => outcome === CohortOutcomeKind.Success,
+    ).length;
+    return sampledRate(successes, outcomes.length);
+}
+
+function sampleOf(
+    entry: LedgerAccount,
+    outcome: DecidedOutcome,
+): DecidedSample {
+    return {
+        copyGroupId: entry.row.copyGroupId,
+        outcome,
+        purchasedOn: entry.row.purchasedOn,
     };
 }
 

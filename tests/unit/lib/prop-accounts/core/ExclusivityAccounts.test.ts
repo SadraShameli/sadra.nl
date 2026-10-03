@@ -5,19 +5,27 @@ import { describe, expect, it } from 'vitest';
 import {
     AccountStage,
     AccountStatus,
+    AccountTracking,
     compareText,
     exclusivityAccountsOf,
+    exclusivityFirmIdOf,
+    exclusivityPlanOf,
     type ExclusivitySibling,
+    isExclusivitySiblingReadable,
     liveExclusivityEffectsOf,
     suspendedAccountIdsOf,
+    trackedAccountOf,
 } from '~/lib/prop-accounts/core';
+import { type ExclusivitySiblingRow } from '~/lib/prop-accounts/core/ExclusivityAccounts';
 import {
     ALL_FIRMS,
     EvalPurchaseEffect,
     FirmAccountPolicy,
     type LiveExclusivityPolicy,
+    NO_PLAN_OPT_INS,
     PolicySourceKind,
     PolicyVerification,
+    serializePlanId,
     SimAccountEffect,
     UnknownCooldown,
 } from '~/lib/prop-calculator';
@@ -81,6 +89,21 @@ function sibling(
         status: AccountStatus.Active,
         ...overrides,
     };
+}
+
+function siblingRow(overrides: Partial<ExclusivitySiblingRow> = {}) {
+    return trackedAccountOf({
+        accountSize: PLAN.id.accountSize,
+        externalFirmId: null,
+        firmId: FIRM.id,
+        id: 'row',
+        optIns: NO_PLAN_OPT_INS,
+        planLabel: null,
+        planSerial: serializePlanId(PLAN.id),
+        readIssues: [],
+        tracking: AccountTracking.Modeled,
+        ...overrides,
+    });
 }
 
 function suspendedFor(
@@ -194,6 +217,56 @@ describe('one exclusivity account builder', () => {
             expect(source.includes('suspendedAccountIdsOf(')).toBe(true);
             expect(source.includes('accountPolicy:')).toBe(false);
             expect(source.includes('events: []')).toBe(false);
+        },
+    );
+});
+
+describe('one sibling readability rule (PT-36i)', () => {
+    it('reads a modeled account whose plan resolves, at the plan firm', () => {
+        expect(exclusivityFirmIdOf(siblingRow())).toBe(FIRM.id);
+        expect(exclusivityPlanOf(siblingRow())).toBe(PLAN);
+        expect(isExclusivitySiblingReadable(siblingRow())).toBe(true);
+    });
+
+    it('cannot read a modeled account whose plan no longer resolves', () => {
+        const unresolved = siblingRow({ planSerial: 'no-such-plan' });
+        expect(exclusivityFirmIdOf(unresolved)).toBeUndefined();
+        expect(exclusivityPlanOf(unresolved)).toBeNull();
+        expect(isExclusivitySiblingReadable(unresolved)).toBe(false);
+    });
+
+    it('reads a ledger-only account at a listed firm and not one at an external firm', () => {
+        const listedFirm = siblingRow({
+            externalFirmId: null,
+            firmId: FIRM.id,
+            planLabel: 'Funded 50K',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const external = siblingRow({
+            externalFirmId: 'my-external-firm',
+            firmId: null,
+            planLabel: 'Funded 50K',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        expect(exclusivityFirmIdOf(listedFirm)).toBe(FIRM.id);
+        expect(exclusivityPlanOf(listedFirm)).toBeNull();
+        expect(isExclusivitySiblingReadable(listedFirm)).toBe(true);
+        expect(exclusivityFirmIdOf(external)).toBeUndefined();
+        expect(isExclusivitySiblingReadable(external)).toBe(false);
+    });
+
+    it.each([
+        'src/server/api/routers/propAccounts/event.ts',
+        'src/app/(app)/prop-calculator/accounts/_components/detail/liveExclusivityPreview.ts',
+    ])(
+        '%s decides sibling readability through the shared helper, with no plan-key resolution of its own',
+        (file) => {
+            const source = readFileSync(path.resolve(ROOT, file), 'utf8');
+            expect(source.includes('isExclusivitySiblingReadable(')).toBe(true);
+            expect(source.includes('resolvePlanKey(')).toBe(false);
+            expect(source.includes('PlanKeyResolutionKind')).toBe(false);
         },
     );
 });

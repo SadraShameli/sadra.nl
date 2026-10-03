@@ -20,6 +20,8 @@ import {
     serializePlanId,
 } from '~/lib/prop-calculator';
 
+import { posixPath } from '../../../posixPath';
+
 const USER_ID = 'user-a';
 const PRIOR_ID = 'prior-account';
 const CURRENT_ID = 'current-account';
@@ -189,7 +191,7 @@ describe('the measured rebuy lag lives in one place (PT-34c)', () => {
             .filter((file) =>
                 /\brebuyLagDefault\(/u.test(readFileSync(file, 'utf8')),
             )
-            .map((file) => path.relative(ACCOUNTS_ROOT, file))
+            .map((file) => posixPath(path.relative(ACCOUNTS_ROOT, file)))
             .filter((relative) => !ALLOWED.has(relative));
         expect(offenders).toEqual([]);
     });
@@ -215,7 +217,7 @@ describe('the measured-to-advisor lag mapping lives in one place (PT-37b)', () =
             .filter((file) =>
                 /\bmeasuredRebuyLagFor\b/u.test(readFileSync(file, 'utf8')),
             )
-            .map((file) => path.relative(ACCOUNTS_ROOT, file));
+            .map((file) => posixPath(path.relative(ACCOUNTS_ROOT, file)));
         expect(offenders).toEqual([]);
     });
 

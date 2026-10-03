@@ -9,33 +9,52 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { useSession } from '~/lib/auth/client';
 import { PortfolioLedger, todayIsoDate } from '~/lib/prop-accounts';
-import { liveTransferRate } from '~/lib/prop-accounts/firms';
+import {
+    type LiveTransferRate,
+    liveTransferRate,
+    type LiveTransferRateUnavailable,
+    liveTransferUnavailableText,
+} from '~/lib/prop-accounts/firms';
 import { type FirmId } from '~/lib/prop-calculator';
 import { api } from '~/trpc/react';
 
-import { type MeasuredHazard, measuredHazardsOf } from './rulebookFormValues';
+import {
+    type MeasuredHazard,
+    measuredHazardsOf,
+    modeledFirmRows,
+} from './rulebookFormValues';
 
 export interface MeasuredHazardsState {
     readonly failed: boolean;
     readonly measured: Partial<Record<FirmId, MeasuredHazard>>;
     readonly pending: boolean;
+    readonly unavailable: Partial<Record<FirmId, UnavailableHazard>>;
+}
+
+export interface UnavailableHazard {
+    readonly reason: LiveTransferRateUnavailable;
+    readonly text: string;
 }
 
 const NOTHING_MEASURED: Partial<Record<FirmId, MeasuredHazard>> = {};
+const NOTHING_UNAVAILABLE: Partial<Record<FirmId, UnavailableHazard>> = {};
 const PENDING: MeasuredHazardsState = {
     failed: false,
     measured: NOTHING_MEASURED,
     pending: true,
+    unavailable: NOTHING_UNAVAILABLE,
 };
 const FAILED: MeasuredHazardsState = {
     failed: true,
     measured: NOTHING_MEASURED,
     pending: false,
+    unavailable: NOTHING_UNAVAILABLE,
 };
 const NOT_AVAILABLE: MeasuredHazardsState = {
     failed: false,
     measured: NOTHING_MEASURED,
     pending: false,
+    unavailable: NOTHING_UNAVAILABLE,
 };
 
 export function useMeasuredHazards(): MeasuredHazardsState {
@@ -71,22 +90,15 @@ export function useMeasuredHazards(): MeasuredHazardsState {
         if (userId === undefined) {
             return isSessionPending ? PENDING : NOT_AVAILABLE;
         }
-        try {
-            const ledger = PortfolioLedger.fromRows(userId, {
-                accounts,
-                events,
-                fees,
-                payouts,
-            });
-            const today = todayIsoDate(new Date());
-            return {
-                failed: false,
-                measured: measuredHazardsOf(liveTransferRate(ledger, today)),
-                pending: false,
-            };
-        } catch {
-            return FAILED;
-        }
+        const ledger = ledgerOf(userId, { accounts, events, fees, payouts });
+        if (ledger === null) return FAILED;
+        const rate = liveTransferRate(ledger, todayIsoDate(new Date()));
+        return {
+            failed: false,
+            measured: measuredHazardsOf(rate, ledger),
+            pending: false,
+            unavailable: unavailableHazardsOf(rate),
+        };
     }, [
         accounts,
         events,
@@ -96,4 +108,36 @@ export function useMeasuredHazards(): MeasuredHazardsState {
         payouts,
         userId,
     ]);
+}
+
+function ledgerOf(
+    userId: string,
+    rows: Parameters<typeof PortfolioLedger.fromRows>[1],
+): null | PortfolioLedger {
+    try {
+        return PortfolioLedger.fromRows(userId, rows);
+    } catch (error) {
+        console.error(
+            'Could not read the ledger rows for measured rates',
+            error,
+        );
+        return null;
+    }
+}
+
+function unavailableHazardsOf(
+    rate: LiveTransferRate,
+): Partial<Record<FirmId, UnavailableHazard>> {
+    const unavailable: Partial<Record<FirmId, UnavailableHazard>> = {};
+    for (const { firmId, row } of modeledFirmRows(rate.perFirm)) {
+        if (row.perPaidPayoutUnavailable === null) continue;
+        unavailable[firmId] = {
+            reason: row.perPaidPayoutUnavailable,
+            text: liveTransferUnavailableText(
+                row.perPaidPayoutUnavailable,
+                row,
+            ),
+        };
+    }
+    return unavailable;
 }

@@ -183,6 +183,7 @@ export function describePlanRules(plan: Plan): readonly PlanRuleLine[] {
     const hasSeparateFundedDrawdown =
         !plan.isInstantFunded && evalDrawdownText !== fundedDrawdownText;
     const payoutCap = payoutCapSegment(plan.payoutCapSchedule());
+    const bufferBalance = plan.payoutBufferBalance();
 
     return [
         [
@@ -331,19 +332,14 @@ export function describePlanRules(plan: Plan): readonly PlanRuleLine[] {
             ),
             ...qualifyingDaySegments(plan),
         ],
-        ...(plan.payoutBuffer === null
+        ...(bufferBalance === null
             ? []
             : [
                   [
                       segment(
                           PlanRuleSegmentKind.PayoutBuffer,
                           'payout buffer:',
-                          `EOD balance must clear ${formatCurrency(
-                              plan.payoutBuffer.requiredBalance(
-                                  plan.accountSize,
-                                  plan.fundedDrawdown.amount,
-                              ),
-                          )}`,
+                          `EOD balance must clear ${formatCurrency(bufferBalance)}`,
                       ),
                   ],
               ]),

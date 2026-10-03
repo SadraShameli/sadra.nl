@@ -17,6 +17,7 @@ import {
     PayoutStatus,
     personalMaxRiskOf,
     readPersonalRulesOrNull,
+    type StoredFirmId,
     sumUsdCents,
     type TrackedAccountRow,
     usdCents,
@@ -26,15 +27,24 @@ import {
 import { SnapshotField } from '~/lib/prop-accounts/snapshots';
 import { type Dollars, isoDaysBetween, type Plan } from '~/lib/prop-calculator';
 import {
+    type AccountPendingPayoutCounts,
     type AccountSnapshotInput,
     type Assumption,
     AssumptionBias,
     AssumptionKind,
     inputAssumption,
+    type PendingPayoutCountsOutcome,
+    PendingPayoutCountsStatus,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
 import { optionalDollars } from './AdvisorInputsAdapter';
+import {
+    type FirmPayoutCount,
+    firmPayoutCountOf,
+    otherAccountsRequestedPayoutCountOf,
+    ownRequestedPayoutCountOf,
+} from './FirmPayoutCount';
 
 export enum AdviceUnavailableReason {
     LedgerOnly = 'ledger-only',
@@ -67,6 +77,7 @@ export type SnapshotAccountRow = Pick<
 export interface SnapshotAdapterResult {
     readonly assumptions: readonly Assumption[];
     readonly input: AccountSnapshotInput;
+    readonly pendingPayoutCounts: AccountPendingPayoutCounts;
     readonly personalMaxRiskPerTrade: Dollars | null;
 }
 
@@ -82,6 +93,8 @@ export type SnapshotAdviceInput =
       };
 
 export type SnapshotEventRow = Pick<PropAccountEventRow, 'kind' | 'occurredOn'>;
+
+export type SnapshotFirmCount = FirmPayoutCount | PendingPayoutCountsOutcome;
 
 export type SnapshotPayoutRow = Pick<
     PropPayoutRow,
@@ -135,6 +148,7 @@ export function snapshotAdviceInputFor(
     events: readonly SnapshotEventRow[],
     payouts: readonly SnapshotPayoutRow[],
     asOf: string,
+    firmCount: FirmPayoutCount | null,
 ): SnapshotAdviceInput {
     if (isLedgerOnlyAccount(row)) {
         return {
@@ -147,9 +161,22 @@ export function snapshotAdviceInputFor(
             'A modeled account needs its resolved plan to build advice input',
         );
     }
+    if (firmCount === null) {
+        throw new Error(
+            'A modeled account needs its firm payout count to build advice input',
+        );
+    }
     return {
         kind: SnapshotAdviceInputKind.Modeled,
-        result: snapshotInputFrom(plan, row, snapshot, events, payouts, asOf),
+        result: snapshotInputFrom(
+            plan,
+            row,
+            snapshot,
+            events,
+            payouts,
+            asOf,
+            firmCount,
+        ),
         row,
     };
 }
@@ -161,8 +188,19 @@ export function snapshotInputFrom(
     events: readonly SnapshotEventRow[],
     payouts: readonly SnapshotPayoutRow[],
     asOf: string,
+    firmCount: SnapshotFirmCount,
 ): SnapshotAdapterResult {
     const assumptions: Assumption[] = [];
+    if (isFirmPayoutCount(firmCount)) {
+        assertFirmCountMatches(firmCount, account.firmId, asOf);
+    } else if (firmCount.status === PendingPayoutCountsStatus.NotChecked) {
+        assumptions.push(
+            inputAssumption(
+                AssumptionKind.FirmPayoutCountNotChecked,
+                AssumptionBias.Optimistic,
+            ),
+        );
+    }
 
     const stageStarts: AccountStageStarts = {
         evalPassedOn: latestEventOn(events, AccountEventKind.EvalPassed),
@@ -181,7 +219,9 @@ export function snapshotInputFrom(
     );
 
     const fundedResetsUsed = events.filter(
-        (event) => event.kind === AccountEventKind.FundedReset,
+        (event) =>
+            event.kind === AccountEventKind.FundedReset &&
+            compareText(event.occurredOn, resolvedAsOf) <= 0,
     ).length;
     if (fundedResetsUsed > 0) {
         assumptions.push(
@@ -215,14 +255,16 @@ export function snapshotInputFrom(
         );
     }
 
+    const requestedPayouts = payouts.filter(
+        (payout) => payout.status === PayoutStatus.Requested,
+    );
+    const pendingRequests = requestedPayouts.filter(
+        (payout) => compareText(payout.requestedOn, resolvedAsOf) > 0,
+    );
+    const requestedPayoutsAssumedInBalance =
+        requestedPayouts.length - pendingRequests.length;
     const pendingPayoutCents = sumUsdCents(
-        payouts
-            .filter(
-                (payout) =>
-                    payout.status === PayoutStatus.Requested &&
-                    compareText(payout.requestedOn, resolvedAsOf) > 0,
-            )
-            .map((payout) => payout.grossCents),
+        pendingRequests.map((payout) => payout.grossCents),
     );
 
     const balanceCents =
@@ -262,6 +304,7 @@ export function snapshotInputFrom(
         purchasedOn: account.purchasedOn,
         qualifyingDaysSinceLastPayout:
             snapshot?.qualifyingDaysSinceLastPayout ?? undefined,
+        requestedPayoutsAssumedInBalance,
         stage,
         tradingDays: snapshot?.tradingDays ?? undefined,
     };
@@ -270,5 +313,77 @@ export function snapshotInputFrom(
         readPersonalRulesOrNull(account.personalRules),
     );
 
-    return { assumptions, input, personalMaxRiskPerTrade };
+    return {
+        assumptions,
+        input,
+        pendingPayoutCounts: snapshotPendingCountsOf(
+            firmCount,
+            account.firmId,
+            events,
+            payouts,
+            asOf,
+        ),
+        personalMaxRiskPerTrade,
+    };
+}
+
+function assertFirmCountMatches(
+    firmCount: FirmPayoutCount,
+    firmId: StoredFirmId,
+    asOf: string,
+): void {
+    if (firmCount.firmId !== firmId) {
+        throw new Error(
+            `The firm payout count is for firm ${firmCount.firmId}, not the account's firm ${firmId}`,
+        );
+    }
+    if (firmCount.asOf !== asOf) {
+        throw new Error(
+            `The firm payout count was computed as of ${firmCount.asOf}, not ${asOf}`,
+        );
+    }
+}
+
+function isFirmPayoutCount(
+    firmCount: SnapshotFirmCount,
+): firmCount is FirmPayoutCount {
+    return (
+        'firmId' in firmCount &&
+        'requestedPayoutsSinceLastLiveAccount' in firmCount
+    );
+}
+
+function snapshotPendingCountsOf(
+    firmCount: SnapshotFirmCount,
+    firmId: StoredFirmId,
+    events: readonly SnapshotEventRow[],
+    payouts: readonly SnapshotPayoutRow[],
+    asOf: string,
+): AccountPendingPayoutCounts {
+    if (isFirmPayoutCount(firmCount)) {
+        return {
+            otherAccountsPendingPayoutCount:
+                otherAccountsRequestedPayoutCountOf(firmCount, payouts, asOf),
+            pendingPayoutCount: ownRequestedPayoutCountOf(
+                firmCount,
+                payouts,
+                asOf,
+            ),
+        };
+    }
+    switch (firmCount.status) {
+        case PendingPayoutCountsStatus.Counted: {
+            return firmCount.counts;
+        }
+        case PendingPayoutCountsStatus.NotChecked: {
+            return {
+                otherAccountsPendingPayoutCount: 0,
+                pendingPayoutCount: ownRequestedPayoutCountOf(
+                    firmPayoutCountOf(firmId, [{ events, payouts }], asOf),
+                    payouts,
+                    asOf,
+                ),
+            };
+        }
+    }
 }

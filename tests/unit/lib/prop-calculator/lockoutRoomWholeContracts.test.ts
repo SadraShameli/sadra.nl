@@ -1,33 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    AlphaFuturesVariant,
-    ApexVariant,
-    computedDayPolicy,
-    type DayPolicy,
-    DayStopRuleKind,
     dollars,
-    E8FuturesVariant,
     FirmId,
     fraction,
     FtmoFuturesVariant,
-    FundedNextVariant,
     InstrumentSymbol,
-    LucidVariant,
-    MffuVariant,
     newFundedCycleTracker,
     type Plan,
-    type PlanId,
-    PolicySizing,
-    resolveFundedTradeRisk,
     resolvePositionSizing,
     RungSizing,
     TopStepVariant,
-    TradeifyVariant,
     TradingPhase,
-    wholeContractRisk,
 } from '~/lib/prop-calculator/core';
-import { findFirm } from '~/lib/prop-calculator/firms';
 import {
     LossStreak,
     newPhaseStats,
@@ -39,41 +24,18 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
+import {
+    expectNqAtOrBelowMnq,
+    FLAT_RISK,
+    LOCKOUT_DLL_CASES,
+    NQ_STOP_POINTS,
+    planFor,
+    stageDInputs,
+} from './lockoutRoomFixtures';
 import { scriptedRng } from './scriptedRng';
 
 const LOSS_DRAW = 0.99;
 const WIN_DRAW = 0.01;
-const NQ_STOP_POINTS = 20;
-const FLAT_RISK = 800;
-const GRANULARITY_TRIALS = 2000;
-const MONTHLY_NET_RELATIVE_TOLERANCE = 0.1;
-const MONTHLY_NET_ABSOLUTE_TOLERANCE = 50;
-const FUNDED_BUST_TOLERANCE = 0.05;
-const HALF_CUSHION = fraction(0.5);
-const FUNDED_TRADES_PER_DAY = 4;
-const DAY_GREEN_STOP = { kind: DayStopRuleKind.DayGreen } as const;
-const DAY_GREEN_LADDER = [800, 200, 100, 800] as const;
-const ALTERNATING_LADDER = [800, 400, 800, 400] as const;
-const INSTANT_FUNDED_LADDER = [FLAT_RISK] as const;
-
-interface LockoutDllCase {
-    readonly evalLadder: readonly number[];
-    readonly id: PlanId;
-}
-
-function expectNqAtOrBelowMnq(nq: SimOutputs, mnq: SimOutputs): void {
-    expect(nq.expectedMonthlyNet).toBeLessThanOrEqual(
-        mnq.expectedMonthlyNet +
-            Math.max(
-                MONTHLY_NET_ABSOLUTE_TOLERANCE,
-                MONTHLY_NET_RELATIVE_TOLERANCE *
-                    Math.abs(mnq.expectedMonthlyNet),
-            ),
-    );
-    expect(nq.fundedBustProbability).toBeGreaterThanOrEqual(
-        mnq.fundedBustProbability - FUNDED_BUST_TOLERANCE,
-    );
-}
 
 function ftmo(variant: FtmoFuturesVariant): Plan {
     return planFor({
@@ -83,37 +45,12 @@ function ftmo(variant: FtmoFuturesVariant): Plan {
     });
 }
 
-function halfCushionInWholeNqPolicy(): DayPolicy {
-    const nq = resolvePositionSizing(InstrumentSymbol.NQ, NQ_STOP_POINTS);
-    if (nq === null) throw new Error('NQ sizing did not resolve');
-    return computedDayPolicy(
-        (state) =>
-            wholeContractRisk(
-                resolveFundedTradeRisk(
-                    state.balance - state.threshold,
-                    HALF_CUSHION,
-                ),
-                nq,
-                null,
-            ),
-        FUNDED_TRADES_PER_DAY,
-        DAY_GREEN_STOP,
-        PolicySizing.WholeContracts,
-    );
-}
-
 function pinnedOutputs(out: SimOutputs) {
     return {
         expectedMonthlyNet: out.expectedMonthlyNet,
         expectedPayoutCount: out.expectedPayoutCount,
         fundedBustProbability: out.fundedBustProbability,
     };
-}
-
-function planFor(id: PlanId): Plan {
-    const plan = findFirm(id.firm)?.findPlan(id);
-    if (!plan) throw new Error(`plan ${id.firm} not found`);
-    return plan;
 }
 
 function scriptedFundedDay(plan: Plan, draws: readonly number[]) {
@@ -166,36 +103,19 @@ function scriptedFundedDay(plan: Plan, draws: readonly number[]) {
     };
 }
 
-function stageDInputs(
-    plan: Plan,
-    evalLadder: readonly number[],
-    instrument: InstrumentSymbol,
-): SimInputs {
+function topStepDllPlan(): Plan {
+    return planFor({
+        accountSize: 50_000,
+        firm: FirmId.TopStep,
+        variant: TopStepVariant.StandardStandardDll,
+    });
+}
+
+function topStepDllSkipInputs(plan: Plan): SimInputs {
     return {
-        commissionPerRoundTrip: 0,
-        dayStop: DAY_GREEN_STOP,
-        evalDayPolicy: {
-            ladder: evalLadder,
-            maxLossesPerDay: null,
-            sizing: PolicySizing.ContractCapped,
-            stopRule: DAY_GREEN_STOP,
-        },
-        fundedHorizonDays: 252,
-        fundedRiskPerTrade: FLAT_RISK,
-        idleDayProbability: 0,
-        instrument,
-        maxAttempts: 1,
-        maxEvalDays: 150,
-        minRetainedCushion: 2000,
-        plan,
-        rebuyLagDays: 0,
-        riskPerTrade: evalLadder[0] ?? 0,
-        rrRatio: 2,
-        seed: 42,
-        stopPoints: NQ_STOP_POINTS,
-        tradesPerDay: FUNDED_TRADES_PER_DAY,
-        trials: GRANULARITY_TRIALS,
-        winrate: 0.4,
+        ...stageDInputs(plan, [800, 200, 100, 800], InstrumentSymbol.NQ),
+        rungSizing: RungSizing.SkipIfUnaffordable,
+        seed: 7,
     };
 }
 
@@ -269,23 +189,28 @@ describe('plans and runs whose room never locks the day are untouched by the loc
         `);
     });
 
-    it('pins TopStep Standard DLL under skipIfUnaffordable at NQ 20 points, flat $800, seed 7', () => {
-        const out = simulate({
-            ...stageDInputs(
-                planFor({
-                    accountSize: 50_000,
-                    firm: FirmId.TopStep,
-                    variant: TopStepVariant.StandardStandardDll,
-                }),
-                [800, 200, 100, 800],
-                InstrumentSymbol.NQ,
-            ),
-            rungSizing: RungSizing.SkipIfUnaffordable,
-            seed: 7,
-        });
+    it('pins TopStep Standard DLL under skipIfUnaffordable at NQ 20 points, flat $800, seed 7, with no idle limit in the Combine (WP62b: the net moved from 755.77 only through eval time, see the next test)', () => {
+        const out = simulate(topStepDllSkipInputs(topStepDllPlan()));
         expect(pinnedOutputs(out)).toMatchInlineSnapshot(`
           {
-            "expectedMonthlyNet": 771.6161039143657,
+            "expectedMonthlyNet": 312.82250222076766,
+            "expectedPayoutCount": 0.4775,
+            "fundedBustProbability": 0.366,
+          }
+        `);
+    });
+
+    it('reproduces the pre-WP62b 755.77 net when the Combine is given back the 31-session idle limit, with the funded payout count and bust probability identical, so the move is eval-phase time only', () => {
+        const out = simulate(
+            topStepDllSkipInputs(
+                topStepDllPlan().withOverrides({
+                    evalMaxConsecutiveIdleDays: 31,
+                }),
+            ),
+        );
+        expect(pinnedOutputs(out)).toMatchInlineSnapshot(`
+          {
+            "expectedMonthlyNet": 755.7682574114245,
             "expectedPayoutCount": 0.4775,
             "fundedBustProbability": 0.366,
           }
@@ -293,173 +218,12 @@ describe('plans and runs whose room never locks the day are untouched by the loc
     });
 });
 
-const LOCKOUT_DLL_CASES: readonly LockoutDllCase[] = [
-    {
-        evalLadder: DAY_GREEN_LADDER,
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.Apex,
-            variant: ApexVariant.Eod,
-        },
-    },
-    {
-        evalLadder: ALTERNATING_LADDER,
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.Apex,
-            variant: ApexVariant.Intraday,
-        },
-    },
-    {
-        evalLadder: ALTERNATING_LADDER,
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.Tradeify,
-            variant: TradeifyVariant.Growth,
-        },
-    },
-    {
-        evalLadder: [500, 800, 700],
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.Tradeify,
-            variant: TradeifyVariant.SelectDaily,
-        },
-    },
-    {
-        evalLadder: INSTANT_FUNDED_LADDER,
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.Tradeify,
-            variant: TradeifyVariant.Lightning,
-        },
-    },
-    ...[
-        LucidVariant.DailyEodDll,
-        LucidVariant.DailyIntradayDll,
-        LucidVariant.FlexDll,
-        LucidVariant.Pro,
-    ].map((variant) => ({
-        evalLadder: ALTERNATING_LADDER,
-        id: { accountSize: 50_000, firm: FirmId.Lucid, variant } as const,
-    })),
-    {
-        evalLadder: INSTANT_FUNDED_LADDER,
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.Lucid,
-            variant: LucidVariant.Direct,
-        },
-    },
-    {
-        evalLadder: DAY_GREEN_LADDER,
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.Mffu,
-            variant: MffuVariant.Builder,
-        },
-    },
-    ...[
-        TopStepVariant.StandardStandardDll,
-        TopStepVariant.StandardConsistencyDll,
-        TopStepVariant.NoFeeStandardDll,
-        TopStepVariant.NoFeeConsistencyDll,
-    ].map((variant) => ({
-        evalLadder: DAY_GREEN_LADDER,
-        id: { accountSize: 50_000, firm: FirmId.TopStep, variant } as const,
-    })),
-    {
-        evalLadder: INSTANT_FUNDED_LADDER,
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.TopStep,
-            variant: TopStepVariant.ProAccount,
-        },
-    },
-    ...[FundedNextVariant.RapidProDllAddOn, FundedNextVariant.RapidDaily].map(
-        (variant) => ({
-            evalLadder: DAY_GREEN_LADDER,
-            id: {
-                accountSize: 50_000,
-                firm: FirmId.FundedNext,
-                variant,
-            } as const,
-        }),
-    ),
-    {
-        evalLadder: DAY_GREEN_LADDER,
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.AlphaFutures,
-            variant: AlphaFuturesVariant.Zero,
-        },
-    },
-    {
-        evalLadder: ALTERNATING_LADDER,
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.AlphaFutures,
-            variant: AlphaFuturesVariant.Standard,
-        },
-    },
-    {
-        evalLadder: [800, 400, 800, 600],
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.E8Futures,
-            variant: E8FuturesVariant.Signature,
-        },
-    },
-    {
-        evalLadder: [600, 800, 800, 600],
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.FtmoFutures,
-            variant: FtmoFuturesVariant.Growth,
-        },
-    },
-];
-
 describe('placing a flat $800 in coarser NQ contracts never beats MNQ at the same 20 point stop on a lockout-DLL plan (N-74)', () => {
-    it.each(LOCKOUT_DLL_CASES)(
-        '$id.firm $id.variant',
-        ({ evalLadder, id }) => {
-            const plan = planFor(id);
-            expectNqAtOrBelowMnq(
-                simulate(stageDInputs(plan, evalLadder, InstrumentSymbol.NQ)),
-                simulate(stageDInputs(plan, evalLadder, InstrumentSymbol.MNQ)),
-            );
-        },
-        120_000,
-    );
-});
-
-describe('placing 50% of the cushion in coarser NQ contracts never beats MNQ asked for the same whole-NQ risk at the same 20 point stop on a lockout-DLL plan (N-74)', () => {
-    it.each(
-        LOCKOUT_DLL_CASES.filter(
-            ({ id }) =>
-                !(
-                    id.firm === FirmId.FundedNext &&
-                    id.variant === FundedNextVariant.RapidProDllAddOn
-                ),
-        ),
-    )(
-        '$id.firm $id.variant',
-        ({ evalLadder, id }) => {
-            const plan = planFor(id);
-            const base = {
-                ...stageDInputs(plan, evalLadder, InstrumentSymbol.NQ),
-                fundedRiskPerTrade: undefined,
-            };
-            expectNqAtOrBelowMnq(
-                simulate({ ...base, fundedCushionPercent: HALF_CUSHION }),
-                simulate({
-                    ...base,
-                    fundedDayPolicy: halfCushionInWholeNqPolicy(),
-                    instrument: InstrumentSymbol.MNQ,
-                }),
-            );
-        },
-        120_000,
-    );
+    it.each(LOCKOUT_DLL_CASES)('$id.firm $id.variant', ({ evalLadder, id }) => {
+        const plan = planFor(id);
+        expectNqAtOrBelowMnq(
+            simulate(stageDInputs(plan, evalLadder, InstrumentSymbol.NQ)),
+            simulate(stageDInputs(plan, evalLadder, InstrumentSymbol.MNQ)),
+        );
+    });
 });

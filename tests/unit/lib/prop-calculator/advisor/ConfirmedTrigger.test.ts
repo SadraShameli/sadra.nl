@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -62,5 +62,42 @@ describe('the one confirmed-trigger check (PT-36h review)', () => {
 
         expect(text).toContain('isConfirmedTrigger');
         expect(text).not.toContain('PolicyVerification');
+    });
+
+    it('decides the trigger confirmation in one place across the advisor (PT-36j)', () => {
+        const walk = (directory: string): string[] =>
+            readdirSync(path.join(REPO_ROOT, directory), {
+                withFileTypes: true,
+            }).flatMap((entry) =>
+                entry.isDirectory()
+                    ? walk(`${directory}/${entry.name}`)
+                    : entry.name.endsWith('.ts')
+                      ? [`${directory}/${entry.name}`]
+                      : [],
+            );
+        const comparers = walk('src/lib/prop-calculator/advisor').filter(
+            (file) =>
+                /===\s*PolicyVerification\.Confirmed/.test(
+                    readFileSync(path.join(REPO_ROOT, file), 'utf8'),
+                ),
+        );
+
+        expect(comparers.toSorted((a, b) => a.localeCompare(b))).toStrictEqual([
+            'src/lib/prop-calculator/advisor/AggressiveOptimumChurn.ts',
+            'src/lib/prop-calculator/advisor/ConfirmedTrigger.ts',
+        ]);
+    });
+
+    it('keeps the verification comparison out of PayoutAdvice.ts (PT-36j)', () => {
+        const text = readFileSync(
+            path.join(
+                REPO_ROOT,
+                'src/lib/prop-calculator/advisor/PayoutAdvice.ts',
+            ),
+            'utf8',
+        );
+
+        expect(text).toContain('isConfirmedTrigger');
+        expect(text).not.toMatch(/===\s*PolicyVerification\.Confirmed/);
     });
 });

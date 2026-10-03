@@ -41,6 +41,16 @@ import type {
 import { clampNumber, clampStateToPlan } from './clamp';
 import { LabLinkStatus, LinkParameter, SizingMode } from './types';
 
+export enum ObjectiveUrlMode {
+    Explicit = 'explicit',
+    Natural = 'natural',
+    Omitted = 'omitted',
+}
+
+export interface EncodeStateOptions {
+    readonly objectiveUrl?: ObjectiveUrlMode;
+}
+
 export type LabLinkDecode = LabLinkOutcome & { scenarios: LabScenario[] };
 
 type BlobDecode<T> =
@@ -226,6 +236,23 @@ function discountRule(
     { max, min }: { max: number; min: number },
 ): string {
     return `${name} must be between ${plainNumber(min)}% and ${plainNumber(max)}%`;
+}
+
+function isObjectiveWritten(
+    objective: SizingObjective,
+    mode: ObjectiveUrlMode = ObjectiveUrlMode.Natural,
+): boolean {
+    switch (mode) {
+        case ObjectiveUrlMode.Explicit: {
+            return true;
+        }
+        case ObjectiveUrlMode.Natural: {
+            return objective !== SizingObjective.MonthlyNet;
+        }
+        case ObjectiveUrlMode.Omitted: {
+            return false;
+        }
+    }
 }
 
 function isRuleField<Field extends string>(
@@ -483,7 +510,10 @@ export function decodeState(
     });
 }
 
-export function encodeState(state: CalculatorState): URLSearchParams {
+export function encodeState(
+    state: CalculatorState,
+    options: EncodeStateOptions = {},
+): URLSearchParams {
     const p = new URLSearchParams();
     p.set(CalculatorUrlParameter.Firm, state.firm.id);
     p.set(CalculatorUrlParameter.Plan, serializePlanId(state.plan.id));
@@ -518,7 +548,7 @@ export function encodeState(state: CalculatorState): URLSearchParams {
         urlFlag(state.takesOneTimeEarlyWithdrawal),
     );
     p.set(CalculatorUrlParameter.FundedReset, urlFlag(state.takesFundedReset));
-    if (state.objective !== SizingObjective.MonthlyNet) {
+    if (isObjectiveWritten(state.objective, options.objectiveUrl)) {
         p.set(OBJECTIVE_URL_PARAMETER, state.objective);
     }
     if (state.instrument !== null && state.stopPoints !== null) {

@@ -11,6 +11,8 @@ import {
     stateCardOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/detail/detailState';
 import {
+    type FirmPayoutCount,
+    firmPayoutCountOf,
     type SnapshotAccountRow,
     type SnapshotEventRow,
     type SnapshotPayoutRow,
@@ -19,10 +21,13 @@ import {
     AccountStage,
     AccountTracking,
     type ModeledAccountRow,
+    PayoutStatus,
     usdCents,
 } from '~/lib/prop-accounts/core';
 import {
     ConsistencyStatusKind,
+    payoutReadinessBoardOf,
+    PayoutReadinessRowKind,
     PerformanceComparabilityKind,
     PerformanceIncomparabilityReason,
 } from '~/lib/prop-accounts/metrics';
@@ -31,26 +36,41 @@ import {
     createInitialState,
     dollars,
     findFirm,
+    FirmAccountPolicy,
     FirmId,
     FtmoFuturesVariant,
     FundedNextVariant,
+    type LiveTransitionTrigger,
     MffuVariant,
+    PayoutCountTotalTrigger,
     type Plan,
     type PlanId,
+    PolicySourceKind,
+    PolicyVerification,
     serializePlanId,
     TopStepVariant,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
     AccountReconstruction,
+    AssumptionBias,
     AssumptionKind,
     assumptionKindText,
+    createSizingAdvisor,
     DashboardBalanceConvention,
+    DEFAULT_RULEBOOK,
+    LiveTriggerScope,
+    NO_PENDING_PAYOUT_COUNTS,
+    PayoutBlockReasonKind,
+    PayoutRequestDecisionKind,
+    PENDING_PAYOUT_COUNTS_NOT_CHECKED,
     type ReconstructedAccount,
     ReconstructedLiveKind,
     ReconstructionErrorReason,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
+
+import { reconstructedEntry } from '../../../lib/prop-accounts/reconstructionFixtures';
 
 const APEX_EOD_ID: PlanId = {
     accountSize: 50_000,
@@ -146,6 +166,14 @@ function snapshotRow(
 const NO_EVENTS: readonly SnapshotEventRow[] = [];
 const NO_PAYOUTS: readonly SnapshotPayoutRow[] = [];
 
+function firmCountOf(id: PlanId): FirmPayoutCount {
+    return firmPayoutCountOf(
+        id.firm,
+        [{ events: NO_EVENTS, payouts: NO_PAYOUTS }],
+        '2026-02-10',
+    );
+}
+
 describe('stateCardOf', () => {
     it('reports no snapshot yet when the account has none', () => {
         const view = stateCardOf(
@@ -155,6 +183,7 @@ describe('stateCardOf', () => {
             NO_EVENTS,
             NO_PAYOUTS,
             '2026-02-10',
+            firmCountOf(MFF_PRO_ID),
         );
         expect(view).toEqual({ kind: StateCardKind.NoSnapshot });
     });
@@ -167,6 +196,7 @@ describe('stateCardOf', () => {
             NO_EVENTS,
             NO_PAYOUTS,
             '2026-02-10',
+            firmCountOf(MFF_PRO_ID),
         );
         if (view.kind !== StateCardKind.Ready) {
             throw new Error('expected a ready state card');
@@ -192,6 +222,7 @@ describe('stateCardOf', () => {
             NO_EVENTS,
             NO_PAYOUTS,
             '2026-02-10',
+            firmCountOf(MFF_PRO_ID),
         );
         if (view.kind !== StateCardKind.Ready) {
             throw new Error('expected a ready state card');
@@ -211,6 +242,7 @@ describe('stateCardOf', () => {
             NO_EVENTS,
             NO_PAYOUTS,
             '2026-02-10',
+            firmCountOf(MFF_PRO_ID),
         );
         if (view.kind !== StateCardKind.Ready) {
             throw new Error('expected a ready state card');
@@ -229,6 +261,7 @@ describe('stateCardOf', () => {
             NO_EVENTS,
             NO_PAYOUTS,
             '2026-02-10',
+            firmCountOf(MFF_RAPID_ID),
         );
         expect(view.kind).toBe(StateCardKind.PeakRequired);
         if (view.kind !== StateCardKind.PeakRequired) return;
@@ -249,6 +282,7 @@ describe('previousReconstructionOf', () => {
                 NO_EVENTS,
                 NO_PAYOUTS,
                 '2026-02-10',
+                firmCountOf(MFF_PRO_ID),
             ),
         ).toBeNull();
     });
@@ -264,6 +298,7 @@ describe('previousReconstructionOf', () => {
             NO_EVENTS,
             NO_PAYOUTS,
             '2026-02-10',
+            firmCountOf(MFF_PRO_ID),
         );
         expect(result).toBeNull();
     });
@@ -279,6 +314,7 @@ describe('previousReconstructionOf', () => {
             NO_EVENTS,
             NO_PAYOUTS,
             '2026-02-10',
+            firmCountOf(MFF_PRO_ID),
         );
         expect(result?.asOf).toBe('2026-02-01');
     });
@@ -312,6 +348,8 @@ describe('liveRulesCardOf', () => {
                 stage: SizingStage.Live,
             },
             plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
         );
         if (account.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -337,6 +375,8 @@ describe('liveRulesCardOf', () => {
                 stage: SizingStage.Live,
             },
             plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
         );
         if (account.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -360,6 +400,8 @@ describe('liveRulesCardOf', () => {
                 stage: SizingStage.Live,
             },
             plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
         );
         if (account.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -390,6 +432,7 @@ function evalAt(
             balance,
             tradingDays,
         },
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -502,7 +545,12 @@ describe('performanceCardOf', () => {
             highestEodBalance: dollars(51_000),
             stage: SizingStage.Funded,
         };
-        const account = AccountReconstruction.rebuild(input, plan);
+        const account = AccountReconstruction.rebuild(
+            input,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const view = performanceCardOf(
             { account, asOf: '2026-02-10', input },
             null,
@@ -521,5 +569,322 @@ describe('assumptionKindText for the reconstruction assumptions', () => {
         expect(assumptionKindText(AssumptionKind.LiveNotModeled)).toContain(
             'No live stage',
         );
+    });
+});
+
+function requestedOn(day: string): SnapshotPayoutRow {
+    return {
+        grossCents: usdCents(50_000),
+        netCents: null,
+        paidOn: null,
+        requestedOn: day,
+        status: PayoutStatus.Requested,
+    };
+}
+
+describe('the detail state counts the requested payouts of the whole firm (PT-36l, F-145)', () => {
+    const TODAY = '2026-02-10';
+
+    const own = [requestedOn('2026-02-02')];
+    const siblings = [requestedOn('2026-02-03'), requestedOn('2026-02-04')];
+    const firmCount = firmPayoutCountOf(
+        FirmId.Mffu,
+        [
+            { events: NO_EVENTS, payouts: own },
+            { events: NO_EVENTS, payouts: siblings },
+        ],
+        TODAY,
+    );
+
+    it('stateCardOf hands the account the pending count of its sibling accounts', () => {
+        const view = stateCardOf(
+            registryPlan(MFF_PRO_ID),
+            accountRow(MFF_PRO_ID),
+            snapshotRow(),
+            NO_EVENTS,
+            own,
+            TODAY,
+            firmCount,
+        );
+        if (
+            view.kind !== StateCardKind.Ready ||
+            view.account.kind !== TradingPhase.Funded
+        ) {
+            throw new Error('expected a ready funded state card');
+        }
+        expect(view.account.pendingPayoutCount).toBe(1);
+        expect(view.account.otherAccountsPendingPayoutCount).toBe(2);
+    });
+
+    it('previousReconstructionOf hands the previous reconstruction the same counts', () => {
+        const result = previousReconstructionOf(
+            registryPlan(MFF_PRO_ID),
+            accountRow(MFF_PRO_ID),
+            snapshotRow({
+                asOf: '2026-02-01',
+                balanceCents: usdCents(5_000_000),
+            }),
+            NO_EVENTS,
+            own,
+            TODAY,
+            firmCount,
+        );
+        if (result?.account.kind !== TradingPhase.Funded) {
+            throw new Error('expected a funded previous reconstruction');
+        }
+        expect(result.account.otherAccountsPendingPayoutCount).toBe(2);
+    });
+});
+
+describe('the detail state accepts a firm count that could not be loaded (PT-36p, F-145)', () => {
+    const TODAY = '2026-02-10';
+    const own = [requestedOn('2026-02-02'), requestedOn('2026-02-03')];
+
+    it('stateCardOf reconstructs from the account own rows and counts no request at other accounts', () => {
+        const view = stateCardOf(
+            registryPlan(MFF_PRO_ID),
+            accountRow(MFF_PRO_ID),
+            snapshotRow(),
+            NO_EVENTS,
+            own,
+            TODAY,
+            PENDING_PAYOUT_COUNTS_NOT_CHECKED,
+        );
+        if (
+            view.kind !== StateCardKind.Ready ||
+            view.account.kind !== TradingPhase.Funded
+        ) {
+            throw new Error('expected a ready funded state card');
+        }
+        expect(view.account.pendingPayoutCount).toBe(2);
+        expect(view.account.otherAccountsPendingPayoutCount).toBe(0);
+    });
+
+    it('stateCardOf lists the unknown firm count as an assumption of the reconstructed account', () => {
+        const view = stateCardOf(
+            registryPlan(MFF_PRO_ID),
+            accountRow(MFF_PRO_ID),
+            snapshotRow(),
+            NO_EVENTS,
+            own,
+            TODAY,
+            PENDING_PAYOUT_COUNTS_NOT_CHECKED,
+        );
+        if (view.kind !== StateCardKind.Ready) {
+            throw new Error('expected a ready state card');
+        }
+        expect(view.account.assumptions).toContainEqual({
+            bias: AssumptionBias.Optimistic,
+            kind: AssumptionKind.FirmPayoutCountNotChecked,
+        });
+    });
+
+    it('stateCardOf lists no such assumption for a count that was loaded', () => {
+        const view = stateCardOf(
+            registryPlan(MFF_PRO_ID),
+            accountRow(MFF_PRO_ID),
+            snapshotRow(),
+            NO_EVENTS,
+            own,
+            TODAY,
+            firmPayoutCountOf(
+                MFF_PRO_ID.firm,
+                [{ events: [], payouts: own }],
+                TODAY,
+            ),
+        );
+        if (view.kind !== StateCardKind.Ready) {
+            throw new Error('expected a ready state card');
+        }
+        expect(
+            view.account.assumptions.map((assumption) => assumption.kind),
+        ).not.toContain(AssumptionKind.FirmPayoutCountNotChecked);
+    });
+
+    it('previousReconstructionOf accepts it too', () => {
+        const result = previousReconstructionOf(
+            registryPlan(MFF_PRO_ID),
+            accountRow(MFF_PRO_ID),
+            snapshotRow({
+                asOf: '2026-02-01',
+                balanceCents: usdCents(5_000_000),
+            }),
+            NO_EVENTS,
+            own,
+            TODAY,
+            PENDING_PAYOUT_COUNTS_NOT_CHECKED,
+        );
+        expect(result?.account.kind).toBe(TradingPhase.Funded);
+    });
+});
+
+class StubTriggerPolicy extends FirmAccountPolicy {
+    constructor(private readonly triggers: readonly LiveTransitionTrigger[]) {
+        super();
+    }
+
+    override liveTriggersFor(): readonly LiveTransitionTrigger[] {
+        return this.triggers;
+    }
+}
+
+function paidOn(day: string): SnapshotPayoutRow {
+    return {
+        grossCents: usdCents(50_000),
+        netCents: usdCents(45_000),
+        paidOn: day,
+        requestedOn: day,
+        status: PayoutStatus.Paid,
+    };
+}
+
+const CONFIRMED_SOURCE = {
+    fetchedOn: '2026-09-01',
+    quote: 'a synthetic test quote',
+    sourceKind: PolicySourceKind.LiveFetch,
+    url: 'https://example.test/policy',
+    verification: PolicyVerification.Confirmed,
+} as const;
+
+describe('the detail state blocks a payout exactly where the board blocks under a verified firm-total cap (PT-36k, F-145)', () => {
+    const TODAY = '2026-02-10';
+    const FIRM_TOTAL_CAP = 5;
+    const NO_ACCOUNT_DATA = { events: NO_EVENTS, payouts: NO_PAYOUTS };
+    const siblingPaid = [paidOn('2026-02-01'), paidOn('2026-02-02')];
+    const archivedRequested = [
+        requestedOn('2026-02-03'),
+        requestedOn('2026-02-04'),
+    ];
+
+    function firmCountOfLedger(
+        archived: readonly SnapshotPayoutRow[],
+    ): FirmPayoutCount {
+        return firmPayoutCountOf(
+            FirmId.Mffu,
+            [
+                NO_ACCOUNT_DATA,
+                { events: NO_EVENTS, payouts: siblingPaid },
+                { events: NO_EVENTS, payouts: archived },
+            ],
+            TODAY,
+        );
+    }
+
+    function eligibleStateOf(firmCount: FirmPayoutCount) {
+        const plan = registryPlan(MFF_PRO_ID);
+        const view = stateCardOf(
+            plan,
+            accountRow(MFF_PRO_ID),
+            snapshotRow({
+                balanceCents: usdCents(7_000_000),
+                cycleBestDayProfitCents: usdCents(2_000_000),
+                highestEodBalanceCents: usdCents(7_000_000),
+                qualifyingDaysSinceLastPayout: 30,
+                tradingDays: 40,
+            }),
+            NO_EVENTS,
+            NO_PAYOUTS,
+            TODAY,
+            firmCount,
+        );
+        if (
+            view.kind !== StateCardKind.Ready ||
+            view.account.kind !== TradingPhase.Funded
+        ) {
+            throw new Error('expected a ready funded state card');
+        }
+        if (view.account.fundedTracker === null) {
+            throw new Error('expected a funded tracker');
+        }
+        view.account.fundedTracker.sessionDaysSinceAnchor = 999;
+        return { account: view.account, plan };
+    }
+
+    function decisionsUnder(
+        triggers: readonly LiveTransitionTrigger[],
+        firmCount: FirmPayoutCount,
+    ) {
+        const firm = findFirm(FirmId.Mffu) as unknown as {
+            accountPolicy: FirmAccountPolicy;
+        };
+        const original = firm.accountPolicy;
+        firm.accountPolicy = new StubTriggerPolicy(triggers);
+        try {
+            const { account, plan } = eligibleStateOf(firmCount);
+            const [row] = payoutReadinessBoardOf(
+                DEFAULT_RULEBOOK,
+                [reconstructedEntry('a1', plan, account)],
+                new Map([
+                    [
+                        'a1',
+                        {
+                            paidPayoutsSinceLastLiveAccount:
+                                firmCount.paidPayoutsSinceLastLiveAccount,
+                        },
+                    ],
+                ]),
+            ).rows;
+            const advisor = createSizingAdvisor(account, {
+                accountPolicy: firm.accountPolicy,
+                paidPayoutsSinceLastLiveAccount:
+                    firmCount.paidPayoutsSinceLastLiveAccount,
+                rulebook: DEFAULT_RULEBOOK,
+                snapshotAsOf: TODAY,
+                substate: null,
+                today: TODAY,
+            });
+            return {
+                advised: advisor.assemble([]).payoutAdvice?.documented,
+                board: row,
+            };
+        } finally {
+            firm.accountPolicy = original;
+        }
+    }
+
+    const capTrigger = new PayoutCountTotalTrigger(
+        FIRM_TOTAL_CAP,
+        CONFIRMED_SOURCE,
+    );
+
+    it('is eligible on the board and in the advisor with no trigger, so the block below is the cap and nothing else', () => {
+        const { advised, board } = decisionsUnder(
+            [],
+            firmCountOfLedger(archivedRequested),
+        );
+
+        expect(board?.kind).toBe(PayoutReadinessRowKind.Eligible);
+        expect(advised?.kind).toBe(PayoutRequestDecisionKind.Request);
+    });
+
+    it('blocks the fifth firm payout on the board and in the advisor when two are paid and two are requested at sibling or archived accounts', () => {
+        const { advised, board } = decisionsUnder(
+            [capTrigger],
+            firmCountOfLedger(archivedRequested),
+        );
+
+        expect(board?.kind).toBe(PayoutReadinessRowKind.Blocked);
+        if (board?.kind !== PayoutReadinessRowKind.Blocked) return;
+        expect(board.reason).toMatchObject({
+            kind: PayoutBlockReasonKind.WouldTriggerLive,
+            trigger: { payoutsTaken: 4, scope: LiveTriggerScope.Firm },
+        });
+        expect(advised).toMatchObject({
+            kind: PayoutRequestDecisionKind.NotEligible,
+            reason: {
+                kind: PayoutBlockReasonKind.WouldTriggerLive,
+                trigger: { payoutsTaken: 4, scope: LiveTriggerScope.Firm },
+            },
+        });
+    });
+
+    it('stays eligible on the board and in the advisor while one fewer sibling request leaves the next payout under the cap', () => {
+        const { advised, board } = decisionsUnder(
+            [capTrigger],
+            firmCountOfLedger(archivedRequested.slice(0, 1)),
+        );
+
+        expect(board?.kind).toBe(PayoutReadinessRowKind.Eligible);
+        expect(advised?.kind).toBe(PayoutRequestDecisionKind.Request);
     });
 });

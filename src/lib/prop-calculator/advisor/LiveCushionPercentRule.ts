@@ -3,6 +3,7 @@ import {
     type Dollars,
     dollars,
     type Fraction0to1,
+    liftLiveSizingCushion,
     resolveLiveTradeRisk,
 } from '~/lib/prop-calculator/core';
 
@@ -38,6 +39,13 @@ export class LiveCushionPercentRule extends FlatRiskRule<LiveRuleContext> {
         context: LiveRuleContext,
         runningLoss: Dollars,
     ): PlannedRisk {
+        if (context.floorTradeRisk > 0) {
+            return {
+                amount:
+                    runningLoss <= 0 ? context.floorTradeRisk : dollars(0),
+                cappedBy: [],
+            };
+        }
         return {
             amount: dollars(
                 resolveLiveTradeRisk(
@@ -46,6 +54,15 @@ export class LiveCushionPercentRule extends FlatRiskRule<LiveRuleContext> {
                 ),
             ),
             cappedBy: [],
+        };
+    }
+
+    protected override sizingContext(context: LiveRuleContext): LiveRuleContext {
+        return {
+            ...context,
+            cushion: dollars(
+                liftLiveSizingCushion(context.cushion, context.floorTradeRisk),
+            ),
         };
     }
 

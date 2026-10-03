@@ -47,7 +47,7 @@ import {
     TableRow,
 } from '~/components/ui/Table';
 import { useSession } from '~/lib/auth/client';
-import { formatPercent } from '~/lib/format';
+import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     type ExternalFirmName,
     type FirmColumns,
@@ -73,6 +73,8 @@ import {
     firmEngagementFor,
     type FirmLiveTransferRate,
     type FirmRosterEntry,
+    type LiveTransferRateUnavailable,
+    liveTransferUnavailableText,
 } from '~/lib/prop-accounts/firms';
 import { type SampledEstimate } from '~/lib/prop-accounts/metrics';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
@@ -86,7 +88,6 @@ type FirmEngagementRow = z.infer<typeof propFirmEngagementOutputSchema>;
 
 const EMPTY_EXTERNAL_FIRMS: readonly ExternalFirmName[] = [];
 const EMPTY_ENGAGEMENTS: readonly FirmEngagementRow[] = [];
-const NOT_APPLICABLE = 'n/a';
 
 const SCALE_GATE_UNMET_LABEL: Readonly<
     Record<ScaleGateUnmetCondition, string>
@@ -136,6 +137,7 @@ export function FirmsView() {
         !areEngagementsUnavailable && !areEngagementsLoading;
     const rulebook = rulebookQuery.data ?? DEFAULT_RULEBOOK;
     const trades = edgeQuery.data?.summary.sampleSize ?? 0;
+    const isScaleGateLoading = rulebookQuery.isPending || edgeQuery.isPending;
 
     const model = useMemo(() => {
         if (
@@ -227,7 +229,10 @@ export function FirmsView() {
                     your trade count as zero: {edgeQuery.error.message}
                 </p>
             )}
-            <ScaleGateCard scaleGate={model.scaleGate} />
+            <ScaleGateCard
+                isLoading={isScaleGateLoading}
+                scaleGate={model.scaleGate}
+            />
             <Card>
                 <CardHeader>
                     <CardTitle>Firm roster</CardTitle>
@@ -326,12 +331,20 @@ function FirmRow({
             <TableCell>{entry.lastActivityOn ?? NOT_APPLICABLE}</TableCell>
             <TableCell>
                 <div>
-                    {formatRate(transferRate?.perPaidPayout ?? null)} per paid
-                    payout
+                    {transferRateText(
+                        transferRate,
+                        transferRate?.perPaidPayout ?? null,
+                        transferRate?.perPaidPayoutUnavailable ?? null,
+                        'per paid payout',
+                    )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                    {formatRate(transferRate?.perFundedAccountMonth ?? null)}{' '}
-                    per funded account-month
+                    {transferRateText(
+                        transferRate,
+                        transferRate?.perFundedAccountMonth ?? null,
+                        transferRate?.perFundedAccountMonthUnavailable ?? null,
+                        'per funded account-month',
+                    )}
                 </div>
             </TableCell>
         </TableRow>
@@ -546,8 +559,7 @@ function firmStatusSchema(firmKey: FirmKey, existingNote: null | string) {
     });
 }
 
-function formatRate(estimate: null | SampledEstimate): string {
-    if (estimate === null || estimate.n === 0) return NOT_APPLICABLE;
+function formatRate(estimate: SampledEstimate): string {
     const interval =
         estimate.interval === null
             ? ''
@@ -555,21 +567,35 @@ function formatRate(estimate: null | SampledEstimate): string {
     return `${formatPercent(estimate.value)}${interval}, n = ${String(estimate.n)}`;
 }
 
-function ScaleGateCard({ scaleGate }: { readonly scaleGate: ScaleGate }) {
+function ScaleGateCard({
+    isLoading,
+    scaleGate,
+}: {
+    readonly isLoading: boolean;
+    readonly scaleGate: ScaleGate;
+}) {
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     Scale gate
-                    <Badge
-                        variant={SCALE_GATE_STATUS_VARIANT[scaleGate.status]}
-                    >
-                        {SCALE_GATE_STATUS_TEXT[scaleGate.status]}
-                    </Badge>
+                    {!isLoading && (
+                        <Badge
+                            variant={
+                                SCALE_GATE_STATUS_VARIANT[scaleGate.status]
+                            }
+                        >
+                            {SCALE_GATE_STATUS_TEXT[scaleGate.status]}
+                        </Badge>
+                    )}
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                {scaleGate.status === ScaleGateStatus.ThresholdsNotSet ? (
+                {isLoading ? (
+                    <p className="text-sm text-muted-foreground" role="status">
+                        Checking your thresholds and journal
+                    </p>
+                ) : scaleGate.status === ScaleGateStatus.ThresholdsNotSet ? (
                     <p className="text-sm text-muted-foreground">
                         Set your sample thresholds on the rulebook to see
                         whether you are ready to scale.
@@ -600,4 +626,16 @@ function transferRateFor(
     return (
         perFirm.find((rate) => firmKeyId(rate.firmKey) === targetKey) ?? null
     );
+}
+
+function transferRateText(
+    rate: FirmLiveTransferRate | null,
+    estimate: null | SampledEstimate,
+    unavailable: LiveTransferRateUnavailable | null,
+    basis: string,
+): string {
+    if (estimate !== null) return `${formatRate(estimate)} ${basis}`;
+    return rate === null || unavailable === null
+        ? NOT_APPLICABLE
+        : `${NOT_APPLICABLE}: ${liveTransferUnavailableText(unavailable, rate)}`;
 }

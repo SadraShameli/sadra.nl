@@ -148,4 +148,162 @@ describe('tiltVarianceSplitOf', () => {
         });
         expect(split.rows[0]?.violationCostCents).toBe(3000);
     });
+
+    it('keeps a violation in a month with no cash as its own row: net cash 0, cost added back', () => {
+        const split = tiltVarianceSplitOf({
+            firmKeyByAccount: new Map([[ACCOUNT, FIRM]]),
+            netCashByBucket: [
+                {
+                    accountId: ACCOUNT,
+                    firmKey: FIRM,
+                    month: '2026-01',
+                    netCashCents: usdCents(-15_000),
+                },
+            ],
+            violations: [
+                {
+                    accountId: ACCOUNT,
+                    costCents: usdCents(20_000),
+                    kind: RuleViolationKind.Oversize,
+                    occurredOn: '2026-02-10',
+                    source: ViolationSource.Manual,
+                },
+            ],
+        });
+        expect(split.droppedViolations).toBe(0);
+        expect(split.rows).toEqual([
+            {
+                accountId: ACCOUNT,
+                firmKey: FIRM,
+                month: '2026-01',
+                netCashCents: -15_000,
+                netWithoutViolationsCents: -15_000,
+                violationCostCents: 0,
+            },
+            {
+                accountId: ACCOUNT,
+                firmKey: FIRM,
+                month: '2026-02',
+                netCashCents: 0,
+                netWithoutViolationsCents: 20_000,
+                violationCostCents: 20_000,
+            },
+        ]);
+    });
+
+    it('takes the firm of a violation-only row from the account map, and from the cash buckets when the map has no entry', () => {
+        const otherFirm: FirmKey = {
+            firmId: FirmId.Lucid,
+            kind: FirmKeyKind.Modeled,
+        };
+        const split = tiltVarianceSplitOf({
+            firmKeyByAccount: new Map([['account-beta', otherFirm]]),
+            netCashByBucket: [
+                {
+                    accountId: ACCOUNT,
+                    firmKey: FIRM,
+                    month: '2026-01',
+                    netCashCents: usdCents(0),
+                },
+            ],
+            violations: [
+                {
+                    accountId: 'account-beta',
+                    costCents: usdCents(500),
+                    kind: RuleViolationKind.Oversize,
+                    occurredOn: '2026-03-02',
+                    source: ViolationSource.Manual,
+                },
+                {
+                    accountId: ACCOUNT,
+                    costCents: usdCents(700),
+                    kind: RuleViolationKind.Oversize,
+                    occurredOn: '2026-03-02',
+                    source: ViolationSource.Manual,
+                },
+            ],
+        });
+        expect(split.droppedViolations).toBe(0);
+        expect(
+            split.rows.map((row) => [row.accountId, row.month, row.firmKey]),
+        ).toEqual([
+            [ACCOUNT, '2026-01', FIRM],
+            ['account-beta', '2026-03', otherFirm],
+            [ACCOUNT, '2026-03', FIRM],
+        ]);
+    });
+
+    it('counts a violation of an unknown account in droppedViolations instead of losing it silently', () => {
+        const split = tiltVarianceSplitOf({
+            firmKeyByAccount: new Map([[ACCOUNT, FIRM]]),
+            netCashByBucket: [],
+            violations: [
+                {
+                    accountId: 'account-gone',
+                    costCents: usdCents(900),
+                    kind: RuleViolationKind.Oversize,
+                    occurredOn: '2026-03-02',
+                    source: ViolationSource.Manual,
+                },
+                {
+                    accountId: 'account-gone',
+                    costCents: null,
+                    kind: RuleViolationKind.Other,
+                    occurredOn: '2026-03-09',
+                    source: ViolationSource.Manual,
+                },
+            ],
+        });
+        expect(split.rows).toEqual([]);
+        expect(split.droppedViolations).toBe(2);
+    });
+
+    it('gives an uncosted violation in a cashless month a zero-cost row so the month is visible', () => {
+        const split = tiltVarianceSplitOf({
+            firmKeyByAccount: new Map([[ACCOUNT, FIRM]]),
+            netCashByBucket: [],
+            violations: [
+                {
+                    accountId: ACCOUNT,
+                    costCents: null,
+                    kind: RuleViolationKind.Other,
+                    occurredOn: '2026-04-09',
+                    source: ViolationSource.Manual,
+                },
+            ],
+        });
+        expect(split.rows).toEqual([
+            {
+                accountId: ACCOUNT,
+                firmKey: FIRM,
+                month: '2026-04',
+                netCashCents: 0,
+                netWithoutViolationsCents: 0,
+                violationCostCents: 0,
+            },
+        ]);
+    });
+
+    it('reports no dropped violations when every violation sits in a cash bucket', () => {
+        const split = tiltVarianceSplitOf({
+            netCashByBucket: [
+                {
+                    accountId: ACCOUNT,
+                    firmKey: FIRM,
+                    month: '2026-09',
+                    netCashCents: usdCents(0),
+                },
+            ],
+            violations: [
+                {
+                    accountId: ACCOUNT,
+                    costCents: usdCents(1000),
+                    kind: RuleViolationKind.Oversize,
+                    occurredOn: '2026-09-02',
+                    source: ViolationSource.Manual,
+                },
+            ],
+        });
+        expect(split.droppedViolations).toBe(0);
+    });
 });

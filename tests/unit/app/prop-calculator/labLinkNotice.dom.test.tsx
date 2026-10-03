@@ -20,6 +20,8 @@ import {
 import { InstrumentSymbol } from '~/lib/prop-calculator';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
+import { InlineToolsWorker } from './labWorkerFixtures';
+
 vi.mock('next/dynamic', () => ({ default: () => renderNothing }));
 
 vi.mock('next/navigation', () => ({
@@ -89,6 +91,7 @@ describe('StrategyLabPanel says when the lab scenarios of a link or saved scenar
     beforeEach(() => {
         vi.useFakeTimers();
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.stubGlobal('Worker', InlineToolsWorker);
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);

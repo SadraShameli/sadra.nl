@@ -35,7 +35,7 @@ const RESET_FEE = 20;
 const BUST_TERMINAL_VALUE = -40;
 const SIM_TRIALS = 20_000;
 const LAYERED_WINRATE = 0.25;
-const LAYERED_SIM_TRIALS = 40_000;
+const LAYERED_SIM_TRIALS = 15_000;
 
 function alphaZero(): Plan {
     const plan = new AlphaFutures().findPlan({
@@ -244,7 +244,7 @@ describe('computeFundedStateValue models an opted-in funded reset exactly (N-34 
         expect(
             Math.abs(empiricalValue - result.initialValue),
         ).toBeLessThanOrEqual(4 * standardError);
-    }, 60_000);
+    });
 });
 
 describe('fundedDpModelGaps no longer reports the funded reset as unmodeled', () => {
@@ -469,7 +469,7 @@ describe('the funded DP day policy picks the reset layer from the reset count (N
         expect(riskAtProgress(1_000_000)).toBe(riskAtProgress(2));
     });
 
-    it('agrees with a real simulate() run of its own policy, which idles once both resets are used instead of trading into a -5.00 bust', () => {
+    it('agrees with a real simulate() run of its own policy, which idles once both resets are used instead of trading into a -5.00 bust (PT-T1b: 15,000 trials where 40,000 took 6.4 s, inside the same four standard errors of the replay)', () => {
         const plan = layeredToyPlan();
         const result = computeFundedStateValue(
             dpConfig(plan, { winrate: LAYERED_WINRATE }),
@@ -502,7 +502,7 @@ describe('the funded DP day policy picks the reset layer from the reset count (N
         ).toBeLessThanOrEqual(4 * standardError);
         expect(out.fundedBustProbability).toBe(0);
         expect(out.expectedFundedResets).toBeCloseTo(1.3125, 1);
-    }, 60_000);
+    });
 });
 
 describe('solveAverageRewardPolicy solves the funded reset inside its own funded DP', () => {

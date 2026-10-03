@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
@@ -24,7 +26,11 @@ import {
 import { ToolsRequestKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { CENTS_PER_DOLLAR, findFirm, FirmId } from '~/lib/prop-calculator';
 import {
+    AssumptionBias,
+    AssumptionKind,
+    type CumulativePayoutTriggerAssumption,
     DEFAULT_RULEBOOK,
+    type LiveTransferHazardAssumption,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -36,6 +42,7 @@ import {
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
 import { TopStepVariant } from '~/lib/prop-calculator/core';
+import { LiveTransferContinuationKind } from '~/lib/prop-calculator/simulator';
 
 function calculatorInputs(
     overrides: Partial<ValueCardsCalculatorInputs> = {},
@@ -590,5 +597,96 @@ describe('toolsWorkerFailureReason (PT-66)', () => {
                 reason: 'no plan resolved',
             }),
         ).toBe('no plan resolved');
+    });
+});
+
+describe('valueChainCardSteps keeps each step live-transfer assumption (PT-63d, F-V26, PT-73g leftover)', () => {
+    const hazard: LiveTransferHazardAssumption = {
+        bias: AssumptionBias.Neutral,
+        continuation: LiveTransferContinuationKind.NotModeled,
+        hazard: 0.3,
+        kind: AssumptionKind.LiveTransferHazard,
+        notes: ['A plan note.'],
+        sentLiveShare: 0.41,
+    };
+
+    it('carries the assumption of the step that priced a hazard and nothing for the others', () => {
+        const result = valueChainResult();
+        const priced: ValueChainResult = {
+            ...result,
+            steps: result.steps.map((step) =>
+                step.kind === ValueChainStepKind.FreshFunded
+                    ? {
+                          ...step,
+                          value: { ...step.value, liveTransfer: hazard },
+                      }
+                    : step,
+            ),
+        };
+        const steps = valueChainCardSteps(priced);
+        expect(
+            steps.find((step) => step.kind === ValueChainStepKind.FreshFunded)
+                ?.liveTransfer,
+        ).toBe(hazard);
+        expect(
+            steps
+                .filter((step) => step.kind !== ValueChainStepKind.FreshFunded)
+                .map((step) => step.liveTransfer),
+        ).toStrictEqual([undefined, undefined, undefined]);
+    });
+
+    it('lets the card read the assumption from its steps and not from the raw result', () => {
+        const source = readFileSync(
+            path.join(
+                process.cwd(),
+                'src/app/(app)/prop-calculator/_components/value/ValueChainCard.tsx',
+            ),
+            'utf8',
+        );
+        expect(source).not.toContain('result.steps');
+        expect(source).toContain('step.liveTransfer');
+    });
+});
+
+describe('valueChainCardSteps keeps each step priced cumulative trigger (PT-36r, F-145)', () => {
+    const trigger: CumulativePayoutTriggerAssumption = {
+        amount: 100_000,
+        bias: AssumptionBias.Neutral,
+        continuation: LiveTransferContinuationKind.NotModeled,
+        kind: AssumptionKind.CumulativePayoutTriggerPriced,
+        notes: [],
+        source: {
+            fetchedOn: '2026-09-01',
+            quote: 'a synthetic test quote',
+            url: 'https://example.test/policy',
+        },
+    };
+
+    it('carries the trigger of the step that priced one and nothing for the others', () => {
+        const result = valueChainResult();
+        const priced: ValueChainResult = {
+            ...result,
+            steps: result.steps.map((step) =>
+                step.kind === ValueChainStepKind.FreshFunded
+                    ? {
+                          ...step,
+                          value: {
+                              ...step.value,
+                              cumulativePayoutTrigger: trigger,
+                          },
+                      }
+                    : step,
+            ),
+        };
+        const steps = valueChainCardSteps(priced);
+        expect(
+            steps.find((step) => step.kind === ValueChainStepKind.FreshFunded)
+                ?.cumulativePayoutTrigger,
+        ).toBe(trigger);
+        expect(
+            steps
+                .filter((step) => step.kind !== ValueChainStepKind.FreshFunded)
+                .map((step) => step.cumulativePayoutTrigger),
+        ).toStrictEqual([undefined, undefined, undefined]);
     });
 });

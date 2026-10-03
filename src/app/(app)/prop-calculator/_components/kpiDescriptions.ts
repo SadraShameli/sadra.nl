@@ -68,7 +68,7 @@ export const panelDescriptions = {
     firmComparison:
         'Runs the simulator across all firms at the closest plan size to your current selection, using your current trading inputs. Sorted by monthly net. Active firm highlighted; ★ rating relative to best. P(no payout) = share of trials that reached funded and took no payout within the funded horizon.',
     optimalRiskSweep:
-        'Runs the simulator at 10 different risk-per-trade levels (0.25% to 5%) holding all your other inputs constant. The current risk row is highlighted, and the row with the best monthly net is marked with a star.',
+        'Runs the simulator at 10 different risk-per-trade levels (0.25% to 5%) holding all your other inputs constant. The current risk row is highlighted, and the engine optimum for the active objective is marked with a star: the highest monthly net, or the highest cycle net under the cycle cash objective.',
     'pass-rate':
         'Cumulative share of trials that have hit the profit target by each day. Steepens early when most passes happen quickly; flattens late when the eval is dragging on. The asymptote = total eval pass probability.',
     planComparison:

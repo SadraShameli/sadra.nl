@@ -9,7 +9,7 @@ import {
     RoundStatus,
     usdCents,
 } from '~/lib/prop-accounts';
-import { willExceedRoundBudget } from '~/lib/prop-accounts/bankroll';
+import { roundBudgetStatus } from '~/lib/prop-accounts/bankroll';
 import { signedFeeCents } from '~/lib/prop-accounts/metrics';
 import {
     PropAccountRepo,
@@ -220,7 +220,7 @@ export async function assertRoundWithinBudget(
     round: Pick<PropRoundRow, 'budgetCents' | 'id' | 'label'>,
 ): Promise<void> {
     const spentCents = await roundSpentCents(repo, round.id);
-    if (willExceedRoundBudget(round.budgetCents, spentCents, 0)) {
+    if (roundBudgetStatus(round.budgetCents, spentCents).isSpent) {
         throw new PropMutationRejectionError(
             PropMutationRejection.RoundBudgetExceeded,
             `Round "${round.label}" has already spent ${formatUsdCents(usdCents(spentCents), CentsDisplay.Always)} of its ${formatUsdCents(usdCents(round.budgetCents ?? 0), CentsDisplay.Always)} budget; set overrideRoundBudget to add another account anyway`,

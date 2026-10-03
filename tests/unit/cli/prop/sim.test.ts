@@ -1193,7 +1193,7 @@ describe('prop sim prices the live-transfer hazard as your own assumption (PT-73
 
     it('prints no live-transfer line when the flag is absent', async () => {
         const stdout = await capturedSimRun(SMALL_SIM);
-        expect(stdout).not.toContain('live transfer');
+        expect(stdout).not.toContain('Live transfer');
     });
 
     it('labels the hazard as your assumption and reports the share sent live', async () => {
@@ -1206,7 +1206,7 @@ describe('prop sim prices the live-transfer hazard as your own assumption (PT-73
             '--funded-days',
             '60',
         ]);
-        expect(stdout).toContain('live transfer: 50.0% per paid payout');
+        expect(stdout).toContain('Live transfer: 50.0% per paid payout');
         expect(stdout).toContain('your assumption, not a firm rule');
         expect(stdout).toContain('valued at $0');
     });
@@ -1232,9 +1232,9 @@ describe('prop sim names a verified firm trigger it enforces (PT-73)', () => {
         vi.restoreAllMocks();
     });
 
-    it('prints the verified threshold line only when the firm has one', async () => {
+    it('prints the priced-trigger line only when the firm has one', async () => {
         const plain = await capturedSimRun(SMALL_SIM);
-        expect(plain).not.toContain('verified firm trigger');
+        expect(plain).not.toContain('confirmed trigger');
         const firm = findFirm(FirmId.Mffu);
         if (!firm) throw new Error('MFFU not registered');
         vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue([
@@ -1247,7 +1247,7 @@ describe('prop sim names a verified firm trigger it enforces (PT-73)', () => {
             }),
         ]);
         const enforced = await capturedSimRun(SMALL_SIM);
-        expect(enforced).toContain('verified firm trigger');
+        expect(enforced).toContain('confirmed trigger');
         expect(enforced).toContain('$1,500');
     });
 
@@ -1264,7 +1264,7 @@ describe('prop sim names a verified firm trigger it enforces (PT-73)', () => {
             }),
         ]);
         const stdout = await capturedSimRun(SMALL_SIM);
-        expect(stdout).not.toContain('live transfer:');
+        expect(stdout).not.toContain('Live transfer:');
         expect(stdout).toContain('valued at $0');
     });
 });

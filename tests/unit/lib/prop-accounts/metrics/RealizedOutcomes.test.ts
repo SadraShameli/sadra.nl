@@ -184,9 +184,11 @@ describe('realizedOutcomes', () => {
                 standardError: null,
                 value: 0,
             },
+            fundedSurvivalAccounts: 1,
             instantFunded: true,
             openFundedAccounts: 0,
             passRate: null,
+            passRateAttempts: 0,
             planSerial: INSTANT_PLAN.serial,
             sessionsToFunded: null,
         });
@@ -518,5 +520,119 @@ describe('realizedPayoutRates', () => {
             value: 1 / 5,
         });
         expect(firm?.payoutRate?.value).not.toBe(0.25);
+    });
+});
+
+const COPY_GROUP = 'group-1';
+const COPY_BOUGHT_ON = '2026-09-01';
+
+type CopyHistory = readonly (readonly [AccountEventKind, string])[];
+
+function copyOf(
+    overrides: Parameters<typeof account>[1],
+    history: CopyHistory,
+) {
+    const row = account(EVAL_PLAN, {
+        copyGroupId: COPY_GROUP,
+        purchasedOn: COPY_BOUGHT_ON,
+        ...overrides,
+    });
+    return {
+        events: [
+            purchased(row),
+            ...history.map(([kind, on]) => event(row, kind, on)),
+        ],
+        row,
+    };
+}
+
+function planOf(members: readonly ReturnType<typeof copyOf>[]) {
+    return realizedOutcomes(
+        ledger({
+            accounts: members.map((member) => member.row),
+            events: members.flatMap((member) => member.events),
+        }),
+    ).perPlan[0];
+}
+
+const PASSED: CopyHistory = [[AccountEventKind.EvalPassed, '2026-09-10']];
+const BUSTED_EVAL: CopyHistory = [[AccountEventKind.Busted, '2026-09-04']];
+
+describe('realizedOutcomes with copied accounts', () => {
+    it('counts three copies bought together and all passed as one pass-rate sample and one survival sample, keeping the account count', () => {
+        const plan = planOf([
+            copyOf({ stage: AccountStage.Funded }, PASSED),
+            copyOf({ stage: AccountStage.Funded }, PASSED),
+            copyOf({ stage: AccountStage.Funded }, PASSED),
+        ]);
+        expect(plan?.passRate?.n).toBe(1);
+        expect(plan?.passRate?.value).toBe(1);
+        expect(plan?.passRateAttempts).toBe(3);
+        expect(plan?.fundedSurvival?.n).toBe(1);
+        expect(plan?.fundedSurvival?.value).toBe(1);
+        expect(plan?.fundedSurvivalAccounts).toBe(3);
+    });
+
+    it('takes the majority outcome of a copy group and counts a tie as a failure', () => {
+        const majority = planOf([
+            copyOf({ stage: AccountStage.Funded }, PASSED),
+            copyOf({ stage: AccountStage.Funded }, PASSED),
+            copyOf({ status: AccountStatus.Busted }, BUSTED_EVAL),
+        ]);
+        expect(majority?.passRate?.n).toBe(1);
+        expect(majority?.passRate?.value).toBe(1);
+        expect(majority?.passRateAttempts).toBe(3);
+
+        const tie = planOf([
+            copyOf({ stage: AccountStage.Funded }, PASSED),
+            copyOf({ status: AccountStatus.Busted }, BUSTED_EVAL),
+        ]);
+        expect(tie?.passRate?.n).toBe(1);
+        expect(tie?.passRate?.value).toBe(0);
+        expect(tie?.passRateAttempts).toBe(2);
+    });
+
+    it('aligns attempts inside a group by attempt index, so one member second attempt is one second-attempt sample', () => {
+        const plan = planOf([
+            copyOf({ stage: AccountStage.Funded }, [
+                [AccountEventKind.Busted, '2026-09-03'],
+                [AccountEventKind.Reopened, '2026-09-04'],
+                [AccountEventKind.EvalPassed, '2026-09-12'],
+            ]),
+            copyOf({ stage: AccountStage.Funded }, PASSED),
+        ]);
+        expect(plan?.passRate?.n).toBe(2);
+        expect(plan?.passRate?.value).toBe(0.5);
+        expect(plan?.passRateAttempts).toBe(3);
+        expect(plan?.fundedSurvivalAccounts).toBe(2);
+    });
+
+    it('takes the survival majority over the funded members of a group', () => {
+        const plan = planOf([
+            copyOf({ stage: AccountStage.Funded }, PASSED),
+            copyOf({ stage: AccountStage.Funded }, PASSED),
+            copyOf(
+                { stage: AccountStage.Funded, status: AccountStatus.Busted },
+                [...PASSED, [AccountEventKind.Busted, '2026-09-20']],
+            ),
+        ]);
+        expect(plan?.fundedSurvival?.n).toBe(1);
+        expect(plan?.fundedSurvival?.value).toBe(1);
+        expect(plan?.fundedSurvivalAccounts).toBe(3);
+    });
+
+    it('leaves ungrouped accounts and different purchase dates as separate samples, with the account counts equal to n', () => {
+        const plan = planOf([
+            copyOf({ stage: AccountStage.Funded }, PASSED),
+            copyOf(
+                { purchasedOn: '2026-09-08', stage: AccountStage.Funded },
+                PASSED,
+            ),
+            copyOf({ copyGroupId: null, stage: AccountStage.Funded }, PASSED),
+        ]);
+        expect(plan?.passRate?.n).toBe(3);
+        expect(plan?.passRateAttempts).toBe(3);
+        expect(plan?.fundedSurvival?.n).toBe(3);
+        expect(plan?.fundedSurvivalAccounts).toBe(3);
     });
 });

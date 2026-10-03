@@ -1,5 +1,5 @@
 import {
-    documentedFundedRisk,
+    cappedRisk,
     type DocumentedPolicySpec,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
@@ -13,7 +13,6 @@ import { MilestoneKind, milestoneState } from './MilestoneState';
 import { valueAtState } from './ValueAtState';
 import { requestNowValue, requireValue } from './ValueChain';
 import {
-    type DualValueEstimate,
     notModeled,
     type ValueNotModeledResult,
     type ValueResult,
@@ -36,7 +35,7 @@ export interface PayoutStakeComparisonResult {
     readonly kind: ValueResultKind.PayoutStake;
     readonly reducedRiskWhatIf: null | ReducedRiskWhatIf;
     readonly requestedAmount: number;
-    readonly requestNow: DualValueEstimate;
+    readonly requestNow: ValueResult;
     readonly traderReceivesNow: number;
 }
 
@@ -85,10 +84,7 @@ export function payoutStakeComparison(
                 ? null
                 : reducedRiskWhatIf(account, spec, request.reducedRiskDollars),
         requestedAmount: milestone.debited,
-        requestNow: {
-            creditFree: requestNow.creditFree,
-            creditInclusive: requestNow.creditInclusive,
-        },
+        requestNow,
         traderReceivesNow: traderReceives,
     };
 }
@@ -104,17 +100,12 @@ function reducedRiskWhatIf(
         );
     }
     const { funded } = spec.rulebook;
-    const placedRisk = documentedFundedRisk(
-        {
-            ...spec.rulebook,
-            funded: {
-                ...funded,
-                riskCents: Math.round(risk * CENTS_PER_DOLLAR),
-            },
-        },
-        spec.enginePolicy,
+    const riskCents = Math.round(
+        cappedRisk(
+            risk,
+            spec.enginePolicy.personalCaps?.maxRiskPerTrade ?? null,
+        ) * CENTS_PER_DOLLAR,
     );
-    const riskCents = Math.round(placedRisk * CENTS_PER_DOLLAR);
     const reducedSpec: DocumentedPolicySpec = {
         ...spec,
         rulebook: {
@@ -130,7 +121,7 @@ function reducedRiskWhatIf(
     };
     return {
         label: REDUCED_RISK_WHAT_IF_LABEL,
-        risk: placedRisk,
+        risk: riskCents / CENTS_PER_DOLLAR,
         value: requireValue(valueAtState(account, reducedSpec)),
     };
 }

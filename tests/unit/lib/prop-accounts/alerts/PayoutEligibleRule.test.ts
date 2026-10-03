@@ -11,7 +11,11 @@ import {
     formatUsdCents,
     usdCentsFromDollars,
 } from '~/lib/prop-accounts/core';
-import { minimumPayoutRequest } from '~/lib/prop-calculator';
+import {
+    payoutReadinessBoardOf,
+    PayoutReadinessRowKind,
+} from '~/lib/prop-accounts/metrics';
+import { dollars, minimumPayoutRequest } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
 import {
@@ -21,9 +25,48 @@ import {
     mffProPlan,
     reconstructedEntry,
 } from '../reconstructionFixtures';
-import { accountFor, alertsOf } from './alertFixtures';
+import { accountFor, alertsOf, personalPoliciesFor } from './alertFixtures';
 
 const rule = new PayoutEligibleRule();
+
+function boardRowFor(
+    accountId: string,
+    entry: ReturnType<typeof reconstructedEntry>,
+    personalRequestOverride: number,
+    personalRetainedCushion: number,
+) {
+    const [row] = payoutReadinessBoardOf(
+        DEFAULT_RULEBOOK,
+        [entry],
+        new Map([
+            [accountId, { personalRequestOverride, personalRetainedCushion }],
+        ]),
+    ).rows;
+    return row;
+}
+
+function eligibleFixtures() {
+    const plan = mffProPlan();
+    const account = accountFor(
+        { firmId: plan.id.firm, plan },
+        { stage: AccountStage.Funded },
+    );
+    const funded = fundedReconstructed(plan, {
+        balance: plan.accountSize + 20_000,
+        cumulativePayout: 0,
+        cycleBestDayProfit: 20_000,
+        lastPayoutBalance: plan.accountSize,
+        payoutsIssued: 1,
+    });
+    if (funded.fundedTracker === null) {
+        throw new Error('expected a funded tracker');
+    }
+    funded.fundedTracker.sessionDaysSinceAnchor = 999;
+    return {
+        account,
+        entry: reconstructedEntry(account.id, plan, funded),
+    };
+}
 
 describe('PayoutEligibleRule', () => {
     it('is info-only when the account is eligible for its effective payout request', () => {
@@ -169,5 +212,89 @@ describe('PayoutEligibleRule', () => {
         expect(alerts[0]?.disclosures).toEqual([
             AlertDisclosure.LiveTriggersNotChecked,
         ]);
+    });
+
+    describe('an account with personal payout rules', () => {
+        it('requests the same amount as the readiness board for a personal override and retained cushion', () => {
+            const { account, entry } = eligibleFixtures();
+            const row = boardRowFor(account.id, entry, 2000, 3000);
+            if (row?.kind !== PayoutReadinessRowKind.Eligible) {
+                throw new Error('expected an eligible board row');
+            }
+            const requested = formatUsdCents(row.requestedAmountCents);
+            expect(requested).toBe(formatUsdCents(usdCentsFromDollars(2000)));
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                personalPolicies: personalPoliciesFor(account, {
+                    payoutRequestOverride: dollars(2000),
+                    retainedCushionRequest: dollars(3000),
+                }),
+            });
+            expect(alerts).toHaveLength(1);
+            expect(alerts[0]?.message).toContain(
+                `Eligible to request ${requested}`,
+            );
+        });
+
+        it('stays silent when the personal retained cushion blocks the board row', () => {
+            const { account, entry } = eligibleFixtures();
+            const row = boardRowFor(account.id, entry, 2000, 30_000);
+            expect(row?.kind).toBe(PayoutReadinessRowKind.Blocked);
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                personalPolicies: personalPoliciesFor(account, {
+                    payoutRequestOverride: dollars(2000),
+                    retainedCushionRequest: dollars(30_000),
+                }),
+            });
+            expect(alerts).toEqual([]);
+        });
+
+        it('keeps the rulebook amount for an account with no personal policy', () => {
+            const { account, entry } = eligibleFixtures();
+            const other = accountFor(
+                { firmId: mffProPlan().id.firm, plan: mffProPlan() },
+                { stage: AccountStage.Funded },
+            );
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                personalPolicies: personalPoliciesFor(other, {
+                    payoutRequestOverride: dollars(2000),
+                }),
+            });
+            expect(alerts).toHaveLength(1);
+            expect(alerts[0]?.message).not.toContain(
+                formatUsdCents(usdCentsFromDollars(2000)),
+            );
+        });
+
+        it('applies the personal override to a live account', () => {
+            const plan = mffProPlan();
+            const account = accountFor(
+                { firmId: plan.id.firm, plan },
+                { stage: AccountStage.Live },
+            );
+            const probe = liveReconstructed(plan);
+            if (probe.state === null) throw new Error('expected a live state');
+            const live = liveReconstructed(plan, {
+                balance: probe.state.startingBalance + 50_000,
+            });
+            if (live.state === null) throw new Error('expected a live state');
+            live.state.qualifyingDays = 5;
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [reconstructedEntry(account.id, plan, live)],
+                personalPolicies: personalPoliciesFor(account, {
+                    payoutRequestOverride: dollars(2000),
+                }),
+            });
+            expect(alerts).toHaveLength(1);
+            expect(alerts[0]?.message).toContain(
+                `Eligible to request ${formatUsdCents(usdCentsFromDollars(2000))}`,
+            );
+        });
     });
 });

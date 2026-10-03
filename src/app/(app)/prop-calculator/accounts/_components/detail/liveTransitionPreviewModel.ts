@@ -1,12 +1,15 @@
 import { formatCurrency } from '~/lib/format';
 import {
-    LiveApplicabilityNote,
-    LiveNotModeledReason,
-    LiveStateApproximation,
     type LiveTransitionPreview,
     LiveTransitionPreviewGap,
     LiveTransitionPreviewKind,
 } from '~/lib/prop-calculator/advisor';
+import {
+    LiveApplicabilityNote,
+    LiveNotModeledReason,
+    LiveStateApproximation,
+} from '~/lib/prop-calculator/firms';
+import { LIVE_TRANSFER_NOTE_TEXT } from '~/lib/prop-calculator/simulator';
 
 export enum LiveTransitionPreviewCardKind {
     Credit = 'credit',
@@ -46,7 +49,9 @@ const NOT_MODELED_TEXT: Readonly<
 
 const NOTE_TEXT: Readonly<Partial<Record<LiveApplicabilityNote, string>>> = {
     [LiveApplicabilityNote.LucidDailyTransitionPayoutIsPastCash]:
-        'The credit is simulated profit above the buffer, paid out once at the transition. It is cash already earned, not income the live account will make.',
+        LIVE_TRANSFER_NOTE_TEXT[
+            LiveApplicabilityNote.LucidDailyTransitionPayoutIsPastCash
+        ],
     [LiveApplicabilityNote.TopStepLfaEligibleJurisdictionAssumed]:
         'Assumes you are eligible for the TopStep Live Funded Account in your jurisdiction.',
 };

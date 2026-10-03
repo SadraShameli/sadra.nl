@@ -18,8 +18,10 @@ import {
 } from '~/lib/prop-accounts/snapshots';
 import {
     ALL_FIRMS,
+    dollars,
     DrawdownKind,
     type Plan,
+    StaticDrawdown,
     TradingPhase,
 } from '~/lib/prop-calculator';
 
@@ -169,26 +171,22 @@ describe('snapshotFieldRules', () => {
         }
     });
 
-    const staticPlan = ALL_PLANS.find(
-        (p) => evalKind(p) === DrawdownKind.Static,
-    );
-
-    it.skipIf(staticPlan === undefined)(
-        'asks no intraday peak on a static drawdown but keeps the PD-15 EOD peak',
-        () => {
-            if (staticPlan === undefined) return;
-            const rules = snapshotFieldRules(staticPlan, AccountStage.Eval);
-            expect(
-                ruleOf(rules, SnapshotField.HighestEodBalance).requirement,
-            ).toBe(SnapshotFieldRequirement.Required);
-            expect(
-                ruleOf(rules, SnapshotField.HighestIntradayBalance).requirement,
-            ).toBe(SnapshotFieldRequirement.Hidden);
-            expect(
-                ruleOf(rules, SnapshotField.DashboardFloor).requirement,
-            ).toBe(SnapshotFieldRequirement.Optional);
-        },
-    );
+    it('asks no intraday peak on a static drawdown but keeps the PD-15 EOD peak', () => {
+        const staticPlan = eodPlan.withOverrides({
+            drawdown: new StaticDrawdown({ amount: dollars(2000) }),
+        });
+        expect(evalKind(staticPlan)).toBe(DrawdownKind.Static);
+        const rules = snapshotFieldRules(staticPlan, AccountStage.Eval);
+        expect(ruleOf(rules, SnapshotField.HighestEodBalance).requirement).toBe(
+            SnapshotFieldRequirement.Required,
+        );
+        expect(
+            ruleOf(rules, SnapshotField.HighestIntradayBalance).requirement,
+        ).toBe(SnapshotFieldRequirement.Hidden);
+        expect(ruleOf(rules, SnapshotField.DashboardFloor).requirement).toBe(
+            SnapshotFieldRequirement.Optional,
+        );
+    });
 
     it('shows the funded-only extras on funded accounts only', () => {
         const funded = snapshotFieldRules(eodPlan, AccountStage.Funded);

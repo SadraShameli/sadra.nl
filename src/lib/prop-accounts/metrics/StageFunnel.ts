@@ -23,9 +23,9 @@ import {
     usdCents,
 } from '~/lib/prop-accounts/core';
 
-import { attemptsOf } from './Attempts';
+import { attemptsOf, isFundedAccount } from './Attempts';
+import { independentSampleCount } from './IndependentSamples';
 import {
-    fundedSince,
     type LedgerAccount,
     type PortfolioLedger,
     signedFeeCents,
@@ -60,17 +60,14 @@ export interface BustSplit {
     readonly withinPlanBusts: number;
 }
 
-export interface FirmFunnel {
+export interface FirmFunnel extends PerStage<number> {
     readonly attempts: number;
     readonly feesCents: UsdCents;
     readonly firmKey: FirmKey;
-    readonly firstPayout: number;
-    readonly funded: number;
-    readonly movedLive: number;
+    readonly independent: PerStage<number>;
     readonly netCents: UsdCents;
     readonly netPayoutsCents: UsdCents;
-    readonly passed: number;
-    readonly purchased: number;
+    readonly stages: PerStage<StageDollars>;
 }
 
 export interface StageFunnel {
@@ -79,12 +76,18 @@ export interface StageFunnel {
     readonly unresolvedAccounts: number;
 }
 
-interface FunnelFacts {
-    readonly firstPayout: boolean;
-    readonly funded: boolean;
-    readonly movedLive: boolean;
-    readonly passed: boolean;
-    readonly purchased: boolean;
+interface PerStage<T> {
+    readonly firstPayout: T;
+    readonly funded: T;
+    readonly movedLive: T;
+    readonly passed: T;
+    readonly purchased: T;
+}
+
+interface StageDollars {
+    readonly feesCents: UsdCents;
+    readonly netCents: UsdCents;
+    readonly netPayoutsCents: UsdCents;
 }
 
 export function bustDiagnosisOfAttempt(
@@ -164,34 +167,31 @@ export function stageFunnel(ledger: PortfolioLedger): StageFunnel {
         byFirm: groupByFirmKey(countedAccounts(ledger), (entry) =>
             firmKeyOf(entry.row),
         ).map(({ firmKey, items }) => {
-            const facts = items.map((entry) => funnelFacts(entry));
-            const count = (stage: keyof FunnelFacts) =>
-                facts.filter((fact) => fact[stage]).length;
-            const feesCents = sumUsdCents(
-                items.flatMap((entry) => entry.fees.map(signedFeeCents)),
-            );
-            const netPayoutsCents = sumUsdCents(
-                items.flatMap((entry) =>
-                    entry.payouts.flatMap((row) => {
-                        const paid = paidPayoutCash(row);
-                        return paid === null ? [] : [paid.cents];
-                    }),
-                ),
-            );
+            const members = stageMembersOf(items);
+            const totals = dollarsOf(items);
             return {
                 attempts: items.reduce(
-                    (total, entry) => total + attemptsFor(entry),
+                    (total, entry) => total + attemptsOf(entry),
                     0,
                 ),
-                feesCents,
+                feesCents: totals.feesCents,
                 firmKey,
-                firstPayout: count('firstPayout'),
-                funded: count('funded'),
-                movedLive: count('movedLive'),
-                netCents: usdCents(netPayoutsCents - feesCents),
-                netPayoutsCents,
-                passed: count('passed'),
-                purchased: count('purchased'),
+                firstPayout: members.firstPayout.length,
+                funded: members.funded.length,
+                independent: mapStages(members, (accounts) =>
+                    independentSampleCount(
+                        accounts.map((entry) => ({
+                            copyGroupId: entry.row.copyGroupId,
+                            purchasedOn: entry.row.purchasedOn,
+                        })),
+                    ),
+                ),
+                movedLive: members.movedLive.length,
+                netCents: totals.netCents,
+                netPayoutsCents: totals.netPayoutsCents,
+                passed: members.passed.length,
+                purchased: members.purchased.length,
+                stages: mapStages(members, dollarsOf),
             };
         }),
         ledgerOnlyAccounts: ledger.ledgerOnlyAccounts.length,
@@ -213,12 +213,6 @@ function addBustCount(counts: BustSplit, kind: BustDiagnosisKind): BustSplit {
     }
 }
 
-function attemptsFor(entry: LedgerAccount): number {
-    return entry.row.tracking === AccountTracking.LedgerOnly
-        ? 1
-        : attemptsOf(entry);
-}
-
 function countedAccounts(ledger: PortfolioLedger): readonly LedgerAccount[] {
     return [
         ...ledger.planGroups().flatMap((group) => group.accounts),
@@ -226,28 +220,47 @@ function countedAccounts(ledger: PortfolioLedger): readonly LedgerAccount[] {
     ];
 }
 
-function funnelFacts(entry: LedgerAccount): FunnelFacts {
-    const hasPaidPayout = entry.payouts.some(
-        (payout) => paidPayoutCash(payout) !== null,
+function dollarsOf(accounts: readonly LedgerAccount[]): StageDollars {
+    const feesCents = sumUsdCents(
+        accounts.flatMap((entry) => entry.fees.map(signedFeeCents)),
     );
+    const netPayoutsCents = sumUsdCents(
+        accounts.flatMap((entry) =>
+            entry.payouts.flatMap((row) => {
+                const paid = paidPayoutCash(row);
+                return paid === null ? [] : [paid.cents];
+            }),
+        ),
+    );
+    return {
+        feesCents,
+        netCents: usdCents(netPayoutsCents - feesCents),
+        netPayoutsCents,
+    };
+}
+
+function hasMovedLive(entry: LedgerAccount): boolean {
     switch (entry.row.tracking) {
         case AccountTracking.LedgerOnly: {
-            return {
-                firstPayout: hasPaidPayout,
-                funded: hasPaidPayout || entry.row.stage !== AccountStage.Eval,
-                movedLive: entry.row.stage === AccountStage.Live,
-                passed: false,
-                purchased: true,
-            };
+            return entry.row.stage === AccountStage.Live;
         }
         case AccountTracking.Modeled: {
-            return {
-                firstPayout: hasPaidPayout,
-                funded: fundedSince(entry) !== null,
-                movedLive: hasTransition(entry, AccountEventKind.MovedLive),
-                passed: hasTransition(entry, AccountEventKind.EvalPassed),
-                purchased: hasTransition(entry, AccountEventKind.Purchased),
-            };
+            return hasTransition(entry, AccountEventKind.MovedLive);
+        }
+    }
+}
+
+function hasPaidPayout(entry: LedgerAccount): boolean {
+    return entry.payouts.some((payout) => paidPayoutCash(payout) !== null);
+}
+
+function hasPurchased(entry: LedgerAccount): boolean {
+    switch (entry.row.tracking) {
+        case AccountTracking.LedgerOnly: {
+            return true;
+        }
+        case AccountTracking.Modeled: {
+            return hasTransition(entry, AccountEventKind.Purchased);
         }
     }
 }
@@ -258,4 +271,31 @@ function hasTransition(entry: LedgerAccount, kind: AccountEventKind): boolean {
 
 function isWithinWindow(date: string, start: string, end: string): boolean {
     return compareText(date, start) >= 0 && compareText(date, end) <= 0;
+}
+
+function mapStages<T>(
+    members: PerStage<readonly LedgerAccount[]>,
+    project: (accounts: readonly LedgerAccount[]) => T,
+): PerStage<T> {
+    return {
+        firstPayout: project(members.firstPayout),
+        funded: project(members.funded),
+        movedLive: project(members.movedLive),
+        passed: project(members.passed),
+        purchased: project(members.purchased),
+    };
+}
+
+function stageMembersOf(
+    items: readonly LedgerAccount[],
+): PerStage<readonly LedgerAccount[]> {
+    return {
+        firstPayout: items.filter(hasPaidPayout),
+        funded: items.filter(isFundedAccount),
+        movedLive: items.filter((entry) => hasMovedLive(entry)),
+        passed: items.filter((entry) =>
+            hasTransition(entry, AccountEventKind.EvalPassed),
+        ),
+        purchased: items.filter((entry) => hasPurchased(entry)),
+    };
 }

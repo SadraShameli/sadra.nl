@@ -241,7 +241,6 @@ describe('scoreLadder bills a subscription the way the simulator does', () => {
                 Math.abs(s.costPerFunded - sim.costPerFundedAccount),
             ).toBeLessThan(0.03 * sim.costPerFundedAccount);
         },
-        60_000,
     );
 
     it('keeps the days per funded account on the shared formula', () => {

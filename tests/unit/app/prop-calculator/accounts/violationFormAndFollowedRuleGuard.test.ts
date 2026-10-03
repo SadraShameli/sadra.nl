@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { posixPath } from '../../../posixPath';
+
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
 const ACCOUNTS_ROOT = path.join(
     SOURCE_ROOT,
@@ -21,7 +23,7 @@ function comparisonCountsBySourceFile(): Map<string, number> {
             ACTUAL_VERSUS_ACCEPTED,
         )?.length;
         if (count !== undefined) {
-            counts.set(path.relative(SOURCE_ROOT, file), count);
+            counts.set(posixPath(path.relative(SOURCE_ROOT, file)), count);
         }
     }
     return counts;
@@ -29,7 +31,7 @@ function comparisonCountsBySourceFile(): Map<string, number> {
 
 function filesMatching(root: string, pattern: RegExp): string[] {
     return sourceFiles(root)
-        .map((file) => path.relative(root, file))
+        .map((file) => posixPath(path.relative(root, file)))
         .filter((relative) =>
             pattern.test(readFileSync(path.join(root, relative), 'utf8')),
         )

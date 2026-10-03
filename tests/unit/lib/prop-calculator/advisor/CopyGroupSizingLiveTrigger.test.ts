@@ -32,6 +32,7 @@ import {
     EvalSizingAdvisor,
     FundedSizingAdvisor,
     NextTradeKind,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     SizingConstraint,
     SizingStage,
@@ -105,6 +106,7 @@ function evalAccount(): ReconstructedFundedOrEvalAccount {
         plan: registryPlan(APEX_EOD_ID),
         resolvedDailyLossLimit: null,
         state: evalState,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -136,6 +138,7 @@ function fundedAccount(): ReconstructedFundedOrEvalAccount {
         plan: registryPlan(MFF_PRO_ID),
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -149,6 +152,8 @@ function member(
         id,
         label: id,
         paidPayoutsSinceLastLiveAccount: null,
+        personalRequestOverride: null,
+        personalRetainedCushion: null,
     };
 }
 

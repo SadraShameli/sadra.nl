@@ -38,6 +38,8 @@ import {
     simulateLiveAccount,
     TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator';
+import { LiveApplicabilityNote } from '~/lib/prop-calculator/firms';
+import { LIVE_TRANSFER_NOTE_TEXT } from '~/lib/prop-calculator/simulator';
 
 export interface LiveArguments {
     commission: string;
@@ -64,10 +66,15 @@ const TRANSITION_CREDIT_FIRMS = Object.values(FirmId).filter(
     (id) => findLiveTransitionPlanBuilder(id) !== undefined,
 );
 
+const LUCID_DAILY_CREDIT_NOTE =
+    LIVE_TRANSFER_NOTE_TEXT[
+        LiveApplicabilityNote.LucidDailyTransitionPayoutIsPastCash
+    ];
+
 const DEFAULT_CUSHION_PERCENT = { postLock: '10', preLock: '5' } as const;
 
 export function describeLucidDailyTransitionProfit(plan: LivePlan): string {
-    return `Lucid Daily live only: sim profit above the buffer at the live transition, paid out once at the ${describeTraderShare(plan.payoutTiers)} split and capped at ${formatCurrency(LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP)} (shown as a one-off credit, never annualized). Omit for a live account with no transition credit`;
+    return `Lucid Daily live only: sim profit above the buffer at the live transition, paid out once at the ${describeTraderShare(plan.payoutTiers)} split and capped at ${formatCurrency(LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP)} (shown as a one-off credit, never annualized). ${LUCID_DAILY_CREDIT_NOTE} Omit for a live account with no transition credit`;
 }
 
 const LIVE_SIZING = `live risk is a percent of the drawdown cushion placed in whole contracts at that stop (with --instrument, default ${commonSimArguments.instrument.default}), at least one contract and at most the live contract limit`;
@@ -103,7 +110,7 @@ export const liveArguments = {
     },
     'request-size': {
         description:
-            "Per payout request: a dollar amount, or 'all' to withdraw everything down to one cent above the drawdown floor. Default: withdraw only the excess above one full drawdown of cushion. On a live plan with a seed Reserve, released seed Reserve is held back until every increment is released, and 'all' also withdraws the starting seed above the floor; any withdrawal of seed or Reserve is reported as capital returned, never annualized",
+            "Per payout request: a dollar amount, or 'all' to withdraw everything down to the lowest balance that stays alive (exactly the floor on a strictly-below floor such as the Topstep LFA, one cent above it on the others). Default: withdraw only the excess above one full drawdown of cushion. On a live plan with a seed Reserve, released seed Reserve is held back until every increment is released, and 'all' also withdraws the starting seed above the floor; any withdrawal of seed or Reserve is reported as capital returned, never annualized",
         type: 'string',
     },
     'stop-points': {
@@ -147,7 +154,7 @@ export function describeLiveWithdrawal(inputs: LiveSimInputs): string {
     if (inputs.retainedCushion === 0) {
         const seedNote =
             seedReserve === null ? '' : ', seed included as capital returned';
-        return `withdraw: everything down to one cent above the floor (--request-size ${DRAIN_TO_FLOOR})${seedNote}${reserveNote}`;
+        return `withdraw: everything down to the lowest balance that stays alive (--request-size ${DRAIN_TO_FLOOR})${seedNote}${reserveNote}`;
     }
     const cushion = formatCurrency(
         inputs.plan.resolveRetainedCushion(inputs.retainedCushion),
@@ -162,6 +169,10 @@ export function describeSeedReserve(plan: LivePlan): null | string {
     if (reserve === null) return null;
     const increment = reserve.amount / reserve.increments;
     return `seed Reserve: ${formatCurrency(reserve.amount)} in ${reserve.increments} releases of ${formatCurrency(increment)}, one per review every ${reserve.reviewIntervalSessions} sessions after ${formatCurrency(reserve.profitTargetPerIncrement)} of net profit, landing ${reserve.depositLagSessions} sessions later (assumes a ${formatCurrency(plan.startingBalance + reserve.amount)} transferred balance, not an input)`;
+}
+
+export function liveCreditNotes(plan: LivePlan): string[] {
+    return oneOffLiveCredit(plan) > 0 ? [LUCID_DAILY_CREDIT_NOTE] : [];
 }
 
 export function liveSummaryRows(
@@ -385,6 +396,7 @@ export default defineCommand({
             for (const row of liveSummaryRows(inputs, out)) {
                 table.printRow(row);
             }
+            for (const note of liveCreditNotes(plan)) ui.muted(`\n  ${note}`);
         } catch (error) {
             spinner?.fail();
             ui.fail(error instanceof Error ? error.message : String(error));

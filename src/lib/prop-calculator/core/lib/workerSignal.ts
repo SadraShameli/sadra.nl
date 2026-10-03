@@ -6,23 +6,41 @@ export enum WorkerSignal {
     Failed = 2,
 }
 
+const HEARTBEAT_POLL_MS = 1000;
+
 export function awaitWorkerSignal(
     flags: Int32Array,
     workerIndex: number,
     errorPort: MessagePort,
-    timeoutMs: number,
+    silenceTimeoutMs: number,
     label: string,
+    heartbeats?: Int32Array,
 ): void {
     const pending: number = WorkerSignal.Pending;
-    const deadline = performance.now() + timeoutMs;
+    let lastBeat =
+        heartbeats === undefined ? 0 : Atomics.load(heartbeats, workerIndex);
+    let silentSinceMs = performance.now();
     while (Atomics.load(flags, workerIndex) === pending) {
-        const remainingMs = deadline - performance.now();
+        const nowMs = performance.now();
+        if (heartbeats !== undefined) {
+            const beat = Atomics.load(heartbeats, workerIndex);
+            if (beat !== lastBeat) {
+                lastBeat = beat;
+                silentSinceMs = nowMs;
+            }
+        }
+        const remainingMs = silentSinceMs + silenceTimeoutMs - nowMs;
         if (remainingMs <= 0) {
             throw new Error(
-                `${label}: worker ${workerIndex} did not finish within ${timeoutMs} ms (it may have failed to load)`,
+                `${label}: worker ${workerIndex} did not finish within ${silenceTimeoutMs} ms (it may have failed to load)`,
             );
         }
-        Atomics.wait(flags, workerIndex, pending, remainingMs);
+        Atomics.wait(
+            flags,
+            workerIndex,
+            pending,
+            Math.min(remainingMs, HEARTBEAT_POLL_MS),
+        );
     }
     const failed: number = WorkerSignal.Failed;
     if (Atomics.load(flags, workerIndex) !== failed) return;
@@ -32,6 +50,13 @@ export function awaitWorkerSignal(
             ? 'it reported a failure but its error message never arrived'
             : String(received.message);
     throw new Error(`${label}: worker ${workerIndex} failed: ${reason}`);
+}
+
+export function recordHeartbeat(
+    heartbeats: Int32Array,
+    workerIndex: number,
+): void {
+    Atomics.add(heartbeats, workerIndex, 1);
 }
 
 export function runAndSignal(

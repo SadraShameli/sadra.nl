@@ -3,13 +3,17 @@ import { describe, expect, it } from 'vitest';
 import {
     contractLimitAt,
     ContractLimitKind,
+    DailyLossLimitKind,
     FirmId,
     FundedNextVariant,
     initialEvalFee,
     INSTRUMENTS,
     InstrumentSymbol,
     newFundedCycleTracker,
+    PayoutEvaluationKind,
+    PayoutGate,
     percent,
+    type Plan,
     PlanAvailability,
     resetFee,
     retryFee,
@@ -21,6 +25,46 @@ import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
 
 const firm = new FundedNext();
+
+function firstRewardAfterDays(plan: Plan, qualifyingDays: number) {
+    const state = plan.initialState();
+    state.balance = 55_000;
+    state.thresholdLocked = true;
+    state.threshold = 50_100;
+    state.qualifyingDays = qualifyingDays;
+    const tracker = newFundedCycleTracker(state);
+    tracker.lastPayoutBalance = plan.accountSize;
+    tracker.qualifyingDaysAtLastPayout = 0;
+    tracker.recordSessionClose(state);
+    return tracker.evaluatePayout({
+        minRetainedCushion: 0,
+        payoutRequestSize: undefined,
+        plan,
+        state,
+    });
+}
+
+function legacyFirstPayoutAfterBenchmarkDays(plan: Plan, cycleProfit: number) {
+    const state = plan.initialState();
+    state.balance = plan.accountSize + cycleProfit;
+    state.qualifyingDays = 5;
+    const tracker = newFundedCycleTracker(state);
+    tracker.lastPayoutBalance = plan.accountSize;
+    tracker.qualifyingDaysAtLastPayout = 0;
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
+        minRetainedCushion: 0,
+        payoutRequestSize: undefined,
+        plan,
+        state,
+    });
+}
+
+function noteStarting(prefix: string) {
+    const note = firm.notes.find((entry) => entry.startsWith(prefix));
+    if (!note) throw new Error(`no FundedNext note starts with ${prefix}`);
+    return note;
+}
 
 function planFor(variant: FundedNextVariant) {
     const plan = firm.findPlan({
@@ -183,18 +227,106 @@ describe('FundedNext Live note discloses the lock-keyed contract cap and the wit
         }
     });
 
-    it('states the $2,000 withdrawal floor, the $1,000 trading floor and that the article contradicts itself (U25)', () => {
+    it('states the $2,000 withdrawal floor and the $1,000 trading floor (U25)', () => {
         for (const fact of [
             'automatically liquidated',
             'section 5',
             'section 6',
             '$2,000',
             '$1,000',
-            'contradicts itself',
         ]) {
             expect(liveNote).toContain(fact);
         }
         expect(liveNote).not.toContain(String.fromCodePoint(0x20_14));
+    });
+
+    it('cites the 2026-09-27 revision, whose Section 5 floor is $1,000, and records the remaining Section 5 row against the $4,000 trigger (N-93)', () => {
+        for (const fact of [
+            '2026-09-27',
+            'section 5 now shows a $1,000 floor',
+            'MLL trails up with balance and locks',
+            '$3,000',
+            '$4,000',
+        ]) {
+            expect(liveNote).toContain(fact);
+        }
+        for (const stale of [
+            'last updated 2026-09-03',
+            'contradicts itself',
+            'which section is current',
+            "section 5's worked example locks the MLL at the $2,000 starting balance",
+        ]) {
+            expect(liveNote).not.toContain(stale);
+        }
+    });
+});
+
+describe("FundedNext notes cite today's articles instead of inferring (N-93)", () => {
+    it('the Flex note cites 17230292, 17229829 and 17229848 for the +$100 lock and the first-payout reset, not an inference', () => {
+        const note = noteStarting(
+            'Flex is a fourth FundedNext Futures product',
+        );
+        for (const fact of [
+            '17230292',
+            '17229829',
+            '17229848',
+            '$50,100',
+            'first withdrawal resets the MLL',
+            '2026-10-02',
+        ]) {
+            expect(note).toContain(fact);
+        }
+        for (const stale of [
+            'an inference, not a confirmed figure',
+            'did not state the funded drawdown',
+            'by analogy',
+            'not independently re-confirmed for Flex',
+        ]) {
+            expect(note).not.toContain(stale);
+        }
+    });
+
+    it('the Legacy note states the $500 cycle-profit gate on every withdrawal and cites 17229581', () => {
+        const note = noteStarting(
+            'helpfutures.fundednext.com/en/articles/14269280',
+        );
+        expect(note).toContain('17229581');
+        expect(note).not.toContain('applies only after the first withdrawal');
+    });
+
+    it('the Rapid Daily note cites 17229779 and records 15878210 as superseded', () => {
+        const note = noteStarting("Rapid Daily's minPayoutProfit");
+        for (const fact of [
+            '17229779',
+            '15878210',
+            'superseded',
+            '2026-10-02',
+        ]) {
+            expect(note).toContain(fact);
+        }
+        expect(note).not.toContain('buffer delta + $500 = $2,600');
+    });
+
+    it('the FNL:003 note quotes the Labs card for the $1,000 daily loss limit and the 5-day wait', () => {
+        const note = noteStarting('FNL:003 50K Instant Account (Labs');
+        for (const fact of [
+            'Daily Loss Limit $1,000',
+            'Get Rewards In 5 Days',
+            'The timeframe within which you can expect your rewards',
+            'delivery time',
+            '16847874',
+            '16847913',
+            "the tool's assumption",
+            '2026-10-02',
+        ]) {
+            expect(note).toContain(fact);
+        }
+        for (const stale of [
+            'genuinely unconfirmed for FNL:003',
+            'minDaysAfterPassForPayout is left at 0',
+        ]) {
+            expect(note).not.toContain(stale);
+        }
     });
 });
 
@@ -266,6 +398,40 @@ describe('FundedNext FNL:003 50K Instant Account (Labs, no Challenge phase, 20% 
         expect(legacy.maxFundedAccounts).toBe(5);
     });
 
+    it('applies the Labs card\'s "Daily Loss Limit $1,000" to the funded stage (fundednext.com/labs, re-fetched 2026-10-02)', () => {
+        expect(plan.dailyLossLimitFor(TradingPhase.Funded)).toStrictEqual({
+            amount: 1000,
+            kind: DailyLossLimitKind.Flat,
+        });
+
+        const state = plan.initialState();
+        state.todayPnL = -999.99;
+        expect(plan.isDayLockedOut(state, TradingPhase.Funded)).toBe(false);
+        state.todayPnL = -1000;
+        expect(plan.isDayLockedOut(state, TradingPhase.Funded)).toBe(true);
+    });
+
+    describe('the Labs card\'s "Get Rewards In 5 Days"', () => {
+        it('waits 5 days before the first reward', () => {
+            expect(plan.minDaysAfterPassForPayout).toBe(5);
+        });
+
+        it('blocks the first reward on day gate at 4 days and releases it at 5', () => {
+            const blocked = firstRewardAfterDays(plan, 4);
+            expect(blocked.kind).toBe(PayoutEvaluationKind.Blocked);
+            if (blocked.kind === PayoutEvaluationKind.Blocked) {
+                expect(blocked.gate).toBe(PayoutGate.DayGateNotMet);
+            }
+            expect(firstRewardAfterDays(plan, 5).kind).toBe(
+                PayoutEvaluationKind.Eligible,
+            );
+        });
+
+        it('does not repeat the wait on later cycles, since the card gives no per-cycle figure', () => {
+            expect(plan.minDaysAfterPassForPayoutPerCycle).toBe(0);
+        });
+    });
+
     it('applies a 20% Perpetual Consistency Rule to the funded stage', () => {
         const rule = plan.fundedConsistencyRule();
         expect(rule).not.toBeNull();
@@ -300,25 +466,38 @@ describe('FundedNext Legacy payout profit gates (article 14269280, live-fetched 
         });
     }
 
-    it('gates only the second and later withdrawals on $500 cycle profit, not the first', () => {
-        expect(plan.minPayoutProfit).toBe(0);
+    it('gates every withdrawal, the first included, on $500 of current-cycle profit (article 17229581, "Minimum Profit (current cycle) $500", re-fetched 2026-10-02)', () => {
+        expect(plan.minPayoutProfit).toBe(500);
         expect(plan.minPayoutProfitPerCycle).toBe(500);
         expect(plan.minDaysAfterPassForPayout).toBe(5);
         expect(plan.minQualifyingDayProfit).toBe(200);
         expect(plan.minPayoutRequest).toBe(250);
     });
 
-    it('pays a first withdrawal from $400 of cycle profit once the benchmark days are met', () => {
+    it('denies a first withdrawal from $400 of cycle profit even with the 5 Benchmark Days met (article 17229581)', () => {
         const { state } = postMilestoneState(400);
         expect(state.threshold).toBe(48_000);
         expect(state.thresholdLocked).toBe(false);
 
-        const result = requestPayout(400, 0);
+        expect(requestPayout(400, 0)).toBeNull();
+    });
+
+    it('denies a first withdrawal from $499.99 of cycle profit and pays it from $500 (article 17229581)', () => {
+        expect(requestPayout(499.99, 0)).toBeNull();
+
+        const result = requestPayout(500, 0);
 
         expect(result).not.toBeNull();
         expect(result?.debited).toBe(300);
         expect(result?.traderReceives).toBeCloseTo(240, 5);
         expect(result?.causesHardBreach).toBe(false);
+    });
+
+    it('pays a pre-milestone first withdrawal of 50% of $500 once the 5 Benchmark Days are met, and denies it at $400', () => {
+        expect(legacyFirstPayoutAfterBenchmarkDays(plan, 400)).toBeNull();
+        expect(legacyFirstPayoutAfterBenchmarkDays(plan, 500)?.debited).toBe(
+            250,
+        );
     });
 
     it('still denies a second withdrawal with only $400 of cycle profit', () => {
@@ -331,6 +510,95 @@ describe('FundedNext Legacy payout profit gates (article 14269280, live-fetched 
         expect(result).not.toBeNull();
         expect(result?.debited).toBe(300);
         expect(result?.causesHardBreach).toBe(false);
+    });
+});
+
+describe('FundedNext Rapid Daily payout gates (article 17229779, current revision, re-fetched 2026-10-02)', () => {
+    const plan = planFor(FundedNextVariant.RapidDaily);
+    const bufferLevel = 52_100;
+
+    function firstPayoutAt(balance: number) {
+        const state = plan.initialState();
+        state.balance = balance;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = plan.accountSize;
+        tracker.recordSessionClose(state);
+        const result = tracker.tryPayout({
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan,
+            state,
+        });
+        return { result, state };
+    }
+
+    function laterPayoutAt(balance: number, lastPayoutBalance: number) {
+        const state = plan.initialState();
+        state.balance = balance;
+        state.thresholdLocked = true;
+        state.threshold = 50_100;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = lastPayoutBalance;
+        tracker.payoutsIssued = 1;
+        tracker.recordSessionClose(state);
+        return tracker.tryPayout({
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan,
+            state,
+        });
+    }
+
+    it('states both gates separately: $500 of current-cycle profit and a $52,100 EOD buffer, not $500 above the buffer', () => {
+        expect(plan.minPayoutProfit).toBe(500);
+        expect(plan.minPayoutProfitPerCycle).toBe(500);
+        expect(
+            plan.payoutBuffer?.requiredBalance(
+                plan.accountSize,
+                plan.fundedDrawdown.amount,
+            ),
+        ).toBe(bufferLevel);
+    });
+
+    it('denies a payout just under the buffer', () => {
+        expect(firstPayoutAt(bufferLevel - 0.01).result).toBeNull();
+        expect(firstPayoutAt(52_050).result).toBeNull();
+    });
+
+    it('denies a payout at exactly the buffer, where no profit sits above it to withdraw', () => {
+        expect(firstPayoutAt(bufferLevel).result).toBeNull();
+    });
+
+    it('pays the $250 minimum on a first payout once the balance is $250 above the buffer, without the old $2,600 of cycle profit', () => {
+        const { result, state } = firstPayoutAt(bufferLevel + 250);
+
+        expect(result?.debited).toBe(250);
+        expect(result?.traderReceives).toBeCloseTo(225, 5);
+        expect(state.balance).toBe(bufferLevel);
+    });
+
+    it('denies a first payout when under $250 sits above the buffer', () => {
+        expect(firstPayoutAt(bufferLevel + 249.99).result).toBeNull();
+    });
+
+    it('never lets a payout take the balance below the buffer', () => {
+        for (const balance of [52_350, 52_600, 53_000, 54_500, 60_000]) {
+            const { result, state } = firstPayoutAt(balance);
+            expect(result).not.toBeNull();
+            expect(state.balance).toBeGreaterThanOrEqual(bufferLevel);
+        }
+    });
+
+    it('caps a payout at $1,200 and leaves the balance at or above the buffer', () => {
+        const { result, state } = firstPayoutAt(60_000);
+
+        expect(result?.debited).toBe(1200);
+        expect(state.balance).toBeGreaterThanOrEqual(bufferLevel);
+    });
+
+    it('gates a later payout on $500 of current-cycle profit as well as the buffer', () => {
+        expect(laterPayoutAt(52_599, bufferLevel)).toBeNull();
+        expect(laterPayoutAt(52_600, bufferLevel)?.debited).toBe(500);
     });
 });
 

@@ -306,3 +306,11 @@ describe('the cost and cash-flow tooltips name no re-buy firm by hand (N-84, WP5
         );
     });
 });
+
+describe('panelDescriptions.optimalRiskSweep (PT-63d)', () => {
+    it('calls the starred row the engine optimum, as the table does, and never the best monthly net', () => {
+        const text = panelDescriptions.optimalRiskSweep;
+        expect(text).toContain('engine optimum');
+        expect(text).not.toMatch(/\bbest monthly net\b/);
+    });
+});

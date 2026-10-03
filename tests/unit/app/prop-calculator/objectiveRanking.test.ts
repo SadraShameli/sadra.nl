@@ -1,14 +1,22 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
+    type BatchLossPricing,
+    BatchLossStatus,
     ladderObjectiveStar,
     ladderRungPlacements,
     OBJECTIVE_OPTIONS,
+    priceBatchLoss,
+    rankComparison,
     riskRowFigures,
     riskTableObjective,
+    RUIN_FIRST_NEEDS_BANKROLL_NOTE,
+    RUIN_FIRST_NO_ATTEMPT_NOTE,
+    RUIN_FIRST_NO_POSITIVE_EV_NOTE,
     RUIN_FIRST_RISK_TABLE_NOTE,
+    RUIN_FIRST_UNPRICED_NOTE,
     starredRows,
 } from '~/app/(app)/prop-calculator/_components/objectiveRanking';
 import { ladderRankingsFor } from '~/cli/commands/prop/ladder/command';
@@ -42,21 +50,23 @@ import {
     DEFAULT_RULEBOOK,
     EvalSizingAdvisor,
     FundedSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     SizingObjective,
+    SpeedObjective,
 } from '~/lib/prop-calculator/advisor';
 import {
     objectiveApplicability,
     RankingSurface,
 } from '~/lib/prop-calculator/advisor/actions';
 import {
-    bankrollRiskFigures,
     type CopySplitRow,
     CopySplitRowKind,
     rankCopySplitRows,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
     attemptsAffordable,
+    bankrollRiskFigures,
     cohortOutcome,
     LOSS_RISK_DRAWS,
     noPayoutProbability,
@@ -186,6 +196,7 @@ function reconstructed(
         plan: topStepPlan(),
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -476,12 +487,12 @@ describe('RuinFirst never changes sizing: every consumer that takes an objective
         ).toThrow(ObjectiveNotApplicable);
     });
 
-    it('records MonthlyNet as the objective of every advisor output, whatever the table objective is', () => {
+    it('records speed to funded for the eval ladder and MonthlyNet for the funded sweep, whatever the table objective is', () => {
         const result = advice();
         expect(result.eval.documented).not.toBeNull();
         expect(result.funded.documented).not.toBeNull();
         expect(result.eval.assembled.provenance.objective).toBe(
-            SizingObjective.MonthlyNet,
+            SpeedObjective.SpeedToFunded,
         );
         expect(result.funded.assembled.provenance.objective).toBe(
             SizingObjective.MonthlyNet,
@@ -569,5 +580,235 @@ describe('bankrollRiskFigures: P(no payout) and the loss risk when a bankroll is
             lossProbability: null,
             noPayoutProbability: null,
         });
+    });
+});
+
+interface ComparisonFixtureRow {
+    id: string;
+    loss: null | number;
+    out: {
+        expectedMonthlyNet: number;
+        expectedNet: number;
+        expectedNetPerAttempt: number;
+    };
+}
+
+function comparisonRow(
+    id: string,
+    monthly: number,
+    cycle: number,
+    evPerAttempt = 1,
+    loss: null | number = null,
+): ComparisonFixtureRow {
+    return {
+        id,
+        loss,
+        out: {
+            expectedMonthlyNet: monthly,
+            expectedNet: cycle,
+            expectedNetPerAttempt: evPerAttempt,
+        },
+    };
+}
+
+function ids(rows: readonly ComparisonFixtureRow[]): string[] {
+    return rows.map((row) => row.id);
+}
+
+function pricingOf(row: ComparisonFixtureRow): BatchLossPricing {
+    return row.loss === null
+        ? { status: BatchLossStatus.NoAttempt }
+        : { probability: row.loss, status: BatchLossStatus.Priced };
+}
+
+function rankFixture(
+    rows: readonly ComparisonFixtureRow[],
+    objective: SizingObjective,
+    bankrollCents: null | number,
+    batchLoss: (row: ComparisonFixtureRow) => BatchLossPricing = pricingOf,
+) {
+    return rankComparison(rows, { bankrollCents, batchLoss, objective });
+}
+
+describe('rankComparison orders the compare tables by the objective (PT-83, F-V15)', () => {
+    const rows = [
+        comparisonRow('a', 300, 100),
+        comparisonRow('b', 100, 900),
+        comparisonRow('c', 200, 500),
+    ];
+
+    it('ranks MonthlyNet by monthly net, highest first, and names it', () => {
+        const ranked = rankFixture(rows, SizingObjective.MonthlyNet, null);
+        expect(ids(ranked.rows)).toStrictEqual(['a', 'c', 'b']);
+        expect(ranked.effective).toBe(SizingObjective.MonthlyNet);
+        expect(ranked.label).toBe('monthly net');
+        expect(ranked.note).toBeNull();
+    });
+
+    it('ranks CycleCash by cycle net, highest first, and names it', () => {
+        const ranked = rankFixture(rows, SizingObjective.CycleCash, null);
+        expect(ids(ranked.rows)).toStrictEqual(['b', 'c', 'a']);
+        expect(ranked.effective).toBe(SizingObjective.CycleCash);
+        expect(ranked.label).toBe('cycle cash');
+        expect(ranked.note).toBeNull();
+    });
+
+    it('does not reorder the input and keeps equal rows in input order', () => {
+        const tied = [
+            comparisonRow('x', 100, 100),
+            comparisonRow('y', 100, 100),
+        ];
+        const copy = [...tied];
+        expect(
+            ids(rankFixture(tied, SizingObjective.MonthlyNet, null).rows),
+        ).toStrictEqual(['x', 'y']);
+        expect(tied).toStrictEqual(copy);
+    });
+
+    it.each([null, 0])(
+        'keeps RuinFirst on monthly net with the typed note when the bankroll is %j, without pricing a loss',
+        (bankrollCents) => {
+            const batchLoss = vi.fn((): BatchLossPricing => ({
+                probability: 0.1,
+                status: BatchLossStatus.Priced,
+            }));
+            const ranked = rankFixture(
+                rows,
+                SizingObjective.RuinFirst,
+                bankrollCents,
+                batchLoss,
+            );
+            expect(ids(ranked.rows)).toStrictEqual(['a', 'c', 'b']);
+            expect(ranked.effective).toBe(SizingObjective.MonthlyNet);
+            expect(ranked.label).toBe('monthly net');
+            expect(ranked.note).toBe(RUIN_FIRST_NEEDS_BANKROLL_NOTE);
+            expect(batchLoss).not.toHaveBeenCalled();
+        },
+    );
+
+    it('ranks RuinFirst with a bankroll: positive EV plans by lower batch loss (none last), then the rest by monthly net', () => {
+        const withLoss = [
+            comparisonRow('risky', 500, 0, 1, 0.4),
+            comparisonRow('safe', 100, 0, 1, 0.1),
+            comparisonRow('unpriced', 900, 0, 1, null),
+            comparisonRow('negative-big', 800, 0, -1, 0.01),
+            comparisonRow('negative-small', 50, 0, -1, 0.01),
+        ];
+        const ranked = rankFixture(
+            withLoss,
+            SizingObjective.RuinFirst,
+            500_000,
+        );
+        expect(ids(ranked.rows)).toStrictEqual([
+            'safe',
+            'risky',
+            'unpriced',
+            'negative-big',
+            'negative-small',
+        ]);
+        expect(ranked.effective).toBe(SizingObjective.RuinFirst);
+        expect(ranked.label).toBe('ruin first');
+        expect(ranked.note).toBeNull();
+    });
+
+    it('falls back to monthly net with a note when the bankroll affords no attempt of any plan', () => {
+        const unpriced = [
+            comparisonRow('a', 100, 0, 1, null),
+            comparisonRow('b', 300, 0, 1, null),
+        ];
+        const ranked = rankFixture(unpriced, SizingObjective.RuinFirst, 100);
+        expect(ids(ranked.rows)).toStrictEqual(['b', 'a']);
+        expect(ranked.effective).toBe(SizingObjective.MonthlyNet);
+        expect(ranked.note).toBe(RUIN_FIRST_NO_ATTEMPT_NOTE);
+    });
+
+    it('says the risk could not be priced, not that no attempt is affordable, when a batch is too large to simulate', () => {
+        const ranked = rankFixture(
+            [comparisonRow('a', 100, 0, 1), comparisonRow('b', 300, 0, 1)],
+            SizingObjective.RuinFirst,
+            500_000_000,
+            () => ({ status: BatchLossStatus.Unpriced }),
+        );
+        expect(ids(ranked.rows)).toStrictEqual(['b', 'a']);
+        expect(ranked.effective).toBe(SizingObjective.MonthlyNet);
+        expect(ranked.note).toBe(RUIN_FIRST_UNPRICED_NOTE);
+        expect(ranked.note).not.toBe(RUIN_FIRST_NO_ATTEMPT_NOTE);
+    });
+
+    it('ranks the priced plans and puts an unpriced plan after them when only some are priced', () => {
+        const ranked = rankFixture(
+            [
+                comparisonRow('unpriced', 900, 0, 1),
+                comparisonRow('risky', 500, 0, 1, 0.4),
+                comparisonRow('safe', 100, 0, 1, 0.1),
+            ],
+            SizingObjective.RuinFirst,
+            500_000,
+            (row) =>
+                row.id === 'unpriced'
+                    ? { status: BatchLossStatus.Unpriced }
+                    : pricingOf(row),
+        );
+        expect(ids(ranked.rows)).toStrictEqual(['safe', 'risky', 'unpriced']);
+        expect(ranked.note).toBeNull();
+    });
+
+    it('says so when no plan has EV per attempt above zero', () => {
+        const negative = [
+            comparisonRow('a', 100, 0, -1, 0.5),
+            comparisonRow('b', 300, 0, 0, 0.5),
+        ];
+        const ranked = rankFixture(negative, SizingObjective.RuinFirst, 100);
+        expect(ids(ranked.rows)).toStrictEqual(['b', 'a']);
+        expect(ranked.note).toBe(RUIN_FIRST_NO_POSITIVE_EV_NOTE);
+    });
+
+    it('has no em dash in any note', () => {
+        for (const note of [
+            RUIN_FIRST_NEEDS_BANKROLL_NOTE,
+            RUIN_FIRST_NO_ATTEMPT_NOTE,
+            RUIN_FIRST_NO_POSITIVE_EV_NOTE,
+            RUIN_FIRST_UNPRICED_NOTE,
+        ]) {
+            expect(note).not.toContain('\u{2014}');
+        }
+    });
+});
+
+describe('priceBatchLoss separates no affordable attempt from a batch too large to price (PT-83 review)', () => {
+    const NET_VALUES = [-500, 1500];
+    const base = {
+        attemptPaysProbability: 0.5,
+        costPerAttempt: 500,
+        netValues: NET_VALUES,
+    };
+    const SEED = 7;
+
+    it('prices a small affordable batch', () => {
+        const pricing = priceBatchLoss(base, 100_000, SEED);
+        expect(pricing.status).toBe(BatchLossStatus.Priced);
+        if (pricing.status !== BatchLossStatus.Priced) return;
+        expect(pricing.probability).toBeGreaterThan(0.2);
+        expect(pricing.probability).toBeLessThan(0.3);
+    });
+
+    it('reports no attempt when the bankroll is below one attempt cost', () => {
+        expect(priceBatchLoss(base, 49_999, SEED).status).toBe(
+            BatchLossStatus.NoAttempt,
+        );
+    });
+
+    it('reports unpriced, not no attempt, when the bankroll affords more attempts than a batch can simulate', () => {
+        const cheap = { ...base, costPerAttempt: 1 };
+        expect(priceBatchLoss(cheap, 5_000_000_000, SEED).status).toBe(
+            BatchLossStatus.Unpriced,
+        );
+    });
+
+    it('still prices a bankroll that affords a thousand attempts', () => {
+        const cheap = { ...base, costPerAttempt: 10 };
+        expect(priceBatchLoss(cheap, 1_000_000, SEED).status).toBe(
+            BatchLossStatus.Priced,
+        );
     });
 });

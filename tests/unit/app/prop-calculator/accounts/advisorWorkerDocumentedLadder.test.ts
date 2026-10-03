@@ -9,6 +9,7 @@ import {
 import {
     type AccountState,
     ApexVariant,
+    dollars,
     findFirm,
     FirmId,
     type Plan,
@@ -20,6 +21,8 @@ import {
     EvalSizingAdvisor,
     LadderEngineOptimumResultKind,
     type LadderSearchRequest,
+    NO_PENDING_PAYOUT_COUNTS,
+    NO_PERSONAL_CAPS,
 } from '~/lib/prop-calculator/advisor';
 
 function apexEod50k(): Plan {
@@ -61,10 +64,16 @@ function ladderRequest(): LadderSearchRequest {
             plan: PLAN,
             resolvedDailyLossLimit: null,
             state: STATE,
+            ...NO_PENDING_PAYOUT_COUNTS,
         },
         maxEvalDays: 150,
+        personalCaps: {
+            ...NO_PERSONAL_CAPS,
+            maxRiskPerTrade: dollars(300),
+            maxTradesPerDay: 2,
+        },
         rulebook: DEFAULT_RULEBOOK,
-        sims: 200,
+        sims: 40,
         snapshotAsOf: '2026-09-26',
         substate: null,
         today: '2026-09-26',

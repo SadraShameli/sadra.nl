@@ -1,3 +1,4 @@
+import { planReferenceOf } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollModel';
 import {
     DEFAULT_FUNDED_HORIZON_DAYS,
     DEFAULT_MAX_EVAL_DAYS,
@@ -9,7 +10,7 @@ import {
     ToolsRequestKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { DEFAULT_REALIZED_HORIZON_DAYS } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { NOT_APPLICABLE } from '~/lib/format';
+import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     accountRoundId,
     compareText,
@@ -26,6 +27,7 @@ import {
     realizedOutcomes,
     RoundStatus,
     roundStatusLabel,
+    type SampledEstimate,
     SampleLevel,
     summarizeCash,
     usdCents,
@@ -132,6 +134,7 @@ export interface NextRoundResultSummary {
 }
 
 export interface RoundFirmSummaryRow {
+    readonly closedRounds: string;
     readonly firm: string;
     readonly key: string;
     readonly max: string;
@@ -146,8 +149,10 @@ export interface RoundRow {
     readonly budgetPercentUsed: null | number;
     readonly budgetText: string;
     readonly closedOn: null | string;
+    readonly cycleDays: string;
     readonly firm: string;
     readonly id: string;
+    readonly inProgressText: string;
     readonly label: string;
     readonly likeThisEndsNetNegativeClosedForm: string;
     readonly likeThisEndsNetNegativeModeled: string;
@@ -155,6 +160,7 @@ export interface RoundRow {
     readonly openedOn: string;
     readonly openMemberCount: number;
     readonly ownOutcomeNetNegative: boolean;
+    readonly payoutsCents: string;
     readonly realizedMultiple: string;
     readonly status: RoundStatus;
     readonly statusLabel: string;
@@ -365,8 +371,22 @@ export function roundsPageModel(
     };
 }
 
+function formatCycleDays(days: null | number): string {
+    if (days === null) return NOT_APPLICABLE;
+    return `${String(days)} day${days === 1 ? '' : 's'}`;
+}
+
 function formatMultiple(value: null | number): string {
     return value === null ? NOT_APPLICABLE : `${value.toFixed(2)}x`;
+}
+
+function formatSharePositive(share: null | SampledEstimate): string {
+    if (share === null) return NOT_APPLICABLE;
+    const intervalText =
+        share.interval === null
+            ? ''
+            : `95% CI ${formatPercent(share.interval.lower)} to ${formatPercent(share.interval.upper)}, `;
+    return `${formatPercent(share.value)} (${intervalText}n = ${String(share.n)})`;
 }
 
 function medianMonthlyNetOf(
@@ -444,11 +464,10 @@ function nextRoundEligibilityOf(
         leftOutLabels,
         payoutsCents: cash.payouts,
         plan: resolved.plan.plan,
-        planReference: {
-            firmId: resolved.plan.firm.id,
-            optIns: normalizedPlanOptIns(resolved.row.optIns),
-            planSerial: resolved.plan.planSerial,
-        },
+        planReference: planReferenceOf(
+            resolved.plan.plan,
+            normalizedPlanOptIns(resolved.row.optIns),
+        ),
         round,
         spendCents: cash.spend,
     };
@@ -515,6 +534,7 @@ function roundFirmSummaryRow(
     firms: readonly ExternalFirmName[],
 ): RoundFirmSummaryRow {
     return {
+        closedRounds: String(row.closedRounds),
         firm: firmKeyLabel(row.firmKey, firms),
         key: firmKeyId(row.firmKey),
         max: formatMultiple(row.max),
@@ -522,10 +542,7 @@ function roundFirmSummaryRow(
         min: formatMultiple(row.min),
         rounds: String(row.rounds),
         sampleLevel: row.sampleLevel,
-        sharePositive:
-            row.sharePositive === null
-                ? NOT_APPLICABLE
-                : `${(row.sharePositive * 100).toFixed(0)}%`,
+        sharePositive: formatSharePositive(row.sharePositive),
     };
 }
 
@@ -544,11 +561,16 @@ function roundRow(
                 ? `${formatUsdCents(usdCents(budget.spentCents))} spent (no budget set)`
                 : `${formatUsdCents(usdCents(budget.spentCents))} of ${formatUsdCents(usdCents(budget.budgetCents))}`,
         closedOn: round.closedOn,
+        cycleDays: formatCycleDays(round.cycleDays),
         firm:
             round.firmKey === null
                 ? NOT_APPLICABLE
                 : firmKeyLabel(round.firmKey, firms),
         id: round.id,
+        inProgressText:
+            round.openMemberCount === 0
+                ? 'none'
+                : `${String(round.openMemberCount)} in progress`,
         label: round.label,
         likeThisEndsNetNegativeClosedForm:
             round.likeThisEndsNetNegativeClosedForm === null
@@ -562,6 +584,7 @@ function roundRow(
         openedOn: round.openedOn,
         openMemberCount: round.openMemberCount,
         ownOutcomeNetNegative: round.ownOutcomeNetNegative,
+        payoutsCents: formatUsdCents(usdCents(round.payoutsCents)),
         realizedMultiple: formatMultiple(round.realizedMultiple?.value ?? null),
         status: round.status,
         statusLabel: roundStatusLabel(round.status),

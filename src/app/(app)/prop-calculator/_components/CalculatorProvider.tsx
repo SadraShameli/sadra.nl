@@ -26,19 +26,33 @@ import {
     type LadderSlotEvent,
 } from './ladderResultSlot';
 import { type CalculatorState, ChartType } from './types';
+import { type EncodeStateOptions } from './urlState';
 import { type BaseSimulationRun, useBaseSimulation } from './useBaseSimulation';
 import {
     type CalculatorActions,
+    ObjectiveOrigin,
     type PinnedScenario,
     pinScenario,
+    signedInAutomaticObjective,
     signedInDefaultObjective,
     SIM_DEBOUNCE_MS,
     useCalculator,
 } from './useCalculator';
 import { ComputationCacheContext } from './useDebouncedSimulation';
 
+export enum ObjectiveQueryFailure {
+    BankrollSummary = 'bankroll-summary',
+    Rulebook = 'rulebook',
+}
+
+export interface AutomaticObjectiveBasis {
+    availableCents: number;
+    switchCents: null | number;
+}
+
 export interface CalculatorInputs {
     debouncedQuery: string;
+    encodeOptions: EncodeStateOptions;
     firms: typeof ALL_FIRMS;
     planOptIns: PlanOptIns;
     simInputs: SimInputs;
@@ -62,15 +76,26 @@ export interface CalculatorProviderActions extends CalculatorActions {
     ) => void;
 }
 
+export interface ObjectiveChoice {
+    automaticBasis: AutomaticObjectiveBasis | null;
+    queryFailure: null | ObjectiveQueryFailure;
+}
+
 interface CalculatorProviderProperties {
     children: ReactNode;
 }
+
+const NO_OBJECTIVE_CHOICE: ObjectiveChoice = {
+    automaticBasis: null,
+    queryFailure: null,
+};
 
 const CalculatorInputsContext = createContext<CalculatorInputs | null>(null);
 const BaseResultContext = createContext<BaseSimulationRun | null>(null);
 const LabSlotsContext = createContext<CalculatorLabSlots | null>(null);
 const CalculatorActionsContext =
     createContext<CalculatorProviderActions | null>(null);
+const ObjectiveChoiceContext = createContext<ObjectiveChoice>(NO_OBJECTIVE_CHOICE);
 
 export function CalculatorProvider({ children }: CalculatorProviderProperties) {
     const calculator = useCalculator();
@@ -94,23 +119,49 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
     );
 
     const calculatorActions = calculator.actions;
-    const { hasLinkObjective } = calculator;
+    const {
+        applyAutomaticObjective,
+        hasLinkObjective,
+        objectiveOrigin,
+        rememberAutomaticObjective,
+    } = calculator;
     const { objective } = calculator.state;
     const initialObjective = useRef(objective);
     const hasChosenObjectiveReference = useRef(false);
+    const [automaticBasis, setAutomaticBasis] =
+        useState<AutomaticObjectiveBasis | null>(null);
     const session = useSession();
     const hasSession = session.data?.user.id !== undefined;
-    const rulebook = api.propAccounts.rulebook.get.useQuery(undefined, {
+    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
         enabled: hasSession,
-    }).data;
-    const availableCents = api.propAccounts.bankroll.summary.useQuery(
-        undefined,
-        {
-            enabled: hasSession,
-            refetchOnWindowFocus: false,
-            staleTime: Infinity,
-        },
-    ).data?.availableCents;
+    });
+    const summaryQuery = api.propAccounts.bankroll.summary.useQuery(undefined, {
+        enabled: hasSession,
+        refetchOnWindowFocus: false,
+        staleTime: Infinity,
+    });
+    const rulebook = rulebookQuery.data;
+    const availableCents = summaryQuery.data?.availableCents;
+    useEffect(() => {
+        if (!hasSession || availableCents === undefined || rulebook === undefined) {
+            rememberAutomaticObjective(null);
+            setAutomaticBasis(null);
+            return;
+        }
+        const automatic = signedInAutomaticObjective({
+            availableCents,
+            bankroll: rulebook.bankroll,
+        });
+        rememberAutomaticObjective(automatic);
+        setAutomaticBasis(
+            automatic === null
+                ? null
+                : {
+                      availableCents,
+                      switchCents: rulebook.bankroll.objectiveSwitchCents,
+                  },
+        );
+    }, [availableCents, hasSession, rememberAutomaticObjective, rulebook]);
     useEffect(() => {
         if (
             !hasSession ||
@@ -125,17 +176,44 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
             availableCents,
             bankroll: rulebook.bankroll,
             hasLinkObjective,
-            isObjectiveChanged: objective !== initialObjective.current,
+            isObjectiveChanged:
+                objectiveOrigin === ObjectiveOrigin.Chosen ||
+                objective !== initialObjective.current,
         });
-        if (chosen !== null) calculatorActions.setObjective(chosen);
+        if (chosen === null) return;
+        applyAutomaticObjective(chosen);
     }, [
+        applyAutomaticObjective,
         availableCents,
-        calculatorActions,
         hasLinkObjective,
         hasSession,
         objective,
+        objectiveOrigin,
         rulebook,
     ]);
+    const isAwaitingObjectiveChoice =
+        hasSession && objectiveOrigin === ObjectiveOrigin.Default;
+    const objectiveChoice = useMemo<ObjectiveChoice>(
+        () => ({
+            automaticBasis:
+                objectiveOrigin === ObjectiveOrigin.Automatic
+                    ? automaticBasis
+                    : null,
+            queryFailure: isAwaitingObjectiveChoice
+                ? objectiveQueryFailure(
+                      summaryQuery.isError,
+                      rulebookQuery.isError,
+                  )
+                : null,
+        }),
+        [
+            automaticBasis,
+            isAwaitingObjectiveChoice,
+            objectiveOrigin,
+            rulebookQuery.isError,
+            summaryQuery.isError,
+        ],
+    );
     const actions = useMemo<CalculatorProviderActions>(
         () => ({
             ...calculatorActions,
@@ -154,16 +232,18 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
         [calculatorActions],
     );
 
-    const { debouncedQuery, planOptIns, simInputs, state } = calculator;
+    const { debouncedQuery, encodeOptions, planOptIns, simInputs, state } =
+        calculator;
     const inputs = useMemo<CalculatorInputs>(
         () => ({
             debouncedQuery,
+            encodeOptions,
             firms: ALL_FIRMS,
             planOptIns,
             simInputs,
             state,
         }),
-        [debouncedQuery, planOptIns, simInputs, state],
+        [debouncedQuery, encodeOptions, planOptIns, simInputs, state],
     );
 
     const { error, isPending, result } = base;
@@ -183,7 +263,11 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
                 <CalculatorInputsContext.Provider value={inputs}>
                     <BaseResultContext.Provider value={baseResult}>
                         <LabSlotsContext.Provider value={labSlots}>
-                            {children}
+                            <ObjectiveChoiceContext.Provider
+                                value={objectiveChoice}
+                            >
+                                {children}
+                            </ObjectiveChoiceContext.Provider>
                         </LabSlotsContext.Provider>
                     </BaseResultContext.Provider>
                 </CalculatorInputsContext.Provider>
@@ -211,6 +295,18 @@ export function useCalculatorInputs(): CalculatorInputs {
 
 export function useLabSlots(): CalculatorLabSlots {
     return required(useContext(LabSlotsContext), 'useLabSlots');
+}
+
+export function useObjectiveChoice(): ObjectiveChoice {
+    return useContext(ObjectiveChoiceContext);
+}
+
+function objectiveQueryFailure(
+    isSummaryFailed: boolean,
+    isRulebookFailed: boolean,
+): null | ObjectiveQueryFailure {
+    if (isSummaryFailed) return ObjectiveQueryFailure.BankrollSummary;
+    return isRulebookFailed ? ObjectiveQueryFailure.Rulebook : null;
 }
 
 function required<T>(value: null | T, hook: string): T {

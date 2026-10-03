@@ -16,7 +16,11 @@ import {
     computeTopStepLiveStartingBalance,
     TopStep,
 } from '~/lib/prop-calculator/firms';
-import { runLiveDay, runLiveHorizon } from '~/lib/prop-calculator/simulator';
+import {
+    runLiveDay,
+    runLiveHorizon,
+    simulateLiveAccount,
+} from '~/lib/prop-calculator/simulator';
 
 describe('computeTopStepLiveStartingBalance', () => {
     it('is exactly the $10,000 floor when 20% of the reserve is below the floor', () => {
@@ -194,11 +198,83 @@ describe('TopStep LFA $1,000 auto-liquidation floor (N-44, help.topstep.com arti
         expect(plan.isBust({ ...state, balance: 1000.01 })).toBe(false);
     });
 
-    it('treats a balance of exactly $1,000.00 as a breach (decision T17: reaching the line closes the account)', () => {
+    it('keeps a balance of exactly $1,000.00 alive and busts at $999.99: the firm says the account closes when the balance "drops below $1,000", so reaching the line is not yet a breach (WP62b, N-94 (a); the T17 at-or-below reading stays for every plan whose firm says reaching the limit closes it)', () => {
         const plan = buildTopStepLivePlan();
         const state = plan.initialState();
 
-        expect(plan.isBust({ ...state, balance: 1000 })).toBe(true);
+        expect(plan.isBust({ ...state, balance: 1000 })).toBe(false);
+        expect(plan.isBust({ ...state, balance: 1000.01 })).toBe(false);
+        expect(plan.isBust({ ...state, balance: 999.99 })).toBe(true);
+    });
+
+    it('still places its minimum trade at a balance of exactly $1,000.00 and busts on that trade, instead of sizing to risk 0 and idling into a false inactivity closure', () => {
+        const result = runLiveHorizon({
+            commission: dollars(0),
+            horizonDays: 500,
+            payoutRequestSize: undefined,
+            plan: buildTopStepLivePlan(),
+            positionSizing: {
+                instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+                stopPoints: points(22.5),
+            },
+            retainedCushion: dollars(0),
+            rng: () => 0.999,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            winrate: fraction(0),
+        });
+
+        expect(result.busted).toBe(true);
+        expect(result.closedForInactivity).toBe(false);
+        expect(result.daysToBust).toBe(21);
+        expect(result.liquidationPayout).toBeCloseTo(0.9 * 550, 9);
+    });
+
+    it.each([200, 0.005, 1e-10])(
+        'busts a commission-free one-contract loss from a cushion of $%d, since the stop-out crosses below the floor instead of the capped loss landing exactly on it',
+        (cushion) => {
+            const plan = buildTopStepLivePlan();
+            const state = plan.initialState();
+            state.balance = state.threshold + cushion;
+
+            const outcome = runLiveDay({
+                commission: dollars(0),
+                plan,
+                positionSizing: {
+                    instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+                    stopPoints: points(20),
+                },
+                rng: () => 0.999,
+                rrRatio: 2,
+                state,
+                tradesPerDay: 1,
+                winrate: fraction(0),
+            });
+
+            expect(outcome.busted).toBe(true);
+            expect(outcome.closedForInactivity).toBe(false);
+            expect(state.balance).toBeLessThan(state.threshold);
+        },
+    );
+
+    it('reports no inactivity closure and a full bust rate for a commission-free loss streak that lands exactly on the floor', () => {
+        const out = simulateLiveAccount({
+            commissionPerRoundTrip: 0,
+            horizonDays: 500,
+            instrument: InstrumentSymbol.NQ,
+            plan: buildTopStepLivePlan(),
+            retainedCushion: 0,
+            rrRatio: 2,
+            seed: 7,
+            stopPoints: 22.5,
+            tradesPerDay: 1,
+            trials: 10,
+            winrate: 0,
+        });
+
+        expect(out.liveBustProbability).toBe(1);
+        expect(out.liveInactivityClosureProbability).toBe(0);
+        expect(out.medianDaysToBust).toBe(21);
     });
 
     it('sizes off the $9,000 distance to the floor, not the whole $10,000 balance', () => {
@@ -225,10 +301,10 @@ describe('TopStep LFA payouts from the unlocked seed balance (N-44, article 8284
         ).toBe(750);
     });
 
-    it('after 30 winning days drains the unlocked balance to one cent above the $1,000 floor: "request as much of your unlocked balance as you want"', () => {
+    it('after 30 winning days drains the unlocked balance to exactly the $1,000 floor, which stays alive until the balance drops below it (WP62c, T23): "request as much of your unlocked balance as you want"', () => {
         const { plan, state } = lfaStateWith(2000, 30);
 
-        expect(plan.withdrawableAmount(state, dollars(0))).toBe(10_999.99);
+        expect(plan.withdrawableAmount(state, dollars(0))).toBe(11_000);
     });
 });
 
@@ -393,7 +469,7 @@ describe('TopStep LFA Reserve and Capital Expansion (N-44, article 10657969: "80
         expect(
             plan.withdrawableAmount(state, plan.defaultRetainedCushion()),
         ).toBe(52_000);
-        expect(plan.withdrawableAmount(state, dollars(0))).toBe(60_999.99);
+        expect(plan.withdrawableAmount(state, dollars(0))).toBe(61_000);
     });
 
     it('still holds three released increments back while the fourth is pending', () => {

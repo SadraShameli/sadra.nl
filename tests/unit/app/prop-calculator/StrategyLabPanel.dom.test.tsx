@@ -31,14 +31,13 @@ import {
     MffuVariant,
     type Plan,
 } from '~/lib/prop-calculator';
-import { LiveApplicabilityNote } from '~/lib/prop-calculator/advisor';
 import {
     ECONOMICS_DISCLOSURE_TEXT,
     ECONOMICS_REASON_TEXT,
     EconomicsDisclosure,
     EconomicsReason,
 } from '~/lib/prop-calculator/economics';
-import { findFirm } from '~/lib/prop-calculator/firms';
+import { findFirm, LiveApplicabilityNote } from '~/lib/prop-calculator/firms';
 import {
     LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
     LIVE_TRANSFER_CONTINUATION_TEXT,
@@ -46,6 +45,8 @@ import {
     LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT,
     LiveTransferContinuationKind,
 } from '~/lib/prop-calculator/simulator';
+
+import { InlineToolsWorker } from './labWorkerFixtures';
 
 vi.mock('next/dynamic', () => ({ default: () => renderNothing }));
 
@@ -222,6 +223,7 @@ describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.stubGlobal('Worker', InlineToolsWorker);
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -389,6 +391,7 @@ describe('StrategyLabPanel lifetime cap pooling gap (PT-12h, F-110 REV-5)', () =
     beforeEach(() => {
         vi.useFakeTimers();
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.stubGlobal('Worker', InlineToolsWorker);
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -479,6 +482,7 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.stubGlobal('Worker', InlineToolsWorker);
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);

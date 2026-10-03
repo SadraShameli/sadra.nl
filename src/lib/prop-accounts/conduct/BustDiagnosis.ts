@@ -1,6 +1,8 @@
 import {
     BustCause,
     bustCauseLabel,
+    CentsDisplay,
+    formatUsdCents,
     type RuleViolationKind,
     ruleViolationKindLabel,
     type UsdCents,
@@ -14,6 +16,7 @@ export enum BustDiagnosisKind {
 
 export enum BustEvidenceKind {
     BustCause = 'bust-cause',
+    DecisionsFollowed = 'decisions-followed',
     RiskAboveAccepted = 'risk-above-accepted',
     Violation = 'violation',
 }
@@ -68,7 +71,7 @@ export function bustDiagnosisOf(input: BustDiagnosisInput): BustDiagnosis {
     for (const decision of input.decisions) {
         if (isActualRiskAboveAccepted(decision)) {
             evidence.push({
-                detail: `Actual risk ${String(decision.actualRiskCents)}c exceeded the accepted risk ${String(decision.acceptedRiskCents)}c`,
+                detail: `Actual risk ${formatUsdCents(decision.actualRiskCents, CentsDisplay.Always)} exceeded the accepted risk ${formatUsdCents(decision.acceptedRiskCents, CentsDisplay.Always)}`,
                 kind: BustEvidenceKind.RiskAboveAccepted,
             });
         }
@@ -83,14 +86,21 @@ export function bustDiagnosisOf(input: BustDiagnosisInput): BustDiagnosis {
         input.decisions.length > 0 &&
         input.bustCause === BustCause.MaxDrawdown &&
         isDecisionsFollowed;
-    return isWithinPlan
-        ? { evidence: [], kind: BustDiagnosisKind.WithinPlan }
-        : { evidence: [], kind: BustDiagnosisKind.Unknown };
+    if (!isWithinPlan) return { evidence: [], kind: BustDiagnosisKind.Unknown };
+    return {
+        evidence: [
+            {
+                detail: `${String(input.decisions.length)} recorded ${input.decisions.length === 1 ? 'decision' : 'decisions'}, none above the accepted risk; the bust cause is max drawdown`,
+                kind: BustEvidenceKind.DecisionsFollowed,
+            },
+        ],
+        kind: BustDiagnosisKind.WithinPlan,
+    };
 }
 
 export function isActualRiskAboveAccepted(
     decision: BustDiagnosisDecision,
-): boolean {
+): decision is BustDiagnosisDecision & { readonly actualRiskCents: UsdCents } {
     return (
         decision.actualRiskCents !== null &&
         decision.actualRiskCents > decision.acceptedRiskCents

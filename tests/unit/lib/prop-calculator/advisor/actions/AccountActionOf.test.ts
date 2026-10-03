@@ -56,6 +56,7 @@ function adviceFixture(overrides: Partial<Advice> = {}): Advice {
 function dailyPlanCardFixture(hasRungs: boolean): DailyPlanCard {
     const rungs = hasRungs ? documentedSizingFixture().rungs : [];
     return {
+        oneContractRisk: null,
         rungPlacements: rungs.map(() => RungPlacement.NotChecked),
         rungs,
         stopCappedBy: [],

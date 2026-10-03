@@ -11,9 +11,11 @@ import {
     formatUsdCents,
     PayoutStatus,
     usdCents,
+    usdCentsFromDollars,
 } from '~/lib/prop-accounts/core';
 import { fundedWithdrawableDollarsOf } from '~/lib/prop-accounts/metrics';
 import {
+    dollars,
     E8FuturesVariant,
     findFirm,
     FirmId,
@@ -32,7 +34,12 @@ import {
     mffProPlan,
     reconstructedEntry,
 } from '../reconstructionFixtures';
-import { accountFor, alertsOf, paidPayout } from './alertFixtures';
+import {
+    accountFor,
+    alertsOf,
+    paidPayout,
+    personalPoliciesFor,
+} from './alertFixtures';
 
 const rule = new PayoutReadyWithdrawableDropRule();
 
@@ -90,6 +97,23 @@ function eligiblePreviousFunded(
     return funded;
 }
 
+function nearFlatFixtures() {
+    const plan = mffProPlan();
+    const account = accountFor(
+        { firmId: plan.id.firm, plan },
+        { stage: AccountStage.Funded },
+    );
+    const previous = eligiblePreviousFunded(plan, plan.accountSize + 20_000);
+    const latest = fundedReconstructed(plan, {
+        balance: plan.accountSize + 19_500,
+        cumulativePayout: 0,
+        cycleBestDayProfit: 19_500,
+        lastPayoutBalance: plan.accountSize,
+        payoutsIssued: 1,
+    });
+    return { account, latest, plan, previous };
+}
+
 function paidBetweenFixtures() {
     const plan = mffProPlan();
     const account = accountFor(
@@ -111,6 +135,16 @@ function paidBetweenFixtures() {
             100,
     );
     return { account, droppedCents, latest, plan, previous, rulebook };
+}
+
+function personalCushionRulebook(cushion: number): RulebookParameters {
+    return {
+        ...rulebookWithLossFraction(0.2),
+        payout: {
+            ...DEFAULT_RULEBOOK.payout,
+            retainedCushionCents: usdCents(cushion * 100),
+        },
+    };
 }
 
 function planOf(id: PlanId): Plan {
@@ -680,6 +714,113 @@ describe('PayoutReadyWithdrawableDropRule', () => {
             });
             expect(alerts).toHaveLength(1);
             expect(alerts[0]?.severity).toBe(AlertSeverity.Critical);
+        });
+    });
+
+    describe('an account with personal payout rules', () => {
+        it('measures the drop against the withdrawable under the personal retained cushion', () => {
+            const { account, latest, plan, previous } = nearFlatFixtures();
+            const cushion = 18_500;
+            const rulebook = personalCushionRulebook(cushion);
+            const before = fundedWithdrawableDollarsOf(rulebook, previous);
+            const after = fundedWithdrawableDollarsOf(rulebook, latest);
+            expect(before).toBeGreaterThan(0);
+            expect((before - after) / before).toBeGreaterThan(0.2);
+            const state = [
+                reconstructedEntry(account.id, plan, latest, { previous }),
+            ];
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: state,
+                    rulebook: rulebookWithLossFraction(0.2),
+                }),
+            ).toEqual([]);
+            const personalPolicies = personalPoliciesFor(account, {
+                retainedCushionRequest: dollars(cushion),
+            });
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: state,
+                personalPolicies,
+                rulebook: rulebookWithLossFraction(0.2),
+            });
+            expect(alerts).toHaveLength(1);
+            const beforeText = formatUsdCents(usdCentsFromDollars(before));
+            expect(alerts[0]?.message).toContain(beforeText);
+        });
+
+        it('is silent when the personal retained cushion means the account was never payout-ready', () => {
+            const plan = mffProPlan();
+            const account = accountFor(
+                { firmId: plan.id.firm, plan },
+                { stage: AccountStage.Funded },
+            );
+            const previous = eligiblePreviousFunded(
+                plan,
+                plan.accountSize + 20_000,
+            );
+            const latest = fundedReconstructed(plan, {
+                balance: plan.accountSize + 1000,
+                cumulativePayout: 0,
+                cycleBestDayProfit: 1000,
+                lastPayoutBalance: plan.accountSize,
+                payoutsIssued: 1,
+            });
+            const state = [
+                reconstructedEntry(account.id, plan, latest, { previous }),
+            ];
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: state,
+                    rulebook: rulebookWithLossFraction(0.2),
+                }),
+            ).toHaveLength(1);
+            const personalPolicies = personalPoliciesFor(account, {
+                retainedCushionRequest: dollars(30_000),
+            });
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: state,
+                    personalPolicies,
+                    rulebook: rulebookWithLossFraction(0.2),
+                }),
+            ).toEqual([]);
+        });
+
+        it('requires the previous snapshot to cover the personal request override', () => {
+            const plan = mffProPlan();
+            const account = accountFor(
+                { firmId: plan.id.firm, plan },
+                { stage: AccountStage.Funded },
+            );
+            const previous = eligiblePreviousFunded(
+                plan,
+                plan.accountSize + 20_000,
+            );
+            const latest = fundedReconstructed(plan, {
+                balance: plan.accountSize + 1000,
+                cumulativePayout: 0,
+                cycleBestDayProfit: 1000,
+                lastPayoutBalance: plan.accountSize,
+                payoutsIssued: 1,
+            });
+            const state = [
+                reconstructedEntry(account.id, plan, latest, { previous }),
+            ];
+            const personalPolicies = personalPoliciesFor(account, {
+                payoutRequestOverride: dollars(1_000_000),
+            });
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: state,
+                    personalPolicies,
+                    rulebook: rulebookWithLossFraction(0.2),
+                }),
+            ).toEqual([]);
         });
     });
 });

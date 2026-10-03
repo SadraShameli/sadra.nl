@@ -21,7 +21,11 @@ import {
     useCalculatorActions,
     useCalculatorInputs,
 } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
-import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import {
+    type CalculatorAction,
+    CalculatorActionType,
+    defaultCalculatorState,
+} from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import FirmComparisonTable from '~/app/(app)/prop-calculator/_components/FirmComparisonTable';
 import PlanComparisonTable from '~/app/(app)/prop-calculator/_components/PlanComparisonTable';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
@@ -30,7 +34,14 @@ import {
     type OpenInSimulator,
     useOpenInSimulator,
 } from '~/app/(app)/prop-calculator/_components/useOpenInSimulator';
-import { findFirm, parseFirmId, serializePlanId } from '~/lib/prop-calculator';
+import {
+    findFirm,
+    FirmId,
+    parseFirmId,
+    serializePlanId,
+} from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import { OBJECTIVE_URL_PARAMETER } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 
 enum ComparisonTable {
@@ -90,11 +101,13 @@ vi.mock('~/trpc/react', () => ({
 }));
 
 const observed: {
+    dispatch: ((action: CalculatorAction) => void) | null;
     handlers: OpenInSimulator[];
     location: null | URL;
     setWinrate: ((value: number) => void) | null;
     state: CalculatorState | null;
 } = {
+    dispatch: null,
     handlers: [],
     location: null,
     setWinrate: null,
@@ -126,13 +139,14 @@ function CompareProbe({ table }: { table: ComparisonTable }) {
 
 function HandlerProbe() {
     const { planOptIns, state } = useCalculatorInputs();
-    const { setWinrate } = useCalculatorActions();
+    const { dispatch, setWinrate } = useCalculatorActions();
     const open = useOpenInSimulator(planOptIns);
     useEffect(() => {
+        observed.dispatch = dispatch;
         observed.handlers.push(open);
         observed.setWinrate = setWinrate;
         observed.state = state;
-    }, [open, setWinrate, state]);
+    }, [dispatch, open, setWinrate, state]);
     return null;
 }
 
@@ -159,6 +173,22 @@ function pathnameOf(url: null | string | undefined | URL): string {
     return new URL(String(url ?? ''), ORIGIN).pathname;
 }
 
+function pushedObjective(): null | string {
+    const firm = findFirm(FirmId.TopStep);
+    const plan = firm?.plans[0];
+    if (firm === undefined || plan === undefined) {
+        throw new Error('no plan to open');
+    }
+    act(() => {
+        observed.handlers.at(-1)?.(firm, plan);
+    });
+    const pushed = new URL(
+        String(navigation.router.push.mock.calls.at(-1)?.[0]),
+        ORIGIN,
+    );
+    return pushed.searchParams.get(OBJECTIVE_URL_PARAMETER);
+}
+
 describe('Open in the simulator from a comparison table', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -169,6 +199,7 @@ describe('Open in the simulator from a comparison table', () => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         navigation.router.push.mockClear();
         navigation.router.replace.mockClear();
+        observed.dispatch = null;
         observed.handlers = [];
         observed.location = null;
         observed.setWinrate = null;
@@ -302,5 +333,46 @@ describe('Open in the simulator from a comparison table', () => {
         });
         expect(observed.state?.winrate).not.toBe(before);
         expect(new Set(observed.handlers).size).toBe(1);
+    });
+
+    function openFromHandler(start: string): URL {
+        const compare = `${routes.propCalculator.compare}${start}`;
+        window.history.replaceState(null, '', compare);
+        act(() => {
+            root.render(
+                <Location start={compare}>
+                    <CalculatorProvider>
+                        <HandlerProbe />
+                    </CalculatorProvider>
+                </Location>,
+            );
+        });
+        return new URL(compare, ORIGIN);
+    }
+
+    it('carries a deliberately chosen MonthlyNet into the simulator link (PT-63d, F-V15)', () => {
+        openFromHandler('');
+        act(() => {
+            observed.dispatch?.({
+                objective: SizingObjective.MonthlyNet,
+                type: CalculatorActionType.SetObjective,
+            });
+        });
+        expect(pushedObjective()).toBe(SizingObjective.MonthlyNet);
+    });
+
+    it('carries an objective the page was opened with into the simulator link (PT-63d)', () => {
+        openFromHandler(
+            `?${encodeState({
+                ...defaultCalculatorState(),
+                objective: SizingObjective.CycleCash,
+            }).toString()}`,
+        );
+        expect(pushedObjective()).toBe(SizingObjective.CycleCash);
+    });
+
+    it('writes no objective when none was chosen, so the simulator picks its own default (PT-63d)', () => {
+        openFromHandler('');
+        expect(pushedObjective()).toBeNull();
     });
 });

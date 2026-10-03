@@ -2,6 +2,10 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ComputationCache } from '~/app/(app)/prop-calculator/_components/computationCache';
+import { ComputationCacheContext } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
+import { AccountsCacheProvider } from '~/app/(app)/prop-calculator/accounts/_components/AccountsCacheProvider';
+import { AdvicePanel } from '~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel';
 import {
     AccountStage,
     AccountStatus,
@@ -164,18 +168,6 @@ function engineWorkers() {
     );
 }
 
-async function loadAdviceModules() {
-    vi.resetModules();
-    const [provider, panel] = await Promise.all([
-        import('~/app/(app)/prop-calculator/accounts/_components/AccountsCacheProvider'),
-        import('~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel'),
-    ]);
-    return {
-        AccountsCacheProvider: provider.AccountsCacheProvider,
-        AdvicePanel: panel.AdvicePanel,
-    };
-}
-
 const accountCounter = { value: 0 };
 
 function account(
@@ -249,7 +241,7 @@ describe('the advice cache scope (PT-34c review)', () => {
     let root: Root;
     let accountId: string;
     let userId: string;
-    let modules: Awaited<ReturnType<typeof loadAdviceModules>>;
+    let cache: ComputationCache;
 
     function answerAll(
         personalRules: Record<string, unknown>,
@@ -270,13 +262,19 @@ describe('the advice cache scope (PT-34c review)', () => {
         harness.queries.set('violation.list', answer([]));
     }
 
-    function mountPage() {
+    function mountPage(sharedCache: ComputationCache | null = cache) {
         root = createRoot(container);
         act(() => {
             root.render(
-                <modules.AccountsCacheProvider>
-                    <modules.AdvicePanel id={accountId} />
-                </modules.AccountsCacheProvider>,
+                sharedCache === null ? (
+                    <AccountsCacheProvider>
+                        <AdvicePanel id={accountId} />
+                    </AccountsCacheProvider>
+                ) : (
+                    <ComputationCacheContext.Provider value={sharedCache}>
+                        <AdvicePanel id={accountId} />
+                    </ComputationCacheContext.Provider>
+                ),
             );
         });
         for (const worker of workerBox.FakeWorker.instances) {
@@ -292,8 +290,8 @@ describe('the advice cache scope (PT-34c review)', () => {
         });
     }
 
-    beforeEach(async () => {
-        modules = await loadAdviceModules();
+    beforeEach(() => {
+        cache = new ComputationCache();
         accountCounter.value += 1;
         accountId = `account-${accountCounter.value}`;
         userId = 'user-a';
@@ -318,6 +316,20 @@ describe('the advice cache scope (PT-34c review)', () => {
         document.body.replaceChildren();
         vi.useRealTimers();
         vi.unstubAllGlobals();
+    });
+
+    it('computes once and shows the advice from the accounts layout cache after navigating away and back with nothing changed', () => {
+        answerAll({});
+        mountPage(null);
+        expect(container.textContent).toContain('Sizing advice');
+        expect(engineWorkers()).toHaveLength(1);
+        leavePage();
+
+        mountPage(null);
+
+        expect(engineWorkers()).toHaveLength(1);
+        expect(container.textContent).toContain('Sizing advice');
+        leavePage();
     });
 
     it('computes once and shows the advice from the cache after navigating away and back with nothing changed', () => {

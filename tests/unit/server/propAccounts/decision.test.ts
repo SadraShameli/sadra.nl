@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { AccountStage } from '~/lib/prop-accounts';
+import { AccountStage, accountStageLabel } from '~/lib/prop-accounts';
 import { AdviceSource } from '~/lib/prop-calculator/advisor';
 import { PropMutationRejection } from '~/lib/schemas/propAccountOutputs';
 
@@ -10,6 +10,7 @@ import {
     readTable,
 } from '../fakeDatabase';
 import {
+    accountRow,
     callerFor,
     defined,
     errorShapeOf,
@@ -70,6 +71,64 @@ describe('propAccounts.decision', () => {
             queries.filter((query) => readTable(query) === TABLES.snapshot),
         ).toHaveLength(0);
         expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it.each([AccountStage.Funded, AccountStage.Live])(
+        'create rejects a client stage of %s that differs from the stored Eval stage, with the typed rejection, and writes nothing',
+        async (stage) => {
+            const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+            const shape = errorShapeOf(
+                await rejectionOf(caller.decision.create({ ...DECISION, stage })),
+            );
+            expect(shape.data.code).toBe('CONFLICT');
+            expect(shape.message).toContain('Eval');
+            expect(shape.message).toContain(accountStageLabel(stage));
+            expect(shape.data.propRejection).toEqual(
+                mutationRejection(PropMutationRejection.StageMismatch),
+            );
+            expect(insertsInto(queries, TABLES.decision)).toHaveLength(0);
+            expect(propWrites(queries)).toHaveLength(0);
+        },
+    );
+
+    it('create records the decision under the stage of the account it loaded when the client stage matches', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.decision.create(DECISION);
+        const [insert] = insertsInto(queries, TABLES.decision);
+        expect(insertedColumnValues(defined(insert), 'stage')).toEqual([
+            AccountStage.Eval,
+        ]);
+    });
+
+    it('create checks the stage against a funded account too', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [accountRow({ stage: AccountStage.Funded })],
+            }),
+        );
+        await expect(caller.decision.create(DECISION)).rejects.toMatchObject({
+            code: 'CONFLICT',
+        });
+        expect(propWrites(queries)).toHaveLength(0);
+        await caller.decision.create({
+            ...DECISION,
+            stage: AccountStage.Funded,
+        });
+        const [insert] = insertsInto(queries, TABLES.decision);
+        expect(insertedColumnValues(defined(insert), 'stage')).toEqual([
+            AccountStage.Funded,
+        ]);
+    });
+
+    it('create loads the account under a row lock, so a concurrent stage change cannot slip between the check and the insert', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.decision.create(DECISION);
+        const load = queries.find(
+            (query) => readTable(query) === TABLES.account,
+        );
+        expect(load?.text).toMatch(/ for update$/);
+        assertUserScopedWhere(defined(load), USER_ID);
     });
 
     it('create rejects a foreign snapshot id with NOT_FOUND and writes nothing', async () => {

@@ -8,6 +8,8 @@ import {
 } from '~/app/(app)/prop-calculator/_components/value/valueChainStepLabels';
 import { ValueChainStepKind } from '~/lib/prop-calculator/advisor/value';
 
+import { posixPath } from '../../posixPath';
+
 const APP_ROOT = path.resolve(import.meta.dirname, '../../../../src/app');
 const LABEL_LEAF =
     '(app)/prop-calculator/_components/value/valueChainStepLabels.ts';
@@ -51,7 +53,7 @@ describe('the value chain step labels (PT-37b, F-V18)', () => {
                     readFileSync(file, 'utf8'),
                 ),
             )
-            .map((file) => path.relative(APP_ROOT, file));
+            .map((file) => posixPath(path.relative(APP_ROOT, file)));
         expect(offenders).toEqual([LABEL_LEAF]);
     });
 
@@ -70,7 +72,7 @@ describe('the value chain step labels (PT-37b, F-V18)', () => {
                     readFileSync(file, 'utf8'),
                 ),
             )
-            .map((file) => path.relative(APP_ROOT, file));
+            .map((file) => posixPath(path.relative(APP_ROOT, file)));
         expect(builders).toEqual([LABEL_LEAF]);
     });
 });

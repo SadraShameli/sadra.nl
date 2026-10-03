@@ -15,12 +15,11 @@ import {
     describeLifecycleRejection,
     exclusivityAccountsOf,
     type ExclusivitySibling,
+    isExclusivitySiblingReadable,
     LEDGER_ONLY_LIFECYCLE_FACTS,
     LifecycleOutcomeKind,
     liveExclusivityEffectsOf,
-    PlanKeyResolutionKind,
     type PlanLifecycleFacts,
-    resolvePlanKey,
     suspendedAccountIdsOf,
 } from '~/lib/prop-accounts';
 import {
@@ -82,6 +81,10 @@ export const propEventRouter = createTRPCRouter({
             ctx.db.transaction(async (tx) => {
                 const quotas = await PropQuotaGuard.acquire(tx, ctx.userId);
                 const repo = new PropAccountRepo(tx, ctx.userId);
+                const firmAccounts =
+                    input.kind === AccountEventKind.MovedLive
+                        ? await lockedFirmAccountsOf(repo, input.accountId)
+                        : [];
                 const stored = await repo.loadOwnedAccountOrThrow(
                     input.accountId,
                     true,
@@ -132,7 +135,7 @@ export const propEventRouter = createTRPCRouter({
                     repo,
                     required:
                         input.kind === AccountEventKind.MovedLive
-                            ? await requiredSuspensionsOf(repo, movedLive)
+                            ? requiredSuspensionsOf(movedLive, firmAccounts)
                             : new Map(),
                     siblings,
                 });
@@ -270,19 +273,6 @@ function exclusivityRejection(message: string): PropMutationRejectionError {
     );
 }
 
-function isListedSiblingReadable(account: ListedSiblingRow): boolean {
-    switch (account.tracking) {
-        case AccountTracking.LedgerOnly: {
-            return true;
-        }
-        case AccountTracking.Modeled: {
-            return (
-                resolvePlanKey(account).kind === PlanKeyResolutionKind.Resolved
-            );
-        }
-    }
-}
-
 function lifecyclePlanOf(stored: OwnedAccount): null | Plan {
     switch (stored.tracking) {
         case AccountTracking.LedgerOnly: {
@@ -308,6 +298,14 @@ function listedSiblingOf(
     };
 }
 
+async function lockedFirmAccountsOf(
+    repo: PropAccountRepo,
+    accountId: string,
+): Promise<readonly ListedSiblingRow[]> {
+    const plan = lifecyclePlanOf(await repo.loadOwnedAccountOrThrow(accountId));
+    return plan === null ? [] : repo.lockFirmAccountsInIdOrder(plan.id.firm);
+}
+
 function lockedSiblingOf(sibling: LockedSibling): ExclusivitySibling {
     return {
         firmId: sibling.firmId,
@@ -323,37 +321,37 @@ async function lockedSiblingsOf(
     repo: PropAccountRepo,
     ids: readonly string[],
 ): Promise<readonly LockedSibling[]> {
-    const siblings: LockedSibling[] = [];
-    for (const id of ids) {
+    const loaded = new Map<string, LockedSibling>();
+    for (const id of ids.toSorted(compareText)) {
         const account = await ownedReferenceOrThrow(
             () => repo.loadOwnedAccountOrThrow(id, true),
             'An account you confirmed is not one of your accounts',
         );
         const plan = lifecyclePlanOf(account);
-        siblings.push({
+        loaded.set(id, {
             account,
             facts: plan ?? LEDGER_ONLY_LIFECYCLE_FACTS,
             firmId: plan === null ? storedFirmIdOf(account) : plan.id.firm,
             plan,
         });
     }
-    return siblings;
+    return ids.flatMap((id) => {
+        const sibling = loaded.get(id);
+        return sibling === undefined ? [] : [sibling];
+    });
 }
 
-async function requiredSuspensionsOf(
-    repo: PropAccountRepo,
+function requiredSuspensionsOf(
     movedLive: MovedLiveAccount,
-): Promise<ReadonlyMap<string, string>> {
+    firmAccounts: readonly ListedSiblingRow[],
+): ReadonlyMap<string, string> {
     const { plan } = movedLive;
     if (plan === null) return new Map();
-    const listed = await repo.listAccounts(
-        { firmId: plan.id.firm, includeArchived: false },
-        true,
-    );
-    const others = listed.filter(
+    const others = firmAccounts.filter(
         (account) =>
             account.id !== movedLive.account.id &&
-            isListedSiblingReadable(account),
+            account.archivedAt === null &&
+            isExclusivitySiblingReadable(account),
     );
     const suspendedIds = suspendSetOf(
         movedLive,

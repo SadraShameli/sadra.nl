@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BustDiagnosisCard } from '~/app/(app)/prop-calculator/accounts/_components/detail/BustDiagnosisCard';
 import {
     BustDiagnosisKind,
+    bustDiagnosisOf,
     BustEvidenceKind,
 } from '~/lib/prop-accounts/conduct';
+import { BustCause, usdCents } from '~/lib/prop-accounts/core';
 
 describe('BustDiagnosisCard', () => {
     let container: HTMLDivElement;
@@ -48,18 +50,45 @@ describe('BustDiagnosisCard', () => {
         );
     });
 
-    it('shows the WithinPlan label with no evidence to list', () => {
+    it('shows the WithinPlan label with the evidence the diagnosis returns and no empty-evidence line', () => {
+        const diagnosis = bustDiagnosisOf({
+            bustCause: BustCause.MaxDrawdown,
+            decisions: [
+                {
+                    acceptedRiskCents: usdCents(25_000),
+                    actualRiskCents: usdCents(25_000),
+                },
+                {
+                    acceptedRiskCents: usdCents(25_000),
+                    actualRiskCents: null,
+                },
+            ],
+            violations: [],
+        });
+        expect(diagnosis.kind).toBe(BustDiagnosisKind.WithinPlan);
+        act(() => {
+            root.render(<BustDiagnosisCard diagnosis={diagnosis} />);
+        });
+        expect(container.textContent).toContain('Within plan');
+        expect(container.textContent).toContain(
+            '2 recorded decisions, none above the accepted risk; the bust cause is max drawdown',
+        );
+        expect(container.textContent).not.toContain(
+            'No supporting evidence recorded.',
+        );
+    });
+
+    it('still says no evidence is recorded when a diagnosis has none', () => {
         act(() => {
             root.render(
                 <BustDiagnosisCard
                     diagnosis={{
                         evidence: [],
-                        kind: BustDiagnosisKind.WithinPlan,
+                        kind: BustDiagnosisKind.Unknown,
                     }}
                 />,
             );
         });
-        expect(container.textContent).toContain('Within plan');
         expect(container.textContent).toContain(
             'No supporting evidence recorded.',
         );

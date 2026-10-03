@@ -6,16 +6,17 @@ import {
 } from '~/lib/prop-accounts/bankroll';
 import {
     AccountStage,
+    dailyCapacityUnitsOf,
     type ExclusivityAccount,
     FirmEngagementStatus,
     firmKeyOf,
+    isActiveAccountRow,
     purchaseBlockedFirms,
     PurchaseBlockReason,
 } from '~/lib/prop-accounts/core';
 import { firmEngagementFor } from '~/lib/prop-accounts/firms';
 import {
     fundedSlotRoomOf,
-    isActiveAccount,
     isFirmPolicyVerified,
     modeledEntries,
     type PooledCapPlanRow,
@@ -50,9 +51,9 @@ import {
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
 import {
-    attemptsAffordable,
+    bankrollAttemptsAt,
+    bankrollNoPayoutAt,
     netPerScreenHour,
-    noPayoutProbability,
 } from '~/lib/prop-calculator/economics';
 import {
     type Estimate,
@@ -102,6 +103,11 @@ export enum NextSlotSizingBasis {
     Unsized = 'unsized',
 }
 
+export enum NextSlotSortKey {
+    Hour = 'hour',
+    Objective = 'objective',
+}
+
 export interface NextSlotAllocation {
     readonly capacity: NextSlotCapacity | null;
     readonly disclosures: readonly string[];
@@ -111,6 +117,7 @@ export interface NextSlotAllocation {
     readonly objective: SizingObjective;
     readonly optimumComparable: boolean;
     readonly ranked: readonly NextSlotRankedRow[];
+    readonly sortKey: NextSlotSortKey;
 }
 
 export interface NextSlotCandidate {
@@ -177,6 +184,7 @@ export interface NextSlotInputs {
     readonly objective: SizingObjective;
     readonly requestedPayoutDollars: number;
     readonly scaleGate: null | ScaleGate;
+    readonly sortKey?: NextSlotSortKey;
     readonly today: string;
 }
 
@@ -329,6 +337,15 @@ type Placement =
           readonly row: NextSlotNotRankedRow;
       };
 
+export function isNextSlotHourKeyAvailable(
+    bankroll: Pick<BankrollParameters, 'accountsPerSession' | 'sessionHoursPerDay'>,
+): boolean {
+    return (
+        bankroll.accountsPerSession !== null &&
+        bankroll.sessionHoursPerDay !== null
+    );
+}
+
 export function nextSlotAllocation(inputs: NextSlotInputs): NextSlotAllocation {
     const context = contextOf(inputs.ledger, inputs.today);
     const rankable: RankableEntry[] = [];
@@ -341,8 +358,16 @@ export function nextSlotAllocation(inputs: NextSlotInputs): NextSlotAllocation {
             rankable.push(placement.entry);
         }
     }
+    const sortKey =
+        inputs.sortKey === NextSlotSortKey.Hour &&
+        isNextSlotHourKeyAvailable(inputs.bankroll)
+            ? NextSlotSortKey.Hour
+            : NextSlotSortKey.Objective;
     const ordered = rankable.toSorted((a, b) =>
-        compareByObjective(a, b, inputs.objective),
+        sortKey === NextSlotSortKey.Hour
+            ? compareByHour(a, b) ||
+              compareByObjective(a, b, inputs.objective)
+            : compareByObjective(a, b, inputs.objective),
     );
     const isOptimumComparable = ordered.every(
         (entry) => entry.candidate.optimum.kind === NextSlotEngineKind.Ready,
@@ -388,11 +413,12 @@ export function nextSlotAllocation(inputs: NextSlotInputs): NextSlotAllocation {
             isOptimumComparable,
         ),
         hardRule2MinCushion: HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
-        ledgerOnlyAccounts: inputs.ledger.ledgerOnlyAccounts.length,
+        ledgerOnlyAccounts: activeLedgerOnlyCountOf(inputs.ledger),
         notRanked: notRanked.toSorted(compareNotRanked),
         objective: inputs.objective,
         optimumComparable: isOptimumComparable,
         ranked,
+        sortKey,
     };
 }
 
@@ -418,6 +444,12 @@ export function nextSlotPlansNeedingOptimum(
     );
 }
 
+function activeLedgerOnlyCountOf(ledger: PortfolioLedger): number {
+    return ledger.ledgerOnlyAccounts.filter((entry) =>
+        isActiveAccountRow(entry.row),
+    ).length;
+}
+
 function attemptPaysProbabilityOf(figures: NextSlotDocumentedFigures): number {
     return (
         figures.attemptPassProbability.value *
@@ -439,10 +471,10 @@ function batchLossProbabilityOf(
 ): null | number {
     if (availableCents === null) return null;
     const cost = figures.costPerAttempt.value;
-    const attempts = attemptsAffordable(
+    const attempts = bankrollAttemptsAt(
         dollars(availableCents / CENTS_PER_DOLLAR),
         dollars(cost),
-    ).value;
+    );
     if (attempts === null) return null;
     const perAttempt = payoutCountsPerAttemptOf(figures);
     const averageCents = averagePayoutCentsOf(figures);
@@ -468,25 +500,23 @@ function capacityOf(
 ): NextSlotCapacity | null {
     const limit = bankroll.dailyAccountCapacity;
     if (limit === null) return null;
-    const active = modeledEntries(ledger).filter((entry) =>
-        isActiveAccount(entry.row),
+    const activeUnits = dailyCapacityUnitsOf(
+        ledger.accounts.map((entry) => entry.row),
     );
-    const groups = new Set<string>();
-    let ungrouped = 0;
-    for (const entry of active) {
-        const { copyGroupId } = entry.row;
-        if (copyGroupId === null) {
-            ungrouped += 1;
-        } else {
-            groups.add(copyGroupId);
-        }
-    }
-    const activeUnits = ungrouped + groups.size;
     return {
         activeUnits,
         limit,
         remaining: Math.max(0, limit - activeUnits),
     };
+}
+
+function compareByHour(a: RankableEntry, b: RankableEntry): number {
+    const aHour = a.figures.netPerScreenHour;
+    const bHour = b.figures.netPerScreenHour;
+    if (aHour === null || bHour === null) {
+        return aHour === bHour ? 0 : aHour === null ? 1 : -1;
+    }
+    return bHour - aHour;
 }
 
 function compareByObjective(
@@ -552,7 +582,7 @@ function contextOf(ledger: PortfolioLedger, today: string): Context {
             firmId,
             Math.max(heldMaxSizeByFirm.get(firmId) ?? 0, accountSize),
         );
-        if (stage === AccountStage.Eval && isActiveAccount(entry.row)) {
+        if (stage === AccountStage.Eval && isActiveAccountRow(entry.row)) {
             inFlightBySerial.set(
                 planSerial,
                 (inFlightBySerial.get(planSerial) ?? 0) + 1,
@@ -584,7 +614,7 @@ function disclosuresOf(
             row.figures === null ? [] : [row.figures],
         ),
     ];
-    const ledgerOnly = inputs.ledger.ledgerOnlyAccounts.length;
+    const ledgerOnly = activeLedgerOnlyCountOf(inputs.ledger);
     return [
         ...(withFigures.some(
             (figures) => figures.sizingBasis === NextSlotSizingBasis.Unsized,
@@ -603,9 +633,7 @@ function disclosuresOf(
             : []),
         ...(ranked.length > 0 ? [SLOTS_UPPER_BOUND_DISCLOSURE] : []),
         ...(ledgerOnly > 0
-            ? [
-                  `${String(ledgerOnly)} ledger-only ${ledgerOnly === 1 ? 'account is' : 'accounts are'} not counted in the slots in use or in your capacity.`,
-              ]
+            ? [ledgerOnlyDisclosureOf(ledgerOnly, inputs.bankroll)]
             : []),
     ];
 }
@@ -719,10 +747,10 @@ function figuresOf(
                       ),
                       sessionHoursPerDay,
                   }).value?.value ?? null),
-        noPayoutProbability: noPayoutProbability(
+        noPayoutProbability: bankrollNoPayoutAt(
             fraction(attemptPaysProbabilityOf(documented)),
             1,
-        ).value,
+        ),
         optimum:
             optimumFigures === null
                 ? null
@@ -759,6 +787,18 @@ function freeSlotsOf(
 
 function isNonPositive(entry: RankableEntry): boolean {
     return entry.figures.cycleNet.value <= 0;
+}
+
+function ledgerOnlyDisclosureOf(
+    count: number,
+    bankroll: BankrollParameters,
+): string {
+    const isSingular = count === 1;
+    const subject = `${String(count)} ledger-only ${isSingular ? 'account' : 'accounts'}`;
+    const verb = isSingular ? 'is' : 'are';
+    return bankroll.dailyAccountCapacity === null
+        ? `${subject} ${verb} not in the slots in use.`
+        : `${subject} ${isSingular ? 'counts' : 'count'} in your capacity because ${isSingular ? 'it' : 'they'} still ${isSingular ? 'has' : 'have'} to be managed, but not in the slots in use.`;
 }
 
 function listedRow(

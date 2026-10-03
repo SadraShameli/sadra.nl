@@ -3,6 +3,7 @@ import { defineCommand } from 'citty';
 import {
     planArguments,
     planResolver,
+    pricedTriggerLines,
     TablePrinter,
     tradingArguments,
     TradingInputs,
@@ -12,8 +13,8 @@ import { formatCurrency, formatPercent } from '~/lib/format';
 import { dollars, type SimOutputs, simulate } from '~/lib/prop-calculator';
 import {
     attemptEconomicsOfRun,
+    bankrollCohortRisk,
     batchLossClosedForm,
-    cohortOutcome,
     empiricalPayingStatsOf,
     LOSS_RISK_DRAWS,
 } from '~/lib/prop-calculator/economics';
@@ -42,11 +43,15 @@ export default defineCommand({
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
             const batch = readBankrollBatchInputs(context.args);
-            const out = simulate(inputs.toSimInputs(plan));
+            const simInputs = inputs.toSimInputs(plan);
+            const out = simulate(simInputs);
 
             ui.heading(
                 `${plan.label}: bankroll batch (${batch.attempts} attempts)`,
             );
+            for (const line of pricedTriggerLines(simInputs)) {
+                ui.muted(line);
+            }
 
             const table = new TablePrinter([
                 { align: 'left', label: '', width: 30 },
@@ -73,12 +78,12 @@ export function batchRows(
     seed: number,
     fundedHorizonDays: number,
 ): readonly (readonly [string, string])[] {
-    const outcome = cohortOutcome(
+    const outcome = bankrollCohortRisk(
         out.netValues,
         batch.attempts,
         LOSS_RISK_DRAWS,
         seed,
-    );
+    ).value;
     const decomposition = attemptEconomicsOfRun(out, fundedHorizonDays);
     const fundedValueToAttemptCost =
         decomposition.value?.fundedValueToAttemptCost.value ?? null;
@@ -86,9 +91,7 @@ export function batchRows(
     return [
         [
             'EV over the batch',
-            outcome.value === null
-                ? 'n/a'
-                : formatCurrency(outcome.value.meanNet),
+            outcome === null ? 'n/a' : formatCurrency(outcome.meanNet),
         ],
         [
             'funded value / attempt cost',
@@ -98,9 +101,9 @@ export function batchRows(
         ],
         [
             'P(net < 0)',
-            outcome.value === null
+            outcome === null
                 ? 'n/a'
-                : `${formatPercent(outcome.value.lossProbability.value)} (SE ${formatPercent(outcome.value.lossProbability.standardError ?? 0)})`,
+                : `${formatPercent(outcome.lossProbability.value)} (SE ${formatPercent(outcome.lossProbability.standardError ?? 0)})`,
         ],
         [
             'cross-check: assumes one value per paying attempt',

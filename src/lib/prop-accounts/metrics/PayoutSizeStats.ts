@@ -30,10 +30,22 @@ import {
 
 export const DEFAULT_PAYOUT_HISTOGRAM_BUCKET_CENTS = usdCents(50_000);
 
+enum BalanceBand {
+    AboveCushion = 'above-cushion',
+    LowBalance = 'low-balance',
+    NoSnapshot = 'no-snapshot',
+}
+
 export interface PayoutsByAccountSize {
     readonly accountSize: number;
     readonly count: number;
     readonly mean: null | SampledEstimate;
+}
+
+export interface PayoutsByBalance {
+    readonly aboveCushion: PayoutBalanceBand;
+    readonly lowBalance: PayoutBalanceBand;
+    readonly noSnapshot: PayoutBalanceBand;
 }
 
 export interface PayoutsByFirm {
@@ -54,8 +66,9 @@ export interface PayoutSizeSnapshotBalance {
 }
 
 export interface PayoutSizeStats {
-    readonly bucketWidthCents: UsdCents;
+    readonly bucketWidthCents: number;
     readonly byAccountSize: readonly PayoutsByAccountSize[];
+    readonly byBalance: PayoutsByBalance;
     readonly byFirm: readonly PayoutsByFirm[];
     readonly byStage: readonly PayoutsByStage[];
     readonly count: number;
@@ -77,12 +90,18 @@ export interface PayoutSizeStatsOptions {
     readonly retainedCushionCents?: UsdCents;
 }
 
+interface PayoutBalanceBand {
+    readonly count: number;
+    readonly mean: null | SampledEstimate;
+    readonly median: null | UsdCents;
+}
+
 interface PayoutSizeSample {
     readonly accountSize: number;
+    readonly balanceBand: BalanceBand;
     readonly cents: UsdCents;
     readonly firmKey: FirmKey;
     readonly grossOnly: boolean;
-    readonly lowBalance: boolean;
     readonly stage: AccountStage;
 }
 
@@ -96,19 +115,57 @@ export function payoutSizeStats(
         samplesOf(entry, options),
     );
     const cents = samples.map((sample) => sample.cents);
+    const bins = histogramOf(cents, bucketWidthCents);
     return {
-        bucketWidthCents,
+        bucketWidthCents: realBucketWidth(bins),
         byAccountSize: byAccountSize(samples),
+        byBalance: byBalance(samples),
         byFirm: byFirm(samples),
         byStage: byStage(samples),
         count: samples.length,
         grossOnlyPayouts: samples.filter((sample) => sample.grossOnly).length,
-        histogram: histogramOf(cents, bucketWidthCents),
-        lowBalanceCount: samples.filter((sample) => sample.lowBalance).length,
+        histogram: bins,
+        lowBalanceCount: samples.filter(
+            (sample) => sample.balanceBand === BalanceBand.LowBalance,
+        ).length,
         mean: sampledMean(cents),
         median: roundCents(median(cents)),
         p10: roundCents(percentile(cents, 10)),
         p90: roundCents(percentile(cents, 90)),
+    };
+}
+
+function balanceBandAt(
+    accountId: string,
+    paidOn: string,
+    options: PayoutSizeStatsOptions,
+): BalanceBand {
+    const { latestBalanceOnOrBefore, retainedCushionCents } = options;
+    if (
+        latestBalanceOnOrBefore === undefined ||
+        retainedCushionCents === undefined
+    ) {
+        return BalanceBand.NoSnapshot;
+    }
+    const balance = latestBalanceOnOrBefore(accountId, paidOn);
+    if (balance === null) return BalanceBand.NoSnapshot;
+    return balance.balanceCents - balance.dashboardFloorCents <
+        retainedCushionCents
+        ? BalanceBand.LowBalance
+        : BalanceBand.AboveCushion;
+}
+
+function balanceBandOf(
+    samples: readonly PayoutSizeSample[],
+    band: BalanceBand,
+): PayoutBalanceBand {
+    const cents = samples
+        .filter((sample) => sample.balanceBand === band)
+        .map((sample) => sample.cents);
+    return {
+        count: cents.length,
+        mean: sampledMean(cents),
+        median: cents.length === 0 ? null : roundCents(median(cents)),
     };
 }
 
@@ -128,6 +185,14 @@ function byAccountSize(
             mean: sampledMean(group.map((sample) => sample.cents)),
         };
     });
+}
+
+function byBalance(samples: readonly PayoutSizeSample[]): PayoutsByBalance {
+    return {
+        aboveCushion: balanceBandOf(samples, BalanceBand.AboveCushion),
+        lowBalance: balanceBandOf(samples, BalanceBand.LowBalance),
+        noSnapshot: balanceBandOf(samples, BalanceBand.NoSnapshot),
+    };
 }
 
 function byFirm(
@@ -187,26 +252,6 @@ function histogramOf(
     return histogram(cents, binCount);
 }
 
-function isLowBalance(
-    accountId: string,
-    paidOn: string,
-    options: PayoutSizeStatsOptions,
-): boolean {
-    const { latestBalanceOnOrBefore, retainedCushionCents } = options;
-    if (
-        latestBalanceOnOrBefore === undefined ||
-        retainedCushionCents === undefined
-    ) {
-        return false;
-    }
-    const balance = latestBalanceOnOrBefore(accountId, paidOn);
-    return (
-        balance !== null &&
-        balance.balanceCents - balance.dashboardFloorCents <
-            retainedCushionCents
-    );
-}
-
 function latestOn(
     entry: ModeledLedgerAccount,
     kind: AccountEventKind,
@@ -218,6 +263,14 @@ function latestOn(
         })),
         kind,
     );
+}
+
+function realBucketWidth(bins: readonly HistogramBin[]): number {
+    const first = bins[0];
+    const last = bins.at(-1);
+    return first === undefined || last === undefined
+        ? 0
+        : (last.binEnd - first.binStart) / bins.length;
 }
 
 function sampleOf(
@@ -243,10 +296,10 @@ function sampleOf(
     return [
         {
             accountSize,
+            balanceBand: balanceBandAt(entry.row.id, paid.paidOn, options),
             cents: paid.cents,
             firmKey,
             grossOnly: paid.grossOnly,
-            lowBalance: isLowBalance(entry.row.id, paid.paidOn, options),
             stage,
         },
     ];

@@ -21,6 +21,7 @@ import {
     EvalSizingAdvisor,
     type LadderEngineOptimumResult,
     LadderEngineOptimumResultKind,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     runEngineOptimum,
 } from '~/lib/prop-calculator/advisor';
@@ -51,6 +52,7 @@ function account(state: AccountState): ReconstructedFundedOrEvalAccount {
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -247,10 +249,13 @@ describe('EvalSizingAdvisor documented-ladder reasons (PT-19i, F-119)', () => {
     });
 
     it('says the engine ladder never funded when no documented ladder was requested (PT-36h)', () => {
-        const stale = advisorAt({ sims: SIMS, snapshotAsOf: '2026-09-01' });
+        const noRoom = advisorAt({
+            sims: SIMS,
+            state: accountState({ balance: 50_000 }),
+        });
 
-        expect(stale.documented()).toBeNull();
-        expect(reasonsFor(stale, NEVER_FUNDED)).toEqual([
+        expect(noRoom.documented()?.rungs ?? []).toStrictEqual([]);
+        expect(reasonsFor(noRoom, NEVER_FUNDED)).toEqual([
             { kind: DifferenceReason.EngineLadderNeverFunded, sims: SIMS },
         ]);
     });
@@ -339,5 +344,5 @@ describe('EvalSizingAdvisor documented-ladder reasons (PT-19i, F-119)', () => {
         ).toEqual([
             { kind: DifferenceReason.DocumentedLadderNeverFunded, sims: 40 },
         ]);
-    }, 60_000);
+    });
 });

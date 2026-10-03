@@ -102,7 +102,10 @@ vi.mock('~/trpc/react', () => ({
         propAccounts: {
             account: { list: harness.query('account.list') },
             decision: { latestForAll: harness.query('decision.latestForAll') },
-            review: { submit: harness.mutation('review.submit') },
+            review: {
+                stagesOn: harness.query('review.stagesOn'),
+                submit: harness.mutation('review.submit'),
+            },
             rulebook: { get: harness.query('rulebook.get') },
             snapshot: { latestForAll: harness.query('snapshot.latestForAll') },
             violation: {
@@ -225,6 +228,13 @@ function seed(
     );
     harness.queries.set('rulebook.get', answer(DEFAULT_RULEBOOK));
     harness.queries.set('violation.list', answer(options.violations ?? []));
+    harness.queries.set(
+        'review.stagesOn',
+        answer([
+            { accountId: FOLLOWED_ID, stage: AccountStage.Eval },
+            { accountId: MISSED_ID, stage: AccountStage.Eval },
+        ]),
+    );
 }
 
 function violationRow(overrides: Record<string, unknown> = {}) {
@@ -641,6 +651,14 @@ describe('WeeklyReviewView adherence and violations', () => {
     it('shows a load failure instead of an adherence rate when the decisions query fails', () => {
         seed();
         harness.queries.set('decision.latestForAll', failure());
+        render();
+        expect(container.textContent).toContain('Could not load');
+        expect(container.textContent).not.toContain('Adherence');
+    });
+
+    it('shows a load failure instead of rows sized from the stage today when the stages query fails', () => {
+        seed();
+        harness.queries.set('review.stagesOn', failure());
         render();
         expect(container.textContent).toContain('Could not load');
         expect(container.textContent).not.toContain('Adherence');

@@ -27,6 +27,7 @@ import {
     type TradingFirm,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import {
     netPerScreenHour,
     noPayoutProbabilityFromDistribution,
@@ -36,6 +37,12 @@ import { cn } from '~/lib/utilities';
 
 import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
+import {
+    priceBatchLoss,
+    type PricedComparisonRow,
+    rankComparison,
+    type RankedComparison,
+} from './objectiveRanking';
 import { bestExpectedMonthlyNet, scoreByExpectedMonthlyNet } from './scoring';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
@@ -47,6 +54,15 @@ import {
 
 const DEBOUNCE_MS = 700;
 const MAX_TRIALS = 500;
+const TOP_LIMIT_ALL = 'all';
+const TOP_LIMIT_CHOICES: readonly number[] = [3, 5, 10];
+
+export interface ComparisonViewRequest {
+    bankrollCents: null | number;
+    isBankrollPending: boolean;
+    objective: SizingObjective;
+    seed: number;
+}
 
 export interface Row {
     firm: TradingFirm;
@@ -57,16 +73,55 @@ export interface Row {
 
 interface FirmComparisonTableProperties {
     activeFirmId: FirmId;
+    bankrollCents?: null | number;
     baseInputs: Omit<SimInputs, 'plan'>;
     firms: readonly TradingFirm[];
+    isBankrollPending?: boolean;
+    objective?: SizingObjective;
     planOptIns: PlanOptIns;
     targetAccountSize: number;
 }
 
+interface ScreenHourInputsProperties {
+    accountsPerSessionInput: string;
+    hoursPerDayInput: string;
+    idPrefix: string;
+    onAccountsPerSessionChange: (value: string) => void;
+    onHoursPerDayChange: (value: string) => void;
+    onTopLimitChange: (value: string) => void;
+    topLimitInput: string;
+}
+
+export function ComparisonRankingLabel({
+    ranked,
+}: {
+    ranked: Pick<RankedComparison<unknown>, 'label'>;
+}) {
+    return (
+        <span className="text-xs text-muted-foreground">
+            Ranked by {ranked.label}; a column header click re-sorts the rows
+            shown
+        </span>
+    );
+}
+
+export function ComparisonRankingNote({
+    ranked,
+}: {
+    ranked: Pick<RankedComparison<unknown>, 'note'>;
+}) {
+    return ranked.note === null ? null : (
+        <p className="text-xs text-amber-400">{ranked.note}</p>
+    );
+}
+
 export default function FirmComparisonTable({
     activeFirmId,
+    bankrollCents = null,
     baseInputs,
     firms,
+    isBankrollPending = false,
+    objective = SizingObjective.MonthlyNet,
     planOptIns,
     targetAccountSize,
 }: FirmComparisonTableProperties) {
@@ -107,12 +162,19 @@ export default function FirmComparisonTable({
 
     const openInSimulator = useOpenInSimulator(planOptIns);
 
-    const [hoursPerDayInput, setHoursPerDayInput] = useState('');
-    const [accountsPerSessionInput, setAccountsPerSessionInput] = useState('');
-    const hoursPerDay = parsePositiveNumber(hoursPerDayInput);
-    const accountsPerSession = parseAccountsPerSession(accountsPerSessionInput);
-    const hasScreenHourInputs =
-        hoursPerDay !== null && accountsPerSession !== null;
+    const {
+        accountsPerSession,
+        hasScreenHourInputs,
+        hoursPerDay,
+        inputs,
+        ranked,
+        shownRows,
+    } = useComparisonView(rows, {
+        bankrollCents,
+        isBankrollPending,
+        objective,
+        seed: baseInputs.seed,
+    });
 
     const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
@@ -181,6 +243,12 @@ export default function FirmComparisonTable({
                 id: 'monthlyNet',
             },
             {
+                accessorFn: (r) => r.out.expectedNet,
+                cell: ({ row }) => formatCurrency(row.original.out.expectedNet),
+                header: 'Cycle net',
+                id: 'cycleNet',
+            },
+            {
                 accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
                 cell: ({ row }) =>
                     formatOptionalPercent(row.original.out.roiOnCost.value),
@@ -198,7 +266,7 @@ export default function FirmComparisonTable({
                         </span>
                     </span>
                 ),
-                header: 'Score',
+                header: 'Monthly net score',
                 id: 'score',
             },
             noPayoutColumn<Row>(),
@@ -221,6 +289,7 @@ export default function FirmComparisonTable({
                     <h3 className="text-sm font-semibold">
                         Firm comparison at your inputs
                     </h3>
+                    <ComparisonRankingLabel ranked={ranked} />
                     <InfoPopover title="Firm comparison">
                         {panelDescriptions.firmComparison}
                     </InfoPopover>
@@ -228,28 +297,22 @@ export default function FirmComparisonTable({
                 <span className="text-xs text-muted-foreground">
                     {pending
                         ? 'computing…'
-                        : `closest plan to $${(targetAccountSize / 1000).toFixed(0)}K`}
+                        : `closest plan to $${(targetAccountSize / 1000).toFixed(0)}K${shownRows.length < ranked.rows.length ? `, showing ${shownRows.length} of ${ranked.rows.length}` : ''}`}
                 </span>
             </div>
-            <ScreenHourInputs
-                accountsPerSessionInput={accountsPerSessionInput}
-                hoursPerDayInput={hoursPerDayInput}
-                idPrefix="firm-comparison"
-                onAccountsPerSessionChange={setAccountsPerSessionInput}
-                onHoursPerDayChange={setHoursPerDayInput}
-            />
+            <ScreenHourInputs idPrefix="firm-comparison" {...inputs} />
+            <ComparisonRankingNote ranked={ranked} />
             {error === null ? (
                 <DataTable<Row>
                     className="app-prop-calculator__firm-comparison-table text-xs tabular-nums"
                     columns={columns}
-                    data={rows}
+                    data={shownRows}
                     emptyState={
                         <EmptyState
                             icon={Building2}
                             title={pending ? 'Computing…' : 'No matching plans'}
                         />
                     }
-                    initialSorting={[{ desc: true, id: 'monthlyNet' }]}
                     pageSize={null}
                     rowClassName={(r) =>
                         r.firm.id === activeFirmId
@@ -263,6 +326,13 @@ export default function FirmComparisonTable({
             )}
         </Card>
     );
+}
+
+export function limitRows<Row>(
+    rows: readonly Row[],
+    limit: null | number,
+): Row[] {
+    return limit === null ? [...rows] : rows.slice(0, limit);
 }
 
 export function noPayoutColumn<
@@ -296,6 +366,11 @@ export function parsePositiveNumber(text: string): null | number {
     return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+export function parseTopLimit(text: string): null | number {
+    const n = Number(text);
+    return TOP_LIMIT_CHOICES.includes(n) ? n : null;
+}
+
 export function screenHourColumn<Row extends { out: SimOutputs }>(
     hoursPerDay: number,
     accountsPerSession: number,
@@ -326,13 +401,12 @@ export function ScreenHourInputs({
     idPrefix,
     onAccountsPerSessionChange,
     onHoursPerDayChange,
-}: {
-    accountsPerSessionInput: string;
-    hoursPerDayInput: string;
-    idPrefix: string;
-    onAccountsPerSessionChange: (value: string) => void;
-    onHoursPerDayChange: (value: string) => void;
-}) {
+    onTopLimitChange,
+    topLimitInput,
+}: ScreenHourInputsProperties) {
+    const isTopLimitEnabled =
+        parsePositiveNumber(hoursPerDayInput) !== null &&
+        parseAccountsPerSession(accountsPerSessionInput) !== null;
     const hoursHintId = `${idPrefix}-hours-per-day-hint`;
     const accountsHintId = `${idPrefix}-accounts-per-session-hint`;
     const isHoursInvalid =
@@ -407,8 +481,89 @@ export function ScreenHourInputs({
                     </p>
                 ) : null}
             </div>
+            <div>
+                <label
+                    className="mb-1 block text-[11px] text-muted-foreground"
+                    htmlFor={`${idPrefix}-top-limit`}
+                >
+                    Show top
+                </label>
+                <select
+                    aria-label="Show top"
+                    className="h-7 rounded-md border bg-transparent px-2 text-xs disabled:opacity-50"
+                    disabled={!isTopLimitEnabled}
+                    id={`${idPrefix}-top-limit`}
+                    onChange={(event) => onTopLimitChange(event.target.value)}
+                    title={
+                        isTopLimitEnabled
+                            ? undefined
+                            : 'Set hours per day and accounts per session first'
+                    }
+                    value={topLimitInput}
+                >
+                    {TOP_LIMIT_CHOICES.map((choice) => (
+                        <option key={choice} value={String(choice)}>
+                            Top {choice}
+                        </option>
+                    ))}
+                    <option value={TOP_LIMIT_ALL}>All</option>
+                </select>
+            </div>
         </div>
     );
+}
+
+export function useComparisonView<Row extends PricedComparisonRow>(
+    rows: readonly Row[],
+    request: ComparisonViewRequest,
+) {
+    const { bankrollCents, isBankrollPending, objective, seed } = request;
+    const [hoursPerDayInput, setHoursPerDayInput] = useState('');
+    const [accountsPerSessionInput, setAccountsPerSessionInput] = useState('');
+    const [topLimitInput, setTopLimitInput] = useState(TOP_LIMIT_ALL);
+    const hoursPerDay = parsePositiveNumber(hoursPerDayInput);
+    const accountsPerSession = parseAccountsPerSession(accountsPerSessionInput);
+    const hasScreenHourInputs =
+        hoursPerDay !== null && accountsPerSession !== null;
+    const ranked = useMemo(() => {
+        const result = rankComparison(rows, {
+            bankrollCents,
+            batchLoss: (row, bankroll) =>
+                priceBatchLoss(row.out, bankroll, seed),
+            objective,
+        });
+        return isBankrollPending ? { ...result, note: null } : result;
+    }, [bankrollCents, isBankrollPending, objective, rows, seed]);
+    const shownRows = limitRows(
+        ranked.rows,
+        hasScreenHourInputs ? parseTopLimit(topLimitInput) : null,
+    );
+    const inputs: Omit<ScreenHourInputsProperties, 'idPrefix'> = {
+        accountsPerSessionInput,
+        hoursPerDayInput,
+        onAccountsPerSessionChange: (value) => {
+            setAccountsPerSessionInput(value);
+            if (parseAccountsPerSession(value) === null) {
+                setTopLimitInput(TOP_LIMIT_ALL);
+            }
+        },
+        onHoursPerDayChange: (value) => {
+            setHoursPerDayInput(value);
+            if (parsePositiveNumber(value) === null) {
+                setTopLimitInput(TOP_LIMIT_ALL);
+            }
+        },
+        onTopLimitChange: setTopLimitInput,
+        topLimitInput,
+    };
+    return {
+        accountsPerSession,
+        hasScreenHourInputs,
+        hoursPerDay,
+        inputs,
+        ranked,
+        shownRows,
+    };
 }
 
 function buildCacheKey(

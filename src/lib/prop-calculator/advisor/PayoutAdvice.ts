@@ -4,6 +4,7 @@ import {
     type FirmAccountPolicy,
     LifetimePayoutCapOverrideKind,
     type LiveTransitionTrigger,
+    LiveTriggerKind,
     ONE_CENT,
     PayoutCountPerAccountTrigger,
     PayoutCountTotalTrigger,
@@ -16,6 +17,7 @@ import {
 
 import { type Assumption, AssumptionBias, inputAssumption } from './Assumption';
 import { AssumptionKind } from './AssumptionKind';
+import { isConfirmedTrigger } from './ConfirmedTrigger';
 import { combinedProfitCeiling, liveTriggerCeilingFor } from './DailyPlanCard';
 import { type PolicyCitation } from './PayoutBlockReason';
 import { type LiveTriggerCountLimit } from './PayoutReadiness';
@@ -61,6 +63,11 @@ interface CappedBySource {
     readonly source: null | PolicyCitation;
 }
 
+interface LiveTriggerHandling {
+    readonly isEnforcedByRule: boolean;
+    readonly isEnginePriced: boolean;
+}
+
 export const LIVE_TRIGGER_NOT_CHECKED: LiveTriggerLimits = {
     coverage: LiveTriggerCoverage.NotChecked,
     firmTotalCap: null,
@@ -70,6 +77,21 @@ export const LIVE_TRIGGER_NOT_CHECKED: LiveTriggerLimits = {
     perAccountSource: null,
     singleDayCeiling: null,
 };
+
+export function areLiveTriggersEnginePriced(
+    accountPolicy: FirmAccountPolicy | undefined,
+    plan: Plan,
+): boolean {
+    const triggers = accountPolicy?.liveTriggersFor(plan) ?? [];
+    return (
+        triggers.length > 0 &&
+        triggers.every(
+            (trigger) =>
+                isConfirmedTrigger(trigger) &&
+                liveTriggerHandlingOf(trigger).isEnginePriced,
+        )
+    );
+}
 
 export function liveTriggerLimitsFor(
     accountPolicy: FirmAccountPolicy | undefined,
@@ -84,14 +106,14 @@ export function liveTriggerLimitsFor(
             ? [
                   {
                       cap: override.cap,
-                      isConfirmed: isConfirmed(trigger),
+                      isConfirmed: isConfirmedTrigger(trigger),
                       source: citedSourceOf(trigger),
                   },
               ]
             : [];
     });
     const firmTotalCaps = triggers.flatMap((trigger) =>
-        trigger instanceof PayoutCountTotalTrigger && isConfirmed(trigger)
+        trigger instanceof PayoutCountTotalTrigger && isConfirmedTrigger(trigger)
             ? [
                   {
                       cap: trigger.cap,
@@ -111,7 +133,7 @@ export function liveTriggerLimitsFor(
     const isEnforced =
         triggers.length > 0 &&
         triggers.every(
-            (trigger) => isConfirmed(trigger) && isEnforcedKind(trigger),
+            (trigger) => isConfirmedTrigger(trigger) && isEnforcedKind(trigger),
         ) &&
         (firmTotalCaps.length === 0 ||
             paidPayoutsSinceLastLiveAccount !== null);
@@ -195,22 +217,36 @@ function citedSourceOf(trigger: LiveTransitionTrigger): null | PolicyCitation {
 function confirmedCitationOf(
     trigger: LiveTransitionTrigger,
 ): null | PolicyCitation {
-    const { source } = trigger;
-    return source?.verification === PolicyVerification.Confirmed
-        ? citationOf(source)
-        : null;
-}
-
-function isConfirmed(trigger: LiveTransitionTrigger): boolean {
-    return confirmedCitationOf(trigger) !== null;
+    return isConfirmedTrigger(trigger) ? citationOf(trigger.source) : null;
 }
 
 function isEnforcedKind(trigger: LiveTransitionTrigger): boolean {
-    return (
-        trigger instanceof PayoutCountPerAccountTrigger ||
-        trigger instanceof PayoutCountTotalTrigger ||
-        trigger instanceof SingleDayProfitTrigger
-    );
+    return liveTriggerHandlingOf(trigger).isEnforcedByRule;
+}
+
+function liveTriggerHandlingOf(
+    trigger: LiveTransitionTrigger,
+): LiveTriggerHandling {
+    switch (trigger.kind) {
+        case LiveTriggerKind.CumulativeAmount: {
+            return { isEnforcedByRule: false, isEnginePriced: true };
+        }
+        case LiveTriggerKind.Discretionary: {
+            return { isEnforcedByRule: false, isEnginePriced: false };
+        }
+        case LiveTriggerKind.NotChecked: {
+            return { isEnforcedByRule: false, isEnginePriced: false };
+        }
+        case LiveTriggerKind.PayoutCountPerAccount: {
+            return { isEnforcedByRule: true, isEnginePriced: true };
+        }
+        case LiveTriggerKind.PayoutCountTotal: {
+            return { isEnforcedByRule: true, isEnginePriced: false };
+        }
+        case LiveTriggerKind.SingleDayProfit: {
+            return { isEnforcedByRule: true, isEnginePriced: false };
+        }
+    }
 }
 
 function numbersFor(

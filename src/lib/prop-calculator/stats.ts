@@ -129,17 +129,28 @@ export function median(xs: readonly number[]): number {
     return sorted[mid] ?? 0;
 }
 
+export function noiseThreshold(
+    a: UncertainValue,
+    b: UncertainValue,
+    comparison: NoiseComparison,
+): null | number {
+    const gapStandardError = comparison.sharedSeed
+        ? validStandardError(comparison.differenceStandardError)
+        : independentGapStandardError(a.standardError, b.standardError);
+    return gapStandardError === null
+        ? null
+        : NOISE_STANDARD_ERRORS * gapStandardError;
+}
+
 export function noiseVerdict(
     a: UncertainValue,
     b: UncertainValue,
     comparison: NoiseComparison,
 ): NoiseVerdict {
     const gap = finiteValue(a.value) - finiteValue(b.value);
-    const gapStandardError = comparison.sharedSeed
-        ? validStandardError(comparison.differenceStandardError)
-        : independentGapStandardError(a.standardError, b.standardError);
-    if (gapStandardError === null) return NoiseVerdict.Unknown;
-    return Math.abs(gap) <= NOISE_STANDARD_ERRORS * gapStandardError
+    const threshold = noiseThreshold(a, b, comparison);
+    if (threshold === null) return NoiseVerdict.Unknown;
+    return Math.abs(gap) <= threshold
         ? NoiseVerdict.WithinNoise
         : NoiseVerdict.BeyondNoise;
 }

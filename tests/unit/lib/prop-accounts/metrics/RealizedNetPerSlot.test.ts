@@ -41,6 +41,8 @@ describe('realizedNetPerSlot', () => {
                 month: '2026-09',
                 net: 40_000,
                 netPerSlot: 40_000,
+                payouts: 50_000,
+                payoutsPerSlot: 50_000,
                 slotMonths: 1,
             },
         ]);
@@ -81,12 +83,16 @@ describe('realizedNetPerSlot', () => {
                 month: '2026-09',
                 net: -13_000,
                 netPerSlot: -26_000,
+                payouts: 0,
+                payoutsPerSlot: 0,
                 slotMonths: 0.5,
             },
             {
                 month: '2026-10',
                 net: 90_000,
                 netPerSlot: 90_000,
+                payouts: 90_000,
+                payoutsPerSlot: 90_000,
                 slotMonths: 1,
             },
         ]);
@@ -116,6 +122,8 @@ describe('realizedNetPerSlot', () => {
                 month: '2026-09',
                 net: -10_000,
                 netPerSlot: -20_000,
+                payouts: 0,
+                payoutsPerSlot: 0,
                 slotMonths: 0.5,
             },
         ]);
@@ -161,6 +169,8 @@ describe('realizedNetPerSlot', () => {
                 month: '2026-09',
                 net: 45_000,
                 netPerSlot: 30_000,
+                payouts: 45_000,
+                payoutsPerSlot: 30_000,
                 slotMonths: 1.5,
             },
         ]);
@@ -267,6 +277,8 @@ describe('realizedNetPerSlot', () => {
                 month: '2026-09',
                 net: 40_000,
                 netPerSlot: 40_000,
+                payouts: 50_000,
+                payoutsPerSlot: 50_000,
                 slotMonths: 1,
             },
         ]);
@@ -322,6 +334,8 @@ describe('realizedNetPerSlot', () => {
                 month: '2026-09',
                 net: 40_000,
                 netPerSlot: 40_000,
+                payouts: 50_000,
+                payoutsPerSlot: 50_000,
                 slotMonths: 1,
             },
         ]);

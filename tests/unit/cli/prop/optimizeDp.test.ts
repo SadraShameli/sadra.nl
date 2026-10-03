@@ -93,6 +93,7 @@ import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFuture
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { TakeProfitTrader } from '~/lib/prop-calculator/firms/tpt/TakeProfitTrader';
 
+import { cheapDpSolverConfig } from './cheapDpSolverConfig';
 import { flagsNamedButNotAccepted } from './helpFlags';
 
 vi.mock(
@@ -120,6 +121,29 @@ vi.mock(
             warmFirmsRegistryCache: vi.fn(actual.warmFirmsRegistryCache),
         };
     },
+);
+
+const COARSE_FUNDED_GRID_ARGV = [
+    '--action-step-multiple',
+    '1',
+    '--cushion-step-multiple',
+    '1',
+    '--max-action-multiple',
+    '1',
+    '--max-cushion-multiple',
+    '1',
+    '--max-tail-cushion-multiple',
+    '1',
+];
+
+const realSolveAverageRewardPolicy = vi
+    .mocked(solveAverageRewardPolicy)
+    .getMockImplementation();
+if (realSolveAverageRewardPolicy === undefined) {
+    throw new Error('the solver mock has no implementation to wrap');
+}
+vi.mocked(solveAverageRewardPolicy).mockImplementation((config) =>
+    realSolveAverageRewardPolicy(cheapDpSolverConfig(config)),
 );
 
 function apexEodPlan(): Plan {
@@ -333,6 +357,10 @@ describe('fundedConsistencyGridNote (N-65)', () => {
             cushionGridOf({ fineTop: 6, tailTop: 30 }),
         );
         expect(note).toContain('largest swing one trading day can produce');
+        expect(note).toContain(
+            'plus one grid step per trade for rounding, the larger tail step where the grid has a tail',
+        );
+        expect(note).not.toContain('one cushion step per trade');
         expect(note).toContain('overflow bucket');
         expect(note).toContain('denies every payout');
         expect(note).toContain('never more than the real account');
@@ -760,7 +788,7 @@ describe('fundedDpModelGapWarning discloses the ReleaseFloor prediction gap (N-8
         const warning = fundedDpModelGapWarning(plan);
         expect(warning).not.toBeNull();
         expect(stdout.split(warning ?? '').length - 1).toBe(1);
-    }, 600_000);
+    });
 });
 
 describe('optimize dp run() measures funded grid saturation from the real replay (N-86, WP58 stage 1; WP58d: the run pins --max-tail-cushion-multiple 6, the fine top, because the default 30 drawdown tail took each TopStep solve here from seconds to about 50 s and these tests mock the saturation check, not the grid)', () => {
@@ -801,7 +829,7 @@ describe('optimize dp run() measures funded grid saturation from the real replay
         expect(stdout).toContain(
             'clamped to the top cell, which distorts both the predicted value and the policy there',
         );
-    }, 600_000);
+    });
 
     it('reports a 0% share and no saturation warning when no sampled funded day ever hits the grid top', async () => {
         vi.mocked(solveAverageRewardPolicy).mockImplementationOnce((config) => {
@@ -821,7 +849,7 @@ describe('optimize dp run() measures funded grid saturation from the real replay
             "funded grid saturation: 0.0% of funded trial-days had a cushion or post-payout balance at or above this DP's grid top",
         );
         expect(stdout).not.toContain('clamped to the top cell');
-    }, 600_000);
+    });
 });
 
 async function resolveArguments(): Promise<ArgsDef> {
@@ -1026,7 +1054,7 @@ describe('optimize dp run() hands the opted-in plan to both the DP objective and
                     ([inputs]) => inputs.plan.takesOneTimeEarlyWithdrawal,
                 ),
         ).toStrictEqual([true]);
-    }, 180_000);
+    });
 });
 
 function parseDpInputs(argv: string[]) {
@@ -1205,12 +1233,14 @@ describe('optimize dp flag bounds', () => {
             maxEvalDays: 40,
             maxSolves: 12,
             maxTailCushionMultiple: undefined,
+            maxWorkers: undefined,
             minRetainedCushion: 0,
             payoutRequestPolicy: PayoutRequestPolicy.UpToRequest,
             payoutRequestSize: undefined,
             rebuyLagDays: 0,
             rrRatio: 2,
             seed: 42,
+            startRatePerDay: undefined,
             stopPoints: undefined,
             tailCushionStepMultiple: undefined,
             trials: 4000,
@@ -1366,6 +1396,7 @@ describe('optimize dp takes the shared --retain-cushion and --request-size flags
             '1',
             '--trials',
             '10',
+            ...COARSE_FUNDED_GRID_ARGV,
         ];
         vi.mocked(solveAverageRewardPolicy).mockClear();
         vi.mocked(simulate).mockClear();
@@ -1389,7 +1420,7 @@ describe('optimize dp takes the shared --retain-cushion and --request-size flags
         expect(stdout).toContain(
             'payouts in the DP and the empirical run: retained cushion $2,500',
         );
-    }, 600_000);
+    });
 });
 
 describe('optimize dp exposes the funded and eval grid settings as flags for fast ablations (N-86)', () => {
@@ -1607,7 +1638,7 @@ describe('optimize dp hands the tail flags to the funded solve and prints the re
         expect(stdout).toContain(
             'funded cushion grid: fine steps of 0.1x the drawdown ($200) up to 9x ($18,000), then coarse steps of 2x ($4,000) up to 13x ($26,000); the fine range reaches 9x instead of the 6x that --max-cushion-multiple asks for',
         );
-    }, 600_000);
+    });
 
     it('run() hands the tail flags to the solver config', async () => {
         mockSolveStatus(RateSearchStatus.Converged);
@@ -1624,13 +1655,21 @@ describe('optimize dp hands the tail flags to the funded solve and prints the re
             '1',
             '--trials',
             '10',
+            '--action-step-multiple',
+            '1',
+            '--cushion-step-multiple',
+            '1',
+            '--max-action-multiple',
+            '1',
+            '--max-cushion-multiple',
+            '1',
             '--max-tail-cushion-multiple=10',
             '--tail-cushion-step-multiple=2',
         ]);
         const config = vi.mocked(solveAverageRewardPolicy).mock.lastCall?.[0];
         expect(config?.fundedGrid?.maxTailCushionMultiple).toBe(10);
         expect(config?.fundedGrid?.tailCushionStepMultiple).toBe(2);
-    }, 600_000);
+    });
 });
 
 describe('optimize dp wires --stop-points and --instrument into whole-contract sizing (N-78; WP58d: the end-to-end run pins --max-tail-cushion-multiple 6, the fine top, because the default 30 drawdown tail took it from 7 s to 30 s and it checks the sizing handed to the solver, not the grid)', () => {
@@ -1712,8 +1751,7 @@ describe('optimize dp wires --stop-points and --instrument into whole-contract s
             '1',
             '--trials',
             '10',
-            '--max-tail-cushion-multiple',
-            '6',
+            ...COARSE_FUNDED_GRID_ARGV,
         ];
         vi.mocked(solveAverageRewardPolicy).mockClear();
 
@@ -1726,7 +1764,7 @@ describe('optimize dp wires --stop-points and --instrument into whole-contract s
                 ([config]) => config.fundedGrid?.positionSizing ?? null,
             );
         expect(solverGrids).toStrictEqual([expected]);
-    }, 600_000);
+    });
 });
 
 describe('optimize dp takes the shared --payout-policy flag into the solve and the empirical run (PT-47b, F-150)', () => {
@@ -1897,7 +1935,7 @@ describe('optimize dp prices the empirical cross-check like the DP (N-62)', () =
         );
         expect(out.expectedAttempts).toBeGreaterThan(1);
         expect(out.evalPassProbability).toBe(1);
-    }, 60_000);
+    });
 
     it('compares the DP rate per account slot, so the copy count does not show up as a gap', () => {
         const base = simulate({
@@ -1987,6 +2025,7 @@ describe('optimize dp run() exits 1 with the existing warning when the rate sear
         '1',
         '--trials',
         '10',
+        ...COARSE_FUNDED_GRID_ARGV,
     ];
 
     it('sets exit code 1 and warns that the rate search did not converge, pointing at --iterations', async () => {
@@ -1998,7 +2037,7 @@ describe('optimize dp run() exits 1 with the existing warning when the rate sear
         expect(stdout).toContain(
             'rate search did not converge (status=solve-cap-reached, unconverged funded levels=0), so treat the numbers above as unreliable; consider raising --iterations.',
         );
-    }, 600_000);
+    });
 
     it('leaves the exit code unset and prints no such warning when the rate search converges', async () => {
         mockSolveStatus(RateSearchStatus.Converged);
@@ -2007,7 +2046,7 @@ describe('optimize dp run() exits 1 with the existing warning when the rate sear
 
         expect(exitCode).toBeUndefined();
         expect(stdout).not.toContain('rate search did not converge');
-    }, 600_000);
+    });
 });
 
 describe('optimize dp discloses the coarse cycle-baseline rounding (R1-7, U1)', () => {
@@ -2061,6 +2100,7 @@ describe('optimize dp discloses the coarse cycle-baseline rounding (R1-7, U1)', 
             '1',
             '--trials',
             '10',
+            ...COARSE_FUNDED_GRID_ARGV,
         ]);
 
         expect(stdout).toContain(
@@ -2072,7 +2112,7 @@ describe('optimize dp discloses the coarse cycle-baseline rounding (R1-7, U1)', 
         expect(stdout.indexOf('funded value iteration:')).toBeLessThan(
             stdout.indexOf('turns coarse past its fine range'),
         );
-    }, 600_000);
+    });
 });
 
 describe('optimize dp discloses how it bundles copy-traded renewals (U16)', () => {
@@ -2305,7 +2345,7 @@ describe('optimize dp --objective (PT-63, F-V15)', () => {
         expect(stdout).toContain('/month per account slot');
         expect(stdout).toContain('sample risk at the very first day');
         expect(stdout).not.toContain(CYCLE_OBJECTIVE_NOT_SIZING_NOTE);
-    }, 600_000);
+    });
 
     it('reports the rate-0 cycle value for --objective cycle and never the rate-search warning', async () => {
         vi.mocked(solveAverageRewardPolicy).mockClear();
@@ -2333,7 +2373,90 @@ describe('optimize dp --objective (PT-63, F-V15)', () => {
         const [config] =
             vi.mocked(solveAverageRewardPolicy).mock.calls[0] ?? [];
         expect(config?.maxSolves).toBe(1);
-    }, 600_000);
+    });
+});
+
+describe('optimize dp run() solves the registered plan itself when the solver is not stripped to a cheap plan', () => {
+    it('prints the monthly objective, the rate and the first-day sample risk from the real E8 Zero MAX 80 solve', async () => {
+        vi.mocked(solveAverageRewardPolicy).mockClear();
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(
+            realSolveAverageRewardPolicy,
+        );
+
+        const { stdout } = await capturedRun([
+            '--firm',
+            'e8futures',
+            '--variant',
+            'zero-max-80',
+            '--eval-days',
+            '2',
+            '--funded-days',
+            '2',
+            '--iterations',
+            '1',
+            '--trials',
+            '10',
+            '--action-step-multiple',
+            '1',
+            '--cushion-step-multiple',
+            '1',
+            '--max-action-multiple',
+            '1',
+            '--max-cushion-multiple',
+            '1',
+            '--max-tail-cushion-multiple',
+            '1',
+        ]);
+
+        const [config] =
+            vi.mocked(solveAverageRewardPolicy).mock.calls[0] ?? [];
+        const plan = config?.objective.plan;
+        expect(plan?.label).toBe('$50K · Zero MAX (80% payout)');
+        expect(plan === undefined ? null : findRegistryPlanId(plan)).not.toBeNull();
+        expect(stdout).toContain('objective: monthly net');
+        expect(stdout).toContain('/month per account slot');
+        expect(stdout).toContain('sample risk at the very first day');
+    });
+});
+
+describe('optimize dp run() solves a registered plan with its real consistency rule and payout structure, not the stripped cheap plan', () => {
+    it.each([
+        { firm: 'mffu', variant: 'builder' },
+        { firm: 'alphafutures', variant: 'standard' },
+    ])(
+        'prints the monthly objective and the first-day sample risk from the real $firm $variant solve',
+        async ({ firm, variant }) => {
+            vi.mocked(solveAverageRewardPolicy).mockClear();
+            vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(
+                realSolveAverageRewardPolicy,
+            );
+
+            const { stdout } = await capturedRun([
+                '--firm',
+                firm,
+                '--variant',
+                variant,
+                '--eval-days',
+                '2',
+                '--funded-days',
+                '2',
+                '--iterations',
+                '1',
+                '--trials',
+                '10',
+                ...COARSE_FUNDED_GRID_ARGV,
+            ]);
+
+            const [config] =
+                vi.mocked(solveAverageRewardPolicy).mock.calls[0] ?? [];
+            const plan = config?.objective.plan;
+            expect(plan?.fundedConsistencyRule(1)).not.toBeNull();
+            expect(plan?.payoutTiers.length).toBeGreaterThan(0);
+            expect(stdout).toContain('objective: monthly net');
+            expect(stdout).toContain('/month per account slot');
+            expect(stdout).toContain('sample risk at the very first day');
+        },
+    );
 });
 
 describe('prop optimize dp --help names only flags it accepts (PT-63)', () => {

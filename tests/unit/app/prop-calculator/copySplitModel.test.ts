@@ -17,11 +17,12 @@ import { FirmId } from '~/lib/prop-calculator';
 import {
     LifetimePayoutCapBasis,
     RebuyLagBasis,
+    SIZING_OBJECTIVE_LABEL,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 import {
     CopySplitRowKind,
-    SIZING_OBJECTIVE_LABEL,
+    DEFAULT_COPY_SPLIT_FUNDED,
 } from '~/lib/prop-calculator/advisor/policy';
 
 function variant(): BankrollPlanVariantInputs {
@@ -155,9 +156,11 @@ describe('copySplitRequest', () => {
             theVariant,
             { splits: [1, 2], totalRisk: 2000 },
             SizingObjective.CycleCash,
+            DEFAULT_COPY_SPLIT_FUNDED,
             5,
         );
         expect(request.kind).toBe(ToolsRequestKind.CopySplit);
+        expect(request.funded).toBe(DEFAULT_COPY_SPLIT_FUNDED);
         expect(request.splits).toStrictEqual([1, 2]);
         expect(request.totalRisk).toBe(2000);
         expect(request.objective).toBe(SizingObjective.CycleCash);

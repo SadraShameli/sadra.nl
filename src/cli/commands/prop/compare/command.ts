@@ -11,6 +11,7 @@ import {
     objectiveHeadingLine,
     planArguments,
     planResolver,
+    pricedTriggerLines,
     printEdgePlausibilityNotes,
     readBankroll,
     readObjective,
@@ -31,6 +32,7 @@ import { ui } from '~/cli/ui';
 import {
     formatCurrency,
     formatFiniteCurrency,
+    formatOptionalPercent,
     formatPercent,
     NOT_APPLICABLE,
 } from '~/lib/format';
@@ -41,6 +43,7 @@ import {
     FirmId,
     type Plan,
     points,
+    type SimInputs,
     type SimOutputs,
     simulate,
     TRADING_DAYS_PER_MONTH,
@@ -52,8 +55,6 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
 import {
-    type BankrollRiskFigures,
-    bankrollRiskFigures,
     COPY_SPLIT_NOISE_SIGMAS,
     type CopySplitResult,
     type CopySplitRow,
@@ -63,6 +64,9 @@ import {
     runCopySplit,
 } from '~/lib/prop-calculator/advisor/policy';
 import {
+    bankrollAttempts,
+    type BankrollRiskFigures,
+    bankrollRiskFigures,
     netPerScreenHour,
     noPayoutProbabilityFromDistribution,
 } from '~/lib/prop-calculator/economics';
@@ -90,6 +94,7 @@ export interface CompareRankingArguments {
 }
 
 export interface RankableRow {
+    readonly affordableAttempts?: null | number;
     readonly batchLossProbability?: null | number;
     readonly out: RankedMetrics;
 }
@@ -105,8 +110,17 @@ export type RankedMetrics = Pick<
     | 'expectedTotalCost'
 >;
 
+export interface TopLimitArguments {
+    top?: string;
+}
+
 export const SORT_KEYS: readonly CompareSortKey[] =
     Object.values(CompareSortKey);
+
+const UNIT_SCREEN_TIME: ScreenTime = {
+    accountsPerSession: 1,
+    sessionHoursPerDay: 1,
+};
 
 export default defineCommand({
     args: {
@@ -132,6 +146,11 @@ export default defineCommand({
                 'Account counts to split --total-risk across, comma separated (e.g. 1,2,10): one row per split on the same seed for one plan, ranked by the objective, with the whole group as the unit (needs --total-risk, one plan and no --copy-accounts)',
             type: 'string',
         },
+        top: {
+            description:
+                'Keep only the best N plans after ranking, for your screen time (a whole number >= 1; needs --hours-per-day and --accounts-per-session). Does not apply to --splits',
+            type: 'string',
+        },
         'total-risk': {
             description:
                 'Total risk per trade across the copied accounts (e.g. 2000): each split puts total / accounts on every account, under the same engine policy (needs --splits)',
@@ -155,9 +174,15 @@ export default defineCommand({
             const { sort } = ranking;
             const screenTime = readScreenTime(context.args);
             requireScreenTimeForSort(sort, screenTime);
+            const top = readTopLimit(context.args, screenTime);
             const bankroll = readBankroll(context.args.bankroll);
             const splitRequest = readSplitRequest(context.args);
             if (splitRequest !== null) {
+                if (top !== null) {
+                    throw new TypeError(
+                        '--top ranks plans: it does not apply to --splits, which compares splits of one plan',
+                    );
+                }
                 runSplitComparison(
                     planResolver.resolveOne(context.args),
                     inputs,
@@ -173,28 +198,40 @@ export default defineCommand({
                 )
                 .start();
             const simulated = plans.map((plan) => {
-                const out = simulate(inputs.toSimInputs(plan));
+                const simInputs = inputs.toSimInputs(plan);
+                const out = simulate(simInputs);
                 const figures =
                     bankroll === null
                         ? null
                         : bankrollRiskFigures(out, bankroll, inputs.seed);
                 return {
+                    affordableAttempts:
+                        bankroll === null
+                            ? null
+                            : bankrollAttempts(out, bankroll),
                     batchLossProbability: figures?.lossProbability ?? null,
                     figures,
                     out,
                     plan,
+                    simInputs,
                 };
             });
             spinner.succeed(
                 `simulated ${plans.length} plan(s) x ${inputs.trials} trials`,
             );
 
-            const rows = rankRows(simulated, sort);
+            const ranked = rankRows(simulated, sort, screenTime);
+            const rows = top === null ? ranked : ranked.slice(0, top);
 
             ui.heading(
                 `${plans.length} plan(s) · ${(inputs.winrate * 100).toFixed(0)}% WR · 1:${inputs.rrRatio} · ${inputs.fundedHorizonDays} funded days · sorted by ${sort}`,
             );
             ui.muted(`  ${compareRankingHeadingLine(ranking)}`);
+            for (const { plan, simInputs } of rows) {
+                for (const line of pricedTriggerLines(simInputs, plan.label)) {
+                    ui.muted(line);
+                }
+            }
             printEdgePlausibilityNotes(
                 tradingEdgeNotes({
                     fundedRrRatio: inputs.fundedRrRatio,
@@ -221,6 +258,11 @@ export default defineCommand({
             }
             if (bankroll !== null) {
                 ui.muted(BANKROLL_COLUMNS_NOTE);
+            }
+            if (top !== null) {
+                ui.muted(
+                    `showing the top ${rows.length} of ${ranked.length} plan(s) for your hours, after ranking by ${sort}`,
+                );
             }
             if (sort === CompareSortKey.RuinFirst) {
                 for (const line of nonPositiveEvPlanLines(rows)) {
@@ -286,6 +328,8 @@ export function compareColumns(
         totalled('spend', 8),
         totalled('payout', 9),
         totalled('monthly', 9),
+        totalled('cycle net', 9),
+        { label: 'ROI', width: 7 },
         { label: 'bustF', width: 7 },
         { label: 'P(no payout)', width: 12 },
     ];
@@ -305,8 +349,9 @@ export function compareOutputs(
     a: RankedMetrics,
     b: RankedMetrics,
     sort: CompareSortKey,
+    screenTime: null | ScreenTime = null,
 ): number {
-    return compareRows({ out: a }, { out: b }, sort);
+    return compareRows({ out: a }, { out: b }, sort, screenTime);
 }
 
 export function compareRankingHeadingLine(ranking: CompareRanking): string {
@@ -341,6 +386,8 @@ export function compareRowCells(
         formatCurrency(out.expectedTotalCost),
         formatCurrency(out.expectedGrossPayout),
         formatCurrency(out.expectedMonthlyNet),
+        formatCurrency(out.expectedNet),
+        formatOptionalPercent(out.roiOnCost.value),
         formatPercent(out.fundedBustProbability),
         formatNoPayoutProbability(out),
     ];
@@ -358,7 +405,7 @@ export function compareRowCells(
 
 export function describeColumnBasis(copyAccounts: number): null | string {
     return copyAccounts > 1
-        ? `spend, payout and monthly total all ${copyAccounts} copies; eval pass, survive, days, $/funded, bustF and P(no payout) are per account`
+        ? `spend, payout, monthly and cycle net total all ${copyAccounts} copies; eval pass, survive, days, $/funded, ROI, bustF and P(no payout) are per account`
         : null;
 }
 
@@ -408,8 +455,9 @@ export function nonPositiveEvPlanLines(
 export function rankRows<T extends RankableRow>(
     rows: readonly T[],
     sort: CompareSortKey,
+    screenTime: null | ScreenTime = null,
 ): T[] {
-    return rows.toSorted((a, b) => compareRows(a, b, sort));
+    return rows.toSorted((a, b) => compareRows(a, b, sort, screenTime));
 }
 
 export function readSplitRequest(
@@ -429,6 +477,18 @@ export function readSplitRequest(
             .map((part) => readPositiveInteger(part.trim(), 'splits')),
         totalRisk: readPositiveNumber(totalRisk, 'total-risk'),
     };
+}
+
+export function readTopLimit(
+    arguments_: TopLimitArguments,
+    screenTime: null | ScreenTime,
+): null | number {
+    if (arguments_.top === undefined) return null;
+    const top = readPositiveInteger(arguments_.top, 'top');
+    if (screenTime !== null) return top;
+    throw new TypeError(
+        '--top needs --hours-per-day and --accounts-per-session: it keeps the best N plans for your screen time',
+    );
 }
 
 export function requireScreenTimeForSort(
@@ -478,8 +538,9 @@ export function ruinFirstWarning(rows: readonly RankableRow[]): null | string {
     if (positive.length === 0) {
         return 'no plan has EV per attempt above zero, so ruin-first ranks none';
     }
-    return positive.some((row) => row.batchLossProbability != null)
-        ? null
+    if (positive.some((row) => row.batchLossProbability != null)) return null;
+    return positive.some((row) => (row.affordableAttempts ?? 0) >= 1)
+        ? 'bankroll affords more attempts than a batch can be simulated for, so ruin-first could not price the chance a batch ends below zero and fell back to monthly net'
         : 'bankroll affords no attempt of any ranked plan, so ruin-first fell back to monthly net';
 }
 
@@ -581,6 +642,7 @@ function compareRows(
     a: RankableRow,
     b: RankableRow,
     sort: CompareSortKey,
+    screenTime: null | ScreenTime = null,
 ): number {
     switch (sort) {
         case CompareSortKey.Cost: {
@@ -601,7 +663,12 @@ function compareRows(
             if (isAPassed === isBPassed) return 0;
             return isAPassed ? -1 : 1;
         }
-        case CompareSortKey.Hour:
+        case CompareSortKey.Hour: {
+            return compareOptionalAscending(
+                negated(screenHourValue(a.out, screenTime)),
+                negated(screenHourValue(b.out, screenTime)),
+            );
+        }
         case CompareSortKey.Net: {
             return ascending(
                 b.out.expectedMonthlyNet,
@@ -657,14 +724,8 @@ function formatScreenHour(
     expectedMonthlyNet: number,
     screenTime: ScreenTime,
 ): string {
-    const result = netPerScreenHour({
-        accountsPerSession: screenTime.accountsPerSession,
-        expectedMonthlyNet: dollars(expectedMonthlyNet),
-        sessionHoursPerDay: screenTime.sessionHoursPerDay,
-    });
-    return result.value === null
-        ? NOT_APPLICABLE
-        : formatCurrency(result.value.value);
+    const value = screenHourValue({ expectedMonthlyNet }, screenTime);
+    return value === null ? NOT_APPLICABLE : formatCurrency(value);
 }
 
 function formatUncertainCurrency(value: {
@@ -680,6 +741,10 @@ function hasPositiveEv(
     out: Pick<SimOutputs, 'expectedNetPerAttempt'>,
 ): boolean {
     return out.expectedNetPerAttempt > 0;
+}
+
+function negated(value: null | number): null | number {
+    return value === null ? null : -value;
 }
 
 function objectiveFlagOf(sort: CompareSortKey): null | ObjectiveFlag {
@@ -708,6 +773,7 @@ function printSplitComparison(
     inputs: TradingInputs,
     request: SplitRequest,
     result: CopySplitResult,
+    base: SimInputs,
 ): void {
     ui.heading(
         `${plan.label} · total risk ${formatCurrency(request.totalRisk)} per trade · splits ${request.splits.join(', ')} · seed ${inputs.seed} · ${result.trialsPerSplit} trials per split`,
@@ -715,6 +781,9 @@ function printSplitComparison(
     ui.muted(`  ${objectiveHeadingLine(result.objective)}`);
     for (const line of result.basisLines) {
         ui.muted(`  ${line}`);
+    }
+    for (const line of pricedTriggerLines(base)) {
+        ui.muted(line);
     }
     if (result.note !== null) ui.warn(result.note);
     const table = new TablePrinter([...SPLIT_COLUMNS]);
@@ -746,7 +815,21 @@ function runSplitComparison(
         request.splits,
         objective,
     );
-    printSplitComparison(plan, inputs, request, result);
+    printSplitComparison(plan, inputs, request, result, base);
+}
+
+function screenHourValue(
+    out: Pick<SimOutputs, 'expectedMonthlyNet'>,
+    screenTime: null | ScreenTime,
+): null | number {
+    const { accountsPerSession, sessionHoursPerDay } =
+        screenTime ?? UNIT_SCREEN_TIME;
+    const result = netPerScreenHour({
+        accountsPerSession,
+        expectedMonthlyNet: dollars(out.expectedMonthlyNet),
+        sessionHoursPerDay,
+    });
+    return result.value === null ? null : result.value.value;
 }
 
 function sortKeyOf(objective: SizingObjective): CompareSortKey {

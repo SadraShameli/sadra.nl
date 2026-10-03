@@ -3,6 +3,7 @@ import { defineCommand } from 'citty';
 import {
     planArguments,
     planResolver,
+    pricedTriggerLines,
     TablePrinter,
     tradingArguments,
     TradingInputs,
@@ -50,7 +51,8 @@ export default defineCommand({
             const inputs = TradingInputs.parse(context.args);
             const levers = readBankrollLeversInputs(context.args);
 
-            const baseOut = simulate(inputs.toSimInputs(plan));
+            const baseInputs = inputs.toSimInputs(plan);
+            const baseOut = simulate(baseInputs);
             const base = toBankrollLeverOutputs(baseOut);
             const variants = leverVariants(inputs, plan, levers);
             const rows = bankrollLevers(
@@ -61,6 +63,9 @@ export default defineCommand({
             );
 
             ui.heading(`${plan.label}: bankroll levers`);
+            for (const line of pricedTriggerLines(baseInputs)) {
+                ui.muted(line);
+            }
             ui.muted(`  bankroll ${formatCurrency(levers.bankroll)}\n`);
 
             const table = new TablePrinter([

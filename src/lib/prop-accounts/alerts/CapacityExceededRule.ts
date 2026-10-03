@@ -1,5 +1,10 @@
+import {
+    dailyCapacityUnitsOf,
+    isActiveAccountRow,
+} from '~/lib/prop-accounts/core';
+
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
-import { type AlertContext, isActive } from './AlertContext';
+import { type AlertContext } from './AlertContext';
 import { AlertKind } from './AlertKind';
 import { AlertRule } from './AlertRule';
 import { AlertSeverity } from './AlertSeverity';
@@ -11,19 +16,11 @@ export class CapacityExceededRule extends AlertRule {
         const capacity = context.rulebook.bankroll.dailyAccountCapacity;
         if (capacity === null) return [];
         const active = context.accounts.filter((monitored) =>
-            isActive(monitored),
+            isActiveAccountRow(monitored.account),
         );
-        const copyGroups = new Set(
-            active.flatMap((monitored) =>
-                monitored.account.copyGroupId === null
-                    ? []
-                    : [monitored.account.copyGroupId],
-            ),
+        const units = dailyCapacityUnitsOf(
+            active.map((monitored) => monitored.account),
         );
-        const standalone = active.filter(
-            (monitored) => monitored.account.copyGroupId === null,
-        ).length;
-        const units = standalone + copyGroups.size;
         if (units <= capacity) return [];
         return [
             {

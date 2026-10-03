@@ -3,6 +3,7 @@ import { defineCommand } from 'citty';
 import {
     planArguments,
     planResolver,
+    pricedTriggerLines,
     TablePrinter,
     tradingArguments,
     TradingInputs,
@@ -49,9 +50,13 @@ export default defineCommand({
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
             const risk = readBankrollRiskInputs(context.args);
-            const out = simulate(inputs.toSimInputs(plan));
+            const simInputs = inputs.toSimInputs(plan);
+            const out = simulate(simInputs);
 
             ui.heading(`${plan.label}: bankroll risk`);
+            for (const line of pricedTriggerLines(simInputs)) {
+                ui.muted(line);
+            }
             ui.muted(`  budget ${formatCurrency(risk.budget)}\n`);
 
             const table = new TablePrinter([

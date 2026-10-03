@@ -5,8 +5,49 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PositionSizeView } from '~/app/(app)/prop-calculator/(tools)/position-size/PositionSizeView';
 import { PositionSizeUrlParameter } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
 import { NOT_APPLICABLE } from '~/lib/format';
+import {
+    DEFAULT_RULEBOOK,
+    RiskDisplayUnit,
+} from '~/lib/prop-calculator/advisor';
+import {
+    ECONOMICS_DISCLOSURE_TEXT,
+    EconomicsDisclosure,
+} from '~/lib/prop-calculator/economics';
 
-const harness = vi.hoisted(() => ({ query: '' }));
+const harness = vi.hoisted(() => ({
+    query: '',
+    rulebook: undefined as undefined | { display: { riskUnit: string } },
+    session: null as null | { user: { id: string } },
+}));
+
+vi.mock('~/lib/auth/client', () => ({
+    useSession: () => ({
+        data: harness.session,
+        error: null,
+        isPending: false,
+    }),
+}));
+
+vi.mock('~/trpc/react', () => ({
+    api: {
+        propAccounts: {
+            rulebook: {
+                get: { useQuery: () => ({ data: harness.rulebook }) },
+            },
+        },
+    },
+}));
+
+const NEAR_FRESH_EVAL_TEXT =
+    ECONOMICS_DISCLOSURE_TEXT[EconomicsDisclosure.NearFreshEvalApproximation];
+const EV_AT_STAKE_NOTE = 'EV at stake needs an account; see the account pages';
+
+function savedRulebook(riskUnit: RiskDisplayUnit) {
+    return {
+        ...DEFAULT_RULEBOOK,
+        display: { ...DEFAULT_RULEBOOK.display, riskUnit },
+    };
+}
 
 vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(harness.query),
@@ -42,6 +83,11 @@ vi.mock('~/app/(app)/prop-calculator/_components/FirmPlanPicker', () => ({
         );
     },
 }));
+
+beforeEach(() => {
+    harness.rulebook = undefined;
+    harness.session = null;
+});
 
 const FIX_TEXT = 'Fix the highlighted field to see the position.';
 
@@ -313,5 +359,159 @@ describe('PositionSizeView risk display unit', () => {
         expect(statCardSub(positionSection(), 'Risk, shown as')).toBe(
             'Fee equivalent',
         );
+    });
+});
+
+describe('PositionSizeView fee-equivalent label, saved unit and room left (PT-92)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    function positionSection(): HTMLElement {
+        const section = container.querySelector(
+            'section[aria-labelledby="position-size-result-heading"]',
+        );
+        if (!(section instanceof HTMLElement)) {
+            throw new TypeError('no position section');
+        }
+        return section;
+    }
+
+    function ownQuery(): URLSearchParams {
+        const heading = container.querySelector('.own-query-under-test');
+        return new URLSearchParams(
+            heading instanceof HTMLElement
+                ? (heading.dataset.ownQuery ?? '')
+                : '',
+        );
+    }
+
+    function renderWith(query: string) {
+        harness.query = query;
+        act(() => {
+            root.render(<PositionSizeView />);
+        });
+    }
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        document.body.replaceChildren();
+        vi.unstubAllGlobals();
+    });
+
+    it('prints the near-fresh-eval label on the card whenever a fee-equivalent figure shows', () => {
+        renderWith(
+            `${PositionSizeUrlParameter.Risk}=450&${PositionSizeUrlParameter.Stop}=7.5&${PositionSizeUrlParameter.Unit}=fee-equivalent`,
+        );
+
+        expect(positionSection().textContent).toContain(NEAR_FRESH_EVAL_TEXT);
+    });
+
+    it('prints no approximation label for account dollars', () => {
+        renderWith(
+            `${PositionSizeUrlParameter.Risk}=450&${PositionSizeUrlParameter.Stop}=7.5&${PositionSizeUrlParameter.Unit}=account-dollars`,
+        );
+
+        expect(positionSection().textContent).not.toContain(
+            NEAR_FRESH_EVAL_TEXT,
+        );
+    });
+
+    it('starts a signed-in user without a URL unit on the saved risk unit', () => {
+        harness.session = { user: { id: 'user-1' } };
+        harness.rulebook = savedRulebook(RiskDisplayUnit.FeeEquivalent);
+        renderWith(
+            `${PositionSizeUrlParameter.Risk}=450&${PositionSizeUrlParameter.Stop}=7.5`,
+        );
+
+        const text = positionSection().textContent;
+        expect(text).toContain('Fee equivalent');
+        expect(text).toContain(NEAR_FRESH_EVAL_TEXT);
+        expect(ownQuery().has(PositionSizeUrlParameter.Unit)).toBe(false);
+    });
+
+    it('falls back to the fee equivalent with a note when the saved unit is EV at stake', () => {
+        harness.session = { user: { id: 'user-1' } };
+        harness.rulebook = savedRulebook(RiskDisplayUnit.EvAtStake);
+        renderWith(
+            `${PositionSizeUrlParameter.Risk}=450&${PositionSizeUrlParameter.Stop}=7.5`,
+        );
+
+        const text = positionSection().textContent;
+        expect(text).toContain('Fee equivalent (EV at stake unavailable)');
+        expect(text).toContain(EV_AT_STAKE_NOTE);
+    });
+
+    it('lets the URL unit win over the saved unit', () => {
+        harness.session = { user: { id: 'user-1' } };
+        harness.rulebook = savedRulebook(RiskDisplayUnit.FeeEquivalent);
+        renderWith(
+            `${PositionSizeUrlParameter.Risk}=450&${PositionSizeUrlParameter.Stop}=7.5&${PositionSizeUrlParameter.Unit}=account-dollars`,
+        );
+
+        const text = positionSection().textContent;
+        expect(text).toContain('Account dollars');
+        expect(text).not.toContain(NEAR_FRESH_EVAL_TEXT);
+        expect(ownQuery().get(PositionSizeUrlParameter.Unit)).toBe(
+            'account-dollars',
+        );
+    });
+
+    it('ignores a saved unit when nobody is signed in', () => {
+        harness.rulebook = savedRulebook(RiskDisplayUnit.FeeEquivalent);
+        renderWith(
+            `${PositionSizeUrlParameter.Risk}=450&${PositionSizeUrlParameter.Stop}=7.5`,
+        );
+
+        expect(positionSection().textContent).not.toContain(
+            NEAR_FRESH_EVAL_TEXT,
+        );
+    });
+
+    it('judges the sibling mismatch against a typed room left today and shares it', () => {
+        renderWith(
+            `${PositionSizeUrlParameter.Instrument}=MNQ&${PositionSizeUrlParameter.Risk}=150&${PositionSizeUrlParameter.Stop}=7.5`,
+        );
+        expect(positionSection().textContent).not.toContain('room left today');
+        const room = container.querySelector('#position-size-room');
+        if (!(room instanceof HTMLInputElement)) {
+            throw new TypeError('no room field');
+        }
+        expect(
+            container.querySelector('label[for="position-size-room"]')
+                ?.textContent,
+        ).toBe('Room left today (cushion or daily loss limit)');
+        act(() => {
+            Reflect.set(HTMLInputElement.prototype, 'value', '300', room);
+            room.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+
+        expect(positionSection().textContent).toContain('room left today');
+        expect(ownQuery().get(PositionSizeUrlParameter.Room)).toBe('300');
+    });
+
+    it('accepts a spent room of zero, judges against it and shares it', () => {
+        renderWith(
+            `${PositionSizeUrlParameter.Instrument}=MNQ&${PositionSizeUrlParameter.Risk}=150&${PositionSizeUrlParameter.Stop}=7.5`,
+        );
+        const room = container.querySelector('#position-size-room');
+        if (!(room instanceof HTMLInputElement)) {
+            throw new TypeError('no room field');
+        }
+        act(() => {
+            Reflect.set(HTMLInputElement.prototype, 'value', '0', room);
+            room.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+
+        expect(positionSection().textContent).toContain('room left today');
+        expect(ownQuery().get(PositionSizeUrlParameter.Room)).toBe('0');
     });
 });

@@ -11,6 +11,8 @@ import {
     fundedCycleSeedFromTracker,
     type FundedFromStateSweepRequest,
     FundedSweepOptimumResultKind,
+    FundedWinnerPolicyKind,
+    fundedWinnerRiskAt,
     type LadderSearchRequestSource,
     type NextPayoutProjectionRequest,
     type PayoutSizeSweepRequest,
@@ -111,6 +113,7 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
                 const plan = rapidEodPlan();
                 const request = {
                     grid: { lo: 100, max: 300, slots: 2, step: 100 },
+                    policy: policyFor(plan),
                     score: {
                         commission: 0,
                         cushion: 2000,
@@ -147,6 +150,7 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
             const plan = rapidEodPlan();
             const request = {
                 grid: { lo: 100, max: 300, slots: 2, step: 100 },
+                policy: policyFor(plan),
                 score: {
                     commission: 0,
                     cushion: 2000,
@@ -174,6 +178,7 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
             const positionSizing = mnqAtTen();
             const request = {
                 grid: { lo: 100, max: 300, slots: 2, step: 100 },
+                policy: policyFor(plan),
                 score: {
                     commission: 0,
                     cushion: 2000,
@@ -205,6 +210,7 @@ describe('runEngineOptimum (PT-19 step 7)', () => {
             const plan = rapidEodPlan();
             const request = {
                 grid: { lo: 100, max: 300, slots: 2, step: 100 },
+                policy: policyFor(plan),
                 score: {
                     commission: 0,
                     cushion: 2000,
@@ -632,5 +638,103 @@ describe('runEngineOptimum dispatches PT-32 sources (PT-32 step 6)', () => {
             const result = runEngineOptimum(plan, request);
             expect(structuredClone(result)).toStrictEqual(result);
         }
+    });
+});
+
+function winnerOf(candidates: {
+    readonly flat: readonly number[];
+    readonly isStopEntered: boolean;
+    readonly percent?: readonly number[];
+}) {
+    const plan = rapidEodPlan();
+    const isStop = candidates.isStopEntered;
+    const result = runEngineOptimum(plan, {
+        base: baseSimInputs({
+            ...(isStop && { instrument: InstrumentSymbol.MNQ, stopPoints: 10 }),
+            trials: 20,
+        }),
+        candidates: {
+            flat: candidates.flat,
+            fundedLadder: null,
+            ...(candidates.percent !== undefined && {
+                percent: candidates.percent,
+            }),
+            positionSizing: isStop ? mnqAtTen() : null,
+            stopRule,
+        },
+        policy: policyFor(plan),
+        source: AdviceSource.FundedSweepFresh,
+    });
+    if (!('sweep' in result)) throw new Error('expected a sweep result');
+    if (result.sweep.kind !== FundedSweepOptimumResultKind.Optimum) {
+        throw new Error('expected an optimum');
+    }
+    return result.sweep.optimum;
+}
+
+describe('EngineOptimum.policy names the winner as a typed policy (PT-104, F-121)', () => {
+    it('names a flat winner by its dollars and keeps the label', () => {
+        const optimum = winnerOf({ flat: [250], isStopEntered: false });
+
+        expect(optimum.label).toBe('flat $250');
+        expect(optimum.policy).toStrictEqual({
+            dollars: 250,
+            kind: FundedWinnerPolicyKind.Flat,
+        });
+        expect(fundedWinnerRiskAt(optimum.policy, 1700)).toBe(250);
+    });
+
+    it('names a percent winner by its percent and keeps the label', () => {
+        const optimum = winnerOf({
+            flat: [],
+            isStopEntered: true,
+            percent: [10],
+        });
+
+        expect(optimum.label).toBe('10% cushion');
+        expect(optimum.policy).toStrictEqual({
+            kind: FundedWinnerPolicyKind.PercentOfCushion,
+            percent: 10,
+        });
+    });
+
+    it('prices a 10% winner at a $1,700 cushion as $170', () => {
+        expect(
+            fundedWinnerRiskAt(
+                { kind: FundedWinnerPolicyKind.PercentOfCushion, percent: 10 },
+                1700,
+            ),
+        ).toBe(170);
+    });
+
+    it('prices a 7.5% winner to the whole cent', () => {
+        expect(
+            fundedWinnerRiskAt(
+                { kind: FundedWinnerPolicyKind.PercentOfCushion, percent: 7.5 },
+                1234.56,
+            ),
+        ).toBe(92.59);
+    });
+
+    it('prices a flat winner at its dollars whatever the cushion', () => {
+        expect(
+            fundedWinnerRiskAt(
+                { dollars: 400, kind: FundedWinnerPolicyKind.Flat },
+                50,
+            ),
+        ).toBe(400);
+    });
+
+    it('names a 7.5 percent candidate exactly, with no float residue from the cushion fraction', () => {
+        const optimum = winnerOf({
+            flat: [],
+            isStopEntered: true,
+            percent: [7.5],
+        });
+
+        expect(optimum.policy).toStrictEqual({
+            kind: FundedWinnerPolicyKind.PercentOfCushion,
+            percent: 7.5,
+        });
     });
 });

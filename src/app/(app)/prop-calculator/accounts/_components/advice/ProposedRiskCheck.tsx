@@ -153,6 +153,11 @@ function VerdictBlock({
                 )}
                 {view.verdictText}
             </p>
+            {view.placementText !== null && (
+                <p className="text-sm font-medium text-amber-400">
+                    {view.placementText}
+                </p>
+            )}
             {violation !== null && view.isViolationOffered && (
                 <ViolationControl violation={violation} />
             )}

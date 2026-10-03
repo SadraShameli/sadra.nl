@@ -1,7 +1,9 @@
 import {
+    type FirmCountMember,
     type FirmPayoutCount,
     firmPayoutCounts,
-    paidPayoutsSinceLastLiveAccountFor,
+    isFirmCountMemberReadable,
+    requestedPayoutCountAt,
 } from '~/lib/prop-accounts/advice/FirmPayoutCount';
 import {
     type Dollars,
@@ -18,6 +20,11 @@ import {
 import { type PlanGroup, type PortfolioLedger } from './PortfolioLedger';
 import { paidPayoutsOnOrBefore } from './SpendAndPayouts';
 
+export enum LiveProximityCountStatus {
+    Checked = 'checked',
+    NotChecked = 'not-checked',
+}
+
 export enum LiveProximityStatus {
     Unverified = 'unverified',
     Verified = 'verified',
@@ -25,18 +32,22 @@ export enum LiveProximityStatus {
 
 export interface AccountLiveTriggerProximity {
     readonly accountId: string;
+    readonly countStatus: LiveProximityCountStatus;
     readonly firmId: FirmId;
     readonly paidPayouts: number;
     readonly planSerial: string;
     readonly remaining: null | number;
+    readonly requestedPayouts: number;
     readonly status: LiveProximityStatus;
     readonly triggerCount: null | number;
 }
 
 export interface FirmLiveTriggerProximity {
+    readonly countStatus: LiveProximityCountStatus;
     readonly firmId: FirmId;
     readonly paidPayoutsSinceLastLiveAccount: number;
     readonly remaining: null | number;
+    readonly requestedPayoutsSinceLastLiveAccount: number;
     readonly sinceOn: null | string;
     readonly status: LiveProximityStatus;
     readonly triggerCount: null | number;
@@ -57,6 +68,8 @@ export interface SingleDayTriggerFact {
     readonly quote: PolicyQuote;
 }
 
+const NO_REPORTED_PAYOUTS: ReadonlyMap<string, number> = new Map();
+
 const ZERO_PROGRESS: LiveTriggerProgress = {
     cumulativePayoutDollars: dollars(0),
     largestSingleDayProfit: dollars(0),
@@ -67,17 +80,19 @@ const ZERO_PROGRESS: LiveTriggerProgress = {
 export function liveTransitionProximity(
     ledger: PortfolioLedger,
     asOf: string,
+    reportedPayoutsTaken: ReadonlyMap<string, number> = NO_REPORTED_PAYOUTS,
 ): LiveTransitionProximity {
+    const firmCounts = firmPayoutCounts(ledger, asOf);
     const groups = ledger
         .planGroups()
         .filter((group) =>
             group.accounts.some((entry) => entry.row.archivedAt === null),
         );
-    const firmCounts = firmPayoutCounts(ledger, asOf);
     const groupsByFirm = Map.groupBy(groups, (group) => group.firmId);
 
     return {
-        byAccount: groups.flatMap((group) => accountRowsOf(group, asOf)),
+        byAccount: groups.flatMap((group) => accountRowsOf(group, asOf, reportedPayoutsTaken),
+        ),
         byFirm: groupsByFirm
             .values()
             .flatMap((firmGroups) => {
@@ -94,28 +109,45 @@ export function liveTransitionProximity(
 function accountRowsOf(
     group: PlanGroup,
     asOf: string,
+    reportedPayoutsTaken: ReadonlyMap<string, number>,
 ): readonly AccountLiveTriggerProximity[] {
     const trigger = perAccountTriggerOf(group);
     const isVerified = isConfirmed(trigger?.source);
     return group.accounts
         .filter((entry) => entry.row.archivedAt === null)
         .map((entry) => {
-            const paidPayouts = paidPayoutsOnOrBefore(
-                entry.payouts,
-                asOf,
-            ).length;
+            const member: FirmCountMember = {
+                account: entry.row,
+                events: entry.events,
+                payouts: entry.payouts,
+            };
+            const isReadable = isFirmCountMemberReadable(member);
+            const paidPayouts = isReadable
+                ? Math.max(
+                      reportedPayoutsTaken.get(entry.row.id) ?? 0,
+                      paidPayoutsOnOrBefore(entry.payouts, asOf).length,
+                  )
+                : 0;
+            const requestedPayouts = isReadable
+                ? requestedPayoutCountAt(entry.payouts, asOf)
+                : 0;
             return {
                 accountId: entry.row.id,
+                countStatus: isReadable
+                    ? LiveProximityCountStatus.Checked
+                    : LiveProximityCountStatus.NotChecked,
                 firmId: group.firmId,
                 paidPayouts,
                 planSerial: group.planSerial,
                 remaining:
-                    trigger === undefined || !isVerified
+                    trigger === undefined || !isVerified || !isReadable
                         ? null
                         : trigger.distance({
                               ...ZERO_PROGRESS,
-                              payoutCountThisAccount: paidPayouts,
+                              payoutCountThisAccount:
+                                  paidPayouts + requestedPayouts,
                           }),
+                requestedPayouts,
                 status: isVerified
                     ? LiveProximityStatus.Verified
                     : LiveProximityStatus.Unverified,
@@ -132,21 +164,29 @@ function firmRowOf(
 ): FirmLiveTriggerProximity {
     const trigger = firmTotalTriggerAcrossPlans(firmGroups);
     const isVerified = isConfirmed(trigger?.source);
+    const count = firmCounts.find((entry) => entry.firmId === firmId);
     const paidPayoutsSinceLastLiveAccount =
-        paidPayoutsSinceLastLiveAccountFor(firmCounts, firmId) ?? 0;
-    const sinceOn =
-        firmCounts.find((entry) => entry.firmId === firmId)?.sinceOn ?? null;
+        count?.paidPayoutsSinceLastLiveAccount ?? 0;
+    const requestedPayoutsSinceLastLiveAccount =
+        count?.requestedPayoutsSinceLastLiveAccount ?? 0;
     return {
+        countStatus:
+            count === undefined
+                ? LiveProximityCountStatus.NotChecked
+                : LiveProximityCountStatus.Checked,
         firmId,
         paidPayoutsSinceLastLiveAccount,
         remaining:
-            trigger === undefined || !isVerified
+            trigger === undefined || !isVerified || count === undefined
                 ? null
                 : trigger.distance({
                       ...ZERO_PROGRESS,
-                      payoutCountAcrossFirm: paidPayoutsSinceLastLiveAccount,
+                      payoutCountAcrossFirm:
+                          paidPayoutsSinceLastLiveAccount +
+                          requestedPayoutsSinceLastLiveAccount,
                   }),
-        sinceOn,
+        requestedPayoutsSinceLastLiveAccount,
+        sinceOn: count?.sinceOn ?? null,
         status: isVerified
             ? LiveProximityStatus.Verified
             : LiveProximityStatus.Unverified,

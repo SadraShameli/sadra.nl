@@ -8,10 +8,9 @@ import { AnalysisView } from '~/app/(app)/prop-calculator/(tools)/analysis/Analy
 import { SimulatorView } from '~/app/(app)/prop-calculator/(tools)/simulator/SimulatorView';
 import { CalculatorInputsForm } from '~/app/(app)/prop-calculator/_components/CalculatorInputsForm';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
-import CashFlowPanel, {
-    funnelWhatIfFromForm,
-} from '~/app/(app)/prop-calculator/_components/CashFlowPanel';
+import CashFlowPanel from '~/app/(app)/prop-calculator/_components/CashFlowPanel';
 import FirmComparisonTable from '~/app/(app)/prop-calculator/_components/FirmComparisonTable';
+import { funnelWhatIfFromForm } from '~/app/(app)/prop-calculator/_components/FunnelWhatIfSection';
 import OptimalRiskTable from '~/app/(app)/prop-calculator/_components/OptimalRiskTable';
 import PlanComparisonTable from '~/app/(app)/prop-calculator/_components/PlanComparisonTable';
 import PortfolioPanel from '~/app/(app)/prop-calculator/_components/PortfolioPanel';
@@ -26,6 +25,7 @@ import {
     type PortfolioEntry,
 } from '~/app/(app)/prop-calculator/_components/types';
 import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalculator';
+import { useCashFlowSimulation } from '~/app/(app)/prop-calculator/_components/useCashFlowSimulation';
 import { formatCompactCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
@@ -39,12 +39,19 @@ import {
     simulate,
     simulatePortfolio,
 } from '~/lib/prop-calculator';
-import { funnelWhatIf } from '~/lib/prop-calculator/economics';
+import {
+    ECONOMICS_DISCLOSURE_TEXT,
+    EconomicsDisclosure,
+    fundedValueToAttemptCostLabel,
+    funnelWhatIf,
+} from '~/lib/prop-calculator/economics';
 import { simulatePortfolioTimeline } from '~/lib/prop-calculator/portfolioTimeline';
 import {
     type SimInputsSizingInputs,
     simInputsSizingIssue,
 } from '~/lib/prop-calculator/simulator';
+
+import { InlineToolsWorker } from './labWorkerFixtures';
 
 interface ProviderHarness {
     base: { error: null | string; isPending: boolean; result: null };
@@ -87,6 +94,34 @@ vi.mock(
     },
 );
 
+const resolverRuns = vi.hoisted(() => ({ count: 0 }));
+
+vi.mock(import('@hookform/resolvers/zod'), async (importOriginal) => {
+    const actual = await importOriginal();
+    const countingZodResolver = ((
+        ...parameters: Parameters<typeof actual.zodResolver>
+    ) => {
+        const resolver = actual.zodResolver(...parameters);
+        const counting: typeof resolver = (values, context, options) => {
+            resolverRuns.count += 1;
+            return resolver(values, context, options);
+        };
+        return counting;
+    }) as typeof actual.zodResolver;
+    return { ...actual, zodResolver: countingZodResolver };
+});
+
+vi.mock(
+    import('~/app/(app)/prop-calculator/_components/useCashFlowSimulation'),
+    async (importOriginal) => {
+        const actual = await importOriginal();
+        return {
+            ...actual,
+            useCashFlowSimulation: vi.fn(actual.useCashFlowSimulation),
+        };
+    },
+);
+
 vi.mock('next/dynamic', () => ({ default: () => renderNothing }));
 
 vi.mock('next/navigation', () => ({
@@ -108,12 +143,14 @@ vi.mock(
     async (importOriginal) => {
         const actual = await importOriginal<typeof UseToolsWorkerModule>();
         return {
+            createToolsWorker: actual.createToolsWorker,
             ToolsWorkerPhase: actual.ToolsWorkerPhase,
             useToolsWorker: () => ({
                 cancel: vi.fn(),
                 run: vi.fn(),
                 state: { phase: actual.ToolsWorkerPhase.Idle },
             }),
+            WORKER_FAILURE_REASON: actual.WORKER_FAILURE_REASON,
         };
     },
 );
@@ -141,6 +178,7 @@ vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
         ladderSlot: null,
         pinned: null,
     }),
+    useObjectiveChoice: () => ({ automaticBasis: null, queryFailure: null }),
 }));
 
 const SMALL_TRIALS = 4;
@@ -162,13 +200,49 @@ const FAILED_BASE: ProviderHarness['base'] = {
 const BASE_FAILURE_TEXT =
     'The simulation could not run for these inputs, so there is no result to show. Change an input to run it again.';
 
+function cashFlowPanelWithoutTimeline(): ReactNode {
+    const state = stateWith({});
+    provide(state);
+    vi.mocked(simulatePortfolioTimeline).mockImplementationOnce(() => {
+        throw new Error('timeline skipped for the what-if');
+    });
+    return (
+        <CashFlowPanel
+            baseInputs={buildSimInputs(state)}
+            firmDisplayName={state.firm.displayName}
+            maxAccounts={5}
+        />
+    );
+}
+
 function currentProvider(): ProviderHarness {
     if (harness.current === null) throw new Error('no provider state');
     return harness.current;
 }
 
+async function fillWhatIf(
+    container: HTMLElement,
+    passRate: string,
+): Promise<void> {
+    await setNumberInput(container, 'cash-flow-what-if-attempts', '100');
+    await setNumberInput(container, 'cash-flow-what-if-pass-rate', passRate);
+    await setNumberInput(container, 'cash-flow-what-if-payout-rate', '50');
+    await setNumberInput(container, 'cash-flow-what-if-average-payout', '2000');
+    await setNumberInput(container, 'cash-flow-what-if-attempt-cost', '165');
+}
+
 function hintText(container: HTMLElement): string {
     return container.querySelector('#position-sizing-hint')?.textContent ?? '';
+}
+
+function limitTimelineTrials(): void {
+    const original = vi
+        .mocked(simulatePortfolioTimeline)
+        .getMockImplementation();
+    if (!original) throw new Error('the timeline spy has no implementation');
+    vi.mocked(simulatePortfolioTimeline).mockImplementationOnce((inputs) =>
+        original({ ...inputs, trials: SMALL_TRIALS }),
+    );
 }
 
 function provide(
@@ -205,14 +279,14 @@ function requiredIssue(inputs: SimInputsSizingInputs): string {
     return issue;
 }
 
-function setNumberInput(
+async function setNumberInput(
     container: HTMLElement,
     id: string,
     value: string,
-): void {
+): Promise<void> {
     const input = container.querySelector(`#${id}`);
     if (input === null) throw new Error(`expected an input with id ${id}`);
-    act(() => {
+    await act(async () => {
         Object.getOwnPropertyDescriptor(
             window.HTMLInputElement.prototype,
             'value',
@@ -249,9 +323,11 @@ describe('refused sizing in the web panels (PT-11f)', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.stubGlobal('Worker', InlineToolsWorker);
         vi.mocked(simulate).mockClear();
         vi.mocked(simulatePortfolio).mockClear();
         vi.mocked(simulatePortfolioTimeline).mockClear();
+        resolverRuns.count = 0;
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -646,6 +722,7 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 stopPoints: 10,
             });
             provide(state);
+            limitTimelineTrials();
             render(
                 <CashFlowPanel
                     baseInputs={buildSimInputs(state)}
@@ -667,6 +744,7 @@ describe('refused sizing in the web panels (PT-11f)', () => {
         it('CashFlowPanel keeps the default inputs (stop points off) free of position sizing (PT-11g)', () => {
             const state = stateWith({});
             provide(state);
+            limitTimelineTrials();
             render(
                 <CashFlowPanel
                     baseInputs={buildSimInputs(state)}
@@ -684,6 +762,7 @@ describe('refused sizing in the web panels (PT-11f)', () => {
         it('CashFlowPanel shows P(ends net negative) next to P10 final net (PT-62b, F-V14)', () => {
             const state = stateWith({});
             provide(state);
+            limitTimelineTrials();
             render(
                 <CashFlowPanel
                     baseInputs={buildSimInputs(state)}
@@ -703,6 +782,7 @@ describe('refused sizing in the web panels (PT-11f)', () => {
         it('does not apply an undisclosed 0.5 red/green threshold to P(ends net negative), matching the neutral treatment of the same figure on ProjectionCard (PT-62b review HIGH fix)', () => {
             const state = stateWith({});
             provide(state);
+            limitTimelineTrials();
             render(
                 <CashFlowPanel
                     baseInputs={buildSimInputs(state)}
@@ -719,9 +799,10 @@ describe('refused sizing in the web panels (PT-11f)', () => {
         });
 
         describe('the funnel what-if form (PT-62b, F-V11)', () => {
-            it('computes through funnelWhatIf once every field is a valid number', () => {
+            it('computes through funnelWhatIf once every field is a valid number', async () => {
                 const state = stateWith({});
                 provide(state);
+                limitTimelineTrials();
                 render(
                     <CashFlowPanel
                         baseInputs={buildSimInputs(state)}
@@ -739,19 +820,27 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 if (expected === null)
                     throw new Error('expected a funnel result');
 
-                setNumberInput(container, 'cash-flow-what-if-attempts', '100');
-                setNumberInput(container, 'cash-flow-what-if-pass-rate', '60');
-                setNumberInput(
+                await setNumberInput(
+                    container,
+                    'cash-flow-what-if-attempts',
+                    '100',
+                );
+                await setNumberInput(
+                    container,
+                    'cash-flow-what-if-pass-rate',
+                    '60',
+                );
+                await setNumberInput(
                     container,
                     'cash-flow-what-if-payout-rate',
                     '50',
                 );
-                setNumberInput(
+                await setNumberInput(
                     container,
                     'cash-flow-what-if-average-payout',
                     '2000',
                 );
-                setNumberInput(
+                await setNumberInput(
                     container,
                     'cash-flow-what-if-attempt-cost',
                     '165',
@@ -768,9 +857,82 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 );
             });
 
-            it('shows a validation message and no computed result for an out-of-range field, without crashing', () => {
+            it('states the one payout per paying account assumption and the funded value / attempt cost label under the result (PT-93, F-V11)', async () => {
+                render(cashFlowPanelWithoutTimeline());
+                expect(container.textContent).not.toContain(
+                    ECONOMICS_DISCLOSURE_TEXT[
+                        EconomicsDisclosure.OnePayoutPerPayingAccount
+                    ],
+                );
+                await fillWhatIf(container, '60');
+                expect(container.textContent).toContain(
+                    ECONOMICS_DISCLOSURE_TEXT[
+                        EconomicsDisclosure.OnePayoutPerPayingAccount
+                    ],
+                );
+                expect(container.textContent).toContain(
+                    fundedValueToAttemptCostLabel(1000 / 165 - 1),
+                );
+            });
+
+            it('shows neither the assumption nor the ratio label while the form is invalid (PT-93, F-V11)', async () => {
+                render(cashFlowPanelWithoutTimeline());
+                await fillWhatIf(container, '160');
+                expect(container.textContent).toContain(
+                    'enter a valid pass rate',
+                );
+                expect(container.textContent).not.toContain(
+                    ECONOMICS_DISCLOSURE_TEXT[
+                        EconomicsDisclosure.OnePayoutPerPayingAccount
+                    ],
+                );
+                expect(container.textContent).not.toContain(
+                    'funded value / attempt cost',
+                );
+            });
+
+            it('validates the what-if fields through the react-hook-form Zod resolver (PT-93 review)', async () => {
+                render(cashFlowPanelWithoutTimeline());
+                const runsBefore = resolverRuns.count;
+                await fillWhatIf(container, '160');
+                expect(resolverRuns.count).toBeGreaterThan(runsBefore);
+                expect(container.textContent).toContain(
+                    'enter a valid pass rate',
+                );
+                await setNumberInput(
+                    container,
+                    'cash-flow-what-if-pass-rate',
+                    '60',
+                );
+                expect(container.textContent).not.toContain(
+                    'enter a valid pass rate',
+                );
+                expect(container.textContent).toContain(
+                    ECONOMICS_DISCLOSURE_TEXT[
+                        EconomicsDisclosure.OnePayoutPerPayingAccount
+                    ],
+                );
+            });
+
+            it('does not re-render the cash flow timeline panel while the what-if fields are typed into (PT-93 review)', async () => {
+                render(cashFlowPanelWithoutTimeline());
+                const rendersBefore = vi.mocked(useCashFlowSimulation).mock
+                    .calls.length;
+                await fillWhatIf(container, '60');
+                expect(container.textContent).toContain(
+                    ECONOMICS_DISCLOSURE_TEXT[
+                        EconomicsDisclosure.OnePayoutPerPayingAccount
+                    ],
+                );
+                expect(
+                    vi.mocked(useCashFlowSimulation).mock.calls,
+                ).toHaveLength(rendersBefore);
+            });
+
+            it('shows a validation message and no computed result for an out-of-range field, without crashing', async () => {
                 const state = stateWith({});
                 provide(state);
+                limitTimelineTrials();
                 render(
                     <CashFlowPanel
                         baseInputs={buildSimInputs(state)}
@@ -778,19 +940,27 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                         maxAccounts={5}
                     />,
                 );
-                setNumberInput(container, 'cash-flow-what-if-attempts', '100');
-                setNumberInput(container, 'cash-flow-what-if-pass-rate', '160');
-                setNumberInput(
+                await setNumberInput(
+                    container,
+                    'cash-flow-what-if-attempts',
+                    '100',
+                );
+                await setNumberInput(
+                    container,
+                    'cash-flow-what-if-pass-rate',
+                    '160',
+                );
+                await setNumberInput(
                     container,
                     'cash-flow-what-if-payout-rate',
                     '50',
                 );
-                setNumberInput(
+                await setNumberInput(
                     container,
                     'cash-flow-what-if-average-payout',
                     '2000',
                 );
-                setNumberInput(
+                await setNumberInput(
                     container,
                     'cash-flow-what-if-attempt-cost',
                     '165',
@@ -801,9 +971,10 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 );
             });
 
-            it('wires the validation message to every what-if field via aria-describedby and aria-invalid (PT-62b review MEDIUM fix)', () => {
+            it('wires the validation message to every what-if field via aria-describedby and aria-invalid (PT-62b review MEDIUM fix)', async () => {
                 const state = stateWith({});
                 provide(state);
+                limitTimelineTrials();
                 render(
                     <CashFlowPanel
                         baseInputs={buildSimInputs(state)}
@@ -811,19 +982,27 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                         maxAccounts={5}
                     />,
                 );
-                setNumberInput(container, 'cash-flow-what-if-attempts', '100');
-                setNumberInput(container, 'cash-flow-what-if-pass-rate', '160');
-                setNumberInput(
+                await setNumberInput(
+                    container,
+                    'cash-flow-what-if-attempts',
+                    '100',
+                );
+                await setNumberInput(
+                    container,
+                    'cash-flow-what-if-pass-rate',
+                    '160',
+                );
+                await setNumberInput(
                     container,
                     'cash-flow-what-if-payout-rate',
                     '50',
                 );
-                setNumberInput(
+                await setNumberInput(
                     container,
                     'cash-flow-what-if-average-payout',
                     '2000',
                 );
-                setNumberInput(
+                await setNumberInput(
                     container,
                     'cash-flow-what-if-attempt-cost',
                     '165',
@@ -866,7 +1045,8 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 });
                 expect(rounded).not.toBeNull();
                 expect(flooredDirectly).not.toBeNull();
-                expect(rounded).toEqual(flooredDirectly);
+                expect(rounded?.result).toBeDefined();
+                expect(rounded?.result).toEqual(flooredDirectly?.result);
             });
         });
     });

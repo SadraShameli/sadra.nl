@@ -2,8 +2,17 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { tradingEdgePlausibilityNote } from '~/app/(app)/prop-calculator/_components/TradingInputs';
+import {
+    compoundStartDollarsOf,
+    tradingEdgePlausibilityNote,
+} from '~/app/(app)/prop-calculator/_components/TradingInputs';
+import { formatCurrency } from '~/lib/format';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import { fraction, TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator/core';
+import {
+    compoundedMultiple,
+    kellyGrowthPerTrade,
+} from '~/lib/prop-calculator/economics';
 
 const COMPONENTS_ROOT = path.join(
     process.cwd(),
@@ -69,8 +78,79 @@ describe('tradingEdgePlausibilityNote (F-V22)', () => {
         const tradesPerDayAt = source.indexOf('id="trades-per-day"');
         expect(noteAt).toBeGreaterThan(rrSliderAt);
         expect(noteAt).toBeLessThan(tradesPerDayAt);
-        expect(source).toContain(
-            'const plausibilityNote = tradingEdgePlausibilityNote(winrate, rrRatio);',
+        expect(source).toContain('const plausibilityNote = ');
+        expect(source).toContain('tradingEdgePlausibilityNote(');
+    });
+});
+
+describe('tradingEdgePlausibilityNote Kelly growth and pace (F-V22, PT-86)', () => {
+    const growth = kellyGrowthPerTrade(fraction(0.7), 1).value ?? NaN;
+    const multiple =
+        compoundedMultiple(growth, 4 * TRADING_DAYS_PER_MONTH).value ?? NaN;
+
+    it('shows the growth per trade, labelled information, for a 70% edge at 1:1', () => {
+        const note = tradingEdgePlausibilityNote(0.7, 1);
+        expect(note).toContain(
+            `${(Math.expm1(growth) * 100).toFixed(2)}% per trade`,
         );
+        expect(note).toContain(
+            'information, not sizing; Kelly is not prop-firm sizing',
+        );
+        expect(note).not.toContain('compounds to');
+    });
+
+    it('shows the one-month multiple at the entered trades per day', () => {
+        const note = tradingEdgePlausibilityNote(
+            0.7,
+            1,
+            DEFAULT_RULEBOOK.plausibility,
+            { tradesPerDay: 4 },
+        );
+        expect(note).toContain('4 trades per day');
+        expect(note).toContain(
+            `compounds to ${multiple.toLocaleString('en-US', { maximumFractionDigits: 2 })}x`,
+        );
+    });
+
+    it('shows the amount from a 5,000 start', () => {
+        const note = tradingEdgePlausibilityNote(
+            0.7,
+            1,
+            DEFAULT_RULEBOOK.plausibility,
+            { compoundStartDollars: 5000, tradesPerDay: 4 },
+        );
+        expect(note).toContain(formatCurrency(5000 * multiple));
+    });
+
+    it('shows no note for a typical edge even with a pace and a start', () => {
+        expect(
+            tradingEdgePlausibilityNote(
+                DEFAULT_RULEBOOK.strategy.winrate,
+                DEFAULT_RULEBOOK.strategy.rr,
+                DEFAULT_RULEBOOK.plausibility,
+                { compoundStartDollars: 5000, tradesPerDay: 4 },
+            ),
+        ).toBeNull();
+    });
+
+    it.each([
+        ['', undefined],
+        [' '.repeat(3), undefined],
+        ['abc', undefined],
+        ['0', undefined],
+        ['-50', undefined],
+        ['5000', 5000],
+        ['5,000', 5000],
+        [' 2500.5 ', 2500.5],
+    ])('reads the compounding start %j as %s', (text, expected) => {
+        expect(compoundStartDollarsOf(text)).toBe(expected);
+    });
+
+    it('keeps the compounding start card-local: an empty text field that is not stored', () => {
+        const source = componentSource('TradingInputs.tsx');
+        expect(source).toContain('Compounding start ($)');
+        expect(source).toContain("useState('')");
+        expect(source).toContain('tradesPerDay');
+        expect(source).not.toContain('onCompoundStartChange');
     });
 });

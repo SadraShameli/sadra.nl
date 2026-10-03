@@ -18,6 +18,7 @@ import {
     DEFAULT_RULEBOOK,
     type EngineOptimumRequest,
     FundedSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
@@ -58,6 +59,7 @@ function fundedAccount(plan: Plan): ReconstructedFundedOrEvalAccount {
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

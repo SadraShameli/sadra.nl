@@ -1,17 +1,23 @@
 import type { CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 
-import { riskPercentToDollars } from '~/app/(app)/prop-calculator/_components/riskConversion';
-import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
+import {
+    buildSimInputs,
+    type SimInputsSource,
+} from '~/app/(app)/prop-calculator/_components/calculatorSimInputs';
+import { riskTableObjective } from '~/app/(app)/prop-calculator/_components/objectiveRanking';
 import {
     clampFundedSweepTrials,
     type FundedSweepBaseInputs,
+    type FundedSweepProgress,
     type FundedSweepRequest,
     type FundedSweepResult,
+    MAX_FUNDED_SWEEP_TRIALS,
 } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
 import {
     CENTS_PER_DOLLAR,
     DayStopRuleKind,
     findFirm,
+    fraction,
     points,
     resolvePositionSizing,
     serializePlanId,
@@ -23,7 +29,10 @@ import {
     type EnginePolicy,
     enginePolicySchema,
     type RulebookParameters,
+    SIZING_OBJECTIVE_LABEL,
+    SizingObjective,
 } from '~/lib/prop-calculator/advisor';
+import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
 import { type Plan } from '~/lib/prop-calculator/core';
 import {
     buildFundedCandidates,
@@ -31,11 +40,19 @@ import {
     FundedCandidateBuildKind,
     fundedPlacementNotes,
     fundedRowCells,
-    type FundedSortKey,
+    fundedRowStandardErrors,
+    FundedSortKey,
+    fundedSortOfObjective,
     type FundedSweepRow,
     sortFundedResults,
 } from '~/lib/prop-calculator/optimize';
-import { type SimInputs, simulate } from '~/lib/prop-calculator/simulator';
+import {
+    liveTransferContinuationNotes,
+    liveTransferDisclosureLines,
+    type SimInputs,
+    simulate,
+} from '~/lib/prop-calculator/simulator';
+import { dayPolicySchema } from '~/lib/schemas/url';
 
 export const PERCENT_CANDIDATES_NEED_STOP_NOTE =
     'percent-of-cushion candidates are left out: pick an instrument and a stop to place them in whole contracts';
@@ -47,38 +64,39 @@ export enum FundedPolicyBasis {
 
 export type FundedOptimizerCalculatorInputs = Pick<
     CalculatorState,
-    | 'commissionPerRoundTrip'
-    | 'copyAccounts'
-    | 'dayStop'
-    | 'fundedHorizonDays'
-    | 'idleDayProbability'
-    | 'instrument'
-    | 'maxAttempts'
-    | 'maxEvalDays'
-    | 'payoutRequestSize'
-    | 'plan'
-    | 'retainedCushion'
-    | 'riskDollars'
-    | 'riskPercent'
-    | 'rrRatio'
-    | 'seed'
-    | 'sizingMode'
-    | 'stopPoints'
-    | 'takesFundedReset'
-    | 'takesOneTimeEarlyWithdrawal'
-    | 'tradesPerDay'
-    | 'trials'
-    | 'winrate'
->;
+    'liveTransferHazard'
+> &
+    SimInputsSource;
 
 export interface FundedOptimizerPolicyBasis {
     readonly cushion: FundedPolicyBasis;
     readonly payoutRequest: FundedPolicyBasis;
 }
 
+export interface FundedOptimizerRanking {
+    readonly heading: string;
+    readonly sort: FundedSortKey;
+}
+
 export interface FundedOptimizerRow {
     readonly cells: readonly string[];
-    readonly monthlyNetStandardError: null | number;
+    readonly standardErrors: readonly (null | string)[];
+}
+
+export function fundedOptimizerLiveTransferLines(
+    plan: Plan,
+    hazard: number,
+    rows: readonly FundedSweepRow[],
+): readonly string[] {
+    const [first] = rows;
+    if (first === undefined || hazard <= 0) return [];
+    const continuation = first.out.liveTransferContinuation;
+    return liveTransferDisclosureLines({
+        continuation,
+        hazard,
+        notes: liveTransferContinuationNotes(plan, continuation),
+        sentLiveShare: null,
+    });
 }
 
 export function fundedOptimizerPolicyBasis(
@@ -96,14 +114,24 @@ export function fundedOptimizerPolicyBasis(
     };
 }
 
+export function fundedOptimizerRanking(
+    requested: SizingObjective,
+): FundedOptimizerRanking {
+    const { effective } = riskTableObjective(
+        requested,
+        RankingSurface.FundedRiskSweep,
+    );
+    return {
+        heading: `Funded optimizer, ranked by ${SIZING_OBJECTIVE_LABEL[effective]}`,
+        sort: fundedSortOf(effective),
+    };
+}
+
 export function fundedOptimizerRequest(
     inputs: FundedOptimizerCalculatorInputs,
     rulebook: RulebookParameters,
 ): FundedSweepRequest {
-    const plan = withPlanOptIns(inputs.plan, {
-        takesFundedReset: inputs.takesFundedReset,
-        takesOneTimeEarlyWithdrawal: inputs.takesOneTimeEarlyWithdrawal,
-    });
+    const { evalDayPolicy, plan, ...simBase } = buildSimInputs(inputs);
     const { policy: builtPolicy } = buildEnginePolicy({
         accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
         fundedHorizonDays: inputs.fundedHorizonDays,
@@ -127,30 +155,21 @@ export function fundedOptimizerRequest(
         retainedCushionRequest:
             inputs.retainedCushion ?? builtPolicy.retainedCushionRequest,
     });
-    const riskPerTrade =
-        inputs.sizingMode === SizingMode.Dollar
-            ? inputs.riskDollars
-            : riskPercentToDollars(inputs.riskPercent, plan.accountSize);
     const base: FundedSweepBaseInputs = {
-        commissionPerRoundTrip: inputs.commissionPerRoundTrip,
-        copyAccounts: inputs.copyAccounts,
-        dayStop: inputs.dayStop,
-        fundedHorizonDays: inputs.fundedHorizonDays,
-        idleDayProbability: inputs.idleDayProbability,
-        instrument: inputs.instrument ?? undefined,
-        maxAttempts: inputs.maxAttempts,
-        maxEvalDays: inputs.maxEvalDays,
+        ...simBase,
+        liveTransferHazard:
+            inputs.liveTransferHazard > 0
+                ? fraction(inputs.liveTransferHazard)
+                : undefined,
         payoutRequestSize: effectivePayoutRequestSize,
-        riskPerTrade,
-        rrRatio: inputs.rrRatio,
-        seed: inputs.seed,
-        stopPoints: inputs.stopPoints ?? undefined,
-        tradesPerDay: inputs.tradesPerDay,
         trials: clampFundedSweepTrials(inputs.trials),
-        winrate: inputs.winrate,
     };
     return {
         base,
+        evalLadder:
+            evalDayPolicy === undefined
+                ? null
+                : dayPolicySchema.parse(evalDayPolicy),
         firmId: plan.id.firm,
         optIns: {
             takesFundedReset: inputs.takesFundedReset,
@@ -168,14 +187,14 @@ export function fundedOptimizerRows(
 ): FundedOptimizerRow[] {
     return sortFundedResults(results, sort).map((row) => ({
         cells: fundedRowCells(row.candidate.label, row.out, trials),
-        monthlyNetStandardError:
-            row.out.estimates.expectedMonthlyNet.standardError,
+        standardErrors: fundedRowStandardErrors(row.out, trials),
     }));
 }
 
 export function fundedOptimizerSweep(
     plan: Plan,
     request: FundedSweepRequest,
+    onProgress?: (progress: FundedSweepProgress) => void,
 ): FundedSweepResult {
     const resolvedPlan = withPlanOptIns(plan, request.optIns);
     const positionSizing = resolvePositionSizing(
@@ -196,14 +215,16 @@ export function fundedOptimizerSweep(
             refusal: build.refusal,
         };
     }
-    const base: SimInputs = applyEnginePolicy(resolvedPlan, request.policy, {
-        ...request.base,
-        plan: resolvedPlan,
-    });
-    const rows: FundedSweepRow[] = build.candidates.map((candidate) => ({
-        candidate,
-        out: simulate({ ...base, ...candidate.overrides }),
-    }));
+    const base = fundedSweepSimInputs(plan, request);
+    const total = build.candidates.length;
+    const rows: FundedSweepRow[] = [];
+    for (const candidate of build.candidates) {
+        rows.push({
+            candidate,
+            out: simulate({ ...base, ...candidate.overrides }),
+        });
+        onProgress?.({ completed: rows.length, total });
+    }
     const notes =
         positionSizing === null
             ? [PERCENT_CANDIDATES_NEED_STOP_NOTE]
@@ -211,8 +232,41 @@ export function fundedOptimizerSweep(
     return { kind: FundedCandidateBuildKind.Built, notes, rows };
 }
 
+export function fundedOptimizerTrialsNote(requested: number): null | string {
+    return requested > MAX_FUNDED_SWEEP_TRIALS
+        ? `trials reduced from ${requested.toLocaleString('en-US')} to ${MAX_FUNDED_SWEEP_TRIALS.toLocaleString('en-US')}: the sweep runs at most ${MAX_FUNDED_SWEEP_TRIALS.toLocaleString('en-US')} trials per policy, so its standard errors are those of ${MAX_FUNDED_SWEEP_TRIALS.toLocaleString('en-US')} trials`
+        : null;
+}
+
 export function fundedSweepPlan(request: FundedSweepRequest): null | Plan {
     return (
         findFirm(request.firmId)?.findPlanBySerial(request.planSerial) ?? null
     );
+}
+
+export function fundedSweepSimInputs(
+    plan: Plan,
+    request: FundedSweepRequest,
+): SimInputs {
+    const resolvedPlan = withPlanOptIns(plan, request.optIns);
+    return applyEnginePolicy(resolvedPlan, request.policy, {
+        ...request.base,
+        evalDayPolicy:
+            request.evalLadder === null
+                ? undefined
+                : dayPolicySchema.parse(request.evalLadder),
+        plan: resolvedPlan,
+    });
+}
+
+function fundedSortOf(objective: SizingObjective): FundedSortKey {
+    switch (objective) {
+        case SizingObjective.CycleCash:
+        case SizingObjective.MonthlyNet: {
+            return fundedSortOfObjective(objective);
+        }
+        case SizingObjective.RuinFirst: {
+            return FundedSortKey.Monthly;
+        }
+    }
 }

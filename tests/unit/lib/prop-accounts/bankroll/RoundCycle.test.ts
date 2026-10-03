@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { roundCycle } from '~/lib/prop-accounts/bankroll';
+import { roundCycleDaysOf } from '~/lib/prop-accounts/bankroll/RoundCycle';
 import { FeeKind, RoundStatus, SampleLevel } from '~/lib/prop-accounts/core';
 
 import {
@@ -157,5 +158,48 @@ describe('roundCycle', () => {
             minClosedRounds: 3,
         });
         expect(result.sampleLevel).toBe(SampleLevel.Adequate);
+    });
+
+    it('measures one closed round by its own id, matching the pooled mean for a single round', () => {
+        const r = round(
+            EVAL_PLAN,
+            'Round 1',
+            '2026-01-01',
+            RoundStatus.Closed,
+            { closedOn: '2026-03-01' },
+        );
+        const acc = account(EVAL_PLAN, { roundId: r.id });
+        const built = ledger({
+            accounts: [acc],
+            fees: [fee(acc, FeeKind.EvalPurchase, 10_000, '2026-01-05')],
+            payouts: [
+                payout(acc, 30_000, {
+                    netCents: 30_000,
+                    paidOn: '2026-02-15',
+                }),
+            ],
+            rounds: [r],
+        });
+        expect(roundCycleDaysOf(built, r)).toBe(41);
+        expect(roundCycleDaysOf(built, r)).toBe(
+            roundCycle(built, THRESHOLDS).cycleDays?.value,
+        );
+    });
+
+    it('has no cycle for an open round even when a payout was already paid', () => {
+        const r = round(EVAL_PLAN, 'Open', '2026-01-01', RoundStatus.Open);
+        const acc = account(EVAL_PLAN, { roundId: r.id });
+        const built = ledger({
+            accounts: [acc],
+            fees: [fee(acc, FeeKind.EvalPurchase, 10_000, '2026-01-05')],
+            payouts: [
+                payout(acc, 30_000, {
+                    netCents: 30_000,
+                    paidOn: '2026-02-15',
+                }),
+            ],
+            rounds: [r],
+        });
+        expect(roundCycleDaysOf(built, r)).toBeNull();
     });
 });

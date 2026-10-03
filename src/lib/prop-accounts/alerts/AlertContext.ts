@@ -7,7 +7,14 @@ import type {
     PropSizingDecisionRow,
 } from '~/server/db/schemas/prop';
 
-import { firmPayoutCountOf } from '~/lib/prop-accounts/advice';
+import {
+    type FirmCountMember,
+    type FirmPayoutCount,
+    FirmPayoutCountResultKind,
+    firmPayoutCountResultOf,
+    otherAccountsRequestedPayoutCountOf,
+    ownRequestedPayoutCountOf,
+} from '~/lib/prop-accounts/advice';
 import {
     type RealizedLossRisk,
     type RoundBudgetStatus,
@@ -30,10 +37,12 @@ import {
     PlanKeyResolutionKind,
     resolvePlanKey,
     type RoundStatus,
+    type StoredFirmId,
     sumUsdCents,
     trackedAccountOf,
     type TrackedAccountRow,
     type UsdCents,
+    usdCentsFromDollars,
 } from '~/lib/prop-accounts/core';
 import {
     type AccountStateEntry,
@@ -41,11 +50,21 @@ import {
     type FirmReconciliationEntry,
     isActiveAccount,
 } from '~/lib/prop-accounts/metrics';
-import { findFirm, type Plan, type TradingFirm } from '~/lib/prop-calculator';
+import {
+    type Dollars,
+    findFirm,
+    type Plan,
+    type TradingFirm,
+} from '~/lib/prop-calculator';
 import {
     LiveTriggerCoverage,
     type LiveTriggerLimits,
     liveTriggerLimitsFor,
+    NO_PERSONAL_CAPS,
+    PENDING_PAYOUT_COUNTS_NOT_CHECKED,
+    type PendingPayoutCountsOutcome,
+    PendingPayoutCountsStatus,
+    type PersonalCaps,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 
@@ -58,6 +77,13 @@ export enum StoredDateField {
     PayoutRequestedOn = 'payout-requested-on',
     PurchasedOn = 'purchased-on',
     SnapshotAsOf = 'snapshot-as-of',
+}
+
+export interface AccountPersonalPolicy {
+    readonly payoutRequestOverride: Dollars | null;
+    readonly personalCaps: PersonalCaps;
+    readonly personalDll: Dollars | null;
+    readonly retainedCushionRequest: Dollars | null;
 }
 
 export type AlertAccountRow = Pick<
@@ -87,7 +113,9 @@ export interface AlertContext {
     readonly availableBankrollCents: null | UsdCents;
     readonly copyGroups: readonly AlertCopyGroupRow[];
     readonly decisions: readonly AlertDecisionRow[];
+    readonly evalValueLossDollars: ReadonlyMap<string, number>;
     readonly firmReconciliation: readonly FirmReconciliationEntry[];
+    readonly personalPolicies: ReadonlyMap<string, AccountPersonalPolicy>;
     readonly realizedLossRisk: null | RealizedLossRisk;
     readonly rounds: readonly AlertRoundRow[];
     readonly rulebook: RulebookParameters;
@@ -119,6 +147,12 @@ export const NO_AVAILABLE_BANKROLL: null | UsdCents = null;
 export const NO_DECISIONS: readonly AlertDecisionRow[] = [];
 export const NO_EVENTS: readonly AlertEventRow[] = [];
 export const NO_FIRM_RECONCILIATION: readonly FirmReconciliationEntry[] = [];
+export const NO_PERSONAL_POLICY: AccountPersonalPolicy = {
+    payoutRequestOverride: null,
+    personalCaps: NO_PERSONAL_CAPS,
+    personalDll: null,
+    retainedCushionRequest: null,
+};
 export const NO_REALIZED_LOSS_RISK: null | RealizedLossRisk = null;
 export const NO_ROUNDS: readonly AlertRoundRow[] = [];
 
@@ -133,9 +167,11 @@ export interface AlertInputs {
     readonly availableBankrollCents?: null | UsdCents;
     readonly copyGroups: readonly AlertCopyGroupRow[];
     readonly decisions?: readonly AlertDecisionRow[];
+    readonly evalValueLossDollars?: ReadonlyMap<string, number>;
     readonly events?: readonly AlertEventRow[];
     readonly firmReconciliation?: readonly FirmReconciliationEntry[];
     readonly payouts: readonly AlertPayoutRow[];
+    readonly personalPolicies?: ReadonlyMap<string, AccountPersonalPolicy>;
     readonly realizedLossRisk?: null | RealizedLossRisk;
     readonly rounds?: readonly AlertRoundRow[];
     readonly rulebook: RulebookParameters;
@@ -240,7 +276,9 @@ export function createAlertContext(inputs: AlertInputs): AlertContext {
             inputs.availableBankrollCents ?? NO_AVAILABLE_BANKROLL,
         copyGroups: inputs.copyGroups,
         decisions: inputs.decisions ?? NO_DECISIONS,
+        evalValueLossDollars: inputs.evalValueLossDollars ?? new Map(),
         firmReconciliation: inputs.firmReconciliation ?? NO_FIRM_RECONCILIATION,
+        personalPolicies: inputs.personalPolicies ?? new Map(),
         realizedLossRisk: inputs.realizedLossRisk ?? NO_REALIZED_LOSS_RISK,
         rounds: inputs.rounds ?? NO_ROUNDS,
         rulebook: inputs.rulebook,
@@ -249,6 +287,21 @@ export function createAlertContext(inputs: AlertInputs): AlertContext {
             (account) => !isReadable(account),
         ),
     };
+}
+
+export function firmPayoutCountIn(
+    context: AlertContext,
+    firmId: StoredFirmId,
+    asOf: string = context.today,
+): FirmPayoutCount | null {
+    const result = firmPayoutCountResultOf(
+        firmId,
+        firmCountMembersIn(context),
+        asOf,
+    );
+    return result.kind === FirmPayoutCountResultKind.Known
+        ? result.count
+        : null;
 }
 
 export function grossDisclosureOf(
@@ -272,8 +325,10 @@ export function isModeledMonitored(
 
 export function liveTriggerDisclosuresOf(
     coverage: LiveTriggerCoverage,
+    counts: PendingPayoutCountsOutcome,
 ): readonly AlertDisclosure[] {
-    return coverage === LiveTriggerCoverage.NotChecked
+    return coverage === LiveTriggerCoverage.NotChecked ||
+        counts.status === PendingPayoutCountsStatus.NotChecked
         ? [AlertDisclosure.LiveTriggersNotChecked]
         : [];
 }
@@ -287,7 +342,7 @@ export function liveTriggerLimitsIn(
     return liveTriggerLimitsFor(
         findFirm(plan.id.firm)?.accountPolicy,
         plan,
-        paidPayoutsSinceLastLiveAccountOf(context, monitored, asOf),
+        paidPayoutsSinceLastLiveAccountIn(context, monitored, asOf),
     );
 }
 
@@ -302,24 +357,16 @@ export function paidLedgerTotal(
     );
 }
 
-export function paidPayoutsSinceLastLiveAccountOf(
+export function paidPayoutsSinceLastLiveAccountIn(
     context: AlertContext,
     monitored: MonitoredAccount,
     asOf: string,
 ): null | number {
     const firmId = monitored.planKey?.firmId;
-    if (firmId === undefined) return null;
-    const hasUnreadableAccount = context.unreadableArchivedAccounts.some(
-        (account) => account.firmId === firmId,
-    );
-    const members = [...context.accounts, ...context.archivedAccounts].filter(
-        (member) => member.account.firmId === firmId,
-    );
-    return hasUnreadableAccount ||
-        members.some((member) => member.invalidDates.length > 0)
+    return firmId === undefined
         ? null
-        : firmPayoutCountOf(firmId, members, asOf)
-              .paidPayoutsSinceLastLiveAccount;
+        : (firmPayoutCountIn(context, firmId, asOf)
+              ?.paidPayoutsSinceLastLiveAccount ?? null);
 }
 
 export function paidPayoutsThrough(
@@ -334,6 +381,62 @@ export function payoutsTakenOf(monitored: MonitoredAccount): number {
         (payout) => payout.status === PayoutStatus.Paid,
     ).length;
     return Math.max(monitored.latestSnapshot?.payoutsTaken ?? 0, paidCount);
+}
+
+export function pendingPayoutCountsIn(
+    context: AlertContext,
+    monitored: MonitoredAccount,
+    asOf: string,
+): PendingPayoutCountsOutcome {
+    const firmId = monitored.planKey?.firmId;
+    if (firmId === undefined) return PENDING_PAYOUT_COUNTS_NOT_CHECKED;
+    const firmCount = firmPayoutCountIn(context, firmId, asOf);
+    if (firmCount === null) return PENDING_PAYOUT_COUNTS_NOT_CHECKED;
+    return {
+        counts: {
+            otherAccountsPendingPayoutCount:
+                otherAccountsRequestedPayoutCountOf(
+                    firmCount,
+                    monitored.payouts,
+                    asOf,
+                ),
+            pendingPayoutCount: ownRequestedPayoutCountOf(
+                firmCount,
+                monitored.payouts,
+                asOf,
+            ),
+        },
+        status: PendingPayoutCountsStatus.Counted,
+    };
+}
+
+export function personalPolicyIn(
+    context: AlertContext,
+    accountId: string,
+): AccountPersonalPolicy {
+    return context.personalPolicies.get(accountId) ?? NO_PERSONAL_POLICY;
+}
+
+export function personalRulebookOf(
+    rulebook: RulebookParameters,
+    policy: AccountPersonalPolicy,
+): RulebookParameters {
+    return {
+        ...rulebook,
+        payout: {
+            ...rulebook.payout,
+            requestCents:
+                policy.payoutRequestOverride === null
+                    ? rulebook.payout.requestCents
+                    : usdCentsFromDollars(policy.payoutRequestOverride),
+            retainedCushionCents: Math.max(
+                rulebook.payout.retainedCushionCents,
+                policy.retainedCushionRequest === null
+                    ? 0
+                    : usdCentsFromDollars(policy.retainedCushionRequest),
+            ),
+        },
+    };
 }
 
 export function requestedLedgerTotal(
@@ -361,6 +464,23 @@ export function resolvedFirmAccountsOf(
             ? []
             : [{ firm, monitored, plan: monitored.plan.plan }];
     });
+}
+
+function firmCountMembersIn(context: AlertContext): readonly FirmCountMember[] {
+    return [
+        ...[...context.accounts, ...context.archivedAccounts].map(
+            (monitored) => ({
+                account: monitored.account,
+                events: monitored.events,
+                payouts: [...monitored.payouts, ...monitored.undatedPayouts],
+            }),
+        ),
+        ...context.unreadableArchivedAccounts.map((account) => ({
+            account,
+            events: [],
+            payouts: [],
+        })),
+    ];
 }
 
 function invalidDate(

@@ -12,6 +12,8 @@ import {
     payoutFirmMinimumMessage,
     payoutPathStepText,
     type PayoutPlannerAccountInput,
+    type PayoutPlannerBlockedResult,
+    type PayoutPlannerReadyResult,
     PayoutPlannerResultKind,
     planPayoutReadiness,
     simStayCeilingText,
@@ -19,10 +21,12 @@ import {
 import {
     decodePayoutPlannerUrlState,
     encodePayoutPlannerUrlState,
+    hasPayoutPlannerUrlRequest,
     parsePayoutPlannerBalance,
     parsePayoutPlannerCount,
     parsePayoutPlannerDate,
     parsePayoutPlannerOptionalDollars,
+    payoutPlannerRulebookRequest,
     type PayoutPlannerUrlState,
 } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerUrlState';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
@@ -44,6 +48,7 @@ import {
     type PayoutSweepRequest,
     type PayoutSweepResult,
 } from '~/app/(app)/prop-calculator/_workers/payoutSweepWorkerMessages';
+import { payoutStakeViewOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
 import { type AssumptionView } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceViewModel';
 import { AssumptionsList } from '~/app/(app)/prop-calculator/accounts/_components/advice/AssumptionsList';
 import { Input } from '~/components/ui/Input';
@@ -78,7 +83,8 @@ import {
     type PayoutSizeSweepOptimum,
     PayoutSizeSweepResultKind,
     type PayoutSizeSweepRow,
-    RetainedCushionBasis,
+    personalPayoutOverrideWarningText,
+    RETAINED_CUSHION_BASIS_TEXT,
     type RulebookParameters,
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
@@ -103,6 +109,14 @@ const MID_SIZE_BAND_MIN = 1000;
 const MID_SIZE_BAND_MAX = 2000;
 const SWEEP_SEED = 42;
 const SWEEP_TRIALS = 2000;
+const SWEEP_TABLE_CAPTION =
+    'Payout-size sweep: simulated request sizes with their monthly net and bust probability';
+const SWEEP_HAZARD_RANKING_TEXT =
+    "The engine optimum row is chosen at this hazard: a smaller request size means more paid payouts and so more transfer chances. The share of runs sent live above is the engine optimum row's.";
+const SWEEP_TRIGGER_RANKING_TEXT =
+    "The engine optimum row is chosen with this trigger in force: the request size changes how fast payouts add up to the cumulative amount, so each size sends a different share of runs live. The sent-live column shows each size's share.";
+const SWEEP_WITHIN_NOISE_TEXT =
+    'The engine optimum is within simulation noise of the documented size: treat the two as the same size.';
 const PEAK_ASSUMED_VIEW: AssumptionView = {
     bias: AssumptionBias.Optimistic,
     text: 'No peak balance was entered, so the current balance is assumed to be the peak, the most generous trailing-drawdown state.',
@@ -120,15 +134,6 @@ const RULEBOOK_NOTICE_TEXT: Readonly<
     [RulebookStatus.Failed]:
         'Your rulebook could not be loaded, so no payout figures are shown.',
     [RulebookStatus.Loading]: 'Loading your rulebook.',
-};
-
-const RETAINED_CUSHION_BASIS_TEXT: Readonly<
-    Record<RetainedCushionBasis, string>
-> = {
-    [RetainedCushionBasis.HardRule2Default]: 'Hard Rule 2 minimum',
-    [RetainedCushionBasis.LiveOneDrawdown]: 'one live drawdown',
-    [RetainedCushionBasis.PersonalOverride]: 'personal override',
-    [RetainedCushionBasis.RulebookSize]: 'rulebook size',
 };
 
 const NOISE_VERDICT_TEXT: Readonly<Record<NoiseVerdict, string>> = {
@@ -166,10 +171,14 @@ type RulebookState =
 
 export function PayoutPlannerView() {
     const searchParameters = useSearchParams();
-    const [state, setState] = useState(() =>
-        decodePayoutPlannerUrlState(
-            new URLSearchParams(searchParameters.toString()),
-        ),
+    const [initialParameters] = useState(
+        () => new URLSearchParams(searchParameters.toString()),
+    );
+    const [typedState, setTypedState] = useState(() =>
+        decodePayoutPlannerUrlState(initialParameters),
+    );
+    const [isRequestTyped, setIsRequestTyped] = useState(() =>
+        hasPayoutPlannerUrlRequest(initialParameters),
     );
     const [invalidFields, setInvalidFields] = useState<
         ReadonlySet<PayoutPlannerUrlParameter>
@@ -194,6 +203,27 @@ export function PayoutPlannerView() {
         rulebookState.status === RulebookStatus.Ready
             ? rulebookState.rulebook
             : null;
+    const rulebookRequest =
+        rulebook === null ? null : payoutPlannerRulebookRequest(rulebook);
+    const state = useMemo(
+        (): PayoutPlannerUrlState =>
+            isRequestTyped || rulebookRequest === null
+                ? typedState
+                : { ...typedState, requestSize: rulebookRequest },
+        [typedState, isRequestTyped, rulebookRequest],
+    );
+    const rulebookRequestKey = String(rulebookRequest);
+    const [requestFieldKey, setRequestFieldKey] = useState(rulebookRequestKey);
+    if (!isRequestTyped && requestFieldKey !== rulebookRequestKey) {
+        setRequestFieldKey(rulebookRequestKey);
+        setInvalidFields((current) =>
+            invalidFieldsWith(
+                current,
+                PayoutPlannerUrlParameter.RequestSize,
+                true,
+            ),
+        );
+    }
     const asOf = todayIsoDate(new Date());
 
     const policy = useMemo(
@@ -233,7 +263,7 @@ export function PayoutPlannerView() {
                 !isInputValid ||
                 policy === null ||
                 result === null ||
-                result.kind === PayoutPlannerResultKind.Implausible
+                !isPlanned(result)
             ) {
                 return null;
             }
@@ -256,17 +286,14 @@ export function PayoutPlannerView() {
     });
 
     const changeValidity: FieldValidityChange = (field, isValid) => {
-        setInvalidFields((current) => {
-            if (current.has(field) !== isValid) return current;
-            const next = new Set(current);
-            if (isValid) next.delete(field);
-            else next.add(field);
-            return next;
-        });
+        setInvalidFields((current) =>
+            invalidFieldsWith(current, field, isValid),
+        );
     };
 
     const change = (patch: Partial<PayoutPlannerUrlState>) => {
-        setState((current) => ({ ...current, ...patch }));
+        if (patch.requestSize !== undefined) setIsRequestTyped(true);
+        setTypedState((current) => ({ ...current, ...patch }));
     };
 
     return (
@@ -291,6 +318,7 @@ export function PayoutPlannerView() {
                     <PayoutPlannerInputs
                         onChange={change}
                         onValidityChange={changeValidity}
+                        requestFieldKey={requestFieldKey}
                         state={state}
                     />
                 </section>
@@ -437,10 +465,42 @@ function creditFreeOf(row: PayoutSizeSweepRow): number {
         : row.out.fromStateExpectedRealizedCash;
 }
 
+function creditFreeStandardErrorOf(row: PayoutSizeSweepRow): null | number {
+    return row.kind === StartBasis.Fresh
+        ? row.out.estimates.expectedMonthlyRealizedNet.standardError
+        : row.out.estimates.fromStateExpectedRealizedCash.standardError;
+}
+
+function creditInclusiveFigureText(row: PayoutSizeSweepRow): string {
+    return `${formatGateCurrency(creditInclusiveOf(row))}${standardErrorText(
+        creditInclusiveStandardErrorOf(row),
+    )}`;
+}
+
 function creditInclusiveOf(row: PayoutSizeSweepRow): number {
     return row.kind === StartBasis.Fresh
         ? row.out.expectedMonthlyNet
         : row.out.fromStateExpectedCash;
+}
+
+function creditInclusiveStandardErrorOf(
+    row: PayoutSizeSweepRow,
+): null | number {
+    return row.kind === StartBasis.Fresh
+        ? row.out.estimates.expectedMonthlyNet.standardError
+        : row.out.estimates.fromStateExpectedCash.standardError;
+}
+
+function invalidFieldsWith(
+    current: ReadonlySet<PayoutPlannerUrlParameter>,
+    field: PayoutPlannerUrlParameter,
+    isValid: boolean,
+): ReadonlySet<PayoutPlannerUrlParameter> {
+    if (current.has(field) !== isValid) return current;
+    const next = new Set(current);
+    if (isValid) next.delete(field);
+    else next.add(field);
+    return next;
 }
 
 function isNotModeled(
@@ -453,6 +513,34 @@ function isPeakAssumed(state: PayoutPlannerUrlState): boolean {
     return (
         state.peak === null &&
         state.plan.fundedDrawdown.kind !== DrawdownKind.Static
+    );
+}
+
+function isPlanned(
+    result: PayoutReadinessResult,
+): result is PayoutPlannerBlockedResult | PayoutPlannerReadyResult {
+    return (
+        result.kind === PayoutPlannerResultKind.Blocked ||
+        result.kind === PayoutPlannerResultKind.Ready
+    );
+}
+
+function isWithinSimulationNoise(
+    a: PayoutSizeSweepRow,
+    b: PayoutSizeSweepRow,
+): boolean {
+    const seA = creditInclusiveStandardErrorOf(a);
+    const seB = creditInclusiveStandardErrorOf(b);
+    return (
+        noiseVerdict(
+            { standardError: seA, value: creditInclusiveOf(a) },
+            { standardError: seB, value: creditInclusiveOf(b) },
+            {
+                differenceStandardError:
+                    seA === null || seB === null ? null : Math.max(seA, seB),
+                sharedSeed: true,
+            },
+        ) === NoiseVerdict.WithinNoise
     );
 }
 
@@ -660,10 +748,12 @@ function PayoutPlannerDollarField<T extends number>({
 function PayoutPlannerInputs({
     onChange,
     onValidityChange,
+    requestFieldKey,
     state,
 }: {
     onChange: (patch: Partial<PayoutPlannerUrlState>) => void;
     onValidityChange: FieldValidityChange;
+    requestFieldKey: string;
     state: PayoutPlannerUrlState;
 }) {
     const firm = ALL_FIRMS.find((candidate) =>
@@ -714,6 +804,7 @@ function PayoutPlannerInputs({
                 field={PayoutPlannerUrlParameter.RequestSize}
                 id="payout-planner-request"
                 invalidText="Enter a positive requested payout size in dollars."
+                key={requestFieldKey}
                 label="Requested payout size ($)"
                 onValid={(requestSize) => {
                     if (requestSize !== null) onChange({ requestSize });
@@ -790,7 +881,14 @@ function PayoutPlannerOutlookOffThread({
     if (task.phase !== WorkerTaskPhase.Done) {
         return <PanelSkeleton />;
     }
-    const { projection, stakeComparison } = task.result;
+    const {
+        cumulativePayoutTrigger,
+        pastPayoutsNote,
+        projection,
+        stakeComparison,
+    } = task.result;
+    const isTriggerInStake =
+        stakeComparison !== null && !isNotModeled(stakeComparison);
     const timingKind = nextPayoutTimingOf(projection).kind;
     return (
         <div className="flex flex-col gap-3">
@@ -832,6 +930,17 @@ function PayoutPlannerOutlookOffThread({
                     stakeComparison={stakeComparison}
                 />
             )}
+            {cumulativePayoutTrigger === undefined ||
+            isTriggerInStake ? null : (
+                <p className="text-xs text-muted-foreground">
+                    {assumptionText(cumulativePayoutTrigger)}
+                </p>
+            )}
+            {pastPayoutsNote === undefined ? null : (
+                <p className="text-xs text-muted-foreground">
+                    {pastPayoutsNote}
+                </p>
+            )}
         </div>
     );
 }
@@ -843,7 +952,7 @@ function PayoutPlannerOutlookSection({
     outlookTask: WorkerTaskState<never, PayoutOutlookResult>;
     result: PayoutReadinessResult;
 }) {
-    if (result.kind === PayoutPlannerResultKind.Implausible) {
+    if (!isPlanned(result)) {
         return (
             <p className="text-sm text-muted-foreground">
                 Fix the snapshot above to see the path to payout.
@@ -894,6 +1003,11 @@ function PayoutPlannerReadinessSummary({
                     {result.simStayCeiling !== null && (
                         <p className="text-xs text-muted-foreground">
                             {simStayCeilingText(result.simStayCeiling)}
+                        </p>
+                    )}
+                    {result.liveTriggerNote !== null && (
+                        <p className="text-xs text-muted-foreground">
+                            {result.liveTriggerNote}
                         </p>
                     )}
                 </div>
@@ -971,7 +1085,19 @@ function PayoutPlannerReadinessSummary({
                             {simStayCeilingText(result.simStayCeiling)}
                         </p>
                     )}
+                    {result.liveTriggerNote !== null && (
+                        <p className="text-xs text-muted-foreground">
+                            {result.liveTriggerNote}
+                        </p>
+                    )}
                 </div>
+            );
+        }
+        case PayoutPlannerResultKind.Unreadable: {
+            return (
+                <p className="text-sm text-amber-400">
+                    The snapshot could not be rebuilt: {result.reason}
+                </p>
             );
         }
     }
@@ -990,6 +1116,7 @@ function PayoutStakeComparisonSummary({
         );
     }
     const requestNow = stakeComparison.requestNow.creditInclusive;
+    const { liveTransferNotes } = payoutStakeViewOf(stakeComparison);
     const continueNow = stakeComparison.continueNow.creditInclusive;
     const gapStandardError = conservativeGapStandardError(
         requestNow.standardError,
@@ -1028,6 +1155,11 @@ function PayoutStakeComparisonSummary({
                     ]
                 }
             </div>
+            {liveTransferNotes.map((note) => (
+                <p className="text-xs text-muted-foreground" key={note}>
+                    {note}
+                </p>
+            ))}
         </div>
     );
 }
@@ -1058,6 +1190,9 @@ function PayoutSweepOutcome({
         plan,
         documentedRequestDollars,
     );
+    const isTransferPriced =
+        optimum.liveTransfer !== undefined ||
+        optimum.cumulativePayoutTrigger !== undefined;
     return (
         <div className="flex flex-col gap-2">
             <p className="text-xs text-muted-foreground">
@@ -1067,12 +1202,29 @@ function PayoutSweepOutcome({
                 alongside.
             </p>
             <table className="w-full text-sm">
+                <caption className="sr-only">{SWEEP_TABLE_CAPTION}</caption>
                 <thead>
                     <tr className="text-left text-xs text-muted-foreground">
-                        <th className="py-1 pr-4">Request size</th>
-                        <th className="py-1 pr-4">Credit-inclusive net/mo</th>
-                        <th className="py-1 pr-4">Credit-free net/mo</th>
-                        <th className="py-1">Bust probability</th>
+                        <th className="py-1 pr-4" scope="col">
+                            Request size
+                        </th>
+                        <th className="py-1 pr-4" scope="col">
+                            Credit-inclusive net/mo (± SE)
+                        </th>
+                        <th className="py-1 pr-4" scope="col">
+                            Credit-free net/mo (± SE)
+                        </th>
+                        <th
+                            className={isTransferPriced ? 'py-1 pr-4' : 'py-1'}
+                            scope="col"
+                        >
+                            Bust probability (± SE)
+                        </th>
+                        {isTransferPriced ? (
+                            <th className="py-1" scope="col">
+                                Sent live
+                            </th>
+                        ) : null}
                     </tr>
                 </thead>
                 <tbody>
@@ -1124,13 +1276,37 @@ function PayoutSweepOutcome({
                             </td>
                             <td className="py-1 pr-4 tabular-nums">
                                 {formatGateCurrency(creditInclusiveOf(row))}
+                                {standardErrorText(
+                                    creditInclusiveStandardErrorOf(row),
+                                )}
                             </td>
                             <td className="py-1 pr-4 tabular-nums">
                                 {formatGateCurrency(creditFreeOf(row))}
+                                {standardErrorText(
+                                    creditFreeStandardErrorOf(row),
+                                )}
                             </td>
-                            <td className="py-1 tabular-nums">
+                            <td
+                                className={
+                                    isTransferPriced
+                                        ? 'py-1 pr-4 tabular-nums'
+                                        : 'py-1 tabular-nums'
+                                }
+                            >
                                 {formatPercent(row.out.fundedBustProbability)}
+                                {standardErrorText(
+                                    row.out.estimates.fundedBustProbability
+                                        .standardError,
+                                    formatPercent,
+                                )}
                             </td>
+                            {isTransferPriced ? (
+                                <td className="py-1 tabular-nums">
+                                    {formatPercent(
+                                        row.out.liveTransferProbability,
+                                    )}
+                                </td>
+                            ) : null}
                         </tr>
                     ))}
                 </tbody>
@@ -1140,6 +1316,26 @@ function PayoutSweepOutcome({
                     <li key={note}>{note}</li>
                 ))}
             </ul>
+            {optimum.liveTransfer === undefined ? null : (
+                <>
+                    <p className="text-xs text-muted-foreground">
+                        {assumptionText(optimum.liveTransfer)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        {SWEEP_HAZARD_RANKING_TEXT}
+                    </p>
+                </>
+            )}
+            {optimum.cumulativePayoutTrigger === undefined ? null : (
+                <>
+                    <p className="text-xs text-muted-foreground">
+                        {assumptionText(optimum.cumulativePayoutTrigger)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        {SWEEP_TRIGGER_RANKING_TEXT}
+                    </p>
+                </>
+            )}
             {enteredRequest === documentedRequestDollars ||
             optimum.personalOverride === null ? null : (
                 <PersonalPayoutOverrideNote
@@ -1206,13 +1402,7 @@ function PersonalPayoutOverrideNote({
             {override.warning === null ? null : (
                 <p className="text-amber-400">
                     Outside the safe band:{' '}
-                    {formatPercent(override.warning.overrideBustProbability)}{' '}
-                    bust probability vs{' '}
-                    {formatPercent(override.warning.optimumBustProbability)} at
-                    the optimum size (
-                    {formatGateCurrency(override.warning.overrideMonthlyNet)} vs{' '}
-                    {formatGateCurrency(override.warning.optimumMonthlyNet)}{' '}
-                    monthly net).
+                    {personalPayoutOverrideWarningText(override.warning)}
                 </p>
             )}
         </div>
@@ -1284,10 +1474,11 @@ function RulebookStatusNotice({
     );
 }
 
-function standardErrorText(standardError: null | number): string {
-    return standardError === null
-        ? ''
-        : ` (±${formatGateCurrency(standardError)})`;
+function standardErrorText(
+    standardError: null | number,
+    format: (value: number) => string = formatGateCurrency,
+): string {
+    return standardError === null ? '' : ` (±${format(standardError)})`;
 }
 
 function sweepOptimumNotes(
@@ -1310,8 +1501,11 @@ function sweepOptimumNotes(
         ];
     }
     const notes = [
-        `Engine optimum: ${formatGateCurrency(winner.requestSize)} at ${formatGateCurrency(creditInclusiveOf(winner))} a month and ${formatPercent(winner.out.fundedBustProbability)} bust probability, against ${formatGateCurrency(documented.requestSize)} at ${formatGateCurrency(creditInclusiveOf(documented))} a month and ${formatPercent(documented.out.fundedBustProbability)} bust probability at the documented size.`,
+        `Engine optimum: ${formatGateCurrency(winner.requestSize)} at ${creditInclusiveFigureText(winner)} a month credit-inclusive and ${formatPercent(winner.out.fundedBustProbability)} bust probability, against ${formatGateCurrency(documented.requestSize)} at ${creditInclusiveFigureText(documented)} a month credit-inclusive and ${formatPercent(documented.out.fundedBustProbability)} bust probability at the documented size.`,
     ];
+    if (isWithinSimulationNoise(winner, documented)) {
+        notes.push(SWEEP_WITHIN_NOISE_TEXT);
+    }
     if (optimum.creditSensitive) {
         notes.push(
             'The credit-free ranking prefers a different size, so this optimum depends on the end-of-horizon credit.',

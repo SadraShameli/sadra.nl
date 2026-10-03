@@ -10,6 +10,7 @@ import {
 import {
     AccountEventKind,
     AccountStage,
+    PayoutStatus,
     usdCents,
     usdCentsFromDollars,
 } from '~/lib/prop-accounts/core';
@@ -92,6 +93,15 @@ function fundedAccountFor(plan: Plan) {
     );
 }
 
+function requestedPayout(account: ReturnType<typeof fundedAccountFor>) {
+    return paidPayout(account, {
+        netCents: null,
+        paidOn: null,
+        requestedOn: '2026-09-10',
+        status: PayoutStatus.Requested,
+    });
+}
+
 function withPolicy<T>(
     plan: Plan,
     triggers: readonly LiveTransitionTrigger[],
@@ -125,10 +135,7 @@ describe('the board, the advisor and the eligible alert count a pending payout t
                     DEFAULT_RULEBOOK,
                     [entry],
                     new Map([
-                        [
-                            account.id,
-                            { paidPayoutsSinceLastLiveAccount: 2 },
-                        ],
+                        [account.id, { paidPayoutsSinceLastLiveAccount: 2 }],
                     ]),
                 ).rows;
                 const advice = createSizingAdvisor(funded, {
@@ -145,6 +152,7 @@ describe('the board, the advisor and the eligible alert count a pending payout t
                     payouts: [
                         paidPayout(account, { paidOn: '2026-09-02' }),
                         paidPayout(sibling, { paidOn: '2026-09-03' }),
+                        requestedPayout(account),
                     ],
                 });
                 return {
@@ -306,15 +314,12 @@ describe('PayoutEligibleRule under a verified live trigger (PT-36g)', () => {
     it('counts the account pending payout toward a verified firm total, as the readiness board does', () => {
         const account = fundedAccountFor(plan);
         const sibling = fundedAccountFor(plan);
-        const funded = eligibleFunded(
-            plan,
-            plan.accountSize + 20_000,
-            1000,
-        );
+        const funded = eligibleFunded(plan, plan.accountSize + 20_000, 1000);
         const entry = reconstructedEntry(account.id, plan, funded);
         const payouts = [
             paidPayout(account, { paidOn: '2026-09-02' }),
             paidPayout(sibling, { paidOn: '2026-09-03' }),
+            requestedPayout(account),
         ];
         const inputs = {
             accounts: [account, sibling],
@@ -553,6 +558,7 @@ describe('PayoutReadyOpenRiskRule under a verified live trigger (PT-36g)', () =>
                     payouts: [
                         paidPayout(account, { paidOn: '2026-09-02' }),
                         paidPayout(sibling, { paidOn: '2026-09-03' }),
+                        requestedPayout(account),
                     ],
                     rulebook,
                 }),
@@ -677,6 +683,7 @@ describe('PayoutReadyWithdrawableDropRule under a verified live trigger (PT-36g)
         const payouts = [
             paidPayout(account, { paidOn: '2026-09-02' }),
             paidPayout(sibling, { paidOn: '2026-09-03' }),
+            requestedPayout(account),
         ];
         const fires = withPolicy(
             plan,

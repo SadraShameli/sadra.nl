@@ -24,7 +24,7 @@ export function RepeatabilityCard({
                     stats={model.overall}
                 />
                 <RepeatabilityGroup
-                    label="Per funded slot per month"
+                    label="Per funded slot per month (measured accounts only)"
                     stats={model.perSlot}
                 />
             </div>

@@ -20,6 +20,7 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedAccount,
     ReconstructedLiveKind,
 } from '~/lib/prop-calculator/advisor';
@@ -44,6 +45,7 @@ function evalAt(balance: number, tradingDays: number): ReconstructedAccount {
             balance,
             tradingDays,
         },
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -61,6 +63,7 @@ function fundedAt(balance: number, tradingDays: number): ReconstructedAccount {
             balance,
             tradingDays,
         },
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

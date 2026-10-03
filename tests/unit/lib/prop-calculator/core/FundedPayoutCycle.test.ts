@@ -1182,7 +1182,7 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
                 PayoutFloorEffect.ReleaseFloor,
             );
             expect(target.evalConsistencyRule()?.maxBestDayShare).toBe(0.55);
-            expect(target.maxConsecutiveIdleDays).toBe(30);
+            expect(target.maxConsecutiveIdleDays).toBe(31);
         }
     });
 

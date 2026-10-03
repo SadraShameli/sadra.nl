@@ -112,9 +112,77 @@ describe('bustDiagnosisOf', () => {
             violations: NO_VIOLATIONS,
         });
         expect(diagnosis).toEqual({
-            evidence: [],
+            evidence: [
+                {
+                    detail: '2 recorded decisions, none above the accepted risk; the bust cause is max drawdown',
+                    kind: BustEvidenceKind.DecisionsFollowed,
+                },
+            ],
             kind: BustDiagnosisKind.WithinPlan,
         });
+    });
+
+    it('words a single followed decision in the singular', () => {
+        const diagnosis = bustDiagnosisOf({
+            bustCause: BustCause.MaxDrawdown,
+            decisions: [
+                {
+                    acceptedRiskCents: usdCents(25_000),
+                    actualRiskCents: usdCents(25_000),
+                },
+            ],
+            violations: NO_VIOLATIONS,
+        });
+        expect(diagnosis.evidence[0]?.detail).toBe(
+            '1 recorded decision, none above the accepted risk; the bust cause is max drawdown',
+        );
+    });
+
+    it('speaks dollars, not cents, when the actual risk exceeded the accepted risk', () => {
+        const diagnosis = bustDiagnosisOf({
+            bustCause: BustCause.MaxDrawdown,
+            decisions: [
+                {
+                    acceptedRiskCents: usdCents(10_000),
+                    actualRiskCents: usdCents(12_500),
+                },
+            ],
+            violations: NO_VIOLATIONS,
+        });
+        const risk = diagnosis.evidence.find(
+            (item) => item.kind === BustEvidenceKind.RiskAboveAccepted,
+        );
+        expect(risk?.detail).toBe(
+            'Actual risk $125.00 exceeded the accepted risk $100.00',
+        );
+    });
+
+    it('does not list the decisions-followed evidence for a Structural or Unknown diagnosis', () => {
+        const structural = bustDiagnosisOf({
+            bustCause: BustCause.DailyLossLimit,
+            decisions: [
+                {
+                    acceptedRiskCents: usdCents(25_000),
+                    actualRiskCents: usdCents(25_000),
+                },
+            ],
+            violations: NO_VIOLATIONS,
+        });
+        const unknown = bustDiagnosisOf({
+            bustCause: BustCause.Unknown,
+            decisions: [
+                {
+                    acceptedRiskCents: usdCents(25_000),
+                    actualRiskCents: usdCents(25_000),
+                },
+            ],
+            violations: NO_VIOLATIONS,
+        });
+        expect(
+            [...structural.evidence, ...unknown.evidence].some(
+                (item) => item.kind === BustEvidenceKind.DecisionsFollowed,
+            ),
+        ).toBe(false);
     });
 
     it('is Unknown for a MaxDrawdown bust with no decisions and no violations recorded', () => {

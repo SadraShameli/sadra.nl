@@ -15,6 +15,8 @@ import { findFirm, TradingPhase } from '~/lib/prop-calculator';
 import {
     createSizingAdvisor,
     NextTradeRiskVerdict,
+    pendingPayoutCountsOf,
+    pendingPayoutCountsOr,
 } from '~/lib/prop-calculator/advisor';
 import { dayProgressFromCounts } from '~/lib/prop-calculator/advisor/actions';
 
@@ -25,7 +27,9 @@ import {
     isActive,
     liveTriggerDisclosuresOf,
     type MonitoredAccount,
-    paidPayoutsSinceLastLiveAccountOf,
+    paidPayoutsSinceLastLiveAccountIn,
+    pendingPayoutCountsIn,
+    personalPolicyIn,
 } from './AlertContext';
 import { AlertKind } from './AlertKind';
 import { AccountAlertRule } from './AlertRule';
@@ -44,23 +48,42 @@ export class PayoutReadyOpenRiskRule extends AccountAlertRule {
         if (
             thresholdCents === null ||
             !isActive(monitored) ||
-            state?.kind !== AccountStateKind.Reconstructed ||
-            state.latest.reconstructed.kind !== TradingPhase.Funded
+            state?.kind !== AccountStateKind.Reconstructed
         ) {
             return null;
         }
         const { plan } = state;
+        const { reconstructed } = state.latest;
+        if (reconstructed.kind !== TradingPhase.Funded) return null;
         const paidPayoutsSinceLastLiveAccount =
-            paidPayoutsSinceLastLiveAccountOf(
+            paidPayoutsSinceLastLiveAccountIn(
                 context,
                 monitored,
                 context.today,
             );
+        const pendingPayoutCounts = pendingPayoutCountsIn(
+            context,
+            monitored,
+            context.today,
+        );
+        const policy = personalPolicyIn(context, monitored.account.id);
+        const boardCounts = pendingPayoutCountsOr(
+            pendingPayoutCounts,
+            pendingPayoutCountsOf(reconstructed),
+        );
         const [row] = payoutReadinessBoardOf(
             context.rulebook,
             [{ accountId: monitored.account.id, state }],
             new Map([
-                [monitored.account.id, { paidPayoutsSinceLastLiveAccount }],
+                [
+                    monitored.account.id,
+                    {
+                        paidPayoutsSinceLastLiveAccount,
+                        pendingPayoutCounts: boardCounts,
+                        personalRequestOverride: policy.payoutRequestOverride,
+                        personalRetainedCushion: policy.retainedCushionRequest,
+                    },
+                ],
             ]),
         ).rows;
         if (row?.kind !== PayoutReadinessRowKind.Eligible) return null;
@@ -71,6 +94,10 @@ export class PayoutReadyOpenRiskRule extends AccountAlertRule {
         const advisor = createSizingAdvisor(state.latest.reconstructed, {
             accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
             paidPayoutsSinceLastLiveAccount,
+            personalCaps: policy.personalCaps,
+            personalDll: policy.personalDll,
+            personalPayoutOverride: policy.payoutRequestOverride,
+            personalRetainedCushion: policy.retainedCushionRequest,
             rulebook: context.rulebook,
             snapshotAsOf: state.latest.asOf,
             substate: accountSubstateOf(monitored.account.status),
@@ -97,7 +124,10 @@ export class PayoutReadyOpenRiskRule extends AccountAlertRule {
             monitored,
             AlertSeverity.Warning,
             `A payout is available on this account and the ${basis} risk of ${formatUsdCents(riskCents)} is ${excess} above the documented rung${rung}; requesting the payout leaves the documented rung unchanged`,
-            liveTriggerDisclosuresOf(row.liveTriggerCoverage),
+            liveTriggerDisclosuresOf(
+                row.liveTriggerCoverage,
+                pendingPayoutCounts,
+            ),
         );
     }
 }

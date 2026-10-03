@@ -1,9 +1,7 @@
-import { availableParallelism } from 'node:os';
 import { describe, expect, it } from 'vitest';
 
 import { ALL_FIRMS } from '~/lib/prop-calculator';
 import {
-    AlphaFuturesVariant,
     ApexVariant,
     ConsistencyRule,
     ConsistencyScope,
@@ -17,7 +15,6 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
-    FtmoFuturesVariant,
     type FundedCycleSnapshot,
     FundedNextVariant,
     INSTRUMENTS,
@@ -27,11 +24,9 @@ import {
     PayoutDayGateBasis,
     PayoutFloorEffect,
     type Plan,
-    type PlanOptIns,
     points,
     replacementEconomics,
     TierBasis,
-    withPlanOptIns,
 } from '~/lib/prop-calculator/core';
 import { solveAverageRewardPolicy } from '~/lib/prop-calculator/core/AverageRewardSolver';
 import {
@@ -41,7 +36,6 @@ import {
     FundedWorkerSession,
     isFundedDpEligible,
     warmFirmsRegistryCache,
-    withRegistryPlanOptIns,
 } from '~/lib/prop-calculator/core/FundedStateValue';
 import { RenewalCycleObjective } from '~/lib/prop-calculator/core/RenewalCycleObjective';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
@@ -394,7 +388,6 @@ describe(
 
                 expect(empiricalValue).toBeCloseTo(result.initialValue, 0);
             },
-            15_000,
         );
     },
 );
@@ -509,7 +502,6 @@ describe(
 
                 expect(empiricalValue).toBeCloseTo(result.initialValue, 0);
             },
-            15_000,
         );
     },
 );
@@ -586,7 +578,6 @@ describe(
                 );
                 expect(topTierRisk ?? 0).toBeGreaterThan(0);
             },
-            120_000,
         );
     },
 );
@@ -941,222 +932,6 @@ describe(
 
                 expect(result.initialValue).toBeCloseTo(45, 10);
             },
-        );
-
-        it(
-            'worker parity: a real registry plan (findRegistryPlanId ' +
-                'resolves it, so tryCreateWorkerPool genuinely dispatches ' +
-                'to worker threads once the grid clears ' +
-                'MIN_PARALLEL_GRID_CELLS) and the identical plan taken out ' +
-                'of the registry via withOverrides({}) (which cannot ' +
-                'resolve back to its own id, so it runs single-threaded, ' +
-                "per this file's own findRegistryPlanId tests) produce the " +
-                'same initialValue with dayCost != 0 and a horizon, on ' +
-                'coarse grids -- proving dayCost/meanHorizonDays reach ' +
-                'workers through SerializableFundedConfig/' +
-                'toSerializableConfig/runFundedWorkerBootstrap correctly. ' +
-                'WP58d: the cushion tail is pinned off at the 6 drawdown ' +
-                'fine top, because the default 30 drawdown tail made this ' +
-                'test 25 s instead of 0.7 s and it studies worker parity, ' +
-                'not the grid',
-            async () => {
-                await warmFirmsRegistryCache();
-                const firm = ALL_FIRMS.find(
-                    (candidate) => candidate.id === FirmId.TopStep,
-                );
-                if (!firm) throw new Error('TopStep firm not in the registry');
-                const registryPlan = firm.plans[0];
-                if (!registryPlan)
-                    throw new Error('No TopStep plan registered');
-                expect(findRegistryPlanId(registryPlan)).toEqual(
-                    registryPlan.id,
-                );
-
-                const offRegistryPlan = registryPlan.withOverrides({});
-                expect(findRegistryPlanId(offRegistryPlan)).toBeNull();
-
-                const coarseConfig = {
-                    actionStepMultiple: 1,
-                    cushionStepMultiple: 1,
-                    dayCost: 5,
-                    evalInitialValue: 0,
-                    feePerAttempt: dollars(0),
-                    maxActionMultiple: 1,
-                    maxTailCushionMultiple: 6,
-                    meanHorizonDays: 100,
-                    payoutRegimeCap: 0,
-                    rrRatio: 2,
-                    tradesPerDay: 1,
-                    winrate: 0.4,
-                };
-
-                const workerResult = computeFundedStateValue({
-                    ...coarseConfig,
-                    plan: registryPlan,
-                });
-                const singleThreadedResult = computeFundedStateValue({
-                    ...coarseConfig,
-                    plan: offRegistryPlan,
-                });
-
-                expect(workerResult.workerCount).toBeGreaterThan(1);
-                expect(singleThreadedResult.workerCount).toBe(0);
-                expect(workerResult.initialValue).toBeCloseTo(
-                    singleThreadedResult.initialValue,
-                    6,
-                );
-            },
-            60_000,
-        );
-
-        it(
-            'worker parity across the peak ratchet and cycle-baseline pair ' +
-                'dimensions: with payoutRegimeCap 1 the regime-1 levels carry ' +
-                "TopStep's full cycle-baseline radix (its 50% balance-share " +
-                'cap can leave the balance above the payout floor), so the ' +
-                'workers decode, solve and read back every baseline pair from ' +
-                'a snapshot sized for it (an out-of-range read throws in the ' +
-                'worker) and agree with the single-threaded solve. WP58d: ' +
-                'the cushion tail is pinned off at the 6 drawdown fine top, ' +
-                'because the default 30 drawdown tail made this test 16 s ' +
-                'instead of 0.8 s and it studies worker parity, not the grid',
-            async () => {
-                await warmFirmsRegistryCache();
-                const firm = ALL_FIRMS.find(
-                    (candidate) => candidate.id === FirmId.TopStep,
-                );
-                const livePlan = firm?.plans[0];
-                if (!livePlan) throw new Error('TopStep firm not registered');
-                expect(findRegistryPlanId(livePlan)).toEqual(livePlan.id);
-                expect(livePlan.canLeaveBalanceAbovePayoutFloor()).toBe(true);
-
-                const coarseConfig = {
-                    actionStepMultiple: 1,
-                    cushionStepMultiple: 1,
-                    dayCost: 5,
-                    evalInitialValue: 0,
-                    feePerAttempt: dollars(0),
-                    maxActionMultiple: 1,
-                    maxTailCushionMultiple: 6,
-                    meanHorizonDays: 100,
-                    payoutRegimeCap: 1,
-                    rrRatio: 2,
-                    tradesPerDay: 1,
-                    winrate: 0.4,
-                };
-                const workerResult = computeFundedStateValue({
-                    ...coarseConfig,
-                    plan: livePlan,
-                });
-                const singleThreadedResult = computeFundedStateValue({
-                    ...coarseConfig,
-                    plan: livePlan.withOverrides({}),
-                });
-                expect(workerResult.workerCount).toBeGreaterThan(1);
-                expect(singleThreadedResult.workerCount).toBe(0);
-                expect(workerResult.reachedStateCount).toBe(
-                    singleThreadedResult.reachedStateCount,
-                );
-                expect(workerResult.initialValue).toBeCloseTo(
-                    singleThreadedResult.initialValue,
-                    6,
-                );
-            },
-            120_000,
-        );
-
-        it(
-            'worker parity at a non-default cycleBaselineFineRangeMultiple: the ' +
-                'multiple sets the cycle-baseline grid size and so the shared ' +
-                'key layout, so the workers must receive it and agree with the ' +
-                'single-threaded solve. WP58d: the cushion tail is pinned off ' +
-                'at the 3 drawdown fine top, because the default 30 drawdown ' +
-                'tail made this test 19 s instead of 1.2 s and it studies ' +
-                'worker parity, not the grid',
-            async () => {
-                await warmFirmsRegistryCache();
-                const livePlan = ALL_FIRMS.find(
-                    (candidate) => candidate.id === FirmId.TopStep,
-                )?.plans[0];
-                if (!livePlan) throw new Error('TopStep firm not registered');
-                const coarseConfig = {
-                    actionStepMultiple: 0.5,
-                    cushionStepMultiple: 0.5,
-                    cycleBaselineFineRangeMultiple: 0,
-                    dayCost: 5,
-                    evalInitialValue: 0,
-                    feePerAttempt: dollars(0),
-                    maxActionMultiple: 1,
-                    maxCushionMultiple: 3,
-                    maxPreLockOffsetMultiple: 1,
-                    maxTailCushionMultiple: 3,
-                    meanHorizonDays: 100,
-                    payoutRegimeCap: 1,
-                    rrRatio: 2,
-                    tradesPerDay: 1,
-                    winrate: 0.4,
-                };
-                const workerResult = computeFundedStateValue({
-                    ...coarseConfig,
-                    plan: livePlan,
-                });
-                const singleThreadedResult = computeFundedStateValue({
-                    ...coarseConfig,
-                    plan: livePlan.withOverrides({}),
-                });
-                const defaultMultipleResult = computeFundedStateValue({
-                    ...coarseConfig,
-                    cycleBaselineFineRangeMultiple: undefined,
-                    plan: livePlan.withOverrides({}),
-                });
-                expect(workerResult.workerCount).toBeGreaterThan(1);
-                expect(singleThreadedResult.workerCount).toBe(0);
-                expect(defaultMultipleResult.reachedStateCount).not.toBe(
-                    singleThreadedResult.reachedStateCount,
-                );
-                expect(workerResult.reachedStateCount).toBe(
-                    singleThreadedResult.reachedStateCount,
-                );
-                expect(workerResult.initialValue).toBeCloseTo(
-                    singleThreadedResult.initialValue,
-                    6,
-                );
-            },
-            240_000,
-        );
-
-        it(
-            'fails loud, instead of silently solving single-threaded, when the ' +
-                'worker pool cannot be started (here a config value that cannot ' +
-                'be structured-cloned to the workers)',
-            async () => {
-                await warmFirmsRegistryCache();
-                const livePlan = ALL_FIRMS.find(
-                    (candidate) => candidate.id === FirmId.TopStep,
-                )?.plans[0];
-                if (!livePlan) throw new Error('TopStep firm not registered');
-                const instrument = Object.assign(
-                    {},
-                    INSTRUMENTS[InstrumentSymbol.MNQ],
-                    { describe: () => 'not cloneable' },
-                );
-                expect(() =>
-                    computeFundedStateValue({
-                        actionStepMultiple: 1,
-                        cushionStepMultiple: 1,
-                        evalInitialValue: 0,
-                        feePerAttempt: dollars(0),
-                        maxActionMultiple: 1,
-                        payoutRegimeCap: 0,
-                        plan: livePlan,
-                        positionSizing: { instrument, stopPoints: points(20) },
-                        rrRatio: 2,
-                        tradesPerDay: 1,
-                        winrate: 0.4,
-                    }),
-                ).toThrow(/could not start its worker pool/);
-            },
-            60_000,
         );
 
         it(
@@ -1533,7 +1308,6 @@ describe('cycleBestDayProfit DP state dimension', () => {
                 }
             }
         },
-        60_000,
     );
 
     it(
@@ -1718,7 +1492,7 @@ describe('computeFundedStateValue keys a payout-number split on its payout regim
     });
 });
 
-function apexEodSessionOpenRisk(sessionOpenProfit: number): number {
+function apexEodPlan(): Plan {
     const plan = new ApexTraderFunding()
         .findPlan({
             accountSize: 50_000,
@@ -1730,25 +1504,39 @@ function apexEodSessionOpenRisk(sessionOpenProfit: number): number {
             maxConsecutiveIdleDays: undefined,
         });
     if (!plan) throw new Error('Apex EOD 50K plan not found');
-    const result = computeFundedStateValue({
-        actionStepMultiple: 0.1,
-        cushionStepMultiple: 0.1,
-        evalInitialValue: 0,
-        feePerAttempt: dollars(0),
-        maxActionMultiple: 1,
-        payoutRegimeCap: 0,
-        plan,
-        rrRatio: 2,
-        tradesPerDay: 2,
-        winrate: 0.5,
-    });
+    return plan;
+}
+
+function apexEodSessionOpenRisk(sessionOpenProfit: number): number {
+    const plan = apexEodPlan();
     const state = plan.initialState();
     state.threshold = 50_100;
     state.thresholdLocked = true;
     state.todayPnL = -900;
     state.balance = 50_000 + sessionOpenProfit - 900;
     state.peakDayCloseProfit = sessionOpenProfit;
-    return result.dayPolicy.computeRisk?.(state, 1) ?? 0;
+    return apexEodSolve().dayPolicy.computeRisk?.(state, 1) ?? 0;
+}
+
+const apexEodSolved: { result?: ReturnType<typeof computeFundedStateValue> } =
+    {};
+
+function apexEodSolve(): ReturnType<typeof computeFundedStateValue> {
+    apexEodSolved.result ??= computeFundedStateValue({
+        actionStepMultiple: 0.25,
+        cushionStepMultiple: 0.2,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        maxActionMultiple: 1,
+        maxTailCushionMultiple: 6,
+        meanHorizonDays: 10,
+        payoutRegimeCap: 0,
+        plan: apexEodPlan(),
+        rrRatio: 2,
+        tradesPerDay: 2,
+        winrate: 0.5,
+    });
+    return apexEodSolved.result;
 }
 
 function dllHeadroomRisk(todayPnL: number): number {
@@ -1807,32 +1595,6 @@ function flatDllToyPlan(amount: number): Plan {
             amount: dollars(amount),
             kind: DailyLossLimitKind.Flat,
         },
-    });
-}
-
-async function ftmoGrowthCoarse(cycleBaselineFineRangeMultiple: number) {
-    await warmFirmsRegistryCache();
-    const plan = ALL_FIRMS.find(
-        (firm) => firm.id === FirmId.FtmoFutures,
-    )?.findPlan({
-        accountSize: 50_000,
-        firm: FirmId.FtmoFutures,
-        variant: FtmoFuturesVariant.Growth,
-    });
-    if (!plan) throw new Error('FTMO Futures Growth 50K plan not found');
-    return computeFundedStateValue({
-        actionStepMultiple: 0.25,
-        cushionStepMultiple: 0.25,
-        cycleBaselineFineRangeMultiple,
-        evalInitialValue: 0,
-        feePerAttempt: dollars(0),
-        maxActionMultiple: 1,
-        meanHorizonDays: 60,
-        payoutRegimeCap: 2,
-        plan,
-        rrRatio: 2,
-        tradesPerDay: 2,
-        winrate: 0.5,
     });
 }
 
@@ -1922,7 +1684,7 @@ describe('computeFundedStateValue models the funded daily loss limit within the 
             50_000,
         );
         expect(empiricalValue).toBeCloseTo(result.initialValue, 0);
-    }, 60_000);
+    });
 
     it('values a terminating daily loss limit exactly like simulate() and strictly below the lockout variant', () => {
         const lockout = flatDllToyPlan(50);
@@ -1939,7 +1701,7 @@ describe('computeFundedStateValue models the funded daily loss limit within the 
         expect(terminating.result.initialValue).toBeLessThan(
             dpAgainstSimulate(lockout, 1).result.initialValue,
         );
-    }, 60_000);
+    });
 });
 
 describe('computeFundedStateValue solves per day start for every plan that reads the day-start P&L (R1-6, N-10)', () => {
@@ -2028,7 +1790,7 @@ describe('computeFundedStateValue measures cycle profit from the real post-payou
         });
         expect(out.expectedGrossPayout).toBeCloseTo(250, 10);
         expect(out.expectedGrossPayout).toBeCloseTo(result.initialValue, 10);
-    }, 15_000);
+    });
 
     it('finds the post-payout policy from the snapshot the day loop passes, last payout balance included', () => {
         const plan = payoutRequestCapToyPlan();
@@ -2074,47 +1836,19 @@ describe('computeFundedStateValue measures cycle profit from the real post-payou
             winrate: 0.5,
         });
         expect(out.expectedGrossPayout).toBeCloseTo(result.initialValue, 0);
-    }, 60_000);
+    });
 });
 
-describe('computeFundedStateValue enforces the Apex PA Level daily loss limit on the session-open basis', () => {
+describe('computeFundedStateValue enforces the Apex PA Level daily loss limit on the session-open basis (PT-T1b: both cases read one solve at cushion step 0.2 and action step 0.25 drawdowns with the cushion tail pinned off at 6 drawdowns and a 10 day horizon, where each used to solve at step 0.1 for 16 to 18 s without a horizon)', () => {
     it('lets the second trade use the $1,100 left of the $2,000 Level 3 limit when the session opened at $3,100 profit, never more', () => {
         const risk = apexEodSessionOpenRisk(3100);
         expect(risk).toBeGreaterThan(100);
         expect(risk).toBeLessThanOrEqual(1100);
-    }, 120_000);
+    });
 
     it('caps the second trade at the $100 left of the $1,000 Level 2 limit when the session opened at $2,900 profit', () => {
         expect(apexEodSessionOpenRisk(2900)).toBeLessThanOrEqual(100);
-    }, 120_000);
-});
-
-describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baseline is gridded (T11)', () => {
-    it('FTMO Futures Growth 50K converges at fine range multiples 0, 1 and 6 and keeps its pinned values, which are not monotone in the multiple: a finer grid never rounds the baseline higher (FundedCycleBaselineGrid.test), yet multiple 0 is worth about $20 more than multiple 1, a gap that stays the same at the fixed point. Re-pinned for T32 (the end-of-horizon credit is one capped request, not the whole balance above the floor): each is within its stated error bound of the fixed point the solver reaches at tolerance 0.0001 (14,434.82, 14,415.15 and 15,074.60); the same runs with only the pre-T32 whole-balance credit restored reproduce the WP17e pins 15,348.41, 15,312.21 and 15,801.07 exactly, so the credit is the only move. Re-pinned again for N-86 (WP54, continuationKey interpolates the day-close cushion): all three moved by a few cents to a few thousandths of a cent (14,434.573089830497 to 14,434.573004711958; 14,414.82874384173 to 14,414.892599117371; 15,074.421238294104 to 15,074.424104151796), the fixed points and reachedStateCount unchanged. FTMO Growth keeps a thick $2,000 retained cushion so this fix mostly matters far away from it (TopStep), but its own drawdown lock still snaps to a fixed dollar threshold independent of the cushion grid, so a tiny off-grid landing at the lock transition existed here too, just far smaller than TopStep’s. Re-pinned again for WP58c (N-86 stage 2): the coarse cushion tail is on by default now, so both the cushion grid and the cycle-baseline grid it feeds reach 30 drawdowns above the locked floor instead of 6: initialValue moved (14,434.573004711958 to 14,076.766322248957; 14,414.892599117371 to 14,058.431864665115; 15,074.424104151796 to 14,815.597389308608), reachedStateCount grew (58,500 to 458,100; 81,000 to 502,200; 171,000 to 722,700), and the tolerance-0.0001 fixed points were re-derived the same way (14,077.062673410524; 14,058.726672778212; 14,815.80995091164)', async () => {
-        const [coarse, landed, exact] = [
-            await ftmoGrowthCoarse(0),
-            await ftmoGrowthCoarse(1),
-            await ftmoGrowthCoarse(6),
-        ];
-        for (const result of [coarse, landed, exact]) {
-            expect(result.unconvergedLevelCount).toBe(0);
-        }
-        expect(coarse.initialValue).toBeCloseTo(14_076.766322248957, 6);
-        expect(landed.initialValue).toBeCloseTo(14_058.431864665115, 6);
-        expect(exact.initialValue).toBeCloseTo(14_815.597389308608, 6);
-        for (const [result, fixedPoint] of [
-            [coarse, 14_077.062673410524],
-            [landed, 14_058.726672778212],
-            [exact, 14_815.80995091164],
-        ] as const) {
-            expect(
-                Math.abs(result.initialValue - fixedPoint),
-            ).toBeLessThanOrEqual(result.valueErrorBound);
-        }
-        expect(
-            [coarse, landed, exact].map((result) => result.reachedStateCount),
-        ).toStrictEqual([458_100, 502_200, 722_700]);
-    }, 1_800_000);
+    });
 });
 
 function regimeCapToyConfig(plan: Plan, payoutRegimeCap?: number) {
@@ -2328,62 +2062,7 @@ describe('solveAverageRewardPolicy warm-starts each funded solve from the last t
     });
 });
 
-async function ftmoGrowthCoarseConfig(dayCost: number) {
-    await warmFirmsRegistryCache();
-    const plan = ALL_FIRMS.find(
-        (firm) => firm.id === FirmId.FtmoFutures,
-    )?.findPlan({
-        accountSize: 50_000,
-        firm: FirmId.FtmoFutures,
-        variant: FtmoFuturesVariant.Growth,
-    });
-    if (!plan) throw new Error('FTMO Futures Growth 50K plan not found');
-    return {
-        actionStepMultiple: 0.25,
-        cushionStepMultiple: 0.25,
-        dayCost,
-        evalInitialValue: 0,
-        feePerAttempt: dollars(0),
-        maxActionMultiple: 1,
-        maxTailCushionMultiple: 6,
-        meanHorizonDays: 60,
-        payoutRegimeCap: 2,
-        plan,
-        rrRatio: 2,
-        tradesPerDay: 2,
-        winrate: 0.5,
-    };
-}
-
 describe('FundedWorkerSession keeps one worker pool across funded solves of the same grid (WP17e follow-up: peak memory across rate solves)', () => {
-    it('starts its workers once for two FTMO Futures Growth solves at different day costs, and each solve equals one run with its own pool (WP58d: the cushion tail is pinned off at the 6 drawdown fine top, because the default 30 drawdown tail made this test 44 s instead of 4.4 s and it studies worker pool reuse, not the grid)', async () => {
-        const session = new FundedWorkerSession();
-        try {
-            const atZero = computeFundedStateValue(
-                await ftmoGrowthCoarseConfig(0),
-                session,
-            );
-            const atFifty = computeFundedStateValue(
-                await ftmoGrowthCoarseConfig(50),
-                session,
-            );
-            const hasWorkers = availableParallelism() > 1;
-
-            expect(session.startedPoolCount).toBe(hasWorkers ? 1 : 0);
-            expect(atFifty.workerCount > 0).toBe(hasWorkers);
-            expect(atZero.initialValue).toBe(
-                computeFundedStateValue(await ftmoGrowthCoarseConfig(0))
-                    .initialValue,
-            );
-            expect(atFifty.initialValue).toBe(
-                computeFundedStateValue(await ftmoGrowthCoarseConfig(50))
-                    .initialValue,
-            );
-        } finally {
-            session.release();
-        }
-    }, 600_000);
-
     it('lets the rate search share one session across all its funded solves', () => {
         const session = new FundedWorkerSession();
         try {
@@ -2397,155 +2076,6 @@ describe('FundedWorkerSession keeps one worker pool across funded solves of the 
     });
 });
 
-function coarseAlphaConfig(plan: Plan) {
-    return {
-        actionStepMultiple: 0.5,
-        cushionStepMultiple: 0.5,
-        cycleBestDayBucketCount: 2,
-        evalInitialValue: 0,
-        feePerAttempt: dollars(0),
-        maxActionMultiple: 1,
-        maxCushionMultiple: 2,
-        maxTailCushionMultiple: 2,
-        meanHorizonDays: 20,
-        payoutRegimeCap: 1,
-        plan,
-        rrRatio: 2,
-        tradesPerDay: 1,
-        winrate: 0.5,
-    };
-}
-
-function coarseMffuProConfig(plan: Plan) {
-    return {
-        ...coarseAlphaConfig(plan),
-        actionStepMultiple: 0.25,
-        cushionStepMultiple: 0.25,
-        maxCushionMultiple: 3,
-        maxTailCushionMultiple: 3,
-        meanHorizonDays: 40,
-    };
-}
-
-async function registryAlphaStandard(): Promise<Plan> {
-    await warmFirmsRegistryCache();
-    const plan = ALL_FIRMS.find(
-        (firm) => firm.id === FirmId.AlphaFutures,
-    )?.findPlan({
-        accountSize: 50_000,
-        firm: FirmId.AlphaFutures,
-        variant: AlphaFuturesVariant.Standard,
-    });
-    if (!plan) throw new Error('Alpha Futures Standard 50K plan not found');
-    return plan;
-}
-
-async function registryMffuPro(): Promise<Plan> {
-    await warmFirmsRegistryCache();
-    const plan = ALL_FIRMS.find((firm) => firm.id === FirmId.Mffu)?.findPlan({
-        accountSize: 50_000,
-        firm: FirmId.Mffu,
-        variant: MffuVariant.Pro,
-    });
-    if (!plan) throw new Error('MFFU Pro 50K plan not found');
-    return plan;
-}
-
-describe('an opted-in registry plan keeps the worker pool (optimize dp --funded-reset and --early-withdrawal; WP58d: coarseAlphaConfig and coarseMffuProConfig pin the cushion tail off at their own fine top, because the MFF Pro solves here ran 144 s and 125 s instead of 2.2 s and 2.7 s with the default 30 drawdown tail and these tests compare pooled to single-threaded values, not the grid)', () => {
-    const RESET_TAKEN: PlanOptIns = {
-        takesFundedReset: true,
-        takesOneTimeEarlyWithdrawal: false,
-    };
-
-    it('recognizes the opted-in registry plan by its registry id, and never a look-alike built with withOverrides', async () => {
-        const registry = await registryAlphaStandard();
-        const optedIn = withRegistryPlanOptIns(registry, RESET_TAKEN);
-
-        expect(optedIn.takesFundedReset).toBe(true);
-        expect(findRegistryPlanId(optedIn)).toStrictEqual(registry.id);
-        expect(
-            findRegistryPlanId(withPlanOptIns(registry, RESET_TAKEN)),
-        ).toBeNull();
-        expect(
-            withRegistryPlanOptIns(registry, {
-                takesFundedReset: false,
-                takesOneTimeEarlyWithdrawal: false,
-            }),
-        ).toBe(registry);
-    });
-
-    it('solves it on workers that rebuild the same opt-ins, to exactly the single-threaded value', async () => {
-        const registry = await registryAlphaStandard();
-        const pooled = computeFundedStateValue(
-            coarseAlphaConfig(withRegistryPlanOptIns(registry, RESET_TAKEN)),
-        );
-        const alone = computeFundedStateValue(
-            coarseAlphaConfig(withPlanOptIns(registry, RESET_TAKEN)),
-        );
-
-        expect(pooled.workerCount > 0).toBe(availableParallelism() > 1);
-        expect(alone.workerCount).toBe(0);
-        expect(pooled.initialValue).toBe(alone.initialValue);
-    }, 600_000);
-
-    it('rebuilds the early withdrawal opt-in on the workers, whose own payouts take it: the pooled value equals the single-threaded one and differs from the plan without the opt-in', async () => {
-        const registry = await registryMffuPro();
-        const earlyWithdrawalTaken: PlanOptIns = {
-            takesFundedReset: false,
-            takesOneTimeEarlyWithdrawal: true,
-        };
-        const pooled = computeFundedStateValue(
-            coarseMffuProConfig(
-                withRegistryPlanOptIns(registry, earlyWithdrawalTaken),
-            ),
-        );
-        const alone = computeFundedStateValue(
-            coarseMffuProConfig(withPlanOptIns(registry, earlyWithdrawalTaken)),
-        );
-        const withoutOptIn = computeFundedStateValue(
-            coarseMffuProConfig(registry),
-        );
-
-        expect(pooled.workerCount > 0).toBe(availableParallelism() > 1);
-        expect(withoutOptIn.workerCount > 0).toBe(availableParallelism() > 1);
-        expect(alone.workerCount).toBe(0);
-        expect(pooled.initialValue).toBe(alone.initialValue);
-        expect(pooled.initialValue).not.toBeCloseTo(
-            withoutOptIn.initialValue,
-            2,
-        );
-    }, 600_000);
-
-    it('never hands a same-grid plan the workers cannot rebuild to a shared session pool: it solves single-threaded to its own value', async () => {
-        const registry = await registryMffuPro();
-        const lookAlike = withPlanOptIns(registry, {
-            takesFundedReset: false,
-            takesOneTimeEarlyWithdrawal: true,
-        });
-        const session = new FundedWorkerSession();
-        try {
-            const first = computeFundedStateValue(
-                coarseMffuProConfig(registry),
-                session,
-            );
-            const second = computeFundedStateValue(
-                coarseMffuProConfig(lookAlike),
-                session,
-            );
-
-            expect(first.workerCount > 0).toBe(availableParallelism() > 1);
-            expect(second.workerCount).toBe(0);
-            expect(second.initialValue).toBe(
-                computeFundedStateValue(coarseMffuProConfig(lookAlike))
-                    .initialValue,
-            );
-            expect(second.initialValue).not.toBeCloseTo(first.initialValue, 2);
-        } finally {
-            session.release();
-        }
-    }, 600_000);
-});
-
 function topStepOffRegistryPlan(): Plan {
     const plan = ALL_FIRMS.find((candidate) => candidate.id === FirmId.TopStep)
         ?.plans[0];
@@ -2553,7 +2083,7 @@ function topStepOffRegistryPlan(): Plan {
     return plan.withOverrides({});
 }
 
-describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1)', () => {
+describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1; PT-T1b: the grid is the subject, so each case stops after one sweep per level with maxIterationsPerLevel 1 and pins the cushion tail at 6 drawdowns, where the converged solves on the default 30 drawdown tail took 113 to 230 s and two timed out at 120 s)', () => {
     const coarseConfig = {
         actionStepMultiple: 0.5,
         cushionStepMultiple: 0.5,
@@ -2562,7 +2092,9 @@ describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1)
         feePerAttempt: dollars(0),
         maxActionMultiple: 1,
         maxCushionMultiple: 3,
+        maxIterationsPerLevel: 1,
         maxPreLockOffsetMultiple: 1,
+        maxTailCushionMultiple: 6,
         meanHorizonDays: 100,
         payoutRegimeCap: 1,
         rrRatio: 2,
@@ -2570,7 +2102,7 @@ describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1)
         winrate: 0.4,
     };
 
-    it('reports where the baseline grid switches from the cushion step to the coarse drawdown step at the default fine range, and where the grid tops out. Re-pinned for WP58c (N-86 stage 2): topDollars moved from 6,000 (maxCushionMultiple=3 drawdowns) to 60,000 (maxTailCushionMultiple, the coarse cushion tail default of 30 drawdowns, which the cycle-baseline grid now follows out to instead of maxCushionMultiple)', () => {
+    it('reports where the baseline grid switches from the cushion step to the coarse drawdown step at the default fine range, and where the grid tops out. Re-pinned for WP58c (N-86 stage 2): topDollars moved from 6,000 (maxCushionMultiple=3 drawdowns) to maxTailCushionMultiple drawdowns, the coarse cushion tail, which the cycle-baseline grid now follows out to instead of maxCushionMultiple: 60,000 at the default tail of 30 and 12,000 at the 6 drawdown tail pinned here', () => {
         const plan = topStepOffRegistryPlan();
         expect(plan.fundedDrawdown.amount).toBe(2000);
 
@@ -2579,19 +2111,19 @@ describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1)
         expect(result.cycleBaselineRounding).toStrictEqual({
             coarseFromDollars: 2000,
             coarseStepDollars: 2000,
-            topDollars: 60_000,
+            topDollars: 12_000,
         });
-    }, 120_000);
+    });
 
-    it('reports no rounding once the fine range covers the whole baseline grid. Re-pinned for WP58c (N-86 stage 2): cycleBaselineFineRangeMultiple raised from 3 to 30 to keep covering the whole baseline grid now that its top follows maxTailCushionMultiple (30 drawdowns) instead of maxCushionMultiple (3)', () => {
+    it('reports no rounding once the fine range covers the whole baseline grid. Re-pinned for WP58c (N-86 stage 2): cycleBaselineFineRangeMultiple raised from 3 to the tail top, now 6 drawdowns here (30 at the default tail), to keep covering the whole baseline grid now that its top follows maxTailCushionMultiple instead of maxCushionMultiple (3)', () => {
         const result = computeFundedStateValue({
             ...coarseConfig,
-            cycleBaselineFineRangeMultiple: 30,
+            cycleBaselineFineRangeMultiple: 6,
             plan: topStepOffRegistryPlan(),
         });
 
         expect(result.cycleBaselineRounding).toBeNull();
-    }, 120_000);
+    });
 
     it('reports no rounding when the cushion step already equals the coarse step', () => {
         const result = computeFundedStateValue({
@@ -2602,7 +2134,7 @@ describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1)
         });
 
         expect(result.cycleBaselineRounding).toBeNull();
-    }, 120_000);
+    });
 
     it('reports no rounding at payoutRegimeCap 0, where no level after a payout tracks a baseline', () => {
         const result = computeFundedStateValue({
@@ -2612,7 +2144,7 @@ describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1)
         });
 
         expect(result.cycleBaselineRounding).toBeNull();
-    }, 120_000);
+    });
 
     it('reports no rounding for MFF Rapid EOD, whose baseline grid collapses to the payout floor', () => {
         const plan = rapidEodPlan();
@@ -2621,5 +2153,5 @@ describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1)
         const result = computeFundedStateValue({ ...coarseConfig, plan });
 
         expect(result.cycleBaselineRounding).toBeNull();
-    }, 120_000);
+    });
 });

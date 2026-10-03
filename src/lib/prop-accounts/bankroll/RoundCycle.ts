@@ -53,6 +53,15 @@ export function roundCycle(
     };
 }
 
+export function roundCycleDaysOf(
+    ledger: PortfolioLedger,
+    round: LedgerRoundRow,
+): null | number {
+    return round.status === RoundStatus.Closed
+        ? (measureRound(ledger, round)?.cycleDays ?? null)
+        : null;
+}
+
 function daysToShare(
     firstOn: string,
     sortedPayouts: readonly {

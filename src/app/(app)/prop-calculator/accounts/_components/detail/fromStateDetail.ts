@@ -31,8 +31,10 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    type AccountPendingPayoutCounts,
     type AccountSnapshotInput,
     type DocumentedPolicySpec,
+    labelledAssumptionLines,
     type MeasuredRebuyLag,
     payoutPath,
     type ReconstructedAccount,
@@ -58,6 +60,21 @@ export const FROM_STATE_PERSONAL_RULES_NOTE =
 
 const RETIRE_NOTE =
     'Information only. This comparison never changes the next action on this account.';
+
+const RETIRE_NOT_COMPARABLE_HAZARD_VERDICT_TEXT =
+    'Not comparable at this hazard: the fresh-account rate prices no live-transfer hazard';
+
+const RETIRE_NOT_COMPARABLE_TRIGGER_VERDICT_TEXT =
+    'Not comparable at this trigger: the fresh-account rate prices no cumulative payout trigger';
+
+const RETIRE_NOT_COMPARABLE_HAZARD_AND_TRIGGER_VERDICT_TEXT =
+    'Not comparable at this hazard and trigger: the fresh-account rate prices no live-transfer hazard and no cumulative payout trigger';
+
+const RETIRE_SLOT_RATE_HAZARD_FREE_TEXT =
+    'The fresh-account rate is the average-reward DP slot rate, which prices no live-transfer hazard, while the keep rate prices yours.';
+
+const RETIRE_SLOT_RATE_TRIGGER_FREE_TEXT =
+    'The fresh-account rate is the average-reward DP slot rate, which prices no cumulative payout trigger, while the keep rate prices the firm confirmed one.';
 
 const RETIRE_BASIS_TEXT: Readonly<Record<RetireComparisonBasis, string>> = {
     [RetireComparisonBasis.AverageRewardDp]:
@@ -130,6 +147,7 @@ export type FromStateDetail =
 export interface FromStateDetailInput {
     readonly input: AccountSnapshotInput;
     readonly measuredRebuyLag: MeasuredRebuyLag | null;
+    readonly pendingPayoutCounts: AccountPendingPayoutCounts;
     readonly personalMaxRiskPerTrade: Dollars | null;
     readonly personalRules: null | PersonalRules | undefined;
     readonly plan: Plan;
@@ -160,7 +178,9 @@ export interface ValueChainPositionModel {
 
 interface RetireModel {
     readonly basis: string;
+    readonly isComparable: boolean;
     readonly keepRate: string;
+    readonly liveTransferNotes: readonly string[];
     readonly note: string;
     readonly reason: null | string;
     readonly remainingDays: string;
@@ -219,11 +239,13 @@ export function fromStateDetailRequestsOf(
         firmId: plan.id.firm,
         measuredRebuyLag,
         optIns: overviewPlanOptInsOf(plan),
+        pendingPayoutCounts: input.pendingPayoutCounts,
         planSerial: serializePlanId(plan.id),
     };
     const account = accountFromStateRequestOf({
         account: input.input,
         measuredRebuyLag,
+        pendingPayoutCounts: input.pendingPayoutCounts,
         personalMaxRiskPerTrade: input.personalMaxRiskPerTrade,
         personalRules: input.personalRules,
         plan,
@@ -336,6 +358,14 @@ export function valueChainPositionOf(
     return { above, below, eligibleAssumptions, unavailable };
 }
 
+function isNotComparable(figures: RetireComparisonResult): boolean {
+    return (
+        (figures.isSlotRateHazardFree === true ||
+            figures.isSlotRateTriggerFree === true) &&
+        figures.verdict === RetireComparisonVerdict.SwitchBeatsKeep
+    );
+}
+
 function perDayText(rate: UncertainValue): string {
     const standardError =
         rate.standardError === null
@@ -344,18 +374,60 @@ function perDayText(rate: UncertainValue): string {
     return `${formatCurrency(rate.value, 2)} per day (SE ${standardError})`;
 }
 
+function retireLiveTransferLinesOf(
+    figures: RetireComparisonResult,
+): readonly string[] {
+    return [
+        ...labelledAssumptionLines('Keeping this account', figures.liveTransfer),
+        ...(figures.isSlotRateHazardFree === true
+            ? [RETIRE_SLOT_RATE_HAZARD_FREE_TEXT]
+            : []),
+        ...labelledAssumptionLines(
+            'A fresh account',
+            figures.replacementLiveTransfer,
+        ),
+        ...labelledAssumptionLines(
+            'Keeping this account',
+            figures.cumulativePayoutTrigger,
+        ),
+        ...(figures.isSlotRateTriggerFree === true
+            ? [RETIRE_SLOT_RATE_TRIGGER_FREE_TEXT]
+            : []),
+        ...labelledAssumptionLines(
+            'A fresh account',
+            figures.replacementCumulativePayoutTrigger,
+        ),
+    ];
+}
+
 function retireModelOf(figures: RetireComparisonResult): RetireModel {
+    const isComparable = !isNotComparable(figures);
     return {
         basis: RETIRE_BASIS_TEXT[figures.basis],
+        isComparable,
         keepRate: perDayText(figures.keepRate),
+        liveTransferNotes: retireLiveTransferLinesOf(figures),
         note: RETIRE_NOTE,
         reason:
             figures.reason === null ? null : RETIRE_REASON_TEXT[figures.reason],
         remainingDays: `${figures.remainingDays.toLocaleString('en-US')} days`,
         switchCost: formatCurrency(figures.switchCost),
         switchRate: perDayText(figures.switchRate),
-        verdict: RETIRE_VERDICT_TEXT[figures.verdict],
+        verdict: isComparable
+            ? RETIRE_VERDICT_TEXT[figures.verdict]
+            : retireNotComparableVerdictOf(figures),
     };
+}
+
+function retireNotComparableVerdictOf(
+    figures: RetireComparisonResult,
+): string {
+    if (figures.isSlotRateHazardFree !== true) {
+        return RETIRE_NOT_COMPARABLE_TRIGGER_VERDICT_TEXT;
+    }
+    return figures.isSlotRateTriggerFree === true
+        ? RETIRE_NOT_COMPARABLE_HAZARD_AND_TRIGGER_VERDICT_TEXT
+        : RETIRE_NOT_COMPARABLE_HAZARD_VERDICT_TEXT;
 }
 
 function valueChainSlotOf(

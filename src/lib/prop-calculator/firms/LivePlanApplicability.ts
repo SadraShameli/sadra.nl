@@ -1,7 +1,6 @@
 import {
     AlphaFuturesVariant,
     ApexVariant,
-    dollars,
     type Dollars,
     E8FuturesVariant,
     FirmId,
@@ -15,31 +14,44 @@ import {
     TopStepVariant,
     TradeifyVariant,
 } from '~/lib/prop-calculator/core';
+
+import type { LivePlanBuilder, LiveTransitionPlanBuilder } from './index';
+
 import {
     ALPHAFUTURES_LIVE_DEFAULT_CUSHION_PERCENT,
-    APEX_LIVE_DEFAULT_CUSHION_PERCENT,
     buildAlphaFuturesLivePlan,
+} from './alphafutures/AlphaFuturesLive';
+import {
+    APEX_LIVE_DEFAULT_CUSHION_PERCENT,
     buildApexLivePlan,
+} from './apex/ApexLive';
+import {
     buildFundedNextLivePlan,
+    FUNDEDNEXT_LIVE_DEFAULT_CUSHION_PERCENT,
+} from './fundednext/FundedNextLive';
+import {
     buildLucidDailyLivePlan,
     buildLucidLivePlan,
-    buildMffuRapidLivePlan,
-    buildTopStepLivePlan,
-    buildTptLivePlan,
-    buildTradeifyLivePlan,
-    computeTopStepLiveStartingBalance,
-    FUNDEDNEXT_LIVE_DEFAULT_CUSHION_PERCENT,
-    type LivePlanBuilder,
-    type LiveTransitionPlanBuilder,
     LUCID_LIVE_DEFAULT_CUSHION_PERCENT,
+} from './lucid/LucidLive';
+import {
+    buildMffuRapidLivePlan,
     MFFU_RAPID_LIVE_DEFAULT_CUSHION_PERCENT,
+} from './mffu/MffuRapidLive';
+import {
+    buildTopStepLivePlan,
+    computeTopStepLiveStartingBalance,
     TOPSTEP_LIVE_DEFAULT_CUSHION_PERCENT,
+    TOPSTEP_LIVE_LOWEST_CAPPED_BALANCE,
+} from './topstep/TopStepLive';
+import {
+    buildTptLivePlan,
     TPT_LIVE_DEFAULT_CUSHION_PERCENT,
+} from './tpt/TptLive';
+import {
+    buildTradeifyLivePlan,
     TRADEIFY_LIVE_DEFAULT_CUSHION_PERCENT,
-} from '~/lib/prop-calculator/firms';
-
-import { type InputAssumptionKind } from './Assumption';
-import { AssumptionKind } from './AssumptionKind';
+} from './tradeify/TradeifyLive';
 
 export enum LiveApplicabilityKind {
     Builder = 'builder',
@@ -65,6 +77,10 @@ export enum LiveNotModeledReason {
     NoStatedLivePath = 'no-stated-live-path',
     SeparateLiveProgram = 'separate-live-program',
     TerminalStage = 'terminal-stage',
+}
+
+export enum LiveReconstructionAssumption {
+    TopStepLiveReserveDefaulted = 'topstep-live-reserve-defaulted',
 }
 
 export enum LiveStateApproximation {
@@ -98,7 +114,7 @@ export interface ModeledLiveBuilder {
     readonly kind: LiveApplicabilityKind.Builder;
     readonly note: LiveApplicabilityNote | null;
     readonly reconstructionDefault: Dollars | null;
-    readonly reconstructionDefaultAssumption: InputAssumptionKind | null;
+    readonly reconstructionDefaultAssumption: LiveReconstructionAssumption | null;
 }
 
 export interface ModeledLiveTransition {
@@ -117,7 +133,7 @@ interface ModeledLiveBuilderInit {
     readonly isVerified: boolean;
     readonly note?: LiveApplicabilityNote;
     readonly reconstructionDefault?: Dollars;
-    readonly reconstructionDefaultAssumption?: InputAssumptionKind;
+    readonly reconstructionDefaultAssumption?: LiveReconstructionAssumption;
 }
 
 type TptAccountSize = Extract<PlanId, { firm: FirmId.Tpt }>['accountSize'];
@@ -148,7 +164,10 @@ function notModeled(reason: LiveNotModeledReason): LiveNotModeled {
 function topStepLfaStart(accountSize: Dollars): LiveStartRange {
     return {
         highest: computeTopStepLiveStartingBalance(accountSize, accountSize),
-        lowest: computeTopStepLiveStartingBalance(dollars(0), accountSize),
+        lowest: computeTopStepLiveStartingBalance(
+            TOPSTEP_LIVE_LOWEST_CAPPED_BALANCE,
+            accountSize,
+        ),
     };
 }
 
@@ -194,7 +213,7 @@ const TOPSTEP_LFA = modeled({
     documentedStart: topStepLfaStart,
     isVerified: true,
     note: LiveApplicabilityNote.TopStepLfaEligibleJurisdictionAssumed,
-    reconstructionDefaultAssumption: AssumptionKind.TopStepLiveReserveDefaulted,
+    reconstructionDefaultAssumption: LiveReconstructionAssumption.TopStepLiveReserveDefaulted,
 });
 
 const TRADEIFY_ELITE_LIVE = modeled({

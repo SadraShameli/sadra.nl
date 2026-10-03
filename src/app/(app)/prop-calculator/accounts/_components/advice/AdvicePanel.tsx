@@ -1,10 +1,16 @@
 'use client';
 
-import { type ComponentProps, type ReactNode, useMemo } from 'react';
+import { type ComponentProps, type ReactNode, useMemo, useState } from 'react';
 
+import { parsePositionSizeStop } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
+import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
+    FirmPayoutCountKind,
+    type FirmPayoutCountOutcome,
+    firmPayoutCountOutcomeOf,
+    ledgerQueryFailureOf,
     StateCardKind,
     stateCardOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/detail/detailState';
@@ -15,8 +21,6 @@ import {
 import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
-    ledgerOrDateFailure,
-    OverviewSectionStatus,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
@@ -25,17 +29,15 @@ import { Skeleton } from '~/components/ui/Skeleton';
 import { useSession } from '~/lib/auth/client';
 import {
     type AccountStage,
-    firmPayoutCounts,
     isModeledAccount,
     latestTwoSnapshots,
-    paidPayoutsSinceLastLiveAccountFor,
     PlanKeyResolutionKind,
-    PortfolioLedger,
     resolvePlanKey,
     trackedAccountOf,
     usdCentsFromDollars,
 } from '~/lib/prop-accounts';
 import {
+    type InstrumentSymbol,
     type Plan,
     type TierProfitContext,
     type TradingPhase,
@@ -44,6 +46,7 @@ import {
     AccountAction,
     DAY_STOP_REASON_TEXT,
     type MeasuredRebuyLag,
+    PENDING_PAYOUT_COUNTS_NOT_CHECKED,
     type ReconstructedAccount,
     ReconstructedLiveKind,
     type RiskDisplayUnit,
@@ -58,7 +61,11 @@ import {
     AdviceValueRequestKind,
     adviceValueRequestOf,
     type AdviceValueRequestResult,
+    valueCumulativeTriggerOf,
+    valueRunBasisNoteOf,
     valueRunNoteOf,
+    ValueSectionKind,
+    valueSentLiveShareOf,
 } from './adviceValueModel';
 import {
     AdviceDisplayKind,
@@ -67,9 +74,10 @@ import {
     type PersonalLimits,
 } from './adviceViewModel';
 import { AssumptionsList } from './AssumptionsList';
-import { DailyPlanCardView } from './DailyPlanCardView';
+import { type DailyCardEntry, DailyPlanCardView } from './DailyPlanCardView';
 import { DecisionLog, type DecisionSuggestion } from './DecisionLog';
 import { HeadlineCard } from './HeadlineCard';
+import { DEFAULT_ENTRY_INSTRUMENT } from './InstrumentStopEntry';
 import { OptimaTable } from './OptimaTable';
 import { PayoutAdviceCard } from './PayoutAdviceCard';
 import { PayoutReadyBanner } from './PayoutReadyBanner';
@@ -86,22 +94,18 @@ import { ReasonsList } from './ReasonsList';
 import { RiskCheckInputKind } from './riskCheckModel';
 import {
     AccountAdvicePhase,
+    AdviceValuesPhase,
     useAccountAdvice,
     type UseAccountAdviceInput,
 } from './useAccountAdvice';
 import { useAdviceViews } from './useAdviceViews';
+import { useHeldAdviceState } from './useHeldAdviceState';
 import { useRiskCheck } from './useRiskCheck';
 import { NextTradeValue, RiskCandidates, ValuesNotice } from './ValueSections';
 
 enum BuiltKind {
     Loading = 'loading',
     NotModeled = 'not-modeled',
-    Ready = 'ready',
-}
-
-enum FirmPayoutCountKind {
-    Failed = 'failed',
-    Pending = 'pending',
     Ready = 'ready',
 }
 
@@ -132,14 +136,6 @@ type DecisionRows = NonNullable<
 type EventRow =
     RouterOutputs['propAccounts']['event']['listForAccount'][number];
 
-type FirmPayoutCountOutcome =
-    | {
-          readonly count: null | number;
-          readonly kind: FirmPayoutCountKind.Ready;
-      }
-    | { readonly kind: FirmPayoutCountKind.Failed; readonly message: string }
-    | { readonly kind: FirmPayoutCountKind.Pending };
-
 interface InputQuery {
     readonly data: unknown;
     readonly error: null | { readonly message: string };
@@ -163,6 +159,8 @@ type SnapshotRow =
     RouterOutputs['propAccounts']['snapshot']['listForAccount'][number];
 
 const EMPTY_DECISIONS: DecisionRows = [];
+
+const POSITION_SIZING_DEBOUNCE_MS = 500;
 
 const SUSPENDED_ACCOUNT_TEXT =
     "No sizing, daily plan, payout advice, value figures or risk check is shown for a suspended account. Set the account's status back to Active to see advice again.";
@@ -227,18 +225,57 @@ export function AdvicePanel({ id }: { readonly id: string }) {
 
     const today = useTodayIsoDate();
 
+    const [instrument, setInstrument] = useState(DEFAULT_ENTRY_INSTRUMENT);
+    const [stopInput, setStopInput] = useState('');
+    const stopPoints = parsePositionSizeStop(stopInput);
+    const enteredSizing = useMemo(
+        () => (stopPoints === null ? null : { instrument, stopPoints }),
+        [instrument, stopPoints],
+    );
+    const positionSizing = useDebouncedValue(
+        enteredSizing,
+        POSITION_SIZING_DEBOUNCE_MS,
+    );
+    const isSettled =
+        enteredSizing?.instrument === positionSizing?.instrument &&
+        enteredSizing?.stopPoints === positionSizing?.stopPoints;
+    const entry = useMemo<DailyCardEntry>(
+        () => ({
+            instrument,
+            isSettled,
+            onInstrumentChange: setInstrument,
+            onStopInputChange: setStopInput,
+            stopInput,
+            stopPoints,
+        }),
+        [instrument, isSettled, stopInput, stopPoints],
+    );
+
+    const ledgerFailure = ledgerQueryFailureOf([
+        {
+            data: accountsListQuery.data,
+            error: accountsListQuery.error,
+            label: 'accounts list',
+        },
+        {
+            data: ledgerEventsQuery.data,
+            error: ledgerEventsQuery.error,
+            label: 'ledger events',
+        },
+        {
+            data: ledgerPayoutsQuery.data,
+            error: ledgerPayoutsQuery.error,
+            label: 'firm payouts',
+        },
+    ]);
     const firmPayoutCount = useMemo(
         () =>
-            firmPayoutCountOf({
+            firmPayoutCountOutcomeOf({
                 accounts: accountsListQuery.data,
                 events: ledgerEventsQuery.data,
+                failure: ledgerFailure,
                 firmId: account?.firmId ?? null,
                 payouts: ledgerPayoutsQuery.data,
-                payoutsFailure:
-                    ledgerPayoutsQuery.isError &&
-                    ledgerPayoutsQuery.data === undefined
-                        ? ledgerPayoutsQuery.error.message
-                        : null,
                 today,
                 userId,
             }),
@@ -246,9 +283,8 @@ export function AdvicePanel({ id }: { readonly id: string }) {
             account?.firmId,
             accountsListQuery.data,
             ledgerEventsQuery.data,
+            ledgerFailure,
             ledgerPayoutsQuery.data,
-            ledgerPayoutsQuery.error,
-            ledgerPayoutsQuery.isError,
             today,
             userId,
         ],
@@ -279,6 +315,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
                       ledgerEvents: ledgerEventsQuery.data,
                       measuredRebuyLag,
                       payouts: payoutsQuery.data,
+                      positionSizing,
                       rulebook: rulebookQuery.data,
                       snapshots: snapshotsQuery.data,
                       today,
@@ -291,6 +328,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
             ledgerEventsQuery.data,
             measuredRebuyLag,
             payoutsQuery.data,
+            positionSizing,
             rulebookQuery.data,
             snapshotsQuery.data,
             today,
@@ -406,6 +444,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
             decisionsError={
                 decisionsQuery.isError ? decisionsQuery.error.message : null
             }
+            entry={entry}
             inputFailureAlerts={
                 <>
                     {rebuyLagFailureAlert}
@@ -439,6 +478,10 @@ function buildAdvisorInput(args: {
     readonly ledgerEvents: readonly LedgerEventRow[] | undefined;
     readonly measuredRebuyLag: MeasuredRebuyLag | null;
     readonly payouts: readonly PayoutRow[] | undefined;
+    readonly positionSizing: null | {
+        readonly instrument: InstrumentSymbol;
+        readonly stopPoints: number;
+    };
     readonly rulebook: RulebookParameters | undefined;
     readonly snapshots: readonly SnapshotRow[] | undefined;
     readonly today: string;
@@ -451,6 +494,7 @@ function buildAdvisorInput(args: {
         ledgerEvents,
         measuredRebuyLag,
         payouts,
+        positionSizing,
         rulebook,
         snapshots,
         today,
@@ -483,7 +527,17 @@ function buildAdvisorInput(args: {
     }
     const { plan } = resolution;
     const { latest } = latestTwoSnapshots(snapshots);
-    const view = stateCardOf(plan, account, latest, events, payouts, today);
+    const view = stateCardOf(
+        plan,
+        account,
+        latest,
+        events,
+        payouts,
+        today,
+        firmPayoutCount.kind === FirmPayoutCountKind.Ready
+            ? firmPayoutCount.count
+            : PENDING_PAYOUT_COUNTS_NOT_CHECKED,
+    );
     if (view.kind !== StateCardKind.Ready) {
         return {
             kind: BuiltKind.NotModeled,
@@ -498,10 +552,11 @@ function buildAdvisorInput(args: {
         measuredRebuyLag,
         paidPayoutsSinceLastLiveAccount:
             firmPayoutCount.kind === FirmPayoutCountKind.Ready
-                ? firmPayoutCount.count
+                ? firmPayoutCount.count.paidPayoutsSinceLastLiveAccount
                 : null,
         personalRules: account.personalRules,
         plan,
+        positionSizing,
         rulebook,
         snapshotAsOf: view.input.asOf,
         status: account.status,
@@ -558,12 +613,22 @@ function buildAdvisorInput(args: {
     };
 }
 
+function candidatesLiveTransferNotesOf(
+    valueView: ComponentProps<typeof RiskCandidates>['valueView'],
+): readonly string[] {
+    const { candidates } = valueView;
+    return candidates?.kind === ValueSectionKind.Ready
+        ? candidates.view.liveTransferNotes
+        : [];
+}
+
 function ComputedAdvice({
     accountId,
     built,
     canAcceptSize,
     decisions,
     decisionsError,
+    entry,
     inputFailureAlerts,
     refreshFailureAlert,
 }: {
@@ -573,10 +638,15 @@ function ComputedAdvice({
     readonly decisions:
         ComponentProps<typeof DecisionLog>['decisions'] | undefined;
     readonly decisionsError: null | string;
+    readonly entry: DailyCardEntry;
     readonly inputFailureAlerts: ReactNode;
     readonly refreshFailureAlert: ReactNode;
 }) {
-    const adviceState = useAccountAdvice(built.input);
+    const computedState = useAccountAdvice(built.input);
+    const { isRecomputing, state: adviceState } = useHeldAdviceState(
+        computedState,
+        `${accountId}:${built.input.planSerial}`,
+    );
     const { advisor } = built.input;
     const riskCheck = useRiskCheck({
         advisor,
@@ -617,11 +687,27 @@ function ComputedAdvice({
 
     const { valueView, view } = views;
 
+    const recomputingNotice = isRecomputing ? (
+        <Alert aria-busy="true" role="status" variant="warning">
+            <AlertTitle>Recomputing the advice</AlertTitle>
+            <AlertDescription>
+                The figures below are from the previous inputs. Accepting a size
+                is off until it finishes.
+            </AlertDescription>
+        </Alert>
+    ) : null;
+    const topAlerts = (
+        <>
+            {recomputingNotice}
+            {refreshFailureAlert}
+        </>
+    );
+
     if (advisor.isSuspended()) {
         return (
             <div className="flex flex-col gap-2">
                 <h2 className="text-lg font-semibold">Sizing advice</h2>
-                {refreshFailureAlert}
+                {topAlerts}
                 {inputFailureAlerts}
                 <Alert variant="warning">
                     <AlertTitle>This account is suspended</AlertTitle>
@@ -638,7 +724,7 @@ function ComputedAdvice({
         return (
             <div className="flex flex-col gap-2">
                 <h2 className="text-lg font-semibold">{view.headline}</h2>
-                {refreshFailureAlert}
+                {topAlerts}
                 {inputFailureAlerts}
                 <Alert variant="warning">
                     <AlertTitle>{view.message}</AlertTitle>
@@ -655,11 +741,27 @@ function ComputedAdvice({
         );
     }
 
-    const suggestion = canAcceptSize ? suggestionFrom(view, built) : null;
+    const suggestion =
+        canAcceptSize && !isRecomputing ? suggestionFrom(view, built) : null;
+    const valueOutcome =
+        adviceState.values.phase === AdviceValuesPhase.Ready
+            ? adviceState.values.result
+            : null;
+    const { values } = built.input;
     const runNote =
-        built.input.values === null || built.input.values === undefined
+        values === null || values === undefined
             ? null
-            : valueRunNoteOf(built.input.values);
+            : valueRunNoteOf(
+                  values,
+                  valueSentLiveShareOf(valueOutcome),
+                  valueCumulativeTriggerOf(valueOutcome),
+              );
+    const candidatesRunNote =
+        values === null || values === undefined
+            ? null
+            : candidatesLiveTransferNotesOf(valueView).length === 0
+              ? runNote
+              : valueRunBasisNoteOf(values);
 
     const optimaRows = [
         ...view.optima,
@@ -671,7 +773,7 @@ function ComputedAdvice({
     return (
         <div className="flex flex-col gap-6">
             <h2 className="text-lg font-semibold">Sizing advice</h2>
-            {refreshFailureAlert}
+            {topAlerts}
             {inputFailureAlerts}
             <HeadlineCard view={view} />
             <p className="text-sm">
@@ -708,6 +810,9 @@ function ComputedAdvice({
                             built.phase === null
                                 ? null
                                 : {
+                                      entry: isRecomputing
+                                          ? { ...entry, isSettled: false }
+                                          : entry,
                                       phase: built.phase,
                                       plan: built.plan,
                                       tierContext: built.tierContext,
@@ -740,7 +845,7 @@ function ComputedAdvice({
                 </h3>
                 <ValuesNotice
                     isLive={built.phase === null}
-                    runNote={runNote}
+                    runNote={candidatesRunNote}
                     values={adviceState.values}
                 >
                     <RiskCandidates valueView={valueView} />
@@ -799,50 +904,6 @@ function ComputedAdvice({
             </section>
         </div>
     );
-}
-
-function firmPayoutCountOf(args: {
-    readonly accounts: readonly LedgerAccountRow[] | undefined;
-    readonly events: readonly LedgerEventRow[] | undefined;
-    readonly firmId: null | string;
-    readonly payouts: readonly PayoutRow[] | undefined;
-    readonly payoutsFailure: null | string;
-    readonly today: string;
-    readonly userId: string | undefined;
-}): FirmPayoutCountOutcome {
-    const { accounts, events, firmId, payouts, payoutsFailure, today, userId } =
-        args;
-    if (payoutsFailure !== null) {
-        return { kind: FirmPayoutCountKind.Failed, message: payoutsFailure };
-    }
-    if (
-        accounts === undefined ||
-        events === undefined ||
-        payouts === undefined ||
-        userId === undefined
-    ) {
-        return { kind: FirmPayoutCountKind.Pending };
-    }
-    if (firmId === null) {
-        return { count: null, kind: FirmPayoutCountKind.Ready };
-    }
-    const computed = ledgerOrDateFailure(() =>
-        paidPayoutsSinceLastLiveAccountFor(
-            firmPayoutCounts(
-                PortfolioLedger.fromRows(userId, {
-                    accounts,
-                    events,
-                    fees: [],
-                    payouts,
-                }),
-                today,
-            ),
-            firmId,
-        ),
-    );
-    return computed.kind === OverviewSectionStatus.Ready
-        ? { count: computed.value, kind: FirmPayoutCountKind.Ready }
-        : { kind: FirmPayoutCountKind.Failed, message: computed.message };
 }
 
 function LoadingAdvice({ label }: { readonly label: string }) {

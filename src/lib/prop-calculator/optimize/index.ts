@@ -18,7 +18,10 @@ export {
 export {
     FUNDED_SORT_KEYS,
     FundedSortKey,
+    type FundedSortObjective,
+    fundedSortOfObjective,
     type FundedSweepRow,
+    objectiveOfFundedSort,
     runFundedCandidateSweep,
     sortFundedResults,
     survivorCount,
@@ -26,8 +29,11 @@ export {
 export {
     belowOneContractClause,
     flatsBelowOneContractNote,
+    FUNDED_ROW_HEADERS,
     fundedPlacementNotes,
     fundedRowCells,
+    fundedRowStandardErrors,
     fundedSortDescription,
+    fundedSurvivorsNote,
     ladderRungsBelowOneContractText,
 } from './FundedCandidateText';

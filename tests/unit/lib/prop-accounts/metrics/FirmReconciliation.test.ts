@@ -212,6 +212,79 @@ describe('firmReconciliation', () => {
         expect(result[1]?.decreasedFromPrevious).toBe(true);
     });
 
+    it('compares a statement only with the previous statement of the same basis', () => {
+        const acc = account(EVAL_PLAN, {
+            externalFirmId: 'lucid-1',
+            firmId: null,
+            planLabel: 'External plan',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const gross = firmStatement(
+            'lucid-1',
+            '2026-09-10',
+            ReportedPayoutBasis.Gross,
+            1_000_000,
+        );
+        const net = firmStatement(
+            'lucid-1',
+            '2026-09-20',
+            ReportedPayoutBasis.Net,
+            900_000,
+        );
+        const result = firmReconciliation(
+            ledger({
+                accounts: [acc],
+                events: [purchased(acc)],
+                firmStatements: [gross, net],
+            }),
+        );
+        expect(result[1]?.changeFromPreviousCents).toBeNull();
+        expect(result[1]?.decreasedFromPrevious).toBe(false);
+    });
+
+    it('still flags a decrease between two statements of the same basis around a statement of the other basis', () => {
+        const acc = account(EVAL_PLAN, {
+            externalFirmId: 'lucid-1',
+            firmId: null,
+            planLabel: 'External plan',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const result = firmReconciliation(
+            ledger({
+                accounts: [acc],
+                events: [purchased(acc)],
+                firmStatements: [
+                    firmStatement(
+                        'lucid-1',
+                        '2026-09-10',
+                        ReportedPayoutBasis.Net,
+                        900_000,
+                    ),
+                    firmStatement(
+                        'lucid-1',
+                        '2026-09-15',
+                        ReportedPayoutBasis.Gross,
+                        2_000_000,
+                    ),
+                    firmStatement(
+                        'lucid-1',
+                        '2026-09-20',
+                        ReportedPayoutBasis.Net,
+                        800_000,
+                    ),
+                ],
+            }),
+        );
+        expect(result.map((entry) => entry.decreasedFromPrevious)).toEqual([
+            false,
+            false,
+            true,
+        ]);
+        expect(result[2]?.changeFromPreviousCents).toBe(-100_000);
+    });
+
     it('scopes statements and payouts to the ledger owner', () => {
         const acc = account(EVAL_PLAN, {
             externalFirmId: 'lucid-1',

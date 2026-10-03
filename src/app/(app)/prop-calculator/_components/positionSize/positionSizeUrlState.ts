@@ -29,6 +29,7 @@ export enum PositionSizeUrlParameter {
     Plan = 'psp',
     RetryFee = 'psf',
     Risk = 'psr',
+    Room = 'psro',
     Stop = 'pss',
     Tier = 'pst',
     Unit = 'psu',
@@ -44,6 +45,12 @@ const riskSchema = finiteNumberSchema
     .pipe(z.number().max(MAX_RISK))
     .transform(floorToWholeCents)
     .pipe(z.number().positive())
+    .transform(dollars);
+
+const roomSchema = finiteNumberSchema
+    .pipe(z.number().max(MAX_RISK))
+    .transform(floorToWholeCents)
+    .pipe(z.number().nonnegative())
     .transform(dollars);
 
 const retryFeeSchema = finiteNumberSchema
@@ -99,6 +106,11 @@ export function decodePositionSize(
             parameters.get(PositionSizeUrlParameter.Risk),
             fallback.risk,
         ),
+        roomDollars: parsed(
+            roomSchema,
+            parameters.get(PositionSizeUrlParameter.Room),
+            null,
+        ),
         stopPoints: parsed(
             stopSchema,
             parameters.get(PositionSizeUrlParameter.Stop),
@@ -125,6 +137,7 @@ export function defaultPositionSize(): PositionSizeInput {
         plan,
         retryFee: dollars(plan.retryFee()),
         risk: DEFAULT_RISK,
+        roomDollars: null,
         stopPoints: DEFAULT_STOP_POINTS,
         tierProfit: null,
         unit: RiskDisplayUnit.AccountDollars,
@@ -146,6 +159,12 @@ export function encodePositionSize(
     parameters.set(PositionSizeUrlParameter.Phase, state.phase);
     parameters.set(PositionSizeUrlParameter.RetryFee, String(state.retryFee));
     parameters.set(PositionSizeUrlParameter.Unit, state.unit);
+    if (state.roomDollars !== null) {
+        parameters.set(
+            PositionSizeUrlParameter.Room,
+            String(state.roomDollars),
+        );
+    }
     if (state.tierProfit !== null) {
         parameters.set(PositionSizeUrlParameter.Tier, String(state.tierProfit));
     }
@@ -169,6 +188,10 @@ export function parsePositionSizeRetryFee(raw: string): Dollars | null {
 
 export function parsePositionSizeRisk(raw: string): Dollars | null {
     return parsed(riskSchema, raw, null);
+}
+
+export function parsePositionSizeRoom(raw: string): Dollars | null {
+    return parsed(roomSchema, raw, null);
 }
 
 export function parsePositionSizeStop(raw: string): null | Points {

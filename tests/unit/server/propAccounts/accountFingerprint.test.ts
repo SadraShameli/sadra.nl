@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { captureError } from '~/lib/observability/logger';
 import {
     AccountEventKind,
     AccountStage,
@@ -28,6 +29,7 @@ import {
     accountUpdateInput,
     callerFor,
     defined,
+    IDS,
     insertsInto,
     ledgerOnlyAccountRow,
     propWrites,
@@ -333,5 +335,205 @@ describe('propAccounts.account: plan-rule fingerprint stamping (PT-45)', () => {
             id: String(DEFAULT_ROW.id),
         });
         expect(account.planRulesChanged).toBe(true);
+    });
+});
+
+describe('propAccounts.account: both plan-rule fingerprints on the row (PT-110)', () => {
+    it('list rows carry the stored fingerprint and the current one, and planRulesChanged equals both present and different', async () => {
+        const stale = 'x'.repeat(64);
+        const fresh = await planRulesFingerprint(DEFAULT_PLAN);
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    accountRow({
+                        id: '55555555-5555-4555-8555-555555555555',
+                        plan_rules_fingerprint: stale,
+                    }),
+                    accountRow({
+                        id: '66666666-6666-4666-8666-666666666666',
+                        plan_rules_fingerprint: fresh,
+                    }),
+                ],
+            }),
+        );
+        const listed = await caller.account.list({});
+        expect(
+            listed.map((account) => [
+                account.planRulesFingerprint,
+                account.currentPlanRulesFingerprint,
+                account.planRulesChanged,
+            ]),
+        ).toEqual([
+            [stale, fresh, true],
+            [fresh, fresh, false],
+        ]);
+    });
+
+    it('get carries both fingerprints', async () => {
+        const stale = 'x'.repeat(64);
+        const fresh = await planRulesFingerprint(DEFAULT_PLAN);
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    accountRow({ plan_rules_fingerprint: stale }),
+                ],
+            }),
+        );
+        const account = await caller.account.get({
+            id: String(DEFAULT_ROW.id),
+        });
+        expect(account.planRulesFingerprint).toBe(stale);
+        expect(account.currentPlanRulesFingerprint).toBe(fresh);
+        expect(account.planRulesChanged).toBe(true);
+    });
+
+    it('an unresolvable plan has no current fingerprint and keeps its stored one', async () => {
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    accountRow({
+                        plan_rules_fingerprint: 'stale-hash',
+                        plan_serial: 'retired-plan',
+                    }),
+                ],
+            }),
+        );
+        const [listed] = await caller.account.list({});
+        expect(listed?.planRulesFingerprint).toBe('stale-hash');
+        expect(listed?.currentPlanRulesFingerprint).toBeNull();
+        expect(listed?.planRulesChanged).toBeNull();
+    });
+
+    it('a row stamped null before the backfill has a current fingerprint, a null stored one and no change verdict', async () => {
+        const fresh = await planRulesFingerprint(DEFAULT_PLAN);
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [accountRow({ plan_rules_fingerprint: null })],
+            }),
+        );
+        const [listed] = await caller.account.list({});
+        expect(listed?.planRulesFingerprint).toBeNull();
+        expect(listed?.currentPlanRulesFingerprint).toBe(fresh);
+        expect(listed?.planRulesChanged).toBeNull();
+        const fetched = await caller.account.get({
+            id: String(DEFAULT_ROW.id),
+        });
+        expect(fetched.currentPlanRulesFingerprint).toBe(fresh);
+        expect(fetched.planRulesChanged).toBeNull();
+    });
+
+    it('a ledger-only account has no current fingerprint', async () => {
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.account]: [ledgerOnlyAccountRow()] }),
+        );
+        const [listed] = await caller.account.list({});
+        expect(listed?.currentPlanRulesFingerprint).toBeNull();
+        expect(listed?.planRulesChanged).toBeNull();
+    });
+
+    it('computes the current fingerprint once per plan key across rows', async () => {
+        const digestSpy = vi.spyOn(crypto.subtle, 'digest');
+        digestSpy.mockClear();
+        const stale = 'x'.repeat(64);
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    accountRow({
+                        id: '77777777-7777-4777-8777-777777777777',
+                        plan_rules_fingerprint: null,
+                    }),
+                    accountRow({
+                        id: '88888888-8888-4888-8888-888888888888',
+                        plan_rules_fingerprint: stale,
+                    }),
+                ],
+            }),
+        );
+        await caller.account.list({});
+        expect(digestSpy).toHaveBeenCalledTimes(1);
+        digestSpy.mockRestore();
+    });
+});
+
+describe('propAccounts.account: corrupt stored tags (PT-110)', () => {
+    const CORRUPT_TAGS_ID = '99999999-9999-4999-8999-999999999999';
+    let writes = 0;
+
+    function rewrittenAt(): Date {
+        writes += 1;
+        return new Date(Date.UTC(2026, 8, 3, 0, writes));
+    }
+
+    it.each([
+        ['null', null],
+        ['an object', { mff: true }],
+        ['a number', 42],
+        ['a list holding a non-string', ['mff', 1]],
+    ])(
+        'list still returns every account when one stores tags as %s, and reports the corrupt row',
+        async (_name, tags) => {
+            vi.mocked(captureError).mockClear();
+            const { caller } = callerFor(
+                SIGNED_IN,
+                tableResponder({
+                    [TABLES.account]: [
+                        accountRow(),
+                        accountRow({
+                            id: CORRUPT_TAGS_ID,
+                            tags,
+                            updated_at: rewrittenAt(),
+                        }),
+                    ],
+                }),
+            );
+            const listed = await caller.account.list({});
+            expect(listed.map((account) => account.id)).toEqual([
+                IDS.account,
+                CORRUPT_TAGS_ID,
+            ]);
+            expect(listed.map((account) => account.tags)).toEqual([[], []]);
+            expect(listed.map((account) => account.readIssues)).toEqual([
+                [],
+                [],
+            ]);
+            expect(listed.map((account) => account.hasCorruptTags)).toEqual([
+                undefined,
+                tags === null ? undefined : true,
+            ]);
+            expect(captureError).toHaveBeenCalledTimes(tags === null ? 0 : 1);
+        },
+    );
+
+    it('get reads a non-array tags value as no tags and names the issue (QF-8)', async () => {
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [
+                    accountRow({
+                        tags: { mff: true },
+                        updated_at: rewrittenAt(),
+                    }),
+                ],
+            }),
+        );
+        const account = await caller.account.get({ id: IDS.account });
+        expect(account.tags).toEqual([]);
+        expect(account.readIssues).toEqual([]);
+        expect(account.hasCorruptTags).toBe(true);
+    });
+
+    it('get reads a null tags value as no tags', async () => {
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.account]: [accountRow({ tags: null })] }),
+        );
+        const account = await caller.account.get({ id: IDS.account });
+        expect(account.tags).toEqual([]);
     });
 });

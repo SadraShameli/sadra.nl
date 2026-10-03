@@ -18,6 +18,7 @@ import {
     AccountReconstruction,
     AdviceStalenessReason,
     createSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     runEngineOptimum,
     type SizingAdvisorCreateOptions,
 } from '~/lib/prop-calculator/advisor';
@@ -78,7 +79,12 @@ function adviceFor(
     overrides: Partial<SizingAdvisorCreateOptions> = {},
 ) {
     const { options, plan, snapshot } = readAdviseInputs(parseAdvise(argv));
-    const account = AccountReconstruction.rebuild(snapshot, plan);
+    const account = AccountReconstruction.rebuild(
+        snapshot,
+        plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
+    );
     const advisor = createSizingAdvisor(account, { ...options, ...overrides });
     return { advisor, plan };
 }

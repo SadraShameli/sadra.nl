@@ -42,13 +42,14 @@ import { Textarea } from '~/components/ui/Textarea';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
     EntryTextKind,
+    feeCheckRowOf,
     FeeKind,
     feePrefillCents,
     feePrefillDefaultKind,
     type FeePrefillPlan,
+    FeePriceCheck,
     formatUsdCents,
     parseMoneyText,
-    usdCents,
     usdCentsToText,
 } from '~/lib/prop-accounts';
 import { feeCreateSchema } from '~/lib/schemas/propAccounts';
@@ -63,6 +64,13 @@ import { nullIfBlank, parsedOrIssues } from './formParsing';
 import { useRowEditing } from './useRowEditing';
 
 type FeeRow = RouterOutputs['propAccounts']['fee']['list'][number];
+
+const FEE_PRICE_CHECK_LABEL: Readonly<Record<FeePriceCheck, string>> = {
+    [FeePriceCheck.AboveList]: 'Above list',
+    [FeePriceCheck.AtList]: 'At list',
+    [FeePriceCheck.Discounted]: 'Discounted',
+    [FeePriceCheck.NoListPrice]: 'No list price',
+};
 
 const feeFormShape = z.object({
     amountCents: z.string(),
@@ -125,14 +133,7 @@ export function FeesSection({
                     </TableHeader>
                     <TableBody>
                         {rows.map((row) => {
-                            const listCents =
-                                plan === null
-                                    ? null
-                                    : feePrefillCents(plan, row.kind);
-                            const differenceCents =
-                                listCents === null
-                                    ? null
-                                    : usdCents(row.amountCents - listCents);
+                            const priceCheck = feeCheckRowOf(plan, row);
                             return (
                                 <TableRow key={row.id}>
                                     <TableCell className="tabular-nums">
@@ -145,14 +146,25 @@ export function FeesSection({
                                         {formatUsdCents(row.amountCents)}
                                     </TableCell>
                                     <TableCell className="text-right text-muted-foreground tabular-nums">
-                                        {listCents === null
+                                        {priceCheck.listCents === null
                                             ? NOT_APPLICABLE
-                                            : formatUsdCents(listCents)}
+                                            : formatUsdCents(
+                                                  priceCheck.listCents,
+                                              )}
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums">
-                                        {differenceCents === null
+                                        {priceCheck.differenceCents === null
                                             ? NOT_APPLICABLE
-                                            : formatUsdCents(differenceCents)}
+                                            : formatUsdCents(
+                                                  priceCheck.differenceCents,
+                                              )}
+                                        <div className="text-xs text-muted-foreground">
+                                            {
+                                                FEE_PRICE_CHECK_LABEL[
+                                                    priceCheck.check
+                                                ]
+                                            }
+                                        </div>
                                     </TableCell>
                                     <TableCell className="max-w-xs text-xs whitespace-pre-line text-muted-foreground">
                                         {row.note ?? ''}

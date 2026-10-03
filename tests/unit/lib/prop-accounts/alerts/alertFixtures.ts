@@ -11,6 +11,10 @@ import {
     createAlertContext,
 } from '~/lib/prop-accounts/alerts';
 import {
+    type AccountPersonalPolicy,
+    NO_PERSONAL_POLICY,
+} from '~/lib/prop-accounts/alerts/AlertContext';
+import {
     AccountEventKind,
     AccountStage,
     AccountStatus,
@@ -113,6 +117,13 @@ export function paidPayout(
         status: PayoutStatus.Paid,
         ...overrides,
     };
+}
+
+export function personalPoliciesFor(
+    account: AlertAccountRow,
+    policy: Partial<AccountPersonalPolicy>,
+): ReadonlyMap<string, AccountPersonalPolicy> {
+    return new Map([[account.id, { ...NO_PERSONAL_POLICY, ...policy }]]);
 }
 
 export function planWhere(isMatch: (plan: Plan) => boolean): PlanEntry {

@@ -3,7 +3,10 @@ import {
     isoDaysBetween,
     paidPayoutCash,
 } from '~/lib/prop-accounts/core';
-import { type FirmId } from '~/lib/prop-calculator';
+import {
+    type FirmId,
+    FUNDED_PAYOUT_COUNT_TAIL_BUCKET,
+} from '~/lib/prop-calculator';
 
 import {
     finalState,
@@ -15,7 +18,7 @@ import {
     sampledMean,
 } from './PortfolioLedger';
 
-export const PAYOUT_COUNT_CAP = 10;
+export const PAYOUT_COUNT_CAP = FUNDED_PAYOUT_COUNT_TAIL_BUCKET;
 
 export interface FundedPayoutDistribution {
     readonly horizonDays: number;
@@ -27,6 +30,7 @@ export interface PlanPayoutCountDistribution {
     readonly firmId: FirmId;
     readonly openAccounts: number;
     readonly planSerial: string;
+    readonly probabilities: readonly number[];
     readonly realizedFundedValue: null | SampledEstimate;
 }
 
@@ -41,6 +45,17 @@ export function fundedPayoutDistribution(
             .planGroups()
             .map((group) => distributionOf(group, asOfDate, horizonDays)),
     };
+}
+
+export function isFullyObservedFundedCohort(
+    entry: LedgerAccount,
+    fundedOn: string,
+    asOfDate: string,
+    horizonDays: number,
+): boolean {
+    const status = finalState(entry)?.status;
+    const isEnded = status !== undefined && isEndedStatus(status);
+    return isEnded || isoDaysBetween(fundedOn, asOfDate) >= horizonDays;
 }
 
 export function isHorizonMaturedCohort(
@@ -85,7 +100,14 @@ function distributionOf(
     for (const entry of group.accounts) {
         const funded = fundedSince(entry);
         if (funded === null) continue;
-        if (!isHorizonMaturedCohort(entry, funded.on, asOfDate, horizonDays)) {
+        if (
+            !isFullyObservedFundedCohort(
+                entry,
+                funded.on,
+                asOfDate,
+                horizonDays,
+            )
+        ) {
             openAccounts += 1;
             continue;
         }
@@ -94,11 +116,14 @@ function distributionOf(
         counts[Math.min(k, PAYOUT_COUNT_CAP)] = (bucket ?? 0) + 1;
         values.push(paidCentsWithinHorizon(entry, funded.on, horizonDays));
     }
+    const cohortSize = values.length;
     return {
         counts,
         firmId: group.firmId,
         openAccounts,
         planSerial: group.planSerial,
+        probabilities:
+            cohortSize === 0 ? [] : counts.map((count) => count / cohortSize),
         realizedFundedValue: sampledMean(values),
     };
 }

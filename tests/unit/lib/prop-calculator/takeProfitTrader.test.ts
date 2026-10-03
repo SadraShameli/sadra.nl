@@ -217,6 +217,24 @@ describe('TPT PRO funded inactivity closure follows the calendar-week rule, not 
     });
 });
 
+function proPlusSentences(): string[] {
+    const note = new TakeProfitTrader().notes.find((candidate) =>
+        candidate.startsWith('PRO+ (the live-capital account'),
+    );
+    if (note === undefined) throw new Error('no PRO+ note');
+    return note.split(/(?<=\.)\s+/);
+}
+
+function sentenceWith(fragment: string): string {
+    const sentence = proPlusSentences().find((candidate) =>
+        candidate.includes(fragment),
+    );
+    if (sentence === undefined) {
+        throw new Error(`no PRO+ sentence names ${fragment}`);
+    }
+    return sentence;
+}
+
 describe("TPT notes cite the firm's own Zendesk articles, not the propfirmmatch extraction or a 403 caveat (N-85)", () => {
     const firm = new TakeProfitTrader();
 
@@ -251,5 +269,76 @@ describe("TPT notes cite the firm's own Zendesk articles, not the propfirmmatch 
         expect(note).not.toContain('403');
         expect(note).not.toContain('search engine');
         expect(note).not.toContain('search-engine');
+    });
+
+    describe('the PRO+ note pins each claim to the article that states it (N-85)', () => {
+        const ADVANTAGES = '15171929948829';
+        const RULES = '15172006753821';
+        const UPGRADE = '15171978600349';
+
+        it('attributes the 90/10 split only to Advantages of PRO+, which states it', () => {
+            const sentence = sentenceWith('90/10');
+
+            expect(sentence).toContain(ADVANTAGES);
+            expect(sentence).not.toContain(RULES);
+            expect(sentence).not.toContain(UPGRADE);
+        });
+
+        it("attributes 'no buffer zone requirement for withdrawal' only to Advantages of PRO+", () => {
+            const sentence = sentenceWith('buffer zone requirement');
+
+            expect(sentence).toContain(ADVANTAGES);
+            expect(sentence).not.toContain(RULES);
+            expect(sentence).not.toContain(UPGRADE);
+        });
+
+        it('scopes the only-claims to the three articles fetched, since other help center articles state 90/10 and no buffer', () => {
+            for (const fragment of ['90/10', 'buffer zone requirement']) {
+                const sentence = sentenceWith(fragment);
+
+                expect(sentence).toContain('three articles');
+                expect(sentence).not.toMatch(/stated only by/);
+            }
+        });
+
+        it('names the PRO+ Development cooldown article as a second source that states 90/10', () => {
+            const sentence = sentenceWith('90/10');
+
+            expect(sentence).toContain('39331980656925');
+            expect(sentence).toContain('Live payouts split 90/10');
+        });
+
+        it('attributes the starting drawdown and the $0 trail floor to the Upgrade Process article only', () => {
+            const sentence = sentenceWith(
+                'equivalent to the starting drawdown',
+            );
+
+            expect(sentence).toContain(UPGRADE);
+            expect(sentence).not.toContain(ADVANTAGES);
+            expect(sentence).not.toContain(RULES);
+        });
+
+        it('attributes the weekly trading requirement to the PRO+ Account Rules article only', () => {
+            const sentence = sentenceWith('per calendar week');
+
+            expect(sentence).toContain(RULES);
+            expect(sentence).not.toContain(UPGRADE);
+            expect(sentence).not.toContain(ADVANTAGES);
+        });
+
+        it('records the frozen $5,000 profit the Upgrade Process article states and the engine does not model', () => {
+            const sentence = sentenceWith('$5,000');
+
+            expect(sentence).toContain(UPGRADE);
+            expect(sentence).toContain('frozen');
+            expect(sentence).toContain('not model');
+        });
+
+        it('no longer says the Rules or Upgrade articles confirm the split or the missing buffer', () => {
+            const joined = proPlusSentences().join(' ');
+
+            expect(joined).not.toContain('confirmed by the same source');
+            expect(joined).not.toContain('Confirmed directly against');
+        });
     });
 });

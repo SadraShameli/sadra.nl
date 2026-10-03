@@ -4,6 +4,7 @@ import {
     RungSizing,
     serializePlanId,
 } from '~/lib/prop-calculator/core';
+import { findFirm } from '~/lib/prop-calculator/firms';
 import { type PortfolioTimelineInputs } from '~/lib/prop-calculator/portfolioTimeline';
 
 import {
@@ -12,6 +13,7 @@ import {
     resolveDocumentedPayoutRequestSize,
     resolveDocumentedPlan,
     resolveDocumentedRetainedCushion,
+    verifiedCumulativeTriggerOf,
 } from './documentedPolicySimInputs';
 import {
     type DocumentedPolicySpec,
@@ -19,6 +21,7 @@ import {
 } from './DocumentedPolicySpec';
 
 export enum DocumentedPolicyTimelineGap {
+    CumulativePayoutTrigger = 'cumulative-payout-trigger',
     FundedRrDiffersFromStrategyRr = 'funded-rr-differs-from-strategy-rr',
     IntradayPathStepsPerR = 'intraday-path-steps-per-r',
     LiveTransferHazard = 'live-transfer-hazard',
@@ -33,6 +36,8 @@ export const DOCUMENTED_POLICY_TIMELINE_GAPS: readonly DocumentedPolicyTimelineG
 export const DOCUMENTED_POLICY_TIMELINE_GAP_TEXT: Readonly<
     Record<DocumentedPolicyTimelineGap, string>
 > = {
+    [DocumentedPolicyTimelineGap.CumulativePayoutTrigger]:
+        "The portfolio timeline does not simulate the firm's confirmed cumulative payout trigger, so it never sends an account live once its payouts reach that amount; the account value runs do price it.",
     [DocumentedPolicyTimelineGap.FundedRrDiffersFromStrategyRr]:
         'The portfolio timeline has one reward-to-risk ratio for both the eval and the funded phase; a funded rr different from the rulebook strategy rr is not honoured, so the timeline reuses the strategy rr for the funded phase too.',
     [DocumentedPolicyTimelineGap.IntradayPathStepsPerR]:
@@ -45,11 +50,21 @@ export const DOCUMENTED_POLICY_TIMELINE_GAP_TEXT: Readonly<
 
 export function applicableTimelineGaps(
     spec: DocumentedPolicySpec,
+    plan?: Plan,
 ): readonly DocumentedPolicyTimelineGap[] {
     const { enginePolicy, rulebook } = spec;
     const { funded, strategy } = rulebook;
     return DOCUMENTED_POLICY_TIMELINE_GAPS.filter((gap) => {
         switch (gap) {
+            case DocumentedPolicyTimelineGap.CumulativePayoutTrigger: {
+                return (
+                    plan !== undefined &&
+                    verifiedCumulativeTriggerOf(
+                        findFirm(plan.id.firm)?.accountPolicy,
+                        plan,
+                    ) !== null
+                );
+            }
             case DocumentedPolicyTimelineGap.FundedRrDiffersFromStrategyRr: {
                 return (
                     Math.abs(

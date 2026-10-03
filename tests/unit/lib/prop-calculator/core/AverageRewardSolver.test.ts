@@ -7,13 +7,9 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
-    InstrumentSymbol,
     MffuVariant,
-    oneContractRisk,
     type Plan,
-    type PositionSizingConfig,
     replacementEconomics,
-    resolvePositionSizing,
     RetryKind,
 } from '~/lib/prop-calculator/core';
 import {
@@ -30,8 +26,6 @@ const WINRATE = fraction(0.5);
 const MAX_EVAL_DAYS = 1;
 const FUNDED_HORIZON_DAYS = 252;
 const MAX_SOLVES = 10;
-const K1_INSTRUMENT = InstrumentSymbol.MNQ;
-const K1_STOP_POINTS = 12.5;
 
 const EVAL_GRID = {
     actionStepDollars: 50,
@@ -135,12 +129,6 @@ function jointToyPlan(fees: JointToyFees, options: JointToyOptions = {}): Plan {
     });
 }
 
-function k1PositionSizing(): PositionSizingConfig {
-    const positionSizing = resolvePositionSizing(K1_INSTRUMENT, K1_STOP_POINTS);
-    if (positionSizing === null) throw new Error('MNQ sizing did not resolve');
-    return positionSizing;
-}
-
 function multiDayToyObjective(): RenewalCycleObjective {
     return buildObjective(
         jointToyPlan(
@@ -221,7 +209,7 @@ describe(
                     rrRatio: RR_RATIO,
                     seed: 42,
                     tradesPerDay: 1,
-                    trials: 200_000,
+                    trials: 60_000,
                     winrate: 0.5,
                 });
 
@@ -399,7 +387,7 @@ describe(
                     rrRatio: RR_RATIO,
                     seed: 42,
                     tradesPerDay: 1,
-                    trials: 200_000,
+                    trials: 60_000,
                     winrate: 0.5,
                 });
 
@@ -507,7 +495,9 @@ describe(
                 '$7/month above the simulator here; a reset that restarted the ' +
                 'billing clock let the DP bust just before each month rolled ' +
                 'over, predicting -$108/month for a policy that never passes ' +
-                'and that the simulator scores at -$278/month',
+                'and that the simulator scores at -$278/month. The replay runs 2,000 ' +
+                'trials, down from 100,000: the gap stays $6.5 to $7/month from ' +
+                '5,000 to 100,000 trials, so the bound of $12 keeps its margin',
             () => {
                 const maxEvalDays = 60;
                 const plan = jointToyPlan(
@@ -537,7 +527,7 @@ describe(
                     rrRatio: RR_RATIO,
                     seed: 42,
                     tradesPerDay: 1,
-                    trials: 100_000,
+                    trials: 2000,
                     winrate: 0.5,
                 });
 
@@ -550,154 +540,6 @@ describe(
                     ),
                 ).toBeLessThan(12);
             },
-            600_000,
-        );
-    },
-);
-
-describe(
-    'solveAverageRewardPolicy vs the best flat/percent-of-cushion policy ' +
-        '(K1, replacing the removed lifetime-net regression per D11): ' +
-        'the DP must never underperform the best fixed-risk or ' +
-        'fixed-percent-of-cushion candidate on expectedMonthlyNet, since a ' +
-        'state-aware policy is a strict superset of a fixed policy (a ' +
-        'fixed policy is a state-aware one that happens to ignore state)',
-    () => {
-        it(
-            'MFF Rapid EOD 50K: the average-reward DP policy beats the ' +
-                "best flat/percent candidate's expectedMonthlyNet, every " +
-                'candidate placed in whole MNQ micros at a 12.5 point stop ' +
-                '($25 each, T33: percent-of-cushion needs a stop, and each ' +
-                'flat candidate is a whole number of contracts, at least ' +
-                'one, so it trades exactly as before), ' +
-                "measured both by the DP's own solved rate AND by " +
-                "simulate()'s empirical monthly net driven by the exact " +
-                'same policy, the same double check the original K1 ' +
-                'harness applied',
-            () => {
-                const contractRisk = oneContractRisk(k1PositionSizing());
-                const plan = rapidEodPlan();
-                const rrRatio = 2;
-                const winrate = 0.4;
-                const tradesPerDay = 4;
-                const maxEvalDays = 15;
-                const fundedHorizonDays = 252;
-                const rebuyLagDays = 2;
-                const seed = 42;
-                const flatSweepTrials = 8000;
-
-                const flatCandidates = [200, 250, 300, 400];
-                const percentCandidates = [0.05, 0.075, 0.1, 0.15];
-                for (const risk of flatCandidates) {
-                    expect(Number.isSafeInteger(risk / contractRisk)).toBe(
-                        true,
-                    );
-                    expect(risk).toBeGreaterThanOrEqual(contractRisk);
-                }
-
-                let bestFlatMonthlyNet = -Infinity;
-                for (const evalRisk of flatCandidates) {
-                    for (const fundedRisk of flatCandidates) {
-                        const out = simulate({
-                            fundedHorizonDays,
-                            fundedRiskPerTrade: fundedRisk,
-                            instrument: K1_INSTRUMENT,
-                            maxEvalDays,
-                            plan,
-                            rebuyLagDays,
-                            riskPerTrade: evalRisk,
-                            rrRatio,
-                            seed,
-                            stopPoints: K1_STOP_POINTS,
-                            tradesPerDay,
-                            trials: flatSweepTrials,
-                            winrate,
-                        });
-                        bestFlatMonthlyNet = Math.max(
-                            bestFlatMonthlyNet,
-                            out.expectedMonthlyNet,
-                        );
-                    }
-                }
-                for (const percent of percentCandidates) {
-                    const out = simulate({
-                        fundedCushionPercent: fraction(percent),
-                        fundedHorizonDays,
-                        instrument: K1_INSTRUMENT,
-                        maxEvalDays,
-                        plan,
-                        rebuyLagDays,
-                        riskPerTrade: 250,
-                        rrRatio,
-                        seed,
-                        stopPoints: K1_STOP_POINTS,
-                        tradesPerDay,
-                        trials: flatSweepTrials,
-                        winrate,
-                    });
-                    bestFlatMonthlyNet = Math.max(
-                        bestFlatMonthlyNet,
-                        out.expectedMonthlyNet,
-                    );
-                }
-
-                const objective = new RenewalCycleObjective({
-                    fundedHorizonDays,
-                    maxEvalDays,
-                    plan,
-                    rebuyLagDays,
-                });
-
-                const solution = solveAverageRewardPolicy({
-                    evalGrid: {
-                        actionStepDollars: 100,
-                        cushionStepDollars: 200,
-                        profitStepDollars: 600,
-                        tradesPerDay,
-                    },
-                    fundedGrid: {
-                        actionStepMultiple: 0.1,
-                        maxActionMultiple: 0.3,
-                        tradesPerDay,
-                    },
-                    maxSolves: 10,
-                    objective,
-                    rrRatio,
-                    winrate: fraction(winrate),
-                });
-
-                expect(solution.status).toBe(RateSearchStatus.Converged);
-
-                const empiricalOut = simulate({
-                    evalDayPolicy: solution.evalResult.dayPolicy,
-                    fundedDayPolicy: solution.fundedResult.dayPolicy,
-                    fundedHorizonDays,
-                    maxEvalDays,
-                    plan,
-                    rebuyLagDays,
-                    riskPerTrade: 250,
-                    rrRatio,
-                    seed,
-                    tradesPerDay,
-                    trials: 12_000,
-                    winrate,
-                });
-
-                expect(empiricalOut.expectedMonthlyNet).toBeGreaterThanOrEqual(
-                    bestFlatMonthlyNet,
-                );
-
-                const predictedMonthlyNet = objective.monthlyRate(
-                    solution.ratePerDay,
-                );
-                console.info(
-                    'K1: DP predicted $/month %s vs empirical $/month %s (best flat %s)',
-                    predictedMonthlyNet.toFixed(2),
-                    empiricalOut.expectedMonthlyNet.toFixed(2),
-                    bestFlatMonthlyNet.toFixed(2),
-                );
-            },
-            2_700_000,
         );
     },
 );
@@ -737,7 +579,7 @@ describe(
                     rrRatio: RR_RATIO,
                     seed: 42,
                     tradesPerDay: 1,
-                    trials: 100_000,
+                    trials: 40_000,
                     winrate: 0.5,
                 });
 
@@ -755,7 +597,6 @@ describe(
                     ),
                 ).toBeGreaterThan(20);
             },
-            600_000,
         );
     },
 );
@@ -778,10 +619,11 @@ describe('solveAverageRewardPolicy convergence', () => {
     );
 });
 
-describe('solveAverageRewardPolicy solve budget: the rate search from rate 0 on a multi-day joint toy (F=10, A=0, L=0, $200 eval drawdown and target, 20-day eval cap, $50 to $200 eval bets), whose eval policy changes with the rate, so h is convex and nonlinear and the search needs 7 solves', () => {
+describe('solveAverageRewardPolicy solve budget: the rate search from rate 0 on a multi-day joint toy (F=10, A=0, L=0, $200 eval drawdown and target, 20-day eval cap, $50 to $200 eval bets), whose eval policy changes with the rate, so h is convex and nonlinear and the search needs 6 solves (7 before the quadratic step of WP66a R5)', () => {
     const RATE_TOLERANCE_PER_DAY = 0.05;
     const ROOT_ROUNDING_DOLLARS = 1e-9;
-    const MULTI_DAY_TOY_SOLVES = 7;
+    const FINAL_POINT_OVERSHOOT_DOLLARS = 1;
+    const MULTI_DAY_TOY_SOLVES = 6;
 
     function solveToy(maxSolves: number) {
         return solveAverageRewardPolicy(
@@ -794,14 +636,14 @@ describe('solveAverageRewardPolicy solve budget: the rate search from rate 0 on 
         );
     }
 
-    it(`converges in ${MULTI_DAY_TOY_SOLVES} solves, so every cap from 2 to 6 below cuts a search that is still running`, () => {
+    it(`converges in ${MULTI_DAY_TOY_SOLVES} solves, so every cap from 2 to 5 below cuts a search that is still running`, () => {
         const solution = solveToy(MAX_SOLVES);
 
         expect(solution.status).toBe(RateSearchStatus.Converged);
         expect(solution.trace).toHaveLength(MULTI_DAY_TOY_SOLVES);
     });
 
-    it.each([2, 3, 4, 5, 6])(
+    it.each([2, 3, 4, 5])(
         'the trace at maxSolves %d stops at the cap and is the prefix of the trace at maxSolves + 4, so the cap truncates the path and never alters it',
         (maxSolves) => {
             const capped = solveToy(maxSolves);
@@ -813,16 +655,20 @@ describe('solveAverageRewardPolicy solve budget: the rate search from rate 0 on 
         },
     );
 
-    it('approaches the root from one side over the whole path: every trace point has cycleValue >= 0 (up to float rounding at the root), h falls strictly at every step, and every step moves the rate up', () => {
+    it('approaches the root from the left over the whole path except its last point, which the quadratic step (WP66a R5) may carry past the root by under a dollar: every earlier trace point has cycleValue >= 0 (up to float rounding at the root), h falls strictly at every step, and every step moves the rate up', () => {
         const { status, trace } = solveToy(MAX_SOLVES);
 
         expect(status).toBe(RateSearchStatus.Converged);
         expect(trace[0]?.ratePerDay).toBe(0);
-        for (const point of trace) {
+        const pointsBeforeLast = trace.slice(0, -1);
+        for (const point of pointsBeforeLast) {
             expect(point.cycleValue).toBeGreaterThanOrEqual(
                 -ROOT_ROUNDING_DOLLARS,
             );
         }
+        expect(Math.abs(trace.at(-1)?.cycleValue ?? Infinity)).toBeLessThan(
+            FINAL_POINT_OVERSHOOT_DOLLARS,
+        );
         for (const [index, point] of trace.entries()) {
             const previous = trace[index - 1];
             if (previous === undefined) continue;

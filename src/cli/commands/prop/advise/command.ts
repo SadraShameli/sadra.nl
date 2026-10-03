@@ -57,6 +57,7 @@ import {
     AdviceStalenessReason,
     assertPlausibleSnapshot,
     assumptionText,
+    BELOW_ONE_CONTRACT_TEXT,
     buildEnginePolicy,
     createSizingAdvisor,
     DailyProfitCapKind,
@@ -75,6 +76,7 @@ import {
     type FundedSweepOptimumResult,
     FundedSweepOptimumResultKind,
     ImplausibleSnapshotError,
+    isPlacementChecked,
     type LadderEngineOptimumResult,
     LadderEngineOptimumResultKind,
     LadderFractionSource,
@@ -89,6 +91,7 @@ import {
     type NextPayoutProjection,
     NextPayoutTimingKind,
     nextPayoutTimingOf,
+    NO_PENDING_PAYOUT_COUNTS,
     type PayoutAdvice,
     type PayoutBlockReason,
     PayoutBlockReasonKind,
@@ -105,12 +108,15 @@ import {
     type RulebookParameters,
     rulebookSchema,
     runEngineOptimum,
+    RungPlacement,
+    rungPlacementOf,
     SIZING_ASSUMPTION_TEXT,
     SIZING_CONSTRAINT_TEXT,
     type SizingAdvisor,
     type SizingAdvisorCreateOptions,
     SizingAssumption,
     sizingObjectiveText,
+    type SizingPlacement,
     SizingStage,
     SnapshotInputField,
     StartBasis,
@@ -122,11 +128,6 @@ import {
     dayProgressFromCounts,
     type NextTradeRiskCheckResult,
 } from '~/lib/prop-calculator/advisor/actions';
-import {
-    RungPlacement,
-    rungPlacementOf,
-    type SizingPlacement,
-} from '~/lib/prop-calculator/advisor/PlaceableMinimum';
 import {
     type DocumentedPolicySpec,
     documentedPolicySpecSchema,
@@ -314,7 +315,7 @@ export const adviseArguments = {
     },
     'firm-payouts-since-live': {
         description:
-            'Payouts paid across every account you hold at this firm since your latest move live (a whole number). A firm whose verified rule counts payouts across the firm needs it to be enforced; omit it and that rule is reported as not checked',
+            'Payouts paid across every account you hold at this firm since your latest move live (a whole number). A firm whose verified rule counts payouts across the firm needs it to be enforced; omit it and that rule is reported as not checked. Payouts you have requested but not yet received are never counted by this command, so a request in flight is not added to this number or to the per-account count',
         type: 'string',
     },
     'first-funded-trade-date': {
@@ -501,7 +502,7 @@ export function adviceReportLines(
         const placement =
             enteredStopPoints !== null &&
             enteredInstrument !== null &&
-            advice.stage === SizingStage.Funded
+            isPlacementChecked(advice.stage)
                 ? {
                       instrument: enteredInstrument,
                       stopPoints: enteredStopPoints,
@@ -595,17 +596,18 @@ export default defineCommand({
             if (!isJson) {
                 spinner = ui.spinner(`${plan.label}: advise`).start();
             }
-            const account = AccountReconstruction.rebuild(snapshot, plan);
+            const account = AccountReconstruction.rebuild(
+                snapshot,
+                plan,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            );
             const advisor = createSizingAdvisor(account, options);
             const advice = advisor.assemble(engineResultsFor(advisor, plan));
             const riskReport =
                 riskInputs === null
                     ? null
-                    : nextTradeRiskReport(
-                          advisor,
-                          riskInputs,
-                          options.positionSizing ?? null,
-                      );
+                    : nextTradeRiskReport(advisor, riskInputs);
             if (isJson) {
                 process.stdout.write(`${adviceJson(advice, riskReport)}\n`);
                 return;
@@ -659,12 +661,11 @@ export default defineCommand({
 export function nextTradeRiskReport(
     advisor: SizingAdvisor,
     inputs: NextTradeRiskInputs,
-    placement: null | SizingPlacement = null,
 ): NextTradeRiskReport {
     const day = dayProgressFromCounts(advisor, inputs.wins, inputs.losses);
     const { proposedRisk } = inputs;
-    const checked = advisor.checkNextTradeRisk(proposedRisk, day);
-    if (checked === null) {
+    const result = advisor.checkNextTradeRisk(proposedRisk, day);
+    if (result === null) {
         return {
             day,
             kind: NextTradeRiskReportKind.NotRun,
@@ -672,16 +673,6 @@ export function nextTradeRiskReport(
             reason: riskCheckNotRunReason(advisor),
         };
     }
-    const result: NextTradeRiskCheckResult =
-        checked.documentedRung !== null && advisor.stage === SizingStage.Funded
-            ? {
-                  ...checked,
-                  documentedRungPlacement: rungPlacementOf(
-                      checked.documentedRung,
-                      placement,
-                  ),
-              }
-            : checked;
     return { day, kind: NextTradeRiskReportKind.Checked, proposedRisk, result };
 }
 
@@ -888,9 +879,6 @@ function checkRequiredSnapshotFields(
     }
 }
 
-const BELOW_ONE_CONTRACT_TEXT =
-    'cannot be placed: it is below one contract at the entered stop';
-
 const RISK_CHECK_NO_RUNG_REASON =
     'no documented rung applies to this account, so there is nothing to check the proposed risk against';
 
@@ -993,7 +981,7 @@ export function firmPayoutCountLines(
     return [
         count === null
             ? 'firm payouts since the last live account: not entered, so the firm-total live trigger is not checked (pass --firm-payouts-since-live)'
-            : `firm payouts since the last live account: ${String(count)} (entered), applied to the firm-total live trigger`,
+            : `firm payouts since the last live account: ${String(count)} (entered), applied to the firm-total live trigger; a payout you have requested but not yet received is not counted, so a request in flight can leave this count short`,
     ];
 }
 

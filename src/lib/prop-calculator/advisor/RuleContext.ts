@@ -15,6 +15,7 @@ import {
     ONE_CENT,
     type Plan,
     resolveDailyLossLimit,
+    resolveLiveFloorTradeRisk,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 
@@ -46,6 +47,7 @@ export interface FundedRuleContext extends SharedRuleContext {
 }
 
 export interface LiveRuleContext extends SharedRuleContext {
+    readonly floorTradeRisk: Dollars;
     readonly liveCushionPercent: Fraction0to1 | null;
     readonly stage: SizingStage.Live;
     readonly thresholdLocked: boolean;
@@ -101,12 +103,28 @@ export const fundedRuleContextSchema = z.strictObject({
     stage: z.literal(SizingStage.Funded),
 }) satisfies z.ZodType<FundedRuleContext>;
 
-export const liveRuleContextSchema = z.strictObject({
-    ...sharedRuleContextShape,
-    liveCushionPercent: liveFractionSchema.nullable(),
-    stage: z.literal(SizingStage.Live),
-    thresholdLocked: z.boolean(),
-}) satisfies z.ZodType<LiveRuleContext>;
+export const liveRuleContextSchema = z
+    .strictObject({
+        ...sharedRuleContextShape,
+        floorTradeRisk: nonNegativeDollarsSchema,
+        liveCushionPercent: liveFractionSchema.nullable(),
+        stage: z.literal(SizingStage.Live),
+        thresholdLocked: z.boolean(),
+    })
+    .refine(
+        (context) =>
+            context.floorTradeRisk === 0 ||
+            resolveLiveFloorTradeRisk(
+                context.cushion,
+                true,
+                context.floorTradeRisk,
+            ) === context.floorTradeRisk,
+        {
+            message:
+                'a floor trade risk only exists on a floor still alive at a cushion of zero',
+            path: ['floorTradeRisk'],
+        },
+    ) satisfies z.ZodType<LiveRuleContext>;
 
 export const ruleContextSchema = z.discriminatedUnion('stage', [
     evalRuleContextSchema,

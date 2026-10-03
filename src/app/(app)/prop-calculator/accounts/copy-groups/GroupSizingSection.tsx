@@ -5,6 +5,10 @@ import {
     DEFAULT_ENTRY_INSTRUMENT,
     InstrumentStopEntry,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/InstrumentStopEntry';
+import {
+    RungTable,
+    type RungTableRow,
+} from '~/app/(app)/prop-calculator/accounts/_components/advice/RungTable';
 import { type CopyGroupRow } from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
 import {
     formatConjunctionList,
@@ -16,6 +20,7 @@ import {
     type CopyGroupSizingRejection,
     CopyGroupSizingRejectionKind,
     CopyGroupSizingResultKind,
+    type DocumentedRung,
     LiveTriggerCoverage,
     SIZING_ASSUMPTION_TEXT,
     SIZING_CONSTRAINT_TEXT,
@@ -26,14 +31,28 @@ import {
     bindingMemberIdsOf,
     COPY_GROUP_LIVE_TRIGGERS_ENFORCED_TEXT,
     COPY_GROUP_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
+    COPY_GROUP_PAYOUT_COUNT_CONCURRENT_TEXT,
+    COPY_GROUP_PAYOUT_COUNT_NOT_CHECKED_TEXT,
+    copyGroupPayoutCountBlockText,
+    copyGroupRuleTermsOf,
     type CopyGroupSizingSection,
     withPositionSizing,
 } from './copyGroupSizingModel';
 
+export enum GroupSizingViewKind {
+    Failed = 'failed',
+    Pending = 'pending',
+    Ready = 'ready',
+}
+
 export type GroupSizingView =
-    | { readonly kind: 'failed'; readonly message: string }
-    | { readonly kind: 'pending' }
-    | { readonly kind: 'ready'; readonly section: CopyGroupSizingSection };
+    | { readonly kind: GroupSizingViewKind.Failed; readonly message: string }
+    | { readonly kind: GroupSizingViewKind.Pending }
+    | {
+          readonly kind: GroupSizingViewKind.Ready;
+          readonly refreshFailure?: null | string;
+          readonly section: CopyGroupSizingSection;
+      };
 
 export function GroupSizingSection({
     row,
@@ -42,27 +61,39 @@ export function GroupSizingSection({
     readonly row: CopyGroupRow;
     readonly sizing: GroupSizingView;
 }) {
-    if (sizing.kind === 'pending') {
+    if (sizing.kind === GroupSizingViewKind.Pending) {
         return (
-            <p aria-busy="true" className="text-sm text-muted-foreground">
+            <p
+                aria-busy="true"
+                className="text-sm text-muted-foreground"
+                role="status"
+            >
                 Sizing and exposure are still loading.
             </p>
         );
     }
-    if (sizing.kind === 'failed') {
+    if (sizing.kind === GroupSizingViewKind.Failed) {
         return (
-            <p className="text-sm text-destructive">
+            <p className="text-sm text-destructive" role="alert">
                 Sizing and exposure could not be checked: {sizing.message}
             </p>
         );
     }
-    return <ReadyGroupSizing row={row} section={sizing.section} />;
+    return (
+        <ReadyGroupSizing
+            refreshFailure={sizing.refreshFailure ?? null}
+            row={row}
+            section={sizing.section}
+        />
+    );
 }
 
 function ReadyGroupSizing({
+    refreshFailure,
     row,
     section,
 }: {
+    readonly refreshFailure: null | string;
     readonly row: CopyGroupRow;
     readonly section: CopyGroupSizingSection;
 }) {
@@ -76,7 +107,8 @@ function ReadyGroupSizing({
                 : withPositionSizing(section, { instrument, stopPoints }),
         [section, instrument, stopPoints],
     );
-    const { asOf, exposure, result, simulation, unsizedMembers } = sized;
+    const { asOf, exposure, result, simulation, staleMembers, unsizedMembers } =
+        sized;
     const isFundedGroup =
         sized.inputs.members.length > 0 &&
         sized.inputs.members.every(
@@ -84,39 +116,69 @@ function ReadyGroupSizing({
         );
     const labelOf = (memberId: string) =>
         row.members.find((member) => member.id === memberId)?.label ?? memberId;
-    const cappedBy =
-        result.kind === CopyGroupSizingResultKind.Sized
-            ? (result.sizing.rungs[0]?.cappedBy ?? [])
-            : [];
     const memberLine =
         result.kind === CopyGroupSizingResultKind.Rejected
             ? rejectionMemberLineOf(result.rejection, labelOf)
             : null;
+    const [firstRung] =
+        result.kind === CopyGroupSizingResultKind.Sized
+            ? result.sizing.rungs
+            : [];
+    if (staleMembers.length > 0) {
+        return (
+            <div className="flex flex-col gap-2 text-sm">
+                <RefreshFailure message={refreshFailure} />
+                {staleMembers.map((member) => (
+                    <p key={member.memberId} role="status">
+                        The balance for {member.label} is from {member.asOf},
+                        which is too old to size from. Enter today&apos;s
+                        balance for {member.label} to see the group size.
+                    </p>
+                ))}
+                <UnsizedMembers members={unsizedMembers} />
+            </div>
+        );
+    }
     return (
         <div className="flex flex-col gap-2 text-sm">
+            <RefreshFailure message={refreshFailure} />
             {result.kind === CopyGroupSizingResultKind.Sized ? (
                 <>
-                    <p>
-                        Documented size for every copy:{' '}
-                        <strong>
-                            {formatCurrency(result.sizing.rungs[0]?.risk ?? 0)}
-                        </strong>
-                        , set by{' '}
-                        {formatConjunctionList(
-                            bindingMemberIdsOf(result).map(labelOf),
-                        )}
-                        , as of {asOf}.
-                    </p>
-                    {cappedBy.length > 0 && (
-                        <p className="text-muted-foreground">
-                            {cappedBy
-                                .map(
-                                    (constraint) =>
-                                        SIZING_CONSTRAINT_TEXT[constraint],
-                                )
-                                .join(' ')}
-                        </p>
+                    {firstRung !== undefined && (
+                        <>
+                            <p>
+                                Documented size for every copy:{' '}
+                                <strong>
+                                    {formatCurrency(firstRung.risk)}
+                                </strong>
+                                , set by{' '}
+                                {formatConjunctionList(
+                                    bindingMemberIdsOf(result).map(labelOf),
+                                )}
+                                , as of {asOf}.
+                            </p>
+                            <RungTable
+                                label={`Documented ladder for ${row.group.name}`}
+                                rungs={rungTableRowsOf(result.sizing.rungs)}
+                            />
+                            {copyGroupRuleTermsOf(result.sizing).map((term) => (
+                                <p key={term}>{term}</p>
+                            ))}
+                        </>
                     )}
+                    {result.divergences.map((divergence) => (
+                        <p
+                            className="text-muted-foreground"
+                            key={divergence.memberId}
+                        >
+                            {divergence.memberLabel} would size trade{' '}
+                            {divergence.rungIndex + 1} at{' '}
+                            {formatCurrency(divergence.ownRisk, 2)}, above the
+                            group&apos;s{' '}
+                            {formatCurrency(divergence.groupRisk, 2)} (the group
+                            takes the smaller)
+                        </p>
+                    ))}
                     {result.sizing.assumptions.length > 0 && (
                         <p className="text-muted-foreground">
                             {result.sizing.assumptions
@@ -138,6 +200,29 @@ function ReadyGroupSizing({
                             LiveTriggerCoverage.Enforced
                                 ? COPY_GROUP_LIVE_TRIGGERS_ENFORCED_TEXT
                                 : COPY_GROUP_LIVE_TRIGGERS_NOT_CHECKED_TEXT}
+                        </p>
+                    )}
+                    {result.payoutCountBlocks.length > 0 && (
+                        <>
+                            {result.payoutCountBlocks.map((block) => (
+                                <p
+                                    className="font-medium text-amber-400"
+                                    key={block.firm}
+                                >
+                                    {copyGroupPayoutCountBlockText(
+                                        block,
+                                        labelOf,
+                                    )}
+                                </p>
+                            ))}
+                            <p className="text-muted-foreground">
+                                {COPY_GROUP_PAYOUT_COUNT_CONCURRENT_TEXT}
+                            </p>
+                        </>
+                    )}
+                    {result.payoutCountNotChecked.length > 0 && (
+                        <p className="text-muted-foreground">
+                            {COPY_GROUP_PAYOUT_COUNT_NOT_CHECKED_TEXT}
                         </p>
                     )}
                     {result.contractPlacement !== null && (
@@ -168,19 +253,25 @@ function ReadyGroupSizing({
                     {formatCurrency(exposure.maxDailyLoss)} across the group
                     {exposure.shareOfCushionAtRisk !== null &&
                         `, ${formatPercent(exposure.shareOfCushionAtRisk)} of its combined cushion`}
-                    , each account sized to its own documented rung, not to the
-                    shared copy size above.
+                    , the sum of each account&apos;s own documented rung: an
+                    upper bound on the group worst case, because the shared copy
+                    size above is never larger than any member&apos;s own.
                 </p>
             )}
-            {unsizedMembers.length > 0 && (
-                <ul className="flex flex-col gap-1 text-muted-foreground">
-                    {unsizedMembers.map((member) => (
-                        <li key={member.memberId}>
-                            {member.label} could not be sized: {member.reason}.
-                        </li>
-                    ))}
-                </ul>
+            {exposure !== null && exposure.leftOutAccountIds.length > 0 && (
+                <p className="text-muted-foreground">
+                    {exposure.leftOutAccountIds.length}{' '}
+                    {exposure.leftOutAccountIds.length === 1
+                        ? 'member'
+                        : 'members'}{' '}
+                    not included:{' '}
+                    {formatConjunctionList(
+                        exposure.leftOutAccountIds.map(labelOf),
+                    )}
+                    .
+                </p>
             )}
+            <UnsizedMembers members={unsizedMembers} />
             {(isFundedGroup || stopPoints !== null) && (
                 <InstrumentStopEntry
                     instrument={instrument}
@@ -193,6 +284,16 @@ function ReadyGroupSizing({
             )}
             <CopyGroupSimulationCard plan={simulation} />
         </div>
+    );
+}
+
+function RefreshFailure({ message }: { readonly message: null | string }) {
+    if (message === null) return null;
+    return (
+        <p className="text-sm text-destructive" role="alert">
+            Sizing and exposure may be out of date, the latest refresh failed:{' '}
+            {message}
+        </p>
     );
 }
 
@@ -213,4 +314,34 @@ function rejectionMemberLineOf(
             return `No cushion room left for ${formatConjunctionList(rejection.memberIds.map(labelOf))}.`;
         }
     }
+}
+
+function rungTableRowsOf(
+    rungs: readonly DocumentedRung[],
+): readonly RungTableRow[] {
+    return rungs.map((rung) => ({
+        cappedByText: rung.cappedBy.map(
+            (constraint) => SIZING_CONSTRAINT_TEXT[constraint],
+        ),
+        risk: rung.risk,
+        runningLossAfter: rung.runningLossAfter,
+        takeProfit: rung.takeProfit,
+    }));
+}
+
+function UnsizedMembers({
+    members,
+}: {
+    readonly members: CopyGroupSizingSection['unsizedMembers'];
+}) {
+    if (members.length === 0) return null;
+    return (
+        <ul className="flex flex-col gap-1 text-muted-foreground">
+            {members.map((member) => (
+                <li key={member.memberId}>
+                    {member.label} could not be sized: {member.reason}.
+                </li>
+            ))}
+        </ul>
+    );
 }

@@ -39,6 +39,7 @@ import {
     type PersonalCaps,
     personalPayoutOverrideWarningText,
     RETAINED_CUSHION_BASIS_TEXT,
+    type RungPlacement,
     SIZING_CONSTRAINT_TEXT,
     type SizingStage,
     StartBasis,
@@ -70,6 +71,8 @@ export interface AssumptionView {
 }
 
 export interface DailyPlanCardViewModel {
+    readonly oneContractRisk: null | number;
+    readonly rungPlacements: readonly RungPlacement[];
     readonly rungs: readonly RungView[];
     readonly stopCappedByText: readonly string[];
     readonly stopReasonText: string;
@@ -247,6 +250,8 @@ function assumptionViewOf(assumption: Assumption): AssumptionView {
 
 function dailyPlanCardViewOf(card: DailyPlanCard): DailyPlanCardViewModel {
     return {
+        oneContractRisk: card.oneContractRisk,
+        rungPlacements: card.rungPlacements,
         rungs: card.rungs.map((rung) => ({
             cappedByText: rung.cappedBy.map(
                 (constraint) => SIZING_CONSTRAINT_TEXT[constraint],

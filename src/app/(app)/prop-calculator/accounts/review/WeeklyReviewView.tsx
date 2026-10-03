@@ -10,6 +10,7 @@ import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_componen
 import {
     emptySnapshotFormValues,
     parseSnapshotForm,
+    type SnapshotFieldIssue,
     SnapshotFormResultKind,
     type SnapshotFormValues,
 } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
@@ -22,12 +23,16 @@ import { Label } from '~/components/ui/Label';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
+    type AccountStage,
     AccountTracking,
     formatUsdCents,
     ruleViolationKindLabel,
     SnapshotField,
+    type SnapshotFieldRule,
     snapshotFieldRules,
+    SnapshotInputKind,
     usdCents,
+    usdCentsToText,
 } from '~/lib/prop-accounts';
 import {
     ADHERENCE_STEP_REASON,
@@ -46,16 +51,19 @@ import {
     type WeeklyReviewAccountInput,
     type WeeklyReviewDecisionRow,
     type WeeklyReviewDraft,
+    WeeklyReviewEntryKind,
     type WeeklyReviewLastDecision,
     WeeklyReviewSizingKind,
     type WeeklyReviewSnapshotRow,
     type WeeklyReviewSnapshotValues,
     type WeeklyReviewViolationOffer,
     type WeeklyReviewViolationRow,
+    weeklyReviewWindowOf,
 } from './weeklyReviewModel';
 
 const EMPTY_ACCOUNTS: WeeklyReviewAccountInput[] = [];
 const EMPTY_MAP = new Map();
+const EMPTY_STAGES: { accountId: string; stage: AccountStage }[] = [];
 const EMPTY_VIOLATIONS: WeeklyReviewViolationRow[] = [];
 
 const ADHERENCE_LABEL: Readonly<Record<DecisionAdherenceKind, string>> = {
@@ -63,6 +71,9 @@ const ADHERENCE_LABEL: Readonly<Record<DecisionAdherenceKind, string>> = {
     [DecisionAdherenceKind.NotFollowed]: 'not followed',
     [DecisionAdherenceKind.NotRecorded]: 'actual risk not recorded',
 };
+
+const SIZING_ASSUMPTIONS =
+    'Assumes no payout is pending and does not check the live triggers or plan rule changes.';
 
 type NotReadySizingKind = Exclude<
     WeeklyReviewSizingKind,
@@ -93,7 +104,10 @@ export function WeeklyReviewView() {
 
     const [valuesByAccount, setValuesByAccount] =
         useState<ReadonlyMap<string, SnapshotFormValues>>(EMPTY_MAP);
-    const [acceptedAccountIds, setAcceptedAccountIds] = useState<
+    const [acceptedHeadlines, setAcceptedHeadlines] = useState<
+        ReadonlyMap<string, number>
+    >(EMPTY_MAP);
+    const [confirmedUnchanged, setConfirmedUnchanged] = useState<
         ReadonlySet<string>
     >(new Set());
     const [loggingAccountId, setLoggingAccountId] = useState<null | string>(
@@ -149,6 +163,25 @@ export function WeeklyReviewView() {
     );
 
     const rulebook = rulebookQuery.data;
+    const reviewAsOf =
+        rulebook === undefined
+            ? null
+            : weeklyReviewWindowOf(today, rulebook).asOf;
+    const stagesQuery = api.propAccounts.review.stagesOn.useQuery(
+        reviewAsOf === null ? skipToken : { asOf: reviewAsOf },
+    );
+    const stagesOnAsOf = useMemo(
+        () =>
+            new Map(
+                (stagesQuery.data ?? EMPTY_STAGES).map(
+                    (entry): [string, AccountStage] => [
+                        entry.accountId,
+                        entry.stage,
+                    ],
+                ),
+            ),
+        [stagesQuery.data],
+    );
     const violationsFrom = useMemo(
         () =>
             rulebook === undefined ||
@@ -176,40 +209,59 @@ export function WeeklyReviewView() {
     );
     const violations = violationsQuery.data ?? EMPTY_VIOLATIONS;
 
-    const drafts = useMemo(() => {
-        const map = new Map<string, WeeklyReviewDraft>();
+    const { drafts, invalidEntries } = useMemo(() => {
+        const validDrafts = new Map<string, WeeklyReviewDraft>();
+        const invalid = new Map<string, readonly SnapshotFieldIssue[]>();
         for (const [accountId, values] of valuesByAccount) {
             const account = accounts.find(
                 (candidate) => candidate.id === accountId,
             );
             const plan = plansById.get(accountId);
-            if (account === undefined || plan === undefined) continue;
-            const rules = snapshotFieldRules(plan, account.stage);
+            const stage = stagesOnAsOf.get(accountId);
+            if (
+                account === undefined ||
+                plan === undefined ||
+                stage === undefined
+            ) {
+                continue;
+            }
+            const rules = snapshotFieldRules(plan, stage);
             const parsed = parseSnapshotForm(values, rules);
             if (parsed.kind === SnapshotFormResultKind.Valid) {
-                map.set(accountId, parsed.snapshot);
+                validDrafts.set(accountId, parsed.snapshot);
+            } else {
+                invalid.set(accountId, parsed.issues);
             }
         }
-        return map;
-    }, [accounts, plansById, valuesByAccount]);
+        return { drafts: validDrafts, invalidEntries: invalid };
+    }, [accounts, plansById, stagesOnAsOf, valuesByAccount]);
+
+    const hasEveryStage = plansById.keys().every((id) => stagesOnAsOf.has(id));
 
     const result = useMemo(() => {
-        if (rulebook === undefined) return null;
+        if (rulebook === undefined || !hasEveryStage) return null;
         return buildWeeklyReview({
             accounts,
+            confirmedUnchanged,
             drafts,
+            invalidEntries,
             latestDecisions,
             latestSnapshots,
             rulebook,
+            stagesOnAsOf,
             today,
             violations,
         });
     }, [
         accounts,
+        confirmedUnchanged,
         drafts,
+        hasEveryStage,
+        invalidEntries,
         latestDecisions,
         latestSnapshots,
         rulebook,
+        stagesOnAsOf,
         today,
         violations,
     ]);
@@ -219,6 +271,7 @@ export function WeeklyReviewView() {
         snapshotsQuery,
         decisionsQuery,
         rulebookQuery,
+        stagesQuery,
         violationsQuery,
     ];
     const hasUnloadedError = queries.some(
@@ -228,7 +281,7 @@ export function WeeklyReviewView() {
     if (hasUnloadedError) {
         return (
             <QueryErrorNotice
-                message="The review needs your accounts, latest snapshots, latest decisions, violations and rulebook together. It is not shown from partial data, so no adherence rate or size change is built from missing records. Reload the page to try again."
+                message="The review needs your accounts, the stage each had on the review date, latest snapshots, latest decisions, violations and rulebook together. It is not shown from partial data, so no adherence rate or size change is built from missing records. Reload the page to try again."
                 title="Could not load the weekly review"
             />
         );
@@ -240,6 +293,7 @@ export function WeeklyReviewView() {
         snapshotsQuery.isPending ||
         decisionsQuery.isPending ||
         rulebookQuery.isPending ||
+        stagesQuery.isPending ||
         violationsQuery.isPending
     ) {
         return <Skeleton className="h-64 w-full" />;
@@ -249,14 +303,24 @@ export function WeeklyReviewView() {
         (query) => query.isError && query.data !== undefined,
     );
 
+    const acceptedAccountIds = acceptedAccountIdsOf(
+        result.rows,
+        acceptedHeadlines,
+    );
+
     const valuesFor = (accountId: string): SnapshotFormValues => {
         const existing = valuesByAccount.get(accountId);
         if (existing !== undefined) return existing;
         const row = result.rows.find((entry) => entry.accountId === accountId);
+        const plan = plansById.get(accountId);
         const values = emptySnapshotFormValues(result.asOf);
-        return row === undefined
+        return row === undefined || plan === undefined
             ? values
-            : formValuesFromDraft(values, row.draft);
+            : formValuesFromDraft(
+                  values,
+                  row.draft,
+                  snapshotFieldRules(plan, row.stageOnAsOf),
+              );
     };
 
     const onFieldChange = (
@@ -272,9 +336,15 @@ export function WeeklyReviewView() {
     const submit = async () => {
         const payload = reviewSubmitPayload(result, acceptedAccountIds);
         if (payload.snapshots.length === 0) {
-            toast.error('No account is ready to record this week');
+            toast.error(
+                'Nothing to record this week: edit an account or tick Record as unchanged',
+            );
             return;
         }
+        const recordedIds = new Set(
+            payload.snapshots.map((snapshot) => snapshot.accountId),
+        );
+        let isSaved = false;
         try {
             await submission.mutateAsync({
                 asOf: payload.asOf,
@@ -282,25 +352,24 @@ export function WeeklyReviewView() {
                     ...decision,
                     acceptedRungsCents: [...decision.acceptedRungsCents],
                 })),
-                snapshots: payload.snapshots.flatMap((snapshot) =>
-                    snapshot.balanceCents === null
-                        ? []
-                        : [
-                              {
-                                  ...snapshot,
-                                  balanceCents: snapshot.balanceCents,
-                              },
-                          ],
-                ),
+                snapshots: [...payload.snapshots],
             });
+            isSaved = true;
             toast.success(`Recorded ${payload.snapshots.length} snapshots`);
-            setValuesByAccount(EMPTY_MAP);
-            setAcceptedAccountIds(new Set());
         } catch (error) {
             toast.error(errorTextOf(error));
-        } finally {
-            await utilities.propAccounts.invalidate();
         }
+        await utilities.propAccounts.invalidate();
+        if (!isSaved) return;
+        setValuesByAccount(
+            (current) =>
+                new Map([...current].filter(([id]) => !recordedIds.has(id))),
+        );
+        setAcceptedHeadlines(
+            (current) =>
+                new Map([...current].filter(([id]) => !recordedIds.has(id))),
+        );
+        setConfirmedUnchanged((current) => current.difference(recordedIds));
     };
 
     return (
@@ -325,6 +394,11 @@ export function WeeklyReviewView() {
             <p className="text-sm text-muted-foreground">
                 {ledgerOnlyText(result.ledgerOnlyExcludedCount)}
             </p>
+            {result.notUpdatedCount > 0 && (
+                <p className="text-sm text-muted-foreground">
+                    {notUpdatedText(result.notUpdatedCount)}
+                </p>
+            )}
             {result.corruptRows.length > 0 && (
                 <Alert variant="destructive">
                     <AlertTitle>
@@ -347,10 +421,11 @@ export function WeeklyReviewView() {
                 const rules =
                     plan === null
                         ? []
-                        : snapshotFieldRules(plan, row.stage).filter(
+                        : snapshotFieldRules(plan, row.stageOnAsOf).filter(
                               (rule) => rule.field !== SnapshotField.AsOf,
                           );
                 const isAccepted = acceptedAccountIds.has(row.accountId);
+                const { sizing } = row;
                 return (
                     <Card key={row.accountId}>
                         <CardHeader>
@@ -361,7 +436,7 @@ export function WeeklyReviewView() {
                                 fieldWarnings={row.fieldWarnings}
                                 formIssues={row.blockedMessages}
                                 formWarnings={row.formWarnings}
-                                issues={[]}
+                                issues={row.parseIssues}
                                 onChange={(field, value) => {
                                     onFieldChange(row.accountId, field, value);
                                 }}
@@ -369,6 +444,34 @@ export function WeeklyReviewView() {
                                 tracking={AccountTracking.Modeled}
                                 values={valuesFor(row.accountId)}
                             />
+                            {row.entryKind ===
+                                WeeklyReviewEntryKind.Unchanged && (
+                                <UnchangedControl
+                                    isBlocked={row.isBlocked}
+                                    isConfirmed={confirmedUnchanged.has(
+                                        row.accountId,
+                                    )}
+                                    onToggle={(checked) => {
+                                        const next = new Set(
+                                            confirmedUnchanged,
+                                        );
+                                        if (checked) {
+                                            next.add(row.accountId);
+                                        } else {
+                                            next.delete(row.accountId);
+                                        }
+                                        setConfirmedUnchanged(next);
+                                    }}
+                                    rowId={row.accountId}
+                                    since={row.unchangedSince}
+                                />
+                            )}
+                            {row.entryKind ===
+                                WeeklyReviewEntryKind.AlreadyRecorded && (
+                                <p className="text-sm text-muted-foreground">
+                                    Already recorded for {result.asOf}
+                                </p>
+                            )}
                             {row.missingFieldLabels.length > 0 && (
                                 <p className="text-sm text-destructive">
                                     Needs: {row.missingFieldLabels.join('; ')}
@@ -376,7 +479,7 @@ export function WeeklyReviewView() {
                             )}
                             <SizingSummary
                                 diffCents={row.diffCents}
-                                sizing={row.sizing}
+                                sizing={sizing}
                             />
                             <LastDecisionLine decision={row.lastDecision} />
                             <WeekViolations
@@ -396,29 +499,35 @@ export function WeeklyReviewView() {
                                     setLoggingAccountId(row.accountId);
                                 }}
                             />
-                            {row.sizing.kind ===
-                                WeeklyReviewSizingKind.Ready && (
-                                <div className="flex items-center gap-2 text-sm">
-                                    <Checkbox
-                                        checked={isAccepted}
-                                        id={`accept-${row.accountId}`}
-                                        onCheckedChange={(checked) => {
-                                            const next = new Set(
-                                                acceptedAccountIds,
-                                            );
-                                            if (checked === true) {
-                                                next.add(row.accountId);
-                                            } else {
-                                                next.delete(row.accountId);
-                                            }
-                                            setAcceptedAccountIds(next);
-                                        }}
-                                    />
-                                    <Label htmlFor={`accept-${row.accountId}`}>
-                                        Accept this size into the decision log
-                                    </Label>
-                                </div>
-                            )}
+                            {row.isRecorded &&
+                                sizing.kind === WeeklyReviewSizingKind.Ready && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <Checkbox
+                                            checked={isAccepted}
+                                            id={`accept-${row.accountId}`}
+                                            onCheckedChange={(checked) => {
+                                                const next = new Map(
+                                                    acceptedHeadlines,
+                                                );
+                                                if (checked === true) {
+                                                    next.set(
+                                                        row.accountId,
+                                                        sizing.headlineRiskCents,
+                                                    );
+                                                } else {
+                                                    next.delete(row.accountId);
+                                                }
+                                                setAcceptedHeadlines(next);
+                                            }}
+                                        />
+                                        <Label
+                                            htmlFor={`accept-${row.accountId}`}
+                                        >
+                                            Accept this size into the decision
+                                            log
+                                        </Label>
+                                    </div>
+                                )}
                         </CardContent>
                     </Card>
                 );
@@ -432,6 +541,21 @@ export function WeeklyReviewView() {
                 Submit this week&rsquo;s review
             </Button>
         </div>
+    );
+}
+
+function acceptedAccountIdsOf(
+    rows: readonly WeeklyReviewAccountRow[],
+    acceptedHeadlines: ReadonlyMap<string, number>,
+): ReadonlySet<string> {
+    return new Set(
+        rows.flatMap((row) =>
+            row.sizing.kind === WeeklyReviewSizingKind.Ready &&
+            acceptedHeadlines.get(row.accountId) ===
+                row.sizing.headlineRiskCents
+                ? [row.accountId]
+                : [],
+        ),
     );
 }
 
@@ -473,15 +597,23 @@ function errorTextOf(error: unknown): string {
         : 'Could not save this review';
 }
 
+function fieldTextOf(input: SnapshotInputKind, value: number | string): string {
+    return typeof value === 'string' || input !== SnapshotInputKind.Money
+        ? String(value)
+        : usdCentsToText(usdCents(value));
+}
+
 function formValuesFromDraft(
     base: SnapshotFormValues,
     draft: WeeklyReviewSnapshotValues,
+    rules: readonly SnapshotFieldRule[],
 ): SnapshotFormValues {
     const values = { ...base };
-    for (const field of Object.values(SnapshotField)) {
-        if (field === SnapshotField.AsOf) continue;
-        const value = draft[field];
-        values[field] = value === null ? '' : String(value);
+    for (const rule of rules) {
+        if (rule.field === SnapshotField.AsOf) continue;
+        const value = draft[rule.field];
+        values[rule.field] =
+            value === null ? '' : fieldTextOf(rule.input, value);
     }
     return values;
 }
@@ -604,6 +736,11 @@ function LogViolationSection({
     }
 }
 
+function notUpdatedText(count: number): string {
+    const subject = count === 1 ? '1 account' : `${String(count)} accounts`;
+    return `${subject} not updated: ${count === 1 ? 'it is' : 'they are'} left out of the snapshots and decisions of this review unless you enter a snapshot or tick Record as unchanged.`;
+}
+
 function SizingSummary({
     diffCents,
     sizing,
@@ -619,16 +756,57 @@ function SizingSummary({
         );
     }
     return (
-        <p className="text-sm">
-            Documented headline:{' '}
-            {formatUsdCents(usdCents(sizing.headlineRiskCents))}
-            {diffCents !== null && (
-                <span className="ml-2 text-muted-foreground">
-                    ({diffCents >= 0 ? '+' : ''}
-                    {formatUsdCents(usdCents(diffCents))} vs last week)
-                </span>
+        <div className="flex flex-col gap-1">
+            <p className="text-sm">
+                {sizing.headlineLabel}:{' '}
+                {formatUsdCents(usdCents(sizing.headlineRiskCents))}
+                {diffCents !== null && (
+                    <span className="ml-2 text-muted-foreground">
+                        ({diffCents >= 0 ? '+' : ''}
+                        {formatUsdCents(usdCents(diffCents))} vs last week)
+                    </span>
+                )}
+            </p>
+            <p className="text-sm text-muted-foreground">
+                {SIZING_ASSUMPTIONS}
+            </p>
+        </div>
+    );
+}
+
+function UnchangedControl({
+    isBlocked,
+    isConfirmed,
+    onToggle,
+    rowId,
+    since,
+}: {
+    readonly isBlocked: boolean;
+    readonly isConfirmed: boolean;
+    readonly onToggle: (isChecked: boolean) => void;
+    readonly rowId: string;
+    readonly since: null | string;
+}) {
+    return (
+        <div className="flex flex-col gap-2 text-sm">
+            <p className="text-muted-foreground">
+                Unchanged since {since ?? NOT_APPLICABLE}
+            </p>
+            {!isBlocked && (
+                <div className="flex items-center gap-2">
+                    <Checkbox
+                        checked={isConfirmed}
+                        id={`unchanged-${rowId}`}
+                        onCheckedChange={(checked) => {
+                            onToggle(checked === true);
+                        }}
+                    />
+                    <Label htmlFor={`unchanged-${rowId}`}>
+                        Record as unchanged
+                    </Label>
+                </div>
             )}
-        </p>
+        </div>
     );
 }
 

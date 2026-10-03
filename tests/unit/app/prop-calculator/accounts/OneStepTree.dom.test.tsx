@@ -32,7 +32,12 @@ const ROW: EvSwingRowView = {
     bust: null,
     index: 1,
     lossDelta: { standardError: 5, value: -300 },
-    risk: { isFallback: false, label: 'Account dollars', text: '$250' },
+    risk: {
+        disclosure: null,
+        isFallback: false,
+        label: 'Account dollars',
+        text: '$250',
+    },
     riskDollars: 250,
     rr: 2,
     winDelta: { standardError: 6, value: 400 },
@@ -42,6 +47,7 @@ const ROW: EvSwingRowView = {
 const CANDIDATES: RiskCandidatesView = {
     isRanked: true,
     label: 'one-step comparison, documented sizing afterwards',
+    liveTransferNotes: [],
     rows: [
         {
             continuation: { standardError: 6, value: 1500 },
@@ -51,7 +57,12 @@ const CANDIDATES: RiskCandidatesView = {
             monthlyNetCharge: 20,
             netOfDurationCharge: 1480,
             rank: 1,
-            risk: { isFallback: false, label: 'Account dollars', text: '$125' },
+            risk: {
+                disclosure: null,
+                isFallback: false,
+                label: 'Account dollars',
+                text: '$125',
+            },
             riskDollars: 125,
         },
         {
@@ -62,7 +73,12 @@ const CANDIDATES: RiskCandidatesView = {
             monthlyNetCharge: 20,
             netOfDurationCharge: 1080,
             rank: 2,
-            risk: { isFallback: false, label: 'Account dollars', text: '$250' },
+            risk: {
+                disclosure: null,
+                isFallback: false,
+                label: 'Account dollars',
+                text: '$250',
+            },
             riskDollars: 250,
         },
     ],

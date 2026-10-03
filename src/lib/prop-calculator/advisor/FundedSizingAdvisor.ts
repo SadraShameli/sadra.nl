@@ -8,6 +8,7 @@ import {
     points,
     resolvePositionSizing,
     TradingPhase,
+    type VerifiedCumulativeTrigger,
 } from '~/lib/prop-calculator/core';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
 import {
@@ -20,6 +21,12 @@ import {
     type FundedSimStart,
     type SimInputs,
 } from '~/lib/prop-calculator/simulator';
+import {
+    noiseThreshold,
+    noiseVerdict,
+    NoiseVerdict,
+    type UncertainValue,
+} from '~/lib/prop-calculator/stats';
 
 import { type AccountSubstate } from './AccountSubstate';
 import { type Advice } from './Advice';
@@ -35,11 +42,18 @@ import {
     documentedPeakRiskOf,
     peakRiskOf,
 } from './AggressiveOptimumChurn';
-import { type Assumption } from './Assumption';
+import {
+    type Assumption,
+    assumptionText,
+    cumulativePayoutTriggerAssumption,
+    type CumulativePayoutTriggerInputs,
+    type LiveTransferHazardAssumption,
+} from './Assumption';
 import { createDocumentedRule } from './createDocumentedRule';
 import {
     DifferenceReason,
     type DifferenceReasonDetail,
+    EngineInputsRefusalKind,
 } from './DifferenceReason';
 import { type DocumentedSizing, NO_COMMISSION } from './DocumentedSizing';
 import {
@@ -59,6 +73,7 @@ import {
 } from './EngineOptimumRunner';
 import {
     buildEnginePolicy,
+    type EnginePolicyBuild,
     type MeasuredRebuyLag,
 } from './EnginePolicyBuilder';
 import { fundedConsistencyCeiling } from './FundedConsistencyCeiling';
@@ -69,6 +84,7 @@ import {
     type FundedFromStateSweepRequest,
 } from './FundedFromStateSweep';
 import {
+    areLiveTriggersEnginePriced,
     type LiveTriggerLimits,
     liveTriggerLimitsFor,
     liveTriggerRuleCaps,
@@ -87,14 +103,20 @@ import {
     PayoutSizeSweepResultKind,
 } from './PayoutSizeSweep';
 import { NO_PERSONAL_CAPS, type PersonalCaps } from './PersonalCaps';
+import { type SizingPlacement } from './PlaceableMinimum';
 import {
     cappedRisk,
     documentedFundedRisk,
+    documentedLiveTransferHazard,
     type EnginePolicy,
     enginePolicySchema,
     resolveDocumentedPayoutRequestSize,
+    verifiedCumulativeTriggerOf,
 } from './policy';
-import { type ReconstructedFundedOrEvalAccount } from './ReconstructedAccount';
+import {
+    pendingPayoutCountsOf,
+    type ReconstructedFundedOrEvalAccount,
+} from './ReconstructedAccount';
 import { contractLimitOf, riskCaps, type RiskCaps } from './RiskCaps';
 import {
     fundedStopRuleToDayStopRule,
@@ -135,8 +157,7 @@ type SweepOptimum = EngineOptimum | FundedFromStateOptimum;
 const FUNDED_SWEEP_DEFAULT_SIMS = 4000;
 const FUNDED_SWEEP_DEFAULT_SEED = 42;
 const FUNDED_SWEEP_MAX_EVAL_DAYS = 150;
-const REJECTED_PAYOUT_OVERRIDE_ISSUE =
-    'the personal payout request is not a positive whole-cent amount, so it was ignored and the rulebook request was used';
+const DOCUMENTED_RISK_CENT_TOLERANCE = 0.005;
 
 export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
     private readonly input: FundedSizingAdvisorInput;
@@ -151,8 +172,56 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
         this.input = input;
     }
 
-    private assumptions(): readonly Assumption[] {
-        return this.withLiveTriggersNotChecked(this.input.account.assumptions);
+    private assumptions(
+        results: readonly EngineOptimumRunnerResult[],
+        fundedResult: FundedSweepEngineOptimumResult | undefined,
+        fromStateResult: FundedFromStateEngineOptimumResult | undefined,
+    ): readonly Assumption[] {
+        const { assumptions } = this.input.account;
+        const verifiedTrigger = this.verifiedCumulativeTrigger();
+        const isTriggerPriced =
+            verifiedTrigger !== null &&
+            (freshOptimumOf(fundedResult) !== null ||
+                fromStateOptimumOf(fromStateResult) !== null ||
+                payoutSizeOptimumOf(results) !== null);
+        const { account, accountPolicy } = this.input;
+        const isEveryTriggerChecked =
+            areLiveTriggersEnginePriced(accountPolicy, account.plan) &&
+            (verifiedTrigger === null || isTriggerPriced);
+        const accountAssumptions = isEveryTriggerChecked
+            ? assumptions
+            : this.withLiveTriggersNotChecked(assumptions);
+        const priced = sweepLiveTransferAssumptions(
+            fundedResult,
+            fromStateResult,
+        );
+        return distinctAssumptions([
+            ...accountAssumptions,
+            ...this.enginePolicyBuild().assumptions,
+            ...priced,
+            ...(isTriggerPriced
+                ? [
+                      cumulativePayoutTriggerAssumption(
+                          verifiedTrigger,
+                          this.triggerInputs(),
+                      ),
+                  ]
+                : []),
+        ]);
+    }
+
+    private triggerInputs(): CumulativePayoutTriggerInputs {
+        const { account, positionSizing } = this.input;
+        return {
+            instrument: positionSizing?.instrument,
+            plan: account.plan,
+            stopPoints: positionSizing?.stopPoints,
+        };
+    }
+
+    private verifiedCumulativeTrigger(): null | VerifiedCumulativeTrigger {
+        const { account, accountPolicy } = this.input;
+        return verifiedCumulativeTriggerOf(accountPolicy, account.plan);
     }
 
     private liveTriggerLimits(): LiveTriggerLimits {
@@ -169,6 +238,7 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
         const { account, personalRetainedCushion } = this.input;
         if (account.fundedTracker === null) return null;
         return fundedPayoutRuleContextOf({
+            ...pendingPayoutCountsOf(account),
             liveTrigger: this.liveTriggerLimits(),
             pendingPayouts: account.pendingPayouts ?? 0,
             personalRequestOverride: this.appliedPayoutOverride(),
@@ -221,6 +291,22 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
     }
 
     private enginePolicy(): EnginePolicy {
+        const { policy } = this.enginePolicyBuild();
+        const { personalPayoutOverride } = this.input;
+        if (
+            personalPayoutOverride === null ||
+            personalPayoutOverride === undefined
+        ) {
+            return policy;
+        }
+        const applied = enginePolicySchema.safeParse({
+            ...policy,
+            payoutRequestOverride: personalPayoutOverride,
+        });
+        return applied.success ? applied.data : policy;
+    }
+
+    private enginePolicyBuild(): EnginePolicyBuild {
         const {
             account,
             accountPolicy,
@@ -228,12 +314,11 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
             measuredRebuyLag,
             personalCaps,
             personalDll,
-            personalPayoutOverride,
             personalRetainedCushion,
             positionSizing,
             rulebook,
         } = this.input;
-        const { policy } = buildEnginePolicy({
+        return buildEnginePolicy({
             accountPolicy,
             fundedHorizonDays,
             measuredRebuyLag,
@@ -250,17 +335,6 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
                       },
             rulebook,
         });
-        if (
-            personalPayoutOverride === null ||
-            personalPayoutOverride === undefined
-        ) {
-            return policy;
-        }
-        const applied = enginePolicySchema.safeParse({
-            ...policy,
-            payoutRequestOverride: personalPayoutOverride,
-        });
-        return applied.success ? applied.data : policy;
     }
 
     private optimumPeakRisk(label: null | string): null | number {
@@ -319,8 +393,8 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
         return isRejected
             ? [
                   {
-                      issue: REJECTED_PAYOUT_OVERRIDE_ISSUE,
                       kind: DifferenceReason.EngineInputsRefused,
+                      refusal: EngineInputsRefusalKind.PayoutOverrideRejected,
                   },
               ]
             : [];
@@ -342,11 +416,72 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
             ? []
             : [
                   {
-                      enginePolicyLabel: `payout-size-sweep-optimum-$${winner.requestSize}`,
-                      headlinePolicyLabel: `documented-$${headlineRequest}`,
+                      engineRequest: dollars(winner.requestSize),
+                      headlineRequest: dollars(headlineRequest),
                       kind: DifferenceReason.PayoutPolicyDiffers,
                   },
               ];
+    }
+
+    private documentedSweepRowLabel(policy: EnginePolicy): null | string {
+        const { account, rulebook } = this.input;
+        const documentedRisk = documentedFundedRisk(rulebook, policy);
+        const build = buildFundedCandidates({
+            ...this.candidateLists(),
+            plan: account.plan,
+        });
+        return build.kind === FundedCandidateBuildKind.Built
+            ? (build.candidates.find(
+                  (candidate) =>
+                      candidate.overrides.fundedRiskPerTrade !== undefined &&
+                      Math.abs(
+                          candidate.overrides.fundedRiskPerTrade -
+                              documentedRisk,
+                      ) < DOCUMENTED_RISK_CENT_TOLERANCE,
+              )?.label ?? null)
+            : null;
+    }
+
+    private withinNoiseReasons(
+        fundedResult: FundedSweepEngineOptimumResult | undefined,
+        fromStateResult: FundedFromStateEngineOptimumResult | undefined,
+        policy: EnginePolicy,
+    ): readonly DifferenceReasonDetail[] {
+        const optimum =
+            fromStateOptimumOf(fromStateResult) ?? freshOptimumOf(fundedResult);
+        const documentedLabel = this.documentedSweepRowLabel(policy);
+        if (
+            optimum === null ||
+            documentedLabel === null ||
+            optimum.label === documentedLabel
+        ) {
+            return [];
+        }
+        const measured = sweepMeasurementsOf(optimum, documentedLabel);
+        if (measured === null) return [];
+        const { documented, winner } = measured;
+        if (
+            ![
+                documented.value,
+                documented.standardError,
+                winner.value,
+                winner.standardError,
+            ].every(Number.isFinite) ||
+            noiseVerdict(documented, winner, { sharedSeed: false }) !==
+                NoiseVerdict.WithinNoise
+        ) {
+            return [];
+        }
+        return [
+            {
+                gap: dollars(Math.abs(documented.value - winner.value)),
+                kind: DifferenceReason.WithinNoise,
+                threshold: dollars(
+                    noiseThreshold(documented, winner, { sharedSeed: false }) ??
+                        0,
+                ),
+            },
+        ];
     }
 
     private placedRisk(): null | {
@@ -385,8 +520,8 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
             return isRefused
                 ? [
                       {
-                          issue: 'no funded candidate could be built for this plan and stop',
                           kind: DifferenceReason.EngineInputsRefused,
+                          refusal: EngineInputsRefusalKind.NoCandidates,
                       },
                   ]
                 : [];
@@ -425,8 +560,8 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
         if (placement !== null) {
             if (placement.contracts <= 0) {
                 reasons.push({
-                    issue: 'the documented flat risk places below one contract at the entered stop',
                     kind: DifferenceReason.EngineInputsRefused,
+                    refusal: EngineInputsRefusalKind.FlatBelowOneContract,
                 });
             } else if (placement.isCapped) {
                 reasons.push({
@@ -454,6 +589,7 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
         const policy = this.enginePolicy();
         reasons.push(
             ...this.sweepReasons(fundedResult, fromStateResult),
+            ...this.withinNoiseReasons(fundedResult, fromStateResult, policy),
             ...this.personalCapReasons(),
             ...this.churnReasons(documented, fundedResult, fromStateResult),
             ...this.payoutOverrideReasons(policy),
@@ -489,7 +625,11 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
         }
 
         return {
-            assumptions: this.assumptions(),
+            assumptions: this.assumptions(
+                results,
+                fundedResult,
+                fromStateResult,
+            ),
             dailyPlanCard: this.dailyPlanCard(),
             differenceReasons: reasons,
             documented,
@@ -540,9 +680,16 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
             trials,
         } = this.input;
         const policy = this.enginePolicy();
+        const liveTransferHazard = documentedLiveTransferHazard(
+            rulebook,
+            account.plan.id.firm,
+        );
+        const verifiedCumulativePayoutTrigger =
+            this.verifiedCumulativeTrigger()?.amount ?? null;
         const base: Omit<SimInputs, 'plan'> = {
             fundedHorizonDays,
             instrument: positionSizing?.instrument,
+            ...(liveTransferHazard !== undefined && { liveTransferHazard }),
             maxEvalDays: FUNDED_SWEEP_MAX_EVAL_DAYS,
             payoutRequestSize: resolveDocumentedPayoutRequestSize(
                 account.plan,
@@ -555,6 +702,9 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
             stopPoints: positionSizing?.stopPoints,
             tradesPerDay: rulebook.strategy.tradesPerDayMax,
             trials: trials ?? FUNDED_SWEEP_DEFAULT_SIMS,
+            ...(verifiedCumulativePayoutTrigger !== null && {
+                verifiedCumulativePayoutTrigger,
+            }),
             winrate: rulebook.strategy.winrate,
         };
         const candidates = this.candidateLists();
@@ -636,9 +786,25 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
         });
     }
 
+    protected override enteredPlacement(): null | SizingPlacement {
+        return this.input.positionSizing ?? null;
+    }
+
     protected payoutEligibleForRiskCheck(): boolean {
         return this.isPayoutRequestDecision(this.payoutRuleContext());
     }
+}
+
+function distinctAssumptions(
+    assumptions: readonly Assumption[],
+): readonly Assumption[] {
+    const seen = new Set<string>();
+    return assumptions.filter((assumption) => {
+        const key = assumptionText(assumption);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 }
 
 function freshOptimumOf(
@@ -683,4 +849,82 @@ function personalBoundedFlats(
             within.length === flats.length ? clamped : [...clamped, cap],
         ),
     ].toSorted((a, b) => a - b);
+}
+
+function placedRowLabelled<
+    TRow extends {
+        readonly kind: EngineOptimumRowKind;
+        readonly label: string;
+    },
+>(
+    rows: readonly TRow[],
+    label: string,
+): Extract<TRow, { readonly kind: EngineOptimumRowKind.Placed }> | undefined {
+    return rows.find(
+        (
+            row,
+        ): row is Extract<
+            TRow,
+            { readonly kind: EngineOptimumRowKind.Placed }
+        > => row.kind === EngineOptimumRowKind.Placed && row.label === label,
+    );
+}
+
+function sweepLiveTransferAssumptions(
+    fundedResult: FundedSweepEngineOptimumResult | undefined,
+    fromStateResult: FundedFromStateEngineOptimumResult | undefined,
+): readonly LiveTransferHazardAssumption[] {
+    const candidates = [
+        fundedResult?.liveTransfer,
+        fromStateResult?.sweep.kind === FundedFromStateOptimumResultKind.Optimum
+            ? fromStateResult.sweep.optimum.liveTransfer
+            : undefined,
+    ];
+    const seen = new Set<string>();
+    const found: LiveTransferHazardAssumption[] = [];
+    for (const candidate of candidates) {
+        if (candidate === undefined) continue;
+        const text = assumptionText(candidate);
+        if (seen.has(text)) continue;
+        seen.add(text);
+        found.push(candidate);
+    }
+    return found;
+}
+
+function sweepMeasurementsOf(
+    optimum: SweepOptimum,
+    documentedLabel: string,
+): null | {
+    readonly documented: UncertainValue;
+    readonly winner: UncertainValue;
+} {
+    if ('fromStateExpectedCash' in optimum) {
+        const row = placedRowLabelled(optimum.rows, documentedLabel);
+        if (row === undefined) return null;
+        return {
+            documented: {
+                standardError:
+                    row.out.estimates.fromStateExpectedCash.standardError,
+                value: row.out.fromStateExpectedCash,
+            },
+            winner: {
+                standardError:
+                    optimum.fromStateExpectedCashStandardError ?? NaN,
+                value: optimum.fromStateExpectedCash,
+            },
+        };
+    }
+    const row = placedRowLabelled(optimum.rows, documentedLabel);
+    if (row === undefined) return null;
+    return {
+        documented: {
+            standardError: row.out.estimates.expectedMonthlyNet.standardError,
+            value: row.out.expectedMonthlyNet,
+        },
+        winner: {
+            standardError: optimum.expectedMonthlyNetStandardError ?? NaN,
+            value: optimum.expectedMonthlyNet,
+        },
+    };
 }

@@ -3,7 +3,11 @@ export {
     bankrollOf,
     scaleAtMeasuredMultiple,
     type ScaleAtMultiple,
+    ScaleAtMultipleKind,
     ScaleAtMultipleReason,
+    ScaleBudgetBasis,
+    type ScaleBudgetInputs,
+    ScaleCappedBy,
 } from './Bankroll';
 export {
     moneyWeightedReturn,

@@ -4,13 +4,16 @@ import {
     ToolsRequestKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
-import { type SizingObjective } from '~/lib/prop-calculator/advisor';
+import {
+    SIZING_OBJECTIVE_LABEL,
+    type SizingObjective,
+} from '~/lib/prop-calculator/advisor';
 import {
     COPY_SPLIT_NOISE_SIGMAS,
+    type CopySplitFundedSizing,
     type CopySplitResult,
     type CopySplitRow,
     CopySplitRowKind,
-    SIZING_OBJECTIVE_LABEL,
 } from '~/lib/prop-calculator/advisor/policy';
 
 export interface CopySplitCardInputs {
@@ -83,9 +86,11 @@ export function copySplitRequest(
     variant: BankrollPlanVariantInputs,
     inputs: CopySplitCardInputs,
     objective: SizingObjective,
+    funded: CopySplitFundedSizing,
     runId: number,
 ): CopySplitToolsRequest {
     return {
+        funded,
         kind: ToolsRequestKind.CopySplit,
         objective,
         runId,

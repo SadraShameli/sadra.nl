@@ -22,6 +22,7 @@ import {
     CopyGroupSizingResultKind,
     DEFAULT_RULEBOOK,
     documentedSizingOf,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
@@ -72,6 +73,7 @@ function evalAccount(threshold: number): ReconstructedFundedOrEvalAccount {
         plan: apexPlan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -102,6 +104,7 @@ function fundedAccount(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -117,6 +120,8 @@ function member(
         id,
         label,
         paidPayoutsSinceLastLiveAccount: null,
+        personalRequestOverride: null,
+        personalRetainedCushion: null,
     };
     return personalDll === undefined
         ? base

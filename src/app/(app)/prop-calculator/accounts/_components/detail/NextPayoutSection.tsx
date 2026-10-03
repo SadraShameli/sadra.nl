@@ -246,10 +246,16 @@ function RetireInformation({ view }: { readonly view: RetireView }) {
                             Keeping this account
                         </dt>
                         <dd className="tabular-nums">{model.keepRate}</dd>
-                        <dt className="text-muted-foreground">
-                            A fresh account, after its cost
-                        </dt>
-                        <dd className="tabular-nums">{model.switchRate}</dd>
+                        {model.isComparable && (
+                            <>
+                                <dt className="text-muted-foreground">
+                                    A fresh account, after its cost
+                                </dt>
+                                <dd className="tabular-nums">
+                                    {model.switchRate}
+                                </dd>
+                            </>
+                        )}
                         <dt className="text-muted-foreground">
                             Cost of switching
                         </dt>
@@ -267,6 +273,16 @@ function RetireInformation({ view }: { readonly view: RetireView }) {
                     <p className="text-xs text-muted-foreground">
                         Compared with {model.basis}. {model.note}
                     </p>
+                    {model.liveTransferNotes.length > 0 && (
+                        <ul
+                            aria-label="Live-transfer and payout-trigger assumptions behind the retire comparison"
+                            className="flex flex-col gap-1 text-xs text-muted-foreground"
+                        >
+                            {model.liveTransferNotes.map((line) => (
+                                <li key={line}>{line}</li>
+                            ))}
+                        </ul>
+                    )}
                 </div>
             );
         }

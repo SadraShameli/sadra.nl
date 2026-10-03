@@ -206,23 +206,20 @@ interface SweepCase {
     readonly rule: DocumentedRule;
 }
 
-function evalCases(buildRule: (rr: number) => DocumentedRule): SweepCase[] {
+function evalCases(rule: DocumentedRule): SweepCase[] {
     const cases: SweepCase[] = [];
-    for (const rr of RRS) {
-        const rule = buildRule(rr);
-        for (const side of lossSides()) {
-            for (const consistency of CONSISTENCY_CAPS) {
-                for (const remaining of REMAINING_TARGETS) {
-                    cases.push({
-                        context: {
-                            ...side,
-                            consistencyDailyCap: nullableDollars(consistency),
-                            remainingProfitToTarget: dollars(remaining),
-                            stage: SizingStage.Eval,
-                        },
-                        rule,
-                    });
-                }
+    for (const side of lossSides()) {
+        for (const consistency of CONSISTENCY_CAPS) {
+            for (const remaining of REMAINING_TARGETS) {
+                cases.push({
+                    context: {
+                        ...side,
+                        consistencyDailyCap: nullableDollars(consistency),
+                        remainingProfitToTarget: dollars(remaining),
+                        stage: SizingStage.Eval,
+                    },
+                    rule,
+                });
             }
         }
     }
@@ -237,24 +234,23 @@ function fundedCases(): SweepCase[] {
     }));
 }
 
-function liveCases(): SweepCase[] {
+function liveCases(rr: number): SweepCase[] {
     const cases: SweepCase[] = [];
-    for (const rr of RRS) {
-        const rule = new LiveCushionPercentRule(
-            rulebookFor(EvalSizingMode.Ladder, rr),
-        );
-        for (const side of lossSides()) {
-            for (const percent of [null, fraction(0.1)]) {
-                cases.push({
-                    context: {
-                        ...side,
-                        liveCushionPercent: percent,
-                        stage: SizingStage.Live,
-                        thresholdLocked: side.cushion > 4000,
-                    },
-                    rule,
-                });
-            }
+    const rule = new LiveCushionPercentRule(
+        rulebookFor(EvalSizingMode.Ladder, rr),
+    );
+    for (const side of lossSides()) {
+        for (const percent of [null, fraction(0.1)]) {
+            cases.push({
+                context: {
+                    ...side,
+                    floorTradeRisk: dollars(0),
+                    liveCushionPercent: percent,
+                    stage: SizingStage.Live,
+                    thresholdLocked: side.cushion > 4000,
+                },
+                rule,
+            });
         }
     }
     return cases;
@@ -302,52 +298,105 @@ const LOSS_SIDES =
     DLL_ROOMS.length *
     PERSONAL_DLLS.length *
     PERSONAL_CAP_SETS.length;
-const EVAL_CASES =
-    RRS.length *
-    LOSS_SIDES *
-    CONSISTENCY_CAPS.length *
-    REMAINING_TARGETS.length;
+const EVAL_CASES_PER_RR =
+    LOSS_SIDES * CONSISTENCY_CAPS.length * REMAINING_TARGETS.length;
+const EVAL_CASES = RRS.length * EVAL_CASES_PER_RR;
+const LIVE_CASES_PER_RR = LOSS_SIDES * 2;
+const CASES_PER_PART = 150;
 
-const SWEEPS: readonly (readonly [string, () => SweepCase[], number])[] = [
-    [
-        'general-derivation ladder',
-        () =>
+interface Sweep {
+    readonly build: (rr: number) => SweepCase[];
+    readonly casesPerPart: number;
+    readonly name: string;
+    readonly rewardMultiples: readonly number[];
+}
+
+interface SweepPart {
+    readonly expectedCases: number;
+    readonly from: number;
+    readonly label: string;
+    readonly rr: number;
+    readonly sweep: Sweep;
+}
+
+const SWEEPS: readonly Sweep[] = [
+    {
+        build: (rr) =>
             evalCases(
-                (rr) =>
-                    new EvalLadderRule(rulebookFor(EvalSizingMode.Ladder, rr)),
+                new EvalLadderRule(rulebookFor(EvalSizingMode.Ladder, rr)),
             ),
-        EVAL_CASES,
-    ],
-    [
-        'MFF search ladder',
-        () =>
+        casesPerPart: EVAL_CASES_PER_RR,
+        name: 'general-derivation ladder',
+        rewardMultiples: RRS,
+    },
+    {
+        build: (rr) =>
             evalCases(
-                (rr) =>
-                    new EvalLadderRule({
-                        ...rulebookFor(EvalSizingMode.Ladder, rr),
-                        eval: {
-                            ...rulebookFor(EvalSizingMode.Ladder, rr).eval,
-                            ladderFractionSource:
-                                LadderFractionSource.MffRapidEodSearch,
-                        },
-                    }),
+                new EvalLadderRule({
+                    ...rulebookFor(EvalSizingMode.Ladder, rr),
+                    eval: {
+                        ...rulebookFor(EvalSizingMode.Ladder, rr).eval,
+                        ladderFractionSource:
+                            LadderFractionSource.MffRapidEodSearch,
+                    },
+                }),
             ),
-        EVAL_CASES,
-    ],
-    [
-        'max risk',
-        () =>
+        casesPerPart: EVAL_CASES_PER_RR,
+        name: 'MFF search ladder',
+        rewardMultiples: RRS,
+    },
+    {
+        build: (rr) =>
             evalCases(
-                (rr) =>
-                    new EvalMaxRiskRule(
-                        rulebookFor(EvalSizingMode.MaxRisk, rr),
-                    ),
+                new EvalMaxRiskRule(rulebookFor(EvalSizingMode.MaxRisk, rr)),
             ),
-        EVAL_CASES,
-    ],
-    ['funded fixed risk', fundedCases, LOSS_SIDES],
-    ['live percent of cushion', liveCases, RRS.length * LOSS_SIDES * 2],
+        casesPerPart: EVAL_CASES_PER_RR,
+        name: 'max risk',
+        rewardMultiples: RRS,
+    },
+    {
+        build: fundedCases,
+        casesPerPart: LOSS_SIDES,
+        name: 'funded fixed risk',
+        rewardMultiples: [2],
+    },
+    {
+        build: liveCases,
+        casesPerPart: LIVE_CASES_PER_RR,
+        name: 'live percent of cushion',
+        rewardMultiples: RRS,
+    },
 ];
+
+const SWEEP_PARTS: readonly SweepPart[] = SWEEPS.flatMap((sweep) =>
+    sweep.rewardMultiples.flatMap((rr) =>
+        Array.from(
+            { length: Math.ceil(sweep.casesPerPart / CASES_PER_PART) },
+            (_, part): SweepPart => {
+                const from = part * CASES_PER_PART;
+                const to = Math.min(from + CASES_PER_PART, sweep.casesPerPart);
+                const scope =
+                    sweep.rewardMultiples.length > 1
+                        ? `${sweep.name} at reward multiple ${rr}`
+                        : sweep.name;
+                return {
+                    expectedCases: to - from,
+                    from,
+                    label: `${scope}, cases ${from + 1} to ${to}`,
+                    rr,
+                    sweep,
+                };
+            },
+        ),
+    ),
+);
+
+function builtCases(sweep: Sweep): number {
+    return sweep.rewardMultiples.reduce(
+        (sum, rr) => sum + sweep.build(rr).length,
+        0,
+    );
+}
 
 function ceilingOf(context: RuleContext, sizing: DocumentedSizing): number {
     const personal = context.personalCaps.dailyProfitCap ?? Infinity;
@@ -369,8 +418,31 @@ function lossRoomOf(context: RuleContext): number {
     );
 }
 
-function walkEveryPath({ context, rule }: SweepCase): number {
+function partCases(sweep: Sweep): number {
+    return SWEEP_PARTS.filter((part) => part.sweep === sweep).reduce(
+        (sum, part) => sum + part.expectedCases,
+        0,
+    );
+}
+
+function violationsOf({ context, rule }: SweepCase): {
+    paths: number;
+    violations: string[];
+} {
+    const violations: string[] = [];
     const sizing = rule.size(context);
+    const breach = breachOf(sizing, context);
+    if (breach !== null) violations.push(`sizing breach ${breach.breach}`);
+    const maxTrades = context.personalCaps.maxTradesPerDay ?? Infinity;
+    const maxRisk = (context.personalCaps.maxRiskPerTrade ?? Infinity) + CENT;
+    if (sizing.rungs.length > maxTrades) {
+        violations.push(`${sizing.rungs.length} rungs above ${maxTrades}`);
+    }
+    for (const rung of sizing.rungs) {
+        if (rung.risk > maxRisk) {
+            violations.push(`rung ${rung.risk} above personal max ${maxRisk}`);
+        }
+    }
     const lossRoom = lossRoomOf(context);
     const ceiling = ceilingOf(context, sizing);
     let paths = 0;
@@ -381,12 +453,20 @@ function walkEveryPath({ context, rule }: SweepCase): number {
             return;
         }
         const { risk, takeProfit } = trade.rung;
-        expect(risk).toBeGreaterThan(0);
-        expect(risk).toBeLessThanOrEqual(
-            (context.personalCaps.maxRiskPerTrade ?? Infinity) + CENT,
-        );
-        expect(day.runningLoss + risk).toBeLessThanOrEqual(lossRoom + CENT);
-        expect(day.dayPnL + takeProfit).toBeLessThanOrEqual(ceiling + CENT);
+        if (!(risk > 0)) violations.push(`risk ${risk} not positive`);
+        if (risk > maxRisk) {
+            violations.push(`risk ${risk} above personal max ${maxRisk}`);
+        }
+        if (day.runningLoss + risk > lossRoom + CENT) {
+            violations.push(
+                `running loss ${day.runningLoss + risk} above room ${lossRoom}`,
+            );
+        }
+        if (day.dayPnL + takeProfit > ceiling + CENT) {
+            violations.push(
+                `day pnl ${day.dayPnL + takeProfit} above ceiling ${ceiling}`,
+            );
+        }
         explore({
             ...day,
             dayPnL: dollars(day.dayPnL + takeProfit),
@@ -405,33 +485,35 @@ function walkEveryPath({ context, rule }: SweepCase): number {
         runningLoss: dollars(0),
         wins: 0,
     });
-    return paths;
+    return { paths, violations };
 }
 
 describe('assertSizingInvariant (PD-33)', () => {
-    it.each(SWEEPS)(
-        'holds for every %s output and every win/loss path across the context table',
-        (_name, cases, expectedCases) => {
-            const table = cases();
+    it.each(SWEEP_PARTS)(
+        'holds for every $label output and every win/loss path across the context table',
+        ({ expectedCases, from, rr, sweep }) => {
+            const table = sweep.build(rr).slice(from, from + expectedCases);
             let paths = 0;
             for (const sweepCase of table) {
-                const sizing = sweepCase.rule.size(sweepCase.context);
-                expect(breachOf(sizing, sweepCase.context)).toBeNull();
-                expect(sizing.rungs.length).toBeLessThanOrEqual(
-                    sweepCase.context.personalCaps.maxTradesPerDay ?? Infinity,
-                );
-                for (const rung of sizing.rungs) {
-                    expect(rung.risk).toBeLessThanOrEqual(
-                        (sweepCase.context.personalCaps.maxRiskPerTrade ??
-                            Infinity) + CENT,
-                    );
-                }
-                paths += walkEveryPath(sweepCase);
+                const result = violationsOf(sweepCase);
+                expect(result.violations).toEqual([]);
+                paths += result.paths;
             }
             expect(table).toHaveLength(expectedCases);
             expect(paths).toBeGreaterThanOrEqual(table.length);
         },
     );
+
+    it('keeps the pinned case counts across the per reward multiple parts', () => {
+        expect(SWEEPS.map(partCases)).toEqual(SWEEPS.map(builtCases));
+        expect(SWEEPS.map(builtCases)).toEqual([
+            EVAL_CASES,
+            EVAL_CASES,
+            EVAL_CASES,
+            LOSS_SIDES,
+            RRS.length * LIVE_CASES_PER_RR,
+        ]);
+    });
 
     it('passes a hand-built ladder that uses the cushion exactly', () => {
         expect(

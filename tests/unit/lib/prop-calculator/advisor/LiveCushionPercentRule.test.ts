@@ -11,6 +11,7 @@ import {
     resolveLiveTradeRisk,
 } from '~/lib/prop-calculator';
 import {
+    type DayProgress,
     DayStopReason,
     DEFAULT_RULEBOOK,
     type DocumentedSizing,
@@ -36,6 +37,7 @@ function liveContext(
         contractLimit: null,
         cushion: dollars(4000),
         dayStartDllRoom: null,
+        floorTradeRisk: dollars(0),
         instrument: null,
         liveCushionPercent: null,
         personalCaps: NO_PERSONAL_CAPS,
@@ -314,5 +316,155 @@ describe('LiveCushionPercentRule, personal caps and ceilings (PT-19 step 2, F-62
             kind: NextTradeKind.Stop,
             reason: DayStopReason.CeilingReached,
         });
+    });
+});
+
+describe('LiveCushionPercentRule at a strictly-below floor still alive (WP62d, N-94)', () => {
+    const DAY: DayProgress = {
+        dayPnL: dollars(0),
+        losses: 0,
+        runningLoss: dollars(0),
+        wins: 0,
+    };
+
+    it('offers the floor trade risk as the one rung at a cushion of 0, with no NoCushion flag', () => {
+        const sizing = live.size(
+            liveContext({
+                cushion: dollars(0),
+                floorTradeRisk: dollars(450),
+            }),
+        );
+
+        expect(risks(sizing)).toEqual([450]);
+        expect(sizing.constraints).not.toContain(SizingConstraint.NoCushion);
+    });
+
+    it('offers it through float residue under a cent of cushion either side of 0', () => {
+        for (const cushion of [-1e-10, 1e-10]) {
+            const sizing = live.size(
+                liveContext({
+                    cushion: dollars(cushion),
+                    floorTradeRisk: dollars(450),
+                }),
+            );
+
+            expect(risks(sizing)).toEqual([450]);
+        }
+    });
+
+    it('stops after the floor loss, since that loss takes the account through the floor', () => {
+        const context = liveContext({
+            cushion: dollars(0),
+            floorTradeRisk: dollars(450),
+        });
+
+        expect(live.nextTrade(context, DAY)).toMatchObject({
+            kind: NextTradeKind.Trade,
+            rung: { risk: 450, runningLossAfter: 450 },
+        });
+        expect(
+            live.nextTrade(context, {
+                dayPnL: dollars(-450),
+                losses: 1,
+                runningLoss: dollars(450),
+                wins: 0,
+            }),
+        ).toMatchObject({ kind: NextTradeKind.Stop });
+    });
+
+    it('still bounds the floor rung by the day-start DLL room and a personal max risk', () => {
+        const dll = live.size(
+            liveContext({
+                cushion: dollars(0),
+                dayStartDllRoom: dollars(200),
+                floorTradeRisk: dollars(450),
+            }),
+        );
+        const personal = live.nextTrade(
+            liveContext({
+                cushion: dollars(0),
+                floorTradeRisk: dollars(450),
+                personalCaps: {
+                    dailyProfitCap: null,
+                    maxRiskPerTrade: dollars(50),
+                    maxTradesPerDay: null,
+                },
+            }),
+            DAY,
+        );
+
+        expect(risks(dll)).toEqual([200]);
+        expect(personal).toMatchObject({
+            kind: NextTradeKind.Trade,
+            rung: { risk: 50 },
+        });
+    });
+
+    it('ends the ladder after a floor rung that a personal max risk capped below the floor trade risk', () => {
+        for (const maxRiskPerTrade of [50, 200]) {
+            const sizing = live.size(
+                liveContext({
+                    cushion: dollars(0),
+                    floorTradeRisk: dollars(450),
+                    personalCaps: {
+                        dailyProfitCap: null,
+                        maxRiskPerTrade: dollars(maxRiskPerTrade),
+                        maxTradesPerDay: null,
+                    },
+                }),
+            );
+
+            expect(risks(sizing)).toEqual([maxRiskPerTrade]);
+        }
+    });
+
+    it('stops after a capped floor rung on the next trade too', () => {
+        const context = liveContext({
+            cushion: dollars(0),
+            floorTradeRisk: dollars(450),
+            personalCaps: {
+                dailyProfitCap: null,
+                maxRiskPerTrade: dollars(50),
+                maxTradesPerDay: null,
+            },
+        });
+
+        expect(
+            live.nextTrade(context, {
+                dayPnL: dollars(-50),
+                losses: 1,
+                runningLoss: dollars(50),
+                wins: 0,
+            }),
+        ).toMatchObject({ kind: NextTradeKind.Stop });
+    });
+
+    it('offers nothing at a cushion of 0 with no floor trade risk (a plain floor), flagging NoCushion', () => {
+        const sizing = live.size(liveContext({ cushion: dollars(0) }));
+
+        expect(sizing.rungs).toEqual([]);
+        expect(sizing.constraints).toEqual([SizingConstraint.NoCushion]);
+    });
+
+    it('rejects a floor trade risk on a real cushion, which only exists at a cushion of 0', () => {
+        expect(() =>
+            live.size(
+                liveContext({
+                    cushion: dollars(4000),
+                    floorTradeRisk: dollars(450),
+                }),
+            ),
+        ).toThrow(ZodError);
+    });
+
+    it('rejects a negative floor trade risk', () => {
+        expect(() =>
+            live.size(
+                liveContext({
+                    cushion: dollars(0),
+                    floorTradeRisk: dollars(-1),
+                }),
+            ),
+        ).toThrow(ZodError);
     });
 });

@@ -1,5 +1,6 @@
 export interface RoundBudgetStatus {
     readonly budgetCents: null | number;
+    readonly isSpent: boolean;
     readonly remainingCents: null | number;
     readonly spentCents: number;
 }
@@ -10,6 +11,7 @@ export function roundBudgetStatus(
 ): RoundBudgetStatus {
     return {
         budgetCents,
+        isSpent: budgetCents !== null && spentCents >= budgetCents,
         remainingCents: budgetCents === null ? null : budgetCents - spentCents,
         spentCents,
     };

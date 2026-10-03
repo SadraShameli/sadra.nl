@@ -9,6 +9,16 @@ import {
 import { DashboardBalanceConvention } from './DashboardBalanceConvention';
 import { SizingStage } from './SizingStage';
 
+export enum PendingPayoutCountsStatus {
+    Counted = 'counted',
+    NotChecked = 'not-checked',
+}
+
+export interface AccountPendingPayoutCounts {
+    readonly otherAccountsPendingPayoutCount: number;
+    readonly pendingPayoutCount: number;
+}
+
 export interface AccountSnapshotInput {
     readonly asOf: string;
     readonly balance: Dollars;
@@ -32,15 +42,37 @@ export interface AccountSnapshotInput {
     readonly pendingPayouts?: Dollars | undefined;
     readonly purchasedOn?: string | undefined;
     readonly qualifyingDaysSinceLastPayout?: number | undefined;
+    readonly requestedPayoutsAssumedInBalance?: number | undefined;
     readonly stage: SizingStage;
     readonly tradingDays?: number | undefined;
 }
+
+export type PendingPayoutCountsOutcome =
+    | {
+          readonly counts: AccountPendingPayoutCounts;
+          readonly status: PendingPayoutCountsStatus.Counted;
+      }
+    | { readonly status: PendingPayoutCountsStatus.NotChecked };
+
+export const NO_PENDING_PAYOUT_COUNTS: AccountPendingPayoutCounts =
+    Object.freeze({
+        otherAccountsPendingPayoutCount: 0,
+        pendingPayoutCount: 0,
+    });
+
+export const PENDING_PAYOUT_COUNTS_NOT_CHECKED: PendingPayoutCountsOutcome =
+    Object.freeze({ status: PendingPayoutCountsStatus.NotChecked });
 
 const isoDateSchema = z.iso.date();
 
 const countSchema = z.number().int().nonnegative();
 
 const nonNegativeDollarsSchema = z.number().nonnegative().transform(dollars);
+
+export const accountPendingPayoutCountsSchema = z.strictObject({
+    otherAccountsPendingPayoutCount: countSchema,
+    pendingPayoutCount: countSchema,
+}) satisfies z.ZodType<AccountPendingPayoutCounts>;
 
 export const accountSnapshotInputSchema = z.strictObject({
     asOf: isoDateSchema,
@@ -65,6 +97,16 @@ export const accountSnapshotInputSchema = z.strictObject({
     pendingPayouts: nonNegativeDollarsSchema.optional(),
     purchasedOn: isoDateSchema.optional(),
     qualifyingDaysSinceLastPayout: countSchema.optional(),
+    requestedPayoutsAssumedInBalance: countSchema.optional(),
     stage: z.enum(SizingStage),
     tradingDays: countSchema.optional(),
 }) satisfies z.ZodType<AccountSnapshotInput>;
+
+export function pendingPayoutCountsOr(
+    outcome: PendingPayoutCountsOutcome,
+    fallback: AccountPendingPayoutCounts,
+): AccountPendingPayoutCounts {
+    return outcome.status === PendingPayoutCountsStatus.Counted
+        ? outcome.counts
+        : fallback;
+}

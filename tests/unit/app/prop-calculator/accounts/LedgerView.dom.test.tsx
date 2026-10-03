@@ -201,6 +201,14 @@ function input(scope: ParentNode, selector: string): HTMLInputElement {
     return found;
 }
 
+function selectOffering(scope: ParentNode, value: string): HTMLSelectElement {
+    const select = [...scope.querySelectorAll('select')].find((candidate) =>
+        [...candidate.options].some((option) => option.value === value),
+    );
+    if (select === undefined) throw new Error(`no select offering ${value}`);
+    return select;
+}
+
 async function submitForm(scope: ParentNode, label: string) {
     const form = element(scope, `form[aria-label="${label}"]`);
     await act(async () => {
@@ -371,6 +379,7 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
         );
         const firmValue = `modeled:${FIRM.id}`;
         chooseSelectValue(form, firmValue);
+        chooseSelectValue(form, ReportedPayoutBasis.Net);
         typeInto(input(form, 'input[placeholder="0.00"]'), '2,500');
         await submitForm(container, 'Add a firm statement');
         expect(harness.mutateOf('firmStatement.create')).toHaveBeenCalledWith({
@@ -499,5 +508,80 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
         );
         expect(editButton.querySelector('svg')).not.toBeNull();
         expect(editButton.textContent.trim()).toBe('');
+    });
+
+    it('starts a new statement with no basis chosen and blocks the submit with a message until one is picked', async () => {
+        render();
+        const form = element(
+            container,
+            'form[aria-label="Add a firm statement"]',
+        );
+        expect(selectOffering(form, ReportedPayoutBasis.Net).value).toBe('');
+        chooseSelectValue(form, `modeled:${FIRM.id}`);
+        typeInto(input(form, 'input[placeholder="0.00"]'), '2,500');
+        await submitForm(container, 'Add a firm statement');
+        expect(harness.mutateOf('firmStatement.create')).not.toHaveBeenCalled();
+        expect(form.textContent).toContain(
+            'Choose whether the reported total is gross or net',
+        );
+        chooseSelectValue(form, ReportedPayoutBasis.Gross);
+        await submitForm(container, 'Add a firm statement');
+        expect(harness.mutateOf('firmStatement.create')).toHaveBeenCalledWith(
+            expect.objectContaining({ basis: ReportedPayoutBasis.Gross }),
+        );
+    });
+
+    it('labels a difference beyond the tolerance in text and keeps the down-from-previous line', () => {
+        harness.queries.set('account.list', answer([account()]));
+        harness.queries.set(
+            'payout.list',
+            answer([
+                {
+                    accountId: ACCOUNT_ID,
+                    approvedOn: null,
+                    grossCents: 100_000,
+                    id: 'payout-1',
+                    netCents: 100_000,
+                    note: null,
+                    paidOn: '2026-09-01',
+                    requestedOn: '2026-08-25',
+                    status: 'paid',
+                    userId: USER_ID,
+                },
+            ]),
+        );
+        const statement = (id: string, asOf: string, cents: number) => ({
+            asOf,
+            basis: ReportedPayoutBasis.Net,
+            externalFirmId: null,
+            firmId: FIRM.id,
+            id,
+            note: null,
+            reportedPayoutCents: cents,
+            userId: USER_ID,
+        });
+        harness.queries.set(
+            'firmStatement.list',
+            answer([
+                statement(STATEMENT_ID, '2026-09-05', 100_000),
+                statement('statement-2', '2026-09-10', 50_000),
+            ]),
+        );
+        render();
+        const section = element(
+            container,
+            '#prop-reconciliation-heading',
+        ).closest('section');
+        if (section === null) throw new Error('no reconciliation section');
+        const rows = [...section.querySelectorAll(':scope tbody tr')];
+        expect(rows).toHaveLength(2);
+        expect(rows[0]?.textContent).not.toContain('Outside tolerance');
+        expect(rows[0]?.textContent).not.toContain(
+            'Down from the previous statement',
+        );
+        expect(rows[1]?.textContent).toContain('Outside tolerance');
+        expect(rows[1]?.textContent).toContain(
+            'Down from the previous statement',
+        );
     });
 });

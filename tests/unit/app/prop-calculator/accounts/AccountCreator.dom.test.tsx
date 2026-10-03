@@ -27,7 +27,7 @@ import {
 import {
     LiveApplicabilityKind,
     livePlanApplicability,
-} from '~/lib/prop-calculator/advisor';
+} from '~/lib/prop-calculator/firms';
 
 const harness = vi.hoisted(() => ({
     create: vi.fn(() => Promise.resolve({ id: 'created-account' })),

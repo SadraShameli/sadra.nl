@@ -19,6 +19,7 @@ import { propSizingDecision } from '~/server/db/schemas/prop';
 
 import {
     assertModeledForOperation,
+    assertStageMatchesAccount,
     ModeledOperation,
     propMutationProcedure,
     propProcedure,
@@ -38,8 +39,10 @@ export const propDecisionRouter = createTRPCRouter({
                 const repo = new PropAccountRepo(tx, ctx.userId);
                 const account = await repo.loadOwnedAccountOrThrow(
                     input.accountId,
+                    true,
                 );
                 assertModeledForOperation(account, ModeledOperation.PlanRules);
+                assertStageMatchesAccount(account, input.stage);
                 if (input.snapshotId !== null) {
                     await repo.loadOwnedSnapshotOrThrow(
                         input.snapshotId,

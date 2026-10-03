@@ -15,7 +15,10 @@ import {
     COPY_GROUP_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
     copyGroupSizingSectionsOf,
 } from '~/app/(app)/prop-calculator/accounts/copy-groups/copyGroupSizingModel';
-import { GroupSizingSection } from '~/app/(app)/prop-calculator/accounts/copy-groups/GroupSizingSection';
+import {
+    GroupSizingSection,
+    GroupSizingViewKind,
+} from '~/app/(app)/prop-calculator/accounts/copy-groups/GroupSizingSection';
 import { formatCurrency } from '~/lib/format';
 import {
     AccountStage,
@@ -170,7 +173,7 @@ describe('the copy-group sizing view words a verified live trigger and a sub-con
             root.render(
                 <GroupSizingSection
                     row={row}
-                    sizing={{ kind: 'ready', section }}
+                    sizing={{ kind: GroupSizingViewKind.Ready, section }}
                 />,
             );
         });

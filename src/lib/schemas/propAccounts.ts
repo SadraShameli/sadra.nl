@@ -443,6 +443,17 @@ const payoutEditableShape = {
     status: z.enum(PayoutStatus),
 };
 
+export interface PayoutDateOrderFields {
+    readonly approvedOn?: null | string;
+    readonly paidOn: null | string;
+    readonly requestedOn: string;
+}
+
+export interface PayoutDateOrderIssue {
+    readonly message: string;
+    readonly path: 'approvedOn' | 'paidOn';
+}
+
 interface PayoutConsistencyFields {
     readonly approvedOn?: null | string;
     readonly grossCents: number;
@@ -450,6 +461,41 @@ interface PayoutConsistencyFields {
     readonly paidOn: null | string;
     readonly requestedOn: string;
     readonly status: PayoutStatus;
+}
+
+export function payoutDateOrderIssues(
+    payout: PayoutDateOrderFields,
+): readonly PayoutDateOrderIssue[] {
+    const issues: PayoutDateOrderIssue[] = [];
+    const { approvedOn, paidOn, requestedOn } = payout;
+    if (paidOn !== null && paidOn < requestedOn) {
+        issues.push({
+            message: 'a payout cannot be paid before it was requested',
+            path: 'paidOn',
+        });
+    }
+    if (
+        approvedOn !== undefined &&
+        approvedOn !== null &&
+        approvedOn < requestedOn
+    ) {
+        issues.push({
+            message: 'a payout cannot be approved before it was requested',
+            path: 'approvedOn',
+        });
+    }
+    if (
+        approvedOn !== undefined &&
+        approvedOn !== null &&
+        paidOn !== null &&
+        paidOn < approvedOn
+    ) {
+        issues.push({
+            message: 'a payout cannot be paid before it was approved',
+            path: 'paidOn',
+        });
+    }
+    return issues;
 }
 
 function refinePayoutConsistency(
@@ -471,34 +517,11 @@ function refinePayoutConsistency(
             path: ['paidOn'],
         });
     }
-    if (payout.paidOn !== null && payout.paidOn < payout.requestedOn) {
+    for (const issue of payoutDateOrderIssues(payout)) {
         context.addIssue({
             code: 'custom',
-            message: 'a payout cannot be paid before it was requested',
-            path: ['paidOn'],
-        });
-    }
-    if (
-        payout.approvedOn !== undefined &&
-        payout.approvedOn !== null &&
-        payout.approvedOn < payout.requestedOn
-    ) {
-        context.addIssue({
-            code: 'custom',
-            message: 'a payout cannot be approved before it was requested',
-            path: ['approvedOn'],
-        });
-    }
-    if (
-        payout.approvedOn !== undefined &&
-        payout.approvedOn !== null &&
-        payout.paidOn !== null &&
-        payout.paidOn < payout.approvedOn
-    ) {
-        context.addIssue({
-            code: 'custom',
-            message: 'a payout cannot be paid before it was approved',
-            path: ['paidOn'],
+            message: issue.message,
+            path: [issue.path],
         });
     }
     if (payout.netCents !== null && payout.netCents > payout.grossCents) {

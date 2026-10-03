@@ -98,6 +98,7 @@ function check(overrides: Partial<RiskCheckView> = {}): RiskCheckView {
         excess: 0,
         isViolationOffered: false,
         payoutEligibleAboveRung: false,
+        placementText: null,
         stopText: null,
         verdict: NextTradeRiskVerdict.WithinPlan,
         verdictText: 'Within your documented plan.',
@@ -128,6 +129,7 @@ function recordedOf(
 const STAKE: PayoutStakeView = {
     continueNow: { standardError: 10, value: 1000 },
     evAtStake: { standardError: 14, value: 300 },
+    liveTransferNotes: [],
     requestedAmount: 500,
     requestNow: { standardError: 9, value: 1300 },
     traderReceivesNow: 450,
@@ -258,6 +260,24 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
             renderCheck();
 
             expect(container.querySelector('[role="status"]')).toBeNull();
+        });
+
+        it('says the documented rung cannot be placed when the advisor flags it, and nothing otherwise (PT-36j)', () => {
+            const flagged =
+                'The documented rung cannot be placed: it is below one contract at the entered stop.';
+            renderCheck({
+                check: check({ placementText: flagged }),
+                inputs: { losses: '', risk: '200', wins: '' },
+            });
+
+            expect(container.textContent).toContain(flagged);
+
+            renderCheck({
+                check: check(),
+                inputs: { losses: '', risk: '200', wins: '' },
+            });
+
+            expect(container.textContent).not.toContain('cannot be placed');
         });
 
         it('shows the within-plan verdict and never offers the violation log', () => {

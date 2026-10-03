@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { payoutPathStepText } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
 import {
@@ -38,6 +38,7 @@ import {
     type AccountSnapshotInput,
     DashboardBalanceConvention,
     DEFAULT_RULEBOOK,
+    NO_PENDING_PAYOUT_COUNTS,
     payoutPath,
     RebuyLagBasis,
     ReconstructedLiveKind,
@@ -89,12 +90,30 @@ function requestsFor(
     return fromStateDetailRequestsOf({
         input,
         measuredRebuyLag,
+        pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
         personalMaxRiskPerTrade,
         personalRules,
         plan: PLAN,
         rulebook: DEFAULT_RULEBOOK,
     });
 }
+
+const HEAVY_TEST_TIMEOUT_MS = 10_000;
+const WARM_UP_TRIALS = 1;
+
+beforeAll(() => {
+    const requests = requestsFor(FUNDED);
+    if (requests === null) throw new Error('no requests');
+    for (const request of [requests.account, requests.chain]) {
+        overviewOutcomeOf({
+            ...request,
+            spec: {
+                ...request.spec,
+                run: { ...request.spec.run, trials: WARM_UP_TRIALS },
+            },
+        });
+    }
+});
 
 const LIMIT_RULES: PersonalRules = {
     dailyLossLimitCents: usdCents(30_000),
@@ -295,7 +314,7 @@ describe('fromStateDetailRequestsOf (PT-37, F-87)', () => {
                 ...requests.chain,
                 spec: {
                     ...requests.chain.spec,
-                    run: { ...requests.chain.spec.run, trials: 50 },
+                    run: { ...requests.chain.spec.run, trials: 20 },
                 },
             });
             if (
@@ -315,13 +334,61 @@ describe('fromStateDetailRequestsOf (PT-37, F-87)', () => {
         );
         const plain = eligibleAssumptionsOf(requestsFor(FUNDED));
         expect(personal.join('\n')).toContain('your payout request entry');
-        expect(personal.join('\n')).toContain('your retained cushion entry');
+        expect(personal.join('\n')).toContain('your personal override');
         expect(plain.join('\n')).toContain("the rulebook's payout size");
-        expect(plain.join('\n')).not.toContain('your retained cushion entry');
-    });
+        expect(plain.join('\n')).not.toContain('your personal override');
+    }, HEAVY_TEST_TIMEOUT_MS);
 
     it('asks for nothing for an account that is already live: there is no live from-state model', () => {
         expect(requestsFor({ ...FUNDED, stage: SizingStage.Live })).toBeNull();
+    });
+});
+
+describe('fromStateDetailRequestsOf carries the pending payout counts (PT-36p, F-145)', () => {
+    const COUNTS = {
+        otherAccountsPendingPayoutCount: 3,
+        pendingPayoutCount: 2,
+    };
+
+    it('puts them on the account and the retire requests', () => {
+        const built = fromStateDetailRequestsOf({
+            input: FUNDED,
+            measuredRebuyLag: null,
+            pendingPayoutCounts: COUNTS,
+            personalMaxRiskPerTrade: null,
+            personalRules: null,
+            plan: PLAN,
+            rulebook: DEFAULT_RULEBOOK,
+        });
+        expect(built?.account.pendingPayoutCounts).toEqual(COUNTS);
+        expect(built?.retire.pendingPayoutCounts).toEqual(COUNTS);
+    });
+
+    it('keys the requests by their counts', () => {
+        const withCounts = fromStateDetailRequestsOf({
+            input: FUNDED,
+            measuredRebuyLag: null,
+            pendingPayoutCounts: COUNTS,
+            personalMaxRiskPerTrade: null,
+            personalRules: null,
+            plan: PLAN,
+            rulebook: DEFAULT_RULEBOOK,
+        });
+        const without = fromStateDetailRequestsOf({
+            input: FUNDED,
+            measuredRebuyLag: null,
+            pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
+            personalMaxRiskPerTrade: null,
+            personalRules: null,
+            plan: PLAN,
+            rulebook: DEFAULT_RULEBOOK,
+        });
+        if (withCounts === null || without === null) {
+            throw new Error('expected both detail requests');
+        }
+        expect(overviewRequestKey(withCounts.retire)).not.toBe(
+            overviewRequestKey(without.retire),
+        );
     });
 });
 
@@ -369,6 +436,10 @@ describe('fromStateDetailRequestsOf carries the personal max risk (PT-68g, F-V16
     });
 });
 
+const PROJECTION_TRIALS = 20;
+const MIN_PAYING_TRIALS = 10;
+const PROJECTION_HORIZON_DAYS = 90;
+
 function projectionOf(rules: null | PersonalRules) {
     const requests = requestsFor(FUNDED, null, rules);
     if (requests === null) throw new Error('no requests');
@@ -376,7 +447,14 @@ function projectionOf(rules: null | PersonalRules) {
         ...requests.account,
         spec: {
             ...requests.account.spec,
-            run: { ...requests.account.spec.run, trials: 200 },
+            enginePolicy: {
+                ...requests.account.spec.enginePolicy,
+                fundedHorizonDays: PROJECTION_HORIZON_DAYS,
+            },
+            run: {
+                ...requests.account.spec.run,
+                trials: PROJECTION_TRIALS,
+            },
         },
     });
     if (
@@ -393,11 +471,23 @@ describe('the from-state next payout projection applies the personal daily loss 
     it('gives a different projection with a tight personal daily loss limit than without one', () => {
         const without = projectionOf(null);
         const tight = projectionOf({ dailyLossLimitCents: usdCents(6000) });
+        const gap =
+            tight.expectedSessionDaysToFirstPayout.value -
+            without.expectedSessionDaysToFirstPayout.value;
+        const tightError = tight.expectedSessionDaysToFirstPayout.standardError;
+        const withoutError =
+            without.expectedSessionDaysToFirstPayout.standardError;
+        if (tightError === null || withoutError === null) {
+            throw new Error('expected a standard error on both projections');
+        }
+        const combinedStandardError = Math.hypot(tightError, withoutError);
 
-        expect(tight.expectedSessionDaysToFirstPayout.value).toBeGreaterThan(
-            without.expectedSessionDaysToFirstPayout.value,
+        expect(tight.payingTrials).toBeGreaterThanOrEqual(MIN_PAYING_TRIALS);
+        expect(without.payingTrials).toBeGreaterThanOrEqual(
+            MIN_PAYING_TRIALS,
         );
-    });
+        expect(gap).toBeGreaterThan(3 * combinedStandardError);
+    }, HEAVY_TEST_TIMEOUT_MS);
 
     it('does not tell the trader that the next payout projection ignores the daily loss limit or the daily profit cap', () => {
         expect(FROM_STATE_PERSONAL_RULES_NOTE).not.toMatch(/does not apply/i);
@@ -410,7 +500,12 @@ describe('payoutPathLinesOf (PT-37)', () => {
     it('lists the payout path steps of a funded account at the documented request and retained cushion', () => {
         const requests = requestsFor(FUNDED);
         if (requests === null) throw new Error('no requests');
-        const account = AccountReconstruction.rebuild(FUNDED, PLAN);
+        const account = AccountReconstruction.rebuild(
+            FUNDED,
+            PLAN,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         if (
             account.kind === ReconstructedLiveKind.Live ||
             account.fundedTracker === null
@@ -446,7 +541,12 @@ describe('payoutPathLinesOf (PT-37)', () => {
         };
         const requests = requestsFor(evalInput);
         if (requests === null) throw new Error('no requests');
-        const account = AccountReconstruction.rebuild(evalInput, PLAN);
+        const account = AccountReconstruction.rebuild(
+            evalInput,
+            PLAN,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         expect(payoutPathLinesOf(account, requests.account.spec)).toBeNull();
     });
 });

@@ -24,6 +24,7 @@ import {
     CopyGroupSizingRejectionKind,
     CopyGroupSizingResultKind,
     DEFAULT_RULEBOOK,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
 
@@ -90,6 +91,7 @@ function fundedAccount(
         plan: registryPlan(MFF_PRO_ID),
         resolvedDailyLossLimit: null,
         state: accountState,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -106,6 +108,8 @@ function member(
         id,
         label: id,
         paidPayoutsSinceLastLiveAccount: null,
+        personalRequestOverride: null,
+        personalRetainedCushion: null,
     };
 }
 

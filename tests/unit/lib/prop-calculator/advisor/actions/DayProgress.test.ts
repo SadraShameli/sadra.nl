@@ -11,6 +11,7 @@ import {
 import {
     DEFAULT_RULEBOOK,
     EvalSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
 } from '~/lib/prop-calculator/advisor';
 import { dayProgressFromCounts } from '~/lib/prop-calculator/advisor/actions';
 
@@ -45,6 +46,7 @@ function evalAdvisor(): EvalSizingAdvisor {
             plan,
             resolvedDailyLossLimit: null,
             state,
+            ...NO_PENDING_PAYOUT_COUNTS,
         },
         maxEvalDays: 150,
         rulebook: DEFAULT_RULEBOOK,

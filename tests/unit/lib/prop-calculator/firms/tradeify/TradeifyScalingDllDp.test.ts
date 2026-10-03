@@ -30,7 +30,8 @@ import { simulate } from '~/lib/prop-calculator/simulator';
 const LOW_TIER_DLL = 50;
 const HIGH_TIER_DLL = 1000;
 const REACH_BREAKPOINT = 100;
-const PARITY_TRIALS = 200_000;
+const PARITY_TRIALS = 40_000;
+const PARITY_SIGMAS = 4;
 const PARITY_WINRATE = 0.4;
 
 function dpAgainstSimulate(plan: Plan) {
@@ -52,6 +53,7 @@ function dpAgainstSimulate(plan: Plan) {
             out.expectedGrossPayout +
             out.fundedBustProbability * result.bustTerminalValue,
         result,
+        standardError: out.estimates.expectedGrossPayout.standardError,
     };
 }
 
@@ -148,13 +150,22 @@ describe('funded DP ratchets the Tradeify scaling DLL on the intraday reach (N-1
         expect(isFundedDpEligible(growthPlan())).toBe(true);
     });
 
-    it('values the intraday-reach toy exactly like a real simulate() run driven by its own policy', () => {
-        const { empiricalValue, result } = dpAgainstSimulate(
+    it('values the intraday-reach toy exactly like a real simulate() run driven by its own policy (PT-T1b: 40,000 trials and four standard errors of the replay, about 2.1 dollars on the 70.11 DP value, where 200,000 trials and a half dollar tolerance took 17 s), and the replay sits closer to the intraday value than to the 69.09 peak-session-close value, which the four standard errors alone would still accept', () => {
+        const { empiricalValue, result, standardError } = dpAgainstSimulate(
             scalingDllToyPlan(TierBasis.PeakIntradayProfit),
         );
+        const sessionClose = solve(
+            scalingDllToyPlan(TierBasis.PeakSessionCloseProfit),
+            PARITY_WINRATE,
+        );
 
-        expect(empiricalValue).toBeCloseTo(result.initialValue, 0);
-    }, 300_000);
+        expect(Math.abs(empiricalValue - result.initialValue)).toBeLessThan(
+            PARITY_SIGMAS * standardError,
+        );
+        expect(Math.abs(empiricalValue - result.initialValue)).toBeLessThan(
+            Math.abs(empiricalValue - sessionClose.initialValue),
+        );
+    });
 
     it('values the intraday reach strictly above the peak-session-close basis on the same toy', () => {
         const intraday = solve(
@@ -169,7 +180,7 @@ describe('funded DP ratchets the Tradeify scaling DLL on the intraday reach (N-1
         expect(intraday.initialValue).toBeGreaterThan(
             sessionClose.initialValue + 0.5,
         );
-    }, 60_000);
+    });
 
     it('sizes from the raised DLL in the session after an intraday reach that closed below the threshold', () => {
         const result = solve(
@@ -189,7 +200,7 @@ describe('funded DP ratchets the Tradeify scaling DLL on the intraday reach (N-1
 
         expect(firstTradeRisk(REACH_BREAKPOINT)).toBe(100);
         expect(firstTradeRisk(50)).toBe(LOW_TIER_DLL);
-    }, 60_000);
+    });
 
     it('keeps the low DLL for the rest of the session in which the reach happens', () => {
         const result = solve(
@@ -209,7 +220,7 @@ describe('funded DP ratchets the Tradeify scaling DLL on the intraday reach (N-1
 
         expect(secondTradeRisk(50)).toBe(0);
         expect(secondTradeRisk(REACH_BREAKPOINT)).toBe(50);
-    }, 60_000);
+    });
 });
 
 describe('funded DP sizes a contract tier on the intraday reach from the full tier context (N-15 follow-up)', () => {
@@ -262,7 +273,7 @@ describe('funded DP sizes a contract tier on the intraday reach from the full ti
 
         expect(firstTradeRisk(0)).toBe(50);
         expect(firstTradeRisk(REACH_BREAKPOINT)).toBe(100);
-    }, 60_000);
+    });
 });
 
 describe('eval DP on an eval daily loss limit tiered on the intraday reach', () => {

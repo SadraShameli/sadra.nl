@@ -1,7 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import propGroup from '~/cli/commands/prop/group';
 import { findUnknownFlag, unknownFlagMessage } from '~/cli/unknownFlagGuard';
+
+const COLD_IMPORT_TIMEOUT_MS = 10_000;
+
+beforeAll(async () => {
+    await findUnknownFlag(['sim', '--warmup'], propGroup, 'cli prop');
+}, COLD_IMPORT_TIMEOUT_MS);
 
 describe('findUnknownFlag (N-78: the CLI silently accepted unknown flags)', () => {
     it('rejects an unknown flag on optimize dp instead of running with defaults', async () => {

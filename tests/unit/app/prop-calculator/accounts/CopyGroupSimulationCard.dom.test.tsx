@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WorkerTaskEventKind } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import {
+    COPY_GROUP_TRIGGER_NOT_PRICED_TEXT,
+    type CopyGroupWorkerMember,
     type CopyGroupWorkerOutcome,
     CopyGroupWorkerOutcomeKind,
     type CopyGroupWorkerRequest,
@@ -13,7 +15,17 @@ import {
     type CopyGroupSimulationPlan,
     CopyGroupSimulationPlanKind,
 } from '~/app/(app)/prop-calculator/accounts/copy-groups/copyGroupSimulationModel';
-import { dollars, TradingPhase } from '~/lib/prop-calculator';
+import {
+    CumulativeAmountTrigger,
+    dollars,
+    findFirm,
+    FirmId,
+    MffuVariant,
+    PolicySourceKind,
+    PolicyVerification,
+    serializePlanId,
+    TradingPhase,
+} from '~/lib/prop-calculator';
 import {
     AssumptionBias,
     AssumptionKind,
@@ -424,6 +436,58 @@ describe('CopyGroupSimulationCard', () => {
                 2,
             );
             expect(container.textContent).toContain('40.0% (± 1.0%)');
+        });
+    });
+
+    describe('the confirmed cumulative trigger it does not price (PT-36r, F-145)', () => {
+        const member = {
+            firmId: FirmId.Mffu,
+            id: 'a',
+            optIns: {
+                takesFundedReset: false,
+                takesOneTimeEarlyWithdrawal: false,
+            },
+            planSerial: serializePlanId({
+                accountSize: 50_000,
+                firm: FirmId.Mffu,
+                variant: MffuVariant.RapidEod,
+            }),
+        } as CopyGroupWorkerMember;
+
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
+
+        function stubTrigger() {
+            const firm = findFirm(FirmId.Mffu);
+            if (!firm) throw new Error('MFFU not registered');
+            vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue([
+                new CumulativeAmountTrigger(dollars(100_000), {
+                    fetchedOn: '2026-09-01',
+                    quote: 'a synthetic test quote',
+                    sourceKind: PolicySourceKind.LiveFetch,
+                    url: 'https://example.test/policy',
+                    verification: PolicyVerification.Confirmed,
+                }),
+            ]);
+        }
+
+        it('says before the run that the group simulation does not price a confirmed trigger', () => {
+            stubTrigger();
+            render({ ...READY, request: { ...REQUEST, members: [member] } });
+
+            expect(container.textContent).toContain(
+                COPY_GROUP_TRIGGER_NOT_PRICED_TEXT,
+            );
+            expect(container.textContent).toContain('$100,000');
+        });
+
+        it('says nothing when no member has a confirmed trigger', () => {
+            render({ ...READY, request: { ...REQUEST, members: [member] } });
+
+            expect(container.textContent).not.toContain(
+                COPY_GROUP_TRIGGER_NOT_PRICED_TEXT,
+            );
         });
     });
 });

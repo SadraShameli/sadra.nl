@@ -22,6 +22,10 @@ import {
 
 import { type AdviceSource } from './AdviceSource';
 import {
+    liveTransferAssumptionOf,
+    type LiveTransferHazardAssumption,
+} from './Assumption';
+import {
     type EngineOptimumRefusal,
     EngineOptimumRefusalKind,
     type EngineOptimumRefusedRow,
@@ -46,6 +50,7 @@ export interface FundedFromStateOptimum {
     readonly fromStateExpectedRealizedCash: number;
     readonly fromStateExpectedRealizedCashStandardError: null | number;
     readonly label: string;
+    readonly liveTransfer?: LiveTransferHazardAssumption;
     readonly rows: readonly FundedFromStateRow[];
     readonly survivors: number;
 }
@@ -107,19 +112,23 @@ export function runFundedFromStateSweep(
         };
     }
 
+    const inputsByRow = new Map<FundedFromStatePlacedRow, FromStateSimInputs>();
     const placedRows: FundedFromStatePlacedRow[] = build.candidates.map(
-        (candidate): FundedFromStatePlacedRow => ({
-            kind: EngineOptimumRowKind.Placed,
-            label: candidate.label,
-            out: simulateFromState(
-                applyEnginePolicyFromState(plan, request.policy, {
-                    ...request.base,
-                    plan,
-                    start: request.start,
-                    ...candidate.overrides,
-                }),
-            ),
-        }),
+        (candidate): FundedFromStatePlacedRow => {
+            const inputs = applyEnginePolicyFromState(plan, request.policy, {
+                ...request.base,
+                plan,
+                start: request.start,
+                ...candidate.overrides,
+            });
+            const row: FundedFromStatePlacedRow = {
+                kind: EngineOptimumRowKind.Placed,
+                label: candidate.label,
+                out: simulateFromState(inputs),
+            };
+            inputsByRow.set(row, inputs);
+            return row;
+        },
     );
     const refusedRows: EngineOptimumRefusedRow[] =
         build.flatsBelowOneContract.map((dollar): EngineOptimumRefusedRow => ({
@@ -138,6 +147,14 @@ export function runFundedFromStateSweep(
         );
     }
 
+    const winnerInputs = inputsByRow.get(winner);
+    const liveTransfer =
+        winnerInputs === undefined
+            ? undefined
+            : liveTransferAssumptionOf(
+                  winnerInputs,
+                  winner.out.liveTransferProbability,
+              );
     const optimum: FundedFromStateOptimum = {
         fromStateExpectedCash: winner.out.fromStateExpectedCash,
         fromStateExpectedCashStandardError:
@@ -146,6 +163,7 @@ export function runFundedFromStateSweep(
         fromStateExpectedRealizedCashStandardError:
             winner.out.estimates.fromStateExpectedRealizedCash.standardError,
         label: winner.label,
+        ...(liveTransfer !== undefined && { liveTransfer }),
         rows: [...ranked, ...refusedRows],
         survivors: survivorCount(winner.out, request.base.trials),
     };

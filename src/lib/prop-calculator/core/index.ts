@@ -89,6 +89,7 @@ export {
     EodTrailingDrawdown,
     IntradayTrailingDrawdown,
     StaticDrawdown,
+    StrictlyBelowStaticDrawdown,
 } from './DrawdownStrategy';
 export { DriftEdge, DriftEdgeFitError } from './DriftEdge';
 export { EdgeModel } from './EdgeModel';
@@ -291,7 +292,9 @@ export {
 } from './LivePlan';
 export {
     capRiskToRemainingDailyLoss,
+    liftLiveSizingCushion,
     resolveLiveAffordableRoom,
+    resolveLiveFloorTradeRisk,
     resolveLiveTradeRisk,
 } from './LiveSizing';
 export {

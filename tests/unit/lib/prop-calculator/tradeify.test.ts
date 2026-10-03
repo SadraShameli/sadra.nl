@@ -506,3 +506,52 @@ describe('Tradeify Select consistency add-on note cites the pricing reference, n
         expect(note).toContain('conflicting observation');
     });
 });
+
+describe("Tradeify payout cap notes cite Tradeify's own payout policy article, never a third-party site (N-85)", () => {
+    const POLICY_ARTICLE = '12853966';
+
+    it('cites no third-party comparison site in any note', () => {
+        expect(
+            firm.notes.filter((note) => /propfirmmatch/i.test(note)),
+        ).toEqual([]);
+    });
+
+    it('says no payout cap note was fetched live and cites the 2026-09-23 user paste of the article instead, since help.tradeify.co answered HTTP 403', () => {
+        for (const start of [
+            "Select Daily's payoutRequestCap",
+            "Select Flex's payoutRequestCap",
+        ]) {
+            const note = firm.notes.find((candidate) =>
+                candidate.startsWith(start),
+            );
+
+            expect(note).not.toContain('fetched live 2026-10-02');
+            expect(note).not.toContain('intercom.help/tradeify');
+            expect(note).toContain('2026-09-23');
+            expect(note).toContain('user');
+        }
+    });
+
+    it('cites the policy article for the Select Daily 50K payoutRequestCap and both of its dates', () => {
+        const note = firm.notes.find((candidate) =>
+            candidate.startsWith("Select Daily's payoutRequestCap"),
+        );
+
+        expect(note).toContain(POLICY_ARTICLE);
+        expect(note).toContain('$1,000');
+        expect(note).toContain('$1,250');
+        expect(note).toContain('Sep 1');
+        expect(note).not.toContain('extraction');
+    });
+
+    it('cites the policy article for the Select Flex 50K payoutRequestCap and both of its dates', () => {
+        const note = firm.notes.find((candidate) =>
+            candidate.startsWith("Select Flex's payoutRequestCap"),
+        );
+
+        expect(note).toContain(POLICY_ARTICLE);
+        expect(note).toContain('$3,000');
+        expect(note).toContain('$2,500');
+        expect(note).not.toContain('extraction');
+    });
+});

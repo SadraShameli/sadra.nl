@@ -5,6 +5,7 @@ import {
     decodePayoutPlannerUrlState,
     defaultPayoutPlannerUrlState,
     encodePayoutPlannerUrlState,
+    hasPayoutPlannerUrlRequest,
     parsePayoutPlannerBalance,
     parsePayoutPlannerCount,
     parsePayoutPlannerDate,
@@ -18,7 +19,11 @@ import {
     type Plan,
     serializePlanId,
 } from '~/lib/prop-calculator';
-import { SizingStage } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    type RulebookParameters,
+    SizingStage,
+} from '~/lib/prop-calculator/advisor';
 import { CalculatorUrlParameter } from '~/lib/schemas/calculatorUrlParameter';
 import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';
 
@@ -53,6 +58,13 @@ function roundTrip(state: PayoutPlannerUrlState): PayoutPlannerUrlState {
     return decodePayoutPlannerUrlState(
         new URLSearchParams(encodePayoutPlannerUrlState(state)),
     );
+}
+
+function rulebookWithRequest(requestCents: number): RulebookParameters {
+    return {
+        ...DEFAULT_RULEBOOK,
+        payout: { ...DEFAULT_RULEBOOK.payout, requestCents },
+    };
 }
 
 describe('encodePayoutPlannerUrlState and decodePayoutPlannerUrlState', () => {
@@ -198,5 +210,59 @@ describe('the payout planner form-field parsers', () => {
         expect(parsePayoutPlannerDate('not-a-date')).toBeNull();
         expect(parsePayoutPlannerOptionalDollars('0')).toBe(0);
         expect(parsePayoutPlannerOptionalDollars('-1')).toBeNull();
+    });
+});
+
+describe('the starting payout request (PT-98, F-30)', () => {
+    const rulebook750 = rulebookWithRequest(75_000);
+
+    it('starts at the anonymous default rulebook request of $500 with no rulebook given', () => {
+        expect(DEFAULT_RULEBOOK.payout.requestCents).toBe(50_000);
+        expect(
+            decodePayoutPlannerUrlState(new URLSearchParams()).requestSize,
+        ).toBe(500);
+        expect(defaultPayoutPlannerUrlState().requestSize).toBe(500);
+    });
+
+    it('starts at the rulebook payout request when the URL carries none', () => {
+        expect(
+            decodePayoutPlannerUrlState(
+                new URLSearchParams(),
+                ALL_FIRMS,
+                rulebook750,
+            ).requestSize,
+        ).toBe(750);
+        expect(defaultPayoutPlannerUrlState(rulebook750).requestSize).toBe(750);
+    });
+
+    it('lets a typed request in the URL win over the rulebook request', () => {
+        const parameters = new URLSearchParams();
+        parameters.set(PayoutPlannerUrlParameter.RequestSize, '900');
+        expect(
+            decodePayoutPlannerUrlState(parameters, ALL_FIRMS, rulebook750)
+                .requestSize,
+        ).toBe(900);
+    });
+
+    it.each(['abc', '0', '-5', ''])(
+        'falls back to the rulebook request for an invalid URL request %j',
+        (raw) => {
+            const parameters = new URLSearchParams();
+            parameters.set(PayoutPlannerUrlParameter.RequestSize, raw);
+            expect(
+                decodePayoutPlannerUrlState(parameters, ALL_FIRMS, rulebook750)
+                    .requestSize,
+            ).toBe(750);
+        },
+    );
+
+    it('says whether the URL carries a usable request', () => {
+        const typed = new URLSearchParams();
+        typed.set(PayoutPlannerUrlParameter.RequestSize, '900');
+        const invalid = new URLSearchParams();
+        invalid.set(PayoutPlannerUrlParameter.RequestSize, 'abc');
+        expect(hasPayoutPlannerUrlRequest(typed)).toBe(true);
+        expect(hasPayoutPlannerUrlRequest(invalid)).toBe(false);
+        expect(hasPayoutPlannerUrlRequest(new URLSearchParams())).toBe(false);
     });
 });

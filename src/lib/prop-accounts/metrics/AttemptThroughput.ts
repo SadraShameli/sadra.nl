@@ -1,5 +1,6 @@
 import {
     AccountEventKind,
+    AccountTracking,
     FeeKind,
     type FirmKey,
     firmKeyOf,
@@ -20,6 +21,7 @@ export interface AttemptThroughput {
 
 export interface FirmMonthlyAttempts {
     readonly firmKey: FirmKey;
+    readonly meanPerMonth: number;
     readonly months: readonly MonthlyAttempts[];
 }
 
@@ -32,7 +34,7 @@ export function attemptThroughput(
     ledger: PortfolioLedger,
     asOf: string,
 ): AttemptThroughput {
-    const accounts = ledger.resolvedAccounts;
+    const accounts = ledger.accounts;
     const months = filledMonths(
         earliestActivityMonth(ledger),
         isoMonthOf(asOf),
@@ -40,10 +42,14 @@ export function attemptThroughput(
     const overall = monthlyCounts(accounts, months);
     const perFirm = groupByFirmKey(accounts, (entry) =>
         firmKeyOf(entry.row),
-    ).map(({ firmKey, items }) => ({
-        firmKey,
-        months: monthlyCounts(items, months),
-    }));
+    ).map(({ firmKey, items }) => {
+        const firmMonths = monthlyCounts(items, months);
+        return {
+            firmKey,
+            meanPerMonth: meanAttemptsPerMonth(firmMonths),
+            months: firmMonths,
+        };
+    });
     const activeFirms = perFirm.filter((firm) =>
         firm.months.some((month) => month.attempts > 0),
     );
@@ -61,17 +67,16 @@ export function attemptThroughput(
             activeFirmMonths === 0
                 ? null
                 : totalActiveFirmAttempts / activeFirmMonths,
-        meanPerMonth:
-            months.length === 0
-                ? 0
-                : overall.reduce((sum, month) => sum + month.attempts, 0) /
-                  months.length,
+        meanPerMonth: meanAttemptsPerMonth(overall),
         months: overall,
         perFirm,
     };
 }
 
 function attemptDatesOf(entry: LedgerAccount): readonly string[] {
+    if (entry.row.tracking === AccountTracking.LedgerOnly) {
+        return [entry.row.purchasedOn];
+    }
     const lifecycleDates = entry.events
         .filter(
             (event) =>
@@ -88,6 +93,13 @@ function attemptDatesOf(entry: LedgerAccount): readonly string[] {
               .filter((date) => !lifecycleDateSet.has(date))
         : [];
     return [...lifecycleDates, ...extraFeeDates];
+}
+
+function meanAttemptsPerMonth(months: readonly MonthlyAttempts[]): number {
+    return months.length === 0
+        ? 0
+        : months.reduce((sum, month) => sum + month.attempts, 0) /
+              months.length;
 }
 
 function monthlyCounts(

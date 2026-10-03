@@ -16,6 +16,7 @@ const STEP = 25;
 function gridOf(requestedBucketCount?: number): FundedCycleBestDayGrid {
     return new FundedCycleBestDayGrid({
         cushionStepDollars: STEP,
+        isTracked: true,
         overflowDollars: 4000,
         relevantBestDayDollars: 200,
         requestedBucketCount,
@@ -59,6 +60,7 @@ describe('FundedCycleBestDayGrid', () => {
     it('raises the overflow dollars above the last real bucket when the caller passes less', () => {
         const grid = new FundedCycleBestDayGrid({
             cushionStepDollars: STEP,
+            isTracked: true,
             overflowDollars: 10,
             relevantBestDayDollars: 200,
             requestedBucketCount: undefined,
@@ -71,6 +73,7 @@ describe('FundedCycleBestDayGrid', () => {
         const share = 0.4;
         const grid = new FundedCycleBestDayGrid({
             cushionStepDollars: STEP,
+            isTracked: true,
             overflowDollars: share * maxProfit + STEP,
             relevantBestDayDollars: 200,
             requestedBucketCount: undefined,
@@ -113,12 +116,39 @@ describe('FundedCycleBestDayGrid', () => {
         expect(grid.indexAtOrAbove(975.01)).toBe(40);
     });
 
-    it('with an explicit bucket count of 1, tracks no best day at all: one bucket, zero dollars, no overflow', () => {
+    it('with an explicit bucket count of 1 on a tracked plan, keeps the overflow bucket: a zero best day stays in bucket 0 and any positive day lands in the overflow bucket, never untracked', () => {
         const grid = gridOf(1);
-        expect(grid.keyRadix).toBe(1);
+        expect(grid.keyRadix).toBe(2);
         expect(grid.dollarsAt(0)).toBe(0);
-        expect(grid.indexAtOrAbove(1e9)).toBe(0);
+        expect(grid.indexAtOrAbove(0)).toBe(0);
+        expect(grid.indexAtOrAbove(0.01)).toBe(1);
+        expect(grid.indexAtOrAbove(1e9)).toBe(1);
+        expect(grid.dollarsAt(1)).toBe(4000);
     });
+
+    it('on an untracked plan, keeps one bucket of zero dollars whatever the request', () => {
+        for (const requestedBucketCount of [undefined, 1, 40]) {
+            const grid = new FundedCycleBestDayGrid({
+                cushionStepDollars: STEP,
+                isTracked: false,
+                overflowDollars: 4000,
+                relevantBestDayDollars: 0,
+                requestedBucketCount,
+            });
+            expect(grid.keyRadix).toBe(1);
+            expect(grid.dollarsAt(0)).toBe(0);
+            expect(grid.indexAtOrAbove(1e9)).toBe(0);
+        }
+    });
+
+    it.each([0, -3, 0.5, NaN, Infinity, -Infinity])(
+        'refuses a tracked bucket count of %s, which would leave no bucket or an unbounded grid',
+        (requestedBucketCount) => {
+            expect(() => gridOf(requestedBucketCount)).toThrow(
+                /FundedCycleBestDayGrid/,
+            );
+        },
+    );
 
     it('refuses an index outside the grid', () => {
         const grid = gridOf();
@@ -140,6 +170,7 @@ describe('FundedCycleBestDayGrid', () => {
             () =>
                 new FundedCycleBestDayGrid({
                     ...options,
+                    isTracked: true,
                     overflowDollars: 4000,
                     requestedBucketCount: undefined,
                 }),

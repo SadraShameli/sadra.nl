@@ -7,6 +7,7 @@ import {
     FirmId,
     fraction,
     type Fraction0to1,
+    InstrumentSymbol,
     type Plan,
     RungSizing,
 } from '~/lib/prop-calculator/core';
@@ -24,6 +25,8 @@ import {
 import { findFirm } from '~/lib/prop-calculator/firms';
 import { type SimOutputs, simulate } from '~/lib/prop-calculator/simulator';
 
+import { payoutCapToyPlan } from '../simulator/toyPlans';
+
 const videoFiftyK = {
     attemptCost: dollars(100),
     fundedValue: dollars(1000),
@@ -38,8 +41,16 @@ const toyRun: RunAttemptOutputs = {
         costPerAttempt: { standardError: 4, value: 300 },
         expectedNetPerAttempt: { standardError: 35, value: 150 },
     },
+    expectedAttempts: 2,
+    expectedLiveTransferCash: 0,
     expectedNetPerAttempt: 150,
     expectedPayoutPerFundedAccount: 1500,
+};
+
+const toyTransferRun: RunAttemptOutputs = {
+    ...toyRun,
+    expectedLiveTransferCash: 60,
+    expectedNetPerAttempt: 180,
 };
 
 function apexFiftyKEod(): Plan {
@@ -287,6 +298,121 @@ describe('attemptEconomicsOfRun (one EV-per-attempt definition, VD-28)', () => {
                 Math.abs((decomposed ?? 0) - run.expectedNetPerAttempt.value) /
                 Math.max(1, Math.abs(run.expectedNetPerAttempt.value));
             expect(relative).toBeLessThan(1e-9);
+        },
+    );
+
+    it('carries zero live transfer cash per attempt on a run without a transfer', () => {
+        expect(
+            attemptEconomicsOfRun(toyRun, 252).value
+                ?.liveTransferCashPerAttempt,
+        ).toBe(0);
+    });
+
+    it('prices the live transfer cash per attempt as the expected cash per run over the expected attempts per run', () => {
+        const run = attemptEconomicsOfRun(toyTransferRun, 252).value;
+        expect(run?.liveTransferCashPerAttempt).toBe(30);
+        expect(run?.expectedNetPerAttempt.value).toBe(180);
+    });
+
+    it('has formula terms that sum to the printed EV on a live-transfer run', () => {
+        const run = attemptEconomicsOfRun(toyTransferRun, 252).value;
+        if (!run) throw new Error('run economics missing');
+        const terms =
+            run.passProbability * run.fundedValue +
+            run.liveTransferCashPerAttempt -
+            run.attemptCost;
+        expect(terms).toBeCloseTo(run.expectedNetPerAttempt.value, 9);
+    });
+
+    it('folds the live transfer cash per attempt into the breakeven pass rate and the ratio so they stay the zero-EV rate', () => {
+        const run = attemptEconomicsOfRun(toyTransferRun, 252).value;
+        if (!run) throw new Error('run economics missing');
+        expect(run.fundedValueWithLiveTransfer).toBeCloseTo(1600, 9);
+        expect(run.breakevenPassRate.value).toBeCloseTo(300 / 1600, 9);
+        const atBreakeven =
+            (run.breakevenPassRate.value ?? NaN) *
+                run.fundedValueWithLiveTransfer -
+            run.attemptCost;
+        expect(atBreakeven).toBeCloseTo(0, 9);
+        expect(run.passMargin.value).toBeCloseTo(0.3 - 300 / 1600, 9);
+        expect(run.fundedValueToAttemptCost.value?.ratio).toBeCloseTo(
+            1600 / 300,
+            9,
+        );
+        expect(run.fundedValueToAttemptCost.value?.ratioText).toBe('5.33:1');
+        expect(run.fundedValueToAttemptCost.value?.netText).toBe('4.33:1');
+    });
+
+    it('keeps the breakeven pass rate and the ratio unchanged on a run without a transfer', () => {
+        const run = attemptEconomicsOfRun(toyRun, 252).value;
+        if (!run) throw new Error('run economics missing');
+        expect(run.fundedValueWithLiveTransfer).toBe(run.fundedValue);
+        expect(run.breakevenPassRate.value).toBeCloseTo(0.2, 12);
+        expect(run.fundedValueToAttemptCost.value?.ratio).toBeCloseTo(5, 12);
+    });
+
+    it('prices a live transfer on a run with no funded value as a breakeven from the transfer alone', () => {
+        const run = attemptEconomicsOfRun(
+            {
+                ...toyTransferRun,
+                costPerAttempt: 30,
+                expectedPayoutPerFundedAccount: 0,
+            },
+            252,
+        ).value;
+        if (!run) throw new Error('run economics missing');
+        expect(run.fundedValueWithLiveTransfer).toBeCloseTo(100, 9);
+        expect(run.breakevenPassRate.value).toBeCloseTo(0.3, 9);
+    });
+
+    it('refuses a run that carries live transfer cash with a zero pass probability', () => {
+        expect(
+            attemptEconomicsOfRun(
+                { ...toyTransferRun, attemptPassProbability: 0 },
+                252,
+            ).reason,
+        ).toBe(EconomicsReason.InvalidInput);
+    });
+
+    it('adds up on a simulated live-transfer run: pass x funded value + live transfer cash per attempt - attempt cost = the engine EV per attempt', () => {
+        const outputs = simulate({
+            fundedHorizonDays: 50,
+            instrument: InstrumentSymbol.MNQ,
+            liveTransferHazard: fraction(1),
+            maxEvalDays: 1,
+            plan: payoutCapToyPlan(),
+            riskPerTrade: 100,
+            rrRatio: 1,
+            seed: 7,
+            stopPoints: 10,
+            tradesPerDay: 1,
+            trials: 40,
+            winrate: 1,
+        });
+        expect(outputs.expectedLiveTransferCash).toBeGreaterThan(0);
+        const run = attemptEconomicsOfRun(outputs, 50).value;
+        if (!run) throw new Error('run economics missing');
+        expect(run.liveTransferCashPerAttempt).toBeGreaterThan(0);
+        const terms =
+            run.passProbability * run.fundedValue +
+            run.liveTransferCashPerAttempt -
+            run.attemptCost;
+        const relative =
+            Math.abs(terms - run.expectedNetPerAttempt.value) /
+            Math.max(1, Math.abs(run.expectedNetPerAttempt.value));
+        expect(relative).toBeLessThan(1e-9);
+    });
+
+    it.each([
+        { expectedAttempts: 0, expectedLiveTransferCash: 60 },
+        { expectedAttempts: 2, expectedLiveTransferCash: NaN },
+    ])(
+        'refuses live transfer inputs that cannot be priced per attempt %o',
+        (inputs) => {
+            expect(
+                attemptEconomicsOfRun({ ...toyTransferRun, ...inputs }, 252)
+                    .reason,
+            ).toBe(EconomicsReason.InvalidInput);
         },
     );
 });

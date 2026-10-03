@@ -35,6 +35,7 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
+import { posixPath } from '../../../posixPath';
 import { scriptedRng } from '../scriptedRng';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../../..');
@@ -372,7 +373,7 @@ function typeScriptFilesUnder(root: string): string[] {
     return readdirSync(path.join(REPO_ROOT, root), { recursive: true })
         .map(String)
         .filter((name) => /\.tsx?$/.test(name))
-        .map((name) => path.join(root, name));
+        .map((name) => posixPath(path.join(root, name)));
 }
 
 describe('the transitional cent-helper aliases are gone, one name each (N-69)', () => {

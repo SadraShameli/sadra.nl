@@ -1,6 +1,5 @@
 import { formatUsdCents, usdCentsFromDollars } from '~/lib/prop-accounts/core';
 import { AccountStateKind } from '~/lib/prop-accounts/metrics';
-import { TradingPhase } from '~/lib/prop-calculator';
 
 import { type AccountAlert } from './AccountAlert';
 import { isActive, type MonitoredAccount } from './AlertContext';
@@ -18,7 +17,6 @@ export class DashboardFloorMismatchRule extends AccountAlertRule {
         const state = monitored.accountState;
         if (state?.kind !== AccountStateKind.Reconstructed) return null;
         const { reconstructed } = state.latest;
-        if (reconstructed.kind !== TradingPhase.Funded) return null;
         const mismatch = reconstructed.dashboardFloorMismatch ?? null;
         if (mismatch === null) return null;
         const engineFloor = formatUsdCents(

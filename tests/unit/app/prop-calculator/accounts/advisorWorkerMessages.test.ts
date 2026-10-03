@@ -29,7 +29,9 @@ import {
     type DocumentedPolicySpec,
     type EngineOptimumRequest,
     EvalSizingAdvisor,
+    type EvalSizingAdvisorInput,
     FundedSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -89,6 +91,7 @@ function fundedAccount(
         resolvedDailyLossLimit: null,
         state,
         ...overrides,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -151,6 +154,7 @@ describe('advisorWorkerMessages (PT-34)', () => {
                     threshold: 48_000,
                     tradingDays: 0,
                 }),
+                ...NO_PENDING_PAYOUT_COUNTS,
             },
             maxEvalDays: 150,
             rulebook: DEFAULT_RULEBOOK,
@@ -277,6 +281,7 @@ function evalAccount(
         resolvedDailyLossLimit: null,
         state,
         ...overrides,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -448,6 +453,67 @@ describe('advisor value requests (PT-67)', () => {
         expect(result.payoutStake).toBeNull();
     });
 
+    it('carries the live-transfer assumption and the share sent live on every value run when the rulebook prices a hazard (PT-73d)', () => {
+        const account = fundedAccount();
+        const base = valueRequestOf(account);
+        const priced: AdvisorValueRequest = {
+            ...base,
+            spec: {
+                ...base.spec,
+                rulebook: {
+                    ...base.spec.rulebook,
+                    liveTransfer: {
+                        hazardPerPaidPayoutByFirm: { [FirmId.TopStep]: 0.3 },
+                    },
+                },
+            },
+        };
+
+        const result = advisorValueOutcomeOf(plan, priced);
+        const none = advisorValueOutcomeOf(plan, base);
+
+        if (
+            result.now.kind !== AdvisorRequestOutcomeKind.Succeeded ||
+            none.now.kind !== AdvisorRequestOutcomeKind.Succeeded ||
+            result.now.value.kind !== ValueResultKind.Value ||
+            none.now.value.kind !== ValueResultKind.Value
+        ) {
+            throw new Error('expected value runs');
+        }
+        expect(result.now.value.liveTransfer).toMatchObject({ hazard: 0.3 });
+        expect(
+            result.now.value.liveTransfer?.sentLiveShare,
+        ).toBeGreaterThanOrEqual(0);
+        expect(result.now.value.liveTransfer?.sentLiveShare).not.toBeNull();
+        expect('liveTransfer' in none.now.value).toBe(false);
+        expect(
+            advisorWorkerCacheKey({
+                firmId: FirmId.TopStep,
+                optIns: NO_PLAN_OPT_INS,
+                planSerial: serializePlanId(plan.id),
+                requests: [],
+                values: priced,
+            }),
+        ).not.toBe(
+            advisorWorkerCacheKey({
+                firmId: FirmId.TopStep,
+                optIns: NO_PLAN_OPT_INS,
+                planSerial: serializePlanId(plan.id),
+                requests: [],
+                values: base,
+            }),
+        );
+        if (
+            result.candidates.kind !== AdvisorRequestOutcomeKind.Succeeded ||
+            result.candidates.value.kind !== ValueResultKind.Candidates
+        ) {
+            throw new Error('expected candidates');
+        }
+        expect(result.candidates.value.liveTransfer).toMatchObject({
+            hazard: 0.3,
+        });
+    });
+
     it('prices a later rung from the account after the earlier rungs lost, never from the session start', () => {
         const account = evalAccount();
         const request = valueRequestOf(account);
@@ -555,5 +621,63 @@ describe('advisor value requests (PT-67)', () => {
                     swing.outcome.kind === AdvisorRequestOutcomeKind.Failed,
             ),
         ).toBe(true);
+    });
+});
+
+function ladderKey(overrides: Partial<EvalSizingAdvisorInput> = {}) {
+    const advisor = new EvalSizingAdvisor({
+        account: {
+            assumptions: [],
+            contractLimit: null,
+            cushion: 2000,
+            fundedTracker: null,
+            kind: TradingPhase.Eval,
+            plan,
+            resolvedDailyLossLimit: null,
+            state: accountState({
+                startingBalance: 50_000,
+                threshold: 48_000,
+                tradingDays: 0,
+            }),
+            ...NO_PENDING_PAYOUT_COUNTS,
+        },
+        maxEvalDays: 150,
+        rulebook: DEFAULT_RULEBOOK,
+        sims: 20,
+        snapshotAsOf: '2026-09-26',
+        substate: null,
+        today: '2026-09-26',
+        ...overrides,
+    });
+    const [request] = advisor.optimumRequests();
+    if (request?.source !== AdviceSource.LadderSearchFresh) {
+        throw new Error('expected a LadderSearchFresh request');
+    }
+    return advisorWorkerCacheKey(workerRequestOf([request]));
+}
+
+describe('advisorWorkerCacheKey keys a ladder on its engine policy (PT-104, F-118)', () => {
+    it('gives the same key for the same rulebook and rebuy lag', () => {
+        expect(ladderKey()).toBe(ladderKey());
+    });
+
+    it('changes the key when the measured rebuy lag changes', () => {
+        expect(
+            ladderKey({ measuredRebuyLag: { days: 3, samples: 5 } }),
+        ).not.toBe(ladderKey());
+    });
+
+    it('changes the key when the rulebook retained cushion changes', () => {
+        expect(
+            ladderKey({
+                rulebook: {
+                    ...DEFAULT_RULEBOOK,
+                    payout: {
+                        ...DEFAULT_RULEBOOK.payout,
+                        retainedCushionCents: 400_000,
+                    },
+                },
+            }),
+        ).not.toBe(ladderKey());
     });
 });

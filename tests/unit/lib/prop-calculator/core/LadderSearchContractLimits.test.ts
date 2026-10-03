@@ -217,6 +217,5 @@ describe('scoreLadder trades a cushion left below its bucket, as the simulator d
                 Math.abs(score.meanDaysOnFail - sim.meanDaysOnFail),
             ).toBeLessThan(0.1 * sim.meanDaysOnFail + 0.5);
         },
-        60_000,
     );
 });

@@ -212,4 +212,156 @@ describe('payoutSizeStats', () => {
         );
         expect(result.lowBalanceCount).toBe(0);
     });
+
+    it('breaks payouts into low-balance, above-cushion and no-snapshot bands with count, mean and median', () => {
+        const owner = account(EVAL_PLAN);
+        const balances: Readonly<
+            Record<string, { balanceCents: number; dashboardFloorCents: number }>
+        > = {
+            '2026-01-10': { balanceCents: 51_000, dashboardFloorCents: 50_000 },
+            '2026-01-20': {
+                balanceCents: 400_000,
+                dashboardFloorCents: 50_000,
+            },
+            '2026-01-30': {
+                balanceCents: 500_000,
+                dashboardFloorCents: 50_000,
+            },
+        };
+        const result = payoutSizeStats(
+            ledger({
+                accounts: [owner],
+                events: [purchased(owner)],
+                payouts: [
+                    payout(owner, 10_000, {
+                        netCents: 10_000,
+                        paidOn: '2026-01-10',
+                        status: PayoutStatus.Paid,
+                    }),
+                    payout(owner, 20_000, {
+                        netCents: 20_000,
+                        paidOn: '2026-01-20',
+                        status: PayoutStatus.Paid,
+                    }),
+                    payout(owner, 40_000, {
+                        netCents: 40_000,
+                        paidOn: '2026-01-30',
+                        status: PayoutStatus.Paid,
+                    }),
+                    payout(owner, 90_000, {
+                        netCents: 90_000,
+                        paidOn: '2026-02-10',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+            {
+                latestBalanceOnOrBefore: (_accountId, asOf) => {
+                    const balance = balances[asOf];
+                    return balance === undefined
+                        ? null
+                        : {
+                              balanceCents: usdCents(balance.balanceCents),
+                              dashboardFloorCents: usdCents(
+                                  balance.dashboardFloorCents,
+                              ),
+                          };
+                },
+                retainedCushionCents: usdCents(200_000),
+            },
+        );
+        expect(result.byBalance.lowBalance.count).toBe(1);
+        expect(result.byBalance.lowBalance.mean?.value).toBe(10_000);
+        expect(result.byBalance.lowBalance.median).toBe(usdCents(10_000));
+        expect(result.byBalance.aboveCushion.count).toBe(2);
+        expect(result.byBalance.aboveCushion.mean?.value).toBe(30_000);
+        expect(result.byBalance.aboveCushion.median).toBe(usdCents(30_000));
+        expect(result.byBalance.noSnapshot.count).toBe(1);
+        expect(result.byBalance.noSnapshot.mean?.value).toBe(90_000);
+        expect(result.lowBalanceCount).toBe(1);
+    });
+
+    it('puts every payout in the no-snapshot band without a snapshot lookup or a retained cushion', () => {
+        const owner = account(EVAL_PLAN);
+        const result = payoutSizeStats(
+            ledger({
+                accounts: [owner],
+                events: [purchased(owner)],
+                payouts: [
+                    payout(owner, 10_000, {
+                        netCents: 10_000,
+                        paidOn: '2026-01-10',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+        );
+        expect(result.byBalance.noSnapshot.count).toBe(1);
+        expect(result.byBalance.lowBalance.count).toBe(0);
+        expect(result.byBalance.lowBalance.mean).toBeNull();
+        expect(result.byBalance.aboveCushion.count).toBe(0);
+        expect(result.byBalance.aboveCushion.mean).toBeNull();
+        expect(result.byBalance.aboveCushion.median).toBeNull();
+        expect(result.byBalance.lowBalance.median).toBeNull();
+        expect(result.byBalance.noSnapshot.median).toBe(usdCents(10_000));
+    });
+
+    it('gives an empty band no median instead of a real-looking zero', () => {
+        const { aboveCushion, lowBalance, noSnapshot } = payoutSizeStats(
+            ledger({}),
+        ).byBalance;
+        for (const band of [aboveCushion, lowBalance, noSnapshot]) {
+            expect(band.count).toBe(0);
+            expect(band.mean).toBeNull();
+            expect(band.median).toBeNull();
+        }
+    });
+
+    it('reports the real bucket width of the bins it returns, not the requested one', () => {
+        const owner = account(EVAL_PLAN);
+        const result = payoutSizeStats(
+            ledger({
+                accounts: [owner],
+                events: [purchased(owner)],
+                payouts: [
+                    payout(owner, 10_000, {
+                        netCents: 10_000,
+                        paidOn: '2026-01-01',
+                        status: PayoutStatus.Paid,
+                    }),
+                    payout(owner, 80_000, {
+                        netCents: 80_000,
+                        paidOn: '2026-01-02',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+            { bucketWidthCents: usdCents(50_000) },
+        );
+        expect(result.histogram).toHaveLength(2);
+        expect(result.bucketWidthCents).toBe(35_000);
+        for (const bin of result.histogram) {
+            expect(bin.binEnd - bin.binStart).toBeCloseTo(35_000, 6);
+        }
+    });
+
+    it('reports a zero bucket width for identical payouts and for none', () => {
+        const owner = account(EVAL_PLAN);
+        const same = payoutSizeStats(
+            ledger({
+                accounts: [owner],
+                events: [purchased(owner)],
+                payouts: [
+                    payout(owner, 10_000, {
+                        netCents: 10_000,
+                        paidOn: '2026-01-01',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+        );
+        expect(same.histogram).toHaveLength(1);
+        expect(same.bucketWidthCents).toBe(0);
+        expect(payoutSizeStats(ledger({})).bucketWidthCents).toBe(0);
+    });
 });

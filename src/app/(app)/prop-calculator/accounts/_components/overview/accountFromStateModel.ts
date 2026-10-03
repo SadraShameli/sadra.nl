@@ -1,17 +1,38 @@
 import {
     type AccountFromStateFigures,
+    type OverviewPreviousAccount,
     type OverviewRequest,
     OverviewRequestKind,
     ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
+import { PAYOUT_STAKE_REQUEST_NOW_TRANSFER_TEXT } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
 import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
 import {
+    type AccountStateEventRow,
+    AccountStateKind,
+    type AccountStatePayoutRow,
+    type AccountStateResult,
+    type AccountStateSnapshotRow,
+    type DayLossAccount,
+    DayLossBasis,
+    dayLossShareOf,
+    DayLossUnmeasuredReason,
+    type FirmPayoutCount,
+    latestTwoSnapshots,
+    type ModeledAccountRow,
+    type SnapshotAccountRow,
+    snapshotInputFrom,
+} from '~/lib/prop-accounts';
+import { type Plan, TradingPhase } from '~/lib/prop-calculator';
+import {
+    labelledAssumptionLines,
     NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
     NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
     nextPayoutEvidenceText,
     type NextPayoutProjection,
     NextPayoutTimingKind,
     nextPayoutTimingOf,
+    type RulebookParameters,
     type SizingStage,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -81,6 +102,7 @@ export interface AccountFromStateMilestoneModel {
 export interface AccountFromStateModel {
     readonly asOf: string;
     readonly creditBasis: string;
+    readonly liveTransferNotes: readonly string[];
     readonly milestone: AccountFromStateMilestoneModel;
     readonly nextPayout: AccountFromStateNextPayoutModel | null;
     readonly stage: SizingStage.Eval | SizingStage.Funded;
@@ -130,6 +152,23 @@ type AccountFromStateMilestoneValueModel =
           readonly text: string;
       };
 
+interface EvalDayLossRequestEntry {
+    readonly accountId: string;
+    readonly request: OverviewRequest;
+}
+
+interface PreviousAccountInputs {
+    readonly accountId: string;
+    readonly events: readonly AccountStateEventRow[];
+    readonly firmCountAt: (asOf: string) => FirmPayoutCount | null;
+    readonly payouts: readonly AccountStatePayoutRow[];
+    readonly plan: Plan;
+    readonly rulebook: RulebookParameters;
+    readonly snapshots: readonly AccountStateSnapshotRow[];
+    readonly state: AccountStateResult;
+    readonly tracked: ModeledAccountRow<SnapshotAccountRow>;
+}
+
 export function accountFromStateViewOf(
     engine: SlotEngine,
     request: OverviewRequest,
@@ -170,6 +209,112 @@ export function accountFromStateViewOf(
     }
 }
 
+export function evalValueLossDollarsOf(
+    entries: readonly EvalDayLossRequestEntry[],
+    engine: SlotEngine,
+): ReadonlyMap<string, number> {
+    return new Map(
+        entries.flatMap(({ accountId, request }) => {
+            const slot = engineSlotOf(engine, request, (result) =>
+                result.kind === OverviewRequestKind.AccountFromState
+                    ? result.figures
+                    : null,
+            );
+            if (slot.kind !== EngineSlotKind.Ready) return [];
+            const { valueAtPrevious, valueNow } = slot.figures;
+            return valueAtPrevious?.kind === ValueChainStepOutcomeKind.Value
+                ? [
+                      [
+                          accountId,
+                          valueAtPrevious.value.creditFree.value -
+                              valueNow.creditFree.value,
+                      ] as const,
+                  ]
+                : [];
+        }),
+    );
+}
+
+export function previousAccountOf(
+    inputs: PreviousAccountInputs,
+): null | OverviewPreviousAccount {
+    const { state } = inputs;
+    if (
+        state.kind !== AccountStateKind.Reconstructed ||
+        state.previous === null ||
+        state.latest.reconstructed.kind !== TradingPhase.Eval ||
+        state.previous.reconstructed.kind !== TradingPhase.Eval
+    ) {
+        return null;
+    }
+    const candidates = evalDayLossCandidateIdsOf(
+        [
+            {
+                accountId: inputs.accountId,
+                events: inputs.events,
+                paidPayouts: inputs.payouts,
+                state,
+            },
+        ],
+        inputs.rulebook,
+    );
+    if (!candidates.includes(inputs.accountId)) return null;
+    const { previous: snapshot } = latestTwoSnapshots(inputs.snapshots);
+    const firmCount = inputs.firmCountAt(state.previous.asOf);
+    if (snapshot === null || firmCount === null) return null;
+    const { input, pendingPayoutCounts } = snapshotInputFrom(
+        inputs.plan,
+        inputs.tracked,
+        snapshot,
+        inputs.events,
+        inputs.payouts,
+        state.previous.asOf,
+        firmCount,
+    );
+    return { account: input, pendingPayoutCounts };
+}
+
+function evalDayLossCandidateIdsOf(
+    accounts: readonly DayLossAccount[],
+    rulebook: RulebookParameters,
+): readonly string[] {
+    const share = dayLossShareOf({
+        accounts,
+        availableBankrollCents: null,
+        rulebook,
+    });
+    return [
+        ...share.days.flatMap((day) =>
+            day.entries
+                .filter((entry) => entry.basis === DayLossBasis.EvalFeeHeuristic)
+                .map((entry) => entry.accountId),
+        ),
+        ...share.unmeasured
+            .filter(
+                (entry) => entry.reason === DayLossUnmeasuredReason.Unpriceable,
+            )
+            .map((entry) => entry.accountId),
+    ];
+}
+
+function milestoneLiveTransferNotesOf(
+    milestone: AccountFromStateFigures['milestone'],
+): readonly string[] {
+    if (milestone.value.kind !== ValueChainStepOutcomeKind.Value) return [];
+    const { cumulativePayoutTrigger, liveTransfer } = milestone.value.value;
+    return [
+        ...labelledAssumptionLines('Value at the milestone', liveTransfer),
+        ...labelledAssumptionLines(
+            'Value at the milestone',
+            cumulativePayoutTrigger,
+        ),
+        ...(liveTransfer !== undefined &&
+        milestone.kind === MilestoneKind.Funded
+            ? [PAYOUT_STAKE_REQUEST_NOW_TRANSFER_TEXT]
+            : []),
+    ];
+}
+
 function modelOf(
     figures: AccountFromStateFigures,
     asOf: string,
@@ -178,6 +323,17 @@ function modelOf(
     return {
         asOf,
         creditBasis: CREDIT_BASIS_TEXT,
+        liveTransferNotes: [
+            ...labelledAssumptionLines(
+                'Value from this state',
+                valueNow.liveTransfer,
+            ),
+            ...labelledAssumptionLines(
+                'Value from this state',
+                valueNow.cumulativePayoutTrigger,
+            ),
+            ...milestoneLiveTransferNotesOf(milestone),
+        ],
         milestone: {
             debited:
                 milestone.debited === null

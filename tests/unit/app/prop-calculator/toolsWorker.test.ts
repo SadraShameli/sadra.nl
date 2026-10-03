@@ -26,6 +26,7 @@ import {
 import {
     CopySplitRowKind,
     copySplitTrials,
+    DEFAULT_COPY_SPLIT_FUNDED,
 } from '~/lib/prop-calculator/advisor/policy';
 import { ValueChainStepKind } from '~/lib/prop-calculator/advisor/value';
 import { MffuVariant, TopStepVariant } from '~/lib/prop-calculator/core';
@@ -416,6 +417,7 @@ function copySplit(
     }> = {},
 ) {
     return computeToolsResult({
+        funded: DEFAULT_COPY_SPLIT_FUNDED,
         kind: ToolsRequestKind.CopySplit,
         objective: SizingObjective.MonthlyNet,
         runId: 1,

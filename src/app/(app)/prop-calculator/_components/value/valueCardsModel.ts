@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { planReferenceOf } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollModel';
 import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 import {
@@ -17,14 +18,15 @@ import {
     CENTS_PER_DOLLAR,
     findFirm,
     points,
-    serializePlanId,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 import {
     buildEnginePolicy,
+    type CumulativePayoutTriggerAssumption,
     type DocumentedPolicySpec,
     type EnginePolicy,
     enginePolicySchema,
+    type LiveTransferHazardAssumption,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -80,8 +82,12 @@ export interface ValueChainCardStep {
     readonly assumptions: readonly string[];
     readonly creditFree: UncertainValue;
     readonly creditInclusive: UncertainValue;
+    readonly cumulativePayoutTrigger:
+        | CumulativePayoutTriggerAssumption
+        | undefined;
     readonly gapFromPrevious: null | UncertainValue;
     readonly kind: ValueChainStepKind;
+    readonly liveTransfer: LiveTransferHazardAssumption | undefined;
 }
 
 const positiveIntSchema = z.coerce.number().int().positive();
@@ -225,14 +231,7 @@ export function valueCardsInputFor(
     }
     const policy: EnginePolicy = parsedPolicy.data;
     const cards: ValueCardsSpec = {
-        plan: {
-            firmId: plan.id.firm,
-            optIns: {
-                takesFundedReset: inputs.takesFundedReset,
-                takesOneTimeEarlyWithdrawal: inputs.takesOneTimeEarlyWithdrawal,
-            },
-            planSerial: serializePlanId(plan.id),
-        },
+        plan: planReferenceOf(plan),
         spec: {
             enginePolicy: policy,
             rulebook,
@@ -279,6 +278,7 @@ export function valueChainCardSteps(
             assumptions: step.assumptions,
             creditFree: step.value.creditFree,
             creditInclusive: step.value.creditInclusive,
+            cumulativePayoutTrigger: step.value.cumulativePayoutTrigger,
             gapFromPrevious:
                 previous === null
                     ? null
@@ -288,6 +288,7 @@ export function valueChainCardSteps(
                           CreditBasis.CreditFree,
                       ),
             kind: step.kind,
+            liveTransfer: step.value.liveTransfer,
         };
     });
 }

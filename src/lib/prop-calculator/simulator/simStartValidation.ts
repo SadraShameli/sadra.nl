@@ -47,7 +47,11 @@ export function simStartIssue(
     plan: Plan,
     start: SimStart,
     maxEvalDays: number,
+    copyAccounts = 1,
 ): null | string {
+    if (copyAccounts > 1) {
+        return `copyAccounts is ${copyAccounts}, but a from-state run values one account: run it once per account`;
+    }
     switch (start.phase) {
         case TradingPhase.Eval: {
             if (plan.isInstantFunded) {

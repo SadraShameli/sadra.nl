@@ -4,9 +4,13 @@ import {
     ApexVariant,
     applyClosedTrade,
     applyTrade,
+    DailyLossLimitKind,
     dollars,
+    type DrawdownStrategy,
     FirmId,
+    fraction,
     InstrumentSymbol,
+    LivePlan,
     type Plan,
     type PlanId,
     PolicySizing,
@@ -14,6 +18,8 @@ import {
     resolvePositionSizing,
     resolveRiskAt,
     RungSizing,
+    StaticDrawdown,
+    StrictlyBelowStaticDrawdown,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
@@ -345,5 +351,189 @@ describe('applyClosedTrade', () => {
         applyClosedTrade(actual, apexIntraday, TradingPhase.Funded, -300);
 
         expect(actual).toStrictEqual(expected);
+    });
+});
+
+function floorLivePlan(
+    drawdown: DrawdownStrategy,
+    dailyLossLimit: null | number = null,
+): LivePlan {
+    return new LivePlan({
+        cushionPercent: { postLock: fraction(0.05), preLock: fraction(0.05) },
+        label: 'Floor Live',
+        liveDailyLossLimit:
+            dailyLossLimit === null
+                ? null
+                : { amount: dollars(dailyLossLimit), kind: DailyLossLimitKind.Flat },
+        liveDrawdown: drawdown,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(1) },
+        ],
+        startingBalance: dollars(10_000),
+    });
+}
+
+function strictLivePlan(): LivePlan {
+    return floorLivePlan(
+        new StrictlyBelowStaticDrawdown({ amount: dollars(9000) }),
+    );
+}
+
+describe('resolveLiveRiskAt on an account sitting exactly on a strictly-below floor (WP62b)', () => {
+    const positionSizing = resolvePositionSizing(InstrumentSymbol.NQ, 22.5);
+    if (positionSizing === null) throw new Error('expected a position size');
+    it('places the one-contract minimum when the cushion is exactly 0 and the account is still alive', () => {
+        const plan = strictLivePlan();
+        const state = plan.initialState();
+        state.balance = state.threshold;
+
+        expect(plan.isBust(state)).toBe(false);
+        expect(
+            resolveLiveRiskAt({
+                commission: dollars(0),
+                plan,
+                positionSizing,
+                state,
+            }),
+        ).toStrictEqual({ rewardRisk: 450, risk: 450 });
+    });
+
+    it('places nothing when a daily loss room under one contract is all that is left', () => {
+        const plan = floorLivePlan(
+            new StrictlyBelowStaticDrawdown({ amount: dollars(9000) }),
+            2000,
+        );
+        const state = plan.initialState();
+        state.balance = state.threshold;
+        state.todayPnL = -1800;
+
+        expect(
+            resolveLiveRiskAt({
+                commission: dollars(0),
+                plan,
+                positionSizing,
+                state,
+            }),
+        ).toStrictEqual({ rewardRisk: 0, risk: 0 });
+    });
+
+    it('leaves every other live plan at cushion 0 sizing to risk 0, since a plain static floor busts there', () => {
+        const plan = floorLivePlan(
+            new StaticDrawdown({ amount: dollars(9000) }),
+        );
+        const state = plan.initialState();
+        state.balance = state.threshold;
+
+        expect(plan.isBust(state)).toBe(true);
+        expect(
+            resolveLiveRiskAt({
+                commission: dollars(0),
+                plan,
+                positionSizing,
+                state,
+            }),
+        ).toStrictEqual({ rewardRisk: 0, risk: 0 });
+    });
+
+    it.each([200, 449.99, 1e-10])(
+        'loses the whole one-contract stop from a cushion of $%d, so the loss crosses the strict floor and busts instead of landing exactly on it',
+        (cushion) => {
+            const plan = strictLivePlan();
+            const state = plan.initialState();
+            state.balance = state.threshold + cushion;
+
+            const result = resolveLiveRiskAt({
+                commission: dollars(0),
+                plan,
+                positionSizing,
+                state,
+            });
+
+            expect(result).toStrictEqual({ rewardRisk: 450, risk: 450 });
+            expect(
+                plan.isBust({
+                    ...state,
+                    balance: state.balance - result.risk,
+                }),
+            ).toBe(true);
+        },
+    );
+
+    it('keeps the loss capped to the cushion on a plain static floor, where landing on the floor already busts', () => {
+        const plan = floorLivePlan(
+            new StaticDrawdown({ amount: dollars(9000) }),
+        );
+        const state = plan.initialState();
+        state.balance = state.threshold + 200;
+
+        expect(
+            resolveLiveRiskAt({
+                commission: dollars(0),
+                plan,
+                positionSizing,
+                state,
+            }),
+        ).toStrictEqual({ rewardRisk: 450, risk: 200 });
+    });
+
+    it('lets a daily loss room that binds before the cushion cap the loss, and places nothing when that room is under one contract', () => {
+        const plan = floorLivePlan(
+            new StrictlyBelowStaticDrawdown({ amount: dollars(9000) }),
+            2000,
+        );
+        const state = plan.initialState();
+        state.todayPnL = -1700;
+
+        expect(
+            resolveLiveRiskAt({
+                commission: dollars(0),
+                plan,
+                positionSizing,
+                state,
+            }),
+        ).toStrictEqual({ rewardRisk: 0, risk: 0 });
+    });
+
+    it('sizes a live plan with no drawdown, only a daily loss limit, to risk 0 at a balance of 0 as before', () => {
+        const plan = new LivePlan({
+            cushionPercent: {
+                postLock: fraction(0.05),
+                preLock: fraction(0.05),
+            },
+            label: 'Daily Limit Only Live',
+            liveDailyLossLimit: {
+                amount: dollars(2000),
+                kind: DailyLossLimitKind.Flat,
+            },
+            liveDrawdown: null,
+            payoutTiers: [
+                { thresholdProfit: dollars(0), traderShare: fraction(1) },
+            ],
+        });
+        const state = plan.initialState();
+
+        expect(state.balance).toBe(0);
+        expect(
+            resolveLiveRiskAt({
+                commission: dollars(0),
+                plan,
+                positionSizing,
+                state,
+            }),
+        ).toStrictEqual({ rewardRisk: 0, risk: 0 });
+    });
+
+    it('sizes a cushion above 0 exactly as before: 5% of $9,000 is one $450 contract', () => {
+        const plan = strictLivePlan();
+        const state = plan.initialState();
+
+        expect(
+            resolveLiveRiskAt({
+                commission: dollars(0),
+                plan,
+                positionSizing,
+                state,
+            }),
+        ).toStrictEqual({ rewardRisk: 450, risk: 450 });
     });
 });

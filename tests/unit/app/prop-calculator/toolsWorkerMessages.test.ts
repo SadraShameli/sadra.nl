@@ -5,6 +5,7 @@ import {
     type CopySplitToolsResult,
     parseToolsRequest,
     parseToolsResult,
+    runIdOf,
     ToolsRequestKind,
     ToolsResponseKind,
     type ToolsWorkerRequest,
@@ -18,7 +19,10 @@ import {
     RebuyLagBasis,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
-import { CopySplitRowKind } from '~/lib/prop-calculator/advisor/policy';
+import {
+    CopySplitRowKind,
+    DEFAULT_COPY_SPLIT_FUNDED,
+} from '~/lib/prop-calculator/advisor/policy';
 import {
     FUNDED_VALUE_SAMPLE_RANGE_LABEL,
     ValueChainStepKind,
@@ -600,6 +604,7 @@ function copySplitRequest(
     }> = {},
 ): ToolsWorkerRequest {
     return {
+        funded: DEFAULT_COPY_SPLIT_FUNDED,
         kind: ToolsRequestKind.CopySplit,
         objective: SizingObjective.MonthlyNet,
         runId: 11,
@@ -743,5 +748,16 @@ describe('toolsResultSchema CopySplit kind (PT-63, F-V24)', () => {
                 },
             }),
         ).toThrow();
+    });
+});
+
+describe('runIdOf', () => {
+    it('reads a numeric runId from an object and nothing else', () => {
+        expect(runIdOf({ runId: 7 })).toBe(7);
+        expect(runIdOf({ runId: '7' })).toBeNull();
+        expect(runIdOf({})).toBeNull();
+        expect(runIdOf(null)).toBeNull();
+        expect(runIdOf(undefined)).toBeNull();
+        expect(runIdOf('runId')).toBeNull();
     });
 });

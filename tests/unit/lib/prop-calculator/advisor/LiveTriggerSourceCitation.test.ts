@@ -30,6 +30,7 @@ import {
     liveTriggerCountText,
     liveTriggerLimitsFor,
     LiveTriggerScope,
+    NO_PENDING_PAYOUT_COUNTS,
     PayoutBlockReasonKind,
     PayoutRequestDecisionKind,
     PayoutRequestRule,
@@ -117,6 +118,7 @@ function advisorFor(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
     return new FundedSizingAdvisor({
         account,
@@ -309,7 +311,9 @@ describe('the strict payout rule context accepts the source fields (PT-36f, step
             quote: FIRST_QUOTE.quote,
             url: FIRST_QUOTE.url,
         },
+        otherAccountsPendingPayoutCount: 0,
         paidPayoutsSinceLastLiveAccount: null,
+        pendingPayoutCount: 0,
         pendingPayouts: dollars(0),
         personalRequestOverride: null,
         personalRetainedCushion: null,
@@ -338,7 +342,7 @@ describe('the strict payout rule context accepts the source fields (PT-36f, step
 });
 
 describe('one verification check for the live triggers (PT-36f, step 7)', () => {
-    it('reads PolicyVerification.Confirmed once in PayoutAdvice.ts, through the shared citation helper', () => {
+    it('never reads PolicyVerification.Confirmed in PayoutAdvice.ts: the one confirmation check is isConfirmedTrigger (PT-36j)', () => {
         const text = readFileSync(
             path.resolve(
                 import.meta.dirname,
@@ -347,6 +351,6 @@ describe('one verification check for the live triggers (PT-36f, step 7)', () => 
             'utf8',
         );
 
-        expect(text.match(/PolicyVerification\.Confirmed/g)).toHaveLength(1);
+        expect(text.match(/PolicyVerification\.Confirmed/g)).toBeNull();
     });
 });

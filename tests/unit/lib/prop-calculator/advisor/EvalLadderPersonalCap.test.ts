@@ -19,6 +19,7 @@ import {
     EvalSizingAdvisor,
     LadderEngineOptimumResultKind,
     type LadderSearchRequest,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     type ReconstructedFundedOrEvalAccount,
     runEngineOptimum,
@@ -57,6 +58,7 @@ function accountWithCushion(cushion: number): ReconstructedFundedOrEvalAccount {
         plan: registryPlan(),
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

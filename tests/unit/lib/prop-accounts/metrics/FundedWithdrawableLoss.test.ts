@@ -23,6 +23,7 @@ import {
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
+import { posixPath } from '../../../posixPath';
 import { fundedReconstructed, mffProPlan } from '../reconstructionFixtures';
 
 const SOURCE_ROOT = path.join(import.meta.dirname, '../../../../../src');
@@ -62,7 +63,7 @@ const LOSS_MEASURE_CONSUMERS: readonly string[] = [
 function filesMatching(pattern: RegExp): string[] {
     return sourceFiles(SOURCE_ROOT)
         .filter((file) => pattern.test(readFileSync(file, 'utf8')))
-        .map((file) => path.relative(SOURCE_ROOT, file))
+        .map((file) => posixPath(path.relative(SOURCE_ROOT, file)))
         .toSorted(compareText);
 }
 

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import {
@@ -19,6 +21,7 @@ import { OverviewView } from '~/app/(app)/prop-calculator/accounts/_components/o
 import { LEDGER_ONLY_SNAPSHOT_NOTICE } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
 import { ImportView } from '~/app/(app)/prop-calculator/accounts/import/ImportView';
 import { LedgerView } from '~/app/(app)/prop-calculator/accounts/ledger/LedgerView';
+import { NOT_APPLICABLE } from '~/lib/format';
 import {
     AccountEventKind,
     AccountStage,
@@ -29,12 +32,21 @@ import {
     FeeKind,
     firmKeyId,
     FirmKeyKind,
+    firmKeyLabel,
+    payoutLag,
     PayoutStatus,
+    PortfolioLedger,
+    type SampledEstimate,
     SnapshotField,
     SnapshotSource,
     UNLISTED_FIRM_LABEL,
+    usdCents,
 } from '~/lib/prop-accounts';
-import { ALL_FIRMS, NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
+import {
+    ALL_FIRMS,
+    NO_PLAN_OPT_INS,
+    serializePlanId,
+} from '~/lib/prop-calculator';
 
 import { AccountsTable } from './AccountsTableWithData';
 
@@ -94,6 +106,18 @@ const harness = vi.hoisted(() => {
             },
         );
     }
+    const signedIn = {
+        data: { user: { id: 'user-a' } },
+        error: null,
+        isPending: false,
+    };
+    const session: {
+        current: {
+            data: null | { user: { id: string } };
+            error: Error | null;
+            isPending: boolean;
+        };
+    } = { current: signedIn };
     return {
         api: {
             propAccounts: node(['propAccounts']),
@@ -104,7 +128,9 @@ const harness = vi.hoisted(() => {
         reset() {
             queries.clear();
             mutations.clear();
+            session.current = signedIn;
         },
+        session,
     };
 });
 
@@ -117,11 +143,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 vi.mock('~/lib/auth/client', () => ({
-    useSession: () => ({
-        data: { user: { id: 'user-a' } },
-        error: null,
-        isPending: false,
-    }),
+    useSession: () => harness.session.current,
 }));
 
 vi.mock('~/trpc/react', () => ({ api: harness.api }));
@@ -232,6 +254,36 @@ function inputLabelled(scope: ParentNode, label: string): HTMLElement {
               );
     if (control === null) throw new Error(`no control labelled ${label}`);
     return control;
+}
+
+function lagPayout(
+    accountId: string,
+    id: string,
+    requestedOn: string,
+    approvedOn: null | string,
+    paidOn: string,
+) {
+    return {
+        accountId,
+        approvedOn,
+        grossCents: usdCents(40_000),
+        id,
+        netCents: usdCents(40_000),
+        note: null,
+        paidOn,
+        requestedOn,
+        status: PayoutStatus.Paid,
+        userId: USER_ID,
+    };
+}
+
+function lagText(estimate: null | SampledEstimate): string {
+    if (estimate === null) return NOT_APPLICABLE;
+    const standardError =
+        estimate.standardError === null
+            ? NOT_APPLICABLE
+            : estimate.standardError.toFixed(1);
+    return `${estimate.value.toFixed(1)} days (SE ${standardError}, n = ${String(estimate.n)})`;
 }
 
 function ledgerOnlyAccount(overrides: Record<string, unknown> = {}) {
@@ -670,6 +722,175 @@ describe('ledger-only accounts across the accounts pages', () => {
         expect(container.textContent).toContain('9.0 days');
     });
 
+    it('shows the library payout lag for every firm, the modeled one, the ledger-only one with payouts and the one without', () => {
+        const modeledFirm = ALL_FIRMS[1];
+        const modeledPlan = modeledFirm?.plans[0];
+        if (modeledFirm === undefined || modeledPlan === undefined) {
+            throw new Error('the lag test needs a second listed firm');
+        }
+        const modeledId = 'c0ffee00-1111-4222-8333-444455556666';
+        const modeled = ledgerOnlyAccount({
+            externalFirmId: null,
+            firmId: modeledFirm.id,
+            id: modeledId,
+            label: 'Modeled one',
+            planLabel: null,
+            planSerial: serializePlanId(modeledPlan.id),
+            tracking: AccountTracking.Modeled,
+        });
+        const accounts = [
+            ledgerOnlyAccount(),
+            modeled,
+            atHola({ id: 'hola-1' }),
+        ];
+        const payouts = [
+            lagPayout(
+                LEDGER_ID,
+                'p1',
+                '2026-09-01',
+                '2026-09-05',
+                '2026-09-10',
+            ),
+            lagPayout(
+                LEDGER_ID,
+                'p2',
+                '2026-09-02',
+                '2026-09-03',
+                '2026-09-04',
+            ),
+            lagPayout(modeledId, 'p3', '2026-09-01', null, '2026-09-08'),
+        ];
+        harness.queries.set('propAccounts.account.list', answer(accounts));
+        harness.queries.set('propAccounts.payout.list', answer(payouts));
+        harness.queries.set('propAccounts.fee.list', answer([]));
+        render(<LedgerView />);
+        const expected = payoutLag(
+            PortfolioLedger.fromRows(USER_ID, {
+                accounts,
+                events: [],
+                fees: [],
+                payouts,
+            }),
+        ).perFirm;
+        expect(expected).toHaveLength(3);
+        const table = [...container.querySelectorAll('h3')]
+            .find((heading) => heading.textContent === 'Payout lag by firm')
+            ?.parentElement?.querySelector('table');
+        if (table === null || table === undefined) {
+            throw new Error('no payout lag table');
+        }
+        const rendered = [...table.querySelectorAll(':scope tbody tr')].map(
+            (row) =>
+                [...row.querySelectorAll(':scope > td')].map(
+                    (cell) => cell.textContent,
+                ),
+        );
+        expect(rendered).toEqual(
+            expected.map((entry) => [
+                firmKeyLabel(entry.firmKey, [HOLA]),
+                lagText(entry.requestToApproval),
+                lagText(entry.requestToPaid),
+            ]),
+        );
+    });
+
+    describe('the payout lag card states why it has nothing to show', () => {
+        const LOADING = '[aria-label="Loading payout lag"]';
+
+        beforeEach(() => {
+            harness.queries.set(
+                'propAccounts.account.list',
+                answer([ledgerOnlyAccount()]),
+            );
+            harness.queries.set(
+                'propAccounts.payout.list',
+                answer([
+                    lagPayout(
+                        LEDGER_ID,
+                        'p1',
+                        '2026-09-01',
+                        '2026-09-05',
+                        '2026-09-10',
+                    ),
+                ]),
+            );
+            harness.queries.set('propAccounts.fee.list', answer([]));
+        });
+
+        it('shows a loading state, not an empty card, while the session is unresolved', () => {
+            harness.session.current = {
+                data: null,
+                error: null,
+                isPending: true,
+            };
+            render(<LedgerView />);
+            expect(container.querySelector(LOADING)).not.toBeNull();
+            expect(container.textContent).not.toContain('Payout lag by firm');
+        });
+
+        it('shows a loading state until your firms have loaded so no firm is labelled wrongly', () => {
+            harness.queries.set('propAccounts.externalFirm.list', {
+                data: undefined,
+                error: null,
+                isError: false,
+                isPending: true,
+            });
+            render(<LedgerView />);
+            expect(container.querySelector(LOADING)).not.toBeNull();
+            expect(container.textContent).not.toContain('Payout lag by firm');
+        });
+
+        it('says the lag could not be shown when the session failed', () => {
+            harness.session.current = {
+                data: null,
+                error: new Error('session service down'),
+                isPending: false,
+            };
+            render(<LedgerView />);
+            expect(container.textContent).toContain(
+                'The payout lag could not be loaded',
+            );
+            expect(container.textContent).toContain('session service down');
+            expect(container.querySelector(LOADING)).toBeNull();
+        });
+
+        it('says the lag could not be shown when your firms failed to load', () => {
+            harness.queries.set('propAccounts.externalFirm.list', {
+                data: undefined,
+                error: new Error('firms service down'),
+                isError: true,
+                isPending: false,
+            });
+            render(<LedgerView />);
+            expect(container.textContent).toContain(
+                'The payout lag could not be loaded',
+            );
+            expect(container.textContent).toContain('firms service down');
+        });
+
+        it('hides the card when no firm has a payout to estimate a lag from', () => {
+            harness.queries.set(
+                'propAccounts.payout.list',
+                answer([
+                    {
+                        ...lagPayout(
+                            LEDGER_ID,
+                            'p1',
+                            '2026-09-01',
+                            null,
+                            '2026-09-10',
+                        ),
+                        paidOn: null,
+                        status: PayoutStatus.Requested,
+                    },
+                ]),
+            );
+            render(<LedgerView />);
+            expect(container.textContent).not.toContain('Payout lag by firm');
+            expect(container.querySelector(LOADING)).toBeNull();
+        });
+    });
+
     it('fails loud instead of quietly grouping a payout under an empty external firm when its account has neither a listed nor an external firm', () => {
         harness.queries.set(
             'propAccounts.account.list',
@@ -783,5 +1004,26 @@ describe('ledger-only accounts across the accounts pages', () => {
                 'aria-invalid',
             ),
         ).toBe('true');
+    });
+});
+
+describe('the ledger page shares the library payout lag (PT-91, F-V32)', () => {
+    const source = readFileSync(
+        path.resolve(
+            import.meta.dirname,
+            '../../../../../src/app/(app)/prop-calculator/accounts/ledger/LedgerView.tsx',
+        ),
+        'utf8',
+    );
+
+    it.each(['sampledMean', 'payoutLagByFirm', 'lagDaysOf'])(
+        'keeps no %s in LedgerView.tsx',
+        (name) => {
+            expect(source).not.toContain(name);
+        },
+    );
+
+    it('reads the library payoutLag', () => {
+        expect(source).toContain('payoutLag(');
     });
 });

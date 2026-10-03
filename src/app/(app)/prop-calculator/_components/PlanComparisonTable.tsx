@@ -1,7 +1,7 @@
 'use client';
 
 import { Layers } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -23,16 +23,18 @@ import {
     type TradingFirm,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
 import { ComputationId } from './ComputationId';
 import {
+    ComparisonRankingLabel,
+    ComparisonRankingNote,
     noPayoutColumn,
-    parseAccountsPerSession,
-    parsePositiveNumber,
     screenHourColumn,
     ScreenHourInputs,
+    useComparisonView,
 } from './FirmComparisonTable';
 import { panelDescriptions } from './kpiDescriptions';
 import { ptddColor } from './metricColors';
@@ -58,15 +60,21 @@ export interface Row {
 
 interface PlanComparisonTableProperties {
     activePlan: Plan;
+    bankrollCents?: null | number;
     baseInputs: Omit<SimInputs, 'plan'>;
     firm: TradingFirm;
+    isBankrollPending?: boolean;
+    objective?: SizingObjective;
     planOptIns: PlanOptIns;
 }
 
 export default function PlanComparisonTable({
     activePlan,
+    bankrollCents = null,
     baseInputs,
     firm,
+    isBankrollPending = false,
+    objective = SizingObjective.MonthlyNet,
     planOptIns,
 }: PlanComparisonTableProperties) {
     const key = buildCacheKey(baseInputs, firm.id, planOptIns);
@@ -106,12 +114,19 @@ export default function PlanComparisonTable({
 
     const openInSimulator = useOpenInSimulator(planOptIns);
 
-    const [hoursPerDayInput, setHoursPerDayInput] = useState('');
-    const [accountsPerSessionInput, setAccountsPerSessionInput] = useState('');
-    const hoursPerDay = parsePositiveNumber(hoursPerDayInput);
-    const accountsPerSession = parseAccountsPerSession(accountsPerSessionInput);
-    const hasScreenHourInputs =
-        hoursPerDay !== null && accountsPerSession !== null;
+    const {
+        accountsPerSession,
+        hasScreenHourInputs,
+        hoursPerDay,
+        inputs,
+        ranked,
+        shownRows,
+    } = useComparisonView(rows, {
+        bankrollCents,
+        isBankrollPending,
+        objective,
+        seed: baseInputs.seed,
+    });
 
     const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
@@ -171,6 +186,12 @@ export default function PlanComparisonTable({
                 id: 'monthlyNet',
             },
             {
+                accessorFn: (r) => r.out.expectedNet,
+                cell: ({ row }) => formatCurrency(row.original.out.expectedNet),
+                header: 'Cycle net',
+                id: 'cycleNet',
+            },
+            {
                 accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
                 cell: ({ row }) =>
                     formatOptionalPercent(row.original.out.roiOnCost.value),
@@ -194,7 +215,7 @@ export default function PlanComparisonTable({
                         </span>
                     );
                 },
-                header: 'Score',
+                header: 'Monthly net score',
                 id: 'score',
             },
             noPayoutColumn<Row>(),
@@ -224,6 +245,7 @@ export default function PlanComparisonTable({
                     <h3 className="text-sm font-semibold">
                         Plans within {firm.displayName}
                     </h3>
+                    <ComparisonRankingLabel ranked={ranked} />
                     <InfoPopover title="Plan comparison">
                         {panelDescriptions.planComparison}
                     </InfoPopover>
@@ -231,21 +253,16 @@ export default function PlanComparisonTable({
                 <span className="text-xs text-muted-foreground">
                     {pending
                         ? 'computing…'
-                        : `${rows.length} plan${rows.length === 1 ? '' : 's'}`}
+                        : planCountText(shownRows.length, rows.length)}
                 </span>
             </div>
-            <ScreenHourInputs
-                accountsPerSessionInput={accountsPerSessionInput}
-                hoursPerDayInput={hoursPerDayInput}
-                idPrefix="plan-comparison"
-                onAccountsPerSessionChange={setAccountsPerSessionInput}
-                onHoursPerDayChange={setHoursPerDayInput}
-            />
+            <ScreenHourInputs idPrefix="plan-comparison" {...inputs} />
+            <ComparisonRankingNote ranked={ranked} />
             {error === null ? (
                 <DataTable<Row>
                     className="app-prop-calculator__plan-comparison-table text-xs tabular-nums"
                     columns={columns}
-                    data={rows}
+                    data={shownRows}
                     emptyState={
                         <EmptyState
                             icon={Layers}
@@ -276,4 +293,11 @@ function buildCacheKey(
         extra: { firmId, optIns },
         omit: [SimInputsKeyField.PlanId],
     });
+}
+
+function planCountText(shown: number, total: number): string {
+    const noun = total === 1 ? 'plan' : 'plans';
+    return shown < total
+        ? `showing ${shown} of ${total} ${noun}`
+        : `${total} ${noun}`;
 }

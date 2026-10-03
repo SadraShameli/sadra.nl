@@ -2,6 +2,12 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as PropAccounts from '~/lib/prop-accounts';
+
+import {
+    type OverviewRequest,
+    OverviewRequestKind,
+} from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { useAccountValuesWithEngine } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 import {
     AccountEventKind,
@@ -70,10 +76,32 @@ vi.mock('~/app/(app)/prop-calculator/_components/useTodayIsoDate', () => ({
     useTodayIsoDate: () => '2026-09-28',
 }));
 
+const firmCountsOverride = vi.hoisted(() => ({ omit: false }));
+
+vi.mock('~/lib/prop-accounts', async (importOriginal) => {
+    const actual = await importOriginal<typeof PropAccounts>();
+    return {
+        ...actual,
+        firmPayoutCounts: (
+            ...parameters: Parameters<typeof actual.firmPayoutCounts>
+        ) =>
+            firmCountsOverride.omit
+                ? []
+                : actual.firmPayoutCounts(...parameters),
+    };
+});
+
+const workerBox = vi.hoisted(() => ({
+    requests: [] as readonly OverviewRequest[],
+}));
+
 vi.mock(
     '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker',
     () => ({
-        useOverviewWorker: () => ({ failure: null, outcomes: new Map() }),
+        useOverviewWorker: (requests: readonly OverviewRequest[]) => {
+            workerBox.requests = requests;
+            return { failure: null, outcomes: new Map() };
+        },
     }),
 );
 
@@ -260,16 +288,44 @@ function paidPayout(accountId: string, index: number) {
     };
 }
 
-function twoAccounts(paid: number, status?: AccountStatus) {
+function requestedPayout(accountId: string, index: number) {
+    const day = String(index + 10).padStart(2, '0');
+    return {
+        accountId,
+        approvedOn: null,
+        grossCents: usdCents(50_000),
+        id: `payout-requested-${accountId}-${String(index)}`,
+        netCents: null,
+        paidOn: null,
+        requestedOn: `2026-09-${day}`,
+        status: PayoutStatus.Requested,
+        userId: USER_ID,
+    };
+}
+
+function requestsOfKind(kind: OverviewRequestKind) {
+    return workerBox.requests.filter((request) => request.kind === kind);
+}
+
+function twoAccounts(
+    paid: number,
+    status?: AccountStatus,
+    requestedAtBravo = 0,
+) {
     answerEverything(
         [
             accountRow('alpha', 'Alpha', status ? { status } : {}),
             accountRow('bravo', 'Bravo'),
         ],
         [eligibleSnapshot('alpha')],
-        Array.from({ length: paid }, (_unused, index) =>
-            paidPayout('bravo', index),
-        ),
+        [
+            ...Array.from({ length: paid }, (_unused, index) =>
+                paidPayout('bravo', index),
+            ),
+            ...Array.from({ length: requestedAtBravo }, (_unused, index) =>
+                requestedPayout('bravo', index),
+            ),
+        ],
     );
 }
 
@@ -322,6 +378,7 @@ describe('the account list passes the firm payout count to the advice and the bo
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.queries.clear();
+        workerBox.requests = [];
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -367,6 +424,52 @@ describe('the account list passes the firm payout count to the advice and the bo
         ]);
     });
 
+    it('counts the requested payouts of the sibling account, so the next request is the one reaching the verified trigger (PT-36l)', () => {
+        twoAccounts(7, undefined, 2);
+        withPolicy(() => {
+            render(<AccountsTable userId={USER_ID} />);
+        });
+        expect(rowOf('Alpha').textContent).not.toContain('Request payout');
+        withPolicy(() => {
+            render(<BoardProbe />);
+        });
+        expect(boardRows()).toEqual([
+            {
+                accountId: 'alpha',
+                kind: 'blocked',
+                reason: 'would-trigger-live',
+            },
+        ]);
+    });
+
+    it('keeps offering the request while the sibling requests leave the next one under the verified trigger (PT-36l)', () => {
+        twoAccounts(7, undefined, 1);
+        withPolicy(() => {
+            render(<AccountsTable userId={USER_ID} />);
+        });
+        expect(rowOf('Alpha').textContent).toContain('Request payout');
+    });
+
+    it('counts the sibling requested payouts on the one-account detail figures too (PT-36l)', () => {
+        twoAccounts(7, undefined, 2);
+        withPolicy(() => {
+            render(
+                <AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />,
+            );
+        });
+        expect(container.textContent).not.toContain('Request payout');
+    });
+
+    it('offers the request on the one-account detail figures while the count is low (PT-36l)', () => {
+        twoAccounts(7, undefined, 1);
+        withPolicy(() => {
+            render(
+                <AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />,
+            );
+        });
+        expect(container.textContent).toContain('Request payout');
+    });
+
     it('leaves a suspended account out of the payout readiness board', () => {
         twoAccounts(3, AccountStatus.Suspended);
         render(<BoardProbe />);
@@ -382,5 +485,85 @@ describe('the account list passes the firm payout count to the advice and the bo
         );
         expect(text).not.toContain('Not modeled for this account');
         expect(text).not.toContain('Request payout');
+    });
+
+    describe('the engine requests carry the real pending counts (PT-36p, F-145)', () => {
+        it('gives the list from-state request the requested payouts of the sibling account', () => {
+            twoAccounts(2, undefined, 2);
+            render(<AccountsTable userId={USER_ID} />);
+            const requests = requestsOfKind(
+                OverviewRequestKind.AccountFromState,
+            );
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.pendingPayoutCounts).toEqual({
+                otherAccountsPendingPayoutCount: 2,
+                pendingPayoutCount: 0,
+            });
+        });
+
+        it('gives the detail from-state and retire requests the same counts', () => {
+            twoAccounts(2, undefined, 3);
+            render(
+                <AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />,
+            );
+            for (const kind of [
+                OverviewRequestKind.AccountFromState,
+                OverviewRequestKind.RetireComparison,
+            ]) {
+                const [request] = requestsOfKind(kind);
+                expect(request?.pendingPayoutCounts).toEqual({
+                    otherAccountsPendingPayoutCount: 3,
+                    pendingPayoutCount: 0,
+                });
+            }
+        });
+    });
+
+    describe('a firm with no payout count is not valued from an assumed count (PT-36p, F-145)', () => {
+        beforeEach(() => {
+            firmCountsOverride.omit = true;
+        });
+
+        afterEach(() => {
+            firmCountsOverride.omit = false;
+        });
+
+        it('renders the list without throwing and sends no from-state request for the account', () => {
+            twoAccounts(2, undefined, 2);
+            expect(() => {
+                render(<AccountsTable userId={USER_ID} />);
+            }).not.toThrow();
+            expect(
+                requestsOfKind(OverviewRequestKind.AccountFromState),
+            ).toHaveLength(0);
+        });
+
+        it('renders the detail figures without throwing and sends no from-state or retire request', () => {
+            twoAccounts(2, undefined, 2);
+            expect(() => {
+                render(
+                    <AccountDetailValuesProbe
+                        accountId="alpha"
+                        userId={USER_ID}
+                    />,
+                );
+            }).not.toThrow();
+            for (const kind of [
+                OverviewRequestKind.AccountFromState,
+                OverviewRequestKind.RetireComparison,
+            ]) {
+                expect(requestsOfKind(kind)).toHaveLength(0);
+            }
+        });
+
+        it('says the account is not valued because its firm payout count is unknown', () => {
+            twoAccounts(2, undefined, 2);
+            render(
+                <AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />,
+            );
+            expect(container.textContent).toContain(
+                'The firm payout count is unknown',
+            );
+        });
     });
 });

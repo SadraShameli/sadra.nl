@@ -1,23 +1,26 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
     overviewPlanOptInsOf,
     type OverviewRequest,
     OverviewRequestKind,
+    withPersonalPolicy,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
     accountFromStateRequestOf,
     buildSizingAdvisor,
+    memberPolicyOverridesOf,
     personalAccountRequestOf,
     personalAdvisorOptionsOf,
     personalLimitsOf,
+    readinessBoardInputsOf,
     readinessOverridesOf,
     SizingAdvisorBuildKind,
-    withPersonalPolicy,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import {
+    AccountStage,
     AccountStatus,
     NO_FIRM_PAYOUT_COUNTS,
     personalMaxRiskOf,
@@ -37,6 +40,7 @@ import {
     DashboardBalanceConvention,
     DEFAULT_RULEBOOK,
     type DocumentedPolicySpec,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
@@ -51,7 +55,18 @@ const COMPONENTS_ROOT = path.join(
     'accounts',
     '_components',
 );
+const OVERVIEW_WORKER_MESSAGES = path.join(
+    process.cwd(),
+    'src',
+    'app',
+    '(app)',
+    'prop-calculator',
+    '_workers',
+    'overviewWorkerMessages.ts',
+);
 const PERSONAL_RULE_OPTIONS = path.join('advice', 'personalRuleOptions.ts');
+const RETAINED_CUSHION_MERGE =
+    /Math\.max\(\s*(?:enginePolicy|policy)\.retainedCushionRequest/;
 const SOURCE_FILE = /\.tsx?$/;
 
 function filesMatching(pattern: RegExp): string[] {
@@ -62,6 +77,10 @@ function filesMatching(pattern: RegExp): string[] {
                 readFileSync(path.join(COMPONENTS_ROOT, relative), 'utf8'),
             ),
         );
+}
+
+function occurrencesOf(text: string, needle: string): number {
+    return text.split(needle).length - 1;
 }
 
 function plan() {
@@ -90,6 +109,10 @@ function sourceFiles(directory: string): string[] {
         if (entry.isDirectory()) return sourceFiles(full);
         return SOURCE_FILE.test(entry.name) ? [full] : [];
     });
+}
+
+function sourceOf(relative: string): string {
+    return readFileSync(path.join(COMPONENTS_ROOT, relative), 'utf8');
 }
 
 function specOf(): DocumentedPolicySpec {
@@ -134,12 +157,11 @@ describe('one personal-rule assembly across accounts/_components (PT-68b, F-V16)
         );
     });
 
-    it('merges the personal retained cushion into an engine policy in personalRuleOptions only, within accounts/_components', () => {
-        expect(
-            filesMatching(
-                /Math\.max\(\s*(?:enginePolicy|policy)\.retainedCushionRequest/,
-            ),
-        ).toEqual([PERSONAL_RULE_OPTIONS]);
+    it('merges the personal retained cushion into an engine policy in withPersonalPolicy only (overviewWorkerMessages), next to the one documented-spec builder, never within accounts/_components (PT-42c)', () => {
+        expect(filesMatching(RETAINED_CUSHION_MERGE)).toEqual([]);
+        expect(readFileSync(OVERVIEW_WORKER_MESSAGES, 'utf8')).toMatch(
+            RETAINED_CUSHION_MERGE,
+        );
     });
 });
 
@@ -185,6 +207,8 @@ describe('withPersonalPolicy', () => {
         expect(
             withPersonalPolicy(spec, {
                 payoutRequestOverride: null,
+                personalCaps: NO_PERSONAL_CAPS,
+                personalDll: null,
                 retainedCushionRequest: null,
             }),
         ).toBe(spec);
@@ -193,6 +217,8 @@ describe('withPersonalPolicy', () => {
     it('raises the retained cushion and sets the payout request', () => {
         const spec = withPersonalPolicy(specOf(), {
             payoutRequestOverride: dollars(600),
+            personalCaps: NO_PERSONAL_CAPS,
+            personalDll: null,
             retainedCushionRequest: dollars(5000),
         });
         expect(spec.enginePolicy.payoutRequestOverride).toBe(600);
@@ -210,8 +236,13 @@ describe('readinessOverridesOf', () => {
                         payoutRequestOverrideCents: usdCents(75_000),
                         retainedCushionCents: usdCents(900_000),
                     },
+                    stage: AccountStage.Funded,
                 },
-                { id: 'without-rules', personalRules: null },
+                {
+                    id: 'without-rules',
+                    personalRules: null,
+                    stage: AccountStage.Funded,
+                },
             ],
             NO_FIRM_PAYOUT_COUNTS,
         );
@@ -234,6 +265,7 @@ describe('readinessOverridesOf', () => {
                         payoutRequestOverrideCents: 75_000,
                         retainedCushionCents: 'nine thousand',
                     },
+                    stage: AccountStage.Funded,
                 },
             ],
             NO_FIRM_PAYOUT_COUNTS,
@@ -257,20 +289,27 @@ describe('readinessOverridesOf carries the personal limits of each account (PT-6
                         maxRiskPerTradeCents: usdCents(12_500),
                         maxTradesPerDay: 2,
                     },
+                    stage: AccountStage.Funded,
                 },
-                { id: 'plain', personalRules: null },
+                {
+                    id: 'plain',
+                    personalRules: null,
+                    stage: AccountStage.Funded,
+                },
             ],
             NO_FIRM_PAYOUT_COUNTS,
         );
 
-        expect(overrides.get('limited')?.personalCaps).toEqual({
+        expect(overrides.get('limited')?.policy.personalCaps).toEqual({
             dailyProfitCap: 900,
             maxRiskPerTrade: 125,
             maxTradesPerDay: 2,
         });
-        expect(overrides.get('limited')?.personalDll).toBe(600);
-        expect(overrides.get('plain')?.personalCaps).toEqual(NO_PERSONAL_CAPS);
-        expect(overrides.get('plain')?.personalDll).toBeNull();
+        expect(overrides.get('limited')?.policy.personalDll).toBe(600);
+        expect(overrides.get('plain')?.policy.personalCaps).toEqual(
+            NO_PERSONAL_CAPS,
+        );
+        expect(overrides.get('plain')?.policy.personalDll).toBeNull();
     });
 });
 
@@ -281,14 +320,159 @@ describe('the copy-group member caps (PT-68g, F-V16)', () => {
                 {
                     id: 'member',
                     personalRules: { maxRiskPerTradeCents: usdCents(7500) },
+                    stage: AccountStage.Funded,
                 },
             ],
             NO_FIRM_PAYOUT_COUNTS,
         );
 
-        expect(overrides.get('member')?.personalCaps.maxRiskPerTrade).toBe(
-            personalMaxRiskOf({ maxRiskPerTradeCents: usdCents(7500) }),
+        expect(
+            overrides.get('member')?.policy.personalCaps.maxRiskPerTrade,
+        ).toBe(personalMaxRiskOf({ maxRiskPerTradeCents: usdCents(7500) }));
+    });
+});
+
+describe('readinessOverridesOf nulls a Live account max risk as the advice does (PT-42c, PT-68g addendum)', () => {
+    it('keeps the personal max risk of a funded account and drops it for a Live one', () => {
+        const personalRules = { maxRiskPerTradeCents: usdCents(7500) };
+        const overrides = readinessOverridesOf(
+            [
+                { id: 'funded', personalRules, stage: AccountStage.Funded },
+                { id: 'live', personalRules, stage: AccountStage.Live },
+            ],
+            NO_FIRM_PAYOUT_COUNTS,
         );
+
+        expect(
+            overrides.get('funded')?.policy.personalCaps.maxRiskPerTrade,
+        ).toBe(75);
+        expect(
+            overrides.get('live')?.policy.personalCaps.maxRiskPerTrade,
+        ).toBeNull();
+    });
+});
+
+describe('memberPolicyOverridesOf (PT-42c, PT-68g addendum)', () => {
+    it('states no caps and no daily loss limit explicitly for a member without an override', () => {
+        expect(memberPolicyOverridesOf(undefined)).toEqual({
+            payoutRequestOverride: null,
+            personalCaps: NO_PERSONAL_CAPS,
+            personalDll: null,
+            retainedCushionRequest: null,
+        });
+    });
+
+    it('carries the member caps, daily loss limit, payout request and retained cushion', () => {
+        const personalCaps = {
+            ...NO_PERSONAL_CAPS,
+            maxRiskPerTrade: dollars(125),
+        };
+        const policy = {
+            payoutRequestOverride: dollars(750),
+            personalCaps,
+            personalDll: dollars(600),
+            retainedCushionRequest: dollars(3000),
+        };
+        expect(
+            memberPolicyOverridesOf({
+                paidPayoutsSinceLastLiveAccount: null,
+                personalRequestOverride: 750,
+                personalRetainedCushion: 3000,
+                policy,
+            }),
+        ).toEqual(policy);
+    });
+
+    it('hands back the policy the readiness override was built with, so the member and the account list share one policy', () => {
+        const personalRules = {
+            dailyLossLimitCents: usdCents(60_000),
+            dailyProfitCapCents: usdCents(90_000),
+            maxRiskPerTradeCents: usdCents(12_500),
+            maxTradesPerDay: 2,
+            payoutRequestOverrideCents: usdCents(75_000),
+            retainedCushionCents: usdCents(900_000),
+        };
+        const overrides = readinessOverridesOf(
+            [{ id: 'member', personalRules, stage: AccountStage.Funded }],
+            NO_FIRM_PAYOUT_COUNTS,
+        );
+        const request = personalAccountRequestOf(
+            requestOf(),
+            personalRules,
+            personalMaxRiskOf(personalRules),
+        );
+        if (request.kind !== OverviewRequestKind.AccountFromState) {
+            throw new Error('expected an account from-state request');
+        }
+        const { enginePolicy } = withPersonalPolicy(
+            specOf(),
+            memberPolicyOverridesOf(overrides.get('member')),
+        );
+
+        expect(enginePolicy.personalCaps).toEqual(
+            request.spec.enginePolicy.personalCaps,
+        );
+        expect(enginePolicy.personalDll).toBe(
+            request.spec.enginePolicy.personalDll,
+        );
+        expect(enginePolicy.payoutRequestOverride).toBe(
+            request.spec.enginePolicy.payoutRequestOverride,
+        );
+        expect(enginePolicy.retainedCushionRequest).toBe(
+            request.spec.enginePolicy.retainedCushionRequest,
+        );
+    });
+});
+
+describe('readinessBoardInputsOf carries the stage of each account into its personal caps (PT-42c review)', () => {
+    it('drops the personal max risk of a Live account and keeps it for a funded one', () => {
+        const personalRules = { maxRiskPerTradeCents: usdCents(7500) };
+        const row = {
+            firmId: null,
+            personalRules,
+            status: AccountStatus.Active,
+        };
+        const { overrides } = readinessBoardInputsOf(
+            [
+                { ...row, id: 'funded', stage: AccountStage.Funded },
+                { ...row, id: 'live', stage: AccountStage.Live },
+            ],
+            [],
+            [],
+        );
+
+        expect(
+            overrides.get('funded')?.policy.personalCaps.maxRiskPerTrade,
+        ).toBe(75);
+        expect(
+            overrides.get('live')?.policy.personalCaps.maxRiskPerTrade,
+        ).toBeNull();
+    });
+
+    it('requires the stage on every account, so a caller cannot silently keep a Live max risk', () => {
+        expectTypeOf<
+            Parameters<typeof readinessOverridesOf>[0][number]['stage']
+        >().toEqualTypeOf<AccountStage>();
+    });
+});
+
+describe('one personal policy builder across accounts/_components (PT-42c review)', () => {
+    it('reads each personal rule field in one place: the personalRuleOptions builder', () => {
+        const source = sourceOf(PERSONAL_RULE_OPTIONS);
+        for (const field of [
+            'dailyLossLimitCents',
+            'dailyProfitCapCents',
+            'payoutRequestOverrideCents',
+            'retainedCushionCents',
+        ]) {
+            expect(occurrencesOf(source, `.${field}`), field).toBe(1);
+        }
+    });
+
+    it('never assembles a policy override literal in the advice value model', () => {
+        expect(
+            sourceOf(path.join('advice', 'adviceValueModel.ts')),
+        ).not.toContain('retainedCushionRequest:');
     });
 });
 
@@ -309,6 +493,7 @@ describe('accountFromStateRequestOf', () => {
         const request = accountFromStateRequestOf({
             account: FUNDED,
             measuredRebuyLag: null,
+            pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
             personalMaxRiskPerTrade: null,
             personalRules: {
                 payoutRequestOverrideCents: usdCents(75_000),
@@ -327,6 +512,7 @@ describe('accountFromStateRequestOf', () => {
         const withoutRules = accountFromStateRequestOf({
             account: FUNDED,
             measuredRebuyLag: null,
+            pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
             personalMaxRiskPerTrade: null,
             personalRules: null,
             plan: plan(),
@@ -335,6 +521,7 @@ describe('accountFromStateRequestOf', () => {
         const withEmptyRules = accountFromStateRequestOf({
             account: FUNDED,
             measuredRebuyLag: null,
+            pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
             personalMaxRiskPerTrade: null,
             personalRules: {},
             plan: plan(),
@@ -344,6 +531,37 @@ describe('accountFromStateRequestOf', () => {
         expect(withoutRules?.spec.enginePolicy.retainedCushionRequest).toBe(
             specOf().enginePolicy.retainedCushionRequest,
         );
+    });
+});
+
+describe('accountFromStateRequestOf carries the pending payout counts it is given (PT-36p, F-145)', () => {
+    it('puts the own and the other accounts requested counts on the request', () => {
+        const request = accountFromStateRequestOf({
+            account: {
+                asOf: '2026-03-02',
+                balance: dollars(52_000),
+                dashboardConvention: DashboardBalanceConvention.Nominal,
+                firstFundedTradeOn: '2026-01-05',
+                highestEodBalance: dollars(52_000),
+                highestIntradayBalance: dollars(52_000),
+                payoutsTaken: 0,
+                stage: SizingStage.Funded,
+                tradingDays: 12,
+            },
+            measuredRebuyLag: null,
+            pendingPayoutCounts: {
+                otherAccountsPendingPayoutCount: 3,
+                pendingPayoutCount: 2,
+            },
+            personalMaxRiskPerTrade: null,
+            personalRules: null,
+            plan: plan(),
+            rulebook: DEFAULT_RULEBOOK,
+        });
+        expect(request?.pendingPayoutCounts).toEqual({
+            otherAccountsPendingPayoutCount: 3,
+            pendingPayoutCount: 2,
+        });
     });
 });
 
@@ -388,7 +606,12 @@ describe('personalAdvisorOptionsOf takes the account status and returns the subs
     };
 
     function optionsFor(status: AccountStatus) {
-        const account = AccountReconstruction.rebuild(FUNDED_SNAPSHOT, plan());
+        const account = AccountReconstruction.rebuild(
+            FUNDED_SNAPSHOT,
+            plan(),
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        );
         const options = personalAdvisorOptionsOf({
             account,
             measuredRebuyLag: null,

@@ -9,6 +9,7 @@ import {
     type AdvisorValueSlot,
     type AdvisorValueSwing,
 } from '~/app/(app)/prop-calculator/_workers/advisorWorkerMessages';
+import { buildDocumentedSpec } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { formatCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
@@ -17,13 +18,13 @@ import {
     type FirmAccountPolicy,
     floorToWholeCents,
     type Plan,
-    serializePlanId,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
     AccountAction,
     type Advice,
-    buildEnginePolicy,
+    assumptionText,
+    type CumulativePayoutTriggerAssumption,
     type DailyPlanCard,
     DEFAULT_FUNDED_HORIZON_DAYS,
     DEFAULT_MAX_EVAL_DAYS,
@@ -31,6 +32,7 @@ import {
     type DocumentedPolicySpec,
     type DocumentedRung,
     type EnginePolicy,
+    liveTransferAssumptionLines,
     type MeasuredRebuyLag,
     NO_PERSONAL_CAPS,
     type PersonalCaps,
@@ -70,6 +72,7 @@ import {
 } from '~/lib/prop-calculator/economics';
 import {
     liveTransferHazardLines,
+    liveTransferSentLiveText,
     type SimStart,
 } from '~/lib/prop-calculator/simulator';
 import {
@@ -78,7 +81,7 @@ import {
 } from '~/lib/prop-calculator/stats';
 
 import { accountActionFor } from './accountActionModel';
-import { withPersonalPolicy } from './personalRuleOptions';
+import { personalPolicyOverridesOfOptions } from './personalRuleOptions';
 
 export enum AdviceValueRequestKind {
     Failed = 'failed',
@@ -159,6 +162,7 @@ export interface OneStepTreeView {
 export interface PayoutStakeView {
     readonly continueNow: UncertainValue;
     readonly evAtStake: UncertainValue;
+    readonly liveTransferNotes: readonly string[];
     readonly requestedAmount: number;
     readonly requestNow: UncertainValue;
     readonly traderReceivesNow: number;
@@ -184,6 +188,7 @@ export interface RiskCandidateRowView {
 export interface RiskCandidatesView {
     readonly isRanked: boolean;
     readonly label: string;
+    readonly liveTransferNotes: readonly string[];
     readonly rows: readonly RiskCandidateRowView[];
     readonly sizingNote: null | string;
 }
@@ -210,6 +215,9 @@ export const LIVE_TRANSFER_UNIDENTIFIED_PLAN_TEXT =
 
 export const NO_LIVE_VALUE_TEXT =
     'Value views are not modeled for a live account.';
+
+export const PAYOUT_STAKE_REQUEST_NOW_TRANSFER_TEXT =
+    "The request-now figure prices the requested payout's own transfer chance at this hazard.";
 
 export const SESSION_BOUNDARY_CONTINUES_TEXT =
     "The documented rule keeps trading after a loss, and the rest of today's rungs are not in the after-loss value. Each later rung is priced as reached after the earlier rungs lost.";
@@ -505,6 +513,7 @@ export function payoutStakeViewOf(
             ),
             value: requestNow.value - continueNow.value,
         },
+        liveTransferNotes: payoutStakeLiveTransferNotesOf(stake),
         requestedAmount: stake.requestedAmount,
         requestNow,
         traderReceivesNow: stake.traderReceivesNow,
@@ -547,6 +556,14 @@ export function riskCandidatesViewOf(
     return {
         isRanked,
         label,
+        liveTransferNotes: [
+            ...(candidates.liveTransfer === undefined
+                ? []
+                : liveTransferAssumptionLines(candidates.liveTransfer)),
+            ...(candidates.cumulativePayoutTrigger === undefined
+                ? []
+                : [assumptionText(candidates.cumulativePayoutTrigger)]),
+        ],
         rows: isRanked
             ? views
             : views.toSorted(
@@ -556,54 +573,68 @@ export function riskCandidatesViewOf(
     };
 }
 
-export function valueRunNoteOf(request: AdvisorValueRequest): string {
+export function valueCumulativeTriggerOf(
+    outcome: AdvisorValueResult | null,
+): CumulativePayoutTriggerAssumption | null {
+    const now = outcome?.now;
+    if (
+        now?.kind === AdvisorRequestOutcomeKind.Succeeded &&
+        now.value.kind === ValueResultKind.Value &&
+        now.value.cumulativePayoutTrigger !== undefined
+    ) {
+        return now.value.cumulativePayoutTrigger;
+    }
+    const swing = firstSwingOf(outcome?.swings ?? []);
+    return swing?.now.cumulativePayoutTrigger ?? null;
+}
+
+export function valueRunBasisNoteOf(request: AdvisorValueRequest): string {
     const { enginePolicy, run } = request.spec;
     const rebuyLag =
         enginePolicy.rebuyLagBasis === RebuyLagBasis.Measured
             ? `measured at ${String(enginePolicy.rebuyLagDays)} days`
             : 'assumed zero (optimistic)';
-    return `Value runs: ${String(run.trials)} trials, seed ${String(run.seed)}, ${String(enginePolicy.fundedHorizonDays)}-day funded horizon, ${String(run.maxEvalDays)}-day eval limit; rebuy lag ${rebuyLag}; commission ${formatCurrency(enginePolicy.commissionPerRoundTrip, 2)} per round trip.${appliedLimitsNoteOf(enginePolicy)}${liveTransferNoteOf(request.spec)}`;
+    return `Value runs: ${String(run.trials)} trials, seed ${String(run.seed)}, ${String(enginePolicy.fundedHorizonDays)}-day funded horizon, ${String(run.maxEvalDays)}-day eval limit; rebuy lag ${rebuyLag}; commission ${formatCurrency(enginePolicy.commissionPerRoundTrip, 2)} per round trip.${appliedLimitsNoteOf(enginePolicy)}`;
+}
+
+export function valueRunNoteOf(
+    request: AdvisorValueRequest,
+    sentLiveShare: null | number,
+    cumulativePayoutTrigger: CumulativePayoutTriggerAssumption | null = null,
+): string {
+    const triggerNote =
+        cumulativePayoutTrigger === null
+            ? ''
+            : ` ${assumptionText(cumulativePayoutTrigger)}`;
+    return `${valueRunBasisNoteOf(request)}${liveTransferNoteOf(request.spec, sentLiveShare)}${triggerNote}`;
+}
+
+export function valueSentLiveShareOf(
+    outcome: AdvisorValueResult | null,
+): null | number {
+    const now = outcome?.now;
+    return now?.kind === AdvisorRequestOutcomeKind.Succeeded &&
+        now.value.kind === ValueResultKind.Value
+        ? (now.value.liveTransfer?.sentLiveShare ?? null)
+        : null;
 }
 
 export function valueSpecOf(
     input: AdviceValueRequestInput,
 ): DocumentedPolicySpec {
-    const {
-        accountPolicy,
-        measuredRebuyLag,
-        personalCaps,
-        personalDll,
-        personalPayoutOverride,
-        personalRetainedCushion,
-        plan,
-        rulebook,
-    } = input;
-    const { policy } = buildEnginePolicy({
-        accountPolicy,
+    return buildDocumentedSpec({
+        accountPolicy: input.accountPolicy,
         fundedHorizonDays: DEFAULT_FUNDED_HORIZON_DAYS,
-        measuredRebuyLag,
-        plan,
-        positionSizing: null,
-        rulebook,
-    });
-    return withPersonalPolicy(
-        {
-            enginePolicy: policy,
-            planSerial: serializePlanId(plan.id),
-            rulebook,
-            run: {
-                maxEvalDays: DEFAULT_MAX_EVAL_DAYS,
-                seed: VALUE_RUN_SEED,
-                trials: VALUE_RUN_TRIALS,
-            },
+        measuredRebuyLag: input.measuredRebuyLag,
+        overrides: personalPolicyOverridesOfOptions(input),
+        plan: input.plan,
+        rulebook: input.rulebook,
+        run: {
+            maxEvalDays: DEFAULT_MAX_EVAL_DAYS,
+            seed: VALUE_RUN_SEED,
+            trials: VALUE_RUN_TRIALS,
         },
-        {
-            payoutRequestOverride: personalPayoutOverride ?? null,
-            personalCaps,
-            personalDll,
-            retainedCushionRequest: personalRetainedCushion ?? null,
-        },
-    );
+    }).spec;
 }
 
 function appliedLimitsNoteOf(enginePolicy: EnginePolicy): string {
@@ -752,7 +783,10 @@ function isDocumentedRow(
     );
 }
 
-function liveTransferNoteOf(spec: DocumentedPolicySpec): string {
+function liveTransferNoteOf(
+    spec: DocumentedPolicySpec,
+    sentLiveShare: null | number,
+): string {
     const { planSerial, rulebook } = spec;
     const { hazardPerPaidPayoutByFirm } = rulebook.liveTransfer;
     if (Object.keys(hazardPerPaidPayoutByFirm).length === 0) return '';
@@ -765,7 +799,44 @@ function liveTransferNoteOf(spec: DocumentedPolicySpec): string {
         hazard,
         spec.enginePolicy.instrument,
         spec.enginePolicy.stopPoints,
+        sentLiveShare,
     ).join(' ')}`;
+}
+
+function payoutStakeHazardNotesOf(
+    stake: PayoutStakeComparisonResult,
+): readonly string[] {
+    const { liveTransfer } = stake.continueNow;
+    if (liveTransfer === undefined) return [];
+    return [
+        ...liveTransferAssumptionLines({
+            ...liveTransfer,
+            sentLiveShare: null,
+        }),
+        ...sentLiveShareLine('Continuing', liveTransfer.sentLiveShare),
+        ...sentLiveShareLine(
+            'Request now',
+            stake.requestNow.liveTransfer?.sentLiveShare ?? null,
+        ),
+        PAYOUT_STAKE_REQUEST_NOW_TRANSFER_TEXT,
+        ...(stake.requestNow.liveTransfer?.notes ?? []).filter(
+            (note) => !liveTransfer.notes.includes(note),
+        ),
+    ];
+}
+
+function payoutStakeLiveTransferNotesOf(
+    stake: PayoutStakeComparisonResult,
+): readonly string[] {
+    const cumulativePayoutTrigger =
+        stake.continueNow.cumulativePayoutTrigger ??
+        stake.requestNow.cumulativePayoutTrigger;
+    return [
+        ...payoutStakeHazardNotesOf(stake),
+        ...(cumulativePayoutTrigger === undefined
+            ? []
+            : [assumptionText(cumulativePayoutTrigger)]),
+    ];
 }
 
 function planOfSerial(planSerial: string): null | Plan {
@@ -781,7 +852,7 @@ function riskFigureOf(
     swing: TradeValueSwingResult,
     context: ValueFigureContext,
 ): RiskDisplayFormatted {
-    return formatRiskDisplay(context.unit, {
+    const formatted = formatRiskDisplay(context.unit, {
         accountDollars: risk,
         evAtStake:
             context.unit === RiskDisplayUnit.EvAtStake
@@ -789,6 +860,21 @@ function riskFigureOf(
                 : null,
         feeEquivalent: feeEquivalentOf(risk, context),
     });
+    return formatted.disclosure === null
+        ? formatted
+        : {
+              ...formatted,
+              label: `${formatted.label}, ${formatted.disclosure}`,
+          };
+}
+
+function sentLiveShareLine(
+    label: string,
+    sentLiveShare: null | number,
+): readonly string[] {
+    return sentLiveShare === null
+        ? []
+        : [`${label}: ${liveTransferSentLiveText(sentLiveShare)}`];
 }
 
 function stakeSectionOf(

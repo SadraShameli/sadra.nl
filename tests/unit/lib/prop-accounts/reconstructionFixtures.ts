@@ -20,6 +20,7 @@ import {
 } from '~/lib/prop-calculator';
 import {
     type Assumption,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     type ReconstructedLiveAccount,
     ReconstructedLiveKind,
@@ -42,6 +43,10 @@ export interface EvalFixtureOptions {
     readonly assumptions?: readonly Assumption[];
     readonly balance?: number;
     readonly bestDayProfit?: number;
+    readonly dashboardFloorMismatch?: null | {
+        readonly engineFloor: number;
+        readonly enteredFloor: number;
+    };
     readonly personalMaxRiskPerTrade?: null | number;
     readonly tradingDays?: number;
 }
@@ -56,7 +61,9 @@ export interface FundedFixtureOptions {
         readonly enteredFloor: number;
     };
     readonly lastPayoutBalance?: number;
+    readonly otherAccountsPendingPayoutCount?: number;
     readonly payoutsIssued?: number;
+    readonly pendingPayoutCount?: number;
     readonly pendingPayouts?: number;
     readonly personalMaxRiskPerTrade?: null | number;
 }
@@ -64,7 +71,12 @@ export interface FundedFixtureOptions {
 export interface LiveFixtureOptions {
     readonly assumptions?: readonly Assumption[];
     readonly balance?: number;
+    readonly dashboardFloorMismatch?: null | {
+        readonly engineFloor: number;
+        readonly enteredFloor: number;
+    };
     readonly livePlan?: LivePlan;
+    readonly personalMaxRiskPerTrade?: null | number;
 }
 
 export function evalReconstructed(
@@ -80,6 +92,7 @@ export function evalReconstructed(
         assumptions: options.assumptions ?? [],
         contractLimit: null,
         cushion: state.balance - state.threshold,
+        dashboardFloorMismatch: options.dashboardFloorMismatch ?? null,
         fundedTracker: null,
         kind: TradingPhase.Eval,
         personalMaxRiskPerTrade: options.personalMaxRiskPerTrade ?? null,
@@ -89,6 +102,7 @@ export function evalReconstructed(
             TradingPhase.Eval,
         ),
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -122,6 +136,11 @@ export function fundedReconstructed(
         dashboardFloorMismatch: options.dashboardFloorMismatch ?? null,
         fundedTracker: tracker,
         kind: TradingPhase.Funded,
+        otherAccountsPendingPayoutCount:
+            options.otherAccountsPendingPayoutCount ?? 0,
+        pendingPayoutCount:
+            options.pendingPayoutCount ??
+            ((options.pendingPayouts ?? 0) > 0 ? 1 : 0),
         pendingPayouts: options.pendingPayouts ?? 0,
         personalMaxRiskPerTrade: options.personalMaxRiskPerTrade ?? null,
         plan,
@@ -143,8 +162,10 @@ export function liveReconstructed(
     return {
         assumptions: options.assumptions ?? [],
         cushion: state.balance - state.threshold,
+        dashboardFloorMismatch: options.dashboardFloorMismatch ?? null,
         kind: ReconstructedLiveKind.Live,
         livePlan,
+        personalMaxRiskPerTrade: options.personalMaxRiskPerTrade ?? null,
         plan,
         state,
     };

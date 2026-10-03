@@ -150,7 +150,11 @@ function camelRow(row: Record<string, unknown>): Record<string, unknown> {
 
 const CASES: readonly OutputCase[] = [
     {
-        derived: { planRulesChanged: null, readIssues: [] },
+        derived: {
+            currentPlanRulesFingerprint: null,
+            planRulesChanged: null,
+            readIssues: [],
+        },
         enumColumns: ['dashboardConvention', 'stage', 'status', 'tracking'],
         jsonbColumns: ['optIns', 'personalRules', 'tags'],
         name: 'account',
@@ -164,7 +168,11 @@ const CASES: readonly OutputCase[] = [
         table: propAccount,
     },
     {
-        derived: { planRulesChanged: null, readIssues: [] },
+        derived: {
+            currentPlanRulesFingerprint: null,
+            planRulesChanged: null,
+            readIssues: [],
+        },
         enumColumns: ['dashboardConvention', 'stage', 'status', 'tracking'],
         jsonbColumns: ['optIns', 'personalRules', 'tags'],
         name: 'listed account',

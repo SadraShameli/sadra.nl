@@ -102,6 +102,16 @@ export function EvSourcesCard({
                     </TableBody>
                 </Table>
             )}
+            {model.liveTransferNotes.length > 0 && (
+                <ul
+                    aria-label="Live-transfer and payout-trigger assumptions behind the values"
+                    className="flex flex-col gap-1 text-xs text-muted-foreground"
+                >
+                    {model.liveTransferNotes.map((note) => (
+                        <li key={note}>{note}</li>
+                    ))}
+                </ul>
+            )}
             <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-muted-foreground">
                 {model.disclosures.map((disclosure) => (
                     <li key={disclosure}>{disclosure}</li>

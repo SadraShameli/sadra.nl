@@ -50,9 +50,9 @@ describe('setObjective (PT-63b, F-V15)', () => {
 });
 
 describe('isObjectiveInSearch', () => {
-    it('is true only when the link carries the obj key', () => {
+    it('is true only when the link carries an obj value that is an objective', () => {
         expect(isObjectiveInSearch('firm=topstep&obj=cycle-cash')).toBe(true);
-        expect(isObjectiveInSearch('obj=garbage')).toBe(true);
+        expect(isObjectiveInSearch('obj=garbage')).toBe(false);
         expect(isObjectiveInSearch('firm=topstep')).toBe(false);
         expect(isObjectiveInSearch('')).toBe(false);
     });

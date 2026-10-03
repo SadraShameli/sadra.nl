@@ -106,9 +106,11 @@ export interface DpArguments
     'rebuy-lag-days': string;
     rr: string;
     seed: string;
+    'start-rate'?: string;
     'tail-cushion-step-multiple'?: string;
     trials: string;
     winrate: string;
+    workers?: string;
 }
 
 export interface DpInputs {
@@ -123,12 +125,14 @@ export interface DpInputs {
     maxEvalDays: number;
     maxSolves: number;
     maxTailCushionMultiple: number | undefined;
+    maxWorkers: number | undefined;
     minRetainedCushion: number;
     payoutRequestPolicy: PayoutRequestPolicy;
     payoutRequestSize: Dollars | undefined;
     rebuyLagDays: number;
     rrRatio: number;
     seed: number;
+    startRatePerDay: number | undefined;
     stopPoints: number | undefined;
     tailCushionStepMultiple: number | undefined;
     trials: number;
@@ -267,8 +271,10 @@ export function dpSolverConfig(
             tailCushionStepMultiple: inputs.tailCushionStepMultiple,
         },
         maxSolves: inputs.maxSolves,
+        maxWorkers: inputs.maxWorkers,
         objective,
         rrRatio: inputs.rrRatio,
+        startRatePerDay: inputs.startRatePerDay,
         winrate: inputs.winrate,
     };
 }
@@ -343,7 +349,7 @@ export function fundedConsistencyGridNote(
         lockedTop > fineTop
             ? `a fine grid up to ${fineTop}, then a coarse tail past it`
             : `a uniform grid up to ${lockedTop}`;
-    return `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${lockedTop} drawdowns (${gridShape}) and truncates any balance above that. The best day is tracked on the cushion grid and rounded up between grid steps, but a day that ends above the grid top is truncated like the balance, which shrinks both that day's P&L and the cycle profit the rule compares it with. In those states the DP can pay out less than the real account, and it can also allow a payout the real rule denies or deny one it allows: neither direction is guaranteed there, so trust the empirical run below over the DP-predicted rate. The best day is also capped at the largest swing one trading day can produce on this grid (trades per day times the largest position times the reward-to-risk ratio, at least 1, plus one cushion step per trade for grid rounding), and a day that rounds past that cap is not clamped down to it: it moves the account into an overflow bucket whose best day exceeds what any reachable cycle profit can cover, so the rule denies every payout from then on. That can only make the DP pay out less, never more than the real account, for any day that passes the cap.`;
+    return `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${lockedTop} drawdowns (${gridShape}) and truncates any balance above that. The best day is tracked on the cushion grid and rounded up between grid steps, but a day that ends above the grid top is truncated like the balance, which shrinks both that day's P&L and the cycle profit the rule compares it with. In those states the DP can pay out less than the real account, and it can also allow a payout the real rule denies or deny one it allows: neither direction is guaranteed there, so trust the empirical run below over the DP-predicted rate. The best day is also capped at the largest swing one trading day can produce on this grid (trades per day times the largest position times the reward-to-risk ratio, at least 1, plus one grid step per trade for rounding, the larger tail step where the grid has a tail), and a day that rounds past that cap is not clamped down to it: it moves the account into an overflow bucket whose best day exceeds what any reachable cycle profit can cover, so the rule denies every payout from then on. That can only make the DP pay out less, never more than the real account, for any day that passes the cap.`;
 }
 
 export function fundedCycleBaselineGapWarning(
@@ -455,6 +461,7 @@ export function readDpInputs(arguments_: DpArguments): DpInputs {
             arguments_['max-tail-cushion-multiple'],
             'max-tail-cushion-multiple',
         ),
+        maxWorkers: readOptionalPositiveInteger(arguments_.workers, 'workers'),
         minRetainedCushion: readNonNegativeNumber(
             arguments_['retain-cushion'],
             'retain-cushion',
@@ -467,6 +474,10 @@ export function readDpInputs(arguments_: DpArguments): DpInputs {
         rebuyLagDays: readRebuyLagDays(arguments_['rebuy-lag-days']),
         rrRatio: readPositiveNumber(arguments_.rr, 'rr'),
         seed: readInteger(arguments_.seed, 'seed'),
+        startRatePerDay:
+            arguments_['start-rate'] === undefined
+                ? undefined
+                : readNonNegativeNumber(arguments_['start-rate'], 'start-rate'),
         stopPoints:
             stopPoints === undefined
                 ? undefined
@@ -575,6 +586,13 @@ function drawdownMultiple(plan: Plan, dollarsValue: number): number {
 
 function flagValueWithDefaultNote(value: number, isDefault: boolean): string {
     return isDefault ? `${value}, the default` : String(value);
+}
+
+function readOptionalPositiveInteger(
+    raw: string | undefined,
+    name: string,
+): number | undefined {
+    return raw === undefined ? undefined : readPositiveInteger(raw, name);
 }
 
 function readOptionalPositiveNumber(
@@ -692,6 +710,11 @@ export const dpArguments = {
         description: 'RNG seed for the empirical validation run',
         type: 'string',
     },
+    'start-rate': {
+        description:
+            'Start the rate search at this rate per day instead of 0 (for example the rate a previous run or a coarser-grid run of the same plan printed). A seed within about 10 percent of the answer takes a smaller first step than the unseeded search and needs about 4 rate-search solves instead of about 9 (measured on recorded TopStep rate searches). A poor seed costs extra solves, but the search still stops only inside its own rate tolerance.',
+        type: 'string',
+    },
     'stop-points': commonSimArguments['stop-points'],
     'tail-cushion-step-multiple': {
         description: `Funded DP cushion grid step in the coarse tail past --max-cushion-multiple, as a multiple of the plan's own drawdown amount (default ${DEFAULT_TAIL_CUSHION_STEP_MULTIPLE}). Must be at least --cushion-step-multiple.`,
@@ -705,6 +728,11 @@ export const dpArguments = {
     winrate: {
         default: '0.4',
         description: 'Win rate as a fraction 0-1 (e.g. 0.4)',
+        type: 'string',
+    },
+    workers: {
+        description:
+            'Cap the funded solve at this many worker threads. By default the solve uses one worker per available core, rounded down to a count that splits its work groups evenly (30 on a 32 thread machine). Lower it when several solves share one machine; the results are identical at every worker count.',
         type: 'string',
     },
 } satisfies ArgsDef;

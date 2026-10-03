@@ -9,6 +9,11 @@ import { SizingStage } from './SizingStage';
 
 export const ADVICE_STALE_SESSION_THRESHOLD = 2;
 
+export enum AdviceStalenessKind {
+    Fresh = 'fresh',
+    Stale = 'stale',
+}
+
 export enum AdviceStalenessReason {
     FundedSnapshotStale = 'funded-snapshot-stale',
     PlanRulesChanged = 'plan-rules-changed',
@@ -26,16 +31,16 @@ export interface AdviceStalenessInput {
 }
 
 export interface FreshAdviceStaleness {
-    readonly kind: 'fresh';
+    readonly kind: AdviceStalenessKind.Fresh;
 }
 
 export interface PlanRulesFingerprintCheck {
-    readonly atAdvice: string;
+    readonly atAdvice: null | string;
     readonly current: string;
 }
 
 export interface StaleAdviceStaleness {
-    readonly kind: 'stale';
+    readonly kind: AdviceStalenessKind.Stale;
     readonly noHolidayCalendarDisclosure: boolean;
     readonly reasons: readonly AdviceStalenessReason[];
     readonly snapshotAsOf: string;
@@ -59,14 +64,15 @@ export function adviceStaleness(input: AdviceStalenessInput): AdviceStaleness {
     }
     if (
         input.planRulesFingerprint !== null &&
+        input.planRulesFingerprint.atAdvice !== null &&
         input.planRulesFingerprint.current !==
             input.planRulesFingerprint.atAdvice
     ) {
         reasons.push(AdviceStalenessReason.PlanRulesChanged);
     }
-    if (reasons.length === 0) return { kind: 'fresh' };
+    if (reasons.length === 0) return { kind: AdviceStalenessKind.Fresh };
     return {
-        kind: 'stale',
+        kind: AdviceStalenessKind.Stale,
         noHolidayCalendarDisclosure: input.stage !== SizingStage.Funded,
         reasons,
         snapshotAsOf: input.asOf,

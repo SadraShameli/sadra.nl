@@ -8,6 +8,7 @@ import { openInSimulatorActions } from '~/app/(app)/prop-calculator/_components/
 import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
 import {
     CENTS_PER_DOLLAR,
+    type Dollars,
     effectivePayoutRequest,
     findFirm,
     type FirmId,
@@ -15,6 +16,7 @@ import {
     PolicySizing,
 } from '~/lib/prop-calculator';
 import {
+    cappedFundedRisk,
     documentedSizingOf,
     type EnginePolicyPositionSizing,
     EvalSizingMode,
@@ -39,6 +41,7 @@ export interface AccountCalculatorLink {
 export interface AccountCalculatorLinkInput {
     readonly firmId: FirmId;
     readonly optIns: PlanOptIns;
+    readonly personalMaxRiskPerTrade: Dollars | null;
     readonly planSerial: string;
     readonly positionSizing?: EnginePolicyPositionSizing | null;
     readonly rulebook: RulebookParameters;
@@ -60,7 +63,14 @@ export const ACCOUNT_CALCULATOR_LINK_FLAG_TEXT: Readonly<
 export function calculatorLinkForAccount(
     input: AccountCalculatorLinkInput,
 ): AccountCalculatorLink | null {
-    const { optIns, planSerial, positionSizing, rulebook, stage } = input;
+    const {
+        optIns,
+        personalMaxRiskPerTrade,
+        planSerial,
+        positionSizing,
+        rulebook,
+        stage,
+    } = input;
     if (stage === SizingStage.Live) return null;
     const firm = findFirm(input.firmId);
     const plan = firm?.findPlanBySerial(planSerial);
@@ -79,7 +89,7 @@ export function calculatorLinkForAccount(
         },
         {
             type: CalculatorActionType.SetRiskDollars,
-            value: funded.riskCents / CENTS_PER_DOLLAR,
+            value: cappedFundedRisk(rulebook, personalMaxRiskPerTrade),
         },
         {
             rule: fundedStopRuleToDayStopRule(funded.stopRule),

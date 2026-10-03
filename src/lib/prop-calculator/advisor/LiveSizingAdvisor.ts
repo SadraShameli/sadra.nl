@@ -1,7 +1,13 @@
 import {
     dollars,
     type Dollars,
+    type InstrumentSymbol,
+    type LiveAccountState,
+    type LivePlan,
+    ONE_CENT,
     resolveLiveAffordableRoom,
+    resolveLiveFloorTradeRisk,
+    resolvePositionSizing,
 } from '~/lib/prop-calculator/core';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
 
@@ -12,16 +18,25 @@ import { AdviceSource } from './AdviceSource';
 import {
     adviceStaleness,
     type AdviceStaleness,
+    AdviceStalenessKind,
     type PlanRulesFingerprintCheck,
 } from './AdviceStaleness';
 import { type Assumption } from './Assumption';
 import { createDocumentedRule } from './createDocumentedRule';
+import {
+    DifferenceReason,
+    type DifferenceReasonDetail,
+} from './DifferenceReason';
 import { NO_COMMISSION } from './DocumentedSizing';
 import { type EngineOptimumRequest } from './EngineOptimumRequest';
 import { type EngineOptimumRunnerResult } from './EngineOptimumRunner';
 import { payoutAdvice } from './PayoutAdvice';
 import { type LivePayoutRuleContext } from './PayoutRequestRule';
 import { NO_PERSONAL_CAPS, type PersonalCaps } from './PersonalCaps';
+import {
+    advisorPlaceableMinimum,
+    type SizingPlacement,
+} from './PlaceableMinimum';
 import { type ReconstructedLiveAccount } from './ReconstructedAccount';
 import { riskCaps, type RiskCaps } from './RiskCaps';
 import { type RulebookParameters } from './Rulebook';
@@ -40,6 +55,10 @@ export interface LiveSizingAdvisorInput {
     readonly personalPayoutOverride?: Dollars | null;
     readonly personalRetainedCushion?: Dollars | null;
     readonly planRulesFingerprint?: null | PlanRulesFingerprintCheck;
+    readonly positionSizing?: null | {
+        readonly instrument: InstrumentSymbol;
+        readonly stopPoints: number;
+    };
     readonly rulebook: RulebookParameters;
     readonly snapshotAsOf: string;
     readonly substate: AccountSubstate.Suspended | null;
@@ -61,6 +80,52 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
 
     private assumptions(): readonly Assumption[] {
         return this.withLiveTriggersNotChecked(this.input.account.assumptions);
+    }
+
+    private differenceReasons(): readonly DifferenceReasonDetail[] {
+        const { account, personalDll, positionSizing } = this.input;
+        if (
+            account.livePlan === null ||
+            account.state === null ||
+            this.staleness().kind === AdviceStalenessKind.Stale
+        ) {
+            return [];
+        }
+        const minimumTradeRisk = this.floorTradeRisk(
+            account.livePlan,
+            account.state,
+        );
+        const caps = this.sizedCaps();
+        return minimumTradeRisk > 0
+            ? [
+                  {
+                      affordableRisk: dollars(
+                          Math.min(
+                              caps.affordable,
+                              caps.maxRiskPerTrade ?? caps.affordable,
+                              personalDll ?? caps.affordable,
+                          ),
+                      ),
+                      isPlacedAtEnteredStop:
+                          isEnteredStopResolved(positionSizing),
+                      kind: DifferenceReason.LiveFloorMinimumTrade,
+                      minimumTradeRisk,
+                  },
+              ]
+            : [];
+    }
+
+    private floorTradeRisk(
+        livePlan: LivePlan,
+        state: LiveAccountState,
+    ): Dollars {
+        return dollars(
+            resolveLiveFloorTradeRisk(
+                state.balance - state.threshold,
+                livePlan.isFloorAlive(state),
+                advisorPlaceableMinimum(this.input.positionSizing),
+            ),
+        );
     }
 
     private payoutRuleContext(): LivePayoutRuleContext | null {
@@ -93,7 +158,7 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
         return {
             assumptions: this.assumptions(),
             dailyPlanCard: this.dailyPlanCard(),
-            differenceReasons: [],
+            differenceReasons: this.differenceReasons(),
             documented: this.documented(),
             headline: documentedRuleLabel(rulebookDeviation(rulebook)),
             optima: results,
@@ -130,8 +195,13 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
             livePlan.dailyLossLimitFor(state),
             state.todayPnL,
             NO_COMMISSION,
+            this.floorTradeRisk(livePlan, state),
         );
         return riskCaps(dollars(room.room), null, personal);
+    }
+
+    protected override enteredPlacement(): null | SizingPlacement {
+        return this.input.positionSizing ?? null;
     }
 
     protected override engineRequests(): readonly EngineOptimumRequest[] {
@@ -160,11 +230,12 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
                 contractLimit: null,
                 cushion,
                 dayStartDllRoom: null,
+                floorTradeRisk: dollars(0),
                 instrument: null,
                 liveCushionPercent: null,
                 personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
                 personalDll: personalDll ?? null,
-                placeableMinimum: dollars(0.01),
+                placeableMinimum: ONE_CENT,
                 stage: SizingStage.Live,
                 thresholdLocked: false,
             };
@@ -175,11 +246,12 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
             contractLimit: null,
             cushion,
             dayStartDllRoom: dollarsOrNull(livePlan.dailyLossLimitFor(state)),
+            floorTradeRisk: this.floorTradeRisk(livePlan, state),
             instrument: null,
             liveCushionPercent: livePlan.cushionPercentFor(state),
             personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
             personalDll: personalDll ?? null,
-            placeableMinimum: dollars(0.01),
+            placeableMinimum: ONE_CENT,
             stage: SizingStage.Live,
             thresholdLocked: state.thresholdLocked,
         };
@@ -200,6 +272,20 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
     }
 }
 
-function dollarsOrNull(amount: null | number): Dollars | null {
-    return amount === null ? null : dollars(amount);
+export function dollarsOrNull(
+    amount: null | number | undefined,
+): Dollars | null {
+    return amount === null || amount === undefined ? null : dollars(amount);
+}
+
+function isEnteredStopResolved(
+    positionSizing: LiveSizingAdvisorInput['positionSizing'],
+): boolean {
+    return (
+        !!positionSizing &&
+        resolvePositionSizing(
+            positionSizing.instrument,
+            positionSizing.stopPoints,
+        ) !== null
+    );
 }

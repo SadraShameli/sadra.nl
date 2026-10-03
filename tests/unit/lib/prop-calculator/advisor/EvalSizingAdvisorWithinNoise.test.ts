@@ -21,6 +21,7 @@ import {
     type LadderEngineOptimumResult,
     LadderEngineOptimumResultKind,
     LadderRefusalKind,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
 import { NOISE_STANDARD_ERRORS } from '~/lib/prop-calculator/stats';
@@ -45,6 +46,7 @@ function account(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 

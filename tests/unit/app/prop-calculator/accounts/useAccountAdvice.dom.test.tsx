@@ -29,6 +29,7 @@ import {
     AdviceSource,
     DEFAULT_RULEBOOK,
     FundedSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
 } from '~/lib/prop-calculator/advisor';
 import { TradingPhase } from '~/lib/prop-calculator/core';
 
@@ -111,6 +112,7 @@ function fundedAdvisorInput(
             plan: PLAN,
             resolvedDailyLossLimit: null,
             state,
+            ...NO_PENDING_PAYOUT_COUNTS,
         },
         fundedHorizonDays: 252,
         rulebook: DEFAULT_RULEBOOK,

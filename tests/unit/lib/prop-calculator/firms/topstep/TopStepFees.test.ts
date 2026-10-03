@@ -33,6 +33,15 @@ describe('TopStep 50K reset fees follow the published Reset Pricing table (help 
         expect(plan(variant).fees.reset).toBe(reset);
     });
 
+    it('the Pro Account is call-up only and carries no activation, subscription, evaluation or reset fee', () => {
+        expect(plan(TopStepVariant.ProAccount).fees).toStrictEqual({
+            activation: 0,
+            monthlySubscription: 0,
+            oneTimeEval: 0,
+            reset: 0,
+        });
+    });
+
     it('the No-fee DLL path still gets the automatic $10 Responsible Trading Discount on its $85 monthly subscription', () => {
         expect(
             plan(TopStepVariant.NoFeeStandardDll).fees.monthlySubscription,

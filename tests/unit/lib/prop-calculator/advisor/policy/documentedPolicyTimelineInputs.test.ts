@@ -1,14 +1,16 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     type AccountState,
     ApexVariant,
     CENTS_PER_DOLLAR,
+    CumulativeAmountTrigger,
     type DayPolicy,
     dollars,
     effectivePayoutRequest,
+    findFirm,
     FirmId,
     fraction,
     InstrumentSymbol,
@@ -17,6 +19,8 @@ import {
     type Plan,
     type PlanId,
     points,
+    PolicySourceKind,
+    PolicyVerification,
     RungSizing,
     serializePlanId,
     SIM_INPUTS_REFUSAL_PREFIX,
@@ -81,6 +85,8 @@ const topStep = registryPlan({
 
 const SEED = 42;
 const TRIALS = 200;
+const HEAVY_TEST_TIMEOUT_MS = 10_000;
+const TIMELINE_RUN_TRIALS = 10;
 const HORIZON_DAYS = 60;
 const EVAL_DAYS = 60;
 
@@ -145,6 +151,20 @@ function specOf(
         rulebook,
         run: { maxEvalDays: EVAL_DAYS, seed: SEED, trials: TRIALS },
     };
+}
+
+function stubConfirmedTrigger(firmId: FirmId) {
+    const firm = findFirm(firmId);
+    if (!firm) throw new Error(`firm ${firmId} not registered`);
+    vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue([
+        new CumulativeAmountTrigger(dollars(1500), {
+            fetchedOn: '2026-09-26',
+            quote: 'quote',
+            sourceKind: PolicySourceKind.LiveFetch,
+            url: 'https://example.invalid/rule',
+            verification: PolicyVerification.Confirmed,
+        }),
+    ]);
 }
 
 describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
@@ -282,6 +302,7 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
     });
 
     it('lists every applicable gap in the declared order', () => {
+        stubConfirmedTrigger(FirmId.Apex);
         const { funded, strategy } = DEFAULT_RULEBOOK;
         const differs = {
             ...DEFAULT_RULEBOOK,
@@ -301,15 +322,82 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
                     },
                     differs,
                 ),
+                apexEod,
             ),
         ).toEqual(DOCUMENTED_POLICY_TIMELINE_GAPS);
     });
 
-    it('runs simulatePortfolioTimeline on the built inputs without error', () => {
-        const inputs = documentedPolicyTimelineInputs(apexEod, specOf(), 3);
+    describe('a confirmed cumulative payout trigger (PT-36s, F-145)', () => {
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
 
-        expect(() => simulatePortfolioTimeline(inputs)).not.toThrow();
+        it('is a named gap with its own text, the timeline never ends an account on it', () => {
+            expect(DOCUMENTED_POLICY_TIMELINE_GAPS).toContain(
+                DocumentedPolicyTimelineGap.CumulativePayoutTrigger,
+            );
+            const text =
+                DOCUMENTED_POLICY_TIMELINE_GAP_TEXT[
+                    DocumentedPolicyTimelineGap.CumulativePayoutTrigger
+                ];
+            expect(text).toContain('does not simulate');
+            expect(text).toContain('cumulative');
+            expect(text).not.toContain('\u{2014}');
+        });
+
+        it('is listed for a plan with a confirmed trigger and absent without one', () => {
+            expect(applicableTimelineGaps(specOf(), apexEod)).toEqual([]);
+            stubConfirmedTrigger(FirmId.Apex);
+            expect(applicableTimelineGaps(specOf(), apexEod)).toEqual([
+                DocumentedPolicyTimelineGap.CumulativePayoutTrigger,
+            ]);
+        });
+
+        it('is not listed for a plan of a firm that has none while another firm has one', () => {
+            stubConfirmedTrigger(FirmId.Apex);
+            expect(applicableTimelineGaps(specOf(), topStep)).toEqual([]);
+        });
+
+        it('does not claim a trigger the firm pages disagree on', () => {
+            const firm = findFirm(FirmId.Apex);
+            if (!firm) throw new Error('Apex not registered');
+            vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue([
+                new CumulativeAmountTrigger(dollars(1500), {
+                    conflicting: {
+                        fetchedOn: '2026-09-26',
+                        quote: 'other',
+                        sourceKind: PolicySourceKind.LiveFetch,
+                        url: 'https://example.invalid/other',
+                    },
+                    fetchedOn: '2026-09-26',
+                    quote: 'quote',
+                    sourceKind: PolicySourceKind.LiveFetch,
+                    url: 'https://example.invalid/rule',
+                    verification: PolicyVerification.Conflict,
+                }),
+            ]);
+            expect(applicableTimelineGaps(specOf(), apexEod)).toEqual([]);
+        });
+
+        it('keeps the spec-only gaps when the plan is not known', () => {
+            stubConfirmedTrigger(FirmId.Apex);
+            expect(
+                applicableTimelineGaps(specOf({ intradayPathStepsPerR: 10 })),
+            ).toEqual([DocumentedPolicyTimelineGap.IntradayPathStepsPerR]);
+        });
     });
+
+    it('runs simulatePortfolioTimeline on the built inputs without error', () => {
+        const spec = specOf();
+        const inputs = documentedPolicyTimelineInputs(
+            apexEod,
+            { ...spec, run: { ...spec.run, trials: TIMELINE_RUN_TRIALS } },
+            3,
+        );
+
+        expect(inputs.trials).toBe(TIMELINE_RUN_TRIALS);
+        expect(() => simulatePortfolioTimeline(inputs)).not.toThrow();
+    }, HEAVY_TEST_TIMEOUT_MS);
 
     it('throws on a plan serial mismatch', () => {
         expect(() =>

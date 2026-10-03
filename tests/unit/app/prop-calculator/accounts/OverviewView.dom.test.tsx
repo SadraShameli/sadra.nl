@@ -23,6 +23,7 @@ import {
     AccountStage,
     AccountStatus,
     AccountTracking,
+    BankrollTransferKind,
     DashboardBalanceConvention,
     FeeKind,
     type LedgerAccountRow,
@@ -555,6 +556,91 @@ describe('OverviewView', () => {
             (section) => headingOf(section)?.textContent === 'Repeatability',
         );
         expect(repeatabilitySection?.textContent).not.toBe('');
+    });
+
+    it('shows injected capital once, the reinvested payouts and the grown-from sentence on the bankroll card (F-V3)', () => {
+        const alpha = overviewAccount('alpha', {
+            fundedOn: '2026-09-05',
+            purchasedOn: '2026-06-01',
+            stage: AccountStage.Funded,
+        });
+        answerEverything([alpha]);
+        harness.queries.set(
+            'bankroll.list',
+            answer([
+                {
+                    amountCents: usdCents(10_000),
+                    id: 'deposit-1',
+                    kind: BankrollTransferKind.Deposit,
+                    occurredOn: '2026-05-01',
+                    userId: USER_ID,
+                },
+            ]),
+        );
+        harness.queries.set(
+            'payout.list',
+            answer([
+                {
+                    accountId: alpha.id,
+                    approvedOn: null,
+                    grossCents: usdCents(20_000),
+                    id: 'payout-alpha',
+                    netCents: usdCents(20_000),
+                    paidOn: '2026-09-10',
+                    requestedOn: '2026-09-05',
+                    status: PayoutStatus.Paid,
+                    userId: USER_ID,
+                } satisfies LedgerPayoutRow,
+            ]),
+        );
+        render();
+        const bankroll = sectionNamed('Bankroll');
+        const labels = [...(bankroll?.querySelectorAll('dt') ?? [])].map(
+            (node) => node.textContent,
+        );
+        expect(labels).toEqual([
+            'Available bankroll',
+            'Injected capital',
+            'Reinvested payouts',
+            'Withdrawals',
+        ]);
+        expect(bankroll?.textContent).toContain('Grown from $100 injected.');
+        const reinvested = [...(bankroll?.querySelectorAll('dt') ?? [])].find(
+            (node) => node.textContent === 'Reinvested payouts',
+        );
+        expect(reinvested?.nextElementSibling?.textContent).toBe('$50');
+    });
+
+    it('labels the per-slot repeatability group as measured accounts only and prints the shares with their interval (F-V4, F-V10)', () => {
+        const alpha = overviewAccount('alpha', {
+            fundedOn: '2026-08-05',
+            purchasedOn: '2026-06-01',
+            stage: AccountStage.Funded,
+        });
+        answerEverything([alpha]);
+        harness.queries.set(
+            'payout.list',
+            answer([
+                {
+                    accountId: alpha.id,
+                    approvedOn: null,
+                    grossCents: usdCents(30_000),
+                    id: 'payout-alpha',
+                    netCents: usdCents(30_000),
+                    paidOn: '2026-08-10',
+                    requestedOn: '2026-08-05',
+                    status: PayoutStatus.Paid,
+                    userId: USER_ID,
+                } satisfies LedgerPayoutRow,
+            ]),
+        );
+        render();
+        const repeatability = sectionNamed('Repeatability');
+        expect(repeatability?.textContent).toContain(
+            'Per funded slot per month (measured accounts only)',
+        );
+        expect(repeatability?.textContent).toMatch(/95% CI .* to .*, n = \d/);
+        expect(repeatability?.textContent).not.toContain('NaN');
     });
 
     it('toggles the statement between cash by month and by purchase cohort (F-V4, F-V12)', () => {

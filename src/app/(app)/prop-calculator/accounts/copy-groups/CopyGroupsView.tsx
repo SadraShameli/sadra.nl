@@ -46,7 +46,11 @@ import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import { copyGroupSizingSectionsOf } from './copyGroupSizingModel';
-import { GroupSizingSection, type GroupSizingView } from './GroupSizingSection';
+import {
+    GroupSizingSection,
+    type GroupSizingView,
+    GroupSizingViewKind,
+} from './GroupSizingSection';
 
 const CHOOSE_ACCOUNT = 'Choose an account to add.';
 
@@ -75,10 +79,18 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
                 : copyGroupRows(groups, accounts),
         [groups, accounts],
     );
+    const sizingQueries = [
+        eventsQuery,
+        payoutsQuery,
+        rulebookQuery,
+        snapshotsQuery,
+    ];
     const sizingFailure =
-        [eventsQuery, payoutsQuery, rulebookQuery, snapshotsQuery].find(
-            (query) => query.isError,
-        )?.error.message ?? null;
+        sizingQueries.find((query) => query.isError && query.data === undefined)
+            ?.error.message ?? null;
+    const sizingRefreshFailure =
+        sizingQueries.find((query) => query.isError && query.data !== undefined)
+            ?.error.message ?? null;
     const sizingSections = useMemo(() => {
         return sizingFailure === null &&
             overview !== null &&
@@ -110,12 +122,16 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
     ]);
     const sizingViewFor = (groupId: string): GroupSizingView => {
         if (sizingFailure !== null) {
-            return { kind: 'failed', message: sizingFailure };
+            return { kind: GroupSizingViewKind.Failed, message: sizingFailure };
         }
         const section = sizingSections?.get(groupId);
         return section === undefined
-            ? { kind: 'pending' }
-            : { kind: 'ready', section };
+            ? { kind: GroupSizingViewKind.Pending }
+            : {
+                  kind: GroupSizingViewKind.Ready,
+                  refreshFailure: sizingRefreshFailure,
+                  section,
+              };
     };
 
     return (

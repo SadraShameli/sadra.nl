@@ -70,6 +70,7 @@ function edgeSummary(sampleSize: number): EdgeSummary {
         rewardToRisk: 2,
         sampleSize,
         winRate: metric,
+        winRateInterval: { lower: 0.3, upper: 0.5 },
     };
 }
 
@@ -99,6 +100,36 @@ describe('EdgeView', () => {
             root.render(<EdgeView />);
         });
     }
+
+    it('prints the 95% interval of the win rate beside its n and standard error (F-V10, PT-86)', () => {
+        const summary = edgeSummary(10);
+        harness.queries.set(
+            'edge.summary',
+            answer({
+                summary: {
+                    ...summary,
+                    winRateInterval: { lower: 0.3127, upper: 0.8318 },
+                },
+                truncated: false,
+            }),
+        );
+        render();
+        expect(container.textContent).toContain(
+            '95% CI 31.3% to 83.2%, n = 10',
+        );
+    });
+
+    it('prints no interval when the journal has no counted trade', () => {
+        harness.queries.set(
+            'edge.summary',
+            answer({
+                summary: { ...edgeSummary(0), winRateInterval: null },
+                truncated: false,
+            }),
+        );
+        render();
+        expect(container.textContent).not.toContain('95% CI');
+    });
 
     it('shows no sample badge when the rulebook sets no trades threshold', () => {
         harness.queries.set(
@@ -168,6 +199,23 @@ describe('EdgeView', () => {
         expect(container.textContent).toContain(
             'not measured from your trades',
         );
+    });
+
+    it('carries no objective in the measured-edge link: this page has no calculator provider and no deliberate pick (PT-63d)', () => {
+        harness.queries.set(
+            'edge.summary',
+            answer({ summary: edgeSummary(10), truncated: false }),
+        );
+        render();
+        const link = [...container.querySelectorAll('a')].find(
+            (candidate) =>
+                candidate.textContent ===
+                'Try my measured win rate in the calculator',
+        );
+        const query = new URLSearchParams(
+            (link?.getAttribute('href') ?? '').split('?', 2)[1],
+        );
+        expect(query.has('obj')).toBe(false);
     });
 
     it('shows no measured-edge link when the journal has no observed win rate', () => {

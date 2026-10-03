@@ -17,6 +17,7 @@ import {
     type FundedPayoutRuleContext,
     LIVE_TRIGGER_NOT_CHECKED,
     LiveTriggerScope,
+    NO_PENDING_PAYOUT_COUNTS,
     PayoutBlockReasonKind,
     payoutReadiness,
     PayoutReadinessKind,
@@ -53,7 +54,9 @@ function contextFor(
         liveTriggerFirmTotalSource: null,
         liveTriggerPerAccountCap: 3,
         liveTriggerPerAccountSource: null,
+        otherAccountsPendingPayoutCount: 0,
         paidPayoutsSinceLastLiveAccount: null,
+        pendingPayoutCount: 0,
         pendingPayouts: dollars(0),
         personalRequestOverride: null,
         personalRetainedCushion: null,
@@ -211,10 +214,12 @@ describe('the live trigger is checked before every wait (PT-36f, step 4)', () =>
             const state = fundedState(50_050);
             const tracker = trackerAfterTwoPayouts(state, 20);
             const waiting = payoutReadiness(plan, state, tracker, {
+                ...NO_PENDING_PAYOUT_COUNTS,
                 liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
                 minRetainedCushion: 0,
             });
             const readiness = payoutReadiness(plan, state, tracker, {
+                ...NO_PENDING_PAYOUT_COUNTS,
                 liveTrigger: {
                     firmTotalCap: null,
                     firmTotalSource: null,
@@ -245,6 +250,7 @@ describe('the live trigger is checked before every wait (PT-36f, step 4)', () =>
                 state,
                 tracker,
                 {
+                    ...NO_PENDING_PAYOUT_COUNTS,
                     liveTrigger: {
                         firmTotalCap: null,
                         firmTotalSource: null,

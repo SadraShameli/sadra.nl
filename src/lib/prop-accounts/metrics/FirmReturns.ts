@@ -1,4 +1,5 @@
 import {
+    AccountTracking,
     compareText,
     type FirmKey,
     firmKeyId,
@@ -13,9 +14,8 @@ import {
     type UncertainValue,
 } from '~/lib/prop-calculator/stats';
 
-import { attemptsOf } from './Attempts';
+import { attemptsOf, isFundedAccount } from './Attempts';
 import {
-    fundedSince,
     type LedgerAccount,
     type PortfolioLedger,
     type SampledEstimate,
@@ -32,10 +32,12 @@ export interface FirmReturn {
     readonly firstPayoutOn: null | string;
     readonly fundedAccounts: number;
     readonly lastPayoutOn: null | string;
+    readonly ledgerOnlyAccounts: number;
     readonly multiple: null | number;
     readonly net: UsdCents;
     readonly payouts: UsdCents;
     readonly spend: UsdCents;
+    readonly unresolvedAccounts: number;
     readonly verdict: NoiseVerdict;
 }
 
@@ -44,7 +46,7 @@ export interface FirmReturns {
 }
 
 export function firmReturns(ledger: PortfolioLedger): FirmReturns {
-    const groups = groupByFirmKey(ledger.resolvedAccounts, (entry) =>
+    const groups = groupByFirmKey(ledger.accounts, (entry) =>
         firmKeyOf(entry.row),
     );
     return {
@@ -82,13 +84,21 @@ function firmReturn(
         attempts: accounts.reduce((sum, entry) => sum + attemptsOf(entry), 0),
         firmKey,
         firstPayoutOn: paidDates.at(0) ?? null,
-        fundedAccounts: accounts.filter((entry) => fundedSince(entry) !== null)
+        fundedAccounts: accounts.filter((entry) => isFundedAccount(entry))
             .length,
         lastPayoutOn: paidDates.at(-1) ?? null,
+        ledgerOnlyAccounts: accounts.filter(
+            (entry) => entry.row.tracking === AccountTracking.LedgerOnly,
+        ).length,
         multiple: payoutMultiple(cash.payouts, cash.spend),
         net: cash.net,
         payouts: cash.payouts,
         spend: cash.spend,
+        unresolvedAccounts: accounts.filter(
+            (entry) =>
+                entry.row.tracking === AccountTracking.Modeled &&
+                entry.plan === null,
+        ).length,
         verdict: noiseVerdict(ownMean, otherMean, { sharedSeed: false }),
     };
 }

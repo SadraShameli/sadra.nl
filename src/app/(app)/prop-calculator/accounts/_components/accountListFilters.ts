@@ -88,6 +88,7 @@ export type AccountListAccount = Pick<
     | 'tags'
     | 'tracking'
 > & {
+    readonly hasCorruptTags?: boolean;
     readonly readIssues: readonly AccountReadIssue[];
 };
 
@@ -116,6 +117,7 @@ export interface AccountListRow {
     readonly planIssue: null | string;
     readonly readiness: null | PayoutReadinessTier;
     readonly readOnlyNotice: null | string;
+    readonly tagsNotice: null | string;
 }
 
 export type AccountListSnapshot = Pick<
@@ -167,6 +169,9 @@ const STATUS_LABEL: Readonly<Record<AccountStatus, string>> = {
     [AccountStatus.Concluded]: 'Concluded',
     [AccountStatus.Suspended]: 'Suspended',
 };
+
+const CORRUPT_TAGS_NOTICE =
+    'The saved tags of this account cannot be read, so they show as none. Saving the account with at least one tag replaces them.';
 
 const READ_ONLY_CLOSING =
     'While it is read-only, the account cannot be edited here and gets no sizing advice. Archiving keeps its payouts and fees in your totals; deleting it removes its balances, payouts, fees and events for good.';
@@ -283,6 +288,8 @@ export function buildAccountListRows(
                 issues.length === 0
                     ? null
                     : readOnlyAccountNotice(account, issues),
+            tagsNotice:
+                account.hasCorruptTags === true ? CORRUPT_TAGS_NOTICE : null,
         };
     });
 }

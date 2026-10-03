@@ -5,6 +5,7 @@ import {
 } from '~/lib/prop-calculator/advisor/DocumentedSizing';
 import { NextTradeRiskVerdict } from '~/lib/prop-calculator/advisor/NextTradeRiskVerdict';
 import {
+    isPlacementChecked,
     RungPlacement,
     rungPlacementOf,
     type SizingPlacement,
@@ -13,7 +14,6 @@ import {
     type DayProgress,
     type RuleContext,
 } from '~/lib/prop-calculator/advisor/RuleContext';
-import { SizingStage } from '~/lib/prop-calculator/advisor/SizingStage';
 import {
     CENTS_PER_DOLLAR,
     type Dollars,
@@ -57,7 +57,7 @@ export function nextTradeRiskCheck<TContext extends RuleContext>(
         trade.kind === NextTradeKind.Trade ? trade.rung.risk : null;
     const stopReason = trade.kind === NextTradeKind.Stop ? trade.reason : null;
     const documentedRungPlacement =
-        documentedRung !== null && context.stage === SizingStage.Funded
+        documentedRung !== null && isPlacementChecked(context.stage)
             ? rungPlacementOf(documentedRung, placement)
             : RungPlacement.NotChecked;
 

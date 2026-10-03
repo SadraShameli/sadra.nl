@@ -65,16 +65,21 @@ export abstract class DocumentedRule<
         const parsed = this.contextSchema.parse(context);
         const progress = dayProgressSchema.parse(day);
         const sizing = this.size(parsed);
-        const trade = this.tradeAfter(parsed, progress, sizing);
-        assertTradeInvariant(trade, sizing, parsed, progress);
+        const sizingContext = this.sizingContext(parsed);
+        const trade = this.tradeAfter(sizingContext, progress, sizing);
+        assertTradeInvariant(trade, sizing, sizingContext, progress);
         return trade;
     }
 
     size(context: TContext): DocumentedSizing {
-        const parsed = this.contextSchema.parse(context);
+        const parsed = this.sizingContext(this.contextSchema.parse(context));
         const sizing = this.sizeWithin(parsed);
         assertSizingInvariant(sizing, parsed);
         return sizing;
+    }
+
+    protected sizingContext(context: TContext): TContext {
+        return context;
     }
 
     protected tradeAfter(

@@ -20,10 +20,12 @@ import {
     DEFAULT_RULEBOOK,
     DifferenceReason,
     differenceReasonText,
+    EngineInputsRefusalKind,
     EngineOptimumRowKind,
     FundedSizingAdvisor,
     type FundedSweepFreshRequest,
     FundedSweepOptimumResultKind,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     type PayoutSizeSweepRequest,
     type PersonalCaps,
@@ -54,6 +56,7 @@ function account(): ReconstructedFundedOrEvalAccount {
         plan: tradingPlan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -218,7 +221,9 @@ describe('the funded sweep candidates stop at the personal max risk per trade (P
     });
 });
 
-function refusalIssuesAt(maxRisk: Dollars | null): readonly string[] {
+function refusalIssuesAt(
+    maxRisk: Dollars | null,
+): readonly EngineInputsRefusalKind[] {
     const advisor = new FundedSizingAdvisor({
         account: account(),
         fundedHorizonDays: 252,
@@ -237,18 +242,16 @@ function refusalIssuesAt(maxRisk: Dollars | null): readonly string[] {
         .assemble([])
         .differenceReasons.flatMap((reason) =>
             reason.kind === DifferenceReason.EngineInputsRefused
-                ? [reason.issue]
+                ? [reason.refusal]
                 : [],
         );
 }
 
 describe('the funded placement check reads the capped funded risk (PT-68f, F-V16)', () => {
     it('reports a placement below one contract when the personal max risk sits under one contract at the stop', () => {
-        expect(
-            refusalIssuesAt(dollars(150)).some((issue) =>
-                issue.includes('places below one contract'),
-            ),
-        ).toBe(true);
+        expect(refusalIssuesAt(dollars(150))).toContain(
+            EngineInputsRefusalKind.FlatBelowOneContract,
+        );
     });
 
     it('reports nothing when the rulebook risk and the cap both place a whole contract', () => {

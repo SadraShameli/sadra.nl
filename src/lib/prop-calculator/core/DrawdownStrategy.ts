@@ -1,5 +1,9 @@
 import { type AccountState } from './AccountState';
-import { type Dollars } from './lib/units';
+import {
+    type Dollars,
+    isAtOrBelowWithinCentTolerance,
+    ONE_CENT,
+} from './lib/units';
 import { PayoutFloorEffect, type PayoutLockEffect } from './PayoutFloorEffect';
 
 export enum DrawdownKind {
@@ -184,5 +188,14 @@ export class StaticDrawdown extends DrawdownStrategy {
     }
     onTrade(_state: DrawdownState, _tradePnL: number, _peakPnL?: number): void {
         return;
+    }
+}
+
+export class StrictlyBelowStaticDrawdown extends StaticDrawdown {
+    override isBreached(state: DrawdownState): boolean {
+        return isAtOrBelowWithinCentTolerance(
+            state.balance,
+            state.threshold - ONE_CENT,
+        );
     }
 }

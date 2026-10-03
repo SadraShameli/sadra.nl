@@ -162,27 +162,41 @@ const FULL_INPUT = {
 
 const EXPECTED_ASSUMPTION_KINDS = [
     'CalendarAnchorMissing',
+    'CalendarWeekProgressDefaulted',
     'ContractCapInstrumentAssumed',
+    'CumulativePayoutDefaulted',
+    'CumulativePayoutTriggerPriced',
     'CumulativeQualifyingDaysAssumed',
     'CycleBestDayProfitAssumedWorstCase',
     'DashboardFloorMismatch',
     'ElapsedDaysApproximatedFromTradingDays',
+    'EvalBestDayProfitDefaulted',
+    'FirmPayoutCountNotChecked',
     'FundedResetsFromEvents',
     'GrossOnlyPayouts',
     'LadderStepWidened',
     'LastPayoutBalanceAssumedCurrent',
     'LiveModelApproximation',
     'LiveNotModeled',
+    'LiveStartBalanceDefaulted',
+    'LiveTransferHazard',
+    'LiveTransferHazardNotPriced',
     'LiveTriggersNotChecked',
     'NoHolidayCalendar',
+    'PayoutsTakenDefaulted',
     'PeakOrderAssumed',
+    'PeakProfitApproximated',
+    'PeakReplacedByDashboardFloor',
+    'PendingPayoutAssumedInBalance',
     'PendingPayoutDeducted',
     'PercentCandidatesLeftOut',
     'PositionSizingUnspecified',
+    'QualifyingDaysDefaulted',
     'RebuyLagAssumed',
     'SizingRule',
     'TopStepLfaProgressDefaulted',
     'TopStepLiveReserveDefaulted',
+    'TradingDaysDefaulted',
 ];
 
 function balanceKindsFor(
@@ -258,7 +272,10 @@ describe('AccountSnapshotInput (F-106)', () => {
 
     it('names every input key by a SnapshotInputField member at the type level', () => {
         expectTypeOf<`${SnapshotInputField}`>().toEqualTypeOf<
-            keyof AccountSnapshotInput
+            Exclude<
+                keyof AccountSnapshotInput,
+                'requestedPayoutsAssumedInBalance'
+            >
         >();
     });
 

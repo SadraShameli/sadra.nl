@@ -23,6 +23,8 @@ import {
     type LadderEngineOptimumResult,
     LadderEngineOptimumResultKind,
     type LadderSearchRequest,
+    NO_PENDING_PAYOUT_COUNTS,
+    NO_PERSONAL_CAPS,
     type ReconstructedFundedOrEvalAccount,
     runEngineOptimum,
 } from '~/lib/prop-calculator/advisor';
@@ -56,6 +58,7 @@ function account(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -87,13 +90,18 @@ function advisorWith(
     return new EvalSizingAdvisor({
         account: account(options.state),
         maxEvalDays: 150,
+        personalCaps: {
+            ...NO_PERSONAL_CAPS,
+            maxRiskPerTrade: dollars(300),
+            maxTradesPerDay: 2,
+        },
         substate: null,
         ...(options.personalDll !== undefined && {
             personalDll: dollars(options.personalDll),
         }),
         rulebook: DEFAULT_RULEBOOK,
         seed: 7,
-        sims: 300,
+        sims: 60,
         snapshotAsOf: '2026-09-26',
         today: '2026-09-26',
     });

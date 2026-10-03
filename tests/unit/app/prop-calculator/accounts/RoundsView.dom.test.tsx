@@ -55,6 +55,7 @@ const TODAY = '2026-09-26';
 const ROUND_ID = '5b0c3f7e-8a51-4c4e-9f0a-3d0f1c2b4a61';
 const ALPHA_ID = '2a4c6e8f-1b3d-4f5a-9c7e-0d2f4a6c8e1b';
 const BRAVO_ID = '9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
+const SECOND_ROUND_ID = '3e7a9c1d-5b2f-4a8c-9d0e-6f1a2b3c4d5e';
 
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
@@ -242,10 +243,65 @@ function failed(message: string): FakeQuery {
     };
 }
 
+function feeFor(
+    accountId: string,
+    id: string,
+    cents: number,
+    paidOn: string,
+): LedgerFeeRow {
+    return {
+        accountId,
+        amountCents: usdCents(cents),
+        id,
+        kind: FeeKind.EvalPurchase,
+        paidOn,
+        userId: USER_ID,
+    };
+}
+
 function input(scope: ParentNode, selector: string): HTMLInputElement {
     const found = scope.querySelector<HTMLInputElement>(selector);
     if (found === null) throw new Error(`no input ${selector}`);
     return found;
+}
+
+function payoutFor(
+    accountId: string,
+    id: string,
+    cents: number,
+    paidOn: string,
+): LedgerPayoutRow {
+    return {
+        accountId,
+        approvedOn: null,
+        grossCents: usdCents(cents),
+        id,
+        netCents: usdCents(cents),
+        paidOn,
+        requestedOn: paidOn,
+        status: PayoutStatus.Paid,
+        userId: USER_ID,
+    };
+}
+
+function roundListRow(
+    id: string,
+    label: string,
+    overrides: Record<string, unknown> = {},
+) {
+    return {
+        budgetCents: null,
+        closedOn: null,
+        externalFirmId: null,
+        firmId: FIRST_FIRM.id,
+        id,
+        label,
+        notes: null,
+        openedOn: '2026-06-01',
+        status: RoundStatus.Open,
+        userId: USER_ID,
+        ...overrides,
+    };
 }
 
 async function submitForm(scope: ParentNode, label: string) {
@@ -710,6 +766,174 @@ describe('RoundsView', () => {
 
         expect(container.textContent).toContain('Next round');
         expect(container.textContent).toContain('My own tracked account');
+    });
+
+    it('draws the per-firm spread with its sample badge, share positive and interval for two rounds at one firm', () => {
+        harness.queries.set(
+            'rulebook.get',
+            answer({
+                ...DEFAULT_RULEBOOK,
+                samples: { ...DEFAULT_RULEBOOK.samples, minClosedRounds: 5 },
+            }),
+        );
+        harness.queries.set(
+            'round.list',
+            answer([
+                roundListRow(ROUND_ID, 'Q1 push', {
+                    closedOn: '2026-07-01',
+                    status: RoundStatus.Closed,
+                }),
+                roundListRow(SECOND_ROUND_ID, 'Q2 push', {
+                    closedOn: '2026-09-01',
+                    openedOn: '2026-08-01',
+                    status: RoundStatus.Closed,
+                }),
+            ]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([
+                account(ALPHA_ID, 'Alpha', { roundId: ROUND_ID }),
+                account(BRAVO_ID, 'Bravo', { roundId: SECOND_ROUND_ID }),
+            ]),
+        );
+        harness.queries.set(
+            'fee.list',
+            answer([
+                feeFor(ALPHA_ID, 'fee-alpha', 50_000, '2026-06-01'),
+                feeFor(BRAVO_ID, 'fee-bravo', 50_000, '2026-08-01'),
+            ]),
+        );
+        harness.queries.set(
+            'payout.list',
+            answer([
+                payoutFor(ALPHA_ID, 'payout-alpha', 100_000, '2026-06-20'),
+                payoutFor(BRAVO_ID, 'payout-bravo', 25_000, '2026-08-20'),
+            ]),
+        );
+        render();
+        const table = element(container, 'table[aria-label="Rounds by firm"]');
+        expect(table.textContent).toContain(FIRST_FIRM.displayName);
+        expect(table.textContent).toContain('0.50x');
+        expect(table.textContent).toContain('2.00x');
+        expect(table.textContent).toContain('50.0% (95% CI ');
+        expect(table.textContent).toContain('n = 2)');
+        expect(table.textContent).toContain('Low sample');
+    });
+
+    it('draws the per-firm spread from closed rounds only and says so beside the open round it leaves out', () => {
+        harness.queries.set(
+            'round.list',
+            answer([
+                roundListRow(ROUND_ID, 'Q1 push', {
+                    closedOn: '2026-07-01',
+                    status: RoundStatus.Closed,
+                }),
+                roundListRow(SECOND_ROUND_ID, 'Q2 push', {
+                    openedOn: '2026-08-01',
+                }),
+            ]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([
+                account(ALPHA_ID, 'Alpha', { roundId: ROUND_ID }),
+                account(BRAVO_ID, 'Bravo', { roundId: SECOND_ROUND_ID }),
+            ]),
+        );
+        harness.queries.set(
+            'fee.list',
+            answer([
+                feeFor(ALPHA_ID, 'fee-alpha', 50_000, '2026-06-01'),
+                feeFor(BRAVO_ID, 'fee-bravo', 50_000, '2026-08-01'),
+            ]),
+        );
+        harness.queries.set(
+            'payout.list',
+            answer([
+                payoutFor(ALPHA_ID, 'payout-alpha', 100_000, '2026-06-20'),
+            ]),
+        );
+        render();
+        const table = element(container, 'table[aria-label="Rounds by firm"]');
+        const headers = Array.from(
+            table.querySelectorAll('th'),
+            (header) => header.textContent,
+        );
+        expect(headers).toContain('Closed');
+        const cells = Array.from(
+            table.querySelectorAll(':scope tbody tr td'),
+            (cell) => cell.textContent,
+        );
+        expect(cells.slice(0, 3)).toEqual([FIRST_FIRM.displayName, '2', '1']);
+        expect(cells).toContain('2.00x');
+        expect(cells).not.toContain('0.00x');
+        expect(table.textContent).toContain('n = 1)');
+        expect(container.textContent).toContain(
+            'Multiples and share positive use closed rounds only',
+        );
+    });
+
+    it('names how many rounds have no firm and are left out of the per-firm spread', () => {
+        harness.queries.set(
+            'round.list',
+            answer([
+                roundListRow(ROUND_ID, 'Loose round', {
+                    externalFirmId: null,
+                    firmId: null,
+                }),
+            ]),
+        );
+        render();
+        expect(container.textContent).toContain('Rounds without a firm: 1');
+    });
+
+    it('shows no per-firm spread card when there are no rounds', () => {
+        render();
+        expect(
+            container.querySelector('table[aria-label="Rounds by firm"]'),
+        ).toBeNull();
+        expect(container.textContent).not.toContain('Rounds without a firm');
+    });
+
+    it("shows each round's payouts, cycle length and in-progress members under their columns", () => {
+        harness.queries.set(
+            'round.list',
+            answer([
+                roundListRow(ROUND_ID, 'Q1 push', {
+                    closedOn: '2026-07-20',
+                    status: RoundStatus.Closed,
+                }),
+            ]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha', { roundId: ROUND_ID })]),
+        );
+        harness.queries.set(
+            'fee.list',
+            answer([feeFor(ALPHA_ID, 'fee-alpha', 10_000, '2026-06-01')]),
+        );
+        harness.queries.set(
+            'payout.list',
+            answer([
+                payoutFor(ALPHA_ID, 'payout-alpha', 30_000, '2026-07-12'),
+            ]),
+        );
+        render();
+        const table = element(container, 'table[aria-label="Rounds"]');
+        const headers = [...table.querySelectorAll('th')].map(
+            (cell) => cell.textContent,
+        );
+        expect(headers).toEqual(
+            expect.arrayContaining(['Payouts', 'Cycle', 'In progress']),
+        );
+        const cells = [...table.querySelectorAll(':scope tbody td')].map(
+            (cell) => cell.textContent,
+        );
+        expect(cells).toContain('$300');
+        expect(cells).toContain('41 days');
+        expect(cells).toContain('1 in progress');
     });
 });
 

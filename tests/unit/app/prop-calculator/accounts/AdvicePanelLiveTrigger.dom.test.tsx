@@ -36,6 +36,7 @@ import {
     AccountSubstate,
     createSizingAdvisor,
     DEFAULT_RULEBOOK,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     PayoutBlockReasonKind,
     PayoutRequestDecisionKind,
@@ -483,6 +484,8 @@ describe('a suspended account never reaches the value request builder through a 
                 tradingDays: 40,
             },
             PLAN,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
         );
         const advisor = createSizingAdvisor(rebuilt, {
             rulebook: DEFAULT_RULEBOOK,

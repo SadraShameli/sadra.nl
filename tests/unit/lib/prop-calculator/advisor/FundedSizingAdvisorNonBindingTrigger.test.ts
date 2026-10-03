@@ -23,7 +23,9 @@ import {
     DayStopReason,
     DEFAULT_RULEBOOK,
     DifferenceReason,
+    EngineInputsRefusalKind,
     FundedSizingAdvisor,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     SizingConstraint,
 } from '~/lib/prop-calculator/advisor';
@@ -94,6 +96,7 @@ function accountOf(
         plan,
         resolvedDailyLossLimit: null,
         state: accountState,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -196,7 +199,7 @@ describe('FundedSizingAdvisor: a rung below one contract stays disclosed on the 
         const belowOneContract = differenceReasons.filter(
             (reason) =>
                 reason.kind === DifferenceReason.EngineInputsRefused &&
-                reason.issue.includes('below one contract'),
+                reason.refusal === EngineInputsRefusalKind.FlatBelowOneContract,
         );
 
         expect(advisor.dailyPlanCard()?.rungs[0]?.risk).toBe(250);

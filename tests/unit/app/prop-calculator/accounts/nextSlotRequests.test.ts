@@ -314,7 +314,8 @@ describe('nextSlotRequestsOf', () => {
             expect(enginePolicy.retainedCushionRequest).toBeGreaterThanOrEqual(
                 2000,
             );
-            expect(enginePolicy.payoutRequestOverride).toBe(
+            expect(enginePolicy.payoutRequestOverride).toBeNull();
+            expect(toSimInputs(plan, request.spec).payoutRequestSize).toBe(
                 effectivePayoutRequest(plan, RULEBOOK_REQUEST),
             );
             if (request.kind === OverviewRequestKind.DocumentedRun) {
@@ -338,9 +339,12 @@ describe('nextSlotRequestsOf', () => {
                     request.kind === OverviewRequestKind.DocumentedRun,
             );
             if (documented === undefined) throw new Error('no documented run');
-            expect(documented.spec.enginePolicy.payoutRequestOverride).toBe(
-                minimum,
-            );
+            expect(
+                documented.spec.enginePolicy.payoutRequestOverride,
+            ).toBeNull();
+            expect(
+                toSimInputs(ref.plan, documented.spec).payoutRequestSize,
+            ).toBe(minimum);
             const outcome = overviewOutcomeOf({
                 ...documented,
                 spec: { ...documented.spec, run: SMALL_RUN },

@@ -2,6 +2,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import { decodeState } from '~/app/(app)/prop-calculator/_components/urlState';
 import {
     type AccountFromStateFigures,
     type OverviewOutcome,
@@ -36,6 +38,7 @@ import {
     usdCentsToText,
 } from '~/lib/prop-accounts';
 import {
+    ALL_FIRMS,
     AlphaFuturesVariant,
     ApexVariant,
     findFirm,
@@ -1940,6 +1943,23 @@ describe('AccountDetailView', () => {
             expect(sectionTitled('Account state').textContent).toContain(
                 '$1,777',
             );
+        });
+
+        it('opens the simulator at the personal max risk per trade, not the rulebook funded risk (PT-42c follow-up)', async () => {
+            answerReadyState({ maxRiskPerTradeCents: usdCents(5000) });
+            render();
+            await settle();
+            const link = [
+                ...sectionTitled('Account state').querySelectorAll('a'),
+            ].find((anchor) => anchor.textContent === 'Simulate this account');
+            const query = link?.getAttribute('href')?.split('?', 2)[1];
+            if (query === undefined) throw new Error('no simulator link');
+            const state = decodeState(
+                new URLSearchParams(query),
+                ALL_FIRMS,
+                defaultCalculatorState(),
+            );
+            expect(state.riskDollars).toBe(50);
         });
 
         it('says on the header and the section which personal rules the one run simulates', async () => {

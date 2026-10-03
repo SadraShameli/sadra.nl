@@ -13,8 +13,34 @@ import {
     resolveAffordableRoomWithin,
     resolveDailyLossRoom,
     resolveLiveAffordableRoom,
+    resolveLiveFloorTradeRisk,
     resolveLiveTradeRisk,
 } from '~/lib/prop-calculator/core';
+
+describe('resolveLiveFloorTradeRisk', () => {
+    it('places the one-contract risk when the cushion is exactly 0 and the floor is still alive', () => {
+        expect(resolveLiveFloorTradeRisk(0, true, 450)).toBe(450);
+    });
+
+    it('places the one-contract risk through float residue under a cent either side of 0', () => {
+        expect(resolveLiveFloorTradeRisk(1e-10, true, 450)).toBe(450);
+        expect(resolveLiveFloorTradeRisk(-1e-10, true, 450)).toBe(450);
+    });
+
+    it('places nothing once the floor is not alive', () => {
+        expect(resolveLiveFloorTradeRisk(0, false, 450)).toBe(0);
+        expect(resolveLiveFloorTradeRisk(-500, false, 450)).toBe(0);
+    });
+
+    it('places nothing when the cushion is a real positive amount, leaving the cushion percent in charge', () => {
+        expect(resolveLiveFloorTradeRisk(0.01, true, 450)).toBe(0);
+        expect(resolveLiveFloorTradeRisk(3000, true, 450)).toBe(0);
+    });
+
+    it('never places a negative risk', () => {
+        expect(resolveLiveFloorTradeRisk(0, true, -450)).toBe(0);
+    });
+});
 
 describe('resolveLiveTradeRisk', () => {
     it('risks zero once the cushion is exactly exhausted', () => {

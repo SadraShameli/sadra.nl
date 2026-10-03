@@ -133,7 +133,10 @@ describe('computeFundedStateValue on the MFF Pro payout rules (N-7, N-64)', () =
     );
 });
 
-describe('simulate() replaying the funded DP policy on a calendar-day gate (N-7)', () => {
+const REPLAY_TRIALS = 40_000;
+const REPLAY_SIGMAS = 4;
+
+describe('simulate() replaying the funded DP policy on a calendar-day gate (N-7; PT-T1b: 40,000 trials and four standard errors of the replay, about 2.4 dollars on the 40.26 DP value, where 400,000 trials and a half dollar tolerance took 29 s)', () => {
     it('looks the policy up on the same day-gate progress the DP solved, idle sessions included, so the replayed value matches the DP', () => {
         const plan = calendarGatedToyPlan().withOverrides({
             maxConsecutiveIdleDays: 3,
@@ -153,13 +156,15 @@ describe('simulate() replaying the funded DP policy on a calendar-day gate (N-7)
             rrRatio: 2,
             seed: 11,
             tradesPerDay: 1,
-            trials: 400_000,
+            trials: REPLAY_TRIALS,
             winrate: 0.3,
         });
         const replayedValue =
             out.expectedGrossPayout +
             out.fundedBustProbability * result.bustTerminalValue;
 
-        expect(replayedValue).toBeCloseTo(result.initialValue, 0);
-    }, 30_000);
+        expect(Math.abs(replayedValue - result.initialValue)).toBeLessThan(
+            REPLAY_SIGMAS * out.estimates.expectedGrossPayout.standardError,
+        );
+    });
 });

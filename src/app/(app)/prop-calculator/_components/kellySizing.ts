@@ -1,4 +1,5 @@
 import {
+    type Dollars,
     fraction,
     type SimInputs,
     type SimOutputs,
@@ -10,6 +11,8 @@ export enum KellyIndexStatus {
     NotApplicable = 'not-applicable',
     Sized = 'sized',
 }
+
+export type AverageRiskResult = Pick<SimOutputs, 'averageRiskPerTrade'>;
 
 export interface AverageTradeSize {
     loss: number;
@@ -33,14 +36,13 @@ export type KellySizingInputs = Pick<
     'riskPerTrade' | 'rrRatio' | 'winrate'
 >;
 
-export type KellySizingResult = Pick<
-    SimOutputs,
-    'accountSize' | 'averageRiskPerTrade'
->;
+export interface KellySizingResult extends AverageRiskResult {
+    riskBasis: Dollars;
+}
 
 export function averageTradeSize(
     { rrRatio }: KellySizingInputs,
-    { averageRiskPerTrade }: KellySizingResult,
+    { averageRiskPerTrade }: AverageRiskResult,
 ): AverageTradeSize | null {
     return hasTakenTrades(averageRiskPerTrade)
         ? { loss: averageRiskPerTrade, win: averageRiskPerTrade * rrRatio }
@@ -49,12 +51,12 @@ export function averageTradeSize(
 
 export function kellySizing(
     { rrRatio, winrate }: KellySizingInputs,
-    { accountSize, averageRiskPerTrade }: KellySizingResult,
+    { averageRiskPerTrade, riskBasis }: KellySizingResult,
 ): KellySizing {
     const fullKelly = fullKellyFraction(fraction(winrate), rrRatio).value ?? 0;
     const currentRiskFraction =
-        hasTakenTrades(averageRiskPerTrade) && accountSize > 0
-            ? averageRiskPerTrade / accountSize
+        hasTakenTrades(averageRiskPerTrade) && riskBasis > 0
+            ? averageRiskPerTrade / riskBasis
             : null;
     return {
         currentRiskFraction,

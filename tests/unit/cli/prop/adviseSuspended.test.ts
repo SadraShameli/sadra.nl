@@ -17,6 +17,7 @@ import {
     createSizingAdvisor,
     DifferenceReason,
     differenceReasonText,
+    NO_PENDING_PAYOUT_COUNTS,
 } from '~/lib/prop-calculator/advisor';
 import { dollars } from '~/lib/prop-calculator/core';
 
@@ -42,7 +43,12 @@ const FRESH_FUNDED_APEX_EOD = [
 function adviceFor(argv: string[]) {
     const { options, plan, snapshot } = readAdviseInputs(parseAdvise(argv));
     const advisor = createSizingAdvisor(
-        AccountReconstruction.rebuild(snapshot, plan),
+        AccountReconstruction.rebuild(
+            snapshot,
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+        ),
         options,
     );
     return {
@@ -136,7 +142,12 @@ describe('advise --suspended (PT-19h, F-118)', () => {
             parseAdvise([...FRESH_FUNDED_APEX_EOD, '--suspended']),
         );
         const advisor = createSizingAdvisor(
-            AccountReconstruction.rebuild(snapshot, plan),
+            AccountReconstruction.rebuild(
+                snapshot,
+                plan,
+                null,
+                NO_PENDING_PAYOUT_COUNTS,
+            ),
             options,
         );
 

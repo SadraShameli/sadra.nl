@@ -6,13 +6,16 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/detail/liveTransitionPreviewModel';
 import { dollars } from '~/lib/prop-calculator';
 import {
-    LiveApplicabilityNote,
-    LiveNotModeledReason,
-    LiveStateApproximation,
     type LiveTransitionPreview,
     LiveTransitionPreviewGap,
     LiveTransitionPreviewKind,
 } from '~/lib/prop-calculator/advisor';
+import {
+    LiveApplicabilityNote,
+    LiveNotModeledReason,
+    LiveStateApproximation,
+} from '~/lib/prop-calculator/firms';
+import { LIVE_TRANSFER_NOTE_TEXT } from '~/lib/prop-calculator/simulator';
 
 const TOPSTEP_INERT: LiveTransitionPreview = {
     approximation: LiveStateApproximation.ReserveAndLfaProgressDefaulted,
@@ -110,5 +113,29 @@ describe('liveTransitionPreviewCardOf (PT-37, F-90)', () => {
     it('labels a firm-level approximation', () => {
         const text = textOf({ ...TOPSTEP_INERT, approximation: null });
         expect(text.toLowerCase()).toContain('approximation');
+    });
+});
+
+describe('the Lucid Daily credit card carries the engine caveats (N-92)', () => {
+    const SHARED =
+        LIVE_TRANSFER_NOTE_TEXT[
+            LiveApplicabilityNote.LucidDailyTransitionPayoutIsPastCash
+        ];
+
+    it('uses the one shared engine note as its caveat, not a second, weaker text', () => {
+        const model = liveTransitionPreviewCardOf(LUCID_CREDIT);
+
+        expect(model.caveats).toContain(SHARED);
+    });
+
+    it('says the 90/10 split is the tool own reading and the payout may wait on KYC and sub account approval', () => {
+        const caveats =
+            liveTransitionPreviewCardOf(LUCID_CREDIT).caveats.join(' ');
+
+        expect(caveats).toContain("tool's own reading");
+        expect(caveats).toContain('does not state');
+        expect(caveats).toContain('KYC');
+        expect(caveats).toContain('sub account approval');
+        expect(caveats).not.toContain('\u{2014}');
     });
 });

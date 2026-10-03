@@ -256,6 +256,7 @@ describe('profitCeiling on Funded and Live (F-154, PT-19 step 2)', () => {
             contractLimit: null,
             cushion: dollars(4000),
             dayStartDllRoom: null,
+            floorTradeRisk: dollars(0),
             instrument: null,
             liveCushionPercent: null,
             personalCaps: NO_PERSONAL_CAPS,

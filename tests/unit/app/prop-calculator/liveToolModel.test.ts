@@ -20,12 +20,12 @@ import {
     type Plan,
     TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator';
+import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import {
-    DEFAULT_RULEBOOK,
     isLiveModelApproximation,
     LiveApplicabilityKind,
     livePlanApplicability,
-} from '~/lib/prop-calculator/advisor';
+} from '~/lib/prop-calculator/firms';
 
 const ALL_PLANS: readonly Plan[] = ALL_FIRMS.flatMap((firm) => firm.plans);
 

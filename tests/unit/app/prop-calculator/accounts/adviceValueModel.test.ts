@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     fundedTierOptions,
     positionSizeFor,
+    siblingInstrumentSeverityText,
 } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
 import {
     decodePositionSize,
@@ -30,11 +31,14 @@ import {
     filledDailyPlanCard,
     flatRiskReasonOf,
     oneStepTreeOf,
+    PAYOUT_STAKE_REQUEST_NOW_TRANSFER_TEXT,
     payoutStakeViewOf,
     riskCandidatesViewOf,
     SESSION_BOUNDARY_CONTINUES_TEXT,
+    valueCumulativeTriggerOf,
     valueRunNoteOf,
     ValueSectionKind,
+    valueSentLiveShareOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
 import { contractsSizingOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/contractsSizingModel';
 import {
@@ -57,6 +61,7 @@ import {
     dollars,
     findFirm,
     FirmId,
+    type Fraction0to1,
     InstrumentSymbol,
     newFundedCycleTracker,
     type Plan,
@@ -72,6 +77,10 @@ import {
     type Advice,
     AdviceSource,
     AdviceStalenessReason,
+    AssumptionBias,
+    AssumptionKind,
+    assumptionText,
+    type CumulativePayoutTriggerAssumption,
     type DailyPlanCard,
     DayStopReason,
     DEFAULT_RULEBOOK,
@@ -79,8 +88,9 @@ import {
     type DocumentedPolicySpec,
     type EnginePolicy,
     FundedSizingAdvisor,
-    LiveApplicabilityNote,
+    liveTransferAssumptionOf,
     NextTradeRiskVerdict,
+    NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
     PayoutBlockReasonKind,
     PayoutRequestDecisionKind,
@@ -120,11 +130,17 @@ import {
     PayoutGate,
 } from '~/lib/prop-calculator/core';
 import {
+    ECONOMICS_DISCLOSURE_TEXT,
+    EconomicsDisclosure,
+} from '~/lib/prop-calculator/economics';
+import { LiveApplicabilityNote } from '~/lib/prop-calculator/firms';
+import {
     LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
     LIVE_TRANSFER_CONTINUATION_TEXT,
     LIVE_TRANSFER_NOTE_TEXT,
     LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT,
     LiveTransferContinuationKind,
+    liveTransferSentLiveText,
 } from '~/lib/prop-calculator/simulator';
 import { routes } from '~/lib/site/routes';
 
@@ -162,6 +178,7 @@ function fundedAccount(): ReconstructedFundedOrEvalAccount {
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -538,6 +555,46 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
         expect(view.row.risk.text).toBe(formatCurrency(expected));
     });
 
+    it('labels a fee-equivalent row an approximation valid near a fresh eval, and a row of another unit not at all', () => {
+        const disclosure =
+            ECONOMICS_DISCLOSURE_TEXT[
+                EconomicsDisclosure.NearFreshEvalApproximation
+            ];
+        const [feeView] = evSwingViewsOf(
+            [{ outcome: succeeded(swingResult()), rung: { risk: 500, rr: 2 } }],
+            { ...EVAL_CONTEXT, unit: RiskDisplayUnit.FeeEquivalent },
+        );
+        const [dollarsView] = evSwingViewsOf(
+            [{ outcome: succeeded(swingResult()), rung: { risk: 500, rr: 2 } }],
+            { ...EVAL_CONTEXT, unit: RiskDisplayUnit.AccountDollars },
+        );
+
+        if (
+            feeView?.kind !== ValueSectionKind.Ready ||
+            dollarsView?.kind !== ValueSectionKind.Ready
+        ) {
+            throw new Error('expected rows');
+        }
+        expect(feeView.row.risk.disclosure).toBe(disclosure);
+        expect(feeView.row.risk.label).toContain(disclosure);
+        expect(dollarsView.row.risk.disclosure).toBeNull();
+        expect(dollarsView.row.risk.label).toBe('Account dollars');
+    });
+
+    it('labels the fee-equivalent figure of a candidate row the same way', () => {
+        const view = riskCandidatesViewOf(
+            candidatesOf([candidateRowOf(250, 900)]),
+            250,
+            { ...EVAL_CONTEXT, unit: RiskDisplayUnit.FeeEquivalent },
+        );
+
+        expect(view.rows[0]?.risk.label).toContain(
+            ECONOMICS_DISCLOSURE_TEXT[
+                EconomicsDisclosure.NearFreshEvalApproximation
+            ],
+        );
+    });
+
     it('falls back with a label when the fee equivalent has no value for a funded account', () => {
         const [view] = evSwingViewsOf(
             [{ outcome: succeeded(swingResult()), rung: { risk: 500, rr: 2 } }],
@@ -547,6 +604,7 @@ describe('evSwingViewsOf (PT-67 step 1)', () => {
         if (view?.kind !== ValueSectionKind.Ready)
             throw new Error('expected a row');
         expect(view.row.risk.label).toBe('Fee equivalent');
+        expect(view.row.risk.disclosure).toBeNull();
         expect(view.row.risk.text).not.toContain('$');
     });
 });
@@ -600,6 +658,7 @@ describe('a loss that busts the account (PT-67 review)', () => {
     it('fills the daily card loss value net of the replacement fee', () => {
         const filled = filledDailyPlanCard(
             {
+                oneContractRisk: null,
                 rungPlacements: [],
                 rungs: [],
                 stopCappedBy: [],
@@ -785,6 +844,7 @@ describe('candidateRiskGridOf', () => {
 
 describe('filledDailyPlanCard (PT-67 step 1)', () => {
     const card: DailyPlanCard = {
+        oneContractRisk: null,
         rungPlacements: [],
         rungs: [],
         stopCappedBy: [],
@@ -872,6 +932,7 @@ function adviceFixture(overrides: Partial<Advice> = {}): Advice {
     return {
         assumptions: [],
         dailyPlanCard: {
+            oneContractRisk: null,
             rungPlacements: [RungPlacement.NotChecked],
             rungs: [
                 {
@@ -1000,6 +1061,7 @@ describe('accountActionFor (PT-67 step 2)', () => {
     it('is StopForToday when the day has no rung', () => {
         const advice = adviceFixture({
             dailyPlanCard: {
+                oneContractRisk: null,
                 rungPlacements: [],
                 rungs: [],
                 stopCappedBy: [],
@@ -1063,10 +1125,7 @@ describe('payoutStakeViewOf (PT-67 step 2, QV-18)', () => {
             value: value(900, 11, 990, 13),
         },
         requestedAmount: 500,
-        requestNow: {
-            creditFree: { standardError: 9, value: 1300 },
-            creditInclusive: { standardError: 10, value: 1420 },
-        },
+        requestNow: value(1300, 9, 1420, 10),
         traderReceivesNow: 450,
     };
 
@@ -1342,7 +1401,7 @@ describe('valueRunNoteOf (PT-67 review)', () => {
     it('states the run size, the seed, the horizon and an assumed zero rebuy lag as optimistic', () => {
         const request = readyRequestOf(valueRequestInputOf());
 
-        const note = valueRunNoteOf(request);
+        const note = valueRunNoteOf(request, null);
 
         expect(note).toContain('1000 trials');
         expect(note).toContain('seed 42');
@@ -1356,7 +1415,7 @@ describe('valueRunNoteOf (PT-67 review)', () => {
             measuredRebuyLag: { days: 4, samples: 3 },
         });
 
-        expect(valueRunNoteOf(request)).toContain(
+        expect(valueRunNoteOf(request, null)).toContain(
             'rebuy lag measured at 4 days',
         );
     });
@@ -1404,7 +1463,10 @@ describe('the value request carries the personal limits (PT-68f, F-V16)', () => 
     });
 
     it('names no personal limit in the value run note when none is set', () => {
-        const note = valueRunNoteOf(readyRequestOf(valueRequestInputOf()));
+        const note = valueRunNoteOf(
+            readyRequestOf(valueRequestInputOf()),
+            null,
+        );
 
         expect(note).not.toContain('Personal limits');
         expect(note).not.toContain(
@@ -1422,7 +1484,7 @@ describe('the value request carries the personal limits (PT-68f, F-V16)', () => 
                 },
             }),
         );
-        const note = valueRunNoteOf(request);
+        const note = valueRunNoteOf(request, null);
 
         expect(note).toContain('max risk per trade $100.00');
         expect(note).toContain('max 2 trades per day');
@@ -1443,7 +1505,7 @@ describe('the value request carries the personal limits (PT-68f, F-V16)', () => 
                 personalDll: dollars(600),
             }),
         );
-        const note = valueRunNoteOf(request);
+        const note = valueRunNoteOf(request, null);
 
         expect(note).toContain('daily loss limit $600.00');
         expect(note).toContain('daily profit cap $700.00');
@@ -2009,6 +2071,8 @@ describe('riskChecksOf (PT-67 step 3 and review)', () => {
 
 describe('contractsSizingOf (PT-67 step 4)', () => {
     const base = {
+        cushionLeft: null,
+        dailyLossRoom: null,
         instrument: InstrumentSymbol.NQ,
         phase: TradingPhase.Funded,
         plan,
@@ -2079,6 +2143,105 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
 
         expect(sizing.inline?.siblingText).toContain('NQ would risk');
         expect(sizing.inline?.siblingSeverityText).not.toBeNull();
+    });
+
+    it('judges the sibling mismatch against the smaller of the cushion left and the daily loss room (F-V31)', () => {
+        const mismatch = {
+            ...base,
+            instrument: InstrumentSymbol.MNQ,
+            risk: 150,
+            stopPoints: 7.5,
+        };
+        const both = contractsSizingOf({
+            ...mismatch,
+            cushionLeft: 900,
+            dailyLossRoom: 300,
+        });
+        expect(both.inline?.siblingSeverityText).toContain('room left today');
+        expect(queryOf(both.href).get(PositionSizeUrlParameter.Room)).toBe(
+            '300',
+        );
+        const cushionOnly = contractsSizingOf({
+            ...mismatch,
+            cushionLeft: 200,
+        });
+        expect(cushionOnly.inline?.siblingSeverityText).toContain(
+            'room left today',
+        );
+        expect(
+            queryOf(cushionOnly.href).get(PositionSizeUrlParameter.Room),
+        ).toBe('200');
+        const dailyOnly = contractsSizingOf({
+            ...mismatch,
+            dailyLossRoom: 250,
+        });
+        expect(queryOf(dailyOnly.href).get(PositionSizeUrlParameter.Room)).toBe(
+            '250',
+        );
+    });
+
+    it('judges a spent room as no room left and carries it through the link (F-V31)', () => {
+        const mismatch = {
+            ...base,
+            instrument: InstrumentSymbol.MNQ,
+            risk: 150,
+            stopPoints: 7.5,
+        };
+        const spent = contractsSizingOf({
+            ...mismatch,
+            cushionLeft: -40,
+            dailyLossRoom: 900,
+        });
+        expect(spent.inline?.siblingSeverityText).toContain('room left today');
+        expect(queryOf(spent.href).get(PositionSizeUrlParameter.Room)).toBe(
+            '0',
+        );
+        const decoded = decodePositionSize(queryOf(spent.href));
+        expect(decoded.roomDollars).toBe(0);
+        const onPage = positionSizeFor(decoded);
+        expect(siblingInstrumentSeverityText(onPage)).toBe(
+            spent.inline?.siblingSeverityText,
+        );
+    });
+
+    it('floors a room that is not whole cents so the card and the page judge the same room (F-V31)', () => {
+        const sizing = contractsSizingOf({
+            ...base,
+            cushionLeft: 123.456,
+            instrument: InstrumentSymbol.MNQ,
+            risk: 150,
+            stopPoints: 7.5,
+        });
+        expect(queryOf(sizing.href).get(PositionSizeUrlParameter.Room)).toBe(
+            '123.45',
+        );
+        expect(decodePositionSize(queryOf(sizing.href)).roomDollars).toBe(
+            123.45,
+        );
+    });
+
+    it('keeps the full-drawdown wording when no room is known and judges a roomy account by the planned risk (F-V31)', () => {
+        const mismatch = {
+            ...base,
+            instrument: InstrumentSymbol.MNQ,
+            risk: 150,
+            stopPoints: 7.5,
+        };
+        const unknown = contractsSizingOf(mismatch);
+        expect(unknown.inline?.siblingSeverityText).toContain(
+            'more than you intended',
+        );
+        expect(queryOf(unknown.href).has(PositionSizeUrlParameter.Room)).toBe(
+            false,
+        );
+        const roomy = contractsSizingOf({
+            ...mismatch,
+            cushionLeft: 5000,
+            dailyLossRoom: 4000,
+        });
+        expect(roomy.inline?.siblingSeverityText).toContain(
+            'more than you intended',
+        );
     });
 
     it('has no sibling line for an instrument with no sibling', () => {
@@ -2245,13 +2408,16 @@ function hazardNoteOf(
         ...valueRequestInputOf(),
         rulebook: rulebookWithHazard(hazards),
     });
-    return valueRunNoteOf({
-        ...request,
-        spec: {
-            ...request.spec,
-            enginePolicy: { ...request.spec.enginePolicy, ...enginePolicy },
+    return valueRunNoteOf(
+        {
+            ...request,
+            spec: {
+                ...request.spec,
+                enginePolicy: { ...request.spec.enginePolicy, ...enginePolicy },
+            },
         },
-    });
+        null,
+    );
 }
 
 function rulebookWithHazard(
@@ -2309,10 +2475,13 @@ describe('the value run note names the live-transfer hazard the run priced (PT-7
             rulebook: rulebookWithHazard({ [FirmId.TopStep]: 0.3 }),
         });
 
-        const note = valueRunNoteOf({
-            ...request,
-            spec: withoutPlanSerial(request.spec),
-        });
+        const note = valueRunNoteOf(
+            {
+                ...request,
+                spec: withoutPlanSerial(request.spec),
+            },
+            null,
+        );
 
         expect(note).toContain(
             'Live transfer: a hazard is entered in your rulebook',
@@ -2327,10 +2496,13 @@ describe('the value run note names the live-transfer hazard the run priced (PT-7
             rulebook: rulebookWithHazard({ [FirmId.TopStep]: 0.3 }),
         });
 
-        const note = valueRunNoteOf({
-            ...request,
-            spec: { ...request.spec, planSerial: 'no-such-plan-serial' },
-        });
+        const note = valueRunNoteOf(
+            {
+                ...request,
+                spec: { ...request.spec, planSerial: 'no-such-plan-serial' },
+            },
+            null,
+        );
 
         expect(note).toContain('could not be identified');
     });
@@ -2339,10 +2511,13 @@ describe('the value run note names the live-transfer hazard the run priced (PT-7
         const request = readyRequestOf(valueRequestInputOf());
 
         expect(
-            valueRunNoteOf({
-                ...request,
-                spec: withoutPlanSerial(request.spec),
-            }),
+            valueRunNoteOf(
+                {
+                    ...request,
+                    spec: withoutPlanSerial(request.spec),
+                },
+                null,
+            ),
         ).not.toContain('ive transfer');
     });
 
@@ -2372,6 +2547,252 @@ describe('the value run note names the live-transfer hazard the run priced (PT-7
             LIVE_TRANSFER_NOTE_TEXT[
                 LiveApplicabilityNote.TopStepLfaEligibleJurisdictionAssumed
             ],
+        );
+    });
+});
+
+function hazardRequest(): AdvisorValueRequest {
+    return readyRequestOf({
+        ...valueRequestInputOf(),
+        rulebook: rulebookWithHazard({ [FirmId.TopStep]: 0.3 }),
+    });
+}
+
+describe('the value run note states the share of runs sent live (PT-73d step 2)', () => {
+    it('words the share right after the hazard assumption, in the one hazard wording', () => {
+        const note = valueRunNoteOf(hazardRequest(), 0.413);
+
+        expect(note).toContain(liveTransferSentLiveText(0.413));
+        expect(note.indexOf('per paid payout')).toBeLessThan(
+            note.indexOf(liveTransferSentLiveText(0.413)),
+        );
+    });
+
+    it('states no share when the run reports none', () => {
+        expect(valueRunNoteOf(hazardRequest(), null)).not.toContain(
+            'of runs are sent live',
+        );
+    });
+
+    it('states no share when no hazard is entered for the account firm', () => {
+        const request = readyRequestOf(valueRequestInputOf());
+
+        expect(valueRunNoteOf(request, 0.413)).toBe(
+            valueRunNoteOf(request, null),
+        );
+    });
+
+    it('reads the share from the value run of the account as it stands', () => {
+        const assumption = liveTransferAssumptionOf(
+            {
+                instrument: undefined,
+                liveTransferHazard: 0.3 as Fraction0to1,
+                plan,
+                stopPoints: undefined,
+            },
+            0.413,
+        );
+        const priced = valueResult(
+            {
+                creditFree: { standardError: 1, value: 1 },
+                creditInclusive: { standardError: 1, value: 1 },
+            },
+            9,
+            100,
+            assumption,
+        );
+        const outcome = (
+            now: AdvisorValueResult['now'],
+        ): AdvisorValueResult => ({
+            candidates: {
+                kind: AdvisorRequestOutcomeKind.Failed,
+                reason: 'x',
+            },
+            now,
+            payoutStake: null,
+            swings: [],
+        });
+
+        expect(
+            valueSentLiveShareOf(
+                outcome({
+                    kind: AdvisorRequestOutcomeKind.Succeeded,
+                    value: priced,
+                }),
+            ),
+        ).toBe(0.413);
+        expect(
+            valueSentLiveShareOf(
+                outcome({
+                    kind: AdvisorRequestOutcomeKind.Failed,
+                    reason: 'x',
+                }),
+            ),
+        ).toBeNull();
+        expect(valueSentLiveShareOf(null)).toBeNull();
+    });
+});
+
+describe('payoutStakeViewOf prints the request-now live-trial cap line (PT-63d, F-V26, PT-73g leftover)', () => {
+    const hazard = liveTransferAssumptionOf(
+        {
+            instrument: undefined,
+            liveTransferHazard: 0.3 as Fraction0to1,
+            plan,
+            stopPoints: undefined,
+        },
+        0.4,
+    );
+    const CAP_LINE =
+        "The requested payout's own transfer chance is priced from 50 runs, fewer than the 500 behind the rest of this figure, so that part carries a wider error.";
+
+    function stakeWith(requestNowNotes: readonly string[]) {
+        if (hazard === undefined) throw new Error('expected a hazard');
+        return {
+            continueNow: {
+                ...value(1000, 10, 1100, 12),
+                liveTransfer: hazard,
+            },
+            kind: ValueResultKind.PayoutStake as const,
+            reducedRiskWhatIf: null,
+            requestedAmount: 500,
+            requestNow: {
+                ...value(1300, 9, 1420, 10),
+                liveTransfer: {
+                    ...hazard,
+                    notes: requestNowNotes,
+                    sentLiveShare: 0.58,
+                },
+            },
+            traderReceivesNow: 450,
+        };
+    }
+
+    it('adds the line the request-now run carries beyond the continue notes, once', () => {
+        if (hazard === undefined) throw new Error('expected a hazard');
+        const view = payoutStakeViewOf(stakeWith([...hazard.notes, CAP_LINE]));
+        expect(
+            view.liveTransferNotes.filter((note) => note === CAP_LINE),
+        ).toHaveLength(1);
+        expect(view.liveTransferNotes).toContain(
+            PAYOUT_STAKE_REQUEST_NOW_TRANSFER_TEXT,
+        );
+    });
+
+    it('does not repeat a continue note, and adds nothing when the request-now run carried no extra line', () => {
+        if (hazard === undefined) throw new Error('expected a hazard');
+        const withoutCap = payoutStakeViewOf(stakeWith(hazard.notes));
+        const withCap = payoutStakeViewOf(
+            stakeWith([...hazard.notes, CAP_LINE]),
+        );
+        expect(withCap.liveTransferNotes).toHaveLength(
+            withoutCap.liveTransferNotes.length + 1,
+        );
+        for (const note of hazard.notes) {
+            expect(
+                withCap.liveTransferNotes.filter((line) => line.includes(note)),
+            ).toHaveLength(
+                withoutCap.liveTransferNotes.filter((line) =>
+                    line.includes(note),
+                ).length,
+            );
+        }
+    });
+});
+
+describe('the next-trade value names the cumulative trigger it priced (PT-36r review)', () => {
+    const trigger: CumulativePayoutTriggerAssumption = {
+        amount: 100_000,
+        bias: AssumptionBias.Neutral,
+        continuation: LiveTransferContinuationKind.NotModeled,
+        kind: AssumptionKind.CumulativePayoutTriggerPriced,
+        notes: [],
+        source: {
+            fetchedOn: '2026-09-01',
+            quote: 'a synthetic test quote',
+            url: 'https://example.test/policy',
+        },
+    };
+
+    function pricedValue(isPriced: boolean): ValueResult {
+        return {
+            ...value(1000, 10, 1100, 12),
+            ...(isPriced && { cumulativePayoutTrigger: trigger }),
+        };
+    }
+
+    function resultOf(
+        now: AdvisorValueResult['now'],
+        swings: AdvisorValueResult['swings'] = [],
+    ): AdvisorValueResult {
+        return {
+            candidates: {
+                kind: AdvisorRequestOutcomeKind.Failed,
+                reason: 'x',
+            },
+            now,
+            payoutStake: null,
+            swings,
+        };
+    }
+
+    function swingsPricing(isPriced: boolean): AdvisorValueResult['swings'] {
+        return [
+            {
+                outcome: {
+                    kind: AdvisorRequestOutcomeKind.Succeeded,
+                    value: swingResult({ now: pricedValue(isPriced) }),
+                },
+                rung: { risk: 100, rr: 1 },
+            },
+        ];
+    }
+
+    function succeededNow(isPriced: boolean): AdvisorValueResult['now'] {
+        return {
+            kind: AdvisorRequestOutcomeKind.Succeeded,
+            value: pricedValue(isPriced),
+        };
+    }
+
+    const failedNow: AdvisorValueResult['now'] = {
+        kind: AdvisorRequestOutcomeKind.Failed,
+        reason: 'x',
+    };
+
+    it('reads the trigger from the value of the account as it stands', () => {
+        const outcome = resultOf(succeededNow(true));
+
+        expect(valueCumulativeTriggerOf(outcome)).toStrictEqual(trigger);
+    });
+
+    it('reads the trigger from the first swing when the value now failed', () => {
+        const outcome = resultOf(failedNow, swingsPricing(true));
+
+        expect(valueCumulativeTriggerOf(outcome)).toStrictEqual(trigger);
+    });
+
+    it('reads none for a run that priced no trigger, a failed run, or no run', () => {
+        const unpriced = resultOf(succeededNow(false), swingsPricing(false));
+
+        expect(valueCumulativeTriggerOf(unpriced)).toBeNull();
+        expect(valueCumulativeTriggerOf(resultOf(failedNow))).toBeNull();
+        expect(valueCumulativeTriggerOf(null)).toBeNull();
+    });
+
+    it('ends the value run note with the trigger text', () => {
+        const request = readyRequestOf(valueRequestInputOf());
+
+        expect(valueRunNoteOf(request, null, trigger)).toBe(
+            `${valueRunNoteOf(request, null)} ${assumptionText(trigger)}`,
+        );
+    });
+
+    it('adds nothing to the value run note without a trigger', () => {
+        const request = readyRequestOf(valueRequestInputOf());
+
+        expect(valueRunNoteOf(request, null, null)).toBe(
+            valueRunNoteOf(request, null),
         );
     });
 });

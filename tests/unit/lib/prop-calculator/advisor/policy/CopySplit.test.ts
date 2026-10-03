@@ -16,6 +16,7 @@ import {
     DEFAULT_RULEBOOK,
     LifetimePayoutCapBasis,
     RebuyLagBasis,
+    SIZING_OBJECTIVE_LABEL,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 import { RUIN_FIRST_NOT_APPLICABLE_REASON } from '~/lib/prop-calculator/advisor/actions';
@@ -27,14 +28,13 @@ import {
     copySplitCandidates,
     type CopySplitFundedSizing,
     CopySplitFundedSource,
-    copySplitFundedStopNotice,
     CopySplitRowKind,
     copySplitTrials,
     type EnginePolicy,
     rankCopySplitRows,
     runCopySplit,
-    SIZING_OBJECTIVE_LABEL,
 } from '~/lib/prop-calculator/advisor/policy';
+import * as copySplitModule from '~/lib/prop-calculator/advisor/policy/CopySplit';
 import {
     flatDayPolicy,
     policySizingOf,
@@ -962,22 +962,6 @@ describe('copySplitBasisLines', () => {
     });
 });
 
-describe('copySplitFundedStopNotice', () => {
-    it('is null while the rulebook funded stop is the default one the split runs on', () => {
-        expect(copySplitFundedStopNotice(DEFAULT_RULEBOOK.funded)).toBeNull();
-    });
-
-    it('names the rulebook funded stop that is not applied and the default one that is', () => {
-        const notice = copySplitFundedStopNotice({
-            ...DEFAULT_RULEBOOK.funded,
-            stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
-        });
-        expect(notice).toBe(
-            'your rulebook funded stop (after 2 losses) is not applied to this split yet: the funded phase runs on the default rulebook funded stop (none)',
-        );
-    });
-});
-
 describe('SIZING_OBJECTIVE_LABEL', () => {
     it('names every objective once, with no em dash', () => {
         expect(SIZING_OBJECTIVE_LABEL).toStrictEqual({
@@ -997,5 +981,14 @@ describe('CopySplit is never used by the headline, the rulebook or advice', () =
             COPY_SPLIT_USE.test(readFileSync(file, 'utf8')),
         );
         expect(offenders).toStrictEqual([]);
+    });
+});
+
+describe('the funded stop stopgap is gone (PT-63d)', () => {
+    it('exports no funded stop notice, because the funded phase runs on the rulebook funded stop', () => {
+        expect(copySplitModule).not.toHaveProperty('copySplitFundedStopNotice');
+        expect(readFileSync(path.join(ADVISOR_ROOT, 'policy', 'CopySplit.ts'), 'utf8')).not.toContain(
+            'is not applied to this split yet',
+        );
     });
 });

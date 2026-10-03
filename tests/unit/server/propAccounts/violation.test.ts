@@ -1,3 +1,6 @@
+import { getTableConfig } from 'drizzle-orm/pg-core';
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { isWithinRateLimit } from '~/lib/observability/rate-limit';
@@ -8,6 +11,7 @@ import {
     PropMutationRejection,
     PropQuota,
 } from '~/lib/schemas/propAccountOutputs';
+import { propRuleViolation } from '~/server/db/schemas/prop';
 
 import {
     assertUserScopedWhere,
@@ -53,6 +57,19 @@ vi.mock('~/lib/observability/rate-limit', () => ({
 
 const rateLimit = vi.mocked(isWithinRateLimit);
 
+function isDuplicateLookup(query: IssuedQuery): boolean {
+    return (
+        readTable(query) === VIDEO_TABLES.violation &&
+        writeTable(query) === null &&
+        !isCount(query) &&
+        query.text.includes('"kind" = ')
+    );
+}
+
+function updateSelectsReturn(duplicates: FakeRow[]) {
+    return withDuplicateLookup(tableResponder(), duplicates);
+}
+
 function violationSelectsReturn(
     existing: FakeRow[],
     counts: Readonly<Record<string, number>> = {},
@@ -64,6 +81,14 @@ function violationSelectsReturn(
         !isCount(query)
             ? existing
             : base(query);
+}
+
+function withDuplicateLookup(
+    base: (query: IssuedQuery) => FakeRow[],
+    duplicates: FakeRow[],
+) {
+    return (query: IssuedQuery): FakeRow[] =>
+        isDuplicateLookup(query) ? duplicates : base(query);
 }
 
 const OVERSIZE = {
@@ -308,13 +333,13 @@ describe('propAccounts.violation', () => {
     it.each(WRITES_WITH_REFERENCES)(
         '$name dated before the linked decision is rejected with a typed reason and writes nothing, and the decision day itself is accepted',
         async ({ call }) => {
+            const decided = decisionRow({ decided_on: '2026-09-21' });
             const { caller, queries } = callerFor(
                 SIGNED_IN,
-                tableResponder({
-                    [TABLES.decision]: [
-                        decisionRow({ decided_on: '2026-09-21' }),
-                    ],
-                }),
+                withDuplicateLookup(
+                    tableResponder({ [TABLES.decision]: [decided] }),
+                    [],
+                ),
             );
             const shape = errorShapeOf(
                 await rejectionOf(call(caller, { occurredOn: '2026-09-20' })),
@@ -369,7 +394,10 @@ describe('propAccounts.violation', () => {
         async ({ call }) => {
             vi.useFakeTimers({ toFake: ['Date'] });
             vi.setSystemTime(new Date('2026-09-25T12:00:00Z'));
-            const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+            const { caller, queries } = callerFor(
+                SIGNED_IN,
+                updateSelectsReturn([]),
+            );
             const shape = errorShapeOf(
                 await rejectionOf(call(caller, { occurredOn: '2026-09-27' })),
             );
@@ -416,8 +444,110 @@ describe('propAccounts.violation', () => {
         );
     });
 
+    it('update into a duplicate of another violation of the same decision and kind is rejected with a typed conflict and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            updateSelectsReturn([
+                violationRow({
+                    decision_id: IDS.decision,
+                    id: VIDEO_IDS.decision,
+                    kind: RuleViolationKind.ChasedLoss,
+                }),
+            ]),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(caller.violation.update(VIOLATION_UPDATE)),
+        );
+        expect(shape.data.code).toBe('CONFLICT');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.RecordInUse),
+        );
+        expect(shape.message).toContain('decision');
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('update looks for a duplicate by user, account, decision and kind, excluding the violation itself', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            updateSelectsReturn([]),
+        );
+        await caller.violation.update(VIOLATION_UPDATE);
+        const lookup = defined(queries.find(isDuplicateLookup));
+        assertUserScopedWhere(lookup, USER_ID);
+        expect(lookup.text).toMatch(/"id" <> \$\d+/);
+        expect(lookup.params).toEqual(
+            expect.arrayContaining([
+                VIDEO_IDS.account,
+                IDS.decision,
+                RuleViolationKind.ChasedLoss,
+                VIDEO_IDS.violation,
+            ]),
+        );
+    });
+
+    it('update that leaves its decision and kind alone passes when no other violation shares them', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            updateSelectsReturn([]),
+        );
+        await expect(
+            caller.violation.update({
+                ...VIOLATION_UPDATE,
+                note: 'Only the note changed',
+            }),
+        ).resolves.toBeDefined();
+        expect(updatesOf(queries, VIDEO_TABLES.violation)).toHaveLength(1);
+    });
+
+    it('update without a decision never looks for a duplicate', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            updateSelectsReturn([violationRow()]),
+        );
+        await caller.violation.update({
+            ...VIOLATION_UPDATE,
+            decisionId: null,
+        });
+        expect(queries.some(isDuplicateLookup)).toBe(false);
+    });
+
+    it('the violation table exposes a partial unique index on user, decision and kind where a decision is linked', () => {
+        const config = getTableConfig(propRuleViolation);
+        const index = config.indexes.find(
+            (candidate) =>
+                candidate.config.name ===
+                'prop_rule_violation_user_decision_kind_idx',
+        );
+        expect(index?.config.unique).toBe(true);
+        expect(
+            index?.config.columns.map((column) =>
+                'name' in column ? column.name : null,
+            ),
+        ).toEqual(['user_id', 'decision_id', 'kind']);
+        expect(index?.config.where).toBeDefined();
+    });
+
+    it('the generated migration creates that unique index and drops nothing', () => {
+        const migrations = path.join(process.cwd(), 'drizzle');
+        const creating = readdirSync(migrations)
+            .filter((file) => file.endsWith('.sql'))
+            .map((file) => readFileSync(path.join(migrations, file), 'utf8'))
+            .filter((sql) =>
+                sql.includes('"prop_rule_violation_user_decision_kind_idx"'),
+            );
+        expect(creating).toHaveLength(1);
+        const [sql = ''] = creating;
+        expect(sql).toMatch(
+            /CREATE UNIQUE INDEX "prop_rule_violation_user_decision_kind_idx" ON "\w+_prop_rule_violation" USING btree \("user_id","decision_id","kind"\) WHERE decision_id IS NOT NULL/,
+        );
+        expect(sql).not.toMatch(/\bDROP\b/i);
+    });
+
     it('update loads the owned violation, re-checks its account and decision, and writes by id and user id', async () => {
-        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            updateSelectsReturn([]),
+        );
         await caller.violation.update(VIOLATION_UPDATE);
         for (const table of [
             VIDEO_TABLES.violation,
@@ -452,7 +582,10 @@ describe('propAccounts.violation', () => {
     ])(
         '$name locks the account row so the purchase date check cannot race an account edit',
         async ({ call }) => {
-            const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+            const { caller, queries } = callerFor(
+                SIGNED_IN,
+                updateSelectsReturn([]),
+            );
             await call(caller);
             const load = queries.find(
                 (query) => readTable(query) === TABLES.account,

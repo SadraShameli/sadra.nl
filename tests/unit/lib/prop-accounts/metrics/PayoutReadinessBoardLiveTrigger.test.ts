@@ -289,6 +289,7 @@ describe('payoutReadinessBoardOf: verified live-trigger limits (PT-36d)', () => 
                 payoutReadinessBoardOf(DEFAULT_RULEBOOK, [
                     reconstructedEntry('a1', plan, {
                         ...funded,
+                        pendingPayoutCount: 1,
                         pendingPayouts: 100,
                     }),
                 ]),

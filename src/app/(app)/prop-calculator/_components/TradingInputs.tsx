@@ -1,6 +1,7 @@
 'use client';
 
 import { Settings2 } from 'lucide-react';
+import { useState } from 'react';
 import { z } from 'zod';
 
 import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
@@ -31,6 +32,7 @@ import {
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import {
+    type EdgePlausibilityNoteInputs,
     edgePlausibilityNoteText,
     type PlausibilityThresholds,
 } from '~/lib/prop-calculator/economics';
@@ -62,6 +64,7 @@ import { tradingInputBounds } from './tradingInputBounds';
 import { SizingMode } from './types';
 
 const SIZING_HINT_ID = 'position-sizing-hint';
+export const PLAUSIBILITY_NOTE_ID = 'plausibility-note';
 const rungSizingSchema = z.enum(RungSizing);
 const sizingModeSchema = z.enum(SizingMode);
 const instrumentSymbolSchema = z.enum(InstrumentSymbol);
@@ -127,13 +130,24 @@ interface TradingInputsProperties {
     winrate: number;
 }
 
+export function compoundStartDollarsOf(text: string): number | undefined {
+    const start = Number(text.replaceAll(',', '').trim());
+    return text.trim() !== '' && Number.isFinite(start) && start > 0
+        ? start
+        : undefined;
+}
+
 export function tradingEdgePlausibilityNote(
     winrate: number,
     rrRatio: number,
     thresholds: PlausibilityThresholds = DEFAULT_RULEBOOK.plausibility,
+    pace: Pick<
+        EdgePlausibilityNoteInputs,
+        'compoundStartDollars' | 'tradesPerDay'
+    > = {},
 ): null | string {
     return edgePlausibilityNoteText(
-        { rrRatio, winrate: fraction(winrate) },
+        { ...pace, rrRatio, winrate: fraction(winrate) },
         thresholds,
     );
 }
@@ -200,7 +214,23 @@ export default function TradingInputs({
 }: TradingInputsProperties) {
     const accountSize = plan.accountSize;
     const bounds = tradingInputBounds();
-    const plausibilityNote = tradingEdgePlausibilityNote(winrate, rrRatio);
+    const [compoundStartText, setCompoundStartText] = useState('');
+    const [committedCompoundStartText, setCommittedCompoundStartText] =
+        useState('');
+    const [heldTradesPerDay, setHeldTradesPerDay] = useState<null | number>(
+        null,
+    );
+    const plausibilityNote = tradingEdgePlausibilityNote(
+        winrate,
+        rrRatio,
+        DEFAULT_RULEBOOK.plausibility,
+        {
+            compoundStartDollars: compoundStartDollarsOf(
+                committedCompoundStartText,
+            ),
+            tradesPerDay: heldTradesPerDay ?? tradesPerDay,
+        },
+    );
     const earlyWithdrawal = plan.oneTimeEarlyWithdrawal;
     const fundedReset = plan.fundedReset;
     const purchaseDiscounts = purchaseCouponDiscounts(
@@ -615,9 +645,46 @@ export default function TradingInputs({
                     step={0.1}
                     value={[rrRatio]}
                 />
-                <p className="mt-2 text-xs text-amber-400" role="status">
+                <p
+                    className="mt-2 text-xs text-amber-400"
+                    id={PLAUSIBILITY_NOTE_ID}
+                    role="status"
+                >
                     {plausibilityNote ?? ''}
                 </p>
+                {plausibilityNote !== null && (
+                    <div className="mt-2">
+                        <label
+                            className="mb-1 block text-xs font-medium text-muted-foreground"
+                            htmlFor="compounding-start"
+                        >
+                            Compounding start ($)
+                        </label>
+                        <Input
+                            aria-describedby={PLAUSIBILITY_NOTE_ID}
+                            id="compounding-start"
+                            inputMode="decimal"
+                            onBlur={() => {
+                                setCommittedCompoundStartText(
+                                    compoundStartText,
+                                );
+                            }}
+                            onChange={(event) => {
+                                setCompoundStartText(event.target.value);
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    setCommittedCompoundStartText(
+                                        compoundStartText,
+                                    );
+                                }
+                            }}
+                            placeholder="optional, Enter to apply"
+                            type="text"
+                            value={compoundStartText}
+                        />
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -629,12 +696,22 @@ export default function TradingInputs({
                         Trades per day
                     </label>
                     <Input
+                        aria-describedby={PLAUSIBILITY_NOTE_ID}
                         id="trades-per-day"
                         max={50}
                         min={1}
-                        onChange={(event) =>
-                            onTradesPerDayChange(Number(event.target.value))
-                        }
+                        onBlur={() => {
+                            setHeldTradesPerDay(null);
+                        }}
+                        onChange={(event) => {
+                            setHeldTradesPerDay((held) => held ?? tradesPerDay);
+                            onTradesPerDayChange(Number(event.target.value));
+                        }}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                setHeldTradesPerDay(null);
+                            }
+                        }}
                         step={1}
                         type="number"
                         value={tradesPerDay}

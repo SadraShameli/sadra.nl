@@ -12,7 +12,9 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    documentedSizingOf,
     type ReconstructedAccount,
+    type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
 } from '~/lib/prop-calculator/advisor';
 
@@ -26,6 +28,11 @@ import { AlertKind } from './AlertKind';
 import { AccountAlertRule } from './AlertRule';
 import { AlertSeverity } from './AlertSeverity';
 
+type EvaluatedConsistencyStatus = Extract<
+    ConsistencyStatus,
+    { kind: ConsistencyStatusKind.Evaluated }
+>;
+
 export class ConsistencyNearBreachRule extends AccountAlertRule {
     readonly kind = AlertKind.ConsistencyNearBreach;
 
@@ -36,25 +43,22 @@ export class ConsistencyNearBreachRule extends AccountAlertRule {
         if (!isActive(monitored)) return null;
         const state = monitored.accountState;
         if (state?.kind !== AccountStateKind.Reconstructed) return null;
-        const status = consistencyStatusOf(state.latest.reconstructed);
-        if (status?.kind !== ConsistencyStatusKind.Evaluated) return null;
+        const { reconstructed } = state.latest;
+        const status = consistencyStatusOf(reconstructed);
+        if (
+            status?.kind !== ConsistencyStatusKind.Evaluated ||
+            reconstructed.kind === ReconstructedLiveKind.Live
+        )
+            return null;
         if (status.isViolated) {
-            const needed = moreCycleProfitNeeded(
-                status.rule,
-                status.bestDayProfit,
-                status.totalProfit,
-            );
             return this.alertFor(
                 monitored,
                 AlertSeverity.Critical,
-                `Consistency already violated (max ${status.rule.shareLabel()} best day share): ${formatUsdCents(usdCentsFromDollars(needed))} more cycle profit needed to bring the best day back within the rule`,
+                violationText(reconstructed.kind, status),
             );
         }
-        if (state.latest.reconstructed.kind !== TradingPhase.Funded) {
-            return null;
-        }
-        const documentedWin =
-            context.rulebook.funded.takeProfitCents / CENTS_PER_DOLLAR;
+        const documentedWin = documentedWinningDayOf(reconstructed, context);
+        if (documentedWin === null) return null;
         const room = status.rule.maxDayProfitBeforeViolation(
             status.totalProfit,
         );
@@ -62,7 +66,7 @@ export class ConsistencyNearBreachRule extends AccountAlertRule {
             ? this.alertFor(
                   monitored,
                   AlertSeverity.Warning,
-                  `One documented winning day of ${formatUsdCents(usdCentsFromDollars(documentedWin))} would break the ${status.rule.shareLabel()} consistency rule (${formatUsdCents(usdCentsFromDollars(room))} of room left before violation)`,
+                  `One documented winning ${reconstructed.kind === TradingPhase.Eval ? 'eval ' : ''}day of ${dollarText(documentedWin)} would break the ${status.rule.shareLabel()} consistency rule (${dollarText(room)} of room left before violation)`,
               )
             : null;
     }
@@ -97,6 +101,31 @@ function consistencyStatusOf(
     }
 }
 
+function documentedWinningDayOf(
+    account: ReconstructedFundedOrEvalAccount,
+    context: AlertContext,
+): null | number {
+    switch (account.kind) {
+        case TradingPhase.Eval: {
+            const { rewardMultiple, rungs } = documentedSizingOf(
+                account,
+                context.rulebook,
+            ).sizing;
+            const [firstRung] = rungs;
+            return firstRung === undefined
+                ? null
+                : firstRung.risk * rewardMultiple;
+        }
+        case TradingPhase.Funded: {
+            return context.rulebook.funded.takeProfitCents / CENTS_PER_DOLLAR;
+        }
+    }
+}
+
+function dollarText(amount: number): string {
+    return formatUsdCents(usdCentsFromDollars(amount));
+}
+
 function moreCycleProfitNeeded(
     rule: ConsistencyRule,
     bestDayProfit: number,
@@ -105,4 +134,22 @@ function moreCycleProfitNeeded(
     if (rule.maxBestDayShare >= 1) return 0;
     const required = bestDayProfit / rule.maxBestDayShare;
     return Math.max(0, required - totalProfit);
+}
+
+function violationText(
+    phase: TradingPhase,
+    status: EvaluatedConsistencyStatus,
+): string {
+    const needed = moreCycleProfitNeeded(
+        status.rule,
+        status.bestDayProfit,
+        status.totalProfit,
+    );
+    const lead = `Consistency already violated (max ${status.rule.shareLabel()} best day share)`;
+    if (phase === TradingPhase.Funded) {
+        return `${lead}: ${dollarText(needed)} more cycle profit needed to bring the best day back within the rule`;
+    }
+    return status.violationEffectLabel === null
+        ? `${lead}: ${dollarText(needed)} more profit needed to bring the best day back within the rule`
+        : `${lead}: ${status.violationEffectLabel}, so the account needs more than ${dollarText(status.totalProfit + needed)} of profit (${dollarText(needed)} more) to pass`;
 }

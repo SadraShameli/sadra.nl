@@ -54,6 +54,7 @@ export {
     bankrollTransferKindLabel,
 } from './BankrollTransferKind';
 export { BustCause, bustCauseLabel } from './BustCause';
+export { dailyCapacityUnitsOf, isActiveAccountRow } from './DailyCapacityUnits';
 export { DashboardBalanceConvention } from './DashboardBalanceConvention';
 export {
     COUNT_ENTRY_MESSAGE,
@@ -66,8 +67,10 @@ export {
 } from './EntryText';
 export {
     exclusivityAccountsOf,
-    type ExclusivityMovedAccount,
+    exclusivityFirmIdOf,
+    exclusivityPlanOf,
     type ExclusivitySibling,
+    isExclusivitySiblingReadable,
     suspendedAccountIdsOf,
 } from './ExclusivityAccounts';
 export { FeeKind } from './FeeKind';
@@ -123,6 +126,8 @@ export {
 } from './IsoDate';
 export {
     readAccountEventDetail,
+    readAccountTags,
+    readAccountTagsOrNull,
     readPersonalRules,
     readPersonalRulesOrNull,
     readPlanOptIns,

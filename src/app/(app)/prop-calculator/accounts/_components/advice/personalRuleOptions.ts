@@ -2,8 +2,11 @@ import {
     overviewAccountRequestsFor,
     overviewPlanOptInsOf,
     type OverviewRequest,
+    type PersonalPolicyOverrides,
+    withPersonalPolicy,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
+    AccountStage,
     type AccountStateEntry,
     type AccountStatus,
     accountSubstateOf,
@@ -18,16 +21,16 @@ import {
 } from '~/lib/prop-accounts';
 import {
     type Dollars,
-    dollars,
     findFirm,
     type Plan,
     serializePlanId,
+    TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    type AccountPendingPayoutCounts,
     type AccountSnapshotInput,
     createSizingAdvisor,
-    type DocumentedPolicySpec,
-    hasPersonalCaps,
+    dollarsOrNull,
     InstantFundedEvalAdvisorError,
     type MeasuredRebuyLag,
     NO_PERSONAL_CAPS,
@@ -47,8 +50,7 @@ export enum SizingAdvisorBuildKind {
 }
 
 export interface MemberPersonalOverride extends PayoutReadinessAccountOverride {
-    readonly personalCaps: PersonalCaps;
-    readonly personalDll: Dollars | null;
+    readonly policy: PersonalPolicyOverrides;
 }
 
 export type SizingAdvisorBuild =
@@ -67,17 +69,18 @@ interface PersonalAdvisorOptionsInput {
     readonly paidPayoutsSinceLastLiveAccount: null | number;
     readonly personalRules: unknown;
     readonly plan: Plan;
+    readonly positionSizing?: SizingAdvisorCreateOptions['positionSizing'];
     readonly rulebook: RulebookParameters;
     readonly snapshotAsOf: string;
     readonly status: AccountStatus;
     readonly today: string;
 }
 
-interface PersonalPolicyOverrides {
-    readonly payoutRequestOverride: Dollars | null;
-    readonly personalCaps?: PersonalCaps;
-    readonly personalDll?: Dollars | null;
-    readonly retainedCushionRequest: Dollars | null;
+interface PersonalLimitOptions {
+    readonly personalCaps: PersonalCaps;
+    readonly personalDll: Dollars | null;
+    readonly personalPayoutOverride?: Dollars | null;
+    readonly personalRetainedCushion?: Dollars | null;
 }
 
 interface ReadinessBoardAccount extends ReadinessOverrideAccount {
@@ -93,11 +96,13 @@ interface ReadinessOverrideAccount {
     readonly firmId?: null | StoredFirmId;
     readonly id: string;
     readonly personalRules?: unknown;
+    readonly stage: AccountStage;
 }
 
 export function accountFromStateRequestOf(input: {
     readonly account: AccountSnapshotInput;
     readonly measuredRebuyLag: MeasuredRebuyLag | null;
+    readonly pendingPayoutCounts: AccountPendingPayoutCounts;
     readonly personalMaxRiskPerTrade: Dollars | null;
     readonly personalRules: unknown;
     readonly plan: Plan;
@@ -111,6 +116,7 @@ export function accountFromStateRequestOf(input: {
                 firmId: plan.id.firm,
                 measuredRebuyLag: input.measuredRebuyLag,
                 optIns: overviewPlanOptInsOf(plan),
+                pendingPayoutCounts: input.pendingPayoutCounts,
                 planSerial: serializePlanId(plan.id),
             },
         ],
@@ -145,16 +151,24 @@ export function buildSizingAdvisor(
     }
 }
 
+export function memberPolicyOverridesOf(
+    override: MemberPersonalOverride | undefined,
+): PersonalPolicyOverrides {
+    return override?.policy ?? personalPolicyOverridesOf(null, null);
+}
+
 export function personalAccountRequestOf(
     request: OverviewRequest,
     personalRules: unknown,
     personalMaxRiskPerTrade: Dollars | null,
 ): OverviewRequest {
-    const overrides = personalPolicyOverridesOf(
-        readPersonalRulesOrNull(personalRules),
-        personalMaxRiskPerTrade,
+    const spec = withPersonalPolicy(
+        request.spec,
+        personalPolicyOverridesOf(
+            readPersonalRulesOrNull(personalRules),
+            personalMaxRiskPerTrade,
+        ),
     );
-    const spec = withPersonalPolicy(request.spec, overrides);
     return spec === request.spec ? request : { ...request, spec };
 }
 
@@ -162,24 +176,22 @@ export function personalAdvisorOptionsOf(
     input: PersonalAdvisorOptionsInput,
 ): SizingAdvisorCreateOptions {
     const { account, plan } = input;
-    const personalRules = readPersonalRulesOrNull(input.personalRules);
+    const policy = personalPolicyOverridesOf(
+        readPersonalRulesOrNull(input.personalRules),
+        reconstructedMaxRiskOf(account),
+    );
     return {
         accountPolicy: findFirm(plan.id.firm)?.accountPolicy,
         measuredRebuyLag: input.measuredRebuyLag,
         paidPayoutsSinceLastLiveAccount: input.paidPayoutsSinceLastLiveAccount,
-        personalCaps: personalCapsOf(
-            personalRules,
-            account.kind === ReconstructedLiveKind.Live ||
-                account.personalMaxRiskPerTrade == null
+        personalCaps: policy.personalCaps,
+        personalDll: policy.personalDll,
+        personalPayoutOverride: policy.payoutRequestOverride,
+        personalRetainedCushion: policy.retainedCushionRequest,
+        positionSizing:
+            account.kind === TradingPhase.Eval
                 ? null
-                : dollars(account.personalMaxRiskPerTrade),
-        ),
-        personalDll:
-            optionalDollars(personalRules?.dailyLossLimitCents) ?? null,
-        personalPayoutOverride:
-            optionalDollars(personalRules?.payoutRequestOverrideCents) ?? null,
-        personalRetainedCushion:
-            optionalDollars(personalRules?.retainedCushionCents) ?? null,
+                : (input.positionSizing ?? null),
         rulebook: input.rulebook,
         snapshotAsOf: input.snapshotAsOf,
         substate: accountSubstateOf(input.status),
@@ -193,6 +205,37 @@ export function personalLimitsOf(
     return {
         caps: options.personalCaps ?? NO_PERSONAL_CAPS,
         dailyLossLimit: options.personalDll ?? null,
+    };
+}
+
+export function personalPolicyOverridesOf(
+    personalRules: null | PersonalRules,
+    maxRiskPerTrade: Dollars | null,
+): PersonalPolicyOverrides {
+    return {
+        payoutRequestOverride:
+            optionalDollars(personalRules?.payoutRequestOverrideCents) ?? null,
+        personalCaps: {
+            dailyProfitCap:
+                optionalDollars(personalRules?.dailyProfitCapCents) ?? null,
+            maxRiskPerTrade,
+            maxTradesPerDay: personalRules?.maxTradesPerDay ?? null,
+        },
+        personalDll:
+            optionalDollars(personalRules?.dailyLossLimitCents) ?? null,
+        retainedCushionRequest:
+            optionalDollars(personalRules?.retainedCushionCents) ?? null,
+    };
+}
+
+export function personalPolicyOverridesOfOptions(
+    options: PersonalLimitOptions,
+): PersonalPolicyOverrides {
+    return {
+        payoutRequestOverride: options.personalPayoutOverride ?? null,
+        personalCaps: options.personalCaps,
+        personalDll: options.personalDll,
+        retainedCushionRequest: options.personalRetainedCushion ?? null,
     };
 }
 
@@ -219,96 +262,35 @@ export function readinessOverridesOf(
     return new Map(
         accounts.map((account) => {
             const rules = readPersonalRulesOrNull(account.personalRules);
+            const policy = personalPolicyOverridesOf(
+                rules,
+                account.stage === AccountStage.Live
+                    ? null
+                    : personalMaxRiskOf(rules),
+            );
             return [
                 account.id,
                 {
                     paidPayoutsSinceLastLiveAccount:
-                        account.firmId == null
+                        account.firmId === undefined || account.firmId === null
                             ? null
                             : paidPayoutsSinceLastLiveAccountFor(
                                   firmCounts,
                                   account.firmId,
                               ),
-                    personalCaps: personalCapsOf(
-                        rules,
-                        personalMaxRiskOf(rules),
-                    ),
-                    personalDll:
-                        optionalDollars(rules?.dailyLossLimitCents) ?? null,
-                    personalRequestOverride:
-                        optionalDollars(rules?.payoutRequestOverrideCents) ??
-                        null,
-                    personalRetainedCushion:
-                        optionalDollars(rules?.retainedCushionCents) ?? null,
+                    personalRequestOverride: policy.payoutRequestOverride,
+                    personalRetainedCushion: policy.retainedCushionRequest,
+                    policy,
                 },
             ];
         }),
     );
 }
 
-export function withPersonalPolicy(
-    spec: DocumentedPolicySpec,
-    overrides: PersonalPolicyOverrides,
-): DocumentedPolicySpec {
-    const {
-        payoutRequestOverride,
-        personalCaps,
-        personalDll,
-        retainedCushionRequest,
-    } = overrides;
-    const hasCaps = hasPersonalCaps(personalCaps);
-    const hasDll = personalDll !== null && personalDll !== undefined;
-    if (
-        payoutRequestOverride === null &&
-        retainedCushionRequest === null &&
-        !hasCaps &&
-        !hasDll
-    ) {
-        return spec;
-    }
-    const { enginePolicy } = spec;
-    return {
-        ...spec,
-        enginePolicy: {
-            ...enginePolicy,
-            ...(hasCaps && { personalCaps }),
-            ...(hasDll && { personalDll }),
-            payoutRequestOverride:
-                payoutRequestOverride ?? enginePolicy.payoutRequestOverride,
-            retainedCushionRequest:
-                retainedCushionRequest === null
-                    ? enginePolicy.retainedCushionRequest
-                    : Math.max(
-                          enginePolicy.retainedCushionRequest ?? 0,
-                          retainedCushionRequest,
-                      ),
-        },
-    };
-}
-
-function personalCapsOf(
-    personalRules: null | PersonalRules,
-    maxRiskPerTrade: Dollars | null,
-): PersonalCaps {
-    return {
-        dailyProfitCap:
-            optionalDollars(personalRules?.dailyProfitCapCents) ?? null,
-        maxRiskPerTrade,
-        maxTradesPerDay: personalRules?.maxTradesPerDay ?? null,
-    };
-}
-
-function personalPolicyOverridesOf(
-    personalRules: null | PersonalRules,
-    maxRiskPerTrade: Dollars | null,
-): PersonalPolicyOverrides {
-    return {
-        payoutRequestOverride:
-            optionalDollars(personalRules?.payoutRequestOverrideCents) ?? null,
-        personalCaps: personalCapsOf(personalRules, maxRiskPerTrade),
-        personalDll:
-            optionalDollars(personalRules?.dailyLossLimitCents) ?? null,
-        retainedCushionRequest:
-            optionalDollars(personalRules?.retainedCushionCents) ?? null,
-    };
+export function reconstructedMaxRiskOf(
+    account: ReconstructedAccount,
+): Dollars | null {
+    return account.kind === ReconstructedLiveKind.Live
+        ? null
+        : dollarsOrNull(account.personalMaxRiskPerTrade);
 }

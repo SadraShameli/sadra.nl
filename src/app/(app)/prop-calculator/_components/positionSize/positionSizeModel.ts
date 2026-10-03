@@ -65,6 +65,7 @@ export interface PositionSizeInput {
     plan: Plan;
     retryFee: Dollars;
     risk: Dollars;
+    roomDollars: Dollars | null;
     stopPoints: Points;
     tierProfit: Dollars | null;
     unit: RiskDisplayUnit;
@@ -86,6 +87,7 @@ export interface PositionSizeResult {
     positionSizing: PositionSizingConfig;
     refusal: null | string;
     riskDisplay: RiskDisplayFormatted;
+    roomDollars: Dollars | null;
     siblingInstrument: SiblingInstrumentRiskResult;
 }
 
@@ -148,7 +150,7 @@ export function positionSizeFor(input: PositionSizeInput): PositionSizeResult {
     const siblingInstrument = siblingInstrumentRisk({
         contracts: placedContracts,
         instrument,
-        room: input.plan.drawdownFor(phase).amount,
+        room: input.roomDollars ?? input.plan.drawdownFor(phase).amount,
         stopPoints: input.stopPoints,
     });
     return {
@@ -188,6 +190,7 @@ export function positionSizeFor(input: PositionSizeInput): PositionSizeResult {
             evAtStake: null,
             feeEquivalent: feeEquivalentRisk,
         }),
+        roomDollars: input.roomDollars,
         siblingInstrument,
     };
 }
@@ -237,7 +240,9 @@ export function siblingInstrumentSeverityText(
             return 'That risks more than you intended on this trade.';
         }
         case MismatchSeverity.ExceedsRoom: {
-            return "That would exceed your plan's full drawdown budget, not today's remaining cushion or daily loss limit: a real risk of ruin from one fat-fingered symbol.";
+            return result.roomDollars === null
+                ? "That would exceed your plan's full drawdown budget, not today's remaining cushion or daily loss limit: a real risk of ruin from one fat-fingered symbol."
+                : 'That would exceed the room left today (your cushion or daily loss limit): a real risk of ruin from one fat-fingered symbol.';
         }
         case MismatchSeverity.None: {
             return null;
@@ -255,13 +260,9 @@ export function siblingInstrumentText(
 }
 
 function atRiskIfBustedTextFor(input: PositionSizeInput): null | string {
-    if (input.phase !== TradingPhase.Eval) return null;
-    const formatted = formatRiskDisplay(input.unit, {
-        accountDollars: input.retryFee,
-        evAtStake: null,
-        feeEquivalent: input.retryFee,
-    });
-    return `At risk if busted: ${formatted.text} (${formatted.label.toLowerCase()}), assuming a fresh eval; a fee already paid is never added on top.`;
+    return input.phase === TradingPhase.Eval
+        ? `At risk if busted: ${formatGateCurrency(input.retryFee)} (retry fee), assuming a fresh eval; a fee already paid is never added on top.`
+        : null;
 }
 
 function belowOneContractNotes(

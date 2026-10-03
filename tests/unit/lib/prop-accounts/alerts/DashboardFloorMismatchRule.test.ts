@@ -13,7 +13,9 @@ import {
 } from '~/lib/prop-calculator/advisor';
 
 import {
+    evalReconstructed,
     fundedReconstructed,
+    liveReconstructed,
     mffProPlan,
     reconstructedEntry,
 } from '../reconstructionFixtures';
@@ -100,5 +102,81 @@ describe('DashboardFloorMismatchRule', () => {
             accountStates: [reconstructedEntry(account.id, plan, funded)],
         });
         expect(alerts).toEqual([]);
+    });
+
+    it('fires for an eval account whose entered floor is above the engine floor (F-84 (7))', () => {
+        const plan = mffProPlan();
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Eval },
+        );
+        const evaluating = evalReconstructed(plan, {
+            assumptions: [
+                inputAssumption(
+                    AssumptionKind.DashboardFloorMismatch,
+                    AssumptionBias.Conservative,
+                ),
+            ],
+            balance: plan.accountSize + 1800,
+            dashboardFloorMismatch: {
+                engineFloor: 50_000,
+                enteredFloor: 50_800,
+            },
+        });
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [reconstructedEntry(account.id, plan, evaluating)],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.kind).toBe(AlertKind.DashboardFloorMismatch);
+        expect(alerts[0]?.subject).toMatchObject({ accountId: account.id });
+        expect(alerts[0]?.message).toContain('$50,000');
+        expect(alerts[0]?.message).toContain('$50,800');
+    });
+
+    it('is silent for an eval account without the reconstruction warning', () => {
+        const plan = mffProPlan();
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Eval },
+        );
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [
+                reconstructedEntry(
+                    account.id,
+                    plan,
+                    evalReconstructed(plan, { balance: plan.accountSize + 900 }),
+                ),
+            ],
+        });
+        expect(alerts).toEqual([]);
+    });
+
+    it('fires for a modeled live account whose entered floor is above the engine floor (F-109 (9))', () => {
+        const plan = mffProPlan();
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Live },
+        );
+        const live = liveReconstructed(plan, {
+            assumptions: [
+                inputAssumption(
+                    AssumptionKind.DashboardFloorMismatch,
+                    AssumptionBias.Conservative,
+                ),
+            ],
+            dashboardFloorMismatch: {
+                engineFloor: 50_500,
+                enteredFloor: 51_000,
+            },
+        });
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [reconstructedEntry(account.id, plan, live)],
+        });
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]?.message).toContain('$50,500');
+        expect(alerts[0]?.message).toContain('$51,000');
     });
 });

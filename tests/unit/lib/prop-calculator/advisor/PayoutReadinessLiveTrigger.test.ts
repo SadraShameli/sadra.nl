@@ -14,6 +14,7 @@ import {
 import {
     LIVE_TRIGGER_NOT_CHECKED,
     LiveTriggerScope,
+    NO_PENDING_PAYOUT_COUNTS,
     PayoutBlockReasonKind,
     payoutReadiness,
     PayoutReadinessKind,
@@ -61,6 +62,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         const state = fundedState(53_000);
         const tracker = metCalendarTracker(state);
         const readiness = payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
@@ -72,6 +74,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         const tracker = metCalendarTracker(state);
         tracker.payoutsIssued = 2;
         const readiness = payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: {
                 firmTotalCap: null,
                 firmTotalSource: null,
@@ -99,6 +102,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         const tracker = metCalendarTracker(state);
         tracker.payoutsIssued = 1;
         const readiness = payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: {
                 firmTotalCap: null,
                 firmTotalSource: null,
@@ -115,6 +119,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         const state = fundedState(53_000);
         const tracker = metCalendarTracker(state);
         const readiness = payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: {
                 firmTotalCap: 10,
                 firmTotalSource: null,
@@ -140,6 +145,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
         const state = fundedState(53_000);
         const tracker = metCalendarTracker(state);
         const readiness = payoutReadiness(plan, state, tracker, {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: {
                 firmTotalCap: 10,
                 firmTotalSource: null,

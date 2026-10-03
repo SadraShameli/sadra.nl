@@ -3,7 +3,7 @@ import { defineCommand, runMain } from 'citty';
 import { ui } from '~/cli/ui';
 import { findUnknownFlag, unknownFlagMessage } from '~/cli/unknownFlagGuard';
 
-const main = defineCommand({
+export const main = defineCommand({
     meta: {
         description: 'CLI',
         name: 'cli',
@@ -25,11 +25,15 @@ const main = defineCommand({
     },
 });
 
-const rawArgs = process.argv.slice(2);
-const unknownFlag = await findUnknownFlag(rawArgs, main, 'cli');
-if (unknownFlag === null) {
-    await runMain(main);
-} else {
-    ui.fail(unknownFlagMessage(unknownFlag));
-    process.exitCode = 1;
+const isEntryPoint: unknown = Reflect.get(import.meta, 'main');
+
+if (isEntryPoint === true) {
+    const rawArgs = process.argv.slice(2);
+    const unknownFlag = await findUnknownFlag(rawArgs, main, 'cli');
+    if (unknownFlag === null) {
+        await runMain(main);
+    } else {
+        ui.fail(unknownFlagMessage(unknownFlag));
+        process.exitCode = 1;
+    }
 }

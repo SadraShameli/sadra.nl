@@ -90,6 +90,7 @@ vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
         state: { objective: harness.objective ?? 'monthly-net' },
     }),
     useLabSlots: () => ({ ladderSlot: harness.ladderSlot }),
+    useObjectiveChoice: () => ({ automaticBasis: null, queryFailure: null }),
 }));
 
 vi.mock('~/app/(app)/prop-calculator/_components/useLadderSearch', () => ({

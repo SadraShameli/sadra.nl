@@ -1,3 +1,4 @@
+import { kpiDescriptions } from '~/app/(app)/prop-calculator/_components/kpiDescriptions';
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     attemptEconomicsOfRun,
@@ -25,6 +26,7 @@ export type AttemptEconomicsCardModel =
       };
 
 export interface AttemptEconomicsDecompositionRow {
+    infoText?: string;
     label: string;
     valueText: string;
 }
@@ -33,8 +35,11 @@ export type AttemptEconomicsRunOutputs = RunAttemptOutputs & {
     anyPayoutGivenFundedProbability: number;
     estimates: RunAttemptOutputs['estimates'] & {
         anyPayoutGivenFundedProbability: UncertainValue;
+        expectedPayoutPerFundedAccount: UncertainValue;
         payoutsPerFundedAccount: UncertainValue;
     };
+    fundedPayoutValues: readonly number[];
+    netValues: readonly number[];
     payoutsPerFundedAccount: number;
 };
 
@@ -61,8 +66,30 @@ export function attemptEconomicsCardModel(
         outputs.expectedPayoutPerFundedAccount,
         outputs.payoutsPerFundedAccount,
     );
+    const trialCount = outputs.netValues.length;
+    const fundedCount = outputs.fundedPayoutValues.length;
+    const fundedTrials = nCountText(fundedCount, 'funded trials');
+    const allTrials = nCountText(trialCount, 'trials');
+    const fundedValueStandardError =
+        outputs.estimates.expectedPayoutPerFundedAccount.standardError === null
+            ? null
+            : outputs.estimates.expectedPayoutPerFundedAccount.standardError *
+              economics.copyAccounts;
+    const { breakevenPassRate, fundedValueToAttemptCost } = economics;
+    const liveTransferSuffix =
+        economics.liveTransferCashPerAttempt === 0
+            ? ''
+            : ' (incl. live transfer cash)';
     return {
         decomposition: [
+            {
+                label: 'Attempt price',
+                valueText: withStandardError(
+                    formatCurrency(economics.attemptCost),
+                    economics.attemptCostStandardError,
+                    formatCurrency,
+                ),
+            },
             {
                 label: 'Per-attempt pass',
                 valueText: withStandardError(
@@ -73,11 +100,12 @@ export function attemptEconomicsCardModel(
             },
             {
                 label: 'P(payout | funded)',
-                valueText: withStandardError(
+                valueText: withUncertainty(
                     formatPercent(outputs.anyPayoutGivenFundedProbability),
                     outputs.estimates.anyPayoutGivenFundedProbability
                         .standardError,
                     formatPercent,
+                    fundedTrials,
                 ),
             },
             {
@@ -85,18 +113,38 @@ export function attemptEconomicsCardModel(
                 valueText:
                     payoutsPerPaidFunded === null
                         ? NOT_APPLICABLE
-                        : payoutsPerPaidFunded.toFixed(2),
+                        : `${payoutsPerPaidFunded.toFixed(2)} ${fundedTrials}`,
             },
             {
                 label: 'Average payout',
                 valueText:
                     averagePayout === null
                         ? NOT_APPLICABLE
-                        : formatCurrency(averagePayout),
+                        : `${formatCurrency(averagePayout)} ${fundedTrials}`,
             },
             {
                 label: `Funded value (${String(economics.fundedHorizonDays)}-day horizon, ${economics.basis} net)`,
-                valueText: formatCurrency(economics.fundedValue),
+                valueText: withUncertainty(
+                    formatCurrency(economics.fundedValue),
+                    fundedValueStandardError,
+                    formatCurrency,
+                    fundedTrials,
+                ),
+            },
+            {
+                infoText: kpiDescriptions.breakevenPassRate,
+                label: `Breakeven pass rate${liveTransferSuffix}`,
+                valueText:
+                    breakevenPassRate.value === null
+                        ? NOT_APPLICABLE
+                        : `${formatPercent(breakevenPassRate.value)} ${allTrials}`,
+            },
+            {
+                label: `Funded value / attempt cost${liveTransferSuffix}`,
+                valueText:
+                    fundedValueToAttemptCost.value === null
+                        ? NOT_APPLICABLE
+                        : `${fundedValueToAttemptCost.value.ratioText}, net ${fundedValueToAttemptCost.value.netText} ${allTrials}`,
             },
         ],
         economics,
@@ -107,7 +155,15 @@ export function attemptEconomicsCardModel(
 }
 
 function formulaTextOf(economics: RunAttemptEconomics): string {
-    return `EV per attempt = pass ${formatPercent(economics.passProbability)} × funded value ${formatCurrency(economics.fundedValue)} − attempt cost ${formatCurrency(economics.attemptCost)} = ${formatCurrency(economics.expectedNetPerAttempt.value)}${standardErrorSuffix(economics.expectedNetPerAttempt.standardError, formatCurrency)}`;
+    const liveTransferTerm =
+        economics.liveTransferCashPerAttempt === 0
+            ? ''
+            : ` + live transfer cash per attempt ${formatCurrency(economics.liveTransferCashPerAttempt)}`;
+    return `EV per attempt = pass ${formatPercent(economics.passProbability)} × funded value ${formatCurrency(economics.fundedValue)}${liveTransferTerm} − attempt cost ${formatCurrency(economics.attemptCost)} = ${formatCurrency(economics.expectedNetPerAttempt.value)}${standardErrorSuffix(economics.expectedNetPerAttempt.standardError, formatCurrency)}`;
+}
+
+function nCountText(count: number, noun: string): string {
+    return `(n = ${String(count)} ${noun})`;
 }
 
 function ratioOf(numerator: number, denominator: number): null | number {
@@ -127,4 +183,15 @@ function withStandardError(
     format: (value: number) => string,
 ): string {
     return `${text}${standardErrorSuffix(standardError, format)}`;
+}
+
+function withUncertainty(
+    text: string,
+    standardError: null | number,
+    format: (value: number) => string,
+    nText: string,
+): string {
+    return standardError === null
+        ? `${text} ${nText}`
+        : withStandardError(text, standardError, format);
 }

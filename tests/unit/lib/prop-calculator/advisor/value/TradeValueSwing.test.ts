@@ -5,6 +5,7 @@ import {
     buildEnginePolicy,
     DashboardBalanceConvention,
     DEFAULT_RULEBOOK,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedAccount,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
@@ -100,6 +101,7 @@ function fundedAccount(
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -170,6 +172,8 @@ function topStepEval(
             tradingDays,
         },
         plan,
+        null,
+        NO_PENDING_PAYOUT_COUNTS,
     );
     if (account.kind !== TradingPhase.Eval)
         throw new Error('expected an eval account');
@@ -263,6 +267,7 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
             plan,
             resolvedDailyLossLimit: null,
             state,
+            ...NO_PENDING_PAYOUT_COUNTS,
         };
 
         const outcome = tradeValueSwing(account, spec, { risk: 250, rr: 2 });
@@ -283,6 +288,7 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
             plan,
             resolvedDailyLossLimit: null,
             state: plan.initialState(),
+            ...NO_PENDING_PAYOUT_COUNTS,
         };
         expect(outcome.afterLoss).toEqual(expectedValue(freshAccount, spec));
     });
@@ -383,6 +389,7 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
                 plan,
                 resolvedDailyLossLimit: null,
                 state,
+                ...NO_PENDING_PAYOUT_COUNTS,
             };
             const limit = plan.resolvedDailyLossLimit(state, TradingPhase.Eval);
             expect(limit).not.toBeNull();

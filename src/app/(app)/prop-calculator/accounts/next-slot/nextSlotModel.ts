@@ -13,6 +13,7 @@ import { groupFailureOf } from '~/app/(app)/prop-calculator/accounts/_components
 import { type OverviewEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
+    isNextSlotHourKeyAvailable,
     type NextSlotAllocation,
     nextSlotAllocation,
     type NextSlotCandidate,
@@ -29,6 +30,7 @@ import {
     type NextSlotRankedRow,
     NextSlotScaleMark,
     NextSlotSizingBasis,
+    NextSlotSortKey,
     type PortfolioLedger,
     replacementStats,
 } from '~/lib/prop-accounts';
@@ -39,13 +41,14 @@ import {
     serializePlanId,
 } from '~/lib/prop-calculator';
 import {
+    labelledAssumptionLines,
     LifetimePayoutCapBasis,
     type MeasuredRebuyLag,
     RebuyLagBasis,
     type RulebookParameters,
     RuleSource,
+    SIZING_OBJECTIVE_LABEL,
     SizingObjective,
-    sizingObjectiveText,
 } from '~/lib/prop-calculator/advisor';
 import { chooseObjective } from '~/lib/prop-calculator/advisor/actions';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
@@ -61,25 +64,34 @@ export interface NextSlotListedViewRow {
 export interface NextSlotModel {
     readonly allocation: NextSlotAllocation;
     readonly assumptions: readonly string[];
+    readonly automaticObjective: SizingObjective;
     readonly capacityNote: null | string;
     readonly computed: number;
     readonly disclosures: readonly string[];
     readonly engineFailure: null | string;
     readonly excluded: readonly NextSlotListedViewRow[];
+    readonly isHourKeyAvailable: boolean;
     readonly isProvisional: boolean;
-    readonly objectiveNote: string;
+    readonly objective: SizingObjective;
+    readonly objectiveChoiceNote: null | string;
+    readonly objectiveFallbackNote: null | string;
+    readonly objectiveNotAppliedNote: null | string;
     readonly pending: readonly NextSlotListedViewRow[];
     readonly ranked: readonly NextSlotRankedViewRow[];
     readonly refused: readonly NextSlotListedViewRow[];
     readonly requested: number;
+    readonly sortKey: NextSlotSortKey;
+    readonly sortNote: string;
     readonly unverified: readonly NextSlotListedViewRow[];
 }
 
 export interface NextSlotModelInputs {
     readonly engine: OverviewEngine;
     readonly ledger: PortfolioLedger;
+    readonly objective?: SizingObjective;
     readonly requests: readonly OverviewRequest[];
     readonly rulebook: RulebookParameters;
+    readonly sortKey?: NextSlotSortKey;
     readonly today: string;
     readonly trades: number;
 }
@@ -96,6 +108,7 @@ export interface NextSlotRankedViewRow {
     readonly freeSlots: string;
     readonly key: string;
     readonly labels: readonly string[];
+    readonly liveTransferNotes: readonly string[];
     readonly minimumNote: null | string;
     readonly nonPositiveNote: null | string;
     readonly noPayout: string;
@@ -129,8 +142,28 @@ const NON_POSITIVE_CYCLE_NOTE = 'Expected value per attempt is not positive.';
 const NON_POSITIVE_MONTHLY_NOTE =
     'The credit-inclusive monthly net is not positive even though the cycle net is above zero, so no slots are filled.';
 
-const CREDIT_BASIS_NOTE =
-    'Ranked by the credit-inclusive monthly net, the figure the command line ranks by; the credit-free figure is shown beside it.';
+const CREDIT_BASIS_NOTE: Readonly<Record<SizingObjective, string>> = {
+    [SizingObjective.CycleCash]:
+        'Ranked by the cycle net (expected net per attempt), then by the credit-inclusive monthly net; the credit-free monthly figure is shown beside it.',
+    [SizingObjective.MonthlyNet]:
+        'Ranked by the credit-inclusive monthly net, the figure the command line ranks by; the credit-free figure is shown beside it.',
+    [SizingObjective.RuinFirst]:
+        'Ranked by the batch loss risk, lowest first, with plans whose cycle net is not positive last, then by the credit-inclusive monthly net; the credit-free figure is shown beside it.',
+};
+
+const HOUR_BASIS_NOTE =
+    'Ranked by net per screen hour, built from the credit-inclusive monthly net; the credit-free figure is shown beside it.';
+
+const RUIN_FIRST_NEEDS_BANKROLL_NOTE =
+    'Ruin first needs a recorded bankroll to measure the batch loss risk, and no bankroll deposits are recorded, so this ranking stays on monthly net.';
+
+const HOUR_SORT_NOTE =
+    'Ranked by net per screen hour (monthly net times accounts per session, over trading days times session hours per day). Every plan uses the same hours, so this order equals the monthly net order. The documented and optimum ranks stay on monthly net, and the objective only breaks ties.';
+
+const OBJECTIVE_SORT_NOTE = 'Ranked by the objective above.';
+
+const HOUR_KEY_NEEDS_HOURS_NOTE =
+    'Set accounts per session and session hours per day in your rulebook to sort by dollars per screen hour.';
 
 const SIZING_LABEL: Readonly<Record<NextSlotSizingBasis, string>> = {
     [NextSlotSizingBasis.InstrumentStop]:
@@ -139,7 +172,8 @@ const SIZING_LABEL: Readonly<Record<NextSlotSizingBasis, string>> = {
 };
 
 export function nextSlotModelOf(inputs: NextSlotModelInputs): NextSlotModel {
-    const { engine, ledger, requests, rulebook, today, trades } = inputs;
+    const { engine, ledger, requests, rulebook, sortKey, today, trades } =
+        inputs;
     const bySerial = requestsBySerial(requests);
     const candidates = nextSlotCandidatePlans().map(
         ({ firm, plan }): NextSlotCandidate => {
@@ -175,7 +209,14 @@ export function nextSlotModelOf(inputs: NextSlotModelInputs): NextSlotModel {
         ledger.transfers.length > 0
             ? bankrollOf(ledger, today).availableCents
             : null;
-    const objective = chooseObjective(availableCents, rulebook.bankroll);
+    const automaticObjective = chooseObjective(availableCents, rulebook.bankroll);
+    const isRuinFirstWithoutBankroll =
+        inputs.objective === SizingObjective.RuinFirst && availableCents === null;
+    const isChosen =
+        inputs.objective !== undefined && !isRuinFirstWithoutBankroll;
+    const objective = isRuinFirstWithoutBankroll
+        ? SizingObjective.MonthlyNet
+        : (inputs.objective ?? automaticObjective);
     const allocation = nextSlotAllocation({
         availableCents,
         bankroll: rulebook.bankroll,
@@ -184,8 +225,10 @@ export function nextSlotModelOf(inputs: NextSlotModelInputs): NextSlotModel {
         objective,
         requestedPayoutDollars: rulebook.payout.requestCents / CENTS_PER_DOLLAR,
         scaleGate: scaleGateFromLedger(ledger, today, rulebook.samples, trades),
+        sortKey,
         today,
     });
+    const isHourKeyAvailable = isNextSlotHourKeyAvailable(rulebook.bankroll);
     const computed = requests.filter((request) =>
         engine.outcomes.has(overviewRequestKey(request)),
     ).length;
@@ -196,19 +239,42 @@ export function nextSlotModelOf(inputs: NextSlotModelInputs): NextSlotModel {
             requests,
             allocation.hardRule2MinCushion,
         ),
+        automaticObjective,
         capacityNote: capacityNoteOf(allocation),
         computed,
-        disclosures: [CREDIT_BASIS_NOTE, ...allocation.disclosures],
+        disclosures: [
+            rankingBasisNoteOf(objective, allocation.sortKey),
+            ...allocation.disclosures,
+        ],
         engineFailure: engineFailureOf(engine, requests),
         excluded: listedOf(allocation, NextSlotListingKind.Excluded),
+        isHourKeyAvailable,
         isProvisional: computed < requests.length,
-        objectiveNote: objectiveNoteOf(objective),
+        objective,
+        objectiveChoiceNote: objectiveChoiceNoteOf(
+            objective,
+            automaticObjective,
+            isChosen,
+        ),
+        objectiveFallbackNote: isRuinFirstWithoutBankroll
+            ? RUIN_FIRST_NEEDS_BANKROLL_NOTE
+            : null,
+        objectiveNotAppliedNote: objectiveNotAppliedNoteOf(
+            objective,
+            allocation.sortKey,
+        ),
         pending: listedOf(allocation, NextSlotListingKind.Pending),
         ranked: allocation.ranked.map((row) =>
-            rankedViewRowOf(row, allocation),
+            rankedViewRowOf(
+                row,
+                allocation,
+                liveTransferNotesOf(engine, bySerial.get(row.planSerial)),
+            ),
         ),
         refused: listedOf(allocation, NextSlotListingKind.Refused),
         requested: requests.length,
+        sortKey: allocation.sortKey,
+        sortNote: sortNoteOf(allocation.sortKey, isHourKeyAvailable),
         unverified: listedOf(allocation, NextSlotListingKind.Unverified),
     };
 }
@@ -369,6 +435,34 @@ function listedViewRowOf(row: NextSlotNotRankedRow): NextSlotListedViewRow {
     };
 }
 
+function liveTransferNotesOf(
+    engine: OverviewEngine,
+    kinds: ReadonlyMap<OverviewRequestKind, OverviewRequest> | undefined,
+): readonly string[] {
+    const documented = succeededFiguresOf(
+        engine,
+        kinds?.get(OverviewRequestKind.DocumentedRun),
+        documentedFiguresOf,
+    );
+    const optimum = succeededFiguresOf(
+        engine,
+        kinds?.get(OverviewRequestKind.PayoutSizeOptimum),
+        optimumFiguresOf,
+    );
+    return [
+        ...labelledAssumptionLines('Documented policy', documented?.liveTransfer),
+        ...labelledAssumptionLines(
+            'Documented policy',
+            documented?.cumulativePayoutTrigger,
+        ),
+        ...labelledAssumptionLines('Payout-size optimum', optimum?.liveTransfer),
+        ...labelledAssumptionLines(
+            'Payout-size optimum',
+            optimum?.cumulativePayoutTrigger,
+        ),
+    ];
+}
+
 function monthlyFigureText(
     figure: NextSlotMonthlyFigure | NextSlotOptimumFigure | null,
 ): {
@@ -396,16 +490,33 @@ function nonPositiveNoteOf(row: NextSlotRankedRow): null | string {
         : null;
 }
 
-function objectiveNoteOf(objective: SizingObjective): string {
-    switch (objective) {
-        case SizingObjective.CycleCash: {
-            return `Objective: cycle cash. ${sizingObjectiveText(objective)}`;
+function objectiveChoiceNoteOf(
+    objective: SizingObjective,
+    automatic: SizingObjective,
+    isChosen: boolean,
+): null | string {
+    if (isChosen) {
+        return automatic === objective
+            ? 'Chosen by you.'
+            : `Chosen by you. Your bankroll would choose ${SIZING_OBJECTIVE_LABEL[automatic]} automatically.`;
+    }
+    return objective === SizingObjective.RuinFirst
+        ? 'Chosen automatically: your available bankroll is below your objective threshold. Pick another objective here to override it.'
+        : null;
+}
+
+function objectiveNotAppliedNoteOf(
+    objective: SizingObjective,
+    sortKey: NextSlotSortKey,
+): null | string {
+    switch (sortKey) {
+        case NextSlotSortKey.Hour: {
+            return objective === SizingObjective.MonthlyNet
+                ? null
+                : `The ${SIZING_OBJECTIVE_LABEL[objective]} objective above is not applied to the order while the table is sorted by net per screen hour, which follows the monthly net; it only breaks ties.`;
         }
-        case SizingObjective.MonthlyNet: {
-            return `Objective: monthly net. ${sizingObjectiveText(objective)}`;
-        }
-        case SizingObjective.RuinFirst: {
-            return `Objective: ruin first, because your bankroll is below your switch threshold. ${sizingObjectiveText(objective)}`;
+        case NextSlotSortKey.Objective: {
+            return null;
         }
     }
 }
@@ -429,6 +540,7 @@ function optimumNoteOf(figures: NextSlotFigures): null | string {
 function rankedViewRowOf(
     row: NextSlotRankedRow,
     allocation: NextSlotAllocation,
+    liveTransferNotes: readonly string[],
 ): NextSlotRankedViewRow {
     const { figures } = row;
     const documented = monthlyFigureText(figures.documented);
@@ -461,6 +573,7 @@ function rankedViewRowOf(
             lifetimeCapLabel(figures),
             rebuyLagLabelOf(figures),
         ],
+        liveTransferNotes,
         minimumNote:
             figures.firmMinimumAboveRequest === null
                 ? null
@@ -517,6 +630,20 @@ function rankedViewRowOf(
                   : `A larger size than you hold at this firm: scale gate not met (${String(row.scaleMark.unmetConditions.length)} unmet).`,
         sizing: SIZING_LABEL[figures.sizingBasis],
     };
+}
+
+function rankingBasisNoteOf(
+    objective: SizingObjective,
+    sortKey: NextSlotSortKey,
+): string {
+    switch (sortKey) {
+        case NextSlotSortKey.Hour: {
+            return HOUR_BASIS_NOTE;
+        }
+        case NextSlotSortKey.Objective: {
+            return CREDIT_BASIS_NOTE[objective];
+        }
+    }
 }
 
 function rebuyLagLabelOf(figures: NextSlotFigures): string {
@@ -586,4 +713,32 @@ function slotOf<Figures>(
               reason: 'the engine answered with a result of the wrong kind',
           }
         : { figures, kind: NextSlotEngineKind.Ready };
+}
+
+function sortNoteOf(
+    sortKey: NextSlotSortKey,
+    isHourKeyAvailable: boolean,
+): string {
+    switch (sortKey) {
+        case NextSlotSortKey.Hour: {
+            return HOUR_SORT_NOTE;
+        }
+        case NextSlotSortKey.Objective: {
+            return isHourKeyAvailable
+                ? OBJECTIVE_SORT_NOTE
+                : `${OBJECTIVE_SORT_NOTE} ${HOUR_KEY_NEEDS_HOURS_NOTE}`;
+        }
+    }
+}
+
+function succeededFiguresOf<Figures>(
+    engine: OverviewEngine,
+    request: OverviewRequest | undefined,
+    figuresOf: (result: OverviewResult) => Figures | null,
+): Figures | null {
+    if (request === undefined) return null;
+    const outcome = engine.outcomes.get(overviewRequestKey(request));
+    return outcome?.kind === OverviewOutcomeKind.Succeeded
+        ? figuresOf(outcome.result)
+        : null;
 }

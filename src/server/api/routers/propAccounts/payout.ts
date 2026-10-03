@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { PropAccountRepo, PropQuotaGuard } from '~/lib/prop-accounts/server';
 import {
     okOutputSchema,
+    PropMutationRejection,
     propPayoutOutputSchema,
     PropQuota,
     PropRecord,
@@ -13,6 +14,7 @@ import {
     entityIdSchema,
     ledgerListSchema,
     payoutCreateSchema,
+    payoutDateOrderIssues,
     payoutUpdateSchema,
 } from '~/lib/schemas/propAccounts';
 import { createTRPCRouter } from '~/server/api/trpc';
@@ -20,6 +22,7 @@ import { propPayout } from '~/server/db/schemas/prop';
 
 import {
     propMutationProcedure,
+    PropMutationRejectionError,
     propProcedure,
     PropRouterBucket,
     returnedRowOrThrow,
@@ -75,6 +78,20 @@ export const propPayoutRouter = createTRPCRouter({
             ctx.db.transaction(async (tx) => {
                 const repo = new PropAccountRepo(tx, ctx.userId);
                 const payout = await repo.loadOwnedPayoutOrThrow(input.id);
+                const [outOfOrder] = payoutDateOrderIssues({
+                    approvedOn:
+                        input.approvedOn === undefined
+                            ? payout.approvedOn
+                            : input.approvedOn,
+                    paidOn: input.paidOn,
+                    requestedOn: input.requestedOn,
+                });
+                if (outOfOrder !== undefined) {
+                    throw new PropMutationRejectionError(
+                        PropMutationRejection.OutOfOrderEvent,
+                        outOfOrder.message,
+                    );
+                }
                 const [row] = await tx
                     .update(propPayout)
                     .set({

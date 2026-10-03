@@ -4,6 +4,7 @@ import {
     AlertKind,
     AlertSeverity,
     AlertSubjectKind,
+    dayLossShareOfContext,
     LargeDayLossRule,
 } from '~/lib/prop-accounts/alerts';
 import {
@@ -11,6 +12,7 @@ import {
     AccountStatus,
     usdCents,
 } from '~/lib/prop-accounts/core';
+import { DayLossBasis } from '~/lib/prop-accounts/metrics';
 import { addIsoDays } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
@@ -23,7 +25,7 @@ import {
     mffProPlan,
     reconstructedEntry,
 } from '../reconstructionFixtures';
-import { accountFor, alertsOf } from './alertFixtures';
+import { accountFor, alertsOf, contextOf } from './alertFixtures';
 
 const rule = new LargeDayLossRule();
 
@@ -246,5 +248,77 @@ describe('LargeDayLossRule', () => {
                 rulebook: rulebookWithFraction(0.01),
             }),
         ).toEqual([]);
+    });
+});
+
+function evalLoss() {
+    const plan = mffProPlan();
+    const account = accountFor(
+        { firmId: plan.id.firm, plan },
+        { stage: AccountStage.Eval },
+    );
+    const entry = reconstructedEntry(
+        account.id,
+        plan,
+        evalReconstructed(plan, { balance: plan.accountSize - 1000 }),
+        {
+            asOf: '2026-09-23',
+            previous: evalReconstructed(plan),
+            previousAsOf: '2026-09-22',
+        },
+    );
+    return { account, entry };
+}
+
+describe('LargeDayLossRule from-state eval losses (PT-90, F-V29)', () => {
+    it('forwards the from-state value loss map into the day loss share', () => {
+        const { account, entry } = evalLoss();
+        const context = contextOf({
+            accounts: [account],
+            accountStates: [entry],
+            availableBankrollCents: usdCents(10_000),
+            evalValueLossDollars: new Map([[account.id, 42.5]]),
+            rulebook: rulebookWithFraction(0.01),
+        });
+        const [day] = dayLossShareOfContext(context).days;
+        expect(day?.entries).toEqual([
+            {
+                accountId: account.id,
+                basis: DayLossBasis.EvalFromStateValue,
+                lossCents: usdCents(4250),
+            },
+        ]);
+    });
+
+    it('prices the same loss by the retry-fee heuristic when the map holds nothing for the account', () => {
+        const { account, entry } = evalLoss();
+        const context = contextOf({
+            accounts: [account],
+            accountStates: [entry],
+            availableBankrollCents: usdCents(10_000),
+            evalValueLossDollars: new Map([['another-account', 42.5]]),
+            rulebook: rulebookWithFraction(0.01),
+        });
+        const [day] = dayLossShareOfContext(context).days;
+        expect(day?.entries.map((row) => row.basis)).toEqual([
+            DayLossBasis.EvalFeeHeuristic,
+        ]);
+    });
+
+    it('says in the alert that the loss is the from-state value change, not the retry-fee approximation', () => {
+        const { account, entry } = evalLoss();
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [entry],
+            availableBankrollCents: usdCents(10_000),
+            evalValueLossDollars: new Map([[account.id, 42.5]]),
+            rulebook: rulebookWithFraction(0.01),
+        });
+        expect(alerts).toHaveLength(1);
+        const message = alerts[0]?.message ?? '';
+        expect(message).toContain('of eval value lost between the two snapshots');
+        expect(message).toContain('from-state');
+        expect(message).not.toContain('retry fee');
+        expect(message).not.toContain('of estimated eval value');
     });
 });

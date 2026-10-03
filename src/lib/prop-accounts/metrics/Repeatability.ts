@@ -1,8 +1,12 @@
 import { type UsdCents, usdCents } from '~/lib/prop-accounts/core';
-import { standardDeviation } from '~/lib/prop-calculator/stats';
+import { meanStandardError } from '~/lib/prop-calculator/stats';
 
 import { type MonthlyStatement } from './MonthlyStatement';
-import { roundCents } from './PortfolioLedger';
+import {
+    roundCents,
+    type SampledEstimate,
+    sampledRate,
+} from './PortfolioLedger';
 import { type RealizedNetPerSlot } from './RealizedNetPerSlot';
 
 export interface Repeatability {
@@ -14,8 +18,8 @@ export interface RepeatabilityStats {
     readonly best: UsdCents;
     readonly count: number;
     readonly mean: UsdCents;
-    readonly shareAtOrAboveTarget: null | number;
-    readonly sharePositive: number;
+    readonly shareAtOrAboveTarget: null | SampledEstimate;
+    readonly sharePositive: SampledEstimate;
     readonly standardDeviation: UsdCents;
     readonly worst: UsdCents;
 }
@@ -26,46 +30,57 @@ export function repeatability(
     target: null | number,
 ): Repeatability {
     const completeMonths = statement.months.filter((month) => !month.isPartial);
+    const partialMonths = new Set(
+        statement.months
+            .filter((month) => month.isPartial)
+            .map((month) => month.month),
+    );
+    const completeSlotMonths = slots.months.filter(
+        (month) => !partialMonths.has(month.month),
+    );
     return {
         overall: statsOf(
             completeMonths.map((month) => month.net),
+            completeMonths.map((month) => month.payouts),
             completeMonths.map(() => target),
         ),
         perSlot: statsOf(
-            slots.months.map((month) => month.netPerSlot),
-            slots.months.map((month) =>
-                perSlotTargetOf(target, month.slotMonths),
-            ),
+            completeSlotMonths.map((month) => month.netPerSlot),
+            completeSlotMonths.map((month) => month.payouts),
+            completeSlotMonths.map(() => target),
         ),
     };
 }
 
-function perSlotTargetOf(
-    portfolioTarget: null | number,
-    slotMonths: number,
-): null | number {
-    return portfolioTarget === null ? null : portfolioTarget / slotMonths;
-}
-
 function statsOf(
-    values: readonly number[],
+    nets: readonly number[],
+    payouts: readonly number[],
     targets: readonly (null | number)[],
 ): null | RepeatabilityStats {
-    if (values.length === 0) return null;
-    const count = values.length;
-    const positive = values.filter((value) => value > 0).length;
+    const count = nets.length;
+    const sharePositive = sampledRate(
+        nets.filter((net) => net > 0).length,
+        count,
+    );
+    if (sharePositive === null) return null;
+    const sum = nets.reduce((total, net) => total + net, 0);
+    const squaredSum = nets.reduce((total, net) => total + net * net, 0);
     const hasTarget = targets.some((value) => value !== null);
-    const atOrAboveTarget = values.filter((value, index) => {
+    const atOrAboveTarget = payouts.filter((payout, index) => {
         const target = targets[index] ?? null;
-        return target !== null && value >= target;
+        return target !== null && payout >= target;
     }).length;
     return {
-        best: usdCents(Math.max(...values)),
+        best: usdCents(Math.max(...nets)),
         count,
-        mean: roundCents(values.reduce((sum, value) => sum + value, 0) / count),
-        shareAtOrAboveTarget: hasTarget ? atOrAboveTarget / count : null,
-        sharePositive: positive / count,
-        standardDeviation: roundCents(standardDeviation(values)),
-        worst: usdCents(Math.min(...values)),
+        mean: roundCents(sum / count),
+        shareAtOrAboveTarget: hasTarget
+            ? sampledRate(atOrAboveTarget, count)
+            : null,
+        sharePositive,
+        standardDeviation: roundCents(
+            meanStandardError(sum, squaredSum, count) * Math.sqrt(count),
+        ),
+        worst: usdCents(Math.min(...nets)),
     };
 }

@@ -63,7 +63,6 @@ import {
     BankrollTransferKind,
     bankrollTransferKindLabel,
     compareText,
-    dayNumberOf,
     EntryTextKind,
     type ExternalFirmName,
     firmColumnsOf,
@@ -73,16 +72,15 @@ import {
     firmReconciliation,
     type FirmReconciliationEntry,
     formatUsdCents,
-    groupByFirmKey,
     parseMoneyText,
+    payoutLag,
+    type PayoutLag,
     PortfolioLedger,
     ReportedPayoutBasis,
     reportedPayoutBasisLabel,
     type SampledEstimate,
-    sampledMean,
     summarizeCash,
     todayIsoDate,
-    trackedAccountOf,
     usdCents,
     usdCentsToText,
 } from '~/lib/prop-accounts';
@@ -101,7 +99,6 @@ import {
     LedgerEntryFilter,
     ledgerEntryId,
     LedgerEntryKind,
-    type LedgerExportPayout,
     type LedgerFilters,
 } from '~/lib/prop-accounts/csv';
 import {
@@ -114,6 +111,7 @@ import { api, type RouterOutputs } from '~/trpc/react';
 
 const ALL = 'all';
 const CSV_MIME_TYPE = 'text/csv;charset=utf-8';
+const UNSET_BASIS = '';
 
 const CASH_FLOW_LABEL: Readonly<Record<LedgerCashFlow, string>> = {
     [LedgerCashFlow.In]: 'In',
@@ -138,12 +136,14 @@ interface AccountFilterOption {
 
 interface PayoutLagRow {
     readonly firm: string;
+    readonly hasEstimate: boolean;
     readonly key: string;
     readonly requestToApproval: string;
     readonly requestToPaid: string;
 }
 
 export function LedgerView() {
+    const session = useSession();
     const accountsQuery =
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
     const payoutsQuery =
@@ -158,10 +158,26 @@ export function LedgerView() {
     const accounts = accountsQuery.data;
     const payouts = payoutsQuery.data;
     const fees = feesQuery.data;
+    const userId = session.data?.user.id;
     const payoutLagRows = useMemo(
         () =>
-            payoutLagByFirm(accounts ?? [], payouts ?? [], externalFirms ?? []),
-        [accounts, externalFirms, payouts],
+            userId === undefined ||
+            accounts === undefined ||
+            payouts === undefined ||
+            externalFirms === undefined
+                ? []
+                : payoutLagRowsOf(
+                      payoutLag(
+                          PortfolioLedger.fromRows(userId, {
+                              accounts,
+                              events: [],
+                              fees: [],
+                              payouts,
+                          }),
+                      ),
+                      externalFirms,
+                  ),
+        [accounts, externalFirms, payouts, userId],
     );
     const entries = useMemo(
         () =>
@@ -180,6 +196,37 @@ export function LedgerView() {
         () => accountFilterOptions(accounts ?? []),
         [accounts],
     );
+
+    function payoutLagSection() {
+        const failure =
+            session.error?.message ?? externalFirmsQuery.error?.message;
+        if (failure !== undefined) {
+            return (
+                <QueryErrorNotice
+                    message={failure}
+                    title="The payout lag could not be loaded"
+                />
+            );
+        }
+        if (externalFirms === undefined || session.isPending) {
+            return (
+                <Skeleton
+                    aria-label="Loading payout lag"
+                    className="h-24 w-full"
+                    role="status"
+                />
+            );
+        }
+        if (userId === undefined) {
+            return (
+                <QueryErrorNotice
+                    message="Your session could not be read."
+                    title="The payout lag could not be loaded"
+                />
+            );
+        }
+        return <PayoutLagCard rows={payoutLagRows} />;
+    }
 
     function payoutsAndFeesSection() {
         const failed = [accountsQuery, payoutsQuery, feesQuery].find(
@@ -266,7 +313,7 @@ export function LedgerView() {
                 ) : (
                     <LedgerTable entries={visible} />
                 )}
-                <PayoutLagCard rows={payoutLagRows} />
+                {payoutLagSection()}
             </section>
         );
     }
@@ -433,7 +480,7 @@ function editingStatementValues(row: StatementRow): StatementFormValues {
 function emptyStatementValues(): StatementFormValues {
     return {
         asOf: todayIsoDate(new Date()),
-        basis: ReportedPayoutBasis.Net,
+        basis: UNSET_BASIS,
         firmValue: '',
         note: '',
         reportedPayoutCents: '',
@@ -598,15 +645,6 @@ function formatLagDays(estimate: null | SampledEstimate): string {
             ? NOT_APPLICABLE
             : estimate.standardError.toFixed(1);
     return `${estimate.value.toFixed(1)} days (SE ${standardError}, n = ${String(estimate.n)})`;
-}
-
-function lagDaysOf(
-    payout: LedgerExportPayout,
-    on: null | string,
-): readonly number[] {
-    return on === null
-        ? []
-        : [dayNumberOf(on) - dayNumberOf(payout.requestedOn)];
 }
 
 function LedgerFilterBar({
@@ -855,40 +893,8 @@ function parsedReportedPayoutCents(
     return null;
 }
 
-function payoutLagByFirm(
-    accounts: readonly LedgerAccount[],
-    payouts: readonly LedgerExportPayout[],
-    externalFirms: readonly ExternalFirmName[],
-): readonly PayoutLagRow[] {
-    const byAccountId = new Map(
-        accounts.map((account) => [account.id, account]),
-    );
-    const withFirm = payouts.flatMap((payout) => {
-        const account = byAccountId.get(payout.accountId);
-        return account === undefined ? [] : [{ account, payout }];
-    });
-    return groupByFirmKey(withFirm, ({ account }) =>
-        firmKeyOf(trackedAccountOf(account)),
-    ).map(({ firmKey, items }) => ({
-        firm: firmKeyLabel(firmKey, externalFirms),
-        key: firmKeyId(firmKey),
-        requestToApproval: formatLagDays(
-            sampledMean(
-                items.flatMap(({ payout }) =>
-                    lagDaysOf(payout, payout.approvedOn),
-                ),
-            ),
-        ),
-        requestToPaid: formatLagDays(
-            sampledMean(
-                items.flatMap(({ payout }) => lagDaysOf(payout, payout.paidOn)),
-            ),
-        ),
-    }));
-}
-
 function PayoutLagCard({ rows }: { readonly rows: readonly PayoutLagRow[] }) {
-    if (rows.length === 0) return null;
+    if (rows.every((row) => !row.hasEstimate)) return null;
     return (
         <div className="flex flex-col gap-2">
             <h3 className="text-sm font-medium text-white">
@@ -918,6 +924,20 @@ function PayoutLagCard({ rows }: { readonly rows: readonly PayoutLagRow[] }) {
             </Table>
         </div>
     );
+}
+
+function payoutLagRowsOf(
+    lag: PayoutLag,
+    externalFirms: readonly ExternalFirmName[],
+): readonly PayoutLagRow[] {
+    return lag.perFirm.map((entry) => ({
+        firm: firmKeyLabel(entry.firmKey, externalFirms),
+        hasEstimate:
+            entry.requestToApproval !== null || entry.requestToPaid !== null,
+        key: firmKeyId(entry.firmKey),
+        requestToApproval: formatLagDays(entry.requestToApproval),
+        requestToPaid: formatLagDays(entry.requestToPaid),
+    }));
 }
 function ReconciliationRow({
     entry,
@@ -960,6 +980,9 @@ function ReconciliationRow({
                 )}
             >
                 {formatUsdCents(usdCents(entry.differenceCents))}
+                {!entry.withinTolerance && (
+                    <div className="text-xs">Outside tolerance</div>
+                )}
             </TableCell>
             <TableCell>
                 <div className="flex justify-end gap-1">
@@ -1121,7 +1144,7 @@ function StatementForm({
                             >
                                 <FormControl>
                                     <SelectTrigger ref={field.ref}>
-                                        <SelectValue />
+                                        <SelectValue placeholder="Choose gross or net" />
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -1184,6 +1207,14 @@ function StatementForm({
 
 function statementFormSchema(editingId: null | string) {
     return statementFormShape.transform((values, context) => {
+        if (values.basis === UNSET_BASIS) {
+            context.addIssue({
+                code: 'custom',
+                message: 'Choose whether the reported total is gross or net',
+                path: ['basis'],
+            });
+            return z.NEVER;
+        }
         const reportedPayoutCents = parsedReportedPayoutCents(
             values.reportedPayoutCents,
             context,
@@ -1221,7 +1252,7 @@ function statementFormSchema(editingId: null | string) {
 
 const statementFormShape = z.object({
     asOf: z.string(),
-    basis: z.enum(ReportedPayoutBasis),
+    basis: z.union([z.enum(ReportedPayoutBasis), z.literal(UNSET_BASIS)]),
     firmValue: z.string(),
     note: z.string(),
     reportedPayoutCents: z.string(),

@@ -175,6 +175,7 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
         requestedOn: '2026-09-08',
         status: PayoutStatus.Paid,
     },
+    'review.stagesOn': { asOf: '2026-09-21' },
     'review.submit': {
         asOf: '2026-09-21',
         decisions: [

@@ -9,6 +9,8 @@ import {
 import {
     ALL_FIRMS,
     DayStopRuleKind,
+    dollars,
+    type Dollars,
     effectivePayoutRequest,
     FirmId,
     InstrumentSymbol,
@@ -82,6 +84,7 @@ function linkOf(
     { plan }: FirmPlan,
     overrides: {
         readonly optIns?: PlanOptIns;
+        readonly personalMaxRiskPerTrade?: Dollars | null;
         readonly positionSizing?: EnginePolicyPositionSizing | null;
         readonly rulebook?: RulebookParameters;
         readonly stage?: SizingStage;
@@ -90,6 +93,7 @@ function linkOf(
     const link = calculatorLinkForAccount({
         firmId: plan.id.firm,
         optIns: overrides.optIns ?? NO_PLAN_OPT_INS,
+        personalMaxRiskPerTrade: overrides.personalMaxRiskPerTrade ?? null,
         planSerial: serializePlanId(plan.id),
         positionSizing: overrides.positionSizing ?? null,
         rulebook: overrides.rulebook ?? RULEBOOK,
@@ -111,6 +115,31 @@ describe('calculatorLinkForAccount', () => {
         expect(state.winrate).toBeCloseTo(0.45, 3);
         expect(state.rrRatio).toBeCloseTo(1.5, 2);
         expect(state.tradesPerDay).toBe(3);
+    });
+
+    it('carries no objective: it has no calculator provider and no deliberate pick, so the simulator chooses its own (PT-63d)', () => {
+        for (const stage of [SizingStage.Eval, SizingStage.Funded]) {
+            const link = linkOf(MFF_PRO, { stage });
+            expect(
+                new URLSearchParams(link.href.split('?', 2)[1]).has('obj'),
+            ).toBe(false);
+        }
+    });
+
+    it('opens the simulator at the personal max risk when it is below the rulebook funded risk (PT-42c, PT-68g addendum)', () => {
+        const capped = linkOf(MFF_PRO, {
+            personalMaxRiskPerTrade: dollars(100),
+        });
+        expect(decoded(capped.href).state.riskDollars).toBe(100);
+    });
+
+    it('keeps the rulebook funded risk when the personal max risk is above it or unset', () => {
+        const above = linkOf(MFF_PRO, {
+            personalMaxRiskPerTrade: dollars(500),
+        });
+        const unset = linkOf(MFF_PRO);
+        expect(decoded(above.href).state.riskDollars).toBe(300);
+        expect(decoded(unset.href).state.riskDollars).toBe(300);
     });
 
     it('is the same link every time it is built (no random lab or portfolio ids)', () => {
@@ -245,6 +274,7 @@ describe('calculatorLinkForAccount', () => {
             calculatorLinkForAccount({
                 firmId: MFF_PRO.plan.id.firm,
                 optIns: NO_PLAN_OPT_INS,
+                personalMaxRiskPerTrade: null,
                 planSerial: serializePlanId(MFF_PRO.plan.id),
                 rulebook: RULEBOOK,
                 stage: SizingStage.Live,
@@ -254,6 +284,7 @@ describe('calculatorLinkForAccount', () => {
             calculatorLinkForAccount({
                 firmId: MFF_PRO.plan.id.firm,
                 optIns: NO_PLAN_OPT_INS,
+                personalMaxRiskPerTrade: null,
                 planSerial: 'no-such-plan',
                 rulebook: RULEBOOK,
                 stage: SizingStage.Funded,

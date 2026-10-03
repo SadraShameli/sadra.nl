@@ -10,6 +10,7 @@ import {
 } from '~/lib/prop-calculator';
 import {
     type CopyGroupSizingMember,
+    NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
 } from '~/lib/prop-calculator/advisor';
 
@@ -47,6 +48,7 @@ function fundedAccount(): ReconstructedFundedOrEvalAccount {
         plan,
         resolvedDailyLossLimit: null,
         state,
+        ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
 
@@ -61,8 +63,24 @@ describe('a copy-group member must say its firm policy and firm payout count (PT
             id: 'a',
             label: 'a',
             paidPayoutsSinceLastLiveAccount: null,
+            personalRequestOverride: null,
+            personalRetainedCushion: null,
         };
 
         expect(omitted.id).toBe(explicit.id);
+    });
+
+    it('fails to compile for a member that omits the personal request override or the retained cushion', () => {
+        const account = fundedAccount();
+        // @ts-expect-error personalRequestOverride and personalRetainedCushion are required
+        const omitted: CopyGroupSizingMember = {
+            account,
+            accountPolicy: null,
+            id: 'a',
+            label: 'a',
+            paidPayoutsSinceLastLiveAccount: null,
+        };
+
+        expect(omitted.id).toBe('a');
     });
 });

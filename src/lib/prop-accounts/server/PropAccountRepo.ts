@@ -28,6 +28,7 @@ import {
     type PersonalRules,
     PlanKeyResolutionKind,
     readAccountEventDetail,
+    readAccountTagsOrNull,
     readPersonalRules,
     readPersonalRulesOrNull,
     readPlanOptIns,
@@ -93,6 +94,8 @@ import { PROP_QUOTA_LIMITS } from './PropAccountQuotas';
 export const MAX_EVENT_LIST_ROWS = 5000;
 
 const CORRUPT_ROW_TAG = 'prop-accounts:corrupt-row';
+const MAX_REPORTED_CORRUPT_TAGS = 1000;
+const reportedCorruptTags = new Set<string>();
 
 const SNAPSHOTS_PER_ACCOUNT = 2;
 
@@ -152,6 +155,7 @@ export type PropDatabase = Pick<
 >;
 
 type ReadAccountColumns = Omit<PropAccountRow, 'optIns' | 'personalRules'> & {
+    readonly hasCorruptTags?: boolean;
     readonly optIns: PlanOptIns;
     readonly readIssues: readonly AccountReadIssue[];
 };
@@ -1077,6 +1081,26 @@ export class PropAccountRepo {
         return row?.id ?? null;
     }
 
+    async lockFirmAccountsInIdOrder(firmId: FirmId): Promise<ListedAccount[]> {
+        const rows = await this.database
+            .select()
+            .from(propAccount)
+            .where(
+                and(
+                    eq(propAccount.userId, this.userId),
+                    eq(propAccount.firmId, firmId),
+                ),
+            )
+            .orderBy(asc(propAccount.id))
+            .limit(PROP_QUOTA_LIMITS[PropQuota.Accounts] + 1)
+            .for('update');
+        return boundedRows(
+            rows,
+            PROP_QUOTA_LIMITS[PropQuota.Accounts],
+            PropRecord.Account,
+        ).map(readListedAccount);
+    }
+
     async movePurchasedEvent(
         accountId: string,
         purchasedOn: string,
@@ -1198,12 +1222,17 @@ export function readAccount(row: PropAccountRow): OwnedAccount {
     return trackedAccountOf(
         readStored(
             PropRecord.Account,
-            () => ({
-                ...row,
-                optIns: readPlanOptIns(row.optIns),
-                personalRules: readPersonalRules(row.personalRules),
-                readIssues: planReadIssues(row),
-            }),
+            () => {
+                const optIns = readPlanOptIns(row.optIns);
+                const personalRules = readPersonalRules(row.personalRules);
+                return {
+                    ...row,
+                    ...readTolerantTags(row),
+                    optIns,
+                    personalRules,
+                    readIssues: planReadIssues(row),
+                };
+            },
             row.id,
             row.label,
         ),
@@ -1224,13 +1253,30 @@ export async function withPlanRulesChanged<
     Account extends ListedAccount | OwnedAccount,
 >(
     accounts: readonly Account[],
-): Promise<(Account & { readonly planRulesChanged: boolean | null })[]> {
+): Promise<
+    (Account & {
+        readonly currentPlanRulesFingerprint: null | string;
+        readonly planRulesChanged: boolean | null;
+    })[]
+> {
     const cache = new Map<string, Promise<string>>();
     return Promise.all(
-        accounts.map(async (account) => ({
-            ...account,
-            planRulesChanged: await planRulesChangedOf(account, cache),
-        })),
+        accounts.map(async (account) => {
+            const currentPlanRulesFingerprint = await currentFingerprintOf(
+                account,
+                cache,
+            );
+            return {
+                ...account,
+                currentPlanRulesFingerprint,
+                planRulesChanged:
+                    currentPlanRulesFingerprint === null ||
+                    account.planRulesFingerprint === null
+                        ? null
+                        : currentPlanRulesFingerprint !==
+                          account.planRulesFingerprint,
+            };
+        }),
     );
 }
 
@@ -1245,6 +1291,33 @@ function boundedRows<Row>(
 
 function capitalized(text: string): string {
     return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
+async function currentFingerprintOf(
+    account: ListedAccount | OwnedAccount,
+    cache: Map<string, Promise<string>>,
+): Promise<null | string> {
+    if (account.tracking !== AccountTracking.Modeled) return null;
+    const resolution = resolvePlanKey({
+        accountSize: account.accountSize,
+        firmId: account.firmId,
+        optIns: account.optIns,
+        planSerial: account.planSerial,
+        readIssues: account.readIssues,
+    });
+    if (resolution.kind !== PlanKeyResolutionKind.Resolved) return null;
+    const key = stableJson({
+        accountSize: account.accountSize,
+        firmId: account.firmId,
+        optIns: account.optIns,
+        planSerial: account.planSerial,
+    });
+    let pending = cache.get(key);
+    if (pending === undefined) {
+        pending = planRulesFingerprint(resolution.plan);
+        cache.set(key, pending);
+    }
+    return pending;
 }
 
 function narrowingHint(record: PropRecord): string {
@@ -1286,38 +1359,6 @@ function planReadIssues(stored: PropAccountRow): AccountReadIssue[] {
         : [];
 }
 
-async function planRulesChangedOf(
-    account: ListedAccount | OwnedAccount,
-    cache: Map<string, Promise<string>>,
-): Promise<boolean | null> {
-    if (
-        account.tracking !== AccountTracking.Modeled ||
-        account.planRulesFingerprint === null
-    ) {
-        return null;
-    }
-    const resolution = resolvePlanKey({
-        accountSize: account.accountSize,
-        firmId: account.firmId,
-        optIns: account.optIns,
-        planSerial: account.planSerial,
-        readIssues: account.readIssues,
-    });
-    if (resolution.kind !== PlanKeyResolutionKind.Resolved) return null;
-    const key = stableJson({
-        accountSize: account.accountSize,
-        firmId: account.firmId,
-        optIns: account.optIns,
-        planSerial: account.planSerial,
-    });
-    let pending = cache.get(key);
-    if (pending === undefined) {
-        pending = planRulesFingerprint(resolution.plan);
-        cache.set(key, pending);
-    }
-    return (await pending) !== account.planRulesFingerprint;
-}
-
 function readableEvents(rows: readonly PropAccountEventRow[]): OwnedEvent[] {
     return rows.map((row) => {
         try {
@@ -1343,17 +1384,16 @@ function readListedAccount(row: PropAccountRow): ListedAccount {
             tag: CORRUPT_ROW_TAG,
         });
         const personalRules = readPersonalRulesOrNull(row.personalRules);
+        const rulesIssues: AccountReadIssue[] =
+            personalRules === null
+                ? [{ kind: AccountReadIssueKind.CorruptPersonalRules }]
+                : [];
         return trackedAccountOf({
             ...row,
+            ...readTolerantTags(row),
             optIns: readPlanOptInsOrNull(row.optIns) ?? NO_PLAN_OPT_INS,
             personalRules,
-            readIssues:
-                personalRules === null
-                    ? [
-                          ...planReadIssues(row),
-                          { kind: AccountReadIssueKind.CorruptPersonalRules },
-                      ]
-                    : planReadIssues(row),
+            readIssues: [...planReadIssues(row), ...rulesIssues],
         });
     }
 }
@@ -1387,6 +1427,34 @@ function readStored<Value>(
         }
         throw error;
     }
+}
+
+function readTolerantTags(row: PropAccountRow): {
+    readonly hasCorruptTags?: true;
+    readonly tags: string[];
+} {
+    const tags = readAccountTagsOrNull(row.tags);
+    if (tags !== null) return { tags };
+    reportCorruptTagsOnce(row);
+    return { hasCorruptTags: true, tags: [] };
+}
+
+function reportCorruptTagsOnce(row: PropAccountRow): void {
+    const version = `${row.id}:${row.updatedAt.getTime()}`;
+    if (reportedCorruptTags.has(version)) return;
+    if (reportedCorruptTags.size >= MAX_REPORTED_CORRUPT_TAGS) {
+        reportedCorruptTags.clear();
+    }
+    reportedCorruptTags.add(version);
+    captureError(
+        new PropInvalidStoredRecordError(
+            PropRecord.Account,
+            'the stored tags are not a list of strings',
+            row.id,
+            row.label,
+        ),
+        { fields: { accountId: row.id }, tag: CORRUPT_ROW_TAG },
+    );
 }
 
 function storedRecordRemedy(record: PropRecord): string {

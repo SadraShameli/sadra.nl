@@ -25,6 +25,7 @@ import {
     LiveTriggerCoverage,
     liveTriggerLimitsFor,
     LiveTriggerScope,
+    NO_PENDING_PAYOUT_COUNTS,
     PayoutBlockReasonKind,
     payoutReadiness,
     PayoutReadinessKind,
@@ -84,7 +85,9 @@ function contextFor(
         liveTriggerFirmTotalSource: null,
         liveTriggerPerAccountCap: null,
         liveTriggerPerAccountSource: null,
+        otherAccountsPendingPayoutCount: 0,
         paidPayoutsSinceLastLiveAccount: null,
+        pendingPayoutCount: 0,
         pendingPayouts: dollars(0),
         personalRequestOverride: null,
         personalRetainedCushion: null,
@@ -167,6 +170,7 @@ describe('the live-trigger inputs are required (PT-36g)', () => {
     it('exports one explicit not-checked value that never blocks and says so', () => {
         const state = fundedState(55_000);
         const readiness = payoutReadiness(plan, state, trackerWith(state, 2), {
+            ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
             minRetainedCushion: 0,
         });
@@ -191,6 +195,8 @@ describe('a pending payout counts toward the live trigger (PT-36g)', () => {
         const readiness = payoutReadiness(plan, state, trackerWith(state, 1), {
             liveTrigger: perAccountThree,
             minRetainedCushion: 0,
+            otherAccountsPendingPayoutCount: 0,
+            pendingPayoutCount: 1,
             pendingPayouts: 100,
             statePendingPayoutsNetted: false,
         });
@@ -212,6 +218,8 @@ describe('a pending payout counts toward the live trigger (PT-36g)', () => {
         const readiness = payoutReadiness(plan, state, trackerWith(state, 1), {
             liveTrigger: perAccountThree,
             minRetainedCushion: 0,
+            otherAccountsPendingPayoutCount: 0,
+            pendingPayoutCount: 0,
             pendingPayouts: 0,
             statePendingPayoutsNetted: false,
         });
@@ -227,6 +235,8 @@ describe('a pending payout counts toward the live trigger (PT-36g)', () => {
                 paidPayoutsSinceLastLiveAccount: 8,
             },
             minRetainedCushion: 0,
+            otherAccountsPendingPayoutCount: 0,
+            pendingPayoutCount: 1,
             pendingPayouts: 100,
             statePendingPayoutsNetted: false,
         });
@@ -248,6 +258,7 @@ describe('a pending payout counts toward the live trigger (PT-36g)', () => {
         const decision = rule.decide(
             contextFor(plan, state, trackerWith(state, 1), {
                 liveTriggerPerAccountCap: 3,
+                pendingPayoutCount: 1,
                 pendingPayouts: dollars(100),
             }),
         );
