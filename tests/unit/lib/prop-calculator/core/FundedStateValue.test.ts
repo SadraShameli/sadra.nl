@@ -1246,7 +1246,20 @@ describe('cycleBestDayProfit DP state dimension', () => {
             'widening the locked cushion dimension from 61 to 85 cells ' +
             '(0 to 30 drawdowns above the locked floor, was 0 to 6); ' +
             'initialValue and every policy pin are unaffected because ' +
-            "this plan's own reachable trajectory never needed the tail",
+            "this plan's own reachable trajectory never needed the tail. " +
+            'Re-pinned for WP60 (N-89): initialValue 29608.362636674246 and ' +
+            'reachedStateCount 13,104 are unchanged to the last digit, and ' +
+            'so are the on-grid policy pins; only the $52,600 locked state ' +
+            'moved, from [200, 200, 200, 200] to [0, 200, 200, 200], since ' +
+            'its $2,500 cushion sits half a step above a cell and the ' +
+            'policy is now read from the exact within-day tree of that ' +
+            'cushion instead of by interpolating the cell below and the ' +
+            'cell above. Off-grid states of this capped hazard-free solve ' +
+            '(200 sweeps, no contraction bound) flip between idling and ' +
+            'trading from one neighbouring balance to the next under the ' +
+            'old tree as well ($52,400 gave [200, 0, 0, 0] and $52,800 gave ' +
+            '[0, 200, 200, 400]), so this one entry records the exact-tree ' +
+            'read, not a validated optimum',
         () => {
             const plan = rapidEodPlan();
             expect(plan.fundedConsistencyRule()).toBeNull();
@@ -1287,7 +1300,7 @@ describe('cycleBestDayProfit DP state dimension', () => {
 
             const lockedRisksByBalance: [number, number[]][] = [
                 [51_300, [200, 200, 200, 200]],
-                [52_600, [200, 200, 200, 200]],
+                [52_600, [0, 200, 200, 200]],
                 [54_100, [600, 600, 600, 600]],
             ];
             for (const [balance, expectedRisks] of lockedRisksByBalance) {

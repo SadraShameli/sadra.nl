@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
     BankrollProjectionUrlParameter,
+    type BankrollProjectionUrlState,
     type BankrollUrlState,
+    decodeBankrollProjectionUrlState,
     decodeBankrollUrlState,
+    decodeBankrollViewState,
+    defaultBankrollProjectionUrlState,
     defaultBankrollUrlState,
+    encodeBankrollProjectionUrlState,
     encodeBankrollUrlState,
     parseBankrollDollarsField,
     parseBankrollLossThresholdField,
@@ -21,22 +26,35 @@ const BANKROLL_KEYS: readonly string[] = [
     ...Object.values(BankrollProjectionUrlParameter),
 ];
 
-function richState(): BankrollUrlState {
+function projectionRoundTrip(
+    state: BankrollProjectionUrlState,
+): BankrollProjectionUrlState {
+    return decodeBankrollProjectionUrlState(
+        new URLSearchParams(encodeBankrollProjectionUrlState(state)),
+    );
+}
+
+function richProjectionState(): BankrollProjectionUrlState {
     return {
-        budget: dollars(5000),
-        capacity: 3,
         compareCycleDaysA: 60,
         compareCycleDaysB: 30,
         compareMultipleA: 5,
         compareMultipleB: 3,
         cycleDays: 45,
         cycleMultiple: 1.5,
+        roundBudget: dollars(1000),
+    };
+}
+
+function richState(): BankrollUrlState {
+    return {
+        budget: dollars(5000),
+        capacity: 3,
         horizonDays: 180,
         lossThreshold: fraction(0.1),
         monthlyBudget: dollars(2000),
         payoutLagDays: 10,
         reinvestFraction: fraction(0.5),
-        roundBudget: dollars(1000),
         start: dollars(5000),
     };
 }
@@ -164,8 +182,10 @@ describe('the bankroll query keys', () => {
 
 describe('the round budget and cycle query keys (PT-82)', () => {
     it('round-trips the round budget and every cycle field through their own keys', () => {
-        const state = richState();
-        const query = new URLSearchParams(encodeBankrollUrlState(state));
+        const state = richProjectionState();
+        const query = new URLSearchParams(
+            encodeBankrollProjectionUrlState(state),
+        );
         expect(query.get(BankrollProjectionUrlParameter.RoundBudget)).toBe(
             '1000',
         );
@@ -185,28 +205,57 @@ describe('the round budget and cycle query keys (PT-82)', () => {
         expect(query.get(BankrollProjectionUrlParameter.CompareDaysB)).toBe(
             '30',
         );
-        expect(roundTrip(state)).toEqual(state);
+        expect(projectionRoundTrip(state)).toEqual(state);
     });
 
-    it('writes no key for a field left empty', () => {
-        const state: BankrollUrlState = {
-            ...defaultBankrollUrlState(),
+    it('starts every field empty and writes no key for it', () => {
+        const defaults = defaultBankrollProjectionUrlState();
+        for (const value of Object.values(defaults)) {
+            expect(value).toBeNull();
+        }
+        expect(encodeBankrollProjectionUrlState(defaults)).toBe('');
+        expect(decodeBankrollProjectionUrlState(new URLSearchParams())).toEqual(
+            defaults,
+        );
+    });
+
+    it('writes only the key of a field that is set', () => {
+        const state: BankrollProjectionUrlState = {
+            ...defaultBankrollProjectionUrlState(),
             roundBudget: dollars(750),
         };
         expect(
-            new URLSearchParams(encodeBankrollUrlState(state)).keys().toArray(),
+            new URLSearchParams(encodeBankrollProjectionUrlState(state))
+                .keys()
+                .toArray(),
         ).toEqual([BankrollProjectionUrlParameter.RoundBudget]);
     });
 
     it('leaves out the given projection keys', () => {
-        const query = encodeBankrollUrlState(richState(), [
+        const query = encodeBankrollProjectionUrlState(richProjectionState(), [
             BankrollProjectionUrlParameter.RoundBudget,
             BankrollProjectionUrlParameter.CycleMultiple,
         ]);
-        const decoded = decodeBankrollUrlState(new URLSearchParams(query));
+        const decoded = decodeBankrollProjectionUrlState(
+            new URLSearchParams(query),
+        );
         expect(decoded.roundBudget).toBeNull();
         expect(decoded.cycleMultiple).toBeNull();
         expect(decoded.cycleDays).toBe(45);
+    });
+
+    it('decodes the setup keys and the projection keys together for the page, and each alone', () => {
+        const parameters = new URLSearchParams(
+            `${encodeBankrollUrlState(richState())}&${encodeBankrollProjectionUrlState(richProjectionState())}`,
+        );
+        expect(decodeBankrollViewState(parameters)).toEqual({
+            ...richState(),
+            ...richProjectionState(),
+        });
+        expect(decodeBankrollUrlState(parameters)).toEqual(richState());
+        expect(decodeBankrollProjectionUrlState(parameters)).toEqual(
+            richProjectionState(),
+        );
     });
 
     it.each(['abc', '-5', '0', 'NaN', 'Infinity', '', '1e400'])(
@@ -214,7 +263,9 @@ describe('the round budget and cycle query keys (PT-82)', () => {
         (raw) => {
             const parameters = new URLSearchParams();
             parameters.set(BankrollProjectionUrlParameter.RoundBudget, raw);
-            expect(decodeBankrollUrlState(parameters).roundBudget).toBeNull();
+            expect(
+                decodeBankrollProjectionUrlState(parameters).roundBudget,
+            ).toBeNull();
         },
     );
 
@@ -231,7 +282,7 @@ describe('the round budget and cycle query keys (PT-82)', () => {
                 BankrollProjectionUrlParameter.CompareMultipleB,
                 raw,
             );
-            const decoded = decodeBankrollUrlState(parameters);
+            const decoded = decodeBankrollProjectionUrlState(parameters);
             expect(decoded.cycleMultiple).toBeNull();
             expect(decoded.compareMultipleA).toBeNull();
             expect(decoded.compareMultipleB).toBeNull();
@@ -245,7 +296,7 @@ describe('the round budget and cycle query keys (PT-82)', () => {
             parameters.set(BankrollProjectionUrlParameter.CycleDays, raw);
             parameters.set(BankrollProjectionUrlParameter.CompareDaysA, raw);
             parameters.set(BankrollProjectionUrlParameter.CompareDaysB, raw);
-            const decoded = decodeBankrollUrlState(parameters);
+            const decoded = decodeBankrollProjectionUrlState(parameters);
             expect(decoded.cycleDays).toBeNull();
             expect(decoded.compareCycleDaysA).toBeNull();
             expect(decoded.compareCycleDaysB).toBeNull();

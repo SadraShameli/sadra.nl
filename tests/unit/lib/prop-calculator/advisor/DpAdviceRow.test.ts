@@ -50,9 +50,13 @@ function fresh() {
 
 function row(overrides: Partial<DpAdviceRow> = {}): DpAdviceRow {
     return {
+        assumedInstrument: null,
+        assumedStopPoints: null,
         configKey: 'c'.repeat(64),
         eligible: true,
         gaps: [],
+        gateFailure: null,
+        gateResult: null,
         ineligibleReason: null,
         objective: SizingObjective.MonthlyNet,
         planRulesFingerprint: FINGERPRINT,

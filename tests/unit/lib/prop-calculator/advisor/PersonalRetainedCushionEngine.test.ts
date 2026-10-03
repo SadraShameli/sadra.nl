@@ -160,12 +160,13 @@ describe('buildEnginePolicy: personal retained cushion (PT-36d, PT-34e leftover)
 });
 
 describe('FundedSizingAdvisor: personal retained cushion reaches every engine request (PT-36d)', () => {
-    it('carries the larger personal cushion in the fresh sweep, the from-state sweep and the payout optimum', () => {
+    it('carries the larger personal cushion in the fresh sweep, the from-state sweep, the payout optimum and the next payout projection', () => {
         const requests = requestsFor(5000);
         expect(requests.map((request) => request.source)).toStrictEqual([
             AdviceSource.FundedSweepFresh,
             AdviceSource.FundedSweepFromState,
             AdviceSource.PayoutSizeSweep,
+            AdviceSource.NextPayoutProjection,
         ]);
         for (const request of requests) {
             const policy =

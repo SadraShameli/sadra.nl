@@ -264,12 +264,15 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
     });
 
     it('lists no gap for a policy and rulebook the timeline honours in full', () => {
-        expect(applicableTimelineGaps(specOf())).toEqual([]);
+        expect(applicableTimelineGaps(specOf(), apexEod)).toEqual([]);
     });
 
     it('lists the intraday path steps and the rebuy lag only when the policy sets them', () => {
         expect(
-            applicableTimelineGaps(specOf({ intradayPathStepsPerR: 10 })),
+            applicableTimelineGaps(
+                specOf({ intradayPathStepsPerR: 10 }),
+                apexEod,
+            ),
         ).toEqual([DocumentedPolicyTimelineGap.IntradayPathStepsPerR]);
         expect(
             applicableTimelineGaps(
@@ -277,6 +280,7 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
                     rebuyLagBasis: RebuyLagBasis.Measured,
                     rebuyLagDays: 4,
                 }),
+                apexEod,
             ),
         ).toEqual([DocumentedPolicyTimelineGap.RebuyLagDays]);
     });
@@ -288,7 +292,7 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
             funded: { ...funded, takeProfitCents: funded.riskCents * 3 },
             strategy: { ...strategy, rr: 1 },
         };
-        expect(applicableTimelineGaps(specOf({}, differs))).toEqual([
+        expect(applicableTimelineGaps(specOf({}, differs), apexEod)).toEqual([
             DocumentedPolicyTimelineGap.FundedRrDiffersFromStrategyRr,
         ]);
         const noise = {
@@ -298,7 +302,7 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
                 rr: funded.takeProfitCents / funded.riskCents + 1e-12,
             },
         };
-        expect(applicableTimelineGaps(specOf({}, noise))).toEqual([]);
+        expect(applicableTimelineGaps(specOf({}, noise), apexEod)).toEqual([]);
     });
 
     it('lists every applicable gap in the declared order', () => {
@@ -377,13 +381,6 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
                 }),
             ]);
             expect(applicableTimelineGaps(specOf(), apexEod)).toEqual([]);
-        });
-
-        it('keeps the spec-only gaps when the plan is not known', () => {
-            stubConfirmedTrigger(FirmId.Apex);
-            expect(
-                applicableTimelineGaps(specOf({ intradayPathStepsPerR: 10 })),
-            ).toEqual([DocumentedPolicyTimelineGap.IntradayPathStepsPerR]);
         });
     });
 

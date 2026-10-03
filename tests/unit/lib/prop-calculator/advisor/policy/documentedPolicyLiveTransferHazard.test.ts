@@ -147,13 +147,13 @@ describe('toSimInputs prices the rulebook live-transfer hazard of the account fi
 
 describe('the portfolio timeline says it does not price the live-transfer hazard (PT-73b, QV-11)', () => {
     it('lists the hazard gap when any firm hazard is entered', () => {
-        expect(applicableTimelineGaps(specOf({ [FirmId.Mffu]: 0.3 }))).toEqual([
-            DocumentedPolicyTimelineGap.LiveTransferHazard,
-        ]);
+        expect(
+            applicableTimelineGaps(specOf({ [FirmId.Mffu]: 0.3 }), mffuRapid),
+        ).toEqual([DocumentedPolicyTimelineGap.LiveTransferHazard]);
     });
 
     it('lists no hazard gap when no hazard is entered', () => {
-        expect(applicableTimelineGaps(specOf())).toEqual([]);
+        expect(applicableTimelineGaps(specOf(), mffuRapid)).toEqual([]);
     });
 
     it('words the gap as not pricing a transfer, without a dash', () => {

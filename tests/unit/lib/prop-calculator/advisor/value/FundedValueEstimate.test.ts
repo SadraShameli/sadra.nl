@@ -123,12 +123,7 @@ describe('fundedValueEstimate (F-V17, PT-65b step 6)', () => {
 
         const result = fundedValueEstimate(plan, spec, 25);
         const { dollarSampleRange, fundedValue } = result;
-        if (
-            dollarSampleRange === null ||
-            dollarSampleRange === undefined ||
-            fundedValue === undefined ||
-            fundedValue.standardError === null
-        ) {
+        if (!dollarSampleRange || !fundedValue?.standardError) {
             throw new Error('expected a dollar range');
         }
 

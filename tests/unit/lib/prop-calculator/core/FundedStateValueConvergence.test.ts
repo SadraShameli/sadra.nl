@@ -21,7 +21,7 @@ import {
 } from '~/lib/prop-calculator/core/FundedStateValue';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
-const FTMO_GROWTH_COARSE_FIXED_POINT = 9708.771989763492;
+const FTMO_GROWTH_COARSE_FIXED_POINT = 15_254.444598393737;
 const HORIZON_DAYS = 252;
 const PRE_WP17E_FTMO_SWEEPS = 2152;
 const TIGHT_TOLERANCE = 1e-7;
@@ -100,7 +100,7 @@ describe('computeFundedStateValue converges to its fixed point within the stated
         },
     );
 
-    it('values FTMO Futures Growth 50K at the coarse probe grid within $1 of the fixed point the solver reaches at tolerance 0.0001 ($9,708.77), in under half the 2,152 sweeps the pre-WP17e default took. Re-derived for T32: the end-of-horizon credit is one capped request, not the whole balance above the floor; with only the pre-T32 credit restored the tolerance 0.0001 run reproduces the old $61,833.38 fixed point exactly, so the credit is the only move. Pinned back to the 6 drawdown fine top for WP58d (it studies convergence, not the grid, so the cushion tail is pinned off; the tail-on solve is covered by FundedStateValueGridSaturation.test.ts and FundedStateValueBestDayBound.test.ts). Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown instead of 0.25, which took reachedStateCount from 81,000 to 14,850 and the fixed point from $60,708.76 to $9,708.77 (the 252 day horizon, two trades a day and two payout regimes are unchanged) and the solve from 75 s to about 1 s; it takes 273 sweeps against the 2,152 of the pre-WP17e default', async () => {
+    it('values FTMO Futures Growth 50K at the coarse probe grid within $1 of the fixed point the solver reaches at tolerance 0.0001 ($15,254.44), in under half the 2,152 sweeps the pre-WP17e default took. Re-derived for T32: the end-of-horizon credit is one capped request, not the whole balance above the floor; with only the pre-T32 credit restored the tolerance 0.0001 run reproduces the old $61,833.38 fixed point exactly, so the credit is the only move. Pinned back to the 6 drawdown fine top for WP58d (it studies convergence, not the grid, so the cushion tail is pinned off; the tail-on solve is covered by FundedStateValueGridSaturation.test.ts and FundedStateValueBestDayBound.test.ts). Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown instead of 0.25, which took reachedStateCount from 81,000 to 14,850 and the fixed point from $60,708.76 to $9,708.77 (the 252 day horizon, two trades a day and two payout regimes are unchanged) and the solve from 75 s to about 1 s; it takes 273 sweeps against the 2,152 of the pre-WP17e default. Re-pinned for WP60 (N-89): the day tree now classifies every payout, winning day and consistency outcome at the exact landing cushion and day P&L, and only the next-day continuation is read from the grid, so the fixed point moved from $9,708.77 to $15,254.44 at this degenerate grid (one drawdown of action and cushion step, a whole-drawdown trade whose win lands two cells up) over the same 14,850 states, in 230 sweeps at the default tolerance', async () => {
         await warmFirmsRegistryCache();
         const plan = ALL_FIRMS.find(
             (firm) => firm.id === FirmId.FtmoFutures,

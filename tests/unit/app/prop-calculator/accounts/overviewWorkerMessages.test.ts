@@ -90,6 +90,7 @@ import {
     type ValueResult,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
+import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { simulatePortfolioTimeline } from '~/lib/prop-calculator/portfolioTimeline';
 import {
     SIM_INPUTS_REFUSAL_PREFIX,
@@ -130,6 +131,16 @@ const CONFIRMED_SOURCE = {
     verification: PolicyVerification.Confirmed,
 } as const;
 
+class OptInTriggerPolicy extends FirmAccountPolicy {
+    constructor(private readonly trigger: LiveTransitionTrigger) {
+        super();
+    }
+
+    override liveTriggersFor(plan: Plan): readonly LiveTransitionTrigger[] {
+        return plan.takesFundedReset ? [this.trigger] : [];
+    }
+}
+
 class StubTriggerPolicy extends FirmAccountPolicy {
     constructor(private readonly triggers: readonly LiveTransitionTrigger[]) {
         super();
@@ -140,20 +151,32 @@ class StubTriggerPolicy extends FirmAccountPolicy {
     }
 }
 
-function withTopStepTriggers<T>(
-    triggers: readonly LiveTransitionTrigger[],
+function withFirmAccountPolicy<T>(
+    firmId: FirmId,
+    policy: FirmAccountPolicy,
     run: () => T,
 ): T {
-    const firm = findFirm(FirmId.TopStep) as unknown as {
+    const firm = findFirm(firmId) as unknown as {
         accountPolicy: FirmAccountPolicy;
     };
     const original = firm.accountPolicy;
-    firm.accountPolicy = new StubTriggerPolicy(triggers);
+    firm.accountPolicy = policy;
     try {
         return run();
     } finally {
         firm.accountPolicy = original;
     }
+}
+
+function withTopStepTriggers<T>(
+    triggers: readonly LiveTransitionTrigger[],
+    run: () => T,
+): T {
+    return withFirmAccountPolicy(
+        FirmId.TopStep,
+        new StubTriggerPolicy(triggers),
+        run,
+    );
 }
 
 const TOPSTEP_SERIAL = serializePlanId(TOPSTEP_50K.id);
@@ -1034,7 +1057,50 @@ describe('the projection timeline gaps come from the one shared rule', () => {
             rebuyLagDays: 6,
         });
         expect(succeededProjection(request).timelineGaps).toEqual(
-            applicableTimelineGaps(request.spec),
+            applicableTimelineGaps(request.spec, TOPSTEP_50K),
+        );
+    });
+
+    it('lists the cumulative trigger gap for a plan with a confirmed trigger, resolved by the worker (PT-36t, F-145)', () => {
+        const trigger = new CumulativeAmountTrigger(
+            dollars(100_000),
+            CONFIRMED_SOURCE,
+        );
+        expect(
+            withTopStepTriggers(
+                [trigger],
+                () => succeededProjection(tinyProjection()).timelineGaps,
+            ),
+        ).toEqual([DocumentedPolicyTimelineGap.CumulativePayoutTrigger]);
+        expect(succeededProjection(tinyProjection()).timelineGaps).toEqual([]);
+    });
+
+    it('resolves the trigger on the plan with its opt-ins, not the registry plan (PT-36t)', () => {
+        const optInPlan = ALL_FIRMS.flatMap((firm) => firm.plans).find(
+            (plan) => plan.fundedReset !== null && !plan.isInstantFunded,
+        );
+        if (optInPlan === undefined) {
+            throw new Error('expected a plan that offers a funded reset');
+        }
+        const trigger = new CumulativeAmountTrigger(
+            dollars(100_000),
+            CONFIRMED_SOURCE,
+        );
+        const base = tinyProjection(optInPlan);
+        withFirmAccountPolicy(
+            optInPlan.id.firm,
+            new OptInTriggerPolicy(trigger),
+            () => {
+                expect(succeededProjection(base).timelineGaps).toEqual([]);
+                expect(
+                    succeededProjection({
+                        ...base,
+                        optIns: { ...base.optIns, takesFundedReset: true },
+                    }).timelineGaps,
+                ).toEqual([
+                    DocumentedPolicyTimelineGap.CumulativePayoutTrigger,
+                ]);
+            },
         );
     });
 

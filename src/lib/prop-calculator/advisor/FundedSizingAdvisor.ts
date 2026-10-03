@@ -64,6 +64,7 @@ import {
 import {
     type EngineOptimumRequest,
     type FundedSweepFreshRequest,
+    type NextPayoutProjectionRequest,
 } from './EngineOptimumRequest';
 import {
     type EngineOptimumRunnerResult,
@@ -487,6 +488,11 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
         ];
     }
 
+    private isDocumentedRiskPlaceable(): boolean {
+        const placement = this.placedRisk();
+        return placement === null || placement.contracts > 0;
+    }
+
     private placedRisk(): null | {
         contracts: number;
         isCapped: boolean;
@@ -758,6 +764,15 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
                 },
             };
             requests.push(payoutSizeRequest);
+            if (this.isDocumentedRiskPlaceable()) {
+                const projectionRequest: NextPayoutProjectionRequest = {
+                    base,
+                    policy,
+                    source: AdviceSource.NextPayoutProjection,
+                    start,
+                };
+                requests.push(projectionRequest);
+            }
         }
         return requests;
     }

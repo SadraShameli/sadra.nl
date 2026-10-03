@@ -90,7 +90,11 @@ function LossRiskBlock({
                     value={lossRisk.attemptPays}
                 />
                 <BankrollFigure
-                    label={`Realized P(net below zero) at ${lossRisk.attemptsAtBankroll} attempts`}
+                    label={
+                        lossRisk.attemptsAtBankroll === null
+                            ? 'Realized P(net below zero)'
+                            : `Realized P(net below zero) at ${lossRisk.attemptsAtBankroll}`
+                    }
                     value={lossRisk.batchLoss}
                 />
                 <BankrollFigure

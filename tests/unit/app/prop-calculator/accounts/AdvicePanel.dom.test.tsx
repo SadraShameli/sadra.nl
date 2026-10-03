@@ -150,6 +150,9 @@ vi.mock('~/trpc/react', () => ({
                 listForAccount: harness.query('decision.listForAccount'),
                 recordActual: harness.mutation('decision.recordActual'),
             },
+            dpAdvice: {
+                listForAccount: harness.query('dpAdvice.listForAccount'),
+            },
             event: {
                 list: harness.query('event.list'),
                 listForAccount: harness.query('event.listForAccount'),
@@ -501,6 +504,43 @@ function decisionOf(id: string, actualRiskCents: null | number) {
     };
 }
 
+function dpRow(overrides: Record<string, unknown> = {}) {
+    return {
+        accountId: ACCOUNT_ID,
+        assumedInstrument: null,
+        assumedStopPoints: null,
+        configKey: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+        eligible: true,
+        gaps: [],
+        gateFailure: 'no-gate-run',
+        gateResult: null,
+        id: 'dp-1',
+        ineligibleReason: null,
+        objective: 'monthly-net',
+        runtimeMs: 4200,
+        samples: {
+            kind: 'sampled',
+            samples: [
+                {
+                    cushionCents: 200_000,
+                    placedRiskCents: 40_000,
+                    riskCents: 45_000,
+                    rungOffset: 0,
+                    tradeIndex: 0,
+                },
+            ],
+            stage: 'funded',
+        },
+        solvedAt: new Date('2026-09-25T09:00:00Z'),
+        solverVersion: 1,
+        staleness: [],
+        validated: false,
+        validationRef: null,
+        valueSamples: [],
+        ...overrides,
+    };
+}
+
 function lastInput() {
     return adviceBox.inputs.at(-1) as {
         advisor: { dailyPlanCard: () => null | { rungs: { risk: number }[] } };
@@ -526,6 +566,15 @@ function logViolationButton(
     return [...container.querySelectorAll('button')].find(
         (candidate) => candidate.textContent === 'Log violation',
     );
+}
+
+function readyFundedAdviceWith(overrides: Record<string, FakeQuery> = {}) {
+    answerEverything(overrides);
+    adviceBox.state = {
+        advice: realFundedAdvice(),
+        failedOptima: [],
+        phase: AccountAdvicePhase.Ready,
+    };
 }
 
 function succeeded<T>(value: T) {
@@ -1453,6 +1502,24 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         render();
     }
 
+    function payoutAdviceWith(overrides: Record<string, unknown>) {
+        const base = realFundedAdvice();
+        if (base.payoutAdvice === null) {
+            throw new Error('expected payout advice');
+        }
+        answerEverything();
+        adviceBox.state = {
+            advice: {
+                ...base,
+                payoutAdvice: { ...base.payoutAdvice, ...overrides },
+            },
+            failedOptima: [],
+            phase: AccountAdvicePhase.Ready,
+        };
+        render();
+        return sectionOf('Payout advice').textContent;
+    }
+
     function sectionOf(heading: string): HTMLElement {
         const found = [...container.querySelectorAll('h3')].find(
             (candidate) => candidate.textContent === heading,
@@ -2269,24 +2336,6 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
     });
 
     describe('PT-108: the payout card states the withdrawable and the caps (F-128)', () => {
-        function payoutAdviceWith(overrides: Record<string, unknown>) {
-            const base = realFundedAdvice();
-            if (base.payoutAdvice === null) {
-                throw new Error('expected payout advice');
-            }
-            answerEverything();
-            adviceBox.state = {
-                advice: {
-                    ...base,
-                    payoutAdvice: { ...base.payoutAdvice, ...overrides },
-                },
-                failedOptima: [],
-                phase: AccountAdvicePhase.Ready,
-            };
-            render();
-            return sectionOf('Payout advice').textContent;
-        }
-
         it('names the rule-capped withdrawable and the cap that limits it beside the engine horizon credit and the net after the split', () => {
             const text = payoutAdviceWith({
                 caps: [
@@ -2413,6 +2462,79 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             const input = vi.mocked(contractsSizingOf).mock.calls.at(-1)?.[0];
             expect(input?.dailyLossRoom).toBeNull();
             expect(typeof input?.cushionLeft).toBe('number');
+        });
+    });
+
+    describe('PT-30d: the stored DP solves (F-147)', () => {
+        it('shows a stored row as not validated, with its placed risk and a stale flag', () => {
+            readyFundedAdviceWith({
+                'dpAdvice.listForAccount': answer([
+                    dpRow({ staleness: ['newer-snapshot'] }),
+                ]),
+            });
+            render();
+
+            const text = container.textContent;
+            expect(text).toContain('Stored DP solves');
+            expect(text).toContain('Not validated');
+            expect(text).toContain('Stale');
+            expect(text).toContain('Trade 1: $450.00 intended, $400.00 placed');
+        });
+
+        it('says no solve is stored when the account has none', () => {
+            readyFundedAdviceWith({ 'dpAdvice.listForAccount': answer([]) });
+            render();
+
+            expect(container.textContent).toContain(
+                'No DP solve is stored for this account.',
+            );
+        });
+
+        it('says the stored solves could not be loaded without hiding the rest of the advice', () => {
+            readyFundedAdviceWith({
+                'dpAdvice.listForAccount': failed('dp exploded'),
+            });
+            render();
+
+            expect(container.textContent).toContain(
+                'The stored DP solves could not be loaded',
+            );
+            expect(container.textContent).toContain('dp exploded');
+            expect(container.textContent).toContain('Sizing advice');
+        });
+
+        it('says it is loading while the stored solves are pending', () => {
+            readyFundedAdviceWith({
+                'dpAdvice.listForAccount': pendingQuery(),
+            });
+            render();
+
+            expect(container.textContent).toContain(
+                'Loading the stored DP solves.',
+            );
+        });
+
+        it('does not show the DP solves on the stale advice view', () => {
+            answerEverything({
+                'dpAdvice.listForAccount': answer([dpRow()]),
+            });
+            adviceBox.state = {
+                advice: realFundedAdvice(),
+                failedOptima: [],
+                phase: AccountAdvicePhase.Ready,
+            };
+            adviceBox.adjust = (derived) => ({
+                ...(derived as Record<string, unknown>),
+                staleness: {
+                    kind: advisorLib.AdviceStalenessKind.Stale,
+                    reasons: [
+                        advisorLib.AdviceStalenessReason.SessionSnapshotStale,
+                    ],
+                },
+            });
+            render();
+
+            expect(container.textContent).not.toContain('Stored DP solves');
         });
     });
 });

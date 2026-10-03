@@ -39,7 +39,9 @@ import {
 import {
     dpAdviceGapsSchema,
     dpAdviceSamplesSchema,
+    DpGateFailureCode,
 } from '~/lib/prop-calculator/advisor/DpAdviceRow';
+import { InstrumentSymbol } from '~/lib/prop-calculator/core';
 import {
     propAccount,
     propAccountEvent,
@@ -310,7 +312,10 @@ export const dpValueSamplesSchema = z
     .max(MAX_DP_VALUE_SAMPLES);
 
 export const propDpAdviceOutputSchema = createSelectSchema(propDpAdvice, {
+    assumedInstrument: z.enum(InstrumentSymbol).nullable(),
+    assumedStopPoints: z.number().positive().nullable(),
     gaps: dpAdviceGapsSchema,
+    gateFailure: z.enum(DpGateFailureCode).nullable(),
     objective: z.enum(SizingObjective),
     samples: dpAdviceSamplesSchema,
     valueSamples: dpValueSamplesSchema,

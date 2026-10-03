@@ -4,6 +4,7 @@ import {
     dollarsSchema,
     type FundedDpModelGap,
     FundedDpModelGapKind,
+    type InstrumentSymbol,
 } from '~/lib/prop-calculator/core';
 
 import { type SizingObjective } from './SizingObjective';
@@ -22,6 +23,17 @@ export enum DpAdviceStalenessReason {
     NewerSnapshot = 'newer-snapshot',
     PlanRulesChanged = 'plan-rules-changed',
     SolverVersionChanged = 'solver-version-changed',
+}
+
+export enum DpGateFailureCode {
+    BelowBestFlat = 'below-best-flat',
+    InstrumentMismatch = 'instrument-mismatch',
+    NoGateRun = 'no-gate-run',
+    PayoutPolicyMismatch = 'payout-policy-mismatch',
+    RetainedCushionMismatch = 'retained-cushion-mismatch',
+    SolveNotConverged = 'solve-not-converged',
+    StaleTree = 'stale-tree',
+    StopMismatch = 'stop-mismatch',
 }
 
 export enum DpSamplesKind {
@@ -63,9 +75,13 @@ export type DpAdviceGapEntry =
       };
 
 export interface DpAdviceRow {
+    readonly assumedInstrument: InstrumentSymbol | null;
+    readonly assumedStopPoints: null | number;
     readonly configKey: string;
     readonly eligible: boolean;
     readonly gaps: readonly DpAdviceGapEntry[];
+    readonly gateFailure: DpGateFailureCode | null;
+    readonly gateResult: null | string;
     readonly ineligibleReason: null | string;
     readonly objective: SizingObjective;
     readonly planRulesFingerprint: null | string;

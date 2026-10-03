@@ -705,21 +705,19 @@ describe('toolsResultSchema (VD-24)', () => {
         expect(parsed.monthEnds[1]).toEqual(monthEndRows()[1]);
     });
 
-    it.each([
-        { month: 0 },
-        { month: 1.5 },
-        { day: -1 },
-        { cashP50: NaN },
-    ])('rejects a month-end row with %j', (patch) => {
-        expect(() =>
-            parseToolsResult({
-                kind: ToolsResponseKind.Projection,
-                monthEnds: [{ ...monthEndRows()[0], ...patch }],
-                result: timelineResult(),
-                runId: 1,
-            }),
-        ).toThrow();
-    });
+    it.each([{ month: 0 }, { month: 1.5 }, { day: -1 }, { cashP50: NaN }])(
+        'rejects a month-end row with %j',
+        (patch) => {
+            expect(() =>
+                parseToolsResult({
+                    kind: ToolsResponseKind.Projection,
+                    monthEnds: [{ ...monthEndRows()[0], ...patch }],
+                    result: timelineResult(),
+                    runId: 1,
+                }),
+            ).toThrow();
+        },
+    );
 
     it('rejects a spend-vs-payout row whose loss probability is outside [0, 1]', () => {
         expect(() =>

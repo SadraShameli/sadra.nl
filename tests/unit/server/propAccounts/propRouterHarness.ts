@@ -212,10 +212,14 @@ export function decisionRow(overrides: FakeRow = {}): FakeRow {
 export function dpAdviceRow(overrides: FakeRow = {}): FakeRow {
     return {
         account_id: IDS.account,
+        assumed_instrument: null,
+        assumed_stop_points: null,
         config_key: 'ab'.repeat(32),
         created_at: CREATED_AT,
         eligible: true,
         gaps: [],
+        gate_failure: null,
+        gate_result: null,
         id: IDS.dpAdvice,
         ineligible_reason: null,
         objective: 'monthly-net',

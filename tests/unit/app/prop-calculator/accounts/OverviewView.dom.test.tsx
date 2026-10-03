@@ -679,7 +679,14 @@ describe('OverviewView', () => {
             'Injected capital',
             'Reinvested payouts',
             'Withdrawals',
+            'Realized P(an attempt pays)',
+            'Realized P(net below zero) at 1 attempt',
+            'Realized P(no payout)',
+            'Realized minimum budget',
         ]);
+        expect(
+            labels.filter((label) => label === 'Injected capital'),
+        ).toHaveLength(1);
         expect(bankroll?.textContent).toContain('Grown from $100 injected.');
         const reinvested = [...(bankroll?.querySelectorAll('dt') ?? [])].find(
             (node) => node.textContent === 'Reinvested payouts',

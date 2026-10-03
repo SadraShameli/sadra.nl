@@ -63,7 +63,7 @@ import {
     assumptionText,
     BELOW_ONE_CONTRACT_TEXT,
     buildEnginePolicy,
-    ConsistencyCeilingNote,
+    CONSISTENCY_CEILING_NOTE_TEXT,
     createSizingAdvisor,
     type DailyPlanCard,
     DailyProfitCapKind,
@@ -161,12 +161,22 @@ import {
 } from '~/lib/prop-calculator/describe';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
+import {
+    type AdviseDpArguments,
+    adviseDpArguments,
+    DpRunMode,
+    readDpRequest,
+    runDpDatabase,
+    runDpWithReporter,
+    snapshotDpTarget,
+} from './dp';
+
 export enum NextTradeRiskReportKind {
     Checked = 'checked',
     NotRun = 'not-run',
 }
 
-export interface AdviseArguments {
+export interface AdviseArguments extends AdviseDpArguments {
     'allow-below-hard-rule-2'?: boolean;
     balance?: string;
     commission: string;
@@ -285,6 +295,7 @@ export const adviseArguments = {
     ...planArguments,
     ...monteCarloArguments,
     ...commissionArgument,
+    ...adviseDpArguments,
     'allow-below-hard-rule-2': {
         default: false,
         description:
@@ -613,6 +624,11 @@ export default defineCommand({
     async run(context) {
         let spinner: ReturnType<typeof ui.spinner> | undefined;
         try {
+            const dpRequest = readDpRequest(context.args, context.rawArgs);
+            if (dpRequest !== null && dpRequest.mode !== DpRunMode.Snapshot) {
+                await runDpDatabase(dpRequest);
+                return;
+            }
             if (context.args.matrix) {
                 rejectRiskFlagsWithMatrix(context.args);
                 for (const line of coverageMatrixLines(context.args.firm)) {
@@ -668,6 +684,21 @@ export default defineCommand({
             ];
             for (const line of reportLines) {
                 ui.note(line);
+            }
+            if (dpRequest !== null) {
+                await runDpWithReporter({
+                    budget: dpRequest.budget,
+                    settings: dpRequest.settings,
+                    sink: null,
+                    targets: [
+                        snapshotDpTarget({
+                            account,
+                            documented: advice.documented,
+                            label: plan.label,
+                            options,
+                        }),
+                    ],
+                });
             }
             const riskRaw = context.args.risk;
             if (riskRaw !== undefined) {
@@ -921,14 +952,6 @@ function checkRequiredSnapshotFields(
     }
 }
 
-const CONSISTENCY_NOTE_TEXT: Readonly<Record<ConsistencyCeilingNote, string>> =
-    {
-        [ConsistencyCeilingNote.AlreadyPushedOut]:
-            "consistency: the best day of this payout cycle already exceeds what today's profit could dilute, so the payout is already pushed out and no rung is capped for it",
-        [ConsistencyCeilingNote.FreshCycle]:
-            'consistency: this cycle has no profit yet, so no ceiling applies today; on the first profitable day its best day is all of the cycle profit, and the rule is checked at the payout request',
-    };
-
 const RISK_CHECK_NO_RUNG_REASON =
     'no documented rung applies to this account, so there is nothing to check the proposed risk against';
 
@@ -1171,7 +1194,7 @@ function dailyPlanCardLines(card: DailyPlanCard): string[] {
         );
     }
     if (card.consistencyNote !== null) {
-        lines.push(CONSISTENCY_NOTE_TEXT[card.consistencyNote]);
+        lines.push(CONSISTENCY_CEILING_NOTE_TEXT[card.consistencyNote]);
     }
     lines.push(DAY_STOP_REASON_TEXT[card.stopReason]);
     return lines;
@@ -1232,7 +1255,7 @@ function engineOptimaLines(
                 }
                 const { optimum } = result.sweep;
                 return [
-                    `from-state funded sweep: ${optimum.label}, from-state expected cash ${formatCurrencyWithSe(optimum.fromStateExpectedCash, optimum.fromStateExpectedCashStandardError)}, ex-credit ${formatCurrencyWithSe(optimum.fromStateExpectedRealizedCash, optimum.fromStateExpectedRealizedCashStandardError)}, survivors ${optimum.survivors}`,
+                    `from-state funded sweep: ${fundedWinnerText(optimum, cushion)}, from-state expected cash ${formatCurrencyWithSe(optimum.fromStateExpectedCash, optimum.fromStateExpectedCashStandardError)}, ex-credit ${formatCurrencyWithSe(optimum.fromStateExpectedRealizedCash, optimum.fromStateExpectedRealizedCashStandardError)}, survivors ${optimum.survivors}`,
                 ];
             }
             case AdviceSource.LadderSearchFresh:
@@ -1270,7 +1293,7 @@ function fundedSweepLines(
 }
 
 function fundedWinnerText(
-    optimum: EngineOptimum,
+    optimum: Pick<EngineOptimum, 'label' | 'policy'>,
     cushion: null | number,
 ): string {
     return cushion !== null &&

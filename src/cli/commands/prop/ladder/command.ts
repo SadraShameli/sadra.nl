@@ -26,6 +26,10 @@ import {
     type TradingArguments,
     TradingInputs,
 } from '~/cli/commands/prop/shared';
+import {
+    unpricedTriggerLine,
+    UnpricedTriggerSurface,
+} from '~/cli/commands/prop/unpricedTrigger';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
@@ -433,6 +437,11 @@ export default defineCommand({
             }
             const options = buildLadderSearchOptions(plan, context.args);
             const { grid, maxGridSize = MAX_LADDER_GRID_SIZE, score } = options;
+            const unpricedTrigger = unpricedTriggerLine(
+                plan,
+                UnpricedTriggerSurface.Ladder,
+            );
+            if (unpricedTrigger !== null) ui.warn(unpricedTrigger);
             printEdgePlausibilityNotes([
                 edgePlausibilityNote({
                     rrRatio: score.rrRatio,

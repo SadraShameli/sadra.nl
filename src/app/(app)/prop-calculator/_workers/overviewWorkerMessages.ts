@@ -1035,7 +1035,7 @@ function portfolioProjectionResultOf(
                 'payoutRequestSize',
             ),
             timeline,
-            timelineGaps: applicableTimelineGaps(spec),
+            timelineGaps: applicableTimelineGaps(spec, plan),
             trials: inputs.trials,
         },
         kind: OverviewRequestKind.PortfolioProjection,

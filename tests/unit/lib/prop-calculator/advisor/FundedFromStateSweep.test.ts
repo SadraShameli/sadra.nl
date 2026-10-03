@@ -10,6 +10,8 @@ import {
     fundedCycleSeedFromTracker,
     FundedFromStateOptimumResultKind,
     type FundedFromStateSweepRequest,
+    FundedWinnerPolicyKind,
+    fundedWinnerRiskAt,
     runFundedFromStateSweep,
 } from '~/lib/prop-calculator/advisor';
 import {
@@ -319,5 +321,65 @@ describe('runFundedFromStateSweep (PT-32)', () => {
         if (!freshWinner) throw new Error('no fresh winner');
 
         expect(fromStateResult.optimum.label).toBe(freshWinner.candidate.label);
+    });
+});
+
+function optimumOf(
+    candidates: Pick<
+        FundedFromStateSweepRequest['candidates'],
+        'flat' | 'percent'
+    >,
+    isStopEntered: boolean,
+) {
+    const plan = rapidEodPlan();
+    const sizing = resolvePositionSizing(InstrumentSymbol.MNQ, 10);
+    if (isStopEntered && sizing === null) {
+        throw new Error('no MNQ position sizing at 10 points');
+    }
+    const result = runFundedFromStateSweep(plan, {
+        base: baseSimInputs({
+            ...(isStopEntered && {
+                instrument: InstrumentSymbol.MNQ,
+                stopPoints: 10,
+            }),
+            trials: 20,
+        }),
+        candidates: {
+            ...candidates,
+            fundedLadder: null,
+            positionSizing: isStopEntered ? sizing : null,
+            stopRule,
+        },
+        policy: policyFor(plan),
+        source: AdviceSource.FundedSweepFromState,
+        start: startAt(plan, 800, 25, 25),
+    });
+    if (result.kind !== FundedFromStateOptimumResultKind.Optimum) {
+        throw new Error('expected an optimum');
+    }
+    return result.optimum;
+}
+
+describe('FundedFromStateOptimum.policy names the winner as a typed policy (PT-109b, F-121)', () => {
+    it('names a flat winner by its dollars and keeps the label', () => {
+        const optimum = optimumOf({ flat: [250] }, false);
+
+        expect(optimum.label).toBe('flat $250');
+        expect(optimum.policy).toStrictEqual({
+            dollars: 250,
+            kind: FundedWinnerPolicyKind.Flat,
+        });
+        expect(fundedWinnerRiskAt(optimum.policy, 1700)).toBe(250);
+    });
+
+    it('names a percent winner by its percent and prices it at a cushion', () => {
+        const optimum = optimumOf({ flat: [], percent: [7.5] }, true);
+
+        expect(optimum.label).toBe('7.5% cushion');
+        expect(optimum.policy).toStrictEqual({
+            kind: FundedWinnerPolicyKind.PercentOfCushion,
+            percent: 7.5,
+        });
+        expect(fundedWinnerRiskAt(optimum.policy, 1234.56)).toBe(92.59);
     });
 });

@@ -4,8 +4,8 @@ import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 import {
-    type BankrollUrlState,
-    decodeBankrollUrlState,
+    type BankrollViewState,
+    decodeBankrollViewState,
 } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollUrlState';
 import { BatchCard } from '~/app/(app)/prop-calculator/_components/bankroll/BatchCard';
 import { LeversCard } from '~/app/(app)/prop-calculator/_components/bankroll/LeversCard';
@@ -23,13 +23,13 @@ import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPag
 export function BankrollView() {
     const searchParameters = useSearchParams();
     const { rulebookSource } = useBankrollVariant();
-    const [state, setState] = useState<BankrollUrlState>(() =>
-        decodeBankrollUrlState(
+    const [state, setState] = useState<BankrollViewState>(() =>
+        decodeBankrollViewState(
             new URLSearchParams(searchParameters.toString()),
         ),
     );
 
-    const change = (patch: Partial<BankrollUrlState>): void => {
+    const change = (patch: Partial<BankrollViewState>): void => {
         setState((current) => ({ ...current, ...patch }));
     };
 

@@ -20,26 +20,28 @@ export enum BankrollProjectionUrlParameter {
     RoundBudget = 'bkq',
 }
 
-export type BankrollUrlKey =
-    BankrollProjectionUrlParameter | BankrollUrlParameter;
-
-export interface BankrollUrlState {
-    readonly budget: Dollars | null;
-    readonly capacity: null | number;
+export interface BankrollProjectionUrlState {
     readonly compareCycleDaysA: null | number;
     readonly compareCycleDaysB: null | number;
     readonly compareMultipleA: null | number;
     readonly compareMultipleB: null | number;
     readonly cycleDays: null | number;
     readonly cycleMultiple: null | number;
+    readonly roundBudget: Dollars | null;
+}
+
+export interface BankrollUrlState {
+    readonly budget: Dollars | null;
+    readonly capacity: null | number;
     readonly horizonDays: null | number;
     readonly lossThreshold: Fraction0to1 | null;
     readonly monthlyBudget: Dollars | null;
     readonly payoutLagDays: null | number;
     readonly reinvestFraction: Fraction0to1 | null;
-    readonly roundBudget: Dollars | null;
     readonly start: Dollars | null;
 }
+
+export type BankrollViewState = BankrollProjectionUrlState & BankrollUrlState;
 
 const finiteNumberSchema = z.string().trim().min(1).pipe(z.coerce.number());
 
@@ -65,18 +67,10 @@ const lossThresholdSchema = finiteNumberSchema
     .pipe(rulebookSchema.shape.bankroll.shape.lossRiskThreshold.unwrap())
     .transform(fraction);
 
-export function decodeBankrollUrlState(
+export function decodeBankrollProjectionUrlState(
     parameters: URLSearchParams,
-): BankrollUrlState {
+): BankrollProjectionUrlState {
     return {
-        budget: parsed(
-            dollarsSchema,
-            parameters.get(BankrollUrlParameter.Budget),
-        ),
-        capacity: parsed(
-            positiveIntSchema,
-            parameters.get(BankrollUrlParameter.Capacity),
-        ),
         compareCycleDaysA: parsed(
             positiveIntSchema,
             parameters.get(BankrollProjectionUrlParameter.CompareDaysA),
@@ -101,6 +95,25 @@ export function decodeBankrollUrlState(
             multipleSchema,
             parameters.get(BankrollProjectionUrlParameter.CycleMultiple),
         ),
+        roundBudget: parsed(
+            dollarsSchema,
+            parameters.get(BankrollProjectionUrlParameter.RoundBudget),
+        ),
+    };
+}
+
+export function decodeBankrollUrlState(
+    parameters: URLSearchParams,
+): BankrollUrlState {
+    return {
+        budget: parsed(
+            dollarsSchema,
+            parameters.get(BankrollUrlParameter.Budget),
+        ),
+        capacity: parsed(
+            positiveIntSchema,
+            parameters.get(BankrollUrlParameter.Capacity),
+        ),
         horizonDays: parsed(
             positiveIntSchema,
             parameters.get(BankrollUrlParameter.HorizonDays),
@@ -121,10 +134,6 @@ export function decodeBankrollUrlState(
             reinvestFractionSchema,
             parameters.get(BankrollUrlParameter.Reinvest),
         ),
-        roundBudget: parsed(
-            dollarsSchema,
-            parameters.get(BankrollProjectionUrlParameter.RoundBudget),
-        ),
         start: parsed(
             dollarsSchema,
             parameters.get(BankrollUrlParameter.Start),
@@ -132,59 +141,45 @@ export function decodeBankrollUrlState(
     };
 }
 
-export function defaultBankrollUrlState(): BankrollUrlState {
+export function decodeBankrollViewState(
+    parameters: URLSearchParams,
+): BankrollViewState {
     return {
-        budget: null,
-        capacity: null,
+        ...decodeBankrollUrlState(parameters),
+        ...decodeBankrollProjectionUrlState(parameters),
+    };
+}
+
+export function defaultBankrollProjectionUrlState(): BankrollProjectionUrlState {
+    return {
         compareCycleDaysA: null,
         compareCycleDaysB: null,
         compareMultipleA: null,
         compareMultipleB: null,
         cycleDays: null,
         cycleMultiple: null,
+        roundBudget: null,
+    };
+}
+
+export function defaultBankrollUrlState(): BankrollUrlState {
+    return {
+        budget: null,
+        capacity: null,
         horizonDays: null,
         lossThreshold: null,
         monthlyBudget: null,
         payoutLagDays: null,
         reinvestFraction: null,
-        roundBudget: null,
         start: null,
     };
 }
 
-export function encodeBankrollUrlState(
-    state: BankrollUrlState,
-    omitted: readonly BankrollUrlKey[] = [],
+export function encodeBankrollProjectionUrlState(
+    state: BankrollProjectionUrlState,
+    omitted: readonly BankrollProjectionUrlParameter[] = [],
 ): string {
     const parameters = new URLSearchParams();
-    setIfPresent(parameters, BankrollUrlParameter.Budget, state.budget);
-    setIfPresent(parameters, BankrollUrlParameter.Start, state.start);
-    setIfPresent(
-        parameters,
-        BankrollUrlParameter.MonthlyBudget,
-        state.monthlyBudget,
-    );
-    setIfPresent(
-        parameters,
-        BankrollUrlParameter.Reinvest,
-        state.reinvestFraction,
-    );
-    setIfPresent(parameters, BankrollUrlParameter.Capacity, state.capacity);
-    setIfPresent(
-        parameters,
-        BankrollUrlParameter.PayoutLagDays,
-        state.payoutLagDays,
-    );
-    setIfPresent(
-        parameters,
-        BankrollUrlParameter.HorizonDays,
-        state.horizonDays,
-    );
-    setIfPresent(
-        parameters,
-        BankrollUrlParameter.LossThreshold,
-        state.lossThreshold,
-    );
     setIfPresent(
         parameters,
         BankrollProjectionUrlParameter.RoundBudget,
@@ -219,6 +214,43 @@ export function encodeBankrollUrlState(
         parameters,
         BankrollProjectionUrlParameter.CompareDaysB,
         state.compareCycleDaysB,
+    );
+    for (const key of omitted) parameters.delete(key);
+    return parameters.toString();
+}
+
+export function encodeBankrollUrlState(
+    state: BankrollUrlState,
+    omitted: readonly BankrollUrlParameter[] = [],
+): string {
+    const parameters = new URLSearchParams();
+    setIfPresent(parameters, BankrollUrlParameter.Budget, state.budget);
+    setIfPresent(parameters, BankrollUrlParameter.Start, state.start);
+    setIfPresent(
+        parameters,
+        BankrollUrlParameter.MonthlyBudget,
+        state.monthlyBudget,
+    );
+    setIfPresent(
+        parameters,
+        BankrollUrlParameter.Reinvest,
+        state.reinvestFraction,
+    );
+    setIfPresent(parameters, BankrollUrlParameter.Capacity, state.capacity);
+    setIfPresent(
+        parameters,
+        BankrollUrlParameter.PayoutLagDays,
+        state.payoutLagDays,
+    );
+    setIfPresent(
+        parameters,
+        BankrollUrlParameter.HorizonDays,
+        state.horizonDays,
+    );
+    setIfPresent(
+        parameters,
+        BankrollUrlParameter.LossThreshold,
+        state.lossThreshold,
     );
     for (const key of omitted) parameters.delete(key);
     return parameters.toString();
@@ -260,7 +292,7 @@ function parsed<T>(schema: z.ZodType<T>, raw: null | string): null | T {
 
 function setIfPresent(
     parameters: URLSearchParams,
-    key: BankrollUrlKey,
+    key: BankrollProjectionUrlParameter | BankrollUrlParameter,
     value: null | number,
 ): void {
     if (value !== null) parameters.set(key, String(value));

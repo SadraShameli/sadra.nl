@@ -473,10 +473,11 @@ describe('a Live account personal max risk per trade sizes the advice (PT-108 st
     }
 
     it('reads the cap from the reconstructed Live account', () => {
-        expect(reconstructedMaxRiskOf(liveAccountWithCap(dollars(75)))).toBe(
-            75,
-        );
-        expect(reconstructedMaxRiskOf(liveAccountWithCap(null))).toBeNull();
+        const capped = liveAccountWithCap(dollars(75));
+        const uncapped = liveAccountWithCap(null);
+
+        expect(reconstructedMaxRiskOf(capped)).toBe(75);
+        expect(reconstructedMaxRiskOf(uncapped)).toBeNull();
     });
 
     it('puts the Live cap into the personal caps of the advisor options', () => {

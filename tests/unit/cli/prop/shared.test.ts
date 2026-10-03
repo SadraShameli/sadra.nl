@@ -10,6 +10,7 @@ import ladderCommand, {
     ladderCommandArguments,
 } from '~/cli/commands/prop/ladder/command';
 import optimizeDp, {
+    DP_TRADES_PER_DAY,
     dpArguments,
 } from '~/cli/commands/prop/optimize/dp/command';
 import {
@@ -1123,9 +1124,6 @@ async function capturedStdout(run: () => Promise<unknown>): Promise<string> {
 }
 
 describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, one helper, one text)', () => {
-    const implausibleNote =
-        edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ?? '';
-
     it('prop ladder prints the note for 70% at 1:1', async () => {
         const argv = [
             '--firm',
@@ -1157,8 +1155,14 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
                 rawArgs: argv,
             });
         });
-        expect(implausibleNote).not.toBe('');
-        expect(stdout).toContain(implausibleNote);
+        const ladderNote =
+            edgePlausibilityNote({
+                rrRatio: 1,
+                tradesPerDay: 1,
+                winrate: fraction(0.7),
+            }) ?? '';
+        expect(ladderNote).not.toBe('');
+        expect(stdout).toContain(ladderNote);
     });
 
     it('prop ladder stays silent at 40% at 1:2', async () => {
@@ -1214,8 +1218,14 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
                 rawArgs: argv,
             });
         });
-        expect(implausibleNote).not.toBe('');
-        expect(stdout).toContain(implausibleNote);
+        const dpNote =
+            edgePlausibilityNote({
+                rrRatio: 1,
+                tradesPerDay: DP_TRADES_PER_DAY,
+                winrate: fraction(0.7),
+            }) ?? '';
+        expect(dpNote).not.toBe('');
+        expect(stdout).toContain(dpNote);
     });
 });
 

@@ -75,9 +75,13 @@ export class DpAdviceRepo {
             .insert(propDpAdvice)
             .values({
                 accountId,
+                assumedInstrument: row.assumedInstrument,
+                assumedStopPoints: row.assumedStopPoints,
                 configKey: row.configKey,
                 eligible: row.eligible,
                 gaps: row.gaps,
+                gateFailure: row.gateFailure,
+                gateResult: row.gateResult,
                 ineligibleReason: row.ineligibleReason,
                 objective: row.objective,
                 planRulesFingerprint: row.planRulesFingerprint,

@@ -1,17 +1,17 @@
 import { availableParallelism } from 'node:os';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+    afterAll,
+    afterEach,
+    beforeAll,
+    describe,
+    expect,
+    it,
+    vi,
+} from 'vitest';
 
 import type * as EvalStateValueModule from '~/lib/prop-calculator/core/EvalStateValue';
 import type * as FundedStateValueModule from '~/lib/prop-calculator/core/FundedStateValue';
-
-import { FirmId, fraction, TopStepVariant } from '~/lib/prop-calculator/core';
-import { solveAverageRewardPolicy } from '~/lib/prop-calculator/core/AverageRewardSolver';
-import {
-    balancedWorkerCount,
-    type FundedWorkerSession,
-} from '~/lib/prop-calculator/core/FundedStateValue';
-import { RenewalCycleObjective } from '~/lib/prop-calculator/core/RenewalCycleObjective';
-import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
+import type { FundedWorkerSession } from '~/lib/prop-calculator/core/FundedStateValue';
 
 const solverProbe = vi.hoisted(() => ({
     entryCostOf: (_ratePerDay: number): number => 0,
@@ -73,7 +73,36 @@ const ROOT_RATE_PER_DAY = 300;
 const SLOPE_DAYS = 20;
 const SEED_RATE_PER_DAY = 270;
 
-function topStepObjective(): RenewalCycleObjective {
+type Subject = Awaited<ReturnType<typeof loadSubject>>;
+
+async function loadSubject() {
+    vi.resetModules();
+    const core = await import('~/lib/prop-calculator/core');
+    const { solveAverageRewardPolicy } =
+        await import('~/lib/prop-calculator/core/AverageRewardSolver');
+    const { balancedWorkerCount } =
+        await import('~/lib/prop-calculator/core/FundedStateValue');
+    const { RenewalCycleObjective } =
+        await import('~/lib/prop-calculator/core/RenewalCycleObjective');
+    const { TopStep } =
+        await import('~/lib/prop-calculator/firms/topstep/TopStep');
+    return {
+        balancedWorkerCount,
+        FirmId: core.FirmId,
+        fraction: core.fraction,
+        RenewalCycleObjective,
+        solveAverageRewardPolicy,
+        TopStep,
+        TopStepVariant: core.TopStepVariant,
+    };
+}
+
+function topStepObjective({
+    FirmId,
+    RenewalCycleObjective,
+    TopStep,
+    TopStepVariant,
+}: Subject) {
     const plan = new TopStep().findPlan({
         accountSize: 50_000,
         firm: FirmId.TopStep,
@@ -93,6 +122,16 @@ function topStepObjective(): RenewalCycleObjective {
 }
 
 describe('solveAverageRewardPolicy takes the worker cap and the seed rate from its config (WP66a R4 and R5)', () => {
+    let subject: Subject;
+
+    beforeAll(async () => {
+        subject = await loadSubject();
+    });
+
+    afterAll(() => {
+        vi.resetModules();
+    });
+
     afterEach(() => {
         solverProbe.fundedRates.length = 0;
         solverProbe.isReleased.length = 0;
@@ -100,7 +139,9 @@ describe('solveAverageRewardPolicy takes the worker cap and the seed rate from i
     });
 
     it('gives its own funded worker session the maxWorkers cap, and releases it when the solve ends', () => {
-        const objective = topStepObjective();
+        const { balancedWorkerCount, fraction, solveAverageRewardPolicy } =
+            subject;
+        const objective = topStepObjective(subject);
 
         solveAverageRewardPolicy({
             maxSolves: MAX_SOLVES,
@@ -120,11 +161,13 @@ describe('solveAverageRewardPolicy takes the worker cap and the seed rate from i
     });
 
     it('rejects a zero maxWorkers with the session message instead of solving uncapped', () => {
+        const { fraction, solveAverageRewardPolicy } = subject;
+
         expect(() =>
             solveAverageRewardPolicy({
                 maxSolves: MAX_SOLVES,
                 maxWorkers: 0,
-                objective: topStepObjective(),
+                objective: topStepObjective(subject),
                 rrRatio: 2,
                 winrate: fraction(0.4),
             }),
@@ -134,7 +177,8 @@ describe('solveAverageRewardPolicy takes the worker cap and the seed rate from i
     });
 
     it('starts the rate search at startRatePerDay and then takes the seeded slope-prior step, not the conservative one of h over the longest cycle', () => {
-        const objective = topStepObjective();
+        const { fraction, solveAverageRewardPolicy } = subject;
+        const objective = topStepObjective(subject);
 
         const { trace } = solveAverageRewardPolicy({
             maxSolves: MAX_SOLVES,
@@ -158,7 +202,8 @@ describe('solveAverageRewardPolicy takes the worker cap and the seed rate from i
     });
 
     it('starts at rate 0 and takes the conservative first step when no seed is given', () => {
-        const objective = topStepObjective();
+        const { fraction, solveAverageRewardPolicy } = subject;
+        const objective = topStepObjective(subject);
 
         const { trace } = solveAverageRewardPolicy({
             maxSolves: MAX_SOLVES,

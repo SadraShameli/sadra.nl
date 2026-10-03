@@ -28,6 +28,10 @@ import {
     type TradingArguments,
     tradingArguments,
 } from '~/cli/commands/prop/shared';
+import {
+    unpricedTriggerLine,
+    UnpricedTriggerSurface,
+} from '~/cli/commands/prop/unpricedTrigger';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
@@ -62,14 +66,13 @@ import {
 } from '~/lib/prop-calculator';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
+import { fundedDpModelGapClause } from '~/lib/prop-calculator/advisor/DpAdviceText';
 import {
     type AverageRewardConfig,
     RateSearchStatus,
     solveAverageRewardPolicy,
 } from '~/lib/prop-calculator/core/AverageRewardSolver';
 import {
-    type FundedDpModelGap,
-    FundedDpModelGapKind,
     fundedDpModelGaps,
     fundedGridSaturationGap,
 } from '~/lib/prop-calculator/core/FundedDpModelGaps';
@@ -148,6 +151,8 @@ interface DpCushionGrid {
 }
 
 type ResolvedCushionGrid = FundedStateValueResult['cushionGrid'];
+
+export const DP_TRADES_PER_DAY = 4;
 
 export const EMPIRICAL_MAX_ATTEMPTS = 1000;
 
@@ -365,7 +370,7 @@ export function fundedCycleBaselineGapWarning(
 export function fundedDpModelGapWarning(plan: Plan): null | string {
     const gaps = fundedDpModelGaps(plan);
     if (gaps.length === 0) return null;
-    const described = gaps.map(describeFundedDpModelGap).join('; ');
+    const described = gaps.map(fundedDpModelGapClause).join('; ');
     return `${plan.label}: ${described}.`;
 }
 
@@ -380,7 +385,7 @@ export function fundedGridSaturationWarning(
     const gap = fundedGridSaturationGap(shareAtOrAboveTop);
     return gap === null
         ? null
-        : `${plan.label}: ${describeFundedDpModelGap(gap)}.`;
+        : `${plan.label}: ${fundedDpModelGapClause(gap)}.`;
 }
 
 export function fundedIneligibilityMessage(plan: Plan): string {
@@ -554,29 +559,6 @@ function assertCushionGridFlagsConsistent(
         throw new Error(
             `--max-tail-cushion-multiple (${inputs.maxTailCushionMultiple}) must be at least --max-cushion-multiple (${flagValueWithDefaultNote(grid.maxCushionMultiple, inputs.maxCushionMultiple === undefined)}), since the tail starts where the fine grid ends`,
         );
-    }
-}
-
-function describeFundedDpModelGap(gap: FundedDpModelGap): string {
-    switch (gap.kind) {
-        case FundedDpModelGapKind.CalendarWeekInactivityIgnored: {
-            return gap.message;
-        }
-        case FundedDpModelGapKind.FundedGridSaturationHigh: {
-            return `its funded replay reports ${formatPercent(gap.shareAtOrAboveTop)} of funded trial-days with a cushion or post-payout balance at or above this DP's grid top (N-86): those days are clamped to the top cell, which distorts both the predicted value and the policy there, so trust the empirical run below over the DP-predicted rate`;
-        }
-        case FundedDpModelGapKind.LifetimeDollarCapIgnored: {
-            return `has a lifetime payout-dollar cap of ${formatCurrency(gap.maxLifetimePayoutDollars)} (maxLifetimePayoutDollars) that this DP ignores entirely: it never restores FundedCycleTracker.cumulativePayout from any state, so it is optimistic about payouts past that total`;
-        }
-        case FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap: {
-            return `has a payout-count-tiered payout cap tier starting at payout #${gap.fromPayoutIndex + 1}, beyond this DP's payout-count regime cap of ${gap.payoutRegimeCap}, and payout counts past the cap saturate at the cap bucket inside it, so that tier is not modeled exactly`;
-        }
-        case FundedDpModelGapKind.PayoutFloorReleaseUnvalidated: {
-            return "resets its funded drawdown floor to breakeven on every payout (PayoutFloorEffect.ReleaseFloor), and at this DP's default grid its predicted rate overstated its own empirical replay on TopStep plans (audit N-89). The eval half of that gap, the eval DP crediting a pass by interpolating between cushion nodes, is no longer present: the eval DP values every cushion exactly and the eval pass line below shows its own pass estimate beside the simulator's. Re-measured after that change (2026-10-02, default grid), the predicted rate still overstated the replay by 20% on TopStep No-fee Standard and 5% on FTMO Growth, all of it in the funded half, which is not fixed yet: trust the empirical replay line below over the predicted rate, and compare the result against the best flat row from optimize funded";
-        }
-        case FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates: {
-            return `locks its funded drawdown only on the first payout (no profit trigger), so its floor can trail without bound before that payout while this DP's pre-lock offset grid stops at a fixed multiple of the drawdown. Offsets past it saturate at the top bucket, so the DP understates the balance (and the first payout) in those rare high-profit states before the first payout, making it slightly pessimistic`;
-        }
     }
 }
 
@@ -787,9 +769,15 @@ export default defineCommand({
             if (liveTransferHazard !== undefined && liveTransferHazard > 0) {
                 ui.warn(liveTransferNotModeledInDpLine(liveTransferHazard));
             }
+            const unpricedTrigger = unpricedTriggerLine(
+                plan,
+                UnpricedTriggerSurface.Dp,
+            );
+            if (unpricedTrigger !== null) ui.warn(unpricedTrigger);
             printEdgePlausibilityNotes([
                 edgePlausibilityNote({
                     rrRatio: inputs.rrRatio,
+                    tradesPerDay: DP_TRADES_PER_DAY,
                     winrate: inputs.winrate,
                 }),
             ]);

@@ -87,8 +87,9 @@ describe('the decision log shows adherence from the one library notion (PT-108 s
     }
 
     function adherenceCells(): string[] {
-        return [...container.querySelectorAll('tbody tr')].map(
-            (row) => row.querySelector('td:last-child')?.textContent ?? '',
+        return [...container.querySelectorAll(':scope tbody tr')].map(
+            (row) =>
+                row.querySelector(':scope td:last-child')?.textContent ?? '',
         );
     }
 

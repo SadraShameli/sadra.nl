@@ -35,7 +35,7 @@ import {
     bankrollProjectionSummary,
 } from './bankrollModel';
 import {
-    type BankrollUrlState,
+    type BankrollViewState,
     parseBankrollDollarsField,
     parseBankrollMultipleField,
     parseBankrollNonNegativeIntField,
@@ -46,8 +46,8 @@ import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
 
 interface ProjectionCardProperties {
-    onChange: (patch: Partial<BankrollUrlState>) => void;
-    state: BankrollUrlState;
+    onChange: (patch: Partial<BankrollViewState>) => void;
+    state: BankrollViewState;
 }
 
 const monthEndChartConfig: ChartConfig = {

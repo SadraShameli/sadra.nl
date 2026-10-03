@@ -25,7 +25,7 @@ function model(overrides: Partial<BankrollCardModel> = {}): BankrollCardModel {
         grownFromText: 'Grown from $100.00 injected.',
         lossRisk: {
             attemptPays: '16.7% (n = 6)',
-            attemptsAtBankroll: '6',
+            attemptsAtBankroll: '6 attempts',
             batchLoss: '35.2% (SE 1.1%)',
             kind: BankrollLossRiskKind.Ready,
             minimumBudget: '$1,200.00',
@@ -75,11 +75,11 @@ describe('BankrollCard', () => {
         );
         if (input === null) throw new Error('no candidate budget field');
         act(() => {
-            const setter = Object.getOwnPropertyDescriptor(
+            const descriptor = Object.getOwnPropertyDescriptor(
                 HTMLInputElement.prototype,
                 'value',
-            )?.set;
-            setter?.call(input, text);
+            );
+            descriptor?.set?.call(input, text);
             input.dispatchEvent(new Event('input', { bubbles: true }));
         });
     }
@@ -88,6 +88,7 @@ describe('BankrollCard', () => {
         render(model());
         const text = container.textContent;
         expect(text).toContain('Realized P(an attempt pays)');
+        expect(text).toContain('Realized P(net below zero) at 6 attempts');
         expect(text).toContain('16.7% (n = 6)');
         expect(text).toContain('35.2% (SE 1.1%)');
         expect(text).toContain('33.5%');
@@ -102,7 +103,7 @@ describe('BankrollCard', () => {
             model({
                 lossRisk: {
                     attemptPays: '0.0% (n = 4)',
-                    attemptsAtBankroll: 'n/a',
+                    attemptsAtBankroll: null,
                     batchLoss: 'n/a',
                     kind: BankrollLossRiskKind.Ready,
                     minimumBudget: 'n/a',
@@ -152,14 +153,14 @@ describe('BankrollCard', () => {
         typeBudget('200');
         expect(container.textContent).toContain('projected monthly');
         expect(container.textContent).toContain('your entered monthly budget');
-        expect(container.textContent).toContain('$400.00');
+        expect(container.textContent).toContain('$400');
     });
 
     it('caps a candidate budget above the capacity fill and says so', () => {
         render(model());
         typeBudget('500');
         expect(container.textContent).toContain(
-            'Your entered monthly budget is above your daily account capacity fill, so it is capped at $300.00.',
+            'Your entered monthly budget is above your daily account capacity fill, so it is capped at $300.',
         );
     });
 
@@ -185,7 +186,7 @@ describe('BankrollCard', () => {
         );
         typeBudget('200');
         expect(container.textContent).toContain('projected monthly');
-        expect(container.textContent).toContain('$400.00');
+        expect(container.textContent).toContain('$400');
     });
 
     it('offers no candidate field while no account has ended', () => {

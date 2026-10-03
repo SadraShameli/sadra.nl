@@ -30,8 +30,10 @@ import {
     EngineOptimumRefusalKind,
     type EngineOptimumRefusedRow,
     EngineOptimumRowKind,
+    type FundedWinnerPolicy,
 } from './EngineOptimum';
 import { applyEnginePolicy } from './EnginePolicyBuilder';
+import { fundedWinnerPolicyOf } from './FundedWinnerPolicy';
 import { applyPersonalDayLimits, type EnginePolicy } from './policy';
 
 export enum FundedFromStateOptimumResultKind {
@@ -51,6 +53,7 @@ export interface FundedFromStateOptimum {
     readonly fromStateExpectedRealizedCashStandardError: null | number;
     readonly label: string;
     readonly liveTransfer?: LiveTransferHazardAssumption;
+    readonly policy: FundedWinnerPolicy;
     readonly rows: readonly FundedFromStateRow[];
     readonly survivors: number;
 }
@@ -164,6 +167,7 @@ export function runFundedFromStateSweep(
             winner.out.estimates.fromStateExpectedRealizedCash.standardError,
         label: winner.label,
         ...(liveTransfer !== undefined && { liveTransfer }),
+        policy: fundedWinnerPolicyOf(build.candidates, winner.label),
         rows: [...ranked, ...refusedRows],
         survivors: survivorCount(winner.out, request.base.trials),
     };

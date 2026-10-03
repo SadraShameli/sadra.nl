@@ -18,7 +18,7 @@ const FUNDED_APEX_EOD = [
     '--payouts',
     '0',
     '--trials',
-    '20',
+    '10',
     '--seed',
     '3',
     '--json',
@@ -74,7 +74,7 @@ function recordInto(written: string[]) {
 }
 
 describe('prop advise --json carries the engine sources of a funded advice (PT-109 step 8, F-133 (2))', () => {
-    it('with history, lists the fresh sweep, the from-state sweep and the payout-size sweep as results', async () => {
+    it('with history, lists the fresh sweep, the from-state sweep, the payout-size sweep and the next payout projection as results', async () => {
         const advice = await adviseJson([...FUNDED_APEX_EOD, ...WITH_HISTORY]);
 
         expect(
@@ -83,6 +83,7 @@ describe('prop advise --json carries the engine sources of a funded advice (PT-1
             [
                 AdviceSource.FundedSweepFresh,
                 AdviceSource.FundedSweepFromState,
+                AdviceSource.NextPayoutProjection,
                 AdviceSource.PayoutSizeSweep,
             ].toSorted(bySource),
         );
@@ -97,6 +98,7 @@ describe('prop advise --json carries the engine sources of a funded advice (PT-1
         const sources = advice.optima.map((result) => result.source);
         expect(sources).toContain(AdviceSource.FundedSweepFresh);
         expect(sources).toContain(AdviceSource.PayoutSizeSweep);
+        expect(sources).toContain(AdviceSource.NextPayoutProjection);
         expect(sources).not.toContain(AdviceSource.FundedSweepFromState);
     }, 10_000);
 

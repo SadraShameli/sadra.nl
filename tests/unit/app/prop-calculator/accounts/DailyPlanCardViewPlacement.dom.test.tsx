@@ -437,7 +437,7 @@ describe('the daily plan card renders its rungs through the one shared rung tabl
             (entry) => {
                 const full = path.join(directory, entry.name);
                 if (entry.isDirectory()) return sourcesUnder(full);
-                return /\.tsx?$/.test(entry.name) ? [full] : [];
+                return entry.name.endsWith('.tsx') ? [full] : [];
             },
         );
     }
@@ -461,10 +461,10 @@ describe('the daily plan card renders its rungs through the one shared rung tabl
             root.render(<DailyPlanCardView card={CARD} sizing={null} />);
         });
 
-        expect(container.querySelector('caption')?.textContent).toBe(
+        expect(container.querySelector(':scope caption')?.textContent).toBe(
             "Today's plan rungs",
         );
-        expect(container.querySelectorAll('tbody tr')).toHaveLength(2);
+        expect(container.querySelectorAll(':scope tbody tr')).toHaveLength(2);
 
         act(() => {
             root.unmount();

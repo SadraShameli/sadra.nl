@@ -3,6 +3,7 @@ import {
     type AnyPgColumn,
     boolean,
     check,
+    doublePrecision,
     foreignKey,
     index,
     integer,
@@ -38,7 +39,7 @@ import type {
     UsdCents,
     ViolationSource,
 } from '~/lib/prop-accounts';
-import type { PlanOptIns } from '~/lib/prop-calculator';
+import type { InstrumentSymbol, PlanOptIns } from '~/lib/prop-calculator';
 import type {
     AdviceSource,
     DpAdviceGapEntry,
@@ -46,6 +47,7 @@ import type {
     RulebookParameters,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
+import type { DpGateFailureCode } from '~/lib/prop-calculator/advisor/DpAdviceRow';
 import type {
     DpValueSample,
     MAX_DP_VALUE_SAMPLES,
@@ -635,6 +637,10 @@ export const propDpAdvice = createTable(
     'prop_dp_advice',
     {
         accountId: uuid('account_id').notNull(),
+        assumedInstrument: varchar('assumed_instrument', {
+            length: ENUM_LENGTH,
+        }).$type<InstrumentSymbol>(),
+        assumedStopPoints: doublePrecision('assumed_stop_points'),
         configKey: varchar('config_key', {
             length: DP_CONFIG_KEY_LENGTH,
         }).notNull(),
@@ -644,6 +650,10 @@ export const propDpAdvice = createTable(
             .$type<StoredJsonb<readonly DpAdviceGapEntry[]>>()
             .default(sql`'[]'::jsonb`)
             .notNull(),
+        gateFailure: varchar('gate_failure', {
+            length: ENUM_LENGTH,
+        }).$type<DpGateFailureCode>(),
+        gateResult: varchar('gate_result', { length: DP_REASON_LENGTH }),
         id: uuid('id').primaryKey().defaultRandom(),
         ineligibleReason: varchar('ineligible_reason', {
             length: DP_REASON_LENGTH,
@@ -719,6 +729,22 @@ export const propDpAdvice = createTable(
         check(
             'prop_dp_advice_validated_eligible_ck',
             sql`${t.eligible} OR NOT ${t.validated}`,
+        ),
+        check(
+            'prop_dp_advice_gate_failure_ck',
+            sql`NOT ${t.validated} OR ${t.gateFailure} IS NULL`,
+        ),
+        check(
+            'prop_dp_advice_gate_result_ck',
+            sql`${t.gateResult} IS NULL OR ${t.gateFailure} IS NOT NULL`,
+        ),
+        check(
+            'prop_dp_advice_assumed_sizing_ck',
+            sql`(${t.assumedInstrument} IS NULL) = (${t.assumedStopPoints} IS NULL)`,
+        ),
+        check(
+            'prop_dp_advice_assumed_stop_points_ck',
+            sql`${t.assumedStopPoints} IS NULL OR ${t.assumedStopPoints} > 0`,
         ),
         check(
             'prop_dp_advice_gaps_shape_ck',

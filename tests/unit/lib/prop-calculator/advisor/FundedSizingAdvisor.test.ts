@@ -6,6 +6,7 @@ import {
     findFirm,
     FirmId,
     type FundedCycleTracker,
+    InstrumentSymbol,
     newFundedCycleTracker,
     type Plan,
     type PlanId,
@@ -97,10 +98,15 @@ function accountState(overrides: Partial<AccountState> = {}): AccountState {
 function advisorAt(
     reconstructed: ReconstructedFundedOrEvalAccount,
     trials?: number,
+    positionSizing?: {
+        readonly instrument: InstrumentSymbol;
+        readonly stopPoints: number;
+    },
 ): FundedSizingAdvisor {
     return new FundedSizingAdvisor({
         account: reconstructed,
         fundedHorizonDays: 252,
+        positionSizing,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
         substate: null,
@@ -281,8 +287,10 @@ describe('FundedSizingAdvisor: PT-32 from-state sweep, payout-size sweep', () =>
             AdviceSource.FundedSweepFresh,
             AdviceSource.FundedSweepFromState,
             AdviceSource.PayoutSizeSweep,
+            AdviceSource.NextPayoutProjection,
         ]);
-        const [, fromStateRequest, payoutSizeRequest] = requests;
+        const [, fromStateRequest, payoutSizeRequest, projectionRequest] =
+            requests;
         if (fromStateRequest?.source !== AdviceSource.FundedSweepFromState) {
             throw new Error('expected a from-state request');
         }
@@ -292,6 +300,64 @@ describe('FundedSizingAdvisor: PT-32 from-state sweep, payout-size sweep', () =>
             throw new Error('expected a payout-size sweep request');
         }
         expect(payoutSizeRequest.spec.start).toBeDefined();
+        if (projectionRequest?.source !== AdviceSource.NextPayoutProjection) {
+            throw new Error('expected a next payout projection request');
+        }
+        expect(projectionRequest.start).toStrictEqual(fromStateRequest.start);
+        expect(projectionRequest.policy).toStrictEqual(fromStateRequest.policy);
+        expect(projectionRequest.base).toStrictEqual(fromStateRequest.base);
+    });
+
+    it('runs the next payout projection request through the engine runner against the account tracker', () => {
+        const advisor = advisorAt(account(), MECHANISM_TRIALS);
+        const request = advisor
+            .optimumRequests()
+            .find(
+                (candidate) =>
+                    candidate.source === AdviceSource.NextPayoutProjection,
+            );
+        if (request === undefined) throw new Error('expected a request');
+
+        const result = runEngineOptimum(plan, request);
+
+        if (result.source !== AdviceSource.NextPayoutProjection) {
+            throw new Error('expected a projection result');
+        }
+        expect(result.projection.trials).toBe(MECHANISM_TRIALS);
+        expect(advisor.assemble([result]).optima).toStrictEqual([result]);
+    });
+
+    it('requests no next payout projection while the documented flat risk places below one contract at the entered stop', () => {
+        const advisor = advisorAt(account(), undefined, {
+            instrument: InstrumentSymbol.NQ,
+            stopPoints: 20,
+        });
+
+        const sources = advisor
+            .optimumRequests()
+            .map((request) => request.source);
+
+        expect(sources).toContain(AdviceSource.FundedSweepFresh);
+        expect(sources).not.toContain(AdviceSource.NextPayoutProjection);
+    });
+
+    it('requests the next payout projection when one contract fits the documented flat risk at the entered stop', () => {
+        const advisor = advisorAt(account(), undefined, {
+            instrument: InstrumentSymbol.MNQ,
+            stopPoints: 20,
+        });
+
+        expect(
+            advisor.optimumRequests().map((request) => request.source),
+        ).toContain(AdviceSource.NextPayoutProjection);
+    });
+
+    it('requests no next payout projection for a funded account without a payout tracker', () => {
+        const advisor = advisorAt(account({ fundedTracker: null }));
+
+        expect(
+            advisor.optimumRequests().map((request) => request.source),
+        ).toStrictEqual([AdviceSource.FundedSweepFresh]);
     });
 
     it('omits FundedSweepFromState and runs PayoutSizeSweep fresh for a brand-new funded account (0 elapsed history)', () => {
@@ -309,6 +375,7 @@ describe('FundedSizingAdvisor: PT-32 from-state sweep, payout-size sweep', () =>
         expect(requests.map((request) => request.source)).toStrictEqual([
             AdviceSource.FundedSweepFresh,
             AdviceSource.PayoutSizeSweep,
+            AdviceSource.NextPayoutProjection,
         ]);
         const [, payoutSizeRequest] = requests;
         if (payoutSizeRequest?.source !== AdviceSource.PayoutSizeSweep) {

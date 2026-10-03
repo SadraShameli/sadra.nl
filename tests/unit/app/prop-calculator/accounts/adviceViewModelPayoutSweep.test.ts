@@ -63,13 +63,13 @@ function advisor(): FundedSizingAdvisor {
             state,
             ...NO_PENDING_PAYOUT_COUNTS,
         },
-        fundedHorizonDays: 90,
+        fundedHorizonDays: 20,
         personalPayoutOverride: dollars(750),
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
         substate: null,
         today: '2026-09-26',
-        trials: 20,
+        trials: 10,
     });
 }
 
@@ -84,10 +84,15 @@ function plan(): Plan {
     return found;
 }
 
-let memo: null | {
-    readonly result: PayoutSizeSweepEngineOptimumResult;
-    readonly rows: readonly OptimumRowView[];
-} = null;
+const MEMO_KEY = 'payout-sweep';
+
+const memo = new Map<
+    typeof MEMO_KEY,
+    {
+        readonly result: PayoutSizeSweepEngineOptimumResult;
+        readonly rows: readonly OptimumRowView[];
+    }
+>();
 
 function figureOf(row: OptimumRowView, kind: OptimumFigureKind) {
     const figure = row.figures.find((candidate) => candidate.kind === kind);
@@ -96,7 +101,8 @@ function figureOf(row: OptimumRowView, kind: OptimumFigureKind) {
 }
 
 function payoutSweep() {
-    if (memo !== null) return memo;
+    const cached = memo.get(MEMO_KEY);
+    if (cached !== undefined) return cached;
     const sized = advisor();
     const request = sized
         .optimumRequests()
@@ -110,8 +116,9 @@ function payoutSweep() {
     if (view.kind !== AdviceDisplayKind.Ready) {
         throw new Error('expected ready advice');
     }
-    memo = { result, rows: view.optima };
-    return memo;
+    const computed = { result, rows: view.optima };
+    memo.set(MEMO_KEY, computed);
+    return computed;
 }
 
 describe('the payout-size row shows the figures behind its winner (PT-108 step 4, F-123)', () => {

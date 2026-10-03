@@ -108,7 +108,7 @@ describe('FundedPayoutsCard', () => {
 
     it('keeps the counts table with the too young column and the disclosures', () => {
         render(model([row()]));
-        const headers = [...container.querySelectorAll('thead th')].map(
+        const headers = [...container.querySelectorAll(':scope thead th')].map(
             (header) => header.textContent,
         );
         expect(headers).toContain('Too young');

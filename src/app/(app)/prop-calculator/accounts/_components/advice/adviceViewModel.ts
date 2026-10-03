@@ -23,13 +23,20 @@ import {
     type AssumptionBias,
     assumptionText,
     type CappedAmount,
-    ConsistencyCeilingNote,
+    CONSISTENCY_CEILING_NOTE_TEXT,
     type DailyPlanCard,
     DAY_STOP_REASON_TEXT,
     DayStopReason,
     DifferenceReason,
     differenceReasonText,
     type DocumentedSizing,
+    type DpAdviceRow,
+    type DpAdviceSamples,
+    DpAdviceStalenessReason,
+    type DpRiskSample,
+    DpSamplesKind,
+    DpSampleStage,
+    DpSamplesUnavailableReason,
     type EngineOptimum,
     type EngineOptimumRequest,
     type EngineOptimumRunnerResult,
@@ -65,6 +72,7 @@ import {
     RETAINED_CUSHION_BASIS_TEXT,
     type RungPlacement,
     SIZING_CONSTRAINT_TEXT,
+    SIZING_OBJECTIVE_LABEL,
     SizingConstraint,
     sizingObjectiveText,
     type SizingPlacement,
@@ -72,9 +80,19 @@ import {
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
 import {
+    DP_SAMPLES_UNAVAILABLE_TEXT,
+    dpAdviceGapText,
+    dpGateFailureText,
+    dpMoney,
+} from '~/lib/prop-calculator/advisor/DpAdviceText';
+import {
     FundedCandidateRefusal,
     type FundedCandidateRefusalDetail,
 } from '~/lib/prop-calculator/optimize';
+import {
+    type DpValueSample,
+    DpValueStateKind,
+} from '~/lib/schemas/propAccountOutputs';
 
 import { accountActionFor } from './accountActionModel';
 
@@ -275,13 +293,37 @@ const START_BASIS_LABEL: Readonly<Record<StartBasis, string>> = {
     [StartBasis.FromState]: 'from your current state',
 };
 
-const CONSISTENCY_NOTE_TEXT: Readonly<Record<ConsistencyCeilingNote, string>> =
-    {
-        [ConsistencyCeilingNote.AlreadyPushedOut]:
-            "No consistency ceiling applies today: the payout is already pushed out by this cycle's best day.",
-        [ConsistencyCeilingNote.FreshCycle]:
-            'No consistency ceiling applies today: this cycle has no profit yet, so on the first profitable day the best day is all of the cycle profit, and the rule is checked at the payout request.',
-    };
+const DP_CONFIG_KEY_PREFIX_LENGTH = 12;
+
+const MS_PER_SECOND = 1000;
+
+const DP_NOT_VALIDATED_SUFFIX =
+    'Treat these figures as an unvalidated estimate, never as the sizing rule.';
+
+const DP_NOT_VALIDATED_NOT_ELIGIBLE_TEXT = `${DP_SAMPLES_UNAVAILABLE_TEXT[DpSamplesUnavailableReason.NotEligible]}, so no gate run applies`;
+
+const DP_NOT_VALIDATED_NOT_STORED_TEXT =
+    'the gate result was not stored with this row';
+
+const DP_PLACEMENT_ASSUMPTION_TEXT =
+    'Placed risk is whole contracts at the instrument and stop the solve assumed. Neither is stored with this row, so it does not follow the instrument and stop entered above.';
+
+const DP_VALUES_HIDDEN_TEXT =
+    'Value figures are stored with this row but are shown only once the DP is validated.';
+
+const DP_STALE_TEXT: Readonly<Record<DpAdviceStalenessReason, string>> = {
+    [DpAdviceStalenessReason.NewerSnapshot]:
+        'A newer balance snapshot exists, so this solve is for an earlier state.',
+    [DpAdviceStalenessReason.PlanRulesChanged]:
+        "The plan's rules changed since this solve.",
+    [DpAdviceStalenessReason.SolverVersionChanged]:
+        'The DP solver changed since this solve.',
+};
+
+const DP_STAGE_TEXT: Readonly<Record<DpSampleStage, string>> = {
+    [DpSampleStage.Eval]: 'Eval risk per trade, after each loss in order',
+    [DpSampleStage.Funded]: 'Funded risk per trade, after each loss in order',
+};
 
 const NO_TRADE_TEXT = 'No trade is placeable today.';
 
@@ -292,6 +334,69 @@ const LADDER_CERTAIN_PASS_TEXT =
     'Every simulated attempt from this state passed, so the pass chance and cost standard errors read 0; that is the limit of the sample, not certainty.';
 
 const NO_LIMITING_CAP_TEXT = 'the post-payout floor and your retained cushion';
+
+export enum DpSamplesViewKind {
+    Sampled = 'sampled',
+    Unavailable = 'unavailable',
+}
+
+export interface DpAdviceRecordInput extends Pick<
+    DpAdviceRow,
+    | 'assumedInstrument'
+    | 'assumedStopPoints'
+    | 'configKey'
+    | 'eligible'
+    | 'gaps'
+    | 'gateFailure'
+    | 'gateResult'
+    | 'ineligibleReason'
+    | 'objective'
+    | 'runtimeMs'
+    | 'samples'
+    | 'solverVersion'
+    | 'validated'
+    | 'validationRef'
+> {
+    readonly id: string;
+    readonly solvedAt: Date;
+    readonly staleness: readonly DpAdviceStalenessReason[];
+    readonly valueSamples: readonly DpValueSample[];
+}
+
+export interface DpAdviceRowsView {
+    readonly hiddenCount: number;
+    readonly hiddenText: null | string;
+    readonly rows: readonly DpAdviceRowView[];
+}
+
+export interface DpAdviceRowView {
+    readonly assumptionTexts: readonly string[];
+    readonly eligibilityText: string;
+    readonly gapTexts: readonly string[];
+    readonly id: string;
+    readonly isStale: boolean;
+    readonly isValidated: boolean;
+    readonly provenanceText: string;
+    readonly samples: DpSamplesView;
+    readonly staleTexts: readonly string[];
+    readonly validationText: string;
+    readonly valueNote: null | string;
+    readonly valueTexts: readonly string[];
+}
+
+export interface DpSampleLineView {
+    readonly cushionText: string;
+    readonly label: string;
+    readonly riskTexts: readonly string[];
+}
+
+export type DpSamplesView =
+    | {
+          readonly kind: DpSamplesViewKind.Sampled;
+          readonly lines: readonly DpSampleLineView[];
+          readonly stageText: string;
+      }
+    | { readonly kind: DpSamplesViewKind.Unavailable; readonly text: string };
 
 export function adviceViewModel(
     advice: Advice,
@@ -343,6 +448,29 @@ export function adviceViewModel(
             text: differenceReasonText(detail),
         })),
         stage: advice.stage,
+    };
+}
+
+export const DP_ADVICE_ROWS_SHOWN = 4;
+
+export function dpAdviceRowViewsOf(
+    records: readonly DpAdviceRecordInput[],
+): DpAdviceRowsView {
+    const seenConfigKeys = new Set<string>();
+    const latest = records
+        .toSorted((a, b) => b.solvedAt.getTime() - a.solvedAt.getTime())
+        .filter((record) => {
+            if (seenConfigKeys.has(record.configKey)) return false;
+            seenConfigKeys.add(record.configKey);
+            return true;
+        });
+    const hiddenCount = Math.max(0, latest.length - DP_ADVICE_ROWS_SHOWN);
+    return {
+        hiddenCount,
+        hiddenText: hiddenCount === 0 ? null : dpHiddenText(hiddenCount),
+        rows: latest
+            .slice(0, DP_ADVICE_ROWS_SHOWN)
+            .map((record) => dpAdviceRowViewOf(record)),
     };
 }
 
@@ -463,7 +591,7 @@ function dailyPlanCardViewOf(card: DailyPlanCard): DailyPlanCardViewModel {
         consistencyNoteText:
             card.consistencyNote === null
                 ? null
-                : CONSISTENCY_NOTE_TEXT[card.consistencyNote],
+                : CONSISTENCY_CEILING_NOTE_TEXT[card.consistencyNote],
         cushion: card.cushion,
         dailyLossCap: cappedAmountViewOf(card.dailyLossCap),
         dailyLossRoom: card.dailyLossRoom,
@@ -508,6 +636,152 @@ function dayLimitParts(limits: PersonalLimits): readonly string[] {
             ? []
             : [`daily profit cap ${formatCurrency(caps.dailyProfitCap, 2)}`]),
     ];
+}
+
+function dpAdviceRowViewOf(record: DpAdviceRecordInput): DpAdviceRowView {
+    return {
+        assumptionTexts: dpAssumptionTextsOf(record),
+        eligibilityText: dpEligibilityTextOf(record),
+        gapTexts: record.gaps.map((gap) => dpAdviceGapText(gap)),
+        id: record.id,
+        isStale: record.staleness.length > 0,
+        isValidated: record.validated,
+        provenanceText: dpProvenanceTextOf(record),
+        samples: dpSamplesViewOf(record.samples),
+        staleTexts: record.staleness.map((reason) => DP_STALE_TEXT[reason]),
+        validationText: dpValidationTextOf(record),
+        valueNote:
+            !record.validated && record.valueSamples.length > 0
+                ? DP_VALUES_HIDDEN_TEXT
+                : null,
+        valueTexts: record.validated
+            ? record.valueSamples.map((sample) => dpValueText(sample))
+            : [],
+    };
+}
+
+function dpAssumptionTextsOf(record: DpAdviceRecordInput): readonly string[] {
+    if (
+        record.assumedInstrument !== null &&
+        record.assumedStopPoints !== null
+    ) {
+        return [
+            `Placed risk is whole contracts of ${record.assumedInstrument} with a ${String(record.assumedStopPoints)}-point stop, the instrument and stop the solve assumed. It does not follow the instrument and stop entered above.`,
+        ];
+    }
+    return record.samples.kind === DpSamplesKind.Sampled &&
+        record.samples.samples.some((sample) => sample.placedRiskCents !== null)
+        ? [DP_PLACEMENT_ASSUMPTION_TEXT]
+        : [];
+}
+
+function dpEligibilityTextOf(record: DpAdviceRecordInput): string {
+    if (record.eligible) return 'Eligible for the DP solve.';
+    return record.ineligibleReason === null
+        ? 'Not eligible for the DP solve.'
+        : `Not eligible for the DP solve: ${record.ineligibleReason}`;
+}
+
+function dpHiddenText(count: number): string {
+    return count === 1
+        ? '1 more DP solve with other settings is not shown.'
+        : `${String(count)} more DP solves with other settings are not shown.`;
+}
+
+function dpNotValidatedReasonOf(record: DpAdviceRecordInput): string {
+    if (record.gateFailure !== null) {
+        return dpGateFailureText(record.gateFailure, record.gateResult);
+    }
+    return record.eligible
+        ? DP_NOT_VALIDATED_NOT_STORED_TEXT
+        : DP_NOT_VALIDATED_NOT_ELIGIBLE_TEXT;
+}
+
+function dpProvenanceTextOf(record: DpAdviceRecordInput): string {
+    const solvedOn = record.solvedAt.toISOString().slice(0, 10);
+    const solved =
+        record.runtimeMs > 0
+            ? `Solved ${solvedOn} in ${(record.runtimeMs / MS_PER_SECOND).toFixed(1)}s`
+            : `Recorded ${solvedOn} without a solve`;
+    return `${solved}, solver ${String(record.solverVersion)}, config ${record.configKey.slice(0, DP_CONFIG_KEY_PREFIX_LENGTH)}, objective ${SIZING_OBJECTIVE_LABEL[record.objective]}`;
+}
+
+function dpRungLabel(offset: number): string {
+    if (offset === 0) return 'At your state';
+    const rungs = Math.abs(offset);
+    return `${String(rungs)} documented rung${rungs === 1 ? '' : 's'} ${offset > 0 ? 'up' : 'down'}`;
+}
+
+function dpSampleLineViewOf(
+    offset: number,
+    samples: readonly DpRiskSample[],
+): DpSampleLineView {
+    const ordered = samples.toSorted((a, b) => a.tradeIndex - b.tradeIndex);
+    return {
+        cushionText: dpMoney(ordered[0]?.cushionCents ?? 0),
+        label: dpRungLabel(offset),
+        riskTexts: ordered.map((sample) =>
+            sample.placedRiskCents === null
+                ? `Trade ${String(sample.tradeIndex + 1)}: ${dpMoney(sample.riskCents)}`
+                : `Trade ${String(sample.tradeIndex + 1)}: ${dpMoney(sample.riskCents)} intended, ${dpMoney(sample.placedRiskCents)} placed`,
+        ),
+    };
+}
+
+function dpSamplesViewOf(samples: DpAdviceSamples): DpSamplesView {
+    if (samples.kind === DpSamplesKind.Unavailable) {
+        return {
+            kind: DpSamplesViewKind.Unavailable,
+            text: `DP risk is not shown: ${DP_SAMPLES_UNAVAILABLE_TEXT[samples.reason]}.`,
+        };
+    }
+    const offsets = [
+        ...new Set(samples.samples.map((sample) => sample.rungOffset)),
+    ].toSorted((a, b) => a - b);
+    return {
+        kind: DpSamplesViewKind.Sampled,
+        lines: offsets.map((offset) =>
+            dpSampleLineViewOf(
+                offset,
+                samples.samples.filter(
+                    (sample) => sample.rungOffset === offset,
+                ),
+            ),
+        ),
+        stageText: DP_STAGE_TEXT[samples.stage],
+    };
+}
+
+function dpValidationTextOf(record: DpAdviceRecordInput): string {
+    if (!record.validated) {
+        return `Not validated: ${dpNotValidatedReasonOf(record)}. ${DP_NOT_VALIDATED_SUFFIX}`;
+    }
+    return record.validationRef === null
+        ? 'Validated by a recorded gate run (no citation was stored).'
+        : `Validated by ${record.validationRef}.`;
+}
+
+function dpValueText(sample: DpValueSample): string {
+    const risk = sample.riskCents === null ? null : dpMoney(sample.riskCents);
+    const adjusted =
+        sample.rateAdjustedValueCents === null
+            ? ''
+            : ` (rate-adjusted ${dpMoney(sample.rateAdjustedValueCents)})`;
+    const value = `value ${dpMoney(sample.valueCents)}${adjusted}`;
+    switch (sample.kind) {
+        case DpValueStateKind.AfterLoss: {
+            return `After a loss${risk === null ? '' : ` at ${risk}`}: ${value}`;
+        }
+        case DpValueStateKind.AfterWin: {
+            return `After a win${risk === null ? '' : ` at ${risk}`}: ${value}`;
+        }
+        case DpValueStateKind.Candidate: {
+            return `Candidate risk${risk === null ? '' : ` ${risk}`}: ${value}`;
+        }
+        case DpValueStateKind.Current: {
+            return `Your state: ${value}`;
+        }
+    }
 }
 
 function emptyCardTextOf(card: DailyPlanCard): string {
@@ -575,7 +849,7 @@ function fundedRefusalText(refusal: FundedCandidateRefusalDetail): string {
 }
 
 function fundedWinnerSentence(
-    optimum: EngineOptimum,
+    optimum: Pick<EngineOptimum, 'label' | 'policy'>,
     context: OptimumContext,
 ): string {
     if (context.cushion === null) return '';
@@ -826,7 +1100,7 @@ function optimumRowsOf(
                     source: result.source,
                     standardError: optimum.fromStateExpectedCashStandardError,
                     status: OptimumRowStatus.Ready,
-                    text: `Expected cash from here ${formatCurrency(optimum.fromStateExpectedCash, 2)}, incl. one capped end-of-horizon request credit; realized ${formatCurrency(optimum.fromStateExpectedRealizedCash, 2)}.`,
+                    text: `Expected cash from here ${formatCurrency(optimum.fromStateExpectedCash, 2)}, incl. one capped end-of-horizon request credit; realized ${formatCurrency(optimum.fromStateExpectedRealizedCash, 2)}.${fundedWinnerSentence(optimum, context)}`,
                     value: optimum.fromStateExpectedCash,
                 },
             ];

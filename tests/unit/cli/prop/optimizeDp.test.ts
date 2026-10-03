@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import optimizeDp, {
     bundleRenewalNote,
     CYCLE_OBJECTIVE_NOT_SIZING_NOTE,
+    DP_TRADES_PER_DAY,
     dpArguments,
     dpGridSettingsLine,
     dpObjectiveSolverConfig,
@@ -38,12 +39,18 @@ import {
     tradingArguments,
 } from '~/cli/commands/prop/shared';
 import {
+    unpricedTriggerLine,
+    UnpricedTriggerSurface,
+} from '~/cli/commands/prop/unpricedTrigger';
+import {
     type AccountState,
     ApexVariant,
+    CumulativeAmountTrigger,
     type DayPolicy,
     dollars,
     E8FuturesVariant,
     effectivePayoutRequest,
+    findFirm,
     FirmId,
     type FundedCycleSnapshot,
     InstrumentSymbol,
@@ -52,6 +59,8 @@ import {
     PayoutRequestPolicy,
     type Plan,
     PolicySizing,
+    PolicySourceKind,
+    PolicyVerification,
     type PositionSizingConfig,
     resolvePositionSizing,
     type SimOutputs,
@@ -699,7 +708,7 @@ describe('fundedDpModelGapWarning discloses the ReleaseFloor prediction gap (N-8
         expect(warning).not.toContain('\u{2014}');
     });
 
-    it('says the eval DP no longer interpolates cushion values, gives the default-grid gap re-measured after that change, points at the eval pass line, and says the funded half is not fixed yet (N89-m)', () => {
+    it('says the eval DP no longer interpolates cushion values, gives the default-grid gap re-measured after that change, and says the funded half is not fixed yet (N89-m)', () => {
         const warning =
             fundedDpModelGapWarning(topStepNoFeeStandardPlan()) ?? '';
         expect(warning).toContain('interpolating between cushion nodes');
@@ -712,7 +721,7 @@ describe('fundedDpModelGapWarning discloses the ReleaseFloor prediction gap (N-8
         );
         expect(warning).not.toContain('not been re-measured');
         expect(warning).not.toContain('is fixed');
-        expect(warning).toContain('eval pass line below');
+        expect(warning).not.toMatch(/\bbelow\b/);
         expect(warning).toContain('funded half');
         expect(warning).toContain('not fixed yet');
     });
@@ -1960,6 +1969,86 @@ describe('optimize dp prices the empirical cross-check like the DP (N-62)', () =
         );
         expect(lines).toContain('expected horizon credit per cycle: $400');
         expect(lines).toContain('gap vs DP-predicted monthly rate: $0');
+    });
+});
+
+function rapidPlan(): Plan {
+    const plan = new MyFundedFutures().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.RapidEod,
+    });
+    if (!plan) throw new Error('MFF Rapid EOD 50K plan not found');
+    return plan;
+}
+
+describe('optimize dp run() says it does not price a confirmed cumulative trigger and passes the DP pace to the plausibility note (PT-36t, PT-94 addendum)', () => {
+    const rapidArgv = [
+        '--firm',
+        'mffu',
+        '--variant',
+        'rapid-eod',
+        '--eval-days',
+        '2',
+        '--funded-days',
+        '2',
+        '--iterations',
+        '1',
+        '--trials',
+        '10',
+        ...COARSE_FUNDED_GRID_ARGV,
+    ];
+
+    it('prints the shared not-priced line once for a plan with a confirmed trigger', async () => {
+        const firm = findFirm(FirmId.Mffu);
+        if (!firm) throw new Error('MFFU not registered');
+        const spy = vi
+            .spyOn(firm.accountPolicy, 'liveTriggersFor')
+            .mockReturnValue([
+                new CumulativeAmountTrigger(dollars(1500), {
+                    fetchedOn: '2026-09-26',
+                    quote: 'quote',
+                    sourceKind: PolicySourceKind.LiveFetch,
+                    url: 'https://example.invalid/rule',
+                    verification: PolicyVerification.Confirmed,
+                }),
+            ]);
+        try {
+            const { stdout } = await capturedRun(rapidArgv);
+            const line = unpricedTriggerLine(
+                rapidPlan(),
+                UnpricedTriggerSurface.Dp,
+            );
+            expect(line).not.toBeNull();
+            expect(stdout.split(line ?? '').length - 1).toBe(1);
+        } finally {
+            spy.mockRestore();
+        }
+    });
+
+    it('prints nothing about a trigger for a plan without one', async () => {
+        const { stdout } = await capturedRun(rapidArgv);
+        expect(stdout).not.toContain('cumulative payout trigger');
+    });
+
+    it('prints the Kelly pace at the trades per day the DP solves, the number its own sample lines show', async () => {
+        const { stdout } = await capturedRun([
+            ...rapidArgv,
+            '--winrate',
+            '0.7',
+            '--rr',
+            '1',
+        ]);
+        expect(stdout).toContain('Full Kelly would grow a bankroll');
+        expect(stdout).toContain(
+            `at ${String(DP_TRADES_PER_DAY)} trades per day over 21 trading days`,
+        );
+        expect(stdout).toContain(
+            `funded, day 1, trade 1-${String(DP_TRADES_PER_DAY)}:`,
+        );
+        expect(stdout).toContain(
+            `eval, day 1, trade 1-${String(DP_TRADES_PER_DAY)}:`,
+        );
     });
 });
 

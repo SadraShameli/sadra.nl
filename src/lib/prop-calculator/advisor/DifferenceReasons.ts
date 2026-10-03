@@ -11,6 +11,7 @@ import {
     EngineInputsRefusalKind,
 } from './DifferenceReason';
 import {
+    ConsistencyCeilingNote,
     DayStopReason,
     SizingAssumption,
     SizingConstraint,
@@ -20,6 +21,20 @@ import { RetainedCushionBasis } from './PayoutRequestDecision';
 import { type PersonalPayoutOverrideWarning } from './PayoutSizeSweep';
 import { type RulebookParameters } from './Rulebook';
 import { documentedRuleLabel, rulebookDeviation } from './RulebookDeviation';
+import { StartBasis } from './StartBasis';
+
+type BasedPersonalPayoutOverrideWarning = PersonalPayoutOverrideWarning & {
+    readonly startBasis?: StartBasis;
+};
+
+export const CONSISTENCY_CEILING_NOTE_TEXT: Readonly<
+    Record<ConsistencyCeilingNote, string>
+> = {
+    [ConsistencyCeilingNote.AlreadyPushedOut]:
+        "No consistency ceiling applies today: the payout is already pushed out by this cycle's best day.",
+    [ConsistencyCeilingNote.FreshCycle]:
+        'No consistency ceiling applies today: this cycle has no profit yet, so on the first profitable day the best day is all of the cycle profit, and the rule is checked at the payout request.',
+};
 
 export const SIZING_CONSTRAINT_TEXT: Readonly<
     Record<SizingConstraint, string>
@@ -225,9 +240,9 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
 }
 
 export function personalPayoutOverrideWarningText(
-    warning: PersonalPayoutOverrideWarning,
+    warning: BasedPersonalPayoutOverrideWarning,
 ): string {
-    return `In the payout-size sweep over ${String(warning.horizonDays)} funded days, ${overrideComparisonClause(warning)}: credit-inclusive monthly net ${formatCurrency(warning.overrideMonthlyNet, 0)} at a ${formatCurrency(warning.overrideRequestSize, 0)} request against ${formatCurrency(warning.optimumMonthlyNet, 0)} at ${formatCurrency(warning.optimumRequestSize, 0)}, bust probability ${formatPercent(warning.overrideBustProbability)} against ${formatPercent(warning.optimumBustProbability)}, retaining ${formatCurrency(warning.retainedCushion, 0)} (${RETAINED_CUSHION_BASIS_TEXT[warning.retainedCushionBasis]}).`;
+    return `In the payout-size sweep over ${String(warning.horizonDays)} funded days, ${overrideComparisonClause(warning)}: ${creditInclusiveFigureLabel(warning.startBasis)} ${formatCurrency(warning.overrideMonthlyNet, 0)} at a ${formatCurrency(warning.overrideRequestSize, 0)} request against ${formatCurrency(warning.optimumMonthlyNet, 0)} at ${formatCurrency(warning.optimumRequestSize, 0)}, bust probability ${formatPercent(warning.overrideBustProbability)} against ${formatPercent(warning.optimumBustProbability)}, retaining ${formatCurrency(warning.retainedCushion, 0)} (${RETAINED_CUSHION_BASIS_TEXT[warning.retainedCushionBasis]}).`;
 }
 
 function conductPatternQuote(pattern: ConductPattern): string {
@@ -242,6 +257,14 @@ function conductPatternQuote(pattern: ConductPattern): string {
             return pattern.consequence;
         }
     }
+}
+
+function creditInclusiveFigureLabel(
+    startBasis: StartBasis | undefined,
+): string {
+    return startBasis === StartBasis.FromState
+        ? 'credit-inclusive expected cash over the funded window'
+        : 'credit-inclusive monthly net';
 }
 
 function dpNotValidatedCauseText(cause: DpNotValidatedCause): string {

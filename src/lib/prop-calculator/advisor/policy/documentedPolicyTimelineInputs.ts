@@ -50,7 +50,7 @@ export const DOCUMENTED_POLICY_TIMELINE_GAP_TEXT: Readonly<
 
 export function applicableTimelineGaps(
     spec: DocumentedPolicySpec,
-    plan?: Plan,
+    plan: Plan,
 ): readonly DocumentedPolicyTimelineGap[] {
     const { enginePolicy, rulebook } = spec;
     const { funded, strategy } = rulebook;
@@ -58,7 +58,6 @@ export function applicableTimelineGaps(
         switch (gap) {
             case DocumentedPolicyTimelineGap.CumulativePayoutTrigger: {
                 return (
-                    plan !== undefined &&
                     verifiedCumulativeTriggerOf(
                         findFirm(plan.id.firm)?.accountPolicy,
                         plan,

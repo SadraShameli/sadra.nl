@@ -47,40 +47,40 @@ async function plan50k(firmId: FirmId, label: string): Promise<Plan> {
     return plan.withOverrides({});
 }
 
-describe('the best-day overflow bucket leaves the value of real consistency plans alone where no day passes the cap (WP58e, N-90; PT-T1b re-pin: the five plans are solved at a coarse grid, action step 0.5 and cushion step 1 drawdown, one trade a day, one payout regime and a 6 day horizon, instead of the fast grid of action step 0.125, cushion step 0.25, two trades a day, six regimes and a 60 day horizon, whose runs took 80 to 390 s each; each value is the pre-overflow solver on the new inputs and each state count the overflow solver on them, which is the pre-overflow count of 3,192, 1,710, 1,710, 19,152 and 39,680 plus one best-day bucket per level)', () => {
+describe('the best-day overflow bucket leaves the value of real consistency plans alone where no day passes the cap (WP58e, N-90; PT-T1b re-pin: the five plans are solved at a coarse grid, action step 0.5 and cushion step 1 drawdown, one trade a day, one payout regime and a 6 day horizon, instead of the fast grid of action step 0.125, cushion step 0.25, two trades a day, six regimes and a 60 day horizon, whose runs took 80 to 390 s each; each value is the pre-overflow solver on the new inputs and each state count the overflow solver on them, which is the pre-overflow count of 3,192, 1,710, 1,710, 19,152 and 39,680 plus one best-day bucket per level; Re-pinned for WP60 (N-89): the day tree now classifies every payout, winning day and consistency outcome at the exact landing cushion and day P&L, and only the next-day continuation is read from the grid, so the values below replace the ones the interpolating tree gave (Tradeify Lightning Funded 687.848270415437, Alpha Zero 407.4986784850878, Alpha Standard 711.6479362157211, Tradeify Growth 601.468892072045, TopStep Consistency XFA 1220.0088192521002); state counts are unchanged)', () => {
     it.each([
         {
             firmId: FirmId.Tradeify,
             label: '$50K · Lightning Funded',
             reachedStateCount: 3990,
-            value: 687.848270415437,
+            value: 637.6658909303367,
         },
         {
             firmId: FirmId.AlphaFutures,
             label: '$50K · Zero',
             reachedStateCount: 2052,
-            value: 407.4986784850878,
+            value: 412.2757804840936,
         },
         {
             firmId: FirmId.AlphaFutures,
             label: '$50K · Standard',
             reachedStateCount: 2052,
-            value: 711.6479362157211,
+            value: 724.731269543482,
         },
         {
             firmId: FirmId.Tradeify,
             label: '$50K · Growth',
             reachedStateCount: 23_940,
-            value: 601.468892072045,
+            value: 572.1380207814216,
         },
         {
             firmId: FirmId.TopStep,
             label: '$50K · Standard path · Consistency XFA',
             reachedStateCount: 47_616,
-            value: 1220.0088192521002,
+            value: 1219.9289561964424,
         },
     ])(
-        '$firmId $label at the coarse grid with the coarse tail off keeps its pre-overflow value $value to 1e-6 and gains one best-day bucket per level',
+        '$firmId $label at the coarse grid with the coarse tail off pins its value $value to 1e-6 (the pre-overflow solver on the exact day tree) and gains one best-day bucket per level',
         async ({ firmId, label, reachedStateCount, value }) => {
             const result = computeFundedStateValue({
                 ...COARSE_GRID_TAIL_OFF,
@@ -93,7 +93,7 @@ describe('the best-day overflow bucket leaves the value of real consistency plan
     );
 });
 
-describe('the best-day cap sized for the coarse tail step widens the best-day grid of real consistency plans at a coarse tail without moving their value (WP58e review, N-90; PT-T1b: the five plans are solved at cushion step 0.5, a fine top of 1 drawdown, a tail to 7 drawdowns in steps of 3, one trade a day, one payout regime and a 6 day horizon, instead of the fast grid with a 12 drawdown tail whose runs took 90 to 640 s each; the value is the one-step allowance solver on the same inputs, equal to the sized cap to 1e-6, so the value pin only guards against the cap moving it while the state count is what shows the sized cap, and the over-cap value difference itself is pinned in FundedStateValueBestDayBound)', () => {
+describe('the best-day cap sized for the coarse tail step widens the best-day grid of real consistency plans at a coarse tail without moving their value (WP58e review, N-90; PT-T1b: the five plans are solved at cushion step 0.5, a fine top of 1 drawdown, a tail to 7 drawdowns in steps of 3, one trade a day, one payout regime and a 6 day horizon, instead of the fast grid with a 12 drawdown tail whose runs took 90 to 640 s each; the value is the one-step allowance solver on the same inputs, equal to the sized cap to 1e-6, so the value pin only guards against the cap moving it while the state count is what shows the sized cap, and the over-cap value difference itself is pinned in FundedStateValueBestDayBound; Re-pinned for WP60 (N-89): the day tree now classifies every payout, winning day and consistency outcome at the exact landing cushion and day P&L, and only the next-day continuation is read from the grid, so the values below replace the ones the interpolating tree gave (Alpha Zero 404.799750032943, Alpha Standard 646.988241627557, TopStep Consistency XFA 965.436133551983, Tradeify Lightning Funded 569.225401983311, Tradeify Growth 450.898732816479); state counts are unchanged)', () => {
     async function solveCoarseTail(firmId: FirmId, label: string) {
         const result = computeFundedStateValue({
             ...COARSE_GRID_TAIL_7,
@@ -109,24 +109,24 @@ describe('the best-day cap sized for the coarse tail step widens the best-day gr
             label: '$50K · Zero',
             oneStepStateCount: 4464,
             reachedStateCount: 5022,
-            value: 404.799750032943,
+            value: 484.1054026396723,
         },
         {
             firmId: FirmId.AlphaFutures,
             label: '$50K · Standard',
             oneStepStateCount: 4464,
             reachedStateCount: 5022,
-            value: 646.988241627557,
+            value: 808.7672160894782,
         },
         {
             firmId: FirmId.TopStep,
             label: '$50K · Standard path · Consistency XFA',
             oneStepStateCount: 100_192,
             reachedStateCount: 112_716,
-            value: 965.436133551983,
+            value: 1119.5557998478523,
         },
     ])(
-        '$firmId $label at the coarse tail widens the state count from the one-step allowance $oneStepStateCount to $reachedStateCount (a day-close rounding allowance of one tail step per trade) and keeps the value $value that the one-step allowance gave to 1e-6',
+        '$firmId $label at the coarse tail widens the state count from the one-step allowance $oneStepStateCount to $reachedStateCount (a day-close rounding allowance of one tail step per trade) and pins the value $value that the one-step allowance gives on the exact day tree to 1e-6',
         async ({
             firmId,
             label,
@@ -146,13 +146,13 @@ describe('the best-day cap sized for the coarse tail step widens the best-day gr
             firmId: FirmId.Tradeify,
             label: '$50K · Lightning Funded',
             reachedStateCount: 9114,
-            value: 569.225401983311,
+            value: 569.3949286350996,
         },
         {
             firmId: FirmId.Tradeify,
             label: '$50K · Growth',
             reachedStateCount: 62_496,
-            value: 450.898732816479,
+            value: 523.0855086889788,
         },
     ])(
         '$firmId $label at the coarse tail pins the value $value and the state count $reachedStateCount, which the one-step allowance gave unchanged (the state count did not widen on this plan at this grid, so these entries guard the value only and cannot tell the sized cap from the one-step allowance)',

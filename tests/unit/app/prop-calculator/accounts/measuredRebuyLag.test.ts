@@ -44,6 +44,7 @@ function account(overrides: Record<string, unknown> = {}) {
         archivedAt: null,
         copyGroupId: null,
         createdAt: new Date('2026-08-01T12:00:00Z'),
+        currentPlanRulesFingerprint: null,
         dashboardConvention: DashboardBalanceConvention.Nominal,
         externalAlias: null,
         externalFirmId: null,

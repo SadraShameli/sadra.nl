@@ -278,7 +278,7 @@ describe('SpendPayoutCurveCard (F-V14, PT-82 step 2)', () => {
         expect(container.querySelectorAll('.recharts-line').length).toBe(3);
         const rows = [
             ...container.querySelectorAll(
-                'table[aria-label="Spend and payout per budget"] tbody tr',
+                ':scope table[aria-label="Spend and payout per budget"] tbody tr',
             ),
         ];
         expect(rows).toHaveLength(3);

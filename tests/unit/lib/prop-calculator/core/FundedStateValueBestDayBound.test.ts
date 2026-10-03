@@ -122,9 +122,9 @@ describe('computeFundedStateValue bounds the default best-day grid on a consiste
         expect(bounded.initialValue).toBeGreaterThan(300);
     });
 
-    it('leaves a tail-off grid, where the bound does not bind, exactly as it was', () => {
+    it('pins a tail-off grid, where the bound does not bind, at 729.67 (WP60: the exact day tree moved it from 412.75; this hazard-free solve stops at its 200-sweep floor, and the same grid solved to a tolerance of 1e-9 reaches 729.74, so the pin sits 0.01 percent under the fixed point)', () => {
         const noTail = solve(6);
-        expect(noTail.initialValue).toBeCloseTo(412.74763806206516, 6);
+        expect(noTail.initialValue).toBeCloseTo(729.6694161416647, 6);
     });
 
     it('stays within 0.05 of a 80-bucket best-day grid on a longer, higher-reward day with a lock trigger inside the working range, where the cap binds hardest (the one-day swing is 9 drawdowns), at a 12 drawdown tail', () => {
@@ -137,7 +137,7 @@ describe('computeFundedStateValue bounds the default best-day grid on a consiste
         );
     });
 
-    it('sizes the cap for the coarse tail step too: with a tail step of 8 drawdowns a day close can land a whole tail step per trade from where it started, so the capped value stays within 0.5 percent of the 60 bucket grid that never clamps (3,936.37, which the pre-overflow, one-step-allowance and sized-cap solvers all give on it), instead of losing 9 percent to days the cap rounded into the overflow bucket (the one-step-allowance solver gave 3,582.10 on the capped grid)', () => {
+    it('sizes the cap for the coarse tail step too: with a tail step of 8 drawdowns a day close can land a whole tail step per trade from where it started, so the capped value stays within 0.5 percent of the 60 bucket grid that never clamps (3,442.83 on the exact day tree, where the capped grid and the 60 bucket grid agree to 1e-8; 3,936.37 on the interpolating tree before WP60), instead of losing 9 percent to days the cap rounded into the overflow bucket (the one-step-allowance solver gave 3,582.10 on the capped grid of the interpolating tree)', () => {
         const overCapDay = {
             ...COARSE_TOY,
             convergenceTolerance: 1e-6,
@@ -148,17 +148,18 @@ describe('computeFundedStateValue bounds the default best-day grid on a consiste
         } as const;
         const capped = solve(40, undefined, overCapDay);
         const uncapped = solve(40, 60, overCapDay);
-        expect(uncapped.initialValue).toBeCloseTo(3936.366635229252, 4);
+        expect(uncapped.initialValue).toBeCloseTo(3442.827769774121, 4);
         expect(
             Math.abs(capped.initialValue - uncapped.initialValue) /
                 uncapped.initialValue,
         ).toBeLessThan(0.005);
     });
 
-    it('fails closed when asked to track the best day with a single bucket: every positive day then lands in the overflow bucket and denies every payout, so the consistency-tracked toy earns nothing instead of ignoring its best day (PT-T1b: solved at action step 1 drawdown and a 12 drawdown tail, where the toy earns 445.76 on its default grid and exactly 0 on one bucket)', () => {
+    it('keeps the consistency-tracked toy earning when asked to track the best day with a single bucket, where the interpolating tree valued it at exactly 0: the exact day tree pays on the exact P&L of the day that earns the cycle profit and carries only the next best day as the overflow bucket (WP60: solved at action step 1 drawdown and a 12 drawdown tail, 462.28 on one bucket against 462.97 on the default grid; a 400 day replay of the single-bucket policy earns 417.81)', () => {
         const single = solve(12, 1, { actionStepMultiple: 1 });
         const exact = solve(12, undefined, { actionStepMultiple: 1 });
         expect(exact.initialValue).toBeGreaterThan(400);
-        expect(single.initialValue).toBeLessThan(0.01 * exact.initialValue);
+        expect(single.initialValue).toBeGreaterThan(0.99 * exact.initialValue);
+        expect(single.initialValue).toBeLessThan(exact.initialValue);
     });
 });

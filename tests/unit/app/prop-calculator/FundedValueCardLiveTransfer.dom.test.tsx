@@ -296,7 +296,7 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
             10,
         );
 
-        const text = container.textContent ?? '';
+        const text = container.textContent;
         expect(text).toContain('$4,500 ± $300');
         expect(text).toContain('$2,100 to $6,900');
         expect(text).toContain(
@@ -311,7 +311,7 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
     it('shows no dollar cards for a result without a funded value, keeping the payout counts', () => {
         succeedWith(fundedValueResult(), null);
 
-        const text = container.textContent ?? '';
+        const text = container.textContent;
         expect(text).not.toContain('Expected payout per funded account');
         expect(text).toContain('Mean payouts per funded account');
     });
@@ -326,7 +326,7 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
             null,
         );
 
-        const text = container.textContent ?? '';
+        const text = container.textContent;
         expect(text).toContain('$4,500 ± $300');
         expect(text).toContain('enter a sample size');
     });
@@ -341,7 +341,7 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
             10,
         );
 
-        const text = container.textContent ?? '';
+        const text = container.textContent;
         expect(text).toContain('$4,500');
         expect(text).toContain('too few funded trials for a standard error');
     });

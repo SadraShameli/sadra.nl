@@ -252,7 +252,8 @@ describe('FunnelCard', () => {
                 'Dollars per stage (fees of the accounts that reached this stage)',
         );
         const rows = [
-            ...(title?.parentElement?.querySelectorAll(':scope tbody tr') ?? []),
+            ...(title?.parentElement?.querySelectorAll(':scope tbody tr') ??
+                []),
         ].map((tableRow) =>
             [...tableRow.querySelectorAll('td')].map(
                 (cell) => cell.textContent,

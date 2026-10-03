@@ -235,6 +235,9 @@ const OTHER_FIRM_KEY = firmKeyId({
 
 const TODAY = '2026-09-26';
 const USER_ID = 'user-a';
+const PINNED_IMPLIED_ATTEMPTS = (
+    35_000 / (feePrefillCents(EVAL_PLAN.plan, FeeKind.EvalPurchase) ?? NaN)
+).toFixed(2);
 const RULEBOOK_MESSAGE =
     'Your stored rulebook is not valid: x. Save a valid rulebook or reset it to the defaults';
 
@@ -960,9 +963,13 @@ describe('buildOverview cards', () => {
         expect(cards.cost.perPlan).toEqual([
             {
                 acquisitionSpend: cents(35_000),
+                attempts: '2',
+                attemptsSampleLevel: null,
+                costPerAttempt: cents(17_500),
                 costPerFunded: cents(35_000),
                 fundedAccounts: '1',
                 fundedSampleLevel: null,
+                impliedAttempts: PINNED_IMPLIED_ATTEMPTS,
                 key: EVAL_PLAN.serial,
                 modeled: 'Pending',
                 pendingEvalAccounts: '0',
@@ -993,21 +1000,25 @@ describe('buildOverview cards', () => {
         ]);
         expect(cards.cost.disclosures).toEqual([
             'Fees paid on or after the start of an eval attempt that is still open are pending: they count toward cost per funded account once that attempt passes or fails.',
+            'Attempt throughput counts started attempts; cost per attempt counts decided attempts only, so the two rates do not cover the same attempts.',
             'The modeled cost per funded account is pending the engine cards.',
         ]);
         expect(cards.outcomes).toEqual({
             disclosures: [
                 'Funded survival counts every account that reached funded; 1 still open is counted as a survivor, so the rate is an upper bound until it closes.',
+                'Accounts bought together in one copy group count once: the group counts as a success only when more than half of its accounts succeeded, and a tie counts as a failure.',
                 'The modeled pass rate and survival are pending the engine cards.',
             ],
             rows: [
                 {
                     fundedSurvival: '100.0% (95% CI 20.7% to 100.0%, n = 1)',
+                    fundedSurvivalCounts: '1 account, 1 independent',
                     key: EVAL_PLAN.serial,
                     modeledFundedSurvival: 'Pending',
                     modeledPassRate: 'Pending',
                     openFunded: '1',
                     passRate: '50.0% (95% CI 9.5% to 90.5%, n = 2)',
+                    passRateCounts: '2 attempts, 2 independent',
                     plan,
                     sessionsToFunded: '15.0 sessions (SE n/a, n = 1)',
                 },
@@ -1071,15 +1082,15 @@ describe('buildOverview cards', () => {
             {
                 fees: cents(35_000),
                 firm: EVAL_PLAN.firm.displayName,
-                firstPayout: '1',
-                funded: '1',
+                firstPayout: '1 account, 1 independent',
+                funded: '1 account, 1 independent',
                 key: EVAL_FIRM_KEY,
-                movedLive: '0',
+                movedLive: '0 accounts, 0 independent',
                 net: cents(55_000),
                 netPayouts: cents(90_000),
-                passed: '1',
+                passed: '1 account, 1 independent',
                 payoutRate: '100.0% (95% CI 20.7% to 100.0%, n = 1)',
-                purchased: '2',
+                purchased: '2 accounts, 2 independent',
                 structuralBusts: '0',
                 unknownBusts: '1',
                 withinPlanBusts: '0',
@@ -1366,6 +1377,7 @@ describe('buildOverview cards', () => {
                 accountsWithPayout: '1',
                 attempts: '2',
                 attemptsSampleLevel: null,
+                coverageNote: null,
                 firm: EVAL_PLAN.firm.displayName,
                 firstPayoutOn: '2026-08-15',
                 fundedAccounts: '1',
@@ -1495,6 +1507,7 @@ describe('buildOverview cards', () => {
                 attemptsSampleLevel: null,
                 costPerAttempt: cents(17_500),
                 firm: EVAL_PLAN.firm.displayName,
+                impliedAttempts: PINNED_IMPLIED_ATTEMPTS,
                 key: EVAL_FIRM_KEY,
                 retryFeeAttempts: '0',
             },
@@ -1509,7 +1522,7 @@ describe('buildOverview cards', () => {
         ]);
     });
 
-    it('measures a firm mean attempts per month over that firm own active window, not the whole portfolio range', () => {
+    it('measures a firm mean attempts per month over every tracked month, not its own active window (old 1.00 and 0.67, new 0.25 and 0.50)', () => {
         const alpha = account(EVAL_PLAN, {
             label: 'Alpha',
             purchasedOn: '2026-06-01',
@@ -1539,8 +1552,8 @@ describe('buildOverview cards', () => {
         const bravoRow = cards.attemptThroughput.perFirm.find(
             (row) => row.key === OTHER_FIRM_KEY,
         );
-        expect(alphaRow?.meanPerMonth).toBe('1.00');
-        expect(bravoRow?.meanPerMonth).toBe('0.67');
+        expect(alphaRow?.meanPerMonth).toBe('0.25');
+        expect(bravoRow?.meanPerMonth).toBe('0.50');
     });
 });
 
@@ -1941,7 +1954,7 @@ describe('buildOverview payout sizes, funded payouts and attempt economics cards
         expect(cards.payoutSizes.lowBalanceCount).toBe(0);
         expect(
             cards.payoutSizes.disclosures.some((text) =>
-                text.includes('latest recorded snapshot balance'),
+                text.includes('latest snapshot on or before the payout date'),
             ),
         ).toBe(true);
     });
@@ -2085,15 +2098,15 @@ describe('buildOverview payout sizes, funded payouts and attempt economics cards
         expect(cards.payoutSizes.lowBalanceCount).toBe(0);
     });
 
-    it('gives the funded payout-count distribution per plan over the horizon-matched cohort, with the modeled distribution disclosed as pending', () => {
+    it('lists a funded account younger than the horizon as open in the payout-count distribution (old 0 open and 1 with one payout, new 1 open and none), with the modeled distribution disclosed as pending', () => {
         const cards = readyCards(buildOverview(pinnedFixture()).ledger);
         const row = cards.fundedPayouts.rows.find(
             (candidate) => candidate.key === EVAL_PLAN.serial,
         );
         expect(cards.fundedPayouts.horizonDays).toBe(365);
-        expect(row?.openAccounts).toBe('0');
+        expect(row?.openAccounts).toBe('1');
         expect(row?.counts[0]).toBe('0');
-        expect(row?.counts[1]).toBe('1');
+        expect(row?.counts[1]).toBe('0');
         expect(
             cards.fundedPayouts.disclosures.some((text) =>
                 text.includes('pending the engine cards'),
@@ -2101,22 +2114,22 @@ describe('buildOverview payout sizes, funded payouts and attempt economics cards
         ).toBe(true);
     });
 
-    it('gives realized attempt economics per plan: attempt cost, attempts, rates, payouts per paid funded and the breakeven margin', () => {
+    it('gives realized attempt economics per plan with the open funded account out of the strict cohort (old attempts 2, payouts per paid funded 1.00, average payout 900 dollars, EV 275 dollars; new 1, n/a, n/a, -120 dollars)', () => {
         const cards = readyCards(buildOverview(pinnedFixture()).ledger);
         const row = cards.attemptEconomics.rows.find(
             (candidate) => candidate.key === EVAL_PLAN.serial,
         );
         expect(cards.attemptEconomics.horizonDays).toBe(365);
         expect(row?.attemptCost).toBe(cents(17_500));
-        expect(row?.attempts).toBe('2');
+        expect(row?.attempts).toBe('1');
         expect(row?.passRate).toBe('50.0% (95% CI 9.5% to 90.5%, n = 2)');
         expect(row?.payoutRate).toBe('100.0% (95% CI 20.7% to 100.0%, n = 1)');
-        expect(row?.payoutsPerPaidFunded).toBe('1.00');
-        expect(row?.averagePayout).toBe(`${cents(90_000)}, n = 1`);
-        expect(row?.realizedEvPerAttempt).toBe(cents(27_500));
-        expect(row?.marginAboveBreakeven).not.toBe(NOT_APPLICABLE);
-        expect(row?.breakevenPassRate).not.toBe(NOT_APPLICABLE);
-        expect(row?.fundedValue).not.toBe(NOT_APPLICABLE);
+        expect(row?.payoutsPerPaidFunded).toBe(NOT_APPLICABLE);
+        expect(row?.averagePayout).toBe(NOT_APPLICABLE);
+        expect(row?.realizedEvPerAttempt).toBe(cents(-12_000));
+        expect(row?.marginAboveBreakeven).toBe(NOT_APPLICABLE);
+        expect(row?.breakevenPassRate).toBe(NOT_APPLICABLE);
+        expect(row?.fundedValue).toBe(NOT_APPLICABLE);
         expect(
             cards.attemptEconomics.disclosures.some((text) =>
                 text.includes('pass-rate interval alone'),
@@ -4627,9 +4640,7 @@ function documentedRequestText(): string {
             candidate.planSerial === EVAL_PLAN.serial,
     );
     if (request === undefined) throw new Error('no documented run');
-    const plan = findFirm(request.firmId)?.findPlanBySerial(
-        request.planSerial,
-    );
+    const plan = findFirm(request.firmId)?.findPlanBySerial(request.planSerial);
     if (plan === null || plan === undefined) {
         throw new Error('the documented run names no modeled plan');
     }
@@ -5448,14 +5459,13 @@ describe('buildOverview fresh-start projection (PT-33, F-87)', () => {
         expect(clean.rows[0]?.notHonoured).toEqual([]);
     });
 
-    it('says the timeline does not simulate a confirmed cumulative payout trigger, and only for a plan that has one (PT-36s, F-145)', () => {
-        const cumulativeTrigger = new CumulativeAmountTrigger(
-            dollars(100_000),
-            CONFIRMED_FIRM_SOURCE,
-        );
-        const withTrigger = withFirmPolicy(
-            new SyntheticFirmPolicy({ triggers: [cumulativeTrigger] }),
-            () => projectionModelOf(projectionFigures()),
+    it('says the timeline does not simulate a confirmed cumulative payout trigger when the worker figures name it (PT-36s, F-145)', () => {
+        const withTrigger = projectionModelOf(
+            projectionFigures({
+                timelineGaps: [
+                    DocumentedPolicyTimelineGap.CumulativePayoutTrigger,
+                ],
+            }),
         );
         expect(withTrigger.rows[0]?.notHonoured).toEqual([
             DOCUMENTED_POLICY_TIMELINE_GAP_TEXT[
@@ -5466,22 +5476,26 @@ describe('buildOverview fresh-start projection (PT-33, F-87)', () => {
         expect(plain.rows[0]?.notHonoured).toEqual([]);
     });
 
-    it('lists the cumulative trigger gap once, in the declared order, beside the worker gaps (PT-36s)', () => {
-        const figures = projectionFigures({
-            timelineGaps: [
-                DocumentedPolicyTimelineGap.CumulativePayoutTrigger,
-                DocumentedPolicyTimelineGap.RebuyLagDays,
-            ],
-        });
-        const trigger = new CumulativeAmountTrigger(
+    it('lists only the gaps the worker figures carry, never reading the firm policy itself (PT-36t, F-145)', () => {
+        const cumulativeTrigger = new CumulativeAmountTrigger(
             dollars(100_000),
             CONFIRMED_FIRM_SOURCE,
         );
-        const withTrigger = withFirmPolicy(
-            new SyntheticFirmPolicy({ triggers: [trigger] }),
-            () => projectionModelOf(figures),
+        const model = withFirmPolicy(
+            new SyntheticFirmPolicy({ triggers: [cumulativeTrigger] }),
+            () => projectionModelOf(projectionFigures()),
         );
-        expect(withTrigger.rows[0]?.notHonoured).toEqual([
+        expect(model.rows[0]?.notHonoured).toEqual([]);
+    });
+
+    it('lists the cumulative trigger gap once, in the declared order, beside the worker gaps (PT-36s)', () => {
+        const figures = projectionFigures({
+            timelineGaps: [
+                DocumentedPolicyTimelineGap.RebuyLagDays,
+                DocumentedPolicyTimelineGap.CumulativePayoutTrigger,
+            ],
+        });
+        expect(projectionModelOf(figures).rows[0]?.notHonoured).toEqual([
             DOCUMENTED_POLICY_TIMELINE_GAP_TEXT[
                 DocumentedPolicyTimelineGap.CumulativePayoutTrigger
             ],
@@ -5489,25 +5503,6 @@ describe('buildOverview fresh-start projection (PT-33, F-87)', () => {
                 DocumentedPolicyTimelineGap.RebuyLagDays
             ],
         ]);
-    });
-
-    it('refuses to list the timeline gaps for a projection whose plan cannot be resolved instead of dropping the plan-level gap (PT-36s)', () => {
-        const built = projectionInputs(multiSlotRows(), projectionFigures());
-        const original = EVAL_PLAN.firm.findPlanBySerial.bind(EVAL_PLAN.firm);
-        const lookup = vi
-            .spyOn(EVAL_PLAN.firm, 'findPlanBySerial')
-            .mockImplementation((serial) =>
-                new Error('lookup').stack?.includes('timelineGapTexts')
-                    ? null
-                    : original(serial),
-            );
-        try {
-            expect(() => buildOverview(built)).toThrow(
-                /cannot resolve the plan/,
-            );
-        } finally {
-            lookup.mockRestore();
-        }
     });
 
     it('says how many accounts were simulated when the plan caps the funded accounts below the active count', () => {
@@ -7548,7 +7543,9 @@ describe('setupChecklistCardOf (PT-69, F-V28)', () => {
         );
         expect(labels.get(SetupStepStatus.Done)).toBe('Done');
         expect(labels.get(SetupStepStatus.Missing)).toBe('Missing');
-        expect(labels.get(SetupStepStatus.NotChecked)).toBe('Not checked yet');
+        expect(labels.get(SetupStepStatus.NotChecked)).toBe(
+            'Waiting for the engine',
+        );
         expect(card.doneCount).toBe(2);
     });
 
@@ -7708,8 +7705,7 @@ describe('buildOverview where EV comes from (PT-69, F-V28)', () => {
             amount: number,
             standardError: number,
             cumulativePayoutTrigger:
-                | CumulativePayoutTriggerAssumption
-                | undefined,
+                CumulativePayoutTriggerAssumption | undefined,
         ) => ({
             ...valueFigure(amount, standardError),
             ...(cumulativePayoutTrigger !== undefined && {
@@ -7718,8 +7714,7 @@ describe('buildOverview where EV comes from (PT-69, F-V28)', () => {
         });
         const engineOf = (
             cumulativePayoutTrigger:
-                | CumulativePayoutTriggerAssumption
-                | undefined,
+                CumulativePayoutTriggerAssumption | undefined,
         ) =>
             valueEngineFor(rows, {
                 documented: { [serial]: documentedFigures() },
@@ -7743,8 +7738,7 @@ describe('buildOverview where EV comes from (PT-69, F-V28)', () => {
             });
         const cardOf = (
             cumulativePayoutTrigger:
-                | CumulativePayoutTriggerAssumption
-                | undefined,
+                CumulativePayoutTriggerAssumption | undefined,
         ) => {
             const engine = engineOf(cumulativePayoutTrigger);
             return readyEvSources(buildOverview({ ...inputs(rows), engine }));
@@ -8728,6 +8722,7 @@ describe('buildOverview firm returns coverage (PT-96 addendum d, F-V1, F-V5)', (
         });
         const ledgerOnly = account(EVAL_PLAN, {
             label: 'Big',
+            planLabel: 'Rapid 150K',
             planSerial: null,
             purchasedOn: '2026-09-01',
             tracking: AccountTracking.LedgerOnly,
@@ -9082,6 +9077,7 @@ describe('buildOverview cost card per attempt and fee rows left out (PT-96 steps
     it('says which accounts the implied attempts of a firm leave out', () => {
         const owner = account(EVAL_PLAN, {
             label: 'Ledger only',
+            planLabel: 'Rapid 150K',
             planSerial: null,
             purchasedOn: '2026-05-01',
             tracking: AccountTracking.LedgerOnly,
@@ -9109,6 +9105,7 @@ describe('buildOverview cost card per attempt and fee rows left out (PT-96 steps
     it('counts the fee rows of ledger-only and unmodeled accounts that the discount table could not price', () => {
         const ledgerOnly = account(EVAL_PLAN, {
             label: 'Big',
+            planLabel: 'Rapid 150K',
             planSerial: null,
             purchasedOn: '2026-05-01',
             tracking: AccountTracking.LedgerOnly,
@@ -9393,6 +9390,12 @@ describe('buildOverview copied accounts, funnel dollars and weaknesses (PT-96 st
         for (const row of untestedWeaknesses) {
             expect(row.text).toContain('per attempt');
             expect(row.text).toContain('per month');
+        }
+        const untestedStages = untestedWeaknesses.filter(
+            (candidate) => !candidate.text.startsWith('Attempt cost'),
+        );
+        expect(untestedStages.length).toBeGreaterThan(0);
+        for (const row of untestedStages) {
             expect(row.text).toContain('not tested for noise');
         }
         expect(
@@ -9439,7 +9442,8 @@ describe('buildOverview copied accounts, funnel dollars and weaknesses (PT-96 st
         const attemptCost = untestedWeaknesses.find((row) =>
             row.text.startsWith('Attempt cost'),
         );
-        expect(attemptCost?.text).toContain('not tested for noise');
+        expect(attemptCost?.text).toContain('noise unknown');
+        expect(attemptCost?.text).not.toContain('not tested for noise');
     });
 });
 
@@ -9681,9 +9685,15 @@ function scaleRows(): PortfolioRows {
 }
 
 function twoRoundRows(): PortfolioRows {
-    const atBudget = round(EVAL_PLAN, 'Spring', '2026-05-01', RoundStatus.Open, {
-        budgetCents: usdCents(15_000),
-    });
+    const atBudget = round(
+        EVAL_PLAN,
+        'Spring',
+        '2026-05-01',
+        RoundStatus.Open,
+        {
+            budgetCents: usdCents(15_000),
+        },
+    );
     const underBudget = round(
         EVAL_PLAN,
         'Summer',

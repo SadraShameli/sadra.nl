@@ -28,12 +28,19 @@ import {
     tradingArguments,
     type TradingArguments,
 } from '~/cli/commands/prop/shared';
+import {
+    unpricedTriggerLine,
+    UnpricedTriggerSurface,
+} from '~/cli/commands/prop/unpricedTrigger';
 import { findUnknownFlag } from '~/cli/unknownFlagGuard';
 import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     ApexVariant,
+    CumulativeAmountTrigger,
     defaultLadderGridMax,
+    dollars,
     DrawdownKind,
+    findFirm,
     FirmId,
     INSTRUMENTS,
     LADDER_EVAL_PASS_FLOOR,
@@ -45,6 +52,8 @@ import {
     MffuVariant,
     type Plan,
     points,
+    PolicySourceKind,
+    PolicyVerification,
     scoreLadder,
     TopStepVariant,
 } from '~/lib/prop-calculator';
@@ -927,5 +936,42 @@ describe('prop ladder plausibility note carries the pace (F-V22, PT-94b)', () =>
     it('prints no note at a typical edge', async () => {
         const { output } = await capturedLadder(smallRun);
         expect(output).not.toContain('Full Kelly');
+    });
+});
+
+function stubTrigger() {
+    const firm = findFirm(FirmId.Mffu);
+    if (!firm) throw new Error('MFFU not registered');
+    return vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue([
+        new CumulativeAmountTrigger(dollars(1500), {
+            fetchedOn: '2026-09-26',
+            quote: 'quote',
+            sourceKind: PolicySourceKind.LiveFetch,
+            url: 'https://example.invalid/rule',
+            verification: PolicyVerification.Confirmed,
+        }),
+    ]);
+}
+
+describe('prop ladder says it does not price a confirmed cumulative trigger (PT-36t, F-145)', () => {
+    it('prints the shared not-priced line once for a plan with a confirmed trigger', async () => {
+        const spy = stubTrigger();
+        try {
+            const { exitCode, output } = await capturedLadder(smallRun);
+            const line = unpricedTriggerLine(
+                rapidEodPlan(),
+                UnpricedTriggerSurface.Ladder,
+            );
+            expect(exitCode).toBeUndefined();
+            expect(line).not.toBeNull();
+            expect(output.split(line ?? '').length - 1).toBe(1);
+        } finally {
+            spy.mockRestore();
+        }
+    });
+
+    it('prints nothing about a trigger for a plan without one', async () => {
+        const { output } = await capturedLadder(smallRun);
+        expect(output).not.toContain('cumulative payout trigger');
     });
 });

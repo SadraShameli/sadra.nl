@@ -490,8 +490,14 @@ describe('prop bankroll project', () => {
                     '0.7',
                     '--rr',
                     '1',
+                    '--tpd',
+                    '4',
                     '--funded-risk',
                     '1000',
+                    '--funded-rr',
+                    '1.5',
+                    '--funded-tpd',
+                    '2',
                 ],
                 projectArguments,
             ),
@@ -504,34 +510,12 @@ describe('prop bankroll project', () => {
                 winrate: fraction(0.7),
             }) ?? 'missing note',
         );
-    });
-
-    it('prints the Kelly growth and the pace at the run trades per day, and the funded note at the funded trades per day (F-V22, PT-94b)', async () => {
-        const stdout = await capturedRun(
-            projectCommand,
-            parseArgs<typeof projectArguments>(
-                [
-                    ...SMALL_SIM,
-                    '--start',
-                    '5000',
-                    '--horizon-days',
-                    '40',
-                    '--trials',
-                    '30',
-                    '--winrate',
-                    '0.7',
-                    '--rr',
-                    '1',
-                    '--tpd',
-                    '4',
-                    '--funded-rr',
-                    '1.5',
-                    '--funded-tpd',
-                    '2',
-                ],
-                projectArguments,
-            ),
-            SMALL_SIM,
+        expect(stdout).toContain(
+            edgePlausibilityNote({
+                rrRatio: 1.5,
+                tradesPerDay: 2,
+                winrate: fraction(0.7),
+            }) ?? 'missing note',
         );
         expect(stdout).toContain('at 4 trades per day over 21 trading days');
         expect(stdout).toContain('at 2 trades per day over 21 trading days');
@@ -607,8 +591,14 @@ describe('prop bankroll compare', () => {
                     '0.7',
                     '--rr',
                     '1',
+                    '--tpd',
+                    '4',
                     '--funded-risk',
                     '1000',
+                    '--funded-rr',
+                    '1.5',
+                    '--funded-tpd',
+                    '2',
                 ],
                 compareArguments,
             ),
@@ -621,32 +611,12 @@ describe('prop bankroll compare', () => {
                 winrate: fraction(0.7),
             }) ?? 'missing note',
         );
-    });
-
-    it('prints the Kelly growth and the pace at the run trades per day, and the funded note at the funded trades per day (F-V22, PT-94b)', async () => {
-        const stdout = await capturedRun(
-            compareCommand,
-            parseArgs<typeof compareArguments>(
-                [
-                    ...SMALL_SIM,
-                    '--start',
-                    '5000',
-                    '--horizon-days',
-                    '40',
-                    '--winrate',
-                    '0.7',
-                    '--rr',
-                    '1',
-                    '--tpd',
-                    '4',
-                    '--funded-rr',
-                    '1.5',
-                    '--funded-tpd',
-                    '2',
-                ],
-                compareArguments,
-            ),
-            SMALL_SIM,
+        expect(stdout).toContain(
+            edgePlausibilityNote({
+                rrRatio: 1.5,
+                tradesPerDay: 2,
+                winrate: fraction(0.7),
+            }) ?? 'missing note',
         );
         expect(stdout).toContain('at 4 trades per day over 21 trading days');
         expect(stdout).toContain('at 2 trades per day over 21 trading days');

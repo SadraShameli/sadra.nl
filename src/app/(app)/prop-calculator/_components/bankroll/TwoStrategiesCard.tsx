@@ -26,7 +26,7 @@ import {
     bankrollVariantWithRisk,
 } from './bankrollModel';
 import {
-    type BankrollUrlState,
+    type BankrollViewState,
     parseBankrollDollarsField,
     parseBankrollMultipleField,
     parseBankrollPositiveIntField,
@@ -38,8 +38,8 @@ import { useToolsRequest } from './useToolsRequest';
 const RISK_B_CONFLICT_MESSAGE_ID = 'bankroll-two-strategies-risk-b-conflict';
 
 interface TwoStrategiesCardProperties {
-    onChange: (patch: Partial<BankrollUrlState>) => void;
-    state: BankrollUrlState;
+    onChange: (patch: Partial<BankrollViewState>) => void;
+    state: BankrollViewState;
 }
 
 export function TwoStrategiesCard({

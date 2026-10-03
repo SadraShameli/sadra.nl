@@ -121,6 +121,9 @@ vi.mock('~/trpc/react', () => ({
                 listForAccount: harness.query('decision.listForAccount'),
                 recordActual: harness.mutation(),
             },
+            dpAdvice: {
+                listForAccount: harness.query('dpAdvice.listForAccount'),
+            },
             event: {
                 list: harness.query('event.list'),
                 listForAccount: harness.query('event.listForAccount'),

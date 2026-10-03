@@ -78,7 +78,11 @@ import { type DailyCardEntry, DailyPlanCardView } from './DailyPlanCardView';
 import { DecisionLog, type DecisionSuggestion } from './DecisionLog';
 import { HeadlineCard } from './HeadlineCard';
 import { DEFAULT_ENTRY_INSTRUMENT } from './InstrumentStopEntry';
-import { OptimaTable } from './OptimaTable';
+import {
+    type DpAdviceQuery,
+    DpAdviceSection,
+    OptimaTable,
+} from './OptimaTable';
 import { PayoutAdviceCard } from './PayoutAdviceCard';
 import { PayoutReadyBanner } from './PayoutReadyBanner';
 import {
@@ -185,6 +189,9 @@ export function AdvicePanel({ id }: { readonly id: string }) {
     const ledgerPayoutsQuery =
         api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
+    const dpAdviceQuery = api.propAccounts.dpAdvice.listForAccount.useQuery({
+        id,
+    });
     const decisionsQuery = api.propAccounts.decision.listForAccount.useQuery({
         id,
     });
@@ -446,6 +453,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
             decisionsError={
                 decisionsQuery.isError ? decisionsQuery.error.message : null
             }
+            dpAdvice={dpAdviceQuery}
             entry={entry}
             inputFailureAlerts={
                 <>
@@ -635,6 +643,7 @@ function ComputedAdvice({
     canAcceptSize,
     decisions,
     decisionsError,
+    dpAdvice,
     entry,
     inputFailureAlerts,
     refreshFailureAlert,
@@ -645,6 +654,7 @@ function ComputedAdvice({
     readonly decisions:
         ComponentProps<typeof DecisionLog>['decisions'] | undefined;
     readonly decisionsError: null | string;
+    readonly dpAdvice: DpAdviceQuery;
     readonly entry: DailyCardEntry;
     readonly inputFailureAlerts: ReactNode;
     readonly refreshFailureAlert: ReactNode;
@@ -805,6 +815,10 @@ function ComputedAdvice({
             <section className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium">Engine optima</h3>
                 <OptimaTable rows={optimaRows} />
+            </section>
+            <section className="flex flex-col gap-2">
+                <h3 className="text-sm font-medium">Stored DP solves</h3>
+                <DpAdviceSection query={dpAdvice} />
             </section>
             <section className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium">Reasons</h3>

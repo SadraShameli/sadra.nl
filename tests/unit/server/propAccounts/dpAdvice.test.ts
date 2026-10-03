@@ -13,6 +13,7 @@ import {
     MAX_DP_ADVICE_ROWS_PER_ACCOUNT,
     PROP_QUOTA_LIMITS,
 } from '~/lib/prop-accounts/server';
+import { InstrumentSymbol } from '~/lib/prop-calculator';
 import {
     DP_ADVICE_SOLVER_VERSION,
     type DpAdviceRow,
@@ -21,6 +22,7 @@ import {
     DpSampleStage,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
+import { DpGateFailureCode } from '~/lib/prop-calculator/advisor/DpAdviceRow';
 import { PropQuota } from '~/lib/schemas/propAccountOutputs';
 import { propDpAdvice } from '~/server/db/schemas/prop';
 
@@ -111,9 +113,13 @@ function repoOver(rows: FakeRow[]) {
 
 function storedRow(): DpAdviceRow {
     return {
+        assumedInstrument: InstrumentSymbol.MNQ,
+        assumedStopPoints: 12.5,
         configKey: 'cd'.repeat(32),
         eligible: true,
         gaps: [],
+        gateFailure: DpGateFailureCode.BelowBestFlat,
+        gateResult: '0.99x best flat (credit-free)',
         ineligibleReason: null,
         objective: SizingObjective.MonthlyNet,
         planRulesFingerprint: STALE_FINGERPRINT,
@@ -220,6 +226,47 @@ describe('propAccounts.dpAdvice.listForAccount', () => {
             validationRef: 'dp-gate.md#7',
         });
         expect(row?.samples.kind).toBe(DpSamplesKind.Sampled);
+    });
+
+    it('returns the stored gate failure, its result and the assumed instrument and stop', async () => {
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.dpAdvice]: [
+                    await freshRow({
+                        assumed_instrument: 'MNQ',
+                        assumed_stop_points: 12.5,
+                        gate_failure: 'below-best-flat',
+                        gate_result: '0.99x best flat (credit-free)',
+                    }),
+                ],
+            }),
+        );
+        const [row] = await caller.dpAdvice.listForAccount({
+            id: IDS.account,
+        });
+        expect(row).toMatchObject({
+            assumedInstrument: InstrumentSymbol.MNQ,
+            assumedStopPoints: 12.5,
+            gateFailure: DpGateFailureCode.BelowBestFlat,
+            gateResult: '0.99x best flat (credit-free)',
+        });
+    });
+
+    it.each([
+        ['gate_failure', 'not-a-failure'],
+        ['assumed_instrument', 'ZZ'],
+        ['assumed_stop_points', 0],
+    ])('refuses a stored row with an invalid %s', async (column, value) => {
+        const { caller } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.dpAdvice]: [await freshRow({ [column]: value })],
+            }),
+        );
+        await expect(
+            caller.dpAdvice.listForAccount({ id: IDS.account }),
+        ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR' });
     });
 
     it.each([
@@ -386,6 +433,42 @@ describe('DpAdviceRepo.record', () => {
         expect(insert?.text).not.toMatch(/"user_id" = /);
     });
 
+    it('stores the gate failure, its result text and the instrument and stop the solve assumed', async () => {
+        const { queries, repo } = repoOver([dpAdviceRow()]);
+        await repo.record(IDS.account, storedRow(), []);
+        const [insert] = insertsInto(queries, TABLES.dpAdvice);
+        expect(insert?.text).toContain('"gate_failure"');
+        expect(insert?.text).toContain('"gate_result"');
+        expect(insert?.text).toContain('"assumed_instrument"');
+        expect(insert?.text).toContain('"assumed_stop_points"');
+        expect(insert?.params).toEqual(
+            expect.arrayContaining([
+                DpGateFailureCode.BelowBestFlat,
+                '0.99x best flat (credit-free)',
+                InstrumentSymbol.MNQ,
+                12.5,
+            ]),
+        );
+    });
+
+    it('stores a continuous-dollars solve with no instrument and no stop', async () => {
+        const { queries, repo } = repoOver([dpAdviceRow()]);
+        await repo.record(
+            IDS.account,
+            {
+                ...storedRow(),
+                assumedInstrument: null,
+                assumedStopPoints: null,
+                gateFailure: null,
+                gateResult: null,
+            },
+            [],
+        );
+        const [insert] = insertsInto(queries, TABLES.dpAdvice);
+        expect(insert?.params).not.toContain(InstrumentSymbol.MNQ);
+        expect(insert?.params).not.toContain(12.5);
+    });
+
     it('returns null when the idempotency key already holds a row', async () => {
         const { repo } = repoOver([]);
         expect(await repo.record(IDS.account, storedRow(), [])).toBeNull();
@@ -487,8 +570,61 @@ describe('propDpAdvice table', () => {
             'validation_ref',
             'jsonb_typeof',
             'jsonb_array_length',
+            'gate_failure',
+            'gate_result',
+            'assumed_instrument',
+            'assumed_stop_points',
         ]) {
             expect(expressions, fragment).toContain(fragment);
+        }
+    });
+
+    it('keeps the gate failure null for a validated row and a gate result only with a failure', () => {
+        const expressions = checkExpressions();
+        expect(
+            expressions.some(
+                (expression) =>
+                    expression.includes('gate_failure') &&
+                    expression.includes('validated'),
+            ),
+        ).toBe(true);
+        expect(
+            expressions.some(
+                (expression) =>
+                    expression.includes('gate_result') &&
+                    expression.includes('gate_failure'),
+            ),
+        ).toBe(true);
+    });
+
+    it('keeps the assumed instrument and stop together and the stop positive', () => {
+        const expressions = checkExpressions();
+        expect(
+            expressions.some(
+                (expression) =>
+                    expression.includes('assumed_instrument') &&
+                    expression.includes('assumed_stop_points'),
+            ),
+        ).toBe(true);
+        expect(
+            expressions.some((expression) =>
+                expression.includes('assumed_stop_points > 0'),
+            ),
+        ).toBe(true);
+    });
+
+    it('leaves the new columns nullable so older rows stay valid', () => {
+        for (const name of [
+            'assumed_instrument',
+            'assumed_stop_points',
+            'gate_failure',
+            'gate_result',
+        ]) {
+            const column = TABLE_CONFIG.columns.find(
+                (candidate) => candidate.name === name,
+            );
+            expect(column, name).toBeDefined();
+            expect(column?.notNull, name).toBe(false);
         }
     });
 });

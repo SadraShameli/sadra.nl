@@ -172,6 +172,34 @@ function setInputValue(input: HTMLInputElement, value: string): void {
     input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+function succeedProjection(runId = 1): void {
+    act(() => {
+        toolsWorkerBox.instances[1]?.setState({
+            phase: RealToolsWorkerPhase.Succeeded,
+            result: {
+                kind: ToolsResponseKind.Projection,
+                monthEnds: monthEndRows(),
+                result: timelineResult(),
+                runId,
+            },
+        });
+    });
+}
+
+function succeedTwoStrategies(): void {
+    const [first, second] = [timelineResult(6000), timelineResult(9000)];
+    act(() => {
+        toolsWorkerBox.instances[2]?.setState({
+            phase: RealToolsWorkerPhase.Succeeded,
+            result: {
+                kind: ToolsResponseKind.TwoStrategies,
+                results: [first, second],
+                runId: 1,
+            },
+        });
+    });
+}
+
 function timelineResult(finalCashP50 = 7000) {
     return {
         cardsBoughtP50: 2,
@@ -318,18 +346,29 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         });
     }
 
-    function succeedProjection(runId = 1): void {
-        act(() => {
-            toolsWorkerBox.instances[1]?.setState({
-                phase: RealToolsWorkerPhase.Succeeded,
-                result: {
-                    kind: ToolsResponseKind.Projection,
-                    monthEnds: monthEndRows(),
-                    result: timelineResult(),
-                    runId,
-                },
+    function enterTwoStrategiesInputs(horizon: string): void {
+        for (const [id, value] of [
+            ['#bankroll-two-strategies-start', '5000'],
+            ['#bankroll-two-strategies-horizon', horizon],
+            ['#bankroll-two-strategies-risk-b', '500'],
+        ] as const) {
+            act(() => {
+                setInputValue(requireInput(container.querySelector(id)), value);
             });
-        });
+        }
+    }
+
+    function enterCycles(): void {
+        for (const [id, value] of [
+            ['#bankroll-two-strategies-cycle-multiple-a', '5'],
+            ['#bankroll-two-strategies-cycle-days-a', '60'],
+            ['#bankroll-two-strategies-cycle-multiple-b', '3'],
+            ['#bankroll-two-strategies-cycle-days-b', '30'],
+        ] as const) {
+            act(() => {
+                setInputValue(requireInput(container.querySelector(id)), value);
+            });
+        }
     }
 
     it('shows no closed-form figure without bands, even with a cycle entered (PT-82 step 5)', () => {
@@ -415,7 +454,7 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             'table[aria-label="Month-end projection"]',
         );
         expect(table).not.toBeNull();
-        const rows = [...(table?.querySelectorAll('tbody tr') ?? [])];
+        const rows = [...(table?.querySelectorAll(':scope tbody tr') ?? [])];
         expect(rows).toHaveLength(3);
         expect(rows[0]?.textContent).toContain('1 (day 21)');
         expect(rows[0]?.textContent).toContain('$4,100');
@@ -758,54 +797,6 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
                 'deterministic illustration, not a forecast',
             );
         });
-
-        function enterTwoStrategiesInputs(horizon: string): void {
-            for (const [id, value] of [
-                ['#bankroll-two-strategies-start', '5000'],
-                ['#bankroll-two-strategies-horizon', horizon],
-                ['#bankroll-two-strategies-risk-b', '500'],
-            ] as const) {
-                act(() => {
-                    setInputValue(
-                        requireInput(container.querySelector(id)),
-                        value,
-                    );
-                });
-            }
-        }
-
-        function succeedTwoStrategies(): void {
-            const [first, second] = [
-                timelineResult(6000),
-                timelineResult(9000),
-            ];
-            act(() => {
-                toolsWorkerBox.instances[2]?.setState({
-                    phase: RealToolsWorkerPhase.Succeeded,
-                    result: {
-                        kind: ToolsResponseKind.TwoStrategies,
-                        results: [first, second],
-                        runId: 1,
-                    },
-                });
-            });
-        }
-
-        function enterCycles(): void {
-            for (const [id, value] of [
-                ['#bankroll-two-strategies-cycle-multiple-a', '5'],
-                ['#bankroll-two-strategies-cycle-days-a', '60'],
-                ['#bankroll-two-strategies-cycle-multiple-b', '3'],
-                ['#bankroll-two-strategies-cycle-days-b', '30'],
-            ] as const) {
-                act(() => {
-                    setInputValue(
-                        requireInput(container.querySelector(id)),
-                        value,
-                    );
-                });
-            }
-        }
 
         it('prints one 5x cycle of 60 days against chained 3x cycles of 30 days as 25,000 against 45,000, labelled with the cycles it assumed (PT-82 step 4)', () => {
             act(() => {

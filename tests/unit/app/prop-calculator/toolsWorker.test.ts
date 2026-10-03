@@ -276,19 +276,19 @@ describe('computeToolsResult: Levers (thin call into bankrollLevers)', () => {
     });
 });
 
-describe('computeToolsResult: SpendPayoutCurve (thin call into spendPayoutCurve)', () => {
-    function curveRows(budgets: readonly number[]) {
-        const result = computeToolsResult({
-            budgets,
-            kind: ToolsRequestKind.SpendPayoutCurve,
-            runId: 15,
-            variant: variant(),
-        });
-        if (result.kind !== ToolsResponseKind.SpendPayoutCurve)
-            throw new Error('unreachable');
-        return result.rows;
-    }
+function curveRows(budgets: readonly number[]) {
+    const result = computeToolsResult({
+        budgets,
+        kind: ToolsRequestKind.SpendPayoutCurve,
+        runId: 15,
+        variant: variant(),
+    });
+    if (result.kind !== ToolsResponseKind.SpendPayoutCurve)
+        throw new Error('unreachable');
+    return result.rows;
+}
 
+describe('computeToolsResult: SpendPayoutCurve (thin call into spendPayoutCurve)', () => {
     it('prices every budget on the same variant and seed, spend rising by one attempt cost per attempt', () => {
         const rows = curveRows([2000, 4000, 8000]);
         expect(rows.map((row) => row.budget)).toEqual([2000, 4000, 8000]);

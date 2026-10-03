@@ -97,7 +97,8 @@ describe('PayoutSizesCard', () => {
             (heading) => heading.textContent === 'By balance at payout',
         );
         const rows = [
-            ...(title?.parentElement?.querySelectorAll('tbody tr') ?? []),
+            ...(title?.parentElement?.querySelectorAll(':scope tbody tr') ??
+                []),
         ].map((tableRow) =>
             [...tableRow.querySelectorAll('td')].map(
                 (cell) => cell.textContent,

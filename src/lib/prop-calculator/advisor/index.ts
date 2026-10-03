@@ -120,6 +120,7 @@ export {
     EngineInputsRefusalKind,
 } from './DifferenceReason';
 export {
+    CONSISTENCY_CEILING_NOTE_TEXT,
     DAY_STOP_REASON_TEXT,
     differenceReasonHeadline,
     differenceReasonText,

@@ -18,6 +18,7 @@ import {
     SIZING_CONSTRAINT_TEXT,
     SizingAssumption,
     SizingConstraint,
+    StartBasis,
 } from '~/lib/prop-calculator/advisor';
 
 function digitsOf(text: string): string {
@@ -341,5 +342,53 @@ describe('personalPayoutOverrideWarningText (PT-19i review, one text for every s
         expect(digitsOf(personalPayoutOverrideWarningText(warning))).toBe(
             '2521234750432120003401202750',
         );
+    });
+});
+
+describe('personalPayoutOverrideWarningText names the basis of its figures (PT-109b step 3, F-146)', () => {
+    const warning = {
+        horizonDays: 252,
+        optimumBustProbability: 0.12,
+        optimumMonthlyNet: 4321,
+        optimumRequestSize: 2000,
+        overrideBustProbability: 0.34,
+        overrideMonthlyNet: 1234,
+        overrideRequestSize: 750,
+        retainedCushion: 2750,
+        retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+    };
+
+    it('says credit-inclusive monthly net for a fresh-start sweep row', () => {
+        const text = personalPayoutOverrideWarningText({
+            ...warning,
+            startBasis: StartBasis.Fresh,
+        });
+
+        expect(text).toContain('credit-inclusive monthly net $1,234');
+    });
+
+    it('says expected cash over the funded window for a from-state sweep row, never a monthly figure', () => {
+        const text = personalPayoutOverrideWarningText({
+            ...warning,
+            startBasis: StartBasis.FromState,
+        });
+
+        expect(text).toContain(
+            'credit-inclusive expected cash over the funded window $1,234 at a $750 request against $4,321 at $2,000',
+        );
+        expect(text).not.toContain('monthly');
+    });
+
+    it('keeps the sentinel digits the same for both bases', () => {
+        const fresh = personalPayoutOverrideWarningText({
+            ...warning,
+            startBasis: StartBasis.Fresh,
+        });
+        const fromState = personalPayoutOverrideWarningText({
+            ...warning,
+            startBasis: StartBasis.FromState,
+        });
+
+        expect(digitsOf(fromState)).toBe(digitsOf(fresh));
     });
 });
