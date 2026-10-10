@@ -26,9 +26,9 @@ const MFF_PRO_ID: PlanId = {
     variant: MffuVariant.Pro,
 };
 
-function fundedState(balance: number): AccountState {
+function fundedState(): AccountState {
     return {
-        balance,
+        balance: 53_000,
         bestDayProfit: 0,
         consecutiveIdleDays: 0,
         intradayHighProfit: 0,
@@ -59,7 +59,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
     const plan = registryPlan(MFF_PRO_ID);
 
     it('stays eligible when no live-trigger limit is supplied (unverified firm, unchanged)', () => {
-        const state = fundedState(53_000);
+        const state = fundedState();
         const tracker = metCalendarTracker(state);
         const readiness = payoutReadiness(plan, state, tracker, {
             ...NO_PENDING_PAYOUT_COUNTS,
@@ -70,7 +70,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
     });
 
     it('blocks with WouldTriggerLive when the next payout reaches the verified per-account cap', () => {
-        const state = fundedState(53_000);
+        const state = fundedState();
         const tracker = metCalendarTracker(state);
         tracker.payoutsIssued = 2;
         const readiness = payoutReadiness(plan, state, tracker, {
@@ -98,7 +98,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
     });
 
     it('does not block while under the verified per-account cap', () => {
-        const state = fundedState(53_000);
+        const state = fundedState();
         const tracker = metCalendarTracker(state);
         tracker.payoutsIssued = 1;
         const readiness = payoutReadiness(plan, state, tracker, {
@@ -116,7 +116,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
     });
 
     it('blocks with WouldTriggerLive when the next payout reaches the verified firm-total cap', () => {
-        const state = fundedState(53_000);
+        const state = fundedState();
         const tracker = metCalendarTracker(state);
         const readiness = payoutReadiness(plan, state, tracker, {
             ...NO_PENDING_PAYOUT_COUNTS,
@@ -142,7 +142,7 @@ describe('payoutReadiness: live-trigger count limit (PT-36b)', () => {
     });
 
     it('does not block while under the verified firm-total cap', () => {
-        const state = fundedState(53_000);
+        const state = fundedState();
         const tracker = metCalendarTracker(state);
         const readiness = payoutReadiness(plan, state, tracker, {
             ...NO_PENDING_PAYOUT_COUNTS,

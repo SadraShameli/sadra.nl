@@ -62,7 +62,7 @@ function inputsOf(overrides: Partial<SimInputs> = {}): SimInputs {
     };
 }
 
-function oracleOf(inputs: SimInputs, trials: number) {
+function oracleOf(inputs: SimInputs) {
     const setup = resolveLiveTransferSetup({
         commission: dollars(
             inputs.commissionPerRoundTrip ??
@@ -85,7 +85,7 @@ function oracleOf(inputs: SimInputs, trials: number) {
     if (setup?.continuation == null) throw new Error('expected a continuation');
     let sum = 0;
     let squaredSum = 0;
-    for (let trial = 0; trial < trials; trial += 1) {
+    for (let trial = 0; trial < TRIALS; trial += 1) {
         const options = liveTransferOptionsFor(setup, trial, 0);
         if (options === undefined) throw new Error('expected options');
         const { recurring } = runLiveTransferContinuation(
@@ -98,8 +98,8 @@ function oracleOf(inputs: SimInputs, trials: number) {
         squaredSum += recurring * recurring;
     }
     return {
-        standardError: meanStandardError(sum, squaredSum, trials),
-        value: sum / trials,
+        standardError: meanStandardError(sum, squaredSum, TRIALS),
+        value: sum / TRIALS,
     };
 }
 
@@ -113,7 +113,7 @@ describe('liveTransferValueAfterPayout (PT-73g step 2)', () => {
             TRIALS,
         );
 
-        expect(value).toStrictEqual(oracleOf(inputs, TRIALS));
+        expect(value).toStrictEqual(oracleOf(inputs));
         expect(value.value).toBeGreaterThan(0);
         expect(Number.isFinite(value.standardError ?? NaN)).toBe(true);
     });
@@ -127,7 +127,7 @@ describe('liveTransferValueAfterPayout (PT-73g step 2)', () => {
 
         expect(
             liveTransferValueAfterPayout(inputs, fundedState(), TRIALS),
-        ).toStrictEqual(oracleOf(inputs, TRIALS));
+        ).toStrictEqual(oracleOf(inputs));
     });
 
     it('runs the number of trials it is given, not the inputs trial count', () => {
@@ -135,7 +135,7 @@ describe('liveTransferValueAfterPayout (PT-73g step 2)', () => {
 
         expect(
             liveTransferValueAfterPayout(inputs, fundedState(), TRIALS),
-        ).toStrictEqual(oracleOf(inputs, TRIALS));
+        ).toStrictEqual(oracleOf(inputs));
     });
 
     it('is the same figure on a rerun with the same seed', () => {

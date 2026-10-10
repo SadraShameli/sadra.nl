@@ -562,7 +562,7 @@ describe('FundedCycleTracker.evaluatePayout reports every payout gate without mu
         const covered = new Set(
             SCENARIOS.flatMap(({ expected }) =>
                 expected.kind === PayoutEvaluationKind.Blocked
-                    ? [expected.gate]
+                    ? expected.gate
                     : [],
             ),
         );

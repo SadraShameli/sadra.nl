@@ -34,20 +34,17 @@ function rulebookWith(retainedCushionCents: number): RulebookParameters {
     };
 }
 
-function specWith(
-    retainedCushionCents: number,
-    retainedCushionRequest: null | number,
-) {
+function specWith(retainedCushionRequest: null | number) {
     return {
         enginePolicy: { ...POLICY, retainedCushionRequest },
-        rulebook: rulebookWith(retainedCushionCents),
+        rulebook: rulebookWith(900_000),
     };
 }
 
 describe('documentedRetainedCushionResolution (PT-19i review, one cushion basis for the sweep warning and the value chain)', () => {
     it('names the rulebook size when the policy retains exactly what the rulebook resolves to', () => {
         expect(
-            documentedRetainedCushionResolution(specWith(900_000, 9000)),
+            documentedRetainedCushionResolution(specWith(9000)),
         ).toStrictEqual({
             amount: 9000,
             basis: RetainedCushionBasis.RulebookSize,
@@ -56,7 +53,7 @@ describe('documentedRetainedCushionResolution (PT-19i review, one cushion basis 
 
     it('names the personal override when the policy retains more than the rulebook resolves to', () => {
         expect(
-            documentedRetainedCushionResolution(specWith(900_000, 12_000)),
+            documentedRetainedCushionResolution(specWith(12_000)),
         ).toStrictEqual({
             amount: 12_000,
             basis: RetainedCushionBasis.PersonalOverride,
@@ -65,7 +62,7 @@ describe('documentedRetainedCushionResolution (PT-19i review, one cushion basis 
 
     it('names the personal override when the policy retains less than the rulebook resolves to', () => {
         expect(
-            documentedRetainedCushionResolution(specWith(900_000, 2000)),
+            documentedRetainedCushionResolution(specWith(2000)),
         ).toStrictEqual({
             amount: 2000,
             basis: RetainedCushionBasis.PersonalOverride,
@@ -74,7 +71,7 @@ describe('documentedRetainedCushionResolution (PT-19i review, one cushion basis 
 
     it('names the rulebook size at the raw rulebook cushion when the policy carries no request', () => {
         expect(
-            documentedRetainedCushionResolution(specWith(900_000, null)),
+            documentedRetainedCushionResolution(specWith(null)),
         ).toStrictEqual({
             amount: 9000,
             basis: RetainedCushionBasis.RulebookSize,

@@ -224,7 +224,7 @@ export function assertLiveStartsDocumented(
             AccountStage.Live,
             entry.account,
         );
-        return issues.length === 0 ? [] : [{ entry, issues }];
+        return issues.length === 0 ? [] : { entry, issues };
     });
     const [first] = implausible;
     if (first === undefined) return;

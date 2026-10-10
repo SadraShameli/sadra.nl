@@ -169,13 +169,13 @@ function element(scope: ParentNode, selector: string): HTMLElement {
     return found;
 }
 
-function fieldScope(scope: ParentNode, labelText: string): HTMLElement {
+function fieldScope(scope: ParentNode): HTMLElement {
     const label = [...scope.querySelectorAll('label')].find(
-        (candidate) => candidate.textContent.trim() === labelText,
+        (candidate) => candidate.textContent.trim() === 'Round',
     );
-    if (label === undefined) throw new Error(`no field labelled ${labelText}`);
+    if (label === undefined) throw new Error('no field labelled Round');
     const item = label.closest<HTMLElement>('.flex.flex-col.gap-2');
-    if (item === null) throw new Error(`no form item for ${labelText}`);
+    if (item === null) throw new Error('no form item for Round');
     return item;
 }
 
@@ -303,7 +303,7 @@ describe('the account form round picker (PT-58a3)', () => {
     });
 
     it('offers every open round plainly and marks a closed one', () => {
-        const round = fieldScope(container, 'Round');
+        const round = fieldScope(container);
         expect(optionOf(round, OPEN_ROUND_ID).textContent).toBe('Q1 push');
         expect(optionOf(round, CLOSED_ROUND_ID).textContent).toBe(
             'Q4 cycle (closed)',
@@ -311,13 +311,13 @@ describe('the account form round picker (PT-58a3)', () => {
     });
 
     it('disables picking a closed round from the select', () => {
-        const round = fieldScope(container, 'Round');
+        const round = fieldScope(container);
         expect(optionOf(round, OPEN_ROUND_ID).disabled).toBe(false);
         expect(optionOf(round, CLOSED_ROUND_ID).disabled).toBe(true);
     });
 
     it('saves the picked round through account.create', async () => {
-        chooseSelectValue(fieldScope(container, 'Round'), OPEN_ROUND_ID);
+        chooseSelectValue(fieldScope(container), OPEN_ROUND_ID);
         skipSnapshot();
         await submitForm(container);
         expect(
@@ -343,7 +343,7 @@ describe('the account form round picker (PT-58a3)', () => {
         act(() => {
             root.render(<AccountEditor id={ACCOUNT_ID} />);
         });
-        const round = fieldScope(container, 'Round');
+        const round = fieldScope(container);
         const select = [...round.querySelectorAll('select')].find((candidate) =>
             [...candidate.options].some(
                 (option) => option.value === OPEN_ROUND_ID,
@@ -359,7 +359,7 @@ describe('the account form round picker (PT-58a3)', () => {
     });
 
     it('defaults overrideRoundBudget to false through account.create', async () => {
-        chooseSelectValue(fieldScope(container, 'Round'), OPEN_ROUND_ID);
+        chooseSelectValue(fieldScope(container), OPEN_ROUND_ID);
         skipSnapshot();
         await submitForm(container);
         expect(
@@ -370,7 +370,7 @@ describe('the account form round picker (PT-58a3)', () => {
     });
 
     it('sends overrideRoundBudget true only once its checkbox is checked', async () => {
-        chooseSelectValue(fieldScope(container, 'Round'), OPEN_ROUND_ID);
+        chooseSelectValue(fieldScope(container), OPEN_ROUND_ID);
         act(() => {
             element(container, '#account-override-round-budget').click();
         });
@@ -384,7 +384,7 @@ describe('the account form round picker (PT-58a3)', () => {
     });
 
     it('shows the server refusal when the round is over budget, and saves once overridden', async () => {
-        chooseSelectValue(fieldScope(container, 'Round'), OPEN_ROUND_ID);
+        chooseSelectValue(fieldScope(container), OPEN_ROUND_ID);
         skipSnapshot();
         harness
             .mutateAsyncOf('propAccounts.account.create')

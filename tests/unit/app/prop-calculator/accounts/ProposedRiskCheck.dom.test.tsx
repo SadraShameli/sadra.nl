@@ -203,10 +203,10 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
         });
     }
 
-    function button(name: string): HTMLButtonElement | null {
+    function button(): HTMLButtonElement | null {
         return (
             [...container.querySelectorAll('button')].find(
-                (candidate) => candidate.textContent === name,
+                (candidate) => candidate.textContent === 'Log violation',
             ) ?? null
         );
     }
@@ -289,7 +289,7 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
             expect(
                 container.querySelector('[role="status"]')?.textContent,
             ).toContain('Within your documented plan.');
-            expect(button('Log violation')).toBeNull();
+            expect(button()).toBeNull();
         });
 
         it('shows the excess over the documented rung', () => {
@@ -312,7 +312,7 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
             expect(
                 container.querySelector('[role="status"]')?.textContent,
             ).toContain('Above the documented rung');
-            expect(button('Log violation')).toBeNull();
+            expect(button()).toBeNull();
         });
 
         it('offers Log violation for the recorded actual risk after a loss and records ForcedRecovery with that decision id', () => {
@@ -324,7 +324,7 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
                 }),
             });
 
-            const log = button('Log violation');
+            const log = button();
             expect(log).not.toBeNull();
             act(() => {
                 log?.click();
@@ -348,10 +348,10 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
             });
 
             act(() => {
-                button('Log violation')?.click();
+                button()?.click();
             });
 
-            expect(button('Log violation')).toBeNull();
+            expect(button()).toBeNull();
             expect(container.textContent).toContain('Violation recorded');
             expect(harness.mutate).toHaveBeenCalledTimes(1);
         });
@@ -374,7 +374,7 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
 
             renderCheck({ recorded: recordedOf(ABOVE_AFTER_LOSS) });
 
-            expect(button('Log violation')).toBeNull();
+            expect(button()).toBeNull();
             expect(container.textContent).toContain('Violation recorded');
             expect(harness.mutate).not.toHaveBeenCalled();
         });
@@ -391,7 +391,7 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
 
             renderCheck({ recorded: recordedOf(ABOVE_AFTER_LOSS) });
 
-            expect(button('Log violation')).not.toBeNull();
+            expect(button()).not.toBeNull();
             expect(container.textContent).not.toContain('Violation recorded');
         });
 
@@ -400,7 +400,7 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
 
             renderCheck({ recorded: recordedOf(ABOVE_AFTER_LOSS) });
 
-            expect(button('Log violation')?.disabled).toBe(true);
+            expect(button()?.disabled).toBe(true);
         });
 
         it('shows the verdict for the recorded actual risk with the day progress it was judged against', () => {
@@ -425,7 +425,7 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
                 recorded: recordedOf(check()),
             });
 
-            expect(button('Log violation')).toBeNull();
+            expect(button()).toBeNull();
         });
 
         it('says an input is invalid instead of showing a verdict', () => {
@@ -450,7 +450,7 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
             expect(container.textContent).toContain(
                 'The advice is stale, so no risk check can run.',
             );
-            expect(button('Log violation')).toBeNull();
+            expect(button()).toBeNull();
         });
 
         it('says what stopped the day as a lock when the check finds the stop fired', () => {

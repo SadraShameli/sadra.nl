@@ -151,7 +151,7 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
             measuredRebuyLag,
             personalCaps,
             personalDll,
-            personalRetainedCushion,
+            personalRetainedCushion: personalRetainedCushion ?? undefined,
             plan: account.plan,
             positionSizing:
                 positionSizing === null || positionSizing === undefined
@@ -400,25 +400,33 @@ export class EvalSizingAdvisor extends SizingAdvisor<EvalRuleContext> {
     }
 
     staleness(): AdviceStaleness {
-        const { planRulesFingerprint, rulebook, snapshotAsOf, today } =
-            this.input;
+        const {
+            planRulesFingerprint = null,
+            rulebook,
+            snapshotAsOf,
+            today,
+        } = this.input;
         return adviceStaleness({
             asOf: snapshotAsOf,
             fundedStaleDays: rulebook.review.fundedStaleDays,
-            planRulesFingerprint: planRulesFingerprint ?? null,
+            planRulesFingerprint: planRulesFingerprint,
             stage: SizingStage.Eval,
             today,
         });
     }
 
     protected buildContext(): EvalRuleContext {
-        const { account, personalCaps, personalDll, positionSizing } =
-            this.input;
+        const {
+            account,
+            personalCaps,
+            personalDll = null,
+            positionSizing,
+        } = this.input;
         return ruleContextAt(account.plan, SizingStage.Eval, account.state, {
             ceiling: null,
             instrument: positionSizing?.instrument ?? null,
             personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
-            personalDll: personalDll ?? null,
+            personalDll: personalDll,
             placeableMinimum: advisorPlaceableMinimum(positionSizing),
         });
     }

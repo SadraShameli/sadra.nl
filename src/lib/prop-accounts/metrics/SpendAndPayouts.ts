@@ -59,7 +59,7 @@ export function monthlyCash(
 ): readonly MonthlyCash[] {
     const datedPayouts = payouts.flatMap((payout) => {
         const paidOn = paidPayoutCash(payout)?.paidOn ?? null;
-        return paidOn === null ? [] : [{ month: isoMonthOf(paidOn), payout }];
+        return paidOn === null ? [] : { month: isoMonthOf(paidOn), payout };
     });
     const datedFees = fees.map((fee) => ({
         fee,

@@ -86,7 +86,7 @@ export const simArguments = {
     ...liveTransferHazardArgument,
 };
 
-export default defineCommand({
+const command = defineCommand({
     args: simArguments,
     meta: {
         description:
@@ -176,6 +176,8 @@ export default defineCommand({
         }
     },
 });
+
+export default command;
 
 export function granularityComparison(
     inputs: TradingInputs,

@@ -39,20 +39,18 @@ export class PooledCapReachedRule extends AlertRule {
                 counts,
             );
             if (freeSlots > 0) return [];
-            return [
-                {
-                    disclosures: [],
-                    kind: this.kind,
-                    message: `${group.accounts.length} funded ${group.plan.label} slot${group.accounts.length === 1 ? '' : 's'} used; no free slots remain`,
-                    severity: AlertSeverity.Warning,
-                    subject: {
-                        accountIds: group.accounts.map(
-                            (monitored) => monitored.account.id,
-                        ),
-                        kind: AlertSubjectKind.Portfolio,
-                    },
+            return {
+                disclosures: [],
+                kind: this.kind,
+                message: `${group.accounts.length} funded ${group.plan.label} slot${group.accounts.length === 1 ? '' : 's'} used; no free slots remain`,
+                severity: AlertSeverity.Warning,
+                subject: {
+                    accountIds: group.accounts.map(
+                        (monitored) => monitored.account.id,
+                    ),
+                    kind: AlertSubjectKind.Portfolio,
                 },
-            ];
+            };
         });
     }
 }

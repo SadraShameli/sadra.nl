@@ -262,9 +262,7 @@ describe('advisorWorkerMessages (PT-34)', () => {
     });
 });
 
-function evalAccount(
-    overrides: Partial<ReconstructedFundedOrEvalAccount> = {},
-): ReconstructedFundedOrEvalAccount {
+function evalAccount(): ReconstructedFundedOrEvalAccount {
     const state = accountState({
         balance: 50_600,
         elapsedDays: 7,
@@ -280,7 +278,6 @@ function evalAccount(
         plan,
         resolvedDailyLossLimit: null,
         state,
-        ...overrides,
         ...NO_PENDING_PAYOUT_COUNTS,
     };
 }

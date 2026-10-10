@@ -178,15 +178,6 @@ export function bundleRenewalNote(
 export const CYCLE_OBJECTIVE_NOT_SIZING_NOTE =
     'the rate-0 eval policy has no time cost, so it favours the conservative eval sizing that Hard Rule 3 rejects (risk the max the constraints allow, speed to funded) and its funded risk is not the Hard Rule 5 fixed amount: read it as an eval-stage proxy for cycle cash, not sizing, and size from the documented rungs and the fixed funded risk instead';
 
-export function cycleObjectiveLine(cycleValue: number | undefined): string {
-    if (cycleValue === undefined) {
-        throw new Error(
-            'the cycle objective needs the rate-0 solve, but the solver returned no trace',
-        );
-    }
-    return `cycle value at a rate of ${formatCurrency(0, 2)}/day (no time cost): ${formatCurrency(cycleValue)} expected net cash per eval-to-funded cycle, an eval-stage proxy that ignores how long the cycle takes`;
-}
-
 export function dpGridSettingsLine(
     plan: Plan,
     inputs: DpInputs,
@@ -426,10 +417,6 @@ export function instrumentFundedDayPolicyForSaturation(
     };
 }
 
-export function liveTransferNotModeledInDpLine(hazard: number): string {
-    return `the live-transfer hazard (${formatPercent(hazard)} per paid payout, your assumption, not a firm rule) is not modeled in the DP: its values and the simulate() cross-check below both assume the account is never sent live`;
-}
-
 export function readDpInputs(arguments_: DpArguments): DpInputs {
     const requestSize = arguments_['request-size'];
     const stopPoints = arguments_['stop-points'];
@@ -562,12 +549,25 @@ function assertCushionGridFlagsConsistent(
     }
 }
 
+function cycleObjectiveLine(cycleValue: number | undefined): string {
+    if (cycleValue === undefined) {
+        throw new Error(
+            'the cycle objective needs the rate-0 solve, but the solver returned no trace',
+        );
+    }
+    return `cycle value at a rate of ${formatCurrency(0, 2)}/day (no time cost): ${formatCurrency(cycleValue)} expected net cash per eval-to-funded cycle, an eval-stage proxy that ignores how long the cycle takes`;
+}
+
 function drawdownMultiple(plan: Plan, dollarsValue: number): number {
     return Number((dollarsValue / plan.fundedDrawdown.amount).toFixed(6));
 }
 
 function flagValueWithDefaultNote(value: number, isDefault: boolean): string {
     return isDefault ? `${value}, the default` : String(value);
+}
+
+function liveTransferNotModeledInDpLine(hazard: number): string {
+    return `the live-transfer hazard (${formatPercent(hazard)} per paid payout, your assumption, not a firm rule) is not modeled in the DP: its values and the simulate() cross-check below both assume the account is never sent live`;
 }
 
 function readOptionalPositiveInteger(
@@ -719,7 +719,7 @@ export const dpArguments = {
     },
 } satisfies ArgsDef;
 
-export default defineCommand({
+const command = defineCommand({
     args: dpArguments,
     meta: {
         description:
@@ -951,3 +951,5 @@ export default defineCommand({
         }
     },
 });
+
+export default command;

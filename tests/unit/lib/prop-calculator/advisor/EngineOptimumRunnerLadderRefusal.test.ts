@@ -43,11 +43,10 @@ function apexEodPlan(): Plan {
 function ladderRequest(
     source: LadderSearchRequestSource,
     grid: { lo: number; max: number; slots: number; step: number },
-    maxGridSize: number,
 ) {
     return {
         grid,
-        maxGridSize,
+        maxGridSize: 2000,
         policy: buildEnginePolicy({
             fundedHorizonDays: 60,
             plan: apexEodPlan(),
@@ -74,11 +73,12 @@ describe('runEngineOptimum ladder grid refusal (PT-24c step 1)', () => {
     it.each(LADDER_SOURCES)(
         '%s with a grid above its cap returns a typed refusal instead of throwing',
         (source) => {
-            const request = ladderRequest(
-                source,
-                { lo: 100, max: 800, slots: 4, step: 100 },
-                2000,
-            );
+            const request = ladderRequest(source, {
+                lo: 100,
+                max: 800,
+                slots: 4,
+                step: 100,
+            });
 
             const result = runEngineOptimum(apexEodPlan(), request);
 
@@ -101,11 +101,12 @@ describe('runEngineOptimum ladder grid refusal (PT-24c step 1)', () => {
     it('a ladder search within its cap carries no refusal', () => {
         const result = runEngineOptimum(
             apexEodPlan(),
-            ladderRequest(
-                AdviceSource.LadderSearchFresh,
-                { lo: 100, max: 200, slots: 2, step: 100 },
-                2000,
-            ),
+            ladderRequest(AdviceSource.LadderSearchFresh, {
+                lo: 100,
+                max: 200,
+                slots: 2,
+                step: 100,
+            }),
         );
 
         if (!('ladder' in result)) throw new Error('expected a ladder result');
@@ -137,11 +138,12 @@ describe('runEngineOptimum ladder grid refusal (PT-24c step 1)', () => {
         expect(() =>
             runEngineOptimum(
                 apexEodPlan(),
-                ladderRequest(
-                    AdviceSource.LadderSearchFresh,
-                    { lo: 300, max: 100, slots: 2, step: 100 },
-                    2000,
-                ),
+                ladderRequest(AdviceSource.LadderSearchFresh, {
+                    lo: 300,
+                    max: 100,
+                    slots: 2,
+                    step: 100,
+                }),
             ),
         ).toThrow(LadderGridFieldError);
     });

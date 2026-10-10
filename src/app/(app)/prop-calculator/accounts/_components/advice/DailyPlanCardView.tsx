@@ -58,7 +58,7 @@ export function DailyPlanCardView({
 }) {
     const isStopSettled = sizing === null || sizing.entry.isSettled;
     const unplacedTrades = card.rungPlacements.flatMap((placement, index) =>
-        placement === RungPlacement.BelowOneContract ? [index + 1] : [],
+        placement === RungPlacement.BelowOneContract ? index + 1 : [],
     );
     return (
         <div className="flex flex-col gap-2">

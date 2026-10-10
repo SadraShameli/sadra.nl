@@ -62,10 +62,10 @@ class StubInactivityPolicy extends FirmAccountPolicy {
     }
 }
 
-function calendarDaysPolicy(maxIdleDays: number): InactivityPolicy {
+function calendarDaysPolicy(): InactivityPolicy {
     return {
         kind: InactivityBasisKind.CalendarDays,
-        maxIdleDays,
+        maxIdleDays: 7,
         minimumQualifying: { kind: InactivityMinimumQualifyingKind.AnyTrade },
         mismatch: null,
         outcome: InactivityOutcome.Closure,
@@ -124,7 +124,7 @@ describe('CalendarInactivityRule', () => {
 
     it('warns 2 days before a confirmed calendar/trading-days limit and quotes the firm', () => {
         const account = accountFor(ENTRY);
-        const policy = new StubInactivityPolicy(calendarDaysPolicy(7));
+        const policy = new StubInactivityPolicy(calendarDaysPolicy());
         const alerts = withStubbedPolicy(policy, () =>
             alertsOf(rule, {
                 accounts: [account],
@@ -147,7 +147,7 @@ describe('CalendarInactivityRule', () => {
 
     it('is critical once the confirmed limit is reached', () => {
         const account = accountFor(ENTRY);
-        const policy = new StubInactivityPolicy(calendarDaysPolicy(7));
+        const policy = new StubInactivityPolicy(calendarDaysPolicy());
         const alerts = withStubbedPolicy(policy, () =>
             alertsOf(rule, {
                 accounts: [account],
@@ -179,7 +179,7 @@ describe('CalendarInactivityRule', () => {
 
     it('gives an info "not checked" alert when no last-traded date is on file', () => {
         const account = accountFor(ENTRY);
-        const policy = new StubInactivityPolicy(calendarDaysPolicy(7));
+        const policy = new StubInactivityPolicy(calendarDaysPolicy());
         const alerts = withStubbedPolicy(policy, () =>
             alertsOf(rule, { accounts: [account] }),
         );
@@ -190,7 +190,7 @@ describe('CalendarInactivityRule', () => {
 
     it('does not crash on a malformed stored last-traded date; it reports "not checked" instead', () => {
         const account = accountFor(ENTRY);
-        const policy = new StubInactivityPolicy(calendarDaysPolicy(7));
+        const policy = new StubInactivityPolicy(calendarDaysPolicy());
         const run = () =>
             withStubbedPolicy(policy, () =>
                 alertsOf(rule, {
@@ -209,7 +209,7 @@ describe('CalendarInactivityRule', () => {
 
     it('skips a live-stage account', () => {
         const account = accountFor(ENTRY, { stage: AccountStage.Live });
-        const policy = new StubInactivityPolicy(calendarDaysPolicy(7));
+        const policy = new StubInactivityPolicy(calendarDaysPolicy());
         const alerts = withStubbedPolicy(policy, () =>
             alertsOf(rule, {
                 accounts: [account],
@@ -224,7 +224,7 @@ describe('CalendarInactivityRule', () => {
     it('skips a sim/eval sibling a confirmed dormant-while-live policy makes dormant', () => {
         const live = accountFor(ENTRY, { stage: AccountStage.Live });
         const sibling = accountFor(ENTRY);
-        const policy = new StubInactivityPolicy(calendarDaysPolicy(7), {
+        const policy = new StubInactivityPolicy(calendarDaysPolicy(), {
             cooldown: new UnknownCooldown(),
             evalPurchaseEffect: EvalPurchaseEffect.Unknown,
             household: false,

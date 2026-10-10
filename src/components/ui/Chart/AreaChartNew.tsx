@@ -30,7 +30,7 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
     const id = useId();
 
     return (
-        <ChartContainer className="h-full w-full" config={properties.config}>
+        <ChartContainer className="size-full" config={properties.config}>
             <AreaChart data={properties.data}>
                 <defs>
                     <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">

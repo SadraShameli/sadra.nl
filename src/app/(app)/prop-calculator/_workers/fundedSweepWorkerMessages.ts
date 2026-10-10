@@ -16,27 +16,14 @@ import { type dayPolicySchema } from '~/lib/schemas/url';
 
 export const MAX_FUNDED_SWEEP_TRIALS = 5000;
 
-export type FundedEvalLadder = z.infer<typeof dayPolicySchema>;
-
 export type FundedSweepBaseInputs = Omit<
     SimInputs,
     'evalDayPolicy' | 'fundedDayPolicy' | 'plan'
 >;
 
-export interface FundedSweepBuiltResult {
-    readonly kind: FundedCandidateBuildKind.Built;
-    readonly notes: readonly string[];
-    readonly rows: readonly FundedSweepRow[];
-}
-
 export interface FundedSweepProgress {
     readonly completed: number;
     readonly total: number;
-}
-
-export interface FundedSweepRefusedResult {
-    readonly kind: FundedCandidateBuildKind.Refused;
-    readonly refusal: FundedCandidateRefusalDetail;
 }
 
 export interface FundedSweepRequest {
@@ -50,6 +37,19 @@ export interface FundedSweepRequest {
 
 export type FundedSweepResult =
     FundedSweepBuiltResult | FundedSweepRefusedResult;
+
+type FundedEvalLadder = z.infer<typeof dayPolicySchema>;
+
+interface FundedSweepBuiltResult {
+    readonly kind: FundedCandidateBuildKind.Built;
+    readonly notes: readonly string[];
+    readonly rows: readonly FundedSweepRow[];
+}
+
+interface FundedSweepRefusedResult {
+    readonly kind: FundedCandidateBuildKind.Refused;
+    readonly refusal: FundedCandidateRefusalDetail;
+}
 
 export function clampFundedSweepTrials(trials: number): number {
     return Math.min(trials, MAX_FUNDED_SWEEP_TRIALS);

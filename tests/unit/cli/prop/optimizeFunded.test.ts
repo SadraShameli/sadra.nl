@@ -280,9 +280,9 @@ describe('the monthly sort note credit details match the engine (N-71, N-72, WP4
         expect(apexEod.payoutProfitShare).toBeNull();
         const step = apexEod.payoutLadder?.steps[0];
         if (step === undefined) throw new Error('apex eod ladder step missing');
-        const withProfitShare = (share: number): Plan =>
+        const withProfitShare = (): Plan =>
             apexEod.withOverrides({
-                payoutProfitShare: profitShareMultiplier(share),
+                payoutProfitShare: profitShareMultiplier(1),
             });
 
         const creditOn = (plan: Plan, cycleProfit: number): number => {
@@ -301,8 +301,8 @@ describe('the monthly sort note credit details match the engine (N-71, N-72, WP4
         };
 
         expect(creditOn(apexEod, step * 2)).toBeGreaterThan(0);
-        expect(creditOn(withProfitShare(1), step * 2)).toBeGreaterThan(0);
-        expect(creditOn(withProfitShare(1), step / 2)).toBe(0);
+        expect(creditOn(withProfitShare(), step * 2)).toBeGreaterThan(0);
+        expect(creditOn(withProfitShare(), step / 2)).toBe(0);
     });
 
     it('names no firm in the denying-ladder sentence, whatever plan is ranked', () => {

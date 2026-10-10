@@ -229,24 +229,27 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
     }
 
     private liveTriggerLimits(): LiveTriggerLimits {
-        const { account, accountPolicy, paidPayoutsSinceLastLiveAccount } =
-            this.input;
+        const {
+            account,
+            accountPolicy,
+            paidPayoutsSinceLastLiveAccount = null,
+        } = this.input;
         return liveTriggerLimitsFor(
             accountPolicy,
             account.plan,
-            paidPayoutsSinceLastLiveAccount ?? null,
+            paidPayoutsSinceLastLiveAccount,
         );
     }
 
     private payoutRuleContext(): FundedPayoutRuleContext | null {
-        const { account, personalRetainedCushion } = this.input;
+        const { account, personalRetainedCushion = null } = this.input;
         if (account.fundedTracker === null) return null;
         return fundedPayoutRuleContextOf({
             ...pendingPayoutCountsOf(account),
             liveTrigger: this.liveTriggerLimits(),
             pendingPayouts: account.pendingPayouts ?? 0,
             personalRequestOverride: this.appliedPayoutOverride(),
-            personalRetainedCushion: personalRetainedCushion ?? null,
+            personalRetainedCushion: personalRetainedCushion,
             plan: account.plan,
             state: account.state,
             tracker: account.fundedTracker,
@@ -328,7 +331,7 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
             measuredRebuyLag,
             personalCaps,
             personalDll,
-            personalRetainedCushion,
+            personalRetainedCushion: personalRetainedCushion ?? undefined,
             plan: account.plan,
             positionSizing:
                 positionSizing === null || positionSizing === undefined
@@ -778,20 +781,28 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
     }
 
     staleness(): AdviceStaleness {
-        const { planRulesFingerprint, rulebook, snapshotAsOf, today } =
-            this.input;
+        const {
+            planRulesFingerprint = null,
+            rulebook,
+            snapshotAsOf,
+            today,
+        } = this.input;
         return adviceStaleness({
             asOf: snapshotAsOf,
             fundedStaleDays: rulebook.review.fundedStaleDays,
-            planRulesFingerprint: planRulesFingerprint ?? null,
+            planRulesFingerprint: planRulesFingerprint,
             stage: SizingStage.Funded,
             today,
         });
     }
 
     protected buildContext(): FundedRuleContext {
-        const { account, personalCaps, personalDll, positionSizing } =
-            this.input;
+        const {
+            account,
+            personalCaps,
+            personalDll = null,
+            positionSizing,
+        } = this.input;
         return ruleContextAt(account.plan, SizingStage.Funded, account.state, {
             ...liveTriggerRuleCaps(
                 fundedConsistencyCeiling(account),
@@ -801,7 +812,7 @@ export class FundedSizingAdvisor extends SizingAdvisor<FundedRuleContext> {
             consistencyNote: fundedConsistencyNote(account),
             instrument: positionSizing?.instrument ?? null,
             personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
-            personalDll: personalDll ?? null,
+            personalDll: personalDll,
         });
     }
 

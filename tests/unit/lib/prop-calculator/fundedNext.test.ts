@@ -532,13 +532,13 @@ describe('FundedNext Rapid Daily payout gates (article 17229779, current revisio
         return { result, state };
     }
 
-    function laterPayoutAt(balance: number, lastPayoutBalance: number) {
+    function laterPayoutAt(balance: number) {
         const state = plan.initialState();
         state.balance = balance;
         state.thresholdLocked = true;
         state.threshold = 50_100;
         const tracker = newFundedCycleTracker(state);
-        tracker.lastPayoutBalance = lastPayoutBalance;
+        tracker.lastPayoutBalance = bufferLevel;
         tracker.payoutsIssued = 1;
         tracker.recordSessionClose(state);
         return tracker.tryPayout({
@@ -597,8 +597,8 @@ describe('FundedNext Rapid Daily payout gates (article 17229779, current revisio
     });
 
     it('gates a later payout on $500 of current-cycle profit as well as the buffer', () => {
-        expect(laterPayoutAt(52_599, bufferLevel)).toBeNull();
-        expect(laterPayoutAt(52_600, bufferLevel)?.debited).toBe(500);
+        expect(laterPayoutAt(52_599)).toBeNull();
+        expect(laterPayoutAt(52_600)?.debited).toBe(500);
     });
 });
 

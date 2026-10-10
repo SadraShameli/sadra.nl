@@ -679,7 +679,7 @@ describe('runCopySplit', () => {
         expect(result.note).toBeNull();
         const monthly = result.rows.flatMap((row) =>
             row.kind === CopySplitRowKind.Simulated
-                ? [row.totalMonthlyNet.value]
+                ? row.totalMonthlyNet.value
                 : [],
         );
         expect(monthly).toStrictEqual(monthly.toSorted((a, b) => b - a));

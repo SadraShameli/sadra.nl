@@ -228,7 +228,7 @@ function dollarsOf(accounts: readonly LedgerAccount[]): StageDollars {
         accounts.flatMap((entry) =>
             entry.payouts.flatMap((row) => {
                 const paid = paidPayoutCash(row);
-                return paid === null ? [] : [paid.cents];
+                return paid === null ? [] : paid.cents;
             }),
         ),
     );

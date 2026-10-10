@@ -142,18 +142,14 @@ function fundedState(): AccountState {
 }
 
 function liveTriggerBlockWithoutOtherAccountCount() {
-    const limits = liveTriggerLimitsFor(
-        FIRM_TOTAL_FIVE,
-        registryPlan(MFF_PRO_ID),
-        1,
-    );
+    const limits = liveTriggerLimitsFor(FIRM_TOTAL_FIVE, registryPlan(), 1);
     // @ts-expect-error the other accounts pending count is required
     return liveTriggerBlockReasonFor(0, limits, 0);
 }
 
 function payoutReadinessNettedWithoutCounts() {
     const state = fundedState();
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
     const tracker = trackerFor(state, 0);
     const options = {
         liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
@@ -166,7 +162,7 @@ function payoutReadinessNettedWithoutCounts() {
 
 function payoutReadinessWithoutCounts() {
     const state = fundedState();
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
     const tracker = trackerFor(state, 0);
     const options = {
         liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
@@ -185,14 +181,14 @@ function rebuildWithoutCounts() {
             dashboardConvention: DashboardBalanceConvention.Nominal,
             stage: SizingStage.Funded,
         },
-        registryPlan(MFF_PRO_ID),
+        registryPlan(),
         null,
     );
 }
 
-function registryPlan(id: PlanId): Plan {
-    const found = findFirm(id.firm)?.findPlan(id);
-    if (!found) throw new Error(`${serializePlanId(id)} missing`);
+function registryPlan(): Plan {
+    const found = findFirm(MFF_PRO_ID.firm)?.findPlan(MFF_PRO_ID);
+    if (!found) throw new Error(`${serializePlanId(MFF_PRO_ID)} missing`);
     return found;
 }
 
@@ -200,7 +196,7 @@ function sourceFilesUnder(directory: string): readonly string[] {
     return readdirSync(directory).flatMap((entry) => {
         const full = path.join(directory, entry);
         if (statSync(full).isDirectory()) return sourceFilesUnder(full);
-        return /\.tsx?$/.test(entry) ? [full] : [];
+        return /\.tsx?$/.test(entry) ? full : [];
     });
 }
 
@@ -227,7 +223,7 @@ function withoutKey(
 }
 
 describe('the advisor payout rule counts several own requests like the board (PT-36m, F-145)', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     it('blocks on the advisor with a per-account cap of 4, one issued and two own requests, as the board does', () => {
         const decision = documentedDecisionOf(
@@ -323,7 +319,7 @@ describe('the advisor payout rule counts several own requests like the board (PT
 });
 
 describe('FundedPayoutRuleContext carries the pending payout counts (PT-36m, F-145)', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
     const state = fundedState();
 
     function contextFor(counts: Record<string, unknown>) {
@@ -397,7 +393,7 @@ describe('FundedPayoutRuleContext carries the pending payout counts (PT-36m, F-1
 });
 
 describe('the reconstruction takes the pending counts it is given (PT-36m, F-145)', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     const baseInput = {
         asOf: '2026-09-26',
@@ -488,7 +484,7 @@ describe('no readiness caller can omit the pending counts (PT-36m, F-145)', () =
 });
 
 describe('an unreadable firm paid count ignores requests in flight for the firm-total cap (PT-36m, F-145)', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     it('does not block on the firm total whatever the other accounts request when the paid count is null', () => {
         const decision = documentedDecisionOf(

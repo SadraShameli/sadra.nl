@@ -132,7 +132,7 @@ function activeFundedSpans(
             endDayExclusive,
         );
         return isSlotOpening(transition) && toDayExclusive > fromDay
-            ? [{ fromDay, toDayExclusive }]
+            ? { fromDay, toDayExclusive }
             : [];
     });
 }

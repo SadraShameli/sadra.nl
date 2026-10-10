@@ -103,8 +103,8 @@ const PROGRESS: LadderProgress = {
     total: 40,
 };
 
-function searchInputs(form: LadderLabForm, base: SimInputs = BASE_INPUTS) {
-    return ladderSearchInputsFor(base, form);
+function searchInputs() {
+    return ladderSearchInputsFor(BASE_INPUTS, STORED_FORM);
 }
 
 function succeeded(): LadderSearchState {
@@ -124,11 +124,11 @@ function succeeded(): LadderSearchState {
     };
 }
 
-function succeededSlot(base: SimInputs): LadderResultSlot {
+function succeededSlot(): LadderResultSlot {
     const slot = ladderSlotFor(
         LadderSlotEvent.Completed,
         succeeded(),
-        searchInputs(STORED_FORM, base),
+        searchInputs(),
         STORED_FORM.displayInstrument,
     );
     if (slot === null) throw new Error('no slot');
@@ -185,7 +185,7 @@ describe('LadderLabPanel restored from the result slot', () => {
         harness.ladderSlot = {
             cancelledByNavigation: true,
             displayInstrument: STORED_FORM.displayInstrument,
-            inputs: searchInputs(STORED_FORM),
+            inputs: searchInputs(),
             result: { phase: LadderRunPhase.Cancelled, progress: PROGRESS },
         };
         render(BASE_INPUTS);
@@ -200,7 +200,7 @@ describe('LadderLabPanel restored from the result slot', () => {
         harness.ladderSlot = {
             cancelledByNavigation: false,
             displayInstrument: STORED_FORM.displayInstrument,
-            inputs: searchInputs(STORED_FORM),
+            inputs: searchInputs(),
             result: { phase: LadderRunPhase.Cancelled, progress: PROGRESS },
         };
         render(BASE_INPUTS);
@@ -209,7 +209,7 @@ describe('LadderLabPanel restored from the result slot', () => {
     });
 
     it('restores the form, the display instrument and the ranked rows with Apply on', () => {
-        harness.ladderSlot = succeededSlot(BASE_INPUTS);
+        harness.ladderSlot = succeededSlot();
         render(BASE_INPUTS);
         expect(fieldValue('Min rung')).toBe('150');
         expect(fieldValue('Max rung')).toBe('450');
@@ -236,7 +236,7 @@ describe('LadderLabPanel restored from the result slot', () => {
     });
 
     it('says the inputs changed and turns Apply off when the calculator inputs moved on', () => {
-        harness.ladderSlot = succeededSlot(BASE_INPUTS);
+        harness.ladderSlot = succeededSlot();
         render({ ...BASE_INPUTS, winrate: 0.55 });
         expect(container.textContent).toContain(
             'Inputs changed since this run, so Apply is off.',

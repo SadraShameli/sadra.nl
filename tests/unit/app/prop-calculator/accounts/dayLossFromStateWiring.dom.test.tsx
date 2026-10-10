@@ -243,9 +243,9 @@ function singleAccount(
     });
 }
 
-function snapshotRow(accountId: string, asOf: string, balance: number) {
+function snapshotRow(asOf: string, balance: number) {
     return {
-        accountId,
+        accountId: ACCOUNT_ID,
         asOf,
         balanceAtLastPayoutCents: null,
         balanceCents: usdCents(balance * 100),
@@ -257,7 +257,7 @@ function snapshotRow(accountId: string, asOf: string, balance: number) {
         floorAtLastPayoutCents: null,
         highestEodBalanceCents: usdCents(5_130_000),
         highestIntradayBalanceCents: null,
-        id: `snapshot-${accountId}-${asOf}`,
+        id: `snapshot-${ACCOUNT_ID}-${asOf}`,
         lastPayoutOn: null,
         lastTradedOn: null,
         payoutsTaken: 0,
@@ -296,8 +296,8 @@ describe('the accounts pages attach the previous snapshot only to a one-day eval
 
     it('carries the previous snapshot of an eval account that lost money since the previous trading day', () => {
         singleAccount([
-            snapshotRow(ACCOUNT_ID, '2026-09-24', 51_300),
-            snapshotRow(ACCOUNT_ID, '2026-09-25', 50_300),
+            snapshotRow('2026-09-24', 51_300),
+            snapshotRow('2026-09-25', 50_300),
         ]);
         render(<ListProbe />);
         const request = onlyFromStateRequest();
@@ -315,8 +315,8 @@ describe('the accounts pages attach the previous snapshot only to a one-day eval
             ],
             payouts: [requestedPayout(SIBLING_ID, '2026-09-25')],
             snapshots: [
-                snapshotRow(ACCOUNT_ID, '2026-09-24', 51_300),
-                snapshotRow(ACCOUNT_ID, '2026-09-25', 50_300),
+                snapshotRow('2026-09-24', 51_300),
+                snapshotRow('2026-09-25', 50_300),
             ],
         });
         render(<ListProbe />);
@@ -332,8 +332,8 @@ describe('the accounts pages attach the previous snapshot only to a one-day eval
 
     it('carries no previous snapshot for an eval account that gained money', () => {
         singleAccount([
-            snapshotRow(ACCOUNT_ID, '2026-09-24', 50_300),
-            snapshotRow(ACCOUNT_ID, '2026-09-25', 51_300),
+            snapshotRow('2026-09-24', 50_300),
+            snapshotRow('2026-09-25', 51_300),
         ]);
         render(<ListProbe />);
         expect(onlyFromStateRequest().previous).toBeUndefined();
@@ -342,8 +342,8 @@ describe('the accounts pages attach the previous snapshot only to a one-day eval
     it('carries no previous snapshot for a funded account that lost money', () => {
         singleAccount(
             [
-                snapshotRow(ACCOUNT_ID, '2026-09-24', 51_300),
-                snapshotRow(ACCOUNT_ID, '2026-09-25', 50_300),
+                snapshotRow('2026-09-24', 51_300),
+                snapshotRow('2026-09-25', 50_300),
             ],
             { fundedOn: '2026-09-01', stage: AccountStage.Funded },
         );
@@ -353,8 +353,8 @@ describe('the accounts pages attach the previous snapshot only to a one-day eval
 
     it('carries no previous snapshot when the two snapshots are more than one trading day apart', () => {
         singleAccount([
-            snapshotRow(ACCOUNT_ID, '2026-09-22', 51_300),
-            snapshotRow(ACCOUNT_ID, '2026-09-25', 50_300),
+            snapshotRow('2026-09-22', 51_300),
+            snapshotRow('2026-09-25', 50_300),
         ]);
         render(<ListProbe />);
         expect(onlyFromStateRequest().previous).toBeUndefined();
@@ -362,8 +362,8 @@ describe('the accounts pages attach the previous snapshot only to a one-day eval
 
     it('carries no previous snapshot on the one-account detail request, which has its own set', () => {
         singleAccount([
-            snapshotRow(ACCOUNT_ID, '2026-09-24', 51_300),
-            snapshotRow(ACCOUNT_ID, '2026-09-25', 50_300),
+            snapshotRow('2026-09-24', 51_300),
+            snapshotRow('2026-09-25', 50_300),
         ]);
         render(<DetailProbe />);
         expect(onlyFromStateRequest().previous).toBeUndefined();

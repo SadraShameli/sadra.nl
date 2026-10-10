@@ -161,7 +161,7 @@ function draftOf(
     const funded = members.flatMap((member) => {
         if (!member.isActive) return [];
         const figures = fundedFiguresOf(member.state, options.rulebook);
-        return figures === null ? [] : [{ figures, member }];
+        return figures === null ? [] : { figures, member };
     });
     const inProfit = funded.filter(({ figures }) => figures.isInProfit);
     const active = members.filter((member) => member.isActive);
@@ -239,7 +239,7 @@ function latestOf(dates: readonly (null | string)[]): null | string {
 function windowOf(payouts: readonly PayoutCashFields[]): PayoutWindow {
     const cash = payouts.flatMap((payout) => {
         const entry = paidPayoutCash(payout);
-        return entry === null ? [] : [entry.cents];
+        return entry === null ? [] : entry.cents;
     });
     return { cents: sumUsdCents(cash), count: cash.length };
 }

@@ -131,9 +131,9 @@ async function flush() {
     });
 }
 
-function inputLabelled(scope: ParentNode, label: string): HTMLElement {
+function inputLabelled(scope: ParentNode): HTMLElement {
     const labelElement = [...scope.querySelectorAll('label')].find(
-        (candidate) => candidate.textContent.trim() === label,
+        (candidate) => candidate.textContent.trim() === 'Event',
     );
     const control =
         labelElement === undefined
@@ -141,7 +141,7 @@ function inputLabelled(scope: ParentNode, label: string): HTMLElement {
             : document.querySelector<HTMLElement>(
                   `#${CSS.escape(labelElement.htmlFor)}`,
               );
-    if (control === null) throw new Error(`no control labelled ${label}`);
+    if (control === null) throw new Error('no control labelled Event');
     return control;
 }
 
@@ -257,7 +257,7 @@ describe('EventsSection live exclusivity preview and confirm', () => {
     }
 
     async function recordMovedLive() {
-        await pickOption(inputLabelled(container, 'Event'), 'Moved live');
+        await pickOption(inputLabelled(container), 'Moved live');
         return;
     }
 
@@ -454,10 +454,7 @@ describe('EventsSection live exclusivity preview and confirm', () => {
                         />,
                     );
                 });
-                await pickOption(
-                    inputLabelled(container, 'Event'),
-                    'Eval passed',
-                );
+                await pickOption(inputLabelled(container), 'Eval passed');
                 expect(container.textContent).not.toContain(
                     'going live changes',
                 );
@@ -532,7 +529,7 @@ describe('EventsSection live exclusivity preview and confirm', () => {
     it('does not hold another event kind while the account list loads', async () => {
         harness.queries.delete('account.list');
         render();
-        await pickOption(inputLabelled(container, 'Event'), 'Busted');
+        await pickOption(inputLabelled(container), 'Busted');
         expect(container.textContent).not.toContain(
             'Loading your other accounts',
         );
@@ -570,10 +567,7 @@ describe('EventsSection live exclusivity preview and confirm', () => {
                         />,
                     );
                 });
-                await pickOption(
-                    inputLabelled(container, 'Event'),
-                    'Moved live',
-                );
+                await pickOption(inputLabelled(container), 'Moved live');
                 expect(exclusivityCheckbox()).toBeNull();
             },
         );

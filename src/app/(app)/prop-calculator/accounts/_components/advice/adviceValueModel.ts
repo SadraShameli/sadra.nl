@@ -23,6 +23,7 @@ import {
 import {
     AccountAction,
     type Advice,
+    AdviceStalenessKind,
     assumptionText,
     type CumulativePayoutTriggerAssumption,
     type DailyPlanCard,
@@ -210,7 +211,7 @@ export const CANDIDATE_VALUE_BASIS_TEXT =
 export const EVAL_CANDIDATES_NOTE_TEXT =
     'Eval sizing is the maximum allowed risk under a daily cap, for speed to funded. This table values one trade at smaller sizes; it is not a smaller eval size to take.';
 
-export const LIVE_TRANSFER_UNIDENTIFIED_PLAN_TEXT =
+const LIVE_TRANSFER_UNIDENTIFIED_PLAN_TEXT =
     'Live transfer: a hazard is entered in your rulebook, but the plan for these runs could not be identified, so this note cannot say whether it was priced.';
 
 export const NO_LIVE_VALUE_TEXT =
@@ -239,7 +240,7 @@ export function adviceValueRequestOf(
     const { account, advice, plan, rulebook } = input;
     if (
         account.kind === ReconstructedLiveKind.Live ||
-        advice.staleness.kind === 'stale' ||
+        advice.staleness.kind === AdviceStalenessKind.Stale ||
         advice.documented === null
     ) {
         return { kind: AdviceValueRequestKind.NotRequested };

@@ -16,7 +16,7 @@ export function HubLegacySectionRedirect() {
         const target = hubLegacyTarget(
             window.location.hash,
             window.location.search,
-            readLastToolQuery(),
+            readLastToolQuery() ?? undefined,
         );
         if (target === null) return;
         watchLegacyFragmentScroll(target.fragment, target.route);

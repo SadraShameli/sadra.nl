@@ -104,7 +104,7 @@ function PayoutHistogram({ bins }: { readonly bins: readonly HistogramBin[] }) {
     }));
     return (
         <ChartContainer
-            className="aspect-[16/9] w-full"
+            className="aspect-video w-full"
             config={histogramConfig}
         >
             <BarChart

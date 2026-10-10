@@ -99,9 +99,9 @@ function contextFor(
     };
 }
 
-function fundedState(balance: number): AccountState {
+function fundedState(): AccountState {
     return {
-        balance,
+        balance: 55_000,
         bestDayProfit: 0,
         consecutiveIdleDays: 0,
         intradayHighProfit: 0,
@@ -116,9 +116,9 @@ function fundedState(balance: number): AccountState {
     };
 }
 
-function registryPlan(id: PlanId): Plan {
-    const found = findFirm(id.firm)?.findPlan(id);
-    if (!found) throw new Error(`${serializePlanId(id)} missing`);
+function registryPlan(): Plan {
+    const found = findFirm(MFF_PRO_ID.firm)?.findPlan(MFF_PRO_ID);
+    if (!found) throw new Error(`${serializePlanId(MFF_PRO_ID)} missing`);
     return found;
 }
 
@@ -133,7 +133,7 @@ function trackerWith(
 }
 
 describe('the live-trigger inputs are required (PT-36g)', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     it.each([
         'liveTriggerFirmTotalCap',
@@ -143,7 +143,7 @@ describe('the live-trigger inputs are required (PT-36g)', () => {
     ] as const)(
         'refuses a funded payout context that leaves out %s',
         (omitted) => {
-            const state = fundedState(55_000);
+            const state = fundedState();
             const context = contextFor(plan, state, trackerWith(state, 0));
             const withoutField = Object.fromEntries(
                 Object.entries(context).filter(([key]) => key !== omitted),
@@ -153,7 +153,7 @@ describe('the live-trigger inputs are required (PT-36g)', () => {
     );
 
     it('refuses payoutReadiness options that leave out the live trigger', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const withoutLiveTrigger = {
             minRetainedCushion: 0,
         } as unknown as Parameters<typeof payoutReadiness>[3];
@@ -168,7 +168,7 @@ describe('the live-trigger inputs are required (PT-36g)', () => {
     });
 
     it('exports one explicit not-checked value that never blocks and says so', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const readiness = payoutReadiness(plan, state, trackerWith(state, 2), {
             ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: LIVE_TRIGGER_NOT_CHECKED,
@@ -184,14 +184,14 @@ describe('the live-trigger inputs are required (PT-36g)', () => {
 });
 
 describe('a pending payout counts toward the live trigger (PT-36g)', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
     const perAccountThree = {
         ...LIVE_TRIGGER_NOT_CHECKED,
         perAccountCap: 3,
     };
 
     it('payoutReadiness: one payout taken and one pending makes the next request the third', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const readiness = payoutReadiness(plan, state, trackerWith(state, 1), {
             liveTrigger: perAccountThree,
             minRetainedCushion: 0,
@@ -214,7 +214,7 @@ describe('a pending payout counts toward the live trigger (PT-36g)', () => {
     });
 
     it('payoutReadiness: the same account with no pending payout is still eligible', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const readiness = payoutReadiness(plan, state, trackerWith(state, 1), {
             liveTrigger: perAccountThree,
             minRetainedCushion: 0,
@@ -227,7 +227,7 @@ describe('a pending payout counts toward the live trigger (PT-36g)', () => {
     });
 
     it('payoutReadiness: the firm-wide count includes a pending payout', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const readiness = payoutReadiness(plan, state, trackerWith(state, 0), {
             liveTrigger: {
                 ...LIVE_TRIGGER_NOT_CHECKED,
@@ -254,7 +254,7 @@ describe('a pending payout counts toward the live trigger (PT-36g)', () => {
     });
 
     it('PayoutRequestRule: one payout taken and one pending makes the next request the third', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const decision = rule.decide(
             contextFor(plan, state, trackerWith(state, 1), {
                 liveTriggerPerAccountCap: 3,
@@ -276,7 +276,7 @@ describe('a pending payout counts toward the live trigger (PT-36g)', () => {
     });
 
     it('PayoutRequestRule: the same account with no pending payout requests', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const decision = rule.decide(
             contextFor(plan, state, trackerWith(state, 1), {
                 liveTriggerPerAccountCap: 3,
@@ -287,10 +287,10 @@ describe('a pending payout counts toward the live trigger (PT-36g)', () => {
 });
 
 describe('the live-trigger source schema follows PolicyCitation (PT-36g)', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     it('accepts a full policy quote as the source and keeps only the citation fields', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const decision = rule.decide(
             contextFor(plan, state, trackerWith(state, 2), {
                 liveTriggerPerAccountCap: 3,
@@ -324,7 +324,7 @@ describe('the live-trigger source schema follows PolicyCitation (PT-36g)', () =>
     });
 
     it('still rejects a source with an empty quote', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         expect(() =>
             rule.decide(
                 contextFor(plan, state, trackerWith(state, 2), {
@@ -341,7 +341,7 @@ describe('the live-trigger source schema follows PolicyCitation (PT-36g)', () =>
 });
 
 describe('a per-account trigger whose sources conflict but agree on the cap (PT-36g)', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     it('still carries the primary quote as its source and stays not checked', () => {
         const limits = liveTriggerLimitsFor(

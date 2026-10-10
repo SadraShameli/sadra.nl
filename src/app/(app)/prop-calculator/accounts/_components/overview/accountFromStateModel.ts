@@ -90,15 +90,6 @@ export enum MilestoneValueViewKind {
     Value = 'value',
 }
 
-export interface AccountFromStateMilestoneModel {
-    readonly debited: null | string;
-    readonly gates: readonly string[];
-    readonly kind: MilestoneKind.Eval | MilestoneKind.Funded;
-    readonly label: string;
-    readonly received: null | string;
-    readonly value: AccountFromStateMilestoneValueModel;
-}
-
 export interface AccountFromStateModel {
     readonly asOf: string;
     readonly creditBasis: string;
@@ -109,20 +100,6 @@ export interface AccountFromStateModel {
     readonly startBasis: string;
     readonly trials: string;
     readonly value: AccountFromStateValueModel;
-}
-
-export interface AccountFromStateNextPayoutModel {
-    readonly accountLostBeforePayout: string;
-    readonly breachAtFirstPayout: string;
-    readonly calendarDays: string;
-    readonly payingTrials: string;
-    readonly resetFee: string;
-    readonly sessionDays: string;
-}
-
-export interface AccountFromStateValueModel {
-    readonly creditFree: string;
-    readonly creditInclusive: string;
 }
 
 export type AccountFromStateView =
@@ -140,6 +117,15 @@ export type AccountFromStateView =
           readonly reason: string;
       };
 
+interface AccountFromStateMilestoneModel {
+    readonly debited: null | string;
+    readonly gates: readonly string[];
+    readonly kind: MilestoneKind.Eval | MilestoneKind.Funded;
+    readonly label: string;
+    readonly received: null | string;
+    readonly value: AccountFromStateMilestoneValueModel;
+}
+
 type AccountFromStateMilestoneValueModel =
     | {
           readonly creditFree: string;
@@ -151,6 +137,20 @@ type AccountFromStateMilestoneValueModel =
           readonly kind: MilestoneValueViewKind.Unavailable;
           readonly text: string;
       };
+
+interface AccountFromStateNextPayoutModel {
+    readonly accountLostBeforePayout: string;
+    readonly breachAtFirstPayout: string;
+    readonly calendarDays: string;
+    readonly payingTrials: string;
+    readonly resetFee: string;
+    readonly sessionDays: string;
+}
+
+interface AccountFromStateValueModel {
+    readonly creditFree: string;
+    readonly creditInclusive: string;
+}
 
 interface EvalDayLossRequestEntry {
     readonly accountId: string;

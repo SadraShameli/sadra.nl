@@ -141,7 +141,7 @@ const LEDGER_ONLY_SNAPSHOT_RULES: readonly SnapshotFieldRule[] =
         const field = SNAPSHOT_FIELD_BY_KEY.get(key);
         return field === undefined
             ? []
-            : [{ ...LEDGER_ONLY_FIELD_TEXT[key], alternative: null, field }];
+            : { ...LEDGER_ONLY_FIELD_TEXT[key], alternative: null, field };
     });
 
 export function emptySnapshotFormValues(asOf: string): SnapshotFormValues {

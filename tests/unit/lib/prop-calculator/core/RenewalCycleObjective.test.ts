@@ -51,12 +51,11 @@ const CYCLE_DAYS = [1, 20, 21, 22, 42, 43];
 
 function sumEvalDayCost(
     objective: RenewalCycleObjective,
-    ratePerDay: number,
     days: number,
 ): number {
     let total = 0;
     for (let day = 0; day < days; day += 1) {
-        total += objective.evalDayCost(ratePerDay, day);
+        total += objective.evalDayCost(0, day);
     }
     return total;
 }
@@ -85,7 +84,7 @@ describe.each([
                 });
 
                 const failTotal =
-                    objective.entryCost(0) + sumEvalDayCost(objective, 0, days);
+                    objective.entryCost(0) + sumEvalDayCost(objective, days);
                 expect(failTotal).toBeCloseTo(
                     plan.feesUntilPass(days, discounts),
                     6,
@@ -481,10 +480,9 @@ function chainCost(
 ): number {
     let total = objective.entryCost(0);
     for (const days of failedAttemptDays) {
-        total +=
-            sumEvalDayCost(objective, 0, days) + objective.retryCost(0, days);
+        total += sumEvalDayCost(objective, days) + objective.retryCost(0, days);
     }
-    return total + sumEvalDayCost(objective, 0, passAttemptDays);
+    return total + sumEvalDayCost(objective, passAttemptDays);
 }
 
 describe('a reset does not restart the subscription billing cycle, so retryCost adds the prorated part of the month the failed attempt used (the D1 and simulator calendar billing)', () => {
@@ -577,9 +575,9 @@ describe('a reset does not restart the subscription billing cycle, so retryCost 
             const expectedChainCost =
                 objective.entryCost(0) +
                 expectedRetries *
-                    (sumEvalDayCost(objective, 0, attemptDays) +
+                    (sumEvalDayCost(objective, attemptDays) +
                         objective.retryCost(0, attemptDays)) +
-                sumEvalDayCost(objective, 0, attemptDays);
+                sumEvalDayCost(objective, attemptDays);
 
             const d1 = replacementEconomics({
                 discounts: undefined,
@@ -670,9 +668,9 @@ describe('a re-buy on a subscription plan bills each account from its own first 
             const expectedChainCost =
                 objective.entryCost(0) +
                 expectedRetries *
-                    (sumEvalDayCost(objective, 0, failDays) +
+                    (sumEvalDayCost(objective, failDays) +
                         objective.retryCost(0, failDays)) +
-                sumEvalDayCost(objective, 0, passDays);
+                sumEvalDayCost(objective, passDays);
 
             const d1 = replacementEconomics({
                 attemptDays: { failDays: [failDays], passDays: [passDays] },

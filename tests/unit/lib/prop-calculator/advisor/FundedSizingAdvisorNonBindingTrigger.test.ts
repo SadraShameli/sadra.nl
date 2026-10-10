@@ -100,13 +100,7 @@ function accountOf(
     };
 }
 
-function advisorWithTrigger(
-    triggerAmount: number,
-    positionSizing: {
-        readonly instrument: InstrumentSymbol;
-        readonly stopPoints: number;
-    },
-): FundedSizingAdvisor {
+function advisorWithTrigger(triggerAmount: number): FundedSizingAdvisor {
     const trigger = new SingleDayProfitTrigger(
         dollars(triggerAmount),
         true,
@@ -117,7 +111,7 @@ function advisorWithTrigger(
         account: accountOf(registryPlan(MFF_PRO_ID), state),
         accountPolicy: new StubTriggerPolicy([trigger]),
         fundedHorizonDays: 252,
-        positionSizing,
+        positionSizing: NQ_AT_20_POINTS,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
         substate: null,
@@ -158,10 +152,7 @@ describe('FundedSizingAdvisor: a verified trigger room between the flat rung and
     it.each([550, 650, 750])(
         'keeps the flat rung and stops on max trades under a $%d trigger at NQ 20 points',
         (triggerAmount) => {
-            const card = advisorWithTrigger(
-                triggerAmount,
-                NQ_AT_20_POINTS,
-            ).dailyPlanCard();
+            const card = advisorWithTrigger(triggerAmount).dailyPlanCard();
 
             expect(card?.stopReason).toBe(DayStopReason.MaxTrades);
             expect(card?.rungs.map((rung) => rung.risk)).toStrictEqual([
@@ -174,16 +165,16 @@ describe('FundedSizingAdvisor: a verified trigger room between the flat rung and
     );
 
     it('still stops with the ceiling when the trigger room is below the flat rung and below one contract', () => {
-        const card = advisorWithTrigger(450, NQ_AT_20_POINTS).dailyPlanCard();
+        const card = advisorWithTrigger(450).dailyPlanCard();
 
         expect(card?.stopReason).toBe(DayStopReason.CeilingReached);
         expect(card?.rungs).toStrictEqual([]);
     });
 
     it('gives the same card as a firm with no trigger when the trigger does not bind', () => {
-        const withTrigger = advisorWithTrigger(650, NQ_AT_20_POINTS);
+        const withTrigger = advisorWithTrigger(650);
 
-        const nonBinding = advisorWithTrigger(10_000, NQ_AT_20_POINTS);
+        const nonBinding = advisorWithTrigger(10_000);
 
         expect(withTrigger.dailyPlanCard()?.rungs).toStrictEqual(
             nonBinding.dailyPlanCard()?.rungs,
@@ -193,7 +184,7 @@ describe('FundedSizingAdvisor: a verified trigger room between the flat rung and
 
 describe('FundedSizingAdvisor: a rung below one contract stays disclosed on the advice (PT-36f review)', () => {
     it('keeps the flat rung on the card and says in the advice that it places below one contract at the entered stop', () => {
-        const advisor = advisorWithTrigger(650, NQ_AT_20_POINTS);
+        const advisor = advisorWithTrigger(650);
 
         const { differenceReasons } = advisor.assemble([]);
         const belowOneContract = differenceReasons.filter(

@@ -947,7 +947,7 @@ describe('validateAccountScenario', () => {
     });
 
     it('rejects a name with invisible characters', () => {
-        const result = validateAccountScenario('Apex​', 'firm=apex');
+        const result = validateAccountScenario('Apex\u{200B}', 'firm=apex');
         expect(result.ok).toBe(false);
     });
 });

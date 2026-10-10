@@ -117,9 +117,7 @@ const TOPSTEP_30 = rulebookWith({ [FirmId.TopStep]: 0.3 });
 
 describe('the overview figures priced with the rulebook live-transfer hazard say so (PT-73d step 1)', () => {
     it('carries a typed assumption on the documented run, with the share of runs sent live', () => {
-        const priced = documentedOf(TOPSTEP_30);
-
-        const { liveTransfer } = priced;
+        const { liveTransfer } = documentedOf(TOPSTEP_30);
         if (liveTransfer === undefined) throw new Error('expected a hazard');
 
         expect(liveTransfer).toMatchObject({ hazard: 0.3 });

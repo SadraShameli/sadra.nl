@@ -12,7 +12,6 @@ const STEP_CENTS = 5000;
 function decision(
     acceptedRiskCents: number,
     actualRiskCents: null | number,
-    overrides: Partial<AdherenceDecision> = {},
 ): AdherenceDecision {
     return {
         acceptedRiskCents: usdCents(acceptedRiskCents),
@@ -20,7 +19,6 @@ function decision(
         actualRiskCents:
             actualRiskCents === null ? null : usdCents(actualRiskCents),
         decidedOn: '2026-09-23',
-        ...overrides,
     };
 }
 

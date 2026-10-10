@@ -185,9 +185,7 @@ class TieredDailyLossLimit extends DailyLossLimit {
     }
 
     describe(): DailyLossLimitDescriptor {
-        const amounts = this.tiers.flatMap((tier) =>
-            tier.dailyLossLimit === null ? [] : [tier.dailyLossLimit],
-        );
+        const amounts = this.tiers.flatMap((tier) => tier.dailyLossLimit ?? []);
         if (amounts.length === 0) {
             return { kind: DailyLossLimitShape.None };
         }

@@ -71,13 +71,6 @@ export type CopyGroupPositionSizing = NonNullable<
     CopyGroupSizingInput['positionSizing']
 >;
 
-export interface CopyGroupSizingInputs {
-    readonly leftOutLabels: readonly string[];
-    readonly members: readonly CopyGroupSizingMember[];
-    readonly rulebook: RulebookParameters;
-    readonly simulationMembers: readonly CopyGroupSimulationMemberInput[];
-}
-
 export interface CopyGroupSizingSection {
     readonly asOf: string;
     readonly exposure: CopyGroupExposure | null;
@@ -88,13 +81,20 @@ export interface CopyGroupSizingSection {
     readonly unsizedMembers: readonly UnsizedCopyGroupMember[];
 }
 
-export interface StaleCopyGroupMember {
+interface CopyGroupSizingInputs {
+    readonly leftOutLabels: readonly string[];
+    readonly members: readonly CopyGroupSizingMember[];
+    readonly rulebook: RulebookParameters;
+    readonly simulationMembers: readonly CopyGroupSimulationMemberInput[];
+}
+
+interface StaleCopyGroupMember {
     readonly asOf: string;
     readonly label: string;
     readonly memberId: string;
 }
 
-export interface UnsizedCopyGroupMember {
+interface UnsizedCopyGroupMember {
     readonly label: string;
     readonly memberId: string;
     readonly reason: string;

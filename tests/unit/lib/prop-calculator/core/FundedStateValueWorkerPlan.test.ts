@@ -1,8 +1,8 @@
 import type * as OsModule from 'node:os';
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { FundedWorkerSession } from '~/lib/prop-calculator/core/FundedStateValue';
+import type * as FundedStateValue from '~/lib/prop-calculator/core/FundedStateValue';
 
 const MOCKED_CORE_COUNT = 32;
 const TOP_STEP_DEFAULT_GROUP_COUNT = 240;
@@ -14,6 +14,14 @@ vi.mock('node:os', async (importOriginal) => ({
 }));
 
 describe('the funded worker count on a 32 thread machine (WP66a R4)', () => {
+    let FundedWorkerSession: typeof FundedStateValue.FundedWorkerSession;
+
+    beforeAll(async () => {
+        vi.resetModules();
+        ({ FundedWorkerSession } =
+            await import('~/lib/prop-calculator/core/FundedStateValue'));
+    });
+
     it('plans 30 workers for the 240 default-grid work groups, so every worker gets 8 groups, instead of the old fixed cap of 8 workers', () => {
         const planned = new FundedWorkerSession().plannedWorkerCount(
             TOP_STEP_DEFAULT_GROUP_COUNT,

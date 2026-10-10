@@ -700,7 +700,7 @@ function StatCard({
     label,
     sub,
     value,
-    valueClass,
+    valueClass = 'text-foreground',
 }: {
     label: string;
     sub?: string;
@@ -714,7 +714,7 @@ function StatCard({
                     {label}
                 </span>
                 <span
-                    className={`font-mono text-lg leading-none font-bold tabular-nums ${valueClass ?? 'text-foreground'}`}
+                    className={`font-mono text-lg leading-none font-bold tabular-nums ${valueClass}`}
                 >
                     {value}
                 </span>

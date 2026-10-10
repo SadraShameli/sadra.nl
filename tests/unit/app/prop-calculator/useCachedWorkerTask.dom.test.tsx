@@ -76,11 +76,11 @@ function createWorker(): Worker {
     return new EventTarget() as unknown as Worker;
 }
 
-function failed(reason: string) {
+function failed() {
     act(() => {
         fakeWorker.dispatch?.({
             kind: WorkerTaskEventKind.Failed,
-            reason,
+            reason: 'boom',
             runId: fakeWorker.runId,
         });
     });
@@ -231,7 +231,7 @@ describe('useCachedWorkerTask', () => {
 
     it('does not show a failure of another key for the new key', () => {
         render(job('a'));
-        failed('boom');
+        failed();
         expect(latest.current?.state).toMatchObject({
             phase: WorkerTaskPhase.Failed,
             reason: 'boom',
@@ -348,7 +348,7 @@ describe('useCachedWorkerTask', () => {
 
     it('runs a failed key again after retry', () => {
         render(job('a'));
-        failed('boom');
+        failed();
         expect(fakeWorker.runSpy).toHaveBeenCalledTimes(1);
 
         act(() => {

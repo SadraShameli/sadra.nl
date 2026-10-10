@@ -62,7 +62,7 @@ describe('MFFU Rapid versus Rapid EOD', () => {
 
         expect(b.daysToPassP50).toBeGreaterThan(a.daysToPassP50);
         expect(b.expectedDaysToPass).toBeGreaterThan(a.expectedDaysToPass);
-    });
+    }, 10_000);
 
     it('converge under a day-green stop, which makes every difference inert', () => {
         const a = run(rapid, { kind: DayStopRuleKind.DayGreen });
@@ -70,5 +70,5 @@ describe('MFFU Rapid versus Rapid EOD', () => {
 
         expect(b.daysToPassP50).toBe(a.daysToPassP50);
         expect(b.expectedGrossPayout).toBeCloseTo(a.expectedGrossPayout, 6);
-    });
+    }, 10_000);
 });

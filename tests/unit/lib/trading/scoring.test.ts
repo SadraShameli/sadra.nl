@@ -69,8 +69,8 @@ describe('findCurrentWindow', () => {
         if (!first || !second) {
             throw new Error('DEFAULT_PLAN must define two windows');
         }
-        const [endH, endM] = first.end.split(':').map(Number);
-        const gap = `${String(endH ?? 0).padStart(2, '0')}:${String((endM ?? 0) + 15).padStart(2, '0')}`;
+        const [endH = 0, endM = 0] = first.end.split(':').map(Number);
+        const gap = `${String(endH).padStart(2, '0')}:${String(endM + 15).padStart(2, '0')}`;
         expect(findCurrentWindow(DEFAULT_PLAN, nyDateAt(gap))).toBeNull();
     });
 

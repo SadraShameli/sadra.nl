@@ -41,7 +41,7 @@ export default function InfoPopover({
             <PopoverContent align="end" className="w-80">
                 <div className="flex flex-col gap-2">
                     <div className="text-sm font-semibold">{title}</div>
-                    <div className="text-sm leading-relaxed text-muted-foreground [&_p:not([class*='text-'])]:text-sm">
+                    <div className="text-sm/relaxed text-muted-foreground [&_p:not([class*='text-'])]:text-sm">
                         {children}
                     </div>
                 </div>

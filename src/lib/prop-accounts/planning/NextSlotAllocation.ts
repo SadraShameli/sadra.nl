@@ -682,20 +682,18 @@ function exclusivityAccountsOf(
     return modeledEntries(ledger).flatMap((entry) =>
         entry.plan === null
             ? []
-            : [
-                  {
-                      accountPolicy: entry.plan.firm.accountPolicy,
-                      events: entry.events.map((event) => ({
-                          kind: event.kind,
-                          occurredOn: event.occurredOn,
-                      })),
-                      firmId: entry.plan.firm.id,
-                      id: entry.row.id,
-                      plan: entry.plan.plan,
-                      stage: entry.row.stage,
-                      status: entry.row.status,
-                  },
-              ],
+            : {
+                  accountPolicy: entry.plan.firm.accountPolicy,
+                  events: entry.events.map((event) => ({
+                      kind: event.kind,
+                      occurredOn: event.occurredOn,
+                  })),
+                  firmId: entry.plan.firm.id,
+                  id: entry.row.id,
+                  plan: entry.plan.plan,
+                  stage: entry.row.stage,
+                  status: entry.row.status,
+              },
     );
 }
 

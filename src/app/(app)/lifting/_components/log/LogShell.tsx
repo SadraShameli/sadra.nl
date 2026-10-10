@@ -174,7 +174,7 @@ export function LogShell({ initialSettings }: LogShellProperties) {
                 />
             </div>
 
-            <div className="fixed right-0 bottom-4 left-0 z-20 flex justify-center px-4 sm:hidden">
+            <div className="fixed inset-x-0 bottom-4 z-20 flex justify-center px-4 sm:hidden">
                 <Button
                     className={cn(
                         'flex h-12 w-full items-center justify-center gap-2 rounded-full shadow-lg',

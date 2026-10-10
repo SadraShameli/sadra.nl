@@ -237,7 +237,7 @@ export const readingRouter = createTRPCRouter({
                         (to) =>
                             new ReadingCreatedEmail(to, {
                                 deviceName: ctx.device.name,
-                                locationName: loc?.name ?? null,
+                                locationName: loc?.name ?? undefined,
                                 sensorReadings: resolved.map((r) => ({
                                     name: r.name,
                                     unit: r.unit,
@@ -267,7 +267,7 @@ export const readingRouter = createTRPCRouter({
                                 (to) =>
                                     new LoudnessAlertEmail(to, {
                                         deviceName: ctx.device.name,
-                                        locationName: loc?.name ?? null,
+                                        locationName: loc?.name ?? undefined,
                                         threshold,
                                         value: loudness.value,
                                     }),

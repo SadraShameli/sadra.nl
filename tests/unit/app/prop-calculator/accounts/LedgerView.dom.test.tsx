@@ -117,7 +117,7 @@ vi.mock('~/trpc/react', () => ({
     },
 }));
 
-function account(overrides: Record<string, unknown> = {}) {
+function account() {
     return {
         accountSize: PLAN.id.accountSize,
         archivedAt: null,
@@ -148,7 +148,6 @@ function account(overrides: Record<string, unknown> = {}) {
         tracking: AccountTracking.Modeled,
         updatedAt: new Date('2026-06-01T12:00:00Z'),
         userId: USER_ID,
-        ...overrides,
     };
 }
 
@@ -195,9 +194,11 @@ function failed(message: string): FakeQuery {
     };
 }
 
-function input(scope: ParentNode, selector: string): HTMLInputElement {
-    const found = scope.querySelector<HTMLInputElement>(selector);
-    if (found === null) throw new Error(`no input ${selector}`);
+function input(scope: ParentNode): HTMLInputElement {
+    const found = scope.querySelector<HTMLInputElement>(
+        'input[placeholder="0.00"]',
+    );
+    if (found === null) throw new Error('no input input[placeholder="0.00"]');
     return found;
 }
 
@@ -287,7 +288,7 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
 
     it('records a deposit through bankroll.create with exact cents', async () => {
         render();
-        typeInto(input(container, 'input[placeholder="0.00"]'), '1,000.50');
+        typeInto(input(container), '1,000.50');
         await submitForm(container, 'Add a transfer');
         expect(harness.mutateOf('bankroll.create')).toHaveBeenCalledWith({
             amountCents: 100_050,
@@ -380,7 +381,7 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
         const firmValue = `modeled:${FIRM.id}`;
         chooseSelectValue(form, firmValue);
         chooseSelectValue(form, ReportedPayoutBasis.Net);
-        typeInto(input(form, 'input[placeholder="0.00"]'), '2,500');
+        typeInto(input(form), '2,500');
         await submitForm(container, 'Add a firm statement');
         expect(harness.mutateOf('firmStatement.create')).toHaveBeenCalledWith({
             asOf: '2026-09-26',
@@ -420,8 +421,8 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
             container,
             'form[aria-label="Edit firm statement"]',
         );
-        expect(input(form, 'input[placeholder="0.00"]').value).toBe('1000');
-        typeInto(input(form, 'input[placeholder="0.00"]'), '1,200');
+        expect(input(form).value).toBe('1000');
+        typeInto(input(form), '1,200');
         await submitForm(container, 'Edit firm statement');
         expect(harness.mutateOf('firmStatement.update')).toHaveBeenCalledWith({
             asOf: '2026-09-05',
@@ -518,7 +519,7 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
         );
         expect(selectOffering(form, ReportedPayoutBasis.Net).value).toBe('');
         chooseSelectValue(form, `modeled:${FIRM.id}`);
-        typeInto(input(form, 'input[placeholder="0.00"]'), '2,500');
+        typeInto(input(form), '2,500');
         await submitForm(container, 'Add a firm statement');
         expect(harness.mutateOf('firmStatement.create')).not.toHaveBeenCalled();
         expect(form.textContent).toContain(

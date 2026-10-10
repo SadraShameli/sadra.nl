@@ -39,7 +39,7 @@ export default function PortfolioHero({
             <p
                 className={cn(
                     'app-portfolio__hero-headline',
-                    'mt-5 max-w-2xl text-base leading-relaxed text-neutral-300 sm:text-lg',
+                    'mt-5 max-w-2xl text-base/relaxed text-neutral-300 sm:text-lg',
                 )}
             >
                 {headline}

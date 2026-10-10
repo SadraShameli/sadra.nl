@@ -70,11 +70,11 @@ function scoreOf(
     return scores.find((score) => score.ladder.join(',') === ladder.join(','));
 }
 
-function searchAll(grid: LadderGridConfig, seed: number) {
+function searchAll(grid: LadderGridConfig) {
     const result = runLadderSearch({
         grid,
         score: config(rapidEod, 2000),
-        seed,
+        seed: 7,
         topN: 1000,
     });
     return [...result.byPassRate];
@@ -119,11 +119,11 @@ describe('ladder scores use common random numbers', () => {
 
     it('scores a ladder the same wherever it sits in the grid', () => {
         const alone = scoreOf(
-            searchAll({ lo: 300, max: 300, slots: 1, step: 100 }, 7),
+            searchAll({ lo: 300, max: 300, slots: 1, step: 100 }),
             [300],
         );
         const third = scoreOf(
-            searchAll({ lo: 100, max: 300, slots: 1, step: 100 }, 7),
+            searchAll({ lo: 100, max: 300, slots: 1, step: 100 }),
             [300],
         );
         expect(alone).toBeDefined();
@@ -138,7 +138,7 @@ describe('ladder scores use common random numbers', () => {
         );
         expect(
             scoreOf(
-                searchAll({ lo: 100, max: 300, slots: 1, step: 100 }, 7),
+                searchAll({ lo: 100, max: 300, slots: 1, step: 100 }),
                 [300],
             ),
         ).toStrictEqual(direct);

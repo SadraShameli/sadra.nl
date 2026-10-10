@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { applyAudioFilters } from '~/server/helpers/audio';
 
-function makeWav(samples: Int16Array, sampleRate = 16_000): Buffer {
+function makeWav(samples: Int16Array): Buffer {
     const dataBytes = samples.length * 2;
     const buffer = Buffer.alloc(44 + dataBytes);
     buffer.write('RIFF', 0);
@@ -12,8 +12,8 @@ function makeWav(samples: Int16Array, sampleRate = 16_000): Buffer {
     buffer.writeUInt32LE(16, 16);
     buffer.writeUInt16LE(1, 20);
     buffer.writeUInt16LE(1, 22);
-    buffer.writeUInt32LE(sampleRate, 24);
-    buffer.writeUInt32LE(sampleRate * 2, 28);
+    buffer.writeUInt32LE(16_000, 24);
+    buffer.writeUInt32LE(16_000 * 2, 28);
     buffer.writeUInt16LE(2, 32);
     buffer.writeUInt16LE(16, 34);
     buffer.write('data', 36);

@@ -50,13 +50,6 @@ interface SnapshotGap {
     readonly staged: StagedSnapshot;
 }
 
-export function accountLabelOf(
-    accounts: ReadonlyMap<string, Pick<OwnedAccount, 'label'>>,
-    accountId: string,
-): string {
-    return accounts.get(accountId)?.label ?? accountId;
-}
-
 export async function assertNotStored(
     database: PropDatabase,
     userId: string,
@@ -148,8 +141,11 @@ export function assertRequiredFields(
     );
 }
 
-export function snapshotKey(accountId: string, asOf: string): string {
-    return `${accountId} ${asOf}`;
+function accountLabelOf(
+    accounts: ReadonlyMap<string, Pick<OwnedAccount, 'label'>>,
+    accountId: string,
+): string {
+    return accounts.get(accountId)?.label ?? accountId;
 }
 
 function missingFieldLabels(
@@ -166,4 +162,8 @@ function missingFieldLabels(
             ),
         ),
     ];
+}
+
+function snapshotKey(accountId: string, asOf: string): string {
+    return `${accountId} ${asOf}`;
 }

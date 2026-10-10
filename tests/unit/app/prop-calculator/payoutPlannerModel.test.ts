@@ -82,22 +82,19 @@ function plausible(result: ReturnType<typeof planPayoutReadiness>) {
     return result;
 }
 
-function readyCeilingCase(
-    plan: Plan,
-    input: Partial<PayoutPlannerAccountInput>,
-) {
-    const result = planPayoutReadiness(baseInput(plan, input));
+function readyCeilingCase(input: Partial<PayoutPlannerAccountInput>) {
+    const result = planPayoutReadiness(baseInput(TOPSTEP_50K, input));
     if (result.kind !== PayoutPlannerResultKind.Ready) {
         throw new Error(`expected a ready result, got ${result.kind}`);
     }
     const { state } = result.account;
     const postThreshold = postPayoutThreshold(
-        plan.fundedDrawdown,
+        TOPSTEP_50K.fundedDrawdown,
         state,
-        plan.payoutFloorEffect,
-        plan.accountSize,
+        TOPSTEP_50K.payoutFloorEffect,
+        TOPSTEP_50K.accountSize,
     );
-    const postFloor = plan.payoutBalanceFloor(
+    const postFloor = TOPSTEP_50K.payoutBalanceFloor(
         { ...state, threshold: postThreshold },
         result.retainedCushion.amount,
     );
@@ -109,16 +106,16 @@ function requirePlan(value: null | Plan | undefined, message: string): Plan {
     return value;
 }
 
-function specFor(plan: Plan, trials: number): DocumentedPolicySpec {
+function specFor(): DocumentedPolicySpec {
     const { policy } = buildEnginePolicy({
         fundedHorizonDays: 60,
-        plan,
+        plan: TOPSTEP_50K,
         rulebook: DEFAULT_RULEBOOK,
     });
     return {
         enginePolicy: policy,
         rulebook: DEFAULT_RULEBOOK,
-        run: { maxEvalDays: 150, seed: 42, trials },
+        run: { maxEvalDays: 150, seed: 42, trials: 20 },
     };
 }
 
@@ -270,7 +267,7 @@ describe('planPayoutReadiness: the ceiling never breaches the post-payout floor'
     });
 
     it('keeps the ceiling at or below balance minus the post-payout floor and retained cushion on TopStep', () => {
-        const { postFloor, result, state } = readyCeilingCase(TOPSTEP_50K, {});
+        const { postFloor, result, state } = readyCeilingCase({});
 
         expect(result.ruleCappedWithdrawable).toBeGreaterThan(0);
         expect(result.ruleCappedWithdrawable).toBeLessThanOrEqual(
@@ -280,10 +277,9 @@ describe('planPayoutReadiness: the ceiling never breaches the post-payout floor'
 
     it('keeps the ceiling at or below balance minus the post-payout floor when the release moves the floor above the current one', () => {
         lowerFundedThresholdTo(TOPSTEP_50K.accountSize - 1500);
-        const { postFloor, postThreshold, result, state } = readyCeilingCase(
-            TOPSTEP_50K,
-            { balance: dollars(TOPSTEP_50K.accountSize + 3000) },
-        );
+        const { postFloor, postThreshold, result, state } = readyCeilingCase({
+            balance: dollars(TOPSTEP_50K.accountSize + 3000),
+        });
 
         const { fundedTracker } = result.account;
         if (fundedTracker === null) throw new Error('expected a tracker');
@@ -535,7 +531,7 @@ describe('planPayoutOutlook: PT-32 projection and payoutStakeComparison (F-V19)'
         const outlook = planPayoutOutlook({
             account: result.account,
             isEligible: true,
-            spec: specFor(TOPSTEP_50K, 20),
+            spec: specFor(),
         });
         expect(
             outlook.projection.expectedCalendarDaysToFirstPayout.value,
@@ -552,7 +548,7 @@ describe('planPayoutOutlook: PT-32 projection and payoutStakeComparison (F-V19)'
         const outlook = planPayoutOutlook({
             account: result.account,
             isEligible: true,
-            spec: specFor(TOPSTEP_50K, 20),
+            spec: specFor(),
         });
         expect(outlook.stakeComparison).not.toBeNull();
         if (outlook.stakeComparison === null) return;
@@ -576,7 +572,7 @@ describe('planPayoutOutlook: PT-32 projection and payoutStakeComparison (F-V19)'
         const outlook = planPayoutOutlook({
             account: result.account,
             isEligible: false,
-            spec: specFor(TOPSTEP_50K, 20),
+            spec: specFor(),
         });
         expect(outlook.stakeComparison).toBeNull();
     });
@@ -590,7 +586,7 @@ function pricedOutlookOf() {
     return planPayoutOutlook({
         account: result.account,
         isEligible: false,
-        spec: specFor(TOPSTEP_50K, 20),
+        spec: specFor(),
     });
 }
 

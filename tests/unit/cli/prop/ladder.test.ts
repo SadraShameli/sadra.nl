@@ -13,7 +13,6 @@ import ladder, {
     LADDER_RANKINGS,
     LADDER_TABLE_LABELS,
     ladderArguments,
-    ladderCommandArguments,
     ladderRankingsFor,
     ladderTableRow,
     ladderWorkWarning,
@@ -261,7 +260,7 @@ describe('describeEvalWindow shows the effective eval-day window', () => {
     });
 });
 
-function ladderScore(overrides: Partial<LadderScore> = {}): LadderScore {
+function ladderScore(): LadderScore {
     return {
         costPerFunded: 250,
         costPerFundedStandardError: 3.4,
@@ -272,7 +271,6 @@ function ladderScore(overrides: Partial<LadderScore> = {}): LadderScore {
         meanDaysOnPass: 6,
         passRate: 0.47,
         passRateStandardError: 0.0035,
-        ...overrides,
     };
 }
 
@@ -540,15 +538,12 @@ describe('prop ladder --help lists only what works (WP46c, N-78 follow-up)', () 
     it.each(DROPPED_FLAGS)(
         'does not declare --%s as a CLI argument, so --help never lists it',
         (flag) => {
-            expect(Object.keys(ladderCommandArguments)).not.toContain(flag);
+            expect(Object.keys(ladderArguments)).not.toContain(flag);
         },
     );
 
     it('does not let an unsupported flag pick up a default value nobody passed', () => {
-        const parsed = parseArgs<typeof ladderCommandArguments>(
-            [],
-            ladderCommandArguments,
-        );
+        const parsed = parseArgs<typeof ladderArguments>([], ladderArguments);
         expect(() =>
             buildLadderSearchOptions(apexEodPlan(), parsed),
         ).not.toThrow();
@@ -798,10 +793,7 @@ async function capturedLadder(argv: string[]) {
     let exitCode: typeof process.exitCode;
     try {
         await ladder.run?.({
-            args: parseArgs<typeof ladderCommandArguments>(
-                argv,
-                ladderCommandArguments,
-            ),
+            args: parseArgs<typeof ladderArguments>(argv, ladderArguments),
             cmd: ladder,
             rawArgs: argv,
         });

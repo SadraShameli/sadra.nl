@@ -235,7 +235,6 @@ const APEX_EOD_FLAT_EVAL_PIN: OutputPin & {
 };
 
 function evalDay(
-    plan: Plan,
     inputs: SimInputs,
     state: AccountState,
     rngValue: number,
@@ -263,7 +262,7 @@ function evalDay(
                     return risk;
                 },
             },
-            plan,
+            plan: apexIntraday,
             positionSizing: null,
             rng: () => rngValue,
             rrRatio: inputs.rrRatio,
@@ -406,12 +405,7 @@ describe('toSimInputs: documented eval policy', () => {
 
     it('runDay on an all-loss day trades the documented rungs until the cushion is gone', () => {
         const inputs = toSimInputs(apexIntraday, specOf());
-        const day = evalDay(
-            apexIntraday,
-            inputs,
-            apexIntraday.initialState(),
-            0.99,
-        );
+        const day = evalDay(inputs, apexIntraday.initialState(), 0.99);
 
         expect(day.risks).toEqual([400, 600, 900, 100]);
         expect(day.busted).toBe(true);
@@ -427,7 +421,7 @@ describe('toSimInputs: documented eval policy', () => {
             ...apexIntraday.initialState(),
             threshold: 49_000,
         };
-        const day = evalDay(apexIntraday, inputs, state, 0);
+        const day = evalDay(inputs, state, 0);
 
         expect(day.risks).toEqual([1000, 0]);
         expect(state.todayPnL).toBe(

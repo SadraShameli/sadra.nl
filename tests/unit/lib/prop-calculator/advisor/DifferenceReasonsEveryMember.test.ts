@@ -305,7 +305,7 @@ describe('every difference reason builds its text from typed numbers only (PT-10
             .toArray();
 
         expect(
-            stringFields.toSorted((a, b) => (a ?? '').localeCompare(b ?? '')),
+            stringFields.toSorted((a, b = '') => (a ?? '').localeCompare(b)),
         ).toStrictEqual(
             FREE_TEXT_FIELDS.toSorted((a, b) => a.localeCompare(b)),
         );

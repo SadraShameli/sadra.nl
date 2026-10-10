@@ -42,7 +42,7 @@ import {
 
 const AVAILABLE = usdCents(1_000_000);
 
-function capBoundAccount(id: PlanId, paidFraction: number) {
+function capBoundAccount(id: PlanId) {
     const plan = findFirm(id.firm)?.findPlan(id);
     if (!plan) throw new Error('fixture plan missing from the registry');
     const previous = eligibleFundedOf(plan, plan.accountSize + 12_000);
@@ -50,7 +50,7 @@ function capBoundAccount(id: PlanId, paidFraction: number) {
         DEFAULT_RULEBOOK,
         previous,
     );
-    const paid = withdrawable * paidFraction;
+    const paid = withdrawable * 1;
     const latest = fundedReconstructed(plan, {
         balance: plan.accountSize,
         cumulativePayout: paid,
@@ -92,7 +92,6 @@ function evalAccount(
     accountId: string,
     previousBalanceDelta: number,
     latestBalanceDelta: number,
-    asOf = '2026-09-23',
     previousAsOf = '2026-09-22',
 ): DayLossAccount {
     const plan = mffProPlan();
@@ -107,7 +106,7 @@ function evalAccount(
                 balance: plan.accountSize + latestBalanceDelta,
             }),
             {
-                asOf,
+                asOf: '2026-09-23',
                 previous: evalReconstructed(plan, {
                     balance: plan.accountSize + previousBalanceDelta,
                 }),
@@ -126,16 +125,20 @@ function fundedAccount(
         readonly previousAsOf?: string;
     } = {},
 ): DayLossAccount {
-    const { asOf, previousAsOf, ...rest } = overrides;
+    const {
+        asOf = '2026-09-23',
+        previousAsOf = '2026-09-22',
+        ...rest
+    } = overrides;
     const plan = mffProPlan();
     return {
         accountId,
         events: [],
         paidPayouts: [],
         state: reconstructedEntry(accountId, plan, fundedAt(latestProfit), {
-            asOf: asOf ?? '2026-09-23',
+            asOf,
             previous: fundedAt(previousProfit),
-            previousAsOf: previousAsOf ?? '2026-09-22',
+            previousAsOf,
         }).state,
         ...rest,
     };
@@ -471,7 +474,7 @@ describe('dayLossShareOf', () => {
                 fundedAccount('funded', 20_000, 1000, {
                     previousAsOf: '2026-09-02',
                 }),
-                evalAccount('eval', 0, -500, '2026-09-23', '2026-09-02'),
+                evalAccount('eval', 0, -500, '2026-09-02'),
             ],
         });
         expect(result.days).toEqual([]);
@@ -654,7 +657,7 @@ describe('dayLossShareOf', () => {
         },
     ])('a payout on the cap-bound $name plan', ({ id }) => {
         it('counts the withdrawable lost after the payout as a loss, not the drop net of the payout', () => {
-            const { account, paid, withdrawable } = capBoundAccount(id, 1);
+            const { account, paid, withdrawable } = capBoundAccount(id);
             expect(withdrawable).toBeGreaterThan(0);
             const result = dayLossShareOf({ ...BASE, accounts: [account] });
             const lostTradingProfit = 12_000 - paid;
@@ -665,7 +668,7 @@ describe('dayLossShareOf', () => {
         });
 
         it('counts nothing when the payout is the only change', () => {
-            const { account } = capBoundAccount(id, 1);
+            const { account } = capBoundAccount(id);
             const { state } = account;
             if (state.kind !== AccountStateKind.Reconstructed)
                 throw new Error('expected a reconstructed state');

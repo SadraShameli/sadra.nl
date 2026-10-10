@@ -409,9 +409,9 @@ const FAILED_VALUES: AdvisorValueResult = {
     swings: [],
 };
 
-function finishEngine(index = 0) {
+function finishEngine() {
     act(() => {
-        FakeWorker.instances[index]?.emit('message', {
+        FakeWorker.instances[0]?.emit('message', {
             kind: WorkerTaskEventKind.Done,
             result: { outcomes: [] },
             runId: 1,
@@ -419,9 +419,9 @@ function finishEngine(index = 0) {
     });
 }
 
-function finishValues(index: number, result?: unknown) {
+function finishValues(result?: unknown) {
     act(() => {
-        FakeWorker.instances[index]?.emit('message', {
+        FakeWorker.instances[1]?.emit('message', {
             kind: WorkerTaskEventKind.Done,
             result: result ?? { outcomes: [], values: FAILED_VALUES },
             runId: 1,
@@ -482,7 +482,7 @@ describe('useAccountAdvice value requests (PT-67)', () => {
             latest,
         );
 
-        finishEngine(0);
+        finishEngine();
 
         expect(latest.current?.phase).toBe(AccountAdvicePhase.Ready);
         if (latest.current?.phase !== AccountAdvicePhase.Ready) return;
@@ -499,8 +499,8 @@ describe('useAccountAdvice value requests (PT-67)', () => {
             latest,
         );
 
-        finishEngine(0);
-        finishValues(1);
+        finishEngine();
+        finishValues();
 
         if (latest.current?.phase !== AccountAdvicePhase.Ready) {
             throw new Error('expected a ready state');
@@ -540,7 +540,7 @@ describe('useAccountAdvice value requests (PT-67)', () => {
         };
         renderHarness(root, fundedAdvisorInput(), latest);
 
-        finishEngine(0);
+        finishEngine();
 
         expect(FakeWorker.instances).toHaveLength(1);
         if (latest.current?.phase !== AccountAdvicePhase.Ready) {
@@ -565,7 +565,7 @@ describe('useAccountAdvice value requests (PT-67)', () => {
             latest,
         );
 
-        finishEngine(0);
+        finishEngine();
 
         expect(FakeWorker.instances).toHaveLength(1);
         if (latest.current?.phase !== AccountAdvicePhase.Ready) {
@@ -586,8 +586,8 @@ describe('useAccountAdvice value requests (PT-67)', () => {
             { ...fundedAdvisorInput(), values: valueRequest(500) },
             latest,
         );
-        finishEngine(0);
-        finishValues(1);
+        finishEngine();
+        finishValues();
 
         renderHarness(
             root,
@@ -611,7 +611,7 @@ describe('useAccountAdvice value requests (PT-67)', () => {
             { ...fundedAdvisorInput(), values: valueRequest(500) },
             latest,
         );
-        finishEngine(0);
+        finishEngine();
 
         act(() => {
             FakeWorker.instances[1]?.emit('message', {
@@ -646,9 +646,9 @@ describe('useAccountAdvice value requests (PT-67)', () => {
             { ...fundedAdvisorInput(), values: valueRequest(500) },
             latest,
         );
-        finishEngine(0);
+        finishEngine();
 
-        finishValues(1, { outcomes: [] });
+        finishValues({ outcomes: [] });
 
         if (latest.current?.phase !== AccountAdvicePhase.Ready) {
             throw new Error('expected a ready state');

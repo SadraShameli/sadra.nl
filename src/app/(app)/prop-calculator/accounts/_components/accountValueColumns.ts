@@ -27,6 +27,7 @@ import { dollars, fraction, TradingPhase } from '~/lib/prop-calculator';
 import {
     AccountAction,
     type Advice,
+    AdviceStalenessKind,
     type DocumentedSizing,
     NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
     NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
@@ -314,7 +315,7 @@ function adviceActionOf(advice: Advice): NextActionView {
         case AccountAction.EnterSnapshot: {
             return actionView(
                 action,
-                advice.staleness.kind === 'stale'
+                advice.staleness.kind === AdviceStalenessKind.Stale
                     ? `The latest snapshot (${advice.staleness.snapshotAsOf}) is out of date.`
                     : null,
             );

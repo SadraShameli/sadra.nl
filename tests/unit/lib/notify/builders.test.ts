@@ -29,11 +29,11 @@ describe('DeviceCreatedEmail', () => {
         expect(html).toContain('Garden');
     });
 
-    it('falls back to dash when location is null', async () => {
+    it('falls back to dash when location is absent', async () => {
         const email = new DeviceCreatedEmail('user@example.com', {
             deviceId: 1,
             deviceName: 'X',
-            locationName: null,
+            locationName: undefined,
         });
         const html = await email.render();
         expect(html).toContain('—');
@@ -85,10 +85,10 @@ describe('LoudnessAlertEmail', () => {
         expect(html).toContain('80');
     });
 
-    it('falls back to dashes for null device/location', async () => {
+    it('falls back to dashes for absent device/location', async () => {
         const email = new LoudnessAlertEmail('user@example.com', {
-            deviceName: null,
-            locationName: null,
+            deviceName: undefined,
+            locationName: undefined,
             threshold: 50,
             value: 90,
         });

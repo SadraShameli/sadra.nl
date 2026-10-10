@@ -83,7 +83,7 @@ export function RecordingList({
                                         <button
                                             className={cn(
                                                 'app-recording__list-item',
-                                                'group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition',
+                                                'group flex w-full items-center gap-3 rounded-md p-2 text-left text-sm transition',
                                                 isCurrent
                                                     ? 'text-foreground'
                                                     : 'text-neutral-400 hover:bg-white/3 hover:text-foreground',
@@ -141,7 +141,7 @@ function PlayingIndicator() {
     return (
         <span
             aria-hidden
-            className="flex h-4 w-4 items-end justify-center gap-0.5"
+            className="flex size-4 items-end justify-center gap-0.5"
         >
             <span className="h-3 w-0.5 origin-bottom animate-eq rounded-full bg-foreground" />
             <span className="h-2.5 w-0.5 origin-bottom animate-eq rounded-full bg-foreground [animation-delay:0.15s]" />

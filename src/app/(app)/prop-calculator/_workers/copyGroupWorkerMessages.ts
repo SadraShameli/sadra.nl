@@ -45,11 +45,6 @@ enum MemberBuildKind {
     Refused = 'refused',
 }
 
-export interface CopyGroupWorkerFailure {
-    readonly kind: CopyGroupWorkerOutcomeKind.Failed;
-    readonly reason: string;
-}
-
 export interface CopyGroupWorkerMember {
     readonly firmId: FirmId;
     readonly id: string;
@@ -62,18 +57,23 @@ export interface CopyGroupWorkerMember {
 export type CopyGroupWorkerOutcome =
     CopyGroupWorkerFailure | CopyGroupWorkerRejected | CopyGroupWorkerSimulated;
 
-export interface CopyGroupWorkerRejected {
-    readonly kind: CopyGroupWorkerOutcomeKind.Rejected;
-    readonly rejection: CopyGroupSimulationRejection;
-}
-
 export interface CopyGroupWorkerRequest {
     readonly members: readonly CopyGroupWorkerMember[];
     readonly seed: number;
     readonly trials: number;
 }
 
-export interface CopyGroupWorkerSimulated {
+interface CopyGroupWorkerFailure {
+    readonly kind: CopyGroupWorkerOutcomeKind.Failed;
+    readonly reason: string;
+}
+
+interface CopyGroupWorkerRejected {
+    readonly kind: CopyGroupWorkerOutcomeKind.Rejected;
+    readonly rejection: CopyGroupSimulationRejection;
+}
+
+interface CopyGroupWorkerSimulated {
     readonly kind: CopyGroupWorkerOutcomeKind.Simulated;
     readonly result: CopyGroupSimulationOutputs;
 }

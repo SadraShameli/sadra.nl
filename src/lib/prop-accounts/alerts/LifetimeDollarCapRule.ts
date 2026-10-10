@@ -392,7 +392,7 @@ function movedLiveExclusionsIn(pool: CapPool): {
                 : null;
         if (cutoff === null) return [];
         const cents = afterMovedLiveOf(member.monitored, cutoff).cents;
-        return cents > 0 ? [cents] : [];
+        return cents > 0 ? cents : [];
     });
     return {
         accounts: excludedCents.length,
@@ -433,13 +433,11 @@ function perUserPoolOf(plan: Plan, context: AlertContext): CapPool {
             const role = roleOf(candidate.identity, candidate.monitored);
             return role === null
                 ? []
-                : [
-                      {
-                          isArchived: candidate.isArchived,
-                          monitored: candidate.monitored,
-                          role,
-                      },
-                  ];
+                : {
+                      isArchived: candidate.isArchived,
+                      monitored: candidate.monitored,
+                      role,
+                  };
         }),
         unidentifiedAccounts: candidates.filter(
             (candidate) =>

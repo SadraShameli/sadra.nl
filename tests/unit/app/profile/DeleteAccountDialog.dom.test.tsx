@@ -39,11 +39,11 @@ const ACCOUNT_LIST_KEY = [
 
 const mounted: Mounted[] = [];
 
-function buttonNamed(name: string, within: ParentNode): HTMLButtonElement {
+function buttonNamed(within: ParentNode): HTMLButtonElement {
     const button = [...within.querySelectorAll('button')].find(
-        (node) => node.textContent.trim() === name,
+        (node) => node.textContent.trim() === 'Delete account',
     );
-    if (button === undefined) throw new TypeError(`no ${name} button`);
+    if (button === undefined) throw new TypeError('no Delete account button');
     return button;
 }
 
@@ -53,13 +53,13 @@ function cachedQueryCount(client: QueryClient): number {
 
 async function confirmDelete(): Promise<void> {
     await act(async () => {
-        buttonNamed('Delete account', document.body).click();
+        buttonNamed(document.body).click();
         await settle();
     });
     const dialog = document.body.querySelector('[role="alertdialog"]');
     if (dialog === null) throw new TypeError('no confirmation dialog');
     await act(async () => {
-        buttonNamed('Delete account', dialog).click();
+        buttonNamed(dialog).click();
         await settle();
     });
 }

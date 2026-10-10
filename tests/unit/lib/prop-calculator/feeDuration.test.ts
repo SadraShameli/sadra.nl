@@ -30,18 +30,15 @@ function alwaysWinInputs(overrides: Partial<SimInputs>): SimInputs {
     } as SimInputs;
 }
 
-function findPlan(
-    firm: MyFundedFutures | TakeProfitTrader | TopStep,
-    id: Parameters<typeof firm.findPlan>[0],
-) {
-    const plan = firm.findPlan(id);
+function findPlan(id: Parameters<typeof topstep.findPlan>[0]) {
+    const plan = topstep.findPlan(id);
     if (!plan) throw new Error('plan not found');
     return plan;
 }
 
 describe('funded-phase duration must not inflate a stopped-at-pass subscription', () => {
     it('Topstep: total cost is identical whether the funded horizon is 60 or 600 days', () => {
-        const plan = findPlan(topstep, {
+        const plan = findPlan({
             accountSize: 50_000,
             firm: FirmId.TopStep,
             variant: TopStepVariant.StandardStandard,
@@ -59,7 +56,7 @@ describe('funded-phase duration must not inflate a stopped-at-pass subscription'
     });
 
     it('Topstep: total cost matches the eval-only fee schedule by hand', () => {
-        const plan = findPlan(topstep, {
+        const plan = findPlan({
             accountSize: 50_000,
             firm: FirmId.TopStep,
             variant: TopStepVariant.StandardStandard,
@@ -100,7 +97,7 @@ describe('funded-phase duration must not inflate a stopped-at-pass subscription'
     });
 
     it('Topstep: an always-winning trader keeps receiving real payouts over a long horizon and never spuriously busts', () => {
-        const plan = findPlan(topstep, {
+        const plan = findPlan({
             accountSize: 50_000,
             firm: FirmId.TopStep,
             variant: TopStepVariant.StandardStandard,
@@ -123,7 +120,7 @@ describe('funded-phase duration must not inflate a stopped-at-pass subscription'
     });
 
     it('Topstep: a trial that busts mid-eval is unaffected by fundedHorizonDays at all (never funds)', () => {
-        const plan = findPlan(topstep, {
+        const plan = findPlan({
             accountSize: 50_000,
             firm: FirmId.TopStep,
             variant: TopStepVariant.StandardStandard,

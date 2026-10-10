@@ -937,7 +937,7 @@ function evalAdviceForLadderSearch() {
 function fundedAdviceWithOverride(requestSize: string, trials: string) {
     const { options, plan, snapshot } = readAdviseInputs(
         parseAdvise([
-            ...withoutSnapshotDate(FRESH_FUNDED_APEX_EOD),
+            ...withoutSnapshotDate(),
             '--trials',
             trials,
             '--request-size',
@@ -966,10 +966,11 @@ function overrideAdvice(): Advice {
     return advice;
 }
 
-function withoutSnapshotDate(argv: readonly string[]): string[] {
-    return argv.filter(
+function withoutSnapshotDate(): string[] {
+    return FRESH_FUNDED_APEX_EOD.filter(
         (part, index) =>
-            part !== '--snapshot-date' && argv[index - 1] !== '--snapshot-date',
+            part !== '--snapshot-date' &&
+            FRESH_FUNDED_APEX_EOD[index - 1] !== '--snapshot-date',
     );
 }
 
@@ -1067,11 +1068,7 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
 
     it('prints a standard error beside the fresh funded sweep and from-state funded sweep monthly net (MEDIUM)', () => {
         const { options, plan, snapshot } = readAdviseInputs(
-            parseAdvise([
-                ...withoutSnapshotDate(FRESH_FUNDED_APEX_EOD),
-                '--trials',
-                '20',
-            ]),
+            parseAdvise([...withoutSnapshotDate(), '--trials', '20']),
         );
         const account = AccountReconstruction.rebuild(
             snapshot,
@@ -1318,9 +1315,9 @@ async function adviseOutput(argv: readonly string[]): Promise<string> {
     return stripVTControlCharacters(written.join(''));
 }
 
-function baseFundedAdvice(argv: readonly string[]) {
+function baseFundedAdvice() {
     const { options, plan, snapshot } = readAdviseInputs(
-        parseAdvise([...argv]),
+        parseAdvise([...FRESH_FUNDED_APEX_EOD_TODAY]),
     );
     const advice = createSizingAdvisor(
         AccountReconstruction.rebuild(
@@ -1381,7 +1378,7 @@ function withFlag(
 
 describe('prop advise prints the funded winner in dollars at the current cushion (PT-109 step 1, F-121)', () => {
     it('prints a percent-of-cushion winner as dollars at the day-start cushion', () => {
-        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice } = baseFundedAdvice();
         if (advice.dailyPlanCard === null) throw new Error('expected a card');
         const lines = adviceReportLines({
             ...advice,
@@ -1407,7 +1404,7 @@ describe('prop advise prints the funded winner in dollars at the current cushion
     });
 
     it('prints a flat winner by its label alone, since the label already is the dollars', () => {
-        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice } = baseFundedAdvice();
         const lines = adviceReportLines({
             ...advice,
             optima: [
@@ -1426,7 +1423,7 @@ describe('prop advise prints the funded winner in dollars at the current cushion
     });
 
     it('never prints a made-up dollar figure for a percent winner when the cushion is unknown', () => {
-        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice } = baseFundedAdvice();
         const lines = adviceReportLines({
             ...advice,
             dailyPlanCard: null,
@@ -1649,15 +1646,15 @@ describe('prop advise prints the firm open items beside the verified date (PT-10
     });
 });
 
-function cardOf(argv: readonly string[]) {
-    const { advice } = baseFundedAdvice(argv);
+function cardOf() {
+    const { advice } = baseFundedAdvice();
     if (advice.dailyPlanCard === null) throw new Error('expected a card');
     return { advice, card: advice.dailyPlanCard };
 }
 
 describe('prop advise prints the daily card and payout figures the web prints (PT-109 step 5, F-127, F-128, F-146, F-154)', () => {
     it('prints the window rule, the daily loss cap and the day-start loss room', () => {
-        const { advice, card } = cardOf(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice, card } = cardOf();
         const lines = adviceReportLines(advice);
 
         expect(lines).toContain('window rule: one trade per window');
@@ -1667,7 +1664,7 @@ describe('prop advise prints the daily card and payout figures the web prints (P
     });
 
     it('prints a window of more than one trade in words', () => {
-        const { advice, card } = cardOf(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice, card } = cardOf();
 
         const lines = adviceReportLines({
             ...advice,
@@ -1678,7 +1675,7 @@ describe('prop advise prints the daily card and payout figures the web prints (P
     });
 
     it('prints the day-start loss room when the day has one', () => {
-        const { advice, card } = cardOf(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice, card } = cardOf();
 
         const lines = adviceReportLines({
             ...advice,
@@ -1691,7 +1688,7 @@ describe('prop advise prints the daily card and payout figures the web prints (P
     });
 
     it('prints the consistency ceiling with its constraint text', () => {
-        const { advice, card } = cardOf(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice, card } = cardOf();
 
         const lines = adviceReportLines({
             ...advice,
@@ -1710,7 +1707,7 @@ describe('prop advise prints the daily card and payout figures the web prints (P
     });
 
     it('says the payout is already pushed out, and that a fresh cycle is not an early exit', () => {
-        const { advice, card } = cardOf(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice, card } = cardOf();
 
         const pushedOut = adviceReportLines({
             ...advice,
@@ -1736,7 +1733,7 @@ describe('prop advise prints the daily card and payout figures the web prints (P
     });
 
     it('prints the rule-capped withdrawable, each cap and what limits it, the engine credit and the net after the split', () => {
-        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice } = baseFundedAdvice();
         const payout: PayoutAdvice = {
             assumptions: [],
             caps: [
@@ -1784,7 +1781,7 @@ describe('prop advise prints the daily card and payout figures the web prints (P
     });
 
     it('prints no withdrawable line when the payout is not a request', () => {
-        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice } = baseFundedAdvice();
 
         const text = adviceReportLines(advice).join('\n');
 
@@ -1794,7 +1791,7 @@ describe('prop advise prints the daily card and payout figures the web prints (P
 
 describe('prop advise text carries no raw JSON or policy key (PT-109 step 6, F-133 (7))', () => {
     it('prints the documented stop rule through describeStopRule, not as JSON', () => {
-        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice } = baseFundedAdvice();
         if (advice.documented === null) throw new Error('expected sizing');
 
         const line = adviceReportLines(advice).find((candidate) =>
@@ -1808,7 +1805,7 @@ describe('prop advise text carries no raw JSON or policy key (PT-109 step 6, F-1
     });
 
     it('prints a payout-policy difference from the typed request sizes', () => {
-        const { advice } = baseFundedAdvice(FRESH_FUNDED_APEX_EOD_TODAY);
+        const { advice } = baseFundedAdvice();
 
         const lines = adviceReportLines({
             ...advice,

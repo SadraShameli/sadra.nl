@@ -13,7 +13,7 @@ function advisorSources(): { file: string; text: string }[] {
             entry.isDirectory()
                 ? walk(`${directory}/${entry.name}`)
                 : entry.name.endsWith('.ts')
-                  ? [`${directory}/${entry.name}`]
+                  ? `${directory}/${entry.name}`
                   : [],
         );
     return walk(ADVISOR_DIR).map((file) => ({

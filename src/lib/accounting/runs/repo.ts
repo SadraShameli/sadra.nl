@@ -138,12 +138,12 @@ export class AccountingRunRepo {
         id: RunId,
         userId: UserId,
         status: RunStatus,
-        errorMessage?: string,
+        errorMessage: null | string = null,
     ): Promise<void> {
         await db
             .update(accountingRun)
             .set({
-                errorMessage: errorMessage ?? null,
+                errorMessage,
                 status,
                 updatedAt: new Date(),
             })

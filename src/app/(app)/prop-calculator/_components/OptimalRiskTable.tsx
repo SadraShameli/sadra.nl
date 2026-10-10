@@ -326,7 +326,7 @@ function buildCacheKey(
 ): string {
     return `${simInputsCacheKey(inputs, {
         omit: [SimInputsKeyField.EvalDayPolicy, SimInputsKeyField.RiskPerTrade],
-    })}|bankroll=${bankroll ?? ''}`;
+    })}|bankroll=${bankroll?.toString() ?? ''}`;
 }
 
 function describeRefusedLevels(riskPercents: readonly number[]): null | string {

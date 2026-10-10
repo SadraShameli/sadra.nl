@@ -321,8 +321,8 @@ function BiasStep() {
                 <Slider
                     max={10}
                     min={1}
-                    onValueChange={([v]) =>
-                        setValue('bias.conviction', v ?? 5, {
+                    onValueChange={([v = 5]) =>
+                        setValue('bias.conviction', v, {
                             shouldValidate: true,
                         })
                     }
@@ -383,10 +383,14 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                 </Label>
                 <ToggleGroup
                     className="flex-wrap justify-start gap-2"
-                    onValueChange={(v) =>
-                        setValue('context.windowId', v || null, {
-                            shouldValidate: true,
-                        })
+                    onValueChange={(selected) =>
+                        setValue(
+                            'context.windowId',
+                            selected === '' ? null : selected,
+                            {
+                                shouldValidate: true,
+                            },
+                        )
                     }
                     type="single"
                     value={windowId ?? ''}

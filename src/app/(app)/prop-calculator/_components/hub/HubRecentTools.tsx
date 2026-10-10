@@ -54,7 +54,10 @@ export function HubRecentTools() {
                                     'app-prop-calculator__recent-tool',
                                     'flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm font-medium text-white transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                                 )}
-                                href={hubCardHref(entry, recent.lastQuery)}
+                                href={hubCardHref(
+                                    entry,
+                                    recent.lastQuery ?? undefined,
+                                )}
                                 prefetch={false}
                             >
                                 <Icon

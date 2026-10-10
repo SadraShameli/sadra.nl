@@ -35,7 +35,6 @@ const TOY_TOLERANCE_ATTEMPTS = 3;
 function closedFormMinimumAttempts(
     netValues: readonly number[],
     cost: number,
-    threshold: number,
 ): null | number {
     const { pAttemptPays, valuePerPayingAttempt } = empiricalPayingStatsOf(
         netValues,
@@ -56,7 +55,7 @@ function closedFormMinimumAttempts(
             netValues.reduce((sum, net) => sum + net, 0) / netValues.length,
         ),
         sampleUnit: LossSampleUnit.Attempt,
-        threshold: fraction(threshold),
+        threshold: fraction(0.05),
     });
     return budget.value === null ? null : Math.round(budget.value / cost);
 }
@@ -123,7 +122,6 @@ describe('compoundMinimumBudget', () => {
         const closedForm = closedFormMinimumAttempts(
             THREE_POINT_NETS,
             THREE_POINT_COST,
-            0.05,
         );
         const budget = compoundMinimumBudget({
             costPerAttempt: dollars(THREE_POINT_COST),
@@ -151,7 +149,7 @@ describe('compoundMinimumBudget', () => {
             seed: 11,
         });
         if (budget.value === null) throw new Error('unreachable');
-        expect(closedFormMinimumAttempts(TOY_NETS, TOY_COST, 0.05)).toBe(
+        expect(closedFormMinimumAttempts(TOY_NETS, TOY_COST)).toBe(
             TOY_CLOSED_FORM_ATTEMPTS,
         );
         expect(

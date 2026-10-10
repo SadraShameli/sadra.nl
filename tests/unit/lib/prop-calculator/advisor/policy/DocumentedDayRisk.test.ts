@@ -122,11 +122,11 @@ function evalRisk(
 }
 
 function pastTarget(): AccountState {
-    return stateAt(apexIntraday, 53_500, 51_500);
+    return stateAt(53_500, 51_500);
 }
 
-function stateAt(plan: Plan, balance: number, threshold: number): AccountState {
-    return { ...plan.initialState(), balance, threshold };
+function stateAt(balance: number, threshold: number): AccountState {
+    return { ...apexIntraday.initialState(), balance, threshold };
 }
 
 function trade(state: AccountState, netPnL: number): void {
@@ -212,7 +212,7 @@ describe('documentedDayRisk: max risk with the daily cap', () => {
     });
 
     it('returns 0 once dayPnL reaches the rulebook multiple times the first risk', () => {
-        const state = stateAt(apexIntraday, 50_000, 49_000);
+        const state = stateAt(50_000, 49_000);
         const risk = evalRisk(apexIntraday, MAX_RISK_RULEBOOK);
         const firstRisk = risk(state, 0);
         const dailyCap =
@@ -236,7 +236,7 @@ describe('documentedDayRisk: cumulative caps', () => {
     });
 
     it('caps each rung at (remaining target + running loss) / rr with $500 left', () => {
-        const state = stateAt(apexIntraday, 52_500, 50_500);
+        const state = stateAt(52_500, 50_500);
         const risk = evalRisk(apexIntraday);
 
         expect(risk(state, 0)).toBe(250);
@@ -249,7 +249,7 @@ describe('documentedDayRisk: day memo', () => {
     it('does not share a memo between two interleaved states', () => {
         const risk = evalRisk(apexIntraday);
         const wide = apexIntraday.initialState();
-        const narrow = stateAt(apexIntraday, 50_000, 49_000);
+        const narrow = stateAt(50_000, 49_000);
 
         expect(risk(wide, 0)).toBe(400);
         expect(risk(narrow, 0)).toBe(200);
@@ -303,7 +303,7 @@ describe('documentedDayRisk: commission', () => {
 
     it('counts a win net of commission as a win', () => {
         const policy = { ...POLICY, commissionPerRoundTrip: 4.5 };
-        const state = stateAt(apexIntraday, 50_000, 49_000);
+        const state = stateAt(50_000, 49_000);
         const risk = evalRisk(apexIntraday, MAX_RISK_RULEBOOK, policy);
 
         expect(risk(state, 0)).toBe(1000);
@@ -317,7 +317,7 @@ describe('documentedDayRisk: commission covers the target (review of F-148)', ()
     const roundingPad = DEFAULT_RULEBOOK.strategy.rr * 0.01;
 
     it('sizes a win from $4.50 left at $4.50 commission so it reaches the target net', () => {
-        const state = stateAt(apexIntraday, 52_995.5, 50_995.5);
+        const state = stateAt(52_995.5, 50_995.5);
         const next = evalRisk(apexIntraday, DEFAULT_RULEBOOK, policy)(state, 0);
 
         trade(state, DEFAULT_RULEBOOK.strategy.rr * next - COMMISSION);
@@ -353,7 +353,7 @@ describe('documentedDayRisk: commission covers the target (review of F-148)', ()
     );
 
     it('walks from a cent short of the target through the post-target trade to the target', () => {
-        const state = stateAt(apexIntraday, 52_999.99, 50_999.99);
+        const state = stateAt(52_999.99, 50_999.99);
 
         expect(
             winningDaysToTarget(
@@ -366,7 +366,7 @@ describe('documentedDayRisk: commission covers the target (review of F-148)', ()
     });
 
     it('covers the commission of every trade so far plus a cent of rounding at rr on a target-capped trade', () => {
-        const state = stateAt(apexIntraday, 50_300, 48_300);
+        const state = stateAt(50_300, 48_300);
         const risk = evalRisk(apexIntraday, MAX_RISK_RULEBOOK, policy);
 
         expect(risk(state, 0)).toBeCloseTo(
@@ -381,7 +381,7 @@ describe('documentedDayRisk: commission covers the target (review of F-148)', ()
     });
 
     it('leaves the zero-commission rungs exactly on the documented rule', () => {
-        const state = stateAt(apexIntraday, 52_500, 50_500);
+        const state = stateAt(52_500, 50_500);
 
         expect(evalRisk(apexIntraday)(state, 0)).toBe(250);
     });
@@ -450,7 +450,7 @@ describe('documentedDayRisk: after the target (Q17 default)', () => {
     });
 
     it('also applies with a few cents left, where the rule itself would stop', () => {
-        const state = stateAt(apexIntraday, 52_999.99, 50_999.99);
+        const state = stateAt(52_999.99, 50_999.99);
 
         expect(evalRisk(apexIntraday)(state, 0)).toBe(1);
     });

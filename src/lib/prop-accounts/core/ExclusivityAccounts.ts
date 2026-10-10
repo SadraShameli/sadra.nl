@@ -63,17 +63,15 @@ export function exclusivityAccountsOf(
         ...siblings.flatMap((sibling) =>
             sibling.firmId === undefined || sibling.isArchived
                 ? []
-                : [
-                      {
-                          accountPolicy,
-                          events: [],
-                          firmId: sibling.firmId,
-                          id: sibling.id,
-                          plan: sibling.plan ?? moved.plan,
-                          stage: sibling.stage,
-                          status: sibling.status,
-                      },
-                  ],
+                : {
+                      accountPolicy,
+                      events: [],
+                      firmId: sibling.firmId,
+                      id: sibling.id,
+                      plan: sibling.plan ?? moved.plan,
+                      stage: sibling.stage,
+                      status: sibling.status,
+                  },
         ),
     ];
 }
@@ -117,8 +115,6 @@ export function suspendedAccountIdsOf(
     outcome: LiveExclusivityOutcome,
 ): readonly string[] {
     return outcome.effects.flatMap((effect) =>
-        effect.action === LiveExclusivityAction.Suspend
-            ? [effect.accountId]
-            : [],
+        effect.action === LiveExclusivityAction.Suspend ? effect.accountId : [],
     );
 }

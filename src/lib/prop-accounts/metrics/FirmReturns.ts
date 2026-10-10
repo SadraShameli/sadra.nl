@@ -112,6 +112,6 @@ function paidPayoutDates(
 ): readonly string[] {
     return accounts
         .flatMap((entry) => entry.payouts)
-        .flatMap((row) => (row.paidOn === null ? [] : [row.paidOn]))
+        .flatMap((row) => row.paidOn ?? [])
         .toSorted(compareText);
 }

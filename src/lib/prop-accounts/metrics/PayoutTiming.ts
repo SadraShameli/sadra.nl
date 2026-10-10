@@ -42,8 +42,8 @@ export function payoutTiming(
 
 function paidDatesOf(entry: LedgerAccount): readonly string[] {
     return entry.payouts
-        .map((row) => paidPayoutCash(row))
-        .flatMap((paid) => (paid?.paidOn ? [paid.paidOn] : []))
+        .map((row) => paidPayoutCash(row)?.paidOn)
+        .filter((paidOn): paidOn is string => Boolean(paidOn))
         .toSorted(compareText);
 }
 

@@ -357,14 +357,11 @@ function fundedStateOf(rows: AccountStatesRows) {
     return { latest: latest.reconstructed, previous };
 }
 
-function movedLive(
-    accountId: string,
-    occurredOn: string,
-): AccountStateEventRow {
+function movedLive(accountId: string): AccountStateEventRow {
     return {
         accountId,
         kind: AccountEventKind.MovedLive,
-        occurredOn,
+        occurredOn: '2026-09-18',
         userId: USER_ID,
     };
 }
@@ -385,9 +382,9 @@ function requestedBy(
     };
 }
 
-function siblingSnapshot(accountId: string): AccountStateSnapshotRow {
+function siblingSnapshot(): AccountStateSnapshotRow {
     return snapshotRow({
-        accountId,
+        accountId: SIBLING_ID,
         id: '10000000-0000-4000-8000-000000000099',
     });
 }
@@ -412,7 +409,7 @@ describe('accountStatesOf counts the requested payouts of the whole firm (PT-36l
                 requestedBy(SIBLING_ID, '2026-09-21'),
                 requestedBy(SIBLING_ID, '2026-09-22'),
             ],
-            snapshots: [snapshotRow(), siblingSnapshot(SIBLING_ID)],
+            snapshots: [snapshotRow(), siblingSnapshot()],
         });
         const { latest } = fundedStateOf(rows);
         expect(latest.pendingPayoutCount).toBe(1);
@@ -476,13 +473,13 @@ describe('accountStatesOf counts the requested payouts of the whole firm (PT-36l
     it('stops counting requests made before the last move to live at the firm', () => {
         const rows = rowsOf({
             accounts: [accountRow(), accountRow({ id: SIBLING_ID })],
-            events: [movedLive(SIBLING_ID, '2026-09-18')],
+            events: [movedLive(SIBLING_ID)],
             payouts: [
                 requestedBy(ACCOUNT_ID, '2026-09-10'),
                 requestedBy(SIBLING_ID, '2026-09-12'),
                 requestedBy(SIBLING_ID, '2026-09-21'),
             ],
-            snapshots: [snapshotRow(), siblingSnapshot(SIBLING_ID)],
+            snapshots: [snapshotRow(), siblingSnapshot()],
         });
         const { latest } = fundedStateOf(rows);
         expect(latest.pendingPayoutCount).toBe(0);
@@ -497,7 +494,7 @@ describe('accountStatesOf counts the requested payouts of the whole firm (PT-36l
         const rows = rowsOf({
             accounts: [accountRow(), accountRow({ id: SIBLING_ID })],
             payouts: [requestedBy(SIBLING_ID, '2026-09-12')],
-            snapshots: [snapshotRow(), earlier, siblingSnapshot(SIBLING_ID)],
+            snapshots: [snapshotRow(), earlier, siblingSnapshot()],
         });
         const reconstructed = fundedStateOf(rows).previous?.reconstructed;
         if (
@@ -538,7 +535,7 @@ describe('a ledger-only account at a listed firm is a member of the firm count (
     it('moves the firm past a live move recorded on the ledger-only sibling', () => {
         const rows = rowsOf({
             accounts: [accountRow(), ledgerOnlyRow()],
-            events: [movedLive(LEDGER_ONLY_ID, '2026-09-18')],
+            events: [movedLive(LEDGER_ONLY_ID)],
             payouts: [
                 requestedBy(ACCOUNT_ID, '2026-09-10'),
                 requestedBy(LEDGER_ONLY_ID, '2026-09-21'),
@@ -573,8 +570,7 @@ describe('a ledger-only account at a listed firm is a member of the firm count (
         });
         const { latest } = fundedStateOf(rows);
         const total =
-            (latest.pendingPayoutCount ?? 0) +
-            (latest.otherAccountsPendingPayoutCount ?? 0);
+            latest.pendingPayoutCount + latest.otherAccountsPendingPayoutCount;
         const ledgerCount = firmPayoutCounts(
             PortfolioLedger.fromRows(USER_ID, {
                 accounts: rows.accounts.map((row) => ({

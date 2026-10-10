@@ -17,7 +17,7 @@ import { auditMutations, buildVendorBreakdown } from './audit';
 import { mapWithConcurrency, paginate } from './concurrency';
 import { printBreakdown, printReport } from './report';
 
-export default defineCommand({
+const command = defineCommand({
     args: {
         concurrency: {
             default: '6',
@@ -172,3 +172,5 @@ export default defineCommand({
         }
     },
 });
+
+export default command;

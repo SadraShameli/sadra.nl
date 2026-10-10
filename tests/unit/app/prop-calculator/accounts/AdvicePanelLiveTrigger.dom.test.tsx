@@ -195,7 +195,7 @@ class StubTriggerPolicy extends FirmAccountPolicy {
     }
 }
 
-function account(id: string, overrides: Record<string, unknown> = {}) {
+function account(id: string) {
     return {
         accountSize: 50_000,
         archivedAt: null,
@@ -225,7 +225,6 @@ function account(id: string, overrides: Record<string, unknown> = {}) {
         tracking: AccountTracking.Modeled,
         updatedAt: new Date('2025-11-01T12:00:00Z'),
         userId: USER_ID,
-        ...overrides,
     };
 }
 
@@ -233,10 +232,7 @@ function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };
 }
 
-function answerEverything(
-    ledgerPayouts: FakeQuery,
-    overrides: Record<string, FakeQuery> = {},
-) {
+function answerEverything(ledgerPayouts: FakeQuery) {
     harness.queries.set('account.get', answer(account(ACCOUNT_ID)));
     harness.queries.set(
         'account.list',
@@ -265,9 +261,6 @@ function answerEverything(
     harness.queries.set('rulebook.get', answer(DEFAULT_RULEBOOK));
     harness.queries.set('decision.listForAccount', answer([]));
     harness.queries.set('violation.list', answer([]));
-    for (const [name, query] of Object.entries(overrides)) {
-        harness.queries.set(name, query);
-    }
 }
 
 function eligibleSnapshot() {

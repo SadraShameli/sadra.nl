@@ -40,10 +40,10 @@ const done = (runId: number, result: string): Event => ({
     result,
     runId,
 });
-const failed = (runId: number, reason: string): Event => ({
+const failed = (reason: string): Event => ({
     kind: WorkerTaskEventKind.Failed,
     reason,
-    runId,
+    runId: 1,
 });
 const cancel: Event = { kind: WorkerTaskEventKind.Cancel };
 
@@ -77,7 +77,7 @@ describe('reduceWorkerTask', () => {
     });
 
     it('goes Failed with the reason', () => {
-        expect(run([start(1), failed(1, 'boom')])).toEqual({
+        expect(run([start(1), failed('boom')])).toEqual({
             phase: WorkerTaskPhase.Failed,
             reason: 'boom',
             runId: 1,
@@ -110,7 +110,7 @@ describe('reduceWorkerTask', () => {
         const state = run([start(1), progress(1, 2), start(2)]);
         expect(reduceWorkerTask(state, progress(1, 5))).toBe(state);
         expect(reduceWorkerTask(state, done(1, 'stale'))).toBe(state);
-        expect(reduceWorkerTask(state, failed(1, 'stale'))).toBe(state);
+        expect(reduceWorkerTask(state, failed('stale'))).toBe(state);
         expect(run([done(2, 'fresh')], state)).toEqual({
             phase: WorkerTaskPhase.Done,
             result: 'fresh',
@@ -123,7 +123,7 @@ describe('reduceWorkerTask', () => {
         expect(reduceWorkerTask(cancelled, progress(1, 3))).toBe(cancelled);
         expect(reduceWorkerTask(cancelled, done(1, 'late'))).toBe(cancelled);
         const finished = run([start(1), done(1, 'ok')]);
-        expect(reduceWorkerTask(finished, failed(1, 'late'))).toBe(finished);
+        expect(reduceWorkerTask(finished, failed('late'))).toBe(finished);
     });
 
     it('ignores responses while Idle', () => {
@@ -133,7 +133,7 @@ describe('reduceWorkerTask', () => {
     it('restarts from any finished phase', () => {
         for (const from of [
             run([start(1), done(1, 'ok')]),
-            run([start(1), failed(1, 'x')]),
+            run([start(1), failed('x')]),
             run([start(1), cancel]),
         ]) {
             expect(reduceWorkerTask(from, start(2))).toEqual({

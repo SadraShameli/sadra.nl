@@ -27,7 +27,7 @@ function EmailVerificationTemplate({ url }: { url: string }) {
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
                 Verify your email
             </Heading>
-            <Text className="mt-0 mb-6 text-sm leading-6 text-neutral-600">
+            <Text className="mt-0 mb-6 text-sm/6 text-neutral-600">
                 Click the button below to verify your email address. This link
                 expires in 24 hours.
             </Text>

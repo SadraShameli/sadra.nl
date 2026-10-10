@@ -305,8 +305,8 @@ function roundListRow(
     };
 }
 
-async function submitForm(scope: ParentNode, label: string) {
-    const form = element(scope, `form[aria-label="${label}"]`);
+async function submitForm(scope: ParentNode) {
+    const form = element(scope, 'form[aria-label="Add a round"]');
     await act(async () => {
         form.dispatchEvent(
             new Event('submit', { bubbles: true, cancelable: true }),
@@ -435,7 +435,7 @@ describe('RoundsView', () => {
         act(() => {
             element(container, 'button[type="button"]').click();
         });
-        await submitForm(container, 'Add a round');
+        await submitForm(container);
         expect(harness.create).toHaveBeenCalledTimes(1);
         expect(harness.assign).toHaveBeenNthCalledWith(1, {
             accountId: ALPHA_ID,
@@ -494,7 +494,7 @@ describe('RoundsView', () => {
         });
         chooseSelectValue(container, firmValue);
         typeInto(input(container, 'input[name="label"]'), 'Q2 push');
-        await submitForm(container, 'Add a round');
+        await submitForm(container);
         expect(harness.create).toHaveBeenCalledWith({
             budgetCents: null,
             externalFirmId: null,

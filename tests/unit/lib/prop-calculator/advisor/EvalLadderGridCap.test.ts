@@ -60,9 +60,9 @@ function accountWithCushion(
     };
 }
 
-function adviceAt(cushion: number, dailyLossLimit: null | number) {
+function adviceAt(dailyLossLimit: null | number) {
     const advisor = new EvalSizingAdvisor({
-        account: accountWithCushion(cushion, dailyLossLimit),
+        account: accountWithCushion(2000, dailyLossLimit),
         maxEvalDays: 150,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
@@ -160,7 +160,7 @@ describe('EvalSizingAdvisor ladder grid fits the cap at any cushion (PT-24c step
 
 describe('EvalSizingAdvisor states how the engine ladder differs from the documented rule', () => {
     it('lists the speed-versus-monthly-net objective difference on every eval advice', () => {
-        const advice = adviceAt(2000, null);
+        const advice = adviceAt(null);
 
         expect(advice.differenceReasons).toContainEqual({
             kind: DifferenceReason.ObjectiveSpeedVsMonthlyNet,
@@ -168,7 +168,7 @@ describe('EvalSizingAdvisor states how the engine ladder differs from the docume
     });
 
     it('lists the daily loss cap with its amount when the plan has one', () => {
-        const advice = adviceAt(2000, 1000);
+        const advice = adviceAt(1000);
 
         expect(advice.differenceReasons).toContainEqual({
             dailyLossLimit: 1000,
@@ -177,7 +177,7 @@ describe('EvalSizingAdvisor states how the engine ladder differs from the docume
     });
 
     it('lists no daily loss cap when the plan has none', () => {
-        const advice = adviceAt(2000, null);
+        const advice = adviceAt(null);
 
         expect(
             advice.differenceReasons.some(

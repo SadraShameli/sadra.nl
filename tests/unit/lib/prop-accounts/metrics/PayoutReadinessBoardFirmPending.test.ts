@@ -47,10 +47,7 @@ class StubTriggerPolicy extends FirmAccountPolicy {
     }
 }
 
-function boardWith(
-    counts: Parameters<typeof pendingEntry>[0],
-    paidPayoutsSinceLastLiveAccount: number,
-) {
+function boardWith(counts: Parameters<typeof pendingEntry>[0]) {
     const firm = findFirm(FirmId.Mffu) as unknown as {
         accountPolicy: FirmAccountPolicy;
     };
@@ -62,7 +59,7 @@ function boardWith(
         return payoutReadinessBoardOf(
             DEFAULT_RULEBOOK,
             [pendingEntry(counts)],
-            new Map([['a1', { paidPayoutsSinceLastLiveAccount }]]),
+            new Map([['a1', { paidPayoutsSinceLastLiveAccount: 2 }]]),
         );
     } finally {
         firm.accountPolicy = original;
@@ -133,10 +130,10 @@ function pendingEntry({
 
 describe('payoutReadinessBoardOf: requested payouts count toward a verified firm-total trigger (PT-36i, F-145)', () => {
     it('blocks the fifth firm payout when the other account has one request and this account has one', () => {
-        const board = boardWith(
-            { otherAccountsPendingPayoutCount: 1, pendingPayoutCount: 1 },
-            2,
-        );
+        const board = boardWith({
+            otherAccountsPendingPayoutCount: 1,
+            pendingPayoutCount: 1,
+        });
         const [row] = board.rows;
         expect(row?.kind).toBe(PayoutReadinessRowKind.Blocked);
         if (row?.kind !== PayoutReadinessRowKind.Blocked) return;
@@ -151,7 +148,7 @@ describe('payoutReadinessBoardOf: requested payouts count toward a verified firm
     });
 
     it('counts every pending request on the account itself', () => {
-        const board = boardWith({ pendingPayoutCount: 2 }, 2);
+        const board = boardWith({ pendingPayoutCount: 2 });
         const [row] = board.rows;
         expect(row?.kind).toBe(PayoutReadinessRowKind.Blocked);
         if (row?.kind !== PayoutReadinessRowKind.Blocked) return;
@@ -161,7 +158,7 @@ describe('payoutReadinessBoardOf: requested payouts count toward a verified firm
     });
 
     it('stays eligible while the requested payouts leave the next one under the cap', () => {
-        const board = boardWith({ pendingPayoutCount: 1 }, 2);
+        const board = boardWith({ pendingPayoutCount: 1 });
         expect(board.rows[0]?.kind).toBe(PayoutReadinessRowKind.Eligible);
     });
 });

@@ -244,8 +244,8 @@ function fundedAccount(id: string, label: string) {
     });
 }
 
-function ledgerOnlyAccount(id: string, label: string) {
-    return modeledAccount(id, label, {
+function ledgerOnlyAccount() {
+    return modeledAccount('hola', 'Hola', {
         accountSize: 150_000,
         externalFirmId: '5d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6',
         firmId: null,
@@ -318,12 +318,7 @@ function requestsOfKind(
     return requested.filter((request) => request.kind === kind);
 }
 
-function snapshotOf(
-    accountId: string,
-    balance: number,
-    asOf = TODAY,
-    overrides: Record<string, unknown> = {},
-) {
+function snapshotOf(accountId: string, balance: number, asOf = TODAY) {
     return {
         accountId,
         asOf,
@@ -344,7 +339,6 @@ function snapshotOf(
         qualifyingDaysSinceLastPayout: null,
         tradingDays: null,
         userId: USER_ID,
-        ...overrides,
     };
 }
 
@@ -667,10 +661,7 @@ describe('account list and detail header lead with value and next action (PT-68)
 
         it('shows a ledger-only account as not valued, with its reason, and as not modeled', () => {
             answerEverything(
-                [
-                    ledgerOnlyAccount('hola', 'Hola'),
-                    fundedAccount('alpha', 'Alpha'),
-                ],
+                [ledgerOnlyAccount(), fundedAccount('alpha', 'Alpha')],
                 [snapshotOf('alpha', 52_000)],
             );
             useValues(
@@ -1080,7 +1071,7 @@ describe('account list and detail header lead with value and next action (PT-68)
         });
 
         it('shows a ledger-only account as not valued with its reason', () => {
-            answerEverything([ledgerOnlyAccount('hola', 'Hola')], []);
+            answerEverything([ledgerOnlyAccount()], []);
             render(
                 <DetailHeaderFiguresWithData
                     accountId="hola"

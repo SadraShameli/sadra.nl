@@ -156,6 +156,7 @@ const CASES: readonly OutputCase[] = [
     {
         derived: {
             currentPlanRulesFingerprint: null,
+            hasCorruptTags: false,
             planRulesChanged: null,
             readIssues: [],
         },
@@ -174,6 +175,7 @@ const CASES: readonly OutputCase[] = [
     {
         derived: {
             currentPlanRulesFingerprint: null,
+            hasCorruptTags: false,
             planRulesChanged: null,
             readIssues: [],
         },

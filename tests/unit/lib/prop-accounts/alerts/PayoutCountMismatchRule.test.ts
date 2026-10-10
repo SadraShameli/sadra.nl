@@ -22,12 +22,11 @@ const account = accountFor(ANY_EVAL_PLAN, { stage: AccountStage.Funded });
 function alertsWith(
     payoutsTaken: null | number,
     payouts: ReturnType<typeof paidPayout>[],
-    asOf = MONDAY,
 ) {
     return alertsOf(rule, {
         accounts: [account],
         payouts,
-        snapshots: [snapshotFor(account, { asOf, payoutsTaken })],
+        snapshots: [snapshotFor(account, { asOf: MONDAY, payoutsTaken })],
     });
 }
 

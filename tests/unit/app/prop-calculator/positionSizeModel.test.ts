@@ -118,9 +118,9 @@ function dollarOutputs(result: PositionSizeResult): Dollars[] {
     ].filter((value): value is Dollars => value !== null);
 }
 
-function fundedTierBreakpoints(plan: Plan, isMicro: boolean): number[] {
+function fundedTierBreakpoints(plan: Plan): number[] {
     return Object.values(TierBasis).flatMap((basis) =>
-        plan.fundedContractTierBreakpoints(basis, isMicro),
+        plan.fundedContractTierBreakpoints(basis, false),
     );
 }
 
@@ -202,8 +202,7 @@ function withoutFundedCaps(plan: Plan): Plan {
 }
 
 const TIERED_PLAN = planWhere(
-    (plan) =>
-        fundedTierBreakpoints(plan, false).length > 1 && !plan.isInstantFunded,
+    (plan) => fundedTierBreakpoints(plan).length > 1 && !plan.isInstantFunded,
 );
 const UNCAPPED_FUNDED_PLAN = withoutFundedCaps(
     planWhere((plan) => plan.contractLimits !== null && !plan.isInstantFunded),
@@ -466,7 +465,7 @@ describe('positionSizeFor: the phase and tier contract cap', () => {
     });
 
     it('lists the funded tiers from Plan.fundedContractTierBreakpoints and caps at each tier', () => {
-        const breakpoints = fundedTierBreakpoints(TIERED_PLAN, false);
+        const breakpoints = fundedTierBreakpoints(TIERED_PLAN);
         expect(breakpoints.length).toBeGreaterThan(1);
         expect(fundedTierOptions(TIERED_PLAN, InstrumentSymbol.NQ)).toEqual(
             breakpoints,
@@ -496,7 +495,7 @@ describe('positionSizeFor: the phase and tier contract cap', () => {
 
     it('has no tiers on a flat or missing funded limit', () => {
         expect(fundedTierOptions(DEFAULT_PLAN, InstrumentSymbol.ES)).toEqual(
-            fundedTierBreakpoints(DEFAULT_PLAN, false),
+            fundedTierBreakpoints(DEFAULT_PLAN),
         );
         expect(
             fundedTierOptions(UNCAPPED_FUNDED_PLAN, InstrumentSymbol.NQ),

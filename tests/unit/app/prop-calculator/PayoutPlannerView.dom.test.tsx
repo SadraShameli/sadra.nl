@@ -459,13 +459,12 @@ function sweepResult(patch: Partial<PayoutSizeSweepOptimum> = {}) {
 }
 
 function sweepResultWithOverride(
-    requestSize: number,
     bust?: number,
     warning: null | PersonalPayoutOverrideWarning = null,
 ) {
     return sweepResult({
         personalOverride: {
-            row: rowWith(documentedRow(), { bust, requestSize }),
+            row: rowWith(documentedRow(), { bust, requestSize: 6000 }),
             warning,
         },
     });
@@ -616,7 +615,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
         it('replaces the sweep and its override note with the fix-the-field text for an invalid request size, and keeps the sweep for an invalid balance', () => {
             searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=6000`;
             render(<PayoutPlannerView />);
-            finish('sweep', sweepResultWithOverride(6000));
+            finish('sweep', sweepResultWithOverride());
             expect(sectionOf('Payout-size sweep').textContent).toContain(
                 'Your entered size: $6,000',
             );
@@ -1182,7 +1181,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish(
                 'sweep',
-                sweepResultWithOverride(6000, 0.6, {
+                sweepResultWithOverride(0.6, {
                     horizonDays: 252,
                     optimumBustProbability: 0.2,
                     optimumMonthlyNet: 400,
@@ -1659,7 +1658,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=6000`;
             const cache = new ComputationCache();
             render(withCache(cache));
-            finish('sweep', sweepResultWithOverride(6000));
+            finish('sweep', sweepResultWithOverride());
             finish('outlook', outlookResult());
             act(() => {
                 root.unmount();
@@ -1686,7 +1685,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=6000`;
             const cache = new ComputationCache();
             render(withCache(cache));
-            finish('sweep', sweepResultWithOverride(6000));
+            finish('sweep', sweepResultWithOverride());
             finish('outlook', outlookResult());
             const sweepRuns = fakeWorker.sweepRequests.length;
 
@@ -2212,7 +2211,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 retainedCushionBasis: RetainedCushionBasis.RulebookSize,
             };
 
-            finish('sweep', sweepResultWithOverride(6000, 0.6, warning));
+            finish('sweep', sweepResultWithOverride(0.6, warning));
 
             const text = sectionOf('Payout-size sweep').textContent;
             expect(text).toContain(personalPayoutOverrideWarningText(warning));

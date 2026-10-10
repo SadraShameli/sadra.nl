@@ -139,7 +139,7 @@ function fundedAccount(
     };
 }
 
-function fundedAdvisor(trials = 20): FundedSizingAdvisor {
+function fundedAdvisor(): FundedSizingAdvisor {
     return new FundedSizingAdvisor({
         account: fundedAccount(),
         fundedHorizonDays: 90,
@@ -147,7 +147,7 @@ function fundedAdvisor(trials = 20): FundedSizingAdvisor {
         snapshotAsOf: '2026-09-26',
         substate: null,
         today: '2026-09-26',
-        trials,
+        trials: 20,
     });
 }
 

@@ -122,10 +122,9 @@ function memberFor(
 function sameCushionMemberFor(
     id: string,
     plan: Plan,
-    riskPerTrade: number,
 ): CopyGroupSimulationMember {
     return {
-        ...memberFor(id, plan, riskPerTrade),
+        ...memberFor(id, plan, 60),
         minRetainedCushion: dollars(300),
     };
 }
@@ -488,8 +487,8 @@ describe('simulateCopyGroup drives cross-plan members from one shared outcome st
     });
 
     it('places each member at its own plan-derived risk while sharing win/loss outcomes', () => {
-        const narrow = sameCushionMemberFor('narrow', payoutCapToyPlan(), 60);
-        const wide = sameCushionMemberFor('wide', widerDrawdownPlan(), 60);
+        const narrow = sameCushionMemberFor('narrow', payoutCapToyPlan());
+        const wide = sameCushionMemberFor('wide', widerDrawdownPlan());
         const result = simulatedOf(
             simulateCopyGroup({
                 commission: dollars(0),
@@ -510,8 +509,8 @@ describe('simulateCopyGroup drives cross-plan members from one shared outcome st
     });
 
     it('shares the idle draw of each day across members on different plans', () => {
-        const narrow = sameCushionMemberFor('narrow', payoutCapToyPlan(), 60);
-        const wide = sameCushionMemberFor('wide', widerDrawdownPlan(), 60);
+        const narrow = sameCushionMemberFor('narrow', payoutCapToyPlan());
+        const wide = sameCushionMemberFor('wide', widerDrawdownPlan());
         const result = simulatedOf(
             simulateCopyGroup({
                 commission: dollars(0),
@@ -533,8 +532,8 @@ describe('simulateCopyGroup drives cross-plan members from one shared outcome st
     });
 
     it('reports different bust days for members with different drawdowns, and counts days to the first bust', () => {
-        const narrow = sameCushionMemberFor('narrow', payoutCapToyPlan(), 60);
-        const wide = sameCushionMemberFor('wide', widerDrawdownPlan(), 60);
+        const narrow = sameCushionMemberFor('narrow', payoutCapToyPlan());
+        const wide = sameCushionMemberFor('wide', widerDrawdownPlan());
         const result = simulatedOf(
             simulateCopyGroup({
                 commission: dollars(0),

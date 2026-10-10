@@ -43,11 +43,6 @@ export interface AdvisorRequestFailed {
 export type AdvisorRequestOutcome =
     AdvisorRequestFailed | AdvisorRequestSucceeded;
 
-export interface AdvisorRequestSucceeded {
-    readonly kind: AdvisorRequestOutcomeKind.Succeeded;
-    readonly result: EngineOptimumRunnerResult;
-}
-
 export interface AdvisorValueRequest {
     readonly candidateRiskGrid: readonly number[];
     readonly payoutStake: null | { readonly reducedRiskDollars?: number };
@@ -62,11 +57,6 @@ export interface AdvisorValueResult {
     readonly now: AdvisorValueSlot<ValueOutcome>;
     readonly payoutStake: AdvisorValueSlot<PayoutStakeComparisonOutcome> | null;
     readonly swings: readonly AdvisorValueSwing[];
-}
-
-export interface AdvisorValueRung {
-    readonly risk: number;
-    readonly rr: number;
 }
 
 export type AdvisorValueSlot<T> =
@@ -92,6 +82,16 @@ export interface AdvisorWorkerRequest {
 export interface AdvisorWorkerResult {
     readonly outcomes: readonly AdvisorRequestOutcome[];
     readonly values?: AdvisorValueResult;
+}
+
+interface AdvisorRequestSucceeded {
+    readonly kind: AdvisorRequestOutcomeKind.Succeeded;
+    readonly result: EngineOptimumRunnerResult;
+}
+
+interface AdvisorValueRung {
+    readonly risk: number;
+    readonly rr: number;
 }
 
 export function advisorRequestOutcomeOf(

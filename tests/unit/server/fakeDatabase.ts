@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { expect } from 'vitest';
+import { z } from 'zod';
 
 import * as relationsModule from '~/server/db/relations';
 import * as accountingSchema from '~/server/db/schemas/accounting';
@@ -151,7 +152,7 @@ export function transactionSteps(
     return queries
         .map((query) => query.text.trim().toLowerCase())
         .filter((text) => TRANSACTION_STEPS.has(text))
-        .map((text) => text as TransactionStep);
+        .map((text) => z.enum(TransactionStep).parse(text));
 }
 
 export function writeTable(query: IssuedQuery): null | string {

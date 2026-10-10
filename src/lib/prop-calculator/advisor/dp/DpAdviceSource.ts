@@ -118,7 +118,7 @@ export interface DpSolveConfigInput extends Omit<
         'minRetainedCushion' | 'payoutRequestPolicy' | 'payoutRequestSize'
     >;
     readonly personalPayoutRequest: null | number;
-    readonly personalRetainedCushion: null | number;
+    readonly personalRetainedCushion?: number;
     readonly plan: Plan;
     readonly rulebook: RulebookParameters;
 }
@@ -234,7 +234,7 @@ export function dpSolveConfigFor(input: DpSolveConfigInput): DpSolveConfig {
     const {
         fundedGrid,
         personalPayoutRequest,
-        personalRetainedCushion,
+        personalRetainedCushion = 0,
         plan,
         rulebook,
         ...config
@@ -245,7 +245,7 @@ export function dpSolveConfigFor(input: DpSolveConfigInput): DpSolveConfig {
             ...fundedGrid,
             minRetainedCushion: fundedRetainedCushionResolution(
                 rulebook,
-                personalRetainedCushion ?? 0,
+                personalRetainedCushion,
             ).amount,
             payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
             payoutRequestSize: documentedPayoutRequest(

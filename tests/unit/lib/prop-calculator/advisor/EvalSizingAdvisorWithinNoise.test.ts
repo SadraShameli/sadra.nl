@@ -69,15 +69,12 @@ function accountState(overrides: Partial<AccountState> = {}): AccountState {
     };
 }
 
-function advisorAt(
-    state: AccountState = accountState(),
-    sims = 200,
-): EvalSizingAdvisor {
+function advisorAt(state: AccountState = accountState()): EvalSizingAdvisor {
     return new EvalSizingAdvisor({
         account: account(state),
         maxEvalDays: 150,
         rulebook: DEFAULT_RULEBOOK,
-        sims,
+        sims: 200,
         snapshotAsOf: '2026-09-26',
         substate: null,
         today: '2026-09-26',

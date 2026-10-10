@@ -126,12 +126,16 @@ async function capturedRun(
     return written.join('');
 }
 
-function moneyAfter(stdout: string, label: string): number {
-    const escaped = label.replaceAll(/[()/]/g, String.raw`\$&`);
+function moneyAfter(stdout: string): number {
+    const escaped = 'cumulative spend (P90)'.replaceAll(
+        /[()/]/g,
+        String.raw`\$&`,
+    );
     const match = new RegExp(String.raw`${escaped}\s+(-?)\$([\d,]+)`).exec(
         stdout,
     );
-    if (match === null) throw new Error(`no money after ${label}`);
+    if (match === null)
+        throw new Error(`no money after cumulative spend (P90)`);
     return Number(`${match[1]}${(match[2] ?? '').replaceAll(',', '')}`);
 }
 
@@ -1023,8 +1027,8 @@ describe('prop bankroll project month ends and round budget (PT-80)', () => {
             ),
             THREE_MONTHS,
         );
-        const openSpend = moneyAfter(open, 'cumulative spend (P90)');
-        const cappedSpend = moneyAfter(capped, 'cumulative spend (P90)');
+        const openSpend = moneyAfter(open);
+        const cappedSpend = moneyAfter(capped);
         expect(openSpend).toBeGreaterThan(1000);
         expect(cappedSpend).toBeLessThanOrEqual(1000);
         expect(cappedSpend).toBeLessThan(openSpend);

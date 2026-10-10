@@ -53,20 +53,18 @@ function ContactFormTemplate({
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 From
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
+            <Text className="m-0 text-sm/snug text-neutral-700">
                 {name} &lt;{email}&gt;
             </Text>
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 IP
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {ip}
-            </Text>
+            <Text className="m-0 text-sm/snug text-neutral-700">{ip}</Text>
             <Hr className="my-5 border-neutral-200" />
             <Text className="mt-0 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Message
             </Text>
-            <Text className="m-0 text-sm leading-6 whitespace-pre-wrap text-neutral-700">
+            <Text className="m-0 text-sm/6 whitespace-pre-wrap text-neutral-700">
                 {message}
             </Text>
         </BaseEmail>

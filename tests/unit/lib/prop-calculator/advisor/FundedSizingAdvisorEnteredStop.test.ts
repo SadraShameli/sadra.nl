@@ -105,7 +105,7 @@ function advisorWith(
         readonly trials?: number;
     } = {},
 ): FundedSizingAdvisor {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
     const account: ReconstructedFundedOrEvalAccount = {
         assumptions: [],
         contractLimit: null,
@@ -134,7 +134,7 @@ function advisorWith(
 function enginePolicyAdvice(advisor: FundedSizingAdvisor) {
     const [request] = advisor.optimumRequests();
     if (request === undefined) throw new Error('expected a request');
-    const result = runEngineOptimum(registryPlan(MFF_PRO_ID), request);
+    const result = runEngineOptimum(registryPlan(), request);
     return advisor.assemble([result]);
 }
 
@@ -147,9 +147,9 @@ function hasNotCheckedAssumption(
     );
 }
 
-function registryPlan(id: PlanId): Plan {
-    const found = findFirm(id.firm)?.findPlan(id);
-    if (!found) throw new Error(`${serializePlanId(id)} missing`);
+function registryPlan(): Plan {
+    const found = findFirm(MFF_PRO_ID.firm)?.findPlan(MFF_PRO_ID);
+    if (!found) throw new Error(`${serializePlanId(MFF_PRO_ID)} missing`);
     return found;
 }
 

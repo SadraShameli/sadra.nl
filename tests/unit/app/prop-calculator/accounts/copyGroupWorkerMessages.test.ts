@@ -161,10 +161,12 @@ function sizedMember(
     id: string,
     riskCents: number,
     stopPoints: number,
-    instrument = InstrumentSymbol.ES,
 ): CopyGroupWorkerMember {
     return memberFor(id, {
-        spec: specFor(riskCents, { instrument, stopPoints }),
+        spec: specFor(riskCents, {
+            instrument: InstrumentSymbol.ES,
+            stopPoints,
+        }),
     });
 }
 

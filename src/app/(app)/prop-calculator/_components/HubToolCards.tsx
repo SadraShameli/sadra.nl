@@ -37,13 +37,10 @@ const HUB_GROUP_ORDER: readonly ToolGroup[] = [
     ToolGroup.Labs,
 ];
 
-export function hubCardHref(
-    entry: ToolCatalogEntry,
-    query: null | string,
-): string {
+export function hubCardHref(entry: ToolCatalogEntry, query = ''): string {
     return subnavHref(
         { carriesQuery: entry.usesCalculatorInputs, href: entry.route },
-        query ?? '',
+        query,
     );
 }
 
@@ -80,7 +77,10 @@ export function HubToolCards() {
                                             'app-prop-calculator__hub-card',
                                             'flex h-full flex-col gap-2 rounded-xl border border-border/60 bg-card p-5 transition-colors hover:border-primary/60 hover:bg-card/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                                         )}
-                                        href={hubCardHref(entry, lastQuery)}
+                                        href={hubCardHref(
+                                            entry,
+                                            lastQuery ?? undefined,
+                                        )}
                                         prefetch={false}
                                     >
                                         <span className="flex items-center gap-2 text-base font-semibold text-white">

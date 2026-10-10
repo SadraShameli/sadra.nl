@@ -166,10 +166,7 @@ function snapshot(
     };
 }
 
-function unresolvablePlanAlerts(
-    accounts: readonly AccountListAccount[],
-    today: string,
-) {
+function unresolvablePlanAlerts(accounts: readonly AccountListAccount[]) {
     return portfolioAlerts({
         accounts,
         accountStates: NO_ACCOUNT_STATES,
@@ -177,7 +174,7 @@ function unresolvablePlanAlerts(
         payouts: [],
         rulebook: DEFAULT_RULEBOOK,
         snapshots: [],
-        today,
+        today: '2026-09-25',
     }).filter((alert) => alert.kind === AlertKind.UnresolvablePlan);
 }
 
@@ -406,7 +403,7 @@ describe('buildAccountListRows with read issues', () => {
             optIns: NO_PLAN_OPT_INS,
             readIssues: [corruptOptIns],
         });
-        const alerts = unresolvablePlanAlerts([flagged], '2026-09-25');
+        const alerts = unresolvablePlanAlerts([flagged]);
         expect(alerts).toHaveLength(1);
         expect(alerts[0]?.message).toContain('opt-ins');
     });
@@ -420,8 +417,8 @@ describe('buildAccountListRows with read issues', () => {
                 planSerial: 'apex-50000-retired',
             }),
         ];
-        const titles = unresolvablePlanAlerts(flagged, '2026-09-25').map(
-            (alert) => readOnlyAlertTitle(alertSubjectView(alert).label),
+        const titles = unresolvablePlanAlerts(flagged).map((alert) =>
+            readOnlyAlertTitle(alertSubjectView(alert).label),
         );
         expect(titles.toSorted(compareText)).toEqual([
             'Read-only account: Papa',
@@ -837,10 +834,7 @@ describe('unresolvable plan alerts through the portfolio evaluator', () => {
             label: 'India',
             planSerial: 'apex-50000-retired',
         });
-        const alerts = unresolvablePlanAlerts(
-            [...ACCOUNTS, broken],
-            '2026-09-25',
-        );
+        const alerts = unresolvablePlanAlerts([...ACCOUNTS, broken]);
         expect(alerts).toHaveLength(1);
         const [alert] = alerts;
         expect(alert?.kind).toBe(AlertKind.UnresolvablePlan);
@@ -854,7 +848,7 @@ describe('unresolvable plan alerts through the portfolio evaluator', () => {
     });
 
     it('raises nothing when every plan resolves', () => {
-        expect(unresolvablePlanAlerts(ACCOUNTS, '2026-09-25')).toEqual([]);
+        expect(unresolvablePlanAlerts(ACCOUNTS)).toEqual([]);
     });
 
     it('skips archived accounts', () => {
@@ -862,7 +856,7 @@ describe('unresolvable plan alerts through the portfolio evaluator', () => {
             archivedAt: new Date('2026-09-02T00:00:00Z'),
             planSerial: 'apex-50000-retired',
         });
-        expect(unresolvablePlanAlerts([archived], '2026-09-25')).toEqual([]);
+        expect(unresolvablePlanAlerts([archived])).toEqual([]);
     });
 
     it('gives two accounts on the same removed plan distinct keys and names each account', () => {
@@ -872,7 +866,7 @@ describe('unresolvable plan alerts through the portfolio evaluator', () => {
                 planSerial: 'apex-50000-retired',
             }),
         );
-        const alerts = unresolvablePlanAlerts(broken, '2026-09-25');
+        const alerts = unresolvablePlanAlerts(broken);
         expect(alerts).toHaveLength(2);
         expect(new Set(alerts.map((alert) => alert.message)).size).toBe(1);
         const views = alerts.map((alert) => alertSubjectView(alert));

@@ -11,7 +11,7 @@ import {
     AccountStatus,
     UnresolvedPlanReason,
 } from '~/lib/prop-accounts/core';
-import { type FirmId, NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
+import { NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
 import { type PropAccountRow } from '~/server/db/schemas/prop';
 
 import {
@@ -59,7 +59,7 @@ describe('UnresolvablePlanRule', () => {
 
     it('fires without throwing for an unknown firm, whatever the status', () => {
         const account = accountFor(ANY_EVAL_PLAN, {
-            firmId: 'gone-firm' as FirmId,
+            firmId: 'gone-firm',
             status: AccountStatus.Closed,
         });
         const alerts = alertsOf(rule, { accounts: [account] });

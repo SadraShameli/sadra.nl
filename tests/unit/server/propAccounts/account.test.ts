@@ -224,8 +224,7 @@ function isCorruptJsonbCase(entry: Pick<UnreadableCase, 'readIssues'>) {
     return entry.readIssues.some(
         (issue) =>
             issue.kind === AccountReadIssueKind.CorruptPersonalRules ||
-            (issue.kind === AccountReadIssueKind.UnresolvablePlan &&
-                issue.reason === UnresolvedPlanReason.CorruptOptIns),
+            issue.reason === UnresolvedPlanReason.CorruptOptIns,
     );
 }
 

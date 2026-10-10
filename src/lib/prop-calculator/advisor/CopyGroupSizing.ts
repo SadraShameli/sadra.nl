@@ -552,7 +552,11 @@ function payoutCountBlockReasonOf(
         ({ member }) => member.paidPayoutsSinceLastLiveAccount,
     );
     if (paidCounts.includes(null)) return null;
-    const paid = Math.max(...paidCounts.map((count) => count ?? 0));
+    const paid = Math.max(
+        ...group.map(
+            ({ member }) => member.paidPayoutsSinceLastLiveAccount ?? 0,
+        ),
+    );
     const counts = group.map(({ account }) => pendingPayoutCountsOf(account));
     const firmPending = Math.max(
         ...counts.map(
@@ -592,13 +596,11 @@ function payoutCountBlocksOf(
         const reason = payoutCountBlockReasonOf(group, rulebook);
         return reason === null
             ? []
-            : [
-                  {
-                      firm,
-                      memberIds: group.map(({ member }) => member.id),
-                      reason,
-                  },
-              ];
+            : {
+                  firm,
+                  memberIds: group.map(({ member }) => member.id),
+                  reason,
+              };
     });
 }
 
@@ -624,7 +626,7 @@ function payoutCountNotCheckedOf(
                 ).firmTotalCap !== null,
         );
         return isPaidCountUnknown && hasFirmTotalCap
-            ? [{ firm, memberIds: group.map(({ member }) => member.id) }]
+            ? { firm, memberIds: group.map(({ member }) => member.id) }
             : [];
     });
 }

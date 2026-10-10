@@ -421,7 +421,7 @@ function UnitRowEditor({
     return (
         <Form {...form}>
             <form
-                className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-2"
+                className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2"
                 onSubmit={onSubmit}
             >
                 <FormField

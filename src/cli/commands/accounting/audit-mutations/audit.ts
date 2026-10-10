@@ -185,11 +185,11 @@ export function auditMutations(input: {
         if (representative?.expectedLedgerId == null) continue;
         const actual = comboKey(
             representative.actualLedgerId,
-            representative.actualVatCode,
+            representative.actualVatCode ?? undefined,
         );
         const expected = comboKey(
             representative.expectedLedgerId,
-            representative.expectedTaxCode,
+            representative.expectedTaxCode ?? undefined,
         );
         if (actual === expected) continue;
         issues.push({
@@ -257,7 +257,7 @@ export function buildVendorBreakdown(
         const first = group[0];
         if (!first) continue;
         const combos = groupBy(group, (c) =>
-            comboKey(c.actualLedgerId, c.actualVatCode),
+            comboKey(c.actualLedgerId, c.actualVatCode ?? undefined),
         );
         rows.push({
             combos: [...combos].map(([key, items]) => ({
@@ -326,8 +326,8 @@ function classifyMutations(
     return classified;
 }
 
-function comboKey(ledgerId: LedgerId | null, vatCode: null | string): string {
-    return `${ledgerId ?? '—'}::${vatCode ?? '—'}`;
+function comboKey(ledgerId: LedgerId | null, vatCode = '—'): string {
+    return `${ledgerId?.toString() ?? '—'}::${vatCode}`;
 }
 
 function describeCombo(
@@ -402,7 +402,7 @@ function vendorConflictIssue(
     ledgerById: Map<LedgerId, LedgerResponse>,
 ): AuditIssue | null {
     const combos = groupBy(group, (c) =>
-        comboKey(c.actualLedgerId, c.actualVatCode),
+        comboKey(c.actualLedgerId, c.actualVatCode ?? undefined),
     );
     if (combos.size <= 1) return null;
     const parts = [...combos].map(

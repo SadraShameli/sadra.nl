@@ -20,15 +20,10 @@ const TOY_TOLERANCE_ATTEMPTS = 3;
 function minimumAttemptsOf(
     nets: readonly number[],
     cost: number,
-    threshold: number,
     seed?: number,
 ): number {
-    const attempts = bankrollLossRiskSummary(
-        nets,
-        cost,
-        fraction(threshold),
-        seed,
-    ).minimumBudget.value?.attempts;
+    const attempts = bankrollLossRiskSummary(nets, cost, fraction(0.05), seed)
+        .minimumBudget.value?.attempts;
     if (attempts === undefined) throw new Error('no minimum budget');
     return attempts;
 }
@@ -52,15 +47,14 @@ describe('bankrollLossRiskSummary (PT-62d)', () => {
 describe('bankrollLossRiskSummary keys the minimum budget on the compound distribution (PT-80)', () => {
     it('needs more attempts than a bootstrap of the nets can get under the threshold with, for dispersed payouts', () => {
         expect(
-            minimumAttemptsOf(THREE_POINT_NETS, THREE_POINT_COST, 0.05),
+            minimumAttemptsOf(THREE_POINT_NETS, THREE_POINT_COST),
         ).toBeGreaterThanOrEqual(BOOTSTRAP_FLOOR_ATTEMPTS);
     });
 
     it('still gives the closed-form attempts on the two-point toy, within the Monte Carlo tolerance', () => {
         expect(
             Math.abs(
-                minimumAttemptsOf(TOY_NETS, 100, 0.05) -
-                    TOY_CLOSED_FORM_ATTEMPTS,
+                minimumAttemptsOf(TOY_NETS, 100) - TOY_CLOSED_FORM_ATTEMPTS,
             ),
         ).toBeLessThanOrEqual(TOY_TOLERANCE_ATTEMPTS);
     });
@@ -87,15 +81,10 @@ describe('bankrollLossRiskSummary keys the minimum budget on the compound distri
 
     it('is deterministic per seed and builds one curve inside the test limit', () => {
         const started = performance.now();
-        const first = minimumAttemptsOf(
-            THREE_POINT_NETS,
-            THREE_POINT_COST,
-            0.05,
-            4,
-        );
+        const first = minimumAttemptsOf(THREE_POINT_NETS, THREE_POINT_COST, 4);
         expect(performance.now() - started).toBeLessThan(4000);
-        expect(
-            minimumAttemptsOf(THREE_POINT_NETS, THREE_POINT_COST, 0.05, 4),
-        ).toBe(first);
+        expect(minimumAttemptsOf(THREE_POINT_NETS, THREE_POINT_COST, 4)).toBe(
+            first,
+        );
     });
 });

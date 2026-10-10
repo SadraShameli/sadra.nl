@@ -53,9 +53,7 @@ function fundedContext(
     };
 }
 
-function liveContext(
-    overrides: Partial<LiveRuleContext> = {},
-): LiveRuleContext {
+function liveContext(): LiveRuleContext {
     return {
         ceiling: null,
         contractLimit: null,
@@ -69,7 +67,6 @@ function liveContext(
         placeableMinimum: ONE_CENT,
         stage: SizingStage.Live,
         thresholdLocked: false,
-        ...overrides,
     };
 }
 

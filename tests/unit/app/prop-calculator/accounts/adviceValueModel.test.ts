@@ -2233,24 +2233,24 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
             if (found === undefined) throw new Error('no tiered plan');
             return found;
         })();
-        const [, secondTier] = fundedTierOptions(
+        const [, secondTier = 0] = fundedTierOptions(
             tieredPlan,
             InstrumentSymbol.NQ,
         );
 
-        function scaledContext(profit: number) {
+        function scaledContext() {
             const state = tieredPlan.initialState();
             const scaled = {
                 ...state,
-                balance: state.balance + profit,
-                peakDayCloseProfit: profit,
-                peakIntradayProfit: profit,
+                balance: state.balance + secondTier,
+                peakDayCloseProfit: secondTier,
+                peakIntradayProfit: secondTier,
             };
             return tieredPlan.tierProfitContext(scaled);
         }
 
         it('caps the contracts at the tier the account stands on, not at the starting tier', () => {
-            const context = scaledContext(secondTier ?? 0);
+            const context = scaledContext();
             const scaledCap = contractLimitAt(
                 tieredPlan.contractLimits,
                 TradingPhase.Funded,
@@ -2305,7 +2305,7 @@ describe('contractsSizingOf (PT-67 step 4)', () => {
                 ...base,
                 phase: TradingPhase.Eval,
                 plan: tieredPlan,
-                tierContext: scaledContext(secondTier ?? 0),
+                tierContext: scaledContext(),
             });
 
             expect(

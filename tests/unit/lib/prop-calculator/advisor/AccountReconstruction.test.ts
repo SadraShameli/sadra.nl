@@ -777,17 +777,11 @@ function fundedInputWithEverySeed(): AccountSnapshotInput {
     });
 }
 
-function fundedOf(
-    input: AccountSnapshotInput,
-    plan: Plan,
-    personalMaxRiskPerTrade: null | number = null,
-) {
+function fundedOf(input: AccountSnapshotInput, plan: Plan) {
     const account = AccountReconstruction.rebuild(
         input,
         plan,
-        personalMaxRiskPerTrade === null
-            ? null
-            : dollars(personalMaxRiskPerTrade),
+        null,
         NO_PENDING_PAYOUT_COUNTS,
     );
     if (account.kind !== TradingPhase.Funded) {

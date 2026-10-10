@@ -83,7 +83,6 @@ function requestsFor(
 }
 
 function rulebookWithCushion(
-    retainedCushionCents: number,
     isBelowHardRule2Allowed = false,
 ): RulebookParameters {
     return {
@@ -91,7 +90,7 @@ function rulebookWithCushion(
         payout: {
             ...DEFAULT_RULEBOOK.payout,
             allowBelowHardRule2: isBelowHardRule2Allowed,
-            retainedCushionCents,
+            retainedCushionCents: 100_000,
         },
     };
 }
@@ -123,7 +122,7 @@ describe('buildEnginePolicy: personal retained cushion (PT-36d, PT-34e leftover)
         for (const personalRetainedCushion of [dollars(500), null, undefined]) {
             const { policy } = buildEnginePolicy({
                 fundedHorizonDays: 90,
-                personalRetainedCushion,
+                personalRetainedCushion: personalRetainedCushion ?? undefined,
                 plan,
                 rulebook: DEFAULT_RULEBOOK,
             });
@@ -132,7 +131,7 @@ describe('buildEnginePolicy: personal retained cushion (PT-36d, PT-34e leftover)
     });
 
     it('never goes below Hard Rule 2 unless the rulebook waives it', () => {
-        const belowFloor = rulebookWithCushion(100_000);
+        const belowFloor = rulebookWithCushion();
         expect(
             buildEnginePolicy({
                 fundedHorizonDays: 90,
@@ -140,7 +139,7 @@ describe('buildEnginePolicy: personal retained cushion (PT-36d, PT-34e leftover)
                 rulebook: belowFloor,
             }).policy.retainedCushionRequest,
         ).toBe(2000);
-        const waived = rulebookWithCushion(100_000, true);
+        const waived = rulebookWithCushion(true);
         expect(
             buildEnginePolicy({
                 fundedHorizonDays: 90,

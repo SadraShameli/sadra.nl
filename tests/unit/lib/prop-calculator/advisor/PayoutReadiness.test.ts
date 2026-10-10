@@ -62,9 +62,9 @@ function pathStep(
     return path.find((step) => step.gate === gate);
 }
 
-function registryPlan(id: PlanId): Plan {
-    const found = findFirm(id.firm)?.findPlan(id);
-    if (!found) throw new Error(`${serializePlanId(id)} missing`);
+function registryPlan(): Plan {
+    const found = findFirm(MFF_PRO_ID.firm)?.findPlan(MFF_PRO_ID);
+    if (!found) throw new Error(`${serializePlanId(MFF_PRO_ID)} missing`);
     return found;
 }
 
@@ -80,7 +80,7 @@ function trackerSnapshotOf(tracker: FundedCycleTracker) {
 }
 
 describe('payoutReadiness: eligible at the effective request under FullRequestOnly', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     it('is eligible for the $500 default request when every gate passes', () => {
         const state = fundedState(53_000);
@@ -251,7 +251,7 @@ describe('payoutReadiness: eligible at the effective request under FullRequestOn
 });
 
 describe('payoutPath: every gate checked independently, not short-circuited', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     it('marks every step satisfied on a clean eligible account', () => {
         const state = fundedState(53_000);
@@ -297,7 +297,7 @@ describe('payoutPath: every gate checked independently, not short-circuited', ()
 });
 
 describe('payoutPath: the remaining six gates through the exported ladder helpers (PT-12j, F-110)', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     it('reports the lifetime dollar cap remaining and blocks once it is reached', () => {
         const state = fundedState(153_000);

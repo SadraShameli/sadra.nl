@@ -28,8 +28,8 @@ interface CountedRng {
     rng: Rng;
 }
 
-function countedRng(seed: number): CountedRng {
-    const inner = mulberry32(seed);
+function countedRng(): CountedRng {
+    const inner = mulberry32(42);
     let count = 0;
     return {
         draws: () => count,
@@ -81,7 +81,7 @@ const EVAL_OPTIONS = {
 
 describe('rng draw counts', () => {
     it('pins the eval-with-retries draw count', () => {
-        const counted = countedRng(42);
+        const counted = countedRng();
         runEvalWithRetries({
             ...EVAL_OPTIONS,
             plan: rapidEod,
@@ -97,7 +97,7 @@ describe('rng draw counts', () => {
             'is removed and the 60-day funded horizon no longer concludes early ' +
             'after the 5th payout',
         () => {
-            const counted = countedRng(42);
+            const counted = countedRng();
             const retry = runEvalWithRetries({
                 ...EVAL_OPTIONS,
                 plan: lucidPro,
@@ -127,7 +127,7 @@ describe('rng draw counts', () => {
     );
 
     it('pins the account-timeline draw count', () => {
-        const counted = countedRng(42);
+        const counted = countedRng();
         runAccountTimeline({
             dayBudget: 120,
             dayStop: { kind: DayStopRuleKind.None },
@@ -145,7 +145,7 @@ describe('rng draw counts', () => {
     });
 
     it('pins the ladder-score draw count', () => {
-        const counted = countedRng(42);
+        const counted = countedRng();
         scoreLadder(
             [400, 600, 800, 200],
             {

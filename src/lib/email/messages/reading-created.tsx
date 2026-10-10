@@ -5,8 +5,8 @@ import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
 
 interface ReadingCreatedTemplateProperties {
-    deviceName: null | string;
-    locationName: null | string;
+    deviceName?: string;
+    locationName?: string;
     sensorReadings: SensorReading[];
 }
 
@@ -34,8 +34,8 @@ export class ReadingCreatedEmail extends EmailMessage {
 }
 
 function ReadingCreatedTemplate({
-    deviceName,
-    locationName,
+    deviceName = '—',
+    locationName = '—',
     sensorReadings,
 }: ReadingCreatedTemplateProperties) {
     return (
@@ -46,21 +46,21 @@ function ReadingCreatedTemplate({
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Device
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {deviceName ?? '—'}
+            <Text className="m-0 text-sm/snug text-neutral-700">
+                {deviceName}
             </Text>
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Location
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {locationName ?? '—'}
+            <Text className="m-0 text-sm/snug text-neutral-700">
+                {locationName}
             </Text>
             <Text className="mt-4 mb-2 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Readings
             </Text>
             {sensorReadings.map((r) => (
                 <Text
-                    className="m-0 border-b border-neutral-100 py-1.5 text-sm leading-snug text-neutral-700"
+                    className="m-0 border-b border-neutral-100 py-1.5 text-sm/snug text-neutral-700"
                     key={r.name}
                 >
                     <span className="text-neutral-500">{r.name}: </span>

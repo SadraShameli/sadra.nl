@@ -443,7 +443,7 @@ function realFundedAdvice() {
     return advisor.assemble([]);
 }
 
-function snapshot(overrides: Record<string, unknown> = {}) {
+function snapshot() {
     return {
         accountId: ACCOUNT_ID,
         asOf: '2026-09-26',
@@ -465,7 +465,6 @@ function snapshot(overrides: Record<string, unknown> = {}) {
         tradingDays: 5,
         updatedAt: new Date('2026-09-26T12:00:00Z'),
         userId: USER_ID,
-        ...overrides,
     };
 }
 

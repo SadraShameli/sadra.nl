@@ -19,6 +19,7 @@ const FIRM: FirmKey = { firmId: FirmId.Apex, kind: FirmKeyKind.Modeled };
 describe('tiltVarianceSplitOf', () => {
     it('adds violation cost back onto net cash to give the net without violations, on a cash basis', () => {
         const split = tiltVarianceSplitOf({
+            firmKeyByAccount: new Map(),
             netCashByBucket: [
                 {
                     accountId: ACCOUNT,
@@ -52,6 +53,7 @@ describe('tiltVarianceSplitOf', () => {
 
     it('reduces net without violations for a violation with a negative cost (one that won)', () => {
         const split = tiltVarianceSplitOf({
+            firmKeyByAccount: new Map(),
             netCashByBucket: [
                 {
                     accountId: ACCOUNT,
@@ -75,6 +77,7 @@ describe('tiltVarianceSplitOf', () => {
 
     it('treats a bucket with no violations as net without violations equal to net cash', () => {
         const split = tiltVarianceSplitOf({
+            firmKeyByAccount: new Map(),
             netCashByBucket: [
                 {
                     accountId: ACCOUNT,
@@ -97,6 +100,7 @@ describe('tiltVarianceSplitOf', () => {
 
     it('ignores an uncosted violation for the dollar split (it has no cost to add back)', () => {
         const split = tiltVarianceSplitOf({
+            firmKeyByAccount: new Map(),
             netCashByBucket: [
                 {
                     accountId: ACCOUNT,
@@ -121,6 +125,7 @@ describe('tiltVarianceSplitOf', () => {
 
     it('sums every violation in the same account/firm/month bucket', () => {
         const split = tiltVarianceSplitOf({
+            firmKeyByAccount: new Map(),
             netCashByBucket: [
                 {
                     accountId: ACCOUNT,
@@ -286,6 +291,7 @@ describe('tiltVarianceSplitOf', () => {
 
     it('reports no dropped violations when every violation sits in a cash bucket', () => {
         const split = tiltVarianceSplitOf({
+            firmKeyByAccount: new Map(),
             netCashByBucket: [
                 {
                     accountId: ACCOUNT,

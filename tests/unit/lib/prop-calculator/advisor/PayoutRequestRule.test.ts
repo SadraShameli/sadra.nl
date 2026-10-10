@@ -79,7 +79,7 @@ function eligibleContextForLiveTrigger(
         threshold: 50_100,
         thresholdLocked: true,
     });
-    const tracker = trackerAt(state, 0);
+    const tracker = trackerAt(state);
     tracker.restoreCalendarDayGateProgress(20);
     return baseFundedContext(plan, tracker, state, overrides);
 }
@@ -117,14 +117,11 @@ function rulebookWith(
     };
 }
 
-function trackerAt(
-    state: AccountState,
-    qualifyingDaysAtLastPayout: number,
-): FundedCycleTracker {
+function trackerAt(state: AccountState): FundedCycleTracker {
     const tracker = newFundedCycleTracker({
         ...state,
         balance: state.startingBalance,
-        qualifyingDays: qualifyingDaysAtLastPayout,
+        qualifyingDays: 0,
     });
     return tracker;
 }
@@ -158,7 +155,7 @@ describe('PayoutRequestRule: context schema', () => {
     const rule = new PayoutRequestRule(DEFAULT_RULEBOOK);
     const plan = registryPlan(TOPSTEP_STANDARD_ID);
     const state = fundedState({ balance: 50_000, threshold: 48_000 });
-    const tracker = trackerAt(state, 0);
+    const tracker = trackerAt(state);
 
     it('rejects an unknown extra key', () => {
         const context = {
@@ -264,7 +261,7 @@ describe('PayoutRequestRule funded: LockAtPlanFloor forces the lock on any payou
             qualifyingDays: 0,
             threshold: dollars(balance - 2000),
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         return baseFundedContext(basePlan, tracker, state, {
             personalRetainedCushion: dollars(1000),
         });
@@ -307,7 +304,7 @@ describe('PayoutRequestRule funded: MoveToLockedFloor once already locked (F-105
             threshold: 50_100,
             thresholdLocked: true,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         tracker.payoutsIssued = 1;
         tracker.restoreCalendarDayGateProgress(20);
         return baseFundedContext(plan, tracker, state, {
@@ -341,7 +338,7 @@ describe('PayoutRequestRule funded: ReleaseFloor advice-path fix, TopStep (F-105
 
     it('ruleCappedWithdrawable is $200, not the engine withdrawableNow of $600', () => {
         const s = topStepReleaseFloorState();
-        const tracker = trackerAt(s, 0);
+        const tracker = trackerAt(s);
         const engineRoom = tracker.withdrawableNow({
             minRetainedCushion: 1000,
             plan,
@@ -359,7 +356,7 @@ describe('PayoutRequestRule funded: ReleaseFloor advice-path fix, TopStep (F-105
         });
         const rule = new PayoutRequestRule(rulebook);
         const s = topStepReleaseFloorState();
-        const tracker = trackerAt(s, 0);
+        const tracker = trackerAt(s);
         const decision = rule.decide(
             baseFundedContext(plan, tracker, s, {
                 personalRetainedCushion: dollars(1000),
@@ -377,7 +374,7 @@ describe('PayoutRequestRule funded: ReleaseFloor advice-path fix, TopStep (F-105
         const rulebook = rulebookWith({ requestCents: 50_000 });
         const rule = new PayoutRequestRule(rulebook);
         const s = topStepReleaseFloorState();
-        const tracker = trackerAt(s, 0);
+        const tracker = trackerAt(s);
         const decision = rule.decide(baseFundedContext(plan, tracker, s));
         expect(decision.kind).toBe(PayoutRequestDecisionKind.Wait);
         if (decision.kind !== PayoutRequestDecisionKind.Wait) return;
@@ -397,7 +394,7 @@ describe('PayoutRequestRule funded: ReleaseFloor advice-path fix, TopStep (F-105
         const s = topStepReleaseFloorState();
 
         function profitStillNeededFor(pendingPayouts: number): number {
-            const tracker = trackerAt(s, 0);
+            const tracker = trackerAt(s);
             const decision = rule.decide(
                 baseFundedContext(plan, tracker, s, {
                     pendingPayouts: dollars(pendingPayouts),
@@ -447,7 +444,7 @@ describe('PayoutRequestRule funded: PayoutFloorEffect.None and Unreachable (F-10
             qualifyingDays: 0,
             threshold: 48_500,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         const decision = rule.decide(
             baseFundedContext(plan, tracker, state, {
                 personalRetainedCushion: dollars(2500),
@@ -480,7 +477,7 @@ describe('PayoutRequestRule funded: payoutBuffer binds above threshold + cushion
             qualifyingDays: 0,
             threshold: 48_100,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         const decision = rule.decide(
             baseFundedContext(apex, tracker, state, {
                 personalRetainedCushion: dollars(0),
@@ -533,7 +530,7 @@ describe('PayoutRequestRule funded: plan minimum above $500 (F-105f)', () => {
                 qualifyingDays: 40,
                 threshold: plan.accountSize - 100,
             });
-            const tracker = trackerAt(state, 0);
+            const tracker = trackerAt(state);
             tracker.restoreCalendarDayGateProgress(40);
             const decision = rule.decide(
                 baseFundedContext(plan, tracker, state, {
@@ -565,7 +562,7 @@ describe('PayoutRequestRule funded: firm gates (F-105g)', () => {
             qualifyingDays: 40,
             threshold: plan.accountSize - plan.fundedDrawdown.amount,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         tracker.cycleBestDayProfit = 800;
         const decision = rule.decide(
             baseFundedContext(plan, tracker, state, {
@@ -591,7 +588,7 @@ describe('PayoutRequestRule funded: firm gates (F-105g)', () => {
             balance: plan.accountSize + 5000,
             qualifyingDays: 40,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         tracker.payoutsIssued = plan.maxLifetimePayouts ?? 6;
         const decision = rule.decide(baseFundedContext(plan, tracker, state));
         expect(decision.kind).toBe(PayoutRequestDecisionKind.NotEligible);
@@ -611,7 +608,7 @@ describe('PayoutRequestRule funded: firm gates (F-105g)', () => {
             balance: plan.accountSize + 5000,
             qualifyingDays: 40,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         tracker.payoutsIssued = plan.payoutLadder?.steps.length ?? 6;
         const decision = rule.decide(baseFundedContext(plan, tracker, state));
         expect(decision.kind).toBe(PayoutRequestDecisionKind.NotEligible);
@@ -632,7 +629,7 @@ describe('PayoutRequestRule funded: firm gates (F-105g)', () => {
             threshold: 50_100,
             thresholdLocked: true,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         tracker.restoreCalendarDayGateProgress(20);
         const decision = rule.decide(
             baseFundedContext(plan, tracker, state, {
@@ -656,7 +653,7 @@ describe('PayoutRequestRule funded: firm gates (F-105g)', () => {
             threshold: 50_100,
             thresholdLocked: true,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         const decision = rule.decide(baseFundedContext(plan, tracker, state));
         expect(decision.kind).toBe(PayoutRequestDecisionKind.Wait);
         if (decision.kind !== PayoutRequestDecisionKind.Wait) return;
@@ -673,7 +670,7 @@ describe('PayoutRequestRule funded: firm gates (F-105g)', () => {
             threshold: 50_100,
             thresholdLocked: true,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         tracker.restoreCalendarDayGateProgress(20);
         const decision = rule.decide(baseFundedContext(plan, tracker, state));
         expect(decision.kind).toBe(PayoutRequestDecisionKind.Wait);
@@ -696,7 +693,7 @@ describe('PayoutRequestRule funded: firm gates (F-105g)', () => {
             qualifyingDays: 5,
             threshold: 48_900,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         const decision = rule.decide(
             baseFundedContext(plan, tracker, state, {
                 personalRetainedCushion: dollars(0),
@@ -728,7 +725,7 @@ describe('PayoutRequestRule funded: MFF Pro one-time early withdrawal still enfo
             threshold: 50_100,
             thresholdLocked: true,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         tracker.restoreCalendarDayGateProgress(20);
         const closeoutSpy = vi.spyOn(tracker, 'closeoutCredit');
         const decision = rule.decide(
@@ -747,7 +744,7 @@ describe('retainedCushionForStage (F-105i)', () => {
         const rulebook = rulebookWith({ retainedCushionCents: 10_000 });
         const context = baseFundedContext(
             plan,
-            trackerAt(fundedState({}), 0),
+            trackerAt(fundedState({})),
             fundedState({}),
         );
         const resolved = retainedCushionForStage(rulebook, context);
@@ -763,7 +760,7 @@ describe('retainedCushionForStage (F-105i)', () => {
         });
         const context = baseFundedContext(
             plan,
-            trackerAt(fundedState({}), 0),
+            trackerAt(fundedState({})),
             fundedState({}),
         );
         const resolved = retainedCushionForStage(rulebook, context);
@@ -776,7 +773,7 @@ describe('retainedCushionForStage (F-105i)', () => {
         const rulebook = rulebookWith({});
         const context = baseFundedContext(
             plan,
-            trackerAt(fundedState({}), 0),
+            trackerAt(fundedState({})),
             fundedState({}),
             { personalRetainedCushion: dollars(5000) },
         );
@@ -801,12 +798,9 @@ describe('retainedCushionForStage (F-105i)', () => {
             },
         ];
         for (const { personal, rulebook } of cases) {
-            const context = baseFundedContext(
-                plan,
-                trackerAt(state, 0),
-                state,
-                { personalRetainedCushion: personal },
-            );
+            const context = baseFundedContext(plan, trackerAt(state), state, {
+                personalRetainedCushion: personal,
+            });
             expect(
                 fundedRetainedCushionResolution(
                     rulebook,
@@ -926,7 +920,7 @@ describe('PayoutRequestRule: invariants (F-105j)', () => {
             threshold: 50_100,
             thresholdLocked: true,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         tracker.restoreCalendarDayGateProgress(20);
         const decision = rule.decide(baseFundedContext(plan, tracker, state));
         expect(decision.kind).toBe(PayoutRequestDecisionKind.Request);
@@ -941,7 +935,7 @@ describe('PayoutRequestRule: invariants (F-105j)', () => {
             qualifyingDays: 5,
             threshold: 49_200,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         const capped = ruleCappedWithdrawable(plan, tracker, state, 1000);
         expect(capped).toBeLessThanOrEqual(51_200 - 50_000 - 1000 + 1e-6);
     });
@@ -955,7 +949,7 @@ describe('PayoutRequestRule: invariants (F-105j)', () => {
             qualifyingDays: 5,
             threshold: 51_000,
         });
-        const tracker = trackerAt(state, 0);
+        const tracker = trackerAt(state);
         const decision = rule.decide(baseFundedContext(plan, tracker, state));
         expect(decision.sources).toContain('PAYOUT SIZING');
         expect(decision.sources).toContain('Hard Rule 2');

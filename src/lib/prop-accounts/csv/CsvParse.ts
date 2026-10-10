@@ -465,7 +465,7 @@ function readHeader<Column extends string>(
     }
     const matched = names.flatMap((name) => {
         const column = byName.get(name.toLowerCase());
-        return column === undefined ? [] : [column];
+        return column ?? [];
     });
     const duplicates = [
         ...new Set(

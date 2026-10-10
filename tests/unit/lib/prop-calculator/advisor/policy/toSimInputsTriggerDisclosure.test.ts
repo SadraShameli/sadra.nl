@@ -26,15 +26,10 @@ function cliMethodConsumers(): readonly {
     return filesUnder(SOURCE_ROOT).flatMap((full) => {
         const text = readFileSync(full, 'utf8');
         if (!text.includes('.toSimInputs(')) return [];
-        return [
-            {
-                file: path
-                    .relative(SOURCE_ROOT, full)
-                    .split(path.sep)
-                    .join('/'),
-                printsTriggerLines: TRIGGER_LINES_CALL.test(text),
-            },
-        ];
+        return {
+            file: path.relative(SOURCE_ROOT, full).split(path.sep).join('/'),
+            printsTriggerLines: TRIGGER_LINES_CALL.test(text),
+        };
     });
 }
 
@@ -46,15 +41,10 @@ function consumers(): readonly {
         const text = readFileSync(full, 'utf8');
         if (!TO_SIM_INPUTS_IMPORT.test(text)) return [];
         if (!TO_SIM_INPUTS_CALL.test(text)) return [];
-        return [
-            {
-                discloses: isDisclosureReturned(text),
-                file: path
-                    .relative(SOURCE_ROOT, full)
-                    .split(path.sep)
-                    .join('/'),
-            },
-        ];
+        return {
+            discloses: isDisclosureReturned(text),
+            file: path.relative(SOURCE_ROOT, full).split(path.sep).join('/'),
+        };
     });
 }
 
@@ -62,7 +52,7 @@ function filesUnder(directory: string): string[] {
     return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
         const full = path.join(directory, entry.name);
         if (entry.isDirectory()) return filesUnder(full);
-        return SOURCE_FILE.test(entry.name) ? [full] : [];
+        return SOURCE_FILE.test(entry.name) ? full : [];
     });
 }
 

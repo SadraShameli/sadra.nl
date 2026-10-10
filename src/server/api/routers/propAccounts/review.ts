@@ -122,17 +122,15 @@ export const propReviewRouter = createTRPCRouter({
             return modeled.flatMap((account) => {
                 const resolution = resolvePlanKey(account);
                 return resolution.kind === PlanKeyResolutionKind.Resolved
-                    ? [
-                          {
-                              accountId: account.id,
-                              stage: reviewStageOf(
-                                  account,
-                                  resolution.plan,
-                                  stageStarts,
-                                  input.asOf,
-                              ),
-                          },
-                      ]
+                    ? {
+                          accountId: account.id,
+                          stage: reviewStageOf(
+                              account,
+                              resolution.plan,
+                              stageStarts,
+                              input.asOf,
+                          ),
+                      }
                     : [];
             });
         }),

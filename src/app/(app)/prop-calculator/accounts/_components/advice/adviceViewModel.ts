@@ -125,11 +125,6 @@ enum FigureUnit {
     Percent = 'percent',
 }
 
-export interface AdviceViewContext {
-    readonly placement: null | SizingPlacement;
-    readonly plan: Plan;
-}
-
 export type AdviceViewModel = ReadyAdviceViewModel | StaleAdviceViewModel;
 
 export interface AssumptionView {
@@ -227,21 +222,9 @@ export interface ReasonView {
     readonly text: string;
 }
 
-export interface RungView {
-    readonly cappedByText: readonly string[];
-    readonly risk: number;
-    readonly runningLossAfter: number;
-    readonly takeProfit: number;
-}
-
-export interface StaleAdviceViewModel {
-    readonly action: AccountAction;
-    readonly headline: string;
-    readonly kind: AdviceDisplayKind.Stale;
-    readonly message: string;
-    readonly provenance: ProvenanceView;
-    readonly reasonTexts: readonly string[];
-    readonly stage: SizingStage;
+interface AdviceViewContext {
+    readonly placement: null | SizingPlacement;
+    readonly plan: Plan;
 }
 
 interface OptimumContext {
@@ -254,6 +237,23 @@ interface PayoutRowFigures {
     readonly headlineStandardError: null | number;
     readonly headlineValue: number;
     readonly text: string;
+}
+
+interface RungView {
+    readonly cappedByText: readonly string[];
+    readonly risk: number;
+    readonly runningLossAfter: number;
+    readonly takeProfit: number;
+}
+
+interface StaleAdviceViewModel {
+    readonly action: AccountAction;
+    readonly headline: string;
+    readonly kind: AdviceDisplayKind.Stale;
+    readonly message: string;
+    readonly provenance: ProvenanceView;
+    readonly reasonTexts: readonly string[];
+    readonly stage: SizingStage;
 }
 
 export const STALE_ADVICE_MESSAGE =
@@ -384,13 +384,13 @@ export interface DpAdviceRowView {
     readonly valueTexts: readonly string[];
 }
 
-export interface DpSampleLineView {
+interface DpSampleLineView {
     readonly cushionText: string;
     readonly label: string;
     readonly riskTexts: readonly string[];
 }
 
-export type DpSamplesView =
+type DpSamplesView =
     | {
           readonly kind: DpSamplesViewKind.Sampled;
           readonly lines: readonly DpSampleLineView[];
@@ -911,9 +911,7 @@ function limitersTextOf(caps: readonly PayoutCap[]): string {
         switch (cap.kind) {
             case PayoutCapKind.BalanceShare: {
                 return cap.limitsWithdrawable
-                    ? [
-                          `the ${formatPercent(cap.share, 0)} balance-share cap of ${formatCurrency(cap.amount, 2)}`,
-                      ]
+                    ? `the ${formatPercent(cap.share, 0)} balance-share cap of ${formatCurrency(cap.amount, 2)}`
                     : [];
             }
             case PayoutCapKind.RemainingPayouts: {
@@ -921,9 +919,7 @@ function limitersTextOf(caps: readonly PayoutCap[]): string {
             }
             case PayoutCapKind.RequestCap: {
                 return cap.limitsWithdrawable
-                    ? [
-                          `the per-request cap of ${formatCurrency(cap.amount, 2)}`,
-                      ]
+                    ? `the per-request cap of ${formatCurrency(cap.amount, 2)}`
                     : [];
             }
         }

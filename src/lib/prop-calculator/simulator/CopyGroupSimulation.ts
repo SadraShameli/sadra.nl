@@ -272,8 +272,8 @@ export function simulateCopyGroup(
         record(groupHorizonCreditMoments, groupHorizonCredit);
         record(groupResetFeeMoments, groupResetFees);
 
-        const bustDays = runtimes.flatMap((runtime) =>
-            runtime.daysToBust === null ? [] : [runtime.daysToBust],
+        const bustDays = runtimes.flatMap(
+            (runtime) => runtime.daysToBust ?? [],
         );
         if (bustDays.length === 0) continue;
 
@@ -356,15 +356,13 @@ function fundedMembersOf(
 ): FundedMember[] {
     return members.flatMap((member) =>
         member.start.phase === TradingPhase.Funded
-            ? [
-                  {
-                      ...member,
-                      minRetainedCushion: member.plan.resolveRetainedCushion(
-                          member.minRetainedCushion,
-                      ),
-                      start: member.start,
-                  },
-              ]
+            ? {
+                  ...member,
+                  minRetainedCushion: member.plan.resolveRetainedCushion(
+                      member.minRetainedCushion,
+                  ),
+                  start: member.start,
+              }
             : [],
     );
 }

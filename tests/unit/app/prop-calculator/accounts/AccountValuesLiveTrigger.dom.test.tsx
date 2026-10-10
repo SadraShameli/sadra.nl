@@ -354,13 +354,14 @@ describe('the account list passes the firm payout count to the advice and the bo
         });
     }
 
-    function rowOf(label: string): HTMLElement {
+    function rowOf(): HTMLElement {
         const row = [
             ...container.querySelectorAll<HTMLElement>(':scope tbody tr'),
         ].find(
-            (candidate) => candidate.querySelector('a')?.textContent === label,
+            (candidate) =>
+                candidate.querySelector('a')?.textContent === 'Alpha',
         );
-        if (row === undefined) throw new Error(`no row for ${label}`);
+        if (row === undefined) throw new Error('no row for Alpha');
         return row;
     }
 
@@ -397,7 +398,7 @@ describe('the account list passes the firm payout count to the advice and the bo
         withPolicy(() => {
             render(<AccountsTable userId={USER_ID} />);
         });
-        expect(rowOf('Alpha').textContent).toContain('Request payout');
+        expect(rowOf().textContent).toContain('Request payout');
         withPolicy(() => {
             render(<BoardProbe />);
         });
@@ -411,7 +412,7 @@ describe('the account list passes the firm payout count to the advice and the bo
         withPolicy(() => {
             render(<AccountsTable userId={USER_ID} />);
         });
-        expect(rowOf('Alpha').textContent).not.toContain('Request payout');
+        expect(rowOf().textContent).not.toContain('Request payout');
         withPolicy(() => {
             render(<BoardProbe />);
         });
@@ -429,7 +430,7 @@ describe('the account list passes the firm payout count to the advice and the bo
         withPolicy(() => {
             render(<AccountsTable userId={USER_ID} />);
         });
-        expect(rowOf('Alpha').textContent).not.toContain('Request payout');
+        expect(rowOf().textContent).not.toContain('Request payout');
         withPolicy(() => {
             render(<BoardProbe />);
         });
@@ -447,7 +448,7 @@ describe('the account list passes the firm payout count to the advice and the bo
         withPolicy(() => {
             render(<AccountsTable userId={USER_ID} />);
         });
-        expect(rowOf('Alpha').textContent).toContain('Request payout');
+        expect(rowOf().textContent).toContain('Request payout');
     });
 
     it('counts the sibling requested payouts on the one-account detail figures too (PT-36l)', () => {

@@ -62,17 +62,13 @@ function accountWithCushion(cushion: number): ReconstructedFundedOrEvalAccount {
     };
 }
 
-function advisorWith(
-    maxRiskPerTrade: Dollars | null,
-    cushion = 2000,
-    sims = 40,
-): EvalSizingAdvisor {
+function advisorWith(maxRiskPerTrade: Dollars | null): EvalSizingAdvisor {
     return new EvalSizingAdvisor({
-        account: accountWithCushion(cushion),
+        account: accountWithCushion(2000),
         maxEvalDays: 40,
         personalCaps: { ...NO_PERSONAL_CAPS, maxRiskPerTrade },
         rulebook: DEFAULT_RULEBOOK,
-        sims,
+        sims: 40,
         snapshotAsOf: '2026-09-26',
         substate: null,
         today: '2026-09-26',

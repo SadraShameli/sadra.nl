@@ -28,7 +28,6 @@ import {
     type LiveTransitionTrigger,
     PayoutCountPerAccountTrigger,
     PayoutCountTotalTrigger,
-    type Plan,
     PolicySourceKind,
     PolicyVerification,
 } from '~/lib/prop-calculator';
@@ -71,14 +70,14 @@ class StubTriggerPolicy extends FirmAccountPolicy {
 
 const plan = mffProPlan();
 
-function eligibleFunded(payoutsIssued = 1) {
+function eligibleFunded() {
     const balance = plan.accountSize + 20_000;
     const funded = fundedReconstructed(plan, {
         balance,
         cumulativePayout: 0,
         cycleBestDayProfit: balance - plan.accountSize,
         lastPayoutBalance: plan.accountSize,
-        payoutsIssued,
+        payoutsIssued: 1,
     });
     if (funded.fundedTracker === null) throw new Error('expected a tracker');
     funded.fundedTracker.sessionDaysSinceAnchor = 999;
@@ -86,9 +85,9 @@ function eligibleFunded(payoutsIssued = 1) {
     return funded;
 }
 
-function fundedAccountFor(target: Plan) {
+function fundedAccountFor() {
     return accountFor(
-        { firmId: target.id.firm, plan: target },
+        { firmId: plan.id.firm, plan },
         { stage: AccountStage.Funded },
     );
 }
@@ -112,9 +111,9 @@ function withFirmTotal<T>(cap: number, run: () => T): T {
     );
 }
 
-function withPerAccountCap<T>(cap: number, run: () => T): T {
+function withPerAccountCap<T>(run: () => T): T {
     return withTriggers(
-        [new PayoutCountPerAccountTrigger(cap, CONFIRMED_SOURCE)],
+        [new PayoutCountPerAccountTrigger(4, CONFIRMED_SOURCE)],
         run,
     );
 }
@@ -137,7 +136,7 @@ function withTriggers<T>(
 
 describe('firmPayoutCountIn: the one firm count the alerts share (PT-36l, F-145)', () => {
     it('counts the paid and the requested payouts of every account at the firm, archived ones included', () => {
-        const account = fundedAccountFor(plan);
+        const account = fundedAccountFor();
         const archived = accountFor(
             { firmId: plan.id.firm, plan },
             {
@@ -165,8 +164,8 @@ describe('firmPayoutCountIn: the one firm count the alerts share (PT-36l, F-145)
     });
 
     it('is null while a sibling payout has an invalid stored date, so no surface treats an unknown count as zero', () => {
-        const account = fundedAccountFor(plan);
-        const sibling = fundedAccountFor(plan);
+        const account = fundedAccountFor();
+        const sibling = fundedAccountFor();
         const context = contextOf({
             accounts: [account, sibling],
             payouts: [paidPayout(sibling, { paidOn: 'not a date' })],
@@ -175,7 +174,7 @@ describe('firmPayoutCountIn: the one firm count the alerts share (PT-36l, F-145)
     });
 
     it('is null while an archived account at the firm cannot be read', () => {
-        const account = fundedAccountFor(plan);
+        const account = fundedAccountFor();
         const unreadable = accountFor(
             { firmId: plan.id.firm, plan },
             {
@@ -193,7 +192,7 @@ describe('firmPayoutCountIn: the one firm count the alerts share (PT-36l, F-145)
     });
 
     it('is computed at the date it is asked for and records that date', () => {
-        const account = fundedAccountFor(plan);
+        const account = fundedAccountFor();
         const context = contextOf({
             accounts: [account],
             payouts: [
@@ -234,8 +233,8 @@ describe('every payout alert counts the sibling requested payouts the near-live 
     };
 
     function surfacesAt(cap: number) {
-        const account = fundedAccountFor(plan);
-        const sibling = fundedAccountFor(plan);
+        const account = fundedAccountFor();
+        const sibling = fundedAccountFor();
         const funded = eligibleFunded();
         const latest = fundedReconstructed(plan, {
             balance: plan.accountSize + 1000,
@@ -324,7 +323,7 @@ describe('every payout alert counts the sibling requested payouts the near-live 
 });
 
 function eligibleKindsWith(hasOwnRequest: boolean) {
-    const account = fundedAccountFor(plan);
+    const account = fundedAccountFor();
     const funded = eligibleFunded();
     const payouts = [paidPayout(account, { paidOn: '2026-09-02' })];
     if (hasOwnRequest) payouts.push(requestedPayout(account, '2026-09-10'));
@@ -348,13 +347,10 @@ describe('the eligible alert counts a request the account made before its snapsh
     });
 });
 
-function eligibleKindsUnderPerAccountCap(
-    cap: number,
-    ownRequestDates: readonly string[],
-) {
-    const account = fundedAccountFor(plan);
+function eligibleKindsUnderPerAccountCap(ownRequestDates: readonly string[]) {
+    const account = fundedAccountFor();
     const funded = eligibleFunded();
-    const alerts = withPerAccountCap(cap, () =>
+    const alerts = withPerAccountCap(() =>
         alertsOf(new PayoutEligibleRule(), {
             accounts: [account],
             accountStates: [reconstructedEntry(account.id, plan, funded)],
@@ -369,20 +365,20 @@ function eligibleKindsUnderPerAccountCap(
 describe('the eligible alert counts every own request against a per-account cap (PT-36l, F-145)', () => {
     it('is silent when one issued and two requested payouts make the next one the fourth of a cap of four', () => {
         expect(
-            eligibleKindsUnderPerAccountCap(4, ['2026-09-10', '2026-09-11']),
+            eligibleKindsUnderPerAccountCap(['2026-09-10', '2026-09-11']),
         ).toEqual([]);
     });
 
     it('stays eligible with one issued and one requested payout under the same cap', () => {
-        expect(eligibleKindsUnderPerAccountCap(4, ['2026-09-10'])).toEqual([
+        expect(eligibleKindsUnderPerAccountCap(['2026-09-10'])).toEqual([
             AlertKind.PayoutEligible,
         ]);
     });
 
     it('agrees with the readiness board for the same account', () => {
-        const account = fundedAccountFor(plan);
+        const account = fundedAccountFor();
         const funded = eligibleFunded();
-        const board = withPerAccountCap(4, () =>
+        const board = withPerAccountCap(() =>
             payoutReadinessBoardOf(
                 DEFAULT_RULEBOOK,
                 [reconstructedEntry(account.id, plan, funded)],
@@ -402,7 +398,7 @@ describe('the eligible alert counts every own request against a per-account cap 
         );
         expect(board.rows[0]?.kind).toBe(PayoutReadinessRowKind.Blocked);
         expect(
-            eligibleKindsUnderPerAccountCap(4, ['2026-09-10', '2026-09-11']),
+            eligibleKindsUnderPerAccountCap(['2026-09-10', '2026-09-11']),
         ).toEqual([]);
     });
 });

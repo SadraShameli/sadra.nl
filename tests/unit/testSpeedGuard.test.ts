@@ -204,7 +204,7 @@ function configuredTimeouts(value: unknown, trail: string): Offender[] {
         const milliseconds = typeof entry === 'number' ? entry : null;
         return milliseconds !== null && milliseconds <= MAX_TIMEOUT_MS
             ? []
-            : [{ milliseconds, where }];
+            : { milliseconds, where };
     });
 }
 

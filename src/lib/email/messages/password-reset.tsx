@@ -27,7 +27,7 @@ function PasswordResetTemplate({ url }: { url: string }) {
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
                 Reset your password
             </Heading>
-            <Text className="mt-0 mb-6 text-sm leading-6 text-neutral-600">
+            <Text className="mt-0 mb-6 text-sm/6 text-neutral-600">
                 Click the button below to reset your password. This link expires
                 in 1 hour.
             </Text>

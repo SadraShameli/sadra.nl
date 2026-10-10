@@ -7,7 +7,7 @@ import { BaseEmail } from '~/lib/email/templates/base';
 interface DeviceCreatedTemplateProperties {
     deviceId: number;
     deviceName: string;
-    locationName: null | string;
+    locationName?: string;
 }
 
 export class DeviceCreatedEmail extends EmailMessage {
@@ -30,7 +30,7 @@ export class DeviceCreatedEmail extends EmailMessage {
 function DeviceCreatedTemplate({
     deviceId,
     deviceName,
-    locationName,
+    locationName = '—',
 }: DeviceCreatedTemplateProperties) {
     return (
         <BaseEmail preview={`New device registered: ${deviceName}`}>
@@ -40,20 +40,20 @@ function DeviceCreatedTemplate({
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Name
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
+            <Text className="m-0 text-sm/snug text-neutral-700">
                 {deviceName}
             </Text>
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Device ID
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
+            <Text className="m-0 text-sm/snug text-neutral-700">
                 {deviceId}
             </Text>
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Location
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {locationName ?? '—'}
+            <Text className="m-0 text-sm/snug text-neutral-700">
+                {locationName}
             </Text>
         </BaseEmail>
     );

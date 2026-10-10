@@ -36,6 +36,10 @@ interface RegistryEntry {
     readonly plan: Plan;
 }
 
+type StoredPlanKey = Omit<PlanKey, 'firmId'> & {
+    readonly firmId: StoredFirmId;
+};
+
 const REGISTRY: readonly RegistryEntry[] = ALL_FIRMS.flatMap((firm) =>
     firm.plans.map((plan) => ({ firm, plan })),
 );
@@ -65,8 +69,8 @@ function issuePaths(key: unknown): string[] {
 
 function keyFor(
     entry: RegistryEntry,
-    overrides: Partial<PlanKey> = {},
-): PlanKey {
+    overrides: Partial<StoredPlanKey> = {},
+): StoredPlanKey {
     return {
         accountSize: entry.plan.id.accountSize,
         firmId: entry.firm.id,
@@ -76,7 +80,7 @@ function keyFor(
     };
 }
 
-function resolvedPlan(key: PlanKey): Plan {
+function resolvedPlan(key: StoredPlanKey): Plan {
     const resolution = resolveUnflagged(key);
     if (resolution.kind !== PlanKeyResolutionKind.Resolved) {
         throw new Error(`expected ${key.planSerial} to resolve`);
@@ -84,7 +88,7 @@ function resolvedPlan(key: PlanKey): Plan {
     return resolution.plan;
 }
 
-function resolveUnflagged(key: PlanKey): PlanKeyResolution {
+function resolveUnflagged(key: StoredPlanKey): PlanKeyResolution {
     return resolvePlanKey({ ...key, readIssues: [] });
 }
 
@@ -244,9 +248,9 @@ describe('resolvePlanKey', () => {
     });
 
     it('reports a typed reason for each failure', () => {
-        const cases: [PlanKey, UnresolvedPlanReason][] = [
+        const cases: [StoredPlanKey, UnresolvedPlanReason][] = [
             [
-                keyFor(FIRST, { firmId: 'not-a-firm' as FirmId }),
+                keyFor(FIRST, { firmId: 'not-a-firm' }),
                 UnresolvedPlanReason.UnknownFirm,
             ],
             [
@@ -369,7 +373,7 @@ describe('resolvePlanKey on corrupt stored opt-ins', () => {
     it('reports corrupt opt-ins whatever else is wrong with the key', () => {
         const corrupt = { takesFundedReset: 'yes' };
         const keys = [
-            keyFor(FIRST, { firmId: 'not-a-firm' as FirmId }),
+            keyFor(FIRST, { firmId: 'not-a-firm' }),
             keyFor(FIRST, { planSerial: 'nope' }),
             keyFor(FIRST, { accountSize: 1 }),
             keyFor(WITHOUT_FUNDED_RESET),

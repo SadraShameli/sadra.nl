@@ -114,9 +114,9 @@ const EVAL_ENTRY = registryEntry(
     (plan) => !plan.isInstantFunded && plan.fundedReset === null,
 );
 
-function bustRecordedCaller(occurredOn: string) {
+function bustRecordedCaller() {
     const events = [
-        eventRow({ kind: AccountEventKind.Busted, occurred_on: occurredOn }),
+        eventRow({ kind: AccountEventKind.Busted, occurred_on: '2026-09-10' }),
     ];
     const responder = ledgerOnlyResponder(ledgerOnlyRow(), {
         [TABLES.event]: events,
@@ -625,7 +625,7 @@ describe('propAccounts.account with ledger-only accounts', () => {
     );
 
     it('rejects account.update moving the funded date of a Funded ledger-only account after its first recorded lifecycle event and writes nothing', async () => {
-        const { caller, queries } = bustRecordedCaller('2026-09-10');
+        const { caller, queries } = bustRecordedCaller();
         const update = caller.account.update({
             ...ledgerOnlyUpdate(),
             fundedOn: '2026-09-15',
@@ -641,7 +641,7 @@ describe('propAccounts.account with ledger-only accounts', () => {
     });
 
     it('accepts account.update moving the funded date of a Funded ledger-only account on or before its first recorded lifecycle event', async () => {
-        const { caller, queries } = bustRecordedCaller('2026-09-10');
+        const { caller, queries } = bustRecordedCaller();
         await caller.account.update({
             ...ledgerOnlyUpdate(),
             fundedOn: '2026-09-10',

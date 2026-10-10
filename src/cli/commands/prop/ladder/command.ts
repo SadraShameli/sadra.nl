@@ -239,14 +239,6 @@ export const ladderArguments = {
     },
 } as const satisfies ArgsDef;
 
-function unsupportedLadderFlagReason(flag: UnsupportedLadderFlag): string {
-    const reason =
-        LADDER_IGNORED_INPUT_REASONS[UNSUPPORTED_LADDER_FLAGS[flag].reason];
-    return `--${flag} is not supported by prop ladder: the ladder search ${reason}, so drop the flag or use prop sim`;
-}
-
-export const ladderCommandArguments = ladderArguments;
-
 export function buildLadderSearchOptions(
     plan: Plan,
     arguments_: LadderArguments,
@@ -413,8 +405,14 @@ export function readLadderGrid(
     };
 }
 
-export default defineCommand({
-    args: ladderCommandArguments,
+function unsupportedLadderFlagReason(flag: UnsupportedLadderFlag): string {
+    const reason =
+        LADDER_IGNORED_INPUT_REASONS[UNSUPPORTED_LADDER_FLAGS[flag].reason];
+    return `--${flag} is not supported by prop ladder: the ladder search ${reason}, so drop the flag or use prop sim`;
+}
+
+const command = defineCommand({
+    args: ladderArguments,
     meta: {
         description:
             'Grid-search the optimal within-day risk ladder for one plan (--firm, --variant).',
@@ -506,6 +504,8 @@ export default defineCommand({
         }
     },
 });
+
+export default command;
 
 function assertSupportedLadderFlags(
     arguments_: LadderArguments,

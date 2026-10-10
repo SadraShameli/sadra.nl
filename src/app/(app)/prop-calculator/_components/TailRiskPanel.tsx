@@ -92,7 +92,7 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
               : 'text-rose-400';
 
     return (
-        <Card className={cn('app-prop-calculator__tail-risk', 'px-5 py-5')}>
+        <Card className={cn('app-prop-calculator__tail-risk', 'p-5')}>
             <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">Tail Risk</h3>
                 <InfoPopover title="Tail Risk">

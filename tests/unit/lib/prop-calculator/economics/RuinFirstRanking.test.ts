@@ -37,9 +37,9 @@ function priced(probability: number): BatchLossPricing {
     return { probability, status: BatchLossStatus.Priced };
 }
 
-function rank(rows: readonly FixtureRow[], bankroll = BANKROLL) {
+function rank(rows: readonly FixtureRow[]) {
     return rankRuinFirst(rows, {
-        bankroll,
+        bankroll: BANKROLL,
         batchLoss: (candidate) => candidate.loss,
     });
 }

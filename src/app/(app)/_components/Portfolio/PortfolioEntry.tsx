@@ -29,7 +29,7 @@ export default function PortfolioEntry({ entry }: PortfolioEntryProperties) {
             <div
                 className={cn(
                     'app-portfolio__entry-meta',
-                    'flex flex-col gap-y-1 text-sm leading-tight text-neutral-400 md:pt-1',
+                    'flex flex-col gap-y-1 text-sm/tight text-neutral-400 md:pt-1',
                 )}
             >
                 <span className="app-portfolio__entry-date tabular-nums">
@@ -63,7 +63,7 @@ export default function PortfolioEntry({ entry }: PortfolioEntryProperties) {
                             <Link
                                 className={cn(
                                     'app-portfolio__entry-title-link',
-                                    'group inline-flex min-h-11 items-center gap-1 text-xl leading-tight font-semibold text-white transition md:min-h-0',
+                                    'group inline-flex min-h-11 items-center gap-1 text-xl/tight font-semibold text-white transition md:min-h-0',
                                 )}
                                 href={entry.url}
                                 rel="noreferrer"
@@ -78,7 +78,7 @@ export default function PortfolioEntry({ entry }: PortfolioEntryProperties) {
                                 />
                             </Link>
                         ) : (
-                            <h3 className="text-xl leading-tight font-semibold text-white">
+                            <h3 className="text-xl/tight font-semibold text-white">
                                 {entry.title}
                             </h3>
                         )}
@@ -162,7 +162,7 @@ export default function PortfolioEntry({ entry }: PortfolioEntryProperties) {
                     <ul
                         className={cn(
                             'app-portfolio__entry-skills',
-                            'flex flex-wrap gap-x-1.5 gap-y-1.5',
+                            'flex flex-wrap gap-1.5',
                         )}
                     >
                         {entry.skills.map((skill, index) => (

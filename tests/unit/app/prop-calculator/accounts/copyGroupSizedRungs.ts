@@ -6,7 +6,19 @@ import {
     ReconstructedLiveKind,
 } from '~/lib/prop-calculator/advisor';
 
-export function soloRungRisksOf(
+export function soloRungSumOf(section: CopyGroupSizingSection): number {
+    return section.inputs.members.reduce(
+        (sum, member) =>
+            sum +
+            soloRungRisksOf(section, member).reduce(
+                (total, risk) => total + risk,
+                0,
+            ),
+        0,
+    );
+}
+
+function soloRungRisksOf(
     section: CopyGroupSizingSection,
     member: CopyGroupSizingMember,
 ): readonly number[] {
@@ -23,16 +35,4 @@ export function soloRungRisksOf(
         personalDll: member.personalDll ?? null,
     });
     return sizing.rungs.map((rung) => rung.risk);
-}
-
-export function soloRungSumOf(section: CopyGroupSizingSection): number {
-    return section.inputs.members.reduce(
-        (sum, member) =>
-            sum +
-            soloRungRisksOf(section, member).reduce(
-                (total, risk) => total + risk,
-                0,
-            ),
-        0,
-    );
 }

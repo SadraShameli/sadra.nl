@@ -16,7 +16,7 @@ export async function flagsNamedButNotAccepted<T extends ArgsDef>(
     const usage = await renderUsage(command);
     const accepted = new Set(Object.keys(await acceptedArguments(command)));
     const named = new Set(
-        usage.matchAll(NAMED_FLAG).map(([, flag]) => flag ?? ''),
+        usage.matchAll(NAMED_FLAG).map(([, flag = '']) => flag),
     );
     return [...named]
         .filter((flag) => !accepted.has(flag))

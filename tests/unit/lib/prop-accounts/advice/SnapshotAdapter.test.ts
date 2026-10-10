@@ -794,15 +794,12 @@ describe('snapshotInputFrom: a request the balance may not show is counted and d
         variant: MffuVariant.Pro,
     });
 
-    function rebuiltKinds(
-        snapshot: SnapshotSnapshotRow,
-        payouts: readonly SnapshotPayoutRow[],
-    ) {
+    function rebuiltKinds(payouts: readonly SnapshotPayoutRow[]) {
         if (!plan) throw new Error('mffu:pro:50000 plan missing');
         const { input, pendingPayoutCounts } = inputFrom(
             plan,
             accountRow(),
-            snapshot,
+            FUNDED_SNAPSHOT,
             [],
             payouts,
             '2026-02-01',
@@ -852,16 +849,16 @@ describe('snapshotInputFrom: a request the balance may not show is counted and d
     });
 
     it('names the request assumed in the balance after reconstruction, and nothing without one', () => {
-        expect(
-            rebuiltKinds(FUNDED_SNAPSHOT, [requestedAt('2026-01-20')]),
-        ).toContain(AssumptionKind.PendingPayoutAssumedInBalance);
-        expect(rebuiltKinds(FUNDED_SNAPSHOT, [])).not.toContain(
+        expect(rebuiltKinds([requestedAt('2026-01-20')])).toContain(
+            AssumptionKind.PendingPayoutAssumedInBalance,
+        );
+        expect(rebuiltKinds([])).not.toContain(
             AssumptionKind.PendingPayoutAssumedInBalance,
         );
     });
 
     it('names both the deduction and the assumed in balance request when a request is dated each side of the snapshot', () => {
-        const kinds = rebuiltKinds(FUNDED_SNAPSHOT, [
+        const kinds = rebuiltKinds([
             requestedAt('2026-01-20'),
             requestedAt('2026-02-05'),
         ]);

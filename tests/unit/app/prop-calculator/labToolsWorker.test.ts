@@ -64,18 +64,16 @@ function labRequest(
     seed: number,
     {
         run = {},
-        runId = 1,
         scenario = {},
     }: {
         run?: Partial<LabRunInputs>;
-        runId?: number;
         scenario?: Partial<LabScenarioInputs>;
     } = {},
 ) {
     return {
         kind: ToolsRequestKind.Lab,
         run: { ...defaultRun, ...run, seed },
-        runId,
+        runId: 1,
         scenario: { ...defaultScenario, ...scenario },
     };
 }

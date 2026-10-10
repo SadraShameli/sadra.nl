@@ -62,12 +62,9 @@ function accountWithCushion(cushion: number): ReconstructedFundedOrEvalAccount {
     };
 }
 
-function advisorWith(
-    caps: Partial<PersonalCaps>,
-    cushion = 2000,
-): EvalSizingAdvisor {
+function advisorWith(caps: Partial<PersonalCaps>): EvalSizingAdvisor {
     return new EvalSizingAdvisor({
-        account: accountWithCushion(cushion),
+        account: accountWithCushion(2000),
         maxEvalDays: 40,
         personalCaps: { ...NO_PERSONAL_CAPS, ...caps },
         rulebook: DEFAULT_RULEBOOK,

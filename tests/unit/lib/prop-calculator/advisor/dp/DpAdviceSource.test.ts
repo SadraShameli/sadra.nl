@@ -138,7 +138,7 @@ function configInput(
         objective: SizingObjective.MonthlyNet,
         optIns: { takesFundedReset: false, takesOneTimeEarlyWithdrawal: false },
         personalPayoutRequest: null,
-        personalRetainedCushion: null,
+        personalRetainedCushion: undefined,
         plan,
         planRulesFingerprint: TOY_FINGERPRINT,
         positionSizing: null,
@@ -408,7 +408,7 @@ describe('dpAdviceFor on a toy plan solved once', () => {
 
     beforeAll(() => {
         solution = solveAverageRewardPolicy(buildDpSolverCall(config, plan));
-    }, 30_000);
+    });
 
     function fundedAdvice(
         overrides: Partial<Parameters<typeof dpAdviceFor>[0]> = {},
@@ -1053,7 +1053,7 @@ describe('dpAdviceFor with position sizing and a funded tier limit', () => {
 
     beforeAll(() => {
         solution = solveAverageRewardPolicy(buildDpSolverCall(config, plan));
-    }, 30_000);
+    });
 
     it('stores the placed whole-contract risk under the tier limit beside the DP action, in integer cents, and no continuous-risk gap', () => {
         const account = fundedAccount(plan);

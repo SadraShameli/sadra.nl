@@ -234,7 +234,7 @@ const { AccountAdvicePhase } =
 const { AdvicePanel } =
     await import('~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel');
 
-function account(overrides: Record<string, unknown> = {}) {
+function account() {
     return {
         accountSize: 50_000,
         archivedAt: null,
@@ -264,7 +264,6 @@ function account(overrides: Record<string, unknown> = {}) {
         tracking: AccountTracking.Modeled,
         updatedAt: new Date('2026-08-01T12:00:00Z'),
         userId: USER_ID,
-        ...overrides,
     };
 }
 

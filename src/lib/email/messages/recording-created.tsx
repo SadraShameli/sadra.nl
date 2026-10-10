@@ -5,10 +5,10 @@ import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
 
 interface RecordingCreatedTemplateProperties {
-    deviceName: null | string;
+    deviceName?: string;
     durationSeconds: null | number | undefined;
     fileName: string;
-    locationName: null | string;
+    locationName?: string;
 }
 
 export class RecordingCreatedEmail extends EmailMessage {
@@ -33,10 +33,10 @@ function formatDuration(seconds: null | number | undefined): string {
 }
 
 function RecordingCreatedTemplate({
-    deviceName,
+    deviceName = '—',
     durationSeconds,
     fileName,
-    locationName,
+    locationName = '—',
 }: RecordingCreatedTemplateProperties) {
     return (
         <BaseEmail preview={`New recording: ${fileName}`}>
@@ -46,21 +46,21 @@ function RecordingCreatedTemplate({
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 File
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
+            <Text className="m-0 text-sm/snug text-neutral-700">
                 {fileName}
                 {formatDuration(durationSeconds)}
             </Text>
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Device
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {deviceName ?? '—'}
+            <Text className="m-0 text-sm/snug text-neutral-700">
+                {deviceName}
             </Text>
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Location
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {locationName ?? '—'}
+            <Text className="m-0 text-sm/snug text-neutral-700">
+                {locationName}
             </Text>
         </BaseEmail>
     );

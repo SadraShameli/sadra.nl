@@ -39,7 +39,7 @@ export function CalculatorInputsForm({
     return (
         <>
             <AppliedEvalLadderNotice scope={evalLadderScope} />
-            <Card className="flex flex-col gap-4 px-6 py-6">
+            <Card className="flex flex-col gap-4 p-6">
                 <FirmPlanPicker
                     firm={state.firm}
                     firms={firms}
@@ -57,7 +57,7 @@ export function CalculatorInputsForm({
                         : 'grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]',
                 )}
             >
-                <Card className="px-6 py-6">
+                <Card className="p-6">
                     <TradingInputs
                         activationDiscountPercent={
                             state.activationDiscountPercent

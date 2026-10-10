@@ -32,14 +32,16 @@ const rule = new PayoutEligibleRule();
 function boardRowFor(
     accountId: string,
     entry: ReturnType<typeof reconstructedEntry>,
-    personalRequestOverride: number,
     personalRetainedCushion: number,
 ) {
     const [row] = payoutReadinessBoardOf(
         DEFAULT_RULEBOOK,
         [entry],
         new Map([
-            [accountId, { personalRequestOverride, personalRetainedCushion }],
+            [
+                accountId,
+                { personalRequestOverride: 2000, personalRetainedCushion },
+            ],
         ]),
     ).rows;
     return row;
@@ -217,7 +219,7 @@ describe('PayoutEligibleRule', () => {
     describe('an account with personal payout rules', () => {
         it('requests the same amount as the readiness board for a personal override and retained cushion', () => {
             const { account, entry } = eligibleFixtures();
-            const row = boardRowFor(account.id, entry, 2000, 3000);
+            const row = boardRowFor(account.id, entry, 3000);
             if (row?.kind !== PayoutReadinessRowKind.Eligible) {
                 throw new Error('expected an eligible board row');
             }
@@ -271,7 +273,7 @@ describe('PayoutEligibleRule', () => {
 
         it('stays silent when the personal retained cushion blocks the board row', () => {
             const { account, entry } = eligibleFixtures();
-            const row = boardRowFor(account.id, entry, 2000, 30_000);
+            const row = boardRowFor(account.id, entry, 30_000);
             expect(row?.kind).toBe(PayoutReadinessRowKind.Blocked);
             const alerts = alertsOf(rule, {
                 accounts: [account],

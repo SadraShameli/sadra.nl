@@ -34,13 +34,13 @@ function fundedDll(
     });
 }
 
-function lockedFundedState(peak: number, todayPnL: number) {
+function lockedFundedState(todayPnL: number) {
     const plan = lucidPlan(LucidVariant.Pro);
     const state = plan.initialState();
-    state.balance = 50_000 + peak;
+    state.balance = 50_000 + 4000;
     state.threshold = LOCKED_THRESHOLD;
     state.thresholdLocked = true;
-    state.peakDayCloseProfit = peak;
+    state.peakDayCloseProfit = 4000;
     state.todayPnL = todayPnL;
     return { plan, state };
 }
@@ -113,18 +113,18 @@ describe.each(SCALING_VARIANTS)('Lucid %s scaling DLL', (variant) => {
 
 describe('Lucid scaling DLL through the day lockout', () => {
     it('locks out a day that loses the full 60% of peak', () => {
-        const { plan, state } = lockedFundedState(4000, -2400);
+        const { plan, state } = lockedFundedState(-2400);
         expect(plan.isDayLockedOut(state, TradingPhase.Funded)).toBe(true);
         expect(plan.isBust(state, TradingPhase.Funded)).toBe(false);
     });
 
     it('allows a day one dollar inside the scaled limit', () => {
-        const { plan, state } = lockedFundedState(4000, -2399);
+        const { plan, state } = lockedFundedState(-2399);
         expect(plan.isDayLockedOut(state, TradingPhase.Funded)).toBe(false);
     });
 
     it('would have locked out the same day under the pre-lock fixed limit', () => {
-        const { plan, state } = lockedFundedState(4000, -1200);
+        const { plan, state } = lockedFundedState(-1200);
         expect(plan.isDayLockedOut(state, TradingPhase.Funded)).toBe(false);
 
         state.thresholdLocked = false;
@@ -132,7 +132,7 @@ describe('Lucid scaling DLL through the day lockout', () => {
     });
 
     it('does not tighten the limit after a withdrawal reduces the balance', () => {
-        const { plan, state } = lockedFundedState(4000, 0);
+        const { plan, state } = lockedFundedState(0);
         const before = plan.dailyLossLimitContext(state);
 
         state.balance -= 2000;

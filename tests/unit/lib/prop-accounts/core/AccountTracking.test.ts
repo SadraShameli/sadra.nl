@@ -19,8 +19,8 @@ const EXTERNAL_FIRM_ID = '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b';
 
 type ShapeColumns = Pick<
     AccountRow,
-    'externalFirmId' | 'firmId' | 'id' | 'planLabel' | 'planSerial' | 'tracking'
->;
+    'externalFirmId' | 'firmId' | 'id' | 'planLabel' | 'planSerial'
+> & { readonly tracking: string };
 
 function row(overrides: Partial<ShapeColumns> = {}): ShapeColumns {
     return {
@@ -137,10 +137,7 @@ describe('AccountTracking', () => {
                 tracking: AccountTracking.LedgerOnly,
             },
         ],
-        [
-            'a row with an unknown tracking value',
-            { tracking: 'guessed' as AccountTracking },
-        ],
+        ['a row with an unknown tracking value', { tracking: 'guessed' }],
     ] as const)('throws a typed shape error on %s', (_name, overrides) => {
         const broken = row(overrides);
         expect(() => trackedAccountOf(broken)).toThrow(AccountRowShapeError);

@@ -1,5 +1,7 @@
 'use client';
 
+import { z } from 'zod';
+
 import { Input } from '~/components/ui/Input';
 import {
     Select,
@@ -71,7 +73,9 @@ export default function DayStopRulePicker({
             )}
         >
             <Select
-                onValueChange={(v) => handleKind(v as Kind)}
+                onValueChange={(v) =>
+                    handleKind(z.enum(DayStopRuleKind).parse(v))
+                }
                 value={value.kind}
             >
                 <SelectTrigger

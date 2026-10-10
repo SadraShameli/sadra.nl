@@ -156,8 +156,8 @@ function splitAssignments(clause: string): Map<string, string> {
     return assignments;
 }
 
-function storedCount(bucket: string, key: string): number | undefined {
-    return buckets.get(bucketKey(bucket, key))?.count;
+function storedCount(bucket: string): number | undefined {
+    return buckets.get(bucketKey(bucket, 'user-1'))?.count;
 }
 
 function toRow(bucket: unknown, key: unknown, row: StoredBucket): FakeRow {
@@ -215,7 +215,7 @@ describe('isWithinRateLimit', () => {
             ),
         );
         expect(results.every(Boolean)).toBe(true);
-        expect(storedCount('prop-accounts:account', 'user-1')).toBe(25);
+        expect(storedCount('prop-accounts:account')).toBe(25);
     });
 
     it('lets exactly max parallel calls through and blocks the rest', async () => {
@@ -238,7 +238,7 @@ describe('isWithinRateLimit', () => {
         if (stored === undefined) throw new Error('expected a stored bucket');
         stored.resetAt = new Date(Date.now() - 1);
         expect(await within('accounting:run', 'user-1', 3)).toBe(true);
-        expect(storedCount('accounting:run', 'user-1')).toBe(1);
+        expect(storedCount('accounting:run')).toBe(1);
         expect(
             buckets
                 .get(bucketKey('accounting:run', 'user-1'))

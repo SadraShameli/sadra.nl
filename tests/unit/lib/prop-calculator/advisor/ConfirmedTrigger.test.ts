@@ -72,7 +72,7 @@ describe('the one confirmed-trigger check (PT-36h review)', () => {
                 entry.isDirectory()
                     ? walk(`${directory}/${entry.name}`)
                     : entry.name.endsWith('.ts')
-                      ? [`${directory}/${entry.name}`]
+                      ? `${directory}/${entry.name}`
                       : [],
             );
         const comparers = walk('src/lib/prop-calculator/advisor').filter(

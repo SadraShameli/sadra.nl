@@ -39,8 +39,10 @@ function alphaFuturesStandard() {
     return plan;
 }
 
-function constantRng(value: number): Rng {
-    return () => value;
+const zeroRng: Rng = () => 0;
+
+function constantRng(): Rng {
+    return zeroRng;
 }
 
 function countingWrapper(inner: Rng): CountedRng {
@@ -81,7 +83,7 @@ describe('runDay: opt-in idle-day closure', () => {
         });
         const state = plan.initialState();
         const { stats } = freshStats(state.startingBalance);
-        const counted = countingWrapper(constantRng(0));
+        const counted = countingWrapper(constantRng());
 
         const result = runDay({
             commission: dollars(0),
@@ -211,7 +213,7 @@ describe('runDay: opt-in idle-day closure', () => {
             phase: TradingPhase.Eval,
             plan,
             positionSizing: null,
-            rng: constantRng(0),
+            rng: constantRng(),
             rrRatio: 2,
             rungSizing: RungSizing.CapToCushion,
             state,
@@ -245,7 +247,7 @@ describe('runDay: opt-in idle-day closure', () => {
             phase: TradingPhase.Eval,
             plan,
             positionSizing: null,
-            rng: constantRng(0),
+            rng: constantRng(),
             rrRatio: 2,
             rungSizing: RungSizing.CapToCushion,
             state,
@@ -290,7 +292,7 @@ describe('runDay: opt-in idle-day closure', () => {
                 phase: TradingPhase.Eval,
                 plan,
                 positionSizing: null,
-                rng: constantRng(0),
+                rng: constantRng(),
                 rrRatio: 2,
                 rungSizing: RungSizing.SkipIfUnaffordable,
                 state,

@@ -84,16 +84,16 @@ function entry(
     };
 }
 
-function evalAccount(threshold: number): ReconstructedAccount {
+function evalAccount(): ReconstructedAccount {
     return {
         assumptions: [],
         contractLimit: null,
-        cushion: 50_600 - threshold,
+        cushion: 50_600 - 45_600,
         fundedTracker: null,
         kind: TradingPhase.Eval,
         plan: apexPlan,
         resolvedDailyLossLimit: null,
-        state: { ...createInitialState(50_000, threshold), balance: 50_600 },
+        state: { ...createInitialState(50_000, 45_600), balance: 50_600 },
         ...NO_PENDING_PAYOUT_COUNTS,
     };
 }
@@ -150,7 +150,7 @@ describe('exposureOf (PT-26b, F-86)', () => {
 
     it('shows the full-ladder day for an eval account, not just the first rung', () => {
         const result = exposureOf(DEFAULT_RULEBOOK, [
-            entry('a', evalAccount(45_600)),
+            entry('a', evalAccount()),
         ]);
 
         const [account] = result.accounts;
@@ -240,15 +240,15 @@ describe('exposureOf (PT-26b, F-86)', () => {
 
     it('applies a personal daily loss limit to an eval account that has a plan daily loss room', () => {
         const withoutLimit = exposureOf(DEFAULT_RULEBOOK, [
-            entry('a', evalAccount(45_600)),
+            entry('a', evalAccount()),
         ]);
         const looser = exposureOf(DEFAULT_RULEBOOK, [
-            entry('a', evalAccount(45_600), null, {
+            entry('a', evalAccount(), null, {
                 personalDll: dollars(5000),
             }),
         ]);
         const tighter = exposureOf(DEFAULT_RULEBOOK, [
-            entry('a', evalAccount(45_600), null, {
+            entry('a', evalAccount(), null, {
                 personalDll: dollars(300),
             }),
         ]);
@@ -377,7 +377,7 @@ describe('exposureOf (PT-26b, F-86)', () => {
     it('produces every remaining exposure basis', () => {
         const { accounts } = exposureOf(DEFAULT_RULEBOOK, [
             entry('a', fundedAccount(600)),
-            entry('b', evalAccount(45_600)),
+            entry('b', evalAccount()),
         ]);
         const produced = new Set(accounts.map((account) => account.basis));
 

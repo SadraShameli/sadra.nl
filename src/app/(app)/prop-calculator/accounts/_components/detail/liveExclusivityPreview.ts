@@ -24,12 +24,6 @@ export interface LiveExclusivityPreview {
     readonly title: string;
 }
 
-export interface LiveExclusivityPreviewEffect {
-    readonly accountId: string;
-    readonly action: LiveExclusivityAction;
-    readonly label: string;
-}
-
 export type LivePreviewAccount = Pick<
     AccountListAccount,
     | 'accountSize'
@@ -46,6 +40,12 @@ export type LivePreviewAccount = Pick<
     | 'status'
     | 'tracking'
 >;
+
+interface LiveExclusivityPreviewEffect {
+    readonly accountId: string;
+    readonly action: LiveExclusivityAction;
+    readonly label: string;
+}
 
 type PreviewRow = TrackedAccountRow<LivePreviewAccount>;
 

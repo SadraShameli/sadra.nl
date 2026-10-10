@@ -86,7 +86,7 @@ export function ContactForm() {
                 />
                 <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute -left-2499.75 h-0 w-0 overflow-hidden"
+                    className="pointer-events-none absolute -left-2499.75 size-0 overflow-hidden"
                 >
                     <label>
                         Leave this empty

@@ -120,9 +120,9 @@ function fundedState(): AccountState {
     };
 }
 
-function registryPlan(id: PlanId): Plan {
-    const found = findFirm(id.firm)?.findPlan(id);
-    if (!found) throw new Error(`${serializePlanId(id)} missing`);
+function registryPlan(): Plan {
+    const found = findFirm(MFF_PRO_ID.firm)?.findPlan(MFF_PRO_ID);
+    if (!found) throw new Error(`${serializePlanId(MFF_PRO_ID)} missing`);
     return found;
 }
 
@@ -137,7 +137,7 @@ function trackerFor(state: AccountState): FundedCycleTracker {
 }
 
 describe('a verified firm-total trigger counts every payout requested at the firm (PT-36i, F-145)', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     it('counts the requested payout at the firm other account: two accounts, one request each, the next request is the fifth', () => {
         const decision = documentedDecisionOf(
@@ -196,7 +196,7 @@ describe('a verified firm-total trigger counts every payout requested at the fir
 });
 
 describe('the pending payout counts travel through the reconstruction', () => {
-    const plan = registryPlan(MFF_PRO_ID);
+    const plan = registryPlan();
 
     const baseInput = {
         asOf: '2026-09-26',

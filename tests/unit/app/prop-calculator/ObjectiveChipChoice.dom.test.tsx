@@ -99,10 +99,13 @@ function StateControls() {
     );
 }
 
-function withSwitch(objectiveSwitchCents: null | number): RulebookParameters {
+function withSwitch(): RulebookParameters {
     return {
         ...DEFAULT_RULEBOOK,
-        bankroll: { ...DEFAULT_RULEBOOK.bankroll, objectiveSwitchCents },
+        bankroll: {
+            ...DEFAULT_RULEBOOK.bankroll,
+            objectiveSwitchCents: 500_000,
+        },
     };
 }
 
@@ -166,7 +169,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
 
     it('names the bankroll and the threshold when the objective was chosen automatically', () => {
         harness.userId = 'user-1';
-        harness.rulebook = withSwitch(500_000);
+        harness.rulebook = withSwitch();
         harness.availableCents = 100_000;
         open();
         const text = container.textContent;
@@ -178,7 +181,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
 
     it('says ruin first ranks which plan to buy and that this page keeps sizing on monthly net', () => {
         harness.userId = 'user-1';
-        harness.rulebook = withSwitch(500_000);
+        harness.rulebook = withSwitch();
         harness.availableCents = 100_000;
         open();
         const text = container.textContent;
@@ -191,7 +194,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
 
     it('keeps the automatic note after a reset, which runs the automatic objective again as a reload does', () => {
         harness.userId = 'user-1';
-        harness.rulebook = withSwitch(500_000);
+        harness.rulebook = withSwitch();
         harness.availableCents = 100_000;
         open();
         expect(container.textContent).toContain('Chosen automatically');
@@ -202,7 +205,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
 
     it('says the objective was chosen automatically after a reset that followed a link objective (PT-63e)', () => {
         harness.userId = 'user-1';
-        harness.rulebook = withSwitch(500_000);
+        harness.rulebook = withSwitch();
         harness.availableCents = 100_000;
         open('?obj=cycle-cash');
         expect(container.textContent).not.toContain('Chosen automatically');
@@ -213,7 +216,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
 
     it('drops the automatic note when an applied state carries another objective', () => {
         harness.userId = 'user-1';
-        harness.rulebook = withSwitch(500_000);
+        harness.rulebook = withSwitch();
         harness.availableCents = 100_000;
         open();
         click('apply-cycle');
@@ -223,7 +226,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
 
     it('keeps the automatic note when an applied state carries the same objective', () => {
         harness.userId = 'user-1';
-        harness.rulebook = withSwitch(500_000);
+        harness.rulebook = withSwitch();
         harness.availableCents = 100_000;
         open();
         click('apply-ruin');
@@ -232,7 +235,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
 
     it('drops the automatic note once the user picks an objective themselves', () => {
         harness.userId = 'user-1';
-        harness.rulebook = withSwitch(500_000);
+        harness.rulebook = withSwitch();
         harness.availableCents = 100_000;
         open();
         pick(SizingObjective.MonthlyNet);
@@ -241,14 +244,14 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
 
     it('says nothing about automatic choice for a link that carries its objective', () => {
         harness.userId = 'user-1';
-        harness.rulebook = withSwitch(500_000);
+        harness.rulebook = withSwitch();
         harness.availableCents = 100_000;
         open('?obj=cycle-cash');
         expect(container.textContent).not.toContain('Chosen automatically');
     });
 
     it('says nothing about automatic choice for a signed-out visitor', () => {
-        harness.rulebook = withSwitch(500_000);
+        harness.rulebook = withSwitch();
         harness.availableCents = 100_000;
         open();
         expect(container.textContent).not.toContain('Chosen automatically');
@@ -256,7 +259,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
 
     it('says the bankroll summary failed to load instead of staying silent', () => {
         harness.userId = 'user-1';
-        harness.rulebook = withSwitch(500_000);
+        harness.rulebook = withSwitch();
         harness.isSummaryFailed = true;
         open();
         expect(container.textContent).toContain('bankroll could not be loaded');

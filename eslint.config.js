@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import nextPlugin from '@next/eslint-plugin-next';
 import prettier from 'eslint-config-prettier';
+import betterTailwind from 'eslint-plugin-better-tailwindcss';
 // @ts-expect-error - no types published
 import drizzle from 'eslint-plugin-drizzle';
 // @ts-expect-error - no types published
@@ -10,9 +11,11 @@ import perfectionist from 'eslint-plugin-perfectionist';
 import promise from 'eslint-plugin-promise';
 import hooks from 'eslint-plugin-react-hooks';
 import unicorn from 'eslint-plugin-unicorn';
+import { defineConfig } from 'eslint/config';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+const config = defineConfig(
     {
         ignores: [
             '.next',
@@ -39,6 +42,7 @@ export default tseslint.config(
             '@next/next': nextPlugin,
             drizzle,
             'jsx-a11y': jsxA11y,
+            // @ts-expect-error - react-hooks 7 types clash with ESLint 10's Plugin type
             'react-hooks': hooks,
         },
         rules: {
@@ -116,6 +120,7 @@ export default tseslint.config(
             prettier,
         ],
         files: ['**/*.{js,mjs,cjs}'],
+        languageOptions: { globals: globals.node },
         rules: {
             'no-empty': ['error', { allowEmptyCatch: true }],
             'perfectionist/sort-classes': 'off',
@@ -142,6 +147,18 @@ export default tseslint.config(
         },
     },
     {
+        files: ['src/**/*.{ts,tsx}', 'tests/**/*.tsx'],
+        plugins: { 'better-tailwindcss': betterTailwind },
+        rules: {
+            'better-tailwindcss/enforce-canonical-classes': [
+                'error',
+                { entryPoint: 'src/styles/styles.css' },
+            ],
+        },
+    },
+    {
         linterOptions: { reportUnusedDisableDirectives: true },
     },
 );
+
+export default config;

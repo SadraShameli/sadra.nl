@@ -33,17 +33,17 @@ export function accountActionFor(advice: Advice): AccountActionResult {
     });
 }
 
-function blockedBy(gate: PayoutGate): PayoutReadiness {
+function blockedBy(): PayoutReadiness {
     return {
         kind: PayoutReadinessKind.Blocked,
-        reason: payoutBlockReasonFromGate(gate),
+        reason: payoutBlockReasonFromGate(NON_REQUEST_FALLBACK_GATE),
         wait: null,
     };
 }
 
 function payoutReadinessOfAdvice(advice: Advice): PayoutReadiness {
     const payout = advice.payoutAdvice;
-    if (payout === null) return blockedBy(NON_REQUEST_FALLBACK_GATE);
+    if (payout === null) return blockedBy();
     const decision = payout.documented;
     switch (decision.kind) {
         case PayoutRequestDecisionKind.NotEligible: {
@@ -61,7 +61,7 @@ function payoutReadinessOfAdvice(advice: Advice): PayoutReadiness {
             };
         }
         case PayoutRequestDecisionKind.Unreachable: {
-            return blockedBy(NON_REQUEST_FALLBACK_GATE);
+            return blockedBy();
         }
         case PayoutRequestDecisionKind.Wait: {
             return {

@@ -29,11 +29,10 @@ vi.mock('~/components/ui/InfoPopover', () => ({
 
 const FAST_TRIALS = 200;
 
-function inputsOf(overrides: Partial<SimInputs> = {}): SimInputs {
+function inputsOf(): SimInputs {
     return {
         ...buildSimInputs(defaultCalculatorState()),
         trials: FAST_TRIALS,
-        ...overrides,
     };
 }
 

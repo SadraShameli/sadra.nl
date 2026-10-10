@@ -250,7 +250,6 @@ function fundedAccounts(entry: PlanEntry, count: number) {
 function needing(
     entries: readonly PlanEntry[],
     ledgerValue = ledger({}),
-    options: ConstructorParameters<typeof VerifiedPolicy>[0] = {},
 ): ReadonlySet<string> {
     return verified(
         entries,
@@ -264,7 +263,7 @@ function needing(
                 ledger: ledgerValue,
                 today: TODAY,
             }),
-        options,
+        {},
     );
 }
 

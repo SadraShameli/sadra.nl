@@ -99,25 +99,11 @@ export interface WeeklyReviewAccountInput {
     readonly tracking: AccountTracking;
 }
 
-export interface WeeklyReviewCorruptRow {
-    readonly accountId: string;
-    readonly label: string;
-    readonly reasons: readonly string[];
-}
-
 export interface WeeklyReviewDecisionRow {
     readonly acceptedRiskCents: number;
     readonly actualRiskCents: null | number;
     readonly decidedOn: string;
     readonly id: string;
-}
-
-export interface WeeklyReviewDecisionSubmitEntry {
-    readonly acceptedRiskCents: number;
-    readonly acceptedRungsCents: readonly number[];
-    readonly accountId: string;
-    readonly headlineRiskCents: number;
-    readonly stage: AccountStage;
 }
 
 export type WeeklyReviewDraft = Partial<WeeklyReviewSnapshotValues>;
@@ -157,52 +143,8 @@ export interface WeeklyReviewResult {
     readonly windowEnd: string;
 }
 
-export interface WeeklyReviewRow {
-    readonly accountId: string;
-    readonly asOf: string;
-    readonly blockedMessages: readonly string[];
-    readonly diffCents: null | number;
-    readonly draft: WeeklyReviewSnapshotValues;
-    readonly entryKind: WeeklyReviewEntryKind;
-    readonly fieldWarnings: readonly SnapshotFieldIssue[];
-    readonly formWarnings: readonly string[];
-    readonly isBlocked: boolean;
-    readonly isRecorded: boolean;
-    readonly label: string;
-    readonly lastDecision: null | WeeklyReviewLastDecision;
-    readonly missingFieldLabels: readonly string[];
-    readonly parseIssues: readonly SnapshotFieldIssue[];
-    readonly previousAcceptedRiskCents: null | number;
-    readonly sizing: WeeklyReviewSizing;
-    readonly stage: AccountStage;
-    readonly stageOnAsOf: AccountStage;
-    readonly unchangedSince: null | string;
-    readonly violationOffer: WeeklyReviewViolationOffer;
-    readonly violations: readonly WeeklyReviewViolationRow[];
-}
-
-export type WeeklyReviewSizing =
-    | {
-          readonly headlineLabel: string;
-          readonly headlineRiskCents: number;
-          readonly kind: WeeklyReviewSizingKind.Ready;
-          readonly rungsCents: readonly number[];
-      }
-    | { readonly kind: WeeklyReviewSizingKind.NoEvalAdvice }
-    | { readonly kind: WeeklyReviewSizingKind.NotModeled }
-    | { readonly kind: WeeklyReviewSizingKind.ReconstructionFailed }
-    | { readonly kind: WeeklyReviewSizingKind.Stale };
-
 export interface WeeklyReviewSnapshotRow extends WeeklyReviewSnapshotValues {
     readonly asOf: string;
-}
-
-export interface WeeklyReviewSnapshotSubmitEntry extends Omit<
-    WeeklyReviewSnapshotValues,
-    'balanceCents'
-> {
-    readonly accountId: string;
-    readonly balanceCents: number;
 }
 
 export interface WeeklyReviewSnapshotValues {
@@ -250,6 +192,64 @@ export interface WeeklyReviewViolationRow {
 export interface WeeklyReviewWindow {
     readonly asOf: string;
     readonly weekStart: string;
+}
+
+interface WeeklyReviewCorruptRow {
+    readonly accountId: string;
+    readonly label: string;
+    readonly reasons: readonly string[];
+}
+
+interface WeeklyReviewDecisionSubmitEntry {
+    readonly acceptedRiskCents: number;
+    readonly acceptedRungsCents: readonly number[];
+    readonly accountId: string;
+    readonly headlineRiskCents: number;
+    readonly stage: AccountStage;
+}
+
+interface WeeklyReviewRow {
+    readonly accountId: string;
+    readonly asOf: string;
+    readonly blockedMessages: readonly string[];
+    readonly diffCents: null | number;
+    readonly draft: WeeklyReviewSnapshotValues;
+    readonly entryKind: WeeklyReviewEntryKind;
+    readonly fieldWarnings: readonly SnapshotFieldIssue[];
+    readonly formWarnings: readonly string[];
+    readonly isBlocked: boolean;
+    readonly isRecorded: boolean;
+    readonly label: string;
+    readonly lastDecision: null | WeeklyReviewLastDecision;
+    readonly missingFieldLabels: readonly string[];
+    readonly parseIssues: readonly SnapshotFieldIssue[];
+    readonly previousAcceptedRiskCents: null | number;
+    readonly sizing: WeeklyReviewSizing;
+    readonly stage: AccountStage;
+    readonly stageOnAsOf: AccountStage;
+    readonly unchangedSince: null | string;
+    readonly violationOffer: WeeklyReviewViolationOffer;
+    readonly violations: readonly WeeklyReviewViolationRow[];
+}
+
+type WeeklyReviewSizing =
+    | {
+          readonly headlineLabel: string;
+          readonly headlineRiskCents: number;
+          readonly kind: WeeklyReviewSizingKind.Ready;
+          readonly rungsCents: readonly number[];
+      }
+    | { readonly kind: WeeklyReviewSizingKind.NoEvalAdvice }
+    | { readonly kind: WeeklyReviewSizingKind.NotModeled }
+    | { readonly kind: WeeklyReviewSizingKind.ReconstructionFailed }
+    | { readonly kind: WeeklyReviewSizingKind.Stale };
+
+interface WeeklyReviewSnapshotSubmitEntry extends Omit<
+    WeeklyReviewSnapshotValues,
+    'balanceCents'
+> {
+    readonly accountId: string;
+    readonly balanceCents: number;
 }
 
 const WEEK_DAYS = 7;

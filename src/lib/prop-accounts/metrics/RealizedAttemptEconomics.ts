@@ -131,7 +131,7 @@ function averagePayoutOf(
             const paid = paidPayoutCash(row);
             if (!paid?.paidOn) return [];
             const lag = isoDaysBetween(funded.on, paid.paidOn);
-            return lag >= 0 && lag <= horizonDays ? [paid.cents] : [];
+            return lag >= 0 && lag <= horizonDays ? paid.cents : [];
         });
     });
     return sampledMean(cents);
@@ -172,7 +172,7 @@ function payoutsPerPaidFundedOf(
             const funded = fundedSince(entry);
             if (funded === null) return [];
             const count = paidCountWithinHorizon(entry, funded.on, horizonDays);
-            return count > 0 ? [Math.min(count, PAYOUT_COUNT_CAP)] : [];
+            return count > 0 ? Math.min(count, PAYOUT_COUNT_CAP) : [];
         }),
     );
 }

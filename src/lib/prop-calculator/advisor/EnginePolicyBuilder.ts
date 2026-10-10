@@ -55,7 +55,7 @@ export interface EnginePolicyBuilderInput {
     readonly measuredRebuyLag?: MeasuredRebuyLag | null;
     readonly personalCaps?: PersonalCaps;
     readonly personalDll?: Dollars | null;
-    readonly personalRetainedCushion?: Dollars | null;
+    readonly personalRetainedCushion?: Dollars;
     readonly plan: Plan;
     readonly positionSizing?: EnginePolicyPositionSizing | null;
     readonly rulebook: RulebookParameters;
@@ -111,7 +111,7 @@ export function buildEnginePolicy(
         measuredRebuyLag,
         personalCaps,
         personalDll,
-        personalRetainedCushion,
+        personalRetainedCushion = 0,
         plan,
         positionSizing,
         rulebook,
@@ -181,10 +181,8 @@ export function buildEnginePolicy(
         rebuyLagBasis,
         rebuyLagDays,
         retainedCushionRequest: ceilToWholeCents(
-            fundedRetainedCushionResolution(
-                rulebook,
-                personalRetainedCushion ?? 0,
-            ).amount,
+            fundedRetainedCushionResolution(rulebook, personalRetainedCushion)
+                .amount,
         ),
         ...(stopPoints !== undefined && { stopPoints }),
     });

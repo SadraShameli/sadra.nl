@@ -131,19 +131,18 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
     private payoutRuleContext(): LivePayoutRuleContext | null {
         const {
             account,
-            paidPayoutsSinceLastLiveAccount,
-            personalPayoutOverride,
-            personalRetainedCushion,
+            paidPayoutsSinceLastLiveAccount = null,
+            personalPayoutOverride = null,
+            personalRetainedCushion = null,
         } = this.input;
         if (account.livePlan === null || account.state === null) {
             return null;
         }
         return {
             livePlan: account.livePlan,
-            paidPayoutsSinceLastLiveAccount:
-                paidPayoutsSinceLastLiveAccount ?? null,
-            personalRequestOverride: personalPayoutOverride ?? null,
-            personalRetainedCushion: personalRetainedCushion ?? null,
+            paidPayoutsSinceLastLiveAccount: paidPayoutsSinceLastLiveAccount,
+            personalRequestOverride: personalPayoutOverride,
+            personalRetainedCushion: personalRetainedCushion,
             stage: SizingStage.Live,
             state: account.state,
         };
@@ -209,19 +208,23 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
     }
 
     staleness(): AdviceStaleness {
-        const { planRulesFingerprint, rulebook, snapshotAsOf, today } =
-            this.input;
+        const {
+            planRulesFingerprint = null,
+            rulebook,
+            snapshotAsOf,
+            today,
+        } = this.input;
         return adviceStaleness({
             asOf: snapshotAsOf,
             fundedStaleDays: rulebook.review.fundedStaleDays,
-            planRulesFingerprint: planRulesFingerprint ?? null,
+            planRulesFingerprint: planRulesFingerprint,
             stage: SizingStage.Live,
             today,
         });
     }
 
     protected override buildContextOrNull(): LiveRuleContext | null {
-        const { account, personalCaps, personalDll } = this.input;
+        const { account, personalCaps, personalDll = null } = this.input;
         if (account.cushion === null) return null;
         const cushion = dollars(account.cushion);
         if (account.livePlan === null || account.state === null) {
@@ -234,7 +237,7 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
                 instrument: null,
                 liveCushionPercent: null,
                 personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
-                personalDll: personalDll ?? null,
+                personalDll: personalDll,
                 placeableMinimum: ONE_CENT,
                 stage: SizingStage.Live,
                 thresholdLocked: false,
@@ -250,7 +253,7 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
             instrument: null,
             liveCushionPercent: livePlan.cushionPercentFor(state),
             personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
-            personalDll: personalDll ?? null,
+            personalDll: personalDll,
             placeableMinimum: ONE_CENT,
             stage: SizingStage.Live,
             thresholdLocked: state.thresholdLocked,

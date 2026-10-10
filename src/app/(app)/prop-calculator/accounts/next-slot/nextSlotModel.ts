@@ -307,7 +307,7 @@ export function nextSlotRequestsOf(
                 ?.get(OverviewRequestKind.DocumentedRun)?.spec.enginePolicy;
             return enginePolicy === undefined
                 ? []
-                : [{ enginePolicy, firm, plan }];
+                : { enginePolicy, firm, plan };
         }),
         ledger,
         today,

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import type { propAccount } from '~/server/db/schemas/prop';
 
 import type { StoredFirmId } from './PlanKey';
@@ -34,7 +36,12 @@ export type ModeledAccountRow<Row extends TrackedColumns = AccountRow> = Omit<
 export type TrackedAccountRow<Row extends TrackedColumns = AccountRow> =
     LedgerOnlyAccountRow<Row> | ModeledAccountRow<Row>;
 
-export type TrackedColumns = Pick<AccountRow, 'id' | TrackedKey>;
+export type TrackedColumns = Omit<
+    Pick<AccountRow, 'id' | TrackedKey>,
+    'tracking'
+> & {
+    readonly tracking: string;
+};
 
 type TrackedKey =
     'externalFirmId' | 'firmId' | 'planLabel' | 'planSerial' | 'tracking';
@@ -53,15 +60,14 @@ export class AccountRowShapeError extends Error {
 }
 
 export function accountShapeProblem(row: TrackedColumns): null | string {
-    switch (row.tracking) {
+    const tracking = z.enum(AccountTracking).safeParse(row.tracking);
+    if (!tracking.success) return 'its tracking value is unknown';
+    switch (tracking.data) {
         case AccountTracking.LedgerOnly: {
             return ledgerOnlyProblem(row);
         }
         case AccountTracking.Modeled: {
             return modeledProblem(row);
-        }
-        default: {
-            return 'its tracking value is unknown';
         }
     }
 }
@@ -81,11 +87,24 @@ export function isModeledAccount<Row extends TrackedColumns>(
 export function trackedAccountOf<Row extends TrackedColumns>(
     row: Row,
 ): TrackedAccountRow<Row> {
+    if (!hasKnownTracking(row)) {
+        throw new AccountRowShapeError(
+            row.id,
+            row.tracking,
+            'its tracking value is unknown',
+        );
+    }
     const problem = accountShapeProblem(row);
     if (problem !== null) {
         throw new AccountRowShapeError(row.id, row.tracking, problem);
     }
     return row as TrackedAccountRow<Row>;
+}
+
+function hasKnownTracking<Row extends TrackedColumns>(
+    row: Row,
+): row is Row & { readonly tracking: AccountTracking } {
+    return z.enum(AccountTracking).safeParse(row.tracking).success;
 }
 
 function ledgerOnlyProblem(row: TrackedColumns): null | string {

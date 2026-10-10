@@ -90,26 +90,6 @@ export enum ToolsResponseKind {
     ValueChain = 'value-chain',
 }
 
-export interface BankrollBaseInputs {
-    readonly commissionPerRoundTrip?: number;
-    readonly dayStop?: z.infer<typeof dayStopRuleSchema>;
-    readonly fundedHorizonDays: number;
-    readonly fundedRiskPerTrade?: number;
-    readonly fundedRrRatio?: number;
-    readonly fundedTradesPerDay?: number;
-    readonly idleDayProbability?: number;
-    readonly instrument?: InstrumentSymbol;
-    readonly maxEvalDays: number;
-    readonly minRetainedCushion?: number;
-    readonly riskPerTrade: number;
-    readonly rrRatio: number;
-    readonly seed: number;
-    readonly stopPoints?: number;
-    readonly tradesPerDay: number;
-    readonly trials: number;
-    readonly winrate: number;
-}
-
 export interface BankrollLeverRowSummary {
     readonly deltaAttemptPaysProbability?: number;
     readonly deltaEvPerAttempt: number;
@@ -144,12 +124,6 @@ export interface BatchToolsRequest {
     readonly variant: BankrollPlanVariantInputs;
 }
 
-export interface BatchToolsResult {
-    readonly kind: ToolsResponseKind.Batch;
-    readonly result: BatchToolsSummary;
-    readonly runId: number;
-}
-
 export interface BatchToolsSummary {
     readonly crossCheckLossProbability: null | number;
     readonly fundedValueToAttemptCostRatio: null | number;
@@ -181,12 +155,6 @@ export interface FundedValueEstimateToolsRequest {
     readonly runId: number;
     readonly sampleSize: null | number;
     readonly spec: DocumentedPolicySpec;
-}
-
-export interface FundedValueEstimateToolsResult {
-    readonly kind: ToolsResponseKind.FundedValueEstimate;
-    readonly result: FundedValueEstimateResult;
-    readonly runId: number;
 }
 
 export interface LabRunInputs {
@@ -242,12 +210,6 @@ export interface LabToolsRequest {
     readonly scenario: LabScenarioInputs;
 }
 
-export interface LabToolsResult {
-    readonly kind: ToolsResponseKind.Lab;
-    readonly result: LabScenarioResult;
-    readonly runId: number;
-}
-
 export interface LeversToolsRequest {
     readonly bankroll: number;
     readonly kind: ToolsRequestKind.Levers;
@@ -256,12 +218,6 @@ export interface LeversToolsRequest {
     readonly runId: number;
     readonly tradesPerDay: null | readonly number[];
     readonly variant: BankrollPlanVariantInputs;
-}
-
-export interface LeversToolsResult {
-    readonly kind: ToolsResponseKind.Levers;
-    readonly rows: readonly BankrollLeverRowSummary[];
-    readonly runId: number;
 }
 
 export interface NextRoundToolsRequest {
@@ -274,26 +230,12 @@ export interface NextRoundToolsRequest {
     readonly variant: BankrollPlanVariantInputs;
 }
 
-export interface NextRoundToolsResult {
-    readonly kind: ToolsResponseKind.NextRound;
-    readonly optionA: BankrollTimelineResult;
-    readonly optionB: BankrollTimelineResult;
-    readonly runId: number;
-}
-
 export interface ProjectionToolsRequest {
     readonly bankroll: BankrollPolicy;
     readonly dayBudget: number;
     readonly kind: ToolsRequestKind.Projection;
     readonly runId: number;
     readonly variant: BankrollPlanVariantInputs;
-}
-
-export interface ProjectionToolsResult {
-    readonly kind: ToolsResponseKind.Projection;
-    readonly monthEnds: readonly ProjectionMonthEnd[];
-    readonly result: BankrollTimelineResult;
-    readonly runId: number;
 }
 
 export interface SameEvOutcome {
@@ -313,23 +255,6 @@ export interface SameEvToolsRequest {
     ];
 }
 
-export interface SameEvToolsResult {
-    readonly kind: ToolsResponseKind.SameEv;
-    readonly results: readonly [SameEvOutcome, SameEvOutcome];
-    readonly runId: number;
-}
-
-export interface SpendPayoutCurveFigures {
-    readonly attempts: number;
-    readonly expectedNet: number;
-    readonly expectedPayouts: number;
-    readonly expectedSpend: number;
-    readonly lossProbability: number;
-    readonly lossProbabilityStandardError: null | number;
-    readonly netP10: number;
-    readonly netP90: number;
-}
-
 export interface SpendPayoutCurveRow {
     readonly budget: number;
     readonly figures: null | SpendPayoutCurveFigures;
@@ -343,24 +268,12 @@ export interface SpendPayoutCurveToolsRequest {
     readonly variant: BankrollPlanVariantInputs;
 }
 
-export interface SpendPayoutCurveToolsResult {
-    readonly kind: ToolsResponseKind.SpendPayoutCurve;
-    readonly rows: readonly SpendPayoutCurveRow[];
-    readonly runId: number;
-}
-
 export interface TakeProfitRowsToolsRequest {
     readonly anchorRrRatio: number;
     readonly kind: ToolsRequestKind.TakeProfitRows;
     readonly rrCandidates: readonly number[];
     readonly runId: number;
     readonly variant: BankrollPlanVariantInputs;
-}
-
-export interface TakeProfitRowsToolsResult {
-    readonly kind: ToolsResponseKind.TakeProfitRows;
-    readonly rows: readonly TakeProfitRowSummary[];
-    readonly runId: number;
 }
 
 export interface TakeProfitRowSummary {
@@ -371,12 +284,6 @@ export interface TakeProfitRowSummary {
     readonly label: string;
     readonly rrRatio: number;
     readonly winrate: number;
-}
-
-export interface ToolsWorkerFailure {
-    readonly kind: ToolsResponseKind.Failed;
-    readonly reason: string;
-    readonly runId: number;
 }
 
 export type ToolsWorkerRequest =
@@ -419,12 +326,6 @@ export interface TwoStrategiesToolsRequest {
     ];
 }
 
-export interface TwoStrategiesToolsResult {
-    readonly kind: ToolsResponseKind.TwoStrategies;
-    readonly results: readonly [BankrollTimelineResult, BankrollTimelineResult];
-    readonly runId: number;
-}
-
 export interface ValueChainToolsRequest {
     readonly kind: ToolsRequestKind.ValueChain;
     readonly plan: BankrollPlanReference;
@@ -432,7 +333,106 @@ export interface ValueChainToolsRequest {
     readonly spec: DocumentedPolicySpec;
 }
 
-export interface ValueChainToolsResult {
+interface BankrollBaseInputs {
+    readonly commissionPerRoundTrip?: number;
+    readonly dayStop?: z.infer<typeof dayStopRuleSchema>;
+    readonly fundedHorizonDays: number;
+    readonly fundedRiskPerTrade?: number;
+    readonly fundedRrRatio?: number;
+    readonly fundedTradesPerDay?: number;
+    readonly idleDayProbability?: number;
+    readonly instrument?: InstrumentSymbol;
+    readonly maxEvalDays: number;
+    readonly minRetainedCushion?: number;
+    readonly riskPerTrade: number;
+    readonly rrRatio: number;
+    readonly seed: number;
+    readonly stopPoints?: number;
+    readonly tradesPerDay: number;
+    readonly trials: number;
+    readonly winrate: number;
+}
+
+interface BatchToolsResult {
+    readonly kind: ToolsResponseKind.Batch;
+    readonly result: BatchToolsSummary;
+    readonly runId: number;
+}
+
+interface FundedValueEstimateToolsResult {
+    readonly kind: ToolsResponseKind.FundedValueEstimate;
+    readonly result: FundedValueEstimateResult;
+    readonly runId: number;
+}
+
+interface LabToolsResult {
+    readonly kind: ToolsResponseKind.Lab;
+    readonly result: LabScenarioResult;
+    readonly runId: number;
+}
+
+interface LeversToolsResult {
+    readonly kind: ToolsResponseKind.Levers;
+    readonly rows: readonly BankrollLeverRowSummary[];
+    readonly runId: number;
+}
+
+interface NextRoundToolsResult {
+    readonly kind: ToolsResponseKind.NextRound;
+    readonly optionA: BankrollTimelineResult;
+    readonly optionB: BankrollTimelineResult;
+    readonly runId: number;
+}
+
+interface ProjectionToolsResult {
+    readonly kind: ToolsResponseKind.Projection;
+    readonly monthEnds: readonly ProjectionMonthEnd[];
+    readonly result: BankrollTimelineResult;
+    readonly runId: number;
+}
+
+interface SameEvToolsResult {
+    readonly kind: ToolsResponseKind.SameEv;
+    readonly results: readonly [SameEvOutcome, SameEvOutcome];
+    readonly runId: number;
+}
+
+interface SpendPayoutCurveFigures {
+    readonly attempts: number;
+    readonly expectedNet: number;
+    readonly expectedPayouts: number;
+    readonly expectedSpend: number;
+    readonly lossProbability: number;
+    readonly lossProbabilityStandardError: null | number;
+    readonly netP10: number;
+    readonly netP90: number;
+}
+
+interface SpendPayoutCurveToolsResult {
+    readonly kind: ToolsResponseKind.SpendPayoutCurve;
+    readonly rows: readonly SpendPayoutCurveRow[];
+    readonly runId: number;
+}
+
+interface TakeProfitRowsToolsResult {
+    readonly kind: ToolsResponseKind.TakeProfitRows;
+    readonly rows: readonly TakeProfitRowSummary[];
+    readonly runId: number;
+}
+
+interface ToolsWorkerFailure {
+    readonly kind: ToolsResponseKind.Failed;
+    readonly reason: string;
+    readonly runId: number;
+}
+
+interface TwoStrategiesToolsResult {
+    readonly kind: ToolsResponseKind.TwoStrategies;
+    readonly results: readonly [BankrollTimelineResult, BankrollTimelineResult];
+    readonly runId: number;
+}
+
+interface ValueChainToolsResult {
     readonly kind: ToolsResponseKind.ValueChain;
     readonly result: ValueChainResult;
     readonly runId: number;
@@ -686,7 +686,7 @@ const fundedValueEstimateResultSchema = z.object({
     trials: positiveIntSchema,
 }) satisfies z.ZodType<FundedValueEstimateResult>;
 
-export const toolsRequestSchema = z.discriminatedUnion('kind', [
+const toolsRequestSchema = z.discriminatedUnion('kind', [
     z.object({
         attempts: z.number().int().positive(),
         kind: z.literal(ToolsRequestKind.Batch),
@@ -862,7 +862,7 @@ const sameEvOutcomeSchema = z.object({
     noPayoutProbability: nullableFiniteNumberSchema,
 }) satisfies z.ZodType<SameEvOutcome>;
 
-export const toolsResultSchema = z.discriminatedUnion('kind', [
+const toolsResultSchema = z.discriminatedUnion('kind', [
     z.object({
         kind: z.literal(ToolsResponseKind.Batch),
         result: z.object({

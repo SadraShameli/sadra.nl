@@ -122,7 +122,7 @@ function buttonLabelled(scope: ParentNode, label: string): HTMLButtonElement {
     return button;
 }
 
-function decision(overrides: Record<string, unknown> = {}) {
+function decision() {
     return {
         acceptedRiskCents: 25_000,
         accountId: ACCOUNT_ID,
@@ -130,7 +130,6 @@ function decision(overrides: Record<string, unknown> = {}) {
         decidedOn: '2026-09-10',
         headlineRiskCents: 25_000,
         id: DECISION_ID,
-        ...overrides,
     };
 }
 
@@ -198,7 +197,7 @@ function typeInto(input: HTMLElement, text: string) {
     });
 }
 
-function violation(overrides: Partial<ViolationRow> = {}): ViolationRow {
+function violation(): ViolationRow {
     return {
         accountId: ACCOUNT_ID,
         costCents: usdCents(5000),
@@ -211,7 +210,6 @@ function violation(overrides: Partial<ViolationRow> = {}): ViolationRow {
         source: ViolationSource.Manual,
         updatedAt: new Date('2026-09-12T12:00:00Z'),
         userId: 'user-a',
-        ...overrides,
     };
 }
 

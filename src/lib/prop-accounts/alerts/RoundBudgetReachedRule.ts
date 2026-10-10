@@ -17,18 +17,16 @@ export class RoundBudgetReachedRule extends AlertRule {
     evaluate(context: AlertContext): readonly AccountAlert[] {
         return context.rounds.flatMap((round) => {
             if (!hasReachedBudget(round)) return [];
-            return [
-                {
-                    disclosures: [],
-                    kind: this.kind,
-                    message: `Round "${round.label}" has spent ${formatUsdCents(usdCents(round.budget.spentCents), CentsDisplay.Always)} of its ${formatUsdCents(usdCents(round.budget.budgetCents ?? 0), CentsDisplay.Always)} budget`,
-                    severity: AlertSeverity.Info,
-                    subject: {
-                        accountIds: [],
-                        kind: AlertSubjectKind.Portfolio,
-                    },
+            return {
+                disclosures: [],
+                kind: this.kind,
+                message: `Round "${round.label}" has spent ${formatUsdCents(usdCents(round.budget.spentCents), CentsDisplay.Always)} of its ${formatUsdCents(usdCents(round.budget.budgetCents ?? 0), CentsDisplay.Always)} budget`,
+                severity: AlertSeverity.Info,
+                subject: {
+                    accountIds: [],
+                    kind: AlertSubjectKind.Portfolio,
                 },
-            ];
+            };
         });
     }
 }

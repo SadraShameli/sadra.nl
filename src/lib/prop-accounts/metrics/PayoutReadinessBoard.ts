@@ -157,7 +157,7 @@ function fundedRowOf(
     account: ReconstructedFundedOrEvalAccount,
     override: PayoutReadinessAccountOverride | undefined,
 ): PayoutReadinessRow {
-    const { fundedTracker: tracker, pendingPayouts, state } = account;
+    const { fundedTracker: tracker, pendingPayouts = 0, state } = account;
     if (tracker === null) {
         throw new Error(
             'a funded reconstructed account is missing its funded cycle tracker',
@@ -173,7 +173,7 @@ function fundedRowOf(
     const ruleContext = fundedPayoutRuleContextOf({
         ...pendingPayoutCounts,
         liveTrigger: liveTriggerLimits,
-        pendingPayouts: pendingPayouts ?? 0,
+        pendingPayouts: pendingPayouts,
         personalRequestOverride: null,
         personalRetainedCushion:
             override?.personalRetainedCushion == null
@@ -190,7 +190,7 @@ function fundedRowOf(
     const rawRequest =
         override?.personalRequestOverride ??
         rulebook.payout.requestCents / CENTS_PER_DOLLAR;
-    const grossPendingPayouts = pendingPayouts ?? 0;
+    const grossPendingPayouts = pendingPayouts;
     const readiness = payoutReadiness(plan, ruleContext.state, tracker, {
         ...pendingPayoutCounts,
         liveTrigger: liveTriggerLimits,

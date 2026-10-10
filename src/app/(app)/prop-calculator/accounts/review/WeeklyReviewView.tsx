@@ -600,7 +600,7 @@ function acceptedAccountIdsOf(
             row.sizing.kind === WeeklyReviewSizingKind.Ready &&
             acceptedHeadlines.get(row.accountId) ===
                 row.sizing.headlineRiskCents
-                ? [row.accountId]
+                ? row.accountId
                 : [],
         ),
     );

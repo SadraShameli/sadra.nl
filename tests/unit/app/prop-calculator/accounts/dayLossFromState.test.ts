@@ -181,11 +181,7 @@ function scenarioOf(
     return { row, snapshots, state };
 }
 
-function snapshotRow(
-    asOf: string,
-    balance: number,
-    overrides: Partial<AccountStateSnapshotRow> = {},
-): AccountStateSnapshotRow {
+function snapshotRow(asOf: string, balance: number): AccountStateSnapshotRow {
     return {
         accountId: ACCOUNT_ID,
         asOf,
@@ -206,7 +202,6 @@ function snapshotRow(
         qualifyingDaysSinceLastPayout: null,
         tradingDays: 4,
         userId: USER_ID,
-        ...overrides,
     };
 }
 

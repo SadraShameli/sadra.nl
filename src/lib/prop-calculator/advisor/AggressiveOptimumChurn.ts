@@ -30,7 +30,7 @@ export function aggressiveOptimumChurnReasons(
         ? (accountPolicy?.conductPatterns(plan) ?? []).flatMap((pattern) =>
               isAggressiveSizingConcern(pattern) &&
               pattern.source.verification === PolicyVerification.Confirmed
-                  ? [{ kind: DifferenceReason.AggressiveOptimumChurn, pattern }]
+                  ? { kind: DifferenceReason.AggressiveOptimumChurn, pattern }
                   : [],
           )
         : [];

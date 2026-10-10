@@ -32,7 +32,7 @@ export const batchArguments = {
     ...bankrollBatchArguments,
 };
 
-export default defineCommand({
+const command = defineCommand({
     args: batchArguments,
     meta: {
         description:
@@ -74,7 +74,9 @@ export default defineCommand({
     },
 });
 
-export function batchRows(
+export default command;
+
+function batchRows(
     out: SimOutputs,
     batch: BankrollBatchInputs,
     seed: number,

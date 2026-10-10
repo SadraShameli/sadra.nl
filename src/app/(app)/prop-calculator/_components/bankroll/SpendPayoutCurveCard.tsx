@@ -141,16 +141,14 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
     const data = rows.flatMap((row) =>
         row.figures === null
             ? []
-            : [
-                  {
-                      budget: row.budget,
-                      expectedNet: row.figures.expectedNet,
-                      expectedPayouts: row.figures.expectedPayouts,
-                      expectedSpend: row.figures.expectedSpend,
-                      low: row.figures.netP10,
-                      range: row.figures.netP90 - row.figures.netP10,
-                  },
-              ],
+            : {
+                  budget: row.budget,
+                  expectedNet: row.figures.expectedNet,
+                  expectedPayouts: row.figures.expectedPayouts,
+                  expectedSpend: row.figures.expectedSpend,
+                  low: row.figures.netP10,
+                  range: row.figures.netP90 - row.figures.netP10,
+              },
     );
     if (data.length === 0) return null;
     return (

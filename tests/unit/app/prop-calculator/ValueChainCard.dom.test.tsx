@@ -121,13 +121,13 @@ function setSampleSizeText(container: HTMLElement, text: string) {
     });
 }
 
-function valueResult(seed: number, trials: number, creditInclusive: number) {
+function valueResult(creditInclusive: number) {
     return {
         creditFree: { standardError: null, value: creditInclusive - 10 },
         creditInclusive: { standardError: 5, value: creditInclusive },
         kind: ValueResultKind.Value,
-        seed,
-        trials,
+        seed: 1,
+        trials: 500,
     };
 }
 
@@ -182,22 +182,22 @@ describe('ValueChainCard (PT-66)', () => {
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.EvalStart,
-                                value: valueResult(1, 500, 100),
+                                value: valueResult(100),
                             },
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.FreshFunded,
-                                value: valueResult(1, 500, 900),
+                                value: valueResult(900),
                             },
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.FirstPayoutEligible,
-                                value: valueResult(1, 500, 1400),
+                                value: valueResult(1400),
                             },
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.PostFirstPayout,
-                                value: valueResult(1, 500, 950),
+                                value: valueResult(950),
                             },
                         ],
                     },
@@ -232,22 +232,22 @@ describe('ValueChainCard (PT-66)', () => {
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.EvalStart,
-                                value: valueResult(1, 500, 100),
+                                value: valueResult(100),
                             },
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.FreshFunded,
-                                value: valueResult(1, 500, 900),
+                                value: valueResult(900),
                             },
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.FirstPayoutEligible,
-                                value: valueResult(1, 500, 1400),
+                                value: valueResult(1400),
                             },
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.PostFirstPayout,
-                                value: valueResult(1, 500, 950),
+                                value: valueResult(950),
                             },
                         ],
                     },
@@ -293,12 +293,12 @@ describe('ValueChainCard (PT-66)', () => {
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.EvalStart,
-                                value: valueResult(1, 500, 100),
+                                value: valueResult(100),
                             },
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.FreshFunded,
-                                value: valueResult(1, 500, 900),
+                                value: valueResult(900),
                             },
                         ],
                     },
@@ -336,7 +336,7 @@ describe('ValueChainCard (PT-66)', () => {
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.EvalStart,
-                                value: valueResult(1, 500, 100),
+                                value: valueResult(100),
                             },
                         ],
                     },
@@ -366,7 +366,7 @@ describe('ValueChainCard (PT-66)', () => {
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.EvalStart,
-                                value: valueResult(1, 500, 100),
+                                value: valueResult(100),
                             },
                             {
                                 assumptions: [
@@ -374,7 +374,7 @@ describe('ValueChainCard (PT-66)', () => {
                                     'One closed trade per session',
                                 ],
                                 kind: ValueChainStepKind.FirstPayoutEligible,
-                                value: valueResult(1, 500, 1400),
+                                value: valueResult(1400),
                             },
                         ],
                     },
@@ -418,12 +418,12 @@ describe('ValueChainCard (PT-66)', () => {
                             {
                                 assumptions: ['Eval basis line'],
                                 kind: ValueChainStepKind.EvalStart,
-                                value: valueResult(1, 500, 100),
+                                value: valueResult(100),
                             },
                             {
                                 assumptions: ['Post payout line'],
                                 kind: ValueChainStepKind.PostFirstPayout,
-                                value: valueResult(1, 500, 950),
+                                value: valueResult(950),
                             },
                         ],
                     },
@@ -464,7 +464,7 @@ describe('ValueChainCard (PT-66)', () => {
                             {
                                 assumptions: [],
                                 kind: ValueChainStepKind.EvalStart,
-                                value: valueResult(1, 500, 100),
+                                value: valueResult(100),
                             },
                         ],
                     },

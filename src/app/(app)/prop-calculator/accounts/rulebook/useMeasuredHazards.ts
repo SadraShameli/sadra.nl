@@ -33,7 +33,7 @@ export interface MeasuredHazardsState {
     readonly unavailable: Partial<Record<FirmId, UnavailableHazard>>;
 }
 
-export interface UnavailableHazard {
+interface UnavailableHazard {
     readonly reason: LiveTransferRateUnavailable;
     readonly text: string;
 }

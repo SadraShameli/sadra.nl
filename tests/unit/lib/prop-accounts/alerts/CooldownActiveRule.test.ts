@@ -41,13 +41,13 @@ class StubCooldownPolicy extends FirmAccountPolicy {
     }
 }
 
-function withStubbedPolicy<T>(policy: FirmAccountPolicy, run: () => T): T {
+function withStubbedPolicy<T>(run: () => T): T {
     const firm = ALL_FIRMS.find((candidate) => candidate.id === ENTRY.firmId);
     if (firm === undefined)
         throw new Error('expected the entry firm to be registered');
     const mutable = firm as { accountPolicy: FirmAccountPolicy };
     const original = mutable.accountPolicy;
-    mutable.accountPolicy = policy;
+    mutable.accountPolicy = cooldownPolicy;
     try {
         return run();
     } finally {
@@ -66,7 +66,7 @@ const cooldownPolicy = new StubCooldownPolicy({
 describe('CooldownActiveRule', () => {
     it('warns while inside the verified cooldown window after a live bust', () => {
         const account = accountFor(ENTRY);
-        const alerts = withStubbedPolicy(cooldownPolicy, () =>
+        const alerts = withStubbedPolicy(() =>
             alertsOf(rule, {
                 accounts: [account],
                 events: [
@@ -98,7 +98,7 @@ describe('CooldownActiveRule', () => {
 
     it('gives an info notice once the cooldown window has just ended', () => {
         const account = accountFor(ENTRY);
-        const alerts = withStubbedPolicy(cooldownPolicy, () =>
+        const alerts = withStubbedPolicy(() =>
             alertsOf(rule, {
                 accounts: [account],
                 events: [
@@ -123,7 +123,7 @@ describe('CooldownActiveRule', () => {
 
     it('is silent long after the cooldown window has passed', () => {
         const account = accountFor(ENTRY);
-        const alerts = withStubbedPolicy(cooldownPolicy, () =>
+        const alerts = withStubbedPolicy(() =>
             alertsOf(rule, {
                 accounts: [account],
                 events: [
@@ -146,7 +146,7 @@ describe('CooldownActiveRule', () => {
 
     it('is silent without a recorded bust', () => {
         const account = accountFor(ENTRY);
-        const alerts = withStubbedPolicy(cooldownPolicy, () =>
+        const alerts = withStubbedPolicy(() =>
             alertsOf(rule, {
                 accounts: [account],
                 events: [

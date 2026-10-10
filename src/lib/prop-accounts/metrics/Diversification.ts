@@ -44,7 +44,7 @@ export function diversification(ledger: PortfolioLedger): Diversification {
                         .flatMap((entry) => entry.payouts)
                         .flatMap((payout) => {
                             const cash = paidPayoutCash(payout);
-                            return cash === null ? [] : [cash.cents];
+                            return cash === null ? [] : cash.cents;
                         }),
                 ),
                 firmKey,

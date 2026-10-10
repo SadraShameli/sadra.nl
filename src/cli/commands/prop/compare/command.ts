@@ -138,7 +138,7 @@ const UNIT_SCREEN_TIME: ScreenTime = {
     sessionHoursPerDay: 1,
 };
 
-export default defineCommand({
+const command = defineCommand({
     args: {
         ...planArguments,
         ...tradingArguments,
@@ -308,16 +308,18 @@ export default defineCommand({
     },
 });
 
+export default command;
+
 const FIRM_COLUMN_WIDTH = Math.max(
     ...Object.values(FirmId).map((id) => id.length),
 );
 
-export interface SplitArguments {
+interface SplitArguments {
     splits?: string;
     'total-risk'?: string;
 }
 
-export interface SplitRequest {
+interface SplitRequest {
     readonly splits: number[];
     readonly totalRisk: number;
 }
@@ -484,25 +486,6 @@ export function rankRows<T extends RankableRow>(
     };
 }
 
-export function readSplitRequest(
-    arguments_: SplitArguments,
-): null | SplitRequest {
-    const totalRisk = arguments_['total-risk'];
-    const splits = arguments_.splits;
-    if (totalRisk === undefined && splits === undefined) return null;
-    if (totalRisk === undefined || splits === undefined) {
-        throw new TypeError(
-            '--total-risk and --splits go together: pass both or neither',
-        );
-    }
-    return {
-        splits: splits
-            .split(',')
-            .map((part) => readPositiveInteger(part.trim(), 'splits')),
-        totalRisk: readPositiveNumber(totalRisk, 'total-risk'),
-    };
-}
-
 export function readTopLimit(
     arguments_: TopLimitArguments,
     screenTime: null | ScreenTime,
@@ -596,6 +579,23 @@ export function splitTableRow(
             : row.netPerFeeDollar.toFixed(2),
         isIndistinguishable ? 'within noise' : '',
     ];
+}
+
+function readSplitRequest(arguments_: SplitArguments): null | SplitRequest {
+    const totalRisk = arguments_['total-risk'];
+    const splits = arguments_.splits;
+    if (totalRisk === undefined && splits === undefined) return null;
+    if (totalRisk === undefined || splits === undefined) {
+        throw new TypeError(
+            '--total-risk and --splits go together: pass both or neither',
+        );
+    }
+    return {
+        splits: splits
+            .split(',')
+            .map((part) => readPositiveInteger(part.trim(), 'splits')),
+        totalRisk: readPositiveNumber(totalRisk, 'total-risk'),
+    };
 }
 
 const BANKROLL_COLUMNS_NOTE =

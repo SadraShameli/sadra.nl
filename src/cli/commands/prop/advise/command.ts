@@ -587,14 +587,7 @@ export function coverageMatrixLines(firmId: FirmId | undefined): string[] {
         ...rankablePlans(firm.plans, true).flatMap((plan) =>
             Object.values(SizingStage).flatMap((stage) =>
                 stage === SizingStage.Eval && plan.isInstantFunded
-                    ? [
-                          coverageLineFor(
-                              plan,
-                              stage,
-                              AccountSubstate.Fresh,
-                              today,
-                          ),
-                      ]
+                    ? coverageLineFor(plan, stage, AccountSubstate.Fresh, today)
                     : Object.values(AccountSubstate).map((substate) =>
                           coverageLineFor(plan, stage, substate, today),
                       ),
@@ -614,7 +607,7 @@ export function engineResultsFor(
               .map((request) => runEngineOptimum(plan, request));
 }
 
-export default defineCommand({
+const command = defineCommand({
     args: adviseArguments,
     meta: {
         description:
@@ -730,6 +723,8 @@ export default defineCommand({
         }
     },
 });
+
+export default command;
 
 export function nextTradeRiskReport(
     advisor: SizingAdvisor,
@@ -982,52 +977,6 @@ const COVERAGE_UNSUPPORTED_REASON_TEXT: Readonly<
     [AdviceCoverageUnsupportedReason.Suspended]: 'suspended',
 };
 
-export function documentedSizingLines(
-    sizing: DocumentedSizing,
-    enteredStopPoints: null | number,
-    placement: null | SizingPlacement = null,
-): string[] {
-    const lines: string[] = [
-        `provenance: ${sizing.provenance}, reward multiple ${sizing.rewardMultiple}, stop ${describeStopRule(sizing.stopRule)}`,
-    ];
-    let rungIndex = 0;
-    for (const rung of sizing.rungs) {
-        rungIndex += 1;
-        const capped =
-            rung.cappedBy.length === 0
-                ? ''
-                : ` (${rung.cappedBy.map((constraint) => SIZING_CONSTRAINT_TEXT[constraint]).join(' ')})`;
-        const unplaced =
-            rungPlacementOf(rung.risk, placement) ===
-            RungPlacement.BelowOneContract
-                ? ` ${BELOW_ONE_CONTRACT_TEXT}`
-                : '';
-        lines.push(
-            `rung ${rungIndex}: risk ${formatCurrency(rung.risk)}, TP ${formatCurrency(rung.takeProfit)}, running loss ${formatCurrency(rung.runningLossBefore)} -> ${formatCurrency(rung.runningLossAfter)}${capped}${unplaced}`,
-        );
-    }
-    if (sizing.dailyProfitCap !== null) {
-        lines.push(
-            sizing.dailyProfitCap.kind === DailyProfitCapKind.HardCeiling
-                ? `daily profit ceiling: ${formatCurrency(sizing.dailyProfitCap.ceiling)}`
-                : `daily stop trigger: ${formatCurrency(sizing.dailyProfitCap.stopAfter)}`,
-        );
-    }
-    if (
-        sizing.minStopPointsAtCap !== null &&
-        (enteredStopPoints === null ||
-            sizing.minStopPointsAtCap > enteredStopPoints)
-    ) {
-        lines.push(
-            `minimum stop to stay at the contract cap: ${sizing.minStopPointsAtCap} pts`,
-        );
-    }
-    for (const assumption of sizing.assumptions) {
-        lines.push(SIZING_ASSUMPTION_TEXT[assumption]);
-    }
-    return lines;
-}
-
 export function firmOpenItemLines(openItems: readonly string[]): string[] {
     return openItems.length === 0
         ? ['firm data: no open items']
@@ -1228,6 +1177,52 @@ function documentedPolicySpecFor(
             trials: options.trials ?? 1,
         },
     });
+}
+
+function documentedSizingLines(
+    sizing: DocumentedSizing,
+    enteredStopPoints: null | number,
+    placement: null | SizingPlacement = null,
+): string[] {
+    const lines: string[] = [
+        `provenance: ${sizing.provenance}, reward multiple ${sizing.rewardMultiple}, stop ${describeStopRule(sizing.stopRule)}`,
+    ];
+    let rungIndex = 0;
+    for (const rung of sizing.rungs) {
+        rungIndex += 1;
+        const capped =
+            rung.cappedBy.length === 0
+                ? ''
+                : ` (${rung.cappedBy.map((constraint) => SIZING_CONSTRAINT_TEXT[constraint]).join(' ')})`;
+        const unplaced =
+            rungPlacementOf(rung.risk, placement) ===
+            RungPlacement.BelowOneContract
+                ? ` ${BELOW_ONE_CONTRACT_TEXT}`
+                : '';
+        lines.push(
+            `rung ${rungIndex}: risk ${formatCurrency(rung.risk)}, TP ${formatCurrency(rung.takeProfit)}, running loss ${formatCurrency(rung.runningLossBefore)} -> ${formatCurrency(rung.runningLossAfter)}${capped}${unplaced}`,
+        );
+    }
+    if (sizing.dailyProfitCap !== null) {
+        lines.push(
+            sizing.dailyProfitCap.kind === DailyProfitCapKind.HardCeiling
+                ? `daily profit ceiling: ${formatCurrency(sizing.dailyProfitCap.ceiling)}`
+                : `daily stop trigger: ${formatCurrency(sizing.dailyProfitCap.stopAfter)}`,
+        );
+    }
+    if (
+        sizing.minStopPointsAtCap !== null &&
+        (enteredStopPoints === null ||
+            sizing.minStopPointsAtCap > enteredStopPoints)
+    ) {
+        lines.push(
+            `minimum stop to stay at the contract cap: ${sizing.minStopPointsAtCap} pts`,
+        );
+    }
+    for (const assumption of sizing.assumptions) {
+        lines.push(SIZING_ASSUMPTION_TEXT[assumption]);
+    }
+    return lines;
 }
 
 function engineOptimaLines(

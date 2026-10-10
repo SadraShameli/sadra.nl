@@ -470,10 +470,10 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                 <Slider
                                     max={40}
                                     min={0}
-                                    onValueChange={([v]) =>
+                                    onValueChange={([v = 0]) =>
                                         updateConfig('weights', {
                                             ...config.weights,
-                                            [key]: v ?? 0,
+                                            [key]: v,
                                         })
                                     }
                                     step={1}

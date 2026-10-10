@@ -42,7 +42,7 @@ export default function AccountsPassedDistributionChart({
                 'h-44 w-full',
             )}
         >
-            <ChartContainer className="h-full w-full" config={chartConfig}>
+            <ChartContainer className="size-full" config={chartConfig}>
                 <BarChart
                     data={data}
                     margin={{ bottom: 18, left: 0, right: 6, top: 6 }}

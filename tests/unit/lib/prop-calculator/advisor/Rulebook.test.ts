@@ -626,16 +626,16 @@ describe('rulebookSchema', () => {
 
     it('rejects max-risk mode with an rr above the daily cap multiple, the rule EvalMaxRiskRule enforces', () => {
         const draft = structuredClone(DEFAULT_RULEBOOK);
-        const maxRisk = (rr: number, multiple: number) => ({
+        const maxRisk = (rr: number) => ({
             ...draft,
             eval: {
                 ...draft.eval,
-                maxRiskDailyCapMultiple: multiple,
+                maxRiskDailyCapMultiple: 2,
                 mode: EvalSizingMode.MaxRisk,
             },
             strategy: { ...draft.strategy, rr },
         });
-        const overshoot = rulebookSchema.safeParse(maxRisk(3, 2));
+        const overshoot = rulebookSchema.safeParse(maxRisk(3));
         expect(overshoot.success).toBe(false);
         expect(overshoot.error?.issues).toEqual([
             expect.objectContaining({
@@ -644,16 +644,16 @@ describe('rulebookSchema', () => {
                 path: ['eval', 'maxRiskDailyCapMultiple'],
             }),
         ]);
-        expect(() => new EvalMaxRiskRule(maxRisk(3, 2))).toThrow(
+        expect(() => new EvalMaxRiskRule(maxRisk(3))).toThrow(
             overshoot.error?.issues[0]?.message ?? 'unreachable',
         );
-        expect(isValid(maxRisk(2, 2))).toBe(true);
-        expect(isValid(maxRisk(1.5, 2))).toBe(true);
-        expect(() => new EvalMaxRiskRule(maxRisk(2, 2))).not.toThrow();
+        expect(isValid(maxRisk(2))).toBe(true);
+        expect(isValid(maxRisk(1.5))).toBe(true);
+        expect(() => new EvalMaxRiskRule(maxRisk(2))).not.toThrow();
         expect(
             isValid({
-                ...maxRisk(3, 2),
-                eval: { ...maxRisk(3, 2).eval, mode: EvalSizingMode.Ladder },
+                ...maxRisk(3),
+                eval: { ...maxRisk(3).eval, mode: EvalSizingMode.Ladder },
             }),
         ).toBe(true);
     });

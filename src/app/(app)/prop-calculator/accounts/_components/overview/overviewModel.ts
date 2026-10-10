@@ -488,31 +488,11 @@ export interface ExpectedNetCardModel {
     readonly statusNote: null | string;
 }
 
-export interface ExposureAccountRow {
-    readonly account: string;
-    readonly basis: string;
-    readonly cushion: string;
-    readonly firstTradeRisk: string;
-    readonly key: string;
-    readonly maxDailyLoss: string;
-    readonly shareOfCushionAtRisk: string;
-}
-
 export interface ExposureCardModel {
     readonly accounts: readonly ExposureAccountRow[];
     readonly disclosures: readonly string[];
     readonly groups: readonly ExposureGroupRow[];
     readonly unavailable: readonly UnavailableAccountRow[];
-}
-
-export interface ExposureGroupRow {
-    readonly accounts: string;
-    readonly group: string;
-    readonly key: string;
-    readonly maxDailyLoss: string;
-    readonly note: string;
-    readonly shareOfCushionAtRisk: string;
-    readonly totalCushion: string;
 }
 
 export interface FirmReturnsCardModel {
@@ -865,29 +845,6 @@ export interface ProjectionCardModel {
     readonly statusNote: null | string;
 }
 
-export interface ProjectionFinalNet {
-    readonly p10: string;
-    readonly p50: string;
-    readonly p90: string;
-}
-
-export interface ProjectionLabels {
-    readonly creditBasis: string;
-    readonly horizon: string;
-    readonly lifetimeCapBasis: string;
-    readonly payoutPolicy: string;
-    readonly retainedCushion: string;
-    readonly startBasis: string;
-    readonly tradesPerDay: string;
-    readonly trials: string;
-}
-
-export interface ProjectionRefusal {
-    readonly key: string;
-    readonly plan: string;
-    readonly reason: string;
-}
-
 export interface ProjectionRow {
     readonly accounts: string;
     readonly breakEvenMonth: string;
@@ -1112,6 +1069,26 @@ interface ExpectedNetRow {
     readonly policySensitiveNote: null | string;
     readonly rankDocumented: string;
     readonly rankOptimum: string;
+}
+
+interface ExposureAccountRow {
+    readonly account: string;
+    readonly basis: string;
+    readonly cushion: string;
+    readonly firstTradeRisk: string;
+    readonly key: string;
+    readonly maxDailyLoss: string;
+    readonly shareOfCushionAtRisk: string;
+}
+
+interface ExposureGroupRow {
+    readonly accounts: string;
+    readonly group: string;
+    readonly key: string;
+    readonly maxDailyLoss: string;
+    readonly note: string;
+    readonly shareOfCushionAtRisk: string;
+    readonly totalCushion: string;
 }
 
 interface FeeKindAmountRow {
@@ -1341,6 +1318,29 @@ interface ProfitConcentrationRow {
     readonly sinceMovedLive: string;
     readonly withdrawable: string;
     readonly withdrawableShare: string;
+}
+
+interface ProjectionFinalNet {
+    readonly p10: string;
+    readonly p50: string;
+    readonly p90: string;
+}
+
+interface ProjectionLabels {
+    readonly creditBasis: string;
+    readonly horizon: string;
+    readonly lifetimeCapBasis: string;
+    readonly payoutPolicy: string;
+    readonly retainedCushion: string;
+    readonly startBasis: string;
+    readonly tradesPerDay: string;
+    readonly trials: string;
+}
+
+interface ProjectionRefusal {
+    readonly key: string;
+    readonly plan: string;
+    readonly reason: string;
 }
 
 interface ReadinessRow {
@@ -3812,9 +3812,7 @@ function expectedNetCard(
             ...plans.flatMap(([serial, plan]) =>
                 plan.optimum.kind === EngineSlotKind.Ready &&
                 plan.optimum.figures.creditSensitive
-                    ? [
-                          `${names.of(serial)}: the payout-size optimum is credit sensitive, so the credit-free figures would choose another request size.`,
-                      ]
+                    ? `${names.of(serial)}: the payout-size optimum is credit sensitive, so the credit-free figures would choose another request size.`
                     : [],
             ),
         ],
@@ -3890,7 +3888,7 @@ function expectedNetKpi(
     } as const;
     const held = [...engine.plans].flatMap(([serial, plan]) => {
         const count = slots.get(serial) ?? 0;
-        return count > 0 ? [{ count, plan }] : [];
+        return count > 0 ? { count, plan } : [];
     });
     if (engine.plans.size === 0 && !engine.hasRulebook) {
         return {
@@ -3930,7 +3928,7 @@ function expectedNetKpi(
     }
     const answered = held.flatMap(({ count, plan }) =>
         plan.documented.kind === EngineSlotKind.Ready
-            ? [{ count, figures: plan.documented.figures }]
+            ? { count, figures: plan.documented.figures }
             : [],
     );
     const totalSlots = answered.reduce((sum, row) => sum + row.count, 0);
@@ -3978,7 +3976,7 @@ function expectedNetLabels(plan: PlanEngine): ExpectedNetLabels {
         creditBasis: CREDIT_BASIS_LABEL,
         lifetimeCapBasis: lifetimeCapBasisText(
             enginePolicy.lifetimePayoutCapBasis,
-            enginePolicy.lifetimePayoutCapOverride,
+            enginePolicy.lifetimePayoutCapOverride ?? undefined,
         ),
         payoutPolicy: payoutPolicyLabel(
             ready?.payoutRequestSize ??
@@ -5248,14 +5246,14 @@ function ledgerOnlyFunnelNote(ledgerOnlyAccounts: number): null | string {
 
 function lifetimeCapBasisText(
     basis: LifetimePayoutCapBasis,
-    override: null | number,
+    override = 0,
 ): string {
     switch (basis) {
         case LifetimePayoutCapBasis.LiveTriggersNotChecked: {
             return 'Lifetime cap: live triggers not checked (optimistic)';
         }
         case LifetimePayoutCapBasis.VerifiedCountTrigger: {
-            return `Lifetime payout cap of ${String(override ?? 0)} payouts (verified count trigger)`;
+            return `Lifetime payout cap of ${String(override)} payouts (verified count trigger)`;
         }
         case LifetimePayoutCapBasis.VerifiedNoCountTrigger: {
             return 'Lifetime cap: no count trigger (verified)';
@@ -5309,33 +5307,31 @@ function liveProximityCard(
             const found = located.get(row.accountId);
             return found !== undefined &&
                 row.status === LiveProximityStatus.Verified
-                ? [
-                      {
-                          account: found.entry.row.label,
-                          key: row.accountId,
-                          paidPayouts: checkedCount(
-                              row.countStatus,
-                              row.paidPayouts,
+                ? {
+                      account: found.entry.row.label,
+                      key: row.accountId,
+                      paidPayouts: checkedCount(
+                          row.countStatus,
+                          row.paidPayouts,
+                      ),
+                      plan: names.of(row.planSerial),
+                      remaining:
+                          row.countStatus ===
+                          LiveProximityCountStatus.NotChecked
+                              ? COUNT_NOT_CHECKED_TEXT
+                              : optionalCount(row.remaining),
+                      requestedPayouts: checkedCount(
+                          row.countStatus,
+                          row.requestedPayouts,
+                      ),
+                      sourceText: policySourceText(
+                          confirmedTriggerSource(
+                              liveTriggersOf(found.group),
+                              LiveTriggerKind.PayoutCountPerAccount,
                           ),
-                          plan: names.of(row.planSerial),
-                          remaining:
-                              row.countStatus ===
-                              LiveProximityCountStatus.NotChecked
-                                  ? COUNT_NOT_CHECKED_TEXT
-                                  : optionalCount(row.remaining),
-                          requestedPayouts: checkedCount(
-                              row.countStatus,
-                              row.requestedPayouts,
-                          ),
-                          sourceText: policySourceText(
-                              confirmedTriggerSource(
-                                  liveTriggersOf(found.group),
-                                  LiveTriggerKind.PayoutCountPerAccount,
-                              ),
-                          ),
-                          trigger: optionalCount(row.triggerCount),
-                      },
-                  ]
+                      ),
+                      trigger: optionalCount(row.triggerCount),
+                  }
                 : [];
         }),
         disclosure: LIVE_PROXIMITY_DISCLOSURE,
@@ -6048,13 +6044,11 @@ function projectionCard(
         disclosures: PROJECTION_DISCLOSURES,
         refused: slots.flatMap(({ request, slot }) =>
             slot.kind === EngineSlotKind.Refused
-                ? [
-                      {
-                          key: overviewRequestKey(request),
-                          plan: names.of(request.planSerial),
-                          reason: slot.reason,
-                      },
-                  ]
+                ? {
+                      key: overviewRequestKey(request),
+                      plan: names.of(request.planSerial),
+                      reason: slot.reason,
+                  }
                 : [],
         ),
         rows: slots.map(({ request, slot }) =>
@@ -6149,7 +6143,7 @@ function projectionLabels(
         ),
         lifetimeCapBasis: lifetimeCapBasisText(
             enginePolicy.lifetimePayoutCapBasis,
-            enginePolicy.lifetimePayoutCapOverride,
+            enginePolicy.lifetimePayoutCapOverride ?? undefined,
         ),
         payoutPolicy: payoutPolicyLabel(
             figures?.payoutRequestSize ?? overviewDocumentedRequestOf(request),
@@ -6683,7 +6677,7 @@ function staleSnapshotAccountIdsOf(
         alerts.flatMap((alert) =>
             alert.kind === AlertKind.StaleSnapshot &&
             alert.subject.kind === AlertSubjectKind.Account
-                ? [alert.subject.accountId]
+                ? alert.subject.accountId
                 : [],
         ),
     );
@@ -7244,9 +7238,7 @@ function unmeasuredTriggerNote(
         liveTriggersOf(group).flatMap((trigger) =>
             trigger instanceof CumulativeAmountTrigger &&
             trigger.source?.verification === PolicyVerification.Confirmed
-                ? [
-                      `${names.of(group.planSerial)} has a verified cumulative payout trigger of ${formatUsdCents(usdCentsFromDollars(trigger.amount))} that this card does not measure.`,
-                  ]
+                ? `${names.of(group.planSerial)} has a verified cumulative payout trigger of ${formatUsdCents(usdCentsFromDollars(trigger.amount))} that this card does not measure.`
                 : [],
         ),
     );

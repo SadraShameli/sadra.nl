@@ -93,7 +93,7 @@ function payoutTimingRow(
 
 function unpaidNoteOf(plan: PlanPayoutTiming): null | string {
     const sentences = [waitingSentenceOf(plan), endedSentenceOf(plan)].flatMap(
-        (sentence) => (sentence === null ? [] : [sentence]),
+        (sentence) => sentence ?? [],
     );
     return sentences.length === 0 ? null : sentences.join('. ');
 }

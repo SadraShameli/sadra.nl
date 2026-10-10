@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty';
 
-export default defineCommand({
+const group = defineCommand({
     meta: {
         description:
             'Prop-firm calculator: plan rules, simulations and ladder search',
@@ -41,3 +41,5 @@ export default defineCommand({
         },
     },
 });
+
+export default group;

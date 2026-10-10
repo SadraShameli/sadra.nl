@@ -170,26 +170,24 @@ export function ledgerIndexConflicts(
     return runs.flatMap((run) => {
         const cell = indexStatusCellOf(indexMarkdown, run.file);
         if (cell === null) {
-            return [`${run.file}: no row in the Runs table`];
+            return `${run.file}: no row in the Runs table`;
         }
         const indexed = indexStatusOf(cell, run.citedStage);
         return indexed === run.status
             ? []
-            : [
-                  `${run.file}: the index says ${indexed}, the typed status says ${run.status}`,
-              ];
+            : `${run.file}: the index says ${indexed}, the typed status says ${run.status}`;
     });
 }
 
 export function ledgerRecordedLadderFor(
     firmId: FirmId,
-    variant: null | string,
+    variant: null | string = null,
 ): LedgerLadderRow | null {
     return (
         LEDGER_RECORDED_LADDERS.find(
             (row) =>
                 row.planKey.firmId === firmId &&
-                row.planKey.variant === (variant ?? null),
+                row.planKey.variant === variant,
         ) ?? null
     );
 }

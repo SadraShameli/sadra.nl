@@ -20,7 +20,7 @@ function enumHelp(labels: Record<string, string>): string {
         .join(', ');
 }
 
-export default defineCommand({
+const command = defineCommand({
     args: {
         amount: {
             description:
@@ -142,3 +142,5 @@ export default defineCommand({
         }
     },
 });
+
+export default command;

@@ -202,6 +202,6 @@ describe('EcbRateProvider – multi-currency', () => {
         });
 
         const [url] = mockFetch.mock.calls[0] as [URL];
-        expect(url.toString()).toMatch(/D\.USD\.EUR/);
+        expect(url.href).toMatch(/D\.USD\.EUR/);
     });
 });

@@ -24,22 +24,20 @@ export class MixedStageCopyGroupRule extends AlertRule {
             const stages = members.map((monitored) => monitored.account.stage);
             if (!hasMixedStages(stages)) return [];
             const breakdown = accountStageBreakdown(stageCountsOf(stages));
-            return [
-                {
-                    disclosures: [],
-                    kind: this.kind,
-                    message: `Copy group "${group.name}" mixes stages (${breakdown}); group sizing needs every member in one stage`,
-                    severity: AlertSeverity.Warning,
-                    subject: {
-                        accountIds: members.map(
-                            (monitored) => monitored.account.id,
-                        ),
-                        copyGroupId: group.id,
-                        kind: AlertSubjectKind.CopyGroup,
-                        name: group.name,
-                    },
+            return {
+                disclosures: [],
+                kind: this.kind,
+                message: `Copy group "${group.name}" mixes stages (${breakdown}); group sizing needs every member in one stage`,
+                severity: AlertSeverity.Warning,
+                subject: {
+                    accountIds: members.map(
+                        (monitored) => monitored.account.id,
+                    ),
+                    copyGroupId: group.id,
+                    kind: AlertSubjectKind.CopyGroup,
+                    name: group.name,
                 },
-            ];
+            };
         });
     }
 }

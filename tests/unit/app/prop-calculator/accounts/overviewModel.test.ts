@@ -3856,13 +3856,12 @@ describe('overviewEngineRequestsOf', () => {
 
 describe('buildOverview expected net card (F-85, F-152)', () => {
     it('shows two numbers per plan, the documented policy and the payout-size optimum, each times the active funded slots, with every basis labelled from typed fields', () => {
-        const cards = engineCards(multiSlotRows(), {
+        const { expectedNet } = engineCards(multiSlotRows(), {
             [EVAL_PLAN.serial]: {
                 documented: documentedFigures(),
                 optimum: optimumFigures(),
             },
         });
-        const { expectedNet } = cards;
         expect(expectedNet.status).toBe(ExpectedNetStatus.Ready);
         expect(expectedNet.rows).toHaveLength(1);
         const [row] = expectedNet.rows;
@@ -5129,9 +5128,7 @@ function projectionModelOf(
     return readyProjection(built.projection);
 }
 
-function projectionTimeline(
-    overrides: Partial<PortfolioTimelineResult> = {},
-): PortfolioTimelineResult {
+function projectionTimeline(): PortfolioTimelineResult {
     return {
         accountsSimulated: 2,
         breakEvenMonthValues: [2, 4, 6],
@@ -5147,7 +5144,6 @@ function projectionTimeline(
         spendP10: [0, 800, 1200],
         spendP50: [0, 450, 2000],
         spendP90: [0, 600, 1900],
-        ...overrides,
     };
 }
 
@@ -5632,16 +5628,11 @@ class SyntheticFirmPolicy extends FirmAccountPolicy {
     }
 }
 
-function fundedAccounts(
-    entry: PlanEntry,
-    count: number,
-    overrides: Partial<LedgerAccountRow> = {},
-): LedgerAccountRow[] {
+function fundedAccounts(entry: PlanEntry, count: number): LedgerAccountRow[] {
     return Array.from({ length: count }, () =>
         account(entry, {
             fundedOn: '2026-09-02',
             stage: AccountStage.Funded,
-            ...overrides,
         }),
     );
 }
@@ -6401,8 +6392,11 @@ function accountFromStateFigures(
     };
 }
 
-function activeEvalFixture(label = 'Eval account') {
-    const owner = account(EVAL_PLAN, { label, purchasedOn: '2026-09-01' });
+function activeEvalFixture() {
+    const owner = account(EVAL_PLAN, {
+        label: 'Eval account',
+        purchasedOn: '2026-09-01',
+    });
     const start = EVAL_PLAN.plan.accountSize;
     return {
         owner,
@@ -8467,7 +8461,7 @@ describe('buildOverview payout readiness board and the live triggers (PT-36g, F-
     });
 });
 
-function paidAlphaRows(paidNetCents: number): PortfolioRows {
+function paidAlphaRows(): PortfolioRows {
     const alpha = account(EVAL_PLAN, {
         fundedOn: '2026-06-20',
         label: 'Alpha',
@@ -8482,8 +8476,8 @@ function paidAlphaRows(paidNetCents: number): PortfolioRows {
         ],
         fees: [fee(alpha, FeeKind.EvalPurchase, 15_000, '2026-06-01')],
         payouts: [
-            payout(alpha, paidNetCents, {
-                netCents: paidNetCents,
+            payout(alpha, 600_000, {
+                netCents: 600_000,
                 paidOn: '2026-08-15',
                 requestedOn: '2026-08-10',
             }),
@@ -8567,7 +8561,7 @@ describe('buildOverview firm statement and round alerts (PT-96 step 1, F-V6)', (
                 error: null,
             },
         };
-        const model = buildOverview(inputs(paidAlphaRows(600_000), pending));
+        const model = buildOverview(inputs(paidAlphaRows(), pending));
         expect(model.alerts).toEqual({ kind: OverviewSectionStatus.Pending });
     });
 
@@ -8597,7 +8591,7 @@ describe('buildOverview firm statement and round alerts (PT-96 step 1, F-V6)', (
     });
 
     it('counts the same firm statement alert on the hub as the overview lists', () => {
-        const rows = paidAlphaRows(600_000);
+        const rows = paidAlphaRows();
         const statement = statementOf(
             '2026-08-31',
             ReportedPayoutBasis.Net,
@@ -9498,7 +9492,7 @@ describe('buildOverview repeatability basis labels (PT-96 step 5, F-V4)', () => 
 function alertsWithStatements(
     statements: PortfolioRows['firmStatements'],
 ): readonly OverviewAlert[] {
-    const rows = { ...paidAlphaRows(600_000), firmStatements: statements };
+    const rows = { ...paidAlphaRows(), firmStatements: statements };
     return readyAlerts(buildOverview(inputs(rows)).alerts);
 }
 

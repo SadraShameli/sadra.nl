@@ -36,20 +36,18 @@ export class FirmPayoutTotalMismatchRule extends AlertRule {
                 entry.grossOnlyCount > 0
                     ? ` (${entry.grossOnlyCount} counted at gross)`
                     : '';
-            return [
-                {
-                    disclosures: [],
-                    kind: this.kind,
-                    message: isOutOfTolerance
-                        ? `The statement from ${entry.asOf} reports ${formatUsdCents(entry.reportedPayoutCents, CentsDisplay.Always)}, the ledger's paid payouts through that date sum to ${formatUsdCents(entry.ledgerPaidCents, CentsDisplay.Always)}${grossNote}${decrease}`
-                        : `The statement from ${entry.asOf} reports ${formatUsdCents(entry.reportedPayoutCents, CentsDisplay.Always)}${decrease}`,
-                    severity: AlertSeverity.Warning,
-                    subject: {
-                        accountIds,
-                        kind: AlertSubjectKind.Portfolio,
-                    },
+            return {
+                disclosures: [],
+                kind: this.kind,
+                message: isOutOfTolerance
+                    ? `The statement from ${entry.asOf} reports ${formatUsdCents(entry.reportedPayoutCents, CentsDisplay.Always)}, the ledger's paid payouts through that date sum to ${formatUsdCents(entry.ledgerPaidCents, CentsDisplay.Always)}${grossNote}${decrease}`
+                    : `The statement from ${entry.asOf} reports ${formatUsdCents(entry.reportedPayoutCents, CentsDisplay.Always)}${decrease}`,
+                severity: AlertSeverity.Warning,
+                subject: {
+                    accountIds,
+                    kind: AlertSubjectKind.Portfolio,
                 },
-            ];
+            };
         });
     }
 }

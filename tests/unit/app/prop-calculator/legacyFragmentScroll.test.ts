@@ -77,7 +77,7 @@ describe('scrollPlan', () => {
 
 describe('hubLegacyTarget', () => {
     it('sends a legacy section hash on the hub to its tool page, keeping the fragment', () => {
-        expect(hubLegacyTarget('#tail-risk', '', null)).toEqual({
+        expect(hubLegacyTarget('#tail-risk', '', undefined)).toEqual({
             fragment: LegacySection.TailRisk,
             href: `${routes.propCalculator.analysis}#tail-risk`,
             route: routes.propCalculator.analysis,
@@ -88,7 +88,7 @@ describe('hubLegacyTarget', () => {
         for (const section of Object.values(LegacySection)) {
             const route = legacySectionTarget(`#${section}`)?.route;
             expect(route).toBeDefined();
-            expect(hubLegacyTarget(`#${section}`, '', null)?.href).toBe(
+            expect(hubLegacyTarget(`#${section}`, '', undefined)?.href).toBe(
                 `${route ?? ''}#${section}`,
             );
         }
@@ -115,8 +115,8 @@ describe('hubLegacyTarget', () => {
 
     it('does nothing for an unknown or empty hash', () => {
         expect(hubLegacyTarget('', '', 'firm=apex')).toBeNull();
-        expect(hubLegacyTarget('#', '', null)).toBeNull();
-        expect(hubLegacyTarget('#nope', '?firm=apex', null)).toBeNull();
-        expect(hubLegacyTarget('#Tail-Risk', '', null)).toBeNull();
+        expect(hubLegacyTarget('#', '', undefined)).toBeNull();
+        expect(hubLegacyTarget('#nope', '?firm=apex', undefined)).toBeNull();
+        expect(hubLegacyTarget('#Tail-Risk', '', undefined)).toBeNull();
     });
 });

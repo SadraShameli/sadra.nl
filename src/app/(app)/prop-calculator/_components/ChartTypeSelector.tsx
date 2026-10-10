@@ -1,5 +1,7 @@
 'use client';
 
+import { z } from 'zod';
+
 import {
     Select,
     SelectContent,
@@ -36,7 +38,10 @@ export default function ChartTypeSelector({
     value,
 }: ChartTypeSelectorProperties) {
     return (
-        <Select onValueChange={(v) => onChange(v as ChartType)} value={value}>
+        <Select
+            onValueChange={(v) => onChange(z.enum(ChartType).parse(v))}
+            value={value}
+        >
             <SelectTrigger
                 aria-label="Chart type"
                 className="app-prop-calculator__chart-type-selector h-8 w-full text-xs sm:w-auto"

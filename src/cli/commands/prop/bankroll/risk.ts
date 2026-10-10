@@ -40,7 +40,7 @@ export const riskArguments = {
 const OVERRIDE_NOTE =
     'override is an input, not derived from your win rate, rr and risk';
 
-export default defineCommand({
+const command = defineCommand({
     args: riskArguments,
     meta: {
         description:
@@ -75,6 +75,8 @@ export default defineCommand({
         }
     },
 });
+
+export default command;
 
 export function riskRows(
     out: SimOutputs,

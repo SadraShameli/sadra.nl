@@ -44,20 +44,18 @@ export class FallbackEmailProvider extends EmailProvider {
 }
 
 export class LettermintProvider extends EmailProvider {
-    private readonly client: ReturnType<typeof Lettermint.email>;
-
-    constructor(token: string) {
+    constructor(private readonly token: string) {
         super();
-        this.client = Lettermint.email(token);
     }
 
     override async send(arguments_: EmailSendArguments): Promise<void> {
-        await this.client
-            .from(arguments_.from)
-            .to(arguments_.to)
-            .subject(arguments_.subject)
-            .html(arguments_.html)
-            .send();
+        const client = new Lettermint({ sendingToken: this.token });
+        await client.emails.send({
+            from: arguments_.from,
+            html: arguments_.html,
+            subject: arguments_.subject,
+            to: [arguments_.to],
+        });
     }
 }
 

@@ -27,13 +27,13 @@ const URL_PARAMETER_LEAF_PATH = path.join(
     'calculatorUrlParameter.ts',
 );
 
-function moduleGraph(entry: string): string[] {
-    return [...moduleGraphFrom(entry, SOURCE_ROOT).files];
+function moduleGraph(): string[] {
+    return [...moduleGraphFrom(LEGACY_LINKS_PATH, SOURCE_ROOT).files];
 }
 
 describe('the proxy weight of legacyCalculatorLinks', () => {
     it('reaches no prop-calculator engine module, since src/proxy.ts loads it on every page request', () => {
-        const graph = moduleGraph(LEGACY_LINKS_PATH);
+        const graph = moduleGraph();
         expect(graph.length).toBeGreaterThan(1);
         expect(
             graph
@@ -43,9 +43,7 @@ describe('the proxy weight of legacyCalculatorLinks', () => {
     });
 
     it('checks the firm key through the leaf CalculatorUrlParameter module, not a bare literal (PT-11h)', () => {
-        expect(moduleGraph(LEGACY_LINKS_PATH)).toContain(
-            URL_PARAMETER_LEAF_PATH,
-        );
+        expect(moduleGraph()).toContain(URL_PARAMETER_LEAF_PATH);
         const source = readFileSync(LEGACY_LINKS_PATH, 'utf8');
         expect(source).toContain('CalculatorUrlParameter.Firm');
         expect(source).not.toMatch(/'firm'/);

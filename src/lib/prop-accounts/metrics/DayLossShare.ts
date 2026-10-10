@@ -168,7 +168,7 @@ export function dayLossShareOf(inputs: DayLossShareInputs): DayLossShare {
     }));
     const unmeasured = losses.flatMap(({ account, loss }) =>
         loss.kind === 'unmeasured'
-            ? [{ accountId: account.accountId, reason: loss.reason }]
+            ? { accountId: account.accountId, reason: loss.reason }
             : [],
     );
     const byDate = Map.groupBy(

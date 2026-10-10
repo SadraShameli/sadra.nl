@@ -30,7 +30,7 @@ export const curveArguments = {
     ...bankrollCurveArguments,
 };
 
-export default defineCommand({
+const command = defineCommand({
     args: curveArguments,
     meta: {
         description:
@@ -74,6 +74,8 @@ export default defineCommand({
         }
     },
 });
+
+export default command;
 
 export function curveRows(
     out: SimOutputs,

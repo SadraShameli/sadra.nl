@@ -118,7 +118,7 @@ describe('the daily plan card says a funded rung below one contract cannot be pl
         });
     }
 
-    function setStop(text: string) {
+    function setStop() {
         const input =
             container.querySelector<HTMLInputElement>('#daily-card-stop');
         if (input === null) throw new Error('no stop input');
@@ -126,7 +126,7 @@ describe('the daily plan card says a funded rung below one contract cannot be pl
             Object.getOwnPropertyDescriptor(
                 window.HTMLInputElement.prototype,
                 'value',
-            )?.set?.call(input, text);
+            )?.set?.call(input, '20');
             input.dispatchEvent(new Event('input', { bubbles: true }));
         });
     }
@@ -206,7 +206,7 @@ describe('the daily plan card says a funded rung below one contract cannot be pl
 
     it('does not compute a flag from the stop typed into the card, because the advisor owns the flag (PT-36k)', () => {
         render(sizingFor(TradingPhase.Funded, '20'));
-        setStop('20');
+        setStop();
 
         expect(container.textContent).not.toContain('cannot be placed');
     });
@@ -214,7 +214,7 @@ describe('the daily plan card says a funded rung below one contract cannot be pl
     it('hands the typed stop and instrument to its owner instead of keeping its own copy (PT-36k)', () => {
         render(sizingFor(TradingPhase.Funded));
 
-        setStop('20');
+        setStop();
 
         expect(onStopInputChange).toHaveBeenCalledWith('20');
     });
@@ -437,7 +437,7 @@ describe('the daily plan card renders its rungs through the one shared rung tabl
             (entry) => {
                 const full = path.join(directory, entry.name);
                 if (entry.isDirectory()) return sourcesUnder(full);
-                return entry.name.endsWith('.tsx') ? [full] : [];
+                return entry.name.endsWith('.tsx') ? full : [];
             },
         );
     }

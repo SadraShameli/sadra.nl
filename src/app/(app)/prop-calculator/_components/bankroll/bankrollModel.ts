@@ -189,7 +189,7 @@ export function bankrollCycleFigures(
     const quantities = compareCycles(start, cycles, horizonDays);
     return cycles.flatMap((cycle, index) => {
         const quantity = quantities[index];
-        return quantity === undefined ? [] : [{ ...cycle, quantity }];
+        return quantity === undefined ? [] : { ...cycle, quantity };
     });
 }
 

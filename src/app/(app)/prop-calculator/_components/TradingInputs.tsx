@@ -401,7 +401,7 @@ export default function TradingInputs({
                                         .toFixed(0)}
                                     step={100}
                                     type="number"
-                                    value={retainedCushion ?? ''}
+                                    value={retainedCushion?.toString() ?? ''}
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
                                     How far above the drawdown floor a simulated
@@ -436,7 +436,7 @@ export default function TradingInputs({
                                     placeholder="Withdraw everything"
                                     step={100}
                                     type="number"
-                                    value={payoutRequestSize ?? ''}
+                                    value={payoutRequestSize?.toString() ?? ''}
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
                                     How much to withdraw per payout. Empty means
@@ -735,7 +735,12 @@ export default function TradingInputs({
                         }
                         step={0.5}
                         type="number"
-                        value={commissionPerRoundTrip || ''}
+                        value={
+                            commissionPerRoundTrip === 0 ||
+                            Number.isNaN(commissionPerRoundTrip)
+                                ? ''
+                                : commissionPerRoundTrip
+                        }
                     />
                 </div>
             </div>

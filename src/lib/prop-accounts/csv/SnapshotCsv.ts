@@ -249,7 +249,7 @@ function batchIssues(preview: SnapshotCsvPreview): readonly CsvIssue[] {
     const valid = preview.rows.flatMap((row) =>
         row.value === null
             ? []
-            : [{ rowNumber: row.rowNumber, value: row.value }],
+            : { rowNumber: row.rowNumber, value: row.value },
     );
     if (valid.length === 0) return [];
     const parsed = snapshotBulkCreateSchema.safeParse(
@@ -260,14 +260,12 @@ function batchIssues(preview: SnapshotCsvPreview): readonly CsvIssue[] {
         const [index, field] = issue.path;
         const row = typeof index === 'number' ? valid[index] : undefined;
         if (row === undefined) return [];
-        return [
-            {
-                column: columnOfField(field),
-                kind: CsvIssueKind.Batch,
-                message: issue.message,
-                rowNumber: row.rowNumber,
-            },
-        ];
+        return {
+            column: columnOfField(field),
+            kind: CsvIssueKind.Batch,
+            message: issue.message,
+            rowNumber: row.rowNumber,
+        };
     });
 }
 
@@ -288,14 +286,12 @@ function ledgerOnlyPlausibility(
             isLedgerOnlySnapshotField(SNAPSHOT_FIELDS[column]) ||
             snapshot[SNAPSHOT_FIELDS[column]] === null
                 ? []
-                : [
-                      {
-                          column,
-                          kind: CsvIssueKind.Plausibility,
-                          message: LEDGER_ONLY_FIELD_MESSAGE,
-                          rowNumber,
-                      },
-                  ],
+                : {
+                      column,
+                      kind: CsvIssueKind.Plausibility,
+                      message: LEDGER_ONLY_FIELD_MESSAGE,
+                      rowNumber,
+                  },
         ),
         warnings: [],
     };
@@ -471,14 +467,12 @@ function storedSnapshotIssues(
     return preview.rows.flatMap((row) =>
         row.value !== null &&
         storedKeys.has(snapshotKey(row.value.accountId, row.value.asOf))
-            ? [
-                  {
-                      column: SnapshotCsvColumn.AsOf,
-                      kind: CsvIssueKind.Batch,
-                      message: STORED_SNAPSHOT_MESSAGE,
-                      rowNumber: row.rowNumber,
-                  },
-              ]
+            ? {
+                  column: SnapshotCsvColumn.AsOf,
+                  kind: CsvIssueKind.Batch,
+                  message: STORED_SNAPSHOT_MESSAGE,
+                  rowNumber: row.rowNumber,
+              }
             : [],
     );
 }

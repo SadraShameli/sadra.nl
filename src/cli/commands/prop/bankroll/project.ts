@@ -33,7 +33,7 @@ export const projectArguments = {
     ...bankrollProjectArguments,
 };
 
-export default defineCommand({
+const command = defineCommand({
     args: projectArguments,
     meta: {
         description:
@@ -111,6 +111,8 @@ export default defineCommand({
         }
     },
 });
+
+export default command;
 
 export function closedFormIllustration(
     project: Pick<BankrollProjectInputs, 'horizonDays' | 'reinvest' | 'start'>,

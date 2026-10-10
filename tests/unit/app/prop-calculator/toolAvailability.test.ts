@@ -16,7 +16,7 @@ function hubHrefs(): string[] {
     const markup = renderToStaticMarkup(createElement(HubToolCards));
     return markup
         .matchAll(/href="([^"]*)"/g)
-        .map(([, href]) => basePath(href ?? ''))
+        .map(([, href = '']) => basePath(href))
         .toArray();
 }
 

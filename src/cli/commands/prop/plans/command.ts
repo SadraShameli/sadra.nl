@@ -17,7 +17,7 @@ import {
     formatPlanRuleLine,
 } from '~/lib/prop-calculator/describe';
 
-export default defineCommand({
+const command = defineCommand({
     args: {
         ...planArguments,
         variants: {
@@ -66,6 +66,8 @@ export default defineCommand({
         }
     },
 });
+
+export default command;
 
 export function planHeadline(plan: Plan): string {
     const headline = `${plan.label}  --firm ${plan.id.firm} --variant ${planVariant(plan)}`;

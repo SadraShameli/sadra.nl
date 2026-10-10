@@ -30,17 +30,15 @@ function resolvedImports(file: string): string[] {
         .toArray();
 }
 
-function sourceFiles(directory: string): string[] {
-    return readdirSync(directory, { recursive: true, withFileTypes: true })
+function sourceFiles(): string[] {
+    return readdirSync(OVERVIEW_ROOT, { recursive: true, withFileTypes: true })
         .filter((entry) => entry.isFile() && /\.tsx?$/u.test(entry.name))
         .map((entry) => path.join(entry.parentPath, entry.name));
 }
 
 describe('the accounts overview imports', () => {
     it('reads at least the overview view and its model', () => {
-        const names = sourceFiles(OVERVIEW_ROOT).map((file) =>
-            path.basename(file),
-        );
+        const names = sourceFiles().map((file) => path.basename(file));
         expect(names).toContain('OverviewView.tsx');
         expect(names).toContain('overviewModel.ts');
     });
@@ -52,7 +50,7 @@ describe('the accounts overview imports', () => {
     });
 
     it('never import from the rulebook route', () => {
-        const offenders = sourceFiles(OVERVIEW_ROOT).flatMap((file) =>
+        const offenders = sourceFiles().flatMap((file) =>
             resolvedImports(file)
                 .filter((target) => isInside(target, RULEBOOK_ROUTE))
                 .map(

@@ -456,8 +456,8 @@ describe('the copy group exposure applies the members personal limits (PT-101, F
     const personalDll = 30_000;
     const personalDllDollars = personalDll / CENTS_PER_DOLLAR;
 
-    function cappedMember(id = 'capped') {
-        return accountRow(id, {
+    function cappedMember() {
+        return accountRow('capped', {
             personalRules: { dailyLossLimitCents: personalDll },
         });
     }

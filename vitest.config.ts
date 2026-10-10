@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig({
+const config = defineConfig({
     resolve: {
         alias: {
             'server-only': new URL(
@@ -43,3 +43,5 @@ export default defineConfig({
         ],
     },
 });
+
+export default config;

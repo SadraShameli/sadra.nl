@@ -106,7 +106,7 @@ const MIN_POLICY_COLUMN_WIDTH = 16;
 
 const FUNDED_VALUE_COLUMN_WIDTHS: readonly number[] = [14, 15, 13, 18, 18, 14];
 
-export default defineCommand({
+const command = defineCommand({
     args: {
         ...planArguments,
         ...tradingArguments,
@@ -251,6 +251,8 @@ export default defineCommand({
     },
 });
 
+export default command;
+
 export function fundedSweepProgress(
     planLabel: string,
     policyCount: number,
@@ -310,14 +312,10 @@ export function readFundedCandidates(
     arguments_: FundedCandidateArguments,
     stopRule: DayStopRule,
     positionSizing: null | PositionSizingConfig = null,
-    plan?: Plan,
+    plan: null | Plan = null,
 ): FundedCandidate[] {
-    return readFundedCandidateBuild(
-        arguments_,
-        stopRule,
-        positionSizing,
-        plan ?? null,
-    ).candidates;
+    return readFundedCandidateBuild(arguments_, stopRule, positionSizing, plan)
+        .candidates;
 }
 
 export function readTakeProfitWhatIfRequest(

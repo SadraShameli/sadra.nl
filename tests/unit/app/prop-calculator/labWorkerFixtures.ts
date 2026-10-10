@@ -50,7 +50,7 @@ export function labResultMessage(
     };
 }
 
-export function labScenarioResult(expectedMonthlyNet = 100): LabScenarioResult {
+function labScenarioResult(expectedMonthlyNet = 100): LabScenarioResult {
     return {
         accountsLiveTransferDistribution: [1, 0],
         accountsPassDistribution: [0.5, 0.5],

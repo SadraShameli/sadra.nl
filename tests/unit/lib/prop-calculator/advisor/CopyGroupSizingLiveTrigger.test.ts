@@ -144,11 +144,11 @@ function fundedAccount(): ReconstructedFundedOrEvalAccount {
 
 function member(
     id: string,
-    accountPolicy?: FirmAccountPolicy,
+    accountPolicy: FirmAccountPolicy | null = null,
 ): CopyGroupSizingMember {
     return {
         account: fundedAccount(),
-        accountPolicy: accountPolicy ?? null,
+        accountPolicy,
         id,
         label: id,
         paidPayoutsSinceLastLiveAccount: null,
@@ -179,20 +179,15 @@ function singleAccountRung(
     }).dailyPlanCard()?.rungs[0];
 }
 
-function singleDayPolicy(amount: number): FirmAccountPolicy {
+function singleDayPolicy(): FirmAccountPolicy {
     return new StubTriggerPolicy([
-        new SingleDayProfitTrigger(
-            dollars(amount),
-            true,
-            false,
-            CONFIRMED_SOURCE,
-        ),
+        new SingleDayProfitTrigger(dollars(250), true, false, CONFIRMED_SOURCE),
     ]);
 }
 
 describe('copy-group sizing applies the verified single-day trigger (PT-36f, step 3)', () => {
     it('caps the group rung at the trigger ceiling, the same rung the single-account card shows', () => {
-        const policy = singleDayPolicy(250);
+        const policy = singleDayPolicy();
         const group = firstGroupRung([
             member('a', policy),
             member('b', policy),
@@ -204,7 +199,7 @@ describe('copy-group sizing applies the verified single-day trigger (PT-36f, ste
     });
 
     it('rounds the capped group rung to whole contracts at the entered stop, like the single-account card', () => {
-        const policy = singleDayPolicy(250);
+        const policy = singleDayPolicy();
         const group = firstGroupRung(
             [member('a', policy), member('b', policy)],
             MNQ_AT_20_POINTS,
@@ -225,7 +220,7 @@ describe('copy-group sizing applies the verified single-day trigger (PT-36f, ste
 
     it('takes the tightest member when only one member is under a verified trigger', () => {
         const group = firstGroupRung([
-            member('a', singleDayPolicy(250)),
+            member('a', singleDayPolicy()),
             member('b'),
         ]);
 
@@ -237,7 +232,7 @@ describe('copy-group sizing applies the verified single-day trigger (PT-36f, ste
             fundedAccount(),
             DEFAULT_RULEBOOK,
             {
-                accountPolicy: singleDayPolicy(250),
+                accountPolicy: singleDayPolicy(),
                 instrument: MNQ_AT_20_POINTS.instrument,
                 stopPoints: MNQ_AT_20_POINTS.stopPoints,
             },

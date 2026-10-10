@@ -83,7 +83,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProperties>(
             <div
                 className={cn(
                     alertVariants({ variant }),
-                    'transition-all duration-300 ease-out',
+                    'btn-transition ease-out',
                     visible
                         ? 'translate-y-0 opacity-100'
                         : '-translate-y-1 opacity-0',

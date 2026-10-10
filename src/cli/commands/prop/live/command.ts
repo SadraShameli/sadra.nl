@@ -171,10 +171,6 @@ export function describeSeedReserve(plan: LivePlan): null | string {
     return `seed Reserve: ${formatCurrency(reserve.amount)} in ${reserve.increments} releases of ${formatCurrency(increment)}, one per review every ${reserve.reviewIntervalSessions} sessions after ${formatCurrency(reserve.profitTargetPerIncrement)} of net profit, landing ${reserve.depositLagSessions} sessions later (assumes a ${formatCurrency(plan.startingBalance + reserve.amount)} transferred balance, not an input)`;
 }
 
-export function liveCreditNotes(plan: LivePlan): string[] {
-    return oneOffLiveCredit(plan) > 0 ? [LUCID_DAILY_CREDIT_NOTE] : [];
-}
-
 export function liveSummaryRows(
     inputs: LiveSimInputs,
     out: LiveOutputs,
@@ -355,7 +351,11 @@ function describeWithdrawalsAtHorizon(
         : `withdrawals at horizon, incl. ${formatConjunctionList(included)}`;
 }
 
-export default defineCommand({
+function liveCreditNotes(plan: LivePlan): string[] {
+    return oneOffLiveCredit(plan) > 0 ? [LUCID_DAILY_CREDIT_NOTE] : [];
+}
+
+const command = defineCommand({
     args: liveArguments,
     meta: {
         description: `Simulate a standalone live-capital account (--firm), sized by percent of drawdown cushion instead of a static risk ladder. Live sizing needs --stop-points: ${LIVE_SIZING}.`,
@@ -404,6 +404,8 @@ export default defineCommand({
         }
     },
 });
+
+export default command;
 
 function readCushionPercent(
     rawPreLock: string,

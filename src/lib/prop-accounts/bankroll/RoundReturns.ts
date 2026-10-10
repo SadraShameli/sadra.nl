@@ -219,8 +219,8 @@ function perFirmSummaries(
             const closed = group.filter(
                 (round) => round.status === RoundStatus.Closed,
             );
-            const multiples = closed.flatMap((round) =>
-                round.toDateMultiple === null ? [] : [round.toDateMultiple],
+            const multiples = closed.flatMap(
+                (round) => round.toDateMultiple ?? [],
             );
             return {
                 closedRounds: closed.length,

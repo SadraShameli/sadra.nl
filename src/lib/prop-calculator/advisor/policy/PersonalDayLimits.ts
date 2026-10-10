@@ -126,10 +126,10 @@ export function ladderUnderPersonalDayLimits(
 
 export function personalDayLimitsOf(
     caps: PersonalCaps | undefined,
-    dailyLossLimit: Dollars | null | undefined,
+    dailyLossLimit: Dollars | null | undefined = null,
 ): null | PersonalDayLimits {
     const limits: PersonalDayLimits = {
-        dailyLossLimit: dailyLossLimit ?? null,
+        dailyLossLimit: dailyLossLimit,
         dailyProfitCap: caps?.dailyProfitCap ?? null,
     };
     return limits.dailyLossLimit === null && limits.dailyProfitCap === null

@@ -289,8 +289,8 @@ function conventionIssue(
     }
 }
 
-function countText(count: number, noun: string): string {
-    return `${count} ${noun}${count === 1 ? '' : 's'}`;
+function countText(count: number): string {
+    return `${count} funded reset${count === 1 ? '' : 's'}`;
 }
 
 function cushionIssues(
@@ -419,12 +419,12 @@ function fundedResetIssues(
 }
 
 function fundedResetMessage(plan: Plan, used: number, allowed: number): string {
-    const usedText = countText(used, 'funded reset');
+    const usedText = countText(used);
     if (plan.fundedReset === null) {
         return `${plan.label} offers no funded reset, so ${usedText} cannot have been used.`;
     }
     return plan.takesFundedReset
-        ? `${plan.label} allows at most ${countText(allowed, 'funded reset')} before the first payout, not ${used}.`
+        ? `${plan.label} allows at most ${countText(allowed)} before the first payout, not ${used}.`
         : `This account did not take the ${plan.fundedReset.label} option, so ${usedText} cannot have been used.`;
 }
 

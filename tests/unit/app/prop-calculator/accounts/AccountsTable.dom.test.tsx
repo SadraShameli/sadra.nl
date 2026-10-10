@@ -208,13 +208,13 @@ function rowsOf(scope: ParentNode): readonly HTMLTableRowElement[] {
     return [...scope.querySelectorAll<HTMLTableRowElement>(':scope tbody tr')];
 }
 
-function snapshotOf(accountId: string, balance: number, floor: number) {
+function snapshotOf(accountId: string, balance: number) {
     return {
         accountId,
         asOf: '2026-09-24',
         balanceCents: balance,
         createdAt: new Date('2026-09-24T12:00:00Z'),
-        dashboardFloorCents: floor,
+        dashboardFloorCents: 5_000_000,
         id: `snapshot-${accountId}`,
     };
 }
@@ -528,8 +528,8 @@ describe('AccountsTable', () => {
             harness.queries.set(
                 'snapshot.latestTwoForAll',
                 answer([
-                    snapshotOf(ALPHA_ID, 5_200_000, 5_000_000),
-                    snapshotOf(CHARLIE_ID, 5_900_000, 5_000_000),
+                    snapshotOf(ALPHA_ID, 5_200_000),
+                    snapshotOf(CHARLIE_ID, 5_900_000),
                 ]),
             );
             render();

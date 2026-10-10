@@ -819,8 +819,6 @@ function expectLiveRoundTrip(
 function fundedCaptures(
     plan: Plan,
     seed: number,
-    riskPerTrade: number,
-    winrate: number,
     shockSession: null | number = null,
 ): readonly FundedCapture[] {
     const rng = mulberry32(seed);
@@ -836,7 +834,7 @@ function fundedCaptures(
     const curve: number[] = [];
     const captures: FundedCapture[] = [];
     const dayPolicy = flatDayPolicy(
-        riskPerTrade,
+        GROWTH_RISK,
         2,
         { kind: DayStopRuleKind.None },
         PolicySizing.ContractCapped,
@@ -861,7 +859,7 @@ function fundedCaptures(
             state,
             stats,
             tracker,
-            winrate: fraction(winrate),
+            winrate: fraction(0.62),
         });
         if (outcome.kind === FundedDayOutcomeKind.Busted) break;
         if (outcome.kind === FundedDayOutcomeKind.Reset) {
@@ -940,7 +938,7 @@ function fundedPlans(): readonly Plan[] {
 
 function hasRebuiltFirstFundedPayout(plan: Plan): boolean {
     for (const seed of SEEDS) {
-        const withPayout = fundedCaptures(plan, seed, GROWTH_RISK, 0.62).find(
+        const withPayout = fundedCaptures(plan, seed).find(
             (capture) => (capture.input.payoutsTaken ?? 0) > 0,
         );
         if (withPayout !== undefined) {
@@ -1113,7 +1111,7 @@ describe('ReconstructionRoundTrip: states captured from seeded engine funded run
         it(`rebuilds the whole state, cycle, cushion, daily loss limit and contract limit for ${serializePlanId(plan.id)}`, () => {
             let captured = 0;
             for (const seed of PLAN_SEEDS) {
-                const captures = fundedCaptures(plan, seed, GROWTH_RISK, 0.62);
+                const captures = fundedCaptures(plan, seed);
                 for (const capture of captures) {
                     expectFundedRoundTrip(plan, seed, capture);
                     captured += 1;
@@ -1127,12 +1125,7 @@ describe('ReconstructionRoundTrip: states captured from seeded engine funded run
         const plan = lateLockPlan();
         let withPayout = 0;
         for (const seed of PLAN_SEEDS) {
-            for (const capture of fundedCaptures(
-                plan,
-                seed,
-                GROWTH_RISK,
-                0.62,
-            )) {
+            for (const capture of fundedCaptures(plan, seed)) {
                 expectFundedRoundTrip(plan, seed, capture);
                 if ((capture.input.payoutsTaken ?? 0) > 0) withPayout += 1;
             }
@@ -1147,12 +1140,7 @@ describe('ReconstructionRoundTrip: states captured from seeded engine funded run
         });
         let captured = 0;
         for (const seed of PLAN_SEEDS) {
-            for (const capture of fundedCaptures(
-                plan,
-                seed,
-                GROWTH_RISK,
-                0.62,
-            )) {
+            for (const capture of fundedCaptures(plan, seed)) {
                 expectFundedRoundTrip(plan, seed, capture);
                 captured += 1;
             }
@@ -1184,8 +1172,6 @@ describe('ReconstructionRoundTrip: the table covers every payout floor effect, t
                 for (const capture of fundedCaptures(
                     plan,
                     seed,
-                    GROWTH_RISK,
-                    0.62,
                     RESET_SHOCK_SESSION,
                 )) {
                     expectFundedRoundTrip(plan, seed, capture);

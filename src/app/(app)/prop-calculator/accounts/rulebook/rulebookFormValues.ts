@@ -682,7 +682,7 @@ export function modeledFirmRows<Row extends { readonly firmKey: FirmKey }>(
     return rows.flatMap((row) => {
         if (row.firmKey.kind !== FirmKeyKind.Modeled) return [];
         const firmId = z.enum(FirmId).safeParse(row.firmKey.firmId);
-        return firmId.success ? [{ firmId: firmId.data, row }] : [];
+        return firmId.success ? { firmId: firmId.data, row } : [];
     });
 }
 

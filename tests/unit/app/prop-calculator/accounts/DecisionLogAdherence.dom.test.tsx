@@ -69,10 +69,7 @@ describe('the decision log shows adherence from the one library notion (PT-108 s
     let container: HTMLDivElement;
     let root: Root;
 
-    function render(
-        decisions: readonly DecisionRow[],
-        suggestion: null | typeof SUGGESTION = SUGGESTION,
-    ) {
+    function render(decisions: readonly DecisionRow[]) {
         act(() => {
             root.render(
                 <DecisionLog
@@ -80,7 +77,7 @@ describe('the decision log shows adherence from the one library notion (PT-108 s
                     decidedOn="2026-09-27"
                     decisions={decisions}
                     stepCents={STEP_CENTS}
-                    suggestion={suggestion}
+                    suggestion={SUGGESTION}
                 />,
             );
         });

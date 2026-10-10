@@ -175,7 +175,8 @@ function snapshotInput(
 }
 
 function textOf(value: unknown): string {
-    if (typeof value !== 'string') throw new Error('expected a text column');
+    if (typeof value !== 'string')
+        throw new TypeError('expected a text column');
     return value;
 }
 

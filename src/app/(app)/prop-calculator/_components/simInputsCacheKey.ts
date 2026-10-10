@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
     DEFAULT_PAYOUT_REQUEST_POLICY,
     SIM_DEFAULTS,
@@ -45,6 +47,8 @@ export enum SimInputsKeyField {
     VerifiedCumulativePayoutTrigger = 'verifiedCumulativePayoutTrigger',
     Winrate = 'winrate',
 }
+
+const simInputsKeyFieldSchema = z.enum(SimInputsKeyField);
 
 type KeyInputs = Omit<
     SimInputs,
@@ -124,7 +128,7 @@ export function simInputsCacheKey(
     const kept: Record<string, unknown> = {};
     for (const field of Object.keys(all)) {
         if (omit.has(field)) continue;
-        kept[field] = all[field as SimInputsKeyField];
+        kept[field] = all[simInputsKeyFieldSchema.parse(field)];
     }
     return JSON.stringify({ ...kept, ...options?.extra });
 }

@@ -29,8 +29,8 @@ const THREE_POINT_COST_CENTS = 25_000;
 const BOOTSTRAP_FLOOR_ATTEMPTS = 59;
 const THREE_POINT_CEILING_ATTEMPTS = 100;
 
-function fundedAccount(overrides: Parameters<typeof account>[1] = {}) {
-    return account(INSTANT_PLAN, overrides);
+function fundedAccount() {
+    return account(INSTANT_PLAN, {});
 }
 
 function textOf(relativePath: string): string {

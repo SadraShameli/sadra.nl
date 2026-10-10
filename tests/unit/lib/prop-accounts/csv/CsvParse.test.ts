@@ -47,7 +47,12 @@ function readerFor(
     cells: Readonly<Partial<Record<Column, string>>>,
 ): CsvRowReader<Column> {
     const record: CsvRecord<Column> = {
-        cells: new Map(Object.entries(cells) as [Column, string][]),
+        cells: new Map(
+            Object.values(Column).flatMap((column) => {
+                const text = cells[column];
+                return text === undefined ? [] : [[column, text] as const];
+            }),
+        ),
         issues: [],
         rowNumber: 7,
     };

@@ -514,7 +514,7 @@ function accountChanges(
     return EDITABLE_FIELDS.flatMap((field) => {
         const from = changeValue(stored[field]);
         const to = changeValue(values[field]);
-        return from === to ? [] : [{ field, from, to }];
+        return from === to ? [] : { field, from, to };
     });
 }
 
@@ -668,13 +668,11 @@ function createdLiveStartEntries(
 ): LiveStartEntry[] {
     return rows.flatMap((row) =>
         row.tracking === AccountTracking.Modeled
-            ? [
-                  {
-                      account: row,
-                      label: row.label,
-                      plan: resolvedPlanOrThrow({ ...row, readIssues: [] }),
-                  },
-              ]
+            ? {
+                  account: row,
+                  label: row.label,
+                  plan: resolvedPlanOrThrow({ ...row, readIssues: [] }),
+              }
             : [],
     );
 }
@@ -728,7 +726,7 @@ function externalFirmIdsOf(rows: readonly AccountInput[]): ReadonlySet<string> {
         rows.flatMap((row) =>
             row.tracking === AccountTracking.LedgerOnly &&
             row.externalFirmId !== null
-                ? [row.externalFirmId]
+                ? row.externalFirmId
                 : [],
         ),
     );
@@ -744,13 +742,9 @@ async function insertAccounts(
     await assertExternalFirmOwned(repo, externalFirmIdsOf(rows));
     await assertReplacedAccountsOwned(
         repo,
-        rows.flatMap((row) =>
-            row.replacesAccountId === null ? [] : [row.replacesAccountId],
-        ),
+        rows.flatMap((row) => row.replacesAccountId ?? []),
     );
-    const roundIds = new Set(
-        rows.flatMap((row) => (row.roundId === null ? [] : [row.roundId])),
-    );
+    const roundIds = new Set(rows.flatMap((row) => row.roundId ?? []));
     for (const roundId of roundIds) {
         const round = await loadOpenOwnedRoundOrThrow(repo, roundId);
         const hasEveryRowOverride = rows
@@ -760,11 +754,7 @@ async function insertAccounts(
             await assertRoundWithinBudget(repo, round);
         }
     }
-    const groupIds = new Set(
-        rows.flatMap((row) =>
-            row.copyGroupId === null ? [] : [row.copyGroupId],
-        ),
-    );
+    const groupIds = new Set(rows.flatMap((row) => row.copyGroupId ?? []));
     for (const groupId of groupIds) {
         await assertOwnedCopyGroupAcceptsStages(
             repo,

@@ -120,7 +120,7 @@ describe('runEvalWithRetries retries a timed-out eval attempt like a bust (T29, 
     });
 });
 
-function retryOptions(plan: Plan, maxEvalDays: number) {
+function retryOptions(plan: Plan) {
     return {
         commission: dollars(0),
         dayPolicy: flatDayPolicy(
@@ -131,7 +131,7 @@ function retryOptions(plan: Plan, maxEvalDays: number) {
             },
             PolicySizing.ContractCapped,
         ),
-        maxEvalDays,
+        maxEvalDays: 10,
         plan,
         positionSizing: null,
         rng: mulberry32(1),
@@ -146,7 +146,7 @@ function retryOptions(plan: Plan, maxEvalDays: number) {
 describe('N-12 (WP35): runEvalWithRetries retries within a total eval-day budget', () => {
     it('with a 25-day budget and no attempt cap, retries 10-day timeouts while fewer than 25 days are used: 3 attempts over 30 days and 2 retry fees', () => {
         const result = runEvalWithRetries({
-            ...retryOptions(neverFinishingPlan(), 10),
+            ...retryOptions(neverFinishingPlan()),
             maxTotalEvalDays: 25,
         });
 
@@ -159,7 +159,7 @@ describe('N-12 (WP35): runEvalWithRetries retries within a total eval-day budget
 
     it('does not start another attempt once the days used reach the budget exactly', () => {
         const result = runEvalWithRetries({
-            ...retryOptions(neverFinishingPlan(), 10),
+            ...retryOptions(neverFinishingPlan()),
             maxTotalEvalDays: 20,
         });
 
@@ -170,12 +170,12 @@ describe('N-12 (WP35): runEvalWithRetries retries within a total eval-day budget
 
     it('stops at whichever of the attempt cap and the day budget comes first', () => {
         const attemptCapFirst = runEvalWithRetries({
-            ...retryOptions(neverFinishingPlan(), 10),
+            ...retryOptions(neverFinishingPlan()),
             maxAttempts: 2,
             maxTotalEvalDays: 100,
         });
         const dayBudgetFirst = runEvalWithRetries({
-            ...retryOptions(neverFinishingPlan(), 10),
+            ...retryOptions(neverFinishingPlan()),
             maxAttempts: 9,
             maxTotalEvalDays: 30,
         });
@@ -186,7 +186,7 @@ describe('N-12 (WP35): runEvalWithRetries retries within a total eval-day budget
 
     it('stops after one attempt when an attempt fails without using a day, so a zero-day eval cap cannot retry forever under a day budget', () => {
         const result = runEvalWithRetries({
-            ...retryOptions(neverFinishingPlan({ maxEvalTradingDays: 0 }), 10),
+            ...retryOptions(neverFinishingPlan({ maxEvalTradingDays: 0 })),
             maxTotalEvalDays: 100,
         });
 
@@ -197,7 +197,7 @@ describe('N-12 (WP35): runEvalWithRetries retries within a total eval-day budget
 
     it('keeps the attempt-cap behaviour unchanged when no budget is given: zero-day attempts still run to maxAttempts', () => {
         const result = runEvalWithRetries({
-            ...retryOptions(neverFinishingPlan({ maxEvalTradingDays: 0 }), 10),
+            ...retryOptions(neverFinishingPlan({ maxEvalTradingDays: 0 })),
             maxAttempts: 3,
         });
 
@@ -207,7 +207,7 @@ describe('N-12 (WP35): runEvalWithRetries retries within a total eval-day budget
 
     it('records each retry fee on the day the failed attempt ended, one charge per retry and none for the last attempt', () => {
         const result = runEvalWithRetries({
-            ...retryOptions(neverFinishingPlan(), 10),
+            ...retryOptions(neverFinishingPlan()),
             maxTotalEvalDays: 25,
         });
 
@@ -222,7 +222,7 @@ describe('PT-55b: runEvalWithRetries stops before drawing a retry the affordabil
     it('a retry the affordability check refuses ends the run at the failed attempt, without drawing another attempt', () => {
         const check = vi.fn((): boolean => false);
         const result = runEvalWithRetries({
-            ...retryOptions(neverFinishingPlan(), 10),
+            ...retryOptions(neverFinishingPlan()),
             maxTotalEvalDays: 100,
             retryAffordabilityCheck: check,
         });
@@ -243,7 +243,7 @@ describe('PT-55b: runEvalWithRetries stops before drawing a retry the affordabil
             return calls < 2;
         });
         const result = runEvalWithRetries({
-            ...retryOptions(neverFinishingPlan(), 10),
+            ...retryOptions(neverFinishingPlan()),
             maxTotalEvalDays: 100,
             retryAffordabilityCheck: check,
         });
@@ -259,7 +259,7 @@ describe('PT-55b: runEvalWithRetries stops before drawing a retry the affordabil
 
     it('leaves the retry loop unbounded by affordability when no check is given', () => {
         const result = runEvalWithRetries({
-            ...retryOptions(neverFinishingPlan(), 10),
+            ...retryOptions(neverFinishingPlan()),
             maxTotalEvalDays: 25,
         });
 
@@ -270,7 +270,7 @@ describe('PT-55b: runEvalWithRetries stops before drawing a retry the affordabil
 
 describe('N-12 (WP35): runEvalWithRetries fails loud without a retry bound', () => {
     it('throws when neither maxAttempts nor maxTotalEvalDays is given, instead of retrying a losing eval forever', () => {
-        const unbounded = retryOptions(neverFinishingPlan(), 10) as Parameters<
+        const unbounded = retryOptions(neverFinishingPlan()) as Parameters<
             typeof runEvalWithRetries
         >[0];
 

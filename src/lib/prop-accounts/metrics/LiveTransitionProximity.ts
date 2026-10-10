@@ -247,15 +247,13 @@ function singleDayFactsOf(group: PlanGroup): readonly SingleDayTriggerFact[] {
             if (source?.verification !== PolicyVerification.Confirmed) {
                 return [];
             }
-            return [
-                {
-                    amount: trigger.amount,
-                    firmId: group.firmId,
-                    isAutomatic: trigger.isAutomatic,
-                    isExcessForfeited: trigger.isExcessForfeited,
-                    planSerial: group.planSerial,
-                    quote: source,
-                },
-            ];
+            return {
+                amount: trigger.amount,
+                firmId: group.firmId,
+                isAutomatic: trigger.isAutomatic,
+                isExcessForfeited: trigger.isExcessForfeited,
+                planSerial: group.planSerial,
+                quote: source,
+            };
         });
 }

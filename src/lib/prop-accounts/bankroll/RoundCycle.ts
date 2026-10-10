@@ -96,7 +96,7 @@ function measureRound(
             const paid = paidPayoutCash(row);
             return paid?.paidOn == null
                 ? []
-                : [{ cents: paid.cents, paidOn: paid.paidOn }];
+                : { cents: paid.cents, paidOn: paid.paidOn };
         })
         .toSorted((a, b) => compareText(a.paidOn, b.paidOn));
     if (firstFeeOn === undefined || paidPayouts.length === 0) return null;

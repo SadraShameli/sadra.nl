@@ -38,13 +38,13 @@ function LocationCreatedTemplate({
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Name
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
+            <Text className="m-0 text-sm/snug text-neutral-700">
                 {locationName}
             </Text>
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 ID
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
+            <Text className="m-0 text-sm/snug text-neutral-700">
                 {locationId}
             </Text>
         </BaseEmail>

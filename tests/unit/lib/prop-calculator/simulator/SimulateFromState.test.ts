@@ -40,8 +40,8 @@ interface CountedRng {
     rng: Rng;
 }
 
-function countedRng(seed: number): CountedRng {
-    const inner = mulberry32(seed);
+function countedRng(): CountedRng {
+    const inner = mulberry32(99);
     let count = 0;
     return {
         draws: () => count,
@@ -142,10 +142,10 @@ describe('simulateFromState: eval start reduces to simulate() at a virgin state 
             winrate: fraction(0.5),
         };
 
-        const plain = countedRng(99);
+        const plain = countedRng();
         const plainResult = simulateTrial({ ...baseOptions, rng: plain.rng });
 
-        const seeded = countedRng(99);
+        const seeded = countedRng();
         const startResult = simulateTrial({
             ...baseOptions,
             rng: seeded.rng,

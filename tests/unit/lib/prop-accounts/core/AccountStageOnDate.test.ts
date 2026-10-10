@@ -31,7 +31,7 @@ function allTypeScriptFiles(directory: string): string[] {
             const entryPath = path.join(directory, entry.name);
             if (entry.isDirectory()) return allTypeScriptFiles(entryPath);
             return entry.isFile() && entry.name.endsWith('.ts')
-                ? [entryPath]
+                ? entryPath
                 : [];
         });
 }

@@ -141,8 +141,9 @@ const { firm: FIRM, plan: PLAN } = findPlan(
             DrawdownKind.EodTrailing,
 );
 
-function acceptStateOf(card: HTMLElement, id: string): string | undefined {
-    return card.querySelector<HTMLElement>(`#accept-${id}`)?.dataset.state;
+function acceptStateOf(card: HTMLElement): string | undefined {
+    return card.querySelector<HTMLElement>(`#accept-${FIRST_ID}`)?.dataset
+        .state;
 }
 
 function accountRow(id: string, label: string, overrides = {}) {
@@ -164,11 +165,11 @@ function accountRow(id: string, label: string, overrides = {}) {
     };
 }
 
-function buttonLabelled(scope: ParentNode, label: string): HTMLButtonElement {
+function buttonLabelled(scope: ParentNode): HTMLButtonElement {
     const button = [...scope.querySelectorAll('button')].find(
-        (candidate) => candidate.textContent.trim() === label,
+        (candidate) => candidate.textContent.trim() === SUBMIT_LABEL,
     );
-    if (button === undefined) throw new Error(`no button ${label}`);
+    if (button === undefined) throw new Error(`no button ${SUBMIT_LABEL}`);
     return button;
 }
 
@@ -326,7 +327,7 @@ describe('WeeklyReviewView form', () => {
 
     async function submit() {
         act(() => {
-            buttonLabelled(container, SUBMIT_LABEL).click();
+            buttonLabelled(container).click();
         });
         await flush();
     }
@@ -542,7 +543,7 @@ describe('WeeklyReviewView form', () => {
         );
         expect(headline()).toBeDefined();
         expect(headline()).not.toBe(before);
-        expect(acceptStateOf(cardOf('Eval one'), FIRST_ID)).toBe('unchecked');
+        expect(acceptStateOf(cardOf('Eval one'))).toBe('unchecked');
         await submit();
         expect(submitted().decisions).toEqual([]);
         expect(submitted().snapshots).toHaveLength(1);
@@ -562,7 +563,7 @@ describe('WeeklyReviewView form', () => {
             fieldIn(cardOf('Eval one'), snapshotIdOf(FIRST_ID, 'balanceCents')),
             '50400',
         );
-        expect(acceptStateOf(cardOf('Eval one'), FIRST_ID)).toBe('checked');
+        expect(acceptStateOf(cardOf('Eval one'))).toBe('checked');
         await submit();
         expect(submitted().decisions).toHaveLength(1);
     });
@@ -577,7 +578,7 @@ describe('WeeklyReviewView form', () => {
             await reload.promise;
         });
         act(() => {
-            buttonLabelled(container, SUBMIT_LABEL).click();
+            buttonLabelled(container).click();
         });
         await flush();
         expect(
@@ -833,12 +834,12 @@ describe('WeeklyReviewView form', () => {
             await reload.promise;
         });
         act(() => {
-            buttonLabelled(container, SUBMIT_LABEL).click();
+            buttonLabelled(container).click();
         });
         await flush();
-        expect(buttonLabelled(container, SUBMIT_LABEL).disabled).toBe(true);
+        expect(buttonLabelled(container).disabled).toBe(true);
         act(() => {
-            buttonLabelled(container, SUBMIT_LABEL).click();
+            buttonLabelled(container).click();
         });
         await flush();
         expect(harness.mutateAsyncOf('review.submit')).toHaveBeenCalledTimes(1);
@@ -848,7 +849,7 @@ describe('WeeklyReviewView form', () => {
                 setTimeout(resolve, 0);
             });
         });
-        expect(buttonLabelled(container, SUBMIT_LABEL).disabled).toBe(false);
+        expect(buttonLabelled(container).disabled).toBe(false);
         expect(harness.mutateAsyncOf('review.submit')).toHaveBeenCalledTimes(1);
     });
 
@@ -861,7 +862,7 @@ describe('WeeklyReviewView form', () => {
             '5',
         );
         await submit();
-        expect(buttonLabelled(container, SUBMIT_LABEL).disabled).toBe(false);
+        expect(buttonLabelled(container).disabled).toBe(false);
     });
 
     it('enables the submit button again when the reload itself fails', async () => {
@@ -873,7 +874,7 @@ describe('WeeklyReviewView form', () => {
             '5',
         );
         await submit();
-        expect(buttonLabelled(container, SUBMIT_LABEL).disabled).toBe(false);
+        expect(buttonLabelled(container).disabled).toBe(false);
         expect(vi.mocked(toast.error)).toHaveBeenCalledWith('reload failed');
     });
 });

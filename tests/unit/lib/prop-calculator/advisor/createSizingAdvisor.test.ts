@@ -38,7 +38,7 @@ const TOPSTEP_STANDARD_ID: PlanId = {
     variant: TopStepVariant.StandardStandard,
 };
 
-function accountState(overrides: Partial<AccountState> = {}): AccountState {
+function accountState(): AccountState {
     return {
         balance: 52_000,
         bestDayProfit: 0,
@@ -53,7 +53,6 @@ function accountState(overrides: Partial<AccountState> = {}): AccountState {
         thresholdLocked: false,
         todayPnL: 0,
         tradingDays: 0,
-        ...overrides,
     };
 }
 

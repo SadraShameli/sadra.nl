@@ -71,12 +71,11 @@ import {
     type BankrollTimelineResult,
 } from '~/lib/prop-calculator/portfolioTimeline';
 
-export const ROUNDS_BOOTSTRAP_DRAWS = 500;
-export const ROUNDS_BOOTSTRAP_SEED = 20_260_927;
-export const NEXT_ROUND_TRIALS = 2000;
-export const NEXT_ROUND_SCALE_GATE_NOT_READY_TEXT = 'scale gate not met';
-export const NEXT_ROUND_SCALE_GATE_THRESHOLDS_NOT_SET_TEXT =
-    'thresholds not set';
+const ROUNDS_BOOTSTRAP_DRAWS = 500;
+const ROUNDS_BOOTSTRAP_SEED = 20_260_927;
+const NEXT_ROUND_TRIALS = 2000;
+const NEXT_ROUND_SCALE_GATE_NOT_READY_TEXT = 'scale gate not met';
+const NEXT_ROUND_SCALE_GATE_THRESHOLDS_NOT_SET_TEXT = 'thresholds not set';
 
 export enum NextRoundRecommendation {
     OptionA = 'optionA',
@@ -137,40 +136,6 @@ export interface NextRoundResultSummary {
     readonly recommended: NextRoundRecommendation;
 }
 
-export interface RoundFirmSummaryRow {
-    readonly closedRounds: string;
-    readonly firm: string;
-    readonly key: string;
-    readonly max: string;
-    readonly mean: string;
-    readonly min: string;
-    readonly rounds: string;
-    readonly sampleLevel: null | SampleLevel;
-    readonly sharePositive: string;
-}
-
-export interface RoundRow {
-    readonly budgetPercentUsed: null | number;
-    readonly budgetText: string;
-    readonly closedOn: null | string;
-    readonly cycleDays: string;
-    readonly firm: string;
-    readonly id: string;
-    readonly inProgressText: string;
-    readonly label: string;
-    readonly likeThisEndsNetNegativeClosedForm: string;
-    readonly likeThisEndsNetNegativeModeled: string;
-    readonly netCents: string;
-    readonly openedOn: string;
-    readonly openMemberCount: number;
-    readonly ownOutcomeNetNegative: boolean;
-    readonly payoutsCents: string;
-    readonly realizedMultiple: string;
-    readonly status: RoundStatus;
-    readonly statusLabel: string;
-    readonly toDateMultiple: string;
-}
-
 export interface RoundsPageModel {
     readonly perFirm: readonly RoundFirmSummaryRow[];
     readonly rounds: readonly RoundRow[];
@@ -197,6 +162,40 @@ interface NextRoundEligibility {
     readonly planReference: BankrollPlanReference;
     readonly round: LedgerRoundRow;
     readonly spendCents: number;
+}
+
+interface RoundFirmSummaryRow {
+    readonly closedRounds: string;
+    readonly firm: string;
+    readonly key: string;
+    readonly max: string;
+    readonly mean: string;
+    readonly min: string;
+    readonly rounds: string;
+    readonly sampleLevel: null | SampleLevel;
+    readonly sharePositive: string;
+}
+
+interface RoundRow {
+    readonly budgetPercentUsed: null | number;
+    readonly budgetText: string;
+    readonly closedOn: null | string;
+    readonly cycleDays: string;
+    readonly firm: string;
+    readonly id: string;
+    readonly inProgressText: string;
+    readonly label: string;
+    readonly likeThisEndsNetNegativeClosedForm: string;
+    readonly likeThisEndsNetNegativeModeled: string;
+    readonly netCents: string;
+    readonly openedOn: string;
+    readonly openMemberCount: number;
+    readonly ownOutcomeNetNegative: boolean;
+    readonly payoutsCents: string;
+    readonly realizedMultiple: string;
+    readonly status: RoundStatus;
+    readonly statusLabel: string;
+    readonly toDateMultiple: string;
 }
 
 export function firmColumnsFromSelectValue(value: string): FirmColumns | null {

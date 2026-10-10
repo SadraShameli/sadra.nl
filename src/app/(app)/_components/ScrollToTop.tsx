@@ -21,7 +21,7 @@ export default function ScrollToTop() {
             className={cn(
                 'app-scroll',
                 'fixed right-4 bottom-4 z-50 size-12 rounded-full border border-border bg-background/80 shadow-lg backdrop-blur-sm sm:right-10 sm:bottom-10 sm:size-14',
-                'transition-all duration-300 ease-in-out hover:scale-110',
+                'btn-transition ease-in-out hover:scale-110',
                 visible
                     ? 'translate-y-0 opacity-100'
                     : 'pointer-events-none translate-y-3 opacity-0',

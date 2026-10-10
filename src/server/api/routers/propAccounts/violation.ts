@@ -200,7 +200,7 @@ async function existingDecisionViolation(
 ): Promise<null | PropRuleViolationRow> {
     const { decisionId } = violation;
     if (decisionId === null) return null;
-    const [row] = await database
+    const [row = null] = await database
         .select()
         .from(propRuleViolation)
         .where(
@@ -215,7 +215,7 @@ async function existingDecisionViolation(
             ),
         )
         .limit(1);
-    return row ?? null;
+    return row;
 }
 
 function ownedViolation(id: string, userId: string) {

@@ -171,7 +171,7 @@ function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };
 }
 
-function answerEverything(overrides: Record<string, FakeQuery> = {}) {
+function answerEverything() {
     const account = ledgerOnlyAccount();
     harness.queries.set('account.get', answer(account));
     harness.queries.set('account.list', answer([account]));
@@ -184,9 +184,6 @@ function answerEverything(overrides: Record<string, FakeQuery> = {}) {
     harness.queries.set('copyGroup.list', answer([]));
     harness.queries.set('snapshot.latestForAll', answer([]));
     harness.queries.set('externalFirm.list', answer([]));
-    for (const [name, query] of Object.entries(overrides)) {
-        harness.queries.set(name, query);
-    }
 }
 
 function chooseSelectValue(scope: ParentNode, value: string) {

@@ -160,13 +160,13 @@ function unreadableSibling() {
     );
 }
 
-function withPerAccountCap<T>(cap: number, run: () => T): T {
+function withPerAccountCap<T>(run: () => T): T {
     const firm = findFirm(plan.id.firm) as unknown as {
         accountPolicy: FirmAccountPolicy;
     };
     const original = firm.accountPolicy;
     firm.accountPolicy = new StubTriggerPolicy([
-        new PayoutCountPerAccountTrigger(cap, CONFIRMED_SOURCE),
+        new PayoutCountPerAccountTrigger(4, CONFIRMED_SOURCE),
     ]);
     try {
         return run();
@@ -246,7 +246,7 @@ function disclosuresOf(
     isSiblingReadable: boolean,
     pick: (fixture: Scenario) => ReturnType<typeof alertsOf>,
 ) {
-    return withPerAccountCap(4, () =>
+    return withPerAccountCap(() =>
         pick(scenario(isSiblingReadable)).map((alert) => alert.disclosures),
     );
 }
@@ -295,7 +295,7 @@ describe('every payout alert discloses a pending count it cannot read (PT-36m, F
     });
 
     it('warns on the near-live alert that a per-account trigger is not checked, rather than staying silent', () => {
-        const alerts = withPerAccountCap(4, () => {
+        const alerts = withPerAccountCap(() => {
             const fixture = scenario(false);
             return alertsOf(new LiveTriggerNearRule(), {
                 ...fixture.inputs,
@@ -313,7 +313,7 @@ describe('every payout alert discloses a pending count it cannot read (PT-36m, F
     });
 
     it('stays silent on the near-live alert for a readable count that is far from the cap', () => {
-        const alerts = withPerAccountCap(4, () => {
+        const alerts = withPerAccountCap(() => {
             const fixture = scenario(true);
             return alertsOf(new LiveTriggerNearRule(), {
                 ...fixture.inputs,

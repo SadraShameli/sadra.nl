@@ -41,7 +41,7 @@ function collectSourceFiles(dir: string): string[] {
                 ? []
                 : collectSourceFiles(fullPath);
         }
-        return /\.tsx?$/.test(entry.name) ? [fullPath] : [];
+        return /\.tsx?$/.test(entry.name) ? fullPath : [];
     });
 }
 

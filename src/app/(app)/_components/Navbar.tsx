@@ -19,7 +19,7 @@ export default function Navbar({ session }: { session: NavbarSession | null }) {
         <nav
             className={cn(
                 'app-shell__navbar',
-                'sticky top-0 right-0 left-0 z-50 bg-black/75 backdrop-blur-2xl backdrop-saturate-200',
+                'sticky inset-x-0 top-0 z-50 bg-black/75 backdrop-blur-2xl backdrop-saturate-200',
             )}
         >
             <div className="container mx-auto flex items-center justify-between py-5">

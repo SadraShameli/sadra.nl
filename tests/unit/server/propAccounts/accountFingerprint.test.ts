@@ -80,11 +80,12 @@ function setClauseOf(query: IssuedQuery): string {
     return match[1];
 }
 
-function setColumnValue(query: IssuedQuery, column: string): unknown {
-    const match = new RegExp(String.raw`"${column}" = \$(\d+)`).exec(
-        setClauseOf(query),
-    );
-    if (!match?.[1]) throw new Error(`No column ${column} in ${query.text}`);
+function setColumnValue(query: IssuedQuery): unknown {
+    const match = new RegExp(
+        String.raw`"plan_rules_fingerprint" = \$(\d+)`,
+    ).exec(setClauseOf(query));
+    if (!match?.[1])
+        throw new Error(`No column plan_rules_fingerprint in ${query.text}`);
     return query.params[Number(match[1]) - 1];
 }
 
@@ -195,9 +196,7 @@ describe('propAccounts.account: plan-rule fingerprint stamping (PT-45)', () => {
         const [update] = updatesOf(queries, TABLES.account);
         assertUserScopedWhere(defined(update), USER_ID);
         const expected = await planRulesFingerprint(plan);
-        expect(setColumnValue(defined(update), 'plan_rules_fingerprint')).toBe(
-            expected,
-        );
+        expect(setColumnValue(defined(update))).toBe(expected);
         const [eventInsert] = insertsInto(queries, TABLES.event);
         const [detail] = insertedColumnValues(defined(eventInsert), 'detail');
         const changes = readAccountEventDetail(
@@ -223,9 +222,7 @@ describe('propAccounts.account: plan-rule fingerprint stamping (PT-45)', () => {
         await caller.account.update(accountUpdateInput({ label: 'Renamed' }));
         const [update] = updatesOf(queries, TABLES.account);
         const expected = await planRulesFingerprint(DEFAULT_PLAN);
-        expect(setColumnValue(defined(update), 'plan_rules_fingerprint')).toBe(
-            expected,
-        );
+        expect(setColumnValue(defined(update))).toBe(expected);
         expect(insertsInto(queries, TABLES.event)).toHaveLength(1);
     });
 

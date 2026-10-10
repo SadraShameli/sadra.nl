@@ -5,8 +5,8 @@ import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
 
 interface LoudnessAlertTemplateProperties {
-    deviceName: null | string;
-    locationName: null | string;
+    deviceName?: string;
+    locationName?: string;
     threshold: number;
     value: number;
 }
@@ -29,8 +29,8 @@ export class LoudnessAlertEmail extends EmailMessage {
 }
 
 function LoudnessAlertTemplate({
-    deviceName,
-    locationName,
+    deviceName = '—',
+    locationName = '—',
     threshold,
     value,
 }: LoudnessAlertTemplateProperties) {
@@ -47,26 +47,26 @@ function LoudnessAlertTemplate({
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Measured value
             </Text>
-            <Text className="m-0 text-sm leading-snug font-semibold text-rose-600">
+            <Text className="m-0 text-sm/snug font-semibold text-rose-600">
                 {value}
             </Text>
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Threshold
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
+            <Text className="m-0 text-sm/snug text-neutral-700">
                 {threshold}
             </Text>
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Device
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {deviceName ?? '—'}
+            <Text className="m-0 text-sm/snug text-neutral-700">
+                {deviceName}
             </Text>
             <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
                 Location
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {locationName ?? '—'}
+            <Text className="m-0 text-sm/snug text-neutral-700">
+                {locationName}
             </Text>
         </BaseEmail>
     );

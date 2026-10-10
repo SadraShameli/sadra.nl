@@ -29,15 +29,13 @@ export interface GroupDelivery {
     readonly failure: null | string;
 }
 
-export type GroupFailures = Readonly<
-    Record<OverviewRequestGroup, null | string>
->;
-
 export interface SlotEngine {
     readonly failure: null | string;
     readonly groupFailures?: GroupFailures;
     readonly outcomes: ReadonlyMap<string, OverviewOutcome>;
 }
+
+type GroupFailures = Readonly<Record<OverviewRequestGroup, null | string>>;
 
 const HEADLINE_FAILURE_ORDER: readonly OverviewRequestGroup[] = [
     OverviewRequestGroup.Accounts,

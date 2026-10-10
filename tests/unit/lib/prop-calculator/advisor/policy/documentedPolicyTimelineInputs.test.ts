@@ -102,7 +102,6 @@ const POLICY: EnginePolicy = {
 };
 
 function evalDayRisks(
-    plan: Plan,
     dayPolicy: DayPolicy | undefined,
     rrRatio: number,
     state: AccountState,
@@ -129,7 +128,7 @@ function evalDayRisks(
                     return risk;
                 },
             },
-            plan,
+            plan: apexIntraday,
             positionSizing: null,
             rng: () => 0.99,
             rrRatio,
@@ -178,13 +177,11 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
         );
 
         const simRisks = evalDayRisks(
-            apexIntraday,
             simInputs.evalDayPolicy,
             simInputs.rrRatio,
             apexIntraday.initialState(),
         );
         const timelineRisks = evalDayRisks(
-            apexIntraday,
             timelineInputs.evalDayPolicy,
             timelineInputs.rrRatio,
             apexIntraday.initialState(),

@@ -130,7 +130,7 @@ function reviewSnapshotId(index: number): string {
     return `00000000-0000-4000-9000-${String(index).padStart(12, '0')}`;
 }
 
-function stagedAccountRow(overrides: Record<string, unknown> = {}) {
+function stagedAccountRow() {
     const key = planKeyFields(eodTrailingEntry());
     return accountRow({
         account_size: key.accountSize,
@@ -138,7 +138,6 @@ function stagedAccountRow(overrides: Record<string, unknown> = {}) {
         funded_on: '2026-09-10',
         plan_serial: key.planSerial,
         stage: AccountStage.Live,
-        ...overrides,
     });
 }
 

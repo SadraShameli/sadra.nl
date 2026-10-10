@@ -172,7 +172,7 @@ function setInputValue(input: HTMLInputElement, value: string): void {
     input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function succeedProjection(runId = 1): void {
+function succeedProjection(): void {
     act(() => {
         toolsWorkerBox.instances[1]?.setState({
             phase: RealToolsWorkerPhase.Succeeded,
@@ -180,7 +180,7 @@ function succeedProjection(runId = 1): void {
                 kind: ToolsResponseKind.Projection,
                 monthEnds: monthEndRows(),
                 result: timelineResult(),
-                runId,
+                runId: 1,
             },
         });
     });
@@ -346,10 +346,10 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         });
     }
 
-    function enterTwoStrategiesInputs(horizon: string): void {
+    function enterTwoStrategiesInputs(): void {
         for (const [id, value] of [
             ['#bankroll-two-strategies-start', '5000'],
-            ['#bankroll-two-strategies-horizon', horizon],
+            ['#bankroll-two-strategies-horizon', '60'],
             ['#bankroll-two-strategies-risk-b', '500'],
         ] as const) {
             act(() => {
@@ -802,7 +802,7 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             act(() => {
                 root.render(<BankrollView />);
             });
-            enterTwoStrategiesInputs('60');
+            enterTwoStrategiesInputs();
             enterCycles();
             succeedTwoStrategies();
 
@@ -823,7 +823,7 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             act(() => {
                 root.render(<BankrollView />);
             });
-            enterTwoStrategiesInputs('60');
+            enterTwoStrategiesInputs();
             enterCycles();
             expect(container.textContent).not.toContain('$25,000');
 
@@ -849,7 +849,7 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             act(() => {
                 root.render(<BankrollView />);
             });
-            enterTwoStrategiesInputs('60');
+            enterTwoStrategiesInputs();
             const instance = toolsWorkerBox.instances[2];
             const runSpy = vi.fn();
             if (instance) instance.runSpy = runSpy;

@@ -91,7 +91,7 @@ function sourceFiles(directory: string): string[] {
     return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
         const child = path.join(directory, entry.name);
         if (entry.isDirectory()) return sourceFiles(child);
-        return /\.tsx?$/.test(entry.name) ? [child] : [];
+        return /\.tsx?$/.test(entry.name) ? child : [];
     });
 }
 

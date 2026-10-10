@@ -315,10 +315,10 @@ export function AccountsTableWithValues({
                                 externalFirms={externalFirmsQuery.data ?? []}
                                 groupName={
                                     row.account.copyGroupId === null
-                                        ? null
-                                        : (groupNames.get(
+                                        ? undefined
+                                        : groupNames.get(
                                               row.account.copyGroupId,
-                                          ) ?? null)
+                                          )
                                 }
                                 key={row.account.id}
                                 row={row}
@@ -526,12 +526,12 @@ function AccountListFilterBar({
 function AccountRow({
     columns,
     externalFirms,
-    groupName,
+    groupName = 'None',
     row,
 }: {
     columns: AccountValueColumns | undefined;
     externalFirms: readonly ExternalFirmName[];
-    groupName: null | string;
+    groupName: string | undefined;
     row: AccountListRow;
 }) {
     const { account, latestSnapshot } = row;
@@ -618,7 +618,7 @@ function AccountRow({
                     formatUsdCents(row.cushionCents)
                 )}
             </TableCell>
-            <TableCell className="align-top">{groupName ?? 'None'}</TableCell>
+            <TableCell className="align-top">{groupName}</TableCell>
             <TableCell className="align-top">
                 <div className="flex justify-end gap-1">
                     {row.isReadOnly ? (

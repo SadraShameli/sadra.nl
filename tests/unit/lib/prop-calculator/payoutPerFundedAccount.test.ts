@@ -10,11 +10,11 @@ import {
 import { findFirm } from '~/lib/prop-calculator/firms';
 import { simulate } from '~/lib/prop-calculator/simulator';
 
-function planFor(id: PlanId): Plan {
-    const firm = findFirm(id.firm);
-    if (!firm) throw new Error(`firm ${id.firm} not registered`);
-    const plan = firm.findPlan(id);
-    if (!plan) throw new Error(`plan not found for ${id.firm}`);
+function planFor(): Plan {
+    const firm = findFirm(apexEod.firm);
+    if (!firm) throw new Error(`firm ${apexEod.firm} not registered`);
+    const plan = firm.findPlan(apexEod);
+    if (!plan) throw new Error(`plan not found for ${apexEod.firm}`);
     return plan;
 }
 
@@ -26,7 +26,7 @@ const apexEod: PlanId = {
 
 describe('expectedPayoutPerFundedAccount vs expectedGrossPayout', () => {
     it('equals expectedGrossPayout divided by the reached-funded fraction, not by every trial', () => {
-        const plan = planFor(apexEod);
+        const plan = planFor();
         const out = simulate({
             fundedHorizonDays: 252,
             maxEvalDays: 150,
@@ -53,7 +53,7 @@ describe('expectedPayoutPerFundedAccount vs expectedGrossPayout', () => {
     });
 
     it('is 0, not NaN, when no trial ever reaches the funded phase', () => {
-        const plan = planFor(apexEod);
+        const plan = planFor();
         const out = simulate({
             fundedHorizonDays: 60,
             maxEvalDays: 5,

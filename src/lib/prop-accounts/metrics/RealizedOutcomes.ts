@@ -305,7 +305,7 @@ function sessionsToFundedOf(
             pass === undefined ||
             !isTransitionDateKnown(pass.provenance)
             ? []
-            : [weekdaysInRange(dayNumberOf(start), dayNumberOf(pass.on) + 1)];
+            : weekdaysInRange(dayNumberOf(start), dayNumberOf(pass.on) + 1);
     });
     return sampledMean(sessions);
 }

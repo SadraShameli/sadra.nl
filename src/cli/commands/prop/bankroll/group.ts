@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty';
 
-export default defineCommand({
+const group = defineCommand({
     meta: {
         description:
             'Bankroll engine path: risk, projections, compares, batches, levers and the spend-vs-payout curve',
@@ -33,3 +33,5 @@ export default defineCommand({
         },
     },
 });
+
+export default group;

@@ -2,6 +2,7 @@
 
 import { Tag } from 'lucide-react';
 import { useMemo } from 'react';
+import { z } from 'zod';
 
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -34,7 +35,7 @@ import {
 import {
     ALL_INSTRUMENTS,
     annualisedRoiOnCost,
-    type InstrumentSymbol,
+    InstrumentSymbol,
     parseFirmId,
     type Plan,
     type PlanOptIns,
@@ -1036,7 +1037,7 @@ function PositionSizingCell({
                                     instrument:
                                         v === 'global'
                                             ? null
-                                            : (v as InstrumentSymbol),
+                                            : z.enum(InstrumentSymbol).parse(v),
                                 })
                             }
                             value={entry.instrument ?? 'global'}

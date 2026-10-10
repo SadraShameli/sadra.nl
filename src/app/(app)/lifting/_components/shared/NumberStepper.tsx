@@ -85,7 +85,7 @@ export function NumberStepper({
             <div className="flex items-stretch overflow-hidden rounded-lg border border-border bg-card">
                 <Button
                     aria-label={`Decrease ${label ?? ''}`}
-                    className="h-9 w-9 shrink-0 rounded-none p-0 text-muted-foreground hover:text-foreground"
+                    className="size-9 shrink-0 rounded-none p-0 text-muted-foreground hover:text-foreground"
                     onPointerCancel={clearHold}
                     onPointerDown={() => startHold(-1)}
                     onPointerLeave={clearHold}
@@ -105,7 +105,7 @@ export function NumberStepper({
                 </div>
                 <Button
                     aria-label={`Increase ${label ?? ''}`}
-                    className="h-9 w-9 shrink-0 rounded-none p-0 text-muted-foreground hover:text-foreground"
+                    className="size-9 shrink-0 rounded-none p-0 text-muted-foreground hover:text-foreground"
                     onPointerCancel={clearHold}
                     onPointerDown={() => startHold(1)}
                     onPointerLeave={clearHold}

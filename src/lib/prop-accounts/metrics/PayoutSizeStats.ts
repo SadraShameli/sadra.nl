@@ -229,13 +229,11 @@ function byStage(
         const group = samples.filter((sample) => sample.stage === stage);
         return group.length === 0
             ? []
-            : [
-                  {
-                      count: group.length,
-                      mean: sampledMean(group.map((sample) => sample.cents)),
-                      stage,
-                  },
-              ];
+            : {
+                  count: group.length,
+                  mean: sampledMean(group.map((sample) => sample.cents)),
+                  stage,
+              };
     });
 }
 

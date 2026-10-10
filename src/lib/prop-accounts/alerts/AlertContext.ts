@@ -473,7 +473,7 @@ export function resolvedFirmAccountsOf(
         const firm = findStoredFirm(monitored.planKey.firmId);
         return firm === undefined
             ? []
-            : [{ firm, monitored, plan: monitored.plan.plan }];
+            : { firm, monitored, plan: monitored.plan.plan };
     });
 }
 

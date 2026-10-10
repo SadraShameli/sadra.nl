@@ -71,9 +71,9 @@ function conflictSource(): {
     };
 }
 
-function planWithOwnCount(ownCount: number): Plan {
+function planWithOwnCount(): Plan {
     return BASE_PLAN.withOverrides({
-        maxLifetimePayouts: ownCount,
+        maxLifetimePayouts: 10,
         payoutLadder: undefined,
     });
 }
@@ -81,13 +81,13 @@ function planWithOwnCount(ownCount: number): Plan {
 describe('resolveLifetimePayoutCapOverride', () => {
     it('is NotChecked when there are no triggers at all', () => {
         expect(
-            resolveLifetimePayoutCapOverride(planWithOwnCount(10), []).kind,
+            resolveLifetimePayoutCapOverride(planWithOwnCount(), []).kind,
         ).toBe(LifetimePayoutCapOverrideKind.NotChecked);
     });
 
     it('is NotChecked for the default NotChecked trigger', () => {
         expect(
-            resolveLifetimePayoutCapOverride(planWithOwnCount(10), [
+            resolveLifetimePayoutCapOverride(planWithOwnCount(), [
                 new NotCheckedLiveTransitionTrigger(),
             ]).kind,
         ).toBe(LifetimePayoutCapOverrideKind.NotChecked);
@@ -105,13 +105,12 @@ describe('resolveLifetimePayoutCapOverride', () => {
             new CumulativeAmountTrigger(dollars(100_000), confirmedSource()),
         ];
         expect(
-            resolveLifetimePayoutCapOverride(planWithOwnCount(10), triggers)
-                .kind,
+            resolveLifetimePayoutCapOverride(planWithOwnCount(), triggers).kind,
         ).toBe(LifetimePayoutCapOverrideKind.NoCountTrigger);
     });
 
     it("is Capped strictly below the plan's own conclusion count, never at or above it", () => {
-        const plan = planWithOwnCount(10);
+        const plan = planWithOwnCount();
         const capped = resolveLifetimePayoutCapOverride(plan, [
             new PayoutCountPerAccountTrigger(5, confirmedSource()),
         ]);
@@ -136,7 +135,7 @@ describe('resolveLifetimePayoutCapOverride', () => {
     });
 
     it('the resolved cap never overrides the plan above its own conclusion count', () => {
-        const plan = planWithOwnCount(10);
+        const plan = planWithOwnCount();
         const resolved = resolveLifetimePayoutCapOverride(plan, [
             new PayoutCountPerAccountTrigger(5, confirmedSource()),
         ]);
@@ -157,21 +156,21 @@ describe('resolveLifetimePayoutCapOverride', () => {
 
     it('is NotChecked for a NeedsPaste or NotFound source', () => {
         expect(
-            resolveLifetimePayoutCapOverride(planWithOwnCount(10), [
+            resolveLifetimePayoutCapOverride(planWithOwnCount(), [
                 new PayoutCountPerAccountTrigger(5, {
                     verification: PolicyVerification.NeedsPaste,
                 }),
             ]).kind,
         ).toBe(LifetimePayoutCapOverrideKind.NotChecked);
         expect(
-            resolveLifetimePayoutCapOverride(planWithOwnCount(10), [
+            resolveLifetimePayoutCapOverride(planWithOwnCount(), [
                 new PayoutCountPerAccountTrigger(5, {
                     verification: PolicyVerification.NotFound,
                 }),
             ]).kind,
         ).toBe(LifetimePayoutCapOverrideKind.NotChecked);
         expect(
-            resolveLifetimePayoutCapOverride(planWithOwnCount(10), [
+            resolveLifetimePayoutCapOverride(planWithOwnCount(), [
                 new PayoutCountPerAccountTrigger(5, undefined),
             ]).kind,
         ).toBe(LifetimePayoutCapOverrideKind.NotChecked);
@@ -184,7 +183,7 @@ describe('resolveLifetimePayoutCapOverride', () => {
             5,
         );
         expect(
-            resolveLifetimePayoutCapOverride(planWithOwnCount(10), [trigger])
+            resolveLifetimePayoutCapOverride(planWithOwnCount(), [trigger])
                 .kind,
         ).toBe(LifetimePayoutCapOverrideKind.NotChecked);
     });
@@ -196,7 +195,7 @@ describe('resolveLifetimePayoutCapOverride', () => {
             12,
         );
         expect(
-            resolveLifetimePayoutCapOverride(planWithOwnCount(10), [trigger])
+            resolveLifetimePayoutCapOverride(planWithOwnCount(), [trigger])
                 .kind,
         ).toBe(LifetimePayoutCapOverrideKind.PlanAlreadyConcludes);
     });
@@ -208,7 +207,7 @@ describe('resolveLifetimePayoutCapOverride', () => {
             5,
         );
         expect(
-            resolveLifetimePayoutCapOverride(planWithOwnCount(10), [trigger]),
+            resolveLifetimePayoutCapOverride(planWithOwnCount(), [trigger]),
         ).toStrictEqual({ cap: 5, kind: LifetimePayoutCapOverrideKind.Capped });
     });
 });

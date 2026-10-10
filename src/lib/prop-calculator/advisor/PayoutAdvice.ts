@@ -151,25 +151,21 @@ export function liveTriggerLimitsFor(
         if (!(trigger instanceof PayoutCountPerAccountTrigger)) return [];
         const override = resolveLifetimePayoutCapOverride(plan, [trigger]);
         return override.kind === LifetimePayoutCapOverrideKind.Capped
-            ? [
-                  {
-                      cap: override.cap,
-                      isConfirmed: isConfirmedTrigger(trigger),
-                      source: citedSourceOf(trigger),
-                  },
-              ]
+            ? {
+                  cap: override.cap,
+                  isConfirmed: isConfirmedTrigger(trigger),
+                  source: citedSourceOf(trigger),
+              }
             : [];
     });
     const firmTotalCaps = triggers.flatMap((trigger) =>
         trigger instanceof PayoutCountTotalTrigger &&
         isConfirmedTrigger(trigger)
-            ? [
-                  {
-                      cap: trigger.cap,
-                      isConfirmed: true,
-                      source: confirmedCitationOf(trigger),
-                  },
-              ]
+            ? {
+                  cap: trigger.cap,
+                  isConfirmed: true,
+                  source: confirmedCitationOf(trigger),
+              }
             : [],
     );
     const singleDayCeiling = triggers.reduce<Dollars | null>(

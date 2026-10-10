@@ -152,10 +152,7 @@ function chainOutcomeOf(
           };
 }
 
-function chainPositionViewFor(
-    accountValue: number,
-    chain: null | string | ValueChainFigures,
-) {
+function chainPositionViewFor(chain: null | string | ValueChainFigures) {
     const requests = requestsFor(FUNDED);
     if (requests === null) throw new Error('no requests');
     const accountKey = overviewRequestKey(requests.account);
@@ -171,14 +168,14 @@ function chainPositionViewFor(
                     unmetGates: [],
                     value: {
                         kind: ValueChainStepOutcomeKind.Value,
-                        value: valueOf(accountValue + 100),
+                        value: valueOf(900 + 100),
                     },
                 },
                 nextPayout: null,
                 stage: SizingStage.Funded,
                 startBasis: StartBasis.FromState,
                 trials: 2000,
-                valueNow: valueOf(accountValue),
+                valueNow: valueOf(900),
             },
             kind: OverviewRequestKind.AccountFromState,
         },
@@ -659,10 +656,9 @@ describe('valueChainPositionOf (PT-37, F-V18)', () => {
     function step(
         kind: ValueChainStepKind,
         creditFree: number,
-        assumptions: readonly string[] = [],
     ): ValueChainStepFigures {
         return {
-            assumptions,
+            assumptions: [],
             kind,
             outcome: {
                 kind: ValueChainStepOutcomeKind.Value,
@@ -797,13 +793,13 @@ describe('chainPositionViewOf (PT-37, F-V18)', () => {
     };
 
     it('is pending until both the account and the chain have answered', () => {
-        expect(chainPositionViewFor(900, null)).toEqual({
+        expect(chainPositionViewFor(null)).toEqual({
             kind: ChainPositionViewKind.Pending,
         });
     });
 
     it('places the account value among the chain steps when both answered', () => {
-        const view = chainPositionViewFor(900, chain);
+        const view = chainPositionViewFor(chain);
         if (view.kind !== ChainPositionViewKind.Ready) {
             throw new Error('expected ready');
         }
@@ -812,7 +808,7 @@ describe('chainPositionViewOf (PT-37, F-V18)', () => {
     });
 
     it('is unavailable with the engine text when the chain run was refused', () => {
-        expect(chainPositionViewFor(900, 'the stop is too wide')).toEqual({
+        expect(chainPositionViewFor('the stop is too wide')).toEqual({
             kind: ChainPositionViewKind.Unavailable,
             reason: 'the stop is too wide',
         });

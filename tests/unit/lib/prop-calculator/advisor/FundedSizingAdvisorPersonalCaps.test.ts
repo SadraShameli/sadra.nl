@@ -242,7 +242,7 @@ function refusalIssuesAt(
         .assemble([])
         .differenceReasons.flatMap((reason) =>
             reason.kind === DifferenceReason.EngineInputsRefused
-                ? [reason.refusal]
+                ? reason.refusal
                 : [],
         );
 }

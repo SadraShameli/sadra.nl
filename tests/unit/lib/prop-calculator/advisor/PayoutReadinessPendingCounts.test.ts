@@ -26,9 +26,9 @@ const MFF_PRO_ID: PlanId = {
     variant: MffuVariant.Pro,
 };
 
-function fundedState(balance: number): AccountState {
+function fundedState(): AccountState {
     return {
-        balance,
+        balance: 55_000,
         bestDayProfit: 0,
         consecutiveIdleDays: 0,
         intradayHighProfit: 0,
@@ -69,7 +69,7 @@ describe('payoutReadiness counts the pending payouts it is given, not 0 or 1 (PT
     };
 
     it('counts two own requests toward the per-account cap, so the next request is the fourth', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const readiness = payoutReadiness(plan, state, trackerWith(state, 1), {
             liveTrigger: perAccountFour,
             minRetainedCushion: 0,
@@ -92,7 +92,7 @@ describe('payoutReadiness counts the pending payouts it is given, not 0 or 1 (PT
     });
 
     it('stays eligible with one own request under the same per-account cap', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const readiness = payoutReadiness(plan, state, trackerWith(state, 1), {
             liveTrigger: perAccountFour,
             minRetainedCushion: 0,
@@ -105,7 +105,7 @@ describe('payoutReadiness counts the pending payouts it is given, not 0 or 1 (PT
     });
 
     it('counts a request made before the snapshot, which nets no dollars, toward the per-account cap', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const readiness = payoutReadiness(plan, state, trackerWith(state, 2), {
             liveTrigger: perAccountFour,
             minRetainedCushion: 0,
@@ -123,7 +123,7 @@ describe('payoutReadiness counts the pending payouts it is given, not 0 or 1 (PT
     });
 
     it('nets pending dollars off the balance without counting them as a request when no count is given', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const readiness = payoutReadiness(plan, state, trackerWith(state, 2), {
             liveTrigger: perAccountFour,
             minRetainedCushion: 0,
@@ -136,7 +136,7 @@ describe('payoutReadiness counts the pending payouts it is given, not 0 or 1 (PT
     });
 
     it('adds the other accounts pending requests to the firm-wide count only', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const underCap = payoutReadiness(plan, state, trackerWith(state, 0), {
             liveTrigger: firmTenAfterFivePaid,
             minRetainedCushion: 0,
@@ -164,7 +164,7 @@ describe('payoutReadiness counts the pending payouts it is given, not 0 or 1 (PT
     });
 
     it('does not count the other accounts requests toward a per-account cap', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const readiness = payoutReadiness(plan, state, trackerWith(state, 1), {
             liveTrigger: perAccountFour,
             minRetainedCushion: 0,
@@ -177,7 +177,7 @@ describe('payoutReadiness counts the pending payouts it is given, not 0 or 1 (PT
     });
 
     it('counts nothing when the state is already netted and no counts are given, as the planner does', () => {
-        const state = fundedState(55_000);
+        const state = fundedState();
         const readiness = payoutReadiness(plan, state, trackerWith(state, 3), {
             ...NO_PENDING_PAYOUT_COUNTS,
             liveTrigger: { ...LIVE_TRIGGER_NOT_CHECKED, perAccountCap: 5 },

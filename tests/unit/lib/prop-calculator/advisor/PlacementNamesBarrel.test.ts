@@ -13,7 +13,7 @@ function sourcesUnder(directory: string): string[] {
     }).flatMap((entry) => {
         const entryPath = `${directory}/${entry.name}`;
         if (entry.isDirectory()) return sourcesUnder(entryPath);
-        return /\.tsx?$/.test(entry.name) ? [entryPath] : [];
+        return /\.tsx?$/.test(entry.name) ? entryPath : [];
     });
 }
 

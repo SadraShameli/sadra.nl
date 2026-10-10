@@ -23,9 +23,9 @@ const MFF_PRO_ID: PlanId = {
     variant: MffuVariant.Pro,
 };
 
-function fundedState(balance: number): AccountState {
+function fundedState(): AccountState {
     return {
-        balance,
+        balance: 53_000,
         bestDayProfit: 0,
         consecutiveIdleDays: 0,
         intradayHighProfit: 0,
@@ -126,7 +126,7 @@ describe('calendarGateProgress: real calendar days, not the session approximatio
             throw new Error('unreachable');
         }
 
-        const state = fundedState(53_000);
+        const state = fundedState();
         const metTracker = newFundedCycleTracker({
             ...state,
             balance: 50_000,
@@ -167,7 +167,7 @@ describe('calendarGateProgress: real calendar days, not the session approximatio
         if (met.kind !== CalendarGateProgressKind.Progress) {
             throw new Error('unreachable');
         }
-        const state = fundedState(53_000);
+        const state = fundedState();
         const tracker = newFundedCycleTracker({ ...state, balance: 50_000 });
         tracker.payoutsIssued = 1;
         tracker.restoreCalendarDayGateProgress(met.restoreProgress);

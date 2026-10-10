@@ -1,4 +1,4 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 
 export enum CredentialKind {
     EBoekhouden = 'eboekhouden',
@@ -71,7 +71,8 @@ export class CredentialRegistry {
     }
 
     get(id: string): CredentialDescriptor | undefined {
-        return this.descriptors.get(id as CredentialKind);
+        const kind = z.enum(CredentialKind).safeParse(id);
+        return kind.success ? this.descriptors.get(kind.data) : undefined;
     }
 
     list(): CredentialDescriptor[] {

@@ -1513,7 +1513,7 @@ describe('WP18f R-5: a withdrawal from below the running starting balance is cap
     });
 });
 
-function bustByCommission(positionSizing: PositionSizingConfig): {
+function bustByCommission(): {
     balanceAtBust: number;
     daysToBust: number;
 } {
@@ -1523,7 +1523,7 @@ function bustByCommission(positionSizing: PositionSizingConfig): {
         const { busted } = runLiveDay({
             commission: dollars(10),
             plan,
-            positionSizing,
+            positionSizing: TOPSTEP_NQ_AT_450,
             rng: alwaysLoses,
             rrRatio: 2,
             state,
@@ -1537,8 +1537,7 @@ function bustByCommission(positionSizing: PositionSizingConfig): {
 
 describe('WP18f R-12: an auto-liquidation pays the remaining balance as a final payout (help.topstep.com article 10657969: "The remaining balance would then be sent as a final Payout.")', () => {
     it('pays 90% of the balance left at the $1,000 floor bust on day 20 as a one-off liquidation payout: one $450 NQ contract and $10 a day lose $460, and the day-20 loss stops at the floor, whose commission leaves $990', () => {
-        const { balanceAtBust, daysToBust } =
-            bustByCommission(TOPSTEP_NQ_AT_450);
+        const { balanceAtBust, daysToBust } = bustByCommission();
         const result = runLiveHorizon({
             commission: dollars(10),
             horizonDays: 500,
@@ -1560,8 +1559,7 @@ describe('WP18f R-12: an auto-liquidation pays the remaining balance as a final 
     });
 
     it('reports the liquidation payout as its own one-off in simulateLiveAccount, outside the annual rate: one $450 NQ contract a day loses $460 with commission until the day-20 loss stops at the $1,000 floor and its commission leaves $990', () => {
-        const { balanceAtBust, daysToBust } =
-            bustByCommission(TOPSTEP_NQ_AT_450);
+        const { balanceAtBust, daysToBust } = bustByCommission();
         const out = simulateLiveAccount({
             ...TOPSTEP_ONE_NQ_AT_450,
             commissionPerRoundTrip: 10,
@@ -2132,9 +2130,8 @@ const TOPSTEP_FULL_CUSHION = { postLock: fraction(1), preLock: fraction(1) };
 function closeActiveTopStepSessions(
     plan: ReturnType<typeof buildTopStepLivePlan>,
     state: LiveAccountState,
-    count: number,
 ): void {
-    for (let session = 0; session < count; session++) {
+    for (let session = 0; session < 9; session++) {
         state.todayPnL = 0;
         plan.recordDayClose(state, true);
     }
@@ -2187,7 +2184,7 @@ describe('WP18g: the TopStep LFA per-trade loss cap follows net trading profit a
                 0, 0, 0, 0, 0, 3000,
             ],
         );
-        closeActiveTopStepSessions(plan, state, 9);
+        closeActiveTopStepSessions(plan, state);
         plan.withdraw(state, 40_000);
 
         loseOneTopStepTrade(plan, state, NQ_STOP_AT_500);
@@ -2243,7 +2240,7 @@ describe('WP18h: the TopStep LFA per-trade loss cap moves to a higher tier only 
         const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
         const state = plan.initialState();
         closeTopStepSessions(plan, state, [15_000]);
-        closeActiveTopStepSessions(plan, state, 9);
+        closeActiveTopStepSessions(plan, state);
 
         loseOneTopStepTrade(plan, state, NQ_STOP_AT_500);
 
@@ -2271,18 +2268,14 @@ describe('WP18h: the TopStep LFA per-trade loss cap moves to a higher tier only 
     });
 });
 
-function apexLiveTrade(
-    state: LiveAccountState,
-    isWon: boolean,
-    stopPoints: number,
-): number {
+function apexLiveTrade(state: LiveAccountState, isWon: boolean): number {
     const before = state.balance;
     runLiveDay({
         commission: dollars(0),
         plan: buildApexLivePlan(),
         positionSizing: {
             instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
-            stopPoints: points(stopPoints),
+            stopPoints: points(4),
         },
         rng: isWon ? alwaysWins : alwaysLoses,
         rrRatio: 2,
@@ -2295,10 +2288,10 @@ function apexLiveTrade(
 
 describe('runLiveDay places live percent-of-cushion risk in whole contracts like the funded phase (T33, R8)', () => {
     it('rounds 5% of the $3,000 Apex Live cushion ($150) down to 18 MNQ micros at a 4 point stop: a $144 loss or a $288 win, never the fractional $150', () => {
-        expect(
-            apexLiveTrade(buildApexLivePlan().initialState(), false, 4),
-        ).toBe(-144);
-        expect(apexLiveTrade(buildApexLivePlan().initialState(), true, 4)).toBe(
+        expect(apexLiveTrade(buildApexLivePlan().initialState(), false)).toBe(
+            -144,
+        );
+        expect(apexLiveTrade(buildApexLivePlan().initialState(), true)).toBe(
             288,
         );
     });
@@ -2321,7 +2314,7 @@ describe('runLiveDay places live percent-of-cushion risk in whole contracts like
         expect(losing.balance).toBe(100);
         expect(result.busted).toBe(true);
 
-        expect(apexLiveTrade(apexSessionAt(105), true, 4)).toBe(16);
+        expect(apexLiveTrade(apexSessionAt(105), true)).toBe(16);
     });
 });
 

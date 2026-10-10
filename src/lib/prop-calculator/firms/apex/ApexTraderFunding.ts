@@ -116,7 +116,7 @@ function buildEodPlan(size: ApexSize): PlanInit {
         ),
         contractLimits: {
             ...size.contractLimits,
-            ...fundedContractLimitsOf(size, PA_LEVEL_TIER_BASIS),
+            ...fundedContractLimitsOf(size),
         },
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
@@ -133,7 +133,7 @@ function buildEodPlan(size: ApexSize): PlanInit {
             reset: dollars(pricing.evalCost),
             retry: RetryKind.Rebuy,
         },
-        fundedDailyLossLimit: fundedDailyLossLimitOf(size, PA_LEVEL_TIER_BASIS),
+        fundedDailyLossLimit: fundedDailyLossLimitOf(size),
         fundedDrawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: lockOf(size),
@@ -176,7 +176,7 @@ function buildIntradayPlan(size: ApexSize): PlanInit {
         ),
         contractLimits: {
             ...size.contractLimits,
-            ...fundedContractLimitsOf(size, PA_LEVEL_TIER_BASIS),
+            ...fundedContractLimitsOf(size),
         },
         drawdown: new IntradayTrailingDrawdown({
             amount: size.maxDrawdown,
@@ -190,7 +190,7 @@ function buildIntradayPlan(size: ApexSize): PlanInit {
             reset: dollars(pricing.evalCost),
             retry: RetryKind.Rebuy,
         },
-        fundedDailyLossLimit: fundedDailyLossLimitOf(size, PA_LEVEL_TIER_BASIS),
+        fundedDailyLossLimit: fundedDailyLossLimitOf(size),
         fundedDrawdown: new IntradayTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: lockOf(size),
@@ -230,17 +230,14 @@ function evalLockOf(size: ApexSize) {
     };
 }
 
-function fundedContractLimitsOf(
-    size: ApexSize,
-    tierBasis: TierBasis,
-): {
+function fundedContractLimitsOf(size: ApexSize): {
     fundedMicros: ContractLimitConfig;
     fundedMinis: ContractLimitConfig;
 } {
     return {
         fundedMicros: {
             kind: ContractLimitKind.Tiered,
-            tierBasis,
+            tierBasis: PA_LEVEL_TIER_BASIS,
             tiers: size.fundedDllTiers.map((tier) => ({
                 maxContracts: contracts(tier.maxContracts * 10),
                 minBalance: dollars(tier.minProfit),
@@ -248,7 +245,7 @@ function fundedContractLimitsOf(
         },
         fundedMinis: {
             kind: ContractLimitKind.Tiered,
-            tierBasis,
+            tierBasis: PA_LEVEL_TIER_BASIS,
             tiers: size.fundedDllTiers.map((tier) => ({
                 maxContracts: tier.maxContracts,
                 minBalance: dollars(tier.minProfit),
@@ -257,13 +254,10 @@ function fundedContractLimitsOf(
     };
 }
 
-function fundedDailyLossLimitOf(
-    size: ApexSize,
-    tierBasis: TierBasis,
-): DailyLossLimitConfig {
+function fundedDailyLossLimitOf(size: ApexSize): DailyLossLimitConfig {
     return {
         kind: DailyLossLimitKind.Tiered,
-        tierBasis,
+        tierBasis: PA_LEVEL_TIER_BASIS,
         tiers: size.fundedDllTiers,
     };
 }

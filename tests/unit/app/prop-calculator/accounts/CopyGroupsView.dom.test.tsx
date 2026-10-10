@@ -317,11 +317,11 @@ async function flush() {
     });
 }
 
-function groupHeading(name: string): HTMLHeadingElement {
+function groupHeading(): HTMLHeadingElement {
     const heading = [...document.querySelectorAll('h2')].find(
-        (candidate) => candidate.textContent === name,
+        (candidate) => candidate.textContent === 'Main copy',
     );
-    if (heading === undefined) throw new Error(`no heading ${name}`);
+    if (heading === undefined) throw new Error('no heading Main copy');
     return heading;
 }
 
@@ -920,7 +920,7 @@ describe('CopyGroupsView', () => {
             ],
         );
         render();
-        expect(document.activeElement).toBe(groupHeading('Main copy'));
+        expect(document.activeElement).toBe(groupHeading());
     });
 
     it('moves focus to the group heading after the last unassigned account is added', async () => {
@@ -932,7 +932,7 @@ describe('CopyGroupsView', () => {
         answerWith([MAIN], [account('funded-b', { copyGroupId: MAIN.id })]);
         render();
         expect(() => field('Account to add to Main copy')).toThrow();
-        expect(document.activeElement).toBe(groupHeading('Main copy'));
+        expect(document.activeElement).toBe(groupHeading());
     });
 
     it('names the inactive or archived member of another stage when the server refuses an account', () => {

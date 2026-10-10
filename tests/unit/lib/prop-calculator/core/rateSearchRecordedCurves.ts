@@ -7,7 +7,7 @@ export interface RecordedCurve {
     readonly points: readonly RecordedPoint[];
 }
 
-export interface RecordedPoint {
+interface RecordedPoint {
     readonly errorBound: number;
     readonly h: number;
     readonly ratePerDay: number;

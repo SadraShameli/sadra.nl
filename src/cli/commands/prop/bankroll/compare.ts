@@ -33,7 +33,7 @@ export const compareArguments = {
 
 const COMPARE_TRIALS = 500;
 
-export default defineCommand({
+const command = defineCommand({
     args: compareArguments,
     meta: {
         description:
@@ -147,3 +147,5 @@ export default defineCommand({
         }
     },
 });
+
+export default command;

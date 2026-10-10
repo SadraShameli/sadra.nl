@@ -127,7 +127,7 @@ export default function CashFlowPanel({
     const roiOnSpend = cashFlowRoiOnSpend(finalNet50, finalSpend50);
 
     return (
-        <Card className={cn('app-prop-calculator__cash-flow', 'px-5 py-5')}>
+        <Card className={cn('app-prop-calculator__cash-flow', 'p-5')}>
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">

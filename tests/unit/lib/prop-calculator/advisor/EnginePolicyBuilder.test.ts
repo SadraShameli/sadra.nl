@@ -50,10 +50,8 @@ function topStepPlan(): Plan {
 
 const HORIZON_DAYS = 90;
 
-function rulebook(
-    overrides: Partial<RulebookParameters> = {},
-): RulebookParameters {
-    return { ...DEFAULT_RULEBOOK, ...overrides };
+function rulebook(): RulebookParameters {
+    return { ...DEFAULT_RULEBOOK };
 }
 
 describe('buildEnginePolicy (PT-19 step 1)', () => {
@@ -280,11 +278,11 @@ describe('enginePolicyKey (PT-19 step 1)', () => {
     });
 });
 
-function baseSimInputs(plan: Plan, payoutRequestSize: number): SimInputs {
+function baseSimInputs(plan: Plan): SimInputs {
     return {
         fundedHorizonDays: HORIZON_DAYS,
         maxEvalDays: 30,
-        payoutRequestSize,
+        payoutRequestSize: 500,
         plan,
         riskPerTrade: 250,
         rrRatio: 2,
@@ -308,11 +306,7 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
             rebuyLagDays: 3,
             retainedCushionRequest: 2000,
         });
-        const result = applyEnginePolicy(
-            plan,
-            policy,
-            baseSimInputs(plan, 500),
-        );
+        const result = applyEnginePolicy(plan, policy, baseSimInputs(plan));
 
         expect(result.plan.maxLifetimePayouts).toBe(6);
         expect(result.minRetainedCushion).toBe(
@@ -343,11 +337,7 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
         });
         expect(plan.defaultRetainedCushion()).toBe(0);
 
-        const result = applyEnginePolicy(
-            plan,
-            policy,
-            baseSimInputs(plan, 500),
-        );
+        const result = applyEnginePolicy(plan, policy, baseSimInputs(plan));
 
         expect(result.minRetainedCushion).toBe(2000);
     });
@@ -365,11 +355,7 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
             rebuyLagDays: 0,
             retainedCushionRequest: 2000,
         });
-        const result = applyEnginePolicy(
-            plan,
-            policy,
-            baseSimInputs(plan, 500),
-        );
+        const result = applyEnginePolicy(plan, policy, baseSimInputs(plan));
 
         expect(result.payoutRequestSize).toBe(
             effectivePayoutRequest(result.plan, 777),
@@ -390,7 +376,7 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
             retainedCushionRequest: 2000,
         });
         const base: SimInputs = {
-            ...baseSimInputs(plan, 500),
+            ...baseSimInputs(plan),
             intradayPathStepsPerR: 42,
         };
         expect(
@@ -411,7 +397,7 @@ describe('applyEnginePolicy (PT-19 step 1)', () => {
             rebuyLagDays: 0,
             retainedCushionRequest: 2000,
         });
-        const base = { ...baseSimInputs(plan, 500) };
+        const base = { ...baseSimInputs(plan) };
         Reflect.deleteProperty(base, 'payoutRequestSize');
         expect(() => applyEnginePolicy(plan, policy, base)).toThrow();
     });

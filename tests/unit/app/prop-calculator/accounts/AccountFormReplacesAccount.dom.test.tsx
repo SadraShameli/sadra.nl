@@ -144,13 +144,14 @@ function element(scope: ParentNode, selector: string): HTMLElement {
     return found;
 }
 
-function fieldScope(scope: ParentNode, labelText: string): HTMLElement {
+function fieldScope(scope: ParentNode): HTMLElement {
     const label = [...scope.querySelectorAll('label')].find(
-        (candidate) => candidate.textContent.trim() === labelText,
+        (candidate) => candidate.textContent.trim() === 'Replaces account',
     );
-    if (label === undefined) throw new Error(`no field labelled ${labelText}`);
+    if (label === undefined)
+        throw new Error('no field labelled Replaces account');
     const item = label.closest<HTMLElement>('.flex.flex-col.gap-2');
-    if (item === null) throw new Error(`no form item for ${labelText}`);
+    if (item === null) throw new Error('no form item for Replaces account');
     return item;
 }
 
@@ -299,7 +300,7 @@ describe('the account form replaces field on a new account (F-68)', () => {
     });
 
     it('offers none and every other account, and sends null while none is chosen', async () => {
-        const field = fieldScope(container, 'Replaces account');
+        const field = fieldScope(container);
         expect(offeredValues(field)).toEqual([
             'none',
             ACCOUNT_ID,
@@ -317,7 +318,7 @@ describe('the account form replaces field on a new account (F-68)', () => {
     });
 
     it('sends the picked account id as replacesAccountId', async () => {
-        chooseSelectValue(fieldScope(container, 'Replaces account'), BUSTED_ID);
+        chooseSelectValue(fieldScope(container), BUSTED_ID);
         await submitForm(container);
         expect(
             harness.mutateAsyncOf('propAccounts.account.create'),
@@ -327,7 +328,7 @@ describe('the account form replaces field on a new account (F-68)', () => {
     });
 
     it('sends null again after choosing none', async () => {
-        chooseSelectValue(fieldScope(container, 'Replaces account'), 'none');
+        chooseSelectValue(fieldScope(container), 'none');
         await submitForm(container);
         expect(
             harness.mutateAsyncOf('propAccounts.account.create'),
@@ -350,7 +351,7 @@ describe('the account form replaces field on an edited account (F-68)', () => {
     });
 
     it('leaves the account being edited out of its own options and preselects the stored link', () => {
-        const field = fieldScope(container, 'Replaces account');
+        const field = fieldScope(container);
         expect(offeredValues(field)).toEqual(['none', BUSTED_ID, CLOSED_ID]);
         const select = [...field.querySelectorAll('select')].find((candidate) =>
             [...candidate.options].some((option) => option.value === BUSTED_ID),
@@ -359,7 +360,7 @@ describe('the account form replaces field on an edited account (F-68)', () => {
     });
 
     it('clears the link through account.update when none is chosen', async () => {
-        chooseSelectValue(fieldScope(container, 'Replaces account'), 'none');
+        chooseSelectValue(fieldScope(container), 'none');
         await submitForm(container);
         expect(
             harness.mutateAsyncOf('propAccounts.account.update'),

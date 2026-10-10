@@ -46,7 +46,7 @@ function baselineRisks(
                 result.dayPolicy.computeRisk?.(
                     lockedStateAt(balance),
                     0,
-                    fundedCycleAfter(1, lastPayoutBalance),
+                    fundedCycleAfter(lastPayoutBalance),
                 ),
             );
         }
@@ -120,16 +120,13 @@ async function ftmoGrowthPlan(): Promise<Plan> {
     return plan;
 }
 
-function fundedCycleAfter(
-    payoutsIssued: number,
-    lastPayoutBalance: number,
-): FundedCycleSnapshot {
+function fundedCycleAfter(lastPayoutBalance: number): FundedCycleSnapshot {
     return {
         cycleBestDayProfit: 0,
         dayGateProgress: 0,
         fundedResetsUsed: 0,
         lastPayoutBalance,
-        payoutsIssued,
+        payoutsIssued: 1,
     };
 }
 
@@ -276,7 +273,7 @@ describe('FundedStateValue without a payout request size keeps its pins (PT-47a,
             result.dayPolicy.computeRisk?.(
                 lockedStateAt(1150),
                 0,
-                fundedCycleAfter(1, 1150),
+                fundedCycleAfter(1150),
             ),
         ).toBe(100);
     });

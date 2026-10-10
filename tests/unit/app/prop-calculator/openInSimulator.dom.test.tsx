@@ -169,8 +169,8 @@ function openButtons(): HTMLButtonElement[] {
     );
 }
 
-function pathnameOf(url: null | string | undefined | URL): string {
-    return new URL(String(url ?? ''), ORIGIN).pathname;
+function pathnameOf(url: string | URL = ''): string {
+    return new URL(String(url), ORIGIN).pathname;
 }
 
 function pushedObjective(): null | string {
@@ -279,7 +279,7 @@ describe('Open in the simulator from a comparison table', () => {
             });
 
             const rewritten = replaceState.mock.calls.map((call) =>
-                pathnameOf(call[2]),
+                pathnameOf(call[2] ?? undefined),
             );
             expect(rewritten).not.toContain(routes.propCalculator.compare);
             expect(navigation.router.push).toHaveBeenCalledTimes(1);

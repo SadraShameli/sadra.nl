@@ -59,8 +59,8 @@ function visit(url: string) {
 describe('watchLegacyFragmentScroll', () => {
     const stops: (() => void)[] = [];
 
-    function watch(route = ROUTE) {
-        const stop = watchLegacyFragmentScroll(TARGET, route);
+    function watch() {
+        const stop = watchLegacyFragmentScroll(TARGET, ROUTE);
         stops.push(stop);
         return stop;
     }

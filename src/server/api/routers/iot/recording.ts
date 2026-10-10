@@ -154,7 +154,7 @@ export const recordingsRouter = createTRPCRouter({
                                 deviceName: ctx.device.name,
                                 durationSeconds: input.duration_seconds,
                                 fileName,
-                                locationName: loc?.name ?? null,
+                                locationName: loc?.name ?? undefined,
                             }),
                     );
                 } catch (error: unknown) {

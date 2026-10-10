@@ -63,11 +63,11 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
     );
 }
 
-function Badge({ label, value, valueClassName }: BadgeProperties) {
+function Badge({ label, value, valueClassName = '' }: BadgeProperties) {
     return (
         <span className="flex items-center gap-1.5">
             <span className="text-muted-foreground">{label}</span>
-            <span className={`font-mono font-semibold ${valueClassName ?? ''}`}>
+            <span className={`font-mono font-semibold ${valueClassName}`}>
                 {value}
             </span>
         </span>

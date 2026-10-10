@@ -1260,7 +1260,7 @@ describe('hubCardHref (F-38)', () => {
     });
 
     it('links the bare route when there is no last query', () => {
-        expect(hubCardHref(simulator, null)).toBe(
+        expect(hubCardHref(simulator, undefined)).toBe(
             routes.propCalculator.simulator,
         );
         expect(hubCardHref(simulator, '')).toBe(

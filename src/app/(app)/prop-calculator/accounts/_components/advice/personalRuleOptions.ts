@@ -212,26 +212,6 @@ export function personalLimitsOf(
     };
 }
 
-export function personalPolicyOverridesOf(
-    personalRules: null | PersonalRules,
-    maxRiskPerTrade: Dollars | null,
-): PersonalPolicyOverrides {
-    return {
-        payoutRequestOverride:
-            optionalDollars(personalRules?.payoutRequestOverrideCents) ?? null,
-        personalCaps: {
-            dailyProfitCap:
-                optionalDollars(personalRules?.dailyProfitCapCents) ?? null,
-            maxRiskPerTrade,
-            maxTradesPerDay: personalRules?.maxTradesPerDay ?? null,
-        },
-        personalDll:
-            optionalDollars(personalRules?.dailyLossLimitCents) ?? null,
-        retainedCushionRequest:
-            optionalDollars(personalRules?.retainedCushionCents) ?? null,
-    };
-}
-
 export function personalPolicyOverridesOfOptions(
     options: PersonalLimitOptions,
 ): PersonalPolicyOverrides {
@@ -305,4 +285,24 @@ export function reconstructedMaxRiskOf(
     account: ReconstructedAccount,
 ): Dollars | null {
     return dollarsOrNull(account.personalMaxRiskPerTrade);
+}
+
+function personalPolicyOverridesOf(
+    personalRules: null | PersonalRules,
+    maxRiskPerTrade: Dollars | null,
+): PersonalPolicyOverrides {
+    return {
+        payoutRequestOverride:
+            optionalDollars(personalRules?.payoutRequestOverrideCents) ?? null,
+        personalCaps: {
+            dailyProfitCap:
+                optionalDollars(personalRules?.dailyProfitCapCents) ?? null,
+            maxRiskPerTrade,
+            maxTradesPerDay: personalRules?.maxTradesPerDay ?? null,
+        },
+        personalDll:
+            optionalDollars(personalRules?.dailyLossLimitCents) ?? null,
+        retainedCushionRequest:
+            optionalDollars(personalRules?.retainedCushionCents) ?? null,
+    };
 }

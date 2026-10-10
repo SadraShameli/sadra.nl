@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
     BaseTaxCodeCatalog,
     TaxCode,
@@ -77,7 +79,7 @@ export function isReverseChargeVat(code: VatCode): boolean {
 }
 
 export function isVatCode(value: string): value is VatCode {
-    return Object.values(VatCode).includes(value as VatCode);
+    return z.enum(VatCode).safeParse(value).success;
 }
 
 export function parseVatCode(value: string): VatCode {

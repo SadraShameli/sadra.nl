@@ -5,7 +5,7 @@ import { endDb } from '~/server/db';
 import { seeders } from '~/server/db/seeds';
 import { SeederRegistry } from '~/server/db/types';
 
-export default defineCommand({
+const command = defineCommand({
     meta: {
         description: 'List all registered seeders, grouped by prefix',
         name: 'list',
@@ -32,3 +32,5 @@ export default defineCommand({
         }
     },
 });
+
+export default command;

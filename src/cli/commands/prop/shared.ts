@@ -1148,9 +1148,7 @@ export function fundedResetFlagDescription(plans: readonly Plan[]): string {
     const offers = plans.flatMap((plan) =>
         plan.fundedReset === null
             ? []
-            : [
-                  `--firm ${plan.id.firm} --variant ${planVariant(plan)} at ${formatCurrency(plan.accountSize)} (${describeFundedResetTerms(plan.fundedReset)})`,
-              ],
+            : `--firm ${plan.id.firm} --variant ${planVariant(plan)} at ${formatCurrency(plan.accountSize)} (${describeFundedResetTerms(plan.fundedReset)})`,
     );
     return `Buy the funded reset on plans that offer it: ${offers.join('; ')}. ${FUNDED_RESET_MECHANICS} Off by default; plans without it ignore it`;
 }
@@ -1159,14 +1157,6 @@ export function hasEvalPass(
     out: Pick<SimOutputs, 'evalPassProbability'>,
 ): boolean {
     return out.evalPassProbability > 0;
-}
-
-export function placedCapNote(
-    plan: Plan | undefined,
-    isCapped: boolean,
-): string {
-    if (plan === undefined) return ', before any contract limit';
-    return isCapped ? `, capped at ${FUNDED_START_TIER_CONTRACT_LIMIT}` : '';
 }
 
 export function placedFundedRiskNote(
@@ -1301,6 +1291,11 @@ export function unrestatedLines(
     stated: readonly string[],
 ): readonly string[] {
     return lines.filter((line) => stated.every((text) => !text.includes(line)));
+}
+
+function placedCapNote(plan: Plan | undefined, isCapped: boolean): string {
+    if (plan === undefined) return ', before any contract limit';
+    return isCapped ? `, capped at ${FUNDED_START_TIER_CONTRACT_LIMIT}` : '';
 }
 
 export const MAX_PATH_GRANULARITY = MAX_INTRADAY_PATH_STEPS_PER_R;

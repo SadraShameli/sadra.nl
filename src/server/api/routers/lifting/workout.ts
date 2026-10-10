@@ -41,17 +41,18 @@ export const liftingWorkoutRouter = createTRPCRouter({
                 });
             }
             const row = await retryOnUniqueViolation(async () => {
-                const [{ next } = { next: 0 }] = await ctx.db
+                const [previous] = await ctx.db
                     .select({ next: max(liftingWorkoutExercise.order) })
                     .from(liftingWorkoutExercise)
                     .where(
                         eq(liftingWorkoutExercise.workoutId, input.workoutId),
                     );
+                const next = previous?.next ?? 0;
                 const [inserted] = await ctx.db
                     .insert(liftingWorkoutExercise)
                     .values({
                         exerciseId: input.exerciseId,
-                        order: (next ?? 0) + 1,
+                        order: next + 1,
                         supersetGroup: input.supersetGroup ?? null,
                         workoutId: input.workoutId,
                     })

@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import ladderCommand, {
-    ladderCommandArguments,
+    ladderArguments,
 } from '~/cli/commands/prop/ladder/command';
 import optimizeDp, {
     DP_TRADES_PER_DAY,
@@ -1147,10 +1147,7 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
         ];
         const stdout = await capturedStdout(async () => {
             await ladderCommand.run?.({
-                args: parseArgs<typeof ladderCommandArguments>(
-                    argv,
-                    ladderCommandArguments,
-                ),
+                args: parseArgs<typeof ladderArguments>(argv, ladderArguments),
                 cmd: ladderCommand,
                 rawArgs: argv,
             });
@@ -1184,10 +1181,7 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
         ];
         const stdout = await capturedStdout(async () => {
             await ladderCommand.run?.({
-                args: parseArgs<typeof ladderCommandArguments>(
-                    argv,
-                    ladderCommandArguments,
-                ),
+                args: parseArgs<typeof ladderArguments>(argv, ladderArguments),
                 cmd: ladderCommand,
                 rawArgs: argv,
             });

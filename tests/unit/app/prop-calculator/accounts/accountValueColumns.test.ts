@@ -169,12 +169,11 @@ function documented(
 
 function evalAccount(
     valueNow: number,
-    valueFreshEval: number,
     overrides: Partial<AccountValueModeledInput> = {},
 ): AccountValueModeledInput {
     return modeled({
         fromState: fromStateSlot(valueOf(valueNow), null, SizingStage.Eval),
-        planValues: ready(planValues(valueFreshEval)),
+        planValues: ready(planValues()),
         stage: SizingStage.Eval,
         ...overrides,
     });
@@ -253,7 +252,7 @@ function modeled(
         documented: ready(documented()),
         fromState: ready(fromState(valueOf(1800))),
         kind: AccountValueInputKind.Modeled,
-        planValues: ready(planValues(1000)),
+        planValues: ready(planValues()),
         realized: null,
         retryFee: RETRY_FEE,
         stage: SizingStage.Funded,
@@ -261,12 +260,12 @@ function modeled(
     };
 }
 
-function planValues(valueFreshEval: number): PlanValuesFigures {
+function planValues(): PlanValuesFigures {
     return {
         freshFundedValue: valueOf(2000),
         retryFee: RETRY_FEE,
         trials: 2000,
-        valueFreshEval: valueOf(valueFreshEval),
+        valueFreshEval: valueOf(1000),
     };
 }
 
@@ -467,7 +466,7 @@ describe('accountValueColumnsOf: expected payouts (Q1, V-70)', () => {
     });
 
     it('gives two accounts at different stages different expected payouts', () => {
-        const eval_ = columnsOf(evalAccount(1200, 1000));
+        const eval_ = columnsOf(evalAccount(1200));
         const funded = columnsOf(fundedAccount(2500));
         expect(expectedValueOf(eval_)).not.toBe(expectedValueOf(funded));
     });
@@ -672,7 +671,7 @@ describe('accountValueColumnsOf: next payout and its highlight', () => {
     });
 
     it('is not applicable before the account is funded', () => {
-        expect(columnsOf(evalAccount(1200, 1000)).nextPayout).toMatchObject({
+        expect(columnsOf(evalAccount(1200)).nextPayout).toMatchObject({
             days: null,
             isSoon: false,
             kind: NextPayoutKind.NotFunded,
@@ -688,7 +687,7 @@ describe('accountValueColumnsOf: next payout and its highlight', () => {
 
 describe('accountValueColumnsOf: at risk if busted (F-V16, VD-10)', () => {
     it('equals the retry fee at a fresh eval, where V(now) equals V(fresh eval)', () => {
-        const atRisk = atRiskOf(columnsOf(evalAccount(1000, 1000)));
+        const atRisk = atRiskOf(columnsOf(evalAccount(1000)));
         expect(atRisk.kind).toBe(AtRiskKind.Exact);
         expect(atRisk.text).toBe(
             `At risk if busted: $${RETRY_FEE.toLocaleString('en-US')}`,
@@ -696,7 +695,7 @@ describe('accountValueColumnsOf: at risk if busted (F-V16, VD-10)', () => {
     });
 
     it('is more than the retry fee when the account is worth more than a fresh eval', () => {
-        const atRisk = atRiskOf(columnsOf(evalAccount(1400, 1000)));
+        const atRisk = atRiskOf(columnsOf(evalAccount(1400)));
         expect(atRisk.kind).toBe(AtRiskKind.Exact);
         expect(atRisk.text).toBe(
             `At risk if busted: $${(400 + RETRY_FEE).toLocaleString('en-US')}`,
@@ -705,19 +704,19 @@ describe('accountValueColumnsOf: at risk if busted (F-V16, VD-10)', () => {
 
     it('uses the credit-free values, not the credit-inclusive ones', () => {
         const slot = fromStateSlot(valueOf(1400, 8888), null, SizingStage.Eval);
-        const columns = columnsOf(evalAccount(1400, 1000, { fromState: slot }));
+        const columns = columnsOf(evalAccount(1400, { fromState: slot }));
         expect(atRiskOf(columns).text).toContain(
             (400 + RETRY_FEE).toLocaleString('en-US'),
         );
     });
 
     it('discloses that the rebuy lag is not priced', () => {
-        const columns = columnsOf(evalAccount(1400, 1000));
+        const columns = columnsOf(evalAccount(1400));
         expect(atRiskOf(columns).note).toContain('rebought eval');
     });
 
     it('never goes negative: a fresh eval worth more than the account says so', () => {
-        const atRisk = atRiskOf(columnsOf(evalAccount(500, 1000)));
+        const atRisk = atRiskOf(columnsOf(evalAccount(500)));
         expect(atRisk.text).not.toContain('-$');
         expect(atRisk.text).toContain('$0');
         expect(atRisk.note).toContain(
@@ -734,9 +733,7 @@ describe('accountValueColumnsOf: at risk if busted (F-V16, VD-10)', () => {
     ])(
         'falls back to at least the retry fee only while the figures are pending (%s)',
         (_label, overrides) => {
-            const atRisk = atRiskOf(
-                columnsOf(evalAccount(1400, 1000, overrides)),
-            );
+            const atRisk = atRiskOf(columnsOf(evalAccount(1400, overrides)));
             expect(atRisk.kind).toBe(AtRiskKind.AtLeast);
             expect(atRisk.text).toBe(
                 `At risk if busted: at least $${RETRY_FEE.toLocaleString('en-US')} (the retry fee; exact only at a fresh eval)`,
@@ -779,9 +776,7 @@ describe('accountValueColumnsOf: at risk if busted (F-V16, VD-10)', () => {
     ])(
         'is unavailable with the engine reason, never the retry fee, when a figure failed (%s)',
         (_label, overrides, reason) => {
-            const atRisk = atRiskOf(
-                columnsOf(evalAccount(1400, 1000, overrides)),
-            );
+            const atRisk = atRiskOf(columnsOf(evalAccount(1400, overrides)));
             expect(atRisk.kind).toBe(AtRiskKind.Unavailable);
             expect(atRisk.text).toBe(
                 `At risk if busted is not available: ${reason}`,
@@ -797,7 +792,7 @@ describe('accountValueColumnsOf: at risk if busted (F-V16, VD-10)', () => {
 
 describe('accountValueColumnsOf: EV per attempt (F-V16, VD-28)', () => {
     it('is the engine credit-free net per attempt, labelled modeled, when nothing is realized', () => {
-        const ev = evOf(columnsOf(evalAccount(1000, 1000)));
+        const ev = evOf(columnsOf(evalAccount(1000)));
         expect(ev.text).toBe('EV per attempt: $55 (SE $5)');
         expect(ev.passBasis).toBe(FigureBasis.Modeled);
         expect(ev.fundedValueBasis).toBe(FigureBasis.Modeled);
@@ -811,7 +806,7 @@ describe('accountValueColumnsOf: EV per attempt (F-V16, VD-28)', () => {
             passRate: { n: 40, value: 0.5 },
         };
         const withThreshold = evOf(
-            columnsOf(evalAccount(1000, 1000, { realized }), {
+            columnsOf(evalAccount(1000, { realized }), {
                 sampleThresholds: {
                     ...DEFAULT_RULEBOOK.samples,
                     minEvalAttempts: 30,
@@ -823,14 +818,12 @@ describe('accountValueColumnsOf: EV per attempt (F-V16, VD-28)', () => {
         expect(withThreshold.text).toBe('EV per attempt: $330');
         expect(withThreshold.note).toContain('n = 40');
 
-        const noThreshold = evOf(
-            columnsOf(evalAccount(1000, 1000, { realized })),
-        );
+        const noThreshold = evOf(columnsOf(evalAccount(1000, { realized })));
         expect(noThreshold.passBasis).toBe(FigureBasis.Modeled);
         expect(noThreshold.text).toBe('EV per attempt: $55 (SE $5)');
 
         const notMet = evOf(
-            columnsOf(evalAccount(1000, 1000, { realized }), {
+            columnsOf(evalAccount(1000, { realized }), {
                 sampleThresholds: {
                     ...DEFAULT_RULEBOOK.samples,
                     minEvalAttempts: 50,
@@ -846,7 +839,7 @@ describe('accountValueColumnsOf: EV per attempt (F-V16, VD-28)', () => {
             passRate: null,
         };
         const met = evOf(
-            columnsOf(evalAccount(1000, 1000, { realized }), {
+            columnsOf(evalAccount(1000, { realized }), {
                 sampleThresholds: {
                     ...DEFAULT_RULEBOOK.samples,
                     minFundedAccounts: 10,
@@ -858,7 +851,7 @@ describe('accountValueColumnsOf: EV per attempt (F-V16, VD-28)', () => {
         expect(met.text).toBe('EV per attempt: $480');
 
         const unmet = evOf(
-            columnsOf(evalAccount(1000, 1000, { realized }), {
+            columnsOf(evalAccount(1000, { realized }), {
                 sampleThresholds: {
                     ...DEFAULT_RULEBOOK.samples,
                     minFundedAccounts: 25,
@@ -871,7 +864,7 @@ describe('accountValueColumnsOf: EV per attempt (F-V16, VD-28)', () => {
     it('mixes both realized figures into the one definition, attempt cost from the engine', () => {
         const ev = evOf(
             columnsOf(
-                evalAccount(1000, 1000, {
+                evalAccount(1000, {
                     realized: {
                         fundedValue: { n: 20, value: 2000 },
                         passRate: { n: 40, value: 0.5 },
@@ -893,7 +886,7 @@ describe('accountValueColumnsOf: EV per attempt (F-V16, VD-28)', () => {
         const figures = documented({
             expectedNetPerAttempt: { standardError: 5, value: -80 },
         });
-        const account = evalAccount(1000, 1000, {
+        const account = evalAccount(1000, {
             documented: ready(figures),
         });
         expect(evOf(columnsOf(account)).text).toBe(
@@ -903,12 +896,11 @@ describe('accountValueColumnsOf: EV per attempt (F-V16, VD-28)', () => {
 
     it('is pending, then unavailable with the reason, while the documented run is missing', () => {
         expect(
-            columnsOf(evalAccount(1000, 1000, { documented: PENDING }))
-                .evPerAttempt,
+            columnsOf(evalAccount(1000, { documented: PENDING })).evPerAttempt,
         ).toStrictEqual({ kind: EvPerAttemptKind.Pending });
         expect(
             columnsOf(
-                evalAccount(1000, 1000, {
+                evalAccount(1000, {
                     documented: {
                         kind: EngineSlotKind.Refused,
                         reason: 'no sizing',

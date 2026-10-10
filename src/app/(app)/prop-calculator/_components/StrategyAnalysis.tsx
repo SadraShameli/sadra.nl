@@ -246,12 +246,7 @@ export default function StrategyAnalysis({
         : '∞';
 
     return (
-        <Card
-            className={cn(
-                'app-prop-calculator__strategy-analysis',
-                'px-5 py-5',
-            )}
-        >
+        <Card className={cn('app-prop-calculator__strategy-analysis', 'p-5')}>
             <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">Strategy Analysis</h3>
                 <InfoPopover title="Strategy analysis">

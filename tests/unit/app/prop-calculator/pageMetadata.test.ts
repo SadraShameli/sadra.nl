@@ -37,8 +37,10 @@ describe('buildToolMetadata', () => {
 
     it('keeps descriptions short enough for a search snippet', () => {
         for (const entry of TOOL_CATALOG) {
-            const { description } = buildToolMetadata(entry.id);
-            expect((description ?? '').length).toBeLessThanOrEqual(320);
+            const metadata = buildToolMetadata(entry.id);
+            expect((metadata.description ?? '').length).toBeLessThanOrEqual(
+                320,
+            );
         }
     });
 

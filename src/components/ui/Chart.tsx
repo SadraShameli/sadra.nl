@@ -226,7 +226,7 @@ const ChartTooltipContent = React.forwardRef<
                                 return (
                                     <div
                                         className={cn(
-                                            'flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground',
+                                            'flex w-full flex-wrap items-stretch gap-2 [&>svg]:size-2.5 [&>svg]:text-muted-foreground',
                                             indicator === 'dot' &&
                                                 'items-center',
                                         )}
@@ -252,13 +252,13 @@ const ChartTooltipContent = React.forwardRef<
                                                             className={cn(
                                                                 'shrink-0 rounded-xs border-[--color-border] bg-[--color-bg]',
                                                                 {
-                                                                    'h-2.5 w-2.5':
-                                                                        indicator ===
-                                                                        'dot',
                                                                     'my-0.5':
                                                                         isNestLabel &&
                                                                         indicator ===
                                                                             'dashed',
+                                                                    'size-2.5':
+                                                                        indicator ===
+                                                                        'dot',
                                                                     'w-0 border-[1.5px] border-dashed bg-transparent':
                                                                         indicator ===
                                                                         'dashed',
@@ -363,7 +363,7 @@ const ChartLegendContent = React.forwardRef<
                         return (
                             <div
                                 className={cn(
-                                    'flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground',
+                                    'flex items-center gap-1.5 [&>svg]:size-3 [&>svg]:text-muted-foreground',
                                 )}
                                 key={item.value}
                             >
@@ -371,7 +371,7 @@ const ChartLegendContent = React.forwardRef<
                                     <itemConfig.icon />
                                 ) : (
                                     <div
-                                        className="h-2 w-2 shrink-0 rounded-xs"
+                                        className="size-2 shrink-0 rounded-xs"
                                         style={{
                                             backgroundColor: item.color,
                                         }}

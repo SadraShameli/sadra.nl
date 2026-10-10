@@ -11,7 +11,7 @@ import { SeederRegistry } from '~/server/db/types';
 const isTokenMatch = (name: string, token: string): boolean =>
     name === token || name.startsWith(`${token}:`);
 
-export default defineCommand({
+const command = defineCommand({
     args: {
         interactive: {
             alias: 'i',
@@ -87,3 +87,5 @@ export default defineCommand({
         }
     },
 });
+
+export default command;

@@ -37,10 +37,9 @@ const OPTIONS = { recentDays: 30, rulebook: DEFAULT_RULEBOOK, today: TODAY };
 function accountOf(
     accountId: string,
     firmId: FirmId,
-    extraProfit: number,
     overrides: Partial<ConcentrationAccount> = {},
 ): ConcentrationAccount {
-    const { funded, plan } = inProfitFunded(extraProfit);
+    const { funded, plan } = inProfitFunded();
     return {
         accountId,
         firmId,
@@ -53,12 +52,12 @@ function accountOf(
     };
 }
 
-function inProfitFunded(extraProfit: number) {
+function inProfitFunded() {
     const plan = mffProPlan();
     const funded = fundedReconstructed(plan, {
-        balance: plan.accountSize + extraProfit,
+        balance: plan.accountSize + 20_000,
         cumulativePayout: 0,
-        cycleBestDayProfit: extraProfit,
+        cycleBestDayProfit: 20_000,
         lastPayoutBalance: plan.accountSize,
         payoutsIssued: 1,
     });
@@ -132,7 +131,7 @@ describe('fundedWithdrawableDollarsOf', () => {
     });
 
     it('is the tracker withdrawable for a funded account in profit', () => {
-        const { funded } = inProfitFunded(20_000);
+        const { funded } = inProfitFunded();
         expect(
             fundedWithdrawableDollarsOf(DEFAULT_RULEBOOK, funded),
         ).toBeGreaterThan(0);
@@ -163,9 +162,9 @@ describe('firmProfitConcentrationOf', () => {
     it('counts funded accounts in profit per firm and their withdrawable, and ranks the biggest firm first', () => {
         const result = firmProfitConcentrationOf(
             [
-                accountOf('a1', FirmId.Mffu, 20_000),
-                accountOf('a2', FirmId.Mffu, 20_000),
-                accountOf('a3', FirmId.Apex, 20_000),
+                accountOf('a1', FirmId.Mffu),
+                accountOf('a2', FirmId.Mffu),
+                accountOf('a3', FirmId.Apex),
             ],
             OPTIONS,
         );
@@ -179,7 +178,7 @@ describe('firmProfitConcentrationOf', () => {
         const oneAccount = usdCentsFromDollars(
             fundedWithdrawableDollarsOf(
                 DEFAULT_RULEBOOK,
-                inProfitFunded(20_000).funded,
+                inProfitFunded().funded,
             ),
         );
         expect(oneAccount).toBeGreaterThan(0);
@@ -266,9 +265,9 @@ describe('firmProfitConcentrationOf', () => {
         const plan = mffProPlan();
         const result = firmProfitConcentrationOf(
             [
-                accountOf('fresh', FirmId.Mffu, 20_000),
-                accountOf('stale', FirmId.Mffu, 20_000, { isStale: true }),
-                accountOf('ended-stale', FirmId.Mffu, 20_000, {
+                accountOf('fresh', FirmId.Mffu),
+                accountOf('stale', FirmId.Mffu, { isStale: true }),
+                accountOf('ended-stale', FirmId.Mffu, {
                     isActive: false,
                     isStale: true,
                 }),
@@ -317,7 +316,7 @@ describe('firmProfitConcentrationOf', () => {
     });
 
     it('names the retained cushion it assumed, the larger of Hard Rule 2 and the rulebook size', () => {
-        const accounts = [accountOf('a1', FirmId.Mffu, 20_000)];
+        const accounts = [accountOf('a1', FirmId.Mffu)];
         expect(
             firmProfitConcentrationOf(accounts, OPTIONS).retainedCushionDollars,
         ).toBe(2000);
@@ -338,7 +337,7 @@ describe('firmProfitConcentrationOf', () => {
     it('keeps an ended account out of the profit counts while its payouts and move live still count for the firm', () => {
         const result = firmProfitConcentrationOf(
             [
-                accountOf('ended', FirmId.Mffu, 20_000, {
+                accountOf('ended', FirmId.Mffu, {
                     isActive: false,
                     movedLiveOn: '2026-07-01',
                     paidPayouts: [paid(100_000, '2026-09-10', 90_000)],
@@ -357,7 +356,7 @@ describe('firmProfitConcentrationOf', () => {
     it('counts paid payouts inside the recent window and none outside it', () => {
         const result = firmProfitConcentrationOf(
             [
-                accountOf('a1', FirmId.Mffu, 20_000, {
+                accountOf('a1', FirmId.Mffu, {
                     paidPayouts: [
                         paid(100_000, '2026-09-10', 90_000),
                         paid(50_000, '2026-08-24', null),
@@ -374,7 +373,7 @@ describe('firmProfitConcentrationOf', () => {
     it('counts only paid payouts with a paid date', () => {
         const result = firmProfitConcentrationOf(
             [
-                accountOf('a1', FirmId.Mffu, 20_000, {
+                accountOf('a1', FirmId.Mffu, {
                     paidPayouts: [
                         paid(100_000, null, 90_000),
                         {
@@ -394,14 +393,14 @@ describe('firmProfitConcentrationOf', () => {
     it('counts payouts since the latest move live of any account at the firm', () => {
         const result = firmProfitConcentrationOf(
             [
-                accountOf('a1', FirmId.Mffu, 20_000, {
+                accountOf('a1', FirmId.Mffu, {
                     movedLiveOn: '2026-07-01',
                     paidPayouts: [
                         paid(100_000, '2026-06-20', 90_000),
                         paid(80_000, '2026-08-01', 70_000),
                     ],
                 }),
-                accountOf('a2', FirmId.Mffu, 20_000, {
+                accountOf('a2', FirmId.Mffu, {
                     movedLiveOn: '2026-07-15',
                     paidPayouts: [
                         paid(60_000, '2026-07-10', 50_000),
@@ -422,7 +421,7 @@ describe('firmProfitConcentrationOf', () => {
     it('counts every paid payout and reports no date when the firm never moved live', () => {
         const result = firmProfitConcentrationOf(
             [
-                accountOf('a1', FirmId.Mffu, 20_000, {
+                accountOf('a1', FirmId.Mffu, {
                     paidPayouts: [
                         paid(100_000, '2026-06-20', 90_000),
                         paid(80_000, '2026-08-01', 70_000),
@@ -441,10 +440,10 @@ describe('firmProfitConcentrationOf', () => {
     it('is separate per firm: another firm moving live does not reset this firm', () => {
         const result = firmProfitConcentrationOf(
             [
-                accountOf('a1', FirmId.Mffu, 20_000, {
+                accountOf('a1', FirmId.Mffu, {
                     paidPayouts: [paid(100_000, '2026-06-20', 90_000)],
                 }),
-                accountOf('a2', FirmId.Apex, 20_000, {
+                accountOf('a2', FirmId.Apex, {
                     movedLiveOn: '2026-09-01',
                 }),
             ],

@@ -23,8 +23,11 @@ const COMPONENTS_ROOT = path.join(
     '_components',
 );
 
-function componentSource(fileName: string): string {
-    return readFileSync(path.join(COMPONENTS_ROOT, fileName), 'utf8');
+function componentSource(): string {
+    return readFileSync(
+        path.join(COMPONENTS_ROOT, 'TradingInputs.tsx'),
+        'utf8',
+    );
 }
 
 describe('tradingEdgePlausibilityNote (F-V22)', () => {
@@ -72,7 +75,7 @@ describe('tradingEdgePlausibilityNote (F-V22)', () => {
     });
 
     it('is what TradingInputs renders next to the reward-to-risk slider', () => {
-        const source = componentSource('TradingInputs.tsx');
+        const source = componentSource();
         const noteAt = source.indexOf("{plausibilityNote ?? ''}");
         const rrSliderAt = source.indexOf('id="rr-ratio-label"');
         const tradesPerDayAt = source.indexOf('id="trades-per-day"');
@@ -147,7 +150,7 @@ describe('tradingEdgePlausibilityNote Kelly growth and pace (F-V22, PT-86)', () 
     });
 
     it('keeps the compounding start card-local: an empty text field that is not stored', () => {
-        const source = componentSource('TradingInputs.tsx');
+        const source = componentSource();
         expect(source).toContain('Compounding start ($)');
         expect(source).toContain("useState('')");
         expect(source).toContain('tradesPerDay');

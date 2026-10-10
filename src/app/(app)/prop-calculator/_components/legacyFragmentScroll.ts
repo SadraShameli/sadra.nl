@@ -23,12 +23,12 @@ const USER_SCROLL_EVENTS = ['keydown', 'pointerdown', 'touchmove', 'wheel'];
 export function hubLegacyTarget(
     hash: string,
     search: string,
-    lastQuery: null | string,
+    lastQuery = '',
 ): HubLegacyTarget | null {
     const target = legacySectionTarget(hash);
     if (target === null) return null;
     const ownQuery = new URLSearchParams(search).toString();
-    const query = ownQuery === '' ? (lastQuery ?? '') : ownQuery;
+    const query = ownQuery === '' ? lastQuery : ownQuery;
     const path = subnavHref({ carriesQuery: true, href: target.route }, query);
     return {
         fragment: target.fragment,

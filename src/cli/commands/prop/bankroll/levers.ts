@@ -40,7 +40,7 @@ export const leversArguments = {
     ...bankrollLeversArguments,
 };
 
-export default defineCommand({
+const command = defineCommand({
     args: leversArguments,
     meta: {
         description:
@@ -94,22 +94,7 @@ export default defineCommand({
     },
 });
 
-export function leverRowCells(row: BankrollLeverRow): readonly string[] {
-    return [
-        row.kind === BankrollLeverKind.Base
-            ? 'base'
-            : `${row.kind} ${row.value ?? ''}`.trim(),
-        estimateCell(row.passProbability),
-        changeCell(row.deltaPassProbability),
-        estimateCell(row.attemptPaysProbability),
-        changeCell(row.deltaAttemptPaysProbability),
-        formatCurrency(row.evPerAttempt.value),
-        formatCurrency(row.monthlyNet.value),
-        row.lossRisk.value === null ? 'n/a' : estimateCell(row.lossRisk.value),
-        changeCell(row.deltaLossProbability),
-        row.label ?? '',
-    ];
-}
+export default command;
 
 export function leverVariants(
     inputs: TradingInputs,
@@ -165,6 +150,23 @@ function estimateCell(estimate: EconomicsEstimate): string {
     return estimate.standardError === null
         ? formatPercent(estimate.value)
         : `${formatPercent(estimate.value)} (SE ${formatPercent(estimate.standardError)})`;
+}
+
+function leverRowCells(row: BankrollLeverRow): readonly string[] {
+    return [
+        row.kind === BankrollLeverKind.Base
+            ? 'base'
+            : `${row.kind} ${row.value ?? ''}`.trim(),
+        estimateCell(row.passProbability),
+        changeCell(row.deltaPassProbability),
+        estimateCell(row.attemptPaysProbability),
+        changeCell(row.deltaAttemptPaysProbability),
+        formatCurrency(row.evPerAttempt.value),
+        formatCurrency(row.monthlyNet.value),
+        row.lossRisk.value === null ? 'n/a' : estimateCell(row.lossRisk.value),
+        changeCell(row.deltaLossProbability),
+        row.label ?? '',
+    ];
 }
 
 function toBankrollLeverOutputs(out: SimOutputs): BankrollLeverOutputs {

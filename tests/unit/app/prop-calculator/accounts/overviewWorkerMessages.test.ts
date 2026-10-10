@@ -1160,26 +1160,20 @@ const EVAL_SNAPSHOT: AccountSnapshotInput = {
     tradingDays: 5,
 };
 
-function accountPlanInput(
-    snapshot: AccountSnapshotInput,
-    plan: Plan = TOPSTEP_50K,
-) {
+function accountPlanInput(snapshot: AccountSnapshotInput) {
     return {
         account: snapshot,
-        firmId: plan.id.firm,
+        firmId: TOPSTEP_50K.id.firm,
         measuredRebuyLag: null,
         optIns: NO_PLAN_OPT_INS,
         pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
-        planSerial: serializePlanId(plan.id),
+        planSerial: serializePlanId(TOPSTEP_50K.id),
     };
 }
 
-function accountRequestFor(
-    snapshot: AccountSnapshotInput,
-    plan: Plan = TOPSTEP_50K,
-): OverviewRequest {
+function accountRequestFor(snapshot: AccountSnapshotInput): OverviewRequest {
     const [first] = overviewAccountRequestsFor(
-        [accountPlanInput(snapshot, plan)],
+        [accountPlanInput(snapshot)],
         DEFAULT_RULEBOOK,
     );
     if (first === undefined) throw new Error('no account request');
@@ -1194,14 +1188,14 @@ function milestoneValueOf(figures: AccountFromStateFigures): ValueResult {
     return value.value;
 }
 
-function planValueRequestFor(plan: Plan = TOPSTEP_50K): OverviewRequest {
+function planValueRequestFor(): OverviewRequest {
     const [first] = overviewPlanValueRequestsFor(
         [
             {
-                firmId: plan.id.firm,
+                firmId: TOPSTEP_50K.id.firm,
                 measuredRebuyLag: null,
                 optIns: NO_PLAN_OPT_INS,
-                planSerial: serializePlanId(plan.id),
+                planSerial: serializePlanId(TOPSTEP_50K.id),
             },
         ],
         DEFAULT_RULEBOOK,
@@ -1210,13 +1204,10 @@ function planValueRequestFor(plan: Plan = TOPSTEP_50K): OverviewRequest {
     return { ...first, spec: { ...first.spec, run: TINY_RUN } };
 }
 
-function rebuiltAccount(
-    snapshot: AccountSnapshotInput,
-    plan: Plan = TOPSTEP_50K,
-) {
+function rebuiltAccount(snapshot: AccountSnapshotInput) {
     return AccountReconstruction.rebuild(
         snapshot,
-        plan,
+        TOPSTEP_50K,
         null,
         NO_PENDING_PAYOUT_COUNTS,
     );
@@ -1895,7 +1886,7 @@ describe('overviewValueChainRequestsFor (PT-37, F-V18)', () => {
         expect(requests[0]?.account).toBeUndefined();
         expect(structuredClone(requests[0])).toEqual(requests[0]);
         expect(overviewRequestKey(chainRequestFor(TOPSTEP_50K))).not.toBe(
-            overviewRequestKey(planValueRequestFor(TOPSTEP_50K)),
+            overviewRequestKey(planValueRequestFor()),
         );
     });
 

@@ -1248,7 +1248,7 @@ async function plannedFor(
         objective: SizingObjective.MonthlyNet,
         optIns: target.optIns,
         personalPayoutRequest: target.personalPayoutRequest,
-        personalRetainedCushion: target.personalRetainedCushion,
+        personalRetainedCushion: target.personalRetainedCushion ?? undefined,
         plan,
         planRulesFingerprint: await planRulesFingerprint(plan),
         positionSizing: settings.positionSizing,

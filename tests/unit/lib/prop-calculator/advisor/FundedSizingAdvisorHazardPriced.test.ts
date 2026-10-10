@@ -176,7 +176,7 @@ function sweepBasesOf(
     return requests.flatMap((request) =>
         request.source === AdviceSource.FundedSweepFresh ||
         request.source === AdviceSource.FundedSweepFromState
-            ? [{ base: request.base, source: request.source }]
+            ? { base: request.base, source: request.source }
             : [],
     );
 }

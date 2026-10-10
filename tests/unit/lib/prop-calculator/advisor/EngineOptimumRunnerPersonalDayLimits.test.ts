@@ -84,7 +84,7 @@ function evalPassProbabilitiesOf(policy: EnginePolicy): number[] {
     }
     return result.sweep.optimum.rows.flatMap((row) =>
         row.kind === EngineOptimumRowKind.Placed
-            ? [row.out.evalPassProbability]
+            ? row.out.evalPassProbability
             : [],
     );
 }
