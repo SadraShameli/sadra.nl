@@ -9,7 +9,7 @@ import {
 
 import { type SizingObjective } from './SizingObjective';
 
-export const DP_ADVICE_SOLVER_VERSION = 1;
+export const DP_ADVICE_SOLVER_VERSION = 2;
 
 export enum DpAdviceGap {
     ConsistencyGridTruncates = 'consistency-grid-truncates',

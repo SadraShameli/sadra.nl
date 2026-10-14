@@ -637,7 +637,7 @@ export const dpArguments = {
     ...couponDiscountArguments,
     ...copyAccountsArgument,
     'action-step-multiple': {
-        description: `Funded and eval DP action-step grid size, as a multiple of the plan's own drawdown amount (default ${DEFAULT_ACTION_STEP_MULTIPLE}). Coarsen this with --max-action-multiple for a fast ablation solve (N-86): a full-precision TopStep-style solve can take well over an hour, a coarse one takes minutes.`,
+        description: `Funded and eval DP action-step grid size, as a multiple of the plan's own drawdown amount (default ${DEFAULT_ACTION_STEP_MULTIPLE}). At the defaults a TopStep No-fee Standard solve takes about 3.5 minutes; a finer action step (0.0625) took 2.3x longer with the same replayed monthly net, and a coarser one (0.25) replayed 18% lower (2026-10-15 measurement).`,
         type: 'string',
     },
     'cushion-step-multiple': {

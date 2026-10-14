@@ -21,7 +21,10 @@ import {
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    DP_ADVICE_SOLVER_VERSION,
+} from '~/lib/prop-calculator/advisor';
 import { type PropMutationRejection } from '~/lib/schemas/propAccountOutputs';
 import { propAccountsRouter } from '~/server/api/routers/propAccounts';
 import { createCallerFactory } from '~/server/api/trpc';
@@ -241,7 +244,7 @@ export function dpAdviceRow(overrides: FakeRow = {}): FakeRow {
         },
         snapshot_id: IDS.snapshot,
         solved_at: CREATED_AT,
-        solver_version: 1,
+        solver_version: DP_ADVICE_SOLVER_VERSION,
         user_id: USER_ID,
         validated: false,
         validation_ref: null,

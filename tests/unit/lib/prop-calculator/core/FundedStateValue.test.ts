@@ -1253,6 +1253,7 @@ describe('cycleBestDayProfit DP state dimension', () => {
 
             const result = computeFundedStateValue({
                 actionStepMultiple: 0.1,
+                cushionStepMultiple: 0.1,
                 evalInitialValue: 20_000,
                 feePerAttempt: plan.fees.reset,
                 maxActionMultiple: 0.3,

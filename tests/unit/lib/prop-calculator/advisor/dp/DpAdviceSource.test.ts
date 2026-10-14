@@ -754,7 +754,7 @@ describe('dpAdviceFor on a toy plan solved once', () => {
                     [0, 10_000, 5000],
                     [1, 5000, 5000],
                 ],
-                solverVersion: 1,
+                solverVersion: 2,
             });
         });
 

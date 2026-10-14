@@ -1148,9 +1148,9 @@ describe('optimize dp flag bounds', () => {
 
     it('rejects a tail step finer than the default cushion step, saying the cushion step is the default (WP58d)', () => {
         expect(() =>
-            parseDpInputs(['--tail-cushion-step-multiple=0.05']),
+            parseDpInputs(['--tail-cushion-step-multiple=0.2']),
         ).toThrow(
-            /--tail-cushion-step-multiple \(0\.05\) must be at least --cushion-step-multiple \(0\.1, the default\)/,
+            /--tail-cushion-step-multiple \(0\.2\) must be at least --cushion-step-multiple \(0\.25, the default\)/,
         );
     });
 
@@ -1635,7 +1635,7 @@ describe('optimize dp hands the tail flags to the funded solve and prints the re
             '--tail-cushion-step-multiple=2',
         ]);
         expect(stdout).toContain(
-            'funded cushion grid: fine steps of 0.1x the drawdown ($200) up to 9x ($18,000), then coarse steps of 2x ($4,000) up to 13x ($26,000); the fine range reaches 9x instead of the 6x that --max-cushion-multiple asks for',
+            'funded cushion grid: fine steps of 0.25x the drawdown ($500) up to 9x ($18,000), then coarse steps of 2x ($4,000) up to 13x ($26,000); the fine range reaches 9x instead of the 6x that --max-cushion-multiple asks for',
         );
     });
 
