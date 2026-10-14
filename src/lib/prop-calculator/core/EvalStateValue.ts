@@ -116,6 +116,14 @@ const DEFAULT_TERMINAL_VALUE_AT_FAIL = 0;
 const DEFAULT_TERMINAL_VALUE_AT_PASS = 1;
 const MAX_REPLAY_DAYS_CACHED = 4096;
 
+export function blendOnCushionGrid(
+    lowerValue: number,
+    upperWeight: number,
+    upperValue: number,
+): number {
+    return (1 - upperWeight) * lowerValue + upperWeight * upperValue;
+}
+
 export function computeEvalStateValue(
     config: EvalStateValueConfig,
 ): EvalStateValueResult {
@@ -160,8 +168,11 @@ export function valueOnCushionGrid(
     const lowerValue = valueAt(split.lowerIndex);
     return split.upperWeight === 0
         ? lowerValue
-        : (1 - split.upperWeight) * lowerValue +
-              split.upperWeight * valueAt(split.lowerIndex + 1);
+        : blendOnCushionGrid(
+              lowerValue,
+              split.upperWeight,
+              valueAt(split.lowerIndex + 1),
+          );
 }
 
 function ceilStep(dollarAmount: number, stepDollars: number): number {

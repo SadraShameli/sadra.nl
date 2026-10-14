@@ -34,6 +34,7 @@ import {
     type SizedTrade,
 } from './DayPolicy';
 import {
+    blendOnCushionGrid,
     isDrawdownDpEligible,
     splitOntoCushionGrid,
     valueOnCushionGrid,
@@ -1555,25 +1556,23 @@ function dayCloseValue(
             return cash;
         }
         default: {
-            const lowerOffsetValue = valueOnCushionGrid(
-                {
-                    lowerIndex: continuationKeyValue,
-                    upperWeight: continuationUpperWeight,
-                },
-                (key) => context.readValue(key),
+            const lowerOffsetValue = readValueOnCushionGrid(
+                context,
+                continuationKeyValue,
+                continuationUpperWeight,
             );
             const continuation =
                 continuationOffsetUpperWeight === 0
                     ? lowerOffsetValue
-                    : (1 - continuationOffsetUpperWeight) * lowerOffsetValue +
-                      continuationOffsetUpperWeight *
-                          valueOnCushionGrid(
-                              {
-                                  lowerIndex: continuationOffsetUpperKey,
-                                  upperWeight: continuationUpperWeight,
-                              },
-                              (key) => context.readValue(key),
-                          );
+                    : blendOnCushionGrid(
+                          lowerOffsetValue,
+                          continuationOffsetUpperWeight,
+                          readValueOnCushionGrid(
+                              context,
+                              continuationOffsetUpperKey,
+                              continuationUpperWeight,
+                          ),
+                      );
             return continuedValue(context, cash, continuation, horizonCredit);
         }
     }
@@ -1996,6 +1995,21 @@ function reachCountAt(
         : 1;
 }
 
+function readValueOnCushionGrid(
+    context: FundedSolveContext,
+    lowerKey: number,
+    upperWeight: number,
+): number {
+    const lowerValue = context.readValue(lowerKey);
+    return upperWeight === 0
+        ? lowerValue
+        : blendOnCushionGrid(
+              lowerValue,
+              upperWeight,
+              context.readValue(lowerKey + 1),
+          );
+}
+
 function reconstructPlanFromRegistry(planId: PlanId): Plan {
     const firmsModule = requireFirmsModule();
     const firm = firmsModule.findFirm(planId.firm);
@@ -2267,6 +2281,16 @@ function scopedLockoutValue(
     return value;
 }
 
+function scopedNextValue(
+    scope: FundedDaySolveScope,
+    nextTable: Float64Array | null,
+    cell: number,
+): number {
+    return nextTable === null
+        ? scopedStopValue(scope, cell)
+        : (nextTable[cell] ?? 0);
+}
+
 function scopedOutcomeValue(
     scope: FundedDaySolveScope,
     nextTable: Float64Array | null,
@@ -2274,13 +2298,14 @@ function scopedOutcomeValue(
     upperWeight: number,
 ): number {
     if (outcome >= 0) {
-        return valueOnCushionGrid(
-            { lowerIndex: outcome, upperWeight },
-            (cell) =>
-                nextTable === null
-                    ? scopedStopValue(scope, cell)
-                    : (nextTable[cell] ?? 0),
-        );
+        const lowerValue = scopedNextValue(scope, nextTable, outcome);
+        return upperWeight === 0
+            ? lowerValue
+            : blendOnCushionGrid(
+                  lowerValue,
+                  upperWeight,
+                  scopedNextValue(scope, nextTable, outcome + 1),
+              );
     }
     return outcome === OUTCOME_BUST
         ? breachValue(scope.context, scope.dayStart.regime)
