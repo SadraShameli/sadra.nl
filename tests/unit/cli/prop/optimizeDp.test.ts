@@ -6,7 +6,6 @@ import { describe, expect, it, vi } from 'vitest';
 import optimizeDp, {
     bundleRenewalNote,
     CYCLE_OBJECTIVE_NOT_SIZING_NOTE,
-    DP_TRADES_PER_DAY,
     dpArguments,
     dpGridSettingsLine,
     dpObjectiveSolverConfig,
@@ -47,6 +46,7 @@ import {
     ApexVariant,
     CumulativeAmountTrigger,
     type DayPolicy,
+    DEFAULT_TRADES_PER_DAY,
     dollars,
     E8FuturesVariant,
     effectivePayoutRequest,
@@ -532,11 +532,11 @@ describe('instrumentFundedDayPolicyForSaturation (N-86, WP58 stage 1)', () => {
             fundedDayCount: 0,
             saturatedDayCount: 0,
         };
-        const checkGridSaturation = vi.fn(() => true);
+        const isGridSaturated = vi.fn(() => true);
 
         const wrapped = instrumentFundedDayPolicyForSaturation(
             dayPolicy,
-            checkGridSaturation,
+            isGridSaturated,
             tally,
         );
 
@@ -545,8 +545,8 @@ describe('instrumentFundedDayPolicyForSaturation (N-86, WP58 stage 1)', () => {
         expect(wrapped.computeRisk?.(state, 2, fundedCycle)).toBe(102);
 
         expect(tally).toEqual({ fundedDayCount: 1, saturatedDayCount: 1 });
-        expect(checkGridSaturation).toHaveBeenCalledTimes(1);
-        expect(checkGridSaturation).toHaveBeenCalledWith(state, fundedCycle);
+        expect(isGridSaturated).toHaveBeenCalledTimes(1);
+        expect(isGridSaturated).toHaveBeenCalledWith(state, fundedCycle);
         expect(computeRisk).toHaveBeenCalledTimes(3);
     });
 
@@ -952,15 +952,15 @@ describe('optimize dp --funded-reset names the plan reset terms (N-34)', () => {
     it('prints the reset terms line from run() before the solve starts', async () => {
         const argv = [...alphaZeroArgv, '--funded-reset'];
         const written: string[] = [];
-        const write = vi
-            .spyOn(process.stdout, 'write')
-            .mockImplementation((chunk: string | Uint8Array) => {
-                written.push(String(chunk));
-                return true;
-            });
-        const writeError = vi
-            .spyOn(process.stderr, 'write')
-            .mockImplementation(() => true);
+        const writeSpies = [
+            vi
+                .spyOn(process.stdout, 'write')
+                .mockImplementation((chunk: string | Uint8Array) => {
+                    written.push(String(chunk));
+                    return true;
+                }),
+            vi.spyOn(process.stderr, 'write').mockImplementation(() => true),
+        ];
         vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(() => {
             throw new Error('stop after the preamble');
         });
@@ -972,8 +972,7 @@ describe('optimize dp --funded-reset names the plan reset terms (N-34)', () => {
                 rawArgs: argv,
             });
         } finally {
-            write.mockRestore();
-            writeError.mockRestore();
+            for (const spy of writeSpies) spy.mockRestore();
             process.exitCode = exitCode;
         }
 
@@ -1037,16 +1036,7 @@ describe('optimize dp run() hands the opted-in plan to both the DP objective and
         ];
         vi.mocked(solveAverageRewardPolicy).mockClear();
         vi.mocked(simulate).mockClear();
-        const exitCode = process.exitCode;
-        try {
-            await optimizeDp.run?.({
-                args: parseArgs<typeof dpArguments>(argv, dpArguments),
-                cmd: optimizeDp,
-                rawArgs: argv,
-            });
-        } finally {
-            process.exitCode = exitCode;
-        }
+        await capturedRun(argv);
 
         expect(
             vi
@@ -2041,13 +2031,13 @@ describe('optimize dp run() says it does not price a confirmed cumulative trigge
         ]);
         expect(stdout).toContain('Full Kelly would grow a bankroll');
         expect(stdout).toContain(
-            `at ${String(DP_TRADES_PER_DAY)} trades per day over 21 trading days`,
+            `at ${String(DEFAULT_TRADES_PER_DAY)} trades per day over 21 trading days`,
         );
         expect(stdout).toContain(
-            `funded, day 1, trade 1-${String(DP_TRADES_PER_DAY)}:`,
+            `funded, day 1, trade 1-${String(DEFAULT_TRADES_PER_DAY)}:`,
         );
         expect(stdout).toContain(
-            `eval, day 1, trade 1-${String(DP_TRADES_PER_DAY)}:`,
+            `eval, day 1, trade 1-${String(DEFAULT_TRADES_PER_DAY)}:`,
         );
     });
 });
@@ -2059,18 +2049,20 @@ async function capturedRun(argv: string[]): Promise<{
 }> {
     const written: string[] = [];
     const writtenError: string[] = [];
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
-    const writeError = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            writtenError.push(String(chunk));
-            return true;
-        });
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+        vi
+            .spyOn(process.stderr, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                writtenError.push(String(chunk));
+                return true;
+            }),
+    ];
     const exitCode = process.exitCode;
     let runExitCode: typeof process.exitCode;
     process.exitCode = undefined;
@@ -2082,8 +2074,7 @@ async function capturedRun(argv: string[]): Promise<{
         });
     } finally {
         runExitCode = process.exitCode;
-        write.mockRestore();
-        writeError.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = exitCode;
     }
     return {
@@ -2558,14 +2549,14 @@ describe('prop optimize dp --help names only flags it accepts (PT-63)', () => {
 
 async function capturedDpPreamble(argv: string[]): Promise<string> {
     const written: string[] = [];
-    const capture = (chunk: string | Uint8Array) => {
-        written.push(String(chunk));
-        return true;
-    };
-    const write = vi.spyOn(process.stdout, 'write').mockImplementation(capture);
-    const writeError = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation(capture);
+    const writeSpies = [process.stdout, process.stderr].map((stream) =>
+        vi
+            .spyOn(stream, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+    );
     vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(() => {
         throw new Error('stop after the preamble');
     });
@@ -2577,8 +2568,7 @@ async function capturedDpPreamble(argv: string[]): Promise<string> {
             rawArgs: argv,
         });
     } finally {
-        write.mockRestore();
-        writeError.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = exitCode;
     }
     return written.join('');

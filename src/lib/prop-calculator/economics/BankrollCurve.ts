@@ -7,6 +7,7 @@ import {
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator/core';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
+import { type SimOutputs } from '~/lib/prop-calculator/simulator';
 import { mean } from '~/lib/prop-calculator/stats';
 
 import { bankrollAttemptsAt, bankrollCohortRisk } from './BankrollRiskFigures';
@@ -102,12 +103,9 @@ export function impliedCycleMultiple(
     cycleDays: number,
     horizonDays: number,
 ): null | number {
-    return !(start > 0) ||
-        !(final >= 0) ||
-        !(cycleDays > 0) ||
-        !(horizonDays > 0)
-        ? null
-        : (final / start) ** (cycleDays / horizonDays);
+    return start > 0 && final >= 0 && cycleDays > 0 && horizonDays > 0
+        ? (final / start) ** (cycleDays / horizonDays)
+        : null;
 }
 
 export function lossProbabilityAt(
@@ -224,6 +222,20 @@ export function spendPayoutCurve(
             risk.disclosures,
         );
     });
+}
+
+export function spendPayoutCurveOfRun(
+    out: Pick<SimOutputs, 'costPerAttempt' | 'netValues'>,
+    budgets: readonly Dollars[],
+    seed: number,
+): Quantity<SpendPayoutPoint>[] {
+    return spendPayoutCurve(
+        out.netValues,
+        out.netValues.map(() => out.costPerAttempt),
+        dollars(out.costPerAttempt),
+        budgets,
+        seed,
+    );
 }
 
 function curveOf(

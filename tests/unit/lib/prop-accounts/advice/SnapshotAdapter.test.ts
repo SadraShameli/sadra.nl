@@ -35,6 +35,7 @@ import {
     AssumptionKind,
     assumptionText,
     DashboardBalanceConvention,
+    DEFAULT_RULEBOOK,
     NO_PENDING_PAYOUT_COUNTS,
     PENDING_PAYOUT_COUNTS_NOT_CHECKED,
     PendingPayoutCountsStatus,
@@ -352,6 +353,7 @@ describe('snapshotInputFrom: a pure row-to-domain mapping', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Eval) {
             throw new Error('expected an eval reconstruction');
@@ -809,6 +811,7 @@ describe('snapshotInputFrom: a request the balance may not show is counted and d
             plan,
             null,
             pendingPayoutCounts,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         ).assumptions.map((assumption) => assumption.kind);
     }
 

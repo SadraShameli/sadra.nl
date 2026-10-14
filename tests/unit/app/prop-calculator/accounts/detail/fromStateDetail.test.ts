@@ -22,6 +22,7 @@ import {
     retireViewOf,
     valueChainPositionOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/detail/fromStateDetail';
+import { uniformSlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import { type PersonalRules, usdCents } from '~/lib/prop-accounts';
 import {
     type Dollars,
@@ -189,7 +190,10 @@ function chainPositionViewFor(chain: null | string | ValueChainFigures) {
                   [chainKey, chainOutcomeOf(chainKey, chain)],
               ],
     );
-    return chainPositionViewOf({ failure: null, outcomes }, requests);
+    return chainPositionViewOf(
+        { ...uniformSlotEngine(null), outcomes },
+        requests,
+    );
 }
 
 function engineWith(
@@ -198,7 +202,7 @@ function engineWith(
 ) {
     const outcomes = new Map<string, OverviewOutcome>();
     if (outcome !== undefined) outcomes.set(outcome.key, outcome);
-    return { failure, outcomes };
+    return { ...uniformSlotEngine(failure), outcomes };
 }
 
 function retireRequest() {
@@ -516,6 +520,7 @@ describe('payoutPathLinesOf (PT-37)', () => {
             PLAN,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (
             account.kind === ReconstructedLiveKind.Live ||
@@ -557,6 +562,7 @@ describe('payoutPathLinesOf (PT-37)', () => {
             PLAN,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         expect(payoutPathLinesOf(account, requests.account.spec)).toBeNull();
     });

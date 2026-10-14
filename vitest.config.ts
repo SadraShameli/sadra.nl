@@ -27,7 +27,7 @@ const config = defineConfig({
                 test: {
                     environment: 'node',
                     include: ['tests/unit/**/*.test.ts'],
-                    isolate: false,
+                    isolate: true,
                     name: 'unit',
                 },
             },
@@ -41,6 +41,7 @@ const config = defineConfig({
                 },
             },
         ],
+        reporters: ['minimal'],
     },
 });
 

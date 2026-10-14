@@ -16,16 +16,13 @@ import {
     DEFAULT_RULEBOOK,
     DifferenceReason,
     differenceReasonText,
-    DpNotValidatedCause,
-    fundedRetainedCushionResolution,
-} from '~/lib/prop-calculator/advisor';
-import { DpGateFailure } from '~/lib/prop-calculator/advisor/dp';
-import { dpValidationFor } from '~/lib/prop-calculator/advisor/dp/DpValidatedPlans';
-import {
     DP_ADVICE_SOLVER_VERSION,
     DpAdviceGap,
     DpGateFailureCode,
-} from '~/lib/prop-calculator/advisor/DpAdviceRow';
+    DpNotValidatedCause,
+    fundedRetainedCushionResolution,
+} from '~/lib/prop-calculator/advisor';
+import { dpValidationFor } from '~/lib/prop-calculator/advisor/dp/DpValidatedPlans';
 import { PayoutRequestPolicy } from '~/lib/prop-calculator/core';
 import {
     type AverageRewardConfig,
@@ -747,7 +744,7 @@ describe('prop advise --dp --store (PT-30c step 14, the DB write path)', () => {
                 file: 'engine-results/dp-gate.md',
                 row: 'row-3',
             },
-            failure: DpGateFailure.BelowBestFlat,
+            failure: DpGateFailureCode.BelowBestFlat,
             result: '0.99x best flat (credit-free)',
             validated: false,
         });

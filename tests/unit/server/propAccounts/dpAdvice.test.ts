@@ -18,11 +18,11 @@ import {
     DP_ADVICE_SOLVER_VERSION,
     type DpAdviceRow,
     DpAdviceStalenessReason,
+    DpGateFailureCode,
     DpSamplesKind,
     DpSampleStage,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
-import { DpGateFailureCode } from '~/lib/prop-calculator/advisor/DpAdviceRow';
 import { PropQuota } from '~/lib/schemas/propAccountOutputs';
 import { propDpAdvice } from '~/server/db/schemas/prop';
 

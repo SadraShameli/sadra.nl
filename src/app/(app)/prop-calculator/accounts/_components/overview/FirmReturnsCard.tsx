@@ -222,9 +222,9 @@ function sortedRows(
     rows: FirmReturnsCardModel['rows'],
     sortKey: SortKey,
 ): FirmReturnsCardModel['rows'] {
-    return sortKey === 'firm'
-        ? rows.toSorted((a, b) => compareText(a.firm, b.firm))
-        : rows.toSorted(
-              (a, b) => numericValue(b, sortKey) - numericValue(a, sortKey),
-          );
+    return rows.toSorted(
+        sortKey === 'firm'
+            ? (a, b) => compareText(a.firm, b.firm)
+            : (a, b) => numericValue(b, sortKey) - numericValue(a, sortKey),
+    );
 }

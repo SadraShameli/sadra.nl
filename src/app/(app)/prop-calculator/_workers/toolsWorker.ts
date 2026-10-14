@@ -43,7 +43,7 @@ import {
     LOSS_RISK_DRAWS,
     projectionMonthEnds,
     type Quantity,
-    spendPayoutCurve,
+    spendPayoutCurveOfRun,
     type SpendPayoutPoint,
     takeProfitCandidateInputs,
     takeProfitRows,
@@ -367,13 +367,7 @@ function computeSpendPayoutCurve(
     const { simInputs } = resolved;
     const out = simulate(simInputs);
     const budgets = request.budgets.map((budget) => dollars(budget));
-    const points = spendPayoutCurve(
-        out.netValues,
-        out.netValues.map(() => out.costPerAttempt),
-        dollars(out.costPerAttempt),
-        budgets,
-        simInputs.seed,
-    );
+    const points = spendPayoutCurveOfRun(out, budgets, simInputs.seed);
     return points.map((point, index) =>
         toSpendPayoutCurveRow(budgets[index] ?? dollars(0), point),
     );

@@ -111,6 +111,7 @@ function payoutDecisionFor(paidPayoutsSinceLastLiveAccount: null | number) {
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     const build = buildSizingAdvisor(
         account,

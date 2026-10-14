@@ -10,13 +10,8 @@ import {
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
-import {
-    type Dollars,
-    dollars,
-    type SimOutputs,
-    simulate,
-} from '~/lib/prop-calculator';
-import { spendPayoutCurve } from '~/lib/prop-calculator/economics';
+import { type Dollars, type SimOutputs, simulate } from '~/lib/prop-calculator';
+import { spendPayoutCurveOfRun } from '~/lib/prop-calculator/economics';
 
 import {
     assertSingleAttemptPricing,
@@ -82,13 +77,7 @@ export function curveRows(
     budgets: readonly Dollars[],
     seed: number,
 ): readonly (readonly string[])[] {
-    const points = spendPayoutCurve(
-        out.netValues,
-        out.netValues.map(() => out.costPerAttempt),
-        dollars(out.costPerAttempt),
-        budgets,
-        seed,
-    );
+    const points = spendPayoutCurveOfRun(out, budgets, seed);
     return points.map((point, index) => {
         const budget = formatCurrency(budgets[index] ?? 0);
         if (point.value === null) {

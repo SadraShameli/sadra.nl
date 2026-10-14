@@ -67,8 +67,8 @@ Use `helpfutures.fundednext.com` — the **futures** help center, not the forex/
 
 **Blown live is NOT the same outcome on both programs** (verified 2026-09-14, both primary sources
 read in full): **Flex/Rapid** = 2-week cooldown (4+ if reckless), then normal sim path, purchasing
-Challenge Accounts again. **Legacy** = liquidation is terminal — *"The account is permanently closed...
-The account cannot be reset."* No cooldown, no documented path back to sim/eval purchasing at all.
+Challenge Accounts again. **Legacy** = liquidation is terminal — _"The account is permanently closed...
+The account cannot be reset."_ No cooldown, no documented path back to sim/eval purchasing at all.
 Legacy's live failure is meaningfully worse than Flex/Rapid's.
 
 ---
@@ -81,7 +81,7 @@ Full product replacement ("Apex 4.0") March 1 2026. **Metals halted** (GC, SI, Q
 
 **No resets** — a failed eval means buying a new one. **30-calendar-day eval time limit.**
 
-**Live:** see the Apex section in `SKILL.md`. Live inactivity is *looser* than PA inactivity — just needs to be traded.
+**Live:** see the Apex section in `SKILL.md`. Live inactivity is _looser_ than PA inactivity — just needs to be traded.
 
 **Restricted:** US-only service; 84 countries blocked. Look-alike domains exist (`apexfundtraders.com`, `apexfundingtrader.com`) — the real one is `apextraderfunding.com`.
 
@@ -101,15 +101,15 @@ Types: LucidFlex, LucidPro, LucidDirect, LucidDaily. LucidMaxx is invite-only.
 
 **Reset policy:** Trading Combine has 2 resets per account per day, unlimited Combines. Two pricing paths exist at purchase — check `cli prop plans` for which is currently modeled as cheaper in expectation at your own sizing, rather than trusting a stale comparison here.
 
-**Live Funded Account:** **exactly ONE, ever.** Size = average of eligible XFAs rounded up to the next tier. **20% available immediately, 80% held in Reserve**, released in four 25% increments. Uncapped payouts. Blown LFA (balance <$1,000) = must pass a **new Trading Combine** — the cleanest officially-documented recovery of any firm, and confirmed as the *only* recovery — there's no skip-the-eval shortcut even off a full liquidation (*"You must pass a Trading Combine first"*).
+**Live Funded Account:** **exactly ONE, ever.** Size = average of eligible XFAs rounded up to the next tier. **20% available immediately, 80% held in Reserve**, released in four 25% increments. Uncapped payouts. Blown LFA (balance <$1,000) = must pass a **new Trading Combine** — the cleanest officially-documented recovery of any firm, and confirmed as the _only_ recovery — there's no skip-the-eval shortcut even off a full liquidation (_"You must pass a Trading Combine first"_).
 
-**Cannot decline the call-up** — *"Once the Risk Team determines you're ready, your options are to move to Live or close your Express Funded Account."* Same mandatory-transition pattern as Tradeify/FundedNext/MFF.
+**Cannot decline the call-up** — _"Once the Risk Team determines you're ready, your options are to move to Live or close your Express Funded Account."_ Same mandatory-transition pattern as Tradeify/FundedNext/MFF.
 
-**Uniquely permissive on eval purchasing while live is active and healthy** (verified 2026-09-14): unlike every other firm here, TopStep explicitly lets you keep buying and passing new Trading Combines the whole time an LFA is open — *"The restriction is only on activation — a passed Trading Combine cannot be activated into an Express Funded Account while your Live Funded Account is active. That option becomes available again if the Live Funded Account is lost."* So a passed Combine just queues, ready to activate the moment Live is lost — see the comparison table below.
+**Uniquely permissive on eval purchasing while live is active and healthy** (verified 2026-09-14): unlike every other firm here, TopStep explicitly lets you keep buying and passing new Trading Combines the whole time an LFA is open — _"The restriction is only on activation — a passed Trading Combine cannot be activated into an Express Funded Account while your Live Funded Account is active. That option becomes available again if the Live Funded Account is lost."_ So a passed Combine just queues, ready to activate the moment Live is lost — see the comparison table below.
 
-**Live inactivity:** closes after 30 days with no trading activity — *"Live Funded Accounts can't be put on hold."*
+**Live inactivity:** closes after 30 days with no trading activity — _"Live Funded Accounts can't be put on hold."_
 
-Disclosed stats: 16.8% of Combines pass; **0.71% of funded traders get called up to Live** — the lowest live-trigger risk of any firm, which is an *advantage* given a stay-on-sim goal.
+Disclosed stats: 16.8% of Combines pass; **0.71% of funded traders get called up to Live** — the lowest live-trigger risk of any firm, which is an _advantage_ given a stay-on-sim goal.
 
 **Back2Funded:** up to 2 XFA reactivations if lost **before** first payout.
 
@@ -123,15 +123,15 @@ Disclosed stats: 16.8% of Combines pass; **0.71% of funded traders get called up
 
 ## Account caps
 
-| Firm | Max funded | Scope |
-| --- | --- | --- |
-| **Apex** | **20 PAs** | combined across Legacy/EOD/Intraday, **per household** |
-| MFF | 5 (25K/50K only), **3** if any 100K/150K | global across plans; Rapid EOD table says **3** — scope vs. global unresolved, see `references/open-questions.md` |
-| TPT | 5 | PRO + PRO+ combined |
-| Tradeify | 5 | any combination, **per individual AND household** |
-| FundedNext | 5 | **per household/IP** |
-| Lucid | 5 | combined across types, **per household**; 10 total incl. evals |
-| Topstep | 5 XFAs | but only **1** live account ever |
+| Firm       | Max funded                               | Scope                                                                                                             |
+| ---------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Apex**   | **20 PAs**                               | combined across Legacy/EOD/Intraday, **per household**                                                            |
+| MFF        | 5 (25K/50K only), **3** if any 100K/150K | global across plans; Rapid EOD table says **3** — scope vs. global unresolved, see `references/open-questions.md` |
+| TPT        | 5                                        | PRO + PRO+ combined                                                                                               |
+| Tradeify   | 5                                        | any combination, **per individual AND household**                                                                 |
+| FundedNext | 5                                        | **per household/IP**                                                                                              |
+| Lucid      | 5                                        | combined across types, **per household**; 10 total incl. evals                                                    |
+| Topstep    | 5 XFAs                                   | but only **1** live account ever                                                                                  |
 
 **Caps are per-firm — running several firms in parallel is the way past any single cap.** Apex's sim ban applies only to Apex.
 
@@ -143,32 +143,32 @@ Every firm bans **actively trading sim and live at the same time**. Where they d
 (a) what happens to the sim/eval accounts you already had, and (b) whether and how you get back
 to buying new ones. Ranked most-to-least permissive:
 
-| Firm | Existing sim/evals at transition | New eval purchases while live | Path back after failing live |
-| --- | --- | --- | --- |
-| **TPT** | Untouched — keep trading them | **Explicitly unlimited**, no restriction at all | N/A, was never blocked |
-| **TopStep** | XFAs closed; Combines untouched | **Explicitly allowed** — *"You can have Trading Combines while actively trading a Live Funded Account."* Only *activating* a passed one into a funded XFA is blocked while live | Must pass a Trading Combine first either way (no skip-the-eval shortcut) — but per the line above, you're free to have already passed one queued up the moment Live fails |
-| **Tradeify** | Closed | **Explicitly banned** ("cannot purchase or activate") | Automatic after a fixed 4-week cooldown |
-| **FundedNext** | **Permanently closed, zero refund** (Flex/Rapid); Legacy's is the same but with **no reset path at all**, see below | Implied banned (silent, but "return to normal sim trading" language implies it was off) | Flex/Rapid: automatic after a fixed 2-week cooldown (4wk if reckless). **Legacy: none — liquidation is terminal, "the account cannot be reset."** |
-| **MFF** | **Dormant** (not closed), refund if never funded | **Explicitly suspended** ("purchases are suspended during Live account operation") | **21-calendar-day cooldown, then normal purchasing resumes** — confirmed 2026-09-18, see correction note below |
-| **Lucid** | Closed (refund if never funded) | **Undocumented** either way | 2-week cooldown documented, but framed as "return to live," not explicitly "resume normal eval purchasing" |
-| **Apex** | Closed | **Explicitly banned**, no exception while live is healthy | Discretionary risk-manager exception ONLY after losing live — capped (e.g. max 3 PAs) and auto-reverts you to live on your first payout |
-| **AlphaFutures** | Closed | **Undocumented** either way | Not found — declining live entirely "sacrifices all relations with any branch of the Alpha Group" |
-| **E8 Futures** | N/A | N/A | **No live stage exists at all** — SimFi stays simulated forever, by E8's own design |
+| Firm             | Existing sim/evals at transition                                                                                    | New eval purchases while live                                                                                                                                                   | Path back after failing live                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TPT**          | Untouched — keep trading them                                                                                       | **Explicitly unlimited**, no restriction at all                                                                                                                                 | N/A, was never blocked                                                                                                                                                    |
+| **TopStep**      | XFAs closed; Combines untouched                                                                                     | **Explicitly allowed** — _"You can have Trading Combines while actively trading a Live Funded Account."_ Only _activating_ a passed one into a funded XFA is blocked while live | Must pass a Trading Combine first either way (no skip-the-eval shortcut) — but per the line above, you're free to have already passed one queued up the moment Live fails |
+| **Tradeify**     | Closed                                                                                                              | **Explicitly banned** ("cannot purchase or activate")                                                                                                                           | Automatic after a fixed 4-week cooldown                                                                                                                                   |
+| **FundedNext**   | **Permanently closed, zero refund** (Flex/Rapid); Legacy's is the same but with **no reset path at all**, see below | Implied banned (silent, but "return to normal sim trading" language implies it was off)                                                                                         | Flex/Rapid: automatic after a fixed 2-week cooldown (4wk if reckless). **Legacy: none — liquidation is terminal, "the account cannot be reset."**                         |
+| **MFF**          | **Dormant** (not closed), refund if never funded                                                                    | **Explicitly suspended** ("purchases are suspended during Live account operation")                                                                                              | **21-calendar-day cooldown, then normal purchasing resumes** — confirmed 2026-09-18, see correction note below                                                            |
+| **Lucid**        | Closed (refund if never funded)                                                                                     | **Undocumented** either way                                                                                                                                                     | 2-week cooldown documented, but framed as "return to live," not explicitly "resume normal eval purchasing"                                                                |
+| **Apex**         | Closed                                                                                                              | **Explicitly banned**, no exception while live is healthy                                                                                                                       | Discretionary risk-manager exception ONLY after losing live — capped (e.g. max 3 PAs) and auto-reverts you to live on your first payout                                   |
+| **AlphaFutures** | Closed                                                                                                              | **Undocumented** either way                                                                                                                                                     | Not found — declining live entirely "sacrifices all relations with any branch of the Alpha Group"                                                                         |
+| **E8 Futures**   | N/A                                                                                                                 | N/A                                                                                                                                                                             | **No live stage exists at all** — SimFi stays simulated forever, by E8's own design                                                                                       |
 
 **Quotes, for the record:**
 
-- Tradeify: *"If you have an ACTIVE Live account (Legacy or Elite): You cannot purchase or activate new evaluations... You cannot open new Sim Funded accounts... After your Live account has FAILED or CLOSED: You can purchase new evaluations or funded accounts after the cool-off period."* (Tradeify Elite Program article)
-- FundedNext: *"All active Challenge Accounts are permanently closed at the time of transition. These accounts are not eligible for any refunds."* ... *"After completing the cooldown period, traders return to normal sim trading, purchasing Challenge Accounts and following the standard path back to live."* (Road To Live Trading articles, identical wording across Flex/Rapid/Legacy)
-- MFF: *"All simulated trading accounts and additional purchases are suspended during Live account operation."* (Understanding Rapid Live) / *"Simulated Evaluations remain dormant after you transition to the Live Environment."* (Comprehensive FAQ)
-- Apex: *"Can I return to the normal simulated Evaluation and Performance Account process? Only with a special exception from a risk manager... a trader may be limited to a maximum of three Performance Accounts in simulation. Once the trader achieves the first payout from those accounts, the trader may then be automatically moved back into live trading."* (Apex Live Prop Trading Program FAQ)
-- TopStep: *"Can I have Trading Combines while I have a Live Funded Account? Yes. You can have Trading Combines while actively trading a Live Funded Account. The restriction is only on activation — a passed Trading Combine cannot be activated into an Express Funded Account while your Live Funded Account is active. That option becomes available again if the Live Funded Account is lost."* (Live Funded Account Parameters FAQ) — genuinely the second-most-permissive firm after TPT: you can buy and pass new Combines the whole time Live is active, you just can't turn a pass into a competing funded account until Live is gone. Separately, if Live *is* lost: *"If I lose my LFA, can I go straight back to an XFA without a Trading Combine? No. You must pass a Trading Combine first."* — no eval-skip shortcut either way. The Shoulder Tap (*"A Shoulder Tap XFA is a simulated funded account created after a call down from Live... You are limited to 1 Shoulder Tap XFA — no multiple accounts"*) is the softer, discretionary call-down that happens *without* losing the account outright — a separate mechanism from a full LFA liquidation.
-- Lucid: *"All simulated prop accounts are closed when a trader is moved live... If you are not comfortable with evaluations being closed, do not keep evaluations in reserve."* / *"Traders who have been moved live may return to purchase a new evaluation after blowing a live account."* Nothing found on buying while live is healthy and unblown.
+- Tradeify: _"If you have an ACTIVE Live account (Legacy or Elite): You cannot purchase or activate new evaluations... You cannot open new Sim Funded accounts... After your Live account has FAILED or CLOSED: You can purchase new evaluations or funded accounts after the cool-off period."_ (Tradeify Elite Program article)
+- FundedNext: _"All active Challenge Accounts are permanently closed at the time of transition. These accounts are not eligible for any refunds."_ ... _"After completing the cooldown period, traders return to normal sim trading, purchasing Challenge Accounts and following the standard path back to live."_ (Road To Live Trading articles, identical wording across Flex/Rapid/Legacy)
+- MFF: _"All simulated trading accounts and additional purchases are suspended during Live account operation."_ (Understanding Rapid Live) / _"Simulated Evaluations remain dormant after you transition to the Live Environment."_ (Comprehensive FAQ)
+- Apex: _"Can I return to the normal simulated Evaluation and Performance Account process? Only with a special exception from a risk manager... a trader may be limited to a maximum of three Performance Accounts in simulation. Once the trader achieves the first payout from those accounts, the trader may then be automatically moved back into live trading."_ (Apex Live Prop Trading Program FAQ)
+- TopStep: _"Can I have Trading Combines while I have a Live Funded Account? Yes. You can have Trading Combines while actively trading a Live Funded Account. The restriction is only on activation — a passed Trading Combine cannot be activated into an Express Funded Account while your Live Funded Account is active. That option becomes available again if the Live Funded Account is lost."_ (Live Funded Account Parameters FAQ) — genuinely the second-most-permissive firm after TPT: you can buy and pass new Combines the whole time Live is active, you just can't turn a pass into a competing funded account until Live is gone. Separately, if Live _is_ lost: _"If I lose my LFA, can I go straight back to an XFA without a Trading Combine? No. You must pass a Trading Combine first."_ — no eval-skip shortcut either way. The Shoulder Tap (_"A Shoulder Tap XFA is a simulated funded account created after a call down from Live... You are limited to 1 Shoulder Tap XFA — no multiple accounts"_) is the softer, discretionary call-down that happens _without_ losing the account outright — a separate mechanism from a full LFA liquidation.
+- Lucid: _"All simulated prop accounts are closed when a trader is moved live... If you are not comfortable with evaluations being closed, do not keep evaluations in reserve."_ / _"Traders who have been moved live may return to purchase a new evaluation after blowing a live account."_ Nothing found on buying while live is healthy and unblown.
 
 **✅ RESOLVED 2026-09-18 — the "21-day cooldown" figure is CONFIRMED, on a different page than previously checked.** The two generic pages checked in the prior pass ("Comprehensive FAQ - Live Accounts" and "Understanding Live Funded Account") genuinely don't mention it, and neither does the Rapid-specific "Understanding Rapid Live" article — that part of the prior finding was correct. But the companion article **"Rapid Plan - Reserve Program & Performance Bonus Structure"** (`https://help.myfundedfutures.com/en/articles/13286746-rapid-plan-reserve-program-performance-bonus-structure`, verified against raw page HTML, not a summarizer) has a section literally titled **"Post-Breach Cooldown Period Protocol"**:
 
-> *"Following Live account closure due to Maximum Loss breach: **21-Day Cooldown Period initiation:** All Sim Funded account trading is prohibited. New Evaluation purchases, account resets, or additional account acquisitions are prohibited. **Post-Cooldown (21 calendar days):** Cooldown restrictions are lifted. You can continue from your active Sim Funded account (if applicable) and/or purchase new Evaluations or accounts, unless communicated otherwise by the team."*
+> _"Following Live account closure due to Maximum Loss breach: **21-Day Cooldown Period initiation:** All Sim Funded account trading is prohibited. New Evaluation purchases, account resets, or additional account acquisitions are prohibited. **Post-Cooldown (21 calendar days):** Cooldown restrictions are lifted. You can continue from your active Sim Funded account (if applicable) and/or purchase new Evaluations or accounts, unless communicated otherwise by the team."_
 
-Identical wording (headed "Live Post-Breach Cooldown Protocol" / "Live Post-Breach Cooldown Period Protocol") is also confirmed, via raw HTML, on **Builder Plan 50k** (`.../articles/14290805`) and **Flex Plan $50,000** (`.../articles/15072271`) comprehensive-guide pages, plus a condensed FAQ-style restatement on Builder Plan 50k: *"Q: What happens if my live account is breached? A: A live account breach triggers a 21-day cooldown period. During the cooldown, all sim funded account trading is prohibited and no new evaluations or account resets may be purchased. Once the 21 days have elapsed, all restrictions are lifted."* Checked and confirmed **absent** (raw HTML, zero matches) from Rapid Plan 25k/50k/100k/150k and Rapid EOD 50k comprehensive pages and from "Understanding Rapid Live" itself (both current page and a 2026-09-03 Wayback snapshot) — those pages are just silent on it, not contradicting it. No permanent-ban language found anywhere in any of these pages for a drawdown-breach bust; the only "permanent" language present is the MLL lock mechanic itself and the dormant shell Sim account's own permanent closure once its buffer is fully withdrawn — neither is a ban on the trader. The "unless communicated otherwise by the team" clause is a discretionary carve-out, not a stated ban policy.
+Identical wording (headed "Live Post-Breach Cooldown Protocol" / "Live Post-Breach Cooldown Period Protocol") is also confirmed, via raw HTML, on **Builder Plan 50k** (`.../articles/14290805`) and **Flex Plan $50,000** (`.../articles/15072271`) comprehensive-guide pages, plus a condensed FAQ-style restatement on Builder Plan 50k: _"Q: What happens if my live account is breached? A: A live account breach triggers a 21-day cooldown period. During the cooldown, all sim funded account trading is prohibited and no new evaluations or account resets may be purchased. Once the 21 days have elapsed, all restrictions are lifted."_ Checked and confirmed **absent** (raw HTML, zero matches) from Rapid Plan 25k/50k/100k/150k and Rapid EOD 50k comprehensive pages and from "Understanding Rapid Live" itself (both current page and a 2026-09-03 Wayback snapshot) — those pages are just silent on it, not contradicting it. No permanent-ban language found anywhere in any of these pages for a drawdown-breach bust; the only "permanent" language present is the MLL lock mechanic itself and the dormant shell Sim account's own permanent closure once its buffer is fully withdrawn — neither is a ban on the trader. The "unless communicated otherwise by the team" clause is a discretionary carve-out, not a stated ban policy.
 
 **Update 2026-09-14, second pass:** Sadra opened all 16 sources below directly in his own logged-in
 Chrome and pasted the rendered page content back. This let the two previously Wayback-only sources
@@ -176,15 +176,15 @@ Chrome and pasted the rendered page content back. This let the two previously Wa
 to what the Wayback snapshot already said (the exact same "cannot purchase or activate" / "special
 exception from a risk manager... maximum of three Performance Accounts" quotes), so the table and
 quotes above stand confirmed, not just Wayback-plausible. Both are upgraded to ✅ below. One genuine
-new finding surfaced doing this — FundedNext runs two *different* live programs with two different
+new finding surfaced doing this — FundedNext runs two _different_ live programs with two different
 failure outcomes, not one:
 
 - **Flex / Rapid Pro / Rapid Daily** ("Road To Live Trading", the newer structure): 2-week cooldown
-  (4wk if reckless), then *"traders return to normal sim trading, purchasing Challenge Accounts."*
+  (4wk if reckless), then _"traders return to normal sim trading, purchasing Challenge Accounts."_
 - **Legacy** (the older, separate "Road To Live Trading - Legacy Challenge & Rapid Challenge (Former)"
   article, still governing accounts that were on it before the July 10 2026 cutover): liquidation is
-  explicitly terminal — *"The account is permanently closed. You lose access to the Live account
-  along with all reserve and leftover balance. The account cannot be reset."* No cooldown, no stated
+  explicitly terminal — _"The account is permanently closed. You lose access to the Live account
+  along with all reserve and leftover balance. The account cannot be reset."_ No cooldown, no stated
   path back to sim/eval purchasing at all. This is a materially worse outcome than Flex/Rapid's
   documented 2-week cooldown, and the table row above (which was written from the Flex/Rapid articles)
   should be read as **Flex/Rapid only** — Legacy is worse and undocumented on recovery, full stop.
@@ -192,12 +192,12 @@ failure outcomes, not one:
 **Update, same day, TopStep's collapsed FAQ expanded:** the one remaining unresolved question in
 this whole comparison — whether TopStep lets you buy/pass new Combines while a Live Funded Account
 is active and healthy — is answered directly on TopStep's own "Live Funded Account Parameters" page:
-*"Yes. You can have Trading Combines while actively trading a Live Funded Account. The restriction is
+_"Yes. You can have Trading Combines while actively trading a Live Funded Account. The restriction is
 only on activation — a passed Trading Combine cannot be activated into an Express Funded Account
-while your Live Funded Account is active."* This moves TopStep from "undocumented" to the
+while your Live Funded Account is active."_ This moves TopStep from "undocumented" to the
 **second-most-permissive firm after TPT** — see the updated table and quote above. Also resolved from
-the same page: a full LFA liquidation does **not** let you skip straight to a fresh XFA — *"You must
-pass a Trading Combine first"* either way, same as a normal Combine failure. Nothing in this
+the same page: a full LFA liquidation does **not** let you skip straight to a fresh XFA — _"You must
+pass a Trading Combine first"_ either way, same as a normal Combine failure. Nothing in this
 comparison is left undocumented at the level of "we never checked" — AlphaFutures, Lucid's
 purchase-while-live, and MFF's post-suspension resume condition remain genuinely silent in their own
 firms' docs, not unchecked by us.
@@ -229,15 +229,15 @@ Every source above is now either directly loaded or confirmed against a real log
 
 Ranked by how avoidable (best first, given the stay-on-sim goal):
 
-| Firm | Trigger |
-| --- | --- |
-| **TPT** | No count at all — discretionary, or a $10k single day |
-| **MyFundedFutures** | No count — $10,000 single-day, or discretion |
-| **Apex** | Soft signal (3 consecutive withdrawals is one input among several) |
-| **Topstep** | Discretionary, typically 3rd–5th payout — but only 0.71% ever called |
-| **Lucid** | 5 payouts |
-| **FundedNext** | 15 rewards (Flex/Rapid), or $100k / 5 single-account withdrawals (Legacy) |
-| **Tradeify** | **3 on one account OR 10 total — hardest, and mandatory once selected** |
+| Firm                | Trigger                                                                   |
+| ------------------- | ------------------------------------------------------------------------- |
+| **TPT**             | No count at all — discretionary, or a $10k single day                     |
+| **MyFundedFutures** | No count — $10,000 single-day, or discretion                              |
+| **Apex**            | Soft signal (3 consecutive withdrawals is one input among several)        |
+| **Topstep**         | Discretionary, typically 3rd–5th payout — but only 0.71% ever called      |
+| **Lucid**           | 5 payouts                                                                 |
+| **FundedNext**      | 15 rewards (Flex/Rapid), or $100k / 5 single-account withdrawals (Legacy) |
+| **Tradeify**        | **3 on one account OR 10 total — hardest, and mandatory once selected**   |
 
 **Conversion model matters enormously** — this is what cost Sadra at Apex:
 
@@ -253,16 +253,16 @@ accounts are restrictive and often collapse/close everything else. So "best" her
 get pushed into live, and least disruptive to the funded/copy-trading pipeline if it happens anyway
 — combining the trigger-difficulty table above with the eval-purchase-while-live table further up.
 
-| Rank | Firm | Trigger (harder = better) | Disruption if triggered |
-| --- | --- | --- | --- |
-| 1 | **E8 Futures** | None — **no live stage exists at all.** SimFi stays sim forever. | Zero. The only firm with genuinely zero live risk. |
-| 2 | **TopStep** | Discretionary, no hard count — and only **0.71% of funded traders ever get called up**, the lowest real-world odds of any count-having firm. | Softest by far: you keep buying/passing new Combines the whole time Live is active — only *activating* a pass into a funded XFA is blocked, and that unlocks the instant Live ends. The funded/copy-trading pipeline barely skips a beat. |
-| 3 | **Tradeify** | Hardest *known number*: 3 payouts on one account OR 10 total. | Harsh once hit — mandatory, full sim/eval ban, 4-week cooldown to get back. But it's a visible, manageable number (spread payouts thin across accounts to delay it). |
-| 4 | **FundedNext (Flex/Rapid)** | 15 Performance Rewards — the highest hard count of any firm. | Existing challenges permanently closed, no refund. 2-week cooldown (4wk if reckless), then back to normal. **Avoid Legacy specifically** — same trigger idea, but a blown Legacy live account is terminal, no reset, ever. |
-| 5 | **MFF** | No count — $10k single-day auto-trigger, or discretionary. | Accounts go dormant (not closed, refundable if unfunded), new purchases suspended during a confirmed 21-calendar-day cooldown after a live bust, then normal purchasing resumes. No permanent-ban language found. |
-| 6 | **Apex** | Soft/discretionary (3 consecutive withdrawals is one input among several). | Full ban, no exception while live is healthy. Getting back to sim needs a risk-manager exception, capped, and auto-reverts you to live on your first payout — a trap, not a real escape. |
-| 7 | **Lucid** | Hard count: 5 payouts. | Closed accounts, 2-week cooldown — but that cooldown is only confirmed to route back to *live*, not confirmed as unrestricted eval purchasing again. |
-| 8 | **AlphaFutures** | Undocumented threshold. | Can decline, but doing so "sacrifices all relations with any branch of the Alpha Group" — burns the whole relationship. Worst discretionary risk of the group. |
+| Rank | Firm                        | Trigger (harder = better)                                                                                                                    | Disruption if triggered                                                                                                                                                                                                                   |
+| ---- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | **E8 Futures**              | None — **no live stage exists at all.** SimFi stays sim forever.                                                                             | Zero. The only firm with genuinely zero live risk.                                                                                                                                                                                        |
+| 2    | **TopStep**                 | Discretionary, no hard count — and only **0.71% of funded traders ever get called up**, the lowest real-world odds of any count-having firm. | Softest by far: you keep buying/passing new Combines the whole time Live is active — only _activating_ a pass into a funded XFA is blocked, and that unlocks the instant Live ends. The funded/copy-trading pipeline barely skips a beat. |
+| 3    | **Tradeify**                | Hardest _known number_: 3 payouts on one account OR 10 total.                                                                                | Harsh once hit — mandatory, full sim/eval ban, 4-week cooldown to get back. But it's a visible, manageable number (spread payouts thin across accounts to delay it).                                                                      |
+| 4    | **FundedNext (Flex/Rapid)** | 15 Performance Rewards — the highest hard count of any firm.                                                                                 | Existing challenges permanently closed, no refund. 2-week cooldown (4wk if reckless), then back to normal. **Avoid Legacy specifically** — same trigger idea, but a blown Legacy live account is terminal, no reset, ever.                |
+| 5    | **MFF**                     | No count — $10k single-day auto-trigger, or discretionary.                                                                                   | Accounts go dormant (not closed, refundable if unfunded), new purchases suspended during a confirmed 21-calendar-day cooldown after a live bust, then normal purchasing resumes. No permanent-ban language found.                         |
+| 6    | **Apex**                    | Soft/discretionary (3 consecutive withdrawals is one input among several).                                                                   | Full ban, no exception while live is healthy. Getting back to sim needs a risk-manager exception, capped, and auto-reverts you to live on your first payout — a trap, not a real escape.                                                  |
+| 7    | **Lucid**                   | Hard count: 5 payouts.                                                                                                                       | Closed accounts, 2-week cooldown — but that cooldown is only confirmed to route back to _live_, not confirmed as unrestricted eval purchasing again.                                                                                      |
+| 8    | **AlphaFutures**            | Undocumented threshold.                                                                                                                      | Can decline, but doing so "sacrifices all relations with any branch of the Alpha Group" — burns the whole relationship. Worst discretionary risk of the group.                                                                            |
 
 **Bottom line:** E8 for a hard guarantee of never touching live. TopStep for real firm capital
 eventually with the best odds of never actually getting there, and the softest landing if you do.

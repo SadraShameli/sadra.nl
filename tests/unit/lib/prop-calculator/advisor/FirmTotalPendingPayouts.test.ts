@@ -212,6 +212,7 @@ describe('the pending payout counts travel through the reconstruction', () => {
             plan,
             null,
             { otherAccountsPendingPayoutCount: 2, pendingPayoutCount: 3 },
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (rebuilt.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded account');
@@ -226,12 +227,14 @@ describe('the pending payout counts travel through the reconstruction', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const without = AccountReconstruction.rebuild(
             baseInput,
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (
             withDollars.kind !== TradingPhase.Funded ||

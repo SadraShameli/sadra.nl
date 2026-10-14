@@ -83,6 +83,7 @@ function optionsFor(
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     const options = personalAdvisorOptionsOf({
         account,

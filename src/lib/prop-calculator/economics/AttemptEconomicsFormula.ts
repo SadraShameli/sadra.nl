@@ -14,7 +14,13 @@ interface PaidFundedPayoutStats {
 }
 
 export function filledEvFormulaText(
-    economics: RunAttemptEconomics,
+    economics: Pick<
+        RunAttemptEconomics,
+        | 'attemptCost'
+        | 'fundedValue'
+        | 'liveTransferCashPerAttempt'
+        | 'passProbability'
+    >,
     resultText: string,
 ): string {
     const liveTransferTerm =

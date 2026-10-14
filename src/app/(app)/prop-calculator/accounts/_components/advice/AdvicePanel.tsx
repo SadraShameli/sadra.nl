@@ -547,6 +547,7 @@ function buildAdvisorInput(args: {
         firmPayoutCount.kind === FirmPayoutCountKind.Ready
             ? firmPayoutCount.count
             : PENDING_PAYOUT_COUNTS_NOT_CHECKED,
+        rulebook.live.cushionPercent,
     );
     if (view.kind !== StateCardKind.Ready) {
         return {

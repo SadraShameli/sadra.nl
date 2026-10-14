@@ -47,6 +47,7 @@ function leverRow(
     return {
         deltaAttemptPaysProbability: 0,
         deltaEvPerAttempt: 0,
+        deltaLossProbability: 0,
         deltaMonthlyNet: 0,
         deltaPassProbability: 0,
         evPerAttempt: 45,
@@ -102,6 +103,7 @@ describe('LeversCard changes (PT-81 step 3)', () => {
             leverRow({}),
             leverRow({
                 deltaAttemptPaysProbability: -0.01,
+                deltaLossProbability: 0.05,
                 deltaPassProbability: 0.02,
                 kind: BankrollLeverKind.Risk,
                 lossRisk: 0.23,
@@ -128,6 +130,7 @@ describe('LeversCard changes (PT-81 step 3)', () => {
         harness.rows = [
             leverRow({}),
             leverRow({
+                deltaLossProbability: -0.08,
                 kind: BankrollLeverKind.TradesPerDay,
                 lossRisk: 0.1,
                 value: 1,
@@ -147,10 +150,27 @@ describe('LeversCard changes (PT-81 step 3)', () => {
         expect(cells.filter((cell) => cell === '·')).toHaveLength(3);
     });
 
+    it('shows the library loss-risk change, not a difference of the two shown loss risks (PT-81b)', () => {
+        harness.rows = [
+            leverRow({}),
+            leverRow({
+                deltaLossProbability: 0.031,
+                kind: BankrollLeverKind.Risk,
+                lossRisk: 0.23,
+                value: 300,
+            }),
+        ];
+        render();
+        const cells = rowCells('Risk');
+        expect(cells).toContain('+3.1pp');
+        expect(cells).not.toContain('+5.0pp');
+    });
+
     it('shows n/a for the loss-risk change when either loss risk is missing', () => {
         harness.rows = [
             leverRow({}),
             leverRow({
+                deltaLossProbability: null,
                 kind: BankrollLeverKind.RequestSize,
                 lossRisk: null,
                 value: 500,

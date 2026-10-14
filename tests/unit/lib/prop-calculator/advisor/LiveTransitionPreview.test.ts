@@ -16,6 +16,7 @@ import {
     AccountReconstruction,
     type AccountSnapshotInput,
     DashboardBalanceConvention,
+    DEFAULT_RULEBOOK,
     liveTransitionPreview,
     LiveTransitionPreviewGap,
     LiveTransitionPreviewKind,
@@ -95,6 +96,7 @@ function lucidFundedAt(balance: number) {
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
 }
 
@@ -142,6 +144,7 @@ describe('liveTransitionPreview: TopStep', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         expect(liveTransitionPreview(plan, funded)).toEqual(
             liveTransitionPreview(plan, null),
@@ -154,6 +157,7 @@ describe('liveTransitionPreview: TopStep', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         expect(liveTransitionPreview(plan, live)).toEqual({
             kind: LiveTransitionPreviewKind.NotModeled,
@@ -238,6 +242,7 @@ describe('liveTransitionPreview: LucidDaily', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         for (const account of [null, evalAccount]) {
             expect(liveTransitionPreview(plan, account)).toEqual({

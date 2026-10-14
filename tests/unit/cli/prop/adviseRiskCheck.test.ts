@@ -16,6 +16,7 @@ import { dollars } from '~/lib/prop-calculator';
 import {
     AccountReconstruction,
     createSizingAdvisor,
+    DEFAULT_RULEBOOK,
     NextTradeRiskVerdict,
     NO_PENDING_PAYOUT_COUNTS,
     runEngineOptimum,
@@ -102,6 +103,7 @@ function adviceFor(
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     const advisor = createSizingAdvisor(account, { ...options, ...overrides });
     return { advisor, plan };

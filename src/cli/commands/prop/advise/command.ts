@@ -648,6 +648,7 @@ const command = defineCommand({
                 plan,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                options.rulebook.live.cushionPercent,
             );
             const advisor = createSizingAdvisor(
                 account,
@@ -891,9 +892,9 @@ export function swingLines(
         replacementFee,
     );
     const whatIf =
-        documentedRewardMultiple !== null && documentedRewardMultiple !== rr
-            ? ` (what-if: differs from the documented 1:${documentedRewardMultiple})`
-            : '';
+        documentedRewardMultiple === null || documentedRewardMultiple === rr
+            ? ''
+            : ` (what-if: differs from the documented 1:${documentedRewardMultiple})`;
     const bustNote = outcome.afterLossBusted
         ? `, a loss busts the account (rebuy lag ${outcome.afterLossRebuyLagDays ?? 0} days, replacement fee ${formatCurrency(replacementFee)} netted off)`
         : '';

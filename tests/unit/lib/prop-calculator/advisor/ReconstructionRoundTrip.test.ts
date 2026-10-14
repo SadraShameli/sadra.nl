@@ -35,6 +35,7 @@ import {
     AccountReconstruction,
     type AccountSnapshotInput,
     DashboardBalanceConvention,
+    DEFAULT_RULEBOOK,
     NO_PENDING_PAYOUT_COUNTS,
     ReconstructedLiveKind,
     SizingStage,
@@ -127,6 +128,7 @@ describe('ReconstructionRoundTrip (F-107, PT-12j, PT-12k)', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (reconstructed.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -164,6 +166,7 @@ describe('ReconstructionRoundTrip (F-107, PT-12j, PT-12k)', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (reconstructed.kind !== TradingPhase.Eval) {
             throw new Error('expected an eval reconstruction');
@@ -211,6 +214,7 @@ describe('ReconstructionRoundTrip (F-107, PT-12j, PT-12k)', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (reconstructed.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -257,6 +261,7 @@ describe('ReconstructionRoundTrip (F-107, PT-12j, PT-12k)', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (reconstructed.kind !== TradingPhase.Eval) {
             throw new Error('expected an eval reconstruction');
@@ -290,6 +295,7 @@ describe('ReconstructionRoundTrip (F-107, PT-12j, PT-12k)', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (reconstructed.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -323,6 +329,7 @@ describe('ReconstructionRoundTrip (F-107, PT-12j, PT-12k)', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (reconstructed.kind !== TradingPhase.Eval) {
             throw new Error('expected an eval reconstruction');
@@ -362,6 +369,7 @@ describe('ReconstructionRoundTrip (F-107, PT-12j, PT-12k)', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (reconstructed.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -404,6 +412,7 @@ describe('ReconstructionRoundTrip (F-107, PT-12j, PT-12k)', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (reconstructed.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -465,6 +474,7 @@ describe('ReconstructionRoundTrip (F-107, PT-12j, PT-12k)', () => {
                         plan,
                         null,
                         NO_PENDING_PAYOUT_COUNTS,
+                        DEFAULT_RULEBOOK.live.cushionPercent,
                     );
                     if (reconstructed.kind !== ReconstructedLiveKind.Live) {
                         throw new Error('expected a live reconstruction');
@@ -680,6 +690,7 @@ function expectEvalRoundTrip(
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     if (account.kind !== TradingPhase.Eval) {
         throw new Error(`${label}: expected an eval reconstruction`);
@@ -719,6 +730,7 @@ function expectFundedRoundTrip(
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     if (
         account.kind !== TradingPhase.Funded ||
@@ -794,6 +806,7 @@ function expectLiveRoundTrip(
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     if (account.kind !== ReconstructedLiveKind.Live || account.state === null) {
         throw new Error(`${label}: expected a modeled live reconstruction`);

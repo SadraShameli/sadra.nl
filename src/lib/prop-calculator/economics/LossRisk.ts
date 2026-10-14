@@ -52,9 +52,9 @@ export function attemptsAffordable(
 ): Quantity<number> {
     const budgetCents = Math.round(budget * CENTS_PER_DOLLAR);
     const costCents = Math.round(attemptCost * CENTS_PER_DOLLAR);
-    return !isNonNegativeAmount(budget) || !(costCents > 0)
-        ? missingQuantity(EconomicsReason.InvalidInput)
-        : quantityOf(Math.floor(budgetCents / costCents));
+    return isNonNegativeAmount(budget) && costCents > 0
+        ? quantityOf(Math.floor(budgetCents / costCents))
+        : missingQuantity(EconomicsReason.InvalidInput);
 }
 
 export function batchLossClosedForm(
@@ -191,9 +191,9 @@ export function noPayoutProbability(
     attempts: number,
 ): Quantity<Fraction0to1> {
     const disclosures = [EconomicsDisclosure.NoPayoutIgnoresPayoutSize];
-    return !isProbability(pAttemptPays) || !isCount(attempts)
-        ? missingQuantity(EconomicsReason.InvalidInput, disclosures)
-        : quantityOf(fraction((1 - pAttemptPays) ** attempts), disclosures);
+    return isProbability(pAttemptPays) && isCount(attempts)
+        ? quantityOf(fraction((1 - pAttemptPays) ** attempts), disclosures)
+        : missingQuantity(EconomicsReason.InvalidInput, disclosures);
 }
 
 export function noPayoutProbabilityFromDistribution(

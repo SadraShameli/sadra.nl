@@ -1,5 +1,6 @@
 import {
     attemptsOf,
+    costAnalytics,
     fundedSince,
     isCohortEndedAttempt,
     paidCountWithinHorizon,
@@ -19,6 +20,9 @@ import {
     type Quantity,
 } from '~/lib/prop-calculator/economics';
 import { clamp, mean } from '~/lib/prop-calculator/stats';
+
+export const REALIZED_LOSS_RISK_SEED = 42;
+export const TO_FIRST_PAYOUT_FALLBACK_DAYS = 30;
 
 export interface RealizedLossRisk {
     readonly attemptPaysRate: null | SampledEstimate;
@@ -45,6 +49,19 @@ export interface RealizedLossRiskInputs {
     readonly lossRiskThreshold: null | number;
     readonly seed: number;
     readonly toFirstPayoutFallbackDays: number;
+}
+
+export function pooledAttemptCostCentsOf(
+    ledger: PortfolioLedger,
+): null | number {
+    const totals = costAnalytics(ledger, new Map()).perPlan.reduce(
+        (sum, row) => ({
+            attempts: sum.attempts + row.attempts,
+            spendCents: sum.spendCents + row.acquisitionSpend,
+        }),
+        { attempts: 0, spendCents: 0 },
+    );
+    return totals.attempts === 0 ? null : totals.spendCents / totals.attempts;
 }
 
 export function realizedLossRisk(

@@ -156,29 +156,22 @@ export function FundedValueCard({
                 )}
                 {result === null ? null : (
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        {result.fundedValue === undefined ? null : (
-                            <>
-                                <StatCard
-                                    label="Expected payout per funded account"
-                                    sub={`${String(result.trials)} trials`}
-                                    value={uncertainCurrencyText(
-                                        result.fundedValue,
-                                    )}
-                                />
-                                <StatCard
-                                    label="Range n accounts could show ($)"
-                                    sub={dollarRangeSubText(
-                                        result.dollarSampleRange,
-                                        settled.sampleSize,
-                                    )}
-                                    value={
-                                        dollarRangeText(
-                                            result.dollarSampleRange,
-                                        ) ?? NOT_APPLICABLE
-                                    }
-                                />
-                            </>
-                        )}
+                        <StatCard
+                            label="Expected payout per funded account"
+                            sub={`${String(result.trials)} trials`}
+                            value={uncertainCurrencyText(result.fundedValue)}
+                        />
+                        <StatCard
+                            label="Range n accounts could show ($)"
+                            sub={dollarRangeSubText(
+                                result.dollarSampleRange,
+                                settled.sampleSize,
+                            )}
+                            value={
+                                dollarRangeText(result.dollarSampleRange) ??
+                                NOT_APPLICABLE
+                            }
+                        />
                         <StatCard
                             label="Mean payouts per funded account"
                             sub={`${String(result.trials)} trials`}

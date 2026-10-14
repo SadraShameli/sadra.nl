@@ -419,6 +419,7 @@ export function reconstructPayoutPlannerAccount(
         input.plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        input.rulebook.live.cushionPercent,
     );
     if (
         account.kind !== TradingPhase.Funded ||

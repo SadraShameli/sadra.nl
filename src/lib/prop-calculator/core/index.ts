@@ -15,6 +15,7 @@ export {
 } from './ConsistencyRule';
 export {
     CALENDAR_DAYS_PER_WEEK,
+    DEFAULT_TRADES_PER_DAY,
     SESSION_DAYS_PER_CALENDAR_WEEK,
     TRADING_DAYS_PER_MONTH,
     TRADING_DAYS_PER_YEAR,

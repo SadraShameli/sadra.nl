@@ -39,8 +39,8 @@ function consumers(): readonly {
 }[] {
     return filesUnder(SOURCE_ROOT).flatMap((full) => {
         const text = readFileSync(full, 'utf8');
-        if (!TO_SIM_INPUTS_IMPORT.test(text)) return [];
-        if (!TO_SIM_INPUTS_CALL.test(text)) return [];
+        if (!TO_SIM_INPUTS_IMPORT.test(text) || !TO_SIM_INPUTS_CALL.test(text))
+            return [];
         return {
             discloses: isDisclosureReturned(text),
             file: path.relative(SOURCE_ROOT, full).split(path.sep).join('/'),

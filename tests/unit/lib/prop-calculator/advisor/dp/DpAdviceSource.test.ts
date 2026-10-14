@@ -4,7 +4,13 @@ import { fundedIneligibilityMessage } from '~/cli/commands/prop/optimize/dp/comm
 import {
     DEFAULT_RULEBOOK,
     DifferenceReason,
+    DP_ADVICE_SOLVER_VERSION,
+    DpAdviceGap,
+    DpGateFailureCode,
     DpNotValidatedCause,
+    DpSamplesKind,
+    DpSampleStage,
+    DpSamplesUnavailableReason,
     type RulebookParameters,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
@@ -17,7 +23,6 @@ import {
     dpEligibility,
     dpEvalDayIndex,
     DpEvalObjective,
-    DpGateFailure,
     type DpSolutionView,
     type DpSolveConfig,
     dpSolveConfigFor,
@@ -26,13 +31,6 @@ import {
     EVAL_CUSHION_STEP_DOLLARS_DEFAULT,
     ineligibleDpAdvice,
 } from '~/lib/prop-calculator/advisor/dp';
-import {
-    DP_ADVICE_SOLVER_VERSION,
-    DpAdviceGap,
-    DpSamplesKind,
-    DpSampleStage,
-    DpSamplesUnavailableReason,
-} from '~/lib/prop-calculator/advisor/DpAdviceRow';
 import {
     ConductCategory,
     type ConductPattern,
@@ -84,14 +82,14 @@ const VALIDATED: DpValidationVerdict = {
 
 const NOT_VALIDATED_NO_RUN: DpValidationVerdict = {
     citation: null,
-    failure: DpGateFailure.NoGateRun,
+    failure: DpGateFailureCode.NoGateRun,
     result: null,
     validated: false,
 };
 
 const NOT_VALIDATED_BELOW_FLAT: DpValidationVerdict = {
     citation: CITATION,
-    failure: DpGateFailure.BelowBestFlat,
+    failure: DpGateFailureCode.BelowBestFlat,
     result: '0.99x best flat (credit-inclusive)',
     validated: false,
 };
@@ -684,7 +682,7 @@ describe('dpAdviceFor on a toy plan solved once', () => {
             expect(advice.validationRef).toBeNull();
             expect(advice.notValidated).toEqual({
                 citation: null,
-                failure: DpGateFailure.NoGateRun,
+                failure: DpGateFailureCode.NoGateRun,
                 result: null,
             });
             expect(advice.reasons).toContainEqual({
@@ -701,7 +699,7 @@ describe('dpAdviceFor on a toy plan solved once', () => {
 
             expect(advice.notValidated).toEqual({
                 citation: CITATION,
-                failure: DpGateFailure.BelowBestFlat,
+                failure: DpGateFailureCode.BelowBestFlat,
                 result: '0.99x best flat (credit-inclusive)',
             });
             expect(

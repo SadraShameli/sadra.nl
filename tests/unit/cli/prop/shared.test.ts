@@ -10,9 +10,9 @@ import ladderCommand, {
     ladderArguments,
 } from '~/cli/commands/prop/ladder/command';
 import optimizeDp, {
-    DP_TRADES_PER_DAY,
     dpArguments,
 } from '~/cli/commands/prop/optimize/dp/command';
+import * as sharedModule from '~/cli/commands/prop/shared';
 import {
     bankrollArguments,
     compoundStartArgument,
@@ -65,7 +65,7 @@ import {
     TradingInputs,
     unrestatedLines,
 } from '~/cli/commands/prop/shared';
-import * as sharedModule from '~/cli/commands/prop/shared';
+import { ui } from '~/cli/ui';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
     AlphaFuturesVariant,
@@ -79,6 +79,7 @@ import {
     DailyLossLimitKind,
     type DayStopRule,
     DayStopRuleKind,
+    DEFAULT_TRADES_PER_DAY,
     dollars,
     E8FuturesVariant,
     EdgeModelKind,
@@ -93,16 +94,13 @@ import {
     PolicyVerification,
 } from '~/lib/prop-calculator';
 import {
-    SizingObjective,
-    sizingObjectiveText,
-} from '~/lib/prop-calculator/advisor';
-import {
     DEFAULT_RULEBOOK,
     rulebookSchema,
     SIZING_OBJECTIVE_LABEL,
+    SizingObjective,
+    sizingObjectiveText,
 } from '~/lib/prop-calculator/advisor';
 import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
-import { solveAverageRewardPolicy } from '~/lib/prop-calculator/core/AverageRewardSolver';
 import {
     ContractUnit,
     describeDll,
@@ -113,17 +111,6 @@ import {
     LIVE_TRANSFER_CONTINUATION_TEXT,
     liveTransferDisclosureLines,
 } from '~/lib/prop-calculator/simulator';
-
-vi.mock(
-    import('~/lib/prop-calculator/core/AverageRewardSolver'),
-    async (importOriginal) => {
-        const actual = await importOriginal();
-        return {
-            ...actual,
-            solveAverageRewardPolicy: vi.fn(actual.solveAverageRewardPolicy),
-        };
-    },
-);
 
 const ARGS = {
     ...planArguments,
@@ -1103,21 +1090,20 @@ describe('--compound-start (F-V22)', () => {
 
 async function capturedStdout(run: () => Promise<unknown>): Promise<string> {
     const written: string[] = [];
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
-    const writeError = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation(() => true);
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+        vi.spyOn(process.stderr, 'write').mockImplementation(() => true),
+    ];
     const exitCode = process.exitCode;
     try {
         await run();
     } finally {
-        write.mockRestore();
-        writeError.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = exitCode;
     }
     return written.join('');
@@ -1202,7 +1188,7 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
             '--rr',
             '1',
         ];
-        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(() => {
+        vi.spyOn(ui, 'spinner').mockImplementationOnce(() => {
             throw new Error('stop after the preamble');
         });
         const stdout = await capturedStdout(async () => {
@@ -1215,7 +1201,7 @@ describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, on
         const dpNote =
             edgePlausibilityNote({
                 rrRatio: 1,
-                tradesPerDay: DP_TRADES_PER_DAY,
+                tradesPerDay: DEFAULT_TRADES_PER_DAY,
                 winrate: fraction(0.7),
             }) ?? '';
         expect(dpNote).not.toBe('');

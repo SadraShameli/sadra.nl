@@ -92,14 +92,15 @@ export function heldPlanGroupsOf(
 ): readonly PlanGroup[] {
     return ledger
         .planGroups()
-        .filter((group) =>
-            group.accounts.some(
-                (entry) =>
-                    entry.row.archivedAt === null &&
-                    (entry.row.status === AccountStatus.Active ||
-                        entry.row.status === AccountStatus.Suspended),
-            ),
-        );
+        .filter((group) => group.accounts.some(isHeldAccount));
+}
+
+export function isHeldAccount(entry: Pick<LedgerAccount, 'row'>): boolean {
+    return (
+        entry.row.archivedAt === null &&
+        (entry.row.status === AccountStatus.Active ||
+            entry.row.status === AccountStatus.Suspended)
+    );
 }
 
 export function setupChecklistOf(inputs: SetupChecklistInputs): SetupChecklist {

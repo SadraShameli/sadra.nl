@@ -12,7 +12,7 @@ import { require as tsxRequire } from 'tsx/cjs/api';
 import type * as FirmsModule from '~/lib/prop-calculator/firms';
 
 import { type AccountState, createInitialState } from './AccountState';
-import { BUCKET_EPSILON } from './constants';
+import { BUCKET_EPSILON, DEFAULT_TRADES_PER_DAY } from './constants';
 import {
     DailyLossLimitKind,
     describeDailyLossLimit,
@@ -175,7 +175,6 @@ export interface SweepToConvergenceOptions {
 
 const DEFAULT_MAX_PRE_LOCK_OFFSET_MULTIPLE = 3;
 const DEFAULT_PAYOUT_REGIME_CAP = 6;
-const DEFAULT_TRADES_PER_DAY = 4;
 const DEFAULT_CONVERGENCE_TOLERANCE = 1;
 const DEFAULT_MAX_ITERATIONS_PER_LEVEL = 200;
 const DEFAULT_CYCLE_BASELINE_FINE_RANGE_MULTIPLE = 1;
@@ -183,8 +182,9 @@ const EXTRAPOLATION_BACKOFF = 4;
 const EXTRAPOLATION_RATIO_STABILITY = 0.05;
 const EXTRAPOLATION_RATIO_WINDOW = 3;
 const MAX_EXTRAPOLATIONS_PER_LEVEL = 64;
-const UNCAPPED_WORKER_COUNT = Number.MAX_SAFE_INTEGER;
 const MIN_GROUPS_PER_WORKER = 8;
+
+const UNCAPPED_WORKER_COUNT = Number.MAX_SAFE_INTEGER;
 const MIN_PARALLEL_GROUP_COUNT = 2;
 const WORKER_SILENCE_TIMEOUT_MS = 120_000;
 const OUTCOME_BUST = -1;
@@ -196,12 +196,11 @@ const MAX_CACHED_DAY_CLOSE_CELLS = 4_000_000;
 const MAX_CACHED_IDLE_CLOSE_CELLS = 2_000_000;
 const CACHED_MAP_ENTRY_CELL_COST = 6;
 const CACHED_TABLE_OVERHEAD_CELL_COST = 25;
-const CENTS_PER_DOLLAR = 100;
-const EXACT_CELL_CACHE_COST = 8;
-const EXACT_MEMO_MIN_CELL_CAPACITY = 64;
-const MAX_POLICY_CELLS = 300_000;
-const MAX_POLICY_DAYS = 4000;
-const POLICY_BUDGET_CHECK_INTERVAL = 32;
+
+enum FundedDayTreePurpose {
+    Policy = 'policy',
+    TradingValue = 'trading-value',
+}
 
 enum FundedWorkerMessageKind {
     Configure = 'configure',
@@ -234,17 +233,20 @@ interface FundedDayCloseOutcome {
 }
 
 interface FundedDayCloseTable {
-    readonly idles: (FundedDayCloseOutcome | undefined)[];
-    readonly stops: (FundedDayCloseOutcome | undefined)[];
+    idleCells: FundedDayCloseCells | null;
+    readonly idleEntries: Map<number, FundedDayCloseOutcome>;
+    readonly lockouts: Map<number, FundedDayCloseOutcome>;
+    readonly stops: FundedDayCloseCells;
 }
 
 interface FundedDaySkeleton {
-    readonly cellIds: Map<number, number>;
-    readonly cells: FundedExactCell[];
     readonly closeTables: Map<string, FundedDayCloseTable>;
-    readonly isCached: boolean;
-    readonly memo: FundedExactMemo;
+    readonly lockoutIds: Map<string, number>;
+    readonly lockouts: FundedLockout[];
     readonly reachCount: number;
+    readonly rows: (FundedSkeletonRow | undefined)[];
+    readonly tradesByIndex: (readonly SizedTrade[] | undefined)[];
+    readonly workingBucketCount: number;
 }
 
 interface FundedDaySkeletonCache {
@@ -253,34 +255,19 @@ interface FundedDaySkeletonCache {
     readonly skeletons: Map<string, FundedDaySkeleton>;
 }
 
-interface FundedDayStart extends FundedLevel, FundedPair {
-    readonly cushionAtDayStart: number;
-}
-
-interface FundedExactCell {
-    readonly cushion: number;
-    readonly reach: number;
-    row: FundedExactRow | null;
-}
-
-interface FundedExactEvaluation {
+interface FundedDaySolveScope {
+    readonly cellCount: number;
     readonly closeTable: FundedDayCloseTable | null;
     readonly context: FundedSolveContext;
     readonly dayStart: FundedDayStart;
-    readonly isIdleAllowed: boolean;
-    readonly memo: FundedExactMemo;
+    readonly lockoutValues: number[];
     readonly skeleton: FundedDaySkeleton;
+    readonly stopValues: Float64Array;
+    readonly workingBucketCount: number;
 }
 
-interface FundedExactMemo {
-    decisions: Float64Array;
-    idles: Float64Array;
-    stops: Float64Array;
-}
-
-interface FundedExactRow {
-    readonly targets: Int32Array;
-    readonly trades: readonly SizedTrade[];
+interface FundedDayStart extends FundedLevel, FundedPair {
+    readonly cushionAtDayStart: number;
 }
 
 interface FundedIdleCloseCache {
@@ -319,6 +306,11 @@ interface FundedLevelSolve {
     readonly workerCount: number;
 }
 
+interface FundedLockout {
+    readonly cushionAfter: number;
+    readonly reachAfter: number;
+}
+
 interface FundedPair {
     readonly cycleBaseline: number;
     readonly cycleBestDay: number;
@@ -328,13 +320,23 @@ interface FundedPair {
 }
 
 interface FundedPolicyDay {
-    readonly evaluation: FundedExactEvaluation;
+    readonly idleValues: Float64Array;
+    readonly nextTables: readonly (Float64Array | null)[];
     readonly risks: Map<string, number>;
+    readonly scope: FundedDaySolveScope;
 }
 
 interface FundedResetLayer {
     readonly breachValueBeforeFirstPayout: number;
     readonly regimeZeroValues: Float64Array;
+}
+
+interface FundedSkeletonRow {
+    readonly losses: Int32Array;
+    readonly lossUpperWeights: Float64Array;
+    readonly risks: readonly number[];
+    readonly wins: Int32Array;
+    readonly winUpperWeights: Float64Array;
 }
 
 interface FundedSolveContext {
@@ -380,7 +382,13 @@ interface FundedSolveContext {
     readonly slots: number;
     readonly startingBalance: number;
     readonly unlockedCushionBucketCount: number;
+    readonly unlockedWorkingBucketCount: number;
     readonly winrate: number;
+}
+
+interface FundedTradeOutcome {
+    readonly outcome: number;
+    readonly upperWeight: number;
 }
 
 interface FundedValueRange {
@@ -403,6 +411,7 @@ interface FundedWorkerDispatch {
     readonly kind: FundedWorkerMessageKind.Solve;
     readonly regimeAtStart: number;
     readonly thresholdDollars: number;
+    readonly workingBucketCount: number;
 }
 
 interface FundedWorkerInit {
@@ -444,26 +453,6 @@ const firmsRegistryCache: {
     module: null | typeof FirmsModule;
     warmPromise: null | Promise<Error | null>;
 } = { module: null, warmPromise: null };
-
-export function balancedWorkerCount(
-    groupCount: number,
-    coreLimit: number,
-): number {
-    if (!Number.isSafeInteger(groupCount) || groupCount < 1) {
-        throw new RangeError(
-            `balancedWorkerCount: groupCount must be a positive integer, got ${groupCount}`,
-        );
-    }
-    if (!Number.isSafeInteger(coreLimit) || coreLimit < 1) {
-        throw new RangeError(
-            `balancedWorkerCount: coreLimit must be a positive integer, got ${coreLimit}`,
-        );
-    }
-    const busiestWorkerGroups = Math.ceil(
-        groupCount / Math.min(groupCount, coreLimit),
-    );
-    return Math.ceil(groupCount / busiestWorkerGroups);
-}
 
 export function candidateTrades(
     context: CandidateTradeContext,
@@ -989,6 +978,7 @@ function buildFundedSolveContext(
         slots,
         startingBalance,
         unlockedCushionBucketCount,
+        unlockedWorkingBucketCount,
         winrate,
     };
 }
@@ -1052,6 +1042,47 @@ function buildState(
     };
 }
 
+function cachedCellValue(
+    scope: FundedDaySolveScope,
+    cells: FundedDayCloseCells | null,
+    cell: number,
+    wasIdleToday: boolean,
+): number {
+    const { context } = scope;
+    if (cells === null) {
+        const outcome = cellOutcome(scope, cell, wasIdleToday);
+        return dayCloseValue(
+            context,
+            outcome.cash,
+            outcome.continuationKey,
+            outcome.continuationUpperWeight,
+            outcome.continuationOffsetUpperKey,
+            outcome.continuationOffsetUpperWeight,
+            outcome.horizonCredit,
+        );
+    }
+    let continuationKeyValue = cells.keys[cell] ?? UNCOMPUTED_CONTINUATION_KEY;
+    if (continuationKeyValue === UNCOMPUTED_CONTINUATION_KEY) {
+        const outcome = cellOutcome(scope, cell, wasIdleToday);
+        cells.cash[cell] = outcome.cash;
+        cells.credit[cell] = outcome.horizonCredit;
+        cells.keys[cell] = outcome.continuationKey;
+        cells.offsetUpperKeys[cell] = outcome.continuationOffsetUpperKey;
+        cells.offsetUpperWeights[cell] = outcome.continuationOffsetUpperWeight;
+        cells.weights[cell] = outcome.continuationUpperWeight;
+        continuationKeyValue = outcome.continuationKey;
+    }
+    return dayCloseValue(
+        context,
+        cells.cash[cell] ?? 0,
+        continuationKeyValue,
+        cells.weights[cell] ?? 0,
+        cells.offsetUpperKeys[cell] ?? 0,
+        cells.offsetUpperWeights[cell] ?? 0,
+        cells.credit[cell] ?? 0,
+    );
+}
+
 function cachedIdleClose(
     cells: FundedDayCloseCells | null,
     offset: number,
@@ -1098,17 +1129,28 @@ function canWithdrawWhileUnlocked(
     }
 }
 
+function cellOutcome(
+    scope: FundedDaySolveScope,
+    cell: number,
+    wasIdleToday: boolean,
+): FundedDayCloseOutcome {
+    const reach = Math.floor(cell / scope.workingBucketCount);
+    return dayCloseOutcome(
+        scope.context,
+        scope.dayStart,
+        scope.context.cushionGrid.dollarsAt(
+            cell - reach * scope.workingBucketCount,
+        ),
+        wasIdleToday,
+        reach,
+    );
+}
+
 function chargeDayCloseCells(
     context: FundedSolveContext,
     cellCount: number,
 ): void {
     context.daySkeletons.closeCellCount += cellCount;
-}
-
-function clearExactMemo(memo: FundedExactMemo): void {
-    memo.decisions.fill(NaN);
-    memo.idles.fill(NaN);
-    memo.stops.fill(NaN);
 }
 
 function clearSolveCaches(context: FundedSolveContext): void {
@@ -1249,6 +1291,7 @@ function createFundedWorkerSolver(init: FundedWorkerInit): FundedWorkerSolver {
                     level,
                     groupIndex,
                     dispatch.cushionBucketCount,
+                    dispatch.workingBucketCount,
                     results,
                 );
                 onGroupSolved();
@@ -1442,18 +1485,20 @@ function dayCloseTableFor(
     context: FundedSolveContext,
     skeleton: FundedDaySkeleton,
     dayStart: FundedDayStart,
+    cellCount: number,
 ): FundedDayCloseTable | null {
     const tableKey = `${dayStart.idleDays}:${dayStart.cycleBestDay}:${dayStart.qualifyingDays}:${dayStart.cycleBaseline}`;
     const cached = skeleton.closeTables.get(tableKey);
     if (cached !== undefined) return cached;
-    if (
-        !skeleton.isCached ||
-        !hasDayCloseBudget(context, CACHED_TABLE_OVERHEAD_CELL_COST)
-    ) {
-        return null;
-    }
-    chargeDayCloseCells(context, CACHED_TABLE_OVERHEAD_CELL_COST);
-    const table: FundedDayCloseTable = { idles: [], stops: [] };
+    const chargedCellCount = CACHED_TABLE_OVERHEAD_CELL_COST + cellCount;
+    if (!hasDayCloseBudget(context, chargedCellCount)) return null;
+    chargeDayCloseCells(context, chargedCellCount);
+    const table: FundedDayCloseTable = {
+        idleCells: null,
+        idleEntries: new Map(),
+        lockouts: new Map(),
+        stops: newDayCloseCells(cellCount),
+    };
     skeleton.closeTables.set(tableKey, table);
     return table;
 }
@@ -1518,9 +1563,10 @@ function dayGateKeyRadix(plan: Plan): number {
 function daySkeletonFor(
     context: FundedSolveContext,
     dayStart: FundedDayStart,
+    workingBucketCount: number,
 ): FundedDaySkeleton {
     const cache = context.daySkeletons;
-    const levelKey = `${dayStart.isLocked}:${dayStart.thresholdDollars}:${dayStart.regime}`;
+    const levelKey = `${dayStart.isLocked}:${dayStart.thresholdDollars}:${dayStart.regime}:${workingBucketCount}`;
     if (cache.levelKey !== levelKey) {
         cache.skeletons.clear();
         cache.levelKey = levelKey;
@@ -1529,9 +1575,16 @@ function daySkeletonFor(
     const skeletonKey = `${dayStart.ratchet}:${dayStart.cushionAtDayStart}`;
     const cached = cache.skeletons.get(skeletonKey);
     if (cached !== undefined) return cached;
-    const isCached = hasDayCloseBudget(context, EXACT_CELL_CACHE_COST);
-    const skeleton = newDaySkeleton(context, dayStart, isCached);
-    if (isCached) cache.skeletons.set(skeletonKey, skeleton);
+    const skeleton: FundedDaySkeleton = {
+        closeTables: new Map(),
+        lockoutIds: new Map(),
+        lockouts: [],
+        reachCount: reachCountAt(context, dayStart),
+        rows: [],
+        tradesByIndex: [],
+        workingBucketCount,
+    };
+    cache.skeletons.set(skeletonKey, skeleton);
     return skeleton;
 }
 
@@ -1561,206 +1614,8 @@ function decodePair(
     };
 }
 
-function exactActionValue(
-    evaluation: FundedExactEvaluation,
-    row: FundedExactRow,
-    cellId: number,
-    tradeIndex: number,
-    actionIndex: number,
-): number {
-    const { targets, trades } = row;
-    if ((trades[actionIndex]?.risk ?? 0) <= 0) {
-        return exactStopValue(evaluation, cellId, tradeIndex === 0);
-    }
-    const { winrate } = evaluation.context;
-    return (
-        winrate *
-            exactTargetValue(
-                evaluation,
-                targets[actionIndex] ?? OUTCOME_BUST,
-                tradeIndex + 1,
-            ) +
-        (1 - winrate) *
-            exactTargetValue(
-                evaluation,
-                targets[trades.length + actionIndex] ?? OUTCOME_BUST,
-                tradeIndex + 1,
-            )
-    );
-}
-
-function exactCellId(
-    context: FundedSolveContext,
-    skeleton: FundedDaySkeleton,
-    cushion: number,
-    reach: number,
-): number {
-    const key =
-        Math.round(cushion * CENTS_PER_DOLLAR) * skeleton.reachCount + reach;
-    const known = skeleton.cellIds.get(key);
-    if (known !== undefined) return known;
-    const cellId = skeleton.cells.length;
-    skeleton.cells.push({ cushion, reach, row: null });
-    skeleton.cellIds.set(key, cellId);
-    if (skeleton.isCached) chargeDayCloseCells(context, EXACT_CELL_CACHE_COST);
-    return cellId;
-}
-
-function exactDecisionValue(
-    evaluation: FundedExactEvaluation,
-    cellId: number,
-    tradeIndex: number,
-): number {
-    const { context, dayStart, memo, skeleton } = evaluation;
-    const memoIndex = cellId * context.slots + tradeIndex;
-    const cached = memo.decisions[memoIndex] ?? NaN;
-    if (!Number.isNaN(cached)) return cached;
-    const row = exactRow(context, skeleton, dayStart, cellId);
-    let bestValue = -Infinity;
-    for (const [actionIndex, { risk }] of row.trades.entries()) {
-        if (tradeIndex === 0 && !evaluation.isIdleAllowed && risk <= 0) {
-            continue;
-        }
-        const value = exactActionValue(
-            evaluation,
-            row,
-            cellId,
-            tradeIndex,
-            actionIndex,
-        );
-        if (value > bestValue) bestValue = value;
-    }
-    growExactMemo(memo, skeleton.cells.length, context.slots);
-    memo.decisions[memoIndex] = bestValue;
-    return bestValue;
-}
-
-function exactLanding(
-    context: FundedSolveContext,
-    skeleton: FundedDaySkeleton,
-    dayStart: FundedDayStart,
-    cushionAfter: number,
-    reach: number,
-): number {
-    if (cushionAfter <= 0) return OUTCOME_BUST;
-    const { plan } = context;
-    const state = buildState(
-        context,
-        dayStart,
-        dayStart.thresholdDollars + cushionAfter,
-        todayPnLOf(context, dayStart, cushionAfter),
-        0,
-    );
-    context.drawdown.onTrade(state, 0);
-    if (plan.isBust(state, TradingPhase.Funded)) return OUTCOME_BUST;
-    const cellId = exactCellId(
-        context,
-        skeleton,
-        cushionAfter,
-        reachAfterTrade(context, dayStart, reach, state),
-    );
-    return plan.isDayLockedOut(state, TradingPhase.Funded)
-        ? OUTCOME_FIRST_LOCKOUT - cellId
-        : cellId;
-}
-
-function exactRow(
-    context: FundedSolveContext,
-    skeleton: FundedDaySkeleton,
-    dayStart: FundedDayStart,
-    cellId: number,
-): FundedExactRow {
-    const cell = requireExactCell(skeleton, cellId);
-    if (cell.row !== null) return cell.row;
-    const trades = tradesAtCushion(context, dayStart, cell.cushion);
-    const targets = new Int32Array(trades.length * 2);
-    for (const [index, { rewardRisk, risk }] of trades.entries()) {
-        if (risk <= 0) continue;
-        targets[index] = exactLanding(
-            context,
-            skeleton,
-            dayStart,
-            cell.cushion + context.rrRatio * rewardRisk - context.commission,
-            cell.reach,
-        );
-        targets[trades.length + index] = exactLanding(
-            context,
-            skeleton,
-            dayStart,
-            cell.cushion - risk - context.commission,
-            cell.reach,
-        );
-    }
-    const row: FundedExactRow = { targets, trades };
-    cell.row = row;
-    return row;
-}
-
-function exactStopValue(
-    evaluation: FundedExactEvaluation,
-    cellId: number,
-    wasIdleToday: boolean,
-): number {
-    const { closeTable, context, dayStart, memo, skeleton } = evaluation;
-    const memoValues = wasIdleToday ? memo.idles : memo.stops;
-    const cached = memoValues[cellId] ?? NaN;
-    if (!Number.isNaN(cached)) return cached;
-    const cell = requireExactCell(skeleton, cellId);
-    const outcomes =
-        closeTable === null
-            ? undefined
-            : wasIdleToday
-              ? closeTable.idles
-              : closeTable.stops;
-    let outcome = outcomes?.[cellId];
-    if (outcome === undefined) {
-        outcome = dayCloseOutcome(
-            context,
-            dayStart,
-            cell.cushion,
-            wasIdleToday,
-            cell.reach,
-        );
-        if (
-            outcomes !== undefined &&
-            hasDayCloseBudget(context, CACHED_MAP_ENTRY_CELL_COST)
-        ) {
-            chargeDayCloseCells(context, CACHED_MAP_ENTRY_CELL_COST);
-            outcomes[cellId] = outcome;
-        }
-    }
-    const value = dayCloseValue(
-        context,
-        outcome.cash,
-        outcome.continuationKey,
-        outcome.continuationUpperWeight,
-        outcome.continuationOffsetUpperKey,
-        outcome.continuationOffsetUpperWeight,
-        outcome.horizonCredit,
-    );
-    growExactMemo(memo, skeleton.cells.length, context.slots);
-    (wasIdleToday ? memo.idles : memo.stops)[cellId] = value;
-    return value;
-}
-
-function exactTargetValue(
-    evaluation: FundedExactEvaluation,
-    target: number,
-    nextTradeIndex: number,
-): number {
-    if (target === OUTCOME_BUST) {
-        return breachValue(evaluation.context, evaluation.dayStart.regime);
-    }
-    if (target < 0) {
-        return exactStopValue(
-            evaluation,
-            OUTCOME_FIRST_LOCKOUT - target,
-            false,
-        );
-    }
-    return nextTradeIndex >= evaluation.context.slots
-        ? exactStopValue(evaluation, target, false)
-        : exactDecisionValue(evaluation, target, nextTradeIndex);
+function exactOutcome(outcome: number): FundedTradeOutcome {
+    return { outcome, upperWeight: 0 };
 }
 
 function freshStartHorizonCreditOf(
@@ -1808,28 +1663,6 @@ function groupCountAt(context: FundedSolveContext, regime: number): number {
     );
 }
 
-function growExactMemo(
-    memo: FundedExactMemo,
-    cellCount: number,
-    slots: number,
-): void {
-    if (memo.stops.length >= cellCount) return;
-    const capacity = Math.max(
-        cellCount,
-        memo.stops.length * 2,
-        EXACT_MEMO_MIN_CELL_CAPACITY,
-    );
-    memo.decisions = grownMemoArray(memo.decisions, capacity * slots);
-    memo.idles = grownMemoArray(memo.idles, capacity);
-    memo.stops = grownMemoArray(memo.stops, capacity);
-}
-
-function grownMemoArray(source: Float64Array, length: number): Float64Array {
-    const grown = new Float64Array(length).fill(NaN);
-    grown.set(source);
-    return grown;
-}
-
 function hasDayCloseBudget(
     context: FundedSolveContext,
     cellCount: number,
@@ -1838,6 +1671,25 @@ function hasDayCloseBudget(
         context.daySkeletons.closeCellCount + cellCount <=
         MAX_CACHED_DAY_CLOSE_CELLS
     );
+}
+
+function highestReachWithin(
+    context: FundedSolveContext,
+    dayStart: FundedDayStart,
+    reachCount: number,
+    highestCushionDollars: number,
+): number {
+    return context.peakRatchet.isIntraday
+        ? Math.min(
+              reachCount - 1,
+              context.peakRatchet.raise(
+                  dayStart.ratchet,
+                  dayStart.thresholdDollars +
+                      highestCushionDollars -
+                      context.startingBalance,
+              ) - dayStart.ratchet,
+          )
+        : reachCount - 1;
 }
 
 function idleCloseCellsFor(
@@ -2015,44 +1867,40 @@ function newDayCloseCells(cellCount: number): FundedDayCloseCells {
     };
 }
 
-function newDaySkeleton(
-    context: FundedSolveContext,
-    dayStart: FundedDayStart,
-    isCached: boolean,
-): FundedDaySkeleton {
-    return {
-        cellIds: new Map(),
-        cells: [],
-        closeTables: new Map(),
-        isCached,
-        memo: newExactMemo(),
-        reachCount: reachCountAt(context, dayStart),
-    };
-}
-
-function newExactMemo(): FundedExactMemo {
-    return {
-        decisions: new Float64Array(0),
-        idles: new Float64Array(0),
-        stops: new Float64Array(0),
-    };
-}
-
-function newPolicyDay(
-    context: FundedSolveContext,
-    dayStart: FundedDayStart,
-): FundedPolicyDay {
-    return {
-        evaluation: {
-            closeTable: null,
-            context,
-            dayStart,
-            isIdleAllowed: true,
-            memo: newExactMemo(),
-            skeleton: newDaySkeleton(context, dayStart, false),
-        },
-        risks: new Map(),
-    };
+function outcomeDayCloseValue(
+    scope: FundedDaySolveScope,
+    store: Map<number, FundedDayCloseOutcome> | undefined,
+    outcomeId: number,
+    cushionAtEnd: number,
+    wasIdleToday: boolean,
+    reach: number,
+): number {
+    let outcome = store?.get(outcomeId);
+    if (outcome === undefined) {
+        outcome = dayCloseOutcome(
+            scope.context,
+            scope.dayStart,
+            cushionAtEnd,
+            wasIdleToday,
+            reach,
+        );
+        if (
+            store !== undefined &&
+            hasDayCloseBudget(scope.context, CACHED_MAP_ENTRY_CELL_COST)
+        ) {
+            chargeDayCloseCells(scope.context, CACHED_MAP_ENTRY_CELL_COST);
+            store.set(outcomeId, outcome);
+        }
+    }
+    return dayCloseValue(
+        scope.context,
+        outcome.cash,
+        outcome.continuationKey,
+        outcome.continuationUpperWeight,
+        outcome.continuationOffsetUpperKey,
+        outcome.continuationOffsetUpperWeight,
+        outcome.horizonCredit,
+    );
 }
 
 function pairOrdinal(
@@ -2162,19 +2010,6 @@ function regimeZeroValuesOf(
     return copy;
 }
 
-function requireExactCell(
-    skeleton: FundedDaySkeleton,
-    cellId: number,
-): FundedExactCell {
-    const cell = skeleton.cells[cellId];
-    if (cell === undefined) {
-        throw new Error(
-            `FundedStateValue: the exact day tree has no cell ${cellId}`,
-        );
-    }
-    return cell;
-}
-
 function requireFirmsModule(): typeof FirmsModule {
     return tsxRequire('../firms', import.meta.url) as typeof FirmsModule;
 }
@@ -2239,31 +2074,55 @@ function riskAtExactCushion(
     cushionDollars: number,
     tradeIndex: number,
 ): number {
-    const { evaluation, risks } = policyDay;
-    const { context, dayStart, skeleton } = evaluation;
+    const { idleValues, nextTables, risks, scope } = policyDay;
+    const nextTable = nextTables[tradeIndex];
     if (
-        tradeIndex < 0 ||
-        tradeIndex >= context.slots ||
+        nextTable === undefined ||
         reach < 0 ||
-        reach >= skeleton.reachCount
+        reach >= scope.skeleton.reachCount
     ) {
         return 0;
     }
     const riskKey = `${tradeIndex}:${reach}:${cushionDollars}`;
     const cached = risks.get(riskKey);
     if (cached !== undefined) return cached;
-    const cellId = exactCellId(context, skeleton, cushionDollars, reach);
-    const row = exactRow(context, skeleton, dayStart, cellId);
+    const { context, dayStart, skeleton, workingBucketCount } = scope;
+    const rowOffset = reach * workingBucketCount;
+    const split = splitOntoCushionGrid(
+        cushionDollars,
+        context.cushionGrid,
+        workingBucketCount,
+    );
+    const outcomeValue = (pnl: number): number => {
+        const { outcome, upperWeight } = tradeOutcome(
+            context,
+            skeleton,
+            dayStart,
+            cushionDollars + pnl,
+            reach,
+        );
+        return scopedOutcomeValue(scope, nextTable, outcome, upperWeight);
+    };
     let bestValue = -Infinity;
     let bestAction = 0;
-    for (const [actionIndex, { risk }] of row.trades.entries()) {
-        const value = exactActionValue(
-            evaluation,
-            row,
-            cellId,
-            tradeIndex,
-            actionIndex,
-        );
+    for (const { rewardRisk, risk } of tradesAtCushion(
+        context,
+        dayStart,
+        cushionDollars,
+    )) {
+        const value =
+            risk <= 0
+                ? valueOnCushionGrid(split, (index) =>
+                      tradeIndex === 0
+                          ? (idleValues[rowOffset + index] ?? 0)
+                          : scopedStopValue(scope, rowOffset + index),
+                  )
+                : context.winrate *
+                      outcomeValue(
+                          context.rrRatio * rewardRisk - context.commission,
+                      ) +
+                  (1 - context.winrate) *
+                      outcomeValue(-risk - context.commission);
         if (value <= bestValue) continue;
         bestValue = value;
         bestAction = risk;
@@ -2304,18 +2163,269 @@ function runFundedWorkerBootstrap(): void {
     });
 }
 
-function solveEvaluation(
+function scopedIdleValue(
+    scope: FundedDaySolveScope,
+    reach: number,
+    index: number,
+): number {
+    const { closeTable, context } = scope;
+    const cell = reach * scope.workingBucketCount + index;
+    if (closeTable === null) return cachedCellValue(scope, null, cell, true);
+    if (context.isSolvingPerDayStart) {
+        return outcomeDayCloseValue(
+            scope,
+            closeTable.idleEntries,
+            cell,
+            context.cushionGrid.dollarsAt(index),
+            true,
+            reach,
+        );
+    }
+    if (
+        closeTable.idleCells === null &&
+        hasDayCloseBudget(context, scope.cellCount)
+    ) {
+        chargeDayCloseCells(context, scope.cellCount);
+        closeTable.idleCells = newDayCloseCells(scope.cellCount);
+    }
+    return cachedCellValue(scope, closeTable.idleCells, cell, true);
+}
+
+function scopedLockoutValue(
+    scope: FundedDaySolveScope,
+    lockoutId: number,
+): number {
+    const memo = scope.lockoutValues[lockoutId];
+    if (memo !== undefined) return memo;
+    const lockout = scope.skeleton.lockouts[lockoutId];
+    const value =
+        lockout === undefined
+            ? 0
+            : outcomeDayCloseValue(
+                  scope,
+                  scope.closeTable?.lockouts,
+                  lockoutId,
+                  lockout.cushionAfter,
+                  false,
+                  lockout.reachAfter,
+              );
+    scope.lockoutValues[lockoutId] = value;
+    return value;
+}
+
+function scopedOutcomeValue(
+    scope: FundedDaySolveScope,
+    nextTable: Float64Array | null,
+    outcome: number,
+    upperWeight: number,
+): number {
+    if (outcome >= 0) {
+        return valueOnCushionGrid(
+            { lowerIndex: outcome, upperWeight },
+            (cell) =>
+                nextTable === null
+                    ? scopedStopValue(scope, cell)
+                    : (nextTable[cell] ?? 0),
+        );
+    }
+    return outcome === OUTCOME_BUST
+        ? breachValue(scope.context, scope.dayStart.regime)
+        : scopedLockoutValue(scope, OUTCOME_FIRST_LOCKOUT - outcome);
+}
+
+function scopedStopValue(scope: FundedDaySolveScope, cell: number): number {
+    if (cell >= scope.cellCount) return 0;
+    const memo = scope.stopValues[cell] ?? NaN;
+    if (!Number.isNaN(memo)) return memo;
+    const value = cachedCellValue(
+        scope,
+        scope.closeTable?.stops ?? null,
+        cell,
+        false,
+    );
+    scope.stopValues[cell] = value;
+    return value;
+}
+
+function skeletonRow(
     context: FundedSolveContext,
+    skeleton: FundedDaySkeleton,
     dayStart: FundedDayStart,
-): FundedExactEvaluation {
-    const skeleton = daySkeletonFor(context, dayStart);
-    return {
-        closeTable: dayCloseTableFor(context, skeleton, dayStart),
+    reach: number,
+    index: number,
+): FundedSkeletonRow {
+    const cell = reach * skeleton.workingBucketCount + index;
+    const cached = skeleton.rows[cell];
+    if (cached !== undefined) return cached;
+    const cushionNow = context.cushionGrid.dollarsAt(index);
+    const trades = skeletonTrades(context, skeleton, dayStart, index);
+    const risks = trades.map((trade) => trade.risk);
+    const wins = new Int32Array(trades.length);
+    const winUpperWeights = new Float64Array(trades.length);
+    const losses = new Int32Array(trades.length);
+    const lossUpperWeights = new Float64Array(trades.length);
+    for (const [riskIndex, { rewardRisk, risk }] of trades.entries()) {
+        if (risk <= 0) continue;
+        const pnlWin = context.rrRatio * rewardRisk - context.commission;
+        const win = tradeOutcome(
+            context,
+            skeleton,
+            dayStart,
+            cushionNow + pnlWin,
+            reach,
+        );
+        wins[riskIndex] = win.outcome;
+        winUpperWeights[riskIndex] = win.upperWeight;
+        const pnlLose = -risk - context.commission;
+        const loss = tradeOutcome(
+            context,
+            skeleton,
+            dayStart,
+            cushionNow + pnlLose,
+            reach,
+        );
+        losses[riskIndex] = loss.outcome;
+        lossUpperWeights[riskIndex] = loss.upperWeight;
+    }
+    const row: FundedSkeletonRow = {
+        losses,
+        lossUpperWeights,
+        risks,
+        wins,
+        winUpperWeights,
+    };
+    skeleton.rows[cell] = row;
+    return row;
+}
+
+function skeletonTrades(
+    context: FundedSolveContext,
+    skeleton: FundedDaySkeleton,
+    dayStart: FundedDayStart,
+    index: number,
+): readonly SizedTrade[] {
+    const cached = skeleton.tradesByIndex[index];
+    if (cached !== undefined) return cached;
+    const trades = tradesAtCushion(
         context,
         dayStart,
-        isIdleAllowed: false,
-        memo: skeleton.memo,
+        context.cushionGrid.dollarsAt(index),
+    );
+    skeleton.tradesByIndex[index] = trades;
+    return trades;
+}
+
+function solveDayTreeOnce(
+    context: FundedSolveContext,
+    dayStart: FundedDayStart,
+    workingBucketCount: number,
+    purpose: FundedDayTreePurpose,
+): {
+    finalTable: Float64Array;
+    nextTables: (Float64Array | null)[];
+    scope: FundedDaySolveScope;
+} {
+    const isRecordingPolicy = purpose === FundedDayTreePurpose.Policy;
+    const skeleton = daySkeletonFor(context, dayStart, workingBucketCount);
+    const { cushionStepDollars, winrate } = context;
+    const { reachCount } = skeleton;
+    const cellCount = reachCount * workingBucketCount;
+    const scope: FundedDaySolveScope = {
+        cellCount,
+        closeTable: dayCloseTableFor(context, skeleton, dayStart, cellCount),
+        context,
+        dayStart,
+        lockoutValues: [],
         skeleton,
+        stopValues: new Float64Array(cellCount).fill(NaN),
+        workingBucketCount,
+    };
+
+    const isWindowed = context.isSolvingPerDayStart && !isRecordingPolicy;
+    const startIndex = context.cushionGrid.roundToIndex(
+        dayStart.cushionAtDayStart,
+    );
+    const maxRisk = Math.max(0, ...context.actionGrid);
+    const cellsUpPerTrade =
+        Math.ceil((context.rrRatio * maxRisk) / cushionStepDollars) + 1;
+    const cellsDownPerTrade =
+        Math.ceil((maxRisk + context.commission) / cushionStepDollars) + 1;
+
+    let nextTable: Float64Array | null = null;
+    const nextTables: (Float64Array | null)[] = [];
+    for (let tradeIndex = context.slots - 1; tradeIndex >= 0; tradeIndex--) {
+        nextTables[tradeIndex] = nextTable;
+        const lowIndex = isWindowed
+            ? Math.max(0, startIndex - tradeIndex * cellsDownPerTrade)
+            : 0;
+        const highIndex = isWindowed
+            ? Math.min(
+                  workingBucketCount - 1,
+                  startIndex + tradeIndex * cellsUpPerTrade,
+              )
+            : workingBucketCount - 1;
+        const highestReach = isWindowed
+            ? highestReachWithin(
+                  context,
+                  dayStart,
+                  reachCount,
+                  context.cushionGrid.dollarsAt(
+                      Math.min(
+                          context.cushionGrid.size - 1,
+                          startIndex + tradeIndex * cellsUpPerTrade + 1,
+                      ),
+                  ),
+              )
+            : reachCount - 1;
+        const currentTable = new Float64Array(cellCount);
+        for (let reach = 0; reach <= highestReach; reach++) {
+            for (let index = lowIndex; index <= highIndex; index++) {
+                const cell = reach * workingBucketCount + index;
+                const row = skeletonRow(
+                    context,
+                    skeleton,
+                    dayStart,
+                    reach,
+                    index,
+                );
+                let bestValue = -Infinity;
+                for (const [riskIndex, risk] of row.risks.entries()) {
+                    if (!isRecordingPolicy && tradeIndex === 0 && risk <= 0) {
+                        continue;
+                    }
+                    const value =
+                        risk <= 0
+                            ? tradeIndex === 0
+                                ? scopedIdleValue(scope, reach, index)
+                                : scopedStopValue(scope, cell)
+                            : winrate *
+                                  scopedOutcomeValue(
+                                      scope,
+                                      nextTable,
+                                      row.wins[riskIndex] ?? 0,
+                                      row.winUpperWeights[riskIndex] ?? 0,
+                                  ) +
+                              (1 - winrate) *
+                                  scopedOutcomeValue(
+                                      scope,
+                                      nextTable,
+                                      row.losses[riskIndex] ?? 0,
+                                      row.lossUpperWeights[riskIndex] ?? 0,
+                                  );
+                    if (value > bestValue) bestValue = value;
+                }
+                currentTable[cell] = bestValue;
+            }
+        }
+        nextTable = currentTable;
+    }
+    return {
+        finalTable: (nextTable ?? new Float64Array(cellCount)).subarray(
+            0,
+            workingBucketCount,
+        ),
+        nextTables,
+        scope,
     };
 }
 
@@ -2340,6 +2450,7 @@ function solveFundedLevels(
         offsetBucketCount,
         payoutRegimeCap,
         unlockedCushionBucketCount,
+        unlockedWorkingBucketCount,
     } = mainContext;
     let unconvergedLevelCount = 0;
     let reachedStateCount = 0;
@@ -2360,6 +2471,7 @@ function solveFundedLevels(
         function sweepLevel(
             level: FundedLevel,
             cushionBucketCount: number,
+            workingBucketCount: number,
         ): number {
             const groupCount = groupCountAt(mainContext, level.regime);
             if (workerPool !== null && groupCount >= MIN_PARALLEL_GROUP_COUNT) {
@@ -2367,6 +2479,7 @@ function solveFundedLevels(
                     level,
                     groupCount,
                     cushionBucketCount,
+                    workingBucketCount,
                     mainContext.breachValueBeforeFirstPayout,
                 );
             } else {
@@ -2380,6 +2493,7 @@ function solveFundedLevels(
                         level,
                         groupIndex,
                         cushionBucketCount,
+                        workingBucketCount,
                         levelResults,
                     );
                 }
@@ -2414,6 +2528,7 @@ function solveFundedLevels(
         function solveLevelToConvergence(
             level: FundedLevel,
             cushionBucketCount: number,
+            workingBucketCount: number,
             isColdStart: boolean,
         ): void {
             const stateCount =
@@ -2435,7 +2550,8 @@ function solveFundedLevels(
                 isMaxIterationsExplicit: isMaxIterationsPerLevelExplicit,
                 maxIterations: maxIterationsPerLevel,
                 monitor,
-                sweep: () => sweepLevel(level, cushionBucketCount),
+                sweep: () =>
+                    sweepLevel(level, cushionBucketCount, workingBucketCount),
             });
             sweepCount += levelSweeps;
             if (levelSweeps > 0) reachedStateCount += stateCount;
@@ -2459,6 +2575,7 @@ function solveFundedLevels(
                         thresholdDollars: lockedThreshold,
                     },
                     lockedCushionBucketCount,
+                    lockedCushionBucketCount,
                     isColdStart,
                 );
             }
@@ -2475,6 +2592,7 @@ function solveFundedLevels(
                     solveLevelToConvergence(
                         { isLocked: false, regime, thresholdDollars },
                         unlockedCushionBucketCount,
+                        unlockedWorkingBucketCount,
                         isColdStart,
                     );
                 }
@@ -2523,6 +2641,7 @@ function solveIdleGroup(
     level: FundedLevel,
     groupIndex: number,
     cushionBucketCount: number,
+    workingBucketCount: number,
     results: Float64Array,
 ): void {
     const { dayCost, horizonHazard } = context;
@@ -2533,6 +2652,7 @@ function solveIdleGroup(
         level,
         decodePair(context, groupIndex, cycleBaselineRadix),
         cushionBucketCount,
+        workingBucketCount,
     );
     const levelKey = levelBaseKey(context, level);
     const stateCount = groupCount * context.idleKeyRadix * cushionBucketCount;
@@ -2621,6 +2741,48 @@ function solveIdleGroup(
     }
 }
 
+function solvePolicyDay(
+    context: FundedSolveContext,
+    dayStart: FundedDayStart,
+    workingBucketCount: number,
+): FundedPolicyDay {
+    const { nextTables, scope } = solveDayTreeOnce(
+        context,
+        dayStart,
+        workingBucketCount,
+        FundedDayTreePurpose.Policy,
+    );
+    const idleValues = new Float64Array(scope.cellCount);
+    for (let cell = 0; cell < scope.cellCount; cell++) {
+        const reach = Math.floor(cell / workingBucketCount);
+        scopedStopValue(scope, cell);
+        idleValues[cell] = scopedIdleValue(
+            scope,
+            reach,
+            cell - reach * workingBucketCount,
+        );
+    }
+    return {
+        idleValues,
+        nextTables,
+        risks: new Map(),
+        scope: {
+            ...scope,
+            closeTable: null,
+            lockoutValues: [],
+            skeleton: {
+                closeTables: new Map(),
+                lockoutIds: new Map(),
+                lockouts: [],
+                reachCount: scope.skeleton.reachCount,
+                rows: [],
+                tradesByIndex: [],
+                workingBucketCount,
+            },
+        },
+    };
+}
+
 function terminalOutcome(cash: number): FundedDayCloseOutcome {
     return {
         cash,
@@ -2663,6 +2825,48 @@ function toSerializableConfig(
     };
 }
 
+function tradeOutcome(
+    context: FundedSolveContext,
+    skeleton: FundedDaySkeleton,
+    dayStart: FundedDayStart,
+    cushionAfter: number,
+    reach: number,
+): FundedTradeOutcome {
+    if (cushionAfter <= 0) return exactOutcome(OUTCOME_BUST);
+    const { plan } = context;
+    const state = buildState(
+        context,
+        dayStart,
+        dayStart.thresholdDollars + cushionAfter,
+        todayPnLOf(context, dayStart, cushionAfter),
+        0,
+    );
+    context.drawdown.onTrade(state, 0);
+    if (plan.isBust(state, TradingPhase.Funded)) {
+        return exactOutcome(OUTCOME_BUST);
+    }
+    const reachAfter = reachAfterTrade(context, dayStart, reach, state);
+    if (plan.isDayLockedOut(state, TradingPhase.Funded)) {
+        const lockoutKey = `${reachAfter}:${cushionAfter}`;
+        let lockoutId = skeleton.lockoutIds.get(lockoutKey);
+        if (lockoutId === undefined) {
+            lockoutId = skeleton.lockouts.length;
+            skeleton.lockouts.push({ cushionAfter, reachAfter });
+            skeleton.lockoutIds.set(lockoutKey, lockoutId);
+        }
+        return exactOutcome(OUTCOME_FIRST_LOCKOUT - lockoutId);
+    }
+    const { lowerIndex, upperWeight } = splitOntoCushionGrid(
+        cushionAfter,
+        context.cushionGrid,
+        skeleton.workingBucketCount,
+    );
+    return {
+        outcome: reachAfter * skeleton.workingBucketCount + lowerIndex,
+        upperWeight,
+    };
+}
+
 function tradesAtCushion(
     context: FundedSolveContext,
     dayStart: FundedDayStart,
@@ -2695,51 +2899,34 @@ function tradingDayStartValues(
     level: FundedLevel,
     pair: FundedPair,
     cushionBucketCount: number,
+    workingBucketCount: number,
 ): Float64Array {
-    const dayStartValues = new Float64Array(cushionBucketCount);
     if (!context.isSolvingPerDayStart) {
-        const evaluation = solveEvaluation(context, {
-            ...level,
-            ...pair,
-            cushionAtDayStart: 0,
-        });
-        clearExactMemo(evaluation.memo);
-        for (
-            let cushionStartIndex = 0;
-            cushionStartIndex < cushionBucketCount;
-            cushionStartIndex++
-        ) {
-            dayStartValues[cushionStartIndex] = exactDecisionValue(
-                evaluation,
-                exactCellId(
-                    context,
-                    evaluation.skeleton,
-                    context.cushionGrid.dollarsAt(cushionStartIndex),
-                    0,
-                ),
-                0,
-            );
-        }
-        return dayStartValues;
+        return solveDayTreeOnce(
+            context,
+            { ...level, ...pair, cushionAtDayStart: 0 },
+            workingBucketCount,
+            FundedDayTreePurpose.TradingValue,
+        ).finalTable;
     }
+    const dayStartValues = new Float64Array(cushionBucketCount);
     for (
         let cushionStartIndex = 0;
         cushionStartIndex < cushionBucketCount;
         cushionStartIndex++
     ) {
-        const cushionAtDayStart =
-            context.cushionGrid.dollarsAt(cushionStartIndex);
-        const evaluation = solveEvaluation(context, {
-            ...level,
-            ...pair,
-            cushionAtDayStart,
-        });
-        clearExactMemo(evaluation.memo);
-        dayStartValues[cushionStartIndex] = exactDecisionValue(
-            evaluation,
-            exactCellId(context, evaluation.skeleton, cushionAtDayStart, 0),
-            0,
-        );
+        dayStartValues[cushionStartIndex] =
+            solveDayTreeOnce(
+                context,
+                {
+                    ...level,
+                    ...pair,
+                    cushionAtDayStart:
+                        context.cushionGrid.dollarsAt(cushionStartIndex),
+                },
+                workingBucketCount,
+                FundedDayTreePurpose.TradingValue,
+            ).finalTable[cushionStartIndex] ?? -Infinity;
     }
     return dayStartValues;
 }
@@ -2928,6 +3115,7 @@ class FundedWorkerPool {
         level: FundedLevel,
         groupCount: number,
         cushionBucketCount: number,
+        workingBucketCount: number,
         breachValueBeforeFirstPayout: number,
     ): void {
         this.dispatchCount++;
@@ -2964,6 +3152,7 @@ class FundedWorkerPool {
                 kind: FundedWorkerMessageKind.Solve,
                 regimeAtStart: level.regime,
                 thresholdDollars: level.thresholdDollars,
+                workingBucketCount,
             };
             this.workers[workerIndex]?.postMessage(dispatch);
         }
@@ -3146,6 +3335,26 @@ export class ValueIterationMonitor {
     }
 }
 
+export function balancedWorkerCount(
+    groupCount: number,
+    coreLimit: number,
+): number {
+    if (!Number.isSafeInteger(groupCount) || groupCount < 1) {
+        throw new RangeError(
+            `balancedWorkerCount: groupCount must be a positive integer, got ${groupCount}`,
+        );
+    }
+    if (!Number.isSafeInteger(coreLimit) || coreLimit < 1) {
+        throw new RangeError(
+            `balancedWorkerCount: coreLimit must be a positive integer, got ${coreLimit}`,
+        );
+    }
+    const busiestWorkerGroups = Math.ceil(
+        groupCount / Math.min(groupCount, coreLimit),
+    );
+    return Math.ceil(groupCount / busiestWorkerGroups);
+}
+
 export function computeFundedStateValue(
     config: FundedStateValueConfig,
     workers: FundedWorkerSession | null = null,
@@ -3186,6 +3395,7 @@ export function computeFundedStateValue(
         offsetBucketCount,
         payoutRegimeCap,
         unlockedCushionBucketCount,
+        unlockedWorkingBucketCount,
     } = mainContext;
 
     const initialValue = values[initialStateKey(mainContext)] ?? 0;
@@ -3195,7 +3405,7 @@ export function computeFundedStateValue(
         (_, layer) => {
             const resetLayer = levelSolve.resetLayers.get(layer);
             return {
-                cache: new Map<string, FundedPolicyDay>(),
+                cache: new Map<number, FundedPolicyDay>(),
                 context:
                     resetLayer === undefined
                         ? mainContext
@@ -3203,25 +3413,6 @@ export function computeFundedStateValue(
             };
         },
     );
-
-    let policyDayCount = 0;
-
-    function releasePolicyDaysOverBudget(): void {
-        let cellCount = 0;
-        for (const { cache } of layerPolicies) {
-            for (const { evaluation } of cache.values()) {
-                cellCount += evaluation.skeleton.cells.length;
-            }
-        }
-        if (
-            cellCount <= MAX_POLICY_CELLS &&
-            policyDayCount <= MAX_POLICY_DAYS
-        ) {
-            return;
-        }
-        for (const { cache } of layerPolicies) cache.clear();
-        policyDayCount = 0;
-    }
 
     function cycleBaselineIndexFor(
         regime: number,
@@ -3289,9 +3480,18 @@ export function computeFundedStateValue(
                   state.threshold - initialThreshold,
                   offsetBucketCount,
               );
-        const cushionAtDayStart = mainContext.isSolvingPerDayStart
-            ? Math.round(cushionAtDayStartDollars * CENTS_PER_DOLLAR) /
-              CENTS_PER_DOLLAR
+        const cushionBucketCount = state.thresholdLocked
+            ? lockedCushionBucketCount
+            : unlockedCushionBucketCount;
+        const workingBucketCount = state.thresholdLocked
+            ? lockedCushionBucketCount
+            : unlockedWorkingBucketCount;
+        const cushionStartIndex = mainContext.isSolvingPerDayStart
+            ? bucketIndex(
+                  mainContext,
+                  cushionAtDayStartDollars,
+                  cushionBucketCount,
+              )
             : 0;
         const level: FundedLevel = state.thresholdLocked
             ? { isLocked: true, regime, thresholdDollars: lockedThreshold }
@@ -3302,22 +3502,27 @@ export function computeFundedStateValue(
                       initialThreshold +
                       mainContext.cushionGrid.dollarsAt(offsetIndex),
               };
-        const cacheKey = `${
-            state.thresholdLocked
-                ? lockedKey(mainContext, regime, pair, 0)
-                : unlockedKey(mainContext, offsetIndex, regime, pair, 0)
-        }:${cushionAtDayStart}`;
+        const cacheKey = state.thresholdLocked
+            ? lockedKey(mainContext, regime, pair, cushionStartIndex)
+            : unlockedKey(
+                  mainContext,
+                  offsetIndex,
+                  regime,
+                  pair,
+                  cushionStartIndex,
+              );
         let policyDay = layerPolicy.cache.get(cacheKey);
         if (policyDay === undefined) {
-            policyDayCount += 1;
-            if (policyDayCount % POLICY_BUDGET_CHECK_INTERVAL === 0) {
-                releasePolicyDaysOverBudget();
-            }
-            policyDay = newPolicyDay(layerPolicy.context, {
-                ...level,
-                ...pair,
-                cushionAtDayStart,
-            });
+            policyDay = solvePolicyDay(
+                layerPolicy.context,
+                {
+                    ...level,
+                    ...pair,
+                    cushionAtDayStart:
+                        mainContext.cushionGrid.dollarsAt(cushionStartIndex),
+                },
+                workingBucketCount,
+            );
             layerPolicy.cache.set(cacheKey, policyDay);
         }
         return riskAtExactCushion(

@@ -13,6 +13,7 @@ import {
     fromStateDetailRequestsOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/detail/fromStateDetail';
 import { NextPayoutSection } from '~/app/(app)/prop-calculator/accounts/_components/detail/NextPayoutSection';
+import { uniformSlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import {
     dollars,
     findFirm,
@@ -126,10 +127,11 @@ describe('NextPayoutSection renders the retire hazard lines as a list (PT-73g st
                         PLAN,
                         null,
                         NO_PENDING_PAYOUT_COUNTS,
+                        DEFAULT_RULEBOOK.live.cushionPercent,
                     )}
                     detail={{
                         engine: {
-                            failure: null,
+                            ...uniformSlotEngine(null),
                             outcomes: new Map([[key, outcome]]),
                         },
                         kind: FromStateDetailKind.Ready,

@@ -154,6 +154,7 @@ export function copyGroupSizingSectionsOf(
         events,
         payouts,
         snapshots,
+        rulebook.live.cushionPercent,
     );
     const stateByAccountId = new Map(
         accountStates.map((entry) => [entry.accountId, entry]),

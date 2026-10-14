@@ -29,7 +29,7 @@ import {
     trackedAccountOf,
     type UnresolvedPlanReason,
 } from '~/lib/prop-accounts/core';
-import { type Plan } from '~/lib/prop-calculator';
+import { type LiveCushionPercent, type Plan } from '~/lib/prop-calculator';
 import {
     AccountReconstruction,
     AccountReconstructionError,
@@ -100,6 +100,7 @@ export type AccountStateSnapshotRow = Pick<
 export interface AccountStatesRows {
     readonly accounts: readonly AccountStateAccountRow[];
     readonly events: readonly AccountStateEventRow[];
+    readonly liveCushionPercent: LiveCushionPercent;
     readonly payouts: readonly AccountStatePayoutRow[];
     readonly snapshots: readonly AccountStateSnapshotRow[];
 }
@@ -182,6 +183,7 @@ export function accountStatesOf(
                 snapshotsByAccount.get(account.id) ?? [],
                 asOf,
                 firmCountAt,
+                rows.liveCushionPercent,
             ),
         }));
 }
@@ -194,6 +196,7 @@ function attemptSnapshot(
     payouts: readonly AccountStatePayoutRow[],
     asOf: string,
     firmCount: FirmPayoutCount,
+    liveCushionPercent: LiveCushionPercent,
 ): SnapshotAttempt {
     const { input, pendingPayoutCounts, personalMaxRiskPerTrade } =
         snapshotInputFrom(
@@ -227,6 +230,7 @@ function attemptSnapshot(
                     plan,
                     personalMaxRiskPerTrade,
                     pendingPayoutCounts,
+                    liveCushionPercent,
                 ),
             },
         };
@@ -281,6 +285,7 @@ function stateFor(
     snapshots: readonly AccountStateSnapshotRow[],
     asOf: string,
     firmCountAt: FirmCountAt,
+    liveCushionPercent: LiveCushionPercent,
 ): AccountStateResult {
     const tracked = trackedAccountOf(account);
     if (isLedgerOnlyAccount(tracked)) {
@@ -319,6 +324,7 @@ function stateFor(
         payouts,
         asOf,
         latestCount.count,
+        liveCushionPercent,
     );
     if (!latestAttempt.ok) {
         return unavailable(latestAttempt.reason);
@@ -337,6 +343,7 @@ function stateFor(
                   payouts,
                   previous.asOf,
                   previousCount.count,
+                  liveCushionPercent,
               );
     return {
         kind: AccountStateKind.Reconstructed,

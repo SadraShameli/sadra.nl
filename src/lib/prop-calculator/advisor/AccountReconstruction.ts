@@ -9,6 +9,7 @@ import {
     type DrawdownStrategy,
     type FundedCycleSeed,
     type LiveAccountState,
+    type LiveCushionPercent,
     type LivePlan,
     ONE_CENT,
     PayoutDayGateBasis,
@@ -88,6 +89,7 @@ export const AccountReconstruction = {
         plan: Plan,
         personalMaxRiskPerTrade: Dollars | null,
         pendingPayoutCounts: AccountPendingPayoutCounts,
+        liveCushionPercent: LiveCushionPercent,
     ): ReconstructedAccount {
         switch (input.stage) {
             case SizingStage.Eval: {
@@ -102,7 +104,12 @@ export const AccountReconstruction = {
                 );
             }
             case SizingStage.Live: {
-                return rebuildLive(input, plan, personalMaxRiskPerTrade);
+                return rebuildLive(
+                    input,
+                    plan,
+                    personalMaxRiskPerTrade,
+                    liveCushionPercent,
+                );
             }
         }
     },
@@ -220,6 +227,7 @@ function buildLivePlanFor(
     input: AccountSnapshotInput,
     accountSize: Dollars,
     assumptions: Assumption[],
+    cushionPercent: LiveCushionPercent,
 ): LivePlan {
     switch (applicability.kind) {
         case LiveApplicabilityKind.Builder: {
@@ -239,17 +247,11 @@ function buildLivePlanFor(
                 accountSize,
             );
             return builderArgument === null
-                ? applicability.builder(applicability.defaultCushionPercent)
-                : applicability.builder(
-                      applicability.defaultCushionPercent,
-                      builderArgument,
-                  );
+                ? applicability.builder(cushionPercent)
+                : applicability.builder(cushionPercent, builderArgument);
         }
         case LiveApplicabilityKind.TransitionBuilder: {
-            return applicability.transitionBuilder(
-                applicability.defaultCushionPercent,
-                dollars(0),
-            );
+            return applicability.transitionBuilder(cushionPercent, dollars(0));
         }
     }
 }
@@ -594,6 +596,7 @@ function rebuildLive(
     input: AccountSnapshotInput,
     plan: Plan,
     personalMaxRiskPerTrade: Dollars | null,
+    liveCushionPercent: LiveCushionPercent,
 ): ReconstructedLiveAccount {
     const assumptions: Assumption[] = [];
     const nominal = nominalOf(input, plan.accountSize);
@@ -607,6 +610,7 @@ function rebuildLive(
                 input,
                 plan.accountSize,
                 assumptions,
+                liveCushionPercent,
             );
             const state: LiveAccountState = livePlan.initialState();
             const drawdown = livePlan.liveDrawdown;

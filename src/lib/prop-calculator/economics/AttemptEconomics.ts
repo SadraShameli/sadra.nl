@@ -182,11 +182,11 @@ export function expectedNetPerAttemptOf(
     inputs: AttemptEconomicsInputs,
 ): Quantity<Dollars> {
     const { attemptCost, fundedValue, passProbability } = inputs;
-    return !isNonNegativeAmount(attemptCost) ||
-        !isNonNegativeAmount(fundedValue) ||
-        !isProbability(passProbability)
-        ? missingQuantity(EconomicsReason.InvalidInput)
-        : quantityOf(dollars(passProbability * fundedValue - attemptCost));
+    return isNonNegativeAmount(attemptCost) &&
+        isNonNegativeAmount(fundedValue) &&
+        isProbability(passProbability)
+        ? quantityOf(dollars(passProbability * fundedValue - attemptCost))
+        : missingQuantity(EconomicsReason.InvalidInput);
 }
 
 export function fundedValueFrom(inputs: FundedValueInputs): Quantity<Dollars> {
@@ -195,17 +195,17 @@ export function fundedValueFrom(inputs: FundedValueInputs): Quantity<Dollars> {
         payoutProbabilityGivenFunded,
         payoutsPerPaidFunded,
     } = inputs;
-    return !isNonNegativeAmount(averagePayout) ||
-        !isProbability(payoutProbabilityGivenFunded) ||
-        !isNonNegativeAmount(payoutsPerPaidFunded)
-        ? missingQuantity(EconomicsReason.InvalidInput)
-        : quantityOf(
+    return isNonNegativeAmount(averagePayout) &&
+        isProbability(payoutProbabilityGivenFunded) &&
+        isNonNegativeAmount(payoutsPerPaidFunded)
+        ? quantityOf(
               dollars(
                   payoutProbabilityGivenFunded *
                       payoutsPerPaidFunded *
                       averagePayout,
               ),
-          );
+          )
+        : missingQuantity(EconomicsReason.InvalidInput);
 }
 
 export function fundedValueToAttemptCostLabel(netToOne: number): string {

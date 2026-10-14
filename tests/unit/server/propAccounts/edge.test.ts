@@ -53,11 +53,11 @@ const EDGE_ROUTER_FILE = path.resolve(
     '../../../../src/server/api/routers/propAccounts/edge.ts',
 );
 
-const rateLimit = vi.mocked(isWithinRateLimit);
+const isWithinRateLimitMock = vi.mocked(isWithinRateLimit);
 
 beforeEach(() => {
-    rateLimit.mockClear();
-    rateLimit.mockImplementation(() => Promise.resolve(true));
+    isWithinRateLimitMock.mockClear();
+    isWithinRateLimitMock.mockImplementation(() => Promise.resolve(true));
 });
 
 function tradeQuery(queries: readonly IssuedQuery[]): IssuedQuery {
@@ -94,7 +94,7 @@ describe('propAccounts.edge.summary', () => {
             code: 'UNAUTHORIZED',
         });
         expect(queries).toHaveLength(0);
-        expect(rateLimit).not.toHaveBeenCalled();
+        expect(isWithinRateLimitMock).not.toHaveBeenCalled();
     });
 
     it('scopes the journal read and the rulebook read by the session user', async () => {
@@ -113,7 +113,7 @@ describe('propAccounts.edge.summary', () => {
     it('rate limits each user in its own edge bucket', async () => {
         const { caller } = callerFor(SIGNED_IN, tableResponder());
         await caller.edge.summary({});
-        expect(rateLimit).toHaveBeenCalledWith({
+        expect(isWithinRateLimitMock).toHaveBeenCalledWith({
             bucket: `prop-accounts:${PropRouterBucket.Edge}`,
             key: USER_ID,
             max: PROP_MUTATIONS_PER_WINDOW,
@@ -122,7 +122,7 @@ describe('propAccounts.edge.summary', () => {
     });
 
     it('answers TOO_MANY_REQUESTS without reading the journal once the limit is hit', async () => {
-        rateLimit.mockImplementation(() => Promise.resolve(false));
+        isWithinRateLimitMock.mockImplementation(() => Promise.resolve(false));
         const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
         const shape = errorShapeOf(await rejectionOf(caller.edge.summary({})));
         expect(shape.data.code).toBe('TOO_MANY_REQUESTS');

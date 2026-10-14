@@ -127,6 +127,7 @@ function stakeOf(request: OverviewRequest): PayoutStakeComparisonResult {
         PLAN,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     const outcome = payoutStakeComparison(account, request.spec);
     if (outcome.kind !== ValueResultKind.PayoutStake) {
@@ -173,6 +174,7 @@ describe('the overview funded milestone is the planner request-now figure (PT-73
                 PLAN,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             if (account.kind === ReconstructedLiveKind.Live)
                 throw new Error('expected non-live');

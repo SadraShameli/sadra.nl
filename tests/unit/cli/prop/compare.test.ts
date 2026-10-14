@@ -766,18 +766,20 @@ interface CapturedCompare {
 async function capturedCompare(argv: string[]): Promise<CapturedCompare> {
     const arguments_ = await compareArguments();
     const written: string[] = [];
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
-    const writeError = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+        vi
+            .spyOn(process.stderr, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+    ];
     const previousExitCode = process.exitCode;
     process.exitCode = undefined;
     let exitCode: CapturedCompare['exitCode'];
@@ -789,8 +791,7 @@ async function capturedCompare(argv: string[]): Promise<CapturedCompare> {
         });
         exitCode = process.exitCode;
     } finally {
-        write.mockRestore();
-        writeError.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = previousExitCode;
     }
     return { exitCode, output: written.join('') };

@@ -160,16 +160,30 @@ export {
     DP_ADVICE_SOLVER_VERSION,
     DpAdviceGap,
     type DpAdviceGapEntry,
+    dpAdviceGapsSchema,
     type DpAdviceRow,
     type DpAdviceSamples,
+    dpAdviceSamplesSchema,
     dpAdviceStaleness,
     type DpAdviceStalenessInput,
     DpAdviceStalenessReason,
+    DpGateFailureCode,
     type DpRiskSample,
     DpSamplesKind,
     DpSampleStage,
     DpSamplesUnavailableReason,
 } from './DpAdviceRow';
+export {
+    DP_GATE_FAILURE_TEXT,
+    DP_SAMPLES_UNAVAILABLE_TEXT,
+    dpAdviceGapText,
+    type DpAdviceOwnGapEntry,
+    dpGateFailureText,
+    dpMoney,
+    dpOwnGapText,
+    fundedDpModelGapClause,
+    isFundedDpModelGap,
+} from './DpAdviceText';
 export {
     type EngineOptimum,
     type EngineOptimumPlacedRow,
@@ -319,6 +333,8 @@ export {
     wouldTriggerLiveBlockReason,
 } from './PayoutBlockReason';
 export {
+    OPTIMUM_MISSING_DISCLOSURE,
+    PAYOUT_POLICY_SENSITIVE_NOTE,
     payoutPolicySensitivity,
     type PayoutPolicySensitivityFigure,
     type PayoutPolicySensitivityLabels,

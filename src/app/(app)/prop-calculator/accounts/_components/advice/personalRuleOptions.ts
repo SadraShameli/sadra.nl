@@ -2,10 +2,10 @@ import {
     overviewAccountRequestsFor,
     overviewPlanOptInsOf,
     type OverviewRequest,
-    type PersonalPolicyOverrides,
     withPersonalPolicy,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
+    type AccountPersonalPolicy,
     type AccountStage,
     type AccountStateEntry,
     type AccountStatus,
@@ -50,7 +50,7 @@ export enum SizingAdvisorBuildKind {
 }
 
 export interface MemberPersonalOverride extends PayoutReadinessAccountOverride {
-    readonly policy: PersonalPolicyOverrides;
+    readonly policy: AccountPersonalPolicy;
 }
 
 export type SizingAdvisorBuild =
@@ -154,7 +154,7 @@ export function buildSizingAdvisor(
 
 export function memberPolicyOverridesOf(
     override: MemberPersonalOverride | undefined,
-): PersonalPolicyOverrides {
+): AccountPersonalPolicy {
     return override?.policy ?? personalPolicyOverridesOf(null, null);
 }
 
@@ -214,7 +214,7 @@ export function personalLimitsOf(
 
 export function personalPolicyOverridesOfOptions(
     options: PersonalLimitOptions,
-): PersonalPolicyOverrides {
+): AccountPersonalPolicy {
     return {
         payoutRequestOverride: options.personalPayoutOverride ?? null,
         personalCaps: options.personalCaps,
@@ -290,7 +290,7 @@ export function reconstructedMaxRiskOf(
 function personalPolicyOverridesOf(
     personalRules: null | PersonalRules,
     maxRiskPerTrade: Dollars | null,
-): PersonalPolicyOverrides {
+): AccountPersonalPolicy {
     return {
         payoutRequestOverride:
             optionalDollars(personalRules?.payoutRequestOverrideCents) ?? null,

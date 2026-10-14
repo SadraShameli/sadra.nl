@@ -318,6 +318,7 @@ export {
 export {
     type FirmVerificationDate,
     heldPlanGroupsOf,
+    isHeldAccount,
     type SetupChecklist,
     type SetupChecklistInputs,
     setupChecklistOf,

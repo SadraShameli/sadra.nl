@@ -37,7 +37,7 @@ export function fundedProgressValue(
     inputs: FundedProgressInputs,
 ): Quantity<Dollars> {
     const { freshFundedValue, valueNow } = inputs;
-    return !Number.isFinite(freshFundedValue) || !Number.isFinite(valueNow)
-        ? missingQuantity(EconomicsReason.InvalidInput)
-        : quantityOf(dollars(valueNow - freshFundedValue));
+    return Number.isFinite(freshFundedValue) && Number.isFinite(valueNow)
+        ? quantityOf(dollars(valueNow - freshFundedValue))
+        : missingQuantity(EconomicsReason.InvalidInput);
 }

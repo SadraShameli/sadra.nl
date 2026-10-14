@@ -263,12 +263,12 @@ function uncappedToyPlan(): Plan {
 }
 
 describe('FundedStateValue without a payout request size keeps its pins (PT-47a, PD-31)', () => {
-    it('payout-request-cap toy: initialValue, sweep count and the post-payout risk. Re-pinned for WP58c (N-86 stage 2): sweepCount moved from 28 to 52 because the coarse cushion tail is on by default now, widening the locked cushion grid this toy solves over; initialValue and the risk pin are unaffected since this toy never reaches past the old top. Re-pinned for WP60 (N-89): sweepCount moved from 52 to 53 with initialValue and the risk pin unchanged to 1e-10, because the day tree reads the payout continuation at its exact landing', () => {
+    it('payout-request-cap toy: initialValue, sweep count and the post-payout risk. Re-pinned for WP58c (N-86 stage 2): sweepCount moved from 28 to 52 because the coarse cushion tail is on by default now, widening the locked cushion grid this toy solves over; initialValue and the risk pin are unaffected since this toy never reaches past the old top', () => {
         const result = computeFundedStateValue(
             payoutRequestCapConfig(payoutRequestCapToyPlan()),
         );
         expect(result.initialValue).toBeCloseTo(250, 10);
-        expect(result.sweepCount).toBe(53);
+        expect(result.sweepCount).toBe(52);
         expect(
             result.dayPolicy.computeRisk?.(
                 lockedStateAt(1150),
@@ -278,7 +278,7 @@ describe('FundedStateValue without a payout request size keeps its pins (PT-47a,
         ).toBe(100);
     });
 
-    it('coarse TopStep: initialValue, sweep count and sampled risks. Re-pinned for N-86 (WP54): continuationKey interpolates the day-close cushion at the lock transition instead of floor-rounding it down. Re-pinned for WP58c (N-86 stage 2): the coarse cushion tail is on by default, so TopStep (the audit N-86 driver) is no longer truncated at the old top and its value rises. Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown, a 20 day horizon and a tail of 8 drawdowns above the 6 drawdown fine top, instead of cushion step 0.25 and action step 0.5, a 100 day horizon and the default 30 drawdown tail, which took 350,610 states and 117 to 129 s; the tail still lifts the value, from 928.18 with the tail off to 1,063.63, and both risk pins are now the $2,000 action step. Re-pinned for WP60 (N-89): the within-day tree values a day close at the exact cushion of the landing, where it used to clamp a landing above the fine top to the day-close value of the top cell and so never credited the payout of the cushion above it (TopStep at 2 gate days and a 12 day horizon solved 1,625.71, 1,848.27 and 1,906.86 at tops of 6, 12 and 20 drawdowns before, against 1,820.92, 1,909.27 and 1,921.82 now, so the gap closes as the top rises): the tail-off value moved from 928.18 to 1,169.34, the tail-8 value from 1,063.63 to 1,261.32 and the sweeps from 123 to 105', () => {
+    it('coarse TopStep: initialValue, sweep count and sampled risks. Re-pinned for N-86 (WP54): continuationKey interpolates the day-close cushion at the lock transition instead of floor-rounding it down. Re-pinned for WP58c (N-86 stage 2): the coarse cushion tail is on by default, so TopStep (the audit N-86 driver) is no longer truncated at the old top and its value rises. Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown, a 20 day horizon and a tail of 8 drawdowns above the 6 drawdown fine top, instead of cushion step 0.25 and action step 0.5, a 100 day horizon and the default 30 drawdown tail, which took 350,610 states and 117 to 129 s; the tail still lifts the value, from 928.18 with the tail off to 1,063.63, and both risk pins are now the $2,000 action step.', () => {
         const plan = topStepPlan();
         const tailOff = computeFundedStateValue({
             ...topStepCoarseConfig(plan),
@@ -290,30 +290,30 @@ describe('FundedStateValue without a payout request size keeps its pins (PT-47a,
             maxTailCushionMultiple: 8,
             meanHorizonDays: 20,
         });
-        expect(tailOff.initialValue).toBeCloseTo(1169.338118183659, 6);
+        expect(tailOff.initialValue).toBeCloseTo(928.1837469549456, 6);
         expect(result.initialValue).toBeGreaterThan(tailOff.initialValue);
-        expect(result.initialValue).toBeCloseTo(1261.322613670608, 6);
-        expect(result.sweepCount).toBe(105);
+        expect(result.initialValue).toBeCloseTo(1063.6315911558759, 6);
+        expect(result.sweepCount).toBe(123);
         expect(result.dayPolicy.computeRisk?.(fundedStart(plan), 0)).toBe(2000);
         expect(
             result.dayPolicy.computeRisk?.(lockedStateAt(52_000, 50_000), 0),
         ).toBe(2000);
     });
 
-    it('FTMO Futures Growth 50K at fine range multiple 1: initialValue, sweep count and sampled risks. Re-pinned for N-86 (WP54): the day-close cushion interpolation moved the pin by a few cents. Pinned back to the 6 drawdown fine top for WP58d (this pin studies the payout request policy, not the grid, so the cushion tail is pinned off). Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown and a 20 day horizon instead of 0.25 and 60 days, which took 14,414.89 over 387 sweeps and 8 to 18 s; the two risk pins are now the $1,000 action step and the same 0. Re-pinned for WP60 (N-89): the within-day tree values a day close at the exact cushion of the landing, where it used to clamp a landing above the fine top to the day-close value of the top cell and so never credited the payout of the cushion above it (this FTMO Growth config solved 2,069.52, 2,458.46 and 2,533.40 at fine tops of 6, 12 and 20 drawdowns before, against 2,395.14, 2,517.59 and 2,539.95 now, so the gap closes as the top rises): the value moved from 2,069.52 to 2,395.14 and the sweeps from 149 to 133', async () => {
+    it('FTMO Futures Growth 50K at fine range multiple 1: initialValue, sweep count and sampled risks. Re-pinned for N-86 (WP54): the day-close cushion interpolation moved the pin by a few cents. Pinned back to the 6 drawdown fine top for WP58d (this pin studies the payout request policy, not the grid, so the cushion tail is pinned off). Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown and a 20 day horizon instead of 0.25 and 60 days, which took 14,414.89 over 387 sweeps and 8 to 18 s; the two risk pins are now the $1,000 action step and the same 0.', async () => {
         const plan = await ftmoGrowthPlan();
         const result = computeFundedStateValue({
             ...ftmoGrowthConfig(plan.withOverrides({})),
             maxTailCushionMultiple: 6,
         });
         expect(result.unconvergedLevelCount).toBe(0);
-        expect(result.initialValue).toBeCloseTo(2395.1429998488943, 6);
-        expect(result.sweepCount).toBe(133);
+        expect(result.initialValue).toBeCloseTo(2069.5186290667607, 6);
+        expect(result.sweepCount).toBe(149);
         expect(result.dayPolicy.computeRisk?.(fundedStart(plan), 0)).toBe(1000);
         expect(result.dayPolicy.computeRisk?.(fundedStart(plan), 1)).toBe(0);
     });
 
-    it('FTMO Futures Growth 50K with a 2 drawdown action cap: the policy opens at the intermediate $1,000 action under the $2,000 cap, and the value rises from 2,069.52 to 2,070.96 over 158 sweeps, so the risk pin separates an intermediate action from both zero and the cap (PT-T1b review: the one-action grid above only separates 0 from full). Re-pinned for WP60 (N-89): the value moved from 2,069.52 and 2,070.96 to 2,395.14 and 2,400.58 and the sweeps from 158 to 134, for the day-close reason of the pin above', async () => {
+    it('FTMO Futures Growth 50K with a 2 drawdown action cap: the policy opens at the intermediate $1,000 action under the $2,000 cap, and the value rises from 2,069.52 to 2,070.96 over 158 sweeps, so the risk pin separates an intermediate action from both zero and the cap (PT-T1b review: the one-action grid above only separates 0 from full).', async () => {
         const plan = await ftmoGrowthPlan();
         const result = computeFundedStateValue({
             ...ftmoGrowthConfig(plan.withOverrides({})),
@@ -321,8 +321,8 @@ describe('FundedStateValue without a payout request size keeps its pins (PT-47a,
             maxTailCushionMultiple: 6,
         });
         expect(result.unconvergedLevelCount).toBe(0);
-        expect(result.initialValue).toBeCloseTo(2400.5756647724074, 6);
-        expect(result.sweepCount).toBe(134);
+        expect(result.initialValue).toBeCloseTo(2070.9579016152256, 6);
+        expect(result.sweepCount).toBe(158);
         expect(result.dayPolicy.computeRisk?.(fundedStart(plan), 0)).toBe(1000);
         expect(result.dayPolicy.computeRisk?.(fundedStart(plan), 1)).toBe(0);
     });
@@ -486,7 +486,7 @@ describe('FundedStateValue caps the horizon credit at the payout request size (P
 });
 
 describe('FundedStateValue retained cushion on the coarse TopStep config (PT-47a)', () => {
-    it('resolves a requested 2,000 cushion to max(2000, the plan floor) and values it differently from the default. Pinned back to the 6 drawdown fine top for WP58d (the retained cushion, not the grid, is under test here, so the cushion tail is pinned off). Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown instead of 0.25 and 0.5, where the 2,000 cushion gave 5,072.58 against the 5,081.86 default (WP62 moved them from 5,072.59 and 5,081.89) and took 10 to 14 s; here 1,798.33 against 1,801.46. Re-pinned for WP60 (N-89): 2,728.38 against 2,731.42, for the day-close reason of the coarse TopStep pin above (the converged fine grids moved too: cushion step 0.25 and action step 0.5 gave 5,081.86 before and 6,054.52 now)', () => {
+    it('resolves a requested 2,000 cushion to max(2000, the plan floor) and values it differently from the default. Pinned back to the 6 drawdown fine top for WP58d (the retained cushion, not the grid, is under test here, so the cushion tail is pinned off). Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown instead of 0.25 and 0.5, where the 2,000 cushion gave 5,072.58 against the 5,081.86 default (WP62 moved them from 5,072.59 and 5,081.89) and took 10 to 14 s; here 1,798.33 against 1,801.46.', () => {
         const plan = topStepPlan();
         expect(plan.resolveRetainedCushion(2000)).toBe(
             Math.max(2000, plan.defaultRetainedCushion()),
@@ -496,11 +496,11 @@ describe('FundedStateValue retained cushion on the coarse TopStep config (PT-47a
             maxTailCushionMultiple: 6,
             minRetainedCushion: 2000,
         });
-        expect(result.initialValue).toBeCloseTo(2728.384308586417, 6);
-        expect(result.initialValue).not.toBeCloseTo(2731.4204640040384, 2);
+        expect(result.initialValue).toBeCloseTo(1798.3332695727734, 6);
+        expect(result.initialValue).not.toBeCloseTo(1801.4602647454362, 2);
     });
 
-    it('equals the default pin at a requested cushion of 0, which resolves to the plan floor. Pinned back to the 6 drawdown fine top for WP58d (the retained cushion, not the grid, is under test here). Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown instead of 0.25 and 0.5, where the default was 5,081.86 after WP62 moved it from 5,081.89; here 1,801.46. Re-pinned for WP60 (N-89): 2,731.42, for the day-close reason of the coarse TopStep pin above', () => {
+    it('equals the default pin at a requested cushion of 0, which resolves to the plan floor. Pinned back to the 6 drawdown fine top for WP58d (the retained cushion, not the grid, is under test here). Re-pinned for PT-T1b: solved at cushion and action step 1 drawdown instead of 0.25 and 0.5, where the default was 5,081.86 after WP62 moved it from 5,081.89; here 1,801.46.', () => {
         const plan = topStepPlan();
         expect(plan.resolveRetainedCushion(0)).toBe(
             plan.resolveRetainedCushion(undefined),
@@ -510,7 +510,7 @@ describe('FundedStateValue retained cushion on the coarse TopStep config (PT-47a
             maxTailCushionMultiple: 6,
             minRetainedCushion: 0,
         });
-        expect(result.initialValue).toBeCloseTo(2731.4204640040384, 6);
+        expect(result.initialValue).toBeCloseTo(1801.4602647454362, 6);
     });
 });
 

@@ -18,6 +18,7 @@ import {
     CONSISTENCY_CEILING_NOTE_TEXT,
     ConsistencyCeilingNote,
     createSizingAdvisor,
+    DEFAULT_RULEBOOK,
     NO_PENDING_PAYOUT_COUNTS,
     NO_PERSONAL_CAPS,
 } from '~/lib/prop-calculator/advisor';
@@ -62,6 +63,7 @@ function adviceWithNote(note: ConsistencyCeilingNote): Advice {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         ),
         options,
     ).assemble([]);

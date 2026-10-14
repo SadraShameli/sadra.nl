@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -146,9 +148,11 @@ describe('engineSlotOf with per-group failures (PT-37b)', () => {
         });
     });
 
-    it('applies the single failure to every group when the engine carries no group failures', () => {
+    it('fails every request of an engine built with one failure for all groups', () => {
         const engine: SlotEngine = {
-            failure: 'Web workers are not available in this browser.',
+            ...uniformSlotEngine(
+                'Web workers are not available in this browser.',
+            ),
             outcomes: new Map(),
         };
         for (const request of [DOCUMENTED, CHAIN]) {
@@ -162,7 +166,7 @@ describe('engineSlotOf with per-group failures (PT-37b)', () => {
     it('stays pending with no failure at all', () => {
         expect(
             engineSlotOf(
-                { failure: null, outcomes: new Map() },
+                { ...uniformSlotEngine(null), outcomes: new Map() },
                 CHAIN,
                 figuresOf,
             ),
@@ -171,7 +175,7 @@ describe('engineSlotOf with per-group failures (PT-37b)', () => {
 });
 
 describe('groupFailureOf (PT-37b)', () => {
-    it('reads the group failure, or the single failure when there are no group failures', () => {
+    it('reads the group failure, and a uniform engine carries its one failure in every group', () => {
         const grouped: SlotEngine = {
             failure: 'values worker crashed',
             groupFailures: {
@@ -186,10 +190,26 @@ describe('groupFailureOf (PT-37b)', () => {
         expect(groupFailureOf(grouped, OverviewRequestGroup.Policy)).toBeNull();
         expect(
             groupFailureOf(
-                { failure: 'one failure', outcomes: new Map() },
+                { ...uniformSlotEngine('one failure'), outcomes: new Map() },
                 OverviewRequestGroup.Policy,
             ),
         ).toBe('one failure');
+    });
+});
+
+describe('groupFailureOf has no fallback (PT-113)', () => {
+    it('reads only the required group failures, with no undefined branch', () => {
+        const source = readFileSync(
+            path.resolve(
+                'src/app/(app)/prop-calculator/accounts/_components/overview/engineSlot.ts',
+            ),
+            'utf8',
+        );
+        const start = source.indexOf('export function groupFailureOf(');
+        const end = source.indexOf('\n}\n', start);
+        expect(start).toBeGreaterThan(-1);
+        expect(source.slice(start, end)).not.toContain('undefined');
+        expect(source).not.toContain('groupFailures?:');
     });
 });
 

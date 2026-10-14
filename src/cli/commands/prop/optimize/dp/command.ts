@@ -44,6 +44,7 @@ import {
     DEFAULT_MAX_CUSHION_MULTIPLE,
     DEFAULT_MAX_TAIL_CUSHION_MULTIPLE,
     DEFAULT_TAIL_CUSHION_STEP_MULTIPLE,
+    DEFAULT_TRADES_PER_DAY,
     describeFundedResetTerms,
     type Dollars,
     dollars,
@@ -64,9 +65,11 @@ import {
     TRADING_DAYS_PER_YEAR,
     TradingPhase,
 } from '~/lib/prop-calculator';
-import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import {
+    fundedDpModelGapClause,
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
 import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
-import { fundedDpModelGapClause } from '~/lib/prop-calculator/advisor/DpAdviceText';
 import {
     type AverageRewardConfig,
     RateSearchStatus,
@@ -151,8 +154,6 @@ interface DpCushionGrid {
 }
 
 type ResolvedCushionGrid = FundedStateValueResult['cushionGrid'];
-
-export const DP_TRADES_PER_DAY = 4;
 
 export const EMPIRICAL_MAX_ATTEMPTS = 1000;
 
@@ -777,7 +778,7 @@ const command = defineCommand({
             printEdgePlausibilityNotes([
                 edgePlausibilityNote({
                     rrRatio: inputs.rrRatio,
-                    tradesPerDay: DP_TRADES_PER_DAY,
+                    tradesPerDay: DEFAULT_TRADES_PER_DAY,
                     winrate: inputs.winrate,
                 }),
             ]);

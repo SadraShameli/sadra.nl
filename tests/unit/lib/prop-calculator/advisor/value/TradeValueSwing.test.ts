@@ -174,6 +174,7 @@ function topStepEval(
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     if (account.kind !== TradingPhase.Eval)
         throw new Error('expected an eval account');

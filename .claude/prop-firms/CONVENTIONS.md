@@ -57,7 +57,7 @@ identically across every documented plan per bug class #4 below).
 ## Required sections, in this exact order, per `<plan-slug>.md`
 
 1. `# <Plan Name> (<Size>)` — title. Follow this exactly for any new plan file.
-   Known gap: most of the tree's *existing* plan files predate this being
+   Known gap: most of the tree's _existing_ plan files predate this being
    spelled out explicitly and use a bare `# <Plan Name>` with no size (e.g.
    `# LucidPro`, `# Pro`) — not yet retroactively fixed tree-wide; do not
    assume spot-checking one compliant firm (`tradeify`) means the rest match.
@@ -166,8 +166,8 @@ pieces explicitly:
 If the source states the locked value as a literal dollar figure (e.g. "the
 MLL locks at $100"), and the plan's own account starts at a non-zero nominal
 balance, do not silently convert one to the other — quote what the source
-says, and if two of the firm's own articles express the *same underlying
-mechanic* in different units (one in $0-based profit terms, one in
+says, and if two of the firm's own articles express the _same underlying
+mechanic_ in different units (one in $0-based profit terms, one in
 full-nominal-balance terms), say so explicitly rather than picking one and
 treating the other as wrong.
 

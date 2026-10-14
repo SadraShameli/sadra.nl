@@ -6,9 +6,9 @@ import {
     buildDocumentedSpec,
     overviewPlanOptInsOf,
     overviewRequestsFor,
-    type PersonalPolicyOverrides,
     withPersonalPolicy,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
+import { type AccountPersonalPolicy } from '~/lib/prop-accounts';
 import {
     type Dollars,
     dollars,
@@ -193,7 +193,7 @@ describe('one documented-spec builder and one dollarsOrNull (PT-42c, F-136)', ()
 
 describe('the personal policy overrides are all required (PT-68g addendum)', () => {
     it('has no optional key, so a caller cannot drop the caps or the daily loss limit', () => {
-        expectTypeOf<PersonalPolicyOverrides>().toEqualTypeOf<{
+        expectTypeOf<AccountPersonalPolicy>().toEqualTypeOf<{
             readonly payoutRequestOverride: Dollars | null;
             readonly personalCaps: PersonalCaps;
             readonly personalDll: Dollars | null;

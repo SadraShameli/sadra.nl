@@ -482,6 +482,7 @@ describe('a suspended account never reaches the value request builder through a 
             PLAN,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(rebuilt, {
             rulebook: DEFAULT_RULEBOOK,

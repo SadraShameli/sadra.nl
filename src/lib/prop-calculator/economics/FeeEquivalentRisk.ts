@@ -55,13 +55,14 @@ export function feeEquivalentTradeRisk(
     inputs: FeeEquivalentTradeRiskInputs,
 ): Quantity<Dollars> {
     const { evalDrawdown, retryFee, risk } = inputs;
-    return !isNonNegativeAmount(retryFee) ||
-        !isNonNegativeAmount(risk) ||
-        !(Number.isFinite(evalDrawdown) && evalDrawdown > 0)
-        ? missingQuantity(EconomicsReason.InvalidInput)
-        : quantityOf(dollars(Math.min(risk / evalDrawdown, 1) * retryFee), [
+    return isNonNegativeAmount(retryFee) &&
+        isNonNegativeAmount(risk) &&
+        Number.isFinite(evalDrawdown) &&
+        evalDrawdown > 0
+        ? quantityOf(dollars(Math.min(risk / evalDrawdown, 1) * retryFee), [
               EconomicsDisclosure.NearFreshEvalApproximation,
-          ]);
+          ])
+        : missingQuantity(EconomicsReason.InvalidInput);
 }
 
 function replacementFeeOf(inputs: BustCostInputs): Dollars {

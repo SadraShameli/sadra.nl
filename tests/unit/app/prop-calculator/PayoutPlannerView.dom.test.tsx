@@ -1191,6 +1191,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                     overrideRequestSize: 6000,
                     retainedCushion: 2000,
                     retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+                    startBasis: StartBasis.Fresh,
                 }),
             );
 
@@ -2209,6 +2210,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 overrideRequestSize: 6000,
                 retainedCushion: 2000,
                 retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+                startBasis: StartBasis.Fresh,
             };
 
             finish('sweep', sweepResultWithOverride(0.6, warning));

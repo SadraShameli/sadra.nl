@@ -52,7 +52,7 @@ vi.mock('~/lib/observability/rate-limit', () => ({
     isWithinRateLimit: vi.fn(() => Promise.resolve(true)),
 }));
 
-const rateLimit = vi.mocked(isWithinRateLimit);
+const isWithinRateLimitMock = vi.mocked(isWithinRateLimit);
 
 const NOTHING_REFERENCES_IT = {
     [TABLES.account]: [],
@@ -126,13 +126,13 @@ describe('propAccounts.externalFirm', () => {
     });
 
     it('rate-limits changes in the external firm bucket per user and writes nothing when limited', async () => {
-        rateLimit.mockClear();
-        rateLimit.mockResolvedValueOnce(false);
+        isWithinRateLimitMock.mockClear();
+        isWithinRateLimitMock.mockResolvedValueOnce(false);
         const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
         await expect(
             caller.externalFirm.create({ name: 'Hola Prime' }),
         ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
-        expect(rateLimit).toHaveBeenCalledWith(
+        expect(isWithinRateLimitMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 bucket: 'prop-accounts:external-firm',
                 key: USER_ID,

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { DpNotValidatedCause } from '~/lib/prop-calculator/advisor';
+import {
+    DpGateFailureCode,
+    DpNotValidatedCause,
+} from '~/lib/prop-calculator/advisor';
 import {
     DP_GATE_MIN_ITERATIONS,
     DpEvalObjective,
     type DpGateBasis,
-    DpGateFailure,
     type DpGateRun,
     dpNotValidatedCauseOf,
     evaluateDpGateRun,
@@ -88,7 +90,7 @@ describe('evaluateDpGateRun', () => {
 
         expect(verdict).toEqual({
             citation: run().citation,
-            failure: DpGateFailure.BelowBestFlat,
+            failure: DpGateFailureCode.BelowBestFlat,
             result: '0.99x best flat (credit-inclusive)',
             validated: false,
         });
@@ -104,7 +106,7 @@ describe('evaluateDpGateRun', () => {
         );
 
         expect(verdict).toMatchObject({
-            failure: DpGateFailure.BelowBestFlat,
+            failure: DpGateFailureCode.BelowBestFlat,
             result: '0.94x best flat (credit-free)',
             validated: false,
         });
@@ -120,7 +122,7 @@ describe('evaluateDpGateRun', () => {
         );
 
         expect(verdict).toMatchObject({
-            failure: DpGateFailure.BelowBestFlat,
+            failure: DpGateFailureCode.BelowBestFlat,
             result: '-$100 against a best flat of -$40 (credit-inclusive)',
             validated: false,
         });
@@ -153,7 +155,7 @@ describe('evaluateDpGateRun', () => {
 
             expect(verdict).toEqual({
                 citation: run().citation,
-                failure: DpGateFailure.SolveNotConverged,
+                failure: DpGateFailureCode.SolveNotConverged,
                 result: expectedResult,
                 validated: false,
             });
@@ -175,7 +177,7 @@ describe('evaluateDpGateRun', () => {
 
         expect(verdict).toEqual({
             citation: run().citation,
-            failure: DpGateFailure.RetainedCushionMismatch,
+            failure: DpGateFailureCode.RetainedCushionMismatch,
             result: 'DP retained cushion $0 against the flat baseline $2,000',
             validated: false,
         });
@@ -185,19 +187,19 @@ describe('evaluateDpGateRun', () => {
         [
             'payout policy',
             { payoutRequestPolicy: PayoutRequestPolicy.UpToRequest },
-            DpGateFailure.PayoutPolicyMismatch,
+            DpGateFailureCode.PayoutPolicyMismatch,
         ],
         [
             'payout request size',
             { payoutRequestSize: 300 },
-            DpGateFailure.PayoutPolicyMismatch,
+            DpGateFailureCode.PayoutPolicyMismatch,
         ],
         [
             'instrument',
             { instrument: InstrumentSymbol.ES },
-            DpGateFailure.InstrumentMismatch,
+            DpGateFailureCode.InstrumentMismatch,
         ],
-        ['stop', { stopPoints: 12 }, DpGateFailure.StopMismatch],
+        ['stop', { stopPoints: 12 }, DpGateFailureCode.StopMismatch],
     ] as const)(
         'is not validated when the %s differs between the DP and the flat baseline',
         (_label, basisOverride, failure) => {
@@ -213,12 +215,12 @@ describe('evaluateDpGateRun', () => {
     it('is not validated for a run dated on or before G2, or while G2 is not recorded (stale tree)', () => {
         for (const ranOn of ['2026-09-30', G2]) {
             expect(evaluateDpGateRun(run({ ranOn }), G2)).toMatchObject({
-                failure: DpGateFailure.StaleTree,
+                failure: DpGateFailureCode.StaleTree,
                 validated: false,
             });
         }
         expect(evaluateDpGateRun(run(), null)).toMatchObject({
-            failure: DpGateFailure.StaleTree,
+            failure: DpGateFailureCode.StaleTree,
             validated: false,
         });
     });
@@ -226,7 +228,7 @@ describe('evaluateDpGateRun', () => {
     it('is not validated without an engine commit or content hash', () => {
         for (const engineRef of ['', ' '.repeat(3)]) {
             expect(evaluateDpGateRun(run({ engineRef }), G2)).toMatchObject({
-                failure: DpGateFailure.StaleTree,
+                failure: DpGateFailureCode.StaleTree,
                 validated: false,
             });
         }
@@ -241,11 +243,11 @@ describe('evaluateDpGateRun', () => {
         });
 
         expect(evaluateDpGateRun(everythingWrong, G2)).toMatchObject({
-            failure: DpGateFailure.StaleTree,
+            failure: DpGateFailureCode.StaleTree,
         });
         expect(
             evaluateDpGateRun({ ...everythingWrong, ranOn: '2026-10-05' }, G2),
-        ).toMatchObject({ failure: DpGateFailure.SolveNotConverged });
+        ).toMatchObject({ failure: DpGateFailureCode.SolveNotConverged });
         expect(
             evaluateDpGateRun(
                 {
@@ -255,7 +257,7 @@ describe('evaluateDpGateRun', () => {
                 },
                 G2,
             ),
-        ).toMatchObject({ failure: DpGateFailure.RetainedCushionMismatch });
+        ).toMatchObject({ failure: DpGateFailureCode.RetainedCushionMismatch });
     });
 
     it('carries the eval objective of a validated run so a pass-probability verdict can be told apart', () => {
@@ -274,25 +276,25 @@ describe('evaluateDpGateRun', () => {
 describe('dpNotValidatedCauseOf', () => {
     it('maps the failures PT-19 already has a cause for and leaves the rest null', () => {
         expect(
-            Object.values(DpGateFailure).map((failure) => [
+            Object.values(DpGateFailureCode).map((failure) => [
                 failure,
                 dpNotValidatedCauseOf(failure),
             ]),
         ).toEqual([
-            [DpGateFailure.BelowBestFlat, null],
-            [DpGateFailure.InstrumentMismatch, null],
-            [DpGateFailure.NoGateRun, DpNotValidatedCause.NoGateRun],
-            [DpGateFailure.PayoutPolicyMismatch, null],
+            [DpGateFailureCode.BelowBestFlat, null],
+            [DpGateFailureCode.InstrumentMismatch, null],
+            [DpGateFailureCode.NoGateRun, DpNotValidatedCause.NoGateRun],
+            [DpGateFailureCode.PayoutPolicyMismatch, null],
             [
-                DpGateFailure.RetainedCushionMismatch,
+                DpGateFailureCode.RetainedCushionMismatch,
                 DpNotValidatedCause.RetainedCushionMismatch,
             ],
             [
-                DpGateFailure.SolveNotConverged,
+                DpGateFailureCode.SolveNotConverged,
                 DpNotValidatedCause.SolveCapReached,
             ],
-            [DpGateFailure.StaleTree, DpNotValidatedCause.StaleTree],
-            [DpGateFailure.StopMismatch, null],
+            [DpGateFailureCode.StaleTree, DpNotValidatedCause.StaleTree],
+            [DpGateFailureCode.StopMismatch, null],
         ]);
     });
 });

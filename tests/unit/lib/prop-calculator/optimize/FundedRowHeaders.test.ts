@@ -69,12 +69,14 @@ async function printedCliHeader(): Promise<string> {
     const resolved =
         typeof resolvable === 'function' ? resolvable() : resolvable;
     const written: string[] = [];
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+    ];
     try {
         await optimizeFunded.run?.({
             args: parseArgs(argv, await resolved) as never,
@@ -82,7 +84,7 @@ async function printedCliHeader(): Promise<string> {
             rawArgs: argv,
         });
     } finally {
-        write.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
     }
     const header = written
         .join('')

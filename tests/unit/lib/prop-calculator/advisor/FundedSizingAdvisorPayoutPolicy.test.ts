@@ -476,6 +476,7 @@ describe('FundedSizingAdvisor.assemble personal override payout warning (PT-19g 
         overrideRequestSize: 500,
         retainedCushion: 2000,
         retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+        startBasis: StartBasis.Fresh,
     };
 
     function withWarning(

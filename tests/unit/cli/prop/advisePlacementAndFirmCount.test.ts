@@ -25,6 +25,7 @@ import {
 import {
     AccountReconstruction,
     createSizingAdvisor,
+    DEFAULT_RULEBOOK,
     LiveTriggerCoverage,
     NO_PENDING_PAYOUT_COUNTS,
     SizingStage,
@@ -95,6 +96,7 @@ function advisorFor(argv: string[]) {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         ),
         options,
     );
@@ -163,6 +165,7 @@ describe('prop advise takes the firm-wide payout count since the last live accou
                     plan,
                     null,
                     NO_PENDING_PAYOUT_COUNTS,
+                    DEFAULT_RULEBOOK.live.cushionPercent,
                 ),
                 { ...options, accountPolicy: policy },
             );

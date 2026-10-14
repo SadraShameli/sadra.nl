@@ -1,5 +1,6 @@
 import {
     type AccountAlert,
+    type AccountPersonalPolicy,
     type AlertAccountRow,
     type AlertContext,
     type AlertCopyGroupRow,
@@ -9,11 +10,8 @@ import {
     type AlertRule,
     type AlertSnapshotRow,
     createAlertContext,
-} from '~/lib/prop-accounts/alerts';
-import {
-    type AccountPersonalPolicy,
     NO_PERSONAL_POLICY,
-} from '~/lib/prop-accounts/alerts/AlertContext';
+} from '~/lib/prop-accounts/alerts';
 import {
     AccountEventKind,
     AccountStage,

@@ -20,6 +20,7 @@ import {
     AccountFromStateViewKind,
     MilestoneValueViewKind,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
+import { uniformSlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import {
     accountEventKindLabel,
     accountStatesFromLoad,
@@ -159,6 +160,7 @@ import {
     NEXT_PAYOUT_ELIGIBLE_NOW_CAVEAT_TEXT,
     NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
     NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
+    OPTIMUM_MISSING_DISCLOSURE,
     PayoutBlockReasonKind,
     RebuyLagBasis,
     SizingStage,
@@ -192,6 +194,7 @@ import {
     event,
     fee,
     firmStatement,
+    FUNDED_RESET_PLAN,
     OTHER_FIRM_EVAL_PLAN,
     OTHER_USER_ID,
     payout,
@@ -1016,8 +1019,9 @@ describe('buildOverview cards', () => {
                     key: EVAL_PLAN.serial,
                     modeledFundedSurvival: 'Pending',
                     modeledPassRate: 'Pending',
+                    modeledSessionsToFunded: 'Pending',
                     openFunded: '1',
-                    passRate: '50.0% (95% CI 9.5% to 90.5%, n = 2)',
+                    passRate: '50.0% (SE 35.4%, 95% CI 9.5% to 90.5%, n = 2)',
                     passRateCounts: '2 attempts, 2 independent',
                     plan,
                     sessionsToFunded: '15.0 sessions (SE n/a, n = 1)',
@@ -1039,7 +1043,7 @@ describe('buildOverview cards', () => {
             buildOverview(inputs(thresholdRows)).ledger,
         );
         expect(withThresholds.outcomes.rows[0]?.passRate).toBe(
-            '50.0% (95% CI 9.5% to 90.5%, n = 2), low sample',
+            '50.0% (SE 35.4%, 95% CI 9.5% to 90.5%, n = 2), low sample',
         );
         expect(withThresholds.outcomes.rows[0]?.fundedSurvival).toBe(
             '100.0% (95% CI 20.7% to 100.0%, n = 1), adequate sample',
@@ -1398,7 +1402,7 @@ describe('buildOverview cards', () => {
         expect(cards.repeatability.overall).toMatchObject({
             count: '3',
             shareAtOrAboveTarget: null,
-            sharePositive: '33.3% (95% CI 6.1% to 79.2%, n = 3)',
+            sharePositive: '33.3% (SE 27.2%, 95% CI 6.1% to 79.2%, n = 3)',
         });
         expect(cards.repeatability.perSlot).not.toBeNull();
         expect(cards.repeatability.perSlotTargetNote).toBeNull();
@@ -1926,6 +1930,26 @@ describe('buildOverview payout sizes, funded payouts and attempt economics cards
         ]);
     });
 
+    it('says on the statement month row how many paid payouts are counted at gross only (PT-113)', () => {
+        const owner = account(EVAL_PLAN, {
+            fundedOn: '2026-09-01',
+            purchasedOn: '2026-09-01',
+            stage: AccountStage.Funded,
+        });
+        const cards = cardsOf({
+            accounts: [overviewAccount(owner)],
+            events: [
+                purchased(owner),
+                event(owner, AccountEventKind.EvalPassed, '2026-09-01'),
+            ],
+            payouts: [payout(owner, 50_000, { paidOn: '2026-09-10' })],
+        });
+        const september = cards.statement.months.find(
+            (month) => month.month === '2026-09',
+        );
+        expect(september?.payoutCount).toBe('1 (1 payout gross only)');
+    });
+
     it('discloses that low-balance monitoring approximates the balance at payout from the latest snapshot once a snapshot is stored and the rulebook has loaded', () => {
         const owner = account(EVAL_PLAN, {
             fundedOn: '2026-09-01',
@@ -2122,7 +2146,9 @@ describe('buildOverview payout sizes, funded payouts and attempt economics cards
         expect(cards.attemptEconomics.horizonDays).toBe(365);
         expect(row?.attemptCost).toBe(cents(17_500));
         expect(row?.attempts).toBe('1');
-        expect(row?.passRate).toBe('50.0% (95% CI 9.5% to 90.5%, n = 2)');
+        expect(row?.passRate).toBe(
+            '50.0% (SE 35.4%, 95% CI 9.5% to 90.5%, n = 2)',
+        );
         expect(row?.payoutRate).toBe('100.0% (95% CI 20.7% to 100.0%, n = 1)');
         expect(row?.payoutsPerPaidFunded).toBe(NOT_APPLICABLE);
         expect(row?.averagePayout).toBe(NOT_APPLICABLE);
@@ -2515,6 +2541,34 @@ describe('buildOverview alerts', () => {
         ).toBe(
             'Alerts that depend on account history could not be checked because your account events could not be loaded.',
         );
+    });
+});
+
+describe('buildOverview payout alerts follow the personal policy (PT-113)', () => {
+    it("raises the eligible-to-request alert at the account's $1,000 personal request", () => {
+        const funded = mffFundedAccount('Funded', 1800);
+        const rows = rowsOf({
+            accounts: [
+                {
+                    ...funded.row,
+                    personalRules: {
+                        payoutRequestOverrideCents: usdCents(100_000),
+                    },
+                },
+            ],
+            snapshots: [funded.snapshot],
+        });
+        const messages = readyAlerts(buildOverview(inputs(rows)).alerts)
+            .filter(
+                (alert) =>
+                    alert.kindLabel ===
+                    alertKindLabel(AlertKind.PayoutEligible),
+            )
+            .map((alert) => alert.message);
+        expect(messages).toEqual([
+            expect.stringContaining('Eligible to request $1,000'),
+        ]);
+        expect(messages[0]).toContain('your personal payout request');
     });
 });
 
@@ -3487,6 +3541,7 @@ function documentedFigures(
         attemptPassProbability: { standardError: 0.02, value: 0.3 },
         costPerAttempt: { standardError: 1, value: 120 },
         costPerFundedAccount: 777,
+        daysToPass: { standardError: 0.4, value: 12.5 },
         expectedMonthlyNet: { standardError: 11, value: 1234 },
         expectedMonthlyRealizedNet: { standardError: 9, value: 1111 },
         expectedNetPerAttempt: { standardError: 5, value: 55 },
@@ -3556,7 +3611,7 @@ function engineFor(
             });
         }
     }
-    return { failure, outcomes };
+    return { ...uniformSlotEngine(failure), outcomes };
 }
 
 function engineInputs(
@@ -3568,6 +3623,14 @@ function engineInputs(
         ...inputs(rows),
         engine: engineFor(rows, answers, failure),
     };
+}
+
+function expectedNetDetailOf(
+    rows: Partial<PortfolioRows>,
+): null | string | undefined {
+    return engineCards(rows, {}).kpis.find(
+        (kpi) => kpi.kind === OverviewKpiKind.ExpectedNet,
+    )?.detail;
 }
 
 function matchedFigures(passRate: number): DocumentedRunFigures {
@@ -3796,6 +3859,42 @@ describe('overviewEngineRequestsOf', () => {
         expect(new Set(requests.map((request) => request.planSerial))).toEqual(
             new Set([EVAL_PLAN.serial]),
         );
+    });
+
+    it('values two accounts on one plan with different opt-ins separately: one request and one slot each, named by their opt-ins (PT-113)', () => {
+        const plain = account(FUNDED_RESET_PLAN, {
+            fundedOn: '2026-09-10',
+            label: 'Plain',
+            purchasedOn: '2026-09-01',
+            stage: AccountStage.Funded,
+        });
+        const withReset = account(FUNDED_RESET_PLAN, {
+            fundedOn: '2026-09-10',
+            label: 'With reset',
+            optIns: { takesFundedReset: true },
+            purchasedOn: '2026-09-01',
+            stage: AccountStage.Funded,
+        });
+        const rows = {
+            accounts: [plain, withReset].map(overviewAccount),
+            events: [purchased(plain), purchased(withReset)],
+        };
+        const load = portfolioLoad(answered(rowsOf(rows)));
+        const documentedRuns = overviewEngineRequestsOf(load, USER_ID).filter(
+            (request) => request.kind === OverviewRequestKind.DocumentedRun,
+        );
+        expect(
+            documentedRuns.map((request) => request.optIns.takesFundedReset),
+        ).toEqual([false, true]);
+        const cards = engineCards(rows, {
+            [FUNDED_RESET_PLAN.serial]: { documented: documentedFigures() },
+        });
+        expect(
+            cards.expectedNet.rows.map((row) => [row.plan, row.activeSlots]),
+        ).toEqual([
+            [expect.stringContaining('(no opt-ins)'), '1'],
+            [expect.stringContaining('(funded reset)'), '1'],
+        ]);
     });
 
     it('plans nothing while the ledger or the rulebook has not loaded', () => {
@@ -4134,6 +4233,25 @@ describe('buildOverview expected net card (F-85, F-152)', () => {
         expect(kpi?.detail).toContain('credit-inclusive');
     });
 
+    it("labels the expected net KPI from the user's rulebook: the default keeps your documented rule and a deviating rulebook says custom (PT-113)", () => {
+        expect(expectedNetDetailOf(multiSlotRows())).toBe(
+            'Modeled monthly net per slot under your documented rule: pending the engine cards',
+        );
+        const custom = expectedNetDetailOf({
+            ...multiSlotRows(),
+            rulebook: {
+                ...DEFAULT_RULEBOOK,
+                execution: {
+                    ...DEFAULT_RULEBOOK.execution,
+                    maxTradesPerWindow:
+                        DEFAULT_RULEBOOK.execution.maxTradesPerWindow + 1,
+                },
+            },
+        });
+        expect(custom).toContain('under your custom rule (differs from');
+        expect(custom).not.toContain('your documented rule');
+    });
+
     it('keeps the expected net KPI pending without an engine answer, and not applicable with a failure', () => {
         const pending = readyCards(buildOverview(pinnedFixture()).ledger).kpis;
         expect(
@@ -4223,6 +4341,7 @@ describe('buildOverview modeled halves of the cards (F-73, F-78, F-V8, F-V9, F-V
         expect(row?.modeledFundedSurvival).toBe(
             '55.0% (SE 3.0%) over 252 trading days',
         );
+        expect(row?.modeledSessionsToFunded).toBe('12.5 sessions (SE 0.4)');
         expect(
             cards.outcomes.disclosures.some((text) =>
                 text.includes('pending the engine cards'),
@@ -4234,6 +4353,16 @@ describe('buildOverview modeled halves of the cards (F-73, F-78, F-V8, F-V9, F-V
         const row = engineCards(pinnedRows(), {}).outcomes.rows[0];
         expect(row?.modeledPassRate).toBe('Pending');
         expect(row?.modeledFundedSurvival).toBe('Pending');
+        expect(row?.modeledSessionsToFunded).toBe('Pending');
+    });
+
+    it('shows n/a for the modeled sessions to funded when no simulated attempt passed (PT-113)', () => {
+        const row = engineCards(pinnedRows(), {
+            [EVAL_PLAN.serial]: {
+                documented: documentedFigures({ daysToPass: null }),
+            },
+        }).outcomes.rows[0];
+        expect(row?.modeledSessionsToFunded).toBe(NOT_APPLICABLE);
     });
 
     it('puts the modeled EV per attempt, pass rate, payout rate, payouts per paid funded account and funded value beside the realized ones', () => {
@@ -4414,7 +4543,7 @@ describe('buildOverview modeled halves of the cards (F-73, F-78, F-V8, F-V9, F-V
     it('uses an empty engine by default so existing callers keep their pending copy', () => {
         expect(NO_OVERVIEW_ENGINE.failure).toBeNull();
         expect(NO_OVERVIEW_ENGINE.outcomes.size).toBe(0);
-        expect(Object.values(NO_OVERVIEW_ENGINE.groupFailures ?? {})).toEqual([
+        expect(Object.values(NO_OVERVIEW_ENGINE.groupFailures)).toEqual([
             null,
             null,
             null,
@@ -4426,6 +4555,35 @@ describe('buildOverview modeled halves of the cards (F-73, F-78, F-V8, F-V9, F-V
 });
 
 describe('buildOverview cushion and payout readiness boards (F-80, F-81)', () => {
+    it.each([
+        AccountStatus.Busted,
+        AccountStatus.Closed,
+        AccountStatus.Suspended,
+    ])(
+        'leaves a funded account with status %s and a snapshot off both boards while an active one stays (PT-113)',
+        (status) => {
+            const active = mffFundedAccount('Active', 1000);
+            const ended = mffFundedAccount('Not active', 125);
+            const rows = rowsOf({
+                accounts: [active.row, { ...ended.row, status }],
+                snapshots: [active.snapshot, ended.snapshot],
+            });
+            const { boards } = buildOverview(inputs(rows));
+            if (boards.kind !== OverviewSectionStatus.Ready) {
+                throw new Error(`boards not ready: ${boards.kind}`);
+            }
+            expect(boards.cushion.rows.map((row) => row.account)).toEqual([
+                'Active',
+            ]);
+            expect(
+                boards.cushion.unavailable.map((row) => row.account),
+            ).toEqual([]);
+            expect(boards.readiness.rows.map((row) => row.account)).toEqual([
+                'Active',
+            ]);
+        },
+    );
+
     it('ranks accounts nearest to their floor first with the floor, the dollar cushion and the cushion in risk units', () => {
         const near = mffFundedAccount('Near floor', 125);
         const comfortable = mffFundedAccount('Comfortable', 1000);
@@ -4467,7 +4625,7 @@ describe('buildOverview cushion and payout readiness boards (F-80, F-81)', () =>
         ]);
     });
 
-    it('shows each funded account as eligible with the rule-capped amount at the effective request and the net after the split, or blocked with the gate and what unlocks it', () => {
+    it('shows a funded account with room as eligible with the rule-capped amount at the effective request and the net after the split (PT-113 pins the outcome)', () => {
         const funded = mffFundedAccount('Funded', 1800);
         const rows = rowsOf({
             accounts: [funded.row],
@@ -4477,27 +4635,58 @@ describe('buildOverview cushion and payout readiness boards (F-80, F-81)', () =>
         const states = accountStatesFromLoad(USER_ID, TODAY, load);
         const board = payoutReadinessBoardOf(DEFAULT_RULEBOOK, states);
         const expected = board.rows[0];
-        if (expected === undefined) throw new Error('expected one funded row');
+        if (expected?.kind !== PayoutReadinessRowKind.Eligible) {
+            throw new Error('expected one eligible funded row');
+        }
         const { boards } = buildOverview(inputs(rows));
         if (boards.kind !== OverviewSectionStatus.Ready) {
             throw new Error(`boards not ready: ${boards.kind}`);
         }
         const [row] = boards.readiness.rows;
         expect(row?.account).toBe('Funded');
-        if (expected.kind === PayoutReadinessRowKind.Eligible) {
-            expect(row?.status).toBe('Eligible');
-            expect(row?.requested).toBe(
-                formatUsdCents(expected.requestedAmountCents),
-            );
-            expect(row?.netAfterSplit).toBe(
-                formatUsdCents(expected.traderReceivesCents),
-            );
-            expect(row?.unlock).toBe('Ready now');
-        } else {
-            expect(row?.status).toBe('Blocked');
-            expect(row?.requested).toBe(NOT_APPLICABLE);
-            expect(row?.unlock.length).toBeGreaterThan(0);
+        expect(row?.status).toBe('Eligible');
+        expect(row?.requested).toBe(
+            formatUsdCents(expected.requestedAmountCents),
+        );
+        expect(row?.netAfterSplit).toBe(
+            formatUsdCents(expected.traderReceivesCents),
+        );
+        expect(row?.unlock).toBe('Ready now');
+    });
+
+    it('shows a funded account without room as blocked with its gate and what unlocks it (PT-113 pins the outcome)', () => {
+        const funded = mffFundedAccount('Thin', 1800);
+        const rows = rowsOf({
+            accounts: [funded.row],
+            snapshots: [
+                {
+                    ...funded.snapshot,
+                    balanceCents: usdCents(
+                        Math.round(
+                            (funded.threshold - 9000) * CENTS_PER_DOLLAR,
+                        ),
+                    ),
+                    highestEodBalanceCents: usdCents(
+                        Math.round(
+                            (funded.threshold - 9000) * CENTS_PER_DOLLAR,
+                        ),
+                    ),
+                },
+            ],
+        });
+        const load = portfolioLoad(answered(rows));
+        const states = accountStatesFromLoad(USER_ID, TODAY, load);
+        const board = payoutReadinessBoardOf(DEFAULT_RULEBOOK, states);
+        expect(board.rows[0]?.kind).toBe(PayoutReadinessRowKind.Blocked);
+        const { boards } = buildOverview(inputs(rows));
+        if (boards.kind !== OverviewSectionStatus.Ready) {
+            throw new Error(`boards not ready: ${boards.kind}`);
         }
+        const [row] = boards.readiness.rows;
+        expect(row?.account).toBe('Thin');
+        expect(row?.status).toBe('Blocked');
+        expect(row?.requested).toBe(NOT_APPLICABLE);
+        expect(row?.unlock.length).toBeGreaterThan(0);
     });
 
     it.each([
@@ -4745,6 +4934,19 @@ describe('buildOverview expected net card with a partial payout-size answer (F-1
             expect(row.policySensitiveNote).toBeNull();
             expect(row.rankOptimum).toBe(NOT_APPLICABLE);
         }
+    });
+
+    it("says the optimum ranks are withheld when one plan's optimum is refused, and not when every optimum answered (PT-113)", () => {
+        const refused = engineCards(
+            threePlanRows(),
+            answersWith('one ES contract risks more than your risk'),
+        ).expectedNet;
+        expect(refused.disclosures).toContain(OPTIMUM_MISSING_DISCLOSURE);
+        const answered = engineCards(
+            threePlanRows(),
+            answersWith(netOptimum(1100)),
+        ).expectedNet;
+        expect(answered.disclosures).not.toContain(OPTIMUM_MISSING_DISCLOSURE);
     });
 
     it('still marks every row when all three optima reorder the plans', () => {
@@ -5116,7 +5318,10 @@ function projectionInputs(
                   },
         );
     }
-    return { ...inputs(rows), engine: { failure, outcomes } };
+    return {
+        ...inputs(rows),
+        engine: { ...uniformSlotEngine(failure), outcomes },
+    };
 }
 
 function projectionModelOf(
@@ -5358,6 +5563,50 @@ describe('buildOverview exposure (PT-33, F-86)', () => {
             load: failedLoad,
         }).exposure;
         expect(failed).toMatchObject({ kind: OverviewSectionStatus.Failed });
+    });
+
+    it('caps the account and group maximum daily loss at a personal daily loss limit of $300, as the advice and the copy groups page do (PT-113)', () => {
+        const { comfortable, near } = exposureRows();
+        const groupId = 'group-mirror';
+        const rows = rowsOf({
+            accounts: [
+                { ...near.row, copyGroupId: groupId },
+                {
+                    ...comfortable.row,
+                    copyGroupId: groupId,
+                    personalRules: { dailyLossLimitCents: usdCents(30_000) },
+                },
+            ],
+            copyGroups: [{ id: groupId, name: 'Mirror' }],
+            snapshots: [near.snapshot, comfortable.snapshot],
+        });
+        const model = exposureModelOf(rows);
+        const comfortableRow = model.accounts.find(
+            (row) => row.account === 'Comfortable',
+        );
+        expect(comfortableRow?.maxDailyLoss).toBe('$300');
+        expect(model.groups[0]?.maxDailyLoss).toBe('$425');
+    });
+
+    it('names a copy group member it leaves out of the combined exposure (PT-113)', () => {
+        const { comfortable, near } = exposureRows();
+        const live = mffFundedAccount('Live member', 1000);
+        const groupId = 'group-mirror';
+        const rows = rowsOf({
+            accounts: [
+                { ...near.row, copyGroupId: groupId },
+                { ...comfortable.row, copyGroupId: groupId },
+                {
+                    ...live.row,
+                    copyGroupId: groupId,
+                    stage: AccountStage.Live,
+                },
+            ],
+            copyGroups: [{ id: groupId, name: 'Mirror' }],
+            snapshots: [near.snapshot, comfortable.snapshot, live.snapshot],
+        });
+        const [group] = exposureModelOf(rows).groups;
+        expect(group?.note).toContain('1 member not included: Live member.');
     });
 
     it('says how the maximum daily loss is counted, from the documented rungs', () => {
@@ -6449,7 +6698,10 @@ function fromStateInputs(
                   },
         );
     }
-    return { ...inputs(rows), engine: { failure, outcomes } };
+    return {
+        ...inputs(rows),
+        engine: { ...uniformSlotEngine(failure), outcomes },
+    };
 }
 
 function readyFromStateView(
@@ -7198,7 +7450,7 @@ describe('a failed request group stays in its own cards (PT-37b)', () => {
 
     it('treats an engine without group failures as one failure for every group', () => {
         const built = builtWithEngine({
-            failure: 'The background worker failed.',
+            ...uniformSlotEngine('The background worker failed.'),
             outcomes: new Map(),
         });
         expect(readyCards(built.ledger).expectedNet.status).toBe(
@@ -7393,7 +7645,7 @@ function valueEngineFor(
             },
         });
     }
-    return { failure: null, outcomes };
+    return { ...uniformSlotEngine(null), outcomes };
 }
 
 describe('overviewValueRequestsOf (PT-69, F-V28)', () => {
@@ -9268,7 +9520,7 @@ describe('buildOverview attempt economics with the realized funded value (PT-96 
         const row = cardsOf(rows).attemptEconomics.rows[0];
         expect(row?.fundedValueToAttemptCost).toBe(ratio.label);
         expect(row?.formula).toBe(
-            `Pass rate ${formatPercent(decomposition.passProbability)} x funded value ${formatCurrency(decomposition.fundedValue)} - attempt cost ${formatCurrency(decomposition.attemptCost)} = ${formatCurrency(decomposition.expectedNetPerAttempt)} per attempt`,
+            `pass ${formatPercent(decomposition.passProbability)} × funded value ${formatCurrency(decomposition.fundedValue)} − attempt cost ${formatCurrency(decomposition.attemptCost)} = ${formatCurrency(decomposition.expectedNetPerAttempt)} per attempt`,
         );
     });
 
@@ -9571,7 +9823,7 @@ function engineAnswering(
             },
         });
     }
-    return { failure: null, outcomes };
+    return { ...uniformSlotEngine(null), outcomes };
 }
 
 function hubSetupOf(rows: PortfolioRows) {

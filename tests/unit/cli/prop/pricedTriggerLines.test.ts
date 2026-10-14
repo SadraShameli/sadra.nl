@@ -49,21 +49,20 @@ async function capturedRun(
     argv: string[],
 ): Promise<string> {
     const written: string[] = [];
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
-    const writeError = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation(() => true);
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+        vi.spyOn(process.stderr, 'write').mockImplementation(() => true),
+    ];
     const exitCode = process.exitCode;
     try {
         await command.run?.({ args, cmd: command, rawArgs: argv } as never);
     } finally {
-        write.mockRestore();
-        writeError.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = exitCode;
     }
     return written.join('');

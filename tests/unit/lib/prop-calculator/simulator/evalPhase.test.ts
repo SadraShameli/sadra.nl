@@ -220,11 +220,11 @@ describe('N-12 (WP35): runEvalWithRetries retries within a total eval-day budget
 
 describe('PT-55b: runEvalWithRetries stops before drawing a retry the affordability check refuses', () => {
     it('a retry the affordability check refuses ends the run at the failed attempt, without drawing another attempt', () => {
-        const check = vi.fn((): boolean => false);
+        const isAffordable = vi.fn((): boolean => false);
         const result = runEvalWithRetries({
             ...retryOptions(neverFinishingPlan()),
             maxTotalEvalDays: 100,
-            retryAffordabilityCheck: check,
+            retryAffordabilityCheck: isAffordable,
         });
 
         expect(result.attemptsUsed).toBe(1);
@@ -232,20 +232,20 @@ describe('PT-55b: runEvalWithRetries stops before drawing a retry the affordabil
         expect(result.resetFeesPaid).toBe(0);
         expect(result.retryCharges).toStrictEqual([]);
         expect(result.terminalOutcome).toBe('timed-out');
-        expect(check).toHaveBeenCalledTimes(1);
-        expect(check).toHaveBeenCalledWith(RESET_FEE, 10);
+        expect(isAffordable).toHaveBeenCalledTimes(1);
+        expect(isAffordable).toHaveBeenCalledWith(RESET_FEE, 10);
     });
 
     it('stops right after the retry the affordability check refuses, one attempt short of the day-budget limit', () => {
         let calls = 0;
-        const check = vi.fn((): boolean => {
+        const isAffordable = vi.fn((): boolean => {
             calls += 1;
             return calls < 2;
         });
         const result = runEvalWithRetries({
             ...retryOptions(neverFinishingPlan()),
             maxTotalEvalDays: 100,
-            retryAffordabilityCheck: check,
+            retryAffordabilityCheck: isAffordable,
         });
 
         expect(result.attemptsUsed).toBe(2);

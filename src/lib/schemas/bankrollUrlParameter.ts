@@ -1,10 +1,17 @@
 export enum BankrollUrlParameter {
     Budget = 'bkb',
     Capacity = 'bkc',
+    CompareDaysA = 'bkda',
+    CompareDaysB = 'bkdb',
+    CompareMultipleA = 'bkxa',
+    CompareMultipleB = 'bkxb',
+    CycleDays = 'bkd',
+    CycleMultiple = 'bkx',
     HorizonDays = 'bkh',
     LossThreshold = 'bkt',
     MonthlyBudget = 'bkm',
     PayoutLagDays = 'bkl',
     Reinvest = 'bkr',
+    RoundBudget = 'bkq',
     Start = 'bks',
 }

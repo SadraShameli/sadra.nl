@@ -1,5 +1,6 @@
 import { type AccountState } from './AccountState';
 import { ConsistencyViolationEffect } from './ConsistencyRule';
+import { DEFAULT_TRADES_PER_DAY } from './constants';
 import {
     DailyLossLimitKind,
     describeDailyLossLimit,
@@ -113,7 +114,6 @@ const DEFAULT_ACTION_STEP_DOLLARS = 50;
 const DEFAULT_PROFIT_STEP_DOLLARS = 300;
 const DEFAULT_TERMINAL_VALUE_AT_FAIL = 0;
 const DEFAULT_TERMINAL_VALUE_AT_PASS = 1;
-const DEFAULT_TRADES_PER_DAY = 4;
 const MAX_REPLAY_DAYS_CACHED = 4096;
 
 export function computeEvalStateValue(

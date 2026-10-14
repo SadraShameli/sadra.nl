@@ -7,6 +7,7 @@ import {
     evalStartStateIssue,
     findFirm,
     FirmId,
+    fraction,
     FundedNextVariant,
     LucidVariant,
     MffuVariant,
@@ -23,6 +24,7 @@ import {
     type AccountSnapshotInput,
     AssumptionKind,
     DashboardBalanceConvention,
+    DEFAULT_RULEBOOK,
     NO_PENDING_PAYOUT_COUNTS,
     ReconstructedLiveKind,
     ReconstructionErrorReason,
@@ -93,6 +95,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -133,6 +136,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (withoutPersonalCap.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -144,6 +148,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             dollars(250),
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (withPersonalCap.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -161,6 +166,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -181,6 +187,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             apexPlan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -206,6 +213,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -236,6 +244,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -263,6 +272,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -293,6 +303,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -320,6 +331,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
                 plan,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             throw new Error('expected a throw');
         } catch (error) {
@@ -343,6 +355,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -372,6 +385,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -397,6 +411,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -417,6 +432,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -436,6 +452,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -457,6 +474,7 @@ describe('AccountReconstruction.rebuild: funded phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -482,6 +500,7 @@ describe('AccountReconstruction.rebuild: intraday-trailing funded accounts', () 
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded reconstruction');
@@ -500,6 +519,7 @@ describe('AccountReconstruction.rebuild: intraday-trailing funded accounts', () 
                 plan,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             throw new Error('expected a throw');
         } catch (error) {
@@ -525,6 +545,7 @@ describe('AccountReconstruction.rebuild: eval phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Eval) {
             throw new Error('expected an eval reconstruction');
@@ -559,6 +580,7 @@ describe('AccountReconstruction.rebuild: eval phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Eval) {
             throw new Error('expected an eval reconstruction');
@@ -588,6 +610,7 @@ describe('AccountReconstruction.rebuild: eval phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Eval) {
             throw new Error('expected an eval reconstruction');
@@ -618,6 +641,7 @@ describe('AccountReconstruction.rebuild: eval phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== TradingPhase.Eval) {
             throw new Error('expected an eval reconstruction');
@@ -641,6 +665,7 @@ describe('AccountReconstruction.rebuild: live phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -668,6 +693,7 @@ describe('AccountReconstruction.rebuild: live phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -686,6 +712,7 @@ describe('AccountReconstruction.rebuild: live phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -715,6 +742,7 @@ describe('AccountReconstruction.rebuild: live phase', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -725,6 +753,56 @@ describe('AccountReconstruction.rebuild: live phase', () => {
         expect(
             account.assumptions.map((assumption) => assumption.kind),
         ).not.toContain(AssumptionKind.LiveModelApproximation);
+    });
+    it('sizes an Apex live account at the rulebook live cushion percent, not the firm constant (PT-114)', () => {
+        const plan = registryPlan(APEX_EOD_ID);
+        const account = AccountReconstruction.rebuild(
+            baseInput({
+                balance: dollars(2000),
+                highestEodBalance: dollars(2000),
+                stage: SizingStage.Live,
+            }),
+            plan,
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+            {
+                ...DEFAULT_RULEBOOK.live.cushionPercent,
+                preLock: fraction(0.04),
+            },
+        );
+        if (
+            account.kind !== ReconstructedLiveKind.Live ||
+            account.state === null ||
+            account.livePlan === null
+        ) {
+            throw new Error('expected a modeled live reconstruction');
+        }
+        expect(account.state.thresholdLocked).toBe(false);
+        expect(account.livePlan.cushionPercentFor(account.state)).toBe(0.04);
+    });
+
+    it('gives a TopStep live account the default rulebook 5% before and 10% after the lock, where the firm constant is 5% and 5% (PT-114)', () => {
+        const account = AccountReconstruction.rebuild(
+            baseInput({ balance: dollars(11_000), stage: SizingStage.Live }),
+            registryPlan(TOPSTEP_STANDARD_ID),
+            null,
+            NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
+        );
+        if (
+            account.kind !== ReconstructedLiveKind.Live ||
+            account.state === null ||
+            account.livePlan === null
+        ) {
+            throw new Error('expected a modeled live reconstruction');
+        }
+        const { livePlan, state } = account;
+        expect(
+            livePlan.cushionPercentFor({ ...state, thresholdLocked: false }),
+        ).toBe(0.05);
+        expect(
+            livePlan.cushionPercentFor({ ...state, thresholdLocked: true }),
+        ).toBe(0.1);
     });
 });
 
@@ -754,6 +832,7 @@ function evalOf(input: AccountSnapshotInput, plan: Plan) {
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     if (account.kind !== TradingPhase.Eval) {
         throw new Error('expected an eval reconstruction');
@@ -783,6 +862,7 @@ function fundedOf(input: AccountSnapshotInput, plan: Plan) {
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     if (account.kind !== TradingPhase.Funded) {
         throw new Error('expected a funded reconstruction');
@@ -835,6 +915,7 @@ function liveOf(
             ? null
             : dollars(personalMaxRiskPerTrade),
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     if (account.kind !== ReconstructedLiveKind.Live) {
         throw new Error('expected a live reconstruction');

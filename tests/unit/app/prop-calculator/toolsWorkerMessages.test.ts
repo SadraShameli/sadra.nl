@@ -479,6 +479,8 @@ describe('toolsResultSchema (VD-24)', () => {
             {
                 kind: ToolsResponseKind.FundedValueEstimate,
                 result: {
+                    dollarSampleRange: null,
+                    fundedValue: { standardError: 300, value: 4500 },
                     meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
                     payoutCountDistribution: [0.1, 0.4, 0.3, 0.2],
                     probabilityZeroPayouts: { standardError: 0.02, value: 0.1 },
@@ -496,6 +498,8 @@ describe('toolsResultSchema (VD-24)', () => {
             {
                 kind: ToolsResponseKind.FundedValueEstimate,
                 result: {
+                    dollarSampleRange: null,
+                    fundedValue: { standardError: 300, value: 4500 },
                     meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
                     payoutCountDistribution: [0.1, 0.4, 0.3, 0.2],
                     probabilityZeroPayouts: { standardError: 0.02, value: 0.1 },
@@ -744,6 +748,31 @@ describe('toolsResultSchema (VD-24)', () => {
         ).toThrow();
     });
 
+    it('rejects a funded value estimate without its dollar value or dollar range (PT-81b)', () => {
+        const shared = {
+            meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
+            payoutCountDistribution: [1],
+            probabilityZeroPayouts: { standardError: 0.02, value: 0.1 },
+            sampleRange: null,
+            seed: 1,
+            trials: 500,
+        };
+        const withoutValue = { ...shared, dollarSampleRange: null };
+        const withoutRange = {
+            ...shared,
+            fundedValue: { standardError: 300, value: 4500 },
+        };
+        for (const partial of [withoutValue, withoutRange]) {
+            expect(() =>
+                parseToolsResult({
+                    kind: ToolsResponseKind.FundedValueEstimate,
+                    result: partial,
+                    runId: 14,
+                }),
+            ).toThrow();
+        }
+    });
+
     it('rejects a funded value dollar range under another label', () => {
         expect(() =>
             parseToolsResult({
@@ -793,6 +822,29 @@ describe('toolsResultSchema (VD-24)', () => {
         }
     });
 
+    it('rejects a lever row without its loss-risk delta (PT-81b)', () => {
+        expect(() =>
+            parseToolsResult({
+                kind: ToolsResponseKind.Levers,
+                rows: [
+                    {
+                        deltaEvPerAttempt: 10,
+                        deltaMonthlyNet: 50,
+                        deltaPassProbability: 0.05,
+                        evPerAttempt: 40,
+                        kind: BankrollLeverKind.Risk,
+                        label: null,
+                        lossRisk: 0.2,
+                        monthlyNet: 300,
+                        passProbability: 0.5,
+                        value: 500,
+                    },
+                ],
+                runId: 9,
+            }),
+        ).toThrow();
+    });
+
     it('round trips a lever row that carries a P(attempt pays) delta', () => {
         const result: ToolsWorkerResult = {
             kind: ToolsResponseKind.Levers,
@@ -800,6 +852,7 @@ describe('toolsResultSchema (VD-24)', () => {
                 {
                     deltaAttemptPaysProbability: 0.125,
                     deltaEvPerAttempt: 10,
+                    deltaLossProbability: 0.01,
                     deltaMonthlyNet: 50,
                     deltaPassProbability: 0.05,
                     evPerAttempt: 40,

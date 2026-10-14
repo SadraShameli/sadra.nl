@@ -12,6 +12,7 @@ import {
     overviewRequestKey,
     OverviewRequestKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
+import { uniformSlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import { type OverviewEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { NextSlotView } from '~/app/(app)/prop-calculator/accounts/next-slot/NextSlotView';
 import {
@@ -95,7 +96,10 @@ vi.mock(
                         outcomes.set(overviewRequestKey(request), outcome);
                     }
                 }
-                const engine: OverviewEngine = { failure: null, outcomes };
+                const engine: OverviewEngine = {
+                    ...uniformSlotEngine(null),
+                    outcomes,
+                };
                 engines.set(requests, engine);
                 return engine;
             },
@@ -171,6 +175,7 @@ function documentedFigures(): DocumentedRunFigures {
         attemptPassProbability: { standardError: 1, value: 0.3 },
         costPerAttempt: { standardError: 1, value: 100 },
         costPerFundedAccount: 300,
+        daysToPass: null,
         expectedMonthlyNet: { standardError: 1, value: 300 },
         expectedMonthlyRealizedNet: { standardError: 1, value: 280 },
         expectedNetPerAttempt: { standardError: 1, value: 50 },

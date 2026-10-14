@@ -5,6 +5,7 @@ import {
     DifferenceReason,
     type DifferenceReasonDetail,
     documentedPayoutRequest,
+    type DpGateFailureCode,
     fundedRetainedCushionResolution,
     peakRiskOf,
     type ReconstructedFundedOrEvalAccount,
@@ -54,7 +55,6 @@ import {
 import {
     DpEvalObjective,
     type DpGateCitation,
-    type DpGateFailure,
     dpNotValidatedCauseOf,
     type DpValidationVerdict,
 } from './DpValidationGate';
@@ -94,7 +94,7 @@ export type DpEligibility =
 
 export interface DpNotValidatedDetail {
     readonly citation: DpGateCitation | null;
-    readonly failure: DpGateFailure;
+    readonly failure: DpGateFailureCode;
     readonly result: null | string;
 }
 

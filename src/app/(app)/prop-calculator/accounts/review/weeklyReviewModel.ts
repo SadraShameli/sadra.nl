@@ -444,8 +444,11 @@ function decisionEntryFor(
     row: WeeklyReviewRow,
     acceptedAccountIds: ReadonlySet<string>,
 ): readonly WeeklyReviewDecisionSubmitEntry[] {
-    if (row.sizing.kind !== WeeklyReviewSizingKind.Ready) return [];
-    if (!acceptedAccountIds.has(row.accountId)) return [];
+    if (
+        row.sizing.kind !== WeeklyReviewSizingKind.Ready ||
+        !acceptedAccountIds.has(row.accountId)
+    )
+        return [];
     return [
         {
             acceptedRiskCents: row.sizing.headlineRiskCents,
@@ -859,6 +862,7 @@ function sizingFor(
             plan,
             personalMaxRiskPerTrade,
             NO_PENDING_PAYOUT_COUNTS,
+            input.rulebook.live.cushionPercent,
         );
         const build = buildSizingAdvisor(
             reconstructed,

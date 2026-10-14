@@ -42,7 +42,7 @@ vi.mock('~/lib/observability/rate-limit', () => ({
     isWithinRateLimit: vi.fn(() => Promise.resolve(true)),
 }));
 
-const rateLimit = vi.mocked(isWithinRateLimit);
+const isWithinRateLimitMock = vi.mocked(isWithinRateLimit);
 
 const DEPOSIT = {
     amountCents: 500_000,
@@ -115,10 +115,10 @@ describe('propAccounts.bankroll', () => {
     });
 
     it('rate-limits changes in the bankroll bucket per user', async () => {
-        rateLimit.mockClear();
+        isWithinRateLimitMock.mockClear();
         const { caller } = callerFor(SIGNED_IN, tableResponder());
         await caller.bankroll.create(DEPOSIT);
-        expect(rateLimit).toHaveBeenCalledWith(
+        expect(isWithinRateLimitMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 bucket: 'prop-accounts:bankroll',
                 key: USER_ID,

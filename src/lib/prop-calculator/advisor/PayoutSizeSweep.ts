@@ -112,6 +112,7 @@ export interface PersonalPayoutOverrideWarning {
     readonly overrideRequestSize: number;
     readonly retainedCushion: number;
     readonly retainedCushionBasis: RetainedCushionBasis;
+    readonly startBasis: StartBasis;
 }
 
 export function runPayoutSizeSweep(
@@ -356,6 +357,7 @@ function safeBandWarning(
         overrideRequestSize: overrideRow.requestSize,
         retainedCushion: cushion.amount,
         retainedCushionBasis: cushion.basis,
+        startBasis: overrideRow.kind,
     };
 }
 

@@ -14,6 +14,7 @@ function row(overrides: Partial<Row> = {}): Row {
         key: 'plan-a',
         modeledFundedSurvival: 'Pending',
         modeledPassRate: 'Pending',
+        modeledSessionsToFunded: '12.5 sessions (SE 0.4)',
         openFunded: '0',
         passRate: '100.0% (n = 1)',
         passRateCounts: '3 attempts, 1 independent',
@@ -52,6 +53,18 @@ describe('RealizedOutcomesCard', () => {
         });
         expect(container.textContent).toContain('3 attempts, 1 independent');
         expect(container.textContent).toContain('3 accounts, 1 independent');
+    });
+
+    it('shows the modeled sessions to funded beside the realized ones (PT-113)', () => {
+        act(() => {
+            root.render(
+                <RealizedOutcomesCard
+                    model={{ disclosures: [], rows: [row()] }}
+                />,
+            );
+        });
+        expect(container.textContent).toContain('Modeled sessions to funded');
+        expect(container.textContent).toContain('12.5 sessions (SE 0.4)');
     });
 
     it('shows n = 0 and the level none for a rate with no decided attempt', () => {

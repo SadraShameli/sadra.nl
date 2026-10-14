@@ -559,18 +559,20 @@ async function capturedRun(argv: string[]): Promise<{
     const arguments_ = await resolveArguments();
     const written: string[] = [];
     const writtenError: string[] = [];
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
-    const writeError = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            writtenError.push(String(chunk));
-            return true;
-        });
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+        vi
+            .spyOn(process.stderr, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                writtenError.push(String(chunk));
+                return true;
+            }),
+    ];
     const exitCode = process.exitCode;
     process.exitCode = undefined;
     let runExitCode: number | string | undefined;
@@ -582,8 +584,7 @@ async function capturedRun(argv: string[]): Promise<{
         });
         runExitCode = process.exitCode;
     } finally {
-        write.mockRestore();
-        writeError.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = exitCode;
     }
     return {
@@ -1071,12 +1072,14 @@ async function capturedPrint(
     request: TakeProfitWhatIfRequest,
 ): Promise<string> {
     const written: string[] = [];
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+    ];
     try {
         const plan = mffPlan(MffuVariant.RapidEod);
         const arguments_ = await resolveArguments();
@@ -1090,7 +1093,7 @@ async function capturedPrint(
             request,
         );
     } finally {
-        write.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
     }
     return written.join('');
 }

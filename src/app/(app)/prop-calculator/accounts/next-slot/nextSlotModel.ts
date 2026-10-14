@@ -44,6 +44,7 @@ import {
     labelledAssumptionLines,
     LifetimePayoutCapBasis,
     type MeasuredRebuyLag,
+    PAYOUT_POLICY_SENSITIVE_NOTE,
     RebuyLagBasis,
     type RulebookParameters,
     RuleSource,
@@ -628,7 +629,7 @@ function rankedViewRowOf(
                 : formatCurrency(figures.netPerScreenHour),
         plan: row.planLabel,
         policySensitiveNote: row.payoutPolicySensitive
-            ? 'Payout-policy sensitive: the plan order changes under the payout-size optimum.'
+            ? PAYOUT_POLICY_SENSITIVE_NOTE
             : null,
         rank: String(row.rank),
         request: documented.requestSize,

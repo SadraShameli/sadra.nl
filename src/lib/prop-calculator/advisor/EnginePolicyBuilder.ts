@@ -276,15 +276,15 @@ function withPersonalCaps(base: SimInputs, caps: PersonalCaps): SimInputs {
             : fewerTradesOf(base.fundedTradesPerDay, maxTradesPerDay);
     const percent = base.fundedCushionPercent;
     const percentPolicy =
-        percent !== undefined && maxRiskPerTrade !== null
-            ? percentCushionDayPolicy(
+        percent === undefined || maxRiskPerTrade === null
+            ? undefined
+            : percentCushionDayPolicy(
                   percent,
                   fundedTradesPerDay ?? tradesPerDay,
                   base.dayStop ?? { kind: DayStopRuleKind.None },
                   policySizingOf(TradingPhase.Funded),
                   maxRiskPerTrade,
-              )
-            : undefined;
+              );
     return {
         ...base,
         evalDayPolicy:

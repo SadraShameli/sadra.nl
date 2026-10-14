@@ -417,6 +417,7 @@ describe('the reconstruction takes the pending counts it is given (PT-36m, F-145
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (rebuilt.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded account');
@@ -426,10 +427,16 @@ describe('the reconstruction takes the pending counts it is given (PT-36m, F-145
     });
 
     it('carries real counts onto the funded account', () => {
-        const rebuilt = AccountReconstruction.rebuild(baseInput, plan, null, {
-            otherAccountsPendingPayoutCount: 2,
-            pendingPayoutCount: 3,
-        });
+        const rebuilt = AccountReconstruction.rebuild(
+            baseInput,
+            plan,
+            null,
+            {
+                otherAccountsPendingPayoutCount: 2,
+                pendingPayoutCount: 3,
+            },
+            DEFAULT_RULEBOOK.live.cushionPercent,
+        );
         if (rebuilt.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded account');
         }
@@ -447,6 +454,7 @@ describe('the reconstruction takes the pending counts it is given (PT-36m, F-145
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (rebuilt.kind !== TradingPhase.Eval) {
             throw new Error('expected an eval account');

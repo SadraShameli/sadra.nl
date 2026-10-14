@@ -1,5 +1,8 @@
 import { formatCurrency } from '~/lib/format';
-import { DpNotValidatedCause } from '~/lib/prop-calculator/advisor';
+import {
+    DpGateFailureCode,
+    DpNotValidatedCause,
+} from '~/lib/prop-calculator/advisor';
 import {
     type InstrumentSymbol,
     type PayoutRequestPolicy,
@@ -11,17 +14,6 @@ export const DP_GATE_MIN_ITERATIONS = 12;
 export enum DpEvalObjective {
     CashAtPass = 'cash-at-pass',
     PassProbability = 'pass-probability',
-}
-
-export enum DpGateFailure {
-    BelowBestFlat = 'below-best-flat',
-    InstrumentMismatch = 'instrument-mismatch',
-    NoGateRun = 'no-gate-run',
-    PayoutPolicyMismatch = 'payout-policy-mismatch',
-    RetainedCushionMismatch = 'retained-cushion-mismatch',
-    SolveNotConverged = 'solve-not-converged',
-    StaleTree = 'stale-tree',
-    StopMismatch = 'stop-mismatch',
 }
 
 export interface DpGateBasis {
@@ -70,7 +62,7 @@ export interface DpGateSolveRecord {
 
 export interface DpNotValidatedVerdict {
     readonly citation: DpGateCitation | null;
-    readonly failure: DpGateFailure;
+    readonly failure: DpGateFailureCode;
     readonly result: null | string;
     readonly validated: false;
 }
@@ -91,25 +83,25 @@ interface MetricComparison {
 }
 
 export function dpNotValidatedCauseOf(
-    failure: DpGateFailure,
+    failure: DpGateFailureCode,
 ): DpNotValidatedCause | null {
     switch (failure) {
-        case DpGateFailure.BelowBestFlat:
-        case DpGateFailure.InstrumentMismatch:
-        case DpGateFailure.PayoutPolicyMismatch:
-        case DpGateFailure.StopMismatch: {
+        case DpGateFailureCode.BelowBestFlat:
+        case DpGateFailureCode.InstrumentMismatch:
+        case DpGateFailureCode.PayoutPolicyMismatch:
+        case DpGateFailureCode.StopMismatch: {
             return null;
         }
-        case DpGateFailure.NoGateRun: {
+        case DpGateFailureCode.NoGateRun: {
             return DpNotValidatedCause.NoGateRun;
         }
-        case DpGateFailure.RetainedCushionMismatch: {
+        case DpGateFailureCode.RetainedCushionMismatch: {
             return DpNotValidatedCause.RetainedCushionMismatch;
         }
-        case DpGateFailure.SolveNotConverged: {
+        case DpGateFailureCode.SolveNotConverged: {
             return DpNotValidatedCause.SolveCapReached;
         }
-        case DpGateFailure.StaleTree: {
+        case DpGateFailureCode.StaleTree: {
             return DpNotValidatedCause.StaleTree;
         }
     }
@@ -121,7 +113,7 @@ export function evaluateDpGateRun(
 ): DpValidationVerdict {
     const { citation, dpBasis, flatBasis } = run;
     const notValidated = (
-        failure: DpGateFailure,
+        failure: DpGateFailureCode,
         result: null | string = null,
     ): DpNotValidatedVerdict => ({
         citation,
@@ -134,15 +126,15 @@ export function evaluateDpGateRun(
         run.ranOn <= g2RecordedOn ||
         run.engineRef.trim() === ''
     ) {
-        return notValidated(DpGateFailure.StaleTree);
+        return notValidated(DpGateFailureCode.StaleTree);
     }
     const unconverged = unconvergedResult(run.solve);
     if (unconverged !== null) {
-        return notValidated(DpGateFailure.SolveNotConverged, unconverged);
+        return notValidated(DpGateFailureCode.SolveNotConverged, unconverged);
     }
     if (dpBasis.retainedCushion !== flatBasis.retainedCushion) {
         return notValidated(
-            DpGateFailure.RetainedCushionMismatch,
+            DpGateFailureCode.RetainedCushionMismatch,
             `DP retained cushion ${formatCurrency(dpBasis.retainedCushion)} against the flat baseline ${formatCurrency(flatBasis.retainedCushion)}`,
         );
     }
@@ -150,13 +142,13 @@ export function evaluateDpGateRun(
         dpBasis.payoutRequestPolicy !== flatBasis.payoutRequestPolicy ||
         dpBasis.payoutRequestSize !== flatBasis.payoutRequestSize
     ) {
-        return notValidated(DpGateFailure.PayoutPolicyMismatch);
+        return notValidated(DpGateFailureCode.PayoutPolicyMismatch);
     }
     if (dpBasis.instrument !== flatBasis.instrument) {
-        return notValidated(DpGateFailure.InstrumentMismatch);
+        return notValidated(DpGateFailureCode.InstrumentMismatch);
     }
     if (dpBasis.stopPoints !== flatBasis.stopPoints) {
-        return notValidated(DpGateFailure.StopMismatch);
+        return notValidated(DpGateFailureCode.StopMismatch);
     }
     const comparisons: readonly MetricComparison[] = [
         {
@@ -173,7 +165,7 @@ export function evaluateDpGateRun(
     const below = comparisons.find(({ dp, flat }) => dp < flat);
     if (below !== undefined) {
         return notValidated(
-            DpGateFailure.BelowBestFlat,
+            DpGateFailureCode.BelowBestFlat,
             belowBestFlatResult(below),
         );
     }

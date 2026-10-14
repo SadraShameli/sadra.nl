@@ -469,6 +469,7 @@ describe('a Live account personal max risk per trade sizes the advice (PT-108 st
             plan(),
             cap,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
     }
 
@@ -570,6 +571,7 @@ describe('the plan rules fingerprint check reaches the advisor options (PT-108 s
             plan(),
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const check = { atAdvice: 'aaa', current: 'bbb' };
 
@@ -745,6 +747,7 @@ describe('personalAdvisorOptionsOf takes the account status and returns the subs
             plan(),
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const options = personalAdvisorOptionsOf({
             account,

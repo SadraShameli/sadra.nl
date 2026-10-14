@@ -1,9 +1,12 @@
 import { z } from 'zod';
 
 import { describeSimulationFailure } from '~/app/(app)/prop-calculator/_components/simulationFailure';
+import {
+    type AccountPersonalPolicy,
+    NO_PERSONAL_POLICY,
+} from '~/lib/prop-accounts/alerts';
 import { planOptInsSchema } from '~/lib/prop-accounts/core';
 import {
-    type Dollars,
     findFirm,
     type FirmAccountPolicy,
     FirmId,
@@ -37,9 +40,7 @@ import {
     type LiveTransferHazardAssumption,
     type MeasuredRebuyLag,
     type NextPayoutProjection,
-    NO_PERSONAL_CAPS,
     PayoutSizeSweepResultKind,
-    type PersonalCaps,
     pricedCumulativeTriggerAssumptionOf,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
@@ -80,6 +81,7 @@ import {
 import { type SimInputs, simulate } from '~/lib/prop-calculator/simulator';
 import {
     type Estimate,
+    meanStandardError,
     type UncertainValue,
 } from '~/lib/prop-calculator/stats';
 import { stableJson } from '~/lib/stableJson';
@@ -127,6 +129,7 @@ export interface DocumentedRunFigures {
     readonly costPerAttempt: Estimate;
     readonly costPerFundedAccount: number;
     readonly cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption;
+    readonly daysToPass: Estimate | null;
     readonly expectedMonthlyNet: Estimate;
     readonly expectedMonthlyRealizedNet: Estimate;
     readonly expectedNetPerAttempt: Estimate;
@@ -248,13 +251,6 @@ export interface PayoutSizeOptimumFigures {
     readonly requestSize: number;
 }
 
-export interface PersonalPolicyOverrides {
-    readonly payoutRequestOverride: Dollars | null;
-    readonly personalCaps: PersonalCaps;
-    readonly personalDll: Dollars | null;
-    readonly retainedCushionRequest: Dollars | null;
-}
-
 export interface PlanValuesFigures {
     readonly freshFundedValue: ValueResult;
     readonly retryFee: number;
@@ -296,7 +292,7 @@ interface DocumentedSpecInput {
     readonly accountPolicy?: FirmAccountPolicy;
     readonly fundedHorizonDays: number;
     readonly measuredRebuyLag?: MeasuredRebuyLag | null;
-    readonly overrides: PersonalPolicyOverrides;
+    readonly overrides: AccountPersonalPolicy;
     readonly plan: Plan;
     readonly rulebook: RulebookParameters;
     readonly run: DocumentedPolicyRun;
@@ -313,13 +309,6 @@ type ValueChainStepOutcome =
       };
 
 const OVERVIEW_FUNDED_HORIZON_DAYS = DEFAULT_FUNDED_HORIZON_DAYS;
-
-const NO_PERSONAL_POLICY_OVERRIDES: PersonalPolicyOverrides = {
-    payoutRequestOverride: null,
-    personalCaps: NO_PERSONAL_CAPS,
-    personalDll: null,
-    retainedCushionRequest: null,
-};
 
 const REQUEST_GROUP: Readonly<
     Record<OverviewRequestKind, OverviewRequestGroup>
@@ -642,7 +631,7 @@ export function overviewValueChainRequestsFor(
 
 export function withPersonalPolicy(
     spec: DocumentedPolicySpec,
-    overrides: PersonalPolicyOverrides,
+    overrides: AccountPersonalPolicy,
 ): DocumentedPolicySpec {
     const {
         payoutRequestOverride,
@@ -748,6 +737,20 @@ function accountRequestsOf(
     return requests.values().toArray();
 }
 
+function daysToPassOf(values: readonly number[]): Estimate | null {
+    if (values.length === 0) return null;
+    let sum = 0;
+    let squaredSum = 0;
+    for (const value of values) {
+        sum += value;
+        squaredSum += value * value;
+    }
+    return {
+        standardError: meanStandardError(sum, squaredSum, values.length),
+        value: sum / values.length,
+    };
+}
+
 function documentedRunResultOf(
     plan: Plan,
     spec: DocumentedPolicySpec,
@@ -770,6 +773,7 @@ function documentedRunResultOf(
             ...(cumulativePayoutTrigger !== undefined && {
                 cumulativePayoutTrigger,
             }),
+            daysToPass: daysToPassOf(out.daysToPassValues),
             expectedMonthlyNet: estimates.expectedMonthlyNet,
             expectedMonthlyRealizedNet: estimates.expectedMonthlyRealizedNet,
             expectedNetPerAttempt: estimates.expectedNetPerAttempt,
@@ -799,7 +803,7 @@ function documentedSpecFor(
         accountPolicy: findFirm(input.firmId)?.accountPolicy,
         fundedHorizonDays: OVERVIEW_FUNDED_HORIZON_DAYS,
         measuredRebuyLag: input.measuredRebuyLag,
-        overrides: NO_PERSONAL_POLICY_OVERRIDES,
+        overrides: NO_PERSONAL_POLICY,
         plan,
         rulebook,
         run,
@@ -851,6 +855,7 @@ function fromStateAccountOf(
         plan,
         null,
         pendingPayoutCounts,
+        request.spec.rulebook.live.cushionPercent,
     );
     if (account.kind === ReconstructedLiveKind.Live) {
         throw new Error(
@@ -1053,6 +1058,7 @@ function previousValueOutcomeOf(
             plan,
             null,
             previous.pendingPayoutCounts,
+            spec.rulebook.live.cushionPercent,
         );
         if (account.kind === ReconstructedLiveKind.Live) {
             throw new Error(

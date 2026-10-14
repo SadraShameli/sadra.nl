@@ -385,6 +385,7 @@ describe('HubAccountsTeaser', () => {
                 [purchased(owner)],
                 [],
                 [previous, latest],
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             const listed = portfolioAlerts({
                 accounts: [row],
@@ -509,6 +510,7 @@ describe('HubAccountsTeaser', () => {
                 [],
                 PAYOUTS,
                 [nearFloorSnapshot],
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             const alerts = portfolioAlerts({
                 accounts: accountsWithNearFloor,

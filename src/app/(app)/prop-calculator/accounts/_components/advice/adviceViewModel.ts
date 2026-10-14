@@ -30,9 +30,13 @@ import {
     DifferenceReason,
     differenceReasonText,
     type DocumentedSizing,
+    DP_SAMPLES_UNAVAILABLE_TEXT,
+    dpAdviceGapText,
     type DpAdviceRow,
     type DpAdviceSamples,
     DpAdviceStalenessReason,
+    dpGateFailureText,
+    dpMoney,
     type DpRiskSample,
     DpSamplesKind,
     DpSampleStage,
@@ -79,12 +83,6 @@ import {
     SizingStage,
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
-import {
-    DP_SAMPLES_UNAVAILABLE_TEXT,
-    dpAdviceGapText,
-    dpGateFailureText,
-    dpMoney,
-} from '~/lib/prop-calculator/advisor/DpAdviceText';
 import {
     FundedCandidateRefusal,
     type FundedCandidateRefusalDetail,

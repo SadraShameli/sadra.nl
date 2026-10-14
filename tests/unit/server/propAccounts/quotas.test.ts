@@ -72,11 +72,11 @@ vi.mock('~/lib/observability/rate-limit', () => ({
     isWithinRateLimit: vi.fn(() => Promise.resolve(true)),
 }));
 
-const rateLimit = vi.mocked(isWithinRateLimit);
+const isWithinRateLimitMock = vi.mocked(isWithinRateLimit);
 
 beforeEach(() => {
-    rateLimit.mockClear();
-    rateLimit.mockImplementation(() => Promise.resolve(true));
+    isWithinRateLimitMock.mockClear();
+    isWithinRateLimitMock.mockImplementation(() => Promise.resolve(true));
 });
 
 interface QuotaCase {
@@ -520,7 +520,7 @@ describe('propAccounts quotas', () => {
     );
 
     it('rejects a mutation past the rate limit before touching the database', async () => {
-        rateLimit.mockImplementation(() => Promise.resolve(false));
+        isWithinRateLimitMock.mockImplementation(() => Promise.resolve(false));
         const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
         await expect(
             caller.account.create(accountCreateInput()),
@@ -532,7 +532,9 @@ describe('propAccounts quotas', () => {
         const { caller } = callerFor(SIGNED_IN, tableResponder());
         await caller.account.archive({ id: IDS.account });
         await caller.fee.remove({ id: IDS.fee });
-        expect(rateLimit.mock.calls.map(([options]) => options)).toEqual([
+        expect(
+            isWithinRateLimitMock.mock.calls.map(([options]) => options),
+        ).toEqual([
             {
                 bucket: 'prop-accounts:account',
                 key: USER_ID,
@@ -552,7 +554,7 @@ describe('propAccounts quotas', () => {
         const { caller } = callerFor(SIGNED_IN, tableResponder());
         await caller.account.list({});
         await caller.rulebook.get();
-        expect(rateLimit).not.toHaveBeenCalled();
+        expect(isWithinRateLimitMock).not.toHaveBeenCalled();
     });
 });
 
@@ -664,7 +666,9 @@ describe('propAccounts video record buckets and rejections', () => {
                 },
             );
             await rejectionOf(caller.run());
-            expect(rateLimit.mock.calls.map(([options]) => options)).toEqual([
+            expect(
+                isWithinRateLimitMock.mock.calls.map(([options]) => options),
+            ).toEqual([
                 {
                     bucket: name,
                     key: USER_ID,

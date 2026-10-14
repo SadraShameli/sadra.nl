@@ -30,30 +30,30 @@ Clause 6.3 states the operative offer mechanic verbatim: "Select participants of
 
 ## Live Funded Account: Trading Objectives and Risk Parameters
 
-| Parameter | Value |
-| --- | --- |
-| Starting Balance / Account Size | Unconfirmed (see Not Confirmed): no cited source states a dollar figure, or a formula relating it to the trader's prior $50,000 Growth/Pro Sim-Funded size. |
-| Drawdown Type / Amount | Unconfirmed (see Not Confirmed). The closest stated fact is How It Works' own framing: "The only Trading Objective left is your Max Drawdown": confirming only that a Max Drawdown objective exists at this stage, not its dollar amount, whether it is End-of-Day Trailing like the Evaluation/Sim-Funded stages, or any lock behavior. |
-| Daily Loss Limit | Unconfirmed (see Not Confirmed): no cited source states whether the Live Funded Account carries a Daily Loss Limit at all, hard, soft, or none. |
-| Max Contracts | Unconfirmed (see Not Confirmed). |
-| Consistency Rule | None stated for this stage. "The Consistency Rule applies during the Evaluation only" (FAQ, "How does your Consistency Rule work?"), a firm-wide statement that does not name the Live Funded Account; for the Sim-Funded stage the rules page states "There is no Profit Target or Consistency Rule on the Sim-Funded Account" (see growth.md/pro.md). |
-| News Trading | Stated as allowed "during any phase"; the Live Funded Account is not named. "News trading is allowed with FTMO Futures during any phase, with no special news restrictions, provided you do not engage in any Forbidden Trading Practices" (FAQ, "Can I trade news?"). See Not Confirmed for whether "any phase" is confirmed to include Live specifically. |
-| Inactivity Rule | None. "There is no inactivity rule on Live Funded Accounts" (Forbidden Trading Practices page), stated in direct contrast to the same page's Sim-Funded Account rule ("Accounts on which no trading activity has been recorded for 30 consecutive calendar days will be closed"). Do not carry the Sim-Funded 30-day figure to this stage. |
-| Market Data Fee | Applies, with one exchange covered by FTMO: "A market data fee applies for access to live market data - we cover one exchange for you" (How It Works). No fee amount, or the identity of the default covered exchange, is stated. See Not Confirmed. |
-| Fees / Subscription | No subscription. Passing the Evaluation means "you won't be charged for the Sim-Funded Account or Live Funded Account" (FAQ, "How does the payment for the Evaluation work?"), and the affiliate FAQ frames the same fact from the commission side: "the Sim-Funded Account and the Live Funded Account are not subscription products" (FAQ, "How do FTMO Futures commissions work?"). The market data fee in the row above is stated separately by How It Works. |
-| Profit Split | 90/10. "Your payout ratio stays 90 / 10" (How It Works, spacing as in the source); confirmed firm-wide, "Across both products, the Payout Ratio is 90/10 for the FTMO Trader" (FAQ, "What is FTMO?"). Same figure as the Payouts table below. |
+| Parameter                       | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Starting Balance / Account Size | Unconfirmed (see Not Confirmed): no cited source states a dollar figure, or a formula relating it to the trader's prior $50,000 Growth/Pro Sim-Funded size.                                                                                                                                                                                                                                                                                                       |
+| Drawdown Type / Amount          | Unconfirmed (see Not Confirmed). The closest stated fact is How It Works' own framing: "The only Trading Objective left is your Max Drawdown": confirming only that a Max Drawdown objective exists at this stage, not its dollar amount, whether it is End-of-Day Trailing like the Evaluation/Sim-Funded stages, or any lock behavior.                                                                                                                          |
+| Daily Loss Limit                | Unconfirmed (see Not Confirmed): no cited source states whether the Live Funded Account carries a Daily Loss Limit at all, hard, soft, or none.                                                                                                                                                                                                                                                                                                                   |
+| Max Contracts                   | Unconfirmed (see Not Confirmed).                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Consistency Rule                | None stated for this stage. "The Consistency Rule applies during the Evaluation only" (FAQ, "How does your Consistency Rule work?"), a firm-wide statement that does not name the Live Funded Account; for the Sim-Funded stage the rules page states "There is no Profit Target or Consistency Rule on the Sim-Funded Account" (see growth.md/pro.md).                                                                                                           |
+| News Trading                    | Stated as allowed "during any phase"; the Live Funded Account is not named. "News trading is allowed with FTMO Futures during any phase, with no special news restrictions, provided you do not engage in any Forbidden Trading Practices" (FAQ, "Can I trade news?"). See Not Confirmed for whether "any phase" is confirmed to include Live specifically.                                                                                                       |
+| Inactivity Rule                 | None. "There is no inactivity rule on Live Funded Accounts" (Forbidden Trading Practices page), stated in direct contrast to the same page's Sim-Funded Account rule ("Accounts on which no trading activity has been recorded for 30 consecutive calendar days will be closed"). Do not carry the Sim-Funded 30-day figure to this stage.                                                                                                                        |
+| Market Data Fee                 | Applies, with one exchange covered by FTMO: "A market data fee applies for access to live market data - we cover one exchange for you" (How It Works). No fee amount, or the identity of the default covered exchange, is stated. See Not Confirmed.                                                                                                                                                                                                              |
+| Fees / Subscription             | No subscription. Passing the Evaluation means "you won't be charged for the Sim-Funded Account or Live Funded Account" (FAQ, "How does the payment for the Evaluation work?"), and the affiliate FAQ frames the same fact from the commission side: "the Sim-Funded Account and the Live Funded Account are not subscription products" (FAQ, "How do FTMO Futures commissions work?"). The market data fee in the row above is stated separately by How It Works. |
+| Profit Split                    | 90/10. "Your payout ratio stays 90 / 10" (How It Works, spacing as in the source); confirmed firm-wide, "Across both products, the Payout Ratio is 90/10 for the FTMO Trader" (FAQ, "What is FTMO?"). Same figure as the Payouts table below.                                                                                                                                                                                                                     |
 
 ## Payouts
 
-| Parameter | Value |
-| --- | --- |
-| Profit Split | 90/10, same figure and sources as the table above. |
-| Payout Frequency | Daily, once the one-time buffer clears: "Once your buffer is cleared, you can request a payout daily" (How It Works). |
-| Buffer Requirement | A one-time buffer must be cleared before the first payout, and only once: "Before your first payout you clear a one-time buffer on your account. Then it's gone for good" (How It Works). No dollar figure, or relationship to the trader's prior Sim-Funded balance, is stated. See Not Confirmed. |
-| Minimum Payout Request | Unconfirmed (see Not Confirmed): the $20 minimum documented in growth.md/pro.md is stated only for the Sim-Funded Account. |
-| Max Payout per Cycle | No cap. "Withdraw your profit above the buffer daily, with no payout cap" (How It Works). |
-| Consistency on Payouts | Unconfirmed (see Not Confirmed): no consistency-on-payouts percentage is stated for the Live Funded Account anywhere in the cited sources. |
-| Maximum Total Payouts / Lifetime Cap | Unconfirmed (see Not Confirmed): the only statement is the single "no payout cap" sentence quoted above under Max Payout per Cycle, which does not distinguish a per-cycle cap from a lifetime cap. |
+| Parameter                            | Value                                                                                                                                                                                                                                                                                               |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Profit Split                         | 90/10, same figure and sources as the table above.                                                                                                                                                                                                                                                  |
+| Payout Frequency                     | Daily, once the one-time buffer clears: "Once your buffer is cleared, you can request a payout daily" (How It Works).                                                                                                                                                                               |
+| Buffer Requirement                   | A one-time buffer must be cleared before the first payout, and only once: "Before your first payout you clear a one-time buffer on your account. Then it's gone for good" (How It Works). No dollar figure, or relationship to the trader's prior Sim-Funded balance, is stated. See Not Confirmed. |
+| Minimum Payout Request               | Unconfirmed (see Not Confirmed): the $20 minimum documented in growth.md/pro.md is stated only for the Sim-Funded Account.                                                                                                                                                                          |
+| Max Payout per Cycle                 | No cap. "Withdraw your profit above the buffer daily, with no payout cap" (How It Works).                                                                                                                                                                                                           |
+| Consistency on Payouts               | Unconfirmed (see Not Confirmed): no consistency-on-payouts percentage is stated for the Live Funded Account anywhere in the cited sources.                                                                                                                                                          |
+| Maximum Total Payouts / Lifetime Cap | Unconfirmed (see Not Confirmed): the only statement is the single "no payout cap" sentence quoted above under Max Payout per Cycle, which does not distinguish a per-cycle cap from a lifetime cap.                                                                                                 |
 
 ## Country Eligibility for the Live Funded Account
 
@@ -61,20 +61,20 @@ A separate, Live-Funded-specific restricted-country list applies on top of FTMO 
 
 Reproduced verbatim, in the source's own three-column grouping:
 
-| A – L | M – P | Q – Z |
-| --- | --- | --- |
-| Algeria | Malta | Qatar |
-| Benin | Mauritius | Romania |
-| Bosnia and Herzegovina | Mongolia | Senegal |
-| Botswana | Montenegro | Serbia |
-| Bulgaria | Morocco | Slovenia |
-| Cameroon | Mozambique | South Africa |
-| Congo (Democratic Republic) | Nepal | Tanzania |
-| Croatia | Nigeria | Trinidad and Tobago |
-| Ethiopia | North Macedonia | Turkey |
-| Haiti | Pakistan | Uganda |
-| Lebanon | Panama | Zambia |
-| | Philippines | Zimbabwe |
+| A – L                       | M – P           | Q – Z               |
+| --------------------------- | --------------- | ------------------- |
+| Algeria                     | Malta           | Qatar               |
+| Benin                       | Mauritius       | Romania             |
+| Bosnia and Herzegovina      | Mongolia        | Senegal             |
+| Botswana                    | Montenegro      | Serbia              |
+| Bulgaria                    | Morocco         | Slovenia            |
+| Cameroon                    | Mozambique      | South Africa        |
+| Congo (Democratic Republic) | Nepal           | Tanzania            |
+| Croatia                     | Nigeria         | Trinidad and Tobago |
+| Ethiopia                    | North Macedonia | Turkey              |
+| Haiti                       | Pakistan        | Uganda              |
+| Lebanon                     | Panama          | Zambia              |
+|                             | Philippines     | Zimbabwe            |
 
 ## No Engine Cross-Check Possible
 

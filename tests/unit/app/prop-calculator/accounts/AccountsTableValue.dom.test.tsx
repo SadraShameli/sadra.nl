@@ -98,9 +98,11 @@ vi.mock(
     async () => {
         const messages =
             await import('~/app/(app)/prop-calculator/_workers/overviewWorkerMessages');
+        const { uniformSlotEngine } =
+            await import('~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot');
         return {
             useOverviewWorker: (requests: readonly OverviewRequest[]) => ({
-                failure: harness.failure,
+                ...uniformSlotEngine(harness.failure),
                 outcomes: new Map(
                     requests.flatMap((request) => {
                         const result = harness.resultFor(request);
@@ -221,6 +223,7 @@ function documentedFigures(): DocumentedRunFigures {
         attemptPassProbability: { standardError: 0.02, value: 0.3 },
         costPerAttempt: { standardError: 1, value: 120 },
         costPerFundedAccount: 777,
+        daysToPass: null,
         expectedMonthlyNet: { standardError: 11, value: 1234 },
         expectedMonthlyRealizedNet: { standardError: 9, value: 1111 },
         expectedNetPerAttempt: { standardError: 5, value: 55 },

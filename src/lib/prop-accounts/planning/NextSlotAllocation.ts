@@ -44,6 +44,7 @@ import {
     firmMinimumNotice,
     HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
     LifetimePayoutCapBasis,
+    OPTIMUM_MISSING_DISCLOSURE,
     payoutPolicySensitivity,
     type PayoutPolicySensitivityPlanEntry,
     type PayoutPolicySensitivityRankedEntry,
@@ -312,9 +313,6 @@ const UNSIZED_DISCLOSURE =
 
 const NO_BANKROLL_DISCLOSURE =
     'No bankroll deposits are recorded, so affordability and the batch loss risk are not applied.';
-
-const OPTIMUM_MISSING_DISCLOSURE =
-    'The payout-size optimum is missing for some plans, so the comparison of the two orders is withheld.';
 
 const BATCH_LOSS_DISCLOSURE =
     'The batch loss risk draws the number of payouts per funded account from the simulated spread but takes every payout at the average payout size, so it ignores the spread of payout sizes and is optimistic.';
@@ -766,10 +764,10 @@ function figuresOf(
         rebuyLagBasis: candidate.enginePolicy.rebuyLagBasis,
         rebuyLagDays: candidate.enginePolicy.rebuyLagDays,
         sizingBasis:
-            candidate.enginePolicy.instrument !== undefined &&
-            candidate.enginePolicy.stopPoints !== undefined
-                ? NextSlotSizingBasis.InstrumentStop
-                : NextSlotSizingBasis.Unsized,
+            candidate.enginePolicy.instrument === undefined ||
+            candidate.enginePolicy.stopPoints === undefined
+                ? NextSlotSizingBasis.Unsized
+                : NextSlotSizingBasis.InstrumentStop,
         trials: documented.trials,
     };
 }

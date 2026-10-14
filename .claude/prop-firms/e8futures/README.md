@@ -46,6 +46,7 @@ Sourced from help-center articles whose own text states a firm-wide or cross-pro
     - The homepage promo shows "$100K Challenge", "40% off", "$353", "$588"; $588 is the Zero MAX $100K list price.
 
     So the configurator's current 5% and the discount page's 25% (Signature) and 35% (Zero) disagree, as do the code name for Zero (E8 vs REB8), whether it applies to every purchase or only the first, and the 40% homepage promo. The checkout URLs returned HTTP 403 on 2026-10-02, so what a buyer is charged cannot be read. These are live conflicts between E8's own pages, not resolved here. Do not assume a discount applies to a repeat purchase or reset.
+
 - **Refunds: a real, unresolved contradiction between E8's own sources, not silently reconciled.** The help center's "Refund Policy" article states a full refund of the purchase fee is available if the Challenge account has zero trading activity and is within 30 days of purchase; once trading begins, the purchase is non-refundable. The Terms of Service instead state, in Section 4.2, that fees are non-refundable "under any circumstance" the moment platform access is "activated," because "the educational services are deemed fully delivered" on activation alone, regardless of whether a trade was ever placed. The Terms of Service's own list of non-refundable triggers includes "Inability to access services due to failed KYC verification or geographic restriction," a scenario the Terms do not tie to any trading activity. The footer disclaimer on every `e8futures.com` page (fetched 2026-10-03) adds a third wording: "All payments made via the E8 platform are for access to educational software and services, and are non-refundable unless unused." The Trading Policies article quoted under Prohibited trading practices below states a fourth: termination "and a refund of the fee paid from the account where this rule was broken", while Terms Section 4.2(c) lists "Disqualification for breach of the Terms or ESPA" as non-refundable. No source read says which of these controls, so this file picks none of them. Do not assume a zero-activity, within-30-days purchase is refundable, and do not assume it is not. Approved refunds, where granted, arrive within 2-5 business days via the original payment method. Cryptocurrency purchases are never refundable (AML policy), even with zero activity. Chargebacks/payment disputes are themselves a Terms violation and can result in account termination, payout cancellation, and a permanent ban. Per "Refund Policy" and the Terms of Service, Section 4.2.
 - **Platform: Tradovate is the only platform the help center and the embedded config name for the Futures products, but the `e8futures.com` homepage lists NinjaTrader too (live conflict, not resolved)**: the help center says Tradovate, connectable to TradingView at no extra cost once the trader has logged into Tradovate directly and accepted its own agreements first, per "Available Trading platforms for Futures," "How can I change my trading platform?," and the two dedicated Tradovate/TradingView setup articles. Market data for Futures products is sourced directly from CME, per "What broker do I trade with?" The site's embedded product config (2026-09-23 and 2026-10-02) agrees with the help center: `settings.platforms` is `["TRADOVATE"]` for all three futures products. The `e8futures.com` homepage (HTTP 200, re-fetched 2026-10-03) shows "Best platforms in the Game" followed by "NinjaTrader" and "Tradovate". CONVENTIONS.md has no rule that ranks a homepage banner against the help center or the config, and no source says which is current, so this file picks none of them. Do not assume NinjaTrader is available, and do not assume it is not.
 - **Approved instruments and fees**: CME Equity, FX, Agricultural, and CBOT Financial futures, plus NYMEX and COMEX futures: a full instrument/commission/tick-size table is maintained below. No EUREX-listed instruments appear anywhere in the sourced tables (unlike some other firms in this tree). Interest-rate futures (ZT/ZF/ZN/ZB/UB/TN/ZQ) appear with margin figures in "Max. available Contract Sizes" but have no corresponding commission/tick-size row in "Instrument list and trading hours" or "Tick size and profit per tick Calculation": their commission and tick size are Unconfirmed, not zero.
@@ -63,61 +64,61 @@ The source "Instrument list and trading hours" article prints the symbol "NQ" on
 
 The table below does not carry trading hours. Per "Instrument list and trading hours," the hours are Sunday-Friday except the "CME Agricultural Futures" group (Live Cattle LE and Lean Hogs HE only), which the source lists Monday-Friday; the grain instruments sit under "CBOT Commodity Futures" and are Sunday-Friday. All in CT. Permitted trading window firm-wide is 17:00-15:10 CT; all open positions are force-closed daily at 15:10 CT (no overnight holding on either Futures plan), per "Can I hold positions overnight?"
 
-| Symbol | Instrument                | Commission (RT)       | Tick Size   | Profit/Tick |
-| ------ | ------------------------- | --------------------- | ----------- | ----------- |
-| EMD    | E-mini S&P MidCap 400     | $2.58 + $0.52 + $0.38 | 0.1         | $10.00      |
-| ES     | E-mini S&P 500            | $2.58 + $2.80 + $0.38 | 0.25        | $12.50      |
-| MES    | Micro E-mini S&P          | $0.78 + $0.74 + $0.38 | 0.25        | $1.25       |
-| NKD    | Nikkei                    | $2.58 + $2.80 + $0.38 | 5           | $25.00      |
-| NQ     | E-mini NASDAQ 100         | $2.58 + $2.80 + $0.38 | 0.25        | $5.00       |
-| MNQ    | Micro E-mini NASDAQ 100   | $0.78 + $0.74 + $0.38 | 0.25        | $0.50       |
-| RTY    | E-mini Russell 2000       | $2.58 + $2.80 + $0.38 | 0.1         | $5.00       |
-| M2K    | Micro E-mini Russell 2000 | $0.78 + $0.74 + $0.38 | 0.1         | $0.50       |
-| MBT    | Micro E-mini Bitcoin      | $0.78 + $2.04 + $0.38 | 5           | $0.50       |
-| MET    | Micro E-mini Ether        | $0.78 + $2.04 + $0.38 | 0.05        | $0.50       |
-| 6A     | Australian $              | $2.58 + $3.24 + $0.38 | 0.0001      | $10.00      |
-| M6A    | Micro AUD/USD             | $0.78 + $0.52 + $0.38 | 0.0001      | $1.00       |
-| 6B     | British Pound             | $2.58 + $3.24 + $0.38 | 0.0001      | $6.25       |
-| M6B    | Micro British Pound       | $0.78 + $0.52 + $0.38 | 0.0001      | $0.63       |
-| 6C     | Canadian $                | $2.58 + $3.24 + $0.38 | 0.0001      | $10.00      |
-| 6E     | Euro FX                   | $2.58 + $3.24 + $0.38 | 0.0001      | $12.50      |
-| 7E     | E-mini Euro FX            | $2.58 + $1.74 + $0.38 | 0.0001      | $6.25       |
-| M6E    | Micro Euro                | $0.78 + $0.52 + $0.38 | 0.0001      | $1.25       |
-| MCD    | Micro CAD/USD             | $0.78 + $0.52 + $0.38 | 0.0001      | $1.00       |
-| 6J     | Japanese Yen              | $2.58 + $3.24 + $0.38 | 0.0000001   | $12.50      |
-| 6S     | Swiss Franc               | $2.58 + $3.24 + $0.38 | 0.0001      | $12.50      |
-| 6M     | Mexican Peso              | $2.58 + $3.24 + $0.38 | 0.00005     | $5.00       |
-| 6N     | New Zealand $             | $2.58 + $3.24 + $0.38 | 0.0001      | $10.00      |
-| LE     | Live Cattle               | $2.58 + $4.24 + $0.38 | 0.025       | $10.00      |
-| HE     | Lean Hogs                 | $2.58 + $4.24 + $0.38 | 0.025       | $10.00      |
-| GF     | Feeder Cattle             | Unconfirmed           | Unconfirmed | Unconfirmed |
-| CL     | Crude Oil                 | $2.58 + $3.04 + $0.38 | 0.01        | $10.00      |
-| MCL    | Micro Crude Oil           | $0.78 + $1.04 + $0.38 | 0.01        | $1.00       |
-| QM     | E-mini Crude Oil          | $2.58 + $2.44 + $0.38 | 0.025       | $12.50      |
-| Unconfirmed | Natural Gas          | $2.58 + $3.24 + $0.38 | 0.001       | $10.00      |
-| QG     | E-mini Natural Gas        | $2.58 + $1.04 + $0.38 | 0.005       | $12.50      |
-| RB     | RBOB Gasoline             | $2.58 + $3.04 + $0.38 | 0.0001      | $4.20       |
-| HO     | Heating Oil               | $2.58 + $4.24 + $0.38 | 0.0001      | $4.20       |
-| ZC     | Corn                      | $2.58 + $4.24 + $0.38 | 0.25        | $12.50      |
-| ZW     | Wheat                     | $2.58 + $4.24 + $0.38 | 0.25        | $12.50      |
-| ZS     | Soybeans                  | $2.58 + $4.24 + $0.38 | 0.25        | $12.50      |
-| ZM     | Soybean Meal              | $2.58 + $4.24 + $0.38 | 0.1         | $10.00      |
-| ZL     | Soybean Oil               | $2.58 + $4.24 + $0.38 | 0.01        | $6.00       |
-| YM     | Mini-DOW                  | $2.58 + $2.80 + $0.38 | 1           | $5.00       |
-| MYM    | Micro Mini-DOW            | $0.78 + $0.74 + $0.38 | 1           | $0.50       |
-| GC     | Gold                      | $2.58 + $3.24 + $0.38 | 0.1         | $10.00      |
-| MGC    | Micro Gold                | $0.78 + $1.24 + $0.38 | 0.1         | $1.00       |
-| SI     | Silver                    | $2.58 + $3.24 + $0.38 | 0.005       | $25.00      |
-| HG     | Copper                    | $2.58 + $3.24 + $0.38 | 0.0005      | $12.50      |
-| PL     | Platinum                  | $2.58 + $3.24 + $0.38 | 0.1         | $10.00      |
-| PA     | Palladium                 | $2.58 + $3.24 + $0.38 | 0.1         | $10.00      |
-| ZT     | 2-Year Note               | Unconfirmed           | Unconfirmed | Unconfirmed |
-| ZF     | 5-Year Note               | Unconfirmed           | Unconfirmed | Unconfirmed |
-| ZN     | 10-Year Note              | Unconfirmed           | Unconfirmed | Unconfirmed |
-| ZB     | 30-Year Bond              | Unconfirmed           | Unconfirmed | Unconfirmed |
-| UB     | Ultra-Bond                | Unconfirmed           | Unconfirmed | Unconfirmed |
-| TN     | Ultra-Note                | Unconfirmed           | Unconfirmed | Unconfirmed |
-| ZQ     | 30 Day Fed                | Unconfirmed           | Unconfirmed | Unconfirmed |
+| Symbol      | Instrument                | Commission (RT)       | Tick Size   | Profit/Tick |
+| ----------- | ------------------------- | --------------------- | ----------- | ----------- |
+| EMD         | E-mini S&P MidCap 400     | $2.58 + $0.52 + $0.38 | 0.1         | $10.00      |
+| ES          | E-mini S&P 500            | $2.58 + $2.80 + $0.38 | 0.25        | $12.50      |
+| MES         | Micro E-mini S&P          | $0.78 + $0.74 + $0.38 | 0.25        | $1.25       |
+| NKD         | Nikkei                    | $2.58 + $2.80 + $0.38 | 5           | $25.00      |
+| NQ          | E-mini NASDAQ 100         | $2.58 + $2.80 + $0.38 | 0.25        | $5.00       |
+| MNQ         | Micro E-mini NASDAQ 100   | $0.78 + $0.74 + $0.38 | 0.25        | $0.50       |
+| RTY         | E-mini Russell 2000       | $2.58 + $2.80 + $0.38 | 0.1         | $5.00       |
+| M2K         | Micro E-mini Russell 2000 | $0.78 + $0.74 + $0.38 | 0.1         | $0.50       |
+| MBT         | Micro E-mini Bitcoin      | $0.78 + $2.04 + $0.38 | 5           | $0.50       |
+| MET         | Micro E-mini Ether        | $0.78 + $2.04 + $0.38 | 0.05        | $0.50       |
+| 6A          | Australian $              | $2.58 + $3.24 + $0.38 | 0.0001      | $10.00      |
+| M6A         | Micro AUD/USD             | $0.78 + $0.52 + $0.38 | 0.0001      | $1.00       |
+| 6B          | British Pound             | $2.58 + $3.24 + $0.38 | 0.0001      | $6.25       |
+| M6B         | Micro British Pound       | $0.78 + $0.52 + $0.38 | 0.0001      | $0.63       |
+| 6C          | Canadian $                | $2.58 + $3.24 + $0.38 | 0.0001      | $10.00      |
+| 6E          | Euro FX                   | $2.58 + $3.24 + $0.38 | 0.0001      | $12.50      |
+| 7E          | E-mini Euro FX            | $2.58 + $1.74 + $0.38 | 0.0001      | $6.25       |
+| M6E         | Micro Euro                | $0.78 + $0.52 + $0.38 | 0.0001      | $1.25       |
+| MCD         | Micro CAD/USD             | $0.78 + $0.52 + $0.38 | 0.0001      | $1.00       |
+| 6J          | Japanese Yen              | $2.58 + $3.24 + $0.38 | 0.0000001   | $12.50      |
+| 6S          | Swiss Franc               | $2.58 + $3.24 + $0.38 | 0.0001      | $12.50      |
+| 6M          | Mexican Peso              | $2.58 + $3.24 + $0.38 | 0.00005     | $5.00       |
+| 6N          | New Zealand $             | $2.58 + $3.24 + $0.38 | 0.0001      | $10.00      |
+| LE          | Live Cattle               | $2.58 + $4.24 + $0.38 | 0.025       | $10.00      |
+| HE          | Lean Hogs                 | $2.58 + $4.24 + $0.38 | 0.025       | $10.00      |
+| GF          | Feeder Cattle             | Unconfirmed           | Unconfirmed | Unconfirmed |
+| CL          | Crude Oil                 | $2.58 + $3.04 + $0.38 | 0.01        | $10.00      |
+| MCL         | Micro Crude Oil           | $0.78 + $1.04 + $0.38 | 0.01        | $1.00       |
+| QM          | E-mini Crude Oil          | $2.58 + $2.44 + $0.38 | 0.025       | $12.50      |
+| Unconfirmed | Natural Gas               | $2.58 + $3.24 + $0.38 | 0.001       | $10.00      |
+| QG          | E-mini Natural Gas        | $2.58 + $1.04 + $0.38 | 0.005       | $12.50      |
+| RB          | RBOB Gasoline             | $2.58 + $3.04 + $0.38 | 0.0001      | $4.20       |
+| HO          | Heating Oil               | $2.58 + $4.24 + $0.38 | 0.0001      | $4.20       |
+| ZC          | Corn                      | $2.58 + $4.24 + $0.38 | 0.25        | $12.50      |
+| ZW          | Wheat                     | $2.58 + $4.24 + $0.38 | 0.25        | $12.50      |
+| ZS          | Soybeans                  | $2.58 + $4.24 + $0.38 | 0.25        | $12.50      |
+| ZM          | Soybean Meal              | $2.58 + $4.24 + $0.38 | 0.1         | $10.00      |
+| ZL          | Soybean Oil               | $2.58 + $4.24 + $0.38 | 0.01        | $6.00       |
+| YM          | Mini-DOW                  | $2.58 + $2.80 + $0.38 | 1           | $5.00       |
+| MYM         | Micro Mini-DOW            | $0.78 + $0.74 + $0.38 | 1           | $0.50       |
+| GC          | Gold                      | $2.58 + $3.24 + $0.38 | 0.1         | $10.00      |
+| MGC         | Micro Gold                | $0.78 + $1.24 + $0.38 | 0.1         | $1.00       |
+| SI          | Silver                    | $2.58 + $3.24 + $0.38 | 0.005       | $25.00      |
+| HG          | Copper                    | $2.58 + $3.24 + $0.38 | 0.0005      | $12.50      |
+| PL          | Platinum                  | $2.58 + $3.24 + $0.38 | 0.1         | $10.00      |
+| PA          | Palladium                 | $2.58 + $3.24 + $0.38 | 0.1         | $10.00      |
+| ZT          | 2-Year Note               | Unconfirmed           | Unconfirmed | Unconfirmed |
+| ZF          | 5-Year Note               | Unconfirmed           | Unconfirmed | Unconfirmed |
+| ZN          | 10-Year Note              | Unconfirmed           | Unconfirmed | Unconfirmed |
+| ZB          | 30-Year Bond              | Unconfirmed           | Unconfirmed | Unconfirmed |
+| UB          | Ultra-Bond                | Unconfirmed           | Unconfirmed | Unconfirmed |
+| TN          | Ultra-Note                | Unconfirmed           | Unconfirmed | Unconfirmed |
+| ZQ          | 30 Day Fed                | Unconfirmed           | Unconfirmed | Unconfirmed |
 
 Commission column is broken out as stated in the source: Commission (RT) + Exchange and NFA (RT) + Clearing (RT). "GF" (Feeder Cattle) and the seven interest-rate rows (ZT, ZF, ZN, ZB, UB, TN, ZQ) have no commission or tick-size entry in the source tables read; those rows are Unconfirmed throughout. The two tables do not list exactly the same instrument set, so treat any Unconfirmed cell as missing data, not zero. A 2026-09-19 re-audit found that "6C," "7E," "MCD," and "ZM" had in fact been marked Unconfirmed in error: all four are stated in the source tables and are now filled in.
 
@@ -161,21 +162,21 @@ Two discretionary powers sit alongside that list: "Before receiving a simulated 
 
 ## Key Cross-Plan Differences
 
-| Aspect                 | E8 Signature Futures                                                              | E8 Zero                                                                                                                                                   |
-| ---------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Account Sizes          | $25K / $50K / $100K / $150K                                                       | $50K / $100K / $200K                                                                                                                                      |
-| Eval Fee               | List: $120 / $170 / $280 / $450 ("5% OFF" figures shown 2026-10-02: $114 / $162 / $266 / $428; see discount conflict above) | List, 80% share: Starter $178 / $278 / $558, Max $328 / $588 / $1,088 (100% share price Unconfirmed; discount figures and code conflict, see `zero.md`) |
-| Profit Target          | $1,500 / $3,000 / $6,000 / $9,000                                                 | $3,000 / $6,500 / $13,500                                                                                                                                 |
-| Eval Consistency       | None (Challenge stage)                                                            | 40% Best Day Rule (Challenge stage only)                                                                                                                  |
-| Min Eval Days          | Unconfirmed                                                                       | None stated ("No minimum Trading days")                                                                                                                   |
-| Funded Drawdown Type   | EOD Dynamic Drawdown, locks at Starting Balance on profit-trigger or first payout | EOD Dynamic Drawdown, same lock mechanic funded-side, but explicitly does **not** lock during the Challenge stage (a documented exception unique to Zero) |
-| DLL (Funded)           | Daily Pause (soft): 2%, fixed $ amount; dollar amount Unconfirmed except $2,000 at $100K, see `signature.md` | None                                                                                                                                                      |
-| Sim Payout Split       | 80% flat                                                                          | 80% or 100%, selected at purchase                                                                                                                         |
-| Max Funded Accounts    | 5 per household                                                                   | 3 per household                                                                                                                                           |
-| Inactivity Rule        | 7 days                                                                            | 7 days                                                                                                                                                    |
-| Lifetime Sim Payouts   | 5 payouts, then free replacement Challenge                                        | Unconfirmed: live conflict on the e8-zero page (heading says four, body says 5), see `zero.md`          |
-| Consistency on Payouts | 35% Best Day Rule + 5 profitable days between payouts (not first); profitable-day dollar threshold Unconfirmed | None                                                                                                                                                      |
-| Live Transition        | None: SimFi Performance is the final stage                                        | None: SimFi Performance is the final stage                                                                                                                |
+| Aspect                 | E8 Signature Futures                                                                                                        | E8 Zero                                                                                                                                                   |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Account Sizes          | $25K / $50K / $100K / $150K                                                                                                 | $50K / $100K / $200K                                                                                                                                      |
+| Eval Fee               | List: $120 / $170 / $280 / $450 ("5% OFF" figures shown 2026-10-02: $114 / $162 / $266 / $428; see discount conflict above) | List, 80% share: Starter $178 / $278 / $558, Max $328 / $588 / $1,088 (100% share price Unconfirmed; discount figures and code conflict, see `zero.md`)   |
+| Profit Target          | $1,500 / $3,000 / $6,000 / $9,000                                                                                           | $3,000 / $6,500 / $13,500                                                                                                                                 |
+| Eval Consistency       | None (Challenge stage)                                                                                                      | 40% Best Day Rule (Challenge stage only)                                                                                                                  |
+| Min Eval Days          | Unconfirmed                                                                                                                 | None stated ("No minimum Trading days")                                                                                                                   |
+| Funded Drawdown Type   | EOD Dynamic Drawdown, locks at Starting Balance on profit-trigger or first payout                                           | EOD Dynamic Drawdown, same lock mechanic funded-side, but explicitly does **not** lock during the Challenge stage (a documented exception unique to Zero) |
+| DLL (Funded)           | Daily Pause (soft): 2%, fixed $ amount; dollar amount Unconfirmed except $2,000 at $100K, see `signature.md`                | None                                                                                                                                                      |
+| Sim Payout Split       | 80% flat                                                                                                                    | 80% or 100%, selected at purchase                                                                                                                         |
+| Max Funded Accounts    | 5 per household                                                                                                             | 3 per household                                                                                                                                           |
+| Inactivity Rule        | 7 days                                                                                                                      | 7 days                                                                                                                                                    |
+| Lifetime Sim Payouts   | 5 payouts, then free replacement Challenge                                                                                  | Unconfirmed: live conflict on the e8-zero page (heading says four, body says 5), see `zero.md`                                                            |
+| Consistency on Payouts | 35% Best Day Rule + 5 profitable days between payouts (not first); profitable-day dollar threshold Unconfirmed              | None                                                                                                                                                      |
+| Live Transition        | None: SimFi Performance is the final stage                                                                                  | None: SimFi Performance is the final stage                                                                                                                |
 
 Every row traces back to the matching row in each plan's own file; where a plan file marks a figure Unconfirmed or computed, this table repeats that status rather than asserting a cleaner-looking number.
 

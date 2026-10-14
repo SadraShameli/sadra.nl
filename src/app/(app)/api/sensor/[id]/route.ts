@@ -12,7 +12,5 @@ export async function GET(
 
     const result = await api.sensor.getSensor({ id: parsed.data.id });
 
-    return result.data
-        ? NextResponse.json(result.data, { status: result.status })
-        : NextResponse.json(result, { status: result.status });
+    return NextResponse.json(result.data ?? result, { status: result.status });
 }

@@ -44,10 +44,10 @@ import type {
     AdviceSource,
     DpAdviceGapEntry,
     DpAdviceSamples,
+    DpGateFailureCode,
     RulebookParameters,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
-import type { DpGateFailureCode } from '~/lib/prop-calculator/advisor/DpAdviceRow';
 import type {
     DpValueSample,
     MAX_DP_VALUE_SAMPLES,

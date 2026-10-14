@@ -139,6 +139,8 @@ function fundedValueResult(
         ...(cumulativePayoutTrigger !== undefined && {
             cumulativePayoutTrigger,
         }),
+        dollarSampleRange: null,
+        fundedValue: { standardError: 300, value: 4500 },
         ...(liveTransfer !== undefined && { liveTransfer }),
         meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
         payoutCountDistribution: [0.1, 0.4, 0.3, 0.2],
@@ -305,14 +307,6 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
         expect(text.indexOf('$4,500 ± $300')).toBeLessThan(
             text.indexOf('Mean payouts per funded account'),
         );
-        expect(text).toContain('Mean payouts per funded account');
-    });
-
-    it('shows no dollar cards for a result without a funded value, keeping the payout counts', () => {
-        succeedWith(fundedValueResult(), null);
-
-        const text = container.textContent;
-        expect(text).not.toContain('Expected payout per funded account');
         expect(text).toContain('Mean payouts per funded account');
     });
 

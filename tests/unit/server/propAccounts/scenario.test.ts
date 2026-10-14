@@ -48,11 +48,11 @@ vi.mock('~/lib/observability/rate-limit', () => ({
 
 const NEW_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
-const rateLimit = vi.mocked(isWithinRateLimit);
+const isWithinRateLimitMock = vi.mocked(isWithinRateLimit);
 
 beforeEach(() => {
-    rateLimit.mockClear();
-    rateLimit.mockImplementation(() => Promise.resolve(true));
+    isWithinRateLimitMock.mockClear();
+    isWithinRateLimitMock.mockImplementation(() => Promise.resolve(true));
 });
 
 function importResponder(
@@ -315,14 +315,14 @@ describe('propAccounts.scenario', () => {
     it('removeAll counts the rate limit in the scenario bucket and deletes nothing once it is hit', async () => {
         const allowed = callerFor(SIGNED_IN, tableResponder());
         await allowed.caller.scenario.removeAll();
-        expect(rateLimit).toHaveBeenCalledWith({
+        expect(isWithinRateLimitMock).toHaveBeenCalledWith({
             bucket: 'prop-accounts:scenario',
             key: USER_ID,
             max: PROP_MUTATIONS_PER_WINDOW,
             windowMs: PROP_MUTATION_WINDOW_MS,
         });
 
-        rateLimit.mockImplementation(() => Promise.resolve(false));
+        isWithinRateLimitMock.mockImplementation(() => Promise.resolve(false));
         const limited = callerFor(SIGNED_IN, tableResponder());
         const shape = errorShapeOf(
             await rejectionOf(limited.caller.scenario.removeAll()),

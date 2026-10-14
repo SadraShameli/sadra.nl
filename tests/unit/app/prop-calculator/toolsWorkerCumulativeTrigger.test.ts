@@ -82,6 +82,8 @@ describe('the tools page keeps the priced cumulative trigger (PT-36r, F-145)', (
             kind: ToolsResponseKind.FundedValueEstimate,
             result: {
                 cumulativePayoutTrigger: PRICED_TRIGGER,
+                dollarSampleRange: null,
+                fundedValue: { standardError: 300, value: 4500 },
                 meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
                 payoutCountDistribution: [0.1, 0.4, 0.3, 0.2],
                 probabilityZeroPayouts: { standardError: 0.02, value: 0.1 },
@@ -99,6 +101,8 @@ describe('the tools page keeps the priced cumulative trigger (PT-36r, F-145)', (
         const response = {
             kind: ToolsResponseKind.FundedValueEstimate,
             result: {
+                dollarSampleRange: null,
+                fundedValue: { standardError: 300, value: 4500 },
                 meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
                 payoutCountDistribution: [1],
                 probabilityZeroPayouts: { standardError: 0.02, value: 0.1 },
@@ -123,6 +127,8 @@ describe('the tools page keeps the priced cumulative trigger (PT-36r, F-145)', (
                 kind: ToolsResponseKind.FundedValueEstimate,
                 result: {
                     cumulativePayoutTrigger: { bias: 'neutral', hazard: 0.3 },
+                    dollarSampleRange: null,
+                    fundedValue: { standardError: 300, value: 4500 },
                     meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
                     payoutCountDistribution: [1],
                     probabilityZeroPayouts: { standardError: 0.02, value: 0.1 },

@@ -192,6 +192,7 @@ describe('the suspended risk-check reason is the typed Suspended text (PT-36f, P
                 plan,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             ),
             options,
         );

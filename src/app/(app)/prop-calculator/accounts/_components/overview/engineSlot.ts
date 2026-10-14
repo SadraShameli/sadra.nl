@@ -31,7 +31,7 @@ export interface GroupDelivery {
 
 export interface SlotEngine {
     readonly failure: null | string;
-    readonly groupFailures?: GroupFailures;
+    readonly groupFailures: GroupFailures;
     readonly outcomes: ReadonlyMap<string, OverviewOutcome>;
 }
 
@@ -80,14 +80,12 @@ export function groupFailureOf(
     engine: SlotEngine,
     group: OverviewRequestGroup,
 ): null | string {
-    return engine.groupFailures === undefined
-        ? engine.failure
-        : engine.groupFailures[group];
+    return engine.groupFailures[group];
 }
 
 export function slotEngineFromGroups(
     groups: Readonly<Record<OverviewRequestGroup, GroupDelivery>>,
-): Required<SlotEngine> {
+): SlotEngine {
     const delivered = DELIVERY_ORDER.flatMap(
         (group) => groups[group].delivered?.outcomes ?? [],
     );
@@ -110,9 +108,7 @@ export function slotEngineFromGroups(
     };
 }
 
-export function uniformSlotEngine(
-    failure: null | string,
-): Required<SlotEngine> {
+export function uniformSlotEngine(failure: null | string): SlotEngine {
     return {
         failure,
         groupFailures: {

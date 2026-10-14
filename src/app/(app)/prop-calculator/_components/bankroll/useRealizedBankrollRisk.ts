@@ -10,8 +10,10 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { IsoDateError, PortfolioLedger } from '~/lib/prop-accounts';
 import {
+    REALIZED_LOSS_RISK_SEED,
     type RealizedLossRisk,
     realizedLossRisk,
+    TO_FIRST_PAYOUT_FALLBACK_DAYS,
 } from '~/lib/prop-accounts/bankroll';
 import {
     CENTS_PER_DOLLAR,
@@ -44,9 +46,6 @@ export type RealizedBankrollRiskState =
               | RealizedBankrollRiskStatus.Failed
               | RealizedBankrollRiskStatus.Loading;
       };
-
-const REALIZED_RISK_SEED = 42;
-const TO_FIRST_PAYOUT_FALLBACK_DAYS = 30;
 
 export function useRealizedBankrollRisk({
     budget,
@@ -101,7 +100,7 @@ export function useRealizedBankrollRisk({
                         payouts,
                     }),
                     lossRiskThreshold: lossThreshold,
-                    seed: REALIZED_RISK_SEED,
+                    seed: REALIZED_LOSS_RISK_SEED,
                     toFirstPayoutFallbackDays: TO_FIRST_PAYOUT_FALLBACK_DAYS,
                 }),
                 status: RealizedBankrollRiskStatus.Ready,

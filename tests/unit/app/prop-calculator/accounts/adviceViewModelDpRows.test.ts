@@ -14,13 +14,13 @@ import {
 import {
     DpAdviceGap,
     DpAdviceStalenessReason,
+    DpGateFailureCode,
     DpSamplesKind,
     DpSampleStage,
     DpSamplesUnavailableReason,
+    fundedDpModelGapClause,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
-import { DpGateFailureCode } from '~/lib/prop-calculator/advisor/DpAdviceRow';
-import { fundedDpModelGapClause } from '~/lib/prop-calculator/advisor/DpAdviceText';
 import { DpValueStateKind } from '~/lib/schemas/propAccountOutputs';
 
 const CONFIG_KEY = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';

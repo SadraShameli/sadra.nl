@@ -20,6 +20,7 @@ import {
     AccountReconstruction,
     AdviceStalenessReason,
     createSizingAdvisor,
+    DEFAULT_RULEBOOK,
     LEDGER_FILE,
     LEDGER_SECTION,
     ledgerRecordedLadderFor,
@@ -108,6 +109,7 @@ function adviceFor(
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     const advisor = createSizingAdvisor(account, { ...options, ...overrides });
     return { advisor, plan };

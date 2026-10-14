@@ -776,18 +776,20 @@ const smallRun = [
 
 async function capturedLadder(argv: string[]) {
     const written: string[] = [];
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
-    const writeError = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+        vi
+            .spyOn(process.stderr, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+    ];
     const previous = process.exitCode;
     process.exitCode = undefined;
     let exitCode: typeof process.exitCode;
@@ -799,8 +801,7 @@ async function capturedLadder(argv: string[]) {
         });
         exitCode = process.exitCode;
     } finally {
-        write.mockRestore();
-        writeError.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = previous;
     }
     return { exitCode, output: written.join('') };

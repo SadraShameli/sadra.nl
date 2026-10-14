@@ -33,6 +33,7 @@ export {
     projectionMonthEnds,
     type ProjectionMonthEndsInput,
     spendPayoutCurve,
+    spendPayoutCurveOfRun,
     type SpendPayoutPoint,
 } from './BankrollCurve';
 export {

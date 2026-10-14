@@ -124,6 +124,10 @@ function evaluate(
     throw new Error(`unread tail in ${text}`);
 }
 
+function isWithin(bucket: string, key: string, max: number) {
+    return isWithinRateLimit({ bucket, key, max, windowMs: WINDOW_MS });
+}
+
 function respond(query: IssuedQuery): FakeRow[] {
     if (query.text.startsWith(`insert into "${TABLE}"`)) return upsert(query);
     if (query.text.startsWith('select') && query.text.includes(`"${TABLE}"`)) {
@@ -199,10 +203,6 @@ function upsert(query: IssuedQuery): FakeRow[] {
     return row === undefined ? [] : [toRow(value('bucket'), value('key'), row)];
 }
 
-function within(bucket: string, key: string, max: number) {
-    return isWithinRateLimit({ bucket, key, max, windowMs: WINDOW_MS });
-}
-
 beforeEach(() => {
     buckets.clear();
 });
@@ -211,7 +211,7 @@ describe('isWithinRateLimit', () => {
     it('counts parallel calls exactly: none is lost to a read-then-write race', async () => {
         const results = await Promise.all(
             Array.from({ length: 25 }, () =>
-                within('prop-accounts:account', 'user-1', 100),
+                isWithin('prop-accounts:account', 'user-1', 100),
             ),
         );
         expect(results.every(Boolean)).toBe(true);
@@ -221,7 +221,7 @@ describe('isWithinRateLimit', () => {
     it('lets exactly max parallel calls through and blocks the rest', async () => {
         const results = await Promise.all(
             Array.from({ length: 25 }, () =>
-                within('contact:ip', '10.0.0.1', 10),
+                isWithin('contact:ip', '10.0.0.1', 10),
             ),
         );
         expect(results.filter(Boolean)).toHaveLength(10);
@@ -231,13 +231,13 @@ describe('isWithinRateLimit', () => {
     it('keeps the caller contract: max calls per window, then blocked, then a fresh window after it resets', async () => {
         const outcomes: boolean[] = [];
         for (let call = 0; call < 5; call++) {
-            outcomes.push(await within('accounting:run', 'user-1', 3));
+            outcomes.push(await isWithin('accounting:run', 'user-1', 3));
         }
         expect(outcomes).toEqual([true, true, true, false, false]);
         const stored = buckets.get(bucketKey('accounting:run', 'user-1'));
         if (stored === undefined) throw new Error('expected a stored bucket');
         stored.resetAt = new Date(Date.now() - 1);
-        expect(await within('accounting:run', 'user-1', 3)).toBe(true);
+        expect(await isWithin('accounting:run', 'user-1', 3)).toBe(true);
         expect(storedCount('accounting:run')).toBe(1);
         expect(
             buckets
@@ -247,23 +247,25 @@ describe('isWithinRateLimit', () => {
     });
 
     it('blocks every call when max is 0, the first call of a fresh window included', async () => {
-        expect(await within('prop-accounts:event', 'user-1', 0)).toBe(false);
-        expect(await within('prop-accounts:event', 'user-1', 0)).toBe(false);
+        expect(await isWithin('prop-accounts:event', 'user-1', 0)).toBe(false);
+        expect(await isWithin('prop-accounts:event', 'user-1', 0)).toBe(false);
         const stored = buckets.get(bucketKey('prop-accounts:event', 'user-1'));
         if (stored === undefined) throw new Error('expected a stored bucket');
         stored.resetAt = new Date(Date.now() - 1);
-        expect(await within('prop-accounts:event', 'user-1', 0)).toBe(false);
+        expect(await isWithin('prop-accounts:event', 'user-1', 0)).toBe(false);
     });
 
     it('keys case-insensitively and keeps buckets and keys apart', async () => {
-        expect(await within('contact:email', 'Someone@Example.com', 1)).toBe(
+        expect(await isWithin('contact:email', 'Someone@Example.com', 1)).toBe(
             true,
         );
-        expect(await within('contact:email', 'someone@example.com', 1)).toBe(
+        expect(await isWithin('contact:email', 'someone@example.com', 1)).toBe(
             false,
         );
-        expect(await within('contact:ip', 'someone@example.com', 1)).toBe(true);
-        expect(await within('contact:email', 'other@example.com', 1)).toBe(
+        expect(await isWithin('contact:ip', 'someone@example.com', 1)).toBe(
+            true,
+        );
+        expect(await isWithin('contact:email', 'other@example.com', 1)).toBe(
             true,
         );
     });

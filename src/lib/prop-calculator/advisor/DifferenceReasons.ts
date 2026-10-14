@@ -23,10 +23,6 @@ import { type RulebookParameters } from './Rulebook';
 import { documentedRuleLabel, rulebookDeviation } from './RulebookDeviation';
 import { StartBasis } from './StartBasis';
 
-type BasedPersonalPayoutOverrideWarning = PersonalPayoutOverrideWarning & {
-    readonly startBasis?: StartBasis;
-};
-
 export const CONSISTENCY_CEILING_NOTE_TEXT: Readonly<
     Record<ConsistencyCeilingNote, string>
 > = {
@@ -240,7 +236,7 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
 }
 
 export function personalPayoutOverrideWarningText(
-    warning: BasedPersonalPayoutOverrideWarning,
+    warning: PersonalPayoutOverrideWarning,
 ): string {
     return `In the payout-size sweep over ${String(warning.horizonDays)} funded days, ${overrideComparisonClause(warning)}: ${creditInclusiveFigureLabel(warning.startBasis)} ${formatCurrency(warning.overrideMonthlyNet, 0)} at a ${formatCurrency(warning.overrideRequestSize, 0)} request against ${formatCurrency(warning.optimumMonthlyNet, 0)} at ${formatCurrency(warning.optimumRequestSize, 0)}, bust probability ${formatPercent(warning.overrideBustProbability)} against ${formatPercent(warning.optimumBustProbability)}, retaining ${formatCurrency(warning.retainedCushion, 0)} (${RETAINED_CUSHION_BASIS_TEXT[warning.retainedCushionBasis]}).`;
 }
@@ -259,9 +255,7 @@ function conductPatternQuote(pattern: ConductPattern): string {
     }
 }
 
-function creditInclusiveFigureLabel(
-    startBasis: StartBasis | undefined,
-): string {
+function creditInclusiveFigureLabel(startBasis: StartBasis): string {
     return startBasis === StartBasis.FromState
         ? 'credit-inclusive expected cash over the funded window'
         : 'credit-inclusive monthly net';

@@ -10,16 +10,6 @@ import {
 import { rulebookSchema } from '~/lib/prop-calculator/advisor';
 import { BankrollUrlParameter } from '~/lib/schemas/bankrollUrlParameter';
 
-export enum BankrollProjectionUrlParameter {
-    CompareDaysA = 'bkda',
-    CompareDaysB = 'bkdb',
-    CompareMultipleA = 'bkxa',
-    CompareMultipleB = 'bkxb',
-    CycleDays = 'bkd',
-    CycleMultiple = 'bkx',
-    RoundBudget = 'bkq',
-}
-
 export interface BankrollProjectionUrlState {
     readonly compareCycleDaysA: null | number;
     readonly compareCycleDaysB: null | number;
@@ -73,31 +63,31 @@ export function decodeBankrollProjectionUrlState(
     return {
         compareCycleDaysA: parsed(
             positiveIntSchema,
-            parameters.get(BankrollProjectionUrlParameter.CompareDaysA),
+            parameters.get(BankrollUrlParameter.CompareDaysA),
         ),
         compareCycleDaysB: parsed(
             positiveIntSchema,
-            parameters.get(BankrollProjectionUrlParameter.CompareDaysB),
+            parameters.get(BankrollUrlParameter.CompareDaysB),
         ),
         compareMultipleA: parsed(
             multipleSchema,
-            parameters.get(BankrollProjectionUrlParameter.CompareMultipleA),
+            parameters.get(BankrollUrlParameter.CompareMultipleA),
         ),
         compareMultipleB: parsed(
             multipleSchema,
-            parameters.get(BankrollProjectionUrlParameter.CompareMultipleB),
+            parameters.get(BankrollUrlParameter.CompareMultipleB),
         ),
         cycleDays: parsed(
             positiveIntSchema,
-            parameters.get(BankrollProjectionUrlParameter.CycleDays),
+            parameters.get(BankrollUrlParameter.CycleDays),
         ),
         cycleMultiple: parsed(
             multipleSchema,
-            parameters.get(BankrollProjectionUrlParameter.CycleMultiple),
+            parameters.get(BankrollUrlParameter.CycleMultiple),
         ),
         roundBudget: parsed(
             dollarsSchema,
-            parameters.get(BankrollProjectionUrlParameter.RoundBudget),
+            parameters.get(BankrollUrlParameter.RoundBudget),
         ),
     };
 }
@@ -177,42 +167,38 @@ export function defaultBankrollUrlState(): BankrollUrlState {
 
 export function encodeBankrollProjectionUrlState(
     state: BankrollProjectionUrlState,
-    omitted: readonly BankrollProjectionUrlParameter[] = [],
+    omitted: readonly BankrollUrlParameter[] = [],
 ): string {
     const parameters = new URLSearchParams();
     setIfPresent(
         parameters,
-        BankrollProjectionUrlParameter.RoundBudget,
+        BankrollUrlParameter.RoundBudget,
         state.roundBudget,
     );
     setIfPresent(
         parameters,
-        BankrollProjectionUrlParameter.CycleMultiple,
+        BankrollUrlParameter.CycleMultiple,
         state.cycleMultiple,
     );
+    setIfPresent(parameters, BankrollUrlParameter.CycleDays, state.cycleDays);
     setIfPresent(
         parameters,
-        BankrollProjectionUrlParameter.CycleDays,
-        state.cycleDays,
-    );
-    setIfPresent(
-        parameters,
-        BankrollProjectionUrlParameter.CompareMultipleA,
+        BankrollUrlParameter.CompareMultipleA,
         state.compareMultipleA,
     );
     setIfPresent(
         parameters,
-        BankrollProjectionUrlParameter.CompareDaysA,
+        BankrollUrlParameter.CompareDaysA,
         state.compareCycleDaysA,
     );
     setIfPresent(
         parameters,
-        BankrollProjectionUrlParameter.CompareMultipleB,
+        BankrollUrlParameter.CompareMultipleB,
         state.compareMultipleB,
     );
     setIfPresent(
         parameters,
-        BankrollProjectionUrlParameter.CompareDaysB,
+        BankrollUrlParameter.CompareDaysB,
         state.compareCycleDaysB,
     );
     for (const key of omitted) parameters.delete(key);
@@ -292,7 +278,7 @@ function parsed<T>(schema: z.ZodType<T>, raw: null | string): null | T {
 
 function setIfPresent(
     parameters: URLSearchParams,
-    key: BankrollProjectionUrlParameter | BankrollUrlParameter,
+    key: BankrollUrlParameter,
     value: null | number,
 ): void {
     if (value !== null) parameters.set(key, String(value));

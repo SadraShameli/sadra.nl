@@ -3,6 +3,11 @@ import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core';
 import { type LifetimePayoutCapBasis } from './policy';
 import { type StartBasis } from './StartBasis';
 
+export const OPTIMUM_MISSING_DISCLOSURE =
+    'The payout-size optimum is missing for some plans, so the comparison of the two orders is withheld.';
+export const PAYOUT_POLICY_SENSITIVE_NOTE =
+    'Payout-policy sensitive: the plan order changes under the payout-size optimum.';
+
 export interface PayoutPolicySensitivityFigure {
     readonly monthlyNet: number;
     readonly standardError: null | number;
@@ -47,6 +52,10 @@ export function payoutPolicySensitivity(
         optimumEntries,
         (entry) => entry.optimum.monthlyNet,
     );
+    const comparableDocumentedOrder = rankKeysBy(
+        optimumEntries,
+        (entry) => entry.documented.monthlyNet,
+    );
 
     return entries.map((entry) => {
         const documentedRank = documentedOrder.get(entry.planKey);
@@ -61,7 +70,8 @@ export function payoutPolicySensitivity(
             documentedRank,
             optimumRank,
             payoutPolicySensitive:
-                optimumRank !== null && optimumRank !== documentedRank,
+                optimumRank !== null &&
+                optimumRank !== comparableDocumentedOrder.get(entry.planKey),
         };
     });
 }

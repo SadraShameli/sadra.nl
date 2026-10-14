@@ -91,9 +91,10 @@ export class Rule {
     ) {}
 
     matches(tx: RawTransaction): boolean {
-        return tx.merchant
-            ? this.conditions.every((c) => c.isSatisfiedBy(tx)) &&
-                  this.matcher.matches(tx.merchant)
-            : false;
+        return (
+            Boolean(tx.merchant) &&
+            this.conditions.every((c) => c.isSatisfiedBy(tx)) &&
+            this.matcher.matches(tx.merchant)
+        );
     }
 }

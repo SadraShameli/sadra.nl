@@ -3,7 +3,6 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { dollars, FundedDpModelGapKind } from '~/lib/prop-calculator';
-import { DpGateFailure } from '~/lib/prop-calculator/advisor/dp';
 import {
     DpAdviceGap,
     type DpAdviceGapEntry,
@@ -102,18 +101,6 @@ describe('the DP text module is browser-safe (F-147)', () => {
             false,
         );
         expect(graph.externalSpecifiers).toEqual([]);
-    });
-});
-
-describe('the stored gate failure code', () => {
-    it('has exactly the members of the gate verdict failure enum, with the same values', () => {
-        expect(
-            Object.values(DpGateFailureCode).toSorted((a, b) =>
-                a.localeCompare(b),
-            ),
-        ).toEqual(
-            Object.values(DpGateFailure).toSorted((a, b) => a.localeCompare(b)),
-        );
     });
 });
 

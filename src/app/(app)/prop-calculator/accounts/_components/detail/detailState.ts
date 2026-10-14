@@ -29,6 +29,7 @@ import {
     type DrawdownKind,
     type Fraction0to1,
     type LiveContractCaps,
+    type LiveCushionPercent,
     type Plan,
     TradingPhase,
 } from '~/lib/prop-calculator';
@@ -267,6 +268,7 @@ export function previousReconstructionOf(
     payouts: readonly SnapshotPayoutRow[],
     asOf: string,
     firmCount: SnapshotFirmCount,
+    liveCushionPercent: LiveCushionPercent,
 ): null | PreviousReconstruction {
     if (snapshot === null) return null;
     const { input, pendingPayoutCounts, personalMaxRiskPerTrade } =
@@ -290,6 +292,7 @@ export function previousReconstructionOf(
                 plan,
                 personalMaxRiskPerTrade,
                 pendingPayoutCounts,
+                liveCushionPercent,
             ),
             asOf: input.asOf,
         };
@@ -307,6 +310,7 @@ export function stateCardOf(
     payouts: readonly SnapshotPayoutRow[],
     asOf: string,
     firmCount: SnapshotFirmCount,
+    liveCushionPercent: LiveCushionPercent,
 ): StateCardView {
     if (snapshot === null) return { kind: StateCardKind.NoSnapshot };
     const { assumptions, input, pendingPayoutCounts, personalMaxRiskPerTrade } =
@@ -328,6 +332,7 @@ export function stateCardOf(
                     plan,
                     personalMaxRiskPerTrade,
                     pendingPayoutCounts,
+                    liveCushionPercent,
                 ),
                 assumptions,
             ),

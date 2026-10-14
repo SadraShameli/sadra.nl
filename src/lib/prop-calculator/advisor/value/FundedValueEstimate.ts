@@ -26,8 +26,8 @@ export const FUNDED_VALUE_SAMPLE_RANGE_LABEL =
 
 export interface FundedValueEstimateResult {
     readonly cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption;
-    readonly dollarSampleRange?: FundedValueSampleRange | null;
-    readonly fundedValue?: UncertainValue;
+    readonly dollarSampleRange: FundedValueSampleRange | null;
+    readonly fundedValue: UncertainValue;
     readonly liveTransfer?: LiveTransferHazardAssumption;
     readonly meanPayoutsPerAccount: UncertainValue;
     readonly payoutCountDistribution: readonly number[];

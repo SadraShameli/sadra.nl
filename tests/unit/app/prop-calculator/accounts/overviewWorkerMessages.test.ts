@@ -97,6 +97,7 @@ import {
     simInputsSizingIssue,
     simulate,
 } from '~/lib/prop-calculator/simulator';
+import { standardDeviation } from '~/lib/prop-calculator/stats';
 
 function requirePlan(value: null | Plan | undefined, message: string): Plan {
     if (value === null || value === undefined) throw new Error(message);
@@ -572,6 +573,16 @@ describe('overviewOutcomeOf', () => {
         expect(figures.trials).toBe(SMALL_RUN.trials);
         expect(figures.fundedHorizonDays).toBe(
             request.spec.enginePolicy.fundedHorizonDays,
+        );
+        const passDays = direct.daysToPassValues;
+        expect(passDays.length).toBeGreaterThan(1);
+        expect(figures.daysToPass?.value).toBeCloseTo(
+            direct.expectedDaysToPass,
+            10,
+        );
+        expect(figures.daysToPass?.standardError).toBeCloseTo(
+            standardDeviation(passDays) / Math.sqrt(passDays.length - 1),
+            10,
         );
         expect(figures.expectedMonthlyNet).toEqual(
             direct.estimates.expectedMonthlyNet,
@@ -1210,6 +1221,7 @@ function rebuiltAccount(snapshot: AccountSnapshotInput) {
         TOPSTEP_50K,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
 }
 

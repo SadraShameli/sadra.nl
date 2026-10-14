@@ -2,11 +2,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { DpGateFailureCode } from '~/lib/prop-calculator/advisor';
 import {
     DP_G2_RECORDED_ON,
     DP_GATE_RUNS,
     DpEvalObjective,
-    DpGateFailure,
     type DpGateRun,
     dpValidationFor,
 } from '~/lib/prop-calculator/advisor/dp';
@@ -63,7 +63,7 @@ describe('dpValidationFor', () => {
             dpValidationFor('plan-a', { g2RecordedOn: '2026-10-01', runs: [] }),
         ).toEqual({
             citation: null,
-            failure: DpGateFailure.NoGateRun,
+            failure: DpGateFailureCode.NoGateRun,
             result: null,
             validated: false,
         });
@@ -106,7 +106,7 @@ describe('dpValidationFor', () => {
 
         expect(verdict).toMatchObject({
             citation: { row: 'newer' },
-            failure: DpGateFailure.BelowBestFlat,
+            failure: DpGateFailureCode.BelowBestFlat,
             validated: false,
         });
     });
@@ -116,7 +116,7 @@ describe('dpValidationFor', () => {
         expect(DP_GATE_RUNS).toEqual([]);
         expect(dpValidationFor('topstep:50000:no-fee-standard')).toEqual({
             citation: null,
-            failure: DpGateFailure.NoGateRun,
+            failure: DpGateFailureCode.NoGateRun,
             result: null,
             validated: false,
         });

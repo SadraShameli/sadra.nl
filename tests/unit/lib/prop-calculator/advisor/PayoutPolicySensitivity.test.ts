@@ -1,7 +1,11 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
     LifetimePayoutCapBasis,
+    OPTIMUM_MISSING_DISCLOSURE,
+    PAYOUT_POLICY_SENSITIVE_NOTE,
     payoutPolicySensitivity,
     type PayoutPolicySensitivityPlanEntry,
     StartBasis,
@@ -92,4 +96,42 @@ describe('payoutPolicySensitivity (PT-32)', () => {
         expect(byKey.get('a')?.payoutPolicySensitive).toBe(false);
         expect(byKey.get('b')?.optimumRank).toBe(1);
     });
+
+    it('compares the two orders over the same plans: documented 300 without an optimum, 200 and 100 in the same optimum order is not sensitive (PT-113)', () => {
+        const ranked = payoutPolicySensitivity([
+            entry('top', 300, null),
+            entry('middle', 200, 250),
+            entry('bottom', 100, 150),
+        ]);
+        const byKey = new Map(ranked.map((e) => [e.planKey, e]));
+        expect(byKey.get('top')?.documentedRank).toBe(1);
+        expect(byKey.get('top')?.optimumRank).toBeNull();
+        expect(byKey.get('middle')?.documentedRank).toBe(2);
+        expect(byKey.get('middle')?.optimumRank).toBe(1);
+        expect(
+            ranked.filter((e) => e.payoutPolicySensitive).map((e) => e.planKey),
+        ).toEqual([]);
+    });
 });
+
+describe('payout policy sensitivity texts (PT-113)', () => {
+    it.each([
+        ['OPTIMUM_MISSING_DISCLOSURE', OPTIMUM_MISSING_DISCLOSURE],
+        ['PAYOUT_POLICY_SENSITIVE_NOTE', PAYOUT_POLICY_SENSITIVE_NOTE],
+    ])('keeps one copy of %s in src', (_name, text) => {
+        const copies = sourceFilesUnder(path.resolve('src')).filter((file) =>
+            readFileSync(file, 'utf8').includes(text),
+        );
+        expect(copies).toEqual([
+            path.resolve(
+                'src/lib/prop-calculator/advisor/PayoutPolicySensitivity.ts',
+            ),
+        ]);
+    });
+});
+
+function sourceFilesUnder(directory: string): readonly string[] {
+    return readdirSync(directory, { recursive: true, withFileTypes: true })
+        .filter((dirent) => dirent.isFile() && /\.tsx?$/.test(dirent.name))
+        .map((dirent) => path.join(dirent.parentPath, dirent.name));
+}

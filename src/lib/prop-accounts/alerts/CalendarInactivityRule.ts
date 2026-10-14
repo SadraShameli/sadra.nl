@@ -67,8 +67,10 @@ export class CalendarInactivityRule extends AlertRule {
         switch (policy.kind) {
             case InactivityBasisKind.CalendarDays:
             case InactivityBasisKind.TradingDays: {
-                if (policy.maxIdleDays === null) return [];
-                if (idleDays < policy.maxIdleDays - WARNING_LEAD_DAYS) {
+                if (
+                    policy.maxIdleDays === null ||
+                    idleDays < policy.maxIdleDays - WARNING_LEAD_DAYS
+                ) {
                     return [];
                 }
                 const severity =

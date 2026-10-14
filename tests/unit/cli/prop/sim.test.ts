@@ -1333,15 +1333,15 @@ function attemptsIn(text: string | undefined): number {
 
 async function capturedSimRun(argv: string[]): Promise<string> {
     const written: string[] = [];
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
-    const writeError = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation(() => true);
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+        vi.spyOn(process.stderr, 'write').mockImplementation(() => true),
+    ];
     const exitCode = process.exitCode;
     try {
         await simCommand.run?.({
@@ -1350,8 +1350,7 @@ async function capturedSimRun(argv: string[]): Promise<string> {
             rawArgs: argv,
         });
     } finally {
-        write.mockRestore();
-        writeError.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = exitCode;
     }
     return written.join('');

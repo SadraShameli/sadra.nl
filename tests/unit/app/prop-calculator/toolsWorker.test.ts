@@ -529,13 +529,13 @@ describe('computeToolsResult: FundedValueEstimate (thin call into fundedValueEst
             withoutSize.kind !== ToolsResponseKind.FundedValueEstimate
         )
             throw new Error('unreachable');
-        expect(withSize.result.fundedValue?.value).toBeGreaterThan(0);
+        expect(withSize.result.fundedValue.value).toBeGreaterThan(0);
         expect(withSize.result.dollarSampleRange?.sampleSize).toBe(10);
         expect(withSize.result.dollarSampleRange?.lower).toBeLessThan(
-            withSize.result.fundedValue?.value ?? 0,
+            withSize.result.fundedValue.value,
         );
         expect(withSize.result.dollarSampleRange?.upper).toBeGreaterThan(
-            withSize.result.fundedValue?.value ?? 0,
+            withSize.result.fundedValue.value,
         );
         expect(withoutSize.result.fundedValue).toEqual(
             withSize.result.fundedValue,

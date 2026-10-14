@@ -86,12 +86,12 @@ export function JournalFilters({
     const planOptions = plans.map((p) => ({ key: p.id, label: p.name }));
 
     const dateRange: DateRange | undefined = useMemo(() => {
-        return !state.dateFrom && !state.dateTo
-            ? undefined
-            : {
+        return state.dateFrom || state.dateTo
+            ? {
                   from: state.dateFrom ? parseISO(state.dateFrom) : undefined,
                   ...(state.dateTo && { to: parseISO(state.dateTo) }),
-              };
+              }
+            : undefined;
     }, [state.dateFrom, state.dateTo]);
 
     const hasAny =

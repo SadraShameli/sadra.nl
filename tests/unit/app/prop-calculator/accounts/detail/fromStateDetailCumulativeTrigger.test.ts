@@ -16,6 +16,7 @@ import {
     AccountFromStateViewKind,
     accountFromStateViewOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
+import { uniformSlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import {
     dollars,
     findFirm,
@@ -130,7 +131,7 @@ function accountModelOf(
         },
     };
     const view = accountFromStateViewOf(
-        { failure: null, outcomes: new Map([[key, outcome]]) },
+        { ...uniformSlotEngine(null), outcomes: new Map([[key, outcome]]) },
         account,
     );
     if (view.kind !== AccountFromStateViewKind.Ready) {
@@ -162,7 +163,7 @@ function retireModelOf(figures: RetireComparisonResult) {
         result: { figures, kind: OverviewRequestKind.RetireComparison },
     };
     const view = retireViewOf(
-        { failure: null, outcomes: new Map([[key, outcome]]) },
+        { ...uniformSlotEngine(null), outcomes: new Map([[key, outcome]]) },
         retire,
     );
     if (view.kind !== RetireViewKind.Ready) throw new Error('expected ready');

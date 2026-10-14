@@ -11,6 +11,7 @@ import {
     AccountReconstruction,
     AdviceSource,
     createSizingAdvisor,
+    DEFAULT_RULEBOOK,
     type EngineOptimumRunnerResult,
     FundedFromStateOptimumResultKind,
     type FundedWinnerPolicy,
@@ -93,6 +94,7 @@ function fundedAdvice() {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         ),
         options,
     ).assemble([]);

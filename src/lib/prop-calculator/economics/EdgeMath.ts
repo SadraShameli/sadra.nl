@@ -101,9 +101,9 @@ export function compoundedMultiple(
     growthPerTrade: number,
     trades: number,
 ): Quantity<number> {
-    return !Number.isFinite(growthPerTrade) || !isCount(trades)
-        ? missingQuantity(EconomicsReason.InvalidInput)
-        : quantityOf(Math.exp(trades * growthPerTrade));
+    return Number.isFinite(growthPerTrade) && isCount(trades)
+        ? quantityOf(Math.exp(trades * growthPerTrade))
+        : missingQuantity(EconomicsReason.InvalidInput);
 }
 
 export function expectancyPerTradeR(

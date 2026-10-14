@@ -10,7 +10,6 @@ import {
 } from '~/lib/prop-calculator/core';
 import {
     buildFundedCandidates,
-    type FundedCandidate,
     FundedCandidateBuildKind,
     FundedSortKey,
     sortFundedResults,
@@ -31,8 +30,6 @@ import {
     EngineOptimumRowKind,
     type FundedSweepOptimumResult,
     FundedSweepOptimumResultKind,
-    type FundedWinnerPolicy,
-    FundedWinnerPolicyKind,
 } from './EngineOptimum';
 import {
     type EngineOptimumRequest,
@@ -45,6 +42,7 @@ import {
     type FundedFromStateSweepResult,
     runFundedFromStateSweep,
 } from './FundedFromStateSweep';
+import { fundedWinnerPolicyOf } from './FundedWinnerPolicy';
 import {
     type NextPayoutProjection,
     runNextPayoutProjection,
@@ -56,8 +54,6 @@ import {
 import { applyPersonalDayLimits, ladderUnderPersonalDayLimits } from './policy';
 
 const DOCUMENTED_LADDER_SEED_OFFSET = 1;
-const PERCENT_PER_FRACTION = 100;
-const PERCENT_SIGNIFICANT_DIGITS = 12;
 
 export enum LadderEngineOptimumResultKind {
     Refused = 'refused',
@@ -182,42 +178,6 @@ function documentedLadderScoreOf(
         { ...request.score, plan },
         ladderTrialStreams(request.seed + DOCUMENTED_LADDER_SEED_OFFSET),
     );
-}
-
-function fundedWinnerPolicyOf(
-    candidates: readonly FundedCandidate[],
-    label: string,
-): FundedWinnerPolicy {
-    const overrides = candidates.find(
-        (candidate) => candidate.label === label,
-    )?.overrides;
-    if (overrides === undefined) {
-        throw new Error(
-            `runEngineOptimum: the winning candidate "${label}" is not among the built candidates`,
-        );
-    }
-    const { fundedCushionPercent, fundedDayPolicy, fundedRiskPerTrade } =
-        overrides;
-    if (fundedRiskPerTrade !== undefined) {
-        return {
-            dollars: fundedRiskPerTrade,
-            kind: FundedWinnerPolicyKind.Flat,
-        };
-    }
-    if (fundedCushionPercent !== undefined) {
-        return {
-            kind: FundedWinnerPolicyKind.PercentOfCushion,
-            percent: Number(
-                (fundedCushionPercent * PERCENT_PER_FRACTION).toPrecision(
-                    PERCENT_SIGNIFICANT_DIGITS,
-                ),
-            ),
-        };
-    }
-    return {
-        kind: FundedWinnerPolicyKind.Ladder,
-        rungs: fundedDayPolicy?.ladder ?? [],
-    };
 }
 
 function ladderSearchOf(

@@ -111,8 +111,8 @@ describe('fundedValueEstimate (F-V17, PT-65b step 6)', () => {
         const result = fundedValueEstimate(plan, spec, null);
 
         expect(result.fundedValue).toBeDefined();
-        expect(result.fundedValue?.value).toBeGreaterThan(0);
-        expect(result.fundedValue?.standardError).toBeGreaterThan(0);
+        expect(result.fundedValue.value).toBeGreaterThan(0);
+        expect(result.fundedValue.standardError).toBeGreaterThan(0);
         expect(result.meanPayoutsPerAccount.value).toBeGreaterThanOrEqual(0);
         expect(result.dollarSampleRange).toBeNull();
     });
@@ -123,7 +123,7 @@ describe('fundedValueEstimate (F-V17, PT-65b step 6)', () => {
 
         const result = fundedValueEstimate(plan, spec, 25);
         const { dollarSampleRange, fundedValue } = result;
-        if (!dollarSampleRange || !fundedValue?.standardError) {
+        if (!dollarSampleRange || !fundedValue.standardError) {
             throw new Error('expected a dollar range');
         }
 
@@ -162,7 +162,7 @@ describe('fundedValueEstimate (F-V17, PT-65b step 6)', () => {
 
         const result = fundedValueEstimate(plan, spec, 10);
 
-        expect(result.fundedValue?.standardError).toBeNull();
+        expect(result.fundedValue.standardError).toBeNull();
         expect(result.dollarSampleRange).toBeNull();
     });
 

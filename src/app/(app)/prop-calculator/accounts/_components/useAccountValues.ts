@@ -697,6 +697,7 @@ function preparationOf({
         section.rows.events,
         payouts,
         snapshots,
+        rulebook.live.cushionPercent,
     ).filter(
         (entry) => accountId === undefined || entry.accountId === accountId,
     );

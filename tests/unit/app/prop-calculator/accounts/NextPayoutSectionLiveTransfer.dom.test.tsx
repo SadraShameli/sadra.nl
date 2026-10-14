@@ -126,6 +126,7 @@ describe('the account detail names the live-transfer hazard behind its from-stat
             PLAN,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         act(() => {
             root.render(

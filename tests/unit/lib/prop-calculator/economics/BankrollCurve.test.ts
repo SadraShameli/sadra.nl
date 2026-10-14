@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { dollars, fraction } from '~/lib/prop-calculator/core';
@@ -14,6 +16,7 @@ import {
     minimumBudgetForLossTarget,
     projectionMonthEnds,
     spendPayoutCurve,
+    spendPayoutCurveOfRun,
 } from '~/lib/prop-calculator/economics';
 
 const THREE_POINT_NETS = [
@@ -292,6 +295,38 @@ function seriesOf(horizonDays: number) {
         payoutP50: days.map((day) => day * 7),
     };
 }
+
+describe('spendPayoutCurveOfRun (PT-81b)', () => {
+    it('prices every attempt at the run cost per attempt, as the direct call does', () => {
+        const out = { costPerAttempt: 150, netValues: THREE_POINT_NETS };
+        const budgets = [dollars(600), dollars(1500)];
+        expect(spendPayoutCurveOfRun(out, budgets, 7)).toEqual(
+            spendPayoutCurve(
+                THREE_POINT_NETS,
+                THREE_POINT_NETS.map(() => 150),
+                dollars(150),
+                budgets,
+                7,
+            ),
+        );
+    });
+
+    it('is the only caller of spendPayoutCurve in src', () => {
+        const callers = readdirSync(path.resolve('src'), {
+            recursive: true,
+            withFileTypes: true,
+        })
+            .filter((dirent) => dirent.isFile() && /\.tsx?$/.test(dirent.name))
+            .map((dirent) => path.join(dirent.parentPath, dirent.name))
+            .filter((file) =>
+                /\bspendPayoutCurve\(/.test(readFileSync(file, 'utf8')),
+            )
+            .map((file) => path.relative(path.resolve(), file));
+        expect(callers).toEqual([
+            'src/lib/prop-calculator/economics/BankrollCurve.ts',
+        ]);
+    });
+});
 
 describe('projectionMonthEnds', () => {
     it('returns one row per trading month for a three-month horizon, the last equal to the final-day figures', () => {

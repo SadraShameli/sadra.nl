@@ -1112,18 +1112,20 @@ async function capturedLiveRun(argv: string[]): Promise<{
 }> {
     const written: string[] = [];
     const writtenError: string[] = [];
-    const write = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            written.push(String(chunk));
-            return true;
-        });
-    const writeError = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation((chunk: string | Uint8Array) => {
-            writtenError.push(String(chunk));
-            return true;
-        });
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            }),
+        vi
+            .spyOn(process.stderr, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                writtenError.push(String(chunk));
+                return true;
+            }),
+    ];
     const exitCode = process.exitCode;
     let runExitCode: typeof process.exitCode;
     process.exitCode = undefined;
@@ -1135,8 +1137,7 @@ async function capturedLiveRun(argv: string[]): Promise<{
         });
     } finally {
         runExitCode = process.exitCode;
-        write.mockRestore();
-        writeError.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = exitCode;
     }
     return {

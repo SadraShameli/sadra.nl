@@ -10,6 +10,7 @@ import {
 import {
     AccountReconstruction,
     createSizingAdvisor,
+    DEFAULT_RULEBOOK,
     NO_PENDING_PAYOUT_COUNTS,
 } from '~/lib/prop-calculator/advisor';
 
@@ -47,6 +48,7 @@ function reportLinesFor(argv: string[]): string[] {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         ),
         options,
     );

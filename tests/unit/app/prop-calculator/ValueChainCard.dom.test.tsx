@@ -655,6 +655,8 @@ function succeedFundedValue(
             result: {
                 kind: ToolsResponseKind.FundedValueEstimate,
                 result: {
+                    dollarSampleRange: null,
+                    fundedValue: { standardError: 250, value: 5000 },
                     meanPayoutsPerAccount: { standardError: 0.04, value: 2.5 },
                     payoutCountDistribution: [0.1, 0.4, 0.3, 0.2],
                     probabilityZeroPayouts: { standardError: 0.01, value: 0.1 },

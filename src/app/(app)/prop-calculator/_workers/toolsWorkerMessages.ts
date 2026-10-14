@@ -93,7 +93,7 @@ export enum ToolsResponseKind {
 export interface BankrollLeverRowSummary {
     readonly deltaAttemptPaysProbability?: number;
     readonly deltaEvPerAttempt: number;
-    readonly deltaLossProbability?: null | number;
+    readonly deltaLossProbability: null | number;
     readonly deltaMonthlyNet: number;
     readonly deltaPassProbability: number;
     readonly evPerAttempt: number;
@@ -675,8 +675,8 @@ const fundedValueSampleRangeSchema = z.object({
 
 const fundedValueEstimateResultSchema = z.object({
     cumulativePayoutTrigger: cumulativePayoutTriggerAssumptionSchema.optional(),
-    dollarSampleRange: fundedValueSampleRangeSchema.nullable().optional(),
-    fundedValue: uncertainValueSchema.optional(),
+    dollarSampleRange: fundedValueSampleRangeSchema.nullable(),
+    fundedValue: uncertainValueSchema,
     liveTransfer: liveTransferAssumptionSchema.optional(),
     meanPayoutsPerAccount: uncertainValueSchema,
     payoutCountDistribution: z.array(fractionSchema),
@@ -833,7 +833,7 @@ const spendPayoutCurveRowSchema = z.object({
 const leverRowSummarySchema = z.object({
     deltaAttemptPaysProbability: finiteNumberSchema.optional(),
     deltaEvPerAttempt: finiteNumberSchema,
-    deltaLossProbability: nullableFiniteNumberSchema.optional(),
+    deltaLossProbability: nullableFiniteNumberSchema,
     deltaMonthlyNet: finiteNumberSchema,
     deltaPassProbability: finiteNumberSchema,
     evPerAttempt: finiteNumberSchema,

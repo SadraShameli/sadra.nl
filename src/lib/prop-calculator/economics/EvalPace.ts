@@ -83,10 +83,11 @@ export function requiredR(
     target: Dollars,
     riskPerTrade: Dollars,
 ): Quantity<number> {
-    return !isNonNegativeAmount(target) ||
-        !(Number.isFinite(riskPerTrade) && riskPerTrade > 0)
-        ? missingQuantity(EconomicsReason.InvalidInput)
-        : quantityOf(target / riskPerTrade);
+    return isNonNegativeAmount(target) &&
+        Number.isFinite(riskPerTrade) &&
+        riskPerTrade > 0
+        ? quantityOf(target / riskPerTrade)
+        : missingQuantity(EconomicsReason.InvalidInput);
 }
 
 export function twoBarrierExpectedTrades(

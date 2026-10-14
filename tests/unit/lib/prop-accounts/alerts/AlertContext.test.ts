@@ -2,23 +2,21 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { type PersonalPolicyOverrides } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import {
     type AlertAccountRow,
     AlertDisclosure,
     AlertKind,
+    NO_PERSONAL_POLICY,
     PayoutCountMismatchRule,
     PayoutDollarMismatchRule,
-} from '~/lib/prop-accounts/alerts';
-import {
-    type AccountPersonalPolicy,
-    grossDisclosureOf,
-    isActive,
-    NO_PERSONAL_POLICY,
-    paidLedgerTotal,
-    payoutsTakenOf,
     personalPolicyIn,
     personalRulebookOf,
+} from '~/lib/prop-accounts/alerts';
+import {
+    grossDisclosureOf,
+    isActive,
+    paidLedgerTotal,
+    payoutsTakenOf,
     requestedLedgerTotal,
 } from '~/lib/prop-accounts/alerts/AlertContext';
 import {
@@ -608,8 +606,7 @@ describe('the personal policies of the alert context (PT-102, F-84)', () => {
         expect(personalPolicyIn(context, other.id)).toEqual(NO_PERSONAL_POLICY);
     });
 
-    it('has exactly the shape of the web personal policy overrides, so the hub passes them as they are', () => {
-        expectTypeOf<AccountPersonalPolicy>().toEqualTypeOf<PersonalPolicyOverrides>();
+    it('is the one personal policy shape the web hub passes as it is', () => {
         expect(NO_PERSONAL_POLICY).toEqual({
             payoutRequestOverride: null,
             personalCaps: {

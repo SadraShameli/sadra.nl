@@ -76,12 +76,16 @@ vi.mock('~/app/(app)/prop-calculator/_components/useTodayIsoDate', () => ({
 
 vi.mock(
     '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker',
-    () => ({
-        useOverviewWorker: (requests: readonly OverviewRequest[]) => {
-            for (const request of requests) harness.resultFor(request);
-            return { failure: null, outcomes: new Map() };
-        },
-    }),
+    async () => {
+        const { uniformSlotEngine } =
+            await import('~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot');
+        return {
+            useOverviewWorker: (requests: readonly OverviewRequest[]) => {
+                for (const request of requests) harness.resultFor(request);
+                return { ...uniformSlotEngine(null), outcomes: new Map() };
+            },
+        };
+    },
 );
 
 vi.mock('~/trpc/react', () => ({

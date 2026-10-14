@@ -72,9 +72,6 @@ export function LeversCard() {
         worker.state.result.kind === ToolsResponseKind.Levers
             ? worker.state.result.rows
             : null;
-    const baseLossRisk =
-        rows?.find((row) => row.kind === BankrollLeverKind.Base)?.lossRisk ??
-        null;
     const failureReason =
         canRun && worker.state.phase === ToolsWorkerPhase.Failed
             ? worker.state.reason
@@ -227,12 +224,11 @@ export function LeversCard() {
                                             : formatPercent(row.lossRisk)}
                                     </td>
                                     <td className="py-1 pr-3 font-mono">
-                                        {baseLossRisk === null ||
-                                        row.lossRisk === null
+                                        {row.deltaLossProbability === null
                                             ? NOT_APPLICABLE
                                             : formatDelta(
-                                                  row.lossRisk,
-                                                  baseLossRisk,
+                                                  row.deltaLossProbability,
+                                                  0,
                                                   'percent',
                                               ).text}
                                     </td>

@@ -6,6 +6,7 @@ import {
     personalPayoutOverrideWarningText,
     RETAINED_CUSHION_BASIS_TEXT,
     RetainedCushionBasis,
+    StartBasis,
 } from '~/lib/prop-calculator/advisor';
 
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
@@ -27,6 +28,7 @@ function warningOf(
         overrideRequestSize: 750,
         retainedCushion: 2750,
         retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+        startBasis: StartBasis.Fresh,
         ...overrides,
     });
 }
@@ -85,6 +87,7 @@ describe('the payout override warning names its monthly net as the credit-inclus
             overrideRequestSize: 750,
             retainedCushion: 2750,
             retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+            startBasis: StartBasis.Fresh,
         });
 
         expect(text).toContain('credit-inclusive monthly net');

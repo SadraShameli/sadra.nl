@@ -3,11 +3,11 @@ import 'server-only';
 import { type z } from 'zod';
 
 import { captureError } from '~/lib/observability/logger';
-import { type DpAdviceRow } from '~/lib/prop-calculator/advisor';
 import {
     dpAdviceGapsSchema,
+    type DpAdviceRow,
     dpAdviceSamplesSchema,
-} from '~/lib/prop-calculator/advisor/DpAdviceRow';
+} from '~/lib/prop-calculator/advisor';
 import {
     type DpValueSample,
     dpValueSamplesSchema,

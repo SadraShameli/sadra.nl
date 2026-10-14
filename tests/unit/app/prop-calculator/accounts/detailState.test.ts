@@ -184,6 +184,7 @@ describe('stateCardOf', () => {
             NO_PAYOUTS,
             '2026-02-10',
             firmCountOf(MFF_PRO_ID),
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         expect(view).toEqual({ kind: StateCardKind.NoSnapshot });
     });
@@ -197,6 +198,7 @@ describe('stateCardOf', () => {
             NO_PAYOUTS,
             '2026-02-10',
             firmCountOf(MFF_PRO_ID),
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (view.kind !== StateCardKind.Ready) {
             throw new Error('expected a ready state card');
@@ -223,6 +225,7 @@ describe('stateCardOf', () => {
             NO_PAYOUTS,
             '2026-02-10',
             firmCountOf(MFF_PRO_ID),
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (view.kind !== StateCardKind.Ready) {
             throw new Error('expected a ready state card');
@@ -243,6 +246,7 @@ describe('stateCardOf', () => {
             NO_PAYOUTS,
             '2026-02-10',
             firmCountOf(MFF_PRO_ID),
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (view.kind !== StateCardKind.Ready) {
             throw new Error('expected a ready state card');
@@ -262,6 +266,7 @@ describe('stateCardOf', () => {
             NO_PAYOUTS,
             '2026-02-10',
             firmCountOf(MFF_RAPID_ID),
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         expect(view.kind).toBe(StateCardKind.PeakRequired);
         if (view.kind !== StateCardKind.PeakRequired) return;
@@ -283,6 +288,7 @@ describe('previousReconstructionOf', () => {
                 NO_PAYOUTS,
                 '2026-02-10',
                 firmCountOf(MFF_PRO_ID),
+                DEFAULT_RULEBOOK.live.cushionPercent,
             ),
         ).toBeNull();
     });
@@ -299,6 +305,7 @@ describe('previousReconstructionOf', () => {
             NO_PAYOUTS,
             '2026-02-10',
             firmCountOf(MFF_PRO_ID),
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         expect(result).toBeNull();
     });
@@ -315,6 +322,7 @@ describe('previousReconstructionOf', () => {
             NO_PAYOUTS,
             '2026-02-10',
             firmCountOf(MFF_PRO_ID),
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         expect(result?.asOf).toBe('2026-02-01');
     });
@@ -350,6 +358,7 @@ describe('liveRulesCardOf', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -377,6 +386,7 @@ describe('liveRulesCardOf', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -402,6 +412,7 @@ describe('liveRulesCardOf', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind !== ReconstructedLiveKind.Live) {
             throw new Error('expected a live reconstruction');
@@ -550,6 +561,7 @@ describe('performanceCardOf', () => {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const view = performanceCardOf(
             { account, asOf: '2026-02-10', input },
@@ -605,6 +617,7 @@ describe('the detail state counts the requested payouts of the whole firm (PT-36
             own,
             TODAY,
             firmCount,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (
             view.kind !== StateCardKind.Ready ||
@@ -628,6 +641,7 @@ describe('the detail state counts the requested payouts of the whole firm (PT-36
             own,
             TODAY,
             firmCount,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (result?.account.kind !== TradingPhase.Funded) {
             throw new Error('expected a funded previous reconstruction');
@@ -649,6 +663,7 @@ describe('the detail state accepts a firm count that could not be loaded (PT-36p
             own,
             TODAY,
             PENDING_PAYOUT_COUNTS_NOT_CHECKED,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (
             view.kind !== StateCardKind.Ready ||
@@ -669,6 +684,7 @@ describe('the detail state accepts a firm count that could not be loaded (PT-36p
             own,
             TODAY,
             PENDING_PAYOUT_COUNTS_NOT_CHECKED,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (view.kind !== StateCardKind.Ready) {
             throw new Error('expected a ready state card');
@@ -692,6 +708,7 @@ describe('the detail state accepts a firm count that could not be loaded (PT-36p
                 [{ events: [], payouts: own }],
                 TODAY,
             ),
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (view.kind !== StateCardKind.Ready) {
             throw new Error('expected a ready state card');
@@ -713,6 +730,7 @@ describe('the detail state accepts a firm count that could not be loaded (PT-36p
             own,
             TODAY,
             PENDING_PAYOUT_COUNTS_NOT_CHECKED,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         expect(result?.account.kind).toBe(TradingPhase.Funded);
     });
@@ -786,6 +804,7 @@ describe('the detail state blocks a payout exactly where the board blocks under 
             NO_PAYOUTS,
             TODAY,
             firmCount,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (
             view.kind !== StateCardKind.Ready ||

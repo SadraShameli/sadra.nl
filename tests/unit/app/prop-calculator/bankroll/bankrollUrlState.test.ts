@@ -1,7 +1,8 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
-    BankrollProjectionUrlParameter,
     type BankrollProjectionUrlState,
     type BankrollUrlState,
     decodeBankrollProjectionUrlState,
@@ -21,10 +22,7 @@ import {
 import { dollars, fraction } from '~/lib/prop-calculator';
 import { BankrollUrlParameter } from '~/lib/schemas/bankrollUrlParameter';
 
-const BANKROLL_KEYS: readonly string[] = [
-    ...Object.values(BankrollUrlParameter),
-    ...Object.values(BankrollProjectionUrlParameter),
-];
+const BANKROLL_KEYS: readonly string[] = Object.values(BankrollUrlParameter);
 
 function projectionRoundTrip(
     state: BankrollProjectionUrlState,
@@ -186,25 +184,13 @@ describe('the round budget and cycle query keys (PT-82)', () => {
         const query = new URLSearchParams(
             encodeBankrollProjectionUrlState(state),
         );
-        expect(query.get(BankrollProjectionUrlParameter.RoundBudget)).toBe(
-            '1000',
-        );
-        expect(query.get(BankrollProjectionUrlParameter.CycleMultiple)).toBe(
-            '1.5',
-        );
-        expect(query.get(BankrollProjectionUrlParameter.CycleDays)).toBe('45');
-        expect(query.get(BankrollProjectionUrlParameter.CompareMultipleA)).toBe(
-            '5',
-        );
-        expect(query.get(BankrollProjectionUrlParameter.CompareDaysA)).toBe(
-            '60',
-        );
-        expect(query.get(BankrollProjectionUrlParameter.CompareMultipleB)).toBe(
-            '3',
-        );
-        expect(query.get(BankrollProjectionUrlParameter.CompareDaysB)).toBe(
-            '30',
-        );
+        expect(query.get(BankrollUrlParameter.RoundBudget)).toBe('1000');
+        expect(query.get(BankrollUrlParameter.CycleMultiple)).toBe('1.5');
+        expect(query.get(BankrollUrlParameter.CycleDays)).toBe('45');
+        expect(query.get(BankrollUrlParameter.CompareMultipleA)).toBe('5');
+        expect(query.get(BankrollUrlParameter.CompareDaysA)).toBe('60');
+        expect(query.get(BankrollUrlParameter.CompareMultipleB)).toBe('3');
+        expect(query.get(BankrollUrlParameter.CompareDaysB)).toBe('30');
         expect(projectionRoundTrip(state)).toEqual(state);
     });
 
@@ -228,13 +214,13 @@ describe('the round budget and cycle query keys (PT-82)', () => {
             new URLSearchParams(encodeBankrollProjectionUrlState(state))
                 .keys()
                 .toArray(),
-        ).toEqual([BankrollProjectionUrlParameter.RoundBudget]);
+        ).toEqual([BankrollUrlParameter.RoundBudget]);
     });
 
     it('leaves out the given projection keys', () => {
         const query = encodeBankrollProjectionUrlState(richProjectionState(), [
-            BankrollProjectionUrlParameter.RoundBudget,
-            BankrollProjectionUrlParameter.CycleMultiple,
+            BankrollUrlParameter.RoundBudget,
+            BankrollUrlParameter.CycleMultiple,
         ]);
         const decoded = decodeBankrollProjectionUrlState(
             new URLSearchParams(query),
@@ -262,7 +248,7 @@ describe('the round budget and cycle query keys (PT-82)', () => {
         'drops an invalid round budget %j',
         (raw) => {
             const parameters = new URLSearchParams();
-            parameters.set(BankrollProjectionUrlParameter.RoundBudget, raw);
+            parameters.set(BankrollUrlParameter.RoundBudget, raw);
             expect(
                 decodeBankrollProjectionUrlState(parameters).roundBudget,
             ).toBeNull();
@@ -273,15 +259,9 @@ describe('the round budget and cycle query keys (PT-82)', () => {
         'drops an invalid cycle multiple %j (must be a positive number)',
         (raw) => {
             const parameters = new URLSearchParams();
-            parameters.set(BankrollProjectionUrlParameter.CycleMultiple, raw);
-            parameters.set(
-                BankrollProjectionUrlParameter.CompareMultipleA,
-                raw,
-            );
-            parameters.set(
-                BankrollProjectionUrlParameter.CompareMultipleB,
-                raw,
-            );
+            parameters.set(BankrollUrlParameter.CycleMultiple, raw);
+            parameters.set(BankrollUrlParameter.CompareMultipleA, raw);
+            parameters.set(BankrollUrlParameter.CompareMultipleB, raw);
             const decoded = decodeBankrollProjectionUrlState(parameters);
             expect(decoded.cycleMultiple).toBeNull();
             expect(decoded.compareMultipleA).toBeNull();
@@ -293,9 +273,9 @@ describe('the round budget and cycle query keys (PT-82)', () => {
         'drops invalid cycle days %j (must be a positive integer)',
         (raw) => {
             const parameters = new URLSearchParams();
-            parameters.set(BankrollProjectionUrlParameter.CycleDays, raw);
-            parameters.set(BankrollProjectionUrlParameter.CompareDaysA, raw);
-            parameters.set(BankrollProjectionUrlParameter.CompareDaysB, raw);
+            parameters.set(BankrollUrlParameter.CycleDays, raw);
+            parameters.set(BankrollUrlParameter.CompareDaysA, raw);
+            parameters.set(BankrollUrlParameter.CompareDaysB, raw);
             const decoded = decodeBankrollProjectionUrlState(parameters);
             expect(decoded.cycleDays).toBeNull();
             expect(decoded.compareCycleDaysA).toBeNull();
@@ -323,5 +303,23 @@ describe('the bankroll form-field parsers', () => {
         expect(parseBankrollPositiveIntField('0')).toBeNull();
         expect(parseBankrollNonNegativeIntField('0')).toBe(0);
         expect(parseBankrollNonNegativeIntField('-1')).toBeNull();
+    });
+});
+
+describe('the bankroll URL keys (PT-81b)', () => {
+    it('come from one enum in src', () => {
+        const enums = readdirSync(path.resolve('src'), {
+            recursive: true,
+            withFileTypes: true,
+        })
+            .filter((dirent) => dirent.isFile() && /\.tsx?$/.test(dirent.name))
+            .flatMap(
+                (dirent) =>
+                    readFileSync(
+                        path.join(dirent.parentPath, dirent.name),
+                        'utf8',
+                    ).match(/export enum Bankroll\w*UrlParameter\b/g) ?? [],
+            );
+        expect(enums).toEqual(['export enum BankrollUrlParameter']);
     });
 });

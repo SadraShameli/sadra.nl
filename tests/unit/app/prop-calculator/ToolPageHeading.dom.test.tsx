@@ -98,15 +98,14 @@ describe('ToolPageHeading', () => {
         expect(
             container.querySelectorAll('[data-testid="saved-scenarios"]'),
         ).toHaveLength(1);
-        const [h1, blurb, share, saved] = orderOf([
+        const order = orderOf([
             'h1',
             'header p',
             '[data-testid="share-link"]',
             '[data-testid="saved-scenarios"]',
         ]);
-        expect(h1).toBeLessThan(blurb ?? -1);
-        expect(blurb).toBeLessThan(share ?? -1);
-        expect(share).toBeLessThan(saved ?? -1);
+        expect(order).not.toContain(-1);
+        expect(order).toEqual(order.toSorted((a, b) => a - b));
     });
 
     it('renders the share button only, with no saved scenarios, for an own-codec tool', () => {

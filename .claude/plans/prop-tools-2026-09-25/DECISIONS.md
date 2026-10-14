@@ -9,12 +9,12 @@ Requested 2026-09-25. The user asked for the work to run without stopping overni
 
 ## Decisions (user, 2026-09-25)
 
-| # | Topic | Decision |
-|---|---|---|
-| P1 | Storage of accounts and balances | In the database under the user's account: sign-in required for the portfolio pages, synced across devices, built like the accounting subsystem (userId-scoped tRPC + Drizzle, schema via drizzle-kit generate/migrate). The calculator tools stay public. |
-| P2 | What the sizing suggester shows | Both, the user's documented rule first: the rule from the captions (prop-firm-trading skill) as the headline, with the engine optimum (DP / ladder search) alongside and the reason they differ. |
-| P3 | Page structure | Hub + child pages: `/prop-calculator` becomes a hub; each tool gets its own child page (for example simulator, compare, ladder lab, strategy lab, cash flow, and the new portfolio manager), sharing inputs through URL or shared state; old share links keep working through redirects. |
-| P4 | Per-account inputs | Balance plus key extras: current balance, highest end-of-day balance (trailing drawdowns), stage (eval / funded / live), payouts taken and trading days; missing values default and are shown as assumptions. |
+| #   | Topic                            | Decision                                                                                                                                                                                                                                                                                 |
+| --- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | Storage of accounts and balances | In the database under the user's account: sign-in required for the portfolio pages, synced across devices, built like the accounting subsystem (userId-scoped tRPC + Drizzle, schema via drizzle-kit generate/migrate). The calculator tools stay public.                                |
+| P2  | What the sizing suggester shows  | Both, the user's documented rule first: the rule from the captions (prop-firm-trading skill) as the headline, with the engine optimum (DP / ladder search) alongside and the reason they differ.                                                                                         |
+| P3  | Page structure                   | Hub + child pages: `/prop-calculator` becomes a hub; each tool gets its own child page (for example simulator, compare, ladder lab, strategy lab, cash flow, and the new portfolio manager), sharing inputs through URL or shared state; old share links keep working through redirects. |
+| P4  | Per-account inputs               | Balance plus key extras: current balance, highest end-of-day balance (trailing drawdowns), stage (eval / funded / live), payouts taken and trading days; missing values default and are shown as assumptions.                                                                            |
 
 ## Standing rules
 

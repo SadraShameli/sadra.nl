@@ -310,6 +310,7 @@ describe('personalPayoutOverrideWarningText (PT-19i review, one text for every s
         overrideRequestSize: 750,
         retainedCushion: 2750,
         retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+        startBasis: StartBasis.Fresh,
     };
 
     it('names both request sizes, the funded horizon, both figures and the retained cushion with its basis', () => {
@@ -356,6 +357,7 @@ describe('personalPayoutOverrideWarningText names the basis of its figures (PT-1
         overrideRequestSize: 750,
         retainedCushion: 2750,
         retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+        startBasis: StartBasis.Fresh,
     };
 
     it('says credit-inclusive monthly net for a fresh-start sweep row', () => {

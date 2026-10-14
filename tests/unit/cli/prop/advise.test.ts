@@ -467,6 +467,7 @@ describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', ()
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
         const requests = advisor.optimumRequests();
@@ -489,6 +490,7 @@ describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', ()
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
         const advice = advisor.assemble([]);
@@ -516,6 +518,7 @@ describe('the full advise pipeline produces real Advice (F-133 step 1c/2/3)', ()
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
         const advice = advisor.assemble([]);
@@ -675,6 +678,7 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
         const rungs = advisor.dailyPlanCard()?.rungs ?? [];
@@ -703,6 +707,7 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
 
@@ -725,6 +730,7 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
         const day = dayProgressFromCounts(advisor, 1, 1);
@@ -748,6 +754,7 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
         const rungs = advisor.dailyPlanCard()?.rungs ?? [];
@@ -776,6 +783,7 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
         const rungs = advisor.dailyPlanCard()?.rungs ?? [];
@@ -811,6 +819,7 @@ describe('--wins-today, --losses-today, --proposed-risk (F-V18, F-V19, PT-24b st
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
         const activeDay = dayProgressFromCounts(advisor, 1, 1);
@@ -927,6 +936,7 @@ function evalAdviceForLadderSearch() {
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     const advisor = createSizingAdvisor(account, options);
     const requests = advisor.optimumRequests();
@@ -949,6 +959,7 @@ function fundedAdviceWithOverride(requestSize: string, trials: string) {
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     const advisor = createSizingAdvisor(account, options);
     const requests = advisor.optimumRequests();
@@ -1075,6 +1086,7 @@ describe('adviceReportLines: engine optima disclose their basis and standard err
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
         const requests = advisor.optimumRequests();
@@ -1155,6 +1167,7 @@ describe('adviceReportLines: minStopPointsAtCap flagged only above the entered s
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         const advisor = createSizingAdvisor(account, options);
         const requests = advisor.optimumRequests();
@@ -1204,6 +1217,7 @@ function nextPayoutProjectionLine(value: NextPayoutProjection): string {
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     const advice = createSizingAdvisor(account, options).assemble([
         { projection: value, source: AdviceSource.NextPayoutProjection },
@@ -1295,12 +1309,14 @@ describe('adviceReportLines: the next payout projection line reads the engine el
 async function adviseOutput(argv: readonly string[]): Promise<string> {
     const written: string[] = [];
     const previousExitCode = process.exitCode;
-    const stdout = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation(recordInto(written));
-    const stderr = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation(recordInto(written));
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation(recordInto(written)),
+        vi
+            .spyOn(process.stderr, 'write')
+            .mockImplementation(recordInto(written)),
+    ];
     try {
         await advise.run?.({
             args: parseArgs<typeof adviseArguments>([...argv], adviseArguments),
@@ -1308,8 +1324,7 @@ async function adviseOutput(argv: readonly string[]): Promise<string> {
             rawArgs: [...argv],
         });
     } finally {
-        stdout.mockRestore();
-        stderr.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = previousExitCode;
     }
     return stripVTControlCharacters(written.join(''));
@@ -1325,6 +1340,7 @@ function baseFundedAdvice() {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         ),
         options,
     ).assemble([]);
@@ -1522,6 +1538,7 @@ describe('prop advise prints the payout-size figures the web prints (PT-109 step
                 plan,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             ),
             options,
         );

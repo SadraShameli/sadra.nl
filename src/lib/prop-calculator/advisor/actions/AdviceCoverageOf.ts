@@ -55,6 +55,7 @@ export function adviceCoverageOf(
         plan,
         null,
         NO_PENDING_PAYOUT_COUNTS,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     let advisor;
     try {

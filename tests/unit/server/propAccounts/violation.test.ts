@@ -55,7 +55,7 @@ vi.mock('~/lib/observability/rate-limit', () => ({
     isWithinRateLimit: vi.fn(() => Promise.resolve(true)),
 }));
 
-const rateLimit = vi.mocked(isWithinRateLimit);
+const isWithinRateLimitMock = vi.mocked(isWithinRateLimit);
 
 function isDuplicateLookup(query: IssuedQuery): boolean {
     return (
@@ -433,10 +433,10 @@ describe('propAccounts.violation', () => {
     });
 
     it('rate-limits changes in the violation bucket per user', async () => {
-        rateLimit.mockClear();
+        isWithinRateLimitMock.mockClear();
         const { caller } = callerFor(SIGNED_IN, violationSelectsReturn([]));
         await caller.violation.create(OVERSIZE);
-        expect(rateLimit).toHaveBeenCalledWith(
+        expect(isWithinRateLimitMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 bucket: 'prop-accounts:violation',
                 key: USER_ID,

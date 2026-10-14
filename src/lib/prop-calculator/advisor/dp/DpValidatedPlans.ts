@@ -1,5 +1,6 @@
+import { DpGateFailureCode } from '~/lib/prop-calculator/advisor';
+
 import {
-    DpGateFailure,
     type DpGateRun,
     type DpValidationVerdict,
     evaluateDpGateRun,
@@ -26,7 +27,7 @@ export function dpValidationFor(
     return latest === undefined
         ? {
               citation: null,
-              failure: DpGateFailure.NoGateRun,
+              failure: DpGateFailureCode.NoGateRun,
               result: null,
               validated: false,
           }

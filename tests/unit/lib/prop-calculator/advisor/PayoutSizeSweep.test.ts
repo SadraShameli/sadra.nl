@@ -377,6 +377,7 @@ describe('runPayoutSizeSweep (PT-32)', () => {
             overrideRequestSize: overrideRow.requestSize,
             retainedCushion: documentedCushion.amount,
             retainedCushionBasis: documentedCushion.basis,
+            startBasis: StartBasis.Fresh,
         });
     });
 

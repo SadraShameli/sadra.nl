@@ -468,8 +468,11 @@ export function resolvedFirmAccountsOf(
     context: AlertContext,
 ): readonly ResolvedFirmAccount[] {
     return context.accounts.flatMap((monitored) => {
-        if (!isModeledMonitored(monitored)) return [];
-        if (monitored.plan.kind !== PlanKeyResolutionKind.Resolved) return [];
+        if (
+            !isModeledMonitored(monitored) ||
+            monitored.plan.kind !== PlanKeyResolutionKind.Resolved
+        )
+            return [];
         const firm = findStoredFirm(monitored.planKey.firmId);
         return firm === undefined
             ? []

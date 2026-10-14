@@ -45,7 +45,7 @@ vi.mock('~/lib/observability/rate-limit', () => ({
     isWithinRateLimit: vi.fn(() => Promise.resolve(true)),
 }));
 
-const rateLimit = vi.mocked(isWithinRateLimit);
+const isWithinRateLimitMock = vi.mocked(isWithinRateLimit);
 
 const MFFU_STATEMENT = {
     asOf: '2026-09-21',
@@ -151,10 +151,10 @@ describe('propAccounts.firmStatement', () => {
     });
 
     it('rate-limits changes in the firm statement bucket per user', async () => {
-        rateLimit.mockClear();
+        isWithinRateLimitMock.mockClear();
         const { caller } = callerFor(SIGNED_IN, tableResponder());
         await caller.firmStatement.create(MFFU_STATEMENT);
-        expect(rateLimit).toHaveBeenCalledWith(
+        expect(isWithinRateLimitMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 bucket: 'prop-accounts:firm-statement',
                 key: USER_ID,

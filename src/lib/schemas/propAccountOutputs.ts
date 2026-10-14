@@ -33,14 +33,12 @@ import {
 } from '~/lib/prop-accounts';
 import {
     AdviceSource,
-    DpAdviceStalenessReason,
-    SizingObjective,
-} from '~/lib/prop-calculator/advisor';
-import {
     dpAdviceGapsSchema,
     dpAdviceSamplesSchema,
+    DpAdviceStalenessReason,
     DpGateFailureCode,
-} from '~/lib/prop-calculator/advisor/DpAdviceRow';
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
 import { InstrumentSymbol } from '~/lib/prop-calculator/core';
 import {
     propAccount,

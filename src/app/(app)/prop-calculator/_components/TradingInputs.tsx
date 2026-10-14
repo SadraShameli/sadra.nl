@@ -931,13 +931,13 @@ export default function TradingInputs({
                         </div>
                     )}
                 </div>
-                {instrument !== null && stopPoints !== null ? (
+                {instrument === null || stopPoints === null ? null : (
                     <p className="mt-1 text-xs text-muted-foreground">
                         {isRiskCappedByContracts
                             ? `Capped to ${formatCurrency(feasibleRisk)}/trade in eval - ${evalContractCap ?? '?'} ${positionSizingSpec?.isMicro ? 'micro' : 'mini'} contract limit at a ${stopPoints}pt stop`
                             : `Fits within the eval contract limit at a ${stopPoints}pt stop`}
                     </p>
-                ) : null}
+                )}
                 {isSizingHintShown ? (
                     <div
                         aria-live="polite"

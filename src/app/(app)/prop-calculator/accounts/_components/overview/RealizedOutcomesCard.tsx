@@ -35,6 +35,9 @@ export function RealizedOutcomesCard({
                                 Sessions to funded
                             </TableHead>
                             <TableHead className="text-right">
+                                Modeled sessions to funded
+                            </TableHead>
+                            <TableHead className="text-right">
                                 Funded survival
                             </TableHead>
                             <TableHead className="text-right">
@@ -60,6 +63,9 @@ export function RealizedOutcomesCard({
                                 </TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.sessionsToFunded}
+                                </TableCell>
+                                <TableCell className="text-right text-muted-foreground tabular-nums">
+                                    {row.modeledSessionsToFunded}
                                 </TableCell>
                                 <TableCell className="text-right tabular-nums">
                                     {row.fundedSurvival}

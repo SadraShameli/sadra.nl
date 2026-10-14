@@ -15,6 +15,7 @@ import {
     AccountReconstruction,
     AccountSubstate,
     createSizingAdvisor,
+    DEFAULT_RULEBOOK,
     DifferenceReason,
     differenceReasonText,
     NO_PENDING_PAYOUT_COUNTS,
@@ -48,6 +49,7 @@ function adviceFor(argv: string[]) {
             plan,
             null,
             NO_PENDING_PAYOUT_COUNTS,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         ),
         options,
     );
@@ -147,6 +149,7 @@ describe('advise --suspended (PT-19h, F-118)', () => {
                 plan,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             ),
             options,
         );

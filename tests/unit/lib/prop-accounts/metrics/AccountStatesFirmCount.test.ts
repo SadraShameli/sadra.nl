@@ -121,6 +121,7 @@ function rowsOf(overrides: Partial<AccountStatesRows> = {}): AccountStatesRows {
     return {
         accounts: [accountRow()],
         events: [],
+        liveCushionPercent: DEFAULT_RULEBOOK.live.cushionPercent,
         payouts: [],
         snapshots: [snapshotRow()],
         ...overrides,

@@ -77,6 +77,8 @@ describe('the tools page keeps the live-transfer assumption (PT-73f)', () => {
         const response = {
             kind: ToolsResponseKind.FundedValueEstimate,
             result: {
+                dollarSampleRange: null,
+                fundedValue: { standardError: 300, value: 4500 },
                 liveTransfer: LIVE_TRANSFER,
                 meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
                 payoutCountDistribution: [0.1, 0.4, 0.3, 0.2],
@@ -95,6 +97,8 @@ describe('the tools page keeps the live-transfer assumption (PT-73f)', () => {
         const response = {
             kind: ToolsResponseKind.FundedValueEstimate,
             result: {
+                dollarSampleRange: null,
+                fundedValue: { standardError: 300, value: 4500 },
                 meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
                 payoutCountDistribution: [0.1, 0.4, 0.3, 0.2],
                 probabilityZeroPayouts: { standardError: 0.02, value: 0.1 },
@@ -119,6 +123,8 @@ describe('the tools page keeps the live-transfer assumption (PT-73f)', () => {
             parseToolsResult({
                 kind: ToolsResponseKind.FundedValueEstimate,
                 result: {
+                    dollarSampleRange: null,
+                    fundedValue: { standardError: 300, value: 4500 },
                     liveTransfer: { bias: 'neutral', hazard: 0.3 },
                     meanPayoutsPerAccount: { standardError: 0.2, value: 2.1 },
                     payoutCountDistribution: [1],

@@ -704,6 +704,7 @@ function AccountStateSection({
             events === undefined ||
             payouts === undefined ||
             snapshots === undefined ||
+            rulebook === undefined ||
             firmPayoutCount.kind !== FirmPayoutCountKind.Ready
         ) {
             return null;
@@ -717,6 +718,7 @@ function AccountStateSection({
             payouts,
             today,
             firmPayoutCount.count,
+            rulebook.live.cushionPercent,
         );
         const previousCount =
             previous === null ? null : firmPayoutCountAt(previous.asOf);
@@ -732,6 +734,7 @@ function AccountStateSection({
                       payouts,
                       previous.asOf,
                       previousCount.count,
+                      rulebook.live.cushionPercent,
                   );
         const liveRules = liveRulesCardOf(plan, liveAccountOf(state));
         const performance =
@@ -755,6 +758,7 @@ function AccountStateSection({
         firmPayoutCountAt,
         payouts,
         plan,
+        rulebook,
         snapshots,
         today,
     ]);
@@ -784,11 +788,25 @@ function AccountStateSection({
         </Alert>
     );
 
+    const rulebookFailure = rulebook === undefined &&
+        rulebookError !== null && (
+            <Alert variant="destructive">
+                <TriangleAlert />
+                <AlertTitle>Your rulebook could not be loaded</AlertTitle>
+                <AlertDescription>
+                    {rulebookError} The account state is not shown, because a
+                    live account is sized from your rulebook&apos;s live cushion
+                    percent.
+                </AlertDescription>
+            </Alert>
+        );
+
     if (view === null) {
-        return hasQueryError || firmCountFailure ? (
+        return hasQueryError || firmCountFailure || rulebookFailure ? (
             <>
                 {queryErrors}
                 {firmCountFailure}
+                {rulebookFailure}
             </>
         ) : (
             <div

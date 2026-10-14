@@ -16,10 +16,10 @@ export enum ToolLinkKind {
 }
 
 export function classifyToolLink(from: string, to: string): ToolLinkKind {
-    return toolForPathname(pathOf(from)) !== null &&
-        toolForPathname(pathOf(to)) !== null
-        ? ToolLinkKind.InGroup
-        : ToolLinkKind.Boundary;
+    return toolForPathname(pathOf(from)) === null ||
+        toolForPathname(pathOf(to)) === null
+        ? ToolLinkKind.Boundary
+        : ToolLinkKind.InGroup;
 }
 
 export function openInSimulatorActions(

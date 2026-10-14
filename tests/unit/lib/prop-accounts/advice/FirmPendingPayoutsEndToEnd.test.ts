@@ -201,6 +201,7 @@ function reconstructedFor(
         plan,
         personalMaxRiskPerTrade,
         pendingPayoutCounts,
+        DEFAULT_RULEBOOK.live.cushionPercent,
     );
     if (
         account.kind === ReconstructedLiveKind.Live ||

@@ -17,7 +17,10 @@ import {
     evalValueLossDollarsOf,
     previousAccountOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
-import { type SlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
+import {
+    type SlotEngine,
+    uniformSlotEngine,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import {
     type FirmPayoutCount,
     FirmPayoutCountResultKind,
@@ -174,6 +177,7 @@ function scenarioOf(
     const [state] = accountStatesOf(USER_ID, WEDNESDAY, {
         accounts: [row],
         events: [],
+        liveCushionPercent: DEFAULT_RULEBOOK.live.cushionPercent,
         payouts: [],
         snapshots,
     });
@@ -294,7 +298,7 @@ function engineWithFigures(
 ): SlotEngine {
     const key = overviewRequestKey(run.request);
     return {
-        failure: null,
+        ...uniformSlotEngine(null),
         outcomes: new Map([
             [
                 key,
@@ -363,6 +367,7 @@ function runOf(): WorkerRun {
             PLAN,
             null,
             counts,
+            DEFAULT_RULEBOOK.live.cushionPercent,
         );
         if (account.kind === ReconstructedLiveKind.Live) {
             throw new Error('expected an eval account');
@@ -371,7 +376,7 @@ function runOf(): WorkerRun {
     };
     return {
         engine: {
-            failure: null,
+            ...uniformSlotEngine(null),
             outcomes: new Map([[outcome.key, outcome]]),
         },
         figures,
@@ -423,13 +428,16 @@ describe('the eval day loss is the change in the from-state value (PT-90, F-V29)
 
     it('leaves out an account whose worker result is still pending, refused or failed', () => {
         const entries = [{ accountId: ACCOUNT_ID, request: run.request }];
-        const pending: SlotEngine = { failure: null, outcomes: new Map() };
+        const pending: SlotEngine = {
+            ...uniformSlotEngine(null),
+            outcomes: new Map(),
+        };
         const failed: SlotEngine = {
-            failure: 'worker crashed',
+            ...uniformSlotEngine('worker crashed'),
             outcomes: new Map(),
         };
         const refused: SlotEngine = {
-            failure: null,
+            ...uniformSlotEngine(null),
             outcomes: new Map([
                 [
                     overviewRequestKey(run.request),

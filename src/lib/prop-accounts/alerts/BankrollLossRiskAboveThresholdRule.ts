@@ -18,18 +18,24 @@ export class BankrollLossRiskAboveThresholdRule extends AlertRule {
     evaluate(context: AlertContext): readonly AccountAlert[] {
         const threshold = context.rulebook.bankroll.lossRiskThreshold;
         const result = context.realizedLossRisk;
-        if (threshold === null || result === null) return [];
-        if (result.reason === EconomicsReason.NoPositiveEdge) return [];
+        if (
+            threshold === null ||
+            result === null ||
+            result.reason === EconomicsReason.NoPositiveEdge
+        )
+            return [];
         const sampleLevel = sampleAdequacy(
             SampleKind.EvalAttempts,
             result.sampleCount,
             context.rulebook.samples,
         );
-        if (sampleLevel === null || sampleLevel === SampleLevel.None) {
+        if (
+            sampleLevel === null ||
+            sampleLevel === SampleLevel.None ||
+            result.batchLossProbability === null ||
+            result.batchLossProbability.value <= threshold
+        )
             return [];
-        }
-        if (result.batchLossProbability === null) return [];
-        if (result.batchLossProbability.value <= threshold) return [];
         return [
             {
                 disclosures: [],

@@ -99,6 +99,7 @@ function documentedFigures(): DocumentedRunFigures {
         attemptPassProbability: estimate(0.3),
         costPerAttempt: estimate(100),
         costPerFundedAccount: 300,
+        daysToPass: null,
         expectedMonthlyNet: estimate(300),
         expectedMonthlyRealizedNet: estimate(280),
         expectedNetPerAttempt: estimate(50),
@@ -125,7 +126,7 @@ function engineOf(
             outcomes.set(overviewRequestKey(request), outcome);
         }
     }
-    return { failure: null, outcomes };
+    return { ...uniformSlotEngine(null), outcomes };
 }
 
 function estimate(value: number) {
@@ -282,7 +283,7 @@ describe('nextSlotModelOf with an unverified policy', () => {
 
     it('shows every plan as still computing before any engine run has answered and as provisional', () => {
         const model = nextSlotModelOf({
-            engine: { failure: null, outcomes: new Map() },
+            engine: { ...uniformSlotEngine(null), outcomes: new Map() },
             ledger: ledger({}),
             requests,
             rulebook: DEFAULT_RULEBOOK,

@@ -40,12 +40,14 @@ async function adviseJson(argv: readonly string[]): Promise<JsonAdvice> {
     if (cached !== undefined) return cached;
     const written: string[] = [];
     const previousExitCode = process.exitCode;
-    const stdout = vi
-        .spyOn(process.stdout, 'write')
-        .mockImplementation(recordInto(written));
-    const stderr = vi
-        .spyOn(process.stderr, 'write')
-        .mockImplementation(recordInto(written));
+    const writeSpies = [
+        vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation(recordInto(written)),
+        vi
+            .spyOn(process.stderr, 'write')
+            .mockImplementation(recordInto(written)),
+    ];
     try {
         await advise.run?.({
             args: parseArgs<typeof adviseArguments>([...argv], adviseArguments),
@@ -53,8 +55,7 @@ async function adviseJson(argv: readonly string[]): Promise<JsonAdvice> {
             rawArgs: [...argv],
         });
     } finally {
-        stdout.mockRestore();
-        stderr.mockRestore();
+        for (const spy of writeSpies) spy.mockRestore();
         process.exitCode = previousExitCode;
     }
     const advice = JSON.parse(written.join('')) as JsonAdvice;

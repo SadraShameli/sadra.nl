@@ -18,6 +18,7 @@ import {
     AccountFromStateViewKind,
     accountFromStateViewOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
+import { uniformSlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import { NextPayoutCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/NextPayoutCard';
 import { type NextPayoutCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { usdCents } from '~/lib/prop-accounts';
@@ -111,7 +112,10 @@ function readyView(request: OverviewRequest) {
         },
     };
     return accountFromStateViewOf(
-        { failure: null, outcomes: new Map([[outcome.key, outcome]]) },
+        {
+            ...uniformSlotEngine(null),
+            outcomes: new Map([[outcome.key, outcome]]),
+        },
         request,
     );
 }
@@ -242,6 +246,7 @@ describe('from-state views', () => {
                 PLAN,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             render(<LiveTransitionPreviewCard account={account} plan={PLAN} />);
             expect(container.textContent).toContain('$10,000');
@@ -344,6 +349,7 @@ describe('from-state views', () => {
                     PLAN,
                     null,
                     NO_PENDING_PAYOUT_COUNTS,
+                    DEFAULT_RULEBOOK.live.cushionPercent,
                 );
                 render(
                     <NextPayoutSectionWithWorker
@@ -393,6 +399,7 @@ describe('from-state views', () => {
                     PLAN,
                     null,
                     NO_PENDING_PAYOUT_COUNTS,
+                    DEFAULT_RULEBOOK.live.cushionPercent,
                 );
                 render(
                     <NextPayoutSectionWithWorker
@@ -426,6 +433,7 @@ describe('from-state views', () => {
                     PLAN,
                     null,
                     NO_PENDING_PAYOUT_COUNTS,
+                    DEFAULT_RULEBOOK.live.cushionPercent,
                 );
                 const props = {
                     account,
@@ -476,6 +484,7 @@ describe('from-state views', () => {
                     PLAN,
                     null,
                     NO_PENDING_PAYOUT_COUNTS,
+                    DEFAULT_RULEBOOK.live.cushionPercent,
                 );
                 const props = {
                     account,
@@ -527,6 +536,7 @@ describe('from-state views', () => {
                     PLAN,
                     null,
                     NO_PENDING_PAYOUT_COUNTS,
+                    DEFAULT_RULEBOOK.live.cushionPercent,
                 );
                 render(
                     <NextPayoutSectionWithWorker
@@ -563,6 +573,7 @@ describe('from-state views', () => {
                     PLAN,
                     null,
                     NO_PENDING_PAYOUT_COUNTS,
+                    DEFAULT_RULEBOOK.live.cushionPercent,
                 );
                 render(
                     <NextPayoutSectionWithWorker
@@ -595,6 +606,7 @@ describe('from-state views', () => {
                 PLAN,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             render(
                 <NextPayoutSectionWithWorker
@@ -624,6 +636,7 @@ describe('from-state views', () => {
                 PLAN,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             render(
                 <NextPayoutSectionWithWorker
@@ -655,6 +668,7 @@ describe('from-state views', () => {
                 PLAN,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             render(
                 <NextPayoutSectionWithWorker
@@ -680,6 +694,7 @@ describe('from-state views', () => {
                 PLAN,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             render(
                 <NextPayoutSectionWithWorker
@@ -703,6 +718,7 @@ describe('from-state views', () => {
                 PLAN,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             render(
                 <NextPayoutSectionWithWorker
@@ -727,6 +743,7 @@ describe('from-state views', () => {
                 PLAN,
                 null,
                 NO_PENDING_PAYOUT_COUNTS,
+                DEFAULT_RULEBOOK.live.cushionPercent,
             );
             render(
                 <NextPayoutSectionWithWorker

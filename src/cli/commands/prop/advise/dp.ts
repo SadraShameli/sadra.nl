@@ -42,8 +42,19 @@ import {
     differenceReasonText,
     documentedPeakRiskOf,
     type DocumentedSizing,
+    DP_ADVICE_SOLVER_VERSION,
+    DP_GATE_FAILURE_TEXT,
+    DP_SAMPLES_UNAVAILABLE_TEXT,
+    type DpAdviceGapEntry,
     type DpAdviceRow,
+    dpGateFailureText,
+    dpMoney,
+    dpOwnGapText,
+    type DpRiskSample,
+    DpSamplesKind,
+    DpSampleStage,
     InstantFundedEvalAdvisorError,
+    isFundedDpModelGap,
     type MeasuredRebuyLag,
     type ReconstructedAccount,
     ReconstructedLiveKind,
@@ -59,7 +70,6 @@ import {
     dpConfigKey,
     dpEligibility,
     type DpEligibility,
-    DpGateFailure,
     type DpSolutionView,
     type DpSolveConfig,
     dpSolveConfigFor,
@@ -67,22 +77,6 @@ import {
     dpValidationFor,
     ineligibleDpAdvice,
 } from '~/lib/prop-calculator/advisor/dp';
-import {
-    DP_ADVICE_SOLVER_VERSION,
-    type DpAdviceGapEntry,
-    DpGateFailureCode,
-    type DpRiskSample,
-    DpSamplesKind,
-    DpSampleStage,
-} from '~/lib/prop-calculator/advisor/DpAdviceRow';
-import {
-    DP_GATE_FAILURE_TEXT,
-    DP_SAMPLES_UNAVAILABLE_TEXT,
-    dpGateFailureText,
-    dpMoney,
-    dpOwnGapText,
-    isFundedDpModelGap,
-} from '~/lib/prop-calculator/advisor/DpAdviceText';
 import {
     type AverageRewardConfig,
     RateSearchStatus,
@@ -333,19 +327,6 @@ const SKIP_REASON_TEXT: Readonly<Record<DpSkipReason, string>> = {
         'the solve did not converge, so no DP sizing is shown or stored',
     [DpSkipReason.StateUnavailable]:
         'the account state could not be rebuilt from its latest snapshot',
-};
-
-const GATE_FAILURE_CODE: Readonly<Record<DpGateFailure, DpGateFailureCode>> = {
-    [DpGateFailure.BelowBestFlat]: DpGateFailureCode.BelowBestFlat,
-    [DpGateFailure.InstrumentMismatch]: DpGateFailureCode.InstrumentMismatch,
-    [DpGateFailure.NoGateRun]: DpGateFailureCode.NoGateRun,
-    [DpGateFailure.PayoutPolicyMismatch]:
-        DpGateFailureCode.PayoutPolicyMismatch,
-    [DpGateFailure.RetainedCushionMismatch]:
-        DpGateFailureCode.RetainedCushionMismatch,
-    [DpGateFailure.SolveNotConverged]: DpGateFailureCode.SolveNotConverged,
-    [DpGateFailure.StaleTree]: DpGateFailureCode.StaleTree,
-    [DpGateFailure.StopMismatch]: DpGateFailureCode.StopMismatch,
 };
 
 export const adviseDpArguments = {
@@ -659,6 +640,7 @@ async function loadDpDatabaseTargets(input: {
             personalRules: account.personalRules ?? undefined,
         })),
         events,
+        liveCushionPercent: rulebook.live.cushionPercent,
         payouts,
         snapshots,
     });
@@ -1273,9 +1255,7 @@ function preflightSkip(item: DpPlanned): DpSkip | null {
     return validation.validated
         ? null
         : {
-              detail: DP_GATE_FAILURE_TEXT[
-                  GATE_FAILURE_CODE[validation.failure]
-              ],
+              detail: DP_GATE_FAILURE_TEXT[validation.failure],
               reason: DpSkipReason.EvalNotValidated,
           };
 }
@@ -1437,9 +1417,7 @@ async function storeRow(
         eligible: input.ineligibleReason === null,
         gaps: advice.gaps,
         gateFailure:
-            advice.notValidated === null
-                ? null
-                : GATE_FAILURE_CODE[advice.notValidated.failure],
+            advice.notValidated === null ? null : advice.notValidated.failure,
         gateResult: advice.notValidated?.result ?? null,
         ineligibleReason: input.ineligibleReason,
         objective: advice.objective,
@@ -1466,7 +1444,7 @@ function validationLine(advice: DpAdvice): string {
             ? ''
             : ` (${citation.file}, row "${citation.row}", ${citation.date})`;
     const failure = dpGateFailureText(
-        GATE_FAILURE_CODE[notValidated.failure],
+        notValidated.failure,
         notValidated.result,
     );
     return `DP not validated: ${failure}${cited}. Treat these figures as an unvalidated estimate, never as the sizing rule`;

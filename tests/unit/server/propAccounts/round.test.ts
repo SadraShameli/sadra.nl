@@ -53,7 +53,7 @@ vi.mock('~/lib/observability/rate-limit', () => ({
     isWithinRateLimit: vi.fn(() => Promise.resolve(true)),
 }));
 
-const rateLimit = vi.mocked(isWithinRateLimit);
+const isWithinRateLimitMock = vi.mocked(isWithinRateLimit);
 
 const ROUND_UPDATE = {
     budgetCents: 150_000,
@@ -437,13 +437,13 @@ describe('propAccounts.round', () => {
     });
 
     it('rate-limits changes in the round bucket per user', async () => {
-        rateLimit.mockClear();
+        isWithinRateLimitMock.mockClear();
         const { caller } = callerFor(SIGNED_IN, tableResponder());
         await caller.round.close({
             closedOn: '2026-09-30',
             id: VIDEO_IDS.round,
         });
-        expect(rateLimit).toHaveBeenCalledWith(
+        expect(isWithinRateLimitMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 bucket: 'prop-accounts:round',
                 key: USER_ID,
