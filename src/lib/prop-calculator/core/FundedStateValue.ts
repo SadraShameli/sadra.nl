@@ -106,6 +106,16 @@ export interface FundedCycleBaselineRounding {
     readonly topDollars: number;
 }
 
+export interface FundedGridBounds {
+    readonly cycleBaselineTopDollars: number;
+    readonly lockedCushionTopDollars: number;
+    readonly lockedPayoutFloor: number;
+    readonly payoutRegimeCap: number;
+    readonly preLockOffsetTopDollars: number;
+    readonly startingBalance: number;
+    readonly unlockedCushionTopDollars: number;
+}
+
 export interface FundedResolvedCushionGrid extends FundedCushionGridSummary {
     readonly lockedTopDollars: number;
 }
@@ -531,6 +541,31 @@ export function fundedCalendarWeekInactivityDpGap(plan: Plan): null | string {
     return rule === null
         ? null
         : `${plan.label} closes its funded phase for an empty ${rule.sessionsPerWeek}-session calendar week, which this exact DP does not model (it tracks only Plan.maxConsecutiveIdleDays as a rolling idle-day count): a nonzero idle-day probability closes zero accounts here for inactivity`;
+}
+
+export function fundedGridBoundsOf(
+    config: FundedStateValueConfig,
+): FundedGridBounds {
+    return gridBoundsOf(buildFundedSolveContext(config, () => 0));
+}
+
+export function isBeyondFundedGrid(
+    bounds: FundedGridBounds,
+    state: AccountState,
+    fundedCycle?: FundedCycleSnapshot,
+): boolean {
+    const cushionTopDollars = state.thresholdLocked
+        ? bounds.lockedCushionTopDollars
+        : bounds.unlockedCushionTopDollars;
+    if (state.balance - state.threshold >= cushionTopDollars - BUCKET_EPSILON) {
+        return true;
+    }
+    const lastPayoutBalance =
+        fundedCycle?.lastPayoutBalance ?? bounds.startingBalance;
+    return (
+        lastPayoutBalance - bounds.lockedPayoutFloor >=
+        bounds.cycleBaselineTopDollars - BUCKET_EPSILON
+    );
 }
 
 export function sweepToConvergence(options: SweepToConvergenceOptions): number {
@@ -1652,6 +1687,25 @@ function fundedResetLayerCountOf(plan: Plan, payoutRegimeCap: number): number {
         }
     }
     return fundedResetsBeforeFirstPayout(plan);
+}
+
+function gridBoundsOf(context: FundedSolveContext): FundedGridBounds {
+    return {
+        cycleBaselineTopDollars: context.cycleBaselineGrid.dollarsAt(
+            context.cycleBaselineGrid.size - 1,
+        ),
+        lockedCushionTopDollars: context.cushionGrid.dollarsAt(
+            context.lockedCushionBucketCount - 1,
+        ),
+        lockedPayoutFloor: context.lockedPayoutFloor,
+        payoutRegimeCap: context.payoutRegimeCap,
+        preLockOffsetTopDollars:
+            (context.offsetBucketCount - 1) * context.cushionStepDollars,
+        startingBalance: context.startingBalance,
+        unlockedCushionTopDollars: context.cushionGrid.dollarsAt(
+            context.unlockedCushionBucketCount - 1,
+        ),
+    };
 }
 
 function groupCountAt(context: FundedSolveContext, regime: number): number {
@@ -3540,26 +3594,13 @@ export function computeFundedStateValue(
         PolicySizing.WholeContracts,
     );
 
+    const gridBounds = gridBoundsOf(mainContext);
+
     function isGridSaturated(
         state: AccountState,
         fundedCycle?: FundedCycleSnapshot,
     ): boolean {
-        const cushionDollars = state.balance - state.threshold;
-        const cushionTopBucketCount = state.thresholdLocked
-            ? lockedCushionBucketCount
-            : unlockedCushionBucketCount;
-        const cushionTopDollars = mainContext.cushionGrid.dollarsAt(
-            cushionTopBucketCount - 1,
-        );
-        if (cushionDollars >= cushionTopDollars - BUCKET_EPSILON) return true;
-        const lastPayoutBalance =
-            fundedCycle?.lastPayoutBalance ?? mainContext.startingBalance;
-        const cycleBaselineDollars =
-            lastPayoutBalance - mainContext.lockedPayoutFloor;
-        const cycleBaselineTopDollars = mainContext.cycleBaselineGrid.dollarsAt(
-            mainContext.cycleBaselineGrid.size - 1,
-        );
-        return cycleBaselineDollars >= cycleBaselineTopDollars - BUCKET_EPSILON;
+        return isBeyondFundedGrid(gridBounds, state, fundedCycle);
     }
 
     return {
