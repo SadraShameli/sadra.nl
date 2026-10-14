@@ -177,6 +177,8 @@ describe('firmReconciliation', () => {
             }),
         );
         expect(result[0]?.grossOnlyCount).toBe(1);
+        expect(result[0]?.ledgerPaidCents).toBe(80_000);
+        expect(result[0]?.differenceCents).toBe(0);
     });
 
     it('computes the change and decrease from the previous statement', () => {
