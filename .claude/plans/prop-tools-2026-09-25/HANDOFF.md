@@ -22,14 +22,18 @@ Done, each with a test that fails on the old code:
 - PT-81b: the levers card reads the library's loss-risk delta; one realized-risk module; one bankroll URL enum; funded value fields required; `spendPayoutCurveOfRun`.
 - PT-114: `AccountReconstruction.rebuild` takes the rulebook's live cushion percent at every caller (the detail page now waits for the rulebook and says so if it fails to load).
 - PT-109b step 3, PT-30a2's code part (one `DpGateFailureCode`, DP texts from the advisor barrel), WP66b's shared `DEFAULT_TRADES_PER_DAY`, the `fundedWinnerPolicyOf` duplicate removed.
+- PT-109b steps 1, 2, 4, 5 and 6, PT-76, PT-91, PT-98 and the follow-ups of every partial parent (PT-42, 53e, 56, 56b, 57, 58a, 61, 62, 65, 71, 71e): checked against the code; each landed with its tests, which pass.
+- PT-30a2 step 3: `fundedGridBoundsOf` and `isBeyondFundedGrid` in `FundedStateValue.ts`, with `FundedStateValueStateFit.test.ts` (the solver's own saturation check now calls the same helper).
+- PT-116: the payout-size re-measure on the final engine, `engine-results/2026-10-14-payout-size-remeasure.md`. The optimum request beats the documented $500 on all 44 buyable plans by more than 2 SE. This answers tools-U22 with data: the default of $500 stays as you decided, and the optimum shown beside it is now measured on the final engine.
+- PT-T1e and PT-T1f: on an idle machine no listed test passes 2 s. Under a saturated PC (three DP solves, load 48 on 32 cores) 32 tests in the DP-heavy files pass 5 s, so run the suite when no DP solve is running.
 - Tests: the unit project runs isolated again (`vitest.config.ts`). With `isolate: false`, a file's `vi.mock` did nothing when another file in the worker had loaded the module first, so `shared.test.ts` ran a real Alpha Zero DP solve and the suite hung for over 30 minutes, and two mock-based tests failed depending on worker order. The full suite now takes about 80 s. The two skips are the conditional ones in `recentTools.test.ts`.
 - Lint: the 93 errors from the rules enabled in 913fbfee are fixed (spy variables kept in arrays, boolean helpers renamed, ternaries simplified), and prettier was applied repo-wide.
 
 Not done:
 
 - WP66b R1, R2 and R6 (the DP inner-loop speed work): they need the default-grid TopStep solve on the PC for bit identity and timing.
-- PT-30a2's gate re-run and DP pins (after WP66b), the DP figure reruns, PT-116 and the N-89 redesign.
-- PT-109b steps 1, 2, 4, 5 and 6 were not checked in this sweep.
+- PT-30a2's gate re-run (running on the PC, see below), the DP pins and the N-89 redesign.
+- PT-30a2's DpStateValues and `prop advise --dp --values --candidates`: the funded DP has no value lookup for an arbitrary state, and mid-day win and loss states are not DP keys, so a lookup would have to map onto the solver's key layout first.
 - Migrations 0007 to 0015 are still not applied.
 
 ## 1. UI paths to check in your dev server
