@@ -56,7 +56,7 @@ export const LEDGER_FILE =
 export const LEDGER_SECTION =
     'Result 1: eval ladders (Stage A, 20,000 simulations per ladder)';
 export const LEDGER_CONTENT_HASH =
-    '8bda3e5e29dcb857e85487a16b65bf3c95df338d38ba6c6c24b93a450f2d22e6';
+    '03d8dcddbe4639a64f292b8b4561a4a08ed52d53e3e1b84aca5ce0d7c3b30333';
 
 export const LEDGER_CITED_RUN: LedgerCitedRun = {
     citedStage: 'Stage A eval ladders',

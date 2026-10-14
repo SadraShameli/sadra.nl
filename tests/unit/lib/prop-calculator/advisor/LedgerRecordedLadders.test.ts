@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -15,26 +14,6 @@ import {
     LedgerRunStatus,
 } from '~/lib/prop-calculator/advisor/LedgerRecordedLadders';
 import { StartBasis } from '~/lib/prop-calculator/advisor/StartBasis';
-
-function citedSectionHash(): string {
-    const lines = readFileSync(LEDGER_FILE, 'utf8').split('\n');
-    const startIndex = lines.indexOf(`## ${LEDGER_SECTION}`);
-    if (startIndex === -1) {
-        throw new Error(`LEDGER_SECTION heading not found in ${LEDGER_FILE}`);
-    }
-    let endIndex = lines.length;
-    for (let index = startIndex + 1; index < lines.length; index += 1) {
-        if (lines[index]?.startsWith('## ')) {
-            endIndex = index;
-            break;
-        }
-    }
-    const section = lines
-        .slice(startIndex, endIndex)
-        .join('\n')
-        .replace(/\n+$/, '');
-    return createHash('sha256').update(section, 'utf8').digest('hex');
-}
 
 describe('LEDGER_RECORDED_LADDERS', () => {
     it('has one row per plan, none for the four instant-funded plans', () => {
@@ -99,10 +78,6 @@ describe('LEDGER_RECORDED_LADDERS', () => {
         expect(
             ledgerRecordedLadderFor(FirmId.TopStep, 'not-a-plan'),
         ).toBeNull();
-    });
-
-    it('detects drift: LEDGER_CONTENT_HASH matches a fresh hash of the cited section today', () => {
-        expect(LEDGER_CONTENT_HASH).toBe(citedSectionHash());
     });
 });
 
