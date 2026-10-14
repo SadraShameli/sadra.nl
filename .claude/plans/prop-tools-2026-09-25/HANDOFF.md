@@ -31,10 +31,11 @@ Done, each with a test that fails on the old code:
 
 Not done:
 
-- WP66b R1, R2 and R6 (the DP inner-loop speed work): they need the default-grid TopStep solve on the PC for bit identity and timing.
+- WP66b: R1's first part landed (67e68d2c, exact, about 1.2x on a coarse TopStep run). The rest of R1, R2 and R6 are not done: their design doc is lost, R2 changes results, and a default-grid CPU profile did not finish within 30 minutes on the loaded PC.
 - PT-30a2's gate re-run (running on the PC, see below), the DP pins and the N-89 redesign.
 - PT-30a2's DpStateValues and `prop advise --dp --values --candidates`: the funded DP has no value lookup for an arbitrary state, and mid-day win and loss states are not DP keys, so a lookup would have to map onto the solver's key layout first.
 - Migrations 0007 to 0015 are still not applied.
+- G1, G2 and PT-50 (the santa gates and the final pass) need two independent reviewer agents per item, so they did not run under the no-agent instruction. PT-35 waits for G2 and PT-35b.
 
 ## 1. UI paths to check in your dev server
 
