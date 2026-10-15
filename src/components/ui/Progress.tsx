@@ -15,6 +15,7 @@ const Progress = React.forwardRef<
             className,
         )}
         ref={reference}
+        value={value}
         {...properties}
     >
         <ProgressPrimitive.Indicator
