@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
 import { useCachedWorkerTask } from '~/app/(app)/prop-calculator/_components/useCachedWorkerTask';
@@ -9,6 +9,7 @@ import {
     type WorkerTaskState,
 } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import {
+    mergeOverviewProgress,
     type OverviewRequest,
     OverviewRequestGroup,
     overviewRequestsByGroup,
@@ -16,6 +17,7 @@ import {
     type OverviewWorkerRequest,
     type OverviewWorkerResult,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
+import { type ProgressCoalescing } from '~/app/(app)/prop-calculator/_workers/ProgressCoalescer';
 
 import {
     type GroupDelivery,
@@ -26,13 +28,10 @@ import { NO_OVERVIEW_ENGINE, type OverviewEngine } from './overviewModel';
 
 const WORKERS_UNAVAILABLE = 'Web workers are not available in this browser.';
 
-const PROGRESS_INTERVAL_MS = 400;
-
-interface ShownProgress<Value> {
-    readonly jobKey: null | string;
-    readonly shownAt: number;
-    readonly value: Value;
-}
+const OVERVIEW_PROGRESS_COALESCING: ProgressCoalescing<OverviewWorkerResult> = {
+    intervalMs: 400,
+    merge: mergeOverviewProgress,
+};
 
 export function useOverviewWorker(
     requests: readonly OverviewRequest[],
@@ -128,46 +127,14 @@ function useRequestGroupTask(
         ComputationId.Overview,
         OverviewWorkerRequest,
         OverviewWorkerResult
-    >({ createWorker: createOverviewWorker, id: ComputationId.Overview, job });
-    const delivered = useThrottledProgress(
-        deliveredOf(state),
-        state.phase === WorkerTaskPhase.Running ? (job?.key ?? null) : null,
-    );
+    >({
+        createWorker: createOverviewWorker,
+        id: ComputationId.Overview,
+        job,
+        progressCoalescing: OVERVIEW_PROGRESS_COALESCING,
+    });
+    const delivered = deliveredOf(state);
     const failure =
         state.phase === WorkerTaskPhase.Failed ? state.reason : null;
     return useMemo(() => ({ delivered, failure }), [delivered, failure]);
-}
-
-function useThrottledProgress<Value>(
-    value: Value,
-    runningJobKey: null | string,
-): Value {
-    const [shown, setShown] = useState<ShownProgress<Value>>({
-        jobKey: runningJobKey,
-        shownAt: -Infinity,
-        value,
-    });
-    if (shown.jobKey !== runningJobKey) {
-        setShown({ jobKey: runningJobKey, shownAt: -Infinity, value });
-    }
-    useEffect(() => {
-        if (runningJobKey === null || shown.value === value) return;
-        const show = () => {
-            setShown({
-                jobKey: runningJobKey,
-                shownAt: performance.now(),
-                value,
-            });
-        };
-        const wait = shown.shownAt + PROGRESS_INTERVAL_MS - performance.now();
-        if (wait <= 0) {
-            show();
-            return;
-        }
-        const timer = setTimeout(show, wait);
-        return () => {
-            clearTimeout(timer);
-        };
-    }, [runningJobKey, shown, value]);
-    return runningJobKey === null ? value : shown.value;
 }

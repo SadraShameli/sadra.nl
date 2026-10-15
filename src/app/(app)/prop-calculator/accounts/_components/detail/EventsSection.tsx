@@ -19,6 +19,7 @@ import { accountEventKindLabel } from '~/app/(app)/prop-calculator/accounts/_com
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 import { Checkbox } from '~/components/ui/Checkbox';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import {
     Form,
     FormControl,
@@ -29,7 +30,6 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import {
     Select,
     SelectContent,
@@ -493,7 +493,10 @@ function EventForm({
                 )}
                 {exclusivity !== null &&
                     exclusivity.confirmedAccountIds.length > 0 && (
-                        <div className="flex items-center gap-2 md:col-span-2">
+                        <Field
+                            className="md:col-span-2"
+                            orientation="horizontal"
+                        >
                             <Checkbox
                                 checked={suspendedIds.length > 0}
                                 id={suspendId}
@@ -505,10 +508,10 @@ function EventForm({
                                     );
                                 }}
                             />
-                            <Label htmlFor={suspendId}>
+                            <FieldLabel htmlFor={suspendId}>
                                 Suspend these accounts when recording
-                            </Label>
-                        </div>
+                            </FieldLabel>
+                        </Field>
                     )}
                 {isAwaitingSuspensions && (
                     <p className="text-sm text-muted-foreground md:col-span-2">
@@ -517,7 +520,7 @@ function EventForm({
                     </p>
                 )}
                 {shown?.requiresConfirmation === true && (
-                    <div className="flex items-center gap-2 md:col-span-2">
+                    <Field className="md:col-span-2" orientation="horizontal">
                         <Checkbox
                             checked={isConfirmed}
                             id={confirmId}
@@ -527,10 +530,10 @@ function EventForm({
                                 );
                             }}
                         />
-                        <Label htmlFor={confirmId}>
+                        <FieldLabel htmlFor={confirmId}>
                             I have read what recording this event changes
-                        </Label>
-                    </div>
+                        </FieldLabel>
+                    </Field>
                 )}
                 <div className="md:col-span-2">
                     <Button

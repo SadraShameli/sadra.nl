@@ -1,3 +1,5 @@
+import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
+import { Collapsible, CollapsibleContent } from '~/components/ui/Collapsible';
 import { type FirmId } from '~/lib/prop-calculator';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
 
@@ -20,16 +22,18 @@ export function ProvenanceLine({
             {text.openItems.length === 0 ? (
                 <p>{text.openItemsSummary}</p>
             ) : (
-                <details>
-                    <summary className="cursor-pointer">
+                <Collapsible className="flex flex-col">
+                    <DisclosureTrigger className="text-xs">
                         {text.openItemsSummary}
-                    </summary>
-                    <ul className="list-disc pl-4">
-                        {text.openItems.map((item) => (
-                            <li key={item}>{item}</li>
-                        ))}
-                    </ul>
-                </details>
+                    </DisclosureTrigger>
+                    <CollapsibleContent>
+                        <ul className="list-disc pl-4">
+                            {text.openItems.map((item) => (
+                                <li key={item}>{item}</li>
+                            ))}
+                        </ul>
+                    </CollapsibleContent>
+                </Collapsible>
             )}
         </div>
     );

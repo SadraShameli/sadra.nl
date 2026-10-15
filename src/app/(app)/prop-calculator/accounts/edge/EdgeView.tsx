@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import { pageEncodeOptions } from '~/app/(app)/prop-calculator/_components/calculatorUrlSync';
 import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
 import { SampleBadge } from '~/app/(app)/prop-calculator/accounts/_components/overview/SampleBadge';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
@@ -18,8 +19,8 @@ import {
     CardTitle,
 } from '~/components/ui/Card';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { formatPercent, formatR } from '~/lib/format';
 import {
@@ -168,8 +169,8 @@ function EdgeDateField({
 }) {
     const issueId = `${id}-issue`;
     return (
-        <div className="flex flex-col gap-2">
-            <Label htmlFor={id}>{label}</Label>
+        <Field data-invalid={issue !== undefined}>
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
             <Input
                 aria-describedby={issue === undefined ? undefined : issueId}
                 aria-invalid={issue !== undefined}
@@ -183,15 +184,11 @@ function EdgeDateField({
                 value={value}
             />
             {issue !== undefined && (
-                <p
-                    className="text-sm text-destructive first-letter:uppercase"
-                    id={issueId}
-                    role="alert"
-                >
+                <FieldError className="first-letter:uppercase" id={issueId}>
                     {issue}
-                </p>
+                </FieldError>
             )}
-        </div>
+        </Field>
     );
 }
 
@@ -378,12 +375,12 @@ function measuredEdgeCalculatorHref(
     winrate: number,
     rewardToRisk: number,
 ): string {
-    const query = encodeState({
-        ...defaultCalculatorState(),
-        rrRatio: rewardToRisk,
-        winrate,
-    }).toString();
-    return `${routes.propCalculator.index}?${query}`;
+    const hub = routes.propCalculator.index;
+    const query = encodeState(
+        { ...defaultCalculatorState(), rrRatio: rewardToRisk, winrate },
+        pageEncodeOptions(hub),
+    ).toString();
+    return `${hub}?${query}`;
 }
 
 function measuredEdgeCaption(

@@ -18,6 +18,8 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
 
+import { openDisclosure } from './openDisclosure';
+
 const PROVENANCE: AdviceProvenance = {
     computedAt: '2026-09-27',
     firmDataDate: '2026-10-02',
@@ -125,11 +127,10 @@ describe('the provenance line reads in words (PT-108 step 5, F-125, F-126)', () 
     it("names TopStep's open items U32, U33 and N-53 behind a count", () => {
         render(PROVENANCE);
 
-        const summary = container.querySelector('summary');
-        expect(summary?.textContent).toBe(
+        const items = openDisclosure(
+            container,
             `${String(firmDataProvenance(FirmId.TopStep).openItems.length)} open items`,
-        );
-        const items = container.querySelector('details')?.textContent ?? '';
+        ).textContent;
         expect(items).toContain('U32');
         expect(items).toContain('U33');
         expect(items).toContain('N-53');
@@ -138,7 +139,13 @@ describe('the provenance line reads in words (PT-108 step 5, F-125, F-126)', () 
     it("names Apex's own open item, not another firm's", () => {
         render(PROVENANCE, FirmId.Apex);
 
-        const items = container.querySelector('details')?.textContent ?? '';
+        const items = openDisclosure(
+            container,
+            provenanceTextOf(
+                PROVENANCE,
+                firmDataProvenance(FirmId.Apex).openItems,
+            ).openItemsSummary,
+        ).textContent;
         expect(items).toContain('403');
         expect(items).not.toContain('U32');
     });

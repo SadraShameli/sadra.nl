@@ -2,6 +2,12 @@ import { memo } from 'react';
 
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from '~/components/ui/Accordion';
+import {
     Table,
     TableBody,
     TableCell,
@@ -63,9 +69,11 @@ export const NextPayoutCard = memo(function NextPayoutCard({
                     ))}
                 </TableBody>
             </Table>
-            {model.rows.map((row) => (
-                <NextPayoutRowNotes key={row.accountId} row={row} />
-            ))}
+            <Accordion type="multiple">
+                {model.rows.map((row) => (
+                    <NextPayoutRowNotes key={row.accountId} row={row} />
+                ))}
+            </Accordion>
             <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {model.disclosures.map((disclosure) => (
                     <li key={disclosure}>{disclosure}</li>
@@ -122,14 +130,14 @@ function NextPayoutRowNotes({ row }: { readonly row: NextPayoutCardRow }) {
         }
         case AccountFromStateViewKind.Ready: {
             return (
-                <details className="flex flex-col gap-2">
-                    <summary className="cursor-pointer text-sm font-medium text-white">
+                <AccordionItem value={row.accountId}>
+                    <AccordionTrigger>
                         {row.label}: figures from its own state
-                    </summary>
-                    <div className="mt-2">
+                    </AccordionTrigger>
+                    <AccordionContent>
                         <AccountFromStateDetails model={view.model} />
-                    </div>
-                </details>
+                    </AccordionContent>
+                </AccordionItem>
             );
         }
     }

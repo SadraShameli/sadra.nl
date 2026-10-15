@@ -43,7 +43,7 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
-import { Label } from '~/components/ui/Label';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import { Skeleton } from '~/components/ui/Skeleton';
 import {
     Table,
@@ -1334,7 +1334,7 @@ function UpgradeToModeled({
                 ))}
             </div>
             {requiresConfirmation && (
-                <div className="flex items-center gap-2 text-sm">
+                <Field className="text-sm" orientation="horizontal">
                     <Checkbox
                         aria-describedby={changesId}
                         checked={isConfirmed}
@@ -1343,10 +1343,10 @@ function UpgradeToModeled({
                             setConfirmed(checked === true);
                         }}
                     />
-                    <Label htmlFor="account-upgrade-confirm">
+                    <FieldLabel htmlFor="account-upgrade-confirm">
                         I confirm this change
-                    </Label>
-                </div>
+                    </FieldLabel>
+                </Field>
             )}
             <Button
                 aria-describedby={requiresConfirmation ? changesId : undefined}

@@ -2,8 +2,9 @@
 
 import { memo, useState } from 'react';
 
+import { FigureCard } from '~/app/(app)/prop-calculator/accounts/_components/FigureCard';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import { ScaleAtMultipleKind } from '~/lib/prop-accounts/bankroll';
 
 import {
@@ -23,20 +24,17 @@ export const BankrollCard = memo(function BankrollCard({
 }) {
     return (
         <div className="flex flex-col gap-4">
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <BankrollFigure
+            <dl className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                <FigureCard
                     label="Available bankroll"
                     value={model.available}
                 />
-                <BankrollFigure
-                    label="Injected capital"
-                    value={model.deposits}
-                />
-                <BankrollFigure
+                <FigureCard label="Injected capital" value={model.deposits} />
+                <FigureCard
                     label="Reinvested payouts"
                     value={model.reinvestedPayouts}
                 />
-                <BankrollFigure label="Withdrawals" value={model.withdrawals} />
+                <FigureCard label="Withdrawals" value={model.withdrawals} />
             </dl>
             {model.grownFromText !== null && (
                 <p className="text-sm">{model.grownFromText}</p>
@@ -58,21 +56,6 @@ export const BankrollCard = memo(function BankrollCard({
     );
 });
 
-function BankrollFigure({
-    label,
-    value,
-}: {
-    readonly label: string;
-    readonly value: string;
-}) {
-    return (
-        <div className="rounded-md border border-border p-3">
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="text-lg font-semibold tabular-nums">{value}</dd>
-        </div>
-    );
-}
-
 function LossRiskBlock({
     lossRisk,
 }: {
@@ -88,12 +71,12 @@ function LossRiskBlock({
             <h3 className="text-sm font-medium text-white">
                 Realized loss risk
             </h3>
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <BankrollFigure
+            <dl className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                <FigureCard
                     label="Realized P(an attempt pays)"
                     value={lossRisk.attemptPays}
                 />
-                <BankrollFigure
+                <FigureCard
                     label={
                         lossRisk.attemptsAtBankroll === null
                             ? 'Realized P(net below zero)'
@@ -101,11 +84,11 @@ function LossRiskBlock({
                     }
                     value={lossRisk.batchLoss}
                 />
-                <BankrollFigure
+                <FigureCard
                     label="Realized P(no payout)"
                     value={lossRisk.noPayout}
                 />
-                <BankrollFigure
+                <FigureCard
                     label="Realized minimum budget"
                     value={lossRisk.minimumBudget}
                 />
@@ -137,10 +120,10 @@ function ScaleAtMultipleLine({
     return (
         <div className="flex flex-col gap-2">
             {canEnterBudget && (
-                <div className="flex max-w-xs flex-col gap-1">
-                    <Label htmlFor="prop-overview-candidate-budget">
+                <Field className="max-w-xs">
+                    <FieldLabel htmlFor="prop-overview-candidate-budget">
                         {CANDIDATE_BUDGET_LABEL}
-                    </Label>
+                    </FieldLabel>
                     <Input
                         aria-label={CANDIDATE_BUDGET_LABEL}
                         id="prop-overview-candidate-budget"
@@ -151,7 +134,7 @@ function ScaleAtMultipleLine({
                         placeholder="Optional"
                         value={text}
                     />
-                </div>
+                </Field>
             )}
             <ScaleLine scale={scale} />
         </div>

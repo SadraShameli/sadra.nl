@@ -288,8 +288,10 @@ import {
     type PayoutPolicySensitivityPlanEntry,
     type PayoutPolicySensitivityRankedEntry,
     ReconstructedLiveKind,
+    RULE_SOURCE_LABEL,
     rulebookDeviation,
     type RulebookParameters,
+    RuleSource,
     type SampleThresholds,
     StartBasis,
 } from '~/lib/prop-calculator/advisor';
@@ -3201,7 +3203,7 @@ function concentrationBasisDisclosure(
     const cushion =
         retainedCushionDollars === null
             ? ''
-            : ` of ${formatCurrency(retainedCushionDollars)}, the larger of Hard Rule 2's minimum and the rulebook's retained cushion size,`;
+            : ` of ${formatCurrency(retainedCushionDollars)}, the larger of ${RULE_SOURCE_LABEL[RuleSource.HardRule2]} and the rulebook's retained cushion size,`;
     return `A funded account counts as in profit when its account profit is above zero. Withdrawable is the room above the retained cushion${cushion} within the plan's payout request caps and after the floor a payout would set, never the horizon credit. It ignores payout eligibility (qualifying days, the minimum profit, the payout day gate, pending payouts and personal cushion or request entries) and uses each account's latest snapshot as is.`;
 }
 

@@ -34,7 +34,7 @@ export function StateCard({ view }: { readonly view: StateCardView }) {
                     <p className="text-sm text-muted-foreground">
                         As of {view.asOf}
                     </p>
-                    <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
+                    <dl className="grid gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
                         <div className="contents">
                             <dt className="text-muted-foreground">Floor</dt>
                             <dd className="tabular-nums">

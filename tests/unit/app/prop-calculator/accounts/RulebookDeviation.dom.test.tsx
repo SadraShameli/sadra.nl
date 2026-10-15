@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
 import {
     type TradingPlanSource,
     TradingPlanSourceKind,
@@ -10,6 +11,7 @@ import { RulebookView } from '~/app/(app)/prop-calculator/accounts/rulebook/Rule
 import {
     DEFAULT_RULEBOOK,
     documentedRuleLabel,
+    RULE_SOURCE_LABEL,
     type RulebookParameters,
     RuleSource,
 } from '~/lib/prop-calculator/advisor';
@@ -186,18 +188,21 @@ describe('the rulebook deviation card and import preview (F-144)', () => {
             `Headline label preview: \u{201C}${documentedRuleLabel(sources)}\u{201D}.`,
         );
         expect(card.textContent).toContain(
-            'your custom rule (differs from Hard Rule 5, Hard Rule 6)',
+            `your custom rule (differs from ${RULE_SOURCE_LABEL[RuleSource.HardRule5]}, ${RULE_SOURCE_LABEL[RuleSource.HardRule6]})`,
         );
         expect(
             [...card.querySelectorAll('li')].map((item) =>
                 item.textContent.trim(),
             ),
-        ).toEqual(['Hard Rule 5', 'Hard Rule 6']);
+        ).toEqual([
+            RULE_SOURCE_LABEL[RuleSource.HardRule5],
+            RULE_SOURCE_LABEL[RuleSource.HardRule6],
+        ]);
         expect(card.textContent).not.toContain('Matches the skill');
 
         openPreview();
         expect(previewParagraph('Back in line with the skill')).toBe(
-            'Back in line with the skill: Hard Rule 5, Hard Rule 6.',
+            `Back in line with the skill: ${ruleSourceListText([RuleSource.HardRule5, RuleSource.HardRule6])}.`,
         );
         expect(previewParagraph('New deviations')).toBeUndefined();
         expect(previewRegion().textContent).toContain(
@@ -217,7 +222,7 @@ describe('the rulebook deviation card and import preview (F-144)', () => {
 
         openPreview();
         expect(previewParagraph('New deviations from the skill')).toBe(
-            'New deviations from the skill: Hard Rule 5, Hard Rule 6.',
+            `New deviations from the skill: ${ruleSourceListText([RuleSource.HardRule5, RuleSource.HardRule6])}.`,
         );
         expect(previewParagraph('Back in line')).toBeUndefined();
         expect(previewRegion().textContent).toContain(
@@ -232,14 +237,14 @@ describe('the rulebook deviation card and import preview (F-144)', () => {
         });
         render(planWith(200, 1));
         expect(deviationCard().textContent).toContain(
-            'your custom rule (differs from Hard Rule 6)',
+            `your custom rule (differs from ${RULE_SOURCE_LABEL[RuleSource.HardRule6]})`,
         );
         openPreview();
         expect(previewParagraph('New deviations from the skill')).toBe(
-            'New deviations from the skill: Hard Rule 5.',
+            `New deviations from the skill: ${RULE_SOURCE_LABEL[RuleSource.HardRule5]}.`,
         );
         expect(previewParagraph('Back in line with the skill')).toBe(
-            'Back in line with the skill: Hard Rule 6.',
+            `Back in line with the skill: ${RULE_SOURCE_LABEL[RuleSource.HardRule6]}.`,
         );
     });
 });

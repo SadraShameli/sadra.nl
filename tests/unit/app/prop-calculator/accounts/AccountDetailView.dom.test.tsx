@@ -65,6 +65,7 @@ import {
 import { routes } from '~/lib/site/routes';
 
 import { transfer } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
+import { openDisclosure } from './openDisclosure';
 import { pickOption } from './pickOption';
 
 interface FakeQuery {
@@ -1071,7 +1072,13 @@ describe('AccountDetailView', () => {
         answerEverything();
         render();
         const rules = sectionTitled('Plan rules');
-        expect(rules.textContent).toContain(PLAN.label);
+        const allRules = [...rules.querySelectorAll('button')].find((button) =>
+            /^All \d+ plan rules$/u.test(button.textContent),
+        );
+        if (allRules === undefined) throw new Error('no plan rules toggle');
+        expect(
+            openDisclosure(rules, allRules.textContent).textContent,
+        ).toContain(PLAN.label);
         expect(rules.textContent).toContain('Drawdown');
     });
 

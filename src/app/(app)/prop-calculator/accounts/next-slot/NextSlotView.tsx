@@ -12,6 +12,14 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { useOverviewWorker } from '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { Label } from '~/components/ui/Label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
 import {
     Table,
@@ -35,6 +43,8 @@ import {
 } from './nextSlotModel';
 
 const sortKeySchema = z.enum(NextSlotSortKey);
+
+const SORT_SELECT_ID = 'next-slot-sort';
 
 export function NextSlotView({ userId }: { readonly userId: string }) {
     const today = useTodayIsoDate();
@@ -514,23 +524,30 @@ function SortKeySelect({
     readonly sortKey: NextSlotSortKey;
 }) {
     return (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Sort by</span>
-            <select
-                aria-label="Sort by"
-                className="h-7 rounded-md border bg-transparent px-2 text-xs disabled:opacity-50"
+        <div className="flex flex-wrap items-center gap-2">
+            <Label className="text-muted-foreground" htmlFor={SORT_SELECT_ID}>
+                Sort by
+            </Label>
+            <Select
                 disabled={!isHourKeyAvailable}
-                onChange={(event) => {
-                    const chosen = sortKeySchema.safeParse(event.target.value);
+                onValueChange={(value) => {
+                    const chosen = sortKeySchema.safeParse(value);
                     if (chosen.success) onChange(chosen.data);
                 }}
                 value={sortKey}
             >
-                <option value={NextSlotSortKey.Objective}>Objective</option>
-                <option value={NextSlotSortKey.Hour}>
-                    Net per screen hour
-                </option>
-            </select>
+                <SelectTrigger className="w-auto" id={SORT_SELECT_ID}>
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value={NextSlotSortKey.Objective}>
+                        Objective
+                    </SelectItem>
+                    <SelectItem value={NextSlotSortKey.Hour}>
+                        Net per screen hour
+                    </SelectItem>
+                </SelectContent>
+            </Select>
         </div>
     );
 }

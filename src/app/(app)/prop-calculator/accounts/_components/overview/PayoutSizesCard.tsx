@@ -33,7 +33,7 @@ export const PayoutSizesCard = memo(function PayoutSizesCard({
     }
     return (
         <div className="flex flex-col gap-6">
-            <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
                 <Stat label="Mean" value={model.mean} />
                 <Stat label="Median" value={model.median} />
                 <Stat label="p10" value={model.p10} />

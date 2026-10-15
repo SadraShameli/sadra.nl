@@ -1,5 +1,7 @@
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { Badge } from '~/components/ui/Badge';
+import { Card } from '~/components/ui/Card';
+import { EmptyState } from '~/components/ui/EmptyState';
 import {
     Table,
     TableBody,
@@ -49,10 +51,11 @@ export function DpAdviceSection({ query }: { readonly query: DpAdviceQuery }) {
     }
     const view = dpAdviceRowViewsOf(query.data);
     return view.rows.length === 0 ? (
-        <div className="flex flex-col gap-1 rounded-md border border-dashed p-3">
-            <p className="text-sm">{NO_DP_ADVICE_TEXT}</p>
-            <p className="text-xs text-muted-foreground">{NO_DP_ADVICE_HINT}</p>
-        </div>
+        <EmptyState
+            className="border border-dashed py-6"
+            description={NO_DP_ADVICE_HINT}
+            title={NO_DP_ADVICE_TEXT}
+        />
     ) : (
         <DpAdviceRows view={view} />
     );
@@ -104,29 +107,33 @@ export function OptimaTable({
 
 function DpAdviceRowCard({ row }: { readonly row: DpAdviceRowView }) {
     return (
-        <li className="flex flex-col gap-1 rounded-md border p-3 text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={row.isValidated ? 'success' : 'warning'}>
-                    {row.isValidated ? 'Validated' : 'Not validated'}
-                </Badge>
-                {row.isStale && <Badge variant="destructive">Stale</Badge>}
-            </div>
-            <p>{row.validationText}</p>
-            <p>{row.eligibilityText}</p>
-            <TextList className="text-destructive" texts={row.staleTexts} />
-            <DpSamples row={row} />
-            <TextList
-                className="text-xs text-muted-foreground"
-                texts={row.assumptionTexts}
-            />
-            <TextList className="text-xs" texts={row.gapTexts} />
-            <TextList className="tabular-nums" texts={row.valueTexts} />
-            {row.valueNote !== null && (
-                <p className="text-xs text-muted-foreground">{row.valueNote}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-                {row.provenanceText}
-            </p>
+        <li>
+            <Card className="gap-1 p-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={row.isValidated ? 'success' : 'warning'}>
+                        {row.isValidated ? 'Validated' : 'Not validated'}
+                    </Badge>
+                    {row.isStale && <Badge variant="destructive">Stale</Badge>}
+                </div>
+                <p>{row.validationText}</p>
+                <p>{row.eligibilityText}</p>
+                <TextList className="text-destructive" texts={row.staleTexts} />
+                <DpSamples row={row} />
+                <TextList
+                    className="text-xs text-muted-foreground"
+                    texts={row.assumptionTexts}
+                />
+                <TextList className="text-xs" texts={row.gapTexts} />
+                <TextList className="tabular-nums" texts={row.valueTexts} />
+                {row.valueNote !== null && (
+                    <p className="text-xs text-muted-foreground">
+                        {row.valueNote}
+                    </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                    {row.provenanceText}
+                </p>
+            </Card>
         </li>
     );
 }

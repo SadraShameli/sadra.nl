@@ -2,7 +2,13 @@
 
 import { Badge } from '~/components/ui/Badge';
 import { Checkbox } from '~/components/ui/Checkbox';
-import { Label } from '~/components/ui/Label';
+import {
+    Field,
+    FieldError,
+    FieldLabel,
+    FieldLegend,
+    FieldSet,
+} from '~/components/ui/Field';
 import {
     Select,
     SelectContent,
@@ -76,14 +82,14 @@ export function AccountPlanPicker({
     };
 
     return (
-        <fieldset
+        <FieldSet
             className="app-prop-accounts__plan-picker grid gap-4 md:grid-cols-3"
             disabled={disabled}
         >
-            <legend className="sr-only">Firm and plan</legend>
+            <FieldLegend className="sr-only">Firm and plan</FieldLegend>
             {!isLedgerOnly && (
-                <div className="flex flex-col gap-2">
-                    <Label htmlFor="account-firm">Firm</Label>
+                <Field>
+                    <FieldLabel htmlFor="account-firm">Firm</FieldLabel>
                     <Select
                         onValueChange={(next) => {
                             const firmId = parseFirmId(next);
@@ -126,10 +132,10 @@ export function AccountPlanPicker({
                             ))}
                         </SelectContent>
                     </Select>
-                </div>
+                </Field>
             )}
-            <div className="flex flex-col gap-2 md:col-span-2">
-                <Label htmlFor="account-plan">Plan and variant</Label>
+            <Field className="md:col-span-2">
+                <FieldLabel htmlFor="account-plan">Plan and variant</FieldLabel>
                 <Select
                     onValueChange={(next) => {
                         const nextPlan = firm?.findPlanBySerial(next) ?? null;
@@ -159,9 +165,9 @@ export function AccountPlanPicker({
                         ))}
                     </SelectContent>
                 </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-                <Label htmlFor="account-size">Account size</Label>
+            </Field>
+            <Field>
+                <FieldLabel htmlFor="account-size">Account size</FieldLabel>
                 <Select
                     onValueChange={(next) => {
                         const option = sizeOptions.find(
@@ -203,10 +209,12 @@ export function AccountPlanPicker({
                         ))}
                     </SelectContent>
                 </Select>
-            </div>
+            </Field>
             {!isLedgerOnly && (
-                <div className="flex flex-col gap-2 md:col-span-2">
-                    <span className="text-sm font-medium">Plan options</span>
+                <FieldSet className="gap-2 md:col-span-2">
+                    <FieldLegend className="mb-1" variant="label">
+                        Plan options
+                    </FieldLegend>
                     {optInOptions.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                             This plan offers no opt-in options.
@@ -215,9 +223,9 @@ export function AccountPlanPicker({
                         optInOptions.map((option) => {
                             const id = `account-opt-in-${option.optIn}`;
                             return (
-                                <div
-                                    className="flex items-center gap-2"
+                                <Field
                                     key={option.optIn}
+                                    orientation="horizontal"
                                 >
                                     <Checkbox
                                         {...errorProperties}
@@ -234,25 +242,24 @@ export function AccountPlanPicker({
                                             });
                                         }}
                                     />
-                                    <Label htmlFor={id}>
+                                    <FieldLabel htmlFor={id}>
                                         Takes the {option.label}
-                                    </Label>
-                                </div>
+                                    </FieldLabel>
+                                </Field>
                             );
                         })
                     )}
-                </div>
+                </FieldSet>
             )}
             {hasErrors && (
-                <ul
-                    className="text-sm text-destructive md:col-span-3"
-                    id={PLAN_ERRORS_ID}
-                >
-                    {errors.map((error) => (
-                        <li key={error}>{error}</li>
-                    ))}
-                </ul>
+                <FieldError className="md:col-span-3" id={PLAN_ERRORS_ID}>
+                    <ul>
+                        {errors.map((error) => (
+                            <li key={error}>{error}</li>
+                        ))}
+                    </ul>
+                </FieldError>
             )}
-        </fieldset>
+        </FieldSet>
     );
 }

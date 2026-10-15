@@ -1,7 +1,9 @@
 'use client';
 
+import { ArrowUpDown } from 'lucide-react';
 import { memo, useMemo, useState } from 'react';
 
+import { Button } from '~/components/ui/Button';
 import {
     Table,
     TableBody,
@@ -204,16 +206,22 @@ function SortableHead({
 }) {
     return (
         <TableHead className={align === 'right' ? 'text-right' : undefined}>
-            <button
+            <Button
                 aria-pressed={activeKey === sortKey}
-                className="font-medium hover:underline"
+                className={align === 'right' ? '-mr-3' : '-ml-3'}
                 onClick={() => {
                     onSort(sortKey);
                 }}
+                size="sm"
                 type="button"
+                variant="ghost"
             >
                 {children}
-            </button>
+                <ArrowUpDown
+                    aria-hidden="true"
+                    className={activeKey === sortKey ? undefined : 'opacity-40'}
+                />
+            </Button>
         </TableHead>
     );
 }

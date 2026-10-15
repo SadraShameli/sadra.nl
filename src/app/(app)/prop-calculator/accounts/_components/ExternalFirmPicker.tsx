@@ -3,8 +3,8 @@
 import { useState } from 'react';
 
 import { Button } from '~/components/ui/Button';
+import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import {
     Select,
     SelectContent,
@@ -70,8 +70,8 @@ export function ExternalFirmPicker({
             : { 'aria-describedby': FIRM_ERROR_ID, 'aria-invalid': true };
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-                <Label htmlFor="account-ledger-firm">Firm</Label>
+            <Field data-invalid={error !== null}>
+                <FieldLabel htmlFor="account-ledger-firm">Firm</FieldLabel>
                 <Select
                     disabled={disabled}
                     onValueChange={(next) => {
@@ -110,11 +110,9 @@ export function ExternalFirmPicker({
                     </SelectContent>
                 </Select>
                 {error !== null && (
-                    <p className="text-sm text-destructive" id={FIRM_ERROR_ID}>
-                        {error}
-                    </p>
+                    <FieldError id={FIRM_ERROR_ID}>{error}</FieldError>
                 )}
-            </div>
+            </Field>
             {onCreate !== null && !disabled && (
                 <NewFirmField
                     externalFirms={known}
@@ -162,8 +160,10 @@ function NewFirmField({
         }
     };
     return (
-        <div className="flex flex-col gap-2">
-            <Label htmlFor="account-new-firm">Firm not in the list</Label>
+        <Field data-invalid={problem !== null}>
+            <FieldLabel htmlFor="account-new-firm">
+                Firm not in the list
+            </FieldLabel>
             <div className="flex gap-2">
                 <Input
                     aria-describedby={
@@ -196,10 +196,8 @@ function NewFirmField({
                 </Button>
             </div>
             {problem !== null && (
-                <p className="text-sm text-destructive" id={NEW_FIRM_ERROR_ID}>
-                    {problem}
-                </p>
+                <FieldError id={NEW_FIRM_ERROR_ID}>{problem}</FieldError>
             )}
-        </div>
+        </Field>
     );
 }

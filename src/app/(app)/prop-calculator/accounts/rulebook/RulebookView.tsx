@@ -728,7 +728,7 @@ function ImportPreview({
 }) {
     const { added, after, cleared } = imported.deviation;
     return (
-        <div className="flex flex-col gap-3 rounded-md border p-4">
+        <Card className="gap-3 p-4">
             <ul className="flex flex-col gap-2">
                 {imported.changes.map((change) => (
                     <li className="flex items-start gap-2" key={change.field}>
@@ -740,10 +740,14 @@ function ImportPreview({
                 ))}
             </ul>
             {added.length > 0 && (
-                <p>New deviations from the skill: {added.join(', ')}.</p>
+                <p>
+                    New deviations from the skill: {ruleSourceListText(added)}.
+                </p>
             )}
             {cleared.length > 0 && (
-                <p>Back in line with the skill: {cleared.join(', ')}.</p>
+                <p>
+                    Back in line with the skill: {ruleSourceListText(cleared)}.
+                </p>
             )}
             <p className="text-muted-foreground">
                 Headline label preview after the import: &ldquo;
@@ -763,7 +767,7 @@ function ImportPreview({
                     Cancel
                 </Button>
             </div>
-        </div>
+        </Card>
     );
 }
 
@@ -952,13 +956,14 @@ function PayoutCard({ control }: { control: Control<RulebookFormValues> }) {
                         This breaks {RULE_SOURCE_LABEL[RuleSource.HardRule2]}
                     </AlertTitle>
                     <AlertDescription>
-                        {RULE_SOURCE_LABEL[RuleSource.HardRule2]}: never
-                        withdraw below{' '}
+                        Never withdraw below{' '}
                         {formatUsdCents(
                             usdCents(HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS),
                         )}{' '}
-                        remaining cushion. With the override on, a lower
-                        retained cushion is saved and listed as a deviation from{' '}
+                        of remaining cushion: that is{' '}
+                        {RULE_SOURCE_LABEL[RuleSource.HardRule2]}. With the
+                        override on, a lower retained cushion is saved and
+                        listed as a deviation from{' '}
                         {RULE_SOURCE_LABEL[RuleSource.HardRule2]}.
                     </AlertDescription>
                 </Alert>

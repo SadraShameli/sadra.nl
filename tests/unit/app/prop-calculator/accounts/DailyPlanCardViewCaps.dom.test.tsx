@@ -123,11 +123,11 @@ describe('the daily plan card shows the window rule, the caps and the consistenc
         vi.unstubAllGlobals();
     });
 
-    it('prints the Hard Rule 6 window rule', () => {
+    it('prints the trade window rule', () => {
         render({ maxTradesPerWindow: 1 });
 
         expect(container.textContent).toContain(
-            'Hard Rule 6: at most one trade per trading window',
+            'Trade window: at most one trade per trading window',
         );
     });
 
@@ -135,7 +135,7 @@ describe('the daily plan card shows the window rule, the caps and the consistenc
         render({ maxTradesPerWindow: 2 });
 
         expect(container.textContent).toContain(
-            'Hard Rule 6: at most 2 trades per trading window',
+            'Trade window: at most 2 trades per trading window',
         );
     });
 

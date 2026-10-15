@@ -20,7 +20,7 @@ export const RepeatabilityCard = memo(function RepeatabilityCard({
     }
     return (
         <div className="flex flex-col gap-3">
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
                 <RepeatabilityGroup
                     label="Across every complete month"
                     stats={model.overall}

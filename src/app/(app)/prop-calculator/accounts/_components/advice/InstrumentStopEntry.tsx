@@ -5,8 +5,8 @@ import { type ReactNode } from 'react';
 import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import { POSITION_SIZE_INSTRUMENTS } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
 import { parsePositionSizeInstrument } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import {
     Select,
     SelectContent,
@@ -37,8 +37,8 @@ export function InstrumentStopEntry({
 }) {
     return (
         <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
-                <Label htmlFor={instrumentId}>Instrument</Label>
+            <Field className="w-auto">
+                <FieldLabel htmlFor={instrumentId}>Instrument</FieldLabel>
                 <Select
                     onValueChange={(value) => {
                         const next = parsePositionSizeInstrument(value);
@@ -57,11 +57,11 @@ export function InstrumentStopEntry({
                         ))}
                     </SelectContent>
                 </Select>
-            </div>
-            <div className="flex flex-col gap-1">
-                <Label htmlFor={stopId}>
+            </Field>
+            <Field className="w-auto">
+                <FieldLabel htmlFor={stopId}>
                     {CALCULATOR_FIELD_LABELS.stopPoints}
-                </Label>
+                </FieldLabel>
                 <Input
                     className="w-32"
                     id={stopId}
@@ -71,7 +71,7 @@ export function InstrumentStopEntry({
                     }}
                     value={stopInput}
                 />
-            </div>
+            </Field>
             {children}
         </div>
     );

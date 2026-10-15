@@ -540,7 +540,7 @@ function NextRoundOption({
     readonly summary: NextRoundOptionSummary;
 }) {
     return (
-        <div className="flex flex-col gap-2 rounded-md border p-3">
+        <Card className="gap-2 p-3">
             <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium">{label}</span>
                 {recommended && <Badge variant="outline">Recommended</Badge>}
@@ -568,7 +568,7 @@ function NextRoundOption({
                     {summary.scaleGateNote}
                 </p>
             )}
-        </div>
+        </Card>
     );
 }
 

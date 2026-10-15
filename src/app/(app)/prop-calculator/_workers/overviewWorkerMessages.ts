@@ -442,6 +442,13 @@ export function buildDocumentedSpec(
     };
 }
 
+export function mergeOverviewProgress(
+    held: null | OverviewWorkerResult,
+    delta: OverviewWorkerResult,
+): OverviewWorkerResult {
+    return { outcomes: [...(held?.outcomes ?? []), ...delta.outcomes] };
+}
+
 export function overviewAccountRequestsFor(
     accounts: readonly OverviewAccountPlanInput[],
     rulebook: RulebookParameters,

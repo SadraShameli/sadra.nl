@@ -5,13 +5,16 @@ import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { memo, type ReactNode, useMemo, useState } from 'react';
 
+import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsTableWithValues } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
+import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
 import { useAccountValuesWithEngine } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader } from '~/components/ui/Card';
+import { Collapsible, CollapsibleContent } from '~/components/ui/Collapsible';
 import { Skeleton } from '~/components/ui/Skeleton';
 import {
     isInvalidStoredRecord,
@@ -115,7 +118,7 @@ export function OverviewView({ userId }: { readonly userId: string }) {
     const accountsTable = useMemo(
         () => (
             <div
-                className="scroll-mt-32"
+                className={HEADER_SCROLL_MARGIN}
                 id={overviewSectionAnchor(OverviewSectionId.Accounts)}
             >
                 <AccountsTableWithValues values={values} />
@@ -209,23 +212,39 @@ function JumpNav({
 }) {
     return (
         <nav aria-label="Overview sections">
-            <details className="group rounded-md border border-border p-4 text-sm">
-                <summary className="cursor-pointer font-medium">
-                    Jump to a section ({String(sections.length)})
-                </summary>
-                <ul className="mt-3 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-4">
-                    {sections.map((section) => (
-                        <li key={section}>
-                            <a
-                                className="inline-block py-1 text-muted-foreground underline-offset-4 hover:text-white hover:underline"
-                                href={`#${overviewSectionAnchor(section)}`}
-                            >
-                                {OVERVIEW_SECTION_TITLE[section]}
-                            </a>
-                        </li>
-                    ))}
-                </ul>
-            </details>
+            <Card className="py-3">
+                <CardContent>
+                    <Collapsible className="flex flex-col text-sm">
+                        <DisclosureTrigger className="font-medium text-foreground">
+                            Jump to a section ({String(sections.length)})
+                        </DisclosureTrigger>
+                        <CollapsibleContent>
+                            <ul className="mt-2 grid gap-x-6 gap-y-1 md:grid-cols-2 lg:grid-cols-4">
+                                {sections.map((section) => (
+                                    <li key={section}>
+                                        <Button
+                                            asChild
+                                            className="-ml-3 text-muted-foreground"
+                                            size="sm"
+                                            variant="link"
+                                        >
+                                            <a
+                                                href={`#${overviewSectionAnchor(section)}`}
+                                            >
+                                                {
+                                                    OVERVIEW_SECTION_TITLE[
+                                                        section
+                                                    ]
+                                                }
+                                            </a>
+                                        </Button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </CollapsibleContent>
+                    </Collapsible>
+                </CardContent>
+            </Card>
         </nav>
     );
 }
@@ -281,7 +300,10 @@ function OverviewSection({
     return (
         <section
             aria-labelledby={headingId}
-            className={cn('app-prop-accounts__overview-card', 'scroll-mt-32')}
+            className={cn(
+                'app-prop-accounts__overview-card',
+                HEADER_SCROLL_MARGIN,
+            )}
             id={overviewSectionAnchor(section)}
         >
             <Card>

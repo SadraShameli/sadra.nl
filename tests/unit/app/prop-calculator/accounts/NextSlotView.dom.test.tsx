@@ -23,7 +23,18 @@ import {
     PolicySourceKind,
     PolicyVerification,
 } from '~/lib/prop-calculator';
-import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    DEFAULT_RULEBOOK,
+    SIZING_OBJECTIVE_LABEL,
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
+
+import {
+    chosenObjective,
+    objectiveOptionTexts,
+    pickObjective,
+} from '../objectiveSelect';
+import { pickOption } from './pickOption';
 
 interface FakeQuery {
     data: unknown;
@@ -251,17 +262,6 @@ describe('NextSlotView', () => {
         }
     }
 
-    function chooseSelectValue(label: string, value: string) {
-        const select = selectOf(label);
-        act(() => {
-            Object.getOwnPropertyDescriptor(
-                HTMLSelectElement.prototype,
-                'value',
-            )?.set?.call(select, value);
-            select.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-    }
-
     function rankedPlans(): string[] {
         const region = container.querySelector(
             '[role="region"][aria-labelledby="next-slot-ranked"]',
@@ -271,13 +271,18 @@ describe('NextSlotView', () => {
         );
     }
 
-    function selectOf(label: string): HTMLSelectElement {
-        const select = [...container.querySelectorAll('select')].find(
-            (candidate) => candidate.getAttribute('aria-label') === label,
+    function sortTrigger(): HTMLButtonElement {
+        const label = [...container.querySelectorAll('label')].find(
+            (candidate) => candidate.textContent.trim() === 'Sort by',
         );
-        if (select === undefined)
-            throw new Error(`no select labelled ${label}`);
-        return select;
+        const trigger =
+            label === undefined
+                ? null
+                : container.querySelector<HTMLButtonElement>(
+                      `#${CSS.escape(label.htmlFor)}`,
+                  );
+        if (trigger === null) throw new Error('no Sort by select');
+        return trigger;
     }
 
     function headings(): string[] {
@@ -425,33 +430,34 @@ describe('NextSlotView', () => {
         expect(container.querySelectorAll('h2').length).toBeGreaterThan(0);
     });
 
-    it('mounts the objective chip with the three objectives and reorders the ranked rows when CycleCash is picked', () => {
+    it('mounts the objective chip with the three objectives and reorders the ranked rows when CycleCash is picked', async () => {
         answerEverything();
         verifyFirms(FEW_FIRMS);
         harness.answer.current = gradedAnswer();
         render();
-        const chip = selectOf('Ranking objective');
-        expect([...chip.options].map((option) => option.value)).toEqual([
-            'cycle-cash',
-            'monthly-net',
-            'ruin-first',
-        ]);
-        expect(chip.value).toBe('monthly-net');
+        expect(await objectiveOptionTexts(container)).toEqual(
+            [
+                SizingObjective.CycleCash,
+                SizingObjective.MonthlyNet,
+                SizingObjective.RuinFirst,
+            ].map((objective) => SIZING_OBJECTIVE_LABEL[objective]),
+        );
+        expect(chosenObjective(container)).toBe(SizingObjective.MonthlyNet);
         const before = rankedPlans();
         expect(before.length).toBeGreaterThan(1);
-        chooseSelectValue('Ranking objective', 'cycle-cash');
-        expect(selectOf('Ranking objective').value).toBe('cycle-cash');
+        await pickObjective(container, SizingObjective.CycleCash);
+        expect(chosenObjective(container)).toBe(SizingObjective.CycleCash);
         expect(rankedPlans()).toEqual(before.toReversed());
         expect(container.textContent).toContain('Chosen by you.');
     });
 
-    it('keeps monthly net with a note when RuinFirst is picked without a bankroll', () => {
+    it('keeps monthly net with a note when RuinFirst is picked without a bankroll', async () => {
         answerEverything();
         verifyFirms(FEW_FIRMS);
         harness.answer.current = gradedAnswer();
         render();
         const before = rankedPlans();
-        chooseSelectValue('Ranking objective', 'ruin-first');
+        await pickObjective(container, SizingObjective.RuinFirst);
         expect(rankedPlans()).toEqual(before);
         expect(container.textContent).toContain('no bankroll deposits');
     });
@@ -472,12 +478,12 @@ describe('NextSlotView', () => {
             }),
         );
         render();
-        expect(selectOf('Sort by').disabled).toBe(true);
-        expect(selectOf('Sort by').value).toBe('objective');
+        expect(sortTrigger().disabled).toBe(true);
+        expect(sortTrigger().textContent).toBe('Objective');
         expect(container.textContent).not.toContain('net per screen hour (');
     });
 
-    it('sorts by net per screen hour once both hours inputs are set and names that one key for the whole table', () => {
+    it('sorts by net per screen hour once both hours inputs are set and names that one key for the whole table', async () => {
         answerEverything();
         verifyFirms(FEW_FIRMS);
         harness.answer.current = gradedAnswer();
@@ -493,13 +499,13 @@ describe('NextSlotView', () => {
             }),
         );
         render();
-        expect(selectOf('Sort by').disabled).toBe(false);
-        chooseSelectValue('Ranking objective', 'cycle-cash');
+        expect(sortTrigger().disabled).toBe(false);
+        await pickObjective(container, SizingObjective.CycleCash);
         const byObjective = rankedPlans();
         expect(container.textContent).toContain('Ranked by the cycle net');
         expect(container.textContent).not.toContain('is not applied');
-        chooseSelectValue('Sort by', 'hour');
-        expect(selectOf('Sort by').value).toBe('hour');
+        await pickOption(sortTrigger(), 'Net per screen hour');
+        expect(sortTrigger().textContent).toBe('Net per screen hour');
         expect(rankedPlans()).toEqual(byObjective.toReversed());
         expect(container.textContent).toContain(
             'Ranked by net per screen hour',

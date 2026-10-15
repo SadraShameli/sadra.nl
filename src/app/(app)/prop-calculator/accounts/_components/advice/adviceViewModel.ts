@@ -1371,7 +1371,7 @@ function wholeOrCents(amount: number): string {
 }
 
 function windowRuleTextOf(maxTradesPerWindow: number): string {
-    return `Hard Rule 6: at most ${maxTradesPerWindow === 1 ? 'one trade' : `${String(maxTradesPerWindow)} trades`} per trading window`;
+    return `Trade window: at most ${maxTradesPerWindow === 1 ? 'one trade' : `${String(maxTradesPerWindow)} trades`} per trading window`;
 }
 
 function withLimitsNote(

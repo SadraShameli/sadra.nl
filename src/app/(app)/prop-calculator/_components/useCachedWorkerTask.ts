@@ -17,6 +17,10 @@ import {
     WorkerTaskPhase,
     type WorkerTaskState,
 } from '~/app/(app)/prop-calculator/_components/workerTaskState';
+import {
+    ProgressCoalescer,
+    type ProgressCoalescing,
+} from '~/app/(app)/prop-calculator/_workers/ProgressCoalescer';
 
 export interface CachedWorkerJob<TRequest> {
     readonly key: string;
@@ -28,11 +32,16 @@ export interface CachedWorkerTask<TProgress, TResult> {
     readonly state: WorkerTaskState<TProgress, TResult>;
 }
 
-export interface CachedWorkerTaskOptions<Id extends ComputationId, TRequest> {
+export interface CachedWorkerTaskOptions<
+    Id extends ComputationId,
+    TRequest,
+    TProgress = never,
+> {
     readonly createWorker: () => Worker;
     readonly debounceMs?: number | undefined;
     readonly id: Id;
     readonly job: CachedWorkerJob<TRequest> | null;
+    readonly progressCoalescing?: ProgressCoalescing<TProgress> | undefined;
 }
 
 const NO_DEBOUNCE_MS = 0;
@@ -46,15 +55,26 @@ export function useCachedWorkerTask<
     debounceMs = NO_DEBOUNCE_MS,
     id,
     job,
-}: CachedWorkerTaskOptions<Id, TRequest>): CachedWorkerTask<
+    progressCoalescing,
+}: CachedWorkerTaskOptions<Id, TRequest, TProgress>): CachedWorkerTask<
     TProgress,
     ComputationResultMap[Id]
 > {
     const sharedCache = useContext(ComputationCacheContext);
     const [localCache] = useState(() => new ComputationCache());
     const cache = sharedCache ?? localCache;
+    const createCoalescedWorker = useCallback(
+        () =>
+            progressCoalescing === undefined
+                ? createWorker()
+                : ProgressCoalescer.coalesce(
+                      createWorker(),
+                      progressCoalescing,
+                  ),
+        [createWorker, progressCoalescing],
+    );
     const task = useWorkerTask<TRequest, TProgress, ComputationResultMap[Id]>(
-        createWorker,
+        createCoalescedWorker,
     );
     const runReference = useRef(task.run);
     runReference.current = task.run;

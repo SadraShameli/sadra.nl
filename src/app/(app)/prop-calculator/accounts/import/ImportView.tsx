@@ -17,11 +17,18 @@ import {
     accountPlanOptions,
     planTagLabel,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from '~/components/ui/Accordion';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
+import { Card, CardContent } from '~/components/ui/Card';
+import { Field, FieldDescription, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import { Skeleton } from '~/components/ui/Skeleton';
 import {
     Table,
@@ -68,6 +75,11 @@ import { api } from '~/trpc/react';
 enum ImportKind {
     Accounts = 'accounts',
     Snapshots = 'snapshots',
+}
+
+enum ImportReference {
+    Columns = 'columns',
+    PlanSerials = 'plan-serials',
 }
 
 interface ImportNoun {
@@ -343,28 +355,28 @@ function ColumnReference<Column extends string>({
     required: readonly Column[];
 }) {
     return (
-        <details className="rounded-md border border-border p-4 text-sm">
-            <summary className="cursor-pointer font-medium">
-                Columns and formats
-            </summary>
-            <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
-                {columns.map((column) => (
-                    <div className="contents" key={column}>
-                        <dt className="font-mono text-xs">
-                            {column}
-                            {required.includes(column) && (
-                                <Badge className="ml-2" variant="secondary">
-                                    required
-                                </Badge>
-                            )}
-                        </dt>
-                        <dd className="text-muted-foreground">
-                            {describeColumn(column)}
-                        </dd>
-                    </div>
-                ))}
-            </dl>
-        </details>
+        <AccordionItem value={ImportReference.Columns}>
+            <AccordionTrigger>Columns and formats</AccordionTrigger>
+            <AccordionContent>
+                <dl className="grid gap-x-6 gap-y-2 md:grid-cols-[max-content_1fr]">
+                    {columns.map((column) => (
+                        <div className="contents" key={column}>
+                            <dt className="font-mono text-xs">
+                                {column}
+                                {required.includes(column) && (
+                                    <Badge className="ml-2" variant="secondary">
+                                        required
+                                    </Badge>
+                                )}
+                            </dt>
+                            <dd className="text-muted-foreground">
+                                {describeColumn(column)}
+                            </dd>
+                        </div>
+                    ))}
+                </dl>
+            </AccordionContent>
+        </AccordionItem>
     );
 }
 
@@ -434,15 +446,22 @@ function CsvImportPanel<Column extends string, Value>({
             >
                 Import {noun.plural}
             </h2>
-            <ColumnReference
-                columns={columns}
-                describeColumn={describeColumn}
-                required={required}
-            />
-            {reference}
-            <div className="flex flex-col gap-2">
-                <Label htmlFor={textId}>CSV text</Label>
+            <Card className="py-0">
+                <CardContent>
+                    <Accordion type="multiple">
+                        <ColumnReference
+                            columns={columns}
+                            describeColumn={describeColumn}
+                            required={required}
+                        />
+                        {reference}
+                    </Accordion>
+                </CardContent>
+            </Card>
+            <Field>
+                <FieldLabel htmlFor={textId}>CSV text</FieldLabel>
                 <Textarea
+                    aria-describedby={`${textId}-hint`}
                     className="min-h-48 font-mono text-xs"
                     disabled={isCommitting}
                     id={textId}
@@ -454,16 +473,16 @@ function CsvImportPanel<Column extends string, Value>({
                     spellCheck={false}
                     value={text}
                 />
-                <p className="text-xs text-muted-foreground">
+                <FieldDescription id={`${textId}-hint`}>
                     Comma or tab separated, with the header row first. At most{' '}
                     {MAX_IMPORT_ROWS} rows and 256 KB. Row numbers below count
                     the header as row 1.
-                </p>
-            </div>
+                </FieldDescription>
+            </Field>
             <div className="flex flex-wrap items-center gap-3">
-                <Label className="sr-only" htmlFor={fileId}>
+                <FieldLabel className="sr-only" htmlFor={fileId}>
                     Upload a CSV file of {noun.plural}
-                </Label>
+                </FieldLabel>
                 <Input
                     accept=".csv,.tsv,.txt,text/csv,text/plain"
                     className="max-w-xs"
@@ -551,48 +570,50 @@ function describeIssue(issue: CsvIssue): string {
 function PlanReference() {
     const rows = useMemo(() => planReferenceRows(), []);
     return (
-        <details className="rounded-md border border-border p-4 text-sm">
-            <summary className="cursor-pointer font-medium">
+        <AccordionItem value={ImportReference.PlanSerials}>
+            <AccordionTrigger>
                 Plan serials for the plan column
-            </summary>
-            <Table className="mt-3">
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>firm</TableHead>
-                        <TableHead>plan</TableHead>
-                        <TableHead>accountSize</TableHead>
-                        <TableHead>Plan</TableHead>
-                        <TableHead>Offered opt-ins</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {rows.map((row) => (
-                        <TableRow key={row.planSerial}>
-                            <TableCell className="font-mono text-xs">
-                                {row.firmId}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">
-                                {row.planSerial}
-                            </TableCell>
-                            <TableCell className="tabular-nums">
-                                {row.size}
-                            </TableCell>
-                            <TableCell>
-                                {row.label}
-                                {row.tags !== '' && (
-                                    <span className="ml-2 text-xs text-muted-foreground">
-                                        ({row.tags})
-                                    </span>
-                                )}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                                {row.optIns === '' ? 'None' : row.optIns}
-                            </TableCell>
+            </AccordionTrigger>
+            <AccordionContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>firm</TableHead>
+                            <TableHead>plan</TableHead>
+                            <TableHead>accountSize</TableHead>
+                            <TableHead>Plan</TableHead>
+                            <TableHead>Offered opt-ins</TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </details>
+                    </TableHeader>
+                    <TableBody>
+                        {rows.map((row) => (
+                            <TableRow key={row.planSerial}>
+                                <TableCell className="font-mono text-xs">
+                                    {row.firmId}
+                                </TableCell>
+                                <TableCell className="font-mono text-xs">
+                                    {row.planSerial}
+                                </TableCell>
+                                <TableCell className="tabular-nums">
+                                    {row.size}
+                                </TableCell>
+                                <TableCell>
+                                    {row.label}
+                                    {row.tags !== '' && (
+                                        <span className="ml-2 text-xs text-muted-foreground">
+                                            ({row.tags})
+                                        </span>
+                                    )}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                    {row.optIns === '' ? 'None' : row.optIns}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </AccordionContent>
+        </AccordionItem>
     );
 }
 

@@ -4,7 +4,7 @@ import { KpiTone, type OverviewKpi } from './overviewModel';
 
 export function KpiRow({ kpis }: { readonly kpis: readonly OverviewKpi[] }) {
     return (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             {kpis.map((kpi) => (
                 <StatCard
                     key={kpi.kind}

@@ -348,7 +348,7 @@ function assumptionsOf(
         `Strategy from your rulebook: ${formatPercent(strategy.winrate)} win rate, ${String(strategy.rr)} to 1 reward to risk, up to ${String(strategy.tradesPerDayMax)} trades per day in evaluations.`,
         `Funded phase from your rulebook: ${formatCurrency(funded.riskCents / CENTS_PER_DOLLAR)} risked and ${formatCurrency(funded.takeProfitCents / CENTS_PER_DOLLAR)} take profit per trade, up to ${String(funded.tradesPerDayMax)} trades per day, stop rule ${funded.stopRule.kind}.`,
         `Evaluation sizing from your rulebook: ${rulebook.eval.mode}.`,
-        `Payout rule (from ${ruleSourceListText([RuleSource.PayoutSize, RuleSource.HardRule2])}): your rulebook requests ${formatCurrency(payout.requestCents / CENTS_PER_DOLLAR)} as a full request only, with a retained cushion of at least ${formatCurrency(payout.retainedCushionCents / CENTS_PER_DOLLAR)} and never below the plan's own floor; a plan whose firm minimum is above the request runs at that minimum. Hard Rule 2 asks for at least ${formatCurrency(hardRule2MinCushion)}.`,
+        `Payout rule (from ${ruleSourceListText([RuleSource.PayoutSize, RuleSource.HardRule2])}): your rulebook requests ${formatCurrency(payout.requestCents / CENTS_PER_DOLLAR)} as a full request only, with a retained cushion of at least ${formatCurrency(payout.retainedCushionCents / CENTS_PER_DOLLAR)} and never below the plan's own floor; a plan whose firm minimum is above the request runs at that minimum, and ${RULE_SOURCE_LABEL[RuleSource.HardRule2]} is ${formatCurrency(hardRule2MinCushion)}.`,
     ];
     if (first === undefined) return lines;
     const { enginePolicy, run } = first.spec;
@@ -636,7 +636,7 @@ function rankedViewRowOf(
         notes: [
             ...(figures.isBelowHardRule2
                 ? [
-                      `Retained cushion is below the ${RULE_SOURCE_LABEL[RuleSource.HardRule2]} minimum of ${formatCurrency(allocation.hardRule2MinCushion)}.`,
+                      `Retained cushion is below ${RULE_SOURCE_LABEL[RuleSource.HardRule2]} of ${formatCurrency(allocation.hardRule2MinCushion)}.`,
                   ]
                 : []),
             ...(row.inFlightEvaluations > 0

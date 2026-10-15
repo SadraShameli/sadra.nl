@@ -26,7 +26,7 @@ export const ViolationsCard = memo(function ViolationsCard({
                 </p>
             ) : (
                 <>
-                    <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
+                    <dl className="grid gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
                         <div className="contents">
                             <dt className="text-muted-foreground">
                                 Total cost

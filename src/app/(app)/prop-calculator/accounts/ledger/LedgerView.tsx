@@ -18,6 +18,7 @@ import {
     UNSET_SELECT_VALUE,
 } from '~/app/(app)/prop-calculator/accounts/_components/detail/formParsing';
 import { useRowEditing } from '~/app/(app)/prop-calculator/accounts/_components/detail/useRowEditing';
+import { FigureCard } from '~/app/(app)/prop-calculator/accounts/_components/FigureCard';
 import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
 import {
     feeKindLabel,
@@ -31,6 +32,7 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/rounds/roundsModel';
 import { Button } from '~/components/ui/Button';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import {
     Form,
     FormControl,
@@ -41,7 +43,6 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import {
     Select,
     SelectContent,
@@ -674,8 +675,8 @@ function LedgerFilterBar({
         filters.to !== DEFAULT_LEDGER_FILTERS.to;
     return (
         <div className="flex flex-wrap items-end gap-3">
-            <div className="flex min-w-48 flex-col gap-2">
-                <Label htmlFor="ledger-filter-account">Account</Label>
+            <Field className="w-auto min-w-48">
+                <FieldLabel htmlFor="ledger-filter-account">Account</FieldLabel>
                 <Select
                     onValueChange={(value) => {
                         onChange({
@@ -697,9 +698,9 @@ function LedgerFilterBar({
                         ))}
                     </SelectContent>
                 </Select>
-            </div>
-            <div className="flex min-w-44 flex-col gap-2">
-                <Label htmlFor="ledger-filter-entries">Entries</Label>
+            </Field>
+            <Field className="w-auto min-w-44">
+                <FieldLabel htmlFor="ledger-filter-entries">Entries</FieldLabel>
                 <Select
                     onValueChange={(value) => {
                         const entries = ENTRY_FILTERS.get(value);
@@ -720,9 +721,9 @@ function LedgerFilterBar({
                         ))}
                     </SelectContent>
                 </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-                <Label htmlFor="ledger-filter-from">From</Label>
+            </Field>
+            <Field className="w-auto">
+                <FieldLabel htmlFor="ledger-filter-from">From</FieldLabel>
                 <Input
                     id="ledger-filter-from"
                     onChange={(event) => {
@@ -734,9 +735,9 @@ function LedgerFilterBar({
                     type="date"
                     value={filters.from ?? ''}
                 />
-            </div>
-            <div className="flex flex-col gap-2">
-                <Label htmlFor="ledger-filter-to">To</Label>
+            </Field>
+            <Field className="w-auto">
+                <FieldLabel htmlFor="ledger-filter-to">To</FieldLabel>
                 <Input
                     id="ledger-filter-to"
                     onChange={(event) => {
@@ -748,7 +749,7 @@ function LedgerFilterBar({
                     type="date"
                     value={filters.to ?? ''}
                 />
-            </div>
+            </Field>
             {isFiltered && (
                 <Button
                     onClick={() => {
@@ -849,38 +850,22 @@ function LedgerTotals({ entries }: { entries: readonly LedgerEntry[] }) {
     );
     return (
         <div className="flex flex-col gap-2">
-            <dl className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-md border border-border p-3">
-                    <dt className="text-xs text-muted-foreground">
-                        Payouts received ({cash.paidPayouts} paid)
-                    </dt>
-                    <dd className="text-lg font-semibold tabular-nums">
-                        {formatUsdCents(cash.payouts)}
-                    </dd>
-                </div>
-                <div className="rounded-md border border-border p-3">
-                    <dt className="text-xs text-muted-foreground">
-                        Spend after {formatUsdCents(cash.refunds)} refunds
-                    </dt>
-                    <dd className="text-lg font-semibold tabular-nums">
-                        {formatUsdCents(cash.spend)}
-                    </dd>
-                </div>
-                <div className="rounded-md border border-border p-3">
-                    <dt className="text-xs text-muted-foreground">
-                        Net in these rows
-                    </dt>
-                    <dd
-                        className={cn(
-                            'text-lg font-semibold tabular-nums',
-                            cash.net < 0
-                                ? 'text-amber-400'
-                                : 'text-emerald-400',
-                        )}
-                    >
-                        {formatUsdCents(cash.net)}
-                    </dd>
-                </div>
+            <dl className="grid gap-3 md:grid-cols-3">
+                <FigureCard
+                    label={`Payouts received (${String(cash.paidPayouts)} paid)`}
+                    value={formatUsdCents(cash.payouts)}
+                />
+                <FigureCard
+                    label={`Spend after ${formatUsdCents(cash.refunds)} refunds`}
+                    value={formatUsdCents(cash.spend)}
+                />
+                <FigureCard
+                    label="Net in these rows"
+                    value={formatUsdCents(cash.net)}
+                    valueClassName={
+                        cash.net < 0 ? 'text-amber-400' : 'text-emerald-400'
+                    }
+                />
             </dl>
             <GrossOnlyPayoutsNote count={cash.grossOnlyPayouts} />
         </div>
@@ -1073,7 +1058,7 @@ function StatementForm({
                         ? 'Add a firm statement'
                         : 'Edit firm statement'
                 }
-                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
                 noValidate
                 onSubmit={(event) => {
                     void form.handleSubmit(save)(event);
@@ -1113,15 +1098,15 @@ function StatementForm({
                         )}
                     />
                 ) : (
-                    <div className="flex flex-col gap-2">
-                        <Label>Firm</Label>
-                        <p className="text-sm text-muted-foreground">
+                    <dl className="flex flex-col gap-2 text-sm">
+                        <dt className="font-medium">Firm</dt>
+                        <dd className="text-muted-foreground">
                             {firmKeyLabel(
                                 firmKeyOf(firmColumnsOf(editing)),
                                 externalFirms,
                             )}
-                        </p>
-                    </div>
+                        </dd>
+                    </dl>
                 )}
                 <FormField
                     control={form.control}
@@ -1198,7 +1183,7 @@ function StatementForm({
                         </FormItem>
                     )}
                 />
-                <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
+                <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-4">
                     <Button
                         disabled={create.isPending || update.isPending}
                         type="submit"
@@ -1330,7 +1315,7 @@ function TransferForm({
                 aria-label={
                     editing === null ? 'Add a transfer' : 'Edit transfer'
                 }
-                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
                 noValidate
                 onSubmit={(event) => {
                     void form.handleSubmit(save)(event);
@@ -1417,7 +1402,7 @@ function TransferForm({
                         </FormItem>
                     )}
                 />
-                <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
+                <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-4">
                     <Button
                         disabled={create.isPending || update.isPending}
                         type="submit"

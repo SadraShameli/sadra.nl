@@ -1,6 +1,13 @@
 import { act } from 'react';
 
-export async function pickOption(trigger: HTMLElement, optionText: string) {
+export async function pickOption(
+    trigger: HTMLElement,
+    optionText: ((text: string) => boolean) | string,
+) {
+    const isWanted =
+        typeof optionText === 'string'
+            ? (text: string) => text === optionText
+            : optionText;
     await act(async () => {
         trigger.focus();
         trigger.dispatchEvent(
@@ -9,8 +16,12 @@ export async function pickOption(trigger: HTMLElement, optionText: string) {
     });
     const option = [
         ...document.querySelectorAll<HTMLElement>('[role="option"]'),
-    ].find((candidate) => candidate.textContent.trim() === optionText);
-    if (option === undefined) throw new Error(`no option ${optionText}`);
+    ].find((candidate) => isWanted(candidate.textContent.trim()));
+    if (option === undefined) {
+        throw new Error(
+            `no option ${typeof optionText === 'string' ? optionText : 'matching the test'}`,
+        );
+    }
     await act(async () => {
         option.focus();
         option.dispatchEvent(

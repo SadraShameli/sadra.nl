@@ -218,6 +218,25 @@ describe('EdgeView', () => {
         expect(query.has('obj')).toBe(false);
     });
 
+    it('carries only the calculator state the hub uses in the measured-edge link, not the default lab scenarios or portfolio', () => {
+        harness.queries.set(
+            'edge.summary',
+            answer({ summary: edgeSummary(10), truncated: false }),
+        );
+        render();
+        const link = [...container.querySelectorAll('a')].find(
+            (candidate) =>
+                candidate.textContent ===
+                'Try my measured win rate in the calculator',
+        );
+        const query = new URLSearchParams(
+            (link?.getAttribute('href') ?? '').split('?', 2)[1],
+        );
+        expect(query.size).toBeGreaterThan(0);
+        expect(query.has('lab')).toBe(false);
+        expect(query.has('pf')).toBe(false);
+    });
+
     it('shows no measured-edge link when the journal has no observed win rate', () => {
         harness.queries.set(
             'edge.summary',

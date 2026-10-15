@@ -241,7 +241,7 @@ function RetireInformation({ view }: { readonly view: RetireView }) {
                         Keep or start a fresh account
                     </h4>
                     <p className="text-sm">{model.verdict}</p>
-                    <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
+                    <dl className="grid gap-x-6 gap-y-1 text-sm md:grid-cols-[auto_1fr]">
                         <dt className="text-muted-foreground">
                             Keeping this account
                         </dt>

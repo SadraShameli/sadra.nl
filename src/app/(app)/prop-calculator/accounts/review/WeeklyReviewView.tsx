@@ -19,7 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
-import { Label } from '~/components/ui/Label';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
@@ -554,7 +554,10 @@ export function WeeklyReviewView() {
                             {row.isRecorded &&
                                 sizing.kind ===
                                     WeeklyReviewSizingKind.Ready && (
-                                    <div className="flex items-center gap-2 text-sm">
+                                    <Field
+                                        className="text-sm"
+                                        orientation="horizontal"
+                                    >
                                         <Checkbox
                                             checked={isAccepted}
                                             id={`accept-${row.accountId}`}
@@ -573,13 +576,13 @@ export function WeeklyReviewView() {
                                                 setAcceptedHeadlines(next);
                                             }}
                                         />
-                                        <Label
+                                        <FieldLabel
                                             htmlFor={`accept-${row.accountId}`}
                                         >
                                             Accept this size into the decision
                                             log
-                                        </Label>
-                                    </div>
+                                        </FieldLabel>
+                                    </Field>
                                 )}
                         </CardContent>
                     </Card>
@@ -846,7 +849,7 @@ function UnchangedControl({
                 Unchanged since {since ?? NOT_APPLICABLE}
             </p>
             {!isBlocked && (
-                <div className="flex items-center gap-2">
+                <Field orientation="horizontal">
                     <Checkbox
                         checked={isConfirmed}
                         id={`unchanged-${rowId}`}
@@ -854,10 +857,10 @@ function UnchangedControl({
                             onToggle(checked === true);
                         }}
                     />
-                    <Label htmlFor={`unchanged-${rowId}`}>
+                    <FieldLabel htmlFor={`unchanged-${rowId}`}>
                         Record as unchanged
-                    </Label>
-                </div>
+                    </FieldLabel>
+                </Field>
             )}
         </div>
     );

@@ -1,5 +1,6 @@
 import { uncertainCurrencyText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
+import { Card } from '~/components/ui/Card';
 import { formatCurrency } from '~/lib/format';
 
 import { PAYOUT_READY_LESSON_TEXT } from './accountActionModel';
@@ -21,7 +22,7 @@ export function PayoutReadyBanner({
     readonly stake: null | ValueSection<PayoutStakeView>;
 }) {
     return (
-        <div className="flex flex-col gap-2 rounded-md border p-4">
+        <Card className="gap-2 p-4">
             <h3 className="text-base font-semibold">Request payout</h3>
             <p className="text-sm">
                 This account can withdraw now. The documented rungs below are
@@ -44,7 +45,7 @@ export function PayoutReadyBanner({
                 </Alert>
             )}
             {stake !== null && <StakeLines stake={stake} />}
-        </div>
+        </Card>
     );
 }
 

@@ -3,8 +3,13 @@
 import { TriangleAlert } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
+import {
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import {
     AccountTracking,
     type SnapshotField,
@@ -131,14 +136,17 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                     .filter((part) => part !== null)
                     .join(' ');
                 return (
-                    <div className="flex flex-col gap-2" key={rule.field}>
-                        <Label htmlFor={id}>
+                    <Field data-invalid={issue !== undefined} key={rule.field}>
+                        <FieldLabel
+                            className="items-baseline gap-1"
+                            htmlFor={id}
+                        >
                             {rule.label}
                             {rule.input === SnapshotInputKind.Money && ' ($)'}
                             <FieldRequirementMark
                                 text={REQUIREMENT_NOTE[rule.requirement]}
                             />
-                        </Label>
+                        </FieldLabel>
                         <Input
                             aria-describedby={
                                 describedBy === '' ? undefined : describedBy
@@ -159,30 +167,22 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                             value={values[rule.field]}
                         />
                         {rule.hint !== null && (
-                            <p
-                                className="text-xs text-muted-foreground"
-                                id={hintId}
-                            >
+                            <FieldDescription id={hintId}>
                                 {rule.hint}
-                            </p>
+                            </FieldDescription>
                         )}
                         {issue !== undefined && (
-                            <p
-                                className="text-sm text-destructive"
-                                id={errorId}
-                            >
-                                {issue}
-                            </p>
+                            <FieldError id={errorId}>{issue}</FieldError>
                         )}
                         {warning !== undefined && (
-                            <p
-                                className="text-sm text-amber-400"
+                            <FieldDescription
+                                className="text-amber-400"
                                 id={warningId}
                             >
                                 {warning}
-                            </p>
+                            </FieldDescription>
                         )}
-                    </div>
+                    </Field>
                 );
             })}
         </div>

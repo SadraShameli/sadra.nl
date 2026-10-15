@@ -14,40 +14,46 @@ import {
     type OverviewWorkerResult,
 } from './overviewWorkerMessages';
 
-function fail(runId: number, reason: string): void {
-    const message: WorkerTaskMessage<never, never> = {
-        kind: WorkerTaskEventKind.Failed,
-        reason,
-        runId,
-    };
-    self.postMessage(message);
+type OverviewWorkerMessage = WorkerTaskMessage<
+    OverviewWorkerResult,
+    OverviewWorkerResult
+>;
+
+export function runOverviewTask(
+    { request, runId }: WorkerTaskRequest<OverviewWorkerRequest>,
+    post: (message: OverviewWorkerMessage) => void,
+): void {
+    try {
+        const { requests } = overviewWorkerRequestSchema.parse(request);
+        const outcomes: OverviewOutcome[] = [];
+        for (const one of requests) {
+            const outcome = overviewOutcomeOf(one);
+            outcomes.push(outcome);
+            if (outcomes.length < requests.length) {
+                post({
+                    kind: WorkerTaskEventKind.Progress,
+                    progress: { outcomes: [outcome] },
+                    runId,
+                });
+            }
+        }
+        post({ kind: WorkerTaskEventKind.Done, result: { outcomes }, runId });
+    } catch (error) {
+        post({
+            kind: WorkerTaskEventKind.Failed,
+            reason: error instanceof Error ? error.message : String(error),
+            runId,
+        });
+    }
 }
 
-self.addEventListener(
-    'message',
-    (event: MessageEvent<WorkerTaskRequest<OverviewWorkerRequest>>) => {
-        const { request, runId } = event.data;
-        try {
-            const { requests } = overviewWorkerRequestSchema.parse(request);
-            const outcomes: OverviewOutcome[] = [];
-            for (const one of requests) {
-                outcomes.push(overviewOutcomeOf(one));
-                const progress: WorkerTaskMessage<OverviewWorkerResult, never> =
-                    {
-                        kind: WorkerTaskEventKind.Progress,
-                        progress: { outcomes: [...outcomes] },
-                        runId,
-                    };
-                self.postMessage(progress);
-            }
-            const done: WorkerTaskMessage<never, OverviewWorkerResult> = {
-                kind: WorkerTaskEventKind.Done,
-                result: { outcomes },
-                runId,
-            };
-            self.postMessage(done);
-        } catch (error) {
-            fail(runId, error instanceof Error ? error.message : String(error));
-        }
-    },
-);
+if (typeof self !== 'undefined' && 'addEventListener' in self) {
+    self.addEventListener(
+        'message',
+        (event: MessageEvent<WorkerTaskRequest<OverviewWorkerRequest>>) => {
+            runOverviewTask(event.data, (message) => {
+                self.postMessage(message);
+            });
+        },
+    );
+}

@@ -4,8 +4,8 @@ import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '~/components/ui/Button';
+import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatCurrency } from '~/lib/format';
 import { RuleViolationKind } from '~/lib/prop-accounts';
@@ -75,10 +75,10 @@ export function ProposedRiskCheck({
             <div className="grid gap-3 md:grid-cols-3">
                 {(Object.keys(FIELD_LABELS) as (keyof RiskCheckInputs)[]).map(
                     (field) => (
-                        <div className="flex flex-col gap-1" key={field}>
-                            <Label htmlFor={`risk-check-${field}`}>
+                        <Field key={field}>
+                            <FieldLabel htmlFor={`risk-check-${field}`}>
                                 {FIELD_LABELS[field]}
-                            </Label>
+                            </FieldLabel>
                             <Input
                                 aria-label={FIELD_LABELS[field]}
                                 id={`risk-check-${field}`}
@@ -91,15 +91,11 @@ export function ProposedRiskCheck({
                                 }}
                                 value={inputs[field]}
                             />
-                        </div>
+                        </Field>
                     ),
                 )}
             </div>
-            {inputMessage !== null && (
-                <p className="text-sm text-destructive" role="alert">
-                    {inputMessage}
-                </p>
-            )}
+            {inputMessage !== null && <FieldError>{inputMessage}</FieldError>}
             {notRunReason !== null && (
                 <p className="text-sm text-muted-foreground">{notRunReason}</p>
             )}

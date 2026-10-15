@@ -1,5 +1,7 @@
 import PlanStatsBadges from '~/app/(app)/prop-calculator/_components/PlanStatsBadges';
 import { LEDGER_ONLY_STATUS_NOTE } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
+import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
+import { Collapsible, CollapsibleContent } from '~/components/ui/Collapsible';
 import { formatCurrency } from '~/lib/format';
 import {
     describePlanOptIn,
@@ -32,7 +34,7 @@ export function LedgerOnlyPlanSummary({
     ];
     return (
         <div className="flex flex-col gap-4">
-            <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
+            <dl className="grid gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
                 {rows.map(([term, value]) => (
                     <div className="contents" key={term}>
                         <dt className="text-muted-foreground">{term}</dt>
@@ -89,19 +91,23 @@ export function PlanRulesSummary({
     return (
         <div className="flex flex-col gap-4">
             <PlanStatsBadges plan={plan} />
-            <details>
-                <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+            <Collapsible className="flex flex-col">
+                <DisclosureTrigger>
                     All {rows.length} plan rules
-                </summary>
-                <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
-                    {rows.map(([term, value]) => (
-                        <div className="contents" key={term}>
-                            <dt className="text-muted-foreground">{term}</dt>
-                            <dd className="tabular-nums">{value}</dd>
-                        </div>
-                    ))}
-                </dl>
-            </details>
+                </DisclosureTrigger>
+                <CollapsibleContent>
+                    <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
+                        {rows.map(([term, value]) => (
+                            <div className="contents" key={term}>
+                                <dt className="text-muted-foreground">
+                                    {term}
+                                </dt>
+                                <dd className="tabular-nums">{value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                </CollapsibleContent>
+            </Collapsible>
         </div>
     );
 }

@@ -53,6 +53,10 @@ import {
 } from '~/lib/schemas/propAccountOutputs';
 import { MAX_ACCOUNT_LABEL_LENGTH } from '~/lib/schemas/propAccounts';
 
+import { pickOption } from './pickOption';
+
+const ACCOUNT_SELECT_LABEL = 'Account to add to Main copy';
+
 interface FakeQuery {
     data: unknown;
     error: Error | null;
@@ -243,6 +247,14 @@ const DOCUMENTED_FUNDED_RISK =
 const SIZING_PEAK = SIZING_PLAN.accountSize + 20_000;
 const SIZING_THRESHOLD = SIZING_PEAK - SIZING_PLAN.fundedDrawdown.amount;
 
+function accountSelectTrigger(): HTMLButtonElement {
+    const control = labelledControl(ACCOUNT_SELECT_LABEL);
+    if (!(control instanceof HTMLButtonElement)) {
+        throw new TypeError(`no select labelled ${ACCOUNT_SELECT_LABEL}`);
+    }
+    return control;
+}
+
 function answerWith(
     groups: readonly (typeof MAIN | typeof SPARE)[],
     accounts: readonly CopyGroupAccount[],
@@ -265,6 +277,12 @@ function callsTo(name: string): unknown[] {
     return harness.calls
         .filter(([called]) => called === name)
         .map(([, input]) => input);
+}
+
+async function chooseAccount(accountLabel: string) {
+    await pickOption(accountSelectTrigger(), (text) =>
+        text.startsWith(`${accountLabel} (`),
+    );
 }
 
 function click(target: HTMLButtonElement) {
@@ -290,13 +308,7 @@ function evalSizingAccount(id: string) {
 }
 
 function field(label: string): HTMLInputElement | HTMLSelectElement {
-    const labelElement = [...document.querySelectorAll('label')].find(
-        (candidate) => candidate.textContent.trim() === label,
-    );
-    const control =
-        labelElement === undefined
-            ? null
-            : document.querySelector(`#${CSS.escape(labelElement.htmlFor)}`);
+    const control = labelledControl(label);
     if (
         !(control instanceof HTMLInputElement) &&
         !(control instanceof HTMLSelectElement)
@@ -337,6 +349,15 @@ function groupSection(name: string): HTMLElement {
     );
     if (section === undefined) throw new Error(`no section ${name}`);
     return section;
+}
+
+function labelledControl(label: string): Element | null {
+    const labelElement = [...document.querySelectorAll('label')].find(
+        (candidate) => candidate.textContent.trim() === label,
+    );
+    return labelElement === undefined
+        ? null
+        : document.querySelector(`#${CSS.escape(labelElement.htmlFor)}`);
 }
 
 function rejection(overrides: Partial<PropRejection>): PropRejection {
@@ -890,7 +911,7 @@ describe('CopyGroupsView', () => {
             ],
         );
         render();
-        typeInto(field('Account to add to Main copy'), 'funded-b');
+        await chooseAccount('funded-b');
         click(button('Add to Main copy'));
         await flush();
         click(button('Remove funded-a from Main copy'));
@@ -927,16 +948,16 @@ describe('CopyGroupsView', () => {
     it('moves focus to the group heading after the last unassigned account is added', async () => {
         answerWith([MAIN], [account('funded-b')]);
         render();
-        typeInto(field('Account to add to Main copy'), 'funded-b');
+        await chooseAccount('funded-b');
         click(button('Add to Main copy'));
         await flush();
         answerWith([MAIN], [account('funded-b', { copyGroupId: MAIN.id })]);
         render();
-        expect(() => field('Account to add to Main copy')).toThrow();
+        expect(() => accountSelectTrigger()).toThrow();
         expect(document.activeElement).toBe(groupHeading());
     });
 
-    it('names the inactive or archived member of another stage when the server refuses an account', () => {
+    it('names the inactive or archived member of another stage when the server refuses an account', async () => {
         answerWith(
             [MAIN],
             [
@@ -954,7 +975,7 @@ describe('CopyGroupsView', () => {
             rejectionError(mixedMessage('Evaluation', 'Funded'), rejection({})),
         );
         render();
-        typeInto(field('Account to add to Main copy'), 'funded-b');
+        await chooseAccount('funded-b');
         click(button('Add to Main copy'));
         const alert =
             groupSection('Main copy').querySelector(
@@ -967,7 +988,7 @@ describe('CopyGroupsView', () => {
         expect(alert).toContain(mixedMessage('Evaluation', 'Funded'));
     });
 
-    it('shows the server mixed-stage message readably when an account of another stage is assigned', () => {
+    it('shows the server mixed-stage message readably when an account of another stage is assigned', async () => {
         answerWith(
             [MAIN],
             [
@@ -980,7 +1001,7 @@ describe('CopyGroupsView', () => {
             rejectionError(mixedMessage('Funded', 'Evaluation'), rejection({})),
         );
         render();
-        typeInto(field('Account to add to Main copy'), 'eval-b');
+        await chooseAccount('eval-b');
         click(button('Add to Main copy'));
         const alert = groupSection('Main copy').querySelector('[role="alert"]');
         expect(alert?.textContent).toContain('eval-b cannot join Main copy');
@@ -994,11 +1015,11 @@ describe('CopyGroupsView', () => {
         expect(harness.invalidate).not.toHaveBeenCalled();
     });
 
-    it('reports any other assign failure as a toast', () => {
+    it('reports any other assign failure as a toast', async () => {
         answerWith([MAIN], [account('funded-b')]);
         harness.outcomes.set('copyGroup.assign', new Error('Failed to fetch'));
         render();
-        typeInto(field('Account to add to Main copy'), 'funded-b');
+        await chooseAccount('funded-b');
         click(button('Add to Main copy'));
         expect(harness.toastError).toHaveBeenCalledWith('Failed to fetch');
         expect(
@@ -1006,10 +1027,10 @@ describe('CopyGroupsView', () => {
         ).toBeNull();
     });
 
-    it('never assigns an account that left the unassigned list after it was chosen', () => {
+    it('never assigns an account that left the unassigned list after it was chosen', async () => {
         answerWith([MAIN, SPARE], [account('funded-b'), account('funded-c')]);
         render();
-        typeInto(field('Account to add to Main copy'), 'funded-b');
+        await chooseAccount('funded-b');
         answerWith(
             [MAIN, SPARE],
             [
@@ -1020,7 +1041,7 @@ describe('CopyGroupsView', () => {
         render();
         click(button('Add to Main copy'));
         expect(callsTo('copyGroup.assign')).toEqual([]);
-        expect(errorOf(field('Account to add to Main copy'))).toBe(
+        expect(errorOf(accountSelectTrigger())).toBe(
             'Choose an account to add.',
         );
     });
@@ -1030,7 +1051,7 @@ describe('CopyGroupsView', () => {
         render();
         click(button('Add to Main copy'));
         expect(callsTo('copyGroup.assign')).toEqual([]);
-        expect(errorOf(field('Account to add to Main copy'))).toBe(
+        expect(errorOf(accountSelectTrigger())).toBe(
             'Choose an account to add.',
         );
     });

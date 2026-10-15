@@ -51,6 +51,8 @@ import {
 } from '~/lib/schemas/propAccountOutputs';
 import { routes } from '~/lib/site/routes';
 
+import { openDisclosure } from './openDisclosure';
+
 interface FakeQuery {
     data: unknown;
     error: Error | null;
@@ -537,10 +539,15 @@ describe('OverviewView', () => {
     it('lists every shown section in the jump navigation, in page order, each linking to its section', () => {
         answerEverything([overviewAccount('alpha')]);
         render();
+        const nav = container.querySelector(
+            ':scope nav[aria-label="Overview sections"]',
+        );
+        if (nav === null) throw new Error('no jump navigation');
         const links = [
-            ...container.querySelectorAll<HTMLAnchorElement>(
-                ':scope nav[aria-label="Overview sections"] a',
-            ),
+            ...openDisclosure(
+                nav,
+                `Jump to a section (${String(SECTION_HEADINGS.length)})`,
+            ).querySelectorAll<HTMLAnchorElement>('a'),
         ];
         expect(links.map((link) => link.textContent)).toEqual(SECTION_HEADINGS);
         for (const link of links) {
@@ -768,14 +775,16 @@ describe('OverviewView', () => {
         render();
         const statement = sectionNamed('Monthly statement');
         expect(statement?.textContent).toContain('2026-06');
-        const cohortButton = [
-            ...(statement?.querySelectorAll('button') ?? []),
-        ].find((button) => button.textContent === 'By purchase cohort');
-        if (cohortButton === undefined) {
-            throw new Error('no purchase cohort toggle button');
+        const cohortTab = [
+            ...(statement?.querySelectorAll('[role="tab"]') ?? []),
+        ].find((tab) => tab.textContent === 'By purchase cohort');
+        if (cohortTab === undefined) {
+            throw new Error('no purchase cohort tab');
         }
         act(() => {
-            cohortButton.click();
+            cohortTab.dispatchEvent(
+                new MouseEvent('mousedown', { bubbles: true, button: 0 }),
+            );
         });
         expect(statement?.textContent).toContain('In progress');
         expect(statement?.textContent).toContain('2026-06');

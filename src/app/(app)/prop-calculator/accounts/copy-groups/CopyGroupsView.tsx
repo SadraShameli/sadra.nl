@@ -34,9 +34,17 @@ import {
 } from '~/components/ui/AlertDialog';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
+import { Card } from '~/components/ui/Card';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { formatConjunctionList } from '~/lib/format';
 import {
@@ -253,8 +261,8 @@ function CreateGroupForm() {
                 submit();
             }}
         >
-            <div className="flex min-w-64 flex-col gap-2">
-                <Label htmlFor={inputId}>Group name</Label>
+            <Field className="w-auto min-w-64" data-invalid={error !== null}>
+                <FieldLabel htmlFor={inputId}>Group name</FieldLabel>
                 <Input
                     aria-describedby={error === null ? undefined : errorId}
                     aria-invalid={error !== null}
@@ -265,14 +273,14 @@ function CreateGroupForm() {
                     }}
                     value={name}
                 />
-            </div>
+            </Field>
             <Button disabled={create.isPending} type="submit">
                 Create group
             </Button>
             {error !== null && (
-                <p className="basis-full text-sm text-destructive" id={errorId}>
+                <FieldError className="basis-full" id={errorId}>
                     {error}
-                </p>
+                </FieldError>
             )}
         </form>
     );
@@ -429,157 +437,169 @@ function GroupSection({
     }
 
     return (
-        <section
-            aria-labelledby={headingId}
-            className="flex flex-col gap-4 rounded-lg border p-4"
-        >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h2
-                        className="text-xl font-semibold outline-none"
-                        id={headingId}
-                        ref={groupHeadingReference}
-                        tabIndex={-1}
-                    >
-                        {group.name}
-                    </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {row.stageSummary}
-                        {row.firmNames.length > 0 &&
-                            `. Firms: ${row.firmNames.join(', ')}`}
-                    </p>
-                    {group.notes !== null && group.notes !== '' && (
-                        <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">
-                            {group.notes}
+        <section aria-labelledby={headingId}>
+            <Card className="gap-4 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2
+                            className="text-xl font-semibold outline-none"
+                            id={headingId}
+                            ref={groupHeadingReference}
+                            tabIndex={-1}
+                        >
+                            {group.name}
+                        </h2>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {row.stageSummary}
+                            {row.firmNames.length > 0 &&
+                                `. Firms: ${row.firmNames.join(', ')}`}
                         </p>
-                    )}
-                </div>
-                <div className="flex gap-1">
-                    <Button
-                        aria-expanded={isRenaming}
-                        aria-label={`Rename ${group.name}`}
-                        onClick={() => {
-                            setIsRenaming(true);
-                        }}
-                        ref={renameReference}
-                        size="icon"
-                        variant="ghost"
-                    >
-                        <Pencil />
-                    </Button>
-                    <DeleteGroupDialog onDeleted={onDeleted} row={row} />
-                </div>
-            </div>
-            {isRenaming && (
-                <RenameGroupForm
-                    onClose={() => {
-                        setIsRenaming(false);
-                        renameReference.current?.focus();
-                    }}
-                    row={row}
-                />
-            )}
-            {row.isMixedStage && (
-                <Alert variant="warning">
-                    <TriangleAlert />
-                    <AlertTitle>Mixed stages</AlertTitle>
-                    <AlertDescription>
-                        {row.stageSummary}. {mixedStageAdvice(row)}
-                    </AlertDescription>
-                </Alert>
-            )}
-            {rejection !== null && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>
-                        {rejection.accountLabel} cannot join {group.name}
-                    </AlertTitle>
-                    <AlertDescription>
-                        {rejection.explanation !== null && (
-                            <p>{rejection.explanation}</p>
+                        {group.notes !== null && group.notes !== '' && (
+                            <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">
+                                {group.notes}
+                            </p>
                         )}
-                        <p>{rejection.message}</p>
-                    </AlertDescription>
-                </Alert>
-            )}
-            <MemberList
-                groupName={group.name}
-                isPending={assign.isPending}
-                members={row.members}
-                onRemove={remove}
-            />
-            {row.members.length > 0 && (
-                <GroupSizingSection row={row} sizing={sizing} />
-            )}
-            {row.otherMembers.length > 0 && (
-                <div className="flex flex-col gap-2">
-                    <p className="text-sm text-muted-foreground">
-                        Inactive or archived members. They get no group sizing,
-                        but they still count when a new member&apos;s stage is
-                        checked.
-                    </p>
-                    <MemberList
-                        groupName={group.name}
-                        isPending={assign.isPending}
-                        members={row.otherMembers}
-                        onRemove={remove}
-                    />
-                </div>
-            )}
-            {candidates.length > 0 && (
-                <form
-                    aria-label={`Add an account to ${group.name}`}
-                    className="flex flex-wrap items-end gap-3"
-                    noValidate
-                    onSubmit={(event) => {
-                        event.preventDefault();
-                        add();
-                    }}
-                >
-                    <div className="flex min-w-64 flex-col gap-2">
-                        <Label htmlFor={selectId}>
-                            Account to add to {group.name}
-                        </Label>
-                        <select
-                            aria-describedby={
-                                chooseError === null ? undefined : selectErrorId
-                            }
-                            aria-invalid={chooseError !== null}
-                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                            id={selectId}
-                            onChange={(event) => {
-                                setChosenId(event.target.value);
-                                setChooseError(null);
-                            }}
-                            value={chosenId}
-                        >
-                            <option value="">Choose an account</option>
-                            {candidates.map((candidate) => (
-                                <option key={candidate.id} value={candidate.id}>
-                                    {candidate.label} ({candidate.stageLabel},{' '}
-                                    {candidate.firmName})
-                                </option>
-                            ))}
-                        </select>
                     </div>
-                    <Button
-                        aria-label={`Add to ${group.name}`}
-                        disabled={assign.isPending}
-                        type="submit"
-                        variant="outline"
-                    >
-                        Add
-                    </Button>
-                    {chooseError !== null && (
-                        <p
-                            className="basis-full text-sm text-destructive"
-                            id={selectErrorId}
+                    <div className="flex gap-1">
+                        <Button
+                            aria-expanded={isRenaming}
+                            aria-label={`Rename ${group.name}`}
+                            onClick={() => {
+                                setIsRenaming(true);
+                            }}
+                            ref={renameReference}
+                            size="icon"
+                            variant="ghost"
                         >
-                            {chooseError}
+                            <Pencil />
+                        </Button>
+                        <DeleteGroupDialog onDeleted={onDeleted} row={row} />
+                    </div>
+                </div>
+                {isRenaming && (
+                    <RenameGroupForm
+                        onClose={() => {
+                            setIsRenaming(false);
+                            renameReference.current?.focus();
+                        }}
+                        row={row}
+                    />
+                )}
+                {row.isMixedStage && (
+                    <Alert variant="warning">
+                        <TriangleAlert />
+                        <AlertTitle>Mixed stages</AlertTitle>
+                        <AlertDescription>
+                            {row.stageSummary}. {mixedStageAdvice(row)}
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {rejection !== null && (
+                    <Alert variant="destructive">
+                        <TriangleAlert />
+                        <AlertTitle>
+                            {rejection.accountLabel} cannot join {group.name}
+                        </AlertTitle>
+                        <AlertDescription>
+                            {rejection.explanation !== null && (
+                                <p>{rejection.explanation}</p>
+                            )}
+                            <p>{rejection.message}</p>
+                        </AlertDescription>
+                    </Alert>
+                )}
+                <MemberList
+                    groupName={group.name}
+                    isPending={assign.isPending}
+                    members={row.members}
+                    onRemove={remove}
+                />
+                {row.members.length > 0 && (
+                    <GroupSizingSection row={row} sizing={sizing} />
+                )}
+                {row.otherMembers.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                        <p className="text-sm text-muted-foreground">
+                            Inactive or archived members. They get no group
+                            sizing, but they still count when a new
+                            member&apos;s stage is checked.
                         </p>
-                    )}
-                </form>
-            )}
+                        <MemberList
+                            groupName={group.name}
+                            isPending={assign.isPending}
+                            members={row.otherMembers}
+                            onRemove={remove}
+                        />
+                    </div>
+                )}
+                {candidates.length > 0 && (
+                    <form
+                        aria-label={`Add an account to ${group.name}`}
+                        className="flex flex-wrap items-end gap-3"
+                        noValidate
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            add();
+                        }}
+                    >
+                        <Field
+                            className="w-auto min-w-64"
+                            data-invalid={chooseError !== null}
+                        >
+                            <FieldLabel htmlFor={selectId}>
+                                Account to add to {group.name}
+                            </FieldLabel>
+                            <Select
+                                onValueChange={(value) => {
+                                    setChosenId(value);
+                                    setChooseError(null);
+                                }}
+                                value={chosenId}
+                            >
+                                <SelectTrigger
+                                    aria-describedby={
+                                        chooseError === null
+                                            ? undefined
+                                            : selectErrorId
+                                    }
+                                    aria-invalid={chooseError !== null}
+                                    id={selectId}
+                                >
+                                    <SelectValue placeholder="Choose an account" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {candidates.map((candidate) => (
+                                        <SelectItem
+                                            key={candidate.id}
+                                            value={candidate.id}
+                                        >
+                                            {candidate.label} (
+                                            {candidate.stageLabel},{' '}
+                                            {candidate.firmName})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </Field>
+                        <Button
+                            aria-label={`Add to ${group.name}`}
+                            disabled={assign.isPending}
+                            type="submit"
+                            variant="outline"
+                        >
+                            Add
+                        </Button>
+                        {chooseError !== null && (
+                            <FieldError
+                                className="basis-full"
+                                id={selectErrorId}
+                            >
+                                {chooseError}
+                            </FieldError>
+                        )}
+                    </form>
+                )}
+            </Card>
         </section>
     );
 }
@@ -613,30 +633,32 @@ function MemberList({
 }) {
     if (members.length === 0) return null;
     return (
-        <ul className="flex flex-col divide-y rounded-md border">
-            {members.map((member) => (
-                <li
-                    className={cn(
-                        'flex flex-wrap items-center justify-between gap-2 px-3 py-2',
-                        member.isArchived && 'opacity-60',
-                    )}
-                    key={member.id}
-                >
-                    <MemberSummary member={member} />
-                    <Button
-                        aria-label={`Remove ${member.label} from ${groupName}`}
-                        disabled={isPending}
-                        onClick={() => {
-                            onRemove(member);
-                        }}
-                        size="icon"
-                        variant="ghost"
+        <Card className="gap-0 py-0">
+            <ul className="flex flex-col divide-y">
+                {members.map((member) => (
+                    <li
+                        className={cn(
+                            'flex flex-wrap items-center justify-between gap-2 px-3 py-2',
+                            member.isArchived && 'opacity-60',
+                        )}
+                        key={member.id}
                     >
-                        <UserMinus />
-                    </Button>
-                </li>
-            ))}
-        </ul>
+                        <MemberSummary member={member} />
+                        <Button
+                            aria-label={`Remove ${member.label} from ${groupName}`}
+                            disabled={isPending}
+                            onClick={() => {
+                                onRemove(member);
+                            }}
+                            size="icon"
+                            variant="ghost"
+                        >
+                            <UserMinus />
+                        </Button>
+                    </li>
+                ))}
+            </ul>
+        </Card>
     );
 }
 
@@ -716,8 +738,10 @@ function RenameGroupForm({
                 submit();
             }}
         >
-            <div className="flex min-w-64 flex-col gap-2">
-                <Label htmlFor={inputId}>New name for {group.name}</Label>
+            <Field className="w-auto min-w-64" data-invalid={error !== null}>
+                <FieldLabel htmlFor={inputId}>
+                    New name for {group.name}
+                </FieldLabel>
                 <Input
                     aria-describedby={error === null ? undefined : errorId}
                     aria-invalid={error !== null}
@@ -728,7 +752,7 @@ function RenameGroupForm({
                     }}
                     value={name}
                 />
-            </div>
+            </Field>
             <Button disabled={update.isPending} type="submit">
                 Save name
             </Button>
@@ -736,9 +760,9 @@ function RenameGroupForm({
                 Cancel
             </Button>
             {error !== null && (
-                <p className="basis-full text-sm text-destructive" id={errorId}>
+                <FieldError className="basis-full" id={errorId}>
                     {error}
-                </p>
+                </FieldError>
             )}
         </form>
     );
@@ -760,13 +784,15 @@ function UnassignedSection({
                     Every active account is in a group.
                 </p>
             ) : (
-                <ul className="flex flex-col divide-y rounded-md border">
-                    {members.map((member) => (
-                        <li className="px-3 py-2" key={member.id}>
-                            <MemberSummary member={member} />
-                        </li>
-                    ))}
-                </ul>
+                <Card className="gap-0 py-0">
+                    <ul className="flex flex-col divide-y">
+                        {members.map((member) => (
+                            <li className="px-3 py-2" key={member.id}>
+                                <MemberSummary member={member} />
+                            </li>
+                        ))}
+                    </ul>
+                </Card>
             )}
         </section>
     );

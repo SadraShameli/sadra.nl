@@ -11,6 +11,8 @@ import {
     NextPayoutKind,
     type NextPayoutView,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountValueColumns';
+import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
+import { Collapsible, CollapsibleContent } from '~/components/ui/Collapsible';
 import { AccountAction } from '~/lib/prop-calculator/advisor';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -95,12 +97,14 @@ export function NextPayoutFigure({
             </span>
             {nextPayout.note !== null &&
                 (isNoteFolded ? (
-                    <details className="text-xs text-muted-foreground">
-                        <summary className="cursor-pointer py-1 select-none">
+                    <Collapsible className="flex flex-col text-xs text-muted-foreground">
+                        <DisclosureTrigger className="text-xs">
                             How this is estimated
-                        </summary>
-                        <p>{nextPayout.note}</p>
-                    </details>
+                        </DisclosureTrigger>
+                        <CollapsibleContent>
+                            <p>{nextPayout.note}</p>
+                        </CollapsibleContent>
+                    </Collapsible>
                 ) : (
                     <p className="text-xs text-muted-foreground">
                         {nextPayout.note}

@@ -66,7 +66,7 @@ const CARD: DailyPlanCardViewModel = {
     valueAfterLoss: null,
     valueAfterWin: null,
     valueNow: null,
-    windowRuleText: 'Hard Rule 6: at most one trade per trading window',
+    windowRuleText: 'Trade window: at most one trade per trading window',
 };
 
 const onInstrumentChange = vi.fn();

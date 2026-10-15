@@ -125,7 +125,7 @@ function DistributionPair({
             <h3 className="text-sm font-medium text-white">
                 {row.plan}: payout-count distribution
             </h3>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
                 {row.realizedProbabilities.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                         No fully observed funded account yet, so there is no

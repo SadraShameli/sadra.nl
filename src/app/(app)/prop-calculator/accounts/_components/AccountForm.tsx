@@ -14,6 +14,12 @@ import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
 import {
+    Field,
+    FieldContent,
+    FieldDescription,
+    FieldLabel,
+} from '~/components/ui/Field';
+import {
     Form,
     FormControl,
     FormDescription,
@@ -23,7 +29,6 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import {
     Select,
     SelectContent,
@@ -851,24 +856,25 @@ function DetailsCard({
                     control={control}
                     name="overrideRoundBudget"
                     render={({ field }) => (
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                                <Checkbox
-                                    checked={field.value}
-                                    id="account-override-round-budget"
-                                    onCheckedChange={(checked) => {
-                                        field.onChange(checked === true);
-                                    }}
-                                />
-                                <Label htmlFor="account-override-round-budget">
+                        <Field orientation="horizontal">
+                            <Checkbox
+                                aria-describedby="account-override-round-budget-hint"
+                                checked={field.value}
+                                id="account-override-round-budget"
+                                onCheckedChange={(checked) => {
+                                    field.onChange(checked === true);
+                                }}
+                            />
+                            <FieldContent>
+                                <FieldLabel htmlFor="account-override-round-budget">
                                     Override the round budget
-                                </Label>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Adds this account to its round even if the round
-                                has already spent its budget.
-                            </p>
-                        </div>
+                                </FieldLabel>
+                                <FieldDescription id="account-override-round-budget-hint">
+                                    Adds this account to its round even if the
+                                    round has already spent its budget.
+                                </FieldDescription>
+                            </FieldContent>
+                        </Field>
                     )}
                 />
                 <FormField
@@ -960,16 +966,16 @@ function InitialSnapshotCard({ submit }: { submit: AccountFormSubmit }) {
                 <AccountsCardHeading>Initial snapshot</AccountsCardHeading>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-                <div className="flex items-center gap-2">
+                <Field orientation="horizontal">
                     <Switch
                         checked={submit.includeSnapshot}
                         id="account-include-snapshot"
                         onCheckedChange={submit.setIncludeSnapshot}
                     />
-                    <Label htmlFor="account-include-snapshot">
+                    <FieldLabel htmlFor="account-include-snapshot">
                         Enter today&rsquo;s balance now
-                    </Label>
-                </div>
+                    </FieldLabel>
+                </Field>
                 {submit.includeSnapshot && (
                     <InitialSnapshotFields submit={submit} />
                 )}
@@ -1180,7 +1186,7 @@ function LedgerOnlySwitch({
     const isLedgerOnly = form.watch('tracking') === AccountTracking.LedgerOnly;
     return (
         <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
+            <Field orientation="horizontal">
                 <Switch
                     checked={isLedgerOnly}
                     disabled={isLocked}
@@ -1216,10 +1222,10 @@ function LedgerOnlySwitch({
                         );
                     }}
                 />
-                <Label htmlFor="account-ledger-only">
+                <FieldLabel htmlFor="account-ledger-only">
                     Firm not listed or size not modeled
-                </Label>
-            </div>
+                </FieldLabel>
+            </Field>
             {isLocked && isLedgerOnly && (
                 <span className="text-sm text-muted-foreground">
                     This account is ledger only. Upgrade it from its account
@@ -1440,7 +1446,7 @@ function ReadOnlyAccount({
             </Alert>
             <dl
                 className={cn(
-                    'grid gap-2 text-sm sm:grid-cols-[max-content_1fr]',
+                    'grid gap-2 text-sm md:grid-cols-[max-content_1fr]',
                 )}
             >
                 <dt className="text-muted-foreground">Label</dt>

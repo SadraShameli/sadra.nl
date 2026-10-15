@@ -16,8 +16,8 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import InfoPopover from '~/components/ui/InfoPopover';
-import { Label } from '~/components/ui/Label';
 import {
     Select,
     SelectContent,
@@ -406,7 +406,7 @@ function AccountListFilterBar({
 }) {
     return (
         <>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
                 <FilterSelect
                     id="accounts-filter-firm"
                     label="Firm"
@@ -468,8 +468,8 @@ function AccountListFilterBar({
                     options={options.tags}
                     value={filters.tag}
                 />
-                <div className="flex flex-col gap-2">
-                    <Label htmlFor="accounts-sort">Sort by</Label>
+                <Field>
+                    <FieldLabel htmlFor="accounts-sort">Sort by</FieldLabel>
                     <div className="flex gap-2">
                         <Select
                             onValueChange={(value) => {
@@ -513,9 +513,9 @@ function AccountListFilterBar({
                             <ArrowDownUp />
                         </Button>
                     </div>
-                </div>
+                </Field>
             </div>
-            <div className="flex items-center gap-2">
+            <Field orientation="horizontal">
                 <Switch
                     checked={filters.includeArchived}
                     id="accounts-show-archived"
@@ -526,10 +526,10 @@ function AccountListFilterBar({
                         });
                     }}
                 />
-                <Label htmlFor="accounts-show-archived">
+                <FieldLabel htmlFor="accounts-show-archived">
                     Show archived accounts
-                </Label>
-            </div>
+                </FieldLabel>
+            </Field>
         </>
     );
 }
@@ -686,8 +686,8 @@ function FilterSelect({
     value: null | string;
 }) {
     return (
-        <div className="flex flex-col gap-2">
-            <Label htmlFor={id}>{label}</Label>
+        <Field>
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
             <Select
                 onValueChange={(next) => {
                     onChange(
@@ -711,7 +711,7 @@ function FilterSelect({
                     ))}
                 </SelectContent>
             </Select>
-        </div>
+        </Field>
     );
 }
 

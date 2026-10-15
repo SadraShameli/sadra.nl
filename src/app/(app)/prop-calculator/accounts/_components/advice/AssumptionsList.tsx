@@ -1,3 +1,4 @@
+import { Badge } from '~/components/ui/Badge';
 import { AssumptionBias } from '~/lib/prop-calculator/advisor';
 import { cn } from '~/lib/utilities';
 
@@ -20,9 +21,9 @@ export function AssumptionsList({
         <div className="flex flex-col gap-1">
             {isFirmDataUnverified && (
                 <p className="text-sm">
-                    <span className="rounded border border-amber-500 px-1 text-xs tracking-wide text-amber-500 uppercase">
-                        unverified
-                    </span>{' '}
+                    <Badge asChild variant="warning">
+                        <span>unverified</span>
+                    </Badge>{' '}
                     The firm data these figures rest on has no verification
                     date.
                 </p>

@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo } from 'react';
 
 import {
     Table,
@@ -10,8 +10,8 @@ import {
     TableHeader,
     TableRow,
 } from '~/components/ui/Table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { NOT_APPLICABLE } from '~/lib/format';
-import { cn } from '~/lib/utilities';
 
 import { MonthlyPayoutChart } from './MonthlyPayoutChart';
 import { type StatementCardModel } from './overviewModel';
@@ -27,7 +27,6 @@ export const StatementCard = memo(function StatementCard({
 }: {
     readonly model: StatementCardModel;
 }) {
-    const [view, setView] = useState(StatementView.CashByMonth);
     return model.months.length === 0 ? (
         <p className="text-sm text-muted-foreground">
             No fee, payout or event recorded yet.
@@ -38,29 +37,25 @@ export const StatementCard = memo(function StatementCard({
                 points={model.chart}
                 targetDollars={model.targetDollars}
             />
-            <div className="flex gap-2">
-                <ViewButton
-                    active={view === StatementView.CashByMonth}
-                    onClick={() => {
-                        setView(StatementView.CashByMonth);
-                    }}
-                >
-                    Cash by month
-                </ViewButton>
-                <ViewButton
-                    active={view === StatementView.ByPurchaseCohort}
-                    onClick={() => {
-                        setView(StatementView.ByPurchaseCohort);
-                    }}
-                >
-                    By purchase cohort
-                </ViewButton>
-            </div>
-            {view === StatementView.ByPurchaseCohort ? (
-                <PurchaseCohortsView rows={model.purchaseCohorts} />
-            ) : (
-                <CashByMonthTable model={model} />
-            )}
+            <Tabs
+                className="flex flex-col gap-1"
+                defaultValue={StatementView.CashByMonth}
+            >
+                <TabsList className="self-start">
+                    <TabsTrigger value={StatementView.CashByMonth}>
+                        Cash by month
+                    </TabsTrigger>
+                    <TabsTrigger value={StatementView.ByPurchaseCohort}>
+                        By purchase cohort
+                    </TabsTrigger>
+                </TabsList>
+                <TabsContent value={StatementView.CashByMonth}>
+                    <CashByMonthTable model={model} />
+                </TabsContent>
+                <TabsContent value={StatementView.ByPurchaseCohort}>
+                    <PurchaseCohortsView rows={model.purchaseCohorts} />
+                </TabsContent>
+            </Tabs>
             <p className="text-xs text-muted-foreground">{model.caveat}</p>
         </div>
     );
@@ -144,30 +139,4 @@ function meetsTargetLabel(
     }
     const wasMet = (meetsPayoutTarget ?? true) && (meetsMultipleTarget ?? true);
     return wasMet ? 'Yes' : 'No';
-}
-
-function ViewButton({
-    active,
-    children,
-    onClick,
-}: {
-    readonly active: boolean;
-    readonly children: string;
-    readonly onClick: () => void;
-}) {
-    return (
-        <button
-            aria-pressed={active}
-            className={cn(
-                'rounded-md px-3 py-1 text-sm font-medium',
-                active
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-white',
-            )}
-            onClick={onClick}
-            type="button"
-        >
-            {children}
-        </button>
-    );
 }

@@ -1,7 +1,12 @@
 'use client';
 
+import {
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 
 import {
     PERSONAL_RULE_FIELDS,
@@ -43,12 +48,15 @@ export function PersonalRulesFields({
                     .filter((part) => part !== null)
                     .join(' ');
                 return (
-                    <div className="flex flex-col gap-2" key={field.key}>
-                        <Label htmlFor={id}>
+                    <Field data-invalid={error !== undefined} key={field.key}>
+                        <FieldLabel
+                            className="items-baseline gap-1"
+                            htmlFor={id}
+                        >
                             {field.label}
                             {field.isMoney && ' ($)'}
                             <FieldRequirementMark text="optional" />
-                        </Label>
+                        </FieldLabel>
                         <Input
                             aria-describedby={describedBy}
                             aria-invalid={error !== undefined}
@@ -59,30 +67,22 @@ export function PersonalRulesFields({
                             }}
                             value={values[field.key]}
                         />
-                        <p
-                            className="text-xs text-muted-foreground"
-                            id={hintId}
-                        >
+                        <FieldDescription id={hintId}>
                             {field.hint}
-                        </p>
+                        </FieldDescription>
                         {notice !== null && (
-                            <p
-                                className="text-xs text-amber-400"
+                            <FieldDescription
+                                className="text-amber-400"
                                 id={noticeId}
                                 role="note"
                             >
                                 {notice}
-                            </p>
+                            </FieldDescription>
                         )}
                         {error !== undefined && (
-                            <p
-                                className="text-sm text-destructive"
-                                id={errorId}
-                            >
-                                {error}
-                            </p>
+                            <FieldError id={errorId}>{error}</FieldError>
                         )}
-                    </div>
+                    </Field>
                 );
             })}
         </div>

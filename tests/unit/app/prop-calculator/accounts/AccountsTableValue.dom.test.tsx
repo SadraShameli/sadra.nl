@@ -44,6 +44,9 @@ import {
     AccountsTable,
     DetailHeaderFiguresWithData,
 } from './AccountsTableWithData';
+import { openDisclosure } from './openDisclosure';
+
+const NOTE_DISCLOSURE = 'How this is estimated';
 
 interface FakeQuery {
     data: unknown;
@@ -623,6 +626,7 @@ describe('account list and detail header lead with value and next action (PT-68)
             ).toBe('2.5 calendar days (SE 0.4)');
             expect(rowOf('Mid').querySelector('[data-soon]')).toBeNull();
             expect(rowOf('Mid').textContent).toContain('5.0 calendar days');
+            openDisclosure(rowOf('Soon'), NOTE_DISCLOSURE);
             expect(container.getHTML()).toContain(
                 'within 3 calendar days and at least 50.0% of the simulated trials reach one',
             );
@@ -878,6 +882,8 @@ describe('account list and detail header lead with value and next action (PT-68)
                 ]),
             );
             render(<AccountsTable userId={USER_ID} />);
+            openDisclosure(rowOf('Likely'), NOTE_DISCLOSURE);
+            openDisclosure(rowOf('Unlikely'), NOTE_DISCLOSURE);
             expect(
                 rowOf('Likely').querySelector('[data-soon="true"]'),
             ).not.toBeNull();

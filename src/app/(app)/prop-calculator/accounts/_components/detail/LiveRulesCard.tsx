@@ -1,5 +1,6 @@
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import { type LiveContractCaps } from '~/lib/prop-calculator';
+import { DRAWDOWN_KIND_TEXT } from '~/lib/prop-calculator/describe';
 
 import { LiveRulesCardKind, type LiveRulesCardView } from './detailState';
 
@@ -11,7 +12,7 @@ export function LiveRulesCard({ view }: { readonly view: LiveRulesCardView }) {
                     'Drawdown',
                     view.drawdown === null
                         ? NOT_APPLICABLE
-                        : `${formatCurrency(view.drawdown.amount)} ${view.drawdown.kind}`,
+                        : `${formatCurrency(view.drawdown.amount)} ${DRAWDOWN_KIND_TEXT[view.drawdown.kind]}`,
                 ],
                 [
                     'Daily loss limit',
@@ -32,7 +33,7 @@ export function LiveRulesCard({ view }: { readonly view: LiveRulesCardView }) {
             ];
             return (
                 <div className="flex flex-col gap-4">
-                    <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
+                    <dl className="grid gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
                         {rows.map(([term, value]) => (
                             <div className="contents" key={term}>
                                 <dt className="text-muted-foreground">

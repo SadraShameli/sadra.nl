@@ -11,7 +11,7 @@ export function AccountFromStateDetails({
     const { milestone, nextPayout, value } = model;
     return (
         <div className="flex flex-col gap-3">
-            <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
+            <dl className="grid gap-x-6 gap-y-1 text-sm md:grid-cols-[auto_1fr]">
                 <dt className="text-muted-foreground">
                     Value from this state, credit-free
                 </dt>

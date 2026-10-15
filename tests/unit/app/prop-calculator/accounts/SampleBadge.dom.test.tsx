@@ -51,4 +51,16 @@ describe('SampleBadge', () => {
         });
         expect(container.textContent).toBe('No sample');
     });
+
+    it('stays phrasing content, so it can sit inside a sentence', () => {
+        act(() => {
+            root.render(
+                <p>
+                    Scale <SampleBadge level={SampleLevel.Low} /> ahead
+                </p>,
+            );
+        });
+        const badge = container.querySelector(':scope p > *');
+        expect(badge?.tagName).toBe('SPAN');
+    });
 });
