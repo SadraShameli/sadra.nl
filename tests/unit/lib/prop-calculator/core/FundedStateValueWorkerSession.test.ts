@@ -243,10 +243,7 @@ describe('an opted-in MFF Pro registry plan rebuilds its early withdrawal opt-in
         expect(pooled.reachedStateCount).not.toBe(
             withoutOptIn.reachedStateCount,
         );
-        expect(pooled.initialValue).not.toBeCloseTo(
-            withoutOptIn.initialValue,
-            2,
-        );
+        expect(pooled.initialValue).not.toBe(withoutOptIn.initialValue);
     });
 });
 

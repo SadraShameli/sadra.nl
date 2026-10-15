@@ -44,19 +44,19 @@ describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baselin
             fineRangeMultiple: 0,
             fixedPoint: 2228.678785397225,
             reachedStateCount: 28_500,
-            value: 2228.507297017571,
+            value: 2228.6720467279156,
         },
         {
             fineRangeMultiple: 1,
             fixedPoint: 2236.068363034112,
             reachedStateCount: 32_400,
-            value: 2236.068166427664,
+            value: 2235.894651145405,
         },
         {
             fineRangeMultiple: 6,
             fixedPoint: 2288.200599032106,
             reachedStateCount: 48_000,
-            value: 2288.071612518592,
+            value: 2288.141495170796,
         },
     ])(
         'FTMO Futures Growth 50K at fine range multiple $fineRangeMultiple converges and keeps its pinned value $value, within its stated error bound of the fixed point $fixedPoint the solver reaches at tolerance 0.0001, over $reachedStateCount states: a finer baseline grid never rounds the baseline higher (FundedCycleBaselineGrid.test), so the three values rise with the multiple here',

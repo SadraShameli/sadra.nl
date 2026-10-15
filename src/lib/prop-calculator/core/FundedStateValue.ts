@@ -88,6 +88,7 @@ export enum SweepVerdict {
     Continue = 'continue',
     Converged = 'converged',
     Extrapolate = 'extrapolate',
+    Revert = 'revert',
 }
 
 export interface CandidateTradeContext {
@@ -188,6 +189,7 @@ export interface SweepToConvergenceOptions {
     readonly isMaxIterationsExplicit: boolean;
     readonly maxIterations: number;
     readonly monitor: ValueIterationMonitor;
+    readonly revertExtrapolation: () => void;
     readonly sweep: () => number;
 }
 
@@ -200,6 +202,8 @@ const EXTRAPOLATION_BACKOFF = 4;
 const EXTRAPOLATION_RATIO_STABILITY = 0.05;
 const EXTRAPOLATION_RATIO_WINDOW = 3;
 const MAX_EXTRAPOLATIONS_PER_LEVEL = 64;
+const UNEXTRAPOLATED_SWEEPS = 1;
+const EXTRAPOLATION_REJECTED_SHARE = 0.9;
 const MIN_GROUPS_PER_WORKER = 8;
 
 const UNCAPPED_WORKER_COUNT = Number.MAX_SAFE_INTEGER;
@@ -594,6 +598,7 @@ export function sweepToConvergence(options: SweepToConvergenceOptions): number {
         isMaxIterationsExplicit,
         maxIterations,
         monitor,
+        revertExtrapolation,
         sweep,
     } = options;
     const sweepCap = (): number =>
@@ -605,6 +610,7 @@ export function sweepToConvergence(options: SweepToConvergenceOptions): number {
         const step = monitor.record(sweep());
         sweeps++;
         if (step.verdict === SweepVerdict.Converged) break;
+        if (step.verdict === SweepVerdict.Revert) revertExtrapolation();
         if (step.verdict === SweepVerdict.Extrapolate && sweeps < sweepCap()) {
             extrapolate(step.extrapolationFactor);
         }
@@ -2638,6 +2644,7 @@ function solveFundedLevels(
         workerPool?.results ??
         new Float64Array(maxLevelStateCount(mainContext));
     const levelDeltas = new Float64Array(levelResults.length);
+    const valuesBeforeExtrapolation = new Float64Array(levelResults.length);
 
     try {
         function sweepLevel(
@@ -2690,11 +2697,24 @@ function solveFundedLevels(
             factor: number,
         ): void {
             const levelKey = levelBaseKey(mainContext, level);
+            valuesBeforeExtrapolation.set(
+                values.subarray(levelKey, levelKey + stateCount),
+            );
             for (let offset = 0; offset < stateCount; offset++) {
                 values[levelKey + offset] =
                     (values[levelKey + offset] ?? 0) +
                     factor * (levelDeltas[offset] ?? 0);
             }
+        }
+
+        function revertLevelExtrapolation(
+            level: FundedLevel,
+            stateCount: number,
+        ): void {
+            values.set(
+                valuesBeforeExtrapolation.subarray(0, stateCount),
+                levelBaseKey(mainContext, level),
+            );
         }
 
         function solveLevelToConvergence(
@@ -2722,6 +2742,9 @@ function solveFundedLevels(
                 isMaxIterationsExplicit: isMaxIterationsPerLevelExplicit,
                 maxIterations: maxIterationsPerLevel,
                 monitor,
+                revertExtrapolation: () => {
+                    revertLevelExtrapolation(level, stateCount);
+                },
                 sweep: () =>
                     sweepLevel(level, cushionBucketCount, workingBucketCount),
             });
@@ -3439,6 +3462,7 @@ export class FundedWorkerSession {
 export class ValueIterationMonitor {
     private deltaBeforeExtrapolation = Infinity;
     private extrapolationCount = 0;
+    private extrapolationJump = Infinity;
     private readonly isExtrapolating: boolean;
     private lastDelta = Infinity;
     private plainSweepDeadlineCount = 0;
@@ -3484,6 +3508,18 @@ export class ValueIterationMonitor {
     record(maxDelta: number): SweepStep {
         this.recordedSweepCount++;
         this.sweepsSinceExtrapolation++;
+        const isOvershoot =
+            this.sweepsSinceExtrapolation === 1 &&
+            maxDelta > this.deltaBeforeExtrapolation;
+        if (
+            isOvershoot &&
+            maxDelta >= EXTRAPOLATION_REJECTED_SHARE * this.extrapolationJump
+        ) {
+            this.ratioStability /= EXTRAPOLATION_BACKOFF;
+            this.lastDelta = this.deltaBeforeExtrapolation;
+            this.sweepsSinceExtrapolation = UNEXTRAPOLATED_SWEEPS;
+            return { extrapolationFactor: 0, verdict: SweepVerdict.Revert };
+        }
         if (this.sweepsSinceExtrapolation === 1) {
             this.plainSweepDeadlineCount = Math.max(
                 this.plainSweepDeadlineCount,
@@ -3495,12 +3531,6 @@ export class ValueIterationMonitor {
                         this.contraction,
                     ),
             );
-        }
-        if (
-            this.sweepsSinceExtrapolation === 1 &&
-            maxDelta > this.deltaBeforeExtrapolation
-        ) {
-            this.ratioStability /= EXTRAPOLATION_BACKOFF;
         }
         if (this.sweepsSinceExtrapolation >= 2 && this.lastDelta > 0) {
             this.recentRatios.push(maxDelta / this.lastDelta);
@@ -3528,6 +3558,7 @@ export class ValueIterationMonitor {
             this.extrapolationCount++;
             this.sweepsSinceExtrapolation = 0;
             this.deltaBeforeExtrapolation = maxDelta;
+            this.extrapolationJump = (ratio / (1 - ratio)) * maxDelta;
             this.recentRatios.length = 0;
             return {
                 extrapolationFactor: ratio / (1 - ratio),

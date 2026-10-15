@@ -203,14 +203,16 @@ describe('ValueIterationMonitor states an explicit stopping rule and error bound
         }
     });
 
-    it('demands a steadier ratio after an extrapolation that made the next sweep move more than the sweep before it, and extrapolates again once the ratio is that steady', () => {
+    it('reverts an extrapolation whose next sweep moves more than the sweep before it and takes back at least 90% of the jump, then demands a steadier ratio, measured from the restored values, before extrapolating again', () => {
         const monitor = new ValueIterationMonitor(0.999, 1e-9);
 
         for (const delta of [100, 90, 81]) monitor.record(delta);
         expect(monitor.record(72.9).verdict).toBe(SweepVerdict.Extrapolate);
 
-        let delta = 500;
-        expect(monitor.record(delta).verdict).toBe(SweepVerdict.Continue);
+        expect(monitor.record(0.95 * 9 * 72.9).verdict).toBe(
+            SweepVerdict.Revert,
+        );
+        let delta = 72.9;
         for (const ratio of [0.9, 0.903, 0.9, 0.9]) {
             delta *= ratio;
             expect(monitor.record(delta).verdict).toBe(SweepVerdict.Continue);
@@ -220,10 +222,22 @@ describe('ValueIterationMonitor states an explicit stopping rule and error bound
         );
     });
 
-    it('extends its plain-sweep deadline from the first sweep after an extrapolation, so a jump that overshoots by the worst case a contraction allows still converges inside the sweep cap computed from that deadline, where a cap fixed from the first sweep alone runs out', () => {
+    it('keeps an extrapolation whose next sweep moves more than the sweep before it but takes back less than 90% of the jump, as a fast transient that dies out, and extends its plain-sweep deadline from that sweep', () => {
+        const monitor = new ValueIterationMonitor(0.996, 1);
+
+        for (const delta of [100, 90, 81]) monitor.record(delta);
+        expect(monitor.record(72.9).verdict).toBe(SweepVerdict.Extrapolate);
+        const deadlineBeforeJump = monitor.plainSweepDeadline;
+
+        expect(monitor.record(0.5 * 9 * 72.9).verdict).toBe(
+            SweepVerdict.Continue,
+        );
+        expect(monitor.plainSweepDeadline).toBeGreaterThan(deadlineBeforeJump);
+    });
+
+    it('reverts a jump that overshoots instead of extending its plain-sweep deadline, so plain contraction from the restored values converges inside the deadline the first sweep set', () => {
         const contraction = 0.996;
         const tolerance = 1;
-        const minimumSweepCap = 200;
         const monitor = new ValueIterationMonitor(contraction, tolerance);
         const firstDelta = 100;
 
@@ -234,30 +248,27 @@ describe('ValueIterationMonitor states an explicit stopping rule and error bound
         expect(jump.verdict).toBe(SweepVerdict.Extrapolate);
         const deadlineBeforeJump = monitor.plainSweepDeadline;
 
-        let delta =
-            (contraction + (1 + contraction) * jump.extrapolationFactor) * 72.9;
-        let sweeps = 4;
+        expect(
+            monitor.record(
+                (contraction + (1 + contraction) * jump.extrapolationFactor) *
+                    72.9,
+            ).verdict,
+        ).toBe(SweepVerdict.Revert);
+        expect(monitor.plainSweepDeadline).toBe(deadlineBeforeJump);
+        expect(monitor.isConverged).toBe(false);
+
+        let delta = 72.9 * contraction;
+        let sweeps = 5;
         let verdict = SweepVerdict.Continue;
-        while (sweeps < Math.max(minimumSweepCap, monitor.plainSweepDeadline)) {
+        while (sweeps < deadlineBeforeJump) {
             verdict = monitor.record(delta).verdict;
             sweeps++;
-            expect(verdict).not.toBe(SweepVerdict.Extrapolate);
             if (verdict === SweepVerdict.Converged) break;
             delta *= sweeps % 2 === 0 ? contraction : contraction - 0.001;
         }
 
-        const contractionFactor = contraction / (1 - contraction);
-        const capFromFirstSweepOnly =
-            1 +
-            Math.ceil(
-                Math.log(tolerance / (contractionFactor * firstDelta)) /
-                    Math.log(contraction),
-            );
         expect(verdict).toBe(SweepVerdict.Converged);
-        expect(monitor.isConverged).toBe(true);
-        expect(monitor.plainSweepDeadline).toBeGreaterThan(deadlineBeforeJump);
-        expect(sweeps).toBeLessThanOrEqual(monitor.plainSweepDeadline);
-        expect(sweeps).toBeGreaterThan(capFromFirstSweepOnly);
+        expect(sweeps).toBeLessThanOrEqual(deadlineBeforeJump);
     });
 
     it('sets its plain-sweep deadline from the first sweep: the sweep count at which plain contraction alone brings the error bound within tolerance', () => {
@@ -292,7 +303,7 @@ describe('ValueIterationMonitor states an explicit stopping rule and error bound
     });
 });
 
-describe('sweepToConvergence, the per-level loop the funded solver runs, follows the extended plain-sweep deadline (WP17e LOW, WP24)', () => {
+describe('sweepToConvergence, the per-level loop the funded solver runs, reverts an overshooting extrapolation and converges inside the deadline its first sweep set (WP17e LOW, WP24)', () => {
     const CONTRACTION = 0.996;
     const TOLERANCE = 1;
     const DEFAULT_SWEEP_CAP = 200;
@@ -305,6 +316,7 @@ describe('sweepToConvergence, the per-level loop the funded solver runs, follows
         const extrapolationFactors: number[] = [];
         let delta = JUMP_DELTA;
         let plainSweeps = 0;
+        let reverts = 0;
         const sweeps = sweepToConvergence({
             extrapolate: (factor) => {
                 extrapolationFactors.push(factor);
@@ -313,6 +325,10 @@ describe('sweepToConvergence, the per-level loop the funded solver runs, follows
             isMaxIterationsExplicit,
             maxIterations: DEFAULT_SWEEP_CAP,
             monitor,
+            revertExtrapolation: () => {
+                reverts++;
+                delta = JUMP_DELTA * CONTRACTION;
+            },
             sweep: () => {
                 const next = scripted.shift();
                 if (next !== undefined) return next;
@@ -323,11 +339,11 @@ describe('sweepToConvergence, the per-level loop the funded solver runs, follows
                 return current;
             },
         });
-        return { extrapolationFactors, monitor, sweeps };
+        return { extrapolationFactors, monitor, reverts, sweeps };
     }
 
-    it('keeps sweeping past the cap a first sweep alone would set once a jump overshoots, and converges inside the extended deadline', () => {
-        const { extrapolationFactors, monitor, sweeps } =
+    it('undoes the overshooting jump once and converges inside the cap the first sweep alone sets', () => {
+        const { extrapolationFactors, monitor, reverts, sweeps } =
             overshootingLevel(false);
         const capFromFirstSweepOnly =
             1 +
@@ -339,8 +355,9 @@ describe('sweepToConvergence, the per-level loop the funded solver runs, follows
             );
 
         expect(extrapolationFactors).toHaveLength(1);
+        expect(reverts).toBe(1);
         expect(monitor.isConverged).toBe(true);
-        expect(sweeps).toBeGreaterThan(capFromFirstSweepOnly);
+        expect(sweeps).toBeLessThanOrEqual(capFromFirstSweepOnly);
         expect(sweeps).toBeLessThanOrEqual(monitor.plainSweepDeadline);
     });
 
