@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { OAuthButtons } from '~/app/(auth)/_components/OAuthButtons';
 import { SignInMethodTabs } from '~/app/(auth)/_components/SignInMethodTabs';
 import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { AutoDismissAlert } from '~/components/ui/AutoDismissAlert';
 import {
     Card,
     CardContent,
@@ -41,19 +42,19 @@ export default async function LoginPage({
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3">
                         {success === 'reset' && (
-                            <Alert autoDismiss variant="success">
+                            <AutoDismissAlert variant="success">
                                 <AlertDescription>
                                     Password reset — sign in with your new
                                     password.
                                 </AlertDescription>
-                            </Alert>
+                            </AutoDismissAlert>
                         )}
                         {success === 'created' && (
-                            <Alert autoDismiss variant="success">
+                            <AutoDismissAlert variant="success">
                                 <AlertDescription>
                                     Account created — sign in to continue.
                                 </AlertDescription>
-                            </Alert>
+                            </AutoDismissAlert>
                         )}
                         {error && (
                             <Alert variant="destructive">

@@ -1,7 +1,6 @@
 'use client';
 
 import { cva, type VariantProps } from 'class-variance-authority';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
 import { type TitleTag } from '~/components/ui/titleTag';
@@ -28,10 +27,7 @@ const alertVariants = cva(
 );
 
 type AlertProperties = React.HTMLAttributes<HTMLDivElement> &
-    VariantProps<typeof alertVariants> & {
-        autoDismiss?: boolean;
-        autoDismissMs?: number;
-    };
+    VariantProps<typeof alertVariants>;
 
 type AlertTitleProperties = React.HTMLAttributes<HTMLHeadingElement> & {
     as?: TitleTag;
@@ -46,70 +42,16 @@ const VARIANT_ROLE: Readonly<Record<AlertVariant, React.AriaRole>> = {
     warning: 'alert',
 };
 
-const AUTO_DISMISS_PARAMS = ['success', 'error'];
-const FADE_DURATION_MS = 300;
-
 const Alert = React.forwardRef<HTMLDivElement, AlertProperties>(
-    (
-        {
-            autoDismiss = false,
-            autoDismissMs = 3000,
-            className,
-            role,
-            variant,
-            ...properties
-        },
-        reference,
-    ) => {
-        const router = useRouter();
-        const pathname = usePathname();
-        const searchParameters = useSearchParams();
-        const [visible, setVisible] = React.useState(true);
-        const [mounted, setMounted] = React.useState(true);
-
-        React.useEffect(() => {
-            if (!autoDismiss) return;
-            const fade = setTimeout(() => setVisible(false), autoDismissMs);
-            const unmount = setTimeout(() => {
-                setMounted(false);
-                const sp = new URLSearchParams(searchParameters.toString());
-                let isChanged = false;
-                for (const key of AUTO_DISMISS_PARAMS) {
-                    if (!sp.has(key)) {
-                        continue;
-                    }
-
-                    sp.delete(key);
-                    isChanged = true;
-                }
-                if (!isChanged) return;
-                const query = sp.toString();
-                router.replace(query ? `${pathname}?${query}` : pathname, {
-                    scroll: false,
-                });
-            }, autoDismissMs + FADE_DURATION_MS);
-            return () => {
-                clearTimeout(fade);
-                clearTimeout(unmount);
-            };
-        }, [autoDismiss, autoDismissMs, pathname, router, searchParameters]);
-
-        return mounted ? (
-            <div
-                className={cn(
-                    alertVariants({ variant }),
-                    'btn-transition ease-out',
-                    visible
-                        ? 'translate-y-0 opacity-100'
-                        : '-translate-y-1 opacity-0',
-                    className,
-                )}
-                ref={reference}
-                role={role ?? VARIANT_ROLE[variant ?? 'default']}
-                {...properties}
-            />
-        ) : null;
-    },
+    ({ className, role, variant, ...properties }, reference) => (
+        <div
+            className={cn(alertVariants({ variant }), className)}
+            data-slot="alert"
+            ref={reference}
+            role={role ?? VARIANT_ROLE[variant ?? 'default']}
+            {...properties}
+        />
+    ),
 );
 Alert.displayName = 'Alert';
 
@@ -143,4 +85,4 @@ const AlertDescription = React.forwardRef<
 ));
 AlertDescription.displayName = 'AlertDescription';
 
-export { Alert, AlertDescription, AlertTitle };
+export { Alert, AlertDescription, type AlertProperties, AlertTitle };

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { type ReactNode } from 'react';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { AutoDismissAlert } from '~/components/ui/AutoDismissAlert';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { isAdminOrAbove, isRoot, resolveRole } from '~/lib/auth/roles';
 import { getServerSession } from '~/lib/auth/server';
@@ -104,18 +105,18 @@ export default async function ProfilePage({
                     </CardHeader>
                     <CardContent className="flex flex-col gap-4">
                         {success === 'name' && (
-                            <Alert autoDismiss variant="success">
+                            <AutoDismissAlert variant="success">
                                 <AlertDescription>
                                     Name updated successfully.
                                 </AlertDescription>
-                            </Alert>
+                            </AutoDismissAlert>
                         )}
                         {success === 'email' && (
-                            <Alert autoDismiss variant="success">
+                            <AutoDismissAlert variant="success">
                                 <AlertDescription>
                                     Email updated successfully.
                                 </AlertDescription>
-                            </Alert>
+                            </AutoDismissAlert>
                         )}
                         <UpdateNameForm currentName={name} email={email} />
                     </CardContent>
@@ -134,11 +135,11 @@ export default async function ProfilePage({
                             </Alert>
                         )}
                         {success === 'password' && (
-                            <Alert autoDismiss variant="success">
+                            <AutoDismissAlert variant="success">
                                 <AlertDescription>
                                     Password changed successfully.
                                 </AlertDescription>
-                            </Alert>
+                            </AutoDismissAlert>
                         )}
                         <UpdatePasswordForm
                             email={email}
