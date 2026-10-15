@@ -15,7 +15,12 @@ export const metadata: Metadata = {
 export default function LiftingExercisesPage() {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__exercises', 'container pt-spacing pb-24')}>
+            <main
+                className={cn(
+                    'app-lifting__exercises',
+                    'container pt-spacing pb-24',
+                )}
+            >
                 <LiftingPageHeader
                     description="Browse the library or build your own."
                     title="Exercises"

@@ -26,7 +26,12 @@ export async function generateMetadata({
 export default function LiftingProgramDetailPage({ params }: PageProperties) {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__program', 'container pt-spacing pb-24')}>
+            <main
+                className={cn(
+                    'app-lifting__program',
+                    'container pt-spacing pb-24',
+                )}
+            >
                 <Suspense fallback={<LiftingDetailSkeleton />}>
                     <LiftingProgramDetailContent params={params} />
                 </Suspense>
@@ -40,7 +45,11 @@ async function LiftingProgramDetailContent({ params }: PageProperties) {
     const { slug } = await params;
     const program = await loadLiftingProgramDetail(slug);
     void api.lifting.settings.get.prefetch();
-    return <HydrateClient><ProgramDetail program={program} /></HydrateClient>;
+    return (
+        <HydrateClient>
+            <ProgramDetail program={program} />
+        </HydrateClient>
+    );
 }
 
 async function loadLiftingProgramDetail(slug: string) {

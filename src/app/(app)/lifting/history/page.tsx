@@ -19,7 +19,12 @@ const MONTHS_BACK = 6;
 export default function LiftingHistoryPage() {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__history', 'container pt-spacing pb-24')}>
+            <main
+                className={cn(
+                    'app-lifting__history',
+                    'container pt-spacing pb-24',
+                )}
+            >
                 <LiftingPageHeader
                     description="The receipts. Tap any workout to revisit it."
                     title="History"

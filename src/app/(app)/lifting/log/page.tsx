@@ -17,7 +17,9 @@ export const metadata: Metadata = {
 export default function LiftingLogPage() {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__log', 'container pt-spacing pb-24')}>
+            <main
+                className={cn('app-lifting__log', 'container pt-spacing pb-24')}
+            >
                 <LiftingPageHeader
                     description="One tap per set. Quick capture, no friction."
                     title="Log"

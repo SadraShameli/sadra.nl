@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
     differenceInCalendarDays,
     eachDayOfInterval,
-    endOfDay,
     format,
     getDay,
     isBefore,
@@ -27,7 +26,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
-import { type DateRange } from 'react-day-picker';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -52,8 +50,9 @@ import {
     type DataTableColumn,
     DataTableFilterFunction,
 } from '~/components/ui/DataTable';
+import { DataTableDateRange } from '~/components/ui/DataTableDateRange';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { DatePicker, DateRangePicker } from '~/components/ui/DatePicker';
+import { DatePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
     Form,
@@ -64,7 +63,6 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import { Progress } from '~/components/ui/Progress';
 import {
     Select,
@@ -226,9 +224,6 @@ export function GoalsView() {
         },
         resolver: zodResolver(goalInputSchema),
     });
-    const [targetDateRange, setTargetDateRange] = useState<
-        DateRange | undefined
-    >();
     const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
     const stats = useMemo(() => computeStats(goals), [goals]);
@@ -686,15 +681,14 @@ export function GoalsView() {
 
                                     <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
                                         <DataTableFacetSelect
-                                            label="Kind"
                                             column={table.getColumn('kind')}
                                             format={(k) =>
                                                 KIND_LABEL[k as GoalKind]
                                             }
+                                            label="Kind"
                                             placeholder="All kinds"
                                         />
                                         <DataTableFacetSelect
-                                            label="Exercise"
                                             column={table.getColumn('exercise')}
                                             format={(id) =>
                                                 id === EXERCISE_NONE
@@ -703,37 +697,21 @@ export function GoalsView() {
                                                           id,
                                                       ) ?? id)
                                             }
+                                            label="Exercise"
                                             placeholder="All exercises"
                                         />
-                                        <DateRangePicker
-                                            className="h-8 w-full text-xs md:w-auto"
-                                            onChange={(range) => {
-                                                setTargetDateRange(range);
-                                                table
-                                                    .getColumn('targetDate')
-                                                    ?.setFilterValue(
-                                                        range?.from
-                                                            ? [
-                                                                  startOfDay(
-                                                                      range.from,
-                                                                  ).getTime(),
-                                                                  endOfDay(
-                                                                      range.to ??
-                                                                          range.from,
-                                                                  ).getTime(),
-                                                              ]
-                                                            : undefined,
-                                                    );
-                                            }}
+                                        <DataTableDateRange
+                                            column={table.getColumn(
+                                                'targetDate',
+                                            )}
+                                            label="Target date"
                                             placeholder="Any target date"
-                                            value={targetDateRange}
                                         />
                                     </div>
                                 </div>
                             );
                         }}
                         isLoading={goalsQuery.isLoading}
-                        onResetFilters={() => setTargetDateRange(undefined)}
                         pageSize={10}
                         rowClassName={(r) =>
                             r.status === GOAL_STATUS.ACHIEVED

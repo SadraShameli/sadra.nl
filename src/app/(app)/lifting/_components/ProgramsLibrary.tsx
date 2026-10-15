@@ -35,17 +35,11 @@ import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { FilterSelect } from '~/components/ui/FilterSelect';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import { Progress } from '~/components/ui/Progress';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
+import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 import {
     PROGRAM_CATEGORY_VALUES,
     type ProgramBlock,
@@ -243,96 +237,82 @@ export function ProgramsLibrary() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Search</Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    className="pl-8"
-                                    onChange={(event) =>
-                                        setSearch(event.target.value)
-                                    }
-                                    placeholder="Search programs"
-                                    value={search}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Category</Label>
-                            <Select
-                                onValueChange={(v) =>
-                                    setCategory(v as 'all' | ProgramCategory)
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="relative w-full md:max-w-xs">
+                            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                aria-label="Search programs"
+                                className="h-8 pl-8 text-xs"
+                                onChange={(event) =>
+                                    setSearch(event.target.value)
                                 }
-                                value={category}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        All categories
-                                    </SelectItem>
-                                    {PROGRAM_CATEGORY_VALUES.map((c) => (
-                                        <SelectItem key={c} value={c}>
-                                            <span className="capitalize">
-                                                {c}
-                                            </span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                placeholder="Search programs"
+                                value={search}
+                            />
                         </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Frequency</Label>
-                            <Select
-                                onValueChange={(v) => setDays(v as DaysFilter)}
-                                value={days}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        Any frequency
-                                    </SelectItem>
-                                    {DAYS_FILTER_VALUES.filter(
-                                        (d) => d !== 'all',
-                                    ).map((d) => (
-                                        <SelectItem key={d} value={d}>
-                                            {d}× / week
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Sort</Label>
-                            <Select
-                                onValueChange={(v) => setSort(v as SortKey)}
+                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                            <ClearFiltersButton
+                                active={isFiltersActive}
+                                onReset={() => {
+                                    setSearch('');
+                                    setCategory('all');
+                                    setDays('all');
+                                }}
+                            />
+                            <FilterSelect
+                                label="Category"
+                                onValueChange={(v) =>
+                                    setCategory(
+                                        PROGRAM_CATEGORY_VALUES.find(
+                                            (c) => c === v,
+                                        ) ?? 'all',
+                                    )
+                                }
+                                options={PROGRAM_CATEGORY_VALUES.map((c) => ({
+                                    label: (
+                                        <span className="capitalize">{c}</span>
+                                    ),
+                                    value: c,
+                                }))}
+                                placeholder="All categories"
+                                value={
+                                    category === 'all' ? undefined : category
+                                }
+                            />
+                            <FilterSelect
+                                label="Frequency"
+                                onValueChange={(v) =>
+                                    setDays(
+                                        DAYS_FILTER_VALUES.find(
+                                            (d) => d === v,
+                                        ) ?? 'all',
+                                    )
+                                }
+                                options={DAYS_FILTER_VALUES.filter(
+                                    (d) => d !== 'all',
+                                ).map((d) => ({
+                                    label: `${d}× / week`,
+                                    value: d,
+                                }))}
+                                placeholder="Any frequency"
+                                value={days === 'all' ? undefined : days}
+                            />
+                            <ToolbarSelect
+                                label="Sort"
+                                onValueChange={(v) => {
+                                    const next = SORT_VALUES.find(
+                                        (key) => key === v,
+                                    );
+                                    if (next) setSort(next);
+                                }}
+                                options={SORT_VALUES.map((key) => ({
+                                    label: SORT_LABEL[key],
+                                    value: key,
+                                }))}
                                 value={sort}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SORT_VALUES.map((s) => (
-                                        <SelectItem key={s} value={s}>
-                                            {SORT_LABEL[s]}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            />
                         </div>
                     </div>
-                    <ClearFiltersButton
-                        active={isFiltersActive}
-                        onReset={() => {
-                            setSearch('');
-                            setCategory('all');
-                            setDays('all');
-                        }}
-                    />
 
                     {official.isLoading && (
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">

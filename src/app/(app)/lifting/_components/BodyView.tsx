@@ -1,10 +1,9 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { endOfDay, format, startOfDay, subDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { LineChart, Plus, Ruler, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { type DateRange } from 'react-day-picker';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -28,8 +27,9 @@ import {
     DataTableFilterFunction,
     type DataTableSlot,
 } from '~/components/ui/DataTable';
+import { DataTableDateRange } from '~/components/ui/DataTableDateRange';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { DatePicker, DateRangePicker } from '~/components/ui/DatePicker';
+import { DatePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
     Form,
@@ -40,7 +40,6 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import {
     Select,
     SelectContent,
@@ -50,6 +49,7 @@ import {
 } from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { Textarea } from '~/components/ui/Textarea';
+import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 import {
     Tooltip,
     TooltipContent,
@@ -97,8 +97,6 @@ export function BodyView() {
     const unitWeight = settings.data?.unitWeight ?? 'kg';
     const unitLength = settings.data?.unitLength ?? 'cm';
 
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
-
     const measurements = api.lifting.measurement.list.useQuery({});
 
     const create = api.lifting.measurement.create.useMutation({
@@ -141,50 +139,31 @@ export function BodyView() {
                             <div className="flex w-full flex-col gap-3">
                                 <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
                                     <DataTableFacetSelect
-                                        label="Kind"
                                         column={table.getColumn('kind')}
                                         format={(k) => (
                                             <span className="capitalize">
                                                 {k.replaceAll('_', ' ')}
                                             </span>
                                         )}
+                                        label="Kind"
                                         placeholder="All kinds"
                                     />
                                     <DataTableFacetSelect
-                                        label="Unit"
                                         column={table.getColumn('unit')}
+                                        label="Unit"
                                         placeholder="All units"
                                     />
-                                    <DateRangePicker
-                                        className="h-8 w-full text-xs md:w-auto"
+                                    <DataTableDateRange
+                                        column={table.getColumn('takenAt')}
+                                        label="Logged date"
                                         maxDate={new Date()}
-                                        onChange={(range) => {
-                                            setDateRange(range);
-                                            table
-                                                .getColumn('takenAt')
-                                                ?.setFilterValue(
-                                                    range?.from
-                                                        ? [
-                                                              startOfDay(
-                                                                  range.from,
-                                                              ).getTime(),
-                                                              endOfDay(
-                                                                  range.to ??
-                                                                      range.from,
-                                                              ).getTime(),
-                                                          ]
-                                                        : undefined,
-                                                );
-                                        }}
                                         placeholder="Any time"
-                                        value={dateRange}
                                     />
                                 </div>
                             </div>
                         )}
                         isLoading={measurements.isLoading}
                         onDelete={(id) => remove.mutate({ id })}
-                        onResetFilters={() => setDateRange(undefined)}
                         rows={rows}
                     />
                 </CardContent>
@@ -474,13 +453,11 @@ function MeasurementsHistoryTable({
     headerActions,
     isLoading,
     onDelete,
-    onResetFilters,
     rows,
 }: {
     headerActions?: DataTableSlot<MeasurementRow>;
     isLoading: boolean;
     onDelete: (id: string) => void;
-    onResetFilters: () => void;
     rows: MeasurementRow[];
 }) {
     const columns = useMemo<DataTableColumn<MeasurementRow>[]>(
@@ -600,7 +577,6 @@ function MeasurementsHistoryTable({
             headerActions={headerActions}
             initialColumnVisibility={{ unit: false }}
             isLoading={isLoading}
-            onResetFilters={onResetFilters}
             pageSize={25}
             rowId={(r) => r.id}
             showFilter
@@ -633,25 +609,24 @@ function MeasurementTrendChart() {
                     <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
                         <LineChart className="size-4" /> Trend
                     </CardTitle>
-                    <Select
-                        onValueChange={(v) =>
-                            setChartKind(v as MeasurementKind)
-                        }
+                    <ToolbarSelect
+                        label="Trend measurement"
+                        onValueChange={(v) => {
+                            const kind = MEASUREMENT_KIND_VALUES.find(
+                                (k) => k === v,
+                            );
+                            if (kind) setChartKind(kind);
+                        }}
+                        options={MEASUREMENT_KIND_VALUES.map((k) => ({
+                            label: (
+                                <span className="capitalize">
+                                    {k.replaceAll('_', ' ')}
+                                </span>
+                            ),
+                            value: k,
+                        }))}
                         value={chartKind}
-                    >
-                        <SelectTrigger className="h-7 w-36 text-xs">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {MEASUREMENT_KIND_VALUES.map((k) => (
-                                <SelectItem key={k} value={k}>
-                                    <span className="capitalize">
-                                        {k.replaceAll('_', ' ')}
-                                    </span>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
             </CardHeader>
             <CardContent>

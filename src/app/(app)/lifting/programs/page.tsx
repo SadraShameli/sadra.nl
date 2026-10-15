@@ -1,8 +1,8 @@
 import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
-import { ProgramsLibrary } from '~/app/(app)/lifting/_components/ProgramsLibrary';
 import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { ProgramsLibrary } from '~/app/(app)/lifting/_components/ProgramsLibrary';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
@@ -15,7 +15,12 @@ export const metadata: Metadata = {
 export default function LiftingProgramsPage() {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__programs', 'container pt-spacing pb-24')}>
+            <main
+                className={cn(
+                    'app-lifting__programs',
+                    'container pt-spacing pb-24',
+                )}
+            >
                 <LiftingPageHeader
                     description="Follow a proven program or build your own."
                     title="Programs"

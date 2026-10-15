@@ -16,11 +16,17 @@ const BODY_STAT_LABELS = [
 ] as const;
 const LOG_EXERCISE_BLOCKS = 2;
 
-export function LiftingDetailSkeleton() {
+export function BodyViewSkeleton() {
     return (
-        <div aria-busy="true" className="flex flex-col gap-8">
-            <PageHeaderSkeleton className="mb-0" />
-            <CardSkeleton rows={DETAIL_BODY_ROWS} />
+        <div aria-busy="true" className="flex flex-col gap-6">
+            <TitledCardSkeleton bodyClassName="h-24" title="Add measurement" />
+            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {BODY_STAT_LABELS.map((label) => (
+                    <LabelledStatSkeleton key={label} label={label} />
+                ))}
+            </section>
+            <TitledCardSkeleton bodyClassName="h-48" title="Trend" />
+            <TitledCardSkeleton bodyClassName="h-64" title="History" />
         </div>
     );
 }
@@ -49,27 +55,16 @@ export function GoalsViewSkeleton() {
     );
 }
 
-export function BodyViewSkeleton() {
-    return (
-        <div aria-busy="true" className="flex flex-col gap-6">
-            <TitledCardSkeleton bodyClassName="h-24" title="Add measurement" />
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {BODY_STAT_LABELS.map((label) => (
-                    <LabelledStatSkeleton key={label} label={label} />
-                ))}
-            </section>
-            <TitledCardSkeleton bodyClassName="h-48" title="Trend" />
-            <TitledCardSkeleton bodyClassName="h-64" title="History" />
-        </div>
-    );
+export function HistoryViewSkeleton() {
+    return <TitledCardSkeleton bodyClassName="h-96" title="Workouts" />;
 }
 
-export function HistoryViewSkeleton() {
+export function LiftingDetailSkeleton() {
     return (
-        <TitledCardSkeleton
-            bodyClassName="h-96"
-            title="Workouts"
-        />
+        <div aria-busy="true" className="flex flex-col gap-8">
+            <PageHeaderSkeleton className="mb-0" />
+            <CardSkeleton rows={DETAIL_BODY_ROWS} />
+        </div>
     );
 }
 

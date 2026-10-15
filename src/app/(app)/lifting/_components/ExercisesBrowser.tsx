@@ -12,8 +12,8 @@ import {
     DataTableFilterFunction,
 } from '~/components/ui/DataTable';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { FilterToggle } from '~/components/ui/FilterToggle';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { FilterToggle } from '~/components/ui/FilterToggle';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -137,6 +137,7 @@ export function ExercisesBrowser() {
                                 title="No exercises match"
                             />
                         }
+                        filterPlaceholder="Search exercises"
                         headerActions={(table) => {
                             const sourceColumn = table.getColumn('source');
                             return (
@@ -154,20 +155,19 @@ export function ExercisesBrowser() {
                                         placeholder="All gear"
                                     />
                                     <FilterToggle
+                                        isPressed={
+                                            sourceColumn?.getFilterValue() === 1
+                                        }
                                         label="Custom only"
                                         onPressedChange={(pressed) =>
                                             sourceColumn?.setFilterValue(
                                                 pressed ? 1 : undefined,
                                             )
                                         }
-                                        pressed={
-                                            sourceColumn?.getFilterValue() === 1
-                                        }
                                     />
                                 </div>
                             );
                         }}
-                        filterPlaceholder="Search exercises"
                         isLoading={exercises.isLoading}
                         pageSize={25}
                         rowId={(r) => r.id}

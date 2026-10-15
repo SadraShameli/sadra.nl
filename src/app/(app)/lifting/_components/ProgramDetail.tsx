@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 
 import type { ProgramBlock } from '~/lib/lifting/types';
 
-import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import {
@@ -27,6 +26,8 @@ import {
     enrollProgramInputSchema,
 } from '~/lib/lifting/schemas';
 import { api, type RouterOutputs } from '~/trpc/react';
+
+import { ProgramDayCard } from './ProgramDayCard';
 
 type Program = RouterOutputs['lifting']['program']['get'];
 
@@ -243,51 +244,31 @@ export function ProgramDetail({ program }: ProgramDetailProperties) {
                 </CardContent>
             </Card>
 
-            <Tabs defaultValue="week-1">
-                <TabsList className="flex flex-wrap gap-2 bg-transparent p-0">
-                    {schedule.weeks.map((_, index) => (
-                        <TabsTrigger key={index} value={`week-${index + 1}`}>
-                            Week {index + 1}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-                {schedule.weeks.map((w, wi) => (
-                    <TabsContent key={wi} value={`week-${wi + 1}`}>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            {w.days.map((d, index) => (
-                                <Card key={`${index}-${d.name}`}>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                                            {d.name || `Day ${index + 1}`}
-                                            {d.isDeload && (
-                                                <Badge variant="secondary">
-                                                    Deload
-                                                </Badge>
-                                            )}
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                                            {d.blocks.map((b, bi) => (
-                                                <li key={bi}>
-                                                    {b.kind === 'straight' &&
-                                                        `${b.sets}×${b.reps} ${b.exerciseSlug.replaceAll('-', ' ')}${b.pct1rm ? ` @ ${b.pct1rm}%` : ''}`}
-                                                    {b.kind === 'amrap' &&
-                                                        `AMRAP ${b.exerciseSlug.replaceAll('-', ' ')}${b.pct1rm ? ` @ ${b.pct1rm}%` : ''}`}
-                                                    {b.kind ===
-                                                        'topset_backoff' &&
-                                                        `Top set ${b.topPct}% + ${b.backoffSets}×${b.reps} @ ${b.backoffPct}%`}
-                                                    {b.kind === 'pyramid' &&
-                                                        `Pyramid ${b.exerciseSlug.replaceAll('-', ' ')}`}
-                                                    {b.kind === 'emom' &&
-                                                        `EMOM ${b.minutes}m ${b.repsPerMinute} reps`}
-                                                    {b.kind === 'superset' &&
-                                                        `Superset (${b.group.length})`}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </CardContent>
-                                </Card>
+            <Tabs className="flex flex-col gap-4" defaultValue="week-1">
+                <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
+                    <TabsList className="w-max">
+                        {schedule.weeks.map((week, index) => (
+                            <TabsTrigger
+                                key={index}
+                                value={`week-${String(index + 1)}`}
+                            >
+                                {week.name ?? `Week ${String(index + 1)}`}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </div>
+                {schedule.weeks.map((week, weekIndex) => (
+                    <TabsContent
+                        key={weekIndex}
+                        value={`week-${String(weekIndex + 1)}`}
+                    >
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {week.days.map((day, index) => (
+                                <ProgramDayCard
+                                    day={day}
+                                    dayNumber={index + 1}
+                                    key={`${String(index)}-${day.name}`}
+                                />
                             ))}
                         </div>
                     </TabsContent>

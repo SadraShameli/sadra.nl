@@ -18,7 +18,12 @@ export const metadata: Metadata = {
 export default function LiftingTodayPage() {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__today', 'container pt-spacing pb-24')}>
+            <main
+                className={cn(
+                    'app-lifting__today',
+                    'container pt-spacing pb-24',
+                )}
+            >
                 <LiftingPageHeader
                     description="A no-friction workout tracker."
                     title="Lifting"

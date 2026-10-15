@@ -19,7 +19,12 @@ export const metadata: Metadata = {
 export default function LiftingAnalyticsPage() {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__analytics', 'container pt-spacing pb-24')}>
+            <main
+                className={cn(
+                    'app-lifting__analytics',
+                    'container pt-spacing pb-24',
+                )}
+            >
                 <LiftingPageHeader
                     description="Volume, frequency, and strength curves."
                     title="Analytics"

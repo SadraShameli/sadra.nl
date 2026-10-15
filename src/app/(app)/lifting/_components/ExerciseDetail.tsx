@@ -5,6 +5,11 @@ import { ExternalLink, TrendingUp, Trophy } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
+import {
+    PR_KIND_ALL,
+    PrFiltersToolbar,
+    type PrRange,
+} from '~/app/(app)/lifting/_components/shared/PrFiltersToolbar';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
@@ -14,18 +19,10 @@ import {
     DataTableAlign,
     type DataTableColumn,
 } from '~/components/ui/DataTable';
-import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
+import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 import { WeightUnit } from '~/lib/lifting/format';
-import { PR_KIND_VALUES } from '~/lib/lifting/types';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type Exercise = RouterOutputs['lifting']['exercise']['get'];
@@ -34,18 +31,6 @@ interface ExerciseDetailProperties {
 }
 
 type PrRow = RouterOutputs['lifting']['analytics']['prTimeline'][number];
-
-const PR_KIND_ALL = '__all__';
-
-const PR_RANGE_VALUES = ['all', '7', '30', '90', '365'] as const;
-type PrRange = (typeof PR_RANGE_VALUES)[number];
-const PR_RANGE_LABEL: Record<PrRange, string> = {
-    '7': 'Last 7 days',
-    '30': 'Last 30 days',
-    '90': 'Last 90 days',
-    '365': 'Last year',
-    all: 'All time',
-};
 
 const E1RM_CHART_CONFIG = {
     e1rm: { color: '#a3a3a3', label: 'Est. 1RM' },
@@ -204,54 +189,14 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProperties) {
                         filterPlaceholder="Search PRs"
                         hasExternalFilters={isPrFiltersActive}
                         headerActions={
-                            <div className="flex flex-col gap-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Select
-                                        onValueChange={setPrKindFilter}
-                                        value={prKindFilter}
-                                    >
-                                        <SelectTrigger className="h-8 w-36 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={PR_KIND_ALL}>
-                                                All kinds
-                                            </SelectItem>
-                                            {PR_KIND_VALUES.map((k) => (
-                                                <SelectItem key={k} value={k}>
-                                                    <span className="capitalize">
-                                                        {k.replaceAll('_', ' ')}
-                                                    </span>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Select
-                                        onValueChange={(v) =>
-                                            handlePresetChange(v as PrRange)
-                                        }
-                                        value={prCustomRange ? 'all' : prRange}
-                                    >
-                                        <SelectTrigger className="h-8 w-36 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {PR_RANGE_VALUES.map((r) => (
-                                                <SelectItem key={r} value={r}>
-                                                    {PR_RANGE_LABEL[r]}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <DateRangePicker
-                                        align="end"
-                                        className="h-8 text-xs"
-                                        onChange={handleCustomRangeChange}
-                                        placeholder="Custom range"
-                                        value={prCustomRange}
-                                    />
-                                </div>
-                            </div>
+                            <PrFiltersToolbar
+                                customRange={prCustomRange}
+                                kind={prKindFilter}
+                                onCustomRangeChange={handleCustomRangeChange}
+                                onKindChange={setPrKindFilter}
+                                onRangeChange={handlePresetChange}
+                                range={prRange}
+                            />
                         }
                         isLoading={prs.isLoading}
                         onResetFilters={resetPrFilters}
@@ -307,21 +252,18 @@ function E1rmTrendChart({
                     <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
                         <TrendingUp className="size-4" /> Estimated 1RM trend
                     </CardTitle>
-                    <Select
-                        onValueChange={(v) => setRange(v as E1rmRange)}
+                    <ToolbarSelect
+                        label="Trend period"
+                        onValueChange={(v) => {
+                            const next = E1RM_RANGE_VALUES.find((r) => r === v);
+                            if (next) setRange(next);
+                        }}
+                        options={E1RM_RANGE_VALUES.map((r) => ({
+                            label: E1RM_RANGE_LABEL[r],
+                            value: r,
+                        }))}
                         value={range}
-                    >
-                        <SelectTrigger className="h-7 w-32 text-xs">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {E1RM_RANGE_VALUES.map((r) => (
-                                <SelectItem key={r} value={r}>
-                                    {E1RM_RANGE_LABEL[r]}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
             </CardHeader>
             <CardContent>

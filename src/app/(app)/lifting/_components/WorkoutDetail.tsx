@@ -28,18 +28,12 @@ import {
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { Checkbox } from '~/components/ui/Checkbox';
+import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { FilterSelect } from '~/components/ui/FilterSelect';
+import { FilterToggle } from '~/components/ui/FilterToggle';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
 import { DistanceUnit, DurationFormat, WeightUnit } from '~/lib/lifting/format';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -341,57 +335,41 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_2fr_auto_auto]">
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Exercise</Label>
-                            <Select
-                                onValueChange={setExerciseFilter}
-                                value={exerciseFilter}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={FILTER_ALL}>
-                                        All exercises
-                                    </SelectItem>
-                                    {exercises.map((wex) => (
-                                        <SelectItem key={wex.id} value={wex.id}>
-                                            {wex.exercise.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Search</Label>
-                            <Input
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Input
+                            aria-label="Search exercise name"
+                            className="h-8 max-w-xs text-xs"
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search exercise name…"
+                            value={search}
+                        />
+                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                            <ClearFiltersButton
+                                active={hasFilters}
+                                onReset={reset}
+                            />
+                            <FilterSelect
+                                label="Exercise"
+                                onValueChange={(v) =>
+                                    setExerciseFilter(v ?? FILTER_ALL)
                                 }
-                                placeholder="Search exercise name…"
-                                value={search}
+                                options={exercises.map((wex) => ({
+                                    label: wex.exercise.name,
+                                    value: wex.id,
+                                }))}
+                                placeholder="All exercises"
+                                value={
+                                    exerciseFilter === FILTER_ALL
+                                        ? undefined
+                                        : exerciseFilter
+                                }
+                            />
+                            <FilterToggle
+                                isPressed={prOnly}
+                                label="PRs only"
+                                onPressedChange={setPrOnly}
                             />
                         </div>
-                        <label
-                            className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 text-xs whitespace-nowrap"
-                            htmlFor="workout-pr-only"
-                        >
-                            <Checkbox
-                                checked={prOnly}
-                                id="workout-pr-only"
-                                onCheckedChange={(v) => setPrOnly(v === true)}
-                            />
-                            PRs only
-                        </label>
-                        <Button
-                            disabled={!hasFilters}
-                            onClick={reset}
-                            type="button"
-                            variant="outline"
-                        >
-                            Reset
-                        </Button>
                     </div>
 
                     {filteredExercises.length === 0 ? (

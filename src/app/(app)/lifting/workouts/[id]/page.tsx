@@ -26,7 +26,12 @@ export async function generateMetadata({
 export default function LiftingWorkoutDetailPage({ params }: PageProperties) {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__workout-detail', 'container pt-spacing pb-24')}>
+            <main
+                className={cn(
+                    'app-lifting__workout-detail',
+                    'container pt-spacing pb-24',
+                )}
+            >
                 <Suspense fallback={<LiftingDetailSkeleton />}>
                     <LiftingWorkoutDetailContent params={params} />
                 </Suspense>
@@ -40,7 +45,11 @@ async function LiftingWorkoutDetailContent({ params }: PageProperties) {
     const { id } = await params;
     const workout = await loadLiftingWorkoutDetail(id);
     void api.lifting.settings.get.prefetch();
-    return <HydrateClient><WorkoutDetailView initial={workout} /></HydrateClient>;
+    return (
+        <HydrateClient>
+            <WorkoutDetailView initial={workout} />
+        </HydrateClient>
+    );
 }
 
 async function loadLiftingWorkoutDetail(id: string) {

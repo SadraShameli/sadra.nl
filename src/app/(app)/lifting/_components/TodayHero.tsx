@@ -6,6 +6,11 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
+import {
+    PR_KIND_ALL,
+    PrFiltersToolbar,
+    type PrRange,
+} from '~/app/(app)/lifting/_components/shared/PrFiltersToolbar';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
@@ -14,35 +19,14 @@ import {
     DataTableAlign,
     type DataTableColumn,
 } from '~/components/ui/DataTable';
-import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { WeightUnit } from '~/lib/lifting/format';
-import { PR_KIND_VALUES } from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type PrRow =
     RouterOutputs['lifting']['analytics']['summaryHero']['recentPrs'][number];
-
-const PR_RANGE_VALUES = ['all', '7', '30', '90', '365'] as const;
-type PrRange = (typeof PR_RANGE_VALUES)[number];
-const PR_RANGE_LABEL: Record<PrRange, string> = {
-    '7': 'Last 7 days',
-    '30': 'Last 30 days',
-    '90': 'Last 90 days',
-    '365': 'Last year',
-    all: 'All time',
-};
-
-const PR_KIND_ALL = '__all__';
 
 export function TodayHero() {
     const summary = api.lifting.analytics.summaryHero.useQuery();
@@ -240,65 +224,16 @@ export function TodayHero() {
                             filterPlaceholder="Search PRs"
                             hasExternalFilters={isPrFiltersActive}
                             headerActions={
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <Select
-                                            onValueChange={setPrKindFilter}
-                                            value={prKindFilter}
-                                        >
-                                            <SelectTrigger className="h-8 w-36 text-xs">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value={PR_KIND_ALL}>
-                                                    All kinds
-                                                </SelectItem>
-                                                {PR_KIND_VALUES.map((k) => (
-                                                    <SelectItem
-                                                        key={k}
-                                                        value={k}
-                                                    >
-                                                        <span className="capitalize">
-                                                            {k.replaceAll(
-                                                                '_',
-                                                                ' ',
-                                                            )}
-                                                        </span>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <Select
-                                            onValueChange={(v) =>
-                                                handlePresetChange(v as PrRange)
-                                            }
-                                            value={
-                                                prCustomRange ? 'all' : prRange
-                                            }
-                                        >
-                                            <SelectTrigger className="h-8 w-36 text-xs">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {PR_RANGE_VALUES.map((r) => (
-                                                    <SelectItem
-                                                        key={r}
-                                                        value={r}
-                                                    >
-                                                        {PR_RANGE_LABEL[r]}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <DateRangePicker
-                                            align="end"
-                                            className="h-8 text-xs"
-                                            onChange={handleCustomRangeChange}
-                                            placeholder="Custom range"
-                                            value={prCustomRange}
-                                        />
-                                    </div>
-                                </div>
+                                <PrFiltersToolbar
+                                    customRange={prCustomRange}
+                                    kind={prKindFilter}
+                                    onCustomRangeChange={
+                                        handleCustomRangeChange
+                                    }
+                                    onKindChange={setPrKindFilter}
+                                    onRangeChange={handlePresetChange}
+                                    range={prRange}
+                                />
                             }
                             isLoading={summary.isLoading}
                             onResetFilters={resetPrFilters}

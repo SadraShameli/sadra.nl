@@ -2,8 +2,8 @@ import { type Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
-import { LiftingDetailSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { ExerciseDetail } from '~/app/(app)/lifting/_components/ExerciseDetail';
+import { LiftingDetailSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
@@ -26,7 +26,12 @@ export async function generateMetadata({
 export default function LiftingExerciseDetailPage({ params }: PageProperties) {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__exercise-detail', 'container pt-spacing pb-24')}>
+            <main
+                className={cn(
+                    'app-lifting__exercise-detail',
+                    'container pt-spacing pb-24',
+                )}
+            >
                 <Suspense fallback={<LiftingDetailSkeleton />}>
                     <LiftingExerciseDetailContent params={params} />
                 </Suspense>
@@ -40,7 +45,11 @@ async function LiftingExerciseDetailContent({ params }: PageProperties) {
     const { slug } = await params;
     const exercise = await loadLiftingExerciseDetail(slug);
     void api.lifting.settings.get.prefetch();
-    return <HydrateClient><ExerciseDetail exercise={exercise} /></HydrateClient>;
+    return (
+        <HydrateClient>
+            <ExerciseDetail exercise={exercise} />
+        </HydrateClient>
+    );
 }
 
 async function loadLiftingExerciseDetail(slug: string) {

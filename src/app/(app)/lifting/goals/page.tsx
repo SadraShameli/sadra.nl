@@ -17,7 +17,12 @@ export const metadata: Metadata = {
 export default function LiftingGoalsPage() {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__goals', 'container pt-spacing pb-24')}>
+            <main
+                className={cn(
+                    'app-lifting__goals',
+                    'container pt-spacing pb-24',
+                )}
+            >
                 <LiftingPageHeader
                     description="Set targets, track progress, celebrate the wins."
                     title="Goals"

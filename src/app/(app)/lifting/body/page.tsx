@@ -17,7 +17,12 @@ export const metadata: Metadata = {
 export default function LiftingBodyPage() {
     return (
         <PageTransition>
-            <main className={cn('app-lifting__body', 'container pt-spacing pb-24')}>
+            <main
+                className={cn(
+                    'app-lifting__body',
+                    'container pt-spacing pb-24',
+                )}
+            >
                 <LiftingPageHeader
                     description="Track bodyweight and tape measurements."
                     title="Body"
