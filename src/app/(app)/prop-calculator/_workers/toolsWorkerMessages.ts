@@ -792,6 +792,7 @@ const bankrollTimelineResultSchema = z.object({
     cumulativeSpendP50: z.array(finiteNumberSchema),
     cumulativeSpendP90: z.array(finiteNumberSchema),
     days: z.array(z.number().int().nonnegative()),
+    finalNetP50: finiteNumberSchema,
     measuredCycleDays: nullableFiniteNumberSchema,
     pathRuin: fractionSchema.transform(fraction),
     payoutP10: z.array(finiteNumberSchema),

@@ -105,6 +105,7 @@ export function projectionResult(runId: number): ToolsWorkerResult {
             cumulativeSpendP50: [0],
             cumulativeSpendP90: [0],
             days: [0],
+            finalNetP50: 0,
             measuredCycleDays: null,
             pathRuin: fraction(0),
             payoutP10: [0],

@@ -401,11 +401,8 @@ function medianMonthlyNetOf(
     result: BankrollTimelineResult,
     dayBudget: number,
 ): number {
-    const lastIndex = result.days.length - 1;
-    const start = result.cashP50[0] ?? 0;
-    const end = result.cashP50[lastIndex] ?? 0;
     return dayBudget > 0
-        ? ((end - start) / dayBudget) * TRADING_DAYS_PER_MONTH
+        ? (result.finalNetP50 / dayBudget) * TRADING_DAYS_PER_MONTH
         : 0;
 }
 

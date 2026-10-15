@@ -1032,6 +1032,7 @@ function fakeTimelineResult(cashEnd: number) {
         cumulativeSpendP50: [0, 0],
         cumulativeSpendP90: [0, 0],
         days: [0, 1],
+        finalNetP50: cashEnd - 100,
         measuredCycleDays: null,
         pathRuin: 0.1,
         payoutP10: [0, 0],

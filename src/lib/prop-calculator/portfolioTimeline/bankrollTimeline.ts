@@ -182,6 +182,7 @@ export function simulateBankrollTimeline(
     const cycleDaysSamples: number[] = [];
     let ruinCount = 0;
     let finalNetNegativeCount = 0;
+    const finalNets: number[] = [];
 
     for (let t = 0; t < trials; t++) {
         const state: TrialState = {
@@ -276,6 +277,7 @@ export function simulateBankrollTimeline(
 
         const finalNet = (payoutSeries.at(-1) ?? 0) - (spendSeries.at(-1) ?? 0);
         if (finalNet < 0) finalNetNegativeCount += 1;
+        finalNets.push(finalNet);
 
         if (state.firstPurchaseDay !== null && state.lastPayoutDay !== null) {
             cycleDaysSamples.push(state.lastPayoutDay - state.firstPurchaseDay);
@@ -325,6 +327,7 @@ export function simulateBankrollTimeline(
         cumulativeSpendP50,
         cumulativeSpendP90,
         days,
+        finalNetP50: percentile(finalNets, 50),
         measuredCycleDays:
             cycleDaysSamples.length === 0
                 ? null

@@ -322,6 +322,7 @@ function timelineResult() {
         cumulativeSpendP50: [0, 495],
         cumulativeSpendP90: [0, 495],
         days: [0, 1],
+        finalNetP50: 0,
         measuredCycleDays: 42,
         pathRuin: fraction(0.05),
         payoutP10: [0, 0],

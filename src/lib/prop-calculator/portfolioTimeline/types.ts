@@ -75,6 +75,7 @@ export interface BankrollTimelineResult {
     cumulativeSpendP50: number[];
     cumulativeSpendP90: number[];
     days: number[];
+    finalNetP50: number;
     measuredCycleDays: null | number;
     pathRuin: Fraction0to1;
     payoutP10: number[];

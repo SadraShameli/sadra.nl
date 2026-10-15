@@ -759,6 +759,7 @@ function bankrollTimelineResult(
         cumulativeSpendP50: [0, 0],
         cumulativeSpendP90: [0, 0],
         days: [0, 1],
+        finalNetP50: 50,
         measuredCycleDays: null,
         pathRuin: fraction(0.1),
         payoutP10: [0, 0],
@@ -773,13 +774,35 @@ function bankrollTimelineResult(
 }
 
 describe('nextRoundResultSummaryOf', () => {
+    it('measures the median monthly net as payouts minus spend, never the cash path that payouts never reach (PT-50 escalation on PT-62)', () => {
+        const summary = nextRoundResultSummaryOf({
+            dayBudget: 21,
+            optionABudget: 300,
+            optionAResult: bankrollTimelineResult({
+                cashP50: [300, 200],
+                finalNetP50: 300,
+                withdrawnP50: [0, 400],
+            }),
+            optionBBudget: 600,
+            optionBResult: bankrollTimelineResult({
+                cashP50: [600, 400],
+                finalNetP50: 600,
+                withdrawnP50: [0, 800],
+            }),
+            scaleGate: { status: ScaleGateStatus.Ready, unmetConditions: [] },
+        });
+        expect(summary.optionA.medianMonthlyNet).toBe('$300');
+        expect(summary.optionB.medianMonthlyNet).toBe('$600');
+        expect(summary.recommended).toBe(NextRoundRecommendation.OptionB);
+    });
+
     it('marks option B "scale gate not met" when the gate has an unmet condition', () => {
         const summary = nextRoundResultSummaryOf({
             dayBudget: 60,
             optionABudget: 100,
-            optionAResult: bankrollTimelineResult({ cashP50: [100, 100] }),
+            optionAResult: bankrollTimelineResult({ finalNetP50: 0 }),
             optionBBudget: 300,
-            optionBResult: bankrollTimelineResult({ cashP50: [300, 900] }),
+            optionBResult: bankrollTimelineResult({ finalNetP50: 600 }),
             scaleGate: {
                 status: ScaleGateStatus.NotEnoughSample,
                 unmetConditions: [ScaleGateUnmetCondition.TradesBelowThreshold],
@@ -794,9 +817,9 @@ describe('nextRoundResultSummaryOf', () => {
         const summary = nextRoundResultSummaryOf({
             dayBudget: 60,
             optionABudget: 100,
-            optionAResult: bankrollTimelineResult({ cashP50: [100, 110] }),
+            optionAResult: bankrollTimelineResult({ finalNetP50: 10 }),
             optionBBudget: 300,
-            optionBResult: bankrollTimelineResult({ cashP50: [300, 900] }),
+            optionBResult: bankrollTimelineResult({ finalNetP50: 600 }),
             scaleGate: {
                 status: ScaleGateStatus.NotPositiveAfterCost,
                 unmetConditions: [
@@ -811,9 +834,9 @@ describe('nextRoundResultSummaryOf', () => {
         const summary = nextRoundResultSummaryOf({
             dayBudget: 60,
             optionABudget: 100,
-            optionAResult: bankrollTimelineResult({ cashP50: [100, 110] }),
+            optionAResult: bankrollTimelineResult({ finalNetP50: 10 }),
             optionBBudget: 300,
-            optionBResult: bankrollTimelineResult({ cashP50: [300, 900] }),
+            optionBResult: bankrollTimelineResult({ finalNetP50: 600 }),
             scaleGate: { status: ScaleGateStatus.Ready, unmetConditions: [] },
         });
         expect(summary.recommended).toBe(NextRoundRecommendation.OptionB);
@@ -839,12 +862,12 @@ describe('nextRoundResultSummaryOf', () => {
             dayBudget: 60,
             optionABudget: 100,
             optionAResult: bankrollTimelineResult({
-                cashP50: [100, 500],
+                finalNetP50: 400,
                 pathRuin: fraction(0.1),
                 pFinalNetNegative: fraction(0.2),
             }),
             optionBBudget: 300,
-            optionBResult: bankrollTimelineResult({ cashP50: [300, 310] }),
+            optionBResult: bankrollTimelineResult({ finalNetP50: 10 }),
             scaleGate: { status: ScaleGateStatus.Ready, unmetConditions: [] },
         });
         expect(summary.optionA.pRoundNetNegative).toBe('20.0%');

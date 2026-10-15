@@ -190,6 +190,19 @@ describe('simulateBankrollTimeline (PT-55)', () => {
         expect(out.cashP50.at(-1)).toBeCloseTo(0, 9);
     });
 
+    it('reports the median final net as payouts minus spend, so a withdrawn payout counts though the cash path only falls (PT-50 escalation on PT-62)', () => {
+        const bankroll = basePolicy({ reinvestFraction: fraction(0) });
+        const out = simulateBankrollTimeline(
+            baseInputs({ bankroll, dayBudget: 20 }),
+        );
+        const finalNet =
+            (out.payoutP50.at(-1) ?? 0) - (out.cumulativeSpendP50.at(-1) ?? 0);
+
+        expect(finalNet).toBeGreaterThan(0);
+        expect(out.finalNetP50).toBeCloseTo(finalNet, 9);
+        expect(out.cashP50.at(-1) ?? 0).toBeLessThan(out.cashP50[0] ?? 0);
+    });
+
     it('capacity 1 never runs more than one open card, so payouts grow linearly (one 300 payout per day) instead of compounding', () => {
         const out = simulateBankrollTimeline(
             baseInputs({
