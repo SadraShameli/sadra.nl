@@ -20,6 +20,8 @@
 
 ## Result: documented $500 against the engine optimum
 
+The documented columns of the 18 plans with a funded consistency rule are superseded by [`2026-10-15-consistency-ceiling-remeasure.md`](2026-10-15-consistency-ceiling-remeasure.md): from commit `6bebe90e` the documented simulation caps each funded day at the consistency ceiling (PT-119). Their optimum requests did not change.
+
 Monthly net with its standard error; "ex-credit" is the credit-free monthly net. "Effective" is the size the documented $500 request settles at (the firm minimum where it is above $500). "Gap" is optimum minus documented, credit-inclusive.
 
 | Plan                             | Effective | Documented, monthly net (SE) | Documented, ex-credit | Documented, funded bust | Optimum request | Optimum, monthly net (SE) | Optimum, ex-credit | Optimum, funded bust | Gap    |
