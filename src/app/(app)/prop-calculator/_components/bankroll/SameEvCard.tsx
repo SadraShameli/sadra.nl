@@ -22,6 +22,8 @@ import {
     bankrollSameEvRequest,
     bankrollVariantWithRisk,
 } from './bankrollModel';
+import { BankrollRunStatus } from './BankrollRunStatus';
+import { BankrollSection } from './BankrollSection';
 import { parseBankrollDollarsField } from './bankrollUrlState';
 import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
@@ -56,22 +58,13 @@ export function SameEvCard() {
         worker.state.result.kind === ToolsResponseKind.SameEv
             ? worker.state.result.results
             : null;
-    const failureReason =
-        canRun && worker.state.phase === ToolsWorkerPhase.Failed
-            ? worker.state.reason
-            : null;
 
     return (
-        <section
-            aria-labelledby="bankroll-same-ev-heading"
-            className="flex flex-col gap-4"
+        <BankrollSection
+            description="Two risk sizes can earn a similar expected value per attempt yet carry very different odds of losing the bankroll. Compare them at one bankroll."
+            headingId="bankroll-same-ev-heading"
+            title="Same EV, different risk"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-white"
-                id="bankroll-same-ev-heading"
-            >
-                Same EV, different risk
-            </h2>
             <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1">
                     <label
@@ -126,18 +119,14 @@ export function SameEvCard() {
                 </p>
             )}
             {results === null ? (
-                failureReason === null ? null : (
-                    <p className="text-xs text-rose-400" role="alert">
-                        {failureReason}
-                    </p>
-                )
+                <BankrollRunStatus isRequested={canRun} state={worker.state} />
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                     <StrategyOutcomeColumn label="A" outcome={results[0]} />
                     <StrategyOutcomeColumn label="B" outcome={results[1]} />
                 </div>
             )}
-        </section>
+        </BankrollSection>
     );
 }
 

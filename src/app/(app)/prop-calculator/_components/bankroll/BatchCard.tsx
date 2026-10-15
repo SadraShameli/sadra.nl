@@ -15,6 +15,8 @@ import { ECONOMICS_REASON_TEXT } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
 
 import { bankrollExplicitBatchRequest } from './bankrollModel';
+import { BankrollRunStatus } from './BankrollRunStatus';
+import { BankrollSection } from './BankrollSection';
 import { parseBankrollPositiveIntField } from './bankrollUrlState';
 import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
@@ -42,22 +44,13 @@ export function BatchCard() {
         worker.state.result.kind === ToolsResponseKind.Batch
             ? worker.state.result.result
             : null;
-    const failureReason =
-        attempts !== null && worker.state.phase === ToolsWorkerPhase.Failed
-            ? worker.state.reason
-            : null;
 
     return (
-        <section
-            aria-labelledby="bankroll-batch-heading"
-            className="flex flex-col gap-4"
+        <BankrollSection
+            description="Prices a fixed number of attempts: the expected net and the chance the whole batch loses money."
+            headingId="bankroll-batch-heading"
+            title="Batch"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-white"
-                id="bankroll-batch-heading"
-            >
-                Batch
-            </h2>
             <div className="flex flex-col gap-1">
                 <label
                     className="text-xs font-medium text-muted-foreground"
@@ -80,11 +73,10 @@ export function BatchCard() {
                 />
             </div>
             {result === null ? (
-                failureReason === null ? null : (
-                    <p className="text-xs text-rose-400" role="alert">
-                        {failureReason}
-                    </p>
-                )
+                <BankrollRunStatus
+                    isRequested={attempts !== null}
+                    state={worker.state}
+                />
             ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <StatCard
@@ -131,6 +123,6 @@ export function BatchCard() {
                     />
                 </div>
             )}
-        </section>
+        </BankrollSection>
     );
 }

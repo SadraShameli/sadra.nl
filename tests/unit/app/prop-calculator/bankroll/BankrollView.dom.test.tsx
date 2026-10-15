@@ -568,6 +568,42 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         );
     });
 
+    it('says the Projection card is simulating, not asking for inputs, while its filled-in request runs', () => {
+        act(() => {
+            root.render(<BankrollView />);
+        });
+        const startInput = requireInput(
+            container.querySelector('#bankroll-start'),
+        );
+        const horizonInput = requireInput(
+            container.querySelector('#bankroll-horizon'),
+        );
+        act(() => {
+            setInputValue(startInput, '5000');
+        });
+        act(() => {
+            setInputValue(horizonInput, '180');
+        });
+
+        const projectionInstance = toolsWorkerBox.instances[1];
+        expect(projectionInstance).toBeDefined();
+        act(() => {
+            projectionInstance?.setState({
+                phase: RealToolsWorkerPhase.Running,
+            });
+        });
+
+        const projection = container.querySelector(
+            'section[aria-labelledby="bankroll-projection-heading"]',
+        );
+        expect(projection?.querySelector('[role="status"]')?.textContent).toBe(
+            'Simulating, this can take a few seconds.',
+        );
+        expect(projection?.textContent).not.toContain(
+            'Enter a starting bankroll and a horizon to project.',
+        );
+    });
+
     it('clears the Setup card failure banner once the budget is cleared, since no request is current (PT-62a LOW)', () => {
         act(() => {
             root.render(<BankrollView />);

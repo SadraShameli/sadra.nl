@@ -69,7 +69,7 @@ export function LiveView() {
                         className="text-lg font-semibold tracking-tight text-white"
                         id={RESULT_HEADING_ID}
                     >
-                        Live account
+                        Live stage results
                     </h2>
                     {model.status === LiveToolStatus.Modeled &&
                         model.note !== null && (
@@ -115,27 +115,27 @@ function LiveResultSummary({ out }: { out: LiveOutputs }) {
     return (
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
             <LiveStat
-                label="bust probability"
+                label="Bust probability"
                 value={formatPercent(out.liveBustProbability)}
             />
             <LiveStat
-                label="inactivity closure probability"
+                label="Closed for inactivity"
                 value={formatPercent(out.liveInactivityClosureProbability)}
             />
             <LiveStat
-                label="median days to bust"
+                label="Median days to bust"
                 value={formatDays(out.medianDaysToBust)}
             />
             <LiveStat
-                label="median days to 1st withdrawal"
+                label="Median days to first withdrawal"
                 value={formatDays(out.medianDaysToFirstWithdrawal)}
             />
             <LiveStat
-                label="withdrawals at horizon (p50)"
+                label="Withdrawals by the horizon (median)"
                 value={formatCurrency(out.cumulativeWithdrawalsP50)}
             />
             <LiveStat
-                label="expected annual withdrawal rate"
+                label="Expected withdrawals per year"
                 value={formatCurrency(out.expectedAnnualWithdrawalRate)}
             />
         </dl>

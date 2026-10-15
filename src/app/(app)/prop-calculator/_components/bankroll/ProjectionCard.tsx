@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
     Area,
     CartesianGrid,
@@ -14,7 +14,6 @@ import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
-import { Input } from '~/components/ui/Input';
 import {
     formatCompactCurrency,
     formatGateCurrency,
@@ -34,6 +33,9 @@ import {
     bankrollProjectionRequest,
     bankrollProjectionSummary,
 } from './bankrollModel';
+import { BankrollNumberField } from './BankrollNumberField';
+import { BankrollRunStatus } from './BankrollRunStatus';
+import { BankrollSection } from './BankrollSection';
 import {
     type BankrollViewState,
     parseBankrollDollarsField,
@@ -101,10 +103,6 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
         projection === null
             ? null
             : bankrollProjectionSummary(projection.result);
-    const failureReason =
-        worker.state.phase === ToolsWorkerPhase.Failed
-            ? worker.state.reason
-            : null;
 
     const cycle = bankrollCycleInput(state.cycleMultiple, state.cycleDays);
     const illustration =
@@ -116,36 +114,33 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
             : bankrollCycleFigures(state.start, state.horizonDays, [cycle])[0];
 
     return (
-        <section
-            aria-labelledby="bankroll-projection-heading"
-            className="flex flex-col gap-4"
+        <BankrollSection
+            description="Simulates reinvesting payouts into new attempts over a horizon, with P10 to P90 bands and the chance the bankroll runs dry."
+            headingId="bankroll-projection-heading"
+            title="Projection"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-white"
-                id="bankroll-projection-heading"
-            >
-                Projection
-            </h2>
             <div className="grid gap-4 sm:grid-cols-2">
-                <NumberField
+                <BankrollNumberField
+                    id="bankroll-start"
+                    initial={state.start}
                     label="Starting bankroll ($)"
                     onChange={(raw) =>
                         onChange({ start: parseBankrollDollarsField(raw) })
                     }
-                    testId="bankroll-start"
-                    value={state.start}
                 />
-                <NumberField
+                <BankrollNumberField
+                    id="bankroll-monthly-budget"
+                    initial={state.monthlyBudget}
                     label="Monthly budget ($, optional)"
                     onChange={(raw) =>
                         onChange({
                             monthlyBudget: parseBankrollDollarsField(raw),
                         })
                     }
-                    testId="bankroll-monthly-budget"
-                    value={state.monthlyBudget}
                 />
-                <NumberField
+                <BankrollNumberField
+                    id="bankroll-reinvest"
+                    initial={state.reinvestFraction}
                     label="Reinvest fraction (0 to 1)"
                     onChange={(raw) =>
                         onChange({
@@ -153,20 +148,20 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                                 parseBankrollReinvestFractionField(raw),
                         })
                     }
-                    testId="bankroll-reinvest"
-                    value={state.reinvestFraction}
                 />
-                <NumberField
+                <BankrollNumberField
+                    id="bankroll-capacity"
+                    initial={state.capacity}
                     label="Capacity (max concurrent accounts, optional)"
                     onChange={(raw) =>
                         onChange({
                             capacity: parseBankrollPositiveIntField(raw),
                         })
                     }
-                    testId="bankroll-capacity"
-                    value={state.capacity}
                 />
-                <NumberField
+                <BankrollNumberField
+                    id="bankroll-payout-lag"
+                    initial={state.payoutLagDays}
                     label="Payout lag (days)"
                     onChange={(raw) =>
                         onChange({
@@ -174,60 +169,54 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                                 parseBankrollNonNegativeIntField(raw),
                         })
                     }
-                    testId="bankroll-payout-lag"
-                    value={state.payoutLagDays}
                 />
-                <NumberField
+                <BankrollNumberField
+                    id="bankroll-horizon"
+                    initial={state.horizonDays}
                     label="Horizon (trading days)"
                     onChange={(raw) =>
                         onChange({
                             horizonDays: parseBankrollPositiveIntField(raw),
                         })
                     }
-                    testId="bankroll-horizon"
-                    value={state.horizonDays}
                 />
-                <NumberField
+                <BankrollNumberField
+                    id="bankroll-round-budget"
+                    initial={state.roundBudget}
                     label="Round budget ($, optional)"
                     onChange={(raw) =>
                         onChange({
                             roundBudget: parseBankrollDollarsField(raw),
                         })
                     }
-                    testId="bankroll-round-budget"
-                    value={state.roundBudget}
                 />
-                <NumberField
+                <BankrollNumberField
+                    id="bankroll-cycle-multiple"
+                    initial={state.cycleMultiple}
                     label="Cycle multiple for the illustration (optional)"
                     onChange={(raw) =>
                         onChange({
                             cycleMultiple: parseBankrollMultipleField(raw),
                         })
                     }
-                    testId="bankroll-cycle-multiple"
-                    value={state.cycleMultiple}
                 />
-                <NumberField
+                <BankrollNumberField
+                    id="bankroll-cycle-days"
+                    initial={state.cycleDays}
                     label="Cycle length for the illustration (trading days, optional)"
                     onChange={(raw) =>
                         onChange({
                             cycleDays: parseBankrollPositiveIntField(raw),
                         })
                     }
-                    testId="bankroll-cycle-days"
-                    value={state.cycleDays}
                 />
             </div>
             {summary === null ? (
-                failureReason === null ? (
-                    <p className="text-sm text-muted-foreground">
-                        Enter a starting bankroll and a horizon to project.
-                    </p>
-                ) : (
-                    <p className="text-xs text-rose-400" role="alert">
-                        {failureReason}
-                    </p>
-                )
+                <BankrollRunStatus
+                    idleText="Enter a starting bankroll and a horizon to project."
+                    isRequested={requestKey !== null}
+                    state={worker.state}
+                />
             ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     <StatCard
@@ -272,7 +261,7 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                         : formatGateCurrency(illustration.quantity.value)}
                 </p>
             )}
-        </section>
+        </BankrollSection>
     );
 }
 
@@ -401,43 +390,6 @@ function MonthEndBands({
                     </tbody>
                 </table>
             </div>
-        </div>
-    );
-}
-
-function NumberField({
-    label,
-    onChange,
-    testId,
-    value,
-}: {
-    label: string;
-    onChange: (raw: string) => void;
-    testId: string;
-    value: null | number;
-}) {
-    const [text, setText] = useState(() =>
-        value === null ? '' : String(value),
-    );
-    return (
-        <div className="flex flex-col gap-1">
-            <label
-                className="text-xs font-medium text-muted-foreground"
-                htmlFor={testId}
-            >
-                {label}
-            </label>
-            <Input
-                id={testId}
-                inputMode="decimal"
-                onChange={(event) => {
-                    setText(event.target.value);
-                    onChange(event.target.value);
-                }}
-                placeholder="Not set"
-                type="number"
-                value={text}
-            />
         </div>
     );
 }

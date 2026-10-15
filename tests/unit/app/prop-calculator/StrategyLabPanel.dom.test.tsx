@@ -239,6 +239,30 @@ describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
         vi.unstubAllGlobals();
     });
 
+    it('names every editable cell of a scenario row after its column and scenario', () => {
+        render(scenarios);
+        const row = bodyRows().find(
+            (candidate) => rowLabel(candidate) === 'One to two',
+        );
+        const controls = [
+            ...(row?.querySelectorAll<HTMLElement>(
+                'input, button[role="combobox"]',
+            ) ?? []),
+        ];
+        expect(controls.length).toBeGreaterThan(0);
+        for (const control of controls) {
+            expect(control.getAttribute('aria-label')).toBeTruthy();
+        }
+        const inputs = [...(row?.querySelectorAll('input') ?? [])];
+        expect(inputs.length).toBeGreaterThan(0);
+        for (const input of inputs) {
+            expect(input.getAttribute('aria-label')).toMatch(/, One to two$/);
+        }
+        expect(
+            row?.querySelector('button[aria-label="Remove One to two"]'),
+        ).not.toBeNull();
+    });
+
     it('shows the not-applicable marker, never NaN%, for a reward:risk the walk cannot represent', () => {
         render(scenarios);
         const theo = theoByLabel();

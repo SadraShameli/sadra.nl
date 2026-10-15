@@ -1,5 +1,6 @@
 'use client';
 
+import { CircleAlert, CircleCheck } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
@@ -99,7 +100,9 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import { noiseVerdict, NoiseVerdict } from '~/lib/prop-calculator/stats';
 import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';
+import { cn } from '~/lib/utilities';
 
+const FIELD_LABEL_CLASS = 'text-xs font-medium text-muted-foreground';
 const INPUTS_HEADING_ID = 'payout-planner-inputs-heading';
 const OUTLOOK_HEADING_ID = 'payout-planner-outlook-heading';
 const READINESS_HEADING_ID = 'payout-planner-readiness-heading';
@@ -637,7 +640,9 @@ function PayoutPlannerCountField({
     const hintId = `${id}-hint`;
     return (
         <div className="flex flex-col gap-1">
-            <Label htmlFor={id}>{label}</Label>
+            <Label className={FIELD_LABEL_CLASS} htmlFor={id}>
+                {label}
+            </Label>
             <Input
                 aria-describedby={isInvalid ? hintId : undefined}
                 aria-invalid={isInvalid}
@@ -690,7 +695,9 @@ function PayoutPlannerDollarField<T extends number>({
     const hintId = `${id}-hint`;
     return (
         <div className="flex flex-col gap-1">
-            <Label htmlFor={id}>{label}</Label>
+            <Label className={FIELD_LABEL_CLASS} htmlFor={id}>
+                {label}
+            </Label>
             <Input
                 aria-describedby={isInvalid ? hintId : undefined}
                 aria-invalid={isInvalid}
@@ -825,7 +832,10 @@ function PayoutPlannerInputs({
                 value={state.floorAtLastPayout}
             />
             <div className="flex flex-col gap-1">
-                <Label htmlFor="payout-planner-last-payout-on">
+                <Label
+                    className={FIELD_LABEL_CLASS}
+                    htmlFor="payout-planner-last-payout-on"
+                >
                     Last payout date (optional)
                 </Label>
                 <Input
@@ -935,17 +945,31 @@ function PayoutPlannerOutlookSection({
     }
     return (
         <div className="flex flex-col gap-3 text-sm">
-            <ul className="flex flex-col gap-1">
+            <ul className="flex flex-col gap-1.5">
                 {result.path.map((step) => (
                     <li
-                        className={
+                        className={cn(
+                            'flex items-start gap-2',
                             step.satisfied
                                 ? 'text-muted-foreground'
-                                : 'text-foreground'
-                        }
+                                : 'text-foreground',
+                        )}
                         key={step.gate}
                     >
-                        {payoutPathStepText(step)}
+                        {step.satisfied ? (
+                            <CircleCheck
+                                aria-hidden="true"
+                                className="mt-0.5 size-4 shrink-0 text-emerald-500"
+                            />
+                        ) : (
+                            <CircleAlert
+                                aria-hidden="true"
+                                className="mt-0.5 size-4 shrink-0 text-amber-400"
+                            />
+                        )}
+                        <span className="first-letter:uppercase">
+                            {payoutPathStepText(step)}
+                        </span>
                     </li>
                 ))}
             </ul>
@@ -965,10 +989,12 @@ function PayoutPlannerReadinessSummary({
         case PayoutPlannerResultKind.Blocked: {
             return (
                 <div className="flex flex-col gap-2 text-sm">
-                    <p className="text-foreground">
+                    <p className="text-base font-medium text-foreground first-letter:uppercase">
                         {payoutBlockReasonText(result.readiness.reason)}
                     </p>
-                    <p className="text-muted-foreground">{result.waitText}</p>
+                    <p className="text-muted-foreground first-letter:uppercase">
+                        {result.waitText}
+                    </p>
                     {result.firmMinimumNotice !== null && (
                         <p className="text-amber-400">
                             {payoutFirmMinimumMessage(result.firmMinimumNotice)}

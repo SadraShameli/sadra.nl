@@ -250,7 +250,7 @@ describe('SetupCard realized rates (PT-81 step 2)', () => {
 
     it('says the threshold is not set for the realized minimum budget without one', () => {
         render(stateOf({ budget: dollars(400) }));
-        expect(valueOf('Realized minimum budget')).toBe('threshold not set');
+        expect(valueOf('Realized minimum budget')).toBe('Threshold not set');
     });
 
     it('says there are no ended attempts instead of a figure for an empty ledger', () => {

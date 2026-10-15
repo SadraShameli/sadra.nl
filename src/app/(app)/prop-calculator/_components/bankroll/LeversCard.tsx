@@ -21,6 +21,8 @@ import {
     parseBankrollCandidateList,
     parseBankrollDollarCandidateList,
 } from './bankrollModel';
+import { BankrollRunStatus } from './BankrollRunStatus';
+import { BankrollSection } from './BankrollSection';
 import { parseBankrollDollarsField } from './bankrollUrlState';
 import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
@@ -72,22 +74,13 @@ export function LeversCard() {
         worker.state.result.kind === ToolsResponseKind.Levers
             ? worker.state.result.rows
             : null;
-    const failureReason =
-        canRun && worker.state.phase === ToolsWorkerPhase.Failed
-            ? worker.state.reason
-            : null;
 
     return (
-        <section
-            aria-labelledby="bankroll-levers-heading"
-            className="flex flex-col gap-4"
+        <BankrollSection
+            description="Tries each candidate risk, trades per day and payout request against your current setup and shows how much each one moves the results."
+            headingId="bankroll-levers-heading"
+            title="Levers"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-white"
-                id="bankroll-levers-heading"
-            >
-                Levers
-            </h2>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="flex flex-col gap-1">
                     <label
@@ -156,11 +149,7 @@ export function LeversCard() {
                 </div>
             </div>
             {rows === null ? (
-                failureReason === null ? null : (
-                    <p className="text-xs text-rose-400" role="alert">
-                        {failureReason}
-                    </p>
-                )
+                <BankrollRunStatus isRequested={canRun} state={worker.state} />
             ) : (
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
@@ -241,7 +230,7 @@ export function LeversCard() {
                     </table>
                 </div>
             )}
-        </section>
+        </BankrollSection>
     );
 }
 

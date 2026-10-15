@@ -9,6 +9,7 @@ import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
+import { Progress } from '~/components/ui/Progress';
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
@@ -58,6 +59,7 @@ import {
     ladderSlotFor,
 } from './ladderResultSlot';
 import {
+    type LadderProgress,
     LadderRunPhase,
     type LadderSearchInputs,
     type LadderSearchState,
@@ -395,8 +397,8 @@ export default function LadderLabPanel({
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <FlaskConical className="size-4 text-muted-foreground" />
-                    <h3 className="text-sm font-semibold">Ladder Lab</h3>
-                    <InfoPopover title="Ladder Lab">
+                    <h3 className="text-sm font-semibold">Ladder lab</h3>
+                    <InfoPopover title="Ladder lab">
                         Searches every within-day risk ladder on a grid and
                         scores each one on three separate axes: expected days to
                         funded, cost per funded account, and eval pass rate.
@@ -440,13 +442,20 @@ export default function LadderLabPanel({
                             onClick={() => run(currentInputs)}
                             size="sm"
                             type="button"
-                            variant="outline"
                         >
                             Run search
                         </Button>
                     )}
                 </div>
             </div>
+
+            {state.phase === LadderRunPhase.Running && (
+                <Progress
+                    aria-label="Ladder search progress"
+                    className="mt-3 h-1.5"
+                    value={ladderProgressPercent(state.progress)}
+                />
+            )}
 
             <CalculatorObjectiveChip className="mt-3" />
 
@@ -591,6 +600,16 @@ export default function LadderLabPanel({
                 <p className="mt-3 text-xs text-amber-400">{view.notice}</p>
             )}
 
+            {scored === null &&
+                state.phase === LadderRunPhase.Idle &&
+                view.kind !== LadderLabViewKind.Cancelled && (
+                    <p className="mt-4 rounded-md border border-dashed border-white/10 px-3 py-6 text-center text-sm text-muted-foreground">
+                        Set the grid above, then press Run search to score every
+                        ladder on days to funded, cost per funded account and
+                        pass rate.
+                    </p>
+                )}
+
             {scored && (
                 <div className="mt-4 flex flex-col gap-5">
                     {scored.kind === LadderLabViewKind.InputsChanged && (
@@ -696,6 +715,12 @@ function contractsColumn(
         header: 'Contracts at stop',
         id: 'contracts',
     };
+}
+
+function ladderProgressPercent(progress: LadderProgress): number {
+    return progress.total === 0
+        ? 0
+        : Math.round((progress.completed / progress.total) * 100);
 }
 
 function LadderRowButton({

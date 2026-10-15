@@ -56,6 +56,7 @@ import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 
 const START_TIER = 'start';
 const LABEL_CLASS = 'text-xs font-medium text-muted-foreground';
+const OPTIONAL_PLACEHOLDER = 'Optional, leave blank to skip';
 const INPUTS_HEADING_ID = 'position-size-inputs-heading';
 const RESULT_HEADING_ID = 'position-size-result-heading';
 const FIX_FIELD_TEXT = 'Fix the highlighted field to see the position.';
@@ -223,6 +224,9 @@ function NumberField<T extends number>({
                     onValidityChange(field, parsed !== null);
                     if (parsed !== null) onValid(parsed);
                 }}
+                placeholder={
+                    onClear === undefined ? undefined : OPTIONAL_PLACEHOLDER
+                }
                 step={step}
                 type="number"
                 value={text}

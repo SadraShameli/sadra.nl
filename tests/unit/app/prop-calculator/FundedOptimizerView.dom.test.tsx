@@ -193,7 +193,7 @@ describe('FundedOptimizerView names the lifetime payout cap basis (PT-25c)', () 
             root.render(<FundedOptimizerView />);
         });
         expect(container.textContent).toContain(
-            'lifetime payout cap: not yet checked',
+            'Lifetime payout cap: not yet checked',
         );
     });
 
@@ -204,7 +204,7 @@ describe('FundedOptimizerView names the lifetime payout cap basis (PT-25c)', () 
             root.render(<FundedOptimizerView />);
         });
         expect(container.textContent).toContain(
-            'lifetime payout cap: a verified no-count trigger',
+            'Lifetime payout cap: a verified no-count trigger',
         );
     });
 });

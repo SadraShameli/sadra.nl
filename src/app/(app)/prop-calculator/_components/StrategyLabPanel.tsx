@@ -102,6 +102,19 @@ const CORRELATION_LABEL: Record<CorrelationMode, string> = {
 const correlationModeSchema = z.enum(CorrelationMode);
 const instrumentSymbolSchema = z.enum(InstrumentSymbol);
 
+enum LabEditorField {
+    Accounts = 'accounts',
+    Groups = 'groups',
+    Instrument = 'instrument',
+    Label = 'label',
+    Mode = 'mode',
+    RewardToRisk = 'rewardToRisk',
+    RiskPerTrade = 'riskPerTrade',
+    StopPoints = 'stopPoints',
+    TradesPerDay = 'tradesPerDay',
+    WinRate = 'winRate',
+}
+
 export default function StrategyLabPanel({
     activationDiscountPercent,
     commissionPerRoundTrip,
@@ -307,7 +320,7 @@ export default function StrategyLabPanel({
                     return r ? (
                         <Card className="gap-1 py-2" key={sc.id}>
                             <CardContent className="px-3">
-                                <div className="mb-1 flex items-center justify-between text-xs">
+                                <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
                                     <span className="font-semibold">
                                         {sc.label}
                                     </span>
@@ -447,6 +460,26 @@ function ResultCell({
     );
 }
 
+const LAB_EDITOR_FIELD_LABEL: Readonly<Record<LabEditorField, string>> = {
+    [LabEditorField.Accounts]: 'Accounts',
+    [LabEditorField.Groups]: 'Groups',
+    [LabEditorField.Instrument]: 'Instrument',
+    [LabEditorField.Label]: 'Scenario name',
+    [LabEditorField.Mode]: 'Mode',
+    [LabEditorField.RewardToRisk]: 'Reward to risk',
+    [LabEditorField.RiskPerTrade]: 'Risk per trade ($)',
+    [LabEditorField.StopPoints]: 'Stop (points)',
+    [LabEditorField.TradesPerDay]: 'Trades per day',
+    [LabEditorField.WinRate]: 'Win rate (%)',
+};
+
+function labEditorCellLabel(
+    field: LabEditorField,
+    scenarioLabel: string,
+): string {
+    return `${LAB_EDITOR_FIELD_LABEL[field]}, ${scenarioLabel}`;
+}
+
 function StrategyLabTable({
     isHazardPriced,
     onRemove,
@@ -465,6 +498,10 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Input
+                        aria-label={labEditorCellLabel(
+                            LabEditorField.Label,
+                            row.original.scenario.label,
+                        )}
                         className="h-7 w-32 text-xs"
                         onChange={(event) =>
                             onUpdate(row.original.scenario.id, {
@@ -480,6 +517,10 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Input
+                        aria-label={labEditorCellLabel(
+                            LabEditorField.RiskPerTrade,
+                            row.original.scenario.label,
+                        )}
                         className="h-7 w-20 text-xs"
                         max={RISK_BOUNDS.max}
                         min={RISK_BOUNDS.min}
@@ -505,6 +546,10 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Input
+                        aria-label={labEditorCellLabel(
+                            LabEditorField.WinRate,
+                            row.original.scenario.label,
+                        )}
                         className="h-7 w-16 text-xs"
                         max={Math.round(WINRATE_BOUNDS.max * PERCENT)}
                         min={Math.round(WINRATE_BOUNDS.min * PERCENT)}
@@ -532,6 +577,10 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Input
+                        aria-label={labEditorCellLabel(
+                            LabEditorField.RewardToRisk,
+                            row.original.scenario.label,
+                        )}
                         className="h-7 w-16 text-xs"
                         max={RR_BOUNDS.max}
                         min={RR_BOUNDS.min}
@@ -557,6 +606,10 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Input
+                        aria-label={labEditorCellLabel(
+                            LabEditorField.TradesPerDay,
+                            row.original.scenario.label,
+                        )}
                         className="h-7 w-14 text-xs"
                         max={TRADES_PER_DAY_BOUNDS.max}
                         min={TRADES_PER_DAY_BOUNDS.min}
@@ -599,7 +652,13 @@ function StrategyLabTable({
                             }}
                             value={sc.instrument ?? 'none'}
                         >
-                            <SelectTrigger className="h-7 w-24 text-xs">
+                            <SelectTrigger
+                                aria-label={labEditorCellLabel(
+                                    LabEditorField.Instrument,
+                                    row.original.scenario.label,
+                                )}
+                                className="h-7 w-28 text-xs"
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -626,6 +685,10 @@ function StrategyLabTable({
                     const sc = row.original.scenario;
                     return (
                         <Input
+                            aria-label={labEditorCellLabel(
+                                LabEditorField.StopPoints,
+                                row.original.scenario.label,
+                            )}
                             className="h-7 w-16 text-xs"
                             disabled={sc.instrument === null}
                             max={STOP_POINTS_BOUNDS.max}
@@ -653,6 +716,10 @@ function StrategyLabTable({
                     const sc = row.original.scenario;
                     return (
                         <Input
+                            aria-label={labEditorCellLabel(
+                                LabEditorField.Accounts,
+                                row.original.scenario.label,
+                            )}
                             className="h-7 w-14 text-xs"
                             max={ACCOUNTS_BOUNDS.max}
                             min={ACCOUNTS_BOUNDS.min}
@@ -692,7 +759,13 @@ function StrategyLabTable({
                         }}
                         value={row.original.scenario.correlation}
                     >
-                        <SelectTrigger className="h-7 w-36 text-xs">
+                        <SelectTrigger
+                            aria-label={labEditorCellLabel(
+                                LabEditorField.Mode,
+                                row.original.scenario.label,
+                            )}
+                            className="h-7 w-36 text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -712,6 +785,10 @@ function StrategyLabTable({
                     const sc = row.original.scenario;
                     return (
                         <Input
+                            aria-label={labEditorCellLabel(
+                                LabEditorField.Groups,
+                                row.original.scenario.label,
+                            )}
                             className="h-7 w-14 text-xs"
                             disabled={
                                 sc.correlation !== CorrelationMode.Grouped
@@ -894,6 +971,7 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Button
+                        aria-label={`Remove ${row.original.scenario.label}`}
                         disabled={row.original.onlyOne}
                         onClick={() => onRemove(row.original.scenario.id)}
                         size="sm"

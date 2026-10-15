@@ -16,7 +16,12 @@ import {
     type SpendPayoutCurveRow,
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    type ChartConfig,
+    ChartContainer,
+    ChartLegend,
+    ChartLegendContent,
+} from '~/components/ui/Chart';
 import { Input } from '~/components/ui/Input';
 import {
     formatCompactCurrency,
@@ -32,6 +37,8 @@ import {
     bankrollSpendPayoutCurveRequest,
     parseBankrollDollarCandidateList,
 } from './bankrollModel';
+import { BankrollRunStatus } from './BankrollRunStatus';
+import { BankrollSection } from './BankrollSection';
 import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
 
@@ -79,28 +86,13 @@ export function SpendPayoutCurveCard() {
         worker.state.result.kind === ToolsResponseKind.SpendPayoutCurve
             ? worker.state.result.rows
             : null;
-    const failureReason =
-        requestBudgets !== null &&
-        worker.state.phase === ToolsWorkerPhase.Failed
-            ? worker.state.reason
-            : null;
 
     return (
-        <section
-            aria-labelledby="bankroll-spend-payout-curve-heading"
-            className="flex flex-col gap-4"
+        <BankrollSection
+            description="What each budget buys: whole attempts at the plan's attempt cost, priced on the same variant and seed as the cards above, every trial one attempt."
+            headingId="bankroll-spend-payout-curve-heading"
+            title="Spend vs payout"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-white"
-                id="bankroll-spend-payout-curve-heading"
-            >
-                Spend vs payout
-            </h2>
-            <p className="text-xs text-muted-foreground">
-                What each budget buys: whole attempts at the plan&apos;s attempt
-                cost, priced on the same variant and seed as the cards above,
-                every trial one attempt.
-            </p>
             <div className="flex flex-col gap-1">
                 <label
                     className="text-xs font-medium text-muted-foreground"
@@ -122,18 +114,17 @@ export function SpendPayoutCurveCard() {
                 ) : null}
             </div>
             {rows === null ? (
-                failureReason === null ? null : (
-                    <p className="text-xs text-rose-400" role="alert">
-                        {failureReason}
-                    </p>
-                )
+                <BankrollRunStatus
+                    isRequested={requestBudgets !== null}
+                    state={worker.state}
+                />
             ) : (
                 <>
                     <CurveChart rows={rows} />
                     <CurveTable rows={rows} />
                 </>
             )}
-        </section>
+        </BankrollSection>
     );
 }
 
@@ -190,6 +181,10 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     }
                     tickLine={false}
                     width={60}
+                />
+                <ChartLegend
+                    content={<ChartLegendContent className="pt-0 pb-2" />}
+                    position="top"
                 />
                 <ReferenceLine
                     stroke="hsl(0 0% 70%)"

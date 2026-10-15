@@ -8,6 +8,7 @@ import { dollars, fraction } from '~/lib/prop-calculator';
 import { type SimOutputs } from '~/lib/prop-calculator/simulator';
 
 const harness = vi.hoisted(() => ({
+    availableCents: null as null | number,
     maxAttempts: 1,
     result: null as null | SimOutputs,
 }));
@@ -23,7 +24,16 @@ vi.mock('~/lib/auth/client', () => ({
 vi.mock('~/trpc/react', () => ({
     api: {
         propAccounts: {
-            bankroll: { summary: { useQuery: () => ({ data: undefined }) } },
+            bankroll: {
+                summary: {
+                    useQuery: () => ({
+                        data:
+                            harness.availableCents === null
+                                ? undefined
+                                : { availableCents: harness.availableCents },
+                    }),
+                },
+            },
             rulebook: { get: { useQuery: () => ({ data: undefined }) } },
         },
     },
@@ -96,6 +106,7 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
 
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.availableCents = null;
         harness.maxAttempts = 1;
         harness.result = simOutputs(TWO_POINT_NETS);
         container = document.createElement('div');
@@ -171,7 +182,7 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
     it('keeps the existing texts without a threshold', () => {
         render(stateOf({ budget: dollars(500) }));
         expect(alerts()).toEqual([]);
-        expect(container.textContent).toContain('threshold not set');
+        expect(container.textContent).toContain('Threshold not set');
     });
 
     it('keeps the existing no-edge text with no positive edge', () => {
@@ -184,7 +195,7 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
         );
         expect(alerts()).toEqual([]);
         expect(container.textContent).toContain(
-            'no positive edge: no budget makes this safe',
+            'No positive edge: no budget makes this safe.',
         );
     });
 
@@ -192,12 +203,36 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
         harness.maxAttempts = 3;
         render(stateOf({}));
         expect(container.textContent).toContain(
-            "the calculator's max attempts is 3; the figures below treat each trial as one attempt, set it to 1 for per-attempt pricing",
+            "The calculator's max attempts is 3, but the figures below treat each trial as one attempt. Set it to 1 for per-attempt pricing.",
         );
     });
 
     it('shows no such note when max attempts is 1', () => {
         render(stateOf({}));
         expect(container.textContent).not.toContain('max attempts is');
+    });
+
+    function availableBankrollButton(): HTMLButtonElement | undefined {
+        return [...container.querySelectorAll('button')].find((button) =>
+            button.textContent.startsWith('Use your available bankroll'),
+        );
+    }
+
+    it('offers the available bankroll as the budget when it is positive', () => {
+        harness.availableCents = 250_000;
+        render(stateOf({}));
+        expect(availableBankrollButton()?.textContent).toBe(
+            'Use your available bankroll ($2,500)',
+        );
+    });
+
+    it('does not offer a negative or zero available bankroll as the budget', () => {
+        harness.availableCents = -132_300;
+        render(stateOf({}));
+        expect(availableBankrollButton()).toBeUndefined();
+
+        harness.availableCents = 0;
+        render(stateOf({}));
+        expect(availableBankrollButton()).toBeUndefined();
     });
 });

@@ -5,7 +5,6 @@ import { useCallback, useState } from 'react';
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { Input } from '~/components/ui/Input';
 import { formatGateCurrency, NOT_APPLICABLE } from '~/lib/format';
 import {
     type Dollars,
@@ -25,6 +24,9 @@ import {
     bankrollTwoStrategiesSummary,
     bankrollVariantWithRisk,
 } from './bankrollModel';
+import { BankrollNumberField } from './BankrollNumberField';
+import { BankrollRunStatus } from './BankrollRunStatus';
+import { BankrollSection } from './BankrollSection';
 import {
     type BankrollViewState,
     parseBankrollDollarsField,
@@ -110,10 +112,6 @@ export function TwoStrategiesCard({
             : null;
     const summaries =
         results === null ? null : bankrollTwoStrategiesSummary(results);
-    const failureReason =
-        canRun && worker.state.phase === ToolsWorkerPhase.Failed
-            ? worker.state.reason
-            : null;
 
     const cycleA = bankrollCycleInput(
         state.compareMultipleA,
@@ -133,35 +131,29 @@ export function TwoStrategiesCard({
             : bankrollCycleFigures(start, horizonDays, [cycleA, cycleB]);
 
     return (
-        <section
-            aria-labelledby="bankroll-two-strategies-heading"
-            className="flex flex-col gap-4"
+        <BankrollSection
+            description="Compares strategy A (your current risk) against strategy B (an alternate risk), on the same seed and the same bankroll policy."
+            headingId="bankroll-two-strategies-heading"
+            title="Two strategies"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-white"
-                id="bankroll-two-strategies-heading"
-            >
-                Two strategies
-            </h2>
-            <p className="text-xs text-muted-foreground">
-                Compares strategy A (your current risk) against strategy B (an
-                alternate risk), on the same seed and the same bankroll policy.
-            </p>
             <div className="grid gap-4 sm:grid-cols-2">
-                <NumberField
+                <BankrollNumberField
                     id="bankroll-two-strategies-start"
+                    initial={null}
                     label="Starting bankroll ($)"
                     onChange={(raw) => setStart(parseBankrollDollarsField(raw))}
                 />
-                <NumberField
+                <BankrollNumberField
                     id="bankroll-two-strategies-horizon"
+                    initial={null}
                     label="Horizon (trading days)"
                     onChange={(raw) =>
                         setHorizonDays(parseBankrollPositiveIntField(raw))
                     }
                 />
-                <NumberField
+                <BankrollNumberField
                     id="bankroll-two-strategies-reinvest"
+                    initial={null}
                     label="Reinvest fraction (0 to 1)"
                     onChange={(raw) =>
                         setReinvestFraction(
@@ -169,15 +161,16 @@ export function TwoStrategiesCard({
                         )
                     }
                 />
-                <NumberField
+                <BankrollNumberField
                     describedBy={
                         riskB === null ? undefined : RISK_B_CONFLICT_MESSAGE_ID
                     }
                     id="bankroll-two-strategies-risk-b"
+                    initial={null}
                     label="Strategy B risk per trade ($)"
                     onChange={(raw) => setRiskB(parseBankrollDollarsField(raw))}
                 />
-                <NumberField
+                <BankrollNumberField
                     id="bankroll-two-strategies-cycle-multiple-a"
                     initial={state.compareMultipleA}
                     label="Strategy A cycle multiple (optional)"
@@ -187,7 +180,7 @@ export function TwoStrategiesCard({
                         })
                     }
                 />
-                <NumberField
+                <BankrollNumberField
                     id="bankroll-two-strategies-cycle-days-a"
                     initial={state.compareCycleDaysA}
                     label="Strategy A cycle length (trading days, optional)"
@@ -198,7 +191,7 @@ export function TwoStrategiesCard({
                         })
                     }
                 />
-                <NumberField
+                <BankrollNumberField
                     id="bankroll-two-strategies-cycle-multiple-b"
                     initial={state.compareMultipleB}
                     label="Strategy B cycle multiple (optional)"
@@ -208,7 +201,7 @@ export function TwoStrategiesCard({
                         })
                     }
                 />
-                <NumberField
+                <BankrollNumberField
                     id="bankroll-two-strategies-cycle-days-b"
                     initial={state.compareCycleDaysB}
                     label="Strategy B cycle length (trading days, optional)"
@@ -229,11 +222,11 @@ export function TwoStrategiesCard({
                 </p>
             )}
             {summaries === null ? (
-                failureReason === null ? null : (
-                    <p className="text-xs text-rose-400" role="alert">
-                        {failureReason}
-                    </p>
-                )
+                <BankrollRunStatus
+                    idleText="Enter a starting bankroll, a horizon and a strategy B risk to compare."
+                    isRequested={canRun}
+                    state={worker.state}
+                />
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                     <StrategySummaryColumn label="A" summary={summaries[0]} />
@@ -257,47 +250,7 @@ export function TwoStrategiesCard({
                     ))}
                 </ul>
             )}
-        </section>
-    );
-}
-
-function NumberField({
-    describedBy,
-    id,
-    initial = null,
-    label,
-    onChange,
-}: {
-    describedBy?: string;
-    id: string;
-    initial?: null | number;
-    label: string;
-    onChange: (raw: string) => void;
-}) {
-    const [text, setText] = useState(() =>
-        initial === null ? '' : String(initial),
-    );
-    return (
-        <div className="flex flex-col gap-1">
-            <label
-                className="text-xs font-medium text-muted-foreground"
-                htmlFor={id}
-            >
-                {label}
-            </label>
-            <Input
-                aria-describedby={describedBy}
-                id={id}
-                inputMode="decimal"
-                onChange={(event) => {
-                    setText(event.target.value);
-                    onChange(event.target.value);
-                }}
-                placeholder="Not set"
-                type="number"
-                value={text}
-            />
-        </div>
+        </BankrollSection>
     );
 }
 

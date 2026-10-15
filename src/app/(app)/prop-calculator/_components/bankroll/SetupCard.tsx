@@ -41,6 +41,8 @@ import {
     bankrollSetupSummary,
     NO_POSITIVE_EDGE_TEXT,
 } from './bankrollModel';
+import { BankrollRunStatus } from './BankrollRunStatus';
+import { BankrollSection } from './BankrollSection';
 import {
     type BankrollUrlState,
     parseBankrollDollarsField,
@@ -52,6 +54,8 @@ import {
     useRealizedBankrollRisk,
 } from './useRealizedBankrollRisk';
 import { useToolsRequest } from './useToolsRequest';
+
+const THRESHOLD_NOT_SET_TEXT = 'Threshold not set';
 
 interface RealizedRiskSectionProperties {
     budget: Dollars | null;
@@ -121,24 +125,14 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
             ? null
             : bankrollBudgetPricing(out, budget, batch);
 
-    const failureReason =
-        budget !== null && worker.state.phase === ToolsWorkerPhase.Failed
-            ? worker.state.reason
-            : null;
-
     const availableCents = bankrollSummaryQuery.data?.availableCents ?? null;
 
     return (
-        <section
-            aria-labelledby="bankroll-setup-heading"
-            className="flex flex-col gap-4"
+        <BankrollSection
+            description="Enter what you can spend on attempts. The cards price how likely that batch ends net negative and the budget your loss-risk threshold needs."
+            headingId="bankroll-setup-heading"
+            title="Setup"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-white"
-                id="bankroll-setup-heading"
-            >
-                Setup
-            </h2>
             <div className="flex flex-col gap-1">
                 <label
                     className="text-xs font-medium text-muted-foreground"
@@ -160,7 +154,7 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                     type="number"
                     value={state.budget === null ? '' : String(state.budget)}
                 />
-                {availableCents === null ? null : (
+                {availableCents === null || availableCents <= 0 ? null : (
                     <button
                         className="w-fit text-xs text-primary underline"
                         onClick={() =>
@@ -205,7 +199,7 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
             </div>
             {calculatorState.maxAttempts > 1 ? (
                 <p className="text-xs text-amber-400">
-                    {`the calculator's max attempts is ${String(calculatorState.maxAttempts)}; the figures below treat each trial as one attempt, set it to 1 for per-attempt pricing`}
+                    {`The calculator's max attempts is ${String(calculatorState.maxAttempts)}, but the figures below treat each trial as one attempt. Set it to 1 for per-attempt pricing.`}
                 </p>
             ) : null}
             {summary === null ? null : summary.status ===
@@ -266,7 +260,7 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                             summary.minimumBudget.value === null
                                 ? summary.minimumBudget.reason ===
                                   EconomicsReason.ThresholdNotSet
-                                    ? 'threshold not set'
+                                    ? THRESHOLD_NOT_SET_TEXT
                                     : NOT_APPLICABLE
                                 : `${formatGateCurrency(summary.minimumBudget.value.budget)} (${summary.minimumBudget.value.attempts} attempts)`
                         }
@@ -278,11 +272,10 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                     {bankrollBudgetShortText(budgetCheck)}
                 </p>
             ) : null}
-            {failureReason === null ? null : (
-                <p className="text-xs text-rose-400" role="alert">
-                    {failureReason}
-                </p>
-            )}
+            <BankrollRunStatus
+                isRequested={budget !== null}
+                state={worker.state}
+            />
             {out === null || userId === undefined ? null : (
                 <RealizedRiskSection
                     budget={budget}
@@ -291,7 +284,7 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                     userId={userId}
                 />
             )}
-        </section>
+        </BankrollSection>
     );
 }
 
@@ -303,7 +296,7 @@ function realizedMinimumBudgetText(
         return `${formatGateCurrency(minimumBudget.value)} (${String(Math.round(minimumBudget.value / costPerAttempt))} attempts)`;
     }
     return minimumBudget.reason === EconomicsReason.ThresholdNotSet
-        ? 'threshold not set'
+        ? THRESHOLD_NOT_SET_TEXT
         : NOT_APPLICABLE;
 }
 

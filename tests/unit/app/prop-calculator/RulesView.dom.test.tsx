@@ -141,12 +141,24 @@ describe('RulesView', () => {
         }
     });
 
-    it('renders no share toolbar, button or link', () => {
+    it('renders no share toolbar or button, and links only to its own firm sections', () => {
         expect(toolCatalogEntry(ToolId.Rules).sharesState).toBe(false);
         expect(
             container.querySelector('.calculator-toolbar-under-test'),
         ).toBeNull();
         expect(container.querySelectorAll('button')).toHaveLength(0);
-        expect(container.querySelectorAll('a')).toHaveLength(0);
+        const links = [...container.querySelectorAll('a')];
+        expect(links.map((link) => link.getAttribute('href'))).toEqual(
+            ALL_FIRMS.map((firm) => `#rules-${firm.id}`),
+        );
+        expect(textsOf(links)).toEqual(
+            ALL_FIRMS.map((firm) => firm.displayName),
+        );
+        for (const link of links) {
+            const target = container.querySelector(
+                link.getAttribute('href') ?? '',
+            );
+            expect(target?.tagName).toBe('SECTION');
+        }
     });
 });

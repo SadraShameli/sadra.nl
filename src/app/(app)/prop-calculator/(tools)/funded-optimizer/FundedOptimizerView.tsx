@@ -91,7 +91,7 @@ export function FundedOptimizerView() {
                     </h2>
                     <CalculatorObjectiveChip />
                     <p className="text-xs text-muted-foreground">
-                        {`cushion: ${POLICY_BASIS_LABELS[policyBasis.cushion]}, payout request: ${POLICY_BASIS_LABELS[policyBasis.payoutRequest]}, lifetime payout cap: ${LIFETIME_PAYOUT_CAP_BASIS_LABELS[request.policy.lifetimePayoutCapBasis]}`}
+                        {`Cushion: ${POLICY_BASIS_LABELS[policyBasis.cushion]} · Payout request: ${POLICY_BASIS_LABELS[policyBasis.payoutRequest]} · Lifetime payout cap: ${LIFETIME_PAYOUT_CAP_BASIS_LABELS[request.policy.lifetimePayoutCapBasis]}`}
                     </p>
                     <FundedOptimizerResult
                         hazard={state.liveTransferHazard}
@@ -185,24 +185,21 @@ function FundedOptimizerResult({
             {notes.length > 0 && (
                 <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                     {notes.map((note) => (
-                        <li key={note}>{note}</li>
+                        <li className="first-letter:uppercase" key={note}>
+                            {note}
+                        </li>
                     ))}
                 </ul>
             )}
-            <p className="text-xs whitespace-pre-line text-muted-foreground">
-                {fundedSortDescription(sort, sortDescriptionInputs)}
-            </p>
-            <p className="text-xs whitespace-pre-line text-muted-foreground">
-                {fundedSurvivorsNote(request.base.trials)}
-            </p>
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead>
                         <tr>
                             {FUNDED_ROW_HEADERS.map((label) => (
                                 <th
-                                    className="px-2 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground"
+                                    className="px-2 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground first-letter:uppercase"
                                     key={label}
+                                    scope="col"
                                 >
                                     {label}
                                 </th>
@@ -234,6 +231,17 @@ function FundedOptimizerResult({
                     </tbody>
                 </table>
             </div>
+            <details className="group rounded-md border border-white/10 px-3 py-2 text-xs text-muted-foreground">
+                <summary className="cursor-pointer font-medium text-white select-none">
+                    How the ranking and the survivors column work
+                </summary>
+                <p className="mt-2 whitespace-pre-line">
+                    {fundedSortDescription(sort, sortDescriptionInputs)}
+                </p>
+                <p className="mt-2 whitespace-pre-line">
+                    {fundedSurvivorsNote(request.base.trials)}
+                </p>
+            </details>
         </div>
     );
 }

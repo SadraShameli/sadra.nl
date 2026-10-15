@@ -53,7 +53,7 @@ import { mean } from '~/lib/prop-calculator/stats';
 export const BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL =
     'deterministic illustration, not a forecast';
 export const NO_POSITIVE_EDGE_TEXT =
-    'no positive edge: no budget makes this safe';
+    'No positive edge: no budget makes this safe.';
 
 export enum BankrollSetupStatus {
     NoPositiveEdge = 'no-positive-edge',

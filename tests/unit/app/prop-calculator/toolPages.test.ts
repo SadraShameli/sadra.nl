@@ -76,7 +76,7 @@ const RUNG_SIZING_LABEL_MODULE = path.join(
     'rungSizingLabels.ts',
 );
 const LADDER_LAB_PANEL_PATH = path.join(COMPONENTS_ROOT, 'LadderLabPanel.tsx');
-const LADDER_LAB_POPOVER_OPENER = '<InfoPopover title="Ladder Lab">';
+const LADDER_LAB_POPOVER_OPENER = '<InfoPopover title="Ladder lab">';
 const DAY_STOP_LABELS = [
     'Stop after K losses',
     'Stop after $ target',
