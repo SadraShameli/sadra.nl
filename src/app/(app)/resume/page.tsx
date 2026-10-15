@@ -1,3 +1,5 @@
+import { type Instant } from 'next';
+
 import { PageTransition } from '~/components/PageTransition';
 import { requireRootUser } from '~/lib/auth/guards';
 import {
@@ -7,6 +9,8 @@ import {
 } from '~/lib/site/resume';
 
 import ResumeCard from './_components/ResumeCard';
+
+export const instant: Instant = false;
 
 const resumes = [
     {
