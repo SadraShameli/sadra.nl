@@ -18,7 +18,6 @@ import {
     fundedPayoutDistribution,
     isFullyObservedFundedCohort,
     paidCountWithinHorizon,
-    PAYOUT_COUNT_CAP,
 } from './FundedPayoutDistribution';
 import {
     finalState,
@@ -172,7 +171,7 @@ function payoutsPerPaidFundedOf(
             const funded = fundedSince(entry);
             if (funded === null) return [];
             const count = paidCountWithinHorizon(entry, funded.on, horizonDays);
-            return count > 0 ? Math.min(count, PAYOUT_COUNT_CAP) : [];
+            return count > 0 ? count : [];
         }),
     );
 }

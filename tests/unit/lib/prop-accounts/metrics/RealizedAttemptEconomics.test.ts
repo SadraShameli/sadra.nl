@@ -289,6 +289,41 @@ describe('realizedAttemptEconomics', () => {
         expect(plan?.averagePayout?.value).toBe(100_000);
     });
 
+    it('averages the full payout count per paid funded account, never the histogram tail cap (PT-50 escalation on PT-56)', () => {
+        const first = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const second = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const paidRows = (
+            owner: typeof first,
+            count: number,
+        ): ReturnType<typeof payout>[] =>
+            Array.from({ length: count }, (_, index) =>
+                payout(owner, 10_000, {
+                    netCents: 10_000,
+                    paidOn: `2026-01-${String(index + 6).padStart(2, '0')}`,
+                    status: PayoutStatus.Paid,
+                }),
+            );
+        const result = realizedAttemptEconomics(
+            ledger({
+                accounts: [first, second],
+                events: [
+                    purchased(first),
+                    purchased(second),
+                    event(first, AccountEventKind.EvalPassed, '2026-01-05'),
+                    event(second, AccountEventKind.EvalPassed, '2026-01-05'),
+                ],
+                payouts: [...paidRows(first, 20), ...paidRows(second, 14)],
+            }),
+            '2026-09-01',
+            60,
+        );
+        const plan = result.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(plan?.payoutsPerPaidFunded).toBe(17);
+        expect(plan?.payoutsPerPaidFundedEstimate?.n).toBe(2);
+    });
+
     it('states that only the pass-rate interval gates the breakeven margin (Q50)', () => {
         expect(MARGIN_ABOVE_BREAKEVEN_HELP_TEXT).toMatch(
             /pass-rate interval alone/,
