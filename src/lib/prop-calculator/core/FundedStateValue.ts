@@ -56,9 +56,9 @@ import {
     DEFAULT_TAIL_CUSHION_STEP_MULTIPLE,
 } from './FundedGridDefaults';
 import {
+    fundedCycleTrackerFromValidSeed,
     newFundedCycleTracker,
     PayoutDayGateBasis,
-    restoreFundedCycleTracker,
     sessionDaysForCalendarDays,
 } from './FundedPayoutCycle';
 import {
@@ -1457,16 +1457,19 @@ function dayCloseOutcome(
     ) {
         state.consecutiveIdleDays = wasIdleToday ? 1 : 0;
     }
-    const tracker = restoreFundedCycleTracker(state, {
+    const tracker = fundedCycleTrackerFromValidSeed(state, {
         calendarDayGateProgress: dayStart.qualifyingDays,
-        cumulativePayout: 0,
-        cycleBestDayProfit: cycleBestDayAtEndDollars,
+        cumulativePayout: dollars(0),
+        cycleBestDayProfit: dollars(cycleBestDayAtEndDollars),
         fundedResetsUsed: 0,
-        lastPayoutBalance:
+        lastPayoutBalance: dollars(
             dayStart.regime === 0
                 ? context.startingBalance
                 : context.lockedPayoutFloor +
-                  context.cycleBaselineGrid.dollarsAt(dayStart.cycleBaseline),
+                      context.cycleBaselineGrid.dollarsAt(
+                          dayStart.cycleBaseline,
+                      ),
+        ),
         payoutsIssued: dayStart.regime,
         qualifyingDaysAtLastPayout: 0,
     });

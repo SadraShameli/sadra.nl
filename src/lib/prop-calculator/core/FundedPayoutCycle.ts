@@ -86,6 +86,8 @@ export interface OneTimeEarlyWithdrawal {
 export type PayoutEvaluation =
     EligiblePayout | { gate: PayoutGate; kind: PayoutEvaluationKind.Blocked };
 
+export type ValidFundedCycleSeed = z.output<typeof fundedCycleSeedSchema>;
+
 export interface WithdrawableNowOptions {
     minRetainedCushion: number;
     payoutRequestSize?: number;
@@ -469,6 +471,28 @@ export function describePayoutDayGate(plan: Plan): string {
     }
 }
 
+export function fundedCycleTrackerFromValidSeed(
+    state: AccountState,
+    valid: ValidFundedCycleSeed,
+): FundedCycleTracker {
+    if (valid.qualifyingDaysAtLastPayout > state.qualifyingDays) {
+        throw new RangeError(
+            `A funded cycle seed counts ${valid.qualifyingDaysAtLastPayout} qualifying days at the last payout, more than the ${state.qualifyingDays} the account has`,
+        );
+    }
+    const tracker =
+        valid.fundedResetsUsed === 0
+            ? newFundedCycleTracker(state)
+            : newFundedCycleTrackerAfterReset(state, valid.fundedResetsUsed);
+    tracker.payoutsIssued = valid.payoutsIssued;
+    tracker.cumulativePayout = valid.cumulativePayout;
+    tracker.cycleBestDayProfit = valid.cycleBestDayProfit;
+    tracker.lastPayoutBalance = valid.lastPayoutBalance;
+    tracker.qualifyingDaysAtLastPayout = valid.qualifyingDaysAtLastPayout;
+    tracker.restoreCalendarDayGateProgress(valid.calendarDayGateProgress);
+    return tracker;
+}
+
 export function ladderStepLookup(
     ladder: null | PayoutLadder,
     index: number,
@@ -615,23 +639,7 @@ export function restoreFundedCycleTracker(
                 .join('; ')}`,
         );
     }
-    const valid = parsed.data;
-    if (valid.qualifyingDaysAtLastPayout > state.qualifyingDays) {
-        throw new RangeError(
-            `A funded cycle seed counts ${valid.qualifyingDaysAtLastPayout} qualifying days at the last payout, more than the ${state.qualifyingDays} the account has`,
-        );
-    }
-    const tracker =
-        valid.fundedResetsUsed === 0
-            ? newFundedCycleTracker(state)
-            : newFundedCycleTrackerAfterReset(state, valid.fundedResetsUsed);
-    tracker.payoutsIssued = valid.payoutsIssued;
-    tracker.cumulativePayout = valid.cumulativePayout;
-    tracker.cycleBestDayProfit = valid.cycleBestDayProfit;
-    tracker.lastPayoutBalance = valid.lastPayoutBalance;
-    tracker.qualifyingDaysAtLastPayout = valid.qualifyingDaysAtLastPayout;
-    tracker.restoreCalendarDayGateProgress(valid.calendarDayGateProgress);
-    return tracker;
+    return fundedCycleTrackerFromValidSeed(state, parsed.data);
 }
 
 export function sessionDaysForCalendarDays(calendarDays: number): number {
