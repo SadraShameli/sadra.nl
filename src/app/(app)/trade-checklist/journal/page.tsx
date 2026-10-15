@@ -4,8 +4,8 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { z } from 'zod';
 
-import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { JournalView } from '~/app/(app)/trade-checklist/_components/JournalView';
+import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
@@ -67,7 +67,5 @@ async function TradeJournalContent() {
 
     const history = z.array(tradeAssessmentRowSchema).parse(rawRows);
 
-    return (
-        <JournalView history={history} plans={plans} />
-    );
+    return <JournalView history={history} plans={plans} />;
 }

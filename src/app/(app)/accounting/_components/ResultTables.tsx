@@ -22,7 +22,6 @@ import {
     DataTableFilterFunction,
 } from '~/components/ui/DataTable';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { DateRangePicker } from '~/components/ui/DatePicker';
 import {
     Dialog,
     DialogContent,
@@ -32,6 +31,7 @@ import {
     DialogTitle,
 } from '~/components/ui/Dialog';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { FilterDateRange } from '~/components/ui/FilterDateRange';
 import {
     FilterSelect,
     type FilterSelectOption,
@@ -320,9 +320,9 @@ export function BookingsTable({
                                 placeholder="All currencies"
                             />
                         )}
-                        <DateRangePicker
+                        <FilterDateRange
                             align="end"
-                            className="h-8 text-xs"
+                            label="Booking date"
                             onChange={setDateRange}
                             placeholder="Any date"
                             value={dateRange}
@@ -746,9 +746,9 @@ export function UnknownsTable({
                             onChange={setDirection}
                             value={direction}
                         />
-                        <DateRangePicker
+                        <FilterDateRange
                             align="end"
-                            className="h-8 text-xs"
+                            label="First seen date"
                             onChange={setDateRange}
                             placeholder="First seen, any date"
                             value={dateRange}

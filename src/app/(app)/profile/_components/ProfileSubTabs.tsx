@@ -1,7 +1,8 @@
 'use client';
 
-import { type ReactNode } from 'react';
+import { type ReactNode, startTransition, useState } from 'react';
 
+import { PageTransition } from '~/components/PageTransition';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { cn } from '~/lib/utilities';
 
@@ -20,10 +21,18 @@ export function ProfileSubTabs<TValue extends string>({
     defaultValue: TValue;
     tabs: readonly ProfileSubTab<TValue>[];
 }) {
+    const [value, setValue] = useState<TValue>(defaultValue);
+    const selectTab = (next: string) => {
+        const tab = tabs.find((candidate) => candidate.value === next);
+        if (tab === undefined) return;
+        startTransition(() => setValue(tab.value));
+    };
+
     return (
         <Tabs
             className={cn('flex min-w-0 flex-col gap-4', className)}
-            defaultValue={defaultValue}
+            onValueChange={selectTab}
+            value={value}
         >
             <div className="-mx-1 max-w-full overflow-x-auto px-1 pb-1">
                 <TabsList className="inline-flex w-max justify-start">
@@ -40,7 +49,7 @@ export function ProfileSubTabs<TValue extends string>({
                     key={tab.value}
                     value={tab.value}
                 >
-                    {tab.content}
+                    <PageTransition>{tab.content}</PageTransition>
                 </TabsContent>
             ))}
         </Tabs>

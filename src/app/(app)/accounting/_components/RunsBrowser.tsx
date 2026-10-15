@@ -10,13 +10,7 @@ import { Badge, type BadgeProperties } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { FilterSelect } from '~/components/ui/FilterSelect';
 import {
     CredentialRegistry,
     CredentialRole,
@@ -223,53 +217,44 @@ export function RunsBrowser() {
                             hasExternalFilters={hasFilters}
                             headerActions={
                                 <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                    <Select
+                                    <FilterSelect
+                                        label="Status"
                                         onValueChange={(v) => {
                                             setStatusFilter(
-                                                v as RunStatus | typeof ALL,
+                                                RUN_STATUSES.find(
+                                                    (s) => s === v,
+                                                ) ?? ALL,
                                             );
                                             setOffset(0);
                                         }}
-                                        value={statusFilter}
-                                    >
-                                        <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={ALL}>
-                                                All statuses
-                                            </SelectItem>
-                                            {RUN_STATUSES.map((s) => (
-                                                <SelectItem key={s} value={s}>
-                                                    {s}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Select
+                                        options={RUN_STATUSES.map((s) => ({
+                                            label: s,
+                                            value: s,
+                                        }))}
+                                        placeholder="All statuses"
+                                        value={
+                                            statusFilter === ALL
+                                                ? undefined
+                                                : statusFilter
+                                        }
+                                    />
+                                    <FilterSelect
+                                        label="Target"
                                         onValueChange={(v) => {
-                                            setTargetFilter(v);
+                                            setTargetFilter(v ?? ALL);
                                             setOffset(0);
                                         }}
-                                        value={targetFilter}
-                                    >
-                                        <SelectTrigger className="h-8 w-48 shrink-0 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={ALL}>
-                                                All targets
-                                            </SelectItem>
-                                            {targets.map((c) => (
-                                                <SelectItem
-                                                    key={c.id}
-                                                    value={c.id}
-                                                >
-                                                    {c.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        options={targets.map((c) => ({
+                                            label: c.label,
+                                            value: c.id,
+                                        }))}
+                                        placeholder="All targets"
+                                        value={
+                                            targetFilter === ALL
+                                                ? undefined
+                                                : targetFilter
+                                        }
+                                    />
                                 </div>
                             }
                             initialSorting={DEFAULT_SORTING}

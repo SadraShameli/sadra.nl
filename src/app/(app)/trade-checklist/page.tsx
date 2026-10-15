@@ -36,10 +36,10 @@ export default function TradeChecklistPage() {
                             Trade Checklist
                         </h1>
                         <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                            Walk through your plan&apos;s entry criteria one section
-                            at a time. The grader returns an A+→F rating, take/skip
-                            recommendation, and journals the outcome for hindsight
-                            analysis.
+                            Walk through your plan&apos;s entry criteria one
+                            section at a time. The grader returns an A+→F
+                            rating, take/skip recommendation, and journals the
+                            outcome for hindsight analysis.
                         </p>
                     </div>
                 </header>
@@ -78,10 +78,6 @@ async function TradeChecklistContent() {
         redirect(withQuery(routes.profile, { tab: profileTabs.tradingPlan }));
 
     return (
-        <ChecklistShell
-            activePlan={active}
-            history={history}
-            plans={plans}
-        />
+        <ChecklistShell activePlan={active} history={history} plans={plans} />
     );
 }

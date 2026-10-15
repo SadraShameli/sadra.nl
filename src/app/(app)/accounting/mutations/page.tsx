@@ -1,7 +1,10 @@
 import { type Metadata } from 'next';
+import { Suspense } from 'react';
 
+import { AccountingDataSkeleton } from '~/app/(app)/accounting/_components/AccountingDataSkeleton';
 import { MutationsBrowser } from '~/app/(app)/accounting/_components/MutationsBrowser';
 import { PageTransition } from '~/components/PageTransition';
+import { requireRootUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
@@ -11,25 +14,33 @@ export const metadata: Metadata = {
 };
 
 export default function MutationsPage() {
-    void api.accounting.credentials.list.prefetch();
-
     return (
         <PageTransition>
-            <HydrateClient>
-                <main
-                    className={cn(
-                        'app-accounting__mutations',
-                        'container pt-spacing pb-24',
-                    )}
-                >
-                    <header className="mb-8">
-                        <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                            Recent mutations
-                        </h1>
-                    </header>
-                    <MutationsBrowser />
-                </main>
-            </HydrateClient>
+            <main
+                className={cn(
+                    'app-accounting__mutations',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <header className="mb-8">
+                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                        Recent mutations
+                    </h1>
+                </header>
+                <Suspense fallback={<AccountingDataSkeleton />}>
+                    <MutationsContent />
+                </Suspense>
+            </main>
         </PageTransition>
+    );
+}
+
+async function MutationsContent() {
+    await requireRootUser();
+    void api.accounting.credentials.list.prefetch();
+    return (
+        <HydrateClient>
+            <MutationsBrowser />
+        </HydrateClient>
     );
 }

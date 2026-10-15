@@ -1,11 +1,9 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { endOfDay, startOfDay } from 'date-fns';
 import { Calendar, ExternalLink, Pencil, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { type DateRange } from 'react-day-picker';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -31,8 +29,8 @@ import {
     type DataTableInstance,
     hasActiveTableFilter,
 } from '~/components/ui/DataTable';
+import { DataTableDateRange } from '~/components/ui/DataTableDateRange';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { DateRangePicker } from '~/components/ui/DatePicker';
 import { Dialog } from '~/components/ui/Dialog';
 import { FilterSelect } from '~/components/ui/FilterSelect';
 import {
@@ -136,7 +134,6 @@ export function WorkoutsManager() {
     });
 
     const [editing, setEditing] = useState<null | WorkoutRow>(null);
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
     const rows = useMemo(() => workouts.data ?? [], [workouts.data]);
 
@@ -258,35 +255,16 @@ export function WorkoutsManager() {
                                 placeholder="All statuses"
                             />
                             <DurationSelect table={table} />
-                            <DateRangePicker
+                            <DataTableDateRange
                                 align="end"
-                                className="h-8 text-xs"
+                                column={table.getColumn(WorkoutColumn.Date)}
+                                label="Workout date"
                                 maxDate={new Date()}
-                                onChange={(range) => {
-                                    setDateRange(range);
-                                    table
-                                        .getColumn(WorkoutColumn.Date)
-                                        ?.setFilterValue(
-                                            range?.from
-                                                ? [
-                                                      startOfDay(
-                                                          range.from,
-                                                      ).getTime(),
-                                                      endOfDay(
-                                                          range.to ??
-                                                              range.from,
-                                                      ).getTime(),
-                                                  ]
-                                                : undefined,
-                                        );
-                                }}
                                 placeholder="Any time"
-                                value={dateRange}
                             />
                         </>
                     )}
                     isLoading={workouts.isLoading}
-                    onResetFilters={() => setDateRange(undefined)}
                     pageSize={20}
                     rowId={(r) => r.id}
                     showFilter
@@ -311,6 +289,16 @@ export function WorkoutsManager() {
             )}
         </>
     );
+}
+
+function durationSeconds(w: WorkoutRow): null | number {
+    return w.endedAt
+        ? Math.round(
+              (new Date(w.endedAt).getTime() -
+                  new Date(w.startedAt).getTime()) /
+                  1000,
+          )
+        : null;
 }
 
 function DurationSelect({ table }: { table: DataTableInstance<WorkoutRow> }) {
@@ -340,16 +328,6 @@ function DurationSelect({ table }: { table: DataTableInstance<WorkoutRow> }) {
             value={selected?.value}
         />
     );
-}
-
-function durationSeconds(w: WorkoutRow): null | number {
-    return w.endedAt
-        ? Math.round(
-              (new Date(w.endedAt).getTime() -
-                  new Date(w.startedAt).getTime()) /
-                  1000,
-          )
-        : null;
 }
 
 function WorkoutEditDialog({

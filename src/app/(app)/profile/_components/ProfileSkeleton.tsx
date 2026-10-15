@@ -8,7 +8,7 @@ export function ProfileSkeleton() {
     return (
         <>
             <Card aria-busy="true" className="p-0 md:sticky md:top-24">
-                <div className="flex flex-col gap-2 px-4 py-4 md:py-6">
+                <div className="flex flex-col gap-2 p-4 md:py-6">
                     <Skeleton className="h-5 w-32" />
                     <Skeleton className="mb-2 h-4 w-40" />
                     {Array.from({ length: NAV_ITEMS }, (_, index) => (

@@ -445,11 +445,11 @@ function UnitRowEditor({
                     <Check className="size-4" />
                 </Button>
                 <Button
+                    aria-label="Cancel rename"
                     onClick={() => {
                         form.reset({ id: unit.id, value: unit.value });
                         setEditing(false);
                     }}
-                    aria-label="Cancel rename"
                     size="icon-sm"
                     title="Cancel rename"
                     type="button"

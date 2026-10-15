@@ -1,12 +1,10 @@
 'use client';
 
-import { format, parseISO } from 'date-fns';
 import { useMemo } from 'react';
-import { type DateRange } from 'react-day-picker';
 
 import Eyebrow from '~/components/Eyebrow';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DateRangePicker } from '~/components/ui/DatePicker';
+import { FilterIsoDateRange } from '~/components/ui/FilterIsoDateRange';
 import { Input } from '~/components/ui/Input';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
 import { OUTCOME_VALUES, SETUP_TYPE_VALUES } from '~/lib/trading/types';
@@ -85,15 +83,6 @@ export function JournalFilters({
 
     const planOptions = plans.map((p) => ({ key: p.id, label: p.name }));
 
-    const dateRange: DateRange | undefined = useMemo(() => {
-        return state.dateFrom || state.dateTo
-            ? {
-                  from: state.dateFrom ? parseISO(state.dateFrom) : undefined,
-                  ...(state.dateTo && { to: parseISO(state.dateTo) }),
-              }
-            : undefined;
-    }, [state.dateFrom, state.dateTo]);
-
     const hasAny =
         state.grades.length > 0 ||
         state.outcomes.length > 0 ||
@@ -113,8 +102,10 @@ export function JournalFilters({
                 'flex flex-col gap-4 rounded-lg border border-border/40 bg-card/60 p-4',
             )}
         >
-            <div className="grid items-center gap-3 md:grid-cols-[1fr_auto]">
+            <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
                 <Input
+                    aria-label="Search notes"
+                    className="h-8 text-xs md:max-w-xs"
                     onChange={(event) =>
                         onChange({
                             ...state,
@@ -124,21 +115,18 @@ export function JournalFilters({
                     placeholder="Search notes…"
                     value={state.query ?? ''}
                 />
-                <DateRangePicker
+                <FilterIsoDateRange
+                    label="Journal date"
                     onChange={(range) =>
                         onChange({
                             ...state,
-                            dateFrom: range?.from
-                                ? format(range.from, 'yyyy-MM-dd')
-                                : null,
-                            dateTo: range?.to
-                                ? format(range.to, 'yyyy-MM-dd')
-                                : null,
+                            dateFrom: range.from,
+                            dateTo: range.to,
                             singleDate: null,
                         })
                     }
                     placeholder="Filter by date"
-                    value={dateRange}
+                    value={{ from: state.dateFrom, to: state.dateTo }}
                 />
             </div>
 

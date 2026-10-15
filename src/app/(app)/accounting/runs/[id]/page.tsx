@@ -2,9 +2,10 @@ import { type Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
+import { AccountingDataSkeleton } from '~/app/(app)/accounting/_components/AccountingDataSkeleton';
 import { RunDetail } from '~/app/(app)/accounting/_components/RunDetail';
 import { PageTransition } from '~/components/PageTransition';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { requireRootUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
@@ -26,11 +27,7 @@ export default function AccountingRunDetailPage({ params }: PageProperties) {
                         Run detail
                     </h1>
                 </header>
-                <Suspense
-                    fallback={
-                        <Skeleton className="min-h-[36rem] w-full rounded-xl" />
-                    }
-                >
+                <Suspense fallback={<AccountingDataSkeleton />}>
                     <AccountingRunDetailContent params={params} />
                 </Suspense>
             </main>
@@ -38,7 +35,18 @@ export default function AccountingRunDetailPage({ params }: PageProperties) {
     );
 }
 
+export async function generateMetadata({
+    params,
+}: PageProperties): Promise<Metadata> {
+    const { id } = await params;
+    return {
+        robots: { follow: false, index: false },
+        title: `Run · ${id.slice(0, 8)} · Accounting Importer`,
+    };
+}
+
 async function AccountingRunDetailContent({ params }: PageProperties) {
+    await requireRootUser();
     const { id } = await params;
     const run = await loadRun(id);
     void api.accounting.credentials.list.prefetch();
@@ -55,14 +63,4 @@ async function loadRun(id: string) {
     } catch {
         notFound();
     }
-}
-
-export async function generateMetadata({
-    params,
-}: PageProperties): Promise<Metadata> {
-    const { id } = await params;
-    return {
-        robots: { follow: false, index: false },
-        title: `Run · ${id.slice(0, 8)} · Accounting Importer`,
-    };
 }

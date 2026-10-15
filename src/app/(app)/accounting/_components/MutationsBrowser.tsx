@@ -9,15 +9,9 @@ import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { FilterDateRange } from '~/components/ui/FilterDateRange';
+import { FilterSelect } from '~/components/ui/FilterSelect';
 import { MutationType } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 
@@ -196,9 +190,9 @@ export function MutationsBrowser() {
                                         credential={accounting}
                                         roleNoun="accounting credential"
                                     />
-                                    <DateRangePicker
+                                    <FilterDateRange
                                         align="end"
-                                        className="h-8 w-fit shrink-0 text-xs"
+                                        label="Mutation date"
                                         onChange={(r) => {
                                             setDateRange(r);
                                             setOffset(0);
@@ -206,35 +200,29 @@ export function MutationsBrowser() {
                                         placeholder="Any date"
                                         value={dateRange}
                                     />
-                                    <Select
+                                    <FilterSelect
+                                        label="Type"
                                         onValueChange={(v) => {
-                                            setTypeFilter(v);
+                                            setTypeFilter(v ?? ALL);
                                             setOffset(0);
                                         }}
-                                        value={typeFilter}
-                                    >
-                                        <SelectTrigger className="h-8 w-48 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={ALL}>
-                                                All types
-                                            </SelectItem>
-                                            {typeOptions.map((code) => (
-                                                <SelectItem
-                                                    key={code}
-                                                    value={code}
-                                                >
-                                                    {(
-                                                        MUTATION_TYPE_LABEL as Record<
-                                                            string,
-                                                            string
-                                                        >
-                                                    )[code] ?? code}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        options={typeOptions.map((code) => ({
+                                            label:
+                                                (
+                                                    MUTATION_TYPE_LABEL as Record<
+                                                        string,
+                                                        string
+                                                    >
+                                                )[code] ?? code,
+                                            value: code,
+                                        }))}
+                                        placeholder="All types"
+                                        value={
+                                            typeFilter === ALL
+                                                ? undefined
+                                                : typeFilter
+                                        }
+                                    />
                                 </div>
                             }
                             initialSorting={[{ desc: true, id: 'date' }]}

@@ -6,22 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeleteAccountDialog } from '~/app/(app)/profile/_components/DeleteAccountDialog';
 import { routes } from '~/lib/site/routes';
 
+import { stubLocationAssign } from './stubLocationAssign';
+
 interface Mounted {
     readonly container: HTMLDivElement;
     readonly root: Root;
 }
 
-const navigation = vi.hoisted(() => ({
-    push: vi.fn(),
-    refresh: vi.fn(),
-}));
-
 const auth = vi.hoisted(() => ({
     deleteUser: vi.fn(() => Promise.resolve({ data: { success: true } })),
-}));
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({ push: navigation.push, refresh: navigation.refresh }),
 }));
 
 vi.mock('~/lib/auth/client', () => ({
@@ -107,6 +100,7 @@ afterEach(async () => {
     }
     document.body.replaceChildren();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
 });
 
 describe('DeleteAccountDialog', () => {
@@ -116,6 +110,10 @@ describe('DeleteAccountDialog', () => {
         auth.deleteUser.mockImplementationOnce(() => {
             cachedAtDelete.push(cachedQueryCount(client));
             return Promise.resolve({ data: { success: true } });
+        });
+        const cachedAtNavigation: number[] = [];
+        const assign = stubLocationAssign(() => {
+            cachedAtNavigation.push(cachedQueryCount(client));
         });
         await renderWith(client);
         expect(cachedQueryCount(client)).toBe(2);
@@ -127,7 +125,8 @@ describe('DeleteAccountDialog', () => {
         expect(client.getQueryData(SCENARIO_LIST_KEY)).toBeUndefined();
         expect(client.getQueryData(ACCOUNT_LIST_KEY)).toBeUndefined();
         expect(cachedQueryCount(client)).toBe(0);
-        expect(navigation.push).toHaveBeenCalledWith(routes.home);
-        expect(navigation.refresh).toHaveBeenCalledTimes(1);
+        expect(assign).toHaveBeenCalledTimes(1);
+        expect(assign).toHaveBeenCalledWith(routes.home);
+        expect(cachedAtNavigation).toEqual([0]);
     });
 });

@@ -37,10 +37,7 @@ const INPUT_MODE: Record<ProfileNumberStep, 'decimal' | 'numeric'> = {
 
 export type ProfileSelectOption = { id: number; label: string };
 
-export function ProfileIdSelectField<
-    TFieldValues extends FieldValues,
-    TName extends FieldPath<TFieldValues>,
->({
+export function ProfileIdSelectField<TFieldValues extends FieldValues>({
     control,
     label,
     name,
@@ -49,7 +46,7 @@ export function ProfileIdSelectField<
 }: {
     control: Control<TFieldValues>;
     label: string;
-    name: TName;
+    name: FieldPath<TFieldValues>;
     options: readonly ProfileSelectOption[];
     placeholder: string;
 }) {
@@ -87,10 +84,7 @@ export function ProfileIdSelectField<
     );
 }
 
-export function ProfileNumberField<
-    TFieldValues extends FieldValues,
-    TName extends FieldPath<TFieldValues>,
->({
+export function ProfileNumberField<TFieldValues extends FieldValues>({
     control,
     label,
     name,
@@ -98,7 +92,7 @@ export function ProfileNumberField<
 }: {
     control: Control<TFieldValues>;
     label: string;
-    name: TName;
+    name: FieldPath<TFieldValues>;
     step?: ProfileNumberStep;
 }) {
     return (
@@ -130,10 +124,7 @@ export function ProfileNumberField<
     );
 }
 
-export function ProfileTextField<
-    TFieldValues extends FieldValues,
-    TName extends FieldPath<TFieldValues>,
->({
+export function ProfileTextField<TFieldValues extends FieldValues>({
     control,
     label,
     name,
@@ -141,7 +132,7 @@ export function ProfileTextField<
 }: {
     control: Control<TFieldValues>;
     label: string;
-    name: TName;
+    name: FieldPath<TFieldValues>;
     placeholder?: string;
 }) {
     return (
@@ -159,7 +150,7 @@ export function ProfileTextField<
                             onChange={field.onChange}
                             placeholder={placeholder}
                             ref={field.ref}
-                            value={String(field.value ?? '')}
+                            value={field.value ?? ''}
                         />
                     </FormControl>
                     <FormMessage />

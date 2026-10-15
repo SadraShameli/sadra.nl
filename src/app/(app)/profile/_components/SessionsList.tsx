@@ -17,13 +17,7 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { FilterSelect } from '~/components/ui/FilterSelect';
 import { authClient } from '~/lib/auth/client';
 import { cn } from '~/lib/utilities';
 
@@ -195,24 +189,27 @@ export function SessionsList() {
                 filterPlaceholder="Search sessions…"
                 hasExternalFilters={hasFilters}
                 headerActions={
-                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
-                        <Select
+                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                        <FilterSelect
+                            label="Session"
                             onValueChange={(v) =>
-                                setStatusFilter(v as StatusFilter)
+                                setStatusFilter(
+                                    STATUS_VALUES.find((s) => s === v) ?? 'all',
+                                )
                             }
-                            value={statusFilter}
-                        >
-                            <SelectTrigger className="h-8 w-40 text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {STATUS_VALUES.map((s) => (
-                                    <SelectItem key={s} value={s}>
-                                        {STATUS_LABEL[s]}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            options={STATUS_VALUES.filter(
+                                (s) => s !== 'all',
+                            ).map((s) => ({
+                                label: STATUS_LABEL[s],
+                                value: s,
+                            }))}
+                            placeholder={STATUS_LABEL.all}
+                            value={
+                                statusFilter === 'all'
+                                    ? undefined
+                                    : statusFilter
+                            }
+                        />
                     </div>
                 }
                 isLoading={loading}

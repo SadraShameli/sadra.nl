@@ -6,22 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProfileNav } from '~/app/(app)/profile/_components/ProfileNav';
 import { routes } from '~/lib/site/routes';
 
+import { stubLocationAssign } from './stubLocationAssign';
+
 interface Mounted {
     readonly container: HTMLDivElement;
     readonly root: Root;
 }
 
-const navigation = vi.hoisted(() => ({
-    push: vi.fn(),
-    refresh: vi.fn(),
-}));
-
 const auth = vi.hoisted(() => ({
     signOut: vi.fn(() => Promise.resolve({ data: { success: true } })),
-}));
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({ push: navigation.push, refresh: navigation.refresh }),
 }));
 
 vi.mock('~/lib/auth/client', () => ({
@@ -102,6 +95,7 @@ afterEach(async () => {
         container.remove();
     }
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
 });
 
 describe('ProfileNav sign out', () => {
@@ -111,6 +105,10 @@ describe('ProfileNav sign out', () => {
         auth.signOut.mockImplementationOnce(() => {
             cachedAtSignOut.push(cachedQueryCount(client));
             return Promise.resolve({ data: { success: true } });
+        });
+        const cachedAtNavigation: number[] = [];
+        const assign = stubLocationAssign(() => {
+            cachedAtNavigation.push(cachedQueryCount(client));
         });
         await renderWith(client);
         expect(cachedQueryCount(client)).toBe(2);
@@ -122,7 +120,8 @@ describe('ProfileNav sign out', () => {
         expect(client.getQueryData(SCENARIO_LIST_KEY)).toBeUndefined();
         expect(client.getQueryData(ACCOUNT_LIST_KEY)).toBeUndefined();
         expect(cachedQueryCount(client)).toBe(0);
-        expect(navigation.push).toHaveBeenCalledWith(routes.home);
-        expect(navigation.refresh).toHaveBeenCalledTimes(1);
+        expect(assign).toHaveBeenCalledTimes(1);
+        expect(assign).toHaveBeenCalledWith(routes.home);
+        expect(cachedAtNavigation).toEqual([0]);
     });
 });

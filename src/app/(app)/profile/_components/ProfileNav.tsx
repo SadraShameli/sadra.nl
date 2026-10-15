@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { type Route } from 'next';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 
 import { Avatar, AvatarFallback } from '~/components/ui/Avatar';
@@ -82,7 +81,6 @@ export function ProfileNav({
     isRoot,
     name,
 }: ProfileNavProperties) {
-    const router = useRouter();
     const queryClient = useQueryClient();
     const [pending, startTransition] = useTransition();
     const items: NavItem[] = [
@@ -148,8 +146,7 @@ export function ProfileNav({
                         startTransition(async () => {
                             await authClient.signOut();
                             queryClient.clear();
-                            router.push(routes.home);
-                            router.refresh();
+                            window.location.assign(routes.home);
                         })
                     }
                     size="sm"

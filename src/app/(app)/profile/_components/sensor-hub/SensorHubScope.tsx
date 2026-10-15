@@ -4,12 +4,6 @@ import { useState } from 'react';
 
 import { FilterSelect } from '~/components/ui/FilterSelect';
 
-export type SensorHubScope = {
-    deviceId: number | undefined;
-    locationId: number | undefined;
-    sensorId: number | undefined;
-};
-
 export type SensorHubScopeController = {
     isActive: boolean;
     reset: () => void;
@@ -25,7 +19,13 @@ export type SensorHubScopeCounts = {
 };
 
 type ScopeDevice = { id: number; location_id: number; name: string };
+
 type ScopeEntity = { id: number; name: string };
+type SensorHubScope = {
+    deviceId: number | undefined;
+    locationId: number | undefined;
+    sensorId: number | undefined;
+};
 
 const EMPTY_SCOPE: SensorHubScope = {
     deviceId: undefined,

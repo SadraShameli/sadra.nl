@@ -3,11 +3,11 @@ import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
-import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
-import { PageTransition } from '~/components/PageTransition';
 import type { LightAssessment } from '~/lib/trading/analytics';
 
 import { CalendarView } from '~/app/(app)/trade-checklist/_components/CalendarView';
+import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { ensureUserHasPlan } from '~/lib/trading/actions';
@@ -40,8 +40,8 @@ export default function TradeCalendarPage({
                         Calendar
                     </h1>
                     <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                        Trading days at a glance. Click any day to drill into that
-                        day&apos;s assessments in the journal.
+                        Trading days at a glance. Click any day to drill into
+                        that day&apos;s assessments in the journal.
                     </p>
                 </header>
                 <Suspense fallback={<TradeChecklistDataSkeleton />}>
@@ -52,9 +52,16 @@ export default function TradeCalendarPage({
     );
 }
 
-async function TradeCalendarContent({
-    searchParams,
-}: CalendarPageProperties) {
+function defaultMonth(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function isValidMonth(s: string): boolean {
+    return /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
+}
+
+async function TradeCalendarContent({ searchParams }: CalendarPageProperties) {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;
@@ -94,16 +101,5 @@ async function TradeCalendarContent({
         windowId: r.answers.context.windowId,
     }));
 
-    return (
-        <CalendarView assessments={assessments} month={month} />
-    );
-}
-
-function defaultMonth(): string {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function isValidMonth(s: string): boolean {
-    return /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
+    return <CalendarView assessments={assessments} month={month} />;
 }

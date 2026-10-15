@@ -57,7 +57,12 @@ interface ProfilePageProperties {
 
 export default function ProfilePage({ searchParams }: ProfilePageProperties) {
     return (
-        <main className={cn('app-profile', 'container mx-auto px-4 py-10 lg:py-16')}>
+        <main
+            className={cn(
+                'app-profile',
+                'container mx-auto px-4 py-10 lg:py-16',
+            )}
+        >
             <div className="grid gap-4 md:grid-cols-[240px_1fr] md:items-start md:gap-6">
                 <Suspense fallback={<ProfileSkeleton />}>
                     <ProfileContent searchParams={searchParams} />

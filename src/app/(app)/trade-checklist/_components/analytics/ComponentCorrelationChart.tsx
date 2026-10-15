@@ -13,13 +13,7 @@ import {
 import type { WeightCategory } from '~/lib/trading/types';
 
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 import {
     componentScoreCorrelation,
     type LightAssessment,
@@ -68,25 +62,19 @@ export function ComponentCorrelationChart({
                 'flex flex-col gap-3',
             )}
         >
-            <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs tracking-wider text-muted-foreground uppercase">
-                    Component
-                </span>
-                <Select
-                    onValueChange={(v) => setCategory(v as WeightCategory)}
+            <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+                <ToolbarSelect
+                    label="Component"
+                    onValueChange={(v) => {
+                        const next = CATEGORIES.find((c) => c.key === v);
+                        if (next) setCategory(next.key);
+                    }}
+                    options={CATEGORIES.map((c) => ({
+                        label: c.label,
+                        value: c.key,
+                    }))}
                     value={category}
-                >
-                    <SelectTrigger className="w-56">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {CATEGORIES.map((c) => (
-                            <SelectItem key={c.key} value={c.key}>
-                                {c.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                />
                 <span className="text-xs text-muted-foreground">
                     Bucketed by % of component max earned. Higher buckets should
                     produce higher avg R if the section has edge.

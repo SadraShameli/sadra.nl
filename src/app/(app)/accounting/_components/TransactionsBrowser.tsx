@@ -17,22 +17,15 @@ import {
     DataTableFilterFunction,
     hasActiveTableFilter,
 } from '~/components/ui/DataTable';
-import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { FilterDateRange } from '~/components/ui/FilterDateRange';
+import { FilterSelect } from '~/components/ui/FilterSelect';
 import { api } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
 import { DirectionBadge } from './DirectionBadge';
 import { useActiveCredentials } from './useActiveCredentials';
 
-const ALL = '__all__';
 const MATCHED = '__matched__';
 const UNKNOWN = '__unknown__';
 const LOOKBACK_DAYS = 90;
@@ -57,8 +50,9 @@ export function TransactionsBrowser() {
     const { accounting, source } = useActiveCredentials();
     const credentialId = source?.id ?? '';
     const accountingCredentialId = accounting?.id ?? '';
+    const [initialDateRange] = useState<DateRange>(defaultRange);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
-        defaultRange,
+        initialDateRange,
     );
 
     const range = useMemo(() => {
@@ -212,6 +206,7 @@ export function TransactionsBrowser() {
                             />
                         )}
                         filterPlaceholder="Search transactions…"
+                        hasExternalFilters={dateRange !== initialDateRange}
                         headerActions={(table) => (
                             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
                                 <ActiveConnectionNote
@@ -222,73 +217,56 @@ export function TransactionsBrowser() {
                                     credential={accounting}
                                     roleNoun="accounting credential"
                                 />
-                                <DateRangePicker
+                                <FilterDateRange
                                     align="end"
-                                    className="h-8 w-fit shrink-0 text-xs"
+                                    label="Transaction date"
                                     onChange={setDateRange}
                                     placeholder="Any date"
                                     value={dateRange}
                                 />
-                                <Select
+                                <FilterSelect
+                                    label="Direction"
                                     onValueChange={(v) =>
                                         table
                                             .getColumn('direction')
-                                            ?.setFilterValue(
-                                                v === ALL ? undefined : v,
-                                            )
+                                            ?.setFilterValue(v)
                                     }
+                                    options={[
+                                        { label: 'In', value: 'IN' },
+                                        { label: 'Out', value: 'OUT' },
+                                    ]}
+                                    placeholder="All directions"
                                     value={
-                                        (table
+                                        table
                                             .getColumn('direction')
                                             ?.getFilterValue() as
-                                            string | undefined) ?? ALL
+                                            string | undefined
                                     }
-                                >
-                                    <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={ALL}>
-                                            All directions
-                                        </SelectItem>
-                                        <SelectItem value="IN">In</SelectItem>
-                                        <SelectItem value="OUT">Out</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Select
+                                />
+                                <FilterSelect
+                                    label="Match"
                                     onValueChange={(v) =>
                                         table
                                             .getColumn('match')
-                                            ?.setFilterValue(
-                                                v === ALL ? undefined : v,
-                                            )
+                                            ?.setFilterValue(v)
                                     }
+                                    options={[
+                                        { label: 'Matched', value: MATCHED },
+                                        { label: 'Unknown', value: UNKNOWN },
+                                    ]}
+                                    placeholder="All matches"
                                     value={
-                                        (table
+                                        table
                                             .getColumn('match')
                                             ?.getFilterValue() as
-                                            string | undefined) ?? ALL
+                                            string | undefined
                                     }
-                                >
-                                    <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={ALL}>
-                                            All matches
-                                        </SelectItem>
-                                        <SelectItem value={MATCHED}>
-                                            Matched
-                                        </SelectItem>
-                                        <SelectItem value={UNKNOWN}>
-                                            Unknown
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                />
                             </div>
                         )}
                         initialSorting={[{ desc: true, id: 'date' }]}
                         isLoading={!!credentialId && txnsQ.isPending}
+                        onResetFilters={() => setDateRange(initialDateRange)}
                         pageSize={25}
                         rowId={(r) => r.txnId}
                         showFilter

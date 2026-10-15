@@ -3,11 +3,11 @@ import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
-import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
-import { PageTransition } from '~/components/PageTransition';
 import type { LightAssessment } from '~/lib/trading/analytics';
 
 import { AnalyticsDashboard } from '~/app/(app)/trade-checklist/_components/AnalyticsDashboard';
+import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { ensureUserHasPlan } from '~/lib/trading/actions';
@@ -34,9 +34,10 @@ export default function TradeAnalyticsPage() {
                         Analytics
                     </h1>
                     <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                        Quantified hindsight on every graded setup. Filter by plan,
-                        cross-check whether your grades actually predict outcomes,
-                        and find which components and windows have edge.
+                        Quantified hindsight on every graded setup. Filter by
+                        plan, cross-check whether your grades actually predict
+                        outcomes, and find which components and windows have
+                        edge.
                     </p>
                 </header>
                 <Suspense fallback={<TradeChecklistDataSkeleton />}>
@@ -96,7 +97,5 @@ async function TradeAnalyticsContent() {
         windowId: r.answers.context.windowId,
     }));
 
-    return (
-        <AnalyticsDashboard assessments={assessments} plans={plans} />
-    );
+    return <AnalyticsDashboard assessments={assessments} plans={plans} />;
 }

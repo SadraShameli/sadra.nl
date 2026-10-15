@@ -4,15 +4,8 @@ import { useMemo, useState } from 'react';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
-import Eyebrow from '~/components/Eyebrow';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { FilterSelect } from '~/components/ui/FilterSelect';
 import { cn } from '~/lib/utilities';
 
 import { ComponentCorrelationChart } from './analytics/ComponentCorrelationChart';
@@ -60,21 +53,19 @@ export function AnalyticsDashboard({
             )}
         >
             {plans.length > 1 && (
-                <div className="flex flex-wrap items-center gap-3">
-                    <Eyebrow as="span">Filter plan</Eyebrow>
-                    <Select onValueChange={setPlanFilter} value={planFilter}>
-                        <SelectTrigger className="w-64">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL_PLANS}>All plans</SelectItem>
-                            {plans.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                    {p.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+                    <FilterSelect
+                        label="Plan"
+                        onValueChange={(v) => setPlanFilter(v ?? ALL_PLANS)}
+                        options={plans.map((p) => ({
+                            label: p.name,
+                            value: p.id,
+                        }))}
+                        placeholder="All plans"
+                        value={
+                            planFilter === ALL_PLANS ? undefined : planFilter
+                        }
+                    />
                 </div>
             )}
 

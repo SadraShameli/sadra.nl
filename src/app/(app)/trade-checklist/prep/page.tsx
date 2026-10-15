@@ -4,8 +4,8 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { z } from 'zod';
 
-import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PrepView } from '~/app/(app)/trade-checklist/_components/PrepView';
+import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { dailyPreparationRowSchema } from '~/lib/schemas/trading';
@@ -35,8 +35,9 @@ export default function PreMarketPrepPage() {
                         Pre-market prep
                     </h1>
                     <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                        The discipline gate before you ever pick up the mouse. Tick
-                        off the prep you finished today and let the streak speak.
+                        The discipline gate before you ever pick up the mouse.
+                        Tick off the prep you finished today and let the streak
+                        speak.
                     </p>
                 </header>
                 <Suspense fallback={<TradeChecklistDataSkeleton />}>
@@ -78,11 +79,7 @@ async function PreMarketPrepContent() {
     const activePlanId = plans[0]?.id ?? null;
 
     return (
-        <PrepView
-            activePlanId={activePlanId}
-            history={history}
-            today={today}
-        />
+        <PrepView activePlanId={activePlanId} history={history} today={today} />
     );
 }
 
