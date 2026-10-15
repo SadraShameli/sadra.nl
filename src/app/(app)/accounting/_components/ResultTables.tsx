@@ -1,7 +1,7 @@
 'use client';
 
 import { Pencil, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
 import type {
@@ -31,6 +31,7 @@ import {
     DialogTitle,
 } from '~/components/ui/Dialog';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import { FilterDateRange } from '~/components/ui/FilterDateRange';
 import {
     FilterSelect,
@@ -75,23 +76,6 @@ function DirectionSelect({
             placeholder="All directions"
             value={value === ALL ? undefined : value}
         />
-    );
-}
-
-function FilterField({
-    children,
-    label,
-}: {
-    children: React.ReactNode;
-    label: string;
-}) {
-    return (
-        <div className="flex flex-col gap-1">
-            <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                {label}
-            </span>
-            {children}
-        </div>
     );
 }
 
@@ -817,6 +801,11 @@ function BookingEditDialog({
     );
     const [taxCode, setTaxCode] = useState<string>(booking.taxCode);
     const [isRefund, setIsRefund] = useState(() => booking.isRefund === true);
+    const fieldId = useId();
+    const directionId = `${fieldId}-direction`;
+    const refundId = `${fieldId}-refund`;
+    const counterpartId = `${fieldId}-counterpart`;
+    const taxCodeId = `${fieldId}-tax-code`;
 
     const toggleRefund = (isChecked: boolean) => {
         setIsRefund(isChecked);
@@ -858,14 +847,18 @@ function BookingEditDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-3">
-                    <FilterField label="Direction">
+                    <Field>
+                        <FieldLabel htmlFor={directionId}>Direction</FieldLabel>
                         <Select
                             onValueChange={(v) =>
                                 setDirection(v as BookingDirection)
                             }
                             value={direction}
                         >
-                            <SelectTrigger className="h-8 w-full text-xs">
+                            <SelectTrigger
+                                className="h-8 w-full text-xs"
+                                id={directionId}
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -873,13 +866,15 @@ function BookingEditDialog({
                                 <SelectItem value="OUT">OUT</SelectItem>
                             </SelectContent>
                         </Select>
-                    </FilterField>
+                    </Field>
                     {direction === 'IN' && (
-                        <FilterField label="Refund">
+                        <Field>
+                            <FieldLabel htmlFor={refundId}>Refund</FieldLabel>
                             <label className="flex items-center gap-2 text-xs">
                                 <Switch
                                     checked={isRefund}
                                     disabled={!purchaseRule}
+                                    id={refundId}
                                     onCheckedChange={toggleRefund}
                                 />
                                 <span className="text-muted-foreground">
@@ -888,27 +883,36 @@ function BookingEditDialog({
                                         : 'No purchase rule for this counterpart'}
                                 </span>
                             </label>
-                        </FilterField>
+                        </Field>
                     )}
-                    <FilterField label="Counterpart">
+                    <Field>
+                        <FieldLabel htmlFor={counterpartId}>
+                            Counterpart
+                        </FieldLabel>
                         <Input
                             className="h-8 text-xs"
+                            id={counterpartId}
                             onChange={(event) =>
                                 setCounterpartName(event.target.value)
                             }
                             value={counterpartName}
                         />
-                    </FilterField>
-                    <FilterField label="Ledger">
+                    </Field>
+                    <Field>
+                        <FieldLabel>Ledger</FieldLabel>
                         <LedgerCombobox
                             onChange={setCounterpartLedger}
                             options={ledgerOptions}
                             value={counterpartLedger}
                         />
-                    </FilterField>
-                    <FilterField label="VAT">
+                    </Field>
+                    <Field>
+                        <FieldLabel htmlFor={taxCodeId}>VAT</FieldLabel>
                         <Select onValueChange={setTaxCode} value={taxCode}>
-                            <SelectTrigger className="h-8 w-full text-xs">
+                            <SelectTrigger
+                                className="h-8 w-full text-xs"
+                                id={taxCodeId}
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -919,7 +923,7 @@ function BookingEditDialog({
                                 ))}
                             </SelectContent>
                         </Select>
-                    </FilterField>
+                    </Field>
                 </div>
                 <DialogFooter>
                     <Button onClick={save}>Save changes</Button>

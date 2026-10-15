@@ -43,6 +43,10 @@ import {
 import { Input } from '~/components/ui/Input';
 import { Textarea } from '~/components/ui/Textarea';
 import { DurationFormat } from '~/lib/lifting/format';
+import {
+    WORKOUT_DURATION_BUCKETS,
+    WorkoutDuration,
+} from '~/lib/lifting/workout-duration';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -63,44 +67,6 @@ const WORKOUT_STATUS_LABEL = new Map<string, string>([
     [WorkoutStatus.Completed, 'Completed'],
     [WorkoutStatus.InProgress, 'In progress'],
 ]);
-
-const SECONDS_PER_MINUTE = 60;
-
-const DurationBucket = {
-    From15To60: '15-60',
-    From60To120: '60-120',
-    Over120: 'over-120',
-    Under15: 'under-15',
-} as const;
-
-type DurationBucket = (typeof DurationBucket)[keyof typeof DurationBucket];
-
-const DURATION_BUCKETS: readonly {
-    label: string;
-    range: readonly [number, number];
-    value: DurationBucket;
-}[] = [
-    {
-        label: 'Under 15 min',
-        range: [0, 15 * SECONDS_PER_MINUTE - 1],
-        value: DurationBucket.Under15,
-    },
-    {
-        label: '15 to 60 min',
-        range: [15 * SECONDS_PER_MINUTE, 60 * SECONDS_PER_MINUTE - 1],
-        value: DurationBucket.From15To60,
-    },
-    {
-        label: '1 to 2 h',
-        range: [60 * SECONDS_PER_MINUTE, 120 * SECONDS_PER_MINUTE - 1],
-        value: DurationBucket.From60To120,
-    },
-    {
-        label: 'Over 2 h',
-        range: [120 * SECONDS_PER_MINUTE, Infinity],
-        value: DurationBucket.Over120,
-    },
-];
 
 const workoutEditSchema = z.object({
     bodyweightKg: z.number().positive().max(500).nullable(),
@@ -166,9 +132,9 @@ export function WorkoutsManager() {
                 id: WorkoutColumn.Date,
             },
             {
-                accessorFn: (r) => durationSeconds(r) ?? -1,
+                accessorFn: (r) => WorkoutDuration.seconds(r) ?? -1,
                 cell: ({ row }) => {
-                    const dur = durationSeconds(row.original);
+                    const dur = WorkoutDuration.seconds(row.original);
                     return (
                         <MutedCell>
                             {dur === null ? '-' : DurationFormat.seconds(dur)}
@@ -291,39 +257,20 @@ export function WorkoutsManager() {
     );
 }
 
-function durationSeconds(w: WorkoutRow): null | number {
-    return w.endedAt
-        ? Math.round(
-              (new Date(w.endedAt).getTime() -
-                  new Date(w.startedAt).getTime()) /
-                  1000,
-          )
-        : null;
-}
-
 function DurationSelect({ table }: { table: DataTableInstance<WorkoutRow> }) {
     const column = table.getColumn(WorkoutColumn.Duration);
     if (!column) return null;
     const current = column.getFilterValue();
-    const selected = DURATION_BUCKETS.find(
-        (bucket) =>
-            Array.isArray(current) &&
-            current[0] === bucket.range[0] &&
-            current[1] === bucket.range[1],
-    );
+    const selected = WorkoutDuration.bucketForFilterValue(current);
     return (
         <FilterSelect
             label="Duration"
             onValueChange={(value) =>
                 column.setFilterValue(
-                    DURATION_BUCKETS.find((bucket) => bucket.value === value)
-                        ?.range,
+                    WorkoutDuration.bucketForValue(value)?.range,
                 )
             }
-            options={DURATION_BUCKETS.map((bucket) => ({
-                label: bucket.label,
-                value: bucket.value,
-            }))}
+            options={WORKOUT_DURATION_BUCKETS}
             placeholder="Any duration"
             value={selected?.value}
         />

@@ -35,6 +35,10 @@ import {
     TooltipTrigger,
 } from '~/components/ui/Tooltip';
 import { DurationFormat } from '~/lib/lifting/format';
+import {
+    WORKOUT_DURATION_BUCKETS,
+    WorkoutDuration,
+} from '~/lib/lifting/workout-duration';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -52,31 +56,7 @@ const STATUS_OPTIONS = [
     { label: 'In progress', value: 'in-progress' },
 ] as const;
 
-const DURATION_OPTIONS = [
-    { label: 'Any', value: FILTER_ALL },
-    { label: '< 15 min', value: 'under-15' },
-    { label: '15 – 60 min', value: '15-60' },
-    { label: '1 – 2 h', value: '60-120' },
-    { label: '> 2 h', value: 'over-120' },
-] as const;
-
-type DurationFilter = (typeof DURATION_OPTIONS)[number]['value'];
 type StatusFilter = (typeof STATUS_OPTIONS)[number]['value'];
-
-const DURATION_RANGES: Record<
-    Exclude<DurationFilter, typeof FILTER_ALL>,
-    [number, number]
-> = {
-    '15-60': [15 * 60, 60 * 60 - 1],
-    '60-120': [60 * 60, 120 * 60 - 1],
-    'over-120': [120 * 60, Infinity],
-    'under-15': [0, 15 * 60 - 1],
-};
-
-const DURATION_RANGE_ENTRIES = Object.entries(DURATION_RANGES) as [
-    Exclude<DurationFilter, typeof FILTER_ALL>,
-    [number, number],
-][];
 
 export function HistoryView({ from }: HistoryViewProperties) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -138,9 +118,9 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 id: 'start',
             },
             {
-                accessorFn: (r) => durationSeconds(r) ?? -1,
+                accessorFn: (r) => WorkoutDuration.seconds(r) ?? -1,
                 cell: ({ row }) => {
-                    const dur = durationSeconds(row.original);
+                    const dur = WorkoutDuration.seconds(row.original);
                     return (
                         <span className="text-muted-foreground tabular-nums">
                             {dur === null ? '-' : DurationFormat.seconds(dur)}
@@ -268,18 +248,17 @@ export function HistoryView({ from }: HistoryViewProperties) {
                                     label="Duration"
                                     onValueChange={(v) =>
                                         durationColumn?.setFilterValue(
-                                            DURATION_RANGE_ENTRIES.find(
-                                                ([bucket]) => bucket === v,
-                                            )?.[1],
+                                            WorkoutDuration.bucketForValue(v)
+                                                ?.range,
                                         )
                                     }
-                                    options={DURATION_OPTIONS.filter(
-                                        (o) => o.value !== FILTER_ALL,
-                                    )}
+                                    options={WORKOUT_DURATION_BUCKETS}
                                     placeholder="Any duration"
-                                    value={durationFilterValue(
-                                        durationColumn?.getFilterValue(),
-                                    )}
+                                    value={
+                                        WorkoutDuration.bucketForFilterValue(
+                                            durationColumn?.getFilterValue(),
+                                        )?.value
+                                    }
                                 />
                                 <FilterDateRange
                                     label="Workout date"
@@ -300,22 +279,4 @@ export function HistoryView({ from }: HistoryViewProperties) {
             </CardContent>
         </Card>
     );
-}
-
-function durationFilterValue(filterValue: unknown): string | undefined {
-    if (!Array.isArray(filterValue)) return undefined;
-    const [min, max] = filterValue as [number, number];
-    return DURATION_RANGE_ENTRIES.find(
-        ([, range]) => range[0] === min && range[1] === max,
-    )?.[0];
-}
-
-function durationSeconds(w: WorkoutRow): null | number {
-    return w.endedAt
-        ? Math.round(
-              (new Date(w.endedAt).getTime() -
-                  new Date(w.startedAt).getTime()) /
-                  1000,
-          )
-        : null;
 }
