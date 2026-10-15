@@ -4,14 +4,20 @@
     ::before,
     ::backdrop,
     ::file-selector-button {
-        border-color: var(--color-gray-200, currentColor);
+        border-color: var(--color-border, currentColor);
     }
 }
 
 @layer base {
     * {
         @apply border-border;
+    }
 
+    :root {
+        color-scheme: light;
+    }
+
+    .dark {
         color-scheme: dark;
     }
 

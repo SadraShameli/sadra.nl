@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useSyncExternalStore } from 'react';
+import { useMemo } from 'react';
 
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
 import { useCachedWorkerTask } from '~/app/(app)/prop-calculator/_components/useCachedWorkerTask';
@@ -18,6 +18,7 @@ import {
     type OverviewWorkerResult,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { type ProgressCoalescing } from '~/app/(app)/prop-calculator/_workers/ProgressCoalescer';
+import { useIsClient } from '~/components/useIsClient';
 
 import {
     type GroupDelivery,
@@ -36,11 +37,7 @@ const OVERVIEW_PROGRESS_COALESCING: ProgressCoalescing<OverviewWorkerResult> = {
 export function useOverviewWorker(
     requests: readonly OverviewRequest[],
 ): OverviewEngine {
-    const isClient = useSyncExternalStore(
-        subscribeNever,
-        () => true,
-        () => false,
-    );
+    const isClient = useIsClient();
     const hasWorkers = isClient && typeof Worker !== 'undefined';
     const groups = useMemo(() => overviewRequestsByGroup(requests), [requests]);
     const accounts = useRequestGroupTask(
@@ -100,16 +97,8 @@ function deliveredOf(
     }
 }
 
-function subscribeNever(): () => void {
-    return unsubscribeNothing;
-}
-
 function unavailableEngine(): OverviewEngine {
     return uniformSlotEngine(WORKERS_UNAVAILABLE);
-}
-
-function unsubscribeNothing(): void {
-    return;
 }
 
 function useRequestGroupTask(

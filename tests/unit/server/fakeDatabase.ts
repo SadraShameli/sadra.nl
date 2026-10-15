@@ -2,16 +2,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { expect } from 'vitest';
 import { z } from 'zod';
 
-import * as relationsModule from '~/server/db/relations';
-import * as accountingSchema from '~/server/db/schemas/accounting';
-import * as authSchema from '~/server/db/schemas/auth';
-import * as iotSchema from '~/server/db/schemas/iot';
-import * as liftingSchema from '~/server/db/schemas/lifting';
-import * as mainSchema from '~/server/db/schemas/main';
-import * as notificationSchema from '~/server/db/schemas/notification';
-import * as observabilitySchema from '~/server/db/schemas/observability';
-import * as propSchema from '~/server/db/schemas/prop';
-import * as tradingSchema from '~/server/db/schemas/trading';
+import { databaseSchema } from '~/server/db/databaseSchema';
 
 export enum TransactionStep {
     Begin = 'begin',
@@ -102,18 +93,7 @@ export function createFakeDatabase(responder: Responder) {
 
     const database = drizzle({
         client: client as never,
-        schema: {
-            ...mainSchema,
-            ...iotSchema,
-            ...authSchema,
-            ...tradingSchema,
-            ...notificationSchema,
-            ...observabilitySchema,
-            ...accountingSchema,
-            ...liftingSchema,
-            ...propSchema,
-            ...relationsModule,
-        },
+        schema: databaseSchema,
     });
 
     return { database, queries };

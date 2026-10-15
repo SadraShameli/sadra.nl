@@ -22,6 +22,10 @@ export const main = defineCommand({
             const commandModule = await import('./commands/seed/group');
             return commandModule.default;
         },
+        themes: async () => {
+            const commandModule = await import('./commands/themes/group');
+            return commandModule.default;
+        },
     },
 });
 

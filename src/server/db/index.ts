@@ -4,16 +4,7 @@ import pg from 'pg';
 
 import { environment } from '~/environment';
 
-import * as relationsModule from './relations';
-import * as accountingSchema from './schemas/accounting';
-import * as authSchema from './schemas/auth';
-import * as schema from './schemas/iot';
-import * as liftingSchema from './schemas/lifting';
-import * as mainSchema from './schemas/main';
-import * as notificationSchema from './schemas/notification';
-import * as observabilitySchema from './schemas/observability';
-import * as propSchema from './schemas/prop';
-import * as tradingSchema from './schemas/trading';
+import { databaseSchema } from './databaseSchema';
 
 export {
     accountingBankAccount,
@@ -38,6 +29,7 @@ export {
 } from './schemas/lifting';
 export { notificationPreference } from './schemas/notification';
 export { rateLimitBucket } from './schemas/observability';
+export { userTheme } from './schemas/theme';
 export {
     dailyPreparations,
     tradeAssessments,
@@ -103,20 +95,7 @@ if (isPoolLifecycleAttached && environment.NODE_ENV !== 'production') {
     globalForDatabase.pool = pool;
 }
 
-const database = drizzle(pool, {
-    schema: {
-        ...mainSchema,
-        ...schema,
-        ...authSchema,
-        ...tradingSchema,
-        ...notificationSchema,
-        ...observabilitySchema,
-        ...accountingSchema,
-        ...liftingSchema,
-        ...propSchema,
-        ...relationsModule,
-    },
-});
+const database = drizzle(pool, { schema: databaseSchema });
 export { database as db };
 
 async function endDatabase() {

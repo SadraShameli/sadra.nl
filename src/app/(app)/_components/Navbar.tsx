@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { type ReactNode, useRef } from 'react';
 
+import { ColorModeToggle } from '~/components/ColorModeToggle';
 import { SocialIcon } from '~/components/ui/SocialIcon';
 import { siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
@@ -19,7 +20,7 @@ export default function Navbar({ accountLink }: { accountLink: ReactNode }) {
         <nav
             className={cn(
                 'app-shell__navbar',
-                'sticky inset-x-0 top-0 z-50 bg-black/75 backdrop-blur-2xl backdrop-saturate-200',
+                'sticky inset-x-0 top-0 z-50 bg-background/75 backdrop-blur-2xl backdrop-saturate-200',
             )}
             ref={navReference}
         >
@@ -28,7 +29,7 @@ export default function Navbar({ accountLink }: { accountLink: ReactNode }) {
                     <Link
                         className={cn(
                             'app-shell__brand',
-                            'font-orbitron text-lg font-semibold tracking-widest text-white',
+                            'font-orbitron text-lg font-semibold tracking-widest text-foreground',
                         )}
                         href={routes.home}
                     >
@@ -36,7 +37,8 @@ export default function Navbar({ accountLink }: { accountLink: ReactNode }) {
                     </Link>
                 </div>
 
-                <div className="flex items-center gap-x-3 text-white sm:gap-x-4 lg:gap-x-6">
+                <div className="flex items-center gap-x-3 text-foreground sm:gap-x-4 lg:gap-x-6">
+                    <ColorModeToggle className="app-shell__color-mode" />
                     {socialLinks.map((profile) => (
                         <Link
                             aria-label={profile.platform}

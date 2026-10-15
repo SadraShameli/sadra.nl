@@ -1,3 +1,19 @@
+const TAILWIND_AT_RULES = [
+    'apply',
+    'custom-variant',
+    'utility',
+    'variant',
+    'layer',
+    'import',
+    'tailwind',
+    'responsive',
+    'screen',
+    'plugin',
+    'theme',
+    'page',
+    /^page:/,
+];
+
 const config = {
     customSyntax: 'postcss-scss',
     extends: 'stylelint-config-recommended-scss',
@@ -7,20 +23,7 @@ const config = {
         'at-rule-no-unknown': [
             true,
             {
-                ignoreAtRules: [
-                    'apply',
-                    'utility',
-                    'variant',
-                    'layer',
-                    'import',
-                    'tailwind',
-                    'responsive',
-                    'screen',
-                    'plugin',
-                    'theme',
-                    'page',
-                    /^page:/,
-                ],
+                ignoreAtRules: TAILWIND_AT_RULES,
             },
         ],
         'nesting-selector-no-missing-scoping-root': null,
@@ -50,20 +53,7 @@ const config = {
         'scss/at-rule-no-unknown': [
             true,
             {
-                ignoreAtRules: [
-                    'apply',
-                    'utility',
-                    'variant',
-                    'layer',
-                    'import',
-                    'tailwind',
-                    'responsive',
-                    'screen',
-                    'plugin',
-                    'theme',
-                    'page',
-                    /^page:/,
-                ],
+                ignoreAtRules: TAILWIND_AT_RULES,
             },
         ],
         'selector-class-pattern': [

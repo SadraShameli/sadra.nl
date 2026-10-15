@@ -103,6 +103,9 @@ export const apiRoutes = {
     },
     health: '/api/health',
     recording: (id: number | string) => `/api/recording/${id}` as const,
+    themeFont: (family: string) =>
+        `/api/theme/font?${new URLSearchParams({ family }).toString()}` as const,
+    themeFontPath: '/api/theme/font',
     trpc: '/api/trpc',
 } as const;
 
