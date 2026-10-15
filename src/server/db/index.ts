@@ -79,7 +79,9 @@ const pool =
             : PLACEHOLDER_DB_URL,
         connectionTimeoutMillis: 5000,
         idleTimeoutMillis: 30_000,
+        keepAlive: true,
         max: 20,
+        maxLifetimeSeconds: 60,
         ssl:
             databaseUrl && shouldUseSsl(databaseUrl)
                 ? { rejectUnauthorized: false }
