@@ -10,6 +10,8 @@ import {
 import {
     AccountReconstruction,
     createSizingAdvisor,
+    DAY_STOP_REASON_TEXT,
+    DayStopReason,
     DEFAULT_RULEBOOK,
     NO_PENDING_PAYOUT_COUNTS,
 } from '~/lib/prop-calculator/advisor';
@@ -60,14 +62,11 @@ function reportLinesFor(argv: string[]): string[] {
 }
 
 describe('prop advise places a live rung at the entered instrument and stop (PT-73c addendum B, N-94)', () => {
-    it('says a live rung cannot be placed when one contract at the entered stop risks more than the rung', () => {
+    it('offers no live rung and says the day is stopped when one contract at the entered stop risks more than any rung (PT-104 step 8)', () => {
         const lines = reportLinesFor([...LIVE_APEX_EOD, ...NQ_AT_300_POINTS]);
-        const rungLines = lines.filter((line) => line.startsWith('rung '));
 
-        expect(rungLines.length).toBeGreaterThan(0);
-        for (const line of rungLines) {
-            expect(line).toContain('cannot be placed');
-        }
+        expect(lines.filter((line) => line.startsWith('rung '))).toEqual([]);
+        expect(lines).toContain(DAY_STOP_REASON_TEXT[DayStopReason.NoLossRoom]);
     });
 
     it('says nothing when one live contract fits inside the rung', () => {

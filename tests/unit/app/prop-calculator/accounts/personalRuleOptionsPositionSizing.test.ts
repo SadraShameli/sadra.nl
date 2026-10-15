@@ -151,7 +151,7 @@ describe('personalAdvisorOptionsOf passes the entered instrument and stop to a f
         expect(options.positionSizing).toEqual(NQ_AT_20_POINTS);
     });
 
-    it('builds a live advisor whose daily card flags a rung below one contract at the entered stop (PT-73c addendum B)', () => {
+    it('builds a live advisor whose daily card sizes at the entered stop, offering no rung below one contract (PT-73c addendum B, PT-104 step 8)', () => {
         const { account, options } = optionsFor(
             LIVE_SNAPSHOT,
             NQ_AT_500_POINTS,
@@ -164,10 +164,8 @@ describe('personalAdvisorOptionsOf passes the entered instrument and stop to a f
         const card = build.advisor.dailyPlanCard();
 
         expect(card?.oneContractRisk).toBe(10_000);
-        expect(card?.rungs.length).toBeGreaterThan(0);
-        expect(card?.rungPlacements).toEqual(
-            card?.rungs.map(() => RungPlacement.BelowOneContract),
-        );
+        expect(card?.rungs).toEqual([]);
+        expect(card?.rungPlacements).toEqual([]);
     });
 
     it('never passes the entered stop to an evaluation advisor', () => {

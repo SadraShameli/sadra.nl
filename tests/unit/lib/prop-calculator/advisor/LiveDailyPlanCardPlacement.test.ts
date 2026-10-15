@@ -225,7 +225,7 @@ describe('the live sizing advisor feeds its entered instrument and stop to the c
         expect(card?.rungPlacements).toStrictEqual([RungPlacement.Placeable]);
     });
 
-    it('flags a live rung below one contract at the entered stop from the advisor', () => {
+    it('offers no live rung below one contract at the entered stop from the advisor (PT-104 step 8)', () => {
         const livePlan = buildTopStepLivePlan();
 
         const card = advisorFor(livePlan, livePlan.initialState(), {
@@ -234,10 +234,8 @@ describe('the live sizing advisor feeds its entered instrument and stop to the c
         }).dailyPlanCard();
 
         expect(card?.oneContractRisk).toBe(2000);
-        expect(card?.rungPlacements.length).toBeGreaterThan(0);
-        expect(card?.rungPlacements).toStrictEqual(
-            card?.rungs.map(() => RungPlacement.BelowOneContract),
-        );
+        expect(card?.rungs).toStrictEqual([]);
+        expect(card?.rungPlacements).toStrictEqual([]);
     });
 
     it('leaves the live card unchecked when no instrument and stop are entered', () => {
@@ -257,13 +255,18 @@ describe('the live sizing advisor feeds its entered instrument and stop to the c
     it('carries the placement flag on the advisor next-trade risk check', () => {
         const livePlan = buildTopStepLivePlan();
 
-        const result = advisorFor(livePlan, livePlan.initialState(), {
-            instrument: InstrumentSymbol.NQ,
-            stopPoints: 100,
+        const placed = advisorFor(livePlan, livePlan.initialState(), {
+            instrument: InstrumentSymbol.MNQ,
+            stopPoints: 20,
         }).checkNextTradeRisk(dollars(50), ZERO_DAY);
+        const unchecked = advisorFor(
+            livePlan,
+            livePlan.initialState(),
+        ).checkNextTradeRisk(dollars(50), ZERO_DAY);
 
-        expect(result?.documentedRungPlacement).toBe(
-            RungPlacement.BelowOneContract,
+        expect(placed?.documentedRungPlacement).toBe(RungPlacement.Placeable);
+        expect(unchecked?.documentedRungPlacement).toBe(
+            RungPlacement.NotChecked,
         );
     });
 });

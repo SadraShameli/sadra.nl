@@ -5,6 +5,7 @@ import {
     dollars,
     findFirm,
     FirmId,
+    InstrumentSymbol,
     type LiveAccountState,
     type LivePlan,
     MffuVariant,
@@ -14,6 +15,7 @@ import {
 } from '~/lib/prop-calculator';
 import {
     AssumptionKind,
+    DayStopReason,
     DEFAULT_RULEBOOK,
     LiveSizingAdvisor,
     NO_PERSONAL_CAPS,
@@ -47,9 +49,16 @@ function account(
     };
 }
 
-function advisorAt(reconstructed: ReconstructedLiveAccount): LiveSizingAdvisor {
+function advisorAt(
+    reconstructed: ReconstructedLiveAccount,
+    positionSizing?: {
+        readonly instrument: InstrumentSymbol;
+        readonly stopPoints: number;
+    },
+): LiveSizingAdvisor {
     return new LiveSizingAdvisor({
         account: reconstructed,
+        positionSizing,
         rulebook: DEFAULT_RULEBOOK,
         snapshotAsOf: '2026-09-26',
         substate: null,
@@ -84,6 +93,22 @@ describe('LiveSizingAdvisor (PT-19f, F-118, F-129)', () => {
             4000 * expectedPercent,
             6,
         );
+    });
+
+    it('sizes live rungs in whole contracts at an entered stop: a rung below one contract is no trade, never a sub-contract dollar amount (PT-104 step 8, PT-50 escalation)', () => {
+        const belowOneContract = advisorAt(account(), {
+            instrument: InstrumentSymbol.NQ,
+            stopPoints: 100,
+        }).dailyPlanCard();
+        const placeable = advisorAt(account(), {
+            instrument: InstrumentSymbol.MNQ,
+            stopPoints: 20,
+        }).dailyPlanCard();
+
+        expect(belowOneContract?.oneContractRisk).toBe(2000);
+        expect(belowOneContract?.rungs).toEqual([]);
+        expect(belowOneContract?.stopReason).toBe(DayStopReason.NoLossRoom);
+        expect(placeable?.rungs.length).toBeGreaterThan(0);
     });
 
     it('caps() reports the live affordable room', () => {

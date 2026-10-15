@@ -385,7 +385,7 @@ describe('LiveSizingAdvisor names why it offers the floor rung at zero cushion (
 
         const [reason] = advisor.assemble([]).differenceReasons;
 
-        expect(advisor.documented()?.rungs[0]?.risk).toBe(100);
+        expect(advisor.documented()?.rungs).toStrictEqual([]);
         expect(reason).toMatchObject({
             affordableRisk: 100,
             kind: DifferenceReason.LiveFloorMinimumTrade,
@@ -427,7 +427,7 @@ describe('LiveSizingAdvisor names why it offers the floor rung at zero cushion (
 
         const [reason] = advisor.assemble([]).differenceReasons;
 
-        expect(advisor.documented()?.rungs[0]?.risk).toBe(60);
+        expect(advisor.documented()?.rungs).toStrictEqual([]);
         expect(reason).toMatchObject({ affordableRisk: 60 });
     });
 

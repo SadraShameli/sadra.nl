@@ -4,7 +4,6 @@ import {
     type InstrumentSymbol,
     type LiveAccountState,
     type LivePlan,
-    ONE_CENT,
     resolveLiveAffordableRoom,
     resolveLiveFloorTradeRisk,
     resolvePositionSizing,
@@ -238,7 +237,9 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
                 liveCushionPercent: null,
                 personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
                 personalDll: personalDll,
-                placeableMinimum: ONE_CENT,
+                placeableMinimum: advisorPlaceableMinimum(
+                    this.input.positionSizing,
+                ),
                 stage: SizingStage.Live,
                 thresholdLocked: false,
             };
@@ -254,7 +255,9 @@ export class LiveSizingAdvisor extends SizingAdvisor<LiveRuleContext> {
             liveCushionPercent: livePlan.cushionPercentFor(state),
             personalCaps: personalCaps ?? NO_PERSONAL_CAPS,
             personalDll: personalDll,
-            placeableMinimum: ONE_CENT,
+            placeableMinimum: advisorPlaceableMinimum(
+                this.input.positionSizing,
+            ),
             stage: SizingStage.Live,
             thresholdLocked: state.thresholdLocked,
         };
