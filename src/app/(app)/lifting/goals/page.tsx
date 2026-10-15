@@ -37,7 +37,7 @@ export default function LiftingGoalsPage() {
 
 async function LiftingGoalsContent() {
     await requireSessionUser();
-    void api.lifting.settings.get.prefetch();
+    await api.lifting.settings.get.prefetch();
     return (
         <HydrateClient>
             <GoalsView />

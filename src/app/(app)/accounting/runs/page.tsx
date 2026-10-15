@@ -37,7 +37,7 @@ export default function RunsPage() {
 
 async function RunsContent() {
     await requireRootUser();
-    void api.accounting.credentials.list.prefetch();
+    await api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
             <RunsBrowser />

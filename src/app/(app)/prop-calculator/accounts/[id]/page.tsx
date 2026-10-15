@@ -47,22 +47,24 @@ async function PropAccountDetailContent({
         params,
         routes.propCalculator.accounts.detail,
     );
-    void api.propAccounts.externalFirm.list.prefetch();
-    void api.propAccounts.snapshot.listForAccount.prefetch({ id });
-    void api.propAccounts.payout.list.prefetch({ accountId: id });
-    void api.propAccounts.fee.list.prefetch({ accountId: id });
-    void api.propAccounts.event.listForAccount.prefetch({ id });
-    void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
-    void api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.copyGroup.list.prefetch();
-    void api.propAccounts.snapshot.latestTwoForAll.prefetch();
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
-    void api.propAccounts.decision.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.violation.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.bankroll.list.prefetch();
-    void api.propAccounts.rulebook.get.prefetch();
-    void api.propAccounts.decision.listForAccount.prefetch({ id });
+    await Promise.all([
+        api.propAccounts.externalFirm.list.prefetch(),
+        api.propAccounts.snapshot.listForAccount.prefetch({ id }),
+        api.propAccounts.payout.list.prefetch({ accountId: id }),
+        api.propAccounts.fee.list.prefetch({ accountId: id }),
+        api.propAccounts.event.listForAccount.prefetch({ id }),
+        api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT),
+        api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.copyGroup.list.prefetch(),
+        api.propAccounts.snapshot.latestTwoForAll.prefetch(),
+        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+        api.propAccounts.decision.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.violation.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.bankroll.list.prefetch(),
+        api.propAccounts.rulebook.get.prefetch(),
+        api.propAccounts.decision.listForAccount.prefetch({ id }),
+    ]);
     return (
         <HydrateClient>
             <AccountDetailView

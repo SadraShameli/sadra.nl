@@ -54,10 +54,12 @@ async function NewPropAccountContent({
             accountPrefillQuery(prefill),
         ),
     );
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
-    void api.propAccounts.copyGroup.list.prefetch();
-    void api.propAccounts.externalFirm.list.prefetch();
-    void api.propAccounts.round.list.prefetch();
+    await Promise.all([
+        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+        api.propAccounts.copyGroup.list.prefetch(),
+        api.propAccounts.externalFirm.list.prefetch(),
+        api.propAccounts.round.list.prefetch(),
+    ]);
     return (
         <HydrateClient>
             <AccountCreator

@@ -46,7 +46,7 @@ async function LiftingWorkoutDetailContent({
     const workout = await loadOrNotFound(() =>
         api.lifting.workout.get({ id: routeIdOrNotFound(id) }),
     );
-    void api.lifting.settings.get.prefetch();
+    await api.lifting.settings.get.prefetch();
     return (
         <HydrateClient>
             <WorkoutDetailView initial={workout} />

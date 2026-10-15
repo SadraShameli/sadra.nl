@@ -48,10 +48,12 @@ async function PropAccountsReviewContent() {
     await requireSessionUser(
         loginRedirectFor(routes.propCalculator.accounts.review),
     );
-    void api.propAccounts.account.list.prefetch({});
-    void api.propAccounts.snapshot.latestForAll.prefetch();
-    void api.propAccounts.decision.latestForAll.prefetch();
-    void api.propAccounts.rulebook.get.prefetch();
+    await Promise.all([
+        api.propAccounts.account.list.prefetch({}),
+        api.propAccounts.snapshot.latestForAll.prefetch(),
+        api.propAccounts.decision.latestForAll.prefetch(),
+        api.propAccounts.rulebook.get.prefetch(),
+    ]);
     return (
         <HydrateClient>
             <WeeklyReviewView />

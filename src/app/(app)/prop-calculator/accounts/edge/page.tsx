@@ -48,7 +48,7 @@ async function PropAccountsEdgeContent() {
     await requireSessionUser(
         loginRedirectFor(routes.propCalculator.accounts.edge),
     );
-    void api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
+    await api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
     return (
         <HydrateClient>
             <EdgeView />

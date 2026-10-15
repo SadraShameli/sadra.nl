@@ -37,7 +37,7 @@ export default function RulesPage() {
 
 async function RulesContent() {
     await requireRootUser();
-    void api.accounting.credentials.list.prefetch();
+    await api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
             <RulesManager />

@@ -37,7 +37,7 @@ export default function LiftingBodyPage() {
 
 async function LiftingBodyContent() {
     await requireSessionUser();
-    void api.lifting.settings.get.prefetch();
+    await api.lifting.settings.get.prefetch();
     return (
         <HydrateClient>
             <BodyView />

@@ -58,21 +58,23 @@ async function PropAccountsContent() {
     const user = await requireSessionUser(
         loginRedirectFor(routes.propCalculator.accounts.index),
     );
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
-    void api.propAccounts.externalFirm.list.prefetch();
-    void api.propAccounts.snapshot.latestTwoForAll.prefetch();
-    void api.propAccounts.copyGroup.list.prefetch();
-    void api.propAccounts.rulebook.get.prefetch();
-    void api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
-    void api.propAccounts.decision.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.violation.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.bankroll.list.prefetch();
-    void api.propAccounts.firmStatement.list.prefetch();
-    void api.propAccounts.round.list.prefetch();
-    void api.propAccounts.firmEngagement.list.prefetch();
-    void api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
+    await Promise.all([
+        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+        api.propAccounts.externalFirm.list.prefetch(),
+        api.propAccounts.snapshot.latestTwoForAll.prefetch(),
+        api.propAccounts.copyGroup.list.prefetch(),
+        api.propAccounts.rulebook.get.prefetch(),
+        api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT),
+        api.propAccounts.decision.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.violation.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.bankroll.list.prefetch(),
+        api.propAccounts.firmStatement.list.prefetch(),
+        api.propAccounts.round.list.prefetch(),
+        api.propAccounts.firmEngagement.list.prefetch(),
+        api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS),
+    ]);
     return (
         <HydrateClient>
             <OverviewView userId={user.id} />

@@ -37,7 +37,7 @@ export default function LedgersPage() {
 
 async function LedgersContent() {
     await requireRootUser();
-    void api.accounting.credentials.list.prefetch();
+    await api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
             <LedgersBrowser />

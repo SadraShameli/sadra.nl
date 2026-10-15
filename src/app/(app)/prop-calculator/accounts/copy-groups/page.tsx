@@ -43,12 +43,14 @@ async function PropAccountsCopyGroupsContent() {
     const user = await requireSessionUser(
         loginRedirectFor(routes.propCalculator.accounts.copyGroups),
     );
-    void api.propAccounts.copyGroup.list.prefetch();
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
-    void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
-    void api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.rulebook.get.prefetch();
-    void api.propAccounts.snapshot.latestForAll.prefetch();
+    await Promise.all([
+        api.propAccounts.copyGroup.list.prefetch(),
+        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+        api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT),
+        api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.rulebook.get.prefetch(),
+        api.propAccounts.snapshot.latestForAll.prefetch(),
+    ]);
     return (
         <HydrateClient>
             <CopyGroupsView userId={user.id} />

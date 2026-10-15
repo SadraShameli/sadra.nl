@@ -43,12 +43,14 @@ async function PropAccountsLedgerContent() {
     await requireSessionUser(
         loginRedirectFor(routes.propCalculator.accounts.ledger),
     );
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
-    void api.propAccounts.externalFirm.list.prefetch();
-    void api.propAccounts.payout.list.prefetch({});
-    void api.propAccounts.fee.list.prefetch({});
-    void api.propAccounts.bankroll.list.prefetch();
-    void api.propAccounts.firmStatement.list.prefetch();
+    await Promise.all([
+        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+        api.propAccounts.externalFirm.list.prefetch(),
+        api.propAccounts.payout.list.prefetch({}),
+        api.propAccounts.fee.list.prefetch({}),
+        api.propAccounts.bankroll.list.prefetch(),
+        api.propAccounts.firmStatement.list.prefetch(),
+    ]);
     return (
         <HydrateClient>
             <LedgerView />

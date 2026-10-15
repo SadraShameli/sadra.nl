@@ -46,11 +46,13 @@ async function EditPropAccountContent({
         params,
         routes.propCalculator.accounts.edit,
     );
-    void api.propAccounts.account.get.prefetch({ id });
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
-    void api.propAccounts.copyGroup.list.prefetch();
-    void api.propAccounts.externalFirm.list.prefetch();
-    void api.propAccounts.round.list.prefetch();
+    await Promise.all([
+        api.propAccounts.account.get.prefetch({ id }),
+        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+        api.propAccounts.copyGroup.list.prefetch(),
+        api.propAccounts.externalFirm.list.prefetch(),
+        api.propAccounts.round.list.prefetch(),
+    ]);
     return (
         <HydrateClient>
             <AccountEditor id={id} />

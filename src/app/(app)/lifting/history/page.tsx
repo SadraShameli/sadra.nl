@@ -44,7 +44,7 @@ async function LiftingHistoryContent() {
     from.setMonth(from.getMonth() - MONTHS_BACK);
     from.setHours(0, 0, 0, 0);
 
-    void api.lifting.workout.list.prefetch({ from, limit: 200, offset: 0 });
+    await api.lifting.workout.list.prefetch({ from, limit: 200, offset: 0 });
 
     return (
         <HydrateClient>

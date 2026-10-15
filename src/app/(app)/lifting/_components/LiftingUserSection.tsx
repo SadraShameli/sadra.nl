@@ -9,6 +9,6 @@ export async function LiftingUserSection({
     readonly children: ReactNode;
 }) {
     await requireSessionUser();
-    void api.lifting.settings.get.prefetch();
+    await api.lifting.settings.get.prefetch();
     return <HydrateClient>{children}</HydrateClient>;
 }

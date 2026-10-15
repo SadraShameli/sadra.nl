@@ -23,7 +23,9 @@ export async function openAccountPage(
     if (!parsedId.success) notFound();
     const id = parsedId.data.toLowerCase();
     const user = await requireSessionUser(loginRedirectFor(pageOf(id)));
-    void api.propAccounts.account.get.prefetch({ id });
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
+    await Promise.all([
+        api.propAccounts.account.get.prefetch({ id }),
+        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+    ]);
     return { id, userId: user.id };
 }

@@ -50,30 +50,31 @@ async function TradeAnalyticsContent() {
     const user = await requireSessionUser(routes.auth.login);
     const userId = user.id;
 
-    const plans = await db
-        .select({ id: tradingPlans.id, name: tradingPlans.name })
-        .from(tradingPlans)
-        .where(eq(tradingPlans.userId, userId));
-
-    const rows = await db
-        .select({
-            actualRiskTaken: tradeAssessments.actualRiskTaken,
-            answers: tradeAssessments.answers,
-            createdAt: tradeAssessments.createdAt,
-            executionDeviations: tradeAssessments.executionDeviations,
-            followedPlan: tradeAssessments.followedPlan,
-            grade: tradeAssessments.grade,
-            id: tradeAssessments.id,
-            outcome: tradeAssessments.outcome,
-            outcomeR: tradeAssessments.outcomeR,
-            planId: tradeAssessments.planId,
-            planSnapshot: tradeAssessments.planSnapshot,
-            result: tradeAssessments.result,
-            score: tradeAssessments.score,
-        })
-        .from(tradeAssessments)
-        .where(eq(tradeAssessments.userId, userId))
-        .orderBy(desc(tradeAssessments.createdAt));
+    const [plans, rows] = await Promise.all([
+        db
+            .select({ id: tradingPlans.id, name: tradingPlans.name })
+            .from(tradingPlans)
+            .where(eq(tradingPlans.userId, userId)),
+        db
+            .select({
+                actualRiskTaken: tradeAssessments.actualRiskTaken,
+                answers: tradeAssessments.answers,
+                createdAt: tradeAssessments.createdAt,
+                executionDeviations: tradeAssessments.executionDeviations,
+                followedPlan: tradeAssessments.followedPlan,
+                grade: tradeAssessments.grade,
+                id: tradeAssessments.id,
+                outcome: tradeAssessments.outcome,
+                outcomeR: tradeAssessments.outcomeR,
+                planId: tradeAssessments.planId,
+                planSnapshot: tradeAssessments.planSnapshot,
+                result: tradeAssessments.result,
+                score: tradeAssessments.score,
+            })
+            .from(tradeAssessments)
+            .where(eq(tradeAssessments.userId, userId))
+            .orderBy(desc(tradeAssessments.createdAt)),
+    ]);
 
     const assessments: LightAssessment[] = rows.map((r) => ({
         actualRiskTaken: r.actualRiskTaken,

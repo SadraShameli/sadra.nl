@@ -67,43 +67,44 @@ export default function ProfilePage({ searchParams }: PageProps<'/profile'>) {
     );
 }
 
+async function hasPasswordCredential(userId: string): Promise<boolean> {
+    const credentialFilter = and(
+        eq(account.userId, userId),
+        eq(account.providerId, 'credential'),
+    );
+    const [credential] = await db
+        .select({ password: account.password })
+        .from(account)
+        .where(credentialFilter)
+        .limit(1);
+    return Boolean(credential?.password);
+}
+
 async function ProfileContent({
     searchParams,
 }: Pick<PageProps<'/profile'>, 'searchParams'>) {
     const user = await requireSessionUser(routes.auth.login);
 
-    const rawParameters = await searchParams;
+    const isAdmin = isAdminOrAbove(resolveRole(user.email, user.role));
+    const [rawParameters, hasPassword, plans] = await Promise.all([
+        searchParams,
+        hasPasswordCredential(user.id),
+        loadTradingPlans(user.id),
+        ...(isAdmin
+            ? [
+                  api.device.listAdmin.prefetch(),
+                  api.location.listAdmin.prefetch(),
+                  api.sensor.listAdmin.prefetch(),
+                  api.user.notification.getMyPrefs.prefetch(),
+              ]
+            : []),
+    ]);
     const { error, success } = profileSearchSchema.parse(rawParameters);
-
-    const [credentialAccount] = await db
-        .select({ password: account.password })
-        .from(account)
-        .where(
-            and(
-                eq(account.userId, user.id),
-                eq(account.providerId, 'credential'),
-            ),
-        )
-        .limit(1);
-    const hasPassword = Boolean(credentialAccount?.password);
-
-    const plans = await loadTradingPlans(user.id);
 
     const { email, name } = user;
     const role = resolveRole(email, user.role);
-    const isAdmin = isAdminOrAbove(role);
     const isUserIsRoot = isRoot(role);
     const activeTab = normalizeProfileTab(rawParameters.tab, isAdmin);
-
-    const prefetches: Promise<unknown>[] = isAdmin
-        ? [
-              api.device.listAdmin.prefetch(),
-              api.location.listAdmin.prefetch(),
-              api.sensor.listAdmin.prefetch(),
-              api.user.notification.getMyPrefs.prefetch(),
-          ]
-        : [];
-    await Promise.all(prefetches);
 
     const accountTab: ReactNode = (
         <>

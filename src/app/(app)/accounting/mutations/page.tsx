@@ -37,7 +37,7 @@ export default function MutationsPage() {
 
 async function MutationsContent() {
     await requireRootUser();
-    void api.accounting.credentials.list.prefetch();
+    await api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
             <MutationsBrowser />

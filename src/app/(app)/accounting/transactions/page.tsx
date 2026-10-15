@@ -37,7 +37,7 @@ export default function TransactionsPage() {
 
 async function TransactionsContent() {
     await requireRootUser();
-    void api.accounting.credentials.list.prefetch();
+    await api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
             <TransactionsBrowser />

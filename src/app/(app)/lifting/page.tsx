@@ -39,7 +39,7 @@ export default function LiftingTodayPage() {
 
 async function LiftingTodayContent() {
     await requireSessionUser();
-    void api.lifting.settings.get.prefetch();
+    await api.lifting.settings.get.prefetch();
     return (
         <HydrateClient>
             <TodayHero />

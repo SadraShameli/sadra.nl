@@ -45,7 +45,7 @@ async function PropRulebookContent() {
     const user = await requireSessionUser(
         loginRedirectFor(routes.propCalculator.accounts.rulebook),
     );
-    void api.propAccounts.rulebook.get.prefetch();
+    await api.propAccounts.rulebook.get.prefetch();
     const tradingPlan = tradingPlanSourceFrom(
         await loadActiveTradingPlan(user.id),
     );

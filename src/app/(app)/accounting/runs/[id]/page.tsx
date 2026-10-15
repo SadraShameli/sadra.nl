@@ -51,7 +51,7 @@ async function AccountingRunDetailContent({
     const run = await loadOrNotFound(() =>
         api.accounting.runs.get({ id: routeIdOrNotFound(id) }),
     );
-    void api.accounting.credentials.list.prefetch();
+    await api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
             <RunDetail initial={run} />

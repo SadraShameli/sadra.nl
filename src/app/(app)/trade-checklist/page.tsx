@@ -55,14 +55,15 @@ async function TradeChecklistContent() {
     const user = await requireSessionUser(routes.auth.login);
     const userId = user.id;
 
-    const plans = await loadTradingPlans(userId);
-
-    const historyRows = await db
-        .select()
-        .from(tradeAssessments)
-        .where(eq(tradeAssessments.userId, userId))
-        .orderBy(desc(tradeAssessments.createdAt))
-        .limit(50);
+    const [plans, historyRows] = await Promise.all([
+        loadTradingPlans(userId),
+        db
+            .select()
+            .from(tradeAssessments)
+            .where(eq(tradeAssessments.userId, userId))
+            .orderBy(desc(tradeAssessments.createdAt))
+            .limit(50),
+    ]);
 
     const history = z.array(tradeAssessmentRowSchema).parse(historyRows);
 

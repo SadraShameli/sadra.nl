@@ -43,8 +43,10 @@ async function PropAccountsImportContent() {
     await requireSessionUser(
         loginRedirectFor(routes.propCalculator.accounts.import),
     );
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
-    void api.propAccounts.externalFirm.list.prefetch();
+    await Promise.all([
+        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+        api.propAccounts.externalFirm.list.prefetch(),
+    ]);
     return (
         <HydrateClient>
             <ImportView />

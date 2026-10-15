@@ -53,13 +53,15 @@ async function PropAccountsRoundsContent() {
     await requireSessionUser(
         loginRedirectFor(routes.propCalculator.accounts.rounds),
     );
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
-    void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
-    void api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.round.list.prefetch();
-    void api.propAccounts.externalFirm.list.prefetch();
-    void api.propAccounts.rulebook.get.prefetch();
+    await Promise.all([
+        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+        api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT),
+        api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT),
+        api.propAccounts.round.list.prefetch(),
+        api.propAccounts.externalFirm.list.prefetch(),
+        api.propAccounts.rulebook.get.prefetch(),
+    ]);
     return (
         <HydrateClient>
             <RoundsView />

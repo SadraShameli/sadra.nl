@@ -49,16 +49,17 @@ async function TradeJournalContent() {
     const user = await requireSessionUser(routes.auth.login);
     const userId = user.id;
 
-    const plans = await db
-        .select({ id: tradingPlans.id, name: tradingPlans.name })
-        .from(tradingPlans)
-        .where(eq(tradingPlans.userId, userId));
-
-    const rawRows = await db
-        .select()
-        .from(tradeAssessments)
-        .where(eq(tradeAssessments.userId, userId))
-        .orderBy(desc(tradeAssessments.createdAt));
+    const [plans, rawRows] = await Promise.all([
+        db
+            .select({ id: tradingPlans.id, name: tradingPlans.name })
+            .from(tradingPlans)
+            .where(eq(tradingPlans.userId, userId)),
+        db
+            .select()
+            .from(tradeAssessments)
+            .where(eq(tradeAssessments.userId, userId))
+            .orderBy(desc(tradeAssessments.createdAt)),
+    ]);
 
     const history = z.array(tradeAssessmentRowSchema).parse(rawRows);
 
