@@ -73,10 +73,7 @@ export function Stepper({
     orientation = 'horizontal',
     value,
 }: StepperProperties) {
-    const context = React.useMemo(
-        () => ({ orientation, value }),
-        [orientation, value],
-    );
+    const context = { orientation, value };
     return (
         <StepperContext.Provider value={context}>
             <ol
@@ -160,10 +157,7 @@ export function StepperItem({
         : isActive
           ? 'active'
           : 'inactive';
-    const itemContext = React.useMemo(
-        () => ({ loading, state, step }),
-        [loading, state, step],
-    );
+    const itemContext = { loading, state, step };
     return (
         <StepperItemContext.Provider value={itemContext}>
             <li

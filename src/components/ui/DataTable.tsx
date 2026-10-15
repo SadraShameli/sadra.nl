@@ -14,7 +14,6 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from 'lucide-react';
 import { Fragment, useState } from 'react';
 
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-
 import {
     DATA_TABLE_ALIGN_CLASS_NAME,
     DataTableAlign,
@@ -86,7 +85,6 @@ export type DataTableProperties<TData extends RowData> = {
     initialSorting?: SortingState;
     isLoading?: boolean;
     onResetFilters?: () => void;
-    search?: DataTableSearch;
     onRowSelectionChange?: (rows: TData[]) => void;
     onSortingChange?: (sorting: SortingState) => void;
     pageSize?: null | number;
@@ -94,6 +92,7 @@ export type DataTableProperties<TData extends RowData> = {
     rowClassName?: (row: TData) => string | undefined;
     rowId?: (row: TData) => string;
     rowSelection?: boolean;
+    search?: DataTableSearch;
     serverPagination?: DataTableServerPagination;
     showFilter?: boolean;
     skeletonRows?: number;
@@ -117,7 +116,6 @@ export function DataTable<TData extends RowData>({
     initialSorting,
     isLoading,
     onResetFilters,
-    search,
     onRowSelectionChange,
     onSortingChange,
     pageSize = 10,
@@ -125,6 +123,7 @@ export function DataTable<TData extends RowData>({
     rowClassName,
     rowId,
     rowSelection: enableSelection = false,
+    search,
     serverPagination,
     showFilter = false,
     skeletonRows = 5,

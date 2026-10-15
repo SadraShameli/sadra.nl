@@ -142,7 +142,7 @@ const ChartTooltipContent = React.forwardRef<
     ) => {
         const { config } = useChart();
 
-        const tooltipLabel = React.useMemo(() => {
+        function tooltipLabelOf() {
             if (hideLabel || !payload?.length) {
                 return null;
             }
@@ -168,26 +168,20 @@ const ChartTooltipContent = React.forwardRef<
             return value ? (
                 <div className={cn('font-medium', labelClassName)}>{value}</div>
             ) : null;
-        }, [
-            label,
-            labelFormatter,
-            payload,
-            hideLabel,
-            labelClassName,
-            config,
-            labelKey,
-        ]);
+        }
 
         if (!active || !payload?.length) {
             return null;
         }
+
+        const tooltipLabel = tooltipLabelOf();
 
         const isNestLabel = payload.length === 1 && indicator !== 'dot';
 
         return (
             <div
                 className={cn(
-                    'grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl',
+                    'grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl',
                     className,
                 )}
                 ref={reference}

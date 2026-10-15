@@ -28,6 +28,7 @@ interface DatePickerProperties {
 
 interface DateRangePickerProperties {
     align?: 'center' | 'end' | 'start';
+    'aria-label'?: string;
     className?: string;
     disabled?: boolean;
     id?: string;
@@ -93,6 +94,7 @@ export function DatePicker({
 
 export function DateRangePicker({
     align = 'start',
+    'aria-label': ariaLabel,
     className,
     disabled,
     id,
@@ -115,6 +117,7 @@ export function DateRangePicker({
         <Popover>
             <PopoverTrigger asChild>
                 <Button
+                    aria-label={ariaLabel}
                     className={cn(
                         'justify-start gap-2 font-normal',
                         !value?.from && 'text-muted-foreground',

@@ -1,6 +1,6 @@
 import { type ReactNode, ViewTransition } from 'react';
 
-export enum PageTransitionClass {
+enum PageTransitionClass {
     Fade = 'page-fade',
 }
 

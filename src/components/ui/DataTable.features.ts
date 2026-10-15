@@ -140,6 +140,10 @@ export type DataTableSlot<TData extends RowData> =
 export function hasActiveTableFilter<TData extends RowData>(
     table: Table<typeof dataTableFeatures, TData>,
 ): boolean {
-    const { columnFilters, globalFilter } = table.store.state;
-    return columnFilters.length > 0 || Boolean(globalFilter);
+    const { columnFilters } = table.store.state;
+    const globalFilter: unknown = table.store.state.globalFilter;
+    return (
+        columnFilters.length > 0 ||
+        (typeof globalFilter === 'string' && globalFilter !== '')
+    );
 }

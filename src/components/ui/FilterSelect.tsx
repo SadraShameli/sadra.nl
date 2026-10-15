@@ -1,12 +1,6 @@
 'use client';
 
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 
 const ALL_VALUE = '__all__';
 
@@ -17,6 +11,8 @@ export type FilterSelectOption = {
 };
 
 export type FilterSelectProperties = {
+    disabled?: boolean;
+    id?: string;
     label?: string;
     onValueChange: (value: string | undefined) => void;
     options: readonly FilterSelectOption[];
@@ -25,6 +21,8 @@ export type FilterSelectProperties = {
 };
 
 export function FilterSelect({
+    disabled,
+    id,
     label,
     onValueChange,
     options,
@@ -32,29 +30,28 @@ export function FilterSelect({
     value,
 }: FilterSelectProperties) {
     return (
-        <Select
+        <ToolbarSelect
+            disabled={disabled}
+            id={id}
+            label={label ?? placeholder}
             onValueChange={(next) =>
                 onValueChange(next === ALL_VALUE ? undefined : next)
             }
+            options={[
+                { label: placeholder, value: ALL_VALUE },
+                ...options.map((option) => ({
+                    label:
+                        option.count === undefined ? (
+                            option.label
+                        ) : (
+                            <>
+                                {option.label} ({String(option.count)})
+                            </>
+                        ),
+                    value: option.value,
+                })),
+            ]}
             value={value ?? ALL_VALUE}
-        >
-            <SelectTrigger
-                aria-label={label ?? placeholder}
-                className="h-8 w-full shrink-0 text-xs md:w-auto md:max-w-64 md:min-w-40"
-            >
-                <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value={ALL_VALUE}>{placeholder}</SelectItem>
-                {options.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                        {option.count === undefined
-                            ? null
-                            : ` (${String(option.count)})`}
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
+        />
     );
 }

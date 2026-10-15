@@ -1,5 +1,18 @@
 import { act } from 'react';
 
+export function ariaLabelledSelect(
+    scope: ParentNode,
+    labelText: string,
+): HTMLButtonElement {
+    const trigger = [...scope.querySelectorAll('button[role="combobox"]')].find(
+        (candidate) => candidate.getAttribute('aria-label') === labelText,
+    );
+    if (!(trigger instanceof HTMLButtonElement)) {
+        throw new TypeError(`no select labelled ${labelText}`);
+    }
+    return trigger;
+}
+
 export function labelledControl<T extends HTMLElement>(
     scope: ParentNode,
     labelText: string,
