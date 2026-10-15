@@ -708,7 +708,7 @@ function SectionHeader({
 }) {
     return (
         <div className="flex items-center gap-2">
-            <Eyebrow as="h4">{title}</Eyebrow>
+            <Eyebrow as="h3">{title}</Eyebrow>
             <InfoPopover title={title}>{description}</InfoPopover>
         </div>
     );

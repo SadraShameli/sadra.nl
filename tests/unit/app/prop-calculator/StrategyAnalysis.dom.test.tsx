@@ -67,6 +67,23 @@ describe('StrategyAnalysis edge leverage and net R to pass (F-V9, PT-61b)', () =
         expect(container.textContent).toContain(`${leverage.toFixed(2)}×`);
     });
 
+    it('titles its groups as h3, one level under the analysis page h2 it sits in', () => {
+        const baseInputs = inputsOf();
+        const result = simulate(baseInputs);
+        act(() => {
+            root.render(
+                <StrategyAnalysis baseInputs={baseInputs} result={result} />,
+            );
+        });
+        const headings = [
+            ...container.querySelectorAll('h1, h2, h3, h4, h5, h6'),
+        ];
+        expect(headings.map((heading) => heading.tagName)).toContain('H3');
+        expect(
+            headings.every((heading) => heading.tagName === 'H3'),
+        ).toBe(true);
+    });
+
     it('shows net R to pass from the required-R economics helper', () => {
         const baseInputs = inputsOf();
         const result = simulate(baseInputs);
