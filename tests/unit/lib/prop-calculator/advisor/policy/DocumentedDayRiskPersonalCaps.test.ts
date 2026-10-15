@@ -33,6 +33,8 @@ import {
 } from '~/lib/prop-calculator/advisor/policy';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
+import { withFreshFundedCycle } from '../../freshFundedCycle';
+
 function registryPlan(id: PlanId): Plan {
     const firm = ALL_FIRMS.find((candidate) => candidate.id === id.firm);
     const plan = firm?.findPlan(id);
@@ -99,15 +101,12 @@ function placedFundedDay(
     limits: PersonalLimitsInput,
     isWin: boolean,
 ): PlacedFundedDay {
-    const risk = documentedDayRisk(
-        apexEod,
-        SizingStage.Funded,
-        DEFAULT_RULEBOOK,
-        {
+    const risk = withFreshFundedCycle(
+        documentedDayRisk(apexEod, SizingStage.Funded, DEFAULT_RULEBOOK, {
             ...policyWith(limits),
             instrument: InstrumentSymbol.NQ,
             stopPoints: 10,
-        },
+        }),
     );
     const positionSizing = resolvePositionSizing(InstrumentSymbol.NQ, 10);
     const state = fundedStateOf();
@@ -245,22 +244,29 @@ describe('documentedDayRisk applies the personal caps the advice panel applies (
     });
 
     it('caps the funded flat risk at the personal max risk per trade', () => {
-        const risk = documentedDayRisk(
-            apexEod,
-            SizingStage.Funded,
-            DEFAULT_RULEBOOK,
-            policyWith({ caps: { maxRiskPerTrade: dollars(100) } }),
+        const cappedPolicy = policyWith({
+            caps: { maxRiskPerTrade: dollars(100) },
+        });
+        const risk = withFreshFundedCycle(
+            documentedDayRisk(
+                apexEod,
+                SizingStage.Funded,
+                DEFAULT_RULEBOOK,
+                cappedPolicy,
+            ),
         );
 
         expect(allLossDay(risk, fundedStateOf())).toEqual([100, 100, 100, 100]);
     });
 
     it('stops the funded day at the personal max trades per day', () => {
-        const risk = documentedDayRisk(
-            apexEod,
-            SizingStage.Funded,
-            DEFAULT_RULEBOOK,
-            policyWith({ caps: { maxTradesPerDay: 2 } }),
+        const risk = withFreshFundedCycle(
+            documentedDayRisk(
+                apexEod,
+                SizingStage.Funded,
+                DEFAULT_RULEBOOK,
+                policyWith({ caps: { maxTradesPerDay: 2 } }),
+            ),
         );
 
         expect(allLossDay(risk, fundedStateOf())).toEqual([250, 250]);
@@ -268,11 +274,13 @@ describe('documentedDayRisk applies the personal caps the advice panel applies (
 
     it('applies the personal daily loss limit to the funded rungs', () => {
         const limits = { dll: dollars(400) };
-        const risk = documentedDayRisk(
-            apexEod,
-            SizingStage.Funded,
-            DEFAULT_RULEBOOK,
-            policyWith(limits),
+        const risk = withFreshFundedCycle(
+            documentedDayRisk(
+                apexEod,
+                SizingStage.Funded,
+                DEFAULT_RULEBOOK,
+                policyWith(limits),
+            ),
         );
 
         const simulated = allLossDay(risk, fundedStateOf());

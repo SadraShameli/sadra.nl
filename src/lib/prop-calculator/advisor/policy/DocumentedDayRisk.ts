@@ -1,9 +1,11 @@
 import { createDocumentedRule } from '~/lib/prop-calculator/advisor/createDocumentedRule';
+import { type DocumentedDayPlan } from '~/lib/prop-calculator/advisor/DocumentedRule';
 import {
     type NextTrade,
     NextTradeKind,
     SizingConstraint,
 } from '~/lib/prop-calculator/advisor/DocumentedSizing';
+import { fundedConsistencyStatusAt } from '~/lib/prop-calculator/advisor/FundedConsistencyCeiling';
 import { NO_PERSONAL_CAPS } from '~/lib/prop-calculator/advisor/PersonalCaps';
 import { placeableMinimumFor } from '~/lib/prop-calculator/advisor/PlaceableMinimum';
 import { type RulebookParameters } from '~/lib/prop-calculator/advisor/Rulebook';
@@ -12,6 +14,7 @@ import {
     type EvalRuleContext,
     type FundedRuleContext,
     type PlanPhaseStage,
+    type RuleContext,
     ruleContextAt,
     type RuleContextCaps,
 } from '~/lib/prop-calculator/advisor/RuleContext';
@@ -22,6 +25,7 @@ import {
     type Dollars,
     dollars,
     floorToWholeCents,
+    type FundedCycleSnapshot,
     ONE_CENT,
     oneContractRisk,
     type Plan,
@@ -53,6 +57,7 @@ export const DOCUMENTED_POLICY_DISCLOSURE_TEXT: Readonly<
 
 interface DayMemo {
     readonly context: EvalRuleContext | FundedRuleContext;
+    readonly dayPlan: DocumentedDayPlan<RuleContext>;
     readonly isPastTarget: boolean;
     readonly ledger: DayLedger;
 }
@@ -118,27 +123,53 @@ export function documentedDayRisk(
     const roundingPad = rulebook.strategy.rr * ONE_CENT;
     const smallestRisk = smallestPlaceableRisk(policy);
     const memos = new WeakMap<AccountState, DayMemo>();
+    const isCoversCommission = commission > 0 && stage === SizingStage.Eval;
     const coveredTrade = (memo: DayMemo, first?: NextTrade): number => {
-        const cover =
-            commission > 0
-                ? commission * (memo.ledger.tradesSeen + 1) + roundingPad
-                : 0;
-        const trade =
-            cover === 0 && first !== undefined
-                ? first
-                : rule.nextTrade(
-                      withTargetCover(memo.context, cover),
-                      memo.ledger.progress,
-                  );
-        return riskOf(trade);
+        if (!isCoversCommission) {
+            return riskOf(
+                first ?? rule.nextTradeIn(memo.dayPlan, memo.ledger.progress),
+            );
+        }
+        const cover = commission * (memo.ledger.tradesSeen + 1) + roundingPad;
+        return riskOf(
+            rule.nextTrade(
+                withTargetCover(memo.context, cover),
+                memo.ledger.progress,
+            ),
+        );
     };
-    return (state, tradeIndexToday) => {
+    const hasFundedConsistency = plan.fundedConsistencyRule() !== null;
+    const capsAt = (
+        state: AccountState,
+        fundedCycle: FundedCycleSnapshot | undefined,
+    ): RuleContextCaps => {
+        if (!hasFundedConsistency || stage === SizingStage.Eval) return caps;
+        if (fundedCycle === undefined) {
+            throw new Error(
+                `documented day risk: ${plan.label} sized a funded day without the funded cycle snapshot its consistency ceiling needs`,
+            );
+        }
+        const { ceiling, note } = fundedConsistencyStatusAt(
+            plan,
+            state.balance,
+            fundedCycle,
+        );
+        return { ...caps, consistencyCeiling: ceiling, consistencyNote: note };
+    };
+    return (state, tradeIndexToday, fundedCycle) => {
         if (tradeIndexToday === 0) {
-            const context = ruleContextAt(plan, stage, state, caps);
+            const context = ruleContextAt(
+                plan,
+                stage,
+                state,
+                capsAt(state, fundedCycle),
+            );
             const ledger = new DayLedger(state.todayPnL);
-            const first = rule.nextTrade(context, ledger.progress);
+            const dayPlan = rule.planDay(context);
+            const first = rule.nextTradeIn(dayPlan, ledger.progress);
             const memo: DayMemo = {
                 context,
+                dayPlan,
                 isPastTarget: isTargetReached(first),
                 ledger,
             };

@@ -13,6 +13,7 @@ import {
     findFirm,
     FirmId,
     fraction,
+    type FundedCycleSnapshot,
     InstrumentSymbol,
     LucidVariant,
     PayoutRequestPolicy,
@@ -193,11 +194,31 @@ describe('documentedPolicyTimelineInputs (PT-48b, F-148)', () => {
 
     it('gives the same funded day policy as toSimInputs', () => {
         const spec = specOf();
+        const timeline = documentedPolicyTimelineInputs(
+            apexIntraday,
+            spec,
+            1,
+        ).fundedDayPolicy;
+        const sim = toSimInputs(apexIntraday, spec).fundedDayPolicy;
+        const state = apexIntraday.initialState();
+        apexIntraday.beginFundedPhase(state);
+        const cycle: FundedCycleSnapshot = {
+            cycleBestDayProfit: 100,
+            dayGateProgress: 3,
+            fundedResetsUsed: 0,
+            lastPayoutBalance: state.balance,
+            payoutsIssued: 0,
+        };
+        const dayState = { ...state, balance: state.balance + 600 };
 
-        expect(
-            documentedPolicyTimelineInputs(apexIntraday, spec, 1)
-                .fundedDayPolicy,
-        ).toEqual(toSimInputs(apexIntraday, spec).fundedDayPolicy);
+        expect(sim?.computeRisk).toBeDefined();
+        expect({ ...timeline, computeRisk: undefined }).toEqual({
+            ...sim,
+            computeRisk: undefined,
+        });
+        expect(timeline?.computeRisk?.(dayState, 0, cycle)).toBe(
+            sim?.computeRisk?.(dayState, 0, cycle),
+        );
     });
 
     it("carries the rulebook retained cushion, effective request and FullRequestOnly (TopStep's $2,000)", () => {

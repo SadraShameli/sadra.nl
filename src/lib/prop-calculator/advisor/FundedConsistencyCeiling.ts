@@ -1,7 +1,16 @@
-import { type Dollars } from '~/lib/prop-calculator/core';
+import {
+    type Dollars,
+    type FundedCycleSnapshot,
+    type Plan,
+} from '~/lib/prop-calculator/core';
 
 import { ConsistencyCeilingNote } from './DocumentedSizing';
 import { type ReconstructedFundedOrEvalAccount } from './ReconstructedAccount';
+
+type FundedConsistencyCycle = Pick<
+    FundedCycleSnapshot,
+    'cycleBestDayProfit' | 'lastPayoutBalance' | 'payoutsIssued'
+>;
 
 interface FundedConsistencyStatus {
     readonly ceiling: Dollars | null;
@@ -16,31 +25,40 @@ const NO_CONSISTENCY_LIMIT: FundedConsistencyStatus = {
 export function fundedConsistencyCeiling(
     account: ReconstructedFundedOrEvalAccount,
 ): Dollars | null {
-    return fundedConsistencyStatus(account).ceiling;
+    return fundedConsistencyStatusOf(account).ceiling;
 }
 
 export function fundedConsistencyNote(
     account: ReconstructedFundedOrEvalAccount,
 ): ConsistencyCeilingNote | null {
-    return fundedConsistencyStatus(account).note;
+    return fundedConsistencyStatusOf(account).note;
 }
 
-function fundedConsistencyStatus(
-    account: ReconstructedFundedOrEvalAccount,
+export function fundedConsistencyStatusAt(
+    plan: Plan,
+    balance: number,
+    cycle: FundedConsistencyCycle | null,
 ): FundedConsistencyStatus {
-    const { fundedTracker } = account;
-    if (fundedTracker === null) return NO_CONSISTENCY_LIMIT;
-    const rule = account.plan.fundedConsistencyRule(
-        fundedTracker.payoutsIssued,
-    );
+    if (cycle === null) return NO_CONSISTENCY_LIMIT;
+    const rule = plan.fundedConsistencyRule(cycle.payoutsIssued);
     if (rule === null) return NO_CONSISTENCY_LIMIT;
-    const cycleProfit = account.state.balance - fundedTracker.lastPayoutBalance;
+    const cycleProfit = balance - cycle.lastPayoutBalance;
     const ceiling = rule.maxDayProfitBeforeViolation(cycleProfit);
     if (!Number.isFinite(ceiling)) return NO_CONSISTENCY_LIMIT;
     if (cycleProfit <= 0) {
         return { ceiling: null, note: ConsistencyCeilingNote.FreshCycle };
     }
-    return fundedTracker.cycleBestDayProfit > ceiling
+    return cycle.cycleBestDayProfit > ceiling
         ? { ceiling: null, note: ConsistencyCeilingNote.AlreadyPushedOut }
         : { ceiling, note: null };
+}
+
+function fundedConsistencyStatusOf(
+    account: ReconstructedFundedOrEvalAccount,
+): FundedConsistencyStatus {
+    return fundedConsistencyStatusAt(
+        account.plan,
+        account.state.balance,
+        account.fundedTracker,
+    );
 }

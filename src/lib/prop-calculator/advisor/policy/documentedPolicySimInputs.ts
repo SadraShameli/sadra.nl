@@ -64,7 +64,7 @@ export function buildDocumentedDayPolicies(
             { kind: DayStopRuleKind.None },
             policySizingOf(TradingPhase.Eval),
         ),
-        fundedDayPolicy: hasDayLimits(enginePolicy)
+        fundedDayPolicy: isFundedDaySizedByRule(plan, enginePolicy)
             ? computedDayPolicy(
                   documentedDayRisk(
                       plan,
@@ -273,4 +273,11 @@ export function verifiedCumulativeTriggerOf(
     return tightestVerifiedCumulativeTrigger(
         accountPolicy?.liveTriggersFor(plan) ?? [],
     );
+}
+
+function isFundedDaySizedByRule(
+    plan: Plan,
+    enginePolicy: EnginePolicy,
+): boolean {
+    return hasDayLimits(enginePolicy) || plan.fundedConsistencyRule() !== null;
 }

@@ -244,6 +244,7 @@ export {
 export {
     fundedConsistencyCeiling,
     fundedConsistencyNote,
+    fundedConsistencyStatusAt,
 } from './FundedConsistencyCeiling';
 export { FundedFixedRiskRule } from './FundedFixedRiskRule';
 export {

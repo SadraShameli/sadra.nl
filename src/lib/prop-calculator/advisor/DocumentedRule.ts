@@ -39,6 +39,11 @@ import {
 import { assertSizingInvariant, assertTradeInvariant } from './SizingInvariant';
 import { SizingStage } from './SizingStage';
 
+export interface DocumentedDayPlan<TContext> {
+    readonly context: TContext;
+    readonly sizing: DocumentedSizing;
+}
+
 export const SHARED_ASSUMPTIONS: readonly SizingAssumption[] = [
     SizingAssumption.NoCommission,
     SizingAssumption.RungsAssumeEarlierLosses,
@@ -63,20 +68,28 @@ export abstract class DocumentedRule<
     }
 
     nextTrade(context: TContext, day: DayProgress): NextTrade {
-        const parsed = this.contextSchema.parse(context);
+        return this.nextTradeIn(this.planDay(context), day);
+    }
+
+    nextTradeIn(
+        plan: DocumentedDayPlan<TContext>,
+        day: DayProgress,
+    ): NextTrade {
         const progress = dayProgressSchema.parse(day);
-        const sizing = this.size(parsed);
-        const sizingContext = this.sizingContext(parsed);
-        const trade = this.tradeAfter(sizingContext, progress, sizing);
-        assertTradeInvariant(trade, sizing, sizingContext, progress);
+        const trade = this.tradeAfter(plan.context, progress, plan.sizing);
+        assertTradeInvariant(trade, plan.sizing, plan.context, progress);
         return trade;
     }
 
-    size(context: TContext): DocumentedSizing {
+    planDay(context: TContext): DocumentedDayPlan<TContext> {
         const parsed = this.sizingContext(this.contextSchema.parse(context));
         const sizing = this.sizeWithin(parsed);
         assertSizingInvariant(sizing, parsed);
-        return sizing;
+        return { context: parsed, sizing };
+    }
+
+    size(context: TContext): DocumentedSizing {
+        return this.planDay(context).sizing;
     }
 
     protected sizingContext(context: TContext): TContext {

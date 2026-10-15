@@ -26,6 +26,8 @@ import {
 } from '~/lib/prop-calculator/advisor/policy';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
+import { withFreshFundedCycle } from '../freshFundedCycle';
+
 const rule = new FundedFixedRiskRule(DEFAULT_RULEBOOK);
 
 const NQ_CONTRACT_AT_20_POINTS = dollars(400);
@@ -149,15 +151,12 @@ describe('the simulator keeps refusing a flat rung below one contract (PT-36f re
         const plan = registryPlan();
         const state = plan.initialState();
         plan.beginFundedPhase(state);
-        const risk = documentedDayRisk(
-            plan,
-            SizingStage.Funded,
-            DEFAULT_RULEBOOK,
-            {
+        const risk = withFreshFundedCycle(
+            documentedDayRisk(plan, SizingStage.Funded, DEFAULT_RULEBOOK, {
                 ...policy,
                 instrument: InstrumentSymbol.NQ,
                 stopPoints: 20,
-            },
+            }),
         );
 
         expect(risk(state, 0)).toBe(0);
@@ -167,15 +166,12 @@ describe('the simulator keeps refusing a flat rung below one contract (PT-36f re
         const plan = registryPlan();
         const state = plan.initialState();
         plan.beginFundedPhase(state);
-        const risk = documentedDayRisk(
-            plan,
-            SizingStage.Funded,
-            DEFAULT_RULEBOOK,
-            {
+        const risk = withFreshFundedCycle(
+            documentedDayRisk(plan, SizingStage.Funded, DEFAULT_RULEBOOK, {
                 ...policy,
                 instrument: InstrumentSymbol.MNQ,
                 stopPoints: 20,
-            },
+            }),
         );
 
         expect(risk(state, 0)).toBe(FLAT_RUNG);

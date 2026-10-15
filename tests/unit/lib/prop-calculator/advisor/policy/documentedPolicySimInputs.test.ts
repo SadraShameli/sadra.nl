@@ -97,6 +97,7 @@ const mffPro = registryPlan({
 
 const SEED = 42;
 const TRIALS = 200;
+const COMMISSION_TRIALS = 1000;
 const HORIZON_DAYS = 60;
 const EVAL_DAYS = 60;
 
@@ -118,6 +119,14 @@ interface OutputPin {
     readonly expectedNet: number;
     readonly expectedPayoutCount: number;
     readonly fundedBustProbability: number;
+}
+
+function commissionSpecOf(
+    policy: Partial<EnginePolicy>,
+    rulebook: RulebookParameters,
+): DocumentedPolicySpec {
+    const spec = specOf({ ...policy, fundedHorizonDays: 1 }, rulebook);
+    return { ...spec, run: { ...spec.run, trials: COMMISSION_TRIALS } };
 }
 
 function flatFundedReference(
@@ -222,6 +231,47 @@ const INSTANT_FUNDED_PINS: ReadonlyArray<
     ],
 ];
 
+const LUCID_DIRECT_CEILING_PINS: ReadonlyArray<
+    readonly [string, Pick<SimInputs, 'instrument' | 'stopPoints'>, OutputPin]
+> = [
+    [
+        'unsized',
+        UNSIZED,
+        {
+            averageRiskPerTrade: 249.63814374385447,
+            expectedGrossPayout: 389.25,
+            expectedMonthlyNet: 76.31932567798681,
+            expectedNet: -125.75,
+            expectedPayoutCount: 0.865,
+            fundedBustProbability: 0.39,
+        },
+    ],
+    [
+        'NQ at 10 points',
+        NQ_10,
+        {
+            averageRiskPerTrade: 200,
+            expectedGrossPayout: 420.75,
+            expectedMonthlyNet: 95.12157586949832,
+            expectedNet: -94.25,
+            expectedPayoutCount: 0.935,
+            fundedBustProbability: 0.27,
+        },
+    ],
+    [
+        'MNQ at 10 points',
+        MNQ_10,
+        {
+            averageRiskPerTrade: 239.11956916374197,
+            expectedGrossPayout: 357.75,
+            expectedMonthlyNet: 58.05288461538461,
+            expectedNet: -157.25,
+            expectedPayoutCount: 0.795,
+            fundedBustProbability: 0.395,
+        },
+    ],
+];
+
 const APEX_EOD_FLAT_EVAL_PIN: OutputPin & {
     readonly evalPassProbability: number;
 } = {
@@ -302,7 +352,7 @@ describe('step 1 pins (PD-31, captured from the working tree on 2026-09-26)', ()
 
 describe('toSimInputs: funded flat policy (PT-48a, F-148)', () => {
     it('declares the funded day policy exactly as resolveDayPolicy builds it from fundedRiskPerTrade', () => {
-        const inputs = toSimInputs(lucidDirect, specOf());
+        const inputs = toSimInputs(topStep, specOf());
         const { funded } = DEFAULT_RULEBOOK;
 
         expect(inputs.fundedDayPolicy).toEqual(
@@ -340,16 +390,32 @@ describe('toSimInputs: funded flat policy (PT-48a, F-148)', () => {
     });
 
     it.each(INSTANT_FUNDED_PINS)(
-        'simulate(toSimInputs) on an instant-funded plan deep-equals the flat reference and its pin, %s',
-        (_label, sizing, pin) => {
-            const documented = simulate(
-                toSimInputs(lucidDirect, specOf(sizing)),
-            );
+        'simulate(toSimInputs) on a plan without a funded consistency rule deep-equals the flat reference sharing its eval policy, %s',
+        (_label, sizing) => {
+            const inputs = toSimInputs(topStep, specOf(sizing));
 
-            expect(documented).toEqual(
+            expect(topStep.fundedConsistencyRule()).toBeNull();
+            expect(simulate(inputs)).toEqual(
+                simulate({
+                    ...flatFundedReference(topStep, sizing),
+                    evalDayPolicy: inputs.evalDayPolicy,
+                    payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
+                }),
+            );
+        },
+    );
+
+    it.each(LUCID_DIRECT_CEILING_PINS)(
+        'simulate(toSimInputs) on instant-funded Lucid Direct follows its funded consistency ceiling instead of the flat reference (PT-119), %s',
+        (_label, sizing, pin) => {
+            const inputs = toSimInputs(lucidDirect, specOf(sizing));
+            const documented = pinOf(simulate(inputs));
+            const flat = pinOf(
                 simulate(flatFundedReference(lucidDirect, sizing)),
             );
-            expect(pinOf(documented)).toEqual(pin);
+
+            expect(documented).not.toEqual(flat);
+            expect(documented).toEqual(pin);
         },
     );
 
@@ -451,11 +517,13 @@ describe('toSimInputs: documented eval policy', () => {
     ] as const)(
         'still passes evals at a $4.50 commission, close to the zero-commission run, %s',
         (_label, rulebook) => {
-            const free = simulate(toSimInputs(apexEod, specOf({}, rulebook)));
+            const free = simulate(
+                toSimInputs(apexEod, commissionSpecOf({}, rulebook)),
+            );
             const charged = simulate(
                 toSimInputs(
                     apexEod,
-                    specOf({ commissionPerRoundTrip: 4.5 }, rulebook),
+                    commissionSpecOf({ commissionPerRoundTrip: 4.5 }, rulebook),
                 ),
             );
 

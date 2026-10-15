@@ -33,6 +33,8 @@ import {
 } from '~/lib/prop-calculator/advisor/policy';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
+import { withFreshFundedCycle } from '../../freshFundedCycle';
+
 const EM_DASH = String.fromCodePoint(0x20_14);
 
 function registryPlan(id: PlanId): Plan {
@@ -473,11 +475,13 @@ describe('documentedDayRisk: funded stage', () => {
     it('trades the rulebook funded risk on every rung', () => {
         const state = apexEod.initialState();
         apexEod.beginFundedPhase(state);
-        const risk = documentedDayRisk(
-            apexEod,
-            SizingStage.Funded,
-            DEFAULT_RULEBOOK,
-            POLICY,
+        const risk = withFreshFundedCycle(
+            documentedDayRisk(
+                apexEod,
+                SizingStage.Funded,
+                DEFAULT_RULEBOOK,
+                POLICY,
+            ),
         );
 
         expect(allLossDay(risk, state)).toEqual([250, 250, 250, 250]);

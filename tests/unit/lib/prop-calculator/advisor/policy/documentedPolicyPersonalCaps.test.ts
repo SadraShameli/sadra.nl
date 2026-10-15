@@ -13,6 +13,7 @@ import {
     type Points,
     points,
     SIM_INPUTS_REFUSAL_PREFIX,
+    TopStepVariant,
 } from '~/lib/prop-calculator';
 import {
     buildEnginePolicy,
@@ -30,6 +31,8 @@ import {
 } from '~/lib/prop-calculator/advisor/policy';
 import { findFirm } from '~/lib/prop-calculator/firms';
 
+import { withFreshFundedCycle } from '../../freshFundedCycle';
+
 function planOf(variant: ApexVariant): Plan {
     const id = { accountSize: 50_000, firm: FirmId.Apex, variant } as const;
     const found = findFirm(FirmId.Apex)?.findPlan(id);
@@ -37,8 +40,16 @@ function planOf(variant: ApexVariant): Plan {
     return found;
 }
 
+function topStepPlanOf(variant: TopStepVariant): Plan {
+    const id = { accountSize: 50_000, firm: FirmId.TopStep, variant } as const;
+    const found = findFirm(FirmId.TopStep)?.findPlan(id);
+    if (!found) throw new Error(`TopStep ${variant} 50K plan missing`);
+    return found;
+}
+
 const apexIntraday = planOf(ApexVariant.Intraday);
 const apexEod = planOf(ApexVariant.Eod);
+const topStepStandard = topStepPlanOf(TopStepVariant.StandardStandard);
 
 interface Limits {
     readonly caps?: Partial<PersonalCaps>;
@@ -157,7 +168,10 @@ describe('toSimInputs simulates the documented day at the personal limits (PT-68
     });
 
     it('keeps the funded day a flat ladder when no personal limit is set', () => {
-        const inputs = toSimInputs(apexEod, specOf(apexEod, {}));
+        const inputs = toSimInputs(
+            topStepStandard,
+            specOf(topStepStandard, {}),
+        );
 
         expect(inputs.fundedDayPolicy?.computeRisk).toBeUndefined();
         expect(inputs.fundedDayPolicy?.ladder).toEqual([250, 250, 250, 250]);
@@ -166,8 +180,10 @@ describe('toSimInputs simulates the documented day at the personal limits (PT-68
 
     it('caps the funded ladder at the personal max risk on the flat policy', () => {
         const inputs = toSimInputs(
-            apexEod,
-            specOf(apexEod, { caps: { maxRiskPerTrade: dollars(100) } }),
+            topStepStandard,
+            specOf(topStepStandard, {
+                caps: { maxRiskPerTrade: dollars(100) },
+            }),
         );
 
         expect(inputs.fundedDayPolicy?.computeRisk).toBeUndefined();
@@ -177,8 +193,8 @@ describe('toSimInputs simulates the documented day at the personal limits (PT-68
 
     it('limits the flat funded ladder to the personal max trades per day', () => {
         const inputs = toSimInputs(
-            apexEod,
-            specOf(apexEod, { caps: { maxTradesPerDay: 1 } }),
+            topStepStandard,
+            specOf(topStepStandard, { caps: { maxTradesPerDay: 1 } }),
         );
 
         expect(inputs.fundedDayPolicy?.computeRisk).toBeUndefined();
@@ -186,10 +202,10 @@ describe('toSimInputs simulates the documented day at the personal limits (PT-68
     });
 
     it('gives a funded policy bit-identical to the no-limit one when a max risk and a max trades sit above the rulebook', () => {
-        const plain = toSimInputs(apexEod, specOf(apexEod, {}));
+        const plain = toSimInputs(topStepStandard, specOf(topStepStandard, {}));
         const loose = toSimInputs(
-            apexEod,
-            specOf(apexEod, {
+            topStepStandard,
+            specOf(topStepStandard, {
                 caps: { maxRiskPerTrade: dollars(5000), maxTradesPerDay: 99 },
             }),
         );
@@ -221,7 +237,9 @@ describe('toSimInputs simulates the documented day at the personal limits (PT-68
             }),
         );
         const state = fundedStateOf(apexEod);
-        const risk = riskOf(inputs.fundedDayPolicy?.computeRisk);
+        const risk = withFreshFundedCycle(
+            riskOf(inputs.fundedDayPolicy?.computeRisk),
+        );
 
         expect(risk(state, 0)).toBe(250);
         state.balance -= 250;

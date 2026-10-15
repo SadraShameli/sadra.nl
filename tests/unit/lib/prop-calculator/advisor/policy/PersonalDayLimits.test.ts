@@ -39,6 +39,8 @@ import {
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { type SimInputs } from '~/lib/prop-calculator/simulator';
 
+import { withFreshFundedCycle } from '../../freshFundedCycle';
+
 type Outcome = 'loss' | 'win';
 
 function registryPlan(variant: ApexVariant): Plan {
@@ -326,11 +328,13 @@ describe('withPersonalDayLimits (PT-68h, F-V16)', () => {
                 ['win', 'loss', 'loss', 'loss'],
                 ['win', 'win', 'loss', 'loss'],
             ];
-            const documented = documentedDayRisk(
-                apexEod,
-                SizingStage.Funded,
-                DEFAULT_RULEBOOK,
-                policyWith(limits.dailyLossLimit, limits.dailyProfitCap),
+            const documented = withFreshFundedCycle(
+                documentedDayRisk(
+                    apexEod,
+                    SizingStage.Funded,
+                    DEFAULT_RULEBOOK,
+                    policyWith(limits.dailyLossLimit, limits.dailyProfitCap),
+                ),
             );
             const wrapped = riskFunctionOf(
                 withPersonalDayLimits(flatFunded(), limits, options),
