@@ -111,6 +111,14 @@ interface OuterState {
     readonly tradingDays: number;
 }
 
+interface OuterStateRadix {
+    readonly cents: number;
+    readonly days: number;
+    readonly idleDays: number;
+    readonly peakBands: number;
+    readonly tradingDays: number;
+}
+
 interface ReplayDay {
     readonly dayStartState: AccountState;
     readonly recursion: DayRecursion;
@@ -121,6 +129,92 @@ const DEFAULT_PROFIT_STEP_DOLLARS = 300;
 const DEFAULT_TERMINAL_VALUE_AT_FAIL = 0;
 const DEFAULT_TERMINAL_VALUE_AT_PASS = 1;
 const MAX_REPLAY_DAYS_CACHED = 4096;
+
+class OuterStateTable<Value> {
+    private readonly rows = new Map<number, Map<number, Value>>();
+    private readonly smallRadix: number;
+    size = 0;
+
+    constructor(private readonly radix: OuterStateRadix) {
+        this.smallRadix =
+            radix.days *
+            radix.idleDays *
+            radix.tradingDays *
+            radix.peakBands *
+            2;
+        if (
+            radix.cents * radix.cents > Number.MAX_SAFE_INTEGER ||
+            radix.cents * this.smallRadix > Number.MAX_SAFE_INTEGER
+        ) {
+            throw new RangeError(
+                `EvalStateValue: an outer state key of ${radix.cents} cent steps and ${this.smallRadix} day, idle, trading-day, peak-band and lock combinations does not fit a safe integer`,
+            );
+        }
+    }
+
+    private columnOf(state: OuterState): number {
+        const { radix } = this;
+        let column = this.inRange(
+            centsOf(state.bestDay),
+            radix.cents,
+            'best day',
+        );
+        column =
+            column * radix.days + this.inRange(state.day, radix.days, 'day');
+        column =
+            column * radix.idleDays +
+            this.inRange(state.idleDays, radix.idleDays, 'idle days');
+        column =
+            column * radix.tradingDays +
+            this.inRange(state.tradingDays, radix.tradingDays, 'trading days');
+        column =
+            column * radix.peakBands +
+            this.inRange(state.peakBand, radix.peakBands, 'peak band');
+        return column * 2 + (state.isLocked ? 1 : 0);
+    }
+
+    private inRange(value: number, radix: number, field: string): number {
+        if (!Number.isSafeInteger(value) || value < 0 || value >= radix) {
+            throw new RangeError(
+                `EvalStateValue: an outer state ${field} of ${value} is outside its key range [0, ${radix})`,
+            );
+        }
+        return value;
+    }
+
+    private rowOf(state: OuterState): number {
+        const { cents } = this.radix;
+        return (
+            this.inRange(centsOf(state.cushion), cents, 'cushion') * cents +
+            this.inRange(
+                centsOf(state.thresholdOffset),
+                cents,
+                'threshold offset',
+            )
+        );
+    }
+
+    clear(): void {
+        this.rows.clear();
+        this.size = 0;
+    }
+
+    get(state: OuterState): undefined | Value {
+        return this.rows.get(this.rowOf(state))?.get(this.columnOf(state));
+    }
+
+    set(state: OuterState, value: Value): void {
+        const row = this.rowOf(state);
+        let columns = this.rows.get(row);
+        if (columns === undefined) {
+            columns = new Map();
+            this.rows.set(row, columns);
+        }
+        const column = this.columnOf(state);
+        if (!columns.has(column)) this.size++;
+        columns.set(column, value);
+    }
+}
 
 export function blendOnCushionGrid(
     lowerValue: number,
@@ -195,19 +289,6 @@ function clampRange(value: number, max: number): number {
 
 function lastDayCloseOf(state: AccountState): AccountState {
     return { ...state, balance: state.balance - state.todayPnL, todayPnL: 0 };
-}
-
-function outerKey(state: OuterState): string {
-    return [
-        state.day,
-        centsOf(state.cushion),
-        centsOf(state.thresholdOffset),
-        centsOf(state.bestDay),
-        state.idleDays,
-        state.tradingDays,
-        state.peakBand,
-        state.isLocked ? 1 : 0,
-    ].join(':');
 }
 
 function solveEvalDp(
@@ -287,8 +368,6 @@ function solveEvalDp(
                   plan.tierProfitContext(plan.initialState()),
               );
 
-    const memo = new Map<string, number>();
-    const replayDays = new Map<string, ReplayDay>();
     const dayTopologies = new Map<number, EvalDayTopology>();
     const dayBuffers: DayBuffers[] = [];
     const isTopologySolve =
@@ -314,6 +393,15 @@ function solveEvalDp(
     }
 
     const peakRatchet = plan.peakRatchetFor(TradingPhase.Eval, null);
+    const outerStateRadix: OuterStateRadix = {
+        cents: centsOf(maxTrackedProfitLike) + 1,
+        days: dayCap + 1,
+        idleDays: (plan.maxConsecutiveIdleDaysFor(TradingPhase.Eval) ?? 0) + 1,
+        peakBands: peakRatchet.radix,
+        tradingDays: plan.minTradingDays + 1,
+    };
+    const memo = new OuterStateTable<number>(outerStateRadix);
+    const replayDays = new OuterStateTable<ReplayDay>(outerStateRadix);
 
     function resolveThreshold(
         isLocked: boolean,
@@ -771,13 +859,12 @@ function solveEvalDp(
     }
 
     function dayCloseValue(outerState: OuterState): number {
-        const key = outerKey(outerState);
-        const cached = memo.get(key);
+        const cached = memo.get(outerState);
         if (cached !== undefined) return cached;
         const { day } = outerState;
         if (day >= dayCap) {
             const timeoutValue = terminalValueAtFail(day);
-            memo.set(key, timeoutValue);
+            memo.set(outerState, timeoutValue);
             return timeoutValue;
         }
 
@@ -793,7 +880,7 @@ function solveEvalDp(
               );
 
         const charged = value - dayCost(day);
-        memo.set(key, charged);
+        memo.set(outerState, charged);
         return charged;
     }
 
@@ -810,15 +897,14 @@ function solveEvalDp(
     });
 
     function replayDayOf(outerState: OuterState): ReplayDay {
-        const key = outerKey(outerState);
-        const cached = replayDays.get(key);
+        const cached = replayDays.get(outerState);
         if (cached !== undefined) return cached;
         if (replayDays.size >= MAX_REPLAY_DAYS_CACHED) replayDays.clear();
         const replayDay: ReplayDay = {
             dayStartState: dayStartStateOf(outerState),
             recursion: newDayRecursion(null),
         };
-        replayDays.set(key, replayDay);
+        replayDays.set(outerState, replayDay);
         return replayDay;
     }
 
